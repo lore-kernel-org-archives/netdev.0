@@ -1,180 +1,109 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH net-next 23/34] uli526x: fix regions leak in driver probe
- error path.
-Date: Wed, 4 Apr 2012 12:10:47 -0700
-Message-ID: <CANEJEGsFOBKi2CF+wpfLA695z_uTa2O1akmBCOT5vb3WNHPJqg@mail.gmail.com>
-References: <cover.1331814082.git.romieu@fr.zoreil.com>
-	<cc6d6ac73b8297d3eda5ef20a83a1eb0587b52e9.1331814082.git.romieu@fr.zoreil.com>
+From: Avleen Vig <avleen@gmail.com>
+Subject: Re: Crash in __netif_receive_skb
+Date: Wed, 4 Apr 2012 14:35:41 -0500
+Message-ID: <CAMjP1KkwMuQY4eBxmQeK_8xa11fDWHu_401Tg3iiXtqnHGV0jw@mail.gmail.com>
+References: <CAMjP1Kka6MmT2zLc95ZQ=vigS6w9diS9-tawzdUdhbzzfzMh3w@mail.gmail.com>
+	<CAMjP1KmDxhOKOGtgKt=OWbcXoJgrbA_rAxdkV4j7Y8XC8yjnuA@mail.gmail.com>
+	<CAMjP1KmkS9aBXJm1GEavhcNx75ib7G4m+xYBe3_PcGSo6t5FsQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:55245 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932371Ab2DDTKs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 15:10:48 -0400
-Received: by yhmm54 with SMTP id m54so379721yhm.19
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 12:10:47 -0700 (PDT)
-In-Reply-To: <cc6d6ac73b8297d3eda5ef20a83a1eb0587b52e9.1331814082.git.romieu@fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMjP1KmkS9aBXJm1GEavhcNx75ib7G4m+xYBe3_PcGSo6t5FsQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 15, 2012 at 6:57 AM, Francois Romieu <romieu@fr.zoreil.com>=
- wrote:
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Grant Grundler <grundler@parisc-linux.org>
+On Thu, Mar 29, 2012 at 4:42 PM, Avleen Vig <avleen@gmail.com> wrote:
+> On Wed, Mar 28, 2012 at 10:01 PM, Avleen Vig <avleen@gmail.com> wrote=
+:
+>> On Wed, Mar 28, 2012 at 8:31 PM, Avleen Vig <avleen@gmail.com> wrote=
+:
+>>> Hi folks, someone in #kernel recommended I email these two lists. H=
+ope
+>>> they're the right place.
+>>>
+>>> We're running 2.6.32-220.4.1.el6.x86_64 on Centos 6.2, and getting =
+a
+>>> repeated crash:
+>>> =A0 =A0https://gist.github.com/2231998
+>>>
+>>> We can make this happen pretty easily just by passing some network
+>>> traffic and waiting a while.
+>>> I couldn't find any references to this particular issue.
+>>> I have vmcore files and am happy to dig into it if it would help (a=
+s
+>>> long as someone can tell me what to do :))
+>>
+>> I hope this debugging is legit, I'm really new to this level of insi=
+ght.
+>>
+>> I think the problem is in include/linux/netpoll.h, at the "if"
+>> statement at line 86:
+>> =A0 =A0static inline int netpoll_receive_skb(struct sk_buff *skb)
+>> =A0 =A0{
+>> =A0 =A0 =A0 =A0if (!list_empty(&skb->dev->napi_list))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return netpoll_rx(skb);
+>> =A0 =A0 =A0 =A0return 0;
+>> =A0 =A0}
+>>
+>>
+>> This is based on poking around in the crash dump:
+>> =A0 =A0BUG: unable to handle kernel NULL pointer dereference at 0000=
+000000000060
+>> =A0 =A0IP: [<ffffffff8142bb40>] __netif_receive_skb+0x60/0x6e0
+>> =A0 =A0crash> dis -rl ffffffff8142bb40
+>> =A0 =A0....
+>> =A0 =A0/usr/src/debug/kernel-2.6.32-220.7.1.el6/linux-2.6.32-220.7.1=
+=2Eel6.x86_64/include/linux/netpoll.h:
+>> 86
+>> =A0 =A00xffffffff8142bb33 <__netif_receive_skb+83>: =A0 =A0mov =A0 =A0=
+0x20(%rbx),%r12
+>> =A0 =A00xffffffff8142bb37 <__netif_receive_skb+87>: =A0 =A0mov =A0 =A0=
+%r12,-0x38(%rbp)
+>> =A0 =A00xffffffff8142bb3b <__netif_receive_skb+91>: =A0 =A0lea =A0 =A0=
+0x60(%r12),%rax
+>> =A0 =A00xffffffff8142bb40 <__netif_receive_skb+96>: =A0 =A0cmp =A0 =A0=
+%rax,0x60(%r12)
+>>
+>>
+>>
+>> I *think* this means that "&skb->dev->napi_list" is null when we're
+>> trying to compare it, rather than being a list.
+>>
+>> If it matters, this is inside LXC containers.
+>
+> We've traced this to a problem with machines that have multiple hard
+> drives AND have NAPI enabled for the NIC driver.
+>
+> We recompiled the e1000e driver with NAPI disabled, with:
+> =A0 =A0make CFLAGS_EXTRA=3D-DE1000E_NO_NAPI
+>
+> and everything works great now.
 
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+Untrue! This eventually failed too, but after a lot more debugging, we
+think we've nailed it:
+    Multicast
 
-cheers,
-grant
+We use ganglia on all of our nodes (and we were setting it up inside
+the LXC containers), and ganglia listens / sends on multicast.
 
-> ---
-> =C2=A0drivers/net/ethernet/dec/tulip/uli526x.c | =C2=A0 48 ++++++++++=
-++-----------------
-> =C2=A01 files changed, 20 insertions(+), 28 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/e=
-thernet/dec/tulip/uli526x.c
-> index fc4001f..c9b3396 100644
-> --- a/drivers/net/ethernet/dec/tulip/uli526x.c
-> +++ b/drivers/net/ethernet/dec/tulip/uli526x.c
-> @@ -313,9 +313,9 @@ static int __devinit uli526x_init_one (struct pci=
-_dev *pdev,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_out_d=
-isable;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> - =C2=A0 =C2=A0 =C2=A0 if (pci_request_regions(pdev, DRV_NAME)) {
-> + =C2=A0 =C2=A0 =C2=A0 err =3D pci_request_regions(pdev, DRV_NAME);
-> + =C2=A0 =C2=A0 =C2=A0 if (err < 0) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("Failed=
- to request PCI regions\n");
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D -ENODEV;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_out_d=
-isable;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> @@ -323,18 +323,15 @@ static int __devinit uli526x_init_one (struct p=
-ci_dev *pdev,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0db =3D netdev_priv(dev);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Allocate Tx/Rx descriptor memory */
-> + =C2=A0 =C2=A0 =C2=A0 err =3D -ENOMEM;
-> +
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0db->desc_pool_ptr =3D pci_alloc_consistent=
-(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20, &db->desc_pool_dma=
-_ptr);
-> - =C2=A0 =C2=A0 =C2=A0 if(db->desc_pool_ptr =3D=3D NULL)
-> - =C2=A0 =C2=A0 =C2=A0 {
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D -ENOMEM;
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_nomem=
-;
-> - =C2=A0 =C2=A0 =C2=A0 }
-> + =C2=A0 =C2=A0 =C2=A0 if (!db->desc_pool_ptr)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_relea=
-se;
-> +
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0db->buf_pool_ptr =3D pci_alloc_consistent(=
-pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
-> - =C2=A0 =C2=A0 =C2=A0 if(db->buf_pool_ptr =3D=3D NULL)
-> - =C2=A0 =C2=A0 =C2=A0 {
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D -ENOMEM;
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_nomem=
-;
-> - =C2=A0 =C2=A0 =C2=A0 }
-> + =C2=A0 =C2=A0 =C2=A0 if (!db->buf_pool_ptr)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_free_=
-tx_desc;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0db->first_tx_desc =3D (struct tx_desc *) d=
-b->desc_pool_ptr;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0db->first_tx_desc_dma =3D db->desc_pool_dm=
-a_ptr;
-> @@ -387,7 +384,7 @@ static int __devinit uli526x_init_one (struct pci=
-_dev *pdev,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0err =3D register_netdev (dev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err)
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_res;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_free_=
-tx_buf;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_info(dev, "ULi M%04lx at pci%s, %pM=
-, irq %d\n",
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-ent->driver_data >> 16, pci_name(pdev),
-> @@ -397,16 +394,14 @@ static int __devinit uli526x_init_one (struct p=
-ci_dev *pdev,
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0return 0;
->
-> -err_out_res:
-> +err_out_free_tx_buf:
-> + =C2=A0 =C2=A0 =C2=A0 pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DE=
-SC_CNT + 4,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 db->buf_pool_ptr, db->buf_pool_dma_ptr);
-> +err_out_free_tx_desc:
-> + =C2=A0 =C2=A0 =C2=A0 pci_free_consistent(pdev, sizeof(struct tx_des=
-c) * DESC_ALL_CNT + 0x20,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 db->desc_pool_ptr, db->desc_pool_dma_ptr);
-> +err_out_release:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_release_regions(pdev);
-> -err_out_nomem:
-> - =C2=A0 =C2=A0 =C2=A0 if(db->desc_pool_ptr)
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pci_free_consisten=
-t(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20,
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 db->desc_pool_ptr, db->desc_pool_dma_ptr);
-> -
-> - =C2=A0 =C2=A0 =C2=A0 if(db->buf_pool_ptr !=3D NULL)
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pci_free_consisten=
-t(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 db->buf_pool_ptr, db->buf_pool_dma_ptr);
-> =C2=A0err_out_disable:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_disable_device(pdev);
-> =C2=A0err_out_free:
-> @@ -422,19 +417,16 @@ static void __devexit uli526x_remove_one (struc=
-t pci_dev *pdev)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D pci_get_drvdata=
-(pdev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct uli526x_board_info *db =3D netdev_p=
-riv(dev);
->
-> - =C2=A0 =C2=A0 =C2=A0 ULI526X_DBUG(0, "uli526x_remove_one()", 0);
-> -
-> + =C2=A0 =C2=A0 =C2=A0 unregister_netdev(dev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_free_consistent(db->pdev, sizeof(struc=
-t tx_desc) *
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0DESC_ALL_CNT + 0x20, db->desc=
-_pool_ptr,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0db->desc_pool_dma_ptr);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_free_consistent(db->pdev, TX_BUF_ALLOC=
- * TX_DESC_CNT + 4,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0db->buf_pool_ptr, db->buf_poo=
-l_dma_ptr);
-> - =C2=A0 =C2=A0 =C2=A0 unregister_netdev(dev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_release_regions(pdev);
-> - =C2=A0 =C2=A0 =C2=A0 free_netdev(dev); =C2=A0 =C2=A0 =C2=A0 /* free=
- board information */
-> - =C2=A0 =C2=A0 =C2=A0 pci_set_drvdata(pdev, NULL);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_disable_device(pdev);
-> - =C2=A0 =C2=A0 =C2=A0 ULI526X_DBUG(0, "uli526x_remove_one() exit", 0=
-);
-> + =C2=A0 =C2=A0 =C2=A0 pci_set_drvdata(pdev, NULL);
-> + =C2=A0 =C2=A0 =C2=A0 free_netdev(dev);
-> =C2=A0}
->
->
-> --
-> 1.7.7.6
->
+When gmond was starting inside the containers, it was giving an error:
+    Apr  4 17:00:42 hostname /usr/sbin/gmond[551]: Error creating
+multicast server mcast_join=3D239.2.11.110 port=3D8649 mcast_if=3DNULL
+family=3D'inet4'. Exiting.
+
+It occurred to me that if the kernel is trying to read a multicast
+packet from a socket buffer, but the container can't handle multicast
+(mcast_if=3DNULL), that would explain why we got a NULL pointer
+dereference in &skb->dev->napi_list.
+(at least, this makes sense in my head.)
+
+We disabled gmond in the containers, so nothing should be listening
+for multicast packets, and everything is stable again.
+Note that this ONLY seems to happen for us when we're using the
+onboard 82574L Intel NIC with the e1000e driver.
+We have other servers with the 82575 NIC which uses the igb driver and
+doesn't exhibit this problem.
+
+Is anyone from Intel here who could look in to this?
