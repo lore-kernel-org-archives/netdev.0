@@ -1,95 +1,135 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
- Seamless Redundancy
-Date: Wed, 4 Apr 2012 16:55:59 -0700
-Message-ID: <20120404165559.5223ab95@s6510.linuxnetplumber.net>
-References: <4F71BEAD.5080605@enea.com>
-	<20120403113751.21fd0b17@s6510.linuxnetplumber.net>
-	<4F7CD4BC.4000006@enea.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Bruno Ferreira <balferreira@googlemail.com>,
-	Arvid Brodin <arvid.brodin@xdin.com>
-To: Arvid Brodin <arvid.brodin@enea.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next 1/2] team: add binary option type
+Date: Thu,  5 Apr 2012 00:16:26 +0200
+Message-ID: <1333577787-878-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com,
+	raise.sail@gmail.com, nuno.martins@caixamagica.pt, matt@ozlabs.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58872 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31927 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753799Ab2DDX4H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 19:56:07 -0400
-In-Reply-To: <4F7CD4BC.4000006@enea.com>
+	id S1757399Ab2DEAJz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 20:09:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 5 Apr 2012 01:09:48 +0200
-Arvid Brodin <arvid.brodin@enea.com> wrote:
+For transfering generic binary data (e.g. BPF code), introduce new
+binary option type.
 
-> Stephen Hemminger wrote:
-> > On Tue, 27 Mar 2012 15:20:45 +0200
-> > Arvid Brodin <arvid.brodin@enea.com> wrote:
-> > 
-> >> +config NONSTANDARD_HSR
-> >> +	bool "HSR: Use efficient tag (breaks HSR standard, read help!)"
-> >> +	depends on HSR
-> >> +	---help---
-> >> +	  The HSR standard specifies a 6-byte HSR tag to be inserted into the
-> >> +	  transmitted network frames. This breaks the 32-bit alignment that the
-> >> +	  Linux network stack relies on, and would cause kernel panics on
-> >> +	  certain architectures. To avoid this, the whole frame payload is
-> >> +	  memmoved 2 bytes on reception on these architectures - which is very
-> >> +	  inefficient!
-> > 
-> > This option won't fly. Don't do it.
-> > If you need to copy/realign packets on some architecture the stack
-> > should be changed to handle it.
-> 
-> Ok. The problems are in net/ipv4/icmp.c. The below patch seems to do
-> the trick for me - does it look OK (and if so, should I resend it as
-> a normal patch instead of a reply or is this enough)?
-> 
-> Note that I've only triggered this problem in icmp_echo(), but I
-> noticed that icmp_timestamp() does the same thing, so I made the change
-> there too.
-> 
-> 
-> [PATCH] net/ipv4/icmp: Fix kernel panic due to unaligned access with HSR on AVR32
-> 
-> icmp_echo() and icmp_timestamp() requires the icmphdr struct to be
-> 32-bit aligned. This causes a kernel panic on AVR32 when HSR is used,
-> since the HSR protocol inserts a 6-byte "HSR tag" into Ethernet frame
-> headers, thus changing the alignment.
-> 
-> HSR = IEC 62439-3 High-availability Seamless Redundancy.
-> 
-> Signed-off-by: Arvid Brodin <arvid.brodin@xdin.com>
-> ---
->  net/ipv4/icmp.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> index 2cb2bf8..fdd8097 100644
-> --- a/net/ipv4/icmp.c
-> +++ b/net/ipv4/icmp.c
-> @@ -818,7 +818,8 @@ static void icmp_echo(struct sk_buff *skb)
->  	if (!net->ipv4.sysctl_icmp_echo_ignore_all) {
->  		struct icmp_bxm icmp_param;
->  
-> -		icmp_param.data.icmph	   = *icmp_hdr(skb);
-> +		memcpy(&icmp_param.data.icmph, icmp_hdr(skb),
-> +						sizeof(icmp_param.data.icmph));
->  		icmp_param.data.icmph.type = ICMP_ECHOREPLY;
->  		icmp_param.skb		   = skb;
->  		icmp_param.offset	   = 0;
-> @@ -854,7 +855,8 @@ static void icmp_timestamp(struct sk_buff *skb)
->  	icmp_param.data.times[2] = icmp_param.data.times[1];
->  	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
->  		BUG();
-> -	icmp_param.data.icmph	   = *icmp_hdr(skb);
-> +	memcpy(&icmp_param.data.icmph, icmp_hdr(skb),
-> +						sizeof(icmp_param.data.icmph));
->  	icmp_param.data.icmph.type = ICMP_TIMESTAMPREPLY;
->  	icmp_param.data.icmph.code = 0;
->  	icmp_param.skb		   = skb;
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/team/team.c |   30 ++++++++++++++++++++++++++----
+ include/linux/if_team.h |    8 ++++++++
+ 2 files changed, 34 insertions(+), 4 deletions(-)
 
-That isn't so bad, doing a memcpy versus a structure copy.
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 0db6e66..ea96f82 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1145,10 +1145,7 @@ team_nl_option_policy[TEAM_ATTR_OPTION_MAX + 1] = {
+ 	},
+ 	[TEAM_ATTR_OPTION_CHANGED]		= { .type = NLA_FLAG },
+ 	[TEAM_ATTR_OPTION_TYPE]			= { .type = NLA_U8 },
+-	[TEAM_ATTR_OPTION_DATA] = {
+-		.type = NLA_BINARY,
+-		.len = TEAM_STRING_MAX_LEN,
+-	},
++	[TEAM_ATTR_OPTION_DATA]			= { .type = NLA_BINARY },
+ };
+ 
+ static int team_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)
+@@ -1257,6 +1254,7 @@ static int team_nl_fill_options_get(struct sk_buff *skb,
+ 	list_for_each_entry(option, &team->option_list, list) {
+ 		struct nlattr *option_item;
+ 		long arg;
++		struct team_option_binary tbinary;
+ 
+ 		/* Include only changed options if fill all mode is not on */
+ 		if (!fillall && !option->changed)
+@@ -1290,6 +1288,15 @@ static int team_nl_fill_options_get(struct sk_buff *skb,
+ 					   (char *) arg))
+ 				goto nla_put_failure;
+ 			break;
++		case TEAM_OPTION_TYPE_BINARY:
++			if (nla_put_u8(skb, TEAM_ATTR_OPTION_TYPE, NLA_BINARY))
++				goto nla_put_failure;
++			arg = (long) &tbinary;
++			team_option_get(team, option, &arg);
++			if (nla_put(skb, TEAM_ATTR_OPTION_DATA,
++				    tbinary.data_len, tbinary.data))
++				goto nla_put_failure;
++			break;
+ 		default:
+ 			BUG();
+ 		}
+@@ -1374,6 +1381,9 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
+ 		case NLA_STRING:
+ 			opt_type = TEAM_OPTION_TYPE_STRING;
+ 			break;
++		case NLA_BINARY:
++			opt_type = TEAM_OPTION_TYPE_BINARY;
++			break;
+ 		default:
+ 			goto team_put;
+ 		}
+@@ -1382,19 +1392,31 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
+ 		list_for_each_entry(option, &team->option_list, list) {
+ 			long arg;
+ 			struct nlattr *opt_data_attr;
++			struct team_option_binary tbinary;
++			int data_len;
+ 
+ 			if (option->type != opt_type ||
+ 			    strcmp(option->name, opt_name))
+ 				continue;
+ 			opt_found = true;
+ 			opt_data_attr = mode_attrs[TEAM_ATTR_OPTION_DATA];
++			data_len = nla_len(opt_data_attr);
+ 			switch (opt_type) {
+ 			case TEAM_OPTION_TYPE_U32:
+ 				arg = nla_get_u32(opt_data_attr);
+ 				break;
+ 			case TEAM_OPTION_TYPE_STRING:
++				if (data_len > TEAM_STRING_MAX_LEN) {
++					err = -EINVAL;
++					goto team_put;
++				}
+ 				arg = (long) nla_data(opt_data_attr);
+ 				break;
++			case TEAM_OPTION_TYPE_BINARY:
++				tbinary.data_len = data_len;
++				tbinary.data = nla_data(opt_data_attr);
++				arg = (long) &tbinary;
++				break;
+ 			default:
+ 				BUG();
+ 			}
+diff --git a/include/linux/if_team.h b/include/linux/if_team.h
+index 58404b0..41163ac 100644
+--- a/include/linux/if_team.h
++++ b/include/linux/if_team.h
+@@ -68,6 +68,7 @@ struct team_mode_ops {
+ enum team_option_type {
+ 	TEAM_OPTION_TYPE_U32,
+ 	TEAM_OPTION_TYPE_STRING,
++	TEAM_OPTION_TYPE_BINARY,
+ };
+ 
+ struct team_option {
+@@ -82,6 +83,13 @@ struct team_option {
+ 	bool removed;
+ };
+ 
++struct team_option_binary {
++	u32 data_len;
++	void *data;
++};
++
++#define team_optarg_tbinary(arg) (*((struct team_option_binary **) arg))
++
+ struct team_mode {
+ 	struct list_head list;
+ 	const char *kind;
+-- 
+1.7.9.1
