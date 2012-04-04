@@ -1,263 +1,160 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 5/10] bnx2x: Add remote-fault link detection
-Date: Wed, 4 Apr 2012 07:41:27 +0300
-Message-ID: <1333514492-20425-6-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 6/10] bnx2x: Added support for a new device -
+ 57811
+Date: Wed, 4 Apr 2012 07:41:28 +0300
+Message-ID: <1333514492-20425-7-git-send-email-yuvalmin@broadcom.com>
 References: <1333514492-20425-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+Cc: eilong@broadcom.com, "Barak Witkowski" <barak@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4898 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4903 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752213Ab2DDEr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 00:47:28 -0400
+	id S1752539Ab2DDEra (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 00:47:30 -0400
 In-Reply-To: <1333514492-20425-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yaniv Rosner <yaniv.rosner@broadcom.com>
+From: Barak Witkowski <barak@broadcom.com>
 
-Restore remote-faule detection, which periodically checks for
-remote-fault on the MAC layer. In case physical link appear to be
-up but fault is set, it will provide a link down indication, and
-when the fault is cleared, it will indicate link up again.
+Notice this patch includes lines with over 80 characters, as to not
+break strings.
 
-Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
+Signed-off-by: Barak Witkowski <barak@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   69 ++++++++++++++++------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h |    3 +
- 2 files changed, 53 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    6 ++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   30 +++++++++++++++++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    5 +++
+ 3 files changed, 38 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index beb4cdb..4df6199 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -6440,7 +6440,6 @@ static int bnx2x_link_initialize(struct link_params *params,
- 			NIG_STATUS_XGXS0_LINK_STATUS |
- 			NIG_STATUS_SERDES0_LINK_STATUS |
- 			NIG_MASK_MI_INT));
--	bnx2x_update_mng(params, vars->link_status);
- 	return rc;
- }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index ae0dcd4..054ec9e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -815,6 +815,8 @@ struct bnx2x_common {
+ #define CHIP_NUM_57800_MF		0x16a5
+ #define CHIP_NUM_57810			0x168e
+ #define CHIP_NUM_57810_MF		0x16ae
++#define CHIP_NUM_57811			0x163d
++#define CHIP_NUM_57811_MF		0x163e
+ #define CHIP_NUM_57840			0x168d
+ #define CHIP_NUM_57840_MF		0x16ab
+ #define CHIP_IS_E1(bp)			(CHIP_NUM(bp) == CHIP_NUM_57710)
+@@ -826,6 +828,8 @@ struct bnx2x_common {
+ #define CHIP_IS_57800_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57800_MF)
+ #define CHIP_IS_57810(bp)		(CHIP_NUM(bp) == CHIP_NUM_57810)
+ #define CHIP_IS_57810_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57810_MF)
++#define CHIP_IS_57811(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811)
++#define CHIP_IS_57811_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811_MF)
+ #define CHIP_IS_57840(bp)		(CHIP_NUM(bp) == CHIP_NUM_57840)
+ #define CHIP_IS_57840_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57840_MF)
+ #define CHIP_IS_E1H(bp)			(CHIP_IS_57711(bp) || \
+@@ -836,6 +840,8 @@ struct bnx2x_common {
+ 					 CHIP_IS_57800_MF(bp) || \
+ 					 CHIP_IS_57810(bp) || \
+ 					 CHIP_IS_57810_MF(bp) || \
++					 CHIP_IS_57811(bp) || \
++					 CHIP_IS_57811_MF(bp) || \
+ 					 CHIP_IS_57840(bp) || \
+ 					 CHIP_IS_57840_MF(bp))
+ #define CHIP_IS_E1x(bp)			(CHIP_IS_E1((bp)) || CHIP_IS_E1H((bp)))
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index c5f85ad..faf12d0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -139,7 +139,9 @@ enum bnx2x_board_type {
+ 	BCM57810,
+ 	BCM57810_MF,
+ 	BCM57840,
+-	BCM57840_MF
++	BCM57840_MF,
++	BCM57811,
++	BCM57811_MF
+ };
  
-@@ -6525,7 +6524,7 @@ static int bnx2x_update_link_up(struct link_params *params,
- 				u8 link_10g)
- {
- 	struct bnx2x *bp = params->bp;
--	u8 port = params->port;
-+	u8 phy_idx, port = params->port;
- 	int rc = 0;
+ /* indexed by board_type, above */
+@@ -156,8 +158,9 @@ static struct {
+ 	{ "Broadcom NetXtreme II BCM57810 10 Gigabit Ethernet" },
+ 	{ "Broadcom NetXtreme II BCM57810 10 Gigabit Ethernet Multi Function" },
+ 	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit Ethernet" },
+-	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit "
+-						"Ethernet Multi Function"}
++	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit Ethernet Multi Function"},
++	{ "Broadcom NetXtreme II BCM57811 10 Gigabit Ethernet"},
++	{ "Broadcom NetXtreme II BCM57811 10 Gigabit Ethernet Multi Function"},
+ };
  
- 	vars->link_status |= (LINK_STATUS_LINK_UP |
-@@ -6589,6 +6588,14 @@ static int bnx2x_update_link_up(struct link_params *params,
+ #ifndef PCI_DEVICE_ID_NX2_57710
+@@ -193,6 +196,12 @@ static struct {
+ #ifndef PCI_DEVICE_ID_NX2_57840_MF
+ #define PCI_DEVICE_ID_NX2_57840_MF	CHIP_NUM_57840_MF
+ #endif
++#ifndef PCI_DEVICE_ID_NX2_57811
++#define PCI_DEVICE_ID_NX2_57811		CHIP_NUM_57811
++#endif
++#ifndef PCI_DEVICE_ID_NX2_57811_MF
++#define PCI_DEVICE_ID_NX2_57811_MF	CHIP_NUM_57811_MF
++#endif
+ static DEFINE_PCI_DEVICE_TABLE(bnx2x_pci_tbl) = {
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57710), BCM57710 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57711), BCM57711 },
+@@ -205,6 +214,8 @@ static DEFINE_PCI_DEVICE_TABLE(bnx2x_pci_tbl) = {
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57810_MF), BCM57810_MF },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840), BCM57840 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_MF), BCM57840_MF },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811), BCM57811 },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811_MF), BCM57811_MF },
+ 	{ 0 }
+ };
  
- 	/* update shared memory */
- 	bnx2x_update_mng(params, vars->link_status);
-+
-+	/* Check remote fault */
-+	for (phy_idx = INT_PHY; phy_idx < MAX_PHYS; phy_idx++) {
-+		if (params->phy[phy_idx].flags & FLAGS_TX_ERROR_CHECK) {
-+			bnx2x_check_half_open_conn(params, vars, 0);
-+			break;
-+		}
+@@ -8859,6 +8870,17 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
+ 	id |= (val & 0xf);
+ 	bp->common.chip_id = id;
+ 
++	/* force 57811 according to MISC register */
++	if (REG_RD(bp, MISC_REG_CHIP_TYPE) & MISC_REG_CHIP_TYPE_57811_MASK) {
++		if (CHIP_IS_57810(bp))
++			bp->common.chip_id = (CHIP_NUM_57811 << 16) |
++				(bp->common.chip_id & 0x0000FFFF);
++		else if (CHIP_IS_57810_MF(bp))
++			bp->common.chip_id = (CHIP_NUM_57811_MF << 16) |
++				(bp->common.chip_id & 0x0000FFFF);
++		bp->common.chip_id |= 0x1;
 +	}
- 	msleep(20);
- 	return rc;
- }
-@@ -11028,7 +11035,8 @@ static struct bnx2x_phy phy_warpcore = {
- 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT,
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
--	.flags		= FLAGS_HW_LOCK_REQUIRED,
-+	.flags		= (FLAGS_HW_LOCK_REQUIRED |
-+			   FLAGS_TX_ERROR_CHECK),
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -11185,7 +11193,8 @@ static struct bnx2x_phy phy_8726 = {
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
- 	.flags		= (FLAGS_HW_LOCK_REQUIRED |
--			   FLAGS_INIT_XGXS_FIRST),
-+			   FLAGS_INIT_XGXS_FIRST |
-+			   FLAGS_TX_ERROR_CHECK),
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -11216,7 +11225,8 @@ static struct bnx2x_phy phy_8727 = {
- 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727,
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
--	.flags		= FLAGS_FAN_FAILURE_DET_REQ,
-+	.flags		= (FLAGS_FAN_FAILURE_DET_REQ |
-+			   FLAGS_TX_ERROR_CHECK),
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -11281,8 +11291,9 @@ static struct bnx2x_phy phy_84823 = {
- 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84823,
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
--	.flags		= FLAGS_FAN_FAILURE_DET_REQ |
--			  FLAGS_REARM_LATCH_SIGNAL,
-+	.flags		= (FLAGS_FAN_FAILURE_DET_REQ |
-+			   FLAGS_REARM_LATCH_SIGNAL |
-+			   FLAGS_TX_ERROR_CHECK),
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -11317,8 +11328,9 @@ static struct bnx2x_phy phy_84833 = {
- 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833,
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
--	.flags		= FLAGS_FAN_FAILURE_DET_REQ |
--			    FLAGS_REARM_LATCH_SIGNAL,
-+	.flags		= (FLAGS_FAN_FAILURE_DET_REQ |
-+			   FLAGS_REARM_LATCH_SIGNAL |
-+			   FLAGS_TX_ERROR_CHECK),
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -11863,6 +11875,10 @@ int bnx2x_phy_probe(struct link_params *params)
- 		if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN)
- 			break;
- 
-+		if (params->feature_config_flags &
-+		    FEATURE_CONFIG_DISABLE_REMOTE_FAULT_DET)
-+			phy->flags &= ~FLAGS_TX_ERROR_CHECK;
 +
- 		sync_offset = params->shmem_base +
- 			offsetof(struct shmem_region,
- 			dev_info.port_hw_config[params->port].media_type);
-@@ -12086,6 +12102,7 @@ int bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
- 		bnx2x_link_int_enable(params);
+ 	/* Set doorbell size */
+ 	bp->db_size = (1 << BNX2X_DB_SHIFT);
+ 
+@@ -10975,6 +10997,8 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 	case BCM57810_MF:
+ 	case BCM57840:
+ 	case BCM57840_MF:
++	case BCM57811:
++	case BCM57811_MF:
+ 		max_cos_est = BNX2X_MULTI_TX_COS_E3B0;
  		break;
- 	}
-+	bnx2x_update_mng(params, vars->link_status);
- 	return 0;
- }
  
-@@ -12703,7 +12720,8 @@ static void bnx2x_check_over_curr(struct link_params *params,
- }
- 
- static void bnx2x_analyze_link_error(struct link_params *params,
--				     struct link_vars *vars, u32 lss_status)
-+				     struct link_vars *vars, u32 lss_status,
-+				     u8 notify)
- {
- 	struct bnx2x *bp = params->bp;
- 	/* Compare new value with previous value */
-@@ -12726,6 +12744,9 @@ static void bnx2x_analyze_link_error(struct link_params *params,
- 		vars->link_status &= ~LINK_STATUS_LINK_UP;
- 		vars->link_up = 0;
- 		vars->phy_flags |= PHY_HALF_OPEN_CONN_FLAG;
-+
-+		/* activate nig drain */
-+		REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 1);
- 		/*
- 		 * Set LED mode to off since the PHY doesn't know about these
- 		 * errors
-@@ -12737,7 +12758,11 @@ static void bnx2x_analyze_link_error(struct link_params *params,
- 		vars->link_up = 1;
- 		vars->phy_flags &= ~PHY_HALF_OPEN_CONN_FLAG;
- 		led_mode = LED_MODE_OPER;
-+
-+		/* Clear nig drain */
-+		REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 0);
- 	}
-+	bnx2x_sync_link(params, vars);
- 	/* Update the LED according to the link state */
- 	bnx2x_set_led(params, vars, led_mode, SPEED_10000);
- 
-@@ -12746,7 +12771,8 @@ static void bnx2x_analyze_link_error(struct link_params *params,
- 
- 	/* C. Trigger General Attention */
- 	vars->periodic_flags |= PERIODIC_FLAGS_LINK_EVENT;
--	bnx2x_notify_link_changed(bp);
-+	if (notify)
-+		bnx2x_notify_link_changed(bp);
- }
- 
- /******************************************************************************
-@@ -12758,15 +12784,17 @@ static void bnx2x_analyze_link_error(struct link_params *params,
- *	a fault, for example, due to break in the TX side of fiber.
- *
- ******************************************************************************/
--static void bnx2x_check_half_open_conn(struct link_params *params,
--				       struct link_vars *vars)
-+int bnx2x_check_half_open_conn(struct link_params *params,
-+				struct link_vars *vars,
-+				u8 notify)
- {
- 	struct bnx2x *bp = params->bp;
- 	u32 lss_status = 0;
- 	u32 mac_base;
- 	/* In case link status is physically up @ 10G do */
--	if ((vars->phy_flags & PHY_PHYSICAL_LINK_FLAG) == 0)
--		return;
-+	if (((vars->phy_flags & PHY_PHYSICAL_LINK_FLAG) == 0) ||
-+	    (REG_RD(bp, NIG_REG_EGRESS_EMAC0_PORT + params->port*4)))
-+		return 0;
- 
- 	if (CHIP_IS_E3(bp) &&
- 	    (REG_RD(bp, MISC_REG_RESET_REG_2) &
-@@ -12787,7 +12815,7 @@ static void bnx2x_check_half_open_conn(struct link_params *params,
- 		if (REG_RD(bp, mac_base + XMAC_REG_RX_LSS_STATUS))
- 			lss_status = 1;
- 
--		bnx2x_analyze_link_error(params, vars, lss_status);
-+		bnx2x_analyze_link_error(params, vars, lss_status, notify);
- 	} else if (REG_RD(bp, MISC_REG_RESET_REG_2) &
- 		   (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << params->port)) {
- 		/* Check E1X / E2 BMAC */
-@@ -12804,18 +12832,21 @@ static void bnx2x_check_half_open_conn(struct link_params *params,
- 		REG_RD_DMAE(bp, mac_base + lss_status_reg, wb_data, 2);
- 		lss_status = (wb_data[0] > 0);
- 
--		bnx2x_analyze_link_error(params, vars, lss_status);
-+		bnx2x_analyze_link_error(params, vars, lss_status, notify);
- 	}
-+	return 0;
- }
- 
- void bnx2x_period_func(struct link_params *params, struct link_vars *vars)
- {
--	struct bnx2x *bp = params->bp;
- 	u16 phy_idx;
-+	struct bnx2x *bp = params->bp;
- 	for (phy_idx = INT_PHY; phy_idx < MAX_PHYS; phy_idx++) {
- 		if (params->phy[phy_idx].flags & FLAGS_TX_ERROR_CHECK) {
- 			bnx2x_set_aer_mmd(params, &params->phy[phy_idx]);
--			bnx2x_check_half_open_conn(params, vars);
-+			if (bnx2x_check_half_open_conn(params, vars, 1) !=
-+			    0)
-+				DP(NETIF_MSG_LINK, "Fault detection failed\n");
- 			break;
- 		}
- 	}
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-index 7ba557a..9e2eed8 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-@@ -254,6 +254,7 @@ struct link_params {
- #define FEATURE_CONFIG_BC_SUPPORTS_DUAL_PHY_OPT_MDL_VRFY	(1<<3)
- #define FEATURE_CONFIG_AUTOGREEEN_ENABLED			(1<<9)
- #define FEATURE_CONFIG_BC_SUPPORTS_SFP_TX_DISABLED		(1<<10)
-+#define FEATURE_CONFIG_DISABLE_REMOTE_FAULT_DET		(1<<11)
- 	/* Will be populated during common init */
- 	struct bnx2x_phy phy[MAX_PHYS];
- 
-@@ -493,4 +494,6 @@ int bnx2x_sfp_module_detection(struct bnx2x_phy *phy,
- 
- void bnx2x_period_func(struct link_params *params, struct link_vars *vars);
- 
-+int bnx2x_check_half_open_conn(struct link_params *params,
-+			       struct link_vars *vars, u8 notify);
- #endif /* BNX2X_LINK_H */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index fd7fb45..2db0380 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -1482,6 +1482,11 @@
+    starts at 0x0 for the A0 tape-out and increments by one for each
+    all-layer tape-out. */
+ #define MISC_REG_CHIP_REV					 0xa40c
++/* [R 14] otp_misc_do[100:0] spare bits collection: 13:11-
++ * otp_misc_do[100:98]; 10:7 - otp_misc_do[87:84]; 6:3 - otp_misc_do[75:72];
++ * 2:1 - otp_misc_do[51:50]; 0 - otp_misc_do[1]. */
++#define MISC_REG_CHIP_TYPE					 0xac60
++#define MISC_REG_CHIP_TYPE_57811_MASK				 (1<<1)
+ /* [RW 32] The following driver registers(1...16) represent 16 drivers and
+    32 clients. Each client can be controlled by one driver only. One in each
+    bit represent that this driver control the appropriate client (Ex: bit 5
 -- 
 1.7.9.rc2
