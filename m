@@ -1,7 +1,7 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 08/10] stmmac: extend CSR Clock Range programming
-Date: Wed,  4 Apr 2012 16:33:26 +0200
-Message-ID: <1333550008-16500-9-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 07/10] stmmac: add clk management support
+Date: Wed,  4 Apr 2012 16:33:25 +0200
+Message-ID: <1333550008-16500-8-git-send-email-peppe.cavallaro@st.com>
 References: <1333550008-16500-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, deepak.sikri@st.com, spear-devel@list.st.com,
 	shiraz.hashim@st.com, viresh.kumar@st.com,
@@ -9,101 +9,175 @@ Cc: davem@davemloft.net, deepak.sikri@st.com, spear-devel@list.st.com,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:56714 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756682Ab2DDOe2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 10:34:28 -0400
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:58036 "EHLO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756682Ab2DDOeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 10:34:23 -0400
 In-Reply-To: <1333550008-16500-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The CSR Clock Range has been reworked and new macros has
-been added in the platform header to allow the CSR Clock
-Range selection in the GMII Address Register.
-The previous work didn't add the other fields
-that can be used to achieve MDC clock of frequency
-higher than the IEEE 802.3 specified frequency limit
-of 2.5 MHz and program a clock divider of lower value.
-On such platforms, these are used indeed so this patch
-adds them.
+this patch adds the way to enable/disable the MAC
+clock when call the open/close and resume/restore
+functions.
+This has been tested on ST platforms and SPEAr; thanks
+to Francesco and Deepak.
 
+Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
+Tested-by: Francesco Virlinzi <francesco.virlinzi@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    4 +-
- include/linux/stmmac.h                            |   31 +++++++++++----------
- 2 files changed, 18 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   43 +++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   25 ++++++++++--
+ 2 files changed, 63 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 83292f4..1a42014 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -70,7 +70,7 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
- 	int data;
- 	u16 regValue = (((phyaddr << 11) & (0x0000F800)) |
- 			((phyreg << 6) & (0x000007C0)));
--	regValue |= MII_BUSY | ((priv->plat->clk_csr & 7) << 2);
-+	regValue |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index b65d787..7182f15 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -22,6 +22,8 @@
  
- 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
- 		return -EBUSY;
-@@ -106,7 +106,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
- 	    (((phyaddr << 11) & (0x0000F800)) | ((phyreg << 6) & (0x000007C0)))
- 	    | MII_WRITE;
- 
--	value |= MII_BUSY | ((priv->plat->clk_csr & 7) << 2);
-+	value |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
- 
- 	/* Wait until any existing MII operation is complete */
- 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 4aef9ba..cf64031 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -37,28 +37,29 @@
-  * This could also be configured at run time using CPU freq framework. */
- 
- /* MDC Clock Selection define*/
--#define	STMMAC_CSR_60_100M	0	/* MDC = clk_scr_i/42 */
--#define	STMMAC_CSR_100_150M	1	/* MDC = clk_scr_i/62 */
--#define	STMMAC_CSR_20_35M	2	/* MDC = clk_scr_i/16 */
--#define	STMMAC_CSR_35_60M	3	/* MDC = clk_scr_i/26 */
--#define	STMMAC_CSR_150_250M	4	/* MDC = clk_scr_i/102 */
--#define	STMMAC_CSR_250_300M	5	/* MDC = clk_scr_i/122 */
--
--/* FIXME: The MDC clock could be set higher than the IEEE 802.3
-+#define	STMMAC_CSR_60_100M	0x0	/* MDC = clk_scr_i/42 */
-+#define	STMMAC_CSR_100_150M	0x1	/* MDC = clk_scr_i/62 */
-+#define	STMMAC_CSR_20_35M	0x2	/* MDC = clk_scr_i/16 */
-+#define	STMMAC_CSR_35_60M	0x3	/* MDC = clk_scr_i/26 */
-+#define	STMMAC_CSR_150_250M	0x4	/* MDC = clk_scr_i/102 */
-+#define	STMMAC_CSR_250_300M	0x5	/* MDC = clk_scr_i/122 */
+ #define STMMAC_RESOURCE_NAME   "stmmaceth"
+ #define DRV_MODULE_VERSION	"Feb_2012"
 +
-+/* The MDC clock could be set higher than the IEEE 802.3
-  * specified frequency limit 0f 2.5 MHz, by programming a clock divider
-  * of value different than the above defined values. The resultant MDIO
-  * clock frequency of 12.5 MHz is applicable for the interfacing chips
-  * supporting higher MDC clocks.
-  * The MDC clock selection macros need to be defined for MDC clock rate
-  * of 12.5 MHz, corresponding to the following selection.
-- * 1000 clk_csr_i/4
-- * 1001 clk_csr_i/6
-- * 1010 clk_csr_i/8
-- * 1011 clk_csr_i/10
-- * 1100 clk_csr_i/12
-- * 1101 clk_csr_i/14
-- * 1110 clk_csr_i/16
-- * 1111 clk_csr_i/18 */
-+ */
-+#define STMMAC_CSR_I_4		0x8	/* clk_csr_i/4 */
-+#define STMMAC_CSR_I_6		0x9	/* clk_csr_i/6 */
-+#define STMMAC_CSR_I_8		0xA	/* clk_csr_i/8 */
-+#define STMMAC_CSR_I_10		0xB	/* clk_csr_i/10 */
-+#define STMMAC_CSR_I_12		0xC	/* clk_csr_i/12 */
-+#define STMMAC_CSR_I_14		0xD	/* clk_csr_i/14 */
-+#define STMMAC_CSR_I_16		0xE	/* clk_csr_i/16 */
-+#define STMMAC_CSR_I_18		0xF	/* clk_csr_i/18 */
++#include <linux/clk.h>
+ #include <linux/stmmac.h>
+ #include <linux/phy.h>
+ #include "common.h"
+@@ -79,6 +81,9 @@ struct stmmac_priv {
+ 	struct stmmac_counters mmc;
+ 	struct dma_features dma_cap;
+ 	int hw_cap_support;
++#ifdef CONFIG_HAVE_CLK
++	struct clk *stmmac_clk;
++#endif
+ };
  
- /* AXI DMA Burst length suported */
- #define DMA_AXI_BLEN_4		(1 << 1)
+ extern int phyaddr;
+@@ -97,3 +102,41 @@ int stmmac_dvr_remove(struct net_device *ndev);
+ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+ 				     struct plat_stmmacenet_data *plat_dat,
+ 				     void __iomem *addr);
++
++#ifdef CONFIG_HAVE_CLK
++static inline int stmmac_clk_enable(struct stmmac_priv *priv)
++{
++	if (priv->stmmac_clk)
++		return clk_enable(priv->stmmac_clk);
++
++	return 0;
++}
++
++static inline void stmmac_clk_disable(struct stmmac_priv *priv)
++{
++	if (priv->stmmac_clk)
++		clk_disable(priv->stmmac_clk);
++}
++static inline int stmmac_clk_get(struct stmmac_priv *priv)
++{
++	priv->stmmac_clk = clk_get(priv->device, NULL);
++
++	if (IS_ERR(priv->stmmac_clk)) {
++		pr_err("%s: ERROR clk_get failed\n", __func__);
++		return PTR_ERR(priv->stmmac_clk);
++	}
++	return 0;
++}
++#else
++static inline int stmmac_clk_enable(struct stmmac_priv *priv)
++{
++	return 0;
++}
++static inline void stmmac_clk_disable(struct stmmac_priv *priv)
++{
++}
++static inline int stmmac_clk_get(struct stmmac_priv *priv)
++{
++	return 0;
++}
++#endif /* CONFIG_HAVE_CLK */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 933f63c..ddb47e1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -904,6 +904,8 @@ static int stmmac_open(struct net_device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 	int ret;
+ 
++	stmmac_clk_enable(priv);
++
+ 	stmmac_check_ether_addr(priv);
+ 
+ 	/* MDIO bus Registration */
+@@ -911,13 +913,15 @@ static int stmmac_open(struct net_device *dev)
+ 	if (ret < 0) {
+ 		pr_debug("%s: MDIO bus (id: %d) registration failed",
+ 			 __func__, priv->plat->bus_id);
+-		return ret;
++		goto open_clk_dis;
+ 	}
+ 
+ #ifdef CONFIG_STMMAC_TIMER
+ 	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
+-	if (unlikely(priv->tm == NULL))
+-		return -ENOMEM;
++	if (unlikely(priv->tm == NULL)) {
++		ret = -ENOMEM;
++		goto open_clk_dis;
++	}
+ 
+ 	priv->tm->freq = tmrate;
+ 
+@@ -1034,6 +1038,8 @@ open_error:
+ 	if (priv->phydev)
+ 		phy_disconnect(priv->phydev);
+ 
++open_clk_dis:
++	stmmac_clk_disable(priv);
+ 	return ret;
+ }
+ 
+@@ -1086,6 +1092,7 @@ static int stmmac_release(struct net_device *dev)
+ 	stmmac_exit_fs();
+ #endif
+ 	stmmac_mdio_unregister(dev);
++	stmmac_clk_disable(priv);
+ 
+ 	return 0;
+ }
+@@ -1880,6 +1887,9 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+ 		goto error;
+ 	}
+ 
++	if (stmmac_clk_get(priv))
++		goto error;
++
+ 	return priv;
+ 
+ error:
+@@ -1949,9 +1959,11 @@ int stmmac_suspend(struct net_device *ndev)
+ 	/* Enable Power down mode by programming the PMT regs */
+ 	if (device_may_wakeup(priv->device))
+ 		priv->hw->mac->pmt(priv->ioaddr, priv->wolopts);
+-	else
++	else {
+ 		stmmac_set_mac(priv->ioaddr, false);
+-
++		/* Disable clock in case of PWM is off */
++		stmmac_clk_disable(priv);
++	}
+ 	spin_unlock(&priv->lock);
+ 	return 0;
+ }
+@@ -1972,6 +1984,9 @@ int stmmac_resume(struct net_device *ndev)
+ 	 * from another devices (e.g. serial console). */
+ 	if (device_may_wakeup(priv->device))
+ 		priv->hw->mac->pmt(priv->ioaddr, 0);
++	else
++		/* enable the clk prevously disabled */
++		stmmac_clk_enable(priv);
+ 
+ 	netif_device_attach(ndev);
+ 
 -- 
 1.7.4.4
