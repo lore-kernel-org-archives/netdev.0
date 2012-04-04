@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 05/10] bnx2x: Restore 1G LED on BCM57712+BCM8727 designs.
-Date: Wed, 4 Apr 2012 14:28:58 +0300
-Message-ID: <1333538942-9904-6-git-send-email-yanivr@broadcom.com>
+Subject: [net 04/10] bnx2x: Fix BCM578x0-SFI pre-emphasis settings
+Date: Wed, 4 Apr 2012 14:28:57 +0300
+Message-ID: <1333538942-9904-5-git-send-email-yanivr@broadcom.com>
 References: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,82 +11,45 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2740 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2063 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756109Ab2DDJ3h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 05:29:37 -0400
+	id S1755930Ab2DDJ3f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 05:29:35 -0400
 In-Reply-To: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix no-LED problem when link speed is 1G on BCM57712 + BCM8727 designs, by
-removing a logic error checking for a different PHY.
+Fix 578x0-SFI pre-emphasis settings per HW recommendations to achieve better
+link strength.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   33 ++++++++++++----------
- 1 files changed, 18 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 1e2fea3..1438da8 100644
+index ce0b0c2..1e2fea3 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -6216,12 +6216,14 @@ int bnx2x_set_led(struct link_params *params,
+@@ -3994,13 +3994,13 @@ static void bnx2x_warpcore_set_10G_XFI(struct bnx2x_phy *phy,
  
- 		tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
- 		if (params->phy[EXT_PHY1].type ==
--			  PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE)
--			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp & 0xfff1);
--		else {
--			EMAC_WR(bp, EMAC_REG_EMAC_LED,
--				(tmp | EMAC_LED_OVERRIDE));
--		}
-+			PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE)
-+			tmp &= ~(EMAC_LED_1000MB_OVERRIDE |
-+				EMAC_LED_100MB_OVERRIDE |
-+				EMAC_LED_10MB_OVERRIDE);
-+		else
-+			tmp |= EMAC_LED_OVERRIDE;
-+
-+		EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp);
- 		break;
- 
- 	case LED_MODE_OPER:
-@@ -6276,10 +6278,15 @@ int bnx2x_set_led(struct link_params *params,
- 				       hw_led_mode);
- 		} else if ((params->phy[EXT_PHY1].type ==
- 			    PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) &&
--			   (mode != LED_MODE_OPER)) {
-+			   (mode == LED_MODE_ON)) {
- 			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4, 0);
- 			tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
--			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp | 0x3);
-+			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp |
-+				EMAC_LED_OVERRIDE | EMAC_LED_1000MB_OVERRIDE);
-+			/* Break here; otherwise, it'll disable the
-+			 * intended override.
-+			 */
-+			break;
- 		} else
- 			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4,
- 			       hw_led_mode);
-@@ -6294,13 +6301,9 @@ int bnx2x_set_led(struct link_params *params,
- 			       LED_BLINK_RATE_VAL_E1X_E2);
- 		REG_WR(bp, NIG_REG_LED_CONTROL_BLINK_RATE_ENA_P0 +
- 		       port*4, 1);
--		if ((params->phy[EXT_PHY1].type !=
--		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) &&
--		    (mode != LED_MODE_OPER)) {
--			tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
--			EMAC_WR(bp, EMAC_REG_EMAC_LED,
--				(tmp & (~EMAC_LED_OVERRIDE)));
--		}
-+		tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
-+		EMAC_WR(bp, EMAC_REG_EMAC_LED,
-+			(tmp & (~EMAC_LED_OVERRIDE)));
- 
- 		if (CHIP_IS_E1(bp) &&
- 		    ((speed == SPEED_2500) ||
+ 	} else {
+ 		misc1_val |= 0x9;
+-		tap_val = ((0x12 << MDIO_WC_REG_TX_FIR_TAP_POST_TAP_OFFSET) |
+-			   (0x2d << MDIO_WC_REG_TX_FIR_TAP_MAIN_TAP_OFFSET) |
+-			   (0x00 << MDIO_WC_REG_TX_FIR_TAP_PRE_TAP_OFFSET));
++		tap_val = ((0x0f << MDIO_WC_REG_TX_FIR_TAP_POST_TAP_OFFSET) |
++			   (0x2b << MDIO_WC_REG_TX_FIR_TAP_MAIN_TAP_OFFSET) |
++			   (0x02 << MDIO_WC_REG_TX_FIR_TAP_PRE_TAP_OFFSET));
+ 		tx_driver_val =
+-		      ((0x02 << MDIO_WC_REG_TX0_TX_DRIVER_POST2_COEFF_OFFSET) |
++		      ((0x03 << MDIO_WC_REG_TX0_TX_DRIVER_POST2_COEFF_OFFSET) |
+ 		       (0x02 << MDIO_WC_REG_TX0_TX_DRIVER_IDRIVER_OFFSET) |
+-		       (0x02 << MDIO_WC_REG_TX0_TX_DRIVER_IPRE_DRIVER_OFFSET));
++		       (0x06 << MDIO_WC_REG_TX0_TX_DRIVER_IPRE_DRIVER_OFFSET));
+ 	}
+ 	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+ 			 MDIO_WC_REG_SERDESDIGITAL_MISC1, misc1_val);
 -- 
 1.7.7.1
