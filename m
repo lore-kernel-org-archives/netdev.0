@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 08/10] bnx2x: Clear BCM84833 LED after fan failure
-Date: Wed, 4 Apr 2012 14:29:01 +0300
-Message-ID: <1333538942-9904-9-git-send-email-yanivr@broadcom.com>
+Subject: [net 09/10] bnx2x: Fix BCM57711+BCM84823 link issue
+Date: Wed, 4 Apr 2012 14:29:02 +0300
+Message-ID: <1333538942-9904-10-git-send-email-yanivr@broadcom.com>
 References: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,58 +11,44 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2740 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2757 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755977Ab2DDJ3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756109Ab2DDJ3r (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 4 Apr 2012 05:29:47 -0400
 In-Reply-To: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Fix a link problem on the second port of BCM57711 + BCM84823 boards due to 
+incorrect macro usage.
+
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    9 +++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    3 +++
- 2 files changed, 12 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index b576a3a..ce95ef7 100644
+index ce95ef7..7e41682 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -9858,6 +9858,15 @@ static int bnx2x_84833_hw_reset_phy(struct bnx2x_phy *phy,
- 				other_shmem_base_addr));
+@@ -10177,7 +10177,7 @@ static void bnx2x_848x3_link_reset(struct bnx2x_phy *phy,
+ 	u8 port;
+ 	u16 val16;
  
- 	u32 shmem_base_path[2];
-+
-+	/* Work around for 84833 LED failure inside RESET status */
-+	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
-+		MDIO_AN_REG_8481_LEGACY_MII_CTRL,
-+		MDIO_AN_REG_8481_MII_CTRL_FORCE_1G);
-+	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
-+		MDIO_AN_REG_8481_1G_100T_EXT_CTRL,
-+		MIDO_AN_REG_8481_EXT_CTRL_FORCE_LEDS_OFF);
-+
- 	shmem_base_path[0] = params->shmem_base;
- 	shmem_base_path[1] = other_shmem_base_addr;
+-	if (!(CHIP_IS_E1(bp)))
++	if (!(CHIP_IS_E1x(bp)))
+ 		port = BP_PATH(bp);
+ 	else
+ 		port = params->port;
+@@ -10204,7 +10204,7 @@ static void bnx2x_848xx_set_link_led(struct bnx2x_phy *phy,
+ 	u16 val;
+ 	u8 port;
  
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index 1ea2b95..c25803b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -6821,10 +6821,13 @@ Theotherbitsarereservedandshouldbezero*/
- 
- #define MDIO_AN_REG_8481_10GBASE_T_AN_CTRL	0x0020
- #define MDIO_AN_REG_8481_LEGACY_MII_CTRL	0xffe0
-+#define MDIO_AN_REG_8481_MII_CTRL_FORCE_1G	0x40
- #define MDIO_AN_REG_8481_LEGACY_MII_STATUS	0xffe1
- #define MDIO_AN_REG_8481_LEGACY_AN_ADV		0xffe4
- #define MDIO_AN_REG_8481_LEGACY_AN_EXPANSION	0xffe6
- #define MDIO_AN_REG_8481_1000T_CTRL		0xffe9
-+#define MDIO_AN_REG_8481_1G_100T_EXT_CTRL	0xfff0
-+#define MIDO_AN_REG_8481_EXT_CTRL_FORCE_LEDS_OFF	0x0008
- #define MDIO_AN_REG_8481_EXPANSION_REG_RD_RW	0xfff5
- #define MDIO_AN_REG_8481_EXPANSION_REG_ACCESS	0xfff7
- #define MDIO_AN_REG_8481_AUX_CTRL		0xfff8
+-	if (!(CHIP_IS_E1(bp)))
++	if (!(CHIP_IS_E1x(bp)))
+ 		port = BP_PATH(bp);
+ 	else
+ 		port = params->port;
 -- 
 1.7.7.1
