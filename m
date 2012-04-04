@@ -1,48 +1,41 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: don't scale the size of the window up twice
-Date: Wed, 4 Apr 2012 17:08:54 +0200
-Message-ID: <20120404150854.GA4148@1984>
-References: <1333337106-8279-1-git-send-email-xiaosuo@gmail.com>
+From: Jing Huang <huangj@brocade.com>
+Subject: [PATCH 0/7] bna: Update driver version to 3.0.23.0 (resubmit)
+Date: Wed, 4 Apr 2012 08:41:42 -0700
+Message-ID: <1333554102-21973-1-git-send-email-huangj@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1333337106-8279-1-git-send-email-xiaosuo@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <AdapterLinuxOpenSrcExtTeam@brocade.com>,
+	Jing Huang <huangj@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:36308 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756415Ab2DDPlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 11:41:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 02, 2012 at 11:25:06AM +0800, Changli Gao wrote:
-> For a picked up connection, the window win is scaled twice: one is by the
-> initialization code, and the other is by the sender updating code.
-> 
-> I use the temporary variable swin instead of modifying the variable win.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ---
->  net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-> index 361eade..0d07a1d 100644
-> --- a/net/netfilter/nf_conntrack_proto_tcp.c
-> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
-> @@ -584,8 +584,8 @@ static bool tcp_in_window(const struct nf_conn *ct,
->  			 * Let's try to use the data from the packet.
->  			 */
->  			sender->td_end = end;
-> -			win <<= sender->td_scale;
-> -			sender->td_maxwin = (win == 0 ? 1 : win);
-> +			swin = win << sender->td_scale;
-> +			sender->td_maxwin = (swin == 0 ? 1 : swin);
->  			sender->td_maxend = end + sender->td_maxwin;
->  			/*
->  			 * We haven't seen traffic in the other direction yet
+I am resubmit this patch set since it seems that the net-next merge window is
+over. 
 
-Jozsef, do you remember if this is intentional?
+This patch set contains fixes in adapter initialization and tx/rx cleanup path.
+It also include code cleanups by removing and renaming some functions.
 
-I'm going to test this patch in my testbed to make sure this does not
-break conntrackd.
+The driver version has been updated to 3.0.23.0 to reflect the changes.
+
+Jing Huang (7):
+  bna: Serialize smem access during adapter initialization
+  bna: Flash controller ioc pll init fixes
+  bna: ioc cleanups
+  bfa: tx rx cleanup fix
+  bna: Remove tx tasklet
+  bfa: Function name changes and cleanups
+  bfa: Update driver version to 3.0.23.0
+
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c      |   61 +++--
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c   |  142 +++++++----
+ drivers/net/ethernet/brocade/bna/bfi_reg.h      |    6 +
+ drivers/net/ethernet/brocade/bna/bnad.c         |  316 +++++++++++------------
+ drivers/net/ethernet/brocade/bna/bnad.h         |   11 +-
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    6 +-
+ 6 files changed, 300 insertions(+), 242 deletions(-)
