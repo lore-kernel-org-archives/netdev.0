@@ -1,47 +1,135 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net V1 1/2] net/bonding: emit address change event also in bond_release
-Date: Wed,  4 Apr 2012 11:56:19 +0300
-Message-ID: <1333529780-28421-2-git-send-email-ogerlitz@mellanox.com>
-References: <1333529780-28421-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org, fubar@us.ibm.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: davem@davemloft.net
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH V4 net-next 00/26] ethtool: support time stamping and phc clocks
+Date: Wed,  4 Apr 2012 10:59:15 +0200
+Message-ID: <cover.1333529504.git.richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Martin Porter <mporter@solarflare.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	e1000-devel@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:51124 "HELO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752257Ab2DDI4f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 04:56:35 -0400
-In-Reply-To: <1333529780-28421-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:56171 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752081Ab2DDI7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 04:59:53 -0400
+Received: by wgbdr13 with SMTP id dr13so46815wgb.1
+        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 01:59:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shlomo Pongratz <shlomop@mellanox.com>
+* Changes in V4:
+  - drop two patches requiring out of tree support
+  - added Ben's Reviewed-by tag on two commit messages
+* Changes in V3:
+  - works without ethtool_ops
+  - does not require special privileges
+  - neaten user space tool output
 
-commit 7d26bb103c4 "bonding: emit event when bonding changes MAC" didn't
-take care to emit the NETDEV_CHANGEADDR event in bond_release, where bonding
-actually changes the mac address (to all zeroes). As a result the neighbours
-aren't deleted by the core networking code (which does so upon getting that
-event).
+Support for SO_TIMESTAMPING of network packets and PTP Hardware Clocks
+has been expanding over the last year or two. In an ideal world, every
+host would have exactly one PTP hardware clock, and every Ethernet MAC
+would support SO_TIMESTAMPING on both the transmit and receive paths.
+However, since we do not yet have full coverage for these features,
+user space programs need a way to discover what a given interface
+supports in these two areas.
 
-Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
----
- drivers/net/bonding/bond_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+* PTP Hardware Clocks
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index a20b585..d38f635 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2035,6 +2035,9 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 	write_unlock_bh(&bond->lock);
- 	unblock_netpoll_tx();
- 
-+	if (bond->slave_cnt == 0)
-+		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
-+
- 	bond_compute_features(bond);
- 	if (!(bond_dev->features & NETIF_F_VLAN_CHALLENGED) &&
- 	    (old_features & NETIF_F_VLAN_CHALLENGED))
+  The relationship between the network interfaces and the (possibly
+  multiple) PHC devices is not discoverable except by knowing what
+  hardware you have got and carefully looking into the kernel log.
+
+* SO_TIMESTAMPING
+
+  - Receive software time stamps are implemented in the stack
+    and thus work for all MAC hardware.
+  - Transmit software time stamps are only supported by a dozen
+    drivers or so.
+  - Some special devices support Tx/Rx time stamping in hardware.
+  - None of this is discoverable except by looking into the kernel
+    sources.
+
+This series exposes the hardware and driver capabilities known to user
+space via ethtool. 
+
+Since the PHC code was first merged, this has become the number one
+requested new feature.
+
+The new feature has been tested on the following hardware:
+
+igb       Hardware time stamping in the MAC (but patch awaits out of tree support)
+dp83640   Hardware time stamping in the PHY
+r8169     Software Tx time stamping in the MAC
+
+Thanks,
+Richard
+
+
+Richard Cochran (26):
+  phc: Add a method for obtaining the device index.
+  ethtool: Introduce a method for getting time stamping capabilities.
+  dp83640: Support the get_ts_info ethtool method.
+  gianfar: Support the get_ts_info ethtool method.
+  bfin_mac: Support the get_ts_info ethtool method.
+  ixp4xx_eth: Support the get_ts_info ethtool method.
+  ethtool: Add a common function for drivers with transmit time
+    stamping.
+  ax88796: Support the get_ts_info ethtool method.
+  davinci_emac: Support the get_ts_info ethtool method.
+  dnet: Support the get_ts_info ethtool method.
+  etherh: Support the get_ts_info ethtool method.
+  fec_mpc52xx: Support the get_ts_info ethtool method.
+  fec: Support the get_ts_info ethtool method.
+  fs_enet: Support the get_ts_info ethtool method.
+  ll_temac: Support the get_ts_info ethtool method.
+  macb: Support the get_ts_info ethtool method.
+  mv643xx_eth: Support the get_ts_info ethtool method.
+  pxa168_eth: Support the get_ts_info ethtool method.
+  r6040: Support the get_ts_info ethtool method.
+  r8169: Support the get_ts_info ethtool method.
+  smsc911x: Support the get_ts_info ethtool method.
+  smsc9420: Support the get_ts_info ethtool method.
+  stmmac: Support the get_ts_info ethtool method.
+  tg3: Support the get_ts_info ethtool method.
+  ucc_geth: Support the get_ts_info ethtool method.
+  usbnet: Support the get_ts_info ethtool method.
+
+ arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h      |    3 +
+ drivers/net/ethernet/8390/ax88796.c                |    1 +
+ drivers/net/ethernet/8390/etherh.c                 |    1 +
+ drivers/net/ethernet/adi/bfin_mac.c                |   20 +++++++
+ drivers/net/ethernet/broadcom/tg3.c                |    1 +
+ drivers/net/ethernet/cadence/macb.c                |    1 +
+ drivers/net/ethernet/dnet.c                        |    1 +
+ drivers/net/ethernet/freescale/fec.c               |    1 +
+ drivers/net/ethernet/freescale/fec_mpc52xx.c       |    1 +
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    1 +
+ drivers/net/ethernet/freescale/gianfar.h           |    3 +
+ drivers/net/ethernet/freescale/gianfar_ethtool.c   |   29 ++++++++++
+ drivers/net/ethernet/freescale/gianfar_ptp.c       |    2 +
+ drivers/net/ethernet/freescale/ucc_geth_ethtool.c  |    1 +
+ drivers/net/ethernet/marvell/mv643xx_eth.c         |    1 +
+ drivers/net/ethernet/marvell/pxa168_eth.c          |    1 +
+ drivers/net/ethernet/rdc/r6040.c                   |    1 +
+ drivers/net/ethernet/realtek/r8169.c               |    1 +
+ drivers/net/ethernet/smsc/smsc911x.c               |    1 +
+ drivers/net/ethernet/smsc/smsc9420.c               |    1 +
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    1 +
+ drivers/net/ethernet/ti/davinci_emac.c             |    1 +
+ drivers/net/ethernet/xilinx/ll_temac_main.c        |    1 +
+ drivers/net/ethernet/xscale/ixp4xx_eth.c           |   29 ++++++++++
+ drivers/net/phy/dp83640.c                          |   31 ++++++++++
+ drivers/net/usb/usbnet.c                           |    1 +
+ drivers/ptp/ptp_clock.c                            |    6 ++
+ drivers/ptp/ptp_ixp46x.c                           |    3 +
+ include/linux/ethtool.h                            |   29 ++++++++++
+ include/linux/phy.h                                |    3 +
+ include/linux/ptp_clock_kernel.h                   |    8 +++
+ net/core/ethtool.c                                 |   59 +++++++++++++++++++-
+ 32 files changed, 241 insertions(+), 3 deletions(-)
+
 -- 
-1.7.1
+1.7.2.5
