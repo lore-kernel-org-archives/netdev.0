@@ -1,47 +1,38 @@
-From: Jing Huang <huangj@Brocade.COM>
-Subject: RE: [PATCH 0/7] bna: Update driver version to 3.0.23.0 (resubmit)
-Date: Wed, 4 Apr 2012 16:07:22 -0700
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86B3A74DEE55@HQ1-EXCH01.corp.brocade.com>
-References: <1333554102-21973-1-git-send-email-huangj@brocade.com>
- <20120404.182105.1576892492865932011.davem@davemloft.net>
+From: Dave Jiang <dave.jiang@intel.com>
+Subject: [PATCH 0/3] Series short description
+Date: Wed, 04 Apr 2012 16:10:30 -0700
+Message-ID: <20120404230749.20605.7000.stgit@djiang5-linux.ch.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Adapter Linux Open Src Ext Team"
-	<AdapterLinuxOpenSrcExtTeam@Brocade.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:36020 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757211Ab2DDXHd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 19:07:33 -0400
-In-Reply-To: <20120404.182105.1576892492865932011.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: dan.j.williams@intel.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->But I would suggest modifying how the driver spins waiting for the
->firmware to release semaphore bits in registers.
->
->You have no timeouts or limits in these loops.
->
->So if the firmware crashes or gets stuck, this will take out the
->entire computer which is very undesirable.
->
->Change these loops to have a limit and signal an error and fail the
->top-level operation if the limit is hit.
+The following series address issues with the ioatdma driver. The first
+patch fixes a potential ring size overflow. The next two patches put
+in alignment requirement for silicon errata on the ioatdma hardware related to
+M2M ops and impacts NETDMA. The last patch will probably need to be
+ack'd by David Miller as it touches the network subsystem.
+---
 
-Thanks David.
+Dave Jiang (3):
+      netdma: adding alignment check for NETDMA ops
+      ioatdma: DMA copy alignment needed to address IOAT DMA silicon errata
+      ioat: ring size variables need to be 32bit to avoid overflow
 
-The ioc init semaphore register is only used by driver. Firmware will never touch this
-register.  It will only be set to 1 when there is a driver instance holding it. So in practice, 
-the infinite look will happen only if a driver instance grab the semaphore but forgot to
-release it. We add this logic to serialize register access for potential case of concurrent PCI
-function probe, which seems pretty rare in Linux.
 
-I agree that this code looks ugly and wrong in theory. We will consider remove it or
-implement some timeout logic for it.
+ drivers/dma/dmaengine.c   |   14 ++++++++++++++
+ drivers/dma/ioat/dma_v2.c |    4 ++--
+ drivers/dma/ioat/dma_v2.h |    4 ++--
+ drivers/dma/ioat/dma_v3.c |   41 +++++++++++++++++++++++++++++++++++++++++
+ include/linux/dmaengine.h |    1 +
+ net/ipv4/tcp.c            |    4 ++--
+ net/ipv4/tcp_input.c      |    2 +-
+ net/ipv4/tcp_ipv4.c       |    2 +-
+ net/ipv6/tcp_ipv6.c       |    2 +-
+ 9 files changed, 65 insertions(+), 9 deletions(-)
 
-Jing
+-- 
