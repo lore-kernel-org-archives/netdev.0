@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 02/10] bnx2x: Fix BCM57810-KR FC
-Date: Wed, 4 Apr 2012 14:28:55 +0300
-Message-ID: <1333538942-9904-3-git-send-email-yanivr@broadcom.com>
+Subject: [net 03/10] bnx2x: Fix BCM57810-KR AN speed transition
+Date: Wed, 4 Apr 2012 14:28:56 +0300
+Message-ID: <1333538942-9904-4-git-send-email-yanivr@broadcom.com>
 References: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,75 +11,60 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2740 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2757 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755930Ab2DDJ3c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756047Ab2DDJ3c (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 4 Apr 2012 05:29:32 -0400
 In-Reply-To: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix 57810-KR flow-control handling link is achieved via CL37 AN.
+BCM57810-KR link may not come up in 1G after running loopback test, so set
+the relevant registers to their default values before starting KR autoneg.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   27 ++++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    4 +++
- 2 files changed, 31 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   20 ++++++++++++++++++--
+ 1 files changed, 18 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 7e2ebba..8c00bbc 100644
+index 8c00bbc..ce0b0c2 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -3655,6 +3655,33 @@ static void bnx2x_ext_phy_update_adv_fc(struct bnx2x_phy *phy,
- 	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) {
- 		bnx2x_cl22_read(bp, phy, 0x4, &ld_pause);
- 		bnx2x_cl22_read(bp, phy, 0x5, &lp_pause);
-+	} else if (CHIP_IS_E3(bp) &&
-+		SINGLE_MEDIA_DIRECT(params)) {
-+		u8 lane = bnx2x_get_warpcore_lane(phy, params);
-+		u16 gp_status, gp_mask;
-+		bnx2x_cl45_read(bp, phy,
-+				MDIO_AN_DEVAD, MDIO_WC_REG_GP2_STATUS_GP_2_4,
-+				&gp_status);
-+		gp_mask = (MDIO_WC_REG_GP2_STATUS_GP_2_4_CL73_AN_CMPL |
-+			   MDIO_WC_REG_GP2_STATUS_GP_2_4_CL37_LP_AN_CAP) <<
-+			lane;
-+		if ((gp_status & gp_mask) == gp_mask) {
-+			bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
-+					MDIO_AN_REG_ADV_PAUSE, &ld_pause);
-+			bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
-+					MDIO_AN_REG_LP_AUTO_NEG, &lp_pause);
-+		} else {
-+			bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
-+					MDIO_AN_REG_CL37_FC_LD, &ld_pause);
-+			bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
-+					MDIO_AN_REG_CL37_FC_LP, &lp_pause);
-+			ld_pause = ((ld_pause &
-+				     MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH)
-+				    << 3);
-+			lp_pause = ((lp_pause &
-+				     MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_BOTH)
-+				    << 3);
-+		}
- 	} else {
- 		bnx2x_cl45_read(bp, phy,
- 				MDIO_AN_DEVAD,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index ecc7fa6..1ea2b95 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -6944,6 +6944,10 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_WC_REG_GP2_STATUS_GP_2_2			0x81d2
- #define MDIO_WC_REG_GP2_STATUS_GP_2_3			0x81d3
- #define MDIO_WC_REG_GP2_STATUS_GP_2_4			0x81d4
-+#define MDIO_WC_REG_GP2_STATUS_GP_2_4_CL73_AN_CMPL 0x1000
-+#define MDIO_WC_REG_GP2_STATUS_GP_2_4_CL37_AN_CMPL 0x0100
-+#define MDIO_WC_REG_GP2_STATUS_GP_2_4_CL37_LP_AN_CAP 0x0010
-+#define MDIO_WC_REG_GP2_STATUS_GP_2_4_CL37_AN_CAP 0x1
- #define MDIO_WC_REG_UC_INFO_B0_DEAD_TRAP		0x81EE
- #define MDIO_WC_REG_UC_INFO_B1_VERSION			0x81F0
- #define MDIO_WC_REG_UC_INFO_B1_FIRMWARE_MODE		0x81F2
+@@ -3732,7 +3732,23 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 	u16 val16 = 0, lane, bam37 = 0;
+ 	struct bnx2x *bp = params->bp;
+ 	DP(NETIF_MSG_LINK, "Enable Auto Negotiation for KR\n");
+-
++	/* Set to default registers that may be overriden by 10G force */
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_SERDESDIGITAL_CONTROL1000X2, 0x7);
++	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
++			 MDIO_WC_REG_PAR_DET_10G_CTRL, 0);
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_CL72_USERB0_CL72_MISC1_CONTROL, 0);
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			MDIO_WC_REG_XGXSBLK1_LANECTRL0, 0xff);
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			MDIO_WC_REG_XGXSBLK1_LANECTRL1, 0x5555);
++	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD,
++			 MDIO_WC_REG_IEEE0BLK_AUTONEGNP, 0x0);
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_RX66_CONTROL, 0x7415);
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_SERDESDIGITAL_MISC2, 0x6190);
+ 	/* Disable Autoneg: re-enable it after adv is done. */
+ 	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
+ 			 MDIO_WC_REG_IEEE0BLK_MIICNTL, 0);
+@@ -4402,7 +4418,7 @@ static void bnx2x_warpcore_config_init(struct bnx2x_phy *phy,
+ 		switch (serdes_net_if) {
+ 		case PORT_HW_CFG_NET_SERDES_IF_KR:
+ 			/* Enable KR Auto Neg */
+-			if (params->loopback_mode == LOOPBACK_NONE)
++			if (params->loopback_mode != LOOPBACK_EXT)
+ 				bnx2x_warpcore_enable_AN_KR(phy, params, vars);
+ 			else {
+ 				DP(NETIF_MSG_LINK, "Setting KR 10G-Force\n");
 -- 
 1.7.7.1
