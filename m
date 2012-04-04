@@ -1,109 +1,94 @@
-From: Avleen Vig <avleen@gmail.com>
-Subject: Re: Crash in __netif_receive_skb
-Date: Wed, 4 Apr 2012 14:35:41 -0500
-Message-ID: <CAMjP1KkwMuQY4eBxmQeK_8xa11fDWHu_401Tg3iiXtqnHGV0jw@mail.gmail.com>
-References: <CAMjP1Kka6MmT2zLc95ZQ=vigS6w9diS9-tawzdUdhbzzfzMh3w@mail.gmail.com>
-	<CAMjP1KmDxhOKOGtgKt=OWbcXoJgrbA_rAxdkV4j7Y8XC8yjnuA@mail.gmail.com>
-	<CAMjP1KmkS9aBXJm1GEavhcNx75ib7G4m+xYBe3_PcGSo6t5FsQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMjP1KmkS9aBXJm1GEavhcNx75ib7G4m+xYBe3_PcGSo6t5FsQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH] mlx4: allocate just enough pages instead of always 4 pages
+Date: Wed,  4 Apr 2012 16:40:40 -0300
+Message-ID: <1333568440-14494-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, roland@kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.co.il, alexg@mellanox.co.il,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:33121 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932401Ab2DDTlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 15:41:04 -0400
+Received: from /spool/local
+	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Wed, 4 Apr 2012 16:41:02 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 65BB5352004B
+	for <netdev@vger.kernel.org>; Wed,  4 Apr 2012 16:40:57 -0300 (BRT)
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q34Je4no2007122
+	for <netdev@vger.kernel.org>; Wed, 4 Apr 2012 16:40:04 -0300
+Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q34Jevga018416
+	for <netdev@vger.kernel.org>; Wed, 4 Apr 2012 16:40:58 -0300
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 29, 2012 at 4:42 PM, Avleen Vig <avleen@gmail.com> wrote:
-> On Wed, Mar 28, 2012 at 10:01 PM, Avleen Vig <avleen@gmail.com> wrote=
-:
->> On Wed, Mar 28, 2012 at 8:31 PM, Avleen Vig <avleen@gmail.com> wrote=
-:
->>> Hi folks, someone in #kernel recommended I email these two lists. H=
-ope
->>> they're the right place.
->>>
->>> We're running 2.6.32-220.4.1.el6.x86_64 on Centos 6.2, and getting =
-a
->>> repeated crash:
->>> =A0 =A0https://gist.github.com/2231998
->>>
->>> We can make this happen pretty easily just by passing some network
->>> traffic and waiting a while.
->>> I couldn't find any references to this particular issue.
->>> I have vmcore files and am happy to dig into it if it would help (a=
-s
->>> long as someone can tell me what to do :))
->>
->> I hope this debugging is legit, I'm really new to this level of insi=
-ght.
->>
->> I think the problem is in include/linux/netpoll.h, at the "if"
->> statement at line 86:
->> =A0 =A0static inline int netpoll_receive_skb(struct sk_buff *skb)
->> =A0 =A0{
->> =A0 =A0 =A0 =A0if (!list_empty(&skb->dev->napi_list))
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return netpoll_rx(skb);
->> =A0 =A0 =A0 =A0return 0;
->> =A0 =A0}
->>
->>
->> This is based on poking around in the crash dump:
->> =A0 =A0BUG: unable to handle kernel NULL pointer dereference at 0000=
-000000000060
->> =A0 =A0IP: [<ffffffff8142bb40>] __netif_receive_skb+0x60/0x6e0
->> =A0 =A0crash> dis -rl ffffffff8142bb40
->> =A0 =A0....
->> =A0 =A0/usr/src/debug/kernel-2.6.32-220.7.1.el6/linux-2.6.32-220.7.1=
-=2Eel6.x86_64/include/linux/netpoll.h:
->> 86
->> =A0 =A00xffffffff8142bb33 <__netif_receive_skb+83>: =A0 =A0mov =A0 =A0=
-0x20(%rbx),%r12
->> =A0 =A00xffffffff8142bb37 <__netif_receive_skb+87>: =A0 =A0mov =A0 =A0=
-%r12,-0x38(%rbp)
->> =A0 =A00xffffffff8142bb3b <__netif_receive_skb+91>: =A0 =A0lea =A0 =A0=
-0x60(%r12),%rax
->> =A0 =A00xffffffff8142bb40 <__netif_receive_skb+96>: =A0 =A0cmp =A0 =A0=
-%rax,0x60(%r12)
->>
->>
->>
->> I *think* this means that "&skb->dev->napi_list" is null when we're
->> trying to compare it, rather than being a list.
->>
->> If it matters, this is inside LXC containers.
->
-> We've traced this to a problem with machines that have multiple hard
-> drives AND have NAPI enabled for the NIC driver.
->
-> We recompiled the e1000e driver with NAPI disabled, with:
-> =A0 =A0make CFLAGS_EXTRA=3D-DE1000E_NO_NAPI
->
-> and everything works great now.
+The driver uses a 2-order allocation, which is too much on architectures
+like ppc64, which has a 64KiB page. This particular allocation is used
+for large packet fragments that may have a size of 512, 1024, 4096 or
+fill the whole allocation. So, a minimum size of 16384 is good enough
+and will be the same size that is used in architectures of 4KiB sized
+pages.
 
-Untrue! This eventually failed too, but after a lot more debugging, we
-think we've nailed it:
-    Multicast
+This will avoid allocation failures that we see when the system is under
+stress, but still has plenty of memory, like the one below.
 
-We use ganglia on all of our nodes (and we were setting it up inside
-the LXC containers), and ganglia listens / sends on multicast.
+This will also allow us to set the interface MTU to higher values like
+9000, which was not possible on ppc64 without this patch.
 
-When gmond was starting inside the containers, it was giving an error:
-    Apr  4 17:00:42 hostname /usr/sbin/gmond[551]: Error creating
-multicast server mcast_join=3D239.2.11.110 port=3D8649 mcast_if=3DNULL
-family=3D'inet4'. Exiting.
+Node 1 DMA: 737*64kB 37*128kB 0*256kB 0*512kB 0*1024kB 0*2048kB 0*4096kB 0*8192kB 0*16384kB = 51904kB
+83137 total pagecache pages
+0 pages in swap cache
+Swap cache stats: add 0, delete 0, find 0/0
+Free swap  = 10420096kB
+Total swap = 10420096kB
+107776 pages RAM
+1184 pages reserved
+147343 pages shared
+28152 pages non-shared
+netstat: page allocation failure. order:2, mode:0x4020
+Call Trace:
+[c0000001a4fa3770] [c000000000012f04] .show_stack+0x74/0x1c0 (unreliable)
+[c0000001a4fa3820] [c00000000016af38] .__alloc_pages_nodemask+0x618/0x930
+[c0000001a4fa39a0] [c0000000001a71a0] .alloc_pages_current+0xb0/0x170
+[c0000001a4fa3a40] [d00000000dcc3e00] .mlx4_en_alloc_frag+0x200/0x240 [mlx4_en]
+[c0000001a4fa3b10] [d00000000dcc3f8c] .mlx4_en_complete_rx_desc+0x14c/0x250 [mlx4_en]
+[c0000001a4fa3be0] [d00000000dcc4eec] .mlx4_en_process_rx_cq+0x62c/0x850 [mlx4_en]
+[c0000001a4fa3d20] [d00000000dcc5150] .mlx4_en_poll_rx_cq+0x40/0x90 [mlx4_en]
+[c0000001a4fa3dc0] [c0000000004e2bb8] .net_rx_action+0x178/0x450
+[c0000001a4fa3eb0] [c00000000009c9b8] .__do_softirq+0x118/0x290
+[c0000001a4fa3f90] [c000000000031df8] .call_do_softirq+0x14/0x24
+[c000000184c3b520] [c00000000000e700] .do_softirq+0xf0/0x110
+[c000000184c3b5c0] [c00000000009c6d4] .irq_exit+0xb4/0xc0
+[c000000184c3b640] [c00000000000e964] .do_IRQ+0x144/0x230
 
-It occurred to me that if the kernel is trying to read a multicast
-packet from a socket buffer, but the container can't handle multicast
-(mcast_if=3DNULL), that would explain why we got a NULL pointer
-dereference in &skb->dev->napi_list.
-(at least, this makes sense in my head.)
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Tested-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-We disabled gmond in the containers, so nothing should be listening
-for multicast packets, and everything is stable again.
-Note that this ONLY seems to happen for us when we're using the
-onboard 82574L Intel NIC with the e1000e driver.
-We have other servers with the 82575 NIC which uses the igb driver and
-doesn't exhibit this problem.
-
-Is anyone from Intel here who could look in to this?
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 9e2b911..d69fee4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -83,8 +83,9 @@
+ 
+ #define MLX4_EN_WATCHDOG_TIMEOUT	(15 * HZ)
+ 
+-#define MLX4_EN_ALLOC_ORDER	2
+-#define MLX4_EN_ALLOC_SIZE	(PAGE_SIZE << MLX4_EN_ALLOC_ORDER)
++/* Use the maximum between 16384 and a single page */
++#define MLX4_EN_ALLOC_SIZE	PAGE_ALIGN(16384)
++#define MLX4_EN_ALLOC_ORDER	get_order(MLX4_EN_ALLOC_SIZE)
+ 
+ #define MLX4_EN_MAX_LRO_DESCRIPTORS	32
+ 
+-- 
+1.7.4.4
