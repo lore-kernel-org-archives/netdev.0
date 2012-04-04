@@ -1,34 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Update
-Date: Wed, 04 Apr 2012 04:26:31 -0400 (EDT)
-Message-ID: <20120404.042631.2130868853739722658.davem@davemloft.net>
-References: <1333526160-24937-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Roland Stigge <stigge@antcom.de>
+Subject: [PATCH v3 5/8] i2c-pnx.c: Fix suspend
+Date: Wed,  4 Apr 2012 10:34:37 +0200
+Message-ID: <1333528480-17134-6-git-send-email-stigge@antcom.de>
+References: <1333528480-17134-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43015 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752511Ab2DDI0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 04:26:40 -0400
-In-Reply-To: <1333526160-24937-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Roland Stigge <stigge@antcom.de>, stable@vger.kernel.org
+To: arm@kernel.org, linux-arm-kernel@lists.infradead.org,
+ linux-i2c@vger.kernel.org, linux-kernel@vger.kernel.org,
+ w.sang@pengutronix.de, srinivas.bakki@nxp.com, kevin.wells@nxp.com,
+ gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+ rtc-linux@googlegroups.com, a.zummo@towertech.it,
+ linux-watchdog@vger.kernel.org, wim@iguana.be, jonsmirl@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1333528480-17134-1-git-send-email-stigge@antcom.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed,  4 Apr 2012 00:55:52 -0700
+In the driver's suspend function, clk_enable() was used instead of
+clk_disable(). This is corrected with this patch.
 
-> This series of patches contains updates for e1000, e1000e, igb and
-> ixgbe.  The e1000 patch finishes up the addition of RXALL support
-> flag from Ben Greear.  The 2 igb patches adds the PTP support
-> from Richard Cochran.  The remaining patches for e1000e and ixgbe
-> are cleanup patches (and rev the e1000e driver).
-> 
-> The following are changes since commit 68df25d6c556c4df4dad32a0585317eab356e325:
->   bnx2x: Change to driver version 1.72.10-0
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Signed-off-by: Roland Stigge <stigge@antcom.de>
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+CC: stable@vger.kernel.org
 
-Pulled, thanks Jeff.
+---
+
+ Applies to v3.4-rc1
+
+ drivers/i2c/busses/i2c-pnx.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+--- linux-2.6.orig/drivers/i2c/busses/i2c-pnx.c
++++ linux-2.6/drivers/i2c/busses/i2c-pnx.c
+@@ -546,8 +546,7 @@ static int i2c_pnx_controller_suspend(st
+ {
+ 	struct i2c_pnx_algo_data *alg_data = platform_get_drvdata(pdev);
+ 
+-	/* FIXME: shouldn't this be clk_disable? */
+-	clk_enable(alg_data->clk);
++	clk_disable(alg_data->clk);
+ 
+ 	return 0;
+ }
