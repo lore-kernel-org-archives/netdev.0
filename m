@@ -1,160 +1,715 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 6/10] bnx2x: Added support for a new device -
- 57811
-Date: Wed, 4 Apr 2012 07:41:28 +0300
-Message-ID: <1333514492-20425-7-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 7/10] bnx2x: congestion management
+ re-organization
+Date: Wed, 4 Apr 2012 07:41:29 +0300
+Message-ID: <1333514492-20425-8-git-send-email-yuvalmin@broadcom.com>
 References: <1333514492-20425-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Barak Witkowski" <barak@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
+Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:4903 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752539Ab2DDEra (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 00:47:30 -0400
+	id S1752785Ab2DDErf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 00:47:35 -0400
 In-Reply-To: <1333514492-20425-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Barak Witkowski <barak@broadcom.com>
+The congestion management code has migrated into a common location,
+allowing all fw writes controlling mf congestion to be made in a
+single function in the code. This is a semantic change.
 
-Notice this patch includes lines with over 80 characters, as to not
-break strings.
-
-Signed-off-by: Barak Witkowski <barak@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    6 ++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   30 +++++++++++++++++++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    5 +++
- 3 files changed, 38 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    8 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   32 +++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |   92 ++++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h |  217 +++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  147 +++------------
+ 5 files changed, 332 insertions(+), 164 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index ae0dcd4..054ec9e 100644
+index 054ec9e..5eecafd 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -815,6 +815,8 @@ struct bnx2x_common {
- #define CHIP_NUM_57800_MF		0x16a5
- #define CHIP_NUM_57810			0x168e
- #define CHIP_NUM_57810_MF		0x16ae
-+#define CHIP_NUM_57811			0x163d
-+#define CHIP_NUM_57811_MF		0x163e
- #define CHIP_NUM_57840			0x168d
- #define CHIP_NUM_57840_MF		0x16ab
- #define CHIP_IS_E1(bp)			(CHIP_NUM(bp) == CHIP_NUM_57710)
-@@ -826,6 +828,8 @@ struct bnx2x_common {
- #define CHIP_IS_57800_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57800_MF)
- #define CHIP_IS_57810(bp)		(CHIP_NUM(bp) == CHIP_NUM_57810)
- #define CHIP_IS_57810_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57810_MF)
-+#define CHIP_IS_57811(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811)
-+#define CHIP_IS_57811_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811_MF)
- #define CHIP_IS_57840(bp)		(CHIP_NUM(bp) == CHIP_NUM_57840)
- #define CHIP_IS_57840_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57840_MF)
- #define CHIP_IS_E1H(bp)			(CHIP_IS_57711(bp) || \
-@@ -836,6 +840,8 @@ struct bnx2x_common {
- 					 CHIP_IS_57800_MF(bp) || \
- 					 CHIP_IS_57810(bp) || \
- 					 CHIP_IS_57810_MF(bp) || \
-+					 CHIP_IS_57811(bp) || \
-+					 CHIP_IS_57811_MF(bp) || \
- 					 CHIP_IS_57840(bp) || \
- 					 CHIP_IS_57840_MF(bp))
- #define CHIP_IS_E1x(bp)			(CHIP_IS_E1((bp)) || CHIP_IS_E1H((bp)))
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index c5f85ad..faf12d0 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -139,7 +139,9 @@ enum bnx2x_board_type {
- 	BCM57810,
- 	BCM57810_MF,
- 	BCM57840,
--	BCM57840_MF
-+	BCM57840_MF,
-+	BCM57811,
-+	BCM57811_MF
- };
- 
- /* indexed by board_type, above */
-@@ -156,8 +158,9 @@ static struct {
- 	{ "Broadcom NetXtreme II BCM57810 10 Gigabit Ethernet" },
- 	{ "Broadcom NetXtreme II BCM57810 10 Gigabit Ethernet Multi Function" },
- 	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit Ethernet" },
--	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit "
--						"Ethernet Multi Function"}
-+	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit Ethernet Multi Function"},
-+	{ "Broadcom NetXtreme II BCM57811 10 Gigabit Ethernet"},
-+	{ "Broadcom NetXtreme II BCM57811 10 Gigabit Ethernet Multi Function"},
- };
- 
- #ifndef PCI_DEVICE_ID_NX2_57710
-@@ -193,6 +196,12 @@ static struct {
- #ifndef PCI_DEVICE_ID_NX2_57840_MF
- #define PCI_DEVICE_ID_NX2_57840_MF	CHIP_NUM_57840_MF
+@@ -30,6 +30,10 @@
+ #if defined(CONFIG_DCB)
+ #define BCM_DCBNL
  #endif
-+#ifndef PCI_DEVICE_ID_NX2_57811
-+#define PCI_DEVICE_ID_NX2_57811		CHIP_NUM_57811
-+#endif
-+#ifndef PCI_DEVICE_ID_NX2_57811_MF
-+#define PCI_DEVICE_ID_NX2_57811_MF	CHIP_NUM_57811_MF
-+#endif
- static DEFINE_PCI_DEVICE_TABLE(bnx2x_pci_tbl) = {
- 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57710), BCM57710 },
- 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57711), BCM57711 },
-@@ -205,6 +214,8 @@ static DEFINE_PCI_DEVICE_TABLE(bnx2x_pci_tbl) = {
- 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57810_MF), BCM57810_MF },
- 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840), BCM57840 },
- 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_MF), BCM57840_MF },
-+	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811), BCM57811 },
-+	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811_MF), BCM57811_MF },
- 	{ 0 }
++
++
++#include "bnx2x_hsi.h"
++
+ #if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
+ #define BCM_CNIC 1
+ #include "../cnic_if.h"
+@@ -1329,8 +1333,8 @@ struct bnx2x {
+ 	struct bnx2x_common	common;
+ 	struct bnx2x_port	port;
+ 
+-	struct cmng_struct_per_port cmng;
+-	u32			vn_weight_sum;
++	struct cmng_init	cmng;
++
+ 	u32			mf_config[E1HVN_MAX];
+ 	u32			mf2_config[E2_FUNC_MAX];
+ 	u32			path_has_ovlan; /* E3 */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index b0d0c69..7f3cb81 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -961,6 +961,12 @@ static inline void bnx2x_reuse_rx_data(struct bnx2x_fastpath *fp,
+ 
+ /************************* Init ******************************************/
+ 
++/* returns func by VN for current port */
++static inline int func_by_vn(struct bnx2x *bp, int vn)
++{
++	return 2 * vn + BP_PORT(bp);
++}
++
+ /**
+  * bnx2x_func_start - init function
+  *
+@@ -1416,15 +1422,32 @@ static inline void storm_memset_func_cfg(struct bnx2x *bp,
+ }
+ 
+ static inline void storm_memset_cmng(struct bnx2x *bp,
+-				struct cmng_struct_per_port *cmng,
++				struct cmng_init *cmng,
+ 				u8 port)
+ {
++	int vn;
+ 	size_t size = sizeof(struct cmng_struct_per_port);
+ 
+ 	u32 addr = BAR_XSTRORM_INTMEM +
+ 			XSTORM_CMNG_PER_PORT_VARS_OFFSET(port);
+ 
+-	__storm_memset_struct(bp, addr, size, (u32 *)cmng);
++	__storm_memset_struct(bp, addr, size, (u32 *)&cmng->port);
++
++	for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++) {
++		int func = func_by_vn(bp, vn);
++
++		addr = BAR_XSTRORM_INTMEM +
++		       XSTORM_RATE_SHAPING_PER_VN_VARS_OFFSET(func);
++		size = sizeof(struct rate_shaping_vars_per_vn);
++		__storm_memset_struct(bp, addr, size,
++				      (u32 *)&cmng->vnic.vnic_max_rate[vn]);
++
++		addr = BAR_XSTRORM_INTMEM +
++		       XSTORM_FAIRNESS_PER_VN_VARS_OFFSET(func);
++		size = sizeof(struct fairness_vars_per_vn);
++		__storm_memset_struct(bp, addr, size,
++				      (u32 *)&cmng->vnic.vnic_min_rate[vn]);
++	}
+ }
+ 
+ /**
+@@ -1605,11 +1628,6 @@ static inline void bnx2x_bz_fp(struct bnx2x *bp, int index)
+  */
+ void bnx2x_get_iscsi_info(struct bnx2x *bp);
+ #endif
+-/* returns func by VN for current port */
+-static inline int func_by_vn(struct bnx2x *bp, int vn)
+-{
+-	return 2 * vn + BP_PORT(bp);
+-}
+ 
+ /**
+  * bnx2x_link_sync_notify - send notification to other functions.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index 5d71b7d..6468da6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -4445,6 +4445,65 @@ struct cmng_struct_per_port {
+ 	struct cmng_flags_per_port flags;
  };
  
-@@ -8859,6 +8870,17 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
- 	id |= (val & 0xf);
- 	bp->common.chip_id = id;
++/*
++ * a single rate shaping counter. can be used as protocol or vnic counter
++ */
++struct rate_shaping_counter {
++	u32 quota;
++#if defined(__BIG_ENDIAN)
++	u16 __reserved0;
++	u16 rate;
++#elif defined(__LITTLE_ENDIAN)
++	u16 rate;
++	u16 __reserved0;
++#endif
++};
++
++/*
++ * per-vnic rate shaping variables
++ */
++struct rate_shaping_vars_per_vn {
++	struct rate_shaping_counter vn_counter;
++};
++
++/*
++ * per-vnic fairness variables
++ */
++struct fairness_vars_per_vn {
++	u32 cos_credit_delta[MAX_COS_NUMBER];
++	u32 vn_credit_delta;
++	u32 __reserved0;
++};
++
++/*
++ * cmng port init state
++ */
++struct cmng_vnic {
++	struct rate_shaping_vars_per_vn vnic_max_rate[4];
++	struct fairness_vars_per_vn vnic_min_rate[4];
++};
++
++/*
++ * cmng port init state
++ */
++struct cmng_init {
++	struct cmng_struct_per_port port;
++	struct cmng_vnic vnic;
++};
++
++
++/*
++ * driver parameters for congestion management init, all rates are in Mbps
++ */
++struct cmng_init_input {
++	u32 port_rate;
++	u16 vnic_min_rate[4];
++	u16 vnic_max_rate[4];
++	u16 cos_min_rate[MAX_COS_NUMBER];
++	u16 cos_to_pause_mask[MAX_COS_NUMBER];
++	struct cmng_flags_per_port flags;
++};
++
  
-+	/* force 57811 according to MISC register */
-+	if (REG_RD(bp, MISC_REG_CHIP_TYPE) & MISC_REG_CHIP_TYPE_57811_MASK) {
-+		if (CHIP_IS_57810(bp))
-+			bp->common.chip_id = (CHIP_NUM_57811 << 16) |
-+				(bp->common.chip_id & 0x0000FFFF);
-+		else if (CHIP_IS_57810_MF(bp))
-+			bp->common.chip_id = (CHIP_NUM_57811_MF << 16) |
-+				(bp->common.chip_id & 0x0000FFFF);
-+		bp->common.chip_id |= 0x1;
+ /*
+  * Protocol-common command ID for slow path elements
+@@ -4760,16 +4819,6 @@ enum fairness_mode {
+ 
+ 
+ /*
+- * per-vnic fairness variables
+- */
+-struct fairness_vars_per_vn {
+-	u32 cos_credit_delta[MAX_COS_NUMBER];
+-	u32 vn_credit_delta;
+-	u32 __reserved0;
+-};
+-
+-
+-/*
+  * Priority and cos
+  */
+ struct priority_cos {
+@@ -5137,29 +5186,6 @@ struct protocol_common_spe {
+ 
+ 
+ /*
+- * a single rate shaping counter. can be used as protocol or vnic counter
+- */
+-struct rate_shaping_counter {
+-	u32 quota;
+-#if defined(__BIG_ENDIAN)
+-	u16 __reserved0;
+-	u16 rate;
+-#elif defined(__LITTLE_ENDIAN)
+-	u16 rate;
+-	u16 __reserved0;
+-#endif
+-};
+-
+-
+-/*
+- * per-vnic rate shaping variables
+- */
+-struct rate_shaping_vars_per_vn {
+-	struct rate_shaping_counter vn_counter;
+-};
+-
+-
+-/*
+  * The send queue element
+  */
+ struct slow_path_element {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+index 29f5c3c..e6bb9f4 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+@@ -241,7 +241,8 @@ static inline void bnx2x_map_q_cos(struct bnx2x *bp, u32 q_num, u32 new_cos)
+ 			REG_WR(bp, reg_addr, reg_bit_map | q_bit_map);
+ 
+ 			/* set/clear queue bit in command-queue bit map
+-			(E2/E3A0 only, valid COS values are 0/1) */
++			 * (E2/E3A0 only, valid COS values are 0/1)
++			 */
+ 			if (!(INIT_MODE_FLAGS(bp) & MODE_E3_B0)) {
+ 				reg_addr = BNX2X_Q_CMDQ_REG_ADDR(pf_q_num);
+ 				reg_bit_map = REG_RD(bp, reg_addr);
+@@ -277,7 +278,215 @@ static inline void bnx2x_dcb_config_qm(struct bnx2x *bp, enum cos_mode mode,
+ }
+ 
+ 
+-/* Returns the index of start or end of a specific block stage in ops array*/
++/* congestion managment port init api description
++ * the api works as follows:
++ * the driver should pass the cmng_init_input struct, the port_init function
++ * will prepare the required internal ram structure which will be passed back
++ * to the driver (cmng_init) that will write it into the internal ram.
++ *
++ * IMPORTANT REMARKS:
++ * 1. the cmng_init struct does not represent the contiguous internal ram
++ *    structure. the driver should use the XSTORM_CMNG_PERPORT_VARS_OFFSET
++ *    offset in order to write the port sub struct and the
++ *    PFID_FROM_PORT_AND_VNIC offset for writing the vnic sub struct (in other
++ *    words - don't use memcpy!).
++ * 2. although the cmng_init struct is filled for the maximal vnic number
++ *    possible, the driver should only write the valid vnics into the internal
++ *    ram according to the appropriate port mode.
++ */
++#define BITS_TO_BYTES(x) ((x)/8)
++
++/* CMNG constants, as derived from system spec calculations */
++
++/* default MIN rate in case VNIC min rate is configured to zero- 100Mbps */
++#define DEF_MIN_RATE 100
++
++/* resolution of the rate shaping timer - 400 usec */
++#define RS_PERIODIC_TIMEOUT_USEC 400
++
++/* number of bytes in single QM arbitration cycle -
++ * coefficient for calculating the fairness timer
++ */
++#define QM_ARB_BYTES 160000
++
++/* resolution of Min algorithm 1:100 */
++#define MIN_RES 100
++
++/* how many bytes above threshold for
++ * the minimal credit of Min algorithm
++ */
++#define MIN_ABOVE_THRESH 32768
++
++/* Fairness algorithm integration time coefficient -
++ * for calculating the actual Tfair
++ */
++#define T_FAIR_COEF ((MIN_ABOVE_THRESH + QM_ARB_BYTES) * 8 * MIN_RES)
++
++/* Memory of fairness algorithm - 2 cycles */
++#define FAIR_MEM 2
++#define SAFC_TIMEOUT_USEC 52
++
++#define SDM_TICKS 4
++
++
++static inline void bnx2x_init_max(const struct cmng_init_input *input_data,
++				  u32 r_param, struct cmng_init *ram_data)
++{
++	u32 vnic;
++	struct cmng_vnic *vdata = &ram_data->vnic;
++	struct cmng_struct_per_port *pdata = &ram_data->port;
++	/* rate shaping per-port variables
++	 * 100 micro seconds in SDM ticks = 25
++	 * since each tick is 4 microSeconds
++	 */
++
++	pdata->rs_vars.rs_periodic_timeout =
++	RS_PERIODIC_TIMEOUT_USEC / SDM_TICKS;
++
++	/* this is the threshold below which no timer arming will occur.
++	 * 1.25 coefficient is for the threshold to be a little bigger
++	 * then the real time to compensate for timer in-accuracy
++	 */
++	pdata->rs_vars.rs_threshold =
++	(5 * RS_PERIODIC_TIMEOUT_USEC * r_param)/4;
++
++	/* rate shaping per-vnic variables */
++	for (vnic = 0; vnic < BNX2X_PORT2_MODE_NUM_VNICS; vnic++) {
++		/* global vnic counter */
++		vdata->vnic_max_rate[vnic].vn_counter.rate =
++		input_data->vnic_max_rate[vnic];
++		/* maximal Mbps for this vnic
++		 * the quota in each timer period - number of bytes
++		 * transmitted in this period
++		 */
++		vdata->vnic_max_rate[vnic].vn_counter.quota =
++			RS_PERIODIC_TIMEOUT_USEC *
++			(u32)vdata->vnic_max_rate[vnic].vn_counter.rate / 8;
 +	}
 +
- 	/* Set doorbell size */
- 	bp->db_size = (1 << BNX2X_DB_SHIFT);
++}
++
++static inline void bnx2x_init_min(const struct cmng_init_input *input_data,
++				  u32 r_param, struct cmng_init *ram_data)
++{
++	u32 vnic, fair_periodic_timeout_usec, vnicWeightSum, tFair;
++	struct cmng_vnic *vdata = &ram_data->vnic;
++	struct cmng_struct_per_port *pdata = &ram_data->port;
++
++	/* this is the resolution of the fairness timer */
++	fair_periodic_timeout_usec = QM_ARB_BYTES / r_param;
++
++	/* fairness per-port variables
++	 * for 10G it is 1000usec. for 1G it is 10000usec.
++	 */
++	tFair = T_FAIR_COEF / input_data->port_rate;
++
++	/* this is the threshold below which we won't arm the timer anymore */
++	pdata->fair_vars.fair_threshold = QM_ARB_BYTES;
++
++	/* we multiply by 1e3/8 to get bytes/msec. We don't want the credits
++	 * to pass a credit of the T_FAIR*FAIR_MEM (algorithm resolution)
++	 */
++	pdata->fair_vars.upper_bound = r_param * tFair * FAIR_MEM;
++
++	/* since each tick is 4 microSeconds */
++	pdata->fair_vars.fairness_timeout =
++				fair_periodic_timeout_usec / SDM_TICKS;
++
++	/* calculate sum of weights */
++	vnicWeightSum = 0;
++
++	for (vnic = 0; vnic < BNX2X_PORT2_MODE_NUM_VNICS; vnic++)
++		vnicWeightSum += input_data->vnic_min_rate[vnic];
++
++	/* global vnic counter */
++	if (vnicWeightSum > 0) {
++		/* fairness per-vnic variables */
++		for (vnic = 0; vnic < BNX2X_PORT2_MODE_NUM_VNICS; vnic++) {
++			/* this is the credit for each period of the fairness
++			 * algorithm - number of bytes in T_FAIR (this vnic
++			 * share of the port rate)
++			 */
++			vdata->vnic_min_rate[vnic].vn_credit_delta =
++				(u32)input_data->vnic_min_rate[vnic] * 100 *
++				T_FAIR_COEF / (8 * 100 * vnicWeightSum);
++			if (vdata->vnic_min_rate[vnic].vn_credit_delta <
++			    pdata->fair_vars.fair_threshold +
++			    MIN_ABOVE_THRESH) {
++				vdata->vnic_min_rate[vnic].vn_credit_delta =
++					pdata->fair_vars.fair_threshold +
++					MIN_ABOVE_THRESH;
++			}
++		}
++	}
++}
++
++static inline void bnx2x_init_fw_wrr(const struct cmng_init_input *input_data,
++				     u32 r_param, struct cmng_init *ram_data)
++{
++	u32 vnic, cos;
++	u32 cosWeightSum = 0;
++	struct cmng_vnic *vdata = &ram_data->vnic;
++	struct cmng_struct_per_port *pdata = &ram_data->port;
++
++	for (cos = 0; cos < MAX_COS_NUMBER; cos++)
++		cosWeightSum += input_data->cos_min_rate[cos];
++
++	if (cosWeightSum > 0) {
++
++		for (vnic = 0; vnic < BNX2X_PORT2_MODE_NUM_VNICS; vnic++) {
++			/* Since cos and vnic shouldn't work together the rate
++			 * to divide between the coses is the port rate.
++			 */
++			u32 *ccd = vdata->vnic_min_rate[vnic].cos_credit_delta;
++			for (cos = 0; cos < MAX_COS_NUMBER; cos++) {
++				/* this is the credit for each period of
++				 * the fairness algorithm - number of bytes
++				 * in T_FAIR (this cos share of the vnic rate)
++				 */
++				ccd[cos] =
++				    (u32)input_data->cos_min_rate[cos] * 100 *
++				    T_FAIR_COEF / (8 * 100 * cosWeightSum);
++				 if (ccd[cos] < pdata->fair_vars.fair_threshold
++						+ MIN_ABOVE_THRESH) {
++					ccd[cos] =
++					    pdata->fair_vars.fair_threshold +
++					    MIN_ABOVE_THRESH;
++				}
++			}
++		}
++	}
++}
++
++static inline void bnx2x_init_safc(const struct cmng_init_input *input_data,
++				   struct cmng_init *ram_data)
++{
++	/* in microSeconds */
++	ram_data->port.safc_vars.safc_timeout_usec = SAFC_TIMEOUT_USEC;
++}
++
++/* Congestion management port init */
++static inline void bnx2x_init_cmng(const struct cmng_init_input *input_data,
++				   struct cmng_init *ram_data)
++{
++	u32 r_param;
++	memset(ram_data, 0, sizeof(struct cmng_init));
++
++	ram_data->port.flags = input_data->flags;
++
++	/* number of bytes transmitted in a rate of 10Gbps
++	 * in one usec = 1.25KB.
++	 */
++	r_param = BITS_TO_BYTES(input_data->port_rate);
++	bnx2x_init_max(input_data, r_param, ram_data);
++	bnx2x_init_min(input_data, r_param, ram_data);
++	bnx2x_init_fw_wrr(input_data, r_param, ram_data);
++	bnx2x_init_safc(input_data, ram_data);
++}
++
++
++
++/* Returns the index of start or end of a specific block stage in ops array */
+ #define BLOCK_OPS_IDX(block, stage, end) \
+ 			(2*(((block)*NUM_OF_INIT_PHASES) + (stage)) + (end))
  
-@@ -10975,6 +10997,8 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
- 	case BCM57810_MF:
- 	case BCM57840:
- 	case BCM57840_MF:
-+	case BCM57811:
-+	case BCM57811_MF:
- 		max_cos_est = BNX2X_MULTI_TX_COS_E3B0;
- 		break;
+@@ -499,9 +708,7 @@ static inline void bnx2x_disable_blocks_parity(struct bnx2x *bp)
+ 	bnx2x_set_mcp_parity(bp, false);
+ }
  
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index fd7fb45..2db0380 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -1482,6 +1482,11 @@
-    starts at 0x0 for the A0 tape-out and increments by one for each
-    all-layer tape-out. */
- #define MISC_REG_CHIP_REV					 0xa40c
-+/* [R 14] otp_misc_do[100:0] spare bits collection: 13:11-
-+ * otp_misc_do[100:98]; 10:7 - otp_misc_do[87:84]; 6:3 - otp_misc_do[75:72];
-+ * 2:1 - otp_misc_do[51:50]; 0 - otp_misc_do[1]. */
-+#define MISC_REG_CHIP_TYPE					 0xac60
-+#define MISC_REG_CHIP_TYPE_57811_MASK				 (1<<1)
- /* [RW 32] The following driver registers(1...16) represent 16 drivers and
-    32 clients. Each client can be controlled by one driver only. One in each
-    bit represent that this driver control the appropriate client (Ex: bit 5
+-/**
+- * Clear the parity error status registers.
+- */
++/* Clear the parity error status registers. */
+ static inline void bnx2x_clear_blocks_parity(struct bnx2x *bp)
+ {
+ 	int i;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index faf12d0..9e03067 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2155,40 +2155,6 @@ u8 bnx2x_link_test(struct bnx2x *bp, u8 is_serdes)
+ 	return rc;
+ }
+ 
+-static void bnx2x_init_port_minmax(struct bnx2x *bp)
+-{
+-	u32 r_param = bp->link_vars.line_speed / 8;
+-	u32 fair_periodic_timeout_usec;
+-	u32 t_fair;
+-
+-	memset(&(bp->cmng.rs_vars), 0,
+-	       sizeof(struct rate_shaping_vars_per_port));
+-	memset(&(bp->cmng.fair_vars), 0, sizeof(struct fairness_vars_per_port));
+-
+-	/* 100 usec in SDM ticks = 25 since each tick is 4 usec */
+-	bp->cmng.rs_vars.rs_periodic_timeout = RS_PERIODIC_TIMEOUT_USEC / 4;
+-
+-	/* this is the threshold below which no timer arming will occur
+-	   1.25 coefficient is for the threshold to be a little bigger
+-	   than the real time, to compensate for timer in-accuracy */
+-	bp->cmng.rs_vars.rs_threshold =
+-				(RS_PERIODIC_TIMEOUT_USEC * r_param * 5) / 4;
+-
+-	/* resolution of fairness timer */
+-	fair_periodic_timeout_usec = QM_ARB_BYTES / r_param;
+-	/* for 10G it is 1000usec. for 1G it is 10000usec. */
+-	t_fair = T_FAIR_COEF / bp->link_vars.line_speed;
+-
+-	/* this is the threshold below which we won't arm the timer anymore */
+-	bp->cmng.fair_vars.fair_threshold = QM_ARB_BYTES;
+-
+-	/* we multiply by 1e3/8 to get bytes/msec.
+-	   We don't want the credits to pass a credit
+-	   of the t_fair*FAIR_MEM (algorithm resolution) */
+-	bp->cmng.fair_vars.upper_bound = r_param * t_fair * FAIR_MEM;
+-	/* since each tick is 4 usec */
+-	bp->cmng.fair_vars.fairness_timeout = fair_periodic_timeout_usec / 4;
+-}
+ 
+ /* Calculates the sum of vn_min_rates.
+    It's needed for further normalizing of the min_rates.
+@@ -2199,12 +2165,12 @@ static void bnx2x_init_port_minmax(struct bnx2x *bp)
+      In the later case fainess algorithm should be deactivated.
+      If not all min_rates are zero then those that are zeroes will be set to 1.
+  */
+-static void bnx2x_calc_vn_weight_sum(struct bnx2x *bp)
++static void bnx2x_calc_vn_min(struct bnx2x *bp,
++				      struct cmng_init_input *input)
+ {
+ 	int all_zero = 1;
+ 	int vn;
+ 
+-	bp->vn_weight_sum = 0;
+ 	for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++) {
+ 		u32 vn_cfg = bp->mf_config[vn];
+ 		u32 vn_min_rate = ((vn_cfg & FUNC_MF_CFG_MIN_BW_MASK) >>
+@@ -2212,106 +2178,56 @@ static void bnx2x_calc_vn_weight_sum(struct bnx2x *bp)
+ 
+ 		/* Skip hidden vns */
+ 		if (vn_cfg & FUNC_MF_CFG_FUNC_HIDE)
+-			continue;
+-
++			vn_min_rate = 0;
+ 		/* If min rate is zero - set it to 1 */
+-		if (!vn_min_rate)
++		else if (!vn_min_rate)
+ 			vn_min_rate = DEF_MIN_RATE;
+ 		else
+ 			all_zero = 0;
+ 
+-		bp->vn_weight_sum += vn_min_rate;
++		input->vnic_min_rate[vn] = vn_min_rate;
+ 	}
+ 
+ 	/* if ETS or all min rates are zeros - disable fairness */
+ 	if (BNX2X_IS_ETS_ENABLED(bp)) {
+-		bp->cmng.flags.cmng_enables &=
++		input->flags.cmng_enables &=
+ 					~CMNG_FLAGS_PER_PORT_FAIRNESS_VN;
+ 		DP(NETIF_MSG_IFUP, "Fairness will be disabled due to ETS\n");
+ 	} else if (all_zero) {
+-		bp->cmng.flags.cmng_enables &=
++		input->flags.cmng_enables &=
+ 					~CMNG_FLAGS_PER_PORT_FAIRNESS_VN;
+-		DP(NETIF_MSG_IFUP, "All MIN values are zeroes"
+-		   "  fairness will be disabled\n");
++		DP(NETIF_MSG_IFUP,
++		   "All MIN values are zeroes fairness will be disabled\n");
+ 	} else
+-		bp->cmng.flags.cmng_enables |=
++		input->flags.cmng_enables |=
+ 					CMNG_FLAGS_PER_PORT_FAIRNESS_VN;
+ }
+ 
+-static void bnx2x_init_vn_minmax(struct bnx2x *bp, int vn)
++static void bnx2x_calc_vn_max(struct bnx2x *bp, int vn,
++				    struct cmng_init_input *input)
+ {
+-	struct rate_shaping_vars_per_vn m_rs_vn;
+-	struct fairness_vars_per_vn m_fair_vn;
++	u16 vn_max_rate;
+ 	u32 vn_cfg = bp->mf_config[vn];
+-	int func = func_by_vn(bp, vn);
+-	u16 vn_min_rate, vn_max_rate;
+-	int i;
+ 
+-	/* If function is hidden - set min and max to zeroes */
+-	if (vn_cfg & FUNC_MF_CFG_FUNC_HIDE) {
+-		vn_min_rate = 0;
++	if (vn_cfg & FUNC_MF_CFG_FUNC_HIDE)
+ 		vn_max_rate = 0;
+-
+-	} else {
++	else {
+ 		u32 maxCfg = bnx2x_extract_max_cfg(bp, vn_cfg);
+ 
+-		vn_min_rate = ((vn_cfg & FUNC_MF_CFG_MIN_BW_MASK) >>
+-				FUNC_MF_CFG_MIN_BW_SHIFT) * 100;
+-		/* If fairness is enabled (not all min rates are zeroes) and
+-		   if current min rate is zero - set it to 1.
+-		   This is a requirement of the algorithm. */
+-		if (bp->vn_weight_sum && (vn_min_rate == 0))
+-			vn_min_rate = DEF_MIN_RATE;
+-
+-		if (IS_MF_SI(bp))
++		if (IS_MF_SI(bp)) {
+ 			/* maxCfg in percents of linkspeed */
+ 			vn_max_rate = (bp->link_vars.line_speed * maxCfg) / 100;
+-		else
++		} else /* SD modes */
+ 			/* maxCfg is absolute in 100Mb units */
+ 			vn_max_rate = maxCfg * 100;
+ 	}
+ 
+-	DP(NETIF_MSG_IFUP,
+-	   "func %d: vn_min_rate %d  vn_max_rate %d  vn_weight_sum %d\n",
+-	   func, vn_min_rate, vn_max_rate, bp->vn_weight_sum);
+-
+-	memset(&m_rs_vn, 0, sizeof(struct rate_shaping_vars_per_vn));
+-	memset(&m_fair_vn, 0, sizeof(struct fairness_vars_per_vn));
+-
+-	/* global vn counter - maximal Mbps for this vn */
+-	m_rs_vn.vn_counter.rate = vn_max_rate;
+-
+-	/* quota - number of bytes transmitted in this period */
+-	m_rs_vn.vn_counter.quota =
+-				(vn_max_rate * RS_PERIODIC_TIMEOUT_USEC) / 8;
+-
+-	if (bp->vn_weight_sum) {
+-		/* credit for each period of the fairness algorithm:
+-		   number of bytes in T_FAIR (the vn share the port rate).
+-		   vn_weight_sum should not be larger than 10000, thus
+-		   T_FAIR_COEF / (8 * vn_weight_sum) will always be greater
+-		   than zero */
+-		m_fair_vn.vn_credit_delta =
+-			max_t(u32, (vn_min_rate * (T_FAIR_COEF /
+-						   (8 * bp->vn_weight_sum))),
+-			      (bp->cmng.fair_vars.fair_threshold +
+-							MIN_ABOVE_THRESH));
+-		DP(NETIF_MSG_IFUP, "m_fair_vn.vn_credit_delta %d\n",
+-		   m_fair_vn.vn_credit_delta);
+-	}
+-
+-	/* Store it to internal memory */
+-	for (i = 0; i < sizeof(struct rate_shaping_vars_per_vn)/4; i++)
+-		REG_WR(bp, BAR_XSTRORM_INTMEM +
+-		       XSTORM_RATE_SHAPING_PER_VN_VARS_OFFSET(func) + i * 4,
+-		       ((u32 *)(&m_rs_vn))[i]);
+-
+-	for (i = 0; i < sizeof(struct fairness_vars_per_vn)/4; i++)
+-		REG_WR(bp, BAR_XSTRORM_INTMEM +
+-		       XSTORM_FAIRNESS_PER_VN_VARS_OFFSET(func) + i * 4,
+-		       ((u32 *)(&m_fair_vn))[i]);
++	DP(NETIF_MSG_IFUP, "vn %d: vn_max_rate %d\n", vn, vn_max_rate);
++
++	input->vnic_max_rate[vn] = vn_max_rate;
+ }
+ 
++
+ static int bnx2x_get_cmng_fns_mode(struct bnx2x *bp)
+ {
+ 	if (CHIP_REV_IS_SLOW(bp))
+@@ -2353,34 +2269,31 @@ void bnx2x_read_mf_cfg(struct bnx2x *bp)
+ 
+ static void bnx2x_cmng_fns_init(struct bnx2x *bp, u8 read_cfg, u8 cmng_type)
+ {
++	struct cmng_init_input input;
++	memset(&input, 0, sizeof(struct cmng_init_input));
++
++	input.port_rate = bp->link_vars.line_speed;
+ 
+ 	if (cmng_type == CMNG_FNS_MINMAX) {
+ 		int vn;
+ 
+-		/* clear cmng_enables */
+-		bp->cmng.flags.cmng_enables = 0;
+-
+ 		/* read mf conf from shmem */
+ 		if (read_cfg)
+ 			bnx2x_read_mf_cfg(bp);
+ 
+-		/* Init rate shaping and fairness contexts */
+-		bnx2x_init_port_minmax(bp);
+-
+ 		/* vn_weight_sum and enable fairness if not 0 */
+-		bnx2x_calc_vn_weight_sum(bp);
++		bnx2x_calc_vn_min(bp, &input);
+ 
+ 		/* calculate and set min-max rate for each vn */
+ 		if (bp->port.pmf)
+ 			for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++)
+-				bnx2x_init_vn_minmax(bp, vn);
++				bnx2x_calc_vn_max(bp, vn, &input);
+ 
+ 		/* always enable rate shaping and fairness */
+-		bp->cmng.flags.cmng_enables |=
++		input.flags.cmng_enables |=
+ 					CMNG_FLAGS_PER_PORT_RATE_SHAPING_VN;
+-		if (!bp->vn_weight_sum)
+-			DP(NETIF_MSG_IFUP, "All MIN values are zeroes"
+-				   "  fairness will be disabled\n");
++
++		bnx2x_init_cmng(&input, &bp->cmng);
+ 		return;
+ 	}
+ 
 -- 
 1.7.9.rc2
