@@ -1,86 +1,97 @@
-From: Dave Jiang <dave.jiang@intel.com>
-Subject: [PATCH 2/3] ioatdma: DMA copy alignment needed to address IOAT DMA
- silicon errata
-Date: Wed, 04 Apr 2012 16:10:41 -0700
-Message-ID: <20120404231041.20605.16201.stgit@djiang5-linux.ch.intel.com>
-References: <20120404230749.20605.7000.stgit@djiang5-linux.ch.intel.com>
+From: Arvid Brodin <arvid.brodin@enea.com>
+Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
+ Seamless Redundancy
+Date: Thu, 5 Apr 2012 01:09:48 +0200
+Message-ID: <4F7CD4BC.4000006@enea.com>
+References: <4F71BEAD.5080605@enea.com> <20120403113751.21fd0b17@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Dave Jiang <dave.jiang@intel.com>
-To: dan.j.williams@intel.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120404230749.20605.7000.stgit@djiang5-linux.ch.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Bruno Ferreira <balferreira@googlemail.com>,
+	Arvid Brodin <arvid.brodin@xdin.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sestofw01.enea.se ([192.36.1.252]:20339 "HELO mx-3.enea.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1757211Ab2DDXJ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 19:09:59 -0400
+In-Reply-To: <20120403113751.21fd0b17@s6510.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Silicon errata where when RAID and legacy descriptors are mixed, the legacy
-(memcpy and friends) operation must have alignment of 64 bytes to avoid
-hanging. This effects Intel Xeon C55xx, C35xx, E5-2600.
+Stephen Hemminger wrote:
+> On Tue, 27 Mar 2012 15:20:45 +0200
+> Arvid Brodin <arvid.brodin@enea.com> wrote:
+> 
+>> +config NONSTANDARD_HSR
+>> +	bool "HSR: Use efficient tag (breaks HSR standard, read help!)"
+>> +	depends on HSR
+>> +	---help---
+>> +	  The HSR standard specifies a 6-byte HSR tag to be inserted into the
+>> +	  transmitted network frames. This breaks the 32-bit alignment that the
+>> +	  Linux network stack relies on, and would cause kernel panics on
+>> +	  certain architectures. To avoid this, the whole frame payload is
+>> +	  memmoved 2 bytes on reception on these architectures - which is very
+>> +	  inefficient!
+> 
+> This option won't fly. Don't do it.
+> If you need to copy/realign packets on some architecture the stack
+> should be changed to handle it.
 
-Signed-off-by: Dave Jiang <dave.jiang@intel.com>
+Ok. The problems are in net/ipv4/icmp.c. The below patch seems to do
+the trick for me - does it look OK (and if so, should I resend it as
+a normal patch instead of a reply or is this enough)?
+
+Note that I've only triggered this problem in icmp_echo(), but I
+noticed that icmp_timestamp() does the same thing, so I made the change
+there too.
+
+
+[PATCH] net/ipv4/icmp: Fix kernel panic due to unaligned access with HSR on AVR32
+
+icmp_echo() and icmp_timestamp() requires the icmphdr struct to be
+32-bit aligned. This causes a kernel panic on AVR32 when HSR is used,
+since the HSR protocol inserts a 6-byte "HSR tag" into Ethernet frame
+headers, thus changing the alignment.
+
+HSR = IEC 62439-3 High-availability Seamless Redundancy.
+
+Signed-off-by: Arvid Brodin <arvid.brodin@xdin.com>
 ---
+ net/ipv4/icmp.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
- drivers/dma/ioat/dma_v3.c |   41 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 41 insertions(+), 0 deletions(-)
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 2cb2bf8..fdd8097 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -818,7 +818,8 @@ static void icmp_echo(struct sk_buff *skb)
+ 	if (!net->ipv4.sysctl_icmp_echo_ignore_all) {
+ 		struct icmp_bxm icmp_param;
+ 
+-		icmp_param.data.icmph	   = *icmp_hdr(skb);
++		memcpy(&icmp_param.data.icmph, icmp_hdr(skb),
++						sizeof(icmp_param.data.icmph));
+ 		icmp_param.data.icmph.type = ICMP_ECHOREPLY;
+ 		icmp_param.skb		   = skb;
+ 		icmp_param.offset	   = 0;
+@@ -854,7 +855,8 @@ static void icmp_timestamp(struct sk_buff *skb)
+ 	icmp_param.data.times[2] = icmp_param.data.times[1];
+ 	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
+ 		BUG();
+-	icmp_param.data.icmph	   = *icmp_hdr(skb);
++	memcpy(&icmp_param.data.icmph, icmp_hdr(skb),
++						sizeof(icmp_param.data.icmph));
+ 	icmp_param.data.icmph.type = ICMP_TIMESTAMPREPLY;
+ 	icmp_param.data.icmph.code = 0;
+ 	icmp_param.skb		   = skb;
+-- 
+1.6.3.3
 
-diff --git a/drivers/dma/ioat/dma_v3.c b/drivers/dma/ioat/dma_v3.c
-index 2dbf32b..c5cc3ba 100644
---- a/drivers/dma/ioat/dma_v3.c
-+++ b/drivers/dma/ioat/dma_v3.c
-@@ -1147,6 +1147,44 @@ static int ioat3_reset_hw(struct ioat_chan_common *chan)
- 	return ioat2_reset_sync(chan, msecs_to_jiffies(200));
- }
- 
-+static bool is_jf_ioat(struct pci_dev *pdev)
-+{
-+	switch (pdev->device) {
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF0:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF1:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF2:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF3:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF4:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF5:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF6:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF7:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF8:
-+		case PCI_DEVICE_ID_INTEL_IOAT_JSF9:
-+			return true;
-+		default:
-+			return false;
-+	}
-+}
-+
-+static bool is_snb_ioat(struct pci_dev *pdev)
-+{
-+	switch (pdev->device) {
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB0:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB1:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB2:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB3:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB4:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB5:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB6:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB7:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB8:
-+		case PCI_DEVICE_ID_INTEL_IOAT_SNB9:
-+			return true;
-+		default:
-+			return false;
-+	}
-+}
-+
- int __devinit ioat3_dma_probe(struct ioatdma_device *device, int dca)
- {
- 	struct pci_dev *pdev = device->pdev;
-@@ -1167,6 +1205,9 @@ int __devinit ioat3_dma_probe(struct ioatdma_device *device, int dca)
- 	dma->device_alloc_chan_resources = ioat2_alloc_chan_resources;
- 	dma->device_free_chan_resources = ioat2_free_chan_resources;
- 
-+	if (is_jf_ioat(pdev) || is_snb_ioat(pdev))
-+		dma->copy_align = 6;
-+
- 	dma_cap_set(DMA_INTERRUPT, dma->cap_mask);
- 	dma->device_prep_dma_interrupt = ioat3_prep_interrupt_lock;
- 
+
+-- 
+Arvid Brodin
+Enea Services Stockholm AB - since February 16 a part of Xdin in the Alten
+Group. Soon we will be working under the common brand Xdin. Read more at
+www.xdin.com.
