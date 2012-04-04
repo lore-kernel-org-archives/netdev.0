@@ -1,160 +1,278 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH net-next 21/34] tulip_core: stop using net_device.{base_addr,
- irq}.
-Date: Wed, 4 Apr 2012 07:52:06 -0700
-Message-ID: <CANEJEGuOSYCnnyE_uSW9sySn9Ctsn-syEtKPW8VmKOmkMTW4PA@mail.gmail.com>
-References: <cover.1331814082.git.romieu@fr.zoreil.com>
-	<62c6b5fe7ebcbc0d4b5c5ecdc92b9d82e4405b4c.1331814082.git.romieu@fr.zoreil.com>
+From: Jean-Philippe Menil <jean-philippe.menil@univ-nantes.fr>
+Subject: INFO: rcu_sched detected stall on CPU 0 (with whost module)
+Date: Wed, 04 Apr 2012 16:47:04 +0200
+Message-ID: <4F7C5EE8.2040501@univ-nantes.fr>
+Reply-To: jean-philippe.menil@univ-nantes.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:62313 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756354Ab2DDOwH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 10:52:07 -0400
-Received: by obbtb18 with SMTP id tb18so409043obb.19
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 07:52:06 -0700 (PDT)
-In-Reply-To: <62c6b5fe7ebcbc0d4b5c5ecdc92b9d82e4405b4c.1331814082.git.romieu@fr.zoreil.com>
+Received: from smtp-tls1.univ-nantes.fr ([193.52.101.145]:59324 "EHLO
+	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756428Ab2DDO4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 10:56:53 -0400
+Received: from localhost (debian [127.0.0.1])
+	by smtp-tls.univ-nantes.fr (Postfix) with ESMTP id ED8C194E57
+	for <netdev@vger.kernel.org>; Wed,  4 Apr 2012 16:47:04 +0200 (CEST)
+Received: from smtp-tls.univ-nantes.fr ([127.0.0.1])
+	by localhost (smtp-tls1.d101.univ-nantes.fr [127.0.0.1]) (amavisd-new, port 10024)
+	with LMTP id hu6mvVNgNBaQ for <netdev@vger.kernel.org>;
+	Wed,  4 Apr 2012 16:47:04 +0200 (CEST)
+Received: from [172.20.13.5] (antares.cri.univ-nantes.prive [172.20.13.5])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by smtp-tls.univ-nantes.fr (Postfix) with ESMTPSA id D16EC94DB2
+	for <netdev@vger.kernel.org>; Wed,  4 Apr 2012 16:47:04 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 15, 2012 at 6:57 AM, Francois Romieu <romieu@fr.zoreil.com>=
- wrote:
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Grant Grundler <grundler@parisc-linux.org>
+Hi,
 
-Acked-by; Grant Grundler <grundler@parisc-linux.org>
+several times a day, i can observe the following trace:
 
-thanks!
-grant
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600004]=
+=20
+INFO: rcu_sched detected stall on CPU 0 (t=3D6000 jiffies)
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+=20
+Pid: 2487, comm: vhost-2475 Not tainted 3.2.1-dsiun-120113 #55
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+=20
+Call Trace:
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+=20
+<IRQ>  [<ffffffff810ac986>] ? __rcu_pending+0x1e6/0x400
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff810ace3b>] ? rcu_check_callbacks+0x6b/0x1d0
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff810586df>] ? update_process_times+0x3f/0x80
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff8107998b>] ? tick_sched_timer+0x5b/0xb0
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff8106d099>] ? __run_hrtimer+0x69/0x1e0
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff81079930>] ? tick_nohz_handler+0xe0/0xe0
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff81009e85>] ? read_tsc+0x5/0x20
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff8106d9d5>] ? hrtimer_interrupt+0xe5/0x200
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff8101f563>] ? smp_apic_timer_interrupt+0x63/0xa0
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff813ad79e>] ? apic_timer_interrupt+0x6e/0x80
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff812f1d01>] ? __kfree_skb+0x11/0x90
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa00d4437>] ? bnx2_poll_work+0x247/0x1370 [bnx2]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa00d4437>] ? bnx2_poll_work+0x247/0x1370 [bnx2]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff813a6e7c>] ? put_cpu_partial+0x90/0x90
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff8111b453>] ? kmem_cache_free+0x103/0x110
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa00d4437>] ? bnx2_poll_work+0x247/0x1370 [bnx2]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa00d5691>] ? bnx2_poll+0x61/0x264 [bnx2]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff812febd9>] ? net_rx_action+0x119/0x260
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff8104fa1d>] ? __do_softirq+0x9d/0x1f0
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff813aef2c>] ? call_softirq+0x1c/0x30
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff813aef2c>] ? call_softirq+0x1c/0x30
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+=20
+<EOI>  [<ffffffff81004725>] ? do_softirq+0x65/0xa0
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff812ff05e>] ? netif_rx_ni+0x1e/0x30
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa04fb5af>] ? tun_get_user+0x30f/0x4c0 [tun]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa04fb780>] ? tun_sendmsg+0x20/0x30 [tun]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa051426e>] ? handle_tx+0x27e/0x4f0 [vhost_net]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa0511781>] ? vhost_worker+0xc1/0x150 [vhost_net]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffffa05116c0>] ? memory_access_ok.isra.11+0xd0/0xd0 [vhost_net]
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff8106905e>] ? kthread+0x7e/0x90
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff813aee34>] ? kernel_thread_helper+0x4/0x10
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff81068fe0>] ? kthread_worker_fn+0x190/0x190
+Apr  3 19:51:41 ayrshire.u06.univ-nantes.prive kernel: [1659525.600015]=
+ =20
+[<ffffffff813aee30>] ? gs_change+0x13/0x13
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950000]=
+=20
+INFO: rcu_sched detected stall on CPU 0 (t=3D6000 jiffies)
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+=20
+Pid: 2485, comm: vhost-2475 Not tainted 3.2.1-dsiun-120113 #55
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+=20
+Call Trace:
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+=20
+<IRQ>  [<ffffffff810ac986>] ? __rcu_pending+0x1e6/0x400
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff810ace3b>] ? rcu_check_callbacks+0x6b/0x1d0
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff810586df>] ? update_process_times+0x3f/0x80
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff8107998b>] ? tick_sched_timer+0x5b/0xb0
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff8106d099>] ? __run_hrtimer+0x69/0x1e0
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff81079930>] ? tick_nohz_handler+0xe0/0xe0
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff81009e85>] ? read_tsc+0x5/0x20
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff8106d9d5>] ? hrtimer_interrupt+0xe5/0x200
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff8101f563>] ? smp_apic_timer_interrupt+0x63/0xa0
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff8111b1c7>] ? unfreeze_partials+0xc7/0x250
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff813ad79e>] ? apic_timer_interrupt+0x6e/0x80
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff812f1fc5>] ? skb_release_head_state+0xa5/0x110
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff813a6e33>] ? put_cpu_partial+0x47/0x90
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff812f1fc5>] ? skb_release_head_state+0xa5/0x110
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff812f1cf9>] ? __kfree_skb+0x9/0x90
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffffa00d4437>] ? bnx2_poll_work+0x247/0x1370 [bnx2]
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffffa00d5691>] ? bnx2_poll+0x61/0x264 [bnx2]
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff8134e3d0>] ? tcp_init_xmit_timers+0x20/0x20
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff812febd9>] ? net_rx_action+0x119/0x260
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff8104fa1d>] ? __do_softirq+0x9d/0x1f0
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff813aef2c>] ? call_softirq+0x1c/0x30
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+=20
+<EOI>  [<ffffffff81004725>] ? do_softirq+0x65/0xa0
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff812ff05e>] ? netif_rx_ni+0x1e/0x30
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffffa04fb5af>] ? tun_get_user+0x30f/0x4c0 [tun]
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffffa04fb780>] ? tun_sendmsg+0x20/0x30 [tun]
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffffa051426e>] ? handle_tx+0x27e/0x4f0 [vhost_net]
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffffa0511781>] ? vhost_worker+0xc1/0x150 [vhost_net]
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffffa05116c0>] ? memory_access_ok.isra.11+0xd0/0xd0 [vhost_net]
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff8106905e>] ? kthread+0x7e/0x90
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff813aee34>] ? kernel_thread_helper+0x4/0x10
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff81068fe0>] ? kthread_worker_fn+0x190/0x190
+Apr  3 19:59:23 ayrshire.u06.univ-nantes.prive kernel: [1659986.950014]=
+ =20
+[<ffffffff813aee30>] ? gs_change+0x13/0x13
 
-> ---
-> =C2=A0drivers/net/ethernet/dec/tulip/tulip_core.c | =C2=A0 27 +++++++=
-+++++++++-----------
-> =C2=A01 files changed, 16 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/ne=
-t/ethernet/dec/tulip/tulip_core.c
-> index fea3641..25fe117 100644
-> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-> @@ -328,7 +328,7 @@ static void tulip_up(struct net_device *dev)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0udelay(100);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (tulip_debug > 1)
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 netdev_dbg(dev, "t=
-ulip_up(), irq=3D=3D%d\n", dev->irq);
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 netdev_dbg(dev, "t=
-ulip_up(), irq=3D=3D%d\n", tp->pdev->irq);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0iowrite32(tp->rx_ring_dma, ioaddr + CSR3);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0iowrite32(tp->tx_ring_dma, ioaddr + CSR4);
-> @@ -515,11 +515,13 @@ media_picked:
-> =C2=A0static int
-> =C2=A0tulip_open(struct net_device *dev)
-> =C2=A0{
-> + =C2=A0 =C2=A0 =C2=A0 struct tulip_private *tp =3D netdev_priv(dev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0int retval;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0tulip_init_ring (dev);
->
-> - =C2=A0 =C2=A0 =C2=A0 retval =3D request_irq(dev->irq, tulip_interru=
-pt, IRQF_SHARED, dev->name, dev);
-> + =C2=A0 =C2=A0 =C2=A0 retval =3D request_irq(tp->pdev->irq, tulip_in=
-terrupt, IRQF_SHARED,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->name, dev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (retval)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto free_ring=
-;
->
-> @@ -841,7 +843,7 @@ static int tulip_close (struct net_device *dev)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_dbg(dev=
-, "Shutting down ethercard, status was %02x\n",
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 ioread32 (ioaddr + CSR5));
->
-> - =C2=A0 =C2=A0 =C2=A0 free_irq (dev->irq, dev);
-> + =C2=A0 =C2=A0 =C2=A0 free_irq (tp->pdev->irq, dev);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0tulip_free_ring (dev);
->
-> @@ -1489,8 +1491,6 @@ static int __devinit tulip_init_one (struct pci=
-_dev *pdev,
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0INIT_WORK(&tp->media_work, tulip_tbl[tp->c=
-hip_id].media_task);
->
-> - =C2=A0 =C2=A0 =C2=A0 dev->base_addr =3D (unsigned long)ioaddr;
-> -
-> =C2=A0#ifdef CONFIG_TULIP_MWI
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!force_csr0 && (tp->flags & HAS_PCI_MW=
-I))
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0tulip_mwi_conf=
-ig (pdev, dev);
-> @@ -1650,7 +1650,6 @@ static int __devinit tulip_init_one (struct pci=
-_dev *pdev,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0for (i =3D 0; i < 6; i++)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0last_phys_addr=
-[i] =3D dev->dev_addr[i];
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0last_irq =3D irq;
-> - =C2=A0 =C2=A0 =C2=A0 dev->irq =3D irq;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* The lower four bits are the media type.=
- */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (board_idx >=3D 0 =C2=A0&& =C2=A0board_=
-idx < MAX_UNITS) {
-> @@ -1858,7 +1857,8 @@ static int tulip_suspend (struct pci_dev *pdev,=
- pm_message_t state)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0tulip_down(dev);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0netif_device_detach(dev);
-> - =C2=A0 =C2=A0 =C2=A0 free_irq(dev->irq, dev);
-> + =C2=A0 =C2=A0 =C2=A0 /* FIXME: it needlessly adds an error path. */
-> + =C2=A0 =C2=A0 =C2=A0 free_irq(tp->pdev->irq, dev);
->
-> =C2=A0save_state:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_save_state(pdev);
-> @@ -1900,7 +1900,9 @@ static int tulip_resume(struct pci_dev *pdev)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return retval;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> - =C2=A0 =C2=A0 =C2=A0 if ((retval =3D request_irq(dev->irq, tulip_in=
-terrupt, IRQF_SHARED, dev->name, dev))) {
-> + =C2=A0 =C2=A0 =C2=A0 retval =3D request_irq(pdev->irq, tulip_interr=
-upt, IRQF_SHARED,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->name, dev);
-> + =C2=A0 =C2=A0 =C2=A0 if (retval < 0) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("reques=
-t_irq failed in resume\n");
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return retval;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> @@ -1960,11 +1962,14 @@ static void __devexit tulip_remove_one (struc=
-t pci_dev *pdev)
->
-> =C2=A0static void poll_tulip (struct net_device *dev)
-> =C2=A0{
-> + =C2=A0 =C2=A0 =C2=A0 struct tulip_private *tp =3D netdev_priv(dev);
-> + =C2=A0 =C2=A0 =C2=A0 const int irq =3D tp->pdev->irq;
-> +
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* disable_irq here is not very nice, but =
-with the lockless
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 interrupt handler we have no other=
- choice. */
-> - =C2=A0 =C2=A0 =C2=A0 disable_irq(dev->irq);
-> - =C2=A0 =C2=A0 =C2=A0 tulip_interrupt (dev->irq, dev);
-> - =C2=A0 =C2=A0 =C2=A0 enable_irq(dev->irq);
-> + =C2=A0 =C2=A0 =C2=A0 disable_irq(irq);
-> + =C2=A0 =C2=A0 =C2=A0 tulip_interrupt (irq, dev);
-> + =C2=A0 =C2=A0 =C2=A0 enable_irq(irq);
-> =C2=A0}
-> =C2=A0#endif
->
-> --
-> 1.7.7.6
->
+This host run several kvm (with multiple tun/tap devices attached on=20
+bridge) with the vhost module with experimental_zcopytx to 1
+
+Both eth0 and eth2 are BCM5708S, with followinf parameter:
+root@ayrshire:~# ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: on
+udp-fragmentation-offload: off
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: off
+ntuple-filters: off
+receive-hashing: on
+
+root@ayrshire:~# ethtool -i eth0
+driver: bnx2
+version: 2.1.11
+firmware-version: 5.2.7 bc 5.0.5
+bus-info: 0000:04:00.0
+
+Is it a know issue?
+
+Regards
+
+
+--=20
+Jean-Philippe Menil - P=F4le r=E9seau Service IRTS
+DSI Universit=E9 de Nantes
+jean-philippe.menil@univ-nantes.fr
+Tel : 02.53.48.49.27 - Fax : 02.53.48.49.09
