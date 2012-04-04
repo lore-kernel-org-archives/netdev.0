@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V4 net-next 17/26] mv643xx_eth: Support the
+Subject: [PATCH V4 net-next 20/26] r8169: Support the
 	get_ts_info ethtool method.
-Date: Wed,  4 Apr 2012 10:59:32 +0200
-Message-ID: <291bee9d92dd2b3e5f1d564eccab60f0f5a5fb39.1333529506.git.richardcochran@gmail.com>
+Date: Wed,  4 Apr 2012 10:59:35 +0200
+Message-ID: <11e6e5a70178b20784a772ef79068c92d36b0530.1333529506.git.richardcochran@gmail.com>
 References: <cover.1333529504.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,21 +28,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/marvell/mv643xx_eth.c |    1 +
+ drivers/net/ethernet/realtek/r8169.c |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 75af1af..153d332 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1666,6 +1666,7 @@ static const struct ethtool_ops mv643xx_eth_ethtool_ops = {
- 	.get_strings		= mv643xx_eth_get_strings,
- 	.get_ethtool_stats	= mv643xx_eth_get_ethtool_stats,
- 	.get_sset_count		= mv643xx_eth_get_sset_count,
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 27c358c..074a574 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1854,6 +1854,7 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
+ 	.get_strings		= rtl8169_get_strings,
+ 	.get_sset_count		= rtl8169_get_sset_count,
+ 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
 +	.get_ts_info		= ethtool_op_get_ts_info,
  };
  
- 
+ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
 -- 
 1.7.2.5
 
