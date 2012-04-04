@@ -1,65 +1,88 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net V1 1/2] net/bonding: emit address change event also in bond_release
-Date: Wed, 04 Apr 2012 09:57:26 -0700
-Message-ID: <17466.1333558646@death.nxdomain>
-References: <1333529780-28421-1-git-send-email-ogerlitz@mellanox.com> <1333529780-28421-2-git-send-email-ogerlitz@mellanox.com>
-Cc: davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [RFC PATCH 2/2] PID-based packet filtering support
+Date: Wed, 4 Apr 2012 13:01:50 -0400
+Message-ID: <CAAsGZS4Ndue7pVOohEHyWimffZECbjVLF40wiGkGXTswJimPCA@mail.gmail.com>
+References: <cover.1333466900.git.nuno.martins@caixamagica.pt>
+	<19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Alfredo Matos <alfredo.matos@caixamagica.pt>,
+	Paulo Trezentos <paulo.trezentos@caixamagica.pt>
+To: Nuno Martins <nuno.martins@caixamagica.pt>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:59178 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932355Ab2DDQ5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 12:57:50 -0400
-Received: from /spool/local
-	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 4 Apr 2012 10:57:49 -0600
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 0DC84C90052
-	for <netdev@vger.kernel.org>; Wed,  4 Apr 2012 12:57:30 -0400 (EDT)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q34GvUPc213196
-	for <netdev@vger.kernel.org>; Wed, 4 Apr 2012 12:57:30 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q34GvRV3000466
-	for <netdev@vger.kernel.org>; Wed, 4 Apr 2012 12:57:30 -0400
-In-reply-to: <1333529780-28421-2-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:53136 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756854Ab2DDRBv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 13:01:51 -0400
+Received: by dake40 with SMTP id e40so496541dak.11
+        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 10:01:50 -0700 (PDT)
+In-Reply-To: <19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz <ogerlitz@mellanox.com> wrote:
+On Wed, Apr 4, 2012 at 5:16 AM, Nuno Martins
+<nuno.martins@caixamagica.pt> wrote:
 
->From: Shlomo Pongratz <shlomop@mellanox.com>
->
->commit 7d26bb103c4 "bonding: emit event when bonding changes MAC" didn't
->take care to emit the NETDEV_CHANGEADDR event in bond_release, where bonding
->actually changes the mac address (to all zeroes). As a result the neighbours
->aren't deleted by the core networking code (which does so upon getting that
->event).
->
->Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
+> =C2=A0net/pidmonitor/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=
+=A0 =C2=A03 +
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+might make sense to prefix files with 'net' tag. Like: net_pidmonitor,
+net_proc_monitor.c etc. Because proc_monitor is too generic.
 
->---
-> drivers/net/bonding/bond_main.c |    3 +++
-> 1 files changed, 3 insertions(+), 0 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index a20b585..d38f635 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2035,6 +2035,9 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
-> 	write_unlock_bh(&bond->lock);
-> 	unblock_netpoll_tx();
->
->+	if (bond->slave_cnt == 0)
->+		call_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
->+
-> 	bond_compute_features(bond);
-> 	if (!(bond_dev->features & NETIF_F_VLAN_CHALLENGED) &&
-> 	    (old_features & NETIF_F_VLAN_CHALLENGED))
->-- 
->1.7.1
->
+
+> +static int is_equal_packet_info(struct packetInfo *pi,
+
+It should be 'packet_info' and not 'packetInfo'. Init-char convention
+is not used in linux. same goes for portInfo and other structs(if
+any).
+
+
+> +static int insert_address(struct packetInfo *lpi, struct portInfo *p=
+ort_info)
+> +{
+> +
+> + =C2=A0 =C2=A0 =C2=A0 switch (lpi->protocol) {
+> + =C2=A0 =C2=A0 =C2=A0 case IPPROTO_TCP:
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!(port_info->t=
+cp)) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 port_info->tcp =3D kmalloc(sizeof(struct local_addresses_list),=
+ GFP_KERNEL);
+
+Do you think it might make sense to pre-alloc a list? or
+managing/growing that list would add more pain/code than it's worth?
+I'm just thinking in terms of search scalability when memory is
+fragmented and we have lots of nodes in the tree.But I'm sure you
+must've done some light tests.
+
+
+> +static struct portInfo *create_packet_info(struct packetInfo *lpi)
+> +{
+> + =C2=A0 =C2=A0 =C2=A0 struct portInfo *pi =3D NULL;
+> + =C2=A0 =C2=A0 =C2=A0 pi =3D kmalloc(sizeof(*pi), GFP_KERNEL);
+> +
+> + =C2=A0 =C2=A0 =C2=A0 if (!pi)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return NULL;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 pi->port =3D lpi->port;
+> + =C2=A0 =C2=A0 =C2=A0 pi->tcp =3D NULL;
+> + =C2=A0 =C2=A0 =C2=A0 pi->tcp_list_counter =3D 0;
+> + =C2=A0 =C2=A0 =C2=A0 pi->udp =3D NULL;
+> + =C2=A0 =C2=A0 =C2=A0 pi->udp_list_counter =3D 0;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 insert_address(lpi, pi);
+> +
+> + =C2=A0 =C2=A0 =C2=A0 return pi;
+> +}
+> +
+
+Just thinking out loud - what if packet_info and pid were introduced
+as part of struct sock or something? The no need to kmalloc.
+And at the end of the bind/accept/other-calls-you-intercept-via-probes
+you can populate the structs. Then the kprobes could go away too. But
+I know nothing about BPF so I can't really comment for sure.
+
+
+Chetan
