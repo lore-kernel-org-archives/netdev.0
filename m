@@ -1,72 +1,69 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH V4 net-next 00/26] ethtool: support time stamping and
- phc clocks
-Date: Wed, 04 Apr 2012 03:02:28 -0700
-Message-ID: <1333533748.3046.28.camel@jtkirshe-mobl>
-References: <cover.1333529504.git.richardcochran@gmail.com>
-	 <20120404.052916.1495763141439052807.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Commit 8ef874bfc7296fa206eea2ad1e8a426f576bf6f6 has broken ss
+ command
+Date: Wed, 04 Apr 2012 12:21:17 +0200
+Message-ID: <1333534877.18626.566.camel@edumazet-glaptop>
+References: <20120404090312.1B68C6AC03E@msa102.auone-net.jp>
+	 <1333530463.18626.545.camel@edumazet-glaptop>
+	 <20120404100015.D41B162C03E@msa106.auone-net.jp>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-vwcS7Iqh5l3W5VfrJwHX"
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, mporter@solarflare.com,
-	jacob.e.keller@intel.com, john.ronciak@intel.com,
-	e1000-devel@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:13897 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756021Ab2DDKCa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 06:02:30 -0400
-In-Reply-To: <20120404.052916.1495763141439052807.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-vwcS7Iqh5l3W5VfrJwHX
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2012-04-04 at 05:29 -0400, David Miller wrote:
-> From: Richard Cochran <richardcochran@gmail.com>
-> Date: Wed,  4 Apr 2012 10:59:15 +0200
->=20
-> > * Changes in V4:
-> >   - drop two patches requiring out of tree support
-> >   - added Ben's Reviewed-by tag on two commit messages
-> > * Changes in V3:
-> >   - works without ethtool_ops
-> >   - does not require special privileges
-> >   - neaten user space tool output
->=20
-> Applied, let's see if this one compiles :-)
-
-Just to make it clear, I have added the two patches that were dropped in
-v4 of this series (igb & e100) to my queue and plan to push them
-upstream through my tree after validation takes a look at them. :-)
-
---=-vwcS7Iqh5l3W5VfrJwHX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Pavel Emelyanov <xemul@parallels.com>,
+	linux-kernel@vger.kernel.org
+To: Kusanagi Kouichi <slash@ac.auone-net.jp>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120404100015.D41B162C03E@msa106.auone-net.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+On Wed, 2012-04-04 at 19:00 +0900, Kusanagi Kouichi wrote:
+> On 2012-04-04 11:07:43 +0200, Eric Dumazet wrote:
+> > On Wed, 2012-04-04 at 18:03 +0900, Kusanagi Kouichi wrote:
+> > > Since commit 8ef874bfc7296fa206eea2ad1e8a426f576bf6f6 ("sock_diag:
+> > > Move the sock_ code to net/core/"), ss command from iproute package
+> > > doesn't work if INET_DIAG is not enabled.
+> > > 
+> > > $ ss
+> > > State       Recv-Q Send-Q                                             Local Address:Port                                                 Peer Address:Port
+> > > TCPDIAG answers: Operation not supported
+> > > --
+> > 
+> > Try to update your iproute2 package ?
+> 
+> iproute seems up to date.
+> $ ss --version
+> ss utility, iproute2-ss120319
+> 
+> I tried git master commit 4bb00cd2b7525ad7d6cf6bbea945ad6e546873f4.
+> It still fails.
 
-iQIcBAABCgAGBQJPfBw0AAoJEOVv75VaS+3O+FsP/ixpCP9jgxm1YgoKmvfcvYa9
-bIuy7OUrr0SRtlngqNfATu5CXDWeg05OI5r/Dl3C06djRKt7O6JlkKSnypxmZy1U
-rAuyfL0qq2RJTEXT1CwFWEQ/QzN9hNc2XyN1Xk+3k25DO6y/4VqzWlvPw/YnfiMw
-YwVz6OEPAU19pMoVM7VG32+BUPWUqSapYvut1FMS3MSMg57lW4LA2ASo7S9V/BWm
-s3o9dLs9ShKAK+KkrOjfjAu3xeddfz1fGvaqDKkuh+l3zFZJgrKiXqyCyzx2BK81
-xZ16mhp0MUmm4N5H9fjPr0xcVq2NrWGTBK1ojpJhDDhLwzx0kwJaXuCaeifvuX7C
-sAC0fkCSQCPoRYkKZItkfGH2+OrlBMpYRbMCj8Gf99MK4zRSF7yh3mjR0x64gBka
-VBpT6xouzglOGVDTGazh2gqIFupQb44J6cjjJ8AoyGOErgP+rQg91QSwrzrDz7ah
-+LUqN+s8Z/LQmMrmihAtl9qPfGwk7er0CUZShU5KwGQ9c4rwqEosuZKFbeQcLstt
-yYuSte21dXBxisyuFReRmbFbm2vgU3Np0XXKNnlQgww4c7KFj4z5fXAKEUmudLRD
-OI1y1aP8fEFRvyFzIt/97+4YQfl9h+JKzZ6oidVZma/VpUSmFqv2ZJ9KhM9pXKOV
-vYi5fp9vyJxHVi70XTdC
-=cYfg
------END PGP SIGNATURE-----
+Please try this patch :
 
---=-vwcS7Iqh5l3W5VfrJwHX--
+diff --git a/misc/ss.c b/misc/ss.c
+index 5414f75..8c00760 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1534,8 +1534,10 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+ 		.msg_iovlen = f->f ? 3 : 1,
+ 	};
+ 
+-	if (sendmsg(fd, &msg, 0) < 0)
++	if (sendmsg(fd, &msg, 0) < 0) {
++		close(fd);
+ 		return -1;
++	}
+ 
+ 	iov[0] = (struct iovec){
+ 		.iov_base = buf,
+@@ -1589,6 +1591,10 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+ 					fprintf(stderr, "ERROR truncated\n");
+ 				} else {
+ 					errno = -err->error;
++					if (errno == EOPNOTSUPP) {
++						close(fd);
++						return -1;
++					}
+ 					perror("TCPDIAG answers");
+ 				}
+ 				close(fd);
