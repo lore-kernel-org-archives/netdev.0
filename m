@@ -1,7 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V4 net-next 00/26] ethtool: support time stamping and phc clocks
-Date: Wed,  4 Apr 2012 10:59:15 +0200
-Message-ID: <cover.1333529504.git.richardcochran@gmail.com>
+Subject: [PATCH V4 net-next 01/26] phc: Add a method for obtaining the device index.
+Date: Wed,  4 Apr 2012 10:59:16 +0200
+Message-ID: <c80e9d0be719eccf7044d3fe4fbf1ef1d7907dc9.1333529506.git.richardcochran@gmail.com>
+References: <cover.1333529504.git.richardcochran@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Martin Porter <mporter@solarflare.com>,
@@ -11,125 +12,60 @@ Cc: David Miller <davem@davemloft.net>,
 	e1000-devel@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:56171 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752081Ab2DDI7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 04:59:53 -0400
-Received: by wgbdr13 with SMTP id dr13so46815wgb.1
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 01:59:52 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:33404 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752447Ab2DDI74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 04:59:56 -0400
+Received: by wibhq7 with SMTP id hq7so45831wib.1
+        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 01:59:55 -0700 (PDT)
+In-Reply-To: <cover.1333529504.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1333529504.git.richardcochran@gmail.com>
+References: <cover.1333529504.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Changes in V4:
-  - drop two patches requiring out of tree support
-  - added Ben's Reviewed-by tag on two commit messages
-* Changes in V3:
-  - works without ethtool_ops
-  - does not require special privileges
-  - neaten user space tool output
+This commit adds a method that MAC drivers may call in order to find out
+the device number of their associated PTP Hardware Clock.
 
-Support for SO_TIMESTAMPING of network packets and PTP Hardware Clocks
-has been expanding over the last year or two. In an ideal world, every
-host would have exactly one PTP hardware clock, and every Ethernet MAC
-would support SO_TIMESTAMPING on both the transmit and receive paths.
-However, since we do not yet have full coverage for these features,
-user space programs need a way to discover what a given interface
-supports in these two areas.
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/ptp/ptp_clock.c          |    6 ++++++
+ include/linux/ptp_clock_kernel.h |    8 ++++++++
+ 2 files changed, 14 insertions(+), 0 deletions(-)
 
-* PTP Hardware Clocks
-
-  The relationship between the network interfaces and the (possibly
-  multiple) PHC devices is not discoverable except by knowing what
-  hardware you have got and carefully looking into the kernel log.
-
-* SO_TIMESTAMPING
-
-  - Receive software time stamps are implemented in the stack
-    and thus work for all MAC hardware.
-  - Transmit software time stamps are only supported by a dozen
-    drivers or so.
-  - Some special devices support Tx/Rx time stamping in hardware.
-  - None of this is discoverable except by looking into the kernel
-    sources.
-
-This series exposes the hardware and driver capabilities known to user
-space via ethtool. 
-
-Since the PHC code was first merged, this has become the number one
-requested new feature.
-
-The new feature has been tested on the following hardware:
-
-igb       Hardware time stamping in the MAC (but patch awaits out of tree support)
-dp83640   Hardware time stamping in the PHY
-r8169     Software Tx time stamping in the MAC
-
-Thanks,
-Richard
-
-
-Richard Cochran (26):
-  phc: Add a method for obtaining the device index.
-  ethtool: Introduce a method for getting time stamping capabilities.
-  dp83640: Support the get_ts_info ethtool method.
-  gianfar: Support the get_ts_info ethtool method.
-  bfin_mac: Support the get_ts_info ethtool method.
-  ixp4xx_eth: Support the get_ts_info ethtool method.
-  ethtool: Add a common function for drivers with transmit time
-    stamping.
-  ax88796: Support the get_ts_info ethtool method.
-  davinci_emac: Support the get_ts_info ethtool method.
-  dnet: Support the get_ts_info ethtool method.
-  etherh: Support the get_ts_info ethtool method.
-  fec_mpc52xx: Support the get_ts_info ethtool method.
-  fec: Support the get_ts_info ethtool method.
-  fs_enet: Support the get_ts_info ethtool method.
-  ll_temac: Support the get_ts_info ethtool method.
-  macb: Support the get_ts_info ethtool method.
-  mv643xx_eth: Support the get_ts_info ethtool method.
-  pxa168_eth: Support the get_ts_info ethtool method.
-  r6040: Support the get_ts_info ethtool method.
-  r8169: Support the get_ts_info ethtool method.
-  smsc911x: Support the get_ts_info ethtool method.
-  smsc9420: Support the get_ts_info ethtool method.
-  stmmac: Support the get_ts_info ethtool method.
-  tg3: Support the get_ts_info ethtool method.
-  ucc_geth: Support the get_ts_info ethtool method.
-  usbnet: Support the get_ts_info ethtool method.
-
- arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h      |    3 +
- drivers/net/ethernet/8390/ax88796.c                |    1 +
- drivers/net/ethernet/8390/etherh.c                 |    1 +
- drivers/net/ethernet/adi/bfin_mac.c                |   20 +++++++
- drivers/net/ethernet/broadcom/tg3.c                |    1 +
- drivers/net/ethernet/cadence/macb.c                |    1 +
- drivers/net/ethernet/dnet.c                        |    1 +
- drivers/net/ethernet/freescale/fec.c               |    1 +
- drivers/net/ethernet/freescale/fec_mpc52xx.c       |    1 +
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    1 +
- drivers/net/ethernet/freescale/gianfar.h           |    3 +
- drivers/net/ethernet/freescale/gianfar_ethtool.c   |   29 ++++++++++
- drivers/net/ethernet/freescale/gianfar_ptp.c       |    2 +
- drivers/net/ethernet/freescale/ucc_geth_ethtool.c  |    1 +
- drivers/net/ethernet/marvell/mv643xx_eth.c         |    1 +
- drivers/net/ethernet/marvell/pxa168_eth.c          |    1 +
- drivers/net/ethernet/rdc/r6040.c                   |    1 +
- drivers/net/ethernet/realtek/r8169.c               |    1 +
- drivers/net/ethernet/smsc/smsc911x.c               |    1 +
- drivers/net/ethernet/smsc/smsc9420.c               |    1 +
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    1 +
- drivers/net/ethernet/ti/davinci_emac.c             |    1 +
- drivers/net/ethernet/xilinx/ll_temac_main.c        |    1 +
- drivers/net/ethernet/xscale/ixp4xx_eth.c           |   29 ++++++++++
- drivers/net/phy/dp83640.c                          |   31 ++++++++++
- drivers/net/usb/usbnet.c                           |    1 +
- drivers/ptp/ptp_clock.c                            |    6 ++
- drivers/ptp/ptp_ixp46x.c                           |    3 +
- include/linux/ethtool.h                            |   29 ++++++++++
- include/linux/phy.h                                |    3 +
- include/linux/ptp_clock_kernel.h                   |    8 +++
- net/core/ethtool.c                                 |   59 +++++++++++++++++++-
- 32 files changed, 241 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index f519a13..1e528b5 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -304,6 +304,12 @@ void ptp_clock_event(struct ptp_clock *ptp, struct ptp_clock_event *event)
+ }
+ EXPORT_SYMBOL(ptp_clock_event);
+ 
++int ptp_clock_index(struct ptp_clock *ptp)
++{
++	return ptp->index;
++}
++EXPORT_SYMBOL(ptp_clock_index);
++
+ /* module operations */
+ 
+ static void __exit ptp_exit(void)
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index dd2e44f..945704c 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -136,4 +136,12 @@ struct ptp_clock_event {
+ extern void ptp_clock_event(struct ptp_clock *ptp,
+ 			    struct ptp_clock_event *event);
+ 
++/**
++ * ptp_clock_index() - obtain the device index of a PTP clock
++ *
++ * @ptp:    The clock obtained from ptp_clock_register().
++ */
++
++extern int ptp_clock_index(struct ptp_clock *ptp);
++
+ #endif
 -- 
 1.7.2.5
