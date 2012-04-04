@@ -1,165 +1,69 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 09/10] stmmac: MDC clock dynamically based on the csr clock input
-Date: Wed,  4 Apr 2012 16:33:27 +0200
-Message-ID: <1333550008-16500-10-git-send-email-peppe.cavallaro@st.com>
-References: <1333550008-16500-1-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 00/10] stmmac update: March 2012 (v2)
+Date: Wed,  4 Apr 2012 16:33:18 +0200
+Message-ID: <1333550008-16500-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, deepak.sikri@st.com, spear-devel@list.st.com,
 	shiraz.hashim@st.com, viresh.kumar@st.com,
 	srinivas.kandagatla@st.com,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:37408 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756724Ab2DDOee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 10:34:34 -0400
-In-Reply-To: <1333550008-16500-1-git-send-email-peppe.cavallaro@st.com>
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:55405 "EHLO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756546Ab2DDOeG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 10:34:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a specific clk_csr value is passed from the platform
-this means that the CSR Clock Range selection cannot be
-changed at run-time and it is fixed (as reported in the driver
-documentation). Viceversa the driver will try to set the MDC
-clock dynamically according to the actual clock input.
+This patches  update the stmmac and add all the work made
+by Deepak, Srinivas and myself.
 
-Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Reviewed-by: Francesco Virlinzi <francesco.virlinzi@st.com>
-Reviewed-by: David Laight <david.laight@aculab.com>
----
- Documentation/networking/stmmac.txt               |    2 +-
- drivers/net/ethernet/stmicro/stmmac/common.h      |   10 +++++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   40 +++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    4 +-
- 5 files changed, 54 insertions(+), 3 deletions(-)
+This is the version two of these patch series where I reviewed
+some part of the code after some comments and advice, for example
+the IPC setting and the broken 250MHz define... Thx Deepak and David.
 
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index eacb640..ab1e8d7 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -137,7 +137,7 @@ Where:
-  o pbl: the Programmable Burst Length is maximum number of beats to
-        be transferred in one DMA transaction.
-        GMAC also enables the 4xPBL by default.
-- o clk_csr: CSR Clock range selection.
-+ o clk_csr: fixed CSR Clock range selection.
-  o has_gmac: uses the GMAC core.
-  o enh_desc: if sets the MAC will use the enhanced descriptor structure.
-  o tx_coe: core is able to perform the tx csum in HW.
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index b14829f..9e42b5d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -97,6 +97,16 @@ struct stmmac_extra_stats {
- 	unsigned long normal_irq_n;
- };
- 
-+/* CSR Frequency Access Defines*/
-+#define CSR_F_35M	35000000
-+#define CSR_F_60M	60000000
-+#define CSR_F_100M	100000000
-+#define CSR_F_150M	150000000
-+#define CSR_F_250M	250000000
-+#define CSR_F_300M	300000000
-+
-+#define	MAC_CSR_H_FRQ_MASK	0x20
-+
- #define HASH_TABLE_SIZE 64
- #define PAUSE_TIME 0x200
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 7182f15..ddd0769 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -84,6 +84,7 @@ struct stmmac_priv {
- #ifdef CONFIG_HAVE_CLK
- 	struct clk *stmmac_clk;
- #endif
-+	int clk_csr;
- };
- 
- extern int phyaddr;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index ddb47e1..90d5c4c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -163,6 +163,35 @@ static void stmmac_verify_args(void)
- 		pause = PAUSE_TIME;
- }
- 
-+static void stmmac_clk_csr_set(struct stmmac_priv *priv)
-+{
-+#ifdef CONFIG_HAVE_CLK
-+	u32 clk_rate;
-+
-+	clk_rate = clk_get_rate(priv->stmmac_clk);
-+
-+	/* Platform provided default clk_csr would be assumed valid
-+	 * for all other cases except for the below mentioned ones. */
-+	if (!(priv->clk_csr & MAC_CSR_H_FRQ_MASK)) {
-+		if (clk_rate < CSR_F_35M)
-+			priv->clk_csr = STMMAC_CSR_20_35M;
-+		else if ((clk_rate >= CSR_F_35M) && (clk_rate < CSR_F_60M))
-+			priv->clk_csr = STMMAC_CSR_35_60M;
-+		else if ((clk_rate >= CSR_F_60M) && (clk_rate < CSR_F_100M))
-+			priv->clk_csr = STMMAC_CSR_60_100M;
-+		else if ((clk_rate >= CSR_F_100M) && (clk_rate < CSR_F_150M))
-+			priv->clk_csr = STMMAC_CSR_100_150M;
-+		else if ((clk_rate >= CSR_F_150M) && (clk_rate < CSR_F_250M))
-+			priv->clk_csr = STMMAC_CSR_150_250M;
-+		else if ((clk_rate >= CSR_F_250M) && (clk_rate < CSR_F_300M))
-+			priv->clk_csr = STMMAC_CSR_250_300M;
-+	} /* For values higher than the IEEE 802.3 specified frequency
-+	   * we can not estimate the proper divider as it is not known
-+	   * the frequency of clk_csr_i. So we do not change the default
-+	   * divider. */
-+#endif
-+}
-+
- #if defined(STMMAC_XMIT_DEBUG) || defined(STMMAC_RX_DEBUG)
- static void print_pkt(unsigned char *buf, int len)
- {
-@@ -1890,6 +1919,17 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 	if (stmmac_clk_get(priv))
- 		goto error;
- 
-+	/* If a specific clk_csr value is passed from the platform
-+	 * this means that the CSR Clock Range selection cannot be
-+	 * changed at run-time and it is fixed. Viceversa the driver'll try to
-+	 * set the MDC clock dynamically according to the csr actual
-+	 * clock input.
-+	 */
-+	if (!priv->plat->clk_csr)
-+		stmmac_clk_csr_set(priv);
-+	else
-+		priv->clk_csr = priv->plat->clk_csr;
-+
- 	return priv;
- 
- error:
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 1a42014..ade1082 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -70,7 +70,7 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
- 	int data;
- 	u16 regValue = (((phyaddr << 11) & (0x0000F800)) |
- 			((phyreg << 6) & (0x000007C0)));
--	regValue |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
-+	regValue |= MII_BUSY | ((priv->clk_csr & 0xF) << 2);
- 
- 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
- 		return -EBUSY;
-@@ -106,7 +106,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
- 	    (((phyaddr << 11) & (0x0000F800)) | ((phyreg << 6) & (0x000007C0)))
- 	    | MII_WRITE;
- 
--	value |= MII_BUSY | ((priv->plat->clk_csr & 0xF) << 2);
-+	value |= MII_BUSY | ((priv->clk_csr & 0xF) << 2);
- 
- 	/* Wait until any existing MII operation is complete */
- 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+On-Top of these patches (for net-next) I'll resend the EEE support
+reviewed by Ben.
+
+Peppe
+
+P.S.    I maintained the version as March 2012... I'll update it
+	as soon as EEE is added and other fixes provided (for
+	example I'm working to extend perfect filtering for
+	unicast).
+
+Deepak SIKRI (5):
+  stmmac: Define CSUM offload engine Types
+  stmmac: sanitize the rx coe and add the type-1 csum (v2)
+  stmmac: Define MDC clock selection macros
+  stmmac: re-work the internal GMAC DMA platf parameters
+  stmmac: Replace infinite loops by timeouts in mdio r/w
+
+Giuseppe Cavallaro (4):
+  stmmac: add clk management support
+  stmmac: extend CSR Clock Range programming
+  stmmac: MDC clock dynamically based on the csr clock input
+  stmmac: update the driver version March 2012
+
+Srinivas Kandagatla (1):
+  stmmac: Allow stmmac to work with other PHY buses(v3).
+
+ Documentation/networking/stmmac.txt                |   29 +++++-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   19 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |    4 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   42 +++++++-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |   12 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |    6 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |   13 ++-
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |   13 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   48 ++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  109 +++++++++++++++++---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   36 +++++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    3 +-
+ include/linux/stmmac.h                             |   55 ++++++++++-
+ 15 files changed, 335 insertions(+), 57 deletions(-)
+
 -- 
 1.7.4.4
