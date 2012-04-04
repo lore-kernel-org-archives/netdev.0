@@ -1,60 +1,45 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 10/10] bnx2x: Clear MDC/MDIO warning message
-Date: Wed, 4 Apr 2012 14:40:02 +0300
-Message-ID: <1333539602-10117-1-git-send-email-yanivr@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Commit 8ef874bfc7296fa206eea2ad1e8a426f576bf6f6 has broken ss
+ command
+Date: Wed, 04 Apr 2012 11:44:54 +0200
+Message-ID: <1333532694.18626.563.camel@edumazet-glaptop>
+References: <20120404090312.1B68C6AC03E@msa102.auone-net.jp>
+	 <1333530463.18626.545.camel@edumazet-glaptop>
+	 <20120404.052423.998527504342669775.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Yaniv Rosner" <yanivr@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4274 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755930Ab2DDJkI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 05:40:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: slash@ac.auone-net.jp, netdev@vger.kernel.org, xemul@parallels.com,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120404.052423.998527504342669775.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch clears a warning message of "MDC/MDIO access timeout" which may
-appear when interface is loaded due to missing clock setting before resetting
-the LED, and starting periodic function too early.
+On Wed, 2012-04-04 at 05:24 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 04 Apr 2012 11:07:43 +0200
+> 
+> > On Wed, 2012-04-04 at 18:03 +0900, Kusanagi Kouichi wrote:
+> >> Since commit 8ef874bfc7296fa206eea2ad1e8a426f576bf6f6 ("sock_diag:
+> >> Move the sock_ code to net/core/"), ss command from iproute package
+> >> doesn't work if INET_DIAG is not enabled.
+> >> 
+> >> $ ss
+> >> State       Recv-Q Send-Q                                             Local Address:Port                                                 Peer Address:Port
+> >> TCPDIAG answers: Operation not supported
+> >> --
+> > 
+> > Try to update your iproute2 package ?
+> 
+> Well, he doesn't INET_DIAG enabled in his kernel, so no matter what
+> iproute2 version he uses it won't work :-)
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    1 -
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    2 +-
- 2 files changed, 1 insertions(+), 2 deletions(-)
+iproute2 misc/ss.c has a fallback using /proc/net/tcp
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 44556b7..4b05481 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1874,7 +1874,6 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 		 * bnx2x_periodic_task().
- 		 */
- 		smp_mb();
--		queue_delayed_work(bnx2x_wq, &bp->period_task, 0);
- 	} else
- 		bp->port.pmf = 0;
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 7e41682..ad95324 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -12205,10 +12205,10 @@ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
- 	 * Hold it as vars low
- 	 */
- 	 /* clear link led */
-+	bnx2x_set_mdio_clk(bp, params->chip_id, port);
- 	bnx2x_set_led(params, vars, LED_MODE_OFF, 0);
- 
- 	if (reset_ext_phy) {
--		bnx2x_set_mdio_clk(bp, params->chip_id, port);
- 		for (phy_index = EXT_PHY1; phy_index < params->num_phys;
- 		      phy_index++) {
- 			if (params->phy[phy_index].link_reset) {
--- 
-1.7.7.1
+Dont know when this broke.
+
+I guess we should fix ss to cope INET_DIAG being disabled.
+
+tcp_show_netlink() should return -1 instead of 0
