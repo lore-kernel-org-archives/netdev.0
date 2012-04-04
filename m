@@ -1,66 +1,36 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH v3] sky2: copy received packets on inefficient unaligned
- architecture
-Date: Wed, 4 Apr 2012 15:10:27 -0700
-Message-ID: <20120404151027.047c183b@s6510.linuxnetplumber.net>
-References: <20120403.174610.2089715131687430500.davem@davemloft.net>
-	<1333469916.18626.284.camel@edumazet-glaptop>
-	<201204031527.q33FR04i031747@farm-0027.internal.tilera.com>
-	<201204041419.q34EJ49H025297@farm-0012.internal.tilera.com>
-	<20120404114253.5f84d4c8@s6510.linuxnetplumber.net>
-	<4F7CC2AC.5040309@tilera.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net V1 1/2] net/bonding: emit address change event also
+ in bond_release
+Date: Wed, 04 Apr 2012 18:12:06 -0400 (EDT)
+Message-ID: <20120404.181206.1165718268926797089.davem@davemloft.net>
+References: <1333529780-28421-1-git-send-email-ogerlitz@mellanox.com>
+	<1333529780-28421-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F7CC2AC.5040309@tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: roland@kernel.org, netdev@vger.kernel.org, fubar@us.ibm.com,
+	shlomop@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50364 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756985Ab2DDWMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 18:12:18 -0400
+In-Reply-To: <1333529780-28421-2-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Modified from original patch from Chris.
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed,  4 Apr 2012 11:56:19 +0300
 
-The sky2 driver has to have 8 byte alignment of receive buffer
-on some chip versions. On architectures which don't support efficient
-unaligned access this doesn't work very well. The solution is to
-just copy all received packets which is what the driver already
-does for small packets.
+> From: Shlomo Pongratz <shlomop@mellanox.com>
+> 
+> commit 7d26bb103c4 "bonding: emit event when bonding changes MAC" didn't
+> take care to emit the NETDEV_CHANGEADDR event in bond_release, where bonding
+> actually changes the mac address (to all zeroes). As a result the neighbours
+> aren't deleted by the core networking code (which does so upon getting that
+> event).
+> 
+> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
 
-This allows the driver to be used on the Tilera TILEmpower-Gx, since
-the tile architecture doesn't currently handle kernel unaligned accesses,
-just userspace.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Acked-by: Chris Metcalf <cmetcalf@tilera.com>
-
---- a/drivers/net/ethernet/marvell/sky2.c	2012-04-04 08:49:05.954853108 -0700
-+++ b/drivers/net/ethernet/marvell/sky2.c	2012-04-04 15:03:41.725705876 -0700
-@@ -2468,6 +2468,17 @@ static int sky2_change_mtu(struct net_de
- 	return err;
- }
- 
-+static inline bool needs_copy(const struct rx_ring_info *re,
-+			      unsigned length)
-+{
-+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+	/* Some architectures need the IP header to be aligned */
-+	if (!IS_ALIGNED(re->data_addr + ETH_HLEN, sizeof(u32)))
-+		return true;
-+#endif
-+	return length < copybreak;
-+}
-+
- /* For small just reuse existing skb for next receive */
- static struct sk_buff *receive_copy(struct sky2_port *sky2,
- 				    const struct rx_ring_info *re,
-@@ -2605,7 +2616,7 @@ static struct sk_buff *sky2_receive(stru
- 		goto error;
- 
- okay:
--	if (length < copybreak)
-+	if (needs_copy(re, length))
- 		skb = receive_copy(sky2, re, length);
- 	else
- 		skb = receive_new(sky2, re, length);
+Applied.
