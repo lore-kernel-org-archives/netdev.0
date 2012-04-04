@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 04/10] bnx2x: Fix BCM578x0-SFI pre-emphasis settings
-Date: Wed, 4 Apr 2012 14:28:57 +0300
-Message-ID: <1333538942-9904-5-git-send-email-yanivr@broadcom.com>
+Subject: [net 07/10] bnx2x: Fix BCM84833 PHY FW version presentation
+Date: Wed, 4 Apr 2012 14:29:00 +0300
+Message-ID: <1333538942-9904-8-git-send-email-yanivr@broadcom.com>
 References: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,43 +13,31 @@ To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:2063 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755930Ab2DDJ3f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 05:29:35 -0400
+	id S1756110Ab2DDJ3j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 05:29:39 -0400
 In-Reply-To: <1333538942-9904-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix 578x0-SFI pre-emphasis settings per HW recommendations to achieve better
-link strength.
-
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index ce0b0c2..1e2fea3 100644
+index 732b4c8..b576a3a 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -3994,13 +3994,13 @@ static void bnx2x_warpcore_set_10G_XFI(struct bnx2x_phy *phy,
+@@ -9435,8 +9435,7 @@ static void bnx2x_save_848xx_spirom_version(struct bnx2x_phy *phy,
  
+ 	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) {
+ 		bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD, 0x400f, &fw_ver1);
+-		bnx2x_save_spirom_version(bp, port,
+-				((fw_ver1 & 0xf000)>>5) | (fw_ver1 & 0x7f),
++		bnx2x_save_spirom_version(bp, port, fw_ver1 & 0xfff,
+ 				phy->ver_addr);
  	} else {
- 		misc1_val |= 0x9;
--		tap_val = ((0x12 << MDIO_WC_REG_TX_FIR_TAP_POST_TAP_OFFSET) |
--			   (0x2d << MDIO_WC_REG_TX_FIR_TAP_MAIN_TAP_OFFSET) |
--			   (0x00 << MDIO_WC_REG_TX_FIR_TAP_PRE_TAP_OFFSET));
-+		tap_val = ((0x0f << MDIO_WC_REG_TX_FIR_TAP_POST_TAP_OFFSET) |
-+			   (0x2b << MDIO_WC_REG_TX_FIR_TAP_MAIN_TAP_OFFSET) |
-+			   (0x02 << MDIO_WC_REG_TX_FIR_TAP_PRE_TAP_OFFSET));
- 		tx_driver_val =
--		      ((0x02 << MDIO_WC_REG_TX0_TX_DRIVER_POST2_COEFF_OFFSET) |
-+		      ((0x03 << MDIO_WC_REG_TX0_TX_DRIVER_POST2_COEFF_OFFSET) |
- 		       (0x02 << MDIO_WC_REG_TX0_TX_DRIVER_IDRIVER_OFFSET) |
--		       (0x02 << MDIO_WC_REG_TX0_TX_DRIVER_IPRE_DRIVER_OFFSET));
-+		       (0x06 << MDIO_WC_REG_TX0_TX_DRIVER_IPRE_DRIVER_OFFSET));
- 	}
- 	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
- 			 MDIO_WC_REG_SERDESDIGITAL_MISC1, misc1_val);
+ 		/* For 32-bit registers in 848xx, access via MDIO2ARM i/f. */
 -- 
 1.7.7.1
