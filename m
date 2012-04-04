@@ -1,37 +1,31 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] vxge: Convert macro to inline function
-Date: Wed, 04 Apr 2012 15:37:55 -0700
-Message-ID: <1333579075.23520.19.camel@joe2Laptop>
-References: <1333489992.2695.17.camel@joe2Laptop>
-	 <20120403.175837.1897033408784057713.davem@davemloft.net>
-	 <1333491271.2695.20.camel@joe2Laptop>
-	 <20120403.181830.799733266830291210.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] stmmac: re-add IFF_UNICAST_FLT for dwmac1000
+Date: Wed, 04 Apr 2012 18:38:53 -0400 (EDT)
+Message-ID: <20120404.183853.2043289712785677775.davem@davemloft.net>
+References: <1333527181-17279-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: peppe.cavallaro@st.com, rayagond@vayavyalabs.com,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:59171 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757050Ab2DDWh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 18:37:57 -0400
-In-Reply-To: <20120403.181830.799733266830291210.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50607 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757050Ab2DDWkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 18:40:04 -0400
+In-Reply-To: <1333527181-17279-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-03 at 18:18 -0400, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 03 Apr 2012 15:14:31 -0700
-> > Convert the macro to inline function to check the arguments.
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> > ---
-> >> Longer term I'd much rather see this turned into an inline
-> >> function with proper type checking etc.
-> > Something like this?
-> Yep.
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed,  4 Apr 2012 10:13:01 +0200
 
-I did sign the patch.
-I was intending that you could apply it.
-Do you want a resend?
+> In commit (bfab27a stmmac: add the experimental PCI support) the
+> IFF_UNICAST_FLT flag has been removed from the stmmac_mac_device_setup()
+> function. This patch re-adds the flag.
+> 
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+
+Applied, thanks.
