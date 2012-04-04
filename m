@@ -1,258 +1,263 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 4/10] bnx2x: added support for working with one
- msix irq.
-Date: Wed, 4 Apr 2012 07:41:26 +0300
-Message-ID: <1333514492-20425-5-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 5/10] bnx2x: Add remote-fault link detection
+Date: Wed, 4 Apr 2012 07:41:27 +0300
+Message-ID: <1333514492-20425-6-git-send-email-yuvalmin@broadcom.com>
 References: <1333514492-20425-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Dmitry Kravkov" <dmitry@broadcom.com>,
+Cc: eilong@broadcom.com, "Yaniv Rosner" <yaniv.rosner@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4903 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4898 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752213Ab2DDErZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 00:47:25 -0400
+	id S1752213Ab2DDEr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 00:47:28 -0400
 In-Reply-To: <1333514492-20425-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+From: Yaniv Rosner <yaniv.rosner@broadcom.com>
 
-Until now, the bnx2x driver needed at least 2 available msix interrupt
-vectors in order to use msix. This patch add the possibility of configuring
-msix when only one interrupt vector is available.
-Notice this patch contains lines with over 80 characters, as it keeps print
-strings in a single line.
+Restore remote-faule detection, which periodically checks for
+remote-fault on the MAC layer. In case physical link appear to be
+up but fault is set, it will provide a link down indication, and
+when the fault is cleared, it will indicate link up again.
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |   66 +++++++++++++++-------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |    4 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   20 ++++--
- 4 files changed, 61 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   69 ++++++++++++++++------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h |    3 +
+ 2 files changed, 53 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index e37161f..ae0dcd4 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1293,6 +1293,7 @@ struct bnx2x {
- #define NO_ISCSI_FLAG			(1 << 14)
- #define NO_FCOE_FLAG			(1 << 15)
- #define BC_SUPPORTS_PFC_STATS		(1 << 17)
-+#define USING_SINGLE_MSIX_FLAG		(1 << 20)
- 
- #define NO_ISCSI(bp)		((bp)->flags & NO_ISCSI_FLAG)
- #define NO_ISCSI_OOO(bp)	((bp)->flags & NO_ISCSI_OOO_FLAG)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 0a95242..98b82eb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1211,16 +1211,15 @@ static void bnx2x_free_msix_irqs(struct bnx2x *bp, int nvecs)
- 
- void bnx2x_free_irq(struct bnx2x *bp)
- {
--	if (bp->flags & USING_MSIX_FLAG)
-+	if (bp->flags & USING_MSIX_FLAG &&
-+	    !(bp->flags & USING_SINGLE_MSIX_FLAG))
- 		bnx2x_free_msix_irqs(bp, BNX2X_NUM_ETH_QUEUES(bp) +
- 				     CNIC_PRESENT + 1);
--	else if (bp->flags & USING_MSI_FLAG)
--		free_irq(bp->pdev->irq, bp->dev);
- 	else
--		free_irq(bp->pdev->irq, bp->dev);
-+		free_irq(bp->dev->irq, bp->dev);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index beb4cdb..4df6199 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -6440,7 +6440,6 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 			NIG_STATUS_XGXS0_LINK_STATUS |
+ 			NIG_STATUS_SERDES0_LINK_STATUS |
+ 			NIG_MASK_MI_INT));
+-	bnx2x_update_mng(params, vars->link_status);
+ 	return rc;
  }
  
--int bnx2x_enable_msix(struct bnx2x *bp)
-+int __devinit bnx2x_enable_msix(struct bnx2x *bp)
+@@ -6525,7 +6524,7 @@ static int bnx2x_update_link_up(struct link_params *params,
+ 				u8 link_10g)
  {
- 	int msix_vec = 0, i, rc, req_cnt;
- 
-@@ -1260,8 +1259,8 @@ int bnx2x_enable_msix(struct bnx2x *bp)
- 		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], rc);
- 
- 		if (rc) {
--			BNX2X_DEV_INFO("MSI-X is not attainable  rc %d\n", rc);
--			return rc;
-+			BNX2X_DEV_INFO("MSI-X is not attainable rc %d\n", rc);
-+			goto no_msix;
- 		}
- 		/*
- 		 * decrease number of queues by number of unallocated entries
-@@ -1269,18 +1268,34 @@ int bnx2x_enable_msix(struct bnx2x *bp)
- 		bp->num_queues -= diff;
- 
- 		BNX2X_DEV_INFO("New queue configuration set: %d\n",
--				  bp->num_queues);
--	} else if (rc) {
--		/* fall to INTx if not enough memory */
--		if (rc == -ENOMEM)
--			bp->flags |= DISABLE_MSI_FLAG;
-+			       bp->num_queues);
-+	} else if (rc > 0) {
-+		/* Get by with single vector */
-+		rc = pci_enable_msix(bp->pdev, &bp->msix_table[0], 1);
-+		if (rc) {
-+			BNX2X_DEV_INFO("Single MSI-X is not attainable rc %d\n",
-+				       rc);
-+			goto no_msix;
-+		}
-+
-+		BNX2X_DEV_INFO("Using single MSI-X vector\n");
-+		bp->flags |= USING_SINGLE_MSIX_FLAG;
-+
-+	} else if (rc < 0) {
- 		BNX2X_DEV_INFO("MSI-X is not attainable  rc %d\n", rc);
--		return rc;
-+		goto no_msix;
- 	}
- 
- 	bp->flags |= USING_MSIX_FLAG;
- 
- 	return 0;
-+
-+no_msix:
-+	/* fall to INTx if not enough memory */
-+	if (rc == -ENOMEM)
-+		bp->flags |= DISABLE_MSI_FLAG;
-+
-+	return rc;
- }
- 
- static int bnx2x_req_msix_irqs(struct bnx2x *bp)
-@@ -1342,22 +1357,26 @@ int bnx2x_enable_msi(struct bnx2x *bp)
- static int bnx2x_req_irq(struct bnx2x *bp)
- {
- 	unsigned long flags;
--	int rc;
-+	unsigned int irq;
- 
--	if (bp->flags & USING_MSI_FLAG)
-+	if (bp->flags & (USING_MSI_FLAG | USING_MSIX_FLAG))
- 		flags = 0;
- 	else
- 		flags = IRQF_SHARED;
- 
--	rc = request_irq(bp->pdev->irq, bnx2x_interrupt, flags,
--			 bp->dev->name, bp->dev);
--	return rc;
-+	if (bp->flags & USING_MSIX_FLAG)
-+		irq = bp->msix_table[0].vector;
-+	else
-+		irq = bp->pdev->irq;
-+
-+	return request_irq(irq, bnx2x_interrupt, flags, bp->dev->name, bp->dev);
- }
- 
- static inline int bnx2x_setup_irqs(struct bnx2x *bp)
- {
+ 	struct bnx2x *bp = params->bp;
+-	u8 port = params->port;
++	u8 phy_idx, port = params->port;
  	int rc = 0;
--	if (bp->flags & USING_MSIX_FLAG) {
-+	if (bp->flags & USING_MSIX_FLAG &&
-+	    !(bp->flags & USING_SINGLE_MSIX_FLAG)) {
- 		rc = bnx2x_req_msix_irqs(bp);
- 		if (rc)
- 			return rc;
-@@ -1370,8 +1389,13 @@ static inline int bnx2x_setup_irqs(struct bnx2x *bp)
- 		}
- 		if (bp->flags & USING_MSI_FLAG) {
- 			bp->dev->irq = bp->pdev->irq;
--			netdev_info(bp->dev, "using MSI  IRQ %d\n",
--			       bp->pdev->irq);
-+			netdev_info(bp->dev, "using MSI IRQ %d\n",
-+				    bp->dev->irq);
+ 
+ 	vars->link_status |= (LINK_STATUS_LINK_UP |
+@@ -6589,6 +6588,14 @@ static int bnx2x_update_link_up(struct link_params *params,
+ 
+ 	/* update shared memory */
+ 	bnx2x_update_mng(params, vars->link_status);
++
++	/* Check remote fault */
++	for (phy_idx = INT_PHY; phy_idx < MAX_PHYS; phy_idx++) {
++		if (params->phy[phy_idx].flags & FLAGS_TX_ERROR_CHECK) {
++			bnx2x_check_half_open_conn(params, vars, 0);
++			break;
 +		}
-+		if (bp->flags & USING_MSIX_FLAG) {
-+			bp->dev->irq = bp->msix_table[0].vector;
-+			netdev_info(bp->dev, "using MSIX IRQ %d\n",
-+				    bp->dev->irq);
++	}
+ 	msleep(20);
+ 	return rc;
+ }
+@@ -11028,7 +11035,8 @@ static struct bnx2x_phy phy_warpcore = {
+ 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT,
+ 	.addr		= 0xff,
+ 	.def_md_devad	= 0,
+-	.flags		= FLAGS_HW_LOCK_REQUIRED,
++	.flags		= (FLAGS_HW_LOCK_REQUIRED |
++			   FLAGS_TX_ERROR_CHECK),
+ 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.mdio_ctrl	= 0,
+@@ -11185,7 +11193,8 @@ static struct bnx2x_phy phy_8726 = {
+ 	.addr		= 0xff,
+ 	.def_md_devad	= 0,
+ 	.flags		= (FLAGS_HW_LOCK_REQUIRED |
+-			   FLAGS_INIT_XGXS_FIRST),
++			   FLAGS_INIT_XGXS_FIRST |
++			   FLAGS_TX_ERROR_CHECK),
+ 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.mdio_ctrl	= 0,
+@@ -11216,7 +11225,8 @@ static struct bnx2x_phy phy_8727 = {
+ 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727,
+ 	.addr		= 0xff,
+ 	.def_md_devad	= 0,
+-	.flags		= FLAGS_FAN_FAILURE_DET_REQ,
++	.flags		= (FLAGS_FAN_FAILURE_DET_REQ |
++			   FLAGS_TX_ERROR_CHECK),
+ 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.mdio_ctrl	= 0,
+@@ -11281,8 +11291,9 @@ static struct bnx2x_phy phy_84823 = {
+ 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84823,
+ 	.addr		= 0xff,
+ 	.def_md_devad	= 0,
+-	.flags		= FLAGS_FAN_FAILURE_DET_REQ |
+-			  FLAGS_REARM_LATCH_SIGNAL,
++	.flags		= (FLAGS_FAN_FAILURE_DET_REQ |
++			   FLAGS_REARM_LATCH_SIGNAL |
++			   FLAGS_TX_ERROR_CHECK),
+ 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.mdio_ctrl	= 0,
+@@ -11317,8 +11328,9 @@ static struct bnx2x_phy phy_84833 = {
+ 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833,
+ 	.addr		= 0xff,
+ 	.def_md_devad	= 0,
+-	.flags		= FLAGS_FAN_FAILURE_DET_REQ |
+-			    FLAGS_REARM_LATCH_SIGNAL,
++	.flags		= (FLAGS_FAN_FAILURE_DET_REQ |
++			   FLAGS_REARM_LATCH_SIGNAL |
++			   FLAGS_TX_ERROR_CHECK),
+ 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
+ 	.mdio_ctrl	= 0,
+@@ -11863,6 +11875,10 @@ int bnx2x_phy_probe(struct link_params *params)
+ 		if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_NOT_CONN)
+ 			break;
+ 
++		if (params->feature_config_flags &
++		    FEATURE_CONFIG_DISABLE_REMOTE_FAULT_DET)
++			phy->flags &= ~FLAGS_TX_ERROR_CHECK;
++
+ 		sync_offset = params->shmem_base +
+ 			offsetof(struct shmem_region,
+ 			dev_info.port_hw_config[params->port].media_type);
+@@ -12086,6 +12102,7 @@ int bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
+ 		bnx2x_link_int_enable(params);
+ 		break;
+ 	}
++	bnx2x_update_mng(params, vars->link_status);
+ 	return 0;
+ }
+ 
+@@ -12703,7 +12720,8 @@ static void bnx2x_check_over_curr(struct link_params *params,
+ }
+ 
+ static void bnx2x_analyze_link_error(struct link_params *params,
+-				     struct link_vars *vars, u32 lss_status)
++				     struct link_vars *vars, u32 lss_status,
++				     u8 notify)
+ {
+ 	struct bnx2x *bp = params->bp;
+ 	/* Compare new value with previous value */
+@@ -12726,6 +12744,9 @@ static void bnx2x_analyze_link_error(struct link_params *params,
+ 		vars->link_status &= ~LINK_STATUS_LINK_UP;
+ 		vars->link_up = 0;
+ 		vars->phy_flags |= PHY_HALF_OPEN_CONN_FLAG;
++
++		/* activate nig drain */
++		REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 1);
+ 		/*
+ 		 * Set LED mode to off since the PHY doesn't know about these
+ 		 * errors
+@@ -12737,7 +12758,11 @@ static void bnx2x_analyze_link_error(struct link_params *params,
+ 		vars->link_up = 1;
+ 		vars->phy_flags &= ~PHY_HALF_OPEN_CONN_FLAG;
+ 		led_mode = LED_MODE_OPER;
++
++		/* Clear nig drain */
++		REG_WR(bp, NIG_REG_EGRESS_DRAIN0_MODE + params->port*4, 0);
+ 	}
++	bnx2x_sync_link(params, vars);
+ 	/* Update the LED according to the link state */
+ 	bnx2x_set_led(params, vars, led_mode, SPEED_10000);
+ 
+@@ -12746,7 +12771,8 @@ static void bnx2x_analyze_link_error(struct link_params *params,
+ 
+ 	/* C. Trigger General Attention */
+ 	vars->periodic_flags |= PERIODIC_FLAGS_LINK_EVENT;
+-	bnx2x_notify_link_changed(bp);
++	if (notify)
++		bnx2x_notify_link_changed(bp);
+ }
+ 
+ /******************************************************************************
+@@ -12758,15 +12784,17 @@ static void bnx2x_analyze_link_error(struct link_params *params,
+ *	a fault, for example, due to break in the TX side of fiber.
+ *
+ ******************************************************************************/
+-static void bnx2x_check_half_open_conn(struct link_params *params,
+-				       struct link_vars *vars)
++int bnx2x_check_half_open_conn(struct link_params *params,
++				struct link_vars *vars,
++				u8 notify)
+ {
+ 	struct bnx2x *bp = params->bp;
+ 	u32 lss_status = 0;
+ 	u32 mac_base;
+ 	/* In case link status is physically up @ 10G do */
+-	if ((vars->phy_flags & PHY_PHYSICAL_LINK_FLAG) == 0)
+-		return;
++	if (((vars->phy_flags & PHY_PHYSICAL_LINK_FLAG) == 0) ||
++	    (REG_RD(bp, NIG_REG_EGRESS_EMAC0_PORT + params->port*4)))
++		return 0;
+ 
+ 	if (CHIP_IS_E3(bp) &&
+ 	    (REG_RD(bp, MISC_REG_RESET_REG_2) &
+@@ -12787,7 +12815,7 @@ static void bnx2x_check_half_open_conn(struct link_params *params,
+ 		if (REG_RD(bp, mac_base + XMAC_REG_RX_LSS_STATUS))
+ 			lss_status = 1;
+ 
+-		bnx2x_analyze_link_error(params, vars, lss_status);
++		bnx2x_analyze_link_error(params, vars, lss_status, notify);
+ 	} else if (REG_RD(bp, MISC_REG_RESET_REG_2) &
+ 		   (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << params->port)) {
+ 		/* Check E1X / E2 BMAC */
+@@ -12804,18 +12832,21 @@ static void bnx2x_check_half_open_conn(struct link_params *params,
+ 		REG_RD_DMAE(bp, mac_base + lss_status_reg, wb_data, 2);
+ 		lss_status = (wb_data[0] > 0);
+ 
+-		bnx2x_analyze_link_error(params, vars, lss_status);
++		bnx2x_analyze_link_error(params, vars, lss_status, notify);
+ 	}
++	return 0;
+ }
+ 
+ void bnx2x_period_func(struct link_params *params, struct link_vars *vars)
+ {
+-	struct bnx2x *bp = params->bp;
+ 	u16 phy_idx;
++	struct bnx2x *bp = params->bp;
+ 	for (phy_idx = INT_PHY; phy_idx < MAX_PHYS; phy_idx++) {
+ 		if (params->phy[phy_idx].flags & FLAGS_TX_ERROR_CHECK) {
+ 			bnx2x_set_aer_mmd(params, &params->phy[phy_idx]);
+-			bnx2x_check_half_open_conn(params, vars);
++			if (bnx2x_check_half_open_conn(params, vars, 1) !=
++			    0)
++				DP(NETIF_MSG_LINK, "Fault detection failed\n");
+ 			break;
  		}
  	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+index 7ba557a..9e2eed8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+@@ -254,6 +254,7 @@ struct link_params {
+ #define FEATURE_CONFIG_BC_SUPPORTS_DUAL_PHY_OPT_MDL_VRFY	(1<<3)
+ #define FEATURE_CONFIG_AUTOGREEEN_ENABLED			(1<<9)
+ #define FEATURE_CONFIG_BC_SUPPORTS_SFP_TX_DISABLED		(1<<10)
++#define FEATURE_CONFIG_DISABLE_REMOTE_FAULT_DET		(1<<11)
+ 	/* Will be populated during common init */
+ 	struct bnx2x_phy phy[MAX_PHYS];
  
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 8b16338..b0d0c69 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -482,7 +482,7 @@ void bnx2x_netif_start(struct bnx2x *bp);
-  * fills msix_table, requests vectors, updates num_queues
-  * according to number of available vectors.
-  */
--int bnx2x_enable_msix(struct bnx2x *bp);
-+int __devinit bnx2x_enable_msix(struct bnx2x *bp);
+@@ -493,4 +494,6 @@ int bnx2x_sfp_module_detection(struct bnx2x_phy *phy,
  
- /**
-  * bnx2x_enable_msi - request msi mode from OS, updated internals accordingly
-@@ -840,7 +840,7 @@ static inline void bnx2x_disable_msi(struct bnx2x *bp)
- {
- 	if (bp->flags & USING_MSIX_FLAG) {
- 		pci_disable_msix(bp->pdev);
--		bp->flags &= ~USING_MSIX_FLAG;
-+		bp->flags &= ~(USING_MSIX_FLAG | USING_SINGLE_MSIX_FLAG);
- 	} else if (bp->flags & USING_MSI_FLAG) {
- 		pci_disable_msi(bp->pdev);
- 		bp->flags &= ~USING_MSI_FLAG;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 16de19f..c5f85ad 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -1333,8 +1333,9 @@ static void bnx2x_hc_int_enable(struct bnx2x *bp)
- static void bnx2x_igu_int_enable(struct bnx2x *bp)
- {
- 	u32 val;
--	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
--	int msi = (bp->flags & USING_MSI_FLAG) ? 1 : 0;
-+	bool msix = (bp->flags & USING_MSIX_FLAG) ? true : false;
-+	bool single_msix = (bp->flags & USING_SINGLE_MSIX_FLAG) ? true : false;
-+	bool msi = (bp->flags & USING_MSI_FLAG) ? true : false;
+ void bnx2x_period_func(struct link_params *params, struct link_vars *vars);
  
- 	val = REG_RD(bp, IGU_REG_PF_CONFIGURATION);
- 
-@@ -1344,6 +1345,9 @@ static void bnx2x_igu_int_enable(struct bnx2x *bp)
- 		val |= (IGU_PF_CONF_FUNC_EN |
- 			IGU_PF_CONF_MSI_MSIX_EN |
- 			IGU_PF_CONF_ATTN_BIT_EN);
-+
-+		if (single_msix)
-+			val |= IGU_PF_CONF_SINGLE_ISR_EN;
- 	} else if (msi) {
- 		val &= ~IGU_PF_CONF_INT_LINE_EN;
- 		val |= (IGU_PF_CONF_FUNC_EN |
-@@ -7144,7 +7148,7 @@ static void __devinit bnx2x_set_int_mode(struct bnx2x *bp)
- 		BNX2X_DEV_INFO("set number of queues to 1\n");
- 		break;
- 	default:
--		/* Set number of queues according to bp->multi_mode value */
-+		/* Set number of queues for MSI-X mode */
- 		bnx2x_set_num_queues(bp);
- 
- 		BNX2X_DEV_INFO("set number of queues to %d\n", bp->num_queues);
-@@ -7153,15 +7157,17 @@ static void __devinit bnx2x_set_int_mode(struct bnx2x *bp)
- 		 * so try to enable MSI-X with the requested number of fp's
- 		 * and fallback to MSI or legacy INTx with one fp
- 		 */
--		if (bnx2x_enable_msix(bp)) {
--			/* failed to enable MSI-X */
--			BNX2X_DEV_INFO("Failed to enable MSI-X (%d), set number of queues to %d\n",
-+		if (bnx2x_enable_msix(bp) ||
-+		    bp->flags & USING_SINGLE_MSIX_FLAG) {
-+			/* failed to enable multiple MSI-X */
-+			BNX2X_DEV_INFO("Failed to enable multiple MSI-X (%d), set number of queues to %d\n",
- 				       bp->num_queues, 1 + NON_ETH_CONTEXT_USE);
- 
- 			bp->num_queues = 1 + NON_ETH_CONTEXT_USE;
- 
- 			/* Try to enable MSI */
--			if (!(bp->flags & DISABLE_MSI_FLAG))
-+			if (!(bp->flags & USING_SINGLE_MSIX_FLAG) &&
-+			    !(bp->flags & DISABLE_MSI_FLAG))
- 				bnx2x_enable_msi(bp);
- 		}
- 		break;
++int bnx2x_check_half_open_conn(struct link_params *params,
++			       struct link_vars *vars, u8 notify);
+ #endif /* BNX2X_LINK_H */
 -- 
 1.7.9.rc2
