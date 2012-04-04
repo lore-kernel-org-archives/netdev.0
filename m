@@ -1,91 +1,128 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V6 4/8] net/mlx4_en: sk_prio <=> UP for untagged traffic
-Date: Wed,  4 Apr 2012 13:58:00 +0300
-Message-ID: <1333537084-9186-5-git-send-email-amirv@mellanox.com>
-References: <1333537084-9186-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V6 0/8] net/mlx4_en: DCB QoS support
+Date: Wed,  4 Apr 2012 13:57:56 +0300
+Message-ID: <1333537084-9186-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Oren Duer <oren@mellanox.com>,
 	Amir Vadai <amirv@dev.mellanox.co.il>,
-	Amir Vadai <amirv@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:46127 "HELO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756115Ab2DDK6R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 06:58:17 -0400
-In-Reply-To: <1333537084-9186-1-git-send-email-amirv@mellanox.com>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:43153 "HELO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756137Ab2DDK6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 06:58:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since vlan egress map is only good for tagged traffic, need to have other
-mapping to be used by untagged traffic.
-For that, the driver uses sch_mqprio mapping. This mapping could be set by
-using tc tool from iproute2 package.
-Mapped UP will be used by the HW for QoS purposes, but won't go out on the
-wire.
+DCBX version 802.1qaz is supported.
+User Priority (UP) is set in QP context instead of in WQE (QP Work Queue
+Element), which means that all traffic from a queue will have the same UP.
+UP is also set for untagged traffic to be able to classify such traffic too.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Mapping from sk_prio to User Priority is done by sch_mqprio mapping. Although
+confusingly sch_mqprio maps sk_prio to something called TC, it is not related
+to DCBX's TC, and is interpreted by mlx4_en driver as UP.
+
+User can set maximal BW for an ETS TC. This could be done by a new optional
+attribute added to DCB_ATTR_IEEE called DCBNL DCB_ATTR_IEEE_MAXRATE. It accept
+an array of 8 64 bits values, 1 for every ETS TC. Units are in Kbps.
+
+CC: John Fastabend <john.r.fastabend@intel.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   18 ++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    2 +-
- 2 files changed, 19 insertions(+), 1 deletions(-)
+Changes from V5:
+- Patch 7/8 Add an optional max rate attribute to DCBNL
+  - Do not use NLA_PUT macro
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 107f005..35003ad 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -45,6 +45,14 @@
- #include "mlx4_en.h"
- #include "en_port.h"
- 
-+static int mlx4_en_setup_tc(struct net_device *dev, u8 up)
-+{
-+	if (up != MLX4_EN_NUM_UP)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- static int mlx4_en_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -1038,6 +1046,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_poll_controller	= mlx4_en_netpoll,
- #endif
- 	.ndo_set_features	= mlx4_en_set_features,
-+	.ndo_setup_tc		= mlx4_en_setup_tc,
- };
- 
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
-@@ -1119,6 +1128,15 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
- 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
- 
-+	netdev_set_num_tc(dev, MLX4_EN_NUM_UP);
-+
-+	/* First 9 rings are for UP 0 */
-+	netdev_set_tc_queue(dev, 0, MLX4_EN_NUM_TX_RINGS + 1, 0);
-+
-+	/* Partition Tx queues evenly amongst UP's 1-7 */
-+	for (i = 1; i < MLX4_EN_NUM_UP; i++)
-+		netdev_set_tc_queue(dev, i, 1, MLX4_EN_NUM_TX_RINGS + i);
-+
- 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
- 
- 	/* Set defualt MAC */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 94a605a..d9bab53 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -577,7 +577,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
- 		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
- 	}
- 
--	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
-+	return skb_tx_hash(dev, skb);
- }
- 
- static void mlx4_bf_copy(void __iomem *dst, unsigned long *src, unsigned bytecnt)
+Changes from V4:
+- Patch 2/8 - set port QoS attributes
+  - HW commands are using HW ratelimit units (100Mbps)
+- Patch 3/8 - DCB QoS support
+  - ets attributes are stored inline mlx4_en_priv and not alloced separately
+  - Changed variable name: priv->mlx4_en_ieee_ets into priv->ets
+- Patch 8/8 - Set max rate-limit for a TC in mlx4 driver using the
+  - ratelimit is stored inline mlx4_en_priv and not allocated separately
+  - ratelimit values are converted from Kbps into HW units (100Mbps) in the
+    netlink callback instead of in the HW access function.
+  - ratelimit values are rounded up. 0 is used for unlimited.  
+  - moving ratelimit to be inline mlx4_en_priv also addresses Eric D. comments
+
+Changes from V3:
+After having a discussion about the API to set/get rate limit of an ETS TC,
+decided to extend DCBNL with an optional attribute for that:
+- new patch 7/8 Add an optional max rate attribute to DCBNL
+- new patch 8/8 Set max rate-limit for a TC in mlx4 driver using the
+  infrastructure from patch 7/8
+
+Changes from V2:
+- Removed patch 4 who deal with setting ratelimit through sysfs - Still under discussion
+- Patch 2/7 - set port QoS attributes
+  - ratelimit is given in Kbps instead of Mbps units.
+
+Changes from V1:
+- Patch 1/7 - Force user priority by QP attribute
+  - removed unneeded comment
+- Patch 2/7 - set port QoS attributes
+  - ratelimit is given in Mbps instead of 100Mbps units.
+- Patch 3/7 - DCB QoS support
+  - Split mlx4_en_config_port_scheduler from mlx4_en_dcbnl_ieee_setets - enable
+    setting ratelimit only, without setting up to tc mapping
+- Patch 4/7 - Set max rate-limit for a TC
+  - Rewritten patch according to comment from Eric D.
+  - setting ratelimit is through sysfs files:
+    /sys/class/net/<intf>/ratelimit/tc0
+    /sys/class/net/<intf>/ratelimit/tc1
+    ...
+    /sys/class/net/<intf>/ratelimit/tc7
+- Patch 5/7 - sk_prio <=> UP for untagged traffic  
+  - Using skb_tx_hash for queue selection of untagged traffic
+- Added Patch 6/7 - export symbol ip_tos2prio
+  - Fixed patch according to comment from Eric D.
+- Patch 7/7 - TOS <=> UP mapping for IBoE
+  - No need to clone code from route.c anymore - removed it
+    
+Changes from V0:
+- Removed patches 6 and 7 who deal with the interaction between the kernel HW
+  QoS constructs to the queue selection logic are still under discussion with
+  John and some changes might be needed there.
+
+Amir Vadai (8):
+  net/mlx4_en: Force user priority by QP attribute
+  net/mlx4_core: set port QoS attributes
+  net/mlx4_en: DCB QoS support
+  net/mlx4_en: sk_prio <=> UP for untagged traffic
+  net/route: export symbol ip_tos2prio
+  IB/rdma_cm: TOS <=> UP mapping for IBoE
+  net/dcb: Add an optional max rate attribute
+  net/mlx4_en: Set max rate-limit for a TC
+
+ drivers/infiniband/core/cma.c                     |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/Kconfig        |   12 +
+ drivers/net/ethernet/mellanox/mlx4/Makefile       |    1 +
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c    |  254 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_main.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   26 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_port.h      |    2 +
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   10 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h         |   20 ++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   28 ++-
+ drivers/net/ethernet/mellanox/mlx4/port.c         |   62 +++++
+ include/linux/dcbnl.h                             |    5 +
+ include/linux/mlx4/cmd.h                          |    4 +
+ include/linux/mlx4/device.h                       |    3 +
+ include/linux/mlx4/qp.h                           |    3 +-
+ include/net/dcbnl.h                               |    2 +
+ net/dcb/dcbnl.c                                   |   21 ++
+ net/ipv4/route.c                                  |    2 +-
+ 20 files changed, 455 insertions(+), 18 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+
 -- 
 1.7.8.2
