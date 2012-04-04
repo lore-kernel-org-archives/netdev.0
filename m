@@ -1,80 +1,63 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [RFC PATCH 2/2] PID-based packet filtering support
-Date: Wed, 4 Apr 2012 14:57:11 -0400
-Message-ID: <CAAsGZS6CoNuTBQ+YUjBc+Y9+oviHPrbrwGCCN0mZmTm5DCt8ow@mail.gmail.com>
-References: <cover.1333466900.git.nuno.martins@caixamagica.pt>
-	<19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH] netfilter: don't scale the size of the window up twice
+Date: Wed, 4 Apr 2012 21:05:26 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1204042100390.21828@blackhole.kfki.hu>
+References: <1333337106-8279-1-git-send-email-xiaosuo@gmail.com> <20120404150854.GA4148@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Alfredo Matos <alfredo.matos@caixamagica.pt>,
-	Paulo Trezentos <paulo.trezentos@caixamagica.pt>
-To: Nuno Martins <nuno.martins@caixamagica.pt>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:33254 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932516Ab2DDS5M convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 14:57:12 -0400
-Received: by pbcun15 with SMTP id un15so606610pbc.19
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 11:57:12 -0700 (PDT)
-In-Reply-To: <19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120404150854.GA4148@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 4, 2012 at 5:16 AM, Nuno Martins
-<nuno.martins@caixamagica.pt> wrote:
+On Wed, 4 Apr 2012, Pablo Neira Ayuso wrote:
 
+> On Mon, Apr 02, 2012 at 11:25:06AM +0800, Changli Gao wrote:
+> > For a picked up connection, the window win is scaled twice: one is by the
+> > initialization code, and the other is by the sender updating code.
+> > 
+> > I use the temporary variable swin instead of modifying the variable win.
+> > 
+> > Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> > ---
+> >  net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+> > index 361eade..0d07a1d 100644
+> > --- a/net/netfilter/nf_conntrack_proto_tcp.c
+> > +++ b/net/netfilter/nf_conntrack_proto_tcp.c
+> > @@ -584,8 +584,8 @@ static bool tcp_in_window(const struct nf_conn *ct,
+> >  			 * Let's try to use the data from the packet.
+> >  			 */
+> >  			sender->td_end = end;
+> > -			win <<= sender->td_scale;
+> > -			sender->td_maxwin = (win == 0 ? 1 : win);
+> > +			swin = win << sender->td_scale;
+> > +			sender->td_maxwin = (swin == 0 ? 1 : swin);
+> >  			sender->td_maxend = end + sender->td_maxwin;
+> >  			/*
+> >  			 * We haven't seen traffic in the other direction yet
+> 
+> Jozsef, do you remember if this is intentional?
 
-> +int get_local_packet_info_from_fd(unsigned int fd, struct packetInfo=
- *ret)
+No, it's a good spotting.
 
-rename 'ret' to 'pi' or pkt_info or pick a name (must match the
-struct). And not just here but everywhere else.
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-> +{
-> + =C2=A0 =C2=A0 =C2=A0 struct file *f =3D fget(fd);
-> +
-> + =C2=A0 =C2=A0 =C2=A0 if (f !=3D NULL) {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 fput(f);
+> I'm going to test this patch in my testbed to make sure this does not
+> break conntrackd.
 
-why not 'fput' after you return from 'get_local_packet_info_from_file' =
-?
+A checking in a testbed doesn't hurt :-).
 
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return get_local_p=
-acket_info_from_file(f, ret);
-> + =C2=A0 =C2=A0 =C2=A0 }
-> + =C2=A0 =C2=A0 =C2=A0 return -3;
-> +}
-> +
-
-
-> +int get_local_packet_info_from_file(struct file *f, struct packetInf=
-o *ret)
-> +{
-> + =C2=A0 =C2=A0 =C2=A0 struct socket *socket =3D NULL;
-> + =C2=A0 =C2=A0 =C2=A0 short type;
-> + =C2=A0 =C2=A0 =C2=A0 unsigned short family;
-> + =C2=A0 =C2=A0 =C2=A0 int err =3D 0;
-> +
-> + =C2=A0 =C2=A0 =C2=A0 if (f !=3D NULL) {
-
-This check is redundant because the
-caller(get_local_packet_info_from_fd) checks for NULL.
-
-Move this function before get_local_packet_info_from_fd().
-
-re-arranged code looks like:
-
-int get_local_packet_info_from_file(...) {
-=2E...
-}
-
-int get_local_packet_info_from_fd(...) {
-   ...
-   ... get_local_packet_info_from_file(f, ret);
-   ....
-}
-
-
-Chetan
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
