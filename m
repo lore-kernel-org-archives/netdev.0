@@ -1,42 +1,171 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/8] e1000e: update driver version number
-Date: Wed,  4 Apr 2012 00:55:57 -0700
-Message-ID: <1333526160-24937-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/8] ixgbe: consolidate reporting of MSIX vectors into a single function
+Date: Wed,  4 Apr 2012 00:55:58 -0700
+Message-ID: <1333526160-24937-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1333526160-24937-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39155 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:33417 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755281Ab2DDH4G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 03:56:06 -0400
+	id S1753663Ab2DDH4H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 03:56:07 -0400
 In-Reply-To: <1333526160-24937-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+This patch modifies ixgbe_get_pcie_msix_count_generic() to support
+all current HW and removes the 82598 specific function.
+
+- change the type of ixgbe_get_pcie_msix_count_generic() to u16
+- include a check to make sure the maximum allowed number of vectors
+is not exceeded.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |   25 +-------------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   29 +++++++++++++++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |    4 ++-
+ 4 files changed, 29 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 67e1eda..f88dac6 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -56,7 +56,7 @@
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 85d2e2c..56fd468 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -91,29 +91,6 @@ out:
+ 	IXGBE_WRITE_REG(hw, IXGBE_GCR, gcr);
+ }
  
- #define DRV_EXTRAVERSION "-k"
+-/**
+- *  ixgbe_get_pcie_msix_count_82598 - Gets MSI-X vector count
+- *  @hw: pointer to hardware structure
+- *
+- *  Read PCIe configuration space, and get the MSI-X vector count from
+- *  the capabilities table.
+- **/
+-static u16 ixgbe_get_pcie_msix_count_82598(struct ixgbe_hw *hw)
+-{
+-	struct ixgbe_adapter *adapter = hw->back;
+-	u16 msix_count;
+-	pci_read_config_word(adapter->pdev, IXGBE_PCIE_MSIX_82598_CAPS,
+-	                     &msix_count);
+-	msix_count &= IXGBE_PCIE_MSIX_TBL_SZ_MASK;
+-
+-	/* MSI-X count is zero-based in HW, so increment to give proper value */
+-	msix_count++;
+-
+-	return msix_count;
+-}
+-
+-/**
+- */
+ static s32 ixgbe_get_invariants_82598(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_mac_info *mac = &hw->mac;
+@@ -126,7 +103,7 @@ static s32 ixgbe_get_invariants_82598(struct ixgbe_hw *hw)
+ 	mac->num_rar_entries = IXGBE_82598_RAR_ENTRIES;
+ 	mac->max_rx_queues = IXGBE_82598_MAX_RX_QUEUES;
+ 	mac->max_tx_queues = IXGBE_82598_MAX_TX_QUEUES;
+-	mac->max_msix_vectors = ixgbe_get_pcie_msix_count_82598(hw);
++	mac->max_msix_vectors = ixgbe_get_pcie_msix_count_generic(hw);
  
--#define DRV_VERSION "1.9.5" DRV_EXTRAVERSION
-+#define DRV_VERSION "1.10.6" DRV_EXTRAVERSION
- char e1000e_driver_name[] = "e1000e";
- const char e1000e_driver_version[] = DRV_VERSION;
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 49aa41f..e598881 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -2783,17 +2783,36 @@ san_mac_addr_out:
+  *  Read PCIe configuration space, and get the MSI-X vector count from
+  *  the capabilities table.
+  **/
+-u32 ixgbe_get_pcie_msix_count_generic(struct ixgbe_hw *hw)
++u16 ixgbe_get_pcie_msix_count_generic(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_adapter *adapter = hw->back;
+-	u16 msix_count;
+-	pci_read_config_word(adapter->pdev, IXGBE_PCIE_MSIX_82599_CAPS,
+-	                     &msix_count);
++	u16 msix_count = 1;
++	u16 max_msix_count;
++	u16 pcie_offset;
++
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++		pcie_offset = IXGBE_PCIE_MSIX_82598_CAPS;
++		max_msix_count = IXGBE_MAX_MSIX_VECTORS_82598;
++		break;
++	case ixgbe_mac_82599EB:
++	case ixgbe_mac_X540:
++		pcie_offset = IXGBE_PCIE_MSIX_82599_CAPS;
++		max_msix_count = IXGBE_MAX_MSIX_VECTORS_82599;
++		break;
++	default:
++		return msix_count;
++	}
++
++	pci_read_config_word(adapter->pdev, pcie_offset, &msix_count);
+ 	msix_count &= IXGBE_PCIE_MSIX_TBL_SZ_MASK;
  
+-	/* MSI-X count is zero-based in HW, so increment to give proper value */
++	/* MSI-X count is zero-based in HW */
+ 	msix_count++;
+ 
++	if (msix_count > max_msix_count)
++		msix_count = max_msix_count;
++
+ 	return msix_count;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 204f062..d6d3432 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -31,7 +31,7 @@
+ #include "ixgbe_type.h"
+ #include "ixgbe.h"
+ 
+-u32 ixgbe_get_pcie_msix_count_generic(struct ixgbe_hw *hw);
++u16 ixgbe_get_pcie_msix_count_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_init_ops_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_init_hw_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 8636e83..ffa6679 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1681,7 +1681,9 @@ enum {
+ #define IXGBE_DEVICE_CAPS       0x2C
+ #define IXGBE_SERIAL_NUMBER_MAC_ADDR 0x11
+ #define IXGBE_PCIE_MSIX_82599_CAPS  0x72
++#define IXGBE_MAX_MSIX_VECTORS_82599	0x40
+ #define IXGBE_PCIE_MSIX_82598_CAPS  0x62
++#define IXGBE_MAX_MSIX_VECTORS_82598	0x13
+ 
+ /* MSI-X capability fields masks */
+ #define IXGBE_PCIE_MSIX_TBL_SZ_MASK     0x7FF
+@@ -2813,6 +2815,7 @@ struct ixgbe_mac_info {
+ 	u16                             wwnn_prefix;
+ 	/* prefix for World Wide Port Name (WWPN) */
+ 	u16                             wwpn_prefix;
++	u16				max_msix_vectors;
+ #define IXGBE_MAX_MTA			128
+ 	u32				mta_shadow[IXGBE_MAX_MTA];
+ 	s32                             mc_filter_type;
+@@ -2823,7 +2826,6 @@ struct ixgbe_mac_info {
+ 	u32				rx_pb_size;
+ 	u32                             max_tx_queues;
+ 	u32                             max_rx_queues;
+-	u32                             max_msix_vectors;
+ 	u32                             orig_autoc;
+ 	u32                             orig_autoc2;
+ 	bool                            orig_link_settings_stored;
 -- 
 1.7.7.6
