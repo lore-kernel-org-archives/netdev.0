@@ -1,32 +1,37 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next V6 7/8] net/dcb: Add an optional max rate attribute
-Date: Thu, 5 Apr 2012 01:30:04 +0300
-Message-ID: <CAJZOPZJV1+Tn0AUsmkYqSphdJZnNpnPfUFG8SephiqZSCYSJ+Q@mail.gmail.com>
-References: <4F7C6D3C.7070807@intel.com>
-	<CAJZOPZKLtvtfD+o81V0Ezs7NSeTnmp-dBtHPhmziypHkpyOWtw@mail.gmail.com>
-	<CAJZOPZKDBECDx0_Yy7N12d8we92N-=0PAOryqOYmmiJ7n7Z1dQ@mail.gmail.com>
-	<20120404.182838.86622924907738367.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] vxge: Convert macro to inline function
+Date: Wed, 04 Apr 2012 15:37:55 -0700
+Message-ID: <1333579075.23520.19.camel@joe2Laptop>
+References: <1333489992.2695.17.camel@joe2Laptop>
+	 <20120403.175837.1897033408784057713.davem@davemloft.net>
+	 <1333491271.2695.20.camel@joe2Laptop>
+	 <20120403.181830.799733266830291210.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: amirv@mellanox.com, netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	john.r.fastabend@intel.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jdmason@kudzu.us, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:40467 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757283Ab2DDWaF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 18:30:05 -0400
-Received: by lahj13 with SMTP id j13so818066lah.19
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 15:30:04 -0700 (PDT)
-In-Reply-To: <20120404.182838.86622924907738367.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:59171 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757050Ab2DDWh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 18:37:57 -0400
+In-Reply-To: <20120403.181830.799733266830291210.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Yep, they seem mostly fine to me. =A0So please resubmit with the comm=
-ent fix
+On Tue, 2012-04-03 at 18:18 -0400, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 03 Apr 2012 15:14:31 -0700
+> > Convert the macro to inline function to check the arguments.
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> > ---
+> >> Longer term I'd much rather see this turned into an inline
+> >> function with proper type checking etc.
+> > Something like this?
+> Yep.
 
-Will do
-
-Or.
+I did sign the patch.
+I was intending that you could apply it.
+Do you want a resend?
