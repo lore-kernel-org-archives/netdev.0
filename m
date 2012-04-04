@@ -1,74 +1,208 @@
-From: Mike Sinkovsky <msink@permonline.ru>
-Subject: Re: [PATCH v6 1/2] Ethernet driver for the WIZnet W5300 chip
-Date: Wed, 04 Apr 2012 17:00:19 +0600
-Message-ID: <4F7C29C3.9000306@permonline.ru>
-References: <1332752876-1650-1-git-send-email-msink@permonline.ru> <1333450726-24455-2-git-send-email-msink@permonline.ru> <20120403133619.GA3960@sirena.org.uk> <4F7BE7A4.1060202@permonline.ru> <20120404100148.GB3002@opensource.wolfsonmicro.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: bridge: Do not send queries on multicast group leaves
+Date: Wed, 4 Apr 2012 19:01:20 +0800
+Message-ID: <20120404110119.GA11576@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.ccl.ru ([195.222.140.73]:60471 "EHLO mail4.ccl.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756133Ab2DDLA1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 07:00:27 -0400
-In-Reply-To: <20120404100148.GB3002@opensource.wolfsonmicro.com>
+Received: from sting.hengli.com.au ([178.18.18.71]:34604 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932067Ab2DDLBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 07:01:24 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-04.04.2012 16:01, Mark Brown =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB=
-:
-> On Wed, Apr 04, 2012 at 12:18:12PM +0600, Mike Sinkovsky wrote:
->> 03.04.2012 19:36, Mark Brown =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=
-=BB:
->
->>> ...you use devm_request_threaded_irq() here and rely on it for clea=
-nup.
->>> Are you sure there's no possibility of the interrupt firing after y=
-ou
->>> start to tear down the device?
->
->>> By using a specifically threaded IRQ you're also adding a performan=
-ce
->>> overhead for no good reason if you can call netdev_carrier_*() from=
- IRQ
->>> context and the GPIO is capable of generating a hard IRQ.  If you u=
-se
->>> request_any_context_irq() instead then the driver will get a hard I=
-RQ if
->>> that's supported.
->
->> There isn't devm* variant of request_any_context_irq(), and using
->> plain version looks inconsistent with other resources handling.
->> Anyway, this is not performance critical procedure, and latency
->> around 100 millisecond is acceptable. Some our boards even don't
->> have this gpio at all, and nothing bad happens, just userspace
->> doesn't know is carrier on or off.
->
-> None of this addresses the primary concern which is that because you'=
-re
-> not (as far as I can tell) ensuring that the interrupt won't fire the
-> driver might crash if the interrupt fires in between the resources it
-> needs to handle the interrupt being deallocated and the interrupt bei=
-ng
-> unregistered.  Managed interrupts are relatively tricky to use becaus=
-e
-> of this issue, with most things like memory it doesn't matter exactly
-> when it's deallocated but interrupts can potentially trigger actions
-> themselves.
->
-> If you can use it and devm_request_any_context_irq() doesn't exist it=
-'d
-> be better to add it.
+Hi:
 
-Ok, now I understand - better don't use devm* functions for interrupts,=
-=20
-use plain request* in probe() and free_irq() in remove().
+bridge: Do not send queries on multicast group leaves
 
-Will post v8.
+As it stands the bridge IGMP snooping system will respond to
+group leave messages with queries for remaining membership.
+This is both unnecessary and undesirable.  First of all any
+multicast routers present should be doing this rather than us.
+What's more the queries that we send may end up upsetting other
+multicast snooping swithces in the system that are buggy.
+
+In fact, we can simply remove the code that send these queries
+because the existing membership expiry mechanism doesn't rely
+on them anyway.
+
+So this patch simply removes all code associated with group
+queries in response to group leave messages.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 
---=20
-Mike
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 702a1ae..27ca25e 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -241,7 +241,6 @@ static void br_multicast_group_expired(unsigned long data)
+ 	hlist_del_rcu(&mp->hlist[mdb->ver]);
+ 	mdb->size--;
+ 
+-	del_timer(&mp->query_timer);
+ 	call_rcu_bh(&mp->rcu, br_multicast_free_group);
+ 
+ out:
+@@ -271,7 +270,6 @@ static void br_multicast_del_pg(struct net_bridge *br,
+ 		rcu_assign_pointer(*pp, p->next);
+ 		hlist_del_init(&p->mglist);
+ 		del_timer(&p->timer);
+-		del_timer(&p->query_timer);
+ 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
+ 
+ 		if (!mp->ports && !mp->mglist &&
+@@ -507,74 +505,6 @@ static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
+ 	return NULL;
+ }
+ 
+-static void br_multicast_send_group_query(struct net_bridge_mdb_entry *mp)
+-{
+-	struct net_bridge *br = mp->br;
+-	struct sk_buff *skb;
+-
+-	skb = br_multicast_alloc_query(br, &mp->addr);
+-	if (!skb)
+-		goto timer;
+-
+-	netif_rx(skb);
+-
+-timer:
+-	if (++mp->queries_sent < br->multicast_last_member_count)
+-		mod_timer(&mp->query_timer,
+-			  jiffies + br->multicast_last_member_interval);
+-}
+-
+-static void br_multicast_group_query_expired(unsigned long data)
+-{
+-	struct net_bridge_mdb_entry *mp = (void *)data;
+-	struct net_bridge *br = mp->br;
+-
+-	spin_lock(&br->multicast_lock);
+-	if (!netif_running(br->dev) || !mp->mglist ||
+-	    mp->queries_sent >= br->multicast_last_member_count)
+-		goto out;
+-
+-	br_multicast_send_group_query(mp);
+-
+-out:
+-	spin_unlock(&br->multicast_lock);
+-}
+-
+-static void br_multicast_send_port_group_query(struct net_bridge_port_group *pg)
+-{
+-	struct net_bridge_port *port = pg->port;
+-	struct net_bridge *br = port->br;
+-	struct sk_buff *skb;
+-
+-	skb = br_multicast_alloc_query(br, &pg->addr);
+-	if (!skb)
+-		goto timer;
+-
+-	br_deliver(port, skb);
+-
+-timer:
+-	if (++pg->queries_sent < br->multicast_last_member_count)
+-		mod_timer(&pg->query_timer,
+-			  jiffies + br->multicast_last_member_interval);
+-}
+-
+-static void br_multicast_port_group_query_expired(unsigned long data)
+-{
+-	struct net_bridge_port_group *pg = (void *)data;
+-	struct net_bridge_port *port = pg->port;
+-	struct net_bridge *br = port->br;
+-
+-	spin_lock(&br->multicast_lock);
+-	if (!netif_running(br->dev) || hlist_unhashed(&pg->mglist) ||
+-	    pg->queries_sent >= br->multicast_last_member_count)
+-		goto out;
+-
+-	br_multicast_send_port_group_query(pg);
+-
+-out:
+-	spin_unlock(&br->multicast_lock);
+-}
+-
+ static struct net_bridge_mdb_entry *br_multicast_get_group(
+ 	struct net_bridge *br, struct net_bridge_port *port,
+ 	struct br_ip *group, int hash)
+@@ -690,8 +620,6 @@ rehash:
+ 	mp->addr = *group;
+ 	setup_timer(&mp->timer, br_multicast_group_expired,
+ 		    (unsigned long)mp);
+-	setup_timer(&mp->query_timer, br_multicast_group_query_expired,
+-		    (unsigned long)mp);
+ 
+ 	hlist_add_head_rcu(&mp->hlist[mdb->ver], &mdb->mhash[hash]);
+ 	mdb->size++;
+@@ -746,8 +674,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	hlist_add_head(&p->mglist, &port->mglist);
+ 	setup_timer(&p->timer, br_multicast_port_group_expired,
+ 		    (unsigned long)p);
+-	setup_timer(&p->query_timer, br_multicast_port_group_query_expired,
+-		    (unsigned long)p);
+ 
+ 	rcu_assign_pointer(*pp, p);
+ 
+@@ -1291,9 +1217,6 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 		     time_after(mp->timer.expires, time) :
+ 		     try_to_del_timer_sync(&mp->timer) >= 0)) {
+ 			mod_timer(&mp->timer, time);
+-
+-			mp->queries_sent = 0;
+-			mod_timer(&mp->query_timer, now);
+ 		}
+ 
+ 		goto out;
+@@ -1310,9 +1233,6 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 		     time_after(p->timer.expires, time) :
+ 		     try_to_del_timer_sync(&p->timer) >= 0)) {
+ 			mod_timer(&p->timer, time);
+-
+-			p->queries_sent = 0;
+-			mod_timer(&p->query_timer, now);
+ 		}
+ 
+ 		break;
+@@ -1681,7 +1601,6 @@ void br_multicast_stop(struct net_bridge *br)
+ 		hlist_for_each_entry_safe(mp, p, n, &mdb->mhash[i],
+ 					  hlist[ver]) {
+ 			del_timer(&mp->timer);
+-			del_timer(&mp->query_timer);
+ 			call_rcu_bh(&mp->rcu, br_multicast_free_group);
+ 		}
+ 	}
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 0b67a63..e1d8822 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -82,9 +82,7 @@ struct net_bridge_port_group {
+ 	struct hlist_node		mglist;
+ 	struct rcu_head			rcu;
+ 	struct timer_list		timer;
+-	struct timer_list		query_timer;
+ 	struct br_ip			addr;
+-	u32				queries_sent;
+ };
+ 
+ struct net_bridge_mdb_entry
+@@ -94,10 +92,8 @@ struct net_bridge_mdb_entry
+ 	struct net_bridge_port_group __rcu *ports;
+ 	struct rcu_head			rcu;
+ 	struct timer_list		timer;
+-	struct timer_list		query_timer;
+ 	struct br_ip			addr;
+ 	bool				mglist;
+-	u32				queries_sent;
+ };
+ 
+ struct net_bridge_mdb_htable
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
