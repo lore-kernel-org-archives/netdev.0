@@ -1,115 +1,81 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: question about napi_disable (was Re: [PATCH] virtio_net: set/cancel
-	work on ndo_open/ndo_stop)
-Date: Wed, 4 Apr 2012 12:32:29 +0300
-Message-ID: <20120404093229.GA3804@redhat.com>
-References: <87hb0kgiwn.fsf@rustcorp.com.au> <87pqf7fyld.fsf@rustcorp.com.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 2/2] e100: enable transmit time stamping.
+Date: Wed, 04 Apr 2012 02:34:48 -0700
+Message-ID: <1333532088.3046.22.camel@jtkirshe-mobl>
+References: <cover.1331400160.git.richardcochran@gmail.com>
+	 <33c61d135f4fd62e5128466633302414ead0092e.1331400160.git.richardcochran@gmail.com>
+	 <1333530283.3046.14.camel@jtkirshe-mobl>
+	 <20120404093011.GA4292@netboy.at.omicron.at>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-T/R6Bjf2/XeEkOUvtXZ3"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:37224 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753594Ab2DDJfE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 05:35:04 -0400
+In-Reply-To: <20120404093011.GA4292@netboy.at.omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-T/R6Bjf2/XeEkOUvtXZ3
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2012-04-04 at 11:30 +0200, Richard Cochran wrote:
+> On Wed, Apr 04, 2012 at 02:04:43AM -0700, Jeff Kirsher wrote:
+> >=20
+> > I had this patch in my queue, but during testing we found some serious
+> > issues with some adapters.  With every 82559 based adapter Aaron tried
+> > the system would panic on driver load.  This included at least one
+> > sampling of D101S and D101M.  Every other e100 chipset Aaron tried
+> > (82557, 82558, 82550) appeared to work fine.
+> >=20
+> > So I am dropping this patch as is due to the kernel panics.
+>=20
+> Okay, fine. That driver is strangely written, with weird callbacks and
+> passing function pointers around.
+>=20
+> Taking a second look, I think I might have found the problem. The
+> drivers casts a firmware pointer onto a skb, and my patch then tries
+> to timestamp the firmware blob.
+>=20
+> If I rework this, are you willing to give it another try?
+>=20
+> Thanks,
+> Richard
+
+Yeah, we appreciate the work your doing.  Just send me an updated patch
+and I will add it to my queue.
+
+That was our thoughts as well regarding the firmware blobs.
+
+--=-T/R6Bjf2/XeEkOUvtXZ3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	Amit Shah <amit.shah@redhat.com>, David Miller <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <87pqf7fyld.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 29, 2011 at 09:12:38PM +1030, Rusty Russell wrote:
-> Michael S. Tsirkin noticed that we could run the refill work after
-> ndo_close, which can re-enable napi - we don't disable it until
-> virtnet_remove.  This is clearly wrong, so move the workqueue control
-> to ndo_open and ndo_stop (aka. virtnet_open and virtnet_close).
-> 
-> One subtle point: virtnet_probe() could simply fail if it couldn't
-> allocate a receive buffer, but that's less polite in virtnet_open() so
-> we schedule a refill as we do in the normal receive path if we run out
-> of memory.
-> 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Doh.
-napi_disable does not prevent the following
-napi_schedule, does it?
+iQIcBAABCgAGBQJPfBW4AAoJEOVv75VaS+3O5p4P/RbDIVnPsBPZwzmc+31efS+U
++xrSSYcG5eoAvcneVvkNdN+OV7bfyH3X5oJrFX3AIsMfW/0evVEXPmVIqmqiC8Go
+JXw0IorDwGFVOSA6+5meZ4Ct8FFTL7ixosvRr6Zlp5rYzwYscbM3JV83qqe7qd9A
+N46N7wdd1cA8fd5+DtopdmtU4+eg8mL+EAbZt1F5/vbgk5yTSvDOmVUabMdp3MAd
+yFIRkHZLfve76oJF8oxNXqbvrYm/LXeRg/W2a+ZxoBd8GBXV8LU3g/7ubwzEqdCx
+I85eV3AO08pRX3R9VLdZ94Ru+6jFzVwYV3QRfx0fN/mkMNmZ1GI4lEylbc/e6mzU
+LRRKy/f849M/FqyyWCEvYaYJ3n+Xo4R53WRaj7xAwvc/76e4YmAKY9RBfd3jqq3T
+nNno0jCz1eCJL8L2AN2peq9M20Ps7YOkXmqiCmG0y3zshagRn2+7jcK5gO4qRMup
+28S48icsmt1CAuMaRuyrvzZV1iovp2ZPDGK6JZIJHNNzpGZhKOibFk3hn/yavSOE
+IrENRi7IR8aRQaEJuWHFaEXrJGI6mtt0BYsb5/ROz6y4Wtb8u40eQ66rGyQMgC0E
+jS9KxVL/8JqGoTlRSL09DVxLzJj96Z43MD46uRR5NhKG8YI1HODSrKfBmX1A/WwP
+tUL7Z8Td9yI6Q7GlD79m
+=hF3P
+-----END PGP SIGNATURE-----
 
-Can someone confirm that I am not seeing things please?
-
-And this means this hack does not work:
-try_fill_recv can still run in parallel with
-napi, corrupting the vq.
-
-I suspect we need to resurrect a patch that used a
-dedicated flag to avoid this race.
-
-Comments?
-
-> ---
->  drivers/net/virtio_net.c |   17 +++++++++++++----
->  1 file changed, 13 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -439,7 +439,13 @@ static int add_recvbuf_mergeable(struct 
->  	return err;
->  }
->  
-> -/* Returns false if we couldn't fill entirely (OOM). */
-> +/*
-> + * Returns false if we couldn't fill entirely (OOM).
-> + *
-> + * Normally run in the receive path, but can also be run from ndo_open
-> + * before we're receiving packets, or from refill_work which is
-> + * careful to disable receiving (using napi_disable).
-> + */
->  static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
->  {
->  	int err;
-> @@ -719,6 +725,10 @@ static int virtnet_open(struct net_devic
->  {
->  	struct virtnet_info *vi = netdev_priv(dev);
->  
-> +	/* Make sure we have some buffers: if oom use wq. */
-> +	if (!try_fill_recv(vi, GFP_KERNEL))
-> +		schedule_delayed_work(&vi->refill, 0);
-> +
->  	virtnet_napi_enable(vi);
->  	return 0;
->  }
-> @@ -772,6 +782,8 @@ static int virtnet_close(struct net_devi
->  {
->  	struct virtnet_info *vi = netdev_priv(dev);
->  
-> +	/* Make sure refill_work doesn't re-enable napi! */
-> +	cancel_delayed_work_sync(&vi->refill);
->  	napi_disable(&vi->napi);
->  
->  	return 0;
-> @@ -1082,7 +1094,6 @@ static int virtnet_probe(struct virtio_d
->  
->  unregister:
->  	unregister_netdev(dev);
-> -	cancel_delayed_work_sync(&vi->refill);
->  free_vqs:
->  	vdev->config->del_vqs(vdev);
->  free_stats:
-> @@ -1121,9 +1132,7 @@ static void __devexit virtnet_remove(str
->  	/* Stop all the virtqueues. */
->  	vdev->config->reset(vdev);
->  
-> -
->  	unregister_netdev(vi->dev);
-> -	cancel_delayed_work_sync(&vi->refill);
->  
->  	/* Free unused buffers in both send and recv, if any. */
->  	free_unused_bufs(vi);
+--=-T/R6Bjf2/XeEkOUvtXZ3--
