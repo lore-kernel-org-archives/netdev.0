@@ -1,32 +1,38 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH] scpt: Allow struct sctp_event_subscribe to grow without
- breaking binaries
-Date: Wed, 4 Apr 2012 18:13:49 -0400
-Message-ID: <20120404221349.GB5124@canuck.infradead.org>
-References: <20120404081753.GA5124@canuck.infradead.org>
- <4F7C5204.9040703@hp.com>
- <20120404.180552.936202389292040147.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] sky2: copy received packets on inefficient
+ unaligned architecture
+Date: Wed, 04 Apr 2012 18:14:23 -0400 (EDT)
+Message-ID: <20120404.181423.349006217600228558.davem@davemloft.net>
+References: <20120404114253.5f84d4c8@s6510.linuxnetplumber.net>
+	<4F7CC2AC.5040309@tilera.com>
+	<20120404151027.047c183b@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vladislav.yasevich@hp.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:38760 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757172Ab2DDWNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 18:13:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20120404.180552.936202389292040147.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cmetcalf@tilera.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120404151027.047c183b@s6510.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 04, 2012 at 06:05:52PM -0400, David Miller wrote:
-> From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-> Date: Wed, 04 Apr 2012 09:52:04 -0400
-> > 
-> > Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 4 Apr 2012 15:10:27 -0700
+
+> Modified from original patch from Chris.
 > 
-> Applied, but I had to fix the Subject to read "sctp: " not "scpt: " :-)
+> The sky2 driver has to have 8 byte alignment of receive buffer
+> on some chip versions. On architectures which don't support efficient
+> unaligned access this doesn't work very well. The solution is to
+> just copy all received packets which is what the driver already
+> does for small packets.
+> 
+> This allows the driver to be used on the Tilera TILEmpower-Gx, since
+> the tile architecture doesn't currently handle kernel unaligned accesses,
+> just userspace.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Acked-by: Chris Metcalf <cmetcalf@tilera.com>
 
-Thanks much Dave :)
+Applied.
