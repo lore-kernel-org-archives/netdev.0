@@ -1,254 +1,56 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 2/2] team: add loadbalance mode
-Date: Thu,  5 Apr 2012 00:16:27 +0200
-Message-ID: <1333577787-878-2-git-send-email-jpirko@redhat.com>
-References: <1333577787-878-1-git-send-email-jpirko@redhat.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com,
-	raise.sail@gmail.com, nuno.martins@caixamagica.pt, matt@ozlabs.org
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] bna: Update driver version to 3.0.23.0
+Date: Wed, 04 Apr 2012 18:17:18 -0400 (EDT)
+Message-ID: <20120404.181718.345441045492163774.davem@davemloft.net>
+References: <1332790673-9562-1-git-send-email-huangj@brocade.com>
+	<20120404101535.0b739155@s6510.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: huangj@brocade.com, netdev@vger.kernel.org,
+	adapter_linux_open_src_team@brocade.com
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12188 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753556Ab2DDWRf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 18:17:35 -0400
-In-Reply-To: <1333577787-878-1-git-send-email-jpirko@redhat.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50423 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753556Ab2DDWSV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 18:18:21 -0400
+In-Reply-To: <20120404101535.0b739155@s6510.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch introduces new team mode. It's TX port is selected by
-user-set BPF hash function.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 4 Apr 2012 10:15:35 -0700
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/team/Kconfig                 |   11 ++
- drivers/net/team/Makefile                |    1 +
- drivers/net/team/team_mode_loadbalance.c |  188 ++++++++++++++++++++++++++++++
- 3 files changed, 200 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/team/team_mode_loadbalance.c
+> On Mon, 26 Mar 2012 12:37:53 -0700
+> Jing Huang <huangj@brocade.com> wrote:
+> 
+>> This patch set contains fixes in adapter initialization and tx/rx cleanup path.
+>> It also include code cleanups by removing and renaming some functions.
+>> 
+>> The driver version has been updated to 3.0.23.0 to reflect the changes.
+>> 
+>> Jing Huang (7):
+>>   bna: Serialize smem access during adapter initialization
+>>   bna: Flash controller ioc pll init fixes
+>>   bna: ioc cleanups
+>>   bfa: tx rx cleanup fix
+>>   bna: Remove tx tasklet
+>>   bfa: Function name changes and cleanups
+>>   bfa: Update driver version to 3.0.23.0
+>> 
+>>  drivers/net/ethernet/brocade/bna/bfa_ioc.c      |   61 +++--
+>>  drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c   |  142 +++++++----
+>>  drivers/net/ethernet/brocade/bna/bfi_reg.h      |    6 +
+>>  drivers/net/ethernet/brocade/bna/bnad.c         |  316 +++++++++++------------
+>>  drivers/net/ethernet/brocade/bna/bnad.h         |   11 +-
+>>  drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    6 +-
+>>  6 files changed, 300 insertions(+), 242 deletions(-)
+>> 
+> 
+> When are you going to integrate multi-queue support which is already
+> available in your out of tree driver?
 
-diff --git a/drivers/net/team/Kconfig b/drivers/net/team/Kconfig
-index 248a144..89024d5 100644
---- a/drivers/net/team/Kconfig
-+++ b/drivers/net/team/Kconfig
-@@ -40,4 +40,15 @@ config NET_TEAM_MODE_ACTIVEBACKUP
- 	  To compile this team mode as a module, choose M here: the module
- 	  will be called team_mode_activebackup.
- 
-+config NET_TEAM_MODE_LOADBALANCE
-+	tristate "Load-balance mode support"
-+	depends on NET_TEAM
-+	---help---
-+	  This mode provides load balancing functionality. Tx port selection
-+	  is done using BPF function set up from userspace (bpf_hash_func
-+	  option)
-+
-+	  To compile this team mode as a module, choose M here: the module
-+	  will be called team_mode_loadbalance.
-+
- endif # NET_TEAM
-diff --git a/drivers/net/team/Makefile b/drivers/net/team/Makefile
-index 85f2028..fb9f4c1 100644
---- a/drivers/net/team/Makefile
-+++ b/drivers/net/team/Makefile
-@@ -5,3 +5,4 @@
- obj-$(CONFIG_NET_TEAM) += team.o
- obj-$(CONFIG_NET_TEAM_MODE_ROUNDROBIN) += team_mode_roundrobin.o
- obj-$(CONFIG_NET_TEAM_MODE_ACTIVEBACKUP) += team_mode_activebackup.o
-+obj-$(CONFIG_NET_TEAM_MODE_LOADBALANCE) += team_mode_loadbalance.o
-diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-new file mode 100644
-index 0000000..ed20f39
---- /dev/null
-+++ b/drivers/net/team/team_mode_loadbalance.c
-@@ -0,0 +1,188 @@
-+/*
-+ * drivers/net/team/team_mode_loadbalance.c - Load-balancing mode for team
-+ * Copyright (c) 2012 Jiri Pirko <jpirko@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/errno.h>
-+#include <linux/netdevice.h>
-+#include <linux/filter.h>
-+#include <linux/if_team.h>
-+
-+struct lb_priv {
-+	struct sk_filter __rcu *fp;
-+	struct sock_fprog *orig_fprog;
-+};
-+
-+static struct lb_priv *lb_priv(struct team *team)
-+{
-+	return (struct lb_priv *) &team->mode_priv;
-+}
-+
-+static bool lb_transmit(struct team *team, struct sk_buff *skb)
-+{
-+	struct sk_filter *fp;
-+	struct team_port *port;
-+	unsigned int hash;
-+	int port_index;
-+
-+	fp = rcu_dereference(lb_priv(team)->fp);
-+	if (unlikely(!fp))
-+		goto drop;
-+	hash = SK_RUN_FILTER(fp, skb);
-+	port_index = hash % team->port_count;
-+	port = team_get_port_by_index_rcu(team, port_index);
-+	if (unlikely(!port))
-+		goto drop;
-+	skb->dev = port->dev;
-+	if (dev_queue_xmit(skb))
-+		return false;
-+	return true;
-+
-+drop:
-+	dev_kfree_skb_any(skb);
-+	return false;
-+}
-+
-+static int lb_bpf_func_get(struct team *team, void *arg)
-+{
-+	struct team_option_binary *tbinary = team_optarg_tbinary(arg);
-+
-+	memset(tbinary, 0, sizeof(*tbinary));
-+	if (!lb_priv(team)->orig_fprog)
-+		return 0;
-+
-+	tbinary->data_len = lb_priv(team)->orig_fprog->len *
-+			    sizeof(struct sock_filter);
-+	tbinary->data = lb_priv(team)->orig_fprog->filter;
-+	return 0;
-+}
-+
-+static int __fprog_create(struct sock_fprog **pfprog, u32 data_len,
-+			  void *data)
-+{
-+	struct sock_fprog *fprog;
-+	struct sock_filter *filter = (struct sock_filter *) data;
-+
-+	if (data_len % sizeof(struct sock_filter))
-+		return -EINVAL;
-+	fprog = kmalloc(sizeof(struct sock_fprog), GFP_KERNEL);
-+	if (!fprog)
-+		return -ENOMEM;
-+	fprog->filter = kmemdup(filter, data_len, GFP_KERNEL);
-+	if (!fprog->filter) {
-+		kfree(fprog);
-+		return -ENOMEM;
-+	}
-+	fprog->len = data_len / sizeof(struct sock_filter);
-+	*pfprog = fprog;
-+	return 0;
-+}
-+
-+static void __fprog_destroy(struct sock_fprog *fprog)
-+{
-+	kfree(fprog->filter);
-+	kfree(fprog);
-+}
-+
-+static int lb_bpf_func_set(struct team *team, void *arg)
-+{
-+	struct team_option_binary *tbinary = team_optarg_tbinary(arg);
-+	struct sk_filter *fp = NULL;
-+	struct sock_fprog *fprog = NULL;
-+	int err;
-+
-+	if (tbinary->data_len) {
-+		err = __fprog_create(&fprog, tbinary->data_len,
-+				     tbinary->data);
-+		if (err)
-+			return err;
-+		err = sk_unattached_filter_create(&fp, fprog);
-+		if (err) {
-+			__fprog_destroy(fprog);
-+			return err;
-+		}
-+	}
-+
-+	if (lb_priv(team)->orig_fprog) {
-+		/* Clear old filter data */
-+		__fprog_destroy(lb_priv(team)->orig_fprog);
-+		sk_unattached_filter_destroy(lb_priv(team)->fp);
-+	}
-+
-+	rcu_assign_pointer(lb_priv(team)->fp, fp);
-+	lb_priv(team)->orig_fprog = fprog;
-+	return 0;
-+}
-+
-+static const struct team_option lb_options[] = {
-+	{
-+		.name = "bpf_hash_func",
-+		.type = TEAM_OPTION_TYPE_BINARY,
-+		.getter = lb_bpf_func_get,
-+		.setter = lb_bpf_func_set,
-+	},
-+};
-+
-+int lb_init(struct team *team)
-+{
-+	return team_options_register(team, lb_options,
-+				     ARRAY_SIZE(lb_options));
-+}
-+
-+void lb_exit(struct team *team)
-+{
-+	team_options_unregister(team, lb_options,
-+				ARRAY_SIZE(lb_options));
-+}
-+
-+static int lb_port_enter(struct team *team, struct team_port *port)
-+{
-+	return team_port_set_team_mac(port);
-+}
-+
-+static void lb_port_change_mac(struct team *team, struct team_port *port)
-+{
-+	team_port_set_team_mac(port);
-+}
-+
-+static const struct team_mode_ops lb_mode_ops = {
-+	.init			= lb_init,
-+	.exit			= lb_exit,
-+	.transmit		= lb_transmit,
-+	.port_enter		= lb_port_enter,
-+	.port_change_mac	= lb_port_change_mac,
-+};
-+
-+static struct team_mode lb_mode = {
-+	.kind		= "loadbalance",
-+	.owner		= THIS_MODULE,
-+	.priv_size	= sizeof(struct lb_priv),
-+	.ops		= &lb_mode_ops,
-+};
-+
-+static int __init lb_init_module(void)
-+{
-+	return team_mode_register(&lb_mode);
-+}
-+
-+static void __exit lb_cleanup_module(void)
-+{
-+	team_mode_unregister(&lb_mode);
-+}
-+
-+module_init(lb_init_module);
-+module_exit(lb_cleanup_module);
-+
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Jiri Pirko <jpirko@redhat.com>");
-+MODULE_DESCRIPTION("Load-balancing mode for team");
-+MODULE_ALIAS("team-mode-loadbalance");
--- 
-1.7.9.1
+I hope your Brocade folks aren't playing the "try to make the out-of-tree
+driver more desirable than the in-tree one" game.  I would find that really
+irritating.
