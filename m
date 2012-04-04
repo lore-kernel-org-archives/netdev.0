@@ -1,151 +1,217 @@
-From: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH wireless-next] wireless: Remove unnecessary ; from while
- (0) macros
-Date: Tue, 3 Apr 2012 17:13:11 -0700
-Message-ID: <477F20668A386D41ADCC57781B1F7043083A0BE5E3@SC-VEXCH1.marvell.com>
-References: <1333489609.2695.14.camel@joe2Laptop>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [PATCH net-next 24/34] xircom_cb: fix device probe error path.
+Date: Tue, 3 Apr 2012 18:10:36 -0700
+Message-ID: <CANEJEGsZuNTADrdK=E=79UP9e5emTZeacqZoq1rO43_+uEcoDQ@mail.gmail.com>
+References: <cover.1331814082.git.romieu@fr.zoreil.com>
+	<c55334ebf0479837862671e84137f2ff3ef55279.1331814082.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Roland Vossen <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kan Yan <kanyan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1333489609.2695.14.camel@joe2Laptop>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Grant Grundler <grundler@parisc-linux.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:50285 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754548Ab2DDBKj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Apr 2012 21:10:39 -0400
+Received: by obbtb18 with SMTP id tb18so458796obb.19
+        for <netdev@vger.kernel.org>; Tue, 03 Apr 2012 18:10:37 -0700 (PDT)
+In-Reply-To: <c55334ebf0479837862671e84137f2ff3ef55279.1331814082.git.romieu@fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBTZW1pY29sb25zIGFyZSBub3QgbmVjZXNzYXJ5IGFmdGVyIG1hY3JvcyB0aGF0IGVuZCBpbiB3
-aGlsZSAoMCkuDQo+IFJlbW92ZSB0aGVtLg0KPiANCj4gU2ltcGxpZnkgdGhlIG1hY3JvcyB3aXRo
-IHRlc3RzIG9mDQo+IGRvIHsgaWYgKGZvbz5zaXplKSBtZW1zZXQxOyBlbHNlIG1lbXNldDI7fSB3
-aGlsZSAoMCk7DQo+IHRvIGEgc2luZ2xlIGxpbmUgbWVtc2V0KCwsbWluX3Qoc2l6ZV90LCBmb28s
-IHNpemUpKQ0KPiANCj4gU2lnbmVkLW9mZi1ieTogSm9lIFBlcmNoZXMgPGpvZUBwZXJjaGVzLmNv
-bT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvY2FybDkxNzAvY21kLmggICAg
-ICAgfCAgICA2ICsrKy0tLQ0KPiAgZHJpdmVycy9uZXQvd2lyZWxlc3MvYnJjbTgwMjExL2JyY21z
-bWFjL2QxMS5oIHwgICAgMiArLQ0KPiAgZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC9zZGlv
-LmggICAgICAgICAgIHwgICAgOCArKysrLS0tLQ0KDQpGb3IgbXdpZmlleCBwYXJ0LA0KQWNrZWQt
-Ynk6IEJpbmcgWmhhbyA8YnpoYW9AbWFydmVsbC5jb20+DQoNClRoYW5rcywNCkJpbmcNCg0KPiAg
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvcnRsd2lmaS9ydGw4MTkyY2UvdHJ4LmggIHwgICAgNyArLS0t
-LS0tDQo+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJkZS90cnguaCAgfCAg
-ICA4ICsrLS0tLS0tDQo+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJzZS9k
-ZWYuaCAgfCAgICA3ICstLS0tLS0NCj4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRs
-ODE5MnNlL2Z3LmggICB8ICAgIDYgKysrLS0tDQo+ICA3IGZpbGVzIGNoYW5nZWQsIDE1IGluc2Vy
-dGlvbnMoKyksIDI5IGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L3dpcmVsZXNzL2F0aC9jYXJsOTE3MC9jbWQuaCBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9j
-YXJsOTE3MC9jbWQuaA0KPiBpbmRleCA4ODVjNDI3Li42NTkxOWM5IDEwMDY0NA0KPiAtLS0gYS9k
-cml2ZXJzL25ldC93aXJlbGVzcy9hdGgvY2FybDkxNzAvY21kLmgNCj4gKysrIGIvZHJpdmVycy9u
-ZXQvd2lyZWxlc3MvYXRoL2Nhcmw5MTcwL2NtZC5oDQo+IEBAIC0xMTQsNyArMTE0LDcgQEAgX19y
-ZWd3cml0ZV9vdXQgOgkJCQkJCQlcDQo+IA0KPiAgI2RlZmluZSBjYXJsOTE3MF9yZWd3cml0ZV9y
-ZXN1bHQoKQkJCQkJXA0KPiAgCV9fZXJyOwkJCQkJCQkJXA0KPiAtfSB3aGlsZSAoMCk7DQo+ICt9
-IHdoaWxlICgwKQ0KPiANCj4gDQo+ICAjZGVmaW5lIGNhcmw5MTcwX2FzeW5jX3JlZ3dyaXRlX2dl
-dF9idWYoKQkJCQlcDQo+IEBAIC0xMjYsNyArMTI2LDcgQEAgZG8gewkJCQkJCQkJCVwNCj4gIAkJ
-X19lcnIgPSAtRU5PTUVNOwkJCQkJXA0KPiAgCQlnb3RvIF9fYXN5bmNfcmVnd3JpdGVfb3V0OwkJ
-CQlcDQo+ICAJfQkJCQkJCQkJXA0KPiAtfSB3aGlsZSAoMCk7DQo+ICt9IHdoaWxlICgwKQ0KPiAN
-Cj4gICNkZWZpbmUgY2FybDkxNzBfYXN5bmNfcmVnd3JpdGVfYmVnaW4oY2FybCkJCQkJXA0KPiAg
-ZG8gewkJCQkJCQkJCVwNCj4gQEAgLTE2OSw2ICsxNjksNiBAQCBfX2FzeW5jX3JlZ3dyaXRlX291
-dDoJCQkJCQkJXA0KPiANCj4gICNkZWZpbmUgY2FybDkxNzBfYXN5bmNfcmVnd3JpdGVfcmVzdWx0
-KCkJCQkJXA0KPiAgCV9fZXJyOwkJCQkJCQkJXA0KPiAtfSB3aGlsZSAoMCk7DQo+ICt9IHdoaWxl
-ICgwKQ0KPiANCj4gICNlbmRpZiAvKiBfX0NNRF9IICovDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC93aXJlbGVzcy9icmNtODAyMTEvYnJjbXNtYWMvZDExLmgNCj4gYi9kcml2ZXJzL25ldC93
-aXJlbGVzcy9icmNtODAyMTEvYnJjbXNtYWMvZDExLmgNCj4gaW5kZXggMTk0OGNiMi4uM2Y2NTll
-MCAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYnJjbTgwMjExL2JyY21zbWFj
-L2QxMS5oDQo+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2JyY204MDIxMS9icmNtc21hYy9k
-MTEuaA0KPiBAQCAtNzMzLDcgKzczMyw3IEBAIHN0cnVjdCBjY2tfcGh5X2hkciB7DQo+ICAJZG8g
-eyBcDQo+ICAJCXBsY3BbMV0gPSBsZW4gJiAweGZmOyBcDQo+ICAJCXBsY3BbMl0gPSAoKGxlbiA+
-PiA4KSAmIDB4ZmYpOyBcDQo+IC0JfSB3aGlsZSAoMCk7DQo+ICsJfSB3aGlsZSAoMCkNCj4gDQo+
-ICAjZGVmaW5lIEJSQ01TX1NFVF9NSU1PX1BMQ1BfQU1QRFUocGxjcCkgKHBsY3BbM10gfD0gTUlN
-T19QTENQX0FNUERVKQ0KPiAgI2RlZmluZSBCUkNNU19DTFJfTUlNT19QTENQX0FNUERVKHBsY3Ap
-IChwbGNwWzNdICY9IH5NSU1PX1BMQ1BfQU1QRFUpDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25l
-dC93aXJlbGVzcy9td2lmaWV4L3NkaW8uaCBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL213aWZpZXgv
-c2Rpby5oDQo+IGluZGV4IGEzZmIzMjIuLjBlYWQxNTIgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMv
-bmV0L3dpcmVsZXNzL213aWZpZXgvc2Rpby5oDQo+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNz
-L213aWZpZXgvc2Rpby5oDQo+IEBAIC0xOTMsNyArMTkzLDcgQEANCj4gIAkJYS0+bXBhX3R4LnBv
-cnRzIHw9ICgxPDwoYS0+bXBhX3R4LnBrdF9jbnQrMSsoTUFYX1BPUlQgLQlcDQo+ICAJCQkJCQlh
-LT5tcF9lbmRfcG9ydCkpKTsJXA0KPiAgCWEtPm1wYV90eC5wa3RfY250Kys7CQkJCQkJXA0KPiAt
-fSB3aGlsZSAoMCk7DQo+ICt9IHdoaWxlICgwKQ0KPiANCj4gIC8qIFNESU8gVHggYWdncmVnYXRp
-b24gbGltaXQgPyAqLw0KPiAgI2RlZmluZSBNUF9UWF9BR0dSX1BLVF9MSU1JVF9SRUFDSEVEKGEp
-CQkJCQlcDQo+IEBAIC0yMTEsNyArMjExLDcgQEANCj4gIAlhLT5tcGFfdHguYnVmX2xlbiA9IDA7
-CQkJCQkJXA0KPiAgCWEtPm1wYV90eC5wb3J0cyA9IDA7CQkJCQkJXA0KPiAgCWEtPm1wYV90eC5z
-dGFydF9wb3J0ID0gMDsJCQkJCVwNCj4gLX0gd2hpbGUgKDApOw0KPiArfSB3aGlsZSAoMCkNCj4g
-DQo+ICAvKiBTRElPIFJ4IGFnZ3JlZ2F0aW9uIGxpbWl0ID8gKi8NCj4gICNkZWZpbmUgTVBfUlhf
-QUdHUl9QS1RfTElNSVRfUkVBQ0hFRChhKQkJCQkJXA0KPiBAQCAtMjQyLDcgKzI0Miw3IEBADQo+
-ICAJYS0+bXBhX3J4LnNrYl9hcnJbYS0+bXBhX3J4LnBrdF9jbnRdID0gc2tiOwkJCVwNCj4gIAlh
-LT5tcGFfcngubGVuX2FyclthLT5tcGFfcngucGt0X2NudF0gPSBza2ItPmxlbjsJCVwNCj4gIAlh
-LT5tcGFfcngucGt0X2NudCsrOwkJCQkJCVwNCj4gLX0gd2hpbGUgKDApOw0KPiArfSB3aGlsZSAo
-MCkNCj4gDQo+ICAvKiBSZXNldCBTRElPIFJ4IGFnZ3JlZ2F0aW9uIGJ1ZmZlciBwYXJhbWV0ZXJz
-ICovDQo+ICAjZGVmaW5lIE1QX1JYX0FHR1JfQlVGX1JFU0VUKGEpIGRvIHsJCQkJCVwNCj4gQEAg
-LTI1MCw3ICsyNTAsNyBAQA0KPiAgCWEtPm1wYV9yeC5idWZfbGVuID0gMDsJCQkJCQlcDQo+ICAJ
-YS0+bXBhX3J4LnBvcnRzID0gMDsJCQkJCQlcDQo+ICAJYS0+bXBhX3J4LnN0YXJ0X3BvcnQgPSAw
-OwkJCQkJXA0KPiAtfSB3aGlsZSAoMCk7DQo+ICt9IHdoaWxlICgwKQ0KPiANCj4gDQo+ICAvKiBk
-YXRhIHN0cnVjdHVyZSBmb3IgU0RJTyBNUEEgVFggKi8NCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MmNlL3RyeC5oDQo+IGIvZHJpdmVycy9uZXQvd2ly
-ZWxlc3MvcnRsd2lmaS9ydGw4MTkyY2UvdHJ4LmgNCj4gaW5kZXggZWZiOWFiMi4uYzRhZGI5NyAx
-MDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvcnRsd2lmaS9ydGw4MTkyY2UvdHJ4
-LmgNCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvcnRsd2lmaS9ydGw4MTkyY2UvdHJ4LmgN
-Cj4gQEAgLTUzMCwxMiArNTMwLDcgQEANCj4gIAlTRVRfQklUU19PRkZTRVRfTEUoX19wZGVzYysy
-OCwgMCwgMzIsIF9fdmFsKQ0KPiANCj4gICNkZWZpbmUgQ0xFQVJfUENJX1RYX0RFU0NfQ09OVEVO
-VChfX3BkZXNjLCBfc2l6ZSkJXA0KPiAtZG8gewkJCQkJCQlcDQo+IC0JaWYgKF9zaXplID4gVFhf
-REVTQ19ORVhUX0RFU0NfT0ZGU0VUKQkJXA0KPiAtCQltZW1zZXQoX19wZGVzYywgMCwgVFhfREVT
-Q19ORVhUX0RFU0NfT0ZGU0VUKTsJXA0KPiAtCWVsc2UJCQkJCQlcDQo+IC0JCW1lbXNldChfX3Bk
-ZXNjLCAwLCBfc2l6ZSk7CVwNCj4gLX0gd2hpbGUgKDApOw0KPiArCW1lbXNldChfX3BkZXNjLCAw
-LCBtaW5fdChzaXplX3QsIF9zaXplLCBUWF9ERVNDX05FWFRfREVTQ19PRkZTRVQpKQ0KPiANCj4g
-IHN0cnVjdCByeF9md2luZm9fOTJjIHsNCj4gIAl1OCBnYWluX3Ryc3dbNF07DQo+IGRpZmYgLS1n
-aXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJkZS90cnguaA0KPiBiL2Ry
-aXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MmRlL3RyeC5oDQo+IGluZGV4IDBkYzcz
-NmMuLjA1N2E1MjQgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkv
-cnRsODE5MmRlL3RyeC5oDQo+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRs
-ODE5MmRlL3RyeC5oDQo+IEBAIC01MzAsMTIgKzUzMCw4IEBADQo+ICAJU0VUX0JJVFNfT0ZGU0VU
-X0xFKF9fcGRlc2MrMjgsIDAsIDMyLCBfX3ZhbCkNCj4gDQo+ICAjZGVmaW5lIENMRUFSX1BDSV9U
-WF9ERVNDX0NPTlRFTlQoX19wZGVzYywgX3NpemUpCVwNCj4gLWRvIHsJCQkJCQkJXA0KPiAtCWlm
-IChfc2l6ZSA+IFRYX0RFU0NfTkVYVF9ERVNDX09GRlNFVCkJCVwNCj4gLQkJbWVtc2V0KCh2b2lk
-ICopX19wZGVzYywgMCwgVFhfREVTQ19ORVhUX0RFU0NfT0ZGU0VUKTsJXA0KPiAtCWVsc2UJCQkJ
-CQlcDQo+IC0JCW1lbXNldCgodm9pZCAqKV9fcGRlc2MsIDAsIF9zaXplKTsJXA0KPiAtfSB3aGls
-ZSAoMCk7DQo+ICsJbWVtc2V0KCh2b2lkICopX19wZGVzYywgMCwJCQlcDQo+ICsJICAgICAgIG1p
-bl90KHNpemVfdCwgX3NpemUsIFRYX0RFU0NfTkVYVF9ERVNDX09GRlNFVCkpDQo+IA0KPiAgLyog
-Rm9yIDkyRCBlYXJseSBtb2RlICovDQo+ICAjZGVmaW5lIFNFVF9FQVJMWU1PREVfUEtUTlVNKF9f
-cGFkZHIsIF9fdmFsdWUpCQlcDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9y
-dGx3aWZpL3J0bDgxOTJzZS9kZWYuaA0KPiBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkv
-cnRsODE5MnNlL2RlZi5oDQo+IGluZGV4IGQxYjBhMWUuLjIwYWZlYzYgMTAwNjQ0DQo+IC0tLSBh
-L2RyaXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MnNlL2RlZi5oDQo+ICsrKyBiL2Ry
-aXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcnRsODE5MnNlL2RlZi5oDQo+IEBAIC0yNTIsMTIg
-KzI1Miw3IEBADQo+ICAgKiB0aGUgZGVzYyBpcyBjbGVhcmVkLiAqLw0KPiAgI2RlZmluZQlUWF9E
-RVNDX05FWFRfREVTQ19PRkZTRVQJCQkzNg0KPiAgI2RlZmluZSBDTEVBUl9QQ0lfVFhfREVTQ19D
-T05URU5UKF9fcGRlc2MsIF9zaXplKQkJXA0KPiAtZG8gewkJCQkJCQkJXA0KPiAtCWlmIChfc2l6
-ZSA+IFRYX0RFU0NfTkVYVF9ERVNDX09GRlNFVCkJCQlcDQo+IC0JCW1lbXNldChfX3BkZXNjLCAw
-LCBUWF9ERVNDX05FWFRfREVTQ19PRkZTRVQpOwlcDQo+IC0JZWxzZQkJCQkJCQlcDQo+IC0JCW1l
-bXNldChfX3BkZXNjLCAwLCBfc2l6ZSk7CQkJXA0KPiAtfSB3aGlsZSAoMCk7DQo+ICsJbWVtc2V0
-KF9fcGRlc2MsIDAsIG1pbl90KHNpemVfdCwgX3NpemUsIFRYX0RFU0NfTkVYVF9ERVNDX09GRlNF
-VCkpDQo+IA0KPiAgLyogUnggRGVzYyAqLw0KPiAgI2RlZmluZSBSWF9TVEFUVVNfREVTQ19TSVpF
-CQkJCTI0DQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpL3J0bDgx
-OTJzZS9mdy5oDQo+IGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvcnRsd2lmaS9ydGw4MTkyc2UvZncu
-aA0KPiBpbmRleCBiNGFmZmY2Li5kNTNmNDMzIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC93
-aXJlbGVzcy9ydGx3aWZpL3J0bDgxOTJzZS9mdy5oDQo+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL3J0bHdpZmkvcnRsODE5MnNlL2Z3LmgNCj4gQEAgLTM0NSw3ICszNDUsNyBAQCBlbnVtIGZ3
-X2gyY19jbWQgew0KPiAgCWRvIHsJCQkJCQkJXA0KPiAgCQl1ZGVsYXkoMTAwMCk7CQkJCQlcDQo+
-ICAJCXJ0bHByaXYtPnJ0bGhhbC5md2NtZF9pb21hcCAmPSAofl9CaXQpOwkJXA0KPiAtCX0gd2hp
-bGUgKDApOw0KPiArCX0gd2hpbGUgKDApDQo+IA0KPiAgI2RlZmluZSBGV19DTURfSU9fVVBEQVRF
-KHJ0bHByaXYsIF92YWwpCQkJCVwNCj4gIAlydGxwcml2LT5ydGxoYWwuZndjbWRfaW9tYXAgPSBf
-dmFsOw0KPiBAQCAtMzU0LDEzICszNTQsMTMgQEAgZW51bSBmd19oMmNfY21kIHsNCj4gIAlkbyB7
-CQkJCQkJCVwNCj4gIAkJcnRsX3dyaXRlX3dvcmQocnRscHJpdiwgTEJVU19NT05fQUREUiwgKHUx
-NilfdmFsKTsJXA0KPiAgCQlGV19DTURfSU9fVVBEQVRFKHJ0bHByaXYsIF92YWwpOwkJXA0KPiAt
-CX0gd2hpbGUgKDApOw0KPiArCX0gd2hpbGUgKDApDQo+IA0KPiAgI2RlZmluZSBGV19DTURfUEFS
-QV9TRVQocnRscHJpdiwgX3ZhbCkJCQkJXA0KPiAgCWRvIHsJCQkJCQkJXA0KPiAgCQlydGxfd3Jp
-dGVfZHdvcmQocnRscHJpdiwgTEJVU19BRERSX01BU0ssIF92YWwpOwlcDQo+ICAJCXJ0bHByaXYt
-PnJ0bGhhbC5md2NtZF9pb3BhcmFtID0gX3ZhbDsJCVwNCj4gLQl9IHdoaWxlICgwKTsNCj4gKwl9
-IHdoaWxlICgwKQ0KPiANCj4gICNkZWZpbmUgRldfQ01EX0lPX1FVRVJZKHJ0bHByaXYpCQkJCVwN
-Cj4gIAkodTE2KShydGxwcml2LT5ydGxoYWwuZndjbWRfaW9tYXApDQo+IA0KDQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, Mar 15, 2012 at 6:57 AM, Francois Romieu <romieu@fr.zoreil.com>=
+ wrote:
+> - unbalanced pci_disable_device
+> - PCI ressources were not released
+> - mismatching pci_alloc_.../kfree pairs are replaced by DMA alloc hel=
+pers.
+>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Grant Grundler <grundler@parisc-linux.org>
+
+=46rancois,
+Apologies for such a long delay to review. This looks good to me.
+
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
+
+thanks,
+grundler
+
+> ---
+> =C2=A0drivers/net/ethernet/dec/tulip/xircom_cb.c | =C2=A0 53 ++++++++=
+++++++++++----------
+> =C2=A01 files changed, 34 insertions(+), 19 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/dec/tulip/xircom_cb.c b/drivers/net=
+/ethernet/dec/tulip/xircom_cb.c
+> index fdb329f..cbcc6d6 100644
+> --- a/drivers/net/ethernet/dec/tulip/xircom_cb.c
+> +++ b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+> @@ -192,15 +192,18 @@ static const struct net_device_ops netdev_ops =3D=
+ {
+> =C2=A0*/
+> =C2=A0static int __devinit xircom_probe(struct pci_dev *pdev, const s=
+truct pci_device_id *id)
+> =C2=A0{
+> + =C2=A0 =C2=A0 =C2=A0 struct device *d =3D &pdev->dev;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D NULL;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct xircom_private *private;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned long flags;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned short tmp16;
+> + =C2=A0 =C2=A0 =C2=A0 int rc;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* First do the PCI initialisation */
+>
+> - =C2=A0 =C2=A0 =C2=A0 if (pci_enable_device(pdev))
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -ENODEV;
+> + =C2=A0 =C2=A0 =C2=A0 rc =3D pci_enable_device(pdev);
+> + =C2=A0 =C2=A0 =C2=A0 if (rc < 0)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* disable all powermanagement */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_write_config_dword(pdev, PCI_POWERMGMT=
+, 0x0000);
+> @@ -211,11 +214,13 @@ static int __devinit xircom_probe(struct pci_de=
+v *pdev, const struct pci_device_
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_read_config_word (pdev,PCI_STATUS, &tm=
+p16);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_write_config_word (pdev, PCI_STATUS,tm=
+p16);
+>
+> - =C2=A0 =C2=A0 =C2=A0 if (!request_region(pci_resource_start(pdev, 0=
+), 128, "xircom_cb")) {
+> + =C2=A0 =C2=A0 =C2=A0 rc =3D pci_request_regions(pdev, "xircom_cb");
+> + =C2=A0 =C2=A0 =C2=A0 if (rc < 0) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s: fa=
+iled to allocate io-region\n", __func__);
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -ENODEV;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_disable;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> + =C2=A0 =C2=A0 =C2=A0 rc =3D -ENOMEM;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/*
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Before changing the hardware, allo=
+cate the memory.
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 This way, we can fail gracefully i=
+f not enough memory
+> @@ -223,17 +228,21 @@ static int __devinit xircom_probe(struct pci_de=
+v *pdev, const struct pci_device_
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev =3D alloc_etherdev(sizeof(struct xirco=
+m_private));
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!dev)
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto device_fail;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_release;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0private =3D netdev_priv(dev);
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Allocate the send/receive buffers */
+> - =C2=A0 =C2=A0 =C2=A0 private->rx_buffer =3D pci_alloc_consistent(pd=
+ev,8192,&private->rx_dma_handle);
+> + =C2=A0 =C2=A0 =C2=A0 private->rx_buffer =3D dma_alloc_coherent(d, 8=
+192,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 &private->rx_dma_handle,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 GFP_KERNEL);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (private->rx_buffer =3D=3D NULL) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s: no=
+ memory for rx buffer\n", __func__);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto rx_buf_fa=
+il;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> - =C2=A0 =C2=A0 =C2=A0 private->tx_buffer =3D pci_alloc_consistent(pd=
+ev,8192,&private->tx_dma_handle);
+> + =C2=A0 =C2=A0 =C2=A0 private->tx_buffer =3D dma_alloc_coherent(d, 8=
+192,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 &private->tx_dma_handle,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 GFP_KERNEL);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (private->tx_buffer =3D=3D NULL) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s: no=
+ memory for tx buffer\n", __func__);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto tx_buf_fa=
+il;
+> @@ -256,7 +265,8 @@ static int __devinit xircom_probe(struct pci_dev =
+*pdev, const struct pci_device_
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->netdev_ops =3D &netdev_ops;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_set_drvdata(pdev, dev);
+>
+> - =C2=A0 =C2=A0 =C2=A0 if (register_netdev(dev)) {
+> + =C2=A0 =C2=A0 =C2=A0 rc =3D register_netdev(dev);
+> + =C2=A0 =C2=A0 =C2=A0 if (rc < 0) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s: ne=
+tdevice registration failed\n", __func__);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto reg_fail;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> @@ -273,17 +283,21 @@ static int __devinit xircom_probe(struct pci_de=
+v *pdev, const struct pci_device_
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_unlock_irqrestore(&private->lock,flag=
+s);
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0trigger_receive(private);
+> -
+> - =C2=A0 =C2=A0 =C2=A0 return 0;
+> +out:
+> + =C2=A0 =C2=A0 =C2=A0 return rc;
+>
+> =C2=A0reg_fail:
+> - =C2=A0 =C2=A0 =C2=A0 kfree(private->tx_buffer);
+> + =C2=A0 =C2=A0 =C2=A0 pci_set_drvdata(pdev, NULL);
+> + =C2=A0 =C2=A0 =C2=A0 dma_free_coherent(d, 8192, private->tx_buffer,=
+ private->tx_dma_handle);
+> =C2=A0tx_buf_fail:
+> - =C2=A0 =C2=A0 =C2=A0 kfree(private->rx_buffer);
+> + =C2=A0 =C2=A0 =C2=A0 dma_free_coherent(d, 8192, private->rx_buffer,=
+ private->rx_dma_handle);
+> =C2=A0rx_buf_fail:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0free_netdev(dev);
+> -device_fail:
+> - =C2=A0 =C2=A0 =C2=A0 return -ENODEV;
+> +err_release:
+> + =C2=A0 =C2=A0 =C2=A0 pci_release_regions(pdev);
+> +err_disable:
+> + =C2=A0 =C2=A0 =C2=A0 pci_disable_device(pdev);
+> + =C2=A0 =C2=A0 =C2=A0 goto out;
+> =C2=A0}
+>
+>
+> @@ -297,14 +311,15 @@ static void __devexit xircom_remove(struct pci_=
+dev *pdev)
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D pci_get_drvdata=
+(pdev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct xircom_private *card =3D netdev_pri=
+v(dev);
+> + =C2=A0 =C2=A0 =C2=A0 struct device *d =3D &pdev->dev;
+>
+> - =C2=A0 =C2=A0 =C2=A0 pci_free_consistent(pdev,8192,card->rx_buffer,=
+card->rx_dma_handle);
+> - =C2=A0 =C2=A0 =C2=A0 pci_free_consistent(pdev,8192,card->tx_buffer,=
+card->tx_dma_handle);
+> -
+> - =C2=A0 =C2=A0 =C2=A0 release_region(dev->base_addr, 128);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0unregister_netdev(dev);
+> - =C2=A0 =C2=A0 =C2=A0 free_netdev(dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_set_drvdata(pdev, NULL);
+> + =C2=A0 =C2=A0 =C2=A0 dma_free_coherent(d, 8192, card->tx_buffer, ca=
+rd->tx_dma_handle);
+> + =C2=A0 =C2=A0 =C2=A0 dma_free_coherent(d, 8192, card->rx_buffer, ca=
+rd->rx_dma_handle);
+> + =C2=A0 =C2=A0 =C2=A0 free_netdev(dev);
+> + =C2=A0 =C2=A0 =C2=A0 pci_release_regions(pdev);
+> + =C2=A0 =C2=A0 =C2=A0 pci_disable_device(pdev);
+> =C2=A0}
+>
+> =C2=A0static irqreturn_t xircom_interrupt(int irq, void *dev_instance=
+)
+> --
+> 1.7.7.6
+>
