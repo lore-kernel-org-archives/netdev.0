@@ -1,301 +1,92 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 05/10] stmmac: re-work the internal GMAC DMA platf parameters
-Date: Wed,  4 Apr 2012 16:33:23 +0200
-Message-ID: <1333550008-16500-6-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 02/10] stmmac: Define CSUM offload engine Types
+Date: Wed,  4 Apr 2012 16:33:20 +0200
+Message-ID: <1333550008-16500-3-git-send-email-peppe.cavallaro@st.com>
 References: <1333550008-16500-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, deepak.sikri@st.com, spear-devel@list.st.com,
 	shiraz.hashim@st.com, viresh.kumar@st.com,
-	srinivas.kandagatla@st.com, Vikas Manocha <vikas.manocha@st.com>
+	srinivas.kandagatla@st.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:49559 "EHLO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756368Ab2DDOeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 10:34:08 -0400
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:46492 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756484Ab2DDOeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 10:34:05 -0400
 In-Reply-To: <1333550008-16500-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Deepak SIKRI <deepak.sikri@st.com>
 
-This patch re-works the internal GMAC DMA parameters
-passed from the platform.
-In the past, we only passed the pbl but, with new core,
-other parameters can be passed and are mandatory on some
-platforms.
+This patch explicitly defines the CSUM offload engine type which need
+(not mandatory) to be passed from the platform code.
+STMMAC core supports two check sum offload engine types- Type-1 & Type-2.
+Also, there are STMMAC cores that do not have the check sum offload
+capabilities.
 
-New parameters are documented in stmmac.txt because this
-patch has an impact for many platforms.
+The behaviour of Type-1 & Type-2 cores related to provision of checksum
+increases the packet length for Type-1 cores by 2, as the checksum is appended
+at the end of data packet and the same is made accountable in the DMA status.
+The STMMAC cores beyond Version-3.5 provide HW interface registers which allows
+the user to read the HW capabilities, while to support the previous cores the
+information related to HW capabilities has to be provided from the platform
+code.
 
-Signed-off-by: Shiraz Hashim <shiraz.hashim@st.com>
-Signed-off-by: Vikas Manocha <vikas.manocha@st.com>
+The Type-1 cores which do not have the HW register interface need this
+information.
+
+This patch also updates the driver's doc.
+
 Signed-off-by: Deepak Sikri <deepak.sikri@st.com>
 Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- Documentation/networking/stmmac.txt                |   24 ++++++++++-
- drivers/net/ethernet/stmicro/stmmac/common.h       |    3 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    2 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   42 +++++++++++++++++--
- drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |    6 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    4 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    3 +-
- include/linux/stmmac.h                             |   20 +++++++++-
- 9 files changed, 89 insertions(+), 16 deletions(-)
+ Documentation/networking/stmmac.txt |    3 +++
+ include/linux/stmmac.h              |    5 +++++
+ 2 files changed, 8 insertions(+), 0 deletions(-)
 
 diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index 61f40a3..eacb640 100644
+index d0aeead..61f40a3 100644
 --- a/Documentation/networking/stmmac.txt
 +++ b/Documentation/networking/stmmac.txt
-@@ -111,7 +111,7 @@ and detailed below as well:
- 	int phy_addr;
- 	int interface;
- 	struct stmmac_mdio_bus_data *mdio_bus_data;
--	int pbl;
-+	struct stmmac_dma_cfg *dma_cfg;
- 	int clk_csr;
+@@ -116,6 +116,7 @@ and detailed below as well:
  	int has_gmac;
  	int enh_desc;
-@@ -163,7 +163,7 @@ Where:
-  o custom_cfg: this is a custom configuration that can be passed while
- 	      initialising the resources.
- 
--The we have:
-+For MDIO bus The we have:
- 
-  struct stmmac_mdio_bus_data {
- 	int bus_id;
-@@ -180,10 +180,28 @@ Where:
-  o irqs: list of IRQs, one per PHY.
-  o probed_phy_irq: if irqs is NULL, use this for probed PHY.
- 
-+
-+For DMA engine we have the following internal fields that should be
-+tuned according to the HW capabilities.
-+
-+struct stmmac_dma_cfg {
-+	int pbl;
-+	int fixed_burst;
-+	int burst_len_supported;
-+};
-+
-+Where:
-+ o pbl: Programmable Burst Length
-+ o fixed_burst: program the DMA to use the fixed burst mode
-+ o burst_len: this is the value we put in the register
-+	      supported values are provided as macros in
-+	      linux/stmmac.h header file.
-+
-+---
-+
- Below an example how the structures above are using on ST platforms.
- 
-  static struct plat_stmmacenet_data stxYYY_ethernet_platform_data = {
--	.pbl = 32,
- 	.has_gmac = 0,
- 	.enh_desc = 0,
- 	.fix_mac_speed = stxYYY_ethernet_fix_mac_speed,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index eec8d34..b14829f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -236,7 +236,8 @@ struct stmmac_desc_ops {
- 
- struct stmmac_dma_ops {
- 	/* DMA core initialization */
--	int (*init) (void __iomem *ioaddr, int pbl, u32 dma_tx, u32 dma_rx);
-+	int (*init) (void __iomem *ioaddr, int pbl, int fb, int burst_len,
-+			u32 dma_tx, u32 dma_rx);
- 	/* Dump DMA registers */
- 	void (*dump_regs) (void __iomem *ioaddr);
- 	/* Set tx/rx threshold in the csr6 register
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index cfcef0e..54339a7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -142,7 +142,7 @@ enum rx_tx_priority_ratio {
- #define DMA_BUS_MODE_RPBL_MASK	0x003e0000	/* Rx-Programmable Burst Len */
- #define DMA_BUS_MODE_RPBL_SHIFT	17
- #define DMA_BUS_MODE_USP	0x00800000
--#define DMA_BUS_MODE_4PBL	0x01000000
-+#define DMA_BUS_MODE_PBL	0x01000000
- #define DMA_BUS_MODE_AAL	0x02000000
- 
- /* DMA CRS Control and Status Register Mapping */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 4d5402a..3675c57 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -30,8 +30,8 @@
- #include "dwmac1000.h"
- #include "dwmac_dma.h"
- 
--static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
--			      u32 dma_rx)
-+static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb,
-+			      int burst_len, u32 dma_tx, u32 dma_rx)
- {
- 	u32 value = readl(ioaddr + DMA_BUS_MODE);
- 	int limit;
-@@ -48,15 +48,47 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
- 	if (limit < 0)
- 		return -EBUSY;
- 
--	value = /* DMA_BUS_MODE_FB | */ DMA_BUS_MODE_4PBL |
--	    ((pbl << DMA_BUS_MODE_PBL_SHIFT) |
--	     (pbl << DMA_BUS_MODE_RPBL_SHIFT));
-+	/*
-+	 * Set the DMA PBL (Programmable Burst Length) mode
-+	 * Before stmmac core 3.50 this mode bit was 4xPBL, and
-+	 * post 3.5 mode bit acts as 8*PBL.
-+	 * For core rev < 3.5, when the core is set for 4xPBL mode, the
-+	 * DMA transfers the data in 4, 8, 16, 32, 64 & 128 beats
-+	 * depending on pbl value.
-+	 * For core rev > 3.5, when the core is set for 8xPBL mode, the
-+	 * DMA transfers the data in 8, 16, 32, 64, 128 & 256 beats
-+	 * depending on pbl value.
-+	 */
-+	value = DMA_BUS_MODE_PBL | ((pbl << DMA_BUS_MODE_PBL_SHIFT) |
-+		(pbl << DMA_BUS_MODE_RPBL_SHIFT));
-+
-+	/* Set the Fixed burst mode */
-+	if (fb)
-+		value |= DMA_BUS_MODE_FB;
- 
- #ifdef CONFIG_STMMAC_DA
- 	value |= DMA_BUS_MODE_DA;	/* Rx has priority over tx */
- #endif
- 	writel(value, ioaddr + DMA_BUS_MODE);
- 
-+	/* In case of GMAC AXI configuration, program the DMA_AXI_BUS_MODE
-+	 * for supported bursts.
-+	 *
-+	 * Note: This is applicable only for revision GMACv3.61a. For
-+	 * older version this register is reserved and shall have no
-+	 * effect.
-+	 *
-+	 * Note:
-+	 *  For Fixed Burst Mode: if we directly write 0xFF to this
-+	 *  register using the configurations pass from platform code,
-+	 *  this would ensure that all bursts supported by core are set
-+	 *  and those which are not supported would remain ineffective.
-+	 *
-+	 *  For Non Fixed Burst Mode: provide the maximum value of the
-+	 *  burst length. Any burst equal or below the provided burst
-+	 *  length would be allowed to perform. */
-+	writel(burst_len, ioaddr + DMA_AXI_BUS_MODE);
-+
- 	/* Mask interrupts by writing to CSR7 */
- 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-index bc17fd0..92ed2e0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-@@ -32,8 +32,8 @@
- #include "dwmac100.h"
- #include "dwmac_dma.h"
- 
--static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
--			     u32 dma_rx)
-+static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb,
-+			     int burst_len, u32 dma_tx, u32 dma_rx)
- {
- 	u32 value = readl(ioaddr + DMA_BUS_MODE);
- 	int limit;
-@@ -52,7 +52,7 @@ static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
- 
- 	/* Enable Application Access by writing to DMA CSR0 */
- 	writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
--	       ioaddr + DMA_BUS_MODE);
-+			ioaddr + DMA_BUS_MODE);
- 
- 	/* Mask interrupts by writing to CSR7 */
- 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 437edac..6e0360f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -32,6 +32,7 @@
- #define DMA_CONTROL		0x00001018	/* Ctrl (Operational Mode) */
- #define DMA_INTR_ENA		0x0000101c	/* Interrupt Enable */
- #define DMA_MISSED_FRAME_CTR	0x00001020	/* Missed Frame Counter */
-+#define DMA_AXI_BUS_MODE       0x00001028      /* AXI Bus Mode */
- #define DMA_CUR_TX_BUF_ADDR	0x00001050	/* Current Host Tx Buffer */
- #define DMA_CUR_RX_BUF_ADDR	0x00001054	/* Current Host Rx Buffer */
- #define DMA_HW_FEATURE		0x00001058	/* HW Feature Register */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 84f6b34..933f63c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -944,7 +944,9 @@ static int stmmac_open(struct net_device *dev)
- 	init_dma_desc_rings(dev);
- 
- 	/* DMA initialization and SW reset */
--	ret = priv->hw->dma->init(priv->ioaddr, priv->plat->pbl,
-+	ret = priv->hw->dma->init(priv->ioaddr, priv->plat->dma_cfg->pbl,
-+				  priv->plat->dma_cfg->fixed_burst,
-+				  priv->plat->dma_cfg->burst_len,
- 				  priv->dma_tx_phy, priv->dma_rx_phy);
- 	if (ret < 0) {
- 		pr_err("%s: DMA initialization failed\n", __func__);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index da66ed7..65e0f98 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -35,7 +35,8 @@ static void stmmac_default_data(void)
- 	plat_dat.bus_id = 1;
- 	plat_dat.phy_addr = 0;
- 	plat_dat.interface = PHY_INTERFACE_MODE_GMII;
--	plat_dat.pbl = 32;
-+	plat_dat.dma_cfg->pbl = 32;
-+	plat_dat.dma_cfg->burst_len = DMA_AXI_BLEN_256;
- 	plat_dat.clk_csr = 2;	/* clk_csr_i = 20-35MHz & MDC = clk_csr_i/16 */
- 	plat_dat.has_gmac = 1;
- 	plat_dat.force_sf_dma_mode = 1;
+ 	int tx_coe;
++	int rx_coe;
+ 	int bugged_jumbo;
+ 	int pmt;
+ 	int force_sf_dma_mode;
+@@ -140,6 +141,8 @@ Where:
+  o has_gmac: uses the GMAC core.
+  o enh_desc: if sets the MAC will use the enhanced descriptor structure.
+  o tx_coe: core is able to perform the tx csum in HW.
++ o rx_coe: the supports three check sum offloading engine types:
++	   type_1, type_2 (full csum) and no RX coe.
+  o bugged_jumbo: some HWs are not able to perform the csum in HW for
+ 		over-sized frames due to limited buffer sizes.
+ 		Setting this flag the csum will be done in SW on
 diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index e529282..4aef9ba 100644
+index 172b5e1..a9b4d6c 100644
 --- a/include/linux/stmmac.h
 +++ b/include/linux/stmmac.h
-@@ -60,6 +60,18 @@
-  * 1110 clk_csr_i/16
-  * 1111 clk_csr_i/18 */
+@@ -28,6 +28,10 @@
  
-+/* AXI DMA Burst length suported */
-+#define DMA_AXI_BLEN_4		(1 << 1)
-+#define DMA_AXI_BLEN_8		(1 << 2)
-+#define DMA_AXI_BLEN_16		(1 << 3)
-+#define DMA_AXI_BLEN_32		(1 << 4)
-+#define DMA_AXI_BLEN_64		(1 << 5)
-+#define DMA_AXI_BLEN_128	(1 << 6)
-+#define DMA_AXI_BLEN_256	(1 << 7)
-+#define DMA_AXI_BLEN_ALL (DMA_AXI_BLEN_4 | DMA_AXI_BLEN_8 | DMA_AXI_BLEN_16 \
-+			| DMA_AXI_BLEN_32 | DMA_AXI_BLEN_64 \
-+			| DMA_AXI_BLEN_128 | DMA_AXI_BLEN_256)
+ #include <linux/platform_device.h>
+ 
++#define STMMAC_RX_COE_NONE	0
++#define STMMAC_RX_COE_TYPE1	1
++#define STMMAC_RX_COE_TYPE2	2
 +
  /* Platfrom data for platform device structure's platform_data field */
  
  struct stmmac_mdio_bus_data {
-@@ -70,13 +82,19 @@ struct stmmac_mdio_bus_data {
- 	int probed_phy_irq;
- };
- 
-+struct stmmac_dma_cfg {
-+	int pbl;
-+	int fixed_burst;
-+	int burst_len;
-+};
-+
- struct plat_stmmacenet_data {
- 	char *phy_bus_name;
- 	int bus_id;
- 	int phy_addr;
- 	int interface;
- 	struct stmmac_mdio_bus_data *mdio_bus_data;
--	int pbl;
-+	struct stmmac_dma_cfg *dma_cfg;
- 	int clk_csr;
+@@ -49,6 +53,7 @@ struct plat_stmmacenet_data {
  	int has_gmac;
  	int enh_desc;
+ 	int tx_coe;
++	int rx_coe;
+ 	int bugged_jumbo;
+ 	int pmt;
+ 	int force_sf_dma_mode;
 -- 
 1.7.4.4
