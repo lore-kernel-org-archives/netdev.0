@@ -1,56 +1,65 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH] tilepro ethernet driver: fix a few minor issues
-Date: Wed, 4 Apr 2012 08:18:08 -0400
-Message-ID: <4F7C3C00.5020105@tilera.com>
-References: <201203302325.q2UNPm8j012403@farm-0012.internal.tilera.com> <20120403.182335.782073108961783777.davem@davemloft.net>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net-next] bnx2x: add missing parenthesis to prevent u32
+ overflow
+Date: Wed, 4 Apr 2012 15:27:42 +0300
+Message-ID: <1333542462-22658-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120403.182335.782073108961783777.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3096 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932131Ab2DDM2q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 08:28:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/3/2012 6:23 PM, David Miller wrote:
-> From: Chris Metcalf <cmetcalf@tilera.com>
-> Date: Fri, 30 Mar 2012 19:23:35 -0400
->
->> This commit fixes a number of issues seen with the driver:
->>
->> - Improve handling of return credits to the hardware shim
->> - Use skb_frag_size() appropriately
->> - Add netpoll support to run console over UDP
->>
->> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
-> Please do not mix pure bug fixes and new features.
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-Fair point.  The (trivial) netpoll change went in in response to an
-internal bug saying "hey, console over UDP is broken with the tile driver"
-so it seemed like a bug. :-)
+Commit b475d78 lacked two pairs of parenthesis, causing an overflow in the
+congestion management.
 
-> Submit the pure bug fixes separately for 'net' tree submission
-> and then submit feature additions like netpoll support in
-> a patch targetting the 'net-next' tree.
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
 
-To use management-speak, there seem to be some "dotted-line reporting"
-issues for this code.  It didn't occur to me that you would push it through
-the net tree; I assumed I would push it through the tile tree.  (In fact,
-shortly before I got your email I had asked Linus to pull it.)  I'm happy
-to do it either way; would you prefer to take this stuff for the net trees
-going forward?
+Hi Dave,
 
->> +	/* Handle completions if needed to make room. */
->> +	/* NOTE: Return NETDEV_TX_BUSY if there is still no room. */
-> Do not format comments like this, use something like this instead:
+Please apply this patch to 'net-next'.
 
-I will do a follow-up patch to fix up the comment style throughout the
-whole driver.
+Thanks,
+Dmitry
 
-Thanks!
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+index e6bb9f4..2b7a2bd 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_init.h
+@@ -409,7 +409,7 @@ static inline void bnx2x_init_min(const struct cmng_init_input *input_data,
+ 			 */
+ 			vdata->vnic_min_rate[vnic].vn_credit_delta =
+ 				(u32)input_data->vnic_min_rate[vnic] * 100 *
+-				T_FAIR_COEF / (8 * 100 * vnicWeightSum);
++				(T_FAIR_COEF / (8 * 100 * vnicWeightSum));
+ 			if (vdata->vnic_min_rate[vnic].vn_credit_delta <
+ 			    pdata->fair_vars.fair_threshold +
+ 			    MIN_ABOVE_THRESH) {
+@@ -446,7 +446,7 @@ static inline void bnx2x_init_fw_wrr(const struct cmng_init_input *input_data,
+ 				 */
+ 				ccd[cos] =
+ 				    (u32)input_data->cos_min_rate[cos] * 100 *
+-				    T_FAIR_COEF / (8 * 100 * cosWeightSum);
++				    (T_FAIR_COEF / (8 * 100 * cosWeightSum));
+ 				 if (ccd[cos] < pdata->fair_vars.fair_threshold
+ 						+ MIN_ABOVE_THRESH) {
+ 					ccd[cos] =
 -- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+1.7.9.rc2
