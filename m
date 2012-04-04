@@ -1,80 +1,72 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: [PATCH v6 1/2] Ethernet driver for the WIZnet W5300 chip
-Date: Wed, 4 Apr 2012 11:01:49 +0100
-Message-ID: <20120404100148.GB3002@opensource.wolfsonmicro.com>
-References: <1332752876-1650-1-git-send-email-msink@permonline.ru>
- <1333450726-24455-2-git-send-email-msink@permonline.ru>
- <20120403133619.GA3960@sirena.org.uk>
- <4F7BE7A4.1060202@permonline.ru>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH V4 net-next 00/26] ethtool: support time stamping and
+ phc clocks
+Date: Wed, 04 Apr 2012 03:02:28 -0700
+Message-ID: <1333533748.3046.28.camel@jtkirshe-mobl>
+References: <cover.1333529504.git.richardcochran@gmail.com>
+	 <20120404.052916.1495763141439052807.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="wq9mPyueHGvFACwf"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Mike Sinkovsky <msink@permonline.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4F7BE7A4.1060202@permonline.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-vwcS7Iqh5l3W5VfrJwHX"
+Cc: richardcochran@gmail.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, mporter@solarflare.com,
+	jacob.e.keller@intel.com, john.ronciak@intel.com,
+	e1000-devel@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:13897 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756021Ab2DDKCa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 06:02:30 -0400
+In-Reply-To: <20120404.052916.1495763141439052807.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---wq9mPyueHGvFACwf
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
+--=-vwcS7Iqh5l3W5VfrJwHX
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, Apr 04, 2012 at 12:18:12PM +0600, Mike Sinkovsky wrote:
-> 03.04.2012 19:36, Mark Brown =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB:
+On Wed, 2012-04-04 at 05:29 -0400, David Miller wrote:
+> From: Richard Cochran <richardcochran@gmail.com>
+> Date: Wed,  4 Apr 2012 10:59:15 +0200
+>=20
+> > * Changes in V4:
+> >   - drop two patches requiring out of tree support
+> >   - added Ben's Reviewed-by tag on two commit messages
+> > * Changes in V3:
+> >   - works without ethtool_ops
+> >   - does not require special privileges
+> >   - neaten user space tool output
+>=20
+> Applied, let's see if this one compiles :-)
 
-> >...you use devm_request_threaded_irq() here and rely on it for cleanup.
-> >Are you sure there's no possibility of the interrupt firing after you
-> >start to tear down the device?
+Just to make it clear, I have added the two patches that were dropped in
+v4 of this series (igb & e100) to my queue and plan to push them
+upstream through my tree after validation takes a look at them. :-)
 
-> >By using a specifically threaded IRQ you're also adding a performance
-> >overhead for no good reason if you can call netdev_carrier_*() from IRQ
-> >context and the GPIO is capable of generating a hard IRQ.  If you use
-> >request_any_context_irq() instead then the driver will get a hard IRQ if
-> >that's supported.
-
-> There isn't devm* variant of request_any_context_irq(), and using
-> plain version looks inconsistent with other resources handling.
-> Anyway, this is not performance critical procedure, and latency
-> around 100 millisecond is acceptable. Some our boards even don't
-> have this gpio at all, and nothing bad happens, just userspace
-> doesn't know is carrier on or off.
-
-None of this addresses the primary concern which is that because you're
-not (as far as I can tell) ensuring that the interrupt won't fire the
-driver might crash if the interrupt fires in between the resources it
-needs to handle the interrupt being deallocated and the interrupt being
-unregistered.  Managed interrupts are relatively tricky to use because
-of this issue, with most things like memory it doesn't matter exactly
-when it's deallocated but interrupts can potentially trigger actions
-themselves.
-
-If you can use it and devm_request_any_context_irq() doesn't exist it'd
-be better to add it.
-
---wq9mPyueHGvFACwf
+--=-vwcS7Iqh5l3W5VfrJwHX
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAEBAgAGBQJPfBwGAAoJEBus8iNuMP3d2HwP/27y84pdbHqBmSWGNmwuq4ya
-E33zPipfC7yjRuB/ABH7otJ0FLsrwUVbot7XYVu5HqVsMMzcxpcI6g1u5fvTNgRH
-Gy6IdDKdavoKKWdOFEfLuZwC544jnRa9hUXU7jMOycrv5iZsZ1z2LU0N6OJHPHZJ
-w9wKZoosPaluO9IHnPp4F31O9nFirP4h9tv3NgQoTBt8cfT017tf8ZuWTs+D4Xlb
-XH1qJfpvcYQA68bVMYIABFcO+RrcGmG8RA8bJ1i30UFuces0Y6E8UoLiOhvSB9Vm
-B00Jsh+SlZZpVyZD1UiaEt1uSOWu/05In3tpw8UAtu5r+EuXGYZb7yXtKlgyw0px
-XYhrVX7hY4iuY3rMuT4xEKv6UMRgcJ8MwMElucksfcOoBZjegPs8hg53FzdwcC7b
-FxhEkew+CTvNKkNv0nMf+UuO1rrgGSpoKeN4VlJei8o8k2g+lQUUNbEqDlfrHtsS
-eTeXviSODQ5/qmMHpBdrtSa8OSWyKhcH92+M+e8c5KmQUA5S6Hs6cOGr0FE2wmBz
-+R8ZXp64/4j2lxjSoOvLnrWBQICYb7cUEOh83nt4js+ovAxszMHHyog4YrfJPOWQ
-t9FYd+lCQ8t/KeE7Yk/750yQpiAjYNJj43LK9A+dYJLqmrVXQEIc2ysN1Q1n3+8q
-2mTsk08t0IW9h3WEqIHv
-=v9Mm
+iQIcBAABCgAGBQJPfBw0AAoJEOVv75VaS+3O+FsP/ixpCP9jgxm1YgoKmvfcvYa9
+bIuy7OUrr0SRtlngqNfATu5CXDWeg05OI5r/Dl3C06djRKt7O6JlkKSnypxmZy1U
+rAuyfL0qq2RJTEXT1CwFWEQ/QzN9hNc2XyN1Xk+3k25DO6y/4VqzWlvPw/YnfiMw
+YwVz6OEPAU19pMoVM7VG32+BUPWUqSapYvut1FMS3MSMg57lW4LA2ASo7S9V/BWm
+s3o9dLs9ShKAK+KkrOjfjAu3xeddfz1fGvaqDKkuh+l3zFZJgrKiXqyCyzx2BK81
+xZ16mhp0MUmm4N5H9fjPr0xcVq2NrWGTBK1ojpJhDDhLwzx0kwJaXuCaeifvuX7C
+sAC0fkCSQCPoRYkKZItkfGH2+OrlBMpYRbMCj8Gf99MK4zRSF7yh3mjR0x64gBka
+VBpT6xouzglOGVDTGazh2gqIFupQb44J6cjjJ8AoyGOErgP+rQg91QSwrzrDz7ah
++LUqN+s8Z/LQmMrmihAtl9qPfGwk7er0CUZShU5KwGQ9c4rwqEosuZKFbeQcLstt
+yYuSte21dXBxisyuFReRmbFbm2vgU3Np0XXKNnlQgww4c7KFj4z5fXAKEUmudLRD
+OI1y1aP8fEFRvyFzIt/97+4YQfl9h+JKzZ6oidVZma/VpUSmFqv2ZJ9KhM9pXKOV
+vYi5fp9vyJxHVi70XTdC
+=cYfg
 -----END PGP SIGNATURE-----
 
---wq9mPyueHGvFACwf--
+--=-vwcS7Iqh5l3W5VfrJwHX--
