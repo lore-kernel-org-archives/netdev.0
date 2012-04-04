@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: update for Marvell Ethernet drivers
-Date: Wed, 04 Apr 2012 18:06:45 -0400 (EDT)
-Message-ID: <20120404.180645.2140734492430526118.davem@davemloft.net>
-References: <20120402155947.7167ef2d@s6510.linuxnetplumber.net>
+Subject: Re: sky2: in free_buffers() do proper checks before call of
+ rx_clean()
+Date: Wed, 04 Apr 2012 18:07:06 -0400 (EDT)
+Message-ID: <20120404.180706.345415198105146886.davem@davemloft.net>
+References: <20120403001327.GB10227@Neptun>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mlindner@marvell.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: shemminger@vyatta.com, mlindner@marvell.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: LinoSanfilippo@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50305 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:50312 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756925Ab2DDWGu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 18:06:50 -0400
-In-Reply-To: <20120402155947.7167ef2d@s6510.linuxnetplumber.net>
+	with ESMTP id S1757028Ab2DDWHS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 18:07:18 -0400
+In-Reply-To: <20120403001327.GB10227@Neptun>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 2 Apr 2012 15:59:47 -0700
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Date: Tue, 3 Apr 2012 02:13:27 +0200
 
-> Marvell has agreed to do maintenance on the sky2 driver.
->    * Add the developer to the maintainers file
->    * Remove the old reference to the long gone (sk98lin) driver
->    * Rearrange to fit current topic organization
+> In sky2_open() free_buffers() is called in case that alloc_buffers() failed.
+> Here we do the check for sky2->rx_le too late, since we already called
+> rx_clean() which accessed rx_le. Furthermore we lack a check for sky2->rx_ring
+> which is also accessed by rx_clean().
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> With this patch both sky2->rx_le and sky2->rx_ring are checked before
+> alloc_buffers() is called.
 > 
-> ---
-> Please hold this patch until ack'd by Mirko.
+> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 
-Tick... tock... tick... tock...
+Ping?
