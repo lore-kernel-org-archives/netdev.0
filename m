@@ -1,7 +1,7 @@
 From: Mike Sinkovsky <msink@trikom.ru>
-Subject: [PATCH v8 1/2] Ethernet driver for the WIZnet W5300 chip
-Date: Wed,  4 Apr 2012 17:57:39 +0600
-Message-ID: <1333540660-30551-2-git-send-email-msink@trikom.ru>
+Subject: [PATCH v8 2/2] Ethernet driver for the WIZnet W5100 chip
+Date: Wed,  4 Apr 2012 17:57:40 +0600
+Message-ID: <1333540660-30551-3-git-send-email-msink@trikom.ru>
 References: <1333524216-23488-1-git-send-email-msink@permonline.ru>
 Cc: Mike Sinkovsky <msink@trikom.ru>,
 	Mike Sinkovsky <msink@permonline.ru>
@@ -17,104 +17,52 @@ Tested and used in production with Blackfin BF531 embedded processor.
 
 Signed-off-by: Mike Sinkovsky <msink@permonline.ru>
 ---
- drivers/net/ethernet/wiznet/Kconfig  |   64 +++
+ drivers/net/ethernet/wiznet/Kconfig  |   12 +
  drivers/net/ethernet/wiznet/Makefile |    1 +
- drivers/net/ethernet/wiznet/w5300.c  |  720 ++++++++++++++++++++++++++++++++++
- include/linux/platform_data/wiznet.h |   24 ++
- 4 files changed, 809 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/ethernet/wiznet/Kconfig
- create mode 100644 drivers/net/ethernet/wiznet/Makefile
- create mode 100644 drivers/net/ethernet/wiznet/w5300.c
- create mode 100644 include/linux/platform_data/wiznet.h
+ drivers/net/ethernet/wiznet/w5100.c  |  806 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 819 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/wiznet/w5100.c
 
 diff --git a/drivers/net/ethernet/wiznet/Kconfig b/drivers/net/ethernet/wiznet/Kconfig
-new file mode 100644
-index 0000000..364292b
---- /dev/null
+index 364292b..07b6d3d 100644
+--- a/drivers/net/ethernet/wiznet/Kconfig
 +++ b/drivers/net/ethernet/wiznet/Kconfig
-@@ -0,0 +1,64 @@
-+#
-+# WIZnet devices configuration
-+#
-+
-+config NET_VENDOR_WIZNET
-+	bool "WIZnet devices"
-+	default y
+@@ -17,6 +17,18 @@ config NET_VENDOR_WIZNET
+ 
+ if NET_VENDOR_WIZNET
+ 
++config WIZNET_W5100
++	tristate "WIZnet W5100 Ethernet support"
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  Support for WIZnet W5100 chips.
 +
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about WIZnet devices. If you say Y, you will be asked
-+	  for your specific card in the following questions.
-+
-+if NET_VENDOR_WIZNET
-+
-+config WIZNET_W5300
-+	tristate "WIZnet W5300 Ethernet support"
-+	---help---
-+	  Support for WIZnet W5300 chips.
-+
-+	  W5300 is a single chip with integrated 10/100 Ethernet MAC,
++	  W5100 is a single chip with integrated 10/100 Ethernet MAC,
 +	  PHY and hardware TCP/IP stack, but this driver is limited to
 +	  the MAC and PHY functions only, onchip TCP/IP is unused.
 +
 +	  To compile this driver as a module, choose M here: the module
-+	  will be called w5300.
++	  will be called w5100.
 +
-+choice
-+	prompt "WIZnet interface mode"
-+	default WIZNET_BUS_ANY
-+
-+config WIZNET_BUS_DIRECT
-+	bool "Direct address bus mode"
-+	---help---
-+	  In direct address mode host system can directly access all registers
-+	  after mapping to Memory-Mapped I/O space.
-+
-+config WIZNET_BUS_INDIRECT
-+	bool "Indirect address bus mode"
-+	---help---
-+	  In indirect address mode host system indirectly accesses registers
-+	  using Indirect Mode Address Register and Indirect Mode Data Register,
-+	  which are directly mapped to Memory-Mapped I/O space.
-+
-+config WIZNET_BUS_ANY
-+	bool "Select interface mode in runtime"
-+	---help---
-+	  If interface mode is unknown in compile time, it can be selected
-+	  in runtime from board/platform resources configuration.
-+
-+	  Performance may decrease compared to explicitly selected bus mode.
-+endchoice
-+
-+config WIZNET_TX_FLOW
-+	bool "Use transmit flow control"
-+	help
-+	  This enables transmit flow control for WIZnet chips.
-+	  If unsure, say Y.
-+
-+endif # NET_VENDOR_WIZNET
+ config WIZNET_W5300
+ 	tristate "WIZnet W5300 Ethernet support"
+ 	---help---
 diff --git a/drivers/net/ethernet/wiznet/Makefile b/drivers/net/ethernet/wiznet/Makefile
-new file mode 100644
-index 0000000..88e0a3e
---- /dev/null
+index 88e0a3e..c614535 100644
+--- a/drivers/net/ethernet/wiznet/Makefile
 +++ b/drivers/net/ethernet/wiznet/Makefile
-@@ -0,0 +1 @@
-+obj-$(CONFIG_WIZNET_W5300) += w5300.o
-diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
+@@ -1 +1,2 @@
++obj-$(CONFIG_WIZNET_W5100) += w5100.o
+ obj-$(CONFIG_WIZNET_W5300) += w5300.o
+diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
 new file mode 100644
-index 0000000..f35a101
+index 0000000..894d4d6
 --- /dev/null
-+++ b/drivers/net/ethernet/wiznet/w5300.c
-@@ -0,0 +1,720 @@
++++ b/drivers/net/ethernet/wiznet/w5100.c
+@@ -0,0 +1,806 @@
 +/*
-+ * Ethernet driver for the WIZnet W5300 chip.
++ * Ethernet driver for the WIZnet W5100 chip.
 + *
-+ * Copyright (C) 2008-2009 WIZnet Co.,Ltd.
-+ * Copyright (C) 2011 Taehun Kim <kth3321 <at> gmail.com>
++ * Copyright (C) 2006-2008 WIZnet Co.,Ltd.
 + * Copyright (C) 2012 Mike Sinkovsky <msink@permonline.ru>
 + *
 + * Licensed under the GPL-2 or later.
@@ -139,10 +87,10 @@ index 0000000..f35a101
 +#include <linux/interrupt.h>
 +#include <linux/gpio.h>
 +
-+#define DRV_NAME	"w5300"
++#define DRV_NAME	"w5100"
 +#define DRV_VERSION	"2012-04-04"
 +
-+MODULE_DESCRIPTION("WIZnet W5300 Ethernet driver v"DRV_VERSION);
++MODULE_DESCRIPTION("WIZnet W5100 Ethernet driver v"DRV_VERSION);
 +MODULE_AUTHOR("Mike Sinkovsky <msink@permonline.ru>");
 +MODULE_ALIAS("platform:"DRV_NAME);
 +MODULE_LICENSE("GPL");
@@ -150,58 +98,63 @@ index 0000000..f35a101
 +/*
 + * Registers
 + */
-+#define W5300_MR		0x0000	/* Mode Register */
-+#define   MR_DBW		  (1 << 15) /* Data bus width */
-+#define   MR_MPF		  (1 << 14) /* Mac layer pause frame */
-+#define   MR_WDF(n)		  (((n)&7)<<11) /* Write data fetch time */
-+#define   MR_RDH		  (1 << 10) /* Read data hold time */
-+#define   MR_FS			  (1 << 8)  /* FIFO swap */
-+#define   MR_RST		  (1 << 7)  /* S/W reset */
-+#define   MR_PB			  (1 << 4)  /* Ping block */
-+#define   MR_DBS		  (1 << 2)  /* Data bus swap */
-+#define   MR_IND		  (1 << 0)  /* Indirect mode */
-+#define W5300_IR		0x0002	/* Interrupt Register */
-+#define W5300_IMR		0x0004	/* Interrupt Mask Register */
-+#define   IR_S0			  0x0001  /* S0 interrupt */
-+#define W5300_SHARL		0x0008	/* Source MAC address (0123) */
-+#define W5300_SHARH		0x000c	/* Source MAC address (45) */
-+#define W5300_TMSRL		0x0020	/* Transmit Memory Size (0123) */
-+#define W5300_TMSRH		0x0024	/* Transmit Memory Size (4567) */
-+#define W5300_RMSRL		0x0028	/* Receive Memory Size (0123) */
-+#define W5300_RMSRH		0x002c	/* Receive Memory Size (4567) */
-+#define W5300_MTYPE		0x0030	/* Memory Type */
-+#define W5300_IDR		0x00fe	/* Chip ID register */
-+#define   IDR_W5300		  0x5300  /* =0x5300 for WIZnet W5300 */
-+#define W5300_S0_MR		0x0200	/* S0 Mode Register */
-+#define   S0_MR_CLOSED		  0x0000  /* Close mode */
-+#define   S0_MR_MACRAW		  0x0004  /* MAC RAW mode (promiscous) */
-+#define   S0_MR_MACRAW_MF	  0x0044  /* MAC RAW mode (filtered) */
-+#define W5300_S0_CR		0x0202	/* S0 Command Register */
-+#define   S0_CR_OPEN		  0x0001  /* OPEN command */
-+#define   S0_CR_CLOSE		  0x0010  /* CLOSE command */
-+#define   S0_CR_SEND		  0x0020  /* SEND command */
-+#define   S0_CR_RECV		  0x0040  /* RECV command */
-+#define W5300_S0_IMR		0x0204	/* S0 Interrupt Mask Register */
-+#define W5300_S0_IR		0x0206	/* S0 Interrupt Register */
-+#define   S0_IR_RECV		  0x0004  /* Receive interrupt */
-+#define   S0_IR_SENDOK		  0x0010  /* Send OK interrupt */
-+#define W5300_S0_SSR		0x0208	/* S0 Socket Status Register */
-+#define W5300_S0_TX_WRSR	0x0220	/* S0 TX Write Size Register */
-+#define W5300_S0_TX_FSR		0x0224	/* S0 TX Free Size Register */
-+#define W5300_S0_RX_RSR		0x0228	/* S0 Received data Size */
-+#define W5300_S0_TX_FIFO	0x022e	/* S0 Transmit FIFO */
-+#define W5300_S0_RX_FIFO	0x0230	/* S0 Receive FIFO */
-+#define W5300_REGS_LEN		0x0400
++#define W5100_COMMON_REGS	0x0000
++#define W5100_MR		0x0000 /* Mode Register */
++#define   MR_RST		  0x80 /* S/W reset */
++#define   MR_PB			  0x10 /* Ping block */
++#define   MR_AI			  0x02 /* Address Auto-Increment */
++#define   MR_IND		  0x01 /* Indirect mode */
++#define W5100_SHAR		0x0009 /* Source MAC address */
++#define W5100_IR		0x0015 /* Interrupt Register */
++#define W5100_IMR		0x0016 /* Interrupt Mask Register */
++#define   IR_S0			  0x01 /* S0 interrupt */
++#define W5100_RTR		0x0017 /* Retry Time-value Register */
++#define   RTR_DEFAULT		  2000 /* =0x07d0 (2000) */
++#define W5100_RMSR		0x001a /* Receive Memory Size */
++#define W5100_TMSR		0x001b /* Transmit Memory Size */
++#define W5100_COMMON_REGS_LEN	0x0040
++
++#define W5100_S0_REGS		0x0400
++#define W5100_S0_MR		0x0400 /* S0 Mode Register */
++#define   S0_MR_MACRAW		  0x04 /* MAC RAW mode (promiscous) */
++#define   S0_MR_MACRAW_MF	  0x44 /* MAC RAW mode (filtered) */
++#define W5100_S0_CR		0x0401 /* S0 Command Register */
++#define   S0_CR_OPEN		  0x01 /* OPEN command */
++#define   S0_CR_CLOSE		  0x10 /* CLOSE command */
++#define   S0_CR_SEND		  0x20 /* SEND command */
++#define   S0_CR_RECV		  0x40 /* RECV command */
++#define W5100_S0_IR		0x0402 /* S0 Interrupt Register */
++#define   S0_IR_SENDOK		  0x10 /* complete sending */
++#define   S0_IR_RECV		  0x04 /* receiving data */
++#define W5100_S0_SR		0x0403 /* S0 Status Register */
++#define   S0_SR_MACRAW		  0x42 /* mac raw mode */
++#define W5100_S0_TX_FSR		0x0420 /* S0 Transmit free memory size */
++#define W5100_S0_TX_RD		0x0422 /* S0 Transmit memory read pointer */
++#define W5100_S0_TX_WR		0x0424 /* S0 Transmit memory write pointer */
++#define W5100_S0_RX_RSR		0x0426 /* S0 Receive free memory size */
++#define W5100_S0_RX_RD		0x0428 /* S0 Receive memory read pointer */
++#define W5100_S0_REGS_LEN	0x0040
++
++#define W5100_TX_MEM_START	0x4000
++#define W5100_TX_MEM_END	0x5fff
++#define W5100_TX_MEM_MASK	0x1fff
++#define W5100_RX_MEM_START	0x6000
++#define W5100_RX_MEM_END	0x7fff
++#define W5100_RX_MEM_MASK	0x1fff
 +
 +/*
 + * Device driver private data structure
 + */
-+struct w5300_priv {
++struct w5100_priv {
 +	void __iomem *base;
 +	spinlock_t reg_lock;
 +	bool indirect;
-+	u16  (*read) (struct w5300_priv *priv, u16 addr);
-+	void (*write)(struct w5300_priv *priv, u16 addr, u16 data);
++	u8   (*read)(struct w5100_priv *priv, u16 addr);
++	void (*write)(struct w5100_priv *priv, u16 addr, u8 data);
++	u16  (*read16)(struct w5100_priv *priv, u16 addr);
++	void (*write16)(struct w5100_priv *priv, u16 addr, u16 data);
++	void (*readbuf)(struct w5100_priv *priv, u16 addr, u8 *buf, int len);
++	void (*writebuf)(struct w5100_priv *priv, u16 addr, u8 *buf, int len);
 +	int irq;
 +	int link_irq;
 +	int link_gpio;
@@ -219,20 +172,60 @@ index 0000000..f35a101
 + ***********************************************************************/
 +
 +/*
-+ * In direct address mode host system can directly access W5300 registers
++ * In direct address mode host system can directly access W5100 registers
 + * after mapping to Memory-Mapped I/O space.
 + *
-+ * 0x400 bytes are required for memory space.
++ * 0x8000 bytes are required for memory space.
 + */
-+static inline u16 w5300_read_direct(struct w5300_priv *priv, u16 addr)
++static inline u8 w5100_read_direct(struct w5100_priv *priv, u16 addr)
 +{
-+	return ioread16(priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
++	return ioread8(priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
 +}
 +
-+static inline void w5300_write_direct(struct w5300_priv *priv,
-+				      u16 addr, u16 data)
++static inline void w5100_write_direct(struct w5100_priv *priv,
++				      u16 addr, u8 data)
 +{
-+	iowrite16(data, priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
++	iowrite8(data, priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
++}
++
++static u16 w5100_read16_direct(struct w5100_priv *priv, u16 addr)
++{
++	u16 data;
++	data  = w5100_read_direct(priv, addr) << 8;
++	data |= w5100_read_direct(priv, addr + 1);
++	return data;
++}
++
++static void w5100_write16_direct(struct w5100_priv *priv, u16 addr, u16 data)
++{
++	w5100_write_direct(priv, addr, data >> 8);
++	w5100_write_direct(priv, addr + 1, data);
++}
++
++static void w5100_readbuf_direct(struct w5100_priv *priv,
++				 u16 offset, u8 *buf, int len)
++{
++	u16 addr = W5100_RX_MEM_START + (offset & W5100_RX_MEM_MASK);
++	int i;
++
++	for (i = 0; i < len; i++, addr++) {
++		if (unlikely(addr > W5100_RX_MEM_END))
++			addr = W5100_RX_MEM_START;
++		*buf++ = w5100_read_direct(priv, addr);
++	}
++}
++
++static void w5100_writebuf_direct(struct w5100_priv *priv,
++				  u16 offset, u8 *buf, int len)
++{
++	u16 addr = W5100_TX_MEM_START + (offset & W5100_TX_MEM_MASK);
++	int i;
++
++	for (i = 0; i < len; i++, addr++) {
++		if (unlikely(addr > W5100_TX_MEM_END))
++			addr = W5100_TX_MEM_START;
++		w5100_write_direct(priv, addr, *buf++);
++	}
 +}
 +
 +/*
@@ -241,72 +234,144 @@ index 0000000..f35a101
 + * Register (IDM_DR), which are directly mapped to Memory-Mapped I/O space.
 + * Mode Register (MR) is directly accessible.
 + *
-+ * Only 0x06 bytes are required for memory space.
++ * Only 0x04 bytes are required for memory space.
 + */
-+#define W5300_IDM_AR		0x0002	 /* Indirect Mode Address */
-+#define W5300_IDM_DR		0x0004	 /* Indirect Mode Data */
++#define W5100_IDM_AR		0x01   /* Indirect Mode Address Register */
++#define W5100_IDM_DR		0x03   /* Indirect Mode Data Register */
 +
-+static u16 w5300_read_indirect(struct w5300_priv *priv, u16 addr)
++static u8 w5100_read_indirect(struct w5100_priv *priv, u16 addr)
++{
++	unsigned long flags;
++	u8 data;
++
++	spin_lock_irqsave(&priv->reg_lock, flags);
++	w5100_write16_direct(priv, W5100_IDM_AR, addr);
++	mmiowb();
++	data = w5100_read_direct(priv, W5100_IDM_DR);
++	spin_unlock_irqrestore(&priv->reg_lock, flags);
++
++	return data;
++}
++
++static void w5100_write_indirect(struct w5100_priv *priv, u16 addr, u8 data)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->reg_lock, flags);
++	w5100_write16_direct(priv, W5100_IDM_AR, addr);
++	mmiowb();
++	w5100_write_direct(priv, W5100_IDM_DR, data);
++	mmiowb();
++	spin_unlock_irqrestore(&priv->reg_lock, flags);
++}
++
++static u16 w5100_read16_indirect(struct w5100_priv *priv, u16 addr)
 +{
 +	unsigned long flags;
 +	u16 data;
 +
 +	spin_lock_irqsave(&priv->reg_lock, flags);
-+	w5300_write_direct(priv, W5300_IDM_AR, addr);
++	w5100_write16_direct(priv, W5100_IDM_AR, addr);
 +	mmiowb();
-+	data = w5300_read_direct(priv, W5300_IDM_DR);
++	data  = w5100_read_direct(priv, W5100_IDM_DR) << 8;
++	data |= w5100_read_direct(priv, W5100_IDM_DR);
 +	spin_unlock_irqrestore(&priv->reg_lock, flags);
 +
 +	return data;
 +}
 +
-+static void w5300_write_indirect(struct w5300_priv *priv, u16 addr, u16 data)
++static void w5100_write16_indirect(struct w5100_priv *priv, u16 addr, u16 data)
 +{
 +	unsigned long flags;
 +
 +	spin_lock_irqsave(&priv->reg_lock, flags);
-+	w5300_write_direct(priv, W5300_IDM_AR, addr);
++	w5100_write16_direct(priv, W5100_IDM_AR, addr);
 +	mmiowb();
-+	w5300_write_direct(priv, W5300_IDM_DR, data);
++	w5100_write_direct(priv, W5100_IDM_DR, data >> 8);
++	w5100_write_direct(priv, W5100_IDM_DR, data);
++	mmiowb();
++	spin_unlock_irqrestore(&priv->reg_lock, flags);
++}
++
++static void w5100_readbuf_indirect(struct w5100_priv *priv,
++				   u16 offset, u8 *buf, int len)
++{
++	u16 addr = W5100_RX_MEM_START + (offset & W5100_RX_MEM_MASK);
++	unsigned long flags;
++	int i;
++
++	spin_lock_irqsave(&priv->reg_lock, flags);
++	w5100_write16_direct(priv, W5100_IDM_AR, addr);
++	mmiowb();
++
++	for (i = 0; i < len; i++, addr++) {
++		if (unlikely(addr > W5100_RX_MEM_END)) {
++			addr = W5100_RX_MEM_START;
++			w5100_write16_direct(priv, W5100_IDM_AR, addr);
++			mmiowb();
++		}
++		*buf++ = w5100_read_direct(priv, W5100_IDM_DR);
++	}
++	mmiowb();
++	spin_unlock_irqrestore(&priv->reg_lock, flags);
++}
++
++static void w5100_writebuf_indirect(struct w5100_priv *priv,
++				    u16 offset, u8 *buf, int len)
++{
++	u16 addr = W5100_TX_MEM_START + (offset & W5100_TX_MEM_MASK);
++	unsigned long flags;
++	int i;
++
++	spin_lock_irqsave(&priv->reg_lock, flags);
++	w5100_write16_direct(priv, W5100_IDM_AR, addr);
++	mmiowb();
++
++	for (i = 0; i < len; i++, addr++) {
++		if (unlikely(addr > W5100_TX_MEM_END)) {
++			addr = W5100_TX_MEM_START;
++			w5100_write16_direct(priv, W5100_IDM_AR, addr);
++			mmiowb();
++		}
++		w5100_write_direct(priv, W5100_IDM_DR, *buf++);
++	}
 +	mmiowb();
 +	spin_unlock_irqrestore(&priv->reg_lock, flags);
 +}
 +
 +#if defined(CONFIG_WIZNET_BUS_DIRECT)
-+#define w5300_read	w5300_read_direct
-+#define w5300_write	w5300_write_direct
++#define w5100_read	w5100_read_direct
++#define w5100_write	w5100_write_direct
++#define w5100_read16	w5100_read16_direct
++#define w5100_write16	w5100_write16_direct
++#define w5100_readbuf	w5100_readbuf_direct
++#define w5100_writebuf	w5100_writebuf_direct
 +
 +#elif defined(CONFIG_WIZNET_BUS_INDIRECT)
-+#define w5300_read	w5300_read_indirect
-+#define w5300_write	w5300_write_indirect
++#define w5100_read	w5100_read_indirect
++#define w5100_write	w5100_write_indirect
++#define w5100_read16	w5100_read16_indirect
++#define w5100_write16	w5100_write16_indirect
++#define w5100_readbuf	w5100_readbuf_indirect
++#define w5100_writebuf	w5100_writebuf_indirect
 +
 +#else /* CONFIG_WIZNET_BUS_ANY */
-+#define w5300_read	priv->read
-+#define w5300_write	priv->write
++#define w5100_read	priv->read
++#define w5100_write	priv->write
++#define w5100_read16	priv->read16
++#define w5100_write16	priv->write16
++#define w5100_readbuf	priv->readbuf
++#define w5100_writebuf	priv->writebuf
 +#endif
 +
-+static u32 w5300_read32(struct w5300_priv *priv, u16 addr)
-+{
-+	u32 data;
-+	data  = w5300_read(priv, addr) << 16;
-+	data |= w5300_read(priv, addr + 2);
-+	return data;
-+}
-+
-+static void w5300_write32(struct w5300_priv *priv, u16 addr, u32 data)
-+{
-+	w5300_write(priv, addr, data >> 16);
-+	w5300_write(priv, addr + 2, data);
-+}
-+
-+static int w5300_command(struct w5300_priv *priv, u16 cmd)
++static int w5100_command(struct w5100_priv *priv, u16 cmd)
 +{
 +	unsigned long timeout = jiffies + msecs_to_jiffies(100);
 +
-+	w5300_write(priv, W5300_S0_CR, cmd);
++	w5100_write(priv, W5100_S0_CR, cmd);
 +	mmiowb();
 +
-+	while (w5300_read(priv, W5300_S0_CR) != 0) {
++	while (w5100_read(priv, W5100_S0_CR) != 0) {
 +		if (time_after(jiffies, timeout))
 +			return -EIO;
 +		cpu_relax();
@@ -315,88 +380,51 @@ index 0000000..f35a101
 +	return 0;
 +}
 +
-+static void w5300_read_frame(struct w5300_priv *priv, u8 *buf, int len)
-+{
-+	u16 fifo;
-+	int i;
-+
-+	for (i = 0; i < len; i += 2) {
-+		fifo = w5300_read(priv, W5300_S0_RX_FIFO);
-+		*buf++ = fifo >> 8;
-+		*buf++ = fifo;
-+	}
-+	fifo = w5300_read(priv, W5300_S0_RX_FIFO);
-+	fifo = w5300_read(priv, W5300_S0_RX_FIFO);
-+}
-+
-+static void w5300_write_frame(struct w5300_priv *priv, u8 *buf, int len)
-+{
-+	u16 fifo;
-+	int i;
-+
-+	for (i = 0; i < len; i += 2) {
-+		fifo  = *buf++ << 8;
-+		fifo |= *buf++;
-+		w5300_write(priv, W5300_S0_TX_FIFO, fifo);
-+	}
-+	w5300_write32(priv, W5300_S0_TX_WRSR, len);
-+}
-+
-+static void w5300_write_macaddr(struct w5300_priv *priv)
++static void w5100_write_macaddr(struct w5100_priv *priv)
 +{
 +	struct net_device *ndev = priv->ndev;
-+	w5300_write32(priv, W5300_SHARL,
-+		      ndev->dev_addr[0] << 24 |
-+		      ndev->dev_addr[1] << 16 |
-+		      ndev->dev_addr[2] << 8 |
-+		      ndev->dev_addr[3]);
-+	w5300_write(priv, W5300_SHARH,
-+		      ndev->dev_addr[4] << 8 |
-+		      ndev->dev_addr[5]);
++	int i;
++
++	for (i = 0; i < ETH_ALEN; i++)
++		w5100_write(priv, W5100_SHAR + i, ndev->dev_addr[i]);
 +	mmiowb();
 +}
 +
-+static void w5300_hw_reset(struct w5300_priv *priv)
++static void w5100_hw_reset(struct w5100_priv *priv)
 +{
-+	w5300_write_direct(priv, W5300_MR, MR_RST);
++	w5100_write_direct(priv, W5100_MR, MR_RST);
 +	mmiowb();
 +	mdelay(5);
-+	w5300_write_direct(priv, W5300_MR, priv->indirect ?
-+				 MR_WDF(7) | MR_PB | MR_IND :
-+				 MR_WDF(7) | MR_PB);
++	w5100_write_direct(priv, W5100_MR, priv->indirect ?
++				  MR_PB | MR_AI | MR_IND :
++				  MR_PB);
 +	mmiowb();
-+	w5300_write(priv, W5300_IMR, 0);
-+	w5300_write_macaddr(priv);
++	w5100_write(priv, W5100_IMR, 0);
++	w5100_write_macaddr(priv);
 +
-+	/* Configure 128K of internal memory
-+	 * as 64K RX fifo and 64K TX fifo
++	/* Configure 16K of internal memory
++	 * as 8K RX buffer and 8K TX buffer
 +	 */
-+	w5300_write32(priv, W5300_RMSRL, 64 << 24);
-+	w5300_write32(priv, W5300_RMSRH, 0);
-+	w5300_write32(priv, W5300_TMSRL, 64 << 24);
-+	w5300_write32(priv, W5300_TMSRH, 0);
-+	w5300_write(priv, W5300_MTYPE, 0x00ff);
++	w5100_write(priv, W5100_RMSR, 0x03);
++	w5100_write(priv, W5100_TMSR, 0x03);
 +	mmiowb();
 +}
 +
-+static void w5300_hw_start(struct w5300_priv *priv)
++static void w5100_hw_start(struct w5100_priv *priv)
 +{
-+	w5300_write(priv, W5300_S0_MR, priv->promisc ?
++	w5100_write(priv, W5100_S0_MR, priv->promisc ?
 +			  S0_MR_MACRAW : S0_MR_MACRAW_MF);
 +	mmiowb();
-+	w5300_command(priv, S0_CR_OPEN);
-+	w5300_write(priv, W5300_S0_IMR, IS_ENABLED(CONFIG_WIZNET_TX_FLOW) ?
-+					S0_IR_RECV | S0_IR_SENDOK :
-+					S0_IR_RECV);
-+	w5300_write(priv, W5300_IMR, IR_S0);
++	w5100_command(priv, S0_CR_OPEN);
++	w5100_write(priv, W5100_IMR, IR_S0);
 +	mmiowb();
 +}
 +
-+static void w5300_hw_close(struct w5300_priv *priv)
++static void w5100_hw_close(struct w5100_priv *priv)
 +{
-+	w5300_write(priv, W5300_IMR, 0);
++	w5100_write(priv, W5100_IMR, 0);
 +	mmiowb();
-+	w5300_command(priv, S0_CR_CLOSE);
++	w5100_command(priv, S0_CR_CLOSE);
 +}
 +
 +/***********************************************************************
@@ -405,7 +433,7 @@ index 0000000..f35a101
 + *
 + ***********************************************************************/
 +
-+static void w5300_get_drvinfo(struct net_device *ndev,
++static void w5100_get_drvinfo(struct net_device *ndev,
 +			      struct ethtool_drvinfo *info)
 +{
 +	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
@@ -414,9 +442,9 @@ index 0000000..f35a101
 +		sizeof(info->bus_info));
 +}
 +
-+static u32 w5300_get_link(struct net_device *ndev)
++static u32 w5100_get_link(struct net_device *ndev)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
 +	if (gpio_is_valid(priv->link_gpio))
 +		return !!gpio_get_value(priv->link_gpio);
@@ -424,106 +452,105 @@ index 0000000..f35a101
 +	return 1;
 +}
 +
-+static u32 w5300_get_msglevel(struct net_device *ndev)
++static u32 w5100_get_msglevel(struct net_device *ndev)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
 +	return priv->msg_enable;
 +}
 +
-+static void w5300_set_msglevel(struct net_device *ndev, u32 value)
++static void w5100_set_msglevel(struct net_device *ndev, u32 value)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
 +	priv->msg_enable = value;
 +}
 +
-+static int w5300_get_regs_len(struct net_device *ndev)
++static int w5100_get_regs_len(struct net_device *ndev)
 +{
-+	return W5300_REGS_LEN;
++	return W5100_COMMON_REGS_LEN + W5100_S0_REGS_LEN;
 +}
 +
-+static void w5300_get_regs(struct net_device *ndev,
++static void w5100_get_regs(struct net_device *ndev,
 +			   struct ethtool_regs *regs, void *_buf)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +	u8 *buf = _buf;
-+	u16 addr;
-+	u16 data;
++	u16 i;
 +
 +	regs->version = 1;
-+	for (addr = 0; addr < W5300_REGS_LEN; addr += 2) {
-+		switch (addr & 0x23f) {
-+		case W5300_S0_TX_FIFO: /* cannot read TX_FIFO */
-+		case W5300_S0_RX_FIFO: /* cannot read RX_FIFO */
-+			data = 0xffff;
-+			break;
-+		default:
-+			data = w5300_read(priv, addr);
-+			break;
-+		}
-+		*buf++ = data >> 8;
-+		*buf++ = data;
-+	}
++	for (i = 0; i < W5100_COMMON_REGS_LEN; i++)
++		*buf++ = w5100_read(priv, W5100_COMMON_REGS + i);
++	for (i = 0; i < W5100_S0_REGS_LEN; i++)
++		*buf++ = w5100_read(priv, W5100_S0_REGS + i);
 +}
 +
-+static void w5300_tx_timeout(struct net_device *ndev)
++static void w5100_tx_timeout(struct net_device *ndev)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
 +	netif_stop_queue(ndev);
-+	w5300_hw_reset(priv);
-+	w5300_hw_start(priv);
++	w5100_hw_reset(priv);
++	w5100_hw_start(priv);
 +	ndev->stats.tx_errors++;
 +	ndev->trans_start = jiffies;
 +	netif_wake_queue(ndev);
 +}
 +
-+static int w5300_start_tx(struct sk_buff *skb, struct net_device *ndev)
++static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
++	u16 offset;
 +
 +	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW))
 +		netif_stop_queue(ndev);
 +
-+	w5300_write_frame(priv, skb->data, skb->len);
++	offset = w5100_read16(priv, W5100_S0_TX_WR);
++	w5100_writebuf(priv, offset, skb->data, skb->len);
++	w5100_write16(priv, W5100_S0_TX_WR, offset + skb->len);
 +	mmiowb();
-+	ndev->stats.tx_packets++;
 +	ndev->stats.tx_bytes += skb->len;
++	ndev->stats.tx_packets++;
 +	dev_kfree_skb(skb);
-+	netif_dbg(priv, tx_queued, ndev, "tx queued\n");
 +
-+	w5300_command(priv, S0_CR_SEND);
++	w5100_command(priv, S0_CR_SEND);
 +
 +	return NETDEV_TX_OK;
 +}
 +
-+static int w5300_napi_poll(struct napi_struct *napi, int budget)
++static int w5100_napi_poll(struct napi_struct *napi, int budget)
 +{
-+	struct w5300_priv *priv = container_of(napi, struct w5300_priv, napi);
++	struct w5100_priv *priv = container_of(napi, struct w5100_priv, napi);
 +	struct net_device *ndev = priv->ndev;
 +	struct sk_buff *skb;
 +	int rx_count;
 +	u16 rx_len;
++	u16 offset;
++	u8 header[2];
 +
 +	for (rx_count = 0; rx_count < budget; rx_count++) {
-+		u32 rx_fifo_len = w5300_read32(priv, W5300_S0_RX_RSR);
-+		if (rx_fifo_len == 0)
++		u16 rx_buf_len = w5100_read16(priv, W5100_S0_RX_RSR);
++		if (rx_buf_len == 0)
 +			break;
 +
-+		rx_len = w5300_read(priv, W5300_S0_RX_FIFO);
++		offset = w5100_read16(priv, W5100_S0_RX_RD);
++		w5100_readbuf(priv, offset, header, 2);
++		rx_len = get_unaligned_be16(header) - 2;
 +
-+		skb = netdev_alloc_skb_ip_align(ndev, roundup(rx_len, 2));
++		skb = netdev_alloc_skb_ip_align(ndev, rx_len);
 +		if (unlikely(!skb)) {
-+			u32 i;
-+			for (i = 0; i < rx_fifo_len; i += 2)
-+				w5300_read(priv, W5300_S0_RX_FIFO);
++			w5100_write16(priv, W5100_S0_RX_RD,
++					    offset + rx_buf_len);
++			w5100_command(priv, S0_CR_RECV);
 +			ndev->stats.rx_dropped++;
 +			return -ENOMEM;
 +		}
 +
 +		skb_put(skb, rx_len);
-+		w5300_read_frame(priv, skb->data, rx_len);
++		w5100_readbuf(priv, offset + 2, skb->data, rx_len);
++		w5100_write16(priv, W5100_S0_RX_RD, offset + 2 + rx_len);
++		mmiowb();
++		w5100_command(priv, S0_CR_RECV);
 +		skb->protocol = eth_type_trans(skb, ndev);
 +
 +		netif_receive_skb(skb);
@@ -532,7 +559,7 @@ index 0000000..f35a101
 +	}
 +
 +	if (rx_count < budget) {
-+		w5300_write(priv, W5300_IMR, IR_S0);
++		w5100_write(priv, W5100_IMR, IR_S0);
 +		mmiowb();
 +		napi_complete(napi);
 +	}
@@ -540,15 +567,15 @@ index 0000000..f35a101
 +	return rx_count;
 +}
 +
-+static irqreturn_t w5300_interrupt(int irq, void *ndev_instance)
++static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
 +{
 +	struct net_device *ndev = ndev_instance;
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
-+	int ir = w5300_read(priv, W5300_S0_IR);
++	int ir = w5100_read(priv, W5100_S0_IR);
 +	if (!ir)
 +		return IRQ_NONE;
-+	w5300_write(priv, W5300_S0_IR, ir);
++	w5100_write(priv, W5100_S0_IR, ir);
 +	mmiowb();
 +
 +	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW) && (ir & S0_IR_SENDOK)) {
@@ -558,7 +585,7 @@ index 0000000..f35a101
 +
 +	if (ir & S0_IR_RECV) {
 +		if (napi_schedule_prep(&priv->napi)) {
-+			w5300_write(priv, W5300_IMR, 0);
++			w5100_write(priv, W5100_IMR, 0);
 +			mmiowb();
 +			__napi_schedule(&priv->napi);
 +		}
@@ -567,10 +594,10 @@ index 0000000..f35a101
 +	return IRQ_HANDLED;
 +}
 +
-+static irqreturn_t w5300_detect_link(int irq, void *ndev_instance)
++static irqreturn_t w5100_detect_link(int irq, void *ndev_instance)
 +{
 +	struct net_device *ndev = ndev_instance;
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
 +	if (netif_running(ndev)) {
 +		if (gpio_get_value(priv->link_gpio) != 0) {
@@ -585,38 +612,38 @@ index 0000000..f35a101
 +	return IRQ_HANDLED;
 +}
 +
-+static void w5300_set_rx_mode(struct net_device *ndev)
++static void w5100_set_rx_mode(struct net_device *ndev)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +	bool set_promisc = (ndev->flags & IFF_PROMISC) != 0;
 +
 +	if (priv->promisc != set_promisc) {
 +		priv->promisc = set_promisc;
-+		w5300_hw_start(priv);
++		w5100_hw_start(priv);
 +	}
 +}
 +
-+static int w5300_set_macaddr(struct net_device *ndev, void *addr)
++static int w5100_set_macaddr(struct net_device *ndev, void *addr)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +	struct sockaddr *sock_addr = addr;
 +
 +	if (!is_valid_ether_addr(sock_addr->sa_data))
 +		return -EADDRNOTAVAIL;
 +	memcpy(ndev->dev_addr, sock_addr->sa_data, ETH_ALEN);
 +	ndev->addr_assign_type &= ~NET_ADDR_RANDOM;
-+	w5300_write_macaddr(priv);
++	w5100_write_macaddr(priv);
 +	return 0;
 +}
 +
-+static int w5300_open(struct net_device *ndev)
++static int w5100_open(struct net_device *ndev)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
 +	netif_info(priv, ifup, ndev, "enabling\n");
 +	if (!is_valid_ether_addr(ndev->dev_addr))
 +		return -EINVAL;
-+	w5300_hw_start(priv);
++	w5100_hw_start(priv);
 +	napi_enable(&priv->napi);
 +	netif_start_queue(ndev);
 +	if (!gpio_is_valid(priv->link_gpio) ||
@@ -625,43 +652,43 @@ index 0000000..f35a101
 +	return 0;
 +}
 +
-+static int w5300_stop(struct net_device *ndev)
++static int w5100_stop(struct net_device *ndev)
 +{
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
 +	netif_info(priv, ifdown, ndev, "shutting down\n");
-+	w5300_hw_close(priv);
++	w5100_hw_close(priv);
 +	netif_carrier_off(ndev);
 +	netif_stop_queue(ndev);
 +	napi_disable(&priv->napi);
 +	return 0;
 +}
 +
-+static const struct ethtool_ops w5300_ethtool_ops = {
-+	.get_drvinfo		= w5300_get_drvinfo,
-+	.get_msglevel		= w5300_get_msglevel,
-+	.set_msglevel		= w5300_set_msglevel,
-+	.get_link		= w5300_get_link,
-+	.get_regs_len		= w5300_get_regs_len,
-+	.get_regs		= w5300_get_regs,
++static const struct ethtool_ops w5100_ethtool_ops = {
++	.get_drvinfo		= w5100_get_drvinfo,
++	.get_msglevel		= w5100_get_msglevel,
++	.set_msglevel		= w5100_set_msglevel,
++	.get_link		= w5100_get_link,
++	.get_regs_len		= w5100_get_regs_len,
++	.get_regs		= w5100_get_regs,
 +};
 +
-+static const struct net_device_ops w5300_netdev_ops = {
-+	.ndo_open		= w5300_open,
-+	.ndo_stop		= w5300_stop,
-+	.ndo_start_xmit		= w5300_start_tx,
-+	.ndo_tx_timeout		= w5300_tx_timeout,
-+	.ndo_set_rx_mode	= w5300_set_rx_mode,
-+	.ndo_set_mac_address	= w5300_set_macaddr,
++static const struct net_device_ops w5100_netdev_ops = {
++	.ndo_open		= w5100_open,
++	.ndo_stop		= w5100_stop,
++	.ndo_start_xmit		= w5100_start_tx,
++	.ndo_tx_timeout		= w5100_tx_timeout,
++	.ndo_set_rx_mode	= w5100_set_rx_mode,
++	.ndo_set_mac_address	= w5100_set_macaddr,
 +	.ndo_validate_addr	= eth_validate_addr,
 +	.ndo_change_mtu		= eth_change_mtu,
 +};
 +
-+static int __devinit w5300_hw_probe(struct platform_device *pdev)
++static int __devinit w5100_hw_probe(struct platform_device *pdev)
 +{
 +	struct wiznet_platform_data *data = pdev->dev.platform_data;
 +	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +	const char *name = netdev_name(ndev);
 +	struct resource *mem;
 +	int mem_size;
@@ -686,23 +713,31 @@ index 0000000..f35a101
 +		return -EBUSY;
 +
 +	spin_lock_init(&priv->reg_lock);
-+	priv->indirect = mem_size < W5300_BUS_DIRECT_SIZE;
++	priv->indirect = mem_size < W5100_BUS_DIRECT_SIZE;
 +	if (priv->indirect) {
-+		priv->read  = w5300_read_indirect;
-+		priv->write = w5300_write_indirect;
++		priv->read     = w5100_read_indirect;
++		priv->write    = w5100_write_indirect;
++		priv->read16   = w5100_read16_indirect;
++		priv->write16  = w5100_write16_indirect;
++		priv->readbuf  = w5100_readbuf_indirect;
++		priv->writebuf = w5100_writebuf_indirect;
 +	} else {
-+		priv->read  = w5300_read_direct;
-+		priv->write = w5300_write_direct;
++		priv->read     = w5100_read_direct;
++		priv->write    = w5100_write_direct;
++		priv->read16   = w5100_read16_direct;
++		priv->write16  = w5100_write16_direct;
++		priv->readbuf  = w5100_readbuf_direct;
++		priv->writebuf = w5100_writebuf_direct;
 +	}
 +
-+	w5300_hw_reset(priv);
-+	if (w5300_read(priv, W5300_IDR) != IDR_W5300)
++	w5100_hw_reset(priv);
++	if (w5100_read16(priv, W5100_RTR) != RTR_DEFAULT)
 +		return -ENODEV;
 +
 +	irq = platform_get_irq(pdev, 0);
 +	if (irq < 0)
 +		return irq;
-+	ret = request_irq(irq, w5300_interrupt,
++	ret = request_irq(irq, w5100_interrupt,
 +			  IRQ_TYPE_LEVEL_LOW, name, ndev);
 +	if (ret < 0)
 +		return ret;
@@ -715,7 +750,7 @@ index 0000000..f35a101
 +			return -ENOMEM;
 +		snprintf(link_name, 16, "%s-link", name);
 +		priv->link_irq = gpio_to_irq(priv->link_gpio);
-+		if (request_any_context_irq(priv->link_irq, w5300_detect_link,
++		if (request_any_context_irq(priv->link_irq, w5100_detect_link,
 +				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 +				link_name, priv->ndev) < 0)
 +			priv->link_gpio = -EINVAL;
@@ -725,9 +760,9 @@ index 0000000..f35a101
 +	return 0;
 +}
 +
-+static int __devinit w5300_probe(struct platform_device *pdev)
++static int __devinit w5100_probe(struct platform_device *pdev)
 +{
-+	struct w5300_priv *priv;
++	struct w5100_priv *priv;
 +	struct net_device *ndev;
 +	int err;
 +
@@ -740,10 +775,10 @@ index 0000000..f35a101
 +	priv->ndev = ndev;
 +
 +	ether_setup(ndev);
-+	ndev->netdev_ops = &w5300_netdev_ops;
-+	ndev->ethtool_ops = &w5300_ethtool_ops;
++	ndev->netdev_ops = &w5100_netdev_ops;
++	ndev->ethtool_ops = &w5100_ethtool_ops;
 +	ndev->watchdog_timeo = HZ;
-+	netif_napi_add(ndev, &priv->napi, w5300_napi_poll, 16);
++	netif_napi_add(ndev, &priv->napi, w5100_napi_poll, 16);
 +
 +	/* This chip doesn't support VLAN packets with normal MTU,
 +	 * so disable VLAN for this device.
@@ -754,7 +789,7 @@ index 0000000..f35a101
 +	if (err < 0)
 +		goto err_register;
 +
-+	err = w5300_hw_probe(pdev);
++	err = w5100_hw_probe(pdev);
 +	if (err < 0)
 +		goto err_hw_probe;
 +
@@ -768,12 +803,12 @@ index 0000000..f35a101
 +	return err;
 +}
 +
-+static int __devexit w5300_remove(struct platform_device *pdev)
++static int __devexit w5100_remove(struct platform_device *pdev)
 +{
 +	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
-+	w5300_hw_reset(priv);
++	w5100_hw_reset(priv);
 +	free_irq(priv->irq, ndev);
 +	if (gpio_is_valid(priv->link_gpio))
 +		free_irq(priv->link_irq, ndev);
@@ -785,28 +820,28 @@ index 0000000..f35a101
 +}
 +
 +#ifdef CONFIG_PM
-+static int w5300_suspend(struct platform_device *pdev, pm_message_t mesg)
++static int w5100_suspend(struct platform_device *pdev, pm_message_t mesg)
 +{
 +	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
 +	if (netif_running(ndev)) {
 +		netif_carrier_off(ndev);
 +		netif_device_detach(ndev);
 +
-+		w5300_hw_close(priv);
++		w5100_hw_close(priv);
 +	}
 +	return 0;
 +}
 +
-+static int w5300_resume(struct platform_device *pdev)
++static int w5100_resume(struct platform_device *pdev)
 +{
 +	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct w5300_priv *priv = netdev_priv(ndev);
++	struct w5100_priv *priv = netdev_priv(ndev);
 +
-+	if (!netif_running(ndev)) {
-+		w5300_hw_reset(priv);
-+		w5300_hw_start(priv);
++	if (netif_running(ndev)) {
++		w5100_hw_reset(priv);
++		w5100_hw_start(priv);
 +
 +		netif_device_attach(ndev);
 +		if (!gpio_is_valid(priv->link_gpio) ||
@@ -817,48 +852,18 @@ index 0000000..f35a101
 +}
 +#endif /* CONFIG_PM */
 +
-+static SIMPLE_DEV_PM_OPS(w5300_pm_ops, w5300_suspend, w5300_resume);
++static SIMPLE_DEV_PM_OPS(w5100_pm_ops, w5100_suspend, w5100_resume);
 +
-+static struct platform_driver w5300_driver = {
++static struct platform_driver w5100_driver = {
 +	.driver		= {
 +		.name	= DRV_NAME,
 +		.owner	= THIS_MODULE,
-+		.pm	= &w5300_pm_ops,
++		.pm	= &w5100_pm_ops,
 +	},
-+	.probe		= w5300_probe,
-+	.remove		= __devexit_p(w5300_remove),
++	.probe		= w5100_probe,
++	.remove		= __devexit_p(w5100_remove),
 +};
 +
-+module_platform_driver(w5300_driver);
-diff --git a/include/linux/platform_data/wiznet.h b/include/linux/platform_data/wiznet.h
-new file mode 100644
-index 0000000..b5d8c19
---- /dev/null
-+++ b/include/linux/platform_data/wiznet.h
-@@ -0,0 +1,24 @@
-+/*
-+ * Ethernet driver for the WIZnet W5x00 chip.
-+ *
-+ * Licensed under the GPL-2 or later.
-+ */
-+
-+#ifndef PLATFORM_DATA_WIZNET_H
-+#define PLATFORM_DATA_WIZNET_H
-+
-+#include <linux/if_ether.h>
-+
-+struct wiznet_platform_data {
-+	int	link_gpio;
-+	u8	mac_addr[ETH_ALEN];
-+};
-+
-+#ifndef CONFIG_WIZNET_BUS_SHIFT
-+#define CONFIG_WIZNET_BUS_SHIFT 0
-+#endif
-+
-+#define W5100_BUS_DIRECT_SIZE	(0x8000 << CONFIG_WIZNET_BUS_SHIFT)
-+#define W5300_BUS_DIRECT_SIZE	(0x0400 << CONFIG_WIZNET_BUS_SHIFT)
-+
-+#endif /* PLATFORM_DATA_WIZNET_H */
++module_platform_driver(w5100_driver);
 -- 
 1.6.3.3
