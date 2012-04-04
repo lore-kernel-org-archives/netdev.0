@@ -1,235 +1,70 @@
 From: Jing Huang <huangj@brocade.com>
-Subject: [PATCH 2/7] bna: Flash controller ioc pll init fixes
-Date: Wed, 4 Apr 2012 08:42:31 -0700
-Message-ID: <1333554151-22273-1-git-send-email-huangj@brocade.com>
+Subject: [PATCH 3/7] bna: ioc cleanups
+Date: Wed, 4 Apr 2012 08:42:54 -0700
+Message-ID: <1333554174-22341-1-git-send-email-huangj@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <AdapterLinuxOpenSrcExtTeam@brocade.com>,
 	Jing Huang <huangj@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:38320 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:38335 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932274Ab2DDPmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 11:42:36 -0400
+	by vger.kernel.org with ESMTP id S932274Ab2DDPm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 11:42:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added NFC pause/resume logic. We only do NFC pause/resume if NFC version
-is greater than 0x143 and it was halted before, otherwise we revert to
-old NFC halt mechanism.
-
-Made changes to avoid clearing off the interrupts during the initial
-pll initialization.
+Remove irrelevant code. Change to start Hearbeat failure moniter after IOC
+become operational.
 
 Signed-off-by: Jing Huang <huangj@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c |  142 +++++++++++++++++--------
- drivers/net/ethernet/brocade/bna/bfi_reg.h    |    6 +
- 2 files changed, 102 insertions(+), 46 deletions(-)
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c |   11 +----------
+ 1 files changed, 1 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
-index 348479b..b6b036a 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
-@@ -199,9 +199,9 @@ bfa_ioc_ct_notify_fail(struct bfa_ioc *ioc)
-  * Host to LPU mailbox message addresses
-  */
- static const struct {
--	u32 	hfn_mbox;
--	u32 	lpu_mbox;
--	u32 	hfn_pgn;
-+	u32	hfn_mbox;
-+	u32	lpu_mbox;
-+	u32	hfn_pgn;
- } ct_fnreg[] = {
- 	{ HOSTFN0_LPU_MBOX0_0, LPU_HOSTFN0_MBOX0_0, HOST_PAGE_NUM_FN0 },
- 	{ HOSTFN1_LPU_MBOX0_8, LPU_HOSTFN1_MBOX0_8, HOST_PAGE_NUM_FN1 },
-@@ -803,17 +803,72 @@ bfa_ioc_ct2_mac_reset(void __iomem *rb)
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+index 7a3e79c..0b640fa 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+@@ -70,7 +70,6 @@ static void bfa_ioc_reset(struct bfa_ioc *ioc, bool force);
+ static void bfa_ioc_mbox_poll(struct bfa_ioc *ioc);
+ static void bfa_ioc_mbox_flush(struct bfa_ioc *ioc);
+ static void bfa_ioc_recover(struct bfa_ioc *ioc);
+-static void bfa_ioc_check_attr_wwns(struct bfa_ioc *ioc);
+ static void bfa_ioc_event_notify(struct bfa_ioc *, enum bfa_ioc_event);
+ static void bfa_ioc_disable_comp(struct bfa_ioc *ioc);
+ static void bfa_ioc_lpu_stop(struct bfa_ioc *ioc);
+@@ -346,8 +345,6 @@ bfa_ioc_sm_getattr(struct bfa_ioc *ioc, enum ioc_event event)
+ 	switch (event) {
+ 	case IOC_E_FWRSP_GETATTR:
+ 		del_timer(&ioc->ioc_timer);
+-		bfa_ioc_check_attr_wwns(ioc);
+-		bfa_ioc_hb_monitor(ioc);
+ 		bfa_fsm_set_state(ioc, bfa_ioc_sm_op);
+ 		break;
+ 
+@@ -380,6 +377,7 @@ bfa_ioc_sm_op_entry(struct bfa_ioc *ioc)
+ {
+ 	ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_OK);
+ 	bfa_ioc_event_notify(ioc, BFA_IOC_E_ENABLED);
++	bfa_ioc_hb_monitor(ioc);
  }
  
- #define CT2_NFC_MAX_DELAY       1000
-+#define CT2_NFC_VER_VALID       0x143
-+#define BFA_IOC_PLL_POLL        1000000
-+
-+static bool
-+bfa_ioc_ct2_nfc_halted(void __iomem *rb)
-+{
-+	volatile u32 r32;
-+
-+	r32 = readl(rb + CT2_NFC_CSR_SET_REG);
-+	if (r32 & __NFC_CONTROLLER_HALTED)
-+		return true;
-+
-+	return false;
-+}
-+
-+static void
-+bfa_ioc_ct2_nfc_resume(void __iomem *rb)
-+{
-+	volatile u32 r32;
-+	int i;
-+
-+	writel(__HALT_NFC_CONTROLLER, rb + CT2_NFC_CSR_CLR_REG);
-+	for (i = 0; i < CT2_NFC_MAX_DELAY; i++) {
-+		r32 = readl(rb + CT2_NFC_CSR_SET_REG);
-+		if (!(r32 & __NFC_CONTROLLER_HALTED))
-+			return;
-+		udelay(1000);
-+	}
-+	BUG_ON(1);
-+}
-+
- static enum bfa_status
- bfa_ioc_ct2_pll_init(void __iomem *rb, enum bfi_asic_mode asic_mode)
- {
- 	volatile u32 wgn, r32;
--	int i;
-+	u32 nfc_ver, i;
+ static void
+@@ -2547,13 +2545,6 @@ bfa_ioc_recover(struct bfa_ioc *ioc)
+ 	bfa_fsm_send_event(ioc, IOC_E_HBFAIL);
+ }
  
--	/*
--	 * Initialize PLL if not already done by NFC
--	 */
- 	wgn = readl(rb + CT2_WGN_STATUS);
--	if (!(wgn & __GLBL_PF_VF_CFG_RDY)) {
-+
-+	nfc_ver = readl(rb + CT2_RSC_GPR15_REG);
-+
-+	if ((wgn == (__A2T_AHB_LOAD | __WGN_READY)) &&
-+		(nfc_ver >= CT2_NFC_VER_VALID)) {
-+		if (bfa_ioc_ct2_nfc_halted(rb))
-+			bfa_ioc_ct2_nfc_resume(rb);
-+		writel(__RESET_AND_START_SCLK_LCLK_PLLS,
-+				rb + CT2_CSI_FW_CTL_SET_REG);
-+
-+		for (i = 0; i < BFA_IOC_PLL_POLL; i++) {
-+			r32 = readl(rb + CT2_APP_PLL_LCLK_CTL_REG);
-+			if (r32 & __RESET_AND_START_SCLK_LCLK_PLLS)
-+				break;
-+		}
-+		BUG_ON(!(r32 & __RESET_AND_START_SCLK_LCLK_PLLS));
-+
-+		for (i = 0; i < BFA_IOC_PLL_POLL; i++) {
-+			r32 = readl(rb + CT2_APP_PLL_LCLK_CTL_REG);
-+			if (!(r32 & __RESET_AND_START_SCLK_LCLK_PLLS))
-+				break;
-+		}
-+		BUG_ON(r32 & __RESET_AND_START_SCLK_LCLK_PLLS);
-+		udelay(1000);
-+
-+		r32 = readl(rb + CT2_CSI_FW_CTL_REG);
-+		BUG_ON(r32 & __RESET_AND_START_SCLK_LCLK_PLLS);
-+	} else {
- 		writel(__HALT_NFC_CONTROLLER, (rb + CT2_NFC_CSR_SET_REG));
- 		for (i = 0; i < CT2_NFC_MAX_DELAY; i++) {
- 			r32 = readl(rb + CT2_NFC_CSR_SET_REG);
-@@ -821,53 +876,48 @@ bfa_ioc_ct2_pll_init(void __iomem *rb, enum bfi_asic_mode asic_mode)
- 				break;
- 			udelay(1000);
- 		}
-+
-+		bfa_ioc_ct2_mac_reset(rb);
-+		bfa_ioc_ct2_sclk_init(rb);
-+		bfa_ioc_ct2_lclk_init(rb);
-+
-+		/* release soft reset on s_clk & l_clk */
-+		r32 = readl((rb + CT2_APP_PLL_SCLK_CTL_REG));
-+		writel(r32 & ~__APP_PLL_SCLK_LOGIC_SOFT_RESET,
-+				rb + CT2_APP_PLL_SCLK_CTL_REG);
-+		r32 = readl((rb + CT2_APP_PLL_LCLK_CTL_REG));
-+		writel(r32 & ~__APP_PLL_LCLK_LOGIC_SOFT_RESET,
-+				rb + CT2_APP_PLL_LCLK_CTL_REG);
-+	}
-+
-+	/* Announce flash device presence, if flash was corrupted. */
-+	if (wgn == (__WGN_READY | __GLBL_PF_VF_CFG_RDY)) {
-+		r32 = readl((rb + PSS_GPIO_OUT_REG));
-+		writel(r32 & ~1, rb + PSS_GPIO_OUT_REG);
-+		r32 = readl((rb + PSS_GPIO_OE_REG));
-+		writel(r32 | 1, rb + PSS_GPIO_OE_REG);
- 	}
- 
- 	/*
- 	 * Mask the interrupts and clear any
- 	 * pending interrupts left by BIOS/EFI
- 	 */
+-static void
+-bfa_ioc_check_attr_wwns(struct bfa_ioc *ioc)
+-{
+-	if (bfa_ioc_get_type(ioc) == BFA_IOC_TYPE_LL)
+-		return;
+-}
 -
- 	writel(1, (rb + CT2_LPU0_HOSTFN_MBOX0_MSK));
- 	writel(1, (rb + CT2_LPU1_HOSTFN_MBOX0_MSK));
- 
--	r32 = readl((rb + CT2_LPU0_HOSTFN_CMD_STAT));
--	if (r32 == 1) {
--		writel(1, (rb + CT2_LPU0_HOSTFN_CMD_STAT));
--		readl((rb + CT2_LPU0_HOSTFN_CMD_STAT));
--	}
--	r32 = readl((rb + CT2_LPU1_HOSTFN_CMD_STAT));
--	if (r32 == 1) {
--		writel(1, (rb + CT2_LPU1_HOSTFN_CMD_STAT));
--		readl((rb + CT2_LPU1_HOSTFN_CMD_STAT));
--	}
--
--	bfa_ioc_ct2_mac_reset(rb);
--	bfa_ioc_ct2_sclk_init(rb);
--	bfa_ioc_ct2_lclk_init(rb);
--
--	/*
--	 * release soft reset on s_clk & l_clk
--	 */
--	r32 = readl((rb + CT2_APP_PLL_SCLK_CTL_REG));
--	writel((r32 & ~__APP_PLL_SCLK_LOGIC_SOFT_RESET),
--			(rb + CT2_APP_PLL_SCLK_CTL_REG));
--
--	/*
--	 * release soft reset on s_clk & l_clk
--	 */
--	r32 = readl((rb + CT2_APP_PLL_LCLK_CTL_REG));
--	writel(r32 & ~__APP_PLL_LCLK_LOGIC_SOFT_RESET,
--		      (rb + CT2_APP_PLL_LCLK_CTL_REG));
--
--	/*
--	 * Announce flash device presence, if flash was corrupted.
--	 */
--	if (wgn == (__WGN_READY | __GLBL_PF_VF_CFG_RDY)) {
--		r32 = readl((rb + PSS_GPIO_OUT_REG));
--		writel((r32 & ~1), (rb + PSS_GPIO_OUT_REG));
--		r32 = readl((rb + PSS_GPIO_OE_REG));
--		writel((r32 | 1), (rb + PSS_GPIO_OE_REG));
-+	/* For first time initialization, no need to clear interrupts */
-+	r32 = readl(rb + HOST_SEM5_REG);
-+	if (r32 & 0x1) {
-+		r32 = readl((rb + CT2_LPU0_HOSTFN_CMD_STAT));
-+		if (r32 == 1) {
-+			writel(1, (rb + CT2_LPU0_HOSTFN_CMD_STAT));
-+			readl((rb + CT2_LPU0_HOSTFN_CMD_STAT));
-+		}
-+		r32 = readl((rb + CT2_LPU1_HOSTFN_CMD_STAT));
-+		if (r32 == 1) {
-+			writel(1, (rb + CT2_LPU1_HOSTFN_CMD_STAT));
-+			readl((rb + CT2_LPU1_HOSTFN_CMD_STAT));
-+		}
- 	}
- 
- 	bfa_ioc_ct2_mem_init(rb);
-diff --git a/drivers/net/ethernet/brocade/bna/bfi_reg.h b/drivers/net/ethernet/brocade/bna/bfi_reg.h
-index efacff3..0e094fe 100644
---- a/drivers/net/ethernet/brocade/bna/bfi_reg.h
-+++ b/drivers/net/ethernet/brocade/bna/bfi_reg.h
-@@ -339,10 +339,16 @@ enum {
- #define __A2T_AHB_LOAD			0x00000800
- #define __WGN_READY			0x00000400
- #define __GLBL_PF_VF_CFG_RDY		0x00000200
-+#define CT2_NFC_CSR_CLR_REG             0x00027420
- #define CT2_NFC_CSR_SET_REG		0x00027424
- #define __HALT_NFC_CONTROLLER		0x00000002
- #define __NFC_CONTROLLER_HALTED		0x00001000
- 
-+#define CT2_RSC_GPR15_REG		0x0002765c
-+#define CT2_CSI_FW_CTL_REG              0x00027080
-+#define __RESET_AND_START_SCLK_LCLK_PLLS 0x00010000
-+#define CT2_CSI_FW_CTL_SET_REG          0x00027088
-+
- #define CT2_CSI_MAC0_CONTROL_REG	0x000270d0
- #define __CSI_MAC_RESET			0x00000010
- #define __CSI_MAC_AHB_RESET		0x00000008
+ /**
+  * @dg hal_iocpf_pvt BFA IOC PF private functions
+  * @{
 -- 
 1.6.5.2
