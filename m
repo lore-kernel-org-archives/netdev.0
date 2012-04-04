@@ -1,68 +1,80 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v2] marvell sky2 driver: fix so it works without
- unaligned accesses
-Date: Wed, 4 Apr 2012 11:42:53 -0700
-Message-ID: <20120404114253.5f84d4c8@s6510.linuxnetplumber.net>
-References: <20120403.174610.2089715131687430500.davem@davemloft.net>
-	<1333469916.18626.284.camel@edumazet-glaptop>
-	<201204031527.q33FR04i031747@farm-0027.internal.tilera.com>
-	<201204041419.q34EJ49H025297@farm-0012.internal.tilera.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [RFC PATCH 2/2] PID-based packet filtering support
+Date: Wed, 4 Apr 2012 14:57:11 -0400
+Message-ID: <CAAsGZS6CoNuTBQ+YUjBc+Y9+oviHPrbrwGCCN0mZmTm5DCt8ow@mail.gmail.com>
+References: <cover.1333466900.git.nuno.martins@caixamagica.pt>
+	<19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204041419.q34EJ49H025297@farm-0012.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Alfredo Matos <alfredo.matos@caixamagica.pt>,
+	Paulo Trezentos <paulo.trezentos@caixamagica.pt>
+To: Nuno Martins <nuno.martins@caixamagica.pt>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:33254 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932516Ab2DDS5M convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 14:57:12 -0400
+Received: by pbcun15 with SMTP id un15so606610pbc.19
+        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 11:57:12 -0700 (PDT)
+In-Reply-To: <19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 Apr 2012 10:13:32 -0400
-Chris Metcalf <cmetcalf@tilera.com> wrote:
+On Wed, Apr 4, 2012 at 5:16 AM, Nuno Martins
+<nuno.martins@caixamagica.pt> wrote:
 
-> The driver uses a receive_new() routine that ends up requiring unaligned
-> accesses in IP header processing.  If the architecture doesn't support
-> efficient unaligned accesses, and SKY2_HW_RAM_BUFFER is set,
-> just copy all ingress packets to the bounce buffers instead.
-> Thanks to Eric Dumazet for pointing out the SKY2_HW_RAM_BUFFER issue.
-> 
-> This allows the driver to be used on the Tilera TILEmpower-Gx, since
-> the tile architecture doesn't currently handle kernel unaligned accesses,
-> just userspace.
-> 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
-> ---
->  drivers/net/ethernet/marvell/sky2.c |    6 +++++-
->  1 files changed, 5 insertions(+), 1 deletions(-)
 
-What about the following (compile tested only)
---- a/drivers/net/ethernet/marvell/sky2.c	2012-04-04 08:49:05.954853108 -0700
-+++ b/drivers/net/ethernet/marvell/sky2.c	2012-04-04 11:30:54.201432707 -0700
-@@ -2468,6 +2468,17 @@ static int sky2_change_mtu(struct net_de
- 	return err;
- }
- 
-+static inline bool needs_copy(const struct rx_ring_info *re,
-+			      unsigned length)
-+{
-+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+	/* Some architectures need the IP header to be aligned */
-+	if (!IS_ALIGNED(re->data_addr + ETH_HLEN, sizeof(u32)))
-+		return 1;
-+#endif
-+	return length < copybreak;
-+}
-+
- /* For small just reuse existing skb for next receive */
- static struct sk_buff *receive_copy(struct sky2_port *sky2,
- 				    const struct rx_ring_info *re,
-@@ -2605,7 +2616,7 @@ static struct sk_buff *sky2_receive(stru
- 		goto error;
- 
- okay:
--	if (length < copybreak)
-+	if (needs_copy(re, length))
- 		skb = receive_copy(sky2, re, length);
- 	else
- 		skb = receive_new(sky2, re, length);
+> +int get_local_packet_info_from_fd(unsigned int fd, struct packetInfo=
+ *ret)
+
+rename 'ret' to 'pi' or pkt_info or pick a name (must match the
+struct). And not just here but everywhere else.
+
+> +{
+> + =C2=A0 =C2=A0 =C2=A0 struct file *f =3D fget(fd);
+> +
+> + =C2=A0 =C2=A0 =C2=A0 if (f !=3D NULL) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 fput(f);
+
+why not 'fput' after you return from 'get_local_packet_info_from_file' =
+?
+
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return get_local_p=
+acket_info_from_file(f, ret);
+> + =C2=A0 =C2=A0 =C2=A0 }
+> + =C2=A0 =C2=A0 =C2=A0 return -3;
+> +}
+> +
+
+
+> +int get_local_packet_info_from_file(struct file *f, struct packetInf=
+o *ret)
+> +{
+> + =C2=A0 =C2=A0 =C2=A0 struct socket *socket =3D NULL;
+> + =C2=A0 =C2=A0 =C2=A0 short type;
+> + =C2=A0 =C2=A0 =C2=A0 unsigned short family;
+> + =C2=A0 =C2=A0 =C2=A0 int err =3D 0;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 if (f !=3D NULL) {
+
+This check is redundant because the
+caller(get_local_packet_info_from_fd) checks for NULL.
+
+Move this function before get_local_packet_info_from_fd().
+
+re-arranged code looks like:
+
+int get_local_packet_info_from_file(...) {
+=2E...
+}
+
+int get_local_packet_info_from_fd(...) {
+   ...
+   ... get_local_packet_info_from_file(f, ret);
+   ....
+}
+
+
+Chetan
