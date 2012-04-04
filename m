@@ -1,295 +1,467 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/8] e1000e: cleanup indexed register arrays
-Date: Wed,  4 Apr 2012 00:55:56 -0700
-Message-ID: <1333526160-24937-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 8/8] igb: offer a PTP Hardware Clock instead of the timecompare method
+Date: Wed,  4 Apr 2012 00:56:00 -0700
+Message-ID: <1333526160-24937-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1333526160-24937-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39155 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:23070 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754925Ab2DDH4F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Apr 2012 03:56:05 -0400
+	id S1755287Ab2DDH4I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 03:56:08 -0400
 In-Reply-To: <1333526160-24937-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Richard Cochran <richardcochran@gmail.com>
 
-Some Rx and Tx specific registers are arrays indexed by the queue number.
-For clarity, specify the intended queue rather than obscuring it behind a
-define.
+This commit removes the legacy timecompare code from the igb driver and
+offers a tunable PHC instead.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ethtool.c |   52 +++++++++++++-------------
- drivers/net/ethernet/intel/e1000e/hw.h      |   47 ++++++++++++++----------
- drivers/net/ethernet/intel/e1000e/netdev.c  |   48 ++++++++++++------------
- 3 files changed, 78 insertions(+), 69 deletions(-)
+ drivers/net/ethernet/intel/Kconfig        |   11 ++
+ drivers/net/ethernet/intel/igb/Makefile   |    1 +
+ drivers/net/ethernet/intel/igb/igb.h      |   13 ++-
+ drivers/net/ethernet/intel/igb/igb_main.c |  178 +++--------------------------
+ drivers/net/ethernet/intel/igb/igb_ptp.c  |   59 ++++++++++
+ 5 files changed, 93 insertions(+), 169 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index db35dd5..6302b10 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -403,15 +403,15 @@ static void e1000_get_regs(struct net_device *netdev,
- 	regs_buff[1]  = er32(STATUS);
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 7621316..90142aa 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -120,6 +120,17 @@ config IGB_DCA
+ 	  driver.  DCA is a method for warming the CPU cache before data
+ 	  is used, with the intent of lessening the impact of cache misses.
  
- 	regs_buff[2]  = er32(RCTL);
--	regs_buff[3]  = er32(RDLEN);
--	regs_buff[4]  = er32(RDH);
--	regs_buff[5]  = er32(RDT);
-+	regs_buff[3]  = er32(RDLEN(0));
-+	regs_buff[4]  = er32(RDH(0));
-+	regs_buff[5]  = er32(RDT(0));
- 	regs_buff[6]  = er32(RDTR);
++config IGB_PTP
++	bool "PTP Hardware Clock (PHC)"
++	default y
++	depends on IGB && PTP_1588_CLOCK
++	---help---
++	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
++	  driver.  Only the basic clock operations have been implemented.
++
++	  Every timestamp and clock read operations must consult the
++	  overflow counter to form a correct time value.
++
+ config IGBVF
+ 	tristate "Intel(R) 82576 Virtual Function Ethernet support"
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/intel/igb/Makefile b/drivers/net/ethernet/intel/igb/Makefile
+index 6565c46..4bd16e2 100644
+--- a/drivers/net/ethernet/intel/igb/Makefile
++++ b/drivers/net/ethernet/intel/igb/Makefile
+@@ -35,3 +35,4 @@ obj-$(CONFIG_IGB) += igb.o
+ igb-objs := igb_main.o igb_ethtool.o e1000_82575.o \
+ 	    e1000_mac.o e1000_nvm.o e1000_phy.o e1000_mbx.o
  
- 	regs_buff[7]  = er32(TCTL);
--	regs_buff[8]  = er32(TDLEN);
--	regs_buff[9]  = er32(TDH);
--	regs_buff[10] = er32(TDT);
-+	regs_buff[8]  = er32(TDLEN(0));
-+	regs_buff[9]  = er32(TDH(0));
-+	regs_buff[10] = er32(TDT(0));
- 	regs_buff[11] = er32(TIDV);
++igb-$(CONFIG_IGB_PTP) += igb_ptp.o
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index f0265e8..3758ad2 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -35,7 +35,6 @@
+ #include "e1000_82575.h"
  
- 	regs_buff[12] = adapter->hw.phy.type;  /* PHY type (IGP=1, M88=0) */
-@@ -813,15 +813,15 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
+ #include <linux/clocksource.h>
+-#include <linux/timecompare.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/ptp_clock_kernel.h>
+ #include <linux/bitops.h>
+@@ -329,9 +328,6 @@ struct igb_adapter {
+ 
+ 	/* OS defined structs */
+ 	struct pci_dev *pdev;
+-	struct cyclecounter cycles;
+-	struct timecounter clock;
+-	struct timecompare compare;
+ 	struct hwtstamp_config hwtstamp_config;
+ 
+ 	spinlock_t stats64_lock;
+@@ -386,7 +382,6 @@ struct igb_adapter {
+ #define IGB_DMCTLX_DCFLUSH_DIS     0x80000000  /* Disable DMA Coal Flush */
+ 
+ #define IGB_82576_TSYNC_SHIFT 19
+-#define IGB_82580_TSYNC_SHIFT 24
+ #define IGB_TS_HDR_LEN        16
+ enum e1000_state_t {
+ 	__IGB_TESTING,
+@@ -422,7 +417,15 @@ extern void igb_update_stats(struct igb_adapter *, struct rtnl_link_stats64 *);
+ extern bool igb_has_link(struct igb_adapter *adapter);
+ extern void igb_set_ethtool_ops(struct net_device *);
+ extern void igb_power_up_link(struct igb_adapter *);
++#ifdef CONFIG_IGB_PTP
++extern void igb_ptp_init(struct igb_adapter *adapter);
++extern void igb_ptp_remove(struct igb_adapter *adapter);
+ 
++extern void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
++				   struct skb_shared_hwtstamps *hwtstamps,
++				   u64 systim);
++
++#endif
+ static inline s32 igb_reset_phy(struct e1000_hw *hw)
+ {
+ 	if (hw->phy.ops.reset)
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 5ec3159..f022ff7 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -114,7 +114,6 @@ static void igb_free_all_rx_resources(struct igb_adapter *);
+ static void igb_setup_mrqc(struct igb_adapter *);
+ static int igb_probe(struct pci_dev *, const struct pci_device_id *);
+ static void __devexit igb_remove(struct pci_dev *pdev);
+-static void igb_init_hw_timer(struct igb_adapter *adapter);
+ static int igb_sw_init(struct igb_adapter *);
+ static int igb_open(struct net_device *);
+ static int igb_close(struct net_device *);
+@@ -565,33 +564,6 @@ exit:
+ 	return;
+ }
+ 
+-
+-/**
+- * igb_read_clock - read raw cycle counter (to be used by time counter)
+- */
+-static cycle_t igb_read_clock(const struct cyclecounter *tc)
+-{
+-	struct igb_adapter *adapter =
+-		container_of(tc, struct igb_adapter, cycles);
+-	struct e1000_hw *hw = &adapter->hw;
+-	u64 stamp = 0;
+-	int shift = 0;
+-
+-	/*
+-	 * The timestamp latches on lowest register read. For the 82580
+-	 * the lowest register is SYSTIMR instead of SYSTIML.  However we never
+-	 * adjusted TIMINCA so SYSTIMR will just read as all 0s so ignore it.
+-	 */
+-	if (hw->mac.type >= e1000_82580) {
+-		stamp = rd32(E1000_SYSTIMR) >> 8;
+-		shift = IGB_82580_TSYNC_SHIFT;
+-	}
+-
+-	stamp |= (u64)rd32(E1000_SYSTIML) << shift;
+-	stamp |= (u64)rd32(E1000_SYSTIMH) << (shift + 32);
+-	return stamp;
+-}
+-
+ /**
+  * igb_get_hw_dev - return device
+  * used by hardware layer to print debugging information
+@@ -2110,9 +2082,11 @@ static int __devinit igb_probe(struct pci_dev *pdev,
  	}
  
- 	REG_PATTERN_TEST(E1000_RDTR, 0x0000FFFF, 0xFFFFFFFF);
--	REG_PATTERN_TEST(E1000_RDBAH, 0xFFFFFFFF, 0xFFFFFFFF);
--	REG_PATTERN_TEST(E1000_RDLEN, 0x000FFF80, 0x000FFFFF);
--	REG_PATTERN_TEST(E1000_RDH, 0x0000FFFF, 0x0000FFFF);
--	REG_PATTERN_TEST(E1000_RDT, 0x0000FFFF, 0x0000FFFF);
-+	REG_PATTERN_TEST(E1000_RDBAH(0), 0xFFFFFFFF, 0xFFFFFFFF);
-+	REG_PATTERN_TEST(E1000_RDLEN(0), 0x000FFF80, 0x000FFFFF);
-+	REG_PATTERN_TEST(E1000_RDH(0), 0x0000FFFF, 0x0000FFFF);
-+	REG_PATTERN_TEST(E1000_RDT(0), 0x0000FFFF, 0x0000FFFF);
- 	REG_PATTERN_TEST(E1000_FCRTH, 0x0000FFF8, 0x0000FFF8);
- 	REG_PATTERN_TEST(E1000_FCTTV, 0x0000FFFF, 0x0000FFFF);
- 	REG_PATTERN_TEST(E1000_TIPG, 0x3FFFFFFF, 0x3FFFFFFF);
--	REG_PATTERN_TEST(E1000_TDBAH, 0xFFFFFFFF, 0xFFFFFFFF);
--	REG_PATTERN_TEST(E1000_TDLEN, 0x000FFF80, 0x000FFFFF);
-+	REG_PATTERN_TEST(E1000_TDBAH(0), 0xFFFFFFFF, 0xFFFFFFFF);
-+	REG_PATTERN_TEST(E1000_TDLEN(0), 0x000FFF80, 0x000FFFFF);
+ #endif
++#ifdef CONFIG_IGB_PTP
+ 	/* do hw tstamp init after resetting */
+-	igb_init_hw_timer(adapter);
++	igb_ptp_init(adapter);
  
- 	REG_SET_AND_CHECK(E1000_RCTL, 0xFFFFFFFF, 0x00000000);
++#endif
+ 	dev_info(&pdev->dev, "Intel(R) Gigabit Ethernet Network Connection\n");
+ 	/* print bus type/speed/width info */
+ 	dev_info(&pdev->dev, "%s: (PCIe:%s:%s) %pM\n",
+@@ -2184,7 +2158,10 @@ static void __devexit igb_remove(struct pci_dev *pdev)
+ 	struct e1000_hw *hw = &adapter->hw;
  
-@@ -830,10 +830,10 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
- 	REG_SET_AND_CHECK(E1000_TCTL, 0xFFFFFFFF, 0x00000000);
+ 	pm_runtime_get_noresume(&pdev->dev);
++#ifdef CONFIG_IGB_PTP
++	igb_ptp_remove(adapter);
  
- 	REG_SET_AND_CHECK(E1000_RCTL, before, 0xFFFFFFFF);
--	REG_PATTERN_TEST(E1000_RDBAL, 0xFFFFFFF0, 0xFFFFFFFF);
-+	REG_PATTERN_TEST(E1000_RDBAL(0), 0xFFFFFFF0, 0xFFFFFFFF);
- 	if (!(adapter->flags & FLAG_IS_ICH))
- 		REG_PATTERN_TEST(E1000_TXCW, 0xC000FFFF, 0x0000FFFF);
--	REG_PATTERN_TEST(E1000_TDBAL, 0xFFFFFFF0, 0xFFFFFFFF);
-+	REG_PATTERN_TEST(E1000_TDBAL(0), 0xFFFFFFF0, 0xFFFFFFFF);
- 	REG_PATTERN_TEST(E1000_TIDV, 0x0000FFFF, 0x0000FFFF);
- 	mask = 0x8003FFFF;
- 	switch (mac->type) {
-@@ -1104,11 +1104,11 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	tx_ring->next_to_use = 0;
- 	tx_ring->next_to_clean = 0;
- 
--	ew32(TDBAL, ((u64) tx_ring->dma & 0x00000000FFFFFFFF));
--	ew32(TDBAH, ((u64) tx_ring->dma >> 32));
--	ew32(TDLEN, tx_ring->count * sizeof(struct e1000_tx_desc));
--	ew32(TDH, 0);
--	ew32(TDT, 0);
-+	ew32(TDBAL(0), ((u64) tx_ring->dma & 0x00000000FFFFFFFF));
-+	ew32(TDBAH(0), ((u64) tx_ring->dma >> 32));
-+	ew32(TDLEN(0), tx_ring->count * sizeof(struct e1000_tx_desc));
-+	ew32(TDH(0), 0);
-+	ew32(TDT(0), 0);
- 	ew32(TCTL, E1000_TCTL_PSP | E1000_TCTL_EN | E1000_TCTL_MULR |
- 	     E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT |
- 	     E1000_COLLISION_DISTANCE << E1000_COLD_SHIFT);
-@@ -1168,11 +1168,11 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
- 	rctl = er32(RCTL);
- 	if (!(adapter->flags2 & FLAG2_NO_DISABLE_RX))
- 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
--	ew32(RDBAL, ((u64) rx_ring->dma & 0xFFFFFFFF));
--	ew32(RDBAH, ((u64) rx_ring->dma >> 32));
--	ew32(RDLEN, rx_ring->size);
--	ew32(RDH, 0);
--	ew32(RDT, 0);
-+	ew32(RDBAL(0), ((u64) rx_ring->dma & 0xFFFFFFFF));
-+	ew32(RDBAH(0), ((u64) rx_ring->dma >> 32));
-+	ew32(RDLEN(0), rx_ring->size);
-+	ew32(RDH(0), 0);
-+	ew32(RDT(0), 0);
- 	rctl = E1000_RCTL_EN | E1000_RCTL_BAM | E1000_RCTL_SZ_2048 |
- 		E1000_RCTL_UPE | E1000_RCTL_MPE | E1000_RCTL_LPE |
- 		E1000_RCTL_SBP | E1000_RCTL_SECRC |
-@@ -1534,7 +1534,7 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
- 	int ret_val = 0;
- 	unsigned long time;
- 
--	ew32(RDT, rx_ring->count - 1);
-+	ew32(RDT(0), rx_ring->count - 1);
- 
++#endif
  	/*
- 	 * Calculate the loop count based on the largest descriptor ring
-@@ -1561,7 +1561,7 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
- 			if (k == tx_ring->count)
- 				k = 0;
- 		}
--		ew32(TDT, k);
-+		ew32(TDT(0), k);
- 		e1e_flush();
- 		msleep(200);
- 		time = jiffies; /* set the start time for the receive */
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index f82ecf5..923d3fd 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -94,31 +94,40 @@ enum e1e_registers {
- 	E1000_FCRTL    = 0x02160, /* Flow Control Receive Threshold Low - RW */
- 	E1000_FCRTH    = 0x02168, /* Flow Control Receive Threshold High - RW */
- 	E1000_PSRCTL   = 0x02170, /* Packet Split Receive Control - RW */
--	E1000_RDBAL    = 0x02800, /* Rx Descriptor Base Address Low - RW */
--	E1000_RDBAH    = 0x02804, /* Rx Descriptor Base Address High - RW */
--	E1000_RDLEN    = 0x02808, /* Rx Descriptor Length - RW */
--	E1000_RDH      = 0x02810, /* Rx Descriptor Head - RW */
--	E1000_RDT      = 0x02818, /* Rx Descriptor Tail - RW */
--	E1000_RDTR     = 0x02820, /* Rx Delay Timer - RW */
--	E1000_RXDCTL_BASE = 0x02828, /* Rx Descriptor Control - RW */
--#define E1000_RXDCTL(_n)   (E1000_RXDCTL_BASE + (_n << 8))
--	E1000_RADV     = 0x0282C, /* Rx Interrupt Absolute Delay Timer - RW */
--
--/* Convenience macros
-+/*
-+ * Convenience macros
-  *
-  * Note: "_n" is the queue number of the register to be written to.
-  *
-  * Example usage:
-- * E1000_RDBAL_REG(current_rx_queue)
+ 	 * The watchdog timer may be rescheduled, so explicitly
+ 	 * disable watchdog from being rescheduled.
+@@ -2304,112 +2281,6 @@ out:
+ }
+ 
+ /**
+- * igb_init_hw_timer - Initialize hardware timer used with IEEE 1588 timestamp
+- * @adapter: board private structure to initialize
 - *
-+ * E1000_RDBAL(current_rx_queue)
-  */
--#define E1000_RDBAL_REG(_n)   (E1000_RDBAL + (_n << 8))
-+	E1000_RDBAL_BASE = 0x02800, /* Rx Descriptor Base Address Low - RW */
-+#define E1000_RDBAL(_n)	(E1000_RDBAL_BASE + (_n << 8))
-+	E1000_RDBAH_BASE = 0x02804, /* Rx Descriptor Base Address High - RW */
-+#define E1000_RDBAH(_n)	(E1000_RDBAH_BASE + (_n << 8))
-+	E1000_RDLEN_BASE = 0x02808, /* Rx Descriptor Length - RW */
-+#define E1000_RDLEN(_n)	(E1000_RDLEN_BASE + (_n << 8))
-+	E1000_RDH_BASE = 0x02810, /* Rx Descriptor Head - RW */
-+#define E1000_RDH(_n)	(E1000_RDH_BASE + (_n << 8))
-+	E1000_RDT_BASE = 0x02818, /* Rx Descriptor Tail - RW */
-+#define E1000_RDT(_n)	(E1000_RDT_BASE + (_n << 8))
-+	E1000_RDTR     = 0x02820, /* Rx Delay Timer - RW */
-+	E1000_RXDCTL_BASE = 0x02828, /* Rx Descriptor Control - RW */
-+#define E1000_RXDCTL(_n)   (E1000_RXDCTL_BASE + (_n << 8))
-+	E1000_RADV     = 0x0282C, /* Rx Interrupt Absolute Delay Timer - RW */
+- * igb_init_hw_timer initializes the function pointer and values for the hw
+- * timer found in hardware.
+- **/
+-static void igb_init_hw_timer(struct igb_adapter *adapter)
+-{
+-	struct e1000_hw *hw = &adapter->hw;
+-
+-	switch (hw->mac.type) {
+-	case e1000_i350:
+-	case e1000_82580:
+-		memset(&adapter->cycles, 0, sizeof(adapter->cycles));
+-		adapter->cycles.read = igb_read_clock;
+-		adapter->cycles.mask = CLOCKSOURCE_MASK(64);
+-		adapter->cycles.mult = 1;
+-		/*
+-		 * The 82580 timesync updates the system timer every 8ns by 8ns
+-		 * and the value cannot be shifted.  Instead we need to shift
+-		 * the registers to generate a 64bit timer value.  As a result
+-		 * SYSTIMR/L/H, TXSTMPL/H, RXSTMPL/H all have to be shifted by
+-		 * 24 in order to generate a larger value for synchronization.
+-		 */
+-		adapter->cycles.shift = IGB_82580_TSYNC_SHIFT;
+-		/* disable system timer temporarily by setting bit 31 */
+-		wr32(E1000_TSAUXC, 0x80000000);
+-		wrfl();
+-
+-		/* Set registers so that rollover occurs soon to test this. */
+-		wr32(E1000_SYSTIMR, 0x00000000);
+-		wr32(E1000_SYSTIML, 0x80000000);
+-		wr32(E1000_SYSTIMH, 0x000000FF);
+-		wrfl();
+-
+-		/* enable system timer by clearing bit 31 */
+-		wr32(E1000_TSAUXC, 0x0);
+-		wrfl();
+-
+-		timecounter_init(&adapter->clock,
+-				 &adapter->cycles,
+-				 ktime_to_ns(ktime_get_real()));
+-		/*
+-		 * Synchronize our NIC clock against system wall clock. NIC
+-		 * time stamp reading requires ~3us per sample, each sample
+-		 * was pretty stable even under load => only require 10
+-		 * samples for each offset comparison.
+-		 */
+-		memset(&adapter->compare, 0, sizeof(adapter->compare));
+-		adapter->compare.source = &adapter->clock;
+-		adapter->compare.target = ktime_get_real;
+-		adapter->compare.num_samples = 10;
+-		timecompare_update(&adapter->compare, 0);
+-		break;
+-	case e1000_82576:
+-		/*
+-		 * Initialize hardware timer: we keep it running just in case
+-		 * that some program needs it later on.
+-		 */
+-		memset(&adapter->cycles, 0, sizeof(adapter->cycles));
+-		adapter->cycles.read = igb_read_clock;
+-		adapter->cycles.mask = CLOCKSOURCE_MASK(64);
+-		adapter->cycles.mult = 1;
+-		/**
+-		 * Scale the NIC clock cycle by a large factor so that
+-		 * relatively small clock corrections can be added or
+-		 * subtracted at each clock tick. The drawbacks of a large
+-		 * factor are a) that the clock register overflows more quickly
+-		 * (not such a big deal) and b) that the increment per tick has
+-		 * to fit into 24 bits.  As a result we need to use a shift of
+-		 * 19 so we can fit a value of 16 into the TIMINCA register.
+-		 */
+-		adapter->cycles.shift = IGB_82576_TSYNC_SHIFT;
+-		wr32(E1000_TIMINCA,
+-		                (1 << E1000_TIMINCA_16NS_SHIFT) |
+-		                (16 << IGB_82576_TSYNC_SHIFT));
+-
+-		/* Set registers so that rollover occurs soon to test this. */
+-		wr32(E1000_SYSTIML, 0x00000000);
+-		wr32(E1000_SYSTIMH, 0xFF800000);
+-		wrfl();
+-
+-		timecounter_init(&adapter->clock,
+-				 &adapter->cycles,
+-				 ktime_to_ns(ktime_get_real()));
+-		/*
+-		 * Synchronize our NIC clock against system wall clock. NIC
+-		 * time stamp reading requires ~3us per sample, each sample
+-		 * was pretty stable even under load => only require 10
+-		 * samples for each offset comparison.
+-		 */
+-		memset(&adapter->compare, 0, sizeof(adapter->compare));
+-		adapter->compare.source = &adapter->clock;
+-		adapter->compare.target = ktime_get_real;
+-		adapter->compare.num_samples = 10;
+-		timecompare_update(&adapter->compare, 0);
+-		break;
+-	case e1000_82575:
+-		/* 82575 does not support timesync */
+-	default:
+-		break;
+-	}
+-
+-}
+-
+-/**
+  * igb_sw_init - Initialize general software structures (struct igb_adapter)
+  * @adapter: board private structure to initialize
+  *
+@@ -5718,35 +5589,7 @@ static int igb_poll(struct napi_struct *napi, int budget)
+ 	return 0;
+ }
+ 
+-/**
+- * igb_systim_to_hwtstamp - convert system time value to hw timestamp
+- * @adapter: board private structure
+- * @shhwtstamps: timestamp structure to update
+- * @regval: unsigned 64bit system time value.
+- *
+- * We need to convert the system time value stored in the RX/TXSTMP registers
+- * into a hwtstamp which can be used by the upper level timestamping functions
+- */
+-static void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
+-                                   struct skb_shared_hwtstamps *shhwtstamps,
+-                                   u64 regval)
+-{
+-	u64 ns;
+-
+-	/*
+-	 * The 82580 starts with 1ns at bit 0 in RX/TXSTMPL, shift this up to
+-	 * 24 to match clock shift we setup earlier.
+-	 */
+-	if (adapter->hw.mac.type >= e1000_82580)
+-		regval <<= IGB_82580_TSYNC_SHIFT;
+-
+-	ns = timecounter_cyc2time(&adapter->clock, regval);
+-	timecompare_update(&adapter->compare, ns);
+-	memset(shhwtstamps, 0, sizeof(struct skb_shared_hwtstamps));
+-	shhwtstamps->hwtstamp = ns_to_ktime(ns);
+-	shhwtstamps->syststamp = timecompare_transform(&adapter->compare, ns);
+-}
+-
++#ifdef CONFIG_IGB_PTP
+ /**
+  * igb_tx_hwtstamp - utility function which checks for TX time stamp
+  * @q_vector: pointer to q_vector containing needed info
+@@ -5776,6 +5619,7 @@ static void igb_tx_hwtstamp(struct igb_q_vector *q_vector,
+ 	skb_tstamp_tx(buffer_info->skb, &shhwtstamps);
+ }
+ 
++#endif
+ /**
+  * igb_clean_tx_irq - Reclaim resources after transmit completes
+  * @q_vector: pointer to q_vector containing needed info
+@@ -5819,9 +5663,11 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
+ 		total_bytes += tx_buffer->bytecount;
+ 		total_packets += tx_buffer->gso_segs;
+ 
++#ifdef CONFIG_IGB_PTP
+ 		/* retrieve hardware timestamp */
+ 		igb_tx_hwtstamp(q_vector, tx_buffer);
+ 
++#endif
+ 		/* free the skb */
+ 		dev_kfree_skb_any(tx_buffer->skb);
+ 		tx_buffer->skb = NULL;
+@@ -5993,6 +5839,7 @@ static inline void igb_rx_hash(struct igb_ring *ring,
+ 		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
+ }
+ 
++#ifdef CONFIG_IGB_PTP
+ static void igb_rx_hwtstamp(struct igb_q_vector *q_vector,
+ 			    union e1000_adv_rx_desc *rx_desc,
+ 			    struct sk_buff *skb)
+@@ -6032,6 +5879,7 @@ static void igb_rx_hwtstamp(struct igb_q_vector *q_vector,
+ 	igb_systim_to_hwtstamp(adapter, skb_hwtstamps(skb), regval);
+ }
+ 
++#endif
+ static void igb_rx_vlan(struct igb_ring *ring,
+ 			union e1000_adv_rx_desc *rx_desc,
+ 			struct sk_buff *skb)
+@@ -6142,7 +5990,9 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
+ 			goto next_desc;
+ 		}
+ 
++#ifdef CONFIG_IGB_PTP
+ 		igb_rx_hwtstamp(q_vector, rx_desc, skb);
++#endif
+ 		igb_rx_hash(rx_ring, rx_desc, skb);
+ 		igb_rx_checksum(rx_ring, rx_desc, skb);
+ 		igb_rx_vlan(rx_ring, rx_desc, skb);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index c8254cf..c9b71c5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -27,6 +27,9 @@
+ #define ISGN			0x80000000
+ 
+ /*
++ * The 82580 timesync updates the system timer every 8ns by 8ns,
++ * and this update value cannot be reprogrammed.
++ *
+  * Neither the 82576 nor the 82580 offer registers wide enough to hold
+  * nanoseconds time values for very long. For the 82580, SYSTIM always
+  * counts nanoseconds, but the upper 24 bits are not availible. The
+@@ -38,6 +41,14 @@
+  * field are needed to provide the nominal 16 nanosecond period,
+  * leaving 19 bits for fractional nanoseconds.
+  *
++ * We scale the NIC clock cycle by a large factor so that relatively
++ * small clock corrections can be added or subtracted at each clock
++ * tick. The drawbacks of a large factor are a) that the clock
++ * register overflows more quickly (not such a big deal) and b) that
++ * the increment per tick has to fit into 24 bits.  As a result we
++ * need to use a shift of 19 so we can fit a value of 16 into the
++ * TIMINCA register.
++ *
+  *
+  *             SYSTIMH            SYSTIML
+  *        +--------------+   +---+---+------+
+@@ -95,6 +106,11 @@ static cycle_t igb_82580_systim_read(const struct cyclecounter *cc)
+ 	struct igb_adapter *igb = container_of(cc, struct igb_adapter, cc);
+ 	struct e1000_hw *hw = &igb->hw;
+ 
++	/*
++	 * The timestamp latches on lowest register read. For the 82580
++	 * the lowest register is SYSTIMR instead of SYSTIML.  However we only
++	 * need to provide nanosecond resolution, so we just ignore it.
++	 */
+ 	jk = rd32(E1000_SYSTIMR);
+ 	lo = rd32(E1000_SYSTIML);
+ 	hi = rd32(E1000_SYSTIMH);
+@@ -320,3 +336,46 @@ void igb_ptp_remove(struct igb_adapter *adapter)
+ 			 adapter->netdev->name);
+ 	}
+ }
 +
- 	E1000_KABGTXD  = 0x03004, /* AFE Band Gap Transmit Ref Data */
--	E1000_TDBAL    = 0x03800, /* Tx Descriptor Base Address Low - RW */
--	E1000_TDBAH    = 0x03804, /* Tx Descriptor Base Address High - RW */
--	E1000_TDLEN    = 0x03808, /* Tx Descriptor Length - RW */
--	E1000_TDH      = 0x03810, /* Tx Descriptor Head - RW */
--	E1000_TDT      = 0x03818, /* Tx Descriptor Tail - RW */
-+	E1000_TDBAL_BASE = 0x03800, /* Tx Descriptor Base Address Low - RW */
-+#define E1000_TDBAL(_n)	(E1000_TDBAL_BASE + (_n << 8))
-+	E1000_TDBAH_BASE = 0x03804, /* Tx Descriptor Base Address High - RW */
-+#define E1000_TDBAH(_n)	(E1000_TDBAH_BASE + (_n << 8))
-+	E1000_TDLEN_BASE = 0x03808, /* Tx Descriptor Length - RW */
-+#define E1000_TDLEN(_n)	(E1000_TDLEN_BASE + (_n << 8))
-+	E1000_TDH_BASE = 0x03810, /* Tx Descriptor Head - RW */
-+#define E1000_TDH(_n)	(E1000_TDH_BASE + (_n << 8))
-+	E1000_TDT_BASE = 0x03818, /* Tx Descriptor Tail - RW */
-+#define E1000_TDT(_n)	(E1000_TDT_BASE + (_n << 8))
- 	E1000_TIDV     = 0x03820, /* Tx Interrupt Delay Value - RW */
- 	E1000_TXDCTL_BASE = 0x03828, /* Tx Descriptor Control - RW */
- #define E1000_TXDCTL(_n)   (E1000_TXDCTL_BASE + (_n << 8))
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index d88445d..67e1eda 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -110,14 +110,14 @@ static const struct e1000_reg_info e1000_reg_info_tbl[] = {
- 
- 	/* Rx Registers */
- 	{E1000_RCTL, "RCTL"},
--	{E1000_RDLEN, "RDLEN"},
--	{E1000_RDH, "RDH"},
--	{E1000_RDT, "RDT"},
-+	{E1000_RDLEN(0), "RDLEN"},
-+	{E1000_RDH(0), "RDH"},
-+	{E1000_RDT(0), "RDT"},
- 	{E1000_RDTR, "RDTR"},
- 	{E1000_RXDCTL(0), "RXDCTL"},
- 	{E1000_ERT, "ERT"},
--	{E1000_RDBAL, "RDBAL"},
--	{E1000_RDBAH, "RDBAH"},
-+	{E1000_RDBAL(0), "RDBAL"},
-+	{E1000_RDBAH(0), "RDBAH"},
- 	{E1000_RDFH, "RDFH"},
- 	{E1000_RDFT, "RDFT"},
- 	{E1000_RDFHS, "RDFHS"},
-@@ -126,11 +126,11 @@ static const struct e1000_reg_info e1000_reg_info_tbl[] = {
- 
- 	/* Tx Registers */
- 	{E1000_TCTL, "TCTL"},
--	{E1000_TDBAL, "TDBAL"},
--	{E1000_TDBAH, "TDBAH"},
--	{E1000_TDLEN, "TDLEN"},
--	{E1000_TDH, "TDH"},
--	{E1000_TDT, "TDT"},
-+	{E1000_TDBAL(0), "TDBAL"},
-+	{E1000_TDBAH(0), "TDBAH"},
-+	{E1000_TDLEN(0), "TDLEN"},
-+	{E1000_TDH(0), "TDH"},
-+	{E1000_TDT(0), "TDT"},
- 	{E1000_TIDV, "TIDV"},
- 	{E1000_TXDCTL(0), "TXDCTL"},
- 	{E1000_TADV, "TADV"},
-@@ -2792,13 +2792,13 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* Setup the HW Tx Head and Tail descriptor pointers */
- 	tdba = tx_ring->dma;
- 	tdlen = tx_ring->count * sizeof(struct e1000_tx_desc);
--	ew32(TDBAL, (tdba & DMA_BIT_MASK(32)));
--	ew32(TDBAH, (tdba >> 32));
--	ew32(TDLEN, tdlen);
--	ew32(TDH, 0);
--	ew32(TDT, 0);
--	tx_ring->head = adapter->hw.hw_addr + E1000_TDH;
--	tx_ring->tail = adapter->hw.hw_addr + E1000_TDT;
-+	ew32(TDBAL(0), (tdba & DMA_BIT_MASK(32)));
-+	ew32(TDBAH(0), (tdba >> 32));
-+	ew32(TDLEN(0), tdlen);
-+	ew32(TDH(0), 0);
-+	ew32(TDT(0), 0);
-+	tx_ring->head = adapter->hw.hw_addr + E1000_TDH(0);
-+	tx_ring->tail = adapter->hw.hw_addr + E1000_TDT(0);
- 
- 	/* Set the Tx Interrupt Delay register */
- 	ew32(TIDV, adapter->tx_int_delay);
-@@ -3102,13 +3102,13 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 	 * the Base and Length of the Rx Descriptor Ring
- 	 */
- 	rdba = rx_ring->dma;
--	ew32(RDBAL, (rdba & DMA_BIT_MASK(32)));
--	ew32(RDBAH, (rdba >> 32));
--	ew32(RDLEN, rdlen);
--	ew32(RDH, 0);
--	ew32(RDT, 0);
--	rx_ring->head = adapter->hw.hw_addr + E1000_RDH;
--	rx_ring->tail = adapter->hw.hw_addr + E1000_RDT;
-+	ew32(RDBAL(0), (rdba & DMA_BIT_MASK(32)));
-+	ew32(RDBAH(0), (rdba >> 32));
-+	ew32(RDLEN(0), rdlen);
-+	ew32(RDH(0), 0);
-+	ew32(RDT(0), 0);
-+	rx_ring->head = adapter->hw.hw_addr + E1000_RDH(0);
-+	rx_ring->tail = adapter->hw.hw_addr + E1000_RDT(0);
- 
- 	/* Enable Receive Checksum Offload for TCP and UDP */
- 	rxcsum = er32(RXCSUM);
++/**
++ * igb_systim_to_hwtstamp - convert system time value to hw timestamp
++ * @adapter: board private structure
++ * @hwtstamps: timestamp structure to update
++ * @systim: unsigned 64bit system time value.
++ *
++ * We need to convert the system time value stored in the RX/TXSTMP registers
++ * into a hwtstamp which can be used by the upper level timestamping functions.
++ *
++ * The 'tmreg_lock' spinlock is used to protect the consistency of the
++ * system time value. This is needed because reading the 64 bit time
++ * value involves reading two (or three) 32 bit registers. The first
++ * read latches the value. Ditto for writing.
++ *
++ * In addition, here have extended the system time with an overflow
++ * counter in software.
++ **/
++void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
++			    struct skb_shared_hwtstamps *hwtstamps,
++			    u64 systim)
++{
++	u64 ns;
++	unsigned long flags;
++
++	switch (adapter->hw.mac.type) {
++	case e1000_i350:
++	case e1000_82580:
++	case e1000_82576:
++		break;
++	default:
++		return;
++	}
++
++	spin_lock_irqsave(&adapter->tmreg_lock, flags);
++
++	ns = timecounter_cyc2time(&adapter->tc, systim);
++
++	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
++
++	memset(hwtstamps, 0, sizeof(*hwtstamps));
++	hwtstamps->hwtstamp = ns_to_ktime(ns);
++}
 -- 
 1.7.7.6
