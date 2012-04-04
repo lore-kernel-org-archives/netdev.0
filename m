@@ -1,52 +1,69 @@
-From: Kusanagi Kouichi <slash@ac.auone-net.jp>
-Subject: Re: Commit 8ef874bfc7296fa206eea2ad1e8a426f576bf6f6 has broken ss
- command
-Date: Wed, 4 Apr 2012 22:22:27 +0900
-Message-ID: <20120404132228.3C5B262C03B@msa106.auone-net.jp>
-References: <20120404090312.1B68C6AC03E@msa102.auone-net.jp>
- <1333530463.18626.545.camel@edumazet-glaptop>
- <20120404100015.D41B162C03E@msa106.auone-net.jp>
- <1333534877.18626.566.camel@edumazet-glaptop>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] scpt: Allow struct sctp_event_subscribe to grow without
+ breaking binaries
+Date: Wed, 04 Apr 2012 09:52:04 -0400
+Message-ID: <4F7C5204.9040703@hp.com>
+References: <20120404081753.GA5124@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Pavel Emelyanov <xemul@parallels.com>,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1333534877.18626.566.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:42757 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756327Ab2DDN7t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 09:59:49 -0400
+In-Reply-To: <20120404081753.GA5124@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2012-04-04 12:21:17 +0200, Eric Dumazet wrote:
-> Please try this patch :
+On 04/04/2012 04:17 AM, Thomas Graf wrote:
+> getsockopt(..., SCTP_EVENTS, ...) performs a length check and returns
+> an error if the user provides less bytes than the size of struct
+> sctp_event_subscribe.
 > 
-> diff --git a/misc/ss.c b/misc/ss.c
-> index 5414f75..8c00760 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -1534,8 +1534,10 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
->  		.msg_iovlen = f->f ? 3 : 1,
->  	};
->  
-> -	if (sendmsg(fd, &msg, 0) < 0)
-> +	if (sendmsg(fd, &msg, 0) < 0) {
-> +		close(fd);
->  		return -1;
-> +	}
->  
->  	iov[0] = (struct iovec){
->  		.iov_base = buf,
-> @@ -1589,6 +1591,10 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
->  					fprintf(stderr, "ERROR truncated\n");
->  				} else {
->  					errno = -err->error;
-> +					if (errno == EOPNOTSUPP) {
-> +						close(fd);
-> +						return -1;
-> +					}
->  					perror("TCPDIAG answers");
->  				}
->  				close(fd);
+> Struct sctp_event_subscribe needs to be extended by an u8 for every
+> new event or notification type that is added.
+> 
+> This obviously makes getsockopt fail for binaries that are compiled
+> against an older versions of <net/sctp/user.h> which do not contain
+> all event types.
+> 
+> This patch changes getsockopt behaviour to no longer return an error
+> if not enough bytes are being provided by the user. Instead, it
+> returns as much of sctp_event_subscribe as fits into the provided buffer.
+> 
+> This leads to the new behavior that users see what they have been aware
+> of at compile time.
+> 
+> The setsockopt(..., SCTP_EVENTS, ...) API is already behaving like this.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-This patch solved the problem. Thank you!
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+
+-vlad
+
+> ---
+>  net/sctp/socket.c |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 06b42b7..92ba71d 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4133,9 +4133,10 @@ static int sctp_getsockopt_disable_fragments(struct sock *sk, int len,
+>  static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
+>  				  int __user *optlen)
+>  {
+> -	if (len < sizeof(struct sctp_event_subscribe))
+> +	if (len <= 0)
+>  		return -EINVAL;
+> -	len = sizeof(struct sctp_event_subscribe);
+> +	if (len > sizeof(struct sctp_event_subscribe))
+> +		len = sizeof(struct sctp_event_subscribe);
+>  	if (put_user(len, optlen))
+>  		return -EFAULT;
+>  	if (copy_to_user(optval, &sctp_sk(sk)->subscribe, len))
+> 
