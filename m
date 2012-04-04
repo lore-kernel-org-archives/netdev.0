@@ -1,45 +1,115 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 2/2] e100: enable transmit time stamping.
-Date: Wed, 4 Apr 2012 11:30:11 +0200
-Message-ID: <20120404093011.GA4292@netboy.at.omicron.at>
-References: <cover.1331400160.git.richardcochran@gmail.com>
- <33c61d135f4fd62e5128466633302414ead0092e.1331400160.git.richardcochran@gmail.com>
- <1333530283.3046.14.camel@jtkirshe-mobl>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: question about napi_disable (was Re: [PATCH] virtio_net: set/cancel
+	work on ndo_open/ndo_stop)
+Date: Wed, 4 Apr 2012 12:32:29 +0300
+Message-ID: <20120404093229.GA3804@redhat.com>
+References: <87hb0kgiwn.fsf@rustcorp.com.au> <87pqf7fyld.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:51056 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753105Ab2DDJaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 05:30:19 -0400
-Received: by wibhq7 with SMTP id hq7so74624wib.1
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 02:30:17 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org,
+	Amit Shah <amit.shah@redhat.com>, David Miller <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1333530283.3046.14.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <87pqf7fyld.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 04, 2012 at 02:04:43AM -0700, Jeff Kirsher wrote:
+On Thu, Dec 29, 2011 at 09:12:38PM +1030, Rusty Russell wrote:
+> Michael S. Tsirkin noticed that we could run the refill work after
+> ndo_close, which can re-enable napi - we don't disable it until
+> virtnet_remove.  This is clearly wrong, so move the workqueue control
+> to ndo_open and ndo_stop (aka. virtnet_open and virtnet_close).
 > 
-> I had this patch in my queue, but during testing we found some serious
-> issues with some adapters.  With every 82559 based adapter Aaron tried
-> the system would panic on driver load.  This included at least one
-> sampling of D101S and D101M.  Every other e100 chipset Aaron tried
-> (82557, 82558, 82550) appeared to work fine.
+> One subtle point: virtnet_probe() could simply fail if it couldn't
+> allocate a receive buffer, but that's less polite in virtnet_open() so
+> we schedule a refill as we do in the normal receive path if we run out
+> of memory.
 > 
-> So I am dropping this patch as is due to the kernel panics.
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 
-Okay, fine. That driver is strangely written, with weird callbacks and
-passing function pointers around.
+Doh.
+napi_disable does not prevent the following
+napi_schedule, does it?
 
-Taking a second look, I think I might have found the problem. The
-drivers casts a firmware pointer onto a skb, and my patch then tries
-to timestamp the firmware blob.
+Can someone confirm that I am not seeing things please?
 
-If I rework this, are you willing to give it another try?
+And this means this hack does not work:
+try_fill_recv can still run in parallel with
+napi, corrupting the vq.
 
-Thanks,
-Richard
+I suspect we need to resurrect a patch that used a
+dedicated flag to avoid this race.
+
+Comments?
+
+> ---
+>  drivers/net/virtio_net.c |   17 +++++++++++++----
+>  1 file changed, 13 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -439,7 +439,13 @@ static int add_recvbuf_mergeable(struct 
+>  	return err;
+>  }
+>  
+> -/* Returns false if we couldn't fill entirely (OOM). */
+> +/*
+> + * Returns false if we couldn't fill entirely (OOM).
+> + *
+> + * Normally run in the receive path, but can also be run from ndo_open
+> + * before we're receiving packets, or from refill_work which is
+> + * careful to disable receiving (using napi_disable).
+> + */
+>  static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+>  {
+>  	int err;
+> @@ -719,6 +725,10 @@ static int virtnet_open(struct net_devic
+>  {
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  
+> +	/* Make sure we have some buffers: if oom use wq. */
+> +	if (!try_fill_recv(vi, GFP_KERNEL))
+> +		schedule_delayed_work(&vi->refill, 0);
+> +
+>  	virtnet_napi_enable(vi);
+>  	return 0;
+>  }
+> @@ -772,6 +782,8 @@ static int virtnet_close(struct net_devi
+>  {
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  
+> +	/* Make sure refill_work doesn't re-enable napi! */
+> +	cancel_delayed_work_sync(&vi->refill);
+>  	napi_disable(&vi->napi);
+>  
+>  	return 0;
+> @@ -1082,7 +1094,6 @@ static int virtnet_probe(struct virtio_d
+>  
+>  unregister:
+>  	unregister_netdev(dev);
+> -	cancel_delayed_work_sync(&vi->refill);
+>  free_vqs:
+>  	vdev->config->del_vqs(vdev);
+>  free_stats:
+> @@ -1121,9 +1132,7 @@ static void __devexit virtnet_remove(str
+>  	/* Stop all the virtqueues. */
+>  	vdev->config->reset(vdev);
+>  
+> -
+>  	unregister_netdev(vi->dev);
+> -	cancel_delayed_work_sync(&vi->refill);
+>  
+>  	/* Free unused buffers in both send and recv, if any. */
+>  	free_unused_bufs(vi);
