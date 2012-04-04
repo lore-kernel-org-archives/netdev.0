@@ -1,130 +1,166 @@
-From: Bhupesh SHARMA <bhupesh.sharma@st.com>
-Subject: RE: [PATCH] ARM: OMAP: AM33XX: CAN: d_can: Add support for Bosch
- D_CAN controller
-Date: Wed, 4 Apr 2012 11:43:22 +0800
-Message-ID: <D5ECB3C7A6F99444980976A8C6D896384FA301D81D@EAPEX1MAIL1.st.com>
-References: <1333456339-9372-1-git-send-email-anilkumar@ti.com>
- <4F7AF0C7.7020506@grandegger.com>
- <331ABD5ECB02734CA317220B2BBEABC1317D85D0@DBDE01.ent.ti.com>
- <4F7AFFEC.1010805@pengutronix.de>
- <331ABD5ECB02734CA317220B2BBEABC1317D86F7@DBDE01.ent.ti.com>
- <4F7B1854.90106@pengutronix.de>
- <331ABD5ECB02734CA317220B2BBEABC1317D88B7@DBDE01.ent.ti.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net-next 2/10] bnx2x: remove unnecessary dmae code
+Date: Wed, 4 Apr 2012 07:41:24 +0300
+Message-ID: <1333514492-20425-3-git-send-email-yuvalmin@broadcom.com>
+References: <1333514492-20425-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	"socketcan@hartkopp.net" <socketcan@hartkopp.net>,
-	"m.kleine-budde@pengutronix.de" <m.kleine-budde@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Gole, Anant" <anantgole@ti.com>, "Nori,  Sekhar" <nsekhar@ti.com>
-To: "AnilKumar, Chimata" <anilkumar@ti.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <331ABD5ECB02734CA317220B2BBEABC1317D88B7@DBDE01.ent.ti.com>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:4903 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751594Ab2DDErU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Apr 2012 00:47:20 -0400
+In-Reply-To: <1333514492-20425-1-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: linux-can-owner@vger.kernel.org [mailto:linux-can-
-> owner@vger.kernel.org] On Behalf Of AnilKumar, Chimata
-> Sent: Tuesday, April 03, 2012 9:28 PM
-> To: Marc Kleine-Budde
-> Cc: Wolfgang Grandegger; socketcan@hartkopp.net; m.kleine-
-> budde@pengutronix.de; linux-can@vger.kernel.org;
-> netdev@vger.kernel.org; linux-omap@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Gole, Anant; Nori, Sekhar
-> Subject: RE: [PATCH] ARM: OMAP: AM33XX: CAN: d_can: Add support for
-> Bosch D_CAN controller
-> 
-> On Tue, Apr 03, 2012 at 21:03:40, Marc Kleine-Budde wrote:
-> > On 04/03/2012 04:29 PM, AnilKumar, Chimata wrote:
-> > >>>> Please explain why this CAN controller cannot be handled by the
-> existing
-> > >>>> C_CAN driver, eventually with some extensions. The register
-> layout seems
-> > >>>> almost identical, at least.
-> > >>>>
-> > >>>> Wolfgang.
-> > >>>>
-> > >>>
-> > >>> These are the some of the pointers I can say, why I had gone for
-> separate
-> > >>> file instead of existing driver:
-> > >>> * In case of D_CAN driver we can see all the registers are 32bit
-> length
-> > >>>   but in case of C_CAN registers are in 16bit length.
-> > >>
-> > >> How many bits in these 32 bit registers are used?
-> > >
-> > > In some cases (D_CAN_TXRQ, D_CAN_INTPND, D_CAN_MSGVAL) I have used
-> all the
-> > > bits, in some cases used few bits.
-> > >
-> > > Roughly I can say that its (higher 16bits) % of usages is similar
-> as compare
-> > > to 16bits
-> > >
-> > > While checking the status of TXRequest registers and INT pending
-> register,
-> > > which is a hot code path, we have to put if checks for register
-> access.
-> >
-> > The c_can already has a c_can_read_reg32() function. It's for example
-> > used in the rx_poll function. You can make it a function pointer
-> (i.e.
-> > pric->read_reg32()) for easy abstraction.
-> 
-> This won't fit for D_CAN case because offsets are different in c_can
-> compared
-> to d_can. For example if I read CONTROL_REG register (0x0) in case of
-> d_can,
-> which will read only control register. In case of c_can it will read
-> CONTROL_REG + STATUS register values in single read
+Removed uninformative debug prints, as well as two functions
+which were hardly used in the code.
 
-C_CAN core has both 16-bit as well as 32-bit registers.
-While the registers like NEWDATA and INTPND are 32-bit the others
-like Control and Status are 16-bit.
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   91 +---------------------
+ 1 files changed, 4 insertions(+), 87 deletions(-)
 
-These cases are handled by the present C_CAN driver already.
-If you will see the C_CAN driver then you will see that the normal
-read/write operations are 16-bit whereas a special variant is provided
-for 32-bit access.
-
-Are you sure you cannot use them as it is?
-
-> >
-> > >>> * Some of the registers, bit masks are different, so we have to
-> add
-> > >>>   checks on every API for differentiating the kind of device
-> > >>
-> > >> Which registers are this? Can you give us an example?
-> > >
-> > > I am pointing out some of the resisters
-> > > * Single registers in case of D_CAN but multiple register in case
-> of C_CAN
-> > >   So masks will change MASK, ARB, INTPND
-> > > * D_CAN_IFCMD is the combination of COMM request and COMM mask
-> registers
-> >
-> > Maybe you can use the read_reg32 function on both c_can and d_can.
-> 
-> Above comment applies here as well
-> 
-
-This can be easily handled. I have worked on several drivers that do that.
-See for example the STMPE multi-function device driver (MFD), here [1]
-
-There are various variants of STMPE devices (like STMPE801 etc..) and they
-can be handled by using a common driver and passing different platform data
-intelligently that provides specific handling for a specific STMPE device.
-
-Regards,
-Bhupesh
-
-[1] http://lxr.linux.no/linux+v3.3.1/drivers/mfd/stmpe.c
-
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index c03e4ab..44b6f9f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -303,67 +303,6 @@ static u32 bnx2x_reg_rd_ind(struct bnx2x *bp, u32 addr)
+ #define DMAE_DP_DST_PCI		"pci dst_addr [%x:%08x]"
+ #define DMAE_DP_DST_NONE	"dst_addr [none]"
+ 
+-static void bnx2x_dp_dmae(struct bnx2x *bp, struct dmae_command *dmae,
+-			  int msglvl)
+-{
+-	u32 src_type = dmae->opcode & DMAE_COMMAND_SRC;
+-
+-	switch (dmae->opcode & DMAE_COMMAND_DST) {
+-	case DMAE_CMD_DST_PCI:
+-		if (src_type == DMAE_CMD_SRC_PCI)
+-			DP(msglvl, "DMAE: opcode 0x%08x\n"
+-			   "src [%x:%08x], len [%d*4], dst [%x:%08x]\n"
+-			   "comp_addr [%x:%08x], comp_val 0x%08x\n",
+-			   dmae->opcode, dmae->src_addr_hi, dmae->src_addr_lo,
+-			   dmae->len, dmae->dst_addr_hi, dmae->dst_addr_lo,
+-			   dmae->comp_addr_hi, dmae->comp_addr_lo,
+-			   dmae->comp_val);
+-		else
+-			DP(msglvl, "DMAE: opcode 0x%08x\n"
+-			   "src [%08x], len [%d*4], dst [%x:%08x]\n"
+-			   "comp_addr [%x:%08x], comp_val 0x%08x\n",
+-			   dmae->opcode, dmae->src_addr_lo >> 2,
+-			   dmae->len, dmae->dst_addr_hi, dmae->dst_addr_lo,
+-			   dmae->comp_addr_hi, dmae->comp_addr_lo,
+-			   dmae->comp_val);
+-		break;
+-	case DMAE_CMD_DST_GRC:
+-		if (src_type == DMAE_CMD_SRC_PCI)
+-			DP(msglvl, "DMAE: opcode 0x%08x\n"
+-			   "src [%x:%08x], len [%d*4], dst_addr [%08x]\n"
+-			   "comp_addr [%x:%08x], comp_val 0x%08x\n",
+-			   dmae->opcode, dmae->src_addr_hi, dmae->src_addr_lo,
+-			   dmae->len, dmae->dst_addr_lo >> 2,
+-			   dmae->comp_addr_hi, dmae->comp_addr_lo,
+-			   dmae->comp_val);
+-		else
+-			DP(msglvl, "DMAE: opcode 0x%08x\n"
+-			   "src [%08x], len [%d*4], dst [%08x]\n"
+-			   "comp_addr [%x:%08x], comp_val 0x%08x\n",
+-			   dmae->opcode, dmae->src_addr_lo >> 2,
+-			   dmae->len, dmae->dst_addr_lo >> 2,
+-			   dmae->comp_addr_hi, dmae->comp_addr_lo,
+-			   dmae->comp_val);
+-		break;
+-	default:
+-		if (src_type == DMAE_CMD_SRC_PCI)
+-			DP(msglvl, "DMAE: opcode 0x%08x\n"
+-			   "src_addr [%x:%08x]  len [%d * 4]  dst_addr [none]\n"
+-			   "comp_addr [%x:%08x]  comp_val 0x%08x\n",
+-			   dmae->opcode, dmae->src_addr_hi, dmae->src_addr_lo,
+-			   dmae->len, dmae->comp_addr_hi, dmae->comp_addr_lo,
+-			   dmae->comp_val);
+-		else
+-			DP(msglvl, "DMAE: opcode 0x%08x\n"
+-			   "src_addr [%08x]  len [%d * 4]  dst_addr [none]\n"
+-			   "comp_addr [%x:%08x]  comp_val 0x%08x\n",
+-			   dmae->opcode, dmae->src_addr_lo >> 2,
+-			   dmae->len, dmae->comp_addr_hi, dmae->comp_addr_lo,
+-			   dmae->comp_val);
+-		break;
+-	}
+-
+-}
+ 
+ /* copy command into DMAE command memory and set DMAE command go */
+ void bnx2x_post_dmae(struct bnx2x *bp, struct dmae_command *dmae, int idx)
+@@ -500,8 +439,6 @@ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
+ 	dmae.dst_addr_hi = 0;
+ 	dmae.len = len32;
+ 
+-	bnx2x_dp_dmae(bp, &dmae, BNX2X_MSG_OFF);
+-
+ 	/* issue the command and wait for completion */
+ 	bnx2x_issue_dmae_with_comp(bp, &dmae);
+ }
+@@ -534,8 +471,6 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
+ 	dmae.dst_addr_hi = U64_HI(bnx2x_sp_mapping(bp, wb_data));
+ 	dmae.len = len32;
+ 
+-	bnx2x_dp_dmae(bp, &dmae, BNX2X_MSG_OFF);
+-
+ 	/* issue the command and wait for completion */
+ 	bnx2x_issue_dmae_with_comp(bp, &dmae);
+ }
+@@ -556,27 +491,6 @@ static void bnx2x_write_dmae_phys_len(struct bnx2x *bp, dma_addr_t phys_addr,
+ 	bnx2x_write_dmae(bp, phys_addr + offset, addr + offset, len);
+ }
+ 
+-/* used only for slowpath so not inlined */
+-static void bnx2x_wb_wr(struct bnx2x *bp, int reg, u32 val_hi, u32 val_lo)
+-{
+-	u32 wb_write[2];
+-
+-	wb_write[0] = val_hi;
+-	wb_write[1] = val_lo;
+-	REG_WR_DMAE(bp, reg, wb_write, 2);
+-}
+-
+-#ifdef USE_WB_RD
+-static u64 bnx2x_wb_rd(struct bnx2x *bp, int reg)
+-{
+-	u32 wb_data[2];
+-
+-	REG_RD_DMAE(bp, reg, wb_data, 2);
+-
+-	return HILO_U64(wb_data[0], wb_data[1]);
+-}
+-#endif
+-
+ static int bnx2x_mc_assert(struct bnx2x *bp)
+ {
+ 	char last_idx;
+@@ -6634,13 +6548,16 @@ static int bnx2x_init_hw_port(struct bnx2x *bp)
+ static void bnx2x_ilt_wr(struct bnx2x *bp, u32 index, dma_addr_t addr)
+ {
+ 	int reg;
++	u32 wb_write[2];
+ 
+ 	if (CHIP_IS_E1(bp))
+ 		reg = PXP2_REG_RQ_ONCHIP_AT + index*8;
+ 	else
+ 		reg = PXP2_REG_RQ_ONCHIP_AT_B0 + index*8;
+ 
+-	bnx2x_wb_wr(bp, reg, ONCHIP_ADDR1(addr), ONCHIP_ADDR2(addr));
++	wb_write[0] = ONCHIP_ADDR1(addr);
++	wb_write[1] = ONCHIP_ADDR2(addr);
++	REG_WR_DMAE(bp, reg, wb_write, 2);
+ }
+ 
+ static inline void bnx2x_igu_clear_sb(struct bnx2x *bp, u8 idu_sb_id)
+-- 
+1.7.9.rc2
