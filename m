@@ -1,64 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] vmsplice: relax alignement requirements for SPLICE_F_GIFT
-Date: Wed, 04 Apr 2012 11:08:51 +0200
-Message-ID: <1333530531.18626.550.camel@edumazet-glaptop>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH] ipv6: Fix 'inet6_rtm_getroute' to release 'rt->dst' in case
+ of 'alloc_skb' failure
+Date: Wed, 4 Apr 2012 12:13:00 +0300
+Message-ID: <20120404121300.2e05437b@pixies.home.jungo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Hugh Dickins <hughd@google.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Miklos Szeredi <mszeredi@suse.cz>
-To: Jens Axboe <axboe@kernel.dk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It seems there is no fundamental reason to limit vmsplice()
-SPLICE_F_GIFT to page aligned chunks.
+In 72331bc [ipv6: Fix RTM_GETROUTE's interpretation of RTA_IIF to be
+consistent with ipv4] the code of 'inet6_rtm_getroute()' was re-ordered
+such that the reference to 'rt->dst' is incremented prior skb
+allocation.
 
-All helpers are prepared to cope with offsets in page.
+Hence, if 'alloc_skb()' fails, must drop a reference from 'rt->dst'.
+Add the missing 'dst_release()' call.
 
-This limitation makes vmsplice() API very impractical in the zero-copy
-land.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: Jens Axboe <axboe@kernel.dk>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: David Miller <davem@davemloft.net>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Hugh Dickins <hughd@google.com>
-Cc: Changli Gao <xiaosuo@gmail.com>
-Cc: Miklos Szeredi <mszeredi@suse.cz>
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 ---
- fs/splice.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/fs/splice.c b/fs/splice.c
-index 5f883de..5417aa3 100644
---- a/fs/splice.c
-+++ b/fs/splice.c
-@@ -1385,7 +1385,7 @@ static long do_splice(struct file *in, loff_t __user *off_in,
-  */
- static int get_iovec_page_array(const struct iovec __user *iov,
- 				unsigned int nr_vecs, struct page **pages,
--				struct partial_page *partial, int aligned,
-+				struct partial_page *partial, bool aligned,
- 				unsigned int pipe_buffers)
- {
- 	int buffers = 0, error = 0;
-@@ -1623,7 +1623,7 @@ static long vmsplice_to_pipe(struct file *file, const struct iovec __user *iov,
- 		return -ENOMEM;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 1178345..00b987c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2581,6 +2581,7 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
  
- 	spd.nr_pages = get_iovec_page_array(iov, nr_segs, spd.pages,
--					    spd.partial, flags & SPLICE_F_GIFT,
-+					    spd.partial, false,
- 					    pipe->buffers);
- 	if (spd.nr_pages <= 0)
- 		ret = spd.nr_pages;
+ 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+ 	if (!skb) {
++		dst_release(&rt->dst);
+ 		err = -ENOBUFS;
+ 		goto errout;
+ 	}
