@@ -1,52 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Kusanagi Kouichi <slash@ac.auone-net.jp>
 Subject: Re: Commit 8ef874bfc7296fa206eea2ad1e8a426f576bf6f6 has broken ss
  command
-Date: Wed, 04 Apr 2012 11:48:57 +0200
-Message-ID: <1333532937.18626.565.camel@edumazet-glaptop>
+Date: Wed, 4 Apr 2012 19:00:15 +0900
+Message-ID: <20120404100015.D41B162C03E@msa106.auone-net.jp>
 References: <20120404090312.1B68C6AC03E@msa102.auone-net.jp>
-	 <1333530463.18626.545.camel@edumazet-glaptop>
-	 <20120404.052423.998527504342669775.davem@davemloft.net>
-	 <1333532694.18626.563.camel@edumazet-glaptop>
+ <1333530463.18626.545.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: slash@ac.auone-net.jp, netdev@vger.kernel.org, xemul@parallels.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Pavel Emelyanov <xemul@parallels.com>,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1333532694.18626.563.camel@edumazet-glaptop>
+Content-Disposition: inline
+In-Reply-To: <1333530463.18626.545.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-04-04 at 11:44 +0200, Eric Dumazet wrote:
-> On Wed, 2012-04-04 at 05:24 -0400, David Miller wrote:
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Wed, 04 Apr 2012 11:07:43 +0200
+On 2012-04-04 11:07:43 +0200, Eric Dumazet wrote:
+> On Wed, 2012-04-04 at 18:03 +0900, Kusanagi Kouichi wrote:
+> > Since commit 8ef874bfc7296fa206eea2ad1e8a426f576bf6f6 ("sock_diag:
+> > Move the sock_ code to net/core/"), ss command from iproute package
+> > doesn't work if INET_DIAG is not enabled.
 > > 
-> > > On Wed, 2012-04-04 at 18:03 +0900, Kusanagi Kouichi wrote:
-> > >> Since commit 8ef874bfc7296fa206eea2ad1e8a426f576bf6f6 ("sock_diag:
-> > >> Move the sock_ code to net/core/"), ss command from iproute package
-> > >> doesn't work if INET_DIAG is not enabled.
-> > >> 
-> > >> $ ss
-> > >> State       Recv-Q Send-Q                                             Local Address:Port                                                 Peer Address:Port
-> > >> TCPDIAG answers: Operation not supported
-> > >> --
-> > > 
-> > > Try to update your iproute2 package ?
-> > 
-> > Well, he doesn't INET_DIAG enabled in his kernel, so no matter what
-> > iproute2 version he uses it won't work :-)
+> > $ ss
+> > State       Recv-Q Send-Q                                             Local Address:Port                                                 Peer Address:Port
+> > TCPDIAG answers: Operation not supported
+> > --
 > 
-> iproute2 misc/ss.c has a fallback using /proc/net/tcp
-> 
-> Dont know when this broke.
-> 
-> I guess we should fix ss to cope INET_DIAG being disabled.
-> 
-> tcp_show_netlink() should return -1 instead of 0
-> 
+> Try to update your iproute2 package ?
 
-Kusanagi Kouichi is right. Commit 8ef874bfc72 apparently changed things
-since socket(AF_NETLINK, SOCK_RAW, NETINK_INET_DIAG) doesnt fail
-anymore...
+iproute seems up to date.
+$ ss --version
+ss utility, iproute2-ss120319
+
+I tried git master commit 4bb00cd2b7525ad7d6cf6bbea945ad6e546873f4.
+It still fails.
