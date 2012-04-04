@@ -1,61 +1,34 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: [PATCH] scpt: Allow struct sctp_event_subscribe to grow without
- breaking binaries
-Date: Wed, 4 Apr 2012 04:17:53 -0400
-Message-ID: <20120404081753.GA5124@canuck.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Update
+Date: Wed, 04 Apr 2012 04:26:31 -0400 (EDT)
+Message-ID: <20120404.042631.2130868853739722658.davem@davemloft.net>
+References: <1333526160-24937-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vladislav.yasevich@hp.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:51768 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751659Ab2DDIR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 04:17:57 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([198.137.202.13]:43015 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752511Ab2DDI0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 04:26:40 -0400
+In-Reply-To: <1333526160-24937-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-getsockopt(..., SCTP_EVENTS, ...) performs a length check and returns
-an error if the user provides less bytes than the size of struct
-sctp_event_subscribe.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  4 Apr 2012 00:55:52 -0700
 
-Struct sctp_event_subscribe needs to be extended by an u8 for every
-new event or notification type that is added.
+> This series of patches contains updates for e1000, e1000e, igb and
+> ixgbe.  The e1000 patch finishes up the addition of RXALL support
+> flag from Ben Greear.  The 2 igb patches adds the PTP support
+> from Richard Cochran.  The remaining patches for e1000e and ixgbe
+> are cleanup patches (and rev the e1000e driver).
+> 
+> The following are changes since commit 68df25d6c556c4df4dad32a0585317eab356e325:
+>   bnx2x: Change to driver version 1.72.10-0
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-This obviously makes getsockopt fail for binaries that are compiled
-against an older versions of <net/sctp/user.h> which do not contain
-all event types.
-
-This patch changes getsockopt behaviour to no longer return an error
-if not enough bytes are being provided by the user. Instead, it
-returns as much of sctp_event_subscribe as fits into the provided buffer.
-
-This leads to the new behavior that users see what they have been aware
-of at compile time.
-
-The setsockopt(..., SCTP_EVENTS, ...) API is already behaving like this.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/sctp/socket.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 06b42b7..92ba71d 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4133,9 +4133,10 @@ static int sctp_getsockopt_disable_fragments(struct sock *sk, int len,
- static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
- 				  int __user *optlen)
- {
--	if (len < sizeof(struct sctp_event_subscribe))
-+	if (len <= 0)
- 		return -EINVAL;
--	len = sizeof(struct sctp_event_subscribe);
-+	if (len > sizeof(struct sctp_event_subscribe))
-+		len = sizeof(struct sctp_event_subscribe);
- 	if (put_user(len, optlen))
- 		return -EFAULT;
- 	if (copy_to_user(optval, &sctp_sk(sk)->subscribe, len))
+Pulled, thanks Jeff.
