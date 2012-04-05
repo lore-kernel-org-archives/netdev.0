@@ -1,53 +1,34 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: [3.4-rc1][Regression][network wireless] 'task xxxx blocked for more than 120 seconds' after resume
-Date: Thu, 5 Apr 2012 22:08:21 +0200
-Message-ID: <201204052208.21270.maciej.rutecki@gmail.com>
-References: <201204022157.05598.maciej.rutecki@gmail.com> <201204052037.37497.maciej.rutecki@gmail.com> <1333652183.3494.21.camel@jlt3.sipsolutions.net>
-Reply-To: maciej.rutecki@gmail.com
+From: Marcelo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH 1/1] bonding: properly unset current_arp_slave on slave
+ link up
+Date: Thu, 05 Apr 2012 17:22:25 -0300
+Message-ID: <4F7DFF01.4060309@redhat.com>
+References: <20120405134743.GB16870@darkmag.usersys.redhat.com>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, linux-wireless@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1333652183.3494.21.camel@jlt3.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	linux-kernel@vger.kernel.org
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5180 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755584Ab2DEUWb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2012 16:22:31 -0400
+In-Reply-To: <20120405134743.GB16870@darkmag.usersys.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On czwartek, 5 kwietnia 2012 o 20:56:23 Johannes Berg wrote:
-> On Thu, 2012-04-05 at 20:37 +0200, Maciej Rutecki wrote:
-> > On czwartek, 5 kwietnia 2012 o 12:32:54 Stanislaw Gruszka wrote:
-> > > On Tue, Apr 03, 2012 at 10:07:49AM +0200, Johannes Berg wrote:
-> > > > -ilw
-> > > > +netdev
-> > > > 
-> > > > I have no idea what this could be, but I'm almost certain it's not
-> > > > caused by our wireless driver. Looks more like rtl8169 is to blame.
-> > > 
-> > > I'm not sure. Looks like there is deadlock or infinite loop in process
-> > > that holds rtnl lock. This can be wireless driver, wired driver or
-> > > generic network code bug.
-> > > 
-> > > Maciej, please recompile with CONFIG_LOCKDEP and check if it will not
-> > > find any deadlock. If not, when problem will happen please do
-> > 
-> > Did you mean "CONFIG_LOCKDEP_SUPPORT"?
-> 
-> No, _SUPPORT means you could enable CONFIG_LOCKDEP, but we would like to
-> see this with CONFIG_LOCKDEP enabled.
-> 
-> johannes
+On 04/05/2012 10:47 AM, Veaceslav Falico wrote:
+> When a slave comes up, we're unsetting the current_arp_slave without
+> removing active flags from it, which can lead to situations where we have
+> more than one slave with active flags in active-backup mode.
+>
+> To avoid this situation we must remove the active flags from a slave before
+> removing it as a current_arp_slave.
+>
+> Signed-off-by: Veaceslav Falico<vfalico@redhat.com>
 
-Dmesg when CONFIG_LOCKDEP is set:
-
-http://mrutecki.pl/download/kernel/3.4-rc1/netdev_resume/dmesg-lockdep.txt
-
-Regards
-
--- 
-Maciej Rutecki
-http://www.mrutecki.pl
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
