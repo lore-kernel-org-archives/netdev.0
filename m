@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V7 5/8] net/route: export symbol ip_tos2prio
-Date: Thu,  5 Apr 2012 10:33:28 +0300
-Message-ID: <1333611211-1032-6-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V7 7/8] net/dcb: Add an optional max rate attribute
+Date: Thu,  5 Apr 2012 10:33:30 +0300
+Message-ID: <1333611211-1032-8-git-send-email-amirv@mellanox.com>
 References: <1333611211-1032-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
@@ -10,33 +10,115 @@ Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:40277 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752983Ab2DEHdp (ORCPT
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:38243 "HELO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754156Ab2DEHdp (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 03:33:45 -0400
 In-Reply-To: <1333611211-1032-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Need to export this to enable drivers use rt_tos2priority()
+Although not specified in 8021Qaz spec, it could be useful to enable drivers
+whose HW supports setting a rate limit for an ETS TC. This patch adds this
+optional attribute to DCB netlink. To use it, drivers should implement and
+register the callbacks ieee_setmaxrate and ieee_getmaxrate. The units are 64
+bits long and specified in Kbps to enable usage over both slow and very fast
+networks.
 
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- net/ipv4/route.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/linux/dcbnl.h |   12 ++++++++++++
+ include/net/dcbnl.h   |    2 ++
+ net/dcb/dcbnl.c       |   20 ++++++++++++++++++++
+ 3 files changed, 34 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e5647b4..634aa82 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -230,7 +230,7 @@ const __u8 ip_tos2prio[16] = {
- 	TC_PRIO_INTERACTIVE_BULK,
- 	ECN_OR_COST(INTERACTIVE_BULK)
+diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+index 65a2562..6bb4338 100644
+--- a/include/linux/dcbnl.h
++++ b/include/linux/dcbnl.h
+@@ -67,6 +67,17 @@ struct ieee_ets {
+ 	__u8	reco_prio_tc[IEEE_8021QAZ_MAX_TCS];
  };
--
-+EXPORT_SYMBOL(ip_tos2prio);
  
- /*
-  * Route cache.
++/* This structure contains rate limit extension to the IEEE 802.1Qaz ETS
++ * managed object.
++ * Values are 64 bits long and specified in Kbps to enable usage over both
++ * slow and very fast networks.
++ *
++ * @tc_maxrate: maximal tc tx bandwidth indexed by traffic class
++ */
++struct ieee_maxrate {
++	__u64	tc_maxrate[IEEE_8021QAZ_MAX_TCS];
++};
++
+ /* This structure contains the IEEE 802.1Qaz PFC managed object
+  *
+  * @pfc_cap: Indicates the number of traffic classes on the local device
+@@ -321,6 +332,7 @@ enum ieee_attrs {
+ 	DCB_ATTR_IEEE_PEER_ETS,
+ 	DCB_ATTR_IEEE_PEER_PFC,
+ 	DCB_ATTR_IEEE_PEER_APP,
++	DCB_ATTR_IEEE_MAXRATE,
+ 	__DCB_ATTR_IEEE_MAX
+ };
+ #define DCB_ATTR_IEEE_MAX (__DCB_ATTR_IEEE_MAX - 1)
+diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
+index f55c980..fc5d5dc 100644
+--- a/include/net/dcbnl.h
++++ b/include/net/dcbnl.h
+@@ -48,6 +48,8 @@ struct dcbnl_rtnl_ops {
+ 	/* IEEE 802.1Qaz std */
+ 	int (*ieee_getets) (struct net_device *, struct ieee_ets *);
+ 	int (*ieee_setets) (struct net_device *, struct ieee_ets *);
++	int (*ieee_getmaxrate) (struct net_device *, struct ieee_maxrate *);
++	int (*ieee_setmaxrate) (struct net_device *, struct ieee_maxrate *);
+ 	int (*ieee_getpfc) (struct net_device *, struct ieee_pfc *);
+ 	int (*ieee_setpfc) (struct net_device *, struct ieee_pfc *);
+ 	int (*ieee_getapp) (struct net_device *, struct dcb_app *);
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index 36f37af..8dfa1da 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -178,6 +178,7 @@ static const struct nla_policy dcbnl_ieee_policy[DCB_ATTR_IEEE_MAX + 1] = {
+ 	[DCB_ATTR_IEEE_ETS]	    = {.len = sizeof(struct ieee_ets)},
+ 	[DCB_ATTR_IEEE_PFC]	    = {.len = sizeof(struct ieee_pfc)},
+ 	[DCB_ATTR_IEEE_APP_TABLE]   = {.type = NLA_NESTED},
++	[DCB_ATTR_IEEE_MAXRATE]   = {.len = sizeof(struct ieee_maxrate)},
+ };
+ 
+ static const struct nla_policy dcbnl_ieee_app[DCB_ATTR_IEEE_APP_MAX + 1] = {
+@@ -1246,6 +1247,17 @@ static int dcbnl_ieee_fill(struct sk_buff *skb, struct net_device *netdev)
+ 			goto nla_put_failure;
+ 	}
+ 
++	if (ops->ieee_getmaxrate) {
++		struct ieee_maxrate maxrate;
++		err = ops->ieee_getmaxrate(netdev, &maxrate);
++		if (!err) {
++			err = nla_put(skb, DCB_ATTR_IEEE_MAXRATE,
++				      sizeof(maxrate), &maxrate);
++			if (err)
++				goto nla_put_failure;
++		}
++	}
++
+ 	if (ops->ieee_getpfc) {
+ 		struct ieee_pfc pfc;
+ 		err = ops->ieee_getpfc(netdev, &pfc);
+@@ -1601,6 +1613,14 @@ static int dcbnl_ieee_set(struct net_device *netdev, struct nlattr **tb,
+ 			goto err;
+ 	}
+ 
++	if (ieee[DCB_ATTR_IEEE_MAXRATE] && ops->ieee_setmaxrate) {
++		struct ieee_maxrate *maxrate =
++			nla_data(ieee[DCB_ATTR_IEEE_MAXRATE]);
++		err = ops->ieee_setmaxrate(netdev, maxrate);
++		if (err)
++			goto err;
++	}
++
+ 	if (ieee[DCB_ATTR_IEEE_PFC] && ops->ieee_setpfc) {
+ 		struct ieee_pfc *pfc = nla_data(ieee[DCB_ATTR_IEEE_PFC]);
+ 		err = ops->ieee_setpfc(netdev, pfc);
 -- 
 1.7.8.2
