@@ -1,80 +1,70 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 2/2] ixgbe: add missing rtnl_lock in PM resume path
-Date: Thu, 05 Apr 2012 16:03:11 -0700
-Message-ID: <1333666991.2567.19.camel@jtkirshe-mobl>
-References: <1333638664-17062-1-git-send-email-bpoirier@suse.de>
-	 <1333638664-17062-2-git-send-email-bpoirier@suse.de>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: allow splice() to build full TSO packets
+Date: Thu, 05 Apr 2012 19:05:09 -0400 (EDT)
+Message-ID: <20120405.190509.409578034793502486.davem@davemloft.net>
+References: <1333488689.18626.331.camel@edumazet-glaptop>
+	<20120403.173614.962252876842659412.davem@davemloft.net>
+	<1333631135.18626.606.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-QObKXCRu2TLoDvU+SH1l"
-Cc: Alex Duyck <alexander.h.duyck@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Benjamin Poirier <bpoirier@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1333638664-17062-2-git-send-email-bpoirier@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
+	ycheng@google.com, hkchu@google.com, maze@google.com,
+	maheshb@google.com, ilpo.jarvinen@helsinki.fi, nanditad@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60915 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752079Ab2DEXFX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 19:05:23 -0400
+In-Reply-To: <1333631135.18626.606.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 05 Apr 2012 15:05:35 +0200
 
---=-QObKXCRu2TLoDvU+SH1l
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2012-04-05 at 11:11 -0400, Benjamin Poirier wrote:
-> Upon resume from standby, ixgbe may trigger the ASSERT_RTNL() in
-> netif_set_real_num_tx_queues(). The call stack is:
->         netif_set_real_num_tx_queues
->         ixgbe_set_num_queues
->         ixgbe_init_interrupt_scheme
->         ixgbe_resume
+> Hmm, thinking again about this, I did more tests and it appears we ne=
+ed
+> to differentiate the SPLICE_F_MORE flag (user request) and the intern=
+al
+> marker provided by splice logic (handling a batch of pages)
 >=20
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> A program doing splice(... SPLICE_F_MORE) should really call tcp_push=
+()
+> at the end of its work.
+
+This is the kind of problem I was hoping we weren't introducing
+when I asked about sendfile() et al. the other day :-)
+
+> [PATCH] tcp: tcp_sendpages() should call tcp_push() once
 >=20
-> ---
-> Unlike patch 1 for igb, we cannot lock rtnl closer to the point where
-> netif_set_real_num_tx_queues() is called because
-> ixgbe_init_interrupt_scheme()
-> is also called by the dcb code, already under rtnl.
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)=20
+> commit 2f533844242 (tcp: allow splice() to build full TSO packets) ad=
+ded
+> a regression for splice() calls using SPLICE_F_MORE.
+>=20
+> We need to call tcp_flush() at the end of the last page processed in
+> tcp_sendpages(), or else transmits can be deferred and future sends
+> stall.
+>=20
+> Add a new internal flag, MSG_SENDPAGE_NOTLAST, acting like MSG_MORE, =
+but
+> with different semantic.
+>=20
+> For all sendpage() providers, its a transparent change. Only
+> sock_sendpage() and tcp_sendpages() can differentiate the two differe=
+nt
+> flags provided by pipe_to_sendpage()
+>=20
+> Reported-by: Tom Herbert <therbert@google.com>
+> Cc: Nandita Dukkipati <nanditad@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Tom Herbert <therbert@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: H.K. Jerry Chu <hkchu@google.com>
+> Cc: Maciej =AFenczykowski <maze@google.com>
+> Cc: Mahesh Bandewar <maheshb@google.com>
+> Cc: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail>com>
 
-Thanks Benjamin, I will add the patch to my igb queue of patches.
-
---=-QObKXCRu2TLoDvU+SH1l
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPfiSvAAoJEOVv75VaS+3OjtAP/0lEerebAsNk6txLYd3vsYWS
-mbY9VDY6iAuEUeueoArNCSxMiHQVFu+dutpq5TAzXUd7QIX+8KQExB90R/9sVhUv
-3vcZGCfe5WWTFh8nK0RLvXUeHQEFB4om4dY+/6HZ5AnhX+fDBdn3CJrwpCwwDJei
-Pn3SfnUJfPCfbkQ+9madKmW37t8FtTfzFUlpYA+lwEengAXMXpCB6915/QAe+QzM
-EXskZ5rzBqdDXLVx3wehV4M8eNMqxV7ESXW6ay8tl61Hvhp6aBt+MYQoiywZCOBi
-zZ5WClSKNJ1bBwOCOXLGBh/zMd7ThjsH8TNzp2mGlgP48N6iFlrPJmMYhyLRuG2g
-u5WBbwrJLQrqFVHEbIAvLs5p7UvWBBpksetmOjvPwd78y6LaHcXQ4V2C2CIHdx42
-M8SL0n4rswvKPLh6XSJcvkYOBstEss1Jl2ncUJ6G4wvrvfgRXZ27KVaFihaLTEDW
-O+S7u+ftDrSHXiZaQ8BzxWzlHyHzf6dYAy/ib4k5FB15su/bBtddKkPgPseN9zfo
-QUtIeKpDF7ELoyGuE+9CBVmyc/3xBFwXdXcdayzg5Cfx3sMCmDucyx2OtRsaHXnM
-rmd/HOIBWe7isD2vrA+Wu6YU6AVkbgDIGH1UIREezU9T8dcCthghIT9X53SI65+d
-0RX5ly/kPZawkgeEHu7x
-=cuiC
------END PGP SIGNATURE-----
-
---=-QObKXCRu2TLoDvU+SH1l--
+Applied, thanks Eric.
