@@ -1,126 +1,52 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c,
- take two
-Date: Thu, 5 Apr 2012 16:21:58 +0200
-Message-ID: <CAMuHMdURv7BN+7ai8MeMPxA770XM+VWhiKXXW4smc6P3V+6Lgg@mail.gmail.com>
-References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>
-	<4F4B2BB6.900@gmail.com>
-	<CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com>
-	<CAMuHMdX=4Vn=OsNTp04YcrhDOwz8NOFrWKankj2+3utvEfE-2A@mail.gmail.com>
-	<4F5A0679.1020604@windriver.com>
-	<4F7816B0.3090802@gmail.com>
-	<4F7CB31D.8060002@windriver.com>
-	<CAMuHMdWSzG4npwjpJ=cwNFKhyBZjvgPn1sp6nZ2re6QsRWPpXg@mail.gmail.com>
-	<4F7D9D1B.3000801@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Schmitz <schmitzmic@googlemail.com>,
-	linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <4F7D9D1B.3000801@windriver.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: boris@cloudluca.com
+Subject: Server Rental Service in Hong Kong
+Date: Thu,  5 Apr 2012 22:13:59 +0800 (HKT)
+Message-ID: <ZvaQnWH7E5__12629.1131637574$1333638293$gmane$org@ksts.seed.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 124-248-200-69.sunnyvision.com ([124.248.200.69]:47537 "EHLO
+	teamb03.edmhongkong.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1753735Ab2DEO7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 10:59:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Paul,
+Dear All,
 
-On Thu, Apr 5, 2012 at 15:24, Paul Gortmaker
-<paul.gortmaker@windriver.com> wrote:
-> On 12-04-05 05:28 AM, Geert Uytterhoeven wrote:
->> On Wed, Apr 4, 2012 at 22:46, Paul Gortmaker
->> <paul.gortmaker@windriver.com> wrote:
->>> On 12-04-01 04:49 AM, Michael Schmitz wrote:
->>>>> And on re-reading the comments in the other part of the patch, i.=
-e.
->>>>> "...emulates the card interrupt via a timer" =C2=A0--perhaps the =
-driver
->>>>> should be just fixed to support generic netpoll, instead of addin=
-g
->>>>> an arch specific thing that amounts to netpoll. =C2=A0Then anyone=
- can
->>>>> attempt to limp along and use one of these ancient relics w/o IRQ=
-=2E
->>>>>
->>>> Here's take two of my patch to convert the m68k Atari ROM port Eth=
-ernet
->>>> driver to use mainstream ne.c, with minimal changes to the core NE=
-2000
->>>> code.
->>>>
->>>> In particular:
->>>>
->>>> Changes to core net code:
->>>> * add a platform specific IRQ flag, so ne.c can share a hardware o=
-r
->>>> timer interrupt with some other interrupt source.
->>>>
->>>> Changes to arch/m68k code:
->>>> * register the 8390 platform device on Atari only if the hardware =
-is present
->>>> * retain the old driver (atari_ethernec.c in Geert's tree) under a
->>>> different config option, to be removed soon.
->>>>
->>>> Regarding your suggestion that netpoll be used instead of a dedica=
-ted
->>>> timer interrupt: no changes to ne.c or 8390p.c are required to use
->>>> netpoll, it all works out of the box. All that is needed to use th=
-e
->>>> driver with netpoll is setting the device interrupt to some source=
- that
->>>> can be registered, and enabling CONFIG_NETPOLL. Interrupt rate and=
- hence
->>>> throughput is lower with netpoll though, which is why I still pref=
-er the
->>>> dedicated timer option.
->>>
->>> How much lower? =C2=A0Enough to matter? =C2=A0Implicit in that ques=
-tion is
->>> the assumption that this is largely a hobbyist platform and nobody
->>> is using it in a closet to route gigabytes of traffic.
->>
->> One other thing we could do is increase CONFIG_HZ to 250.
->>
->>> Also, the only advantage to modifying ne.c is to allow dumping
->>> the old driver. =C2=A0What is the "remove soon" plan? =C2=A0Any rea=
-son
->>> for it to not be synchronous? =C2=A0That would eliminate the Kconfi=
-g
->>> churn and the introduction of the _OLD option. =C2=A0Modifying ne.c
->>> and then deciding to keep the old driver because it is "faster"
->>> would make this change pointless.
->>
->> From my point of view, "remove soon" means it will never hit mainlin=
-e.
->
-> Can you clarify what "it" is? =C2=A0 It isn't clear to me if you
-> mean the _removal_ will never hit mainline, or the transient
-> renamed "old" driver will never hit mainline.
->
-> If the former, then there is no point pursuing this any further
-> as I said above.
->
-> If the latter, then the commit sent out for review should have
-> no instances of this "renaming to old" related changes.
+We have our own datacenter in Hong Kong & provide email/application/web rental service to clients.We are APNIC member & provide clean IP to clients.
 
-Sorry for being unclear. The latter (i.e. the old driver will
-never hit mainline).
+Dell=3F PowerEdge=3F EnterpriseRack Mount Server
+-Intel(R) Xeon(R) E3-1240 Processor (3.3GHz, 8M Cache, Turbo, 4C/8T, 80W)
+-8GB RAM, 2x4GB, 1333MHz, DDR-3, Dual Ranked UDIMMs
+-500GB, 3.5", 6Gbps SAS x 2
+-Raid 1 Mirroring Protection
+-Remote KVM (iDRAC6 Enterprise)
 
-And Michael's patch against ne.c should indeed not touch the old
-driver, as it doesn't exist in mainline.
+Dell(TM) PowerEdge(TM) R410 Rack Mount Server
+-Intel(R) Quad Core E5606 Xeon(R) CPU, 2.13GHz, 4M Cache, 4.86 GT/s QPI
+-4GB Memory (2x2GB), 1333MHz Dual Ranked RDIMMs Fully-Buffered
+-500GB 7.2K RPM SATAII 3.5" Hard Drive x 2
+-iDRAC6 Enterprise or Express (Remote KVM Management)
 
-Gr{oetje,eeting}s,
+Every Dedicated Server Hosting Solution Also Includes: 
+ 
+Software Specification 
+- CentOS / Fedora / Debian / FreeBSD / Ubuntu / Redhat Linux 
+- Full root-level access 
+- Data Center Facilities 
+- Shared Local & International Bandwidth 
+- 2 IP Addresses Allocation 
+- Un-interruptible Power Supply (UPS) backed up by private diesel generator 
+- FM200=A1=A7based fire suppression system 
+- 24x7 CRAC Air Conditioning and Humidity Control 
+- 24x7 Security Control 
+- 24x7 Remote Hand Service 
 
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
+Pls send us email for further information.Thanks,
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
+Boris 
+boris@cloudluca.com
 
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+If you do not wish to further receive this event message, email "borislamsv2@gmail.com" to unsubscribe this message or remove your email from the list.
