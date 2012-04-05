@@ -1,50 +1,38 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+From: Dave Jones <davej@redhat.com>
 Subject: Re: kernel BUG at include/net/netns/generic.h:41
-Date: Thu, 05 Apr 2012 20:08:31 +0400
-Message-ID: <4F7DC37F.7090404@parallels.com>
-References: <20120328002346.GB3077@redhat.com>	 <20120402172600.GA3728@redhat.com> <1333390230.13718.34.camel@lade.trondhjem.org>
+Date: Thu, 5 Apr 2012 12:12:41 -0400
+Message-ID: <20120405161241.GA23658@redhat.com>
+References: <20120328002346.GB3077@redhat.com>
+ <20120402172600.GA3728@redhat.com>
+ <1333390230.13718.34.camel@lade.trondhjem.org>
+ <4F7DC37F.7090404@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Myklebust, Trond" <Trond.Myklebust@netapp.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Myklebust, Trond" <Trond.Myklebust@netapp.com>,
-	Dave Jones <davej@redhat.com>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:33010 "EHLO relay.sw.ru"
+Received: from mx1.redhat.com ([209.132.183.28]:41274 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754221Ab2DEQIz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2012 12:08:55 -0400
-In-Reply-To: <1333390230.13718.34.camel@lade.trondhjem.org>
+	id S1753919Ab2DEQNH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2012 12:13:07 -0400
+Content-Disposition: inline
+In-Reply-To: <4F7DC37F.7090404@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-02.04.2012 22:10, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> This looks related to the recent net namespace changes, so I'm adding
-> Stanislav.
->
+On Thu, Apr 05, 2012 at 08:08:31PM +0400, Stanislav Kinsbursky wrote:
 
-Hi, Trond.
-Looks like we stepped into exactly that situation, what Al Viro was tal=
-king on=20
-LFS about early registering of file system before other module "init" o=
-perations=20
-completed.
-I.e. SUNRPC registers it's file system, and then we have races between=20
-register_pernet_subsys() call and mount of SUNRPC PipeFS.
-BTW, these races can be triggered only if mount of SUNRPC PipeFS is cal=
-led prior=20
-to SUNRPC module insertion is completed. In spite of it, I'll send the =
-patch soon.
-But I'm not 100% sure, that this patch will solve Dave's problem.
-So, there are few questions to you, Dave:
-1) can this happen (PipeFS mount attempt before SUNPRC module insertion=
- has=20
-returned any value) in your case?
-2) how often do you experience this problem? Not every boot, I suppose?
-3) And is it easy for you to reproduce?
+ > So, there are few questions to you, Dave:
+ > 1) can this happen (PipeFS mount attempt before SUNPRC module insertion has 
+ > returned any value) in your case?
 
---=20
-Best regards,
-Stanislav Kinsbursky
+I don't know enough of what systemd is doing to answer this.
+
+ > 2) how often do you experience this problem? Not every boot, I suppose?
+ > 3) And is it easy for you to reproduce?
+
+It happens most the time, but not every time.
+
+	Dave
