@@ -1,55 +1,31 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] net: replace continue with break to reduce unnecessary loop in xxx_xmarksources
-Date: Thu,  5 Apr 2012 17:36:29 +0800
-Message-ID: <1333618589-13839-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: remove k{un}map_skb_frag()
+Date: Thu, 05 Apr 2012 05:41:23 -0400 (EDT)
+Message-ID: <20120405.054123.180053279559392181.davem@davemloft.net>
+References: <1333618515.6309.8.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:59240 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753686Ab2DEJgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 05:36:37 -0400
-Received: by qcro28 with SMTP id o28so721598qcr.19
-        for <netdev@vger.kernel.org>; Thu, 05 Apr 2012 02:36:36 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:54634 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753913Ab2DEJl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 05:41:26 -0400
+In-Reply-To: <1333618515.6309.8.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: RongQing.Li <roy.qing.li@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 05 Apr 2012 11:35:15 +0200
 
-The conditional which decides to skip inactive filters does not
-change with the change of loop index, so it is unnecessary to
-check them many times.
+> Since commit 3e4d3af501 (mm: stack based kmap_atomic()) we dont have to
+> disable BH anymore while mapping skb frags.
+> 
+> We can remove  kmap_skb_frag() / kunmap_skb_frag() helpers and use
+> kmap_atomic() / kunmap_atomic()
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
----
- net/ipv4/igmp.c  |    2 +-
- net/ipv6/mcast.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 5dfecfd..ceaac24 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -774,7 +774,7 @@ static int igmp_xmarksources(struct ip_mc_list *pmc, int nsrcs, __be32 *srcs)
- 			if (psf->sf_count[MCAST_INCLUDE] ||
- 			    pmc->sfcount[MCAST_EXCLUDE] !=
- 			    psf->sf_count[MCAST_EXCLUDE])
--				continue;
-+				break;
- 			if (srcs[i] == psf->sf_inaddr) {
- 				scount++;
- 				break;
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index b2869ca..7dfb89f 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1061,7 +1061,7 @@ static int mld_xmarksources(struct ifmcaddr6 *pmc, int nsrcs,
- 			if (psf->sf_count[MCAST_INCLUDE] ||
- 			    pmc->mca_sfcount[MCAST_EXCLUDE] !=
- 			    psf->sf_count[MCAST_EXCLUDE])
--				continue;
-+				break;
- 			if (ipv6_addr_equal(&srcs[i], &psf->sf_addr)) {
- 				scount++;
- 				break;
--- 
-1.7.1
+Applied, thanks Eric.
