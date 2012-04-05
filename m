@@ -1,175 +1,305 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH net-next V6 7/8] net/dcb: Add an optional max rate attribute
-Date: Wed, 4 Apr 2012 17:39:51 -0700
-Message-ID: <CAA93jw6EJgb83e4cqmz3pPyuxsLEA+SFyFOLb5Up_-f538NFGg@mail.gmail.com>
-References: <1333537084-9186-1-git-send-email-amirv@mellanox.com>
-	<1333537084-9186-8-git-send-email-amirv@mellanox.com>
-	<4F7CE61E.7060406@intel.com>
+From: Jan Seiffert <kaffeemonster@googlemail.com>
+Subject: Re: [PATCH V1 1/1] NET: add a bpf jit for Alpha
+Date: Thu, 5 Apr 2012 02:24:48 +0200
+Message-ID: <4F7CE650.8020207@googlemail.com>
+References: <4F75CA89.4010709@googlemail.com> <4F7A033D.4040901@googlemail.com> <4F7C5A65.7090504@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Amir Vadai <amirv@mellanox.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Roland Dreier <roland@purestorage.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@dev.mellanox.co.il>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:35716 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751912Ab2DEAjx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 20:39:53 -0400
-Received: by wejx9 with SMTP id x9so522005wej.19
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 17:39:52 -0700 (PDT)
-In-Reply-To: <4F7CE61E.7060406@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Matt Evans <matt@ozlabs.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-arch@vger.kernel.org>, <linux-alpha@vger.kernel.org>
+To: Richard Henderson <rth@redhat.com>
+Return-path: <linux-alpha-owner@vger.kernel.org>
+In-Reply-To: <4F7C5A65.7090504@redhat.com>
+Sender: linux-alpha-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(I try not to pay too much attention to the DCB stuff as it gives me ni=
-ghtmares)
+Richard Henderson schrieb:
 
-It would comfort me to know if or which of:
+Thanks for the review Mr.Henderson. I'm so grateful you taken some of y=
+our
+valuable time for this.
 
-Is 802.1au being implemented?
+> On 04/02/2012 03:51 PM, Jan Seiffert wrote:
+[snip]
+> You will never need NEGLI or SEXTLI, as both results can be had with =
+LDA.
+>=20
 
-802.3bd?
+Removed
 
-There was some other standard involving active queue management at
-this layer that I can't remember the alphabet soup for that must be
-dead in the water at this point..
-
-http://www.ieee802.org/1/files/public/docs2009/au-yasuda-10G-QCN-Implem=
-entation-1109.pdf
-
-
-On Wed, Apr 4, 2012 at 5:23 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> On 4/4/2012 3:58 AM, Amir Vadai wrote:
->> Although not specified in 8021Qaz spec, it could be useful to enable=
- drivers
->> whose HW supports setting a rate limit for an ETS TC. This patch add=
-s this
->> optional attribute to DCB netlink. To use it, drivers should impleme=
-nt and
->> register the callbacks ieee_setmaxrate and ieee_getmaxrate. The unit=
-s are 64
->> bits long and specified in Kbps to enable usage over both slow and v=
-ery fast
->> networks.
->>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->> ---
->
-> Or, Amir,
->
-> Two more comments inline really just minor nit picks but if your goin=
-g
-> to roll new patch mind as well. I'll ack a patch with these changes.
->
->> =A0include/linux/dcbnl.h | =A0 =A05 +++++
->> =A0include/net/dcbnl.h =A0 | =A0 =A02 ++
->> =A0net/dcb/dcbnl.c =A0 =A0 =A0 | =A0 21 +++++++++++++++++++++
->> =A03 files changed, 28 insertions(+), 0 deletions(-)
->>
->> diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
->> index 65a2562..ec8e372 100644
->> --- a/include/linux/dcbnl.h
->> +++ b/include/linux/dcbnl.h
->> @@ -67,6 +67,10 @@ struct ieee_ets {
->> =A0 =A0 =A0 __u8 =A0 =A0reco_prio_tc[IEEE_8021QAZ_MAX_TCS];
->> =A0};
->>
->
-> annotate ieee_maxrate so implementers use it correctly per previous n=
-ote.
->
->> +struct ieee_maxrate {
->> + =A0 =A0 __u64 =A0 tc_maxrate[IEEE_8021QAZ_MAX_TCS];
->> +};
+>> +static void load_complex_constant(u32 *image, struct codegen_contex=
+t *ctx,
+>> +				  unsigned int i, int K, int r)
 >> +
->> =A0/* This structure contains the IEEE 802.1Qaz PFC managed object
->> =A0 *
->> =A0 * @pfc_cap: Indicates the number of traffic classes on the local=
- device
->> @@ -321,6 +325,7 @@ enum ieee_attrs {
->> =A0 =A0 =A0 DCB_ATTR_IEEE_PEER_ETS,
->> =A0 =A0 =A0 DCB_ATTR_IEEE_PEER_PFC,
->> =A0 =A0 =A0 DCB_ATTR_IEEE_PEER_APP,
->> + =A0 =A0 DCB_ATTR_IEEE_MAXRATE,
->> =A0 =A0 =A0 __DCB_ATTR_IEEE_MAX
->> =A0};
->> =A0#define DCB_ATTR_IEEE_MAX (__DCB_ATTR_IEEE_MAX - 1)
->> diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
->> index f55c980..fc5d5dc 100644
->> --- a/include/net/dcbnl.h
->> +++ b/include/net/dcbnl.h
->> @@ -48,6 +48,8 @@ struct dcbnl_rtnl_ops {
->> =A0 =A0 =A0 /* IEEE 802.1Qaz std */
->> =A0 =A0 =A0 int (*ieee_getets) (struct net_device *, struct ieee_ets=
- *);
->> =A0 =A0 =A0 int (*ieee_setets) (struct net_device *, struct ieee_ets=
- *);
->> + =A0 =A0 int (*ieee_getmaxrate) (struct net_device *, struct ieee_m=
-axrate *);
->> + =A0 =A0 int (*ieee_setmaxrate) (struct net_device *, struct ieee_m=
-axrate *);
->> =A0 =A0 =A0 int (*ieee_getpfc) (struct net_device *, struct ieee_pfc=
- *);
->> =A0 =A0 =A0 int (*ieee_setpfc) (struct net_device *, struct ieee_pfc=
- *);
->> =A0 =A0 =A0 int (*ieee_getapp) (struct net_device *, struct dcb_app =
-*);
->> diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
->> index 36f37af..d3df048 100644
->> --- a/net/dcb/dcbnl.c
->> +++ b/net/dcb/dcbnl.c
->> @@ -178,6 +178,8 @@ static const struct nla_policy dcbnl_ieee_policy=
-[DCB_ATTR_IEEE_MAX + 1] =3D {
->> =A0 =A0 =A0 [DCB_ATTR_IEEE_ETS] =A0 =A0 =A0 =A0 =3D {.len =3D sizeof=
-(struct ieee_ets)},
->> =A0 =A0 =A0 [DCB_ATTR_IEEE_PFC] =A0 =A0 =A0 =A0 =3D {.len =3D sizeof=
-(struct ieee_pfc)},
->> =A0 =A0 =A0 [DCB_ATTR_IEEE_APP_TABLE] =A0 =3D {.type =3D NLA_NESTED}=
-,
->> + =A0 =A0 [DCB_ATTR_IEEE_MAXRATE] =A0 =3D {.len =3D sizeof(struct ie=
-ee_maxrate)},
->> +
->
-> spurious newline remove it
->
->> =A0};
->>
->> =A0static const struct nla_policy dcbnl_ieee_app[DCB_ATTR_IEEE_APP_M=
-AX + 1] =3D {
->> @@ -1246,6 +1248,17 @@ static int dcbnl_ieee_fill(struct sk_buff *sk=
-b, struct net_device *netdev)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nla_put_failure;
->> =A0 =A0 =A0 }
->>
->> + =A0 =A0 if (ops->ieee_getmaxrate) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 struct ieee_maxrate maxrate;
->> + =A0 =A0 =A0 =A0 =A0 =A0 err =3D ops->ieee_getmaxrate(netdev, &maxr=
-ate);
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (!err) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D nla_put(skb, DCB_A=
-TTR_IEEE_MAXRATE,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 sizeof(maxrate), &maxrate);
->
-> align sizeof with skb
->
-> Thanks,
-> John
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>> +{
+>> +	if (K =3D=3D 0) {
+>> +		ALPHA_CLR(r);
+>> +		return;
+>> +	}
+>> +	if (optimize_size =3D=3D 0 || constant_needs(K) < 2 ||
+>> +	    i > (0x7fff/sizeof(struct sock_filter))) {
+>> +		add_constant(image, ctx, K, r_zero, r);
+>> +	} else {
+>> +		/* load the constant from the filter program */
+>> +		ALPHA_LDL(r_sf, (i * sizeof(struct sock_filter)) +
+>> +			  offsetof(struct sock_filter, k), r);
+>=20
+> Worst case for constant loading is 3.  That's the same as the delay f=
+or
+> loading from memory.  Unless you're very concerned about translated s=
+ize
+> of the filter,
 
+I'm unsure. The problem goes like this:
+Since constant loading can take so much instructions, the code tends to
+get big. This is bad for jump ranges, the icache and pinned kernel mem.
+I would not mind about it (it's a RISC, it is meant to be that way), if
+the constants weren't right there. We get the original filter program
+(which contains the constants) passed as second parameter, on a silver
+platter (i was even thinking about moving the second parameter 32k
+forward to get the full imm16 range, on the other hand if struct
+sock_filter is 8 byte on Alpha, then +32k is good enough for
+MAX_BPF_INSN =3D=3D 4096).
 
+Essentially this is two questions, one for the Alpha =C2=B5-arch gurus =
+and=20
+one for the kernel (net-)devs.
+=C2=B5-Arch Gurus: How bad are mem accesses in contrast to icache for e=
+xample.
+Kernel devs: how important is memory consumption/how much "faster"
+the jitted code has to be?
+
+> I'd drop this condition and make your compiler run faster.
+>=20
+>=20
+>> +	if (optimize_size =3D=3D 0 || constant_needs(K) < 2 ||
+>> +	    i > (0x7fff/sizeof(struct sock_filter))) {
+>> +		add_constant(image, ctx, K, r_A, r_t);
+>> +		ALPHA_SEXTL(r_t, r_t);
+>=20
+> OTOH, this test should be simply is_imm8 and use ADDLI,
+> else is_imm8(-K) use SUBLI, else load_constant ADDL.
+>=20
+
+add_constant takes care of that, only the entry condition is so
+complicated because of the optimize_size case.
+
+[snip - ugly and optimization]
+>=20
+> Really?
+
+yes, i was typing as fast as i was thinking: "hmmm, a constant can
+look like this or like that or like this...". The optimizations where a=
+n
+"afterthought", i first broke the operations out into a helper and simp=
+ly
+made it work. Because i knew there are some shenanigans you can do with
+zapnot i revisited it at the end. I will now grab a brown paper bag.
+
+>  This ought to be as simple as
+>=20
+>   mask =3D 0;
+>   for (j =3D 0; j < 4; j++) {
+>     int b =3D (K >> i*8) & 0xff;
+>     if (b =3D=3D 0xff)
+>       mask |=3D 1 << i;
+>     else if (b !=3D 0)
+>       mask =3D -1;
+>   }
+>   if (mask !=3D -1) {
+>     ALPHA_ZAPNOTI(r_A, mask, r_t);
+>     return;
+>   }
+>=20
+
+Works like a charm, only had to change i for j. Thanks!
+
+[snip - or 0xffffffff]
+>=20
+> Really?  Think about what you're doing here.  LDA(r_A, -1)
+>=20
+
+changed
+
+[snip]
+>> +		if (off =3D=3D 0)
+>> +			ALPHA_ZEXTW(r, r);
+>> +		else
+>> +			ALPHA_EXTWLI(r, off, r);
+>=20
+> No point in the off=3D=3D0 special case.
+>=20
+
+I was thinking maybe the zapnot^wzextw is faster, because it does not
+have to do the shift and it should be the common case.
+But if extw is good enough, thus removed.
+
+>> +static void emit_call(u32 *image, struct codegen_context *ctx,
+>> +		      void *func, int r)
+>> +{
+>> +	ptrdiff_t disp =3D (char *)func - (char *)&image[ctx->idx + 1];
+>> +	if (disp >=3D -2147483648 && disp <=3D 2147483647) {
+>> +		if (is_imm_jdisp(disp)) {
+>> +			ALPHA_BSR(r, disp);
+>> +			return;
+>> +		}
+>=20
+> Is this known to be calling another BPF function, and not back into C=
+?
+> Otherwise you've got an error in PV handling for the calling conventi=
+on.
+>=20
+
+It is known to either call special bpf helper or __divlu (the kernel
+version). The special helper are responsible for setting pv right when
+they have to call to C again (which is deemed as the exceptional case).
+
+That was my idea, so i don't have to set pv again after every call,
+which would bloat up every filter program.
+
+But i don't know if the helper do the "pv and call and gp"-dance right =
+:(
+
+[snip - div 0 test]
+>=20
+> Re-order these to clear r_ret before the cjmp and you don't need
+> the branch-around branch.
+>=20
+
+Can't do.
+When building the program we are searching for a ret 0 case.
+As long as no case is found (or is never found), we have to build one.
+
+Besides, i know it's dirty, r_ret and r_A share the same register.
+I was squeezing on the register usage so i may use the register as
+storage for the 16 bpf mem[] slots like powerpc, i mean Alpha has
+31 like powerpc. But in the end i was to stupid to achieve this.
+At least this hack saves a mov at the end.
+
+>> +		case BPF_S_ALU_LSH_X: /* A <<=3D X; */
+>> +			ctx->seen |=3D SEEN_XREG;
+>> +			ALPHA_SLL(r_A, r_X, r_A);
+>> +			ALPHA_ZEXTL(r_A, r_A);
+>=20
+> So... are you attempting to have canonical zero-extended values,
+> or canonical sign-extended values?  Because at the moment you have
+> a mix of both.
+>=20
+
+I know, and i don't know what i want.
+
+> Either drop the canonicalization and consider high-32 bits as
+> garbage (and then explicitly extend whereever necessary) or pick
+> one and stick with it.  Of course, the sign-extending of addl etc
+> will force you to choose sign-extend not zero-extend as canonical.
+>=20
+
+The problem is the bpf cpu is inherently unsigned. It does all loads
+zero extended, only has logical shifts, does all compares unsigned.
+Which sounds like i have to zero extend like crazy. (i took the=20
+Powerpc code as example, it does most things unsigned and on 32 Bit,
+but has similar "add is sign extending" things, so i thought it can't
+be that bad, otherwise it would have the same Bugs).
+
+I was hoping to let the sign run it's course/sign extend and only
+cut at the right point, and i figured that was a point to cut, i should
+prop. sign extend.
+
+But if that is not feasible, i could also sprinkle everything with zero
+extends.
+
+>> +		case BPF_S_ALU_RSH_X: /* A >>=3D X; */
+>> +			ctx->seen |=3D SEEN_XREG;
+>> +			ALPHA_SRL(r_A, r_X, r_A);
+>> +			ALPHA_ZEXTL(r_A, r_A);
+>> +			break;
+>=20
+> Like here.  You must zero-extend first to avoid shifting in
+> garbage.  Afterward you can reason that the value is already
+> zero-extended.
+>=20
+
+Oh, thanks!
+Yes, the shift operations are only logical shifts, so it has to be prop=
+erly
+zero extended.
+
+[snip - bpf_flush_icache]
+>=20
+> imb() is all that is needed.
+>=20
+
+Thanks! I guess i will stick to the flush_icache_range, which is define=
+d to
+an imb()/smp_imb(), so should do the right thing(TM).
+
+[snip - comment about pases]
+>=20
+> I should think you could do this in exactly one pass, given that ther=
+e's
+> absolutely no need for ultra-long branches.
+
+The first pass is called with image =3D=3D NULL, so all calls have a ve=
+ry long
+displacement + we have to make other worst case/wrong assumptions becau=
+se
+addrs is not properly filled and the exit points are unknown.
+The second pass with image =3D=3D NULL will settle some jumps, because =
+addrs is
+now mostly properly populated _and_ the exit points are set.
+This is done to get a real good estimate when allocating mem, so not to=
+ much
+is allocated (saw a thread on lkml where Eric was talking with Ingo abo=
+ut
+module_realloc, so the memusage is of concern, it is pinned kernel memo=
+ry
+for the user space).
+The other passes are only to make things really slick with image !=3D N=
+ULL,
+and stop if there is no change.
+If i knew some kind of base address where module_alloc will allocate, i
+could feed that in early...
+
+> If you're going to scan the
+> body for SEEN_MEM etc, you might as well look for your A and X initia=
+lization
+> at the same time and clean up that hack in the prologue.
+>=20
+
+I was working on a patch for that, but it was more complicated, esp. it=
+ may
+cost some RAM and/or CPU time just to remove one/two instructions, so i=
+ left
+it out for the moment till i revisit it.
+
+>> +++ b/arch/alpha/net/bpf_jit_helper.S
+>=20
+> It would be helpful to use '$' prefixes here for local variables.
+>=20
+
+???
+Sorry, i don't understand what you mean. What variables? Or do you mean
+register? It uses the same register as the compiler. So to not confuse
+things i made the names from the compiler usable in asm. You can change=
+ one
+define and the compiler and the helper will use another reg.
+
+>=20
+> r~
+>=20
+
+Greetings
+	Jan
 
 --=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-http://www.bufferbloat.net
+Anyone can build a fast processor. The trick is to build a fast system.
+(Seymour Cray)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-alpha" =
+in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
