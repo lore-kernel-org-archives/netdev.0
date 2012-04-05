@@ -1,46 +1,95 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH v2] ipv6: fix array index in ip6_mc_add_src()
-Date: Thu,  5 Apr 2012 10:47:04 +0800
-Message-ID: <1333594024-24347-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:48735 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754162Ab2DECrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 22:47:11 -0400
-Received: by qadc11 with SMTP id c11so627387qad.19
-        for <netdev@vger.kernel.org>; Wed, 04 Apr 2012 19:47:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net-next
+ tree related)
+Date: Thu, 5 Apr 2012 13:25:15 +1000
+Message-ID: <20120405132515.e61465875407a452c1a6f78e@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__5_Apr_2012_13_25_15_+1000_S0_mNpNGK6m/5R5r"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Deepak SIKRI <deepak.sikri@st.com>,
+	Shiraz Hashim <shiraz.hashim@st.com>,
+	Vikas Manocha <vikas.manocha@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: RongQing.Li <roy.qing.li@gmail.com>
+--Signature=_Thu__5_Apr_2012_13_25_15_+1000_S0_mNpNGK6m/5R5r
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Convert array index from the loop bound to the loop index.
+Hi all,
 
-And remove the void type conversion to ip6_mc_del1_src() return 
-code, seem it is unnecessary, since ip6_mc_del1_src() does not 
-use __must_check similar attribute, no compiler will report the
-warning when it is removed.
+After merging the final tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
 
-v2: enrich the commit header
+drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c: In function 'stmmac_=
+probe_config_dt':
+drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:53:7: error: 'struct =
+plat_stmmacenet_data' has no member named 'pbl'
 
-Signed-off-by: RongQing.Li <roy.qing.li@gmail.com> 
+Caused by commit 8327eb65e795 ("stmmac: re-work the internal GMAC DMA
+platf parameters").  Clearly I am missing something, because I can't see
+how that patch is correct since nothing ever assigns to the new dma_cfg
+pointer but it is dereferenced.
+
+I have added this patch to make it build today, but it is obviously not
+correct.
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 5 Apr 2012 13:19:21 +1000
+Subject: [PATCH] stmmac: hack to make it build
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- net/ipv6/mcast.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 16c33e3..c6378de 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -2044,7 +2044,7 @@ static int ip6_mc_add_src(struct inet6_dev *idev, const struct in6_addr *pmca,
- 		if (!delta)
- 			pmc->mca_sfcount[sfmode]--;
- 		for (j=0; j<i; j++)
--			(void) ip6_mc_del1_src(pmc, sfmode, &psfsrc[i]);
-+			ip6_mc_del1_src(pmc, sfmode, &psfsrc[j]);
- 	} else if (isexclude != (pmc->mca_sfcount[MCAST_EXCLUDE] != 0)) {
- 		struct ip6_sf_list *psf;
- 
--- 
-1.7.1
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/driver=
+s/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 116529a..1e4d12d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -50,7 +50,7 @@ static int __devinit stmmac_probe_config_dt(struct platfo=
+rm_device *pdev,
+ 	 * once needed on other platforms.
+ 	 */
+ 	if (of_device_is_compatible(np, "st,spear600-gmac")) {
+-		plat->pbl =3D 8;
++/*		plat->pbl =3D 8; */
+ 		plat->has_gmac =3D 1;
+ 		plat->pmt =3D 1;
+ 	}
+--=20
+1.7.10.rc3
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Thu__5_Apr_2012_13_25_15_+1000_S0_mNpNGK6m/5R5r
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPfRCbAAoJEECxmPOUX5FEkIQP/iztn+Uo115joDNVN1H+6j3x
+MI0U8ywdPmgVsXVI8Xz0lsYQAYim5iixU2qIqKNs90wLXN5zd+vZgkxCcaLgqWnx
+tQM33C0nbcv0tgOxcuH2wg9jibD0kk6nqBhb47tMrsdR5eab4caBqP3VuZWYgaDZ
+YAuYBOB0yVszl2fTaLd8bSXPLV0C5IgGxpOJ7h8Gf2gmexhXQUkyB9J6xx4ocmmH
+AJAkaCaHtapQPEpDKJ5hOsonD/0y+BUtbtWCmUjp8V4bNgpXSujqmAPYlTrLhMxv
+8RnQZhOdlPz9Fta8wPybZHwZeyGtYMR8iE+zNCURx7mC02RSKjMSwLqeyJJTi0ma
+tB7LPj/2VjBZyjWOb95ml/NKqBDeECuKILT47MHNfNrma/jpodaZqYUmpteu5/kY
+VEko3ve6puqC4iZOGxvxZ/98g0wKt3nkM/Hof0MOBgr0cCMx0if2/nDAiFAsWaXo
+kHgAP0M8g2OuzlDhiv98KuTPyvSQ73LnHJzcTdS814Z4qbuWSQ3KRt3GBnFKnrf2
+8U8yBytV9y6N0k6LE+vWz2ef5iV6zfiiCUOPzHj7Au0wvP3BTTLFHGV696/lLDx+
+pJ0HyfUZt0EfhNBsPjiorxE+S6YgSJPQuogWUFzBh8k0HLwHBSYwxqAI9/KtFCyk
+wd6HmfjgO75npY3WsX87
+=OXcA
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__5_Apr_2012_13_25_15_+1000_S0_mNpNGK6m/5R5r--
