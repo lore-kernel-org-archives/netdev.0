@@ -1,105 +1,106 @@
-From: Michael Schmitz <schmitzmic@googlemail.com>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c,
- take two
-Date: Thu, 05 Apr 2012 21:44:14 +1200
-Message-ID: <4F7D696E.8010301@gmail.com>
-References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>	<4F4B2BB6.900@gmail.com>	<CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com> <CAMuHMdX=4Vn=OsNTp04YcrhDOwz8NOFrWKankj2+3utvEfE-2A@mail.gmail.com> <4F5A0679.1020604@windriver.com> <4F7816B0.3090802@gmail.com> <4F7CB31D.8060002@windriver.com>
+From: Nuno Martins <nuno.martins@caixamagica.pt>
+Subject: Re: [RFC PATCH 2/2] PID-based packet filtering support
+Date: Thu, 5 Apr 2012 11:30:20 +0100
+Message-ID: <CALKxAXUw1HU8Dqz8+DiCe_p-j3j0tV5=89sFaqLRLiQZA3BjUA@mail.gmail.com>
+References: <cover.1333466900.git.nuno.martins@caixamagica.pt>
+	<19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
+	<CAAsGZS6CoNuTBQ+YUjBc+Y9+oviHPrbrwGCCN0mZmTm5DCt8ow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <4F7CB31D.8060002@windriver.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Alfredo Matos <alfredo.matos@caixamagica.pt>,
+	Paulo Trezentos <paulo.trezentos@caixamagica.pt>
+To: chetan loke <loke.chetan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:62241 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753572Ab2DEKaW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Apr 2012 06:30:22 -0400
+Received: by lahj13 with SMTP id j13so1334267lah.19
+        for <netdev@vger.kernel.org>; Thu, 05 Apr 2012 03:30:21 -0700 (PDT)
+In-Reply-To: <CAAsGZS6CoNuTBQ+YUjBc+Y9+oviHPrbrwGCCN0mZmTm5DCt8ow@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Paul,
-
-(Apologies to all for botching the patch format ...)
-
->> Regarding your suggestion that netpoll be used instead of a dedicated 
->> timer interrupt: no changes to ne.c or 8390p.c are required to use 
->> netpoll, it all works out of the box. All that is needed to use the 
->> driver with netpoll is setting the device interrupt to some source that  
->> can be registered, and enabling CONFIG_NETPOLL. Interrupt rate and hence 
->> throughput is lower with netpoll though, which is why I still prefer the 
->> dedicated timer option.
->>     
+On 4 April 2012 19:57, chetan loke <loke.chetan@gmail.com> wrote:
+> On Wed, Apr 4, 2012 at 5:16 AM, Nuno Martins
+> <nuno.martins@caixamagica.pt> wrote:
 >
-> How much lower?  Enough to matter?  Implicit in that question is
-> the assumption that this is largely a hobbyist platform and nobody
-> is using it in a closet to route gigabytes of traffic.
->   
-I'd say about at least double latency. I can try and measure bulk data 
-rates if it matters. My gut feeling is latency limits data rates even 
-when say behind a DSL modem for downloads. It sure did when my Falcon 
-was still hooked up to a university network, uploading and downloading 
-source and binary packages for Debian/68k.
+>
+>> +int get_local_packet_info_from_fd(unsigned int fd, struct packetInf=
+o *ret)
+>
+> rename 'ret' to 'pi' or pkt_info or pick a name (must match the
+> struct). And not just here but everywhere else.
+>
 
-Of course you're not routing gigabytes of traffic with this (where to - 
-a PPP connection? :). Whoever wants minimum latency better reach for the 
-soldering iron and wire up the interrupt line to some suitable input.
-> Also, the only advantage to modifying ne.c is to allow dumping
-> the old driver.  What is the "remove soon" plan?  Any reason
-> for it to not be synchronous?  That would eliminate the Kconfig
-> churn and the introduction of the _OLD option.  Modifying ne.c
-> and then deciding to keep the old driver because it is "faster"
-> would make this change pointless.
->   
-As soon as eventual changes to ne.c get accepted. If you want us to drop 
-the old driver in the same patch, fine by me.
->> diff --git a/drivers/net/ethernet/8390/8390.h 
->> b/drivers/net/ethernet/8390/8390.h
->> index ef325ff..9416245 100644
->> --- a/drivers/net/ethernet/8390/8390.h
->> +++ b/drivers/net/ethernet/8390/8390.h
->> @@ -32,6 +32,14 @@ extern void ei_poll(struct net_device *dev);
->>  extern void eip_poll(struct net_device *dev);
->>  #endif
->>  
->> +/* Some platforms may need special IRQ flags */
->> +#if IS_ENABLED(CONFIG_ATARI_ETHERNEC)
->> +#  define EI_IRQ_FLAGS    IRQF_SHARED
->> +#endif
+Corrected.
+
+>> +{
+>> + =A0 =A0 =A0 struct file *f =3D fget(fd);
 >> +
->> +#ifndef EI_IRQ_FLAGS
->> +#  define EI_IRQ_FLAGS    0
->> +#endif
->>     
+>> + =A0 =A0 =A0 if (f !=3D NULL) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 fput(f);
 >
-> This seems more klunky than it needs to be.  If we assume that anyone
-> building ne.c on atari is hence trying to drive an ethernec device
-> than it can just be
+> why not 'fput' after you return from 'get_local_packet_info_from_file=
+' ?
 >
-> #ifdef CONFIG_ATARI
-> #define EI_IRQ_FLAGS	IRQF_SHARED
-> #else
-> #define EI_IRQ_FLAGS	0
-> #endif
->
->   
-Pretty safe assumption - if we further assume no other arch has reason 
-to resort to such a kludge, we can simplify it this way.
->> --- a/drivers/net/ethernet/8390/ne.c
->> +++ b/drivers/net/ethernet/8390/ne.c
->> @@ -165,7 +165,8 @@ bad_clone_list[] __initdata = {
->>  #if defined(CONFIG_PLAT_MAPPI)
->>  #  define DCR_VAL 0x4b
->>  #elif defined(CONFIG_PLAT_OAKS32R)  || \
->> -   defined(CONFIG_MACH_TX49XX)
->> +   defined(CONFIG_MACH_TX49XX) || \
->> +   IS_ENABLED(CONFIG_ATARI_ETHERNEC)
->>     
->
-> Rather than use IS_ENABLED on a driver setting, you can follow
-> the surrounding context and use defined(CONFIG_ATARI) -- i.e.
-> work off a platform setting.
->   
-True as well, point taken. Is the patch acceptable with these changes? 
-If so, would you be OK with this going through Geert's tree?
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return get_local_packet_info_from_file=
+(f, ret);
+>> + =A0 =A0 =A0 }
+>> + =A0 =A0 =A0 return -3;
+>> +}
+>> +
 
-Cheers,
+Yes, it make more sense to make the fput after I have done with the fil=
+e.
 
-  Michael
+
+>
+>
+>> +int get_local_packet_info_from_file(struct file *f, struct packetIn=
+fo *ret)
+>> +{
+>> + =A0 =A0 =A0 struct socket *socket =3D NULL;
+>> + =A0 =A0 =A0 short type;
+>> + =A0 =A0 =A0 unsigned short family;
+>> + =A0 =A0 =A0 int err =3D 0;
+>> +
+>> + =A0 =A0 =A0 if (f !=3D NULL) {
+>
+> This check is redundant because the
+> caller(get_local_packet_info_from_fd) checks for NULL.
+
+It's now corrected, it was there because in another function in
+task_monitor in the beginning I was not checking for NULL.
+So now the check for NULL in get_local_packet_info_from_file
+is redundant, is going to be taken away.
+
+>
+> Move this function before get_local_packet_info_from_fd().
+>
+> re-arranged code looks like:
+>
+> int get_local_packet_info_from_file(...) {
+> ....
+> }
+>
+> int get_local_packet_info_from_fd(...) {
+> =A0 ...
+> =A0 ... get_local_packet_info_from_file(f, ret);
+> =A0 ....
+> }
+>
+>
+
+Re-factored the code to look like that.
+
+Thanks for you feedback, and all will be corrected on the next version =
+and on
+the repository.
+
+> Chetan
+
+Nuno Martins
