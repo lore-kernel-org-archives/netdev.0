@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] phonet: Check input from user before allocating
-Date: Thu, 05 Apr 2012 19:06:49 -0400 (EDT)
-Message-ID: <20120405.190649.1829697650143132541.davem@davemloft.net>
-References: <1333663665-3999-1-git-send-email-levinsasha928@gmail.com>
-	<201204052214.55669.remi@remlab.net>
+Subject: Re: [PATCH 1/1] bonding: properly unset current_arp_slave on slave
+ link up
+Date: Thu, 05 Apr 2012 19:08:38 -0400 (EDT)
+Message-ID: <20120405.190838.33439049975921271.davem@davemloft.net>
+References: <20120405134743.GB16870@darkmag.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: levinsasha928@gmail.com, remi.denis-courmont@nokia.com,
-	davej@redhat.com, netdev@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
 	linux-kernel@vger.kernel.org
-To: remi@remlab.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204052214.55669.remi@remlab.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: vfalico@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60944 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755863Ab2DEXIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 19:08:46 -0400
+In-Reply-To: <20120405134743.GB16870@darkmag.usersys.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: "R=E9mi Denis-Courmont" <remi@remlab.net>
-Date: Thu, 5 Apr 2012 22:14:54 +0300
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Thu, 5 Apr 2012 15:47:43 +0200
 
-> Le vendredi 6 avril 2012 01:07:45 Sasha Levin, vous avez =E9crit :
->> A phonet packet is limited to USHRT_MAX bytes, this is never checked=
- during
->> tx which means that the user can specify any size he wishes, and the=
- kernel
->> will attempt to allocate that size.
->>=20
->> In the good case, it'll lead to the following warning, but it may al=
-so
->> cause the kernel to kick in the OOM and kill a random task on the se=
-rver.
- ...
->> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
->=20
-> Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> When a slave comes up, we're unsetting the current_arp_slave without
+> removing active flags from it, which can lead to situations where we have
+> more than one slave with active flags in active-backup mode.
+> 
+> To avoid this situation we must remove the active flags from a slave before
+> removing it as a current_arp_slave.
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
