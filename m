@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] netdma: adding alignment check for NETDMA ops
-Date: Wed, 04 Apr 2012 20:18:26 -0400 (EDT)
-Message-ID: <20120404.201826.979310574458628758.davem@davemloft.net>
-References: <20120404230749.20605.7000.stgit@djiang5-linux.ch.intel.com>
-	<20120404231046.20605.13918.stgit@djiang5-linux.ch.intel.com>
+Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
+ Seamless Redundancy
+Date: Wed, 04 Apr 2012 20:21:09 -0400 (EDT)
+Message-ID: <20120404.202109.2046106039992811660.davem@davemloft.net>
+References: <20120403113751.21fd0b17@s6510.linuxnetplumber.net>
+	<4F7CD4BC.4000006@enea.com>
+	<20120404165559.5223ab95@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.j.williams@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dave.jiang@intel.com
+Cc: arvid.brodin@enea.com, netdev@vger.kernel.org,
+	balferreira@googlemail.com, arvid.brodin@xdin.com
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51265 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51293 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754062Ab2DEAS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 20:18:29 -0400
-In-Reply-To: <20120404231046.20605.13918.stgit@djiang5-linux.ch.intel.com>
+	with ESMTP id S1753898Ab2DEAWH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 20:22:07 -0400
+In-Reply-To: <20120404165559.5223ab95@s6510.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jiang <dave.jiang@intel.com>
-Date: Wed, 04 Apr 2012 16:10:46 -0700
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 4 Apr 2012 16:55:59 -0700
 
-> This is the fallout from adding memcpy alignment workaround for certain
-> IOATDMA hardware. NetDMA will only use DMA engine that can handle byte align
-> ops.
-> 
-> Signed-off-by: Dave Jiang <dave.jiang@intel.com>
+> That isn't so bad, doing a memcpy versus a structure copy.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+GCC is going to inline the memcpy and thus we'll still do the
+unaligned accesses.  This change therefore won't fix the problem.
