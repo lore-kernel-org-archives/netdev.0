@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V7 8/8] net/mlx4_en: Set max rate-limit for a TC
-Date: Thu,  5 Apr 2012 10:33:31 +0300
-Message-ID: <1333611211-1032-9-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V7 4/8] net/mlx4_en: sk_prio <=> UP for untagged traffic
+Date: Thu,  5 Apr 2012 10:33:27 +0300
+Message-ID: <1333611211-1032-5-git-send-email-amirv@mellanox.com>
 References: <1333611211-1032-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
@@ -10,100 +10,82 @@ Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:43401 "HELO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754138Ab2DEHdp (ORCPT
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:41595 "HELO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753055Ab2DEHdp (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 03:33:45 -0400
 In-Reply-To: <1333611211-1032-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is using the DCB netlink to set rate limit per ETS TC
-Values are accepted in Kbps and rounded up to the nearest multiply of 100Mbps.
+Since vlan egress map is only good for tagged traffic, need to have other
+mapping to be used by untagged traffic.
+For that, the driver uses sch_mqprio mapping. This mapping could be set by
+using tc tool from iproute2 package.
+Mapped UP will be used by the HW for QoS purposes, but won't go out on the
+wire.
 
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |   45 ++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    1 +
- 2 files changed, 46 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   18 ++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    2 +-
+ 2 files changed, 19 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-index 6892320..0cc6c96 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -100,6 +100,7 @@ static int mlx4_en_config_port_scheduler(struct mlx4_en_priv *priv,
- 	__u8 pg[IEEE_8021QAZ_MAX_TCS] = { 0 };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 107f005..35003ad 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -45,6 +45,14 @@
+ #include "mlx4_en.h"
+ #include "en_port.h"
  
- 	ets = ets ?: &priv->ets;
-+	ratelimit = ratelimit ?: priv->maxrate;
- 
- 	/* higher TC means higher priority => lower pg */
- 	for (i = IEEE_8021QAZ_MAX_TCS - 1; i >= 0; i--) {
-@@ -198,9 +199,53 @@ static u8 mlx4_en_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 	return 0;
- }
- 
-+#define MLX4_RATELIMIT_UNITS_IN_KB 100000 /* rate-limit HW unit in Kbps */
-+static int mlx4_en_dcbnl_ieee_getmaxrate(struct net_device *dev,
-+				   struct ieee_maxrate *maxrate)
++static int mlx4_en_setup_tc(struct net_device *dev, u8 up)
 +{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	int i;
-+
-+	if (!priv->maxrate)
++	if (up != MLX4_EN_NUM_UP)
 +		return -EINVAL;
 +
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
-+		maxrate->tc_maxrate[i] =
-+			priv->maxrate[i] * MLX4_RATELIMIT_UNITS_IN_KB;
-+
 +	return 0;
 +}
 +
-+static int mlx4_en_dcbnl_ieee_setmaxrate(struct net_device *dev,
-+		struct ieee_maxrate *maxrate)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	u16 tmp[IEEE_8021QAZ_MAX_TCS];
-+	int i, err;
-+
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-+		/* Convert from Kbps into HW units, rounding result up.
-+		 * Setting to 0, means unlimited BW.
-+		 */
-+		tmp[i] =
-+			(maxrate->tc_maxrate[i] + MLX4_RATELIMIT_UNITS_IN_KB -
-+			 1) / MLX4_RATELIMIT_UNITS_IN_KB;
-+	}
-+
-+	err = mlx4_en_config_port_scheduler(priv, NULL, tmp);
-+	if (err)
-+		return err;
-+
-+	memcpy(priv->maxrate, tmp, sizeof(*priv->maxrate));
-+
-+	return 0;
-+}
-+
- const struct dcbnl_rtnl_ops mlx4_en_dcbnl_ops = {
- 	.ieee_getets	= mlx4_en_dcbnl_ieee_getets,
- 	.ieee_setets	= mlx4_en_dcbnl_ieee_setets,
-+	.ieee_getmaxrate = mlx4_en_dcbnl_ieee_getmaxrate,
-+	.ieee_setmaxrate = mlx4_en_dcbnl_ieee_setmaxrate,
- 	.ieee_getpfc	= mlx4_en_dcbnl_ieee_getpfc,
- 	.ieee_setpfc	= mlx4_en_dcbnl_ieee_setpfc,
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 97d4f35..3879c5e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -499,6 +499,7 @@ struct mlx4_en_priv {
- 
- #ifdef CONFIG_MLX4_EN_DCB
- 	struct ieee_ets ets;
-+	u16 maxrate[IEEE_8021QAZ_MAX_TCS];
+ static int mlx4_en_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+@@ -1038,6 +1046,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_poll_controller	= mlx4_en_netpoll,
  #endif
+ 	.ndo_set_features	= mlx4_en_set_features,
++	.ndo_setup_tc		= mlx4_en_setup_tc,
  };
  
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+@@ -1119,6 +1128,15 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
+ 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
+ 
++	netdev_set_num_tc(dev, MLX4_EN_NUM_UP);
++
++	/* First 9 rings are for UP 0 */
++	netdev_set_tc_queue(dev, 0, MLX4_EN_NUM_TX_RINGS + 1, 0);
++
++	/* Partition Tx queues evenly amongst UP's 1-7 */
++	for (i = 1; i < MLX4_EN_NUM_UP; i++)
++		netdev_set_tc_queue(dev, i, 1, MLX4_EN_NUM_TX_RINGS + i);
++
+ 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
+ 
+ 	/* Set defualt MAC */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 94a605a..d9bab53 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -577,7 +577,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 		return MLX4_EN_NUM_TX_RINGS + (vlan_tag >> 13);
+ 	}
+ 
+-	return __skb_tx_hash(dev, skb, MLX4_EN_NUM_TX_RINGS);
++	return skb_tx_hash(dev, skb);
+ }
+ 
+ static void mlx4_bf_copy(void __iomem *dst, unsigned long *src, unsigned bytecnt)
 -- 
 1.7.8.2
