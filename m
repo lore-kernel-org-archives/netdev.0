@@ -1,8 +1,8 @@
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 12/16] batman-adv: don't let backbone
-	gateways exchange tt entries
-Date: Thu,  5 Apr 2012 12:38:58 +0200
-Message-ID: <1333622342-6128-13-git-send-email-ordex@autistici.org>
+Subject: [PATCH 13/16] batman-adv: add broadcast duplicate
+	check
+Date: Thu,  5 Apr 2012 12:38:59 +0200
+Message-ID: <1333622342-6128-14-git-send-email-ordex@autistici.org>
 References: <1333622342-6128-1-git-send-email-ordex@autistici.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -24,180 +24,181 @@ List-Id: netdev.vger.kernel.org
 
 From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
 
-As the backbone gateways are connected to the same backbone, they
-should announce the same clients on the backbone non-exclusively.
+When multiple backbone gateways relay the same broadcast from the
+backbone into the mesh, other nodes in the mesh may receive this
+broadcast multiple times. To avoid this, the crc checksums of
+received broadcasts are recorded and new broadcast packets with
+the same content may be dropped if received by another gateway.
 
 Signed-off-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
 Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 ---
- net/batman-adv/bridge_loop_avoidance.c |   50 ++++++++++++++++++++++++++++++++
- net/batman-adv/bridge_loop_avoidance.h |    1 +
- net/batman-adv/routing.c               |    6 ++++
- net/batman-adv/translation-table.c     |   18 ++++++++++--
- 4 files changed, 73 insertions(+), 2 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c |   73 ++++++++++++++++++++++++++++++++
+ net/batman-adv/bridge_loop_avoidance.h |    2 +
+ net/batman-adv/main.h                  |    3 ++
+ net/batman-adv/routing.c               |    4 ++
+ net/batman-adv/types.h                 |    7 +++
+ 5 files changed, 89 insertions(+)
 
 diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index e8b4435..264ac65 100644
+index 264ac65..ee9f912 100644
 --- a/net/batman-adv/bridge_loop_avoidance.c
 +++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -24,6 +24,7 @@
- #include "hard-interface.h"
- #include "originator.h"
- #include "bridge_loop_avoidance.h"
-+#include "translation-table.h"
- #include "send.h"
- 
- #include <linux/etherdevice.h>
-@@ -362,6 +363,7 @@ static struct backbone_gw *bla_get_backbone_gw(struct bat_priv *bat_priv,
- 					       uint8_t *orig, short vid)
+@@ -1040,8 +1040,16 @@ out:
+ /* initialize all bla structures */
+ int bla_init(struct bat_priv *bat_priv)
  {
- 	struct backbone_gw *entry;
-+	struct orig_node *orig_node;
- 	int hash_added;
++	int i;
++
+ 	bat_dbg(DBG_BLA, bat_priv, "bla hash registering\n");
  
- 	entry = backbone_hash_find(bat_priv, orig, vid);
-@@ -396,6 +398,13 @@ static struct backbone_gw *bla_get_backbone_gw(struct bat_priv *bat_priv,
- 		return NULL;
- 	}
++	/* initialize the duplicate list */
++	for (i = 0; i < DUPLIST_SIZE; i++)
++		bat_priv->bcast_duplist[i].entrytime =
++			jiffies - msecs_to_jiffies(DUPLIST_TIMEOUT);
++	bat_priv->bcast_duplist_curr = 0;
++
+ 	if (bat_priv->claim_hash)
+ 		return 1;
  
-+	/* this is a gateway now, remove any tt entries */
-+	orig_node = orig_hash_find(bat_priv, orig);
-+	if (orig_node) {
-+		tt_global_del_orig(bat_priv, orig_node,
-+				   "became a backbone gateway");
-+		orig_node_free_ref(orig_node);
-+	}
- 	return entry;
- }
- 
-@@ -1049,6 +1058,47 @@ int bla_init(struct bat_priv *bat_priv)
- }
+@@ -1059,6 +1067,71 @@ int bla_init(struct bat_priv *bat_priv)
  
  /**
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @orig: originator mac address
+  * @bat_priv: the bat priv with all the soft interface information
++ * @bcast_packet: originator mac address
++ * @hdr_size: maximum length of the frame
 + *
-+ * check if the originator is a gateway for any VLAN ID.
++ * check if it is on our broadcast list. Another gateway might
++ * have sent the same packet because it is connected to the same backbone,
++ * so we have to remove this duplicate.
 + *
-+ * returns 1 if it is found, 0 otherwise
++ * This is performed by checking the CRC, which will tell us
++ * with a good chance that it is the same packet. If it is furthermore
++ * sent by another host, drop it. We allow equal packets from
++ * the same host however as this might be intended.
 + *
 + **/
 +
-+int bla_is_backbone_gw_orig(struct bat_priv *bat_priv, uint8_t *orig)
++int bla_check_bcast_duplist(struct bat_priv *bat_priv,
++			    struct bcast_packet *bcast_packet,
++			    int hdr_size)
 +{
-+	struct hashtable_t *hash = bat_priv->backbone_hash;
-+	struct hlist_head *head;
-+	struct hlist_node *node;
-+	struct backbone_gw *backbone_gw;
-+	int i;
++	int i, length, curr;
++	uint8_t *content;
++	uint16_t crc;
++	struct bcast_duplist_entry *entry;
 +
-+	if (!atomic_read(&bat_priv->bridge_loop_avoidance))
-+		return 0;
++	length = hdr_size - sizeof(*bcast_packet);
++	content = (uint8_t *)bcast_packet;
++	content += sizeof(*bcast_packet);
 +
-+	if (!hash)
-+		return 0;
++	/* calculate the crc ... */
++	crc = crc16(0, content, length);
 +
-+	for (i = 0; i < hash->size; i++) {
-+		head = &hash->table[i];
++	for (i = 0 ; i < DUPLIST_SIZE; i++) {
++		curr = (bat_priv->bcast_duplist_curr + i) % DUPLIST_SIZE;
++		entry = &bat_priv->bcast_duplist[curr];
 +
-+		rcu_read_lock();
-+		hlist_for_each_entry_rcu(backbone_gw, node, head, hash_entry) {
-+			if (compare_eth(backbone_gw->orig, orig)) {
-+				rcu_read_unlock();
-+				return 1;
-+			}
-+		}
-+		rcu_read_unlock();
++		/* we can stop searching if the entry is too old ;
++		 * later entries will be even older */
++		if (has_timed_out(entry->entrytime, DUPLIST_TIMEOUT))
++			break;
++
++		if (entry->crc != crc)
++			continue;
++
++		if (compare_eth(entry->orig, bcast_packet->orig))
++			continue;
++
++		/* this entry seems to match: same crc, not too old,
++		 * and from another gw. therefore return 1 to forbid it. */
++		return 1;
 +	}
++	/* not found, add a new entry (overwrite the oldest entry) */
++	curr = (bat_priv->bcast_duplist_curr + DUPLIST_SIZE - 1) % DUPLIST_SIZE;
++	entry = &bat_priv->bcast_duplist[curr];
++	entry->crc = crc;
++	entry->entrytime = jiffies;
++	memcpy(entry->orig, bcast_packet->orig, ETH_ALEN);
++	bat_priv->bcast_duplist_curr = curr;
 +
++	/* allow it, its the first occurence. */
 +	return 0;
 +}
 +
 +
++
 +/**
-  * @skb: the frame to be checked
-  * @orig_node: the orig_node of the frame
-  * @hdr_size: maximum length of the frame
++ * @bat_priv: the bat priv with all the soft interface information
+  * @orig: originator mac address
+  *
+  * check if the originator is a gateway for any VLAN ID.
 diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/bridge_loop_avoidance.h
-index d9e3480..b74940f 100644
+index b74940f..9468c24 100644
 --- a/net/batman-adv/bridge_loop_avoidance.h
 +++ b/net/batman-adv/bridge_loop_avoidance.h
-@@ -27,6 +27,7 @@ int bla_tx(struct bat_priv *bat_priv, struct sk_buff *skb, short vid);
- int bla_is_backbone_gw(struct sk_buff *skb,
+@@ -28,6 +28,8 @@ int bla_is_backbone_gw(struct sk_buff *skb,
  		       struct orig_node *orig_node, int hdr_size);
  int bla_claim_table_seq_print_text(struct seq_file *seq, void *offset);
-+int bla_is_backbone_gw_orig(struct bat_priv *bat_priv, uint8_t *orig);
+ int bla_is_backbone_gw_orig(struct bat_priv *bat_priv, uint8_t *orig);
++int bla_check_bcast_duplist(struct bat_priv *bat_priv,
++			    struct bcast_packet *bcast_packet, int hdr_size);
  void bla_update_orig_address(struct bat_priv *bat_priv,
  			     struct hard_iface *primary_if,
  			     struct hard_iface *oldif);
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 82723b5..d9832ac 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -83,6 +83,9 @@
+ #define BLA_PERIOD_LENGTH	10000	/* 10 seconds */
+ #define BLA_BACKBONE_TIMEOUT	(BLA_PERIOD_LENGTH * 3)
+ #define BLA_CLAIM_TIMEOUT	(BLA_PERIOD_LENGTH * 10)
++
++#define DUPLIST_SIZE		16
++#define DUPLIST_TIMEOUT		500	/* 500 ms */
+ /* don't reset again within 30 seconds */
+ #define RESET_PROTECTION_MS 30000
+ #define EXPECTED_SEQNO_RANGE	65536
 diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index e70c37a..fb5e9f3 100644
+index fb5e9f3..f1adef8 100644
 --- a/net/batman-adv/routing.c
 +++ b/net/batman-adv/routing.c
-@@ -673,6 +673,12 @@ int recv_roam_adv(struct sk_buff *skb, struct hard_iface *recv_if)
- 	if (!is_my_mac(roam_adv_packet->dst))
- 		return route_unicast_packet(skb, recv_if);
+@@ -1075,6 +1075,10 @@ int recv_bcast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
  
-+	/* check if it is a backbone gateway. we don't accept
-+	 * roaming advertisement from it, as it has the same
-+	 * entries as we have. */
-+	if (bla_is_backbone_gw_orig(bat_priv, roam_adv_packet->src))
+ 	spin_unlock_bh(&orig_node->bcast_seqno_lock);
+ 
++	/* check whether this has been sent by another originator before */
++	if (bla_check_bcast_duplist(bat_priv, bcast_packet, hdr_size))
 +		goto out;
 +
- 	orig_node = orig_hash_find(bat_priv, roam_adv_packet->src);
- 	if (!orig_node)
- 		goto out;
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 37b4569..b889806 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -27,6 +27,7 @@
- #include "hash.h"
- #include "originator.h"
- #include "routing.h"
-+#include "bridge_loop_avoidance.h"
+ 	/* rebroadcast packet */
+ 	add_bcast_packet_to_list(bat_priv, skb, 1);
  
- #include <linux/crc16.h>
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 35cd831..ad97e87 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -140,6 +140,11 @@ struct neigh_node {
+ 	spinlock_t tq_lock;	/* protects: tq_recv, tq_index */
+ };
  
-@@ -1611,10 +1612,15 @@ out:
- bool send_tt_response(struct bat_priv *bat_priv,
- 		      struct tt_query_packet *tt_request)
- {
--	if (is_my_mac(tt_request->dst))
-+	if (is_my_mac(tt_request->dst)) {
-+		/* don't answer backbone gws! */
-+		if (bla_is_backbone_gw_orig(bat_priv, tt_request->src))
-+			return true;
-+
- 		return send_my_tt_response(bat_priv, tt_request);
--	else
-+	} else {
- 		return send_other_tt_response(bat_priv, tt_request);
-+	}
- }
++struct bcast_duplist_entry {
++	uint8_t orig[ETH_ALEN];
++	uint16_t crc;
++	unsigned long entrytime;
++};
  
- static void _tt_update_changes(struct bat_priv *bat_priv,
-@@ -1718,6 +1724,10 @@ void handle_tt_response(struct bat_priv *bat_priv,
- 		tt_response->src, tt_response->ttvn, tt_response->tt_data,
- 		(tt_response->flags & TT_FULL_TABLE ? 'F' : '.'));
- 
-+	/* we should have never asked a backbone gw */
-+	if (bla_is_backbone_gw_orig(bat_priv, tt_response->src))
-+		goto out;
-+
- 	orig_node = orig_hash_find(bat_priv, tt_response->src);
- 	if (!orig_node)
- 		goto out;
-@@ -2048,6 +2058,10 @@ void tt_update_orig(struct bat_priv *bat_priv, struct orig_node *orig_node,
- 	uint8_t orig_ttvn = (uint8_t)atomic_read(&orig_node->last_ttvn);
- 	bool full_table = true;
- 
-+	/* don't care about a backbone gateways updates. */
-+	if (bla_is_backbone_gw_orig(bat_priv, orig_node->orig))
-+		return;
-+
- 	/* orig table not initialised AND first diff is in the OGM OR the ttvn
- 	 * increased by one -> we can apply the attached changes */
- 	if ((!orig_node->tt_initialised && ttvn == 1) ||
+ struct bat_priv {
+ 	atomic_t mesh_state;
+@@ -186,6 +191,8 @@ struct bat_priv {
+ 	struct list_head tt_req_list; /* list of pending tt_requests */
+ 	struct list_head tt_roam_list;
+ 	struct hashtable_t *vis_hash;
++	struct bcast_duplist_entry bcast_duplist[DUPLIST_SIZE];
++	int bcast_duplist_curr;
+ 	spinlock_t forw_bat_list_lock; /* protects forw_bat_list */
+ 	spinlock_t forw_bcast_list_lock; /* protects  */
+ 	spinlock_t tt_changes_list_lock; /* protects tt_changes */
 -- 
 1.7.9.4
