@@ -1,65 +1,42 @@
-From: Michael Schmitz <schmitzmic@googlemail.com>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c,
- take two
-Date: Fri, 06 Apr 2012 10:10:19 +1200
-Message-ID: <4F7E184B.6000903@gmail.com>
-References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>	<4F4B2BB6.900@gmail.com>	<CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com>	<CAMuHMdX=4Vn=OsNTp04YcrhDOwz8NOFrWKankj2+3utvEfE-2A@mail.gmail.com>	<4F5A0679.1020604@windriver.com>	<4F7816B0.3090802@gmail.com>	<4F7CB31D.8060002@windriver.com> <CAMuHMdWSzG4npwjpJ=cwNFKhyBZjvgPn1sp6nZ2re6QsRWPpXg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
+ Seamless Redundancy
+Date: Thu, 05 Apr 2012 18:31:43 -0400 (EDT)
+Message-ID: <20120405.183143.727226239038853914.davem@davemloft.net>
+References: <4F7CD4BC.4000006@enea.com>
+	<20120404.201739.672373176675875061.davem@davemloft.net>
+	<1333653668.2652.13.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdWSzG4npwjpJ=cwNFKhyBZjvgPn1sp6nZ2re6QsRWPpXg@mail.gmail.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: arvid.brodin@enea.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org, balferreira@googlemail.com,
+	arvid.brodin@xdin.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60650 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755368Ab2DEWcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 18:32:18 -0400
+In-Reply-To: <1333653668.2652.13.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Geert,
->> How much lower?  Enough to matter?  Implicit in that question is
->> the assumption that this is largely a hobbyist platform and nobody
->> is using it in a closet to route gigabytes of traffic.
->>     
->
-> One other thing we could do is increase CONFIG_HZ to 250.
->   
-Making 3.x kernels run even more sluggish than they already do?
->> Also, the only advantage to modifying ne.c is to allow dumping
->> the old driver.  What is the "remove soon" plan?  Any reason
->> for it to not be synchronous?  That would eliminate the Kconfig
->> churn and the introduction of the _OLD option.  Modifying ne.c
->> and then deciding to keep the old driver because it is "faster"
->> would make this change pointless.
->>     
->
-> From my point of view, "remove soon" means it will never hit mainline.
->   
-That's what I meant to say - my patch is based on the m68k tree which 
-currently has another driver for this hardware, based on an older 
-version of ne.c which was never submitted to mainline. The old driver 
-would be removed from the m68k tree as soon as possible.
->> This seems more klunky than it needs to be.  If we assume that anyone
->> building ne.c on atari is hence trying to drive an ethernec device
->> than it can just be
->>
->> #ifdef CONFIG_ATARI
->> #define EI_IRQ_FLAGS    IRQF_SHARED
->> #else
->> #define EI_IRQ_FLAGS    0
->> #endif
->>     
->
-> Indeed, with a small modification (keep multi-platform kernels in mind):
->
-> #ifdef CONFIG_ATARI
-> #define EI_IRQ_FLAGS    (MACH_IS_ATARI ? IRQF_SHARED : 0)
-> #else
-> #define EI_IRQ_FLAGS    0
-> #endif
->   
-Right you are. Is any other m68k platform using ne.c directly, or do you 
-plan to convert all other NE2000 based drivers to ne.c now?
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 5 Apr 2012 20:21:08 +0100
 
-Cheers,
+> On Wed, 2012-04-04 at 20:17 -0400, David Miller wrote:
+>> From: Arvid Brodin <arvid.brodin@enea.com>
+>> Date: Thu, 5 Apr 2012 01:09:48 +0200
+>> 
+>> > -		icmp_param.data.icmph	   = *icmp_hdr(skb);
+>> > +		memcpy(&icmp_param.data.icmph, icmp_hdr(skb),
+>> > +						sizeof(icmp_param.data.icmph));
+>> 
+>> GCC can and will optimize this into an inline assignment, and thus
+>> have the same unaligned access problems, because it determines
+>> alignment based upon the types involved.
+> 
+> So presumably icmp_hdr() should be changed to skb_transport_header().
 
-  Michael
+I would not say so.  Otherwise we introduce ugly casts everywhere.
