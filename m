@@ -1,44 +1,211 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Wed, 04 Apr 2012 23:59:33 -0400 (EDT)
-Message-ID: <20120404.235933.350585244341009071.davem@davemloft.net>
-References: <20120405132515.e61465875407a452c1a6f78e@canb.auug.org.au>
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH net-next] net: sh_eth: add support R8A7740
+Date: Thu, 05 Apr 2012 13:37:10 +0900
+Message-ID: <4F7D2176.3030807@renesas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, deepak.sikri@st.com,
-	shiraz.hashim@st.com, vikas.manocha@st.com, peppe.cavallaro@st.com
-To: sfr@canb.auug.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52563 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752275Ab2DEEBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 00:01:46 -0400
-In-Reply-To: <20120405132515.e61465875407a452c1a6f78e@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SH-Linux <linux-sh@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 5 Apr 2012 13:25:15 +1000
+The R8A7740 has a Gigabit Ethernet MAC. This patch supports it.
 
-> After merging the final tree, today's linux-next build (powerpc
-> allyesconfig) failed like this:
-> 
-> drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c: In function 'stmmac_probe_config_dt':
-> drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:53:7: error: 'struct plat_stmmacenet_data' has no member named 'pbl'
-> 
-> Caused by commit 8327eb65e795 ("stmmac: re-work the internal GMAC DMA
-> platf parameters").  Clearly I am missing something, because I can't see
-> how that patch is correct since nothing ever assigns to the new dma_cfg
-> pointer but it is dereferenced.
-> 
-> I have added this patch to make it build today, but it is obviously not
-> correct.
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+---
+ drivers/net/ethernet/renesas/Kconfig  |    7 +-
+ drivers/net/ethernet/renesas/sh_eth.c |  114 ++++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/renesas/sh_eth.h |    5 +-
+ 3 files changed, 120 insertions(+), 6 deletions(-)
 
-Sorry Stephen.
+diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
+index 3fb2355..46df3a0 100644
+--- a/drivers/net/ethernet/renesas/Kconfig
++++ b/drivers/net/ethernet/renesas/Kconfig
+@@ -4,11 +4,11 @@
 
-Giuseppe don't submit patches to me that don't even compile.
+ config SH_ETH
+ 	tristate "Renesas SuperH Ethernet support"
+-	depends on SUPERH && \
++	depends on (SUPERH || ARCH_SHMOBILE) && \
+ 		(CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
+ 		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
+ 		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
+-		 CPU_SUBTYPE_SH7757)
++		 CPU_SUBTYPE_SH7757 || ARCH_R8A7740)
+ 	select CRC32
+ 	select NET_CORE
+ 	select MII
+@@ -17,4 +17,5 @@ config SH_ETH
+ 	---help---
+ 	  Renesas SuperH Ethernet device driver.
+ 	  This driver supporting CPUs are:
+-		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763 and SH7757.
++		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
++		  and R8A7740.
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index d63e09b..be3c221 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -386,6 +386,114 @@ static void sh_eth_reset_hw_crc(struct net_device *ndev)
+ 		sh_eth_write(ndev, 0x0, CSMR);
+ }
 
-Please submit a proper fix to me for this _now_.
++#elif defined(CONFIG_ARCH_R8A7740)
++#define SH_ETH_HAS_TSU	1
++static void sh_eth_chip_reset(struct net_device *ndev)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	unsigned long mii;
++
++	/* reset device */
++	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
++	mdelay(1);
++
++	switch (mdp->phy_interface) {
++	case PHY_INTERFACE_MODE_GMII:
++		mii = 2;
++		break;
++	case PHY_INTERFACE_MODE_MII:
++		mii = 1;
++		break;
++	case PHY_INTERFACE_MODE_RMII:
++	default:
++		mii = 0;
++		break;
++	}
++	sh_eth_write(ndev, mii, RMII_MII);
++}
++
++static void sh_eth_reset(struct net_device *ndev)
++{
++	int cnt = 100;
++
++	sh_eth_write(ndev, EDSR_ENALL, EDSR);
++	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER, EDMR);
++	while (cnt > 0) {
++		if (!(sh_eth_read(ndev, EDMR) & 0x3))
++			break;
++		mdelay(1);
++		cnt--;
++	}
++	if (cnt == 0)
++		printk(KERN_ERR "Device reset fail\n");
++
++	/* Table Init */
++	sh_eth_write(ndev, 0x0, TDLAR);
++	sh_eth_write(ndev, 0x0, TDFAR);
++	sh_eth_write(ndev, 0x0, TDFXR);
++	sh_eth_write(ndev, 0x0, TDFFR);
++	sh_eth_write(ndev, 0x0, RDLAR);
++	sh_eth_write(ndev, 0x0, RDFAR);
++	sh_eth_write(ndev, 0x0, RDFXR);
++	sh_eth_write(ndev, 0x0, RDFFR);
++}
++
++static void sh_eth_set_duplex(struct net_device *ndev)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++
++	if (mdp->duplex) /* Full */
++		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) | ECMR_DM, ECMR);
++	else		/* Half */
++		sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
++}
++
++static void sh_eth_set_rate(struct net_device *ndev)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++
++	switch (mdp->speed) {
++	case 10: /* 10BASE */
++		sh_eth_write(ndev, GECMR_10, GECMR);
++		break;
++	case 100:/* 100BASE */
++		sh_eth_write(ndev, GECMR_100, GECMR);
++		break;
++	case 1000: /* 1000BASE */
++		sh_eth_write(ndev, GECMR_1000, GECMR);
++		break;
++	default:
++		break;
++	}
++}
++
++/* R8A7740 */
++static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
++	.chip_reset	= sh_eth_chip_reset,
++	.set_duplex	= sh_eth_set_duplex,
++	.set_rate	= sh_eth_set_rate,
++
++	.ecsr_value	= ECSR_ICD | ECSR_MPD,
++	.ecsipr_value	= ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
++	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
++
++	.tx_check	= EESR_TC1 | EESR_FTC,
++	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT | \
++			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE | \
++			  EESR_ECI,
++	.tx_error_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_TDE | \
++			  EESR_TFE,
++
++	.apr		= 1,
++	.mpr		= 1,
++	.tpauser	= 1,
++	.bculr		= 1,
++	.hw_swap	= 1,
++	.no_trimd	= 1,
++	.no_ade		= 1,
++	.tsu		= 1,
++};
++
+ #elif defined(CONFIG_CPU_SUBTYPE_SH7619)
+ #define SH_ETH_RESET_DEFAULT	1
+ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+@@ -443,7 +551,7 @@ static void sh_eth_reset(struct net_device *ndev)
+ }
+ #endif
+
+-#if defined(CONFIG_CPU_SH4)
++#if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
+ static void sh_eth_set_receive_align(struct sk_buff *skb)
+ {
+ 	int reserve;
+@@ -919,6 +1027,10 @@ static int sh_eth_rx(struct net_device *ndev)
+ 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
+ 		pkt_len = rxdesc->frame_length;
+
++#if defined(CONFIG_ARCH_R8A7740)
++		desc_status >>= 16;
++#endif
++
+ 		if (--boguscnt < 0)
+ 			break;
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index 0fa14af..57b8e1f 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -372,7 +372,7 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
+ };
+
+ /* Driver's parameters */
+-#if defined(CONFIG_CPU_SH4)
++#if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
+ #define SH4_SKB_RX_ALIGN	32
+ #else
+ #define SH2_SH3_SKB_RX_ALIGN	2
+@@ -381,7 +381,8 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
+ /*
+  * Register's bits
+  */
+-#if defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763)
++#if defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763) ||\
++    defined(CONFIG_ARCH_R8A7740)
+ /* EDSR */
+ enum EDSR_BIT {
+ 	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
+-- 
+1.7.1
