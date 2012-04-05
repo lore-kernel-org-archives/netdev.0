@@ -1,106 +1,81 @@
-From: Nuno Martins <nuno.martins@caixamagica.pt>
-Subject: Re: [RFC PATCH 2/2] PID-based packet filtering support
-Date: Thu, 5 Apr 2012 11:30:20 +0100
-Message-ID: <CALKxAXUw1HU8Dqz8+DiCe_p-j3j0tV5=89sFaqLRLiQZA3BjUA@mail.gmail.com>
-References: <cover.1333466900.git.nuno.martins@caixamagica.pt>
-	<19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
-	<CAAsGZS6CoNuTBQ+YUjBc+Y9+oviHPrbrwGCCN0mZmTm5DCt8ow@mail.gmail.com>
+From: Li Yu <raise.sail@gmail.com>
+Subject: [PATCH net-next] rps: introduce a new sysctl switch rps_workaround_buggy_driver
+Date: Thu, 05 Apr 2012 18:31:00 +0800
+Message-ID: <4F7D7464.7040503@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Alfredo Matos <alfredo.matos@caixamagica.pt>,
-	Paulo Trezentos <paulo.trezentos@caixamagica.pt>
-To: chetan loke <loke.chetan@gmail.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:62241 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753572Ab2DEKaW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Apr 2012 06:30:22 -0400
-Received: by lahj13 with SMTP id j13so1334267lah.19
-        for <netdev@vger.kernel.org>; Thu, 05 Apr 2012 03:30:21 -0700 (PDT)
-In-Reply-To: <CAAsGZS6CoNuTBQ+YUjBc+Y9+oviHPrbrwGCCN0mZmTm5DCt8ow@mail.gmail.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:34317 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753874Ab2DEKbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 06:31:10 -0400
+Received: by yhmm54 with SMTP id m54so598714yhm.19
+        for <netdev@vger.kernel.org>; Thu, 05 Apr 2012 03:31:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4 April 2012 19:57, chetan loke <loke.chetan@gmail.com> wrote:
-> On Wed, Apr 4, 2012 at 5:16 AM, Nuno Martins
-> <nuno.martins@caixamagica.pt> wrote:
->
->
->> +int get_local_packet_info_from_fd(unsigned int fd, struct packetInf=
-o *ret)
->
-> rename 'ret' to 'pi' or pkt_info or pick a name (must match the
-> struct). And not just here but everywhere else.
->
 
-Corrected.
+We encountered a buggy NIC driver or hardware/firmware, it keeps
+non-zero constant skb->rxhash for long time, so if we enabled RPS,
+the targeted CPU keeps same for long time too.
 
->> +{
->> + =A0 =A0 =A0 struct file *f =3D fget(fd);
->> +
->> + =A0 =A0 =A0 if (f !=3D NULL) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 fput(f);
->
-> why not 'fput' after you return from 'get_local_packet_info_from_file=
-' ?
->
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return get_local_packet_info_from_file=
-(f, ret);
->> + =A0 =A0 =A0 }
->> + =A0 =A0 =A0 return -3;
->> +}
->> +
+This patch introduces a sysctl switch to workaround for such problem,
+if the switch was on, RPS core discards the skb->rxhash that is
+computed by NIC hardware.
 
-Yes, it make more sense to make the fput after I have done with the fil=
-e.
+Hope this patch also can help others, thanks.
 
+Signed-off-by Li Yu <bingtian.ly@taobao.com>
 
->
->
->> +int get_local_packet_info_from_file(struct file *f, struct packetIn=
-fo *ret)
->> +{
->> + =A0 =A0 =A0 struct socket *socket =3D NULL;
->> + =A0 =A0 =A0 short type;
->> + =A0 =A0 =A0 unsigned short family;
->> + =A0 =A0 =A0 int err =3D 0;
->> +
->> + =A0 =A0 =A0 if (f !=3D NULL) {
->
-> This check is redundant because the
-> caller(get_local_packet_info_from_fd) checks for NULL.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 192250b..4c28ce0 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -628,9 +628,13 @@ extern unsigned int   skb_find_text(struct sk_buff
+*skb, unsigned int from,
+ 				    unsigned int to, struct ts_config *config,
+ 				    struct ts_state *state);
 
-It's now corrected, it was there because in another function in
-task_monitor in the beginning I was not checking for NULL.
-So now the check for NULL in get_local_packet_info_from_file
-is redundant, is going to be taken away.
++extern int rps_workaround_buggy_driver;
+ extern void __skb_get_rxhash(struct sk_buff *skb);
+ static inline __u32 skb_get_rxhash(struct sk_buff *skb)
+ {
++	if (unlikely(rps_workaround_buggy_driver))
++		skb->rxhash = 0;
++
+ 	if (!skb->rxhash)
+ 		__skb_get_rxhash(skb);
 
->
-> Move this function before get_local_packet_info_from_fd().
->
-> re-arranged code looks like:
->
-> int get_local_packet_info_from_file(...) {
-> ....
-> }
->
-> int get_local_packet_info_from_fd(...) {
-> =A0 ...
-> =A0 ... get_local_packet_info_from_file(f, ret);
-> =A0 ....
-> }
->
->
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 723a406..9d1e728 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -176,6 +176,8 @@
+ #define PTYPE_HASH_SIZE	(16)
+ #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
 
-Re-factored the code to look like that.
-
-Thanks for you feedback, and all will be corrected on the next version =
-and on
-the repository.
-
-> Chetan
-
-Nuno Martins
++int rps_workaround_buggy_driver = 0;
++
+ static DEFINE_SPINLOCK(ptype_lock);
+ static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
+ static struct list_head ptype_all __read_mostly;	/* Taps */
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 0c28508..065ea7c 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -172,6 +172,13 @@ static struct ctl_table net_core_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= rps_sock_flow_sysctl
+ 	},
++	{
++		.procname	= "rps_workaround_buggy_driver",
++		.data		= &rps_workaround_buggy_driver,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ #endif
+ #endif /* CONFIG_NET */
+ 	{
