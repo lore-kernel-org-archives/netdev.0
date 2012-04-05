@@ -1,73 +1,30 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] SUNRPC: register PipeFS file system after pernet sybsystem
-Date: Thu, 05 Apr 2012 21:04:37 +0400
-Message-ID: <20120405170405.15055.85431.stgit@localhost6.localdomain6>
+From: Andy Gospodarek <gospo@redhat.com>
+Subject: Re: [PATCH 1/1] bonding: properly unset current_arp_slave on slave
+ link up
+Date: Thu, 5 Apr 2012 14:06:14 -0400
+Message-ID: <20120405180614.GB11165@quad.redhat.com>
+References: <20120405134743.GB16870@darkmag.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org, davej@redhat.com,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	linux-kernel@vger.kernel.org
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120405134743.GB16870@darkmag.usersys.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PipeFS superblock creation routine relays on SUNRPC pernet data presense, which
-is created on register_pernet_subsys() call in SUNRPC module init function.
-Registering of PipeFS filesystem prior to registering of per-net subsystem
-leads to races (mount of PipeFS can dereference uninitialized data).
+On Thu, Apr 05, 2012 at 03:47:43PM +0200, Veaceslav Falico wrote:
+> When a slave comes up, we're unsetting the current_arp_slave without
+> removing active flags from it, which can lead to situations where we have
+> more than one slave with active flags in active-backup mode.
+> 
+> To avoid this situation we must remove the active flags from a slave before
+> removing it as a current_arp_slave.
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> 
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
----
- net/sunrpc/sunrpc_syms.c |   17 +++++++++--------
- 1 files changed, 9 insertions(+), 8 deletions(-)
-
-diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
-index 8adfc88..3d6498a 100644
---- a/net/sunrpc/sunrpc_syms.c
-+++ b/net/sunrpc/sunrpc_syms.c
-@@ -75,20 +75,21 @@ static struct pernet_operations sunrpc_net_ops = {
- static int __init
- init_sunrpc(void)
- {
--	int err = register_rpc_pipefs();
-+	int err = rpc_init_mempool();
- 	if (err)
- 		goto out;
--	err = rpc_init_mempool();
--	if (err)
--		goto out2;
- 	err = rpcauth_init_module();
- 	if (err)
--		goto out3;
-+		goto out2;
- 
- 	cache_initialize();
- 
- 	err = register_pernet_subsys(&sunrpc_net_ops);
- 	if (err)
-+		goto out3;
-+
-+	err = register_rpc_pipefs();
-+	if (err)
- 		goto out4;
- #ifdef RPC_DEBUG
- 	rpc_register_sysctl();
-@@ -98,11 +99,11 @@ init_sunrpc(void)
- 	return 0;
- 
- out4:
--	rpcauth_remove_module();
-+	unregister_pernet_subsys(&sunrpc_net_ops);
- out3:
--	rpc_destroy_mempool();
-+	rpcauth_remove_module();
- out2:
--	unregister_rpc_pipefs();
-+	rpc_destroy_mempool();
- out:
- 	return err;
- }
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
