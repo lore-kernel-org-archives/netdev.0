@@ -1,260 +1,253 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [V6 PATCH] virtio-net: send gratuitous packets when needed
-Date: Thu, 05 Apr 2012 13:56:15 +0800
-Message-ID: <4F7D33FF.2060304@redhat.com>
-References: <20120328054428.34415.75432.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<20120404074937.GA22658@redhat.com>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
+Date: Wed, 4 Apr 2012 22:58:19 -0700
+Message-ID: <20120405055819.GA9850@hostway.ca>
+References: <20120404220525.GD21505@hostway.ca>
+ <1333593664.18626.577.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, qemu-devel@nongnu.org, linux-kernel@vger.kernel.org,
-	Amit Shah <amit.shah@redhat.com>,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120404074937.GA22658@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from peace.netnation.com ([204.174.223.2]:45259 "EHLO
+	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753614Ab2DEF6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 01:58:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1333593664.18626.577.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/04/2012 03:49 PM, Michael S. Tsirkin wrote:
-> On Wed, Mar 28, 2012 at 01:44:28PM +0800, Jason Wang wrote:
->> As hypervior does not have the knowledge of guest network configuration, it's
->> better to ask guest to send gratuitous packets when needed.
->>
->> Guest tests VIRTIO_NET_S_ANNOUNCE bit during config change interrupt and when it
->> is set, a workqueue is scheduled to send gratuitous packet through
->> NETDEV_NOTIFY_PEERS. This feature is negotiated through bit
->> VIRTIO_NET_F_GUEST_ANNOUNCE.
->>
->> Changes from v5:
->> - notify the chain before acking the link annoucement
->> - ack the link announcement notification through control vq
->>
->> Changes from v4:
->> - typos
->> - handle workqueue unconditionally
->> - move VIRTIO_NET_S_ANNOUNCE to bit 8 to separate rw bits from ro bits
->>
->> Changes from v3:
->> - cancel the workqueue during freeze
->>
->> Changes from v2:
->> - fix the race between unregister_dev() and workqueue
->>
->> Signed-off-by: Jason Wang<jasowang@redhat.com>
-> I think this needs some fixes. See below.
-> Thanks.
->
->> ---
->>   drivers/net/virtio_net.c   |   32 +++++++++++++++++++++++++++++++-
->>   include/linux/virtio_net.h |   13 +++++++++++++
->>   2 files changed, 44 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 4880aa8..0f60da7 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -72,6 +72,9 @@ struct virtnet_info {
->>   	/* Work struct for refilling if we run low on memory. */
->>   	struct delayed_work refill;
->>
->> +	/* Work struct for sending gratuitous packets. */
-> A bit confusing: it does not send anything itself.
-> A better comment 'for announcing the existence of device
-> on the network'.
->
->> +	struct work_struct announce;
->> +
->>   	/* Chain pages by the private ptr. */
->>   	struct page *pages;
->>
->> @@ -781,12 +784,30 @@ static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
->>   	return status == VIRTIO_NET_OK;
->>   }
->>
->> +static void virtnet_ack_link_announce(struct virtnet_info *vi)
->> +{
->> +	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_ANNOUNCE,
->> +				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL,
->> +				  0, 0)) {
-> This can run in parallel with other commands. That's pretty bad -
-> will corrupt the cvq.
-> Take rtnl lock around calls to this function?
+On Thu, Apr 05, 2012 at 04:41:04AM +0200, Eric Dumazet wrote:
 
-It's only used by callbacks of netif_notify_peers(), so rtnl lock have 
-already been hold. Add a comment to clarify this?
->> +		dev_warn(&vi->dev->dev, "Failed to ack link nnounce.\n");
-> announce
+> On Wed, 2012-04-04 at 15:05 -0700, Simon Kirby wrote:
+> > I use an SSH VPN occasionally from home, and since upgrading the
+> > remote
+> > kernel to 3.3.0, the it now seems to Oops when I ^C the tunnel with
+> > sockets still active. If I start the tunnel, log in to a box through
+> > it
+> > and run "vmstat 1", ^C the tunnel SSH process, and start it up again,
+> > I
+> > get an Oops like this:
+> > 
+> > BUG: unable to handle kernel NULL pointer dereference at
+> > 00000000000000ff
+> > IP: [<ffffffff810ed5fa>] __kmalloc_track_caller+0xaa/0x1b0
+> > PGD 12d2bc067 PUD 0
+> > Oops: 0000 [#1] SMP
+> > CPU 1
+> > Modules linked in: nf_conntrack_netlink nfnetlink iptable_mangle
+> > ipt_MASQUERADE xt_state xt_conntrack iptable_nat nf_nat
+> > nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack hwmon_vid ppp_async
+> > ppp_generic slhc crc_ccitt tun nvidia(PO) uvcvideo videobuf2_vmalloc
+> > videobuf2_memops videobuf2_core e100
+> > 
+> > Pid: 16156, comm: sshd Tainted: P           O 3.3.0 #32 System
+> > manufacturer System Product Name/A8N-VM CSM
+> 
+> Hmm, is it happening if you remove the nvidia module ?
+> 
+> If yes, please try to add slub_debug=FZPU
+> 
+> CONFIG_SLUB_DEBUG=y
+> CONFIG_SLUB=y
+> # CONFIG_SLUB_DEBUG_ON is not set
 
-Sorry for the typos, would double check in the future.
->> +	}
-> Better to drop {} around a single statement.
->
->> +}
->> +
->> +static void announce_work(struct work_struct *work)
->> +{
->> +	struct virtnet_info *vi = container_of(work, struct virtnet_info,
->> +					       announce);
->> +	netif_notify_peers(vi->dev);
->> +	virtnet_ack_link_announce(vi);
->> +}
->> +
->>   static int virtnet_close(struct net_device *dev)
->>   {
->>   	struct virtnet_info *vi = netdev_priv(dev);
->>
->>   	/* Make sure refill_work doesn't re-enable napi! */
->>   	cancel_delayed_work_sync(&vi->refill);
->> +	cancel_work_sync(&vi->announce);
-> I think that a config change event can trigger after this point,
-> so cancel here won't be effective. But why do it here?
-> virtnet_remove not a better place? We can do it
-> after remove_vq_common.
+Yes it is, and here we go:
 
-Sure.
->>   	napi_disable(&vi->napi);
->>
->>   	return 0;
->> @@ -962,11 +983,17 @@ static void virtnet_update_status(struct virtnet_info *vi)
->>   		return;
->>
->>   	/* Ignore unknown (future) status bits */
->> -	v&= VIRTIO_NET_S_LINK_UP;
->> +	v&= VIRTIO_NET_S_LINK_UP | VIRTIO_NET_S_ANNOUNCE;
-> The announce bit in vi->status is always clear,
-> so this is IMO confusing. I would do:
->
-> 	if (v&  VIRTIO_NET_S_ANNOUNCE) {
-> 		schedule
-> 	}
->
-> 	v&= VIRTIO_NET_S_LINK_UP;
->
-> and the rest of the logic is not necessary then.
->
-> Also, this might run extra ack announce commands after
-> VIRTIO_NET_S_ANNOUNCE bit is clear. The spec
-> isn't clear on whether this is legal.
->
-> It would be very hard to fix this, so let's add a comment
-> stating that it's legal, and clarify the spec
-> in any case.
+[ 3223.596062] =============================================================================
+[ 3223.603618] BUG kmalloc-2048 (Not tainted): Redzone overwritten
+[ 3223.603618] -----------------------------------------------------------------------------
+[ 3223.603618] 
+[ 3223.603618] INFO: 0xffff88017499d240-0xffff88017499d240. First byte 0xcb instead of 0xcc
+[ 3223.603618] INFO: Allocated in alloc_netdev_mqs+0x62/0x300 age=2919 cpu=1 pid=3929
+[ 3223.603618]  __slab_alloc.constprop.65+0x21b/0x25f
+[ 3223.603618]  __kmalloc+0x1a7/0x1c0
+[ 3223.603618]  alloc_netdev_mqs+0x62/0x300
+[ 3223.603618]  __tun_chr_ioctl+0x903/0xc50 [tun]
+[ 3223.603618]  tun_chr_compat_ioctl+0x10/0x20 [tun]
+[ 3223.603618]  compat_sys_ioctl+0x8f/0x10d0
+[ 3223.603618]  ia32_sysret+0x0/0x5
+[ 3223.603618] INFO: Freed in skb_release_data+0xe7/0xf0 age=3004 cpu=1 pid=0
+[ 3223.603618]  __slab_free+0x2d/0x28a
+[ 3223.603618]  kfree+0x114/0x140
+[ 3223.603618]  skb_release_data+0xe7/0xf0
+[ 3223.603618]  __kfree_skb+0x19/0xa0
+[ 3223.603618]  kfree_skb+0x44/0xb0
+[ 3223.603618]  ip_rcv_finish+0xd8/0x2c0
+[ 3223.603618]  ip_rcv+0x1f5/0x2b0
+[ 3223.603618]  __netif_receive_skb+0x32b/0x410
+[ 3223.603618]  netif_receive_skb+0x28/0x80
+[ 3223.603618]  napi_skb_finish+0x48/0x60
+[ 3223.603618]  napi_gro_receive+0xed/0x130
+[ 3223.603618]  nv_rx_process_optimized+0x135/0x270
+[ 3223.603618]  nv_napi_poll+0x84/0x5f0
+[ 3223.603618]  net_rx_action+0x111/0x200
+[ 3223.603618]  __do_softirq+0x99/0x210
+[ 3223.603618]  call_softirq+0x1c/0x30
+[ 3223.603618] INFO: Slab 0xffffea0005d26600 objects=13 used=9 fp=0xffff880174999290 flags=0x8000000000004081
+[ 3223.603618] INFO: Object 0xffff88017499ca40 @offset=19008 fp=0xffff880174999290
+[ 3223.603618] 
+[ 3223.603618] Bytes b4 ffff88017499ca30: 5f 25 0b 00 01 00 00 00 5a 5a 5a 5a 5a 5a 5a 5a  _%......ZZZZZZZZ
+[ 3223.603618] Object ffff88017499ca40: 74 75 6e 30 00 00 00 00 00 00 00 00 00 00 00 00  tun0............
+[ 3223.603618] Object ffff88017499ca50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ca60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ca70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ca80: 00 00 00 00 00 00 00 00 00 02 20 00 00 00 ad de  .......... .....
+[ 3223.603618] Object ffff88017499ca90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499caa0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cab0: 00 00 00 00 00 00 00 00 06 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cac0: 78 36 d8 81 ff ff ff ff 00 02 20 00 00 00 ad de  x6........ .....
+[ 3223.603618] Object ffff88017499cad0: d0 ca 99 74 01 88 ff ff d0 ca 99 74 01 88 ff ff  ...t.......t....
+[ 3223.603618] Object ffff88017499cae0: e0 ca 99 74 01 88 ff ff e0 ca 99 74 01 88 ff ff  ...t.......t....
+[ 3223.603618] Object ffff88017499caf0: 40 40 00 40 00 00 00 00 49 48 1b 40 00 00 00 00  @@.@....IH.@....
+[ 3223.603618] Object ffff88017499cb00: 49 48 1b 40 00 00 00 00 20 00 00 00 00 00 00 00  IH.@.... .......
+[ 3223.603618] Object ffff88017499cb10: 07 00 00 00 07 00 00 00 0d 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cb20: 0e 00 00 00 00 00 00 00 a4 02 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cb30: 82 0f 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cb40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cb50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cb60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cb70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cb80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cb90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cba0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cbb0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cbc0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cbd0: 00 00 00 00 00 00 00 00 40 89 03 a0 ff ff ff ff  ........@.......
+[ 3223.603618] Object ffff88017499cbe0: e0 87 03 a0 ff ff ff ff 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cbf0: 90 10 00 00 00 04 00 00 00 00 00 00 02 00 00 00  ................
+[ 3223.603618] Object ffff88017499cc00: dc 05 00 00 fe ff 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cc10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cc20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cc30: 00 00 06 06 00 00 00 00 38 cc 99 74 01 88 ff ff  ........8..t....
+[ 3223.603618] Object ffff88017499cc40: 38 cc 99 74 01 88 ff ff 00 00 00 00 00 00 00 00  8..t............
+[ 3223.603618] Object ffff88017499cc50: 50 cc 99 74 01 88 ff ff 50 cc 99 74 01 88 ff ff  P..t....P..t....
+[ 3223.603618] Object ffff88017499cc60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cc70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cc80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cc90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cca0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ccb0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ccc0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ccd0: d0 cc 99 74 01 88 ff ff d0 cc 99 74 01 88 ff ff  ...t.......t....
+[ 3223.603618] Object ffff88017499cce0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ccf0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cd00: 00 00 00 00 00 00 00 00 90 30 4d 76 01 88 ff ff  .........0Mv....
+[ 3223.603618] Object ffff88017499cd10: 20 47 2a 79 01 88 ff ff 01 00 00 00 01 00 00 00   G*y............
+[ 3223.603618] Object ffff88017499cd20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cd30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cd40: 38 f1 c1 6e 01 88 ff ff 01 00 00 00 01 00 00 00  8..n............
+[ 3223.603618] Object ffff88017499cd50: 80 1a c3 81 ff ff ff ff f4 01 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cd60: 03 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cd70: 0b 1b 0b 00 01 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cd80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cd90: 00 00 00 00 00 00 00 00 00 40 15 7b 01 88 ff ff  .........@.{....
+[ 3223.603618] Object ffff88017499cda0: a0 49 6d 81 ff ff ff ff 40 ca 99 74 01 88 ff ff  .Im.....@..t....
+[ 3223.603618] Object ffff88017499cdb0: ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cdc0: 00 01 10 00 00 00 ad de 00 02 20 00 00 00 ad de  .......... .....
+[ 3223.603618] Object ffff88017499cdd0: 00 00 00 00 00 00 00 00 00 02 20 00 00 00 ad de  .......... .....
+[ 3223.603618] Object ffff88017499cde0: e0 cd 99 74 01 88 ff ff e0 cd 99 74 01 88 ff ff  ...t.......t....
+[ 3223.603618] Object ffff88017499cdf0: 04 01 00 00 00 00 00 00 f0 6b 03 a0 ff ff ff ff  .........k......
+[ 3223.603618] Object ffff88017499ce00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ce10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ce20: 40 d0 c9 6e 01 88 ff ff 80 da a6 73 01 88 ff ff  @..n.......s....
+[ 3223.603618] Object ffff88017499ce30: 30 ce 99 74 01 88 ff ff 30 ce 99 74 01 88 ff ff  0..t....0..t....
+[ 3223.603618] Object ffff88017499ce40: 00 00 00 00 00 00 00 00 a8 81 06 7b 01 88 ff ff  ...........{....
+[ 3223.603618] Object ffff88017499ce50: 20 09 c0 81 ff ff ff ff 00 00 00 00 00 00 00 00   ...............
+[ 3223.603618] Object ffff88017499ce60: 00 00 00 00 0d 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ce70: 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499ce80: 80 ce 99 74 01 88 ff ff 80 ce 99 74 01 88 ff ff  ...t.......t....
+[ 3223.603618] Object ffff88017499ce90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cea0: 78 ce 99 74 01 88 ff ff 00 00 00 00 00 00 00 00  x..t............
+[ 3223.603618] Object ffff88017499ceb0: 00 00 00 00 00 00 00 00 40 ca 99 74 01 88 ff ff  ........@..t....
+[ 3223.603618] Object ffff88017499cec0: ff ff ff ff 00 00 00 00 c8 ce 99 74 01 88 ff ff  ...........t....
+[ 3223.603618] Object ffff88017499ced0: c8 ce 99 74 01 88 ff ff fe ff ff ff 00 00 00 00  ...t............
+[ 3223.603618] Object ffff88017499cee0: 02 02 00 00 00 00 00 00 e8 ce 99 74 01 88 ff ff  ...........t....
+[ 3223.603618] Object ffff88017499cef0: e8 ce 99 74 01 88 ff ff 00 00 00 00 00 00 00 00  ...t............
+[ 3223.603618] Object ffff88017499cf00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cf10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cf20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cf30: 00 00 00 00 00 00 00 00 38 cf 99 74 01 88 ff ff  ........8..t....
+[ 3223.603618] Object ffff88017499cf40: 38 cf 99 74 01 88 ff ff 00 00 00 00 00 00 00 00  8..t............
+[ 3223.603618] Object ffff88017499cf50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cf60: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cf70: 01 01 00 00 00 00 00 00 78 cf 99 74 01 88 ff ff  ........x..t....
+[ 3223.603618] Object ffff88017499cf80: 78 cf 99 74 01 88 ff ff 00 00 00 00 00 00 00 00  x..t............
+[ 3223.603618] Object ffff88017499cf90: 00 01 10 00 00 00 ad de 00 02 20 00 00 00 ad de  .......... .....
+[ 3223.603618] Object ffff88017499cfa0: 00 00 00 00 00 00 00 00 a0 02 c3 81 ff ff ff ff  ................
+[ 3223.603618] Object ffff88017499cfb0: c0 cf 99 74 01 88 ff ff 00 00 00 00 00 00 00 00  ...t............
+[ 3223.603618] Object ffff88017499cfc0: 20 03 c3 81 ff ff ff ff 00 00 00 00 00 00 00 00   ...............
+[ 3223.603618] Object ffff88017499cfd0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cfe0: 00 8f 03 a0 ff ff ff ff 00 00 01 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499cff0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d070: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d080: 00 00 00 00 00 00 00 00 41 00 00 00 ff ff ff ff  ........A.......
+[ 3223.603618] Object ffff88017499d090: ff ff ff ff 00 00 00 00 40 ca 99 74 01 88 ff ff  ........@..t....
+[ 3223.603618] Object ffff88017499d0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d0b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d0d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d0e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d0f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d100: 40 d1 99 74 01 88 ff ff 00 00 00 00 00 00 00 00  @..t............
+[ 3223.603618] Object ffff88017499d110: d8 cf b5 73 01 88 ff ff 00 00 00 00 00 00 00 00  ...s............
+[ 3223.603618] Object ffff88017499d120: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d130: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d140: 64 64 00 00 00 00 00 00 48 d1 99 74 01 88 ff ff  dd......H..t....
+[ 3223.603618] Object ffff88017499d150: 48 d1 99 74 01 88 ff ff 00 00 00 00 00 00 00 00  H..t............
+[ 3223.603618] Object ffff88017499d160: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d170: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d180: 0a 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d190: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d1a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d1b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d1c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d1d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d1e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d1f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d200: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d210: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d220: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Object ffff88017499d230: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+[ 3223.603618] Redzone ffff88017499d240: cb cc cc cc cc cc cc cc                          ........
+[ 3223.603618] Padding ffff88017499d380: 5a 5a 5a 5a 5a 5a 5a 5a                          ZZZZZZZZ
+[ 3223.603618] Pid: 3929, comm: sshd Not tainted 3.4.0-rc1+ #35
+[ 3223.603618] Call Trace:
+[ 3223.603618]  [<ffffffff810ea1c8>] ? print_section+0x38/0x40
+[ 3223.603618]  [<ffffffff810ea913>] print_trailer+0xe3/0x160
+[ 3223.603618]  [<ffffffff810eade7>] check_bytes_and_report+0xd7/0x110
+[ 3223.603618]  [<ffffffff810eafae>] check_object+0x18e/0x270
+[ 3223.603618]  [<ffffffff816cd534>] ? netdev_release+0x34/0x40
+[ 3223.603618]  [<ffffffff81819a78>] free_debug_processing+0xf1/0x1e7
+[ 3223.603618]  [<ffffffff81819b9b>] __slab_free+0x2d/0x28a
+[ 3223.603618]  [<ffffffff810ea48a>] ? set_track+0x5a/0x180
+[ 3223.603618]  [<ffffffff816cd534>] ? netdev_release+0x34/0x40
+[ 3223.603618]  [<ffffffff810ebd05>] ? init_object+0x45/0x80
+[ 3223.603618]  [<ffffffff816cd534>] ? netdev_release+0x34/0x40
+[ 3223.603618]  [<ffffffff810ebfa4>] kfree+0x114/0x140
+[ 3223.603618]  [<ffffffff816cd534>] netdev_release+0x34/0x40
+[ 3223.603618]  [<ffffffff814ded72>] device_release+0x22/0x90
+[ 3223.603618]  [<ffffffff8137689c>] kobject_release+0x4c/0xa0
+[ 3223.603618]  [<ffffffff8137675c>] kobject_put+0x2c/0x60
+[ 3223.603618]  [<ffffffff814debe2>] put_device+0x12/0x20
+[ 3223.603618]  [<ffffffff816b6e57>] free_netdev+0xb7/0xf0
+[ 3223.603618]  [<ffffffffa0036434>] tun_sock_destruct+0x14/0x20 [tun]
+[ 3223.603618]  [<ffffffff816a9af8>] __sk_free+0x18/0x140
+[ 3223.603618]  [<ffffffff816a9c9d>] sk_free+0x1d/0x30
+[ 3223.603618]  [<ffffffffa003635e>] tun_chr_close+0x5e/0xa0 [tun]
+[ 3223.603618]  [<ffffffff810f3242>] fput+0xd2/0x240
+[ 3223.603618]  [<ffffffff810efb71>] filp_close+0x61/0x90
+[ 3223.603618]  [<ffffffff810efc1b>] sys_close+0x7b/0xd0
+[ 3223.603618]  [<ffffffff81825179>] ia32_do_call+0x13/0x13
+[ 3223.603618] FIX kmalloc-2048: Restoring 0xffff88017499d240-0xffff88017499d240=0xcc
+[ 3223.603618] 
 
-How about delay the clearing of VIRTIO_NET_S_ANNOUNCE bit in the 
-workqueue and protect the updating with 
-spinlock_irqsave()/spinloc_irqrestore()? Then later notification would 
-be suppressed if the sending is not completed.
->>
->>   	if (vi->status == v)
->>   		return;
->>
->> +	if (v&  VIRTIO_NET_S_ANNOUNCE) {
->> +		v&= ~VIRTIO_NET_S_ANNOUNCE;
->> +		if (v&  VIRTIO_NET_S_LINK_UP)
->> +			schedule_work(&vi->announce);
-> I think we really want an nrt wq here - if this triggers
-> multiple times there's no good reason to try and run
-> the ack command many times in parallel.
-
-Yes.
->> +	}
->> +
->>   	vi->status = v;
->>
->>   	if (vi->status&  VIRTIO_NET_S_LINK_UP) {
->
->> @@ -1076,6 +1103,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->>   		goto free;
->>
->>   	INIT_DELAYED_WORK(&vi->refill, refill_work);
->> +	INIT_WORK(&vi->announce, announce_work);
->>   	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
->>   	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
->>
->> @@ -1187,6 +1215,7 @@ static int virtnet_freeze(struct virtio_device *vdev)
->>   	virtqueue_disable_cb(vi->svq);
->>   	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ))
->>   		virtqueue_disable_cb(vi->cvq);
->> +	cancel_work_sync(&vi->announce);
-> A config change event can trigger after this point,
-> so cancel here won't be effective.
-> Possibly, we need state like config_enable in the block
-> device.
-
-Probably needed.
->
-> Also, what exactly will happen on suspend?
-> As we reset, ANNOUCE bit will be clear so -
-> do we forget to announce? Probably not good ...
-
-This problem should be the same as normal suspending/resuming, if user 
-want to announce the link they should use arp_notify instead.
->
->>
->>   	netif_device_detach(vi->dev);
->>   	cancel_delayed_work_sync(&vi->refill);
->> @@ -1233,6 +1262,7 @@ static unsigned int features[] = {
->>   	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
->>   	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
->>   	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
->> +	VIRTIO_NET_F_GUEST_ANNOUNCE,
->>   };
->>
->>   static struct virtio_driver virtio_net_driver = {
->> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
->> index 970d5a2..383e8a0 100644
->> --- a/include/linux/virtio_net.h
->> +++ b/include/linux/virtio_net.h
->> @@ -49,8 +49,10 @@
->>   #define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
->>   #define VIRTIO_NET_F_CTRL_VLAN	19	/* Control channel VLAN filtering */
->>   #define VIRTIO_NET_F_CTRL_RX_EXTRA 20	/* Extra RX mode control support */
->> +#define VIRTIO_NET_F_GUEST_ANNOUNCE 21  /* Guest can send gratituous packet */
-> Rusty aligned the comments using tabs so let's do it here too?
-> A better comment 'can announce device on the network'.
->
->>
->>   #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
->> +#define VIRTIO_NET_S_ANNOUNCE   2	/* Announcement is needed */
-> why 3 spaces before the value here?
->
->>
->>   struct virtio_net_config {
->>   	/* The config defining mac address (if VIRTIO_NET_F_MAC) */
->> @@ -152,4 +154,15 @@ struct virtio_net_ctrl_mac {
->>    #define VIRTIO_NET_CTRL_VLAN_ADD             0
->>    #define VIRTIO_NET_CTRL_VLAN_DEL             1
->>
->> +/*
->> + * Control link announce acknowledgement
->> + *
->> + * The command VIRTIO_NET_CTRL_ANNOUNCE_ACK is used to indicate that
->> + * driver has recevied the notification and device would clear the
-> s/recevied/received/
->
-> A bit clearer to replace 'and' with ; here.
->
->> + * VIRTIO_NET_S_ANNOUNCE bit in the status filed after it received
-> s/filed/field/
-> s/received/receives/
->
->> + * this command.
->> + */
->> +#define VIRTIO_NET_CTRL_ANNOUNCE       3
->> + #define VIRTIO_NET_CTRL_ANNOUNCE_ACK         0
->> +
->>   #endif /* _LINUX_VIRTIO_NET_H */
->>
->> _______________________________________________
->> Virtualization mailing list
->> Virtualization@lists.linux-foundation.org
->> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+Simon-
