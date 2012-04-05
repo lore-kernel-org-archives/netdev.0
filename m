@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] bonding: properly unset current_arp_slave on slave
- link up
-Date: Thu, 05 Apr 2012 19:08:38 -0400 (EDT)
-Message-ID: <20120405.190838.33439049975921271.davem@davemloft.net>
-References: <20120405134743.GB16870@darkmag.usersys.redhat.com>
+Subject: Re: [PATCH] MAINTAINERS: update for Marvell Ethernet drivers
+Date: Thu, 05 Apr 2012 19:09:20 -0400 (EDT)
+Message-ID: <20120405.190920.1554178955264196631.davem@davemloft.net>
+References: <20120402155947.7167ef2d@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	linux-kernel@vger.kernel.org
-To: vfalico@redhat.com
+Cc: mlindner@marvell.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60944 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:60951 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755863Ab2DEXIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 19:08:46 -0400
-In-Reply-To: <20120405134743.GB16870@darkmag.usersys.redhat.com>
+	with ESMTP id S1752115Ab2DEXJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 19:09:24 -0400
+In-Reply-To: <20120402155947.7167ef2d@s6510.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Thu, 5 Apr 2012 15:47:43 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 2 Apr 2012 15:59:47 -0700
 
-> When a slave comes up, we're unsetting the current_arp_slave without
-> removing active flags from it, which can lead to situations where we have
-> more than one slave with active flags in active-backup mode.
+> Marvell has agreed to do maintenance on the sky2 driver.
+>    * Add the developer to the maintainers file
+>    * Remove the old reference to the long gone (sk98lin) driver
+>    * Rearrange to fit current topic organization
 > 
-> To avoid this situation we must remove the active flags from a slave before
-> removing it as a current_arp_slave.
-> 
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied, thanks.
+Applied.
