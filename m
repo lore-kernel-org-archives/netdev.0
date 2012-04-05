@@ -1,163 +1,129 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: allow splice() to build full TSO packets
-Date: Thu, 05 Apr 2012 15:05:35 +0200
-Message-ID: <1333631135.18626.606.camel@edumazet-glaptop>
-References: <1333481821.18626.322.camel@edumazet-glaptop>
-	 <20120403.172126.672236532461758456.davem@davemloft.net>
-	 <1333488689.18626.331.camel@edumazet-glaptop>
-	 <20120403.173614.962252876842659412.davem@davemloft.net>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c,
+ take two
+Date: Thu, 5 Apr 2012 09:24:43 -0400
+Message-ID: <4F7D9D1B.3000801@windriver.com>
+References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>	<4F4B2BB6.900@gmail.com>	<CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com>	<CAMuHMdX=4Vn=OsNTp04YcrhDOwz8NOFrWKankj2+3utvEfE-2A@mail.gmail.com>	<4F5A0679.1020604@windriver.com>	<4F7816B0.3090802@gmail.com>	<4F7CB31D.8060002@windriver.com> <CAMuHMdWSzG4npwjpJ=cwNFKhyBZjvgPn1sp6nZ2re6QsRWPpXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
-	ycheng@google.com, hkchu@google.com, maze@google.com,
-	maheshb@google.com, ilpo.jarvinen@helsinki.fi, nanditad@google.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Schmitz <schmitzmic@googlemail.com>,
+	<linux-m68k@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:63662 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751840Ab2DENFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 09:05:41 -0400
-Received: by wgbdr13 with SMTP id dr13so1300396wgb.1
-        for <netdev@vger.kernel.org>; Thu, 05 Apr 2012 06:05:39 -0700 (PDT)
-In-Reply-To: <20120403.173614.962252876842659412.davem@davemloft.net>
+Received: from mail.windriver.com ([147.11.1.11]:49523 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752760Ab2DENYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 09:24:52 -0400
+In-Reply-To: <CAMuHMdWSzG4npwjpJ=cwNFKhyBZjvgPn1sp6nZ2re6QsRWPpXg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-03 at 17:36 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 03 Apr 2012 23:31:29 +0200
->=20
-> > The code in tcp_sendmsg() and do_tcp_sendpages() is similar (actual=
-ly
-> > probably copy/pasted) but the thing is tcp_sendmsg() is called once=
- per
-> > sendmsg() call (and the push logic is OK at the end of it), while a
-> > single splice() system call can call do_tcp_sendpages() 16 times (o=
-r
-> > even more if pipe buffer was extended by fcntl(F_SETPIPE_SZ))
->=20
-> Ok, so this means that in essence the tcp_mark_push should also only
-> be done in the final sendpage call.
->=20
-> And since I'm wholly convinced that the URG stuff is a complete
-> "don't care" for this path, I'm convinced your patch is the right
-> thing to do.
->=20
-> Applied to 'net' and queued up for -stable, thanks Eric.
+On 12-04-05 05:28 AM, Geert Uytterhoeven wrote:
+> On Wed, Apr 4, 2012 at 22:46, Paul Gortmaker
+> <paul.gortmaker@windriver.com> wrote:
+>> On 12-04-01 04:49 AM, Michael Schmitz wrote:
+>>>> And on re-reading the comments in the other part of the patch, i.e.
+>>>> "...emulates the card interrupt via a timer"  --perhaps the driver
+>>>> should be just fixed to support generic netpoll, instead of adding
+>>>> an arch specific thing that amounts to netpoll.  Then anyone can
+>>>> attempt to limp along and use one of these ancient relics w/o IRQ.
+>>>>
+>>> Here's take two of my patch to convert the m68k Atari ROM port Ethernet
+>>> driver to use mainstream ne.c, with minimal changes to the core NE2000
+>>> code.
+>>>
+>>> In particular:
+>>>
+>>> Changes to core net code:
+>>> * add a platform specific IRQ flag, so ne.c can share a hardware or
+>>> timer interrupt with some other interrupt source.
+>>>
+>>> Changes to arch/m68k code:
+>>> * register the 8390 platform device on Atari only if the hardware is present
+>>> * retain the old driver (atari_ethernec.c in Geert's tree) under a
+>>> different config option, to be removed soon.
+>>>
+>>> Regarding your suggestion that netpoll be used instead of a dedicated
+>>> timer interrupt: no changes to ne.c or 8390p.c are required to use
+>>> netpoll, it all works out of the box. All that is needed to use the
+>>> driver with netpoll is setting the device interrupt to some source that
+>>> can be registered, and enabling CONFIG_NETPOLL. Interrupt rate and hence
+>>> throughput is lower with netpoll though, which is why I still prefer the
+>>> dedicated timer option.
+>>
+>> How much lower?  Enough to matter?  Implicit in that question is
+>> the assumption that this is largely a hobbyist platform and nobody
+>> is using it in a closet to route gigabytes of traffic.
+> 
+> One other thing we could do is increase CONFIG_HZ to 250.
+> 
+>> Also, the only advantage to modifying ne.c is to allow dumping
+>> the old driver.  What is the "remove soon" plan?  Any reason
+>> for it to not be synchronous?  That would eliminate the Kconfig
+>> churn and the introduction of the _OLD option.  Modifying ne.c
+>> and then deciding to keep the old driver because it is "faster"
+>> would make this change pointless.
+> 
+> From my point of view, "remove soon" means it will never hit mainline.
 
-Hmm, thinking again about this, I did more tests and it appears we need
-to differentiate the SPLICE_F_MORE flag (user request) and the internal
-marker provided by splice logic (handling a batch of pages)
+Can you clarify what "it" is?   It isn't clear to me if you
+mean the _removal_ will never hit mainline, or the transient
+renamed "old" driver will never hit mainline.
 
-A program doing splice(... SPLICE_F_MORE) should really call tcp_push()
-at the end of its work.
+If the former, then there is no point pursuing this any further
+as I said above.
 
-Thanks
+If the latter, then the commit sent out for review should have
+no instances of this "renaming to old" related changes.
 
-[PATCH] tcp: tcp_sendpages() should call tcp_push() once
+Thanks,
+Paul.
 
-commit 2f533844242 (tcp: allow splice() to build full TSO packets) adde=
-d
-a regression for splice() calls using SPLICE_F_MORE.
-
-We need to call tcp_flush() at the end of the last page processed in
-tcp_sendpages(), or else transmits can be deferred and future sends
-stall.
-
-Add a new internal flag, MSG_SENDPAGE_NOTLAST, acting like MSG_MORE, bu=
-t
-with different semantic.
-
-=46or all sendpage() providers, its a transparent change. Only
-sock_sendpage() and tcp_sendpages() can differentiate the two different
-flags provided by pipe_to_sendpage()
-
-Reported-by: Tom Herbert <therbert@google.com>
-Cc: Nandita Dukkipati <nanditad@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: H.K. Jerry Chu <hkchu@google.com>
-Cc: Maciej =C5=BBenczykowski <maze@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>
-Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail>com>
----
- fs/splice.c            |    5 ++++-
- include/linux/socket.h |    2 +-
- net/ipv4/tcp.c         |    2 +-
- net/socket.c           |    6 +++---
- 4 files changed, 9 insertions(+), 6 deletions(-)
-
-diff --git a/fs/splice.c b/fs/splice.c
-index 5f883de..f847684 100644
---- a/fs/splice.c
-+++ b/fs/splice.c
-@@ -30,6 +30,7 @@
- #include <linux/uio.h>
- #include <linux/security.h>
- #include <linux/gfp.h>
-+#include <linux/socket.h>
-=20
- /*
-  * Attempt to steal a page from a pipe buffer. This should perhaps go =
-into
-@@ -690,7 +691,9 @@ static int pipe_to_sendpage(struct pipe_inode_info =
-*pipe,
- 	if (!likely(file->f_op && file->f_op->sendpage))
- 		return -EINVAL;
-=20
--	more =3D (sd->flags & SPLICE_F_MORE) || sd->len < sd->total_len;
-+	more =3D (sd->flags & SPLICE_F_MORE) ? MSG_MORE : 0;
-+	if (sd->len < sd->total_len)
-+		more |=3D MSG_SENDPAGE_NOTLAST;
- 	return file->f_op->sendpage(file, buf->page, buf->offset,
- 				    sd->len, &pos, more);
- }
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index da2d3e2..b84bbd4 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -265,7 +265,7 @@ struct ucred {
- #define MSG_NOSIGNAL	0x4000	/* Do not generate SIGPIPE */
- #define MSG_MORE	0x8000	/* Sender will send more */
- #define MSG_WAITFORONE	0x10000	/* recvmmsg(): block until 1+ packets a=
-vail */
--
-+#define MSG_SENDPAGE_NOTLAST 0x20000 /* sendpage() internal : not the =
-last page */
- #define MSG_EOF         MSG_FIN
-=20
- #define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exit for file
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 2ff6f45..5d54ed3 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -860,7 +860,7 @@ wait_for_memory:
- 	}
-=20
- out:
--	if (copied && !(flags & MSG_MORE))
-+	if (copied && !(flags & MSG_SENDPAGE_NOTLAST))
- 		tcp_push(sk, flags, mss_now, tp->nonagle);
- 	return copied;
-=20
-diff --git a/net/socket.c b/net/socket.c
-index 484cc69..851edcd 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -811,9 +811,9 @@ static ssize_t sock_sendpage(struct file *file, str=
-uct page *page,
-=20
- 	sock =3D file->private_data;
-=20
--	flags =3D !(file->f_flags & O_NONBLOCK) ? 0 : MSG_DONTWAIT;
--	if (more)
--		flags |=3D MSG_MORE;
-+	flags =3D (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
-+	/* more is a combination of MSG_MORE and MSG_SENDPAGE_NOTLAST */
-+	flags |=3D more;
-=20
- 	return kernel_sendpage(sock, page, offset, size, flags);
- }
+> 
+>>> diff --git a/drivers/net/ethernet/8390/8390.h
+>>> b/drivers/net/ethernet/8390/8390.h
+>>> index ef325ff..9416245 100644
+>>> --- a/drivers/net/ethernet/8390/8390.h
+>>> +++ b/drivers/net/ethernet/8390/8390.h
+>>> @@ -32,6 +32,14 @@ extern void ei_poll(struct net_device *dev);
+>>>  extern void eip_poll(struct net_device *dev);
+>>>  #endif
+>>>
+>>> +/* Some platforms may need special IRQ flags */
+>>> +#if IS_ENABLED(CONFIG_ATARI_ETHERNEC)
+>>> +#  define EI_IRQ_FLAGS    IRQF_SHARED
+>>> +#endif
+>>> +
+>>> +#ifndef EI_IRQ_FLAGS
+>>> +#  define EI_IRQ_FLAGS    0
+>>> +#endif
+>>
+>> This seems more klunky than it needs to be.  If we assume that anyone
+>> building ne.c on atari is hence trying to drive an ethernec device
+>> than it can just be
+>>
+>> #ifdef CONFIG_ATARI
+>> #define EI_IRQ_FLAGS    IRQF_SHARED
+>> #else
+>> #define EI_IRQ_FLAGS    0
+>> #endif
+> 
+> Indeed, with a small modification (keep multi-platform kernels in mind):
+> 
+> #ifdef CONFIG_ATARI
+> #define EI_IRQ_FLAGS    (MACH_IS_ATARI ? IRQF_SHARED : 0)
+> #else
+> #define EI_IRQ_FLAGS    0
+> #endif
+> 
+> Gr{oetje,eeting}s,
+> 
+>                         Geert
+> 
+> --
+> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+> 
+> In personal conversations with technical people, I call myself a hacker. But
+> when I'm talking to journalists I just say "programmer" or something like that.
+>                                 -- Linus Torvalds
