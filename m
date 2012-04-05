@@ -1,37 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: bridge: Do not send queries on multicast group leaves
-Date: Thu, 5 Apr 2012 08:58:06 +0800
-Message-ID: <20120405005805.GA17810@gondor.apana.org.au>
-References: <20120404110119.GA11576@gondor.apana.org.au> <CAA93jw658iHuuYWSz7QrV3ZHOvn1gL7DxAtFfQ0gos6jZjTKiw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v8 0/2] Ethernet drivers for WIZnet chips
+Date: Wed, 04 Apr 2012 21:15:06 -0400 (EDT)
+Message-ID: <20120404.211506.929057223227809703.davem@davemloft.net>
+References: <1333524216-23488-1-git-send-email-msink@permonline.ru>
+	<1333540660-30551-1-git-send-email-msink@trikom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:45596 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757211Ab2DEA6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Apr 2012 20:58:11 -0400
-Content-Disposition: inline
-In-Reply-To: <CAA93jw658iHuuYWSz7QrV3ZHOvn1gL7DxAtFfQ0gos6jZjTKiw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	broonie@opensource.wolfsonmicro.com, msink@permonline.ru
+To: msink@trikom.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1333540660-30551-1-git-send-email-msink@trikom.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 04, 2012 at 08:52:52AM -0700, Dave Taht wrote:
-> 
-> 1) Has anyone seen linux working as a multicast router of late? because I
-> sure haven't.
-
-Linux works as a multicast router.  The functionality is in
-user-space and has nothing to do with this whatsoever.
- 
-> 2) Does this bridge code change break existing applications of IGMP over a
-> lonely bridge?
-
-No.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+RnJvbTogTWlrZSBTaW5rb3Zza3kgPG1zaW5rQHRyaWtvbS5ydT4NCkRhdGU6IFdlZCwgIDQgQXBy
+IDIwMTIgMTc6NTc6MzggKzA2MDANCg0KPiBGcm9tOiBNaWtlIFNpbmtvdnNreSA8bXNpbmtAcGVy
+bW9ubGluZS5ydT4NCj4gDQo+IEJhc2VkIG9uIG9yaWdpbmFsIGRyaXZlciBmcm9tIGNoaXAgbWFu
+dWZhY3R1cmVyLCBidXQgbmVhcmx5IGZ1bGwgcmV3aXRlLg0KPiBUZXN0ZWQgYW5kIHVzZWQgaW4g
+cHJvZHVjdGlvbiB3aXRoIEJsYWNrZmluIEJGNTMxIGVtYmVkZGVkIHByb2Nlc3Nvci4NCj4gDQo+
+IFNpZ25lZC1vZmYtYnk6IE1pa2UgU2lua292c2t5IDxtc2lua0BwZXJtb25saW5lLnJ1Pg0KDQpJ
+IGRvbid0IHNlZSB0aGUgYXBwcm9wcmlhdGUgY2hhbmdlcyBpbiB5b3VyIHBhdGNoZXMgdG8gbWFr
+ZQ0Kc3VyZSB0aGF0IGRyaXZlcnMvbmV0L2V0aGVybmV0L3tLY29uZmlnLE1ha2VmaWxlfSBjb25z
+aWRlcg0KYW5kIHRyYXZlcnNlIGRvd24gaW50byB0aGUgd2l6bmV0LyBzdWJkaXJlY3RvcnkuDQoN
+CkZ1cnRoZXJtb3JlLCBvbmNlIHRoYXQgaXMgZml4ZWQgdGhlc2UgZHJpdmVycyBnZW5lcmF0ZSB3
+YXJuaW5ncw0Kd2hlbiBidWlsdDoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvd2l6bmV0L3c1MzAw
+LmM6NzA4Ojg6IHdhcm5pbmc6IGluaXRpYWxpemF0aW9uIGZyb20gaW5jb21wYXRpYmxlIHBvaW50
+ZXIgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KZHJpdmVycy9uZXQvZXRoZXJuZXQvd2l6bmV0
+L3c1MzAwLmM6NzA4Ojg6IHdhcm5pbmc6IChuZWFyIGluaXRpYWxpemF0aW9uIGZvciChdzUzMDBf
+cG1fb3BzLnN1c3BlbmSiKSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvd2l6bmV0L3c1MzAwLmM6NzA4Ojg6IHdhcm5pbmc6IGluaXRpYWxpemF0aW9uIGZyb20gaW5j
+b21wYXRpYmxlIHBvaW50ZXIgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvd2l6bmV0L3c1MzAwLmM6NzA4Ojg6IHdhcm5pbmc6IChuZWFyIGluaXRpYWxpemF0
+aW9uIGZvciChdzUzMDBfcG1fb3BzLnJlc3VtZaIpIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2
+ZXJzL25ldC9ldGhlcm5ldC93aXpuZXQvdzUzMDAuYzo3MDg6ODogd2FybmluZzogaW5pdGlhbGl6
+YXRpb24gZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRd
+DQpkcml2ZXJzL25ldC9ldGhlcm5ldC93aXpuZXQvdzUzMDAuYzo3MDg6ODogd2FybmluZzogKG5l
+YXIgaW5pdGlhbGl6YXRpb24gZm9yIKF3NTMwMF9wbV9vcHMuZnJlZXploikgW2VuYWJsZWQgYnkg
+ZGVmYXVsdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L3dpem5ldC93NTMwMC5jOjcwODo4OiB3YXJu
+aW5nOiBpbml0aWFsaXphdGlvbiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJs
+ZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L3dpem5ldC93NTMwMC5jOjcwODo4
+OiB3YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoXc1MzAwX3BtX29wcy50aGF3oikg
+W2VuYWJsZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L3dpem5ldC93NTMwMC5j
+OjcwODo4OiB3YXJuaW5nOiBpbml0aWFsaXphdGlvbiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVy
+IHR5cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L3dpem5ldC93
+NTMwMC5jOjcwODo4OiB3YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoXc1MzAwX3Bt
+X29wcy5wb3dlcm9mZqIpIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9ldGhlcm5l
+dC93aXpuZXQvdzUzMDAuYzo3MDg6ODogd2FybmluZzogaW5pdGlhbGl6YXRpb24gZnJvbSBpbmNv
+bXBhdGlibGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9l
+dGhlcm5ldC93aXpuZXQvdzUzMDAuYzo3MDg6ODogd2FybmluZzogKG5lYXIgaW5pdGlhbGl6YXRp
+b24gZm9yIKF3NTMwMF9wbV9vcHMucmVzdG9yZaIpIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQoNCkl0
+IHNlZW1zIHRoYXQgdGhlIGFyZ3VtZW50cyBhbmQgcmV0dXJuIHR5cGVzIGZvciB0aGVzZSBvcGVy
+YXRpb25zIGhhdmUNCmNoYW5nZWQgc2luY2UgeW91IHdvcmtlZCBvbiB0aGVzZSBwYXRjaGVzLCBi
+dXQgdGhpcyBzaG91bGQgYmUgZWFzeQ0KdG8gZml4IHVwLg0KDQpQbGVhc2UgY3VyZSB0aGVzZSB0
+d28gaXNzdWVzIGFuZCBJJ2xsIGhhcHBpbHkgcHV0IHRoZXNlIG5ldyBkcml2ZXJzDQppbnRvIG5l
+dC1uZXh0LCBhbmQgbWVhbndoaWxlIHlvdSBjYW4gY29udGludWUgdG8gd29yayB3aXRoIEVyaWMN
+CkR1bWF6ZXQgdG8gY29ycmVjdCB0aGUgVFggZmxvdyBjb250cm9sIGFuZCBsb2NraW5nIGlzc3Vl
+cy4NCg0KVGhhbmtzLg0K
