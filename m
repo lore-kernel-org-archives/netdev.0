@@ -1,59 +1,63 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [RFC PATCH 2/2] PID-based packet filtering support
-Date: Thu, 5 Apr 2012 12:29:44 -0400
-Message-ID: <CAAsGZS5ueTBGM7fj2RcRFX-8NAryH81stfFFZZip2hnRQzHRwg@mail.gmail.com>
-References: <cover.1333466900.git.nuno.martins@caixamagica.pt>
-	<19b9f7a0f38c1bab367da6f6cf622c8c2b3a4920.1333466900.git.nuno.martins@caixamagica.pt>
-	<CAAsGZS4Ndue7pVOohEHyWimffZECbjVLF40wiGkGXTswJimPCA@mail.gmail.com>
-	<CALKxAXVK9EhJiNOuq0JYqWiw75q3TYCScp+bGf-qqF_irKYtbA@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 3/3] ixgbe: add syfs interface for to export read
+ only driver information
+Date: Thu, 5 Apr 2012 17:32:05 +0100
+Message-ID: <1333643525.2652.10.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1333622878-3855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1333622878-3855-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <4F7D8DD4.5080205@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Alfredo Matos <alfredo.matos@caixamagica.pt>,
-	Paulo Trezentos <paulo.trezentos@caixamagica.pt>
-To: Nuno Martins <nuno.martins@caixamagica.pt>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:46937 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166Ab2DEQ3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 12:29:45 -0400
-Received: by pbcun15 with SMTP id un15so1730657pbc.19
-        for <netdev@vger.kernel.org>; Thu, 05 Apr 2012 09:29:44 -0700 (PDT)
-In-Reply-To: <CALKxAXVK9EhJiNOuq0JYqWiw75q3TYCScp+bGf-qqF_irKYtbA@mail.gmail.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:57060 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752087Ab2DEQcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 12:32:12 -0400
+In-Reply-To: <4F7D8DD4.5080205@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 5, 2012 at 5:41 AM, Nuno Martins
-<nuno.martins@caixamagica.pt> wrote:
-> Our tests with 1024 node tree gives us something like 1.3 us on
-> average. Your suggestion makes a lot of sense, and we will definitely
-> look into.
-> This doesn't seem hard to do as we are considering introducing a pid
-> based hash table, with a tree in each entry, which can and possibly
-> should be pre-allocated.
+On Thu, 2012-04-05 at 14:19 +0200, Florian Fainelli wrote:
+> Hi,
+>=20
+> Le 04/05/12 12:47, Jeff Kirsher a =C3=A9crit :
+> > From: Don Skidmore<donald.c.skidmore@intel.com>
+> >
+> > This patch exports non-thermal (which was done via hwmon in an earl=
+ier
+> > patch) data to syfs.  All of the fields are read only as this inter=
+face
+> > is to only export driver data.
+> >
+> > Signed-off-by: Don Skidmore<donald.c.skidmore@intel.com>
+> > Tested-by: Stephen Ko<stephen.s.ko@intel.com>
+> > Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+> > ---
+>=20
+> I only looked briefly at the exported attributes, but most of them ca=
+n=20
+> already be queried using ethtool, can't they?
+[...]
 
-Also as a defensive mechanism(and if not present already) it may not
-be a bad idea to add the following check whenever you are adding or
-deleting a node:
+I agree, it looks like most of these are:
 
-if (pidmonitor->curr_num_monitored_pid_nodes >
-pidmax_or_whichever_runtime_max_scheduler_uses) {
-   WARN_ONCE(....);
-    delete_all_nodes_from_the_tree(); // including the current one -
-if you were in the middle of a new insert.
-    // This way at least your monitoring tool might pick this up and
-the user/sysadmin might dig into it.
-}
+(1) already exposed through ethtool commands (ETHTOOL_GSET,
+ETHTOOL_GDRVINFO, ETHTOOL_GLINK and ETHTOOL_GPERMADDR), or
+(2) already exposed through rtnetlink or the net device in sysfs, or
+(3) statistics that should be exposed through ETHTOOL_GSTATS
 
-Note: pidmonitor is some global struct and
-curr_num_monitored_pid_nodes == number of pids you are currently
-monitoring.
+I imagine there are some that don't fall into those categories, but I
+don't see why they should *all* be exposed in a non-standard and/or
+redundant way.
 
-By adding this minimal code, if there are any stray nodes in the
-tree(over a period of time) because of a bug in the clean up logic
-then we might be able to detect it.
+Ben.
 
-
-> Nuno Martins
-
-Chetan
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
