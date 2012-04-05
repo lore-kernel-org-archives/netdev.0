@@ -1,38 +1,39 @@
-From: Florian Weimer <fw@deneb.enyo.de>
-Subject: Re: [PATCH] Implement IP_EVIL socket option (RFC 3514)
-Date: Thu, 05 Apr 2012 08:01:49 +0200
-Message-ID: <874nsyk982.fsf@mid.deneb.enyo.de>
-References: <1333284791-5363-1-git-send-email-martin@lucina.net>
-	<87r4w3nw7n.fsf@mid.deneb.enyo.de>
-	<20120404201821.GC6589@ZenIV.linux.org.uk>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next v3 5/5] r8169: support RTL8411
+Date: Thu, 5 Apr 2012 14:06:14 +0800
+Message-ID: <52E71C7B42A44FB1A8556BB6B75CD9A0@realtek.com.tw>
+References: <1333089184-1773-5-git-send-email-hayeswang@realtek.com> <1333090086-1815-1-git-send-email-hayeswang@realtek.com> <20120330072521.GA11548@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Martin Lucina <martin@lucina.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120404201821.GC6589@ZenIV.linux.org.uk> (Al Viro's message of
-	"Wed, 4 Apr 2012 21:18:21 +0100")
+In-Reply-To: <20120330072521.GA11548@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Al Viro:
+Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Friday, March 30, 2012 3:25 PM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH net-next v3 5/5] r8169: support RTL8411
+> 
+> Hayes Wang <hayeswang@realtek.com> :
+> > Support the new chip RTL8411.
+> > 
+> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> 
+> I do not see any change related to rtl_init_jumbo_ops. If 
+> NULL is ok for
+> jumbo_{enable / disable}, it deserves to be outlined in the commit
+> message.
+> 
+> No reviewer can figure what's going on otherwise.
+> 
 
-> On Wed, Apr 04, 2012 at 09:17:00PM +0200, Florian Weimer wrote:
->> * Martin Lucina:
->> 
->> > This patch implements the IP_EVIL socket option, allowing user-space
->> > applications to set the Security Flag in the IPv4 Header, aka "evil" bit,
->> > as defined in RFC 3514.
->> 
->> I need this to fix a security issue.  Could this be merged for real,
->> please?
->
-> I would suggest switching away from your RFC1149 link - looks like your mail
-> took 3 days on the way out...
-
-Sorry, I saw it just now.
-
-The idea is to change the JVM to set IP_EVIL when an applet creates a
-socket, so that this socket cannot be used to trick firewalls to open
-up access to totally unrelated services.
+There is nothing to do for rtl_init_jumbo_ops. It is all right for keeping NULL.
+Do I need to resend this patch?
+ 
+Best Regards,
+Hayes
