@@ -1,83 +1,110 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [3.4-rc1][Regression][network wireless] 'task xxxx blocked for
- more than 120 seconds' after resume
-Date: Thu, 05 Apr 2012 22:23:29 +0200
-Message-ID: <1333657409.3494.22.camel@jlt3.sipsolutions.net>
-References: <201204022157.05598.maciej.rutecki@gmail.com>
-	 <201204052037.37497.maciej.rutecki@gmail.com>
-	 <1333652183.3494.21.camel@jlt3.sipsolutions.net>
-	 <201204052208.21270.maciej.rutecki@gmail.com>
-	 (sfid-20120405_220856_703301_4FEFCE15)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, linux-wireless@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: maciej.rutecki@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:42719 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755778Ab2DEUXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 16:23:33 -0400
-In-Reply-To: <201204052208.21270.maciej.rutecki@gmail.com> (sfid-20120405_220856_703301_4FEFCE15)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH] netfilter: ipvs: Verify that IP_VS protocol has been registered
+Date: Thu,  5 Apr 2012 19:24:33 -0400
+Message-ID: <1333668273-8873-1-git-send-email-levinsasha928@gmail.com>
+Cc: davej@redhat.com, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <levinsasha928@gmail.com>
+To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	kaber@trash.net, davem@davemloft.net
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-04-05 at 22:08 +0200, Maciej Rutecki wrote:
+The registration of a protocol might fail, there were no checks
+and all registrations were assumed to be correct. This lead to
+NULL ptr dereferences when apps tried registering.
 
-> Dmesg when CONFIG_LOCKDEP is set:
-> 
-> http://mrutecki.pl/download/kernel/3.4-rc1/netdev_resume/dmesg-lockdep.txt
+For example:
 
-Looks like rtl8169's fault:
+[ 1293.226051] BUG: unable to handle kernel NULL pointer dereference at 0000000000000018
+[ 1293.227038] IP: [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+[ 1293.227038] PGD 391de067 PUD 6c20b067 PMD 0
+[ 1293.227038] Oops: 0000 [#1] PREEMPT SMP
+[ 1293.227038] CPU 1
+[ 1293.227038] Pid: 19609, comm: trinity Tainted: G        W    3.4.0-rc1-next-20120405-sasha-dirty #57
+[ 1293.227038] RIP: 0010:[<ffffffff822aacb0>]  [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+[ 1293.227038] RSP: 0018:ffff880038c1dd18  EFLAGS: 00010286
+[ 1293.227038] RAX: ffffffffffffffc0 RBX: 0000000000001500 RCX: 0000000000010000
+[ 1293.227038] RDX: 0000000000000000 RSI: ffff88003a2d5888 RDI: 0000000000000282
+[ 1293.227038] RBP: ffff880038c1dd48 R08: 0000000000000000 R09: 0000000000000000
+[ 1293.227038] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88003a2d5668
+[ 1293.227038] R13: ffff88003a2d5988 R14: ffff8800696a8ff8 R15: 0000000000000000
+[ 1293.227038] FS:  00007f01930d9700(0000) GS:ffff88007ce00000(0000) knlGS:0000000000000000
+[ 1293.227038] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[ 1293.227038] CR2: 0000000000000018 CR3: 0000000065dfc000 CR4: 00000000000406e0
+[ 1293.227038] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[ 1293.227038] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[ 1293.227038] Process trinity (pid: 19609, threadinfo ffff880038c1c000, task ffff88002dc73000)
+[ 1293.227038] Stack:
+[ 1293.227038]  ffff880038c1dd48 00000000fffffff4 ffff8800696aada0 ffff8800694f5580
+[ 1293.227038]  ffffffff8369f1e0 0000000000001500 ffff880038c1dd98 ffffffff822a716b
+[ 1293.227038]  0000000000000000 ffff8800696a8ff8 0000000000000015 ffff8800694f5580
+[ 1293.227038] Call Trace:
+[ 1293.227038]  [<ffffffff822a716b>] ip_vs_app_inc_new+0xdb/0x180
+[ 1293.227038]  [<ffffffff822a7258>] register_ip_vs_app_inc+0x48/0x70
+[ 1293.227038]  [<ffffffff822b2fea>] __ip_vs_ftp_init+0xba/0x140
+[ 1293.227038]  [<ffffffff821c9060>] ops_init+0x80/0x90
+[ 1293.227038]  [<ffffffff821c90cb>] setup_net+0x5b/0xe0
+[ 1293.227038]  [<ffffffff821c9416>] copy_net_ns+0x76/0x100
+[ 1293.227038]  [<ffffffff810dc92b>] create_new_namespaces+0xfb/0x190
+[ 1293.227038]  [<ffffffff810dca21>] unshare_nsproxy_namespaces+0x61/0x80
+[ 1293.227038]  [<ffffffff810afd1f>] sys_unshare+0xff/0x290
+[ 1293.227038]  [<ffffffff8187622e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+[ 1293.227038]  [<ffffffff82665539>] system_call_fastpath+0x16/0x1b
+[ 1293.227038] Code: 89 c7 e8 34 91 3b 00 89 de 66 c1 ee 04 31 de 83 e6 0f 48 83 c6 22 48 c1 e6 04 4a 8b 14 26 49 8d 34 34 48 8d 42 c0 48 39 d6 74 13 <66> 39 58 58 74 22 48 8b 48 40 48 8d 41 c0 48 39 ce 75 ed 49 8d
+[ 1293.227038] RIP  [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+[ 1293.227038]  RSP <ffff880038c1dd18>
+[ 1293.227038] CR2: 0000000000000018
+[ 1293.379284] ---[ end trace 364ab40c7011a009 ]---
+[ 1293.381182] Kernel panic - not syncing: Fatal exception in interrupt
 
-[  240.541718] 2 locks held by ifconfig/4964:
-[  240.541722]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8138c86c>]
-rtnl_lock+0x12/0x14
-[  240.541737]  #1:  (&tp->wk.mutex){+.+...}, at: [<ffffffffa00c1556>]
-rtl_lock_work+0x12/0x14 [r8169]
-[  360.350345] INFO: task nmbd:2378 blocked for more than 120 seconds.
-[  360.353186] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs"
-disables this message.
-[  360.356124] nmbd            D ffffffff81a76ab8     0  2378      1
-0x00000000
-[  360.359078]  ffff88022f573ab8 0000000000000046 ffff880233aa8040
-ffff88022f573fd8
-[  360.362098]  ffff88022f573fd8 0000000000013a40 ffff8802351b8040
-ffff880233aa8040
-[  360.365170]  ffffffff814532aa 000000001e3e7680 ffffffff81a76ab0
-ffff880233aa8040
-[  360.368208] Call Trace:
-[  360.371129]  [<ffffffff814532aa>] ? __mutex_lock_common+0x230/0x36e
-[  360.374159]  [<ffffffff814543ca>] schedule+0x5f/0x61
-[  360.377195]  [<ffffffff8145458e>] schedule_preempt_disabled+0x9/0xb
-[  360.380240]  [<ffffffff814532b7>] __mutex_lock_common+0x23d/0x36e
-[  360.383262]  [<ffffffff8138c86c>] ? rtnl_lock+0x12/0x14
-[  360.386260]  [<ffffffff8139fe60>] ? netlink_lookup+0x2b/0x7e
-[  360.389279]  [<ffffffff8138c86c>] ? rtnl_lock+0x12/0x14
-[  360.392352]  [<ffffffff814534a7>] mutex_lock_nested+0x2a/0x31
-[  360.395393]  [<ffffffff8138c86c>] rtnl_lock+0x12/0x14
-[  360.398376]  [<ffffffff8138c87f>] rtnetlink_rcv+0x11/0x28
-[  360.401292]  [<ffffffff813a1d9a>] netlink_unicast+0xe7/0x151
-[  360.404192]  [<ffffffff813a2002>] netlink_sendmsg+0x1fe/0x236
-[  360.407089]  [<ffffffff8136cd79>] sock_sendmsg+0xea/0x10d
-[  360.409971]  [<ffffffff81080679>] ? lock_acquire+0xef/0xfe
-[  360.412825]  [<ffffffff810e6bf8>] ? might_fault+0x40/0x90
-[  360.415640]  [<ffffffff81080679>] ? lock_acquire+0xef/0xfe
-[  360.418447]  [<ffffffff810e6bf8>] ? might_fault+0x40/0x90
-[  360.421239]  [<ffffffff8108057e>] ? lock_release+0x175/0x181
-[  360.424039]  [<ffffffff810e6c41>] ? might_fault+0x89/0x90
-[  360.426896]  [<ffffffff8136b5ec>] ? copy_from_user+0x2a/0x2c
-[  360.429661]  [<ffffffff8136e9e5>] sys_sendto+0x12a/0x16c
-[  360.432430]  [<ffffffff8107d74f>] ? trace_hardirqs_off_caller
-+0x33/0x90
-[  360.435219]  [<ffffffff81455515>] ? retint_swapgs+0x13/0x1b
-[  360.437978]  [<ffffffff81080a85>] ? trace_hardirqs_on_caller
-+0x121/0x158
-[  360.440795]  [<ffffffff8121250e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-[  360.443868]  [<ffffffff8145acb9>] system_call_fastpath+0x16/0x1b
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ net/netfilter/ipvs/ip_vs_proto.c |   21 ++++++++++++++++-----
+ 1 files changed, 16 insertions(+), 5 deletions(-)
 
-johannes
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index f843a88..43893ba 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -316,20 +316,31 @@ ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
+  */
+ int __net_init ip_vs_protocol_net_init(struct net *net)
+ {
++	int ret;
+ #ifdef CONFIG_IP_VS_PROTO_TCP
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
++	ret = register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
++	if (ret < 0)
++		return ret;
+ #endif
+ #ifdef CONFIG_IP_VS_PROTO_UDP
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_udp);
++	ret = register_ip_vs_proto_netns(net, &ip_vs_protocol_udp);
++	if (ret < 0)
++		return ret;
+ #endif
+ #ifdef CONFIG_IP_VS_PROTO_SCTP
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_sctp);
++	ret = register_ip_vs_proto_netns(net, &ip_vs_protocol_sctp);
++	if (ret < 0)
++		return ret;
+ #endif
+ #ifdef CONFIG_IP_VS_PROTO_AH
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_ah);
++	ret = register_ip_vs_proto_netns(net, &ip_vs_protocol_ah);
++	if (ret < 0)
++		return ret;
+ #endif
+ #ifdef CONFIG_IP_VS_PROTO_ESP
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_esp);
++	ret = register_ip_vs_proto_netns(net, &ip_vs_protocol_esp);
++	if (ret < 0)
++		return ret;
+ #endif
+ 	return 0;
+ }
+-- 
+1.7.8.5
+
