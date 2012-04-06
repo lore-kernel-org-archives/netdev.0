@@ -1,94 +1,51 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 13/39] 8139cp: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:27 +0200
-Message-ID: <c7e9d5247826d4d38802a4c01e96299ec883436b.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 03/39] forcedeth: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:17 +0200
+Message-ID: <6b8e6e7dc86a9103970db98c0b9cb44e5640c2fc.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43498 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43441 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756144Ab2DFKKt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2012 06:10:49 -0400
+	id S1755835Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2012 06:10:37 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c |   21 +++++++++++----------
- 1 files changed, 11 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index abc7907..69c7d69 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -635,9 +635,12 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
-  */
- static void cp_poll_controller(struct net_device *dev)
- {
--	disable_irq(dev->irq);
--	cp_interrupt(dev->irq, dev);
--	enable_irq(dev->irq);
-+	struct cp_private *cp = netdev_priv(dev);
-+	const int irq = cp->pdev->irq;
-+
-+	disable_irq(irq);
-+	cp_interrupt(irq, dev);
-+	enable_irq(irq);
- }
- #endif
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 8561dd2..84952b3 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3943,13 +3943,11 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 		ret = pci_enable_msi(np->pci_dev);
+ 		if (ret == 0) {
+ 			np->msi_flags |= NV_MSI_ENABLED;
+-			dev->irq = np->pci_dev->irq;
+ 			if (request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev) != 0) {
+ 				netdev_info(dev, "request_irq failed %d\n",
+ 					    ret);
+ 				pci_disable_msi(np->pci_dev);
+ 				np->msi_flags &= ~NV_MSI_ENABLED;
+-				dev->irq = np->pci_dev->irq;
+ 				goto out_err;
+ 			}
  
-@@ -1114,6 +1117,7 @@ static void cp_free_rings (struct cp_private *cp)
- static int cp_open (struct net_device *dev)
- {
- 	struct cp_private *cp = netdev_priv(dev);
-+	const int irq = cp->pdev->irq;
- 	int rc;
- 
- 	netif_dbg(cp, ifup, dev, "enabling interface\n");
-@@ -1126,7 +1130,7 @@ static int cp_open (struct net_device *dev)
- 
- 	cp_init_hw(cp);
- 
--	rc = request_irq(dev->irq, cp_interrupt, IRQF_SHARED, dev->name, dev);
-+	rc = request_irq(irq, cp_interrupt, IRQF_SHARED, dev->name, dev);
- 	if (rc)
- 		goto err_out_hw;
- 
-@@ -1161,7 +1165,7 @@ static int cp_close (struct net_device *dev)
- 
- 	spin_unlock_irqrestore(&cp->lock, flags);
- 
--	free_irq(dev->irq, dev);
-+	free_irq(cp->pdev->irq, dev);
- 
- 	cp_free_rings(cp);
- 	return 0;
-@@ -1909,7 +1913,6 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
- 		       (unsigned long long)pciaddr);
- 		goto err_out_res;
- 	}
--	dev->base_addr = (unsigned long) regs;
- 	cp->regs = regs;
- 
- 	cp_stop_hw(cp);
-@@ -1937,14 +1940,12 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
- 		NETIF_F_HIGHDMA;
- 
--	dev->irq = pdev->irq;
+@@ -5650,9 +5648,6 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 	np->base = ioremap(addr, np->register_size);
+ 	if (!np->base)
+ 		goto out_relreg;
+-	dev->base_addr = (unsigned long)np->base;
 -
- 	rc = register_netdev(dev);
- 	if (rc)
- 		goto err_out_iomap;
+-	dev->irq = pci_dev->irq;
  
--	netdev_info(dev, "RTL-8139C+ at 0x%lx, %pM, IRQ %d\n",
--		    dev->base_addr, dev->dev_addr, dev->irq);
-+	netdev_info(dev, "RTL-8139C+ at 0x%p, %pM, IRQ %d\n",
-+		    regs, dev->dev_addr, pdev->irq);
- 
- 	pci_set_drvdata(pdev, dev);
- 
+ 	np->rx_ring_size = RX_RING_DEFAULT;
+ 	np->tx_ring_size = TX_RING_DEFAULT;
 -- 
 1.7.7.6
