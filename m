@@ -1,15 +1,15 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 23/39] uli526x: fix regions leak in driver probe error path.
-Date: Fri,  6 Apr 2012 12:06:37 +0200
-Message-ID: <5a61e7c690fce53cd37eddc9808134bc0e6b9837.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 26/39] de2104x: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:40 +0200
+Message-ID: <3cebeb3c55c12a033d30603baf34d449df75d2c1.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>,
 	Grant Grundler <grundler@parisc-linux.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43488 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43489 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756048Ab2DFKKn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756049Ab2DFKKn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:43 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,106 +18,142 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Grant Grundler <grundler@parisc-linux.org>
 ---
- drivers/net/ethernet/dec/tulip/uli526x.c |   48 ++++++++++++-----------------
- 1 files changed, 20 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/dec/tulip/de2104x.c |   34 ++++++++++++++---------------
+ 1 files changed, 16 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
-index fc4001f..c9b3396 100644
---- a/drivers/net/ethernet/dec/tulip/uli526x.c
-+++ b/drivers/net/ethernet/dec/tulip/uli526x.c
-@@ -313,9 +313,9 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 		goto err_out_disable;
+diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
+index 68f1c39..61cc093 100644
+--- a/drivers/net/ethernet/dec/tulip/de2104x.c
++++ b/drivers/net/ethernet/dec/tulip/de2104x.c
+@@ -1380,6 +1380,7 @@ static void de_free_rings (struct de_private *de)
+ static int de_open (struct net_device *dev)
+ {
+ 	struct de_private *de = netdev_priv(dev);
++	const int irq = de->pdev->irq;
+ 	int rc;
+ 
+ 	netif_dbg(de, ifup, dev, "enabling interface\n");
+@@ -1394,10 +1395,9 @@ static int de_open (struct net_device *dev)
+ 
+ 	dw32(IntrMask, 0);
+ 
+-	rc = request_irq(dev->irq, de_interrupt, IRQF_SHARED, dev->name, dev);
++	rc = request_irq(irq, de_interrupt, IRQF_SHARED, dev->name, dev);
+ 	if (rc) {
+-		netdev_err(dev, "IRQ %d request failure, err=%d\n",
+-			   dev->irq, rc);
++		netdev_err(dev, "IRQ %d request failure, err=%d\n", irq, rc);
+ 		goto err_out_free;
  	}
  
--	if (pci_request_regions(pdev, DRV_NAME)) {
-+	err = pci_request_regions(pdev, DRV_NAME);
-+	if (err < 0) {
- 		pr_err("Failed to request PCI regions\n");
--		err = -ENODEV;
- 		goto err_out_disable;
- 	}
- 
-@@ -323,18 +323,15 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 	db = netdev_priv(dev);
- 
- 	/* Allocate Tx/Rx descriptor memory */
-+	err = -ENOMEM;
-+
- 	db->desc_pool_ptr = pci_alloc_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20, &db->desc_pool_dma_ptr);
--	if(db->desc_pool_ptr == NULL)
--	{
--		err = -ENOMEM;
--		goto err_out_nomem;
--	}
-+	if (!db->desc_pool_ptr)
-+		goto err_out_release;
-+
- 	db->buf_pool_ptr = pci_alloc_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
--	if(db->buf_pool_ptr == NULL)
--	{
--		err = -ENOMEM;
--		goto err_out_nomem;
--	}
-+	if (!db->buf_pool_ptr)
-+		goto err_out_free_tx_desc;
- 
- 	db->first_tx_desc = (struct tx_desc *) db->desc_pool_ptr;
- 	db->first_tx_desc_dma = db->desc_pool_dma_ptr;
-@@ -387,7 +384,7 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 	}
- 	err = register_netdev (dev);
- 	if (err)
--		goto err_out_res;
-+		goto err_out_free_tx_buf;
- 
- 	netdev_info(dev, "ULi M%04lx at pci%s, %pM, irq %d\n",
- 		    ent->driver_data >> 16, pci_name(pdev),
-@@ -397,16 +394,14 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
- 
+@@ -1413,7 +1413,7 @@ static int de_open (struct net_device *dev)
  	return 0;
  
--err_out_res:
-+err_out_free_tx_buf:
-+	pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
-+			    db->buf_pool_ptr, db->buf_pool_dma_ptr);
-+err_out_free_tx_desc:
-+	pci_free_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20,
-+			    db->desc_pool_ptr, db->desc_pool_dma_ptr);
-+err_out_release:
- 	pci_release_regions(pdev);
--err_out_nomem:
--	if(db->desc_pool_ptr)
--		pci_free_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20,
--			db->desc_pool_ptr, db->desc_pool_dma_ptr);
--
--	if(db->buf_pool_ptr != NULL)
--		pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
--			db->buf_pool_ptr, db->buf_pool_dma_ptr);
- err_out_disable:
- 	pci_disable_device(pdev);
+ err_out_free_irq:
+-	free_irq(dev->irq, dev);
++	free_irq(irq, dev);
  err_out_free:
-@@ -422,19 +417,16 @@ static void __devexit uli526x_remove_one (struct pci_dev *pdev)
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct uli526x_board_info *db = netdev_priv(dev);
+ 	de_free_rings(de);
+ 	return rc;
+@@ -1434,7 +1434,7 @@ static int de_close (struct net_device *dev)
+ 	netif_carrier_off(dev);
+ 	spin_unlock_irqrestore(&de->lock, flags);
  
--	ULI526X_DBUG(0, "uli526x_remove_one()", 0);
+-	free_irq(dev->irq, dev);
++	free_irq(de->pdev->irq, dev);
+ 
+ 	de_free_rings(de);
+ 	de_adapter_sleep(de);
+@@ -1444,6 +1444,7 @@ static int de_close (struct net_device *dev)
+ static void de_tx_timeout (struct net_device *dev)
+ {
+ 	struct de_private *de = netdev_priv(dev);
++	const int irq = de->pdev->irq;
+ 
+ 	netdev_dbg(dev, "NIC status %08x mode %08x sia %08x desc %u/%u/%u\n",
+ 		   dr32(MacStatus), dr32(MacMode), dr32(SIAStatus),
+@@ -1451,7 +1452,7 @@ static void de_tx_timeout (struct net_device *dev)
+ 
+ 	del_timer_sync(&de->media_timer);
+ 
+-	disable_irq(dev->irq);
++	disable_irq(irq);
+ 	spin_lock_irq(&de->lock);
+ 
+ 	de_stop_hw(de);
+@@ -1459,12 +1460,12 @@ static void de_tx_timeout (struct net_device *dev)
+ 	netif_carrier_off(dev);
+ 
+ 	spin_unlock_irq(&de->lock);
+-	enable_irq(dev->irq);
++	enable_irq(irq);
+ 
+ 	/* Update the error counts. */
+ 	__de_get_stats(de);
+ 
+-	synchronize_irq(dev->irq);
++	synchronize_irq(irq);
+ 	de_clean_rings(de);
+ 
+ 	de_init_rings(de);
+@@ -2024,8 +2025,6 @@ static int __devinit de_init_one (struct pci_dev *pdev,
+ 		goto err_out_res;
+ 	}
+ 
+-	dev->irq = pdev->irq;
 -
-+	unregister_netdev(dev);
- 	pci_free_consistent(db->pdev, sizeof(struct tx_desc) *
- 				DESC_ALL_CNT + 0x20, db->desc_pool_ptr,
-  				db->desc_pool_dma_ptr);
- 	pci_free_consistent(db->pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
- 				db->buf_pool_ptr, db->buf_pool_dma_ptr);
--	unregister_netdev(dev);
- 	pci_release_regions(pdev);
--	free_netdev(dev);	/* free board information */
--	pci_set_drvdata(pdev, NULL);
- 	pci_disable_device(pdev);
--	ULI526X_DBUG(0, "uli526x_remove_one() exit", 0);
-+	pci_set_drvdata(pdev, NULL);
-+	free_netdev(dev);
- }
+ 	/* obtain and check validity of PCI I/O address */
+ 	pciaddr = pci_resource_start(pdev, 1);
+ 	if (!pciaddr) {
+@@ -2050,7 +2049,6 @@ static int __devinit de_init_one (struct pci_dev *pdev,
+ 		       pciaddr, pci_name(pdev));
+ 		goto err_out_res;
+ 	}
+-	dev->base_addr = (unsigned long) regs;
+ 	de->regs = regs;
  
+ 	de_adapter_wake(de);
+@@ -2078,11 +2076,9 @@ static int __devinit de_init_one (struct pci_dev *pdev,
+ 		goto err_out_iomap;
  
+ 	/* print info about board and interface just registered */
+-	netdev_info(dev, "%s at 0x%lx, %pM, IRQ %d\n",
++	netdev_info(dev, "%s at %p, %pM, IRQ %d\n",
+ 		    de->de21040 ? "21040" : "21041",
+-		    dev->base_addr,
+-		    dev->dev_addr,
+-		    dev->irq);
++		    regs, dev->dev_addr, pdev->irq);
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
+@@ -2130,9 +2126,11 @@ static int de_suspend (struct pci_dev *pdev, pm_message_t state)
+ 
+ 	rtnl_lock();
+ 	if (netif_running (dev)) {
++		const int irq = pdev->irq;
++
+ 		del_timer_sync(&de->media_timer);
+ 
+-		disable_irq(dev->irq);
++		disable_irq(irq);
+ 		spin_lock_irq(&de->lock);
+ 
+ 		de_stop_hw(de);
+@@ -2141,12 +2139,12 @@ static int de_suspend (struct pci_dev *pdev, pm_message_t state)
+ 		netif_carrier_off(dev);
+ 
+ 		spin_unlock_irq(&de->lock);
+-		enable_irq(dev->irq);
++		enable_irq(irq);
+ 
+ 		/* Update the error counts. */
+ 		__de_get_stats(de);
+ 
+-		synchronize_irq(dev->irq);
++		synchronize_irq(irq);
+ 		de_clean_rings(de);
+ 
+ 		de_adapter_sleep(de);
 -- 
 1.7.7.6
