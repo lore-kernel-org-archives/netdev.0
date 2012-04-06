@@ -1,53 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sendmmsg: put_user vs __put_user
-Date: Thu, 05 Apr 2012 21:01:13 -0400 (EDT)
-Message-ID: <20120405.210113.1089032911004787990.davem@davemloft.net>
-References: <CAOPLpQf2bmj+i_zYtsS8JNzTDuBxCO5ByNRRqwv0kxaDBFdezg@mail.gmail.com>
-	<20120330.205120.2221145622131588797.davem@davemloft.net>
-	<4F7E3561.8000803@mit.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: allow splice() to build full TSO packets
+Date: Fri, 06 Apr 2012 03:59:24 +0200
+Message-ID: <1333677564.18626.608.camel@edumazet-glaptop>
+References: <1333488689.18626.331.camel@edumazet-glaptop>
+	 <20120403.173614.962252876842659412.davem@davemloft.net>
+	 <1333631135.18626.606.camel@edumazet-glaptop>
+	 <20120405.190509.409578034793502486.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: drepper@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: luto@mit.edu
+Cc: netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
+	ycheng@google.com, hkchu@google.com, maze@google.com,
+	maheshb@google.com, ilpo.jarvinen@helsinki.fi, nanditad@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33381 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756788Ab2DFBBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 21:01:17 -0400
-In-Reply-To: <4F7E3561.8000803@mit.edu>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:55194 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753449Ab2DFB7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 21:59:31 -0400
+Received: by wgbdr13 with SMTP id dr13so1802087wgb.1
+        for <netdev@vger.kernel.org>; Thu, 05 Apr 2012 18:59:30 -0700 (PDT)
+In-Reply-To: <20120405.190509.409578034793502486.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Lutomirski <luto@mit.edu>
-Date: Thu, 05 Apr 2012 17:14:25 -0700
-
-> On 03/30/2012 05:51 PM, David Miller wrote:
->> From: Ulrich Drepper <drepper@gmail.com>
->> Date: Fri, 30 Mar 2012 09:36:11 -0400
->> 
->>> Shouldn't the compat code in the sendmmsg implementation use the same
->>> code as the normal code?  In which case you probably want something
->>> like this:
->> 
->> Compat processes are not able to generate virtual addresses anywhere
->> near the range where the kernel resides, so the address range
->> verification done by put_user() is completely superfluous and
->> therefore not necessary.  The normal exception handling done by the
->> access is completely sufficient.
+On Thu, 2012-04-05 at 19:05 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 05 Apr 2012 15:05:35 +0200
 > 
-> I disagree.  The following exploit causes a bogus page fault to a kernel
-> address.  I think this isn't exploitable right now on x86-64 because the
-> page fault handler fixes it up, but I wouldn't be surprised if this
-> crashes or at least warns on some architecture.  (Actually trashing
-> kernel memory is probably impossible with this on x86-64 chips because
-> this can only overrun user space by four bytes, and there's a giant gap
-> of impossible addresses above user space in x86-64.
+> > Hmm, thinking again about this, I did more tests and it appears we need
+> > to differentiate the SPLICE_F_MORE flag (user request) and the internal
+> > marker provided by splice logic (handling a batch of pages)
+> > 
+> > A program doing splice(... SPLICE_F_MORE) should really call tcp_push()
+> > at the end of its work.
+> 
+> This is the kind of problem I was hoping we weren't introducing
+> when I asked about sendfile() et al. the other day :-)
 
-I can guarentee this doesn't do anything on sparc64 either because
-userspace is completely segregated from kernel space in a way that
-every single foo_user() call cannot access kernel space no matter
-what address it can trick into being passed there.
+Yes, sorry for this.
 
-I still really don't see an issue with this, sorry.
+Yet sendfile() did not have this problem (or so I believe), only the
+splice(SPLICE_F_MORE) did.
+
+Thanks
