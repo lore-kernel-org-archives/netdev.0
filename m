@@ -1,43 +1,36 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: ipv6: tunnel: hang when destroying ipv6 tunnel
-Date: Thu, 5 Apr 2012 23:34:41 +0900
-Message-ID: <201204052334.EBI17103.OOFOSLFQJVHFtM@I-love.SAKURA.ne.jp>
-References: <CA+1xoqcAXyh306=2=QKWyM3BE44=MT+nsuRQn5YLOLgbtZqicA@mail.gmail.com>
-	<CA+1xoqe1Wc_uifrKsko6hu+py9Ahz3Q0p1tRxup09jmh2NZ1rw@mail.gmail.com>
-	<201204011221.GAG51016.JQFSFFOtLOMVHO@I-love.SAKURA.ne.jp>
-	<CA+1xoqe+T=iUtUeFdeqmRvMZ7TMCgkLs_1QYv-4YNtn-jCoMCQ@mail.gmail.com>
-	<201204052329.EBH52139.FFOLQMOJSVHOFt@I-love.SAKURA.ne.jp>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net-next V2] tcp: Fix bug when gap in rcv sequence is filled
+Date: Fri, 6 Apr 2012 11:27:44 -0700
+Message-ID: <CAGK4HS-FZ038=Yik4DEQ26y4-9Zx9Gp80CU5_JS0U-anxjh9Wg@mail.gmail.com>
+References: <1333733810-2381-1-git-send-email-subramanian.vijay@gmail.com>
+	<CAAsGZS4w=2_e9O=cRK6r+gxirohhSPHpgkNpWw_ZvC-+Q-pHkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: oleg@redhat.com, eric.dumazet@gmail.com, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davej@redhat.com,
-	penguin-kernel@I-love.SAKURA.ne.jp
-To: levinsasha928@gmail.com, garlick@llnl.gov, ericvh@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204052329.EBH52139.FFOLQMOJSVHOFt@I-love.SAKURA.ne.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ncardwell@google.com,
+	ilpo.jarvinen@helsinki.fi
+To: chetan loke <loke.chetan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:50948 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753473Ab2DFS1o convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 14:27:44 -0400
+Received: by vbbff1 with SMTP id ff1so1335018vbb.19
+        for <netdev@vger.kernel.org>; Fri, 06 Apr 2012 11:27:44 -0700 (PDT)
+In-Reply-To: <CAAsGZS4w=2_e9O=cRK6r+gxirohhSPHpgkNpWw_ZvC-+Q-pHkA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tetsuo Handa wrote:
-> Good. -512 is -ERESTARTSYS, and this hang occurs after -ERESTARTSYS is
-> returned. It indicates that c->trans_mod->request() is interrupted by signal.
-> Since c->trans_mod->request is pointing at p9_virtio_request, the location
-> returning that error would be
-(...snipped...)
-> 281                         err = wait_event_interruptible(*chan->vc_wq,
-> 282                                                         chan->ring_bufs_avail);
-> 
->    here.
+>> + =A0 =A0 =A0 int requeued =3D 0; /*1 if an skb is requeued to recei=
+ve_queue*/
+>
+> Vijay - minor change: missing leading/trailing space in the comment.
+> checkpatch.pl ?
 
-Oops. Not p9_virtio_request().
+Thanks for the reviews Chetan. checkpatch.pl reported no errors and no
+warnings however.
+I will wait for additional feedback from TCP folks and send version V3
+if needed.
 
-It is p9_client_rpc(). I misread the output lines.
-
-> > > +	printk("%u:req->status = %u\n", current->pid, req->status);
-> > >  	err = wait_event_interruptible(*req->wq,
-> > >  				       req->status >= REQ_STATUS_RCVD);
-> > > +	printk("%u:wait = %d\n", current->pid, err);
-
-But anyway, I think this is interupt related bug.
+Thanks,
+Vijay
