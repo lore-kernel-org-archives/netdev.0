@@ -1,69 +1,77 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: Re[2]: [PATCH] netfilter: ipvs: Verify that IP_VS protocol has
- been registered
-Date: Fri, 6 Apr 2012 11:22:13 +0200
-Message-ID: <CA+1xoqe_VGuUaMCpWWz=gSBBmGu8cUha9qznzhy_jNCRknudBA@mail.gmail.com>
-References: <6dfqp4f.85748eeb029b04c66ac5e143b62a5455@obelix.schillstrom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Simon Horman <horms@verge.net.au>, wensong@linux-vs.org, ja@ssi.bg,
-	kaber@trash.net, davem@davemloft.net, davej@redhat.com,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <6dfqp4f.85748eeb029b04c66ac5e143b62a5455@obelix.schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 0/4 (V3)] stmmac & EEE support
+Date: Fri,  6 Apr 2012 11:29:14 +0200
+Message-ID: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>
+Cc: bhutchings@solarflare.com, rayagond@vayavyalabs.com,
+	davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:36232 "EHLO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754965Ab2DFJ3p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 05:29:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 6, 2012 at 10:59 AM, Hans Schillstrom <hans@schillstrom.com=
-> wrote:
-> Hello Simon
->
->>---- Original Message ----
->>From: Simon Horman <horms@verge.net.au>
->>To: "Sasha Levin" <levinsasha928@gmail.com>
->>Cc: wensong@linux-vs.org, ja@ssi.bg, kaber@trash.net, davem@davemloft=
-=2Enet, davej@redhat.com, netdev@vger.kernel.org, lvs-devel@vger.kernel=
-=2Eorg, netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
->>Sent: Fri, Apr 6, 2012, 1:19 AM
->>Subject: Re: [PATCH] netfilter: ipvs: Verify that IP_VS protocol has =
-been registered
->>
->>On Thu, Apr 05, 2012 at 07:24:33PM -0400, Sasha Levin wrote:
->>> The registration of a protocol might fail, there were no checks
->>> and all registrations were assumed to be correct. This lead to
->>> NULL ptr dereferences when apps tried registering.
->>
->>Thanks, I will queue up this fix.
->>
->>Do you have a real-world example of this failing, if so it
->>might be worth pushing your change into stable.
->
-> I don't think this is a big thing, the only thing that can cause it i=
-s out of memory,
-> and that will cause a "kernel death" anyway :-(
->
-> here is the code :
->
-> register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp=
-)
-> {
-> ...
-> =A0 =A0 =A0 =A0struct ip_vs_proto_data *pd =3D
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0kzalloc(sizeof(struct =
-ip_vs_proto_data), GFP_ATOMIC);
->
-> =A0 =A0 =A0 =A0if (!pd)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENOMEM;
->
->
+These patches add the EEE support in the stmmac device driver.
+I've tested it on ST STB with the IC+ 101G PHY device that has
+this feature.
+Initially the EEE for the stmmac has been written by Rayagond
+but I reworked all his code adding new parts and especially
+performing tests on a real hardware. Thx Rayagond!
 
-Considering that the allocation gfp flag here is GFP_ATOMIC (why is it
-GFP_ATOMIC btw?), it might fail for a variety of reasons which may
-occur when the system is "healthy", for example - if it needs disk I/O
-to allocate.
+In these patches, we can see that the stmmac supports the EEE
+only if the DMA HW capability register says that this
+feature is actually available. In that case, the driver can enter
+in the Tx LPI mode by using a timer as recommended by Synopsys.
+Note that EEE is supported in new chip generations; in particular
+I used the 3.61a.
 
-Either way, you shouldn't be dereferencing NULL ptrs even when the
-system is really low on memory.
+At any rate, further information about how the driver treats the EEE
+can be found in the stmmac.txt file (there is a patch for that).
+
+These patches also add a new option for ethtool to enable/disable
+the EEE. There is a patch for the ethtool user space application;
+I'm sending it too.
+
+Another patch is for Physical Abstraction Layer now able to
+manage the MMD registers (clause 45).
+Maybe, I could directly add the EEE in the mdio driver.
+I didn't that because I wanted to keep the stmmac able to access
+to the phy registers through the Physical Abstraction Layer and
+w/ having any links to the mdio.o.
+
+Please Ben tells me if I well applied all your advice (when you
+reviewed the ethtool/phy patches).
+
+Regards
+Peppe
+
+Giuseppe CAVALLARO (1):
+  stmmac: update the driver Documentation and add EEE
+
+Giuseppe Cavallaro (3):
+  net: ethtool: add the EEE support
+  phy: add the EEE support and the way to access to the MMD regs
+  stmmac: add the Energy Efficient Ethernet support
+
+ Documentation/networking/stmmac.txt                |   36 ++++-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   27 ++++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |   20 +++
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  101 ++++++++++++-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    4 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    6 +
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   48 ++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  156 +++++++++++++++++++-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 +
+ drivers/net/phy/phy_device.c                       |  138 +++++++++++++++++
+ include/linux/ethtool.h                            |    6 +
+ include/linux/mdio.h                               |    6 +-
+ include/linux/mii.h                                |   11 ++
+ include/linux/phy.h                                |    3 +
+ net/core/ethtool.c                                 |   32 ++++
+ 16 files changed, 572 insertions(+), 25 deletions(-)
+
+-- 
+1.7.4.4
