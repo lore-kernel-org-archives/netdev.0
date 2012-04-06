@@ -1,132 +1,184 @@
-From: Mihai Maruseac <mmaruseac@ixiacom.com>
-Subject: Re: [PATCH] net/core: Fix seeking in /proc/net/dev
-Date: Fri, 6 Apr 2012 20:14:20 +0300
-Message-ID: <CAOMsUMLDFpYw9REPjZd2m49xV4UKFjFobNorGmOPCFeqjV-RDg@mail.gmail.com>
-References: <1333731944-15808-1-git-send-email-john@keeping.me.uk>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [PATCH net-next #2 23/39] uli526x: fix regions leak in driver
+ probe error path.
+Date: Fri, 6 Apr 2012 10:15:21 -0700
+Message-ID: <CANEJEGvv9fJ8ZTrifwRk=7dzUycszrSO1dayL4faa3=G-66X-g@mail.gmail.com>
+References: <1333704408.git.romieu@fr.zoreil.com>
+	<5a61e7c690fce53cd37eddc9808134bc0e6b9837.1333704409.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mihai Maruseac <mihai.maruseac@gmail.com>,
-	Daniel Baluta <dbaluta@ixiacom.com>
-To: John Keeping <john@keeping.me.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1333731944-15808-1-git-send-email-john@keeping.me.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Grant Grundler <grundler@parisc-linux.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:64866 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756550Ab2DFRPW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 13:15:22 -0400
+Received: by obbtb18 with SMTP id tb18so3319941obb.19
+        for <netdev@vger.kernel.org>; Fri, 06 Apr 2012 10:15:21 -0700 (PDT)
+In-Reply-To: <5a61e7c690fce53cd37eddc9808134bc0e6b9837.1333704409.git.romieu@fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 6, 2012 at 8:05 PM, John Keeping <john@keeping.me.uk> wrote=
-:
-> Commit f04565ddf52e4 (dev: use name hash for dev_seq_ops) introduced
-> code that fails to check the requested position when getting an item =
-for
-> /proc/net/dev. =A0This means that any code which seeks within this fi=
-le is
-> likely to receive corrupted data.
->
-> A test case for this is to use the read builtin in bash:
->
-> $ while read line; do echo "$line"; done </proc/net/dev | cut -c-20
-> Inter-| =A0 Receive
-> face |bytes =A0 =A0packe
-> virbr0: =A0 20706
-> 0
-> lo: 2329335 =A0 10305
-> eth0: =A0 =A0 =A0 0
->
-> compared to just cat'ing the file:
->
-> $ cat /proc/net/dev | cut -c-20
-> Inter-| =A0 Receive
-> =A0face |bytes =A0 =A0pack
-> =A0 =A0lo: 2329335 =A0 10
-> virbr0: =A0 20706
-> =A0sit0: =A0 =A0 =A0 0
-> =A0wlan0: 1727234745 1
-> =A0eth0: =A0 =A0 =A0 0
->
-> This patch takes the sledgehammer approach of starting again from the
-> beginning if asked to seek backwards.
->
-> Signed-off-by: John Keeping <john@keeping.me.uk>
->
+On Fri, Apr 6, 2012 at 3:06 AM, Francois Romieu <romieu@fr.zoreil.com> =
+wrote:
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Grant Grundler <grundler@parisc-linux.org>
+
+Ack-by: Grant Grundler <grundler@parisc-linux.org>
+
+I'm assuming uli526x_remove_one() is called after uli526x_stop()
+(which quiesces the HW). That appears to be the case for tulip_core.c
+as well - so this should be ok.
+
+thanks,
+grant
+
 > ---
-> I have made the minimal change required to fix the bug here. =A0If de=
-sired I
-> can spend some more time and enhance the dev_from_new_bucket and
-> dev_from_same_bucket functions to support walking backwards as well a=
-s
-> forwards through the items in the table.
+> =C2=A0drivers/net/ethernet/dec/tulip/uli526x.c | =C2=A0 48 ++++++++++=
+++-----------------
+> =C2=A01 files changed, 20 insertions(+), 28 deletions(-)
 >
-> ---
-> =A0net/core/dev.c | =A0 24 +++++++++++++++++++-----
-> =A01 files changed, 19 insertions(+), 5 deletions(-)
+> diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/e=
+thernet/dec/tulip/uli526x.c
+> index fc4001f..c9b3396 100644
+> --- a/drivers/net/ethernet/dec/tulip/uli526x.c
+> +++ b/drivers/net/ethernet/dec/tulip/uli526x.c
+> @@ -313,9 +313,9 @@ static int __devinit uli526x_init_one (struct pci=
+_dev *pdev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_out_d=
+isable;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
 >
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 6ca32f6..66b1e891 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4040,6 +4040,7 @@ static int dev_ifconf(struct net *net, char __u=
-ser *arg)
+> - =C2=A0 =C2=A0 =C2=A0 if (pci_request_regions(pdev, DRV_NAME)) {
+> + =C2=A0 =C2=A0 =C2=A0 err =3D pci_request_regions(pdev, DRV_NAME);
+> + =C2=A0 =C2=A0 =C2=A0 if (err < 0) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("Failed=
+ to request PCI regions\n");
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D -ENODEV;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_out_d=
+isable;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
 >
-> =A0struct dev_iter_state {
-> =A0 =A0 =A0 =A0struct seq_net_private p;
-> + =A0 =A0 =A0 loff_t expected_pos; /* current index */
-> =A0 =A0 =A0 =A0unsigned int pos; /* bucket << BUCKET_SPACE + offset *=
-/
-> =A0};
+> @@ -323,18 +323,15 @@ static int __devinit uli526x_init_one (struct p=
+ci_dev *pdev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0db =3D netdev_priv(dev);
 >
-> @@ -4096,24 +4097,37 @@ static inline struct net_device *dev_from_new=
-_bucket(struct seq_file *seq)
-> =A0void *dev_seq_start(struct seq_file *seq, loff_t *pos)
-> =A0 =A0 =A0 =A0__acquires(RCU)
-> =A0{
-> + =A0 =A0 =A0 struct net_device *dev;
-> =A0 =A0 =A0 =A0struct dev_iter_state *state =3D seq->private;
->
-> =A0 =A0 =A0 =A0rcu_read_lock();
-> - =A0 =A0 =A0 if (!*pos)
-> + =A0 =A0 =A0 if (!*pos) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 state->expected_pos =3D 0;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 state->pos =3D 0;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return SEQ_START_TOKEN;
-> + =A0 =A0 =A0 }
->
-> - =A0 =A0 =A0 /* check for end of the hash */
-> - =A0 =A0 =A0 if (state->pos =3D=3D 0 && *pos > 1)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
-> + =A0 =A0 =A0 /* If we're asked for something behind where we are, st=
-art again. */
-> + =A0 =A0 =A0 if (state->expected_pos >=3D *pos) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 state->expected_pos =3D 0;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 state->pos =3D 0;
-> + =A0 =A0 =A0 }
->
-> - =A0 =A0 =A0 return dev_from_new_bucket(seq);
-> + =A0 =A0 =A0 do {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev =3D dev_from_new_bucket(seq);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ++state->expected_pos;
-> + =A0 =A0 =A0 } while (dev && state->expected_pos < *pos);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Allocate Tx/Rx descriptor memory */
+> + =C2=A0 =C2=A0 =C2=A0 err =3D -ENOMEM;
 > +
-> + =A0 =A0 =A0 return dev;
-> =A0}
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0db->desc_pool_ptr =3D pci_alloc_consistent=
+(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20, &db->desc_pool_dma=
+_ptr);
+> - =C2=A0 =C2=A0 =C2=A0 if(db->desc_pool_ptr =3D=3D NULL)
+> - =C2=A0 =C2=A0 =C2=A0 {
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D -ENOMEM;
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_nomem=
+;
+> - =C2=A0 =C2=A0 =C2=A0 }
+> + =C2=A0 =C2=A0 =C2=A0 if (!db->desc_pool_ptr)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_relea=
+se;
+> +
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0db->buf_pool_ptr =3D pci_alloc_consistent(=
+pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
+> - =C2=A0 =C2=A0 =C2=A0 if(db->buf_pool_ptr =3D=3D NULL)
+> - =C2=A0 =C2=A0 =C2=A0 {
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D -ENOMEM;
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_nomem=
+;
+> - =C2=A0 =C2=A0 =C2=A0 }
+> + =C2=A0 =C2=A0 =C2=A0 if (!db->buf_pool_ptr)
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_free_=
+tx_desc;
 >
-> =A0void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-> =A0{
-> =A0 =A0 =A0 =A0struct net_device *dev;
-> + =A0 =A0 =A0 struct dev_iter_state *state =3D seq->private;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0db->first_tx_desc =3D (struct tx_desc *) d=
+b->desc_pool_ptr;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0db->first_tx_desc_dma =3D db->desc_pool_dm=
+a_ptr;
+> @@ -387,7 +384,7 @@ static int __devinit uli526x_init_one (struct pci=
+_dev *pdev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0err =3D register_netdev (dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err)
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_res;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_out_free_=
+tx_buf;
 >
-> =A0 =A0 =A0 =A0++*pos;
-> + =A0 =A0 =A0 state->expected_pos =3D *pos;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_info(dev, "ULi M%04lx at pci%s, %pM=
+, irq %d\n",
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ent->driver_data >> 16, pci_name(pdev),
+> @@ -397,16 +394,14 @@ static int __devinit uli526x_init_one (struct p=
+ci_dev *pdev,
 >
-> =A0 =A0 =A0 =A0if (v =3D=3D SEQ_START_TOKEN)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return dev_from_new_bucket(seq);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return 0;
+>
+> -err_out_res:
+> +err_out_free_tx_buf:
+> + =C2=A0 =C2=A0 =C2=A0 pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DE=
+SC_CNT + 4,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 db->buf_pool_ptr, db->buf_pool_dma_ptr);
+> +err_out_free_tx_desc:
+> + =C2=A0 =C2=A0 =C2=A0 pci_free_consistent(pdev, sizeof(struct tx_des=
+c) * DESC_ALL_CNT + 0x20,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 db->desc_pool_ptr, db->desc_pool_dma_ptr);
+> +err_out_release:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_release_regions(pdev);
+> -err_out_nomem:
+> - =C2=A0 =C2=A0 =C2=A0 if(db->desc_pool_ptr)
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pci_free_consisten=
+t(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20,
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 db->desc_pool_ptr, db->desc_pool_dma_ptr);
+> -
+> - =C2=A0 =C2=A0 =C2=A0 if(db->buf_pool_ptr !=3D NULL)
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 pci_free_consisten=
+t(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 db->buf_pool_ptr, db->buf_pool_dma_ptr);
+> =C2=A0err_out_disable:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_disable_device(pdev);
+> =C2=A0err_out_free:
+> @@ -422,19 +417,16 @@ static void __devexit uli526x_remove_one (struc=
+t pci_dev *pdev)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D pci_get_drvdata=
+(pdev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct uli526x_board_info *db =3D netdev_p=
+riv(dev);
+>
+> - =C2=A0 =C2=A0 =C2=A0 ULI526X_DBUG(0, "uli526x_remove_one()", 0);
+> -
+> + =C2=A0 =C2=A0 =C2=A0 unregister_netdev(dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_free_consistent(db->pdev, sizeof(struc=
+t tx_desc) *
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0DESC_ALL_CNT + 0x20, db->desc=
+_pool_ptr,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0db->desc_pool_dma_ptr);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_free_consistent(db->pdev, TX_BUF_ALLOC=
+ * TX_DESC_CNT + 4,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0db->buf_pool_ptr, db->buf_poo=
+l_dma_ptr);
+> - =C2=A0 =C2=A0 =C2=A0 unregister_netdev(dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_release_regions(pdev);
+> - =C2=A0 =C2=A0 =C2=A0 free_netdev(dev); =C2=A0 =C2=A0 =C2=A0 /* free=
+ board information */
+> - =C2=A0 =C2=A0 =C2=A0 pci_set_drvdata(pdev, NULL);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_disable_device(pdev);
+> - =C2=A0 =C2=A0 =C2=A0 ULI526X_DBUG(0, "uli526x_remove_one() exit", 0=
+);
+> + =C2=A0 =C2=A0 =C2=A0 pci_set_drvdata(pdev, NULL);
+> + =C2=A0 =C2=A0 =C2=A0 free_netdev(dev);
+> =C2=A0}
+>
+>
 > --
-> 1.7.8.5
+> 1.7.7.6
 >
-
-Looks good to me. However, Eric just submitted a patch here with other
-changes caused by a logic error in the original patch.
-
-Now I understand why those resets to the beginning were there (though
-they are very rare)
