@@ -1,215 +1,69 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH net-next #2 24/39] xircom_cb: fix device probe error path.
-Date: Fri, 6 Apr 2012 09:56:09 -0700
-Message-ID: <CANEJEGucRU5qkWGekPHr8r3TA0Xb3NFqN6SkNzfpBqR=cwWDrQ@mail.gmail.com>
-References: <1333704408.git.romieu@fr.zoreil.com>
-	<271dcd170006b9d55eb555b2e79e22c1fa86e0a0.1333704409.git.romieu@fr.zoreil.com>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: Re: ath: DMA failed to stop in 10 ms AR_CR=0x00000024 AR_DIAG_SW=0x02000020
+ DMADBG_7=0x00008040
+Date: Fri, 06 Apr 2012 18:56:19 +0200
+Message-ID: <4F7F2033.4000005@openwrt.org>
+References: <4F576FD5.2050208@gmail.com> <CAD2nsn23UqshHz1ZUn8bHN0rWyOMbBHhn9V8pmCc4_aT_uGYaw@mail.gmail.com> <4F577D9B.7020402@gmail.com> <4F579A88.6030503@openwrt.org> <4F61F551.5010608@gmail.com> <4F639851.5080500@gmail.com> <4F674616.8080103@gmail.com> <CAD2nsn3xpkGenrK50YmE5D7Odg3sBEek5zKcLZF6MAm69p5RJg@mail.gmail.com> <4F674FF5.2060406@gmail.com> <4F6751B2.1030809@openwrt.org> <4F681B78.9000207@gmail.com> <CAD2nsn0d-3edYGH8u+v5mhrUZBMsznDNRDkDHE-tErG8uGk84Q@mail.gmail.com> <4F68235C.5090701@gmail.com> <CAD2nsn0toAjyWw48J7oREES0=x6D72hMntP+WpAjHmR5drd-tQ@mail.gmail.com> <4F682555.3020502@gmail.com> <20328.16366.166909.255035@gargle.gargle.HOWL> <4F6FA388.9080408@gmail.com> <20337.9030.686697.228453@gargle.gargle.HOWL> <4F7F1C74.7080009@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:39183 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755716Ab2DFQ4K convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 12:56:10 -0400
-Received: by gghe5 with SMTP id e5so1323743ggh.19
-        for <netdev@vger.kernel.org>; Fri, 06 Apr 2012 09:56:09 -0700 (PDT)
-In-Reply-To: <271dcd170006b9d55eb555b2e79e22c1fa86e0a0.1333704409.git.romieu@fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Sujith Manoharan <c_manoha@qca.qualcomm.com>,
+	Mohammed Shafi <shafi.wireless@gmail.com>,
+	Linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, Linux-netdev <netdev@vger.kernel.org>
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F7F1C74.7080009@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 6, 2012 at 3:06 AM, Francois Romieu <romieu@fr.zoreil.com> =
-wrote:
-> - unbalanced pci_disable_device
-> - PCI ressources were not released
-> - mismatching pci_alloc_.../kfree pairs are replaced by DMA alloc hel=
-pers.
->
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Grant Grundler <grundler@parisc-linux.org>
-
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
-
-Very nice - thank you! :)
-
-grant
-
+On 2012-04-06 6:40 PM, Justin P. Mattock wrote:
+> On 03/26/2012 07:17 PM, Sujith Manoharan wrote:
+>> Justin P. Mattock wrote:
+>>> I would have to say this patch above does get rid of this crash I was
+>>> seeing. as a quick test I simply connect to a WPA network, then connect
+>>> to an open network going back and forth triggers this freeze for me
+>>> after applying this I am able to toggle back and forth without a freeze.
+>>
+>> Thanks for verifying.
+>>
+>> Sujith
+>>
+> 
+> 
+>  From going through the warning message I was playing around and am 
+> looking at: AH_UNPLUGGED .. seems if I remove this from the code I have 
+> not seen this warning message.
+> is there something wrong with AH_UNPLUGGED = 0x2 ?
+> is this the wrong address(0x2)?
+> 
+> the patch that I was using is:
+> 
+>  From ea8a7d6ecf8b0706f3f0521cd22cc359b20b9373 Mon Sep 17 00:00:00 2001
+> From: "Justin P. Mattock" <justinmattock@gmail.com>
+> Date: Sun, 25 Mar 2012 21:53:31 -0700
+> Subject: [PATCH] ath_test
+> 
+> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+> 
 > ---
-> =C2=A0drivers/net/ethernet/dec/tulip/xircom_cb.c | =C2=A0 53 ++++++++=
-++++++++++----------
-> =C2=A01 files changed, 34 insertions(+), 19 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/xircom_cb.c b/drivers/net=
-/ethernet/dec/tulip/xircom_cb.c
-> index fdb329f..cbcc6d6 100644
-> --- a/drivers/net/ethernet/dec/tulip/xircom_cb.c
-> +++ b/drivers/net/ethernet/dec/tulip/xircom_cb.c
-> @@ -192,15 +192,18 @@ static const struct net_device_ops netdev_ops =3D=
- {
-> =C2=A0*/
-> =C2=A0static int __devinit xircom_probe(struct pci_dev *pdev, const s=
-truct pci_device_id *id)
-> =C2=A0{
-> + =C2=A0 =C2=A0 =C2=A0 struct device *d =3D &pdev->dev;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D NULL;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct xircom_private *private;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned long flags;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned short tmp16;
-> + =C2=A0 =C2=A0 =C2=A0 int rc;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* First do the PCI initialisation */
->
-> - =C2=A0 =C2=A0 =C2=A0 if (pci_enable_device(pdev))
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -ENODEV;
-> + =C2=A0 =C2=A0 =C2=A0 rc =3D pci_enable_device(pdev);
-> + =C2=A0 =C2=A0 =C2=A0 if (rc < 0)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* disable all powermanagement */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_write_config_dword(pdev, PCI_POWERMGMT=
-, 0x0000);
-> @@ -211,11 +214,13 @@ static int __devinit xircom_probe(struct pci_de=
-v *pdev, const struct pci_device_
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_read_config_word (pdev,PCI_STATUS, &tm=
-p16);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_write_config_word (pdev, PCI_STATUS,tm=
-p16);
->
-> - =C2=A0 =C2=A0 =C2=A0 if (!request_region(pci_resource_start(pdev, 0=
-), 128, "xircom_cb")) {
-> + =C2=A0 =C2=A0 =C2=A0 rc =3D pci_request_regions(pdev, "xircom_cb");
-> + =C2=A0 =C2=A0 =C2=A0 if (rc < 0) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s: fa=
-iled to allocate io-region\n", __func__);
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -ENODEV;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_disable;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-> + =C2=A0 =C2=A0 =C2=A0 rc =3D -ENOMEM;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/*
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 Before changing the hardware, allo=
-cate the memory.
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 This way, we can fail gracefully i=
-f not enough memory
-> @@ -223,17 +228,21 @@ static int __devinit xircom_probe(struct pci_de=
-v *pdev, const struct pci_device_
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev =3D alloc_etherdev(sizeof(struct xirco=
-m_private));
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!dev)
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto device_fail;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_release;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0private =3D netdev_priv(dev);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Allocate the send/receive buffers */
-> - =C2=A0 =C2=A0 =C2=A0 private->rx_buffer =3D pci_alloc_consistent(pd=
-ev,8192,&private->rx_dma_handle);
-> + =C2=A0 =C2=A0 =C2=A0 private->rx_buffer =3D dma_alloc_coherent(d, 8=
-192,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 &private->rx_dma_handle,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 GFP_KERNEL);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (private->rx_buffer =3D=3D NULL) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s: no=
- memory for rx buffer\n", __func__);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto rx_buf_fa=
-il;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> - =C2=A0 =C2=A0 =C2=A0 private->tx_buffer =3D pci_alloc_consistent(pd=
-ev,8192,&private->tx_dma_handle);
-> + =C2=A0 =C2=A0 =C2=A0 private->tx_buffer =3D dma_alloc_coherent(d, 8=
-192,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 &private->tx_dma_handle,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 GFP_KERNEL);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (private->tx_buffer =3D=3D NULL) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s: no=
- memory for tx buffer\n", __func__);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto tx_buf_fa=
-il;
-> @@ -256,7 +265,8 @@ static int __devinit xircom_probe(struct pci_dev =
-*pdev, const struct pci_device_
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->netdev_ops =3D &netdev_ops;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_set_drvdata(pdev, dev);
->
-> - =C2=A0 =C2=A0 =C2=A0 if (register_netdev(dev)) {
-> + =C2=A0 =C2=A0 =C2=A0 rc =3D register_netdev(dev);
-> + =C2=A0 =C2=A0 =C2=A0 if (rc < 0) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s: ne=
-tdevice registration failed\n", __func__);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto reg_fail;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> @@ -273,17 +283,21 @@ static int __devinit xircom_probe(struct pci_de=
-v *pdev, const struct pci_device_
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_unlock_irqrestore(&private->lock,flag=
-s);
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0trigger_receive(private);
-> -
-> - =C2=A0 =C2=A0 =C2=A0 return 0;
-> +out:
-> + =C2=A0 =C2=A0 =C2=A0 return rc;
->
-> =C2=A0reg_fail:
-> - =C2=A0 =C2=A0 =C2=A0 kfree(private->tx_buffer);
-> + =C2=A0 =C2=A0 =C2=A0 pci_set_drvdata(pdev, NULL);
-> + =C2=A0 =C2=A0 =C2=A0 dma_free_coherent(d, 8192, private->tx_buffer,=
- private->tx_dma_handle);
-> =C2=A0tx_buf_fail:
-> - =C2=A0 =C2=A0 =C2=A0 kfree(private->rx_buffer);
-> + =C2=A0 =C2=A0 =C2=A0 dma_free_coherent(d, 8192, private->rx_buffer,=
- private->rx_dma_handle);
-> =C2=A0rx_buf_fail:
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0free_netdev(dev);
-> -device_fail:
-> - =C2=A0 =C2=A0 =C2=A0 return -ENODEV;
-> +err_release:
-> + =C2=A0 =C2=A0 =C2=A0 pci_release_regions(pdev);
-> +err_disable:
-> + =C2=A0 =C2=A0 =C2=A0 pci_disable_device(pdev);
-> + =C2=A0 =C2=A0 =C2=A0 goto out;
-> =C2=A0}
->
->
-> @@ -297,14 +311,15 @@ static void __devexit xircom_remove(struct pci_=
-dev *pdev)
-> =C2=A0{
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D pci_get_drvdata=
-(pdev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct xircom_private *card =3D netdev_pri=
-v(dev);
-> + =C2=A0 =C2=A0 =C2=A0 struct device *d =3D &pdev->dev;
->
-> - =C2=A0 =C2=A0 =C2=A0 pci_free_consistent(pdev,8192,card->rx_buffer,=
-card->rx_dma_handle);
-> - =C2=A0 =C2=A0 =C2=A0 pci_free_consistent(pdev,8192,card->tx_buffer,=
-card->tx_dma_handle);
-> -
-> - =C2=A0 =C2=A0 =C2=A0 release_region(dev->base_addr, 128);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0unregister_netdev(dev);
-> - =C2=A0 =C2=A0 =C2=A0 free_netdev(dev);
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_set_drvdata(pdev, NULL);
-> + =C2=A0 =C2=A0 =C2=A0 dma_free_coherent(d, 8192, card->tx_buffer, ca=
-rd->tx_dma_handle);
-> + =C2=A0 =C2=A0 =C2=A0 dma_free_coherent(d, 8192, card->rx_buffer, ca=
-rd->rx_dma_handle);
-> + =C2=A0 =C2=A0 =C2=A0 free_netdev(dev);
-> + =C2=A0 =C2=A0 =C2=A0 pci_release_regions(pdev);
-> + =C2=A0 =C2=A0 =C2=A0 pci_disable_device(pdev);
-> =C2=A0}
->
-> =C2=A0static irqreturn_t xircom_interrupt(int irq, void *dev_instance=
-)
-> --
-> 1.7.7.6
->
+>   drivers/net/wireless/ath/ath9k/recv.c |    3 +--
+>   1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/ath/ath9k/recv.c 
+> b/drivers/net/wireless/ath/ath9k/recv.c
+> index f4ae3ba..d887cee 100644
+> --- a/drivers/net/wireless/ath/ath9k/recv.c
+> +++ b/drivers/net/wireless/ath/ath9k/recv.c
+> @@ -523,8 +523,7 @@ bool ath_stoprecv(struct ath_softc *sc)
+>   		sc->rx.rxlink = NULL;
+>   	spin_unlock_bh(&sc->rx.rxbuflock);
+> 
+> -	if (!(ah->ah_flags & AH_UNPLUGGED) &&
+> -	    unlikely(!stopped)) {
+> +	if (!(ah->ah_flags) && unlikely(!stopped)) {
+That patch is completely messed up - before showing the warning, it
+checks if ah_flags is set to 0, which will never happen with most
+devices. You're simply making the warning impossible to trigger.
+
+- Felix
