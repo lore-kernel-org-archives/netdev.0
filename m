@@ -1,118 +1,154 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 21/39] tulip_core: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:35 +0200
-Message-ID: <43487f61a41077ec5cf8587248eb502f5d9be785.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 24/39] xircom_cb: fix device probe error path.
+Date: Fri,  6 Apr 2012 12:06:38 +0200
+Message-ID: <271dcd170006b9d55eb555b2e79e22c1fa86e0a0.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>,
 	Grant Grundler <grundler@parisc-linux.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43490 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43491 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756052Ab2DFKKn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756062Ab2DFKKn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:43 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+- unbalanced pci_disable_device
+- PCI ressources were not released
+- mismatching pci_alloc_.../kfree pairs are replaced by DMA alloc helpers.
+
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Grant Grundler <grundler@parisc-linux.org>
 ---
- drivers/net/ethernet/dec/tulip/tulip_core.c |   27 ++++++++++++++++-----------
- 1 files changed, 16 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/dec/tulip/xircom_cb.c |   53 ++++++++++++++++++----------
+ 1 files changed, 34 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
-index fea3641..25fe117 100644
---- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-+++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-@@ -328,7 +328,7 @@ static void tulip_up(struct net_device *dev)
- 	udelay(100);
- 
- 	if (tulip_debug > 1)
--		netdev_dbg(dev, "tulip_up(), irq==%d\n", dev->irq);
-+		netdev_dbg(dev, "tulip_up(), irq==%d\n", tp->pdev->irq);
- 
- 	iowrite32(tp->rx_ring_dma, ioaddr + CSR3);
- 	iowrite32(tp->tx_ring_dma, ioaddr + CSR4);
-@@ -515,11 +515,13 @@ media_picked:
- static int
- tulip_open(struct net_device *dev)
+diff --git a/drivers/net/ethernet/dec/tulip/xircom_cb.c b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+index fdb329f..cbcc6d6 100644
+--- a/drivers/net/ethernet/dec/tulip/xircom_cb.c
++++ b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+@@ -192,15 +192,18 @@ static const struct net_device_ops netdev_ops = {
+  */
+ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  {
-+	struct tulip_private *tp = netdev_priv(dev);
- 	int retval;
++	struct device *d = &pdev->dev;
+ 	struct net_device *dev = NULL;
+ 	struct xircom_private *private;
+ 	unsigned long flags;
+ 	unsigned short tmp16;
++	int rc;
  
- 	tulip_init_ring (dev);
+ 	/* First do the PCI initialisation */
  
--	retval = request_irq(dev->irq, tulip_interrupt, IRQF_SHARED, dev->name, dev);
-+	retval = request_irq(tp->pdev->irq, tulip_interrupt, IRQF_SHARED,
-+			     dev->name, dev);
- 	if (retval)
- 		goto free_ring;
+-	if (pci_enable_device(pdev))
+-		return -ENODEV;
++	rc = pci_enable_device(pdev);
++	if (rc < 0)
++		goto out;
  
-@@ -841,7 +843,7 @@ static int tulip_close (struct net_device *dev)
- 		netdev_dbg(dev, "Shutting down ethercard, status was %02x\n",
- 			   ioread32 (ioaddr + CSR5));
+ 	/* disable all powermanagement */
+ 	pci_write_config_dword(pdev, PCI_POWERMGMT, 0x0000);
+@@ -211,11 +214,13 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
+ 	pci_read_config_word (pdev,PCI_STATUS, &tmp16);
+ 	pci_write_config_word (pdev, PCI_STATUS,tmp16);
  
--	free_irq (dev->irq, dev);
-+	free_irq (tp->pdev->irq, dev);
+-	if (!request_region(pci_resource_start(pdev, 0), 128, "xircom_cb")) {
++	rc = pci_request_regions(pdev, "xircom_cb");
++	if (rc < 0) {
+ 		pr_err("%s: failed to allocate io-region\n", __func__);
+-		return -ENODEV;
++		goto err_disable;
+ 	}
  
- 	tulip_free_ring (dev);
++	rc = -ENOMEM;
+ 	/*
+ 	   Before changing the hardware, allocate the memory.
+ 	   This way, we can fail gracefully if not enough memory
+@@ -223,17 +228,21 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
+ 	 */
+ 	dev = alloc_etherdev(sizeof(struct xircom_private));
+ 	if (!dev)
+-		goto device_fail;
++		goto err_release;
  
-@@ -1489,8 +1491,6 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
+ 	private = netdev_priv(dev);
  
- 	INIT_WORK(&tp->media_work, tulip_tbl[tp->chip_id].media_task);
+ 	/* Allocate the send/receive buffers */
+-	private->rx_buffer = pci_alloc_consistent(pdev,8192,&private->rx_dma_handle);
++	private->rx_buffer = dma_alloc_coherent(d, 8192,
++						&private->rx_dma_handle,
++						GFP_KERNEL);
+ 	if (private->rx_buffer == NULL) {
+ 		pr_err("%s: no memory for rx buffer\n", __func__);
+ 		goto rx_buf_fail;
+ 	}
+-	private->tx_buffer = pci_alloc_consistent(pdev,8192,&private->tx_dma_handle);
++	private->tx_buffer = dma_alloc_coherent(d, 8192,
++						&private->tx_dma_handle,
++						GFP_KERNEL);
+ 	if (private->tx_buffer == NULL) {
+ 		pr_err("%s: no memory for tx buffer\n", __func__);
+ 		goto tx_buf_fail;
+@@ -256,7 +265,8 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
+ 	dev->netdev_ops = &netdev_ops;
+ 	pci_set_drvdata(pdev, dev);
  
--	dev->base_addr = (unsigned long)ioaddr;
+-	if (register_netdev(dev)) {
++	rc = register_netdev(dev);
++	if (rc < 0) {
+ 		pr_err("%s: netdevice registration failed\n", __func__);
+ 		goto reg_fail;
+ 	}
+@@ -273,17 +283,21 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
+ 	spin_unlock_irqrestore(&private->lock,flags);
+ 
+ 	trigger_receive(private);
 -
- #ifdef CONFIG_TULIP_MWI
- 	if (!force_csr0 && (tp->flags & HAS_PCI_MWI))
- 		tulip_mwi_config (pdev, dev);
-@@ -1650,7 +1650,6 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 	for (i = 0; i < 6; i++)
- 		last_phys_addr[i] = dev->dev_addr[i];
- 	last_irq = irq;
--	dev->irq = irq;
+-	return 0;
++out:
++	return rc;
  
- 	/* The lower four bits are the media type. */
- 	if (board_idx >= 0  &&  board_idx < MAX_UNITS) {
-@@ -1858,7 +1857,8 @@ static int tulip_suspend (struct pci_dev *pdev, pm_message_t state)
- 	tulip_down(dev);
- 
- 	netif_device_detach(dev);
--	free_irq(dev->irq, dev);
-+	/* FIXME: it needlessly adds an error path. */
-+	free_irq(tp->pdev->irq, dev);
- 
- save_state:
- 	pci_save_state(pdev);
-@@ -1900,7 +1900,9 @@ static int tulip_resume(struct pci_dev *pdev)
- 		return retval;
- 	}
- 
--	if ((retval = request_irq(dev->irq, tulip_interrupt, IRQF_SHARED, dev->name, dev))) {
-+	retval = request_irq(pdev->irq, tulip_interrupt, IRQF_SHARED,
-+			     dev->name, dev);
-+	if (retval < 0) {
- 		pr_err("request_irq failed in resume\n");
- 		return retval;
- 	}
-@@ -1960,11 +1962,14 @@ static void __devexit tulip_remove_one (struct pci_dev *pdev)
- 
- static void poll_tulip (struct net_device *dev)
- {
-+	struct tulip_private *tp = netdev_priv(dev);
-+	const int irq = tp->pdev->irq;
-+
- 	/* disable_irq here is not very nice, but with the lockless
- 	   interrupt handler we have no other choice. */
--	disable_irq(dev->irq);
--	tulip_interrupt (dev->irq, dev);
--	enable_irq(dev->irq);
-+	disable_irq(irq);
-+	tulip_interrupt (irq, dev);
-+	enable_irq(irq);
+ reg_fail:
+-	kfree(private->tx_buffer);
++	pci_set_drvdata(pdev, NULL);
++	dma_free_coherent(d, 8192, private->tx_buffer, private->tx_dma_handle);
+ tx_buf_fail:
+-	kfree(private->rx_buffer);
++	dma_free_coherent(d, 8192, private->rx_buffer, private->rx_dma_handle);
+ rx_buf_fail:
+ 	free_netdev(dev);
+-device_fail:
+-	return -ENODEV;
++err_release:
++	pci_release_regions(pdev);
++err_disable:
++	pci_disable_device(pdev);
++	goto out;
  }
- #endif
  
+ 
+@@ -297,14 +311,15 @@ static void __devexit xircom_remove(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct xircom_private *card = netdev_priv(dev);
++	struct device *d = &pdev->dev;
+ 
+-	pci_free_consistent(pdev,8192,card->rx_buffer,card->rx_dma_handle);
+-	pci_free_consistent(pdev,8192,card->tx_buffer,card->tx_dma_handle);
+-
+-	release_region(dev->base_addr, 128);
+ 	unregister_netdev(dev);
+-	free_netdev(dev);
+ 	pci_set_drvdata(pdev, NULL);
++	dma_free_coherent(d, 8192, card->tx_buffer, card->tx_dma_handle);
++	dma_free_coherent(d, 8192, card->rx_buffer, card->rx_dma_handle);
++	free_netdev(dev);
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
+ }
+ 
+ static irqreturn_t xircom_interrupt(int irq, void *dev_instance)
 -- 
 1.7.7.6
