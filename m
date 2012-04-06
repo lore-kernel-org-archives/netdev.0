@@ -1,52 +1,86 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v17 08/15] seccomp: add system call filtering using BPF
-Date: Fri, 6 Apr 2012 14:09:29 -0700
-Message-ID: <20120406140929.538fd5fd.akpm@linux-foundation.org>
+Subject: Re: [PATCH v17 09/15] seccomp: remove duplicated failure logging
+Date: Fri, 6 Apr 2012 14:14:15 -0700
+Message-ID: <20120406141415.93f46bc6.akpm@linux-foundation.org>
 References: <1333051320-30872-1-git-send-email-wad@chromium.org>
-	<1333051320-30872-9-git-send-email-wad@chromium.org>
-	<20120406132330.457a05cf.akpm@linux-foundation.org>
-	<CAGXu5jJVDLzCOyCo-q6+pF-_3v4Ws8jBzYXwac419uv2QQS0mA@mail.gmail.com>
-	<20120406140503.10b75c5b.akpm@linux-foundation.org>
-	<4F7F5AB9.5040309@zytor.com>
-Reply-To: kernel-hardening@lists.openwall.com
+	<1333051320-30872-10-git-send-email-wad@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>, Will Drewry <wad@chromium.org>,
- linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org,
- linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
- kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
- x86@kernel.org, arnd@arndb.de, davem@davemloft.net, mingo@redhat.com,
- oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
- mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
- serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
- indan@nul.nu, pmoore@redhat.com, corbet@lwn.net, eric.dumazet@gmail.com,
- markus@chromium.org, coreyb@linux.vnet.ibm.com, jmorris@namei.org
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <kernel-hardening-return-1209-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <4F7F5AB9.5040309@zytor.com>
+Cc: linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org, jmorris@namei.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1333051320-30872-10-git-send-email-wad@chromium.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 06 Apr 2012 14:06:01 -0700
-"H. Peter Anvin" <hpa@zytor.com> wrote:
+On Thu, 29 Mar 2012 15:01:54 -0500
+Will Drewry <wad@chromium.org> wrote:
 
-> On 04/06/2012 02:05 PM, Andrew Morton wrote:
-> >>>
-> >>> hm, I'm surprised that we don't have a zero-returning implementation of
-> >>> is_compat_task() when CONFIG_COMPAT=n.  Seems silly.  Blames Arnd.
-> >>
-> >> There is
-> > 
-> > I can't find it.  The definition in include/linux/compat.h is inside
-> > #ifdef CONFIG_COMPAT.
-> > 
+> From: Kees Cook <keescook@chromium.org>
 > 
-> I thought Linus globalized it very recently...
+> This consolidates the seccomp filter error logging path and adds more
+> details to the audit log.
+> 
+> ...
+>
+> --- a/include/linux/audit.h
+> +++ b/include/linux/audit.h
+>
+> ...
+>
+>  #define audit_inode(n,d) do { (void)(d); } while (0)
+>  #define audit_inode_child(i,p) do { ; } while (0)
+>  #define audit_core_dumps(i) do { ; } while (0)
+> -#define audit_seccomp(i) do { ; } while (0)
+> +#define audit_seccomp(i,s,c) do { ; } while (0)
 
-Oh, yeah, I misread.
+Sigh.  Someone please convert all these to C.  That way we get
+typechecking and don't need dopey party tricks like that "(void)(d)" to
+squish compilation warnings.
 
-We should be able to remove quite a few open-coded ifdefs now.
+> ...
+> --- a/kernel/auditsc.c
+> +++ b/kernel/auditsc.c
+> @@ -67,6 +67,7 @@
+>  #include <linux/syscalls.h>
+>  #include <linux/capability.h>
+>  #include <linux/fs_struct.h>
+> +#include <linux/compat.h>
+>  
+>  #include "audit.h"
+>  
+> @@ -2710,13 +2711,18 @@ void audit_core_dumps(long signr)
+>  	audit_log_end(ab);
+>  }
+>  
+> -void __audit_seccomp(unsigned long syscall)
+> +void __audit_seccomp(unsigned long syscall, long signr, int code)
+>  {
+>  	struct audit_buffer *ab;
+>  
+>  	ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_ANOM_ABEND);
+> -	audit_log_abend(ab, "seccomp", SIGKILL);
+> +	audit_log_abend(ab, "seccomp", signr);
+>  	audit_log_format(ab, " syscall=%ld", syscall);
+> +#ifdef CONFIG_COMPAT
+> +	audit_log_format(ab, " compat=%d", is_compat_task());
+> +#endif
+
+We don't need the ifdef for compilation reasons now.
+
+The question is: should we emit the compat= record on
+non-compat-capable architectures?  Doing so would be safer - making it
+conditional invites people to write x86-only usersapce.
+
+
