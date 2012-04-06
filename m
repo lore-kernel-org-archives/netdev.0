@@ -1,58 +1,76 @@
-From: Don Dutile <ddutile@redhat.com>
-Subject: Re: Expose ltr/obff interface by sysfs
-Date: Fri, 06 Apr 2012 17:20:21 -0400
-Message-ID: <4F7F5E15.3040808@redhat.com>
-References: <403610A45A2B5242BD291EDAE8B37D300FD0A434@SHSMSX102.ccr.corp.intel.com> <20120406082649.68fe5842@jbarnes-desktop>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v17 13/15] ptrace,seccomp: Add PTRACE_SECCOMP support
+Date: Fri, 6 Apr 2012 14:24:23 -0700
+Message-ID: <20120406142423.b2cb2f61.akpm@linux-foundation.org>
+References: <1333051320-30872-1-git-send-email-wad@chromium.org>
+	<1333051320-30872-14-git-send-email-wad@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Hao, Xudong" <xudong.hao@intel.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20120406082649.68fe5842@jbarnes-desktop>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
+	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
+	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org, jmorris@namei.org
+To: Will Drewry <wad@chromium.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1333051320-30872-14-git-send-email-wad@chromium.org>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/06/2012 11:26 AM, Jesse Barnes wrote:
-> On Fri, 6 Apr 2012 02:43:59 +0000
-> "Hao, Xudong"<xudong.hao@intel.com>  wrote:
->
->> Hi,
->>
->> I'm working on virtualization Xen/KVM. I saw there are ltr/obff enabling/disabling function in pci.c, but no called till now. I want to know if anybody(driver developer) are working for using it? Can driver change the LTR latency value dynamically?
->
-> I believe the value is writable, but I'd expect some devices to
-> misbehave if the value were programmed too high.  Performance would
-> also suffer if the value were set too high, at least for IOPS sensitive
-> devices.
->
->> /*
->> LTR(Latency tolerance reporting) allows devices to send messages to the root complex indicating their latency tolerance for snooped&  unsnooped memory transactions.
->> OBFF (optimized buffer flush/fill), where supported, can help improve energy efficiency by giving devices information about when interrupts and other activity will have a reduced power impact.
->> */
->>
->> One way to control ltr/obff is used by driver, however, I'm considering that in virtualization, how guest OS driver control them. I have an idea that expose an inode interface by sysfs, like "reset" inode implemented in pci-sysfs.c, so that system user/administrator can enable/disable ltr/obff or set latency value on userspace, but not limited on driver. Comments?
->
-> Given how device specific these extensions are, I'd expect you'd need
-> to know about each specific device anyway, which is why I think the
-> control belongs in the driver.  I don't see why you'd need to
-> enable/disable/change these functions when assigning a device from one
-> guest to another...
->
+On Thu, 29 Mar 2012 15:01:58 -0500
+Will Drewry <wad@chromium.org> wrote:
 
-and looking at this code last week, I noticed the ltr, obff & ido
-functions should be doing pcie_cap_has_*() checks before
-accessing registers that may not exist, as is done in
-pci_[save,restore]_pcie_state() ...
+> This change adds support for a new ptrace option, PTRACE_O_TRACESECCOMP,
+> and a new return value for seccomp BPF programs, SECCOMP_RET_TRACE.
+> 
+> When a tracer specifies the PTRACE_O_TRACESECCOMP ptrace option, the
+> tracer will be notified, via PTRACE_EVENT_SECCOMP, for any syscall that
+> results in a BPF program returning SECCOMP_RET_TRACE.  The 16-bit
+> SECCOMP_RET_DATA mask of the BPF program return value will be passed as
+> the ptrace_message and may be retrieved using PTRACE_GETEVENTMSG.
+> 
+> If the subordinate process is not using seccomp filter, then no
+> system call notifications will occur even if the option is specified.
+> 
+> If there is no tracer with PTRACE_O_TRACESECCOMP when SECCOMP_RET_TRACE
+> is returned, the system call will not be executed and an -ENOSYS errno
+> will be returned to userspace.
+> 
+> This change adds a dependency on the system call slow path.  Any future
+> efforts to use the system call fast path for seccomp filter will need to
+> address this restriction.
+> 
+>
+> ...
+>
+> @@ -410,6 +411,15 @@ int __secure_computing_int(int this_syscall)
+>  			/* Let the filter pass back 16 bits of data. */
+>  			seccomp_send_sigsys(this_syscall, data);
+>  			goto skip;
+> +		case SECCOMP_RET_TRACE:
+> +			/* Skip these calls if there is no tracer. */
+> +			if (!ptrace_event_enabled(current, PTRACE_EVENT_SECCOMP))
+> +				goto skip;
+> +			/* Allow the BPF to provide the event message */
+> +			ptrace_event(PTRACE_EVENT_SECCOMP, data);
+> +			if (fatal_signal_pending(current))
+> +				break;
 
-in drivers/pci/pci.c:
-#define pcie_cap_has_devctl2(type, flags)               \
-                 ((flags & PCI_EXP_FLAGS_VERS) > 1)
-#define pcie_cap_has_lnkctl2(type, flags)               \
-                 ((flags & PCI_EXP_FLAGS_VERS) > 1)
-#define pcie_cap_has_sltctl2(type, flags)               \
-                 ((flags & PCI_EXP_FLAGS_VERS) > 1)
+I don't have all the patches applied here so the context is missing. 
+Perhaps tht would help me understand what this fatal_signal_pending()
+test is doing here.  But an explanatory comment wouldn't hurt.
+
+What *is* it here for, anyway?
+
+> +			return 0;
+>  		case SECCOMP_RET_ALLOW:
+>  			return 0;
+>  		case SECCOMP_RET_KILL:
+
