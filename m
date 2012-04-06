@@ -1,109 +1,132 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 22/39] sunhme: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:36 +0200
-Message-ID: <f1d8b45bae9746b74531bb9c5eacc022183df6e3.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 17/39] bnx2: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:31 +0200
+Message-ID: <3958bafae0bfb262eda364adebf21aebb25af69a.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>
+Cc: "David Miller" <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43451 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43471 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755909Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2012 06:10:37 -0400
+	id S1755981Ab2DFKKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2012 06:10:38 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/sun/sunhme.c |   20 +++++++++-----------
- drivers/net/ethernet/sun/sunhme.h |    1 +
- 2 files changed, 10 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c |   41 +++++++++++----------------------
+ 1 files changed, 14 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
-index 8b627e2..a470f38 100644
---- a/drivers/net/ethernet/sun/sunhme.c
-+++ b/drivers/net/ethernet/sun/sunhme.c
-@@ -2183,13 +2183,14 @@ static int happy_meal_open(struct net_device *dev)
- 	 * into a single source which we register handling at probe time.
- 	 */
- 	if ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO) {
--		if (request_irq(dev->irq, happy_meal_interrupt,
--				IRQF_SHARED, dev->name, (void *)dev)) {
-+		res = request_irq(hp->irq, happy_meal_interrupt, IRQF_SHARED,
-+				  dev->name, dev);
-+		if (res < 0) {
- 			HMD(("EAGAIN\n"));
- 			printk(KERN_ERR "happy_meal(SBUS): Can't order irq %d to go.\n",
--			       dev->irq);
-+			       hp->irq);
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 8297e28..36037a6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -7976,7 +7976,6 @@ static int __devinit
+ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ {
+ 	struct bnx2 *bp;
+-	unsigned long mem_len;
+ 	int rc, i, j;
+ 	u32 reg;
+ 	u64 dma_mask, persist_dma_mask;
+@@ -8036,13 +8035,8 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ #endif
+ 	INIT_WORK(&bp->reset_task, bnx2_reset_task);
  
--			return -EAGAIN;
-+			return res;
- 		}
+-	dev->base_addr = dev->mem_start = pci_resource_start(pdev, 0);
+-	mem_len = MB_GET_CID_ADDR(TX_TSS_CID + TX_MAX_TSS_RINGS + 1);
+-	dev->mem_end = dev->mem_start + mem_len;
+-	dev->irq = pdev->irq;
+-
+-	bp->regview = ioremap_nocache(dev->base_addr, mem_len);
+-
++	bp->regview = pci_iomap(pdev, 0, MB_GET_CID_ADDR(TX_TSS_CID +
++							 TX_MAX_TSS_RINGS + 1));
+ 	if (!bp->regview) {
+ 		dev_err(&pdev->dev, "Cannot map register space, aborting\n");
+ 		rc = -ENOMEM;
+@@ -8346,10 +8340,8 @@ err_out_unmap:
+ 		bp->flags &= ~BNX2_FLAG_AER_ENABLED;
  	}
  
-@@ -2200,7 +2201,7 @@ static int happy_meal_open(struct net_device *dev)
- 	spin_unlock_irq(&hp->happy_lock);
+-	if (bp->regview) {
+-		iounmap(bp->regview);
+-		bp->regview = NULL;
+-	}
++	pci_iounmap(pdev, bp->regview);
++	bp->regview = NULL;
  
- 	if (res && ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO))
--		free_irq(dev->irq, dev);
-+		free_irq(hp->irq, dev);
- 	return res;
- }
+ err_out_release:
+ 	pci_release_regions(pdev);
+@@ -8432,7 +8424,7 @@ static int __devinit
+ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	static int version_printed = 0;
+-	struct net_device *dev = NULL;
++	struct net_device *dev;
+ 	struct bnx2 *bp;
+ 	int rc;
+ 	char str[40];
+@@ -8442,15 +8434,12 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
-@@ -2222,7 +2223,7 @@ static int happy_meal_close(struct net_device *dev)
- 	 * time and never unregister.
- 	 */
- 	if ((hp->happy_flags & (HFLAG_QUATTRO|HFLAG_PCI)) != HFLAG_QUATTRO)
--		free_irq(dev->irq, dev);
-+		free_irq(hp->irq, dev);
+ 	/* dev zeroed in init_etherdev */
+ 	dev = alloc_etherdev_mq(sizeof(*bp), TX_MAX_RINGS);
+-
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+ 	rc = bnx2_init_board(pdev, dev);
+-	if (rc < 0) {
+-		free_netdev(dev);
+-		return rc;
+-	}
++	if (rc < 0)
++		goto err_free;
+ 
+ 	dev->netdev_ops = &bnx2_netdev_ops;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+@@ -8480,22 +8469,21 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto error;
+ 	}
+ 
+-	netdev_info(dev, "%s (%c%d) %s found at mem %lx, IRQ %d, node addr %pM\n",
+-		    board_info[ent->driver_data].name,
++	netdev_info(dev, "%s (%c%d) %s found at mem %lx, IRQ %d, "
++		    "node addr %pM\n", board_info[ent->driver_data].name,
+ 		    ((CHIP_ID(bp) & 0xf000) >> 12) + 'A',
+ 		    ((CHIP_ID(bp) & 0x0ff0) >> 4),
+-		    bnx2_bus_string(bp, str),
+-		    dev->base_addr,
+-		    bp->pdev->irq, dev->dev_addr);
++		    bnx2_bus_string(bp, str), (long)pci_resource_start(pdev, 0),
++		    pdev->irq, dev->dev_addr);
  
  	return 0;
+ 
+ error:
+-	if (bp->regview)
+-		iounmap(bp->regview);
++	iounmap(bp->regview);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
++err_free:
+ 	free_netdev(dev);
+ 	return rc;
  }
-@@ -2778,7 +2779,7 @@ static int __devinit happy_meal_sbus_probe_one(struct platform_device *op, int i
- 	dev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM;
- 	dev->features |= dev->hw_features | NETIF_F_RXCSUM;
+@@ -8511,8 +8499,7 @@ bnx2_remove_one(struct pci_dev *pdev)
+ 	del_timer_sync(&bp->timer);
+ 	cancel_work_sync(&bp->reset_task);
  
--	dev->irq = op->archdata.irqs[0];
-+	hp->irq = op->archdata.irqs[0];
+-	if (bp->regview)
+-		iounmap(bp->regview);
++	pci_iounmap(bp->pdev, bp->regview);
  
- #if defined(CONFIG_SBUS) && defined(CONFIG_PCI)
- 	/* Hook up SBUS register/descriptor accessors. */
-@@ -2982,8 +2983,6 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
- 	if (hme_version_printed++ == 0)
- 		printk(KERN_INFO "%s", version);
+ 	kfree(bp->temp_stats_blk);
  
--	dev->base_addr = (long) pdev;
--
- 	hp = netdev_priv(dev);
- 
- 	hp->happy_dev = pdev;
-@@ -3088,12 +3087,11 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
- 
- 	init_timer(&hp->happy_timer);
- 
-+	hp->irq = pdev->irq;
- 	hp->dev = dev;
- 	dev->netdev_ops = &hme_netdev_ops;
- 	dev->watchdog_timeo = 5*HZ;
- 	dev->ethtool_ops = &hme_ethtool_ops;
--	dev->irq = pdev->irq;
--	dev->dma = 0;
- 
- 	/* Happy Meal can do it all... */
- 	dev->hw_features = NETIF_F_SG | NETIF_F_HW_CSUM;
-diff --git a/drivers/net/ethernet/sun/sunhme.h b/drivers/net/ethernet/sun/sunhme.h
-index 64f2783..f430765 100644
---- a/drivers/net/ethernet/sun/sunhme.h
-+++ b/drivers/net/ethernet/sun/sunhme.h
-@@ -432,6 +432,7 @@ struct happy_meal {
- 
- 	dma_addr_t                hblock_dvma;    /* DVMA visible address happy block  */
- 	unsigned int              happy_flags;    /* Driver state flags                */
-+	int                       irq;
- 	enum happy_transceiver    tcvr_type;      /* Kind of transceiver in use        */
- 	unsigned int              happy_bursts;   /* Get your mind out of the gutter   */
- 	unsigned int              paddr;          /* PHY address for transceiver       */
 -- 
 1.7.7.6
