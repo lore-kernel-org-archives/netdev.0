@@ -1,228 +1,60 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH v2 1/2] cgroup: pass struct mem_cgroup instead of struct cgroup to socket memcg
-Date: Fri,  6 Apr 2012 20:04:09 +0400
-Message-ID: <1333728250-14248-2-git-send-email-glommer@parallels.com>
-References: <1333728250-14248-1-git-send-email-glommer@parallels.com>
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Li Zefan <lizf-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>,
-	<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1333728250-14248-1-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Alexey I. Froloff" <raorn@raorn.name>
+Subject: [PATCH] [IPv6]: Treat ND option 31 as userland (DNSSL support)
+Date: Fri,  6 Apr 2012 19:50:58 +0400
+Message-ID: <1333727458-28438-1-git-send-email-raorn@raorn.name>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from c2-81-23-10-117.elastic.cloud.croc.ru ([81.23.10.117]:38970
+	"EHLO mail.raorn.name" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757212Ab2DFQJP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 12:09:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The only reason cgroup was used, was to be consistent with the populate()
-interface. Now that we're getting rid of it, not only we no longer need
-it, but we also *can't* call it this way.
+As specified in RFC6106, DNSSL option contains one or more domain names
+of DNS suffixes.  8-bit identifier of the DNSSL option type as assigned
+by the IANA is 31.  This option should also be treated as userland.
 
-Since we will no longer rely on populate(), this will be called from
-create(). During create, the association between struct mem_cgroup
-and struct cgroup does not yet exist, since cgroup internals hasn't
-yet initialized its bookkeeping. This means we would not be able
-to draw the memcg pointer from the cgroup pointer in these
-functions, which is highly undesirable.
-
-Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-CC: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-CC: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Alexey I. Froloff <raorn@raorn.name>
 ---
- include/net/sock.h           |   12 ++++++------
- include/net/tcp_memcontrol.h |    4 ++--
- mm/memcontrol.c              |   24 +++++++++---------------
- net/core/sock.c              |   10 +++++-----
- net/ipv4/tcp_memcontrol.c    |    6 ++----
- 5 files changed, 24 insertions(+), 32 deletions(-)
+ include/net/ndisc.h |    1 +
+ net/ipv6/ndisc.c    |    4 +++-
+ 2 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index a6ba1f8..b3ebe6b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -70,16 +70,16 @@
- struct cgroup;
- struct cgroup_subsys;
- #ifdef CONFIG_NET
--int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss);
--void mem_cgroup_sockets_destroy(struct cgroup *cgrp);
-+int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss);
-+void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg);
- #else
- static inline
--int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
- {
- 	return 0;
- }
- static inline
--void mem_cgroup_sockets_destroy(struct cgroup *cgrp)
-+void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg)
- {
- }
- #endif
-@@ -900,9 +900,9 @@ struct proto {
- 	 * This function has to setup any files the protocol want to
- 	 * appear in the kmem cgroup filesystem.
- 	 */
--	int			(*init_cgroup)(struct cgroup *cgrp,
-+	int			(*init_cgroup)(struct mem_cgroup *memcg,
- 					       struct cgroup_subsys *ss);
--	void			(*destroy_cgroup)(struct cgroup *cgrp);
-+	void			(*destroy_cgroup)(struct mem_cgroup *memcg);
- 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
- #endif
- };
-diff --git a/include/net/tcp_memcontrol.h b/include/net/tcp_memcontrol.h
-index 48410ff..7df18bc 100644
---- a/include/net/tcp_memcontrol.h
-+++ b/include/net/tcp_memcontrol.h
-@@ -12,8 +12,8 @@ struct tcp_memcontrol {
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index 6f9c25a..c02b6ad 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -34,6 +34,7 @@ enum {
+ 	__ND_OPT_ARRAY_MAX,
+ 	ND_OPT_ROUTE_INFO = 24,		/* RFC4191 */
+ 	ND_OPT_RDNSS = 25,		/* RFC5006 */
++	ND_OPT_DNSSL = 31,		/* RFC6106 */
+ 	__ND_OPT_MAX
  };
  
- struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
--int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
--void tcp_destroy_cgroup(struct cgroup *cgrp);
-+int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss);
-+void tcp_destroy_cgroup(struct mem_cgroup *memcg);
- unsigned long long tcp_max_memory(const struct mem_cgroup *memcg);
- void tcp_prot_mem(struct mem_cgroup *memcg, long val, int idx);
- #endif /* _TCP_MEMCG_H */
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index bef1142..704054d 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -4640,29 +4640,22 @@ static int mem_control_numa_stat_open(struct inode *unused, struct file *file)
- #endif /* CONFIG_NUMA */
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 3dcdb81..d04c6eb 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -15,6 +15,7 @@
+ /*
+  *	Changes:
+  *
++ *	Alexey I. Froloff		:	RFC6106 (DNSSL) support
+  *	Pierre Ynard			:	export userland ND options
+  *						through netlink (RDNSS support)
+  *	Lars Fenneberg			:	fixed MTU setting on receipt
+@@ -228,7 +229,8 @@ static struct nd_opt_hdr *ndisc_next_option(struct nd_opt_hdr *cur,
  
- #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
--static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
-+static int register_kmem_files(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+ static inline int ndisc_is_useropt(struct nd_opt_hdr *opt)
  {
--	/*
--	 * Part of this would be better living in a separate allocation
--	 * function, leaving us with just the cgroup tree population work.
--	 * We, however, depend on state such as network's proto_list that
--	 * is only initialized after cgroup creation. I found the less
--	 * cumbersome way to deal with it to defer it all to populate time
--	 */
--	return mem_cgroup_sockets_init(cont, ss);
-+	return mem_cgroup_sockets_init(memcg, ss);
- };
- 
--static void kmem_cgroup_destroy(struct cgroup *cont)
-+static void kmem_cgroup_destroy(struct mem_cgroup *memcg)
- {
--	mem_cgroup_sockets_destroy(cont);
-+	mem_cgroup_sockets_destroy(memcg);
- }
- #else
--static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
-+static int register_kmem_files(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
- {
- 	return 0;
+-	return opt->nd_opt_type == ND_OPT_RDNSS;
++	return opt->nd_opt_type == ND_OPT_RDNSS ||
++		opt->nd_opt_type == ND_OPT_DNSSL;
  }
  
--static void kmem_cgroup_destroy(struct cgroup *cont)
-+static void kmem_cgroup_destroy(struct mem_cgroup *memcg)
- {
- }
- #endif
-@@ -5034,7 +5027,7 @@ static void mem_cgroup_destroy(struct cgroup *cont)
- {
- 	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
- 
--	kmem_cgroup_destroy(cont);
-+	kmem_cgroup_destroy(memcg);
- 
- 	mem_cgroup_put(memcg);
- }
-@@ -5042,7 +5035,8 @@ static void mem_cgroup_destroy(struct cgroup *cont)
- static int mem_cgroup_populate(struct cgroup_subsys *ss,
- 				struct cgroup *cont)
- {
--	return register_kmem_files(cont, ss);
-+	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
-+	return register_kmem_files(memcg, ss);
- }
- 
- #ifdef CONFIG_MMU
-diff --git a/net/core/sock.c b/net/core/sock.c
-index b2e14c0..878f744 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -140,7 +140,7 @@ static DEFINE_MUTEX(proto_list_mutex);
- static LIST_HEAD(proto_list);
- 
- #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
--int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
- {
- 	struct proto *proto;
- 	int ret = 0;
-@@ -148,7 +148,7 @@ int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
- 	mutex_lock(&proto_list_mutex);
- 	list_for_each_entry(proto, &proto_list, node) {
- 		if (proto->init_cgroup) {
--			ret = proto->init_cgroup(cgrp, ss);
-+			ret = proto->init_cgroup(memcg, ss);
- 			if (ret)
- 				goto out;
- 		}
-@@ -159,19 +159,19 @@ int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
- out:
- 	list_for_each_entry_continue_reverse(proto, &proto_list, node)
- 		if (proto->destroy_cgroup)
--			proto->destroy_cgroup(cgrp);
-+			proto->destroy_cgroup(memcg);
- 	mutex_unlock(&proto_list_mutex);
- 	return ret;
- }
- 
--void mem_cgroup_sockets_destroy(struct cgroup *cgrp)
-+void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg)
- {
- 	struct proto *proto;
- 
- 	mutex_lock(&proto_list_mutex);
- 	list_for_each_entry_reverse(proto, &proto_list, node)
- 		if (proto->destroy_cgroup)
--			proto->destroy_cgroup(cgrp);
-+			proto->destroy_cgroup(memcg);
- 	mutex_unlock(&proto_list_mutex);
- }
- #endif
-diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-index 8f1753d..1517037 100644
---- a/net/ipv4/tcp_memcontrol.c
-+++ b/net/ipv4/tcp_memcontrol.c
-@@ -18,7 +18,7 @@ static void memcg_tcp_enter_memory_pressure(struct sock *sk)
- }
- EXPORT_SYMBOL(memcg_tcp_enter_memory_pressure);
- 
--int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
-+int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
- {
- 	/*
- 	 * The root cgroup does not use res_counters, but rather,
-@@ -28,7 +28,6 @@ int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
- 	struct res_counter *res_parent = NULL;
- 	struct cg_proto *cg_proto, *parent_cg;
- 	struct tcp_memcontrol *tcp;
--	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
- 	struct mem_cgroup *parent = parent_mem_cgroup(memcg);
- 	struct net *net = current->nsproxy->net_ns;
- 
-@@ -61,9 +60,8 @@ int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
- }
- EXPORT_SYMBOL(tcp_init_cgroup);
- 
--void tcp_destroy_cgroup(struct cgroup *cgrp)
-+void tcp_destroy_cgroup(struct mem_cgroup *memcg)
- {
--	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
- 	struct cg_proto *cg_proto;
- 	struct tcp_memcontrol *tcp;
- 	u64 val;
+ static struct nd_opt_hdr *ndisc_next_useropt(struct nd_opt_hdr *cur,
 -- 
-1.7.7.6
+1.7.3.4
