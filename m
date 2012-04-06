@@ -1,622 +1,924 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 25/39] xircom_cb: stop using net_device.{base_addr, irq} and convert to __iomem.
-Date: Fri,  6 Apr 2012 12:06:39 +0200
-Message-ID: <d8cb2b1097a9c64778dc1ab9bb33bcf5bf62bfc7.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 31/39] uli526x: stop using net_device.{base_addr, irq} and convert to __iomem.
+Date: Fri,  6 Apr 2012 12:06:45 +0200
+Message-ID: <0a3928f4342bab3bf0b2eb63fe71cecace548e99.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>,
 	Grant Grundler <grundler@parisc-linux.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43494 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43492 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756090Ab2DFKKn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756071Ab2DFKKn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:43 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The bulk of the patch comes from the __iomem changes.
+
+- the phy read and write operations were carrying the chip id deep
+  down the call chain. Let's waste a pointer and contain the flying
+  spaghetti monster.
+- phy_{read, write}_1bit only need to access the DCR9 register. The loss
+  of generality here should not hurt.
+- removed a leftover printk of the EISA era. This is a pure PCI device.
+
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Grant Grundler <grundler@parisc-linux.org>
 ---
- drivers/net/ethernet/dec/tulip/xircom_cb.c |  227 +++++++++++++++-------------
- 1 files changed, 124 insertions(+), 103 deletions(-)
+ drivers/net/ethernet/dec/tulip/uli526x.c |  397 +++++++++++++++---------------
+ 1 files changed, 202 insertions(+), 195 deletions(-)
 
-diff --git a/drivers/net/ethernet/dec/tulip/xircom_cb.c b/drivers/net/ethernet/dec/tulip/xircom_cb.c
-index cbcc6d6..138bf83 100644
---- a/drivers/net/ethernet/dec/tulip/xircom_cb.c
-+++ b/drivers/net/ethernet/dec/tulip/xircom_cb.c
-@@ -41,7 +41,9 @@ MODULE_DESCRIPTION("Xircom Cardbus ethernet driver");
- MODULE_AUTHOR("Arjan van de Ven <arjanv@redhat.com>");
- MODULE_LICENSE("GPL");
+diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
+index c9b3396..75d45f8 100644
+--- a/drivers/net/ethernet/dec/tulip/uli526x.c
++++ b/drivers/net/ethernet/dec/tulip/uli526x.c
+@@ -42,6 +42,8 @@
+ #include <asm/dma.h>
+ #include <asm/uaccess.h>
  
++#define uw32(reg, val)	iowrite32(val, ioaddr + (reg))
++#define ur32(reg)	ioread32(ioaddr + (reg))
+ 
+ /* Board/System/Debug information/definition ---------------- */
+ #define PCI_ULI5261_ID  0x526110B9	/* ULi M5261 ID*/
+@@ -110,14 +112,6 @@ do {								\
+ 
+ #define SROM_V41_CODE   0x14
+ 
+-#define SROM_CLK_WRITE(data, ioaddr)					\
+-		outl(data|CR9_SROM_READ|CR9_SRCS,ioaddr);		\
+-		udelay(5);						\
+-		outl(data|CR9_SROM_READ|CR9_SRCS|CR9_SRCLK,ioaddr);	\
+-		udelay(5);						\
+-		outl(data|CR9_SROM_READ|CR9_SRCS,ioaddr);		\
+-		udelay(5);
 -
-+#define xw32(reg, val)	iowrite32(val, ioaddr + (reg))
-+#define xr32(reg)	ioread32(ioaddr + (reg))
-+#define xr8(reg)	ioread8(ioaddr + (reg))
+ /* Structure/enum declaration ------------------------------- */
+ struct tx_desc {
+         __le32 tdes0, tdes1, tdes2, tdes3; /* Data for the card */
+@@ -132,12 +126,15 @@ struct rx_desc {
+ } __attribute__(( aligned(32) ));
  
- /* IO registers on the card, offsets */
- #define CSR0	0x00
-@@ -83,7 +85,7 @@ struct xircom_private {
+ struct uli526x_board_info {
+-	u32 chip_id;			/* Chip vendor/Device ID */
++	struct uli_phy_ops {
++		void (*write)(struct uli526x_board_info *, u8, u8, u16);
++		u16 (*read)(struct uli526x_board_info *, u8, u8);
++	} phy;
+ 	struct net_device *next_dev;	/* next device */
+ 	struct pci_dev *pdev;		/* PCI device */
+ 	spinlock_t lock;
  
- 	struct sk_buff *tx_skb[4];
+-	long ioaddr;			/* I/O base address */
++	void __iomem *ioaddr;		/* I/O base address */
+ 	u32 cr0_data;
+ 	u32 cr5_data;
+ 	u32 cr6_data;
+@@ -227,21 +224,21 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *,
+ static int uli526x_stop(struct net_device *);
+ static void uli526x_set_filter_mode(struct net_device *);
+ static const struct ethtool_ops netdev_ethtool_ops;
+-static u16 read_srom_word(long, int);
++static u16 read_srom_word(struct uli526x_board_info *, int);
+ static irqreturn_t uli526x_interrupt(int, void *);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void uli526x_poll(struct net_device *dev);
+ #endif
+-static void uli526x_descriptor_init(struct net_device *, unsigned long);
++static void uli526x_descriptor_init(struct net_device *, void __iomem *);
+ static void allocate_rx_buffer(struct net_device *);
+-static void update_cr6(u32, unsigned long);
++static void update_cr6(u32, void __iomem *);
+ static void send_filter_frame(struct net_device *, int);
+-static u16 phy_read(unsigned long, u8, u8, u32);
+-static u16 phy_readby_cr10(unsigned long, u8, u8);
+-static void phy_write(unsigned long, u8, u8, u16, u32);
+-static void phy_writeby_cr10(unsigned long, u8, u8, u16);
+-static void phy_write_1bit(unsigned long, u32, u32);
+-static u16 phy_read_1bit(unsigned long, u32);
++static u16 phy_readby_cr9(struct uli526x_board_info *, u8, u8);
++static u16 phy_readby_cr10(struct uli526x_board_info *, u8, u8);
++static void phy_writeby_cr9(struct uli526x_board_info *, u8, u8, u16);
++static void phy_writeby_cr10(struct uli526x_board_info *, u8, u8, u16);
++static void phy_write_1bit(struct uli526x_board_info *db, u32);
++static u16 phy_read_1bit(struct uli526x_board_info *db);
+ static u8 uli526x_sense_speed(struct uli526x_board_info *);
+ static void uli526x_process_mode(struct uli526x_board_info *);
+ static void uli526x_timer(unsigned long);
+@@ -253,6 +250,18 @@ static void uli526x_free_rxbuffer(struct uli526x_board_info *);
+ static void uli526x_init(struct net_device *);
+ static void uli526x_set_phyxcer(struct uli526x_board_info *);
  
--	unsigned long io_port;
++static void srom_clk_write(struct uli526x_board_info *db, u32 data)
++{
++	void __iomem *ioaddr = db->ioaddr;
++
++	uw32(DCR9, data | CR9_SROM_READ | CR9_SRCS);
++	udelay(5);
++	uw32(DCR9, data | CR9_SROM_READ | CR9_SRCS | CR9_SRCLK);
++	udelay(5);
++	uw32(DCR9, data | CR9_SROM_READ | CR9_SRCS);
++	udelay(5);
++}
++
+ /* ULI526X network board routine ---------------------------- */
+ 
+ static const struct net_device_ops netdev_ops = {
+@@ -277,6 +286,7 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
+ {
+ 	struct uli526x_board_info *db;	/* board information structure */
+ 	struct net_device *dev;
 +	void __iomem *ioaddr;
- 	int open;
+ 	int i, err;
  
- 	/* transmit_used is the rotating counter that indicates which transmit
-@@ -137,7 +139,7 @@ static int link_status(struct xircom_private *card);
+ 	ULI526X_DBUG(0, "uli526x_init_one()", 0);
+@@ -338,14 +348,26 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
+ 	db->buf_pool_start = db->buf_pool_ptr;
+ 	db->buf_pool_dma_start = db->buf_pool_dma_ptr;
  
+-	db->chip_id = ent->driver_data;
+-	db->ioaddr = pci_resource_start(pdev, 0);
++	switch (ent->driver_data) {
++	case PCI_ULI5263_ID:
++		db->phy.write	= phy_writeby_cr10;
++		db->phy.read	= phy_readby_cr10;
++		break;
++	default:
++		db->phy.write	= phy_writeby_cr9;
++		db->phy.read	= phy_readby_cr9;
++		break;
++	}
  
- static DEFINE_PCI_DEVICE_TABLE(xircom_pci_table) = {
--	{0x115D, 0x0003, PCI_ANY_ID, PCI_ANY_ID,},
-+	{ PCI_VDEVICE(XIRCOM, 0x0003), },
- 	{0,},
- };
- MODULE_DEVICE_TABLE(pci, xircom_pci_table);
-@@ -146,9 +148,7 @@ static struct pci_driver xircom_ops = {
- 	.name		= "xircom_cb",
- 	.id_table	= xircom_pci_table,
- 	.probe		= xircom_probe,
--	.remove		= xircom_remove,
--	.suspend =NULL,
--	.resume =NULL
-+	.remove		= __devexit_p(xircom_remove),
- };
- 
- 
-@@ -253,10 +253,13 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
- 
- 	private->dev = dev;
- 	private->pdev = pdev;
--	private->io_port = pci_resource_start(pdev, 0);
++	/* IO region. */
++	ioaddr = pci_iomap(pdev, 0, 0);
++	if (!ioaddr)
++		goto err_out_free_tx_buf;
 +
-+	/* IO range. */
-+	private->ioaddr = pci_iomap(pdev, 0, 0);
-+	if (!private->ioaddr)
-+		goto reg_fail;
-+
- 	spin_lock_init(&private->lock);
++	db->ioaddr = ioaddr;
+ 	db->pdev = pdev;
+ 	db->init = 1;
+ 
+-	dev->base_addr = db->ioaddr;
 -	dev->irq = pdev->irq;
--	dev->base_addr = private->io_port;
+ 	pci_set_drvdata(pdev, dev);
  
- 	initialize_card(private);
- 	read_mac_address(private);
-@@ -268,7 +271,7 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
- 	rc = register_netdev(dev);
- 	if (rc < 0) {
- 		pr_err("%s: netdevice registration failed\n", __func__);
--		goto reg_fail;
-+		goto err_unmap;
+ 	/* Register some necessary functions */
+@@ -357,24 +379,24 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
+ 
+ 	/* read 64 word srom data */
+ 	for (i = 0; i < 64; i++)
+-		((__le16 *) db->srom)[i] = cpu_to_le16(read_srom_word(db->ioaddr, i));
++		((__le16 *) db->srom)[i] = cpu_to_le16(read_srom_word(db, i));
+ 
+ 	/* Set Node address */
+ 	if(((u16 *) db->srom)[0] == 0xffff || ((u16 *) db->srom)[0] == 0)		/* SROM absent, so read MAC address from ID Table */
+ 	{
+-		outl(0x10000, db->ioaddr + DCR0);	//Diagnosis mode
+-		outl(0x1c0, db->ioaddr + DCR13);	//Reset dianostic pointer port
+-		outl(0, db->ioaddr + DCR14);		//Clear reset port
+-		outl(0x10, db->ioaddr + DCR14);		//Reset ID Table pointer
+-		outl(0, db->ioaddr + DCR14);		//Clear reset port
+-		outl(0, db->ioaddr + DCR13);		//Clear CR13
+-		outl(0x1b0, db->ioaddr + DCR13);	//Select ID Table access port
++		uw32(DCR0, 0x10000);	//Diagnosis mode
++		uw32(DCR13, 0x1c0);	//Reset dianostic pointer port
++		uw32(DCR14, 0);		//Clear reset port
++		uw32(DCR14, 0x10);	//Reset ID Table pointer
++		uw32(DCR14, 0);		//Clear reset port
++		uw32(DCR13, 0);		//Clear CR13
++		uw32(DCR13, 0x1b0);	//Select ID Table access port
+ 		//Read MAC address from CR14
+ 		for (i = 0; i < 6; i++)
+-			dev->dev_addr[i] = inl(db->ioaddr + DCR14);
++			dev->dev_addr[i] = ur32(DCR14);
+ 		//Read end
+-		outl(0, db->ioaddr + DCR13);	//Clear CR13
+-		outl(0, db->ioaddr + DCR0);		//Clear CR0
++		uw32(DCR13, 0);		//Clear CR13
++		uw32(DCR0, 0);		//Clear CR0
+ 		udelay(10);
  	}
+ 	else		/*Exist SROM*/
+@@ -384,16 +406,18 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
+ 	}
+ 	err = register_netdev (dev);
+ 	if (err)
+-		goto err_out_free_tx_buf;
++		goto err_out_unmap;
  
- 	netdev_info(dev, "Xircom cardbus revision %i at irq %i\n",
-@@ -286,6 +289,8 @@ static int __devinit xircom_probe(struct pci_dev *pdev, const struct pci_device_
- out:
- 	return rc;
+ 	netdev_info(dev, "ULi M%04lx at pci%s, %pM, irq %d\n",
+ 		    ent->driver_data >> 16, pci_name(pdev),
+-		    dev->dev_addr, dev->irq);
++		    dev->dev_addr, pdev->irq);
  
-+err_unmap:
-+	pci_iounmap(pdev, private->ioaddr);
- reg_fail:
- 	pci_set_drvdata(pdev, NULL);
- 	dma_free_coherent(d, 8192, private->tx_buffer, private->tx_dma_handle);
-@@ -314,6 +319,7 @@ static void __devexit xircom_remove(struct pci_dev *pdev)
- 	struct device *d = &pdev->dev;
- 
- 	unregister_netdev(dev);
-+	pci_iounmap(pdev, card->ioaddr);
- 	pci_set_drvdata(pdev, NULL);
- 	dma_free_coherent(d, 8192, card->tx_buffer, card->tx_dma_handle);
- 	dma_free_coherent(d, 8192, card->rx_buffer, card->rx_dma_handle);
-@@ -326,11 +332,12 @@ static irqreturn_t xircom_interrupt(int irq, void *dev_instance)
- {
- 	struct net_device *dev = (struct net_device *) dev_instance;
- 	struct xircom_private *card = netdev_priv(dev);
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int status;
- 	int i;
- 
- 	spin_lock(&card->lock);
--	status = inl(card->io_port+CSR5);
-+	status = xr32(CSR5);
- 
- #if defined DEBUG && DEBUG > 1
- 	print_binary(status);
-@@ -360,7 +367,7 @@ static irqreturn_t xircom_interrupt(int irq, void *dev_instance)
- 	/* Clear all remaining interrupts */
- 	status |= 0xffffffff; /* FIXME: make this clear only the
- 				        real existing bits */
--	outl(status,card->io_port+CSR5);
-+	xw32(CSR5, status);
- 
- 
- 	for (i=0;i<NUMDESCRIPTORS;i++)
-@@ -438,11 +445,11 @@ static netdev_tx_t xircom_start_xmit(struct sk_buff *skb,
- static int xircom_open(struct net_device *dev)
- {
- 	struct xircom_private *xp = netdev_priv(dev);
-+	const int irq = xp->pdev->irq;
- 	int retval;
- 
--	netdev_info(dev, "xircom cardbus adaptor found, using irq %i\n",
--		    dev->irq);
--	retval = request_irq(dev->irq, xircom_interrupt, IRQF_SHARED, dev->name, dev);
-+	netdev_info(dev, "xircom cardbus adaptor found, using irq %i\n", irq);
-+	retval = request_irq(irq, xircom_interrupt, IRQF_SHARED, dev->name, dev);
- 	if (retval)
- 		return retval;
- 
-@@ -474,7 +481,7 @@ static int xircom_close(struct net_device *dev)
- 	spin_unlock_irqrestore(&card->lock,flags);
- 
- 	card->open = 0;
--	free_irq(dev->irq,dev);
-+	free_irq(card->pdev->irq, dev);
+ 	pci_set_master(pdev);
  
  	return 0;
  
-@@ -484,35 +491,39 @@ static int xircom_close(struct net_device *dev)
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void xircom_poll_controller(struct net_device *dev)
++err_out_unmap:
++	pci_iounmap(pdev, db->ioaddr);
+ err_out_free_tx_buf:
+ 	pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
+ 			    db->buf_pool_ptr, db->buf_pool_dma_ptr);
+@@ -418,6 +442,7 @@ static void __devexit uli526x_remove_one (struct pci_dev *pdev)
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+ 
+ 	unregister_netdev(dev);
++	pci_iounmap(pdev, db->ioaddr);
+ 	pci_free_consistent(db->pdev, sizeof(struct tx_desc) *
+ 				DESC_ALL_CNT + 0x20, db->desc_pool_ptr,
+  				db->desc_pool_dma_ptr);
+@@ -460,7 +485,8 @@ static int uli526x_open(struct net_device *dev)
+ 	/* Initialize ULI526X board */
+ 	uli526x_init(dev);
+ 
+-	ret = request_irq(dev->irq, uli526x_interrupt, IRQF_SHARED, dev->name, dev);
++	ret = request_irq(db->pdev->irq, uli526x_interrupt, IRQF_SHARED,
++			  dev->name, dev);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -488,57 +514,57 @@ static int uli526x_open(struct net_device *dev)
+ static void uli526x_init(struct net_device *dev)
  {
--	disable_irq(dev->irq);
--	xircom_interrupt(dev->irq, dev);
--	enable_irq(dev->irq);
-+	struct xircom_private *xp = netdev_priv(dev);
-+	const int irq = xp->pdev->irq;
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+-	unsigned long ioaddr = db->ioaddr;
++	struct uli_phy_ops *phy = &db->phy;
++	void __iomem *ioaddr = db->ioaddr;
+ 	u8	phy_tmp;
+ 	u8	timeout;
+-	u16	phy_value;
+ 	u16 phy_reg_reset;
+ 
+ 
+ 	ULI526X_DBUG(0, "uli526x_init()", 0);
+ 
+ 	/* Reset M526x MAC controller */
+-	outl(ULI526X_RESET, ioaddr + DCR0);	/* RESET MAC */
++	uw32(DCR0, ULI526X_RESET);	/* RESET MAC */
+ 	udelay(100);
+-	outl(db->cr0_data, ioaddr + DCR0);
++	uw32(DCR0, db->cr0_data);
+ 	udelay(5);
+ 
+ 	/* Phy addr : In some boards,M5261/M5263 phy address != 1 */
+ 	db->phy_addr = 1;
+-	for(phy_tmp=0;phy_tmp<32;phy_tmp++)
+-	{
+-		phy_value=phy_read(db->ioaddr,phy_tmp,3,db->chip_id);//peer add
+-		if(phy_value != 0xffff&&phy_value!=0)
+-		{
++	for (phy_tmp = 0; phy_tmp < 32; phy_tmp++) {
++		u16 phy_value;
 +
-+	disable_irq(irq);
-+	xircom_interrupt(irq, dev);
-+	enable_irq(irq);
++		phy_value = phy->read(db, phy_tmp, 3);	//peer add
++		if (phy_value != 0xffff && phy_value != 0) {
+ 			db->phy_addr = phy_tmp;
+ 			break;
+ 		}
+ 	}
+-	if(phy_tmp == 32)
++
++	if (phy_tmp == 32)
+ 		pr_warn("Can not find the phy address!!!\n");
+ 	/* Parser SROM and media mode */
+ 	db->media_mode = uli526x_media_mode;
+ 
+ 	/* phyxcer capability setting */
+-	phy_reg_reset = phy_read(db->ioaddr, db->phy_addr, 0, db->chip_id);
++	phy_reg_reset = phy->read(db, db->phy_addr, 0);
+ 	phy_reg_reset = (phy_reg_reset | 0x8000);
+-	phy_write(db->ioaddr, db->phy_addr, 0, phy_reg_reset, db->chip_id);
++	phy->write(db, db->phy_addr, 0, phy_reg_reset);
+ 
+ 	/* See IEEE 802.3-2002.pdf (Section 2, Chapter "22.2.4 Management
+ 	 * functions") or phy data sheet for details on phy reset
+ 	 */
+ 	udelay(500);
+ 	timeout = 10;
+-	while (timeout-- &&
+-		phy_read(db->ioaddr, db->phy_addr, 0, db->chip_id) & 0x8000)
+-			udelay(100);
++	while (timeout-- && phy->read(db, db->phy_addr, 0) & 0x8000)
++		udelay(100);
+ 
+ 	/* Process Phyxcer Media Mode */
+ 	uli526x_set_phyxcer(db);
+ 
+ 	/* Media Mode Process */
+ 	if ( !(db->media_mode & ULI526X_AUTO) )
+-		db->op_mode = db->media_mode; 	/* Force Mode */
++		db->op_mode = db->media_mode;		/* Force Mode */
+ 
+ 	/* Initialize Transmit/Receive decriptor and CR3/4 */
+ 	uli526x_descriptor_init(dev, ioaddr);
+@@ -551,10 +577,10 @@ static void uli526x_init(struct net_device *dev)
+ 
+ 	/* Init CR7, interrupt active bit */
+ 	db->cr7_data = CR7_DEFAULT;
+-	outl(db->cr7_data, ioaddr + DCR7);
++	uw32(DCR7, db->cr7_data);
+ 
+ 	/* Init CR15, Tx jabber and Rx watchdog timer */
+-	outl(db->cr15_data, ioaddr + DCR15);
++	uw32(DCR15, db->cr15_data);
+ 
+ 	/* Enable ULI526X Tx/Rx function */
+ 	db->cr6_data |= CR6_RXSC | CR6_TXSC;
+@@ -571,6 +597,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev)
+ {
+ 	struct uli526x_board_info *db = netdev_priv(dev);
++	void __iomem *ioaddr = db->ioaddr;
+ 	struct tx_desc *txptr;
+ 	unsigned long flags;
+ 
+@@ -596,7 +623,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
+ 	}
+ 
+ 	/* Disable NIC interrupt */
+-	outl(0, dev->base_addr + DCR7);
++	uw32(DCR7, 0);
+ 
+ 	/* transmit this packet */
+ 	txptr = db->tx_insert_ptr;
+@@ -607,10 +634,10 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
+ 	db->tx_insert_ptr = txptr->next_tx_desc;
+ 
+ 	/* Transmit Packet Process */
+-	if ( (db->tx_packet_cnt < TX_DESC_CNT) ) {
++	if (db->tx_packet_cnt < TX_DESC_CNT) {
+ 		txptr->tdes0 = cpu_to_le32(0x80000000);	/* Set owner bit */
+ 		db->tx_packet_cnt++;			/* Ready to send */
+-		outl(0x1, dev->base_addr + DCR1);	/* Issue Tx polling */
++		uw32(DCR1, 0x1);			/* Issue Tx polling */
+ 		dev->trans_start = jiffies;		/* saved time stamp */
+ 	}
+ 
+@@ -620,7 +647,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
+ 
+ 	/* Restore CR7 to enable interrupt */
+ 	spin_unlock_irqrestore(&db->lock, flags);
+-	outl(db->cr7_data, dev->base_addr + DCR7);
++	uw32(DCR7, db->cr7_data);
+ 
+ 	/* free this SKB */
+ 	dev_kfree_skb(skb);
+@@ -637,9 +664,7 @@ static netdev_tx_t uli526x_start_xmit(struct sk_buff *skb,
+ static int uli526x_stop(struct net_device *dev)
+ {
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+-	unsigned long ioaddr = dev->base_addr;
+-
+-	ULI526X_DBUG(0, "uli526x_stop", 0);
++	void __iomem *ioaddr = db->ioaddr;
+ 
+ 	/* disable system */
+ 	netif_stop_queue(dev);
+@@ -648,12 +673,12 @@ static int uli526x_stop(struct net_device *dev)
+ 	del_timer_sync(&db->timer);
+ 
+ 	/* Reset & stop ULI526X board */
+-	outl(ULI526X_RESET, ioaddr + DCR0);
++	uw32(DCR0, ULI526X_RESET);
+ 	udelay(5);
+-	phy_write(db->ioaddr, db->phy_addr, 0, 0x8000, db->chip_id);
++	db->phy.write(db, db->phy_addr, 0, 0x8000);
+ 
+ 	/* free interrupt */
+-	free_irq(dev->irq, dev);
++	free_irq(db->pdev->irq, dev);
+ 
+ 	/* free allocated rx buffer */
+ 	uli526x_free_rxbuffer(db);
+@@ -671,18 +696,18 @@ static irqreturn_t uli526x_interrupt(int irq, void *dev_id)
+ {
+ 	struct net_device *dev = dev_id;
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+-	unsigned long ioaddr = dev->base_addr;
++	void __iomem *ioaddr = db->ioaddr;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&db->lock, flags);
+-	outl(0, ioaddr + DCR7);
++	uw32(DCR7, 0);
+ 
+ 	/* Got ULI526X status */
+-	db->cr5_data = inl(ioaddr + DCR5);
+-	outl(db->cr5_data, ioaddr + DCR5);
++	db->cr5_data = ur32(DCR5);
++	uw32(DCR5, db->cr5_data);
+ 	if ( !(db->cr5_data & 0x180c1) ) {
+ 		/* Restore CR7 to enable interrupt mask */
+-		outl(db->cr7_data, ioaddr + DCR7);
++		uw32(DCR7, db->cr7_data);
+ 		spin_unlock_irqrestore(&db->lock, flags);
+ 		return IRQ_HANDLED;
+ 	}
+@@ -710,7 +735,7 @@ static irqreturn_t uli526x_interrupt(int irq, void *dev_id)
+ 		uli526x_free_tx_pkt(dev, db);
+ 
+ 	/* Restore CR7 to enable interrupt mask */
+-	outl(db->cr7_data, ioaddr + DCR7);
++	uw32(DCR7, db->cr7_data);
+ 
+ 	spin_unlock_irqrestore(&db->lock, flags);
+ 	return IRQ_HANDLED;
+@@ -719,8 +744,10 @@ static irqreturn_t uli526x_interrupt(int irq, void *dev_id)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void uli526x_poll(struct net_device *dev)
+ {
++	struct uli526x_board_info *db = netdev_priv(dev);
++
+ 	/* ISR grabs the irqsave lock, so this should be safe */
+-	uli526x_interrupt(dev->irq, dev);
++	uli526x_interrupt(db->pdev->irq, dev);
  }
  #endif
  
+@@ -954,12 +981,7 @@ static void netdev_get_drvinfo(struct net_device *dev,
  
- static void initialize_card(struct xircom_private *card)
- {
--	unsigned int val;
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned long flags;
-+	u32 val;
- 
- 	spin_lock_irqsave(&card->lock, flags);
- 
- 	/* First: reset the card */
--	val = inl(card->io_port + CSR0);
-+	val = xr32(CSR0);
- 	val |= 0x01;		/* Software reset */
--	outl(val, card->io_port + CSR0);
-+	xw32(CSR0, val);
- 
- 	udelay(100);		/* give the card some time to reset */
- 
--	val = inl(card->io_port + CSR0);
-+	val = xr32(CSR0);
- 	val &= ~0x01;		/* disable Software reset */
--	outl(val, card->io_port + CSR0);
-+	xw32(CSR0, val);
- 
- 
- 	val = 0;		/* Value 0x00 is a safe and conservative value
- 				   for the PCI configuration settings */
--	outl(val, card->io_port + CSR0);
-+	xw32(CSR0, val);
- 
- 
- 	disable_all_interrupts(card);
-@@ -530,10 +541,9 @@ ignored; I chose zero.
- */
- static void trigger_transmit(struct xircom_private *card)
- {
--	unsigned int val;
-+	void __iomem *ioaddr = card->ioaddr;
- 
--	val = 0;
--	outl(val, card->io_port + CSR1);
-+	xw32(CSR1, 0);
+ 	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
+ 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+-	if (np->pdev)
+-		strlcpy(info->bus_info, pci_name(np->pdev),
+-			sizeof(info->bus_info));
+-	else
+-		sprintf(info->bus_info, "EISA 0x%lx %d",
+-			dev->base_addr, dev->irq);
++	strlcpy(info->bus_info, pci_name(np->pdev), sizeof(info->bus_info));
  }
  
- /*
-@@ -545,10 +555,9 @@ ignored; I chose zero.
- */
- static void trigger_receive(struct xircom_private *card)
+ static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd) {
+@@ -999,18 +1021,20 @@ static const struct ethtool_ops netdev_ethtool_ops = {
+ 
+ static void uli526x_timer(unsigned long data)
  {
--	unsigned int val;
-+	void __iomem *ioaddr = card->ioaddr;
+-	u32 tmp_cr8;
+-	unsigned char tmp_cr12=0;
+ 	struct net_device *dev = (struct net_device *) data;
+ 	struct uli526x_board_info *db = netdev_priv(dev);
++	struct uli_phy_ops *phy = &db->phy;
++	void __iomem *ioaddr = db->ioaddr;
+  	unsigned long flags;
++	u8 tmp_cr12 = 0;
++	u32 tmp_cr8;
  
--	val = 0;
--	outl(val, card->io_port + CSR2);
-+	xw32(CSR2, 0);
- }
- 
- /*
-@@ -557,6 +566,7 @@ descriptors and programs the addresses into the card.
- */
- static void setup_descriptors(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	u32 address;
- 	int i;
- 
-@@ -586,7 +596,7 @@ static void setup_descriptors(struct xircom_private *card)
- 	wmb();
- 	/* Write the receive descriptor ring address to the card */
- 	address = card->rx_dma_handle;
--	outl(address, card->io_port + CSR3);	/* Receive descr list address */
-+	xw32(CSR3, address);	/* Receive descr list address */
+ 	//ULI526X_DBUG(0, "uli526x_timer()", 0);
+ 	spin_lock_irqsave(&db->lock, flags);
  
  
- 	/* transmit descriptors */
-@@ -611,7 +621,7 @@ static void setup_descriptors(struct xircom_private *card)
- 	wmb();
- 	/* wite the transmit descriptor ring to the card */
- 	address = card->tx_dma_handle;
--	outl(address, card->io_port + CSR4);	/* xmit descr list address */
-+	xw32(CSR4, address);	/* xmit descr list address */
- }
+ 	/* Dynamic reset ULI526X : system error or transmit time-out */
+-	tmp_cr8 = inl(db->ioaddr + DCR8);
++	tmp_cr8 = ur32(DCR8);
+ 	if ( (db->interval_rx_cnt==0) && (tmp_cr8) ) {
+ 		db->reset_cr8++;
+ 		db->wait_reset = 1;
+@@ -1020,7 +1044,7 @@ static void uli526x_timer(unsigned long data)
+ 	/* TX polling kick monitor */
+ 	if ( db->tx_packet_cnt &&
+ 	     time_after(jiffies, dev_trans_start(dev) + ULI526X_TX_KICK) ) {
+-		outl(0x1, dev->base_addr + DCR1);   // Tx polling again
++		uw32(DCR1, 0x1);   // Tx polling again
  
- /*
-@@ -620,11 +630,12 @@ valid by setting the address in the card to 0x00.
- */
- static void remove_descriptors(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 
- 	val = 0;
--	outl(val, card->io_port + CSR3);	/* Receive descriptor address */
--	outl(val, card->io_port + CSR4);	/* Send descriptor address */
-+	xw32(CSR3, val);	/* Receive descriptor address */
-+	xw32(CSR4, val);	/* Send descriptor address */
- }
- 
- /*
-@@ -635,17 +646,17 @@ This function also clears the status-bit.
- */
- static int link_status_changed(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 
--	val = inl(card->io_port + CSR5);	/* Status register */
--
--	if ((val & (1 << 27)) == 0)		/* no change */
-+	val = xr32(CSR5);	/* Status register */
-+	if (!(val & (1 << 27)))	/* no change */
- 		return 0;
- 
- 	/* clear the event by writing a 1 to the bit in the
- 	   status register. */
- 	val = (1 << 27);
--	outl(val, card->io_port + CSR5);
-+	xw32(CSR5, val);
- 
- 	return 1;
- }
-@@ -657,11 +668,9 @@ in a non-stopped state.
- */
- static int transmit_active(struct xircom_private *card)
- {
--	unsigned int val;
-+	void __iomem *ioaddr = card->ioaddr;
- 
--	val = inl(card->io_port + CSR5);	/* Status register */
--
--	if ((val & (7 << 20)) == 0)		/* transmitter disabled */
-+	if (!(xr32(CSR5) & (7 << 20)))	/* transmitter disabled */
- 		return 0;
- 
- 	return 1;
-@@ -673,11 +682,9 @@ in a non-stopped state.
- */
- static int receive_active(struct xircom_private *card)
- {
--	unsigned int val;
--
--	val = inl(card->io_port + CSR5);	/* Status register */
-+	void __iomem *ioaddr = card->ioaddr;
- 
--	if ((val & (7 << 17)) == 0)		/* receiver disabled */
-+	if (!(xr32(CSR5) & (7 << 17)))	/* receiver disabled */
- 		return 0;
- 
- 	return 1;
-@@ -695,10 +702,11 @@ must be called with the lock held and interrupts disabled.
- */
- static void activate_receiver(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 	int counter;
- 
--	val = inl(card->io_port + CSR6);	/* Operation mode */
-+	val = xr32(CSR6);	/* Operation mode */
- 
- 	/* If the "active" bit is set and the receiver is already
- 	   active, no need to do the expensive thing */
-@@ -707,7 +715,7 @@ static void activate_receiver(struct xircom_private *card)
- 
- 
- 	val = val & ~2;		/* disable the receiver */
--	outl(val, card->io_port + CSR6);
-+	xw32(CSR6, val);
- 
- 	counter = 10;
- 	while (counter > 0) {
-@@ -721,9 +729,9 @@ static void activate_receiver(struct xircom_private *card)
+ 		// TX Timeout
+ 		if ( time_after(jiffies, dev_trans_start(dev) + ULI526X_TX_TIMEOUT) ) {
+@@ -1041,7 +1065,7 @@ static void uli526x_timer(unsigned long data)
  	}
  
- 	/* enable the receiver */
--	val = inl(card->io_port + CSR6);	/* Operation mode */
--	val = val | 2;				/* enable the receiver */
--	outl(val, card->io_port + CSR6);
-+	val = xr32(CSR6);	/* Operation mode */
-+	val = val | 2;		/* enable the receiver */
-+	xw32(CSR6, val);
+ 	/* Link status check, Dynamic media type change */
+-	if((phy_read(db->ioaddr, db->phy_addr, 5, db->chip_id) & 0x01e0)!=0)
++	if ((phy->read(db, db->phy_addr, 5) & 0x01e0)!=0)
+ 		tmp_cr12 = 3;
  
- 	/* now wait for the card to activate again */
- 	counter = 10;
-@@ -748,12 +756,13 @@ must be called with the lock held and interrupts disabled.
- */
- static void deactivate_receiver(struct xircom_private *card)
+ 	if ( !(tmp_cr12 & 0x3) && !db->link_failed ) {
+@@ -1054,7 +1078,7 @@ static void uli526x_timer(unsigned long data)
+ 		/* For Force 10/100M Half/Full mode: Enable Auto-Nego mode */
+ 		/* AUTO don't need */
+ 		if ( !(db->media_mode & 0x8) )
+-			phy_write(db->ioaddr, db->phy_addr, 0, 0x1000, db->chip_id);
++			phy->write(db, db->phy_addr, 0, 0x1000);
+ 
+ 		/* AUTO mode, if INT phyxcer link failed, select EXT device */
+ 		if (db->media_mode & ULI526X_AUTO) {
+@@ -1111,12 +1135,13 @@ static void uli526x_timer(unsigned long data)
+ static void uli526x_reset_prepare(struct net_device *dev)
  {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 	int counter;
+ 	struct uli526x_board_info *db = netdev_priv(dev);
++	void __iomem *ioaddr = db->ioaddr;
  
--	val = inl(card->io_port + CSR6);	/* Operation mode */
--	val = val & ~2;				/* disable the receiver */
--	outl(val, card->io_port + CSR6);
-+	val = xr32(CSR6);	/* Operation mode */
-+	val = val & ~2;		/* disable the receiver */
-+	xw32(CSR6, val);
+ 	/* Sopt MAC controller */
+ 	db->cr6_data &= ~(CR6_RXSC | CR6_TXSC);	/* Disable Tx/Rx */
+-	update_cr6(db->cr6_data, dev->base_addr);
+-	outl(0, dev->base_addr + DCR7);		/* Disable Interrupt */
+-	outl(inl(dev->base_addr + DCR5), dev->base_addr + DCR5);
++	update_cr6(db->cr6_data, ioaddr);
++	uw32(DCR7, 0);				/* Disable Interrupt */
++	uw32(DCR5, ur32(DCR5));
  
- 	counter = 10;
- 	while (counter > 0) {
-@@ -780,10 +789,11 @@ must be called with the lock held and interrupts disabled.
- */
- static void activate_transmitter(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 	int counter;
- 
--	val = inl(card->io_port + CSR6);	/* Operation mode */
-+	val = xr32(CSR6);	/* Operation mode */
- 
- 	/* If the "active" bit is set and the receiver is already
- 	   active, no need to do the expensive thing */
-@@ -791,7 +801,7 @@ static void activate_transmitter(struct xircom_private *card)
- 		return;
- 
- 	val = val & ~(1 << 13);	/* disable the transmitter */
--	outl(val, card->io_port + CSR6);
-+	xw32(CSR6, val);
- 
- 	counter = 10;
- 	while (counter > 0) {
-@@ -806,9 +816,9 @@ static void activate_transmitter(struct xircom_private *card)
- 	}
- 
- 	/* enable the transmitter */
--	val = inl(card->io_port + CSR6);	/* Operation mode */
-+	val = xr32(CSR6);	/* Operation mode */
- 	val = val | (1 << 13);	/* enable the transmitter */
--	outl(val, card->io_port + CSR6);
-+	xw32(CSR6, val);
- 
- 	/* now wait for the card to activate again */
- 	counter = 10;
-@@ -833,12 +843,13 @@ must be called with the lock held and interrupts disabled.
- */
- static void deactivate_transmitter(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 	int counter;
- 
--	val = inl(card->io_port + CSR6);	/* Operation mode */
-+	val = xr32(CSR6);	/* Operation mode */
- 	val = val & ~2;		/* disable the transmitter */
--	outl(val, card->io_port + CSR6);
-+	xw32(CSR6, val);
- 
- 	counter = 20;
- 	while (counter > 0) {
-@@ -861,11 +872,12 @@ must be called with the lock held and interrupts disabled.
- */
- static void enable_transmit_interrupt(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 
--	val = inl(card->io_port + CSR7);	/* Interrupt enable register */
--	val |= 1;				/* enable the transmit interrupt */
--	outl(val, card->io_port + CSR7);
-+	val = xr32(CSR7);	/* Interrupt enable register */
-+	val |= 1;		/* enable the transmit interrupt */
-+	xw32(CSR7, val);
- }
- 
- 
-@@ -876,11 +888,12 @@ must be called with the lock held and interrupts disabled.
- */
- static void enable_receive_interrupt(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 
--	val = inl(card->io_port + CSR7);	/* Interrupt enable register */
--	val = val | (1 << 6);			/* enable the receive interrupt */
--	outl(val, card->io_port + CSR7);
-+	val = xr32(CSR7);	/* Interrupt enable register */
-+	val = val | (1 << 6);	/* enable the receive interrupt */
-+	xw32(CSR7, val);
- }
- 
- /*
-@@ -890,11 +903,12 @@ must be called with the lock held and interrupts disabled.
- */
- static void enable_link_interrupt(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 
--	val = inl(card->io_port + CSR7);	/* Interrupt enable register */
--	val = val | (1 << 27);			/* enable the link status chage interrupt */
--	outl(val, card->io_port + CSR7);
-+	val = xr32(CSR7);	/* Interrupt enable register */
-+	val = val | (1 << 27);	/* enable the link status chage interrupt */
-+	xw32(CSR7, val);
- }
- 
- 
-@@ -906,10 +920,9 @@ must be called with the lock held and interrupts disabled.
- */
- static void disable_all_interrupts(struct xircom_private *card)
- {
--	unsigned int val;
-+	void __iomem *ioaddr = card->ioaddr;
- 
--	val = 0;				/* disable all interrupts */
--	outl(val, card->io_port + CSR7);
-+	xw32(CSR7, 0);
- }
- 
- /*
-@@ -919,9 +932,10 @@ must be called with the lock held and interrupts disabled.
- */
- static void enable_common_interrupts(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 
--	val = inl(card->io_port + CSR7);	/* Interrupt enable register */
-+	val = xr32(CSR7);	/* Interrupt enable register */
- 	val |= (1<<16); /* Normal Interrupt Summary */
- 	val |= (1<<15); /* Abnormal Interrupt Summary */
- 	val |= (1<<13); /* Fatal bus error */
-@@ -930,7 +944,7 @@ static void enable_common_interrupts(struct xircom_private *card)
- 	val |= (1<<5);  /* Transmit Underflow */
- 	val |= (1<<2);  /* Transmit Buffer Unavailable */
- 	val |= (1<<1);  /* Transmit Process Stopped */
--	outl(val, card->io_port + CSR7);
-+	xw32(CSR7, val);
- }
- 
- /*
-@@ -940,11 +954,12 @@ must be called with the lock held and interrupts disabled.
- */
- static int enable_promisc(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned int val;
- 
--	val = inl(card->io_port + CSR6);
-+	val = xr32(CSR6);
- 	val = val | (1 << 6);
--	outl(val, card->io_port + CSR6);
-+	xw32(CSR6, val);
- 
- 	return 1;
- }
-@@ -959,13 +974,16 @@ Must be called in locked state with interrupts disabled
- */
- static int link_status(struct xircom_private *card)
- {
--	unsigned int val;
-+	void __iomem *ioaddr = card->ioaddr;
-+	u8 val;
- 
--	val = inb(card->io_port + CSR12);
-+	val = xr8(CSR12);
- 
--	if (!(val&(1<<2)))  /* bit 2 is 0 for 10mbit link, 1 for not an 10mbit link */
-+	/* bit 2 is 0 for 10mbit link, 1 for not an 10mbit link */
-+	if (!(val & (1 << 2)))
- 		return 10;
--	if (!(val&(1<<1)))  /* bit 1 is 0 for 100mbit link, 1 for not an 100mbit link */
-+	/* bit 1 is 0 for 100mbit link, 1 for not an 100mbit link */
-+	if (!(val & (1 << 1)))
- 		return 100;
- 
- 	/* If we get here -> no link at all */
-@@ -984,29 +1002,31 @@ static int link_status(struct xircom_private *card)
+ 	/* Disable upper layer interface */
+ 	netif_stop_queue(dev);
+@@ -1281,7 +1306,7 @@ static void uli526x_reuse_skb(struct uli526x_board_info *db, struct sk_buff * sk
+  *	Using Chain structure, and allocate Tx/Rx buffer
   */
- static void read_mac_address(struct xircom_private *card)
+ 
+-static void uli526x_descriptor_init(struct net_device *dev, unsigned long ioaddr)
++static void uli526x_descriptor_init(struct net_device *dev, void __iomem *ioaddr)
  {
--	unsigned char j, tuple, link, data_id, data_count;
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned long flags;
-+	u8 link;
- 	int i;
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+ 	struct tx_desc *tmp_tx;
+@@ -1296,14 +1321,14 @@ static void uli526x_descriptor_init(struct net_device *dev, unsigned long ioaddr
+ 	/* tx descriptor start pointer */
+ 	db->tx_insert_ptr = db->first_tx_desc;
+ 	db->tx_remove_ptr = db->first_tx_desc;
+-	outl(db->first_tx_desc_dma, ioaddr + DCR4);     /* TX DESC address */
++	uw32(DCR4, db->first_tx_desc_dma);	/* TX DESC address */
  
- 	spin_lock_irqsave(&card->lock, flags);
+ 	/* rx descriptor start pointer */
+ 	db->first_rx_desc = (void *)db->first_tx_desc + sizeof(struct tx_desc) * TX_DESC_CNT;
+ 	db->first_rx_desc_dma =  db->first_tx_desc_dma + sizeof(struct tx_desc) * TX_DESC_CNT;
+ 	db->rx_insert_ptr = db->first_rx_desc;
+ 	db->rx_ready_ptr = db->first_rx_desc;
+-	outl(db->first_rx_desc_dma, ioaddr + DCR3);	/* RX DESC address */
++	uw32(DCR3, db->first_rx_desc_dma);	/* RX DESC address */
  
--	outl(1 << 12, card->io_port + CSR9);	/* enable boot rom access */
-+	xw32(CSR9, 1 << 12);	/* enable boot rom access */
- 	for (i = 0x100; i < 0x1f7; i += link + 2) {
--		outl(i, card->io_port + CSR10);
--		tuple = inl(card->io_port + CSR9) & 0xff;
--		outl(i + 1, card->io_port + CSR10);
--		link = inl(card->io_port + CSR9) & 0xff;
--		outl(i + 2, card->io_port + CSR10);
--		data_id = inl(card->io_port + CSR9) & 0xff;
--		outl(i + 3, card->io_port + CSR10);
--		data_count = inl(card->io_port + CSR9) & 0xff;
-+		u8 tuple, data_id, data_count;
-+
-+		xw32(CSR10, i);
-+		tuple = xr32(CSR9);
-+		xw32(CSR10, i + 1);
-+		link = xr32(CSR9);
-+		xw32(CSR10, i + 2);
-+		data_id = xr32(CSR9);
-+		xw32(CSR10, i + 3);
-+		data_count = xr32(CSR9);
- 		if ((tuple == 0x22) && (data_id == 0x04) && (data_count == 0x06)) {
--			/*
--			 * This is it.  We have the data we want.
--			 */
-+			int j;
-+
- 			for (j = 0; j < 6; j++) {
--				outl(i + j + 4, card->io_port + CSR10);
--				card->dev->dev_addr[j] = inl(card->io_port + CSR9) & 0xff;
-+				xw32(CSR10, i + j + 4);
-+				card->dev->dev_addr[j] = xr32(CSR9) & 0xff;
+ 	/* Init Transmit chain */
+ 	tmp_buf = db->buf_pool_start;
+@@ -1344,11 +1369,9 @@ static void uli526x_descriptor_init(struct net_device *dev, unsigned long ioaddr
+  *	Update CR6 value
+  *	Firstly stop ULI526X, then written value and start
+  */
+-
+-static void update_cr6(u32 cr6_data, unsigned long ioaddr)
++static void update_cr6(u32 cr6_data, void __iomem *ioaddr)
+ {
+-
+-	outl(cr6_data, ioaddr + DCR6);
++	uw32(DCR6, cr6_data);
+ 	udelay(5);
+ }
+ 
+@@ -1367,6 +1390,7 @@ static void update_cr6(u32 cr6_data, unsigned long ioaddr)
+ static void send_filter_frame(struct net_device *dev, int mc_cnt)
+ {
+ 	struct uli526x_board_info *db = netdev_priv(dev);
++	void __iomem *ioaddr = db->ioaddr;
+ 	struct netdev_hw_addr *ha;
+ 	struct tx_desc *txptr;
+ 	u16 * addrptr;
+@@ -1412,9 +1436,9 @@ static void send_filter_frame(struct net_device *dev, int mc_cnt)
+ 		/* Resource Empty */
+ 		db->tx_packet_cnt++;
+ 		txptr->tdes0 = cpu_to_le32(0x80000000);
+-		update_cr6(db->cr6_data | 0x2000, dev->base_addr);
+-		outl(0x1, dev->base_addr + DCR1);	/* Issue Tx polling */
+-		update_cr6(db->cr6_data, dev->base_addr);
++		update_cr6(db->cr6_data | 0x2000, ioaddr);
++		uw32(DCR1, 0x1);	/* Issue Tx polling */
++		update_cr6(db->cr6_data, ioaddr);
+ 		dev->trans_start = jiffies;
+ 	} else
+ 		netdev_err(dev, "No Tx resource - Send_filter_frame!\n");
+@@ -1457,37 +1481,38 @@ static void allocate_rx_buffer(struct net_device *dev)
+  *	Read one word data from the serial ROM
+  */
+ 
+-static u16 read_srom_word(long ioaddr, int offset)
++static u16 read_srom_word(struct uli526x_board_info *db, int offset)
+ {
+-	int i;
++	void __iomem *ioaddr = db->ioaddr;
+ 	u16 srom_data = 0;
+-	long cr9_ioaddr = ioaddr + DCR9;
++	int i;
+ 
+-	outl(CR9_SROM_READ, cr9_ioaddr);
+-	outl(CR9_SROM_READ | CR9_SRCS, cr9_ioaddr);
++	uw32(DCR9, CR9_SROM_READ);
++	uw32(DCR9, CR9_SROM_READ | CR9_SRCS);
+ 
+ 	/* Send the Read Command 110b */
+-	SROM_CLK_WRITE(SROM_DATA_1, cr9_ioaddr);
+-	SROM_CLK_WRITE(SROM_DATA_1, cr9_ioaddr);
+-	SROM_CLK_WRITE(SROM_DATA_0, cr9_ioaddr);
++	srom_clk_write(db, SROM_DATA_1);
++	srom_clk_write(db, SROM_DATA_1);
++	srom_clk_write(db, SROM_DATA_0);
+ 
+ 	/* Send the offset */
+ 	for (i = 5; i >= 0; i--) {
+ 		srom_data = (offset & (1 << i)) ? SROM_DATA_1 : SROM_DATA_0;
+-		SROM_CLK_WRITE(srom_data, cr9_ioaddr);
++		srom_clk_write(db, srom_data);
+ 	}
+ 
+-	outl(CR9_SROM_READ | CR9_SRCS, cr9_ioaddr);
++	uw32(DCR9, CR9_SROM_READ | CR9_SRCS);
+ 
+ 	for (i = 16; i > 0; i--) {
+-		outl(CR9_SROM_READ | CR9_SRCS | CR9_SRCLK, cr9_ioaddr);
++		uw32(DCR9, CR9_SROM_READ | CR9_SRCS | CR9_SRCLK);
+ 		udelay(5);
+-		srom_data = (srom_data << 1) | ((inl(cr9_ioaddr) & CR9_CRDOUT) ? 1 : 0);
+-		outl(CR9_SROM_READ | CR9_SRCS, cr9_ioaddr);
++		srom_data = (srom_data << 1) |
++			    ((ur32(DCR9) & CR9_CRDOUT) ? 1 : 0);
++		uw32(DCR9, CR9_SROM_READ | CR9_SRCS);
+ 		udelay(5);
+ 	}
+ 
+-	outl(CR9_SROM_READ, cr9_ioaddr);
++	uw32(DCR9, CR9_SROM_READ);
+ 	return srom_data;
+ }
+ 
+@@ -1498,15 +1523,16 @@ static u16 read_srom_word(long ioaddr, int offset)
+ 
+ static u8 uli526x_sense_speed(struct uli526x_board_info * db)
+ {
++	struct uli_phy_ops *phy = &db->phy;
+ 	u8 ErrFlag = 0;
+ 	u16 phy_mode;
+ 
+-	phy_mode = phy_read(db->ioaddr, db->phy_addr, 1, db->chip_id);
+-	phy_mode = phy_read(db->ioaddr, db->phy_addr, 1, db->chip_id);
++	phy_mode = phy->read(db, db->phy_addr, 1);
++	phy_mode = phy->read(db, db->phy_addr, 1);
+ 
+ 	if ( (phy_mode & 0x24) == 0x24 ) {
+ 
+-		phy_mode = ((phy_read(db->ioaddr, db->phy_addr, 5, db->chip_id) & 0x01e0)<<7);
++		phy_mode = ((phy->read(db, db->phy_addr, 5) & 0x01e0)<<7);
+ 		if(phy_mode&0x8000)
+ 			phy_mode = 0x8000;
+ 		else if(phy_mode&0x4000)
+@@ -1541,10 +1567,11 @@ static u8 uli526x_sense_speed(struct uli526x_board_info * db)
+ 
+ static void uli526x_set_phyxcer(struct uli526x_board_info *db)
+ {
++	struct uli_phy_ops *phy = &db->phy;
+ 	u16 phy_reg;
+ 
+ 	/* Phyxcer capability setting */
+-	phy_reg = phy_read(db->ioaddr, db->phy_addr, 4, db->chip_id) & ~0x01e0;
++	phy_reg = phy->read(db, db->phy_addr, 4) & ~0x01e0;
+ 
+ 	if (db->media_mode & ULI526X_AUTO) {
+ 		/* AUTO Mode */
+@@ -1565,10 +1592,10 @@ static void uli526x_set_phyxcer(struct uli526x_board_info *db)
+ 		phy_reg|=db->PHY_reg4;
+ 		db->media_mode|=ULI526X_AUTO;
+ 	}
+-	phy_write(db->ioaddr, db->phy_addr, 4, phy_reg, db->chip_id);
++	phy->write(db, db->phy_addr, 4, phy_reg);
+ 
+  	/* Restart Auto-Negotiation */
+-	phy_write(db->ioaddr, db->phy_addr, 0, 0x1200, db->chip_id);
++	phy->write(db, db->phy_addr, 0, 0x1200);
+ 	udelay(50);
+ }
+ 
+@@ -1582,6 +1609,7 @@ static void uli526x_set_phyxcer(struct uli526x_board_info *db)
+ 
+ static void uli526x_process_mode(struct uli526x_board_info *db)
+ {
++	struct uli_phy_ops *phy = &db->phy;
+ 	u16 phy_reg;
+ 
+ 	/* Full Duplex Mode Check */
+@@ -1593,10 +1621,10 @@ static void uli526x_process_mode(struct uli526x_board_info *db)
+ 	update_cr6(db->cr6_data, db->ioaddr);
+ 
+ 	/* 10/100M phyxcer force mode need */
+-	if ( !(db->media_mode & 0x8)) {
++	if (!(db->media_mode & 0x8)) {
+ 		/* Forece Mode */
+-		phy_reg = phy_read(db->ioaddr, db->phy_addr, 6, db->chip_id);
+-		if ( !(phy_reg & 0x1) ) {
++		phy_reg = phy->read(db, db->phy_addr, 6);
++		if (!(phy_reg & 0x1)) {
+ 			/* parter without N-Way capability */
+ 			phy_reg = 0x0;
+ 			switch(db->op_mode) {
+@@ -1605,148 +1633,126 @@ static void uli526x_process_mode(struct uli526x_board_info *db)
+ 			case ULI526X_100MHF: phy_reg = 0x2000; break;
+ 			case ULI526X_100MFD: phy_reg = 0x2100; break;
  			}
- 			break;
- 		} else if (link == 0) {
-@@ -1025,6 +1045,7 @@ static void read_mac_address(struct xircom_private *card)
-  */
- static void transceiver_voodoo(struct xircom_private *card)
- {
-+	void __iomem *ioaddr = card->ioaddr;
- 	unsigned long flags;
- 
- 	/* disable all powermanagement */
-@@ -1034,14 +1055,14 @@ static void transceiver_voodoo(struct xircom_private *card)
- 
- 	spin_lock_irqsave(&card->lock, flags);
- 
--	outl(0x0008, card->io_port + CSR15);
--        udelay(25);
--        outl(0xa8050000, card->io_port + CSR15);
--        udelay(25);
--        outl(0xa00f0000, card->io_port + CSR15);
--        udelay(25);
-+	xw32(CSR15, 0x0008);
-+	udelay(25);
-+	xw32(CSR15, 0xa8050000);
-+	udelay(25);
-+	xw32(CSR15, 0xa00f0000);
-+	udelay(25);
- 
--        spin_unlock_irqrestore(&card->lock, flags);
-+	spin_unlock_irqrestore(&card->lock, flags);
- 
- 	netif_start_queue(card->dev);
+-			phy_write(db->ioaddr, db->phy_addr, 0, phy_reg, db->chip_id);
++			phy->write(db, db->phy_addr, 0, phy_reg);
+ 		}
+ 	}
  }
+ 
+ 
+-/*
+- *	Write a word to Phy register
+- */
+-
+-static void phy_write(unsigned long iobase, u8 phy_addr, u8 offset, u16 phy_data, u32 chip_id)
++/* M5261/M5263 Chip */
++static void phy_writeby_cr9(struct uli526x_board_info *db, u8 phy_addr,
++			    u8 offset, u16 phy_data)
+ {
+ 	u16 i;
+-	unsigned long ioaddr;
+-
+-	if(chip_id == PCI_ULI5263_ID)
+-	{
+-		phy_writeby_cr10(iobase, phy_addr, offset, phy_data);
+-		return;
+-	}
+-	/* M5261/M5263 Chip */
+-	ioaddr = iobase + DCR9;
+ 
+ 	/* Send 33 synchronization clock to Phy controller */
+ 	for (i = 0; i < 35; i++)
+-		phy_write_1bit(ioaddr, PHY_DATA_1, chip_id);
++		phy_write_1bit(db, PHY_DATA_1);
+ 
+ 	/* Send start command(01) to Phy */
+-	phy_write_1bit(ioaddr, PHY_DATA_0, chip_id);
+-	phy_write_1bit(ioaddr, PHY_DATA_1, chip_id);
++	phy_write_1bit(db, PHY_DATA_0);
++	phy_write_1bit(db, PHY_DATA_1);
+ 
+ 	/* Send write command(01) to Phy */
+-	phy_write_1bit(ioaddr, PHY_DATA_0, chip_id);
+-	phy_write_1bit(ioaddr, PHY_DATA_1, chip_id);
++	phy_write_1bit(db, PHY_DATA_0);
++	phy_write_1bit(db, PHY_DATA_1);
+ 
+ 	/* Send Phy address */
+ 	for (i = 0x10; i > 0; i = i >> 1)
+-		phy_write_1bit(ioaddr, phy_addr & i ? PHY_DATA_1 : PHY_DATA_0, chip_id);
++		phy_write_1bit(db, phy_addr & i ? PHY_DATA_1 : PHY_DATA_0);
+ 
+ 	/* Send register address */
+ 	for (i = 0x10; i > 0; i = i >> 1)
+-		phy_write_1bit(ioaddr, offset & i ? PHY_DATA_1 : PHY_DATA_0, chip_id);
++		phy_write_1bit(db, offset & i ? PHY_DATA_1 : PHY_DATA_0);
+ 
+ 	/* written trasnition */
+-	phy_write_1bit(ioaddr, PHY_DATA_1, chip_id);
+-	phy_write_1bit(ioaddr, PHY_DATA_0, chip_id);
++	phy_write_1bit(db, PHY_DATA_1);
++	phy_write_1bit(db, PHY_DATA_0);
+ 
+ 	/* Write a word data to PHY controller */
+-	for ( i = 0x8000; i > 0; i >>= 1)
+-		phy_write_1bit(ioaddr, phy_data & i ? PHY_DATA_1 : PHY_DATA_0, chip_id);
+-
++	for (i = 0x8000; i > 0; i >>= 1)
++		phy_write_1bit(db, phy_data & i ? PHY_DATA_1 : PHY_DATA_0);
+ }
+ 
+-
+-/*
+- *	Read a word data from phy register
+- */
+-
+-static u16 phy_read(unsigned long iobase, u8 phy_addr, u8 offset, u32 chip_id)
++static u16 phy_readby_cr9(struct uli526x_board_info *db, u8 phy_addr, u8 offset)
+ {
+-	int i;
+ 	u16 phy_data;
+-	unsigned long ioaddr;
+-
+-	if(chip_id == PCI_ULI5263_ID)
+-		return phy_readby_cr10(iobase, phy_addr, offset);
+-	/* M5261/M5263 Chip */
+-	ioaddr = iobase + DCR9;
++	int i;
+ 
+ 	/* Send 33 synchronization clock to Phy controller */
+ 	for (i = 0; i < 35; i++)
+-		phy_write_1bit(ioaddr, PHY_DATA_1, chip_id);
++		phy_write_1bit(db, PHY_DATA_1);
+ 
+ 	/* Send start command(01) to Phy */
+-	phy_write_1bit(ioaddr, PHY_DATA_0, chip_id);
+-	phy_write_1bit(ioaddr, PHY_DATA_1, chip_id);
++	phy_write_1bit(db, PHY_DATA_0);
++	phy_write_1bit(db, PHY_DATA_1);
+ 
+ 	/* Send read command(10) to Phy */
+-	phy_write_1bit(ioaddr, PHY_DATA_1, chip_id);
+-	phy_write_1bit(ioaddr, PHY_DATA_0, chip_id);
++	phy_write_1bit(db, PHY_DATA_1);
++	phy_write_1bit(db, PHY_DATA_0);
+ 
+ 	/* Send Phy address */
+ 	for (i = 0x10; i > 0; i = i >> 1)
+-		phy_write_1bit(ioaddr, phy_addr & i ? PHY_DATA_1 : PHY_DATA_0, chip_id);
++		phy_write_1bit(db, phy_addr & i ? PHY_DATA_1 : PHY_DATA_0);
+ 
+ 	/* Send register address */
+ 	for (i = 0x10; i > 0; i = i >> 1)
+-		phy_write_1bit(ioaddr, offset & i ? PHY_DATA_1 : PHY_DATA_0, chip_id);
++		phy_write_1bit(db, offset & i ? PHY_DATA_1 : PHY_DATA_0);
+ 
+ 	/* Skip transition state */
+-	phy_read_1bit(ioaddr, chip_id);
++	phy_read_1bit(db);
+ 
+ 	/* read 16bit data */
+ 	for (phy_data = 0, i = 0; i < 16; i++) {
+ 		phy_data <<= 1;
+-		phy_data |= phy_read_1bit(ioaddr, chip_id);
++		phy_data |= phy_read_1bit(db);
+ 	}
+ 
+ 	return phy_data;
+ }
+ 
+-static u16 phy_readby_cr10(unsigned long iobase, u8 phy_addr, u8 offset)
++static u16 phy_readby_cr10(struct uli526x_board_info *db, u8 phy_addr,
++			   u8 offset)
+ {
+-	unsigned long ioaddr,cr10_value;
++	void __iomem *ioaddr = db->ioaddr;
++	u32 cr10_value = phy_addr;
+ 
+-	ioaddr = iobase + DCR10;
+-	cr10_value = phy_addr;
+-	cr10_value = (cr10_value<<5) + offset;
+-	cr10_value = (cr10_value<<16) + 0x08000000;
+-	outl(cr10_value,ioaddr);
++	cr10_value = (cr10_value <<  5) + offset;
++	cr10_value = (cr10_value << 16) + 0x08000000;
++	uw32(DCR10, cr10_value);
+ 	udelay(1);
+-	while(1)
+-	{
+-		cr10_value = inl(ioaddr);
+-		if(cr10_value&0x10000000)
++	while (1) {
++		cr10_value = ur32(DCR10);
++		if (cr10_value & 0x10000000)
+ 			break;
+ 	}
+ 	return cr10_value & 0x0ffff;
+ }
+ 
+-static void phy_writeby_cr10(unsigned long iobase, u8 phy_addr, u8 offset, u16 phy_data)
++static void phy_writeby_cr10(struct uli526x_board_info *db, u8 phy_addr,
++			     u8 offset, u16 phy_data)
+ {
+-	unsigned long ioaddr,cr10_value;
++	void __iomem *ioaddr = db->ioaddr;
++	u32 cr10_value = phy_addr;
+ 
+-	ioaddr = iobase + DCR10;
+-	cr10_value = phy_addr;
+-	cr10_value = (cr10_value<<5) + offset;
+-	cr10_value = (cr10_value<<16) + 0x04000000 + phy_data;
+-	outl(cr10_value,ioaddr);
++	cr10_value = (cr10_value <<  5) + offset;
++	cr10_value = (cr10_value << 16) + 0x04000000 + phy_data;
++	uw32(DCR10, cr10_value);
+ 	udelay(1);
+ }
+ /*
+  *	Write one bit data to Phy Controller
+  */
+ 
+-static void phy_write_1bit(unsigned long ioaddr, u32 phy_data, u32 chip_id)
++static void phy_write_1bit(struct uli526x_board_info *db, u32 data)
+ {
+-	outl(phy_data , ioaddr);			/* MII Clock Low */
++	void __iomem *ioaddr = db->ioaddr;
++
++	uw32(DCR9, data);		/* MII Clock Low */
+ 	udelay(1);
+-	outl(phy_data  | MDCLKH, ioaddr);	/* MII Clock High */
++	uw32(DCR9, data | MDCLKH);	/* MII Clock High */
+ 	udelay(1);
+-	outl(phy_data , ioaddr);			/* MII Clock Low */
++	uw32(DCR9, data);		/* MII Clock Low */
+ 	udelay(1);
+ }
+ 
+@@ -1755,14 +1761,15 @@ static void phy_write_1bit(unsigned long ioaddr, u32 phy_data, u32 chip_id)
+  *	Read one bit phy data from PHY controller
+  */
+ 
+-static u16 phy_read_1bit(unsigned long ioaddr, u32 chip_id)
++static u16 phy_read_1bit(struct uli526x_board_info *db)
+ {
++	void __iomem *ioaddr = db->ioaddr;
+ 	u16 phy_data;
+ 
+-	outl(0x50000 , ioaddr);
++	uw32(DCR9, 0x50000);
+ 	udelay(1);
+-	phy_data = ( inl(ioaddr) >> 19 ) & 0x1;
+-	outl(0x40000 , ioaddr);
++	phy_data = (ur32(DCR9) >> 19) & 0x1;
++	uw32(DCR9, 0x40000);
+ 	udelay(1);
+ 
+ 	return phy_data;
 -- 
 1.7.7.6
