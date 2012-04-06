@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next #2 32/39] epic100: stop using
- net_device.{base_addr, irq} and convert to __iomem.
-Date: Fri, 06 Apr 2012 06:25:10 -0400 (EDT)
-Message-ID: <20120406.062510.1292136785820320926.davem@davemloft.net>
+Subject: Re: [PATCH net-next #2 00/39] net_device.{base_addr, irq} removal
+ update
+Date: Fri, 06 Apr 2012 06:26:26 -0400 (EDT)
+Message-ID: <20120406.062626.578458566949440559.davem@davemloft.net>
 References: <1333704408.git.romieu@fr.zoreil.com>
-	<6b7afbabfb5dc03aca2fea47cae8db27239bb589.1333704409.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, gallatin@myri.com, andy@greyhouse.net,
+	chris.snook@gmail.com, venza@brownhat.org, DavidLv@viatech.com.cn,
+	grantgrundler@gmail.com, ionut@badula.org, jcliburn@gmail.com,
+	jdmason@kudzu.us, mason@myri.com, mchan@broadcom.com,
+	stas.yakovlev@gmail.com, steve.glendinning@smsc.com,
+	thockin@hockin.org
 To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36874 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36894 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755547Ab2DFK0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 06:26:16 -0400
-In-Reply-To: <6b7afbabfb5dc03aca2fea47cae8db27239bb589.1333704409.git.romieu@fr.zoreil.com>
+	with ESMTP id S1753350Ab2DFK3C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 06:29:02 -0400
+In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri,  6 Apr 2012 12:06:46 +0200
+Date: Fri,  6 Apr 2012 12:06:14 +0200
 
->  	napi_enable(&ep->napi);
-> -	if ((retval = request_irq(dev->irq, epic_interrupt, IRQF_SHARED, dev->name, dev))) {
-> +	rc = request_irq(irq, epic_interrupt, IRQF_SHARED, dev->name, dev);
-> +	if (rc < 0) {
+> If there are no further changes, I'll rebase and send a single pull request
+> for the series including Grant's Acked-by once he says it is ok.
 
-Please preserve the test: "if (rc)"
+Besides the request_irq() return value test issues, this series
+seems fine to me.
