@@ -1,69 +1,57 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v17 07/15] asm/syscall.h: add syscall_get_arch
-Date: Fri, 6 Apr 2012 13:05:44 -0700
-Message-ID: <20120406130544.3d317192.akpm@linux-foundation.org>
-References: <1333051320-30872-1-git-send-email-wad@chromium.org>
-	<1333051320-30872-8-git-send-email-wad@chromium.org>
+From: "Stian Skjelstad" <stian@nixia.no>
+Subject: Is this intended design, or a bug? Missing event for gateway being
+ deleted
+Date: Fri, 6 Apr 2012 22:04:36 +0200
+Message-ID: <b057c62fb42411fe0142037567ffaadb.squirrel@nlc.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
-	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
-	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
-	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com, keescook@chromium.org, jmorris@namei.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1333051320-30872-8-git-send-email-wad@chromium.org>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lauken.nlc.no ([195.159.66.52]:44322 "EHLO lauken.nlc.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755301Ab2DFUM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2012 16:12:57 -0400
+Received: from nlc.no (lauken.nlc.no [127.0.0.1])
+	by lauken.nlc.no (Postfix) with ESMTP id DD852D2F41
+	for <netdev@vger.kernel.org>; Fri,  6 Apr 2012 22:04:36 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 Mar 2012 15:01:52 -0500
-Will Drewry <wad@chromium.org> wrote:
+I'm sorry if this has been discussed before, but my google searches didn't
+give me any good hints so:
 
-> Adds a stub for a function that will return the AUDIT_ARCH_*
-> value appropriate to the supplied task based on the system
-> call convention.
-> 
-> For audit's use, the value can generally be hard-coded at the
-> audit-site.  However, for other functionality not inlined into
-> syscall entry/exit, this makes that information available.
-> seccomp_filter is the first planned consumer and, as such,
-> the comment indicates a tie to HAVE_ARCH_SECCOMP_FILTER.  That
+I'm using rtnetlink for a project and I noticed a non-consistent behavior.
+When I tear down (the last) ip address, the default gateway is removed,
+but it is not announced on the netlink socket. This can also be verified
+using "ip monitor". This is tested with linux kernel version 3.2.6 on ARM.
 
-Should be "CONFIG_HAVE_ARCH_SECCOMP_FILTER", I hope.
 
-> is probably an unneeded detail.
-> 
-> ...
->
-> --- a/include/asm-generic/syscall.h
-> +++ b/include/asm-generic/syscall.h
-> @@ -142,4 +142,18 @@ void syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
->  			   unsigned int i, unsigned int n,
->  			   const unsigned long *args);
->  
-> +/**
-> + * syscall_get_arch - return the AUDIT_ARCH for the current system call
-> + * @task:	task of interest, must be in system call entry tracing
-> + * @regs:	task_pt_regs() of @task
-> + *
-> + * Returns the AUDIT_ARCH_* based on the system call convention in use.
-> + *
-> + * It's only valid to call this when @task is stopped on entry to a system
-> + * call, due to %TIF_SYSCALL_TRACE, %TIF_SYSCALL_AUDIT, or %TIF_SECCOMP.
-> + *
-> + * Note, at present this function is only required with
-> + * CONFIG_HAVE_ARCH_SECCOMP_FILTER.
-> + */
-> +int syscall_get_arch(struct task_struct *task, struct pt_regs *regs);
->  #endif	/* _ASM_SYSCALL_H */
 
-So architectures which permit CONFIG_HAVE_ARCH_SECCOMP_FILTER must
-provide an implementation of this.
+
+
+# ip monitor &
+# ip addr add 10.0.0.2/8 dev eth0
+2: eth0    inet 10.0.0.2/8 scope global eth0
+local 10.0.0.2 dev eth0  table local  proto kernel  scope host  src 10.0.0.2
+10.0.0.0/8 dev eth0  proto kernel  scope link  src 10.0.0.2
+broadcast 10.0.0.0 dev eth0  table local  proto kernel  scope link  src
+10.0.0.2
+broadcast 10.255.255.255 dev eth0  table local  proto kernel  scope link 
+src 10.0.0.2
+# ip route add via 10.0.1.22
+default via 10.0.1.2 dev eth0
+# ip addr del 10.0.0.2/8 dev eth0
+Deleted 2: eth0    inet 10.0.0.2/8 scope global eth0
+Deleted 10.0.0.0/8 dev eth0  proto kernel  scope link  src 10.0.0.2
+Deleted broadcast 10.255.255.255 dev eth0  table local  proto kernel 
+scope link  src 10.0.0.2
+Deleted broadcast 10.0.0.0 dev eth0  table local  proto kernel  scope link
+ src 10.0.0.2
+Deleted local 10.0.0.2 dev eth0  table local  proto kernel  scope host 
+src 10.0.0.2
+
+(No Deleted default via line here)
+
+
+Stian Skjelstad
