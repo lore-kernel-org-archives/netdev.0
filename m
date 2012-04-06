@@ -1,94 +1,58 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v17 10/15] seccomp: add SECCOMP_RET_ERRNO
-Date: Fri, 6 Apr 2012 14:19:36 -0700
-Message-ID: <20120406141936.25d68860.akpm@linux-foundation.org>
-References: <1333051320-30872-1-git-send-email-wad@chromium.org>
-	<1333051320-30872-11-git-send-email-wad@chromium.org>
+From: Don Dutile <ddutile@redhat.com>
+Subject: Re: Expose ltr/obff interface by sysfs
+Date: Fri, 06 Apr 2012 17:20:21 -0400
+Message-ID: <4F7F5E15.3040808@redhat.com>
+References: <403610A45A2B5242BD291EDAE8B37D300FD0A434@SHSMSX102.ccr.corp.intel.com> <20120406082649.68fe5842@jbarnes-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
-	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
-	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com,
-	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com, keescook@chromium.org, jmorris@namei.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1333051320-30872-11-git-send-email-wad@chromium.org>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: "Hao, Xudong" <xudong.hao@intel.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20120406082649.68fe5842@jbarnes-desktop>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Mar 2012 15:01:55 -0500
-Will Drewry <wad@chromium.org> wrote:
-
-> This change adds the SECCOMP_RET_ERRNO as a valid return value from a
-> seccomp filter.  Additionally, it makes the first use of the lower
-> 16-bits for storing a filter-supplied errno.  16-bits is more than
-> enough for the errno-base.h calls.
-> 
-> Returning errors instead of immediately terminating processes that
-> violate seccomp policy allow for broader use of this functionality
-> for kernel attack surface reduction.  For example, a linux container
-> could maintain a whitelist of pre-existing system calls but drop
-> all new ones with errnos.  This would keep a logically static attack
-> surface while providing errnos that may allow for graceful failure
-> without the downside of do_exit() on a bad call.
-> 
+On 04/06/2012 11:26 AM, Jesse Barnes wrote:
+> On Fri, 6 Apr 2012 02:43:59 +0000
+> "Hao, Xudong"<xudong.hao@intel.com>  wrote:
 >
-> ...
+>> Hi,
+>>
+>> I'm working on virtualization Xen/KVM. I saw there are ltr/obff enabling/disabling function in pci.c, but no called till now. I want to know if anybody(driver developer) are working for using it? Can driver change the LTR latency value dynamically?
 >
-> @@ -64,11 +65,17 @@ struct seccomp {
->  	struct seccomp_filter *filter;
->  };
->  
-> -extern void __secure_computing(int);
-> -static inline void secure_computing(int this_syscall)
-> +/*
-> + * Direct callers to __secure_computing should be updated as
-> + * CONFIG_HAVE_ARCH_SECCOMP_FILTER propagates.
-
-Are there any such callers?  There's one I see in arm, but it's called
-from assembly code.
-
-> + */
-> +extern void __secure_computing(int) __deprecated;
-> +extern int __secure_computing_int(int);
-> +static inline int secure_computing(int this_syscall)
->  {
->  	if (unlikely(test_thread_flag(TIF_SECCOMP)))
-> -		__secure_computing(this_syscall);
-> +		return  __secure_computing_int(this_syscall);
-> +	return 0;
->  }
->  
-> ...
+> I believe the value is writable, but I'd expect some devices to
+> misbehave if the value were programmed too high.  Performance would
+> also suffer if the value were set too high, at least for IOPS sensitive
+> devices.
 >
->  void __secure_computing(int this_syscall)
->  {
-> +	/* Filter calls should never use this function. */
-> +	BUG_ON(current->seccomp.mode == SECCOMP_MODE_FILTER);
-> +	__secure_computing_int(this_syscall);
-> +}
-> +
-> +int __secure_computing_int(int this_syscall)
+>> /*
+>> LTR(Latency tolerance reporting) allows devices to send messages to the root complex indicating their latency tolerance for snooped&  unsnooped memory transactions.
+>> OBFF (optimized buffer flush/fill), where supported, can help improve energy efficiency by giving devices information about when interrupts and other activity will have a reduced power impact.
+>> */
+>>
+>> One way to control ltr/obff is used by driver, however, I'm considering that in virtualization, how guest OS driver control them. I have an idea that expose an inode interface by sysfs, like "reset" inode implemented in pci-sysfs.c, so that system user/administrator can enable/disable ltr/obff or set latency value on userspace, but not limited on driver. Comments?
+>
+> Given how device specific these extensions are, I'd expect you'd need
+> to know about each specific device anyway, which is why I think the
+> control belongs in the driver.  I don't see why you'd need to
+> enable/disable/change these functions when assigning a device from one
+> guest to another...
+>
 
-What the heck does "_int" mean here?  I read it as "integer" but
-perhaps it's shorthand for "internal".  Give us a better name, please. 
-Or a code comment.
+and looking at this code last week, I noticed the ltr, obff & ido
+functions should be doing pcie_cap_has_*() checks before
+accessing registers that may not exist, as is done in
+pci_[save,restore]_pcie_state() ...
 
-> +{
->  	int mode = current->seccomp.mode;
->  	int exit_sig = 0;
->  	int *syscall;
-> +	u32 ret = SECCOMP_RET_KILL;
-> +	int data;
->  
->  	switch (mode) {
->  	case SECCOMP_MODE_STRICT:
-
+in drivers/pci/pci.c:
+#define pcie_cap_has_devctl2(type, flags)               \
+                 ((flags & PCI_EXP_FLAGS_VERS) > 1)
+#define pcie_cap_has_lnkctl2(type, flags)               \
+                 ((flags & PCI_EXP_FLAGS_VERS) > 1)
+#define pcie_cap_has_sltctl2(type, flags)               \
+                 ((flags & PCI_EXP_FLAGS_VERS) > 1)
