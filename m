@@ -1,33 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH V4 net-next 05/26] bfin_mac: Support the get_ts_info
- ethtool method.
-Date: Fri, 6 Apr 2012 09:04:06 +0200
-Message-ID: <20120406070406.GB2220@netboy.at.omicron.at>
-References: <cover.1333529504.git.richardcochran@gmail.com>
- <88e5b2cfcabda03826bb576b21e2e1d990f07117.1333529506.git.richardcochran@gmail.com>
- <CAP=VYLq1kCqLxi31HcGavKk8e3ydX43Xz-7rwayLJPWAnfk28Q@mail.gmail.com>
- <20120406.001805.562264431747635985.davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: linux-next: build failure after merge of the final tree (net-next
+ tree related)
+Date: Fri, 06 Apr 2012 09:09:45 +0200
+Message-ID: <4F7E96B9.9060907@st.com>
+References: <20120405132515.e61465875407a452c1a6f78e@canb.auug.org.au> <20120404.235933.350585244341009071.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, mporter@solarflare.com,
-	jacob.e.keller@intel.com, jeffrey.t.kirsher@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
-	linux-next@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	deepak.sikri@st.com, shiraz.hashim@st.com, vikas.manocha@st.com
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120406.001805.562264431747635985.davem@davemloft.net>
+In-Reply-To: <20120404.235933.350585244341009071.davem@davemloft.net>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 06, 2012 at 12:18:05AM -0400, David Miller wrote:
-> > Trailing semicolon.  Compile fail in linux-next due to a85bbddd.
+On 4/5/2012 5:59 AM, David Miller wrote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 5 Apr 2012 13:25:15 +1000
 > 
-> I just pushed out the obvious fix for this.
+>> After merging the final tree, today's linux-next build (powerpc
+>> allyesconfig) failed like this:
+>>
+>> drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c: In function 'stmmac_probe_config_dt':
+>> drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c:53:7: error: 'struct plat_stmmacenet_data' has no member named 'pbl'
+>>
+>> Caused by commit 8327eb65e795 ("stmmac: re-work the internal GMAC DMA
+>> platf parameters").  Clearly I am missing something, because I can't see
+>> how that patch is correct since nothing ever assigns to the new dma_cfg
+>> pointer but it is dereferenced.
+>>
+>> I have added this patch to make it build today, but it is obviously not
+>> correct.
+> 
+> Sorry Stephen.
+> 
+> Giuseppe don't submit patches to me that don't even compile.
+> 
+> Please submit a proper fix to me for this _now_.
 
-Paul, thanks for compile testing, and David, thanks for fixing these.
-Next time I promise to do at least the compile testing for the various
-different architectures.
+Sorry Dave!
+I don't know what happened (I believed to test all).
+I'm sending you the patches soon!!!
 
-Richard
+Peppe
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
