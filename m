@@ -1,33 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next #2 00/39] net_device.{base_addr, irq} removal
- update
-Date: Fri, 06 Apr 2012 06:26:26 -0400 (EDT)
-Message-ID: <20120406.062626.578458566949440559.davem@davemloft.net>
-References: <1333704408.git.romieu@fr.zoreil.com>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH net-next #2 35/39] myri10ge: stop using net_device.{base_addr,
+ irq}.
+Date: Fri, 06 Apr 2012 07:48:31 -0400
+Message-ID: <4F7ED80F.9050808@myri.com>
+References: <1333704408.git.romieu@fr.zoreil.com> <a5a6d0922ea55d7c8e7792633135e8cb94ccd1c2.1333704409.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gallatin@myri.com, andy@greyhouse.net,
-	chris.snook@gmail.com, venza@brownhat.org, DavidLv@viatech.com.cn,
-	grantgrundler@gmail.com, ionut@badula.org, jcliburn@gmail.com,
-	jdmason@kudzu.us, mason@myri.com, mchan@broadcom.com,
-	stas.yakovlev@gmail.com, steve.glendinning@smsc.com,
-	thockin@hockin.org
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jon Mason <mason@myri.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36894 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753350Ab2DFK3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 06:29:02 -0400
-In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:48901 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756356Ab2DFLse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 07:48:34 -0400
+Received: by qcro28 with SMTP id o28so1390779qcr.19
+        for <netdev@vger.kernel.org>; Fri, 06 Apr 2012 04:48:33 -0700 (PDT)
+In-Reply-To: <a5a6d0922ea55d7c8e7792633135e8cb94ccd1c2.1333704409.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri,  6 Apr 2012 12:06:14 +0200
+On 04/06/12 06:06, Francois Romieu wrote:
+> Signed-off-by: Francois Romieu<romieu@fr.zoreil.com>
+> Cc: Jon Mason<mason@myri.com>
+> Cc: Andrew Gallatin<gallatin@myri.com>
+> ---
+>   drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    7 ++-----
+>   1 files changed, 2 insertions(+), 5 deletions(-)
+>
 
-> If there are no further changes, I'll rebase and send a single pull request
-> for the series including Grant's Acked-by once he says it is ok.
-
-Besides the request_irq() return value test issues, this series
-seems fine to me.
+Acked-by: Andrew Gallatin<gallatin@myri.com>
