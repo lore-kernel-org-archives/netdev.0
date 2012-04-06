@@ -1,102 +1,93 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 18/39] winbond840: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:32 +0200
-Message-ID: <61119e9efbb8710948a1d88147c10090af0b42ae.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 15/39] starfire: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:29 +0200
+Message-ID: <923387c00c92b368ae7906952817cbd1d014fe4c.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>
+Cc: "David Miller" <davem@davemloft.net>,
+	Ion Badulescu <ionut@badula.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43443 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43446 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755824Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755923Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:37 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/dec/tulip/winbond-840.c |   17 ++++++++---------
- 1 files changed, 8 insertions(+), 9 deletions(-)
+It's useless to check mem_start on a newly allocated device as well.
 
-diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
-index 2ac6fff..4d1ffca 100644
---- a/drivers/net/ethernet/dec/tulip/winbond-840.c
-+++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
-@@ -400,9 +400,6 @@ static int __devinit w840_probe1 (struct pci_dev *pdev,
- 	   No hold time required! */
- 	iowrite32(0x00000001, ioaddr + PCIBusCfg);
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Ion Badulescu <ionut@badula.org>
+---
+ drivers/net/ethernet/adaptec/starfire.c |   14 +++++---------
+ 1 files changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/adaptec/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
+index d896816..4f27bff 100644
+--- a/drivers/net/ethernet/adaptec/starfire.c
++++ b/drivers/net/ethernet/adaptec/starfire.c
+@@ -753,9 +753,6 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
+ 	/* wait a little longer */
+ 	udelay(1000);
  
--	dev->base_addr = (unsigned long)ioaddr;
+-	dev->base_addr = (unsigned long)base;
 -	dev->irq = irq;
 -
  	np = netdev_priv(dev);
- 	np->pci_dev = pdev;
- 	np->chip_id = chip_idx;
-@@ -635,17 +632,18 @@ static int netdev_open(struct net_device *dev)
- {
+ 	np->dev = dev;
+ 	np->base = base;
+@@ -773,8 +770,6 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
+ 	drv_flags = netdrv_tbl[chip_idx].drv_flags;
+ 
+ 	option = card_idx < MAX_UNITS ? options[card_idx] : 0;
+-	if (dev->mem_start)
+-		option = dev->mem_start;
+ 
+ 	/* The lower four bits are the media type. */
+ 	if (option & 0x200)
+@@ -909,13 +904,14 @@ static int netdev_open(struct net_device *dev)
+ 	const __be32 *fw_rx_data, *fw_tx_data;
  	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->base_addr;
+ 	void __iomem *ioaddr = np->base;
 +	const int irq = np->pci_dev->irq;
- 	int i;
+ 	int i, retval;
+ 	size_t tx_size, rx_size;
+ 	size_t tx_done_q_size, rx_done_q_size, tx_ring_size, rx_ring_size;
  
- 	iowrite32(0x00000001, ioaddr + PCIBusCfg);		/* Reset */
+ 	/* Do we ever need to reset the chip??? */
  
- 	netif_device_detach(dev);
--	i = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
-+	i = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
- 	if (i)
- 		goto out_err;
+-	retval = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
++	retval = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
+ 	if (retval)
+ 		return retval;
  
+@@ -924,7 +920,7 @@ static int netdev_open(struct net_device *dev)
+ 	writel(1, ioaddr + PCIDeviceConfig);
  	if (debug > 1)
--		netdev_dbg(dev, "w89c840_open() irq %d\n", dev->irq);
-+		netdev_dbg(dev, "w89c840_open() irq %d\n", irq);
+ 		printk(KERN_DEBUG "%s: netdev_open() irq %d.\n",
+-		       dev->name, dev->irq);
++		       dev->name, irq);
  
- 	if((i=alloc_ringdesc(dev)))
- 		goto out_err;
-@@ -932,6 +930,7 @@ static void tx_timeout(struct net_device *dev)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = np->base_addr;
-+	const int irq = np->pci_dev->irq;
+ 	/* Allocate the various queues. */
+ 	if (!np->queue_mem) {
+@@ -935,7 +931,7 @@ static int netdev_open(struct net_device *dev)
+ 		np->queue_mem_size = tx_done_q_size + rx_done_q_size + tx_ring_size + rx_ring_size;
+ 		np->queue_mem = pci_alloc_consistent(np->pci_dev, np->queue_mem_size, &np->queue_mem_dma);
+ 		if (np->queue_mem == NULL) {
+-			free_irq(dev->irq, dev);
++			free_irq(irq, dev);
+ 			return -ENOMEM;
+ 		}
  
- 	dev_warn(&dev->dev, "Transmit timed out, status %08x, resetting...\n",
- 		 ioread32(ioaddr + IntrStatus));
-@@ -951,7 +950,7 @@ static void tx_timeout(struct net_device *dev)
- 	       np->cur_tx, np->dirty_tx, np->tx_full, np->tx_q_bytes);
- 	printk(KERN_DEBUG "Tx Descriptor addr %xh\n", ioread32(ioaddr+0x4C));
- 
--	disable_irq(dev->irq);
-+	disable_irq(irq);
- 	spin_lock_irq(&np->lock);
- 	/*
- 	 * Under high load dirty_tx and the internal tx descriptor pointer
-@@ -966,7 +965,7 @@ static void tx_timeout(struct net_device *dev)
- 	init_rxtx_rings(dev);
- 	init_registers(dev);
- 	spin_unlock_irq(&np->lock);
--	enable_irq(dev->irq);
-+	enable_irq(irq);
- 
- 	netif_wake_queue(dev);
- 	dev->trans_start = jiffies; /* prevent tx timeout */
-@@ -1500,7 +1499,7 @@ static int netdev_close(struct net_device *dev)
- 	iowrite32(0x0000, ioaddr + IntrEnable);
- 	spin_unlock_irq(&np->lock);
+@@ -1962,7 +1958,7 @@ static int netdev_close(struct net_device *dev)
+ 		}
+ 	}
  
 -	free_irq(dev->irq, dev);
 +	free_irq(np->pci_dev->irq, dev);
- 	wmb();
- 	netif_device_attach(dev);
  
-@@ -1589,7 +1588,7 @@ static int w840_suspend (struct pci_dev *pdev, pm_message_t state)
- 		iowrite32(0, ioaddr + IntrEnable);
- 		spin_unlock_irq(&np->lock);
- 
--		synchronize_irq(dev->irq);
-+		synchronize_irq(np->pci_dev->irq);
- 		netif_tx_disable(dev);
- 
- 		np->stats.rx_missed_errors += ioread32(ioaddr + RxMissed) & 0xffff;
+ 	/* Free all the skbuffs in the Rx queue. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
 -- 
 1.7.7.6
