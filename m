@@ -1,50 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: fix a race in sock_queue_err_skb()
-Date: Fri, 06 Apr 2012 10:49:10 +0200
-Message-ID: <1333702150.5312.23.camel@edumazet-glaptop>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  [PATCH] netfilter: ipvs: Verify that IP_VS protocol
+	has been registered
+Date: Fri, 6 Apr 2012 10:59:23 +0200 (CEST)
+Message-ID: <6dfqp4f.85748eeb029b04c66ac5e143b62a5455@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:44527 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005Ab2DFItP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 04:49:15 -0400
-Received: by wejx9 with SMTP id x9so1338187wej.19
-        for <netdev@vger.kernel.org>; Fri, 06 Apr 2012 01:49:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sasha Levin" <levinsasha928@gmail.com>, wensong@linux-vs.org,
+	ja@ssi.bg, kaber@trash.net, davem@davemloft.net, davej@redhat.com,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As soon as an skb is queued into socket error queue, another thread
-can consume it, so we are not allowed to reference skb anymore, or risk
-use after free.
+Hello Simon
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/skbuff.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+>---- Original Message ----
+>From: Simon Horman <horms@verge.net.au>
+>To: "Sasha Levin" <levinsasha928@gmail.com>
+>Cc: wensong@linux-vs.org, ja@ssi.bg, kaber@trash.net, davem@davemloft.net, davej@redhat.com, netdev@vger.kernel.org, lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+>Sent: Fri, Apr 6, 2012, 1:19 AM
+>Subject: Re: [PATCH] netfilter: ipvs: Verify that IP_VS protocol has been registered
+>
+>On Thu, Apr 05, 2012 at 07:24:33PM -0400, Sasha Levin wrote:
+>> The registration of a protocol might fail, there were no checks
+>> and all registrations were assumed to be correct. This lead to
+>> NULL ptr dereferences when apps tried registering.
+>
+>Thanks, I will queue up this fix.
+>
+>Do you have a real-world example of this failing, if so it
+>might be worth pushing your change into stable.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f223cdc..baf8d28 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3161,6 +3161,8 @@ static void sock_rmem_free(struct sk_buff *skb)
-  */
- int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
- {
-+	int len = skb->len;
-+
- 	if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=
- 	    (unsigned)sk->sk_rcvbuf)
- 		return -ENOMEM;
-@@ -3175,7 +3177,7 @@ int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
- 
- 	skb_queue_tail(&sk->sk_error_queue, skb);
- 	if (!sock_flag(sk, SOCK_DEAD))
--		sk->sk_data_ready(sk, skb->len);
-+		sk->sk_data_ready(sk, len);
- 	return 0;
- }
- EXPORT_SYMBOL(sock_queue_err_skb);
+I don't think this is a big thing, the only thing that can cause it is out of memory,
+and that will cause a "kernel death" anyway :-(
+
+here is the code :
+
+register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
+{
+...
+	struct ip_vs_proto_data *pd =
+			kzalloc(sizeof(struct ip_vs_proto_data), GFP_ATOMIC);
+
+	if (!pd)
+		return -ENOMEM;
+
+
+>--
+>To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
