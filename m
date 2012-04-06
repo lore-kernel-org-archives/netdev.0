@@ -1,127 +1,100 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 1/4 (V3)] net: ethtool: add the EEE support
-Date: Fri,  6 Apr 2012 11:29:15 +0200
-Message-ID: <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com>
-References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>
-Cc: bhutchings@solarflare.com, rayagond@vayavyalabs.com,
-	davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:48326 "EHLO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755072Ab2DFJ3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 05:29:46 -0400
-In-Reply-To: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  Re[2]: [PATCH] netfilter: ipvs: Verify that IP_VS
+	protocol has been registered
+Date: Fri, 6 Apr 2012 11:39:50 +0200 (CEST)
+Message-ID: <6dfqp4f.4ae84ae68d6556b1585957b381280d94@obelix.schillstrom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Simon Horman" <horms@verge.net.au>, wensong@linux-vs.org,
+	ja@ssi.bg, kaber@trash.net, davem@davemloft.net, davej@redhat.com,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Sasha Levin" <levinsasha928@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds two new functions to detect if Energy-Efficient
-Ethernet (EEE) is supported and the way to enable/disable it.
+Hello Sasha
 
-As Ben said, it is certainly necessary to distinguish:
+>---- Original Message ----
+>From: Sasha Levin <levinsasha928@gmail.com>
+>To: "Hans Schillstrom" <hans@schillstrom.com>
+>Cc: "Simon Horman" <horms@verge.net.au>, wensong@linux-vs.org, ja@ssi.=
+bg, kaber@trash.net, davem@davemloft.net, davej@redhat.com, netdev@vger=
+=2Ekernel.org, lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.o=
+rg, linux-kernel@vger.kernel.org
+>Sent: Fri, Apr 6, 2012, 11:22 AM
+>Subject: Re: Re[2]: [PATCH] netfilter: ipvs: Verify that IP_VS protoco=
+l has been registered
+>
+>On Fri, Apr 6, 2012 at 10:59 AM, Hans Schillstrom <hans@schillstrom.co=
+m> wrote:
+>> Hello Simon
+>>
+>>>---- Original Message ----
+>>>From: Simon Horman <horms@verge.net.au>
+>>>To: "Sasha Levin" <levinsasha928@gmail.com>
+>>>Cc: wensong@linux-vs.org, ja@ssi.bg, kaber@trash.net, davem@davemlof=
+t.net, davej@redhat.com, netdev@vger.kernel.org, lvs-devel@vger.kernel.=
+org, netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+>>>Sent: Fri, Apr 6, 2012, 1:19 AM
+>>>Subject: Re: [PATCH] netfilter: ipvs: Verify that IP_VS protocol has=
+ been registered
+>>>
+>>>On Thu, Apr 05, 2012 at 07:24:33PM -0400, Sasha Levin wrote:
+>>>> The registration of a protocol might fail, there were no checks
+>>>> and all registrations were assumed to be correct. This lead to
+>>>> NULL ptr dereferences when apps tried registering.
+>>>
+>>>Thanks, I will queue up this fix.
+>>>
+>>>Do you have a real-world example of this failing, if so it
+>>>might be worth pushing your change into stable.
+>>
+>> I don't think this is a big thing, the only thing that can cause it =
+is out of memory,
+>> and that will cause a "kernel death" anyway :-(
+>>
+>> here is the code :
+>>
+>> register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *p=
+p)
+>> {
+>> ...
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct ip_vs_proto_data *pd =3D
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0kzalloc(sizeof(struct ip_vs_proto_data), GFP_ATOMIC);
+>>
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!pd)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return -ENOME=
+M;
+>>
+>>
+>
+>Considering that the allocation gfp flag here is GFP_ATOMIC (why is it
+>GFP_ATOMIC btw?), it might fail for a variety of reasons which may
+>occur when the system is "healthy", for example - if it needs disk I/O
+>to allocate.
 
-a. PHY is advertising EEE from
-b. Link partner is advertising EEE
-or
-c. EEE will be used (= a && b)
+Hmm, I think it should be GFP_KERNEL
+I will have a look at this, and make it consistent with the rest of the=
+ netns allocations,
 
-The logic behind this code, is that .get_eee will pass
-to the user-space if the EEE is actually used and available (so point c).
-The .set_eee should used to force the MAC to disable/enable the EEE (if
-actually supported by MAC+PHY).
-I have also added the .set_eee because the Synopsys GMAC manages the TX LPI
-path through a SW timer that in this case can be disabled via ethtool.
-Indeed, no action should be taken by the user for the PHY side.
-Maybe, the only thing that could be changed is the clock stop enable bit
-(3.0.10).
+>
+>Either way, you shouldn't be dereferencing NULL ptrs even when the
+>system is really low on memory.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
----
- include/linux/ethtool.h |    6 ++++++
- net/core/ethtool.c      |   32 ++++++++++++++++++++++++++++++++
- 2 files changed, 38 insertions(+), 0 deletions(-)
+Of course not, it's a bug =20
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 560a247..d0150c8 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -920,6 +920,8 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
-  * @get_ts_info: Get the time stamping and PTP hardware clock capabilities.
-  *	Drivers supporting transmit time stamps in software should set this to
-  *	ethtool_op_get_ts_info().
-+ * @get_eee: Get Energy-Efficient Ethernet (EEE) supported and status.
-+ * @set_eee: Set EEE status (enable/disable).
-  *
-  * All operations are optional (i.e. the function pointer may be set
-  * to %NULL) and callers must take this into account.  Callers must
-@@ -984,6 +986,8 @@ struct ethtool_ops {
- 	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
- 	int	(*get_ts_info)(struct net_device *, struct ethtool_ts_info *);
- 
-+	int	(*get_eee) (struct net_device *, struct ethtool_value *);
-+	int	(*set_eee) (struct net_device *, struct ethtool_value *);
- };
- #endif /* __KERNEL__ */
- 
-@@ -1058,6 +1062,8 @@ struct ethtool_ops {
- #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
- #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
- #define ETHTOOL_GET_TS_INFO	0x00000041 /* Get time stamping and PHC info */
-+#define ETHTOOL_GEEE		0x00000042 /* Get EEE */
-+#define ETHTOOL_SEEE		0x00000043 /* Set EEE */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index beacdd9..c2374f9 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -729,6 +729,32 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
- 	return dev->ethtool_ops->set_wol(dev, &wol);
- }
- 
-+static int ethtool_get_eee(struct net_device *dev, char __user *useraddr)
-+{
-+	struct ethtool_value edata;
-+
-+	if (!dev->ethtool_ops->get_eee)
-+		return -EOPNOTSUPP;
-+
-+	dev->ethtool_ops->get_eee(dev, &edata);
-+
-+	if (copy_to_user(useraddr, &edata, sizeof(edata)))
-+		return -EFAULT;
-+	return 0;
-+}
-+
-+static int ethtool_set_eee(struct net_device *dev, char __user *useraddr)
-+{
-+	struct ethtool_value edata;
-+
-+	if (!dev->ethtool_ops->set_eee)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&edata, useraddr, sizeof(edata)))
-+		return -EFAULT;
-+
-+	return dev->ethtool_ops->set_eee(dev, &edata);
-+}
- static int ethtool_nway_reset(struct net_device *dev)
- {
- 	if (!dev->ethtool_ops->nway_reset)
-@@ -1420,6 +1446,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 		rc = ethtool_set_value_void(dev, useraddr,
- 				       dev->ethtool_ops->set_msglevel);
- 		break;
-+	case ETHTOOL_GEEE:
-+		rc = ethtool_get_eee(dev, useraddr);
-+		break;
-+	case ETHTOOL_SEEE:
-+		rc = ethtool_set_eee(dev, useraddr);
-+		break;
- 	case ETHTOOL_NWAY_RST:
- 		rc = ethtool_nway_reset(dev);
- 		break;
--- 
-1.7.4.4
+Simon:
+I think you should push this one into stable=20
+
+
+Thanks Sasha
+
+
+Regards
+Hans=20
+
+
