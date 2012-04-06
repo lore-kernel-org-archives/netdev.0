@@ -1,57 +1,40 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 04/39] atl1c: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:18 +0200
-Message-ID: <b581457262a49dac7f66edf3fcbb6aa9e728b59b.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 02/39] tehuti: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:16 +0200
+Message-ID: <7d49f20cb9a3bc4328e68a159692648e364341c8.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>
+	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43476 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43477 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755997Ab2DFKKj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756000Ab2DFKKj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:39 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/tehuti/tehuti.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 1ef0c92..ef5b85b 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -2307,8 +2307,7 @@ static int atl1c_request_irq(struct atl1c_adapter *adapter)
- 				"Unable to allocate MSI interrupt Error: %d\n",
- 				err);
- 		adapter->have_msi = false;
--	} else
--		netdev->irq = pdev->irq;
-+	}
- 
- 	if (!adapter->have_msi)
- 		flags |= IRQF_SHARED;
-@@ -2616,7 +2615,6 @@ static int atl1c_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
- 	pci_set_drvdata(pdev, netdev);
- 
--	netdev->irq  = pdev->irq;
- 	netdev->netdev_ops = &atl1c_netdev_ops;
- 	netdev->watchdog_timeo = AT_TX_WATCHDOG;
- 	atl1c_set_ethtool_ops(netdev);
-@@ -2706,7 +2704,6 @@ static int __devinit atl1c_probe(struct pci_dev *pdev,
- 		dev_err(&pdev->dev, "cannot map device registers\n");
- 		goto err_ioremap;
- 	}
--	netdev->base_addr = (unsigned long)adapter->hw.hw_addr;
- 
- 	/* init mii data */
- 	adapter->mii.dev = netdev;
+diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
+index ad973ff..dc242e2 100644
+--- a/drivers/net/ethernet/tehuti/tehuti.c
++++ b/drivers/net/ethernet/tehuti/tehuti.c
+@@ -1988,10 +1988,6 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		/* these fields are used for info purposes only
+ 		 * so we can have them same for all ports of the board */
+ 		ndev->if_port = port;
+-		ndev->base_addr = pciaddr;
+-		ndev->mem_start = pciaddr;
+-		ndev->mem_end = pciaddr + regionSize;
+-		ndev->irq = pdev->irq;
+ 		ndev->features = NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO
+ 		    | NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX |
+ 		    NETIF_F_HW_VLAN_FILTER | NETIF_F_RXCSUM
 -- 
 1.7.7.6
