@@ -1,62 +1,69 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 05/39] via-rhine: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:19 +0200
-Message-ID: <7b9e3259ac12529c5780881ffd18497450bea20c.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 08/39] sundance: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:22 +0200
+Message-ID: <c0defd6f6abf4b10dee5c9ea29bcd8581d99e3fd.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>,
-	David Lv <DavidLv@viatech.com.cn>
+Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43461 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43440 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755942Ab2DFKKi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2012 06:10:38 -0400
+	id S1752778Ab2DFKKg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2012 06:10:36 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: David Lv <DavidLv@viatech.com.cn>
 ---
- drivers/net/ethernet/via/via-rhine.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/dlink/sundance.c |   12 +++++-------
+ 1 files changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 39b8cf3..47b411f 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -687,9 +687,12 @@ static void __devinit rhine_reload_eeprom(long pioaddr, struct net_device *dev)
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void rhine_poll(struct net_device *dev)
- {
--	disable_irq(dev->irq);
--	rhine_interrupt(dev->irq, (void *)dev);
--	enable_irq(dev->irq);
-+	struct rhine_private *rp = netdev_priv(dev);
-+	const int irq = rp->pdev->irq;
-+
-+	disable_irq(irq);
-+	rhine_interrupt(irq, dev);
-+	enable_irq(irq);
- }
- #endif
- 
-@@ -970,7 +973,6 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
- 	}
- #endif /* USE_MMIO */
+diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
+index d783f4f..d7bb52a 100644
+--- a/drivers/net/ethernet/dlink/sundance.c
++++ b/drivers/net/ethernet/dlink/sundance.c
+@@ -522,9 +522,6 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
+ 			cpu_to_le16(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
  
 -	dev->base_addr = (unsigned long)ioaddr;
- 	rp->base = ioaddr;
- 
- 	/* Get chip registers into a sane state */
-@@ -993,8 +995,6 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
- 	if (!phy_id)
- 		phy_id = ioread8(ioaddr + 0x6C);
- 
--	dev->irq = pdev->irq;
+-	dev->irq = irq;
 -
- 	spin_lock_init(&rp->lock);
- 	mutex_init(&rp->task_lock);
- 	INIT_WORK(&rp->reset_task, rhine_reset_task);
+ 	np = netdev_priv(dev);
+ 	np->base = ioaddr;
+ 	np->pci_dev = pdev;
+@@ -828,18 +825,19 @@ static int netdev_open(struct net_device *dev)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->base;
++	const int irq = np->pci_dev->irq;
+ 	unsigned long flags;
+ 	int i;
+ 
+ 	/* Do we need to reset the chip??? */
+ 
+-	i = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
++	i = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
+ 	if (i)
+ 		return i;
+ 
+ 	if (netif_msg_ifup(np))
+-		printk(KERN_DEBUG "%s: netdev_open() irq %d.\n",
+-			   dev->name, dev->irq);
++		printk(KERN_DEBUG "%s: netdev_open() irq %d\n", dev->name, irq);
++
+ 	init_ring(dev);
+ 
+ 	iowrite32(np->rx_ring_dma, ioaddr + RxListPtr);
+@@ -1814,7 +1812,7 @@ static int netdev_close(struct net_device *dev)
+ 	}
+ #endif /* __i386__ debugging only */
+ 
+-	free_irq(dev->irq, dev);
++	free_irq(np->pci_dev->irq, dev);
+ 
+ 	del_timer_sync(&np->timer);
+ 
 -- 
 1.7.7.6
