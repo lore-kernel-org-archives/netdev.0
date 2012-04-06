@@ -1,62 +1,94 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 06/39] hamachi: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:20 +0200
-Message-ID: <5dba46ed9674eae504c8545ed06f9122c04d543d.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 13/39] 8139cp: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:27 +0200
+Message-ID: <c7e9d5247826d4d38802a4c01e96299ec883436b.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43448 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43498 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755873Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2012 06:10:37 -0400
+	id S1756144Ab2DFKKt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2012 06:10:49 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/packetengines/hamachi.c |   11 +++--------
- 1 files changed, 3 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/realtek/8139cp.c |   21 +++++++++++----------
+ 1 files changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
-index 0d29f5f..c236715 100644
---- a/drivers/net/ethernet/packetengines/hamachi.c
-+++ b/drivers/net/ethernet/packetengines/hamachi.c
-@@ -683,8 +683,6 @@ static int __devinit hamachi_init_one (struct pci_dev *pdev,
- 	}
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index abc7907..69c7d69 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -635,9 +635,12 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+  */
+ static void cp_poll_controller(struct net_device *dev)
+ {
+-	disable_irq(dev->irq);
+-	cp_interrupt(dev->irq, dev);
+-	enable_irq(dev->irq);
++	struct cp_private *cp = netdev_priv(dev);
++	const int irq = cp->pdev->irq;
++
++	disable_irq(irq);
++	cp_interrupt(irq, dev);
++	enable_irq(irq);
+ }
+ #endif
  
- 	hmp->base = ioaddr;
--	dev->base_addr = (unsigned long)ioaddr;
--	dev->irq = irq;
- 	pci_set_drvdata(pdev, dev);
+@@ -1114,6 +1117,7 @@ static void cp_free_rings (struct cp_private *cp)
+ static int cp_open (struct net_device *dev)
+ {
+ 	struct cp_private *cp = netdev_priv(dev);
++	const int irq = cp->pdev->irq;
+ 	int rc;
  
- 	hmp->chip_id = chip_id;
-@@ -859,14 +857,11 @@ static int hamachi_open(struct net_device *dev)
- 	u32 rx_int_var, tx_int_var;
- 	u16 fifo_info;
+ 	netif_dbg(cp, ifup, dev, "enabling interface\n");
+@@ -1126,7 +1130,7 @@ static int cp_open (struct net_device *dev)
  
--	i = request_irq(dev->irq, hamachi_interrupt, IRQF_SHARED, dev->name, dev);
-+	i = request_irq(hmp->pci_dev->irq, hamachi_interrupt, IRQF_SHARED,
-+			dev->name, dev);
- 	if (i)
- 		return i;
+ 	cp_init_hw(cp);
  
--	if (hamachi_debug > 1)
--		printk(KERN_DEBUG "%s: hamachi_open() irq %d.\n",
--			   dev->name, dev->irq);
--
- 	hamachi_init_ring(dev);
+-	rc = request_irq(dev->irq, cp_interrupt, IRQF_SHARED, dev->name, dev);
++	rc = request_irq(irq, cp_interrupt, IRQF_SHARED, dev->name, dev);
+ 	if (rc)
+ 		goto err_out_hw;
  
- #if ADDRLEN == 64
-@@ -1705,7 +1700,7 @@ static int hamachi_close(struct net_device *dev)
- 	}
- #endif /* __i386__ debugging only */
+@@ -1161,7 +1165,7 @@ static int cp_close (struct net_device *dev)
+ 
+ 	spin_unlock_irqrestore(&cp->lock, flags);
  
 -	free_irq(dev->irq, dev);
-+	free_irq(hmp->pci_dev->irq, dev);
++	free_irq(cp->pdev->irq, dev);
  
- 	del_timer_sync(&hmp->timer);
+ 	cp_free_rings(cp);
+ 	return 0;
+@@ -1909,7 +1913,6 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		       (unsigned long long)pciaddr);
+ 		goto err_out_res;
+ 	}
+-	dev->base_addr = (unsigned long) regs;
+ 	cp->regs = regs;
+ 
+ 	cp_stop_hw(cp);
+@@ -1937,14 +1940,12 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+ 		NETIF_F_HIGHDMA;
+ 
+-	dev->irq = pdev->irq;
+-
+ 	rc = register_netdev(dev);
+ 	if (rc)
+ 		goto err_out_iomap;
+ 
+-	netdev_info(dev, "RTL-8139C+ at 0x%lx, %pM, IRQ %d\n",
+-		    dev->base_addr, dev->dev_addr, dev->irq);
++	netdev_info(dev, "RTL-8139C+ at 0x%p, %pM, IRQ %d\n",
++		    regs, dev->dev_addr, pdev->irq);
+ 
+ 	pci_set_drvdata(pdev, dev);
  
 -- 
 1.7.7.6
