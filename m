@@ -1,61 +1,123 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 35/39] myri10ge: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:49 +0200
-Message-ID: <a5a6d0922ea55d7c8e7792633135e8cb94ccd1c2.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 23/39] uli526x: fix regions leak in driver probe error path.
+Date: Fri,  6 Apr 2012 12:06:37 +0200
+Message-ID: <5a61e7c690fce53cd37eddc9808134bc0e6b9837.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>, Jon Mason <mason@myri.com>,
-	Andrew Gallatin <gallatin@myri.com>
+Cc: "David Miller" <davem@davemloft.net>,
+	Grant Grundler <grundler@parisc-linux.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43486 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43488 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756038Ab2DFKKm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2012 06:10:42 -0400
+	id S1756048Ab2DFKKn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2012 06:10:43 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Jon Mason <mason@myri.com>
-Cc: Andrew Gallatin <gallatin@myri.com>
+Cc: Grant Grundler <grundler@parisc-linux.org>
 ---
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/dec/tulip/uli526x.c |   48 ++++++++++++-----------------
+ 1 files changed, 20 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 27273ae..90153fc 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -4033,7 +4033,6 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
+index fc4001f..c9b3396 100644
+--- a/drivers/net/ethernet/dec/tulip/uli526x.c
++++ b/drivers/net/ethernet/dec/tulip/uli526x.c
+@@ -313,9 +313,9 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
+ 		goto err_out_disable;
+ 	}
  
- 	netdev->netdev_ops = &myri10ge_netdev_ops;
- 	netdev->mtu = myri10ge_initial_mtu;
--	netdev->base_addr = mgp->iomem_base;
- 	netdev->hw_features = mgp->features | NETIF_F_LRO | NETIF_F_RXCSUM;
- 	netdev->features = netdev->hw_features;
+-	if (pci_request_regions(pdev, DRV_NAME)) {
++	err = pci_request_regions(pdev, DRV_NAME);
++	if (err < 0) {
+ 		pr_err("Failed to request PCI regions\n");
+-		err = -ENODEV;
+ 		goto err_out_disable;
+ 	}
  
-@@ -4047,12 +4046,10 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		netdev->vlan_features &= ~NETIF_F_TSO;
+@@ -323,18 +323,15 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
+ 	db = netdev_priv(dev);
  
- 	/* make sure we can get an irq, and that MSI can be
--	 * setup (if available).  Also ensure netdev->irq
--	 * is set to correct value if MSI is enabled */
-+	 * setup (if available). */
- 	status = myri10ge_request_irq(mgp);
- 	if (status != 0)
- 		goto abort_with_firmware;
--	netdev->irq = pdev->irq;
- 	myri10ge_free_irq(mgp);
+ 	/* Allocate Tx/Rx descriptor memory */
++	err = -ENOMEM;
++
+ 	db->desc_pool_ptr = pci_alloc_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20, &db->desc_pool_dma_ptr);
+-	if(db->desc_pool_ptr == NULL)
+-	{
+-		err = -ENOMEM;
+-		goto err_out_nomem;
+-	}
++	if (!db->desc_pool_ptr)
++		goto err_out_release;
++
+ 	db->buf_pool_ptr = pci_alloc_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4, &db->buf_pool_dma_ptr);
+-	if(db->buf_pool_ptr == NULL)
+-	{
+-		err = -ENOMEM;
+-		goto err_out_nomem;
+-	}
++	if (!db->buf_pool_ptr)
++		goto err_out_free_tx_desc;
  
- 	/* Save configuration space to be restored if the
-@@ -4077,7 +4074,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	else
- 		dev_info(dev, "%s IRQ %d, tx bndry %d, fw %s, WC %s\n",
- 			 mgp->msi_enabled ? "MSI" : "xPIC",
--			 netdev->irq, mgp->tx_boundary, mgp->fw_name,
-+			 pdev->irq, mgp->tx_boundary, mgp->fw_name,
- 			 (mgp->wc_enabled ? "Enabled" : "Disabled"));
+ 	db->first_tx_desc = (struct tx_desc *) db->desc_pool_ptr;
+ 	db->first_tx_desc_dma = db->desc_pool_dma_ptr;
+@@ -387,7 +384,7 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
+ 	}
+ 	err = register_netdev (dev);
+ 	if (err)
+-		goto err_out_res;
++		goto err_out_free_tx_buf;
  
- 	board_number++;
+ 	netdev_info(dev, "ULi M%04lx at pci%s, %pM, irq %d\n",
+ 		    ent->driver_data >> 16, pci_name(pdev),
+@@ -397,16 +394,14 @@ static int __devinit uli526x_init_one (struct pci_dev *pdev,
+ 
+ 	return 0;
+ 
+-err_out_res:
++err_out_free_tx_buf:
++	pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
++			    db->buf_pool_ptr, db->buf_pool_dma_ptr);
++err_out_free_tx_desc:
++	pci_free_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20,
++			    db->desc_pool_ptr, db->desc_pool_dma_ptr);
++err_out_release:
+ 	pci_release_regions(pdev);
+-err_out_nomem:
+-	if(db->desc_pool_ptr)
+-		pci_free_consistent(pdev, sizeof(struct tx_desc) * DESC_ALL_CNT + 0x20,
+-			db->desc_pool_ptr, db->desc_pool_dma_ptr);
+-
+-	if(db->buf_pool_ptr != NULL)
+-		pci_free_consistent(pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
+-			db->buf_pool_ptr, db->buf_pool_dma_ptr);
+ err_out_disable:
+ 	pci_disable_device(pdev);
+ err_out_free:
+@@ -422,19 +417,16 @@ static void __devexit uli526x_remove_one (struct pci_dev *pdev)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+ 
+-	ULI526X_DBUG(0, "uli526x_remove_one()", 0);
+-
++	unregister_netdev(dev);
+ 	pci_free_consistent(db->pdev, sizeof(struct tx_desc) *
+ 				DESC_ALL_CNT + 0x20, db->desc_pool_ptr,
+  				db->desc_pool_dma_ptr);
+ 	pci_free_consistent(db->pdev, TX_BUF_ALLOC * TX_DESC_CNT + 4,
+ 				db->buf_pool_ptr, db->buf_pool_dma_ptr);
+-	unregister_netdev(dev);
+ 	pci_release_regions(pdev);
+-	free_netdev(dev);	/* free board information */
+-	pci_set_drvdata(pdev, NULL);
+ 	pci_disable_device(pdev);
+-	ULI526X_DBUG(0, "uli526x_remove_one() exit", 0);
++	pci_set_drvdata(pdev, NULL);
++	free_netdev(dev);
+ }
+ 
+ 
 -- 
 1.7.7.6
