@@ -1,132 +1,192 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 17/39] bnx2: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:31 +0200
-Message-ID: <3958bafae0bfb262eda364adebf21aebb25af69a.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 36/39] rrunner: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:50 +0200
+Message-ID: <61deffedec0c150a7c09085ca91146d881a3e48e.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>
+Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43471 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43464 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755981Ab2DFKKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755967Ab2DFKKi (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:38 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2.c |   41 +++++++++++----------------------
- 1 files changed, 14 insertions(+), 27 deletions(-)
+ drivers/net/hippi/rrunner.c |   82 ++++++++++++++++++------------------------
+ 1 files changed, 35 insertions(+), 47 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 8297e28..36037a6 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -7976,7 +7976,6 @@ static int __devinit
- bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- {
- 	struct bnx2 *bp;
--	unsigned long mem_len;
- 	int rc, i, j;
- 	u32 reg;
- 	u64 dma_mask, persist_dma_mask;
-@@ -8036,13 +8035,8 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- #endif
- 	INIT_WORK(&bp->reset_task, bnx2_reset_task);
+diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
+index 2a51363..248c4f1 100644
+--- a/drivers/net/hippi/rrunner.c
++++ b/drivers/net/hippi/rrunner.c
+@@ -114,10 +114,9 @@ static int __devinit rr_init_one(struct pci_dev *pdev,
  
--	dev->base_addr = dev->mem_start = pci_resource_start(pdev, 0);
--	mem_len = MB_GET_CID_ADDR(TX_TSS_CID + TX_MAX_TSS_RINGS + 1);
--	dev->mem_end = dev->mem_start + mem_len;
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+-	if (pci_request_regions(pdev, "rrunner")) {
+-		ret = -EIO;
++	ret = pci_request_regions(pdev, "rrunner");
++	if (ret < 0)
+ 		goto out;
+-	}
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
+@@ -125,11 +124,8 @@ static int __devinit rr_init_one(struct pci_dev *pdev,
+ 
+ 	spin_lock_init(&rrpriv->lock);
+ 
 -	dev->irq = pdev->irq;
--
--	bp->regview = ioremap_nocache(dev->base_addr, mem_len);
--
-+	bp->regview = pci_iomap(pdev, 0, MB_GET_CID_ADDR(TX_TSS_CID +
-+							 TX_MAX_TSS_RINGS + 1));
- 	if (!bp->regview) {
- 		dev_err(&pdev->dev, "Cannot map register space, aborting\n");
- 		rc = -ENOMEM;
-@@ -8346,10 +8340,8 @@ err_out_unmap:
- 		bp->flags &= ~BNX2_FLAG_AER_ENABLED;
- 	}
+ 	dev->netdev_ops = &rr_netdev_ops;
  
--	if (bp->regview) {
--		iounmap(bp->regview);
--		bp->regview = NULL;
--	}
-+	pci_iounmap(pdev, bp->regview);
-+	bp->regview = NULL;
+-	dev->base_addr = pci_resource_start(pdev, 0);
+-
+ 	/* display version info if adapter is found */
+ 	if (!version_disp) {
+ 		/* set display flag to TRUE so that */
+@@ -147,16 +143,14 @@ static int __devinit rr_init_one(struct pci_dev *pdev,
+ 	pci_set_master(pdev);
  
- err_out_release:
- 	pci_release_regions(pdev);
-@@ -8432,7 +8424,7 @@ static int __devinit
- bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	printk(KERN_INFO "%s: Essential RoadRunner serial HIPPI "
+-	       "at 0x%08lx, irq %i, PCI latency %i\n", dev->name,
+-	       dev->base_addr, dev->irq, pci_latency);
++	       "at 0x%08llx, irq %i, PCI latency %i\n", dev->name,
++	       pci_resource_start(pdev, 0), pdev->irq, pci_latency);
+ 
+ 	/*
+-	 * Remap the regs into kernel space.
++	 * Remap the MMIO regs into kernel space.
+ 	 */
+-
+-	rrpriv->regs = ioremap(dev->base_addr, 0x1000);
+-
+-	if (!rrpriv->regs){
++	rrpriv->regs = pci_iomap(pdev, 0, 0x1000);
++	if (!rrpriv->regs) {
+ 		printk(KERN_ERR "%s:  Unable to map I/O register, "
+ 			"RoadRunner will be disabled.\n", dev->name);
+ 		ret = -EIO;
+@@ -203,8 +197,6 @@ static int __devinit rr_init_one(struct pci_dev *pdev,
+ 
+ 	rr_init(dev);
+ 
+-	dev->base_addr = 0;
+-
+ 	ret = register_netdev(dev);
+ 	if (ret)
+ 		goto out;
+@@ -218,7 +210,7 @@ static int __devinit rr_init_one(struct pci_dev *pdev,
+ 		pci_free_consistent(pdev, TX_TOTAL_SIZE, rrpriv->tx_ring,
+ 				    rrpriv->tx_ring_dma);
+ 	if (rrpriv->regs)
+-		iounmap(rrpriv->regs);
++		pci_iounmap(pdev, rrpriv->regs);
+ 	if (pdev) {
+ 		pci_release_regions(pdev);
+ 		pci_set_drvdata(pdev, NULL);
+@@ -232,29 +224,26 @@ static int __devinit rr_init_one(struct pci_dev *pdev,
+ static void __devexit rr_remove_one (struct pci_dev *pdev)
  {
- 	static int version_printed = 0;
--	struct net_device *dev = NULL;
-+	struct net_device *dev;
- 	struct bnx2 *bp;
- 	int rc;
- 	char str[40];
-@@ -8442,15 +8434,12 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
++	struct rr_private *rr = netdev_priv(dev);
  
- 	/* dev zeroed in init_etherdev */
- 	dev = alloc_etherdev_mq(sizeof(*bp), TX_MAX_RINGS);
+-	if (dev) {
+-		struct rr_private *rr = netdev_priv(dev);
 -
- 	if (!dev)
- 		return -ENOMEM;
- 
- 	rc = bnx2_init_board(pdev, dev);
--	if (rc < 0) {
+-		if (!(readl(&rr->regs->HostCtrl) & NIC_HALTED)){
+-			printk(KERN_ERR "%s: trying to unload running NIC\n",
+-			       dev->name);
+-			writel(HALT_NIC, &rr->regs->HostCtrl);
+-		}
+-
+-		pci_free_consistent(pdev, EVT_RING_SIZE, rr->evt_ring,
+-				    rr->evt_ring_dma);
+-		pci_free_consistent(pdev, RX_TOTAL_SIZE, rr->rx_ring,
+-				    rr->rx_ring_dma);
+-		pci_free_consistent(pdev, TX_TOTAL_SIZE, rr->tx_ring,
+-				    rr->tx_ring_dma);
+-		unregister_netdev(dev);
+-		iounmap(rr->regs);
 -		free_netdev(dev);
--		return rc;
--	}
-+	if (rc < 0)
-+		goto err_free;
+-		pci_release_regions(pdev);
+-		pci_disable_device(pdev);
+-		pci_set_drvdata(pdev, NULL);
++	if (!(readl(&rr->regs->HostCtrl) & NIC_HALTED)) {
++		printk(KERN_ERR "%s: trying to unload running NIC\n",
++		       dev->name);
++		writel(HALT_NIC, &rr->regs->HostCtrl);
+ 	}
++
++	unregister_netdev(dev);
++	pci_free_consistent(pdev, EVT_RING_SIZE, rr->evt_ring,
++			    rr->evt_ring_dma);
++	pci_free_consistent(pdev, RX_TOTAL_SIZE, rr->rx_ring,
++			    rr->rx_ring_dma);
++	pci_free_consistent(pdev, TX_TOTAL_SIZE, rr->tx_ring,
++			    rr->tx_ring_dma);
++	pci_iounmap(pdev, rr->regs);
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
++	pci_set_drvdata(pdev, NULL);
++	free_netdev(dev);
+ }
  
- 	dev->netdev_ops = &bnx2_netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
-@@ -8480,22 +8469,21 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+@@ -1230,9 +1219,9 @@ static int rr_open(struct net_device *dev)
+ 	readl(&regs->HostCtrl);
+ 	spin_unlock_irqrestore(&rrpriv->lock, flags);
+ 
+-	if (request_irq(dev->irq, rr_interrupt, IRQF_SHARED, dev->name, dev)) {
++	if (request_irq(pdev->irq, rr_interrupt, IRQF_SHARED, dev->name, dev)) {
+ 		printk(KERN_WARNING "%s: Requested IRQ %d is busy\n",
+-		       dev->name, dev->irq);
++		       dev->name, pdev->irq);
+ 		ecode = -EAGAIN;
  		goto error;
  	}
+@@ -1339,16 +1328,15 @@ static void rr_dump(struct net_device *dev)
  
--	netdev_info(dev, "%s (%c%d) %s found at mem %lx, IRQ %d, node addr %pM\n",
--		    board_info[ent->driver_data].name,
-+	netdev_info(dev, "%s (%c%d) %s found at mem %lx, IRQ %d, "
-+		    "node addr %pM\n", board_info[ent->driver_data].name,
- 		    ((CHIP_ID(bp) & 0xf000) >> 12) + 'A',
- 		    ((CHIP_ID(bp) & 0x0ff0) >> 4),
--		    bnx2_bus_string(bp, str),
--		    dev->base_addr,
--		    bp->pdev->irq, dev->dev_addr);
-+		    bnx2_bus_string(bp, str), (long)pci_resource_start(pdev, 0),
-+		    pdev->irq, dev->dev_addr);
+ static int rr_close(struct net_device *dev)
+ {
+-	struct rr_private *rrpriv;
+-	struct rr_regs __iomem *regs;
++	struct rr_private *rrpriv = netdev_priv(dev);
++	struct rr_regs __iomem *regs = rrpriv->regs;
++	struct pci_dev *pdev = rrpriv->pci_dev;
+ 	unsigned long flags;
+ 	u32 tmp;
+ 	short i;
+ 
+ 	netif_stop_queue(dev);
+ 
+-	rrpriv = netdev_priv(dev);
+-	regs = rrpriv->regs;
+ 
+ 	/*
+ 	 * Lock to make sure we are not cleaning up while another CPU
+@@ -1387,15 +1375,15 @@ static int rr_close(struct net_device *dev)
+ 	rr_raz_tx(rrpriv, dev);
+ 	rr_raz_rx(rrpriv, dev);
+ 
+-	pci_free_consistent(rrpriv->pci_dev, 256 * sizeof(struct ring_ctrl),
++	pci_free_consistent(pdev, 256 * sizeof(struct ring_ctrl),
+ 			    rrpriv->rx_ctrl, rrpriv->rx_ctrl_dma);
+ 	rrpriv->rx_ctrl = NULL;
+ 
+-	pci_free_consistent(rrpriv->pci_dev, sizeof(struct rr_info),
+-			    rrpriv->info, rrpriv->info_dma);
++	pci_free_consistent(pdev, sizeof(struct rr_info), rrpriv->info,
++			    rrpriv->info_dma);
+ 	rrpriv->info = NULL;
+ 
+-	free_irq(dev->irq, dev);
++	free_irq(pdev->irq, dev);
+ 	spin_unlock_irqrestore(&rrpriv->lock, flags);
  
  	return 0;
- 
- error:
--	if (bp->regview)
--		iounmap(bp->regview);
-+	iounmap(bp->regview);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
-+err_free:
- 	free_netdev(dev);
- 	return rc;
- }
-@@ -8511,8 +8499,7 @@ bnx2_remove_one(struct pci_dev *pdev)
- 	del_timer_sync(&bp->timer);
- 	cancel_work_sync(&bp->reset_task);
- 
--	if (bp->regview)
--		iounmap(bp->regview);
-+	pci_iounmap(bp->pdev, bp->regview);
- 
- 	kfree(bp->temp_stats_blk);
- 
 -- 
 1.7.7.6
