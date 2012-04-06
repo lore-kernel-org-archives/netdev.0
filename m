@@ -1,84 +1,62 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 12/39] s2io: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:26 +0200
-Message-ID: <6a332e692c558b86ffcb124c5b3a269de66b5e37.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 06/39] hamachi: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:20 +0200
+Message-ID: <5dba46ed9674eae504c8545ed06f9122c04d543d.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>, Jon Mason <jdmason@kudzu.us>
+Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43502 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43448 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756173Ab2DFKKu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2012 06:10:50 -0400
+	id S1755873Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2012 06:10:37 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Jon Mason <jdmason@kudzu.us>
 ---
- drivers/net/ethernet/neterion/s2io.c |   14 +++++---------
- 1 files changed, 5 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/packetengines/hamachi.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
-index 22a8de0..eb2ab04 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -2847,6 +2847,7 @@ static int s2io_poll_inta(struct napi_struct *napi, int budget)
- static void s2io_netpoll(struct net_device *dev)
- {
- 	struct s2io_nic *nic = netdev_priv(dev);
-+	const int irq = nic->pdev->irq;
- 	struct XENA_dev_config __iomem *bar0 = nic->bar0;
- 	u64 val64 = 0xFFFFFFFFFFFFFFFFULL;
- 	int i;
-@@ -2856,7 +2857,7 @@ static void s2io_netpoll(struct net_device *dev)
- 	if (pci_channel_offline(nic->pdev))
- 		return;
- 
--	disable_irq(dev->irq);
-+	disable_irq(irq);
- 
- 	writeq(val64, &bar0->rx_traffic_int);
- 	writeq(val64, &bar0->tx_traffic_int);
-@@ -2885,7 +2886,7 @@ static void s2io_netpoll(struct net_device *dev)
- 			break;
- 		}
+diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
+index 0d29f5f..c236715 100644
+--- a/drivers/net/ethernet/packetengines/hamachi.c
++++ b/drivers/net/ethernet/packetengines/hamachi.c
+@@ -683,8 +683,6 @@ static int __devinit hamachi_init_one (struct pci_dev *pdev,
  	}
--	enable_irq(dev->irq);
-+	enable_irq(irq);
- }
- #endif
  
-@@ -3898,9 +3899,7 @@ static void remove_msix_isr(struct s2io_nic *sp)
+ 	hmp->base = ioaddr;
+-	dev->base_addr = (unsigned long)ioaddr;
+-	dev->irq = irq;
+ 	pci_set_drvdata(pdev, dev);
  
- static void remove_inta_isr(struct s2io_nic *sp)
- {
--	struct net_device *dev = sp->dev;
+ 	hmp->chip_id = chip_id;
+@@ -859,14 +857,11 @@ static int hamachi_open(struct net_device *dev)
+ 	u32 rx_int_var, tx_int_var;
+ 	u16 fifo_info;
+ 
+-	i = request_irq(dev->irq, hamachi_interrupt, IRQF_SHARED, dev->name, dev);
++	i = request_irq(hmp->pci_dev->irq, hamachi_interrupt, IRQF_SHARED,
++			dev->name, dev);
+ 	if (i)
+ 		return i;
+ 
+-	if (hamachi_debug > 1)
+-		printk(KERN_DEBUG "%s: hamachi_open() irq %d.\n",
+-			   dev->name, dev->irq);
 -
--	free_irq(sp->pdev->irq, dev);
-+	free_irq(sp->pdev->irq, sp->dev);
- }
+ 	hamachi_init_ring(dev);
  
- /* ********************************************************* *
-@@ -7047,7 +7046,7 @@ static int s2io_add_isr(struct s2io_nic *sp)
- 		}
+ #if ADDRLEN == 64
+@@ -1705,7 +1700,7 @@ static int hamachi_close(struct net_device *dev)
  	}
- 	if (sp->config.intr_type == INTA) {
--		err = request_irq((int)sp->pdev->irq, s2io_isr, IRQF_SHARED,
-+		err = request_irq(sp->pdev->irq, s2io_isr, IRQF_SHARED,
- 				  sp->name, dev);
- 		if (err) {
- 			DBG_PRINT(ERR_DBG, "%s: ISR registration failed\n",
-@@ -7909,9 +7908,6 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 		goto bar1_remap_failed;
- 	}
+ #endif /* __i386__ debugging only */
  
--	dev->irq = pdev->irq;
--	dev->base_addr = (unsigned long)sp->bar0;
--
- 	/* Initializing the BAR1 address as the start of the FIFO pointer. */
- 	for (j = 0; j < MAX_TX_FIFOS; j++) {
- 		mac_control->tx_FIFO_start[j] = sp->bar1 + (j * 0x00020000);
+-	free_irq(dev->irq, dev);
++	free_irq(hmp->pci_dev->irq, dev);
+ 
+ 	del_timer_sync(&hmp->timer);
+ 
 -- 
 1.7.7.6
