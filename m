@@ -1,34 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] Documentation fixes
-Date: Fri, 06 Apr 2012 02:43:33 -0400 (EDT)
-Message-ID: <20120406.024333.2063598126722690725.davem@davemloft.net>
-References: <1333672667.2652.22.camel@bwh-desktop.uk.solarflarecom.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V4 net-next 05/26] bfin_mac: Support the get_ts_info
+ ethtool method.
+Date: Fri, 6 Apr 2012 09:04:06 +0200
+Message-ID: <20120406070406.GB2220@netboy.at.omicron.at>
+References: <cover.1333529504.git.richardcochran@gmail.com>
+ <88e5b2cfcabda03826bb576b21e2e1d990f07117.1333529506.git.richardcochran@gmail.com>
+ <CAP=VYLq1kCqLxi31HcGavKk8e3ydX43Xz-7rwayLJPWAnfk28Q@mail.gmail.com>
+ <20120406.001805.562264431747635985.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35104 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499Ab2DFGng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 02:43:36 -0400
-In-Reply-To: <1333672667.2652.22.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, mporter@solarflare.com,
+	jacob.e.keller@intel.com, jeffrey.t.kirsher@intel.com,
+	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
+	linux-next@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120406.001805.562264431747635985.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 6 Apr 2012 01:37:47 +0100
-
-> These changes update Documentation/networking/driver.txt and
-> Documentation/networking/netdevices.txt to reflect the last 5 or so
-> years of API changes (though no new features are documented).
+On Fri, Apr 06, 2012 at 12:18:05AM -0400, David Miller wrote:
+> > Trailing semicolon.  Compile fail in linux-next due to a85bbddd.
 > 
-> They also remove documentation of a wrinkle in ethtool_ops that I
-> recently fixed.
-> 
-> These could safely be applied to either net or net-next; they can't
-> break anything but another 3 months of dust isn't going to make much
-> difference.
+> I just pushed out the obvious fix for this.
 
-Thanks for doing this work Ben, I've applied it all to 'net'.
+Paul, thanks for compile testing, and David, thanks for fixing these.
+Next time I promise to do at least the compile testing for the various
+different architectures.
+
+Richard
