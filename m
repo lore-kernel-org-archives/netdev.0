@@ -1,106 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 6/6] doc, net: Update ndo_start_xmit return type
- and values
-Date: Fri, 6 Apr 2012 01:40:25 +0100
-Message-ID: <1333672825.2652.29.camel@bwh-desktop.uk.solarflarecom.com>
-References: <HEAD <1333672667.2652.22.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 3/3] ixgbe: add syfs interface for to export read
+ only driver information
+Date: Thu, 05 Apr 2012 20:59:42 -0400 (EDT)
+Message-ID: <20120405.205942.91469949871612514.davem@davemloft.net>
+References: <4F7D8DD4.5080205@openwrt.org>
+	<1333643525.2652.10.camel@bwh-desktop.uk.solarflarecom.com>
+	<81212BCD-D022-4B71-955A-96B6C8E2A5DC@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: bhutchings@solarflare.com, florian@openwrt.org,
+	jeffrey.t.kirsher@intel.com, donald.c.skidmore@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: mark.d.rustad@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:28124 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753052Ab2DFAk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 20:40:28 -0400
-In-Reply-To: <HEAD <1333672667.2652.22.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33365 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752310Ab2DFA7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 20:59:52 -0400
+In-Reply-To: <81212BCD-D022-4B71-955A-96B6C8E2A5DC@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit dc1f8bf68b311b1537cb65893430b6796118498a ('netdev: change
-transmit to limited range type') changed the required return type and
-9a1654ba0b50402a6bd03c7b0fe9b0200a5ea7b1 ('net: Optimize
-hard_start_xmit() return checking') changed the valid numerical
-return values.
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Date: Thu, 5 Apr 2012 23:52:40 +0000
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- Documentation/networking/driver.txt |   22 ++++++++++++----------
- 1 files changed, 12 insertions(+), 10 deletions(-)
+> The redundancy with ethtool doesn't bother me much, because I think
+> sysfs is a more general way to export driver information, and I find
+> it very convenient to get as much as is practical from a single
+> source. I really like doing "grep . * */*" in sysfs and getting as
+> much information as possible about a driver.
 
-diff --git a/Documentation/networking/driver.txt b/Documentation/networking/driver.txt
-index 2128e41..da59e28 100644
---- a/Documentation/networking/driver.txt
-+++ b/Documentation/networking/driver.txt
-@@ -2,16 +2,16 @@ Document about softnet driver issues
- 
- Transmit path guidelines:
- 
--1) The ndo_start_xmit method must never return '1' under any
--   normal circumstances.  It is considered a hard error unless
-+1) The ndo_start_xmit method must not return NETDEV_TX_BUSY under
-+   any normal circumstances.  It is considered a hard error unless
-    there is no way your device can tell ahead of time when it's
-    transmit function will become busy.
- 
-    Instead it must maintain the queue properly.  For example,
-    for a driver implementing scatter-gather this means:
- 
--	static int drv_hard_start_xmit(struct sk_buff *skb,
--		   		       struct net_device *dev)
-+	static netdev_tx_t drv_hard_start_xmit(struct sk_buff *skb,
-+					       struct net_device *dev)
- 	{
- 		struct drv *dp = netdev_priv(dev);
- 
-@@ -23,7 +23,7 @@ Transmit path guidelines:
- 			unlock_tx(dp);
- 			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when queue awake!\n",
- 			       dev->name);
--			return 1;
-+			return NETDEV_TX_BUSY;
- 		}
- 
- 		... queue packet to card ...
-@@ -35,6 +35,7 @@ Transmit path guidelines:
- 		...
- 		unlock_tx(dp);
- 		...
-+		return NETDEV_TX_OK;
- 	}
- 
-    And then at the end of your TX reclamation event handling:
-@@ -61,9 +62,9 @@ Transmit path guidelines:
- 2) An ndo_start_xmit method must not modify the shared parts of a
-    cloned SKB.
- 
--3) Do not forget that once you return 0 from your ndo_start_xmit
--   method, it is your driver's responsibility to free up the SKB
--   and in some finite amount of time.
-+3) Do not forget that once you return NETDEV_TX_OK from your
-+   ndo_start_xmit method, it is your driver's responsibility to free
-+   up the SKB and in some finite amount of time.
- 
-    For example, this means that it is not allowed for your TX
-    mitigation scheme to let TX packets "hang out" in the TX
-@@ -71,8 +72,9 @@ Transmit path guidelines:
-    This error can deadlock sockets waiting for send buffer room
-    to be freed up.
- 
--   If you return 1 from the ndo_start_xmit method, you must not keep
--   any reference to that SKB and you must not attempt to free it up.
-+   If you return NETDEV_TX_BUSY from the ndo_start_xmit method, you
-+   must not keep any reference to that SKB and you must not attempt
-+   to free it up.
- 
- Probing guidelines:
- 
--- 
-1.7.7.6
+That's not our position, we have flexible, extensible, interfaces
+such as ethtool and netlink so that people don't get the urge
+to toss random unnecessary junk into sysfs.
 
+There are no damn APIs for what driver guys want to put into
+sysfs, making it terrible from a user's perspective.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Whereas ethtool and netlink give you something consistent and
+reliable.
+
+Therefore there will be hard pushback on anything one tries to
+export via sysfs, it is almost guarenteed that ethtool and
+netlink fit the bill properly.
+ 
