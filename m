@@ -1,14 +1,14 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 19/39] sc92031: stop using net_device.{base_addr, irq}
-Date: Fri,  6 Apr 2012 12:06:33 +0200
-Message-ID: <2f236cba12a738e3ba82bf49e43047013d1f913e.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 18/39] winbond840: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:32 +0200
+Message-ID: <61119e9efbb8710948a1d88147c10090af0b42ae.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43444 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43443 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755841Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755824Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:37 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -16,97 +16,87 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/silan/sc92031.c |   34 +++++++++++-----------------------
- 1 files changed, 11 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/dec/tulip/winbond-840.c |   17 ++++++++---------
+ 1 files changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/silan/sc92031.c b/drivers/net/ethernet/silan/sc92031.c
-index a284d64..32e5566 100644
---- a/drivers/net/ethernet/silan/sc92031.c
-+++ b/drivers/net/ethernet/silan/sc92031.c
-@@ -39,9 +39,7 @@
- #define SC92031_NAME "sc92031"
+diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
+index 2ac6fff..4d1ffca 100644
+--- a/drivers/net/ethernet/dec/tulip/winbond-840.c
++++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
+@@ -400,9 +400,6 @@ static int __devinit w840_probe1 (struct pci_dev *pdev,
+ 	   No hold time required! */
+ 	iowrite32(0x00000001, ioaddr + PCIBusCfg);
  
- /* BAR 0 is MMIO, BAR 1 is PIO */
--#ifndef SC92031_USE_BAR
--#define SC92031_USE_BAR 0
--#endif
-+#define SC92031_USE_PIO	0
- 
- /* Maximum number of multicast addresses to filter (vs. Rx-all-multicast). */
- static int multicast_filter_limit = 64;
-@@ -366,7 +364,7 @@ static void sc92031_disable_interrupts(struct net_device *dev)
- 	mmiowb();
- 
- 	/* wait for any concurrent interrupt/tasklet to finish */
--	synchronize_irq(dev->irq);
-+	synchronize_irq(priv->pdev->irq);
- 	tasklet_disable(&priv->tasklet);
- }
- 
-@@ -1114,10 +1112,13 @@ static void sc92031_tx_timeout(struct net_device *dev)
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void sc92031_poll_controller(struct net_device *dev)
+-	dev->base_addr = (unsigned long)ioaddr;
+-	dev->irq = irq;
+-
+ 	np = netdev_priv(dev);
+ 	np->pci_dev = pdev;
+ 	np->chip_id = chip_idx;
+@@ -635,17 +632,18 @@ static int netdev_open(struct net_device *dev)
  {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->base_addr;
++	const int irq = np->pci_dev->irq;
+ 	int i;
+ 
+ 	iowrite32(0x00000001, ioaddr + PCIBusCfg);		/* Reset */
+ 
+ 	netif_device_detach(dev);
+-	i = request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev);
++	i = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
+ 	if (i)
+ 		goto out_err;
+ 
+ 	if (debug > 1)
+-		netdev_dbg(dev, "w89c840_open() irq %d\n", dev->irq);
++		netdev_dbg(dev, "w89c840_open() irq %d\n", irq);
+ 
+ 	if((i=alloc_ringdesc(dev)))
+ 		goto out_err;
+@@ -932,6 +930,7 @@ static void tx_timeout(struct net_device *dev)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->base_addr;
++	const int irq = np->pci_dev->irq;
+ 
+ 	dev_warn(&dev->dev, "Transmit timed out, status %08x, resetting...\n",
+ 		 ioread32(ioaddr + IntrStatus));
+@@ -951,7 +950,7 @@ static void tx_timeout(struct net_device *dev)
+ 	       np->cur_tx, np->dirty_tx, np->tx_full, np->tx_q_bytes);
+ 	printk(KERN_DEBUG "Tx Descriptor addr %xh\n", ioread32(ioaddr+0x4C));
+ 
 -	disable_irq(dev->irq);
--	if (sc92031_interrupt(dev->irq, dev) != IRQ_NONE)
-+	struct sc92031_priv *priv = netdev_priv(dev);
-+	const int irq = priv->pdev->irq;
-+
 +	disable_irq(irq);
-+	if (sc92031_interrupt(irq, dev) != IRQ_NONE)
- 		sc92031_tasklet((unsigned long)dev);
+ 	spin_lock_irq(&np->lock);
+ 	/*
+ 	 * Under high load dirty_tx and the internal tx descriptor pointer
+@@ -966,7 +965,7 @@ static void tx_timeout(struct net_device *dev)
+ 	init_rxtx_rings(dev);
+ 	init_registers(dev);
+ 	spin_unlock_irq(&np->lock);
 -	enable_irq(dev->irq);
 +	enable_irq(irq);
- }
- #endif
  
-@@ -1402,7 +1403,6 @@ static int __devinit sc92031_probe(struct pci_dev *pdev,
- 	struct net_device *dev;
- 	struct sc92031_priv *priv;
- 	u32 mac0, mac1;
--	unsigned long base_addr;
+ 	netif_wake_queue(dev);
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
+@@ -1500,7 +1499,7 @@ static int netdev_close(struct net_device *dev)
+ 	iowrite32(0x0000, ioaddr + IntrEnable);
+ 	spin_unlock_irq(&np->lock);
  
- 	err = pci_enable_device(pdev);
- 	if (unlikely(err < 0))
-@@ -1422,7 +1422,7 @@ static int __devinit sc92031_probe(struct pci_dev *pdev,
- 	if (unlikely(err < 0))
- 		goto out_request_regions;
+-	free_irq(dev->irq, dev);
++	free_irq(np->pci_dev->irq, dev);
+ 	wmb();
+ 	netif_device_attach(dev);
  
--	port_base = pci_iomap(pdev, SC92031_USE_BAR, 0);
-+	port_base = pci_iomap(pdev, SC92031_USE_PIO, 0);
- 	if (unlikely(!port_base)) {
- 		err = -EIO;
- 		goto out_iomap;
-@@ -1437,14 +1437,6 @@ static int __devinit sc92031_probe(struct pci_dev *pdev,
- 	pci_set_drvdata(pdev, dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
+@@ -1589,7 +1588,7 @@ static int w840_suspend (struct pci_dev *pdev, pm_message_t state)
+ 		iowrite32(0, ioaddr + IntrEnable);
+ 		spin_unlock_irq(&np->lock);
  
--#if SC92031_USE_BAR == 0
--	dev->mem_start = pci_resource_start(pdev, SC92031_USE_BAR);
--	dev->mem_end = pci_resource_end(pdev, SC92031_USE_BAR);
--#elif SC92031_USE_BAR == 1
--	dev->base_addr = pci_resource_start(pdev, SC92031_USE_BAR);
--#endif
--	dev->irq = pdev->irq;
--
- 	/* faked with skb_copy_and_csum_dev */
- 	dev->features = NETIF_F_SG | NETIF_F_HIGHDMA |
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-@@ -1478,13 +1470,9 @@ static int __devinit sc92031_probe(struct pci_dev *pdev,
- 	if (err < 0)
- 		goto out_register_netdev;
+-		synchronize_irq(dev->irq);
++		synchronize_irq(np->pci_dev->irq);
+ 		netif_tx_disable(dev);
  
--#if SC92031_USE_BAR == 0
--	base_addr = dev->mem_start;
--#elif SC92031_USE_BAR == 1
--	base_addr = dev->base_addr;
--#endif
- 	printk(KERN_INFO "%s: SC92031 at 0x%lx, %pM, IRQ %d\n", dev->name,
--			base_addr, dev->dev_addr, dev->irq);
-+	       (long)pci_resource_start(pdev, SC92031_USE_PIO), dev->dev_addr,
-+	       pdev->irq);
- 
- 	return 0;
- 
+ 		np->stats.rx_missed_errors += ioread32(ioaddr + RxMissed) & 0xffff;
 -- 
 1.7.7.6
