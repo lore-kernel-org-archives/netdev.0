@@ -1,26 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/core: Fix seeking in /proc/net/dev
-Date: Fri, 06 Apr 2012 19:43:12 +0200
-Message-ID: <1333734192.3007.5.camel@edumazet-glaptop>
-References: <1333731944-15808-1-git-send-email-john@keeping.me.uk>
-	 <20120406.131800.651812823796333479.davem@davemloft.net>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [PATCH net-next V2] tcp: Fix bug when gap in rcv sequence is filled
+Date: Fri, 6 Apr 2012 14:06:15 -0400
+Message-ID: <CAAsGZS4w=2_e9O=cRK6r+gxirohhSPHpgkNpWw_ZvC-+Q-pHkA@mail.gmail.com>
+References: <1333733810-2381-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: john@keeping.me.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mihai.maruseac@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120406.131800.651812823796333479.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ncardwell@google.com,
+	ilpo.jarvinen@helsinki.fi
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:53173 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757167Ab2DFSGQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 14:06:16 -0400
+Received: by dake40 with SMTP id e40so3003147dak.11
+        for <netdev@vger.kernel.org>; Fri, 06 Apr 2012 11:06:15 -0700 (PDT)
+In-Reply-To: <1333733810-2381-1-git-send-email-subramanian.vijay@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-04-06 at 13:18 -0400, David Miller wrote:
-> Eric Dumazet already fixed this the other day.
-> --
+On Fri, Apr 6, 2012 at 1:36 PM, Vijay Subramanian
+<subramanian.vijay@gmail.com> wrote:
 
-John, take a look at 
+> + =C2=A0 =C2=A0 =C2=A0 int requeued =3D 0; /*1 if an skb is requeued =
+to receive_queue*/
 
-http://git.kernel.org/?p=linux/kernel/git/davem/net.git;a=commit;h=2def16ae6b0c77571200f18ba4be049b03d75579
+Vijay - minor change: missing leading/trailing space in the comment.
+checkpatch.pl ?
 
-Thanks
+
+Chetan
