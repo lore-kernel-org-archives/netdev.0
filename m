@@ -1,186 +1,50 @@
-From: Jason Lin <kernel.jason@gmail.com>
-Subject: Re: [RFC] net:phy:phylib: phy shares the same interrupt with mac
-Date: Fri, 6 Apr 2012 10:24:12 +0800
-Message-ID: <CAGCDX1kZo5f8_BpMgq75o0EoTRh9X=VbH2-rXDBYoKdCosO+VQ@mail.gmail.com>
-References: <CAGCDX1nndpdGHZzhh_Y+2OMLZvvUmAqkAsmgHu9hdUXTJFE--Q@mail.gmail.com>
-	<4F7AB9AC.8000708@openwrt.org>
-	<CAGCDX1=EHJY1C=-w_YazeC9ByP=4T+hj8bjvZ=cizziSfa1J3g@mail.gmail.com>
+From: "Hao, Xudong" <xudong.hao@intel.com>
+Subject: Expose ltr/obff interface by sysfs
+Date: Fri, 6 Apr 2012 02:43:59 +0000
+Message-ID: <403610A45A2B5242BD291EDAE8B37D300FD0A434@SHSMSX102.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:39429 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754086Ab2DFCYN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 22:24:13 -0400
-Received: by obbtb18 with SMTP id tb18so2584462obb.19
-        for <netdev@vger.kernel.org>; Thu, 05 Apr 2012 19:24:12 -0700 (PDT)
-In-Reply-To: <CAGCDX1=EHJY1C=-w_YazeC9ByP=4T+hj8bjvZ=cizziSfa1J3g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>
+To: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Should phy_enable_interrupts() and phy_disable_interrupts() open
-to MAC driver?
-And MAC driver should initialize a workqueue to ack PHY's interrupt.
-Is this a better way?
+Hi, 
 
-=D4=DA 2012=C4=EA4=D4=C25=C8=D5=C9=CF=CE=E79:30=A3=ACJason Lin <kernel.=
-jason@gmail.com> =8C=91=B5=C0=A3=BA
-> But, I need to enable PHY's interrupt by setting PHY's registers.
-> And after producing a interrupt, there needs a workqueue
-> to ack the PHY's interrupt.
-> The phy_start_interrupts() can enable PHY's interrupt.
-> If I do the following:
-> 1) set phydev->irq =3D PHY_IGNORE_INTERRUPT;
-> 2) invoke phy_connect();
-> 3) phy_conenct() -> phy_connect_direct() ->
->    if (phydev->irq > 0)
->         phy_start_interrupts(phydev);
-> 4) PHY_IGNORE_INTERRUPT =3D -2, it will not enable PHY's interrupt.
-> 5) phy_start_interrupts() will connect to a callback function
->    config_intr() of each PHY library.
->
-> For example, drivers/net/phy/marvell.c, marvell_config_intr()
-> Need to set register 0x12 to 0x6400 to enable corresponding interrupt=
-s.
->
-> Any comments are appreciated.
-> Thanks.
->
-> =D4=DA 2012=C4=EA4=D4=C23=C8=D5=CF=C2=CE=E74:49=A3=ACFlorian Fainelli=
- <florian@openwrt.org> =8C=91=B5=C0=A3=BA
->> Hi,
->>
->> Le 04/03/12 04:11, Jason Lin a =A8=A6crit :
->>
->>> 1)  Add a new definition PHY_MAC if phy shares the same
->>>      interrupt with mac.
->>> 2)  Add do_phy_workqueue(), that mac can invoke this function
->>>      in its ISR when link status changed or other conditions.
->>>
->>> Does this seems reasonable?
->>
->>
->> No, I think this is well handled by the PHY_IGNORE_INTERRUPT case
->> (documented in Documentation/networking/phy.txt) by doing the follow=
-ing:
->>
->> - distinguish between MAC and PHY interrupts in your MAC interrupt h=
-andler
->> (most likely you have separate bits for PHY interrupts)
->> - once you see a PHY interrupt, call the appropriate PHY state machi=
-ne
->> callbacks to update the PHY state machine
->>
->>>
->>>
->>> ---------------------------
->>>  drivers/net/phy/phy.c        |   27 +++++++++++++++++++++++++++
->>>  drivers/net/phy/phy_device.c |    4 ++--
->>>  include/linux/phy.h          |    3 +++
->>>  3 files changed, 32 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
->>> index 7670aac..c8009e9 100644
->>> --- a/drivers/net/phy/phy.c
->>> +++ b/drivers/net/phy/phy.c
->>> @@ -527,6 +527,28 @@ static irqreturn_t phy_interrupt(int irq, void
->>> *phy_dat)
->>>     return IRQ_HANDLED;
->>>  }
->>>
->>> +/*
->>> + * do_phy_workqueue - PHY interrupt handler used by MAC
->>> + * @irq: interrupt line
->>> + * @phydev: phy_device pointer
->>> + *
->>> + * Description: When a PHY use the same interrupt with MAC,
->>> + * the handler is invoked by MAC, and schedules  a work task
->>> + * to clear the PHY's interrupt.
->>> + * This handler is invoked only in MAC's ISR.
->>> + */
->>> +irqreturn_t do_phy_workqueue(int irq, struct phy_device *phydev) {
->>> +
->>> +   BUG_ON(!in_interrupt());
->>> +
->>> +   if (PHY_HALTED =3D=3D phydev->state)
->>> +       return IRQ_NONE;
->>> +
->>> +   schedule_work(&phydev->phy_queue);
->>> +   return IRQ_HANDLED;
->>> +}
->>> +EXPORT_SYMBOL(do_phy_workqueue);
->>> +
->>>  /**
->>>   * phy_enable_interrupts - Enable the interrupts from the PHY side
->>>   * @phydev: target phy_device struct
->>> @@ -589,6 +611,11 @@ int phy_start_interrupts(struct phy_device *ph=
-ydev)
->>>
->>>     INIT_WORK(&phydev->phy_queue, phy_change);
->>>
->>> +   if (phydev->irq =3D=3D PHY_MAC) {
->>> +       err =3D phy_enable_interrupts(phydev);
->>> +       return err;
->>> +   }
->>> +
->>>     atomic_set(&phydev->irq_disable, 0);
->>>     if (request_irq(phydev->irq, phy_interrupt,
->>>                 IRQF_SHARED,
->>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_dev=
-ice.c
->>> index 993c52c..1857097 100644
->>> --- a/drivers/net/phy/phy_device.c
->>> +++ b/drivers/net/phy/phy_device.c
->>> @@ -345,7 +345,7 @@ int phy_connect_direct(struct net_device *dev,
->>> struct phy_device *phydev,
->>>
->>>     phy_prepare_link(phydev, handler);
->>>     phy_start_machine(phydev, NULL);
->>> -   if (phydev->irq>  0)
->>> +   if ((phydev->irq>  0) || (phydev->irq =3D=3D PHY_MAC))
->>>         phy_start_interrupts(phydev);
->>>
->>>     return 0;
->>> @@ -399,7 +399,7 @@ EXPORT_SYMBOL(phy_connect);
->>>   */
->>>  void phy_disconnect(struct phy_device *phydev)
->>>  {
->>> -   if (phydev->irq>  0)
->>> +   if ((phydev->irq>  0) || (phydev->irq =3D=3D PHY_MAC))
->>>         phy_stop_interrupts(phydev);
->>>
->>>     phy_stop_machine(phydev);
->>> diff --git a/include/linux/phy.h b/include/linux/phy.h
->>> index 7da5fa8..155822c 100644
->>> --- a/include/linux/phy.h
->>> +++ b/include/linux/phy.h
->>> @@ -44,9 +44,11 @@
->>>   * Set phydev->irq to PHY_POLL if interrupts are not supported,
->>>   * or not desired for this PHY.  Set to PHY_IGNORE_INTERRUPT if
->>>   * the attached driver handles the interrupt
->>> + * Set to PHY_MAC if using the same interrupt with MAC
->>>   */
->>>  #define PHY_POLL       -1
->>>  #define PHY_IGNORE_INTERRUPT   -2
->>> +#define PHY_MAC        -3
->>>
->>>  #define PHY_HAS_INTERRUPT  0x00000001
->>>  #define PHY_HAS_MAGICANEG  0x00000002
->>> @@ -510,6 +512,7 @@ int phy_ethtool_sset(struct phy_device *phydev,
->>> struct ethtool_cmd *cmd);
->>>  int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd=
- *cmd);
->>>  int phy_mii_ioctl(struct phy_device *phydev,
->>>         struct ifreq *ifr, int cmd);
->>> +irqreturn_t do_phy_workqueue(int irq, struct phy_device *phydev);
->>>  int phy_start_interrupts(struct phy_device *phydev);
->>>  void phy_print_status(struct phy_device *phydev);
->>>  void phy_device_free(struct phy_device *phydev);
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" i=
-n
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm working on virtualization Xen/KVM. I saw there are ltr/obff enabling/disabling function in pci.c, but no called till now. I want to know if anybody(driver developer) are working for using it? Can driver change the LTR latency value dynamically?
+
+/*
+LTR(Latency tolerance reporting) allows devices to send messages to the root complex indicating their latency tolerance for snooped & unsnooped memory transactions.
+OBFF (optimized buffer flush/fill), where supported, can help improve energy efficiency by giving devices information about when interrupts and other activity will have a reduced power impact.
+*/
+
+One way to control ltr/obff is used by driver, however, I'm considering that in virtualization, how guest OS driver control them. I have an idea that expose an inode interface by sysfs, like "reset" inode implemented in pci-sysfs.c, so that system user/administrator can enable/disable ltr/obff or set latency value on userspace, but not limited on driver. Comments?
+
+< pls CC me when reply this mail, thanks >
+
+Best Regards,
+Xudong Hao
+
+
+------------------------------------------------------------------------------
+For Developers, A Lot Can Happen In A Second.
+Boundary is the first to Know...and Tell You.
+Monitor Your Applications in Ultra-Fine Resolution. Try it FREE!
+http://p.sf.net/sfu/Boundary-d2dvs2
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
