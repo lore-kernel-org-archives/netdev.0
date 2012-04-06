@@ -1,14 +1,14 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 14/39] yellowfin: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:28 +0200
-Message-ID: <671aa01c99a80822e918777b86f4b18b83fd999d.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 10/39] fealnx: stop using net_device.{base_addr, irq}.
+Date: Fri,  6 Apr 2012 12:06:24 +0200
+Message-ID: <7db239c57d31d1d3fdc73e22b27ed9c46fc1da65.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
 Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43452 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43442 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755903Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755877Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:37 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -16,77 +16,58 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/packetengines/yellowfin.c |   32 ++++++++++-------------
- 1 files changed, 14 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/fealnx.c |   17 ++++++++---------
+ 1 files changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
-index 7757b80..cf5f54b 100644
---- a/drivers/net/ethernet/packetengines/yellowfin.c
-+++ b/drivers/net/ethernet/packetengines/yellowfin.c
-@@ -427,9 +427,6 @@ static int __devinit yellowfin_init_one(struct pci_dev *pdev,
- 	/* Reset the chip. */
- 	iowrite32(0x80000000, ioaddr + DMACtrl);
+diff --git a/drivers/net/ethernet/fealnx.c b/drivers/net/ethernet/fealnx.c
+index 1637b98..328c631 100644
+--- a/drivers/net/ethernet/fealnx.c
++++ b/drivers/net/ethernet/fealnx.c
+@@ -545,9 +545,6 @@ static int __devinit fealnx_init_one(struct pci_dev *pdev,
+ 	/* Reset the chip to erase previous misconfiguration. */
+ 	iowrite32(0x00000001, ioaddr + BCR);
  
 -	dev->base_addr = (unsigned long)ioaddr;
 -	dev->irq = irq;
 -
- 	pci_set_drvdata(pdev, dev);
- 	spin_lock_init(&np->lock);
- 
-@@ -569,25 +566,20 @@ static void mdio_write(void __iomem *ioaddr, int phy_id, int location, int value
- static int yellowfin_open(struct net_device *dev)
+ 	/* Make certain the descriptor lists are aligned. */
+ 	np = netdev_priv(dev);
+ 	np->mem = ioaddr;
+@@ -832,12 +829,14 @@ static int netdev_open(struct net_device *dev)
  {
- 	struct yellowfin_private *yp = netdev_priv(dev);
-+	const int irq = yp->pci_dev->irq;
- 	void __iomem *ioaddr = yp->base;
--	int i, ret;
-+	int i, rc;
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->mem;
+-	int i;
++	const int irq = np->pci_dev->irq;
++	int rc, i;
  
- 	/* Reset the chip. */
- 	iowrite32(0x80000000, ioaddr + DMACtrl);
+ 	iowrite32(0x00000001, ioaddr + BCR);	/* Reset */
  
--	ret = request_irq(dev->irq, yellowfin_interrupt, IRQF_SHARED, dev->name, dev);
--	if (ret)
--		return ret;
--
--	if (yellowfin_debug > 1)
--		netdev_printk(KERN_DEBUG, dev, "%s() irq %d\n",
--			      __func__, dev->irq);
-+	rc = request_irq(irq, yellowfin_interrupt, IRQF_SHARED, dev->name, dev);
+-	if (request_irq(dev->irq, intr_handler, IRQF_SHARED, dev->name, dev))
+-		return -EAGAIN;
++	rc = request_irq(irq, intr_handler, IRQF_SHARED, dev->name, dev);
 +	if (rc < 0)
 +		goto out;
  
--	ret = yellowfin_init_ring(dev);
--	if (ret) {
--		free_irq(dev->irq, dev);
--		return ret;
--	}
-+	rc = yellowfin_init_ring(dev);
-+	if (rc < 0)
-+		goto err_free_irq;
- 
- 	iowrite32(yp->rx_ring_dma, ioaddr + RxPtr);
- 	iowrite32(yp->tx_ring_dma, ioaddr + TxPtr);
-@@ -647,8 +639,12 @@ static int yellowfin_open(struct net_device *dev)
- 	yp->timer.data = (unsigned long)dev;
- 	yp->timer.function = yellowfin_timer;				/* timer handler */
- 	add_timer(&yp->timer);
+ 	for (i = 0; i < 3; i++)
+ 		iowrite16(((unsigned short*)dev->dev_addr)[i],
+@@ -924,8 +923,8 @@ static int netdev_open(struct net_device *dev)
+ 	np->reset_timer.data = (unsigned long) dev;
+ 	np->reset_timer.function = reset_timer;
+ 	np->reset_timer_armed = 0;
+-
+-	return 0;
 +out:
 +	return rc;
- 
--	return 0;
-+err_free_irq:
-+	free_irq(irq, dev);
-+	goto out;
  }
  
- static void yellowfin_timer(unsigned long data)
-@@ -1251,7 +1247,7 @@ static int yellowfin_close(struct net_device *dev)
- 	}
- #endif /* __i386__ debugging only */
+ 
+@@ -1910,7 +1909,7 @@ static int netdev_close(struct net_device *dev)
+ 	del_timer_sync(&np->timer);
+ 	del_timer_sync(&np->reset_timer);
  
 -	free_irq(dev->irq, dev);
-+	free_irq(yp->pci_dev->irq, dev);
++	free_irq(np->pci_dev->irq, dev);
  
  	/* Free all the skbuffs in the Rx queue. */
  	for (i = 0; i < RX_RING_SIZE; i++) {
