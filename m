@@ -1,66 +1,111 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 07/39] via-velocity: stop using net_device.{base_addr, irq}.
-Date: Fri,  6 Apr 2012 12:06:21 +0200
-Message-ID: <59190a37ba3016b2bcfcdc901b921fb2ced718e5.1333704409.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 20/39] sis190: stop using net_device.{base_addr, irq}
+Date: Fri,  6 Apr 2012 12:06:34 +0200
+Message-ID: <d97db1700b0c2498bd0a80fd7dee03a8c38dcf5e.1333704409.git.romieu@fr.zoreil.com>
 References: <1333704408.git.romieu@fr.zoreil.com>
-Cc: "David Miller" <davem@davemloft.net>,
-	David Lv <DavidLv@viatech.com.cn>
+Cc: "David Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43460 "EHLO violet"
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43449 "EHLO violet"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755930Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755925Ab2DFKKh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Apr 2012 06:10:37 -0400
 In-Reply-To: <1333704408.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: David Lv <DavidLv@viatech.com.cn>
 ---
- drivers/net/ethernet/via/via-velocity.c |    9 ++-------
- 1 files changed, 2 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/sis/sis190.c |   26 +++++++++++---------------
+ 1 files changed, 11 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
-index 8a5d7c1..ea3e0a2 100644
---- a/drivers/net/ethernet/via/via-velocity.c
-+++ b/drivers/net/ethernet/via/via-velocity.c
-@@ -2488,8 +2488,8 @@ static int velocity_close(struct net_device *dev)
+diff --git a/drivers/net/ethernet/sis/sis190.c b/drivers/net/ethernet/sis/sis190.c
+index a9deda8..4613591 100644
+--- a/drivers/net/ethernet/sis/sis190.c
++++ b/drivers/net/ethernet/sis/sis190.c
+@@ -729,7 +729,7 @@ static void sis190_tx_interrupt(struct net_device *dev,
+  * The interrupt handler does all of the Rx thread work and cleans up after
+  * the Tx thread.
+  */
+-static irqreturn_t sis190_interrupt(int irq, void *__dev)
++static irqreturn_t sis190_irq(int irq, void *__dev)
+ {
+ 	struct net_device *dev = __dev;
+ 	struct sis190_private *tp = netdev_priv(dev);
+@@ -772,11 +772,11 @@ out:
+ static void sis190_netpoll(struct net_device *dev)
+ {
+ 	struct sis190_private *tp = netdev_priv(dev);
+-	struct pci_dev *pdev = tp->pci_dev;
++	const int irq = tp->pci_dev->irq;
  
- 	if (vptr->flags & VELOCITY_FLAGS_WOL_ENABLED)
- 		velocity_get_ip(vptr);
--	if (dev->irq != 0)
--		free_irq(dev->irq, dev);
-+
-+	free_irq(vptr->pdev->irq, dev);
+-	disable_irq(pdev->irq);
+-	sis190_interrupt(pdev->irq, dev);
+-	enable_irq(pdev->irq);
++	disable_irq(irq);
++	sis190_irq(irq, dev);
++	enable_irq(irq);
+ }
+ #endif
  
- 	velocity_free_rings(vptr);
+@@ -1085,7 +1085,7 @@ static int sis190_open(struct net_device *dev)
  
-@@ -2755,8 +2755,6 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
- 	if (ret < 0)
- 		goto err_free_dev;
+ 	sis190_request_timer(dev);
  
+-	rc = request_irq(dev->irq, sis190_interrupt, IRQF_SHARED, dev->name, dev);
++	rc = request_irq(pdev->irq, sis190_irq, IRQF_SHARED, dev->name, dev);
+ 	if (rc < 0)
+ 		goto err_release_timer_2;
+ 
+@@ -1097,11 +1097,9 @@ err_release_timer_2:
+ 	sis190_delete_timer(dev);
+ 	sis190_rx_clear(tp);
+ err_free_rx_1:
+-	pci_free_consistent(tp->pci_dev, RX_RING_BYTES, tp->RxDescRing,
+-		tp->rx_dma);
++	pci_free_consistent(pdev, RX_RING_BYTES, tp->RxDescRing, tp->rx_dma);
+ err_free_tx_0:
+-	pci_free_consistent(tp->pci_dev, TX_RING_BYTES, tp->TxDescRing,
+-		tp->tx_dma);
++	pci_free_consistent(pdev, TX_RING_BYTES, tp->TxDescRing, tp->tx_dma);
+ 	goto out;
+ }
+ 
+@@ -1141,7 +1139,7 @@ static void sis190_down(struct net_device *dev)
+ 
+ 		spin_unlock_irq(&tp->lock);
+ 
+-		synchronize_irq(dev->irq);
++		synchronize_irq(tp->pci_dev->irq);
+ 
+ 		if (!poll_locked)
+ 			poll_locked++;
+@@ -1161,7 +1159,7 @@ static int sis190_close(struct net_device *dev)
+ 
+ 	sis190_down(dev);
+ 
+-	free_irq(dev->irq, dev);
++	free_irq(pdev->irq, dev);
+ 
+ 	pci_free_consistent(pdev, TX_RING_BYTES, tp->TxDescRing, tp->tx_dma);
+ 	pci_free_consistent(pdev, RX_RING_BYTES, tp->RxDescRing, tp->rx_dma);
+@@ -1884,8 +1882,6 @@ static int __devinit sis190_init_one(struct pci_dev *pdev,
+ 	dev->netdev_ops = &sis190_netdev_ops;
+ 
+ 	SET_ETHTOOL_OPS(dev, &sis190_ethtool_ops);
 -	dev->irq = pdev->irq;
--
- 	ret = velocity_get_pci_info(vptr, pdev);
- 	if (ret < 0) {
- 		/* error message already printed */
-@@ -2779,8 +2777,6 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
+-	dev->base_addr = (unsigned long) 0xdead;
+ 	dev->watchdog_timeo = SIS190_TX_TIMEOUT;
  
- 	mac_wol_reset(regs);
- 
--	dev->base_addr = vptr->ioaddr;
--
- 	for (i = 0; i < 6; i++)
- 		dev->dev_addr[i] = readb(&regs->PAR[i]);
- 
-@@ -2806,7 +2802,6 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
- 
- 	vptr->phy_id = MII_GET_PHY_ID(vptr->mac_regs);
- 
--	dev->irq = pdev->irq;
- 	dev->netdev_ops = &velocity_netdev_ops;
- 	dev->ethtool_ops = &velocity_ethtool_ops;
- 	netif_napi_add(dev, &vptr->napi, velocity_poll, VELOCITY_NAPI_WEIGHT);
+ 	spin_lock_init(&tp->lock);
+@@ -1902,7 +1898,7 @@ static int __devinit sis190_init_one(struct pci_dev *pdev,
+ 		netdev_info(dev, "%s: %s at %p (IRQ: %d), %pM\n",
+ 			    pci_name(pdev),
+ 			    sis_chip_info[ent->driver_data].name,
+-			    ioaddr, dev->irq, dev->dev_addr);
++			    ioaddr, pdev->irq, dev->dev_addr);
+ 		netdev_info(dev, "%s mode.\n",
+ 			    (tp->features & F_HAS_RGMII) ? "RGMII" : "GMII");
+ 	}
 -- 
 1.7.7.6
