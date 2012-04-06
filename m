@@ -1,61 +1,109 @@
-From: Arvid Brodin <arvid.brodin@enea.com>
-Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
- Seamless Redundancy
-Date: Fri, 6 Apr 2012 19:08:03 +0200
-Message-ID: <4F7F22F3.7060402@enea.com>
-References: <20120404165559.5223ab95@s6510.linuxnetplumber.net>	<20120404.202109.2046106039992811660.davem@davemloft.net>	<4F7F10FC.3020308@enea.com> <20120406.124344.564538802640968013.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>,
-	<balferreira@googlemail.com>, <arvid.brodin@xdin.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sestofw01.enea.se ([192.36.1.252]:23551 "HELO mx-3.enea.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752439Ab2DFRIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Apr 2012 13:08:13 -0400
-In-Reply-To: <20120406.124344.564538802640968013.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Keeping <john@keeping.me.uk>
+Subject: [PATCH] net/core: Fix seeking in /proc/net/dev
+Date: Fri,  6 Apr 2012 18:05:44 +0100
+Message-ID: <1333731944-15808-1-git-send-email-john@keeping.me.uk>
+Cc: John Keeping <john@keeping.me.uk>, linux-kernel@vger.kernel.org,
+	Mihai Maruseac <mihai.maruseac@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Arvid Brodin <arvid.brodin@enea.com>
-> Date: Fri, 6 Apr 2012 17:51:24 +0200
-> 
->> Just out of curiosity, what's the mechanism behind this inline
->> assignment that turns the memcpy into an unaligned access? If gcc is 
->> "smart" enough to detect a bunch of char * accesses and turn them 
->> into unaligned 32-bit accesses, isn't that a bug in gcc?
-> 
-> It's not doing it with "char *", it's doing it with other types like
-> the type of the ICMP header in this case.
-> 
-> memcpy is expanded by the compiler internally into __builtin_memcpy()
-> which if it sees the length is reasonably short will inline the
-> copy.  And subsequently it uses the alignment of the types involved
-> to determine what kinds of loads and stores it can use in that
-> inline memcpy().
-> 
-> So the result is that just because in your case with your compiler
-> it doesn't get expanded inline and fault, it doesn't mean it won't
-> for someone else.
-> 
-> You're just lucky, and you really haven't fixed the bug.
-> 
+Commit f04565ddf52e4 (dev: use name hash for dev_seq_ops) introduced
+code that fails to check the requested position when getting an item for
+/proc/net/dev.  This means that any code which seeks within this file is
+likely to receive corrupted data.
 
-Ok. And thanks for the explanation. Would something like this do the 
-trick then?
+A test case for this is to use the read builtin in bash:
 
-+		/* Need to cast to (char *) below to keep gcc optimizations 
-+		   from causing alignment faults. */
-+		memcpy(&icmp_param.data.icmph, (char *) icmp_hdr(skb),
-+						sizeof(icmp_param.data.icmph));
+$ while read line; do echo "$line"; done </proc/net/dev | cut -c-20
+Inter-|   Receive
+face |bytes    packe
+virbr0:   20706
+0
+lo: 2329335   10305
+eth0:       0
 
-If not, any suggestions on how to tackle this?
+compared to just cat'ing the file:
 
+$ cat /proc/net/dev | cut -c-20
+Inter-|   Receive
+ face |bytes    pack
+    lo: 2329335   10
+virbr0:   20706
+  sit0:       0
+ wlan0: 1727234745 1
+  eth0:       0
+
+This patch takes the sledgehammer approach of starting again from the
+beginning if asked to seek backwards.
+
+Signed-off-by: John Keeping <john@keeping.me.uk>
+
+---
+I have made the minimal change required to fix the bug here.  If desired I
+can spend some more time and enhance the dev_from_new_bucket and
+dev_from_same_bucket functions to support walking backwards as well as
+forwards through the items in the table.
+
+---
+ net/core/dev.c |   24 +++++++++++++++++++-----
+ 1 files changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6ca32f6..66b1e891 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4040,6 +4040,7 @@ static int dev_ifconf(struct net *net, char __user *arg)
+ 
+ struct dev_iter_state {
+ 	struct seq_net_private p;
++	loff_t expected_pos; /* current index */
+ 	unsigned int pos; /* bucket << BUCKET_SPACE + offset */
+ };
+ 
+@@ -4096,24 +4097,37 @@ static inline struct net_device *dev_from_new_bucket(struct seq_file *seq)
+ void *dev_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(RCU)
+ {
++	struct net_device *dev;
+ 	struct dev_iter_state *state = seq->private;
+ 
+ 	rcu_read_lock();
+-	if (!*pos)
++	if (!*pos) {
++		state->expected_pos = 0;
++		state->pos = 0;
+ 		return SEQ_START_TOKEN;
++	}
+ 
+-	/* check for end of the hash */
+-	if (state->pos == 0 && *pos > 1)
+-		return NULL;
++	/* If we're asked for something behind where we are, start again. */
++	if (state->expected_pos >= *pos) {
++		state->expected_pos = 0;
++		state->pos = 0;
++	}
+ 
+-	return dev_from_new_bucket(seq);
++	do {
++		dev = dev_from_new_bucket(seq);
++		++state->expected_pos;
++	} while (dev && state->expected_pos < *pos);
++
++	return dev;
+ }
+ 
+ void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	struct net_device *dev;
++	struct dev_iter_state *state = seq->private;
+ 
+ 	++*pos;
++	state->expected_pos = *pos;
+ 
+ 	if (v == SEQ_START_TOKEN)
+ 		return dev_from_new_bucket(seq);
 -- 
-Arvid Brodin
-Enea Services Stockholm AB - since February 16 a part of Xdin in the Alten
-Group. Soon we will be working under the common brand Xdin. Read more at
-www.xdin.com.
+1.7.8.5
