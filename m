@@ -1,48 +1,49 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 0/6] Documentation fixes
-Date: Fri, 6 Apr 2012 01:37:47 +0100
-Message-ID: <1333672667.2652.22.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 1/6] ethtool: Remove exception to the requirement
+ of holding RTNL lock
+Date: Fri, 6 Apr 2012 01:38:49 +0100
+Message-ID: <1333672729.2652.23.camel@bwh-desktop.uk.solarflarecom.com>
+References: <HEAD <1333672667.2652.22.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:28017 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:28059 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752951Ab2DFAhv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 20:37:51 -0400
+	by vger.kernel.org with ESMTP id S1752951Ab2DFAiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Apr 2012 20:38:52 -0400
+In-Reply-To: <HEAD <1333672667.2652.22.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These changes update Documentation/networking/driver.txt and
-Documentation/networking/netdevices.txt to reflect the last 5 or so
-years of API changes (though no new features are documented).
+Commit e52ac3398c3d772d372b9b62ab408fd5eec96840 ('net: Use device
+model to get driver name in skb_gso_segment()') removed the only
+in-tree caller of ethtool ops that doesn't hold the RTNL lock.
 
-They also remove documentation of a wrinkle in ethtool_ops that I
-recently fixed.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ include/linux/ethtool.h |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-These could safely be applied to either net or net-next; they can't
-break anything but another 3 months of dust isn't going to make much
-difference.
-
-Ben.
-
-Ben Hutchings (6):
-  ethtool: Remove exception to the requirement of holding RTNL lock
-  doc, net: Remove obsolete reference to dev->poll
-  doc, net: Update documentation of synchronisation for TX multiqueue
-  doc, net: Update netdev operation names
-  doc, net: Remove instruction to set net_device::trans_start
-  doc, net: Update ndo_start_xmit return type and values
-
- Documentation/networking/driver.txt     |   31 +++++++++++++++----------------
- Documentation/networking/netdevices.txt |   25 ++++++++++++-------------
- include/linux/ethtool.h                 |    3 +--
- 3 files changed, 28 insertions(+), 31 deletions(-)
-
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 560a247..89d68d8 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -923,8 +923,7 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+  *
+  * All operations are optional (i.e. the function pointer may be set
+  * to %NULL) and callers must take this into account.  Callers must
+- * hold the RTNL, except that for @get_drvinfo the caller may or may
+- * not hold the RTNL.
++ * hold the RTNL lock.
+  *
+  * See the structures used by these operations for further documentation.
+  *
 -- 
 1.7.7.6
+
 
 
 -- 
