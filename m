@@ -1,108 +1,69 @@
-From: Jim Garlick <garlick@llnl.gov>
-Subject: Re: ipv6: tunnel: hang when destroying ipv6 tunnel
-Date: Fri, 6 Apr 2012 11:09:05 -0700
-Message-ID: <20120406180905.GA10835@llnl.gov>
-References: <CA+1xoqcAXyh306=2=QKWyM3BE44=MT+nsuRQn5YLOLgbtZqicA@mail.gmail.com>
- <CA+1xoqe1Wc_uifrKsko6hu+py9Ahz3Q0p1tRxup09jmh2NZ1rw@mail.gmail.com>
- <201204011221.GAG51016.JQFSFFOtLOMVHO@I-love.SAKURA.ne.jp>
- <CA+1xoqe+T=iUtUeFdeqmRvMZ7TMCgkLs_1QYv-4YNtn-jCoMCQ@mail.gmail.com>
- <201204052329.EBH52139.FFOLQMOJSVHOFt@I-love.SAKURA.ne.jp>
- <201204062044.EJE13062.OLMQtSVFHOFOJF@I-love.SAKURA.ne.jp>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
+ Seamless Redundancy
+Date: Fri, 6 Apr 2012 11:19:12 -0700
+Message-ID: <20120406111912.172bb1fb@nehalam.linuxnetplumber.net>
+References: <20120403113751.21fd0b17@s6510.linuxnetplumber.net>
+	<4F7CD4BC.4000006@enea.com>
+	<20120404165559.5223ab95@s6510.linuxnetplumber.net>
+	<20120404.202109.2046106039992811660.davem@davemloft.net>
+	<4F7F10FC.3020308@enea.com>
+	<1333731991.3282.17.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "levinsasha928@gmail.com" <levinsasha928@gmail.com>,
-	"ericvh@gmail.com" <ericvh@gmail.com>,
-	"oleg@redhat.com" <oleg@redhat.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davej@redhat.com" <davej@redhat.com>
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201204062044.EJE13062.OLMQtSVFHOFOJF@I-love.SAKURA.ne.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arvid Brodin <arvid.brodin@enea.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<balferreira@googlemail.com>, <arvid.brodin@xdin.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:45653 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752907Ab2DFSTP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Apr 2012 14:19:15 -0400
+In-Reply-To: <1333731991.3282.17.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tetsuo,
+On Fri, 6 Apr 2012 18:06:31 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-I am sorry if my patch is causing you grief!
-
-On Fri, Apr 06, 2012 at 04:44:37AM -0700, Tetsuo Handa wrote:
-> Tetsuo Handa wrote:
-> > Most suspicious change is net/9p/client.c because it is changing handling of
-> > ERESTARTSYS case.
+> On Fri, 2012-04-06 at 17:51 +0200, Arvid Brodin wrote:
+> > David Miller wrote:
+> > > From: Stephen Hemminger <shemminger@vyatta.com>
+> > > Date: Wed, 4 Apr 2012 16:55:59 -0700
+> > > 
+> > >> That isn't so bad, doing a memcpy versus a structure copy.
+> > > 
+> > > GCC is going to inline the memcpy and thus we'll still do the
+> > > unaligned accesses.  This change therefore won't fix the problem.
 > > 
-> > --- linux-3.3.1/net/9p/client.c
-> > +++ linux-next/net/9p/client.c
-> > @@ -740,10 +740,18 @@
-> >                         c->status = Disconnected;
-> >                 goto reterr;
-> >         }
-> > +again:
-> >         /* Wait for the response */
-> >         err = wait_event_interruptible(*req->wq,
-> >                                        req->status >= REQ_STATUS_RCVD);
+> > Well, it does work for me, with gcc-4.2.2-compiled linux-2.6.37 running
+> > on an AVR32 board.
 > > 
-> > +       if ((err == -ERESTARTSYS) && (c->status == Connected)
-> > +                                 && (type == P9_TFLUSH)) {
-> > +               sigpending = 1;
-> > +               clear_thread_flag(TIF_SIGPENDING);
-> > +               goto again;
-> > +       }
-> > +
+> > Just out of curiosity, what's the mechanism behind this inline
+> > assignment that turns the memcpy into an unaligned access? If gcc is 
+> > "smart" enough to detect a bunch of char * accesses and turn them 
+> > into unaligned 32-bit accesses, isn't that a bug in gcc?
 > 
-> I think this loop is bad with regard to response to SIGKILL.
-> If wait_event_interruptible() was interrupted by SIGKILL, it will
-> spin until req->status >= REQ_STATUS_RCVD becomes true.
-> Rather,
+> If I remember correctly, casting a char* pointer to foo* where the
+> original pointer isn't properly aligned for type foo results in
+> undefined behaviour.  And that is what icmp_hdr() is doing, so there is
+> no requirement that the compiler does anything reasonable with the
+> result.  Removing that cast (using skb_transport_header() instead of
+> icmp_hdr()) should avoid that.
 > 
-> 	if ((c->status == Connected) && (type == P9_TFLUSH))
-> 		err = wait_event_killable(*req->wq,
-> 					  req->status >= REQ_STATUS_RCVD);
-> 	else
-> 		err = wait_event_interruptible(*req->wq,
-> 					       req->status >= REQ_STATUS_RCVD);
+> (We do generally assume, however, that if the processor can handle
+> unaligned accesses in a useful way then the compiler will be reasonable
+> and not break them.)
 > 
-> would be safer.
-
-Does that work?  What prevents p9_client_rpc() from recursing via
-p9_client_flush() on receipt of SIGKILL? 
-
-
-> >  error:
-> >         /*
-> >          * Fid is not valid even after a failed clunk
-> > +        * If interrupted, retry once then give up and
-> > +        * leak fid until umount.
-> >          */
-> > -       p9_fid_destroy(fid);
-> > +       if (err == -ERESTARTSYS) {
-> > +               if (retries++ == 0)
-> > +                       goto again;
+> Ben.
+>  
+> > Or will this only happen on archs which __HAVE_ARCH_MEMCPY? (But looking
+> > at a couple of arch/xxx/lib/string.c, these too seem to take alignment
+> > into account.)
+> > 
 > 
-> I think it is possible that the process is interrupted again upon retrying.
-> I suspect the handling of err == -ERESTARTSYS case when retries != 0.
-> It is returning without calling p9_fid_destroy(), which will be
-> unexpected behaviour for the various callers.
 
-Yes but in the unlikely event that this happens, the effect is a small
-memory leak for the duration of the mount.  On the other hand if the
-fid is destroyed without successfully informing the server, then
-subsequent operations that involve new file references will fail
-when that fid number is reused, and the mount becomes unusable.
-
-> > +       } else
-> > +               p9_fid_destroy(fid);
-> >         return err;
-> >  }
-> >  EXPORT_SYMBOL(p9_client_clunk);
-
-Regards,
-
-Jim
+Since icmp_hdr is 64 bits you might be able to use get_unaligned64
+in some way.
