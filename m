@@ -1,63 +1,211 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: ipv6: tunnel: hang when destroying ipv6 tunnel
-Date: Sat, 7 Apr 2012 09:06:50 +0900
-Message-ID: <201204070906.HHC13855.QOSFVOMtFFLJOH@I-love.SAKURA.ne.jp>
-References: <201204011221.GAG51016.JQFSFFOtLOMVHO@I-love.SAKURA.ne.jp>
-	<CA+1xoqe+T=iUtUeFdeqmRvMZ7TMCgkLs_1QYv-4YNtn-jCoMCQ@mail.gmail.com>
-	<201204052329.EBH52139.FFOLQMOJSVHOFt@I-love.SAKURA.ne.jp>
-	<201204062044.EJE13062.OLMQtSVFHOFOJF@I-love.SAKURA.ne.jp>
-	<20120406180905.GA10835@llnl.gov>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Bug#659499: bash fails to properly read /proc files
+Date: Sat, 07 Apr 2012 02:01:34 +0100
+Message-ID: <1333760494.3282.29.camel@deadeye>
+References: <20120211162451.3805.76693.reportbug@annuminas.home.mathom.us>
+	 <20120218010548.GE18080@mraw.org> <20120219221413.GA14935@mraw.org>
+	 <1330215119.8460.18.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: levinsasha928@gmail.com, ericvh@gmail.com, oleg@redhat.com,
-	eric.dumazet@gmail.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davej@redhat.com
-To: garlick@llnl.gov
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-jdHk53V2bPl/wgGg6FPs"
+Cc: Michael Stone <mstone@debian.org>, 659499@bugs.debian.org,
+	debian-kernel@lists.debian.org, Cyril Brulebois <kibi@debian.org>,
+	Jean-Michel =?ISO-8859-1?Q?Vourg=E8re?= <jmv_deb@nirgal.com>,
+	netdev <netdev@vger.kernel.org>
+To: Mihai Maruseac <mihai.maruseac@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:65398 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754412Ab2DGAGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 20:06:54 -0400
-In-Reply-To: <20120406180905.GA10835@llnl.gov>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51811 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752888Ab2DGBB5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 21:01:57 -0400
+In-Reply-To: <1330215119.8460.18.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jim Garlick wrote:
-> > I think this loop is bad with regard to response to SIGKILL.
-> > If wait_event_interruptible() was interrupted by SIGKILL, it will
-> > spin until req->status >= REQ_STATUS_RCVD becomes true.
-> > Rather,
-> > 
-> > 	if ((c->status == Connected) && (type == P9_TFLUSH))
-> > 		err = wait_event_killable(*req->wq,
-> > 					  req->status >= REQ_STATUS_RCVD);
-> > 	else
-> > 		err = wait_event_interruptible(*req->wq,
-> > 					       req->status >= REQ_STATUS_RCVD);
-> > 
-> > would be safer.
-> 
-> Does that work?  What prevents p9_client_rpc() from recursing via
-> p9_client_flush() on receipt of SIGKILL? 
 
-Sorry, I'm not a 9p user and I can't test whether that works or not.
-But at least, continuing the loop even after SIGKILL is not good.
-If you have to wait for req->status >= REQ_STATUS_RCVD becomes true, can you
-use a kernel thread that waits req->status >= REQ_STATUS_RCVD to become true
-and delegate the job of notifying the server from a userspace task to the
-kernel thread?
+--=-jdHk53V2bPl/wgGg6FPs
+Content-Type: multipart/mixed; boundary="=-y84dWZ38YcTRrs+SGsU6"
 
-> Yes but in the unlikely event that this happens, the effect is a small
-> memory leak for the duration of the mount.  On the other hand if the
-> fid is destroyed without successfully informing the server, then
-> subsequent operations that involve new file references will fail
-> when that fid number is reused, and the mount becomes unusable.
 
-I don't know whether Sasha's problem is caused by this patch or not.
-But p9_client_clunk() is called from many functions in fs/9p/ directory.
-They are assuming that p9_client_clunk() will call p9_fid_destroy() but
-this patch is breaking that assumption. I think this is the cause of hang which
-Sasha is experiencing because Sasha's trace shows that call_usermodehelper() is
-blocked by functions in fs/9p/ directory. Seems inconsistency state problem.
+--=-y84dWZ38YcTRrs+SGsU6
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, 2012-02-26 at 00:11 +0000, Ben Hutchings wrote:
+> On Sun, 2012-02-19 at 23:14 +0100, Cyril Brulebois wrote:
+> > Hi kernel folks,
+> >=20
+> > here's a tiny analysis I tried to perform on bash's having issues with
+> > reading /proc files, which I think is related to seeking in those files=
+.
+> > I can't play much with other kernel versions right now though. My tests
+> > were performed with squeeze's bpo kernel: 3.2.0-0.bpo.1-amd64 (Debian
+> > 3.2.4-1~bpo60+1).
+>=20
+> The specific problem with seeking in /proc/net/dev appears to be caused
+> by this change:
+>=20
+> commit f04565ddf52e401880f8ba51de0dff8ba51c99fd
+> Author: Mihai Maruseac <mihai.maruseac@gmail.com>
+> Date:   Thu Oct 20 20:45:10 2011 +0000
+>=20
+>     dev: use name hash for dev_seq_ops
+[...]
+
+This is supposed to be fixed by:
+
+commit 2def16ae6b0c77571200f18ba4be049b03d75579
+Author: Eric Dumazet <eric.dumazet@gmail.com>
+Date:   Mon Apr 2 22:33:02 2012 +0000
+
+    net: fix /proc/net/dev regression
+
+which will be applied some time soon.  I'm attaching the patch in case
+anyone would like to test it (see
+<http://kernel-handbook.alioth.debian.org/ch-common-tasks.html#s-common-off=
+icial>).
+
+Ben.
+
+--=20
+Ben Hutchings
+Larkinson's Law: All laws are basically false.
+
+--=-y84dWZ38YcTRrs+SGsU6
+Content-Disposition: attachment; filename="net-fix-proc-net-dev-regression.patch"
+Content-Type: text/x-patch; name="net-fix-proc-net-dev-regression.patch";
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogTW9uLCAy
+IEFwciAyMDEyIDIyOjMzOjAyICswMDAwDQpTdWJqZWN0OiBbUEFUQ0hdIG5ldDogZml4IC9wcm9j
+L25ldC9kZXYgcmVncmVzc2lvbg0KDQpjb21taXQgMmRlZjE2YWU2YjBjNzc1NzEyMDBmMThiYTRi
+ZTA0OWIwM2Q3NTU3OSB1cHN0cmVhbS4NCg0KQ29tbWl0IGYwNDU2NWRkZjUyIChkZXY6IHVzZSBu
+YW1lIGhhc2ggZm9yIGRldl9zZXFfb3BzKSBhZGRlZCBhIHNlY29uZA0KcmVncmVzc2lvbiwgYXMg
+c29tZSBkZXZpY2VzIGFyZSBtaXNzaW5nIGZyb20gL3Byb2MvbmV0L2RldiBpZiBtYW55DQpkZXZp
+Y2VzIGFyZSBkZWZpbmVkLg0KDQpXaGVuIHNlcV9maWxlIGJ1ZmZlciBpcyBmaWxsZWQsIHRoZSBs
+YXN0IC0+bmV4dC9zaG93KCkgbWV0aG9kIGlzDQpjYW5jZWxlZCAocG9zIHZhbHVlIGlzIHJldmVy
+dGVkIHRvIHZhbHVlIHByaW9yIC0+bmV4dCgpIGNhbGwpDQoNClByb2JsZW0gaXMgYWZ0ZXIgYWJv
+dmUgY29tbWl0LCB3ZSBkb250IHJlc3RhcnQgdGhlIGxvb2t1cCBhdCByaWdodA0KcG9zaXRpb24g
+aW4gLT5zdGFydCgpIG1ldGhvZC4NCg0KRml4IHRoaXMgYnkgcmVtb3ZpbmcgdGhlIGludGVybmFs
+ICdwb3MnIHBvaW50ZXIgYWRkZWQgaW4gY29tbWl0LCBzaW5jZQ0Kd2UgbmVlZCB0byB1c2UgdGhl
+ICdsb2ZmX3QgKnBvcycgcHJvdmlkZWQgYnkgc2VxX2ZpbGUgbGF5ZXIuDQoNClRoaXMgYWxzbyBy
+ZXZlcnRzIGNvbW1pdCA1Y2FjOThkZDAgKG5ldDogRml4IGNvcnJ1cHRpb24NCmluIC9wcm9jLyov
+bmV0L2Rldl9tY2FzdCksIHNpbmNlIGl0cyBub3QgbmVlZGVkIGFueW1vcmUuDQoNClJlcG9ydGVk
+LWJ5OiBCZW4gR3JlZWFyIDxncmVlYXJiQGNhbmRlbGF0ZWNoLmNvbT4NClNpZ25lZC1vZmYtYnk6
+IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4NCkNjOiBNaWhhaSBNYXJ1c2Vh
+YyA8bW1hcnVzZWFjQGl4aWFjb20uY29tPg0KVGVzdGVkLWJ5OiAgQmVuIEdyZWVhciA8Z3JlZWFy
+YkBjYW5kZWxhdGVjaC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVt
+QGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIHwgICAgMiAt
+LQ0KIG5ldC9jb3JlL2Rldi5jICAgICAgICAgICAgfCAgIDU4ICsrKysrKysrKystLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIG5ldC9jb3JlL2Rldl9hZGRyX2xpc3RzLmMgfCAg
+ICAzICsrLQ0KIDMgZmlsZXMgY2hhbmdlZCwgMTUgaW5zZXJ0aW9ucygrKSwgNDggZGVsZXRpb25z
+KC0pDQoNCmRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIGIvaW5jbHVkZS9s
+aW51eC9uZXRkZXZpY2UuaA0KaW5kZXggMWY3NzU0MC4uNWNiYWEyMCAxMDA2NDQNCi0tLSBhL2lu
+Y2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCisrKyBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgN
+CkBAIC0yNjA0LDggKzI2MDQsNiBAQCBleHRlcm4gdm9pZAkJbmV0X2Rpc2FibGVfdGltZXN0YW1w
+KHZvaWQpOw0KIGV4dGVybiB2b2lkICpkZXZfc2VxX3N0YXJ0KHN0cnVjdCBzZXFfZmlsZSAqc2Vx
+LCBsb2ZmX3QgKnBvcyk7DQogZXh0ZXJuIHZvaWQgKmRldl9zZXFfbmV4dChzdHJ1Y3Qgc2VxX2Zp
+bGUgKnNlcSwgdm9pZCAqdiwgbG9mZl90ICpwb3MpOw0KIGV4dGVybiB2b2lkIGRldl9zZXFfc3Rv
+cChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgdm9pZCAqdik7DQotZXh0ZXJuIGludCBkZXZfc2VxX29w
+ZW5fb3BzKHN0cnVjdCBpbm9kZSAqaW5vZGUsIHN0cnVjdCBmaWxlICpmaWxlLA0KLQkJCSAgICBj
+b25zdCBzdHJ1Y3Qgc2VxX29wZXJhdGlvbnMgKm9wcyk7DQogI2VuZGlmDQogDQogZXh0ZXJuIGlu
+dCBuZXRkZXZfY2xhc3NfY3JlYXRlX2ZpbGUoc3RydWN0IGNsYXNzX2F0dHJpYnV0ZSAqY2xhc3Nf
+YXR0cik7DQpkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvZGV2LmMgYi9uZXQvY29yZS9kZXYuYw0KaW5k
+ZXggNmM3ZGM5ZC4uYzI1ZDQ1MyAxMDA2NDQNCi0tLSBhL25ldC9jb3JlL2Rldi5jDQorKysgYi9u
+ZXQvY29yZS9kZXYuYw0KQEAgLTQwMjgsNTQgKzQwMjgsNDEgQEAgc3RhdGljIGludCBkZXZfaWZj
+b25mKHN0cnVjdCBuZXQgKm5ldCwgY2hhciBfX3VzZXIgKmFyZykNCiANCiAjaWZkZWYgQ09ORklH
+X1BST0NfRlMNCiANCi0jZGVmaW5lIEJVQ0tFVF9TUEFDRSAoMzIgLSBORVRERVZfSEFTSEJJVFMp
+DQotDQotc3RydWN0IGRldl9pdGVyX3N0YXRlIHsNCi0Jc3RydWN0IHNlcV9uZXRfcHJpdmF0ZSBw
+Ow0KLQl1bnNpZ25lZCBpbnQgcG9zOyAvKiBidWNrZXQgPDwgQlVDS0VUX1NQQUNFICsgb2Zmc2V0
+ICovDQotfTsNCisjZGVmaW5lIEJVQ0tFVF9TUEFDRSAoMzIgLSBORVRERVZfSEFTSEJJVFMgLSAx
+KQ0KIA0KICNkZWZpbmUgZ2V0X2J1Y2tldCh4KSAoKHgpID4+IEJVQ0tFVF9TUEFDRSkNCiAjZGVm
+aW5lIGdldF9vZmZzZXQoeCkgKCh4KSAmICgoMSA8PCBCVUNLRVRfU1BBQ0UpIC0gMSkpDQogI2Rl
+ZmluZSBzZXRfYnVja2V0X29mZnNldChiLCBvKSAoKGIpIDw8IEJVQ0tFVF9TUEFDRSB8IChvKSkN
+CiANCi1zdGF0aWMgaW5saW5lIHN0cnVjdCBuZXRfZGV2aWNlICpkZXZfZnJvbV9zYW1lX2J1Y2tl
+dChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSkNCitzdGF0aWMgaW5saW5lIHN0cnVjdCBuZXRfZGV2aWNl
+ICpkZXZfZnJvbV9zYW1lX2J1Y2tldChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgbG9mZl90ICpwb3Mp
+DQogew0KLQlzdHJ1Y3QgZGV2X2l0ZXJfc3RhdGUgKnN0YXRlID0gc2VxLT5wcml2YXRlOw0KIAlz
+dHJ1Y3QgbmV0ICpuZXQgPSBzZXFfZmlsZV9uZXQoc2VxKTsNCiAJc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldjsNCiAJc3RydWN0IGhsaXN0X25vZGUgKnA7DQogCXN0cnVjdCBobGlzdF9oZWFkICpoOw0K
+LQl1bnNpZ25lZCBpbnQgY291bnQsIGJ1Y2tldCwgb2Zmc2V0Ow0KKwl1bnNpZ25lZCBpbnQgY291
+bnQgPSAwLCBvZmZzZXQgPSBnZXRfb2Zmc2V0KCpwb3MpOw0KIA0KLQlidWNrZXQgPSBnZXRfYnVj
+a2V0KHN0YXRlLT5wb3MpOw0KLQlvZmZzZXQgPSBnZXRfb2Zmc2V0KHN0YXRlLT5wb3MpOw0KLQlo
+ID0gJm5ldC0+ZGV2X25hbWVfaGVhZFtidWNrZXRdOw0KLQljb3VudCA9IDA7DQorCWggPSAmbmV0
+LT5kZXZfbmFtZV9oZWFkW2dldF9idWNrZXQoKnBvcyldOw0KIAlobGlzdF9mb3JfZWFjaF9lbnRy
+eV9yY3UoZGV2LCBwLCBoLCBuYW1lX2hsaXN0KSB7DQotCQlpZiAoY291bnQrKyA9PSBvZmZzZXQp
+IHsNCi0JCQlzdGF0ZS0+cG9zID0gc2V0X2J1Y2tldF9vZmZzZXQoYnVja2V0LCBjb3VudCk7DQor
+CQlpZiAoKytjb3VudCA9PSBvZmZzZXQpDQogCQkJcmV0dXJuIGRldjsNCi0JCX0NCiAJfQ0KIA0K
+IAlyZXR1cm4gTlVMTDsNCiB9DQogDQotc3RhdGljIGlubGluZSBzdHJ1Y3QgbmV0X2RldmljZSAq
+ZGV2X2Zyb21fbmV3X2J1Y2tldChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSkNCitzdGF0aWMgaW5saW5l
+IHN0cnVjdCBuZXRfZGV2aWNlICpkZXZfZnJvbV9idWNrZXQoc3RydWN0IHNlcV9maWxlICpzZXEs
+IGxvZmZfdCAqcG9zKQ0KIHsNCi0Jc3RydWN0IGRldl9pdGVyX3N0YXRlICpzdGF0ZSA9IHNlcS0+
+cHJpdmF0ZTsNCiAJc3RydWN0IG5ldF9kZXZpY2UgKmRldjsNCiAJdW5zaWduZWQgaW50IGJ1Y2tl
+dDsNCiANCi0JYnVja2V0ID0gZ2V0X2J1Y2tldChzdGF0ZS0+cG9zKTsNCiAJZG8gew0KLQkJZGV2
+ID0gZGV2X2Zyb21fc2FtZV9idWNrZXQoc2VxKTsNCisJCWRldiA9IGRldl9mcm9tX3NhbWVfYnVj
+a2V0KHNlcSwgcG9zKTsNCiAJCWlmIChkZXYpDQogCQkJcmV0dXJuIGRldjsNCiANCi0JCWJ1Y2tl
+dCsrOw0KLQkJc3RhdGUtPnBvcyA9IHNldF9idWNrZXRfb2Zmc2V0KGJ1Y2tldCwgMCk7DQorCQli
+dWNrZXQgPSBnZXRfYnVja2V0KCpwb3MpICsgMTsNCisJCSpwb3MgPSBzZXRfYnVja2V0X29mZnNl
+dChidWNrZXQsIDEpOw0KIAl9IHdoaWxlIChidWNrZXQgPCBORVRERVZfSEFTSEVOVFJJRVMpOw0K
+IA0KIAlyZXR1cm4gTlVMTDsNCkBAIC00MDg4LDMzICs0MDc1LDIwIEBAIHN0YXRpYyBpbmxpbmUg
+c3RydWN0IG5ldF9kZXZpY2UgKmRldl9mcm9tX25ld19idWNrZXQoc3RydWN0IHNlcV9maWxlICpz
+ZXEpDQogdm9pZCAqZGV2X3NlcV9zdGFydChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgbG9mZl90ICpw
+b3MpDQogCV9fYWNxdWlyZXMoUkNVKQ0KIHsNCi0Jc3RydWN0IGRldl9pdGVyX3N0YXRlICpzdGF0
+ZSA9IHNlcS0+cHJpdmF0ZTsNCi0NCiAJcmN1X3JlYWRfbG9jaygpOw0KIAlpZiAoISpwb3MpDQog
+CQlyZXR1cm4gU0VRX1NUQVJUX1RPS0VOOw0KIA0KLQkvKiBjaGVjayBmb3IgZW5kIG9mIHRoZSBo
+YXNoICovDQotCWlmIChzdGF0ZS0+cG9zID09IDAgJiYgKnBvcyA+IDEpDQorCWlmIChnZXRfYnVj
+a2V0KCpwb3MpID49IE5FVERFVl9IQVNIRU5UUklFUykNCiAJCXJldHVybiBOVUxMOw0KIA0KLQly
+ZXR1cm4gZGV2X2Zyb21fbmV3X2J1Y2tldChzZXEpOw0KKwlyZXR1cm4gZGV2X2Zyb21fYnVja2V0
+KHNlcSwgcG9zKTsNCiB9DQogDQogdm9pZCAqZGV2X3NlcV9uZXh0KHN0cnVjdCBzZXFfZmlsZSAq
+c2VxLCB2b2lkICp2LCBsb2ZmX3QgKnBvcykNCiB7DQotCXN0cnVjdCBuZXRfZGV2aWNlICpkZXY7
+DQotDQogCSsrKnBvczsNCi0NCi0JaWYgKHYgPT0gU0VRX1NUQVJUX1RPS0VOKQ0KLQkJcmV0dXJu
+IGRldl9mcm9tX25ld19idWNrZXQoc2VxKTsNCi0NCi0JZGV2ID0gZGV2X2Zyb21fc2FtZV9idWNr
+ZXQoc2VxKTsNCi0JaWYgKGRldikNCi0JCXJldHVybiBkZXY7DQotDQotCXJldHVybiBkZXZfZnJv
+bV9uZXdfYnVja2V0KHNlcSk7DQorCXJldHVybiBkZXZfZnJvbV9idWNrZXQoc2VxLCBwb3MpOw0K
+IH0NCiANCiB2b2lkIGRldl9zZXFfc3RvcChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgdm9pZCAqdikN
+CkBAIC00MjEzLDEzICs0MTg3LDcgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBzZXFfb3BlcmF0aW9u
+cyBkZXZfc2VxX29wcyA9IHsNCiBzdGF0aWMgaW50IGRldl9zZXFfb3BlbihzdHJ1Y3QgaW5vZGUg
+Kmlub2RlLCBzdHJ1Y3QgZmlsZSAqZmlsZSkNCiB7DQogCXJldHVybiBzZXFfb3Blbl9uZXQoaW5v
+ZGUsIGZpbGUsICZkZXZfc2VxX29wcywNCi0JCQkgICAgc2l6ZW9mKHN0cnVjdCBkZXZfaXRlcl9z
+dGF0ZSkpOw0KLX0NCi0NCi1pbnQgZGV2X3NlcV9vcGVuX29wcyhzdHJ1Y3QgaW5vZGUgKmlub2Rl
+LCBzdHJ1Y3QgZmlsZSAqZmlsZSwNCi0JCSAgICAgY29uc3Qgc3RydWN0IHNlcV9vcGVyYXRpb25z
+ICpvcHMpDQotew0KLQlyZXR1cm4gc2VxX29wZW5fbmV0KGlub2RlLCBmaWxlLCBvcHMsIHNpemVv
+ZihzdHJ1Y3QgZGV2X2l0ZXJfc3RhdGUpKTsNCisJCQkgICAgc2l6ZW9mKHN0cnVjdCBzZXFfbmV0
+X3ByaXZhdGUpKTsNCiB9DQogDQogc3RhdGljIGNvbnN0IHN0cnVjdCBmaWxlX29wZXJhdGlvbnMg
+ZGV2X3NlcV9mb3BzID0gew0KZGlmZiAtLWdpdCBhL25ldC9jb3JlL2Rldl9hZGRyX2xpc3RzLmMg
+Yi9uZXQvY29yZS9kZXZfYWRkcl9saXN0cy5jDQppbmRleCAyOWMwN2ZlLi42MjY2OThmIDEwMDY0
+NA0KLS0tIGEvbmV0L2NvcmUvZGV2X2FkZHJfbGlzdHMuYw0KKysrIGIvbmV0L2NvcmUvZGV2X2Fk
+ZHJfbGlzdHMuYw0KQEAgLTY5Niw3ICs2OTYsOCBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IHNlcV9v
+cGVyYXRpb25zIGRldl9tY19zZXFfb3BzID0gew0KIA0KIHN0YXRpYyBpbnQgZGV2X21jX3NlcV9v
+cGVuKHN0cnVjdCBpbm9kZSAqaW5vZGUsIHN0cnVjdCBmaWxlICpmaWxlKQ0KIHsNCi0JcmV0dXJu
+IGRldl9zZXFfb3Blbl9vcHMoaW5vZGUsIGZpbGUsICZkZXZfbWNfc2VxX29wcyk7DQorCXJldHVy
+biBzZXFfb3Blbl9uZXQoaW5vZGUsIGZpbGUsICZkZXZfbWNfc2VxX29wcywNCisJCQkgICAgc2l6
+ZW9mKHN0cnVjdCBzZXFfbmV0X3ByaXZhdGUpKTsNCiB9DQogDQogc3RhdGljIGNvbnN0IHN0cnVj
+dCBmaWxlX29wZXJhdGlvbnMgZGV2X21jX3NlcV9mb3BzID0gew0KLS0gDQoxLjcuOS41DQoNCi==
+
+
+--=-y84dWZ38YcTRrs+SGsU6--
+
+--=-jdHk53V2bPl/wgGg6FPs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAT3+R7ue/yOyVhhEJAQpVqA//foOsb225+NXbim0MBIwZ+QDkfzDudzFv
+95D51nAsFKQf9XF4DXpskvMd9AIwHgmk9Edt99C0cj0raf580tBwMRRmrHcMnuL4
+AwPg8VoyoQ6odWQVIqXWJVX4RU13IGk64SFdEKkzB1x8h9Mg145ErZWuYgRfo2gk
+uab6bv13xAK4B40TFTLZ8aDXBqcyrQxOAjRuZBQXfxHbvUhniA+Wsm+YzkKbHWNH
+grazGIOZO7BF0M7qsBBTIsGOGb3Alrg41++18y4gncDsLSpwmSkW6OI7I4rYHGNh
+DftQcttSpPOFBRryY73lW4MpYvpVOuB+983LDV2+84uCPUWLc3qfzsqkyX0ezBzH
+i7b2REOKwHgikyM6KPpFl8pWdbK6wglvB8o05cRFUBSjskpoRdv1lU0WUPKokV5z
++qegPGryZ6D+UJfjH5bl8xIZ+uUZa9F96/pZyNDWoIMulGUluqRokcK/IgYLcFzY
+oPioU/DrYvJAmlPR9NbrfYFmViabFNiVI+DNaH8Y+fEaYuhwVSi91bPKJxxiIX5o
+nd+IoYu50N6hQv1xWAv/9m7+sDy4jpG3Izg43Ze3exQAEKy5Tbh2WVGVl67eCqc9
+9xjSshbcvLSf6zI+ERGd7sH8XWlF6iPOCh0yFa9DkJwkk5qptoIFE50m3wDu4Vog
+urlywOVuqtM=
+=pijU
+-----END PGP SIGNATURE-----
+
+--=-jdHk53V2bPl/wgGg6FPs--
