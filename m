@@ -1,10 +1,7 @@
-From: "[PATCH 1/2]"@fess.ebiederm.org, "net:In"@fess.ebiederm.org,
-	unregister_netdevice_notifier@fess.ebiederm.org,
-	unregister@fess.ebiederm.org, the@fess.ebiederm.org,
-	"netdevices."@fess.ebiederm.org
-Subject: Re: net: kernel BUG() in net/netns/generic.h:45
-Date: Fri, 06 Apr 2012 18:31:14 -0700
-Message-ID: <m1iphctjj1.fsf@fess.ebiederm.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 1/2] net: In unregister_netdevice_notifier unregister the netdevices.
+Date: Fri, 06 Apr 2012 18:33:35 -0700
+Message-ID: <m1aa2otjf4.fsf_-_@fess.ebiederm.org>
 References: <1333664446.3538.12.camel@lappy>
 	<m1aa2pwxap.fsf@fess.ebiederm.org>
 	<CA+1xoqdi4QOhRJvBA64pxiN3EphhThjPkf4eLRkYM8jxcJjh=w@mail.gmail.com>
@@ -16,9 +13,8 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Dave Jones <davej@redhat.com>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>,
-	=?utf-8?Q?R=C3=A9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>,
-	Sasha Levin <levinsasha928@gmail.com>
+	Sasha Levin <levinsasha928@gmail.com>,
+	Remi Denis-Courmont <remi.denis-courmont@nokia.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <m1mx6otk85.fsf@fess.ebiederm.org> (Eric W. Biederman's message
@@ -26,13 +22,17 @@ In-Reply-To: <m1mx6otk85.fsf@fess.ebiederm.org> (Eric W. Biederman's message
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+>From a51fda849355b2ffb27cdb5d66fa1a96e7f47335 Mon Sep 17 00:00:00 2001
+From: Eric W. Biederman <ebiederm@xmission.com>
+Date: Sun, 25 Dec 2011 19:39:52 -0800
+Subject: 
 
 We already synthesize events in register_netdevice_notifier and synthesizing
 events in unregister_netdevice_notifier allows to us remove the need for
 special case cleanup code.
 
-This change should be trivially safe as it adds no new cases for
-existing callers of unregister_netdevice_notifier to handle.
+This change should be safe as it adds no new cases for existing callers
+of unregiser_netdevice_notifier to handle.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
