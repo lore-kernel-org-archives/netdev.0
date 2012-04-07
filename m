@@ -1,7 +1,7 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 15/16] batman-adv: form groups in the bridge loop avoidance
-Date: Sat,  7 Apr 2012 20:49:57 +0200
-Message-ID: <1333824598-27771-16-git-send-email-ordex@autistici.org>
+Subject: [PATCH 13/16] batman-adv: add broadcast duplicate check
+Date: Sat,  7 Apr 2012 20:49:55 +0200
+Message-ID: <1333824598-27771-14-git-send-email-ordex@autistici.org>
 References: <1333824598-27771-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
@@ -9,229 +9,191 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:61275 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:61168 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754683Ab2DGStn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Apr 2012 14:49:43 -0400
+	with ESMTP id S1754674Ab2DGSth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Apr 2012 14:49:37 -0400
 In-Reply-To: <1333824598-27771-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
 
-backbone gateways may be part of the same LAN, but participate
-in different meshes. With this patch, backbone gateways form groups by
-applying the groupid of another backbone gateway if it is higher. After
-forming the group, they only accept messages from backbone gateways of
-the same group.
+When multiple backbone gateways relay the same broadcast from the
+backbone into the mesh, other nodes in the mesh may receive this
+broadcast multiple times. To avoid this, the crc checksums of
+received broadcasts are recorded and new broadcast packets with
+the same content may be dropped if received by another gateway.
 
 Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bridge_loop_avoidance.c |  121 ++++++++++++++++++++++++++++++--
- net/batman-adv/types.h                 |    1 +
- 2 files changed, 116 insertions(+), 6 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c |   75 ++++++++++++++++++++++++++++++++
+ net/batman-adv/bridge_loop_avoidance.h |    2 +
+ net/batman-adv/main.h                  |    3 ++
+ net/batman-adv/routing.c               |    4 ++
+ net/batman-adv/types.h                 |    7 +++
+ 5 files changed, 91 insertions(+)
 
 diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 4f6b44a..1cf18ac 100644
+index 6186f6e..4f6b44a 100644
 --- a/net/batman-adv/bridge_loop_avoidance.c
 +++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -33,7 +33,6 @@
- #include <net/arp.h>
- #include <linux/if_vlan.h>
+@@ -1041,8 +1041,16 @@ out:
+ /* initialize all bla structures */
+ int bla_init(struct bat_priv *bat_priv)
+ {
++	int i;
++
+ 	bat_dbg(DBG_BLA, bat_priv, "bla hash registering\n");
  
--static const uint8_t claim_dest[6] = {0xff, 0x43, 0x05, 0x00, 0x00, 0x00};
- static const uint8_t announce_mac[4] = {0x43, 0x05, 0x43, 0x05};
++	/* initialize the duplicate list */
++	for (i = 0; i < DUPLIST_SIZE; i++)
++		bat_priv->bcast_duplist[i].entrytime =
++			jiffies - msecs_to_jiffies(DUPLIST_TIMEOUT);
++	bat_priv->bcast_duplist_curr = 0;
++
+ 	if (bat_priv->claim_hash)
+ 		return 1;
  
- static void bla_periodic_work(struct work_struct *work);
-@@ -265,7 +264,8 @@ static void bla_send_claim(struct bat_priv *bat_priv, uint8_t *mac,
- 	if (!primary_if)
- 		return;
- 
--	memcpy(&local_claim_dest, claim_dest, sizeof(local_claim_dest));
-+	memcpy(&local_claim_dest, &bat_priv->claim_dest,
-+	       sizeof(local_claim_dest));
- 	local_claim_dest.type = claimtype;
- 
- 	soft_iface = primary_if->soft_iface;
-@@ -282,6 +282,7 @@ static void bla_send_claim(struct bat_priv *bat_priv, uint8_t *mac,
- 			 primary_if->net_dev->dev_addr,
- 			 /* HW DST: FF:43:05:XX:00:00
- 			  * with XX   = claim type
-+			  * and YY:YY = group id
- 			  */
- 			 (uint8_t *)&local_claim_dest);
- 
-@@ -734,6 +735,86 @@ static int handle_claim(struct bat_priv *bat_priv,
+@@ -1060,6 +1068,73 @@ int bla_init(struct bat_priv *bat_priv)
  
  /**
   * @bat_priv: the bat priv with all the soft interface information
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @hw_src: the Hardware source in the ARP Header
-+ * @hw_dst: the Hardware destination in the ARP Header
-+ * @ethhdr: pointer to the Ethernet header of the claim frame
++ * @bcast_packet: originator mac address
++ * @hdr_size: maximum length of the frame
 + *
-+ * checks if it is a claim packet and if its on the same group.
-+ * This function also applies the group ID of the sender
-+ * if it is in the same mesh.
++ * check if it is on our broadcast list. Another gateway might
++ * have sent the same packet because it is connected to the same backbone,
++ * so we have to remove this duplicate.
 + *
-+ * returns:
-+ *	2  - if it is a claim packet and on the same group
-+ *	1  - if is a claim packet from another group
-+ *	0  - if it is not a claim packet
-+ */
-+static int check_claim_group(struct bat_priv *bat_priv,
-+			     struct hard_iface *primary_if,
-+			     uint8_t *hw_src, uint8_t *hw_dst,
-+			     struct ethhdr *ethhdr)
++ * This is performed by checking the CRC, which will tell us
++ * with a good chance that it is the same packet. If it is furthermore
++ * sent by another host, drop it. We allow equal packets from
++ * the same host however as this might be intended.
++ *
++ **/
++
++int bla_check_bcast_duplist(struct bat_priv *bat_priv,
++			    struct bcast_packet *bcast_packet,
++			    int hdr_size)
 +{
-+	uint8_t *backbone_addr;
-+	struct orig_node *orig_node;
-+	struct bla_claim_dst *bla_dst, *bla_dst_own;
++	int i, length, curr;
++	uint8_t *content;
++	uint16_t crc;
++	struct bcast_duplist_entry *entry;
 +
-+	bla_dst = (struct bla_claim_dst *)hw_dst;
-+	bla_dst_own = &bat_priv->claim_dest;
++	length = hdr_size - sizeof(*bcast_packet);
++	content = (uint8_t *)bcast_packet;
++	content += sizeof(*bcast_packet);
 +
-+	/* check if it is a claim packet in general */
-+	if (memcmp(bla_dst->magic, bla_dst_own->magic,
-+		   sizeof(bla_dst->magic)) != 0)
-+		return 0;
++	/* calculate the crc ... */
++	crc = crc16(0, content, length);
 +
-+	/* if announcement packet, use the source,
-+	 * otherwise assume it is in the hw_src
-+	 */
-+	switch (bla_dst->type) {
-+	case CLAIM_TYPE_ADD:
-+		backbone_addr = hw_src;
-+		break;
-+	case CLAIM_TYPE_REQUEST:
-+	case CLAIM_TYPE_ANNOUNCE:
-+	case CLAIM_TYPE_DEL:
-+		backbone_addr = ethhdr->h_source;
-+		break;
-+	default:
-+		return 0;
-+	}
++	for (i = 0 ; i < DUPLIST_SIZE; i++) {
++		curr = (bat_priv->bcast_duplist_curr + i) % DUPLIST_SIZE;
++		entry = &bat_priv->bcast_duplist[curr];
 +
-+	/* don't accept claim frames from ourselves */
-+	if (compare_eth(backbone_addr, primary_if->net_dev->dev_addr))
-+		return 0;
++		/* we can stop searching if the entry is too old ;
++		 * later entries will be even older
++		 */
++		if (has_timed_out(entry->entrytime, DUPLIST_TIMEOUT))
++			break;
 +
-+	/* if its already the same group, it is fine. */
-+	if (bla_dst->group == bla_dst_own->group)
-+		return 2;
++		if (entry->crc != crc)
++			continue;
 +
-+	/* lets see if this originator is in our mesh */
-+	orig_node = orig_hash_find(bat_priv, backbone_addr);
++		if (compare_eth(entry->orig, bcast_packet->orig))
++			continue;
 +
-+	/* dont accept claims from gateways which are not in
-+	 * the same mesh or group.
-+	 */
-+	if (!orig_node)
++		/* this entry seems to match: same crc, not too old,
++		 * and from another gw. therefore return 1 to forbid it.
++		 */
 +		return 1;
-+
-+	/* if our mesh friends mac is bigger, use it for ourselves. */
-+	if (ntohs(bla_dst->group) > ntohs(bla_dst_own->group)) {
-+		bat_dbg(DBG_BLA, bat_priv,
-+			"taking other backbones claim group: %04x\n",
-+			ntohs(bla_dst->group));
-+		bla_dst_own->group = bla_dst->group;
 +	}
++	/* not found, add a new entry (overwrite the oldest entry) */
++	curr = (bat_priv->bcast_duplist_curr + DUPLIST_SIZE - 1) % DUPLIST_SIZE;
++	entry = &bat_priv->bcast_duplist[curr];
++	entry->crc = crc;
++	entry->entrytime = jiffies;
++	memcpy(entry->orig, bcast_packet->orig, ETH_ALEN);
++	bat_priv->bcast_duplist_curr = curr;
 +
-+	orig_node_free_ref(orig_node);
-+
-+	return 2;
++	/* allow it, its the first occurence. */
++	return 0;
 +}
++
 +
 +
 +/**
 + * @bat_priv: the bat priv with all the soft interface information
-  * @skb: the frame to be checked
+  * @orig: originator mac address
   *
-  * Check if this is a claim frame, and process it accordingly.
-@@ -753,6 +834,7 @@ static int bla_process_claim(struct bat_priv *bat_priv,
- 	uint16_t proto;
- 	int headlen;
- 	short vid = -1;
-+	int ret;
- 
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 
-@@ -796,8 +878,14 @@ static int bla_process_claim(struct bat_priv *bat_priv,
- 	bla_dst = (struct bla_claim_dst *)hw_dst;
- 
- 	/* check if it is a claim frame. */
--	if (memcmp(hw_dst, claim_dest, 3) != 0)
--		return 0;
-+	ret = check_claim_group(bat_priv, primary_if, hw_src, hw_dst, ethhdr);
-+	if (ret == 1)
-+		bat_dbg(DBG_BLA, bat_priv,
-+			"bla_process_claim(): received a claim frame from another group. From: %pM on vid %d ...(hw_src %pM, hw_dst %pM)\n",
-+			ethhdr->h_source, vid, hw_src, hw_dst);
+  * check if the originator is a gateway for any VLAN ID.
+diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/bridge_loop_avoidance.h
+index b74940f..9468c24 100644
+--- a/net/batman-adv/bridge_loop_avoidance.h
++++ b/net/batman-adv/bridge_loop_avoidance.h
+@@ -28,6 +28,8 @@ int bla_is_backbone_gw(struct sk_buff *skb,
+ 		       struct orig_node *orig_node, int hdr_size);
+ int bla_claim_table_seq_print_text(struct seq_file *seq, void *offset);
+ int bla_is_backbone_gw_orig(struct bat_priv *bat_priv, uint8_t *orig);
++int bla_check_bcast_duplist(struct bat_priv *bat_priv,
++			    struct bcast_packet *bcast_packet, int hdr_size);
+ void bla_update_orig_address(struct bat_priv *bat_priv,
+ 			     struct hard_iface *primary_if,
+ 			     struct hard_iface *oldif);
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 82723b5..d9832ac 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -83,6 +83,9 @@
+ #define BLA_PERIOD_LENGTH	10000	/* 10 seconds */
+ #define BLA_BACKBONE_TIMEOUT	(BLA_PERIOD_LENGTH * 3)
+ #define BLA_CLAIM_TIMEOUT	(BLA_PERIOD_LENGTH * 10)
 +
-+	if (ret < 2)
-+		return ret;
++#define DUPLIST_SIZE		16
++#define DUPLIST_TIMEOUT		500	/* 500 ms */
+ /* don't reset again within 30 seconds */
+ #define RESET_PROTECTION_MS 30000
+ #define EXPECTED_SEQNO_RANGE	65536
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 1d1fd04..78eddc9 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -1076,6 +1076,10 @@ int recv_bcast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
  
- 	/* become a backbone gw ourselves on this vlan if not happened yet */
- 	bla_update_own_backbone_gw(bat_priv, primary_if, vid);
-@@ -944,6 +1032,10 @@ void bla_update_orig_address(struct bat_priv *bat_priv,
- 	struct hashtable_t *hash;
- 	int i;
+ 	spin_unlock_bh(&orig_node->bcast_seqno_lock);
  
-+	/* reset bridge loop avoidance group id */
-+	bat_priv->claim_dest.group =
-+		htons(crc16(0, primary_if->net_dev->dev_addr, ETH_ALEN));
++	/* check whether this has been sent by another originator before */
++	if (bla_check_bcast_duplist(bat_priv, bcast_packet, hdr_size))
++		goto out;
 +
- 	if (!oldif) {
- 		bla_purge_claims(bat_priv, NULL, 1);
- 		bla_purge_backbone_gw(bat_priv, 1);
-@@ -1042,9 +1134,24 @@ out:
- int bla_init(struct bat_priv *bat_priv)
- {
- 	int i;
-+	uint8_t claim_dest[ETH_ALEN] = {0xff, 0x43, 0x05, 0x00, 0x00, 0x00};
-+	struct hard_iface *primary_if;
+ 	/* rebroadcast packet */
+ 	add_bcast_packet_to_list(bat_priv, skb, 1);
  
- 	bat_dbg(DBG_BLA, bat_priv, "bla hash registering\n");
- 
-+	/* setting claim destination address */
-+	memcpy(&bat_priv->claim_dest.magic, claim_dest, 3);
-+	bat_priv->claim_dest.type = 0;
-+	primary_if = primary_if_get_selected(bat_priv);
-+	if (primary_if) {
-+		bat_priv->claim_dest.group =
-+			htons(crc16(0, primary_if->net_dev->dev_addr,
-+				    ETH_ALEN));
-+		hardif_free_ref(primary_if);
-+	} else {
-+		bat_priv->claim_dest.group = 0; /* will be set later */
-+	}
-+
- 	/* initialize the duplicate list */
- 	for (i = 0; i < DUPLIST_SIZE; i++)
- 		bat_priv->bcast_duplist[i].entrytime =
-@@ -1448,8 +1555,10 @@ int bla_claim_table_seq_print_text(struct seq_file *seq, void *offset)
- 		goto out;
- 	}
- 
--	seq_printf(seq, "Claims announced for the mesh %s (orig %pM)\n",
--		   net_dev->name, primary_if->net_dev->dev_addr);
-+	seq_printf(seq,
-+		   "Claims announced for the mesh %s (orig %pM, group id %04x)\n",
-+		   net_dev->name, primary_if->net_dev->dev_addr,
-+		   ntohs(bat_priv->claim_dest.group));
- 	seq_printf(seq, "   %-17s    %-5s    %-17s [o] (%-4s)\n",
- 		   "Client", "VID", "Originator", "CRC");
- 	for (i = 0; i < hash->size; i++) {
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index ad97e87..7f7f610 100644
+index 35cd831..ad97e87 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -193,6 +193,7 @@ struct bat_priv {
+@@ -140,6 +140,11 @@ struct neigh_node {
+ 	spinlock_t tq_lock;	/* protects: tq_recv, tq_index */
+ };
+ 
++struct bcast_duplist_entry {
++	uint8_t orig[ETH_ALEN];
++	uint16_t crc;
++	unsigned long entrytime;
++};
+ 
+ struct bat_priv {
+ 	atomic_t mesh_state;
+@@ -186,6 +191,8 @@ struct bat_priv {
+ 	struct list_head tt_req_list; /* list of pending tt_requests */
+ 	struct list_head tt_roam_list;
  	struct hashtable_t *vis_hash;
- 	struct bcast_duplist_entry bcast_duplist[DUPLIST_SIZE];
- 	int bcast_duplist_curr;
-+	struct bla_claim_dst claim_dest;
++	struct bcast_duplist_entry bcast_duplist[DUPLIST_SIZE];
++	int bcast_duplist_curr;
  	spinlock_t forw_bat_list_lock; /* protects forw_bat_list */
  	spinlock_t forw_bcast_list_lock; /* protects  */
  	spinlock_t tt_changes_list_lock; /* protects tt_changes */
