@@ -1,211 +1,192 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Bug#659499: bash fails to properly read /proc files
-Date: Sat, 07 Apr 2012 02:01:34 +0100
-Message-ID: <1333760494.3282.29.camel@deadeye>
-References: <20120211162451.3805.76693.reportbug@annuminas.home.mathom.us>
-	 <20120218010548.GE18080@mraw.org> <20120219221413.GA14935@mraw.org>
-	 <1330215119.8460.18.camel@deadeye>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: net: kernel BUG() in net/netns/generic.h:45
+Date: Fri, 06 Apr 2012 18:16:10 -0700
+Message-ID: <m1mx6otk85.fsf@fess.ebiederm.org>
+References: <1333664446.3538.12.camel@lappy>
+	<m1aa2pwxap.fsf@fess.ebiederm.org>
+	<CA+1xoqdi4QOhRJvBA64pxiN3EphhThjPkf4eLRkYM8jxcJjh=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-jdHk53V2bPl/wgGg6FPs"
-Cc: Michael Stone <mstone@debian.org>, 659499@bugs.debian.org,
-	debian-kernel@lists.debian.org, Cyril Brulebois <kibi@debian.org>,
-	Jean-Michel =?ISO-8859-1?Q?Vourg=E8re?= <jmv_deb@nirgal.com>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem <davem@davemloft.net>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Van Hensbergen <ericvh@gmail.com>,
+	Dave Jones <davej@redhat.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Mihai Maruseac <mihai.maruseac@gmail.com>
+To: Sasha Levin <levinsasha928@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51811 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752888Ab2DGBB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 21:01:57 -0400
-In-Reply-To: <1330215119.8460.18.camel@deadeye>
+Received: from out07.mta.xmission.com ([166.70.13.237]:36242 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753101Ab2DGBM1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Apr 2012 21:12:27 -0400
+In-Reply-To: <CA+1xoqdi4QOhRJvBA64pxiN3EphhThjPkf4eLRkYM8jxcJjh=w@mail.gmail.com>
+	(Sasha Levin's message of "Fri, 6 Apr 2012 11:04:25 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Sasha Levin <levinsasha928@gmail.com> writes:
 
---=-jdHk53V2bPl/wgGg6FPs
-Content-Type: multipart/mixed; boundary="=-y84dWZ38YcTRrs+SGsU6"
+> On Fri, Apr 6, 2012 at 1:53 AM, Eric W. Biederman <ebiederm@xmission.=
+com> wrote:
+>> Sasha Levin <levinsasha928@gmail.com> writes:
+>>
+>>> Hi all,
+>>>
+>>> When an initialization of a network namespace in setup_net() fails,=
+ we
+>>> try to undo everything by executing each of the exit callbacks of e=
+very
+>>> namespace in the network.
+>>>
+>>> The problem is, it might be possible that the net_generic array was=
+n't
+>>> initialized before we fail and try to undo everything. At that poin=
+t,
+>>> some of the networks assume that since we're already calling the ex=
+it
+>>> callback, the net_generic structure is initialized and we hit the B=
+UG()
+>>> in net/netns/generic.h:45 .
+>>>
+>>> I'm not quite sure whether the right fix from the following three
+>>> options is, and would be happy to figure it out before fixing it:
+>>>
+>>> =C2=A01. Don't assume net_generic was initialized in the exit callb=
+ack, which
+>>> is a bit problematic since we can't query that nicely anyway (a
+>>> sub-option here would be adding an API to query whether the net_gen=
+eric
+>>> structure is initialized.
+>>>
+>>> =C2=A02. Remove the BUG(), switch it to a WARN() and let each subsy=
+stem
+>>> handle the case of NULL on it's own. While it sounds a bit wrong, i=
+t's
+>>> worth mentioning that that BUG() was initially added in an attempt =
+to
+>>> fix an issue in CAIF, which was fixed in a completely different way
+>>> afterwards, so it's not strictly necessary here.
+>>>
+>>> =C2=A03. Only call the exit callback for subsystems we have called =
+the init
+>>> callback for.
+>>
+>> Your option 3 only calling the exit callbacks for subsystems we have
+>> initialized should be what is implemented. =C2=A0Certainly it looks =
+like we
+>> are attempting to only call the exit callbacks for code whose init
+>> callback has succeeded.
+>>
+>> What problem are you seeing?
+>>
+>> This smells suspiciously like a problem we had a little while ago ca=
+if
+>> was registering as a pernet device instead of a pernet subsystem,
+>> and because of that we had packets flying around after it had been
+>> unregistered and was trying access it's net_generic data.
+>
+> It looks different from the caif problem a bit, here is a sample stac=
+ktrace:
+>
+> [  163.733755] ------------[ cut here ]------------
+> [  163.734501] kernel BUG at include/net/netns/generic.h:45!
+> [  163.734501] invalid opcode: 0000 [#1] PREEMPT SMP
+> [  163.734501] CPU 2
+> [  163.734501] Pid: 19145, comm: trinity Tainted: G        W
+> 3.4.0-rc1-next-20120405-sasha-dirty #57
+> [  163.734501] RIP: 0010:[<ffffffff824d6062>]  [<ffffffff824d6062>]
+> phonet_pernet+0x182/0x1a0
+> [  163.734501] RSP: 0018:ffff8800674d5ca8  EFLAGS: 00010246
+> [  163.734501] RAX: 000000003fffffff RBX: 0000000000000000 RCX: ffff8=
+800678c88d8
+> [  163.734501] RDX: 00000000003f4000 RSI: ffff8800678c8910 RDI: 00000=
+00000000282
+> [  163.734501] RBP: ffff8800674d5cc8 R08: 0000000000000000 R09: 00000=
+00000000000
+> [  163.734501] R10: 0000000000000000 R11: 0000000000000000 R12: ffff8=
+80068bec920
+> [  163.734501] R13: ffffffff836b90c0 R14: 0000000000000000 R15: 00000=
+00000000000
+> [  163.734501] FS:  00007f055e8de700(0000) GS:ffff88007d000000(0000)
+> knlGS:0000000000000000
+> [  163.734501] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> [  163.734501] CR2: 00007f055e6bb518 CR3: 0000000070c16000 CR4: 00000=
+000000406e0
+> [  163.734501] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 00000=
+00000000000
+> [  163.734501] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 00000=
+00000000400
+> [  163.734501] Process trinity (pid: 19145, threadinfo
+> ffff8800674d4000, task ffff8800678c8000)
+> [  163.734501] Stack:
+> [  163.734501]  ffffffff824d5f00 ffffffff810e2ec1 ffff880067ae0000
+> 00000000ffffffd4
+> [  163.734501]  ffff8800674d5cf8 ffffffff824d667a ffff880067ae0000
+> 00000000ffffffd4
+> [  163.734501]  ffffffff836b90c0 0000000000000000 ffff8800674d5d18
+> ffffffff824d707d
+> [  163.734501] Call Trace:
+> [  163.734501]  [<ffffffff824d5f00>] ? phonet_pernet+0x20/0x1a0
+> [  163.734501]  [<ffffffff810e2ec1>] ? get_parent_ip+0x11/0x50
+> [  163.734501]  [<ffffffff824d667a>] phonet_device_destroy+0x1a/0x100
+> [  163.734501]  [<ffffffff824d707d>] phonet_device_notify+0x3d/0x50
+> [  163.734501]  [<ffffffff810dd96e>] notifier_call_chain+0xee/0x130
+> [  163.734501]  [<ffffffff810dd9d1>] raw_notifier_call_chain+0x11/0x2=
+0
+> [  163.734501]  [<ffffffff821cce12>] call_netdevice_notifiers+0x52/0x=
+60
+> [  163.734501]  [<ffffffff821cd235>] rollback_registered_many+0x185/0=
+x270
+> [  163.734501]  [<ffffffff821cd334>] unregister_netdevice_many+0x14/0=
+x60
+> [  163.734501]  [<ffffffff823123e3>] ipip_exit_net+0x1b3/0x1d0
+> [  163.734501]  [<ffffffff82312230>] ? ipip_rcv+0x420/0x420
+> [  163.734501]  [<ffffffff821c8515>] ops_exit_list+0x35/0x70
+> [  163.734501]  [<ffffffff821c911b>] setup_net+0xab/0xe0
+> [  163.734501]  [<ffffffff821c9416>] copy_net_ns+0x76/0x100
+> [  163.734501]  [<ffffffff810dc92b>] create_new_namespaces+0xfb/0x190
+> [  163.734501]  [<ffffffff810dca21>] unshare_nsproxy_namespaces+0x61/=
+0x80
+> [  163.734501]  [<ffffffff810afd1f>] sys_unshare+0xff/0x290
+> [  163.734501]  [<ffffffff8187622e>] ? trace_hardirqs_on_thunk+0x3a/0=
+x3f
+> [  163.734501]  [<ffffffff82665539>] system_call_fastpath+0x16/0x1b
+> [  163.734501] Code: e0 c3 fe 66 0f 1f 44 00 00 48 c7 c2 40 60 4d 82
+> be 01 00 00 00 48 c7 c7 80 d1 23 83 e8 48 2a c4 fe e8 73 06 c8 fe 48
+> 85 db 75 0e <0f> 0b 0f 1f 40 00 eb fe 66 0f 1f 44 00 00 48 83 c4 10 4=
+8
+> 89 d8
+> [  163.734501] RIP  [<ffffffff824d6062>] phonet_pernet+0x182/0x1a0
+> [  163.734501]  RSP <ffff8800674d5ca8>
+> [  163.861289] ---[ end trace fb5615826c548066 ]---
+>
+> It would appear that there's at least a one-off problem with the
+> reverse iteration.
 
+I don't see anything pointing to reverse iteration being the problem,
+or even the call graph order.
 
---=-y84dWZ38YcTRrs+SGsU6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+What I see is phonet registering a netdevice notifier.
+Then I see phonet register pernet_device operations.
+Then I see phonet responding to all network devices no matter what
+the network namespace is, and looking in the phonet net_generic data
+for them.
 
-On Sun, 2012-02-26 at 00:11 +0000, Ben Hutchings wrote:
-> On Sun, 2012-02-19 at 23:14 +0100, Cyril Brulebois wrote:
-> > Hi kernel folks,
-> >=20
-> > here's a tiny analysis I tried to perform on bash's having issues with
-> > reading /proc files, which I think is related to seeking in those files=
-.
-> > I can't play much with other kernel versions right now though. My tests
-> > were performed with squeeze's bpo kernel: 3.2.0-0.bpo.1-amd64 (Debian
-> > 3.2.4-1~bpo60+1).
->=20
-> The specific problem with seeking in /proc/net/dev appears to be caused
-> by this change:
->=20
-> commit f04565ddf52e401880f8ba51de0dff8ba51c99fd
-> Author: Mihai Maruseac <mihai.maruseac@gmail.com>
-> Date:   Thu Oct 20 20:45:10 2011 +0000
->=20
->     dev: use name hash for dev_seq_ops
-[...]
+Looking phonet does not implement any network devices phonet just has
+per network device state.  Which means phonet should be using
+register_pernet_subsys and this roughly is the same issue we saw with
+caif.  Confusion of when you should use register_pernet_subsys and
+register_pernet_device.
 
-This is supposed to be fixed by:
+Issues that I see.
+- There is a bunch of weird and stuff going on in phonet_net_exit
+  to handle the module unregister case where we don't synthesize
+  network device removal events. ( A generic bug we can fix).
 
-commit 2def16ae6b0c77571200f18ba4be049b03d75579
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Mon Apr 2 22:33:02 2012 +0000
+- phonet should be using register_pernet_subsys instead of
+  register_pernet_device.
 
-    net: fix /proc/net/dev regression
+Patches to follow in a minute.  Is there any chance you can reproduce
+this so you can verify the problems don't continue to reproduce?
 
-which will be applied some time soon.  I'm attaching the patch in case
-anyone would like to test it (see
-<http://kernel-handbook.alioth.debian.org/ch-common-tasks.html#s-common-off=
-icial>).
-
-Ben.
-
---=20
-Ben Hutchings
-Larkinson's Law: All laws are basically false.
-
---=-y84dWZ38YcTRrs+SGsU6
-Content-Disposition: attachment; filename="net-fix-proc-net-dev-regression.patch"
-Content-Type: text/x-patch; name="net-fix-proc-net-dev-regression.patch";
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogTW9uLCAy
-IEFwciAyMDEyIDIyOjMzOjAyICswMDAwDQpTdWJqZWN0OiBbUEFUQ0hdIG5ldDogZml4IC9wcm9j
-L25ldC9kZXYgcmVncmVzc2lvbg0KDQpjb21taXQgMmRlZjE2YWU2YjBjNzc1NzEyMDBmMThiYTRi
-ZTA0OWIwM2Q3NTU3OSB1cHN0cmVhbS4NCg0KQ29tbWl0IGYwNDU2NWRkZjUyIChkZXY6IHVzZSBu
-YW1lIGhhc2ggZm9yIGRldl9zZXFfb3BzKSBhZGRlZCBhIHNlY29uZA0KcmVncmVzc2lvbiwgYXMg
-c29tZSBkZXZpY2VzIGFyZSBtaXNzaW5nIGZyb20gL3Byb2MvbmV0L2RldiBpZiBtYW55DQpkZXZp
-Y2VzIGFyZSBkZWZpbmVkLg0KDQpXaGVuIHNlcV9maWxlIGJ1ZmZlciBpcyBmaWxsZWQsIHRoZSBs
-YXN0IC0+bmV4dC9zaG93KCkgbWV0aG9kIGlzDQpjYW5jZWxlZCAocG9zIHZhbHVlIGlzIHJldmVy
-dGVkIHRvIHZhbHVlIHByaW9yIC0+bmV4dCgpIGNhbGwpDQoNClByb2JsZW0gaXMgYWZ0ZXIgYWJv
-dmUgY29tbWl0LCB3ZSBkb250IHJlc3RhcnQgdGhlIGxvb2t1cCBhdCByaWdodA0KcG9zaXRpb24g
-aW4gLT5zdGFydCgpIG1ldGhvZC4NCg0KRml4IHRoaXMgYnkgcmVtb3ZpbmcgdGhlIGludGVybmFs
-ICdwb3MnIHBvaW50ZXIgYWRkZWQgaW4gY29tbWl0LCBzaW5jZQ0Kd2UgbmVlZCB0byB1c2UgdGhl
-ICdsb2ZmX3QgKnBvcycgcHJvdmlkZWQgYnkgc2VxX2ZpbGUgbGF5ZXIuDQoNClRoaXMgYWxzbyBy
-ZXZlcnRzIGNvbW1pdCA1Y2FjOThkZDAgKG5ldDogRml4IGNvcnJ1cHRpb24NCmluIC9wcm9jLyov
-bmV0L2Rldl9tY2FzdCksIHNpbmNlIGl0cyBub3QgbmVlZGVkIGFueW1vcmUuDQoNClJlcG9ydGVk
-LWJ5OiBCZW4gR3JlZWFyIDxncmVlYXJiQGNhbmRlbGF0ZWNoLmNvbT4NClNpZ25lZC1vZmYtYnk6
-IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4NCkNjOiBNaWhhaSBNYXJ1c2Vh
-YyA8bW1hcnVzZWFjQGl4aWFjb20uY29tPg0KVGVzdGVkLWJ5OiAgQmVuIEdyZWVhciA8Z3JlZWFy
-YkBjYW5kZWxhdGVjaC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVt
-QGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIHwgICAgMiAt
-LQ0KIG5ldC9jb3JlL2Rldi5jICAgICAgICAgICAgfCAgIDU4ICsrKysrKysrKystLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIG5ldC9jb3JlL2Rldl9hZGRyX2xpc3RzLmMgfCAg
-ICAzICsrLQ0KIDMgZmlsZXMgY2hhbmdlZCwgMTUgaW5zZXJ0aW9ucygrKSwgNDggZGVsZXRpb25z
-KC0pDQoNCmRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIGIvaW5jbHVkZS9s
-aW51eC9uZXRkZXZpY2UuaA0KaW5kZXggMWY3NzU0MC4uNWNiYWEyMCAxMDA2NDQNCi0tLSBhL2lu
-Y2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCisrKyBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgN
-CkBAIC0yNjA0LDggKzI2MDQsNiBAQCBleHRlcm4gdm9pZAkJbmV0X2Rpc2FibGVfdGltZXN0YW1w
-KHZvaWQpOw0KIGV4dGVybiB2b2lkICpkZXZfc2VxX3N0YXJ0KHN0cnVjdCBzZXFfZmlsZSAqc2Vx
-LCBsb2ZmX3QgKnBvcyk7DQogZXh0ZXJuIHZvaWQgKmRldl9zZXFfbmV4dChzdHJ1Y3Qgc2VxX2Zp
-bGUgKnNlcSwgdm9pZCAqdiwgbG9mZl90ICpwb3MpOw0KIGV4dGVybiB2b2lkIGRldl9zZXFfc3Rv
-cChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgdm9pZCAqdik7DQotZXh0ZXJuIGludCBkZXZfc2VxX29w
-ZW5fb3BzKHN0cnVjdCBpbm9kZSAqaW5vZGUsIHN0cnVjdCBmaWxlICpmaWxlLA0KLQkJCSAgICBj
-b25zdCBzdHJ1Y3Qgc2VxX29wZXJhdGlvbnMgKm9wcyk7DQogI2VuZGlmDQogDQogZXh0ZXJuIGlu
-dCBuZXRkZXZfY2xhc3NfY3JlYXRlX2ZpbGUoc3RydWN0IGNsYXNzX2F0dHJpYnV0ZSAqY2xhc3Nf
-YXR0cik7DQpkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvZGV2LmMgYi9uZXQvY29yZS9kZXYuYw0KaW5k
-ZXggNmM3ZGM5ZC4uYzI1ZDQ1MyAxMDA2NDQNCi0tLSBhL25ldC9jb3JlL2Rldi5jDQorKysgYi9u
-ZXQvY29yZS9kZXYuYw0KQEAgLTQwMjgsNTQgKzQwMjgsNDEgQEAgc3RhdGljIGludCBkZXZfaWZj
-b25mKHN0cnVjdCBuZXQgKm5ldCwgY2hhciBfX3VzZXIgKmFyZykNCiANCiAjaWZkZWYgQ09ORklH
-X1BST0NfRlMNCiANCi0jZGVmaW5lIEJVQ0tFVF9TUEFDRSAoMzIgLSBORVRERVZfSEFTSEJJVFMp
-DQotDQotc3RydWN0IGRldl9pdGVyX3N0YXRlIHsNCi0Jc3RydWN0IHNlcV9uZXRfcHJpdmF0ZSBw
-Ow0KLQl1bnNpZ25lZCBpbnQgcG9zOyAvKiBidWNrZXQgPDwgQlVDS0VUX1NQQUNFICsgb2Zmc2V0
-ICovDQotfTsNCisjZGVmaW5lIEJVQ0tFVF9TUEFDRSAoMzIgLSBORVRERVZfSEFTSEJJVFMgLSAx
-KQ0KIA0KICNkZWZpbmUgZ2V0X2J1Y2tldCh4KSAoKHgpID4+IEJVQ0tFVF9TUEFDRSkNCiAjZGVm
-aW5lIGdldF9vZmZzZXQoeCkgKCh4KSAmICgoMSA8PCBCVUNLRVRfU1BBQ0UpIC0gMSkpDQogI2Rl
-ZmluZSBzZXRfYnVja2V0X29mZnNldChiLCBvKSAoKGIpIDw8IEJVQ0tFVF9TUEFDRSB8IChvKSkN
-CiANCi1zdGF0aWMgaW5saW5lIHN0cnVjdCBuZXRfZGV2aWNlICpkZXZfZnJvbV9zYW1lX2J1Y2tl
-dChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSkNCitzdGF0aWMgaW5saW5lIHN0cnVjdCBuZXRfZGV2aWNl
-ICpkZXZfZnJvbV9zYW1lX2J1Y2tldChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgbG9mZl90ICpwb3Mp
-DQogew0KLQlzdHJ1Y3QgZGV2X2l0ZXJfc3RhdGUgKnN0YXRlID0gc2VxLT5wcml2YXRlOw0KIAlz
-dHJ1Y3QgbmV0ICpuZXQgPSBzZXFfZmlsZV9uZXQoc2VxKTsNCiAJc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldjsNCiAJc3RydWN0IGhsaXN0X25vZGUgKnA7DQogCXN0cnVjdCBobGlzdF9oZWFkICpoOw0K
-LQl1bnNpZ25lZCBpbnQgY291bnQsIGJ1Y2tldCwgb2Zmc2V0Ow0KKwl1bnNpZ25lZCBpbnQgY291
-bnQgPSAwLCBvZmZzZXQgPSBnZXRfb2Zmc2V0KCpwb3MpOw0KIA0KLQlidWNrZXQgPSBnZXRfYnVj
-a2V0KHN0YXRlLT5wb3MpOw0KLQlvZmZzZXQgPSBnZXRfb2Zmc2V0KHN0YXRlLT5wb3MpOw0KLQlo
-ID0gJm5ldC0+ZGV2X25hbWVfaGVhZFtidWNrZXRdOw0KLQljb3VudCA9IDA7DQorCWggPSAmbmV0
-LT5kZXZfbmFtZV9oZWFkW2dldF9idWNrZXQoKnBvcyldOw0KIAlobGlzdF9mb3JfZWFjaF9lbnRy
-eV9yY3UoZGV2LCBwLCBoLCBuYW1lX2hsaXN0KSB7DQotCQlpZiAoY291bnQrKyA9PSBvZmZzZXQp
-IHsNCi0JCQlzdGF0ZS0+cG9zID0gc2V0X2J1Y2tldF9vZmZzZXQoYnVja2V0LCBjb3VudCk7DQor
-CQlpZiAoKytjb3VudCA9PSBvZmZzZXQpDQogCQkJcmV0dXJuIGRldjsNCi0JCX0NCiAJfQ0KIA0K
-IAlyZXR1cm4gTlVMTDsNCiB9DQogDQotc3RhdGljIGlubGluZSBzdHJ1Y3QgbmV0X2RldmljZSAq
-ZGV2X2Zyb21fbmV3X2J1Y2tldChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSkNCitzdGF0aWMgaW5saW5l
-IHN0cnVjdCBuZXRfZGV2aWNlICpkZXZfZnJvbV9idWNrZXQoc3RydWN0IHNlcV9maWxlICpzZXEs
-IGxvZmZfdCAqcG9zKQ0KIHsNCi0Jc3RydWN0IGRldl9pdGVyX3N0YXRlICpzdGF0ZSA9IHNlcS0+
-cHJpdmF0ZTsNCiAJc3RydWN0IG5ldF9kZXZpY2UgKmRldjsNCiAJdW5zaWduZWQgaW50IGJ1Y2tl
-dDsNCiANCi0JYnVja2V0ID0gZ2V0X2J1Y2tldChzdGF0ZS0+cG9zKTsNCiAJZG8gew0KLQkJZGV2
-ID0gZGV2X2Zyb21fc2FtZV9idWNrZXQoc2VxKTsNCisJCWRldiA9IGRldl9mcm9tX3NhbWVfYnVj
-a2V0KHNlcSwgcG9zKTsNCiAJCWlmIChkZXYpDQogCQkJcmV0dXJuIGRldjsNCiANCi0JCWJ1Y2tl
-dCsrOw0KLQkJc3RhdGUtPnBvcyA9IHNldF9idWNrZXRfb2Zmc2V0KGJ1Y2tldCwgMCk7DQorCQli
-dWNrZXQgPSBnZXRfYnVja2V0KCpwb3MpICsgMTsNCisJCSpwb3MgPSBzZXRfYnVja2V0X29mZnNl
-dChidWNrZXQsIDEpOw0KIAl9IHdoaWxlIChidWNrZXQgPCBORVRERVZfSEFTSEVOVFJJRVMpOw0K
-IA0KIAlyZXR1cm4gTlVMTDsNCkBAIC00MDg4LDMzICs0MDc1LDIwIEBAIHN0YXRpYyBpbmxpbmUg
-c3RydWN0IG5ldF9kZXZpY2UgKmRldl9mcm9tX25ld19idWNrZXQoc3RydWN0IHNlcV9maWxlICpz
-ZXEpDQogdm9pZCAqZGV2X3NlcV9zdGFydChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgbG9mZl90ICpw
-b3MpDQogCV9fYWNxdWlyZXMoUkNVKQ0KIHsNCi0Jc3RydWN0IGRldl9pdGVyX3N0YXRlICpzdGF0
-ZSA9IHNlcS0+cHJpdmF0ZTsNCi0NCiAJcmN1X3JlYWRfbG9jaygpOw0KIAlpZiAoISpwb3MpDQog
-CQlyZXR1cm4gU0VRX1NUQVJUX1RPS0VOOw0KIA0KLQkvKiBjaGVjayBmb3IgZW5kIG9mIHRoZSBo
-YXNoICovDQotCWlmIChzdGF0ZS0+cG9zID09IDAgJiYgKnBvcyA+IDEpDQorCWlmIChnZXRfYnVj
-a2V0KCpwb3MpID49IE5FVERFVl9IQVNIRU5UUklFUykNCiAJCXJldHVybiBOVUxMOw0KIA0KLQly
-ZXR1cm4gZGV2X2Zyb21fbmV3X2J1Y2tldChzZXEpOw0KKwlyZXR1cm4gZGV2X2Zyb21fYnVja2V0
-KHNlcSwgcG9zKTsNCiB9DQogDQogdm9pZCAqZGV2X3NlcV9uZXh0KHN0cnVjdCBzZXFfZmlsZSAq
-c2VxLCB2b2lkICp2LCBsb2ZmX3QgKnBvcykNCiB7DQotCXN0cnVjdCBuZXRfZGV2aWNlICpkZXY7
-DQotDQogCSsrKnBvczsNCi0NCi0JaWYgKHYgPT0gU0VRX1NUQVJUX1RPS0VOKQ0KLQkJcmV0dXJu
-IGRldl9mcm9tX25ld19idWNrZXQoc2VxKTsNCi0NCi0JZGV2ID0gZGV2X2Zyb21fc2FtZV9idWNr
-ZXQoc2VxKTsNCi0JaWYgKGRldikNCi0JCXJldHVybiBkZXY7DQotDQotCXJldHVybiBkZXZfZnJv
-bV9uZXdfYnVja2V0KHNlcSk7DQorCXJldHVybiBkZXZfZnJvbV9idWNrZXQoc2VxLCBwb3MpOw0K
-IH0NCiANCiB2b2lkIGRldl9zZXFfc3RvcChzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgdm9pZCAqdikN
-CkBAIC00MjEzLDEzICs0MTg3LDcgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBzZXFfb3BlcmF0aW9u
-cyBkZXZfc2VxX29wcyA9IHsNCiBzdGF0aWMgaW50IGRldl9zZXFfb3BlbihzdHJ1Y3QgaW5vZGUg
-Kmlub2RlLCBzdHJ1Y3QgZmlsZSAqZmlsZSkNCiB7DQogCXJldHVybiBzZXFfb3Blbl9uZXQoaW5v
-ZGUsIGZpbGUsICZkZXZfc2VxX29wcywNCi0JCQkgICAgc2l6ZW9mKHN0cnVjdCBkZXZfaXRlcl9z
-dGF0ZSkpOw0KLX0NCi0NCi1pbnQgZGV2X3NlcV9vcGVuX29wcyhzdHJ1Y3QgaW5vZGUgKmlub2Rl
-LCBzdHJ1Y3QgZmlsZSAqZmlsZSwNCi0JCSAgICAgY29uc3Qgc3RydWN0IHNlcV9vcGVyYXRpb25z
-ICpvcHMpDQotew0KLQlyZXR1cm4gc2VxX29wZW5fbmV0KGlub2RlLCBmaWxlLCBvcHMsIHNpemVv
-ZihzdHJ1Y3QgZGV2X2l0ZXJfc3RhdGUpKTsNCisJCQkgICAgc2l6ZW9mKHN0cnVjdCBzZXFfbmV0
-X3ByaXZhdGUpKTsNCiB9DQogDQogc3RhdGljIGNvbnN0IHN0cnVjdCBmaWxlX29wZXJhdGlvbnMg
-ZGV2X3NlcV9mb3BzID0gew0KZGlmZiAtLWdpdCBhL25ldC9jb3JlL2Rldl9hZGRyX2xpc3RzLmMg
-Yi9uZXQvY29yZS9kZXZfYWRkcl9saXN0cy5jDQppbmRleCAyOWMwN2ZlLi42MjY2OThmIDEwMDY0
-NA0KLS0tIGEvbmV0L2NvcmUvZGV2X2FkZHJfbGlzdHMuYw0KKysrIGIvbmV0L2NvcmUvZGV2X2Fk
-ZHJfbGlzdHMuYw0KQEAgLTY5Niw3ICs2OTYsOCBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IHNlcV9v
-cGVyYXRpb25zIGRldl9tY19zZXFfb3BzID0gew0KIA0KIHN0YXRpYyBpbnQgZGV2X21jX3NlcV9v
-cGVuKHN0cnVjdCBpbm9kZSAqaW5vZGUsIHN0cnVjdCBmaWxlICpmaWxlKQ0KIHsNCi0JcmV0dXJu
-IGRldl9zZXFfb3Blbl9vcHMoaW5vZGUsIGZpbGUsICZkZXZfbWNfc2VxX29wcyk7DQorCXJldHVy
-biBzZXFfb3Blbl9uZXQoaW5vZGUsIGZpbGUsICZkZXZfbWNfc2VxX29wcywNCisJCQkgICAgc2l6
-ZW9mKHN0cnVjdCBzZXFfbmV0X3ByaXZhdGUpKTsNCiB9DQogDQogc3RhdGljIGNvbnN0IHN0cnVj
-dCBmaWxlX29wZXJhdGlvbnMgZGV2X21jX3NlcV9mb3BzID0gew0KLS0gDQoxLjcuOS41DQoNCi==
-
-
---=-y84dWZ38YcTRrs+SGsU6--
-
---=-jdHk53V2bPl/wgGg6FPs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAT3+R7ue/yOyVhhEJAQpVqA//foOsb225+NXbim0MBIwZ+QDkfzDudzFv
-95D51nAsFKQf9XF4DXpskvMd9AIwHgmk9Edt99C0cj0raf580tBwMRRmrHcMnuL4
-AwPg8VoyoQ6odWQVIqXWJVX4RU13IGk64SFdEKkzB1x8h9Mg145ErZWuYgRfo2gk
-uab6bv13xAK4B40TFTLZ8aDXBqcyrQxOAjRuZBQXfxHbvUhniA+Wsm+YzkKbHWNH
-grazGIOZO7BF0M7qsBBTIsGOGb3Alrg41++18y4gncDsLSpwmSkW6OI7I4rYHGNh
-DftQcttSpPOFBRryY73lW4MpYvpVOuB+983LDV2+84uCPUWLc3qfzsqkyX0ezBzH
-i7b2REOKwHgikyM6KPpFl8pWdbK6wglvB8o05cRFUBSjskpoRdv1lU0WUPKokV5z
-+qegPGryZ6D+UJfjH5bl8xIZ+uUZa9F96/pZyNDWoIMulGUluqRokcK/IgYLcFzY
-oPioU/DrYvJAmlPR9NbrfYFmViabFNiVI+DNaH8Y+fEaYuhwVSi91bPKJxxiIX5o
-nd+IoYu50N6hQv1xWAv/9m7+sDy4jpG3Izg43Ze3exQAEKy5Tbh2WVGVl67eCqc9
-9xjSshbcvLSf6zI+ERGd7sH8XWlF6iPOCh0yFa9DkJwkk5qptoIFE50m3wDu4Vog
-urlywOVuqtM=
-=pijU
------END PGP SIGNATURE-----
-
---=-jdHk53V2bPl/wgGg6FPs--
+Eric
