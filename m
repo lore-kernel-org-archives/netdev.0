@@ -1,11 +1,12 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 1/2] net: In unregister_netdevice_notifier unregister the netdevices.
-Date: Fri, 06 Apr 2012 18:33:35 -0700
-Message-ID: <m1aa2otjf4.fsf_-_@fess.ebiederm.org>
+Subject: [PATCH 2/2] phonet: Sort out initiailziation and cleanup code.
+Date: Fri, 06 Apr 2012 18:35:39 -0700
+Message-ID: <m162dctjbo.fsf_-_@fess.ebiederm.org>
 References: <1333664446.3538.12.camel@lappy>
 	<m1aa2pwxap.fsf@fess.ebiederm.org>
 	<CA+1xoqdi4QOhRJvBA64pxiN3EphhThjPkf4eLRkYM8jxcJjh=w@mail.gmail.com>
 	<m1mx6otk85.fsf@fess.ebiederm.org>
+	<m1aa2otjf4.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
@@ -17,66 +18,129 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Remi Denis-Courmont <remi.denis-courmont@nokia.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1mx6otk85.fsf@fess.ebiederm.org> (Eric W. Biederman's message
-	of "Fri, 06 Apr 2012 18:16:10 -0700")
+In-Reply-To: <m1aa2otjf4.fsf_-_@fess.ebiederm.org> (Eric W. Biederman's
+	message of "Fri, 06 Apr 2012 18:33:35 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From a51fda849355b2ffb27cdb5d66fa1a96e7f47335 Mon Sep 17 00:00:00 2001
-From: Eric W. Biederman <ebiederm@xmission.com>
-Date: Sun, 25 Dec 2011 19:39:52 -0800
-Subject: 
 
-We already synthesize events in register_netdevice_notifier and synthesizing
-events in unregister_netdevice_notifier allows to us remove the need for
-special case cleanup code.
+Recently an oops was reported in phonet if there was a failure during
+network namespace creation.
 
-This change should be safe as it adds no new cases for existing callers
-of unregiser_netdevice_notifier to handle.
+[  163.733755] ------------[ cut here ]------------
+[  163.734501] kernel BUG at include/net/netns/generic.h:45!
+[  163.734501] invalid opcode: 0000 [#1] PREEMPT SMP
+[  163.734501] CPU 2
+[  163.734501] Pid: 19145, comm: trinity Tainted: G        W 3.4.0-rc1-next-20120405-sasha-dirty #57
+[  163.734501] RIP: 0010:[<ffffffff824d6062>]  [<ffffffff824d6062>] phonet_pernet+0x182/0x1a0
+[  163.734501] RSP: 0018:ffff8800674d5ca8  EFLAGS: 00010246
+[  163.734501] RAX: 000000003fffffff RBX: 0000000000000000 RCX: ffff8800678c88d8
+[  163.734501] RDX: 00000000003f4000 RSI: ffff8800678c8910 RDI: 0000000000000282
+[  163.734501] RBP: ffff8800674d5cc8 R08: 0000000000000000 R09: 0000000000000000
+[  163.734501] R10: 0000000000000000 R11: 0000000000000000 R12: ffff880068bec920
+[  163.734501] R13: ffffffff836b90c0 R14: 0000000000000000 R15: 0000000000000000
+[  163.734501] FS:  00007f055e8de700(0000) GS:ffff88007d000000(0000) knlGS:0000000000000000
+[  163.734501] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[  163.734501] CR2: 00007f055e6bb518 CR3: 0000000070c16000 CR4: 00000000000406e0
+[  163.734501] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  163.734501] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[  163.734501] Process trinity (pid: 19145, threadinfo ffff8800674d4000, task ffff8800678c8000)
+[  163.734501] Stack:
+[  163.734501]  ffffffff824d5f00 ffffffff810e2ec1 ffff880067ae0000 00000000ffffffd4
+[  163.734501]  ffff8800674d5cf8 ffffffff824d667a ffff880067ae0000 00000000ffffffd4
+[  163.734501]  ffffffff836b90c0 0000000000000000 ffff8800674d5d18 ffffffff824d707d
+[  163.734501] Call Trace:
+[  163.734501]  [<ffffffff824d5f00>] ? phonet_pernet+0x20/0x1a0
+[  163.734501]  [<ffffffff810e2ec1>] ? get_parent_ip+0x11/0x50
+[  163.734501]  [<ffffffff824d667a>] phonet_device_destroy+0x1a/0x100
+[  163.734501]  [<ffffffff824d707d>] phonet_device_notify+0x3d/0x50
+[  163.734501]  [<ffffffff810dd96e>] notifier_call_chain+0xee/0x130
+[  163.734501]  [<ffffffff810dd9d1>] raw_notifier_call_chain+0x11/0x20
+[  163.734501]  [<ffffffff821cce12>] call_netdevice_notifiers+0x52/0x60
+[  163.734501]  [<ffffffff821cd235>] rollback_registered_many+0x185/0x270
+[  163.734501]  [<ffffffff821cd334>] unregister_netdevice_many+0x14/0x60
+[  163.734501]  [<ffffffff823123e3>] ipip_exit_net+0x1b3/0x1d0
+[  163.734501]  [<ffffffff82312230>] ? ipip_rcv+0x420/0x420
+[  163.734501]  [<ffffffff821c8515>] ops_exit_list+0x35/0x70
+[  163.734501]  [<ffffffff821c911b>] setup_net+0xab/0xe0
+[  163.734501]  [<ffffffff821c9416>] copy_net_ns+0x76/0x100
+[  163.734501]  [<ffffffff810dc92b>] create_new_namespaces+0xfb/0x190
+[  163.734501]  [<ffffffff810dca21>] unshare_nsproxy_namespaces+0x61/0x80
+[  163.734501]  [<ffffffff810afd1f>] sys_unshare+0xff/0x290
+[  163.734501]  [<ffffffff8187622e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+[  163.734501]  [<ffffffff82665539>] system_call_fastpath+0x16/0x1b
+[  163.734501] Code: e0 c3 fe 66 0f 1f 44 00 00 48 c7 c2 40 60 4d 82 be 01 00 00 00 48 c7 c7 80 d1 23 83 e8 48 2a c4 fe e8 73 06 c8 fe 48 85 db 75 0e <0f> 0b 0f 1f 40 00 eb fe 66 0f 1f 44 00 00 48 83 c4 10 48 89 d8
+[  163.734501] RIP  [<ffffffff824d6062>] phonet_pernet+0x182/0x1a0
+[  163.734501]  RSP <ffff8800674d5ca8>
+[  163.861289] ---[ end trace fb5615826c548066 ]---
+
+After investigation it turns out there were two issues.
+1) Phonet was not implementing network devices but was using register_pernet_device
+   instead of register_pernet_subsys.
+
+   This was allowing there to be cases when phonenet was not initialized and
+   the phonet net_generic was not set for a network namespace when network
+   device events were being reported on the netdevice_notifier for a network
+   namespace leading to the oops above.
+
+2) phonet_exit_net was implementing a confusing and special case of handling all
+   network devices from going away that it was hard to see was correct, and would
+   only occur when the phonet module was removed.
+
+   Now that unregister_netdevice_notifier has been modified to synthesize unregistration
+   events for the network devices that are extant when called this confusing special
+   case in phonet_exit_net is no longer needed.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/core/dev.c |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+), 0 deletions(-)
+ net/phonet/pn_dev.c |   21 ++-------------------
+ 1 files changed, 2 insertions(+), 19 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 452db70..77c0a87 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1410,14 +1410,34 @@ EXPORT_SYMBOL(register_netdevice_notifier);
-  *	register_netdevice_notifier(). The notifier is unlinked into the
-  *	kernel structures and may then be reused. A negative errno code
-  *	is returned on a failure.
-+ *
-+ * 	After unregistering unregister and down device events are synthesized
-+ *	for all devices on the device list to the removed notifier to remove
-+ *	the need for special case cleanup code.
-  */
+diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+index 9b9a85e..bf5cf69 100644
+--- a/net/phonet/pn_dev.c
++++ b/net/phonet/pn_dev.c
+@@ -331,23 +331,6 @@ static int __net_init phonet_init_net(struct net *net)
  
- int unregister_netdevice_notifier(struct notifier_block *nb)
+ static void __net_exit phonet_exit_net(struct net *net)
  {
-+	struct net_device *dev;
-+	struct net *net;
- 	int err;
- 
- 	rtnl_lock();
- 	err = raw_notifier_chain_unregister(&netdev_chain, nb);
-+	if (err)
-+		goto unlock;
-+
-+	for_each_net(net) {
-+		for_each_netdev(net, dev) {
-+			if (dev->flags & IFF_UP) {
-+				nb->notifier_call(nb, NETDEV_GOING_DOWN, dev);
-+				nb->notifier_call(nb, NETDEV_DOWN, dev);
-+			}
-+			nb->notifier_call(nb, NETDEV_UNREGISTER, dev);
-+			nb->notifier_call(nb, NETDEV_UNREGISTER_BATCH, dev);
-+		}
-+	}
-+unlock:
- 	rtnl_unlock();
- 	return err;
+-	struct phonet_net *pnn = phonet_pernet(net);
+-	struct net_device *dev;
+-	unsigned i;
+-
+-	rtnl_lock();
+-	for_each_netdev(net, dev)
+-		phonet_device_destroy(dev);
+-
+-	for (i = 0; i < 64; i++) {
+-		dev = pnn->routes.table[i];
+-		if (dev) {
+-			rtm_phonet_notify(RTM_DELROUTE, dev, i);
+-			dev_put(dev);
+-		}
+-	}
+-	rtnl_unlock();
+-
+ 	proc_net_remove(net, "phonet");
  }
+ 
+@@ -361,7 +344,7 @@ static struct pernet_operations phonet_net_ops = {
+ /* Initialize Phonet devices list */
+ int __init phonet_device_init(void)
+ {
+-	int err = register_pernet_device(&phonet_net_ops);
++	int err = register_pernet_subsys(&phonet_net_ops);
+ 	if (err)
+ 		return err;
+ 
+@@ -377,7 +360,7 @@ void phonet_device_exit(void)
+ {
+ 	rtnl_unregister_all(PF_PHONET);
+ 	unregister_netdevice_notifier(&phonet_device_notifier);
+-	unregister_pernet_device(&phonet_net_ops);
++	unregister_pernet_subsys(&phonet_net_ops);
+ 	proc_net_remove(&init_net, "pnresource");
+ }
+ 
 -- 
 1.7.2.5
