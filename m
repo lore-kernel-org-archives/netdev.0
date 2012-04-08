@@ -1,44 +1,83 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 00/14] usb/net: rndis: first step toward consolidation
-Date: Sun, 8 Apr 2012 13:58:33 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD215D0@TK5EX14MBXC222.redmond.corp.microsoft.com>
-References: <1333874813-3861-1-git-send-email-linus.walleij@linaro.org>
+From: Jeffrin Jose <ahiliation@yahoo.co.in>
+Subject: [PATCH] fixed coding style issue
+Date: Sun, 8 Apr 2012 21:37:42 +0530
+Message-ID: <20120408160742.GA4613@debian.Jeff>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Linus Walleij <linus.walleij@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Felipe Balbi <balbi@ti.com>
+Content-Type: multipart/mixed; boundary="+HP7ph2BbKc20aGI"
+Cc: ahiliation@yahoo.co.in
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:16290
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755454Ab2DHN7P convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Apr 2012 09:59:15 -0400
-In-Reply-To: <1333874813-3861-1-git-send-email-linus.walleij@linaro.org>
-Content-Language: en-US
+Received: from nm37-vm7.bullet.mail.bf1.yahoo.com ([72.30.238.207]:29482 "HELO
+	nm37-vm7.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754817Ab2DHQLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2012 12:11:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-_______________________________________
-> From: Linus Walleij [linus.walleij@linaro.org]
-> Sent: Sunday, April 08, 2012 4:46 AM
-> To: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg Kroah-Hartman; David S. Miller; Felipe Balbi
-> Cc: Jussi Kivilinna; Haiyang Zhang; Wei Yongjun; Ben Hutchings; Linus Walleij
-> Subject: [PATCH 00/14] usb/net: rndis: first step toward consolidation
 
-> So if you like this, let's proceed, but if you're all in "I wanna keep
-> this one implementation in my corner" I'll just give up right now.
+--+HP7ph2BbKc20aGI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> So: what do you think?
+hello all,
 
-I will test this soon.
 
-Thanks,
-- Haiyang
+i have worked on some coding style issues
+on net/core/utils.c
+
+please see attachment.
+
+Thanks
+
+/Jeffrin.
+
+-- 
+software engineer
+Bohr Lab
+department of computer science
+Rajagiri school of engineering and technology.
+
+--+HP7ph2BbKc20aGI
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0006-net-Fixed-coding-style-issues-relating-to-braces.patch"
+
+>From fa37bfd6c2ef8ff81b38ad9dd4467a727d6def81 Mon Sep 17 00:00:00 2001
+From: Jeffrin Jose <ahiliation@yahoo.co.in>
+Date: Sun, 8 Apr 2012 00:09:11 +0530
+Subject: [PATCH 6/6] net: Fixed coding style issues relating to braces.
+
+Fixed coding style issues in net/core/utils.c
+in relation with braces placement.
+Signed-off-by: Jeffrin Jose <ahiliation@yahoo.co.in>
+---
+ net/core/utils.c |    9 +++------
+ 1 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/utils.c b/net/core/utils.c
+index 386e263f..c2e8b41 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -59,14 +59,11 @@ __be32 in_aton(const char *str)
+ 	int i;
+ 
+ 	l = 0;
+-	for (i = 0; i < 4; i++)
+-	{
++	for (i = 0; i < 4; i++)	{
+ 		l <<= 8;
+-		if (*str != '\0')
+-		{
++		if (*str != '\0') {
+ 			val = 0;
+-			while (*str != '\0' && *str != '.' && *str != '\n')
+-			{
++			while (*str != '\0' && *str != '.' && *str != '\n') {
+ 				val *= 10;
+ 				val += *str - '0';
+ 				str++;
+-- 
+1.7.9
+
+
+--+HP7ph2BbKc20aGI--
