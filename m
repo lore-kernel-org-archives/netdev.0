@@ -1,7 +1,7 @@
 From: David Woodhouse <dwmw2@infradead.org>
 Subject: [PATCH] pppoatm: Fix excessive queue bloat
-Date: Sun, 08 Apr 2012 21:53:57 +0200
-Message-ID: <1333914837.31812.57.camel@shinybook.infradead.org>
+Date: Sun, 08 Apr 2012 21:55:43 +0200
+Message-ID: <1333914943.31812.59.camel@shinybook.infradead.org>
 References: <1332450218.32446.79.camel@shinybook.infradead.org>
 	 <20120322.230331.1623101647193498167.davem@davemloft.net>
 	 <1332672230.32446.160.camel@shinybook.infradead.org>
@@ -11,22 +11,22 @@ References: <1332450218.32446.79.camel@shinybook.infradead.org>
 	 <1332880522.2058.67.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-n8a0lYU37xRG5HplkUCW"
+	boundary="=-F3MuM51WHxoQC+Cawmze"
 Cc: David Miller <davem@davemloft.net>, paulus@samba.org,
 	chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:57136 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752742Ab2DHTyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2012 15:54:06 -0400
+Received: from casper.infradead.org ([85.118.1.10]:52913 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754088Ab2DHTzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2012 15:55:48 -0400
 In-Reply-To: <1332880522.2058.67.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-n8a0lYU37xRG5HplkUCW
+--=-F3MuM51WHxoQC+Cawmze
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -236,7 +236,7 @@ oid __user *arg)
 --=20
 dwmw2
 
---=-n8a0lYU37xRG5HplkUCW
+--=-F3MuM51WHxoQC+Cawmze
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -333,17 +333,17 @@ Vzufb4Y6GIIiNsiwkTjbKqGTqoQ/9SdlrnPVyNXTd+pLncdBu8fA46A/5H2kjXPmEkvfoXNzczqA
 6NXLji/L6hOn1kGLrPo8idck9U604GGSt/M3mMS+lqO3ijGCAr0wggK5AgEBMFswVDEUMBIGA1UE
 ChMLQ0FjZXJ0IEluYy4xHjAcBgNVBAsTFWh0dHA6Ly93d3cuQ0FjZXJ0Lm9yZzEcMBoGA1UEAxMT
 Q0FjZXJ0IENsYXNzIDMgUm9vdAIDAK05MAkGBSsOAwIaBQCgggE3MBgGCSqGSIb3DQEJAzELBgkq
-hkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTEyMDQwODE5NTM1N1owIwYJKoZIhvcNAQkEMRYEFGGS
+hkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTEyMDQwODE5NTU0M1owIwYJKoZIhvcNAQkEMRYEFGGS
 LuYZGqfoSbhoVZGeHweJr8oxMGoGCSsGAQQBgjcQBDFdMFswVDEUMBIGA1UEChMLQ0FjZXJ0IElu
 Yy4xHjAcBgNVBAsTFWh0dHA6Ly93d3cuQ0FjZXJ0Lm9yZzEcMBoGA1UEAxMTQ0FjZXJ0IENsYXNz
 IDMgUm9vdAIDAK05MGwGCyqGSIb3DQEJEAILMV2gWzBUMRQwEgYDVQQKEwtDQWNlcnQgSW5jLjEe
 MBwGA1UECxMVaHR0cDovL3d3dy5DQWNlcnQub3JnMRwwGgYDVQQDExNDQWNlcnQgQ2xhc3MgMyBS
-b290AgMArTkwDQYJKoZIhvcNAQEBBQAEggEAHJfxNEnpUAnsYrk8I6MjdeeA6axFpOdXKdnanAbv
-YozTpJbHAepgLKwzxOnAgghbbs+rMfVnkMZ6AYn3GlI6y1B2TsM81IBQgbXXj+/KzR0rzCiWnUYO
-hFffsDAYbPwME7tC6hDm/d50zaUs6CE6sxclZ/nIrA/Et9qexxu6TEYCDgRfMaXs5qu2vPbutWtD
-azSXu7Xy3XtHvr+0sAFKRP43yjxF77OwhtAmx3uMxB6eZNh+hqzhWZTgSQfxNd/5UU9wVZb4dy8H
-HRGTc0AzLSpoa2BVQP1CHxsL/2aLJvoJj6YP0R47afUBKbYATz1tAdKuDLnlVkHKET+p/faA/AAA
+b290AgMArTkwDQYJKoZIhvcNAQEBBQAEggEAcaDQmGO82W3QPG6MtDVcPW+wT0aDRsubLCPxN3VQ
++gIDewHTvyZlzGZ7MQOg1BZV4MDAyIA9rTVRENCRaxK1n1g5fTE228q4+uiM+zG9pDwrN3XFpu3t
+PSP4hMaptxB6J5YuE3lN7fE5A0Y4RnkPl0Ayx/9HetwkPYUa3BLf+JHU7NyK2sK+8AsuoqLdyAbu
+Uxf+J1HjInM1j/qCxMbkWgLRdr0ZWZvdh66fFHL0a80bnpd6+iFAMTYRLWLvcHF1qrxFDJwdpv7P
+skNnMh9htyyUDInxgVQr3nj2Fb/Q8hwdEnfXen5C8yPgfqyjFNPw+QgBeMNkY90WHY3hOeAikwAA
 AAAAAA==
 
 
---=-n8a0lYU37xRG5HplkUCW--
+--=-F3MuM51WHxoQC+Cawmze--
