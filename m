@@ -1,58 +1,44 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: [PATCH 14/14] usb/net: rndis: move bus message definition
-Date: Sun,  8 Apr 2012 10:48:51 +0200
-Message-ID: <1333874931-5433-1-git-send-email-linus.walleij@linaro.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH 00/14] usb/net: rndis: first step toward consolidation
+Date: Sun, 8 Apr 2012 13:58:33 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD215D0@TK5EX14MBXC222.redmond.corp.microsoft.com>
+References: <1333874813-3861-1-git-send-email-linus.walleij@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
 	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Ben Hutchings <ben@decadent.org.uk>
+To: Linus Walleij <linus.walleij@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Felipe Balbi <balbi@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.df.lth.se ([194.47.250.12]:14199 "EHLO mail.df.lth.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755388Ab2DHIsy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Apr 2012 04:48:54 -0400
+Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:16290
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755454Ab2DHN7P convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Apr 2012 09:59:15 -0400
+In-Reply-To: <1333874813-3861-1-git-send-email-linus.walleij@linaro.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This moves the bus message definition to land together with the
-other message types. This message is not used in the kernel but
-I'm keeping it anyway.
+_______________________________________
+> From: Linus Walleij [linus.walleij@linaro.org]
+> Sent: Sunday, April 08, 2012 4:46 AM
+> To: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg Kroah-Hartman; David S. Miller; Felipe Balbi
+> Cc: Jussi Kivilinna; Haiyang Zhang; Wei Yongjun; Ben Hutchings; Linus Walleij
+> Subject: [PATCH 00/14] usb/net: rndis: first step toward consolidation
 
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
----
- include/linux/rndis.h |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+> So if you like this, let's proceed, but if you're all in "I wanna keep
+> this one implementation in my corner" I'll just give up right now.
 
-diff --git a/include/linux/rndis.h b/include/linux/rndis.h
-index bf84a79..e4cbe72 100644
---- a/include/linux/rndis.h
-+++ b/include/linux/rndis.h
-@@ -31,6 +31,11 @@
- #define RNDIS_MSG_INDICATE	0x00000007
- #define RNDIS_MSG_KEEPALIVE	0x00000008
- #define RNDIS_MSG_KEEPALIVE_C	(RNDIS_MSG_KEEPALIVE|RNDIS_MSG_COMPLETION)
-+/*
-+ * Reserved message type for private communication between lower-layer host
-+ * driver and remote device, if necessary.
-+ */
-+#define RNDIS_MSG_BUS		0xff000001
- 
- /* codes for "status" field of completion messages */
- #define	RNDIS_STATUS_SUCCESS			0x00000000
-@@ -371,9 +376,3 @@
- #define REMOTE_CONDIS_MP_DELETE_VC_CMPLT	0x80008002
- #define REMOTE_CONDIS_MP_ACTIVATE_VC_CMPLT	0x80008005
- #define REMOTE_CONDIS_MP_DEACTIVATE_VC_CMPLT	0x80008006
--
--/*
-- * Reserved message type for private communication between lower-layer host
-- * driver and remote device, if necessary.
-- */
--#define REMOTE_NDIS_BUS_MSG			0xff000001
--- 
-1.7.7.6
+> So: what do you think?
+
+I will test this soon.
+
+Thanks,
+- Haiyang
