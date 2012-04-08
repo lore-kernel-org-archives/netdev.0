@@ -1,242 +1,73 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH] pppoatm: Fix excessive queue bloat
-Date: Sun, 08 Apr 2012 21:55:43 +0200
-Message-ID: <1333914943.31812.59.camel@shinybook.infradead.org>
-References: <1332450218.32446.79.camel@shinybook.infradead.org>
-	 <20120322.230331.1623101647193498167.davem@davemloft.net>
-	 <1332672230.32446.160.camel@shinybook.infradead.org>
+Subject: Re: [PATCH] ppp: Don't stop and restart queue on every TX packet
+Date: Sun, 08 Apr 2012 21:58:24 +0200
+Message-ID: <1333915104.31812.61.camel@shinybook.infradead.org>
+References: <1332672230.32446.160.camel@shinybook.infradead.org>
 	 <20120325.173635.1909319488008466320.davem@davemloft.net>
-	 <1332875447.2058.48.camel@shinybook.infradead.org>
-	 <1332878138.3547.41.camel@edumazet-glaptop>
-	 <1332880522.2058.67.camel@shinybook.infradead.org>
+	 <1332756222.2379.66.camel@shinybook.infradead.org>
+	 <20120403.172958.144419545310336164.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-F3MuM51WHxoQC+Cawmze"
-Cc: David Miller <davem@davemloft.net>, paulus@samba.org,
-	chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
+	boundary="=-I8ZYjZYzR2+UmtIk0hLL"
+Cc: paulus@samba.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:52913 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754088Ab2DHTzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2012 15:55:48 -0400
-In-Reply-To: <1332880522.2058.67.camel@shinybook.infradead.org>
+Received: from merlin.infradead.org ([205.233.59.134]:57442 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754529Ab2DHT62 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2012 15:58:28 -0400
+In-Reply-To: <20120403.172958.144419545310336164.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-F3MuM51WHxoQC+Cawmze
+--=-I8ZYjZYzR2+UmtIk0hLL
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-We discovered that PPPoATM has an excessively deep transmit queue. A
-queue the size of the default socket send buffer (wmem_default) is
-maintained between the PPP generic core and the ATM device.
-
-Fix it to queue a maximum of *two* packets. The one the ATM device is
-currently working on, and one more for the ATM driver to process
-immediately in its TX done interrupt handler. The PPP core is designed
-to feed packets to the channel with minimal latency, so that really
-ought to be enough to keep the ATM device busy.
-
-While we're at it, fix the fact that we were triggering the wakeup
-tasklet on *every* pppoatm_pop() call. The comment saying "this is
-inefficient, but doing it right is too hard" turns out to be overly
-pessimistic... I think :)
-
-On machines like the Traverse Geos, with a slow Geode CPU and two
-high-speed ADSL2+ interfaces, there were reports of extremely high CPU
-usage which could partly be attributed to the extra wakeups.
-
-(The wakeup handling could actually be made a whole lot easier if we
- stop checking sk->sk_sndbuf altogether. Given that we now only queue
- *two* packets ever, one wonders what the point is. As it is, you could
- already deadlock the thing by setting the sk_sndbuf to a value lower
- than the MTU of the device, and it'd just block for ever.)
-
-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
-
----
-
-Seriously, this gets *much* easier if we just ditch the checks against
-sk_sndbuf. We just wake up whenever decrementing ->inflight from zero.
-Can I?
-
- net/atm/pppoatm.c |   95 +++++++++++++++++++++++++++++++++++++++++++++++--=
----
- 1 files changed, 85 insertions(+), 10 deletions(-)
-
-diff --git a/net/atm/pppoatm.c b/net/atm/pppoatm.c
-index 614d3fc..68a02a9 100644
---- a/net/atm/pppoatm.c
-+++ b/net/atm/pppoatm.c
-@@ -62,12 +62,25 @@ struct pppoatm_vcc {
- 	void (*old_pop)(struct atm_vcc *, struct sk_buff *);
- 					/* keep old push/pop for detaching */
- 	enum pppoatm_encaps encaps;
-+	atomic_t inflight;
-+	unsigned long blocked;
- 	int flags;			/* SC_COMP_PROT - compress protocol */
- 	struct ppp_channel chan;	/* interface to generic ppp layer */
- 	struct tasklet_struct wakeup_tasklet;
- };
-=20
- /*
-+ * We want to allow two packets in the queue. The one that's currently in
-+ * flight, and *one* queued up ready for the ATM device to send immediatel=
+On Tue, 2012-04-03 at 17:29 -0400, David Miller wrote:
+> From: David Woodhouse <dwmw2@infradead.org>
+> Date: Mon, 26 Mar 2012 11:03:42 +0100
+>=20
+> > For every transmitted packet, ppp_start_xmit() will stop the netdev
+> > queue and then, if appropriate, restart it. This causes the TX softirq
+> > to run, entirely gratuitously.
+> >=20
+> > This is "only" a waste of CPU time in the normal case, but it's activel=
 y
-+ * from its TX done IRQ. We want to be able to use atomic_inc_not_zero(), =
-so
-+ * inflight =3D=3D -2 represents an empty queue, -1 one packet, and zero m=
-eans
-+ * there are two packets in the queue.
-+ */
-+#define NONE_INFLIGHT -2
-+
-+#define BLOCKED 0
-+
-+/*
-  * Header used for LLC Encapsulated PPP (4 bytes) followed by the LCP prot=
-ocol
-  * ID (0xC021) used in autodetection
-  */
-@@ -102,16 +115,30 @@ static void pppoatm_wakeup_sender(unsigned long arg)
- static void pppoatm_pop(struct atm_vcc *atmvcc, struct sk_buff *skb)
- {
- 	struct pppoatm_vcc *pvcc =3D atmvcc_to_pvcc(atmvcc);
-+
- 	pvcc->old_pop(atmvcc, skb);
-+	atomic_dec(&pvcc->inflight);
-+
- 	/*
--	 * We don't really always want to do this since it's
--	 * really inefficient - it would be much better if we could
--	 * test if we had actually throttled the generic layer.
--	 * Unfortunately then there would be a nasty SMP race where
--	 * we could clear that flag just as we refuse another packet.
--	 * For now we do the safe thing.
-+	 * We always used to run the wakeup tasklet unconditionally here, for
-+	 * fear of race conditions where we clear the BLOCKED flag just as we
-+	 * refuse another packet in pppoatm_send(). This was quite inefficient.
-+	 *
-+	 * In fact it's OK. The PPP core will only ever call pppoatm_send()
-+	 * while holding the channel->downl lock. And ppp_output_wakeup() as
-+	 * called by the tasklet will *also* grab that lock. So even if another
-+	 * CPU is in pppoatm_send() right now, the tasklet isn't going to race
-+	 * with it. The wakeup *will* happen after the other CPU is safely out
-+	 * of pppoatm_send() again.
-+	 *
-+	 * So if the CPU in pppoatm_send() has already set the BLOCKED bit and
-+	 * it about to return, that's fine. We trigger a wakeup which will
-+	 * happen later. And if the CPU in pppoatm_send() *hasn't* set the
-+	 * BLOCKED bit yet, that's fine too because of the double check in
-+	 * pppoatm_may_send() which is commented there.
- 	 */
--	tasklet_schedule(&pvcc->wakeup_tasklet);
-+	if (test_and_clear_bit(BLOCKED, &pvcc->blocked))
-+		tasklet_schedule(&pvcc->wakeup_tasklet);
- }
-=20
- /*
-@@ -184,6 +211,51 @@ error:
- 	ppp_input_error(&pvcc->chan, 0);
- }
-=20
-+static inline int pppoatm_may_send(struct pppoatm_vcc *pvcc, int size)
-+{
-+	/*
-+	 * It's not clear that we need to bother with using atm_may_send()
-+	 * to check we don't exceed sk->sk_sndbuf. If userspace sets a
-+	 * value of sk_sndbuf which is lower than the MTU, we're going to
-+	 * block for ever. But the code always did that before we introduced
-+	 * the packet count limit, so...=20
-+	 */
-+	if (atm_may_send(pvcc->atmvcc, size) &&
-+	    atomic_inc_not_zero_hint(&pvcc->inflight, NONE_INFLIGHT))
-+		return 1;
-+
-+	/*
-+	 * We use test_and_set_bit() rather than set_bit() here because
-+	 * we need to ensure there's a memory barrier after it. The bit
-+	 * *must* be set before we do the atomic_inc() on pvcc->inflight.
-+	 * There's no smp_mb__after_set_bit(), so it's this or abuse
-+	 * smp_mb__after_clear_bit().
-+	 */
-+	test_and_set_bit(BLOCKED, &pvcc->blocked);
-+
-+	/*
-+	 * We may have raced with pppoatm_pop(). If it ran for the
-+	 * last packet in the queue, *just* before we set the BLOCKED
-+	 * bit, then it might never run again and the channel could
-+	 * remain permanently blocked. Cope with that race by checking
-+	 * *again*. If it did run in that window, we'll have space on
-+	 * the queue now and can return success. It's harmless to leave
-+	 * the BLOCKED flag set, since it's only used as a trigger to
-+	 * run the wakeup tasklet. Another wakeup will never hurt.=20
-+	 * If pppoatm_pop() is running but hasn't got as far as making
-+	 * space on the queue yet, then it hasn't checked the BLOCKED
-+	 * flag yet either, so we're safe in that case too. It'll issue
-+	 * an "immediate" wakeup... where "immediate" actually involves
-+	 * taking the PPP channel's ->downl lock, which is held by the
-+	 * code path that calls pppoatm_send(), and is thus going to
-+	 * wait for us to finish.
-+	 */
-+	if (atm_may_send(pvcc->atmvcc, size) &&
-+	    atomic_inc_not_zero(&pvcc->inflight))
-+		return 1;
-+
-+	return 0;
-+}
- /*
-  * Called by the ppp_generic.c to send a packet - returns true if packet
-  * was accepted.  If we return false, then it's our job to call
-@@ -207,7 +279,7 @@ static int pppoatm_send(struct ppp_channel *chan, struc=
-t sk_buff *skb)
- 			struct sk_buff *n;
- 			n =3D skb_realloc_headroom(skb, LLC_LEN);
- 			if (n !=3D NULL &&
--			    !atm_may_send(pvcc->atmvcc, n->truesize)) {
-+			    !pppoatm_may_send(pvcc, n->truesize)) {
- 				kfree_skb(n);
- 				goto nospace;
- 			}
-@@ -215,12 +287,12 @@ static int pppoatm_send(struct ppp_channel *chan, str=
-uct sk_buff *skb)
- 			skb =3D n;
- 			if (skb =3D=3D NULL)
- 				return DROP_PACKET;
--		} else if (!atm_may_send(pvcc->atmvcc, skb->truesize))
-+		} else if (!pppoatm_may_send(pvcc, skb->truesize))
- 			goto nospace;
- 		memcpy(skb_push(skb, LLC_LEN), pppllc, LLC_LEN);
- 		break;
- 	case e_vc:
--		if (!atm_may_send(pvcc->atmvcc, skb->truesize))
-+		if (!pppoatm_may_send(pvcc, skb->truesize))
- 			goto nospace;
- 		break;
- 	case e_autodetect:
-@@ -285,6 +357,9 @@ static int pppoatm_assign_vcc(struct atm_vcc *atmvcc, v=
-oid __user *arg)
- 	if (pvcc =3D=3D NULL)
- 		return -ENOMEM;
- 	pvcc->atmvcc =3D atmvcc;
-+
-+	/* Maximum is zero, so that we can use atomic_inc_not_zero() */
-+	atomic_set(&pvcc->inflight, NONE_INFLIGHT);
- 	pvcc->old_push =3D atmvcc->push;
- 	pvcc->old_pop =3D atmvcc->pop;
- 	pvcc->encaps =3D (enum pppoatm_encaps) be.encaps;
---=20
-1.7.7.6
+> > harmful when the PPP device is a TEQL slave =E2=80=95 the wakeup will c=
+ause the
+> > offending device to receive the next TX packet from the TEQL queue, whe=
+n
+> > it *should* have gone to the next slave in the list. We end up seeing
+> > large bursts of packets on just *one* slave device, rather than using
+> > the full available bandwidth over all slaves.
+> >=20
+> > This patch fixes the problem by *not* unconditionally stopping the queu=
+e
+> > in ppp_start_xmit(). It adds a return value from ppp_xmit_process()
+> > which indicates whether the queue should be stopped or not.
+> >=20
+> > It *doesn't* remove the call to netif_wake_queue() from
+> > ppp_xmit_process(), because other code paths (especially from
+> > ppp_output_wakeup()) need it there and it's messy to push it out to the
+> > other callers to do it based on the return value. So we leave it in
+> > place =E2=80=95 it's a no-op in the case where the queue wasn't stopped=
+, so it's
+> > harmless in the TX path.
+> >=20
+> > Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+>=20
+> Applied, thanks.=20
 
-
+Hmm. After going through the locking issues on wakeup, for the PPPoATM
+patch I just sent, I think that the above has introduced a bug. I'll
+send a patch with a full explanation in a few moments...
 
 --=20
 dwmw2
 
---=-F3MuM51WHxoQC+Cawmze
+--=-I8ZYjZYzR2+UmtIk0hLL
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -333,17 +164,17 @@ Vzufb4Y6GIIiNsiwkTjbKqGTqoQ/9SdlrnPVyNXTd+pLncdBu8fA46A/5H2kjXPmEkvfoXNzczqA
 6NXLji/L6hOn1kGLrPo8idck9U604GGSt/M3mMS+lqO3ijGCAr0wggK5AgEBMFswVDEUMBIGA1UE
 ChMLQ0FjZXJ0IEluYy4xHjAcBgNVBAsTFWh0dHA6Ly93d3cuQ0FjZXJ0Lm9yZzEcMBoGA1UEAxMT
 Q0FjZXJ0IENsYXNzIDMgUm9vdAIDAK05MAkGBSsOAwIaBQCgggE3MBgGCSqGSIb3DQEJAzELBgkq
-hkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTEyMDQwODE5NTU0M1owIwYJKoZIhvcNAQkEMRYEFGGS
-LuYZGqfoSbhoVZGeHweJr8oxMGoGCSsGAQQBgjcQBDFdMFswVDEUMBIGA1UEChMLQ0FjZXJ0IElu
+hkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTEyMDQwODE5NTgyNFowIwYJKoZIhvcNAQkEMRYEFIPR
+koyyO5NhY6XHyTgBhB45t4Q9MGoGCSsGAQQBgjcQBDFdMFswVDEUMBIGA1UEChMLQ0FjZXJ0IElu
 Yy4xHjAcBgNVBAsTFWh0dHA6Ly93d3cuQ0FjZXJ0Lm9yZzEcMBoGA1UEAxMTQ0FjZXJ0IENsYXNz
 IDMgUm9vdAIDAK05MGwGCyqGSIb3DQEJEAILMV2gWzBUMRQwEgYDVQQKEwtDQWNlcnQgSW5jLjEe
 MBwGA1UECxMVaHR0cDovL3d3dy5DQWNlcnQub3JnMRwwGgYDVQQDExNDQWNlcnQgQ2xhc3MgMyBS
-b290AgMArTkwDQYJKoZIhvcNAQEBBQAEggEAcaDQmGO82W3QPG6MtDVcPW+wT0aDRsubLCPxN3VQ
-+gIDewHTvyZlzGZ7MQOg1BZV4MDAyIA9rTVRENCRaxK1n1g5fTE228q4+uiM+zG9pDwrN3XFpu3t
-PSP4hMaptxB6J5YuE3lN7fE5A0Y4RnkPl0Ayx/9HetwkPYUa3BLf+JHU7NyK2sK+8AsuoqLdyAbu
-Uxf+J1HjInM1j/qCxMbkWgLRdr0ZWZvdh66fFHL0a80bnpd6+iFAMTYRLWLvcHF1qrxFDJwdpv7P
-skNnMh9htyyUDInxgVQr3nj2Fb/Q8hwdEnfXen5C8yPgfqyjFNPw+QgBeMNkY90WHY3hOeAikwAA
+b290AgMArTkwDQYJKoZIhvcNAQEBBQAEggEAaqvL9owz3afNCcc0VVz3J/5tX/hUblFhyHIqJ3cV
+4qNq3Haqn6nMuVoPKo9fgO3wDmsEdInNYaSV9frrtGDig8beiUf42OEpBXI7odaZ081ybDu69NoX
+rmfvX+MeLrNhSz46E9vYtqtuZKACxaig2E0csQowNyAgM9TPhxzj8MbwfBQRlcr5Y2nepMJWtqee
+hy36fBAJJKT/G+z9D/rP4hOLogaj6D6juhZ9ezk1S8Puto9Bk2rN4EaOrB4g6IZd2I45LvpmHzR0
+1VEn6Ch1PGkkjRcwzxVjW7MWqKCAGhH9Wgh+j6FcWHEHG2U1GB+Qtyx8DEDt5W5mTWg3S9WrAAAA
 AAAAAA==
 
 
---=-F3MuM51WHxoQC+Cawmze--
+--=-I8ZYjZYzR2+UmtIk0hLL--
