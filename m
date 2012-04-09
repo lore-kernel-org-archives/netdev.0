@@ -1,8 +1,7 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH v1 2/7] net: addr_list: add exclusive dev_uc_add and
-	dev_mc_add
-Date: Mon, 09 Apr 2012 15:00:23 -0700
-Message-ID: <20120409220023.3288.59939.stgit@jf-dev1-dcblab>
+Subject: [net-next PATCH v1 3/7] net: add fdb generic dump routine
+Date: Mon, 09 Apr 2012 15:00:31 -0700
+Message-ID: <20120409220030.3288.31389.stgit@jf-dev1-dcblab>
 References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,178 +14,102 @@ To: roprabhu@cisco.com, mst@redhat.com, stephen.hemminger@vyatta.com,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:29611 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750940Ab2DIWN1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Apr 2012 18:13:27 -0400
+	id S1750940Ab2DIWNc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Apr 2012 18:13:32 -0400
 In-Reply-To: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a dev_uc_add_excl() and dev_mc_add_excl() calls
-similar to the original dev_{uc|mc}_add() except it sets
-the global bit and returns -EEXIST for duplicat entires.
-
-This is useful for drivers that support SR-IOV, macvlan
-devices and any other devices that need to manage the
-unicast and multicast lists.
+This adds a generic dump routine drivers can call. It
+should be sufficient to handle any bridging model that
+uses the unicast address list. This should be most SR-IOV
+enabled NICs.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/linux/netdevice.h |    2 +
- net/core/dev_addr_lists.c |   97 ++++++++++++++++++++++++++++++++++++++-------
- 2 files changed, 83 insertions(+), 16 deletions(-)
+ net/core/rtnetlink.c |   71 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 71 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 05822e5..b68a326 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2572,6 +2572,7 @@ extern int dev_addr_init(struct net_device *dev);
- 
- /* Functions used for unicast addresses handling */
- extern int dev_uc_add(struct net_device *dev, unsigned char *addr);
-+extern int dev_uc_add_excl(struct net_device *dev, unsigned char *addr);
- extern int dev_uc_del(struct net_device *dev, unsigned char *addr);
- extern int dev_uc_sync(struct net_device *to, struct net_device *from);
- extern void dev_uc_unsync(struct net_device *to, struct net_device *from);
-@@ -2581,6 +2582,7 @@ extern void dev_uc_init(struct net_device *dev);
- /* Functions used for multicast addresses handling */
- extern int dev_mc_add(struct net_device *dev, unsigned char *addr);
- extern int dev_mc_add_global(struct net_device *dev, unsigned char *addr);
-+extern int dev_mc_add_excl(struct net_device *dev, unsigned char *addr);
- extern int dev_mc_del(struct net_device *dev, unsigned char *addr);
- extern int dev_mc_del_global(struct net_device *dev, unsigned char *addr);
- extern int dev_mc_sync(struct net_device *to, struct net_device *from);
-diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-index 29c07fe..5405e28 100644
---- a/net/core/dev_addr_lists.c
-+++ b/net/core/dev_addr_lists.c
-@@ -21,12 +21,35 @@
-  * General list handling functions
-  */
- 
-+static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
-+			       unsigned char *addr, int addr_len,
-+			       unsigned char addr_type, bool global)
-+{
-+	struct netdev_hw_addr *ha;
-+	int alloc_size;
-+
-+	alloc_size = sizeof(*ha);
-+	if (alloc_size < L1_CACHE_BYTES)
-+		alloc_size = L1_CACHE_BYTES;
-+	ha = kmalloc(alloc_size, GFP_ATOMIC);
-+	if (!ha)
-+		return -ENOMEM;
-+	memcpy(ha->addr, addr, addr_len);
-+	ha->type = addr_type;
-+	ha->refcount = 1;
-+	ha->global_use = global;
-+	ha->synced = false;
-+	list_add_tail_rcu(&ha->list, &list->list);
-+	list->count++;
-+
-+	return 0;
-+}
-+
- static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
- 			    unsigned char *addr, int addr_len,
- 			    unsigned char addr_type, bool global)
- {
- 	struct netdev_hw_addr *ha;
--	int alloc_size;
- 
- 	if (addr_len > MAX_ADDR_LEN)
- 		return -EINVAL;
-@@ -46,21 +69,7 @@ static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
- 		}
- 	}
- 
--
--	alloc_size = sizeof(*ha);
--	if (alloc_size < L1_CACHE_BYTES)
--		alloc_size = L1_CACHE_BYTES;
--	ha = kmalloc(alloc_size, GFP_ATOMIC);
--	if (!ha)
--		return -ENOMEM;
--	memcpy(ha->addr, addr, addr_len);
--	ha->type = addr_type;
--	ha->refcount = 1;
--	ha->global_use = global;
--	ha->synced = false;
--	list_add_tail_rcu(&ha->list, &list->list);
--	list->count++;
--	return 0;
-+	return __hw_addr_create_ex(list, addr, addr_len, addr_type, global);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d6ce728..2bb4f59 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2088,6 +2088,77 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	return err;
  }
  
- static int __hw_addr_add(struct netdev_hw_addr_list *list, unsigned char *addr,
-@@ -377,6 +386,34 @@ EXPORT_SYMBOL(dev_addr_del_multiple);
-  */
- 
- /**
-+ *	dev_uc_add_excl - Add a global secondary unicast address
-+ *	@dev: device
-+ *	@addr: address to add
-+ */
-+int dev_uc_add_excl(struct net_device *dev, unsigned char *addr)
++static int nlmsg_populate_fdb(struct sk_buff *skb,
++			      struct netlink_callback *cb,
++			      struct net_device *dev,
++			      int *idx,
++			      struct netdev_hw_addr_list *list)
 +{
 +	struct netdev_hw_addr *ha;
++	struct ndmsg *ndm;
++	struct nlmsghdr *nlh;
++	u32 pid, seq;
++
++	pid = NETLINK_CB(cb->skb).pid;
++	seq = cb->nlh->nlmsg_seq;
++
++	list_for_each_entry(ha, &list->list, list) {
++		if (*idx < cb->args[0])
++			goto skip;
++
++		nlh = nlmsg_put(skb, pid, seq,
++				RTM_NEWNEIGH, sizeof(*ndm), NLM_F_MULTI);
++		if (!nlh)
++			break;
++
++		ndm = nlmsg_data(nlh);
++		ndm->ndm_family  = AF_BRIDGE;
++		ndm->ndm_pad1	 = 0;
++		ndm->ndm_pad2    = 0;
++		ndm->ndm_flags	 = NTF_SELF;
++		ndm->ndm_type	 = 0;
++		ndm->ndm_ifindex = dev->ifindex;
++		ndm->ndm_state   = NUD_PERMANENT;
++
++		if (nla_put(skb, NDA_LLADDR, ETH_ALEN, ha->addr))
++			goto nla_put_failure;
++
++		nlmsg_end(skb, nlh);
++skip:
++		*idx += 1;
++	}
++	return 0;
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++	return -ENOMEM;
++}
++
++/**
++ * ndo_dflt_fdb_dump: default netdevice operation to dump an FDB table.
++ * @nlh: netlink message header
++ * @dev: netdevice
++ *
++ * Default netdevice operation to dump the existing unicast address list.
++ * Returns zero on success.
++ */
++int ndo_dflt_fdb_dump(struct sk_buff *skb,
++		      struct netlink_callback *cb,
++		      struct net_device *dev,
++		      int idx)
++{
 +	int err;
 +
 +	netif_addr_lock_bh(dev);
-+	list_for_each_entry(ha, &dev->uc.list, list) {
-+		if (!memcmp(ha->addr, addr, dev->addr_len) &&
-+		    ha->type == NETDEV_HW_ADDR_T_UNICAST) {
-+			err = -EEXIST;
-+			goto out;
-+		}
-+	}
-+	err = __hw_addr_create_ex(&dev->uc, addr, dev->addr_len,
-+				  NETDEV_HW_ADDR_T_UNICAST, true);
-+	if (!err)
-+		__dev_set_rx_mode(dev);
++	err = nlmsg_populate_fdb(skb, cb, dev, &idx, &dev->uc);
++	if (err)
++		goto out;
++	nlmsg_populate_fdb(skb, cb, dev, &idx, &dev->mc);
 +out:
 +	netif_addr_unlock_bh(dev);
-+	return err;
++	return idx;
 +}
-+EXPORT_SYMBOL(dev_uc_add_excl);
++EXPORT_SYMBOL(ndo_dflt_fdb_dump);
 +
-+/**
-  *	dev_uc_add - Add a secondary unicast address
-  *	@dev: device
-  *	@addr: address to add
-@@ -501,6 +538,34 @@ EXPORT_SYMBOL(dev_uc_init);
-  * Multicast list handling functions
-  */
- 
-+/**
-+ *	dev_mc_add_excl - Add a global secondary multicast address
-+ *	@dev: device
-+ *	@addr: address to add
-+ */
-+int dev_mc_add_excl(struct net_device *dev, unsigned char *addr)
-+{
-+	struct netdev_hw_addr *ha;
-+	int err;
-+
-+	netif_addr_lock_bh(dev);
-+	list_for_each_entry(ha, &dev->mc.list, list) {
-+		if (!memcmp(ha->addr, addr, dev->addr_len) &&
-+		    ha->type == NETDEV_HW_ADDR_T_UNICAST) {
-+			err = -EEXIST;
-+			goto out;
-+		}
-+	}
-+	err = __hw_addr_create_ex(&dev->mc, addr, dev->addr_len,
-+				  NETDEV_HW_ADDR_T_UNICAST, true);
-+	if (!err)
-+		__dev_set_rx_mode(dev);
-+out:
-+	netif_addr_unlock_bh(dev);
-+	return err;
-+}
-+EXPORT_SYMBOL(dev_mc_add_excl);
-+
- static int __dev_mc_add(struct net_device *dev, unsigned char *addr,
- 			bool global)
+ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
  {
+ 	int idx = 0;
