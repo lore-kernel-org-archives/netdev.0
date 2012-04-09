@@ -1,45 +1,61 @@
-From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Subject: [PATCH] net/wireless/wext-core.c: add missing kfree
-Date: Mon,  9 Apr 2012 11:01:09 +0200
-Message-ID: <1333962069-20801-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
+Date: Mon, 09 Apr 2012 11:13:29 +0200
+Message-ID: <1333962809.3007.32.camel@edumazet-glaptop>
+References: <20120408171323.GA16012@redhat.com>
+	 <20120408234951.GA15993@gondor.apana.org.au>
+	 <20120409072849.GA12014@redhat.com>
+	 <20120409073354.GA3218@gondor.apana.org.au>
+	 <20120409073953.GD12014@redhat.com>
+	 <20120409082919.GA3471@gondor.apana.org.au>
+	 <20120409083402.GA28249@redhat.com>
+	 <20120409083958.GA3951@gondor.apana.org.au>
+	 <20120409084208.GA28362@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:37943 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751520Ab2DIJNe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2012 05:13:34 -0400
+In-Reply-To: <20120409084208.GA28362@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+On Mon, 2012-04-09 at 11:42 +0300, Michael S. Tsirkin wrote:
+> On Mon, Apr 09, 2012 at 04:39:58PM +0800, Herbert Xu wrote:
+> > On Mon, Apr 09, 2012 at 11:34:02AM +0300, Michael S. Tsirkin wrote:
+> > >
+> > > Puzzled. This patch orphans skbs only if the destination device sets
+> > > IFF_TX_CAN_STALL.  Since the physical NIC doesn't stall forever it never
+> > > sets this flag.
+> > > 
+> > > So it seems that this patch should not affect the configuration
+> > > you describe at all.
+> > > 
+> > > Could you please clarify? What did I miss?
+> > 
+> > Oops, you're right.  Somehow I was thinking you were patching
+> > virtio-net instead of tun.
+> > 
+> > Cheers,
+> 
+> Cool. Want to ack the patch then just to make it clear you are happy?
 
-Free extra as done in the error-handling code just above.
+I am not happy with this patch.
 
-Signed-off-by: Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-
----
- net/wireless/wext-core.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
-index 9f544c9..22adfeb 100644
---- a/net/wireless/wext-core.c
-+++ b/net/wireless/wext-core.c
-@@ -781,8 +781,10 @@ static int ioctl_standard_iw_point(struct iw_point *iwp, unsigned int cmd,
- 		if (cmd == SIOCSIWENCODEEXT) {
- 			struct iw_encode_ext *ee = (void *) extra;
- 
--			if (iwp->length < sizeof(*ee) + ee->key_len)
--				return -EFAULT;
-+			if (iwp->length < sizeof(*ee) + ee->key_len) {
-+				err = -EFAULT;
-+				goto out;
-+			}
- 		}
- 	}
- 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Since its Easter, I dont have much time to comment right now, I'll do
+that tomorrow.
