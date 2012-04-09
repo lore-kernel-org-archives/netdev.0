@@ -1,94 +1,232 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v1 0/7] Managing the forwarding database(FDB)
-Date: Mon, 09 Apr 2012 15:32:04 -0700
-Message-ID: <4F836364.6070406@intel.com>
-References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab> <20120409151501.23ff83f6@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: roprabhu@cisco.com, mst@redhat.com, stephen.hemminger@vyatta.com,
-	davem@davemloft.net, hadi@cyberus.ca, bhutchings@solarflare.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gregory.v.rose@intel.com, krkumar2@in.ibm.com, sri@us.ibm.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:21207 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757223Ab2DIWcF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Apr 2012 18:32:05 -0400
-In-Reply-To: <20120409151501.23ff83f6@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [PATCH v3 1/2] cgroup: pass struct mem_cgroup instead of struct cgroup to socket memcg
+Date: Mon,  9 Apr 2012 19:36:33 -0300
+Message-ID: <1334010994-23301-2-git-send-email-glommer@parallels.com>
+References: <1334010994-23301-1-git-send-email-glommer@parallels.com>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1334010994-23301-1-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4/9/2012 3:15 PM, Stephen Hemminger wrote:
-> On Mon, 09 Apr 2012 15:00:11 -0700
-> John Fastabend <john.r.fastabend@intel.com> wrote:
-> 
->> The following series is a submission for net-next to allow
->> embedded switches and other stacked devices other then the
->> Linux bridge to manage a forwarding database.
->>
->> This was previously posted here (where it was deferred for
->> more review and testing)
->>
->> http://lists.openwall.net/netdev/2012/03/19/26
->>
->> This series adds macvlan support per discussions with Roopa
->> and Michael. Also ixgbe was updated to support adding multicast
->> addresses per request from Greg Rose.
->>
->> Finally cleanups in the generic dump routines were added
->> for multicast to support ixgbe and macvlan use cases.
->>
->> Thanks to everyone for the helpful review and comments. As
->> always any comments/feedback welcome.
->>
->> .John
->>
->> ---
->>
->> Greg Rose (1):
->>       ixgbe: UTA table incorrectly programmed
->>
->> John Fastabend (6):
->>       macvlan: add FDB bridge ops and new macvlan mode
->>       ixgbe: allow RAR table to be updated in promisc mode
->>       ixgbe: enable FDB netdevice ops
->>       net: add fdb generic dump routine
->>       net: addr_list: add exclusive dev_uc_add and dev_mc_add
->>       net: add generic PF_BRIDGE:RTM_ FDB hooks
->>
->>
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  121 ++++++++++----
->>  drivers/net/macvlan.c                         |   60 ++++++-
->>  include/linux/if_link.h                       |    1 
->>  include/linux/neighbour.h                     |    3 
->>  include/linux/netdevice.h                     |   28 +++
->>  include/linux/rtnetlink.h                     |    4 
->>  net/bridge/br_device.c                        |    3 
->>  net/bridge/br_fdb.c                           |  128 ++++-----------
->>  net/bridge/br_netlink.c                       |   12 -
->>  net/bridge/br_private.h                       |   15 +-
->>  net/core/dev_addr_lists.c                     |   97 ++++++++++--
->>  net/core/rtnetlink.c                          |  209 +++++++++++++++++++++++++
->>  12 files changed, 508 insertions(+), 173 deletions(-)
->>
-> 
-> How do statistics work in this case? What if you wanted to do BRIDGE MIB?
+The only reason cgroup was used, was to be consistent with the populate()
+interface. Now that we're getting rid of it, not only we no longer need
+it, but we also *can't* call it this way.
 
-I expect we will need to do the same sort of thing for PF_BRIDGE:RTM_GETLINK
-to dump the statistics for an embedded or stacked bridge. This series only
-gets the forwarding database setup. All the other entries in the MIB still
-need to be populated. What I would like is to be able to write a BRIDGE MIB
-implementation and have it work with any of the bridging components in the
-linux kernel. But I don't think that should block this series.
+Since we will no longer rely on populate(), this will be called from
+create(). During create, the association between struct mem_cgroup
+and struct cgroup does not yet exist, since cgroup internals hasn't
+yet initialized its bookkeeping. This means we would not be able
+to draw the memcg pointer from the cgroup pointer in these
+functions, which is highly undesirable.
 
-Make sense?
+Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+CC: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+CC: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+CC: Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+CC: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+CC: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+---
+ include/net/sock.h           |   12 ++++++------
+ include/net/tcp_memcontrol.h |    4 ++--
+ mm/memcontrol.c              |   24 +++++++++---------------
+ net/core/sock.c              |   10 +++++-----
+ net/ipv4/tcp_memcontrol.c    |    6 ++----
+ 5 files changed, 24 insertions(+), 32 deletions(-)
 
-Based on a quick scan I'm not sure the existing net/bridge code has one place
-to pull all the stats from anyways looks like you might have to read some sysfs
-entries AND do some netlink commands. I would have to check that though. It is
-on my todo list to create a bridge mib for some of the EVB cases. Of course if
-someone else got to it that would be great.
-
-.John
+diff --git a/include/net/sock.h b/include/net/sock.h
+index a6ba1f8..b3ebe6b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -70,16 +70,16 @@
+ struct cgroup;
+ struct cgroup_subsys;
+ #ifdef CONFIG_NET
+-int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss);
+-void mem_cgroup_sockets_destroy(struct cgroup *cgrp);
++int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss);
++void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg);
+ #else
+ static inline
+-int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
++int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+ {
+ 	return 0;
+ }
+ static inline
+-void mem_cgroup_sockets_destroy(struct cgroup *cgrp)
++void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg)
+ {
+ }
+ #endif
+@@ -900,9 +900,9 @@ struct proto {
+ 	 * This function has to setup any files the protocol want to
+ 	 * appear in the kmem cgroup filesystem.
+ 	 */
+-	int			(*init_cgroup)(struct cgroup *cgrp,
++	int			(*init_cgroup)(struct mem_cgroup *memcg,
+ 					       struct cgroup_subsys *ss);
+-	void			(*destroy_cgroup)(struct cgroup *cgrp);
++	void			(*destroy_cgroup)(struct mem_cgroup *memcg);
+ 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
+ #endif
+ };
+diff --git a/include/net/tcp_memcontrol.h b/include/net/tcp_memcontrol.h
+index 48410ff..7df18bc 100644
+--- a/include/net/tcp_memcontrol.h
++++ b/include/net/tcp_memcontrol.h
+@@ -12,8 +12,8 @@ struct tcp_memcontrol {
+ };
+ 
+ struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
+-int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
+-void tcp_destroy_cgroup(struct cgroup *cgrp);
++int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss);
++void tcp_destroy_cgroup(struct mem_cgroup *memcg);
+ unsigned long long tcp_max_memory(const struct mem_cgroup *memcg);
+ void tcp_prot_mem(struct mem_cgroup *memcg, long val, int idx);
+ #endif /* _TCP_MEMCG_H */
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index bef1142..704054d 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -4640,29 +4640,22 @@ static int mem_control_numa_stat_open(struct inode *unused, struct file *file)
+ #endif /* CONFIG_NUMA */
+ 
+ #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+-static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
++static int register_kmem_files(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+ {
+-	/*
+-	 * Part of this would be better living in a separate allocation
+-	 * function, leaving us with just the cgroup tree population work.
+-	 * We, however, depend on state such as network's proto_list that
+-	 * is only initialized after cgroup creation. I found the less
+-	 * cumbersome way to deal with it to defer it all to populate time
+-	 */
+-	return mem_cgroup_sockets_init(cont, ss);
++	return mem_cgroup_sockets_init(memcg, ss);
+ };
+ 
+-static void kmem_cgroup_destroy(struct cgroup *cont)
++static void kmem_cgroup_destroy(struct mem_cgroup *memcg)
+ {
+-	mem_cgroup_sockets_destroy(cont);
++	mem_cgroup_sockets_destroy(memcg);
+ }
+ #else
+-static int register_kmem_files(struct cgroup *cont, struct cgroup_subsys *ss)
++static int register_kmem_files(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+ {
+ 	return 0;
+ }
+ 
+-static void kmem_cgroup_destroy(struct cgroup *cont)
++static void kmem_cgroup_destroy(struct mem_cgroup *memcg)
+ {
+ }
+ #endif
+@@ -5034,7 +5027,7 @@ static void mem_cgroup_destroy(struct cgroup *cont)
+ {
+ 	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
+ 
+-	kmem_cgroup_destroy(cont);
++	kmem_cgroup_destroy(memcg);
+ 
+ 	mem_cgroup_put(memcg);
+ }
+@@ -5042,7 +5035,8 @@ static void mem_cgroup_destroy(struct cgroup *cont)
+ static int mem_cgroup_populate(struct cgroup_subsys *ss,
+ 				struct cgroup *cont)
+ {
+-	return register_kmem_files(cont, ss);
++	struct mem_cgroup *memcg = mem_cgroup_from_cont(cont);
++	return register_kmem_files(memcg, ss);
+ }
+ 
+ #ifdef CONFIG_MMU
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b2e14c0..878f744 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -140,7 +140,7 @@ static DEFINE_MUTEX(proto_list_mutex);
+ static LIST_HEAD(proto_list);
+ 
+ #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+-int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
++int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+ {
+ 	struct proto *proto;
+ 	int ret = 0;
+@@ -148,7 +148,7 @@ int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
+ 	mutex_lock(&proto_list_mutex);
+ 	list_for_each_entry(proto, &proto_list, node) {
+ 		if (proto->init_cgroup) {
+-			ret = proto->init_cgroup(cgrp, ss);
++			ret = proto->init_cgroup(memcg, ss);
+ 			if (ret)
+ 				goto out;
+ 		}
+@@ -159,19 +159,19 @@ int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
+ out:
+ 	list_for_each_entry_continue_reverse(proto, &proto_list, node)
+ 		if (proto->destroy_cgroup)
+-			proto->destroy_cgroup(cgrp);
++			proto->destroy_cgroup(memcg);
+ 	mutex_unlock(&proto_list_mutex);
+ 	return ret;
+ }
+ 
+-void mem_cgroup_sockets_destroy(struct cgroup *cgrp)
++void mem_cgroup_sockets_destroy(struct mem_cgroup *memcg)
+ {
+ 	struct proto *proto;
+ 
+ 	mutex_lock(&proto_list_mutex);
+ 	list_for_each_entry_reverse(proto, &proto_list, node)
+ 		if (proto->destroy_cgroup)
+-			proto->destroy_cgroup(cgrp);
++			proto->destroy_cgroup(memcg);
+ 	mutex_unlock(&proto_list_mutex);
+ }
+ #endif
+diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+index 8f1753d..1517037 100644
+--- a/net/ipv4/tcp_memcontrol.c
++++ b/net/ipv4/tcp_memcontrol.c
+@@ -18,7 +18,7 @@ static void memcg_tcp_enter_memory_pressure(struct sock *sk)
+ }
+ EXPORT_SYMBOL(memcg_tcp_enter_memory_pressure);
+ 
+-int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
++int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+ {
+ 	/*
+ 	 * The root cgroup does not use res_counters, but rather,
+@@ -28,7 +28,6 @@ int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
+ 	struct res_counter *res_parent = NULL;
+ 	struct cg_proto *cg_proto, *parent_cg;
+ 	struct tcp_memcontrol *tcp;
+-	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
+ 	struct mem_cgroup *parent = parent_mem_cgroup(memcg);
+ 	struct net *net = current->nsproxy->net_ns;
+ 
+@@ -61,9 +60,8 @@ int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss)
+ }
+ EXPORT_SYMBOL(tcp_init_cgroup);
+ 
+-void tcp_destroy_cgroup(struct cgroup *cgrp)
++void tcp_destroy_cgroup(struct mem_cgroup *memcg)
+ {
+-	struct mem_cgroup *memcg = mem_cgroup_from_cont(cgrp);
+ 	struct cg_proto *cg_proto;
+ 	struct tcp_memcontrol *tcp;
+ 	u64 val;
+-- 
+1.7.7.6
