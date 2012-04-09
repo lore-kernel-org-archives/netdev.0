@@ -1,47 +1,47 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH v17 00/15] seccomp_filter: BPF-based syscall filtering
-Date: Mon, 9 Apr 2012 13:48:37 +1000 (EST)
-Message-ID: <alpine.LRH.2.02.1204091348060.16214@tundra.namei.org>
-References: <1333051320-30872-1-git-send-email-wad@chromium.org> <alpine.LRH.2.02.1203301010310.11201@tundra.namei.org> <20120406142846.fd8dea70.akpm@linux-foundation.org>
-Reply-To: kernel-hardening@lists.openwall.com
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
-        linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
-        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
-        Oleg Nesterov <oleg@redhat.com>, peterz@infradead.org,
-        rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
-        luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
-        djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
-        pmoore@redhat.com, corbet@lwn.net, eric.dumazet@gmail.com,
-        markus@chromium.org, coreyb@linux.vnet.ibm.com, keescook@chromium.org,
-        Oleg Nesterov <oleg@redhat.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <kernel-hardening-return-1218-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20120406142846.fd8dea70.akpm@linux-foundation.org>
-List-Id: netdev.vger.kernel.org
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Subject: [PATCH 1/2] qlcnic: Add default swtich case in 'qlcnic_can_start_firmware()'
+Date: Mon,  9 Apr 2012 11:29:47 +0530
+Message-ID: <1333951187-4395-1-git-send-email-santoshprasadnayak@gmail.com>
+Cc: sony.chacko@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Santosh Nayak <santoshprasadnayak@gmail.com>
+To: anirban.chakraborty@qlogic.com, rajesh.borundia@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:65249 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751448Ab2DIGBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2012 02:01:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 6 Apr 2012, Andrew Morton wrote:
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-> > I've offered to take this via my tree -- if anyone else wants to merge it 
-> > via theirs instead, holler.
-> 
-> OK by me, especially if it means that you'll carefully (re)review it!  I
-> had some minor quibbles with v17.
+QLCRD32() may return bad state.
+Its good to have default switch case:
+	1. to avoid unexpected system behaviour.
+	2. to avoid extra computation thats happening
+	   after switch case.
 
-Sure.
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-> 
-> It would be good if Oleg could take a look at the signal changes, if he
-> has not yet done so?
-> 
-
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 75c32e8..d30b9b8 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2787,6 +2787,11 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
+ 	case QLCNIC_DEV_INITIALIZING:
+ 	case QLCNIC_DEV_QUISCENT:
+ 		break;
++
++	default:
++		dev_err(&adapter->pdev->dev, "Invalid state\n");
++		qlcnic_api_unlock(adapter);
++		return -EINVAL;
+ 	}
+ 
+ 	qlcnic_api_unlock(adapter);
 -- 
-James Morris
-<jmorris@namei.org>
+1.7.4.4
