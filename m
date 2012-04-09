@@ -1,68 +1,84 @@
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Subject: [PATCH 2/2] qlcnic: Remove redundant NULL check on kfree().
-Date: Mon,  9 Apr 2012 11:41:19 +0530
-Message-ID: <1333951879-3230-1-git-send-email-santoshprasadnayak@gmail.com>
-Cc: sony.chacko@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Santosh Nayak <santoshprasadnayak@gmail.com>
-To: anirban.chakraborty@qlogic.com, rajesh.borundia@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:59845 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752800Ab2DIGNa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2012 02:13:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
+Date: Mon, 9 Apr 2012 10:28:49 +0300
+Message-ID: <20120409072849.GA12014@redhat.com>
+References: <20120408171323.GA16012@redhat.com>
+ <20120408234951.GA15993@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120408234951.GA15993@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+On Mon, Apr 09, 2012 at 07:49:51AM +0800, Herbert Xu wrote:
+> On Sun, Apr 08, 2012 at 08:13:25PM +0300, Michael S. Tsirkin wrote:
+> > commit 0110d6f22f392f976e84ab49da1b42f85b64a3c5
+> > tun: orphan an skb on tx
+> > Fixed a configuration where skbs get queued
+> > at the tun device forever, blocking senders.
+> > 
+> > However this fix isn't waterproof:
+> > userspace can control whether the interface
+> > is stopped, and if it is, packets
+> > get queued in the qdisc, again potentially forever.
+> > 
+> > Complete the fix by setting a private flag and orphaning
+> > at the qdisc level.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> 1) Doesn't this break local UDP push-back?
 
-kfree() checks for NULL before freeing the memory.
-Remove redundant NULL check.
-This is just a clean up and also looks good from performance point of view.
+What is meant by UDP pushback here? Two tap
+devices communicating by UDP packets locally?
+This was always broken, see below.
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   14 ++++----------
- 1 files changed, 4 insertions(+), 10 deletions(-)
+> 2) Isn't the stall a bug in the backend and isn't this just
+> papering over that?
+> 
+> Cheers,
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index d30b9b8..75b202d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -160,9 +160,7 @@ qlcnic_alloc_sds_rings(struct qlcnic_recv_context *recv_ctx, int count)
- static void
- qlcnic_free_sds_rings(struct qlcnic_recv_context *recv_ctx)
- {
--	if (recv_ctx->sds_rings != NULL)
--		kfree(recv_ctx->sds_rings);
--
-+	kfree(recv_ctx->sds_rings);
- 	recv_ctx->sds_rings = NULL;
- }
- 
-@@ -1714,10 +1712,8 @@ static void __devexit qlcnic_remove(struct pci_dev *pdev)
- 
- 	qlcnic_detach(adapter);
- 
--	if (adapter->npars != NULL)
--		kfree(adapter->npars);
--	if (adapter->eswitch != NULL)
--		kfree(adapter->eswitch);
-+	kfree(adapter->npars);
-+	kfree(adapter->eswitch);
- 
- 	qlcnic_clr_all_drv_state(adapter, 0);
- 
-@@ -1887,9 +1883,7 @@ void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter)
- 
- static void qlcnic_free_lb_filters_mem(struct qlcnic_adapter *adapter)
- {
--	if (adapter->fhash.fmax && adapter->fhash.fhead)
--		kfree(adapter->fhash.fhead);
--
-+	kfree(adapter->fhash.fhead);
- 	adapter->fhash.fhead = NULL;
- 	adapter->fhash.fmax = 0;
- }
--- 
-1.7.4.4
+What do you mean by the backend? userspace? Yes, the stall is a result of
+userspace not consuming packets:
+
+        if (skb_queue_len(&tun->socket.sk->sk_receive_queue) >= dev->tx_queue_len) {
+                if (!(tun->flags & TUN_ONE_QUEUE)) {
+                        /* Normal queueing mode. */
+                        /* Packet scheduler handles dropping of further packets. */
+                        netif_stop_queue(dev);
+                       /* We won't see all dropped packets individually, so overrun
+                         * error is more appropriate. */
+                        dev->stats.tx_fifo_errors++;
+
+Thus we get this situation
+    tap1 sends packets, some of them to tap2, tap2 does not consume them,
+    as a result tap2 queue overflows, tap2 stops forever and
+    packets get queued in the qdisc, now tap1
+    send buffer gets full so it can not communicate to any destination.
+
+So the problem is one VM can block all networking from another one.
+
+As a solution this patch is always changing ownership if we're going
+into a hostile device: it just does this early in qdisc instead of
+at xmit time.
+
+
+
+> -- 
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
