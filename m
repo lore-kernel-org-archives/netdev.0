@@ -1,42 +1,45 @@
 From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH 09/26] tehuti: delete redundant NULL check before
- release_firmware()
-Date: Mon, 9 Apr 2012 22:50:42 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1204092217250.13925@swampdragon.chaosbits.net>
+Subject: [PATCH 10/26] wireless, at76c50x:: Don't needlessly test for NULL
+ before calling release_firmware()
+Date: Mon, 9 Apr 2012 22:50:47 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1204092218300.13925@swampdragon.chaosbits.net>
 References: <alpine.LNX.2.00.1204092157340.13925@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: trivial@kernel.org, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>
+	linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <alpine.LNX.2.00.1204092157340.13925@swampdragon.chaosbits.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-release_firmware() checks for NULL pointers - no need to test before
-the call.
+The release_firmware() function deals gracefully with being passed a
+NULL pointer, so explicit tests before the call are rather pointless.
 
 Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 ---
- drivers/net/ethernet/tehuti/tehuti.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/at76c50x-usb.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
-index ad973ff..a445e77 100644
---- a/drivers/net/ethernet/tehuti/tehuti.c
-+++ b/drivers/net/ethernet/tehuti/tehuti.c
-@@ -341,8 +341,8 @@ static int bdx_fw_load(struct bdx_priv *priv)
- out:
- 	if (master)
- 		WRITE_REG(priv, regINIT_SEMAPHORE, 1);
--	if (fw)
--		release_firmware(fw);
-+
-+	release_firmware(fw);
+diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
+index 4045e5a..faa8bcb 100644
+--- a/drivers/net/wireless/at76c50x-usb.c
++++ b/drivers/net/wireless/at76c50x-usb.c
+@@ -2512,10 +2512,8 @@ static void __exit at76_mod_exit(void)
  
- 	if (rc) {
- 		netdev_err(priv->ndev, "firmware loading failed\n");
+ 	printk(KERN_INFO DRIVER_DESC " " DRIVER_VERSION " unloading\n");
+ 	usb_deregister(&at76_driver);
+-	for (i = 0; i < ARRAY_SIZE(firmwares); i++) {
+-		if (firmwares[i].fw)
+-			release_firmware(firmwares[i].fw);
+-	}
++	for (i = 0; i < ARRAY_SIZE(firmwares); i++)
++		release_firmware(firmwares[i].fw);
+ 	led_trigger_unregister_simple(ledtrig_tx);
+ }
+ 
 -- 
 1.7.10
 
