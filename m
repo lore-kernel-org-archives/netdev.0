@@ -1,78 +1,47 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [BUGFIX][PATCH 3/3] memcg/tcp: ignore tcp usage before accounting
- started
-Date: Sun, 8 Apr 2012 22:44:46 -0300
-Message-ID: <4F823F0E.40309@parallels.com>
-References: <4F7408B7.9090706@jp.fujitsu.com> <4F740AEF.7090900@jp.fujitsu.com> <4F742983.1080402@parallels.com> <20120401.234113.1505269982606203786.davem@davemloft.net> <4F7B7A54.9000501@parallels.com> <4F823443.9070908@jp.fujitsu.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH v17 00/15] seccomp_filter: BPF-based syscall filtering
+Date: Mon, 9 Apr 2012 13:48:37 +1000 (EST)
+Message-ID: <alpine.LRH.2.02.1204091348060.16214@tundra.namei.org>
+References: <1333051320-30872-1-git-send-email-wad@chromium.org> <alpine.LRH.2.02.1203301010310.11201@tundra.namei.org> <20120406142846.fd8dea70.akpm@linux-foundation.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<akpm@linux-foundation.org>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.parallels.com ([64.131.90.16]:34489 "EHLO mx2.parallels.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751919Ab2DIBqX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Apr 2012 21:46:23 -0400
-In-Reply-To: <4F823443.9070908@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
+        linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+        davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+        Oleg Nesterov <oleg@redhat.com>, peterz@infradead.org,
+        rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+        luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+        djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+        pmoore@redhat.com, corbet@lwn.net, eric.dumazet@gmail.com,
+        markus@chromium.org, coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+        Oleg Nesterov <oleg@redhat.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <kernel-hardening-return-1218-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20120406142846.fd8dea70.akpm@linux-foundation.org>
+List-Id: netdev.vger.kernel.org
 
-On 04/08/2012 09:58 PM, KAMEZAWA Hiroyuki wrote:
-> (2012/04/04 7:31), Glauber Costa wrote:
->
->> On 04/02/2012 07:41 AM, David Miller wrote:
->>> From: Glauber Costa<glommer@parallels.com>
->>> Date: Thu, 29 Mar 2012 11:21:07 +0200
->>>
->>>> On 03/29/2012 09:10 AM, KAMEZAWA Hiroyuki wrote:
->>>>> tcp memcontrol starts accouting after res->limit is set. So, if a sockets
->>>>> starts before setting res->limit, there are already used resource.
->>>>> After setting res->limit, the resource (already used) will be uncharged and
->>>>> make res_counter below 0 because they are not charged. This causes warning.
->>>>>
->>>>> This patch fixes that by adding res_counter_uncharge_nowarn().
->>>>> (*) We cannot avoid this while we have 'account start' switch.
->>>>>
->>>>> Signed-off-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
->>>>
->>>> Fine by me.
->>>>
->>>> Acked-by: Glauber Costa<glommer@parallels.com>
->>>
->>> I'm not applying patches that simply ignore accounting counter
->>> underflows.
->>>
->>> You must either:
->>>
->>> 1) Integrate the socket's existing usage when the limit is set.
->>>
->>> 2) Avoid accounting completely for a socket that started before
->>>      the limit was set.
->>>
->>> No half-way solutions, please.  Otherwise it is impossible to design
->>> validations of the resource usage for a particular socket or group of
->>> sockets, because they can always be potentially "wrong" and over the
->>> limit.  That's a design for a buggy system.
->>>
->>>
->> Kame,
->>
->> I agree with Dave FWIW.
->>
->> We should be able to do this by dropping the reference count when the
->> cgroup is finally destroyed, instead of from the remove callback. At
->> that point, no more pending sockets should be attached to it.
->>
->> Prior to increasing the static key, they are all assigned to the global
->> cgroup, so we shouldn't care about them.
->>
->
-> Could you do the fix ?
->
-> Thanks,
-> -Kame
->
->
-I sent you a version already. Please just make sure it works for you
+On Fri, 6 Apr 2012, Andrew Morton wrote:
+
+> > I've offered to take this via my tree -- if anyone else wants to merge it 
+> > via theirs instead, holler.
+> 
+> OK by me, especially if it means that you'll carefully (re)review it!  I
+> had some minor quibbles with v17.
+
+Sure.
+
+> 
+> It would be good if Oleg could take a look at the signal changes, if he
+> has not yet done so?
+> 
+
+-- 
+James Morris
+<jmorris@namei.org>
