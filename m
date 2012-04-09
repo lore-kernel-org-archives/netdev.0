@@ -1,130 +1,147 @@
-From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] davinci_emac: Add cpu_freq support
-Date: Mon, 9 Apr 2012 15:29:52 +0400
-Message-ID: <4F82C830.1020100@mvista.com>
-References: <1333968549-3282-1-git-send-email-prakash.pm@ti.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 6/6] tilegx network driver: initial support
+Date: Mon, 9 Apr 2012 13:49:54 +0000
+Message-ID: <201204091349.54484.arnd@arndb.de>
+References: <201204062059.q36KxjEO011317@farm-0027.internal.tilera.com> <201204062101.q36L1uCi011406@farm-0027.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Manjunathappa, Prakash" <prakash.pm-l0cyMroinI0@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1333968549-3282-1-git-send-email-prakash.pm-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201204062101.q36L1uCi011406@farm-0027.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 09-04-2012 14:49, Manjunathappa, Prakash wrote:
-
-> Reconfigure interrupt coalesce parameter for changed emac bus_freq
-> due to DVFS.
-
-> Signed-off-by: Manjunathappa, Prakash<prakash.pm-l0cyMroinI0@public.gmane.org>
+On Friday 06 April 2012, Chris Metcalf wrote:
+> This change adds support for the tilegx network driver based on the
+> GXIO IORPC support in the tilegx software stack, using the on-chip
+> mPIPE packet processing engine.
+> 
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 > ---
->   drivers/net/ethernet/ti/davinci_emac.c |   60 ++++++++++++++++++++++++++++++++
->   1 files changed, 60 insertions(+), 0 deletions(-)
+>  drivers/net/ethernet/tile/Kconfig  |    1 +
+>  drivers/net/ethernet/tile/Makefile |    4 +-
+>  drivers/net/ethernet/tile/tilegx.c | 2045 ++++++++++++++++++++++++++++++++++++
+>  3 files changed, 2048 insertions(+), 2 deletions(-)
+>  create mode 100644 drivers/net/ethernet/tile/tilegx.c
 
-> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-> index 174a334..11d3bd7 100644
-> --- a/drivers/net/ethernet/ti/davinci_emac.c
-> +++ b/drivers/net/ethernet/ti/davinci_emac.c
-[...]
-> @@ -1761,6 +1765,46 @@ static const struct net_device_ops emac_netdev_ops = {
->   #endif
->   };
->
-> +#ifdef CONFIG_CPU_FREQ
-> +static int davinci_emac_cpufreq_transition(struct notifier_block *nb,
-> +				     unsigned long val, void *data)
+I think the directory name should be the company, not the architecture here, so make
+it drivers/net/ethernet/tilera/tilegx.c instead.
+
+> +
+> +MODULE_AUTHOR("Tilera");
+> +MODULE_LICENSE("GPL");
+> +
+
+MODULE_AUTHOR is normally a real person with an email address.
+
+> +/* Statistics counters for a specific cpu and device. */
+> +struct tile_net_stats_t {
+> +	u32 rx_packets;
+> +	u32 rx_bytes;
+> +	u32 tx_packets;
+> +	u32 tx_bytes;
+> +};
+
+I think you need to drop the _t postfix here, which presumably comes
+from converting it from a typedef.
+
+> +
+> +/* The actual devices. */
+> +static struct net_device *tile_net_devs[TILE_NET_DEVS];
+> +
+> +/* The device for a given channel.  HACK: We use "32", not
+> + * TILE_NET_CHANNELS, because it is fairly subtle that the 5 bit
+> + * "idesc.channel" field never exceeds TILE_NET_CHANNELS.
+> + */
+> +static struct net_device *tile_net_devs_for_channel[32];
+
+When you need to keep a list or array of device structures in a driver, you're
+usually doing something very wrong. The convention is to just pass the pointer
+around to where you need it.
+
+> +
+> +/* Convert a "buffer ptr" into a "buffer cpa". */
+> +static inline void *buf_to_cpa(void *buf)
 > +{
-> +	int ret = 0;
-> +	struct emac_priv *priv;
-> +
-> +	priv = container_of(nb, struct emac_priv, freq_transition);
-> +	if (priv->coal_intvl != 0) {
-> +		if (val == CPUFREQ_POSTCHANGE) {
-> +			if (emac_bus_frequency != clk_get_rate(emac_clk)) {
-
-    These 3 *if*s could be collapsed into one, and so indentation level 
-lowered significantly.
-
-> +				struct ethtool_coalesce coal;
-> +
-> +				emac_bus_frequency = clk_get_rate(emac_clk);
-> +
-> +				priv->bus_freq_mhz = (u32)(emac_bus_frequency /
-> +						1000000);
-> +				coal.rx_coalesce_usecs = (priv->coal_intvl
-> +						<<  4);
-> +				ret = emac_set_coalesce(priv->ndev,&coal);
-> +			}
-> +		}
-> +	}
-> +	return ret;
+> +	return (void *)__pa(buf);
 > +}
 > +
-> +static inline int davinci_emac_cpufreq_register(struct emac_priv *priv)
+> +
+> +/* Convert a "buffer cpa" into a "buffer ptr". */
+> +static inline void *cpa_to_buf(void *cpa)
 > +{
-> +	priv->freq_transition.notifier_call = davinci_emac_cpufreq_transition;
-> +	return cpufreq_register_notifier(&priv->freq_transition,
-> +					 CPUFREQ_TRANSITION_NOTIFIER);
+> +	return (void *)__va(cpa);
 > +}
-> +
-> +static inline void davinci_emac_cpufreq_deregister(struct emac_priv *priv)
+
+This is almost certainly wrong: The type returned by __pa is a phys_addr_t,
+which cannot be dereferenced like a pointer. On normal drivers, you would
+use dma_map_single()/dma_unmap_single() to get a token that can get
+passed into a dma engine. From what I can tell, this device is directly mapped,
+while your PCI uses an IOMMU, so that would require two different
+implementations of dma mapping operations.
+
+> +/* Allocate and push a buffer. */
+> +static bool tile_net_provide_buffer(bool small)
 > +{
-> +	cpufreq_unregister_notifier(&priv->freq_transition,
-> +				    CPUFREQ_TRANSITION_NOTIFIER);
-> +}
-> +#endif
+> +	int stack = small ? small_buffer_stack : large_buffer_stack;
 > +
->   /**
->    * davinci_emac_probe: EMAC device probe
->    * @pdev: The DaVinci EMAC device that we are removing
-> @@ -1925,8 +1969,21 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
->   			   "(regs: %p, irq: %d)\n",
->   			   (void *)priv->emac_base_phys, ndev->irq);
->   	}
+> +	/* Buffers must be aligned. */
+> +	const unsigned long align = 128;
 > +
-> +#ifdef CONFIG_CPU_FREQ
-> +	rc = davinci_emac_cpufreq_register(priv);
-> +	if (rc) {
-> +		dev_err(&pdev->dev, "error in register_netdev\n");
+> +	/* Note that "dev_alloc_skb()" adds NET_SKB_PAD more bytes,
+> +	 * and also "reserves" that many bytes.
+> +	 */
+> +	int len = sizeof(struct sk_buff **) + align + (small ? 128 : 1664);
+> +
+> +	/* Allocate (or fail). */
+> +	struct sk_buff *skb = dev_alloc_skb(len);
+> +	if (skb == NULL)
+> +		return false;
+> +
+> +	/* Make room for a back-pointer to 'skb'. */
+> +	skb_reserve(skb, sizeof(struct sk_buff **));
+> +
+> +	/* Make sure we are aligned. */
+> +	skb_reserve(skb, -(long)skb->data & (align - 1));
+> +
+> +	/* Save a back-pointer to 'skb'. */
+> +	*(struct sk_buff **)(skb->data - sizeof(struct sk_buff **)) = skb;
 
-    Really?
+This looks very wrong: why would you put the pointer to the skb into the
+skb itself?
 
-> +		rc = -ENODEV;
-> +		goto cpufreq_reg_err;
-> +	}
-> +#endif
->   	return 0;
->
-> +#ifdef CONFIG_CPU_FREQ
-> +cpufreq_reg_err:
-> +	unregister_netdev(ndev);
-> +#endif
->   netdev_reg_err:
->   	clk_disable(emac_clk);
->   no_irq_res:
-> @@ -1973,6 +2030,9 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
->
->   	release_mem_region(res->start, resource_size(res));
->
-> +#ifdef CONFIG_CPU_FREQ
-> +	davinci_emac_cpufreq_deregister(priv);
-> +#endif
+> +	/* Make sure "skb" and the back-pointer have been flushed. */
+> +	__insn_mf();
 
-    This is considered a bad practice to use #ifdef in the body of function.
-Define the faunction you call here as empty inline in case CONFIG_CPU_FREQ is 
-not defined instead. The same about davinci_emac_cpufreq_register().
+Try to use archicture independent names for flush operations like this
+to make it more readable. I assume this should be smp_wmb()?
 
-WBR, Sergei
+> +
+> +		/* Compute the "ip checksum". */
+> +		jsum = isum_hack + htons(s_len - eh_len) + htons(id);
+> +		jsum = __insn_v2sadu(jsum, 0);
+> +		jsum = __insn_v2sadu(jsum, 0);
+> +		jsum = (0xFFFF ^ jsum);
+> +		jh->check = jsum;
+> +
+> +		/* Update the tcp "seq". */
+> +		uh->seq = htonl(seq);
+> +
+> +		/* Update some flags. */
+> +		if (!final)
+> +			uh->fin = uh->psh = 0;
+> +
+> +		/* Compute the tcp pseudo-header checksum. */
+> +		usum = tsum_hack + htons(s_len);
+> +		usum = __insn_v2sadu(usum, 0);
+> +		usum = __insn_v2sadu(usum, 0);
+> +		uh->check = usum;
+
+Why to you open-code the ip checksum functions here? Normally the stack takes
+care of this by calling the functions you already provide in
+arch/tile/lib/checksum.c
+
+	Arnd
