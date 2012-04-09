@@ -1,52 +1,71 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] rtnetlink: fix spelling errors
-Date: Mon, 9 Apr 2012 23:09:04 +0100
-Message-ID: <1334009344.7150.268.camel@deadeye>
-References: <20120409132756.32daeaa6@nehalam.linuxnetplumber.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next PATCH v1 0/7] Managing the forwarding database(FDB)
+Date: Mon, 09 Apr 2012 15:00:11 -0700
+Message-ID: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, gregory.v.rose@intel.com,
+	krkumar2@in.ibm.com, sri@us.ibm.com
+To: roprabhu@cisco.com, mst@redhat.com, stephen.hemminger@vyatta.com,
+	davem@davemloft.net, hadi@cyberus.ca, bhutchings@solarflare.com,
+	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:32710 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751565Ab2DIWJJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2012 18:09:09 -0400
-In-Reply-To: <20120409132756.32daeaa6@nehalam.linuxnetplumber.net>
+Received: from mga01.intel.com ([192.55.52.88]:49571 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757173Ab2DIWNN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Apr 2012 18:13:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-09 at 13:27 -0700, Stephen Hemminger wrote:
-> Minor spelling mistakes.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> --- a/include/net/rtnetlink.h	2012-02-27 08:43:02.400935781 -0800
-> +++ b/include/net/rtnetlink.h	2012-04-09 13:24:02.705034830 -0700
-> @@ -41,7 +41,7 @@ static inline int rtnl_msg_family(const
->   *	@get_size: Function to calculate required room for dumping device
->   *		   specific netlink attributes
->   *	@fill_info: Function to dump device specific netlink attributes
-> - *	@get_xstats_size: Function to calculate required room for dumping devic
-> + *	@get_xstats_size: Function to calculate required room for dumping device
->   *			  specific statistics
->   *	@fill_xstats: Function to dump device specific statistics
->   */
-> @@ -94,7 +94,7 @@ extern void	rtnl_link_unregister(struct
->   * 	@fill_link_af: Function to fill IFLA_AF_SPEC with address family
->   * 		       specific netlink attributes.
->   * 	@get_link_af_size: Function to calculate size of address family specific
-> - * 			   netlink attributes exlusive the container attribute.
-> + * 			   netlink attributes exclusive the container attribute.
-[...]
+The following series is a submission for net-next to allow
+embedded switches and other stacked devices other then the
+Linux bridge to manage a forwarding database.
 
-That's now a real word but it's not grammatically correct; 'exclusive
-the' should be changed to 'exclusive of the' or 'excluding the'.
+This was previously posted here (where it was deferred for
+more review and testing)
 
-Ben.
+http://lists.openwall.net/netdev/2012/03/19/26
+
+This series adds macvlan support per discussions with Roopa
+and Michael. Also ixgbe was updated to support adding multicast
+addresses per request from Greg Rose.
+
+Finally cleanups in the generic dump routines were added
+for multicast to support ixgbe and macvlan use cases.
+
+Thanks to everyone for the helpful review and comments. As
+always any comments/feedback welcome.
+
+.John
+
+---
+
+Greg Rose (1):
+      ixgbe: UTA table incorrectly programmed
+
+John Fastabend (6):
+      macvlan: add FDB bridge ops and new macvlan mode
+      ixgbe: allow RAR table to be updated in promisc mode
+      ixgbe: enable FDB netdevice ops
+      net: add fdb generic dump routine
+      net: addr_list: add exclusive dev_uc_add and dev_mc_add
+      net: add generic PF_BRIDGE:RTM_ FDB hooks
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  121 ++++++++++----
+ drivers/net/macvlan.c                         |   60 ++++++-
+ include/linux/if_link.h                       |    1 
+ include/linux/neighbour.h                     |    3 
+ include/linux/netdevice.h                     |   28 +++
+ include/linux/rtnetlink.h                     |    4 
+ net/bridge/br_device.c                        |    3 
+ net/bridge/br_fdb.c                           |  128 ++++-----------
+ net/bridge/br_netlink.c                       |   12 -
+ net/bridge/br_private.h                       |   15 +-
+ net/core/dev_addr_lists.c                     |   97 ++++++++++--
+ net/core/rtnetlink.c                          |  209 +++++++++++++++++++++++++
+ 12 files changed, 508 insertions(+), 173 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signature
