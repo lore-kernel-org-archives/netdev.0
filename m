@@ -1,62 +1,59 @@
-From: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
-Subject: Re: 3.2.8/amd64 full interrupt hangs and deadlocks under big network
- copies (page allocation failure)
-Date: Mon, 9 Apr 2012 12:46:57 -0700
-Message-ID: <20120409194657.GA24754@merlins.org>
-References: <20120409.143710.879746943062854492.davem@davemloft.net>
- <4F83316F.20504@lwfinger.net>
- <1333998672.3007.245.camel@edumazet-glaptop>
- <20120409.153452.1284163346306246866.davem@davemloft.net>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH v2 2/2] cgroup: get rid of populate for memcg
+Date: Mon, 9 Apr 2012 17:18:52 -0300
+Message-ID: <4F83442C.8040006@parallels.com>
+References: <1333728250-14248-1-git-send-email-glommer@parallels.com> <1333728250-14248-3-git-send-email-glommer@parallels.com> <20120409174042.GA7522@google.com> <4F83218E.7060502@parallels.com> <20120409181331.GD7522@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
-	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120409.153452.1284163346306246866.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	Balbir Singh <bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120409181331.GD7522-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 09, 2012 at 03:34:52PM -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Mon, 09 Apr 2012 21:11:12 +0200
-> 
-> > I think Marc posted stack traces showing problem on transmit side.
->  ...
-> > I dont really understand how it can happen, with MTU=1500
-> 
-> Depending upon the configuration and the driver, wireless can need
-> more headroom.  For encryption an extra 8 bytes are necessary, and the
-> driver may request a variable amount of extra headroom via
-> ->hw.extra_tx_headroom
-> 
-> What wireless device are we dealing with again?
+On 04/09/2012 03:13 PM, Tejun Heo wrote:
+> Hello,
+>
+> On Mon, Apr 09, 2012 at 02:51:10PM -0300, Glauber Costa wrote:
+>> On 04/09/2012 02:40 PM, Tejun Heo wrote:
+>>> which BTW seems incorrect even on its
+>>> own - unmounting and mounting again would probably make the same
+>>> notifier registered multiple times corrupting notification chain, and
+>>> ref inc on the parent.
+>>
+>>
+>> For the maintainers: Should I fix those in a new submission, or do
+>> you intend to do it yourselves?
+>>
+>> the refcnt dropping should probably be done in my patch, it is a new
+>> leak (sorry). The hotplug notifier, as tejun pointed, was already
+>> there.
+>>
+>> It seems simple enough to fix, so if you guys want, I can bundle it in
+>> a new submission.
+>
+> I think it would be best to create a separate patch which is routed
+> through the usual memcg path (I suppose memcg patches go through
+> -mm?).
+>
+> Thanks.
+>
+Tejun,
 
-Intel(R) Wireless WiFi Link AGN driver for Linux, in-tree:
-Copyright(c) 2003-2011 Intel Corporation
-iwlwifi 0000:03:00.0: PCI INT A -> GSI 17 (level, low) -> IRQ 17
-iwlwifi 0000:03:00.0: setting latency timer to 64
-iwlwifi 0000:03:00.0: pci_resource_len = 0x00002000
-iwlwifi 0000:03:00.0: pci_resource_base = ffffc900057a4000
-iwlwifi 0000:03:00.0: HW Revision ID = 0x0
-iwlwifi 0000:03:00.0: irq 47 for MSI/MSI-X
-iwlwifi 0000:03:00.0: Detected Intel(R) Ultimate N WiFi Link 5300 AGN, REV=0x24
-iwlwifi 0000:03:00.0: L1 Disabled; Enabling L0S
-iwlwifi 0000:03:00.0: device EEPROM VER=0x11e, CALIB=0x4
-iwlwifi 0000:03:00.0: Device SKU: 0Xf0
-iwlwifi 0000:03:00.0: Tunable channels: 13 802.11bg, 24 802.11a channels
+After debugging this a bit, I found most of it not to be a problem. 
+Unless I am *very* wrong (and I both read and tested stuff), mount 
+operations do not recreate the root cgroup. So stuff like the hotcpu 
+notifier, etc, won't be a problem.
 
-along with iwlwifi-5000-5.ucode
+Now, you are definitely correct in pointing out that we start leaking 
+stuff now - my bad.
 
-Marc
--- 
-"A mouse is a device used to point at the xterm you want to type in" - A.S.R.
-Microsoft is to operating systems ....
-                                      .... what McDonalds is to gourmet cooking
-Home page: http://marc.merlins.org/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But I guess I can then bundle it in a new submission, after shuffling 
+around stuff a bit. It is really not a bug now, so no reason to route it 
+separately.
