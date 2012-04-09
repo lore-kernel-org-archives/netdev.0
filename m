@@ -1,58 +1,43 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH] net/garp: fix GID rbtree ordering
-Date: Mon, 9 Apr 2012 10:13:53 -0400
-Message-ID: <1333980833-12355-1-git-send-email-david.ward@ll.mit.edu>
+From: Torsten Kaiser <just.for.lkml@googlemail.com>
+Subject: [PATCH]Fix misplaces parenthesis in virtio_net.c
+Date: Mon, 9 Apr 2012 17:14:15 +0200
+Message-ID: <20120409171415.4c49c96a@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Jorge Boncompte [DTI2]" <jorge@dti2.net>,
-	David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:52664 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755403Ab2DIOOA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Apr 2012 10:14:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Rick Jones <rick.jones2@hp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The comparison operators were backwards in both garp_attr_lookup and
-garp_attr_create, so the entire GID rbtree was in reverse order.
-(There was no practical side effect to this though, except that PDUs
-were sent with attributes listed in reverse order, which is still
-valid by the protocol. This change is only for clarity.)
+Commit 2e57b79ccef1ff1422fdf45a9b28fe60f8f084f7 misplaced its
+parenthesis and now tx_fifo_errors will only be incremented if an
+ENOMEM error is not written to the syslog.
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- net/802/garp.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Correct the parenthesis and indentation to the original goal of
+counting all non ENOMEM errors and ratelimiting only the messages.
 
-diff --git a/net/802/garp.c b/net/802/garp.c
-index a5c2248..8456f5d 100644
---- a/net/802/garp.c
-+++ b/net/802/garp.c
-@@ -157,9 +157,9 @@ static struct garp_attr *garp_attr_lookup(const struct garp_applicant *app,
- 	while (parent) {
- 		attr = rb_entry(parent, struct garp_attr, node);
- 		d = garp_attr_cmp(attr, data, len, type);
--		if (d < 0)
-+		if (d > 0)
- 			parent = parent->rb_left;
--		else if (d > 0)
-+		else if (d < 0)
- 			parent = parent->rb_right;
- 		else
- 			return attr;
-@@ -178,9 +178,9 @@ static struct garp_attr *garp_attr_create(struct garp_applicant *app,
- 		parent = *p;
- 		attr = rb_entry(parent, struct garp_attr, node);
- 		d = garp_attr_cmp(attr, data, len, type);
--		if (d < 0)
-+		if (d > 0)
- 			p = &parent->rb_left;
--		else if (d > 0)
-+		else if (d < 0)
- 			p = &parent->rb_right;
- 		else {
- 			/* The attribute already exists; re-use it. */
--- 
-1.7.4.1
+Signed-of-by: Torsten Kaiser <just.for.lkml@googlemail.com>
+
+--- a/drivers/net/virtio_net.c	2012-04-09 16:55:31.366847092 +0200
++++ b/drivers/net/virtio_net.c	2012-04-09 16:56:31.196847799 +0200
+@@ -626,16 +626,15 @@
+ 	/* This can happen with OOM and indirect buffers. */
+ 	if (unlikely(capacity < 0)) {
+ 		if (likely(capacity == -ENOMEM)) {
+-			if (net_ratelimit()) {
++			if (net_ratelimit())
+ 				dev_warn(&dev->dev,
+ 					 "TX queue failure: out of memory\n");
+-			} else {
++		} else {
+ 			dev->stats.tx_fifo_errors++;
+ 			if (net_ratelimit())
+ 				dev_warn(&dev->dev,
+ 					 "Unexpected TX queue failure: %d\n",
+ 					 capacity);
+-			}
+ 		}
+ 		dev->stats.tx_dropped++;
+ 		kfree_skb(skb);
