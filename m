@@ -1,40 +1,47 @@
-From: Markus Gutschke <markus@chromium.org>
-Subject: Re: [PATCH v17 15/15] Documentation: prctl/seccomp_filter
-Date: Mon, 9 Apr 2012 13:47:30 -0700
-Message-ID: <CAE6n16kMv5Y+Cp9XZ=tmK0sgoJJZ6CJUq_ttuNEUMb4JFXJ33g@mail.gmail.com>
-References: <1333051320-30872-1-git-send-email-wad@chromium.org>
- <1333051320-30872-16-git-send-email-wad@chromium.org> <20120406142644.223ffff0.akpm@linux-foundation.org>
- <CABqD9haT5h-7LMkbGSaQbnk8SJj9L21GT61UZCMVWLJCTw9OBg@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH 05/26] tg3: remove redundant NULL test before release_firmware()
+ call
+Date: Mon, 9 Apr 2012 22:50:15 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1204092209360.13925@swampdragon.chaosbits.net>
+References: <alpine.LNX.2.00.1204092157340.13925@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
-	hpa@zytor.com, mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu,
-	eparis@redhat.com, serge.hallyn@canonical.com, djm@mindrot.org,
-	scarybeasts@gmail.com, indan@nul.nu, pmoore@redhat.com, corbet@lwn.net,
-	eric.dumazet@gmail.com, coreyb@linux.vnet.ibm.com, keescook@chromium.org,
-	jmorris@namei.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <kernel-hardening-return-1228-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Sender: markus@google.com
-In-Reply-To: <CABqD9haT5h-7LMkbGSaQbnk8SJj9L21GT61UZCMVWLJCTw9OBg@mail.gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: trivial@kernel.org, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1204092157340.13925@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-No matter what you do, please leave the samples accessible somewhere.
-They proved incredibly useful in figuring out how the API works. I am
-sure, other developers are going to appreciate them as well.
+There is no need to test for a NULL pointer before calling
+release_firmware - the function does that on its own.
 
-Alternatively, if you don't want to include the samples with the
-kernel sources, figure out how you can include a sample in the
-official manual page for prctl().
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/net/ethernet/broadcom/tg3.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 062ac33..9fbf73e 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -15842,8 +15842,7 @@ static void __devexit tg3_remove_one(struct pci_dev *pdev)
+ 	if (dev) {
+ 		struct tg3 *tp = netdev_priv(dev);
+ 
+-		if (tp->fw)
+-			release_firmware(tp->fw);
++		release_firmware(tp->fw);
+ 
+ 		tg3_reset_task_cancel(tp);
+ 
+-- 
+1.7.10
 
 
-Markus
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
