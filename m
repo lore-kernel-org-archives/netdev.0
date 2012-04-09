@@ -1,32 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 3.2.8/amd64 full interrupt hangs and deadlocks under big
- network copies (page allocation failure)
-Date: Mon, 09 Apr 2012 14:12:41 -0400 (EDT)
-Message-ID: <20120409.141241.1216091936509309354.davem@davemloft.net>
-References: <20120329163800.GH24933@merlins.org>
-	<1333044575.2656.1.camel@bwh-desktop.uk.solarflarecom.com>
-	<20120409172051.GR32290@merlins.org>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v2 2/2] cgroup: get rid of populate for memcg
+Date: Mon, 9 Apr 2012 11:13:31 -0700
+Message-ID: <20120409181331.GD7522@google.com>
+References: <1333728250-14248-1-git-send-email-glommer@parallels.com>
+ <1333728250-14248-3-git-send-email-glommer@parallels.com>
+ <20120409174042.GA7522@google.com>
+ <4F83218E.7060502@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: marc@merlins.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35085 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752103Ab2DISM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2012 14:12:56 -0400
-In-Reply-To: <20120409172051.GR32290@merlins.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	Balbir Singh <bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4F83218E.7060502-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Marc MERLIN <marc@merlins.org>
-Date: Mon, 9 Apr 2012 10:20:51 -0700
+Hello,
 
-> Any idea what's going on, what bucket of RAM is an issue for the driver
-> (total RAM is more than plenty), and where I should go from there?
+On Mon, Apr 09, 2012 at 02:51:10PM -0300, Glauber Costa wrote:
+> On 04/09/2012 02:40 PM, Tejun Heo wrote:
+> >which BTW seems incorrect even on its
+> >own - unmounting and mounting again would probably make the same
+> >notifier registered multiple times corrupting notification chain, and
+> >ref inc on the parent.
+> 
+> 
+> For the maintainers: Should I fix those in a new submission, or do
+> you intend to do it yourselves?
+> 
+> the refcnt dropping should probably be done in my patch, it is a new
+> leak (sorry). The hotplug notifier, as tejun pointed, was already
+> there.
+> 
+> It seems simple enough to fix, so if you guys want, I can bundle it in
+> a new submission.
 
-The wireless layer is allocating high-order pages, so it's
-not the amount of ram, it's the fragmentation of it leading
-to a lack of those high-order pages.
+I think it would be best to create a separate patch which is routed
+through the usual memcg path (I suppose memcg patches go through
+-mm?).
+
+Thanks.
+
+-- 
+tejun
