@@ -1,34 +1,61 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v2 2/2] cgroup: get rid of populate for memcg
-Date: Mon, 9 Apr 2012 14:51:10 -0300
-Message-ID: <4F83218E.7060502@parallels.com>
-References: <1333728250-14248-1-git-send-email-glommer@parallels.com> <1333728250-14248-3-git-send-email-glommer@parallels.com> <20120409174042.GA7522@google.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next v3 5/5] r8169: support RTL8411
+Date: Mon, 9 Apr 2012 20:02:29 +0200
+Message-ID: <20120409180229.GA28837@electric-eye.fr.zoreil.com>
+References: <1333089184-1773-5-git-send-email-hayeswang@realtek.com> <1333090086-1815-1-git-send-email-hayeswang@realtek.com> <20120330072521.GA11548@electric-eye.fr.zoreil.com> <52E71C7B42A44FB1A8556BB6B75CD9A0@realtek.com.tw> <20120405083743.GB32027@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	Balbir Singh <bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120409174042.GA7522-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: hayeswang <hayeswang@realtek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47593 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756808Ab2DISGU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Apr 2012 14:06:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20120405083743.GB32027@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/09/2012 02:40 PM, Tejun Heo wrote:
-> which BTW seems incorrect even on its
-> own - unmounting and mounting again would probably make the same
-> notifier registered multiple times corrupting notification chain, and
-> ref inc on the parent.
+Francois Romieu <romieu@fr.zoreil.com> :
+> hayeswang <hayeswang@realtek.com> :
+> [...]
+> > There is nothing to do for rtl_init_jumbo_ops. It is all right for keeping
+> > NULL.
+> 
+> Ok, I'll add it to the commit message for future reference.
+> 
+> > Do I need to resend this patch?
+> 
+> No, I'll give it a short testing and forward to David.
 
+Rx/Tx is ok, WoL + shutdown is ok but runtime power management is not.
 
-For the maintainers: Should I fix those in a new submission, or do you 
-intend to do it yourselves?
+I tried net-next + your patches + cff4c16296754888b6fd8c886bc860a888e20257
+("r8169: enable napi on resume.", required for RPM or suspend/resume after
+regression in da78dbff2e05630921c551dbbc70a4b7981a8fff).
 
-the refcnt dropping should probably be done in my patch, it is a new 
-leak (sorry). The hotplug notifier, as tejun pointed, was already there.
+- set a 8402 and a 8411 in the same test box
+- ip addr add ... 
+- ip link set dev ... up 
+- start ping from remote host
+- echo auto > /sys/bus/pci/devices/.../power/control
+- unplug cable
+  - ping stops flowing
+  - cat /sys/bus/pci/devices/.../power/runtime_status
+    -> "active"
+- plug cable
+  -> RPM status does not change, no link, no packet, no fun.
 
-It seems simple enough to fix, so if you guys want, I can bundle it in
-a new submission.
+I have tried the same with a built-in 8168b (XID 18000000).
+-> RPM status changes, link recovers, packets flow.
+
+The 8168b is a bit special, so I swapped the 8411 for a 8102e (XID 04a00000).
+It resumed correctly as well.
+
+Any idea ?
+
+-- 
+Ueimor
+
+Will code drivers for food.
