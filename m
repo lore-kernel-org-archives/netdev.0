@@ -1,47 +1,53 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH 06/26] bna: remove redundant NULL test before
- release_firmware()
-Date: Mon, 9 Apr 2012 22:50:24 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1204092210470.13925@swampdragon.chaosbits.net>
-References: <alpine.LNX.2.00.1204092157340.13925@swampdragon.chaosbits.net>
+From: Ryan Ware <ware@linux.intel.com>
+Subject: Re: [PATCH v17 15/15] Documentation: prctl/seccomp_filter
+Date: Mon, 09 Apr 2012 13:58:56 -0700
+Message-ID: <CBA89B80.3C770%ware@linux.intel.com>
+References: <CAE6n16kMv5Y+Cp9XZ=tmK0sgoJJZ6CJUq_ttuNEUMb4JFXJ33g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: trivial@kernel.org, netdev@vger.kernel.org,
-	Rasesh Mody <rmody@brocade.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1204092157340.13925@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-security-module@vger.kernel.org>,
+	<linux-arch@vger.kernel.org>, <linux-doc@vger.kernel.org>,
+	<kernel-hardening@lists.openwall.com>, <netdev@vger.kernel.org>,
+	<x86@kernel.org>, <arnd@arndb.de>, <davem@davemloft.net>,
+	<hpa@zytor.com>, <mingo@redhat.com>, <oleg@redhat.com>,
+	<peterz@infradead.org>, <rdunlap@xenotime.net>,
+	<mcgrathr@chromium.org>, <tglx@linutronix.de>, <luto@mit.edu>,
+	<eparis@redhat.com>, <serge.hallyn@canonical.com>,
+	<djm@mindrot.org>, <scarybeasts@gmail.com>, <indan@nul.nu>,
+	<pmoore@redhat.com>, <corbet@lwn.net>, <eric.dumazet@gmail.com>,
+	<coreyb@linux.vnet.ibm.com>, <keescook@chromium.org>,
+	<jmorris@namei.org>
+To: Markus Gutschke <markus@chromium.org>,
+	Will Drewry <wad@chromium.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAE6n16kMv5Y+Cp9XZ=tmK0sgoJJZ6CJUq_ttuNEUMb4JFXJ33g@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-release_firmware() does its own NULL test so explicit test before call
-is unneeded.
+I second this!  They are extremely useful.
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/net/ethernet/brocade/bna/bnad.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Ryan
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index ff78f77..d86390c 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -3546,9 +3546,7 @@ static void __exit
- bnad_module_exit(void)
- {
- 	pci_unregister_driver(&bnad_pci_driver);
--
--	if (bfi_fw)
--		release_firmware(bfi_fw);
-+	release_firmware(bfi_fw);
- }
- 
- module_init(bnad_module_init);
--- 
-1.7.10
+On 4/9/12 1:47 PM, "Markus Gutschke" <markus@chromium.org> wrote:
+
+>No matter what you do, please leave the samples accessible somewhere.
+>They proved incredibly useful in figuring out how the API works. I am
+>sure, other developers are going to appreciate them as well.
+>
+>Alternatively, if you don't want to include the samples with the
+>kernel sources, figure out how you can include a sample in the
+>official manual page for prctl().
+>
+>
+>Markus
+>--
+>To unsubscribe from this list: send the line "unsubscribe
+>linux-security-module" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
