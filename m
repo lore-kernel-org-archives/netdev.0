@@ -1,8 +1,7 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH v1 7/7] macvlan: add FDB bridge ops and new macvlan
-	mode
-Date: Mon, 09 Apr 2012 15:00:54 -0700
-Message-ID: <20120409220053.3288.40867.stgit@jf-dev1-dcblab>
+Subject: [net-next PATCH v1 6/7] ixgbe: UTA table incorrectly programmed
+Date: Mon, 09 Apr 2012 15:00:48 -0700
+Message-ID: <20120409220048.3288.51212.stgit@jf-dev1-dcblab>
 References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,176 +12,78 @@ To: roprabhu@cisco.com, mst@redhat.com, stephen.hemminger@vyatta.com,
 	davem@davemloft.net, hadi@cyberus.ca, bhutchings@solarflare.com,
 	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:18047 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8663 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752801Ab2DIWNz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Apr 2012 18:13:55 -0400
+	id S1757157Ab2DIWNt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Apr 2012 18:13:49 -0400
 In-Reply-To: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a new macvlan mode MACVLAN_PASSTHRU_NOPROMISC
-this mode acts the same as the original passthru mode _except_
-it does not set promiscuous mode on the lowerdev. Because the
-lowerdev is not put in promiscuous mode any unicast or multicast
-addresses the device should receive must be explicitely added
-with the FDB bridge ops. In many use cases the management stack
-will know the mac addresses needed (maybe negotiated via EVB/VDP)
-or may require only receiving known "good" mac addresses. This
-mode with the FDB ops supports this usage model.
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This patch is a result of Roopa Prabhu's work. Follow up
-patches are needed for VEPA and VEB macvlan modes.
+The UTA table was being set to the functional equivalent of promiscuous
+mode.  This was resulting in traffic from the virtual function being
+flooded onto the wire and the PF device. This resulted in additional
+overhead for VF traffic sent to the network and in the case of traffic
+sent to the PF or another VF resulted in unwanted packets on the wire.
 
-CC: Roopa Prabhu <roprabhu@cisco.com>
-CC: Michael S. Tsirkin <mst@redhat.com>
+This was actually not the intended behavior. Now that we can program
+the embedded switch correctly we can remove this snippit of code. Users
+who want to support this should configure the FDB correctly using the
+FDB ops.
+
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- drivers/net/macvlan.c   |   60 ++++++++++++++++++++++++++++++++++++++++++-----
- include/linux/if_link.h |    1 +
- 2 files changed, 55 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   29 -------------------------
+ 1 files changed, 0 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index b17fc90..9892d8d 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -181,6 +181,7 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 					  MACVLAN_MODE_PRIVATE |
- 					  MACVLAN_MODE_VEPA    |
- 					  MACVLAN_MODE_PASSTHRU|
-+					  MACVLAN_MODE_PASSTHRU_NOPROMISC |
- 					  MACVLAN_MODE_BRIDGE);
- 		else if (src->mode == MACVLAN_MODE_VEPA)
- 			/* flood to everyone except source */
-@@ -312,7 +313,8 @@ static int macvlan_open(struct net_device *dev)
- 	int err;
- 
- 	if (vlan->port->passthru) {
--		dev_set_promiscuity(lowerdev, 1);
-+		if (vlan->mode == MACVLAN_MODE_PASSTHRU)
-+			dev_set_promiscuity(lowerdev, 1);
- 		goto hash_add;
- 	}
- 
-@@ -344,12 +346,15 @@ static int macvlan_stop(struct net_device *dev)
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct net_device *lowerdev = vlan->lowerdev;
- 
-+	dev_uc_unsync(lowerdev, dev);
-+	dev_mc_unsync(lowerdev, dev);
-+
- 	if (vlan->port->passthru) {
--		dev_set_promiscuity(lowerdev, -1);
-+		if (vlan->mode == MACVLAN_MODE_PASSTHRU)
-+			dev_set_promiscuity(lowerdev, 1);
- 		goto hash_del;
- 	}
- 
--	dev_mc_unsync(lowerdev, dev);
- 	if (dev->flags & IFF_ALLMULTI)
- 		dev_set_allmulti(lowerdev, -1);
- 
-@@ -399,10 +404,11 @@ static void macvlan_change_rx_flags(struct net_device *dev, int change)
- 		dev_set_allmulti(lowerdev, dev->flags & IFF_ALLMULTI ? 1 : -1);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 25a7ed9..10606bd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2904,33 +2904,6 @@ static void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter,
+ 	IXGBE_WRITE_REG(hw, IXGBE_RSCCTL(reg_idx), rscctrl);
  }
  
--static void macvlan_set_multicast_list(struct net_device *dev)
-+static void macvlan_set_mac_lists(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
+-/**
+- *  ixgbe_set_uta - Set unicast filter table address
+- *  @adapter: board private structure
+- *
+- *  The unicast table address is a register array of 32-bit registers.
+- *  The table is meant to be used in a way similar to how the MTA is used
+- *  however due to certain limitations in the hardware it is necessary to
+- *  set all the hash bits to 1 and use the VMOLR ROPE bit as a promiscuous
+- *  enable bit to allow vlan tag stripping when promiscuous mode is enabled
+- **/
+-static void ixgbe_set_uta(struct ixgbe_adapter *adapter)
+-{
+-	struct ixgbe_hw *hw = &adapter->hw;
+-	int i;
+-
+-	/* The UTA table only exists on 82599 hardware and newer */
+-	if (hw->mac.type < ixgbe_mac_82599EB)
+-		return;
+-
+-	/* we only need to do this if VMDq is enabled */
+-	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
+-		return;
+-
+-	for (i = 0; i < 128; i++)
+-		IXGBE_WRITE_REG(hw, IXGBE_UTA(i), ~0);
+-}
+-
+ #define IXGBE_MAX_RX_DESC_POLL 10
+ static void ixgbe_rx_desc_queue_enable(struct ixgbe_adapter *adapter,
+ 				       struct ixgbe_ring *ring)
+@@ -3224,8 +3197,6 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	/* Program registers for the distribution of queues */
+ 	ixgbe_setup_mrqc(adapter);
  
-+	dev_uc_sync(vlan->lowerdev, dev);
- 	dev_mc_sync(vlan->lowerdev, dev);
- }
+-	ixgbe_set_uta(adapter);
+-
+ 	/* set_rx_buffer_len must be called before ring initialization */
+ 	ixgbe_set_rx_buffer_len(adapter);
  
-@@ -542,6 +548,43 @@ static int macvlan_vlan_rx_kill_vid(struct net_device *dev,
- 	return 0;
- }
- 
-+static int macvlan_fdb_add(struct ndmsg *ndm,
-+			   struct net_device *dev,
-+			   unsigned char *addr,
-+			   u16 flags)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	int err = -EINVAL;
-+
-+	if (!vlan->port->passthru)
-+		return -EOPNOTSUPP;
-+
-+	if (is_unicast_ether_addr(addr))
-+		err = dev_uc_add_excl(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_add_excl(dev, addr);
-+
-+	return err;
-+}
-+
-+static int macvlan_fdb_del(struct ndmsg *ndm,
-+			   struct net_device *dev,
-+			   unsigned char *addr)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	int err = -EINVAL;
-+
-+	if (!vlan->port->passthru)
-+		return -EOPNOTSUPP;
-+
-+	if (is_unicast_ether_addr(addr))
-+		err = dev_uc_del(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_del(dev, addr);
-+
-+	return err;
-+}
-+
- static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 					struct ethtool_drvinfo *drvinfo)
- {
-@@ -572,11 +615,14 @@ static const struct net_device_ops macvlan_netdev_ops = {
- 	.ndo_change_mtu		= macvlan_change_mtu,
- 	.ndo_change_rx_flags	= macvlan_change_rx_flags,
- 	.ndo_set_mac_address	= macvlan_set_mac_address,
--	.ndo_set_rx_mode	= macvlan_set_multicast_list,
-+	.ndo_set_rx_mode	= macvlan_set_mac_lists,
- 	.ndo_get_stats64	= macvlan_dev_get_stats64,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_vlan_rx_add_vid	= macvlan_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= macvlan_vlan_rx_kill_vid,
-+	.ndo_fdb_add		= macvlan_fdb_add,
-+	.ndo_fdb_del		= macvlan_fdb_del,
-+	.ndo_fdb_dump		= ndo_dflt_fdb_dump,
- };
- 
- void macvlan_common_setup(struct net_device *dev)
-@@ -648,6 +694,7 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
- 		case MACVLAN_MODE_VEPA:
- 		case MACVLAN_MODE_BRIDGE:
- 		case MACVLAN_MODE_PASSTHRU:
-+		case MACVLAN_MODE_PASSTHRU_NOPROMISC:
- 			break;
- 		default:
- 			return -EINVAL;
-@@ -711,7 +758,8 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 	if (data && data[IFLA_MACVLAN_MODE])
- 		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
- 
--	if (vlan->mode == MACVLAN_MODE_PASSTHRU) {
-+	if ((vlan->mode == MACVLAN_MODE_PASSTHRU) ||
-+	    (vlan->mode == MACVLAN_MODE_PASSTHRU_NOPROMISC)) {
- 		if (port->count)
- 			return -EINVAL;
- 		port->passthru = true;
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 2f4fa93..db67b9d 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -265,6 +265,7 @@ enum macvlan_mode {
- 	MACVLAN_MODE_VEPA    = 2, /* talk to other ports through ext bridge */
- 	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
- 	MACVLAN_MODE_PASSTHRU = 8,/* take over the underlying device */
-+	MACVLAN_MODE_PASSTHRU_NOPROMISC = 16, /* passthru without promisc */
- };
- 
- /* SR-IOV virtual function management section */
