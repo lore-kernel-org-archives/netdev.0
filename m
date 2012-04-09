@@ -1,43 +1,88 @@
-From: Torsten Kaiser <just.for.lkml@googlemail.com>
-Subject: [PATCH]Fix misplaces parenthesis in virtio_net.c
-Date: Mon, 9 Apr 2012 17:14:15 +0200
-Message-ID: <20120409171415.4c49c96a@googlemail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] davinci_emac: Add cpu_freq support
+Date: Mon, 9 Apr 2012 16:56:18 +0100
+Message-ID: <1333986978.7150.261.camel@deadeye>
+References: <1333968549-3282-1-git-send-email-prakash.pm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Rick Jones <rick.jones2@hp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>,
+	<davinci-linux-open-source@linux.davincidsp.com>
+To: "Manjunathappa, Prakash" <prakash.pm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:23920 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932104Ab2DIP4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2012 11:56:24 -0400
+In-Reply-To: <1333968549-3282-1-git-send-email-prakash.pm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 2e57b79ccef1ff1422fdf45a9b28fe60f8f084f7 misplaced its
-parenthesis and now tx_fifo_errors will only be incremented if an
-ENOMEM error is not written to the syslog.
+On Mon, 2012-04-09 at 16:19 +0530, Manjunathappa, Prakash wrote:
+> Reconfigure interrupt coalesce parameter for changed emac bus_freq
+> due to DVFS.
+> 
+> Signed-off-by: Manjunathappa, Prakash <prakash.pm@ti.com>
+> ---
+>  drivers/net/ethernet/ti/davinci_emac.c |   60 ++++++++++++++++++++++++++++++++
+>  1 files changed, 60 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+> index 174a334..11d3bd7 100644
+> --- a/drivers/net/ethernet/ti/davinci_emac.c
+> +++ b/drivers/net/ethernet/ti/davinci_emac.c
+> @@ -50,6 +50,7 @@
+>  #include <linux/ctype.h>
+>  #include <linux/spinlock.h>
+>  #include <linux/dma-mapping.h>
+> +#include <linux/cpufreq.h>
+>  #include <linux/clk.h>
+>  #include <linux/platform_device.h>
+>  #include <linux/semaphore.h>
+> @@ -344,6 +345,9 @@ struct emac_priv {
+>  	/*platform specific members*/
+>  	void (*int_enable) (void);
+>  	void (*int_disable) (void);
+> +#ifdef CONFIG_CPU_FREQ
+> +	struct notifier_block	freq_transition;
+> +#endif
+>  };
+>  
+>  /* clock frequency for EMAC */
+> @@ -1761,6 +1765,46 @@ static const struct net_device_ops emac_netdev_ops = {
+>  #endif
+>  };
+>  
+> +#ifdef CONFIG_CPU_FREQ
+> +static int davinci_emac_cpufreq_transition(struct notifier_block *nb,
+> +				     unsigned long val, void *data)
+> +{
+> +	int ret = 0;
+> +	struct emac_priv *priv;
+> +
+> +	priv = container_of(nb, struct emac_priv, freq_transition);
+> +	if (priv->coal_intvl != 0) {
+> +		if (val == CPUFREQ_POSTCHANGE) {
+> +			if (emac_bus_frequency != clk_get_rate(emac_clk)) {
+> +				struct ethtool_coalesce coal;
+> +
+> +				emac_bus_frequency = clk_get_rate(emac_clk);
+> +
+> +				priv->bus_freq_mhz = (u32)(emac_bus_frequency /
+> +						1000000);
+> +				coal.rx_coalesce_usecs = (priv->coal_intvl
+> +						<< 4);
+> +				ret = emac_set_coalesce(priv->ndev, &coal);
+[...]
 
-Correct the parenthesis and indentation to the original goal of
-counting all non ENOMEM errors and ratelimiting only the messages.
+Ick.  Why don't you break up emac_set_coalesce() so that you can push
+this one value to the hardware without faking up a struct
+ethtool_coalesce?  Don't you need to push it on reset/resume anyway?
 
-Signed-of-by: Torsten Kaiser <just.for.lkml@googlemail.com>
+Ben.
 
---- a/drivers/net/virtio_net.c	2012-04-09 16:55:31.366847092 +0200
-+++ b/drivers/net/virtio_net.c	2012-04-09 16:56:31.196847799 +0200
-@@ -626,16 +626,15 @@
- 	/* This can happen with OOM and indirect buffers. */
- 	if (unlikely(capacity < 0)) {
- 		if (likely(capacity == -ENOMEM)) {
--			if (net_ratelimit()) {
-+			if (net_ratelimit())
- 				dev_warn(&dev->dev,
- 					 "TX queue failure: out of memory\n");
--			} else {
-+		} else {
- 			dev->stats.tx_fifo_errors++;
- 			if (net_ratelimit())
- 				dev_warn(&dev->dev,
- 					 "Unexpected TX queue failure: %d\n",
- 					 capacity);
--			}
- 		}
- 		dev->stats.tx_dropped++;
- 		kfree_skb(skb);
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
