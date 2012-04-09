@@ -1,61 +1,105 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Mon, 09 Apr 2012 11:13:29 +0200
-Message-ID: <1333962809.3007.32.camel@edumazet-glaptop>
-References: <20120408171323.GA16012@redhat.com>
-	 <20120408234951.GA15993@gondor.apana.org.au>
-	 <20120409072849.GA12014@redhat.com>
-	 <20120409073354.GA3218@gondor.apana.org.au>
-	 <20120409073953.GD12014@redhat.com>
-	 <20120409082919.GA3471@gondor.apana.org.au>
-	 <20120409083402.GA28249@redhat.com>
-	 <20120409083958.GA3951@gondor.apana.org.au>
-	 <20120409084208.GA28362@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] skbuff: struct ubuf_info callback type safety
+Date: Mon, 9 Apr 2012 13:24:02 +0300
+Message-ID: <20120409102402.GA5255@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
+Cc: Shirley Ma <xma@us.ibm.com>, Stephen Hemminger <shemminger@vyatta.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:37943 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751520Ab2DIJNe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2012 05:13:34 -0400
-In-Reply-To: <20120409084208.GA28362@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-04-09 at 11:42 +0300, Michael S. Tsirkin wrote:
-> On Mon, Apr 09, 2012 at 04:39:58PM +0800, Herbert Xu wrote:
-> > On Mon, Apr 09, 2012 at 11:34:02AM +0300, Michael S. Tsirkin wrote:
-> > >
-> > > Puzzled. This patch orphans skbs only if the destination device sets
-> > > IFF_TX_CAN_STALL.  Since the physical NIC doesn't stall forever it never
-> > > sets this flag.
-> > > 
-> > > So it seems that this patch should not affect the configuration
-> > > you describe at all.
-> > > 
-> > > Could you please clarify? What did I miss?
-> > 
-> > Oops, you're right.  Somehow I was thinking you were patching
-> > virtio-net instead of tun.
-> > 
-> > Cheers,
-> 
-> Cool. Want to ack the patch then just to make it clear you are happy?
+The skb struct ubuf_info callback gets passed struct ubuf_info
+itself, not the arg value as the field name and the function signature
+seem to imply. Rename the arg field to ctx to match usage,
+add documentation and change the callback argument type
+to make usage clear and to have compiler check correctness.
 
-I am not happy with this patch.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/vhost/net.c    |    2 +-
+ drivers/vhost/vhost.c  |    5 ++---
+ drivers/vhost/vhost.h  |    2 +-
+ include/linux/skbuff.h |    7 ++++---
+ 4 files changed, 8 insertions(+), 8 deletions(-)
 
-Since its Easter, I dont have much time to comment right now, I'll do
-that tomorrow.
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index f0da2c3..1f21d2a 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -238,7 +238,7 @@ static void handle_tx(struct vhost_net *net)
+ 
+ 				vq->heads[vq->upend_idx].len = len;
+ 				ubuf->callback = vhost_zerocopy_callback;
+-				ubuf->arg = vq->ubufs;
++				ubuf->ctx = vq->ubufs;
+ 				ubuf->desc = vq->upend_idx;
+ 				msg.msg_control = ubuf;
+ 				msg.msg_controllen = sizeof(ubuf);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 947f00d..51e4c1e 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1598,10 +1598,9 @@ void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
+ 	kfree(ubufs);
+ }
+ 
+-void vhost_zerocopy_callback(void *arg)
++void vhost_zerocopy_callback(struct ubuf_info *ubuf)
+ {
+-	struct ubuf_info *ubuf = arg;
+-	struct vhost_ubuf_ref *ubufs = ubuf->arg;
++	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
+ 	struct vhost_virtqueue *vq = ubufs->vq;
+ 
+ 	/* set len = 1 to mark this desc buffers done DMA */
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 8dcf4cc..8de1fd5 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -188,7 +188,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
+ 
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
+-void vhost_zerocopy_callback(void *arg);
++void vhost_zerocopy_callback(struct ubuf_info *);
+ int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
+ 
+ #define vq_err(vq, fmt, ...) do {                                  \
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 3337027..4c3f138 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -238,11 +238,12 @@ enum {
+ /*
+  * The callback notifies userspace to release buffers when skb DMA is done in
+  * lower device, the skb last reference should be 0 when calling this.
+- * The desc is used to track userspace buffer index.
++ * The ctx field is used to track device context.
++ * The desc field is used to track userspace buffer index.
+  */
+ struct ubuf_info {
+-	void (*callback)(void *);
+-	void *arg;
++	void (*callback)(struct ubuf_info *);
++	void *ctx;
+ 	unsigned long desc;
+ };
+ 
+-- 
+1.7.9.111.gf3fb0
