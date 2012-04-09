@@ -1,105 +1,125 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] skbuff: struct ubuf_info callback type safety
-Date: Mon, 9 Apr 2012 13:24:02 +0300
-Message-ID: <20120409102402.GA5255@redhat.com>
+From: "Manjunathappa, Prakash" <prakash.pm@ti.com>
+Subject: [PATCH] davinci_emac: Add cpu_freq support
+Date: Mon, 9 Apr 2012 16:19:09 +0530
+Message-ID: <1333968549-3282-1-git-send-email-prakash.pm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Shirley Ma <xma@us.ibm.com>, Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	"Manjunathappa, Prakash" <prakash.pm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The skb struct ubuf_info callback gets passed struct ubuf_info
-itself, not the arg value as the field name and the function signature
-seem to imply. Rename the arg field to ctx to match usage,
-add documentation and change the callback argument type
-to make usage clear and to have compiler check correctness.
+Reconfigure interrupt coalesce parameter for changed emac bus_freq
+due to DVFS.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Manjunathappa, Prakash <prakash.pm@ti.com>
 ---
- drivers/vhost/net.c    |    2 +-
- drivers/vhost/vhost.c  |    5 ++---
- drivers/vhost/vhost.h  |    2 +-
- include/linux/skbuff.h |    7 ++++---
- 4 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/ti/davinci_emac.c |   60 ++++++++++++++++++++++++++++++++
+ 1 files changed, 60 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index f0da2c3..1f21d2a 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -238,7 +238,7 @@ static void handle_tx(struct vhost_net *net)
- 
- 				vq->heads[vq->upend_idx].len = len;
- 				ubuf->callback = vhost_zerocopy_callback;
--				ubuf->arg = vq->ubufs;
-+				ubuf->ctx = vq->ubufs;
- 				ubuf->desc = vq->upend_idx;
- 				msg.msg_control = ubuf;
- 				msg.msg_controllen = sizeof(ubuf);
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 947f00d..51e4c1e 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -1598,10 +1598,9 @@ void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
- 	kfree(ubufs);
- }
- 
--void vhost_zerocopy_callback(void *arg)
-+void vhost_zerocopy_callback(struct ubuf_info *ubuf)
- {
--	struct ubuf_info *ubuf = arg;
--	struct vhost_ubuf_ref *ubufs = ubuf->arg;
-+	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
- 	struct vhost_virtqueue *vq = ubufs->vq;
- 
- 	/* set len = 1 to mark this desc buffers done DMA */
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 8dcf4cc..8de1fd5 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -188,7 +188,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
- 
- int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
- 		    unsigned int log_num, u64 len);
--void vhost_zerocopy_callback(void *arg);
-+void vhost_zerocopy_callback(struct ubuf_info *);
- int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
- 
- #define vq_err(vq, fmt, ...) do {                                  \
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 3337027..4c3f138 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -238,11 +238,12 @@ enum {
- /*
-  * The callback notifies userspace to release buffers when skb DMA is done in
-  * lower device, the skb last reference should be 0 when calling this.
-- * The desc is used to track userspace buffer index.
-+ * The ctx field is used to track device context.
-+ * The desc field is used to track userspace buffer index.
-  */
- struct ubuf_info {
--	void (*callback)(void *);
--	void *arg;
-+	void (*callback)(struct ubuf_info *);
-+	void *ctx;
- 	unsigned long desc;
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 174a334..11d3bd7 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -50,6 +50,7 @@
+ #include <linux/ctype.h>
+ #include <linux/spinlock.h>
+ #include <linux/dma-mapping.h>
++#include <linux/cpufreq.h>
+ #include <linux/clk.h>
+ #include <linux/platform_device.h>
+ #include <linux/semaphore.h>
+@@ -344,6 +345,9 @@ struct emac_priv {
+ 	/*platform specific members*/
+ 	void (*int_enable) (void);
+ 	void (*int_disable) (void);
++#ifdef CONFIG_CPU_FREQ
++	struct notifier_block	freq_transition;
++#endif
  };
  
+ /* clock frequency for EMAC */
+@@ -1761,6 +1765,46 @@ static const struct net_device_ops emac_netdev_ops = {
+ #endif
+ };
+ 
++#ifdef CONFIG_CPU_FREQ
++static int davinci_emac_cpufreq_transition(struct notifier_block *nb,
++				     unsigned long val, void *data)
++{
++	int ret = 0;
++	struct emac_priv *priv;
++
++	priv = container_of(nb, struct emac_priv, freq_transition);
++	if (priv->coal_intvl != 0) {
++		if (val == CPUFREQ_POSTCHANGE) {
++			if (emac_bus_frequency != clk_get_rate(emac_clk)) {
++				struct ethtool_coalesce coal;
++
++				emac_bus_frequency = clk_get_rate(emac_clk);
++
++				priv->bus_freq_mhz = (u32)(emac_bus_frequency /
++						1000000);
++				coal.rx_coalesce_usecs = (priv->coal_intvl
++						<< 4);
++				ret = emac_set_coalesce(priv->ndev, &coal);
++			}
++		}
++	}
++	return ret;
++}
++
++static inline int davinci_emac_cpufreq_register(struct emac_priv *priv)
++{
++	priv->freq_transition.notifier_call = davinci_emac_cpufreq_transition;
++	return cpufreq_register_notifier(&priv->freq_transition,
++					 CPUFREQ_TRANSITION_NOTIFIER);
++}
++
++static inline void davinci_emac_cpufreq_deregister(struct emac_priv *priv)
++{
++	cpufreq_unregister_notifier(&priv->freq_transition,
++				    CPUFREQ_TRANSITION_NOTIFIER);
++}
++#endif
++
+ /**
+  * davinci_emac_probe: EMAC device probe
+  * @pdev: The DaVinci EMAC device that we are removing
+@@ -1925,8 +1969,21 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 			   "(regs: %p, irq: %d)\n",
+ 			   (void *)priv->emac_base_phys, ndev->irq);
+ 	}
++
++#ifdef CONFIG_CPU_FREQ
++	rc = davinci_emac_cpufreq_register(priv);
++	if (rc) {
++		dev_err(&pdev->dev, "error in register_netdev\n");
++		rc = -ENODEV;
++		goto cpufreq_reg_err;
++	}
++#endif
+ 	return 0;
+ 
++#ifdef CONFIG_CPU_FREQ
++cpufreq_reg_err:
++	unregister_netdev(ndev);
++#endif
+ netdev_reg_err:
+ 	clk_disable(emac_clk);
+ no_irq_res:
+@@ -1973,6 +2030,9 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
+ 
+ 	release_mem_region(res->start, resource_size(res));
+ 
++#ifdef CONFIG_CPU_FREQ
++	davinci_emac_cpufreq_deregister(priv);
++#endif
+ 	unregister_netdev(ndev);
+ 	iounmap(priv->remap_addr);
+ 	free_netdev(ndev);
 -- 
-1.7.9.111.gf3fb0
+1.7.1
