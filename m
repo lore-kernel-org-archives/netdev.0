@@ -1,53 +1,47 @@
-From: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-Subject: [PATCH 11/26] wireless, atmel: remove pointless test for NULL before
- release_firmware() call
-Date: Mon, 9 Apr 2012 22:50:53 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1204092219310.13925@swampdragon.chaosbits.net>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH 06/26] bna: remove redundant NULL test before
+ release_firmware()
+Date: Mon, 9 Apr 2012 22:50:24 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1204092210470.13925@swampdragon.chaosbits.net>
 References: <alpine.LNX.2.00.1204092157340.13925@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.00.1204092157340.13925-h2p7t3/P30RzeRGmFJ5qR7ZzlVVXadcDXqFh9Ls21Oc@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: trivial@kernel.org, netdev@vger.kernel.org,
+	Rasesh Mody <rmody@brocade.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1204092157340.13925@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-release_firmware() does its own test. Explicitly checking before the
-call is redundant.
+release_firmware() does its own NULL test so explicit test before call
+is unneeded.
 
-Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 ---
- drivers/net/wireless/atmel.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
-index 6c87a82..d07c030 100644
---- a/drivers/net/wireless/atmel.c
-+++ b/drivers/net/wireless/atmel.c
-@@ -3989,8 +3989,7 @@ static int reset_atmel_card(struct net_device *dev)
- 			atmel_copy_to_card(priv->dev, 0x8000, &fw[0x6000], len - 0x6000);
- 		}
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index ff78f77..d86390c 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -3546,9 +3546,7 @@ static void __exit
+ bnad_module_exit(void)
+ {
+ 	pci_unregister_driver(&bnad_pci_driver);
+-
+-	if (bfi_fw)
+-		release_firmware(bfi_fw);
++	release_firmware(bfi_fw);
+ }
  
--		if (fw_entry)
--			release_firmware(fw_entry);
-+		release_firmware(fw_entry);
- 	}
- 
- 	err = atmel_wakeup_firmware(priv);
+ module_init(bnad_module_init);
 -- 
 1.7.10
 
 
 -- 
-Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>       http://www.chaosbits.net/
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
 Don't top-post http://www.catb.org/jargon/html/T/top-post.html
 Plain text mails only, please.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
