@@ -1,50 +1,89 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Mon, 9 Apr 2012 07:49:51 +0800
-Message-ID: <20120408234951.GA15993@gondor.apana.org.au>
-References: <20120408171323.GA16012@redhat.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [BUGFIX][PATCH 3/3] memcg/tcp: ignore tcp usage before accounting
+ started
+Date: Mon, 09 Apr 2012 09:58:43 +0900
+Message-ID: <4F823443.9070908@jp.fujitsu.com>
+References: <4F7408B7.9090706@jp.fujitsu.com> <4F740AEF.7090900@jp.fujitsu.com> <4F742983.1080402@parallels.com> <20120401.234113.1505269982606203786.davem@davemloft.net> <4F7B7A54.9000501@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120408171323.GA16012@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:59291 "EHLO
+	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753958Ab2DIBAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Apr 2012 21:00:32 -0400
+Received: from m2.gw.fujitsu.co.jp (unknown [10.0.50.72])
+	by fgwmail6.fujitsu.co.jp (Postfix) with ESMTP id B498C3EE0B6
+	for <netdev@vger.kernel.org>; Mon,  9 Apr 2012 10:00:30 +0900 (JST)
+Received: from smail (m2 [127.0.0.1])
+	by outgoing.m2.gw.fujitsu.co.jp (Postfix) with ESMTP id 9EDCE45DE54
+	for <netdev@vger.kernel.org>; Mon,  9 Apr 2012 10:00:30 +0900 (JST)
+Received: from s2.gw.fujitsu.co.jp (s2.gw.fujitsu.co.jp [10.0.50.92])
+	by m2.gw.fujitsu.co.jp (Postfix) with ESMTP id 8490045DE53
+	for <netdev@vger.kernel.org>; Mon,  9 Apr 2012 10:00:30 +0900 (JST)
+Received: from s2.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s2.gw.fujitsu.co.jp (Postfix) with ESMTP id 76D6B1DB803F
+	for <netdev@vger.kernel.org>; Mon,  9 Apr 2012 10:00:30 +0900 (JST)
+Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.240.81.134])
+	by s2.gw.fujitsu.co.jp (Postfix) with ESMTP id 319431DB8038
+	for <netdev@vger.kernel.org>; Mon,  9 Apr 2012 10:00:30 +0900 (JST)
+In-Reply-To: <4F7B7A54.9000501@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 08, 2012 at 08:13:25PM +0300, Michael S. Tsirkin wrote:
-> commit 0110d6f22f392f976e84ab49da1b42f85b64a3c5
-> tun: orphan an skb on tx
-> Fixed a configuration where skbs get queued
-> at the tun device forever, blocking senders.
-> 
-> However this fix isn't waterproof:
-> userspace can control whether the interface
-> is stopped, and if it is, packets
-> get queued in the qdisc, again potentially forever.
-> 
-> Complete the fix by setting a private flag and orphaning
-> at the qdisc level.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+(2012/04/04 7:31), Glauber Costa wrote:
 
-1) Doesn't this break local UDP push-back?
-2) Isn't the stall a bug in the backend and isn't this just
-papering over that?
+> On 04/02/2012 07:41 AM, David Miller wrote:
+>> From: Glauber Costa<glommer@parallels.com>
+>> Date: Thu, 29 Mar 2012 11:21:07 +0200
+>>
+>>> On 03/29/2012 09:10 AM, KAMEZAWA Hiroyuki wrote:
+>>>> tcp memcontrol starts accouting after res->limit is set. So, if a sockets
+>>>> starts before setting res->limit, there are already used resource.
+>>>> After setting res->limit, the resource (already used) will be uncharged and
+>>>> make res_counter below 0 because they are not charged. This causes warning.
+>>>>
+>>>> This patch fixes that by adding res_counter_uncharge_nowarn().
+>>>> (*) We cannot avoid this while we have 'account start' switch.
+>>>>
+>>>> Signed-off-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
+>>>
+>>> Fine by me.
+>>>
+>>> Acked-by: Glauber Costa<glommer@parallels.com>
+>>
+>> I'm not applying patches that simply ignore accounting counter
+>> underflows.
+>>
+>> You must either:
+>>
+>> 1) Integrate the socket's existing usage when the limit is set.
+>>
+>> 2) Avoid accounting completely for a socket that started before
+>>     the limit was set.
+>>
+>> No half-way solutions, please.  Otherwise it is impossible to design
+>> validations of the resource usage for a particular socket or group of
+>> sockets, because they can always be potentially "wrong" and over the
+>> limit.  That's a design for a buggy system.
+>>
+>>
+> Kame,
+> 
+> I agree with Dave FWIW.
+> 
+> We should be able to do this by dropping the reference count when the 
+> cgroup is finally destroyed, instead of from the remove callback. At 
+> that point, no more pending sockets should be attached to it.
+> 
+> Prior to increasing the static key, they are all assigned to the global 
+> cgroup, so we shouldn't care about them.
+> 
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Could you do the fix ?
+
+Thanks,
+-Kame
