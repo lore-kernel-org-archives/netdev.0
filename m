@@ -1,44 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Mon, 9 Apr 2012 16:39:58 +0800
-Message-ID: <20120409083958.GA3951@gondor.apana.org.au>
-References: <20120408171323.GA16012@redhat.com> <20120408234951.GA15993@gondor.apana.org.au> <20120409072849.GA12014@redhat.com> <20120409073354.GA3218@gondor.apana.org.au> <20120409073953.GD12014@redhat.com> <20120409082919.GA3471@gondor.apana.org.au> <20120409083402.GA28249@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120409083402.GA28249@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] net/key/af_key.c: add missing kfree_skb
+Date: Mon,  9 Apr 2012 10:41:10 +0200
+Message-ID: <1333960870-19735-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:60742 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751546Ab2DIIlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Apr 2012 04:41:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 09, 2012 at 11:34:02AM +0300, Michael S. Tsirkin wrote:
->
-> Puzzled. This patch orphans skbs only if the destination device sets
-> IFF_TX_CAN_STALL.  Since the physical NIC doesn't stall forever it never
-> sets this flag.
-> 
-> So it seems that this patch should not affect the configuration
-> you describe at all.
-> 
-> Could you please clarify? What did I miss?
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Oops, you're right.  Somehow I was thinking you were patching
-virtio-net instead of tun.
+At the point of this error-handling code, alloc_skb has succeded, so free
+the resulting skb by jumping to the err label.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ net/key/af_key.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 11dbb22..7e5d927 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -3480,7 +3480,7 @@ static int pfkey_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 
+ 	/* Addresses to be used by KM for negotiation, if ext is available */
+ 	if (k != NULL && (set_sadb_kmaddress(skb, k) < 0))
+-		return -EINVAL;
++		goto err;
+ 
+ 	/* selector src */
+ 	set_sadb_address(skb, sasize_sel, SADB_EXT_ADDRESS_SRC, sel);
