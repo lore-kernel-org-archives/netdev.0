@@ -1,26 +1,179 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] gianfar: add missing include
-Date: Tue, 10 Apr 2012 08:36:42 +0200
-Message-ID: <20120410063641.GA10025@localhost.localdomain>
-References: <25411.1334031527@neuling.org>
+From: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH 2/2] phonet: Sort out initiailziation and cleanup code.
+Date: Tue, 10 Apr 2012 09:39:36 +0300
+Message-ID: <222341971.SxRPJOQSbv@hector>
+References: <1333664446.3538.12.camel@lappy> <m1aa2otjf4.fsf_-_@fess.ebiederm.org> <m162dctjbo.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org
-To: Michael Neuling <mikey@neuling.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <25411.1334031527@neuling.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Van Hensbergen <ericvh@gmail.com>,
+	Dave Jones <davej@redhat.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Sasha Levin <levinsasha928@gmail.com>
+To: "ext Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m162dctjbo.fsf_-_@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 10, 2012 at 02:18:47PM +1000, Michael Neuling wrote:
-> This is because of a missing include file from:
->   6663628 gianfar: Support the get_ts_info ethtool method.
-> 
-> Signed-off-by: Michael Neuling <mikey@neuling.org>
+Le vendredi 6 avril 2012 18:35:39 ext Eric W. Biederman a =E9crit :
+> Recently an oops was reported in phonet if there was a failure during
+> network namespace creation.
+>=20
+> [  163.733755] ------------[ cut here ]------------
+> [  163.734501] kernel BUG at include/net/netns/generic.h:45!
+> [  163.734501] invalid opcode: 0000 [#1] PREEMPT SMP
+> [  163.734501] CPU 2
+> [  163.734501] Pid: 19145, comm: trinity Tainted: G        W
+> 3.4.0-rc1-next-20120405-sasha-dirty #57 [  163.734501] RIP:
+> 0010:[<ffffffff824d6062>]  [<ffffffff824d6062>] phonet_pernet+0x182/0=
+x1a0 [
+>  163.734501] RSP: 0018:ffff8800674d5ca8  EFLAGS: 00010246
+> [  163.734501] RAX: 000000003fffffff RBX: 0000000000000000 RCX:
+> ffff8800678c88d8 [  163.734501] RDX: 00000000003f4000 RSI: ffff880067=
+8c8910
+> RDI: 0000000000000282 [  163.734501] RBP: ffff8800674d5cc8 R08:
+> 0000000000000000 R09: 0000000000000000 [  163.734501] R10: 0000000000=
+000000
+> R11: 0000000000000000 R12: ffff880068bec920 [  163.734501] R13:
+> ffffffff836b90c0 R14: 0000000000000000 R15: 0000000000000000 [  163.7=
+34501]
+> FS:  00007f055e8de700(0000) GS:ffff88007d000000(0000)
+> knlGS:0000000000000000 [  163.734501] CS:  0010 DS: 0000 ES: 0000 CR0=
+:
+> 000000008005003b
+> [  163.734501] CR2: 00007f055e6bb518 CR3: 0000000070c16000 CR4:
+> 00000000000406e0 [  163.734501] DR0: 0000000000000000 DR1: 0000000000=
+000000
+> DR2: 0000000000000000 [  163.734501] DR3: 0000000000000000 DR6:
+> 00000000ffff0ff0 DR7: 0000000000000400 [  163.734501] Process trinity=
+ (pid:
+> 19145, threadinfo ffff8800674d4000, task ffff8800678c8000) [  163.734=
+501]
+> Stack:
+> [  163.734501]  ffffffff824d5f00 ffffffff810e2ec1 ffff880067ae0000
+> 00000000ffffffd4 [  163.734501]  ffff8800674d5cf8 ffffffff824d667a
+> ffff880067ae0000 00000000ffffffd4 [  163.734501]  ffffffff836b90c0
+> 0000000000000000 ffff8800674d5d18 ffffffff824d707d [  163.734501] Cal=
+l
+> Trace:
+> [  163.734501]  [<ffffffff824d5f00>] ? phonet_pernet+0x20/0x1a0
+> [  163.734501]  [<ffffffff810e2ec1>] ? get_parent_ip+0x11/0x50
+> [  163.734501]  [<ffffffff824d667a>] phonet_device_destroy+0x1a/0x100
+> [  163.734501]  [<ffffffff824d707d>] phonet_device_notify+0x3d/0x50
+> [  163.734501]  [<ffffffff810dd96e>] notifier_call_chain+0xee/0x130
+> [  163.734501]  [<ffffffff810dd9d1>] raw_notifier_call_chain+0x11/0x2=
+0
+> [  163.734501]  [<ffffffff821cce12>] call_netdevice_notifiers+0x52/0x=
+60
+> [  163.734501]  [<ffffffff821cd235>] rollback_registered_many+0x185/0=
+x270
+> [  163.734501]  [<ffffffff821cd334>] unregister_netdevice_many+0x14/0=
+x60
+> [  163.734501]  [<ffffffff823123e3>] ipip_exit_net+0x1b3/0x1d0
+> [  163.734501]  [<ffffffff82312230>] ? ipip_rcv+0x420/0x420
+> [  163.734501]  [<ffffffff821c8515>] ops_exit_list+0x35/0x70
+> [  163.734501]  [<ffffffff821c911b>] setup_net+0xab/0xe0
+> [  163.734501]  [<ffffffff821c9416>] copy_net_ns+0x76/0x100
+> [  163.734501]  [<ffffffff810dc92b>] create_new_namespaces+0xfb/0x190
+> [  163.734501]  [<ffffffff810dca21>] unshare_nsproxy_namespaces+0x61/=
+0x80
+> [  163.734501]  [<ffffffff810afd1f>] sys_unshare+0xff/0x290
+> [  163.734501]  [<ffffffff8187622e>] ? trace_hardirqs_on_thunk+0x3a/0=
+x3f
+> [  163.734501]  [<ffffffff82665539>] system_call_fastpath+0x16/0x1b
+> [  163.734501] Code: e0 c3 fe 66 0f 1f 44 00 00 48 c7 c2 40 60 4d 82 =
+be 01
+> 00 00 00 48 c7 c7 80 d1 23 83 e8 48 2a c4 fe e8 73 06 c8 fe 48 85 db =
+75 0e
+> <0f> 0b 0f 1f 40 00 eb fe 66 0f 1f 44 00 00 48 83 c4 10 48 89 d8 [=20
+> 163.734501] RIP  [<ffffffff824d6062>] phonet_pernet+0x182/0x1a0 [=20
+> 163.734501]  RSP <ffff8800674d5ca8>
+> [  163.861289] ---[ end trace fb5615826c548066 ]---
+>=20
+> After investigation it turns out there were two issues.
+> 1) Phonet was not implementing network devices but was using
+> register_pernet_device instead of register_pernet_subsys.
+>=20
+>    This was allowing there to be cases when phonenet was not initiali=
+zed and
+> the phonet net_generic was not set for a network namespace when netwo=
+rk
+> device events were being reported on the netdevice_notifier for a net=
+work
+> namespace leading to the oops above.
+>=20
+> 2) phonet_exit_net was implementing a confusing and special case of h=
+andling
+> all network devices from going away that it was hard to see was corre=
+ct,
+> and would only occur when the phonet module was removed.
+>=20
+>    Now that unregister_netdevice_notifier has been modified to synthe=
+size
+> unregistration events for the network devices that are extant when ca=
+lled
+> this confusing special case in phonet_exit_net is no longer needed.
+>=20
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-I did a poor job testing the non-x86 stuff in this series.  Thanks for
-the fix.
+Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>  net/phonet/pn_dev.c |   21 ++-------------------
+>  1 files changed, 2 insertions(+), 19 deletions(-)
+>=20
+> diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+> index 9b9a85e..bf5cf69 100644
+> --- a/net/phonet/pn_dev.c
+> +++ b/net/phonet/pn_dev.c
+> @@ -331,23 +331,6 @@ static int __net_init phonet_init_net(struct net=
+ *net)
+>=20
+>  static void __net_exit phonet_exit_net(struct net *net)
+>  {
+> -	struct phonet_net *pnn =3D phonet_pernet(net);
+> -	struct net_device *dev;
+> -	unsigned i;
+> -
+> -	rtnl_lock();
+> -	for_each_netdev(net, dev)
+> -		phonet_device_destroy(dev);
+> -
+> -	for (i =3D 0; i < 64; i++) {
+> -		dev =3D pnn->routes.table[i];
+> -		if (dev) {
+> -			rtm_phonet_notify(RTM_DELROUTE, dev, i);
+> -			dev_put(dev);
+> -		}
+> -	}
+> -	rtnl_unlock();
+> -
+>  	proc_net_remove(net, "phonet");
+>  }
+>=20
+> @@ -361,7 +344,7 @@ static struct pernet_operations phonet_net_ops =3D=
+ {
+>  /* Initialize Phonet devices list */
+>  int __init phonet_device_init(void)
+>  {
+> -	int err =3D register_pernet_device(&phonet_net_ops);
+> +	int err =3D register_pernet_subsys(&phonet_net_ops);
+>  	if (err)
+>  		return err;
+>=20
+> @@ -377,7 +360,7 @@ void phonet_device_exit(void)
+>  {
+>  	rtnl_unregister_all(PF_PHONET);
+>  	unregister_netdevice_notifier(&phonet_device_notifier);
+> -	unregister_pernet_device(&phonet_net_ops);
+> +	unregister_pernet_subsys(&phonet_net_ops);
+>  	proc_net_remove(&init_net, "pnresource");
+>  }
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
