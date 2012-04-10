@@ -1,64 +1,137 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.2.8/amd64 full interrupt hangs and deadlocks under big
- network copies (page allocation failure)
-Date: Tue, 10 Apr 2012 05:56:20 +0200
-Message-ID: <1334030180.13293.98.camel@edumazet-glaptop>
-References: <20120409.143710.879746943062854492.davem@davemloft.net>
-	 <4F83316F.20504@lwfinger.net> <1333998672.3007.245.camel@edumazet-glaptop>
-	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH] memcg/tcp: fix warning caused b res->usage go to negative.
+Date: Tue, 10 Apr 2012 13:15:57 +0900
+Message-ID: <4F83B3FD.4010107@jp.fujitsu.com>
+References: <4F7408B7.9090706@jp.fujitsu.com> <4F740AEF.7090900@jp.fujitsu.com> <4F742983.1080402@parallels.com> <4F750FE8.2030800@jp.fujitsu.com> <4F7F1091.9040204@parallels.com> <4F839CF1.5050104@jp.fujitsu.com> <4F83A022.1000701@parallels.com> <4F83A29D.1060402@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger@lwfinger.net, marc@merlins.org,
-	bhutchings@solarflare.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Glauber Costa <glommer@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:47889 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750762Ab2DJEDj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 00:03:39 -0400
-In-Reply-To: <20120409.153452.1284163346306246866.davem@davemloft.net>
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:50422 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750828Ab2DJERs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 00:17:48 -0400
+Received: from m2.gw.fujitsu.co.jp (unknown [10.0.50.72])
+	by fgwmail5.fujitsu.co.jp (Postfix) with ESMTP id 0A84D3EE0AE
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 13:17:47 +0900 (JST)
+Received: from smail (m2 [127.0.0.1])
+	by outgoing.m2.gw.fujitsu.co.jp (Postfix) with ESMTP id E252245DD73
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 13:17:46 +0900 (JST)
+Received: from s2.gw.fujitsu.co.jp (s2.gw.fujitsu.co.jp [10.0.50.92])
+	by m2.gw.fujitsu.co.jp (Postfix) with ESMTP id BFE7645DE50
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 13:17:46 +0900 (JST)
+Received: from s2.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s2.gw.fujitsu.co.jp (Postfix) with ESMTP id B3BC21DB803A
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 13:17:46 +0900 (JST)
+Received: from m107.s.css.fujitsu.com (m107.s.css.fujitsu.com [10.240.81.147])
+	by s2.gw.fujitsu.co.jp (Postfix) with ESMTP id 623561DB803C
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 13:17:46 +0900 (JST)
+In-Reply-To: <4F83A29D.1060402@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-09 at 15:34 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 09 Apr 2012 21:11:12 +0200
+(2012/04/10 12:01), Glauber Costa wrote:
+
+> On 04/09/2012 11:51 PM, Glauber Costa wrote:
+>> On 04/09/2012 11:37 PM, KAMEZAWA Hiroyuki wrote:
+>>> Hm. What happens in following sequence ?
+>>>
+>>>     1. a memcg is created
+>>>     2. put a task into the memcg, start tcp steam
+>>>     3. set tcp memory limit
+>>>
+>>> The resource used between 2 and 3 will cause the problem finally.
+>>
+>> I don't get it. if a task is in memcg, but no limit is set,
+>> that socket will be assigned null memcg, and will stay like that
+>> forever. Only new sockets will have the new memcg pointer.
+>>
+>> And previously, we could have the memcg pointer alive, but the jump
+>> labels to be disabled. With the patch I posted, this can't happen
+>> anymore, since the jump labels are guaranteed to live throughout the
+>> whole socket life.
+>>
+>>> Then, Dave's request
+>>> ==
+>>> You must either:
+>>>
+>>> 1) Integrate the socket's existing usage when the limit is set.
+>>>
+>>> 2) Avoid accounting completely for a socket that started before
+>>>      the limit was set.
+>>> ==
+>>> are not satisfied. So, we need to have a state per sockets, it's accounted
+>>> or not. I'll look into this problem again, today.
+>>>
+>>
+>> Of course they are.
+>>
+>> Every socket created before we set the limit is not accounted.
+>> This is 2) that Dave mentioned, and it was *always* this way.
+>>
+>> The problem here was the opposite: You could disable the jump labels
+>> with sockets still in flight, because we were disabling it based on
+>> the limit being set back to unlimited.
+>>
+>> What this patch does, is defer that until the last socket limited dies.
+>>
 > 
-> > I think Marc posted stack traces showing problem on transmit side.
->  ...
-> > I dont really understand how it can happen, with MTU=1500
+> Okay, there is an additional thing to be considered here:
 > 
-> Depending upon the configuration and the driver, wireless can need
-> more headroom.  For encryption an extra 8 bytes are necessary, and the
-> driver may request a variable amount of extra headroom via
-> ->hw.extra_tx_headroom
+> Due to the nature of how jump label works, once they are enabled for one
+> of the cgroups, they will be enabled for all of them. So the patch I
+> sent may still break in some scenarios because of the way we record that
+> the limit was set.
 > 
-> What wireless device are we dealing with again?
-
-Problem seems related to tailroom needed by mac80211
-(IEEE80211_ENCRYPT_TAILROOM = 18 bytes)
-
-So we must reallocate skb->head, thats impressive nobody cares.
-
-[ 3007.249687] ieee80211_skb_resize(skb=ffff8802329846e8) cloned=1 head_need=0 tail_need=18 skb->len=1494 ksize=4096 tailroom=0 headroom=2282
-[ 3007.249693] ieee80211_skb_resize(skb=ffff8802329846e8) cloned=0 head_need=0 tail_need=0 skb->len=1526 ksize=8192 tailroom=64 headroom=2250
-
-Ouch... skb_tailroom() seems wrong ... it seems pskb_expand_head() is really suboptimal.
-
-It appears tcp_sendmsg() tries to fill skb completely, with no available tailroom :
-
-                        if (skb_tailroom(skb) > 0) {
-                                /* We have some space in skb head. Superb! */
-                                if (copy > skb_tailroom(skb))
-                                        copy = skb_tailroom(skb);
-                                err = skb_add_data_nocache(sk, skb, from, copy);
-                                if (err)
-                                        goto do_fault;
-                        } else {
+> However, if my theory behind what is causing the problem is correct,
+> this patch should fix the issue for you. 
 
 
-Shouldnt we take into account dev->needed_tailroom ?
+Now, our issue is leak of accounting, regardless of warning.
 
-I'll submit a pskb_expand_head() fix asap.
+> Let me know if it does, and
+
+> I'll work on the final solution.
+> 
+
+
+The problem is that jump_label updating is not atomic_ops.
+
+I'm _not_ sure the update order of the jump_label in sock_update_memcg()
+and other jump instructions inserted at accounting.
+
+For example, if the jump instruction in sock_update_memcg() is updated 1st
+and others are updated later, it's unclear whether sockets which has _valid_
+sock->sk_cgrp will be accounted or not because accounting jump instruction
+may not be updated yet.
+
+Hopefully, label in sock_update_memcg should be updated last...
+
+Hm. If I do, I'll add one more key as:
+
+atomic_t	sock_should_memcg_aware;
+
+And update 2 keys in following order.
+
+At enable
+	static_key_slow_inc(&memcg_socket_limit_enabled)
+	atomic_inc(&sock_should_memcg_aware);
+
+At disable
+	atomic_dec(&sock_should_memcg_aware);
+	static_key_slow_dec(&memcg_socket_limit_enabled)
+
+And
+==
+void sock_update_memcg(struct sock *sk)
+{
+        if (atomic_read(&sock_should_memcg_aware)) {
+
+==
+
+
+Thanks,
+-Kame
