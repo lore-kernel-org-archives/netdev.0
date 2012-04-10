@@ -1,95 +1,44 @@
 From: pablo@netfilter.org
-Subject: [PATCH 2/5] netfilter: ip6_tables: ip6t_ext_hdr is now static inline
-Date: Tue, 10 Apr 2012 14:48:58 +0200
-Message-ID: <1334062141-3962-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/5] netfilter: nf_ct_tcp: don't scale the size of the window up twice
+Date: Tue, 10 Apr 2012 14:48:57 +0200
+Message-ID: <1334062141-3962-2-git-send-email-pablo@netfilter.org>
 References: <1334062141-3962-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44934 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758632Ab2DJMtT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2012 08:49:19 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1334062141-3962-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Changli Gao <xiaosuo@gmail.com>
 
-We may hit this in xt_LOG:
+For a picked up connection, the window win is scaled twice: one is by the
+initialization code, and the other is by the sender updating code.
 
-net/built-in.o:xt_LOG.c:function dump_ipv6_packet:
-	error: undefined reference to 'ip6t_ext_hdr'
+I use the temporary variable swin instead of modifying the variable win.
 
-happens with these config options:
-
-CONFIG_NETFILTER_XT_TARGET_LOG=y
-CONFIG_IP6_NF_IPTABLES=m
-
-ip6t_ext_hdr is fairly small and it is called in the packet path.
-Make it static inline.
-
-Reported-by: Simon Kirby <sim@netnation.com>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter_ipv6/ip6_tables.h |   12 +++++++++++-
- net/ipv6/netfilter/ip6_tables.c           |   14 --------------
- 2 files changed, 11 insertions(+), 15 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
-index f549adc..1bc898b 100644
---- a/include/linux/netfilter_ipv6/ip6_tables.h
-+++ b/include/linux/netfilter_ipv6/ip6_tables.h
-@@ -287,7 +287,17 @@ extern unsigned int ip6t_do_table(struct sk_buff *skb,
- 				  struct xt_table *table);
- 
- /* Check for an extension */
--extern int ip6t_ext_hdr(u8 nexthdr);
-+static inline int
-+ip6t_ext_hdr(u8 nexthdr)
-+{	return (nexthdr == IPPROTO_HOPOPTS) ||
-+	       (nexthdr == IPPROTO_ROUTING) ||
-+	       (nexthdr == IPPROTO_FRAGMENT) ||
-+	       (nexthdr == IPPROTO_ESP) ||
-+	       (nexthdr == IPPROTO_AH) ||
-+	       (nexthdr == IPPROTO_NONE) ||
-+	       (nexthdr == IPPROTO_DSTOPTS);
-+}
-+
- /* find specified header and get offset to it */
- extern int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 			 int target, unsigned short *fragoff);
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 94874b0..9d4e155 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -78,19 +78,6 @@ EXPORT_SYMBOL_GPL(ip6t_alloc_initial_table);
- 
-    Hence the start of any table is given by get_table() below.  */
- 
--/* Check for an extension */
--int
--ip6t_ext_hdr(u8 nexthdr)
--{
--	return  (nexthdr == IPPROTO_HOPOPTS)   ||
--		(nexthdr == IPPROTO_ROUTING)   ||
--		(nexthdr == IPPROTO_FRAGMENT)  ||
--		(nexthdr == IPPROTO_ESP)       ||
--		(nexthdr == IPPROTO_AH)        ||
--		(nexthdr == IPPROTO_NONE)      ||
--		(nexthdr == IPPROTO_DSTOPTS);
--}
--
- /* Returns whether matches rule or not. */
- /* Performance critical - called for every packet */
- static inline bool
-@@ -2366,7 +2353,6 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- EXPORT_SYMBOL(ip6t_register_table);
- EXPORT_SYMBOL(ip6t_unregister_table);
- EXPORT_SYMBOL(ip6t_do_table);
--EXPORT_SYMBOL(ip6t_ext_hdr);
- EXPORT_SYMBOL(ipv6_find_hdr);
- 
- module_init(ip6_tables_init);
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 361eade..0d07a1d 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -584,8 +584,8 @@ static bool tcp_in_window(const struct nf_conn *ct,
+ 			 * Let's try to use the data from the packet.
+ 			 */
+ 			sender->td_end = end;
+-			win <<= sender->td_scale;
+-			sender->td_maxwin = (win == 0 ? 1 : win);
++			swin = win << sender->td_scale;
++			sender->td_maxwin = (swin == 0 ? 1 : swin);
+ 			sender->td_maxend = end + sender->td_maxwin;
+ 			/*
+ 			 * We haven't seen traffic in the other direction yet
 -- 
 1.7.2.5
+
