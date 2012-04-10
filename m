@@ -1,58 +1,75 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH] tcp: fix tcp_rcv_rtt_update() use of an unscaled RTT sample
-Date: Tue, 10 Apr 2012 13:59:20 -0400
-Message-ID: <1334080760-968-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f74.google.com ([209.85.213.74]:52320 "EHLO
-	mail-yw0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753438Ab2DJR72 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 13:59:28 -0400
-Received: by yhgm50 with SMTP id m50so9900yhg.1
-        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 10:59:27 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: Re: pull request: batman-adv 2012-04-07
+Date: Tue, 10 Apr 2012 20:03:43 +0200
+Message-ID: <4234545.h1xVgDKcJ2@bentobox>
+References: <1333824598-27771-1-git-send-email-ordex@autistici.org>
+	<20120410.122119.454371140692964064.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="nextPart3424741.qRatlNpSls";
+	micalg="pgp-sha512"; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20120410.122119.454371140692964064.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fix a code path in tcp_rcv_rtt_update() that was comparing scaled and
-unscaled RTT samples.
 
-The intent in the code was to only use the 'm' measurement if it was a
-new minimum.  However, since 'm' had not yet been shifted left 3 bits
-but 'new_sample' had, this comparison would nearly always succeed,
-leading us to erroneously set our receive-side RTT estimate to the 'm'
-sample when that sample could be nearly 8x too high to use.
+--nextPart3424741.qRatlNpSls
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-The overall effect is to often cause the receive-side RTT estimate to
-be significantly too large (up to 40% too large for brief periods in
-my tests).
+On Tuesday, April 10, 2012 12:21:19 PM David Miller wrote:
+> From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+> Date: Sat,  7 Apr 2012 20:49:42 +0200
+> 
+> > this is the updated and cleaned up version of our last pull request
+> > (sent on 2012-04-05).
+> 
+> You absolutely must base your tree off the correct tree, which is
+> net-next
+> 
+> You cannot use Linus's tree or my 'net' tree to base your work,
+> because otherwise when I pull I get all the damn crap that's in those
+> trees but not in net-next yet and that's never right.
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_input.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+Can you please tell us your "stable point" [1].
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e886e2f..e7b54d2 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -474,8 +474,11 @@ static void tcp_rcv_rtt_update(struct tcp_sock *tp, u32 sample, int win_dep)
- 		if (!win_dep) {
- 			m -= (new_sample >> 3);
- 			new_sample += m;
--		} else if (m < new_sample)
--			new_sample = m << 3;
-+		} else {
-+			m <<= 3;
-+			if (m < new_sample)
-+				new_sample = m;
-+		}
- 	} else {
- 		/* No previous measure. */
- 		new_sample = m << 3;
--- 
-1.7.7.3
+Thanks,
+	Sven
+
+[1] https://lkml.org/lkml/2010/9/28/362
+--nextPart3424741.qRatlNpSls
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJPhHX/AAoJEF2HCgfBJntGpL8P/jmJ+3/Un3XiNfWf8pX2CKMp
+BcmN/BNm4G4uWfEqUfpikEMakwM3xOTf0VOrIbRrulTeq3ncnj2xgvwQ2Wmxpdug
+pJrO2nie+lEjIl97VwlS1CFkq0svabH2yowVvmARCaQTbzVIMl00AUkhzvdYNley
+rFxYqzs9w+mfFe2RvJleriKqowYFKsQsz48+bmfZxqL4QWnRgcB6W7dobNL3XSLh
+Qik74Ak/PQ97tDYZF2Id7p/wXvKodLQ9c6qVUFOTt+SuGPUajU4xtph6PItT5KeD
+6L2szgER2vdRn7bm9J4bq9VRWf09Q2YF7s7a+v91UWQdfnJG8alktkcJZK1ZKfAd
+oLIvo1JAwHdLxfkqctMKwu0xVeSyTSIYe2Dx4BDgfYKPFuE4Iz5dKe+/csjTmoSO
+M6ssvtwV22SNK4qwBrHubBC8sQ8KvRvPHlbNzxFq8KGZjSgGBxyRiOfKxOuJ/XUL
+cVExUmYmZLEa1zWYTPbJTiKljSH3TK3W77AWbUvvh0wpBuPAiCISs5x2ghTNhcpg
+9YSgx4GqAvBRpftL62+o5EL2UbfWXyz1/Yh4j3R+G8uafHe2ptQmTTLRUPQVszNc
+7igxbfc/1lcMXrimExabhl3CY3WQ0d8GedJ6RZpYfpkviuCzSAfvL3YL3n6gvsFk
+f4qlCazr09GEXF4soJYg
+=L2xw
+-----END PGP SIGNATURE-----
+
+--nextPart3424741.qRatlNpSls--
