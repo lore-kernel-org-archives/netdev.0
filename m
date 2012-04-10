@@ -1,235 +1,70 @@
-From: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 10/10] sunrpc: use SKB fragment destructors to delay completion until page is released by network stack.
-Date: Tue, 10 Apr 2012 15:26:24 +0100
-Message-ID: <1334067984-7706-10-git-send-email-ian.campbell@citrix.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH 03/10] chelsio: use SKB_WITH_OVERHEAD
+Date: Tue, 10 Apr 2012 15:26:17 +0100
+Message-ID: <1334067984-7706-3-git-send-email-ian.campbell@citrix.com>
 References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Wei Liu <wei.liu2-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, xen-devel-GuqFBffKawuEi8DpZVb4nw@public.gmane.org,
-	Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1334067965.5394.22.camel-o4Be2W7LfRlXesXXhkcM7miJhflN2719@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xen.org,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Divy Le Ray <divy@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:37329 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758814Ab2DJObk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2012 10:31:40 -0400
+In-Reply-To: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This prevents an issue where an ACK is delayed, a retransmit is queued (either
-at the RPC or TCP level) and the ACK arrives before the retransmission hits the
-wire. If this happens to an NFS WRITE RPC then the write() system call
-completes and the userspace process can continue, potentially modifying data
-referenced by the retransmission before the retransmission occurs.
-
-Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Acked-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Divy Le Ray <divy@chelsio.com>
 ---
- include/linux/sunrpc/xdr.h  |    2 ++
- include/linux/sunrpc/xprt.h |    5 ++++-
- net/sunrpc/clnt.c           |   27 ++++++++++++++++++++++-----
- net/sunrpc/svcsock.c        |    3 ++-
- net/sunrpc/xprt.c           |   12 ++++++++++++
- net/sunrpc/xprtsock.c       |    3 ++-
- 6 files changed, 44 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb/sge.c  |    3 +--
+ drivers/net/ethernet/chelsio/cxgb3/sge.c |    6 +++---
+ 2 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
-index af70af3..ff1b121 100644
---- a/include/linux/sunrpc/xdr.h
-+++ b/include/linux/sunrpc/xdr.h
-@@ -16,6 +16,7 @@
- #include <asm/byteorder.h>
- #include <asm/unaligned.h>
- #include <linux/scatterlist.h>
-+#include <linux/skbuff.h>
+diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
+index 47a8435..52373db 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
+@@ -599,8 +599,7 @@ static int alloc_rx_resources(struct sge *sge, struct sge_params *p)
+ 		sizeof(struct cpl_rx_data) +
+ 		sge->freelQ[!sge->jumbo_fl].dma_offset;
  
- /*
-  * Buffer adjustment
-@@ -57,6 +58,7 @@ struct xdr_buf {
- 			tail[1];	/* Appended after page data */
+-		size = (16 * 1024) -
+-		    SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++	size = SKB_WITH_OVERHEAD(16 * 1024);
  
- 	struct page **	pages;		/* Array of contiguous pages */
-+	struct skb_frag_destructor *destructor;
- 	unsigned int	page_base,	/* Start of page data */
- 			page_len,	/* Length of page data */
- 			flags;		/* Flags for data disposition */
-diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
-index 77d278d..e8d3f18 100644
---- a/include/linux/sunrpc/xprt.h
-+++ b/include/linux/sunrpc/xprt.h
-@@ -92,7 +92,10 @@ struct rpc_rqst {
- 						/* A cookie used to track the
- 						   state of the transport
- 						   connection */
--	
-+	struct skb_frag_destructor destructor;	/* SKB paged fragment
-+						 * destructor for
-+						 * transmitted pages*/
-+
- 	/*
- 	 * Partial send handling
- 	 */
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index 7a4cb5f..4e94e2a 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -62,6 +62,7 @@ static void	call_reserve(struct rpc_task *task);
- static void	call_reserveresult(struct rpc_task *task);
- static void	call_allocate(struct rpc_task *task);
- static void	call_decode(struct rpc_task *task);
-+static void	call_complete(struct rpc_task *task);
- static void	call_bind(struct rpc_task *task);
- static void	call_bind_status(struct rpc_task *task);
- static void	call_transmit(struct rpc_task *task);
-@@ -1417,6 +1418,8 @@ rpc_xdr_encode(struct rpc_task *task)
- 			 (char *)req->rq_buffer + req->rq_callsize,
- 			 req->rq_rcvsize);
+ 	sge->freelQ[sge->jumbo_fl].rx_buffer_size = size;
  
-+	req->rq_snd_buf.destructor = &req->destructor;
-+
- 	p = rpc_encode_header(task);
- 	if (p == NULL) {
- 		printk(KERN_INFO "RPC: couldn't encode RPC header, exit EIO\n");
-@@ -1582,6 +1585,7 @@ call_connect_status(struct rpc_task *task)
- static void
- call_transmit(struct rpc_task *task)
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+index cfb60e1..b804470 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+@@ -3043,7 +3043,7 @@ int t3_sge_alloc_qset(struct adapter *adapter, unsigned int id, int nports,
+ 	q->fl[1].buf_size = FL1_PG_CHUNK_SIZE;
+ #else
+ 	q->fl[1].buf_size = is_offload(adapter) ?
+-		(16 * 1024) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) :
++		SKB_WITH_OVERHEAD(16 * 1024) :
+ 		MAX_FRAME_SIZE + 2 + sizeof(struct cpl_rx_pkt);
+ #endif
+ 
+@@ -3282,8 +3282,8 @@ void t3_sge_prep(struct adapter *adap, struct sge_params *p)
  {
-+	struct rpc_rqst *req = task->tk_rqstp;
- 	dprint_status(task);
+ 	int i;
  
- 	task->tk_action = call_status;
-@@ -1615,8 +1619,8 @@ call_transmit(struct rpc_task *task)
- 	call_transmit_status(task);
- 	if (rpc_reply_expected(task))
- 		return;
--	task->tk_action = rpc_exit_task;
--	rpc_wake_up_queued_task(&task->tk_xprt->pending, task);
-+	task->tk_action = call_complete;
-+	skb_frag_destructor_unref(&req->destructor);
- }
+-	p->max_pkt_size = (16 * 1024) - sizeof(struct cpl_rx_data) -
+-	    SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++	p->max_pkt_size =
++		SKB_WITH_OVERHEAD((16*1024) - sizeof(struct cpl_rx_data));
  
- /*
-@@ -1689,7 +1693,8 @@ call_bc_transmit(struct rpc_task *task)
- 		return;
- 	}
- 
--	task->tk_action = rpc_exit_task;
-+	task->tk_action = call_complete;
-+	skb_frag_destructor_unref(&req->destructor);
- 	if (task->tk_status < 0) {
- 		printk(KERN_NOTICE "RPC: Could not send backchannel reply "
- 			"error: %d\n", task->tk_status);
-@@ -1729,7 +1734,6 @@ call_bc_transmit(struct rpc_task *task)
- 			"error: %d\n", task->tk_status);
- 		break;
- 	}
--	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
- }
- #endif /* CONFIG_SUNRPC_BACKCHANNEL */
- 
-@@ -1907,12 +1911,14 @@ call_decode(struct rpc_task *task)
- 		return;
- 	}
- 
--	task->tk_action = rpc_exit_task;
-+	task->tk_action = call_complete;
- 
- 	if (decode) {
- 		task->tk_status = rpcauth_unwrap_resp(task, decode, req, p,
- 						      task->tk_msg.rpc_resp);
- 	}
-+	rpc_sleep_on(&req->rq_xprt->pending, task, NULL);
-+	skb_frag_destructor_unref(&req->destructor);
- 	dprintk("RPC: %5u call_decode result %d\n", task->tk_pid,
- 			task->tk_status);
- 	return;
-@@ -1927,6 +1933,17 @@ out_retry:
- 	}
- }
- 
-+/*
-+ * 8.	Wait for pages to be released by the network stack.
-+ */
-+static void
-+call_complete(struct rpc_task *task)
-+{
-+	dprintk("RPC: %5u call_complete result %d\n",
-+		task->tk_pid, task->tk_status);
-+	task->tk_action = rpc_exit_task;
-+}
-+
- static __be32 *
- rpc_encode_header(struct rpc_task *task)
- {
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 706305b..efa95df 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -198,7 +198,8 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
- 	while (pglen > 0) {
- 		if (slen == size)
- 			flags = 0;
--		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
-+		result = kernel_sendpage(sock, *ppage, xdr->destructor,
-+					 base, size, flags);
- 		if (result > 0)
- 			len += result;
- 		if (result != size)
-diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-index 0cbcd1a..a252759 100644
---- a/net/sunrpc/xprt.c
-+++ b/net/sunrpc/xprt.c
-@@ -1108,6 +1108,16 @@ static inline void xprt_init_xid(struct rpc_xprt *xprt)
- 	xprt->xid = net_random();
- }
- 
-+static int xprt_complete_skb_pages(struct skb_frag_destructor *destroy)
-+{
-+	struct rpc_rqst	*req =
-+		container_of(destroy, struct rpc_rqst, destructor);
-+
-+	dprintk("RPC: %5u completing skb pages\n", req->rq_task->tk_pid);
-+	rpc_wake_up_queued_task(&req->rq_xprt->pending, req->rq_task);
-+	return 0;
-+}
-+
- static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
- {
- 	struct rpc_rqst	*req = task->tk_rqstp;
-@@ -1120,6 +1130,8 @@ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
- 	req->rq_xid     = xprt_alloc_xid(xprt);
- 	req->rq_release_snd_buf = NULL;
- 	xprt_reset_majortimeo(req);
-+	atomic_set(&req->destructor.ref, 1);
-+	req->destructor.destroy = &xprt_complete_skb_pages;
- 	dprintk("RPC: %5u reserved req %p xid %08x\n", task->tk_pid,
- 			req, ntohl(req->rq_xid));
- }
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index f05082b..b6ee8b7 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -408,7 +408,8 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
- 		remainder -= len;
- 		if (remainder != 0 || more)
- 			flags |= MSG_MORE;
--		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
-+		err = sock->ops->sendpage(sock, *ppage, xdr->destructor,
-+					  base, len, flags);
- 		if (remainder == 0 || err != len)
- 			break;
- 		sent += err;
+ 	for (i = 0; i < SGE_QSETS; ++i) {
+ 		struct qset_params *q = p->qset + i;
 -- 
 1.7.2.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
