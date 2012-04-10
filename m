@@ -1,48 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Tue, 10 Apr 2012 12:04:19 +0200
-Message-ID: <1334052259.3126.68.camel@edumazet-glaptop>
-References: <20120408171323.GA16012@redhat.com>
-	 <1334044558.3126.5.camel@edumazet-glaptop>
-	 <20120410084151.GA27193@redhat.com>
-	 <1334048100.3126.21.camel@edumazet-glaptop>
-	 <20120410093140.GA27651@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120410093140.GA27651@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 1/2] l2tp: fix refcount leak in l2tp_ip sockets
+Date: Tue, 10 Apr 2012 11:10:42 +0100
+Message-ID: <1334052643-10910-2-git-send-email-jchapman@katalix.com>
+References: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
+Cc: James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:53106 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756080Ab2DJKLF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2012 06:11:05 -0400
+In-Reply-To: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-10 at 12:31 +0300, Michael S. Tsirkin wrote:
+The l2tp_ip socket close handler does not update the module refcount
+correctly which prevents module unload after the first bind() call on
+an L2TPv3 IP encapulation socket.
 
-> True. Still this is the only interface we have for controlling
-> the internal queue length so it seems safe to assume someone
-> is using it for this purpose.
-> 
+Signed-off-by: James Chapman <jchapman@katalix.com>
+---
+ net/l2tp/l2tp_ip.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-So to workaround a problem in tun, you want to hack net/core/dev.c :(
-
-Packets in qdisc should not be orphaned.
-
-If you think about it, why do we attach skb to socket in the first
-place ?
-
-If its not needed for tun, why should it be needed for other devices ?
-
-If TUN has a problem being stopped forever, maybe it should take
-appropriate action to flush all packets in qdisc queue after a while, as
-this makes no sense to delay packets forever.
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 55670ec..b56be14 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -232,7 +232,7 @@ static void l2tp_ip_close(struct sock *sk, long timeout)
+ {
+ 	write_lock_bh(&l2tp_ip_lock);
+ 	hlist_del_init(&sk->sk_bind_node);
+-	hlist_del_init(&sk->sk_node);
++	sk_del_node_init(sk);
+ 	write_unlock_bh(&l2tp_ip_lock);
+ 	sk_common_release(sk);
+ }
+-- 
+1.7.0.4
