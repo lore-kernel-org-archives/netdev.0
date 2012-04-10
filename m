@@ -1,30 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net: more accurate skb truesize - regression on Microblaze
-Date: Tue, 10 Apr 2012 10:14:00 -0400 (EDT)
-Message-ID: <20120410.101400.1433881148267812355.davem@davemloft.net>
-References: <CAHTX3dLRR09_QaA2BzmbCVAUVVGvr_P3s2d1KEgPLMYGGVzrpA@mail.gmail.com>
-	<20120410.095245.1556231435417125908.davem@davemloft.net>
-	<CAHTX3dLz9+A48u6ckGiDytBkyMrvgV0Zi3xfnt4RBmoagJbndA@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/2] adding tracepoints to vhost
+Date: Tue, 10 Apr 2012 16:45:22 +0300
+Message-ID: <20120410134522.GC18899@redhat.com>
+References: <20120410025327.49693.93562.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<CAJSP0QWA1z6_YQe9hhpG7bCyZQarmU5NXbHsLGTL_zPTk3dOUA@mail.gmail.com>
+	<20120410124250.GB29808@redhat.com>
+	<CAEH94Li0==w=AUKd5WCPMcqxLh=+N6bKttOwrE8y-xuOyPt_QA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	john.williams@petalogix.com
-To: monstr@monstr.eu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43799 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754338Ab2DJOOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 10:14:05 -0400
-In-Reply-To: <CAHTX3dLz9+A48u6ckGiDytBkyMrvgV0Zi3xfnt4RBmoagJbndA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	kvm@vger.kernel.org, netdev@vger.kernel.org
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <CAEH94Li0==w=AUKd5WCPMcqxLh=+N6bKttOwrE8y-xuOyPt_QA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Michal Simek <monstr@monstr.eu>
-Date: Tue, 10 Apr 2012 16:04:18 +0200
+On Tue, Apr 10, 2012 at 09:10:48PM +0800, Zhi Yong Wu wrote:
+> >> Perhaps this can replace the vhost log feature? =A0I'm not sure if
+> >> tracepoints support the right data types but it seems like vhost
+> >> debugging could be done using tracing with less code.
+> >>
+> >> Stefan
+> >
+> > vhost log is not a debugging tool, it logs memory accesses for
+> > migration.
+> Great, it is very appreciated if there's some docs about this
 
-> I didn't report problem on any private held driver. I think you have
-> misunderstand our later discussion about ll_temac driver where are
-> some problems which at least
+About what? vhost logging? See the comment near the
+definition of VHOST_SET_LOG_BASE in vhost.h
 
-Thanks for the clarification.
+> > _______________________________________________
+> > Virtualization mailing list
+> > Virtualization@lists.linux-foundation.org
+> > https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+> =
+
+> =
+
+> =
+
+> -- =
+
+> Regards,
+> =
+
+> Zhi Yong Wu
