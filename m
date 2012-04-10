@@ -1,27 +1,65 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: fix incorrect logic in nf_conntrack_init_net
-Date: Tue, 10 Apr 2012 14:36:22 +0200
-Message-ID: <20120410123622.GB30763@1984>
-References: <1333850908-3108-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/2] adding tracepoints to vhost
+Date: Tue, 10 Apr 2012 15:42:51 +0300
+Message-ID: <20120410124250.GB29808@redhat.com>
+References: <20120410025327.49693.93562.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<CAJSP0QWA1z6_YQe9hhpG7bCyZQarmU5NXbHsLGTL_zPTk3dOUA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40918 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758389Ab2DJMgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2012 08:36:25 -0400
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Stefan Hajnoczi <stefanha@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1333850908-3108-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAJSP0QWA1z6_YQe9hhpG7bCyZQarmU5NXbHsLGTL_zPTk3dOUA@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 08, 2012 at 10:08:28AM +0800, Gao feng wrote:
-> in function nf_conntrack_init_net,when nf_conntrack_timeout_init falied,
-> we should call nf_conntrack_ecache_fini to do rollback.
-> but the current code calls nf_conntrack_timeout_fini.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+On Tue, Apr 10, 2012 at 12:40:50PM +0100, Stefan Hajnoczi wrote:
+> On Tue, Apr 10, 2012 at 3:58 AM, Jason Wang <jasowang@redhat.com> wrote:
+> > To help in vhost analyzing, the following series adding basic tracepoin=
+ts to
+> > vhost. Operations of both virtqueues and vhost works were traced in cur=
+rent
+> > implementation, net code were untouched. A top-like satistics displayin=
+g script
+> > were introduced to help the troubleshooting.
+> >
+> > TODO:
+> > - net specific tracepoints?
+> >
+> > ---
+> >
+> > Jason Wang (2):
+> > =A0 =A0 =A0vhost: basic tracepoints
+> > =A0 =A0 =A0tools: virtio: add a top-like utility for displaying vhost s=
+atistics
+> >
+> >
+> > =A0drivers/vhost/trace.h =A0 | =A0153 ++++++++++++++++++++
+> > =A0drivers/vhost/vhost.c =A0 | =A0 17 ++
+> > =A0tools/virtio/vhost_stat | =A0360 +++++++++++++++++++++++++++++++++++=
+++++++++++++
+> > =A03 files changed, 528 insertions(+), 2 deletions(-)
+> > =A0create mode 100644 drivers/vhost/trace.h
+> > =A0create mode 100755 tools/virtio/vhost_stat
+> =
 
-Applied, thanks.
+> Perhaps this can replace the vhost log feature?  I'm not sure if
+> tracepoints support the right data types but it seems like vhost
+> debugging could be done using tracing with less code.
+> =
+
+> Stefan
+
+vhost log is not a debugging tool, it logs memory accesses for
+migration.
