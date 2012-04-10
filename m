@@ -1,91 +1,217 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 05/10] net: move destructor_arg to the front of sk_buff.
-Date: Tue, 10 Apr 2012 15:26:19 +0100
-Message-ID: <1334067984-7706-5-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 06/10] net: add support for per-paged-fragment destructors
+Date: Tue, 10 Apr 2012 15:26:20 +0100
+Message-ID: <1334067984-7706-6-git-send-email-ian.campbell@citrix.com>
 References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	"Michael S. Tsirkin" <mst@redhat.com>,
 	Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xen.org,
-	Ian Campbell <ian.campbell@citrix.com>
+	Ian Campbell <ian.campbell@citrix.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:3234 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758703Ab2DJOcj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2012 10:32:39 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:56112 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755734Ab2DJOcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 10:32:39 -0400
 In-Reply-To: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As of the previous patch we align the end (rather than the start) of the struct
-to a cache line and so, with 32 and 64 byte cache lines and the shinfo size
-increase from the next patch, the first 8 bytes of the struct end up on a
-different cache line to the rest of it so make sure it is something relatively
-unimportant to avoid hitting an extra cache line on hot operations such as
-kfree_skb.
+Entities which care about the complete lifecycle of pages which they in=
+ject
+into the network stack via an skb paged fragment can choose to set this
+destructor in order to receive a callback when the stack is really fini=
+shed
+with a page (including all clones, retransmits, pull-ups etc etc).
+
+This destructor will always be propagated alongside the struct page whe=
+n
+copying skb_frag_t->page. This is the reason I chose to embed the destr=
+uctor in
+a "struct { } page" within the skb_frag_t, rather than as a separate fi=
+eld,
+since it allows existing code which propagates ->frags[N].page to Just
+Work(tm).
+
+When the destructor is present the page reference counting is done slig=
+htly
+differently. No references are held by the network stack on the struct =
+page (it
+is up to the caller to manage this as necessary) instead the network st=
+ack will
+track references via the count embedded in the destructor structure. Wh=
+en this
+reference count reaches zero then the destructor will be called and the=
+ caller
+can take the necesary steps to release the page (i.e. release the struc=
+t page
+reference itself).
+
+The intention is that callers can use this callback to delay completion=
+ to
+_their_ callers until the network stack has completely released the pag=
+e, in
+order to prevent use-after-free or modification of data pages which are=
+ still
+in use by the stack.
+
+It is allowable (indeed expected) for a caller to share a single destru=
+ctor
+instance between multiple pages injected into the stack e.g. a group of=
+ pages
+included in a single higher level operation might share a destructor wh=
+ich is
+used to complete that higher level operation.
+
+With this change and the previous two changes to shinfo alignment and f=
+ield
+orderring it is now the case tyhat on a 64 bit system with 64 byte cach=
+e lines,
+everything from nr_frags until the end of frags[0] is on the same cache=
+line.
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
+Cc: netdev@vger.kernel.org
 ---
- include/linux/skbuff.h |   15 ++++++++++-----
- net/core/skbuff.c      |    5 ++++-
- 2 files changed, 14 insertions(+), 6 deletions(-)
+ include/linux/skbuff.h |   43 ++++++++++++++++++++++++++++++++++++++++=
++++
+ net/core/skbuff.c      |   17 +++++++++++++++++
+ 2 files changed, 60 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0ad6a46..f0ae39c 100644
+index f0ae39c..6ac283e 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -265,6 +265,15 @@ struct ubuf_info {
-  * the end of the header data, ie. at skb->end.
-  */
- struct skb_shared_info {
-+	/* Intermediate layers must ensure that destructor_arg
-+	 * remains valid until skb destructor */
-+	void		*destructor_arg;
+@@ -166,9 +166,15 @@ struct sk_buff;
+=20
+ typedef struct skb_frag_struct skb_frag_t;
+=20
++struct skb_frag_destructor {
++	atomic_t ref;
++	int (*destroy)(struct skb_frag_destructor *destructor);
++};
 +
-+	/*
-+	 * Warning: all fields from here until dataref are cleared in
-+	 * __alloc_skb()
-+	 *
-+	 */
- 	unsigned char	nr_frags;
- 	__u8		tx_flags;
- 	unsigned short	gso_size;
-@@ -276,14 +285,10 @@ struct skb_shared_info {
- 	__be32          ip6_frag_id;
- 
- 	/*
--	 * Warning : all fields before dataref are cleared in __alloc_skb()
-+	 * Warning: all fields before dataref are cleared in __alloc_skb()
- 	 */
- 	atomic_t	dataref;
- 
--	/* Intermediate layers must ensure that destructor_arg
--	 * remains valid until skb destructor */
--	void *		destructor_arg;
--
- 	/* must be last field, see pskb_expand_head() */
- 	skb_frag_t	frags[MAX_SKB_FRAGS];
- };
+ struct skb_frag_struct {
+ 	struct {
+ 		struct page *p;
++		struct skb_frag_destructor *destructor;
+ 	} page;
+ #if (BITS_PER_LONG > 32) || (PAGE_SIZE >=3D 65536)
+ 	__u32 page_offset;
+@@ -1221,6 +1227,31 @@ static inline int skb_pagelen(const struct sk_bu=
+ff *skb)
+ }
+=20
+ /**
++ * skb_frag_set_destructor - set destructor for a paged fragment
++ * @skb: buffer containing fragment to be initialised
++ * @i: paged fragment index to initialise
++ * @destroy: the destructor to use for this fragment
++ *
++ * Sets @destroy as the destructor to be called when all references to
++ * the frag @i in @skb (tracked over skb_clone, retransmit, pull-ups,
++ * etc) are released.
++ *
++ * When a destructor is set then reference counting is performed on
++ * @destroy->ref. When the ref reaches zero then @destroy->destroy
++ * will be called. The caller is responsible for holding and managing
++ * any other references (such a the struct page reference count).
++ *
++ * This function must be called before any use of skb_frag_ref() or
++ * skb_frag_unref().
++ */
++static inline void skb_frag_set_destructor(struct sk_buff *skb, int i,
++					   struct skb_frag_destructor *destroy)
++{
++	skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
++	frag->page.destructor =3D destroy;
++}
++
++/**
+  * __skb_fill_page_desc - initialise a paged fragment in an skb
+  * @skb: buffer containing fragment to be initialised
+  * @i: paged fragment index to initialise
+@@ -1239,6 +1270,7 @@ static inline void __skb_fill_page_desc(struct sk=
+_buff *skb, int i,
+ 	skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+=20
+ 	frag->page.p		  =3D page;
++	frag->page.destructor     =3D NULL;
+ 	frag->page_offset	  =3D off;
+ 	skb_frag_size_set(frag, size);
+ }
+@@ -1743,6 +1775,9 @@ static inline struct page *skb_frag_page(const sk=
+b_frag_t *frag)
+ 	return frag->page.p;
+ }
+=20
++extern void skb_frag_destructor_ref(struct skb_frag_destructor *destro=
+y);
++extern void skb_frag_destructor_unref(struct skb_frag_destructor *dest=
+roy);
++
+ /**
+  * __skb_frag_ref - take an addition reference on a paged fragment.
+  * @frag: the paged fragment
+@@ -1751,6 +1786,10 @@ static inline struct page *skb_frag_page(const s=
+kb_frag_t *frag)
+  */
+ static inline void __skb_frag_ref(skb_frag_t *frag)
+ {
++	if (unlikely(frag->page.destructor)) {
++		skb_frag_destructor_ref(frag->page.destructor);
++		return;
++	}
+ 	get_page(skb_frag_page(frag));
+ }
+=20
+@@ -1774,6 +1813,10 @@ static inline void skb_frag_ref(struct sk_buff *=
+skb, int f)
+  */
+ static inline void __skb_frag_unref(skb_frag_t *frag)
+ {
++	if (unlikely(frag->page.destructor)) {
++		skb_frag_destructor_unref(frag->page.destructor);
++		return;
++	}
+ 	put_page(skb_frag_page(frag));
+ }
+=20
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d4e139e..b8a41d6 100644
+index b8a41d6..9ec88ce 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -214,7 +214,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 
- 	/* make sure we initialize shinfo sequentially */
- 	shinfo = skb_shinfo(skb);
--	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+@@ -349,6 +349,23 @@ struct sk_buff *dev_alloc_skb(unsigned int length)
+ }
+ EXPORT_SYMBOL(dev_alloc_skb);
+=20
++void skb_frag_destructor_ref(struct skb_frag_destructor *destroy)
++{
++	BUG_ON(destroy =3D=3D NULL);
++	atomic_inc(&destroy->ref);
++}
++EXPORT_SYMBOL(skb_frag_destructor_ref);
 +
-+	memset(&shinfo->nr_frags, 0,
-+	       offsetof(struct skb_shared_info, dataref)
-+	       - offsetof(struct skb_shared_info, nr_frags));
- 	atomic_set(&shinfo->dataref, 1);
- 	kmemcheck_annotate_variable(shinfo->destructor_arg);
- 
--- 
++void skb_frag_destructor_unref(struct skb_frag_destructor *destroy)
++{
++	if (destroy =3D=3D NULL)
++		return;
++
++	if (atomic_dec_and_test(&destroy->ref))
++		destroy->destroy(destroy);
++}
++EXPORT_SYMBOL(skb_frag_destructor_unref);
++
+ static void skb_drop_list(struct sk_buff **listp)
+ {
+ 	struct sk_buff *list =3D *listp;
+--=20
 1.7.2.5
