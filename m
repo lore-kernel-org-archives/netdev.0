@@ -1,71 +1,80 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v1 7/7] macvlan: add FDB bridge ops and new macvlan
- mode
-Date: Tue, 10 Apr 2012 06:27:32 -0700
-Message-ID: <4F843544.8060209@intel.com>
-References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab> <20120409220053.3288.40867.stgit@jf-dev1-dcblab> <20120410080916.GB26540@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Tue, 10 Apr 2012 09:26:23 -0400 (EDT)
+Message-ID: <20120410.092623.821622563087500166.davem@davemloft.net>
+References: <20120410152923.15aee4df478d819f167cd4af@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roprabhu@cisco.com, stephen.hemminger@vyatta.com,
-	davem@davemloft.net, hadi@cyberus.ca, bhutchings@solarflare.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gregory.v.rose@intel.com, krkumar2@in.ibm.com, sri@us.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:24444 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752840Ab2DJN1d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2012 09:27:33 -0400
-In-Reply-To: <20120410080916.GB26540@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, msink@permonline.ru,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120410152923.15aee4df478d819f167cd4af@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/10/2012 1:09 AM, Michael S. Tsirkin wrote:
-> On Mon, Apr 09, 2012 at 03:00:54PM -0700, John Fastabend wrote:
->> This adds a new macvlan mode MACVLAN_PASSTHRU_NOPROMISC
->> this mode acts the same as the original passthru mode _except_
->> it does not set promiscuous mode on the lowerdev. Because the
->> lowerdev is not put in promiscuous mode any unicast or multicast
->> addresses the device should receive must be explicitely added
->> with the FDB bridge ops. In many use cases the management stack
->> will know the mac addresses needed (maybe negotiated via EVB/VDP)
->> or may require only receiving known "good" mac addresses. This
->> mode with the FDB ops supports this usage model.
-> 
-> 
-> Looks good to me. Some questions below:
-> 
->> This patch is a result of Roopa Prabhu's work. Follow up
->> patches are needed for VEPA and VEB macvlan modes.
-> 
-> And bridge too?
-> 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 10 Apr 2012 15:29:23 +1000
 
-Yes I called this mode VEB here but this is defined in if_link.h
-as IFLA_MACVLAN_MODE_BRIDGE. From a IEEE point of view I think
-the macvlan bridge mode acts more like a 802.1Q VEB then a 802.1d
-bridge.
+> After merging the final tree, today's linux-next build (s390 allmodconfig)
+> failed like this:
 
-> Also, my understanding is that other modes won't need a flag
-> like this since they don't put the device in promisc mode initially,
-> so no assumptions are broken if we require all addresses
-> to be declared, right?
-> 
+I just checked in the following which will hopefully cure this,
+thanks:
 
-correct. But requires extra work to the hash table so the forwarding
-works correctly.
+--------------------
+wiznet: Fix Kconfig dependencies.
 
-> A final question: I think we'll later add a macvlan mode
-> that does not flood all multicasts. This would change behaviour
-> in an incompatible way so we'll probably need yet another
-> flag. Would it make sense to combine this functionality
-> with nopromisc so we have less modes to support?
-> 
+Both drivers need to depend upon HAS_IOMEM, otherwise we
+get a build failure on platforms like S390.
 
-For VEPA and bridge modes this makes sense to me. If you want
-the flood behavior you can create it by adding the addr to all
-the devices or just to a subset of them to get the non-flooding
-capabilities.
+All the driver specific config options need to depend upon
+the drivers themselves.
 
-.John
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/wiznet/Kconfig |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/wiznet/Kconfig b/drivers/net/ethernet/wiznet/Kconfig
+index 2bb383c..c8291bf 100644
+--- a/drivers/net/ethernet/wiznet/Kconfig
++++ b/drivers/net/ethernet/wiznet/Kconfig
+@@ -19,6 +19,7 @@ if NET_VENDOR_WIZNET
+ 
+ config WIZNET_W5100
+ 	tristate "WIZnet W5100 Ethernet support"
++	depends on HAS_IOMEM
+ 	---help---
+ 	  Support for WIZnet W5100 chips.
+ 
+@@ -31,6 +32,7 @@ config WIZNET_W5100
+ 
+ config WIZNET_W5300
+ 	tristate "WIZnet W5300 Ethernet support"
++	depends on HAS_IOMEM
+ 	---help---
+ 	  Support for WIZnet W5300 chips.
+ 
+@@ -43,6 +45,7 @@ config WIZNET_W5300
+ 
+ choice
+ 	prompt "WIZnet interface mode"
++	depends on WIZNET_W5100 || WIZNET_W5300
+ 	default WIZNET_BUS_ANY
+ 
+ config WIZNET_BUS_DIRECT
+@@ -69,6 +72,7 @@ endchoice
+ 
+ config WIZNET_TX_FLOW
+ 	bool "Use transmit flow control"
++	depends on WIZNET_W5100 || WIZNET_W5300
+ 	default y
+ 	help
+ 	  This enables transmit flow control for WIZnet chips.
+-- 
+1.7.7.6
