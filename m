@@ -1,65 +1,58 @@
-From: Ryan Ware <ware@linux.intel.com>
-Subject: Re: [PATCH v17 15/15] Documentation: prctl/seccomp_filter
-Date: Tue, 10 Apr 2012 10:49:41 -0700
-Message-ID: <CBA9C094.3CC91%ware@linux.intel.com>
-References: <CABqD9hYQPDmNadkPw9O6fRXHpWDxh=MVPf7VB_3fz_X72dNz4w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	<linux-security-module@vger.kernel.org>,
-	<linux-arch@vger.kernel.org>, <linux-doc@vger.kernel.org>,
-	<kernel-hardening@lists.openwall.com>, <netdev@vger.kernel.org>,
-	<x86@kernel.org>, <arnd@arndb.de>, <davem@davemloft.net>,
-	<hpa@zytor.com>, <mingo@redhat.com>, <oleg@redhat.com>,
-	<peterz@infradead.org>, <rdunlap@xenotime.net>,
-	<mcgrathr@chromium.org>, <tglx@linutronix.de>, <luto@mit.edu>,
-	<eparis@redhat.com>, <serge.hallyn@canonical.com>,
-	<djm@mindrot.org>, <scarybeasts@gmail.com>, <indan@nul.nu>,
-	<pmoore@redhat.com>, <corbet@lwn.net>, <eric.dumazet@gmail.com>,
-	<coreyb@linux.vnet.ibm.com>, <keescook@chromium.org>,
-	<jmorris@namei.org>
-To: Will Drewry <wad@chromium.org>,
-	Markus Gutschke <markus@chromium.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CABqD9hYQPDmNadkPw9O6fRXHpWDxh=MVPf7VB_3fz_X72dNz4w@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH] tcp: fix tcp_rcv_rtt_update() use of an unscaled RTT sample
+Date: Tue, 10 Apr 2012 13:59:20 -0400
+Message-ID: <1334080760-968-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f74.google.com ([209.85.213.74]:52320 "EHLO
+	mail-yw0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753438Ab2DJR72 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 13:59:28 -0400
+Received: by yhgm50 with SMTP id m50so9900yhg.1
+        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 10:59:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Fix a code path in tcp_rcv_rtt_update() that was comparing scaled and
+unscaled RTT samples.
 
+The intent in the code was to only use the 'm' measurement if it was a
+new minimum.  However, since 'm' had not yet been shifted left 3 bits
+but 'new_sample' had, this comparison would nearly always succeed,
+leading us to erroneously set our receive-side RTT estimate to the 'm'
+sample when that sample could be nearly 8x too high to use.
 
-On 4/9/12 3:47 PM, "Will Drewry" <wad@chromium.org> wrote:
+The overall effect is to often cause the receive-side RTT estimate to
+be significantly too large (up to 40% too large for brief periods in
+my tests).
 
->On Mon, Apr 9, 2012 at 3:58 PM, Ryan Ware <ware@linux.intel.com> wrote:
->>
->> On 4/9/12 1:47 PM, "Markus Gutschke" <markus@chromium.org> wrote:
->>
->>>No matter what you do, please leave the samples accessible somewhere.
->>>They proved incredibly useful in figuring out how the API works. I am
->>>sure, other developers are going to appreciate them as well.
->>>
->>>Alternatively, if you don't want to include the samples with the
->>>kernel sources, figure out how you can include a sample in the
->>>official manual page for prctl().
->>>
->>
->> I second this!  They are extremely useful.
->>
->> Ryan
->
->In that case, would it make sense to put up a separate tools/testing
->patch and leave samples where they lie? (I'd _love_ to keep this patch
->series from acquiring another 1000 lines, but either way works :)
->
->My current tester and harness lives here:
->  https://github.com/redpig/seccomp/blob/master/tests/
->and the licensing can be sorted out prior to a patch mail.
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-I have absolutely no problems with that solution.  Availability is the
-important thing.
-
-Ryan
-
-
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index e886e2f..e7b54d2 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -474,8 +474,11 @@ static void tcp_rcv_rtt_update(struct tcp_sock *tp, u32 sample, int win_dep)
+ 		if (!win_dep) {
+ 			m -= (new_sample >> 3);
+ 			new_sample += m;
+-		} else if (m < new_sample)
+-			new_sample = m << 3;
++		} else {
++			m <<= 3;
++			if (m < new_sample)
++				new_sample = m;
++		}
+ 	} else {
+ 		/* No previous measure. */
+ 		new_sample = m << 3;
+-- 
+1.7.7.3
