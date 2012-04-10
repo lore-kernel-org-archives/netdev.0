@@ -1,142 +1,200 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Tue, 10 Apr 2012 09:55:58 +0200
-Message-ID: <1334044558.3126.5.camel@edumazet-glaptop>
-References: <20120408171323.GA16012@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next PATCH v1 2/7] net: addr_list: add exclusive dev_uc_add
+ and dev_mc_add
+Date: Tue, 10 Apr 2012 11:03:48 +0300
+Message-ID: <20120410080347.GA26540@redhat.com>
+References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
+ <20120409220023.3288.59939.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120408171323.GA16012@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: roprabhu@cisco.com, stephen.hemminger@vyatta.com,
+	davem@davemloft.net, hadi@cyberus.ca, bhutchings@solarflare.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gregory.v.rose@intel.com, krkumar2@in.ibm.com, sri@us.ibm.com
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:15684 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755952Ab2DJIDt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2012 04:03:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20120409220023.3288.59939.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-04-08 at 20:13 +0300, Michael S. Tsirkin wrote:
-> commit 0110d6f22f392f976e84ab49da1b42f85b64a3c5
-> tun: orphan an skb on tx
-> Fixed a configuration where skbs get queued
-> at the tun device forever, blocking senders.
+On Mon, Apr 09, 2012 at 03:00:23PM -0700, John Fastabend wrote:
+> This adds a dev_uc_add_excl() and dev_mc_add_excl() calls
+> similar to the original dev_{uc|mc}_add() except it sets
+> the global bit and returns -EEXIST for duplicat entires.
 > 
-> However this fix isn't waterproof:
-> userspace can control whether the interface
-> is stopped, and if it is, packets
-> get queued in the qdisc, again potentially forever.
+> This is useful for drivers that support SR-IOV, macvlan
+> devices and any other devices that need to manage the
+> unicast and multicast lists.
 > 
-> Complete the fix by setting a private flag and orphaning
-> at the qdisc level.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 > ---
->  drivers/net/tun.c       |    3 +++
->  include/linux/if.h      |    1 +
->  net/core/dev.c          |    5 +++++
->  net/sched/sch_generic.c |    5 +++++
->  4 files changed, 14 insertions(+), 0 deletions(-)
 > 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index bb8c72c..15c5bb8 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -535,6 +535,9 @@ static void tun_net_init(struct net_device *dev)
->  		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
->  		break;
+>  include/linux/netdevice.h |    2 +
+>  net/core/dev_addr_lists.c |   97 ++++++++++++++++++++++++++++++++++++++-------
+>  2 files changed, 83 insertions(+), 16 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 05822e5..b68a326 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2572,6 +2572,7 @@ extern int dev_addr_init(struct net_device *dev);
+>  
+>  /* Functions used for unicast addresses handling */
+>  extern int dev_uc_add(struct net_device *dev, unsigned char *addr);
+> +extern int dev_uc_add_excl(struct net_device *dev, unsigned char *addr);
+>  extern int dev_uc_del(struct net_device *dev, unsigned char *addr);
+>  extern int dev_uc_sync(struct net_device *to, struct net_device *from);
+>  extern void dev_uc_unsync(struct net_device *to, struct net_device *from);
+> @@ -2581,6 +2582,7 @@ extern void dev_uc_init(struct net_device *dev);
+>  /* Functions used for multicast addresses handling */
+>  extern int dev_mc_add(struct net_device *dev, unsigned char *addr);
+>  extern int dev_mc_add_global(struct net_device *dev, unsigned char *addr);
+> +extern int dev_mc_add_excl(struct net_device *dev, unsigned char *addr);
+>  extern int dev_mc_del(struct net_device *dev, unsigned char *addr);
+>  extern int dev_mc_del_global(struct net_device *dev, unsigned char *addr);
+>  extern int dev_mc_sync(struct net_device *to, struct net_device *from);
+> diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+> index 29c07fe..5405e28 100644
+> --- a/net/core/dev_addr_lists.c
+> +++ b/net/core/dev_addr_lists.c
+> @@ -21,12 +21,35 @@
+>   * General list handling functions
+>   */
+>  
+> +static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
+> +			       unsigned char *addr, int addr_len,
+> +			       unsigned char addr_type, bool global)
+> +{
+> +	struct netdev_hw_addr *ha;
+> +	int alloc_size;
+> +
+> +	alloc_size = sizeof(*ha);
+> +	if (alloc_size < L1_CACHE_BYTES)
+> +		alloc_size = L1_CACHE_BYTES;
+> +	ha = kmalloc(alloc_size, GFP_ATOMIC);
+> +	if (!ha)
+> +		return -ENOMEM;
+> +	memcpy(ha->addr, addr, addr_len);
+> +	ha->type = addr_type;
+> +	ha->refcount = 1;
+> +	ha->global_use = global;
+> +	ha->synced = false;
+> +	list_add_tail_rcu(&ha->list, &list->list);
+> +	list->count++;
+> +
+> +	return 0;
+> +}
+> +
+>  static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
+>  			    unsigned char *addr, int addr_len,
+>  			    unsigned char addr_type, bool global)
+>  {
+>  	struct netdev_hw_addr *ha;
+> -	int alloc_size;
+>  
+>  	if (addr_len > MAX_ADDR_LEN)
+>  		return -EINVAL;
+> @@ -46,21 +69,7 @@ static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
+>  		}
 >  	}
-> +	/* Once queue becomes full, we stop tx until userspace
-> +	 * dequeues some packets, that is potentially forever. */
-> +	dev->priv_flags |= IFF_TX_CAN_STALL;
+>  
+> -
+> -	alloc_size = sizeof(*ha);
+> -	if (alloc_size < L1_CACHE_BYTES)
+> -		alloc_size = L1_CACHE_BYTES;
+> -	ha = kmalloc(alloc_size, GFP_ATOMIC);
+> -	if (!ha)
+> -		return -ENOMEM;
+> -	memcpy(ha->addr, addr, addr_len);
+> -	ha->type = addr_type;
+> -	ha->refcount = 1;
+> -	ha->global_use = global;
+> -	ha->synced = false;
+> -	list_add_tail_rcu(&ha->list, &list->list);
+> -	list->count++;
+> -	return 0;
+> +	return __hw_addr_create_ex(list, addr, addr_len, addr_type, global);
 >  }
 >  
->  /* Character device part */
-> diff --git a/include/linux/if.h b/include/linux/if.h
-> index f995c66..dd2c7f7 100644
-> --- a/include/linux/if.h
-> +++ b/include/linux/if.h
-> @@ -81,6 +81,7 @@
->  #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
->  #define IFF_TEAM_PORT	0x40000		/* device used as team port */
->  #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
-> +#define IFF_TX_CAN_STALL 0x100000	/* Device can stop tx forever */
+>  static int __hw_addr_add(struct netdev_hw_addr_list *list, unsigned char *addr,
+> @@ -377,6 +386,34 @@ EXPORT_SYMBOL(dev_addr_del_multiple);
+>   */
 >  
-> 
->  #define IF_GET_IFACE	0x0001		/* for querying only */
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 5d59155..e812706 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2516,6 +2516,11 @@ int dev_queue_xmit(struct sk_buff *skb)
->  	struct Qdisc *q;
->  	int rc = -ENOMEM;
->  
-> +	/* Orphan the skb - required if we might hang on to it
-> +	 * for indefinite time. */
-> +	if (dev->priv_flags & IFF_TX_CAN_STALL)
-> +		skb_orphan(skb);
+>  /**
+> + *	dev_uc_add_excl - Add a global secondary unicast address
+> + *	@dev: device
+> + *	@addr: address to add
+> + */
+> +int dev_uc_add_excl(struct net_device *dev, unsigned char *addr)
+> +{
+> +	struct netdev_hw_addr *ha;
+> +	int err;
 > +
->  	/* Disable soft irqs for various locks below. Also
->  	 * stops preemption for RCU.
->  	 */
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 67fc573..27883d1 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -120,6 +120,11 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
->  	/* And release qdisc */
->  	spin_unlock(root_lock);
->  
-> +	/* Orphan the skb - required if we might hang on to it
-> +	 * for indefinite time. */
-> +	if (dev->priv_flags & IFF_TX_CAN_STALL)
-> +		skb_orphan(skb);
+> +	netif_addr_lock_bh(dev);
+> +	list_for_each_entry(ha, &dev->uc.list, list) {
+> +		if (!memcmp(ha->addr, addr, dev->addr_len) &&
+> +		    ha->type == NETDEV_HW_ADDR_T_UNICAST) {
+> +			err = -EEXIST;
+> +			goto out;
+> +		}
+> +	}
+> +	err = __hw_addr_create_ex(&dev->uc, addr, dev->addr_len,
+> +				  NETDEV_HW_ADDR_T_UNICAST, true);
+> +	if (!err)
+> +		__dev_set_rx_mode(dev);
+> +out:
+> +	netif_addr_unlock_bh(dev);
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(dev_uc_add_excl);
 > +
->  	HARD_TX_LOCK(dev, txq, smp_processor_id());
->  	if (!netif_xmit_frozen_or_stopped(txq))
->  		ret = dev_hard_start_xmit(skb, dev, txq);
+> +/**
+>   *	dev_uc_add - Add a secondary unicast address
+>   *	@dev: device
+>   *	@addr: address to add
+> @@ -501,6 +538,34 @@ EXPORT_SYMBOL(dev_uc_init);
+>   * Multicast list handling functions
+>   */
+>  
+> +/**
+> + *	dev_mc_add_excl - Add a global secondary multicast address
+> + *	@dev: device
+> + *	@addr: address to add
+> + */
+> +int dev_mc_add_excl(struct net_device *dev, unsigned char *addr)
+> +{
+> +	struct netdev_hw_addr *ha;
+> +	int err;
+> +
+> +	netif_addr_lock_bh(dev);
+> +	list_for_each_entry(ha, &dev->mc.list, list) {
+> +		if (!memcmp(ha->addr, addr, dev->addr_len) &&
+> +		    ha->type == NETDEV_HW_ADDR_T_UNICAST) {
+> +			err = -EEXIST;
+> +			goto out;
+> +		}
+> +	}
+> +	err = __hw_addr_create_ex(&dev->mc, addr, dev->addr_len,
+> +				  NETDEV_HW_ADDR_T_UNICAST, true);
+> +	if (!err)
+> +		__dev_set_rx_mode(dev);
+> +out:
+> +	netif_addr_unlock_bh(dev);
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(dev_mc_add_excl);
+> +
 
-This slows down the core fastpath for a very specific use.
+Why is it a mistake to have duplicate multicast addresses?
+For example macvlan floods all multicasts so it's fine,
+and assuming it didn't, it might still be fine to have to
+macvlans get the same multicast, no?
 
-In your case I would just not use qdisc at all, like other virtual
-devices.
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index bb8c72c..fd8c7f0 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -396,7 +396,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	    sk_filter(tun->socket.sk, skb))
- 		goto drop;
- 
--	if (skb_queue_len(&tun->socket.sk->sk_receive_queue) >= dev->tx_queue_len) {
-+	if (skb_queue_len(&tun->socket.sk->sk_receive_queue) >= TUN_READQ_SIZE) {
- 		if (!(tun->flags & TUN_ONE_QUEUE)) {
- 			/* Normal queueing mode. */
- 			/* Packet scheduler handles dropping of further packets. */
-@@ -521,7 +521,7 @@ static void tun_net_init(struct net_device *dev)
- 		/* Zero header length */
- 		dev->type = ARPHRD_NONE;
- 		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
--		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
-+		dev->tx_queue_len = 0;
- 		break;
- 
- 	case TUN_TAP_DEV:
-@@ -532,7 +532,7 @@ static void tun_net_init(struct net_device *dev)
- 
- 		eth_hw_addr_random(dev);
- 
--		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
-+		dev->tx_queue_len = 0;
- 		break;
- 	}
- }
+>  static int __dev_mc_add(struct net_device *dev, unsigned char *addr,
+>  			bool global)
+>  {
