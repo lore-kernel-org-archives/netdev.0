@@ -1,100 +1,93 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Kernel panic with sysfs adding group for pmu device
-Date: Tue, 10 Apr 2012 02:05:25 +0000
-Message-ID: <1334022492.6902.10.camel@u1301>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH] memcg/tcp: fix warning caused b res->usage go to negative.
+Date: Tue, 10 Apr 2012 11:37:37 +0900
+Message-ID: <4F839CF1.5050104@jp.fujitsu.com>
+References: <4F7408B7.9090706@jp.fujitsu.com> <4F740AEF.7090900@jp.fujitsu.com> <4F742983.1080402@parallels.com> <4F750FE8.2030800@jp.fujitsu.com> <4F7F1091.9040204@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Glauber Costa <glommer@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:19576 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755112Ab2DJCFc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Apr 2012 22:05:32 -0400
-Content-Language: en-US
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:34110 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754695Ab2DJCjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Apr 2012 22:39:55 -0400
+Received: from m2.gw.fujitsu.co.jp (unknown [10.0.50.72])
+	by fgwmail5.fujitsu.co.jp (Postfix) with ESMTP id 57DA43EE0C5
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 11:39:53 +0900 (JST)
+Received: from smail (m2 [127.0.0.1])
+	by outgoing.m2.gw.fujitsu.co.jp (Postfix) with ESMTP id E1A9B45DE52
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 11:39:52 +0900 (JST)
+Received: from s2.gw.fujitsu.co.jp (s2.gw.fujitsu.co.jp [10.0.50.92])
+	by m2.gw.fujitsu.co.jp (Postfix) with ESMTP id C764945DE54
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 11:39:52 +0900 (JST)
+Received: from s2.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s2.gw.fujitsu.co.jp (Postfix) with ESMTP id B826A1DB8038
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 11:39:52 +0900 (JST)
+Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.240.81.145])
+	by s2.gw.fujitsu.co.jp (Postfix) with ESMTP id 151001DB802C
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 11:39:52 +0900 (JST)
+In-Reply-To: <4F7F1091.9040204@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgYWxsLAoKSSdtIGdldHRpbmcgYSBrZXJuZWwgcGFuaWMgb24gYm9vdCB3aXRoIHRoZSB0aGUg
-bmV0LW5leHQgdHJlZSBvbiBhCm51bWJlciBvZiB0ZXN0IHN5c3RlbXMgSSB3b3JrIHdpdGguICBT
-byBmYXIgdGhpcyBhcHBlYXJzIG9uIG9sZGVyIEludGVsClhlb24gc2VydmVyIHBsYXRmb3JtcyB0
-aGF0IGhhdmUgYW4gRVNCIGJhc2VkIGNoaXBzZXQgd2l0aCBlaXRoZXIgYW4geDg2Cm9yIHg4Nl82
-NCBrZXJuZWwuCgpIZXJlIGlzIHRoZSBwYW5pYyBJIGFtIHNlZWluZzogCi0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLQpTdGFydHMgdG8gYm9vdHMgbm9ybWFsbHkgdG8gLi4uCi4uLgpU
-cnlpbmcgdG8gdW5wYWNrIHJvb3RmcyBpbWFnZSBhcyBpbml0cmFtZnMuLi4KZGVidWc6IHVubWFw
-cGluZyBpbml0IG1lbW9yeSBmNzQ4YjAwMC4uZjc3ZmUwMDAKQlVHOiB1bmFibGUgdG8gaGFuZGxl
-IGtlcm5lbCBOVUxMIHBvaW50ZXIgZGVyZWZlcmVuY2UgYXQgICAobnVsbCkKSVA6IFs8YzEwZDE5
-YTA+XSBpbnRlcm5hbF9jcmVhdGVfZ3JvdXArMHhkYy8weDEzOAoqcGRlID0gMDAwMDAwMDAKT29w
-czogMDAwMCBbIzFdIFBSRUVNUFQgU01QIERFQlVHX1BBR0VBTExPQwpNb2R1bGVzIGxpbmtlZCBp
-bjoKClBpZDogMSwgY29tbTogc3dhcHBlci8wIE5vdCB0YWludGVkIDMuNC4wLXJjMV9uZXQtbmV4
-dF9pZ2JfMjEwN2NhZC4uLiAjMgpJbnRlbCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgL1NFNzUyNUdQMiAgICAgICAgICAgICAgICAgICAgICAgICAgICAKRUlQOiAw
-MDYwOls8YzEwZDE5YTA+XSBFRkxBR1M6IDAwMDEwMjQ2IENQVTogMApFSVAgaXMgYXQgaW50ZXJu
-YWxfY3JlYXRlX2dyb3VwKzB4ZGMvMHgxMzgKRUFYOiAwMDAwMDAwMSBFQlg6IGY0ZmMwZGY4IEVD
-WDogMDAwMDAwMDAgRURYOiAwMDAwMDAwMApFU0k6IDAwMDAwMDAwIEVESTogMDAwMDAwMDAgRUJQ
-OiBmNThmYmYzNCBFU1A6IGY1OGZiZjE0CiBEUzogMDA3YiBFUzogMDA3YiBGUzogMDBkOCBHUzog
-MDAwMCBTUzogMDA2OApDUjA6IDgwMDUwMDNiIENSMjogMDAwMDAwMDAgQ1IzOiAwMTRmYzAwMCBD
-UjQ6IDAwMDAwN2QwCkRSMDogMDAwMDAwMDAgRFIxOiAwMDAwMDAwMCBEUjI6IDAwMDAwMDAwIERS
-MzogMDAwMDAwMDAKRFI2OiBmZmZmMGZmMCBEUjc6IDAwMDAwNDAwClByb2Nlc3Mgc3dhcHBlci8w
-IChwaWQ6IDEsIHRpPWY1OGZhMDAwIHRhc2s9ZjU4ZTljNjAgdGFzay50aT1mNThmYTAwMCkKU3Rh
-Y2s6CiAwMDAwMDAwMCBmNGZjMjIzOCAwMDAwMDAwMCBjMTQ2Yjc4MCBmNGZjMjIzOCAwMDAwMDAw
-MSBjMTQ2YjgwYyAwMDAwMDAwMAogZjU4ZmJmM2MgYzEwZDFhMTkgZjU4ZmJmNTQgYzExODhkM2Yg
-ZjRmYzBkZjggZjRmYzBkZjAgMDAwMDAwMDAgMDAwMDAwMDAKIGY1OGZiZjkwIGMxMTg5M2ExIGMx
-MTg4ZDgxIDAwMDAwMDAwIDAwMDAwMDAwIGY0ZmMwZGYwIGY0ZmMwZGY4IGMxNGU1ZjI0CkNhbGwg
-VHJhY2U6CiBbPGMxMGQxYTE5Pl0gc3lzZnNfY3JlYXRlX2dyb3VwKzB4Yy8weGYKIFs8YzExODhk
-M2Y+XSBkZXZpY2VfYWRkX2dyb3VwcysweDIxLzB4NGUKIFs8YzExODkzYTE+XSBkZXZpY2VfYWRk
-KzB4MmZhLzB4NGZiCiBbPGMxMTg4ZDgxPl0gPyBkZXZpY2VfcHJpdmF0ZV9pbml0KzB4MTUvMHg0
-OQogWzxjMTE4OGRhMj5dID8gZGV2aWNlX3ByaXZhdGVfaW5pdCsweDM2LzB4NDkKIFs8YzEwNjA1
-YmI+XSBwbXVfZGV2X2FsbG9jKzB4NzUvMHg4ZQogWzxjMTRhOGRiYz5dIHBlcmZfZXZlbnRfc3lz
-ZnNfaW5pdCsweDNmLzB4ODUKIFs8YzEwMDExNTk+XSBkb19vbmVfaW5pdGNhbGwrMHg3MS8weDEx
-MwogWzxjMTRhOGQ3ZD5dID8gdXRzbmFtZV9zeXNjdGxfaW5pdCsweDExLzB4MTEKIFs8YzE0OTcy
-N2M+XSBrZXJuZWxfaW5pdCsweGQ4LzB4MTYxCiBbPGMxNDk3MWE0Pl0gPyBwYXJzZV9lYXJseV9v
-cHRpb25zKzB4MjEvMHgyMQogWzxjMTMzOWVmNj5dIGtlcm5lbF90aHJlYWRfaGVscGVyKzB4Ni8w
-eGQKQ29kZTogZDcgNjYgODUgYzAgNzQgMjEgOGIgNGQgZTggOGIgMTQgYjEgYjkgMDIgMDAgMDAg
-MDAgMGIgNDIgMDQgMGYgYjcKYzAgNTAgOGIgNDUgZTQgZTggMDEgZTEgZmYgZmYgODkgYzcgNTkg
-ODUgYzAgNzUgMGYgNDYgOGIgNTUgZTggPDhiPiAwNApiMiA4NSBjMCA3NSBhNSAzMSBmZiBlYiAy
-NyA4YiA0ZCBlYyA4YiA1OSAwOCBlYiAwZiA4YiAwOApFSVA6IFs8YzEwZDE5YTA+XSBpbnRlcm5h
-bF9jcmVhdGVfZ3JvdXArMHhkYy8weDEzOCBTUzpFU1AgMDA2ODpmNThmYmYxNApDUjI6IDAwMDAw
-MDAwMDAwMDAwMDAKLS0tWyBlbmQgdHJhY2UgZTkzNzEzYTlkNDBjZDA2YyBdLS0tCktlcm5lbCBw
-YW5pYyAtIG5vdCBzeW5jaW5nOiBBdHRlbXB0ZWQgdG8ga2lsbCBpbml0ISBleGl0Y29kZT0weDAw
-MDAwMDA5Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpJIHRyaWVkIGRpc2FibGlu
-ZyBERUJVR19QQUdFQUxMT0MgYXMgd2VsbCBhcyAKZGlmZmVyZW50IHByZWVtcHQgc2V0dGluZ3Ms
-IGNvbXBpbGVkIGFzIHNpbmdsZSBwcm9jLCBldGMuLi4gIFRoZSBwYW5pYyAKY29udGludWVkLCBi
-dXQgbW9kaWZpZWQgIk9vcHM6IDAwMDAgWyMxXSBQUkVFTVBUIFNNUCBERUJVR19QQUdFQUxMT0Mi
-IGxpbmUKdG8gcmVwcmVzZW50IHRoZSBhY3R1YWwgc2V0dGluZ3MuCgpJIHJhbiBhIHNlcmllcyBv
-ZiBnaXQgYmlzZWN0cyBhbmQgZm91bmQgdGhhdCB0aGUgcGF0Y2ggdGhhdCBpbnRyb2R1Y2VkCnRo
-ZSBwYW5pY3MgaXM6Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0K
-dTE0NjA6WzBdL3Vzci9zcmMva2VybmVscy9uZXQtbmV4dD4gZ2l0IGJpc2VjdCBnb29kCjY0MWNj
-OTM4ODE1ZGZkMDlmOGZhMWVjNzJkZWI4MTRmMDkzOGFjMzMgaXMgZmlyc3QgYmFkIGNvbW1pdApj
-b21taXQgNjQxY2M5Mzg4MTVkZmQwOWY4ZmExZWM3MmRlYjgxNGYwOTM4YWMzMwpBdXRob3I6IEpp
-cmkgT2xzYSA8am9sc2FAcmVkaGF0LmNvbT4KRGF0ZTogICBUaHUgTWFyIDE1IDIwOjA5OjE0IDIw
-MTIgKzAxMDAKCiAgICBwZXJmOiBBZGRpbmcgc3lzZnMgZ3JvdXAgZm9ybWF0IGF0dHJpYnV0ZSBm
-b3IgcG11IGRldmljZQoKICAgIEFkZGluZyBzeXNmcyBncm91cCAnZm9ybWF0JyBhdHRyaWJ1dGUg
-Zm9yIHBtdSBkZXZpY2UgdGhhdAogICAgY29udGFpbnMgYSBzeW50YXggZGVzY3JpcHRpb24gb24g
-aG93IHRvIGNvbnN0cnVjdCByYXcgZXZlbnRzLgoKICAgIFRoZSBldmVudCBjb25maWd1cmF0aW9u
-IGlzIGRlc2NyaWJlZCBpbiBmb2xsb3dpbmcKICAgIHN0cnVjdCBwZWZyX2V2ZW50X2F0dHIgYXR0
-cmlidXRlczoKCiAgICAgIGNvbmZpZwogICAgICBjb25maWcxCiAgICAgIGNvbmZpZzIKCiAgICBF
-YWNoIHN5c2ZzIGF0dHJpYnV0ZSB3aXRoaW4gdGhlIGZvcm1hdCBhdHRyaWJ1dGUgZ3JvdXAsCiAg
-ICBkZXNjcmliZXMgbWFwcGluZyBvZiBuYW1lIGFuZCBiaXRmaWVsZCBkZWZpbml0aW9uIHdpdGhp
-bgogICAgb25lIG9mIGFib3ZlIGF0dHJpYnV0ZXMuCgogICAgZWc6CiAgICAgICIvc3lzLy4uLjxk
-ZXY+L2Zvcm1hdC9ldmVudCIgY29udGFpbnMgImNvbmZpZzowLTciCiAgICAgICIvc3lzLy4uLjxk
-ZXY+L2Zvcm1hdC91bWFzayIgY29udGFpbnMgImNvbmZpZzo4LTE1IgogICAgICAiL3N5cy8uLi48
-ZGV2Pi9mb3JtYXQvdXNyIiAgIGNvbnRhaW5zICJjb25maWc6MTYiCgogICAgdGhlIGF0dHJpYnV0
-ZSB2YWx1ZSBzeW50YXggaXM6CgogICAgICBsaW5lOiAgICAgIGNvbmZpZyAnOicgYml0cwogICAg
-ICBjb25maWc6ICAgICdjb25maWcnIHwgJ2NvbmZpZzEnIHwgJ2NvbmZpZzIiCiAgICAgIGJpdHM6
-ICAgICAgYml0cyAnLCcgYml0X3Rlcm0gfCBiaXRfdGVybQogICAgICBiaXRfdGVybTogIFZBTFVF
-ICctJyBWQUxVRSB8IFZBTFVFCgogICAgQWRkaW5nIGZvcm1hdCBhdHRyaWJ1dGUgZGVmaW5pdGlv
-bnMgZm9yIHg4NiBjcHUgcG11cy4KCiAgICBBY2tlZC1ieTogUGV0ZXIgWmlqbHN0cmEgPHBldGVy
-ekBpbmZyYWRlYWQub3JnPgogICAgU2lnbmVkLW9mZi1ieTogUGV0ZXIgWmlqbHN0cmEgPHBldGVy
-ekBpbmZyYWRlYWQub3JnPgogICAgU2lnbmVkLW9mZi1ieTogSmlyaSBPbHNhIDxqb2xzYUByZWRo
-YXQuY29tPgogICAgTGluazoKaHR0cDovL2xrbWwua2VybmVsLm9yZy9uL3RpcC12aGRrNXkyaHl5
-cGU5ajYzcHJ5bXR5MzZAZ2l0Lmtlcm5lbC5vcmcKICAgIFNpZ25lZC1vZmYtYnk6IEFybmFsZG8g
-Q2FydmFsaG8gZGUgTWVsbyA8YWNtZUByZWRoYXQuY29tPgoKOjA0MDAwMCAwNDAwMDAgNjk5NzM3
-NmE3ZmE2M2VlMTQzZGQzNjViYWJjMzczY2IyOTgxNDhhNAoxNzc5MTc5NzcyMTI0ZjQxM2QxZDFi
-MThmZGQ2YmIzYmRkOTcxM2MwIE0gICAgICBEb2N1bWVudGF0aW9uCjowNDAwMDAgMDQwMDAwIDFi
-YmIyYmQ4MmEwYWJlZTRlOWY1NWM5Y2NiYzA4MDVkNGQwMDQwYzQKYTk0N2NmNGNmZDA0OGY5ODkw
-NGU1ZmM1OWI2NzI1MzI1OGI2ZjVhMyBNICAgICAgYXJjaAo6MDQwMDAwIDA0MDAwMCBiZDc0ZjQ2
-YTU3ZWI4NDZhMmVlN2UzZDYwODEzYmIxYzFhZjJkNzFhCmQ5NWQ4MTlkOTFhNzA0OWQzZTczNTU0
-ODg0MzZjNDMwNTMxOWNlYWMgTSAgICAgIGluY2x1ZGUKdTE0NjA6WzBdL3Vzci9zcmMva2VybmVs
-cy9uZXQtbmV4dF9pZ2ItcXVldWU+Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLQoK
+(2012/04/07 0:49), Glauber Costa wrote:
+
+> On 03/30/2012 05:44 AM, KAMEZAWA Hiroyuki wrote:
+>> Maybe what we can do before lsf/mm summit will be this (avoid warning.)
+>> This patch is onto linus's git tree. Patch description is updated.
+>>
+>> Thanks.
+>> -Kame
+>> ==
+>>  From 4ab80f84bbcb02a790342426c1de84aeb17fcbe9 Mon Sep 17 00:00:00 2001
+>> From: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
+>> Date: Thu, 29 Mar 2012 14:59:04 +0900
+>> Subject: [PATCH] memcg/tcp: fix warning caused b res->usage go to negative.
+>>
+>> tcp memcontrol starts accouting after res->limit is set. So, if a sockets
+>> starts before setting res->limit, there are already used resource.
+>> At setting res->limit, accounting starts. The resource will be uncharged
+>> and make res_counter below 0 because they are not charged.
+>> This causes warning.
+>>
+> 
+> Kame,
+> 
+> Please test the following patch and see if it fixes your problems (I
+> tested locally, and it triggers me no warnings running the test script
+> you provided + an inbound scp -r copy of an iso directory from a remote
+> machine)
+> 
+> When you are reviewing, keep in mind that we're likely to have the same
+> problems with slab jump labels - since the slab pages will outlive the
+> cgroup as well, and it might be worthy to keep this in mind, and provide
+> a central point for the jump labels to be set of on cgroup destruction.
+> 
+
+
+Hm. What happens in following sequence ?
+
+  1. a memcg is created
+  2. put a task into the memcg, start tcp steam
+  3. set tcp memory limit
+
+The resource used between 2 and 3 will cause the problem finally.
+
+Then, Dave's request
+==
+You must either:
+
+1) Integrate the socket's existing usage when the limit is set.
+
+2) Avoid accounting completely for a socket that started before
+   the limit was set.
+==
+are not satisfied. So, we need to have a state per sockets, it's accounted
+or not. I'll look into this problem again, today.
+
+
+Thanks,
+-Kame
