@@ -1,67 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute] tc pedit action: fix parsing offset options.
-Date: Tue, 10 Apr 2012 09:08:44 -0700
-Message-ID: <20120410090844.798023c3@nehalam.linuxnetplumber.net>
-References: <CAEzD07+xdGxMh9-RHvF0RJZsCvj0Dj=VEY=0csPrSbTED4Hb6g@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2012-04-07
+Date: Tue, 10 Apr 2012 12:21:19 -0400 (EDT)
+Message-ID: <20120410.122119.454371140692964064.davem@davemloft.net>
+References: <1333824598-27771-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Anton 'EvilMan' Danilov" <littlesmilingcloud@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44923 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751246Ab2DJQIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2012 12:08:47 -0400
-In-Reply-To: <CAEzD07+xdGxMh9-RHvF0RJZsCvj0Dj=VEY=0csPrSbTED4Hb6g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1333824598-27771-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Feb 2012 19:34:28 +0300
-"Anton 'EvilMan' Danilov" <littlesmilingcloud@gmail.com> wrote:
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Sat,  7 Apr 2012 20:49:42 +0200
 
-> This patch fix parsing offset option with "at" parameter.
-> Tc returns error If keywords "offmask" and "shift" are presented.
-> 
-> Example of wrong parsing:
-> 
-> ~$ tc f add dev eth0 parent 1: protocol ip pref 10 \
-> u32 match u32 0 0 \
-> action pedit help
-> Usage: ... pedit munge <MUNGE>
-> Where: MUNGE := <RAW>|<LAYERED>
->         <RAW>:= <OFFSETC>[ATC]<CMD>
->                 OFFSETC:= offset <offval> <u8|u16|u32>
->                 ATC:= at <atval> offmask <maskval> shift <shiftval>
->                 NOTE: offval is byte offset, must be multiple of 4
->                 NOTE: maskval is a 32 bit hex number
->                 NOTE: shiftval is a is a shift value
->                 CMD:= clear | invert | set <setval>| retain
->         <LAYERED>:= ip <ipdata> | ip6 <ip6data>
->                 | udp <udpdata> | tcp <tcpdata> | icmp <icmpdata>
-> For Example usage look at the examples directory
-> 
-> #try to add filter with pedit action using "at" option
-> ~$ tc f add dev eth0 parent 1: pref 10 protocol all handle ::10 \
-> u32 match ip protocol 6 0xff \
-> match ip src 10.10.20.119/32 \
-> match ip dst 10.10.20.254/32 \
-> action pedit munge offset 2 u16 at 0 offmask 0f0000000 shift 22 set 11500
-> Illegal pedit construct (2)
-> ...
-> bad action parsing
-> parse_action: bad value (19:pedit)!
-> Illegal "action"
-> 
-> ~$ tc f add dev eth0 parent 1: pref 10 protocol all handle ::10 \
-> u32 match ip protocol 6 0xff \
-> match ip src 10.10.20.119/32 \
-> match ip dst 10.10.20.254/32 \
-> action pedit munge offset 2 u16 at 0 0f0000000 22 set 11500
-> parse_cmd argc 8 set offset 2 length 2
-> pack_key16: Final val ec2c0000 mask 0000ffff
-> parse_cmd done argc 6 pipe offset 0 length 2
-> 
+> this is the updated and cleaned up version of our last pull request (sent on
+> 2012-04-05).
 
-Won't this break existing scripts because you changed the offset mask
-from being a value to requiring a "offmask"?
+You absolutely must base your tree off the correct tree, which is
+net-next
+
+You cannot use Linus's tree or my 'net' tree to base your work,
+because otherwise when I pull I get all the damn crap that's in those
+trees but not in net-next yet and that's never right.
