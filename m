@@ -1,194 +1,77 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 3/5] team: add user_linkup and user_linkup_enabled per-port option
-Date: Tue, 10 Apr 2012 17:15:44 +0200
-Message-ID: <1334070946-7704-4-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next 5/5] team: add missed "statics"
+Date: Tue, 10 Apr 2012 17:15:46 +0200
+Message-ID: <1334070946-7704-6-git-send-email-jpirko@redhat.com>
 References: <1334070946-7704-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60497 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:3405 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759311Ab2DJPP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2012 11:15:56 -0400
+	id S1758892Ab2DJPQA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2012 11:16:00 -0400
 In-Reply-To: <1334070946-7704-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows userspace to setup linkup for ports. Default is to take linkup
-directly from ethtool state.
-
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/team/team.c |   72 +++++++++++++++++++++++++++++++++++++++++------
- include/linux/if_team.h |   26 ++++++++++++-----
- 2 files changed, 81 insertions(+), 17 deletions(-)
+ drivers/net/team/team.c                   |    2 +-
+ drivers/net/team/team_mode_activebackup.c |    4 ++--
+ drivers/net/team/team_mode_loadbalance.c  |    4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 2645fae..e639abe 100644
+index e639abe..153a62d 100644
 --- a/drivers/net/team/team.c
 +++ b/drivers/net/team/team.c
-@@ -76,6 +76,11 @@ int team_port_set_team_mac(struct team_port *port)
- }
- EXPORT_SYMBOL(team_port_set_team_mac);
- 
-+static void team_refresh_port_linkup(struct team_port *port)
-+{
-+	port->linkup = port->user.linkup_enabled ? port->user.linkup :
-+						   port->state.linkup;
-+}
- 
- /*******************
-  * Options handling
-@@ -880,6 +885,40 @@ static int team_mode_option_set(struct team *team, struct team_gsetter_ctx *ctx)
- 	return team_change_mode(team, ctx->data.str_val);
+@@ -65,7 +65,7 @@ static int __set_port_mac(struct net_device *port_dev,
+ 	return dev_set_mac_address(port_dev, &addr);
  }
  
-+static int team_user_linkup_option_get(struct team *team,
-+				       struct team_gsetter_ctx *ctx)
-+{
-+	ctx->data.bool_val = ctx->port->user.linkup;
-+	return 0;
-+}
-+
-+static int team_user_linkup_option_set(struct team *team,
-+				       struct team_gsetter_ctx *ctx)
-+{
-+	ctx->port->user.linkup = ctx->data.bool_val;
-+	team_refresh_port_linkup(ctx->port);
-+	return 0;
-+}
-+
-+static int team_user_linkup_en_option_get(struct team *team,
-+					  struct team_gsetter_ctx *ctx)
-+{
-+	struct team_port *port = ctx->port;
-+
-+	ctx->data.bool_val = port->user.linkup_enabled;
-+	return 0;
-+}
-+
-+static int team_user_linkup_en_option_set(struct team *team,
-+					  struct team_gsetter_ctx *ctx)
-+{
-+	struct team_port *port = ctx->port;
-+
-+	port->user.linkup_enabled = ctx->data.bool_val;
-+	team_refresh_port_linkup(ctx->port);
-+	return 0;
-+}
-+
- static const struct team_option team_options[] = {
- 	{
- 		.name = "mode",
-@@ -887,6 +926,20 @@ static const struct team_option team_options[] = {
- 		.getter = team_mode_option_get,
- 		.setter = team_mode_option_set,
- 	},
-+	{
-+		.name = "user_linkup",
-+		.type = TEAM_OPTION_TYPE_BOOL,
-+		.per_port = true,
-+		.getter = team_user_linkup_option_get,
-+		.setter = team_user_linkup_option_set,
-+	},
-+	{
-+		.name = "user_linkup_enabled",
-+		.type = TEAM_OPTION_TYPE_BOOL,
-+		.per_port = true,
-+		.getter = team_user_linkup_en_option_get,
-+		.setter = team_user_linkup_en_option_set,
-+	},
- };
- 
- static int team_init(struct net_device *dev)
-@@ -1670,10 +1723,10 @@ static int team_nl_fill_port_list_get(struct sk_buff *skb,
- 		}
- 		if ((port->removed &&
- 		     nla_put_flag(skb, TEAM_ATTR_PORT_REMOVED)) ||
--		    (port->linkup &&
-+		    (port->state.linkup &&
- 		     nla_put_flag(skb, TEAM_ATTR_PORT_LINKUP)) ||
--		    nla_put_u32(skb, TEAM_ATTR_PORT_SPEED, port->speed) ||
--		    nla_put_u8(skb, TEAM_ATTR_PORT_DUPLEX, port->duplex))
-+		    nla_put_u32(skb, TEAM_ATTR_PORT_SPEED, port->state.speed) ||
-+		    nla_put_u8(skb, TEAM_ATTR_PORT_DUPLEX, port->state.duplex))
- 			goto nla_put_failure;
- 		nla_nest_end(skb, port_item);
- 	}
-@@ -1833,23 +1886,24 @@ static void __team_port_change_check(struct team_port *port, bool linkup)
+-int team_port_set_orig_mac(struct team_port *port)
++static int team_port_set_orig_mac(struct team_port *port)
  {
- 	int err;
- 
--	if (!port->removed && port->linkup == linkup)
-+	if (!port->removed && port->state.linkup == linkup)
- 		return;
- 
- 	port->changed = true;
--	port->linkup = linkup;
-+	port->state.linkup = linkup;
-+	team_refresh_port_linkup(port);
- 	if (linkup) {
- 		struct ethtool_cmd ecmd;
- 
- 		err = __ethtool_get_settings(port->dev, &ecmd);
- 		if (!err) {
--			port->speed = ethtool_cmd_speed(&ecmd);
--			port->duplex = ecmd.duplex;
-+			port->state.speed = ethtool_cmd_speed(&ecmd);
-+			port->state.duplex = ecmd.duplex;
- 			goto send_event;
- 		}
- 	}
--	port->speed = 0;
--	port->duplex = 0;
-+	port->state.speed = 0;
-+	port->state.duplex = 0;
- 
- send_event:
- 	err = team_nl_send_event_port_list_get(port->team);
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index 78c84fd..5fd5ab1 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -33,6 +33,24 @@ struct team_port {
- 	struct team *team;
- 	int index;
- 
-+	bool linkup; /* either state.linkup or user.linkup */
-+
-+	struct {
-+		bool linkup;
-+		u32 speed;
-+		u8 duplex;
-+	} state;
-+
-+	/* Values set by userspace */
-+	struct {
-+		bool linkup;
-+		bool linkup_enabled;
-+	} user;
-+
-+	/* Custom gennetlink interface related flags */
-+	bool changed;
-+	bool removed;
-+
- 	/*
- 	 * A place for storing original values of the device before it
- 	 * become a port.
-@@ -42,14 +60,6 @@ struct team_port {
- 		unsigned int mtu;
- 	} orig;
- 
--	bool linkup;
--	u32 speed;
--	u8 duplex;
--
--	/* Custom gennetlink interface related flags */
--	bool changed;
--	bool removed;
--
- 	struct rcu_head rcu;
+ 	return __set_port_mac(port->dev, port->orig.dev_addr);
+ }
+diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
+index a715c40..fd6bd03 100644
+--- a/drivers/net/team/team_mode_activebackup.c
++++ b/drivers/net/team/team_mode_activebackup.c
+@@ -90,12 +90,12 @@ static const struct team_option ab_options[] = {
+ 	},
  };
  
+-int ab_init(struct team *team)
++static int ab_init(struct team *team)
+ {
+ 	return team_options_register(team, ab_options, ARRAY_SIZE(ab_options));
+ }
+ 
+-void ab_exit(struct team *team)
++static void ab_exit(struct team *team)
+ {
+ 	team_options_unregister(team, ab_options, ARRAY_SIZE(ab_options));
+ }
+diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
+index 167cdb4..2b506b2 100644
+--- a/drivers/net/team/team_mode_loadbalance.c
++++ b/drivers/net/team/team_mode_loadbalance.c
+@@ -130,13 +130,13 @@ static const struct team_option lb_options[] = {
+ 	},
+ };
+ 
+-int lb_init(struct team *team)
++static int lb_init(struct team *team)
+ {
+ 	return team_options_register(team, lb_options,
+ 				     ARRAY_SIZE(lb_options));
+ }
+ 
+-void lb_exit(struct team *team)
++static void lb_exit(struct team *team)
+ {
+ 	team_options_unregister(team, lb_options,
+ 				ARRAY_SIZE(lb_options));
 -- 
 1.7.9.1
