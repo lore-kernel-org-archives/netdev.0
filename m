@@ -1,59 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v1 7/7] macvlan: add FDB bridge ops and new
- macvlan mode
-Date: Tue, 10 Apr 2012 17:35:00 +0300
-Message-ID: <20120410143500.GD19556@redhat.com>
-References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
- <20120409220053.3288.40867.stgit@jf-dev1-dcblab>
- <20120410080916.GB26540@redhat.com>
- <4F843544.8060209@intel.com>
- <20120410134321.GB18899@redhat.com>
- <4F8442F6.5070707@intel.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: net: more accurate skb truesize - regression on Microblaze
+Date: Tue, 10 Apr 2012 16:38:40 +0200
+Message-ID: <4F8445F0.8070500@monstr.eu>
+References: <CAHTX3dLRR09_QaA2BzmbCVAUVVGvr_P3s2d1KEgPLMYGGVzrpA@mail.gmail.com> <20120410.095245.1556231435417125908.davem@davemloft.net> <CAHTX3dLz9+A48u6ckGiDytBkyMrvgV0Zi3xfnt4RBmoagJbndA@mail.gmail.com> <20120410.101400.1433881148267812355.davem@davemloft.net>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roprabhu@cisco.com, stephen.hemminger@vyatta.com,
-	davem@davemloft.net, hadi@cyberus.ca, bhutchings@solarflare.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gregory.v.rose@intel.com, krkumar2@in.ibm.com, sri@us.ibm.com
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	john.williams@petalogix.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5013 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754471Ab2DJOe4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2012 10:34:56 -0400
-Content-Disposition: inline
-In-Reply-To: <4F8442F6.5070707@intel.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:59266 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753470Ab2DJOir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 10:38:47 -0400
+Received: by eekc41 with SMTP id c41so1353016eek.19
+        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 07:38:46 -0700 (PDT)
+In-Reply-To: <20120410.101400.1433881148267812355.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 10, 2012 at 07:25:58AM -0700, John Fastabend wrote:
-> > Hmm okay, but this would mean we should convert
-> > MACVLAN_MODE_PASSTHRU_NOPROMISC to something
-> > that can combined with all modes. E.g.
-> > MACVLAN_MODE_BRIDGE | MACVLAN_MODE_FLAG_XXXXX
-> > 
-> > and document that it does not promise to flood
-> > multicast.
-> >
-> 
-> How about changing MACVLAN_MODE_PASSTHRU_NOPROMISC -> MACVLAN_MODE_NOPORMISC
-> for this patch. Then a follow on series can rework bridge
-> and VEPA to use it as well.
+On 04/10/2012 04:14 PM, David Miller wrote:
+> From: Michal Simek<monstr@monstr.eu>
+> Date: Tue, 10 Apr 2012 16:04:18 +0200
+>
+>> I didn't report problem on any private held driver. I think you have
+>> misunderstand our later discussion about ll_temac driver where are
+>> some problems which at least
+>
+> Thanks for the clarification.
 
-Right. We probably need a better name if it's going to
-affect other things besides promisc though.
+No worries.
 
-> >> If you want
-> >> the flood behavior you can create it by adding the addr to all
-> >> the devices or just to a subset of them to get the non-flooding
-> >> capabilities.
-> >>
-> >> .John
-> > 
-> > BTW we seem to try to flood in pass-through too, not sure why.
-> > 
-> 
-> Suppose your looking at macvlan_handle_frame()? It does
-> seem unneeded.
-> 
-> .John
+Thanks,
+Michal
+
+-- 
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
+Microblaze U-BOOT custodian
