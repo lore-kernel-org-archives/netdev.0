@@ -1,48 +1,46 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Re: [PATCH v4 0/10] skb paged fragment destructors
-Date: Tue, 10 Apr 2012 15:46:54 +0000
-Message-ID: <4F8455EE.8010709@acm.org>
-References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute: show metrics as an unsigned value
+Date: Tue, 10 Apr 2012 08:48:57 -0700
+Message-ID: <20120410084857.48f8397f@nehalam.linuxnetplumber.net>
+References: <1334071226-17865-1-git-send-email-jorge@dti2.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David VomLehn <dvomlehn@cisco.com>,
-	xen-devel <xen-devel@lists.xen.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: netdev@vger.kernel.org
+To: jorge@dti2.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay03ant.iops.be ([212.53.5.218]:41172 "EHLO
-	relay03ant.iops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759070Ab2DJPrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 11:47:07 -0400
-In-Reply-To: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
+Received: from mail.vyatta.com ([76.74.103.46]:52350 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759084Ab2DJPs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2012 11:48:59 -0400
+In-Reply-To: <1334071226-17865-1-git-send-email-jorge@dti2.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/10/12 14:26, Ian Campbell wrote:
+On Tue, 10 Apr 2012 17:20:26 +0200
+"Jorge Boncompte [DTI2]" <jorge@dti2.net> wrote:
 
-> I think this is v4, but I've sort of lost count, sorry that it's taken
-> me so long to get back to this stuff.
+> From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
 > 
-> The following series makes use of the skb fragment API (which is in 3.2
-> +) to add a per-paged-fragment destructor callback. This can be used by
-> creators of skbs who are interested in the lifecycle of the pages
-> included in that skb after they have handed it off to the network stack.
+> Avoids showing negative metrics.
+> 
+> Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+> ---
+>  ip/iproute.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index c97f979..2d15c01 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -404,7 +404,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>  				    abuf, sizeof(abuf)));
+>  	}
+>  	if (tb[RTA_PRIORITY])
+> -		fprintf(fp, " metric %d ", *(__u32*)RTA_DATA(tb[RTA_PRIORITY]));
+> +		fprintf(fp, " metric %u ", *(__u32*)RTA_DATA(tb[RTA_PRIORITY]));
+>  	if (r->rtm_flags & RTNH_F_DEAD)
+>  		fprintf(fp, "dead ");
+>  	if (r->rtm_flags & RTNH_F_ONLINK)
 
-
-Hello Ian,
-
-Great to see v4 of this patch series. But which kernel version has this
-patch series been based on ? I've tried to apply this series on 3.4-rc2 but
-apparently applying patch 09/10 failed:
-
-patching file net/ceph/messenger.c
-Hunk #1 FAILED at 851.
-1 out of 1 hunk FAILED -- saving rejects to file net/ceph/messenger.c.rej
-
-Regards,
-
-Bart.
+Applied
