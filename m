@@ -1,43 +1,45 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v1 7/7] macvlan: add FDB bridge ops and new macvlan
- mode
-Date: Tue, 10 Apr 2012 08:26:21 -0700
-Message-ID: <4F84511D.7060902@intel.com>
-References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab> <20120409220053.3288.40867.stgit@jf-dev1-dcblab> <20120410080916.GB26540@redhat.com> <4F843544.8060209@intel.com> <20120410134321.GB18899@redhat.com> <4F8442F6.5070707@intel.com> <20120410143500.GD19556@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: roprabhu@cisco.com, stephen.hemminger@vyatta.com,
-	davem@davemloft.net, hadi@cyberus.ca, bhutchings@solarflare.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gregory.v.rose@intel.com, krkumar2@in.ibm.com, sri@us.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Subject: [PATCH] iproute: show metrics as an unsigned value
+Date: Tue, 10 Apr 2012 17:20:26 +0200
+Message-ID: <1334071226-17865-1-git-send-email-jorge@dti2.net>
+Reply-To: jorge@dti2.net
+Cc: shemminger@vyatta.com, "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:5045 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753745Ab2DJP0W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Apr 2012 11:26:22 -0400
-In-Reply-To: <20120410143500.GD19556@redhat.com>
+Received: from alcalazamora.dti2.net ([81.24.162.8]:52176 "EHLO
+	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415Ab2DJP1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 11:27:30 -0400
+Received: from nikopol.intranet.dti2.net ([81.24.160.13])
+	(authenticated user jorge@dti2.net)
+	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
+	(MDaemon PRO v12.5.2)
+	with ESMTP id md50021942928.msg
+	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 17:20:48 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/10/2012 7:35 AM, Michael S. Tsirkin wrote:
-> On Tue, Apr 10, 2012 at 07:25:58AM -0700, John Fastabend wrote:
->>> Hmm okay, but this would mean we should convert
->>> MACVLAN_MODE_PASSTHRU_NOPROMISC to something
->>> that can combined with all modes. E.g.
->>> MACVLAN_MODE_BRIDGE | MACVLAN_MODE_FLAG_XXXXX
->>>
->>> and document that it does not promise to flood
->>> multicast.
->>>
->>
->> How about changing MACVLAN_MODE_PASSTHRU_NOPROMISC -> MACVLAN_MODE_NOPORMISC
->> for this patch. Then a follow on series can rework bridge
->> and VEPA to use it as well.
-> 
-> Right. We probably need a better name if it's going to
-> affect other things besides promisc though.
-> 
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
 
-how about MACVLAN_MODE_FDBFLAG?
+Avoids showing negative metrics.
+
+Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
+---
+ ip/iproute.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/ip/iproute.c b/ip/iproute.c
+index c97f979..2d15c01 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -404,7 +404,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 				    abuf, sizeof(abuf)));
+ 	}
+ 	if (tb[RTA_PRIORITY])
+-		fprintf(fp, " metric %d ", *(__u32*)RTA_DATA(tb[RTA_PRIORITY]));
++		fprintf(fp, " metric %u ", *(__u32*)RTA_DATA(tb[RTA_PRIORITY]));
+ 	if (r->rtm_flags & RTNH_F_DEAD)
+ 		fprintf(fp, "dead ");
+ 	if (r->rtm_flags & RTNH_F_ONLINK)
+-- 
+1.7.8.3
