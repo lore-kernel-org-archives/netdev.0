@@ -1,79 +1,57 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: [PATCH v4 0/10] skb paged fragment destructors
-Date: Tue, 10 Apr 2012 15:26:05 +0100
-Message-ID: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH] pppoatm: Fix excessive queue bloat
+Date: Tue, 10 Apr 2012 10:26:12 -0400
+Message-ID: <20120410102612.368b1a4f@thirdoffive.cmf.nrl.navy.mil>
+References: <1332450218.32446.79.camel@shinybook.infradead.org>
+	<20120322.230331.1623101647193498167.davem@davemloft.net>
+	<1332672230.32446.160.camel@shinybook.infradead.org>
+	<20120325.173635.1909319488008466320.davem@davemloft.net>
+	<1332875447.2058.48.camel@shinybook.infradead.org>
+	<1332878138.3547.41.camel@edumazet-glaptop>
+	<1332880522.2058.67.camel@shinybook.infradead.org>
+	<1333914837.31812.57.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David VomLehn <dvomlehn@cisco.com>,
-	Bart Van Assche <bvanassche@acm.org>,
-	xen-devel <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	paulus@samba.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:63911 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758878Ab2DJO0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 10:26:08 -0400
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:35145 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751645Ab2DJO2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 10:28:17 -0400
+In-Reply-To: <1333914837.31812.57.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I think this is v4, but I've sort of lost count, sorry that it's taken
-me so long to get back to this stuff.
+On Sun, 08 Apr 2012 21:53:57 +0200
+David Woodhouse <dwmw2@infradead.org> wrote:
 
-The following series makes use of the skb fragment API (which is in 3.2
-+) to add a per-paged-fragment destructor callback. This can be used by
-creators of skbs who are interested in the lifecycle of the pages
-included in that skb after they have handed it off to the network stack.
+> Seriously, this gets *much* easier if we just ditch the checks against
+> sk_sndbuf. We just wake up whenever decrementing ->inflight from zero.
+> Can I?
 
-The mail at [0] contains some more background and rationale but
-basically the completed series will allow entities which inject pages
-into the networking stack to receive a notification when the stack has
-really finished with those pages (i.e. including retransmissions,
-clones, pull-ups etc) and not just when the original skb is finished
-with, which is beneficial to many subsystems which wish to inject pages
-into the network stack without giving up full ownership of those page's
-lifecycle. It implements something broadly along the lines of what was
-described in [1].
+i dont know.  on a 'low' speed connection like queuing 2 packets might
+be enough to keep something busy but imagine an interace like oc3 or
+oc12.  i dont know anything running pppoatm on such an interface but it
+seems like just dropping sk_sndbuf isnt right either.
 
-I have also included a patch to the RPC subsystem which uses this API to
-fix the bug which I describe at [2].
+sk_sndbuf is per vcc and that isnt right either since the transmit
+limit is actually the atm device's transmit queue depth.  in your case,
+since you are only using a single vcc, this problem does somewhat map
+to a sk_sndbuf.  but sk_sndbuf counts bytes and not entries in a queue
+which is typically the limit imposed by the hardware.
 
-I've also had some interest from David VemLehn and Bart Van Assche
-regarding using this functionality in the context of vmsplice and iSCSI
-targets respectively (I think).
-
-Changes since last time:
-
-      * Added skb_orphan_frags API for the use of recipients of SKBs who
-        may hold onto the SKB for a long time (this is analogous to
-        skb_orphan). This was pointed out by Michael. The TUN driver is
-        currently the only user.
-              * I can't for the life of me get anything to actually hit
-                this code path. I've been trying with an NFS server
-                running in a Xen HVM domain with emulated (e.g. tap)
-                networking and a client in domain 0, using the NFS fix
-                in this series which generates SKBs with destructors
-                set, so far -- nothing. I suspect that lack of TSO/GSO
-                etc on the TAP interface is causing the frags to be
-                copied to normal pages during skb_segment().
-      * Various fixups related to the change of alignment/padding in
-        shinfo, in particular to build_skb as pointed out by Eric.
-      * Tweaked ordering of shinfo members to ensure that all hotpath
-        variables up to and including the first frag fit within (and are
-        aligned to) a single 64 byte cache line. (Eric again)
-
-I ran a monothread UDP benchmark (similar to that described by Eric in
-e52fcb2462ac) and don't see any difference in pps throughput, it was
-~810,000 pps both before and after.
-
-Cheers,
-Ian.
-
-[0] http://marc.info/?l=linux-netdev&m=131072801125521&w=2
-[1] http://marc.info/?l=linux-netdev&m=130925719513084&w=2
-[2] http://marc.info/?l=linux-nfs&m=122424132729720&w=2
+it makes me wonder if we dont need to add another stub to the atm
+driver interface to check if the device can transmit instead of 'can we
+queue on the vcc'.  atm_may_send() then would be changed to check to see
+if a transmit queue entry is available and there is sk_sndbuf queue
+space.  if a driver doesnt have this stub to check for queue space,
+atm_may_send() can just assume there is a queue entry and we get the
+previous default behavior.  what is the "queue depth" of your atm
+device's transmit queue?
+ 
+yes, the vcc->sk_sndbuf should be MAX(vcc->sk_sndbuf, pppoatm->MTU) but
+since people dont often change the sk_sndbuf i guess no one has run
+into this issue.   pppoatm (et al) should enforce this limit though.
