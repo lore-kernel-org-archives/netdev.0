@@ -1,123 +1,78 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 5/9] ipvs: use adaptive pause in master thread
-Date: Tue, 10 Apr 2012 01:08:03 +0200
-Message-ID: <20120409230803.GB27514@1984>
-References: <1332320185-27157-1-git-send-email-horms@verge.net.au>
- <1332320185-27157-6-git-send-email-horms@verge.net.au>
- <20120402111145.GA15181@1984>
- <alpine.LFD.2.00.1204032258540.1995@ja.ssi.bg>
- <20120405150553.GA8144@1984>
- <alpine.LFD.2.00.1204082221440.6964@ja.ssi.bg>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the wireless-next tree with the
+ net-next tree
+Date: Tue, 10 Apr 2012 11:32:09 +1000
+Message-ID: <20120410113209.1fb17bdc05e5995a4821cf46@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33212 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752676Ab2DIXIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Apr 2012 19:08:07 -0400
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__10_Apr_2012_11_32_09_+1000_SdudSJy2oqGhwwA4"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Meenakshi Venkataraman <meenakshi.venkataraman@intel.com>,
+	"Wey-Yi Guy" <wey-yi.w.guy@intel.com>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Tue__10_Apr_2012_11_32_09_+1000_SdudSJy2oqGhwwA4
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1204082221440.6964@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-Hi Julian,
+Hi John,
 
-On Sun, Apr 08, 2012 at 11:12:53PM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Thu, 5 Apr 2012, Pablo Neira Ayuso wrote:
-> 
-> > I think you can control when the kernel thread is woken up with a
-> > counting semaphore. The counter of that semaphore will be initially
-> > set to zero. Then, you can up() the semaphore once per new buffer
-> > that you enqueue to the sender.
-> > 
-> > feeder:
-> >         add message to sync buffer
-> >         if buffer full:
-> >                 enqueue buffer to sender_thread
-> >                 up(s)
-> > 
-> > sender_thread:
-> >         while (1) {
-> >                 down(s)
-> >                 retrieve message from queue
-> >                 send message
-> >         }
-> > 
-> > It seems to me like the classical producer/consumer problem that you
-> > can resolve with semaphores.
-> 
-> 	May be it is possible to use up/down but we
-> have to handle the kthread_should_stop check and also
-> I prefer to reduce the wakeup events. So, I'm trying
-> another solution which is appended just for review.
+Today's linux-next merge of the wireless-next tree got a conflict in
+drivers/net/wireless/iwlwifi/iwl-testmode.c between commit d33e152e1edd
+("iwlwifi: Stop using NLA_PUT*()") from the net-next tree and commit
+a42506eb27aa ("iwlwifi: move ucode_type from shared to op_mode") from the
+wireless-next tree.
 
-You can still use kthread_should_stop inside a wrapper function
-that calls kthread_stop and up() the semaphore.
+I fixed it up (see below) and can carry the fix as necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-sync_stop:
-        kthread_stop(k)
-        up(s)
+diff --cc drivers/net/wireless/iwlwifi/iwl-testmode.c
+index a54e20e,d65dac8..0000000
+--- a/drivers/net/wireless/iwlwifi/iwl-testmode.c
++++ b/drivers/net/wireless/iwlwifi/iwl-testmode.c
+@@@ -609,10 -605,9 +612,10 @@@ static int iwl_testmode_driver(struct i
+  			inst_size =3D img->sec[IWL_UCODE_SECTION_INST].len;
+  			data_size =3D img->sec[IWL_UCODE_SECTION_DATA].len;
+  		}
+- 		if (nla_put_u32(skb, IWL_TM_ATTR_FW_TYPE, priv->shrd->ucode_type) ||
+ -		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_TYPE, priv->cur_ucode);
+ -		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_INST_SIZE, inst_size);
+ -		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_DATA_SIZE, data_size);
+++		if (nla_put_u32(skb, IWL_TM_ATTR_FW_TYPE, priv->cur_ucode) ||
+ +		    nla_put_u32(skb, IWL_TM_ATTR_FW_INST_SIZE, inst_size) ||
+ +		    nla_put_u32(skb, IWL_TM_ATTR_FW_DATA_SIZE, data_size))
+ +			goto nla_put_failure;
+  		status =3D cfg80211_testmode_reply(skb);
+  		if (status < 0)
+  			IWL_ERR(priv, "Error sending msg : %d\n", status);
 
-kthread_routine:
-        while(1) {
-                down(s)
-                if (kthread_should_stop(k))
-                        break;
+--Signature=_Tue__10_Apr_2012_11_32_09_+1000_SdudSJy2oqGhwwA4
+Content-Type: application/pgp-signature
 
-                get sync msg
-                send sync msg
-        }
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-BTW, each up() does not necessarily mean one wakeup event. up() will
-delivery only one wakeup event for one process that has been already
-awaken.
+iQIcBAEBCAAGBQJPg42ZAAoJEECxmPOUX5FEgt4P/0WiIo1LuvhyCLpfZ6xxDujQ
+Y/a/SWb8W0KEapXzuSok21N5JW42dtWyxD8YIzbSVEZdWGPUWgOFjvJ64HF+Gm0O
+5TiO7a391gUzFH12vFjc6yaHAWiMUKs0oiMF8m8m6Sclyse1m4uj9orxqfA1ztRo
+uSUAJaxAehRHBylBTx/sHchIzcGGW27TuSOf5VUKh6kjTBZsC9Bl2yTmNu7n8FdM
+08Quk4nEKjMb+PWqRcrHs8EEB94/8N50afVEfSbxOel02uBvwTfaoUpSMFtioHn6
+X4b5j0r7bfvfbhEfoMXLZqwlfwGW4Mq9j0oK7nMGARIjDnrJF3vIT2vdsWnBWWXN
+v9snTjZreQTNQXMrTBoeIzUYca2bCvbWn4nc+oG9VsHU1kxA6UoSim5Y6TSb/Z3p
+rCLqxTZ3N0/wAh1TSpbHzk5w6jtRGbx+BSMkjFpcHoKsplkMO3ot8EKrB00IPzR+
+I+PgHMbzVZCyS+yIhJ3dBsRj4Re3a4Ffho+wzVYzq78iQC0JMJtfA5wbe7qX2Yla
+qnn3XtmfX8outQTjE8+413K+QC6j/GUOh2FBrsaiWYZv92tVGjozIB+xqcwtfd8Z
+DEpGjQOku137vU6aC2+/4lejwS2qhdBpKYws4DNYuUBqabNUXN/UomG96pVtNr16
+XgnphierwkKIx/k7sSsx
+=EIvQ
+-----END PGP SIGNATURE-----
 
-> > Under congestion the situation is complicated. At some point you'll
-> > end up dropping messages.
-> > 
-> > You may want to increase the socket queue to delay the moment at which
-> > we start dropping messages. You can expose the socke buffer length via
-> > /proc interface I guess (not sure if you're already doing that or
-> > suggesting to use the global socket buffer length).
-> 
-> 	I'm still thinking if sndbuf value should be exported,
-> currently users have to modify the global default/max value.
-
-I think it's a good idea.
-
-> But in below version I'm trying to handle the sndbuf overflow
-> by blocking for write_space event. By this way we should work
-> with any sndbuf configuration.
-
-You seem to be defering the overrun problem by using a longer
-intermediate queue than the socket buffer. Then, that queue can be
-tuned by the user via sysctl. It may happen under heavy stress that
-your intermediate queue gets full again, then you'll have to drop
-packets at some point.
-
-> > You also can define some mechanism to reduce the amount of events,
-> > some state filtering so you only propagate important states.
-> > 
-> > Some partially reliable protocol, so the backup can request messages
-> > that got lost in a smart way would can also in handy. Basically, the
-> > master only retransmits the current state, not the whole sequence of
-> > messages (this is good under congestion, since you save messages).
-> > I implement that in conntrackd, but that's more complex solution,
-> > of course. I'd start with something simple.
-> 
-> 	The patch "reduce sync rate with time thresholds"
-> that follows the discussed one in the changeset has such
-> purpose to reduce the events, in tests the sync traffic is
-> reduced ~10 times. But it does not modify the current
-> protocol, it adds a very limited logic for retransmissions.
-
-Not directly related to this, but I'd prefer if any retransmission
-support (or any new feature) gets added in follow-up patches. So we
-can things separated in logic pieces. Thanks.
+--Signature=_Tue__10_Apr_2012_11_32_09_+1000_SdudSJy2oqGhwwA4--
