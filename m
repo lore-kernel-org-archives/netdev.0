@@ -1,77 +1,94 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: axienet driver copyrights
-Date: Tue, 10 Apr 2012 13:15:24 +0200
-Message-ID: <4F84164C.6000702@monstr.eu>
-Reply-To: monstr@monstr.eu
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
+Date: Tue, 10 Apr 2012 14:25:00 +0300
+Message-ID: <20120410112459.GA28825@redhat.com>
+References: <20120408171323.GA16012@redhat.com>
+ <1334044558.3126.5.camel@edumazet-glaptop>
+ <20120410084151.GA27193@redhat.com>
+ <1334048100.3126.21.camel@edumazet-glaptop>
+ <20120410093140.GA27651@redhat.com>
+ <1334052259.3126.68.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	John Williams <john.williams@petalogix.com>,
-	John Linn <linnj@xilinx.com>,
-	David Miller <davem@davemloft.net>
-To: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
-	Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:45683 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194Ab2DJLPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 07:15:32 -0400
-Received: by eekc41 with SMTP id c41so1289307eek.19
-        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 04:15:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1334052259.3126.68.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Ariane and Daniel, [cc: John Linn, John Williams, David Miller and netdev]
+On Tue, Apr 10, 2012 at 12:04:19PM +0200, Eric Dumazet wrote:
+> On Tue, 2012-04-10 at 12:31 +0300, Michael S. Tsirkin wrote:
+> 
+> > True. Still this is the only interface we have for controlling
+> > the internal queue length so it seems safe to assume someone
+> > is using it for this purpose.
+> > 
+> 
+> So to workaround a problem in tun, you want to hack net/core/dev.c :(
 
-I have several questions about one patch which was added to mainline Linux tree.
-Below is information about the patch:
+Sorry about being unclear, I'm just saying that your patch assumes
+tx_queue_len == 0 since you set it that way at device init but we can't
+rely on this as existing users might have changed that value.
+One way to fix would be a patch at the bottom: then we
+can leave tun to treat tx_queue_len like it always did.
 
-drivers/net/ethernet/xilinx: added Xilinx AXI Ethernet driver
-(sha1: 8a3b7a252dca9fb28c23b5bf76c49180a2b60d3b)
+> Packets in qdisc should not be orphaned.
+>
+> If you think about it, why do we attach skb to socket in the first
+> place ?
 
-The whole driver contains your copyright in 3 files but I don't believe
-that you are authors of significant changes to be polite to write there your
-copyright.
-I really appreciate that someone invested time to add this driver to the mainline
-but I am not comfortable that you will be identify as authors of this driver because you are not!
+Good point. The answer is to avoid skb drops for local sockets by
+stopping them, right?
 
-Maintainer for this driver should be Xilinx which has done this driver. I also
-see that you have integrated all changes I have done to it. We have done these
-changes on Xilinx request to improve the driver stability and performance.
+> If its not needed for tun, why should it be needed for other devices ?
 
-I have spent some time to list your changes you have done to be sure that my
-first feeling was wrong but it is not.
+Maybe needed but it's already broken for tun since the skbs in the
+private queue are orphaned by skb_orphan_try?
 
-There are changes which do nothing with functionality.
-1. Clean the driver by checkpatch.pl script.
-2. Copy axienet_ior/iow to header file
-3. axienet_device_reset resort.
+> If TUN has a problem being stopped forever, maybe it should take
+> appropriate action to flush all packets in qdisc queue after a while, as
+> this makes no sense to delay packets forever.
+> 
 
-Can you tell me what significant changes you have done in this driver?
-
-I know the whole history of this driver and I have never heard about you
-and your changes pointing me that you have just took the latest version
-from PetaLogix or Xilinx git repository and use checkpatch.pl script
-to fix coding style violations.
-
-I don't think that using checkpatch + 2 simple changes is not enough
-to be identified as author.
-
-Can you please correct me?
-
-Thanks,
-Michal
-
-David: Would it be possible to ping me everytime when there is any patch
-around xilinx ethernet controller. I have all equipment for testing it
-and it is my day job to take care about microblaze/xilinx drivers.
+Well arbitrary timers aren't a solid protection, right?
+We get out of stalling transmitters forever but a bad VM can still
+degrade performance significantly for others...
 
 
+----
 
+We don't want a queue for tun since it can stall forever, but userspace
+might tweak it's tx_queue_len as a way to control RX queue depth,
+and we don't want to break userspace. Use a private flag to disable queue.
 
+Warning: untested.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 27883d1..644ca53 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -695,7 +692,7 @@ static void attach_one_default_qdisc(struct net_device *dev,
+ {
+ 	struct Qdisc *qdisc = &noqueue_qdisc;
+ 
+-	if (dev->tx_queue_len) {
++	if (dev->tx_queue_len && !(dev->priv_flags & IFF_TX_CAN_STALL)) {
+ 		qdisc = qdisc_create_dflt(dev_queue,
+ 					  &pfifo_fast_ops, TC_H_ROOT);
+ 		if (!qdisc) {
 -- 
-Michal Simek, Ing. (M.Eng)
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
-Microblaze U-BOOT custodian
+MST
