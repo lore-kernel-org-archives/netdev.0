@@ -1,68 +1,107 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH 0/2] adding tracepoints to vhost
-Date: Tue, 10 Apr 2012 13:54:57 +0100
-Message-ID: <CAJSP0QVi8cGfYqD=+M9tN_bwjKPHascTgEmpbDSVHw1uCdTZKQ@mail.gmail.com>
-References: <20120410025327.49693.93562.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<CAJSP0QWA1z6_YQe9hhpG7bCyZQarmU5NXbHsLGTL_zPTk3dOUA@mail.gmail.com>
-	<20120410124250.GB29808@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
+Date: Tue, 10 Apr 2012 15:41:51 +0300
+Message-ID: <20120410124151.GA29808@redhat.com>
+References: <20120408171323.GA16012@redhat.com>
+ <1334044558.3126.5.camel@edumazet-glaptop>
+ <20120410084151.GA27193@redhat.com>
+ <1334048100.3126.21.camel@edumazet-glaptop>
+ <20120410093140.GA27651@redhat.com>
+ <1334052259.3126.68.camel@edumazet-glaptop>
+ <20120410112459.GA28825@redhat.com>
+ <1334058300.3126.99.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120410124250.GB29808@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1334058300.3126.99.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 10, 2012 at 1:42 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Tue, Apr 10, 2012 at 12:40:50PM +0100, Stefan Hajnoczi wrote:
->> On Tue, Apr 10, 2012 at 3:58 AM, Jason Wang <jasowang@redhat.com> wrote:
->> > To help in vhost analyzing, the following series adding basic tracepoi=
-nts to
->> > vhost. Operations of both virtqueues and vhost works were traced in cu=
-rrent
->> > implementation, net code were untouched. A top-like satistics displayi=
-ng script
->> > were introduced to help the troubleshooting.
->> >
->> > TODO:
->> > - net specific tracepoints?
->> >
->> > ---
->> >
->> > Jason Wang (2):
->> > =A0 =A0 =A0vhost: basic tracepoints
->> > =A0 =A0 =A0tools: virtio: add a top-like utility for displaying vhost =
-satistics
->> >
->> >
->> > =A0drivers/vhost/trace.h =A0 | =A0153 ++++++++++++++++++++
->> > =A0drivers/vhost/vhost.c =A0 | =A0 17 ++
->> > =A0tools/virtio/vhost_stat | =A0360 ++++++++++++++++++++++++++++++++++=
-+++++++++++++
->> > =A03 files changed, 528 insertions(+), 2 deletions(-)
->> > =A0create mode 100644 drivers/vhost/trace.h
->> > =A0create mode 100755 tools/virtio/vhost_stat
->>
->> Perhaps this can replace the vhost log feature? =A0I'm not sure if
->> tracepoints support the right data types but it seems like vhost
->> debugging could be done using tracing with less code.
->>
->> Stefan
+On Tue, Apr 10, 2012 at 01:45:00PM +0200, Eric Dumazet wrote:
+> On Tue, 2012-04-10 at 14:25 +0300, Michael S. Tsirkin wrote:
+> > On Tue, Apr 10, 2012 at 12:04:19PM +0200, Eric Dumazet wrote:
+> > > On Tue, 2012-04-10 at 12:31 +0300, Michael S. Tsirkin wrote:
+> > > 
+> > > > True. Still this is the only interface we have for controlling
+> > > > the internal queue length so it seems safe to assume someone
+> > > > is using it for this purpose.
+> > > > 
+> > > 
+> > > So to workaround a problem in tun, you want to hack net/core/dev.c :(
+> > 
+> > Sorry about being unclear, I'm just saying that your patch assumes
+> > tx_queue_len == 0 since you set it that way at device init but we can't
+> > rely on this as existing users might have changed that value.
+> > One way to fix would be a patch at the bottom: then we
+> > can leave tun to treat tx_queue_len like it always did.
+> 
+> 
+> > ----
+> > 
+> > We don't want a queue for tun since it can stall forever, but userspace
+> > might tweak it's tx_queue_len as a way to control RX queue depth,
+> > and we don't want to break userspace. Use a private flag to disable queue.
+> > 
+> > Warning: untested.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > 
+> > diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> > index 27883d1..644ca53 100644
+> > --- a/net/sched/sch_generic.c
+> > +++ b/net/sched/sch_generic.c
+> > @@ -695,7 +692,7 @@ static void attach_one_default_qdisc(struct net_device *dev,
+> >  {
+> >  	struct Qdisc *qdisc = &noqueue_qdisc;
+> >  
+> > -	if (dev->tx_queue_len) {
+> > +	if (dev->tx_queue_len && !(dev->priv_flags & IFF_TX_CAN_STALL)) {
+> >  		qdisc = qdisc_create_dflt(dev_queue,
+> >  					  &pfifo_fast_ops, TC_H_ROOT);
+> >  		if (!qdisc) {
+> 
+> 
+> Thing is this function is called before userspace can tweak tx_queue_len
+> 
+> So if you create a vlan device (this sets tx_queue_len to 0), no qdisc
+> is attached.
 >
-> vhost log is not a debugging tool, it logs memory accesses for
-> migration.
+> If later userspace changes tx_queue_len to this device, qdisc wont
+> automatically be created/attached.
 
-Thanks.  I totally misunderstood its purpose.
+True. But there's another place where this can happen - after
+dev_change_net_namespace, no?
+This calls dev_shutdown.
 
-Stefan
+> Really, tx_queue_len is private to net/sched layer, it should not be
+> used by tun device to control a receive queue limit.
+> 
+> Please try to not hack net/sched or net/core for your needs.
+> 
+> Its not because tun abused tx_queue_len in the past we must keep this
+> hack forever.
+> 
+> In ethernet drivers, TX ring size is controlled by ethtool -g
+> 
+> Why tun driver would use another way ?
+> 
+
+I think it's a bad interface too but it's in a userspace ABI
+now so I suspect we are stuck with it for now. We can try deprecating
+but we can't just drop it.
+
+-- 
+MST
