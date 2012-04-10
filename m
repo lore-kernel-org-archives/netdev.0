@@ -1,62 +1,68 @@
-From: pablo@netfilter.org
-Subject: [PATCH 4/5] netfilter: nf_ct_ipv4: packets with wrong ihl are invalid
-Date: Tue, 10 Apr 2012 14:49:00 +0200
-Message-ID: <1334062141-3962-5-git-send-email-pablo@netfilter.org>
-References: <1334062141-3962-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1334062141-3962-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [PATCH 0/2] adding tracepoints to vhost
+Date: Tue, 10 Apr 2012 13:54:57 +0100
+Message-ID: <CAJSP0QVi8cGfYqD=+M9tN_bwjKPHascTgEmpbDSVHw1uCdTZKQ@mail.gmail.com>
+References: <20120410025327.49693.93562.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<CAJSP0QWA1z6_YQe9hhpG7bCyZQarmU5NXbHsLGTL_zPTk3dOUA@mail.gmail.com>
+	<20120410124250.GB29808@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120410124250.GB29808@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+On Tue, Apr 10, 2012 at 1:42 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Tue, Apr 10, 2012 at 12:40:50PM +0100, Stefan Hajnoczi wrote:
+>> On Tue, Apr 10, 2012 at 3:58 AM, Jason Wang <jasowang@redhat.com> wrote:
+>> > To help in vhost analyzing, the following series adding basic tracepoi=
+nts to
+>> > vhost. Operations of both virtqueues and vhost works were traced in cu=
+rrent
+>> > implementation, net code were untouched. A top-like satistics displayi=
+ng script
+>> > were introduced to help the troubleshooting.
+>> >
+>> > TODO:
+>> > - net specific tracepoints?
+>> >
+>> > ---
+>> >
+>> > Jason Wang (2):
+>> > =A0 =A0 =A0vhost: basic tracepoints
+>> > =A0 =A0 =A0tools: virtio: add a top-like utility for displaying vhost =
+satistics
+>> >
+>> >
+>> > =A0drivers/vhost/trace.h =A0 | =A0153 ++++++++++++++++++++
+>> > =A0drivers/vhost/vhost.c =A0 | =A0 17 ++
+>> > =A0tools/virtio/vhost_stat | =A0360 ++++++++++++++++++++++++++++++++++=
++++++++++++++
+>> > =A03 files changed, 528 insertions(+), 2 deletions(-)
+>> > =A0create mode 100644 drivers/vhost/trace.h
+>> > =A0create mode 100755 tools/virtio/vhost_stat
+>>
+>> Perhaps this can replace the vhost log feature? =A0I'm not sure if
+>> tracepoints support the right data types but it seems like vhost
+>> debugging could be done using tracing with less code.
+>>
+>> Stefan
+>
+> vhost log is not a debugging tool, it logs memory accesses for
+> migration.
 
-It was reported that the Linux kernel sometimes logs:
+Thanks.  I totally misunderstood its purpose.
 
-klogd: [2629147.402413] kernel BUG at net / netfilter /
-nf_conntrack_proto_tcp.c: 447!
-klogd: [1072212.887368] kernel BUG at net / netfilter /
-nf_conntrack_proto_tcp.c: 392
-
-ipv4_get_l4proto() in nf_conntrack_l3proto_ipv4.c and tcp_error() in
-nf_conntrack_proto_tcp.c should catch malformed packets, so the errors
-at the indicated lines - TCP options parsing - should not happen.
-However, tcp_error() relies on the "dataoff" offset to the TCP header,
-calculated by ipv4_get_l4proto().  But ipv4_get_l4proto() does not check
-bogus ihl values in IPv4 packets, which then can slip through tcp_error()
-and get caught at the TCP options parsing routines.
-
-The patch fixes ipv4_get_l4proto() by invalidating packets with bogus
-ihl value.
-
-The patch closes netfilter bugzilla id 771.
-
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 750b06a..cf73cc7 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -84,6 +84,14 @@ static int ipv4_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
- 	*dataoff = nhoff + (iph->ihl << 2);
- 	*protonum = iph->protocol;
- 
-+	/* Check bogus IP headers */
-+	if (*dataoff > skb->len) {
-+		pr_debug("nf_conntrack_ipv4: bogus IPv4 packet: "
-+			 "nhoff %u, ihl %u, skblen %u\n",
-+			 nhoff, iph->ihl << 2, skb->len);
-+		return -NF_ACCEPT;
-+	}
-+
- 	return NF_ACCEPT;
- }
- 
--- 
-1.7.2.5
-
+Stefan
