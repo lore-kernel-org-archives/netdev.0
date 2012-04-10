@@ -1,101 +1,155 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: restore correct limit
-Date: Tue, 10 Apr 2012 12:40:36 +0200
-Message-ID: <1334054436.3126.80.camel@edumazet-glaptop>
-References: <4F83EB0E.4020104@monstr.eu>
-	 <1334046444.3126.12.camel@edumazet-glaptop>
-	 <1334046746.3126.13.camel@edumazet-glaptop>  <4F83F166.4010208@monstr.eu>
-	 <1334047544.3126.14.camel@edumazet-glaptop>  <4F83F959.3070302@monstr.eu>
-	 <1334049896.3126.23.camel@edumazet-glaptop>  <4F83FD7A.5010602@monstr.eu>
-	 <1334050698.3126.30.camel@edumazet-glaptop>
-	 <1334052194.3126.66.camel@edumazet-glaptop> <4F8407F7.8070703@monstr.eu>
-	 <4F840B99.8040409@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 6/6] tilegx network driver: initial support
+Date: Tue, 10 Apr 2012 10:42:39 +0000
+Message-ID: <201204101042.39877.arnd@arndb.de>
+References: <201204062059.q36KxjEO011317@farm-0027.internal.tilera.com> <201204091349.54484.arnd@arndb.de> <4F835510.4060100@tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: monstr@monstr.eu, netdev@vger.kernel.org,
-	John Williams <john.williams@petalogix.com>,
-	David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:33093 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753709Ab2DJKkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 06:40:42 -0400
-Received: by bkcik5 with SMTP id ik5so4067955bkc.19
-        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 03:40:41 -0700 (PDT)
-In-Reply-To: <4F840B99.8040409@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F835510.4060100@tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-04-10 at 18:29 +0800, Jason Wang wrote:
-> On 04/10/2012 06:14 PM, Michal Simek wrote:
-> > On 04/10/2012 12:03 PM, Eric Dumazet wrote:
-> >> Commit c43b874d5d714f (tcp: properly initialize tcp memory limits)
-> >> added a regression on machines with low amount of memory, since sockets
-> >> cant use 1/128 of memory but 1/1024
+On Monday 09 April 2012, Chris Metcalf wrote:
+> On 4/9/2012 9:49 AM, Arnd Bergmann wrote:
+> > On Friday 06 April 2012, Chris Metcalf wrote:
+> >> This change adds support for the tilegx network driver based on the
+> >> GXIO IORPC support in the tilegx software stack, using the on-chip
+> >> mPIPE packet processing engine.
 > >>
-> >> Fix this to match comment and previous behavior.
-> >>
-> >> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
-> >> Cc: Jason Wang<jasowang@redhat.com>
-> >> Cc: Glauber Costa<glommer@parallels.com>
+> >> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 > >> ---
-> >>   net/ipv4/tcp.c |    2 +-
-> >>   1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> >> index 5d54ed3..67d726e 100644
-> >> --- a/net/ipv4/tcp.c
-> >> +++ b/net/ipv4/tcp.c
-> >> @@ -3302,7 +3302,7 @@ void __init tcp_init(void)
-> >>
-> >>       tcp_init_mem(&init_net);
-> >>       /* Set per-socket limits to no more than 1/128 the pressure 
-> >> threshold */
-> >> -    limit = nr_free_buffer_pages()<<  (PAGE_SHIFT - 10);
-> >> +    limit = nr_free_buffer_pages()<<  (PAGE_SHIFT - 7);
-> >>       limit = max(limit, 128UL);
-> >>       max_share = min(4UL*1024*1024, limit);
-> >>
-> >
-> > hw design with csum is also much better.
-> > Tested-by: Michal Simek <monstr@monstr.eu>
-> >
-> > Thanks for help,
-> > Michal
-> >
-> >
-> >
-> >
-> >
-> Hi Michal and Eric:
+> >>  drivers/net/ethernet/tile/Kconfig  |    1 +
+> >>  drivers/net/ethernet/tile/Makefile |    4 +-
+> >>  drivers/net/ethernet/tile/tilegx.c | 2045 ++++++++++++++++++++++++++++++++++++
+> >>  3 files changed, 2048 insertions(+), 2 deletions(-)
+> >>  create mode 100644 drivers/net/ethernet/tile/tilegx.c
+> > I think the directory name should be the company, not the architecture here, so make
+> > it drivers/net/ethernet/tilera/tilegx.c instead.
 > 
-> Which version of kernel did you test, did you try the newest kernel? The 
-> reason I use (PAGE_SHIFT - 10) is in the commit before 3dc43e3, the 
-> limit were calculated with:
-> 
->      limit = nr_free_buffer_pages() / 8;
->      limit = max(limit, 128UL);
-> ...
->      limit = ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
-> 
-> So the rmem should be ok. But there's a defect (which I think does 
-> affect the regression) of my patch would could cause limit that we 
-> should shift after comparing with 128UL like:
-> 
->      limit = nr_free_buffer_pages() / 8;
->      limit = max(limit, 128UL) << (PAGE_SHIFT - 7);
-> 
-> Is anything I miss?
-> 
+> This path was picked back when Jeff Kirsher did the initial move into
+> drivers/net/ethernet/ for the tilepro driver.  I don't have too strong an
+> opinion on this; at this point I'm mostly just concerned that it seems like
+> potentially not worth the churn to move the files for 3.2, then again for
+> 3.5.  But if folks agree we should do it, it's fine with me.
 
-Yes, probably.
+Ah, I didn't realize that the directory already exists. It's probably better
+not to move it then.
 
-Maybe you should check what was the situation on 2.6 kernels.
+> The actual author would rather not publish his name (I just double-checked
+> with him). 
 
-Your commit did not completely fix the 4acb41903b2 one
+Hmm, it doesn't look all that bad actually, the comments I had are just for
+small details.
 
-I dont feel its necessary to put in the changelog the complete bug
-history, since your commit does the needed tracking.
+> >> +/* The actual devices. */
+> >> +static struct net_device *tile_net_devs[TILE_NET_DEVS];
+> >> +
+> >> +/* The device for a given channel.  HACK: We use "32", not
+> >> + * TILE_NET_CHANNELS, because it is fairly subtle that the 5 bit
+> >> + * "idesc.channel" field never exceeds TILE_NET_CHANNELS.
+> >> + */
+> >> +static struct net_device *tile_net_devs_for_channel[32];
+> > When you need to keep a list or array of device structures in a driver, you're
+> > usually doing something very wrong. The convention is to just pass the pointer
+> > around to where you need it.
+> 
+> We need "tile_net_devs_for_channel" because we share a single hardware
+> queue for all devices, and each packet's metadata contains a "channel"
+> value which indicates the device.
+ 
+Ok, but please remove tile_net_devs then.
+
+I think a better abstraction for tile_net_devs_for_channel would be
+some interface that lets you add private data to a channel so when
+you get data from a channel, you can extract that pointer from the driver
+using the channel.
+
+Don't you already have a per-channel data structure?
+
+> 
+> /*
+>  * The on-chip I/O hardware on tilegx is configured with VA=PA for the
+>  * kernel's PA range.  The low-level APIs and field names use "va" and
+>  * "void *" nomenclature, to be consistent with the general notion
+>  * that the addresses in question are virtualizable, but in the kernel
+>  * context we are actually manipulating PA values.  To allow readers
+>  * of the code to understand what's happening, we direct their
+>  * attention to this comment by using the following two no-op functions.
+>  */
+> static inline unsigned long pa_to_tile_io_addr(phys_addr_t pa)
+> {
+>         BUILD_BUG_ON(sizeof(phys_addr_t) != sizeof(unsigned long));
+>         return pa;
+> }
+> static inline phys_addr_t tile_io_addr_to_pa(unsigned long tile_io_addr)
+> {
+>         return tile_io_addr;
+> }
+> 
+> Then the individual uses in the network driver are just things like
+> "edesc_head.va = pa_to_tile_io_addr(__pa(va))" or "va =
+> __va(tile_io_addr_to_pa((unsigned long)gxio_mpipe_idesc_get_va(idesc)))"
+> which I think is a little clearer.
+
+Yes, although I would probably add a typedef for tile_io_addr and pass
+the virtual address in and out these helper functions.
+
+For added clarity, you could make the interface look like dma_map_single(),
+which requires adding an empty unmap() function as well -- that would
+make it obvious where that data is actually used. Why do you require
+the reverse map anyway? Normally you only need to pass a bus address to
+the device but don't need to translate that back into a virtual address
+because you already had that in the beginning.
+
+> >> +/* Allocate and push a buffer. */
+> >> +static bool tile_net_provide_buffer(bool small)
+> >> +{
+> >> [...]
+> >> +
+> >> +	/* Save a back-pointer to 'skb'. */
+> >> +	*(struct sk_buff **)(skb->data - sizeof(struct sk_buff **)) = skb;
+> > This looks very wrong: why would you put the pointer to the skb into the
+> > skb itself?
+> 
+> Because we create skbuffs, and then feed the raw underlying buffer storage
+> to our hardware, and later, we get back this raw pointer from hardware,
+> from which we need to be able to extract the actual skbuff.
+
+Hmm, this sounds very unusual, but I don't really have a better suggestion
+here.
+
+> >> +		/* Compute the "ip checksum". */
+> >> +		jsum = isum_hack + htons(s_len - eh_len) + htons(id);
+> >> +		jsum = __insn_v2sadu(jsum, 0);
+> >> +		jsum = __insn_v2sadu(jsum, 0);
+> >> +		jsum = (0xFFFF ^ jsum);
+> >> +		jh->check = jsum;
+> >> +
+> >> +		/* Update the tcp "seq". */
+> >> +		uh->seq = htonl(seq);
+> >> +
+> >> +		/* Update some flags. */
+> >> +		if (!final)
+> >> +			uh->fin = uh->psh = 0;
+> >> +
+> >> +		/* Compute the tcp pseudo-header checksum. */
+> >> +		usum = tsum_hack + htons(s_len);
+> >> +		usum = __insn_v2sadu(usum, 0);
+> >> +		usum = __insn_v2sadu(usum, 0);
+> >> +		uh->check = usum;
+> > Why to you open-code the ip checksum functions here? Normally the stack takes
+> > care of this by calling the functions you already provide in
+> > arch/tile/lib/checksum.c
+> 
+> If there is a way to do TSO without this, we'd be happy to hear it, but
+> it's not clear how it would be possible.  We are only computing a PARTIAL
+> checksum here, and letting the hardware compute the "full" checksum.
+
+Sounds like you're looking for csum_partial() ;-)
+
+	Arnd
