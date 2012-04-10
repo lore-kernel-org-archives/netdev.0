@@ -1,65 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] tcp: restore correct limit
-Date: Tue, 10 Apr 2012 12:56:42 +0200
-Message-ID: <1334055402.3126.87.camel@edumazet-glaptop>
-References: <4F83EB0E.4020104@monstr.eu>
-	 <1334046444.3126.12.camel@edumazet-glaptop>
-	 <1334046746.3126.13.camel@edumazet-glaptop>  <4F83F166.4010208@monstr.eu>
-	 <1334047544.3126.14.camel@edumazet-glaptop>  <4F83F959.3070302@monstr.eu>
-	 <1334049896.3126.23.camel@edumazet-glaptop>  <4F83FD7A.5010602@monstr.eu>
-	 <1334050698.3126.30.camel@edumazet-glaptop>
-	 <1334052194.3126.66.camel@edumazet-glaptop> <4F8407F7.8070703@monstr.eu>
-	 <4F840B99.8040409@redhat.com>  <1334054436.3126.80.camel@edumazet-glaptop>
+From: Michal Simek <monstr@monstr.eu>
+Subject: axienet driver copyrights
+Date: Tue, 10 Apr 2012 13:15:24 +0200
+Message-ID: <4F84164C.6000702@monstr.eu>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: monstr@monstr.eu, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	John Williams <john.williams@petalogix.com>,
-	David Miller <davem@davemloft.net>,
-	Glauber Costa <glommer@parallels.com>
-To: Jason Wang <jasowang@redhat.com>
+	John Linn <linnj@xilinx.com>,
+	David Miller <davem@davemloft.net>
+To: Ariane Keller <ariane.keller@tik.ee.ethz.ch>,
+	Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:54684 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756308Ab2DJK4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 06:56:47 -0400
-Received: by bkcik5 with SMTP id ik5so4080904bkc.19
-        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 03:56:46 -0700 (PDT)
-In-Reply-To: <1334054436.3126.80.camel@edumazet-glaptop>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:45683 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194Ab2DJLPc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 07:15:32 -0400
+Received: by eekc41 with SMTP id c41so1289307eek.19
+        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 04:15:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit c43b874d5d714f (tcp: properly initialize tcp memory limits) tried
-to fix a regression added in commits 4acb4190 & 3dc43e3,
-but still get it wrong.
+Dear Ariane and Daniel, [cc: John Linn, John Williams, David Miller and netdev]
 
-Result is machines with low amount of memory have too small tcp_rmem[2]
-value and slow tcp receives : Per socket limit being 1/1024 of memory
-instead of 1/128 in old kernels, so rcv window is capped to small
-values.
+I have several questions about one patch which was added to mainline Linux tree.
+Below is information about the patch:
 
-Fix this to match comment and previous behavior.
+drivers/net/ethernet/xilinx: added Xilinx AXI Ethernet driver
+(sha1: 8a3b7a252dca9fb28c23b5bf76c49180a2b60d3b)
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jason Wang <jasowang@redhat.com>
-Cc: Glauber Costa <glommer@parallels.com>
----
-v2: remove one useless "limit = max(limit, 128UL);" line
+The whole driver contains your copyright in 3 files but I don't believe
+that you are authors of significant changes to be polite to write there your
+copyright.
+I really appreciate that someone invested time to add this driver to the mainline
+but I am not comfortable that you will be identify as authors of this driver because you are not!
 
- net/ipv4/tcp.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Maintainer for this driver should be Xilinx which has done this driver. I also
+see that you have integrated all changes I have done to it. We have done these
+changes on Xilinx request to improve the driver stability and performance.
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 5d54ed3..7758a83 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3302,8 +3302,7 @@ void __init tcp_init(void)
- 
- 	tcp_init_mem(&init_net);
- 	/* Set per-socket limits to no more than 1/128 the pressure threshold */
--	limit = nr_free_buffer_pages() << (PAGE_SHIFT - 10);
--	limit = max(limit, 128UL);
-+	limit = nr_free_buffer_pages() << (PAGE_SHIFT - 7);
- 	max_share = min(4UL*1024*1024, limit);
- 
- 	sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
+I have spent some time to list your changes you have done to be sure that my
+first feeling was wrong but it is not.
+
+There are changes which do nothing with functionality.
+1. Clean the driver by checkpatch.pl script.
+2. Copy axienet_ior/iow to header file
+3. axienet_device_reset resort.
+
+Can you tell me what significant changes you have done in this driver?
+
+I know the whole history of this driver and I have never heard about you
+and your changes pointing me that you have just took the latest version
+from PetaLogix or Xilinx git repository and use checkpatch.pl script
+to fix coding style violations.
+
+I don't think that using checkpatch + 2 simple changes is not enough
+to be identified as author.
+
+Can you please correct me?
+
+Thanks,
+Michal
+
+David: Would it be possible to ping me everytime when there is any patch
+around xilinx ethernet controller. I have all equipment for testing it
+and it is my day job to take care about microblaze/xilinx drivers.
+
+
+
+
+-- 
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
+Microblaze U-BOOT custodian
