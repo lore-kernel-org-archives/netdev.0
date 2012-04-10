@@ -1,27 +1,42 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 0/2] l2tp: l2tp_ip socket fixes
-Date: Tue, 10 Apr 2012 11:10:41 +0100
-Message-ID: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
+Subject: [PATCH 2/2] l2tp: don't overwrite source address in l2tp_ip_bind()
+Date: Tue, 10 Apr 2012 11:10:43 +0100
+Message-ID: <1334052643-10910-3-git-send-email-jchapman@katalix.com>
+References: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
+Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:53107 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:53108 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756126Ab2DJKLF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755941Ab2DJKLF (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 10 Apr 2012 06:11:05 -0400
-Received: from localhost.localdomain (jchapman.plus.com [80.229.30.198])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: james)
-	by mail.katalix.com (Postfix) with ESMTPSA id E8F34A62043
-	for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 11:10:57 +0100 (BST)
+In-Reply-To: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A couple of small fixes for the l2tp_ip socket support. This is for
-L2TPv3 IP link encapsulation.
+Applications using L2TP/IP sockets want to be able to bind() an L2TP/IP
+socket to set the local tunnel id while leaving the auto-assigned source
+address alone. So if no source address is supplied, don't overwrite
+the address already stored in the socket.
 
-[PATCH 1/2] l2tp: fix refcount leak in l2tp_ip sockets
-[PATCH 2/2] l2tp: don't overwrite source address in l2tp_ip_bind()
+Signed-off-by: James Chapman <jchapman@katalix.com>
+---
+ net/l2tp/l2tp_ip.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
- net/l2tp/l2tp_ip.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index b56be14..585d93e 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -271,7 +271,8 @@ static int l2tp_ip_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	    chk_addr_ret != RTN_MULTICAST && chk_addr_ret != RTN_BROADCAST)
+ 		goto out;
+ 
+-	inet->inet_rcv_saddr = inet->inet_saddr = addr->l2tp_addr.s_addr;
++	if (addr->l2tp_addr.s_addr)
++		inet->inet_rcv_saddr = inet->inet_saddr = addr->l2tp_addr.s_addr;
+ 	if (chk_addr_ret == RTN_MULTICAST || chk_addr_ret == RTN_BROADCAST)
+ 		inet->inet_saddr = 0;  /* Use device */
+ 	sk_dst_reset(sk);
+-- 
+1.7.0.4
