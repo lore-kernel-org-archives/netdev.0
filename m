@@ -1,78 +1,71 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [PATCH 0/2] adding tracepoints to vhost
-Date: Tue, 10 Apr 2012 21:10:48 +0800
-Message-ID: <CAEH94Li0==w=AUKd5WCPMcqxLh=+N6bKttOwrE8y-xuOyPt_QA@mail.gmail.com>
-References: <20120410025327.49693.93562.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<CAJSP0QWA1z6_YQe9hhpG7bCyZQarmU5NXbHsLGTL_zPTk3dOUA@mail.gmail.com>
-	<20120410124250.GB29808@redhat.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next PATCH v1 7/7] macvlan: add FDB bridge ops and new macvlan
+ mode
+Date: Tue, 10 Apr 2012 06:27:32 -0700
+Message-ID: <4F843544.8060209@intel.com>
+References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab> <20120409220053.3288.40867.stgit@jf-dev1-dcblab> <20120410080916.GB26540@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: roprabhu@cisco.com, stephen.hemminger@vyatta.com,
+	davem@davemloft.net, hadi@cyberus.ca, bhutchings@solarflare.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gregory.v.rose@intel.com, krkumar2@in.ibm.com, sri@us.ibm.com
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120410124250.GB29808@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:24444 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752840Ab2DJN1d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2012 09:27:33 -0400
+In-Reply-To: <20120410080916.GB26540@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 10, 2012 at 8:42 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Tue, Apr 10, 2012 at 12:40:50PM +0100, Stefan Hajnoczi wrote:
->> On Tue, Apr 10, 2012 at 3:58 AM, Jason Wang <jasowang@redhat.com> wrote:
->> > To help in vhost analyzing, the following series adding basic tracepoi=
-nts to
->> > vhost. Operations of both virtqueues and vhost works were traced in cu=
-rrent
->> > implementation, net code were untouched. A top-like satistics displayi=
-ng script
->> > were introduced to help the troubleshooting.
->> >
->> > TODO:
->> > - net specific tracepoints?
->> >
->> > ---
->> >
->> > Jason Wang (2):
->> > =A0 =A0 =A0vhost: basic tracepoints
->> > =A0 =A0 =A0tools: virtio: add a top-like utility for displaying vhost =
-satistics
->> >
->> >
->> > =A0drivers/vhost/trace.h =A0 | =A0153 ++++++++++++++++++++
->> > =A0drivers/vhost/vhost.c =A0 | =A0 17 ++
->> > =A0tools/virtio/vhost_stat | =A0360 ++++++++++++++++++++++++++++++++++=
-+++++++++++++
->> > =A03 files changed, 528 insertions(+), 2 deletions(-)
->> > =A0create mode 100644 drivers/vhost/trace.h
->> > =A0create mode 100755 tools/virtio/vhost_stat
->>
->> Perhaps this can replace the vhost log feature? =A0I'm not sure if
->> tracepoints support the right data types but it seems like vhost
->> debugging could be done using tracing with less code.
->>
->> Stefan
->
-> vhost log is not a debugging tool, it logs memory accesses for
-> migration.
-Great, it is very appreciated if there's some docs about this
+On 4/10/2012 1:09 AM, Michael S. Tsirkin wrote:
+> On Mon, Apr 09, 2012 at 03:00:54PM -0700, John Fastabend wrote:
+>> This adds a new macvlan mode MACVLAN_PASSTHRU_NOPROMISC
+>> this mode acts the same as the original passthru mode _except_
+>> it does not set promiscuous mode on the lowerdev. Because the
+>> lowerdev is not put in promiscuous mode any unicast or multicast
+>> addresses the device should receive must be explicitely added
+>> with the FDB bridge ops. In many use cases the management stack
+>> will know the mac addresses needed (maybe negotiated via EVB/VDP)
+>> or may require only receiving known "good" mac addresses. This
+>> mode with the FDB ops supports this usage model.
+> 
+> 
+> Looks good to me. Some questions below:
+> 
+>> This patch is a result of Roopa Prabhu's work. Follow up
+>> patches are needed for VEPA and VEB macvlan modes.
+> 
+> And bridge too?
+> 
 
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+Yes I called this mode VEB here but this is defined in if_link.h
+as IFLA_MACVLAN_MODE_BRIDGE. From a IEEE point of view I think
+the macvlan bridge mode acts more like a 802.1Q VEB then a 802.1d
+bridge.
 
+> Also, my understanding is that other modes won't need a flag
+> like this since they don't put the device in promisc mode initially,
+> so no assumptions are broken if we require all addresses
+> to be declared, right?
+> 
 
+correct. But requires extra work to the hash table so the forwarding
+works correctly.
 
--- =
+> A final question: I think we'll later add a macvlan mode
+> that does not flood all multicasts. This would change behaviour
+> in an incompatible way so we'll probably need yet another
+> flag. Would it make sense to combine this functionality
+> with nopromisc so we have less modes to support?
+> 
 
-Regards,
+For VEPA and bridge modes this makes sense to me. If you want
+the flood behavior you can create it by adding the addr to all
+the devices or just to a subset of them to get the non-flooding
+capabilities.
 
-Zhi Yong Wu
+.John
