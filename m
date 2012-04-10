@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 1/5] team: add support for per-port options
-Date: Tue, 10 Apr 2012 14:33:56 -0400 (EDT)
-Message-ID: <20120410.143356.28893999541977853.davem@davemloft.net>
-References: <1334070946-7704-1-git-send-email-jpirko@redhat.com>
-	<1334070946-7704-2-git-send-email-jpirko@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 05/10] net: move destructor_arg to the front of sk_buff.
+Date: Tue, 10 Apr 2012 20:41:05 +0200
+Message-ID: <1334083265.5300.288.camel@edumazet-glaptop>
+References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
+	 <1334067984-7706-5-git-send-email-ian.campbell@citrix.com>
+	 <4F847CF9.3090701@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: jpirko@redhat.com
+Cc: Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xen.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46721 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754587Ab2DJSd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 14:33:59 -0400
-In-Reply-To: <1334070946-7704-2-git-send-email-jpirko@redhat.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:46948 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755357Ab2DJSlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 14:41:12 -0400
+Received: by bkcik5 with SMTP id ik5so79796bkc.19
+        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 11:41:11 -0700 (PDT)
+In-Reply-To: <4F847CF9.3090701@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Tue, 10 Apr 2012 17:15:42 +0200
+On Tue, 2012-04-10 at 11:33 -0700, Alexander Duyck wrote:
 
-> @@ -81,7 +81,16 @@ EXPORT_SYMBOL(team_port_set_team_mac);
->   * Options handling
->   *******************/
->  
-> -struct team_option *__team_find_option(struct team *team, const char *opt_name)
-> +struct team_option_inst { /* One for each option instance */
-> +	struct list_head list;
-> +	struct team_option *option;
-> +	struct team_port *port; /* != NULL if per-port */
-> +	bool changed;
-> +	bool removed;
-> +};
-> +
+> Have you checked this for 32 bit as well as 64?  Based on my math your
+> next patch will still mess up the memset on 32 bit with the structure
+> being split somewhere just in front of hwtstamps.
+> 
+> Why not just take frags and move it to the start of the structure?  It
+> is already an unknown value because it can be either 16 or 17 depending
+> on the value of PAGE_SIZE, and since you are making changes to frags the
+> changes wouldn't impact the alignment of the other values later on since
+> you are aligning the end of the structure.  That way you would be
+> guaranteed that all of the fields that will be memset would be in the
+> last 64 bytes.
+> 
 
-All this indirection... just simply embed struct team_option into
-struct team_option_inst instead of using a pointer, and allocate a
-full team_option_inst where you currently memdup in the options.
+Now when a fragmented packet is copied in pskb_expand_head(), you access
+two separate zones of memory to copy the shinfo. But its supposed to be
+slow path.
+
+Problem with this is that the offsets of often used fields will be big
+(instead of being < 127) and code will be bigger on x86.
