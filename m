@@ -1,45 +1,46 @@
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Subject: Re: via-rhine: Problem with lost link after a while
-Date: Tue, 10 Apr 2012 23:15:18 +0200
-Message-ID: <CACPM=kWsU8QZOHqwEThTQCuSSvaTDoxO1d17EyoW=+kx8QG3vw@mail.gmail.com>
-References: <CACPM=kWa=UWuCMaYAtVMGJ7pzCy-PfyNRWBSuJnTZGtssU0W6g@mail.gmail.com>
-	<20120410204249.GA26627@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix tcp_rcv_rtt_update() use of an unscaled RTT
+ sample
+Date: Tue, 10 Apr 2012 17:16:37 -0400 (EDT)
+Message-ID: <20120410.171637.622088330832657275.davem@davemloft.net>
+References: <CAA93jw5opbBobzkgJ2diRPu2X0aKOsnF9hmcm_LfsLPipeAK7g@mail.gmail.com>
+	<20120410.170749.354288312321198124.davem@davemloft.net>
+	<1334092294.5300.614.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120410204249.GA26627@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dave.taht@gmail.com, ncardwell@google.com, netdev@vger.kernel.org,
+	nanditad@google.com, ycheng@google.com, edumazet@google.com,
+	therbert@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48155 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754732Ab2DJVQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 17:16:41 -0400
+In-Reply-To: <1334092294.5300.614.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-10. apr. 2012 22.42 skrev Francois Romieu <romieu@fr.zoreil.com>:
-> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
-> [...]
->> Got any ideas?
->
-> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux.git;h=3D3f=
-8c91a7398b9266fbe7abcbe4bd5dffef907643
->
-> Courtesy of Andreas Mohr.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 10 Apr 2012 23:11:34 +0200
 
-Great, I'll try a 3.4-rc2 kernel, and see how it runs.
+> On Tue, 2012-04-10 at 17:07 -0400, David Miller wrote:
+>> From: Dave Taht <dave.taht@gmail.com>
+>> Date: Tue, 10 Apr 2012 13:46:38 -0700
+>> 
+>> > awesome, is this needed in stable?
+>> 
+>> I have it queued up there already.
+>> 
+>> But you didn't need to write your email at all, you could
+>> have checked this yourself:
+>> 
+>> http://patchwork.ozlabs.org/user/bundle/2566/?state=*
+> 
+> Not sure this URL works (it doesnt for me)
 
-The thread I was talking about earlier is here:
-http://lists.soekris.com/pipermail/soekris-tech/2012-April/018318.html
-Is there any of the changes he has there, that makes sense in the new
-driver you wrote?
+Sorry, that's my private URL and only works if you're logged
+in as me :-)  This one is better:
 
-Thanks :)
-
-/Bjarke
-
-> --
-> Ueimor
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
+http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
