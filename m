@@ -1,37 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-04-07
-Date: Tue, 10 Apr 2012 12:21:19 -0400 (EDT)
-Message-ID: <20120410.122119.454371140692964064.davem@davemloft.net>
-References: <1333824598-27771-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 4/5] staging: octeon_ethernet: Convert to use device tree.
+Date: Tue, 10 Apr 2012 09:43:16 -0700
+Message-ID: <20120410164316.GA15131@kroah.com>
+References: <1332808075-8333-1-git-send-email-ddaney.cavm@gmail.com>
+ <1332808075-8333-5-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1333824598-27771-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>,
+	netdev@vger.kernel.org
+To: David Daney <ddaney.cavm@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1332808075-8333-5-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Sat,  7 Apr 2012 20:49:42 +0200
+On Mon, Mar 26, 2012 at 05:27:54PM -0700, David Daney wrote:
+> From: David Daney <david.daney@cavium.com>
+> 
+> Get MAC address and PHY connection from the device tree.  The driver
+> is converted to a platform driver.
+> 
+> Cc: netdev@vger.kernel.org
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> ---
+> 
+> Should probably go via Ralf's linux-mips.org tree.
 
-> this is the updated and cleaned up version of our last pull request (sent on
-> 2012-04-05).
-
-You absolutely must base your tree off the correct tree, which is
-net-next
-
-You cannot use Linus's tree or my 'net' tree to base your work,
-because otherwise when I pull I get all the damn crap that's in those
-trees but not in net-next yet and that's never right.
+That's fine with me:
+	Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
