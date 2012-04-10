@@ -1,95 +1,67 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Tue, 10 Apr 2012 12:31:40 +0300
-Message-ID: <20120410093140.GA27651@redhat.com>
-References: <20120408171323.GA16012@redhat.com>
- <1334044558.3126.5.camel@edumazet-glaptop>
- <20120410084151.GA27193@redhat.com>
- <1334048100.3126.21.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net: more accurate skb truesize - regression on Microblaze
+Date: Tue, 10 Apr 2012 11:38:18 +0200
+Message-ID: <1334050698.3126.30.camel@edumazet-glaptop>
+References: <4F83EB0E.4020104@monstr.eu>
+	 <1334046444.3126.12.camel@edumazet-glaptop>
+	 <1334046746.3126.13.camel@edumazet-glaptop>  <4F83F166.4010208@monstr.eu>
+	 <1334047544.3126.14.camel@edumazet-glaptop>  <4F83F959.3070302@monstr.eu>
+	 <1334049896.3126.23.camel@edumazet-glaptop>  <4F83FD7A.5010602@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1334048100.3126.21.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	John Williams <john.williams@petalogix.com>,
+	David Miller <davem@davemloft.net>
+To: monstr@monstr.eu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:35087 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752915Ab2DJJiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 05:38:24 -0400
+Received: by bkcik5 with SMTP id ik5so4015992bkc.19
+        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 02:38:22 -0700 (PDT)
+In-Reply-To: <4F83FD7A.5010602@monstr.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 10, 2012 at 10:55:00AM +0200, Eric Dumazet wrote:
-> On Tue, 2012-04-10 at 11:41 +0300, Michael S. Tsirkin wrote:
-> > On Tue, Apr 10, 2012 at 09:55:58AM +0200, Eric Dumazet wrote:
+On Tue, 2012-04-10 at 11:29 +0200, Michal Simek wrote:
+> On 04/10/2012 11:24 AM, Eric Dumazet wrote:
+> > On Tue, 2012-04-10 at 11:11 +0200, Michal Simek wrote:
+> >
+> >> ~ # cat /proc/sys/net/ipv4/tcp_rmem
+> >> 4096    87380   130048
+> >
+> > Are they default values, or tuned by admin ?
+> >
+> > 130048 bytes isnt enough to let TCP open its rcv window.
 > 
-> > > In your case I would just not use qdisc at all, like other virtual
-> > > devices.
-> > 
-> > I think that if we do this, this also disables gso
-> > for the device, doesn't it?
+> yep. Default value after powerup. What's wrong with that?
 > 
-> Not at all, thats unrelated.
-> 
-> > If true that would be a problem as this would
-> > hurt performance of virtualized setups a lot.
-> 
-> In fact, removing qdisc layer will help a lot, removing a contention
-> point.
->
-> Anyway, with a 500 packet limit in TUN queue itself, qdisc layer should
-> be always empty. Whats the point storing more than 500 packets for a
-> device ? Thats a latency killer.
-
-AKA bufferbloat :)
-We could try and reduce the TUN queue so that qdisc can drop packets in
-an intelligent manner (e.g. choke) but this would conflict with what you
-propose, right?
-
-> > 
-> > > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> > > index bb8c72c..fd8c7f0 100644
-> > > --- a/drivers/net/tun.c
-> > > +++ b/drivers/net/tun.c
-> > > @@ -396,7 +396,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
-> > >  	    sk_filter(tun->socket.sk, skb))
-> > >  		goto drop;
-> > >  
-> > > -	if (skb_queue_len(&tun->socket.sk->sk_receive_queue) >= dev->tx_queue_len) {
-> > > +	if (skb_queue_len(&tun->socket.sk->sk_receive_queue) >= TUN_READQ_SIZE) {
-> > >  		if (!(tun->flags & TUN_ONE_QUEUE)) {
-> > >  			/* Normal queueing mode. */
-> > >  			/* Packet scheduler handles dropping of further packets. */
-> > 
-> > tx_queue_len is controllable by SIOCSIFTXQLEN
-> > so we'll need to override SIOCSIFTXQLEN somehow
-> > to avoid breaking userspace that actually uses SIOCSIFTXQLEN, right?
-> 
-> Right now, you control with this tx_queue_len both the qdisc limit (if
-> pfifo_fast default) and the receive_queue in TUN.
-> 
-> That doesnt seem right to me, and more a hack/side effect.
-> Maybe you want to introduce a new setting, only controling receive queue
-> limit, and use tx_queue_len for its original meaning.
-> 
-> Then, setting tx_queue_len to 0 permits to remove qdisc layer, as any
-> other netdevice.
-> 
+> Michal
 > 
 
-True. Still this is the only interface we have for controlling
-the internal queue length so it seems safe to assume someone
-is using it for this purpose.
+I guess your tcp performance is driven by these numbers mostly.
 
-And if that happens we get the deadlock back since
-tx_queue_len will get set to a non-0 value. Right?
+receive window wont grow above 64K in these case. a tcpdump could
+confirm the issue.
 
--- 
-MST
+Do you have 130000 pages of memory ?
+
+Seems the net/ipv4/tcp.c code is wrong (or the comment is wrong)
+
+Since its not 1/128 but 1/1024 ....
+
+
+        /* Set per-socket limits to no more than 1/128 the pressure threshold */
+        limit = nr_free_buffer_pages() << (PAGE_SHIFT - 10);
+        limit = max(limit, 128UL);
+        max_share = min(4UL*1024*1024, limit);
+
+        sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
+        sysctl_tcp_wmem[1] = 16*1024;
+        sysctl_tcp_wmem[2] = max(64*1024, max_share);
+
+        sysctl_tcp_rmem[0] = SK_MEM_QUANTUM;
+        sysctl_tcp_rmem[1] = 87380;
+        sysctl_tcp_rmem[2] = max(87380, max_share);
