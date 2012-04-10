@@ -1,34 +1,89 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: a F-RTO question
-Date: Tue, 10 Apr 2012 11:34:08 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1204101128550.2966@wel-95.cs.helsinki.fi>
-References: <4F7281ED.1060603@gmail.com> <CAJkE24+qgK4_cGtiEi6hWDFS2EVYPajHY3pigwh_RqguwsedNg@mail.gmail.com> <4F728EC9.1050302@gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: Ethernet driver for the WIZnet W5100 chip
+Date: Tue, 10 Apr 2012 11:40:06 +0300
+Message-ID: <20120410084006.GA27006@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Chao Pei <peichao85@gmail.com>, Netdev <netdev@vger.kernel.org>
-To: Li Yu <raise.sail@gmail.com>
+Cc: netdev@vger.kernel.org
+To: msink@permonline.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40762 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752253Ab2DJIjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 04:39:10 -0400
-In-Reply-To: <4F728EC9.1050302@gmail.com>
+Received: from acsinet15.oracle.com ([141.146.126.227]:41522 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752253Ab2DJIkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 04:40:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Mar 2012, Li Yu wrote:
+Hello Mike Sinkovsky,
 
-> Even, the reason is latter, it also means the netowrk already is
-> recovered from temporarily congestion or disordered state, so we also should
-> not enter loss state.
+This is a semi-automatic email about new static checker warnings.
 
-There are also other considerations in this btw, some devices are simply 
-broken and go to RTO loop increasing the RTOs exponentially if we wouldn't 
-force retransmit of the next segment (one of those newly sent segments) 
-that isn't strictly mandatory imho. ...We used to do something more 
-clever here and avoided that retransmission but learned the hard way that 
-there's simply no way around it.
+The patch 8b1467a31343: "Ethernet driver for the WIZnet W5100 chip" 
+from Apr 4, 2012, leads to the following Smatch complaint:
 
--- 
- i.
+drivers/net/ethernet/wiznet/w5100.c:685 w5100_hw_probe()
+	 error: we previously assumed 'data' could be null (see line 637)
+
+drivers/net/ethernet/wiznet/w5100.c
+   636	
+   637		if (data && is_valid_ether_addr(data->mac_addr)) {
+                    ^^^^
+New check.
+
+   638			memcpy(ndev->dev_addr, data->mac_addr, ETH_ALEN);
+   639		} else {
+   640			random_ether_addr(ndev->dev_addr);
+   641			ndev->addr_assign_type |= NET_ADDR_RANDOM;
+   642		}
+   643	
+   644		mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+   645		if (!mem)
+   646			return -ENXIO;
+   647		mem_size = resource_size(mem);
+   648		if (!devm_request_mem_region(&pdev->dev, mem->start, mem_size, name))
+   649			return -EBUSY;
+   650		priv->base = devm_ioremap(&pdev->dev, mem->start, mem_size);
+   651		if (!priv->base)
+   652			return -EBUSY;
+   653	
+   654		spin_lock_init(&priv->reg_lock);
+   655		priv->indirect = mem_size < W5100_BUS_DIRECT_SIZE;
+   656		if (priv->indirect) {
+   657			priv->read     = w5100_read_indirect;
+   658			priv->write    = w5100_write_indirect;
+   659			priv->read16   = w5100_read16_indirect;
+   660			priv->write16  = w5100_write16_indirect;
+   661			priv->readbuf  = w5100_readbuf_indirect;
+   662			priv->writebuf = w5100_writebuf_indirect;
+   663		} else {
+   664			priv->read     = w5100_read_direct;
+   665			priv->write    = w5100_write_direct;
+   666			priv->read16   = w5100_read16_direct;
+   667			priv->write16  = w5100_write16_direct;
+   668			priv->readbuf  = w5100_readbuf_direct;
+   669			priv->writebuf = w5100_writebuf_direct;
+   670		}
+   671	
+   672		w5100_hw_reset(priv);
+   673		if (w5100_read16(priv, W5100_RTR) != RTR_DEFAULT)
+   674			return -ENODEV;
+   675	
+   676		irq = platform_get_irq(pdev, 0);
+   677		if (irq < 0)
+   678			return irq;
+   679		ret = request_irq(irq, w5100_interrupt,
+   680				  IRQ_TYPE_LEVEL_LOW, name, ndev);
+   681		if (ret < 0)
+   682			return ret;
+   683		priv->irq = irq;
+   684	
+   685		priv->link_gpio = data->link_gpio;
+                                  ^^^^^^^^^^^^^^^
+New unchecked dereference.
+
+   686		if (gpio_is_valid(priv->link_gpio)) {
+   687			char *link_name = devm_kzalloc(&pdev->dev, 16, GFP_KERNEL);
+
+regards,
+dan carpenter
