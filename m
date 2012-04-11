@@ -1,57 +1,92 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] net/bridge: port based vlan filtering for bridges
-Date: Wed, 11 Apr 2012 08:38:35 -0700
-Message-ID: <20120411083835.39fed750@nehalam.linuxnetplumber.net>
-References: <20120411151002.GA17739@kvack.org>
-	<20120411083052.1ca6a6ef@nehalam.linuxnetplumber.net>
-	<20120411153629.GC17739@kvack.org>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v15 04/13] arch/x86: add syscall_get_arch to syscall.h
+Date: Wed, 11 Apr 2012 10:41:24 -0500
+Message-ID: <CABqD9haw2YutkSQHO0Qq19eveqwKCEi=L3fpCYupqvakW3jDMw@mail.gmail.com>
+References: <1331781125-15658-1-git-send-email-wad@chromium.org>
+	<1331781125-15658-5-git-send-email-wad@chromium.org>
+	<4F6F7362.6030402@zytor.com>
+	<CABqD9hZgnrKFY_Wei-ysU=Dy7Og2iEemnqPvcQ14M0+vL65gHQ@mail.gmail.com>
+	<4F84F895.4080101@zytor.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56149 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759269Ab2DKPii (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2012 11:38:38 -0400
-In-Reply-To: <20120411153629.GC17739@kvack.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de, davem@davemloft.net,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org, coreyb@linux.vnet.ibm.com,
+	keescook@chromium.org
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <kernel-hardening-return-1244-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <4F84F895.4080101@zytor.com>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Apr 2012 11:36:29 -0400
-Benjamin LaHaise <bcrl@kvack.org> wrote:
+On Tue, Apr 10, 2012 at 10:20 PM, H. Peter Anvin <hpa@zytor.com> wrote:
+> On 04/10/2012 08:13 PM, Will Drewry wrote:
+>> On Sun, Mar 25, 2012 at 2:34 PM, H. Peter Anvin <hpa@zytor.com> wrote:
+>>> On 03/14/2012 08:11 PM, Will Drewry wrote:
+>>>>
+>>>> +static inline int syscall_get_arch(struct task_struct *task,
+>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struc=
+t pt_regs *regs)
+>>>> +{
+>>>> +#ifdef CONFIG_IA32_EMULATION
+>>>> + =A0 =A0 /*
+>>>> + =A0 =A0 =A0* TS_COMPAT is set for 32-bit syscall entries and then
+>>>> + =A0 =A0 =A0* remains set until we return to user mode.
+>>>> + =A0 =A0 =A0*
+>>>> + =A0 =A0 =A0* TIF_IA32 tasks should always have TS_COMPAT set at
+>>>> + =A0 =A0 =A0* system call time.
+>>>> + =A0 =A0 =A0*/
+>>>> + =A0 =A0 if (task_thread_info(task)->status & TS_COMPAT)
+>>>> + =A0 =A0 =A0 =A0 =A0 =A0 return AUDIT_ARCH_I386;
+>>>> +#endif
+>>>> + =A0 =A0 return AUDIT_ARCH_X86_64;
+>>>> +}
+>>>> =A0#endif =A0 =A0 =A0 /* CONFIG_X86_32 */
+>>>>
+>>>> =A0#endif =A0 =A0 =A0 /* _ASM_X86_SYSCALL_H */
+>>>
+>>> Just one FYI on this: after the x32 changes are upstream this can be
+>>> implemented in terms of is_ia32_task().
+>>
+>> Now that I've seen is_ia32_task(), it appears to be exactly the same as =
+above:
+>> (1) =A0If we're x86_32, it's ia32
+>> (2) =A0If we're x86_64, ia32 =3D=3D !!(status & TS_COMPAT)
+>> (3) =A0Otherwise, it's x86_64, including x32
+>>
+>> Am I missing something? Should is_ia32_task(void) take a task_struct?
+>> Right now, I don't see any reason to change the code, as posted, but
+>> maybe I am mis-reading?
+>>
+>
+> Sorry, answered the wrong question. =A0Yes, it is the same as above...
+> just wandered if we could centralize this test. =A0It might indeed make
+> sense to provide general predicates which take a task pointer.
 
-> On Wed, Apr 11, 2012 at 08:30:52AM -0700, Stephen Hemminger wrote:
-> > On Wed, 11 Apr 2012 11:10:02 -0400
-> > Benjamin LaHaise <bcrl@kvack.org> wrote:
-> > 
-> > > Hello folks,
-> > > 
-> > > Attached is the first stab at a patch to make it possible to filter packets 
-> > > received from other bridge ports based on the port number.  This can be used 
-> > > to emulate port based VLANs that some switches support.
-> > > 
-> > > The justification for this is a bit interesting.  Initially, I had been 
-> > > filtering packets using firewall rules.  Unfortunately, the number of 
-> > > filter rules becomes impossible to manage when trying to filter traffic 
-> > > between 100 different ports.  CPU overhead of the filters is also a major 
-> > > problem.
-> > > 
-> > > The particular use-case I'm dealing with is simulating wireless networks 
-> > > on a system using LXC containers.  Each guest has a veth device that is a 
-> > > member of the bridge, but the topology of which nodes can "hear" each other 
-> > > changes at runtime.
-> > > 
-> > > Comments/thoughts?
-> > > 
-> > 
-> > Nak. If firewall doesn't work then implement a better netfilter
-> > module.
-> 
-> That still results in the CPU overhead of packet duplication for each and 
-> every bridge port regardless of the port receiving the packet or not.  
-> Hmmmm, would a NF_HOOK in should_deliver be okay?
+Makes sense to me. I'm leaving this specific patch alone at present.
 
-Sure. Having better way to do policy would be great. Just don't want
-to have implementations of specific policies in generic code.
+That said, a quick grep shows only  a handful of ia32 references:
+./arch/x86/include/asm/compat.h:        return is_ia32_task() || is_x32_tas=
+k();
+./arch/x86/ia32/ia32_signal.c:  bool ia32 =3D is_ia32_task();
+./arch/x86/kernel/ptrace.c:     if (!is_ia32_task())
+
+Would it make sense to make a new predicate or just expand the one
+added in 3.4 to take a task_struct parameter? I'm not sure if there'd
+be much fallout in converting these from directly checking
+current_thread_info to task_thread_info.
+
+It's a small patch either way.
+
+cheers!
+will
