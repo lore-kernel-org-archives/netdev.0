@@ -1,95 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Thu, 12 Apr 2012 00:52:12 +0300
-Message-ID: <20120411215212.GA27550@redhat.com>
-References: <20120408171323.GA16012@redhat.com>
- <1334044558.3126.5.camel@edumazet-glaptop>
- <20120410084151.GA27193@redhat.com>
- <1334048100.3126.21.camel@edumazet-glaptop>
- <20120410093140.GA27651@redhat.com>
- <1334052259.3126.68.camel@edumazet-glaptop>
- <20120410112459.GA28825@redhat.com>
- <1334058300.3126.99.camel@edumazet-glaptop>
- <20120410124151.GA29808@redhat.com>
- <1334065929.5300.40.camel@edumazet-glaptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: via-rhine: Problem with lost link after a while
+Date: Thu, 12 Apr 2012 00:21:24 +0200
+Message-ID: <20120411222124.GA20605@electric-eye.fr.zoreil.com>
+References: <CACPM=kWa=UWuCMaYAtVMGJ7pzCy-PfyNRWBSuJnTZGtssU0W6g@mail.gmail.com> <20120410204249.GA26627@electric-eye.fr.zoreil.com> <CACPM=kWsU8QZOHqwEThTQCuSSvaTDoxO1d17EyoW=+kx8QG3vw@mail.gmail.com> <20120410225534.GA28480@electric-eye.fr.zoreil.com> <4F8553BF.6030303@secomea.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bjarke Istrup Pedersen <gurligebis@gentoo.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andreas Mohr <andi@lisas.de>
+To: Svenning =?utf-8?B?U8O4cmVuc2Vu?= <sss@secomea.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54050 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933500Ab2DKWZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2012 18:25:33 -0400
 Content-Disposition: inline
-In-Reply-To: <1334065929.5300.40.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4F8553BF.6030303@secomea.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 10, 2012 at 03:52:09PM +0200, Eric Dumazet wrote:
-> On Tue, 2012-04-10 at 15:41 +0300, Michael S. Tsirkin wrote:
-> 
-> > I think it's a bad interface too but it's in a userspace ABI
-> > now so I suspect we are stuck with it for now. We can try deprecating
-> > but we can't just drop it.
-> > 
-> 
-> By the way, skb orphaning should already be done in skb_orphan_try(),
-> not sure why its done again in tun_net_xmit(). Note we perform orphaning
-> right before giving skb to device on premise it'll be sent (and freed)
-> in a reasonable amount of time.
-> 
-> 
-> With following patch, no more qdisc on top of tun device, yet user can
-> change the limit (I would be curious to know if anybody changes tun
-> txqueuelen and why)
+Svenning S=C3=B8rensen <sss@secomea.com> :
+[...]
+> Regarding the "Tx descriptor busy" test: no, I didn't see it
+> trigger, I just put it there just in case because I suspected there
+> could be a race due to the lock-free tx path.
+> But I'm glad if you're confident that it can't happen :)
 
-Following would makes the default visible with SIOCGIFTXQLEN
-same as it was + avoid branch on data path.
-Didn't have time to test yet - it should achieve
-same purpose, shouldn't it?
-Or do I misunderstand how it's designed to work?
+Almost :o)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index bb8c72c..418abd1 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -521,7 +521,6 @@ static void tun_net_init(struct net_device *dev)
- 		/* Zero header length */
- 		dev->type = ARPHRD_NONE;
- 		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
--		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
- 		break;
- 
- 	case TUN_TAP_DEV:
-@@ -531,10 +530,9 @@ static void tun_net_init(struct net_device *dev)
- 		dev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 
- 		eth_hw_addr_random(dev);
--
--		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
- 		break;
- 	}
-+	dev->tx_queue_len = 0;  /* Disable qdisc queueing */
- }
- 
- /* Character device part */
-@@ -1143,6 +1141,12 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		if (err < 0)
- 			goto err_free_sk;
- 
-+		/*
-+		 * We (ab)use queue length to limit our amount of buffering.
-+		 * Set our own default queue length.
-+		 */
-+		dev->tx_queue_len = TUN_READQ_SIZE;
-+
- 		if (device_create_file(&tun->dev->dev, &dev_attr_tun_flags) ||
- 		    device_create_file(&tun->dev->dev, &dev_attr_owner) ||
- 		    device_create_file(&tun->dev->dev, &dev_attr_group))
+Without the patch it may happen in mainline. Once the napi Tx completio=
+n
+function checks if queueing is stopped before enabling it, it should no=
+t
+happen though. The patch should fix the race where queuing is not enabl=
+ed
+as well.
+
+That being said, I would welcome a pony^W^W some testing on a multi-cor=
+e
+system with lots of Tx and enough irq from a different (non via-rhine)
+source to starve the softirq processing.
+
+--=20
+Ueimor
