@@ -1,59 +1,140 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: suspicious RCU usage warnings in 3.3.0
-Date: Wed, 11 Apr 2012 18:08:53 +0300 (EEST)
-Message-ID: <alpine.SOC.1.00.1204111807420.26884@math.ut.ee>
-References: <alpine.SOC.1.00.1203281134090.13691@math.ut.ee> <20120328.174559.650861844028495880.davem@davemloft.net>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: [RFC] net/bridge: port based vlan filtering for bridges
+Date: Wed, 11 Apr 2012 11:10:02 -0400
+Message-ID: <20120411151002.GA17739@kvack.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120328.174559.650861844028495880.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:49169 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755152Ab2DKPKE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2012 11:10:04 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > Is this the same RCU problem that was fixed after 3.3 (fix a potential 
-> > rcu_read_lock() imbalance in rt6_fill_node())? My problem does not seem 
-> > to be ipv6-only, most traces are from IPv6 but some for ip.
-> 
-> It's hard to say because the ipv6 RCU problem causes the warning to
-> trigger somewhere away from the ipv6 code that had the RCU locking
-> bug.
+Hello folks,
 
-Tested todays 3.4.0-rc2-00016-ga9e1e53 on the same with flood ping and 
-still got RCU warning:
+Attached is the first stab at a patch to make it possible to filter packets 
+received from other bridge ports based on the port number.  This can be used 
+to emulate port based VLANs that some switches support.
 
-[36456.693191] 
-[36456.712658] ===============================
-[36456.767614] [ INFO: suspicious RCU usage. ]
-[36456.822588] 3.4.0-rc2-00016-ga9e1e53 #36 Not tainted
-[36456.887835] -------------------------------
-[36456.942804] include/linux/netpoll.h:70 suspicious rcu_dereference_check() usage!
-[36457.040083] 
-[36457.040089] other info that might help us debug this:
-[36457.040098] 
-[36457.145306] 
-[36457.145312] RCU used illegally from idle CPU!
-[36457.145320] rcu_scheduler_active = 1, debug_locks = 0
-[36457.288293] RCU used illegally from extended quiescent state!
-[36457.363834] no locks held by swapper/0.
-[36457.414221] 
-[36457.414227] stack backtrace:
-[36457.471471] Call Trace:
-[36457.503600]  [0000000000489834] lockdep_rcu_suspicious+0xd4/0x100
-[36457.583727]  [00000000006755a8] __netif_receive_skb+0x368/0xa80
-[36457.661536]  [0000000000675e6c] netif_receive_skb+0x4c/0x60
-[36457.734787]  [000000000063fd74] tulip_poll+0x3b4/0x6a0
-[36457.802327]  [00000000006794d8] net_rx_action+0x118/0x1e0
-[36457.873299]  [00000000004560fc] __do_softirq+0x9c/0x140
-[36457.941984]  [000000000042b1c4] do_softirq+0x84/0xc0
-[36458.007229]  [0000000000404a40] __handle_softirq+0x0/0x10
-[36458.078199]  [000000000042b688] cpu_idle+0x48/0x100
-[36458.142314]  [0000000000722db8] rest_init+0x160/0x188
-[36458.208711]  [00000000008c87b0] start_kernel+0x32c/0x33c
-[36458.278530]  [0000000000722c50] tlb_fixup_done+0x88/0x90
-[36458.348346]  [0000000000000000]           (null)
+The justification for this is a bit interesting.  Initially, I had been 
+filtering packets using firewall rules.  Unfortunately, the number of 
+filter rules becomes impossible to manage when trying to filter traffic 
+between 100 different ports.  CPU overhead of the filters is also a major 
+problem.
 
+The particular use-case I'm dealing with is simulating wireless networks 
+on a system using LXC containers.  Each guest has a veth device that is a 
+member of the bridge, but the topology of which nodes can "hear" each other 
+changes at runtime.
 
+Comments/thoughts?
+
+		-ben
+---
+ br_forward.c  |    3 +++
+ br_if.c       |    3 +--
+ br_private.h  |    4 ++++
+ br_sysfs_if.c |   20 ++++++++++++++++++++
+ 4 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index ee64287..9b106f8 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -30,6 +30,9 @@ static int deliver_clone(const struct net_bridge_port *prev,
+ static inline int should_deliver(const struct net_bridge_port *p,
+ 				 const struct sk_buff *skb)
+ {
++	struct net_bridge_port *from = br_port_get_rcu(skb->dev);
++	if (from && test_bit(from->port_no, p->filter_ports))
++		return 0;
+ 	return (((p->flags & BR_HAIRPIN_MODE) || skb->dev != p->dev) &&
+ 		p->state == BR_STATE_FORWARDING);
+ }
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index f603e5b..2f2e595 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -183,8 +183,7 @@ static int find_portno(struct net_bridge *br)
+ 	struct net_bridge_port *p;
+ 	unsigned long *inuse;
+ 
+-	inuse = kcalloc(BITS_TO_LONGS(BR_MAX_PORTS), sizeof(unsigned long),
+-			GFP_KERNEL);
++	inuse = kcalloc(BR_PORT_LONGS, sizeof(unsigned long), GFP_KERNEL);
+ 	if (!inuse)
+ 		return -ENOMEM;
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index d7d6fb0..c6fbab0 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -17,6 +17,7 @@
+ #include <linux/if_bridge.h>
+ #include <linux/netpoll.h>
+ #include <linux/u64_stats_sync.h>
++#include <linux/bitops.h>
+ #include <net/route.h>
+ 
+ #define BR_HASH_BITS 8
+@@ -26,6 +27,7 @@
+ 
+ #define BR_PORT_BITS	10
+ #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
++#define BR_PORT_LONGS	BITS_TO_LONGS(BR_MAX_PORTS)
+ 
+ #define BR_VERSION	"2.3"
+ 
+@@ -156,6 +158,8 @@ struct net_bridge_port
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	struct netpoll			*np;
+ #endif
++
++	unsigned long			filter_ports[BR_PORT_LONGS];
+ };
+ 
+ #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index 6229b62..9d95f6a 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -164,6 +164,24 @@ static BRPORT_ATTR(multicast_router, S_IRUGO | S_IWUSR, show_multicast_router,
+ 		   store_multicast_router);
+ #endif
+ 
++static int store_add_filter_port(struct net_bridge_port *p, unsigned long v)
++{
++	if (v >= BR_MAX_PORTS)
++		return -EINVAL;
++	set_bit(v, p->filter_ports);
++	return 0;
++}
++static BRPORT_ATTR(add_filter_port, S_IWUSR, NULL, store_add_filter_port);
++
++static int store_remove_filter_port(struct net_bridge_port *p, unsigned long v)
++{
++	if (v >= BR_MAX_PORTS)
++		return -EINVAL;
++	clear_bit(v, p->filter_ports);
++	return 0;
++}
++static BRPORT_ATTR(remove_filter_port, S_IWUSR, NULL, store_remove_filter_port);
++
+ static struct brport_attribute *brport_attrs[] = {
+ 	&brport_attr_path_cost,
+ 	&brport_attr_priority,
+@@ -184,6 +202,8 @@ static struct brport_attribute *brport_attrs[] = {
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	&brport_attr_multicast_router,
+ #endif
++	&brport_attr_add_filter_port,
++	&brport_attr_remove_filter_port,
+ 	NULL
+ };
+ 
 -- 
-Meelis Roos (mroos@linux.ee)
+"Thought is the essence of where you are now."
