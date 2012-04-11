@@ -1,77 +1,82 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 2/2] net: ethtool: Add capability to retrieve
- plug-in module EEPROM
-Date: Wed, 11 Apr 2012 19:31:59 +0100
-Message-ID: <1334169119.2552.17.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4F71FE15.7060708@solarflare.com>
-	 <1333390698.2623.47.camel@bwh-desktop.uk.solarflarecom.com>
-	 <4F85C22C.30707@solarflare.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Subject: Re: [PATCH v17 01/15] Add PR_{GET,SET}_NO_NEW_PRIVS to prevent execve
+ from granting privs
+Date: Thu, 12 Apr 2012 07:31:16 +1200
+Message-ID: <CAKgNAkhhnC1+vdh7vTYKkngzxHccDwHH_aKF5wCNhga33BGhyQ@mail.gmail.com>
+References: <1333051320-30872-1-git-send-email-wad@chromium.org>
+ <1333051320-30872-2-git-send-email-wad@chromium.org> <20120406125517.77133b4e.akpm@linux-foundation.org>
+ <CAObL_7EYb62o=a0ekzcDx=0TuN55A7aTYhLJbMNu2r8F0V77EA@mail.gmail.com> <20120406142824.61d8ca3b@lwn.net>
+Reply-To: mtk.manpages@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: Stuart Hodgson <smhodgson@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F85C22C.30707@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Lutomirski <luto@mit.edu>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Will Drewry <wad@chromium.org>, linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, hpa@zytor.com, mingo@redhat.com,
+	oleg@redhat.com, peterz@infradead.org, rdunlap@xenotime.net,
+	mcgrathr@chromium.org, tglx@linutronix.de, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, eric.dumazet@gmail.com,
+	markus@chromium.org, coreyb@linux.vnet.ibm.com,
+	keescook@chromium.org, jmorris@namei.org,
+	Andy Lutomirski <luto@amacapital.net>,
+	linux-man@vger.kernel.org
+To: Jonathan Corbet <corbet@lwn.net>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20120406142824.61d8ca3b@lwn.net>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-04-11 at 18:41 +0100, Stuart Hodgson wrote:
-> On 02/04/12 19:18, Ben Hutchings wrote:
-> > On Tue, 2012-03-27 at 18:51 +0100, Stuart Hodgson wrote:
-[...]
-> >> --- a/drivers/net/ethernet/sfc/ethtool.c
-> >> +++ b/drivers/net/ethernet/sfc/ethtool.c
-[...]
-> >> +        payload_len = MCDI_DWORD(outbuf,
-> >> +                     GET_PHY_MEDIA_INFO_OUT_DATALEN);
-> >> +
-> >> +        to_copy = (space_remaining<  payload_len) ?
-> >> +                space_remaining : payload_len;
-> >> +
-> >> +        to_copy -= page_off;
-> >
-> > page_off is the number of bytes we need to discard from payload_len, but
-> > we don't want do discard that from space_remaining.  I think the last
-> > two statements should be changed to:
-> >
-> > 	payload_len -= page_off;
-> > 	to_copy = (space_remaining<  payload_len) ?
-> > 		space_remaining : payload_len;
-> >
-> 
-> I am pretty sure that these two pieces of code are the same
+On Sat, Apr 7, 2012 at 8:28 AM, Jonathan Corbet <corbet@lwn.net> wrote:
+> On Fri, 6 Apr 2012 13:01:17 -0700
+> Andrew Lutomirski <luto@mit.edu> wrote:
+>
+>> This has been bugging me for awhile. =A0Is there any interest in mov=
+ing
+>> the manpages into the kernel source tree? =A0Then there could be a
+>> general requirement that new APIs get documented when they're writte=
+n.
+>
+> Man page (or other documentation) requirements for patch acceptance a=
+re a
+> regular kernel summit feature. =A0People seem to think it's a good id=
+ea, but
+> actual enforcement of such requirements always seems to be lacking. =A0=
+Lots
+> of people have kind of given up trying. =A0I don't really see that ad=
+ding
+> the man pages to the tree would help, but I could be wrong...
 
-Suppose we start with ee->offset = 64, ee->len = 32.  After the MCDI
-request returns and we assign payload_len from that, I believe we will
-have page_off = 64, payload_len = 128, space_remaining = 32.
+I largely consider this (moving man pages to kernel.org) a technical
+solution to what is fundamentally a social problem (developers
+reluctant to write documentation), and doubt that the technical
+solution would make much difference. I'd love to be proved wrong, but
+the experiment would require significant start-up effort. (My
+collected thoughts on this can be found here:
+http://www.kernel.org/doc/man-pages/todo.html#migrate_to_kernel_source.
+Note the alternative idea of patch tags mentioned at the end of that
+text.)
 
-Work through the calculations from there and you'll see the problem.
+Unless, or until there's a paid maintainer, I don't expect things to
+get significantly better than what they currently are. The quite
+significant improvements in man-pages since 2004, when I became
+maintainer were in small part due to the fact that I was for a short
+period paid to do the work, but in much larger part due to a huge
+private effort over those years which over the last couple of years is
+no longer unsustainable for me (man-pages is in competition with
+requirements for my attention from family, working life, and
+(seriously!) seismic events),
 
-[...]
-> >> +    phy_cfg = efx->phy_data;
-> >> +    modinfo->eeprom_len = mcdi_to_module_eeprom_len(phy_cfg->media);
-> >> +    modinfo->type = SFF_8079;
-> > [...]
-> >
-> > I don't think this makes sense.  If we're fixing the type as SFF_8079
-> > then why are we calling a function to get the length?
-> >
-> > Ben.
-> >
-> 
-> What about adding an mcdi_to_module_eeprom_type in the same manner
-> as mcdi_to_module_eeprom_len and the other mapping functions?
+Cheers,
 
-Could do, but I don't see the point of breaking this out into separate
-functions that are only used once.  It's actually going to increase code
-duplication because you'll have to put the same PHY type checks in both
-of them.
+Michael
 
-Ben.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--=20
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface"; http://man7.org/tlpi/
