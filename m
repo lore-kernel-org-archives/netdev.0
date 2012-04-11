@@ -1,53 +1,40 @@
-From: Tim Hockin <thockin@hockin.org>
-Subject: Re: [PATCH net-next #2 28/39] natsemi: stop using net_device.{base_addr,
- irq}.
-Date: Tue, 10 Apr 2012 18:16:28 -0700
-Message-ID: <CAAAKZwtAZ=zjPs6fR_UeHRt8wQy1B4sRxHXRwL+2=hVPTHjLUA@mail.gmail.com>
-References: <CAAAKZwt9TUdDS6-pQ_aDAMxJ+MRTNnHxC0Fuajm_WsqjUED6wg@mail.gmail.com>
- <20120410.204202.923592889066244236.davem@davemloft.net> <CAAAKZwsVA7XxbbUfYRdC20Z0gjTG-3vAmQibA1Z5yaFdpa9jgA@mail.gmail.com>
- <20120410.211114.643908401942868800.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
+ Seamless Redundancy
+Date: Tue, 10 Apr 2012 18:28:47 -0700
+Message-ID: <20120410182847.45e47c5e@nehalam.linuxnetplumber.net>
+References: <20120403113751.21fd0b17@s6510.linuxnetplumber.net>
+	<4F7CD4BC.4000006@enea.com>
+	<20120404165559.5223ab95@s6510.linuxnetplumber.net>
+	<20120404.202109.2046106039992811660.davem@davemloft.net>
+	<4F7F10FC.3020308@enea.com>
+	<1333731991.3282.17.camel@deadeye>
+	<20120406111912.172bb1fb@nehalam.linuxnetplumber.net>
+	<4F84CA36.7020209@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"balferreira@googlemail.com" <balferreira@googlemail.com>
+To: Arvid Brodin <Arvid.Brodin@xdin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:51968 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755933Ab2DKBQt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 21:16:49 -0400
-Received: by yenl12 with SMTP id l12so253134yen.19
-        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 18:16:48 -0700 (PDT)
-In-Reply-To: <20120410.211114.643908401942868800.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:46401 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756011Ab2DKB2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Apr 2012 21:28:49 -0400
+In-Reply-To: <4F84CA36.7020209@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 10, 2012 at 6:11 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Tim Hockin <thockin@hockin.org>
-> Date: Tue, 10 Apr 2012 17:59:40 -0700
->
->> On Tue, Apr 10, 2012 at 5:42 PM, David Miller <davem@davemloft.net> =
-wrote:
->>> From: Tim Hockin <thockin@hockin.org>
->>> Date: Tue, 10 Apr 2012 17:19:42 -0700
->>>
->>>> I agree. =C2=A0The patches to this driver have been very few and f=
-ar
->>>> between, but even those I am largely unable to review any more.
->>>>
->>>> I'm more than willing to hand it off to someone who can do a bette=
-r job of it
->>>
->>> My inclination was the mark the driver Orphan'd, which represents
->>> the current state of affairs quite accurately.
->>
->> I'm OK with that. As much as I don't like being a deadbeat, it's a
->> more accurate snapshot of this driver today.
->
-> Ok, I'll push that MAINTAINERS change, thanks Tim.
 
-I wish there were a way to say "I know a fair amount about this
-device" without claiming an "M" line (send patches here).
+> 3) My feeble suggestion to cast icmp_hdr() to (char *) is of course even worse (it doesn't
+> even avoid the erroneous cast in the first place).
+> 
+> So what do we do?
+> 
 
-Tim
+Reading Documentation/unalgined-memory-access.txt suggests that you
+probably should copy the skb before passing up the stack (if necessary).
+That is safe (but slightly slower).
