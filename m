@@ -1,70 +1,132 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH v15 04/13] arch/x86: add syscall_get_arch to syscall.h
-Date: Tue, 10 Apr 2012 20:20:53 -0700
-Message-ID: <4F84F895.4080101@zytor.com>
-References: <1331781125-15658-1-git-send-email-wad@chromium.org> <1331781125-15658-5-git-send-email-wad@chromium.org> <4F6F7362.6030402@zytor.com> <CABqD9hZgnrKFY_Wei-ysU=Dy7Og2iEemnqPvcQ14M0+vL65gHQ@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH v1 1/7] net: add generic PF_BRIDGE:RTM_ FDB
+ hooks
+Date: Wed, 11 Apr 2012 04:23:19 +0100
+Message-ID: <1334114599.7150.361.camel@deadeye>
+References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
+	 <20120409220017.3288.13746.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-        linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
-        davem@davemloft.net, mingo@redhat.com, oleg@redhat.com,
-        peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
-        tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
-        serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
-        indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
-        corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
-        coreyb@linux.vnet.ibm.com, keescook@chromium.org
-To: Will Drewry <wad@chromium.org>
-Return-path: <kernel-hardening-return-1243-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CABqD9hZgnrKFY_Wei-ysU=Dy7Og2iEemnqPvcQ14M0+vL65gHQ@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+Cc: <roprabhu@cisco.com>, <mst@redhat.com>,
+	<stephen.hemminger@vyatta.com>, <davem@davemloft.net>,
+	<hadi@cyberus.ca>, <jeffrey.t.kirsher@intel.com>,
+	<netdev@vger.kernel.org>, <gregory.v.rose@intel.com>,
+	<krkumar2@in.ibm.com>, <sri@us.ibm.com>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:46523 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1760026Ab2DKDX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 23:23:26 -0400
+In-Reply-To: <20120409220017.3288.13746.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/10/2012 08:13 PM, Will Drewry wrote:
-> On Sun, Mar 25, 2012 at 2:34 PM, H. Peter Anvin <hpa@zytor.com> wrote:
->> On 03/14/2012 08:11 PM, Will Drewry wrote:
->>>
->>> +static inline int syscall_get_arch(struct task_struct *task,
->>> +                                struct pt_regs *regs)
->>> +{
->>> +#ifdef CONFIG_IA32_EMULATION
->>> +     /*
->>> +      * TS_COMPAT is set for 32-bit syscall entries and then
->>> +      * remains set until we return to user mode.
->>> +      *
->>> +      * TIF_IA32 tasks should always have TS_COMPAT set at
->>> +      * system call time.
->>> +      */
->>> +     if (task_thread_info(task)->status & TS_COMPAT)
->>> +             return AUDIT_ARCH_I386;
->>> +#endif
->>> +     return AUDIT_ARCH_X86_64;
->>> +}
->>>  #endif       /* CONFIG_X86_32 */
->>>
->>>  #endif       /* _ASM_X86_SYSCALL_H */
->>
->> Just one FYI on this: after the x32 changes are upstream this can be
->> implemented in terms of is_ia32_task().
-> 
-> Now that I've seen is_ia32_task(), it appears to be exactly the same as above:
-> (1)  If we're x86_32, it's ia32
-> (2)  If we're x86_64, ia32 == !!(status & TS_COMPAT)
-> (3)  Otherwise, it's x86_64, including x32
-> 
-> Am I missing something? Should is_ia32_task(void) take a task_struct?
-> Right now, I don't see any reason to change the code, as posted, but
-> maybe I am mis-reading?
-> 
+On Mon, 2012-04-09 at 15:00 -0700, John Fastabend wrote:
+[...]
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 1f77540..05822e5 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+[...]
+> @@ -905,6 +906,19 @@ struct netdev_fcoe_hbainfo {
+>   *	feature set might be less than what was returned by ndo_fix_features()).
+>   *	Must return >0 or -errno if it changed dev->features itself.
+>   *
+> + * int (*ndo_fdb_add)(struct ndmsg *ndm, struct net_device *dev,
+> + *		      unsigned char *addr, u16 flags)
+> + *	Adds an FDB entry to dev for addr. The ndmsg contains flags to indicate
+> + *	if the dev->master FDB should be updated or the devices internal FDB.
 
-Sorry, answered the wrong question.  Yes, it is the same as above...
-just wandered if we could centralize this test.  It might indeed make
-sense to provide general predicates which take a task pointer.
+I don't think the second sentence is helpful, as rtnl_fdb_add() will
+take care of those flags.
 
-	-hpa
+> + * int (*ndo_fdb_del)(struct ndmsg *ndm, struct net_device *dev,
+> + *		      unsigned char *addr)
+> + *	Deletes the FDB entry from dev coresponding to addr. The ndmsg
+> + *	contains flags to indicate if the dev->master FDB should be
+> + *	updated or the devices internal FDB.
+
+Similarly here.
+
+> + * int (*ndo_fdb_dump)(struct sk_buff *skb, struct netlink_callback *cb,
+> + *		       struct net_device *dev, int idx)
+> + *	Used to add FDB entries to dump requests. Implementers should add
+> + *	entries to skb and update idx with the number of entries.
+>   */
+[...
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+[...]
+> +static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+> +{
+[...]
+> +	err = -EOPNOTSUPP;
+
+So if NTF_MASTER and NTF_SELF are both set, we can quietly fall back to
+just setting one FDB?  Not sure that's really desirable though 
+
+> +	/* Support fdb on master device the net/bridge default case */
+> +	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
+> +	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+> +		struct net_device *master = dev->master;
+> +
+> +		if (master->netdev_ops->ndo_fdb_add)
+
+This operation is surely going to be mandatory for bridge devices, so
+this check should be omitted or changed to a BUG_ON().
+
+> +			err = master->netdev_ops->ndo_fdb_add(ndm, dev, addr,
+> +							      nlh->nlmsg_flags);
+
+Shoudn't we return early on error?
+
+> +	}
+> +
+> +	/* Embedded bridge, macvlan, and any other device support */
+> +	if ((ndm->ndm_flags & NTF_SELF) &&
+> +	    dev->netdev_ops->ndo_fdb_add)
+
+Error if !dev->netdev_ops->ndo_fdb_add.
+
+> +		err = dev->netdev_ops->ndo_fdb_add(ndm, dev, addr,
+> +						   nlh->nlmsg_flags);
+
+Wonder what we should do on error here if we've already successfully
+called ndo_fdb_add on the master?  Should we try to roll back the first
+addition?
+
+> +	return err;
+> +}
+> +
+> +static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+> +{
+[...]
+> +	err = -EOPNOTSUPP;
+> +
+> +	/* Support fdb on master device the net/bridge default case */
+> +	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
+> +	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+> +		struct net_device *master = dev->master;
+> +
+> +		if (master->netdev_ops->ndo_fdb_del)
+> +			err = master->netdev_ops->ndo_fdb_del(ndm, dev, addr);
+> +	}
+> +
+> +	/* Embedded bridge, macvlan, and any other device support */
+> +	if ((ndm->ndm_flags & NTF_SELF) &&
+> +	    dev->netdev_ops->ndo_fdb_del)
+> +		err = dev->netdev_ops->ndo_fdb_del(ndm, dev, addr);
+> +	return err;
+> +}
+[...]
+
+This has the same issues.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
