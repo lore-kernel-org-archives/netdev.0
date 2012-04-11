@@ -1,8 +1,8 @@
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 15/16] batman-adv: form groups in the bridge
-	loop avoidance
-Date: Wed, 11 Apr 2012 14:50:48 +0200
-Message-ID: <1334148649-25443-16-git-send-email-ordex@autistici.org>
+Subject: [PATCH 12/16] batman-adv: don't let backbone
+	gateways exchange tt entries
+Date: Wed, 11 Apr 2012 14:50:45 +0200
+Message-ID: <1334148649-25443-13-git-send-email-ordex@autistici.org>
 References: <1334148649-25443-1-git-send-email-ordex@autistici.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -24,221 +24,181 @@ List-Id: netdev.vger.kernel.org
 
 From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
 
-backbone gateways may be part of the same LAN, but participate
-in different meshes. With this patch, backbone gateways form groups by
-applying the groupid of another backbone gateway if it is higher. After
-forming the group, they only accept messages from backbone gateways of
-the same group.
+As the backbone gateways are connected to the same backbone, they
+should announce the same clients on the backbone non-exclusively.
 
 Signed-off-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
 Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 ---
- net/batman-adv/bridge_loop_avoidance.c |  121 ++++++++++++++++++++++++++++++--
- net/batman-adv/types.h                 |    1 +
- 2 files changed, 116 insertions(+), 6 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c |   50 ++++++++++++++++++++++++++++++++
+ net/batman-adv/bridge_loop_avoidance.h |    1 +
+ net/batman-adv/routing.c               |    7 +++++
+ net/batman-adv/translation-table.c     |   18 ++++++++++--
+ 4 files changed, 74 insertions(+), 2 deletions(-)
 
 diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 4f6b44a..1cf18ac 100644
+index 56b9b49..6186f6e 100644
 --- a/net/batman-adv/bridge_loop_avoidance.c
 +++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -33,7 +33,6 @@
- #include <net/arp.h>
- #include <linux/if_vlan.h>
+@@ -24,6 +24,7 @@
+ #include "hard-interface.h"
+ #include "originator.h"
+ #include "bridge_loop_avoidance.h"
++#include "translation-table.h"
+ #include "send.h"
  
--static const uint8_t claim_dest[6] = {0xff, 0x43, 0x05, 0x00, 0x00, 0x00};
- static const uint8_t announce_mac[4] = {0x43, 0x05, 0x43, 0x05};
+ #include <linux/etherdevice.h>
+@@ -359,6 +360,7 @@ static struct backbone_gw *bla_get_backbone_gw(struct bat_priv *bat_priv,
+ 					       uint8_t *orig, short vid)
+ {
+ 	struct backbone_gw *entry;
++	struct orig_node *orig_node;
+ 	int hash_added;
  
- static void bla_periodic_work(struct work_struct *work);
-@@ -265,7 +264,8 @@ static void bla_send_claim(struct bat_priv *bat_priv, uint8_t *mac,
- 	if (!primary_if)
- 		return;
+ 	entry = backbone_hash_find(bat_priv, orig, vid);
+@@ -393,6 +395,13 @@ static struct backbone_gw *bla_get_backbone_gw(struct bat_priv *bat_priv,
+ 		return NULL;
+ 	}
  
--	memcpy(&local_claim_dest, claim_dest, sizeof(local_claim_dest));
-+	memcpy(&local_claim_dest, &bat_priv->claim_dest,
-+	       sizeof(local_claim_dest));
- 	local_claim_dest.type = claimtype;
++	/* this is a gateway now, remove any tt entries */
++	orig_node = orig_hash_find(bat_priv, orig);
++	if (orig_node) {
++		tt_global_del_orig(bat_priv, orig_node,
++				   "became a backbone gateway");
++		orig_node_free_ref(orig_node);
++	}
+ 	return entry;
+ }
  
- 	soft_iface = primary_if->soft_iface;
-@@ -282,6 +282,7 @@ static void bla_send_claim(struct bat_priv *bat_priv, uint8_t *mac,
- 			 primary_if->net_dev->dev_addr,
- 			 /* HW DST: FF:43:05:XX:00:00
- 			  * with XX   = claim type
-+			  * and YY:YY = group id
- 			  */
- 			 (uint8_t *)&local_claim_dest);
- 
-@@ -734,6 +735,86 @@ static int handle_claim(struct bat_priv *bat_priv,
+@@ -1050,6 +1059,47 @@ int bla_init(struct bat_priv *bat_priv)
+ }
  
  /**
-  * @bat_priv: the bat priv with all the soft interface information
 + * @bat_priv: the bat priv with all the soft interface information
-+ * @hw_src: the Hardware source in the ARP Header
-+ * @hw_dst: the Hardware destination in the ARP Header
-+ * @ethhdr: pointer to the Ethernet header of the claim frame
++ * @orig: originator mac address
 + *
-+ * checks if it is a claim packet and if its on the same group.
-+ * This function also applies the group ID of the sender
-+ * if it is in the same mesh.
++ * check if the originator is a gateway for any VLAN ID.
 + *
-+ * returns:
-+ *	2  - if it is a claim packet and on the same group
-+ *	1  - if is a claim packet from another group
-+ *	0  - if it is not a claim packet
++ * returns 1 if it is found, 0 otherwise
++ *
 + */
-+static int check_claim_group(struct bat_priv *bat_priv,
-+			     struct hard_iface *primary_if,
-+			     uint8_t *hw_src, uint8_t *hw_dst,
-+			     struct ethhdr *ethhdr)
++
++int bla_is_backbone_gw_orig(struct bat_priv *bat_priv, uint8_t *orig)
 +{
-+	uint8_t *backbone_addr;
-+	struct orig_node *orig_node;
-+	struct bla_claim_dst *bla_dst, *bla_dst_own;
++	struct hashtable_t *hash = bat_priv->backbone_hash;
++	struct hlist_head *head;
++	struct hlist_node *node;
++	struct backbone_gw *backbone_gw;
++	int i;
 +
-+	bla_dst = (struct bla_claim_dst *)hw_dst;
-+	bla_dst_own = &bat_priv->claim_dest;
-+
-+	/* check if it is a claim packet in general */
-+	if (memcmp(bla_dst->magic, bla_dst_own->magic,
-+		   sizeof(bla_dst->magic)) != 0)
++	if (!atomic_read(&bat_priv->bridge_loop_avoidance))
 +		return 0;
 +
-+	/* if announcement packet, use the source,
-+	 * otherwise assume it is in the hw_src
-+	 */
-+	switch (bla_dst->type) {
-+	case CLAIM_TYPE_ADD:
-+		backbone_addr = hw_src;
-+		break;
-+	case CLAIM_TYPE_REQUEST:
-+	case CLAIM_TYPE_ANNOUNCE:
-+	case CLAIM_TYPE_DEL:
-+		backbone_addr = ethhdr->h_source;
-+		break;
-+	default:
++	if (!hash)
 +		return 0;
++
++	for (i = 0; i < hash->size; i++) {
++		head = &hash->table[i];
++
++		rcu_read_lock();
++		hlist_for_each_entry_rcu(backbone_gw, node, head, hash_entry) {
++			if (compare_eth(backbone_gw->orig, orig)) {
++				rcu_read_unlock();
++				return 1;
++			}
++		}
++		rcu_read_unlock();
 +	}
 +
-+	/* don't accept claim frames from ourselves */
-+	if (compare_eth(backbone_addr, primary_if->net_dev->dev_addr))
-+		return 0;
-+
-+	/* if its already the same group, it is fine. */
-+	if (bla_dst->group == bla_dst_own->group)
-+		return 2;
-+
-+	/* lets see if this originator is in our mesh */
-+	orig_node = orig_hash_find(bat_priv, backbone_addr);
-+
-+	/* dont accept claims from gateways which are not in
-+	 * the same mesh or group.
-+	 */
-+	if (!orig_node)
-+		return 1;
-+
-+	/* if our mesh friends mac is bigger, use it for ourselves. */
-+	if (ntohs(bla_dst->group) > ntohs(bla_dst_own->group)) {
-+		bat_dbg(DBG_BLA, bat_priv,
-+			"taking other backbones claim group: %04x\n",
-+			ntohs(bla_dst->group));
-+		bla_dst_own->group = bla_dst->group;
-+	}
-+
-+	orig_node_free_ref(orig_node);
-+
-+	return 2;
++	return 0;
 +}
 +
 +
 +/**
-+ * @bat_priv: the bat priv with all the soft interface information
   * @skb: the frame to be checked
-  *
-  * Check if this is a claim frame, and process it accordingly.
-@@ -753,6 +834,7 @@ static int bla_process_claim(struct bat_priv *bat_priv,
- 	uint16_t proto;
- 	int headlen;
- 	short vid = -1;
-+	int ret;
+  * @orig_node: the orig_node of the frame
+  * @hdr_size: maximum length of the frame
+diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/bridge_loop_avoidance.h
+index d9e3480..b74940f 100644
+--- a/net/batman-adv/bridge_loop_avoidance.h
++++ b/net/batman-adv/bridge_loop_avoidance.h
+@@ -27,6 +27,7 @@ int bla_tx(struct bat_priv *bat_priv, struct sk_buff *skb, short vid);
+ int bla_is_backbone_gw(struct sk_buff *skb,
+ 		       struct orig_node *orig_node, int hdr_size);
+ int bla_claim_table_seq_print_text(struct seq_file *seq, void *offset);
++int bla_is_backbone_gw_orig(struct bat_priv *bat_priv, uint8_t *orig);
+ void bla_update_orig_address(struct bat_priv *bat_priv,
+ 			     struct hard_iface *primary_if,
+ 			     struct hard_iface *oldif);
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index a1d8c9b..1d1fd04 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -673,6 +673,13 @@ int recv_roam_adv(struct sk_buff *skb, struct hard_iface *recv_if)
+ 	if (!is_my_mac(roam_adv_packet->dst))
+ 		return route_unicast_packet(skb, recv_if);
  
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 
-@@ -796,8 +878,14 @@ static int bla_process_claim(struct bat_priv *bat_priv,
- 	bla_dst = (struct bla_claim_dst *)hw_dst;
- 
- 	/* check if it is a claim frame. */
--	if (memcmp(hw_dst, claim_dest, 3) != 0)
--		return 0;
-+	ret = check_claim_group(bat_priv, primary_if, hw_src, hw_dst, ethhdr);
-+	if (ret == 1)
-+		bat_dbg(DBG_BLA, bat_priv,
-+			"bla_process_claim(): received a claim frame from another group. From: %pM on vid %d ...(hw_src %pM, hw_dst %pM)\n",
-+			ethhdr->h_source, vid, hw_src, hw_dst);
++	/* check if it is a backbone gateway. we don't accept
++	 * roaming advertisement from it, as it has the same
++	 * entries as we have.
++	 */
++	if (bla_is_backbone_gw_orig(bat_priv, roam_adv_packet->src))
++		goto out;
 +
-+	if (ret < 2)
-+		return ret;
- 
- 	/* become a backbone gw ourselves on this vlan if not happened yet */
- 	bla_update_own_backbone_gw(bat_priv, primary_if, vid);
-@@ -944,6 +1032,10 @@ void bla_update_orig_address(struct bat_priv *bat_priv,
- 	struct hashtable_t *hash;
- 	int i;
- 
-+	/* reset bridge loop avoidance group id */
-+	bat_priv->claim_dest.group =
-+		htons(crc16(0, primary_if->net_dev->dev_addr, ETH_ALEN));
-+
- 	if (!oldif) {
- 		bla_purge_claims(bat_priv, NULL, 1);
- 		bla_purge_backbone_gw(bat_priv, 1);
-@@ -1042,9 +1134,24 @@ out:
- int bla_init(struct bat_priv *bat_priv)
- {
- 	int i;
-+	uint8_t claim_dest[ETH_ALEN] = {0xff, 0x43, 0x05, 0x00, 0x00, 0x00};
-+	struct hard_iface *primary_if;
- 
- 	bat_dbg(DBG_BLA, bat_priv, "bla hash registering\n");
- 
-+	/* setting claim destination address */
-+	memcpy(&bat_priv->claim_dest.magic, claim_dest, 3);
-+	bat_priv->claim_dest.type = 0;
-+	primary_if = primary_if_get_selected(bat_priv);
-+	if (primary_if) {
-+		bat_priv->claim_dest.group =
-+			htons(crc16(0, primary_if->net_dev->dev_addr,
-+				    ETH_ALEN));
-+		hardif_free_ref(primary_if);
-+	} else {
-+		bat_priv->claim_dest.group = 0; /* will be set later */
-+	}
-+
- 	/* initialize the duplicate list */
- 	for (i = 0; i < DUPLIST_SIZE; i++)
- 		bat_priv->bcast_duplist[i].entrytime =
-@@ -1448,8 +1555,10 @@ int bla_claim_table_seq_print_text(struct seq_file *seq, void *offset)
+ 	orig_node = orig_hash_find(bat_priv, roam_adv_packet->src);
+ 	if (!orig_node)
  		goto out;
- 	}
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 9648b0d..e16a369 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -27,6 +27,7 @@
+ #include "hash.h"
+ #include "originator.h"
+ #include "routing.h"
++#include "bridge_loop_avoidance.h"
  
--	seq_printf(seq, "Claims announced for the mesh %s (orig %pM)\n",
--		   net_dev->name, primary_if->net_dev->dev_addr);
-+	seq_printf(seq,
-+		   "Claims announced for the mesh %s (orig %pM, group id %04x)\n",
-+		   net_dev->name, primary_if->net_dev->dev_addr,
-+		   ntohs(bat_priv->claim_dest.group));
- 	seq_printf(seq, "   %-17s    %-5s    %-17s [o] (%-4s)\n",
- 		   "Client", "VID", "Originator", "CRC");
- 	for (i = 0; i < hash->size; i++) {
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index ad97e87..7f7f610 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -193,6 +193,7 @@ struct bat_priv {
- 	struct hashtable_t *vis_hash;
- 	struct bcast_duplist_entry bcast_duplist[DUPLIST_SIZE];
- 	int bcast_duplist_curr;
-+	struct bla_claim_dst claim_dest;
- 	spinlock_t forw_bat_list_lock; /* protects forw_bat_list */
- 	spinlock_t forw_bcast_list_lock; /* protects  */
- 	spinlock_t tt_changes_list_lock; /* protects tt_changes */
+ #include <linux/crc16.h>
+ 
+@@ -1615,10 +1616,15 @@ out:
+ bool send_tt_response(struct bat_priv *bat_priv,
+ 		      struct tt_query_packet *tt_request)
+ {
+-	if (is_my_mac(tt_request->dst))
++	if (is_my_mac(tt_request->dst)) {
++		/* don't answer backbone gws! */
++		if (bla_is_backbone_gw_orig(bat_priv, tt_request->src))
++			return true;
++
+ 		return send_my_tt_response(bat_priv, tt_request);
+-	else
++	} else {
+ 		return send_other_tt_response(bat_priv, tt_request);
++	}
+ }
+ 
+ static void _tt_update_changes(struct bat_priv *bat_priv,
+@@ -1722,6 +1728,10 @@ void handle_tt_response(struct bat_priv *bat_priv,
+ 		tt_response->src, tt_response->ttvn, tt_response->tt_data,
+ 		(tt_response->flags & TT_FULL_TABLE ? 'F' : '.'));
+ 
++	/* we should have never asked a backbone gw */
++	if (bla_is_backbone_gw_orig(bat_priv, tt_response->src))
++		goto out;
++
+ 	orig_node = orig_hash_find(bat_priv, tt_response->src);
+ 	if (!orig_node)
+ 		goto out;
+@@ -2052,6 +2062,10 @@ void tt_update_orig(struct bat_priv *bat_priv, struct orig_node *orig_node,
+ 	uint8_t orig_ttvn = (uint8_t)atomic_read(&orig_node->last_ttvn);
+ 	bool full_table = true;
+ 
++	/* don't care about a backbone gateways updates. */
++	if (bla_is_backbone_gw_orig(bat_priv, orig_node->orig))
++		return;
++
+ 	/* orig table not initialised AND first diff is in the OGM OR the ttvn
+ 	 * increased by one -> we can apply the attached changes */
+ 	if ((!orig_node->tt_initialised && ttvn == 1) ||
 -- 
 1.7.9.4
