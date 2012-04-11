@@ -1,47 +1,30 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: ipv6: tunnel: hang when destroying ipv6 tunnel
-Date: Wed, 11 Apr 2012 14:20:40 +0200
-Message-ID: <CA+1xoqd0JJ-Z+hmwgdZkBiu1anEh6iz1jJboULPp-drUzO37Ew@mail.gmail.com>
-References: <201204011221.GAG51016.JQFSFFOtLOMVHO@I-love.SAKURA.ne.jp>
- <CA+1xoqe+T=iUtUeFdeqmRvMZ7TMCgkLs_1QYv-4YNtn-jCoMCQ@mail.gmail.com>
- <201204052329.EBH52139.FFOLQMOJSVHOFt@I-love.SAKURA.ne.jp>
- <201204062044.EJE13062.OLMQtSVFHOFOJF@I-love.SAKURA.ne.jp>
- <20120406180905.GA10835@llnl.gov> <201204070906.HHC13855.QOSFVOMtFFLJOH@I-love.SAKURA.ne.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: garlick@llnl.gov, ericvh@gmail.com, oleg@redhat.com,
-	eric.dumazet@gmail.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davej@redhat.com
-To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204070906.HHC13855.QOSFVOMtFFLJOH@I-love.SAKURA.ne.jp>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request: batman-adv 2012-04-11
+Date: Wed, 11 Apr 2012 14:50:33 +0200
+Message-ID: <1334148649-25443-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
->> Yes but in the unlikely event that this happens, the effect is a sma=
-ll
->> memory leak for the duration of the mount. =A0On the other hand if t=
-he
->> fid is destroyed without successfully informing the server, then
->> subsequent operations that involve new file references will fail
->> when that fid number is reused, and the mount becomes unusable.
->
-> I don't know whether Sasha's problem is caused by this patch or not.
-> But p9_client_clunk() is called from many functions in fs/9p/ directo=
-ry.
-> They are assuming that p9_client_clunk() will call p9_fid_destroy() b=
-ut
-> this patch is breaking that assumption. I think this is the cause of =
-hang which
-> Sasha is experiencing because Sasha's trace shows that call_usermodeh=
-elper() is
-> blocked by functions in fs/9p/ directory. Seems inconsistency state p=
-roblem.
+Hello,
 
-I'd be happy to try out any other patches or help debugging this issue.
+this is our new set of patches (actually there has been no modification from the
+last pull request issued on 2011-04-07) which is now based on top of the current
+net-next/master branch (commit id: 06eb4eafbdc0796d741d139a44f1253278da8611).
 
-Which behavior did this patch fix exactly? can I just revert it and
-try running without it?
+Let me know if there is something else wrong.
+
+Thank you very much,
+		Antonio
