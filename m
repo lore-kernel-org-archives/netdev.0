@@ -1,72 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next PATCH v1 3/7] net: add fdb generic dump routine
-Date: Wed, 11 Apr 2012 04:45:01 +0100
-Message-ID: <1334115901.7150.371.camel@deadeye>
-References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
-	 <20120409220030.3288.31389.stgit@jf-dev1-dcblab>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] rtnetlink: fix comments
+Date: Tue, 10 Apr 2012 21:32:59 -0700
+Message-ID: <20120410213259.10009908@nehalam.linuxnetplumber.net>
+References: <20120409132756.32daeaa6@nehalam.linuxnetplumber.net>
+	<1334009344.7150.268.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <roprabhu@cisco.com>, <mst@redhat.com>,
-	<stephen.hemminger@vyatta.com>, <davem@davemloft.net>,
-	<hadi@cyberus.ca>, <jeffrey.t.kirsher@intel.com>,
-	<netdev@vger.kernel.org>, <gregory.v.rose@intel.com>,
-	<krkumar2@in.ibm.com>, <sri@us.ibm.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:16951 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756255Ab2DKDpI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Apr 2012 23:45:08 -0400
-In-Reply-To: <20120409220030.3288.31389.stgit@jf-dev1-dcblab>
+Received: from mail.vyatta.com ([76.74.103.46]:42214 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751118Ab2DKEdH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2012 00:33:07 -0400
+In-Reply-To: <1334009344.7150.268.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-09 at 15:00 -0700, John Fastabend wrote:
-> This adds a generic dump routine drivers can call. It
-> should be sufficient to handle any bridging model that
-> uses the unicast address list. This should be most SR-IOV
-> enabled NICs.
-[...]
-> +static int nlmsg_populate_fdb(struct sk_buff *skb,
-> +			      struct netlink_callback *cb,
-> +			      struct net_device *dev,
-> +			      int *idx,
-> +			      struct netdev_hw_addr_list *list)
-> +{
-> +	struct netdev_hw_addr *ha;
-> +	struct ndmsg *ndm;
-> +	struct nlmsghdr *nlh;
-> +	u32 pid, seq;
-> +
-> +	pid = NETLINK_CB(cb->skb).pid;
-> +	seq = cb->nlh->nlmsg_seq;
-> +
-> +	list_for_each_entry(ha, &list->list, list) {
-> +		if (*idx < cb->args[0])
-> +			goto skip;
-> +
-> +		nlh = nlmsg_put(skb, pid, seq,
-> +				RTM_NEWNEIGH, sizeof(*ndm), NLM_F_MULTI);
-> +		if (!nlh)
-> +			break;
+Fix spelling and references in rtnetlink.
 
-This break is effectively return 0, but shouldn't we return an error?
-In practice this does no harm because any subsequent invocation of
-nlmsg_populate_fdb() for the same skb is also going to fail here with no
-change to *idx.  But it would be more obviously correct to return an
-error.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+v2 - fix bogus comment on get_link_af_size and add get_tx_queues
 
-[...]
-> +	}
-> +	return 0;
-> +nla_put_failure:
-> +	nlmsg_cancel(skb, nlh);
-> +	return -ENOMEM;
-> +}
-[...]
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--- a/include/net/rtnetlink.h	2012-02-27 08:43:02.400935781 -0800
++++ b/include/net/rtnetlink.h	2012-04-10 21:19:01.369508395 -0700
+@@ -41,9 +41,11 @@ static inline int rtnl_msg_family(const
+  *	@get_size: Function to calculate required room for dumping device
+  *		   specific netlink attributes
+  *	@fill_info: Function to dump device specific netlink attributes
+- *	@get_xstats_size: Function to calculate required room for dumping devic
++ *	@get_xstats_size: Function to calculate required room for dumping device
+  *			  specific statistics
+  *	@fill_xstats: Function to dump device specific statistics
++ *	@get_tx_queues: Function to determine number of transmit queues to create when
++ *		        creating a new device.
+  */
+ struct rtnl_link_ops {
+ 	struct list_head	list;
+@@ -94,7 +96,7 @@ extern void	rtnl_link_unregister(struct
+  * 	@fill_link_af: Function to fill IFLA_AF_SPEC with address family
+  * 		       specific netlink attributes.
+  * 	@get_link_af_size: Function to calculate size of address family specific
+- * 			   netlink attributes exlusive the container attribute.
++ * 			   netlink attributes.
+  *	@validate_link_af: Validate a IFLA_AF_SPEC attribute, must check attr
+  *			   for invalid configuration settings.
+  * 	@set_link_af: Function to parse a IFLA_AF_SPEC attribute and modify
