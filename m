@@ -1,103 +1,77 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] rtnetlink & bonding: change args got
- get_tx_queues
-Date: Wed, 11 Apr 2012 11:21:48 -0700
-Message-ID: <20120411112148.12bb2918@nehalam.linuxnetplumber.net>
-References: <20120409132756.32daeaa6@nehalam.linuxnetplumber.net>
-	<1334009344.7150.268.camel@deadeye>
-	<20120410213443.31fc0784@nehalam.linuxnetplumber.net>
-	<1334123747.5300.2197.camel@edumazet-glaptop>
-	<20120411082054.2bf6a352@nehalam.linuxnetplumber.net>
-	<4576.1334168015@death.nxdomain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH 2/2] net: ethtool: Add capability to retrieve
+ plug-in module EEPROM
+Date: Wed, 11 Apr 2012 19:31:59 +0100
+Message-ID: <1334169119.2552.17.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4F71FE15.7060708@solarflare.com>
+	 <1333390698.2623.47.camel@bwh-desktop.uk.solarflarecom.com>
+	 <4F85C22C.30707@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56073 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756911Ab2DKSVw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2012 14:21:52 -0400
-In-Reply-To: <4576.1334168015@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>
+To: Stuart Hodgson <smhodgson@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F85C22C.30707@solarflare.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Apr 2012 11:13:35 -0700
-Jay Vosburgh <fubar@us.ibm.com> wrote:
+On Wed, 2012-04-11 at 18:41 +0100, Stuart Hodgson wrote:
+> On 02/04/12 19:18, Ben Hutchings wrote:
+> > On Tue, 2012-03-27 at 18:51 +0100, Stuart Hodgson wrote:
+[...]
+> >> --- a/drivers/net/ethernet/sfc/ethtool.c
+> >> +++ b/drivers/net/ethernet/sfc/ethtool.c
+[...]
+> >> +        payload_len = MCDI_DWORD(outbuf,
+> >> +                     GET_PHY_MEDIA_INFO_OUT_DATALEN);
+> >> +
+> >> +        to_copy = (space_remaining<  payload_len) ?
+> >> +                space_remaining : payload_len;
+> >> +
+> >> +        to_copy -= page_off;
+> >
+> > page_off is the number of bytes we need to discard from payload_len, but
+> > we don't want do discard that from space_remaining.  I think the last
+> > two statements should be changed to:
+> >
+> > 	payload_len -= page_off;
+> > 	to_copy = (space_remaining<  payload_len) ?
+> > 		space_remaining : payload_len;
+> >
+> 
+> I am pretty sure that these two pieces of code are the same
 
-> Stephen Hemminger <shemminger@vyatta.com> wrote:
-> 
-> >On Wed, 11 Apr 2012 07:55:47 +0200
-> >Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> >> On Tue, 2012-04-10 at 21:34 -0700, Stephen Hemminger wrote:
-> >> > Change get_tx_queues, drop unsused arg/return value real_tx_queues,
-> >> > and use return by value (with error) rather than call by reference.
-> >> > 
-> >> > Probably bonding should just change to LLTX and the whole get_tx_queues
-> >> > API could disappear!
-> >> 
-> >> Absolutely ;)
-> >> 
-> >> 
-> >
-> >It is more complex than that (actually the bonding driver is a mess).
-> >The bonding device is already using Lockless Transmit and transmit queue length
-> >of zero (good), but it then does some queue mapping of it's own which
-> >is unnecessary.
-> >
-> >Multiqueue only makes sense if there is a queue, otherwise the skb
-> >can transparently pass through the layered device (vlan, bridge, bond)
-> >and get queued on the real physical device.
-> >
-> >Right now, trying to see if there is any impact by just leaving
-> >bond device as single queue.
-> 
-> 	The multiqueue support in bonding is intended to permit
-> individual slaves to be assigned a particular queue id, which then
-> permits tc filter actions to steer traffic to particular slaves.
-> 
-> 	The relevant part of Documentation/networking/bonding.txt:
-> 
-> The queue_id for a slave can be set using the command:
-> 
-> # echo "eth1:2" > /sys/class/net/bond0/bonding/queue_id
-> 
-> Any interface that needs a queue_id set should set it with multiple calls
-> like the one above until proper priorities are set for all interfaces.  On
-> distributions that allow configuration via initscripts, multiple 'queue_id'
-> arguments can be added to BONDING_OPTS to set all needed slave queues.
-> 
-> These queue id's can be used in conjunction with the tc utility to configure
-> a multiqueue qdisc and filters to bias certain traffic to transmit on certain
-> slave devices.  For instance, say we wanted, in the above configuration to
-> force all traffic bound to 192.168.1.100 to use eth1 in the bond as its output
-> device. The following commands would accomplish this:
-> 
-> # tc qdisc add dev bond0 handle 1 root multiq
-> 
-> # tc filter add dev bond0 protocol ip parent 1: prio 1 u32 match ip dst \
->         192.168.1.100 action skbedit queue_mapping 2
-> 
-> These commands tell the kernel to attach a multiqueue queue discipline to the
-> bond0 interface and filter traffic enqueued to it, such that packets with a dst
-> ip of 192.168.1.100 have their output queue mapping value overwritten to 2.
-> This value is then passed into the driver, causing the normal output path
-> selection policy to be overridden, selecting instead qid 2, which maps to eth1.
-> 
-> Note that qid values begin at 1.  Qid 0 is reserved to initiate to the driver
-> that normal output policy selection should take place.  One benefit to simply
-> leaving the qid for a slave to 0 is the multiqueue awareness in the bonding
-> driver that is now present.  This awareness allows tc filters to be placed on
-> slave devices as well as bond devices and the bonding driver will simply act as
-> a pass-through for selecting output queues on the slave device rather than 
-> output port selection.
-> 
+Suppose we start with ee->offset = 64, ee->len = 32.  After the MCDI
+request returns and we assign payload_len from that, I believe we will
+have page_off = 64, payload_len = 128, space_remaining = 32.
 
-But that choice makes performance worse for the simple case of bonding
-2 10G NIC's on a 64 core system. I think you are overloading the concept of
-queue id to make a classification value. Wasn't marking intended for that?
+Work through the calculations from there and you'll see the problem.
+
+[...]
+> >> +    phy_cfg = efx->phy_data;
+> >> +    modinfo->eeprom_len = mcdi_to_module_eeprom_len(phy_cfg->media);
+> >> +    modinfo->type = SFF_8079;
+> > [...]
+> >
+> > I don't think this makes sense.  If we're fixing the type as SFF_8079
+> > then why are we calling a function to get the length?
+> >
+> > Ben.
+> >
+> 
+> What about adding an mcdi_to_module_eeprom_type in the same manner
+> as mcdi_to_module_eeprom_len and the other mapping functions?
+
+Could do, but I don't see the point of breaking this out into separate
+functions that are only used once.  It's actually going to increase code
+duplication because you'll have to put the same PHY type checks in both
+of them.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
