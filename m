@@ -1,55 +1,35 @@
-From: Mike Sinkovsky <msink@permonline.ru>
-Subject: [PATCH] net: WIZnet drivers: fix possible NULL dereference
-Date: Wed, 11 Apr 2012 11:53:53 +0600
-Message-ID: <1334123633-11833-1-git-send-email-msink@permonline.ru>
-References: <20120410084006.GA27006@elgon.mountain>
-Cc: Mike Sinkovsky <msink@permonline.ru>
-To: netdev@vger.kernel.org, dan.carpenter@oracle.com,
-	davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] rtnetlink & bonding: change args got
+ get_tx_queues
+Date: Wed, 11 Apr 2012 07:55:47 +0200
+Message-ID: <1334123747.5300.2197.camel@edumazet-glaptop>
+References: <20120409132756.32daeaa6@nehalam.linuxnetplumber.net>
+	 <1334009344.7150.268.camel@deadeye>
+	 <20120410213443.31fc0784@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.ccl.ru ([195.222.140.73]:50586 "EHLO mail4.ccl.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752268Ab2DKFyW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2012 01:54:22 -0400
-In-Reply-To: <20120410084006.GA27006@elgon.mountain>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:53762 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751785Ab2DKFzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2012 01:55:52 -0400
+Received: by wgbdr13 with SMTP id dr13so533484wgb.1
+        for <netdev@vger.kernel.org>; Tue, 10 Apr 2012 22:55:50 -0700 (PDT)
+In-Reply-To: <20120410213443.31fc0784@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes possible null dereference in probe() function: when both 
-.mac_addr and .link_gpio are unknown, dev.platform_data may be NULL
+On Tue, 2012-04-10 at 21:34 -0700, Stephen Hemminger wrote:
+> Change get_tx_queues, drop unsused arg/return value real_tx_queues,
+> and use return by value (with error) rather than call by reference.
+> 
+> Probably bonding should just change to LLTX and the whole get_tx_queues
+> API could disappear!
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Mike Sinkovsky <msink@permonline.ru>
----
- drivers/net/ethernet/wiznet/w5100.c |    2 +-
- drivers/net/ethernet/wiznet/w5300.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index c28e1d5..157d2f0 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -682,7 +682,7 @@ static int __devinit w5100_hw_probe(struct platform_device *pdev)
- 		return ret;
- 	priv->irq = irq;
- 
--	priv->link_gpio = data->link_gpio;
-+	priv->link_gpio = data ? data->link_gpio : -EINVAL;
- 	if (gpio_is_valid(priv->link_gpio)) {
- 		char *link_name = devm_kzalloc(&pdev->dev, 16, GFP_KERNEL);
- 		if (!link_name)
-diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
-index 88afde9..86d07bb 100644
---- a/drivers/net/ethernet/wiznet/w5300.c
-+++ b/drivers/net/ethernet/wiznet/w5300.c
-@@ -596,7 +596,7 @@ static int __devinit w5300_hw_probe(struct platform_device *pdev)
- 		return ret;
- 	priv->irq = irq;
- 
--	priv->link_gpio = data->link_gpio;
-+	priv->link_gpio = data ? data->link_gpio : -EINVAL;
- 	if (gpio_is_valid(priv->link_gpio)) {
- 		char *link_name = devm_kzalloc(&pdev->dev, 16, GFP_KERNEL);
- 		if (!link_name)
--- 
-1.6.3.3
+Absolutely ;)
