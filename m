@@ -1,7 +1,7 @@
 From: greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org
-Subject: [PATCH 08/10] mac80211: Support on-channel scan option.
-Date: Wed, 11 Apr 2012 10:52:16 -0700
-Message-ID: <1334166738-28243-9-git-send-email-greearb@candelatech.com>
+Subject: [PATCH 09/10] ath9k: Add more recv stats.
+Date: Wed, 11 Apr 2012 10:52:17 -0700
+Message-ID: <1334166738-28243-10-git-send-email-greearb@candelatech.com>
 References: <1334166738-28243-1-git-send-email-greearb@candelatech.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
 To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -12,196 +12,281 @@ List-Id: netdev.vger.kernel.org
 
 From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
 
-This based on an idea posted by Stanislaw Gruszka,
-though I accept full blame for the implementation!
+This adds counters in various places that can drop packets on
+rx without otherwise incrementing a counter.  It also counts
+some non-error cases, such as becons and fragments received.
 
-This is compile-tested only at this point.
-
-The idea is to let users scan on the current operating
-channel without interrupting normal traffic more than
-absolutely necessary (changing power level might reset
-some hardware, for instance).
+Should help with figuring out where packets are (and are not)
+dropped.
 
 Signed-off-by: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
 ---
-:100644 100644 ea9623c... 82da2c9... M	net/mac80211/ieee80211_i.h
-:100644 100644 d019f0d... dff9c22... M	net/mac80211/main.c
-:100644 100644 54a0491... dd2fbec... M	net/mac80211/rx.c
-:100644 100644 c70e176... 5c7a332... M	net/mac80211/scan.c
- net/mac80211/ieee80211_i.h |    3 +
- net/mac80211/main.c        |    4 +-
- net/mac80211/rx.c          |    2 +
- net/mac80211/scan.c        |   92 +++++++++++++++++++++++++++++++-------------
- 4 files changed, 73 insertions(+), 28 deletions(-)
+:100644 100644 186efc5... 189ac7f... M	drivers/net/wireless/ath/ath9k/debug.c
+:100644 100644 fe2b487... 17f6cc2... M	drivers/net/wireless/ath/ath9k/debug.h
+:100644 100644 8588017... 301ef3e... M	drivers/net/wireless/ath/ath9k/recv.c
+ drivers/net/wireless/ath/ath9k/debug.c |   53 ++++++++++++++------------------
+ drivers/net/wireless/ath/ath9k/debug.h |   18 +++++++++++
+ drivers/net/wireless/ath/ath9k/recv.c  |   35 +++++++++++++++-----
+ 3 files changed, 67 insertions(+), 39 deletions(-)
 
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index ea9623c..82da2c9 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -803,6 +803,8 @@ struct tpt_led_trigger {
-  *	well be on the operating channel
-  * @SCAN_HW_SCANNING: The hardware is scanning for us, we have no way to
-  *	determine if we are on the operating channel or not
-+ * @SCAN_ONCHANNEL_SCANNING:  Do a software scan on only the current operating
-+ *	channel. This should not interrupt normal traffic.
-  * @SCAN_COMPLETED: Set for our scan work function when the driver reported
-  *	that the scan completed.
-  * @SCAN_ABORTED: Set for our scan work function when the driver reported
-@@ -811,6 +813,7 @@ struct tpt_led_trigger {
- enum {
- 	SCAN_SW_SCANNING,
- 	SCAN_HW_SCANNING,
-+	SCAN_ONCHANNEL_SCANNING,
- 	SCAN_COMPLETED,
- 	SCAN_ABORTED,
- };
-diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-index d019f0d..dff9c22 100644
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -47,7 +47,8 @@ void ieee80211_configure_filter(struct ieee80211_local *local)
- 	if (atomic_read(&local->iff_allmultis))
- 		new_flags |= FIF_ALLMULTI;
+diff --git a/drivers/net/wireless/ath/ath9k/debug.c b/drivers/net/wireless/ath/ath9k/debug.c
+index 186efc5..189ac7f 100644
+--- a/drivers/net/wireless/ath/ath9k/debug.c
++++ b/drivers/net/wireless/ath/ath9k/debug.c
+@@ -881,36 +881,27 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
+ 	len += snprintf(buf + len, size - len, "%22s : %10u\n", s, \
+ 			sc->debug.stats.rxstats.phy_err_stats[p]);
  
--	if (local->monitors || test_bit(SCAN_SW_SCANNING, &local->scanning))
-+	if (local->monitors || test_bit(SCAN_SW_SCANNING, &local->scanning) ||
-+	    test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning))
- 		new_flags |= FIF_BCN_PRBRESP_PROMISC;
++#define RXS_ERR(s, e)				\
++	len += snprintf(buf + len, size - len,	\
++			"%22s : %10u\n", s, \
++			sc->debug.stats.rxstats.e);
++
+ 	struct ath_softc *sc = file->private_data;
+ 	char *buf;
+-	unsigned int len = 0, size = 1600;
++	unsigned int len = 0, size = 3000;
+ 	ssize_t retval = 0;
  
- 	if (local->fif_probe_req || local->probe_req_reg)
-@@ -148,6 +149,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
- 	}
+ 	buf = kzalloc(size, GFP_KERNEL);
+ 	if (buf == NULL)
+ 		return -ENOMEM;
  
- 	if (test_bit(SCAN_SW_SCANNING, &local->scanning) ||
-+	    test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning) ||
- 	    test_bit(SCAN_HW_SCANNING, &local->scanning))
- 		power = chan->max_power;
- 	else
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 54a0491..dd2fbec 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -425,6 +425,7 @@ ieee80211_rx_h_passive_scan(struct ieee80211_rx_data *rx)
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "CRC ERR",
+-			sc->debug.stats.rxstats.crc_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "DECRYPT CRC ERR",
+-			sc->debug.stats.rxstats.decrypt_crc_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "PHY ERR",
+-			sc->debug.stats.rxstats.phy_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "MIC ERR",
+-			sc->debug.stats.rxstats.mic_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "PRE-DELIM CRC ERR",
+-			sc->debug.stats.rxstats.pre_delim_crc_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "POST-DELIM CRC ERR",
+-			sc->debug.stats.rxstats.post_delim_crc_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "DECRYPT BUSY ERR",
+-			sc->debug.stats.rxstats.decrypt_busy_err);
++	RXS_ERR("CRC ERR", crc_err);
++	RXS_ERR("DECRYPT CRC ERR", decrypt_crc_err);
++	RXS_ERR("PHY ERR", phy_err);
++	RXS_ERR("MIC ERR", mic_err);
++	RXS_ERR("PRE-DELIM CRC ERR", pre_delim_crc_err);
++	RXS_ERR("POST-DELIM CRC ERR", post_delim_crc_err);
++	RXS_ERR("DECRYPT BUSY ERR", decrypt_busy_err);
  
- 	if (test_bit(SCAN_HW_SCANNING, &local->scanning) ||
- 	    test_bit(SCAN_SW_SCANNING, &local->scanning) ||
-+	    test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning) ||
- 	    local->sched_scanning)
- 		return ieee80211_scan_rx(rx->sdata, skb);
+ 	PHY_ERR("UNDERRUN ERR", ATH9K_PHYERR_UNDERRUN);
+ 	PHY_ERR("TIMING ERR", ATH9K_PHYERR_TIMING);
+@@ -939,12 +930,16 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
+ 	PHY_ERR("HT-LENGTH ERR", ATH9K_PHYERR_HT_LENGTH_ILLEGAL);
+ 	PHY_ERR("HT-RATE ERR", ATH9K_PHYERR_HT_RATE_ILLEGAL);
  
-@@ -2915,6 +2916,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
- 		local->dot11ReceivedFragmentCount++;
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-Pkts-All",
+-			sc->debug.stats.rxstats.rx_pkts_all);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-Bytes-All",
+-			sc->debug.stats.rxstats.rx_bytes_all);
++	RXS_ERR("DECRYPT BUSY ERR", decrypt_busy_err);
++	RXS_ERR("RX-LENGTH-ERR", rx_len_err);
++	RXS_ERR("RX-OOM-ERR", rx_oom_err);
++	RXS_ERR("RX-RATE-ERR", rx_rate_err);
++	RXS_ERR("RX-DROP-RXFLUSH", rx_drop_rxflush);
++	RXS_ERR("RX-TOO-MANY-FRAGS", rx_too_many_frags_err);
++	RXS_ERR("RX-Pkts-All", rx_pkts_all);
++	RXS_ERR("RX-Bytes-All", rx_bytes_all);
++	RXS_ERR("RX-Beacons", rx_beacons);
++	RXS_ERR("RX-Frags", rx_frags);
  
- 	if (unlikely(test_bit(SCAN_HW_SCANNING, &local->scanning) ||
-+		     test_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning) ||
- 		     test_bit(SCAN_SW_SCANNING, &local->scanning)))
- 		status->rx_flags |= IEEE80211_RX_IN_SCAN;
+ 	if (len > size)
+ 		len = size;
+@@ -959,7 +954,6 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
  
-diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
-index c70e176..5c7a332 100644
---- a/net/mac80211/scan.c
-+++ b/net/mac80211/scan.c
-@@ -387,6 +387,29 @@ static int ieee80211_start_sw_scan(struct ieee80211_local *local)
- 	return 0;
+ void ath_debug_stat_rx(struct ath_softc *sc, struct ath_rx_status *rs)
+ {
+-#define RX_STAT_INC(c) sc->debug.stats.rxstats.c++
+ #define RX_PHY_ERR_INC(c) sc->debug.stats.rxstats.phy_err_stats[c]++
+ #define RX_SAMP_DBG(c) (sc->debug.bb_mac_samp[sc->debug.sampidx].rs\
+ 			[sc->debug.rsidx].c)
+@@ -1005,7 +999,6 @@ void ath_debug_stat_rx(struct ath_softc *sc, struct ath_rx_status *rs)
+ 
+ #endif
+ 
+-#undef RX_STAT_INC
+ #undef RX_PHY_ERR_INC
+ #undef RX_SAMP_DBG
  }
+diff --git a/drivers/net/wireless/ath/ath9k/debug.h b/drivers/net/wireless/ath/ath9k/debug.h
+index fe2b487..17f6cc2 100644
+--- a/drivers/net/wireless/ath/ath9k/debug.h
++++ b/drivers/net/wireless/ath/ath9k/debug.h
+@@ -139,6 +139,8 @@ struct ath_tx_stats {
+ 	u32 txfailed;
+ };
  
-+static void ieee80211_scan_state_send_probe(struct ieee80211_local *local,
-+					    unsigned long *next_delay)
-+{
-+	int i;
-+	struct ieee80211_sub_if_data *sdata = local->scan_sdata;
-+	enum ieee80211_band band = local->hw.conf.channel->band;
++#define RX_STAT_INC(c) (sc->debug.stats.rxstats.c++)
 +
-+	for (i = 0; i < local->scan_req->n_ssids; i++)
-+		ieee80211_send_probe_req(
-+			sdata, NULL,
-+			local->scan_req->ssids[i].ssid,
-+			local->scan_req->ssids[i].ssid_len,
-+			local->scan_req->ie, local->scan_req->ie_len,
-+			local->scan_req->rates[band], false,
-+			local->scan_req->no_cck);
-+
-+	/*
-+	 * After sending probe requests, wait for probe responses
-+	 * on the channel.
-+	 */
-+	*next_delay = IEEE80211_CHANNEL_TIME;
-+	local->next_scan_state = SCAN_DECISION;
-+}
+ /**
+  * struct ath_rx_stats - RX Statistics
+  * @rx_pkts_all:  No. of total frames received, including ones that
+@@ -155,6 +157,13 @@ struct ath_tx_stats {
+  * @post_delim_crc_err: Post-Frame delimiter CRC error detections
+  * @decrypt_busy_err: Decryption interruptions counter
+  * @phy_err_stats: Individual PHY error statistics
++ * @rx_len_err:  No. of frames discarded due to bad length.
++ * @rx_oom_err:  No. of frames dropped due to OOM issues.
++ * @rx_rate_err:  No. of frames dropped due to rate errors.
++ * @rx_too_many_frags_err:  Frames dropped due to too-many-frags received.
++ * @rx_drop_rxflush: No. of frames dropped due to RX-FLUSH.
++ * @rx_beacons:  No. of beacons received.
++ * @rx_frags:  No. of rx-fragements received.
+  */
+ struct ath_rx_stats {
+ 	u32 rx_pkts_all;
+@@ -167,6 +176,13 @@ struct ath_rx_stats {
+ 	u32 post_delim_crc_err;
+ 	u32 decrypt_busy_err;
+ 	u32 phy_err_stats[ATH9K_PHYERR_MAX];
++	u32 rx_len_err;
++	u32 rx_oom_err;
++	u32 rx_rate_err;
++	u32 rx_too_many_frags_err;
++	u32 rx_drop_rxflush;
++	u32 rx_beacons;
++	u32 rx_frags;
+ };
  
- static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
- 				  struct cfg80211_scan_request *req)
-@@ -438,10 +461,43 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
- 	local->scan_req = req;
- 	local->scan_sdata = sdata;
+ enum ath_reset_type {
+@@ -250,6 +266,8 @@ void ath_debug_stat_rx(struct ath_softc *sc, struct ath_rx_status *rs);
  
--	if (local->ops->hw_scan)
-+	if (local->ops->hw_scan) {
- 		__set_bit(SCAN_HW_SCANNING, &local->scanning);
--	else
--		__set_bit(SCAN_SW_SCANNING, &local->scanning);
-+	} else {
-+		/* If we are scanning only on the current channel, then
-+		 * we do not need to stop normal activities
-+		 */
-+		if ((req->n_channels == 1) &&
-+		    (req->channels[0]->center_freq ==
-+		     local->hw.conf.channel->center_freq)) {
-+			unsigned long next_delay;
-+			__set_bit(SCAN_ONCHANNEL_SCANNING, &local->scanning);
-+			ieee80211_recalc_idle(local);
-+			/* accept probe-responses */
-+			ieee80211_configure_filter(local);
-+			/* We need to set power level to max for scanning. */
-+			ieee80211_hw_config(local, 0);
+ #else
+ 
++#define RX_STAT_INC(c) /* NOP */
 +
-+			if ((req->channels[0]->flags &
-+			     IEEE80211_CHAN_PASSIVE_SCAN) ||
-+			    !local->scan_req->n_ssids) {
-+				next_delay = IEEE80211_PASSIVE_CHANNEL_TIME;
-+			} else {
-+				ieee80211_scan_state_send_probe(local,
-+								&next_delay);
-+				next_delay = IEEE80211_CHANNEL_TIME;
-+			}
+ static inline int ath9k_init_debug(struct ath_hw *ah)
+ {
+ 	return 0;
+diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wireless/ath/ath9k/recv.c
+index 8588017..301ef3e 100644
+--- a/drivers/net/wireless/ath/ath9k/recv.c
++++ b/drivers/net/wireless/ath/ath9k/recv.c
+@@ -824,15 +824,20 @@ static bool ath9k_rx_accept(struct ath_common *common,
+ 	if (rx_stats->rs_keyix == ATH9K_RXKEYIX_INVALID)
+ 		rx_stats->rs_status &= ~ATH9K_RXERR_KEYMISS;
+ 
+-	if (!rx_stats->rs_datalen)
++	if (!rx_stats->rs_datalen) {
++		RX_STAT_INC(rx_len_err);
+ 		return false;
++	}
 +
-+			/* Now, just wait a bit and we are all done! */
-+			ieee80211_queue_delayed_work(&local->hw,
-+						     &local->scan_work,
-+						     next_delay);
-+			return 0;
-+		}
-+		else {
-+			__set_bit(SCAN_SW_SCANNING, &local->scanning);
-+		}
+         /*
+          * rs_status follows rs_datalen so if rs_datalen is too large
+          * we can take a hint that hardware corrupted it, so ignore
+          * those frames.
+          */
+-	if (rx_stats->rs_datalen > (common->rx_bufsize - rx_status_len))
++	if (rx_stats->rs_datalen > (common->rx_bufsize - rx_status_len)) {
++		RX_STAT_INC(rx_len_err);
+ 		return false;
 +	}
  
- 	ieee80211_recalc_idle(local);
+ 	/* Only use error bits from the last fragment */
+ 	if (rx_stats->rs_more)
+@@ -902,6 +907,7 @@ static int ath9k_process_rate(struct ath_common *common,
+ 	struct ieee80211_supported_band *sband;
+ 	enum ieee80211_band band;
+ 	unsigned int i = 0;
++	struct ath_softc *sc = (struct ath_softc *) common->priv;
  
-@@ -598,30 +654,6 @@ static void ieee80211_scan_state_set_channel(struct ieee80211_local *local,
- 	local->next_scan_state = SCAN_SEND_PROBE;
+ 	band = hw->conf.channel->band;
+ 	sband = hw->wiphy->bands[band];
+@@ -936,7 +942,7 @@ static int ath9k_process_rate(struct ath_common *common,
+ 	ath_dbg(common, ANY,
+ 		"unsupported hw bitrate detected 0x%02x using 1 Mbit\n",
+ 		rx_stats->rs_rate);
+-
++	RX_STAT_INC(rx_rate_err);
+ 	return -EINVAL;
  }
  
--static void ieee80211_scan_state_send_probe(struct ieee80211_local *local,
--					    unsigned long *next_delay)
--{
--	int i;
--	struct ieee80211_sub_if_data *sdata = local->scan_sdata;
--	enum ieee80211_band band = local->hw.conf.channel->band;
--
--	for (i = 0; i < local->scan_req->n_ssids; i++)
--		ieee80211_send_probe_req(
--			sdata, NULL,
--			local->scan_req->ssids[i].ssid,
--			local->scan_req->ssids[i].ssid_len,
--			local->scan_req->ie, local->scan_req->ie_len,
--			local->scan_req->rates[band], false,
--			local->scan_req->no_cck);
--
--	/*
--	 * After sending probe requests, wait for probe responses
--	 * on the channel.
--	 */
--	*next_delay = IEEE80211_CHANNEL_TIME;
--	local->next_scan_state = SCAN_DECISION;
--}
+@@ -1823,10 +1829,14 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+ 
+ 		hdr = (struct ieee80211_hdr *) (hdr_skb->data + rx_status_len);
+ 		rxs = IEEE80211_SKB_RXCB(hdr_skb);
+-		if (ieee80211_is_beacon(hdr->frame_control) &&
+-		    !is_zero_ether_addr(common->curbssid) &&
+-		    !compare_ether_addr(hdr->addr3, common->curbssid))
+-			rs.is_mybeacon = true;
++		if (ieee80211_is_beacon(hdr->frame_control)) {
++			RX_STAT_INC(rx_beacons);
++			if (!is_zero_ether_addr(common->curbssid) &&
++			    !compare_ether_addr(hdr->addr3, common->curbssid))
++				rs.is_mybeacon = true;
++			else
++				rs.is_mybeacon = false;
++		}
+ 		else
+ 			rs.is_mybeacon = false;
+ 
+@@ -1836,8 +1846,10 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+ 		 * If we're asked to flush receive queue, directly
+ 		 * chain it back at the queue without processing it.
+ 		 */
+-		if (sc->sc_flags & SC_OP_RXFLUSH)
++		if (sc->sc_flags & SC_OP_RXFLUSH) {
++			RX_STAT_INC(rx_drop_rxflush);
+ 			goto requeue_drop_frag;
++		}
+ 
+ 		memset(rxs, 0, sizeof(struct ieee80211_rx_status));
+ 
+@@ -1867,8 +1879,10 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+ 		 * tell hardware it can give us a new frame using the old
+ 		 * skb and put it at the tail of the sc->rx.rxbuf list for
+ 		 * processing. */
+-		if (!requeue_skb)
++		if (!requeue_skb) {
++			RX_STAT_INC(rx_oom_err);
+ 			goto requeue_drop_frag;
++		}
+ 
+ 		/* Unmap the frame */
+ 		dma_unmap_single(sc->dev, bf->bf_buf_addr,
+@@ -1899,6 +1913,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+ 		}
+ 
+ 		if (rs.rs_more) {
++			RX_STAT_INC(rx_frags);
+ 			/*
+ 			 * rs_more indicates chained descriptors which can be
+ 			 * used to link buffers together for a sort of
+@@ -1908,6 +1923,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+ 				/* too many fragments - cannot handle frame */
+ 				dev_kfree_skb_any(sc->rx.frag);
+ 				dev_kfree_skb_any(skb);
++				RX_STAT_INC(rx_too_many_frags_err);
+ 				skb = NULL;
+ 			}
+ 			sc->rx.frag = skb;
+@@ -1919,6 +1935,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
+ 
+ 			if (pskb_expand_head(hdr_skb, 0, space, GFP_ATOMIC) < 0) {
+ 				dev_kfree_skb(skb);
++				RX_STAT_INC(rx_oom_err);
+ 				goto requeue_drop_frag;
+ 			}
+ 
+-- 
+1.7.3.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
