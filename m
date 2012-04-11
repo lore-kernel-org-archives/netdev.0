@@ -1,208 +1,112 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v2] Lockd: pass network namespace to creation and destruction
- routines
-Date: Wed, 11 Apr 2012 20:12:04 +0400
-Message-ID: <4F85AD54.6000806@parallels.com>
-References: <20120329145421.31911.65512.stgit@localhost6.localdomain6> <20120411161114.GB28928@fieldses.org>
+From: Tony Zelenoff <antonz@parallels.com>
+Subject: [PATCH] atl1: fix kernel panic in case of DMA errors
+Date: Wed, 11 Apr 2012 20:15:03 +0400
+Message-ID: <1334160903-988902-1-git-send-email-antonz@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120411161114.GB28928-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <antonz@parallels.com>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.parallels.com ([195.214.232.42]:57146 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932364Ab2DKQUm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2012 12:20:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-11.04.2012 20:11, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Thu, Mar 29, 2012 at 06:54:33PM +0400, Stanislav Kinsbursky wrote:
->> v2: dereference of most probably already released nlm_host removed i=
-n
->> nlmclnt_done() and reclaimer().
->
-> Did you want this in Trond's tree or mine?
->
+Problem:
+There was two separate work_struct structures which share one
+handler. Unfortunately getting atl1_adapter structure from
+work_struct in case of DMA error was done from incorrect
+offset which cause kernel panics.
 
-Your tree is preferred since I'm working with it.
+Solution:
+The useless work_struct for DMA error removed and
+handler name changed to more generic one.
 
-> --b.
->
->>
->> These routines are called from locks reclaimer() kernel thread. This=
- thread
->> works in "init_net" network context and currently relays on persence=
- on lockd
->> thread and it's per-net resources. Thus lockd_up() and lockd_down() =
-can't relay
->> on current network context. So let's pass corrent one into them.
->>
->> Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
->>
->> Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
->>
->> ---
->>   fs/lockd/clntlock.c        |   13 ++++++++-----
->>   fs/lockd/svc.c             |    7 +++----
->>   fs/nfsd/nfssvc.c           |    6 +++---
->>   include/linux/lockd/bind.h |    4 ++--
->>   4 files changed, 16 insertions(+), 14 deletions(-)
->>
->> diff --git a/fs/lockd/clntlock.c b/fs/lockd/clntlock.c
->> index ba1dc2e..ca0a080 100644
->> --- a/fs/lockd/clntlock.c
->> +++ b/fs/lockd/clntlock.c
->> @@ -56,7 +56,7 @@ struct nlm_host *nlmclnt_init(const struct nlmclnt=
-_initdata *nlm_init)
->>   	u32 nlm_version =3D (nlm_init->nfs_version =3D=3D 2) ? 1 : 4;
->>   	int status;
->>
->> -	status =3D lockd_up();
->> +	status =3D lockd_up(nlm_init->net);
->>   	if (status<  0)
->>   		return ERR_PTR(status);
->>
->> @@ -65,7 +65,7 @@ struct nlm_host *nlmclnt_init(const struct nlmclnt=
-_initdata *nlm_init)
->>   				   nlm_init->hostname, nlm_init->noresvport,
->>   				   nlm_init->net);
->>   	if (host =3D=3D NULL) {
->> -		lockd_down();
->> +		lockd_down(nlm_init->net);
->>   		return ERR_PTR(-ENOLCK);
->>   	}
->>
->> @@ -80,8 +80,10 @@ EXPORT_SYMBOL_GPL(nlmclnt_init);
->>    */
->>   void nlmclnt_done(struct nlm_host *host)
->>   {
->> +	struct net *net =3D host->net;
->> +
->>   	nlmclnt_release_host(host);
->> -	lockd_down();
->> +	lockd_down(net);
->>   }
->>   EXPORT_SYMBOL_GPL(nlmclnt_done);
->>
->> @@ -220,11 +222,12 @@ reclaimer(void *ptr)
->>   	struct nlm_wait	  *block;
->>   	struct file_lock *fl, *next;
->>   	u32 nsmstate;
->> +	struct net *net =3D host->net;
->>
->>   	allow_signal(SIGKILL);
->>
->>   	down_write(&host->h_rwsem);
->> -	lockd_up();	/* note: this cannot fail as lockd is already running =
-*/
->> +	lockd_up(net);	/* note: this cannot fail as lockd is already runni=
-ng */
->>
->>   	dprintk("lockd: reclaiming locks for host %s\n", host->h_name);
->>
->> @@ -275,6 +278,6 @@ restart:
->>
->>   	/* Release host handle after use */
->>   	nlmclnt_release_host(host);
->> -	lockd_down();
->> +	lockd_down(net);
->>   	return 0;
->>   }
->> diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
->> index b34100e..ce4c80e 100644
->> --- a/fs/lockd/svc.c
->> +++ b/fs/lockd/svc.c
->> @@ -295,11 +295,10 @@ static void lockd_down_net(struct net *net)
->>   /*
->>    * Bring up the lockd process if it's not already up.
->>    */
->> -int lockd_up(void)
->> +int lockd_up(struct net *net)
->>   {
->>   	struct svc_serv *serv;
->>   	int		error =3D 0;
->> -	struct net *net =3D current->nsproxy->net_ns;
->>
->>   	mutex_lock(&nlmsvc_mutex);
->>   	/*
->> @@ -377,12 +376,12 @@ EXPORT_SYMBOL_GPL(lockd_up);
->>    * Decrement the user count and bring down lockd if we're the last=
-=2E
->>    */
->>   void
->> -lockd_down(void)
->> +lockd_down(struct net *net)
->>   {
->>   	mutex_lock(&nlmsvc_mutex);
->>   	if (nlmsvc_users) {
->>   		if (--nlmsvc_users) {
->> -			lockd_down_net(current->nsproxy->net_ns);
->> +			lockd_down_net(net);
->>   			goto out;
->>   		}
->>   	} else {
->> diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
->> index fce472f..0f3e35b 100644
->> --- a/fs/nfsd/nfssvc.c
->> +++ b/fs/nfsd/nfssvc.c
->> @@ -220,7 +220,7 @@ static int nfsd_startup(unsigned short port, int=
- nrservs)
->>   	ret =3D nfsd_init_socks(port);
->>   	if (ret)
->>   		goto out_racache;
->> -	ret =3D lockd_up();
->> +	ret =3D lockd_up(&init_net);
->>   	if (ret)
->>   		goto out_racache;
->>   	ret =3D nfs4_state_start();
->> @@ -229,7 +229,7 @@ static int nfsd_startup(unsigned short port, int=
- nrservs)
->>   	nfsd_up =3D true;
->>   	return 0;
->>   out_lockd:
->> -	lockd_down();
->> +	lockd_down(&init_net);
->>   out_racache:
->>   	nfsd_racache_shutdown();
->>   	return ret;
->> @@ -246,7 +246,7 @@ static void nfsd_shutdown(void)
->>   	if (!nfsd_up)
->>   		return;
->>   	nfs4_state_shutdown();
->> -	lockd_down();
->> +	lockd_down(&init_net);
->>   	nfsd_racache_shutdown();
->>   	nfsd_up =3D false;
->>   }
->> diff --git a/include/linux/lockd/bind.h b/include/linux/lockd/bind.h
->> index 11a966e..4d24d64 100644
->> --- a/include/linux/lockd/bind.h
->> +++ b/include/linux/lockd/bind.h
->> @@ -54,7 +54,7 @@ extern void	nlmclnt_done(struct nlm_host *host);
->>
->>   extern int	nlmclnt_proc(struct nlm_host *host, int cmd,
->>   					struct file_lock *fl);
->> -extern int	lockd_up(void);
->> -extern void	lockd_down(void);
->> +extern int	lockd_up(struct net *net);
->> +extern void	lockd_down(struct net *net);
->>
->>   #endif /* LINUX_LOCKD_BIND_H */
->>
+Signed-off-by: Tony Zelenoff <antonz@parallels.com>
+---
+ drivers/net/ethernet/atheros/atlx/atl1.c |   12 +++++-------
+ drivers/net/ethernet/atheros/atlx/atl1.h |    3 +--
+ drivers/net/ethernet/atheros/atlx/atlx.c |    2 +-
+ 3 files changed, 7 insertions(+), 10 deletions(-)
 
-
---=20
-Best regards,
-Stanislav Kinsbursky
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
+index 40ac414..c926857 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl1.c
++++ b/drivers/net/ethernet/atheros/atlx/atl1.c
+@@ -2476,7 +2476,7 @@ static irqreturn_t atl1_intr(int irq, void *data)
+ 					"pcie phy link down %x\n", status);
+ 			if (netif_running(adapter->netdev)) {	/* reset MAC */
+ 				iowrite32(0, adapter->hw.hw_addr + REG_IMR);
+-				schedule_work(&adapter->pcie_dma_to_rst_task);
++				schedule_work(&adapter->reset_dev_task);
+ 				return IRQ_HANDLED;
+ 			}
+ 		}
+@@ -2488,7 +2488,7 @@ static irqreturn_t atl1_intr(int irq, void *data)
+ 					"pcie DMA r/w error (status = 0x%x)\n",
+ 					status);
+ 			iowrite32(0, adapter->hw.hw_addr + REG_IMR);
+-			schedule_work(&adapter->pcie_dma_to_rst_task);
++			schedule_work(&adapter->reset_dev_task);
+ 			return IRQ_HANDLED;
+ 		}
+ 
+@@ -2633,10 +2633,10 @@ static void atl1_down(struct atl1_adapter *adapter)
+ 	atl1_clean_rx_ring(adapter);
+ }
+ 
+-static void atl1_tx_timeout_task(struct work_struct *work)
++static void atl1_reset_dev_task(struct work_struct *work)
+ {
+ 	struct atl1_adapter *adapter =
+-		container_of(work, struct atl1_adapter, tx_timeout_task);
++		container_of(work, struct atl1_adapter, reset_dev_task);
+ 	struct net_device *netdev = adapter->netdev;
+ 
+ 	netif_device_detach(netdev);
+@@ -3038,12 +3038,10 @@ static int __devinit atl1_probe(struct pci_dev *pdev,
+ 		    (unsigned long)adapter);
+ 	adapter->phy_timer_pending = false;
+ 
+-	INIT_WORK(&adapter->tx_timeout_task, atl1_tx_timeout_task);
++	INIT_WORK(&adapter->reset_dev_task, atl1_reset_dev_task);
+ 
+ 	INIT_WORK(&adapter->link_chg_task, atlx_link_chg_task);
+ 
+-	INIT_WORK(&adapter->pcie_dma_to_rst_task, atl1_tx_timeout_task);
+-
+ 	err = register_netdev(netdev);
+ 	if (err)
+ 		goto err_common;
+diff --git a/drivers/net/ethernet/atheros/atlx/atl1.h b/drivers/net/ethernet/atheros/atlx/atl1.h
+index 109d6da..e04bf4d 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl1.h
++++ b/drivers/net/ethernet/atheros/atlx/atl1.h
+@@ -758,9 +758,8 @@ struct atl1_adapter {
+ 	u16 link_speed;
+ 	u16 link_duplex;
+ 	spinlock_t lock;
+-	struct work_struct tx_timeout_task;
++	struct work_struct reset_dev_task;
+ 	struct work_struct link_chg_task;
+-	struct work_struct pcie_dma_to_rst_task;
+ 
+ 	struct timer_list phy_config_timer;
+ 	bool phy_timer_pending;
+diff --git a/drivers/net/ethernet/atheros/atlx/atlx.c b/drivers/net/ethernet/atheros/atlx/atlx.c
+index 3cd8837..c9e9dc5 100644
+--- a/drivers/net/ethernet/atheros/atlx/atlx.c
++++ b/drivers/net/ethernet/atheros/atlx/atlx.c
+@@ -194,7 +194,7 @@ static void atlx_tx_timeout(struct net_device *netdev)
+ {
+ 	struct atlx_adapter *adapter = netdev_priv(netdev);
+ 	/* Do the reset outside of interrupt context */
+-	schedule_work(&adapter->tx_timeout_task);
++	schedule_work(&adapter->reset_dev_task);
+ }
+ 
+ /*
+-- 
+1.7.1
