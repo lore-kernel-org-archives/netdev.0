@@ -1,81 +1,103 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-04-11
-Date: Wed, 11 Apr 2012 16:31:03 +0200
-Message-ID: <20120411143102.GE19365@ritirata.org>
-References: <1334148649-25443-1-git-send-email-ordex@autistici.org>
-	<20120411130301.GD19365@ritirata.org>
-	<20120411.095809.861355939666821335.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next PATCH v1 7/7] macvlan: add FDB bridge ops and new macvlan
+ mode
+Date: Wed, 11 Apr 2012 07:32:55 -0700
+Message-ID: <4F859617.8000609@intel.com>
+References: <20120410080916.GB26540@redhat.com> <4F843544.8060209@intel.com> <20120410134321.GB18899@redhat.com> <4F8442F6.5070707@intel.com> <20120410143500.GD19556@redhat.com> <4F84511D.7060902@intel.com> <20120410153014.GA20488@redhat.com> <4F845345.8090601@intel.com> <4F84D472.8090602@us.ibm.com> <4F84E197.5070708@intel.com> <20120411080239.GB8562@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="jL2BoiuKMElzg3CS"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120411.095809.861355939666821335.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>, roprabhu@cisco.com,
+	stephen.hemminger@vyatta.com, davem@davemloft.net, hadi@cyberus.ca,
+	bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gregory.v.rose@intel.com,
+	krkumar2@in.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:49769 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756235Ab2DKOc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2012 10:32:58 -0400
+In-Reply-To: <20120411080239.GB8562@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 4/11/2012 1:02 AM, Michael S. Tsirkin wrote:
+> On Tue, Apr 10, 2012 at 06:42:47PM -0700, John Fastabend wrote:
+>> On 4/10/2012 5:46 PM, Sridhar Samudrala wrote:
+>>> On 4/10/2012 8:35 AM, John Fastabend wrote:
+>>>> On 4/10/2012 8:30 AM, Michael S. Tsirkin wrote:
+>>>>> On Tue, Apr 10, 2012 at 08:26:21AM -0700, John Fastabend wrote:
+>>>>>> On 4/10/2012 7:35 AM, Michael S. Tsirkin wrote:
+>>>>>>> On Tue, Apr 10, 2012 at 07:25:58AM -0700, John Fastabend wrote:
+>>>>>>>>> Hmm okay, but this would mean we should convert
+>>>>>>>>> MACVLAN_MODE_PASSTHRU_NOPROMISC to something
+>>>>>>>>> that can combined with all modes. E.g.
+>>>>>>>>> MACVLAN_MODE_BRIDGE | MACVLAN_MODE_FLAG_XXXXX
+>>>>>>>>>
+>>>>>>>>> and document that it does not promise to flood
+>>>>>>>>> multicast.
+>>>>>>>>>
+>>>>>>>> How about changing MACVLAN_MODE_PASSTHRU_NOPROMISC ->  MACVLAN_MODE_NOPORMISC
+>>>>>>>> for this patch. Then a follow on series can rework bridge
+>>>>>>>> and VEPA to use it as well.
+>>>>>>> Right. We probably need a better name if it's going to
+>>>>>>> affect other things besides promisc though.
+>>>>>>>
+>>>>>> how about MACVLAN_MODE_FDBFLAG?
+>>>>> The idea being that no one figures out what this means so
+>>>>> no one will make any wrong assumptions? ;)
+>>>>>
+>>>> Well its a flag to enable the FDB (forwarding database) ops
+>>>> and skip dev_set_promisc() on passthru mode. Any better ideas?
+>>>> Maybe MACVLAN_MODE_FDBENABLE or MACVLAN_MODE_MANAGE_FDB?
+>>> Do we need to introduce another mode? I think this patch is enabling passthru mode without the need
+>>> to put the underlying device in promiscuous mode. So basically we can consider this patch as
+>>> an optimization.
+>>>
+>>> Thanks
+>>> Sridhar
+>>>
+>>
+>> Sridhar, Michael,
+>>
+>> After thinking about this a bit I would propose keeping this
+>> patch as is. Or if we prefer I can make this a flag but I don't
+>> think that helps much. passthru mode is the only macvlan mode
+>> that calls dev_set_promiscuity(). Either way I think this mode
+>> or flag should _only_ toggle the call to dev_set_promiscuity().
+>>
+>> Setting multicast dev->flag IFF_ALLMULTI seems to be a completely
+>> separate optimization that we can work with a follow up patch.
+>>
+>> Any thoughts?
+>>
+>> Thanks for the feedback,
+>> John
+> 
+> I agree it's a separate optimization. But if we let the
+> number of supported modes explode
+> (MACVLAN_MODE_PASSTHRU_NOPROMISC MACVLAN_MODE_PASSTHRU_NOALLMULTI
+> ....) supporting them all and combinations thereof might become a problem.
+> 
+> I'm looking for an interface solution that will limit this
+> overhead without breaking existing setups.
+> 
 
---jL2BoiuKMElzg3CS
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I'm going to respin this series today. I'll try to rework this with
+a flags field so that we can set nopromisc and noallmutli using flags
+and not have the supported mode space explode.
 
-On Wed, Apr 11, 2012 at 09:58:09 -0400, David Miller wrote:
-> From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-> Date: Wed, 11 Apr 2012 15:03:03 +0200
->=20
-> >   git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-> >=20
-> > for you to fetch changes up to 7a5cc24277b57ce38eb0afa6634b71d4d5cc671e:
-> >=20
-> >   batman-adv: add bridge loop avoidance compile option (2012-04-11 14:2=
-9:00 +0200)
->=20
-> Pulled, but I think the way you're doing the bridge loop avoidance stuff
-> is wrong.
->=20
-> Don't use a Kconfig option, use a sysctl to turn the behavior off or on
-> at runtime instead.
+> 
+> One idea was to have a flag that says basically "really obey device
+> configuration".  Yes if we do this we can then split the support to
+> multiple patches and consider each individual one a bugfix, though if we
+> put a known broken solution in 3.5 there's a danger that someone will
+> come to depend on the broken behaviour. Other ideas?
+> 
+> 
 
-Hello David and thank you for your feedback.
+This sound reasonable.
 
-Actually we have either the Kconfig option (for binary size purposes) AND a
-boolean attribute in our soft_interface sysfs path (to dynamically turn the
-bridge loop avoidance ON and OFF as you were suggesting).
-
-Regards,
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---jL2BoiuKMElzg3CS
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQEcBAEBAgAGBQJPhZWmAAoJEFMQTLzJFOZF87sIAIr01pg8kTOytH7uYWkEcTNN
-TK6PtHcytjgeau3PjOduyAeLnyLxV5HK0GE7z6ua4kUCPFEiahqtfGB8tFlB/pWp
-GYuqnyG1XQ8Vxtgm6OYaudJ6R6hh4/ARgBIw8sRvL785IL9WnnJhughEWFQuG7QU
-THn2toKreXEZI7ZDRUrI+PV/S3Kfagjd7ikotFF8O/SPrFCa2D8BJLp6IDaMBaVm
-UeO1KEFbpy1258RroBUM61Opq/6p09QOddKVW3X5SE6OWbHcMmKfq4lAqTK1PEDs
-spVAnKzQiMVU/wBFwL3zOor+httNV3TBUVz24cl3ZmrgQKPg8/rYsnsUyrWsxJ4=
-=1Fbu
------END PGP SIGNATURE-----
-
---jL2BoiuKMElzg3CS--
+Thanks,
+John
