@@ -1,40 +1,42 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-04-11
-Date: Wed, 11 Apr 2012 09:58:09 -0400 (EDT)
-Message-ID: <20120411.095809.861355939666821335.davem@davemloft.net>
-References: <1334148649-25443-1-git-send-email-ordex@autistici.org>
-	<20120411130301.GD19365@ritirata.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH] net: allow pskb_expand_head() to get maximum tailroom
+Date: Wed, 11 Apr 2012 10:11:34 -0400 (EDT)
+Message-ID: <20120411.101134.410148429938272473.davem@davemloft.net>
+References: <1334038263.2907.1.camel@edumazet-glaptop>
+	<20120411052733.GA17352@merlins.org>
+	<1334124519.5300.2246.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20120411130301.GD19365-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
+	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1334124519.5300.2246.camel@edumazet-glaptop>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Wed, 11 Apr 2012 15:03:03 +0200
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed, 11 Apr 2012 08:08:39 +0200
 
->   git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+> Marc Merlin reported many order-1 allocations failures in TX path on its
+> wireless setup, that dont make any sense with MTU=1500 network, and non
+> SG capable hardware.
 > 
-> for you to fetch changes up to 7a5cc24277b57ce38eb0afa6634b71d4d5cc671e:
+> Turns out part of the problem comes from pskb_expand_head() not using
+> ksize() to get exact head size given by kmalloc(). Doing the same thing
+> than __alloc_skb() allows more tailroom in skb and can prevent future
+> reallocations.
 > 
->   batman-adv: add bridge loop avoidance compile option (2012-04-11 14:29:00 +0200)
+> As a bonus, struct skb_shared_info becomes cache line aligned.
+> 
+> Reported-by: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
+> Tested-by: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
+> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Pulled, but I think the way you're doing the bridge loop avoidance stuff
-is wrong.
-
-Don't use a Kconfig option, use a sysctl to turn the behavior off or on
-at runtime instead.
+Applied and queued up for -stable.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
