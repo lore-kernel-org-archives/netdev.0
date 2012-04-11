@@ -1,52 +1,43 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] tcp: avoid order-1 allocations on wifi and tx path
-Date: Wed, 11 Apr 2012 09:38:02 +0200
-Message-ID: <1334129882.5300.2539.camel@edumazet-glaptop>
-References: <20120409.143710.879746943062854492.davem@davemloft.net>
-	 <4F83316F.20504@lwfinger.net> <1333998672.3007.245.camel@edumazet-glaptop>
-	 <20120409.153452.1284163346306246866.davem@davemloft.net>
-	 <1334030180.13293.98.camel@edumazet-glaptop>
-	 <20120410051127.GA32048@merlins.org>
-	 <1334038263.2907.1.camel@edumazet-glaptop>
-	 <20120411052733.GA17352@merlins.org>
-	 <1334122980.5300.2154.camel@edumazet-glaptop>
-	 <1334125848.5300.2330.camel@edumazet-glaptop>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 07/10] net: only allow paged fragments with the same
+ destructor to be coalesced.
+Date: Wed, 11 Apr 2012 07:45:19 +0000
+Message-ID: <1334130319.12209.187.camel@dagon.hellion.org.uk>
+References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
+	 <1334067984-7706-7-git-send-email-ian.campbell@citrix.com>
+	 <1334088690.2624.1.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1334125848.5300.2330.camel@edumazet-glaptop>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	"Wei Liu (Intern)" <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	"James Morris" <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:34806 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753514Ab2DKHpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2012 03:45:22 -0400
+In-Reply-To: <1334088690.2624.1.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-04-11 at 08:30 +0200, Eric Dumazet wrote:
-> Marc Merlin reported many order-1 allocations failures in TX path on its
-> wireless setup, that dont make any sense with MTU=1500 network, and non
-> SG capable hardware.
-> 
-> After investigation, it turns out TCP uses sk_stream_alloc_skb() and
-> used as a convention skb_tailroom(skb) to know how many bytes of data
-> payload could be put in this skb (for non SG capable devices)
-> 
-...
-> 
-> Reported-by: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
-> Tested-by: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>
-> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Tue, 2012-04-10 at 21:11 +0100, Ben Hutchings wrote:
+> Shouldn't this be folded into the previous change 'net: add support for
+> per-paged-fragment destructors'?  Maybe it doesn't matter since nothing
+> is setting a non-NULL fragment destructor yet.
 
-David, I forgot to say this should be backported to 3.2 & 3.3
+I keep following exactly the same thought pattern and then ending up
+leaving it due to indecision. I'll squash it next time unless anyone
+thinks it is worth keeping split out.
 
-commit 87fb4b7b533073 (net: more accurate skb truesize) did the
-placement of skb_shared_info at the end of skb head, so
-sk_stream_alloc_skb() had to reserve more room so that tailroom stayed
-at MSS
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ian.
