@@ -1,15 +1,17 @@
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 16/16] batman-adv: add bridge loop avoidance
-	compile option
-Date: Wed, 11 Apr 2012 14:50:49 +0200
-Message-ID: <1334148649-25443-17-git-send-email-ordex@autistici.org>
+Subject: Re: pull request: batman-adv 2012-04-11
+Date: Wed, 11 Apr 2012 15:03:03 +0200
+Message-ID: <20120411130301.GD19365@ritirata.org>
 References: <1334148649-25443-1-git-send-email-ordex@autistici.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
 In-Reply-To: <1334148649-25443-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
 	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
@@ -22,280 +24,110 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
+On Wed, Apr 11, 2012 at 02:50:33 +0200, Antonio Quartulli wrote:
+> Hello,
+>=20
+> this is our new set of patches (actually there has been no modification f=
+rom the
+> last pull request issued on 2011-04-07) which is now based on top of the =
+current
+> net-next/master branch (commit id: 06eb4eafbdc0796d741d139a44f1253278da86=
+11).
+>=20
+> Let me know if there is something else wrong.
 
-The define CONFIG_BATMAN_ADV_BLA switches the bridge loop avoidance
-on - skip it, and the bridge loop avoidance is not compiled in.
 
-This is useful if binary size should be saved or the feature is
-not needed.
+Sorry David,
 
-Signed-off-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
-Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
----
- net/batman-adv/Kconfig                 |   12 ++++++-
- net/batman-adv/Makefile                |    2 +-
- net/batman-adv/bat_debugfs.c           |    7 +++-
- net/batman-adv/bat_sysfs.c             |    4 +++
- net/batman-adv/bridge_loop_avoidance.h |   57 ++++++++++++++++++++++++++++++++
- net/batman-adv/soft-interface.c        |    4 +--
- net/batman-adv/types.h                 |    8 +++++
- 7 files changed, 89 insertions(+), 5 deletions(-)
+I forgot to attach the "real" pull-request description. Here it is:
 
-diff --git a/net/batman-adv/Kconfig b/net/batman-adv/Kconfig
-index 6ff977c..53f5244 100644
---- a/net/batman-adv/Kconfig
-+++ b/net/batman-adv/Kconfig
-@@ -4,7 +4,7 @@
- 
- config BATMAN_ADV
- 	tristate "B.A.T.M.A.N. Advanced Meshing Protocol"
--	depends on NET && INET
-+	depends on NET
- 	select CRC16
-         default n
- 	help
-@@ -14,6 +14,16 @@ config BATMAN_ADV
-           http://www.open-mesh.org/ for more information and user space
-           tools.
- 
-+config BATMAN_ADV_BLA
-+	bool "Bridge Loop Avoidance"
-+	depends on BATMAN_ADV && INET
-+	default y
-+	help
-+	  This option enables BLA (Bridge Loop Avoidance), a mechanism
-+	  to avoid Ethernet frames looping when mesh nodes are connected
-+	  to both the same LAN and the same mesh. If you will never use
-+	  more than one mesh node in the same LAN, you can safely remove
-+	  this feature and save some space.
- 
- config BATMAN_ADV_DEBUG
- 	bool "B.A.T.M.A.N. debugging"
-diff --git a/net/batman-adv/Makefile b/net/batman-adv/Makefile
-index 94b67fd..6d5c194 100644
---- a/net/batman-adv/Makefile
-+++ b/net/batman-adv/Makefile
-@@ -23,7 +23,7 @@ batman-adv-y += bat_debugfs.o
- batman-adv-y += bat_iv_ogm.o
- batman-adv-y += bat_sysfs.o
- batman-adv-y += bitarray.o
--batman-adv-y += bridge_loop_avoidance.o
-+batman-adv-$(CONFIG_BATMAN_ADV_BLA) += bridge_loop_avoidance.o
- batman-adv-y += gateway_client.o
- batman-adv-y += gateway_common.o
- batman-adv-y += hard-interface.o
-diff --git a/net/batman-adv/bat_debugfs.c b/net/batman-adv/bat_debugfs.c
-index 0e35177..916380c 100644
---- a/net/batman-adv/bat_debugfs.c
-+++ b/net/batman-adv/bat_debugfs.c
-@@ -245,12 +245,13 @@ static int transtable_global_open(struct inode *inode, struct file *file)
- 	return single_open(file, tt_global_seq_print_text, net_dev);
- }
- 
-+#ifdef CONFIG_BATMAN_ADV_BLA
- static int bla_claim_table_open(struct inode *inode, struct file *file)
- {
- 	struct net_device *net_dev = (struct net_device *)inode->i_private;
- 	return single_open(file, bla_claim_table_seq_print_text, net_dev);
- }
--
-+#endif
- 
- static int transtable_local_open(struct inode *inode, struct file *file)
- {
-@@ -285,7 +286,9 @@ static BAT_DEBUGINFO(routing_algos, S_IRUGO, bat_algorithms_open);
- static BAT_DEBUGINFO(originators, S_IRUGO, originators_open);
- static BAT_DEBUGINFO(gateways, S_IRUGO, gateways_open);
- static BAT_DEBUGINFO(transtable_global, S_IRUGO, transtable_global_open);
-+#ifdef CONFIG_BATMAN_ADV_BLA
- static BAT_DEBUGINFO(bla_claim_table, S_IRUGO, bla_claim_table_open);
-+#endif
- static BAT_DEBUGINFO(transtable_local, S_IRUGO, transtable_local_open);
- static BAT_DEBUGINFO(vis_data, S_IRUGO, vis_data_open);
- 
-@@ -293,7 +296,9 @@ static struct bat_debuginfo *mesh_debuginfos[] = {
- 	&bat_debuginfo_originators,
- 	&bat_debuginfo_gateways,
- 	&bat_debuginfo_transtable_global,
-+#ifdef CONFIG_BATMAN_ADV_BLA
- 	&bat_debuginfo_bla_claim_table,
-+#endif
- 	&bat_debuginfo_transtable_local,
- 	&bat_debuginfo_vis_data,
- 	NULL,
-diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
-index 824bfe7..c6efd68 100644
---- a/net/batman-adv/bat_sysfs.c
-+++ b/net/batman-adv/bat_sysfs.c
-@@ -386,7 +386,9 @@ static ssize_t store_gw_bwidth(struct kobject *kobj, struct attribute *attr,
- 
- BAT_ATTR_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
- BAT_ATTR_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
-+#ifdef CONFIG_BATMAN_ADV_BLA
- BAT_ATTR_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
-+#endif
- BAT_ATTR_BOOL(fragmentation, S_IRUGO | S_IWUSR, update_min_mtu);
- BAT_ATTR_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
- static BAT_ATTR(vis_mode, S_IRUGO | S_IWUSR, show_vis_mode, store_vis_mode);
-@@ -405,7 +407,9 @@ BAT_ATTR_UINT(log_level, S_IRUGO | S_IWUSR, 0, 15, NULL);
- static struct bat_attribute *mesh_attrs[] = {
- 	&bat_attr_aggregated_ogms,
- 	&bat_attr_bonding,
-+#ifdef CONFIG_BATMAN_ADV_BLA
- 	&bat_attr_bridge_loop_avoidance,
-+#endif
- 	&bat_attr_fragmentation,
- 	&bat_attr_ap_isolation,
- 	&bat_attr_vis_mode,
-diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/bridge_loop_avoidance.h
-index 9468c24..4a8e4fc 100644
---- a/net/batman-adv/bridge_loop_avoidance.h
-+++ b/net/batman-adv/bridge_loop_avoidance.h
-@@ -22,6 +22,7 @@
- #ifndef _NET_BATMAN_ADV_BLA_H_
- #define _NET_BATMAN_ADV_BLA_H_
- 
-+#ifdef CONFIG_BATMAN_ADV_BLA
- int bla_rx(struct bat_priv *bat_priv, struct sk_buff *skb, short vid);
- int bla_tx(struct bat_priv *bat_priv, struct sk_buff *skb, short vid);
- int bla_is_backbone_gw(struct sk_buff *skb,
-@@ -37,5 +38,61 @@ int bla_init(struct bat_priv *bat_priv);
- void bla_free(struct bat_priv *bat_priv);
- 
- #define BLA_CRC_INIT	0
-+#else /* ifdef CONFIG_BATMAN_ADV_BLA */
-+
-+static inline int bla_rx(struct bat_priv *bat_priv, struct sk_buff *skb,
-+			 short vid)
-+{
-+	return 0;
-+}
-+
-+static inline int bla_tx(struct bat_priv *bat_priv, struct sk_buff *skb,
-+			 short vid)
-+{
-+	return 0;
-+}
-+
-+static inline int bla_is_backbone_gw(struct sk_buff *skb,
-+				     struct orig_node *orig_node,
-+				     int hdr_size)
-+{
-+	return 0;
-+}
-+
-+static inline int bla_claim_table_seq_print_text(struct seq_file *seq,
-+						 void *offset)
-+{
-+	return 0;
-+}
-+
-+static inline int bla_is_backbone_gw_orig(struct bat_priv *bat_priv,
-+					  uint8_t *orig)
-+{
-+	return 0;
-+}
-+
-+static inline int bla_check_bcast_duplist(struct bat_priv *bat_priv,
-+					  struct bcast_packet *bcast_packet,
-+					  int hdr_size)
-+{
-+	return 0;
-+}
-+
-+static inline void bla_update_orig_address(struct bat_priv *bat_priv,
-+					   struct hard_iface *primary_if,
-+					   struct hard_iface *oldif)
-+{
-+}
-+
-+static inline int bla_init(struct bat_priv *bat_priv)
-+{
-+	return 1;
-+}
-+
-+static inline void bla_free(struct bat_priv *bat_priv)
-+{
-+}
-+
-+#endif /* ifdef CONFIG_BATMAN_ADV_BLA */
- 
- #endif /* ifndef _NET_BATMAN_ADV_BLA_H_ */
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 10ab49a..efe0fba 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -134,7 +134,7 @@ static int interface_tx(struct sk_buff *skb, struct net_device *soft_iface)
- 						   0x00};
- 	unsigned int header_len = 0;
- 	int data_len = skb->len, ret;
--	short vid = -1;
-+	short vid __maybe_unused = -1;
- 	bool do_bcast = false;
- 
- 	if (atomic_read(&bat_priv->mesh_state) != MESH_ACTIVE)
-@@ -256,7 +256,7 @@ void interface_rx(struct net_device *soft_iface,
- 	struct bat_priv *bat_priv = netdev_priv(soft_iface);
- 	struct ethhdr *ethhdr;
- 	struct vlan_ethhdr *vhdr;
--	short vid = -1;
-+	short vid __maybe_unused = -1;
- 
- 	/* check if enough space is available for pulling, and pull */
- 	if (!pskb_may_pull(skb, hdr_size))
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 7f7f610..a5b1a63 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -140,11 +140,13 @@ struct neigh_node {
- 	spinlock_t tq_lock;	/* protects: tq_recv, tq_index */
- };
- 
-+#ifdef CONFIG_BATMAN_ADV_BLA
- struct bcast_duplist_entry {
- 	uint8_t orig[ETH_ALEN];
- 	uint16_t crc;
- 	unsigned long entrytime;
- };
-+#endif
- 
- struct bat_priv {
- 	atomic_t mesh_state;
-@@ -186,14 +188,18 @@ struct bat_priv {
- 	struct hashtable_t *orig_hash;
- 	struct hashtable_t *tt_local_hash;
- 	struct hashtable_t *tt_global_hash;
-+#ifdef CONFIG_BATMAN_ADV_BLA
- 	struct hashtable_t *claim_hash;
- 	struct hashtable_t *backbone_hash;
-+#endif
- 	struct list_head tt_req_list; /* list of pending tt_requests */
- 	struct list_head tt_roam_list;
- 	struct hashtable_t *vis_hash;
-+#ifdef CONFIG_BATMAN_ADV_BLA
- 	struct bcast_duplist_entry bcast_duplist[DUPLIST_SIZE];
- 	int bcast_duplist_curr;
- 	struct bla_claim_dst claim_dest;
-+#endif
- 	spinlock_t forw_bat_list_lock; /* protects forw_bat_list */
- 	spinlock_t forw_bcast_list_lock; /* protects  */
- 	spinlock_t tt_changes_list_lock; /* protects tt_changes */
-@@ -261,6 +267,7 @@ struct tt_orig_list_entry {
- 	struct hlist_node list;
- };
- 
-+#ifdef CONFIG_BATMAN_ADV_BLA
- struct backbone_gw {
- 	uint8_t orig[ETH_ALEN];
- 	short vid;		/* used VLAN ID */
-@@ -282,6 +289,7 @@ struct claim {
- 	atomic_t refcount;
- 	struct hlist_node hash_entry;
- };
-+#endif
- 
- struct tt_change_node {
- 	struct list_head list;
--- 
-1.7.9.4
+
+
+The following changes since commit 06eb4eafbdc0796d741d139a44f1253278da8611:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2012-04-10=
+ 14:30:45 -0400)
+
+are available in the git repository at:
+
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 7a5cc24277b57ce38eb0afa6634b71d4d5cc671e:
+
+  batman-adv: add bridge loop avoidance compile option (2012-04-11 14:29:00=
+ +0200)
+
+----------------------------------------------------------------
+Included=C2=A0changes:
+*=C2=A0add=C2=A0my=C2=A0name=C2=A0to=C2=A0the=C2=A0maintainers=C2=A0list=C2=
+=A0of=C2=A0batman-adv
+*=C2=A0some=C2=A0clean=C2=A0up=C2=A0fixes
+*=C2=A0increases=C2=A0the=C2=A0default=C2=A0hop-penalty=C2=A0in=C2=A0order=
+=C2=A0to=C2=A0encourage=C2=A0the=C2=A0routing=C2=A0protocol
+=C2=A0=C2=A0to=C2=A0choose=C2=A0shorter=C2=A0routes
+*=C2=A0renew=C2=A0the=C2=A0bridge=C2=A0loop=C2=A0avoidance=C2=A0mechanism
+
+The=C2=A0latter=C2=A0mechanism=C2=A0was=C2=A0already=C2=A0present=C2=A0in=
+=C2=A0batman-adv=C2=A0but=C2=A0recently=C2=A0the=C2=A0concept
+has=C2=A0been=C2=A0discussed=C2=A0again=C2=A0and=C2=A0here=C2=A0comes=C2=A0=
+the=C2=A0new=C2=A0implementation.=C2=A0Moreover=C2=A0we
+added=C2=A0a=C2=A0compile=C2=A0option=C2=A0in=C2=A0order=C2=A0to=C2=A0let=
+=C2=A0expert=C2=A0people,=C2=A0which=C2=A0think=C2=A0that=C2=A0this
+mechanism=C2=A0is=C2=A0not=C2=A0helpful=C2=A0at=C2=A0all,=C2=A0disable=C2=
+=A0it=C2=A0and=C2=A0save=C2=A0some=C2=A0space.
+
+----------------------------------------------------------------
+Antonio Quartulli (3):
+      MAINTAINERS: add additional maintainer for net/batman-adv
+      batman-adv: clean up Kconfig
+      batman-adv: use ETH_ALEN instead of hardcoded numeric constants
+
+Marek Lindner (1):
+      batman-adv: encourage batman to take shorter routes by changing the d=
+efault hop penalty
+
+Simon Wunderlich (10):
+      batman-adv: remove old bridge loop avoidance code
+      batman-adv: add basic bridge loop avoidance code
+      batman-adv: make bridge loop avoidance switchable
+      batman-adv: export claim tables through debugfs
+      batman-adv: allow multiple entries in tt_global_entries
+      batman-adv: don't let backbone gateways exchange tt entries
+      batman-adv: add broadcast duplicate check
+      batman-adv: drop STP over batman
+      batman-adv: form groups in the bridge loop avoidance
+      batman-adv: add bridge loop avoidance compile option
+
+Sven Eckelmann (2):
+      batman-adv: Replace bitarray operations with bitmap
+      batman-adv: Remove declaration of only locally used functions
+
+ Documentation/ABI/testing/sysfs-class-net-mesh |    9 +
+ Documentation/networking/batman-adv.txt        |   19 +-
+ MAINTAINERS                                    |    1 +
+ net/batman-adv/Kconfig                         |   27 +-
+ net/batman-adv/Makefile                        |    1 +
+ net/batman-adv/bat_debugfs.c                   |   19 +-
+ net/batman-adv/bat_iv_ogm.c                    |   15 +-
+ net/batman-adv/bat_sysfs.c                     |    8 +-
+ net/batman-adv/bitarray.c                      |  118 +-
+ net/batman-adv/bitarray.h                      |   26 +-
+ net/batman-adv/bridge_loop_avoidance.c         | 1583 ++++++++++++++++++++=
+++++
+ net/batman-adv/bridge_loop_avoidance.h         |   98 ++
+ net/batman-adv/hard-interface.c                |   18 +-
+ net/batman-adv/main.c                          |    9 +-
+ net/batman-adv/main.h                          |   11 +-
+ net/batman-adv/originator.c                    |    3 +-
+ net/batman-adv/packet.h                        |   43 +-
+ net/batman-adv/routing.c                       |   29 +-
+ net/batman-adv/routing.h                       |    1 -
+ net/batman-adv/soft-interface.c                |  498 +-------
+ net/batman-adv/soft-interface.h                |    2 -
+ net/batman-adv/translation-table.c             |  435 +++++--
+ net/batman-adv/translation-table.h             |    8 -
+ net/batman-adv/types.h                         |   77 +-
+ 24 files changed, 2263 insertions(+), 795 deletions(-)
+ create mode 100644 net/batman-adv/bridge_loop_avoidance.c
+ create mode 100644 net/batman-adv/bridge_loop_avoidance.h
