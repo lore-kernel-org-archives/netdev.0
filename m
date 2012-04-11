@@ -1,90 +1,179 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH 05/10] net: move destructor_arg to the front of sk_buff.
-Date: Wed, 11 Apr 2012 09:31:38 -0700
-Message-ID: <4F85B1EA.9000600@intel.com>
-References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>  <1334067984-7706-5-git-send-email-ian.campbell@citrix.com>  <4F847CF9.3090701@intel.com> <1334083265.5300.288.camel@edumazet-glaptop>  <4F8486E7.5050604@intel.com> <1334131241.12209.199.camel@dagon.hellion.org.uk>
+From: Stuart Hodgson <smhodgson@solarflare.com>
+Subject: Re: [RFC PATCH 1/2] net: ethtool: Add capability to retrieve plug-in
+ module EEPROM
+Date: Wed, 11 Apr 2012 17:50:01 +0100
+Message-ID: <4F85B639.5090900@solarflare.com>
+References: <4F71FE0A.3060203@solarflare.com> <1333389160.2623.30.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"Wei Liu (Intern)" <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:11119 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760638Ab2DKQbt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Apr 2012 12:31:49 -0400
-In-Reply-To: <1334131241.12209.199.camel@dagon.hellion.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <bruce.w.allan@intel.com>,
+	<mirq-linux@rere.qmqm.pl>, <decot@google.com>,
+	<amit.salecha@qlogic.com>, <alexander.h.duyck@intel.com>,
+	<davem@davemloft.net>, <linux-kernel@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1333389160.2623.30.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/11/2012 01:00 AM, Ian Campbell wrote:
-> On Tue, 2012-04-10 at 20:15 +0100, Alexander Duyck wrote:
->> On 04/10/2012 11:41 AM, Eric Dumazet wrote:
->>> On Tue, 2012-04-10 at 11:33 -0700, Alexander Duyck wrote:
->>>
->>>> Have you checked this for 32 bit as well as 64?  Based on my math your
->>>> next patch will still mess up the memset on 32 bit with the structure
->>>> being split somewhere just in front of hwtstamps.
->>>>
->>>> Why not just take frags and move it to the start of the structure?  It
->>>> is already an unknown value because it can be either 16 or 17 depending
->>>> on the value of PAGE_SIZE, and since you are making changes to frags the
->>>> changes wouldn't impact the alignment of the other values later on since
->>>> you are aligning the end of the structure.  That way you would be
->>>> guaranteed that all of the fields that will be memset would be in the
->>>> last 64 bytes.
->>>>
->>> Now when a fragmented packet is copied in pskb_expand_head(), you access
->>> two separate zones of memory to copy the shinfo. But its supposed to be
->>> slow path.
->>>
->>> Problem with this is that the offsets of often used fields will be big
->>> (instead of being < 127) and code will be bigger on x86.
->> Actually now that I think about it my concerns go much further than the
->> memset.  I'm convinced that this is going to cause a pretty significant
->> performance regression on multiple drivers, especially on non x86_64
->> architecture.  What we have right now on most platforms is a
->> skb_shared_info structure in which everything up to and including frag 0
->> is all in one cache line.  This gives us pretty good performance for igb
->> and ixgbe since that is our common case when jumbo frames are not
->> enabled is to split the head and place the data in a page.
-> With all the changes in this series it is still possible to fit a
-> maximum standard MTU frame and the shinfo on the same 4K page while also
-> have the skb_shared_info up to and including frag [0] aligned to the
-> same 64 byte cache line. 
+On 02/04/12 18:52, Ben Hutchings wrote:
+> We previously discussed the need for this in person, so I'm going to
+> review this as a submission rather than an RFC.
 >
-> The only exception is destructor_arg on 64 bit which is on the preceding
-> cache line but that is not a field used in any hot path.
-The problem I have is that this is only true on x86_64.  Proper work
-hasn't been done to guarantee this on any other architectures.
-
-I think what I would like to see is instead of just setting things up
-and hoping it comes out cache aligned on nr_frags why not take steps to
-guarantee it?  You could do something like place and size the structure
-based on:
-SKB_DATA_ALIGN(sizeof(skb_shared_info) - offsetof(struct
-skb_shared_info, nr_frags)) + offsetof(struct skb_shared_info, nr_frags)
-
-That way you would have your alignment still guaranteed based off of the
-end of the structure, but anything placed before nr_frags would be
-placed on the end of the previous cache line.
-
->> However the change being recommend here only resolves the issue for one
->> specific architecture, and that is what I don't agree with.  What we
->> need is a solution that also works for 64K pages or 32 bit pointers and
->> I am fairly certain this current solution does not.
-> I think it does work for 32 bit pointers. What issue to do you see with
-> 64K pages?
+> On Tue, 2012-03-27 at 18:51 +0100, Stuart Hodgson wrote:
+>> Added extensions to the ethtool API to obtain plugin module eeprom data
+>> This is useful for end users to be able to determine what the capabilities
+>> of the in use module are.
+>>
+>> The first provides a new struct ethtool_modinfo that will return the
+>> type and size of plug-in module eeprom (such as SFP+) for parsing
+>> by userland program.
+>>
+>> The second provides the API to get the raw eeprom information
+>> using the existing ethtool_eeprom structture to return the data
+>>
+>> Signed-off-by: Stuart Hodgson<smhodgson@solarflare.com>
+>> ---
+>>    include/linux/ethtool.h |   20 ++++++++++++
+>>    net/core/ethtool.c      |   79
+>> +++++++++++++++++++++++++++++++++++++++++++++++
+>>    2 files changed, 99 insertions(+), 0 deletions(-)
 >
-> Ian.
-With 64K pages the MAX_SKB_FRAGS value drops from 17 to 16.  That will
-undoubtedly mess up the alignment.
+> This is line-wrapped; you'll need to take care to avoid that when
+> submitting the patch for real.  Tabs have been converted to spaces,
+> which you also need to avoid.  See Documentation/email-clients.txt.
+>
+>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>> index da5b2de..50eaf35 100644
+>> --- a/include/linux/ethtool.h
+>> +++ b/include/linux/ethtool.h
+>> @@ -117,6 +117,14 @@ struct ethtool_eeprom {
+>>        __u8    data[0];
+>>    };
+>>
+>> +/* for passing plug-in module information */
+>> +struct ethtool_modinfo {
+>> +    __u32   cmd;
+>> +    __u32   type;
+>> +    __u32   eeprom_len;
+>> +    __u32   reserved[8];
+>> +};
+>> +
+>
+> This needs a proper kernel-doc comment with a description of each of the
+> fields (except reserved).
+>
+>>    /**
+>>     * struct ethtool_coalesce - coalescing parameters for IRQs and stats
+>> updates
+>>     * @cmd: ETHTOOL_{G,S}COALESCE
+>> @@ -936,6 +944,10 @@ struct ethtool_ops {
+>>        int    (*get_dump_data)(struct net_device *,
+>>                     struct ethtool_dump *, void *);
+>>        int    (*set_dump)(struct net_device *, struct ethtool_dump *);
+>> +    int    (*get_module_info)(struct net_device *,
+>> +                   struct ethtool_modinfo *);
+>> +    int    (*get_module_eeprom)(struct net_device *,
+>> +                     struct ethtool_eeprom *, u8 *);
+>
+> These need to be described in the kernel-doc comment for this structure.
+>
+>>    };
+>>    #endif /* __KERNEL__ */
+>> @@ -1010,6 +1022,8 @@ struct ethtool_ops {
+>>    #define ETHTOOL_SET_DUMP    0x0000003e /* Set dump settings */
+>>    #define ETHTOOL_GET_DUMP_FLAG    0x0000003f /* Get dump settings */
+>>    #define ETHTOOL_GET_DUMP_DATA    0x00000040 /* Get dump data */
+>> +#define ETHTOOL_GMODULEINFO    0x00000041 /* Get plug-in module
+>> information */
+>> +#define ETHTOOL_GMODULEEEPROM    0x00000042 /* Get plug-in module eeprom */
+>>
+>>    /* compatibility with older code */
+>>    #define SPARC_ETH_GSET        ETHTOOL_GSET
+>> @@ -1159,6 +1173,12 @@ struct ethtool_ops {
+>>    #define RX_CLS_LOC_FIRST    0xfffffffe
+>>    #define RX_CLS_LOC_LAST        0xfffffffd
+>>
+>> +/* EEPROM Standards for plug in modules */
+>> +#define SFF_8079        0x1
+>> +#define SFF_8079_LEN        256
+>> +#define SFF_8472        0x2
+>> +#define SFF_8472_LEN        512
+>> +
+>
+> I think it's best to include a prefix of 'ethtool_' 'ETHTOOL_' or 'ETH_'
+> in new definitions in ethtool.h.  Since these are specific to modules I
+> would suggest a prefix of 'ETH_MODULE_'.
+>
+>>    /* Reset flags */
+>>    /* The reset() operation must clear the flags for the components which
+>>     * were actually reset.  On successful return, the flags indicate the
+>> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+>> index 3f79db1..1e86bd9 100644
+>> --- a/net/core/ethtool.c
+>> +++ b/net/core/ethtool.c
+> [...]
+>> +static int ethtool_get_module_eeprom(struct net_device *dev,
+>> +        void __user *useraddr)
+>> +{
+>> +    int ret;
+>> +    struct ethtool_eeprom eeprom;
+>> +    struct ethtool_modinfo modinfo;
+>> +    const struct ethtool_ops *ops = dev->ethtool_ops;
+>> +    void __user *userbuf = useraddr + sizeof(eeprom);
+>> +    u8 *data;
+>> +
+>> +    if (!ops->get_module_info || !ops->get_module_eeprom)
+>> +        return -EOPNOTSUPP;
+>> +
+>> +    if (copy_from_user(&eeprom, useraddr, sizeof(eeprom)))
+>> +        return -EFAULT;
+>> +
+>> +    /* Check for wrap and zero */
+>> +    if (eeprom.offset + eeprom.len<= eeprom.offset)
+>> +        return -EINVAL;
+>> +
+>> +    /* Get the modinfo to get the length */
+>> +    ret = ops->get_module_info(dev,&modinfo);
+>> +    if (ret)
+>> +        return ret;
+>> +
+>> +    if (eeprom.offset + eeprom.len>  modinfo.eeprom_len)
+>> +        return -EINVAL;
+>> +
+>> +    data = kmalloc(PAGE_SIZE, GFP_USER);
+>> +    if (!data)
+>> +        return -ENOMEM;
+>
+> What if some device has a larger EEPROM?  Surely this length should be
+> eeprom.len.
+>
 
-Thanks,
+Do you mean what if the eeprom length in te device is larger than
+PAGE_SIZE? If so then it should really use modinfo.eeprom_len since
+this the size of the data. eeprom.len could be arbitary.
 
-Alex
+>> +    ret = ops->get_module_eeprom(dev,&eeprom, data);
+>> +    if (ret)
+>> +        goto out;
+>> +
+>> +
+>> +    if (copy_to_user(userbuf, data, eeprom.len)) {
+>> +        ret = -EFAULT;
+>> +        goto out;
+>> +    }
+>> +
+>> +    if (copy_to_user(useraddr,&eeprom, sizeof(eeprom)))
+>> +        ret = -EFAULT;
+> [...]
+>
+> I think you can drop this last copy as there's no information to return
+> in the eeprom structure itself.
+>
+> Ben.
+>
+
+Other comments have been addressed and will be re-submitted.
+
+Stu
