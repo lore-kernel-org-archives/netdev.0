@@ -1,216 +1,95 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v2] Lockd: pass network namespace to creation and
- destruction routines
-Date: Wed, 11 Apr 2012 17:32:45 -0400
-Message-ID: <20120411213245.GD31706@fieldses.org>
-References: <20120329145421.31911.65512.stgit@localhost6.localdomain6>
- <20120411161114.GB28928@fieldses.org>
- <4F85AD54.6000806@parallels.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
+Date: Thu, 12 Apr 2012 00:52:12 +0300
+Message-ID: <20120411215212.GA27550@redhat.com>
+References: <20120408171323.GA16012@redhat.com>
+ <1334044558.3126.5.camel@edumazet-glaptop>
+ <20120410084151.GA27193@redhat.com>
+ <1334048100.3126.21.camel@edumazet-glaptop>
+ <20120410093140.GA27651@redhat.com>
+ <1334052259.3126.68.camel@edumazet-glaptop>
+ <20120410112459.GA28825@redhat.com>
+ <1334058300.3126.99.camel@edumazet-glaptop>
+ <20120410124151.GA29808@redhat.com>
+ <1334065929.5300.40.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4F85AD54.6000806-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1334065929.5300.40.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 11, 2012 at 08:12:04PM +0400, Stanislav Kinsbursky wrote:
-> 11.04.2012 20:11, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >On Thu, Mar 29, 2012 at 06:54:33PM +0400, Stanislav Kinsbursky wrote=
-:
-> >>v2: dereference of most probably already released nlm_host removed =
-in
-> >>nlmclnt_done() and reclaimer().
-> >
-> >Did you want this in Trond's tree or mine?
-> >
->=20
-> Your tree is preferred since I'm working with it.
+On Tue, Apr 10, 2012 at 03:52:09PM +0200, Eric Dumazet wrote:
+> On Tue, 2012-04-10 at 15:41 +0300, Michael S. Tsirkin wrote:
+> 
+> > I think it's a bad interface too but it's in a userspace ABI
+> > now so I suspect we are stuck with it for now. We can try deprecating
+> > but we can't just drop it.
+> > 
+> 
+> By the way, skb orphaning should already be done in skb_orphan_try(),
+> not sure why its done again in tun_net_xmit(). Note we perform orphaning
+> right before giving skb to device on premise it'll be sent (and freed)
+> in a reasonable amount of time.
+> 
+> 
+> With following patch, no more qdisc on top of tun device, yet user can
+> change the limit (I would be curious to know if anybody changes tun
+> txqueuelen and why)
 
-OK, applying.--b.
+Following would makes the default visible with SIOCGIFTXQLEN
+same as it was + avoid branch on data path.
+Didn't have time to test yet - it should achieve
+same purpose, shouldn't it?
+Or do I misunderstand how it's designed to work?
 
->=20
-> >--b.
-> >
-> >>
-> >>These routines are called from locks reclaimer() kernel thread. Thi=
-s thread
-> >>works in "init_net" network context and currently relays on persenc=
-e on lockd
-> >>thread and it's per-net resources. Thus lockd_up() and lockd_down()=
- can't relay
-> >>on current network context. So let's pass corrent one into them.
-> >>
-> >>Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> >>
-> >>Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> >>
-> >>---
-> >>  fs/lockd/clntlock.c        |   13 ++++++++-----
-> >>  fs/lockd/svc.c             |    7 +++----
-> >>  fs/nfsd/nfssvc.c           |    6 +++---
-> >>  include/linux/lockd/bind.h |    4 ++--
-> >>  4 files changed, 16 insertions(+), 14 deletions(-)
-> >>
-> >>diff --git a/fs/lockd/clntlock.c b/fs/lockd/clntlock.c
-> >>index ba1dc2e..ca0a080 100644
-> >>--- a/fs/lockd/clntlock.c
-> >>+++ b/fs/lockd/clntlock.c
-> >>@@ -56,7 +56,7 @@ struct nlm_host *nlmclnt_init(const struct nlmcln=
-t_initdata *nlm_init)
-> >>  	u32 nlm_version =3D (nlm_init->nfs_version =3D=3D 2) ? 1 : 4;
-> >>  	int status;
-> >>
-> >>-	status =3D lockd_up();
-> >>+	status =3D lockd_up(nlm_init->net);
-> >>  	if (status<  0)
-> >>  		return ERR_PTR(status);
-> >>
-> >>@@ -65,7 +65,7 @@ struct nlm_host *nlmclnt_init(const struct nlmcln=
-t_initdata *nlm_init)
-> >>  				   nlm_init->hostname, nlm_init->noresvport,
-> >>  				   nlm_init->net);
-> >>  	if (host =3D=3D NULL) {
-> >>-		lockd_down();
-> >>+		lockd_down(nlm_init->net);
-> >>  		return ERR_PTR(-ENOLCK);
-> >>  	}
-> >>
-> >>@@ -80,8 +80,10 @@ EXPORT_SYMBOL_GPL(nlmclnt_init);
-> >>   */
-> >>  void nlmclnt_done(struct nlm_host *host)
-> >>  {
-> >>+	struct net *net =3D host->net;
-> >>+
-> >>  	nlmclnt_release_host(host);
-> >>-	lockd_down();
-> >>+	lockd_down(net);
-> >>  }
-> >>  EXPORT_SYMBOL_GPL(nlmclnt_done);
-> >>
-> >>@@ -220,11 +222,12 @@ reclaimer(void *ptr)
-> >>  	struct nlm_wait	  *block;
-> >>  	struct file_lock *fl, *next;
-> >>  	u32 nsmstate;
-> >>+	struct net *net =3D host->net;
-> >>
-> >>  	allow_signal(SIGKILL);
-> >>
-> >>  	down_write(&host->h_rwsem);
-> >>-	lockd_up();	/* note: this cannot fail as lockd is already running=
- */
-> >>+	lockd_up(net);	/* note: this cannot fail as lockd is already runn=
-ing */
-> >>
-> >>  	dprintk("lockd: reclaiming locks for host %s\n", host->h_name);
-> >>
-> >>@@ -275,6 +278,6 @@ restart:
-> >>
-> >>  	/* Release host handle after use */
-> >>  	nlmclnt_release_host(host);
-> >>-	lockd_down();
-> >>+	lockd_down(net);
-> >>  	return 0;
-> >>  }
-> >>diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
-> >>index b34100e..ce4c80e 100644
-> >>--- a/fs/lockd/svc.c
-> >>+++ b/fs/lockd/svc.c
-> >>@@ -295,11 +295,10 @@ static void lockd_down_net(struct net *net)
-> >>  /*
-> >>   * Bring up the lockd process if it's not already up.
-> >>   */
-> >>-int lockd_up(void)
-> >>+int lockd_up(struct net *net)
-> >>  {
-> >>  	struct svc_serv *serv;
-> >>  	int		error =3D 0;
-> >>-	struct net *net =3D current->nsproxy->net_ns;
-> >>
-> >>  	mutex_lock(&nlmsvc_mutex);
-> >>  	/*
-> >>@@ -377,12 +376,12 @@ EXPORT_SYMBOL_GPL(lockd_up);
-> >>   * Decrement the user count and bring down lockd if we're the las=
-t.
-> >>   */
-> >>  void
-> >>-lockd_down(void)
-> >>+lockd_down(struct net *net)
-> >>  {
-> >>  	mutex_lock(&nlmsvc_mutex);
-> >>  	if (nlmsvc_users) {
-> >>  		if (--nlmsvc_users) {
-> >>-			lockd_down_net(current->nsproxy->net_ns);
-> >>+			lockd_down_net(net);
-> >>  			goto out;
-> >>  		}
-> >>  	} else {
-> >>diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
-> >>index fce472f..0f3e35b 100644
-> >>--- a/fs/nfsd/nfssvc.c
-> >>+++ b/fs/nfsd/nfssvc.c
-> >>@@ -220,7 +220,7 @@ static int nfsd_startup(unsigned short port, in=
-t nrservs)
-> >>  	ret =3D nfsd_init_socks(port);
-> >>  	if (ret)
-> >>  		goto out_racache;
-> >>-	ret =3D lockd_up();
-> >>+	ret =3D lockd_up(&init_net);
-> >>  	if (ret)
-> >>  		goto out_racache;
-> >>  	ret =3D nfs4_state_start();
-> >>@@ -229,7 +229,7 @@ static int nfsd_startup(unsigned short port, in=
-t nrservs)
-> >>  	nfsd_up =3D true;
-> >>  	return 0;
-> >>  out_lockd:
-> >>-	lockd_down();
-> >>+	lockd_down(&init_net);
-> >>  out_racache:
-> >>  	nfsd_racache_shutdown();
-> >>  	return ret;
-> >>@@ -246,7 +246,7 @@ static void nfsd_shutdown(void)
-> >>  	if (!nfsd_up)
-> >>  		return;
-> >>  	nfs4_state_shutdown();
-> >>-	lockd_down();
-> >>+	lockd_down(&init_net);
-> >>  	nfsd_racache_shutdown();
-> >>  	nfsd_up =3D false;
-> >>  }
-> >>diff --git a/include/linux/lockd/bind.h b/include/linux/lockd/bind.=
-h
-> >>index 11a966e..4d24d64 100644
-> >>--- a/include/linux/lockd/bind.h
-> >>+++ b/include/linux/lockd/bind.h
-> >>@@ -54,7 +54,7 @@ extern void	nlmclnt_done(struct nlm_host *host);
-> >>
-> >>  extern int	nlmclnt_proc(struct nlm_host *host, int cmd,
-> >>  					struct file_lock *fl);
-> >>-extern int	lockd_up(void);
-> >>-extern void	lockd_down(void);
-> >>+extern int	lockd_up(struct net *net);
-> >>+extern void	lockd_down(struct net *net);
-> >>
-> >>  #endif /* LINUX_LOCKD_BIND_H */
-> >>
->=20
->=20
-> --=20
-> Best regards,
-> Stanislav Kinsbursky
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index bb8c72c..418abd1 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -521,7 +521,6 @@ static void tun_net_init(struct net_device *dev)
+ 		/* Zero header length */
+ 		dev->type = ARPHRD_NONE;
+ 		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+-		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
+ 		break;
+ 
+ 	case TUN_TAP_DEV:
+@@ -531,10 +530,9 @@ static void tun_net_init(struct net_device *dev)
+ 		dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ 
+ 		eth_hw_addr_random(dev);
+-
+-		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
+ 		break;
+ 	}
++	dev->tx_queue_len = 0;  /* Disable qdisc queueing */
+ }
+ 
+ /* Character device part */
+@@ -1143,6 +1141,12 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		if (err < 0)
+ 			goto err_free_sk;
+ 
++		/*
++		 * We (ab)use queue length to limit our amount of buffering.
++		 * Set our own default queue length.
++		 */
++		dev->tx_queue_len = TUN_READQ_SIZE;
++
+ 		if (device_create_file(&tun->dev->dev, &dev_attr_tun_flags) ||
+ 		    device_create_file(&tun->dev->dev, &dev_attr_owner) ||
+ 		    device_create_file(&tun->dev->dev, &dev_attr_group))
