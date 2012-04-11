@@ -1,42 +1,155 @@
-From: Gioacchino Mazzurco <gmazzurco89-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-04-11
-Date: Wed, 11 Apr 2012 16:43:43 +0200
-Message-ID: <4F85989F.6030802@gmail.com>
-References: <20120411130301.GD19365@ritirata.org>
-	<20120411.095809.861355939666821335.davem@davemloft.net>
-	<20120411143102.GE19365@ritirata.org>
-	<20120411.103933.846397076858317541.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next PATCH v1 1/7] net: add generic PF_BRIDGE:RTM_ FDB hooks
+Date: Wed, 11 Apr 2012 07:45:46 -0700
+Message-ID: <4F85991A.5030808@intel.com>
+References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>  <20120409220017.3288.13746.stgit@jf-dev1-dcblab> <1334114599.7150.361.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20120411.103933.846397076858317541.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: roprabhu@cisco.com, mst@redhat.com, stephen.hemminger@vyatta.com,
+	davem@davemloft.net, hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gregory.v.rose@intel.com,
+	krkumar2@in.ibm.com, sri@us.ibm.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:31856 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755162Ab2DKOps (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2012 10:45:48 -0400
+In-Reply-To: <1334114599.7150.361.camel@deadeye>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is not like that for a lot of batman-adv users that works with
-embedded devices where even 10KB makes the dfference
+On 4/10/2012 8:23 PM, Ben Hutchings wrote:
+> On Mon, 2012-04-09 at 15:00 -0700, John Fastabend wrote:
+> [...]
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 1f77540..05822e5 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+> [...]
+>> @@ -905,6 +906,19 @@ struct netdev_fcoe_hbainfo {
+>>   *	feature set might be less than what was returned by ndo_fix_features()).
+>>   *	Must return >0 or -errno if it changed dev->features itself.
+>>   *
+>> + * int (*ndo_fdb_add)(struct ndmsg *ndm, struct net_device *dev,
+>> + *		      unsigned char *addr, u16 flags)
+>> + *	Adds an FDB entry to dev for addr. The ndmsg contains flags to indicate
+>> + *	if the dev->master FDB should be updated or the devices internal FDB.
+> 
+> I don't think the second sentence is helpful, as rtnl_fdb_add() will
+> take care of those flags.
+> 
+>> + * int (*ndo_fdb_del)(struct ndmsg *ndm, struct net_device *dev,
+>> + *		      unsigned char *addr)
+>> + *	Deletes the FDB entry from dev coresponding to addr. The ndmsg
+>> + *	contains flags to indicate if the dev->master FDB should be
+>> + *	updated or the devices internal FDB.
+> 
+> Similarly here.
 
-On 04/11/12 16:39, David Miller wrote:
-> From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-> Date: Wed, 11 Apr 2012 16:31:03 +0200
+agreed neither seem particularly helpful I'll remove them.
+
 > 
->> Actually we have either the Kconfig option (for binary size purposes) AND a
->> boolean attribute in our soft_interface sysfs path (to dynamically turn the
->> bridge loop avoidance ON and OFF as you were suggesting).
+>> + * int (*ndo_fdb_dump)(struct sk_buff *skb, struct netlink_callback *cb,
+>> + *		       struct net_device *dev, int idx)
+>> + *	Used to add FDB entries to dump requests. Implementers should add
+>> + *	entries to skb and update idx with the number of entries.
+>>   */
+> [...
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+> [...]
+>> +static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+>> +{
+> [...]
+>> +	err = -EOPNOTSUPP;
 > 
-> Distributions are just going to turn on everything, so for %99.999 of
-> users you really aren't saving anything.
+> So if NTF_MASTER and NTF_SELF are both set, we can quietly fall back to
+> just setting one FDB?  Not sure that's really desirable though 
+> 
+
+It makes it easier to keep an embedded agent and the sw bridge in
+sync if setting both flags adds the entry to both the SW bridge and
+embedded bridge. But the error case gets a bit tricky as your comments
+below indicate.
+
+>> +	/* Support fdb on master device the net/bridge default case */
+>> +	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
+>> +	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+>> +		struct net_device *master = dev->master;
+>> +
+>> +		if (master->netdev_ops->ndo_fdb_add)
+> 
+> This operation is surely going to be mandatory for bridge devices, so
+> this check should be omitted or changed to a BUG_ON().
+
+I'll just remove the check.
+
+> 
+>> +			err = master->netdev_ops->ndo_fdb_add(ndm, dev, addr,
+>> +							      nlh->nlmsg_flags);
+> 
+> Shoudn't we return early on error?
+
+Agreed better to return an err here.
+
+> 
+>> +	}
+>> +
+>> +	/* Embedded bridge, macvlan, and any other device support */
+>> +	if ((ndm->ndm_flags & NTF_SELF) &&
+>> +	    dev->netdev_ops->ndo_fdb_add)
+> 
+> Error if !dev->netdev_ops->ndo_fdb_add.
+> 
+>> +		err = dev->netdev_ops->ndo_fdb_add(ndm, dev, addr,
+>> +						   nlh->nlmsg_flags);
+> 
+> Wonder what we should do on error here if we've already successfully
+> called ndo_fdb_add on the master?  Should we try to roll back the first
+> addition?
+> 
+
+The problem with rolling back is the table is likely already updated and
+traffic may already be being forwarded. So I think in this case the user
+will have to query the device to learn what failed. It seems like the
+simplest way to handle this. I think it is unwanted to have traffic being
+forwarded one way for a short period of time then rolled back.
+
+The other idea I just had is we could clear the NTF_ bit in ndm_flags after
+the successful add, del command. I believe the nlmsg gets sent back to the
+user on error I would need to check on this.
+
+>> +	return err;
+>> +}
+>> +
+>> +static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+>> +{
+> [...]
+>> +	err = -EOPNOTSUPP;
+>> +
+>> +	/* Support fdb on master device the net/bridge default case */
+>> +	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
+>> +	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+>> +		struct net_device *master = dev->master;
+>> +
+>> +		if (master->netdev_ops->ndo_fdb_del)
+>> +			err = master->netdev_ops->ndo_fdb_del(ndm, dev, addr);
+>> +	}
+>> +
+>> +	/* Embedded bridge, macvlan, and any other device support */
+>> +	if ((ndm->ndm_flags & NTF_SELF) &&
+>> +	    dev->netdev_ops->ndo_fdb_del)
+>> +		err = dev->netdev_ops->ndo_fdb_del(ndm, dev, addr);
+>> +	return err;
+>> +}
+> [...]
+> 
+> This has the same issues.
+> 
+
+same comment as above
+
+> Ben.
+> 
