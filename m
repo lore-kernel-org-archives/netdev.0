@@ -1,292 +1,320 @@
-From: greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org
-Subject: [PATCH 09/10] ath9k: Add more recv stats.
-Date: Wed, 11 Apr 2012 10:52:17 -0700
-Message-ID: <1334166738-28243-10-git-send-email-greearb@candelatech.com>
+From: greearb@candelatech.com
+Subject: [PATCH 10/10] ath9k: Gather and report IRQ sync_cause errors.
+Date: Wed, 11 Apr 2012 10:52:18 -0700
+Message-ID: <1334166738-28243-11-git-send-email-greearb@candelatech.com>
 References: <1334166738-28243-1-git-send-email-greearb@candelatech.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1334166738-28243-1-git-send-email-greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ben Greear <greearb@candelatech.com>
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:40916 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756869Ab2DKRy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2012 13:54:29 -0400
+In-Reply-To: <1334166738-28243-1-git-send-email-greearb@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+From: Ben Greear <greearb@candelatech.com>
 
-This adds counters in various places that can drop packets on
-rx without otherwise incrementing a counter.  It also counts
-some non-error cases, such as becons and fragments received.
+Report all defined sync_cause errors in debugfs
+to aid with debugging.
 
-Should help with figuring out where packets are (and are not)
-dropped.
-
-Signed-off-by: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 186efc5... 189ac7f... M	drivers/net/wireless/ath/ath9k/debug.c
-:100644 100644 fe2b487... 17f6cc2... M	drivers/net/wireless/ath/ath9k/debug.h
-:100644 100644 8588017... 301ef3e... M	drivers/net/wireless/ath/ath9k/recv.c
- drivers/net/wireless/ath/ath9k/debug.c |   53 ++++++++++++++------------------
- drivers/net/wireless/ath/ath9k/debug.h |   18 +++++++++++
- drivers/net/wireless/ath/ath9k/recv.c  |   35 +++++++++++++++-----
- 3 files changed, 67 insertions(+), 39 deletions(-)
+:100644 100644 aa2abaf... 8d78253... M	drivers/net/wireless/ath/ath9k/ar9002_mac.c
+:100644 100644 a66a13b... d9e0824... M	drivers/net/wireless/ath/ath9k/ar9003_mac.c
+:100644 100644 189ac7f... 1bd7204... M	drivers/net/wireless/ath/ath9k/debug.c
+:100644 100644 17f6cc2... c34da09... M	drivers/net/wireless/ath/ath9k/debug.h
+:100644 100644 d1345a8... 61b2157... M	drivers/net/wireless/ath/ath9k/hw.c
+:100644 100644 aa1680a... fba99ef... M	drivers/net/wireless/ath/ath9k/hw.h
+ drivers/net/wireless/ath/ath9k/ar9002_mac.c |    1 +
+ drivers/net/wireless/ath/ath9k/ar9003_mac.c |    2 +
+ drivers/net/wireless/ath/ath9k/debug.c      |  113 ++++++++++++++------------
+ drivers/net/wireless/ath/ath9k/debug.h      |   23 ++++++
+ drivers/net/wireless/ath/ath9k/hw.c         |   49 ++++++++++++
+ drivers/net/wireless/ath/ath9k/hw.h         |    6 ++
+ 6 files changed, 142 insertions(+), 52 deletions(-)
 
+diff --git a/drivers/net/wireless/ath/ath9k/ar9002_mac.c b/drivers/net/wireless/ath/ath9k/ar9002_mac.c
+index aa2abaf..8d78253 100644
+--- a/drivers/net/wireless/ath/ath9k/ar9002_mac.c
++++ b/drivers/net/wireless/ath/ath9k/ar9002_mac.c
+@@ -136,6 +136,7 @@ static bool ar9002_hw_get_isr(struct ath_hw *ah, enum ath9k_int *masked)
+ 	}
+ 
+ 	if (sync_cause) {
++		ath9k_debug_sync_cause(common, sync_cause);
+ 		fatal_int =
+ 			(sync_cause &
+ 			 (AR_INTR_SYNC_HOST1_FATAL | AR_INTR_SYNC_HOST1_PERR))
+diff --git a/drivers/net/wireless/ath/ath9k/ar9003_mac.c b/drivers/net/wireless/ath/ath9k/ar9003_mac.c
+index a66a13b..d9e0824 100644
+--- a/drivers/net/wireless/ath/ath9k/ar9003_mac.c
++++ b/drivers/net/wireless/ath/ath9k/ar9003_mac.c
+@@ -306,6 +306,8 @@ static bool ar9003_hw_get_isr(struct ath_hw *ah, enum ath9k_int *masked)
+ 		ar9003_mci_get_isr(ah, masked);
+ 
+ 	if (sync_cause) {
++		ath9k_debug_sync_cause(common, sync_cause);
++
+ 		if (sync_cause & AR_INTR_SYNC_RADM_CPL_TIMEOUT) {
+ 			REG_WRITE(ah, AR_RC, AR_RC_HOSTIF);
+ 			REG_WRITE(ah, AR_RC, 0);
 diff --git a/drivers/net/wireless/ath/ath9k/debug.c b/drivers/net/wireless/ath/ath9k/debug.c
-index 186efc5..189ac7f 100644
+index 189ac7f..1bd7204 100644
 --- a/drivers/net/wireless/ath/ath9k/debug.c
 +++ b/drivers/net/wireless/ath/ath9k/debug.c
-@@ -881,36 +881,27 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
- 	len += snprintf(buf + len, size - len, "%22s : %10u\n", s, \
- 			sc->debug.stats.rxstats.phy_err_stats[p]);
- 
-+#define RXS_ERR(s, e)				\
-+	len += snprintf(buf + len, size - len,	\
-+			"%22s : %10u\n", s, \
-+			sc->debug.stats.rxstats.e);
-+
- 	struct ath_softc *sc = file->private_data;
- 	char *buf;
--	unsigned int len = 0, size = 1600;
-+	unsigned int len = 0, size = 3000;
- 	ssize_t retval = 0;
- 
- 	buf = kzalloc(size, GFP_KERNEL);
- 	if (buf == NULL)
- 		return -ENOMEM;
- 
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "CRC ERR",
--			sc->debug.stats.rxstats.crc_err);
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "DECRYPT CRC ERR",
--			sc->debug.stats.rxstats.decrypt_crc_err);
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "PHY ERR",
--			sc->debug.stats.rxstats.phy_err);
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "MIC ERR",
--			sc->debug.stats.rxstats.mic_err);
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "PRE-DELIM CRC ERR",
--			sc->debug.stats.rxstats.pre_delim_crc_err);
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "POST-DELIM CRC ERR",
--			sc->debug.stats.rxstats.post_delim_crc_err);
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "DECRYPT BUSY ERR",
--			sc->debug.stats.rxstats.decrypt_busy_err);
-+	RXS_ERR("CRC ERR", crc_err);
-+	RXS_ERR("DECRYPT CRC ERR", decrypt_crc_err);
-+	RXS_ERR("PHY ERR", phy_err);
-+	RXS_ERR("MIC ERR", mic_err);
-+	RXS_ERR("PRE-DELIM CRC ERR", pre_delim_crc_err);
-+	RXS_ERR("POST-DELIM CRC ERR", post_delim_crc_err);
-+	RXS_ERR("DECRYPT BUSY ERR", decrypt_busy_err);
- 
- 	PHY_ERR("UNDERRUN ERR", ATH9K_PHYERR_UNDERRUN);
- 	PHY_ERR("TIMING ERR", ATH9K_PHYERR_TIMING);
-@@ -939,12 +930,16 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
- 	PHY_ERR("HT-LENGTH ERR", ATH9K_PHYERR_HT_LENGTH_ILLEGAL);
- 	PHY_ERR("HT-RATE ERR", ATH9K_PHYERR_HT_RATE_ILLEGAL);
- 
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "RX-Pkts-All",
--			sc->debug.stats.rxstats.rx_pkts_all);
--	len += snprintf(buf + len, size - len,
--			"%22s : %10u\n", "RX-Bytes-All",
--			sc->debug.stats.rxstats.rx_bytes_all);
-+	RXS_ERR("DECRYPT BUSY ERR", decrypt_busy_err);
-+	RXS_ERR("RX-LENGTH-ERR", rx_len_err);
-+	RXS_ERR("RX-OOM-ERR", rx_oom_err);
-+	RXS_ERR("RX-RATE-ERR", rx_rate_err);
-+	RXS_ERR("RX-DROP-RXFLUSH", rx_drop_rxflush);
-+	RXS_ERR("RX-TOO-MANY-FRAGS", rx_too_many_frags_err);
-+	RXS_ERR("RX-Pkts-All", rx_pkts_all);
-+	RXS_ERR("RX-Bytes-All", rx_bytes_all);
-+	RXS_ERR("RX-Beacons", rx_beacons);
-+	RXS_ERR("RX-Frags", rx_frags);
- 
- 	if (len > size)
- 		len = size;
-@@ -959,7 +954,6 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
- 
- void ath_debug_stat_rx(struct ath_softc *sc, struct ath_rx_status *rs)
+@@ -380,63 +380,72 @@ static ssize_t read_file_interrupt(struct file *file, char __user *user_buf,
+ 				   size_t count, loff_t *ppos)
  {
--#define RX_STAT_INC(c) sc->debug.stats.rxstats.c++
- #define RX_PHY_ERR_INC(c) sc->debug.stats.rxstats.phy_err_stats[c]++
- #define RX_SAMP_DBG(c) (sc->debug.bb_mac_samp[sc->debug.sampidx].rs\
- 			[sc->debug.rsidx].c)
-@@ -1005,7 +999,6 @@ void ath_debug_stat_rx(struct ath_softc *sc, struct ath_rx_status *rs)
+ 	struct ath_softc *sc = file->private_data;
+-	char buf[512];
+ 	unsigned int len = 0;
++	int rv;
++	int mxlen = 4000;
++	char *buf = kmalloc(mxlen, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
++
++#define PR_IS(a, s)							\
++	len += snprintf(buf + len, mxlen - len,				\
++			"%21s: %10u\n", a, sc->debug.stats.istats.s);
  
- #endif
- 
--#undef RX_STAT_INC
- #undef RX_PHY_ERR_INC
- #undef RX_SAMP_DBG
+ 	if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_EDMA) {
+-		len += snprintf(buf + len, sizeof(buf) - len,
+-			"%8s: %10u\n", "RXLP", sc->debug.stats.istats.rxlp);
+-		len += snprintf(buf + len, sizeof(buf) - len,
+-			"%8s: %10u\n", "RXHP", sc->debug.stats.istats.rxhp);
+-		len += snprintf(buf + len, sizeof(buf) - len,
+-			"%8s: %10u\n", "WATCHDOG",
+-			sc->debug.stats.istats.bb_watchdog);
++		PR_IS("RXLP", rxlp);
++		PR_IS("RXHP", rxhp);
++		PR_IS("WATHDOG", bb_watchdog);
+ 	} else {
+-		len += snprintf(buf + len, sizeof(buf) - len,
+-			"%8s: %10u\n", "RX", sc->debug.stats.istats.rxok);
++		PR_IS("RX", rxok);
+ 	}
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "RXEOL", sc->debug.stats.istats.rxeol);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "RXORN", sc->debug.stats.istats.rxorn);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "TX", sc->debug.stats.istats.txok);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "TXURN", sc->debug.stats.istats.txurn);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "MIB", sc->debug.stats.istats.mib);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "RXPHY", sc->debug.stats.istats.rxphyerr);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "RXKCM", sc->debug.stats.istats.rx_keycache_miss);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "SWBA", sc->debug.stats.istats.swba);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "BMISS", sc->debug.stats.istats.bmiss);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "BNR", sc->debug.stats.istats.bnr);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "CST", sc->debug.stats.istats.cst);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "GTT", sc->debug.stats.istats.gtt);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "TIM", sc->debug.stats.istats.tim);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "CABEND", sc->debug.stats.istats.cabend);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "DTIMSYNC", sc->debug.stats.istats.dtimsync);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "DTIM", sc->debug.stats.istats.dtim);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "TSFOOR", sc->debug.stats.istats.tsfoor);
+-	len += snprintf(buf + len, sizeof(buf) - len,
+-		"%8s: %10u\n", "TOTAL", sc->debug.stats.istats.total);
+-
+-
+-	if (len > sizeof(buf))
+-		len = sizeof(buf);
+-
+-	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
++	PR_IS("RXEOL", rxeol);
++	PR_IS("RXORN", rxorn);
++	PR_IS("TX", txok);
++	PR_IS("TXURN", txurn);
++	PR_IS("MIB", mib);
++	PR_IS("RXPHY", rxphyerr);
++	PR_IS("RXKCM", rx_keycache_miss);
++	PR_IS("SWBA", swba);
++	PR_IS("BMISS", bmiss);
++	PR_IS("BNR", bnr);
++	PR_IS("CST", cst);
++	PR_IS("GTT", gtt);
++	PR_IS("TIM", tim);
++	PR_IS("CABEND", cabend);
++	PR_IS("DTIMSYNC", dtimsync);
++	PR_IS("DTIM", dtim);
++	PR_IS("TSFOOR", tsfoor);
++	PR_IS("TOTAL", total);
++
++	len += snprintf(buf + len, mxlen - len,
++			"SYNC_CAUSE stats:\n");
++
++	PR_IS("Sync-All", sync_cause_all);
++	PR_IS("RTC-IRQ", sync_rtc_irq);
++	PR_IS("MAC-IRQ", sync_mac_irq);
++	PR_IS("EEPROM-Illegal-Access", eeprom_illegal_access);
++	PR_IS("APB-Timeout", apb_timeout);
++	PR_IS("PCI-Mode-Conflict", pci_mode_conflict);
++	PR_IS("HOST1-Fatal", host1_fatal);
++	PR_IS("HOST1-Perr", host1_perr);
++	PR_IS("TRCV-FIFO-Perr", trcv_fifo_perr);
++	PR_IS("RADM-CPL-EP", radm_cpl_ep);
++	PR_IS("RADM-CPL-DLLP-Abort", radm_cpl_dllp_abort);
++	PR_IS("RADM-CPL-TLP-Abort", radm_cpl_tlp_abort);
++	PR_IS("RADM-CPL-ECRC-Err", radm_cpl_ecrc_err);
++	PR_IS("RADM-CPL-Timeout", radm_cpl_timeout);
++	PR_IS("Local-Bus-Timeout", local_timeout);
++	PR_IS("PM-Access", pm_access);
++	PR_IS("MAC-Awake", mac_awake);
++	PR_IS("MAC-Asleep", mac_asleep);
++	PR_IS("MAC-Sleep-Access", mac_sleep_access);
++
++	if (len > mxlen)
++		len = mxlen;
++
++	rv = simple_read_from_buffer(user_buf, count, ppos, buf, len);
++	kfree(buf);
++	return rv;
  }
+ 
+ static const struct file_operations fops_interrupt = {
 diff --git a/drivers/net/wireless/ath/ath9k/debug.h b/drivers/net/wireless/ath/ath9k/debug.h
-index fe2b487..17f6cc2 100644
+index 17f6cc2..c34da09 100644
 --- a/drivers/net/wireless/ath/ath9k/debug.h
 +++ b/drivers/net/wireless/ath/ath9k/debug.h
-@@ -139,6 +139,8 @@ struct ath_tx_stats {
- 	u32 txfailed;
+@@ -60,6 +60,7 @@ struct ath_buf;
+  * @tsfoor: TSF out of range, indicates that the corrected TSF received
+  * from a beacon differs from the PCU's internal TSF by more than a
+  * (programmable) threshold
++ * @local_timeout: Internal bus timeout.
+  */
+ struct ath_interrupt_stats {
+ 	u32 total;
+@@ -85,8 +86,30 @@ struct ath_interrupt_stats {
+ 	u32 dtim;
+ 	u32 bb_watchdog;
+ 	u32 tsfoor;
++
++	/* Sync-cause stats */
++	u32 sync_cause_all;
++	u32 sync_rtc_irq;
++	u32 sync_mac_irq;
++	u32 eeprom_illegal_access;
++	u32 apb_timeout;
++	u32 pci_mode_conflict;
++	u32 host1_fatal;
++	u32 host1_perr;
++	u32 trcv_fifo_perr;
++	u32 radm_cpl_ep;
++	u32 radm_cpl_dllp_abort;
++	u32 radm_cpl_tlp_abort;
++	u32 radm_cpl_ecrc_err;
++	u32 radm_cpl_timeout;
++	u32 local_timeout;
++	u32 pm_access;
++	u32 mac_awake;
++	u32 mac_asleep;
++	u32 mac_sleep_access;
  };
  
-+#define RX_STAT_INC(c) (sc->debug.stats.rxstats.c++)
 +
  /**
-  * struct ath_rx_stats - RX Statistics
-  * @rx_pkts_all:  No. of total frames received, including ones that
-@@ -155,6 +157,13 @@ struct ath_tx_stats {
-  * @post_delim_crc_err: Post-Frame delimiter CRC error detections
-  * @decrypt_busy_err: Decryption interruptions counter
-  * @phy_err_stats: Individual PHY error statistics
-+ * @rx_len_err:  No. of frames discarded due to bad length.
-+ * @rx_oom_err:  No. of frames dropped due to OOM issues.
-+ * @rx_rate_err:  No. of frames dropped due to rate errors.
-+ * @rx_too_many_frags_err:  Frames dropped due to too-many-frags received.
-+ * @rx_drop_rxflush: No. of frames dropped due to RX-FLUSH.
-+ * @rx_beacons:  No. of beacons received.
-+ * @rx_frags:  No. of rx-fragements received.
-  */
- struct ath_rx_stats {
- 	u32 rx_pkts_all;
-@@ -167,6 +176,13 @@ struct ath_rx_stats {
- 	u32 post_delim_crc_err;
- 	u32 decrypt_busy_err;
- 	u32 phy_err_stats[ATH9K_PHYERR_MAX];
-+	u32 rx_len_err;
-+	u32 rx_oom_err;
-+	u32 rx_rate_err;
-+	u32 rx_too_many_frags_err;
-+	u32 rx_drop_rxflush;
-+	u32 rx_beacons;
-+	u32 rx_frags;
- };
+  * struct ath_tx_stats - Statistics about TX
+  * @tx_pkts_all:  No. of total frames transmitted, including ones that
+diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath/ath9k/hw.c
+index d1345a8..61b2157 100644
+--- a/drivers/net/wireless/ath/ath9k/hw.c
++++ b/drivers/net/wireless/ath/ath9k/hw.c
+@@ -24,6 +24,8 @@
+ #include "rc.h"
+ #include "ar9003_mac.h"
+ #include "ar9003_mci.h"
++#include "debug.h"
++#include "ath9k.h"
  
- enum ath_reset_type {
-@@ -250,6 +266,8 @@ void ath_debug_stat_rx(struct ath_softc *sc, struct ath_rx_status *rs);
+ static bool ath9k_hw_set_reset_reg(struct ath_hw *ah, u32 type);
  
- #else
+@@ -83,6 +85,53 @@ static void ath9k_hw_ani_cache_ini_regs(struct ath_hw *ah)
+ /* Helper Functions */
+ /********************/
  
-+#define RX_STAT_INC(c) /* NOP */
++#ifdef CONFIG_ATH9K_DEBUGFS
 +
- static inline int ath9k_init_debug(struct ath_hw *ah)
++void ath9k_debug_sync_cause(struct ath_common *common, u32 sync_cause)
++{
++	struct ath_softc *sc = common->priv;
++	if (sync_cause)
++		sc->debug.stats.istats.sync_cause_all++;
++	if (sync_cause & AR_INTR_SYNC_RTC_IRQ)
++		sc->debug.stats.istats.sync_rtc_irq++;
++	if (sync_cause & AR_INTR_SYNC_MAC_IRQ)
++		sc->debug.stats.istats.sync_mac_irq++;
++	if (sync_cause & AR_INTR_SYNC_EEPROM_ILLEGAL_ACCESS)
++		sc->debug.stats.istats.eeprom_illegal_access++;
++	if (sync_cause & AR_INTR_SYNC_APB_TIMEOUT)
++		sc->debug.stats.istats.apb_timeout++;
++	if (sync_cause & AR_INTR_SYNC_PCI_MODE_CONFLICT)
++		sc->debug.stats.istats.pci_mode_conflict++;
++	if (sync_cause & AR_INTR_SYNC_HOST1_FATAL)
++		sc->debug.stats.istats.host1_fatal++;
++	if (sync_cause & AR_INTR_SYNC_HOST1_PERR)
++		sc->debug.stats.istats.host1_perr++;
++	if (sync_cause & AR_INTR_SYNC_TRCV_FIFO_PERR)
++		sc->debug.stats.istats.trcv_fifo_perr++;
++	if (sync_cause & AR_INTR_SYNC_RADM_CPL_EP)
++		sc->debug.stats.istats.radm_cpl_ep++;
++	if (sync_cause & AR_INTR_SYNC_RADM_CPL_DLLP_ABORT)
++		sc->debug.stats.istats.radm_cpl_dllp_abort++;
++	if (sync_cause & AR_INTR_SYNC_RADM_CPL_TLP_ABORT)
++		sc->debug.stats.istats.radm_cpl_tlp_abort++;
++	if (sync_cause & AR_INTR_SYNC_RADM_CPL_ECRC_ERR)
++		sc->debug.stats.istats.radm_cpl_ecrc_err++;
++	if (sync_cause & AR_INTR_SYNC_RADM_CPL_TIMEOUT)
++		sc->debug.stats.istats.radm_cpl_timeout++;
++	if (sync_cause & AR_INTR_SYNC_LOCAL_TIMEOUT)
++		sc->debug.stats.istats.local_timeout++;
++	if (sync_cause & AR_INTR_SYNC_PM_ACCESS)
++		sc->debug.stats.istats.pm_access++;
++	if (sync_cause & AR_INTR_SYNC_MAC_AWAKE)
++		sc->debug.stats.istats.mac_awake++;
++	if (sync_cause & AR_INTR_SYNC_MAC_ASLEEP)
++		sc->debug.stats.istats.mac_asleep++;
++	if (sync_cause & AR_INTR_SYNC_MAC_SLEEP_ACCESS)
++		sc->debug.stats.istats.mac_sleep_access++;
++}
++#endif
++
++
+ static void ath9k_hw_set_clockrate(struct ath_hw *ah)
  {
- 	return 0;
-diff --git a/drivers/net/wireless/ath/ath9k/recv.c b/drivers/net/wireless/ath/ath9k/recv.c
-index 8588017..301ef3e 100644
---- a/drivers/net/wireless/ath/ath9k/recv.c
-+++ b/drivers/net/wireless/ath/ath9k/recv.c
-@@ -824,15 +824,20 @@ static bool ath9k_rx_accept(struct ath_common *common,
- 	if (rx_stats->rs_keyix == ATH9K_RXKEYIX_INVALID)
- 		rx_stats->rs_status &= ~ATH9K_RXERR_KEYMISS;
+ 	struct ieee80211_conf *conf = &ath9k_hw_common(ah)->hw->conf;
+diff --git a/drivers/net/wireless/ath/ath9k/hw.h b/drivers/net/wireless/ath/ath9k/hw.h
+index aa1680a..fba99ef 100644
+--- a/drivers/net/wireless/ath/ath9k/hw.h
++++ b/drivers/net/wireless/ath/ath9k/hw.h
+@@ -965,6 +965,12 @@ bool ath9k_hw_check_alive(struct ath_hw *ah);
  
--	if (!rx_stats->rs_datalen)
-+	if (!rx_stats->rs_datalen) {
-+		RX_STAT_INC(rx_len_err);
- 		return false;
-+	}
+ bool ath9k_hw_setpower(struct ath_hw *ah, enum ath9k_power_mode mode);
+ 
++#ifdef CONFIG_ATH9K_DEBUGFS
++void ath9k_debug_sync_cause(struct ath_common *common, u32 sync_cause);
++#else
++static void ath9k_debug_sync_cause(struct ath_common *common, u32 sync_cause) {}
++#endif
 +
-         /*
-          * rs_status follows rs_datalen so if rs_datalen is too large
-          * we can take a hint that hardware corrupted it, so ignore
-          * those frames.
-          */
--	if (rx_stats->rs_datalen > (common->rx_bufsize - rx_status_len))
-+	if (rx_stats->rs_datalen > (common->rx_bufsize - rx_status_len)) {
-+		RX_STAT_INC(rx_len_err);
- 		return false;
-+	}
- 
- 	/* Only use error bits from the last fragment */
- 	if (rx_stats->rs_more)
-@@ -902,6 +907,7 @@ static int ath9k_process_rate(struct ath_common *common,
- 	struct ieee80211_supported_band *sband;
- 	enum ieee80211_band band;
- 	unsigned int i = 0;
-+	struct ath_softc *sc = (struct ath_softc *) common->priv;
- 
- 	band = hw->conf.channel->band;
- 	sband = hw->wiphy->bands[band];
-@@ -936,7 +942,7 @@ static int ath9k_process_rate(struct ath_common *common,
- 	ath_dbg(common, ANY,
- 		"unsupported hw bitrate detected 0x%02x using 1 Mbit\n",
- 		rx_stats->rs_rate);
--
-+	RX_STAT_INC(rx_rate_err);
- 	return -EINVAL;
- }
- 
-@@ -1823,10 +1829,14 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
- 
- 		hdr = (struct ieee80211_hdr *) (hdr_skb->data + rx_status_len);
- 		rxs = IEEE80211_SKB_RXCB(hdr_skb);
--		if (ieee80211_is_beacon(hdr->frame_control) &&
--		    !is_zero_ether_addr(common->curbssid) &&
--		    !compare_ether_addr(hdr->addr3, common->curbssid))
--			rs.is_mybeacon = true;
-+		if (ieee80211_is_beacon(hdr->frame_control)) {
-+			RX_STAT_INC(rx_beacons);
-+			if (!is_zero_ether_addr(common->curbssid) &&
-+			    !compare_ether_addr(hdr->addr3, common->curbssid))
-+				rs.is_mybeacon = true;
-+			else
-+				rs.is_mybeacon = false;
-+		}
- 		else
- 			rs.is_mybeacon = false;
- 
-@@ -1836,8 +1846,10 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
- 		 * If we're asked to flush receive queue, directly
- 		 * chain it back at the queue without processing it.
- 		 */
--		if (sc->sc_flags & SC_OP_RXFLUSH)
-+		if (sc->sc_flags & SC_OP_RXFLUSH) {
-+			RX_STAT_INC(rx_drop_rxflush);
- 			goto requeue_drop_frag;
-+		}
- 
- 		memset(rxs, 0, sizeof(struct ieee80211_rx_status));
- 
-@@ -1867,8 +1879,10 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
- 		 * tell hardware it can give us a new frame using the old
- 		 * skb and put it at the tail of the sc->rx.rxbuf list for
- 		 * processing. */
--		if (!requeue_skb)
-+		if (!requeue_skb) {
-+			RX_STAT_INC(rx_oom_err);
- 			goto requeue_drop_frag;
-+		}
- 
- 		/* Unmap the frame */
- 		dma_unmap_single(sc->dev, bf->bf_buf_addr,
-@@ -1899,6 +1913,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
- 		}
- 
- 		if (rs.rs_more) {
-+			RX_STAT_INC(rx_frags);
- 			/*
- 			 * rs_more indicates chained descriptors which can be
- 			 * used to link buffers together for a sort of
-@@ -1908,6 +1923,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
- 				/* too many fragments - cannot handle frame */
- 				dev_kfree_skb_any(sc->rx.frag);
- 				dev_kfree_skb_any(skb);
-+				RX_STAT_INC(rx_too_many_frags_err);
- 				skb = NULL;
- 			}
- 			sc->rx.frag = skb;
-@@ -1919,6 +1935,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
- 
- 			if (pskb_expand_head(hdr_skb, 0, space, GFP_ATOMIC) < 0) {
- 				dev_kfree_skb(skb);
-+				RX_STAT_INC(rx_oom_err);
- 				goto requeue_drop_frag;
- 			}
- 
+ /* Generic hw timer primitives */
+ struct ath_gen_timer *ath_gen_timer_alloc(struct ath_hw *ah,
+ 					  void (*trigger)(void *),
 -- 
 1.7.3.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
