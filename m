@@ -1,61 +1,216 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] can: usb: PCAN-USB Pro: fix mem leaks in pcan_usb_pro_init()
- on error paths
-Date: Wed, 11 Apr 2012 23:23:41 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1204112320310.2137@swampdragon.chaosbits.net>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v2] Lockd: pass network namespace to creation and
+ destruction routines
+Date: Wed, 11 Apr 2012 17:32:45 -0400
+Message-ID: <20120411213245.GD31706@fieldses.org>
+References: <20120329145421.31911.65512.stgit@localhost6.localdomain6>
+ <20120411161114.GB28928@fieldses.org>
+ <4F85AD54.6000806@parallels.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephane Grosjean <s.grosjean@peak-system.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4F85AD54.6000806-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-If either call to pcan_usb_pro_send_req() in
-drivers/net/can/usb/peak_usb/pcan_usb_pro.c::pcan_usb_pro_init()
-fails, we'll leak the memory we allocated to 'usb_if' with kzalloc()
-when the 'usb_if' variable goes out of scope without having been
-assigned to anything as we 'return err;'.
-Fix this by adding appropriate kfree(usb_if) calls to the error paths.
+On Wed, Apr 11, 2012 at 08:12:04PM +0400, Stanislav Kinsbursky wrote:
+> 11.04.2012 20:11, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> >On Thu, Mar 29, 2012 at 06:54:33PM +0400, Stanislav Kinsbursky wrote=
+:
+> >>v2: dereference of most probably already released nlm_host removed =
+in
+> >>nlmclnt_done() and reclaimer().
+> >
+> >Did you want this in Trond's tree or mine?
+> >
+>=20
+> Your tree is preferred since I'm working with it.
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/net/can/usb/peak_usb/pcan_usb_pro.c |    2 ++
- 1 file changed, 2 insertions(+)
+OK, applying.--b.
 
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-index 5234586..629c4ba 100644
---- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-@@ -875,6 +875,7 @@ static int pcan_usb_pro_init(struct peak_usb_device *dev)
- 					    PCAN_USBPRO_INFO_FW,
- 					    &fi, sizeof(fi));
- 		if (err) {
-+			kfree(usb_if);
- 			dev_err(dev->netdev->dev.parent,
- 				"unable to read %s firmware info (err %d)\n",
- 				pcan_usb_pro.name, err);
-@@ -885,6 +886,7 @@ static int pcan_usb_pro_init(struct peak_usb_device *dev)
- 					    PCAN_USBPRO_INFO_BL,
- 					    &bi, sizeof(bi));
- 		if (err) {
-+			kfree(usb_if);
- 			dev_err(dev->netdev->dev.parent,
- 				"unable to read %s bootloader info (err %d)\n",
- 				pcan_usb_pro.name, err);
--- 
-1.7.10
-
-
-
-(please CC me on replies)
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
-
+>=20
+> >--b.
+> >
+> >>
+> >>These routines are called from locks reclaimer() kernel thread. Thi=
+s thread
+> >>works in "init_net" network context and currently relays on persenc=
+e on lockd
+> >>thread and it's per-net resources. Thus lockd_up() and lockd_down()=
+ can't relay
+> >>on current network context. So let's pass corrent one into them.
+> >>
+> >>Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> >>
+> >>Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> >>
+> >>---
+> >>  fs/lockd/clntlock.c        |   13 ++++++++-----
+> >>  fs/lockd/svc.c             |    7 +++----
+> >>  fs/nfsd/nfssvc.c           |    6 +++---
+> >>  include/linux/lockd/bind.h |    4 ++--
+> >>  4 files changed, 16 insertions(+), 14 deletions(-)
+> >>
+> >>diff --git a/fs/lockd/clntlock.c b/fs/lockd/clntlock.c
+> >>index ba1dc2e..ca0a080 100644
+> >>--- a/fs/lockd/clntlock.c
+> >>+++ b/fs/lockd/clntlock.c
+> >>@@ -56,7 +56,7 @@ struct nlm_host *nlmclnt_init(const struct nlmcln=
+t_initdata *nlm_init)
+> >>  	u32 nlm_version =3D (nlm_init->nfs_version =3D=3D 2) ? 1 : 4;
+> >>  	int status;
+> >>
+> >>-	status =3D lockd_up();
+> >>+	status =3D lockd_up(nlm_init->net);
+> >>  	if (status<  0)
+> >>  		return ERR_PTR(status);
+> >>
+> >>@@ -65,7 +65,7 @@ struct nlm_host *nlmclnt_init(const struct nlmcln=
+t_initdata *nlm_init)
+> >>  				   nlm_init->hostname, nlm_init->noresvport,
+> >>  				   nlm_init->net);
+> >>  	if (host =3D=3D NULL) {
+> >>-		lockd_down();
+> >>+		lockd_down(nlm_init->net);
+> >>  		return ERR_PTR(-ENOLCK);
+> >>  	}
+> >>
+> >>@@ -80,8 +80,10 @@ EXPORT_SYMBOL_GPL(nlmclnt_init);
+> >>   */
+> >>  void nlmclnt_done(struct nlm_host *host)
+> >>  {
+> >>+	struct net *net =3D host->net;
+> >>+
+> >>  	nlmclnt_release_host(host);
+> >>-	lockd_down();
+> >>+	lockd_down(net);
+> >>  }
+> >>  EXPORT_SYMBOL_GPL(nlmclnt_done);
+> >>
+> >>@@ -220,11 +222,12 @@ reclaimer(void *ptr)
+> >>  	struct nlm_wait	  *block;
+> >>  	struct file_lock *fl, *next;
+> >>  	u32 nsmstate;
+> >>+	struct net *net =3D host->net;
+> >>
+> >>  	allow_signal(SIGKILL);
+> >>
+> >>  	down_write(&host->h_rwsem);
+> >>-	lockd_up();	/* note: this cannot fail as lockd is already running=
+ */
+> >>+	lockd_up(net);	/* note: this cannot fail as lockd is already runn=
+ing */
+> >>
+> >>  	dprintk("lockd: reclaiming locks for host %s\n", host->h_name);
+> >>
+> >>@@ -275,6 +278,6 @@ restart:
+> >>
+> >>  	/* Release host handle after use */
+> >>  	nlmclnt_release_host(host);
+> >>-	lockd_down();
+> >>+	lockd_down(net);
+> >>  	return 0;
+> >>  }
+> >>diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
+> >>index b34100e..ce4c80e 100644
+> >>--- a/fs/lockd/svc.c
+> >>+++ b/fs/lockd/svc.c
+> >>@@ -295,11 +295,10 @@ static void lockd_down_net(struct net *net)
+> >>  /*
+> >>   * Bring up the lockd process if it's not already up.
+> >>   */
+> >>-int lockd_up(void)
+> >>+int lockd_up(struct net *net)
+> >>  {
+> >>  	struct svc_serv *serv;
+> >>  	int		error =3D 0;
+> >>-	struct net *net =3D current->nsproxy->net_ns;
+> >>
+> >>  	mutex_lock(&nlmsvc_mutex);
+> >>  	/*
+> >>@@ -377,12 +376,12 @@ EXPORT_SYMBOL_GPL(lockd_up);
+> >>   * Decrement the user count and bring down lockd if we're the las=
+t.
+> >>   */
+> >>  void
+> >>-lockd_down(void)
+> >>+lockd_down(struct net *net)
+> >>  {
+> >>  	mutex_lock(&nlmsvc_mutex);
+> >>  	if (nlmsvc_users) {
+> >>  		if (--nlmsvc_users) {
+> >>-			lockd_down_net(current->nsproxy->net_ns);
+> >>+			lockd_down_net(net);
+> >>  			goto out;
+> >>  		}
+> >>  	} else {
+> >>diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
+> >>index fce472f..0f3e35b 100644
+> >>--- a/fs/nfsd/nfssvc.c
+> >>+++ b/fs/nfsd/nfssvc.c
+> >>@@ -220,7 +220,7 @@ static int nfsd_startup(unsigned short port, in=
+t nrservs)
+> >>  	ret =3D nfsd_init_socks(port);
+> >>  	if (ret)
+> >>  		goto out_racache;
+> >>-	ret =3D lockd_up();
+> >>+	ret =3D lockd_up(&init_net);
+> >>  	if (ret)
+> >>  		goto out_racache;
+> >>  	ret =3D nfs4_state_start();
+> >>@@ -229,7 +229,7 @@ static int nfsd_startup(unsigned short port, in=
+t nrservs)
+> >>  	nfsd_up =3D true;
+> >>  	return 0;
+> >>  out_lockd:
+> >>-	lockd_down();
+> >>+	lockd_down(&init_net);
+> >>  out_racache:
+> >>  	nfsd_racache_shutdown();
+> >>  	return ret;
+> >>@@ -246,7 +246,7 @@ static void nfsd_shutdown(void)
+> >>  	if (!nfsd_up)
+> >>  		return;
+> >>  	nfs4_state_shutdown();
+> >>-	lockd_down();
+> >>+	lockd_down(&init_net);
+> >>  	nfsd_racache_shutdown();
+> >>  	nfsd_up =3D false;
+> >>  }
+> >>diff --git a/include/linux/lockd/bind.h b/include/linux/lockd/bind.=
+h
+> >>index 11a966e..4d24d64 100644
+> >>--- a/include/linux/lockd/bind.h
+> >>+++ b/include/linux/lockd/bind.h
+> >>@@ -54,7 +54,7 @@ extern void	nlmclnt_done(struct nlm_host *host);
+> >>
+> >>  extern int	nlmclnt_proc(struct nlm_host *host, int cmd,
+> >>  					struct file_lock *fl);
+> >>-extern int	lockd_up(void);
+> >>-extern void	lockd_down(void);
+> >>+extern int	lockd_up(struct net *net);
+> >>+extern void	lockd_down(struct net *net);
+> >>
+> >>  #endif /* LINUX_LOCKD_BIND_H */
+> >>
+>=20
+>=20
+> --=20
+> Best regards,
+> Stanislav Kinsbursky
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
