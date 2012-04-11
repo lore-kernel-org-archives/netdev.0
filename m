@@ -1,52 +1,61 @@
 From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] ath6kl: fix memory leak in ath6kl_fwlog_block_read()
-Date: Wed, 11 Apr 2012 22:41:36 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1204112239070.2137@swampdragon.chaosbits.net>
+Subject: [PATCH] can: usb: PCAN-USB Pro: fix mem leaks in pcan_usb_pro_init()
+ on error paths
+Date: Wed, 11 Apr 2012 23:23:41 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1204112320310.2137@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Robert Love <rlove@google.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Kalle Valo <kvalo@qca.qualcomm.com>
-To: linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Stephane Grosjean <s.grosjean@peak-system.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If, in
-drivers/net/wireless/ath/ath6kl/debug.c::ath6kl_fwlog_block_read(),
-the call to wait_for_completion_interruptible() returns -ERESTARTSYS
-then we'll return without freeing the (as yet unused) memory we
-allocated for 'buf' - thus leaking it.
+If either call to pcan_usb_pro_send_req() in
+drivers/net/can/usb/peak_usb/pcan_usb_pro.c::pcan_usb_pro_init()
+fails, we'll leak the memory we allocated to 'usb_if' with kzalloc()
+when the 'usb_if' variable goes out of scope without having been
+assigned to anything as we 'return err;'.
+Fix this by adding appropriate kfree(usb_if) calls to the error paths.
 
 Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 ---
- drivers/net/wireless/ath/ath6kl/debug.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/wireless/ath/ath6kl/debug.c b/drivers/net/wireless/ath/ath6kl/debug.c
-index d01403a..34eb927 100644
---- a/drivers/net/wireless/ath/ath6kl/debug.c
-+++ b/drivers/net/wireless/ath/ath6kl/debug.c
-@@ -401,8 +401,10 @@ static ssize_t ath6kl_fwlog_block_read(struct file *file,
- 
- 		ret = wait_for_completion_interruptible(
- 			&ar->debug.fwlog_completion);
--		if (ret == -ERESTARTSYS)
-+		if (ret == -ERESTARTSYS) {
-+			vfree(buf);
- 			return ret;
-+		}
- 
- 		spin_lock(&ar->debug.fwlog_queue.lock);
- 	}
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+index 5234586..629c4ba 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
+@@ -875,6 +875,7 @@ static int pcan_usb_pro_init(struct peak_usb_device *dev)
+ 					    PCAN_USBPRO_INFO_FW,
+ 					    &fi, sizeof(fi));
+ 		if (err) {
++			kfree(usb_if);
+ 			dev_err(dev->netdev->dev.parent,
+ 				"unable to read %s firmware info (err %d)\n",
+ 				pcan_usb_pro.name, err);
+@@ -885,6 +886,7 @@ static int pcan_usb_pro_init(struct peak_usb_device *dev)
+ 					    PCAN_USBPRO_INFO_BL,
+ 					    &bi, sizeof(bi));
+ 		if (err) {
++			kfree(usb_if);
+ 			dev_err(dev->netdev->dev.parent,
+ 				"unable to read %s bootloader info (err %d)\n",
+ 				pcan_usb_pro.name, err);
 -- 
 1.7.10
 
 
-PS. Please CC me on replies.
+
+(please CC me on replies)
+
 
 -- 
 Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
 Don't top-post http://www.catb.org/jargon/html/T/top-post.html
 Plain text mails only, please.
+
