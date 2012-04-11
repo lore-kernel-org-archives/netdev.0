@@ -1,80 +1,65 @@
-From: "Hao, Xudong" <xudong.hao@intel.com>
-Subject: RE: Expose ltr/obff interface by sysfs
-Date: Wed, 11 Apr 2012 03:02:01 +0000
-Message-ID: <403610A45A2B5242BD291EDAE8B37D300FD0D988@SHSMSX102.ccr.corp.intel.com>
-References: <403610A45A2B5242BD291EDAE8B37D300FD0A434@SHSMSX102.ccr.corp.intel.com>
- <20120406183932.GB13473@phenom.dumpdata.com>
+From: Will Drewry <wad@chromium.org>
+Subject: Re: [PATCH v15 04/13] arch/x86: add syscall_get_arch to syscall.h
+Date: Tue, 10 Apr 2012 22:13:52 -0500
+Message-ID: <CABqD9hZgnrKFY_Wei-ysU=Dy7Og2iEemnqPvcQ14M0+vL65gHQ@mail.gmail.com>
+References: <1331781125-15658-1-git-send-email-wad@chromium.org>
+	<1331781125-15658-5-git-send-email-wad@chromium.org>
+	<4F6F7362.6030402@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20120406183932.GB13473@phenom.dumpdata.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
+	netdev@vger.kernel.org, x86@kernel.org, arnd@arndb.de,
+	davem@davemloft.net, mingo@redhat.com, oleg@redhat.com,
+	peterz@infradead.org, rdunlap@xenotime.net, mcgrathr@chromium.org,
+	tglx@linutronix.de, luto@mit.edu, eparis@redhat.com,
+	serge.hallyn@canonical.com, djm@mindrot.org, scarybeasts@gmail.com,
+	indan@nul.nu, pmoore@redhat.com, akpm@linux-foundation.org,
+	corbet@lwn.net, eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <4F6F7362.6030402@zytor.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> But a better question is - why should this be done - especially from the guest
-> which has a limited view of the machine? The machine might be running a lot of
-> other requests so the OBFF inside the guest could be invalid.
+On Sun, Mar 25, 2012 at 2:34 PM, H. Peter Anvin <hpa@zytor.com> wrote:
+> On 03/14/2012 08:11 PM, Will Drewry wrote:
+>>
+>> +static inline int syscall_get_arch(struct task_struct *task,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0str=
+uct pt_regs *regs)
+>> +{
+>> +#ifdef CONFIG_IA32_EMULATION
+>> + =A0 =A0 /*
+>> + =A0 =A0 =A0* TS_COMPAT is set for 32-bit syscall entries and then
+>> + =A0 =A0 =A0* remains set until we return to user mode.
+>> + =A0 =A0 =A0*
+>> + =A0 =A0 =A0* TIF_IA32 tasks should always have TS_COMPAT set at
+>> + =A0 =A0 =A0* system call time.
+>> + =A0 =A0 =A0*/
+>> + =A0 =A0 if (task_thread_info(task)->status & TS_COMPAT)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 return AUDIT_ARCH_I386;
+>> +#endif
+>> + =A0 =A0 return AUDIT_ARCH_X86_64;
+>> +}
+>> =A0#endif =A0 =A0 =A0 /* CONFIG_X86_32 */
+>>
+>> =A0#endif =A0 =A0 =A0 /* _ASM_X86_SYSCALL_H */
 >
-Maybe I did not describe it clearly, the original idea is host admin can control the inode interface but not guest.
+> Just one FYI on this: after the x32 changes are upstream this can be
+> implemented in terms of is_ia32_task().
 
-> -----Original Message-----
-> From: Konrad Rzeszutek Wilk [mailto:konrad.wilk@oracle.com]
-> Sent: Saturday, April 07, 2012 2:40 AM
-> To: Hao, Xudong
-> Cc: linux-pci@vger.kernel.org; netdev@vger.kernel.org;
-> e1000-devel@lists.sourceforge.net; Jesse Barnes
-> Subject: Re: Expose ltr/obff interface by sysfs
-> 
-> On Fri, Apr 06, 2012 at 02:43:59AM +0000, Hao, Xudong wrote:
-> > Hi,
-> >
-> > I'm working on virtualization Xen/KVM. I saw there are ltr/obff
-> enabling/disabling function in pci.c, but no called till now. I want to know if
-> anybody(driver developer) are working for using it? Can driver change the LTR
-> latency value dynamically?
-> >
-> > /*
-> > LTR(Latency tolerance reporting) allows devices to send messages to the root
-> complex indicating their latency tolerance for snooped & unsnooped memory
-> transactions.
-> > OBFF (optimized buffer flush/fill), where supported, can help improve energy
-> efficiency by giving devices information about when interrupts and other
-> activity will have a reduced power impact.
-> > */
-> >
-> > One way to control ltr/obff is used by driver, however, I'm considering that in
-> virtualization, how guest OS driver control them. I have an idea that expose an
-> inode interface by sysfs, like "reset" inode implemented in pci-sysfs.c, so that
-> system user/administrator can enable/disable ltr/obff or set latency value on
-> userspace, but not limited on driver. Comments?
-> 
-> So right now the driver inside the guest can probably see it, but can't change
-> them.
-> (As those requests end up being filtered).
-> 
-> But there is nothing wrong with your changing those values from within the
-> host.
-> 
-> But a better question is - why should this be done - especially from the guest
-> which has a limited view of the machine? The machine might be running a lot of
-> other requests so the OBFF inside the guest could be invalid.
-> 
-> 
-> >
-> > < pls CC me when reply this mail, thanks >
-> >
-> > Best Regards,
-> > Xudong Hao
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-pci"
-> > in the body of a message to majordomo@vger.kernel.org More majordomo
-> > info at  http://vger.kernel.org/majordomo-info.html
+Now that I've seen is_ia32_task(), it appears to be exactly the same as=
+ above:
+(1)  If we're x86_32, it's ia32
+(2)  If we're x86_64, ia32 =3D=3D !!(status & TS_COMPAT)
+(3)  Otherwise, it's x86_64, including x32
+
+Am I missing something? Should is_ia32_task(void) take a task_struct?
+Right now, I don't see any reason to change the code, as posted, but
+maybe I am mis-reading?
+
+thanks!
+will
