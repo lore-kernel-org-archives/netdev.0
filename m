@@ -1,112 +1,90 @@
-From: Tony Zelenoff <antonz@parallels.com>
-Subject: [PATCH] atl1: fix kernel panic in case of DMA errors
-Date: Wed, 11 Apr 2012 20:15:03 +0400
-Message-ID: <1334160903-988902-1-git-send-email-antonz@parallels.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH 05/10] net: move destructor_arg to the front of sk_buff.
+Date: Wed, 11 Apr 2012 09:31:38 -0700
+Message-ID: <4F85B1EA.9000600@intel.com>
+References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>  <1334067984-7706-5-git-send-email-ian.campbell@citrix.com>  <4F847CF9.3090701@intel.com> <1334083265.5300.288.camel@edumazet-glaptop>  <4F8486E7.5050604@intel.com> <1334131241.12209.199.camel@dagon.hellion.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <antonz@parallels.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	"Wei Liu (Intern)" <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:57146 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932364Ab2DKQUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2012 12:20:42 -0400
+Received: from mga01.intel.com ([192.55.52.88]:11119 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760638Ab2DKQbt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2012 12:31:49 -0400
+In-Reply-To: <1334131241.12209.199.camel@dagon.hellion.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Problem:
-There was two separate work_struct structures which share one
-handler. Unfortunately getting atl1_adapter structure from
-work_struct in case of DMA error was done from incorrect
-offset which cause kernel panics.
+On 04/11/2012 01:00 AM, Ian Campbell wrote:
+> On Tue, 2012-04-10 at 20:15 +0100, Alexander Duyck wrote:
+>> On 04/10/2012 11:41 AM, Eric Dumazet wrote:
+>>> On Tue, 2012-04-10 at 11:33 -0700, Alexander Duyck wrote:
+>>>
+>>>> Have you checked this for 32 bit as well as 64?  Based on my math your
+>>>> next patch will still mess up the memset on 32 bit with the structure
+>>>> being split somewhere just in front of hwtstamps.
+>>>>
+>>>> Why not just take frags and move it to the start of the structure?  It
+>>>> is already an unknown value because it can be either 16 or 17 depending
+>>>> on the value of PAGE_SIZE, and since you are making changes to frags the
+>>>> changes wouldn't impact the alignment of the other values later on since
+>>>> you are aligning the end of the structure.  That way you would be
+>>>> guaranteed that all of the fields that will be memset would be in the
+>>>> last 64 bytes.
+>>>>
+>>> Now when a fragmented packet is copied in pskb_expand_head(), you access
+>>> two separate zones of memory to copy the shinfo. But its supposed to be
+>>> slow path.
+>>>
+>>> Problem with this is that the offsets of often used fields will be big
+>>> (instead of being < 127) and code will be bigger on x86.
+>> Actually now that I think about it my concerns go much further than the
+>> memset.  I'm convinced that this is going to cause a pretty significant
+>> performance regression on multiple drivers, especially on non x86_64
+>> architecture.  What we have right now on most platforms is a
+>> skb_shared_info structure in which everything up to and including frag 0
+>> is all in one cache line.  This gives us pretty good performance for igb
+>> and ixgbe since that is our common case when jumbo frames are not
+>> enabled is to split the head and place the data in a page.
+> With all the changes in this series it is still possible to fit a
+> maximum standard MTU frame and the shinfo on the same 4K page while also
+> have the skb_shared_info up to and including frag [0] aligned to the
+> same 64 byte cache line. 
+>
+> The only exception is destructor_arg on 64 bit which is on the preceding
+> cache line but that is not a field used in any hot path.
+The problem I have is that this is only true on x86_64.  Proper work
+hasn't been done to guarantee this on any other architectures.
 
-Solution:
-The useless work_struct for DMA error removed and
-handler name changed to more generic one.
+I think what I would like to see is instead of just setting things up
+and hoping it comes out cache aligned on nr_frags why not take steps to
+guarantee it?  You could do something like place and size the structure
+based on:
+SKB_DATA_ALIGN(sizeof(skb_shared_info) - offsetof(struct
+skb_shared_info, nr_frags)) + offsetof(struct skb_shared_info, nr_frags)
 
-Signed-off-by: Tony Zelenoff <antonz@parallels.com>
----
- drivers/net/ethernet/atheros/atlx/atl1.c |   12 +++++-------
- drivers/net/ethernet/atheros/atlx/atl1.h |    3 +--
- drivers/net/ethernet/atheros/atlx/atlx.c |    2 +-
- 3 files changed, 7 insertions(+), 10 deletions(-)
+That way you would have your alignment still guaranteed based off of the
+end of the structure, but anything placed before nr_frags would be
+placed on the end of the previous cache line.
 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 40ac414..c926857 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -2476,7 +2476,7 @@ static irqreturn_t atl1_intr(int irq, void *data)
- 					"pcie phy link down %x\n", status);
- 			if (netif_running(adapter->netdev)) {	/* reset MAC */
- 				iowrite32(0, adapter->hw.hw_addr + REG_IMR);
--				schedule_work(&adapter->pcie_dma_to_rst_task);
-+				schedule_work(&adapter->reset_dev_task);
- 				return IRQ_HANDLED;
- 			}
- 		}
-@@ -2488,7 +2488,7 @@ static irqreturn_t atl1_intr(int irq, void *data)
- 					"pcie DMA r/w error (status = 0x%x)\n",
- 					status);
- 			iowrite32(0, adapter->hw.hw_addr + REG_IMR);
--			schedule_work(&adapter->pcie_dma_to_rst_task);
-+			schedule_work(&adapter->reset_dev_task);
- 			return IRQ_HANDLED;
- 		}
- 
-@@ -2633,10 +2633,10 @@ static void atl1_down(struct atl1_adapter *adapter)
- 	atl1_clean_rx_ring(adapter);
- }
- 
--static void atl1_tx_timeout_task(struct work_struct *work)
-+static void atl1_reset_dev_task(struct work_struct *work)
- {
- 	struct atl1_adapter *adapter =
--		container_of(work, struct atl1_adapter, tx_timeout_task);
-+		container_of(work, struct atl1_adapter, reset_dev_task);
- 	struct net_device *netdev = adapter->netdev;
- 
- 	netif_device_detach(netdev);
-@@ -3038,12 +3038,10 @@ static int __devinit atl1_probe(struct pci_dev *pdev,
- 		    (unsigned long)adapter);
- 	adapter->phy_timer_pending = false;
- 
--	INIT_WORK(&adapter->tx_timeout_task, atl1_tx_timeout_task);
-+	INIT_WORK(&adapter->reset_dev_task, atl1_reset_dev_task);
- 
- 	INIT_WORK(&adapter->link_chg_task, atlx_link_chg_task);
- 
--	INIT_WORK(&adapter->pcie_dma_to_rst_task, atl1_tx_timeout_task);
--
- 	err = register_netdev(netdev);
- 	if (err)
- 		goto err_common;
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.h b/drivers/net/ethernet/atheros/atlx/atl1.h
-index 109d6da..e04bf4d 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.h
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.h
-@@ -758,9 +758,8 @@ struct atl1_adapter {
- 	u16 link_speed;
- 	u16 link_duplex;
- 	spinlock_t lock;
--	struct work_struct tx_timeout_task;
-+	struct work_struct reset_dev_task;
- 	struct work_struct link_chg_task;
--	struct work_struct pcie_dma_to_rst_task;
- 
- 	struct timer_list phy_config_timer;
- 	bool phy_timer_pending;
-diff --git a/drivers/net/ethernet/atheros/atlx/atlx.c b/drivers/net/ethernet/atheros/atlx/atlx.c
-index 3cd8837..c9e9dc5 100644
---- a/drivers/net/ethernet/atheros/atlx/atlx.c
-+++ b/drivers/net/ethernet/atheros/atlx/atlx.c
-@@ -194,7 +194,7 @@ static void atlx_tx_timeout(struct net_device *netdev)
- {
- 	struct atlx_adapter *adapter = netdev_priv(netdev);
- 	/* Do the reset outside of interrupt context */
--	schedule_work(&adapter->tx_timeout_task);
-+	schedule_work(&adapter->reset_dev_task);
- }
- 
- /*
--- 
-1.7.1
+>> However the change being recommend here only resolves the issue for one
+>> specific architecture, and that is what I don't agree with.  What we
+>> need is a solution that also works for 64K pages or 32 bit pointers and
+>> I am fairly certain this current solution does not.
+> I think it does work for 32 bit pointers. What issue to do you see with
+> 64K pages?
+>
+> Ian.
+With 64K pages the MAX_SKB_FRAGS value drops from 17 to 16.  That will
+undoubtedly mess up the alignment.
+
+Thanks,
+
+Alex
