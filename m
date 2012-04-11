@@ -1,108 +1,182 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next PATCH v1 1/7] net: add generic PF_BRIDGE:RTM_ FDB
- hooks
-Date: Wed, 11 Apr 2012 17:05:50 +0100
-Message-ID: <1334160350.2552.2.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120409215419.3288.50790.stgit@jf-dev1-dcblab>
-	  <20120409220017.3288.13746.stgit@jf-dev1-dcblab>
-	 <1334114599.7150.361.camel@deadeye> <4F85991A.5030808@intel.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v2] Lockd: pass network namespace to creation and
+ destruction routines
+Date: Wed, 11 Apr 2012 12:11:14 -0400
+Message-ID: <20120411161114.GB28928@fieldses.org>
+References: <20120329145421.31911.65512.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <roprabhu@cisco.com>, <mst@redhat.com>,
-	<stephen.hemminger@vyatta.com>, <davem@davemloft.net>,
-	<hadi@cyberus.ca>, <jeffrey.t.kirsher@intel.com>,
-	<netdev@vger.kernel.org>, <gregory.v.rose@intel.com>,
-	<krkumar2@in.ibm.com>, <sri@us.ibm.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:9303 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756764Ab2DKQF4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2012 12:05:56 -0400
-In-Reply-To: <4F85991A.5030808@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120329145421.31911.65512.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-04-11 at 07:45 -0700, John Fastabend wrote:
-> On 4/10/2012 8:23 PM, Ben Hutchings wrote:
-> > On Mon, 2012-04-09 at 15:00 -0700, John Fastabend wrote:
-> > [...]
-> >> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> >> index 1f77540..05822e5 100644
-> >> --- a/include/linux/netdevice.h
-> >> +++ b/include/linux/netdevice.h
-> > [...]
-> >> @@ -905,6 +906,19 @@ struct netdev_fcoe_hbainfo {
-> >>   *	feature set might be less than what was returned by ndo_fix_features()).
-> >>   *	Must return >0 or -errno if it changed dev->features itself.
-> >>   *
-> >> + * int (*ndo_fdb_add)(struct ndmsg *ndm, struct net_device *dev,
-> >> + *		      unsigned char *addr, u16 flags)
-> >> + *	Adds an FDB entry to dev for addr. The ndmsg contains flags to indicate
-> >> + *	if the dev->master FDB should be updated or the devices internal FDB.
-> > 
-> > I don't think the second sentence is helpful, as rtnl_fdb_add() will
-> > take care of those flags.
-> > 
-> >> + * int (*ndo_fdb_del)(struct ndmsg *ndm, struct net_device *dev,
-> >> + *		      unsigned char *addr)
-> >> + *	Deletes the FDB entry from dev coresponding to addr. The ndmsg
-> >> + *	contains flags to indicate if the dev->master FDB should be
-> >> + *	updated or the devices internal FDB.
-> > 
-> > Similarly here.
+On Thu, Mar 29, 2012 at 06:54:33PM +0400, Stanislav Kinsbursky wrote:
+> v2: dereference of most probably already released nlm_host removed in
+> nlmclnt_done() and reclaimer().
+
+Did you want this in Trond's tree or mine?
+
+--b.
+
 > 
-> agreed neither seem particularly helpful I'll remove them.
+> These routines are called from locks reclaimer() kernel thread. This thread
+> works in "init_net" network context and currently relays on persence on lockd
+> thread and it's per-net resources. Thus lockd_up() and lockd_down() can't relay
+> on current network context. So let's pass corrent one into them.
 > 
-> > 
-> >> + * int (*ndo_fdb_dump)(struct sk_buff *skb, struct netlink_callback *cb,
-> >> + *		       struct net_device *dev, int idx)
-> >> + *	Used to add FDB entries to dump requests. Implementers should add
-> >> + *	entries to skb and update idx with the number of entries.
-> >>   */
-> > [...
-> >> --- a/net/core/rtnetlink.c
-> >> +++ b/net/core/rtnetlink.c
-> > [...]
-> >> +static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
-> >> +{
-> > [...]
-> >> +	err = -EOPNOTSUPP;
-> > 
-> > So if NTF_MASTER and NTF_SELF are both set, we can quietly fall back to
-> > just setting one FDB?  Not sure that's really desirable though 
-> > 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 > 
-> It makes it easier to keep an embedded agent and the sw bridge in
-> sync if setting both flags adds the entry to both the SW bridge and
-> embedded bridge.
-
-Yes, I agree with that.
-
-[...]
-> > Wonder what we should do on error here if we've already successfully
-> > called ndo_fdb_add on the master?  Should we try to roll back the first
-> > addition?
-> > 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 > 
-> The problem with rolling back is the table is likely already updated and
-> traffic may already be being forwarded. So I think in this case the user
-> will have to query the device to learn what failed. It seems like the
-> simplest way to handle this. I think it is unwanted to have traffic being
-> forwarded one way for a short period of time then rolled back.
+> ---
+>  fs/lockd/clntlock.c        |   13 ++++++++-----
+>  fs/lockd/svc.c             |    7 +++----
+>  fs/nfsd/nfssvc.c           |    6 +++---
+>  include/linux/lockd/bind.h |    4 ++--
+>  4 files changed, 16 insertions(+), 14 deletions(-)
 > 
-> The other idea I just had is we could clear the NTF_ bit in ndm_flags after
-> the successful add, del command. I believe the nlmsg gets sent back to the
-> user on error I would need to check on this.
-[...]
-
-That sounds like a good way of doing it, assuming there's no
-compatibility issue.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> diff --git a/fs/lockd/clntlock.c b/fs/lockd/clntlock.c
+> index ba1dc2e..ca0a080 100644
+> --- a/fs/lockd/clntlock.c
+> +++ b/fs/lockd/clntlock.c
+> @@ -56,7 +56,7 @@ struct nlm_host *nlmclnt_init(const struct nlmclnt_initdata *nlm_init)
+>  	u32 nlm_version = (nlm_init->nfs_version == 2) ? 1 : 4;
+>  	int status;
+>  
+> -	status = lockd_up();
+> +	status = lockd_up(nlm_init->net);
+>  	if (status < 0)
+>  		return ERR_PTR(status);
+>  
+> @@ -65,7 +65,7 @@ struct nlm_host *nlmclnt_init(const struct nlmclnt_initdata *nlm_init)
+>  				   nlm_init->hostname, nlm_init->noresvport,
+>  				   nlm_init->net);
+>  	if (host == NULL) {
+> -		lockd_down();
+> +		lockd_down(nlm_init->net);
+>  		return ERR_PTR(-ENOLCK);
+>  	}
+>  
+> @@ -80,8 +80,10 @@ EXPORT_SYMBOL_GPL(nlmclnt_init);
+>   */
+>  void nlmclnt_done(struct nlm_host *host)
+>  {
+> +	struct net *net = host->net;
+> +
+>  	nlmclnt_release_host(host);
+> -	lockd_down();
+> +	lockd_down(net);
+>  }
+>  EXPORT_SYMBOL_GPL(nlmclnt_done);
+>  
+> @@ -220,11 +222,12 @@ reclaimer(void *ptr)
+>  	struct nlm_wait	  *block;
+>  	struct file_lock *fl, *next;
+>  	u32 nsmstate;
+> +	struct net *net = host->net;
+>  
+>  	allow_signal(SIGKILL);
+>  
+>  	down_write(&host->h_rwsem);
+> -	lockd_up();	/* note: this cannot fail as lockd is already running */
+> +	lockd_up(net);	/* note: this cannot fail as lockd is already running */
+>  
+>  	dprintk("lockd: reclaiming locks for host %s\n", host->h_name);
+>  
+> @@ -275,6 +278,6 @@ restart:
+>  
+>  	/* Release host handle after use */
+>  	nlmclnt_release_host(host);
+> -	lockd_down();
+> +	lockd_down(net);
+>  	return 0;
+>  }
+> diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
+> index b34100e..ce4c80e 100644
+> --- a/fs/lockd/svc.c
+> +++ b/fs/lockd/svc.c
+> @@ -295,11 +295,10 @@ static void lockd_down_net(struct net *net)
+>  /*
+>   * Bring up the lockd process if it's not already up.
+>   */
+> -int lockd_up(void)
+> +int lockd_up(struct net *net)
+>  {
+>  	struct svc_serv *serv;
+>  	int		error = 0;
+> -	struct net *net = current->nsproxy->net_ns;
+>  
+>  	mutex_lock(&nlmsvc_mutex);
+>  	/*
+> @@ -377,12 +376,12 @@ EXPORT_SYMBOL_GPL(lockd_up);
+>   * Decrement the user count and bring down lockd if we're the last.
+>   */
+>  void
+> -lockd_down(void)
+> +lockd_down(struct net *net)
+>  {
+>  	mutex_lock(&nlmsvc_mutex);
+>  	if (nlmsvc_users) {
+>  		if (--nlmsvc_users) {
+> -			lockd_down_net(current->nsproxy->net_ns);
+> +			lockd_down_net(net);
+>  			goto out;
+>  		}
+>  	} else {
+> diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
+> index fce472f..0f3e35b 100644
+> --- a/fs/nfsd/nfssvc.c
+> +++ b/fs/nfsd/nfssvc.c
+> @@ -220,7 +220,7 @@ static int nfsd_startup(unsigned short port, int nrservs)
+>  	ret = nfsd_init_socks(port);
+>  	if (ret)
+>  		goto out_racache;
+> -	ret = lockd_up();
+> +	ret = lockd_up(&init_net);
+>  	if (ret)
+>  		goto out_racache;
+>  	ret = nfs4_state_start();
+> @@ -229,7 +229,7 @@ static int nfsd_startup(unsigned short port, int nrservs)
+>  	nfsd_up = true;
+>  	return 0;
+>  out_lockd:
+> -	lockd_down();
+> +	lockd_down(&init_net);
+>  out_racache:
+>  	nfsd_racache_shutdown();
+>  	return ret;
+> @@ -246,7 +246,7 @@ static void nfsd_shutdown(void)
+>  	if (!nfsd_up)
+>  		return;
+>  	nfs4_state_shutdown();
+> -	lockd_down();
+> +	lockd_down(&init_net);
+>  	nfsd_racache_shutdown();
+>  	nfsd_up = false;
+>  }
+> diff --git a/include/linux/lockd/bind.h b/include/linux/lockd/bind.h
+> index 11a966e..4d24d64 100644
+> --- a/include/linux/lockd/bind.h
+> +++ b/include/linux/lockd/bind.h
+> @@ -54,7 +54,7 @@ extern void	nlmclnt_done(struct nlm_host *host);
+>  
+>  extern int	nlmclnt_proc(struct nlm_host *host, int cmd,
+>  					struct file_lock *fl);
+> -extern int	lockd_up(void);
+> -extern void	lockd_down(void);
+> +extern int	lockd_up(struct net *net);
+> +extern void	lockd_down(struct net *net);
+>  
+>  #endif /* LINUX_LOCKD_BIND_H */
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
