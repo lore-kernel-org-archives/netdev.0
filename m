@@ -1,56 +1,82 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Re: [PATCH v4 0/10] skb paged fragment destructors
-Date: Wed, 11 Apr 2012 10:02:07 +0000
-Message-ID: <4F85569F.1070806@acm.org>
-References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>  <4F8455EE.8010709@acm.org> <1334073004.5394.59.camel@zakaz.uk.xensource.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH net-next 1/2] net/ipv6/udp: Add encap_rcv support to IPv6
+ UDP
+Date: Wed, 11 Apr 2012 12:51:46 +0100
+Message-ID: <4F857052.1040005@katalix.com>
+References: <20120411022047.GA19124@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"Wei Liu (Intern)" <wei.liu2@citrix.com>,
-	David VomLehn <dvomlehn@cisco.com>,
-	xen-devel <xen-devel@lists.xen.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay03ant.iops.be ([212.53.5.218]:43932 "EHLO
-	relay03ant.iops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754964Ab2DKKCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Apr 2012 06:02:17 -0400
-In-Reply-To: <1334073004.5394.59.camel@zakaz.uk.xensource.com>
+Received: from katalix.com ([82.103.140.233]:57897 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751308Ab2DKLvx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Apr 2012 07:51:53 -0400
+In-Reply-To: <20120411022047.GA19124@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/10/12 15:50, Ian Campbell wrote:
-
-> On Tue, 2012-04-10 at 16:46 +0100, Bart Van Assche wrote:
->> Great to see v4 of this patch series. But which kernel version has this
->> patch series been based on ? I've tried to apply this series on 3.4-rc2
+On 11/04/12 03:20, Benjamin LaHaise wrote:
+> At present, UDP encapsulated protocols (like L2TP) are only able to use the
+> encap_rcv hook with UDP over IPv4.  This patch adds the same support for use
+> with UDP over IPv6.
 > 
-> It's based on net-next/master. Specifically commit de8856d2c11f.
+> Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+Signed-off-by: James Chapman <jchapman@katalix.com>
+
+> ---
+>  net/ipv6/udp.c |   31 +++++++++++++++++++++++++++++++
+>  1 files changed, 31 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 37b0699..4d7cd72 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -515,6 +515,37 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+>  	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
+>  		goto drop;
+>  
+> +	if (up->encap_type) {
+> +		int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
+> +
+> +		/*
+> +		 * This is an encapsulation socket so pass the skb to
+> +		 * the socket's udp_encap_rcv() hook. Otherwise, just
+> +		 * fall through and pass this up the UDP socket.
+> +		 * up->encap_rcv() returns the following value:
+> +		 * =0 if skb was successfully passed to the encap
+> +		 *    handler or was discarded by it.
+> +		 * >0 if skb should be passed on to UDP.
+> +		 * <0 if skb should be resubmitted as proto -N
+> +		 */
+> +
+> +		/* if we're overly short, let UDP handle it */
+> +		encap_rcv = ACCESS_ONCE(up->encap_rcv);
+> +		if (skb->len > sizeof(struct udphdr) && encap_rcv != NULL) {
+> +			int ret;
+> +
+> +			ret = encap_rcv(sk, skb);
+> +			if (ret <= 0) {
+> +				UDP6_INC_STATS_BH(sock_net(sk),
+> +						  UDP_MIB_INDATAGRAMS,
+> +						  is_udplite);
+> +				return -ret;
+> +			}
+> +		}
+> +
+> +		/* FALLTHROUGH -- it's a UDP Packet */
+> +	}
+> +
+>  	/*
+>  	 * UDP-Lite specific tests, ignored on UDP sockets (see net/ipv4/udp.c).
+>  	 */
 
 
-Thanks, that information allowed me to apply the patch series and to
-test it with kernel 3.4-rc2 and iSCSI target code. The test ran fine.
 
-The failure to apply this patch series on 3.4-rc2 I had reported turned
-out to be an easy to resolve merge conflict:
-
-+ static int ceph_tcp_sendpage(struct socket *sock, struct page *page,
-+ 		     int offset, size_t size, int more)
-+ {
-+ 	int flags = MSG_DONTWAIT | MSG_NOSIGNAL | (more ? MSG_MORE : MSG_EOR);
-+ 	int ret;
-+ 
- -	ret = kernel_sendpage(sock, page, offset, size, flags);
-++	ret = kernel_sendpage(sock, page, NULL, offset, size, flags);
-+ 	if (ret == -EAGAIN)
-+ 		ret = 0;
-+ 
-+ 	return ret;
-+ }
-+ 
-
-Bart.
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
