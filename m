@@ -1,56 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 1/4 (V3)] net: ethtool: add the EEE support
-Date: Thu, 12 Apr 2012 23:26:38 +0100
-Message-ID: <1334269598.2497.50.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>
-	 <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <rayagond@vayavyalabs.com>,
-	<davem@davemloft.net>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: mjr@cs.wisc.edu
+Subject: [PATCH] ks8851: Fix missing mutex_lock/unlock
+Date: Thu, 12 Apr 2012 18:15:30 -0500
+Message-ID: <1334272530-11119-1-git-send-email-mjr@cs.wisc.edu>
+Cc: davem@davemloft.net, sboyd@codeaurora.org, ben@simtec.co.uk,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	Matt Renzelmann <mjr@cs.wisc.edu>
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:49370 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S934122Ab2DLW0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 18:26:42 -0400
-In-Reply-To: <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com>
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:48038 "EHLO sabe.cs.wisc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757330Ab2DLXUF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 19:20:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-04-06 at 11:29 +0200, Giuseppe CAVALLARO wrote:
-> This patch adds two new functions to detect if Energy-Efficient
-> Ethernet (EEE) is supported and the way to enable/disable it.
-> 
-> As Ben said, it is certainly necessary to distinguish:
-> 
-> a. PHY is advertising EEE from
-> b. Link partner is advertising EEE
-> or
-> c. EEE will be used (= a && b)
-> 
-> The logic behind this code, is that .get_eee will pass
-> to the user-space if the EEE is actually used and available (so point c).
-> The .set_eee should used to force the MAC to disable/enable the EEE (if
-> actually supported by MAC+PHY).
-[...]
+From: Matt Renzelmann <mjr@cs.wisc.edu>
 
-What I meant is that userland should be able to find out (a), and,
-*separately*, either (b) or (c).  That is, there must be at least 2
-separate flags for this.  In fact, I explicitly requested you define
-supported/advertising/lp_advertising bitmasks for EEE link modes just
-like we have for autonegotiation.  But you've made no substantive
-changes in response to my review, aside from dropping the added field in
-ethtool_cmd.
+All calls to ks8851_rdreg* and ks8851_wrreg* should be protected with
+the driver's lock mutex.  A spurious interrupt may otherwise cause a
+crash.  Thanks to Stephen Boyd, Flavio Leitner, and Ben Hutchings for
+feedback.
 
-What you're submitting just isn't good enough for a generic interface,
-as the ethtool API is supposed to be.  It's not even a good interface to
-your driver.
+Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
+---
 
-Ben.
+This modified version incorporates Ben Hutchings' bugfix by removing
+the incorrect call to CIDER_REV_GET.
 
+ drivers/net/ethernet/micrel/ks8851.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index c722aa6..e5dc075 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1418,6 +1418,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ 	struct net_device *ndev;
+ 	struct ks8851_net *ks;
+ 	int ret;
++	unsigned cider;
+ 
+ 	ndev = alloc_etherdev(sizeof(struct ks8851_net));
+ 	if (!ndev)
+@@ -1484,8 +1485,8 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ 	ks8851_soft_reset(ks, GRR_GSR);
+ 
+ 	/* simple check for a valid chip being connected to the bus */
+-
+-	if ((ks8851_rdreg16(ks, KS_CIDER) & ~CIDER_REV_MASK) != CIDER_ID) {
++	cider = ks8851_rdreg16(ks, KS_CIDER);
++	if ((cider & ~CIDER_REV_MASK) != CIDER_ID) {
+ 		dev_err(&spi->dev, "failed to read device ID\n");
+ 		ret = -ENODEV;
+ 		goto err_id;
+@@ -1516,8 +1517,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ 	}
+ 
+ 	netdev_info(ndev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
+-		    CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
+-		    ndev->dev_addr, ndev->irq,
++		    CIDER_REV_GET(cider), ndev->dev_addr, ndev->irq,
+ 		    ks->rc_ccr & CCR_EEPROM ? "has" : "no");
+ 
+ 	return 0;
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.5.4
