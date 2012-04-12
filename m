@@ -1,46 +1,45 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: [PATCH 05/10] mac80211: Add more ethtools stats: survey, rates,
- etc
-Date: Thu, 12 Apr 2012 07:50:34 -0700
-Message-ID: <4F86EBBA.6000303@candelatech.com>
-References: <1334166738-28243-1-git-send-email-greearb@candelatech.com>  <1334166738-28243-6-git-send-email-greearb@candelatech.com>  (sfid-20120411_195324_260400_4B452B18) <1334202406.3788.8.camel@jlt3.sipsolutions.net>
+From: Massimo cetra <ctrix+debianbugs@navynet.it>
+Subject: Re: Kernel panic with bridge networking
+Date: Thu, 12 Apr 2012 16:57:06 +0200
+Message-ID: <4F86ED42.9030603@navynet.it>
+References: <4F86CACB.8010907@navynet.it> <1334235175.5300.6329.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1334202406.3788.8.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"Peter Huang (Peng)" <peter.huangpeng@huawei.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host188-6-static.238-77-b.business.telecomitalia.it ([77.238.6.188]:54048
+	"EHLO max.ctrix.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757660Ab2DLO5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 10:57:21 -0400
+In-Reply-To: <1334235175.5300.6329.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/11/2012 08:46 PM, Johannes Berg wrote:
-> On Wed, 2012-04-11 at 10:52 -0700, greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org wrote:
+On 12/04/2012 14:52, Eric Dumazet wrote:
+> On Thu, 2012-04-12 at 14:30 +0200, Massimo Cetra wrote:
+>> Hello,
+>>
+>> i am experiencing a panic whose logs are attached (grabbed with netconsole).
+>>
+
+> Known issue, and we are waiting from a fix from Peter.
 >
->> --- a/net/mac80211/cfg.c
->> +++ b/net/mac80211/cfg.c
->> @@ -19,6 +19,7 @@
->>   #include "cfg.h"
->>   #include "rate.h"
->>   #include "mesh.h"
->> +#include "../wireless/core.h"
+> https://lkml.org/lkml/2012/3/31/17
 >
-> NACK. Don't do that.
-
-So, move the pertinent header stuff to linux/include/ieee80211.h ??
-
-Thanks,
-Ben
-
+> Peter, any progress on your side ?
 >
-> johannes
 
+Thanks Eric,
 
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
+is there a way to prvent those panics, meanwhile ?
+I mean: i don't understand if it depends strictly on IPv6 or it has 
+other causes.
+The same kernel with ipv6 enabled but without ipv6 is not actually 
+panic-ing ...
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And thanks to Peter as well.
+
+Massimo
