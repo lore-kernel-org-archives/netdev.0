@@ -1,187 +1,89 @@
-From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v18 11/15] signal, x86: add SIGSYS info and make it synchronous.
-Date: Thu, 12 Apr 2012 16:48:00 -0500
-Message-ID: <1334267284-19166-11-git-send-email-wad@chromium.org>
-References: <1334267284-19166-1-git-send-email-wad@chromium.org>
-Cc: linux-man@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
-	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
-	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
-	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
-	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
-	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
-	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
-	eric.dumazet@gmail.com, markus@chromium.org,
-	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
-	jmorris@namei.org, Will Drewry <wad@chromium.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1334267284-19166-1-git-send-email-wad@chromium.org>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ks8851: Fix missing mutex_lock/unlock
+Date: Thu, 12 Apr 2012 23:03:00 +0100
+Message-ID: <1334268180.2497.39.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1334266100-9875-1-git-send-email-mjr@cs.wisc.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <fbl@redhat.com>, <davem@davemloft.net>, <sboyd@codeaurora.org>,
+	<ben@simtec.co.uk>, <netdev@vger.kernel.org>
+To: <mjr@cs.wisc.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:40048 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965022Ab2DLWDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 18:03:05 -0400
+In-Reply-To: <1334266100-9875-1-git-send-email-mjr@cs.wisc.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This change enables SIGSYS, defines _sigfields._sigsys, and adds
-x86 (compat) arch support.  _sigsys defines fields which allow
-a signal handler to receive the triggering system call number,
-the relevant AUDIT_ARCH_* value for that number, and the address
-of the callsite.
+On Thu, 2012-04-12 at 16:28 -0500, mjr@cs.wisc.edu wrote:
+> From: Matt Renzelmann <mjr@cs.wisc.edu>
+> 
+> All calls to ks8851_rdreg* and ks8851_wrreg* should be protected with
+> the driver's lock mutex.  A spurious interrupt may otherwise cause a
+> crash.  Thanks to Stephen Boyd and Flavio Leitner for feedback.
+> 
+> Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
+> ---
+> 
+> Here's the next revision.  This is basically Flavio Leitner's latest
+> version without the mutex.  Please let me know if I'm missing
+> anything and I can re-submit it.
+> 
+>  drivers/net/ethernet/micrel/ks8851.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+> index c722aa6..6528d66 100644
+> --- a/drivers/net/ethernet/micrel/ks8851.c
+> +++ b/drivers/net/ethernet/micrel/ks8851.c
+> @@ -1418,6 +1418,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+>  	struct net_device *ndev;
+>  	struct ks8851_net *ks;
+>  	int ret;
+> +	unsigned cider;
+>  
+>  	ndev = alloc_etherdev(sizeof(struct ks8851_net));
+>  	if (!ndev)
+> @@ -1484,8 +1485,8 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+>  	ks8851_soft_reset(ks, GRR_GSR);
+>  
+>  	/* simple check for a valid chip being connected to the bus */
+> -
+> -	if ((ks8851_rdreg16(ks, KS_CIDER) & ~CIDER_REV_MASK) != CIDER_ID) {
+> +	cider = CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER));
 
-SIGSYS is added to the SYNCHRONOUS_MASK because it is desirable for it
-to have setup_frame() called for it. The goal is to ensure that
-ucontext_t reflects the machine state from the time-of-syscall and not
-from another signal handler.
+So now 'cider' holds the revision bits.
 
-The first consumer of SIGSYS would be seccomp filter.  In particular,
-a filter program could specify a new return value, SECCOMP_RET_TRAP,
-which would result in the system call being denied and the calling
-thread signaled.  This also means that implementing arch-specific
-support can be dependent upon HAVE_ARCH_SECCOMP_FILTER.
+> +	if ((cider & ~CIDER_REV_MASK) != CIDER_ID) {
 
-Suggested-by: H. Peter Anvin <hpa@zytor.com>
-Signed-off-by: Will Drewry <wad@chromium.org>
-Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
-Reviewed-by: H. Peter Anvin <hpa@zytor.com>
-Acked-by: Eric Paris <eparis@redhat.com>
+But this is trying to check everything *but* the revision bits.
 
-v18: - added acked by, rebase
-v17: - rebase and reviewed-by addition
-v14: - rebase/nochanges
-v13: - rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
-v12: - reworded changelog (oleg@redhat.com)
-v11: - fix dropped words in the change description
-     - added fallback copy_siginfo support.
-     - added __ARCH_SIGSYS define to allow stepped arch support.
-v10: - first version based on suggestion
----
- arch/x86/ia32/ia32_signal.c   |    4 ++++
- arch/x86/include/asm/ia32.h   |    6 ++++++
- include/asm-generic/siginfo.h |   22 ++++++++++++++++++++++
- kernel/signal.c               |    9 ++++++++-
- 4 files changed, 40 insertions(+), 1 deletions(-)
+>  		dev_err(&spi->dev, "failed to read device ID\n");
+>  		ret = -ENODEV;
+>  		goto err_id;
+> @@ -1516,8 +1517,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+>  	}
+>  
+>  	netdev_info(ndev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
+> -		    CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
+> -		    ndev->dev_addr, ndev->irq,
+> +		    CIDER_REV_GET(cider), ndev->dev_addr, ndev->irq,
 
-diff --git a/arch/x86/ia32/ia32_signal.c b/arch/x86/ia32/ia32_signal.c
-index a69245b..0b3f235 100644
---- a/arch/x86/ia32/ia32_signal.c
-+++ b/arch/x86/ia32/ia32_signal.c
-@@ -67,6 +67,10 @@ int copy_siginfo_to_user32(compat_siginfo_t __user *to, siginfo_t *from)
- 			switch (from->si_code >> 16) {
- 			case __SI_FAULT >> 16:
- 				break;
-+			case __SI_SYS >> 16:
-+				put_user_ex(from->si_syscall, &to->si_syscall);
-+				put_user_ex(from->si_arch, &to->si_arch);
-+				break;
- 			case __SI_CHLD >> 16:
- 				if (ia32) {
- 					put_user_ex(from->si_utime, &to->si_utime);
-diff --git a/arch/x86/include/asm/ia32.h b/arch/x86/include/asm/ia32.h
-index ee52760..b04cbdb 100644
---- a/arch/x86/include/asm/ia32.h
-+++ b/arch/x86/include/asm/ia32.h
-@@ -144,6 +144,12 @@ typedef struct compat_siginfo {
- 			int _band;	/* POLL_IN, POLL_OUT, POLL_MSG */
- 			int _fd;
- 		} _sigpoll;
-+
-+		struct {
-+			unsigned int _call_addr; /* calling insn */
-+			int _syscall;	/* triggering system call number */
-+			unsigned int _arch;	/* AUDIT_ARCH_* of syscall */
-+		} _sigsys;
- 	} _sifields;
- } compat_siginfo_t;
- 
-diff --git a/include/asm-generic/siginfo.h b/include/asm-generic/siginfo.h
-index 0dd4e87..31306f5 100644
---- a/include/asm-generic/siginfo.h
-+++ b/include/asm-generic/siginfo.h
-@@ -90,9 +90,18 @@ typedef struct siginfo {
- 			__ARCH_SI_BAND_T _band;	/* POLL_IN, POLL_OUT, POLL_MSG */
- 			int _fd;
- 		} _sigpoll;
-+
-+		/* SIGSYS */
-+		struct {
-+			void __user *_call_addr; /* calling insn */
-+			int _syscall;	/* triggering system call number */
-+			unsigned int _arch;	/* AUDIT_ARCH_* of syscall */
-+		} _sigsys;
- 	} _sifields;
- } siginfo_t;
- 
-+/* If the arch shares siginfo, then it has SIGSYS. */
-+#define __ARCH_SIGSYS
- #endif
- 
- /*
-@@ -116,6 +125,11 @@ typedef struct siginfo {
- #define si_addr_lsb	_sifields._sigfault._addr_lsb
- #define si_band		_sifields._sigpoll._band
- #define si_fd		_sifields._sigpoll._fd
-+#ifdef __ARCH_SIGSYS
-+#define si_call_addr	_sifields._sigsys._call_addr
-+#define si_syscall	_sifields._sigsys._syscall
-+#define si_arch		_sifields._sigsys._arch
-+#endif
- 
- #ifdef __KERNEL__
- #define __SI_MASK	0xffff0000u
-@@ -126,6 +140,7 @@ typedef struct siginfo {
- #define __SI_CHLD	(4 << 16)
- #define __SI_RT		(5 << 16)
- #define __SI_MESGQ	(6 << 16)
-+#define __SI_SYS	(7 << 16)
- #define __SI_CODE(T,N)	((T) | ((N) & 0xffff))
- #else
- #define __SI_KILL	0
-@@ -135,6 +150,7 @@ typedef struct siginfo {
- #define __SI_CHLD	0
- #define __SI_RT		0
- #define __SI_MESGQ	0
-+#define __SI_SYS	0
- #define __SI_CODE(T,N)	(N)
- #endif
- 
-@@ -232,6 +248,12 @@ typedef struct siginfo {
- #define NSIGPOLL	6
- 
- /*
-+ * SIGSYS si_codes
-+ */
-+#define SYS_SECCOMP		(__SI_SYS|1)	/* seccomp triggered */
-+#define NSIGSYS	1
-+
-+/*
-  * sigevent definitions
-  * 
-  * It seems likely that SIGEV_THREAD will have to be handled from 
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 17afcaf..1a006b5 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -160,7 +160,7 @@ void recalc_sigpending(void)
- 
- #define SYNCHRONOUS_MASK \
- 	(sigmask(SIGSEGV) | sigmask(SIGBUS) | sigmask(SIGILL) | \
--	 sigmask(SIGTRAP) | sigmask(SIGFPE))
-+	 sigmask(SIGTRAP) | sigmask(SIGFPE) | sigmask(SIGSYS))
- 
- int next_signal(struct sigpending *pending, sigset_t *mask)
- {
-@@ -2706,6 +2706,13 @@ int copy_siginfo_to_user(siginfo_t __user *to, siginfo_t *from)
- 		err |= __put_user(from->si_uid, &to->si_uid);
- 		err |= __put_user(from->si_ptr, &to->si_ptr);
- 		break;
-+#ifdef __ARCH_SIGSYS
-+	case __SI_SYS:
-+		err |= __put_user(from->si_call_addr, &to->si_call_addr);
-+		err |= __put_user(from->si_syscall, &to->si_syscall);
-+		err |= __put_user(from->si_arch, &to->si_arch);
-+		break;
-+#endif
- 	default: /* this is just in case for now ... */
- 		err |= __put_user(from->si_pid, &to->si_pid);
- 		err |= __put_user(from->si_uid, &to->si_uid);
+And this is trying to extract the revision bits, as if 'cider' holds the
+full register value.
+
+I think you need to remove the first CIDER_REV_GET().
+
+Ben.
+
+>  		    ks->rc_ccr & CCR_EEPROM ? "has" : "no");
+>  
+>  	return 0;
+
 -- 
-1.7.5.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
