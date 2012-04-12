@@ -1,48 +1,107 @@
-From: Sujith Manoharan <c_manoha@qca.qualcomm.com>
-Subject: Regression due to "ath9k: fix going to full-sleep on
-	PS idle"
-Date: Thu, 12 Apr 2012 10:37:44 +0530
-Message-ID: <20358.25376.230264.236893@gargle.gargle.HOWL>
-References: <CA+55aFxWD1bE0oiR4GpLP19MCm2CzwuApuYhcE_NF7bC+tFYjg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "ath9k-devel@lists.ath9k.org" <ath9k-devel@venema.h4ckr.net>,
-	KH <gregkh@linuxfoundation.org>,
-	linux-wireless Mailing List <linux-wireless@vger.kernel.org>,
-	linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>, Greg@venema.h4ckr.net,
-	Heinz Diehl <htd@fancy-poultry.org>,
-	Network Development <netdev@vger.kernel.org>,
-	akpm@linux-foundation.org, David Miller <davem@davemloft.net>,
-	alan@lxorguk.ukuu.org.uk
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <ath9k-devel-bounces@lists.ath9k.org>
-In-Reply-To: <CA+55aFxWD1bE0oiR4GpLP19MCm2CzwuApuYhcE_NF7bC+tFYjg@mail.gmail.com>
-List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
-List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
-List-Post: <mailto:ath9k-devel@lists.ath9k.org>
-List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
-List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
-Sender: ath9k-devel-bounces@lists.ath9k.org
-Errors-To: ath9k-devel-bounces@lists.ath9k.org
+From: Mike Sinkovsky <msink@permonline.ru>
+Subject: [PATCH] drivers/net: Remove CONFIG_WIZNET_TX_FLOW option
+Date: Thu, 12 Apr 2012 12:14:48 +0600
+Message-ID: <1334211288-7682-1-git-send-email-msink@permonline.ru>
+Cc: Mike Sinkovsky <msink@permonline.ru>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds wrote:
-> You guys need to fix the subject line (like this), and make sure that
-> the right people are cc'd. This is not a "stable" issue - stable
-> cannot revert stuff that hasn't been reverted upstream.
-> 
-> So instead of stable and Greg, it should be netdev and Davem.
-> 
-> David/John: multiple people are complaining about that commit. It
-> really should be reverted, or a fix found. It's broken.
-> 
-> I can do the revert, but it would be better coming from the networking people.
+This option was there for debugging race conditions,
+just remove it, and assume TX_FLOW is always enabled.
 
-John has already reverted the commit:
-http://git.kernel.org/?p=linux/kernel/git/linville/wireless.git;a=commit;h=011afa1ed8c408d694957d2474d89dc81a60b70c
+Signed-off-by: Mike Sinkovsky <msink@permonline.ru>
+---
+This replaces patch from Paul Gortmaker:
+"[PATCH 3/5] drivers/net: remove IS_ENABLED usage from wiznet drivers
+The use of IS_ENABLED in C code (vs just in CPP #if directives)
+causes us to carry the burden of a huge autoconf.h file.  It is
+also misleading in that a casual inspection of the code would
+leave one thinking that the if statements were evaluated at
+runtime, when TX_FLOW is a Kconfig bool and hence evaluated
+at configure time as an either/or."
 
-Sujith
+Just remove this option instead.
+
+ drivers/net/ethernet/wiznet/Kconfig |    8 --------
+ drivers/net/ethernet/wiznet/w5100.c |    5 ++---
+ drivers/net/ethernet/wiznet/w5300.c |    9 +++------
+ 3 files changed, 5 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/wiznet/Kconfig b/drivers/net/ethernet/wiznet/Kconfig
+index c8291bf..cb18043 100644
+--- a/drivers/net/ethernet/wiznet/Kconfig
++++ b/drivers/net/ethernet/wiznet/Kconfig
+@@ -70,12 +70,4 @@ config WIZNET_BUS_ANY
+ 	  Performance may decrease compared to explicitly selected bus mode.
+ endchoice
+ 
+-config WIZNET_TX_FLOW
+-	bool "Use transmit flow control"
+-	depends on WIZNET_W5100 || WIZNET_W5300
+-	default y
+-	help
+-	  This enables transmit flow control for WIZnet chips.
+-	  If unsure, say Y.
+-
+ endif # NET_VENDOR_WIZNET
+diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
+index 157d2f0..22e2c5c 100644
+--- a/drivers/net/ethernet/wiznet/w5100.c
++++ b/drivers/net/ethernet/wiznet/w5100.c
+@@ -441,8 +441,7 @@ static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
+ 	struct w5100_priv *priv = netdev_priv(ndev);
+ 	u16 offset;
+ 
+-	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW))
+-		netif_stop_queue(ndev);
++	netif_stop_queue(ndev);
+ 
+ 	offset = w5100_read16(priv, W5100_S0_TX_WR);
+ 	w5100_writebuf(priv, offset, skb->data, skb->len);
+@@ -517,7 +516,7 @@ static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
+ 	w5100_write(priv, W5100_S0_IR, ir);
+ 	mmiowb();
+ 
+-	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW) && (ir & S0_IR_SENDOK)) {
++	if (ir & S0_IR_SENDOK) {
+ 		netif_dbg(priv, tx_done, ndev, "tx done\n");
+ 		netif_wake_queue(ndev);
+ 	}
+diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
+index 86d07bb..63cb9dd 100644
+--- a/drivers/net/ethernet/wiznet/w5300.c
++++ b/drivers/net/ethernet/wiznet/w5300.c
+@@ -273,9 +273,7 @@ static void w5300_hw_start(struct w5300_priv *priv)
+ 			  S0_MR_MACRAW : S0_MR_MACRAW_MF);
+ 	mmiowb();
+ 	w5300_command(priv, S0_CR_OPEN);
+-	w5300_write(priv, W5300_S0_IMR, IS_ENABLED(CONFIG_WIZNET_TX_FLOW) ?
+-					S0_IR_RECV | S0_IR_SENDOK :
+-					S0_IR_RECV);
++	w5300_write(priv, W5300_S0_IMR, S0_IR_RECV | S0_IR_SENDOK);
+ 	w5300_write(priv, W5300_IMR, IR_S0);
+ 	mmiowb();
+ }
+@@ -371,8 +369,7 @@ static int w5300_start_tx(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	struct w5300_priv *priv = netdev_priv(ndev);
+ 
+-	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW))
+-		netif_stop_queue(ndev);
++	netif_stop_queue(ndev);
+ 
+ 	w5300_write_frame(priv, skb->data, skb->len);
+ 	mmiowb();
+@@ -439,7 +436,7 @@ static irqreturn_t w5300_interrupt(int irq, void *ndev_instance)
+ 	w5300_write(priv, W5300_S0_IR, ir);
+ 	mmiowb();
+ 
+-	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW) && (ir & S0_IR_SENDOK)) {
++	if (ir & S0_IR_SENDOK) {
+ 		netif_dbg(priv, tx_done, ndev, "tx done\n");
+ 		netif_wake_queue(ndev);
+ 	}
+-- 
+1.6.3.3
