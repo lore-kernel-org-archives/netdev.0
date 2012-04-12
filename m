@@ -1,120 +1,92 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] netfilter: ipvs: Verify that IP_VS protocol has been
- registered
-Date: Fri, 13 Apr 2012 06:41:28 +0900
-Message-ID: <20120412214127.GA18687@verge.net.au>
-References: <1333668273-8873-1-git-send-email-levinsasha928@gmail.com>
- <20120411232243.GB7038@1984>
- <20120411234628.GA7253@1984>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sasha Levin <levinsasha928@gmail.com>, wensong@linux-vs.org,
-	ja@ssi.bg, kaber@trash.net, davem@davemloft.net, davej@redhat.com,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120411234628.GA7253@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Will Drewry <wad@chromium.org>
+Subject: [PATCH v18 03/15] sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W
+Date: Thu, 12 Apr 2012 16:47:52 -0500
+Message-ID: <1334267284-19166-3-git-send-email-wad@chromium.org>
+References: <1334267284-19166-1-git-send-email-wad@chromium.org>
+Cc: linux-man@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+	jmorris@namei.org, Will Drewry <wad@chromium.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:41060 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934812Ab2DLVsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 17:48:45 -0400
+Received: by mail-yx0-f174.google.com with SMTP id l12so1396138yen.19
+        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 14:48:45 -0700 (PDT)
+In-Reply-To: <1334267284-19166-1-git-send-email-wad@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 12, 2012 at 01:46:28AM +0200, Pablo Neira Ayuso wrote:
-> On Thu, Apr 12, 2012 at 01:22:43AM +0200, Pablo Neira Ayuso wrote:
-> > On Thu, Apr 05, 2012 at 07:24:33PM -0400, Sasha Levin wrote:
-> > > The registration of a protocol might fail, there were no checks
-> > > and all registrations were assumed to be correct. This lead to
-> > > NULL ptr dereferences when apps tried registering.
-> > > 
-> > > For example:
-> > > 
-> > > [ 1293.226051] BUG: unable to handle kernel NULL pointer dereference at 0000000000000018
-> > > [ 1293.227038] IP: [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
-> > > [ 1293.227038] PGD 391de067 PUD 6c20b067 PMD 0
-> > > [ 1293.227038] Oops: 0000 [#1] PREEMPT SMP
-> > > [ 1293.227038] CPU 1
-> > > [ 1293.227038] Pid: 19609, comm: trinity Tainted: G        W    3.4.0-rc1-next-20120405-sasha-dirty #57
-> > > [ 1293.227038] RIP: 0010:[<ffffffff822aacb0>]  [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
-> > > [ 1293.227038] RSP: 0018:ffff880038c1dd18  EFLAGS: 00010286
-> > > [ 1293.227038] RAX: ffffffffffffffc0 RBX: 0000000000001500 RCX: 0000000000010000
-> > > [ 1293.227038] RDX: 0000000000000000 RSI: ffff88003a2d5888 RDI: 0000000000000282
-> > > [ 1293.227038] RBP: ffff880038c1dd48 R08: 0000000000000000 R09: 0000000000000000
-> > > [ 1293.227038] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88003a2d5668
-> > > [ 1293.227038] R13: ffff88003a2d5988 R14: ffff8800696a8ff8 R15: 0000000000000000
-> > > [ 1293.227038] FS:  00007f01930d9700(0000) GS:ffff88007ce00000(0000) knlGS:0000000000000000
-> > > [ 1293.227038] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> > > [ 1293.227038] CR2: 0000000000000018 CR3: 0000000065dfc000 CR4: 00000000000406e0
-> > > [ 1293.227038] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> > > [ 1293.227038] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> > > [ 1293.227038] Process trinity (pid: 19609, threadinfo ffff880038c1c000, task ffff88002dc73000)
-> > > [ 1293.227038] Stack:
-> > > [ 1293.227038]  ffff880038c1dd48 00000000fffffff4 ffff8800696aada0 ffff8800694f5580
-> > > [ 1293.227038]  ffffffff8369f1e0 0000000000001500 ffff880038c1dd98 ffffffff822a716b
-> > > [ 1293.227038]  0000000000000000 ffff8800696a8ff8 0000000000000015 ffff8800694f5580
-> > > [ 1293.227038] Call Trace:
-> > > [ 1293.227038]  [<ffffffff822a716b>] ip_vs_app_inc_new+0xdb/0x180
-> > > [ 1293.227038]  [<ffffffff822a7258>] register_ip_vs_app_inc+0x48/0x70
-> > > [ 1293.227038]  [<ffffffff822b2fea>] __ip_vs_ftp_init+0xba/0x140
-> > > [ 1293.227038]  [<ffffffff821c9060>] ops_init+0x80/0x90
-> > > [ 1293.227038]  [<ffffffff821c90cb>] setup_net+0x5b/0xe0
-> > > [ 1293.227038]  [<ffffffff821c9416>] copy_net_ns+0x76/0x100
-> > > [ 1293.227038]  [<ffffffff810dc92b>] create_new_namespaces+0xfb/0x190
-> > > [ 1293.227038]  [<ffffffff810dca21>] unshare_nsproxy_namespaces+0x61/0x80
-> > > [ 1293.227038]  [<ffffffff810afd1f>] sys_unshare+0xff/0x290
-> > > [ 1293.227038]  [<ffffffff8187622e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-> > > [ 1293.227038]  [<ffffffff82665539>] system_call_fastpath+0x16/0x1b
-> > > [ 1293.227038] Code: 89 c7 e8 34 91 3b 00 89 de 66 c1 ee 04 31 de 83 e6 0f 48 83 c6 22 48 c1 e6 04 4a 8b 14 26 49 8d 34 34 48 8d 42 c0 48 39 d6 74 13 <66> 39 58 58 74 22 48 8b 48 40 48 8d 41 c0 48 39 ce 75 ed 49 8d
-> > > [ 1293.227038] RIP  [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
-> > > [ 1293.227038]  RSP <ffff880038c1dd18>
-> > > [ 1293.227038] CR2: 0000000000000018
-> > > [ 1293.379284] ---[ end trace 364ab40c7011a009 ]---
-> > > [ 1293.381182] Kernel panic - not syncing: Fatal exception in interrupt
-> > > 
-> > > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> > > ---
-> > >  net/netfilter/ipvs/ip_vs_proto.c |   21 ++++++++++++++++-----
-> > >  1 files changed, 16 insertions(+), 5 deletions(-)
-> > > 
-> > > diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-> > > index f843a88..43893ba 100644
-> > > --- a/net/netfilter/ipvs/ip_vs_proto.c
-> > > +++ b/net/netfilter/ipvs/ip_vs_proto.c
-> > > @@ -316,20 +316,31 @@ ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
-> > >   */
-> > >  int __net_init ip_vs_protocol_net_init(struct net *net)
-> > >  {
-> > > +	int ret;
-> > >  #ifdef CONFIG_IP_VS_PROTO_TCP
-> > > -	register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
-> > > +	ret = register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
-> > > +	if (ret < 0)
-> > > +		return ret;
-> > >  #endif
-> > >  #ifdef CONFIG_IP_VS_PROTO_UDP
-> > > -	register_ip_vs_proto_netns(net, &ip_vs_protocol_udp);
-> > > +	ret = register_ip_vs_proto_netns(net, &ip_vs_protocol_udp);
-> > > +	if (ret < 0)
-> > > +		return ret;
-> > 
-> > If you return here, I think you'll leave things in inconsistent state,
-> > ie. the tcp protocol is registered. You have to unregister it before
-> > leaving.
-> > 
-> > ret = register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
->                                                         ^^^
-> sorry, I meant to say udp here.
-> 
-> > if (ret < 0)
-> >         goto err_tcp;
->                    ^^^
-> and here.
-> 
-> > ...
-> > err_tcp:
-> >         unregister_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
-> 
+Introduces a new BPF ancillary instruction that all LD calls will be
+mapped through when skb_run_filter() is being used for seccomp BPF.  The
+rewriting will be done using a secondary chk_filter function that is run
+after skb_chk_filter.
 
-Thanks Pablo,
+The code change is guarded by CONFIG_SECCOMP_FILTER which is added,
+along with the seccomp_bpf_load() function later in this series.
 
-I was thinking along those lines too.
-I'll send an updated patch.
+This is based on http://lkml.org/lkml/2012/3/2/141
+
+Suggested-by: Indan Zupancic <indan@nul.nu>
+Signed-off-by: Will Drewry <wad@chromium.org>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Eric Paris <eparis@redhat.com>
+
+v18: rebase
+...
+v15: include seccomp.h explicitly for when seccomp_bpf_load exists.
+v14: First cut using a single additional instruction
+... v13: made bpf functions generic.
+---
+ include/linux/filter.h |    1 +
+ net/core/filter.c      |    6 ++++++
+ 2 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 8eeb205..aaa2e80 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -228,6 +228,7 @@ enum {
+ 	BPF_S_ANC_HATYPE,
+ 	BPF_S_ANC_RXHASH,
+ 	BPF_S_ANC_CPU,
++	BPF_S_ANC_SECCOMP_LD_W,
+ };
+ 
+ #endif /* __KERNEL__ */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 6f755cc..491e2e1 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -38,6 +38,7 @@
+ #include <linux/filter.h>
+ #include <linux/reciprocal_div.h>
+ #include <linux/ratelimit.h>
++#include <linux/seccomp.h>
+ 
+ /* No hurry in this branch
+  *
+@@ -352,6 +353,11 @@ load_b:
+ 				A = 0;
+ 			continue;
+ 		}
++#ifdef CONFIG_SECCOMP_FILTER
++		case BPF_S_ANC_SECCOMP_LD_W:
++			A = seccomp_bpf_load(fentry->k);
++			continue;
++#endif
+ 		default:
+ 			WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
+ 				       fentry->code, fentry->jt,
+-- 
+1.7.5.4
