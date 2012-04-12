@@ -1,70 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/4] ipgre: follow state of lower device
-Date: Thu, 12 Apr 2012 10:38:25 -0700
-Message-ID: <20120412103825.74ff915a@s6510.linuxnetplumber.net>
-References: <20120412163115.076119065@vyatta.com>
-	<20120412163142.544953001@vyatta.com>
-	<1334251927.2497.7.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: smsc911x: fix RX FIFO fastforwarding when
+ dropping packets
+Date: Thu, 12 Apr 2012 19:41:40 +0200
+Message-ID: <1334252500.5300.6929.camel@edumazet-glaptop>
+References: <1334221644-16056-1-git-send-email-will.deacon@arm.com>
+	 <1334222448.5300.6046.camel@edumazet-glaptop>
+	 <20120412125355.GG16025@mudshark.cambridge.arm.com>
+	 <1334235963.5300.6361.camel@edumazet-glaptop>
+	 <20120412134757.GH16025@mudshark.cambridge.arm.com>
+	 <1334239299.5300.6478.camel@edumazet-glaptop>
+	 <20120412155409.GA28204@mudshark.cambridge.arm.com>
+	 <1334246880.5300.6736.camel@edumazet-glaptop>
+	 <20120412170350.GD28204@mudshark.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: Will Deacon <will.deacon@arm.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37540 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757736Ab2DLRi2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Apr 2012 13:38:28 -0400
-In-Reply-To: <1334251927.2497.7.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:39638 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757934Ab2DLRls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 13:41:48 -0400
+Received: by bkcik5 with SMTP id ik5so1723332bkc.19
+        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 10:41:43 -0700 (PDT)
+In-Reply-To: <20120412170350.GD28204@mudshark.cambridge.arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Apr 2012 18:32:07 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Thu, 2012-04-12 at 18:03 +0100, Will Deacon wrote:
 
-> On Thu, 2012-04-12 at 09:31 -0700, Stephen Hemminger wrote:
+
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 > 
-> > GRE tunnels like other layered devices should propogate
-> > carrier and RFC2863 state from lower device to tunnel.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > 
-> > --- a/net/ipv4/ip_gre.c	2012-04-12 08:07:39.508107847 -0700
-> > +++ b/net/ipv4/ip_gre.c	2012-04-12 08:10:14.177499183 -0700
-> [...]
-> > @@ -1732,6 +1734,36 @@ static struct rtnl_link_ops ipgre_tap_op
-> >  	.fill_info	= ipgre_fill_info,
-> >  };
-> >  
-> > +/* If lower device changes state, reflect that to the tunnel. */
-> > +static int ipgre_notify(struct notifier_block *unused,
-> > +			unsigned long event, void *ptr)
-> > +{
-> > +	struct net_device *dev = ptr;
-> > +	struct net *net = dev_net(dev);
-> > +	struct ipgre_net *ign = net_generic(net, ipgre_net_id);
-> > +	unsigned int prio, h;
-> > +	struct ip_tunnel *t;
-> > +
-> > +	if (event == NETDEV_CHANGE)
-> > +		return NOTIFY_DONE;
-> 
-> Surely we should handle NETDEV_UP, NETDEV_CHANGE, NETDEV_DOWN here?  Not
-> everything other than NETDEV_CHANGE.
+> Thanks, Eric. Given that Steve's email doesn't appear to be working, can
+> somebody else pick this up please?
 
-yes, up and down needed as well.
+It seems trivial enough, you tested it, and I reviewed it.
 
-> > +	for (prio = 0; prio < 4; prio++)
-> > +		for (h = 0; h < HASH_SIZE; h++) {
-> > +			for (t = rtnl_dereference(ign->tunnels[prio][h]);
-> > +			     t; t = rtnl_dereference(t->next)) {
-> > +				if (dev->ifindex != t->dev->iflink)
-> > +					continue;
-> > +				netif_stacked_transfer_operstate(dev, t->dev);
-> > +			}
-> > +		}
-> [...]
-> 
-> This seems potentially very inefficient.
+I believe David can apply it safely.
 
-Yes, but there is no list of tunnels per device.
+Thanks
