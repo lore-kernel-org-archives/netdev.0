@@ -1,57 +1,117 @@
-From: mjr@cs.wisc.edu
-Subject: [PATCH] Fix missing mutex_lock/unlock
-Date: Thu, 12 Apr 2012 10:26:36 -0500
-Message-ID: <1334244396-6978-1-git-send-email-mjr@cs.wisc.edu>
-Cc: sboyd@codeaurora.org, ben@simtec.co.uk, netdev@vger.kernel.org,
-	Matt Renzelmann <mjr@cs.wisc.edu>
-To: davem@davemloft.net
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH] net: smsc911x: fix RX FIFO fastforwarding when dropping
+ packets
+Date: Thu, 12 Apr 2012 16:54:09 +0100
+Message-ID: <20120412155409.GA28204@mudshark.cambridge.arm.com>
+References: <1334221644-16056-1-git-send-email-will.deacon@arm.com>
+ <1334222448.5300.6046.camel@edumazet-glaptop>
+ <20120412125355.GG16025@mudshark.cambridge.arm.com>
+ <1334235963.5300.6361.camel@edumazet-glaptop>
+ <20120412134757.GH16025@mudshark.cambridge.arm.com>
+ <1334239299.5300.6478.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:46964 "EHLO sabe.cs.wisc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934343Ab2DLP3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Apr 2012 11:29:48 -0400
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:62511 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934441Ab2DLPyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 11:54:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1334239299.5300.6478.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Renzelmann <mjr@cs.wisc.edu>
+On Thu, Apr 12, 2012 at 03:01:39PM +0100, Eric Dumazet wrote:
+> On Thu, 2012-04-12 at 14:47 +0100, Will Deacon wrote:
+> 
+> > 
+> > I don't think we want an skb_reserve at all, since the hardware shifts the
+> > data in the RX FIFO, meaning that we will read two bytes of 0 anyway before
+> > valid data.
+> > 
+> > > 		skb_put(skb, pktlength - 4);
+> > 
+> > I can move the put here if you like, but we need to use pktwords << 2 to
+> > make sure that we read the leading and trailing zeroes inserted by the
+> > hardware.
+> 
+> before calling linux stack, you'll have to skip those 2 bytes.
+> 
+> This is skb_reserve() purpose.
 
-All calls to ks8851_rdreg* and ks8851_wrreg* should be protected
-with the driver's lock mutex.  A spurious interrupt may otherwise cause a
-crash.
+Gotcha, so I can lose the pull too. Here's an updated patch with log, thanks
+for the help.
 
-Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
----
-Hello,
+Will
 
-I'm new to the kernel development process so I hope I've not screwed
-this up with this extra text.  We found a potential issue using a new
-driver testing tool called SymDrive.  It looks legitimate to me, so
-I'm reporting it.  We hope to make this tool available in the future.
-Please let me know if I should modify the patch or re-send without
-this commentary.  Thanks in advance for your patience.
 
- drivers/net/ethernet/micrel/ks8851.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Author: Will Deacon <will.deacon@arm.com>
+Date:   Thu Apr 12 13:54:17 2012 +0100
 
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index c722aa6..fa2001a 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -1515,11 +1515,15 @@ static int __devinit ks8851_probe(struct spi_device *spi)
- 		goto err_netdev;
- 	}
+    net: smsc911x: fix skb handling in receive path
+    
+    The SMSC911x driver resets the ->head, ->data and ->tail pointers in the
+    skb on the reset path in order to avoid buffer overflow due to packet
+    padding performed by the hardware.
+    
+    This patch fixes the receive path so that the skb pointers are fixed up
+    after the data has been read from the device, The error path is also
+    fixed to use number of words consistently and prevent erroneous FIFO
+    fastforwarding when skipping over bad data.
+    
+    Signed-off-by: Will Deacon <will.deacon@arm.com>
+
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 4a69710..5aa2dbe 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -1166,10 +1166,8 @@ smsc911x_rx_counterrors(struct net_device *dev, unsigned int rxstat)
  
-+	mutex_lock(&ks->lock);
-+
- 	netdev_info(ndev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
- 		    CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
- 		    ndev->dev_addr, ndev->irq,
- 		    ks->rc_ccr & CCR_EEPROM ? "has" : "no");
+ /* Quickly dumps bad packets */
+ static void
+-smsc911x_rx_fastforward(struct smsc911x_data *pdata, unsigned int pktbytes)
++smsc911x_rx_fastforward(struct smsc911x_data *pdata, unsigned int pktwords)
+ {
+-	unsigned int pktwords = (pktbytes + NET_IP_ALIGN + 3) >> 2;
+-
+ 	if (likely(pktwords >= 4)) {
+ 		unsigned int timeout = 500;
+ 		unsigned int val;
+@@ -1233,7 +1231,7 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
+ 			continue;
+ 		}
  
-+	mutex_unlock(&ks->lock);
-+
- 	return 0;
+-		skb = netdev_alloc_skb(dev, pktlength + NET_IP_ALIGN);
++		skb = netdev_alloc_skb(dev, pktwords << 2);
+ 		if (unlikely(!skb)) {
+ 			SMSC_WARN(pdata, rx_err,
+ 				  "Unable to allocate skb for rx packet");
+@@ -1243,14 +1241,12 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
+ 			break;
+ 		}
  
+-		skb->data = skb->head;
+-		skb_reset_tail_pointer(skb);
++		pdata->ops->rx_readfifo(pdata,
++				 (unsigned int *)skb->data, pktwords);
  
--- 
-1.7.5.4
+ 		/* Align IP on 16B boundary */
+ 		skb_reserve(skb, NET_IP_ALIGN);
+ 		skb_put(skb, pktlength - 4);
+-		pdata->ops->rx_readfifo(pdata,
+-				 (unsigned int *)skb->head, pktwords);
+ 		skb->protocol = eth_type_trans(skb, dev);
+ 		skb_checksum_none_assert(skb);
+ 		netif_receive_skb(skb);
+@@ -1565,7 +1561,7 @@ static int smsc911x_open(struct net_device *dev)
+ 	smsc911x_reg_write(pdata, FIFO_INT, temp);
+ 
+ 	/* set RX Data offset to 2 bytes for alignment */
+-	smsc911x_reg_write(pdata, RX_CFG, (2 << 8));
++	smsc911x_reg_write(pdata, RX_CFG, (NET_IP_ALIGN << 8));
+ 
+ 	/* enable NAPI polling before enabling RX interrupts */
+ 	napi_enable(&pdata->napi);
