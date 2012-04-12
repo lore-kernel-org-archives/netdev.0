@@ -1,39 +1,84 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] ks8851: Fix missing mutex_lock/unlock
-Date: Thu, 12 Apr 2012 17:40:44 -0300
-Message-ID: <20120412174044.2cd7d96b@asterix.rh>
-References: <1334261204-8554-1-git-send-email-mjr@cs.wisc.edu>
+From: Georgiewskiy Yuriy <bottleman-k/kvQgNDeKovJsYlp49lxw@public.gmane.org>
+Subject: Re: [PATCH 4/5] mac80211: Add more ethtools stats: survey, rates,
+ etc
+Date: Thu, 12 Apr 2012 23:53:56 +0400 (MSK)
+Message-ID: <alpine.DEB.2.02.1204122352001.29503@icf.org.ru>
+References: <1334248375-22967-1-git-send-email-greearb@candelatech.com> <1334248375-22967-5-git-send-email-greearb@candelatech.com> <4F8705E3.2010902@openwrt.org> <4F870828.4020708@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, sboyd@codeaurora.org, ben@simtec.co.uk,
-	netdev@vger.kernel.org
-To: mjr@cs.wisc.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40512 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756749Ab2DLUlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Apr 2012 16:41:09 -0400
-In-Reply-To: <1334261204-8554-1-git-send-email-mjr@cs.wisc.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1050998036-1367714212-1334260436=:29503"
+Cc: Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F870828.4020708-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Apr 2012 15:06:44 -0500
-mjr@cs.wisc.edu wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> From: Matt Renzelmann <mjr@cs.wisc.edu>
-> 
-> All calls to ks8851_rdreg* and ks8851_wrreg* should be protected with
-> the driver's lock mutex.  A spurious interrupt may otherwise cause a
-> crash.
-> 
-> Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
-> ---
-> 
-> Thank you, Mr. Leitner, for providing feedback.  I agree with your
-> changes and have updated the patch to reflect them.  I apologize for
-> missing the driver name in the title -- I've updated the patch with
-> that information as well.  Please let me know if there is anything
-> else I should fix/change.
+---1050998036-1367714212-1334260436=:29503
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
+On 2012-04-12 09:51 -0700, Ben Greear wrote Florian Fainelli:
+
+BG>On 04/12/2012 09:42 AM, Florian Fainelli wrote:
+BG>> Hi,
+BG>> 
+BG>> Le 04/12/12 18:32, greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org a ?crit :
+BG>> > From: Ben Greear<greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+BG>> > 
+BG>> > The signal and noise are forced to be positive since ethtool
+BG>> > deals in unsigned 64-bit values and this number should be human
+BG>> > readable. This gives easy access to some of the data formerly
+BG>> > exposed in the deprecated /proc/net/wireless file.
+BG>> 
+BG>> Uh, that's misleading, the signal and noise values are typically negative,
+BG>> so one needs to think about mentally adding a minus sign if he/she wants to
+BG>> understand it. Does not ethtool know about 32-bits signed integers?
+BG>
+BG>Ethtool stats only supports u64.  I think it's easy enough for
+BG>humans or programs to add the negative sign.  Can signal or noise
+BG>ever be > 0?  If so, that could actually break something that depends
+BG>on flipping the value to negative....
+
+Don't know is this is a bug or it's reaaly can be positive, but:
+
+iw dev mp0 station dump
+Station 00:02:6f:b8:94:d3 (on mp0)
+    inactive time:	49 ms
+    rx bytes:	36318341
+    rx packets:	271741
+    tx bytes:	4180152
+    tx packets:	35445
+    tx retries:	7724
+    tx failed:	123
+    signal:  	1 dBm
+    signal avg:	-2 dBm
+    tx bitrate:	240.0 MBit/s MCS 13 40Mhz short GI
+    rx bitrate:	180.0 MBit/s MCS 12 40Mhz short GI
+    mesh llid:	8349
+    mesh plid:	49801
+    mesh plink:	ESTAB
+    authorized:	yes
+    authenticated:	yes
+    preamble:	long
+    WMM/WME:	yes
+    FP:		no
+    TDLS peer:	no
+										    
+
+C уважением                       With Best Regards
+Георгиевский Юрий.                Georgiewskiy Yuriy
++7 4872 711666                    +7 4872 711666
+факс +7 4872 711143               fax +7 4872 711143
+Компания ООО "Ай Ти Сервис"       IT Service Ltd
+http://nkoort.ru                  http://nkoort.ru
+JID: GHhost-k/kvQgNDeKovJsYlp49lxw@public.gmane.org            JID: GHhost-k/kvQgNDeKovJsYlp49lxw@public.gmane.org
+YG129-RIPE                        YG129-RIPE
+---1050998036-1367714212-1334260436=:29503--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
