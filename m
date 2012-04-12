@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] r6040: misc cleanups
-Date: Thu, 12 Apr 2012 16:07:17 -0400 (EDT)
-Message-ID: <20120412.160717.1159587177178475867.davem@davemloft.net>
-References: <1334164723-9627-1-git-send-email-florian@openwrt.org>
+Subject: Re: [PATCH] net/core: simple_strtoul cleanup
+Date: Thu, 12 Apr 2012 16:09:24 -0400 (EDT)
+Message-ID: <20120412.160924.1955339981542902073.davem@davemloft.net>
+References: <1334258893.3022.7.camel@lorien2>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: florian@openwrt.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41124 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965939Ab2DLUHW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 16:07:22 -0400
-In-Reply-To: <1334164723-9627-1-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shuahkhan@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334258893.3022.7.camel@lorien2>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Wed, 11 Apr 2012 19:18:35 +0200
+From: Shuah Khan <shuahkhan@gmail.com>
+Date: Thu, 12 Apr 2012 13:28:13 -0600
 
-> This series contains some cleanups and one small fix, they are targetted
-> at net-next.
+> Changed net/core/net-sysfs.c: netdev_store() to use kstrtoul() 
+> instead of obsolete simple_strtoul().
+> 
+>>From 84371b0ed8b277ec8005fd0efbc73165a8bd72b9 Mon Sep 17 00:00:00 2001
+> From: Shuah Khan <shuahkhan@gmail.com>
+> Date: Thu, 12 Apr 2012 10:36:10 -0600
+> Subject: [PATCH] net/core: simple_strtoul cleanup
+> 
+> 
+> Signed-off-by: Shuah Khan <shuahkhan@gmail.com>
 
-All applied, thanks Florian.
+Applied, thanks.
