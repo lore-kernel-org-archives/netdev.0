@@ -1,102 +1,78 @@
-From: Stuart Hodgson <smhodgson@solarflare.com>
-Subject: Re: [RFC PATCH 2/2] net: ethtool: Add capability to retrieve plug-in
- module EEPROM
-Date: Thu, 12 Apr 2012 10:20:49 +0100
-Message-ID: <4F869E71.2020102@solarflare.com>
-References: <4F71FE15.7060708@solarflare.com>  <1333390698.2623.47.camel@bwh-desktop.uk.solarflarecom.com>  <4F85C22C.30707@solarflare.com> <1334169119.2552.17.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: smsc911x: fix RX FIFO fastforwarding when
+ dropping packets
+Date: Thu, 12 Apr 2012 11:20:48 +0200
+Message-ID: <1334222448.5300.6046.camel@edumazet-glaptop>
+References: <1334221644-16056-1-git-send-email-will.deacon@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: Will Deacon <will.deacon@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:16369 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754955Ab2DLJUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 05:20:52 -0400
-In-Reply-To: <1334169119.2552.17.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:34362 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762255Ab2DLJUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 05:20:53 -0400
+Received: by bkcik5 with SMTP id ik5so1331201bkc.19
+        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 02:20:51 -0700 (PDT)
+In-Reply-To: <1334221644-16056-1-git-send-email-will.deacon@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/04/12 19:31, Ben Hutchings wrote:
-> On Wed, 2012-04-11 at 18:41 +0100, Stuart Hodgson wrote:
->> On 02/04/12 19:18, Ben Hutchings wrote:
->>> On Tue, 2012-03-27 at 18:51 +0100, Stuart Hodgson wrote:
-> [...]
->>>> --- a/drivers/net/ethernet/sfc/ethtool.c
->>>> +++ b/drivers/net/ethernet/sfc/ethtool.c
-> [...]
->>>> +        payload_len = MCDI_DWORD(outbuf,
->>>> +                     GET_PHY_MEDIA_INFO_OUT_DATALEN);
->>>> +
->>>> +        to_copy = (space_remaining<   payload_len) ?
->>>> +                space_remaining : payload_len;
->>>> +
->>>> +        to_copy -= page_off;
->>>
->>> page_off is the number of bytes we need to discard from payload_len, but
->>> we don't want do discard that from space_remaining.  I think the last
->>> two statements should be changed to:
->>>
->>> 	payload_len -= page_off;
->>> 	to_copy = (space_remaining<   payload_len) ?
->>> 		space_remaining : payload_len;
->>>
->>
->> I am pretty sure that these two pieces of code are the same
->
-> Suppose we start with ee->offset = 64, ee->len = 32.  After the MCDI
-> request returns and we assign payload_len from that, I believe we will
-> have page_off = 64, payload_len = 128, space_remaining = 32.
->
-> Work through the calculations from there and you'll see the problem.
->
-> [...]
+On Thu, 2012-04-12 at 10:07 +0100, Will Deacon wrote:
+> The SMSC911x ethernet controller provides a mechanism for quickly
+> skipping to the start of the next frame in the receive FIFO, however
+> the current code passes the number of words to a function that expects
+> the number of bytes. This can corrupt the FIFO head in the case that
+> the fastforward mechanism is not used.
+> 
+> This patch fixes the callers of smsc911x_rx_fastforward to pass the
+> correct data size.
+> 
+> Cc: Steve Glendinning <steve.glendinning@smsc.com>
+> Signed-off-by: Will Deacon <will.deacon@arm.com>
+> ---
+>  drivers/net/ethernet/smsc/smsc911x.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 4a69710..b5599bc 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -1228,7 +1228,7 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
+>  				  "Discarding packet with error bit set");
+>  			/* Packet has an error, discard it and continue with
+>  			 * the next */
+> -			smsc911x_rx_fastforward(pdata, pktwords);
+> +			smsc911x_rx_fastforward(pdata, pktlength);
+>  			dev->stats.rx_dropped++;
+>  			continue;
+>  		}
+> @@ -1238,7 +1238,7 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
+>  			SMSC_WARN(pdata, rx_err,
+>  				  "Unable to allocate skb for rx packet");
+>  			/* Drop the packet and stop this polling iteration */
+> -			smsc911x_rx_fastforward(pdata, pktwords);
+> +			smsc911x_rx_fastforward(pdata, pktlength);
+>  			dev->stats.rx_dropped++;
+>  			break;
+>  		}
 
-Yep, I go negative if len is shorter than offset.
+Hum, looking at this driver, I see wrong code in lines 1246/1247
 
->>>> +    phy_cfg = efx->phy_data;
->>>> +    modinfo->eeprom_len = mcdi_to_module_eeprom_len(phy_cfg->media);
->>>> +    modinfo->type = SFF_8079;
->>> [...]
->>>
->>> I don't think this makes sense.  If we're fixing the type as SFF_8079
->>> then why are we calling a function to get the length?
->>>
->>> Ben.
->>>
->>
->> What about adding an mcdi_to_module_eeprom_type in the same manner
->> as mcdi_to_module_eeprom_len and the other mapping functions?
->
-> Could do, but I don't see the point of breaking this out into separate
-> functions that are only used once.  It's actually going to increase code
-> duplication because you'll have to put the same PHY type checks in both
-> of them.
->
-> Ben.
->
+skb->data = skb->head;
+skb_reset_tail_pointer(skb);
 
-I simply followed the precedent of mcdi_to_ethtool_media. I could 
-combine these functions into the module_info function such as
-	
+I suspect its hiding a buffer overflow bug or something.
 
-	...
-         struct efx_mcdi_phy_data *phy_cfg;
+netdev_alloc_skb() reserved NET_SKB_PAD bytes. A driver should not
+un-reserve this headroom, or some networking setups can be very slow.
 
-         phy_cfg = efx->phy_data;
-         modinfo->eeprom_len = 0;
-         modinfo->type = 0;
+So 
 
-         switch (phy_cfg->media) {
-         case MC_CMD_MEDIA_SFP_PLUS:
-                 modinfo->type = ETH_MODULE_SFF_8079;
-                 modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
-                 break;
-         default:
-                 break;
-         }
-	...
+pdata->ops->rx_readfifo(pdata,
+	(unsigned int *)skb->head, pktwords);
 
-Stu
+also should be fixed to use skb->data instead.
