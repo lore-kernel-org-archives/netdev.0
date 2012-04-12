@@ -1,54 +1,43 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RFC udp: improve __udp4_lib_lookup performance
-Date: Thu, 12 Apr 2012 16:00:15 +0200
-Message-ID: <1334239215.5300.6475.camel@edumazet-glaptop>
-References: <CAHG7+CAt_YjxUp6+u9J47Ti1HA6hh_UkRMWQsXw4AsbEkvCu7w@mail.gmail.com>
+Subject: Re: [PATCH] net: smsc911x: fix RX FIFO fastforwarding when
+ dropping packets
+Date: Thu, 12 Apr 2012 16:01:39 +0200
+Message-ID: <1334239299.5300.6478.camel@edumazet-glaptop>
+References: <1334221644-16056-1-git-send-email-will.deacon@arm.com>
+	 <1334222448.5300.6046.camel@edumazet-glaptop>
+	 <20120412125355.GG16025@mudshark.cambridge.arm.com>
+	 <1334235963.5300.6361.camel@edumazet-glaptop>
+	 <20120412134757.GH16025@mudshark.cambridge.arm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexandru Copot <alex.mihai.c@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: Will Deacon <will.deacon@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:32832 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:36126 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933809Ab2DLOAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 10:00:22 -0400
-Received: by bkcik5 with SMTP id ik5so1538803bkc.19
-        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 07:00:20 -0700 (PDT)
-In-Reply-To: <CAHG7+CAt_YjxUp6+u9J47Ti1HA6hh_UkRMWQsXw4AsbEkvCu7w@mail.gmail.com>
+	with ESMTP id S933809Ab2DLOBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 10:01:47 -0400
+Received: by bkcik5 with SMTP id ik5so1540360bkc.19
+        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 07:01:45 -0700 (PDT)
+In-Reply-To: <20120412134757.GH16025@mudshark.cambridge.arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-04-12 at 16:35 +0300, Alexandru Copot wrote:
-> UDP uses 2 hashtables for fast socket lookup. First hash uses port as
-> a lookup key and the second one uses (port, addr).
+On Thu, 2012-04-12 at 14:47 +0100, Will Deacon wrote:
+
 > 
-> When an UDP packet is received, the destination socket must be found to
-> deliver it. If there are many UDP sockets bound to INADDR_ANY, 2 hash
-> searches are made in the second hash: first one looks for the pair
-> (dest address, dest port) but doesn't find the socket; the second search
-> finds the socket by hashing (INADDR_ANY, dest port).
+> I don't think we want an skb_reserve at all, since the hardware shifts the
+> data in the RX FIFO, meaning that we will read two bytes of 0 anyway before
+> valid data.
 > 
-> Those 2 searches can be avoided and a lot of time saved if instead we
-> searched directly in the first hash.
+> > 		skb_put(skb, pktlength - 4);
 > 
-> We could count the number of INADDR_ANY bound UDP sockets and
-> make only one search when that value is above a certain threshold. However,
-> if there are also sockets bound on a specific address, the second hash
-> won't be used and that might hurt performance for this case.
-> 
-> What is your opinion on this ? Would the performance gained by
-> counting INADDR_ANY bound sockets outweigh the loss in performance
-> for the case of mixed INADDR_ANY/specific address bound sockets ?
+> I can move the put here if you like, but we need to use pktwords << 2 to
+> make sure that we read the leading and trailing zeroes inserted by the
+> hardware.
 
-I have no idea of your workload, but existing code is already very
-optimized.
+before calling linux stack, you'll have to skip those 2 bytes.
 
-udp4_lib_lookup2() variants are only called when (hslot->count > 10)
-
-If your workload have one 60000 UDP sockets bound on INADDR_ANY, I
-suggest you check udp hash size and eventually increase it to the max ?
-
-dmesg | grep "UDP hash"
-
-Boot command : uhash_entries=65536
+This is skb_reserve() purpose.
