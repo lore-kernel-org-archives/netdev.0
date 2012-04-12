@@ -1,114 +1,117 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4/5] mac80211: Add more ethtools stats: survey, rates,
- etc
-Date: Thu, 12 Apr 2012 22:05:33 +0100
-Message-ID: <1334264733.2497.35.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1334248375-22967-1-git-send-email-greearb@candelatech.com>
-	  <1334248375-22967-5-git-send-email-greearb@candelatech.com>
-	  <4F8705E3.2010902@openwrt.org> <4F870828.4020708@candelatech.com>
-	 <1334259053.2497.18.camel@bwh-desktop.uk.solarflarecom.com>
-	 <4F873F10.6010207@candelatech.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] ks8851: Fix missing mutex_lock/unlock
+Date: Thu, 12 Apr 2012 18:19:40 -0300
+Message-ID: <20120412181940.7140ecb2@asterix.rh>
+References: <1334261204-8554-1-git-send-email-mjr@cs.wisc.edu>
+	<4F873C58.3000104@codeaurora.org>
+	<20120412175945.1bbdd9bb@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <florian@openwrt.org>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Boyd <sboyd@codeaurora.org>, mjr@cs.wisc.edu,
+	davem@davemloft.net, ben@simtec.co.uk, netdev@vger.kernel.org
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:53266 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755917Ab2DLVFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 17:05:36 -0400
-In-Reply-To: <4F873F10.6010207@candelatech.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39808 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755993Ab2DLVUB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 17:20:01 -0400
+In-Reply-To: <20120412175945.1bbdd9bb@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-04-12 at 13:46 -0700, Ben Greear wrote:
-> On 04/12/2012 12:30 PM, Ben Hutchings wrote:
-> > On Thu, 2012-04-12 at 09:51 -0700, Ben Greear wrote:
-> >> On 04/12/2012 09:42 AM, Florian Fainelli wrote:
-> >>> Hi,
-> >>>
-> >>> Le 04/12/12 18:32, greearb@candelatech.com a =C3=A9crit :
-> >>>> From: Ben Greear<greearb@candelatech.com>
-> >>>>
-> >>>> The signal and noise are forced to be positive since ethtool
-> >>>> deals in unsigned 64-bit values and this number should be human
-> >>>> readable. This gives easy access to some of the data formerly
-> >>>> exposed in the deprecated /proc/net/wireless file.
-> >>>
-> >>> Uh, that's misleading, the signal and noise values are typically =
-negative, so one needs to think about mentally adding a minus sign if h=
-e/she wants to
-> >>> understand it. Does not ethtool know about 32-bits signed integer=
-s?
-> >>
-> >> Ethtool stats only supports u64.  I think it's easy enough for
-> >> humans or programs to add the negative sign.  Can signal or noise
-> >> ever be>  0?  If so, that could actually break something that depe=
-nds
-> >> on flipping the value to negative....
-> >
-> > So far as I can see, the ethtool stats were expected to be counters=
-,
-> > which obviously cannot become negative (or fractional).  Maybe it's=
- time
-> > to define another command and string-set to cover other types of st=
-atus
-> > information.  The ethtool utility could ask for those typed statist=
-ics
-> > as well, so 'ethtool -S' would get all of them.
->=20
-> One nice thing about ethtool stats API is that it is backwards and fo=
-rwards
-> compatible for a long while.
+On Thu, 12 Apr 2012 17:59:45 -0300
+Flavio Leitner <fbl@redhat.com> wrote:
 
-Agreed.
+> On Thu, 12 Apr 2012 13:34:32 -0700
+> Stephen Boyd <sboyd@codeaurora.org> wrote:
+> 
+> > On 04/12/12 13:06, mjr@cs.wisc.edu wrote:
+> > > From: Matt Renzelmann <mjr@cs.wisc.edu>
+> > >
+> > > All calls to ks8851_rdreg* and ks8851_wrreg* should be protected with
+> > > the driver's lock mutex.  A spurious interrupt may otherwise cause a
+> > > crash.
+> > >
+> > > Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
+> > > ---
+> > >
+> > > Thank you, Mr. Leitner, for providing feedback.  I agree with your
+> > > changes and have updated the patch to reflect them.  I apologize for
+> > > missing the driver name in the title -- I've updated the patch with
+> > > that information as well.  Please let me know if there is anything
+> > > else I should fix/change.
+> > >
+> > >  drivers/net/ethernet/micrel/ks8851.c |    8 ++++++--
+> > >  1 files changed, 6 insertions(+), 2 deletions(-)
+> > >
+> > > diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+> > > index c722aa6..20237dc 100644
+> > > --- a/drivers/net/ethernet/micrel/ks8851.c
+> > > +++ b/drivers/net/ethernet/micrel/ks8851.c
+> > > @@ -1417,6 +1417,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+> > >  {
+> > >  	struct net_device *ndev;
+> > >  	struct ks8851_net *ks;
+> > > +	int result;
+> > >  	int ret;
+> > >  
+> > >  	ndev = alloc_etherdev(sizeof(struct ks8851_net));
+> > > @@ -1515,9 +1516,12 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+> > >  		goto err_netdev;
+> > >  	}
+> > >  
+> > > +	mutex_lock(&ks->lock);
+> > > +	result = CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER));
+> > > +	mutex_unlock(&ks->lock);
+> > > +
+> > >  	netdev_info(ndev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
+> > > -		    CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
+> > > -		    ndev->dev_addr, ndev->irq,
+> > > +		    result, ndev->dev_addr, ndev->irq,
+> > >  		    ks->rc_ccr & CCR_EEPROM ? "has" : "no");
+> > >  
+> > >  	return 0;
+> > 
+> > This register is already read in the probe function and the lock is not
+> > held there so you seem to have missed a couple. I would guess it doesn't
+> > really matter tha we don't grab the lock though because the device isn't
+> > actively sending/receiving packets. How about this instead?
+> 
+> I believe that's because the IRQ isn't reserved yet, so there is no problem.
 
-> Also, adding a new API means a second call
-> into the kernel (most likely) for the other set of strings, which eff=
-ectively
-> doubles the cost of getting stats (and allows the stats to be updated
-> out-of-sync with each other more easily).
+So, what about this instead:
 
-It's generally not possible to take an atomic snapshot of all statistic=
-s
-for a NIC, so that shouldn't be a consideration.
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index c722aa6..7137f47 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1417,6 +1417,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ {
+ 	struct net_device *ndev;
+ 	struct ks8851_net *ks;
++	unsigned int cider;
+ 	int ret;
+ 
+ 	ndev = alloc_etherdev(sizeof(struct ks8851_net));
+@@ -1485,7 +1486,8 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ 
+ 	/* simple check for a valid chip being connected to the bus */
+ 
+-	if ((ks8851_rdreg16(ks, KS_CIDER) & ~CIDER_REV_MASK) != CIDER_ID) {
++	cider = ks8851_rdreg16(ks, KS_CIDER);
++	if ((cider & ~CIDER_REV_MASK) != CIDER_ID) {
+ 		dev_err(&spi->dev, "failed to read device ID\n");
+ 		ret = -ENODEV;
+ 		goto err_id;
+@@ -1516,7 +1518,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ 	}
+ 
+ 	netdev_info(ndev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
+-		    CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
++		    CIDER_REV_GET(cider),
+ 		    ndev->dev_addr, ndev->irq,
+ 		    ks->rc_ccr & CCR_EEPROM ? "has" : "no");
+ 
 
-> I wonder if instead we could add a convention where we add a short
-> prefix (or suffix) to a string to denote it's type (and cast the valu=
-e
-> into u64).  So, an old ethtool might see:
->=20
-> foo:s32: 4294967295
-
-Actually it would be:
-
-foo:s32: 18446744073709551615
-
-> while a new one understand that the s32: prefix is special, do
-> some casting, and could show:
-> foo: -1
->
-> Both are still at least somewhat human readable,
-
-I don't think many humans can mentally substract 2^64.
-
-> and probably wouldn't confuse anyone that is parsing the output of
-> existing ethtool output.
-
-I think you have this backwards: printing numbers in two different ways
-(old and new versions of ethtool) is likely to confuse scripts that are
-parsing and doing calculations with these numbers.  While I try to avoi=
-d
-gratuitous changes in output formatting, scripts should use the ethtool
-API if they really want interface stability.  It's not difficult (there
-are at least Python and Perl bindings available) and it's a lot more
-efficient.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+fbl
