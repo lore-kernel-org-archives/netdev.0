@@ -1,48 +1,47 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 4/5] mac80211: Add more ethtools stats: survey, rates,
- etc
-Date: Thu, 12 Apr 2012 09:51:52 -0700
-Message-ID: <4F870828.4020708@candelatech.com>
-References: <1334248375-22967-1-git-send-email-greearb@candelatech.com> <1334248375-22967-5-git-send-email-greearb@candelatech.com> <4F8705E3.2010902@openwrt.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2012-04-12
+Date: Thu, 12 Apr 2012 12:51:06 -0400 (EDT)
+Message-ID: <20120412.125106.1852994075956058784.davem@davemloft.net>
+References: <20120412142859.GB21495@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:59077 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752612Ab2DLQvz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 12:51:55 -0400
-In-Reply-To: <4F8705E3.2010902@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120412142859.GB21495@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/12/2012 09:42 AM, Florian Fainelli wrote:
-> Hi,
->
-> Le 04/12/12 18:32, greearb@candelatech.com a =C3=A9crit :
->> From: Ben Greear<greearb@candelatech.com>
->>
->> The signal and noise are forced to be positive since ethtool
->> deals in unsigned 64-bit values and this number should be human
->> readable. This gives easy access to some of the data formerly
->> exposed in the deprecated /proc/net/wireless file.
->
-> Uh, that's misleading, the signal and noise values are typically nega=
-tive, so one needs to think about mentally adding a minus sign if he/sh=
-e wants to
-> understand it. Does not ethtool know about 32-bits signed integers?
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 12 Apr 2012 10:28:59 -0400
 
-Ethtool stats only supports u64.  I think it's easy enough for
-humans or programs to add the negative sign.  Can signal or noise
-ever be > 0?  If so, that could actually break something that depends
-on flipping the value to negative....
+> This is a flurry of fixes intended for 3.4...
+> 
+> Many of these are Bluetooth fixes.  Gustavo says:
+> 
+> "This is a batch of fixes for 3.4. We have added support to 3 new
+> devices, fixes some NULL-pointer dereferences, memory leaks, memory
+> corruption and endian bugs. There was also a userspace compatibility
+> fix reported by Keith Packard on lkml. The fixes are all simple."
+> 
+> On top of the Bluetooths bits, we have a number of wireless fixes.
+> One is an rt2x00 fix from Chien-Chia Chen which fixes the rfkill
+> registration so that it still works even if the box is booted with the
+> device already blocked.  Johannes Berg gives us a pair of fixes, one
+> that corrects a macro parameter when setting a beacon wait timeout, and
+> another that ensures that the proper interface state is used throughout
+> nl80211 so as to avoid warnings and unintended driver behavior.
+> Julia Lawall gives us a fix for a memory leak in an error handling
+> case.  Larry Finger is the star performer for this round, giving us a
+> fix for firmware initialization in rtl8192de, a mac80211 fix to quiet
+> some log spam, a fix to avoid a NULL pointer dereference in rtlwifi, an
+> rtlwifi fix to avoid a "sleeping function called from invalid context"
+> BUG, and another rtlwifi fix to avoid "Out of SW-IOMMU space" errors.
+> Paul Gortmaker gives us a fix to avoid bcma build breakage on MIPS.
+> Samuel Ortiz fixes a loop in NFC's LLCP Tx frame fragmentation loop.
+> And finally, Sujith Manoharan reverts an earlier patch in order to
+> fix a regression reported by a number of ath9k users.
 
-Thanks,
-Ben
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Pulled, thanks John.
