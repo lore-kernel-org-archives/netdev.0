@@ -1,30 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/core: simple_strtoul cleanup
-Date: Thu, 12 Apr 2012 16:09:24 -0400 (EDT)
-Message-ID: <20120412.160924.1955339981542902073.davem@davemloft.net>
-References: <1334258893.3022.7.camel@lorien2>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shuahkhan@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334258893.3022.7.camel@lorien2>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: mjr@cs.wisc.edu
+Subject: [PATCH] ks8851: Fix missing mutex_lock/unlock
+Date: Thu, 12 Apr 2012 15:06:44 -0500
+Message-ID: <1334261204-8554-1-git-send-email-mjr@cs.wisc.edu>
+Cc: davem@davemloft.net, sboyd@codeaurora.org, ben@simtec.co.uk,
+	netdev@vger.kernel.org, Matt Renzelmann <mjr@cs.wisc.edu>
+To: fbl@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:47704 "EHLO sabe.cs.wisc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752848Ab2DLUNB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 16:13:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shuah Khan <shuahkhan@gmail.com>
-Date: Thu, 12 Apr 2012 13:28:13 -0600
+From: Matt Renzelmann <mjr@cs.wisc.edu>
 
-> Changed net/core/net-sysfs.c: netdev_store() to use kstrtoul() 
-> instead of obsolete simple_strtoul().
-> 
->>From 84371b0ed8b277ec8005fd0efbc73165a8bd72b9 Mon Sep 17 00:00:00 2001
-> From: Shuah Khan <shuahkhan@gmail.com>
-> Date: Thu, 12 Apr 2012 10:36:10 -0600
-> Subject: [PATCH] net/core: simple_strtoul cleanup
-> 
-> 
-> Signed-off-by: Shuah Khan <shuahkhan@gmail.com>
+All calls to ks8851_rdreg* and ks8851_wrreg* should be protected with
+the driver's lock mutex.  A spurious interrupt may otherwise cause a
+crash.
 
-Applied, thanks.
+Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
+---
+
+Thank you, Mr. Leitner, for providing feedback.  I agree with your
+changes and have updated the patch to reflect them.  I apologize for
+missing the driver name in the title -- I've updated the patch with
+that information as well.  Please let me know if there is anything
+else I should fix/change.
+
+ drivers/net/ethernet/micrel/ks8851.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index c722aa6..20237dc 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1417,6 +1417,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ {
+ 	struct net_device *ndev;
+ 	struct ks8851_net *ks;
++	int result;
+ 	int ret;
+ 
+ 	ndev = alloc_etherdev(sizeof(struct ks8851_net));
+@@ -1515,9 +1516,12 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ 		goto err_netdev;
+ 	}
+ 
++	mutex_lock(&ks->lock);
++	result = CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER));
++	mutex_unlock(&ks->lock);
++
+ 	netdev_info(ndev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
+-		    CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
+-		    ndev->dev_addr, ndev->irq,
++		    result, ndev->dev_addr, ndev->irq,
+ 		    ks->rc_ccr & CCR_EEPROM ? "has" : "no");
+ 
+ 	return 0;
+-- 
+1.7.5.4
