@@ -1,7 +1,7 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH v2 5/8] ixgbe: enable FDB netdevice ops
-Date: Wed, 11 Apr 2012 23:57:37 -0700
-Message-ID: <20120412065736.3112.97073.stgit@jf-dev1-dcblab>
+Subject: [net-next PATCH v2 7/8] ixgbe: UTA table incorrectly programmed
+Date: Wed, 11 Apr 2012 23:57:49 -0700
+Message-ID: <20120412065748.3112.27988.stgit@jf-dev1-dcblab>
 References: <20120412064858.3112.65818.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,108 +12,78 @@ Cc: hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
 To: shemminger@vyatta.com, mst@redhat.com, davem@davemloft.net,
 	bhutchings@solarflare.com, sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:59495 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:13920 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757468Ab2DLHKo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Apr 2012 03:10:44 -0400
+	id S1757468Ab2DLHKw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 03:10:52 -0400
 In-Reply-To: <20120412064858.3112.65818.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable FDB ops on ixgbe when in SR-IOV mode.
+From: Greg Rose <gregory.v.rose@intel.com>
 
+The UTA table was being set to the functional equivalent of promiscuous
+mode.  This was resulting in traffic from the virtual function being
+flooded onto the wire and the PF device. This resulted in additional
+overhead for VF traffic sent to the network and in the case of traffic
+sent to the PF or another VF resulted in unwanted packets on the wire.
+
+This was actually not the intended behavior. Now that we can program
+the embedded switch correctly we can remove this snippit of code. Users
+who want to support this should configure the FDB correctly using the
+FDB ops.
+
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   71 +++++++++++++++++++++++++
- 1 files changed, 71 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   29 -------------------------
+ 1 files changed, 0 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3e26b1f..8b37395 100644
+index 25a7ed9..10606bd 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6681,6 +6681,74 @@ static int ixgbe_set_features(struct net_device *netdev,
- 	return 0;
+@@ -2904,33 +2904,6 @@ static void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter,
+ 	IXGBE_WRITE_REG(hw, IXGBE_RSCCTL(reg_idx), rscctrl);
  }
  
-+static int ixgbe_ndo_fdb_add(struct ndmsg *ndm,
-+			     struct net_device *dev,
-+			     unsigned char *addr,
-+			     u16 flags)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	int err = -EOPNOTSUPP;
-+
-+	if (ndm->ndm_state & NUD_PERMANENT) {
-+		pr_info("%s: FDB only supports static addresses\n",
-+			ixgbe_driver_name);
-+		return -EINVAL;
-+	}
-+
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
-+		if (is_unicast_ether_addr(addr))
-+			err = dev_uc_add_excl(dev, addr);
-+		else if (is_multicast_ether_addr(addr))
-+			err = dev_mc_add_excl(dev, addr);
-+		else
-+			err = -EINVAL;
-+	}
-+
-+	/* Only return duplicate errors if NLM_F_EXCL is set */
-+	if (err == -EEXIST && !(flags & NLM_F_EXCL))
-+		err = 0;
-+
-+	return err;
-+}
-+
-+static int ixgbe_ndo_fdb_del(struct ndmsg *ndm,
-+			     struct net_device *dev,
-+			     unsigned char *addr)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	int err = -EOPNOTSUPP;
-+
-+	if (ndm->ndm_state & NUD_PERMANENT) {
-+		pr_info("%s: FDB only supports static addresses\n",
-+			ixgbe_driver_name);
-+		return -EINVAL;
-+	}
-+
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
-+		if (is_unicast_ether_addr(addr))
-+			err = dev_uc_del(dev, addr);
-+		else if (is_multicast_ether_addr(addr))
-+			err = dev_mc_del(dev, addr);
-+		else
-+			err = -EINVAL;
-+	}
-+
-+	return err;
-+}
-+
-+static int ixgbe_ndo_fdb_dump(struct sk_buff *skb,
-+			      struct netlink_callback *cb,
-+			      struct net_device *dev,
-+			      int idx)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
-+		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
-+
-+	return idx;
-+}
-+
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -6717,6 +6785,9 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- #endif /* IXGBE_FCOE */
- 	.ndo_set_features = ixgbe_set_features,
- 	.ndo_fix_features = ixgbe_fix_features,
-+	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
-+	.ndo_fdb_del		= ixgbe_ndo_fdb_del,
-+	.ndo_fdb_dump		= ixgbe_ndo_fdb_dump,
- };
+-/**
+- *  ixgbe_set_uta - Set unicast filter table address
+- *  @adapter: board private structure
+- *
+- *  The unicast table address is a register array of 32-bit registers.
+- *  The table is meant to be used in a way similar to how the MTA is used
+- *  however due to certain limitations in the hardware it is necessary to
+- *  set all the hash bits to 1 and use the VMOLR ROPE bit as a promiscuous
+- *  enable bit to allow vlan tag stripping when promiscuous mode is enabled
+- **/
+-static void ixgbe_set_uta(struct ixgbe_adapter *adapter)
+-{
+-	struct ixgbe_hw *hw = &adapter->hw;
+-	int i;
+-
+-	/* The UTA table only exists on 82599 hardware and newer */
+-	if (hw->mac.type < ixgbe_mac_82599EB)
+-		return;
+-
+-	/* we only need to do this if VMDq is enabled */
+-	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
+-		return;
+-
+-	for (i = 0; i < 128; i++)
+-		IXGBE_WRITE_REG(hw, IXGBE_UTA(i), ~0);
+-}
+-
+ #define IXGBE_MAX_RX_DESC_POLL 10
+ static void ixgbe_rx_desc_queue_enable(struct ixgbe_adapter *adapter,
+ 				       struct ixgbe_ring *ring)
+@@ -3224,8 +3197,6 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	/* Program registers for the distribution of queues */
+ 	ixgbe_setup_mrqc(adapter);
  
- static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
+-	ixgbe_set_uta(adapter);
+-
+ 	/* set_rx_buffer_len must be called before ring initialization */
+ 	ixgbe_set_rx_buffer_len(adapter);
+ 
