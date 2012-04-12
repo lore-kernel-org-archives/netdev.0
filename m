@@ -1,87 +1,102 @@
-From: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH v18 04/15] net/compat.c,linux/filter.h: share compat_sock_fprog
-Date: Thu, 12 Apr 2012 16:47:53 -0500
-Message-ID: <1334267284-19166-4-git-send-email-wad@chromium.org>
+From: Will Drewry <wad@chromium.org>
+Subject: [PATCH v18 05/15] seccomp: kill the seccomp_t typedef
+Date: Thu, 12 Apr 2012 16:47:54 -0500
+Message-ID: <1334267284-19166-5-git-send-email-wad@chromium.org>
 References: <1334267284-19166-1-git-send-email-wad@chromium.org>
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org,
-	mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org, mcgrathr-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org,
-	luto-3s7WtUTddSA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
-	djm-ilwOsaqNJrtAfugRpC6u6w@public.gmane.org, scarybeasts-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, indan-1J6HnF7K7zE@public.gmane.org,
-	pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, corbet-T1hC0tSOHrs@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, markus-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	coreyb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1334267284-19166-1-git-send-email-wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-man@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+	jmorris@namei.org, Will Drewry <wad@chromium.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1334267284-19166-1-git-send-email-wad@chromium.org>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Any other users of bpf_*_filter that take a struct sock_fprog from
-userspace will need to be able to also accept a compat_sock_fprog
-if the arch supports compat calls.  This change allows the existing
-compat_sock_fprog be shared.
+Replaces the seccomp_t typedef with struct seccomp to match modern
+kernel style.
 
-Signed-off-by: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Acked-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Acked-by: Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Will Drewry <wad@chromium.org>
+Reviewed-by: James Morris <jmorris@namei.org>
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Acked-by: Eric Paris <eparis@redhat.com>
 
-v18: tasered by the apostrophe police
+v18: rebase
+...
 v14: rebase/nochanges
 v13: rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
 v12: rebase on to linux-next
-v11: introduction
+v8-v11: no changes
+v7: struct seccomp_struct -> struct seccomp
+v6: original inclusion in this series.
 ---
- include/linux/filter.h |   11 +++++++++++
- net/compat.c           |    8 --------
- 2 files changed, 11 insertions(+), 8 deletions(-)
+ include/linux/sched.h   |    2 +-
+ include/linux/seccomp.h |   10 ++++++----
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index aaa2e80..f2e5315 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -10,6 +10,7 @@
- 
- #ifdef __KERNEL__
- #include <linux/atomic.h>
-+#include <linux/compat.h>
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index ba60897..cad1502 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1452,7 +1452,7 @@ struct task_struct {
+ 	uid_t loginuid;
+ 	unsigned int sessionid;
  #endif
+-	seccomp_t seccomp;
++	struct seccomp seccomp;
  
- /*
-@@ -132,6 +133,16 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ /* Thread group tracking */
+    	u32 parent_exec_id;
+diff --git a/include/linux/seccomp.h b/include/linux/seccomp.h
+index cc7a4e9..d61f27f 100644
+--- a/include/linux/seccomp.h
++++ b/include/linux/seccomp.h
+@@ -7,7 +7,9 @@
+ #include <linux/thread_info.h>
+ #include <asm/seccomp.h>
  
- #ifdef __KERNEL__
- 
-+#ifdef CONFIG_COMPAT
-+/*
-+ * A struct sock_filter is architecture independent.
-+ */
-+struct compat_sock_fprog {
-+	u16		len;
-+	compat_uptr_t	filter;		/* struct sock_filter * */
+-typedef struct { int mode; } seccomp_t;
++struct seccomp {
++	int mode;
 +};
-+#endif
-+
- struct sk_buff;
- struct sock;
  
-diff --git a/net/compat.c b/net/compat.c
-index e055708..242c828 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -328,14 +328,6 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
- 	__scm_destroy(scm);
+ extern void __secure_computing(int);
+ static inline void secure_computing(int this_syscall)
+@@ -19,7 +21,7 @@ static inline void secure_computing(int this_syscall)
+ extern long prctl_get_seccomp(void);
+ extern long prctl_set_seccomp(unsigned long);
+ 
+-static inline int seccomp_mode(seccomp_t *s)
++static inline int seccomp_mode(struct seccomp *s)
+ {
+ 	return s->mode;
+ }
+@@ -28,7 +30,7 @@ static inline int seccomp_mode(seccomp_t *s)
+ 
+ #include <linux/errno.h>
+ 
+-typedef struct { } seccomp_t;
++struct seccomp { };
+ 
+ #define secure_computing(x) do { } while (0)
+ 
+@@ -42,7 +44,7 @@ static inline long prctl_set_seccomp(unsigned long arg2)
+ 	return -EINVAL;
  }
  
--/*
-- * A struct sock_filter is architecture independent.
-- */
--struct compat_sock_fprog {
--	u16		len;
--	compat_uptr_t	filter;		/* struct sock_filter * */
--};
+-static inline int seccomp_mode(seccomp_t *s)
++static inline int seccomp_mode(struct seccomp *s)
+ {
+ 	return 0;
+ }
+-- 
+1.7.5.4
+
