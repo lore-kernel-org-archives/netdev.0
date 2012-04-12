@@ -1,45 +1,39 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Regression due to "ath9k: fix going to full-sleep on PS idle"
-Date: Thu, 12 Apr 2012 09:20:13 -0400
-Message-ID: <20120412132013.GA21495@tuxdriver.com>
-References: <CA+55aFxWD1bE0oiR4GpLP19MCm2CzwuApuYhcE_NF7bC+tFYjg@mail.gmail.com>
- <20358.25376.230264.236893@gargle.gargle.HOWL>
+From: Alexandru Copot <alex.mihai.c@gmail.com>
+Subject: RFC udp: improve __udp4_lib_lookup performance
+Date: Thu, 12 Apr 2012 16:35:03 +0300
+Message-ID: <CAHG7+CAt_YjxUp6+u9J47Ti1HA6hh_UkRMWQsXw4AsbEkvCu7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Heinz Diehl <htd@fancy-poultry.org>,
-	linux-kernel@vger.kernel.org, Greg KH <gregkh@linuxfoundation.org>,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	linux-wireless Mailing List <linux-wireless@vger.kernel.org>,
-	"ath9k-devel@lists.ath9k.org" <ath9k-devel@venema.h4ckr.net>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Sujith Manoharan <c_manoha@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20358.25376.230264.236893@gargle.gargle.HOWL>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:64962 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933154Ab2DLNfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 09:35:03 -0400
+Received: by iagz16 with SMTP id z16so2811209iag.19
+        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 06:35:03 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 12, 2012 at 10:37:44AM +0530, Sujith Manoharan wrote:
-> Linus Torvalds wrote:
-> > You guys need to fix the subject line (like this), and make sure that
-> > the right people are cc'd. This is not a "stable" issue - stable
-> > cannot revert stuff that hasn't been reverted upstream.
-> > 
-> > So instead of stable and Greg, it should be netdev and Davem.
-> > 
-> > David/John: multiple people are complaining about that commit. It
-> > really should be reverted, or a fix found. It's broken.
-> > 
-> > I can do the revert, but it would be better coming from the networking people.
-> 
-> John has already reverted the commit:
-> http://git.kernel.org/?p=linux/kernel/git/linville/wireless.git;a=commit;h=011afa1ed8c408d694957d2474d89dc81a60b70c
+UDP uses 2 hashtables for fast socket lookup. First hash uses port as
+a lookup key and the second one uses (port, addr).
 
-Yes, I'll be pushing to Dave M shortly.
+When an UDP packet is received, the destination socket must be found to
+deliver it. If there are many UDP sockets bound to INADDR_ANY, 2 hash
+searches are made in the second hash: first one looks for the pair
+(dest address, dest port) but doesn't find the socket; the second search
+finds the socket by hashing (INADDR_ANY, dest port).
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Those 2 searches can be avoided and a lot of time saved if instead we
+searched directly in the first hash.
+
+We could count the number of INADDR_ANY bound UDP sockets and
+make only one search when that value is above a certain threshold. However,
+if there are also sockets bound on a specific address, the second hash
+won't be used and that might hurt performance for this case.
+
+What is your opinion on this ? Would the performance gained by
+counting INADDR_ANY bound sockets outweigh the loss in performance
+for the case of mixed INADDR_ANY/specific address bound sockets ?
+
+Alexandru Copot
