@@ -1,55 +1,132 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH] net: smsc911x: fix RX FIFO fastforwarding when dropping
- packets
-Date: Thu, 12 Apr 2012 18:03:50 +0100
-Message-ID: <20120412170350.GD28204@mudshark.cambridge.arm.com>
-References: <1334221644-16056-1-git-send-email-will.deacon@arm.com>
- <1334222448.5300.6046.camel@edumazet-glaptop>
- <20120412125355.GG16025@mudshark.cambridge.arm.com>
- <1334235963.5300.6361.camel@edumazet-glaptop>
- <20120412134757.GH16025@mudshark.cambridge.arm.com>
- <1334239299.5300.6478.camel@edumazet-glaptop>
- <20120412155409.GA28204@mudshark.cambridge.arm.com>
- <1334246880.5300.6736.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:63544 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752170Ab2DLRDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 13:03:54 -0400
-Content-Disposition: inline
-In-Reply-To: <1334246880.5300.6736.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org
+Subject: [PATCH 1/2] ath9k: Use macro to decrease code when priting recv stats.
+Date: Thu, 12 Apr 2012 10:03:59 -0700
+Message-ID: <1334250240-21038-1-git-send-email-greearb@candelatech.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 12, 2012 at 05:08:00PM +0100, Eric Dumazet wrote:
-> On Thu, 2012-04-12 at 16:54 +0100, Will Deacon wrote:
-> >     net: smsc911x: fix skb handling in receive path
-> >     
-> >     The SMSC911x driver resets the ->head, ->data and ->tail pointers in the
-> >     skb on the reset path in order to avoid buffer overflow due to packet
-> >     padding performed by the hardware.
-> >     
-> >     This patch fixes the receive path so that the skb pointers are fixed up
-> >     after the data has been read from the device, The error path is also
-> >     fixed to use number of words consistently and prevent erroneous FIFO
-> >     fastforwarding when skipping over bad data.
-> >     
-> >     Signed-off-by: Will Deacon <will.deacon@arm.com>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
 
-[...]
+This hides some repetitive code, and will help if the
+column widths ever need to change.
 
-> Seems fine to me
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+---
+:100644 100644 04edce9... 78f2962... M	drivers/net/wireless/ath/ath9k/debug.c
+ drivers/net/wireless/ath/ath9k/debug.c |   72 +++++++++++---------------------
+ 1 files changed, 24 insertions(+), 48 deletions(-)
 
-Thanks, Eric. Given that Steve's email doesn't appear to be working, can
-somebody else pick this up please?
+diff --git a/drivers/net/wireless/ath/ath9k/debug.c b/drivers/net/wireless/ath/ath9k/debug.c
+index 04edce9..78f2962 100644
+--- a/drivers/net/wireless/ath/ath9k/debug.c
++++ b/drivers/net/wireless/ath/ath9k/debug.c
+@@ -881,6 +881,13 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
+ 	len += snprintf(buf + len, size - len, "%22s : %10u\n", s, \
+ 			sc->debug.stats.rxstats.phy_err_stats[p]);
+ 
++#define RXS_ERR(s, e)					    \
++	do {						    \
++		len += snprintf(buf + len, size - len,	    \
++				"%22s : %10u\n", s,	    \
++				sc->debug.stats.rxstats.e); \
++	} while (0)
++
+ 	struct ath_softc *sc = file->private_data;
+ 	char *buf;
+ 	unsigned int len = 0, size = 1600;
+@@ -890,42 +897,18 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
+ 	if (buf == NULL)
+ 		return -ENOMEM;
+ 
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "CRC ERR",
+-			sc->debug.stats.rxstats.crc_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "DECRYPT CRC ERR",
+-			sc->debug.stats.rxstats.decrypt_crc_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "PHY ERR",
+-			sc->debug.stats.rxstats.phy_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "MIC ERR",
+-			sc->debug.stats.rxstats.mic_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "PRE-DELIM CRC ERR",
+-			sc->debug.stats.rxstats.pre_delim_crc_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "POST-DELIM CRC ERR",
+-			sc->debug.stats.rxstats.post_delim_crc_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "DECRYPT BUSY ERR",
+-			sc->debug.stats.rxstats.decrypt_busy_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-LENGTH-ERR",
+-			sc->debug.stats.rxstats.rx_len_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-OOM-ERR",
+-			sc->debug.stats.rxstats.rx_oom_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-RATE-ERR",
+-			sc->debug.stats.rxstats.rx_rate_err);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-DROP-RXFLUSH",
+-			sc->debug.stats.rxstats.rx_drop_rxflush);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-TOO-MANY-FRAGS",
+-			sc->debug.stats.rxstats.rx_too_many_frags_err);
++	RXS_ERR("CRC ERR", crc_err);
++	RXS_ERR("DECRYPT CRC ERR", decrypt_crc_err);
++	RXS_ERR("PHY ERR", phy_err);
++	RXS_ERR("MIC ERR", mic_err);
++	RXS_ERR("PRE-DELIM CRC ERR", pre_delim_crc_err);
++	RXS_ERR("POST-DELIM CRC ERR", post_delim_crc_err);
++	RXS_ERR("DECRYPT BUSY ERR", decrypt_busy_err);
++	RXS_ERR("RX-LENGTH-ERR", rx_len_err);
++	RXS_ERR("RX-OOM-ERR", rx_oom_err);
++	RXS_ERR("RX-RATE-ERR", rx_rate_err);
++	RXS_ERR("RX-DROP-RXFLUSH", rx_drop_rxflush);
++	RXS_ERR("RX-TOO-MANY-FRAGS", rx_too_many_frags_err);
+ 
+ 	PHY_ERR("UNDERRUN ERR", ATH9K_PHYERR_UNDERRUN);
+ 	PHY_ERR("TIMING ERR", ATH9K_PHYERR_TIMING);
+@@ -954,18 +937,10 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
+ 	PHY_ERR("HT-LENGTH ERR", ATH9K_PHYERR_HT_LENGTH_ILLEGAL);
+ 	PHY_ERR("HT-RATE ERR", ATH9K_PHYERR_HT_RATE_ILLEGAL);
+ 
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-Pkts-All",
+-			sc->debug.stats.rxstats.rx_pkts_all);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-Bytes-All",
+-			sc->debug.stats.rxstats.rx_bytes_all);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-Beacons",
+-			sc->debug.stats.rxstats.rx_beacons);
+-	len += snprintf(buf + len, size - len,
+-			"%22s : %10u\n", "RX-Frags",
+-			sc->debug.stats.rxstats.rx_frags);
++	RXS_ERR("RX-Pkts-All", rx_pkts_all);
++	RXS_ERR("RX-Bytes-All", rx_bytes_all);
++	RXS_ERR("RX-Beacons", rx_beacons);
++	RXS_ERR("RX-Frags", rx_frags);
+ 
+ 	if (len > size)
+ 		len = size;
+@@ -975,6 +950,7 @@ static ssize_t read_file_recv(struct file *file, char __user *user_buf,
+ 
+ 	return retval;
+ 
++#undef RXS_ERR
+ #undef PHY_ERR
+ }
+ 
+-- 
+1.7.3.4
 
-Cheers,
-
-Will
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
