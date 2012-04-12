@@ -1,170 +1,79 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [RFC v4] Add TCP encap_rcv hook
-Date: Thu, 12 Apr 2012 23:40:31 +0900
-Message-ID: <20120412144031.GB8730@verge.net.au>
-References: <20120412074159.GA10866@verge.net.au>
-	<1334218829.5300.5903.camel@edumazet-glaptop>
-	<1334221528.5300.6008.camel@edumazet-glaptop>
-	<20120412143552.GA8730@verge.net.au>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 06/10] mac80211: Add sta_state to ethtool stats.
+Date: Thu, 12 Apr 2012 07:48:36 -0700
+Message-ID: <4F86EB44.3080703@candelatech.com>
+References: <1334166738-28243-1-git-send-email-greearb@candelatech.com>  <1334166738-28243-7-git-send-email-greearb@candelatech.com>  (sfid-20120411_195329_226978_FB464821) <1334202554.3788.9.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120412143552.GA8730-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:60948 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964991Ab2DLOsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 10:48:42 -0400
+In-Reply-To: <1334202554.3788.9.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This hook is based on a hook of the same name provided by UDP.  It provides
-a way for to receive packets that have a TCP header and treat them in some
-alternate way.
+On 04/11/2012 08:49 PM, Johannes Berg wrote:
+> On Wed, 2012-04-11 at 10:52 -0700, greearb@candelatech.com wrote:
+>> From: Ben Greear<greearb@candelatech.com>
+>>
+>> Helps to know how the station is doing in it's association
+>> attempt.
+>>
+>> Signed-off-by: Ben Greear<greearb@candelatech.com>
+>> ---
+>> :100644 100644 bbaf564... a63834d... M	net/mac80211/cfg.c
+>>   net/mac80211/cfg.c |    6 ++++--
+>>   1 files changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+>> index bbaf564..a63834d 100644
+>> --- a/net/mac80211/cfg.c
+>> +++ b/net/mac80211/cfg.c
+>> @@ -118,7 +118,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
+>>   	"rx_duplicates", "rx_fragments", "rx_dropped",
+>>   	"tx_packets", "tx_bytes", "tx_fragments",
+>>   	"tx_filtered", "tx_retry_failed", "tx_retries",
+>> -	"beacon_loss", "txrate", "rxrate", "signal",
+>> +	"beacon_loss", "sta_state", "txrate", "rxrate", "signal",
+>>   	"channel", "noise", "ch_time", "ch_time_busy",
+>>   	"ch_time_ext_busy", "ch_time_rx", "ch_time_tx"
+>>   };
+>> @@ -534,10 +534,12 @@ static void ieee80211_get_et_stats(struct wiphy *wiphy,
+>>   		data[i++] += sta->beacon_loss_count;
+>>
+>>   		if (!do_once) {
+>> -			i += 3;
+>> +			i += 4;
+>>   			goto after_once;
+>>   		}
+>>
+>> +		data[i++] = sta->sta_state;
+>> +
+>
+> Gee, I wish it was easier to tell if you were adding it to the right
+> spot in the list ... any way that could be made easier?
 
-It is intended to be used by an implementation of the STT tunneling
-protocol within Open vSwtich's datapath. A prototype of such an
-implementation has been made.
+It would be nice, but I haven't thought of an easy way to do this,
+and I haven't noticed any other drivers
+that found a way.
 
-The STT draft is available at
-http://tools.ietf.org/html/draft-davie-stt-01
+I *could* add a lot of #defines and do something like: data[STA_STATE_IDX] = sta->state,
+and maybe create the strings array at run-time using macros to map string to
+an idx define instead of have a static array of char*.  But, I'm not sure if
+it's worth the effort.
 
-My prototype STT implementation has been posted to the dev-UOEtcQmXneFl884UGnbwIQ@public.gmane.org
-The second version can be found at:
-http://www.mail-archive.com/dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org/msg09001.html
-It needs to be updated to call tcp_encap_enable()
+Thanks,
+Ben
 
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+>
+> johannes
 
----
-v4
-* Make use of static_key,
-  a tonic for insanity suggested by Eric Dumazet
 
-v3
-* Replace more UDP references with TCP
-* Move socket accesses to inside socket lock
-  and release lock on return.
-
-v2
-* Fix comment to refer to TCP rather than UDP
-* Allow skb to continue traversing the stack if
-  the encap_rcv callback returns a positive value.
-  This is the same behaviour as the UDP hook.
----
- include/linux/tcp.h |    3 +++
- include/net/tcp.h   |    1 +
- net/ipv4/tcp_ipv4.c |   34 +++++++++++++++++++++++++++++++++-
- 3 files changed, 37 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index b6c62d2..7210b23 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -472,6 +472,9 @@ struct tcp_sock {
- 	 * contains related tcp_cookie_transactions fields.
- 	 */
- 	struct tcp_cookie_values  *cookie_values;
-+
-+	/* For encapsulation sockets. */
-+	int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
- };
- 
- static inline struct tcp_sock *tcp_sk(const struct sock *sk)
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f75a04d..f2c4ac0 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1575,5 +1575,6 @@ static inline struct tcp_extend_values *tcp_xv(struct request_values *rvp)
- 
- extern void tcp_v4_init(void);
- extern void tcp_init(void);
-+extern void tcp_encap_enable(void);
- 
- #endif	/* _TCP_H */
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 3a25cf7..dadcec6 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -62,6 +62,7 @@
- #include <linux/init.h>
- #include <linux/times.h>
- #include <linux/slab.h>
-+#include <linux/static_key.h>
- 
- #include <net/net_namespace.h>
- #include <net/icmp.h>
-@@ -1657,6 +1658,14 @@ csum_err:
- }
- EXPORT_SYMBOL(tcp_v4_do_rcv);
- 
-+static struct static_key tcp_encap_needed __read_mostly;
-+void tcp_encap_enable(void)
-+{
-+	if (!static_key_enabled(&tcp_encap_needed))
-+		static_key_slow_inc(&tcp_encap_needed);
-+}
-+EXPORT_SYMBOL(tcp_encap_enable);
-+
- /*
-  *	From tcp_input.c
-  */
-@@ -1666,6 +1675,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	const struct iphdr *iph;
- 	const struct tcphdr *th;
- 	struct sock *sk;
-+	struct tcp_sock *tp;
- 	int ret;
- 	struct net *net = dev_net(skb->dev);
- 
-@@ -1726,9 +1736,30 @@ process:
- 
- 	bh_lock_sock_nested(sk);
- 	ret = 0;
-+
-+	tp = tcp_sk(sk);
-+	if (static_key_false(&tcp_encap_needed)) {
-+		int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
-+		encap_rcv = ACCESS_ONCE(tp->encap_rcv);
-+		if (encap_rcv != NULL) {
-+			/*
-+			 * This is an encapsulation socket so pass the skb to
-+			 * the socket's tcp_encap_rcv() hook. Otherwise, just
-+			 * fall through and pass this up the TCP socket.
-+			 * up->encap_rcv() returns the following value:
-+			 * <=0 if skb was successfully passed to the encap
-+			 *     handler or was discarded by it.
-+			 * >0 if skb should be passed on to TCP.
-+			 */
-+			if (encap_rcv(sk, skb) <= 0) {
-+				ret = 0;
-+				goto unlock_sock;
-+			}
-+		}
-+	}
-+
- 	if (!sock_owned_by_user(sk)) {
- #ifdef CONFIG_NET_DMA
--		struct tcp_sock *tp = tcp_sk(sk);
- 		if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
- 			tp->ucopy.dma_chan = dma_find_channel(DMA_MEMCPY);
- 		if (tp->ucopy.dma_chan)
-@@ -1744,6 +1775,7 @@ process:
- 		NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
- 		goto discard_and_relse;
- 	}
-+unlock_sock:
- 	bh_unlock_sock(sk);
- 
- 	sock_put(sk);
 -- 
-1.7.9.5
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
