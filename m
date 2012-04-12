@@ -1,57 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 1/2] net: ethtool: Add capability to retrieve
- plug-in module EEPROM
-Date: Thu, 12 Apr 2012 19:41:58 +0100
-Message-ID: <1334256118.2497.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4F71FE0A.3060203@solarflare.com>
-	  <1333389160.2623.30.camel@bwh-desktop.uk.solarflarecom.com>
-	  <4F85B639.5090900@solarflare.com>
-	  <1334168217.2552.5.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1334187728.2552.7.camel@bwh-desktop.uk.solarflarecom.com>
-	 <4F869DF0.1000709@solarflare.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] wiznet: Add missing #include <linux/irq.h>
+Date: Thu, 12 Apr 2012 21:19:23 +0200
+Message-ID: <1334258363-17617-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <bruce.w.allan@intel.com>,
-	<mirq-linux@rere.qmqm.pl>, <decot@google.com>,
-	<amit.salecha@qlogic.com>, <alexander.h.duyck@intel.com>,
-	<davem@davemloft.net>, <linux-kernel@vger.kernel.org>
-To: Stuart Hodgson <smhodgson@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F869DF0.1000709@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Mike Sinkovsky <msink@permonline.ru>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from georges.telenet-ops.be ([195.130.137.68]:52307 "EHLO
+	georges.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754226Ab2DLTTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 15:19:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-04-12 at 10:18 +0100, Stuart Hodgson wrote:
-> On 12/04/12 00:42, Ben Hutchings wrote:
-[...]
-> > Maybe we should start by refactoring ethtool_get_eeprom() so we can
-> > reuse most of its code in ethtool_get_module_eeprom(), rather than
-> > having to worry about what the maximum size of a module EEPROM might be
-> > and whether we need a loop:
-> >
-> > Subject: ethtool: Split ethtool_get_eeprom() to allow for additional EEPROM accessors
-[...]
-> > @@ -771,7 +770,7 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
-> >   		return -EINVAL;
-> >
-> >   	/* Check for exceeding total eeprom len */
-> > -	if (eeprom.offset + eeprom.len>  ops->get_eeprom_len(dev))
-> > +	if (eeprom.offset + eeprom.len>  total_len)
-> >   		return -EINVAL;
-> >
-> >   	data = kmalloc(PAGE_SIZE, GFP_USER);
-> 
-> Should this not be eeprom.len?
-[...]
+m68k/allmodconfig:
 
-No, because this function loops over PAGE_SIZE chunks.  That's
-presumably necessary for large NIC EEPROMs, and if we reuse it we won't
-have to wory about whether it's ever necessary for large module EEPROMs.
+drivers/net/ethernet/wiznet/w5100.c: In function =E2=80=98w5100_hw_prob=
+e=E2=80=99:
+drivers/net/ethernet/wiznet/w5100.c:680: error: =E2=80=98IRQ_TYPE_LEVEL=
+_LOW=E2=80=99 undeclared (first use in this function)
+drivers/net/ethernet/wiznet/w5300.c: In function =E2=80=98w5300_hw_prob=
+e=E2=80=99:
+drivers/net/ethernet/wiznet/w5300.c:594: error: =E2=80=98IRQ_TYPE_LEVEL=
+_LOW=E2=80=99 undeclared (first use in this function)
 
-Ben.
+Include <linux/irq.h>, which provides the declaration for IRQ_TYPE_LEVE=
+L_LOW.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+--
+Or should these drivers use IRQF_TRIGGER_LOW (from <linux/interrupt.h>)
+instead?
+
+http://kisskb.ellerman.id.au/kisskb/buildresult/6095757/
+---
+ drivers/net/ethernet/wiznet/w5100.c |    1 +
+ drivers/net/ethernet/wiznet/w5300.c |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet=
+/wiznet/w5100.c
+index c28e1d5..ecc6820 100644
+--- a/drivers/net/ethernet/wiznet/w5100.c
++++ b/drivers/net/ethernet/wiznet/w5100.c
+@@ -24,6 +24,7 @@
+ #include <linux/io.h>
+ #include <linux/ioport.h>
+ #include <linux/interrupt.h>
++#include <linux/irq.h>
+ #include <linux/gpio.h>
+=20
+ #define DRV_NAME	"w5100"
+diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet=
+/wiznet/w5300.c
+index 88afde9..0a20797 100644
+--- a/drivers/net/ethernet/wiznet/w5300.c
++++ b/drivers/net/ethernet/wiznet/w5300.c
+@@ -25,6 +25,7 @@
+ #include <linux/io.h>
+ #include <linux/ioport.h>
+ #include <linux/interrupt.h>
++#include <linux/irq.h>
+ #include <linux/gpio.h>
+=20
+ #define DRV_NAME	"w5300"
+--=20
+1.7.0.4
