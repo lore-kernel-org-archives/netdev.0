@@ -1,107 +1,51 @@
-From: Mike Sinkovsky <msink@permonline.ru>
-Subject: [PATCH] drivers/net: Remove CONFIG_WIZNET_TX_FLOW option
-Date: Thu, 12 Apr 2012 12:14:48 +0600
-Message-ID: <1334211288-7682-1-git-send-email-msink@permonline.ru>
-Cc: Mike Sinkovsky <msink@permonline.ru>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gabor Juhos <juhosg@openwrt.org>
+Subject: Re: [PATCH 4/4] net: Remove redundant spi driver bus initialization
+Date: Thu, 12 Apr 2012 08:23:27 +0200
+Message-ID: <4F8674DF.3070101@openwrt.org>
+References: <1334091089-10138-1-git-send-email-lars@metafoo.de> <1334091089-10138-4-git-send-email-lars@metafoo.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Frederic Lambert <frdrc66@gmail.com>, netdev@vger.kernel.org
+To: Lars-Peter Clausen <lars@metafoo.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arrakis.dune.hu ([78.24.191.176]:47501 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757129Ab2DLGb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 02:31:26 -0400
+In-Reply-To: <1334091089-10138-4-git-send-email-lars@metafoo.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This option was there for debugging race conditions,
-just remove it, and assume TX_FLOW is always enabled.
+2012.04.10. 22:51 keltez=E9ssel, Lars-Peter Clausen =EDrta:
+> In ancient times it was necessary to manually initialize the bus fiel=
+d of an
+> spi_driver to spi_bus_type. These days this is done in spi_driver_reg=
+ister() so
+> we can drop the manual assignment.
+>=20
+> The patch was generated using the following coccinelle semantic patch=
+:
+> // <smpl>
+> @@
+> identifier _driver;
+> @@
+> struct spi_driver _driver =3D {
+> 	.driver =3D {
+> -		.bus =3D &spi_bus_type,
+> 	},
+> };
+> // </smpl>
+>=20
+> Signed-off-by: Lars-Peter Clausen <lars@metafoo.de>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Gabor Juhos <juhosg@openwrt.org>
+> Cc: Frederic Lambert <frdrc66@gmail.com>
+> Cc: netdev@vger.kernel.org
+> ---
+>  drivers/net/phy/spi_ks8995.c |    1 -
+>  1 file changed, 1 deletion(-)
 
-Signed-off-by: Mike Sinkovsky <msink@permonline.ru>
----
-This replaces patch from Paul Gortmaker:
-"[PATCH 3/5] drivers/net: remove IS_ENABLED usage from wiznet drivers
-The use of IS_ENABLED in C code (vs just in CPP #if directives)
-causes us to carry the burden of a huge autoconf.h file.  It is
-also misleading in that a casual inspection of the code would
-leave one thinking that the if statements were evaluated at
-runtime, when TX_FLOW is a Kconfig bool and hence evaluated
-at configure time as an either/or."
-
-Just remove this option instead.
-
- drivers/net/ethernet/wiznet/Kconfig |    8 --------
- drivers/net/ethernet/wiznet/w5100.c |    5 ++---
- drivers/net/ethernet/wiznet/w5300.c |    9 +++------
- 3 files changed, 5 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/ethernet/wiznet/Kconfig b/drivers/net/ethernet/wiznet/Kconfig
-index c8291bf..cb18043 100644
---- a/drivers/net/ethernet/wiznet/Kconfig
-+++ b/drivers/net/ethernet/wiznet/Kconfig
-@@ -70,12 +70,4 @@ config WIZNET_BUS_ANY
- 	  Performance may decrease compared to explicitly selected bus mode.
- endchoice
- 
--config WIZNET_TX_FLOW
--	bool "Use transmit flow control"
--	depends on WIZNET_W5100 || WIZNET_W5300
--	default y
--	help
--	  This enables transmit flow control for WIZnet chips.
--	  If unsure, say Y.
--
- endif # NET_VENDOR_WIZNET
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index 157d2f0..22e2c5c 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -441,8 +441,7 @@ static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
- 	struct w5100_priv *priv = netdev_priv(ndev);
- 	u16 offset;
- 
--	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW))
--		netif_stop_queue(ndev);
-+	netif_stop_queue(ndev);
- 
- 	offset = w5100_read16(priv, W5100_S0_TX_WR);
- 	w5100_writebuf(priv, offset, skb->data, skb->len);
-@@ -517,7 +516,7 @@ static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
- 	w5100_write(priv, W5100_S0_IR, ir);
- 	mmiowb();
- 
--	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW) && (ir & S0_IR_SENDOK)) {
-+	if (ir & S0_IR_SENDOK) {
- 		netif_dbg(priv, tx_done, ndev, "tx done\n");
- 		netif_wake_queue(ndev);
- 	}
-diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
-index 86d07bb..63cb9dd 100644
---- a/drivers/net/ethernet/wiznet/w5300.c
-+++ b/drivers/net/ethernet/wiznet/w5300.c
-@@ -273,9 +273,7 @@ static void w5300_hw_start(struct w5300_priv *priv)
- 			  S0_MR_MACRAW : S0_MR_MACRAW_MF);
- 	mmiowb();
- 	w5300_command(priv, S0_CR_OPEN);
--	w5300_write(priv, W5300_S0_IMR, IS_ENABLED(CONFIG_WIZNET_TX_FLOW) ?
--					S0_IR_RECV | S0_IR_SENDOK :
--					S0_IR_RECV);
-+	w5300_write(priv, W5300_S0_IMR, S0_IR_RECV | S0_IR_SENDOK);
- 	w5300_write(priv, W5300_IMR, IR_S0);
- 	mmiowb();
- }
-@@ -371,8 +369,7 @@ static int w5300_start_tx(struct sk_buff *skb, struct net_device *ndev)
- {
- 	struct w5300_priv *priv = netdev_priv(ndev);
- 
--	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW))
--		netif_stop_queue(ndev);
-+	netif_stop_queue(ndev);
- 
- 	w5300_write_frame(priv, skb->data, skb->len);
- 	mmiowb();
-@@ -439,7 +436,7 @@ static irqreturn_t w5300_interrupt(int irq, void *ndev_instance)
- 	w5300_write(priv, W5300_S0_IR, ir);
- 	mmiowb();
- 
--	if (IS_ENABLED(CONFIG_WIZNET_TX_FLOW) && (ir & S0_IR_SENDOK)) {
-+	if (ir & S0_IR_SENDOK) {
- 		netif_dbg(priv, tx_done, ndev, "tx done\n");
- 		netif_wake_queue(ndev);
- 	}
--- 
-1.6.3.3
+Acked-by: Gabor Juhos <juhosg@openwrt.org>
