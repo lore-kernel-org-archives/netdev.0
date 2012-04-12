@@ -1,46 +1,57 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 05/10] mac80211: Add more ethtools stats: survey, rates,
- etc
-Date: Thu, 12 Apr 2012 08:23:26 -0700
-Message-ID: <4F86F36E.5010708@candelatech.com>
-References: <1334166738-28243-1-git-send-email-greearb@candelatech.com>  <1334166738-28243-6-git-send-email-greearb@candelatech.com>  (sfid-20120411_195324_260400_4B452B18) <1334202406.3788.8.camel@jlt3.sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+From: mjr@cs.wisc.edu
+Subject: [PATCH] Fix missing mutex_lock/unlock
+Date: Thu, 12 Apr 2012 10:26:36 -0500
+Message-ID: <1334244396-6978-1-git-send-email-mjr@cs.wisc.edu>
+Cc: sboyd@codeaurora.org, ben@simtec.co.uk, netdev@vger.kernel.org,
+	Matt Renzelmann <mjr@cs.wisc.edu>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:43190 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933900Ab2DLPX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 11:23:29 -0400
-In-Reply-To: <1334202406.3788.8.camel@jlt3.sipsolutions.net>
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:46964 "EHLO sabe.cs.wisc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934343Ab2DLP3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 11:29:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/11/2012 08:46 PM, Johannes Berg wrote:
-> On Wed, 2012-04-11 at 10:52 -0700, greearb@candelatech.com wrote:
->
->> --- a/net/mac80211/cfg.c
->> +++ b/net/mac80211/cfg.c
->> @@ -19,6 +19,7 @@
->>   #include "cfg.h"
->>   #include "rate.h"
->>   #include "mesh.h"
->> +#include "../wireless/core.h"
->
-> NACK. Don't do that.
+From: Matt Renzelmann <mjr@cs.wisc.edu>
 
-Looks like whatever I needed has already been moved somewhere
-proper...I can just delete that line and it compiles fine.
+All calls to ks8851_rdreg* and ks8851_wrreg* should be protected
+with the driver's lock mutex.  A spurious interrupt may otherwise cause a
+crash.
 
-Thanks,
-Ben
+Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
+---
+Hello,
 
->
-> johannes
+I'm new to the kernel development process so I hope I've not screwed
+this up with this extra text.  We found a potential issue using a new
+driver testing tool called SymDrive.  It looks legitimate to me, so
+I'm reporting it.  We hope to make this tool available in the future.
+Please let me know if I should modify the patch or re-send without
+this commentary.  Thanks in advance for your patience.
 
+ drivers/net/ethernet/micrel/ks8851.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index c722aa6..fa2001a 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1515,11 +1515,15 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ 		goto err_netdev;
+ 	}
+ 
++	mutex_lock(&ks->lock);
++
+ 	netdev_info(ndev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
+ 		    CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
+ 		    ndev->dev_addr, ndev->irq,
+ 		    ks->rc_ccr & CCR_EEPROM ? "has" : "no");
+ 
++	mutex_unlock(&ks->lock);
++
+ 	return 0;
+ 
+ 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.5.4
