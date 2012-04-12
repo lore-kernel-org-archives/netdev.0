@@ -1,11 +1,12 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v18 15/15] Documentation: prctl/seccomp_filter
-Date: Thu, 12 Apr 2012 15:11:50 -0700
-Message-ID: <CAGXu5jLLoOqSS_zYehi1TbDXDPqitnAN1S401zgReRgEfUaTYw@mail.gmail.com>
+Subject: Re: [PATCH v18 14/15] x86: Enable HAVE_ARCH_SECCOMP_FILTER
+Date: Thu, 12 Apr 2012 15:16:04 -0700
+Message-ID: <CAGXu5j+6kWpuNudi_43J1coK-fN5NTrev=ycYSmcbr+dFBJMFg@mail.gmail.com>
 References: <1334267284-19166-1-git-send-email-wad@chromium.org>
-	<1334267284-19166-15-git-send-email-wad@chromium.org>
+	<1334267284-19166-14-git-send-email-wad@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, linux-man@vger.kernel.org,
 	linux-security-module@vger.kernel.org, linux-arch@vger.kernel.org,
 	linux-doc@vger.kernel.org, kernel-hardening@lists.openwall.com,
@@ -18,28 +19,38 @@ Cc: linux-kernel@vger.kernel.org, linux-man@vger.kernel.org,
 	akpm@linux-foundation.org, corbet@lwn.net, eric.dumazet@gmail.com,
 	markus@chromium.org, coreyb@linux.vnet.ibm.com, jmorris@namei.org
 To: Will Drewry <wad@chromium.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36598 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756853Ab2DLWLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 18:11:53 -0400
-Received: by bkcik5 with SMTP id ik5so1883783bkc.19
-        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 15:11:52 -0700 (PDT)
-In-Reply-To: <1334267284-19166-15-git-send-email-wad@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1334267284-19166-14-git-send-email-wad@chromium.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Thu, Apr 12, 2012 at 2:48 PM, Will Drewry <wad@chromium.org> wrote:
-> Documents how system call filtering using Berkeley Packet
-> Filter programs works and how it may be used.
-> Includes an example for x86 and a semi-generic
-> example using a macro-based code generator.
+> Enable support for seccomp filter on x86:
+> - syscall_get_arch()
+> - syscall_get_arguments()
+> - syscall_rollback()
+> - syscall_set_return_value()
+> - SIGSYS siginfo_t support
+> - secure_computing is called from a ptrace_event()-safe context
+> - secure_computing return value is checked (see below).
 >
-> Acked-by: Eric Paris <eparis@redhat.com>
+> SECCOMP_RET_TRACE and SECCOMP_RET_TRAP may result in seccomp needing =
+to
+> skip a system call without killing the process. =A0This is done by
+> returning a non-zero (-1) value from secure_computing. =A0This change
+> makes x86 respect that return value.
+>
+> To ensure that minimal kernel code is exposed, a non-zero return valu=
+e
+> results in an immediate return to user space (with an invalid syscall
+> number).
+>
 > Signed-off-by: Will Drewry <wad@chromium.org>
+> Reviewed-by: H. Peter Anvin <hpa@zytor.com>
+> Acked-by: Eric Paris <eparis@redhat.com>
 
-Acked-by: Kees Cook <keescook@chromium.org>
+Reviewed-by: Kees Cook <keescook@chromium.org>
 
--- 
+--=20
 Kees Cook
 ChromeOS Security
