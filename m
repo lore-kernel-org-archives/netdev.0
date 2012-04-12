@@ -1,40 +1,36 @@
-From: mjr@cs.wisc.edu
-Subject: [PATCH] ks8851: Cancel any pending IRQ work
-Date: Thu, 12 Apr 2012 11:44:51 -0500
-Message-ID: <1334249091-7605-1-git-send-email-mjr@cs.wisc.edu>
-Cc: sboyd@codeaurora.org, ben@simtec.co.uk, netdev@vger.kernel.org,
-	Matt Renzelmann <mjr@cs.wisc.edu>
-To: davem@davemloft.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 4/4] iproute2 - Fix up and simplify variables pointing
+ to install directories. Define where is the are located the iproute2 config
+ files. Get rid of trailing slashes for paths in several file.
+Date: Thu, 12 Apr 2012 09:51:13 -0700
+Message-ID: <20120412095113.6cb64284@nehalam.linuxnetplumber.net>
+References: <20120301164622.GA24306@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Christoph J. Thompson" <cjsthompson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:47202 "EHLO sabe.cs.wisc.edu"
+Received: from mail.vyatta.com ([76.74.103.46]:48857 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751667Ab2DLQt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Apr 2012 12:49:57 -0400
+	id S1752612Ab2DLQvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 12:51:16 -0400
+In-Reply-To: <20120301164622.GA24306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Renzelmann <mjr@cs.wisc.edu>
+On Thu, 1 Mar 2012 17:46:26 +0100
+"Christoph J. Thompson" <cjsthompson@gmail.com> wrote:
 
-An unexpected/spurious interrupt may cause the irq_work queue to
-execute during or after module unload, which can cause a crash.  It
-should be canceled.
+> 	modified:   Makefile
+> 	modified:   ip/iplink.c
+> 	modified:   tc/Makefile
+> 	modified:   tc/tc_util.c
+> 
+> Signed-off-by: Christoph J. Thompson <cjsthompson@gmail.com>
 
-Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
----
- drivers/net/ethernet/micrel/ks8851.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index c722aa6..ab46953 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -1540,6 +1540,7 @@ static int __devexit ks8851_remove(struct spi_device *spi)
- 		dev_info(&spi->dev, "remove\n");
- 
- 	unregister_netdev(priv->netdev);
-+	cancel_work_sync(&priv->irq_work);
- 	free_irq(spi->irq, priv);
- 	free_netdev(priv->netdev);
- 
--- 
-1.7.5.4
+All applied, but you need to format your patch changelog correctly.
+Email subject line should be short summary (not a four sentences)
+Email body should have the more complete changelog.
+Skip the modified: stuff, that is either obvious or put it below
+the signature separator --- so that merge program will drop it.
