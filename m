@@ -1,11 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv6/exthdrs.c et al: Optional strict PadN option
- checking
-Date: Thu, 12 Apr 2012 17:35:24 -0400 (EDT)
-Message-ID: <20120412.173524.316812345318278932.davem@davemloft.net>
-References: <1333811774-3219-1-git-send-email-eldad@fogrefinery.com>
-	<20120412.160040.1086391259430365718.davem@davemloft.net>
-	<CABe5r8JJPuhq3r=JnfLA=_U46-SFmK+g3XqC3MaRdLxwVXx9Qw@mail.gmail.com>
+Subject: Re: [PATCH] net/ipv6/exthdrs.c: Strict PadN option checking
+Date: Thu, 12 Apr 2012 17:37:07 -0400 (EDT)
+Message-ID: <20120412.173707.2114402833197161386.davem@davemloft.net>
+References: <1334266320-12297-1-git-send-email-eldad@fogrefinery.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,17 +11,26 @@ Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
 	linux-kernel@vger.kernel.org
 To: eldad@fogrefinery.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABe5r8JJPuhq3r=JnfLA=_U46-SFmK+g3XqC3MaRdLxwVXx9Qw@mail.gmail.com>
+In-Reply-To: <1334266320-12297-1-git-send-email-eldad@fogrefinery.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eldad Zack <eldad@fogrefinery.com>
-Date: Thu, 12 Apr 2012 23:31:47 +0200
+Date: Thu, 12 Apr 2012 23:31:59 +0200
 
-> That's the way I see it, as was my initial intent. Then I got
-> concerned with the possibility that a communication with
-> slightly-broken stack implementation (e.g., unsanitized buffers) would
-> fail without the user being able to control it at runtime.
-> Do you consider this a non-issue?
+> Added strict checking of PadN, as PadN can be used to increase header
+> size and thus push the protocol header into the 2nd fragment.
+> 
+> PadN is used to align the options within the Hop-by-Hop or
+> Destination Options header to 64-bit boundaries. The maximum valid
+> size is thus 7 bytes.
+> RFC 4942 recommends to actively check the "payload" itself and
+> ensure that it contains only zeroes.
+> 
+> See also RFC 4942 section 2.1.9.5.
+> 
+> Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
 
-I think it's a non-issue.
+Applied after fixing up the comment formatting.
+
+Thanks.
