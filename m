@@ -1,8 +1,7 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH v3 4/8] net: rtnetlink notify events for FDB NTF_SELF
-	adds and deletes
-Date: Thu, 12 Apr 2012 10:07:09 -0700
-Message-ID: <20120412170709.2717.66408.stgit@jf-dev1-dcblab>
+Subject: [net-next PATCH v3 5/8] ixgbe: enable FDB netdevice ops
+Date: Thu, 12 Apr 2012 10:07:15 -0700
+Message-ID: <20120412170714.2717.76360.stgit@jf-dev1-dcblab>
 References: <20120412170258.2717.34628.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,86 +12,108 @@ Cc: hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
 To: shemminger@vyatta.com, mst@redhat.com, davem@davemloft.net,
 	bhutchings@solarflare.com, sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24244 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:63974 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755661Ab2DLRUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Apr 2012 13:20:17 -0400
+	id S1757865Ab2DLRUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 13:20:19 -0400
 In-Reply-To: <20120412170258.2717.34628.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is useful to be able to monitor for FDB events in user space.
-This patch adds support to generate netlink events when a change
-is made to a device supporting the FDB ops.
-
-This brings embedded switches inline with the SW net/bridge which
-triggers events on FDB updates as well.
+Enable FDB ops on ixgbe when in SR-IOV mode.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- net/core/rtnetlink.c |   35 +++++++++++++++++++++++++++++++++--
- 1 files changed, 33 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   71 +++++++++++++++++++++++++
+ 1 files changed, 71 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 347c420..4b7ed7b 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2011,6 +2011,33 @@ nla_put_failure:
- 	return -EMSGSIZE;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 3e26b1f..8b37395 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6681,6 +6681,74 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 	return 0;
  }
  
-+static inline size_t rtnl_fdb_nlmsg_size(void)
++static int ixgbe_ndo_fdb_add(struct ndmsg *ndm,
++			     struct net_device *dev,
++			     unsigned char *addr,
++			     u16 flags)
 +{
-+	return NLMSG_ALIGN(sizeof(struct ndmsg)) + nla_total_size(ETH_ALEN);
-+}
++	struct ixgbe_adapter *adapter = netdev_priv(dev);
++	int err = -EOPNOTSUPP;
 +
-+static void rtnl_fdb_notify(struct net_device *dev, u8 *addr, int type)
-+{
-+	struct net *net = dev_net(dev);
-+	struct sk_buff *skb;
-+	int err = -ENOBUFS;
-+
-+	skb = nlmsg_new(rtnl_fdb_nlmsg_size(), GFP_ATOMIC);
-+	if (!skb)
-+		goto errout;
-+
-+	err = nlmsg_populate_fdb_fill(skb, dev, addr, 0, 0, type, NTF_SELF);
-+	if (err < 0) {
-+		kfree_skb(skb);
-+		goto errout;
++	if (ndm->ndm_state & NUD_PERMANENT) {
++		pr_info("%s: FDB only supports static addresses\n",
++			ixgbe_driver_name);
++		return -EINVAL;
 +	}
 +
-+	rtnl_notify(skb, net, 0, RTNLGRP_NEIGH, NULL, GFP_ATOMIC);
-+	return;
-+errout:
-+	rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
++		if (is_unicast_ether_addr(addr))
++			err = dev_uc_add_excl(dev, addr);
++		else if (is_multicast_ether_addr(addr))
++			err = dev_mc_add_excl(dev, addr);
++		else
++			err = -EINVAL;
++	}
++
++	/* Only return duplicate errors if NLM_F_EXCL is set */
++	if (err == -EEXIST && !(flags & NLM_F_EXCL))
++		err = 0;
++
++	return err;
 +}
 +
- static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -2067,8 +2094,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		err = dev->netdev_ops->ndo_fdb_add(ndm, dev, addr,
- 						   nlh->nlmsg_flags);
++static int ixgbe_ndo_fdb_del(struct ndmsg *ndm,
++			     struct net_device *dev,
++			     unsigned char *addr)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(dev);
++	int err = -EOPNOTSUPP;
++
++	if (ndm->ndm_state & NUD_PERMANENT) {
++		pr_info("%s: FDB only supports static addresses\n",
++			ixgbe_driver_name);
++		return -EINVAL;
++	}
++
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
++		if (is_unicast_ether_addr(addr))
++			err = dev_uc_del(dev, addr);
++		else if (is_multicast_ether_addr(addr))
++			err = dev_mc_del(dev, addr);
++		else
++			err = -EINVAL;
++	}
++
++	return err;
++}
++
++static int ixgbe_ndo_fdb_dump(struct sk_buff *skb,
++			      struct netlink_callback *cb,
++			      struct net_device *dev,
++			      int idx)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(dev);
++
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++
++	return idx;
++}
++
+ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_open		= ixgbe_open,
+ 	.ndo_stop		= ixgbe_close,
+@@ -6717,6 +6785,9 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ #endif /* IXGBE_FCOE */
+ 	.ndo_set_features = ixgbe_set_features,
+ 	.ndo_fix_features = ixgbe_fix_features,
++	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
++	.ndo_fdb_del		= ixgbe_ndo_fdb_del,
++	.ndo_fdb_dump		= ixgbe_ndo_fdb_dump,
+ };
  
--		if (!err)
-+		if (!err) {
-+			rtnl_fdb_notify(dev, addr, RTM_NEWNEIGH);
- 			ndm->ndm_flags &= ~NTF_SELF;
-+		}
- 	}
- out:
- 	return err;
-@@ -2125,8 +2154,10 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	if ((ndm->ndm_flags & NTF_SELF) && dev->netdev_ops->ndo_fdb_del) {
- 		err = dev->netdev_ops->ndo_fdb_del(ndm, dev, addr);
- 
--		if (!err)
-+		if (!err) {
-+			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
- 			ndm->ndm_flags &= ~NTF_SELF;
-+		}
- 	}
- out:
- 	return err;
+ static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
