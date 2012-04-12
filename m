@@ -1,78 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: smsc911x: fix RX FIFO fastforwarding when
- dropping packets
-Date: Thu, 12 Apr 2012 11:20:48 +0200
-Message-ID: <1334222448.5300.6046.camel@edumazet-glaptop>
-References: <1334221644-16056-1-git-send-email-will.deacon@arm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: Will Deacon <will.deacon@arm.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH] drivers/net/ethernet/xilinx/axi ethernet: Correct Copyright
+Date: Thu, 12 Apr 2012 13:11:12 +0200
+Message-ID: <1334229072-8581-1-git-send-email-monstr@monstr.eu>
+Cc: netdev@vger.kernel.org, John.Linn@xilinx.com,
+	danborkmann@iogearbox.net, anirudh@xilinx.com,
+	Michal Simek <monstr@monstr.eu>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:34362 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762255Ab2DLJUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 05:20:53 -0400
-Received: by bkcik5 with SMTP id ik5so1331201bkc.19
-        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 02:20:51 -0700 (PDT)
-In-Reply-To: <1334221644-16056-1-git-send-email-will.deacon@arm.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:64947 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932179Ab2DLLLT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 07:11:19 -0400
+Received: by wibhj6 with SMTP id hj6so5364845wib.1
+        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 04:11:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-04-12 at 10:07 +0100, Will Deacon wrote:
-> The SMSC911x ethernet controller provides a mechanism for quickly
-> skipping to the start of the next frame in the receive FIFO, however
-> the current code passes the number of words to a function that expects
-> the number of bytes. This can corrupt the FIFO head in the case that
-> the fastforward mechanism is not used.
-> 
-> This patch fixes the callers of smsc911x_rx_fastforward to pass the
-> correct data size.
-> 
-> Cc: Steve Glendinning <steve.glendinning@smsc.com>
-> Signed-off-by: Will Deacon <will.deacon@arm.com>
-> ---
->  drivers/net/ethernet/smsc/smsc911x.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-> index 4a69710..b5599bc 100644
-> --- a/drivers/net/ethernet/smsc/smsc911x.c
-> +++ b/drivers/net/ethernet/smsc/smsc911x.c
-> @@ -1228,7 +1228,7 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
->  				  "Discarding packet with error bit set");
->  			/* Packet has an error, discard it and continue with
->  			 * the next */
-> -			smsc911x_rx_fastforward(pdata, pktwords);
-> +			smsc911x_rx_fastforward(pdata, pktlength);
->  			dev->stats.rx_dropped++;
->  			continue;
->  		}
-> @@ -1238,7 +1238,7 @@ static int smsc911x_poll(struct napi_struct *napi, int budget)
->  			SMSC_WARN(pdata, rx_err,
->  				  "Unable to allocate skb for rx packet");
->  			/* Drop the packet and stop this polling iteration */
-> -			smsc911x_rx_fastforward(pdata, pktwords);
-> +			smsc911x_rx_fastforward(pdata, pktlength);
->  			dev->stats.rx_dropped++;
->  			break;
->  		}
+Also fix MAINTAINERS file to reflect autorship.
 
-Hum, looking at this driver, I see wrong code in lines 1246/1247
+Daniel and Ariane changed coding style but not any functional changes in the driver
+itself.
 
-skb->data = skb->head;
-skb_reset_tail_pointer(skb);
+Signed-off-by: Michal Simek <monstr@monstr.eu>
+---
+ MAINTAINERS                                       |    4 ++--
+ drivers/net/ethernet/xilinx/xilinx_axienet.h      |    4 +---
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    6 +++---
+ drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c |    6 +++---
+ 4 files changed, 9 insertions(+), 11 deletions(-)
 
-I suspect its hiding a buffer overflow bug or something.
-
-netdev_alloc_skb() reserved NET_SKB_PAD bytes. A driver should not
-un-reserve this headroom, or some networking setups can be very slow.
-
-So 
-
-pdata->ops->rx_readfifo(pdata,
-	(unsigned int *)skb->head, pktwords);
-
-also should be fixed to use skb->data instead.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index a127097..5d15fa6 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7573,8 +7573,8 @@ F:	Documentation/filesystems/xfs.txt
+ F:	fs/xfs/
+ 
+ XILINX AXI ETHERNET DRIVER
+-M:	Ariane Keller <ariane.keller@tik.ee.ethz.ch>
+-M:	Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
++M:	Anirudha Sarangi <anirudh@xilinx.com>
++M:	John Linn <John.Linn@xilinx.com>
+ S:	Maintained
+ F:	drivers/net/ethernet/xilinx/xilinx_axienet*
+ 
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet.h b/drivers/net/ethernet/xilinx/xilinx_axienet.h
+index cc83af0..44b8d2b 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet.h
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet.h
+@@ -2,9 +2,7 @@
+  * Definitions for Xilinx Axi Ethernet device driver.
+  *
+  * Copyright (c) 2009 Secret Lab Technologies, Ltd.
+- * Copyright (c) 2010 Xilinx, Inc. All rights reserved.
+- * Copyright (c) 2012 Daniel Borkmann, <daniel.borkmann@tik.ee.ethz.ch>
+- * Copyright (c) 2012 Ariane Keller, <ariane.keller@tik.ee.ethz.ch>
++ * Copyright (c) 2010 - 2012 Xilinx, Inc. All rights reserved.
+  */
+ 
+ #ifndef XILINX_AXIENET_H
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 2fcbeba..9c365e1 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -4,9 +4,9 @@
+  * Copyright (c) 2008 Nissin Systems Co., Ltd.,  Yoshio Kashiwagi
+  * Copyright (c) 2005-2008 DLA Systems,  David H. Lynch Jr. <dhlii@dlasys.net>
+  * Copyright (c) 2008-2009 Secret Lab Technologies Ltd.
+- * Copyright (c) 2010 Xilinx, Inc. All rights reserved.
+- * Copyright (c) 2012 Daniel Borkmann, <daniel.borkmann@tik.ee.ethz.ch>
+- * Copyright (c) 2012 Ariane Keller, <ariane.keller@tik.ee.ethz.ch>
++ * Copyright (c) 2010 - 2011 Michal Simek <monstr@monstr.eu>
++ * Copyright (c) 2010 - 2011 PetaLogix
++ * Copyright (c) 2010 - 2012 Xilinx, Inc. All rights reserved.
+  *
+  * This is a driver for the Xilinx Axi Ethernet which is used in the Virtex6
+  * and Spartan6.
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c b/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
+index d70b6e7..e90e1f4 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
+@@ -2,9 +2,9 @@
+  * MDIO bus driver for the Xilinx Axi Ethernet device
+  *
+  * Copyright (c) 2009 Secret Lab Technologies, Ltd.
+- * Copyright (c) 2010 Xilinx, Inc. All rights reserved.
+- * Copyright (c) 2012 Daniel Borkmann, <daniel.borkmann@tik.ee.ethz.ch>
+- * Copyright (c) 2012 Ariane Keller, <ariane.keller@tik.ee.ethz.ch>
++ * Copyright (c) 2010 - 2011 Michal Simek <monstr@monstr.eu>
++ * Copyright (c) 2010 - 2011 PetaLogix
++ * Copyright (c) 2010 - 2012 Xilinx, Inc. All rights reserved.
+  */
+ 
+ #include <linux/of_address.h>
+-- 
+1.7.10.rc3.1.gb306
