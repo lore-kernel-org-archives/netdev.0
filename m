@@ -1,39 +1,34 @@
-From: Alexandru Copot <alex.mihai.c@gmail.com>
-Subject: RFC udp: improve __udp4_lib_lookup performance
-Date: Thu, 12 Apr 2012 16:35:03 +0300
-Message-ID: <CAHG7+CAt_YjxUp6+u9J47Ti1HA6hh_UkRMWQsXw4AsbEkvCu7w@mail.gmail.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] 8139cp: set intr mask after its handler is registered
+Date: Thu, 12 Apr 2012 10:45:29 -0300
+Message-ID: <20120412104529.27ece685@asterix.rh>
+References: <20120412081053.25774.41676.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:64962 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933154Ab2DLNfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 09:35:03 -0400
-Received: by iagz16 with SMTP id z16so2811209iag.19
-        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 06:35:03 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:18314 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932140Ab2DLNpd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 09:45:33 -0400
+In-Reply-To: <20120412081053.25774.41676.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UDP uses 2 hashtables for fast socket lookup. First hash uses port as
-a lookup key and the second one uses (port, addr).
+On Thu, 12 Apr 2012 16:10:54 +0800
+Jason Wang <jasowang@redhat.com> wrote:
 
-When an UDP packet is received, the destination socket must be found to
-deliver it. If there are many UDP sockets bound to INADDR_ANY, 2 hash
-searches are made in the second hash: first one looks for the pair
-(dest address, dest port) but doesn't find the socket; the second search
-finds the socket by hashing (INADDR_ANY, dest port).
+> We set intr mask before its handler is registered, this does not work well when
+> 8139cp is sharing irq line with other devices. As the irq could be enabled by
+> the device before 8139cp's hander is registered which may lead unhandled
+> irq. Fix this by introducing an helper cp_irq_enable() and call it after
+> request_irq().
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Those 2 searches can be avoided and a lot of time saved if instead we
-searched directly in the first hash.
+Reviewed-by: Flavio Leitner <fbl@redhat.com>
 
-We could count the number of INADDR_ANY bound UDP sockets and
-make only one search when that value is above a certain threshold. However,
-if there are also sockets bound on a specific address, the second hash
-won't be used and that might hurt performance for this case.
-
-What is your opinion on this ? Would the performance gained by
-counting INADDR_ANY bound sockets outweigh the loss in performance
-for the case of mixed INADDR_ANY/specific address bound sockets ?
-
-Alexandru Copot
+fbl
