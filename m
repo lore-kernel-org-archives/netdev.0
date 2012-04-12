@@ -1,146 +1,72 @@
 From: Will Drewry <wad@chromium.org>
-Subject: [PATCH v18 02/15] Fix execve behavior apparmor for PR_{GET,SET}_NO_NEW_PRIVS
-Date: Thu, 12 Apr 2012 16:47:51 -0500
-Message-ID: <1334267284-19166-2-git-send-email-wad@chromium.org>
+Subject: [PATCH v18 06/15] asm/syscall.h: add syscall_get_arch
+Date: Thu, 12 Apr 2012 16:47:55 -0500
+Message-ID: <1334267284-19166-6-git-send-email-wad@chromium.org>
 References: <1334267284-19166-1-git-send-email-wad@chromium.org>
-Reply-To: kernel-hardening@lists.openwall.com
-Cc: linux-man@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	linux-arch@vger.kernel.org,
-	linux-doc@vger.kernel.org,
-	kernel-hardening@lists.openwall.com,
-	netdev@vger.kernel.org,
-	x86@kernel.org,
-	arnd@arndb.de,
-	davem@davemloft.net,
-	hpa@zytor.com,
-	mingo@redhat.com,
-	oleg@redhat.com,
-	peterz@infradead.org,
-	rdunlap@xenotime.net,
-	mcgrathr@chromium.org,
-	tglx@linutronix.de,
-	luto@mit.edu,
-	eparis@redhat.com,
-	serge.hallyn@canonical.com,
-	djm@mindrot.org,
-	scarybeasts@gmail.com,
-	indan@nul.nu,
-	pmoore@redhat.com,
-	akpm@linux-foundation.org,
-	corbet@lwn.net,
-	eric.dumazet@gmail.com,
-	markus@chromium.org,
-	coreyb@linux.vnet.ibm.com,
-	keescook@chromium.org,
-	jmorris@namei.org,
-	John Johansen <john.johansen@canonical.com>,
-	Will Drewry <wad@chromium.org>,
-	Andy Lutomirski <luto@amacapital.net>
+Cc: linux-man@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-doc@vger.kernel.org,
+	kernel-hardening@lists.openwall.com, netdev@vger.kernel.org,
+	x86@kernel.org, arnd@arndb.de, davem@davemloft.net, hpa@zytor.com,
+	mingo@redhat.com, oleg@redhat.com, peterz@infradead.org,
+	rdunlap@xenotime.net, mcgrathr@chromium.org, tglx@linutronix.de,
+	luto@mit.edu, eparis@redhat.com, serge.hallyn@canonical.com,
+	djm@mindrot.org, scarybeasts@gmail.com, indan@nul.nu,
+	pmoore@redhat.com, akpm@linux-foundation.org, corbet@lwn.net,
+	eric.dumazet@gmail.com, markus@chromium.org,
+	coreyb@linux.vnet.ibm.com, keescook@chromium.org,
+	jmorris@namei.org, Will Drewry <wad@chromium.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-1249-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
 In-Reply-To: <1334267284-19166-1-git-send-email-wad@chromium.org>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Johansen <john.johansen@canonical.com>
+Adds a stub for a function that will return the AUDIT_ARCH_* value
+appropriate to the supplied task based on the system call convention.
 
-Add support for AppArmor to explicitly fail requested domain transitions
-if NO_NEW_PRIVS is set and the task is not unconfined.
+For audit's use, the value can generally be hard-coded at the
+audit-site.  However, for other functionality not inlined into syscall
+entry/exit, this makes that information available.  seccomp_filter is
+the first planned consumer and, as such, the comment indicates a tie to
+CONFIG_HAVE_ARCH_SECCOMP_FILTER.
 
-Transitions from unconfined are still allowed because this always results
-in a reduction of privileges.
-
-Acked-by: Eric Paris <eparis@redhat.com>
+Suggested-by: Roland McGrath <mcgrathr@chromium.org>
 Signed-off-by: Will Drewry <wad@chromium.org>
-Signed-off-by: John Johansen <john.johansen@canonical.com>
-Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Acked-by: Eric Paris <eparis@redhat.com>
 
-v18: new acked-by, new description
+v18: comment and change reword and rebase.
+v14: rebase/nochanges
+v13: rebase on to 88ebdda6159ffc15699f204c33feb3e431bf9bdc
+v12: rebase on to linux-next
+v11: fixed improper return type
+v10: introduced
 ---
- security/apparmor/domain.c |   39 +++++++++++++++++++++++++++++++++++----
- 1 files changed, 35 insertions(+), 4 deletions(-)
+ include/asm-generic/syscall.h |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-diff --git a/security/apparmor/domain.c b/security/apparmor/domain.c
-index 18c88d0..b81ea10 100644
---- a/security/apparmor/domain.c
-+++ b/security/apparmor/domain.c
-@@ -360,10 +360,6 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
- 	if (bprm->cred_prepared)
- 		return 0;
+diff --git a/include/asm-generic/syscall.h b/include/asm-generic/syscall.h
+index 5c122ae..5b09392 100644
+--- a/include/asm-generic/syscall.h
++++ b/include/asm-generic/syscall.h
+@@ -142,4 +142,18 @@ void syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
+ 			   unsigned int i, unsigned int n,
+ 			   const unsigned long *args);
  
--	/* XXX: no_new_privs is not usable with AppArmor yet */
--	if (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)
--		return -EPERM;
--
- 	cxt = bprm->cred->security;
- 	BUG_ON(!cxt);
- 
-@@ -398,6 +394,11 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
- 			new_profile = find_attach(ns, &ns->base.profiles, name);
- 		if (!new_profile)
- 			goto cleanup;
-+		/*
-+		 * NOTE: Domain transitions from unconfined are allowed
-+		 * even when no_new_privs is set because this aways results
-+		 * in a further reduction of permissions.
-+		 */
- 		goto apply;
- 	}
- 
-@@ -459,6 +460,16 @@ int apparmor_bprm_set_creds(struct linux_binprm *bprm)
- 		/* fail exec */
- 		error = -EACCES;
- 
-+	/*
-+	 * Policy has specified a domain transition, if no_new_privs then
-+	 * fail the exec.
-+	 */
-+	if (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS) {
-+		aa_put_profile(new_profile);
-+		error = -EPERM;
-+		goto cleanup;
-+	}
-+
- 	if (!new_profile)
- 		goto audit;
- 
-@@ -613,6 +624,14 @@ int aa_change_hat(const char *hats[], int count, u64 token, bool permtest)
- 	const char *target = NULL, *info = NULL;
- 	int error = 0;
- 
-+	/*
-+	 * Fail explicitly requested domain transitions if no_new_privs.
-+	 * There is no exception for unconfined as change_hat is not
-+	 * available.
-+	 */
-+	if (current->no_new_privs)
-+		return -EPERM;
-+
- 	/* released below */
- 	cred = get_current_cred();
- 	cxt = cred->security;
-@@ -754,6 +773,18 @@ int aa_change_profile(const char *ns_name, const char *hname, bool onexec,
- 	cxt = cred->security;
- 	profile = aa_cred_profile(cred);
- 
-+	/*
-+	 * Fail explicitly requested domain transitions if no_new_privs
-+	 * and not unconfined.
-+	 * Domain transitions from unconfined are allowed even when
-+	 * no_new_privs is set because this aways results in a reduction
-+	 * of permissions.
-+	 */
-+	if (current->no_new_privs && !unconfined(profile)) {
-+		put_cred(cred);
-+		return -EPERM;
-+	}
-+
- 	if (ns_name) {
- 		/* released below */
- 		ns = aa_find_namespace(profile->ns, ns_name);
++/**
++ * syscall_get_arch - return the AUDIT_ARCH for the current system call
++ * @task:	task of interest, must be in system call entry tracing
++ * @regs:	task_pt_regs() of @task
++ *
++ * Returns the AUDIT_ARCH_* based on the system call convention in use.
++ *
++ * It's only valid to call this when @task is stopped on entry to a system
++ * call, due to %TIF_SYSCALL_TRACE, %TIF_SYSCALL_AUDIT, or %TIF_SECCOMP.
++ *
++ * Architectures which permit CONFIG_HAVE_ARCH_SECCOMP_FILTER must
++ * provide an implementation of this.
++ */
++int syscall_get_arch(struct task_struct *task, struct pt_regs *regs);
+ #endif	/* _ASM_SYSCALL_H */
 -- 
 1.7.5.4
