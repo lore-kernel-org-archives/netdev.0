@@ -1,123 +1,102 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [RFC v3] Add TCP encap_rcv hook
-Date: Thu, 12 Apr 2012 16:42:04 +0900
-Message-ID: <20120412074159.GA10866@verge.net.au>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next PATCH v2 8/8] macvlan: add FDB bridge ops and macvlan
+ flags
+Date: Thu, 12 Apr 2012 01:09:38 -0700
+Message-ID: <4F868DC2.5050301@intel.com>
+References: <20120412064858.3112.65818.stgit@jf-dev1-dcblab> <20120412065754.3112.31357.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, davem@davemloft.net,
+	bhutchings@solarflare.com, hadi@cyberus.ca,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gregory.v.rose@intel.com, krkumar2@in.ibm.com
+To: mst@redhat.com, sri@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:41775 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752935Ab2DLIJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Apr 2012 04:09:40 -0400
+In-Reply-To: <20120412065754.3112.31357.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This hook is based on a hook of the same name provided by UDP.  It provides
-a way for to receive packets that have a TCP header and treat them in some
-alternate way.
+On 4/11/2012 11:57 PM, John Fastabend wrote:
+> This adds FDB bridge ops to the macvlan device passthru mode.
+> Additionally a flags field was added and a NOPROMISC bit to
+> allow users to use passthru mode without the driver calling
+> dev_set_promiscuity(). The flags field is a u16 placed in a
+> 4 byte hole (consuming 2 bytes) of the macvlan_dev struct.
+> 
+> We want to do this so that the macvlan driver or stack
+> above the macvlan driver does not have to process every
+> packet. For the use case where we know all the MAC addresses
+> of the endstations above us this works well.
+> 
+> This patch is a result of Roopa Prabhu's work. Follow up
+> patches are needed for VEPA and VEB macvlan modes.
+> 
+> v2: Change from distinct nopromisc mode to a flags field to
+>     configure this. This avoids the tendency to add a new
+>     mode every time we need some slightly different behavior.
+> 
+> CC: Roopa Prabhu <roprabhu@cisco.com>
+> CC: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+> 
 
-It is intended to be used by an implementation of the STT tunneling
-protocol within Open vSwtich's datapath. A prototype of such an
-implementation has been made.
+oops this introduces an error in dev_set_promiscuity and I missed
+adding flags to macvlan_fill_info() and the change routine
+macvlan_changelink(). As it stands the flags can only be set at
+creation time and can not be queried. I'll submit a v3 with this
+fixup in the morning.
 
-The STT draft is available at
-http://tools.ietf.org/html/draft-davie-stt-01
-
-My prototype STT implementation has been posted to the dev-UOEtcQmXneFl884UGnbwIQ@public.gmane.org
-The first version can be found at:
-http://www.mail-archive.com/dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org/msg08877.html
-
-Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+I suspect the addition below should be good enough. might try
+to clean up the changelink logic a bit first.
 
 ---
- include/linux/tcp.h |    3 +++
- net/ipv4/tcp_ipv4.c |   23 ++++++++++++++++++++++-
- 2 files changed, 25 insertions(+), 1 deletion(-)
 
-v3
-* First post to netdev
-* Replace more UDP references with TCP
-* Move socket accesses to inside socket lock
-  and release lock on return.
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index df782c0..65c6d26 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -350,7 +350,7 @@ static int macvlan_stop(struct net_device *dev)
 
-v2
-* Fix comment to refer to TCP rather than UDP
-* Allow skb to continue traversing the stack if
-  the encap_rcv callback returns a positive value.
-  This is the same behaviour as the UDP hook.
+        if (vlan->port->passthru) {
+                if (!(vlan->flags & MACVLAN_FLAG_NOPROMISC))
+-                       dev_set_promiscuity(lowerdev, 1);
++                       dev_set_promiscuity(lowerdev, -1);
+                goto hash_del;
+        }
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index b6c62d2..7210b23 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -472,6 +472,9 @@ struct tcp_sock {
- 	 * contains related tcp_cookie_transactions fields.
- 	 */
- 	struct tcp_cookie_values  *cookie_values;
+@@ -808,6 +808,19 @@ static int macvlan_changelink(struct net_device *dev,
+        struct macvlan_dev *vlan = netdev_priv(dev);
+        if (data && data[IFLA_MACVLAN_MODE])
+                vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
++       if (data && data[IFLA_MACVLAN_FLAGS]) {
++               __u16 flags = nla_get_u16(data[IFLA_MACVLAN_FLAGS]);
 +
-+	/* For encapsulation sockets. */
-+	int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
- };
- 
- static inline struct tcp_sock *tcp_sk(const struct sock *sk)
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 3a25cf7..9898f71 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1666,8 +1666,10 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	const struct iphdr *iph;
- 	const struct tcphdr *th;
- 	struct sock *sk;
-+	struct tcp_sock *tp;
- 	int ret;
- 	struct net *net = dev_net(skb->dev);
-+	int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
- 
- 	if (skb->pkt_type != PACKET_HOST)
- 		goto discard_it;
-@@ -1726,9 +1728,27 @@ process:
- 
- 	bh_lock_sock_nested(sk);
- 	ret = 0;
++               flags &= MACVLAN_FLAG_NOPROMISC;
 +
-+	tp = tcp_sk(sk);
-+	encap_rcv = ACCESS_ONCE(tp->encap_rcv);
-+	if (encap_rcv != NULL) {
-+		/*
-+		 * This is an encapsulation socket so pass the skb to
-+		 * the socket's tcp_encap_rcv() hook. Otherwise, just
-+		 * fall through and pass this up the TCP socket.
-+		 * up->encap_rcv() returns the following value:
-+		 * <=0 if skb was successfully passed to the encap
-+		 *     handler or was discarded by it.
-+		 * >0 if skb should be passed on to TCP.
-+		 */
-+		if (encap_rcv(sk, skb) <= 0) {
-+			ret = 0;
-+			goto unlock_sock;
-+		}
-+	}
++               if ((flags ^ vlan->flags) && (flags & MACVLAN_FLAG_NOPROMISC))
++                       dev_set_promiscuity(vlan->lowerdev, -1);
++               else if ((flags ^ vlan->flags) &&
++                        !(flags & MACVLAN_FLAG_NOPROMISC))
++                       dev_set_promiscuity(vlan->lowerdev, 1);
 +
- 	if (!sock_owned_by_user(sk)) {
- #ifdef CONFIG_NET_DMA
--		struct tcp_sock *tp = tcp_sk(sk);
- 		if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
- 			tp->ucopy.dma_chan = dma_find_channel(DMA_MEMCPY);
- 		if (tp->ucopy.dma_chan)
-@@ -1744,6 +1764,7 @@ process:
- 		NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
- 		goto discard_and_relse;
- 	}
-+unlock_sock:
- 	bh_unlock_sock(sk);
- 
- 	sock_put(sk);
--- 
-1.7.9.5
++               vlan->flags = flags;
++       }
+        return 0;
+ }
+
+@@ -823,6 +836,8 @@ static int macvlan_fill_info(struct sk_buff *skb,
+
+        if (nla_put_u32(skb, IFLA_MACVLAN_MODE, vlan->mode))
+                goto nla_put_failure;
++       if (nla_put_u16(skb, IFLA_MACVLAN_FLAGS, vlan->flags))
++               goto nla_put_failure;
+        return 0;
+
+ nla_put_failure:
+[root@jf-dev1-dcblab net-n
