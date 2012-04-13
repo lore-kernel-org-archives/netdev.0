@@ -1,61 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/9] atl1: make driver napi compatible
-Date: Fri, 13 Apr 2012 15:22:14 -0400 (EDT)
-Message-ID: <20120413.152214.1993707733249175187.davem@davemloft.net>
-References: <1334333394-38404-1-git-send-email-antonz@parallels.com>
-	<1334333394-38404-3-git-send-email-antonz@parallels.com>
-	<1334337315.2606.7.camel@bwh-desktop.uk.solarflarecom.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [RFC] endianness bugs in net/batman-adv/
+Date: Fri, 13 Apr 2012 20:46:29 +0100
+Message-ID: <20120413194629.GP6589@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: antonz@parallels.com, netdev@vger.kernel.org, jcliburn@gmail.com,
-	csnook@redhat.com, khorenko@parallels.com
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52010 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755904Ab2DMTWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 15:22:22 -0400
-In-Reply-To: <1334337315.2606.7.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:48063 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756075Ab2DMTqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 15:46:30 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 13 Apr 2012 18:15:15 +0100
+	Let's start with net/batman-adv/translation-table.c:send_tt_request(). 
+Its tt_crc argument gets stored into skb as-is and skb goes on the wire.
+OK, so it's fixed-endian, right?
 
-> On Fri, 2012-04-13 at 20:09 +0400, Tony Zelenoff wrote:
->> This is first step, here there is no fine interrupt
->> disabling which cause TX/ERR interrupts stalling when
->> RX scheduled ints processed.
->> 
->> Signed-off-by: Tony Zelenoff <antonz@parallels.com>
->> ---
->>  drivers/net/ethernet/atheros/atlx/atl1.c |   46 ++++++++++++++++++++++++++----
->>  drivers/net/ethernet/atheros/atlx/atl1.h |    1 +
->>  2 files changed, 41 insertions(+), 6 deletions(-)
->> 
->> diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
->> index 6438239..d39c1b9 100644
->> --- a/drivers/net/ethernet/atheros/atlx/atl1.c
->> +++ b/drivers/net/ethernet/atheros/atlx/atl1.c
->> @@ -1917,7 +1917,7 @@ next:
->>  	return num_alloc;
->>  }
->>  
->> -static void atl1_intr_rx(struct atl1_adapter *adapter)
->> +static int atl1_intr_rx(struct atl1_adapter *adapter, int budget)
->>  {
->>  	int i, count;
->>  	u16 length;
->> @@ -1933,7 +1933,7 @@ static void atl1_intr_rx(struct atl1_adapter *adapter)
->>  
->>  	rrd_next_to_clean = atomic_read(&rrd_ring->next_to_clean);
->>  
->> -	while (1) {
->> +	while (count <= budget) {
-> [...]
-> 
-> Off by one; the test should be count < budget.  Otherwise you can exit
-> with count == budget + 1 and net_rx_action() will WARN you about that.
+	That sucker comes straight from the (only) caller - tt_update_orig().
+There it gets compared with ->tt_crc of struct orig_node instances.  Fine,
+except that just prior to that comparison we assign to ->tt_crc the return
+value of tt_global_crc().  Which is built on crc16_byte() and clearly
+returns a host-endian value.  Additionally, orig_node ->tt_crc is getting
+compared to tt_request->tt_data in send_other_tt_response(), which ultimately
+comes from recv_tt_query() where it's flipped from net-endian to host-endian.
 
-Right, this needs to be fixed up.
+	It gets even funnier - we have 3 structures with ->tt_crc in them;
+one is struct orig_node (see above), another is struct batman_ogv_packet and
+then there's the weirdest one - struct bat_priv.  Where ->tt_crc is
+atomic_t, of all things.  With exactly two things ever done to it:
+        batman_ogm_packet->tt_crc = htons((uint16_t)
+                                                atomic_read(&bat_priv->tt_crc));
+in bat_iv_ogm_schedule() and
+        atomic_set(&bat_priv->tt_crc, tt_local_crc(bat_priv));
+in prepare_packet_buffer().  What the hell does that have to do with atomic_t?
+At least that one is definitely host-endian all along (tt_local_crc() is
+the same kind of built-on-crc16_byte() thing).
+
+	And then there's batman_ogv_packet, where we flip the damn field
+from net-endian to host-endian and back.  That's where the argument of
+tt_update_orig() comes from, AFAICS always in host-endian form.
+
+	IOW, unless I'm misreading that code we have
+bat_priv ->tt_crc: host-endian, no need to make it atomic_t
+orig_node ->tt_crc: host-endian
+tt_update_orig()/send_tt_request() tt_crc argument: host-endian
+the value put into the packet in send_tt_request(): broken; should be
+net-endian, in reality it's host-endian.  Missing htons() at the very
+least.
+
+	Could somebody familiar with that code comment on that?
