@@ -1,28 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [0/3] bridge: Do not send multicast queries by default
-Date: Fri, 13 Apr 2012 10:53:45 -0400 (EDT)
-Message-ID: <20120413.105345.319552552748408545.davem@davemloft.net>
-References: <20120413123641.GA758@gondor.apana.org.au>
+Subject: Re: suspicious RCU usage warnings in 3.3.0
+Date: Fri, 13 Apr 2012 10:55:56 -0400 (EDT)
+Message-ID: <20120413.105556.73360716787161031.davem@davemloft.net>
+References: <20120412045428.GB2497@linux.vnet.ibm.com>
+	<alpine.SOC.1.00.1204131444150.2736@math.ut.ee>
+	<20120413133513.GB2457@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.hengli.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49478 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753203Ab2DMOxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 10:53:51 -0400
-In-Reply-To: <20120413123641.GA758@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mroos@linux.ee, shemminger@vyatta.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120413133513.GB2457@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.hengli.com.au>
-Date: Fri, 13 Apr 2012 20:36:41 +0800
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Fri, 13 Apr 2012 06:35:13 -0700
 
-> (incidentally, I noticed that our IPv6 code has been "fixed" to not
-> use zero source addresses, which is wrong as we may end up being THE
-> MLD querier in a network).
+DANGER WILL ROBINSON, McKenney is hacking sparc64 assembler!
+:-))))
 
-I seem to recall it was explicitly changed to be this way and that
-there was a good reason for this, see the history.
+> My main concern about my patch is my removal of this line:
+> 
+> 	bne,pn			%icc, __handle_softirq
+> 
+> It is quite possible that this should instead change to look as follows:
+> 
+> 	bne,pn			%icc, __handle_preemption
+> 
+
+I would say it should not, because the __handle_softirq code path,
+if taken, unconditionally branches to the very next instruction
+after this branch and it's delay slot.
+
+> Anyway, patch with updated changelog below.
+
+Great work, I'll apply this after I test it out a bit myself.
+
+Thanks a lot Paul!
