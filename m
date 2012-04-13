@@ -1,52 +1,38 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Netlink, route monitoring, =?UTF-8?Q?RTM=5FDELROUTE=20not=20issue?=
- =?UTF-8?Q?d=20for=20ppp=20peer=20address=2E=20Bug=20or=20feature=3F?=
-Date: Fri, 13 Apr 2012 15:10:34 +0300
-Message-ID: <8986ed37b55c756ecdeec0315f73e63a@visp.net.lb>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/3] bridge: Do not send multicast queries by default
+Date: Fri, 13 Apr 2012 20:36:41 +0800
+Message-ID: <20120413123641.GA758@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:46028 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753316Ab2DMMKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 08:10:41 -0400
-Received: from webmail.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id C4CE02EC056
-	for <netdev@vger.kernel.org>; Fri, 13 Apr 2012 15:10:34 +0300 (EEST)
+Received: from sting.hengli.com.au ([178.18.18.71]:33590 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754102Ab2DMMgq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 08:36:46 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+Hi:
 
-I am trying to implement my own routing daemon, and using 
-RTMGRP_IPV4_ROUTE to monitor routes.
-I notice, that on PPPoE, when interface disappearing, RTM_DELROUTE will 
-be sent to listener only for local address, but nothing about peer 
-address attached to this interface.
+This series of patches is aimed to change the default multicast
+snooping behaviour to one that is safer to deploy in the wild.
 
-CBSS_PPPoE ~ # ifconfig ppp0
-ppp0      Link encap:Point-to-Point Protocol
-           inet addr:172.16.146.1  P-t-P:172.16.146.10  
-Mask:255.255.255.255
-           UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1200  Metric:1
-           RX packets:40439 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:63211 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:3
-           RX bytes:3584507 (3.4 MiB)  TX bytes:47180929 (44.9 MiB)
+There have been numerous reports of switches misbehaving with
+our current behaviour of sending general queries, presumably
+because we're using a zero source IP address which is unavoidable
+as using anything else would interfere with multicast querier
+elections (incidentally, I noticed that our IPv6 code has been
+"fixed" to not use zero source addresses, which is wrong as we
+may end up being THE MLD querier in a network).
 
-CBSS_PPPoE ~ # pppkill tek234@visp.net.lb  (this is killing pppd 
-process for ppp0 interface)
+Since our queries aren't actually required for multicast snooping
+to function, but is merely an optimisation mostly for faster
+start-up convergence, I think we should disable this by default.
 
-ip monitor route will show only RTM_DELROUTE for RTN_LOCAL, but nothing 
-about RTN_UNICAST for 172.16.146.10.
-"Deleted local 172.16.146.1 dev ppp0  table local  proto kernel  scope 
-host  src 172.16.146.1"
-My program also receive same.
-
-Is it a bug, that no RTM_DELROUTE issued for peer ip address? Or should 
-i monitor also RTMGRP_IPV4_IFADDR for link disappearance?
-
-Thanks for help!
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
