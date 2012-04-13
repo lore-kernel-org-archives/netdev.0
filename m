@@ -1,49 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] New CAIF features
-Date: Fri, 13 Apr 2012 11:37:57 -0400 (EDT)
-Message-ID: <20120413.113757.896106674970820826.davem@davemloft.net>
-References: <1334255247-3372-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Tony Zelenoff <antonz@parallels.com>
+Subject: [PATCH 0/9] atl1: add napi to Atheros L1 NIC
+Date: Fri, 13 Apr 2012 20:09:45 +0400
+Message-ID: <1334333394-38404-1-git-send-email-antonz@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, sjurbren@gmail.com
-To: sjur.brandeland@stericsson.com
+Content-Type: text/plain
+Cc: <antonz@parallels.com>, <netdev@vger.kernel.org>,
+	<jcliburn@gmail.com>, <csnook@redhat.com>, <khorenko@parallels.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49841 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753500Ab2DMPiH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 11:38:07 -0400
-In-Reply-To: <1334255247-3372-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from relay.parallels.com ([195.214.232.42]:54696 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754215Ab2DMQJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 12:09:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
-Date: Thu, 12 Apr 2012 20:27:23 +0200
+Added NAPI interface to the driver of Atheros L1 NIC.
+RX speed reported by iperf in TCP mode (with and without -N
+switch) improved by ~7 Mbps. In UDP mode the speed up is
+improved by ~4 Mbps.
+Also hard RX/TX rings processing with memory allocation in
+interrupt handlers is not very good idea. So, fixed this.
 
-> Add feature to aggregate CAIF HSI frames into one large HSI-transfer.
-> The triggers for starting a HSI transfer are:
-> Max transfer size reached, timeout or reception of low-latency traffi=
-c.=20
-> As long as none of these triggers are met, CAIF-frames will be aggreg=
-ated.
-> =20
-> In order to be able to support aggregation and detect low-latency tra=
-ffic,
-> CAIF packets are assigned a TC class.
-> =20
-> In addition we are now allowing other kernel modules to use the HSI i=
-nterface
-> while the CAIF interface is closed. The CAIF-HSI interface is changed=
- so that
-> reference to the HSI interface is held only when CAIF-HSI is in state=
- UP.
-> Initialization/de-initialization of the HSI HW is performed when the =
-interface
-> is opened/closed instead of at module load time.
->=20
-> NOTE: This patch-set depends on the patch "caif-hsi: Free flip_buffer=
- at shutdown",
-> sent in the Bug-fix patch-set.
+Note: thouse patches must be applied after patch, that fix
+kernel panic in this driver.
+Its subject is: "atl1: fix kernel panic in case of DMA errors"
 
-All applied, thanks for letting me know explicitly about the dependency=
-=2E
+Tony Zelenoff (9):
+  atl1: handle rx in separate condition
+  atl1: make driver napi compatible
+  atl1: add napi process of tx interrupts
+  atl1: use defined functions to disable irq
+  atl1: make function to set imr of card
+  atl1: add value to check ability of reenabling IRQs
+  atl1: enable errors and link ints when rx/tx scheduled
+  atl1: do not process interrupts in cycle in handler
+  atl1: do not drop rx/tx interrupts before they are scheduled
+
+ drivers/net/ethernet/atheros/atlx/atl1.c |  171 +++++++++++++++++++-----------
+ drivers/net/ethernet/atheros/atlx/atl1.h |   17 +++-
+ drivers/net/ethernet/atheros/atlx/atlx.c |   15 ++-
+ 3 files changed, 135 insertions(+), 68 deletions(-)
