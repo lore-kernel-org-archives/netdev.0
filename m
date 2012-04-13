@@ -1,48 +1,61 @@
-From: Andy Fleming <afleming@gmail.com>
-Subject: Re: [PATCH v2 0/3] netdev/of/phy: MDIO bus multiplexer support.
-Date: Fri, 13 Apr 2012 14:08:18 -0500
-Message-ID: <CAKWjMd7uMgs1FJOP13quu3ksF7VEUr8kWmpXeBC+q9amY=sCPg@mail.gmail.com>
-References: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
-	<20110929.163112.1523715692737597332.davem@davemloft.net>
-	<20110930003214.GB12606@ponder.secretlab.ca>
-	<C81814FF-4E56-4B28-8043-F874EE1D6B51@kernel.crashing.org>
-	<4E9C4CA5.8020407@cavium.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/9] atl1: make driver napi compatible
+Date: Fri, 13 Apr 2012 15:22:14 -0400 (EDT)
+Message-ID: <20120413.152214.1993707733249175187.davem@davemloft.net>
+References: <1334333394-38404-1-git-send-email-antonz@parallels.com>
+	<1334333394-38404-3-git-send-email-antonz@parallels.com>
+	<1334337315.2606.7.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kumar Gala <galak@kernel.crashing.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	David Miller <davem@davemloft.net>,
-	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Daney <david.daney@cavium.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E9C4CA5.8020407@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: antonz@parallels.com, netdev@vger.kernel.org, jcliburn@gmail.com,
+	csnook@redhat.com, khorenko@parallels.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52010 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755904Ab2DMTWW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 15:22:22 -0400
+In-Reply-To: <1334337315.2606.7.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 17, 2011 at 10:41 AM, David Daney <david.daney@cavium.com> =
-wrote:
-> On 10/17/2011 07:48 AM, Kumar Gala wrote:
->>
->>
->> On Sep 29, 2011, at 7:32 PM, Grant Likely wrote:
->>
->>> On Thu, Sep 29, 2011 at 04:31:12PM -0400, David Miller wrote:
->>>>
->>>> From: David Daney<david.daney@cavium.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 13 Apr 2012 18:15:15 +0100
 
->>> Your tree or mine, I'm happy either way. =A0Even if there were
->>> conflicts, they would be trivial.
->>>
->>> Sure, I'll take care of merging it when I see an ack from you.
+> On Fri, 2012-04-13 at 20:09 +0400, Tony Zelenoff wrote:
+>> This is first step, here there is no fine interrupt
+>> disabling which cause TX/ERR interrupts stalling when
+>> RX scheduled ints processed.
+>> 
+>> Signed-off-by: Tony Zelenoff <antonz@parallels.com>
+>> ---
+>>  drivers/net/ethernet/atheros/atlx/atl1.c |   46 ++++++++++++++++++++++++++----
+>>  drivers/net/ethernet/atheros/atlx/atl1.h |    1 +
+>>  2 files changed, 41 insertions(+), 6 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
+>> index 6438239..d39c1b9 100644
+>> --- a/drivers/net/ethernet/atheros/atlx/atl1.c
+>> +++ b/drivers/net/ethernet/atheros/atlx/atl1.c
+>> @@ -1917,7 +1917,7 @@ next:
+>>  	return num_alloc;
+>>  }
+>>  
+>> -static void atl1_intr_rx(struct atl1_adapter *adapter)
+>> +static int atl1_intr_rx(struct atl1_adapter *adapter, int budget)
+>>  {
+>>  	int i, count;
+>>  	u16 length;
+>> @@ -1933,7 +1933,7 @@ static void atl1_intr_rx(struct atl1_adapter *adapter)
+>>  
+>>  	rrd_next_to_clean = atomic_read(&rrd_ring->next_to_clean);
+>>  
+>> -	while (1) {
+>> +	while (count <= budget) {
+> [...]
+> 
+> Off by one; the test should be count < budget.  Otherwise you can exit
+> with count == budget + 1 and net_rx_action() will WARN you about that.
 
->> Any updates to these patches?
->
->
-> Not yet, so you didn't miss anything.
->
-> They are on my to-do list though
-
-Pinging on this, again, as we'd like to leverage it for current and
-future boards. :)
+Right, this needs to be fixed up.
