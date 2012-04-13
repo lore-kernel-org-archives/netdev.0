@@ -1,245 +1,86 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: [PATCH net-next v2] tcp: bind() use stronger condition for bind_conflict
-Date: Fri, 13 Apr 2012 08:36:31 +0300
-Message-ID: <CAEnQRZALcP8AOOPzu0_Nn+FGbTDu_geSj-AzGNe39E4GHitFSQ@mail.gmail.com>
-References: <1333698444-24144-1-git-send-email-alex.mihai.c@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: RFC6298 supersedes RFC2988bis
+Date: Fri, 13 Apr 2012 07:48:40 +0200
+Message-ID: <1334296120.5300.8404.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fbl@redhat.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-To: alex.mihai.c@gmail.com, davem@davemloft.net, eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:47332 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752574Ab2DMFgc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 01:36:32 -0400
-Received: by obbta14 with SMTP id ta14so169861obb.19
-        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 22:36:31 -0700 (PDT)
-In-Reply-To: <1333698444-24144-1-git-send-email-alex.mihai.c@gmail.com>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:38590 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751326Ab2DMFso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 01:48:44 -0400
+Received: by wgbds11 with SMTP id ds11so5520137wgb.1
+        for <netdev@vger.kernel.org>; Thu, 12 Apr 2012 22:48:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 6, 2012 at 10:47 AM, Alexandru Copot <alex.mihai.c@gmail.co=
-m> wrote:
-> From: Alex Copot <alex.mihai.c@gmail.com>
->
-> We must try harder to get unique (addr, port) pairs when
-> doing port autoselection for sockets with SO_REUSEADDR
-> option set.
->
-> We achieve this by adding a relaxation parameter to
-> inet_csk_bind_conflict. When 'relax' parameter is off
-> we return a conflict whenever the current searched
-> pair (addr, port) is not unique.
->
-> This tries to address the problems reported in patch:
-> =A0 =A0 =A0 =A08d238b25b1ec22a73b1c2206f111df2faaff8285
-> =A0 =A0 =A0 =A0Revert "tcp: bind() fix when many ports are bound"
->
-> Tests where ran for creating and binding(0) many sockets
-> on 100 IPs. The results are, on average:
->
-> =A0 =A0 =A0 =A0* 60000 sockets, 600 ports / IP:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* 0.210 s, 620 (IP, port) duplicates w=
-ithout patch
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* 0.219 s, no duplicates with patch
-> =A0 =A0 =A0 =A0* 100000 sockets, 1000 ports / IP:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* 0.371 s, 1720 duplicates without pat=
-ch
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* 0.373 s, no duplicates with patch
-> =A0 =A0 =A0 =A0* 200000 sockets, 2000 ports / IP:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* 0.766 s, 6900 duplicates without pat=
-ch
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* 0.768 s, no duplicates with patch
-> =A0 =A0 =A0 =A0* 500000 sockets, 5000 ports / IP:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* 2.227 s, 41500 duplicates without pa=
-tch
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* 2.284 s, no duplicates with patch
->
-> Signed-off-by: Alex Copot <alex.mihai.c@gmail.com>
-> Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
->
-> ---
-> Changes from v1:
-> =A0- Fixed coding style
-> =A0- Replaced int flag with bool
-> =A0- Added test results
-> ---
-> =A0include/net/inet6_connection_sock.h | =A0 =A02 +-
-> =A0include/net/inet_connection_sock.h =A0| =A0 =A04 ++--
-> =A0net/ipv4/inet_connection_sock.c =A0 =A0 | =A0 17 +++++++++++++----
-> =A0net/ipv6/inet6_connection_sock.c =A0 =A0| =A0 =A02 +-
-> =A04 files changed, 17 insertions(+), 8 deletions(-)
->
-> diff --git a/include/net/inet6_connection_sock.h b/include/net/inet6_=
-connection_sock.h
-> index 3207e58..1866a67 100644
-> --- a/include/net/inet6_connection_sock.h
-> +++ b/include/net/inet6_connection_sock.h
-> @@ -23,7 +23,7 @@ struct sock;
-> =A0struct sockaddr;
->
-> =A0extern int inet6_csk_bind_conflict(const struct sock *sk,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-const struct inet_bind_bucket *tb);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-const struct inet_bind_bucket *tb, bool relax);
->
-> =A0extern struct dst_entry* inet6_csk_route_req(struct sock *sk,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 const struct request_sock *req);
-> diff --git a/include/net/inet_connection_sock.h b/include/net/inet_co=
-nnection_sock.h
-> index dbf9aab..46c9e2c 100644
-> --- a/include/net/inet_connection_sock.h
-> +++ b/include/net/inet_connection_sock.h
-> @@ -60,7 +60,7 @@ struct inet_connection_sock_af_ops {
-> =A0#endif
-> =A0 =A0 =A0 =A0void =A0 =A0 =A0 =A0(*addr2sockaddr)(struct sock *sk, =
-struct sockaddr *);
-> =A0 =A0 =A0 =A0int =A0 =A0 =A0 =A0 (*bind_conflict)(const struct sock=
- *sk,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0const struct inet_bind_bucket *tb);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0const struct inet_bind_bucket *tb, bool relax);
-> =A0};
->
-> =A0/** inet_connection_sock - INET connection oriented sock
-> @@ -245,7 +245,7 @@ extern struct request_sock *inet_csk_search_req(c=
-onst struct sock *sk,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0const __be32 raddr,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0const __be32 laddr);
-> =A0extern int inet_csk_bind_conflict(const struct sock *sk,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 con=
-st struct inet_bind_bucket *tb);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 con=
-st struct inet_bind_bucket *tb, bool relax);
-> =A0extern int inet_csk_get_port(struct sock *sk, unsigned short snum)=
-;
->
-> =A0extern struct dst_entry* inet_csk_route_req(struct sock *sk,
-> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connecti=
-on_sock.c
-> index 19d66ce..13ef772 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -53,7 +53,7 @@ void inet_get_local_port_range(int *low, int *high)
-> =A0EXPORT_SYMBOL(inet_get_local_port_range);
->
-> =A0int inet_csk_bind_conflict(const struct sock *sk,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0const struct ine=
-t_bind_bucket *tb)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0const struct ine=
-t_bind_bucket *tb, bool relax)
-> =A0{
-> =A0 =A0 =A0 =A0struct sock *sk2;
-> =A0 =A0 =A0 =A0struct hlist_node *node;
-> @@ -79,6 +79,13 @@ int inet_csk_bind_conflict(const struct sock *sk,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-sk2_rcv_saddr =3D=3D sk_rcv_saddr(sk))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0break;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!relax && reuse && =
-sk2->sk_reuse &&
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk2->sk=
-_state !=3D TCP_LISTEN) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 const _=
-_be32 sk2_rcv_saddr =3D sk_rcv_saddr(sk2);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!sk=
-2_rcv_saddr || !sk_rcv_saddr(sk) ||
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- sk2_rcv_saddr =3D=3D sk_rcv_saddr(sk))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 break;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0return node !=3D NULL;
-> @@ -122,12 +129,13 @@ again:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0(tb->num_owners < smallest_size || smallest_size =3D=3D=
- -1)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0smallest_size =3D tb->num_owners;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0smallest_rover =3D rover;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 if (atomic_read(&hashinfo->bsockets) > (high -=
- low) + 1) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 if (atomic_read(&hashinfo->bsockets) > (high -=
- low) + 1 &&
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 !inet_csk(sk)->icsk_af_ops->bind_confl=
-ict(sk, tb, false)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0snum =3D smallest_rover;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto tb_found;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0}
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, false)) =
-{
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0snum =3D rover;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0goto tb_found;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0}
-> @@ -178,12 +186,13 @@ tb_found:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto success;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0} else {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ret =3D 1;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (inet_csk(sk)->icsk_=
-af_ops->bind_conflict(sk, tb)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (inet_csk(sk)->icsk_=
-af_ops->bind_conflict(sk, tb, true)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (sk=
-->sk_reuse && sk->sk_state !=3D TCP_LISTEN &&
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-smallest_size !=3D -1 && --attempts >=3D 0) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0spin_unlock(&head->lock);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0goto again;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> +
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto f=
-ail_unlock;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connec=
-tion_sock.c
-> index 02dd203..e6cee52 100644
-> --- a/net/ipv6/inet6_connection_sock.c
-> +++ b/net/ipv6/inet6_connection_sock.c
-> @@ -28,7 +28,7 @@
-> =A0#include <net/inet6_connection_sock.h>
->
-> =A0int inet6_csk_bind_conflict(const struct sock *sk,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 const struct in=
-et_bind_bucket *tb)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 const struct in=
-et_bind_bucket *tb, bool relax)
-> =A0{
-> =A0 =A0 =A0 =A0const struct sock *sk2;
-> =A0 =A0 =A0 =A0const struct hlist_node *node;
-> --
-> 1.7.9.6
->
-> --
+Updates some comments to track RFC6298
 
-Eric, David can you have a look on this?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: H.K. Jerry Chu <hkchu@google.com>
+Cc: Tom Herbert <therbert@google.com>
+---
+BTW, one side effect of the TCP_TIMEOUT_INIT change (3 -> 1) is
+inet_csk_reqsk_queue_prune() latency is 200% worse:
 
-thanks,
-Daniel.
+It fires every 200ms and scans 40% of hash table each time, listener
+socket held.
+
+ include/net/tcp.h               |    2 +-
+ net/ipv4/inet_connection_sock.c |    2 +-
+ net/ipv4/tcp_input.c            |    4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index f75a04d..057f016 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -123,7 +123,7 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #endif
+ #define TCP_RTO_MAX	((unsigned)(120*HZ))
+ #define TCP_RTO_MIN	((unsigned)(HZ/5))
+-#define TCP_TIMEOUT_INIT ((unsigned)(1*HZ))	/* RFC2988bis initial RTO value	*/
++#define TCP_TIMEOUT_INIT ((unsigned)(1*HZ))	/* RFC6298 2.1 initial RTO value	*/
+ #define TCP_TIMEOUT_FALLBACK ((unsigned)(3*HZ))	/* RFC 1122 initial RTO value, now
+ 						 * used as a fallback RTO for the
+ 						 * initial data transmission if no
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 19d66ce..c12396f 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -514,7 +514,7 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
+ 
+ 	/* Normally all the openreqs are young and become mature
+ 	 * (i.e. converted to established socket) for first timeout.
+-	 * If synack was not acknowledged for 3 seconds, it means
++	 * If synack was not acknowledged for 1 second, it means
+ 	 * one of the following things: synack was lost, ack was lost,
+ 	 * rtt is high or nobody planned to ack (i.e. synflood).
+ 	 * When server is a bit loaded, queue is populated with old
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index e886e2f..9147c27 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -933,7 +933,7 @@ static void tcp_init_metrics(struct sock *sk)
+ 	tcp_set_rto(sk);
+ reset:
+ 	if (tp->srtt == 0) {
+-		/* RFC2988bis: We've failed to get a valid RTT sample from
++		/* RFC6298: 5.7 We've failed to get a valid RTT sample from
+ 		 * 3WHS. This is most likely due to retransmission,
+ 		 * including spurious one. Reset the RTO back to 3secs
+ 		 * from the more aggressive 1sec to avoid more spurious
+@@ -943,7 +943,7 @@ reset:
+ 		inet_csk(sk)->icsk_rto = TCP_TIMEOUT_FALLBACK;
+ 	}
+ 	/* Cut cwnd down to 1 per RFC5681 if SYN or SYN-ACK has been
+-	 * retransmitted. In light of RFC2988bis' more aggressive 1sec
++	 * retransmitted. In light of RFC6298 more aggressive 1sec
+ 	 * initRTO, we only reset cwnd when more than 1 SYN/SYN-ACK
+ 	 * retransmission has occurred.
+ 	 */
