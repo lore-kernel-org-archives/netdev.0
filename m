@@ -1,73 +1,75 @@
-From: Tim Gardner <tim.gardner@canonical.com>
-Subject: [PATCH linux-next 1/1] ath6k: Normalize use of FW_DIR
-Date: Fri, 13 Apr 2012 11:17:27 -0600
-Message-ID: <1334337448-26270-2-git-send-email-tim.gardner@canonical.com>
-References: <1334337448-26270-1-git-send-email-tim.gardner@canonical.com>
-Cc: Tim Gardner <tim.gardner@canonical.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: kvalo@qca.qualcomm.com, linux-kernel@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2: in free_buffers() do proper checks before call of
+ rx_clean()
+Date: Fri, 13 Apr 2012 10:24:13 -0700
+Message-ID: <20120413102413.41c0d053@nehalam.linuxnetplumber.net>
+References: <20120403001327.GB10227@Neptun>
+	<20120413.125954.1123124134206162716.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: LinoSanfilippo@gmx.de, mlindner@marvell.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334337448-26270-1-git-send-email-tim.gardner@canonical.com>
+In-Reply-To: <20120413.125954.1123124134206162716.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cc: Kalle Valo <kvalo@qca.qualcomm.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: linux-wireless@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
----
- drivers/net/wireless/ath/ath6kl/core.h |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+How about this instead? It moves the rx_clean out of free_buffers and
+into the proper place in the unwind code.
 
-diff --git a/drivers/net/wireless/ath/ath6kl/core.h b/drivers/net/wireless/ath/ath6kl/core.h
-index 9d67964..ba81dc8 100644
---- a/drivers/net/wireless/ath/ath6kl/core.h
-+++ b/drivers/net/wireless/ath/ath6kl/core.h
-@@ -126,9 +126,9 @@ struct ath6kl_fw_ie {
- #define AR6003_HW_2_0_FIRMWARE_FILE		"athwlan.bin.z77"
- #define AR6003_HW_2_0_TCMD_FIRMWARE_FILE	"athtcmd_ram.bin"
- #define AR6003_HW_2_0_PATCH_FILE		"data.patch.bin"
--#define AR6003_HW_2_0_BOARD_DATA_FILE "ath6k/AR6003/hw2.0/bdata.bin"
-+#define AR6003_HW_2_0_BOARD_DATA_FILE AR6003_HW_2_0_FW_DIR "/bdata.bin"
- #define AR6003_HW_2_0_DEFAULT_BOARD_DATA_FILE \
--			"ath6k/AR6003/hw2.0/bdata.SD31.bin"
-+			AR6003_HW_2_0_FW_DIR "/bdata.SD31.bin"
+
+--- a/drivers/net/ethernet/marvell/sky2.c	2012-04-12 08:07:11.572640522 -0700
++++ b/drivers/net/ethernet/marvell/sky2.c	2012-04-13 10:19:39.466839378 -0700
+@@ -1630,7 +1630,8 @@ static int sky2_alloc_buffers(struct sky
+ 	if (!sky2->rx_ring)
+ 		goto nomem;
  
- /* AR6003 3.0 definitions */
- #define AR6003_HW_2_1_1_VERSION                 0x30000582
-@@ -139,25 +139,25 @@ struct ath6kl_fw_ie {
- #define AR6003_HW_2_1_1_UTF_FIRMWARE_FILE	"utf.bin"
- #define AR6003_HW_2_1_1_TESTSCRIPT_FILE	"nullTestFlow.bin"
- #define AR6003_HW_2_1_1_PATCH_FILE		"data.patch.bin"
--#define AR6003_HW_2_1_1_BOARD_DATA_FILE "ath6k/AR6003/hw2.1.1/bdata.bin"
-+#define AR6003_HW_2_1_1_BOARD_DATA_FILE AR6003_HW_2_1_1_FW_DIR "/bdata.bin"
- #define AR6003_HW_2_1_1_DEFAULT_BOARD_DATA_FILE	\
--			"ath6k/AR6003/hw2.1.1/bdata.SD31.bin"
-+			AR6003_HW_2_1_1_FW_DIR "/bdata.SD31.bin"
+-	return sky2_alloc_rx_skbs(sky2);
++	return 0;
++
+ nomem:
+ 	return -ENOMEM;
+ }
+@@ -1639,8 +1640,6 @@ static void sky2_free_buffers(struct sky
+ {
+ 	struct sky2_hw *hw = sky2->hw;
  
- /* AR6004 1.0 definitions */
- #define AR6004_HW_1_0_VERSION                 0x30000623
- #define AR6004_HW_1_0_FW_DIR			"ath6k/AR6004/hw1.0"
- #define AR6004_HW_1_0_FIRMWARE_FILE		"fw.ram.bin"
--#define AR6004_HW_1_0_BOARD_DATA_FILE         "ath6k/AR6004/hw1.0/bdata.bin"
-+#define AR6004_HW_1_0_BOARD_DATA_FILE         AR6004_HW_1_0_FW_DIR "/bdata.bin"
- #define AR6004_HW_1_0_DEFAULT_BOARD_DATA_FILE \
--	"ath6k/AR6004/hw1.0/bdata.DB132.bin"
-+	AR6004_HW_1_0_FW_DIR "/bdata.DB132.bin"
+-	sky2_rx_clean(sky2);
+-
+ 	if (sky2->rx_le) {
+ 		pci_free_consistent(hw->pdev, RX_LE_BYTES,
+ 				    sky2->rx_le, sky2->rx_le_map);
+@@ -1761,9 +1760,13 @@ static int sky2_open(struct net_device *
+ 	if (err)
+ 		goto err_out;
  
- /* AR6004 1.1 definitions */
- #define AR6004_HW_1_1_VERSION                 0x30000001
- #define AR6004_HW_1_1_FW_DIR			"ath6k/AR6004/hw1.1"
- #define AR6004_HW_1_1_FIRMWARE_FILE		"fw.ram.bin"
--#define AR6004_HW_1_1_BOARD_DATA_FILE         "ath6k/AR6004/hw1.1/bdata.bin"
-+#define AR6004_HW_1_1_BOARD_DATA_FILE         AR6004_HW_1_1_FW_DIR "/bdata.bin"
- #define AR6004_HW_1_1_DEFAULT_BOARD_DATA_FILE \
--	"ath6k/AR6004/hw1.1/bdata.DB132.bin"
-+	AR6004_HW_1_1_FW_DIR "/bdata.DB132.bin"
++	err = sky2_alloc_rx_skbs(sky2);
++	if (err)
++		goto err_clean;
++
+ 	/* With single port, IRQ is setup when device is brought up */
+ 	if (hw->ports == 1 && (err = sky2_setup_irq(hw, dev->name)))
+-		goto err_out;
++		goto err_clean;
  
- /* Per STA data, used in AP mode */
- #define STA_PS_AWAKE		BIT(0)
--- 
-1.7.9.5
+ 	sky2_hw_up(sky2);
+ 
+@@ -1783,6 +1786,8 @@ static int sky2_open(struct net_device *
+ 
+ 	return 0;
+ 
++err_clean:
++	sky2_rx_clean(sky2);
+ err_out:
+ 	sky2_free_buffers(sky2);
+ 	return err;
+@@ -2158,6 +2163,7 @@ static int sky2_close(struct net_device
+ 
+ 	sky2_hw_down(sky2);
+ 
++	sky2_rx_clean(sky2);
+ 	sky2_free_buffers(sky2);
+ 
+ 	return 0;
