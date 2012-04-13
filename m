@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 24/37] atl1c: remove REG_PHY_STATUS
-Date: Fri, 13 Apr 2012 08:14:49 +0800
-Message-ID: <1334276102-15866-25-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 26/37] atl1c: remove PHY contrl in atl1c_reset_pcie
+Date: Fri, 13 Apr 2012 08:14:51 +0800
+Message-ID: <1334276102-15866-27-git-send-email-xiong@qca.qualcomm.com>
 References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,57 +10,58 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:56269 "EHLO
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:6508 "EHLO
 	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966581Ab2DMASf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 20:18:35 -0400
+	with ESMTP id S966531Ab2DMASx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 20:18:53 -0400
 In-Reply-To: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-this register is used for l1e(dev=1026)
-l1c/l1d/l2cb don't use it.
+atl1c_reset_phy follows atl1c_reset_pcie in the whole driver,
+so, it's unnecessary to add PHY control code in atl1c_reset_pcie.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    7 -------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 --
- 2 files changed, 0 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   11 ++---------
+ 1 files changed, 2 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index eaa1760..dfb1051 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -333,13 +333,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define MDIO_AP_EN              	0x10000000
- #define MDIO_WAIT_TIMES         	10
- 
--/* MII PHY Status Register */
--#define REG_PHY_STATUS           	0x1418
--#define PHY_GENERAL_STATUS_MASK		0xFFFF
--#define PHY_STATUS_RECV_ENABLE		0x0001
--#define PHY_OE_PWSP_STATUS_MASK		0x07FF
--#define PHY_OE_PWSP_STATUS_SHIFT	16
--#define PHY_STATUS_LPW_STATE		0x80000000
- /* BIST Control and Status Register0 (for the Packet Memory) */
- #define REG_BIST0_CTRL              	0x141c
- #define BIST0_NOW                   	0x1
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 6534963..13aaf63 100644
+index a8ac5c5..ef431c9 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -693,11 +693,9 @@ static void atl1c_set_mac_type(struct atl1c_hw *hw)
+@@ -159,11 +159,6 @@ static void atl1c_reset_pcie(struct atl1c_hw *hw, u32 flag)
+ 	atl1c_pcie_patch(hw);
+ 	if (flag & ATL1C_PCIE_L0S_L1_DISABLE)
+ 		atl1c_disable_l0s_l1(hw);
+-	if (flag & ATL1C_PCIE_PHY_RESET)
+-		AT_WRITE_REG(hw, REG_GPHY_CTRL, GPHY_CTRL_DEFAULT);
+-	else
+-		AT_WRITE_REG(hw, REG_GPHY_CTRL,
+-			GPHY_CTRL_DEFAULT | GPHY_CTRL_EXT_RESET);
  
- static int atl1c_setup_mac_funcs(struct atl1c_hw *hw)
- {
--	u32 phy_status_data;
- 	u32 link_ctrl_data;
+ 	msleep(5);
+ }
+@@ -2408,8 +2403,7 @@ static int atl1c_resume(struct device *dev)
+ 	struct atl1c_adapter *adapter = netdev_priv(netdev);
  
- 	atl1c_set_mac_type(hw);
--	AT_READ_REG(hw, REG_PHY_STATUS, &phy_status_data);
- 	AT_READ_REG(hw, REG_LINK_CTRL, &link_ctrl_data);
+ 	AT_WRITE_REG(&adapter->hw, REG_WOL_CTRL, 0);
+-	atl1c_reset_pcie(&adapter->hw, ATL1C_PCIE_L0S_L1_DISABLE |
+-			ATL1C_PCIE_PHY_RESET);
++	atl1c_reset_pcie(&adapter->hw, ATL1C_PCIE_L0S_L1_DISABLE);
  
- 	hw->ctrl_flags = ATL1C_INTR_MODRT_ENABLE  |
+ 	atl1c_phy_reset(&adapter->hw);
+ 	atl1c_reset_mac(&adapter->hw);
+@@ -2569,8 +2563,7 @@ static int __devinit atl1c_probe(struct pci_dev *pdev,
+ 		dev_err(&pdev->dev, "net device private data init failed\n");
+ 		goto err_sw_init;
+ 	}
+-	atl1c_reset_pcie(&adapter->hw, ATL1C_PCIE_L0S_L1_DISABLE |
+-			ATL1C_PCIE_PHY_RESET);
++	atl1c_reset_pcie(&adapter->hw, ATL1C_PCIE_L0S_L1_DISABLE);
+ 
+ 	/* Init GPHY as early as possible due to power saving issue  */
+ 	atl1c_phy_reset(&adapter->hw);
 -- 
 1.7.7
