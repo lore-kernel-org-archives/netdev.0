@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Phonet: change maintainer address
-Date: Fri, 13 Apr 2012 14:03:42 -0400 (EDT)
-Message-ID: <20120413.140342.903935472326957024.davem@davemloft.net>
-References: <1334237958-22855-1-git-send-email-remi@remlab.net>
-	<1334237958-22855-3-git-send-email-remi@remlab.net>
+Subject: Re: [PATCH] ks8851: Fix missing mutex_lock/unlock
+Date: Fri, 13 Apr 2012 14:05:30 -0400 (EDT)
+Message-ID: <20120413.140530.1601238090432836188.davem@davemloft.net>
+References: <1334339980-2955-1-git-send-email-mjr@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
-To: remi@remlab.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fbl@redhat.com, sboyd@codeaurora.org, ben@simtec.co.uk,
+	bhutchings@solarflare.com, netdev@vger.kernel.org
+To: mjr@cs.wisc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51269 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51308 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752415Ab2DMSEt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 14:04:49 -0400
-In-Reply-To: <1334237958-22855-3-git-send-email-remi@remlab.net>
+	with ESMTP id S1753928Ab2DMSHC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 14:07:02 -0400
+In-Reply-To: <1334339980-2955-1-git-send-email-mjr@cs.wisc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=E9mi Denis-Courmont <remi@remlab.net>
-Date: Thu, 12 Apr 2012 16:39:18 +0300
+From: mjr@cs.wisc.edu
+Date: Fri, 13 Apr 2012 12:59:40 -0500
 
-> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
->=20
-> nokia.com MX does not cope well with kernel.org.
->=20
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> From: Matt Renzelmann <mjr@cs.wisc.edu>
+> 
+> Move the ks8851_rdreg16 call above the call to request_irq and cache
+> the result for subsequent repeated use.  A spurious interrupt may
+> otherwise cause a crash.  Thanks to Stephen Boyd, Flavio Leitner, and
+> Ben Hutchings for feedback.
+> 
+> Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
 
-Applied to net-next
+Applied, thanks.
