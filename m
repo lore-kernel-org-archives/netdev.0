@@ -1,50 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] udp: intoduce udp_encap_needed
-	static_key
-Date: Fri, 13 Apr 2012 13:41:08 -0400 (EDT)
-Message-ID: <20120413.134108.1844473866612154303.davem@davemloft.net>
-References: <20120412074159.GA10866@verge.net.au>
-	<1334218829.5300.5903.camel@edumazet-glaptop>
-	<1334221528.5300.6008.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 8139cp: set intr mask after its handler is registered
+Date: Fri, 13 Apr 2012 13:42:43 -0400 (EDT)
+Message-ID: <20120413.134243.2000744517368456334.davem@davemloft.net>
+References: <20120412081053.25774.41676.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<20120412104529.27ece685@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcrl-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org
-To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1334221528.5300.6008.camel@edumazet-glaptop>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: jasowang@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: fbl@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120412104529.27ece685@asterix.rh>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu, 12 Apr 2012 11:05:28 +0200
+From: Flavio Leitner <fbl@redhat.com>
+Date: Thu, 12 Apr 2012 10:45:29 -0300
 
-> Most machines dont use UDP encapsulation (L2TP)
+> On Thu, 12 Apr 2012 16:10:54 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
 > 
-> Adds a static_key so that udp_queue_rcv_skb() doesnt have to perform a
-> test if L2TP never setup the encap_rcv on a socket.
+>> We set intr mask before its handler is registered, this does not work well when
+>> 8139cp is sharing irq line with other devices. As the irq could be enabled by
+>> the device before 8139cp's hander is registered which may lead unhandled
+>> irq. Fix this by introducing an helper cp_irq_enable() and call it after
+>> request_irq().
+>> 
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > 
-> Idea of this patch came after Simon Horman proposal to add a hook on TCP
-> as well.
-> 
-> If static_key is not yet enabled, the fast path does a single JMP .
-> 
-> When static_key is enabled, JMP destination is patched to reach the real
-> encap_type/encap_rcv logic, possibly adding cache misses.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Reviewed-by: Flavio Leitner <fbl@redhat.com>
 
-Applied to net-next, thanks Eric.
-
-Ban, please incorporate this scheme when you respin your
-fixed ipv6 encap/l2tp patches.
-
-Thanks.
+Applied, and queued up for -stable, thanks.
