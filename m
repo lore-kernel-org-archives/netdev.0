@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] l2tp: l2tp_ip socket fixes
-Date: Fri, 13 Apr 2012 11:06:45 -0400 (EDT)
-Message-ID: <20120413.110645.2101243409451679048.davem@davemloft.net>
-References: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
+Subject: Re: [PATCH net 0/3] CAIF Bug-fixes.
+Date: Fri, 13 Apr 2012 11:07:37 -0400 (EDT)
+Message-ID: <20120413.110737.1691248682494978385.davem@davemloft.net>
+References: <1334254689-2843-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sjurbren@gmail.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49617 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49630 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910Ab2DMPGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 11:06:53 -0400
-In-Reply-To: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
+	with ESMTP id S1751670Ab2DMPHr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 11:07:47 -0400
+In-Reply-To: <1334254689-2843-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Tue, 10 Apr 2012 11:10:41 +0100
+=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+Date: Thu, 12 Apr 2012 20:18:06 +0200
 
-> A couple of small fixes for the l2tp_ip socket support. This is for
-> L2TPv3 IP link encapsulation.
-> 
-> [PATCH 1/2] l2tp: fix refcount leak in l2tp_ip sockets
-> [PATCH 2/2] l2tp: don't overwrite source address in l2tp_ip_bind()
+> Some simple bug fixes: plugging memory leaks and fixing the
+> log-level from err to dbg. I suppose these should go into v3.4.
 
-Both applied, although I hope patch #2 doesn't unintentionally break
-things for someone.  It's not unreasonable to think that someone may
-be depending upon that saddr being set to INADDR_ANY in that case
-you're changing.
+All applied, thanks.
