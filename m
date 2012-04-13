@@ -1,35 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1: fix kernel panic in case of DMA errors
-Date: Fri, 13 Apr 2012 13:35:59 -0400 (EDT)
-Message-ID: <20120413.133559.1074868352058413273.davem@davemloft.net>
-References: <1334160903-988902-1-git-send-email-antonz@parallels.com>
+Subject: Re: [net-next V7 PATCH] virtio-net: send gratuitous packets when
+	needed
+Date: Fri, 13 Apr 2012 13:38:04 -0400 (EDT)
+Message-ID: <20120413.133804.1504347944886702242.davem@davemloft.net>
+References: <20120412064351.23243.84912.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: antonz@parallels.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51003 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751677Ab2DMRgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 13:36:03 -0400
-In-Reply-To: <1334160903-988902-1-git-send-email-antonz@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, mst@redhat.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120412064351.23243.84912.stgit@amd-6168-8-1.englab.nay.redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Tony Zelenoff <antonz@parallels.com>
-Date: Wed, 11 Apr 2012 20:15:03 +0400
+From: Jason Wang <jasowang@redhat.com>
+Date: Thu, 12 Apr 2012 14:43:52 +0800
 
-> Problem:
-> There was two separate work_struct structures which share one
-> handler. Unfortunately getting atl1_adapter structure from
-> work_struct in case of DMA error was done from incorrect
-> offset which cause kernel panics.
+> As hypervior does not have the knowledge of guest network configuration, it's
+> better to ask guest to send gratuitous packets when needed.
 > 
-> Solution:
-> The useless work_struct for DMA error removed and
-> handler name changed to more generic one.
+> This patch implements VIRTIO_NET_F_GUEST_ANNOUNCE feature: hypervisor would
+> notice the guest when it thinks it's time for guest to announce the link
+> presnece. Guest tests VIRTIO_NET_S_ANNOUNCE bit during config change interrupt
+> and woule send gratuitous packets through netif_notify_peers() and ack the
+> notification through ctrl vq.
 > 
-> Signed-off-by: Tony Zelenoff <antonz@parallels.com>
+> We need to make sure the atomicy of read and ack in guest otherwise we may ack
+> more times than being notified. This is done through handling the whole config
+> change interrupt in an non-reentrant workqueue.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied and queued up for -stable, thanks.
+Michael, Rusty, et al.?
