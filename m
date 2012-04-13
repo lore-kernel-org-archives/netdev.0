@@ -1,160 +1,63 @@
-From: Tony Zelenoff <antonz@parallels.com>
-Subject: [PATCH 8/9] atl1: do not process interrupts in cycle in handler
-Date: Fri, 13 Apr 2012 20:09:53 +0400
-Message-ID: <1334333394-38404-9-git-send-email-antonz@parallels.com>
-References: <1334333394-38404-1-git-send-email-antonz@parallels.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: suspicious RCU usage warnings in 3.3.0
+Date: Fri, 13 Apr 2012 09:30:34 -0700
+Message-ID: <20120413163029.GA2402@linux.vnet.ibm.com>
+References: <20120412045428.GB2497@linux.vnet.ibm.com>
+ <alpine.SOC.1.00.1204131444150.2736@math.ut.ee>
+ <20120413133513.GB2457@linux.vnet.ibm.com>
+ <20120413.105556.73360716787161031.davem@davemloft.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <antonz@parallels.com>, <netdev@vger.kernel.org>,
-	<jcliburn@gmail.com>, <csnook@redhat.com>, <khorenko@parallels.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: mroos@linux.ee, shemminger@vyatta.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:54722 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754758Ab2DMQJ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 12:09:59 -0400
-In-Reply-To: <1334333394-38404-1-git-send-email-antonz@parallels.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:34678 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752051Ab2DMQdv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 12:33:51 -0400
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Fri, 13 Apr 2012 10:33:49 -0600
+Content-Disposition: inline
+In-Reply-To: <20120413.105556.73360716787161031.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the rx/tx handled inside napi handler, the cycle is
-not needed now, because only the rx/tx need such kind of
-processing.
+On Fri, Apr 13, 2012 at 10:55:56AM -0400, David Miller wrote:
+> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> Date: Fri, 13 Apr 2012 06:35:13 -0700
+> 
+> DANGER WILL ROBINSON, McKenney is hacking sparc64 assembler!
+> :-))))
 
-Signed-off-by: Tony Zelenoff <antonz@parallels.com>
----
- drivers/net/ethernet/atheros/atlx/atl1.c |  101 ++++++++++++++----------------
- 1 files changed, 46 insertions(+), 55 deletions(-)
+;-) ;-) ;-)
 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 5781597..3c57a30 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -2499,77 +2499,68 @@ static irqreturn_t atl1_intr(int irq, void *data)
- {
- 	struct atl1_adapter *adapter = netdev_priv(data);
- 	u32 status;
--	int max_ints = 10;
- 
- 	status = adapter->cmb.cmb->int_stats;
- 	if (!status)
- 		return IRQ_NONE;
- 
--	do {
--		/* clear CMB interrupt status at once */
--		adapter->cmb.cmb->int_stats = 0;
--
--		if (status & ISR_GPHY)	/* clear phy status */
--			atlx_clear_phy_int(adapter);
-+	/* clear CMB interrupt status at once */
-+	adapter->cmb.cmb->int_stats = 0;
- 
--		/* clear ISR status, and Enable CMB DMA/Disable Interrupt */
--		iowrite32(status | ISR_DIS_INT, adapter->hw.hw_addr + REG_ISR);
-+	if (status & ISR_GPHY)	/* clear phy status */
-+		atlx_clear_phy_int(adapter);
- 
--		/* check if SMB intr */
--		if (status & ISR_SMB)
--			atl1_inc_smb(adapter);
-+	/* clear ISR status, and Enable CMB DMA/Disable Interrupt */
-+	iowrite32(status | ISR_DIS_INT, adapter->hw.hw_addr + REG_ISR);
- 
--		/* check if PCIE PHY Link down */
--		if (status & ISR_PHY_LINKDOWN) {
--			if (netif_msg_intr(adapter))
--				dev_printk(KERN_DEBUG, &adapter->pdev->dev,
--					"pcie phy link down %x\n", status);
--			if (netif_running(adapter->netdev)) {	/* reset MAC */
--				atlx_irq_disable(adapter);
--				schedule_work(&adapter->reset_dev_task);
--				return IRQ_HANDLED;
--			}
--		}
-+	/* check if SMB intr */
-+	if (status & ISR_SMB)
-+		atl1_inc_smb(adapter);
- 
--		/* check if DMA read/write error ? */
--		if (status & (ISR_DMAR_TO_RST | ISR_DMAW_TO_RST)) {
--			if (netif_msg_intr(adapter))
--				dev_printk(KERN_DEBUG, &adapter->pdev->dev,
--					"pcie DMA r/w error (status = 0x%x)\n",
--					status);
-+	/* check if PCIE PHY Link down */
-+	if (status & ISR_PHY_LINKDOWN) {
-+		if (netif_msg_intr(adapter))
-+			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
-+				"pcie phy link down %x\n", status);
-+		if (netif_running(adapter->netdev)) {	/* reset MAC */
- 			atlx_irq_disable(adapter);
- 			schedule_work(&adapter->reset_dev_task);
- 			return IRQ_HANDLED;
- 		}
-+	}
- 
--		/* link event */
--		if (status & ISR_GPHY) {
--			adapter->soft_stats.tx_carrier_errors++;
--			atl1_check_for_link(adapter);
--		}
--
--		/* transmit or receive event */
--		if (status & (ISR_CMB_TX | ISR_CMB_RX) &&
--		    atl1_sched_rings_clean(adapter))
--			break;
--
--		/* rx exception */
--		if (unlikely(status & (ISR_RXF_OV | ISR_RFD_UNRUN |
--			ISR_RRD_OV | ISR_HOST_RFD_UNRUN |
--			ISR_HOST_RRD_OV))) {
--			if (netif_msg_intr(adapter))
--				dev_printk(KERN_DEBUG,
--					&adapter->pdev->dev,
--					"rx exception, ISR = 0x%x\n",
--					status);
--			if (atl1_sched_rings_clean(adapter))
--				break;
--		}
--
--		if (--max_ints < 0)
--			break;
--
--	} while ((status = adapter->cmb.cmb->int_stats));
-+	/* check if DMA read/write error ? */
-+	if (status & (ISR_DMAR_TO_RST | ISR_DMAW_TO_RST)) {
-+		if (netif_msg_intr(adapter))
-+			dev_printk(KERN_DEBUG, &adapter->pdev->dev,
-+				"pcie DMA r/w error (status = 0x%x)\n",
-+				status);
-+		atlx_irq_disable(adapter);
-+		schedule_work(&adapter->reset_dev_task);
-+		return IRQ_HANDLED;
-+	}
-+
-+	/* link event */
-+	if (status & ISR_GPHY) {
-+		adapter->soft_stats.tx_carrier_errors++;
-+		atl1_check_for_link(adapter);
-+	}
-+
-+	/* transmit or receive event */
-+	if (status & (ISR_CMB_TX | ISR_CMB_RX))
-+	    atl1_sched_rings_clean(adapter);
-+
-+	/* rx exception */
-+	if (unlikely(status & (ISR_RXF_OV | ISR_RFD_UNRUN |
-+		ISR_RRD_OV | ISR_HOST_RFD_UNRUN |
-+		ISR_HOST_RRD_OV))) {
-+		if (netif_msg_intr(adapter))
-+			dev_printk(KERN_DEBUG,
-+				&adapter->pdev->dev,
-+				"rx exception, ISR = 0x%x\n",
-+				status);
-+		atl1_sched_rings_clean(adapter);
-+	}
- 
- 	/* re-enable Interrupt */
- 	iowrite32(ISR_DIS_SMB | ISR_DIS_DMA, adapter->hw.hw_addr + REG_ISR);
--- 
-1.7.1
+> > My main concern about my patch is my removal of this line:
+> > 
+> > 	bne,pn			%icc, __handle_softirq
+> > 
+> > It is quite possible that this should instead change to look as follows:
+> > 
+> > 	bne,pn			%icc, __handle_preemption
+> > 
+> 
+> I would say it should not, because the __handle_softirq code path,
+> if taken, unconditionally branches to the very next instruction
+> after this branch and it's delay slot.
+
+Beginners luck beats skill.  Now I just have to be very careful to
+avoid ever submitting a second sparc64 assembler patch.  ;-)
+
+> > Anyway, patch with updated changelog below.
+> 
+> Great work, I'll apply this after I test it out a bit myself.
+
+Cool!!!
+
+							Thanx, Paul
+
+> Thanks a lot Paul!
+> 
