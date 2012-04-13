@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/garp: fix GID rbtree ordering
-Date: Fri, 13 Apr 2012 13:10:48 -0400 (EDT)
-Message-ID: <20120413.131048.941392773930795760.davem@davemloft.net>
-References: <1333980833-12355-1-git-send-email-david.ward@ll.mit.edu>
+Subject: Re: [PATCH 4/4] net: Remove redundant spi driver bus initialization
+Date: Fri, 13 Apr 2012 13:13:51 -0400 (EDT)
+Message-ID: <20120413.131351.1360677415220330018.davem@davemloft.net>
+References: <1334091089-10138-1-git-send-email-lars@metafoo.de>
+	<1334091089-10138-4-git-send-email-lars@metafoo.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jorge@dti2.net
-To: david.ward@ll.mit.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50765 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751123Ab2DMRLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 13:11:06 -0400
-In-Reply-To: <1333980833-12355-1-git-send-email-david.ward@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, juhosg@openwrt.org,
+	frdrc66@gmail.com, netdev@vger.kernel.org
+To: lars@metafoo.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334091089-10138-4-git-send-email-lars@metafoo.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ward <david.ward@ll.mit.edu>
-Date: Mon, 9 Apr 2012 10:13:53 -0400
+From: Lars-Peter Clausen <lars@metafoo.de>
+Date: Tue, 10 Apr 2012 22:51:29 +0200
 
-> The comparison operators were backwards in both garp_attr_lookup and
-> garp_attr_create, so the entire GID rbtree was in reverse order.
-> (There was no practical side effect to this though, except that PDUs
-> were sent with attributes listed in reverse order, which is still
-> valid by the protocol. This change is only for clarity.)
+> In ancient times it was necessary to manually initialize the bus field of an
+> spi_driver to spi_bus_type. These days this is done in spi_driver_register() so
+> we can drop the manual assignment.
 > 
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> The patch was generated using the following coccinelle semantic patch:
+> // <smpl>
+> @@
+> identifier _driver;
+> @@
+> struct spi_driver _driver = {
+> 	.driver = {
+> -		.bus = &spi_bus_type,
+> 	},
+> };
+> // </smpl>
+> 
+> Signed-off-by: Lars-Peter Clausen <lars@metafoo.de>
 
-Applied to net-next, thanks David.
+Applied to net-next, thanks.
