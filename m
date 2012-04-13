@@ -1,36 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] rtnetlink: ops->get_tx_queue() cannot take a const 'tb'.
-Date: Fri, 13 Apr 2012 14:22:01 -0400 (EDT)
-Message-ID: <20120413.142201.1695633085407709024.davem@davemloft.net>
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: Re: [PATCH] ks8851: Cancel any pending IRQ work
+Date: Fri, 13 Apr 2012 11:32:21 -0700
+Message-ID: <4F887135.5080005@codeaurora.org>
+References: <1334249091-7605-1-git-send-email-mjr@cs.wisc.edu> <4F8738EB.2060806@codeaurora.org> <005701cd18eb$aaa0ab90$ffe202b0$@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: shemminger@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Ben Dooks <ben-linux@fluff.org>
+To: Matt Renzelmann <mjr@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51503 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751929Ab2DMSWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 14:22:04 -0400
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:18853 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754432Ab2DMSch (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 14:32:37 -0400
+In-Reply-To: <005701cd18eb$aaa0ab90$ffe202b0$@cs.wisc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpuZXQvY29yZS9ydG5ldGxpbmsuYzogSW4gZnVuY3Rpb24goXJ0bmxfY3JlYXRlX2xpbmuiOg0K
-bmV0L2NvcmUvcnRuZXRsaW5rLmM6MTY0NTozOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDIg
-b2YgoW9wcy0+Z2V0X3R4X3F1ZXVlc6IgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtl
-bmFibGVkIGJ5IGRlZmF1bHRdDQpuZXQvY29yZS9ydG5ldGxpbmsuYzoxNjQ1OjM6IG5vdGU6IGV4
-cGVjdGVkIKFjb25zdCBzdHJ1Y3QgbmxhdHRyICoqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSCh
-c3RydWN0IG5sYXR0ciAqKqINCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZl
-bUBkYXZlbWxvZnQubmV0Pg0KLS0tDQoNClN0ZXBoZW4sIHBsZWFzZSB3YXRjaCB5b3VyIGJ1aWxk
-IGxvZ3MgbW9yZSBjYXJlZnVsbHkgZm9yIHN0dWZmIGxpa2UNCnRoaXMgaW4gdGhlIGZ1dHVyZSwg
-dGhhbmtzLg0KDQogaW5jbHVkZS9uZXQvcnRuZXRsaW5rLmggfCAgICAyICstDQogMSBmaWxlcyBj
-aGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9p
-bmNsdWRlL25ldC9ydG5ldGxpbmsuaCBiL2luY2x1ZGUvbmV0L3J0bmV0bGluay5oDQppbmRleCA5
-YjgyNTAxLi5iYmNmZDA5IDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9uZXQvcnRuZXRsaW5rLmgNCisr
-KyBiL2luY2x1ZGUvbmV0L3J0bmV0bGluay5oDQpAQCAtNzgsNyArNzgsNyBAQCBzdHJ1Y3QgcnRu
-bF9saW5rX29wcyB7DQogCWludAkJCSgqZmlsbF94c3RhdHMpKHN0cnVjdCBza19idWZmICpza2Is
-DQogCQkJCQkgICAgICAgY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UgKmRldik7DQogCWludAkJCSgq
-Z2V0X3R4X3F1ZXVlcykoc3RydWN0IG5ldCAqbmV0LA0KLQkJCQkJCSBjb25zdCBzdHJ1Y3Qgbmxh
-dHRyICp0YltdKTsNCisJCQkJCQkgc3RydWN0IG5sYXR0ciAqdGJbXSk7DQogfTsNCiANCiBleHRl
-cm4gaW50CV9fcnRubF9saW5rX3JlZ2lzdGVyKHN0cnVjdCBydG5sX2xpbmtfb3BzICpvcHMpOw0K
-LS0gDQoxLjcuNy42DQoNCg==
+On 04/12/12 13:34, Matt Renzelmann wrote:
+> I agree on all counts -- the patch is buggy, though it does at least "shrink"
+> the window of vulnerability.  Frankly, I don't believe I'm qualified to write an
+> appropriate patch for this driver, at least without spending considerably more
+> time on it.
+>
+> FWIW, I found this problem with a new driver-testing tool we've developed called
+> SymDrive, and my goal is primarily to determine if the bug is real or not.  The
+> tool is imperfect and we are trying to validate its operation.
+
+The bug is real if your interrupt controller is broken :-) One could
+argue that it's outside the scope of this driver to handle broken
+interrupt controllers or buggy genirq code, but being defensive sounds
+like a good idea.
+
+>
+> That said, if there is an issue here, and we can come up with an appropriate
+> fix, then I'd be happy to write a patch for it.
+>
+
+I'll see what I can do in the next few days about the deadlock I mentioned.
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
