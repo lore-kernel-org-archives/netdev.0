@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 32/37] atl1c: refine start/enable code for MAC module
-Date: Fri, 13 Apr 2012 08:14:57 +0800
-Message-ID: <1334276102-15866-33-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 33/37] atl1c: add PHY link event(up/down) patch
+Date: Fri, 13 Apr 2012 08:14:58 +0800
+Message-ID: <1334276102-15866-34-git-send-email-xiong@qca.qualcomm.com>
 References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,151 +9,178 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 	xiong <xiong@qca.qualcomm.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:18606 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966683Ab2DMAUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 20:20:02 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-merge TXQ/RXQ/MAC start/enable code to one function as they
-are started/enabled at the same time, just like stop/disable them
-in the function of atl1c_stop_mac.
+On some platforms the PHY settings need to change depending on the
+cable link status to get better stability.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   89 +++++++----------------
- 1 files changed, 28 insertions(+), 61 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c.h      |    1 +
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |   37 +++++++++++++++
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    1 +
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   55 +++++++++++++++++++++++
+ 4 files changed, 94 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+index b5b76b9..b0527e8 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+@@ -436,6 +436,7 @@ struct atl1c_hw {
+ 	bool phy_configured;
+ 	bool re_autoneg;
+ 	bool emi_ca;
++	bool msi_lnkpatch;	/* link patch for specific platforms */
+ };
+ 
+ /*
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+index a077ab8..840150e 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+@@ -844,3 +844,40 @@ int atl1c_power_saving(struct atl1c_hw *hw, u32 wufc)
+ 
+ 	return 0;
+ }
++
++
++/* configure phy after Link change Event */
++void atl1c_post_phy_linkchg(struct atl1c_hw *hw, u16 link_speed)
++{
++	u16 phy_val;
++	bool adj_thresh = false;
++
++	if (hw->nic_type == athr_l2c_b || hw->nic_type == athr_l2c_b2 ||
++	    hw->nic_type == athr_l1d || hw->nic_type == athr_l1d_2)
++		adj_thresh = true;
++
++	if (link_speed != SPEED_0) { /* link up */
++		/* az with brcm, half-amp */
++		if (hw->nic_type == athr_l1d_2) {
++			atl1c_read_phy_ext(hw, MIIEXT_PCS, MIIEXT_CLDCTRL6,
++				&phy_val);
++			phy_val = FIELD_GETX(phy_val, CLDCTRL6_CAB_LEN);
++			phy_val = phy_val > CLDCTRL6_CAB_LEN_SHORT ?
++				AZ_ANADECT_LONG : AZ_ANADECT_DEF;
++			atl1c_write_phy_dbg(hw, MIIDBG_AZ_ANADECT, phy_val);
++		}
++		/* threshold adjust */
++		if (adj_thresh && link_speed == SPEED_100 && hw->msi_lnkpatch) {
++			atl1c_write_phy_dbg(hw, MIIDBG_MSE16DB, L1D_MSE16DB_UP);
++			atl1c_write_phy_dbg(hw, MIIDBG_SYSMODCTRL,
++				L1D_SYSMODCTRL_IECHOADJ_DEF);
++		}
++	} else { /* link down */
++		if (adj_thresh && hw->msi_lnkpatch) {
++			atl1c_write_phy_dbg(hw, MIIDBG_SYSMODCTRL,
++				SYSMODCTRL_IECHOADJ_DEF);
++			atl1c_write_phy_dbg(hw, MIIDBG_MSE16DB,
++				L1D_MSE16DB_DOWN);
++		}
++	}
++}
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+index 59817ca..47b0f3d 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+@@ -62,6 +62,7 @@ int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
+ 			u16 reg_addr, u16 phy_data);
+ int atl1c_read_phy_dbg(struct atl1c_hw *hw, u16 reg_addr, u16 *phy_data);
+ int atl1c_write_phy_dbg(struct atl1c_hw *hw, u16 reg_addr, u16 phy_data);
++void atl1c_post_phy_linkchg(struct atl1c_hw *hw, u16 link_speed);
+ 
+ /* hw-ids */
+ #define PCI_DEVICE_ID_ATTANSIC_L2C      0x1062
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 8c2f28c..db60325 100644
+index db60325..5b51099 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -53,11 +53,9 @@ MODULE_LICENSE("GPL");
- MODULE_VERSION(ATL1C_DRV_VERSION);
- 
- static int atl1c_stop_mac(struct atl1c_hw *hw);
--static void atl1c_enable_rx_ctrl(struct atl1c_hw *hw);
--static void atl1c_enable_tx_ctrl(struct atl1c_hw *hw);
- static void atl1c_disable_l0s_l1(struct atl1c_hw *hw);
- static void atl1c_set_aspm(struct atl1c_hw *hw, u16 link_speed);
--static void atl1c_setup_mac_ctrl(struct atl1c_adapter *adapter);
-+static void atl1c_start_mac(struct atl1c_adapter *adapter);
- static void atl1c_clean_rx_irq(struct atl1c_adapter *adapter,
- 		   int *work_done, int work_to_do);
- static int atl1c_up(struct atl1c_adapter *adapter);
-@@ -270,9 +268,7 @@ static void atl1c_check_link_status(struct atl1c_adapter *adapter)
+@@ -252,6 +252,7 @@ static void atl1c_check_link_status(struct atl1c_adapter *adapter)
+ 			if (netif_msg_hw(adapter))
+ 				dev_warn(&pdev->dev, "stop mac failed\n");
+ 		atl1c_set_aspm(hw, SPEED_0);
++		atl1c_post_phy_linkchg(hw, SPEED_0);
+ 		netif_carrier_off(netdev);
+ 		netif_stop_queue(netdev);
+ 	} else {
+@@ -268,6 +269,7 @@ static void atl1c_check_link_status(struct atl1c_adapter *adapter)
  			adapter->link_speed  = speed;
  			adapter->link_duplex = duplex;
  			atl1c_set_aspm(hw, speed);
--			atl1c_enable_tx_ctrl(hw);
--			atl1c_enable_rx_ctrl(hw);
--			atl1c_setup_mac_ctrl(adapter);
-+			atl1c_start_mac(adapter);
++			atl1c_post_phy_linkchg(hw, speed);
+ 			atl1c_start_mac(adapter);
  			if (netif_msg_link(adapter))
  				dev_info(&pdev->dev,
- 					"%s: %s NIC Link is Up<%d Mbps %s>\n",
-@@ -1130,22 +1126,36 @@ static int atl1c_stop_mac(struct atl1c_hw *hw)
- 		IDLE_STATUS_TXMAC_BUSY | IDLE_STATUS_RXMAC_BUSY);
+@@ -691,6 +693,57 @@ static int atl1c_setup_mac_funcs(struct atl1c_hw *hw)
+ 		hw->link_cap_flags |= ATL1C_LINK_CAP_1000M;
+ 	return 0;
  }
- 
--static void atl1c_enable_rx_ctrl(struct atl1c_hw *hw)
-+static void atl1c_start_mac(struct atl1c_adapter *adapter)
- {
--	u32 data;
-+	struct atl1c_hw *hw = &adapter->hw;
-+	u32 mac, txq, rxq;
- 
--	AT_READ_REG(hw, REG_RXQ_CTRL, &data);
--	data |= RXQ_CTRL_EN;
--	AT_WRITE_REG(hw, REG_RXQ_CTRL, data);
--}
-+	hw->mac_duplex = adapter->link_duplex == FULL_DUPLEX ? true : false;
-+	hw->mac_speed = adapter->link_speed == SPEED_1000 ?
-+		atl1c_mac_speed_1000 : atl1c_mac_speed_10_100;
- 
--static void atl1c_enable_tx_ctrl(struct atl1c_hw *hw)
--{
--	u32 data;
-+	AT_READ_REG(hw, REG_TXQ_CTRL, &txq);
-+	AT_READ_REG(hw, REG_RXQ_CTRL, &rxq);
-+	AT_READ_REG(hw, REG_MAC_CTRL, &mac);
- 
--	AT_READ_REG(hw, REG_TXQ_CTRL, &data);
--	data |= TXQ_CTRL_EN;
--	AT_WRITE_REG(hw, REG_TXQ_CTRL, data);
-+	txq |= TXQ_CTRL_EN;
-+	rxq |= RXQ_CTRL_EN;
-+	mac |= MAC_CTRL_TX_EN | MAC_CTRL_TX_FLOW |
-+	       MAC_CTRL_RX_EN | MAC_CTRL_RX_FLOW |
-+	       MAC_CTRL_ADD_CRC | MAC_CTRL_PAD |
-+	       MAC_CTRL_BC_EN | MAC_CTRL_SINGLE_PAUSE_EN |
-+	       MAC_CTRL_HASH_ALG_CRC32;
-+	if (hw->mac_duplex)
-+		mac |= MAC_CTRL_DUPLX;
-+	else
-+		mac &= ~MAC_CTRL_DUPLX;
-+	mac = FIELD_SETX(mac, MAC_CTRL_SPEED, hw->mac_speed);
-+	mac = FIELD_SETX(mac, MAC_CTRL_PRMLEN, hw->preamble_len);
 +
-+	AT_WRITE_REG(hw, REG_TXQ_CTRL, txq);
-+	AT_WRITE_REG(hw, REG_RXQ_CTRL, rxq);
-+	AT_WRITE_REG(hw, REG_MAC_CTRL, mac);
- }
- 
++struct atl1c_platform_patch {
++	u16 pci_vid;
++	u16 pci_did;
++	u8  pci_revid;
++	u16 subsystem_vid;
++	u16 subsystem_did;
++	u32 patch_flag;
++#define ATL1C_LINK_PATCH	0x1
++};
++static struct atl1c_platform_patch plats[] = {
++{0x1969, 0x2060, 0xC1, 0x1019, 0x8152, 0x1},
++{0x1969, 0x2060, 0xC1, 0x1019, 0x2060, 0x1},
++{0x1969, 0x2060, 0xC1, 0x1019, 0xE000, 0x1},
++{0x1969, 0x2062, 0xC0, 0x1019, 0x8152, 0x1},
++{0x1969, 0x2062, 0xC0, 0x1019, 0x2062, 0x1},
++{0x1969, 0x2062, 0xC0, 0x1458, 0xE000, 0x1},
++{0x1969, 0x2062, 0xC1, 0x1019, 0x8152, 0x1},
++{0x1969, 0x2062, 0xC1, 0x1019, 0x2062, 0x1},
++{0x1969, 0x2062, 0xC1, 0x1458, 0xE000, 0x1},
++{0x1969, 0x2062, 0xC1, 0x1565, 0x2802, 0x1},
++{0x1969, 0x2062, 0xC1, 0x1565, 0x2801, 0x1},
++{0x1969, 0x1073, 0xC0, 0x1019, 0x8151, 0x1},
++{0x1969, 0x1073, 0xC0, 0x1019, 0x1073, 0x1},
++{0x1969, 0x1073, 0xC0, 0x1458, 0xE000, 0x1},
++{0x1969, 0x1083, 0xC0, 0x1458, 0xE000, 0x1},
++{0x1969, 0x1083, 0xC0, 0x1019, 0x8151, 0x1},
++{0x1969, 0x1083, 0xC0, 0x1019, 0x1083, 0x1},
++{0x1969, 0x1083, 0xC0, 0x1462, 0x7680, 0x1},
++{0x1969, 0x1083, 0xC0, 0x1565, 0x2803, 0x1},
++{0},
++};
++
++static void __devinit atl1c_patch_assign(struct atl1c_hw *hw)
++{
++	int i = 0;
++
++	hw->msi_lnkpatch = false;
++
++	while (plats[i].pci_vid != 0) {
++		if (plats[i].pci_vid == hw->vendor_id &&
++		    plats[i].pci_did == hw->device_id &&
++		    plats[i].pci_revid == hw->revision_id &&
++		    plats[i].subsystem_vid == hw->subsystem_vendor_id &&
++		    plats[i].subsystem_did == hw->subsystem_id) {
++			if (plats[i].patch_flag & ATL1C_LINK_PATCH)
++				hw->msi_lnkpatch = true;
++		}
++		i++;
++	}
++}
  /*
-@@ -1294,49 +1304,6 @@ static void atl1c_set_aspm(struct atl1c_hw *hw, u16 link_speed)
- 	return;
- }
- 
--static void atl1c_setup_mac_ctrl(struct atl1c_adapter *adapter)
--{
--	struct atl1c_hw *hw = &adapter->hw;
--	struct net_device *netdev = adapter->netdev;
--	u32 mac_ctrl_data;
--
--	mac_ctrl_data = MAC_CTRL_TX_EN | MAC_CTRL_RX_EN;
--	mac_ctrl_data |= (MAC_CTRL_TX_FLOW | MAC_CTRL_RX_FLOW);
--
--	if (adapter->link_duplex == FULL_DUPLEX) {
--		hw->mac_duplex = true;
--		mac_ctrl_data |= MAC_CTRL_DUPLX;
--	}
--
--	if (adapter->link_speed == SPEED_1000)
--		hw->mac_speed = atl1c_mac_speed_1000;
--	else
--		hw->mac_speed = atl1c_mac_speed_10_100;
--
--	mac_ctrl_data |= (hw->mac_speed & MAC_CTRL_SPEED_MASK) <<
--			MAC_CTRL_SPEED_SHIFT;
--
--	mac_ctrl_data |= (MAC_CTRL_ADD_CRC | MAC_CTRL_PAD);
--	mac_ctrl_data |= ((hw->preamble_len & MAC_CTRL_PRMLEN_MASK) <<
--			MAC_CTRL_PRMLEN_SHIFT);
--
--	__atl1c_vlan_mode(netdev->features, &mac_ctrl_data);
--
--	mac_ctrl_data |= MAC_CTRL_BC_EN;
--	if (netdev->flags & IFF_PROMISC)
--		mac_ctrl_data |= MAC_CTRL_PROMIS_EN;
--	if (netdev->flags & IFF_ALLMULTI)
--		mac_ctrl_data |= MAC_CTRL_MC_ALL_EN;
--
--	mac_ctrl_data |= MAC_CTRL_SINGLE_PAUSE_EN;
--	if (hw->nic_type == athr_l1d || hw->nic_type == athr_l2c_b2 ||
--	    hw->nic_type == athr_l1d_2) {
--		mac_ctrl_data |= MAC_CTRL_SPEED_MODE_SW;
--		mac_ctrl_data |= MAC_CTRL_HASH_ALG_CRC32;
--	}
--	AT_WRITE_REG(hw, REG_MAC_CTRL, mac_ctrl_data);
--}
--
- /*
-  * atl1c_configure - Configure Transmit&Receive Unit after Reset
-  * @adapter: board private structure
+  * atl1c_sw_init - Initialize general software structures (struct atl1c_adapter)
+  * @adapter: board private structure to initialize
+@@ -726,6 +779,8 @@ static int __devinit atl1c_sw_init(struct atl1c_adapter *adapter)
+ 		dev_err(&pdev->dev, "set mac function pointers failed\n");
+ 		return -1;
+ 	}
++	atl1c_patch_assign(hw);
++
+ 	hw->intr_mask = IMR_NORMAL_MASK;
+ 	hw->phy_configured = false;
+ 	hw->preamble_len = 7;
 -- 
 1.7.7
