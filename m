@@ -1,72 +1,69 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: Re: linux-next: manual merge of the wireless-next tree with the
  net-next tree
-Date: Fri, 13 Apr 2012 12:49:21 +1000
-Message-ID: <20120413124921.971328c46e234f39eb2e20ff@canb.auug.org.au>
-References: <20120413124103.5bc632a6425ea9da9c5c4aae@canb.auug.org.au>
+Date: Fri, 13 Apr 2012 12:51:41 +1000
+Message-ID: <20120413125141.24b117ae125e95843bc3689d@canb.auug.org.au>
+References: <20120413123055.8d25d96b3d3c055b726b8519@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Fri__13_Apr_2012_12_49_21_+1000_pSRLmpSeRdSmaqLH"
+ boundary="Signature=_Fri__13_Apr_2012_12_51_41_+1000_sQ7O8j1tzP30ksbh"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+	Johannes Berg <johannes.berg@intel.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Meenakshi Venkataraman <meenakshi.venkataraman@intel.com>
 To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120413124103.5bc632a6425ea9da9c5c4aae@canb.auug.org.au>
+In-Reply-To: <20120413123055.8d25d96b3d3c055b726b8519@canb.auug.org.au>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__13_Apr_2012_12_49_21_+1000_pSRLmpSeRdSmaqLH
+--Signature=_Fri__13_Apr_2012_12_51_41_+1000_sQ7O8j1tzP30ksbh
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
 Hi John,
 
-On Fri, 13 Apr 2012 12:41:03 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
+On Fri, 13 Apr 2012 12:30:55 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
 wrote:
 >
-> diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-> index 539d041..24d8d12 100644
-> --- a/net/nfc/netlink.c
-> +++ b/net/nfc/netlink.c
-> @@ -202,8 +202,10 @@ int nfc_genl_target_lost(struct nfc_dev *dev, u32 ta=
-rget_idx)
->  	if (!hdr)
->  		goto free_msg;
-> =20
-> -	NLA_PUT_STRING(msg, NFC_ATTR_DEVICE_NAME, nfc_device_name(dev));
-> -	NLA_PUT_U32(msg, NFC_ATTR_TARGET_INDEX, target_idx);
-> +	if (nla_put_string(msg, NFC_ATTR_DEVICE_NAME, nfc_device_name(dev)))
-> +		goto nla_put_failure;
-> +	if (nla_put_u32((msg, NFC_ATTR_TARGET_INDEX, target_idx))
-                       ^
-I removed this extra parenthesis. :-(
+> @@@ -609,10 -605,9 +612,10 @@@
+>   			inst_size =3D img->sec[IWL_UCODE_SECTION_INST].len;
+>   			data_size =3D img->sec[IWL_UCODE_SECTION_DATA].len;
+>   		}
+> - 		if (nla_put_u32(skb, IWL_TM_ATTR_FW_TYPE, priv->shrd->ucode_type) ||
+>  -		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_TYPE, priv->cur_ucode);
+>  -		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_INST_SIZE, inst_size);
+>  -		NLA_PUT_U32(skb, IWL_TM_ATTR_FW_DATA_SIZE, data_size);
+> ++		if (nla_put_u32(skb, IWL_TM_ATTR_FW_TYPE, priv->ucode_type) ||
+                                                                ^^^^^^^^^^
+That should have been "cur_ucode", of course :-(
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
---Signature=_Fri__13_Apr_2012_12_49_21_+1000_pSRLmpSeRdSmaqLH
+--Signature=_Fri__13_Apr_2012_12_51_41_+1000_sQ7O8j1tzP30ksbh
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAEBCAAGBQJPh5QxAAoJEECxmPOUX5FEyfYQAJIUXXNcNq2KM4HJyaQ5FhHg
-aUcvIYXxXVoW2VEWqe0WYNh/8Qw+0WoMxgJHOQtLxPZ8AiEeja5p3mqGXwMXDpZb
-79rPR0L5f32iJNJYS/cjajaiNxd/glL+RUmM/rfuhrKvfAqwjdoNca2N+t4Wh68O
-zkiknr7UtjbfugMnUA8O5GgZsz/G53VmFCseQyEt21HntIfPPYvDI+MGQ3dqqPfc
-TQvwLycrnwpfyytz4iePMN4Ud+2uywxBCQj8SZP5RgOrMsaYKRixKgl4UNuWRmAq
-c2e2BIG1NCoVNrJKX9qk+Krypex7GuSZf0ps1D6Q+IH0hBVHJzqfSXx4TDcwmXSd
-e72aX4YLRAUAj9bcphCF+wlGvEjqITvYJK+UNq6CTpcgrcCPzZAnRriyGafvCHB9
-J9XwYH93K1iQIk2zDcCh7FBWkCFoiHqvVUrnOWvkvG4wKfiEpNDr5/uCp3qdIYuy
-8jkew+srGLwzXeex0LpAhWITUkFxbq/RW8BIOooWW7aTC4ARfZ8JPJh7NO2WZJBe
-9FRcGJrJ8grlHP182R2u+O2PnmThZdtdn90GAg/yU/wd2Cy54joxOnKnAbIwHzNo
-1dNxsclTNz4lTHIlCjKYE16okr+2SL8cXFRGvJX3zczSnOsM1lNHp06fCFDcE4kY
-G4LTUzRPW8kyLEyKW16O
-=adrs
+iQIcBAEBCAAGBQJPh5S9AAoJEECxmPOUX5FEQlYP+gM0Qi/qTJMF7dy2+egaA616
+DGSPJBZy+2Frt8jZlfLZDLEoAmBZ7tHZZbo8RBBMzpb8X+LrZHIKprw/u1puzjIs
+cdvSVJMG6lCmpLi6343CRCEuFFa1SNBazPZHRjOk9vC/wGT+zAydQz2DDwm4BrJU
+axq61GR47lV09LGV73YX3PaVfLbnpGfLKtmuzADQHmwssa/GZ0yzh2i7A5LWfrxx
+FnbsTGZTW6s/MXFTlmROjU6C6l3N4sjcp0PY3l8yWue4a/fPfRlbsaaxIcd4ps0t
+KE1WdiAonAwPlBTBVU0p3uuhV53/DMycWrJSz00NfeJi9uRU8ghWIlHVZXLYvSM6
+OhmLjJ8D5EMbdNGZFTpQcfYU6arG9u/bO8p/RPnaYDd0Syf2b4Ld7z7i/8uiTqCu
+kHqk6LF4agaxMmFlTgC2S2Gmqb/ASA3r95MwSzg5Jwjti0E8rCcI8AauiNub9C/G
+lsJJMhJnqqK1vbkTZ6vIxhkob92083MPCww7OBVYM8T7EP0sjwbnUbcWb/vad3Ks
+W7KGtqgzr89IumQjb8/XRvxcquGdNG3nl2QVhDU0I4fOr+CX+8UjAZ68W86B0Hpp
+oHDZbcwDzpBPibuS1p0vJqd4YBvmYmveuAKenRdTCsVa+F4WyY4KAZaZMGs1TLWn
+FALyPO+VbUPtRyPdGHK5
+=rC4Y
 -----END PGP SIGNATURE-----
 
---Signature=_Fri__13_Apr_2012_12_49_21_+1000_pSRLmpSeRdSmaqLH--
+--Signature=_Fri__13_Apr_2012_12_51_41_+1000_sQ7O8j1tzP30ksbh--
