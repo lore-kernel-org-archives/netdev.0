@@ -1,84 +1,40 @@
-From: Roland Stigge <stigge@antcom.de>
-Subject: [PATCH RESEND v3 0/8] arm: lpc32xx: Device tree support
-Date: Sat, 14 Apr 2012 00:49:57 +0200
-Message-ID: <1334357397-21296-1-git-send-email-stigge@antcom.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Roland Stigge <stigge@antcom.de>
-To: arm@kernel.org, linux-arm-kernel@lists.infradead.org,
- linux-i2c@vger.kernel.org, linux-kernel@vger.kernel.org,
- w.sang@pengutronix.de, srinivas.bakki@nxp.com, kevin.wells@nxp.com,
- gregkh@linuxfoundation.org, netdev@vger.kernel.org,
- rtc-linux@googlegroups.com, a.zummo@towertech.it,
- linux-watchdog@vger.kernel.org, wim@iguana.be, jonsmirl@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net-next] tcp:Remove redundant code entering quickack mode
+Date: Fri, 13 Apr 2012 16:23:59 -0700
+Message-ID: <1334359439-10147-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:57992 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757264Ab2DMXXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 19:23:23 -0400
+Received: by pbcun15 with SMTP id un15so4130314pbc.19
+        for <netdev@vger.kernel.org>; Fri, 13 Apr 2012 16:23:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is the first series of patches to introduce device tree support for the
-LPC32xx SoC. This series includes patches for the various subsystems to support
-device tree to be used later by the machine's initialization.
+tcp_enter_quickack_mode() already calls tcp_incr_quickack() and sets
+icsk->icsk_ack.ato  to TCP_ATO_MIN. This patch removes the duplication.
 
-The patches apply to various subsystems:
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+ net/ipv4/tcp_input.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
- * staging/iio/adc (1)
- * rtc (1)
- * net (1) - to be merged via arm-soc, acked by davem
- * wdt (1)
- * i2c (4)
- * arm-soc (i2c related in the former, to be merged via i2c, as suggested by
-	    Arnd Bergmann)
-
-Applies to v3.4-rc2
-
-You can also pull from
-
-  git://git.antcom.de/linux-2.6 lpc32xx/dt
-
-I'm CC'ing the various subsystem maintainers and lists who can each see what's
-going on and please pick their respective subsystem's changes. - Thanks!
-
-Changes since patch v2:
- * net: Use of_property_read_bool()
- * net: Fixed breakage with non-DT board (iram and mii options)
-
-Signed-off-by: Roland Stigge <stigge@antcom.de>
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-
---
-
-Roland Stigge (8):
- iio: Add device tree support to LPC32xx ADC
- rtc: Add device tree support for LPC32xx
- net: Add device tree support to LPC32xx
- wdt: Device tree support for pnx4008-wdt
- i2c-pnx.c: Fix suspend
- i2c-pnx.c: Use resources in platforms
- i2c-pnx.c: Remove duplicated i2c.h
- i2c: Add device tree support to i2c-pnx.c
-
- Documentation/devicetree/bindings/i2c/pnx.txt                     |   40 ++
- Documentation/devicetree/bindings/net/lpc-eth.txt                 |   24 +
- Documentation/devicetree/bindings/rtc/lpc32xx-rtc.txt             |   15 
- Documentation/devicetree/bindings/staging/iio/adc/lpc32xx-adc.txt |   16 
- Documentation/devicetree/bindings/watchdog/pnx4008-wdt.txt        |   13 
- arch/arm/mach-lpc32xx/common.c                                    |   75 ++--
- arch/arm/mach-lpc32xx/include/mach/i2c.h                          |   63 ---
- arch/arm/mach-pnx4008/i2c.c                                       |   64 ++-
- arch/arm/mach-pnx4008/include/mach/i2c.h                          |   64 ---
- drivers/i2c/busses/i2c-pnx.c                                      |  164 +++++++---
- drivers/net/ethernet/nxp/lpc_eth.c                                |   73 ++--
- drivers/rtc/rtc-lpc32xx.c                                         |   12 
- drivers/staging/iio/adc/lpc32xx_adc.c                             |   10 
- drivers/watchdog/pnx4008_wdt.c                                    |   10 
- include/linux/i2c-pnx.h                                           |   10 
- 15 files changed, 512 insertions(+), 268 deletions(-)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9944c1d..40c2039 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5734,8 +5734,6 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 			 */
+ 			inet_csk_schedule_ack(sk);
+ 			icsk->icsk_ack.lrcvtime = tcp_time_stamp;
+-			icsk->icsk_ack.ato	 = TCP_ATO_MIN;
+-			tcp_incr_quickack(sk);
+ 			tcp_enter_quickack_mode(sk);
+ 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+ 						  TCP_DELACK_MAX, TCP_RTO_MAX);
+-- 
+1.7.0.4
