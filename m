@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 17/37] atl1c: clear PCIE error status in atl1c_reset_pcie
-Date: Fri, 13 Apr 2012 08:14:42 +0800
-Message-ID: <1334276102-15866-18-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 21/37] atl1c: refine atl1c_pcie_patch
+Date: Fri, 13 Apr 2012 08:14:46 +0800
+Message-ID: <1334276102-15866-22-git-send-email-xiong@qca.qualcomm.com>
 References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,84 +14,138 @@ In-Reply-To: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-clear PCIE error status (error log is write-1-clear).
-Reg definition of REG_PCIE_UC_SEVERITY is refined as well.
+bit PCIE_PHYMISC_FORCE_RCV_DET is only for l1c&l2c to fix WoL issue,
+other chips set bit5 of REG_MASTER_CTRL --- this way could save more
+power than the former, and the bit should be kept all time.
+l2cb 1.x has special setting for L0S/L1
+l2cb 1.x & l1d 1.x should clear Vendor Message on some platforms,
+otherwise it will cause the root complex hang.
+
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   34 +++++++++++++++-------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    5 ++-
- 2 files changed, 26 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   17 ++++++--
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   49 +++++++++++++++++------
+ 2 files changed, 48 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index b9fa854..a4fd36e 100644
+index 3a5e451..aafe4ff 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -70,6 +70,18 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define DEVICE_CTRL_NFERR_EN		BIT(1)
- #define DEVICE_CTRL_CERR_EN		BIT(0)
+@@ -136,17 +136,24 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define PCIE_DEV_MISC_SERDES_SEL_DIN   	0x10
  
-+#define REG_DEVICE_STAT			0x62	/* 16bit */
-+#define DEVICE_STAT_XS_PEND		BIT(5)
-+#define DEVICE_STAT_AUXPWR		BIT(4)
-+#define DEVICE_STAT_UR			BIT(3)
-+#define DEVICE_STAT_FERR		BIT(2)
-+#define DEVICE_STAT_NFERR		BIT(1)
-+#define DEVICE_STAT_CERR		BIT(0)
-+#define DEVICE_STAT_ERR			(\
-+	DEVICE_STAT_UR			|\
-+	DEVICE_STAT_FERR		|\
-+	DEVICE_STAT_NFERR		|\
-+	DEVICE_STAT_CERR)
+ #define REG_PCIE_PHYMISC	    	0x1000
+-#define PCIE_PHYMISC_FORCE_RCV_DET	0x4
++#define PCIE_PHYMISC_FORCE_RCV_DET	BIT(2)
++#define PCIE_PHYMISC_NFTS_MASK		0xFFUL
++#define PCIE_PHYMISC_NFTS_SHIFT		16
  
- #define REG_LINK_CTRL			0x68
- #define LINK_CTRL_L0S_EN		0x01
-@@ -77,17 +89,17 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define LINK_CTRL_EXT_SYNC		0x80
+ #define REG_PCIE_PHYMISC2		0x1004
+-#define PCIE_PHYMISC2_SERDES_CDR_MASK	0x3
+-#define PCIE_PHYMISC2_SERDES_CDR_SHIFT	16
+-#define PCIE_PHYMISC2_SERDES_TH_MASK	0x3
+-#define PCIE_PHYMISC2_SERDES_TH_SHIFT	18
++#define PCIE_PHYMISC2_L0S_TH_MASK	0x3UL
++#define PCIE_PHYMISC2_L0S_TH_SHIFT	18
++#define L2CB1_PCIE_PHYMISC2_L0S_TH	3
++#define PCIE_PHYMISC2_CDR_BW_MASK	0x3UL
++#define PCIE_PHYMISC2_CDR_BW_SHIFT	16
++#define L2CB1_PCIE_PHYMISC2_CDR_BW	3
  
- #define REG_PCIE_UC_SEVERITY		0x10C
--#define PCIE_UC_SERVRITY_TRN		0x00000001
--#define PCIE_UC_SERVRITY_DLP		0x00000010
--#define PCIE_UC_SERVRITY_PSN_TLP	0x00001000
--#define PCIE_UC_SERVRITY_FCP		0x00002000
--#define PCIE_UC_SERVRITY_CPL_TO		0x00004000
--#define PCIE_UC_SERVRITY_CA		0x00008000
--#define PCIE_UC_SERVRITY_UC		0x00010000
--#define PCIE_UC_SERVRITY_ROV		0x00020000
--#define PCIE_UC_SERVRITY_MLFP		0x00040000
--#define PCIE_UC_SERVRITY_ECRC		0x00080000
--#define PCIE_UC_SERVRITY_UR		0x00100000
-+#define PCIE_UC_SEVERITY_UR		BIT(20)
-+#define PCIE_UC_SERVRITY_ECRC		BIT(19)
-+#define PCIE_UC_SERVRITY_MLFP		BIT(18)
-+#define PCIE_UC_SERVRITY_ROV		BIT(17)
-+#define PCIE_UC_SERVRITY_UC		BIT(16)
-+#define PCIE_UC_SERVRITY_CA		BIT(15)
-+#define PCIE_UC_SERVRITY_CPL_TO		BIT(14)
-+#define PCIE_UC_SERVRITY_FCP		BIT(13)
-+#define PCIE_UC_SERVRITY_PSN_TLP	BIT(12)
-+#define PCIE_UC_SERVRITY_DLP		BIT(4)
-+#define PCIE_UC_SERVRITY_TRN		BIT(0)
+ #define REG_TWSI_DEBUG			0x1108
+ #define TWSI_DEBUG_DEV_EXIST		0x20000000
  
- #define REG_DEV_SERIALNUM_CTRL		0x200
- #define REG_DEV_MAC_SEL_MASK		0x0 /* 0:EUI; 1:MAC */
++#define REG_DMA_DBG			0x1114
++#define DMA_DBG_VENDOR_MSG		BIT(0)
++
+ #define REG_EEPROM_CTRL			0x12C0
+ #define EEPROM_CTRL_DATA_HI_MASK	0xFFFF
+ #define EEPROM_CTRL_DATA_HI_SHIFT	0
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 4a0d26c..9295aee 100644
+index 8890e7f..8955810 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -125,9 +125,10 @@ static void atl1c_reset_pcie(struct atl1c_hw *hw, u32 flag)
- 	 * Mask some pcie error bits
- 	 */
- 	AT_READ_REG(hw, REG_PCIE_UC_SEVERITY, &data);
--	data &= ~PCIE_UC_SERVRITY_DLP;
--	data &= ~PCIE_UC_SERVRITY_FCP;
-+	data &= ~(PCIE_UC_SERVRITY_DLP | PCIE_UC_SERVRITY_FCP);
- 	AT_WRITE_REG(hw, REG_PCIE_UC_SEVERITY, data);
-+	/* clear error status */
-+	AT_WRITE_REGW(hw, REG_DEVICE_STAT, DEVICE_STAT_ERR);
+@@ -87,20 +87,37 @@ static void atl1c_pcie_patch(struct atl1c_hw *hw)
+ 	mst_data &= ~MASTER_CTRL_CLK_SEL_DIS;
+ 	AT_WRITE_REG(hw, REG_MASTER_CTRL, mst_data);
  
- 	AT_READ_REG(hw, REG_LTSSM_ID_CTRL, &data);
- 	data &= ~LTSSM_ID_EN_WRO;
+-	AT_READ_REG(hw, REG_PCIE_PHYMISC, &data);
+-	data |= PCIE_PHYMISC_FORCE_RCV_DET;
+-	AT_WRITE_REG(hw, REG_PCIE_PHYMISC, data);
+-
++	/* WoL/PCIE related settings */
++	if (hw->nic_type == athr_l1c || hw->nic_type == athr_l2c) {
++		AT_READ_REG(hw, REG_PCIE_PHYMISC, &data);
++		data |= PCIE_PHYMISC_FORCE_RCV_DET;
++		AT_WRITE_REG(hw, REG_PCIE_PHYMISC, data);
++	} else { /* new dev set bit5 of MASTER */
++		if (!(mst_data & MASTER_CTRL_WAKEN_25M))
++			AT_WRITE_REG(hw, REG_MASTER_CTRL,
++				mst_data | MASTER_CTRL_WAKEN_25M);
++	}
++	/* aspm/PCIE setting only for l2cb 1.0 */
+ 	if (hw->nic_type == athr_l2c_b && hw->revision_id == L2CB_V10) {
+ 		AT_READ_REG(hw, REG_PCIE_PHYMISC2, &data);
+-
+-		data &= ~(PCIE_PHYMISC2_SERDES_CDR_MASK <<
+-			PCIE_PHYMISC2_SERDES_CDR_SHIFT);
+-		data |= 3 << PCIE_PHYMISC2_SERDES_CDR_SHIFT;
+-		data &= ~(PCIE_PHYMISC2_SERDES_TH_MASK <<
+-			PCIE_PHYMISC2_SERDES_TH_SHIFT);
+-		data |= 3 << PCIE_PHYMISC2_SERDES_TH_SHIFT;
++		data = FIELD_SETX(data, PCIE_PHYMISC2_CDR_BW,
++			L2CB1_PCIE_PHYMISC2_CDR_BW);
++		data = FIELD_SETX(data, PCIE_PHYMISC2_L0S_TH,
++			L2CB1_PCIE_PHYMISC2_L0S_TH);
+ 		AT_WRITE_REG(hw, REG_PCIE_PHYMISC2, data);
++		/* extend L1 sync timer */
++		AT_READ_REG(hw, REG_LINK_CTRL, &data);
++		data |= LINK_CTRL_EXT_SYNC;
++		AT_WRITE_REG(hw, REG_LINK_CTRL, data);
++	}
++	/* l2cb 1.x & l1d 1.x */
++	if (hw->nic_type == athr_l2c_b || hw->nic_type == athr_l1d) {
++		AT_READ_REG(hw, REG_PM_CTRL, &data);
++		data |= PM_CTRL_L0S_BUFSRX_EN;
++		AT_WRITE_REG(hw, REG_PM_CTRL, data);
++		/* clear vendor msg */
++		AT_READ_REG(hw, REG_DMA_DBG, &data);
++		AT_WRITE_REG(hw, REG_DMA_DBG, data & ~DMA_DBG_VENDOR_MSG);
+ 	}
+ }
+ 
+@@ -1179,8 +1196,8 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
+ 	 */
+ 	AT_READ_REG(hw, REG_MASTER_CTRL, &master_ctrl_data);
+ 	master_ctrl_data |= MASTER_CTRL_OOB_DIS;
+-	AT_WRITE_REGW(hw, REG_MASTER_CTRL, ((master_ctrl_data | MASTER_CTRL_SOFT_RST)
+-			& 0xFFFF));
++	AT_WRITE_REG(hw, REG_MASTER_CTRL,
++		master_ctrl_data | MASTER_CTRL_SOFT_RST);
+ 
+ 	AT_WRITE_FLUSH(hw);
+ 	msleep(10);
+@@ -1192,6 +1209,8 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
+ 			" disabled for 10ms second\n");
+ 		return -1;
+ 	}
++	AT_WRITE_REG(hw, REG_MASTER_CTRL, master_ctrl_data);
++
+ 	return 0;
+ }
+ 
+@@ -1336,6 +1355,10 @@ static int atl1c_configure(struct atl1c_adapter *adapter)
+ 	u32 intr_modrt_data;
+ 	u32 data;
+ 
++	AT_READ_REG(hw, REG_MASTER_CTRL, &master_ctrl_data);
++	master_ctrl_data &= ~(MASTER_CTRL_TX_ITIMER_EN |
++			      MASTER_CTRL_RX_ITIMER_EN |
++			      MASTER_CTRL_INT_RDCLR);
+ 	/* clear interrupt status */
+ 	AT_WRITE_REG(hw, REG_ISR, 0xFFFFFFFF);
+ 	/*  Clear any WOL status */
 -- 
 1.7.7
