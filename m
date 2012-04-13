@@ -1,42 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: suspicious RCU usage warnings in 3.3.0
-Date: Fri, 13 Apr 2012 10:55:56 -0400 (EDT)
-Message-ID: <20120413.105556.73360716787161031.davem@davemloft.net>
-References: <20120412045428.GB2497@linux.vnet.ibm.com>
-	<alpine.SOC.1.00.1204131444150.2736@math.ut.ee>
-	<20120413133513.GB2457@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/2] net: In unregister_netdevice_notifier unregister
+ the netdevices.
+Date: Fri, 13 Apr 2012 11:05:05 -0400 (EDT)
+Message-ID: <20120413.110505.1391379079973352104.davem@davemloft.net>
+References: <CA+1xoqdi4QOhRJvBA64pxiN3EphhThjPkf4eLRkYM8jxcJjh=w@mail.gmail.com>
+	<m1mx6otk85.fsf@fess.ebiederm.org>
+	<m1aa2otjf4.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mroos@linux.ee, shemminger@vyatta.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
+Cc: eric.dumazet@gmail.com, ericvh@gmail.com, davej@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	levinsasha928@gmail.com, remi.denis-courmont@nokia.com
+To: ebiederm@xmission.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120413133513.GB2457@linux.vnet.ibm.com>
+In-Reply-To: <m1aa2otjf4.fsf_-_@fess.ebiederm.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Fri, 13 Apr 2012 06:35:13 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 06 Apr 2012 18:33:35 -0700
 
-DANGER WILL ROBINSON, McKenney is hacking sparc64 assembler!
-:-))))
+>>From a51fda849355b2ffb27cdb5d66fa1a96e7f47335 Mon Sep 17 00:00:00 2001
+> From: Eric W. Biederman <ebiederm@xmission.com>
+> Date: Sun, 25 Dec 2011 19:39:52 -0800
+> Subject: 
 
-> My main concern about my patch is my removal of this line:
+Yikes, I had to edit this turd out :-)  Otherwise with this empty
+Subject, GIT uses the first line of your commit log body as the
+first line.
+
+> We already synthesize events in register_netdevice_notifier and synthesizing
+> events in unregister_netdevice_notifier allows to us remove the need for
+> special case cleanup code.
 > 
-> 	bne,pn			%icc, __handle_softirq
+> This change should be safe as it adds no new cases for existing callers
+> of unregiser_netdevice_notifier to handle.
 > 
-> It is quite possible that this should instead change to look as follows:
-> 
-> 	bne,pn			%icc, __handle_preemption
-> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-I would say it should not, because the __handle_softirq code path,
-if taken, unconditionally branches to the very next instruction
-after this branch and it's delay slot.
-
-> Anyway, patch with updated changelog below.
-
-Great work, I'll apply this after I test it out a bit myself.
-
-Thanks a lot Paul!
+Applied.
