@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sky2: in free_buffers() do proper checks before call of
- rx_clean()
-Date: Fri, 13 Apr 2012 12:59:54 -0400 (EDT)
-Message-ID: <20120413.125954.1123124134206162716.davem@davemloft.net>
-References: <20120403001327.GB10227@Neptun>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 12/37] atl1c: restore max-read-request-size in Device
+ Conrol Register
+Date: Fri, 13 Apr 2012 18:02:43 +0100
+Message-ID: <1334336563.2606.3.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
+	 <1334276102-15866-13-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mlindner@marvell.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: LinoSanfilippo@gmx.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120403001327.GB10227@Neptun>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <qca-linux-team@qualcomm.com>,
+	<nic-devel@qualcomm.com>, linux-pci <linux-pci@vger.kernel.org>
+To: xiong <xiong@qca.qualcomm.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1334276102-15866-13-git-send-email-xiong@qca.qualcomm.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Tue, 3 Apr 2012 02:13:27 +0200
+On Fri, 2012-04-13 at 08:14 +0800, xiong wrote:
+> in some platforms, we found the max-read-request-size in Device Control
+> Register is set to 0 by (BIOS?) during bootup, this will cause the
+> performance(throughput) very bad.
+> Restore it to a min-value.
+> register definition of REG_DEVICE_CTRL is refined as well.
+[...]
 
-> In sky2_open() free_buffers() is called in case that alloc_buffers() failed.
-> Here we do the check for sky2->rx_le too late, since we already called
-> rx_clean() which accessed rx_le. Furthermore we lack a check for sky2->rx_ring
-> which is also accessed by rx_clean().
-> 
-> With this patch both sky2->rx_le and sky2->rx_ring are checked before
-> alloc_buffers() is called.
-> 
-> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+I'm guessing this memory-mapped register is an alias for the PCIe device
+control register.  I think you should be using pcie_set_readrq() to
+ensure that the final setting conforms to the device's Max Payload Size
+and system policy.
 
-Stephen, I'm still waiting on your review of this patch.
+Ben.
 
-Thanks.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
