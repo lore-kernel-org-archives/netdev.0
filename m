@@ -1,51 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smsc911x: fix RX FIFO fastforwarding when
- dropping packets
-Date: Fri, 13 Apr 2012 14:08:25 -0400 (EDT)
-Message-ID: <20120413.140825.574220698055703201.davem@davemloft.net>
-References: <20120412155409.GA28204@mudshark.cambridge.arm.com>
-	<1334246880.5300.6736.camel@edumazet-glaptop>
-	<20120412170350.GD28204@mudshark.cambridge.arm.com>
+Subject: [PATCH] rtnetlink: ops->get_tx_queue() cannot take a const 'tb'.
+Date: Fri, 13 Apr 2012 14:22:01 -0400 (EDT)
+Message-ID: <20120413.142201.1695633085407709024.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	steve.glendinning@smsc.com
-To: will.deacon@arm.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: shemminger@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51337 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51503 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751311Ab2DMSIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 14:08:35 -0400
-In-Reply-To: <20120412170350.GD28204@mudshark.cambridge.arm.com>
+	with ESMTP id S1751929Ab2DMSWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 14:22:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Will Deacon <will.deacon@arm.com>
-Date: Thu, 12 Apr 2012 18:03:50 +0100
-
-> On Thu, Apr 12, 2012 at 05:08:00PM +0100, Eric Dumazet wrote:
->> On Thu, 2012-04-12 at 16:54 +0100, Will Deacon wrote:
->> >     net: smsc911x: fix skb handling in receive path
->> >     
->> >     The SMSC911x driver resets the ->head, ->data and ->tail pointers in the
->> >     skb on the reset path in order to avoid buffer overflow due to packet
->> >     padding performed by the hardware.
->> >     
->> >     This patch fixes the receive path so that the skb pointers are fixed up
->> >     after the data has been read from the device, The error path is also
->> >     fixed to use number of words consistently and prevent erroneous FIFO
->> >     fastforwarding when skipping over bad data.
->> >     
->> >     Signed-off-by: Will Deacon <will.deacon@arm.com>
-> 
-> [...]
-> 
->> Seems fine to me
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Thanks, Eric. Given that Steve's email doesn't appear to be working, can
-> somebody else pick this up please?
-
-Applied, thanks.
+DQpuZXQvY29yZS9ydG5ldGxpbmsuYzogSW4gZnVuY3Rpb24goXJ0bmxfY3JlYXRlX2xpbmuiOg0K
+bmV0L2NvcmUvcnRuZXRsaW5rLmM6MTY0NTozOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDIg
+b2YgoW9wcy0+Z2V0X3R4X3F1ZXVlc6IgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtl
+bmFibGVkIGJ5IGRlZmF1bHRdDQpuZXQvY29yZS9ydG5ldGxpbmsuYzoxNjQ1OjM6IG5vdGU6IGV4
+cGVjdGVkIKFjb25zdCBzdHJ1Y3QgbmxhdHRyICoqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSCh
+c3RydWN0IG5sYXR0ciAqKqINCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZl
+bUBkYXZlbWxvZnQubmV0Pg0KLS0tDQoNClN0ZXBoZW4sIHBsZWFzZSB3YXRjaCB5b3VyIGJ1aWxk
+IGxvZ3MgbW9yZSBjYXJlZnVsbHkgZm9yIHN0dWZmIGxpa2UNCnRoaXMgaW4gdGhlIGZ1dHVyZSwg
+dGhhbmtzLg0KDQogaW5jbHVkZS9uZXQvcnRuZXRsaW5rLmggfCAgICAyICstDQogMSBmaWxlcyBj
+aGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9p
+bmNsdWRlL25ldC9ydG5ldGxpbmsuaCBiL2luY2x1ZGUvbmV0L3J0bmV0bGluay5oDQppbmRleCA5
+YjgyNTAxLi5iYmNmZDA5IDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9uZXQvcnRuZXRsaW5rLmgNCisr
+KyBiL2luY2x1ZGUvbmV0L3J0bmV0bGluay5oDQpAQCAtNzgsNyArNzgsNyBAQCBzdHJ1Y3QgcnRu
+bF9saW5rX29wcyB7DQogCWludAkJCSgqZmlsbF94c3RhdHMpKHN0cnVjdCBza19idWZmICpza2Is
+DQogCQkJCQkgICAgICAgY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UgKmRldik7DQogCWludAkJCSgq
+Z2V0X3R4X3F1ZXVlcykoc3RydWN0IG5ldCAqbmV0LA0KLQkJCQkJCSBjb25zdCBzdHJ1Y3Qgbmxh
+dHRyICp0YltdKTsNCisJCQkJCQkgc3RydWN0IG5sYXR0ciAqdGJbXSk7DQogfTsNCiANCiBleHRl
+cm4gaW50CV9fcnRubF9saW5rX3JlZ2lzdGVyKHN0cnVjdCBydG5sX2xpbmtfb3BzICpvcHMpOw0K
+LS0gDQoxLjcuNy42DQoNCg==
