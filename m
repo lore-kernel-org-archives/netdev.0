@@ -1,152 +1,49 @@
-From: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-Subject: Re: via-rhine: Problem with lost link after a while
-Date: Fri, 13 Apr 2012 08:16:51 +0200
-Message-ID: <CACPM=kXGyxgfwzMxAhx-jUL1hYMAqWc7=9gfYcgV=xebAQ=+Og@mail.gmail.com>
-References: <CACPM=kWa=UWuCMaYAtVMGJ7pzCy-PfyNRWBSuJnTZGtssU0W6g@mail.gmail.com>
-	<20120410204249.GA26627@electric-eye.fr.zoreil.com>
-	<CACPM=kWsU8QZOHqwEThTQCuSSvaTDoxO1d17EyoW=+kx8QG3vw@mail.gmail.com>
-	<20120410225534.GA28480@electric-eye.fr.zoreil.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next 3/4 (V3)] stmmac: add the Energy Efficient Ethernet
+ support
+Date: Fri, 13 Apr 2012 08:35:26 +0200
+Message-ID: <4F87C92E.7040503@st.com>
+References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com> <1333704559-11251-4-git-send-email-peppe.cavallaro@st.com> <20120412.163258.602029261264172098.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	=?ISO-8859-1?Q?Svenning_S=F8rensen?= <sss@secomea.com>,
-	Andreas Mohr <andi@lisas.de>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	rayagond@vayavyalabs.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:41831 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919Ab2DMGQw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 02:16:52 -0400
-In-Reply-To: <20120410225534.GA28480@electric-eye.fr.zoreil.com>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:36634 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754539Ab2DMGhA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 02:37:00 -0400
+In-Reply-To: <20120412.163258.602029261264172098.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-11. apr. 2012 00.55 skrev Francois Romieu <romieu@fr.zoreil.com>:
-> Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
->> 10. apr. 2012 22.42 skrev Francois Romieu <romieu@fr.zoreil.com>:
-> [...]
->> > http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux.git;h=3D=
-3f8c91a7398b9266fbe7abcbe4bd5dffef907643
-> [...]
->> Great, I'll try a 3.4-rc2 kernel, and see how it runs.
->>
->> The thread I was talking about earlier is here:
->> http://lists.soekris.com/pipermail/soekris-tech/2012-April/018318.ht=
-ml
->> Is there any of the changes he has there, that makes sense in the ne=
-w
->> driver you wrote ?
->
-> (I did not write a new driver)
->
-> Regarding Svenning's patch:
-> - the wmb in alloc_rbufs may help rhine_reset_task().
-> - one should probably add one in rhine_rx() as well.
-> - rhine_start_tx() is supposed to stop queueing when there is no room=
- left.
-> =A0I'm curious to know if the "Tx descriptor busy" test triggered.
-> - the rmb() in rhine_tx() will not make a difference for a single cor=
-e but
-> =A0it's a good reminder that I should not have forgotten to propagate=
- the
-> =A0xmit / Tx completion fix back from the r8169 driver to the via-rhi=
-ne one
-> =A0(sigh)
->
-> mmiowb is probably missing. I doubt it hits hard right now.
->
-> I have not checked if MMIO flushes are missing. Actually I need some =
-sleep.
+On 4/12/2012 10:32 PM, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Fri,  6 Apr 2012 11:29:17 +0200
+> 
+>> +static int stmmac_ethtool_op_set_eee(struct net_device *dev,
+>> +				     struct ethtool_value *eee)
+>> +{
+>> +	struct stmmac_priv *priv = netdev_priv(dev);
+>> +
+>> +	if ((!eee->data) && (priv->eee_enabled)) {
+>> +		stmmac_disable_eee_mode(priv);
+>> +		priv->eee_enabled = eee->data;
+>> +	} else if ((eee->data) && (!priv->eee_enabled))
+>> +		/* We are asking for enabling the EEE but this
+>> +		 * has to be verified by invoking the eee_init function.
+>> +		 * For this reason we cannot set eee_enabled to
+>> +		 * eee->data, directly. */
+>> +		priv->eee_enabled = stmmac_eee_init(priv);
+>> +
+>> +	return 0;
+> 
+> If stmmac_eee_init() determines that it cannot enable eee, you should
+> return an appropriate error code here so that ethtool can report that
+> fact.
 
-I've been testing v3.4-rc2 with this patch applied for the past few
-days, with alot of trafic across, both incoming and outgoing, with VPN
-which is normally what can trigger problems, and it seems rock solid
-:o)
+Ok, thanks
 
-Do you need me to do any specific testing of this patch?
-
-/Bjarke
-
-> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ether=
-net/via/via-rhine.c
-> index fcfa01f..dfa9fc0 100644
-> --- a/drivers/net/ethernet/via/via-rhine.c
-> +++ b/drivers/net/ethernet/via/via-rhine.c
-> @@ -1163,6 +1163,7 @@ static void alloc_rbufs(struct net_device *dev)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 PCI_DMA_FROMDEVICE);
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rp->rx_ring[i].addr =3D cpu_to_le32(rp=
-->rx_skbuff_dma[i]);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 wmb();
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rp->rx_ring[i].rx_status =3D cpu_to_le=
-32(DescOwn);
-> =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0rp->dirty_rx =3D (unsigned int)(i - RX_RING_SIZE);
-> @@ -1709,8 +1710,13 @@ static netdev_tx_t rhine_start_tx(struct sk_bu=
-ff *skb,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 ioaddr + ChipCmd1);
-> =A0 =A0 =A0 =A0IOSYNC;
->
-> - =A0 =A0 =A0 if (rp->cur_tx =3D=3D rp->dirty_tx + TX_QUEUE_LEN)
-> + =A0 =A0 =A0 if (rp->cur_tx =3D=3D rp->dirty_tx + TX_QUEUE_LEN) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 smp_wmb();
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0netif_stop_queue(dev);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 smp_mb();
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (rp->cur_tx !=3D rp->dirty_tx + TX_Q=
-UEUE_LEN)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_wake_queue(dev);
-> + =A0 =A0 =A0 }
->
-> =A0 =A0 =A0 =A0netif_dbg(rp, tx_queued, dev, "Transmit frame #%d queu=
-ed in slot %d\n",
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rp->cur_tx - 1, entry);
-> @@ -1759,6 +1765,7 @@ static void rhine_tx(struct net_device *dev)
-> =A0 =A0 =A0 =A0struct rhine_private *rp =3D netdev_priv(dev);
-> =A0 =A0 =A0 =A0int txstatus =3D 0, entry =3D rp->dirty_tx % TX_RING_S=
-IZE;
->
-> + =A0 =A0 =A0 smp_rmb();
-> =A0 =A0 =A0 =A0/* find and cleanup dirty tx descriptors */
-> =A0 =A0 =A0 =A0while (rp->dirty_tx !=3D rp->cur_tx) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0txstatus =3D le32_to_cpu(rp->tx_ring[e=
-ntry].tx_status);
-> @@ -1806,8 +1813,12 @@ static void rhine_tx(struct net_device *dev)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rp->tx_skbuff[entry] =3D NULL;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0entry =3D (++rp->dirty_tx) % TX_RING_S=
-IZE;
-> =A0 =A0 =A0 =A0}
-> - =A0 =A0 =A0 if ((rp->cur_tx - rp->dirty_tx) < TX_QUEUE_LEN - 4)
-> +
-> + =A0 =A0 =A0 smp_mb();
-> + =A0 =A0 =A0 if (netif_queue_stopped(dev) &&
-> + =A0 =A0 =A0 =A0 =A0 (rp->cur_tx - rp->dirty_tx) < TX_QUEUE_LEN - 4)=
- {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0netif_wake_queue(dev);
-> + =A0 =A0 =A0 }
-> =A0}
->
-> =A0/**
-> @@ -1947,6 +1958,7 @@ static int rhine_rx(struct net_device *dev, int=
- limit)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 PCI_DMA_FROMDEVICE);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rp->rx_ring[entry].add=
-r =3D cpu_to_le32(rp->rx_skbuff_dma[entry]);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 wmb();
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rp->rx_ring[entry].rx_status =3D cpu_t=
-o_le32(DescOwn);
-> =A0 =A0 =A0 =A0}
->
-> --
-> Ueimor
->
-> Will code drivers for food.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
+peppe
