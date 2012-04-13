@@ -1,35 +1,52 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: linux-next: Tree for Apr 12
-Date: Fri, 13 Apr 2012 13:11:45 +0100
-Message-ID: <20120413131145.1fd00f1d@pyramind.ukuu.org.uk>
-References: <20120412145931.9ec6f2b51655071795d60d1d@canb.auug.org.au>
-	<20120412142415.564710b8.akpm@linux-foundation.org>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Netlink, route monitoring, =?UTF-8?Q?RTM=5FDELROUTE=20not=20issue?=
+ =?UTF-8?Q?d=20for=20ppp=20peer=20address=2E=20Bug=20or=20feature=3F?=
+Date: Fri, 13 Apr 2012 15:10:34 +0300
+Message-ID: <8986ed37b55c756ecdeec0315f73e63a@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120412142415.564710b8.akpm@linux-foundation.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:46028 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753316Ab2DMMKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 08:10:41 -0400
+Received: from webmail.visp.net.lb (localhost [127.0.0.1])
+	by hosting.visp.net.lb (Postfix) with ESMTP id C4CE02EC056
+	for <netdev@vger.kernel.org>; Fri, 13 Apr 2012 15:10:34 +0300 (EEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Apr 2012 14:24:15 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+Hi
 
-> On Thu, 12 Apr 2012 14:59:31 +1000
-> Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> 
-> > I have created today's linux-next tree at
-> > git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git
-> 
-> This isn't working for me.  Some time between April 3 and April 12
-> someone merged something into the non-mm part of linux-next which broke
-> ssh.
+I am trying to implement my own routing daemon, and using 
+RTMGRP_IPV4_ROUTE to monitor routes.
+I notice, that on PPPoE, when interface disappearing, RTM_DELROUTE will 
+be sent to listener only for local address, but nothing about peer 
+address attached to this interface.
 
-You are getting further than me  - on 32bit -next of the 12th explodes
-with random userspace crashes in init or similar early code.
+CBSS_PPPoE ~ # ifconfig ppp0
+ppp0      Link encap:Point-to-Point Protocol
+           inet addr:172.16.146.1  P-t-P:172.16.146.10  
+Mask:255.255.255.255
+           UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1200  Metric:1
+           RX packets:40439 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:63211 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:3
+           RX bytes:3584507 (3.4 MiB)  TX bytes:47180929 (44.9 MiB)
 
-Alan
+CBSS_PPPoE ~ # pppkill tek234@visp.net.lb  (this is killing pppd 
+process for ppp0 interface)
+
+ip monitor route will show only RTM_DELROUTE for RTN_LOCAL, but nothing 
+about RTN_UNICAST for 172.16.146.10.
+"Deleted local 172.16.146.1 dev ppp0  table local  proto kernel  scope 
+host  src 172.16.146.1"
+My program also receive same.
+
+Is it a bug, that no RTM_DELROUTE issued for peer ip address? Or should 
+i monitor also RTMGRP_IPV4_IFADDR for link disappearance?
+
+Thanks for help!
