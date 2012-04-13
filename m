@@ -1,38 +1,74 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [0/3] bridge: Do not send multicast queries by default
-Date: Fri, 13 Apr 2012 20:36:41 +0800
-Message-ID: <20120413123641.GA758@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 2/3] bridge: Restart queries when last querier expires
+Date: Fri, 13 Apr 2012 20:37:42 +0800
+Message-ID: <E1SIfl0-0000DS-EK@gondolin.me.apana.org.au>
+References: <20120413123641.GA758@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:33590 "EHLO
+Received: from sting.hengli.com.au ([178.18.18.71]:39715 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754102Ab2DMMgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 08:36:46 -0400
-Content-Disposition: inline
+	with ESMTP id S1752958Ab2DMMho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 08:37:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+bridge: Restart queries when last querier expires
 
-This series of patches is aimed to change the default multicast
-snooping behaviour to one that is safer to deploy in the wild.
+As it stands when we discover that a real querier (one that queries
+with a non-zero source address) we stop querying.  However, even
+after said querier has fallen off the edge of the earth, we will
+never restart querying (unless the bridge itself is restarted).
 
-There have been numerous reports of switches misbehaving with
-our current behaviour of sending general queries, presumably
-because we're using a zero source IP address which is unavoidable
-as using anything else would interfere with multicast querier
-elections (incidentally, I noticed that our IPv6 code has been
-"fixed" to not use zero source addresses, which is wrong as we
-may end up being THE MLD querier in a network).
+This patch fixes this by kicking our own querier into gear when
+the timer for other queriers expire.
 
-Since our queries aren't actually required for multicast snooping
-to function, but is merely an optimisation mostly for faster
-start-up convergence, I think we should disable this by default.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ net/bridge/br_multicast.c |   19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index dca0c66..b0796d7 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -36,6 +36,8 @@
+ #define mlock_dereference(X, br) \
+ 	rcu_dereference_protected(X, lockdep_is_held(&br->multicast_lock))
+ 
++static void br_multicast_start_querier(struct net_bridge *br);
++
+ #if IS_ENABLED(CONFIG_IPV6)
+ static inline int ipv6_is_transient_multicast(const struct in6_addr *addr)
+ {
+@@ -740,6 +742,21 @@ static void br_multicast_local_router_expired(unsigned long data)
+ {
+ }
+ 
++static void br_multicast_querier_expired(unsigned long data)
++{
++	struct net_bridge_port *port = (void *)data;
++	struct net_bridge *br = port->br;
++
++	spin_lock(&br->multicast_lock);
++	if (!netif_running(br->dev) || br->multicast_disabled)
++		goto out;
++
++	br_multicast_start_querier(br);
++
++out:
++	spin_unlock(&br->multicast_lock);
++}
++
+ static void __br_multicast_send_query(struct net_bridge *br,
+ 				      struct net_bridge_port *port,
+ 				      struct br_ip *ip)
+@@ -1562,7 +1579,7 @@ void br_multicast_init(struct net_bridge *br)
+ 	setup_timer(&br->multicast_router_timer,
+ 		    br_multicast_local_router_expired, 0);
+ 	setup_timer(&br->multicast_querier_timer,
+-		    br_multicast_local_router_expired, 0);
++		    br_multicast_querier_expired, 0);
+ 	setup_timer(&br->multicast_query_timer, br_multicast_query_expired,
+ 		    (unsigned long)br);
+ }
