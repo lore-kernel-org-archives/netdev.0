@@ -1,38 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 12/37] atl1c: restore max-read-request-size in Device
- Conrol Register
-Date: Fri, 13 Apr 2012 18:02:43 +0100
-Message-ID: <1334336563.2606.3.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
-	 <1334276102-15866-13-git-send-email-xiong@qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pppoatm: Fix excessive queue bloat
+Date: Fri, 13 Apr 2012 13:04:52 -0400 (EDT)
+Message-ID: <20120413.130452.524616632667687350.davem@davemloft.net>
+References: <1332880522.2058.67.camel@shinybook.infradead.org>
+	<1333914837.31812.57.camel@shinybook.infradead.org>
+	<20120410102612.368b1a4f@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <qca-linux-team@qualcomm.com>,
-	<nic-devel@qualcomm.com>, linux-pci <linux-pci@vger.kernel.org>
-To: xiong <xiong@qca.qualcomm.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1334276102-15866-13-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dwmw2@infradead.org, netdev@vger.kernel.org, paulus@samba.org,
+	eric.dumazet@gmail.com
+To: chas@cmf.nrl.navy.mil
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50715 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916Ab2DMRIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 13:08:05 -0400
+In-Reply-To: <20120410102612.368b1a4f@thirdoffive.cmf.nrl.navy.mil>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-04-13 at 08:14 +0800, xiong wrote:
-> in some platforms, we found the max-read-request-size in Device Control
-> Register is set to 0 by (BIOS?) during bootup, this will cause the
-> performance(throughput) very bad.
-> Restore it to a min-value.
-> register definition of REG_DEVICE_CTRL is refined as well.
-[...]
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Date: Tue, 10 Apr 2012 10:26:12 -0400
 
-I'm guessing this memory-mapped register is an alias for the PCIe device
-control register.  I think you should be using pcie_set_readrq() to
-ensure that the final setting conforms to the device's Max Payload Size
-and system policy.
+> On Sun, 08 Apr 2012 21:53:57 +0200
+> David Woodhouse <dwmw2@infradead.org> wrote:
+> 
+>> Seriously, this gets *much* easier if we just ditch the checks against
+>> sk_sndbuf. We just wake up whenever decrementing ->inflight from zero.
+>> Can I?
+> 
+> i dont know.
 
-Ben.
+Please do not take this discussion private, and off of the netdev list.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Now nobody else on the list can see your response and and reply to it.
