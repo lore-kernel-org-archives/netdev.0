@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 07/37] atl1c: remove code related to rxq 1/2/3
-Date: Fri, 13 Apr 2012 08:14:32 +0800
-Message-ID: <1334276102-15866-8-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 09/37] atl1c: correct wrong definition of REG_DMA_CTRL
+Date: Fri, 13 Apr 2012 08:14:34 +0800
+Message-ID: <1334276102-15866-10-git-send-email-xiong@qca.qualcomm.com>
 References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,72 +14,120 @@ In-Reply-To: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-remove code related to rxq 1/2/3 since multi-q not support.
-refine REG_RXQ_CTRL definition as well.
+some fields of REG_DMA_CTRL(15C0) are wrong, replace with the newest one.
+haredware uses fixed dma-write-block size, remove dmaw_block related code 
+in function atl1c_configure_dma.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   29 +++++++++-------------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    3 +-
- 2 files changed, 13 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   46 +++++++++++++---------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   29 ++------------
+ 2 files changed, 32 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index ca45fad..18c1f18 100644
+index 18c1f18..f502b4d 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -493,26 +493,21 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define ASPM_THRUPUT_LIMIT_NO		0x00
- #define ASPM_THRUPUT_LIMIT_1M		0x01
- #define ASPM_THRUPUT_LIMIT_10M		0x02
--#define ASPM_THRUPUT_LIMIT_100M		0x04
--#define RXQ1_CTRL_EN			0x10
--#define RXQ2_CTRL_EN			0x20
--#define RXQ3_CTRL_EN			0x40
--#define IPV6_CHKSUM_CTRL_EN		0x80
--#define RSS_HASH_BITS_MASK		0x00FF
--#define RSS_HASH_BITS_SHIFT		8
--#define RSS_HASH_IPV4			0x10000
--#define RSS_HASH_IPV4_TCP		0x20000
--#define RSS_HASH_IPV6			0x40000
--#define RSS_HASH_IPV6_TCP		0x80000
-+#define ASPM_THRUPUT_LIMIT_100M		0x03
-+#define IPV6_CHKSUM_CTRL_EN		BIT(7)
- #define RXQ_RFD_BURST_NUM_MASK		0x003F
- #define RXQ_RFD_BURST_NUM_SHIFT		20
--#define RSS_MODE_MASK			0x0003
-+#define RXQ_NUM_RFD_PREF_DEF		8
-+#define RSS_MODE_MASK			3UL
- #define RSS_MODE_SHIFT			26
--#define RSS_NIP_QUEUE_SEL_MASK		0x1
--#define RSS_NIP_QUEUE_SEL_SHIFT		28
--#define RRS_HASH_CTRL_EN		0x20000000
--#define RX_CUT_THRU_EN			0x40000000
--#define RXQ_CTRL_EN			0x80000000
-+#define RSS_MODE_DIS			0
-+#define RSS_MODE_SQSI			1
-+#define RSS_MODE_MQSI			2
-+#define RSS_MODE_MQMI			3
-+#define RSS_NIP_QUEUE_SEL		BIT(28) /* 0:q0, 1:table */
-+#define RRS_HASH_CTRL_EN		BIT(29)
-+#define RX_CUT_THRU_EN			BIT(30)
-+#define RXQ_CTRL_EN			BIT(31)
+@@ -25,6 +25,12 @@
+ #include <linux/types.h>
+ #include <linux/mii.h>
  
- #define REG_RFD_FREE_THRESH		0x15A4
- #define RFD_FREE_THRESH_MASK		0x003F
++#define FIELD_GETX(_x, _name)   ((_x) >> (_name##_SHIFT) & (_name##_MASK))
++#define FIELD_SETX(_x, _name, _v) \
++(((_x) & ~((_name##_MASK) << (_name##_SHIFT))) |\
++(((_v) & (_name##_MASK)) << (_name##_SHIFT)))
++#define FIELDX(_name, _v) (((_v) & (_name##_MASK)) << (_name##_SHIFT))
++
+ struct atl1c_adapter;
+ struct atl1c_hw;
+ 
+@@ -528,25 +534,27 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define RXD_DMA_DOWN_TIMER_SHIFT	16
+ 
+ /* DMA Engine Control Register */
+-#define REG_DMA_CTRL                	0x15C0
+-#define DMA_CTRL_DMAR_IN_ORDER          0x1
+-#define DMA_CTRL_DMAR_ENH_ORDER         0x2
+-#define DMA_CTRL_DMAR_OUT_ORDER         0x4
+-#define DMA_CTRL_RCB_VALUE              0x8
+-#define DMA_CTRL_DMAR_BURST_LEN_MASK    0x0007
+-#define DMA_CTRL_DMAR_BURST_LEN_SHIFT   4
+-#define DMA_CTRL_DMAW_BURST_LEN_MASK    0x0007
+-#define DMA_CTRL_DMAW_BURST_LEN_SHIFT   7
+-#define DMA_CTRL_DMAR_REQ_PRI           0x400
+-#define DMA_CTRL_DMAR_DLY_CNT_MASK      0x001F
+-#define DMA_CTRL_DMAR_DLY_CNT_SHIFT     11
+-#define DMA_CTRL_DMAW_DLY_CNT_MASK      0x000F
+-#define DMA_CTRL_DMAW_DLY_CNT_SHIFT     16
+-#define DMA_CTRL_CMB_EN               	0x100000
+-#define DMA_CTRL_SMB_EN			0x200000
+-#define DMA_CTRL_CMB_NOW		0x400000
+-#define MAC_CTRL_SMB_DIS		0x1000000
+-#define DMA_CTRL_SMB_NOW		0x80000000
++#define REG_DMA_CTRL			0x15C0
++#define DMA_CTRL_SMB_NOW                BIT(31)
++#define DMA_CTRL_WPEND_CLR              BIT(30)
++#define DMA_CTRL_RPEND_CLR              BIT(29)
++#define DMA_CTRL_WDLY_CNT_MASK          0xFUL
++#define DMA_CTRL_WDLY_CNT_SHIFT         16
++#define DMA_CTRL_WDLY_CNT_DEF           4
++#define DMA_CTRL_RDLY_CNT_MASK          0x1FUL
++#define DMA_CTRL_RDLY_CNT_SHIFT         11
++#define DMA_CTRL_RDLY_CNT_DEF           15
++#define DMA_CTRL_RREQ_PRI_DATA          BIT(10)      /* 0:tpd, 1:data */
++#define DMA_CTRL_WREQ_BLEN_MASK         7UL
++#define DMA_CTRL_WREQ_BLEN_SHIFT        7
++#define DMA_CTRL_RREQ_BLEN_MASK         7UL
++#define DMA_CTRL_RREQ_BLEN_SHIFT        4
++#define L1C_CTRL_DMA_RCB_LEN128         BIT(3)   /* 0:64bytes,1:128bytes */
++#define DMA_CTRL_RORDER_MODE_MASK       7UL
++#define DMA_CTRL_RORDER_MODE_SHIFT      0
++#define DMA_CTRL_RORDER_MODE_OUT        4
++#define DMA_CTRL_RORDER_MODE_ENHANCE    2
++#define DMA_CTRL_RORDER_MODE_IN         1
+ 
+ /* INT-triggle/SMB Control Register */
+ #define REG_SMB_STAT_TIMER		0x15C4	/* 2us resolution */
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index c7d7640..ca1259d 100644
+index b36c033..1ce48d0 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -1137,8 +1137,7 @@ static int atl1c_stop_mac(struct atl1c_hw *hw)
- 	u32 data;
+@@ -1099,30 +1099,11 @@ static void atl1c_configure_dma(struct atl1c_adapter *adapter)
+ 	struct atl1c_hw *hw = &adapter->hw;
+ 	u32 dma_ctrl_data;
  
- 	AT_READ_REG(hw, REG_RXQ_CTRL, &data);
--	data &= ~(RXQ1_CTRL_EN | RXQ2_CTRL_EN |
--		  RXQ3_CTRL_EN | RXQ_CTRL_EN);
-+	data &= ~RXQ_CTRL_EN;
- 	AT_WRITE_REG(hw, REG_RXQ_CTRL, data);
+-	dma_ctrl_data = DMA_CTRL_DMAR_REQ_PRI;
+-
+-	switch (hw->dma_order) {
+-	case atl1c_dma_ord_in:
+-		dma_ctrl_data |= DMA_CTRL_DMAR_IN_ORDER;
+-		break;
+-	case atl1c_dma_ord_enh:
+-		dma_ctrl_data |= DMA_CTRL_DMAR_ENH_ORDER;
+-		break;
+-	case atl1c_dma_ord_out:
+-		dma_ctrl_data |= DMA_CTRL_DMAR_OUT_ORDER;
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	dma_ctrl_data |= (((u32)hw->dmar_block) & DMA_CTRL_DMAR_BURST_LEN_MASK)
+-		<< DMA_CTRL_DMAR_BURST_LEN_SHIFT;
+-	dma_ctrl_data |= (((u32)hw->dmaw_block) & DMA_CTRL_DMAW_BURST_LEN_MASK)
+-		<< DMA_CTRL_DMAW_BURST_LEN_SHIFT;
+-	dma_ctrl_data |= (((u32)hw->dmar_dly_cnt) & DMA_CTRL_DMAR_DLY_CNT_MASK)
+-		<< DMA_CTRL_DMAR_DLY_CNT_SHIFT;
+-	dma_ctrl_data |= (((u32)hw->dmaw_dly_cnt) & DMA_CTRL_DMAW_DLY_CNT_MASK)
+-		<< DMA_CTRL_DMAW_DLY_CNT_SHIFT;
++	dma_ctrl_data = FIELDX(DMA_CTRL_RORDER_MODE, DMA_CTRL_RORDER_MODE_OUT) |
++		DMA_CTRL_RREQ_PRI_DATA |
++		FIELDX(DMA_CTRL_RREQ_BLEN, hw->dmar_block) |
++		FIELDX(DMA_CTRL_WDLY_CNT, DMA_CTRL_WDLY_CNT_DEF) |
++		FIELDX(DMA_CTRL_RDLY_CNT, DMA_CTRL_RDLY_CNT_DEF);
  
- 	AT_READ_REG(hw, REG_TXQ_CTRL, &data);
+ 	AT_WRITE_REG(hw, REG_DMA_CTRL, dma_ctrl_data);
+ }
 -- 
 1.7.7
