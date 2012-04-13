@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 23/37] atl1c: remove MDIO_REG_ADDR_MASK in atl1c_mdio_read/write
-Date: Fri, 13 Apr 2012 08:14:48 +0800
-Message-ID: <1334276102-15866-24-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 24/37] atl1c: remove REG_PHY_STATUS
+Date: Fri, 13 Apr 2012 08:14:49 +0800
+Message-ID: <1334276102-15866-25-git-send-email-xiong@qca.qualcomm.com>
 References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,41 +9,58 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 	xiong <xiong@qca.qualcomm.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:56269 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966581Ab2DMASf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 20:18:35 -0400
 In-Reply-To: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MDIO_REG_ADDR_MASK is already applied in function
-atl1c_write_phy_reg and atl1c_read_phy_reg
+this register is used for l1e(dev=1026)
+l1c/l1d/l2cb don't use it.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    7 -------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 --
+ 2 files changed, 0 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+index eaa1760..dfb1051 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+@@ -333,13 +333,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define MDIO_AP_EN              	0x10000000
+ #define MDIO_WAIT_TIMES         	10
+ 
+-/* MII PHY Status Register */
+-#define REG_PHY_STATUS           	0x1418
+-#define PHY_GENERAL_STATUS_MASK		0xFFFF
+-#define PHY_STATUS_RECV_ENABLE		0x0001
+-#define PHY_OE_PWSP_STATUS_MASK		0x07FF
+-#define PHY_OE_PWSP_STATUS_SHIFT	16
+-#define PHY_STATUS_LPW_STATE		0x80000000
+ /* BIST Control and Status Register0 (for the Packet Memory) */
+ #define REG_BIST0_CTRL              	0x141c
+ #define BIST0_NOW                   	0x1
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 8836c84..6534963 100644
+index 6534963..13aaf63 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -569,7 +569,7 @@ static int atl1c_mdio_read(struct net_device *netdev, int phy_id, int reg_num)
- 	struct atl1c_adapter *adapter = netdev_priv(netdev);
- 	u16 result;
+@@ -693,11 +693,9 @@ static void atl1c_set_mac_type(struct atl1c_hw *hw)
  
--	atl1c_read_phy_reg(&adapter->hw, reg_num & MDIO_REG_ADDR_MASK, &result);
-+	atl1c_read_phy_reg(&adapter->hw, reg_num, &result);
- 	return result;
- }
- 
-@@ -578,7 +578,7 @@ static void atl1c_mdio_write(struct net_device *netdev, int phy_id,
+ static int atl1c_setup_mac_funcs(struct atl1c_hw *hw)
  {
- 	struct atl1c_adapter *adapter = netdev_priv(netdev);
+-	u32 phy_status_data;
+ 	u32 link_ctrl_data;
  
--	atl1c_write_phy_reg(&adapter->hw, reg_num & MDIO_REG_ADDR_MASK, val);
-+	atl1c_write_phy_reg(&adapter->hw, reg_num, val);
- }
+ 	atl1c_set_mac_type(hw);
+-	AT_READ_REG(hw, REG_PHY_STATUS, &phy_status_data);
+ 	AT_READ_REG(hw, REG_LINK_CTRL, &link_ctrl_data);
  
- /*
+ 	hw->ctrl_flags = ATL1C_INTR_MODRT_ENABLE  |
 -- 
 1.7.7
