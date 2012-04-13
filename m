@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 37/37] atl1c: cancel task when interface closed
-Date: Fri, 13 Apr 2012 08:15:02 +0800
-Message-ID: <1334276102-15866-38-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 28/37] atl1c: remove PHY polling from atl1c_open
+Date: Fri, 13 Apr 2012 08:14:53 +0800
+Message-ID: <1334276102-15866-29-git-send-email-xiong@qca.qualcomm.com>
 References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,35 +9,37 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 	xiong <xiong@qca.qualcomm.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:48642 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966618Ab2DMAUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Apr 2012 20:20:54 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-common_task might be running while close routine is called,
-wait/cancel it.
+PHY polling code for FPGA is considered in every MDIO R/W API.
+no need to add additional code to atl1c_open.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    7 -------
+ 1 files changed, 0 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 4b9865b..55a7eed 100644
+index a85f2af..e43f42f 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -2313,6 +2313,7 @@ static int atl1c_close(struct net_device *netdev)
+@@ -2272,13 +2272,6 @@ static int atl1c_open(struct net_device *netdev)
+ 	if (unlikely(err))
+ 		goto err_up;
  
- 	WARN_ON(test_bit(__AT_RESETTING, &adapter->flags));
- 	atl1c_down(adapter);
-+	cancel_work_sync(&adapter->common_task);
- 	atl1c_free_ring_resources(adapter);
+-	if (adapter->hw.ctrl_flags & ATL1C_FPGA_VERSION) {
+-		u32 phy_data;
+-
+-		AT_READ_REG(&adapter->hw, REG_MDIO_CTRL, &phy_data);
+-		phy_data |= MDIO_CTRL_AP_EN;
+-		AT_WRITE_REG(&adapter->hw, REG_MDIO_CTRL, phy_data);
+-	}
  	return 0;
- }
+ 
+ err_up:
 -- 
 1.7.7
