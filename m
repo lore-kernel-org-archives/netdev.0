@@ -1,46 +1,26 @@
-From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 19/37] atl1c: clear bit MASTER_CTRL_CLK_SEL_DIS in atl1c_pcie_patch
-Date: Fri, 13 Apr 2012 08:14:44 +0800
-Message-ID: <1334276102-15866-20-git-send-email-xiong@qca.qualcomm.com>
-References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH] netfilter: ipvs: Verify that IP_VS protocol has been registered
+Date: Fri, 13 Apr 2012 02:54:13 +0200
+Message-ID: <CA+1xoqcxggYxb_ha4VdQtCUW-iYeVbaB38mC_pwAzdCf=rS7mQ@mail.gmail.com>
+References: <1333668273-8873-1-git-send-email-levinsasha928@gmail.com>
+ <20120411232243.GB7038@1984> <20120411234628.GA7253@1984>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
-	xiong <xiong@qca.qualcomm.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	kaber@trash.net, davem@davemloft.net, davej@redhat.com,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120411234628.GA7253@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-bit MASTER_CTRL_CLK_SEL_DIS could be set before enter suspend
-clear it after resume to enable pclk(PCIE clock) switch to
-low frequency(25M) in some circumstances to save power.
+On Thu, Apr 12, 2012 at 1:46 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+>> If you return here, I think you'll leave things in inconsistent state,
+>> ie. the tcp protocol is registered. You have to unregister it before
+>> leaving.
 
-Signed-off-by: xiong <xiong@qca.qualcomm.com>
-Tested-by: Liu David <dwliu@qca.qualcomm.com>
----
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 4fc824d..ddffc48 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -80,7 +80,12 @@ static const u32 atl1c_default_msg = NETIF_MSG_DRV | NETIF_MSG_PROBE |
- 	NETIF_MSG_LINK | NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP;
- static void atl1c_pcie_patch(struct atl1c_hw *hw)
- {
--	u32 data;
-+	u32 mst_data, data;
-+
-+	/* pclk sel could switch to 25M */
-+	AT_READ_REG(hw, REG_MASTER_CTRL, &mst_data);
-+	mst_data &= ~MASTER_CTRL_CLK_SEL_DIS;
-+	AT_WRITE_REG(hw, REG_MASTER_CTRL, mst_data);
- 
- 	AT_READ_REG(hw, REG_PCIE_PHYMISC, &data);
- 	data |= PCIE_PHYMISC_FORCE_RCV_DET;
--- 
-1.7.7
+I thought that the cleanup callback is getting called for failed init
+calls, if that's not the case then we can probably call it ourselves
+if any of these failed.
