@@ -1,79 +1,76 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 4/5] mac80211: Add more ethtools stats: survey, rates,
- etc
-Date: Fri, 13 Apr 2012 15:01:26 -0700
-Message-ID: <4F88A236.4040001@candelatech.com>
-References: <1334248375-22967-1-git-send-email-greearb@candelatech.com> <1334248375-22967-5-git-send-email-greearb@candelatech.com> <4F8705E3.2010902@openwrt.org> <4F870828.4020708@candelatech.com> <alpine.DEB.2.02.1204122352001.29503@icf.org.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <florian@openwrt.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Georgiewskiy Yuriy <bottleman@icf.org.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:41438 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932378Ab2DMWBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 18:01:38 -0400
-In-Reply-To: <alpine.DEB.2.02.1204122352001.29503@icf.org.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
+Subject: [PATCH RESEND v3 4/8] wdt: Device tree support for pnx4008-wdt
+Date: Sat, 14 Apr 2012 00:36:35 +0200
+Message-ID: <1334356600-20950-4-git-send-email-stigge@antcom.de>
+References: <1334356600-20950-1-git-send-email-stigge@antcom.de>
+Cc: Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
+To: arm-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, srinivas.bakki-3arQi8VN3Tc@public.gmane.org, kevin.wells-3arQi8VN3Tc@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org,
+	linux-watchdog-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wim-IQzOog9fTRqzQB+pC5nmwQ@public.gmane.org, jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1334356600-20950-1-git-send-email-stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/12/2012 12:53 PM, Georgiewskiy Yuriy wrote:
-> On 2012-04-12 09:51 -0700, Ben Greear wrote Florian Fainelli:
->
-> BG>On 04/12/2012 09:42 AM, Florian Fainelli wrote:
-> BG>>  Hi,
-> BG>>
-> BG>>  Le 04/12/12 18:32, greearb@candelatech.com a ?crit :
-> BG>>  >  From: Ben Greear<greearb@candelatech.com>
-> BG>>  >
-> BG>>  >  The signal and noise are forced to be positive since ethtool
-> BG>>  >  deals in unsigned 64-bit values and this number should be human
-> BG>>  >  readable. This gives easy access to some of the data formerly
-> BG>>  >  exposed in the deprecated /proc/net/wireless file.
-> BG>>
-> BG>>  Uh, that's misleading, the signal and noise values are typically negative,
-> BG>>  so one needs to think about mentally adding a minus sign if he/she wants to
-> BG>>  understand it. Does not ethtool know about 32-bits signed integers?
-> BG>
-> BG>Ethtool stats only supports u64.  I think it's easy enough for
-> BG>humans or programs to add the negative sign.  Can signal or noise
-> BG>ever be>  0?  If so, that could actually break something that depends
-> BG>on flipping the value to negative....
->
-> Don't know is this is a bug or it's reaaly can be positive, but:
->
-> iw dev mp0 station dump
-> Station 00:02:6f:b8:94:d3 (on mp0)
->      inactive time:	49 ms
->      rx bytes:	36318341
->      rx packets:	271741
->      tx bytes:	4180152
->      tx packets:	35445
->      tx retries:	7724
->      tx failed:	123
->      signal:  	1 dBm
->      signal avg:	-2 dBm
+This patch adds watchdog support to pnx4008-wdt.c
 
-So, how about I just cast it to u8 and pass that to user-space.
-Let user-space apps that care just understand the data is really just
-a signed 8-bit number for now.
+Signed-off-by: Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
+Reviewed-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 
-For the future, we can figure out a way to make ethtool
-API deal with different data types better.
+---
 
+ Applies to v3.4-rc2
 
-	if (survey.filled & SURVEY_INFO_NOISE_DBM)
-		data[i++] = (u8)(survey.noise & 0xff);
-	else
+ Documentation/devicetree/bindings/watchdog/pnx4008-wdt.txt |   13 +++++++++++++
+ drivers/watchdog/pnx4008_wdt.c                             |   10 ++++++++++
+ 2 files changed, 23 insertions(+)
 
-...
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--- /dev/null
++++ linux-2.6/Documentation/devicetree/bindings/watchdog/pnx4008-wdt.txt
+@@ -0,0 +1,13 @@
++* NXP PNX watchdog timer
++
++Required properties:
++- compatible: must be "nxp,pnx4008-wdt"
++- reg: physical base address of the controller and length of memory mapped
++  region.
++
++Example:
++
++	watchdog@4003C000 {
++		compatible = "nxp,pnx4008-wdt";
++		reg = <0x4003C000 0x1000>;
++	};
+--- linux-2.6.orig/drivers/watchdog/pnx4008_wdt.c
++++ linux-2.6/drivers/watchdog/pnx4008_wdt.c
+@@ -32,6 +32,7 @@
+ #include <linux/io.h>
+ #include <linux/slab.h>
+ #include <linux/err.h>
++#include <linux/of.h>
+ #include <mach/hardware.h>
+ 
+ /* WatchDog Timer - Chapter 23 Page 207 */
+@@ -201,10 +202,19 @@ static int __devexit pnx4008_wdt_remove(
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_OF
++static const struct of_device_id pnx4008_wdt_match[] = {
++	{ .compatible = "nxp,pnx4008-wdt" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, pnx4008_wdt_match);
++#endif
++
+ static struct platform_driver platform_wdt_driver = {
+ 	.driver = {
+ 		.name = "pnx4008-watchdog",
+ 		.owner	= THIS_MODULE,
++		.of_match_table = of_match_ptr(pnx4008_wdt_match),
+ 	},
+ 	.probe = pnx4008_wdt_probe,
+ 	.remove = __devexit_p(pnx4008_wdt_remove),
