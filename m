@@ -1,44 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next V7 PATCH] virtio-net: send gratuitous packets when
-	needed
-Date: Fri, 13 Apr 2012 13:38:04 -0400 (EDT)
-Message-ID: <20120413.133804.1504347944886702242.davem@davemloft.net>
-References: <20120412064351.23243.84912.stgit@amd-6168-8-1.englab.nay.redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] udp: intoduce udp_encap_needed
+	static_key
+Date: Fri, 13 Apr 2012 13:41:08 -0400 (EDT)
+Message-ID: <20120413.134108.1844473866612154303.davem@davemloft.net>
+References: <20120412074159.GA10866@verge.net.au>
+	<1334218829.5300.5903.camel@edumazet-glaptop>
+	<1334221528.5300.6008.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120412064351.23243.84912.stgit@amd-6168-8-1.englab.nay.redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcrl-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1334221528.5300.6008.camel@edumazet-glaptop>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 12 Apr 2012 14:43:52 +0800
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 12 Apr 2012 11:05:28 +0200
 
-> As hypervior does not have the knowledge of guest network configuration, it's
-> better to ask guest to send gratuitous packets when needed.
+> Most machines dont use UDP encapsulation (L2TP)
 > 
-> This patch implements VIRTIO_NET_F_GUEST_ANNOUNCE feature: hypervisor would
-> notice the guest when it thinks it's time for guest to announce the link
-> presnece. Guest tests VIRTIO_NET_S_ANNOUNCE bit during config change interrupt
-> and woule send gratuitous packets through netif_notify_peers() and ack the
-> notification through ctrl vq.
+> Adds a static_key so that udp_queue_rcv_skb() doesnt have to perform a
+> test if L2TP never setup the encap_rcv on a socket.
 > 
-> We need to make sure the atomicy of read and ack in guest otherwise we may ack
-> more times than being notified. This is done through handling the whole config
-> change interrupt in an non-reentrant workqueue.
+> Idea of this patch came after Simon Horman proposal to add a hook on TCP
+> as well.
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> If static_key is not yet enabled, the fast path does a single JMP .
+> 
+> When static_key is enabled, JMP destination is patched to reach the real
+> encap_type/encap_rcv logic, possibly adding cache misses.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Michael, Rusty, et al.?
+Applied to net-next, thanks Eric.
+
+Ban, please incorporate this scheme when you respin your
+fixed ipv6 encap/l2tp patches.
+
+Thanks.
