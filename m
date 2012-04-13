@@ -1,118 +1,71 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: suspicious RCU usage warnings in 3.3.0
-Date: Fri, 13 Apr 2012 06:35:13 -0700
-Message-ID: <20120413133513.GB2457@linux.vnet.ibm.com>
-References: <20120411171004.016ddd95@nehalam.linuxnetplumber.net>
- <20120411.201854.1070083308359208025.davem@davemloft.net>
- <20120412004507.GF2473@linux.vnet.ibm.com>
- <20120411.210843.716144028821174908.davem@davemloft.net>
- <20120412045428.GB2497@linux.vnet.ibm.com>
- <alpine.SOC.1.00.1204131444150.2736@math.ut.ee>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Stian Skjelstad" <stian@nixia.no>
+Subject: SV: Netlink, route monitoring, RTM_DELROUTE not issued for ppp peer address. Bug or feature?
+Date: Fri, 13 Apr 2012 15:59:34 +0200
+Message-ID: <023e01cd197d$a9faba40$fdf02ec0$@no>
+References: <8986ed37b55c756ecdeec0315f73e63a@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: mroos@linux.ee
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.SOC.1.00.1204131444150.2736@math.ut.ee>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "'Denys Fedoryshchenko'" <denys@visp.net.lb>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail48.e.nsc.no ([193.213.115.48]:37484 "EHLO mail48.e.nsc.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750852Ab2DMOLL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 10:11:11 -0400
+In-Reply-To: <8986ed37b55c756ecdeec0315f73e63a@visp.net.lb>
+Content-Language: no
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 13, 2012 at 02:55:12PM +0300, mroos@linux.ee wrote:
-> > sparc64: Eliminate obsolete __handle_softirq() function
-> > 
-> > The invocation of softirq is now handled by irq_exit(), so there is no
-> > need for sparc64 to invoke it on the trap-return path.  In fact, doing so
-> > is a bug because if the trap occurred in the idle loop, this invocation
-> > can result in lockdep-RCU failures.  The problem is that RCU ignores idle
-> > CPUs, and the sparc64 trap-return path to the softirq handlers fails to
-> > tell RCU that the CPU must be considered non-idle while those handlers
-> > are executing.  This means that RCU is ignoring any RCU read-side critical
-> > sections in those handlers, which in turn means that RCU-protected data
-> > can be yanked out from under those read-side critical sections.
-> > 
-> > The shiny new lockdep-RCU ability to detect RCU read-side critical sections
-> > that RCU is ignoring located this problem.
-> > 
-> > The fix is straightforward: Make sparc64 stop manually invoking the
-> > softirq handlers.
-> > 
-> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> 
-> It works for me on Sun Fire V100 - no more RCU warnings under ping 
-> flood.
-> 
-> Tested-by: Meelis Roos <mroos@linux.ee>
+I've seen the same issue, and got no response so far to that very same =
+question. Have you tested this on older kernels? I have worked around t=
+his issue by testing my local copy of routing entries that use 'via'. I=
+f they are not routable when after the RTM_DELROUTE event, I autoremove=
+ them from my local copy.
 
-OK, if this thing is going to actually work, I guess I need to update
-the changelog to give credit where it is due, please see below.
+Stian Skjelstad
 
-My main concern about my patch is my removal of this line:
+-----Opprinnelig melding-----
+=46ra: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.or=
+g] P=C3=A5 vegne av Denys Fedoryshchenko
+Sendt: 13. april 2012 14:11
+Til: netdev@vger.kernel.org
+Emne: Netlink, route monitoring, RTM_DELROUTE not issued for ppp peer a=
+ddress. Bug or feature?
 
-	bne,pn			%icc, __handle_softirq
+Hi
 
-It is quite possible that this should instead change to look as follows:
+I am trying to implement my own routing daemon, and using RTMGRP_IPV4_R=
+OUTE to monitor routes.
+I notice, that on PPPoE, when interface disappearing, RTM_DELROUTE will=
+ be sent to listener only for local address, but nothing about peer add=
+ress attached to this interface.
 
-	bne,pn			%icc, __handle_preemption
+CBSS_PPPoE ~ # ifconfig ppp0
+ppp0      Link encap:Point-to-Point Protocol
+           inet addr:172.16.146.1  P-t-P:172.16.146.10
+Mask:255.255.255.255
+           UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1200  Metric:1
+           RX packets:40439 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:63211 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:3
+           RX bytes:3584507 (3.4 MiB)  TX bytes:47180929 (44.9 MiB)
 
-This code is under #ifndef CONFIG_SMP, so Meelis's testing would not
-reach it.
+CBSS_PPPoE ~ # pppkill tek234@visp.net.lb  (this is killing pppd proces=
+s for ppp0 interface)
 
-Anyway, patch with updated changelog below.
+ip monitor route will show only RTM_DELROUTE for RTN_LOCAL, but nothing=
+ about RTN_UNICAST for 172.16.146.10.
+"Deleted local 172.16.146.1 dev ppp0  table local  proto kernel  scope =
+host  src 172.16.146.1"
+My program also receive same.
 
-							Thanx, Paul
+Is it a bug, that no RTM_DELROUTE issued for peer ip address? Or should=
+ i monitor also RTMGRP_IPV4_IFADDR for link disappearance?
 
-------------------------------------------------------------------------
-
-sparc64: Eliminate obsolete __handle_softirq() function
-
-The invocation of softirq is now handled by irq_exit(), so there is no
-need for sparc64 to invoke it on the trap-return path.  In fact, doing so
-is a bug because if the trap occurred in the idle loop, this invocation
-can result in lockdep-RCU failures.  The problem is that RCU ignores idle
-CPUs, and the sparc64 trap-return path to the softirq handlers fails to
-tell RCU that the CPU must be considered non-idle while those handlers
-are executing.  This means that RCU is ignoring any RCU read-side critical
-sections in those handlers, which in turn means that RCU-protected data
-can be yanked out from under those read-side critical sections.
-
-The shiny new lockdep-RCU ability to detect RCU read-side critical sections
-that RCU is ignoring located this problem.
-
-The fix is straightforward: Make sparc64 stop manually invoking the
-softirq handlers.
-
-Reported-by: Meelis Roos <mroos@linux.ee>
-Suggested-by: David Miller <davem@davemloft.net>
-Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Tested-by: Meelis Roos <mroos@linux.ee>
-
-diff --git a/arch/sparc/kernel/rtrap_64.S b/arch/sparc/kernel/rtrap_64.S
-index 77f1b95..9171fc2 100644
---- a/arch/sparc/kernel/rtrap_64.S
-+++ b/arch/sparc/kernel/rtrap_64.S
-@@ -20,11 +20,6 @@
- 
- 		.text
- 		.align			32
--__handle_softirq:
--		call			do_softirq
--		 nop
--		ba,a,pt			%xcc, __handle_softirq_continue
--		 nop
- __handle_preemption:
- 		call			schedule
- 		 wrpr			%g0, RTRAP_PSTATE, %pstate
-@@ -89,9 +84,7 @@ rtrap:
- 		cmp			%l1, 0
- 
- 		/* mm/ultra.S:xcall_report_regs KNOWS about this load. */
--		bne,pn			%icc, __handle_softirq
- 		 ldx			[%sp + PTREGS_OFF + PT_V9_TSTATE], %l1
--__handle_softirq_continue:
- rtrap_xcall:
- 		sethi			%hi(0xf << 20), %l4
- 		and			%l1, %l4, %l4
+Thanks for help!
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in th=
+e body of a message to majordomo@vger.kernel.org More majordomo info at=
+  http://vger.kernel.org/majordomo-info.html
