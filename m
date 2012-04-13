@@ -1,63 +1,30 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: [PATCH net-next] neighbour: Make neigh_table_init_no_netlink()
- static.
-Date: Sat, 14 Apr 2012 02:34:44 +0900
-Message-ID: <20120414023444.b253e677.shimoda.hiroaki@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: WIZnet drivers: fix possible NULL dereference
+Date: Fri, 13 Apr 2012 13:34:56 -0400 (EDT)
+Message-ID: <20120413.133456.399965170986039906.davem@davemloft.net>
+References: <20120410084006.GA27006@elgon.mountain>
+	<1334123633-11833-1-git-send-email-msink@permonline.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
+To: msink@permonline.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:37316 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751474Ab2DMRer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 13:34:47 -0400
-Received: by pbcun15 with SMTP id un15so3868701pbc.19
-        for <netdev@vger.kernel.org>; Fri, 13 Apr 2012 10:34:47 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:50982 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753158Ab2DMRfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 13:35:04 -0400
+In-Reply-To: <1334123633-11833-1-git-send-email-msink@permonline.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-neigh_table_init_no_netlink() is only used in net/core/neighbour.c file.
+From: Mike Sinkovsky <msink@permonline.ru>
+Date: Wed, 11 Apr 2012 11:53:53 +0600
 
-Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
----
- include/net/neighbour.h |    1 -
- net/core/neighbour.c    |    3 +--
- 2 files changed, 1 insertions(+), 3 deletions(-)
+> This fixes possible null dereference in probe() function: when both 
+> .mac_addr and .link_gpio are unknown, dev.platform_data may be NULL
+> 
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Mike Sinkovsky <msink@permonline.ru>
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 34c996f..63ebd70 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -195,7 +195,6 @@ static inline void *neighbour_priv(const struct neighbour *n)
- #define NEIGH_UPDATE_F_ADMIN			0x80000000
- 
- extern void			neigh_table_init(struct neigh_table *tbl);
--extern void			neigh_table_init_no_netlink(struct neigh_table *tbl);
- extern int			neigh_table_clear(struct neigh_table *tbl);
- extern struct neighbour *	neigh_lookup(struct neigh_table *tbl,
- 					     const void *pkey,
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index ac71765..2d3e6fc 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1500,7 +1500,7 @@ static void neigh_parms_destroy(struct neigh_parms *parms)
- 
- static struct lock_class_key neigh_table_proxy_queue_class;
- 
--void neigh_table_init_no_netlink(struct neigh_table *tbl)
-+static void neigh_table_init_no_netlink(struct neigh_table *tbl)
- {
- 	unsigned long now = jiffies;
- 	unsigned long phsize;
-@@ -1538,7 +1538,6 @@ void neigh_table_init_no_netlink(struct neigh_table *tbl)
- 	tbl->last_flush = now;
- 	tbl->last_rand	= now + tbl->parms.reachable_time * 20;
- }
--EXPORT_SYMBOL(neigh_table_init_no_netlink);
- 
- void neigh_table_init(struct neigh_table *tbl)
- {
--- 
-1.7.8.5
+Applied.
