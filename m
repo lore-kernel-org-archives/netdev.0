@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 05/37] atl1c: remove SMB/CMB DMA related code
-Date: Fri, 13 Apr 2012 08:14:30 +0800
-Message-ID: <1334276102-15866-6-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 06/37] atl1c: split 2 32bit registers of TPD to 4 16bit registers
+Date: Fri, 13 Apr 2012 08:14:31 +0800
+Message-ID: <1334276102-15866-7-git-send-email-xiong@qca.qualcomm.com>
 References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,193 +14,137 @@ In-Reply-To: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-l1c & later chips don't support DMA for SMB.
-CMB is removed from hardware.
-reg(15C8) is used to trig interrupt by tpd threshold.
+TPD producer/consumer index is 16bit wide.
+16bit read/write reduce the dependency of the 2 tpd rings (hi and lo) 
+rename reg(157C/1580) to keep name coninsistency.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c.h      |   19 +------------
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   10 +-----
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   34 ++---------------------
- 3 files changed, 6 insertions(+), 57 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c.h      |   10 +++++-
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   17 ++++-------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   34 +++++-----------------
+ 3 files changed, 22 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-index c725ee5..f8628bc 100644
+index f8628bc..16a5c7a 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-@@ -426,10 +426,6 @@ struct atl1c_hw {
- #define ATL1C_FPGA_VERSION              0x8000
- 	u16 link_cap_flags;
- #define ATL1C_LINK_CAP_1000M		0x0001
--	u16 cmb_tpd;
--	u16 cmb_rrd;
--	u16 cmb_rx_timer; /* 2us resolution */
--	u16 cmb_tx_timer;
- 	u32 smb_timer;
+@@ -583,8 +583,14 @@ struct atl1c_adapter {
+ #define AT_WRITE_REGW(a, reg, value) (\
+ 		writew((value), ((a)->hw_addr + reg)))
  
- 	u16 rrd_thresh; /* Threshold of number of RRD produced to trigger
-@@ -449,8 +445,7 @@ struct atl1c_hw {
+-#define AT_READ_REGW(a, reg) (\
+-		readw((a)->hw_addr + reg))
++#define AT_READ_REGW(a, reg, pdata) do {				\
++		if (unlikely((a)->hibernate)) {				\
++			readw((a)->hw_addr + reg);			\
++			*(u16 *)pdata = readw((a)->hw_addr + reg);	\
++		} else {						\
++			*(u16 *)pdata = readw((a)->hw_addr + reg);	\
++		}							\
++	} while (0)
  
- /*
-  * atl1c_ring_header represents a single, contiguous block of DMA space
-- * mapped for the three descriptor rings (tpd, rfd, rrd) and the two
-- * message blocks (cmb, smb) described below
-+ * mapped for the three descriptor rings (tpd, rfd, rrd) described below
-  */
- struct atl1c_ring_header {
- 	void *desc;		/* virtual address */
-@@ -524,16 +519,6 @@ struct atl1c_rrd_ring {
- 	u16 next_to_clean;
- };
- 
--struct atl1c_cmb {
--	void *cmb;
--	dma_addr_t dma;
--};
--
--struct atl1c_smb {
--	void *smb;
--	dma_addr_t dma;
--};
--
- /* board specific private data structure */
- struct atl1c_adapter {
- 	struct net_device   *netdev;
-@@ -571,8 +556,6 @@ struct atl1c_adapter {
- 	struct atl1c_tpd_ring tpd_ring[AT_MAX_TRANSMIT_QUEUE];
- 	struct atl1c_rfd_ring rfd_ring;
- 	struct atl1c_rrd_ring rrd_ring;
--	struct atl1c_cmb cmb;
--	struct atl1c_smb smb;
- 	u32 bd_number;     /* board number;*/
- };
- 
+ #define AT_WRITE_REG_ARRAY(a, reg, offset, value) ( \
+ 		writel((value), (((a)->hw_addr + reg) + ((offset) << 2))))
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index f5c7473..caff2ae 100644
+index caff2ae..ca45fad 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -447,8 +447,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
-  */
- #define REG_RX_BASE_ADDR_HI		0x1540
- #define REG_TX_BASE_ADDR_HI		0x1544
--#define REG_SMB_BASE_ADDR_HI		0x1548
--#define REG_SMB_BASE_ADDR_LO		0x154C
- #define REG_RFD0_HEAD_ADDR_LO		0x1550
- #define REG_RFD_RING_SIZE		0x1560
- #define RFD_RING_SIZE_MASK		0x0FFF
-@@ -461,7 +459,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define REG_NTPD_HEAD_ADDR_LO		0x1580
+@@ -455,8 +455,8 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define REG_RRD0_HEAD_ADDR_LO		0x1568
+ #define REG_RRD_RING_SIZE		0x1578
+ #define RRD_RING_SIZE_MASK		0x0FFF
+-#define REG_HTPD_HEAD_ADDR_LO		0x157C
+-#define REG_NTPD_HEAD_ADDR_LO		0x1580
++#define REG_TPD_PRI1_ADDR_LO		0x157C
++#define REG_TPD_PRI0_ADDR_LO		0x1580
  #define REG_TPD_RING_SIZE		0x1584
  #define TPD_RING_SIZE_MASK		0xFFFF
--#define REG_CMB_BASE_ADDR_LO		0x1588
  
- /* TXQ Control Register */
- #define REG_TXQ_CTRL                	0x1590
-@@ -556,13 +553,10 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define MAC_CTRL_SMB_DIS		0x1000000
- #define DMA_CTRL_SMB_NOW		0x80000000
- 
--/* CMB/SMB Control Register */
-+/* INT-triggle/SMB Control Register */
- #define REG_SMB_STAT_TIMER		0x15C4	/* 2us resolution */
- #define SMB_STAT_TIMER_MASK		0xFFFFFF
--#define REG_CMB_TPD_THRESH		0x15C8
--#define CMB_TPD_THRESH_MASK		0xFFFF
--#define REG_CMB_TX_TIMER		0x15CC	/* 2us resolution */
--#define CMB_TX_TIMER_MASK		0xFFFF
-+#define REG_TINT_TPD_THRESH             0x15C8 /* tpd th to trig intrrupt */
- 
- /* Mail box */
+@@ -562,15 +562,10 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
  #define MB_RFDX_PROD_IDX_MASK		0xFFFF
+ #define REG_MB_RFD0_PROD_IDX		0x15E0
+ 
+-#define MB_PRIO_PROD_IDX_MASK		0xFFFF
+-#define REG_MB_PRIO_PROD_IDX		0x15F0
+-#define MB_HTPD_PROD_IDX_SHIFT		0
+-#define MB_NTPD_PROD_IDX_SHIFT		16
+-
+-#define MB_PRIO_CONS_IDX_MASK		0xFFFF
+-#define REG_MB_PRIO_CONS_IDX		0x15F4
+-#define MB_HTPD_CONS_IDX_SHIFT		0
+-#define MB_NTPD_CONS_IDX_SHIFT		16
++#define REG_TPD_PRI1_PIDX               0x15F0	/* 16bit,hi-tpd producer idx */
++#define REG_TPD_PRI0_PIDX		0x15F2	/* 16bit,lo-tpd producer idx */
++#define REG_TPD_PRI1_CIDX		0x15F4	/* 16bit,hi-tpd consumer idx */
++#define REG_TPD_PRI0_CIDX		0x15F6	/* 16bit,lo-tpd consumer idx */
+ 
+ #define REG_MB_RFD01_CONS_IDX		0x15F8
+ #define MB_RFD0_CONS_IDX_MASK		0x0000FFFF
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 885e892..ceb9df5 100644
+index ceb9df5..c7d7640 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -733,8 +733,6 @@ static int __devinit atl1c_sw_init(struct atl1c_adapter *adapter)
+@@ -995,10 +995,10 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
+ 			(u32)((tpd_ring[atl1c_trans_normal].dma &
+ 				AT_DMA_HI_ADDR_MASK) >> 32));
+ 	/* just enable normal priority TX queue */
+-	AT_WRITE_REG(hw, REG_NTPD_HEAD_ADDR_LO,
++	AT_WRITE_REG(hw, REG_TPD_PRI0_ADDR_LO,
+ 			(u32)(tpd_ring[atl1c_trans_normal].dma &
+ 				AT_DMA_LO_ADDR_MASK));
+-	AT_WRITE_REG(hw, REG_HTPD_HEAD_ADDR_LO,
++	AT_WRITE_REG(hw, REG_TPD_PRI1_ADDR_LO,
+ 			(u32)(tpd_ring[atl1c_trans_high].dma &
+ 				AT_DMA_LO_ADDR_MASK));
+ 	AT_WRITE_REG(hw, REG_TPD_RING_SIZE,
+@@ -1519,16 +1519,11 @@ static bool atl1c_clean_tx_irq(struct atl1c_adapter *adapter,
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	u16 next_to_clean = atomic_read(&tpd_ring->next_to_clean);
+ 	u16 hw_next_to_clean;
+-	u16 shift;
+-	u32 data;
++	u16 reg;
  
- 	hw->ict = 50000;		/* 100ms */
- 	hw->smb_timer = 200000;	  	/* 400ms */
--	hw->cmb_tpd = 4;
--	hw->cmb_tx_timer = 1;		/* 2 us  */
- 	hw->rx_imt = 200;
- 	hw->tx_imt = 1000;
- 
-@@ -943,8 +941,7 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
- 		sizeof(struct atl1c_tpd_desc) * tpd_ring->count * 2 +
- 		sizeof(struct atl1c_rx_free_desc) * rx_desc_count +
- 		sizeof(struct atl1c_recv_ret_status) * rx_desc_count +
--		sizeof(struct atl1c_hw_stats) +
--		8 * 4 + 8 * 2;
-+		8 * 4;
- 
- 	ring_header->desc = pci_alloc_consistent(pdev, ring_header->size,
- 				&ring_header->dma);
-@@ -977,8 +974,6 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
- 		rrd_ring->count;
- 	offset += roundup(rrd_ring->size, 8);
- 
--	adapter->smb.dma = ring_header->dma + offset;
--	adapter->smb.smb = (u8 *)ring_header->desc + offset;
- 	return 0;
- 
- err_nomem:
-@@ -993,8 +988,6 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
- 	struct atl1c_rrd_ring *rrd_ring = &adapter->rrd_ring;
- 	struct atl1c_tpd_ring *tpd_ring = (struct atl1c_tpd_ring *)
- 				adapter->tpd_ring;
--	struct atl1c_cmb *cmb = (struct atl1c_cmb *) &adapter->cmb;
--	struct atl1c_smb *smb = (struct atl1c_smb *) &adapter->smb;
- 	u32 data;
- 
- 	/* TPD */
-@@ -1029,14 +1022,6 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
- 	AT_WRITE_REG(hw, REG_RRD_RING_SIZE,
- 			(rrd_ring->count & RRD_RING_SIZE_MASK));
- 
--	/* CMB */
--	AT_WRITE_REG(hw, REG_CMB_BASE_ADDR_LO, cmb->dma & AT_DMA_LO_ADDR_MASK);
--
--	/* SMB */
--	AT_WRITE_REG(hw, REG_SMB_BASE_ADDR_HI,
--			(u32)((smb->dma & AT_DMA_HI_ADDR_MASK) >> 32));
--	AT_WRITE_REG(hw, REG_SMB_BASE_ADDR_LO,
--			(u32)(smb->dma & AT_DMA_LO_ADDR_MASK));
- 	if (hw->nic_type == athr_l2c_b) {
- 		AT_WRITE_REG(hw, REG_SRAM_RXF_LEN, 0x02a0L);
- 		AT_WRITE_REG(hw, REG_SRAM_TXF_LEN, 0x0100L);
-@@ -1115,12 +1100,6 @@ static void atl1c_configure_dma(struct atl1c_adapter *adapter)
- 	u32 dma_ctrl_data;
- 
- 	dma_ctrl_data = DMA_CTRL_DMAR_REQ_PRI;
--	if (hw->ctrl_flags & ATL1C_CMB_ENABLE)
--		dma_ctrl_data |= DMA_CTRL_CMB_EN;
--	if (hw->ctrl_flags & ATL1C_SMB_ENABLE)
--		dma_ctrl_data |= DMA_CTRL_SMB_EN;
+-	if (type == atl1c_trans_high)
+-		shift = MB_HTPD_CONS_IDX_SHIFT;
 -	else
--		dma_ctrl_data |= MAC_CTRL_SMB_DIS;
+-		shift = MB_NTPD_CONS_IDX_SHIFT;
++	reg = type == atl1c_trans_high ? REG_TPD_PRI1_CIDX : REG_TPD_PRI0_CIDX;
  
- 	switch (hw->dma_order) {
- 	case atl1c_dma_ord_in:
-@@ -1440,16 +1419,9 @@ static int atl1c_configure(struct atl1c_adapter *adapter)
- 	master_ctrl_data |= MASTER_CTRL_SA_TIMER_EN;
- 	AT_WRITE_REG(hw, REG_MASTER_CTRL, master_ctrl_data);
+-	AT_READ_REG(&adapter->hw, REG_MB_PRIO_CONS_IDX, &data);
+-	hw_next_to_clean = (data >> shift) & MB_PRIO_PROD_IDX_MASK;
++	AT_READ_REGW(&adapter->hw, reg, &hw_next_to_clean);
  
--	if (hw->ctrl_flags & ATL1C_CMB_ENABLE) {
--		AT_WRITE_REG(hw, REG_CMB_TPD_THRESH,
--			hw->cmb_tpd & CMB_TPD_THRESH_MASK);
--		AT_WRITE_REG(hw, REG_CMB_TX_TIMER,
--			hw->cmb_tx_timer & CMB_TX_TIMER_MASK);
+ 	while (next_to_clean != hw_next_to_clean) {
+ 		buffer_info = &tpd_ring->buffer_info[next_to_clean];
+@@ -2090,23 +2085,10 @@ static void atl1c_tx_queue(struct atl1c_adapter *adapter, struct sk_buff *skb,
+ 			   struct atl1c_tpd_desc *tpd, enum atl1c_trans_queue type)
+ {
+ 	struct atl1c_tpd_ring *tpd_ring = &adapter->tpd_ring[type];
+-	u32 prod_data;
++	u16 reg;
+ 
+-	AT_READ_REG(&adapter->hw, REG_MB_PRIO_PROD_IDX, &prod_data);
+-	switch (type) {
+-	case atl1c_trans_high:
+-		prod_data &= 0xFFFF0000;
+-		prod_data |= tpd_ring->next_to_use & 0xFFFF;
+-		break;
+-	case atl1c_trans_normal:
+-		prod_data &= 0x0000FFFF;
+-		prod_data |= (tpd_ring->next_to_use & 0xFFFF) << 16;
+-		break;
+-	default:
+-		break;
 -	}
-+	AT_WRITE_REG(hw, REG_SMB_STAT_TIMER,
-+		hw->smb_timer & SMB_STAT_TIMER_MASK);
+-	wmb();
+-	AT_WRITE_REG(&adapter->hw, REG_MB_PRIO_PROD_IDX, prod_data);
++	reg = type == atl1c_trans_high ? REG_TPD_PRI1_PIDX : REG_TPD_PRI0_PIDX;
++	AT_WRITE_REGW(&adapter->hw, reg, tpd_ring->next_to_use);
+ }
  
--	if (hw->ctrl_flags & ATL1C_SMB_ENABLE)
--		AT_WRITE_REG(hw, REG_SMB_STAT_TIMER,
--			hw->smb_timer & SMB_STAT_TIMER_MASK);
- 	/* set MTU */
- 	AT_WRITE_REG(hw, REG_MTU, hw->max_frame_size + ETH_HLEN +
- 			VLAN_HLEN + ETH_FCS_LEN);
+ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
 -- 
 1.7.7
