@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]Fix misplaces parenthesis in virtio_net.c
-Date: Fri, 13 Apr 2012 11:05:52 -0400 (EDT)
-Message-ID: <20120413.110552.522790652681369943.davem@davemloft.net>
-References: <20120409171415.4c49c96a@googlemail.com>
+Subject: Re: [PATCH 0/2] l2tp: l2tp_ip socket fixes
+Date: Fri, 13 Apr 2012 11:06:45 -0400 (EDT)
+Message-ID: <20120413.110645.2101243409451679048.davem@davemloft.net>
+References: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: just.for.lkml@googlemail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120409171415.4c49c96a@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jchapman@katalix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:49617 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910Ab2DMPGx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 11:06:53 -0400
+In-Reply-To: <1334052643-10910-1-git-send-email-jchapman@katalix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Torsten Kaiser <just.for.lkml@googlemail.com>
-Date: Mon, 9 Apr 2012 17:14:15 +0200
+From: James Chapman <jchapman@katalix.com>
+Date: Tue, 10 Apr 2012 11:10:41 +0100
 
-> Commit 2e57b79ccef1ff1422fdf45a9b28fe60f8f084f7 misplaced its
-> parenthesis and now tx_fifo_errors will only be incremented if an
-> ENOMEM error is not written to the syslog.
+> A couple of small fixes for the l2tp_ip socket support. This is for
+> L2TPv3 IP link encapsulation.
 > 
-> Correct the parenthesis and indentation to the original goal of
-> counting all non ENOMEM errors and ratelimiting only the messages.
-> 
-> Signed-of-by: Torsten Kaiser <just.for.lkml@googlemail.com>
+> [PATCH 1/2] l2tp: fix refcount leak in l2tp_ip sockets
+> [PATCH 2/2] l2tp: don't overwrite source address in l2tp_ip_bind()
 
-Applied, thank you.
+Both applied, although I hope patch #2 doesn't unintentionally break
+things for someone.  It's not unreasonable to think that someone may
+be depending upon that saddr being set to INADDR_ANY in that case
+you're changing.
