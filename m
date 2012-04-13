@@ -1,37 +1,98 @@
-From: Alexandru Copot <alex.mihai.c@gmail.com>
-Subject: Re: [PATCH net-next v2] tcp: bind() use stronger condition for bind_conflict
-Date: Fri, 13 Apr 2012 11:12:20 +0300
-Message-ID: <CAHG7+CDzOOi3puF3XK3jb8QkqTdyeBNmi5RNbVfDtd-JT_jhyw@mail.gmail.com>
-References: <1333698444-24144-1-git-send-email-alex.mihai.c@gmail.com>
-	<1334302258.9375.5.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] inet: makes syn_ack_timeout mandatory
+Date: Fri, 13 Apr 2012 10:16:05 +0200
+Message-ID: <1334304965.5300.8713.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, fbl@redhat.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, Daniel Baluta <dbaluta@ixiacom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:55464 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754741Ab2DMIMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 04:12:20 -0400
-Received: by iagz16 with SMTP id z16so3933845iag.19
-        for <netdev@vger.kernel.org>; Fri, 13 Apr 2012 01:12:20 -0700 (PDT)
-In-Reply-To: <1334302258.9375.5.camel@edumazet-laptop>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:37277 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757187Ab2DMIQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 04:16:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 13, 2012 at 10:30 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Excellent patch Alex !
+From: : Eric Dumazet <edumazet@google.com>
 
-Thanks, Eric !
+There are two struct request_sock_ops providers, tcp and dccp.
 
-> Two minor coding style problems in this part :
-> Correct indentation, and one empty line after variable declaration :
+inet_csk_reqsk_queue_prune() can avoid testing syn_ack_timeout being
+NULL if we make it non NULL like syn_ack_timeout
 
-I will fix those. That empty line is missing because that's the way it
-was in the code above my changes, but I will add it.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org
+---
+ include/linux/dccp.h            |    2 ++
+ net/dccp/ipv4.c                 |    6 ++++++
+ net/dccp/ipv6.c                 |    1 +
+ net/ipv4/inet_connection_sock.c |    3 +--
+ 4 files changed, 10 insertions(+), 2 deletions(-)
 
-Should I send a v3 or reply here with the new patch ?
-
-Alex Copot
+diff --git a/include/linux/dccp.h b/include/linux/dccp.h
+index eaf95a0..d16294e 100644
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -549,6 +549,8 @@ static inline const char *dccp_role(const struct sock *sk)
+ 	return NULL;
+ }
+ 
++extern void dccp_syn_ack_timeout(struct sock *sk, struct request_sock *req);
++
+ #endif /* __KERNEL__ */
+ 
+ #endif /* _LINUX_DCCP_H */
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index caf6e17..059cda9 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -574,6 +574,11 @@ static void dccp_v4_reqsk_destructor(struct request_sock *req)
+ 	kfree(inet_rsk(req)->opt);
+ }
+ 
++void dccp_syn_ack_timeout(struct sock *sk, struct request_sock *req)
++{
++}
++EXPORT_SYMBOL(dccp_syn_ack_timeout);
++
+ static struct request_sock_ops dccp_request_sock_ops __read_mostly = {
+ 	.family		= PF_INET,
+ 	.obj_size	= sizeof(struct dccp_request_sock),
+@@ -581,6 +586,7 @@ static struct request_sock_ops dccp_request_sock_ops __read_mostly = {
+ 	.send_ack	= dccp_reqsk_send_ack,
+ 	.destructor	= dccp_v4_reqsk_destructor,
+ 	.send_reset	= dccp_v4_ctl_send_reset,
++	.syn_ack_timeout = dccp_syn_ack_timeout,
+ };
+ 
+ int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 4dc588f..bd539b2 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -343,6 +343,7 @@ static struct request_sock_ops dccp6_request_sock_ops = {
+ 	.send_ack	= dccp_reqsk_send_ack,
+ 	.destructor	= dccp_v6_reqsk_destructor,
+ 	.send_reset	= dccp_v6_ctl_send_reset,
++	.syn_ack_timeout = dccp_syn_ack_timeout,
+ };
+ 
+ static struct sock *dccp_v6_hnd_req(struct sock *sk,struct sk_buff *skb)
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 19d66ce..664e9fc 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -555,8 +555,7 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
+ 				syn_ack_recalc(req, thresh, max_retries,
+ 					       queue->rskq_defer_accept,
+ 					       &expire, &resend);
+-				if (req->rsk_ops->syn_ack_timeout)
+-					req->rsk_ops->syn_ack_timeout(parent, req);
++				req->rsk_ops->syn_ack_timeout(parent, req);
+ 				if (!expire &&
+ 				    (!resend ||
+ 				     !req->rsk_ops->rtx_syn_ack(parent, req, NULL) ||
