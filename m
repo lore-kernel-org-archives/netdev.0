@@ -1,35 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] ipgre: follow state of lower device
-Date: Sat, 14 Apr 2012 14:53:02 -0400 (EDT)
-Message-ID: <20120414.145302.154475725141872738.davem@davemloft.net>
-References: <20120412163115.076119065@vyatta.com>
-	<20120412163142.544953001@vyatta.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH] bonding: start slaves with link down for ARP monitor
+Date: Sat, 14 Apr 2012 21:09:29 +0200
+Message-ID: <20120414190929.GA8424@lion.mk-sys.cz>
+References: <94e5ccf29d92f9a4b815f895b6bb8d9f326566cb.1334256203.git.mkubecek@suse.cz>
+ <20120414015319.11e196d4@asterix.rh>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59432 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755366Ab2DNSxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2012 14:53:04 -0400
-In-Reply-To: <20120412163142.544953001@vyatta.com>
+Received: from kubecekserver.ph.gin.cz ([212.71.128.105]:56318 "EHLO
+	kubecekserver.ph.gin.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752253Ab2DNTJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2012 15:09:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20120414015319.11e196d4@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 12 Apr 2012 09:31:17 -0700
-
-> GRE tunnels like other layered devices should propogate
-> carrier and RFC2863 state from lower device to tunnel.
+On Sat, Apr 14, 2012 at 01:53:19AM -0300, Flavio Leitner wrote:
+> On Thu, 12 Apr 2012 20:38:09 +0200
+> Michal Kubecek <mkubecek@suse.cz> wrote:
+> >  	new_slave->last_arp_rx = jiffies;
+> > +	if (bond->params.arp_interval)
+> > +		new_slave->last_arp_rx -=
+> > +			(msecs_to_jiffies(bond->params.arp_interval) + 1);
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> I don't see the point of checking bond->params.arp_interval.
+> Why not simply:
+> 
+> - 	new_slave->last_arp_rx = jiffies;
+> +	/* put it behind to avoid fake initial link up detection */
+> +	new_slave->last_arp_rx = jiffies -
+> +		 (msecs_to_jiffies(bond->params.arp_interval) + 1);
 
-Like others I don't like the ugly hash traversal.
+The idea was to avoid calculation when ARP monitoring is off. But
+thinking it over again, this part of the code is not that performance
+critical and the conditional jump may be in fact worse than the two
+instructions it would jump over.
 
-A small hash on ifindex, iflink, or whatever ought to be easy and make
-the code look much nicer.
-
-Longer term project is that a lot of this tunneling code can be
-commonized at some point.
+                                                       Michal Kubecek
