@@ -1,69 +1,48 @@
-From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 04/12] atl1c: remove VPD register
-Date: Sat, 14 Apr 2012 17:59:20 +0800
-Message-ID: <1334397568-8444-5-git-send-email-xiong@qca.qualcomm.com>
-References: <1334397568-8444-1-git-send-email-xiong@qca.qualcomm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: via-rhine: Problem with lost link after a while
+Date: Sat, 14 Apr 2012 12:06:01 +0200
+Message-ID: <20120414100601.GA11698@electric-eye.fr.zoreil.com>
+References: <CACPM=kWa=UWuCMaYAtVMGJ7pzCy-PfyNRWBSuJnTZGtssU0W6g@mail.gmail.com> <20120410204249.GA26627@electric-eye.fr.zoreil.com> <CACPM=kWsU8QZOHqwEThTQCuSSvaTDoxO1d17EyoW=+kx8QG3vw@mail.gmail.com> <20120410225534.GA28480@electric-eye.fr.zoreil.com> <CACPM=kXGyxgfwzMxAhx-jUL1hYMAqWc7=9gfYcgV=xebAQ=+Og@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
-	xiong <xiong@qca.qualcomm.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:62721 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753666Ab2DNKAz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2012 06:00:55 -0400
-In-Reply-To: <1334397568-8444-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Svenning =?utf-8?B?U8O4cmVuc2Vu?= <sss@secomea.com>,
+	Andreas Mohr <andi@lisas.de>
+To: Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACPM=kXGyxgfwzMxAhx-jUL1hYMAqWc7=9gfYcgV=xebAQ=+Og@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-VPD register is only used for L1(devid=PCI_DEVICE_ID_ATTANSIC_L1) to
-access external NV-memory.
-l1c & later chip doesn't use it any more.
-no special userspace tool interpret the dumpped registers.
-dumpping them via ethtool is just for debug.
+Bjarke Istrup Pedersen <gurligebis@gentoo.org> :
+[...]
+> I've been testing v3.4-rc2 with this patch applied for the past few
+> days, with alot of trafic across, both incoming and outgoing, with VPN
+> which is normally what can trigger problems, and it seems rock solid
+> :o)
 
-Signed-off-by: xiong <xiong@qca.qualcomm.com>
-Tested-by: Liu David <dwliu@qca.qualcomm.com>
----
- drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c |    1 -
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h      |   11 -----------
- 2 files changed, 0 insertions(+), 12 deletions(-)
+Thanks.
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-index 0a9326a..ce63615 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-@@ -142,7 +142,6 @@ static void atl1c_get_regs(struct net_device *netdev,
- 	memset(p, 0, AT_REGS_LEN);
- 
- 	regs->version = 0;
--	AT_READ_REG(hw, REG_VPD_CAP, 		  p++);
- 	AT_READ_REG(hw, REG_PM_CTRL, 		  p++);
- 	AT_READ_REG(hw, REG_MAC_HALF_DUPLX_CTRL,  p++);
- 	AT_READ_REG(hw, REG_TWSI_CTRL, 		  p++);
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index c22d698..f5c7473 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -59,17 +59,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define LINK_CTRL_L1_EN			0x02
- #define LINK_CTRL_EXT_SYNC		0x80
- 
--#define REG_VPD_CAP			0x6C
--#define VPD_CAP_ID_MASK                 0xff
--#define VPD_CAP_ID_SHIFT                0
--#define VPD_CAP_NEXT_PTR_MASK           0xFF
--#define VPD_CAP_NEXT_PTR_SHIFT          8
--#define VPD_CAP_VPD_ADDR_MASK           0x7FFF
--#define VPD_CAP_VPD_ADDR_SHIFT          16
--#define VPD_CAP_VPD_FLAG                0x80000000
--
--#define REG_VPD_DATA                	0x70
--
- #define REG_PCIE_UC_SEVERITY		0x10C
- #define PCIE_UC_SERVRITY_TRN		0x00000001
- #define PCIE_UC_SERVRITY_DLP		0x00000010
--- 
-1.7.7
+> Do you need me to do any specific testing of this patch?
+
+See below. 
+
+Changes of behavior should be reported for this patch over plain 3.4-rc2 or
+current 3.3-stable as both include Andreas's fix.
+
+Otherwise it can not be labelled it as a fix : it does not go into 3.4-rc
+nor 3.3-stable but proceeds through net-next where it will land into
+3.5-rc then -stable.
+
+One can not exercize the Tx xmit vs napi Tx completion race part of the
+patch with a single core. Afaiui non-Soekris users are needed here.
+
+Even if you don't experience change of behavior over 3.4-rc or 3.3-stable,
+some longterm use of this driver would be welcome. It may end as an effort
+for 3.5-rc though.
+
+--
+Ueimor
+
+Will code drivers for food.
