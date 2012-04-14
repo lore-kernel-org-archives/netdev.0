@@ -1,40 +1,54 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: [PATCH net-next] tcp:Remove redundant code entering quickack mode
-Date: Fri, 13 Apr 2012 16:23:59 -0700
-Message-ID: <1334359439-10147-1-git-send-email-subramanian.vijay@gmail.com>
-Cc: davem@davemloft.net,
-	Vijay Subramanian <subramanian.vijay@gmail.com>
-To: netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/2] net: In unregister_netdevice_notifier unregister the netdevices.
+Date: Fri, 13 Apr 2012 17:03:00 -0700
+Message-ID: <m18vhz6uyz.fsf@fess.ebiederm.org>
+References: <CA+1xoqdi4QOhRJvBA64pxiN3EphhThjPkf4eLRkYM8jxcJjh=w@mail.gmail.com>
+	<m1mx6otk85.fsf@fess.ebiederm.org>
+	<m1aa2otjf4.fsf_-_@fess.ebiederm.org>
+	<20120413.110505.1391379079973352104.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, ericvh@gmail.com, davej@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	levinsasha928@gmail.com, remi.denis-courmont@nokia.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:57992 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757264Ab2DMXXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 19:23:23 -0400
-Received: by pbcun15 with SMTP id un15so4130314pbc.19
-        for <netdev@vger.kernel.org>; Fri, 13 Apr 2012 16:23:22 -0700 (PDT)
+Received: from out03.mta.xmission.com ([166.70.13.233]:34892 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757263Ab2DMX7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Apr 2012 19:59:08 -0400
+In-Reply-To: <20120413.110505.1391379079973352104.davem@davemloft.net> (David
+	Miller's message of "Fri, 13 Apr 2012 11:05:05 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp_enter_quickack_mode() already calls tcp_incr_quickack() and sets
-icsk->icsk_ack.ato  to TCP_ATO_MIN. This patch removes the duplication.
+David Miller <davem@davemloft.net> writes:
 
-Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
----
- net/ipv4/tcp_input.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Fri, 06 Apr 2012 18:33:35 -0700
+>
+>>>From a51fda849355b2ffb27cdb5d66fa1a96e7f47335 Mon Sep 17 00:00:00 2001
+>> From: Eric W. Biederman <ebiederm@xmission.com>
+>> Date: Sun, 25 Dec 2011 19:39:52 -0800
+>> Subject: 
+>
+> Yikes, I had to edit this turd out :-)  Otherwise with this empty
+> Subject, GIT uses the first line of your commit log body as the
+> first line.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9944c1d..40c2039 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5734,8 +5734,6 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 			 */
- 			inet_csk_schedule_ack(sk);
- 			icsk->icsk_ack.lrcvtime = tcp_time_stamp;
--			icsk->icsk_ack.ato	 = TCP_ATO_MIN;
--			tcp_incr_quickack(sk);
- 			tcp_enter_quickack_mode(sk);
- 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
- 						  TCP_DELACK_MAX, TCP_RTO_MAX);
--- 
-1.7.0.4
+Ugh.  I usually do.  I think I was tired that day.
+
+>> We already synthesize events in register_netdevice_notifier and synthesizing
+>> events in unregister_netdevice_notifier allows to us remove the need for
+>> special case cleanup code.
+>> 
+>> This change should be safe as it adds no new cases for existing callers
+>> of unregiser_netdevice_notifier to handle.
+>> 
+>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+>
+> Applied.
+
+Thanks,
+
+Eric
