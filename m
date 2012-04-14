@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 11/12] atl1c: using fixed TXQ configuration for l2cb and l1c
-Date: Sat, 14 Apr 2012 17:59:27 +0800
-Message-ID: <1334397568-8444-12-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 09/12] atl1c: correct wrong definition of REG_DMA_CTRL
+Date: Sat, 14 Apr 2012 17:59:25 +0800
+Message-ID: <1334397568-8444-10-git-send-email-xiong@qca.qualcomm.com>
 References: <1334397568-8444-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,92 +14,120 @@ In-Reply-To: <1334397568-8444-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-using fixed TXQ config for l2cb and l1c regardless dmar_block
-to make tx-DMA more stable.
-register REG_TXQ_CTRL is refined as well.
+some fields of REG_DMA_CTRL(15C0) are wrong, replace with the newest one.
+haredware uses fixed dma-write-block size, remove dmaw_block related code
+in function atl1c_configure_dma.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   34 +++++++++++++++++------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   13 ++-------
- 2 files changed, 28 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   46 +++++++++++++---------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   29 ++------------
+ 2 files changed, 32 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index f502b4d..a0b56ef 100644
+index 18c1f18..f502b4d 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -467,15 +467,31 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define TPD_RING_SIZE_MASK		0xFFFF
+@@ -25,6 +25,12 @@
+ #include <linux/types.h>
+ #include <linux/mii.h>
  
- /* TXQ Control Register */
--#define REG_TXQ_CTRL                	0x1590
--#define	TXQ_NUM_TPD_BURST_MASK     	0xF
--#define TXQ_NUM_TPD_BURST_SHIFT    	0
--#define TXQ_CTRL_IP_OPTION_EN		0x10
--#define TXQ_CTRL_EN                     0x20
--#define TXQ_CTRL_ENH_MODE               0x40
--#define TXQ_CTRL_LS_8023_EN		0x80
--#define TXQ_TXF_BURST_NUM_SHIFT    	16
--#define TXQ_TXF_BURST_NUM_MASK     	0xFFFF
-+#define REG_TXQ_CTRL			0x1590
-+#define TXQ_TXF_BURST_NUM_MASK          0xFFFFUL
-+#define TXQ_TXF_BURST_NUM_SHIFT		16
-+#define L1C_TXQ_TXF_BURST_PREF          0x200
-+#define L2CB_TXQ_TXF_BURST_PREF         0x40
-+#define TXQ_CTRL_PEDING_CLR             BIT(8)
-+#define TXQ_CTRL_LS_8023_EN             BIT(7)
-+#define TXQ_CTRL_ENH_MODE               BIT(6)
-+#define TXQ_CTRL_EN                     BIT(5)
-+#define TXQ_CTRL_IP_OPTION_EN           BIT(4)
-+#define TXQ_NUM_TPD_BURST_MASK          0xFUL
-+#define TXQ_NUM_TPD_BURST_SHIFT         0
-+#define TXQ_NUM_TPD_BURST_DEF           5
-+#define TXQ_CFGV			(\
-+	FIELDX(TXQ_NUM_TPD_BURST, TXQ_NUM_TPD_BURST_DEF) |\
-+	TXQ_CTRL_ENH_MODE |\
-+	TXQ_CTRL_LS_8023_EN |\
-+	TXQ_CTRL_IP_OPTION_EN)
-+#define L1C_TXQ_CFGV			(\
-+	TXQ_CFGV |\
-+	FIELDX(TXQ_TXF_BURST_NUM, L1C_TXQ_TXF_BURST_PREF))
-+#define L2CB_TXQ_CFGV			(\
-+	TXQ_CFGV |\
-+	FIELDX(TXQ_TXF_BURST_NUM, L2CB_TXQ_TXF_BURST_PREF))
++#define FIELD_GETX(_x, _name)   ((_x) >> (_name##_SHIFT) & (_name##_MASK))
++#define FIELD_SETX(_x, _name, _v) \
++(((_x) & ~((_name##_MASK) << (_name##_SHIFT))) |\
++(((_v) & (_name##_MASK)) << (_name##_SHIFT)))
++#define FIELDX(_name, _v) (((_v) & (_name##_MASK)) << (_name##_SHIFT))
 +
+ struct atl1c_adapter;
+ struct atl1c_hw;
  
- /* Jumbo packet Threshold for task offload */
- #define REG_TX_TSO_OFFLOAD_THRESH	0x1594 /* In 8-bytes */
+@@ -528,25 +534,27 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define RXD_DMA_DOWN_TIMER_SHIFT	16
+ 
+ /* DMA Engine Control Register */
+-#define REG_DMA_CTRL                	0x15C0
+-#define DMA_CTRL_DMAR_IN_ORDER          0x1
+-#define DMA_CTRL_DMAR_ENH_ORDER         0x2
+-#define DMA_CTRL_DMAR_OUT_ORDER         0x4
+-#define DMA_CTRL_RCB_VALUE              0x8
+-#define DMA_CTRL_DMAR_BURST_LEN_MASK    0x0007
+-#define DMA_CTRL_DMAR_BURST_LEN_SHIFT   4
+-#define DMA_CTRL_DMAW_BURST_LEN_MASK    0x0007
+-#define DMA_CTRL_DMAW_BURST_LEN_SHIFT   7
+-#define DMA_CTRL_DMAR_REQ_PRI           0x400
+-#define DMA_CTRL_DMAR_DLY_CNT_MASK      0x001F
+-#define DMA_CTRL_DMAR_DLY_CNT_SHIFT     11
+-#define DMA_CTRL_DMAW_DLY_CNT_MASK      0x000F
+-#define DMA_CTRL_DMAW_DLY_CNT_SHIFT     16
+-#define DMA_CTRL_CMB_EN               	0x100000
+-#define DMA_CTRL_SMB_EN			0x200000
+-#define DMA_CTRL_CMB_NOW		0x400000
+-#define MAC_CTRL_SMB_DIS		0x1000000
+-#define DMA_CTRL_SMB_NOW		0x80000000
++#define REG_DMA_CTRL			0x15C0
++#define DMA_CTRL_SMB_NOW                BIT(31)
++#define DMA_CTRL_WPEND_CLR              BIT(30)
++#define DMA_CTRL_RPEND_CLR              BIT(29)
++#define DMA_CTRL_WDLY_CNT_MASK          0xFUL
++#define DMA_CTRL_WDLY_CNT_SHIFT         16
++#define DMA_CTRL_WDLY_CNT_DEF           4
++#define DMA_CTRL_RDLY_CNT_MASK          0x1FUL
++#define DMA_CTRL_RDLY_CNT_SHIFT         11
++#define DMA_CTRL_RDLY_CNT_DEF           15
++#define DMA_CTRL_RREQ_PRI_DATA          BIT(10)      /* 0:tpd, 1:data */
++#define DMA_CTRL_WREQ_BLEN_MASK         7UL
++#define DMA_CTRL_WREQ_BLEN_SHIFT        7
++#define DMA_CTRL_RREQ_BLEN_MASK         7UL
++#define DMA_CTRL_RREQ_BLEN_SHIFT        4
++#define L1C_CTRL_DMA_RCB_LEN128         BIT(3)   /* 0:64bytes,1:128bytes */
++#define DMA_CTRL_RORDER_MODE_MASK       7UL
++#define DMA_CTRL_RORDER_MODE_SHIFT      0
++#define DMA_CTRL_RORDER_MODE_OUT        4
++#define DMA_CTRL_RORDER_MODE_ENHANCE    2
++#define DMA_CTRL_RORDER_MODE_IN         1
+ 
+ /* INT-triggle/SMB Control Register */
+ #define REG_SMB_STAT_TIMER		0x15C4	/* 2us resolution */
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index d6ebaa4..8e737a5 100644
+index b36c033..1ce48d0 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -1049,7 +1049,6 @@ static void atl1c_configure_tx(struct atl1c_adapter *adapter)
- 	u32 max_pay_load;
- 	u16 tx_offload_thresh;
- 	u32 txq_ctrl_data;
--	u32 max_pay_load_data;
+@@ -1099,30 +1099,11 @@ static void atl1c_configure_dma(struct atl1c_adapter *adapter)
+ 	struct atl1c_hw *hw = &adapter->hw;
+ 	u32 dma_ctrl_data;
  
- 	tx_offload_thresh = MAX_TX_OFFLOAD_THRESH;
- 	AT_WRITE_REG(hw, REG_TX_TSO_OFFLOAD_THRESH,
-@@ -1059,15 +1058,9 @@ static void atl1c_configure_tx(struct atl1c_adapter *adapter)
- 			DEVICE_CTRL_MAX_RREQ_SZ_MASK;
- 	hw->dmar_block = min_t(u32, max_pay_load, hw->dmar_block);
+-	dma_ctrl_data = DMA_CTRL_DMAR_REQ_PRI;
+-
+-	switch (hw->dma_order) {
+-	case atl1c_dma_ord_in:
+-		dma_ctrl_data |= DMA_CTRL_DMAR_IN_ORDER;
+-		break;
+-	case atl1c_dma_ord_enh:
+-		dma_ctrl_data |= DMA_CTRL_DMAR_ENH_ORDER;
+-		break;
+-	case atl1c_dma_ord_out:
+-		dma_ctrl_data |= DMA_CTRL_DMAR_OUT_ORDER;
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	dma_ctrl_data |= (((u32)hw->dmar_block) & DMA_CTRL_DMAR_BURST_LEN_MASK)
+-		<< DMA_CTRL_DMAR_BURST_LEN_SHIFT;
+-	dma_ctrl_data |= (((u32)hw->dmaw_block) & DMA_CTRL_DMAW_BURST_LEN_MASK)
+-		<< DMA_CTRL_DMAW_BURST_LEN_SHIFT;
+-	dma_ctrl_data |= (((u32)hw->dmar_dly_cnt) & DMA_CTRL_DMAR_DLY_CNT_MASK)
+-		<< DMA_CTRL_DMAR_DLY_CNT_SHIFT;
+-	dma_ctrl_data |= (((u32)hw->dmaw_dly_cnt) & DMA_CTRL_DMAW_DLY_CNT_MASK)
+-		<< DMA_CTRL_DMAW_DLY_CNT_SHIFT;
++	dma_ctrl_data = FIELDX(DMA_CTRL_RORDER_MODE, DMA_CTRL_RORDER_MODE_OUT) |
++		DMA_CTRL_RREQ_PRI_DATA |
++		FIELDX(DMA_CTRL_RREQ_BLEN, hw->dmar_block) |
++		FIELDX(DMA_CTRL_WDLY_CNT, DMA_CTRL_WDLY_CNT_DEF) |
++		FIELDX(DMA_CTRL_RDLY_CNT, DMA_CTRL_RDLY_CNT_DEF);
  
--	txq_ctrl_data = (hw->tpd_burst & TXQ_NUM_TPD_BURST_MASK) <<
--			TXQ_NUM_TPD_BURST_SHIFT;
--	if (hw->ctrl_flags & ATL1C_TXQ_MODE_ENHANCE)
--		txq_ctrl_data |= TXQ_CTRL_ENH_MODE;
--	max_pay_load_data = (atl1c_pay_load_size[hw->dmar_block] &
--			TXQ_TXF_BURST_NUM_MASK) << TXQ_TXF_BURST_NUM_SHIFT;
--	if (hw->nic_type == athr_l2c_b || hw->nic_type == athr_l2c_b2)
--		max_pay_load_data >>= 1;
--	txq_ctrl_data |= max_pay_load_data;
-+	txq_ctrl_data =
-+		hw->nic_type == athr_l2c_b || hw->nic_type == athr_l2c_b2 ?
-+		L2CB_TXQ_CFGV : L1C_TXQ_CFGV;
- 
- 	AT_WRITE_REG(hw, REG_TXQ_CTRL, txq_ctrl_data);
+ 	AT_WRITE_REG(hw, REG_DMA_CTRL, dma_ctrl_data);
  }
 -- 
 1.7.7
