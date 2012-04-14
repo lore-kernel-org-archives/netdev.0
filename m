@@ -1,78 +1,132 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: Re: [RFC] endianness bugs in net/batman-adv/
-Date: Sat, 14 Apr 2012 15:07:14 +0200
-Message-ID: <20120414130714.GC24739@ritirata.org>
-References: <20120413194629.GP6589@ZenIV.linux.org.uk>
-	<20120414093404.GA5300@ritirata.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="xesSdrSSBC0PokLI"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120414093404.GA5300-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH v3 1/2] netfilter: ipvs: Verify that IP_VS protocol has been registered
+Date: Sat, 14 Apr 2012 12:37:46 -0400
+Message-ID: <1334421467-30313-1-git-send-email-levinsasha928@gmail.com>
+Cc: davej@redhat.com, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <levinsasha928@gmail.com>
+To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	kaber@trash.net, davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The registration of a protocol might fail, there were no checks
+and all registrations were assumed to be correct. This lead to
+NULL ptr dereferences when apps tried registering.
 
---xesSdrSSBC0PokLI
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+For example:
 
-Hello,
+[ 1293.226051] BUG: unable to handle kernel NULL pointer dereference at 0000000000000018
+[ 1293.227038] IP: [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+[ 1293.227038] PGD 391de067 PUD 6c20b067 PMD 0
+[ 1293.227038] Oops: 0000 [#1] PREEMPT SMP
+[ 1293.227038] CPU 1
+[ 1293.227038] Pid: 19609, comm: trinity Tainted: G        W    3.4.0-rc1-next-20120405-sasha-dirty #57
+[ 1293.227038] RIP: 0010:[<ffffffff822aacb0>]  [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+[ 1293.227038] RSP: 0018:ffff880038c1dd18  EFLAGS: 00010286
+[ 1293.227038] RAX: ffffffffffffffc0 RBX: 0000000000001500 RCX: 0000000000010000
+[ 1293.227038] RDX: 0000000000000000 RSI: ffff88003a2d5888 RDI: 0000000000000282
+[ 1293.227038] RBP: ffff880038c1dd48 R08: 0000000000000000 R09: 0000000000000000
+[ 1293.227038] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88003a2d5668
+[ 1293.227038] R13: ffff88003a2d5988 R14: ffff8800696a8ff8 R15: 0000000000000000
+[ 1293.227038] FS:  00007f01930d9700(0000) GS:ffff88007ce00000(0000) knlGS:0000000000000000
+[ 1293.227038] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[ 1293.227038] CR2: 0000000000000018 CR3: 0000000065dfc000 CR4: 00000000000406e0
+[ 1293.227038] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[ 1293.227038] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[ 1293.227038] Process trinity (pid: 19609, threadinfo ffff880038c1c000, task ffff88002dc73000)
+[ 1293.227038] Stack:
+[ 1293.227038]  ffff880038c1dd48 00000000fffffff4 ffff8800696aada0 ffff8800694f5580
+[ 1293.227038]  ffffffff8369f1e0 0000000000001500 ffff880038c1dd98 ffffffff822a716b
+[ 1293.227038]  0000000000000000 ffff8800696a8ff8 0000000000000015 ffff8800694f5580
+[ 1293.227038] Call Trace:
+[ 1293.227038]  [<ffffffff822a716b>] ip_vs_app_inc_new+0xdb/0x180
+[ 1293.227038]  [<ffffffff822a7258>] register_ip_vs_app_inc+0x48/0x70
+[ 1293.227038]  [<ffffffff822b2fea>] __ip_vs_ftp_init+0xba/0x140
+[ 1293.227038]  [<ffffffff821c9060>] ops_init+0x80/0x90
+[ 1293.227038]  [<ffffffff821c90cb>] setup_net+0x5b/0xe0
+[ 1293.227038]  [<ffffffff821c9416>] copy_net_ns+0x76/0x100
+[ 1293.227038]  [<ffffffff810dc92b>] create_new_namespaces+0xfb/0x190
+[ 1293.227038]  [<ffffffff810dca21>] unshare_nsproxy_namespaces+0x61/0x80
+[ 1293.227038]  [<ffffffff810afd1f>] sys_unshare+0xff/0x290
+[ 1293.227038]  [<ffffffff8187622e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+[ 1293.227038]  [<ffffffff82665539>] system_call_fastpath+0x16/0x1b
+[ 1293.227038] Code: 89 c7 e8 34 91 3b 00 89 de 66 c1 ee 04 31 de 83 e6 0f 48 83 c6 22 48 c1 e6 04 4a 8b 14 26 49 8d 34 34 48 8d 42 c0 48 39 d6 74 13 <66> 39 58 58 74 22 48 8b 48 40 48 8d 41 c0 48 39 ce 75 ed 49 8d
+[ 1293.227038] RIP  [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+[ 1293.227038]  RSP <ffff880038c1dd18>
+[ 1293.227038] CR2: 0000000000000018
+[ 1293.379284] ---[ end trace 364ab40c7011a009 ]---
+[ 1293.381182] Kernel panic - not syncing: Fatal exception in interrupt
 
-On Sat, Apr 14, 2012 at 11:34:05AM +0200, Antonio Quartulli wrote:
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ net/netfilter/ipvs/ip_vs_proto.c |   27 ++++++++++++++++++---------
+ 1 files changed, 18 insertions(+), 9 deletions(-)
 
-=2E...
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index f843a88..a62360e 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -59,9 +59,6 @@ static int __used __init register_ip_vs_protocol(struct ip_vs_protocol *pp)
+ 	return 0;
+ }
+ 
+-#if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP) || \
+-    defined(CONFIG_IP_VS_PROTO_SCTP) || defined(CONFIG_IP_VS_PROTO_AH) || \
+-    defined(CONFIG_IP_VS_PROTO_ESP)
+ /*
+  *	register an ipvs protocols netns related data
+  */
+@@ -86,7 +83,6 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
+ 
+ 	return 0;
+ }
+-#endif
+ 
+ /*
+  *	unregister an ipvs protocol
+@@ -316,22 +312,35 @@ ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
+  */
+ int __net_init ip_vs_protocol_net_init(struct net *net)
+ {
++	int i, ret;
++	static struct ip_vs_protocol *protos[] = {
+ #ifdef CONFIG_IP_VS_PROTO_TCP
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
++        &ip_vs_protocol_tcp,
+ #endif
+ #ifdef CONFIG_IP_VS_PROTO_UDP
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_udp);
++	&ip_vs_protocol_udp,
+ #endif
+ #ifdef CONFIG_IP_VS_PROTO_SCTP
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_sctp);
++	&ip_vs_protocol_sctp,
+ #endif
+ #ifdef CONFIG_IP_VS_PROTO_AH
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_ah);
++	&ip_vs_protocol_ah,
+ #endif
+ #ifdef CONFIG_IP_VS_PROTO_ESP
+-	register_ip_vs_proto_netns(net, &ip_vs_protocol_esp);
++	&ip_vs_protocol_esp,
+ #endif
++	};
++
++	for (i = 0; i < ARRAY_SIZE(protos); i++) {
++		ret = register_ip_vs_proto_netns(net, protos[i]);
++		if (ret < 0)
++			goto cleanup;
++	}
+ 	return 0;
++
++cleanup:
++	ip_vs_protocol_net_cleanup(net);
++	return ret;
+ }
+ 
+ void __net_exit ip_vs_protocol_net_cleanup(struct net *net)
+-- 
+1.7.8.5
 
->=20
-> Thank you very much. I'll fix it.
-
-
-I sent two patches to the batman-adv mailing list that will fix the bugs you
-have found.
-
-If you would like to have a look at the patches, you can find them on the l=
-ist
-archive:
-
-https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2012-April/006692.html
-https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2012-April/006693.html
-
-
-Regards,
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---xesSdrSSBC0PokLI
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQEcBAEBAgAGBQJPiXaCAAoJEFMQTLzJFOZFyu4H/1Dhykyj2L6oIwWh3RUvXz/1
-fFpzBWUlr754eTd0MSXBbBmkLslMe3ufUPHVhXs6TVF1cDF/EwSqJ7AEIHIQTrry
-soPFg93F4//i5VKv37s0LemAD0xLv1OdPP85LZunjCAs1ZxldhfU2PFBr885aPI9
-4KJPvazAljyURs78zrRbXD6KvnqeP4hjPOVYCW5nWzZp1p4fz51NcqWYH/w5fS7n
-nH75Cul6ShqX3biWtqim0J30Aj6OTlkr7YggI+k1cfpbl1/+4Nc28okej7C/iPQr
-kdRvjqbUyJnP4liSZhAEGg7wF5o4bQ0VinDQMPU15hm7xj43N9RiDmDUOiW22gM=
-=L9uj
------END PGP SIGNATURE-----
-
---xesSdrSSBC0PokLI--
