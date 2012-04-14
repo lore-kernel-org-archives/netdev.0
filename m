@@ -1,88 +1,49 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH v2] bonding: start slaves with link down for ARP monitor
-Date: Sat, 14 Apr 2012 22:16:16 +0200
-Message-ID: <20120414220617.DA8BE45BA2@lion.mk-sys.cz>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Flavio Leitner <fbl@redhat.com>
-To: netdev@vger.kernel.org
+From: Peter Huewe <peterhuewe@gmx.de>
+Subject: [PATCH] isdn/hysdn:  Convert to kstrtoul_from_user
+Date: Sun, 15 Apr 2012 01:42:59 +0200
+Message-ID: <1334446979-1177-1-git-send-email-peterhuewe@gmx.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, Peter Huewe <peterhuewe@gmx.de>
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kubecekserver.ph.gin.cz ([212.71.128.105]:34043 "EHLO
-	kubecekserver.ph.gin.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756232Ab2DNWHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2012 18:07:03 -0400
+Received: from mailout-de.gmx.net ([213.165.64.22]:41348 "HELO
+	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754925Ab2DNXnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2012 19:43:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Initialize slave device link state as down if ARP monitor is
-active and net_carrier_ok() returns zero. Also shift initial
-value of its last_arp_tx so that it doesn't immediately cause
-fake detection of "up" state.
+This patch replaces the code for getting an number from a
+userspace buffer by a simple call to kstroul_from_user.
+This makes it easier to read and less error prone.
 
-When ARP monitoring is used, initializing the slave device with
-up link state can cause ARP monitor to detect link failure
-before the device is really up (with igb driver, this can take
-more than two seconds).
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 ---
- drivers/net/bonding/bond_main.c |   34 +++++++++++++++++++++-------------
- 1 files changed, 21 insertions(+), 13 deletions(-)
+ drivers/isdn/hysdn/hysdn_proclog.c |   10 +---------
+ 1 files changed, 1 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 62d2409..6a79ee3 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1726,7 +1726,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+diff --git a/drivers/isdn/hysdn/hysdn_proclog.c b/drivers/isdn/hysdn/hysdn_proclog.c
+index ba91333..88e4f0e 100644
+--- a/drivers/isdn/hysdn/hysdn_proclog.c
++++ b/drivers/isdn/hysdn/hysdn_proclog.c
+@@ -156,17 +156,9 @@ static ssize_t
+ hysdn_log_write(struct file *file, const char __user *buf, size_t count, loff_t *off)
+ {
+ 	int rc;
+-	unsigned char valbuf[128];
+ 	hysdn_card *card = file->private_data;
  
- 	read_lock(&bond->lock);
- 
--	new_slave->last_arp_rx = jiffies;
-+	new_slave->last_arp_rx = jiffies -
-+		(msecs_to_jiffies(bond->params.arp_interval) + 1);
- 
- 	if (bond->params.miimon && !bond->params.use_carrier) {
- 		link_reporting = bond_check_dev_link(bond, slave_dev, 1);
-@@ -1751,21 +1752,28 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	}
- 
- 	/* check for initial state */
--	if (!bond->params.miimon ||
--	    (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS)) {
--		if (bond->params.updelay) {
--			pr_debug("Initial state of slave_dev is BOND_LINK_BACK\n");
--			new_slave->link  = BOND_LINK_BACK;
--			new_slave->delay = bond->params.updelay;
-+	if (bond->params.miimon) {
-+		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
-+			if (bond->params.updelay) {
-+				new_slave->link = BOND_LINK_BACK;
-+				new_slave->delay = bond->params.updelay;
-+			} else {
-+				new_slave->link = BOND_LINK_UP;
-+			}
- 		} else {
--			pr_debug("Initial state of slave_dev is BOND_LINK_UP\n");
--			new_slave->link  = BOND_LINK_UP;
-+			new_slave->link = BOND_LINK_DOWN;
- 		}
-+	} else if (bond->params.arp_interval) {
-+		new_slave->link = (netif_carrier_ok(slave_dev) ?
-+			BOND_LINK_UP : BOND_LINK_DOWN);
-+	} else
-+		new_slave->link = BOND_LINK_UP;
-+
-+	if (new_slave->link != BOND_LINK_DOWN)
- 		new_slave->jiffies = jiffies;
--	} else {
--		pr_debug("Initial state of slave_dev is BOND_LINK_DOWN\n");
--		new_slave->link  = BOND_LINK_DOWN;
--	}
-+	pr_debug("Initial state of slave_dev is BOND_LINK_%s\n",
-+		new_slave->link == BOND_LINK_DOWN ? "DOWN" :
-+			(new_slave->link == BOND_LINK_UP ? "UP" : "BACK"));
- 
- 	bond_update_speed_duplex(new_slave);
- 
+-	if (count > (sizeof(valbuf) - 1))
+-		count = sizeof(valbuf) - 1;	/* limit length */
+-	if (copy_from_user(valbuf, buf, count))
+-		return (-EFAULT);	/* copy failed */
+-
+-	valbuf[count] = 0;	/* terminating 0 */
+-
+-	rc = kstrtoul(valbuf, 0, &card->debug_flags);
++	rc = kstrtoul_from_user(buf, count, 0, &card->debug_flags);
+ 	if (rc < 0)
+ 		return rc;
+ 	hysdn_addlog(card, "debug set to 0x%lx", card->debug_flags);
 -- 
-1.7.7
+1.7.3.4
