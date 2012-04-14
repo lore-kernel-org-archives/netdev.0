@@ -1,41 +1,143 @@
-From: Will Drewry <wad-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v18 01/15] Add PR_{GET,SET}_NO_NEW_PRIVS to prevent execve
- from granting privs
-Date: Fri, 13 Apr 2012 22:06:31 -0500
-Message-ID: <CABqD9hahg_KJHTFnRCDpUFaa4TZjy_2EvVOqtd89NvTnr8UkSw@mail.gmail.com>
-References: <1334267284-19166-1-git-send-email-wad@chromium.org>
-	<alpine.LRH.2.02.1204141143001.29389@tundra.namei.org>
+From: Axel Lin <axel.lin@gmail.com>
+Subject: [PATCH 1/3] net/can: use module_pci_driver
+Date: Sat, 14 Apr 2012 12:38:43 +0800
+Message-ID: <1334378323.2862.1.camel@phoenix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org,
-	mcgrathr-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org, luto-3s7WtUTddSA@public.gmane.org,
-	eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, djm-ilwOsaqNJrtAfugRpC6u6w@public.gmane.org,
-	scarybeasts-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, indan-1J6HnF7K7zE@public.gmane.org, pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, corbet-T1hC0tSOHrs@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	markus-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, coreyb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-To: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LRH.2.02.1204141143001.29389-CK9fWmtY32x9JUWOpEiw7w@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	"David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 13, 2012 at 8:45 PM, James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org> wrote:
-> I applied the patchset to:
-> git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/linux-security.git next
->
-> Please test, and make any further updates against that branch.
+This patch converts the drivers in drivers/net/can/* to use
+module_pci_driver() macro which makes the code smaller and a bit simpler.
 
-Great! I will most certainly do that.
+Signed-off-by: Axel Lin <axel.lin@gmail.com>
+Cc: Wolfgang Grandegger <wg@grandegger.com>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-can@vger.kernel.org
+---
+ drivers/net/can/pch_can.c            |   12 +-----------
+ drivers/net/can/sja1000/ems_pci.c    |   14 +-------------
+ drivers/net/can/sja1000/kvaser_pci.c |   13 +------------
+ drivers/net/can/sja1000/peak_pci.c   |   12 +-----------
+ drivers/net/can/sja1000/plx_pci.c    |   13 +------------
+ 5 files changed, 5 insertions(+), 59 deletions(-)
 
-Thanks!
-will
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index 2bb215e..1226297 100644
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -1274,17 +1274,7 @@ static struct pci_driver pch_can_pci_driver = {
+ 	.resume = pch_can_resume,
+ };
+ 
+-static int __init pch_can_pci_init(void)
+-{
+-	return pci_register_driver(&pch_can_pci_driver);
+-}
+-module_init(pch_can_pci_init);
+-
+-static void __exit pch_can_pci_exit(void)
+-{
+-	pci_unregister_driver(&pch_can_pci_driver);
+-}
+-module_exit(pch_can_pci_exit);
++module_pci_driver(pch_can_pci_driver);
+ 
+ MODULE_DESCRIPTION("Intel EG20T PCH CAN(Controller Area Network) Driver");
+ MODULE_LICENSE("GPL v2");
+diff --git a/drivers/net/can/sja1000/ems_pci.c b/drivers/net/can/sja1000/ems_pci.c
+index 36f4f97..5c6d412 100644
+--- a/drivers/net/can/sja1000/ems_pci.c
++++ b/drivers/net/can/sja1000/ems_pci.c
+@@ -371,16 +371,4 @@ static struct pci_driver ems_pci_driver = {
+ 	.remove = ems_pci_del_card,
+ };
+ 
+-static int __init ems_pci_init(void)
+-{
+-	return pci_register_driver(&ems_pci_driver);
+-}
+-
+-static void __exit ems_pci_exit(void)
+-{
+-	pci_unregister_driver(&ems_pci_driver);
+-}
+-
+-module_init(ems_pci_init);
+-module_exit(ems_pci_exit);
+-
++module_pci_driver(ems_pci_driver);
+diff --git a/drivers/net/can/sja1000/kvaser_pci.c b/drivers/net/can/sja1000/kvaser_pci.c
+index ed004ce..23ed6ea 100644
+--- a/drivers/net/can/sja1000/kvaser_pci.c
++++ b/drivers/net/can/sja1000/kvaser_pci.c
+@@ -397,15 +397,4 @@ static struct pci_driver kvaser_pci_driver = {
+ 	.remove = __devexit_p(kvaser_pci_remove_one),
+ };
+ 
+-static int __init kvaser_pci_init(void)
+-{
+-	return pci_register_driver(&kvaser_pci_driver);
+-}
+-
+-static void __exit kvaser_pci_exit(void)
+-{
+-	pci_unregister_driver(&kvaser_pci_driver);
+-}
+-
+-module_init(kvaser_pci_init);
+-module_exit(kvaser_pci_exit);
++module_pci_driver(kvaser_pci_driver);
+diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
+index 5f92b86..f0a1296 100644
+--- a/drivers/net/can/sja1000/peak_pci.c
++++ b/drivers/net/can/sja1000/peak_pci.c
+@@ -749,14 +749,4 @@ static struct pci_driver peak_pci_driver = {
+ 	.remove = __devexit_p(peak_pci_remove),
+ };
+ 
+-static int __init peak_pci_init(void)
+-{
+-	return pci_register_driver(&peak_pci_driver);
+-}
+-module_init(peak_pci_init);
+-
+-static void __exit peak_pci_exit(void)
+-{
+-	pci_unregister_driver(&peak_pci_driver);
+-}
+-module_exit(peak_pci_exit);
++module_pci_driver(peak_pci_driver);
+diff --git a/drivers/net/can/sja1000/plx_pci.c b/drivers/net/can/sja1000/plx_pci.c
+index a227586..8bc9598 100644
+--- a/drivers/net/can/sja1000/plx_pci.c
++++ b/drivers/net/can/sja1000/plx_pci.c
+@@ -609,15 +609,4 @@ static struct pci_driver plx_pci_driver = {
+ 	.remove = plx_pci_del_card,
+ };
+ 
+-static int __init plx_pci_init(void)
+-{
+-	return pci_register_driver(&plx_pci_driver);
+-}
+-
+-static void __exit plx_pci_exit(void)
+-{
+-	pci_unregister_driver(&plx_pci_driver);
+-}
+-
+-module_init(plx_pci_init);
+-module_exit(plx_pci_exit);
++module_pci_driver(plx_pci_driver);
+-- 
+1.7.5.4
+
+
+
