@@ -1,39 +1,48 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [PATCH v2 2/2] netfilter: ipvs: use GFP_KERNEL allocation where possible
-Date: Sat, 14 Apr 2012 09:22:02 -0400
-Message-ID: <1334409722-26315-2-git-send-email-levinsasha928@gmail.com>
-References: <1334409722-26315-1-git-send-email-levinsasha928@gmail.com>
-Cc: davej@redhat.com, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Sasha Levin <levinsasha928@gmail.com>
-To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
-	kaber@trash.net, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334409722-26315-1-git-send-email-levinsasha928@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
+Subject: Re: [PATCH] net/wireless: use module_pci_driver
+Date: Sat, 14 Apr 2012 12:32:18 +0200
+Message-ID: <20120414103218.GF28523@wantstofly.org>
+References: <1334371116.17649.1.camel@phoenix>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>,
+	Jouni Malinen <j@w1.fi>,
+	Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Axel Lin <axel.lin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1334371116.17649.1.camel@phoenix>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Use GFP_KERNEL instead of GFP_ATOMIC when registering an ipvs protocol.
+On Sat, Apr 14, 2012 at 10:38:36AM +0800, Axel Lin wrote:
 
-This is safe since it will always run from a process context.
+> This patch converts the drivers in drivers/net/wireless/* to use
+> module_pci_driver() macro which makes the code smaller and a bit simpler.
+> 
+> Signed-off-by: Axel Lin <axel.lin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: "Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+> Cc: Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>
+> Cc: Jouni Malinen <j@w1.fi>
+> Cc: Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
+> Cc: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+> Cc: Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
----
- net/netfilter/ipvs/ip_vs_proto.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 57a242d..73d06c6 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -71,7 +71,7 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 	unsigned hash = IP_VS_PROTO_HASH(pp->protocol);
- 	struct ip_vs_proto_data *pd =
--			kzalloc(sizeof(struct ip_vs_proto_data), GFP_ATOMIC);
-+			kzalloc(sizeof(struct ip_vs_proto_data), GFP_KERNEL);
- 
- 	if (!pd)
- 		return -ENOMEM;
--- 
-1.7.8.5
+Acked-by: Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
