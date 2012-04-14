@@ -1,52 +1,78 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH v2 1/2] netfilter: ipvs: Verify that IP_VS protocol has
- been registered
-Date: Sat, 14 Apr 2012 14:32:01 +0200
-Message-ID: <CA+1xoqdOqy8-Nkk00ZoCcUNLLvz0n6ZFyefsP8GoJhpepfVNtg@mail.gmail.com>
-References: <1334409722-26315-1-git-send-email-levinsasha928@gmail.com>
- <alpine.LFD.2.00.1204141439440.1680@ja.ssi.bg> <CA+1xoqe0q=XH7mO6=qZKPxqZK8LU2Kk5BjmfLeQ9LUD1Ku65YA@mail.gmail.com>
- <alpine.LFD.2.00.1204141518270.9966@ja.ssi.bg>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re: [RFC] endianness bugs in net/batman-adv/
+Date: Sat, 14 Apr 2012 15:07:14 +0200
+Message-ID: <20120414130714.GC24739@ritirata.org>
+References: <20120413194629.GP6589@ZenIV.linux.org.uk>
+	<20120414093404.GA5300@ritirata.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: wensong@linux-vs.org, horms@verge.net.au, kaber@trash.net,
-	davem@davemloft.net, davej@redhat.com, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:64673 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751455Ab2DNMcW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2012 08:32:22 -0400
-In-Reply-To: <alpine.LFD.2.00.1204141518270.9966@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="xesSdrSSBC0PokLI"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120414093404.GA5300-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 14, 2012 at 2:23 PM, Julian Anastasov <ja@ssi.bg> wrote:
->
-> =A0 =A0 =A0 =A0Hello,
->
-> On Sat, 14 Apr 2012, Sasha Levin wrote:
->
->> On Sat, Apr 14, 2012 at 1:53 PM, Julian Anastasov <ja@ssi.bg> wrote:
->> > =A0 =A0 =A0 =A0Ops. It seems now we expose old problem when
->> > no protocol is configured. As this change probably will
->> > go to stable kernels, lets make it correct. Can you
->> > remove the defines around register_ip_vs_proto_netns, so
->> > that it is always compiled. One that wants to save
->> > memory will not disable all protocols. See commit
->> > 091bb34c143674d37a59b2d4857534f7106c5d7d for reference.
->>
->> Oh, so it wasn't getting built right now at all if we didn't select
->> any protocols.
->>
->> How about moving those defines down to our loop as well? this way
->> everything will behave exactly like it did before.
->
-> =A0 =A0 =A0 =A0Better to remove the defines. It is a misconfiguration
-> to enable IPVS without protocols. The referenced commit
-> just tried to remove warnings, not save memory by commenting
-> unused function. Adding more define makes the things more ugly.
 
-Understood. I'll resend.
+--xesSdrSSBC0PokLI
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hello,
+
+On Sat, Apr 14, 2012 at 11:34:05AM +0200, Antonio Quartulli wrote:
+
+=2E...
+
+>=20
+> Thank you very much. I'll fix it.
+
+
+I sent two patches to the batman-adv mailing list that will fix the bugs you
+have found.
+
+If you would like to have a look at the patches, you can find them on the l=
+ist
+archive:
+
+https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2012-April/006692.html
+https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2012-April/006693.html
+
+
+Regards,
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--xesSdrSSBC0PokLI
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQEcBAEBAgAGBQJPiXaCAAoJEFMQTLzJFOZFyu4H/1Dhykyj2L6oIwWh3RUvXz/1
+fFpzBWUlr754eTd0MSXBbBmkLslMe3ufUPHVhXs6TVF1cDF/EwSqJ7AEIHIQTrry
+soPFg93F4//i5VKv37s0LemAD0xLv1OdPP85LZunjCAs1ZxldhfU2PFBr885aPI9
+4KJPvazAljyURs78zrRbXD6KvnqeP4hjPOVYCW5nWzZp1p4fz51NcqWYH/w5fS7n
+nH75Cul6ShqX3biWtqim0J30Aj6OTlkr7YggI+k1cfpbl1/+4Nc28okej7C/iPQr
+kdRvjqbUyJnP4liSZhAEGg7wF5o4bQ0VinDQMPU15hm7xj43N9RiDmDUOiW22gM=
+=L9uj
+-----END PGP SIGNATURE-----
+
+--xesSdrSSBC0PokLI--
