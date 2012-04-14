@@ -1,68 +1,154 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH 04/37] atl1c: remove VPD register
-Date: Sat, 14 Apr 2012 15:22:49 +0100
-Message-ID: <1334413369.7150.422.camel@deadeye>
-References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
-	 <1334276102-15866-5-git-send-email-xiong@qca.qualcomm.com>
-	 <20120413.204551.959091962456153270.davem@davemloft.net>
-	 <157393863283F442885425D2C454285623D486D9@nasanexd02a.na.qualcomm.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v3 1/2] netfilter: ipvs: Verify that IP_VS protocol has
+ been registered
+Date: Sat, 14 Apr 2012 17:23:29 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1204141711470.10455@ja.ssi.bg>
+References: <1334421467-30313-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: wensong@linux-vs.org, horms@verge.net.au, kaber@trash.net,
+	davem@davemloft.net, davej@redhat.com, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <157393863283F442885425D2C454285623D486D9@nasanexd02a.na.qualcomm.com>
+In-Reply-To: <1334421467-30313-1-git-send-email-levinsasha928@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-04-14 at 09:12 +0000, Huang, Xiong wrote:
+
+	Hello,
+
+On Sat, 14 Apr 2012, Sasha Levin wrote:
+
+> The registration of a protocol might fail, there were no checks
+> and all registrations were assumed to be correct. This lead to
+> NULL ptr dereferences when apps tried registering.
 > 
-> > -----Original Message-----
-> > From: David Miller [mailto:davem@davemloft.net]
-> > Sent: Saturday, April 14, 2012 8:46
-> > To: Huang, Xiong
-> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; qca-linux-team; nic-
-> > devel
-> > Subject: Re: [PATCH 04/37] atl1c: remove VPD register
-> > 
-> > From: xiong <xiong@qca.qualcomm.com>
-> > Date: Fri, 13 Apr 2012 08:14:29 +0800
-> > 
-> > > VPD register is only used for L1(devid=PCI_DEVICE_ID_ATTANSIC_L1) to
-> > > access external NV-memory.
-> > > l1c & later chip doesn't use it any more.
-> > >
-> > > Signed-off-by: xiong <xiong@qca.qualcomm.com>
-> > > Tested-by: Liu David <dwliu@qca.qualcomm.com>
-> > 
-> > You just broke ethtool register dumps with this change.
-> > 
-> > Now, all the initial registers are reported offset by one entry, yet the last two are
-> > still reported in their original spots.
-> > 
-> > This layout is exposed to userspace, and interpreted by tools, and you cannot
-> > change it.
-> > 
-> > If this register always reports some value, you should just keep it there in the
-> > dumps.
-> >
-> The VPD register doesn't report anything :(, just a dummy register now.
-> we don't have any special tools in userspace to explain the dumped registers.
-> Actually the purpose of dumping these registers via ethtool is just for debug.
-[...]
+> For example:
+> 
+> [ 1293.226051] BUG: unable to handle kernel NULL pointer dereference at 0000000000000018
+> [ 1293.227038] IP: [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+> [ 1293.227038] PGD 391de067 PUD 6c20b067 PMD 0
+> [ 1293.227038] Oops: 0000 [#1] PREEMPT SMP
+> [ 1293.227038] CPU 1
+> [ 1293.227038] Pid: 19609, comm: trinity Tainted: G        W    3.4.0-rc1-next-20120405-sasha-dirty #57
+> [ 1293.227038] RIP: 0010:[<ffffffff822aacb0>]  [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+> [ 1293.227038] RSP: 0018:ffff880038c1dd18  EFLAGS: 00010286
+> [ 1293.227038] RAX: ffffffffffffffc0 RBX: 0000000000001500 RCX: 0000000000010000
+> [ 1293.227038] RDX: 0000000000000000 RSI: ffff88003a2d5888 RDI: 0000000000000282
+> [ 1293.227038] RBP: ffff880038c1dd48 R08: 0000000000000000 R09: 0000000000000000
+> [ 1293.227038] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88003a2d5668
+> [ 1293.227038] R13: ffff88003a2d5988 R14: ffff8800696a8ff8 R15: 0000000000000000
+> [ 1293.227038] FS:  00007f01930d9700(0000) GS:ffff88007ce00000(0000) knlGS:0000000000000000
+> [ 1293.227038] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> [ 1293.227038] CR2: 0000000000000018 CR3: 0000000065dfc000 CR4: 00000000000406e0
+> [ 1293.227038] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [ 1293.227038] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> [ 1293.227038] Process trinity (pid: 19609, threadinfo ffff880038c1c000, task ffff88002dc73000)
+> [ 1293.227038] Stack:
+> [ 1293.227038]  ffff880038c1dd48 00000000fffffff4 ffff8800696aada0 ffff8800694f5580
+> [ 1293.227038]  ffffffff8369f1e0 0000000000001500 ffff880038c1dd98 ffffffff822a716b
+> [ 1293.227038]  0000000000000000 ffff8800696a8ff8 0000000000000015 ffff8800694f5580
+> [ 1293.227038] Call Trace:
+> [ 1293.227038]  [<ffffffff822a716b>] ip_vs_app_inc_new+0xdb/0x180
+> [ 1293.227038]  [<ffffffff822a7258>] register_ip_vs_app_inc+0x48/0x70
+> [ 1293.227038]  [<ffffffff822b2fea>] __ip_vs_ftp_init+0xba/0x140
+> [ 1293.227038]  [<ffffffff821c9060>] ops_init+0x80/0x90
+> [ 1293.227038]  [<ffffffff821c90cb>] setup_net+0x5b/0xe0
+> [ 1293.227038]  [<ffffffff821c9416>] copy_net_ns+0x76/0x100
+> [ 1293.227038]  [<ffffffff810dc92b>] create_new_namespaces+0xfb/0x190
+> [ 1293.227038]  [<ffffffff810dca21>] unshare_nsproxy_namespaces+0x61/0x80
+> [ 1293.227038]  [<ffffffff810afd1f>] sys_unshare+0xff/0x290
+> [ 1293.227038]  [<ffffffff8187622e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+> [ 1293.227038]  [<ffffffff82665539>] system_call_fastpath+0x16/0x1b
+> [ 1293.227038] Code: 89 c7 e8 34 91 3b 00 89 de 66 c1 ee 04 31 de 83 e6 0f 48 83 c6 22 48 c1 e6 04 4a 8b 14 26 49 8d 34 34 48 8d 42 c0 48 39 d6 74 13 <66> 39 58 58 74 22 48 8b 48 40 48 8d 41 c0 48 39 ce 75 ed 49 8d
+> [ 1293.227038] RIP  [<ffffffff822aacb0>] tcp_register_app+0x60/0xb0
+> [ 1293.227038]  RSP <ffff880038c1dd18>
+> [ 1293.227038] CR2: 0000000000000018
+> [ 1293.379284] ---[ end trace 364ab40c7011a009 ]---
+> [ 1293.381182] Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
 
-Of course, the whole purpose of the operation is for debugging.  But you
-should bump the dump version number (currently 0) every time you change
-the offsets of registers in the dump.
+	Very good. Thank you! Simon, please apply both
+patches from v3.
 
-Ben.
+Acked-by: Julian Anastasov <ja@ssi.bg>
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+	This patch can be applied on 2.6.39+
+
+> ---
+>  net/netfilter/ipvs/ip_vs_proto.c |   27 ++++++++++++++++++---------
+>  1 files changed, 18 insertions(+), 9 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+> index f843a88..a62360e 100644
+> --- a/net/netfilter/ipvs/ip_vs_proto.c
+> +++ b/net/netfilter/ipvs/ip_vs_proto.c
+> @@ -59,9 +59,6 @@ static int __used __init register_ip_vs_protocol(struct ip_vs_protocol *pp)
+>  	return 0;
+>  }
+>  
+> -#if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP) || \
+> -    defined(CONFIG_IP_VS_PROTO_SCTP) || defined(CONFIG_IP_VS_PROTO_AH) || \
+> -    defined(CONFIG_IP_VS_PROTO_ESP)
+>  /*
+>   *	register an ipvs protocols netns related data
+>   */
+> @@ -86,7 +83,6 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
+>  
+>  	return 0;
+>  }
+> -#endif
+>  
+>  /*
+>   *	unregister an ipvs protocol
+> @@ -316,22 +312,35 @@ ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
+>   */
+>  int __net_init ip_vs_protocol_net_init(struct net *net)
+>  {
+> +	int i, ret;
+> +	static struct ip_vs_protocol *protos[] = {
+>  #ifdef CONFIG_IP_VS_PROTO_TCP
+> -	register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
+> +        &ip_vs_protocol_tcp,
+>  #endif
+>  #ifdef CONFIG_IP_VS_PROTO_UDP
+> -	register_ip_vs_proto_netns(net, &ip_vs_protocol_udp);
+> +	&ip_vs_protocol_udp,
+>  #endif
+>  #ifdef CONFIG_IP_VS_PROTO_SCTP
+> -	register_ip_vs_proto_netns(net, &ip_vs_protocol_sctp);
+> +	&ip_vs_protocol_sctp,
+>  #endif
+>  #ifdef CONFIG_IP_VS_PROTO_AH
+> -	register_ip_vs_proto_netns(net, &ip_vs_protocol_ah);
+> +	&ip_vs_protocol_ah,
+>  #endif
+>  #ifdef CONFIG_IP_VS_PROTO_ESP
+> -	register_ip_vs_proto_netns(net, &ip_vs_protocol_esp);
+> +	&ip_vs_protocol_esp,
+>  #endif
+> +	};
+> +
+> +	for (i = 0; i < ARRAY_SIZE(protos); i++) {
+> +		ret = register_ip_vs_proto_netns(net, protos[i]);
+> +		if (ret < 0)
+> +			goto cleanup;
+> +	}
+>  	return 0;
+> +
+> +cleanup:
+> +	ip_vs_protocol_net_cleanup(net);
+> +	return ret;
+>  }
+>  
+>  void __net_exit ip_vs_protocol_net_cleanup(struct net *net)
+> -- 
+> 1.7.8.5
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
