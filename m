@@ -1,41 +1,35 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH] bonding: start slaves with link down for ARP monitor
-Date: Sat, 14 Apr 2012 21:25:54 +0200
-Message-ID: <20120414192554.GB8424@lion.mk-sys.cz>
-References: <94e5ccf29d92f9a4b815f895b6bb8d9f326566cb.1334256203.git.mkubecek@suse.cz>
- <20120414015319.11e196d4@asterix.rh>
- <9048.1334380877@death.nxdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp:Remove redundant code entering quickack
+ mode
+Date: Sat, 14 Apr 2012 15:26:48 -0400 (EDT)
+Message-ID: <20120414.152648.456086723360721254.davem@davemloft.net>
+References: <1334359439-10147-1-git-send-email-subramanian.vijay@gmail.com>
+	<20120414020103.302f2c66@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Flavio Leitner <fbl@redhat.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: subramanian.vijay@gmail.com, netdev@vger.kernel.org
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kubecekserver.ph.gin.cz ([212.71.128.105]:39965 "EHLO
-	kubecekserver.ph.gin.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753859Ab2DNT0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2012 15:26:05 -0400
-Content-Disposition: inline
-In-Reply-To: <9048.1334380877@death.nxdomain>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59634 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753859Ab2DNT0v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Apr 2012 15:26:51 -0400
+In-Reply-To: <20120414020103.302f2c66@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 13, 2012 at 10:21:17PM -0700, Jay Vosburgh wrote:
->
->       The functional part I'm not sure about yet is if the this will
-> cause slave devices with fast autoneg to wait for an ARP monitor cycle
-> before going link up according to ARP monitor.
->
->       I think this may work better if the initial slave state is set
-> to whatever netif_carrier_ok() says, instead of unconditionally up or
-> down.
+From: Flavio Leitner <fbl@redhat.com>
+Date: Sat, 14 Apr 2012 02:01:03 -0300
 
-This would mean the initial state would be always up for drivers not
-supporting netif_carrier_ok(). But as far as I can see, only a few such
-drivers are left and they are not very frequent ones. So I agree it will
-be less harm to keep starting with up link state for these drivers than
-to introduce an unnecessary delay for cards/driver which are fast enough.
+> On Fri, 13 Apr 2012 16:23:59 -0700
+> Vijay Subramanian <subramanian.vijay@gmail.com> wrote:
+> 
+>> tcp_enter_quickack_mode() already calls tcp_incr_quickack() and sets
+>> icsk->icsk_ack.ato  to TCP_ATO_MIN. This patch removes the duplication.
+>> 
+>> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> 
+> Reviewed-by: Flavio Leitner <fbl@redhat.com>
 
-I'll send updated version of the patch after I test it.
-
-                                                          Michal Kubecek
+Applied.
