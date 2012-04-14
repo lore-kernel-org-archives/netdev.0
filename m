@@ -1,118 +1,137 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/6] e1000e: cleanup remaining strings split across multiple lines
-Date: Sat, 14 Apr 2012 02:16:28 -0700
-Message-ID: <1334394991-5839-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1334394991-5839-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:21304 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751114Ab2DNJQf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Apr 2012 05:16:35 -0400
-In-Reply-To: <1334394991-5839-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re: [RFC] endianness bugs in net/batman-adv/
+Date: Sat, 14 Apr 2012 11:34:05 +0200
+Message-ID: <20120414093404.GA5300@ritirata.org>
+References: <20120413194629.GP6589@ZenIV.linux.org.uk>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Dxnq1zWXvFF0Q93v"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120413194629.GP6589-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Bruce Allan <bruce.w.allan@intel.com>
 
-Now that split strings generate checkpatch warnings (per Chapter 2 of
-Documentation/CodingStyle to make it easier to grep the code for the
-string) cleanup the remaining instances of them in the driver.
+--Dxnq1zWXvFF0Q93v
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/ethtool.c |   19 ++++++++-----------
- drivers/net/ethernet/intel/e1000e/param.c   |    8 ++++----
- 2 files changed, 12 insertions(+), 15 deletions(-)
+On Fri, Apr 13, 2012 at 08:46:29 +0100, Al Viro wrote:
+> 	Let's start with net/batman-adv/translation-table.c:send_tt_request().=
+=20
+> Its tt_crc argument gets stored into skb as-is and skb goes on the wire.
+> OK, so it's fixed-endian, right?
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 6302b10..4f1edd9 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -259,8 +259,7 @@ static int e1000_set_settings(struct net_device *netdev,
- 	 * cannot be changed
- 	 */
- 	if (hw->phy.ops.check_reset_block(hw)) {
--		e_err("Cannot change link characteristics when SoL/IDER is "
--		      "active.\n");
-+		e_err("Cannot change link characteristics when SoL/IDER is active.\n");
- 		return -EINVAL;
- 	}
- 
-@@ -727,9 +726,8 @@ static bool reg_pattern_test(struct e1000_adapter *adapter, u64 *data,
- 				      (test[pat] & write));
- 		val = E1000_READ_REG_ARRAY(&adapter->hw, reg, offset);
- 		if (val != (test[pat] & write & mask)) {
--			e_err("pattern test reg %04X failed: got 0x%08X "
--			      "expected 0x%08X\n", reg + offset, val,
--			      (test[pat] & write & mask));
-+			e_err("pattern test reg %04X failed: got 0x%08X expected 0x%08X\n",
-+			      reg + offset, val, (test[pat] & write & mask));
- 			*data = reg;
- 			return 1;
- 		}
-@@ -744,8 +742,8 @@ static bool reg_set_and_check(struct e1000_adapter *adapter, u64 *data,
- 	__ew32(&adapter->hw, reg, write & mask);
- 	val = __er32(&adapter->hw, reg);
- 	if ((write & mask) != (val & mask)) {
--		e_err("set/check reg %04X test failed: got 0x%08X "
--		      "expected 0x%08X\n", reg, (val & mask), (write & mask));
-+		e_err("set/check reg %04X test failed: got 0x%08X expected 0x%08X\n",
-+		      reg, (val & mask), (write & mask));
- 		*data = reg;
- 		return 1;
- 	}
-@@ -797,8 +795,8 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
- 	ew32(STATUS, toggle);
- 	after = er32(STATUS) & toggle;
- 	if (value != after) {
--		e_err("failed STATUS register test got: 0x%08X expected: "
--		      "0x%08X\n", after, value);
-+		e_err("failed STATUS register test got: 0x%08X expected: 0x%08X\n",
-+		      after, value);
- 		*data = 1;
- 		return 1;
- 	}
-@@ -1791,8 +1789,7 @@ static void e1000_get_wol(struct net_device *netdev,
- 		wol->supported &= ~WAKE_UCAST;
- 
- 		if (adapter->wol & E1000_WUFC_EX)
--			e_err("Interface does not support directed (unicast) "
--			      "frame wake-up packets\n");
-+			e_err("Interface does not support directed (unicast) frame wake-up packets\n");
- 	}
- 
- 	if (adapter->wol & E1000_WUFC_EX)
-diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
-index ff796e4..feb6eeb 100644
---- a/drivers/net/ethernet/intel/e1000e/param.c
-+++ b/drivers/net/ethernet/intel/e1000e/param.c
-@@ -166,8 +166,8 @@ E1000_PARAM(WriteProtectNVM, "Write-protect NVM [WARNING: disabling this can lea
-  *
-  * Default Value: 1 (enabled)
-  */
--E1000_PARAM(CrcStripping, "Enable CRC Stripping, disable if your BMC needs " \
--                          "the CRC");
-+E1000_PARAM(CrcStripping,
-+	    "Enable CRC Stripping, disable if your BMC needs the CRC");
- 
- struct e1000_option {
- 	enum { enable_option, range_option, list_option } type;
-@@ -360,8 +360,8 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 				adapter->itr = 20000;
- 				break;
- 			case 4:
--				e_info("%s set to simplified (2000-8000 ints) "
--				       "mode\n", opt.name);
-+				e_info("%s set to simplified (2000-8000 ints) mode\n",
-+				       opt.name);
- 				adapter->itr_setting = 4;
- 				break;
- 			default:
--- 
-1.7.7.6
+ok, it's a bug. The tt_crc field must be stored in the skb by using htons().
+
+>=20
+> 	That sucker comes straight from the (only) caller - tt_update_orig().
+> There it gets compared with ->tt_crc of struct orig_node instances.  Fine,
+> except that just prior to that comparison we assign to ->tt_crc the return
+> value of tt_global_crc().  Which is built on crc16_byte() and clearly
+> returns a host-endian value.  Additionally, orig_node ->tt_crc is getting
+> compared to tt_request->tt_data in send_other_tt_response(), which ultima=
+tely
+> comes from recv_tt_query() where it's flipped from net-endian to host-end=
+ian.
+>=20
+
+We want to do every computation using host-endian data. There is no "fixed
+endian" anywhere. As I wrote above, we forgot to use htons() before sending=
+ the
+tt_crc over the wire.
+
+> 	It gets even funnier - we have 3 structures with ->tt_crc in them;
+> one is struct orig_node (see above), another is struct batman_ogv_packet =
+and
+> then there's the weirdest one - struct bat_priv.  Where ->tt_crc is
+> atomic_t, of all things.  With exactly two things ever done to it:
+>         batman_ogm_packet->tt_crc =3D htons((uint16_t)
+>                                                 atomic_read(&bat_priv->tt=
+_crc));
+> in bat_iv_ogm_schedule() and
+>         atomic_set(&bat_priv->tt_crc, tt_local_crc(bat_priv));
+> in prepare_packet_buffer().  What the hell does that have to do with atom=
+ic_t?
+
+Thank you for spotting this. It was defined as atomic_t in the early develo=
+pment
+phase of this new tt framework, but, then, I'd say that we forgot to conver=
+t it
+to uint16_t once atomic_t was not needed anymore.
+
+> At least that one is definitely host-endian all along (tt_local_crc() is
+> the same kind of built-on-crc16_byte() thing).
+>=20
+> 	And then there's batman_ogv_packet, where we flip the damn field
+> from net-endian to host-endian and back.  That's where the argument of
+> tt_update_orig() comes from, AFAICS always in host-endian form.
+>=20
+> 	IOW, unless I'm misreading that code we have
+> bat_priv ->tt_crc: host-endian, no need to make it atomic_t
+
+I agree.
+
+> orig_node ->tt_crc: host-endian
+
+I agree. As I said before we want to use host-endian everywhere. We just wa=
+nt to
+convert the data to net-endian before sending it over the wire (like people
+should normally do).
+
+> tt_update_orig()/send_tt_request() tt_crc argument: host-endian
+
+I agree.
+
+> the value put into the packet in send_tt_request(): broken; should be
+> net-endian, in reality it's host-endian.  Missing htons() at the very
+> least.
+>=20
+
+Exactly. This is the bug I was talking about in my first inline response.
+
+All the problems come from a missing htons() before sending the tt_request
+packet.
+
+Thank you very much. I'll fix it.
+
+
+Best regards,
+
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--Dxnq1zWXvFF0Q93v
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQEcBAEBAgAGBQJPiUSMAAoJEFMQTLzJFOZFGykH/1Z06lVeOXq7WyIeZdkwKEQH
+AkdNCiprzUqTdAbpM67D7Gwrhc00zDw7FgT6gCZPqf7jxZcWtD1wDvsC+PGVQ8CF
++6ghdSiJvB8mRoMCxtJIfBFDD5iMJht3fUhK1OzcWU/+OACXbo06w+xtu07ijePw
+UbiS9GcBdJ/U+shcRew3kXa7XW1ck7dig9TlyoDw/aWDjIiOjPpZQIAg3WFXWEIf
+khfp6sbkA5gIfW6Wt7KLHJzrtP8vfvaH3gdnQMymrZZyPQrsO7Cfd8Do3gGZhV+6
+nw4U67ef3ym1+Mmk7JRfV0Om71rWujsRbVP0KB9M4WT/61OKX02EXg4x8FPpKZY=
+=JVFn
+-----END PGP SIGNATURE-----
+
+--Dxnq1zWXvFF0Q93v--
