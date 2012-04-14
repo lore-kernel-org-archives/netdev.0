@@ -1,41 +1,64 @@
-From: Spiridon Gasteratos <std07252@di.uoa.gr>
-Subject: Re: Question about tlv message support and encoding
-Date: Sat, 14 Apr 2012 20:30:43 +0300
-Message-ID: <CA+wR77pJ8p9yGnre2ys91TRVrtx2q=fcUEZNpXv66pSkq0GRBQ@mail.gmail.com>
-References: <CA+wR77pwetwv7W3r6EB261mMKAZj6npjNE_nnXKeTQSnfCwe7w@mail.gmail.com>
- <20120414100302.051c5298@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 04/37] atl1c: remove VPD register
+Date: Sat, 14 Apr 2012 14:24:13 -0400 (EDT)
+Message-ID: <20120414.142413.168675709062216981.davem@davemloft.net>
+References: <20120413.204551.959091962456153270.davem@davemloft.net>
+	<157393863283F442885425D2C454285623D486D9@nasanexd02a.na.qualcomm.com>
+	<1334413369.7150.422.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from msa.uoa.gr ([195.134.100.72]:51595 "EHLO msa.uoa.gr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752370Ab2DNSBs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Apr 2012 14:01:48 -0400
-Received: from mail-ey0-f174.google.com (mail-ey0-f174.google.com [209.85.215.174])
-	(authenticated bits=0)
-	by msa.uoa.gr (8.14.1/8.14.1) with ESMTP id q3EHV4UG011082
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sat, 14 Apr 2012 20:31:04 +0300 (EEST)
-Received: by eaaq12 with SMTP id q12so985736eaa.19
-        for <netdev@vger.kernel.org>; Sat, 14 Apr 2012 10:31:03 -0700 (PDT)
-In-Reply-To: <20120414100302.051c5298@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xiong@qca.qualcomm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
+	nic-devel@qualcomm.com
+To: bhutchings@solarflare.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334413369.7150.422.camel@deadeye>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-thank you
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Sat, 14 Apr 2012 15:22:49 +0100
 
-On Sat, Apr 14, 2012 at 8:03 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> On Sat, 14 Apr 2012 19:18:16 +0300
-> Spyros Gasteratos <spyrosgaster@gmail.com> wrote:
->
->> Hello everyone
->>
->> Do you know if the kernel has any support for the construction and encoding
->> of type/length/value (TLV) or other information element messages?
->> if it has(or if you dont know) where can I find a list or more documentation?
->
->
-> netlink.h
+> On Sat, 2012-04-14 at 09:12 +0000, Huang, Xiong wrote:
+>> 
+>> > -----Original Message-----
+>> > From: David Miller [mailto:davem@davemloft.net]
+>> > Sent: Saturday, April 14, 2012 8:46
+>> > To: Huang, Xiong
+>> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; qca-linux-team; nic-
+>> > devel
+>> > Subject: Re: [PATCH 04/37] atl1c: remove VPD register
+>> > 
+>> > From: xiong <xiong@qca.qualcomm.com>
+>> > Date: Fri, 13 Apr 2012 08:14:29 +0800
+>> > 
+>> > > VPD register is only used for L1(devid=PCI_DEVICE_ID_ATTANSIC_L1) to
+>> > > access external NV-memory.
+>> > > l1c & later chip doesn't use it any more.
+>> > >
+>> > > Signed-off-by: xiong <xiong@qca.qualcomm.com>
+>> > > Tested-by: Liu David <dwliu@qca.qualcomm.com>
+>> > 
+>> > You just broke ethtool register dumps with this change.
+>> > 
+>> > Now, all the initial registers are reported offset by one entry, yet the last two are
+>> > still reported in their original spots.
+>> > 
+>> > This layout is exposed to userspace, and interpreted by tools, and you cannot
+>> > change it.
+>> > 
+>> > If this register always reports some value, you should just keep it there in the
+>> > dumps.
+>> >
+>> The VPD register doesn't report anything :(, just a dummy register now.
+>> we don't have any special tools in userspace to explain the dumped registers.
+>> Actually the purpose of dumping these registers via ethtool is just for debug.
+> [...]
+> 
+> Of course, the whole purpose of the operation is for debugging.  But you
+> should bump the dump version number (currently 0) every time you change
+> the offsets of registers in the dump.
+
+And also update the size, and not leave any holes between the actually
+used register slots, etc.
