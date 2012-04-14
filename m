@@ -1,8 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 03/12] atl1c: remove HDS register
-Date: Sat, 14 Apr 2012 17:59:19 +0800
-Message-ID: <1334397568-8444-4-git-send-email-xiong@qca.qualcomm.com>
-References: <1334397568-8444-1-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 00/12] atl1c: update hardware settings -v1
+Date: Sat, 14 Apr 2012 17:59:16 +0800
+Message-ID: <1334397568-8444-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
@@ -10,49 +9,43 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334397568-8444-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-remove HDS register as it doesn't exist in hardware.
+This update contains a serial of patches, most of them are hardware
+settings related. register definitions are refined (or removed if 
+meaningless) for each patch.
 
-Signed-off-by: xiong <xiong@qca.qualcomm.com>
-Tested-by: Liu David <dwliu@qca.qualcomm.com>
----
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    7 -------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 --
- 2 files changed, 0 insertions(+), 9 deletions(-)
+This is the first serial patches, after reviewed/applied the second
+serial will be out.
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index 855aca0..c22d698 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -669,13 +669,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define REG_INT_RETRIG_TIMER		0x1608
- #define INT_RETRIG_TIMER_MASK		0xFFFF
- 
--#define REG_HDS_CTRL			0x160C
--#define HDS_CTRL_EN			0x0001
--#define HDS_CTRL_BACKFILLSIZE_SHIFT	8
--#define HDS_CTRL_BACKFILLSIZE_MASK	0x0FFF
--#define HDS_CTRL_MAX_HDRSIZE_SHIFT	20
--#define HDS_CTRL_MAC_HDRSIZE_MASK	0x0FFF
--
- #define REG_MAC_RX_STATUS_BIN 		0x1700
- #define REG_MAC_RX_STATUS_END 		0x175c
- #define REG_MAC_TX_STATUS_BIN 		0x1760
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 226be99..885e892 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -1453,8 +1453,6 @@ static int atl1c_configure(struct atl1c_adapter *adapter)
- 	/* set MTU */
- 	AT_WRITE_REG(hw, REG_MTU, hw->max_frame_size + ETH_HLEN +
- 			VLAN_HLEN + ETH_FCS_LEN);
--	/* HDS, disable */
--	AT_WRITE_REG(hw, REG_HDS_CTRL, 0);
- 
- 	atl1c_configure_tx(adapter);
- 	atl1c_configure_rx(adapter);
+These patches have addressed all sparse and checkpatch warnings.
+
+Following NICs are tested:
+AR8131/AR8132/AR8151A/AR8152A/AR8152B
+Test item includes:
+build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
+
+
+xiong (12):
+  atl1c: update author contact info & company/driver desciption
+  atl1c: remove multiple-RX-Q code
+  atl1c: remove HDS register
+  atl1c: remove VPD register
+  atl1c: remove SMB/CMB DMA related code
+  atl1c: split 2 32bit registers of TPD to 4 16bit registers
+  atl1c: remove code related to rxq 1/2/3
+  atl1c: wrong register used to stop TXQ
+  atl1c: correct wrong definition of REG_DMA_CTRL
+  atl1c: remove dmaw_block
+  atl1c: using fixed TXQ configuration for l2cb and l1c
+  atl1c: restore max-read-request-size in Device Conrol Register
+
+ drivers/net/ethernet/atheros/atl1c/atl1c.h         |   52 +---
+ drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c |    1 -
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h      |  211 +++++-------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |  358 ++++++--------------
+ 4 files changed, 198 insertions(+), 424 deletions(-)
+
 -- 
 1.7.7
