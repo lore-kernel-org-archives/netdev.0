@@ -1,66 +1,60 @@
 From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH] net_sched: red: Make minor corrections to comments
-Date: Sun, 15 Apr 2012 18:31:46 -0400
-Message-ID: <1334529106-5035-2-git-send-email-david.ward@ll.mit.edu>
-References: <1334529106-5035-1-git-send-email-david.ward@ll.mit.edu>
+Subject: [PATCH] net_sched: gred: Fix oops in gred_dump() in WRED mode
+Date: Sun, 15 Apr 2012 18:31:45 -0400
+Message-ID: <1334529106-5035-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Ward <david.ward@ll.mit.edu>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:41338 "EHLO mx2.ll.mit.edu"
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:41333 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752067Ab2DOWb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752051Ab2DOWb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 15 Apr 2012 18:31:56 -0400
-Received: from LLE2K7-HUB02.mitll.ad.local (LLE2K7-HUB02.mitll.ad.local) by mx2.ll.mit.edu (unknown) with ESMTP id q3FMVtLK013061 for <netdev@vger.kernel.org>; Sun, 15 Apr 2012 18:31:55 -0400
-In-Reply-To: <1334529106-5035-1-git-send-email-david.ward@ll.mit.edu>
+Received: from LLE2K7-HUB02.mitll.ad.local (LLE2K7-HUB02.mitll.ad.local) by mx2.ll.mit.edu (unknown) with ESMTP id q3FMVtLI013061 for <netdev@vger.kernel.org>; Sun, 15 Apr 2012 18:31:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+A parameter set exists for WRED mode, called wred_set, to hold the same
+values for qavg and qidlestart across all VQs. The WRED mode values had
+been previously held in the VQ for the default DP. After these values
+were moved to wred_set, the VQ for the default DP was no longer created
+automatically (so that it could be omitted on purpose, to have packets
+in the default DP enqueued directly to the device without using RED).
+
+However, gred_dump() was overlooked during that change; in WRED mode it
+still reads qavg/qidlestart from the VQ for the default DP, which might
+not even exist. As a result, this command sequence will cause an oops:
+
+tc qdisc add dev $DEV handle $HANDLE parent $PARENT gred setup \
+    DPs 3 default 2 grio
+tc qdisc change dev $DEV handle $HANDLE gred DP 0 prio 8 $RED_OPTIONS
+tc qdisc change dev $DEV handle $HANDLE gred DP 1 prio 8 $RED_OPTIONS
+
+This fixes gred_dump() in WRED mode to use the values held in wred_set.
+
 Signed-off-by: David Ward <david.ward@ll.mit.edu>
 ---
- include/net/red.h |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ net/sched/sch_gred.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/red.h b/include/net/red.h
-index 77d4c37..c0bc25e 100644
---- a/include/net/red.h
-+++ b/include/net/red.h
-@@ -28,7 +28,7 @@
- 	the inertia of the algorithm. To allow larger bursts, W should be
- 	decreased.
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index 55e3310..ab620bf 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -567,11 +567,8 @@ static int gred_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 		opt.packets	= q->packetsin;
+ 		opt.bytesin	= q->bytesin;
  
--	if (avg > th_max) -> packet marked (dropped).
-+	if (avg > th_max) -> packet marked (dropped) with probability max_P.
- 	if (avg < th_min) -> packet passes.
- 	if (th_min < avg < th_max) we calculate probability:
+-		if (gred_wred_mode(table)) {
+-			q->vars.qidlestart =
+-				table->tab[table->def]->vars.qidlestart;
+-			q->vars.qavg = table->tab[table->def]->vars.qavg;
+-		}
++		if (gred_wred_mode(table))
++			gred_load_wred_set(table, q);
  
-@@ -245,7 +245,7 @@ static inline unsigned long red_calc_qavg_from_idle_time(const struct red_parms
- 	 *
- 	 * dummy packets as a burst after idle time, i.e.
- 	 *
--	 * 	p->qavg *= (1-W)^m
-+	 * 	v->qavg *= (1-W)^m
- 	 *
- 	 * This is an apparently overcomplicated solution (f.e. we have to
- 	 * precompute a table to make this calculation in reasonable time)
-@@ -279,7 +279,7 @@ static inline unsigned long red_calc_qavg_no_idle_time(const struct red_parms *p
- 						       unsigned int backlog)
- {
- 	/*
--	 * NOTE: p->qavg is fixed point number with point at Wlog.
-+	 * NOTE: v->qavg is fixed point number with point at Wlog.
- 	 * The formula below is equvalent to floating point
- 	 * version:
- 	 *
-@@ -390,7 +390,7 @@ static inline void red_adaptative_algo(struct red_parms *p, struct red_vars *v)
- 	if (red_is_idling(v))
- 		qavg = red_calc_qavg_from_idle_time(p, v);
+ 		opt.qave = red_calc_qavg(&q->parms, &q->vars, q->vars.qavg);
  
--	/* p->qavg is fixed point number with point at Wlog */
-+	/* v->qavg is fixed point number with point at Wlog */
- 	qavg >>= p->Wlog;
- 
- 	if (qavg > p->target_max && p->max_P <= MAX_P_MAX)
 -- 
 1.7.1
