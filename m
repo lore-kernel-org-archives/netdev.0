@@ -1,32 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: vxge: Add MODULE_FIRMWARE
-Date: Sun, 15 Apr 2012 12:33:06 -0400 (EDT)
-Message-ID: <20120415.123306.2132770845160354506.davem@davemloft.net>
-References: <1334262882-96973-1-git-send-email-tim.gardner@canonical.com>
-	<1334498215.3209.4.camel@deadeye>
+Subject: Re: [PATCH][trivial] ipv4: fix checkpatch errors
+Date: Sun, 15 Apr 2012 12:38:51 -0400 (EDT)
+Message-ID: <20120415.123851.786816332832233291.davem@davemloft.net>
+References: <1334489681-4662-1-git-send-email-dbaluta@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tim.gardner@canonical.com, linux-kernel@vger.kernel.org,
-	jdmason@kudzu.us, netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Cc: netdev@vger.kernel.org, trivial@kernel.org,
+	linux-kernel@vger.kernel.org
+To: dbaluta@ixiacom.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334498215.3209.4.camel@deadeye>
+In-Reply-To: <1334489681-4662-1-git-send-email-dbaluta@ixiacom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sun, 15 Apr 2012 14:56:55 +0100
+From: dbaluta@ixiacom.com
+Date: Sun, 15 Apr 2012 14:34:41 +0300
 
-> Also: this driver's behaviour of automatically updating flash without
-> any confirmation seems quite dangerous.  The driver also isn't usable
-> after it performs such an update:
+> From: Daniel Baluta <dbaluta@ixiacom.com>
 > 
-> 	printk(KERN_NOTICE "Upgrade of firmware successful!  Adapter must be "
-> 	       "hard reset before using, thus requiring a system reboot or a "
-> 	       "hotplug event.\n");
+> Fix checkpatch errors of the following type:
+> 	* ERROR: "foo * bar" should be "foo *bar"
+> 	* ERROR: "(foo*)" should be "(foo *)"
 > 
-> So what is the point of integrating firmware update into the driver at
-> all?
+> Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
 
-This is beyond terrible.
+Applied, but:
+
+> @@ -216,7 +216,7 @@ static struct rtnl_link_stats64 *ipgre_get_stats64(struct net_device *dev,
+>  
+>  /* Given src, dst and key, find appropriate for input tunnel. */
+>  
+> -static struct ip_tunnel * ipgre_tunnel_lookup(struct net_device *dev,
+> +static struct ip_tunnel *ipgre_tunnel_lookup(struct net_device *dev,
+>  					      __be32 remote, __be32 local,
+>  					      __be32 key, __be16 gre_proto)
+>  {
+
+I had to reindent these function arguments on the lines after the one
+you modified so that they continue to line up properly with the column
+of the openning parenthesis on the previous line.
+
+Do not blindly make checkpatch fixes without taking into consideration
+the indentation modifications necessary in the context around your
+change.
