@@ -1,53 +1,55 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: 3.4.0-rc2: skb_put() -> skb_over_panic
-Date: Sun, 15 Apr 2012 16:24:31 +0400
-Message-ID: <CAA1sL1QTRKnfvCnHWjbSJ-hq6dgZK+KGDPVTrOhsfZcFTs01Mw@mail.gmail.com>
+From: "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>
+Subject: Re: [PATCH] 9p: disconnect channel when PCI device is removed
+Date: Sun, 15 Apr 2012 17:57:26 +0530
+Message-ID: <87iph118pd.fsf@skywalker.in.ibm.com>
+References: <1334353716-19483-1-git-send-email-levinsasha928@gmail.com>User-Agent: Notmuch/0.11.1+346~g13d19c3 (http://notmuchmail.org) Emacs/23.3.1 (x86_64-pc-linux-gnu)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davej@redhat.com, Sasha Levin <levinsasha928@gmail.com>
+To: Sasha Levin <levinsasha928@gmail.com>, davem@davemloft.net,
+	ericvh@gmail.com, jvrao@linux.vnet.ibm.com, rusty@rustcorp.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp04.in.ibm.com ([122.248.162.4]:37475 "EHLO
+	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753157Ab2DOM1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 08:27:39 -0400
+Received: from /spool/local
+	by e28smtp04.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <aneesh.kumar@linux.vnet.ibm.com>;
+	Sun, 15 Apr 2012 17:57:35 +0530
+In-Reply-To: <1334353716-19483-1-git-send-email-levinsasha928@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+Sasha Levin <levinsasha928@gmail.com> writes:
 
-kernel 3.4.0-rc2-00333-g668ce0a
+> When a virtio_9p pci device is being removed, we should close down any
+> active channels and free up resources, we're not supposed to BUG() if there's
+> still an open channel since it's a valid case when removing the PCI device.
+>
+> Otherwise, removing the PCI device with an open channel would cause the
+> following BUG():
+>
+...
 
-calltrace is lost on netconsole, sorry.
+> diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
+> index 3d43206..5af18d1 100644
+> --- a/net/9p/trans_virtio.c
+> +++ b/net/9p/trans_virtio.c
+> @@ -615,7 +615,8 @@ static void p9_virtio_remove(struct virtio_device *vdev)
+>  {
+>  	struct virtio_chan *chan = vdev->priv;
+>
+> -	BUG_ON(chan->inuse);
+> +	if (chan->inuse)
+> +		p9_virtio_close(chan->client);
+>  	vdev->config->del_vqs(vdev);
+>
+>  	mutex_lock(&virtio_9p_lock);
 
-ethernet is realtek/r8169
+But an umount should have resulted in p9_virtio_close ? How are you
+removing the device ? Are you removing the device with file system
+mounted  ?. In that case may be we should return EBUSY ?
 
-It happened already two times with rtorrent, perhaps I can reproduce
-it, what else can I provide to you?
-
-skb_over_panic: text:ffffffff8136d919 len:1016 put:815
-head:ffff8800afe4d800 data:ffff8800afe4dd6b tail:0x963 end:0x6c0
-dev:<NULL>
-------------[ cut here ]------------
-kernel BUG at net/core/skbuff.c:127!
-invalid opcode: 0000 [#1] SMP
-CPU 2
-Modules linked in:
-
-Pid: 0, comm: swapper/2 Not tainted 3.4.0-rc2-00333-g668ce0a #1
-          /D525MW
-RIP: 0010:[<ffffffff8132414a>]  [<ffffffff8132414a>] skb_put+0x7c/0x86
-RSP: 0018:ffff8800bed03950  EFLAGS: 00010246
-RAX: 0000000000000098 RBX: ffff88002883a580 RCX: 0000000000000015
-RDX: 0000000000000001 RSI: 0000000000000046 RDI: ffffffff8162a0b0
-RBP: ffff8800bed03970 R08: ffffffff813cd540 R09: ffff8800bed03650
-R10: 0000000000000000 R11: 0000000000000000 R12: ffff88002895c380
-R13: ffff88002895ca80 R14: ffff88002895c3a8 R15: ffff88002883a660
-FS:  0000000000000000(0000) GS:ffff8800bed00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 00007fcbba6e1000 CR3: 0000000001520000 CR4: 00000000000007e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process swapper/2 (pid: 0, threadinfo ffff8800bb0a8000, task ffff8800bb06d780)
-Stack:
- 0000000000000963 00000000000006c0 ffffffff814d06e7 ffff88002895c380
- ffff8800bed039d0 ffffffff8136d919 ffff88000000032f 000000c98102ebbd
- ffff88002883a660 0000019c0000250f ffff88002883a580 ffff88002883a580
-Call Trace:
- <IRQ>
+-aneesh
