@@ -1,154 +1,137 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH v2] bonding: start slaves with link down for ARP monitor
-Date: Sun, 15 Apr 2012 15:07:50 -0300
-Message-ID: <20120415150750.725652e6@asterix.rh>
-References: <20120414220617.DA8BE45BA2@lion.mk-sys.cz>
-	<20120415002153.4c4e152a@asterix.rh>
-	<19180.1334465333@death.nxdomain>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next] tcp: RFC6298 supersedes RFC2988bis
+Date: Sun, 15 Apr 2012 11:33:38 -0700
+Message-ID: <CAPshTCiew0w4kF2yE=Bn_E702vxdFwZipnnEpsAuhSm6OO187Q@mail.gmail.com>
+References: <1334296120.5300.8404.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michal Kubecek <mkubecek@suse.cz>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60188 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753459Ab2DOSIV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Apr 2012 14:08:21 -0400
-In-Reply-To: <19180.1334465333@death.nxdomain>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:44735 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750710Ab2DOSdk convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Apr 2012 14:33:40 -0400
+Received: by lahj13 with SMTP id j13so3469252lah.19
+        for <netdev@vger.kernel.org>; Sun, 15 Apr 2012 11:33:38 -0700 (PDT)
+In-Reply-To: <1334296120.5300.8404.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 14 Apr 2012 21:48:53 -0700
-Jay Vosburgh <fubar@us.ibm.com> wrote:
+[send again - it looks like my previous comment was lost...]
 
-> Flavio Leitner <fbl@redhat.com> wrote:
-> 
-> >On Sat, 14 Apr 2012 22:16:16 +0200
-> >Michal Kubecek <mkubecek@suse.cz> wrote:
-> >
-> >> Initialize slave device link state as down if ARP monitor is
-> >> active and net_carrier_ok() returns zero. Also shift initial
-> >> value of its last_arp_tx so that it doesn't immediately cause
-> >> fake detection of "up" state.
-> >> 
-> >> When ARP monitoring is used, initializing the slave device with
-> >> up link state can cause ARP monitor to detect link failure
-> >> before the device is really up (with igb driver, this can take
-> >> more than two seconds).
-> >> 
-> >> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> >> ---
-> >>  drivers/net/bonding/bond_main.c |   34 +++++++++++++++++++++-------------
-> >>  1 files changed, 21 insertions(+), 13 deletions(-)
-> >> 
-> >> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> >> index 62d2409..6a79ee3 100644
-> >> --- a/drivers/net/bonding/bond_main.c
-> >> +++ b/drivers/net/bonding/bond_main.c
-> >> @@ -1726,7 +1726,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
-> >>  
-> >>  	read_lock(&bond->lock);
-> >>  
-> >> -	new_slave->last_arp_rx = jiffies;
-> >> +	new_slave->last_arp_rx = jiffies -
-> >> +		(msecs_to_jiffies(bond->params.arp_interval) + 1);
-> >>  
-> >>  	if (bond->params.miimon && !bond->params.use_carrier) {
-> >>  		link_reporting = bond_check_dev_link(bond, slave_dev, 1);
-> >> @@ -1751,21 +1752,28 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
-> >>  	}
-> >>  
-> >>  	/* check for initial state */
-> >> -	if (!bond->params.miimon ||
-> >> -	    (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS)) {
-> >> -		if (bond->params.updelay) {
-> >> -			pr_debug("Initial state of slave_dev is BOND_LINK_BACK\n");
-> >> -			new_slave->link  = BOND_LINK_BACK;
-> >> -			new_slave->delay = bond->params.updelay;
-> >> +	if (bond->params.miimon) {
-> >> +		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
-> >> +			if (bond->params.updelay) {
-> >> +				new_slave->link = BOND_LINK_BACK;
-> >> +				new_slave->delay = bond->params.updelay;
-> >> +			} else {
-> >> +				new_slave->link = BOND_LINK_UP;
-> >> +			}
-> >>  		} else {
-> >> -			pr_debug("Initial state of slave_dev is BOND_LINK_UP\n");
-> >> -			new_slave->link  = BOND_LINK_UP;
-> >> +			new_slave->link = BOND_LINK_DOWN;
-> >>  		}
-> >> +	} else if (bond->params.arp_interval) {
-> >> +		new_slave->link = (netif_carrier_ok(slave_dev) ?
-> >> +			BOND_LINK_UP : BOND_LINK_DOWN);
-> >
-> >The interface would have to negotiate the link and report back
-> >very very fast because the dev_open(slave) was just called and
-> >most drivers initialize the state as DOWN and then wait either
-> >for an interrupt or a watchdog to update the link status.
-> >
-> >Therefore, the practical final result for most cards (if not all)
-> >is new_slave->link = BOND_LINK_DOWN and forced to wait for an
-> >ARP monitor cycle before going link up according to ARP monitor.
-> 
-> 	My recollection is that the code was written this way
-> specifically because cards could autoneg before the next ARP went out,
-> and starting from "up" was the proper choice for the majority of devices
-> at the time.  Granted, that was back in the 10/100 days, prior to
-> netif_carrier_*, so directly checking carrier was not particularly
-> straightforward.  A dim memory says that some cards with WoL would
-> assert carrier up almost instantly because carrier was already
-> negotiated prior to dev_open being called.
-> 
-> 	But, yes, the practical result is that most 1G or better cards
-> will likely hit this with carrier still down.
-> 
-> >This will change the current behavior which is faster and good
-> >enough for most cases.  What about a new option to decide that?
-> >For instance, arp_init_slave=UP/DOWN/MII with default to UP.
-> 
-> 	By "current behavior" do you mean the current checked in code
-> (start at up, flap if autoneg is slow relative to arp_interval), or the
-> current (well, prior version) patch (start at down)?
-> 
-
-current checked in code.
-
-> 	I'm not in favor of an option for minutiae of this degree.
-> 
-> 	I'm not really seeing a down side to going with what the carrier
-> state is, either, even if most devices are too slow to hit the window.
-> 
-> 	If the device doesn't do netif_carrier, then this would not be a
-> change in behavior.  If the device has wicked fast autoneg, then more
-> power to 'em (and they probably need it, since it's likely at 10 or 100
-> Mb/sec).  If the device has the currently typical 2-ish second autoneg,
-> then the bounce stuff goes away.
-> 
-> 	Anybody got a 10 or 100 card laying around with fast autoneg to
-> try?  Back in the day I used 3c59x and e100s, and I seem to recall that
-> the 3c59x board I had was pretty speedy at going carrier up.
-> 
-> >Jay? Andy? :)
-> 
-> 	I think the bottom line here for the majority of users is that,
-> really, this is about removing some log spew at boot time, and perhaps
-> not irritating some functionality that start hitting the device as soon
-> as it claims to be carrier up (DHCP, maybe?).  Starting from an assumed
-> state of UP or DOWN isn't going to change the actual time the slave
-> becomes available, but starting from UP can cause bonding today to
-> assert carrier up for the master before it's actually able to transmit
-> anything, which may have side effects.
+On Thu, Apr 12, 2012 at 10:48 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Updates some comments to track RFC6298
 >
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: H.K. Jerry Chu <hkchu@google.com>
+> Cc: Tom Herbert <therbert@google.com>
+> ---
+> BTW, one side effect of the TCP_TIMEOUT_INIT change (3 -> 1) is
+> () latency is 200% worse:
 
-My concern was that after the patch most users will have to wait
-the link negotiation plus the ARP monitor validation while before
-the patch just the link negotiation was enough.
+Or even worse - 300% (3/1)?
 
-Anyways, I think the patch is correct and I was worried with the
-possible consequences while booting the system and etc...
+>
+> It fires every 200ms and scans 40% of hash table each time, listener
+> socket held.
 
-thanks,
-fbl
+If this becomes a real issue we could decrease TCP_SYNQ_INTERVAL,
+essentially making the keepalive timer fire more often, but each time w=
+ith
+less work to do?
+
+Also why is
+budget =3D 2 * (lopt->nr_table_entries / (timeout / interval));
+rather than
+budget =3D (lopt->nr_table_entries / (timeout / interval)) + 1;
+?
+
+Acked-by: Jerry Chu <hkchu@google.com>
+
+>
+> =A0include/net/tcp.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A02 +-
+> =A0net/ipv4/inet_connection_sock.c | =A0 =A02 +-
+> =A0net/ipv4/tcp_input.c =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A04 ++--
+> =A03 files changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index f75a04d..057f016 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -123,7 +123,7 @@ extern void tcp_time_wait(struct sock *sk, int st=
+ate, int timeo);
+> =A0#endif
+> =A0#define TCP_RTO_MAX =A0 =A0((unsigned)(120*HZ))
+> =A0#define TCP_RTO_MIN =A0 =A0((unsigned)(HZ/5))
+> -#define TCP_TIMEOUT_INIT ((unsigned)(1*HZ)) =A0 =A0/* RFC2988bis ini=
+tial RTO value */
+> +#define TCP_TIMEOUT_INIT ((unsigned)(1*HZ)) =A0 =A0/* RFC6298 2.1 in=
+itial RTO value =A0 =A0 =A0 =A0*/
+> =A0#define TCP_TIMEOUT_FALLBACK ((unsigned)(3*HZ)) =A0 =A0 =A0 =A0/* =
+RFC 1122 initial RTO value, now
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 * used as a fallback RTO for the
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 * initial data transmission if no
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connecti=
+on_sock.c
+> index 19d66ce..c12396f 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -514,7 +514,7 @@ void inet_csk_reqsk_queue_prune(struct sock *pare=
+nt,
+>
+> =A0 =A0 =A0 =A0/* Normally all the openreqs are young and become matu=
+re
+> =A0 =A0 =A0 =A0 * (i.e. converted to established socket) for first ti=
+meout.
+> - =A0 =A0 =A0 =A0* If synack was not acknowledged for 3 seconds, it m=
+eans
+> + =A0 =A0 =A0 =A0* If synack was not acknowledged for 1 second, it me=
+ans
+> =A0 =A0 =A0 =A0 * one of the following things: synack was lost, ack w=
+as lost,
+> =A0 =A0 =A0 =A0 * rtt is high or nobody planned to ack (i.e. synflood=
+).
+> =A0 =A0 =A0 =A0 * When server is a bit loaded, queue is populated wit=
+h old
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index e886e2f..9147c27 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -933,7 +933,7 @@ static void tcp_init_metrics(struct sock *sk)
+> =A0 =A0 =A0 =A0tcp_set_rto(sk);
+> =A0reset:
+> =A0 =A0 =A0 =A0if (tp->srtt =3D=3D 0) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* RFC2988bis: We've failed to get a va=
+lid RTT sample from
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* RFC6298: 5.7 We've failed to get a v=
+alid RTT sample from
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 3WHS. This is most likely due to re=
+transmission,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * including spurious one. Reset the R=
+TO back to 3secs
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * from the more aggressive 1sec to av=
+oid more spurious
+> @@ -943,7 +943,7 @@ reset:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0inet_csk(sk)->icsk_rto =3D TCP_TIMEOUT=
+_FALLBACK;
+> =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0/* Cut cwnd down to 1 per RFC5681 if SYN or SYN-ACK ha=
+s been
+> - =A0 =A0 =A0 =A0* retransmitted. In light of RFC2988bis' more aggres=
+sive 1sec
+> + =A0 =A0 =A0 =A0* retransmitted. In light of RFC6298 more aggressive=
+ 1sec
+> =A0 =A0 =A0 =A0 * initRTO, we only reset cwnd when more than 1 SYN/SY=
+N-ACK
+> =A0 =A0 =A0 =A0 * retransmission has occurred.
+> =A0 =A0 =A0 =A0 */
+>
+>
