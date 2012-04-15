@@ -1,50 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v4 0/8] Managing the forwarding database(FDB)
-Date: Sun, 15 Apr 2012 13:06:37 -0400 (EDT)
-Message-ID: <20120415.130637.2258594023349277277.davem@davemloft.net>
-References: <20120415163905.14091.30491.stgit@jf-dev1-dcblab>
+Subject: Re: [PATCH 0/9] atl1: add napi to Atheros L1 NIC
+Date: Sun, 15 Apr 2012 13:28:05 -0400 (EDT)
+Message-ID: <20120415.132805.143754486571031578.davem@davemloft.net>
+References: <1334333394-38404-1-git-send-email-antonz@parallels.com>
+	<20120415.130346.1822341707659142562.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mst@redhat.com, bhutchings@solarflare.com,
-	sri@us.ibm.com, hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gregory.v.rose@intel.com,
-	krkumar2@in.ibm.com
-To: john.r.fastabend@intel.com
+Cc: netdev@vger.kernel.org, jcliburn@gmail.com, csnook@redhat.com,
+	khorenko@parallels.com
+To: antonz@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37466 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:37585 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755836Ab2DORGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 13:06:52 -0400
-In-Reply-To: <20120415163905.14091.30491.stgit@jf-dev1-dcblab>
+	with ESMTP id S1754727Ab2DOR2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 13:28:11 -0400
+In-Reply-To: <20120415.130346.1822341707659142562.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Sun, 15 Apr 2012 09:43:51 -0700
+From: David Miller <davem@davemloft.net>
+Date: Sun, 15 Apr 2012 13:03:46 -0400 (EDT)
 
-> The following series is a submission for net-next to allow
-> embedded switches and other stacked devices other then the
-> Linux bridge to manage a forwarding database.
+> From: Tony Zelenoff <antonz@parallels.com>
+> Date: Fri, 13 Apr 2012 20:09:45 +0400
 > 
-> Previously discussed here,
+>> Added NAPI interface to the driver of Atheros L1 NIC.
+>> RX speed reported by iperf in TCP mode (with and without -N
+>> switch) improved by ~7 Mbps. In UDP mode the speed up is
+>> improved by ~4 Mbps.
+>> Also hard RX/TX rings processing with memory allocation in
+>> interrupt handlers is not very good idea. So, fixed this.
+>> 
+>> Note: thouse patches must be applied after patch, that fix
+>> kernel panic in this driver.
+>> Its subject is: "atl1: fix kernel panic in case of DMA errors"
 > 
-> http://lists.openwall.net/netdev/2012/03/19/26
-> 
-> v4: propagate return codes correctly for ndo_dflt_Fdb_dump()
-> 
-> v3: resolve the macvlan patch 8/8 to fix a dev_set_promiscuity()
->     error and add the flags field to change and get link routines.
-> 
-> v2: addressed feedback from Ben Hutchings resolving a typo in the
->     multicast add/del routines and improving the error handling
->     when both NTF_SELF and NTF_MASTER are set.
-> 
-> I've tested this with 'br' tool published by Stephen Hemminger
-> soon to be renamed 'bridge' I believe and various traffic
-> generators mostly pktgen, ping, and netperf.
+> Unfortunately this is bullshit.  These patches actually depend upon
+> that bug fix not being applied.  Look at the patches, they reference
+> and use the reset workqueue the bug fix removed.
 
-All applied, if we need any more tweaks we can just add them
-on top of this work.
+My bad, I thought I had merged the net tree into net-next before
+processing your patches but I didn't.
 
-Thanks John.
+I just fixed this all up in the net-next tree, please double
+check my work.
+
+Thank you.
