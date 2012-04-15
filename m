@@ -1,35 +1,64 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: RE: [PATCH 6/6] tilegx network driver: initial support
-Date: Sun, 15 Apr 2012 23:06:17 +0000
-Message-ID: <9D6CA7A63751804FADD8B075304A6858109A5B47@USMAExch1.tad.internal.tilera.com>
-References: <201204062059.q36KxjEO011317@farm-0027.internal.tilera.com>
- <201204091349.54484.arnd@arndb.de>
- <4F835510.4060100@tilera.com>,<201204101042.39877.arnd@arndb.de>
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Subject: [PATCH net] dummy: Add ndo_uninit().
+Date: Mon, 16 Apr 2012 08:26:01 +0900
+Message-ID: <20120416082601.ac00a86d.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usmamail.tilera.com ([206.83.70.75]:28416 "EHLO
-	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752000Ab2DOXJT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 19:09:19 -0400
-In-Reply-To: <201204101042.39877.arnd@arndb.de>
-Content-Language: en-US
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:44398 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752180Ab2DOX0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 19:26:04 -0400
+Received: by dake40 with SMTP id e40so6115404dak.11
+        for <netdev@vger.kernel.org>; Sun, 15 Apr 2012 16:26:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann wrote:
-> > We need "tile_net_devs_for_channel" because we share a single hardware
-> > queue for all devices, and each packet's metadata contains a "channel"
-> > value which indicates the device.
-> 
-> Ok, but please remove tile_net_devs then.
+In register_netdevice(), when ndo_init() is successful and later
+some error occurred, ndo_uninit() will be called.
+So dummy deivce is desirable to implement ndo_uninit() method
+to free percpu stats for this case.
+And, ndo_uninit() is also called along with dev->destructor() when
+device is unregistered, so in order to prevent dev->dstats from
+being freed twice, dev->destructor is modified to free_netdev().
 
-I spent some time on Friday with the driver author and we made some good changes, switching over to using more of a per-channel model for everything. We also removed the per-cpu per-driver stats structures and just use atomics to update the per-driver stats directly.  The upshot is a much cleaner set of data structures, but unfortunately we didn't have time to work all the way through the ramifications before the weekend, and I'm out next week for spring school vacation.
+Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+---
+ drivers/net/dummy.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Thanks again for the feedback!
-
-Chris Metcalf
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index d5c6d92..442d91a 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -107,14 +107,14 @@ static int dummy_dev_init(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static void dummy_dev_free(struct net_device *dev)
++static void dummy_dev_uninit(struct net_device *dev)
+ {
+ 	free_percpu(dev->dstats);
+-	free_netdev(dev);
+ }
+ 
+ static const struct net_device_ops dummy_netdev_ops = {
+ 	.ndo_init		= dummy_dev_init,
++	.ndo_uninit		= dummy_dev_uninit,
+ 	.ndo_start_xmit		= dummy_xmit,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_rx_mode	= set_multicast_list,
+@@ -128,7 +128,7 @@ static void dummy_setup(struct net_device *dev)
+ 
+ 	/* Initialize the device structure. */
+ 	dev->netdev_ops = &dummy_netdev_ops;
+-	dev->destructor = dummy_dev_free;
++	dev->destructor = free_netdev;
+ 
+ 	/* Fill in device structure with ethernet-generic values. */
+ 	dev->tx_queue_len = 0;
+-- 
+1.7.8.5
