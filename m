@@ -1,120 +1,40 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Patch for man unix(7)
-Date: Mon, 16 Apr 2012 09:42:48 +1200
-Message-ID: <CAKgNAkgNRbdcWwo0nhsbCxtnagEucxm6d76ugGAAUAd+ukBLCQ@mail.gmail.com>
-References: <AANLkTimtTazMmDvQFgASsVGa=AYvPZqUaUmyg5p7VVY1@mail.gmail.com>
- <201010171428.DDC17187.FFFJSLtOOHOMQV@I-love.SAKURA.ne.jp>
- <201010262115.FEH09326.OMFJHSVOFLQFOt@I-love.SAKURA.ne.jp> <201011232159.DFE78143.tSHMFQOLFVFJOO@I-love.SAKURA.ne.jp>
-Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Stephane Fillod <fillods@users.sf.net>
+Subject: [PATCH] net: usb: smsc75xx: fix mtu
+Date: Sun, 15 Apr 2012 23:38:29 +0200
+Message-ID: <20120415213829.GI5277@charybde.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Tetsuo Handa <penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201011232159.DFE78143.tSHMFQOLFVFJOO-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: steve.glendinning@smsc.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp23.services.sfr.fr ([93.17.128.21]:35614 "EHLO
+	smtp23.services.sfr.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751773Ab2DOVry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 17:47:54 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Tetsuao Handa
+Make smsc75xx recalculate the hard_mtu after adjusting the
+hard_header_len.
 
-[Thanks for the text program that you sent more recently]
+Without this, usbnet adjusts the MTU down to 1492 bytes, and the host is
+unable to receive standard 1500-byte frames from the device.
 
-On Wed, Nov 24, 2010 at 1:59 AM, Tetsuo Handa
-<penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org> wrote:
-> =A0From f388eedbdc0b099bb9f36ab007f9370432abb300 Mon Sep 17 00:00:00 =
-2001
-> =A0From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-> Date: Tue, 23 Nov 2010 21:34:25 +0900
-> Subject: [PATCH] unix.7: Fix description of "pathname" sockets
->
-> Since unix_mkname() in net/unix/af_unix.c does
->
-> =A0((char *)sunaddr)[len] =3D 0;
->
-> rather than
->
-> =A0((char *)sunaddr)[len - 1] =3D 0;
->
-> , sunaddr->sun_path may not be terminated with a null byte if
-> len =3D=3D sizeof(*sunaddr).
->
-> Therefore, the caller of getsockname(), getpeername(), accept() must =
-not assume
-> that sunaddr->sun_path contains a null-terminated pathname even if th=
-e returned
-> addrlen is greater than sizeof(sa_family_t) and sun_path[0] !=3D '\0'=
-=2E
+Inspired by same fix on cdc_eem 78fb72f7936c01d5b426c03a691eca082b03f2b9.
 
-Thanks. I see what you mean. However, I'm wondering, is the kernel
-behavior simply a bug that should be fixed, so that a null terminator
-is always placed in sun_path?
+Tested on ARM/Omap3 with EVB-LAN7500-LC.
 
-I realize that's an ABI change, but:
-a) I suspect most sane applications would never create a sun_path that
-didn't contain a null terminator within sizeof(sun_path) bytes.
-b) Considering these two sets:
-   1. [applications that would break if the assumption that there
-         is no null terminator inside sizeof(sun_path) bytes doesn't
-         hold true]
-   2. [applications that would break if the kernel behavior changed]
-   I suspect that set 1 is much larger than set 2.
+Signed-off-by: Stephane Fillod <fillods@users.sf.net>
+---
 
-Your thoughts?
-
-Thanks,
-
-Michael
-
-> Signed-off-by: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-> ---
-> =A0man7/unix.7 | =A0 19 ++++++++++++++++---
-> =A01 files changed, 16 insertions(+), 3 deletions(-)
->
-> diff --git a/man7/unix.7 b/man7/unix.7
-> index b53328b..7b0b47c 100644
-> --- a/man7/unix.7
-> +++ b/man7/unix.7
-> @@ -80,10 +80,23 @@ When the address of the socket is returned by
-> =A0and
-> =A0.BR accept (2),
-> =A0its length is
-> -.IR "offsetof(struct sockaddr_un, sun_path) + strlen(sun_path) + 1" =
-,
-> +.IR "offsetof(struct sockaddr_un, sun_path) + strlen(sun_path) + 1".
-> +Note that this length can be one byte larger than
-> +.IR "sizeof(struct sockaddr_un)"
-> +because
-> +.BR bind (2)
-> +accepts
-> +.IR sun_path
-> +which is not terminated with a null byte ('\\0').
-> +Therefore, you must not use string manipulation functions (e.g. strl=
-en(),
-> +printf("%s")) against
-> +.IR sun_path
-> +because
-> +.BR getsockname (2),
-> +.BR getpeername (2),
-> =A0and
-> -.I sun_path
-> -contains the null-terminated pathname.
-> +.BR accept (2)
-> +may not have stored a null-terminated string.
-> =A0.IP *
-> =A0.IR unnamed :
-> =A0A stream socket that has not been bound to a pathname using
-> --
-> 1.6.1
-
-
-
---=20
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Author of "The Linux Programming Interface"; http://man7.org/tlpi/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -1049,6 +1049,7 @@
+ 	dev->net->ethtool_ops = &smsc75xx_ethtool_ops;
+ 	dev->net->flags |= IFF_MULTICAST;
+ 	dev->net->hard_header_len += SMSC75XX_TX_OVERHEAD;
++	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
+ 	return 0;
+ }
+ 
