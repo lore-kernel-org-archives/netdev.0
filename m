@@ -1,36 +1,32 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v3 3/8] net: add fdb generic dump routine
-Date: Sun, 15 Apr 2012 09:05:59 -0700
-Message-ID: <4F8AF1E7.2030306@intel.com>
-References: <20120412170258.2717.34628.stgit@jf-dev1-dcblab>  <20120412170702.2717.81539.stgit@jf-dev1-dcblab> <1334262009.2497.20.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: vxge: Add MODULE_FIRMWARE
+Date: Sun, 15 Apr 2012 12:33:06 -0400 (EDT)
+Message-ID: <20120415.123306.2132770845160354506.davem@davemloft.net>
+References: <1334262882-96973-1-git-send-email-tim.gardner@canonical.com>
+	<1334498215.3209.4.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mst@redhat.com, davem@davemloft.net,
-	sri@us.ibm.com, hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gregory.v.rose@intel.com,
-	krkumar2@in.ibm.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55877 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754734Ab2DOQGA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Apr 2012 12:06:00 -0400
-In-Reply-To: <1334262009.2497.20.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tim.gardner@canonical.com, linux-kernel@vger.kernel.org,
+	jdmason@kudzu.us, netdev@vger.kernel.org
+To: ben@decadent.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334498215.3209.4.camel@deadeye>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/12/2012 1:20 PM, Ben Hutchings wrote:
-> On Thu, 2012-04-12 at 10:07 -0700, John Fastabend wrote:
->> This adds a generic dump routine drivers can call. It
->> should be sufficient to handle any bridging model that
->> uses the unicast address list. This should be most SR-IOV
->> enabled NICs.
->>
->> v2: return error on nlmsg_put and use -EMSGSIZE instead
->>     of -ENOMEM this is inline other usages
-> 
-> It's still not propagated up to ndo_dflt_fdb_dump() though:
-> 
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sun, 15 Apr 2012 14:56:55 +0100
 
-Thanks Ben. I'll fix this in v4.
+> Also: this driver's behaviour of automatically updating flash without
+> any confirmation seems quite dangerous.  The driver also isn't usable
+> after it performs such an update:
+> 
+> 	printk(KERN_NOTICE "Upgrade of firmware successful!  Adapter must be "
+> 	       "hard reset before using, thus requiring a system reboot or a "
+> 	       "hotplug event.\n");
+> 
+> So what is the point of integrating firmware update into the driver at
+> all?
+
+This is beyond terrible.
