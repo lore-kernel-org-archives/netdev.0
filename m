@@ -1,7 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH v4 3/8] net: add fdb generic dump routine
-Date: Sun, 15 Apr 2012 09:44:08 -0700
-Message-ID: <20120415164408.14091.42136.stgit@jf-dev1-dcblab>
+Subject: [net-next PATCH v4 4/8] net: rtnetlink notify events for FDB NTF_SELF
+	adds and deletes
+Date: Sun, 15 Apr 2012 09:44:14 -0700
+Message-ID: <20120415164413.14091.30562.stgit@jf-dev1-dcblab>
 References: <20120415163905.14091.30491.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,127 +13,86 @@ Cc: sri@us.ibm.com, hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
 To: shemminger@vyatta.com, mst@redhat.com, davem@davemloft.net,
 	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:12369 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64826 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755822Ab2DOQ5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Apr 2012 12:57:18 -0400
+	id S1755822Ab2DOQ5X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Apr 2012 12:57:23 -0400
 In-Reply-To: <20120415163905.14091.30491.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a generic dump routine drivers can call. It
-should be sufficient to handle any bridging model that
-uses the unicast address list. This should be most SR-IOV
-enabled NICs.
+It is useful to be able to monitor for FDB events in user space.
+This patch adds support to generate netlink events when a change
+is made to a device supporting the FDB ops.
 
-v2: return error on nlmsg_put and use -EMSGSIZE instead
-    of -ENOMEM this is inline other usages
+This brings embedded switches inline with the SW net/bridge which
+triggers events on FDB updates as well.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- net/core/rtnetlink.c |   84 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 84 insertions(+), 0 deletions(-)
+ net/core/rtnetlink.c |   35 +++++++++++++++++++++++++++++++++--
+ 1 files changed, 33 insertions(+), 2 deletions(-)
 
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 037f53c..9149018 100644
+index 9149018..46f69b5 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -1980,6 +1980,37 @@ errout:
- 		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
+@@ -2011,6 +2011,33 @@ nla_put_failure:
+ 	return -EMSGSIZE;
  }
  
-+static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
-+				   struct net_device *dev,
-+				   u8 *addr, u32 pid, u32 seq,
-+				   int type, unsigned int flags)
++static inline size_t rtnl_fdb_nlmsg_size(void)
 +{
-+	struct nlmsghdr *nlh;
-+	struct ndmsg *ndm;
++	return NLMSG_ALIGN(sizeof(struct ndmsg)) + nla_total_size(ETH_ALEN);
++}
 +
-+	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ndm), NLM_F_MULTI);
-+	if (!nlh)
-+		return -EMSGSIZE;
++static void rtnl_fdb_notify(struct net_device *dev, u8 *addr, int type)
++{
++	struct net *net = dev_net(dev);
++	struct sk_buff *skb;
++	int err = -ENOBUFS;
 +
-+	ndm = nlmsg_data(nlh);
-+	ndm->ndm_family  = AF_BRIDGE;
-+	ndm->ndm_pad1	 = 0;
-+	ndm->ndm_pad2    = 0;
-+	ndm->ndm_flags	 = flags;
-+	ndm->ndm_type	 = 0;
-+	ndm->ndm_ifindex = dev->ifindex;
-+	ndm->ndm_state   = NUD_PERMANENT;
++	skb = nlmsg_new(rtnl_fdb_nlmsg_size(), GFP_ATOMIC);
++	if (!skb)
++		goto errout;
 +
-+	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, addr))
-+		goto nla_put_failure;
++	err = nlmsg_populate_fdb_fill(skb, dev, addr, 0, 0, type, NTF_SELF);
++	if (err < 0) {
++		kfree_skb(skb);
++		goto errout;
++	}
 +
-+	return nlmsg_end(skb, nlh);
-+
-+nla_put_failure:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
++	rtnl_notify(skb, net, 0, RTNLGRP_NEIGH, NULL, GFP_ATOMIC);
++	return;
++errout:
++	rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
 +}
 +
  static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
  {
  	struct net *net = sock_net(skb->sk);
-@@ -2101,6 +2132,59 @@ out:
- 	return err;
- }
+@@ -2067,8 +2094,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 		err = dev->netdev_ops->ndo_fdb_add(ndm, dev, addr,
+ 						   nlh->nlmsg_flags);
  
-+static int nlmsg_populate_fdb(struct sk_buff *skb,
-+			      struct netlink_callback *cb,
-+			      struct net_device *dev,
-+			      int *idx,
-+			      struct netdev_hw_addr_list *list)
-+{
-+	struct netdev_hw_addr *ha;
-+	int err;
-+	u32 pid, seq;
-+
-+	pid = NETLINK_CB(cb->skb).pid;
-+	seq = cb->nlh->nlmsg_seq;
-+
-+	list_for_each_entry(ha, &list->list, list) {
-+		if (*idx < cb->args[0])
-+			goto skip;
-+
-+		err = nlmsg_populate_fdb_fill(skb, dev, ha->addr,
-+					      pid, seq, 0, NTF_SELF);
-+		if (err < 0)
-+			return err;
-+skip:
-+		*idx += 1;
-+	}
-+	return 0;
-+}
-+
-+/**
-+ * ndo_dflt_fdb_dump: default netdevice operation to dump an FDB table.
-+ * @nlh: netlink message header
-+ * @dev: netdevice
-+ *
-+ * Default netdevice operation to dump the existing unicast address list.
-+ * Returns zero on success.
-+ */
-+int ndo_dflt_fdb_dump(struct sk_buff *skb,
-+		      struct netlink_callback *cb,
-+		      struct net_device *dev,
-+		      int idx)
-+{
-+	int err;
-+
-+	netif_addr_lock_bh(dev);
-+	err = nlmsg_populate_fdb(skb, cb, dev, &idx, &dev->uc);
-+	if (err)
-+		goto out;
-+	nlmsg_populate_fdb(skb, cb, dev, &idx, &dev->mc);
-+out:
-+	netif_addr_unlock_bh(dev);
-+	return idx;
-+}
-+EXPORT_SYMBOL(ndo_dflt_fdb_dump);
-+
- static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	int idx = 0;
+-		if (!err)
++		if (!err) {
++			rtnl_fdb_notify(dev, addr, RTM_NEWNEIGH);
+ 			ndm->ndm_flags &= ~NTF_SELF;
++		}
+ 	}
+ out:
+ 	return err;
+@@ -2125,8 +2154,10 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	if ((ndm->ndm_flags & NTF_SELF) && dev->netdev_ops->ndo_fdb_del) {
+ 		err = dev->netdev_ops->ndo_fdb_del(ndm, dev, addr);
+ 
+-		if (!err)
++		if (!err) {
++			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
+ 			ndm->ndm_flags &= ~NTF_SELF;
++		}
+ 	}
+ out:
+ 	return err;
