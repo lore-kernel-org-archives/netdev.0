@@ -1,38 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [0/3] bridge: Do not send multicast queries by default
-Date: Sun, 15 Apr 2012 12:52:25 -0400 (EDT)
-Message-ID: <20120415.125225.1400564852542689459.davem@davemloft.net>
-References: <20120413123641.GA758@gondor.apana.org.au>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next PATCH v4 0/8] Managing the forwarding database(FDB)
+Date: Sun, 15 Apr 2012 09:43:51 -0700
+Message-ID: <20120415163905.14091.30491.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.hengli.com.au
+Cc: sri@us.ibm.com, hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gregory.v.rose@intel.com,
+	krkumar2@in.ibm.com
+To: shemminger@vyatta.com, mst@redhat.com, davem@davemloft.net,
+	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37372 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755713Ab2DOQy0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 12:54:26 -0400
-In-Reply-To: <20120413123641.GA758@gondor.apana.org.au>
+Received: from mga09.intel.com ([134.134.136.24]:34496 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755743Ab2DOQ5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Apr 2012 12:57:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.hengli.com.au>
-Date: Fri, 13 Apr 2012 20:36:41 +0800
+The following series is a submission for net-next to allow
+embedded switches and other stacked devices other then the
+Linux bridge to manage a forwarding database.
 
-> This series of patches is aimed to change the default multicast
-> snooping behaviour to one that is safer to deploy in the wild.
-> 
-> There have been numerous reports of switches misbehaving with
-> our current behaviour of sending general queries, presumably
-> because we're using a zero source IP address which is unavoidable
-> as using anything else would interfere with multicast querier
-> elections (incidentally, I noticed that our IPv6 code has been
-> "fixed" to not use zero source addresses, which is wrong as we
-> may end up being THE MLD querier in a network).
-> 
-> Since our queries aren't actually required for multicast snooping
-> to function, but is merely an optimisation mostly for faster
-> start-up convergence, I think we should disable this by default.
+Previously discussed here,
 
-All applied to net-next, thanks Herbert.
+http://lists.openwall.net/netdev/2012/03/19/26
+
+v4: propagate return codes correctly for ndo_dflt_Fdb_dump()
+
+v3: resolve the macvlan patch 8/8 to fix a dev_set_promiscuity()
+    error and add the flags field to change and get link routines.
+
+v2: addressed feedback from Ben Hutchings resolving a typo in the
+    multicast add/del routines and improving the error handling
+    when both NTF_SELF and NTF_MASTER are set.
+
+I've tested this with 'br' tool published by Stephen Hemminger
+soon to be renamed 'bridge' I believe and various traffic
+generators mostly pktgen, ping, and netperf.
+
+Thanks for the feedback any comments welcome.
+John
+
+---
+
+Greg Rose (1):
+      ixgbe: UTA table incorrectly programmed
+
+John Fastabend (7):
+      macvlan: add FDB bridge ops and macvlan flags
+      ixgbe: allow RAR table to be updated in promisc mode
+      ixgbe: enable FDB netdevice ops
+      net: rtnetlink notify events for FDB NTF_SELF adds and deletes
+      net: add fdb generic dump routine
+      net: addr_list: add exclusive dev_uc_add and dev_mc_add
+      net: add generic PF_BRIDGE:RTM_ FDB hooks
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  121 ++++++++---
+ drivers/net/macvlan.c                         |   73 ++++++-
+ include/linux/if_link.h                       |    3 
+ include/linux/if_macvlan.h                    |    1 
+ include/linux/neighbour.h                     |    3 
+ include/linux/netdevice.h                     |   25 ++
+ include/linux/rtnetlink.h                     |    4 
+ net/bridge/br_device.c                        |    3 
+ net/bridge/br_fdb.c                           |  128 +++---------
+ net/bridge/br_netlink.c                       |   12 -
+ net/bridge/br_private.h                       |   15 +
+ net/core/dev_addr_lists.c                     |   97 ++++++++-
+ net/core/rtnetlink.c                          |  267 +++++++++++++++++++++++++
+ 13 files changed, 579 insertions(+), 173 deletions(-)
+
+-- 
+Signature
