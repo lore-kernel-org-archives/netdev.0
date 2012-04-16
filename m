@@ -1,57 +1,48 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH v2] net_sched: red: Make minor corrections to comments
-Date: Mon, 16 Apr 2012 09:17:22 -0400
-Message-ID: <1334582242-3754-1-git-send-email-david.ward@ll.mit.edu>
-References: <4F8C193A.5090806@ll.mit.edu>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/6] macvtap: zerocopy: fix truesize underestimation
+Date: Mon, 16 Apr 2012 16:25:20 +0300
+Message-ID: <20120416132520.GA13113@redhat.com>
+References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+ <20120416060758.14140.40252.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+ <20120416071423.GA25396@redhat.com>
+ <1334566193.28012.66.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:60020 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753619Ab2DPNUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2012 09:20:46 -0400
-Received: from LLE2K7-HUB02.mitll.ad.local (LLE2K7-HUB02.mitll.ad.local) by mx2.ll.mit.edu (unknown) with ESMTP id q3GDKcwr015996 for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 09:20:45 -0400
-In-Reply-To: <4F8C193A.5090806@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	xma@us.ibm.com, davem@davemloft.net, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1334566193.28012.66.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- include/net/red.h |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+On Mon, Apr 16, 2012 at 10:49:53AM +0200, Eric Dumazet wrote:
+> On Mon, 2012-04-16 at 10:14 +0300, Michael S. Tsirkin wrote:
+> > On Mon, Apr 16, 2012 at 02:07:59PM +0800, Jason Wang wrote:
+> > > As the skb fragment were pinned/built from user pages, we should
+> > > account the page instead of length for truesize.
+> > > 
+> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > 
+> > I'm not sure this is right: the skb does *not* consume the
+> > whole page, userspace uses the rest of the page
+> > for other skbs. So we'll end up accounting for the
+> > same page twice.
+> > Eric, what's the right thing to do here in your opinion?
+> 
+> Problem is we dont know for sure userspace wont free pages right after
+> this syscall. So an evil application could consume more kernel memory
+> than what socket limit allowed.
+> 
+> Its same problem with vmsplice(mem -> pipe) + splice(pipe -> socket)
+> 
+> When we clone skb with frags, resulting skb will have same truesize,
+> even if the pages are shared ...
+> 
 
-diff --git a/include/net/red.h b/include/net/red.h
-index 77d4c37..ef46058 100644
---- a/include/net/red.h
-+++ b/include/net/red.h
-@@ -245,7 +245,7 @@ static inline unsigned long red_calc_qavg_from_idle_time(const struct red_parms
- 	 *
- 	 * dummy packets as a burst after idle time, i.e.
- 	 *
--	 * 	p->qavg *= (1-W)^m
-+	 * 	v->qavg *= (1-W)^m
- 	 *
- 	 * This is an apparently overcomplicated solution (f.e. we have to
- 	 * precompute a table to make this calculation in reasonable time)
-@@ -279,7 +279,7 @@ static inline unsigned long red_calc_qavg_no_idle_time(const struct red_parms *p
- 						       unsigned int backlog)
- {
- 	/*
--	 * NOTE: p->qavg is fixed point number with point at Wlog.
-+	 * NOTE: v->qavg is fixed point number with point at Wlog.
- 	 * The formula below is equvalent to floating point
- 	 * version:
- 	 *
-@@ -390,7 +390,7 @@ static inline void red_adaptative_algo(struct red_parms *p, struct red_vars *v)
- 	if (red_is_idling(v))
- 		qavg = red_calc_qavg_from_idle_time(p, v);
- 
--	/* p->qavg is fixed point number with point at Wlog */
-+	/* v->qavg is fixed point number with point at Wlog */
- 	qavg >>= p->Wlog;
- 
- 	if (qavg > p->target_max && p->max_P <= MAX_P_MAX)
+I see, thanks for the clarification.
+
 -- 
-1.7.1
+MST
