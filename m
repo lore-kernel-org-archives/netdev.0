@@ -1,55 +1,56 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 5/6] vhost_net: fix use after free of vq->ubufs
-Date: Mon, 16 Apr 2012 16:28:41 +0300
-Message-ID: <20120416132841.GB13113@redhat.com>
-References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
- <20120416060825.14140.32069.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: [PATCH] ipv6: fix rt6_update_expires
+Date: Mon, 16 Apr 2012 15:34:39 +0200
+Message-ID: <20120416133439.GB18159@midget.suse.cz>
+References: <1330064404-24763-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1333707190-14075-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <20120413.125851.894792528374368454.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:54672 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753343Ab2DPNen (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2012 09:34:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20120416060825.14140.32069.stgit@intel-e5620-16-2.englab.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Mon, Apr 16, 2012 at 02:08:25PM +0800, Jason Wang wrote:
-> When zerocopy socket is used, ubufs pointer were used in handle_tx()
-> without any validation. This would cause NULL pointer deference after
-> it has been freed in vhost_net_set_backend(). Fix this by check the
-> pointer before using it.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+In-Reply-To: <20120413.125851.894792528374368454.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-OK so it's NULL dereference and not user after free :)
-Also could you clarify how does this happen pls?
-Don't we always initialize ubufs when vhost_sock_zcopy is set?
+Commit 1716a961 (ipv6: fix problem with expired dst cache) broke PMTU
+discovery. rt6_update_expires() calls dst_set_expires(), which only updates
+dst->expires if it has not been set previously (expires == 0) or if the new
+expires is earlier than the current dst->expires.
 
-> ---
->  drivers/vhost/net.c |    7 ++++++-
->  1 files changed, 6 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index f0da2c3..29abd65 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -163,10 +163,15 @@ static void handle_tx(struct vhost_net *net)
->  	mutex_lock(&vq->mutex);
->  	vhost_disable_notify(&net->dev, vq);
->  
-> +	zcopy = vhost_sock_zcopy(sock);
-> +	if (zcopy && !vq->ubufs) {
-> +		mutex_unlock(&vq->mutex);
-> +		return;
-> +	}
-> +
->  	if (wmem < sock->sk->sk_sndbuf / 2)
->  		tx_poll_stop(net);
->  	hdr_size = vq->vhost_hlen;
-> -	zcopy = vhost_sock_zcopy(sock);
->  
->  	for (;;) {
->  		/* Release DMAs done buffers first */
+rt6_update_expires() needs to zero rt->dst.expires, otherwise it will contain
+ivalid data left over from rt->dst.from and will confuse dst_set_expires().
+
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index ad4126f..68c1f94 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -143,8 +143,13 @@ static inline void rt6_set_expires(struct rt6_info *rt, unsigned long expires)
+ 
+ static inline void rt6_update_expires(struct rt6_info *rt, int timeout)
+ {
+-	if (!(rt->rt6i_flags & RTF_EXPIRES) && rt->dst.from)
+-		dst_release(rt->dst.from);
++	if (!(rt->rt6i_flags & RTF_EXPIRES)) {
++		if (rt->dst.from)
++			dst_release(rt->dst.from);
++		/* dst_set_expires relies on expires == 0 
++                  if it has not been set previously */
++		rt->dst.expires = 0;
++	}
+ 
+ 	dst_set_expires(&rt->dst, timeout);
+ 	rt->rt6i_flags |= RTF_EXPIRES;
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
