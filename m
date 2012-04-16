@@ -1,58 +1,34 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 1/4 (V3)] net: ethtool: add the EEE support
-Date: Mon, 16 Apr 2012 07:41:23 +0200
-Message-ID: <4F8BB103.7020107@st.com>
-References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>  <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com> <1334269598.2497.50.camel@bwh-desktop.uk.solarflarecom.com>
+From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: Re: [PATCH] ath6kl: fix memory leak in ath6kl_fwlog_block_read()
+Date: Mon, 16 Apr 2012 09:07:49 +0300
+Message-ID: <4F8BB735.4040409@qca.qualcomm.com>
+References: <alpine.LNX.2.00.1204112239070.2137@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rayagond@vayavyalabs.com,
-	davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:46001 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750993Ab2DPFnP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 01:43:15 -0400
-In-Reply-To: <1334269598.2497.50.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Robert Love <rlove-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	ath6kl-devel <ath6kl-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>
+To: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LNX.2.00.1204112239070.2137-h2p7t3/P30RzeRGmFJ5qR7ZzlVVXadcDXqFh9Ls21Oc@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4/13/2012 12:26 AM, Ben Hutchings wrote:
-> On Fri, 2012-04-06 at 11:29 +0200, Giuseppe CAVALLARO wrote:
->> This patch adds two new functions to detect if Energy-Efficient
->> Ethernet (EEE) is supported and the way to enable/disable it.
->>
->> As Ben said, it is certainly necessary to distinguish:
->>
->> a. PHY is advertising EEE from
->> b. Link partner is advertising EEE
->> or
->> c. EEE will be used (= a && b)
->>
->> The logic behind this code, is that .get_eee will pass
->> to the user-space if the EEE is actually used and available (so point c).
->> The .set_eee should used to force the MAC to disable/enable the EEE (if
->> actually supported by MAC+PHY).
-> [...]
+On 04/11/2012 11:41 PM, Jesper Juhl wrote:
+> If, in
+> drivers/net/wireless/ath/ath6kl/debug.c::ath6kl_fwlog_block_read(),
+> the call to wait_for_completion_interruptible() returns -ERESTARTSYS
+> then we'll return without freeing the (as yet unused) memory we
+> allocated for 'buf' - thus leaking it.
 > 
-> What I meant is that userland should be able to find out (a), and,
-> *separately*, either (b) or (c).  That is, there must be at least 2
-> separate flags for this.  In fact, I explicitly requested you define
-> supported/advertising/lp_advertising bitmasks for EEE link modes just
-> like we have for autonegotiation.  But you've made no substantive
-> changes in response to my review, aside from dropping the added field in
-> ethtool_cmd.
+> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
 
-Sorry Ben but I believed that (c) was enough.
+Thanks, applied to ath6kl.git.
 
-> What you're submitting just isn't good enough for a generic interface,
-> as the ethtool API is supposed to be.  It's not even a good interface to
-> your driver.
-
-yes! I'll rework this and provide new patches asap.
-
-peppe
-
-> Ben.
-> 
+Kalle
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
