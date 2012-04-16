@@ -1,35 +1,35 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull request: linux-can 2012-04-16
-Date: Mon, 16 Apr 2012 21:43:07 +0200
-Message-ID: <1334605388-1549-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:33935 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754472Ab2DPTnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 15:43:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH v3] mac80211: Support on-channel scan option.
+Date: Mon, 16 Apr 2012 12:58:53 -0700
+Message-ID: <4F8C79FD.7030701@sipsolutions.net>
+References: <1334248689-23018-1-git-send-email-greearb@candelatech.com> (sfid-20120412_183929_638765_C70D881D) <4F8C57CC.4090505@sipsolutions.net> <4F8C59B2.20207@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F8C59B2.20207-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+On 4/16/2012 10:41 AM, Ben Greear wrote:
+>>> + if ((req->channels[0]->flags&
+>>> + IEEE80211_CHAN_PASSIVE_SCAN) ||
+>>> + !local->scan_req->n_ssids) {
+>>
+>> That formatting is a bit off it seems. Or is that just my mailer?
+>
+> Well, it looked OK to me..though when I replied my mailer
+> certainly made it look funky. I'll re-run it through checkpatch
+> just in case.
 
-there's a fix targetting net/master from Jesper Juhl, fixing a mem leak
-in the error path of the pcan_usb_pro driver. 
+It just seemed the & should have a space in front, and it could be on a 
+single line with the constant? Anyway, I'm using thunderbird right now 
+and don't know what kind of messes it makes.
 
-redards,
-Marc
-
-The following changes since commit 8a9a0ea6032186e3030419262678d652b88bf6a8:
-
-  net/ethernet: ks8851_mll fix rx frame buffer overflow (2012-04-14 15:21:27 -0400)
-
-are available in the git repository at:
-  git://gitorious.org/linux-can/linux-can.git master
-
-Jesper Juhl (1):
-      can: usb: PCAN-USB Pro: fix mem leaks in pcan_usb_pro_init() on error paths
-
- drivers/net/can/usb/peak_usb/pcan_usb_pro.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
