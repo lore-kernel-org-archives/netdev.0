@@ -1,38 +1,36 @@
-From: Adrian Chadd <adrian-h+KGxgPPiopAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v3] mac80211: Support on-channel scan option.
-Date: Mon, 16 Apr 2012 11:03:33 -0700
-Message-ID: <CAJ-VmokfxVEekHSuKP4KxgAGbK6S8z_vuOOYb=W3cERMmHvdKQ@mail.gmail.com>
-References: <1334248689-23018-1-git-send-email-greearb@candelatech.com>
-	<4F8C57CC.4090505@sipsolutions.net>
-	<4F8C59B2.20207@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/9] atl1: add napi to Atheros L1 NIC
+Date: Mon, 16 Apr 2012 14:20:18 -0400 (EDT)
+Message-ID: <20120416.142018.493414396367601187.davem@davemloft.net>
+References: <20120415.130346.1822341707659142562.davem@davemloft.net>
+	<20120415.132805.143754486571031578.davem@davemloft.net>
+	<4F8BC8C3.6020102@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F8C59B2.20207-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jcliburn@gmail.com, khorenko@parallels.com
+To: antonz@parallels.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:46457 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750823Ab2DPSUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 14:20:25 -0400
+In-Reply-To: <4F8BC8C3.6020102@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16 April 2012 10:41, Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org> wrote:
+From: Tony Zelenoff <antonz@parallels.com>
+Date: Mon, 16 Apr 2012 11:22:43 +0400
 
-> I also tried some manual scans on a fixed frequency. =A0Those
-> appeared to work, though I got scan results for APs on different
-> channels. =A0Does that seem right? =A0I can't see how my patch
-> would affect that sort of thing one way or another...
+> Also, i'm interested in what to do with Chris Nook address in contacts
+> list. Reason - mailer respond that this address is not valid
+> anymore. Should i remove him from contacts or leave?
+> 
+> Mailer response:
+> 
+>   csnook@redhat.com
+>     SMTP error from remote mail server after RCPT TO:<csnook@redhat.com>:
+>     host mx1.redhat.com [209.132.183.28]: 550 5.2.1
+>     <csnook@redhat.com>... Mailbox disabled for this recipient
 
-You'll see off-channel beacons in 11bg mode. :-)
-
-It's actually rather helpful, except that the RSSI reported isn't
-anywhere near as valid as you'd like.
-
-
-
-Adrian
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I think you should remove it.
