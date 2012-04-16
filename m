@@ -1,48 +1,55 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/6] macvtap: zerocopy: fix truesize underestimation
-Date: Mon, 16 Apr 2012 16:25:20 +0300
-Message-ID: <20120416132520.GA13113@redhat.com>
+Subject: Re: [PATCH 5/6] vhost_net: fix use after free of vq->ubufs
+Date: Mon, 16 Apr 2012 16:28:41 +0300
+Message-ID: <20120416132841.GB13113@redhat.com>
 References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
- <20120416060758.14140.40252.stgit@intel-e5620-16-2.englab.nay.redhat.com>
- <20120416071423.GA25396@redhat.com>
- <1334566193.28012.66.camel@edumazet-glaptop>
+ <20120416060825.14140.32069.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	xma@us.ibm.com, davem@davemloft.net, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1334566193.28012.66.camel@edumazet-glaptop>
+In-Reply-To: <20120416060825.14140.32069.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 16, 2012 at 10:49:53AM +0200, Eric Dumazet wrote:
-> On Mon, 2012-04-16 at 10:14 +0300, Michael S. Tsirkin wrote:
-> > On Mon, Apr 16, 2012 at 02:07:59PM +0800, Jason Wang wrote:
-> > > As the skb fragment were pinned/built from user pages, we should
-> > > account the page instead of length for truesize.
-> > > 
-> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > 
-> > I'm not sure this is right: the skb does *not* consume the
-> > whole page, userspace uses the rest of the page
-> > for other skbs. So we'll end up accounting for the
-> > same page twice.
-> > Eric, what's the right thing to do here in your opinion?
+On Mon, Apr 16, 2012 at 02:08:25PM +0800, Jason Wang wrote:
+> When zerocopy socket is used, ubufs pointer were used in handle_tx()
+> without any validation. This would cause NULL pointer deference after
+> it has been freed in vhost_net_set_backend(). Fix this by check the
+> pointer before using it.
 > 
-> Problem is we dont know for sure userspace wont free pages right after
-> this syscall. So an evil application could consume more kernel memory
-> than what socket limit allowed.
-> 
-> Its same problem with vmsplice(mem -> pipe) + splice(pipe -> socket)
-> 
-> When we clone skb with frags, resulting skb will have same truesize,
-> even if the pages are shared ...
-> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-I see, thanks for the clarification.
 
--- 
-MST
+OK so it's NULL dereference and not user after free :)
+Also could you clarify how does this happen pls?
+Don't we always initialize ubufs when vhost_sock_zcopy is set?
+
+> ---
+>  drivers/vhost/net.c |    7 ++++++-
+>  1 files changed, 6 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index f0da2c3..29abd65 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -163,10 +163,15 @@ static void handle_tx(struct vhost_net *net)
+>  	mutex_lock(&vq->mutex);
+>  	vhost_disable_notify(&net->dev, vq);
+>  
+> +	zcopy = vhost_sock_zcopy(sock);
+> +	if (zcopy && !vq->ubufs) {
+> +		mutex_unlock(&vq->mutex);
+> +		return;
+> +	}
+> +
+>  	if (wmem < sock->sk->sk_sndbuf / 2)
+>  		tx_poll_stop(net);
+>  	hdr_size = vq->vhost_hlen;
+> -	zcopy = vhost_sock_zcopy(sock);
+>  
+>  	for (;;) {
+>  		/* Release DMAs done buffers first */
