@@ -1,55 +1,42 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] drivers/net/wireless/libertas/if_usb.c: add missing
- debugging code
-Date: Mon, 16 Apr 2012 11:20:20 -0500
-Message-ID: <1334593220.10194.30.camel@dcbw.foobar.com>
-References: <1334591040-29298-1-git-send-email-Julia.Lawall@lip6.fr>
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: Re: [PATCH linux-next 1/1] ath6k: Normalize use of FW_DIR
+Date: Mon, 16 Apr 2012 10:42:46 -0600
+Message-ID: <4F8C4C06.1070307@canonical.com>
+References: <1334337448-26270-1-git-send-email-tim.gardner@canonical.com> <1334337448-26270-2-git-send-email-tim.gardner@canonical.com> <4F8BBEAD.40305@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
+Cc: linux-kernel@vger.kernel.org,
 	"John W. Linville" <linville@tuxdriver.com>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334591040-29298-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	ath6kl-devel <ath6kl-devel@qualcomm.com>
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpi.com ([70.99.223.143]:1270 "EHLO mail.tpi.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753944Ab2DPQne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2012 12:43:34 -0400
+In-Reply-To: <4F8BBEAD.40305@qca.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-16 at 17:44 +0200, Julia Lawall wrote:
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
+On 04/16/2012 12:39 AM, Kalle Valo wrote:
+> On 04/13/2012 08:17 PM, Tim Gardner wrote:
+>> Cc: Kalle Valo <kvalo@qca.qualcomm.com>
+>> Cc: "John W. Linville" <linville@tuxdriver.com>
+>> Cc: linux-wireless@vger.kernel.org
+>> Cc: netdev@vger.kernel.org
+>> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
 > 
-> Add a corresponding leave call on error failure.
+> Thanks, applied to ath6kl.git. But ar6004 hw1.2 supports wasn't in
+> linux-next yet so I changed it as well. If you can, please check my changes:
 > 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> https://github.com/kvalo/ath6kl/commit/2023dbb8310ab39ac1119a32ef52405f7a73f51f
+> 
+> Kalle
 
-Acked-by: Dan Williams <dcbw@redhat.com>
+Looks good to me.
 
-> 
-> ---
->  drivers/net/wireless/libertas/if_usb.c |    6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
-> index 74da5f1..ce4938d 100644
-> --- a/drivers/net/wireless/libertas/if_usb.c
-> +++ b/drivers/net/wireless/libertas/if_usb.c
-> @@ -1128,8 +1128,10 @@ static int if_usb_suspend(struct usb_interface *intf, pm_message_t message)
->  
->  	lbs_deb_enter(LBS_DEB_USB);
->  
-> -	if (priv->psstate != PS_STATE_FULL_POWER)
-> -		return -1;
-> +	if (priv->psstate != PS_STATE_FULL_POWER) {
-> +		ret = -1;
-> +		goto out;
-> +	}
->  
->  #ifdef CONFIG_OLPC
->  	if (machine_is_olpc()) {
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+rtg
+-- 
+Tim Gardner tim.gardner@canonical.com
