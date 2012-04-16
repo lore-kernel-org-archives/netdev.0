@@ -1,8 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 3/6] macvtap: zerocopy: validate vector length before pinning
-	user pages
-Date: Mon, 16 Apr 2012 14:08:07 +0800
-Message-ID: <20120416060807.14140.96229.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+Subject: [PATCH 4/6] macvtap: zerocopy: set SKBTX_DEV_ZEROCOPY only when skb
+	is built successfully
+Date: Mon, 16 Apr 2012 14:08:16 +0800
+Message-ID: <20120416060816.14140.42824.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,27 +15,43 @@ In-Reply-To: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redha
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently we do not validate the vector length before calling
-get_user_pages_fast(), host stack would be easily overflowed by
-malicious guest driver who give us a descriptor with length greater
-than MAX_SKB_FRAGS. Solve this problem by checking the free entries
-before trying to pin user pages.
+Current the SKBTX_DEV_ZEROCOPY is set unconditionally after
+zerocopy_sg_from_iovec(), this would lead NULL pointer when macvtap
+fails to build zerocopy skb because destructor_arg was not
+initialized. Solve this by set this flag after the skb were built
+successfully.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/macvtap.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/macvtap.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 7cb2684..d197a78 100644
+index d197a78..c030468 100644
 --- a/drivers/net/macvtap.c
 +++ b/drivers/net/macvtap.c
-@@ -529,6 +529,8 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
- 		}
- 		base = (unsigned long)from->iov_base + offset;
- 		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+		if (i + size >= MAX_SKB_FRAGS)
-+			return -EFAULT;
- 		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
- 		if ((num_pages != size) ||
- 		    (num_pages > MAX_SKB_FRAGS - skb_shinfo(skb)->nr_frags))
+@@ -699,10 +699,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	if (!skb)
+ 		goto err;
+ 
+-	if (zerocopy) {
++	if (zerocopy)
+ 		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
+-		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+-	} else
++	else
+ 		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
+ 						   len);
+ 	if (err)
+@@ -721,8 +720,10 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	rcu_read_lock_bh();
+ 	vlan = rcu_dereference_bh(q->vlan);
+ 	/* copy skb_ubuf_info for callback when skb has no error */
+-	if (zerocopy)
++	if (zerocopy) {
+ 		skb_shinfo(skb)->destructor_arg = m->msg_control;
++		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
++	}
+ 	if (vlan)
+ 		macvlan_start_xmit(skb, vlan->dev);
+ 	else
