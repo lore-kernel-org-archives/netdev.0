@@ -1,90 +1,57 @@
-From: Fred Isaman <iisaman@netapp.com>
-Subject: Re: [PATCH 08/11] nfs: disable data cache revalidation for swapfiles
-Date: Mon, 16 Apr 2012 11:03:35 -0400
-Message-ID: <CADnza440ERBNTyQuXaG-MJGGw2u-ADmFdn+w+nvJ1F7cNyreGA@mail.gmail.com>
-References: <1334578675-23445-1-git-send-email-mgorman@suse.de>
-	<1334578675-23445-9-git-send-email-mgorman@suse.de>
-	<CADnza444dTr=JEtqpL5wxHRNkEc7vBz1qq9TL7Z+5h749vNawg@mail.gmail.com>
-	<20120416134422.GC2359@suse.de>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Netlink, route monitoring, RTM_DELROUTE not issued for ppp peer
+ address. Bug or feature?
+Date: Mon, 16 Apr 2012 08:19:54 -0700
+Message-ID: <20120416081954.1bb994db@nehalam.linuxnetplumber.net>
+References: <8986ed37b55c756ecdeec0315f73e63a@visp.net.lb>
+	<023e01cd197d$a9faba40$fdf02ec0$@no>
+	<3db49d4a58321a5e185cd67335a60c81@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>, Linux-NFS <linux-nfs@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>, Neil Brown <neilb@suse.de>,
-	Christoph Hellwig <hch@infradead.org>, Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>, Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120416134422.GC2359@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stian Skjelstad <stian@nixia.no>, <eric.dumazet@gmail.com>,
+	<stephen.hemminger@vyatta.com>, <netdev@vger.kernel.org>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:38003 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752883Ab2DPPT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2012 11:19:57 -0400
+In-Reply-To: <3db49d4a58321a5e185cd67335a60c81@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 16, 2012 at 9:44 AM, Mel Gorman <mgorman@suse.de> wrote:
-> On Mon, Apr 16, 2012 at 09:10:04AM -0400, Fred Isaman wrote:
->> > <SNIP>
->> > -static struct nfs_page *nfs_page_find_request_locked(struct page *pag=
-e)
->> > +static struct nfs_page *
->> > +nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *pag=
-e)
->> > =A0{
->> > =A0 =A0 =A0 =A0struct nfs_page *req =3D NULL;
->> >
->> > - =A0 =A0 =A0 if (PagePrivate(page)) {
->> > + =A0 =A0 =A0 if (PagePrivate(page))
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0req =3D (struct nfs_page *)page_private=
-(page);
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (req !=3D NULL)
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kref_get(&req->wb_kref);
->> > + =A0 =A0 =A0 else if (unlikely(PageSwapCache(page))) {
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct nfs_page *freq, *t;
->> > +
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Linearly search the commit list for t=
-he correct req */
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 list_for_each_entry_safe(freq, t, &nfsi-=
->commit_list, wb_list) {
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (freq->wb_page =3D=3D=
- page) {
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 req =3D =
-freq;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->> > +
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 BUG_ON(req =3D=3D NULL);
->>
->> I suspect I am missing something, but why is it guaranteed that the
->> req is on the commit list?
->>
->
-> It's a fair question and a statement about what I expected to happen.
-> The commit list replaces the nfs_page_tree radix tree that used to exist
-> and my understanding was that the req would exist in the radix tree until
-> the swap IO was completed. I expected it to be the same for the commit
-> list and the BUG_ON was based on that expectation. Are there cases where
-> the req would not be found?
->
-> Thanks.
->
-> --
-> Mel Gorman
-> SUSE Labs
-> --
+On Mon, 16 Apr 2012 13:37:14 +0300
+Denys Fedoryshchenko <denys@visp.net.lb> wrote:
 
-A req is on the commit list only if it actually needs to be scheduled
-for COMMIT.  In other words, only after it has been sent via WRITE and
-the server did not return NFS_FILE_SYNC.
+> After digging the code, i came to conclusion:
+> fib_del_ifaddr, will check if deleted address are exist as prefsrc or 
+> interface are shut down, they will do fi->fib_flags |= RTNH_F_DEAD;
+> Then fib_flush -> fib_table_flush -> trie_flush_leaf -> trie_flush_list 
+> will delete such routes.
+> But trie_flush_list won't notify over netlink that route are deleted.
+> 
+> So the only solution is to fetch first, then keep full routing table in 
+> userspace also, and keep tracking if local addresses deleted, and do the 
+> same in userspace and check for prefsrc...
+> 
+> Maybe it should be fixed? E.g. netlink message sent when any route are 
+> deleted, even over the flush
+> 
+> On 2012-04-13 16:59, Stian Skjelstad wrote:
+> > I've seen the same issue, and got no response so far to that very
+> > same question. Have you tested this on older kernels? I have worked
+> > around this issue by testing my local copy of routing entries that 
+> > use
+> > 'via'. If they are not routable when after the RTM_DELROUTE event, I
+> > autoremove them from my local copy.
+> >
+> > Stian Skjelstad
+> >
 
-Thus dirtying a page, then trying to touch it again before the WRITE
-is sent will not find the corresponding req on the commit_list.
 
-Fred
+Looking at Quagga, it knows that deleting interface address
+removes connected routes and silently cleans up.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+You have to be really careful here making any changes to not break
+applications that expect existing behavior.
