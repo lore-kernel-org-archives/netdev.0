@@ -1,56 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/6] macvtap: zerocopy: validate vector length before
- pinning user pages
-Date: Mon, 16 Apr 2012 08:53:03 +0200
-Message-ID: <1334559183.28012.45.camel@edumazet-glaptop>
-References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
-	 <20120416060807.14140.96229.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next v3 5/5] r8169: support RTL8411
+Date: Mon, 16 Apr 2012 14:58:44 +0800
+Message-ID: <E2A7860223AF4B52AFE7946163746F02@realtek.com.tw>
+References: <1333089184-1773-5-git-send-email-hayeswang@realtek.com> <1333090086-1815-1-git-send-email-hayeswang@realtek.com> <20120330072521.GA11548@electric-eye.fr.zoreil.com> <52E71C7B42A44FB1A8556BB6B75CD9A0@realtek.com.tw> <20120405083743.GB32027@electric-eye.fr.zoreil.com> <20120409180229.GA28837@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, mst@redhat.com, ebiederm@xmission.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120416060807.14140.96229.stgit@intel-e5620-16-2.englab.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:56403 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750823Ab2DPG6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 02:58:52 -0400
+In-Reply-To: <20120409180229.GA28837@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-16 at 14:08 +0800, Jason Wang wrote:
-> Currently we do not validate the vector length before calling
-> get_user_pages_fast(), host stack would be easily overflowed by
-> malicious guest driver who give us a descriptor with length greater
-> than MAX_SKB_FRAGS. Solve this problem by checking the free entries
-> before trying to pin user pages.
+Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Tuesday, April 10, 2012 2:02 AM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next v3 5/5] r8169: support RTL8411
+[...]
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/macvtap.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
+> Rx/Tx is ok, WoL + shutdown is ok but runtime power management is not.
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 7cb2684..d197a78 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -529,6 +529,8 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
->  		}
->  		base = (unsigned long)from->iov_base + offset;
->  		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-> +		if (i + size >= MAX_SKB_FRAGS)
-> +			return -EFAULT;
->  		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
->  		if ((num_pages != size) ||
->  		    (num_pages > MAX_SKB_FRAGS - skb_shinfo(skb)->nr_frags))
+[...]
+> 
+> - set a 8402 and a 8411 in the same test box
+> - ip addr add ... 
+> - ip link set dev ... up 
+> - start ping from remote host
+> - echo auto > /sys/bus/pci/devices/.../power/control
+> - unplug cable
+>   - ping stops flowing
+>   - cat /sys/bus/pci/devices/.../power/runtime_status
+>     -> "active"
+> - plug cable
+>   -> RPM status does not change, no link, no packet, no fun.
 > 
 
-Hi Jason
-
-Why is -EFAULT the right error code ?
-
-Also, why not removing the "(num_pages > MAX_SKB_FRAGS -
-skb_shinfo(skb)->nr_frags)" test done few lines after ?
-
-Also, if get_user_pages_fast() returns truncated result (size - 1 for
-example), we apparently dont free the references on pages.
-
-The comment applies only on pages that were added in skb frags.
+The 8111C and the later chips have to set Config2 (0x53) bit 5 to enable PME
+status for WOL.
+Besides, the config1 (0x52) bit 0 is the read-only. Maybe you could skip setting
+it.
+ 
+Best Regards,
+Hayes
