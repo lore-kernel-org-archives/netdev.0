@@ -1,53 +1,35 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: usb: PCAN-USB Pro: fix mem leaks in pcan_usb_pro_init() on error paths
-Date: Mon, 16 Apr 2012 21:43:08 +0200
-Message-ID: <1334605388-1549-2-git-send-email-mkl@pengutronix.de>
-References: <1334605388-1549-1-git-send-email-mkl@pengutronix.de>
+Subject: pull request: linux-can 2012-04-16
+Date: Mon, 16 Apr 2012 21:43:07 +0200
+Message-ID: <1334605388-1549-1-git-send-email-mkl@pengutronix.de>
 Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Jesper Juhl <jj@chaosbits.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	kernel@pengutronix.de
 To: davem@davemloft.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1334605388-1549-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:33935 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754472Ab2DPTnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 15:43:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Juhl <jj@chaosbits.net>
+Hello David,
 
-If either call to pcan_usb_pro_send_req() in
-drivers/net/can/usb/peak_usb/pcan_usb_pro.c::pcan_usb_pro_init()
-fails, we'll leak the memory we allocated to 'usb_if' with kzalloc()
-when the 'usb_if' variable goes out of scope without having been
-assigned to anything as we 'return err;'.
-Fix this by adding appropriate kfree(usb_if) calls to the error paths.
+there's a fix targetting net/master from Jesper Juhl, fixing a mem leak
+in the error path of the pcan_usb_pro driver. 
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
-Acked-by: Stephane Grosjean <s.grosjean@peak-system.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
+redards,
+Marc
+
+The following changes since commit 8a9a0ea6032186e3030419262678d652b88bf6a8:
+
+  net/ethernet: ks8851_mll fix rx frame buffer overflow (2012-04-14 15:21:27 -0400)
+
+are available in the git repository at:
+  git://gitorious.org/linux-can/linux-can.git master
+
+Jesper Juhl (1):
+      can: usb: PCAN-USB Pro: fix mem leaks in pcan_usb_pro_init() on error paths
+
  drivers/net/can/usb/peak_usb/pcan_usb_pro.c |    2 ++
  1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-index 5234586..629c4ba 100644
---- a/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb_pro.c
-@@ -875,6 +875,7 @@ static int pcan_usb_pro_init(struct peak_usb_device *dev)
- 					    PCAN_USBPRO_INFO_FW,
- 					    &fi, sizeof(fi));
- 		if (err) {
-+			kfree(usb_if);
- 			dev_err(dev->netdev->dev.parent,
- 				"unable to read %s firmware info (err %d)\n",
- 				pcan_usb_pro.name, err);
-@@ -885,6 +886,7 @@ static int pcan_usb_pro_init(struct peak_usb_device *dev)
- 					    PCAN_USBPRO_INFO_BL,
- 					    &bi, sizeof(bi));
- 		if (err) {
-+			kfree(usb_if);
- 			dev_err(dev->netdev->dev.parent,
- 				"unable to read %s bootloader info (err %d)\n",
- 				pcan_usb_pro.name, err);
--- 
-1.7.4.1
-
