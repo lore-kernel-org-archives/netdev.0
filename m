@@ -1,95 +1,219 @@
-From: "majianpeng" <majianpeng@gmail.com>
-Subject: [PATCH] net/ipv4:Remove two reports using kmemleak
-Date: Mon, 16 Apr 2012 19:40:22 +0800
-Message-ID: <201204161940178124485@gmail.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [PATCH 2/2] IPVS: make failure of netns init more stable
+Date: Mon, 16 Apr 2012 13:39:38 +0200
+Message-ID: <1334576378-2034-2-git-send-email-hans.schillstrom@ericsson.com>
+References: <1334576378-2034-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "davem" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:43723 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753436Ab2DPLjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 07:39:41 -0400
-Received: by dake40 with SMTP id e40so6807200dak.11
-        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 04:39:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <horms@verge.net.au>, <ja@ssi.bg>, <wensong@linux-vs.org>,
+	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<netfilter-devel@vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1334576378-2034-1-git-send-email-hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->From 8eb7c077dd3e746476a2a9fe059a676a6bc1a61f Mon Sep 17 00:00:00 2001
-From: majianpeng <majianpeng@gmail.com>
-Date: Mon, 16 Apr 2012 19:34:50 +0800
-Subject: [PATCH] net/ipv4:Remove two reports using kmemleak. Although those
- two reports do not real kmemleak,I think can remove it  better.
+Add a IP_VS_F_NET_INIT_OK flag
+that other modules can use for check of a successful init of ip_vs
 
-Reported by kmemleak:
-unreferenced object 0xffff8800b8735090 (size 96):
-  comm "swapper/0", pid 1, jiffies 4294670057 (age 542.870s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff81695df1>] kmemleak_alloc+0x21/0x50
-    [<ffffffff81117c3b>] __kmalloc+0x11b/0x1f0
-    [<ffffffff81188f57>] __register_sysctl_paths+0x127/0x1f0
-    [<ffffffff81189036>] register_sysctl_paths+0x16/0x20
-    [<ffffffff81cf1fc7>] ip_static_sysctl_init+0x17/0x19
-    [<ffffffff81cf2924>] inet_init+0xb4/0x2b2
-    [<ffffffff810001ca>] do_one_initcall+0x3a/0x160
-    [<ffffffff81cb9c7e>] kernel_init+0x12e/0x1b2
-    [<ffffffff816bdb94>] kernel_thread_helper+0x4/0x10
-    [<ffffffffffffffff>] 0xffffffffffffffff
-unreferenced object 0xffff8800b8735730 (size 96):
-  comm "swapper/0", pid 1, jiffies 4294670057 (age 542.870s)
-  hex dump (first 32 bytes):
-    80 80 e3 81 ff ff ff ff 00 00 00 00 01 00 00 00  ................
-    01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff81695df1>] kmemleak_alloc+0x21/0x50
-    [<ffffffff81117c3b>] __kmalloc+0x11b/0x1f0
-    [<ffffffff81188792>] __register_sysctl_table+0x62/0x4b0
-    [<ffffffff81188da5>] register_leaf_sysctl_tables+0x1c5/0x230
-    [<ffffffff81188ca0>] register_leaf_sysctl_tables+0xc0/0x230
-    [<ffffffff81188f89>] __register_sysctl_paths+0x159/0x1f0
-    [<ffffffff81189036>] register_sysctl_paths+0x16/0x20
-    [<ffffffff81cf1fc7>] ip_static_sysctl_init+0x17/0x19
-    [<ffffffff81cf2924>] inet_init+0xb4/0x2b2
-    [<ffffffff810001ca>] do_one_initcall+0x3a/0x160
-    [<ffffffff81cb9c7e>] kernel_init+0x12e/0x1b2
-    [<ffffffff816bdb94>] kernel_thread_helper+0x4/0x10
-    [<ffffffffffffffff>] 0xffffffffffffffff
-
-
-Signed-off-by: majianpeng <majianpeng@gmail.com>
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 ---
- net/ipv4/route.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ include/net/ip_vs.h              |   20 +++++++++++++++++++-
+ net/netfilter/ipvs/ip_vs_conn.c  |    2 +-
+ net/netfilter/ipvs/ip_vs_core.c  |   15 +++++++++------
+ net/netfilter/ipvs/ip_vs_ctl.c   |    2 +-
+ net/netfilter/ipvs/ip_vs_ftp.c   |    2 ++
+ net/netfilter/ipvs/ip_vs_lblc.c  |    3 +++
+ net/netfilter/ipvs/ip_vs_lblcr.c |    3 +++
+ 7 files changed, 38 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 167ea10..817207b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -3499,12 +3499,13 @@ int __init ip_rt_init(void)
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 04e2211..96add20 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -787,7 +787,8 @@ struct ip_vs_app {
+ /* IPVS in network namespace */
+ struct netns_ipvs {
+ 	int			gen;		/* Generation */
+-	int			enable;		/* enable like nf_hooks do */
++	/* Status flags: enable like nf_hooks, and netns init ok */
++	int			status;
+ 	/*
+ 	 *	Hash table: for real service lookups
+ 	 */
+@@ -909,6 +910,23 @@ struct netns_ipvs {
+ 	struct net		*net;            /* Needed by timer routines */
+ };
+ 
++/*
++ * Status flags for each netns
++ */
++enum {
++	IP_VS_ENABLE,		/* Enabled ipvs i.e. service registered */
++	IP_VS_NET_INIT_OK,	/* Netns init is OK */
++	IP_VS_F_ENABLE      = (1 << IP_VS_ENABLE),
++	IP_VS_F_NET_INIT_OK = (1 << IP_VS_NET_INIT_OK)
++};
++
++#define IS_IPVS_ENABLED(ipvs) (ipvs->status & IP_VS_F_ENABLE)
++#define IPVS_ENABLE(ipvs) (ipvs->status |= IP_VS_F_ENABLE)
++#define IPVS_DISABLE(ipvs) (ipvs->status &= ~IP_VS_F_ENABLE)
++
++#define IS_IPVS_NETNS_OK(ipvs) (ipvs->status & IP_VS_F_NET_INIT_OK)
++#define IPVS_NETNS_OK(ipvs) (ipvs->status |= IP_VS_F_NET_INIT_OK)
++
+ #define DEFAULT_SYNC_THRESHOLD	3
+ #define DEFAULT_SYNC_PERIOD	50
+ #define DEFAULT_SYNC_VER	1
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 4a09b78..4f2a7ec 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -783,7 +783,7 @@ static void ip_vs_conn_expire(unsigned long data)
+ 			 * conntrack cleanup for the net.
+ 			 */
+ 			smp_rmb();
+-			if (ipvs->enable)
++			if (IS_IPVS_ENABLED(ipvs))
+ 				ip_vs_conn_drop_conntrack(cp);
+ 		}
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index b5a5c73..58722a2 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1112,7 +1112,7 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
+ 		return NF_ACCEPT;
+ 
+ 	net = skb_net(skb);
+-	if (!net_ipvs(net)->enable)
++	if (!IS_IPVS_ENABLED(net_ipvs(net)))
+ 		return NF_ACCEPT;
+ 
+ 	ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+@@ -1513,7 +1513,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	}
+ 	/* ipvs enabled in this netns ? */
+ 	net = skb_net(skb);
+-	if (!net_ipvs(net)->enable)
++	if (!IS_IPVS_ENABLED(net_ipvs(net)))
+ 		return NF_ACCEPT;
+ 
+ 	ip_vs_fill_iphdr(af, skb_network_header(skb), &iph);
+@@ -1735,7 +1735,7 @@ ip_vs_forward_icmp(unsigned int hooknum, struct sk_buff *skb,
+ 
+ 	/* ipvs enabled in this netns ? */
+ 	net = skb_net(skb);
+-	if (!net_ipvs(net)->enable)
++	if (!IS_IPVS_ENABLED(net_ipvs(net)))
+ 		return NF_ACCEPT;
+ 
+ 	return ip_vs_in_icmp(skb, &r, hooknum);
+@@ -1755,7 +1755,7 @@ ip_vs_forward_icmp_v6(unsigned int hooknum, struct sk_buff *skb,
+ 
+ 	/* ipvs enabled in this netns ? */
+ 	net = skb_net(skb);
+-	if (!net_ipvs(net)->enable)
++	if (!IS_IPVS_ENABLED(net_ipvs(net)))
+ 		return NF_ACCEPT;
+ 
+ 	return ip_vs_in_icmp_v6(skb, &r, hooknum);
+@@ -1881,7 +1881,7 @@ static int __net_init __ip_vs_init(struct net *net)
+ 		return -ENOMEM;
+ 
+ 	/* Hold the beast until a service is registerd */
+-	ipvs->enable = 0;
++	ipvs->status = 0;
+ 	ipvs->net = net;
+ 	/* Counters used for creating unique names */
+ 	ipvs->gen = atomic_read(&ipvs_netns_cnt);
+@@ -1906,6 +1906,7 @@ static int __net_init __ip_vs_init(struct net *net)
+ 	if (ip_vs_sync_net_init(net) < 0)
+ 		goto sync_fail;
+ 
++	IPVS_NETNS_OK(ipvs);
+ 	printk(KERN_INFO "IPVS: Creating netns size=%zu id=%d\n",
+ 			 sizeof(struct netns_ipvs), ipvs->gen);
+ 	return 0;
+@@ -1924,6 +1925,7 @@ protocol_fail:
+ control_fail:
+ 	ip_vs_estimator_net_cleanup(net);
+ estimator_fail:
++	ipvs->status = 0;	/* Nothing is enabled */
+ 	return -ENOMEM;
  }
  
- #ifdef CONFIG_SYSCTL
-+static struct ctl_table_header *sysctl_header;
- /*
-  * We really need to sanitize the damn ipv4 init order, then all
-  * this nonsense will go away.
-  */
- void __init ip_static_sysctl_init(void)
- {
--	register_sysctl_paths(ipv4_path, ipv4_skeleton);
-+	sysctl_header = register_sysctl_paths(ipv4_path, ipv4_skeleton);
+@@ -1936,12 +1938,13 @@ static void __net_exit __ip_vs_cleanup(struct net *net)
+ 	ip_vs_control_net_cleanup(net);
+ 	ip_vs_estimator_net_cleanup(net);
+ 	IP_VS_DBG(2, "ipvs netns %d released\n", net_ipvs(net)->gen);
++	net->ipvs = NULL;
  }
- #endif
+ 
+ static void __net_exit __ip_vs_dev_cleanup(struct net *net)
+ {
+ 	EnterFunction(2);
+-	net_ipvs(net)->enable = 0;	/* Disable packet reception */
++	IPVS_DISABLE(net_ipvs(net));	/* Disable packet reception */
+ 	smp_wmb();
+ 	ip_vs_sync_net_cleanup(net);
+ 	LeaveFunction(2);
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index b8d0df7..5392de9 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1221,7 +1221,7 @@ ip_vs_add_service(struct net *net, struct ip_vs_service_user_kern *u,
+ 
+ 	*svc_p = svc;
+ 	/* Now there is a service - full throttle */
+-	ipvs->enable = 1;
++	IPVS_ENABLE(ipvs);
+ 	return 0;
+ 
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index debb8c7..6bc2420 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -439,6 +439,8 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
+ 	struct ip_vs_app *app;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++	if (!IS_IPVS_NETNS_OK(ipvs))
++		return -EUNATCH;
+ 	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
+ 	if (!app)
+ 		return -ENOMEM;
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 27c24f1..f158f0c 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -551,6 +551,9 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++	if (!IS_IPVS_NETNS_OK(ipvs))
++		return -EUNATCH;
++
+ 	if (!net_eq(net, &init_net)) {
+ 		ipvs->lblc_ctl_table = kmemdup(vs_vars_table,
+ 						sizeof(vs_vars_table),
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index 7498756..aeecda4 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -745,6 +745,9 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++	if (!IS_IPVS_NETNS_OK(ipvs))
++		return -EUNATCH;
++
+ 	if (!net_eq(net, &init_net)) {
+ 		ipvs->lblcr_ctl_table = kmemdup(vs_vars_table,
+ 						sizeof(vs_vars_table),
 -- 
-1.7.5.4
+1.7.2.3
 
- 				
---------------
-majianpeng
-2012-04-16
