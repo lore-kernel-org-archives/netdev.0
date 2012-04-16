@@ -1,7 +1,7 @@
 From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH] ipv6: fix rt6_update_expires
-Date: Mon, 16 Apr 2012 15:34:39 +0200
-Message-ID: <20120416133439.GB18159@midget.suse.cz>
+Subject: [PATCH] ipv6: clean up rt6_clean_expires
+Date: Mon, 16 Apr 2012 15:35:41 +0200
+Message-ID: <20120416133541.GC18159@midget.suse.cz>
 References: <1330064404-24763-1-git-send-email-gaofeng@cn.fujitsu.com>
  <1333707190-14075-1-git-send-email-gaofeng@cn.fujitsu.com>
  <20120413.125851.894792528374368454.davem@davemloft.net>
@@ -10,46 +10,36 @@ Content-Type: text/plain; charset=us-ascii
 Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:54672 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:54717 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753343Ab2DPNen (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2012 09:34:43 -0400
+	id S1753343Ab2DPNfn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2012 09:35:43 -0400
 Content-Disposition: inline
 In-Reply-To: <20120413.125851.894792528374368454.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Functionally, this change is a NOP.
 
-Commit 1716a961 (ipv6: fix problem with expired dst cache) broke PMTU
-discovery. rt6_update_expires() calls dst_set_expires(), which only updates
-dst->expires if it has not been set previously (expires == 0) or if the new
-expires is earlier than the current dst->expires.
-
-rt6_update_expires() needs to zero rt->dst.expires, otherwise it will contain
-ivalid data left over from rt->dst.from and will confuse dst_set_expires().
+Semantically, rt6_clean_expires() wants to do rt->dst.from = NULL instead of
+rt->dst.expires = 0. It is clearing the RTF_EXPIRES flag, so the union is going
+to be treated as a pointer (dst.from) not a long (dst.expires).
 
 Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
 diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index ad4126f..68c1f94 100644
+index c64778f..ad4126f 100644
 --- a/include/net/ip6_fib.h
 +++ b/include/net/ip6_fib.h
-@@ -143,8 +143,13 @@ static inline void rt6_set_expires(struct rt6_info *rt, unsigned long expires)
+@@ -129,7 +129,7 @@ static inline void rt6_clean_expires(struct rt6_info *rt)
+ 		dst_release(rt->dst.from);
  
- static inline void rt6_update_expires(struct rt6_info *rt, int timeout)
- {
--	if (!(rt->rt6i_flags & RTF_EXPIRES) && rt->dst.from)
--		dst_release(rt->dst.from);
-+	if (!(rt->rt6i_flags & RTF_EXPIRES)) {
-+		if (rt->dst.from)
-+			dst_release(rt->dst.from);
-+		/* dst_set_expires relies on expires == 0 
-+                  if it has not been set previously */
-+		rt->dst.expires = 0;
-+	}
+ 	rt->rt6i_flags &= ~RTF_EXPIRES;
+-	rt->dst.expires = 0;
++	rt->dst.from = NULL;
+ }
  
- 	dst_set_expires(&rt->dst, timeout);
- 	rt->rt6i_flags |= RTF_EXPIRES;
+ static inline void rt6_set_expires(struct rt6_info *rt, unsigned long expires)
 
 -- 
 Jiri Bohac <jbohac@suse.cz>
