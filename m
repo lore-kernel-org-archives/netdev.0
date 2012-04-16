@@ -1,41 +1,35 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 6/6] vhost_net: don't poll on -EFAULT
-Date: Mon, 16 Apr 2012 14:08:33 +0800
-Message-ID: <20120416060833.14140.28139.stgit@intel-e5620-16-2.englab.nay.redhat.com>
-References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: Re: [PATCH linux-next 1/1] ath6k: Normalize use of FW_DIR
+Date: Mon, 16 Apr 2012 09:39:41 +0300
+Message-ID: <4F8BBEAD.40305@qca.qualcomm.com>
+References: <1334337448-26270-1-git-send-email-tim.gardner@canonical.com> <1334337448-26270-2-git-send-email-tim.gardner@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com
-To: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ath6kl-devel <ath6kl-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>
+To: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1334337448-26270-2-git-send-email-tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Currently, we restart tx polling unconditionally when sendmsg()
-fails. This would cause unnecessary wakeups of vhost wokers as it's
-only needed when the socket send buffer were exceeded. Fix this by
-restart the tx polling only when sendmsg() returns value other than
--EFAULT.
+On 04/13/2012 08:17 PM, Tim Gardner wrote:
+> Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+> Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Thanks, applied to ath6kl.git. But ar6004 hw1.2 supports wasn't in
+linux-next yet so I changed it as well. If you can, please check my changes:
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 29abd65..035fa95 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -262,7 +262,8 @@ static void handle_tx(struct vhost_net *net)
- 					UIO_MAXIOV;
- 			}
- 			vhost_discard_vq_desc(vq, 1);
--			tx_poll_start(net, sock);
-+			if (err != -EFAULT)
-+				tx_poll_start(net, sock);
- 			break;
- 		}
- 		if (err != len)
+https://github.com/kvalo/ath6kl/commit/2023dbb8310ab39ac1119a32ef52405f7a73f51f
+
+Kalle
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
