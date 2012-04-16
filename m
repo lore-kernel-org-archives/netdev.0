@@ -1,206 +1,119 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 2/2] IPVS: make failure of netns init more stable
-Date: Mon, 16 Apr 2012 17:25:23 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1204161621080.1711@ja.ssi.bg>
-References: <1334576378-2034-1-git-send-email-hans.schillstrom@ericsson.com> <1334576378-2034-2-git-send-email-hans.schillstrom@ericsson.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next] net: vxge: Add MODULE_FIRMWARE
+Date: Mon, 16 Apr 2012 15:29:10 +0100
+Message-ID: <1334586550.3209.128.camel@deadeye>
+References: <1334262882-96973-1-git-send-email-tim.gardner@canonical.com>
+	 <1334498215.3209.4.camel@deadeye> <4F8C0EE1.7030901@canonical.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1334576378-2034-2-git-send-email-hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-yKeIbf+Eb9Q2Xqt9+Nu3"
+Cc: linux-kernel@vger.kernel.org, Jon Mason <jdmason@kudzu.us>,
+	netdev@vger.kernel.org
+To: tim.gardner@canonical.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47283 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753565Ab2DPO3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 10:29:20 -0400
+In-Reply-To: <4F8C0EE1.7030901@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
+--=-yKeIbf+Eb9Q2Xqt9+Nu3
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, 16 Apr 2012, Hans Schillstrom wrote:
+On Mon, 2012-04-16 at 06:21 -0600, Tim Gardner wrote:
+> On 04/15/2012 07:56 AM, Ben Hutchings wrote:
+> > On Thu, 2012-04-12 at 14:34 -0600, Tim Gardner wrote:
+> >> Cc: Jon Mason <jdmason@kudzu.us> Cc: netdev@vger.kernel.org=20
+> >> Signed-off-by: Tim Gardner <tim.gardner@canonical.com> ---=20
+> >> drivers/net/ethernet/neterion/vxge/vxge-main.c |    2 ++ 1 file
+> >> changed, 2 insertions(+)
+> >>=20
+> >> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> >> b/drivers/net/ethernet/neterion/vxge/vxge-main.c index
+> >> 51387c3..dcef72d 100644 ---
+> >> a/drivers/net/ethernet/neterion/vxge/vxge-main.c +++
+> >> b/drivers/net/ethernet/neterion/vxge/vxge-main.c @@ -4856,3
+> >> +4856,5 @@ vxge_closer(void) } module_init(vxge_starter);=20
+> >> module_exit(vxge_closer); +MODULE_FIRMWARE("vxge/X3fw-pxe.ncf");=20
+> >> +MODULE_FIRMWARE("vxge/X3fw.ncf");
+> >=20
+> > I don't agree; these firmware files are updates for the flash and
+> > only need to be loaded once.
+> >=20
+> > Also: this driver's behaviour of automatically updating flash
+> > without any confirmation seems quite dangerous.  The driver also
+> > isn't usable after it performs such an update:
+> >=20
+> > printk(KERN_NOTICE "Upgrade of firmware successful!  Adapter must
+> > be " "hard reset before using, thus requiring a system reboot or a
+> > " "hotplug event.\n");
+> >=20
+> > So what is the point of integrating firmware update into the driver
+> > at all?
+> >=20
+> > Ben.
+> >=20
+>=20
+> I guess I'm confused about use of the MODULE_FIRMWARE() macro. I
+> thought it merely described the names of the firmware files that were
+> actually used by the driver and had no run-time impact. Regardless of
+> whether firmware files are used on every load, why _not_ describe them
+> to modinfo ?
+[...]
 
-> Add a IP_VS_F_NET_INIT_OK flag
-> that other modules can use for check of a successful init of ip_vs
-> 
-> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> ---
+Ah, that's a good question.  Quoting my own interpretation from
+<1257629601.15927.361.camel@localhost>:
 
-> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> index b5a5c73..58722a2 100644
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> Drivers that must load 'firmware' into the devices they drive should=20
+> declare the names of the files they will request, using the
+> MODULE_FIRMWARE() macro.  This enables other tools to discover these
+> dependencies statically, and warn the user if firmware files are
+> missing.
 
-> @@ -1881,7 +1881,7 @@ static int __net_init __ip_vs_init(struct net *net)
->  		return -ENOMEM;
->  
->  	/* Hold the beast until a service is registerd */
-> -	ipvs->enable = 0;
-> +	ipvs->status = 0;
->  	ipvs->net = net;
->  	/* Counters used for creating unique names */
->  	ipvs->gen = atomic_read(&ipvs_netns_cnt);
-> @@ -1906,6 +1906,7 @@ static int __net_init __ip_vs_init(struct net *net)
->  	if (ip_vs_sync_net_init(net) < 0)
->  		goto sync_fail;
->  
-> +	IPVS_NETNS_OK(ipvs);
->  	printk(KERN_INFO "IPVS: Creating netns size=%zu id=%d\n",
->  			 sizeof(struct netns_ipvs), ipvs->gen);
->  	return 0;
-> @@ -1924,6 +1925,7 @@ protocol_fail:
->  control_fail:
->  	ip_vs_estimator_net_cleanup(net);
->  estimator_fail:
-> +	ipvs->status = 0;	/* Nothing is enabled */
+In Debian we use this to decide which files need to be copied into an
+initramfs.  You use that too unless you've changed this feature of
+initramfs-tools.  We warn when building an initramfs and during a major
+kernel upgrade if it looks like a driver will be used and the
+corresponding firmware isn't installed.
 
-	While 1st patch looks ok, keeping net->ipvs after
-failure is not going to work. It seems you ignored the patch
-I already posted. We duplicate the pointer in net->ipvs but
-it should not be used after free.
+I also have an (unfinished) patch that will use this information for
+CONFIG_FIRMWARE_IN_KERNEL.
 
-	Note that net_generic() and net->ipvs can not be
-used after ops_exit/ops_free and failed ops_init.
+In this case the firmware files are used to upgrade old flash, but since
+the vendor has closed down there aren't going to be any further updates.
+So the likelihood of the files actually being needed by the driver is
+very small.
 
-	But I see some inconsistency in net/core/net_namespace.c:
-__register_pernet_operations when CONFIG_NET_NS is enabled
-does not call ops_free after failed ops_init while when
-CONFIG_NET_NS is not enabled ops_free is called. The
-problem is that we leak the ops->size data allocated for the
-failed net. I think, the fix should be ops_init to free the data.
+Ben.
 
-	The 2nd problem is that after ops_free the
-net_generic pointer remains assigned in ptr[id-1], even
-after being freed. Not sure if recent changes to net_generic()
-can deal with freed data. This BUG_ON(!ptr) can not catch
-problems if one subsys uses net_generic() for another
-subsys that can be unregistered.
+--=20
+Ben Hutchings
+This sentence contradicts itself - no actually it doesn't.
 
-	I'm going to test such fix for ops_init:
+--=-yKeIbf+Eb9Q2Xqt9+Nu3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-[PATCH] netns: do not leak net_generic data on failed init
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-	ops_init should free the net_generic data on
-init failure and __register_pernet_operations should not
-call ops_free when NET_NS is not enabled.
+iQIVAwUAT4wstue/yOyVhhEJAQo/JQ//WyytXe5sYTlLWMDNjeoCQ4NYWhJs8xJ8
+arCMWjULGqXo1XfRLuVp0jG1lNpNUq7tnfVK3Kfgw9wO5QRo609fyjkMCbKz3Y8D
+g+vkSH1OjV4aWkAZAsUndrRjC9p3OS95fCv/ASLA37bXZaRhS5q+Mq2LrdJF+8Tb
+2lO80SUGeYR2KxVwg5AH2//2c3m6TM/0RTgtm2jbtykGvQ4jKPobuef++nOt7hlR
+pXiKYA5qnMztYluPjP9YQ7OrD1hsVOXTKX8e2q3PExMRwadqrGpcIDMlm2Rc+x8x
+EGMx00Jn6o47dASbPqIjhq+FMguE43FFygq4GMlv8z/h1V0tjZ05En5pyN3GchkV
+Q+BdI909/MYSisnB+Fa3FJigNB3Jho26YLgDbD6n4yceFyJetFkmDC/fF0xYBNWt
+C3daYb8pZxEIfLPNej+O0iQgJoo9kvABlK1tBNL8SHy8ZS6JrUp5uDXrYca6fOCM
+1xQ2BgC2AhxW9h/Wp1fbqzbBLUaoZDphQBB6V6SVDdWrJr34qDXDYlXpKcGsVQmT
+7ePF+jpIMWR8oAyAQmZxHhlp5J49wCOzdN/QE+r7Pg8s6A2tx+KidWdagD91/SV/
+k1coKpHRCeoMf1Bx7wbr6HKy5PwVW2thXsU4nfKN0W9mFWXoK2Z2WpvMXaXw6RB7
+e/woNeRG6GU=
+=doyJ
+-----END PGP SIGNATURE-----
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- net/core/net_namespace.c |   33 ++++++++++++++++++---------------
- 1 files changed, 18 insertions(+), 15 deletions(-)
-
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 0e950fd..31a5ae5 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -83,21 +83,29 @@ assign:
- 
- static int ops_init(const struct pernet_operations *ops, struct net *net)
- {
--	int err;
-+	int err = -ENOMEM;
-+	void *data = NULL;
-+
- 	if (ops->id && ops->size) {
--		void *data = kzalloc(ops->size, GFP_KERNEL);
-+		data = kzalloc(ops->size, GFP_KERNEL);
- 		if (!data)
--			return -ENOMEM;
-+			goto out;
- 
- 		err = net_assign_generic(net, *ops->id, data);
--		if (err) {
--			kfree(data);
--			return err;
--		}
-+		if (err)
-+			goto cleanup;
- 	}
-+	err = 0;
- 	if (ops->init)
--		return ops->init(net);
--	return 0;
-+		err = ops->init(net);
-+	if (!err)
-+		return 0;
-+
-+cleanup:
-+	kfree(data);
-+
-+out:
-+	return err;
- }
- 
- static void ops_free(const struct pernet_operations *ops, struct net *net)
-@@ -448,12 +456,7 @@ static void __unregister_pernet_operations(struct pernet_operations *ops)
- static int __register_pernet_operations(struct list_head *list,
- 					struct pernet_operations *ops)
- {
--	int err = 0;
--	err = ops_init(ops, &init_net);
--	if (err)
--		ops_free(ops, &init_net);
--	return err;
--	
-+	return ops_init(ops, &init_net);
- }
- 
- static void __unregister_pernet_operations(struct pernet_operations *ops)
--- 
-1.7.3.4
-
-> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-> index debb8c7..6bc2420 100644
-> --- a/net/netfilter/ipvs/ip_vs_ftp.c
-> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
-> @@ -439,6 +439,8 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
->  	struct ip_vs_app *app;
->  	struct netns_ipvs *ipvs = net_ipvs(net);
->  
-> +	if (!IS_IPVS_NETNS_OK(ipvs))
-> +		return -EUNATCH;
-
-	I already provided patch for ip_vs_ftp.
-
->  	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
->  	if (!app)
->  		return -ENOMEM;
-> diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-> index 27c24f1..f158f0c 100644
-> --- a/net/netfilter/ipvs/ip_vs_lblc.c
-> +++ b/net/netfilter/ipvs/ip_vs_lblc.c
-> @@ -551,6 +551,9 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
->  {
->  	struct netns_ipvs *ipvs = net_ipvs(net);
->  
-> +	if (!IS_IPVS_NETNS_OK(ipvs))
-> +		return -EUNATCH;
-> +
-
-	As for LBLC* they need just net->ipvs != NULL
-check because net_generic can not be trusted for
-other subsys.
-
->  	if (!net_eq(net, &init_net)) {
->  		ipvs->lblc_ctl_table = kmemdup(vs_vars_table,
->  						sizeof(vs_vars_table),
-> diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-> index 7498756..aeecda4 100644
-> --- a/net/netfilter/ipvs/ip_vs_lblcr.c
-> +++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-> @@ -745,6 +745,9 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
->  {
->  	struct netns_ipvs *ipvs = net_ipvs(net);
->  
-> +	if (!IS_IPVS_NETNS_OK(ipvs))
-> +		return -EUNATCH;
-> +
->  	if (!net_eq(net, &init_net)) {
->  		ipvs->lblcr_ctl_table = kmemdup(vs_vars_table,
->  						sizeof(vs_vars_table),
-> -- 
-> 1.7.2.3
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+--=-yKeIbf+Eb9Q2Xqt9+Nu3--
