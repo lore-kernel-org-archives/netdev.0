@@ -1,46 +1,63 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH] ipv6: clean up rt6_clean_expires
-Date: Mon, 16 Apr 2012 15:35:41 +0200
-Message-ID: <20120416133541.GC18159@midget.suse.cz>
-References: <1330064404-24763-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1333707190-14075-1-git-send-email-gaofeng@cn.fujitsu.com>
- <20120413.125851.894792528374368454.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 6/6] vhost_net: don't poll on -EFAULT
+Date: Mon, 16 Apr 2012 16:39:00 +0300
+Message-ID: <20120416133859.GB13190@redhat.com>
+References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+ <20120416060833.14140.28139.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+ <20120416071646.GB25396@redhat.com>
+ <4F8BD81A.7010507@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:54717 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753343Ab2DPNfn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2012 09:35:43 -0400
+Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20120413.125851.894792528374368454.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4F8BD81A.7010507@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Functionally, this change is a NOP.
+On Mon, Apr 16, 2012 at 04:28:10PM +0800, Jason Wang wrote:
+> On 04/16/2012 03:16 PM, Michael S. Tsirkin wrote:
+> >On Mon, Apr 16, 2012 at 02:08:33PM +0800, Jason Wang wrote:
+> >>Currently, we restart tx polling unconditionally when sendmsg()
+> >>fails. This would cause unnecessary wakeups of vhost wokers as it's
+> >>only needed when the socket send buffer were exceeded.
+> >Why is this a problem?
+> 
+> This issue is when guest driver is able to hit the -EFAULT, vhost
+> discard the the descriptor and restart the polling. This would wake
+> vhost thread and repeat the loop again which waste cpu.
 
-Semantically, rt6_clean_expires() wants to do rt->dst.from = NULL instead of
-rt->dst.expires = 0. It is clearing the RTF_EXPIRES flag, so the union is going
-to be treated as a pointer (dst.from) not a long (dst.expires).
+Does same thing happen if we get an error from copy from user?
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index c64778f..ad4126f 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -129,7 +129,7 @@ static inline void rt6_clean_expires(struct rt6_info *rt)
- 		dst_release(rt->dst.from);
- 
- 	rt->rt6i_flags &= ~RTF_EXPIRES;
--	rt->dst.expires = 0;
-+	rt->dst.from = NULL;
- }
- 
- static inline void rt6_set_expires(struct rt6_info *rt, unsigned long expires)
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+> Another possible solution is don't discard the descriptor.
+> >
+> >>Fix this by
+> >>restart the tx polling only when sendmsg() returns value other than
+> >>-EFAULT.
+> >>
+> >>Signed-off-by: Jason Wang<jasowang@redhat.com>
+> >>---
+> >>  drivers/vhost/net.c |    3 ++-
+> >>  1 files changed, 2 insertions(+), 1 deletions(-)
+> >>
+> >>diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> >>index 29abd65..035fa95 100644
+> >>--- a/drivers/vhost/net.c
+> >>+++ b/drivers/vhost/net.c
+> >>@@ -262,7 +262,8 @@ static void handle_tx(struct vhost_net *net)
+> >>  					UIO_MAXIOV;
+> >>  			}
+> >>  			vhost_discard_vq_desc(vq, 1);
+> >>-			tx_poll_start(net, sock);
+> >>+			if (err != -EFAULT)
+> >>+				tx_poll_start(net, sock);
+> >>  			break;
+> >>  		}
+> >>  		if (err != len)
+> >--
+> >To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> >the body of a message to majordomo@vger.kernel.org
+> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >Please read the FAQ at  http://www.tux.org/lkml/
