@@ -1,80 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the wireless-next tree with the
- net-next tree
-Date: Mon, 16 Apr 2012 12:49:06 +1000
-Message-ID: <20120416124906.374bf01698ec4c199d1a6f7c@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Mon__16_Apr_2012_12_49_06_+1000_gmApyn10SXO1t.qT"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Eric Lapuyade <eric.lapuyade@intel.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next] drivers/net: fix unresolved 64bit math in mellanox/mlx4/en_dcb_nl.c
+Date: Sun, 15 Apr 2012 23:09:54 -0400
+Message-ID: <1334545794-16703-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from haggis.pcug.org.au ([203.10.76.10]:53276 "EHLO
-	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752810Ab2DPCtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 22:49:08 -0400
+Received: from mail.windriver.com ([147.11.1.11]:55399 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751078Ab2DPDKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 23:10:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__16_Apr_2012_12_49_06_+1000_gmApyn10SXO1t.qT
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Commit 109d2446052a484c58f07f71f9457bf7b71017f8
 
-Hi John,
+    "net/mlx4_en: Set max rate-limit for a TC"
 
-Today's linux-next merge of the wireless-next tree got a conflict in
-include/net/nfc/nfc.h between commit 95c961747284 ("net: cleanup unsigned
-to unsigned int") from the net-next tree and commits c4fbb6515a4d ("NFC:
-The core part should generate the target index") and 01ae0eea9bed ("NFC:
-Fix next target_idx type and rename for clarity") from the wireless-next
-tree.
+introduced 64 bit math operations into mlx4_en_dcbnl_ieee_setmaxrate()
 
-Just context changes.  I fixed it up (see below) and can carry the fix as
-necessary.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+causing the following final link failure on an x86_32 allmodconfig
 
-diff --cc include/net/nfc/nfc.h
-index 79955a2,313d00f..0000000
---- a/include/net/nfc/nfc.h
-+++ b/include/net/nfc/nfc.h
-@@@ -86,7 -90,8 +90,8 @@@ struct nfc_genl_data=20
-  };
- =20
-  struct nfc_dev {
- -	unsigned idx;
- +	unsigned int idx;
-+ 	u32 target_next_idx;
-  	struct nfc_target *targets;
-  	int n_targets;
-  	int targets_generation;
+  ERROR: "__udivdi3" [drivers/net/ethernet/mellanox/mlx4/mlx4_en.ko] undefined!
 
---Signature=_Mon__16_Apr_2012_12_49_06_+1000_gmApyn10SXO1t.qT
-Content-Type: application/pgp-signature
+Convert it to use div_u64() instead.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Cc: Amir Vadai <amirv@mellanox.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
 
-iQIcBAEBCAAGBQJPi4iiAAoJEECxmPOUX5FEfqEP/2bIQ19jm1n/kWeC3p9SWzlx
-Sx/pr7zxgk7NJ3DNMLh2DCULuuuvGozx7lk2c82+tT0theVDkMTKfjEi6nY/5VH1
-EAV1w84SCkfSgCURffaGb7NJcXVW8JvCwqBRD+N6jy4RuqgkHzKfLfEgQNSsbIcP
-w7epMbuKO1cT8Ckbd8fMSQdsr/+6e+ZK0VvnvsJvf/IqUAOCfvmJ/3RXNLf4BmJo
-qufwoOCGBieGWB32pS0/OVSVVzw8QtUB2NvpdpCOsTkOxYt1VQprvNf6eno0oCkt
-ArPZ61APJ5NThrnQ0MNlfGp6dygckb3TtbtZwapyuyGendV9CcRmQDMJQzxwm5nQ
-AcqQTsIfHCZFXokeYTz/dWdUAyaR1hbTr3wJo/RRZ8aWhDacS+T9VCmZb0yjnRKD
-UCWudBsCbgZshwcBLlBX74pk+LC47QMmy6c/QFFHaVWGncbU6IdPTkiMFu0AQtzN
-ZChAj93qLQuiTPfQhGIacx9mvx9VUE1FLMW+bzp7TiXWQCNXQGAt+S0JmzqDsVJA
-75goRZ5Gwd4U+HN9sDfWfFXayojo1Mk2R+7RzbP+tFdV/7cUwVQL76o1MPjC00KJ
-teODDUkg8IWfPQP9AjMMd73IWnJTXzIDmW9lo8qT0rZblJAU2vZEJUsMQKGrMMxq
-B5Y2QvewqI6cQBF7HmHL
-=ma0K
------END PGP SIGNATURE-----
+[seen in linux-next: http://kisskb.ellerman.id.au/kisskb/buildresult/6091475/]
 
---Signature=_Mon__16_Apr_2012_12_49_06_+1000_gmApyn10SXO1t.qT--
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+index 0cc6c96..720cb55 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
+@@ -227,9 +227,9 @@ static int mlx4_en_dcbnl_ieee_setmaxrate(struct net_device *dev,
+ 		/* Convert from Kbps into HW units, rounding result up.
+ 		 * Setting to 0, means unlimited BW.
+ 		 */
+-		tmp[i] =
+-			(maxrate->tc_maxrate[i] + MLX4_RATELIMIT_UNITS_IN_KB -
+-			 1) / MLX4_RATELIMIT_UNITS_IN_KB;
++		tmp[i] = div_u64(maxrate->tc_maxrate[i] +
++				 MLX4_RATELIMIT_UNITS_IN_KB - 1,
++				 MLX4_RATELIMIT_UNITS_IN_KB);
+ 	}
+ 
+ 	err = mlx4_en_config_port_scheduler(priv, NULL, tmp);
+-- 
+1.7.9.1
