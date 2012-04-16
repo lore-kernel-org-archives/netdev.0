@@ -1,54 +1,71 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next] drivers/net: fix unresolved 64bit math in mellanox/mlx4/en_dcb_nl.c
-Date: Sun, 15 Apr 2012 23:09:54 -0400
-Message-ID: <1334545794-16703-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:55399 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078Ab2DPDKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Apr 2012 23:10:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the security tree with the net-next
+ tree
+Date: Mon, 16 Apr 2012 13:29:04 +1000
+Message-ID: <20120416132904.85e0f40b3e509f42c3f3284c@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__16_Apr_2012_13_29_04_+1000_+opk4LkRiaad2SzE"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Jiri Pirko <jpirko@redhat.com>, Will Drewry <wad@chromium.org>
+To: James Morris <jmorris@namei.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 109d2446052a484c58f07f71f9457bf7b71017f8
+--Signature=_Mon__16_Apr_2012_13_29_04_+1000_+opk4LkRiaad2SzE
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-    "net/mlx4_en: Set max rate-limit for a TC"
+Hi James,
 
-introduced 64 bit math operations into mlx4_en_dcbnl_ieee_setmaxrate()
+Today's linux-next merge of the security tree got a conflict in
+include/linux/filter.h between commit ffe06c17afbb ("filter: add XOR
+operation") from the net-next tree and commit 46b325c7eb01
+("sk_run_filter: add BPF_S_ANC_SECCOMP_LD_W") from the security tree.
 
-causing the following final link failure on an x86_32 allmodconfig
+Just context changes.  I fixed it up (see below) and can carry the fax as
+necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-  ERROR: "__udivdi3" [drivers/net/ethernet/mellanox/mlx4/mlx4_en.ko] undefined!
+diff --cc include/linux/filter.h
+index 7209099,f2e5315..0000000
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@@ -232,7 -239,7 +243,8 @@@ enum=20
+  	BPF_S_ANC_HATYPE,
+  	BPF_S_ANC_RXHASH,
+  	BPF_S_ANC_CPU,
+ +	BPF_S_ANC_ALU_XOR_X,
++ 	BPF_S_ANC_SECCOMP_LD_W,
+  };
+ =20
+  #endif /* __KERNEL__ */
 
-Convert it to use div_u64() instead.
+--Signature=_Mon__16_Apr_2012_13_29_04_+1000_+opk4LkRiaad2SzE
+Content-Type: application/pgp-signature
 
-Cc: Amir Vadai <amirv@mellanox.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-[seen in linux-next: http://kisskb.ellerman.id.au/kisskb/buildresult/6091475/]
+iQIcBAEBCAAGBQJPi5IAAAoJEECxmPOUX5FEIIIQAJEPizRReIZYjMGafUwd+GWa
+7r6RNyNhYoM0+D7nl2DybWupqVzOkkNoTtLR545hXa8iHg7crKiY0lhIGA2DtxYQ
+rnZ3ZdGT8AAJTHh8MT9t9cGl7r3g7yJDV2RPmetW0bAjBpTGaG/hacpZ9TRi1PFq
+XMphsmvkLKGYb2SMy7frvp8Lh3NO+hMMdmeQfuBzLx13belYjiK/J1kccJAPet74
+PWE/zWgZGzQAq3doX/3dJqVNQ9P8E9xh9b7b0jOPchRYW0oxGoy041RZcvndKXxG
+37OKycxnlgERt+OUJpoksJu7K9azKOPDrMkNv3wrPY1C4t6aiXjmjNKjfM9U2DOY
+yIOq+AxJ30JAXEhn73Y2QtZ6AscVzKO81EdAUH3vkM4qMJCeHsLNpFy7bv2kJ12z
+JbImIjqOKVqL6KCIQO16BrzmKFSe//tmzvsum4r7+GwsNYhT7n9wdH5RCAlyUhjn
+ypkYR095CxOv4JvmmKX4pVXAXxykmKgs+aG+SbeyRZCg1ph5+Zyq51fpOIB3Py72
+o8+CE0cfLlv4oGK7Aq1v6xylgYThoVffOiHcCHdcL94UmQxUPuecfnooHNduUX7P
++VofWDQ+d9xF1BTArlM3m0X8AptxzdlVkDCXTnnrswLiFShvmktmcBI3+P83QOqY
+RYr0cnJy2DkIHpydkfoo
+=gK7b
+-----END PGP SIGNATURE-----
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-index 0cc6c96..720cb55 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -227,9 +227,9 @@ static int mlx4_en_dcbnl_ieee_setmaxrate(struct net_device *dev,
- 		/* Convert from Kbps into HW units, rounding result up.
- 		 * Setting to 0, means unlimited BW.
- 		 */
--		tmp[i] =
--			(maxrate->tc_maxrate[i] + MLX4_RATELIMIT_UNITS_IN_KB -
--			 1) / MLX4_RATELIMIT_UNITS_IN_KB;
-+		tmp[i] = div_u64(maxrate->tc_maxrate[i] +
-+				 MLX4_RATELIMIT_UNITS_IN_KB - 1,
-+				 MLX4_RATELIMIT_UNITS_IN_KB);
- 	}
- 
- 	err = mlx4_en_config_port_scheduler(priv, NULL, tmp);
--- 
-1.7.9.1
+--Signature=_Mon__16_Apr_2012_13_29_04_+1000_+opk4LkRiaad2SzE--
