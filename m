@@ -1,35 +1,45 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [PATCH linux-next 1/1] ath6k: Normalize use of FW_DIR
-Date: Mon, 16 Apr 2012 09:39:41 +0300
-Message-ID: <4F8BBEAD.40305@qca.qualcomm.com>
-References: <1334337448-26270-1-git-send-email-tim.gardner@canonical.com> <1334337448-26270-2-git-send-email-tim.gardner@canonical.com>
+From: Liu ping fan <kernelfans@gmail.com>
+Subject: net-sched/vhost-net: Besides Qdisc on host,
+ is it worth to have a try for tranfic control on vhost-net device?
+Date: Mon, 16 Apr 2012 14:45:30 +0800
+Message-ID: <CAFgQCTsXfs-QAgMp1nfEu=pzhyO763ZQ7XoY7jS9XkjZv0Vxww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	ath6kl-devel <ath6kl-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>
-To: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1334337448-26270-2-git-send-email-tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stefan Hajnoczi <stefanha@gmail.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, Anthony Liguori <anthony@codemonkey.ws>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: netdev@vger.kernel.org, qemu-devel@nongnu.org
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
 List-Id: netdev.vger.kernel.org
 
-On 04/13/2012 08:17 PM, Tim Gardner wrote:
-> Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-> Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Signed-off-by: Tim Gardner <tim.gardner-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Hi guys,
 
-Thanks, applied to ath6kl.git. But ar6004 hw1.2 supports wasn't in
-linux-next yet so I changed it as well. If you can, please check my changes:
+Nowadays, in order to limit the guest's TX bandwidth, we can apply tc
+on tap device's ingress Qdisc on host. But I think it is based on
+dropping packets in the host's Qdisc layer(Right?).
+If my assumption is right, then on guest, whether the sender process
+will lower its output or not, will depend on protocol layer implement.
+As to protocol armed with congestion control such as tcp, the sender
+process will block and save cpu. But as to udp, it seems that the
+sender process just generate some unnecessary dropped packets.
+In order to save cpu, we can introduce control vhost-net, then the
+guest udp sender will block on sk.sk_wmem_alloc to get the same effect
+as blocking on congestion like tcp.
 
-https://github.com/kvalo/ath6kl/commit/2023dbb8310ab39ac1119a32ef52405f7a73f51f
+But all of above are based on the Qdisc layer's behavior when network
+over-limit on host. Is it simply drop skb or defer its transferring?
+If deferring, any example code?
 
-Kalle
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Any comments?
+
+Thanks and regards,
+pingfan
