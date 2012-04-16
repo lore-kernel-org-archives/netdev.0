@@ -1,44 +1,44 @@
-From: "Stian Skjelstad" <stian@nixia.no>
-Subject: Re: Netlink, route monitoring, RTM_DELROUTE not issued for ppp peer
- address. Bug or feature?
-Date: Mon, 16 Apr 2012 22:21:46 +0200
-Message-ID: <2f6d1271c8c6811acbbc5b2603c72115.squirrel@nlc.no>
-References: <8986ed37b55c756ecdeec0315f73e63a@visp.net.lb>
-    <023e01cd197d$a9faba40$fdf02ec0$@no>
-    <3db49d4a58321a5e185cd67335a60c81@visp.net.lb>
-    <20120416081954.1bb994db@nehalam.linuxnetplumber.net>
-    <9c375f4b88835bcde92bf3ba8f3434cc@visp.net.lb>
+From: Chris Snook <chris.snook@gmail.com>
+Subject: Re: [PATCH 0/9] atl1: add napi to Atheros L1 NIC
+Date: Mon, 16 Apr 2012 13:51:15 -0700
+Message-ID: <CAMXMK6v11Hd3BttPMWkb+dLppTiUFbYpPbHgCUz7butVxjYL8g@mail.gmail.com>
+References: <1334333394-38404-1-git-send-email-antonz@parallels.com>
+ <20120415.130346.1822341707659142562.davem@davemloft.net> <20120415.132805.143754486571031578.davem@davemloft.net>
+ <4F8BC8C3.6020102@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "Stephen Hemminger" <shemminger@vyatta.com>,
-	"Stian Skjelstad" <stian@nixia.no>, eric.dumazet@gmail.com,
-	stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-To: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jcliburn@gmail.com" <jcliburn@gmail.com>,
+	Konstantin Khorenko <khorenko@parallels.com>
+To: Tony Zelenoff <antonz@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lauken.nlc.no ([195.159.66.52]:49092 "EHLO lauken.nlc.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752693Ab2DPUVr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2012 16:21:47 -0400
-In-Reply-To: <9c375f4b88835bcde92bf3ba8f3434cc@visp.net.lb>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:64176 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754725Ab2DPUvg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 16:51:36 -0400
+Received: by qadc11 with SMTP id c11so3705781qad.19
+        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 13:51:35 -0700 (PDT)
+In-Reply-To: <4F8BC8C3.6020102@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> It looks like "correct" behavior should not harm existing programs that
-> much (just there will be netlink message to delete route that are
-> already deleted by program, e.g. quagga), but looking to code,
-> implementing this feature will make significant overhead and in some
-> cases it can be harmful.
-> For example if full view BGP interface dropped, it is hundreds of
-> thousands netlink messages. So seems better i will listen to
-> address/link changes also and keep routing table in memory.
-> So better seems to keep as is.
+On Mon, Apr 16, 2012 at 12:22 AM, Tony Zelenoff <antonz@parallels.com> =
+wrote:
+> Also, i'm interested in what to do with Chris Nook address in contact=
+s list.
+> Reason - mailer respond that this address is not valid anymore. Shoul=
+d i
+> remove him from contacts or leave?
+>
+> Mailer response:
+>
+> =A0csnook@redhat.com
+> =A0 =A0SMTP error from remote mail server after RCPT TO:<csnook@redha=
+t.com>:
+> =A0 =A0host mx1.redhat.com [209.132.183.28]: 550 5.2.1 <csnook@redhat=
+=2Ecom>...
+> Mailbox disabled for this recipient
 
-If I understand correct, the "missing" RTM_DELROUTE messages actually
-comes from something similar to "ip route flush dev eth0".
-
-If the amount of traffic is a worry, couldn't there be a RTM_FLUSHROUTE or
-a special RTM_DELROUTE message that tells that all routes for a given
-device is removed?
-
-Stian Skjelstad
+MAINTAINERS is your friend :)
