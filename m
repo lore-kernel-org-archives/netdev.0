@@ -1,45 +1,56 @@
-From: Liu ping fan <kernelfans@gmail.com>
-Subject: net-sched/vhost-net: Besides Qdisc on host,
- is it worth to have a try for tranfic control on vhost-net device?
-Date: Mon, 16 Apr 2012 14:45:30 +0800
-Message-ID: <CAFgQCTsXfs-QAgMp1nfEu=pzhyO763ZQ7XoY7jS9XkjZv0Vxww@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/6] macvtap: zerocopy: validate vector length before
+ pinning user pages
+Date: Mon, 16 Apr 2012 08:53:03 +0200
+Message-ID: <1334559183.28012.45.camel@edumazet-glaptop>
+References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+	 <20120416060807.14140.96229.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stefan Hajnoczi <stefanha@gmail.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, Anthony Liguori <anthony@codemonkey.ws>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: netdev@vger.kernel.org, qemu-devel@nongnu.org
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, mst@redhat.com, ebiederm@xmission.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120416060807.14140.96229.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi guys,
+On Mon, 2012-04-16 at 14:08 +0800, Jason Wang wrote:
+> Currently we do not validate the vector length before calling
+> get_user_pages_fast(), host stack would be easily overflowed by
+> malicious guest driver who give us a descriptor with length greater
+> than MAX_SKB_FRAGS. Solve this problem by checking the free entries
+> before trying to pin user pages.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/macvtap.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 7cb2684..d197a78 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -529,6 +529,8 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+>  		}
+>  		base = (unsigned long)from->iov_base + offset;
+>  		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+> +		if (i + size >= MAX_SKB_FRAGS)
+> +			return -EFAULT;
+>  		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+>  		if ((num_pages != size) ||
+>  		    (num_pages > MAX_SKB_FRAGS - skb_shinfo(skb)->nr_frags))
+> 
 
-Nowadays, in order to limit the guest's TX bandwidth, we can apply tc
-on tap device's ingress Qdisc on host. But I think it is based on
-dropping packets in the host's Qdisc layer(Right?).
-If my assumption is right, then on guest, whether the sender process
-will lower its output or not, will depend on protocol layer implement.
-As to protocol armed with congestion control such as tcp, the sender
-process will block and save cpu. But as to udp, it seems that the
-sender process just generate some unnecessary dropped packets.
-In order to save cpu, we can introduce control vhost-net, then the
-guest udp sender will block on sk.sk_wmem_alloc to get the same effect
-as blocking on congestion like tcp.
+Hi Jason
 
-But all of above are based on the Qdisc layer's behavior when network
-over-limit on host. Is it simply drop skb or defer its transferring?
-If deferring, any example code?
+Why is -EFAULT the right error code ?
 
-Any comments?
+Also, why not removing the "(num_pages > MAX_SKB_FRAGS -
+skb_shinfo(skb)->nr_frags)" test done few lines after ?
 
-Thanks and regards,
-pingfan
+Also, if get_user_pages_fast() returns truncated result (size - 1 for
+example), we apparently dont free the references on pages.
+
+The comment applies only on pages that were added in skb frags.
