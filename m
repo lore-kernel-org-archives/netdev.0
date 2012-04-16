@@ -1,8 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 4/6] macvtap: zerocopy: set SKBTX_DEV_ZEROCOPY only when skb
-	is built successfully
-Date: Mon, 16 Apr 2012 14:08:16 +0800
-Message-ID: <20120416060816.14140.42824.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+Subject: [PATCH 5/6] vhost_net: fix use after free of vq->ubufs
+Date: Mon, 16 Apr 2012 14:08:25 +0800
+Message-ID: <20120416060825.14140.32069.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,43 +14,34 @@ In-Reply-To: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redha
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Current the SKBTX_DEV_ZEROCOPY is set unconditionally after
-zerocopy_sg_from_iovec(), this would lead NULL pointer when macvtap
-fails to build zerocopy skb because destructor_arg was not
-initialized. Solve this by set this flag after the skb were built
-successfully.
+When zerocopy socket is used, ubufs pointer were used in handle_tx()
+without any validation. This would cause NULL pointer deference after
+it has been freed in vhost_net_set_backend(). Fix this by check the
+pointer before using it.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/macvtap.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/vhost/net.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index d197a78..c030468 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -699,10 +699,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	if (!skb)
- 		goto err;
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index f0da2c3..29abd65 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -163,10 +163,15 @@ static void handle_tx(struct vhost_net *net)
+ 	mutex_lock(&vq->mutex);
+ 	vhost_disable_notify(&net->dev, vq);
  
--	if (zerocopy) {
-+	if (zerocopy)
- 		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
--		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
--	} else
-+	else
- 		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
- 						   len);
- 	if (err)
-@@ -721,8 +720,10 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	rcu_read_lock_bh();
- 	vlan = rcu_dereference_bh(q->vlan);
- 	/* copy skb_ubuf_info for callback when skb has no error */
--	if (zerocopy)
-+	if (zerocopy) {
- 		skb_shinfo(skb)->destructor_arg = m->msg_control;
-+		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
++	zcopy = vhost_sock_zcopy(sock);
++	if (zcopy && !vq->ubufs) {
++		mutex_unlock(&vq->mutex);
++		return;
 +	}
- 	if (vlan)
- 		macvlan_start_xmit(skb, vlan->dev);
- 	else
++
+ 	if (wmem < sock->sk->sk_sndbuf / 2)
+ 		tx_poll_stop(net);
+ 	hdr_size = vq->vhost_hlen;
+-	zcopy = vhost_sock_zcopy(sock);
+ 
+ 	for (;;) {
+ 		/* Release DMAs done buffers first */
