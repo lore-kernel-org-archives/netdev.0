@@ -1,72 +1,76 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: [PATCH v3] mac80211: Support on-channel scan option.
-Date: Mon, 16 Apr 2012 10:41:06 -0700
-Message-ID: <4F8C59B2.20207@candelatech.com>
-References: <1334248689-23018-1-git-send-email-greearb@candelatech.com> (sfid-20120412_183929_638765_C70D881D) <4F8C57CC.4090505@sipsolutions.net>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [PATCH 2/2] IPVS: make failure of netns init more stable
+Date: Mon, 16 Apr 2012 19:45:15 +0200
+Message-ID: <201204161945.16182.hans.schillstrom@ericsson.com>
+References: <1334576378-2034-1-git-send-email-hans.schillstrom@ericsson.com> <201204161916.33621.hans.schillstrom@ericsson.com> <alpine.LFD.2.00.1204162026480.6225@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F8C57CC.4090505-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "horms@verge.net.au" <horms@verge.net.au>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1204162026480.6225@ja.ssi.bg>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/16/2012 10:33 AM, Johannes Berg wrote:
-> Did you test it?
+On Monday 16 April 2012 19:31:40 Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Mon, 16 Apr 2012, Hans Schillstrom wrote:
+> 
+> > > 	But I see some inconsistency in net/core/net_namespace.c:
+> > > __register_pernet_operations when CONFIG_NET_NS is enabled
+> > > does not call ops_free after failed ops_init while when
+> > > CONFIG_NET_NS is not enabled ops_free is called. The 
+> > > problem is that we leak the ops->size data allocated for the
+> > > failed net. I think, the fix should be ops_init to free the data.
+> > 
+> > Are you sure ?
+> > In my code it does... 
+> > 
+> > static int __register_pernet_operations(struct list_head *list,
+> > 					struct pernet_operations *ops)
+> > at line 417
+> > ..
+> > 		for_each_net(net) {
+> > 			error = ops_init(ops, net);
+> > 			if (error)
+> > 				goto out_undo;
+> 
+> 	There is line here that registers current net for
+> cleanup only after ops_init success:
+> 
+> 	list_add_tail(&net->exit_list, &net_exit_list);
+> 
+> 	If ops_init fails for first net then net_exit_list will
+> be empty.
 
-Yes.  I added my old can-scan-one patch on top of this
-so that as soon as one station is associated the rest
-of the hostap-generated scans can just scan the current channel. I
-then bring up 100 or so virtual stations and they all scan
-and do their thing...
+Yes, you are right as allways :-)
 
-I also tried some manual scans on a fixed frequency.  Those
-appeared to work, though I got scan results for APs on different
-channels.  Does that seem right?  I can't see how my patch
-would affect that sort of thing one way or another...
-
-If you have some suggestions for other ways to test this
-please let me know.
-
->> + /* If we are scanning only on the current channel, then
->> + * we do not need to stop normal activities
->> + */
->> + unsigned long next_delay;
->> +
->> + __set_bit(SCAN_ONCHANNEL_SCANNING,&local->scanning);
->> + ieee80211_recalc_idle(local);
->> + /* Notify driver scan is starting, keep order of operations
->> + * same as normal software scan, in case that matters. */
->> + drv_sw_scan_start(local);
->> + ieee80211_configure_filter(local); /* accept probe-responses */
->> + /* We need to ensure power level is at max for scanning. */
->> + ieee80211_hw_config(local, 0);
->
-> a few blank lines would be nice :)
-
-Sure, will do.
-
->> + if ((req->channels[0]->flags&
->> + IEEE80211_CHAN_PASSIVE_SCAN) ||
->> + !local->scan_req->n_ssids) {
->
-> That formatting is a bit off it seems. Or is that just my mailer?
-
-Well, it looked OK to me..though when I replied my mailer
-certainly made it look funky.  I'll re-run it through checkpatch
-just in case.
-
-Thanks,
-Ben
-
+> 
+> > ...
+> > line 426
+> > out_undo:
+> > 	/* If I have an error cleanup all namespaces I initialized */
+> > 	list_del(&ops->list);
+> > 	ops_exit_list(ops, &net_exit_list);
+> > 	ops_free_list(ops, &net_exit_list);
+> > 	return error;
+> > }
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
 
 -- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
