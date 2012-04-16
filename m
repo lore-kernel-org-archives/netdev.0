@@ -1,126 +1,117 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [PATCH 1/2] IPVS: take care of return value from protocol init_netns
-Date: Mon, 16 Apr 2012 13:39:37 +0200
-Message-ID: <1334576378-2034-1-git-send-email-hans.schillstrom@ericsson.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: [PATCH] arcnet: rimi: Fix device name in debug output
+Date: Mon, 16 Apr 2012 14:02:48 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1204161335420.16373@pobox.suse.cz>
+References: <20120415153220.GA11631@vt220.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <horms@verge.net.au>, <ja@ssi.bg>, <wensong@linux-vs.org>,
-	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steven Young <sdyoung@vt220.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:46281 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752994Ab2DPMCu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2012 08:02:50 -0400
+In-Reply-To: <20120415153220.GA11631@vt220.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ip_vs_create_timeout_table() can return NULL
-All functions protocol init_netns is affected of this patch.
+On Sun, 15 Apr 2012, Steven Young wrote:
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> 
+> This patch corrects an incorrectly-used format string that causes messages
+> like:
+>   
+>   arc%d: Given: node 00h, shmem 0h, irq 0
+> 
+> to appear in dmesg at boot/modprobe time for the arcnet-rimi driver and
+> others.  This applies to linux-3.3.
+> 
+> Signed-off-by: Steven Young <sdyoung@vt220.org>
+> 
+> ---
+> 
+> --- linux-3.3-orig/drivers/net/arcnet/arcnet.c	2012-03-18 23:15:34.000000000 +0000
+> +++ linux-3.3/drivers/net/arcnet/arcnet.c	2012-04-15 15:50:24.000000000 +0100
+> @@ -346,7 +346,7 @@ struct net_device *alloc_arcdev(const ch
+>  	struct net_device *dev;
+>  
+>  	dev = alloc_netdev(sizeof(struct arcnet_local),
+> -			   name && *name ? name : "arc%d", arcdev_setup);
+> +			   name && *name ? name : "arcnet", arcdev_setup);
+>  	if(dev) {
+>  		struct arcnet_local *lp = netdev_priv(dev);
+>  		spin_lock_init(&lp->lock);
+
+I don't think this is correct. The only problem with you seeing the 
+message above is that it's printed before register_netdev() happpens 
+(which is where the resolution of the name in the formatstring happens).
+
+But your change will alter the naming of the devices completely ....
+
+I propose the minimalistic fix instead ... it'd be better to just drop the 
+BUGMSG() thing altogether and convert it to dev_printk(), but that'd be 
+larger revamp of the driver, and such effort is questionable for something 
+like Arcnet :)
+
+Adding proper CCs.
+
+
+
+
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: [PATCH] arcnet: rimi: Fix device name in debug output
+
+arcrimi_probe() calls BUGMSG() before register_netdev() happens. BUGMSG()
+itself prints dev->name, but as the format string hasn't been expanded by
+register_netdev() yet, the output contains bogus device name such as
+
+	arc%d: Given: node 00h, shmem 0h, irq 0
+
+As we don't know the device name yet, just drop the prefix completely from
+the debugging messages.
+
+Reported-by: Steven Young <sdyoung@vt220.org>
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 ---
- include/net/ip_vs.h                   |    2 +-
- net/netfilter/ipvs/ip_vs_proto.c      |    2 +-
- net/netfilter/ipvs/ip_vs_proto_sctp.c |    5 ++++-
- net/netfilter/ipvs/ip_vs_proto_tcp.c  |    5 ++++-
- net/netfilter/ipvs/ip_vs_proto_udp.c  |    5 ++++-
- 5 files changed, 14 insertions(+), 5 deletions(-)
+ drivers/net/arcnet/arc-rimi.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index a903a82..04e2211 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -393,7 +393,7 @@ struct ip_vs_protocol {
+diff --git a/drivers/net/arcnet/arc-rimi.c b/drivers/net/arcnet/arc-rimi.c
+index 25197b6..b8b4c7b 100644
+--- a/drivers/net/arcnet/arc-rimi.c
++++ b/drivers/net/arcnet/arc-rimi.c
+@@ -89,16 +89,16 @@ static int __init arcrimi_probe(struct net_device *dev)
+ 	BUGLVL(D_NORMAL) printk(VERSION);
+ 	BUGLVL(D_NORMAL) printk("E-mail me if you actually test the RIM I driver, please!\n");
  
- 	void (*exit)(struct ip_vs_protocol *pp);
+-	BUGMSG(D_NORMAL, "Given: node %02Xh, shmem %lXh, irq %d\n",
++	BUGLVL(D_NORMAL) printk("Given: node %02Xh, shmem %lXh, irq %d\n",
+ 	       dev->dev_addr[0], dev->mem_start, dev->irq);
  
--	void (*init_netns)(struct net *net, struct ip_vs_proto_data *pd);
-+	int (*init_netns)(struct net *net, struct ip_vs_proto_data *pd);
- 
- 	void (*exit_netns)(struct net *net, struct ip_vs_proto_data *pd);
- 
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 643ff67..c4d73c2 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -79,7 +79,7 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
- 	atomic_set(&pd->appcnt, 0);	/* Init app counter */
- 
- 	if (pp->init_netns != NULL)
--		pp->init_netns(net, pd);
-+		return pp->init_netns(net, pd);
- 
- 	return 0;
- }
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index 1fbf7a2..9f3fb75 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -1090,7 +1090,7 @@ out:
-  *   timeouts is netns related now.
-  * ---------------------------------------------
-  */
--static void __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
-+static int __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -1098,6 +1098,9 @@ static void __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	spin_lock_init(&ipvs->sctp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)sctp_timeouts,
- 							sizeof(sctp_timeouts));
-+	if (!pd->timeout_table)
-+		return -ENOMEM;
-+	return 0;
- }
- 
- static void __ip_vs_sctp_exit(struct net *net, struct ip_vs_proto_data *pd)
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index ef8641f..cd609cc 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -677,7 +677,7 @@ void ip_vs_tcp_conn_listen(struct net *net, struct ip_vs_conn *cp)
-  *   timeouts is netns related now.
-  * ---------------------------------------------
-  */
--static void __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
-+static int __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -685,7 +685,10 @@ static void __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	spin_lock_init(&ipvs->tcp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)tcp_timeouts,
- 							sizeof(tcp_timeouts));
-+	if (!pd->timeout_table)
-+		return -ENOMEM;
- 	pd->tcp_state_table =  tcp_states;
-+	return 0;
- }
- 
- static void __ip_vs_tcp_exit(struct net *net, struct ip_vs_proto_data *pd)
-diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
-index f4b7262..2fedb2d 100644
---- a/net/netfilter/ipvs/ip_vs_proto_udp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
-@@ -467,7 +467,7 @@ udp_state_transition(struct ip_vs_conn *cp, int direction,
- 	cp->timeout = pd->timeout_table[IP_VS_UDP_S_NORMAL];
- }
- 
--static void __udp_init(struct net *net, struct ip_vs_proto_data *pd)
-+static int __udp_init(struct net *net, struct ip_vs_proto_data *pd)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -475,6 +475,9 @@ static void __udp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	spin_lock_init(&ipvs->udp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)udp_timeouts,
- 							sizeof(udp_timeouts));
-+	if (!pd->timeout_table)
-+		return -ENOMEM;
-+	return 0;
- }
- 
- static void __udp_exit(struct net *net, struct ip_vs_proto_data *pd)
+ 	if (dev->mem_start <= 0 || dev->irq <= 0) {
+-		BUGMSG(D_NORMAL, "No autoprobe for RIM I; you "
++		BUGLVL(D_NORMAL) printk("No autoprobe for RIM I; you "
+ 		       "must specify the shmem and irq!\n");
+ 		return -ENODEV;
+ 	}
+ 	if (dev->dev_addr[0] == 0) {
+-		BUGMSG(D_NORMAL, "You need to specify your card's station "
++		BUGLVL(D_NORMAL) printk("You need to specify your card's station "
+ 		       "ID!\n");
+ 		return -ENODEV;
+ 	}
+@@ -109,7 +109,7 @@ static int __init arcrimi_probe(struct net_device *dev)
+ 	 * will be taken.
+ 	 */
+ 	if (!request_mem_region(dev->mem_start, MIRROR_SIZE, "arcnet (90xx)")) {
+-		BUGMSG(D_NORMAL, "Card memory already allocated\n");
++		BUGLVL(D_NORMAL) printk("Card memory already allocated\n");
+ 		return -ENODEV;
+ 	}
+ 	return arcrimi_found(dev);
+
 -- 
-1.7.2.3
-
+Jiri Kosina
+SUSE Labs
