@@ -1,58 +1,82 @@
-From: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Subject: [PATCH] davinci_mdio: Fix MDIO timeout check
-Date: Mon, 16 Apr 2012 16:35:25 +0200
-Message-ID: <1334586925-11348-1-git-send-email-christian.riesch@omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>, <ravonereal-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Manfred Rudigier <manfred.rudigier-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] netns: do not leak net_generic data on failed init
+Date: Mon, 16 Apr 2012 17:43:15 +0300
+Message-ID: <1334587395-6033-1-git-send-email-ja@ssi.bg>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:46587 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753920Ab2DPOmX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Apr 2012 10:42:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Under heavy load (flood ping) it is possible for the MDIO timeout to
-expire before the loop checks the GO bit again. This patch adds an
-additional check whether the operation was done before actually
-returning -ETIMEDOUT.
+	ops_init should free the net_generic data on
+init failure and __register_pernet_operations should not
+call ops_free when NET_NS is not enabled.
 
-To reproduce this bug, flood ping the device, e.g., ping -f -l 1000
-After some time, a "timed out waiting for user access" warning
-may appear. And even worse, link may go down since the PHY reported a
-timeout.
-
-Signed-off-by: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Cc: Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- drivers/net/ethernet/ti/davinci_mdio.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ net/core/net_namespace.c |   33 ++++++++++++++++++---------------
+ 1 files changed, 18 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 2757c7d..e4e4708 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -181,6 +181,11 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
- 		__davinci_mdio_reset(data);
- 		return -EAGAIN;
- 	}
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 0e950fd..31a5ae5 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -83,21 +83,29 @@ assign:
+ 
+ static int ops_init(const struct pernet_operations *ops, struct net *net)
+ {
+-	int err;
++	int err = -ENOMEM;
++	void *data = NULL;
 +
-+	reg = __raw_readl(&regs->user[0].access);
-+	if ((reg & USERACCESS_GO) == 0)
+ 	if (ops->id && ops->size) {
+-		void *data = kzalloc(ops->size, GFP_KERNEL);
++		data = kzalloc(ops->size, GFP_KERNEL);
+ 		if (!data)
+-			return -ENOMEM;
++			goto out;
+ 
+ 		err = net_assign_generic(net, *ops->id, data);
+-		if (err) {
+-			kfree(data);
+-			return err;
+-		}
++		if (err)
++			goto cleanup;
+ 	}
++	err = 0;
+ 	if (ops->init)
+-		return ops->init(net);
+-	return 0;
++		err = ops->init(net);
++	if (!err)
 +		return 0;
 +
- 	dev_err(data->dev, "timed out waiting for user access\n");
- 	return -ETIMEDOUT;
++cleanup:
++	kfree(data);
++
++out:
++	return err;
  }
+ 
+ static void ops_free(const struct pernet_operations *ops, struct net *net)
+@@ -448,12 +456,7 @@ static void __unregister_pernet_operations(struct pernet_operations *ops)
+ static int __register_pernet_operations(struct list_head *list,
+ 					struct pernet_operations *ops)
+ {
+-	int err = 0;
+-	err = ops_init(ops, &init_net);
+-	if (err)
+-		ops_free(ops, &init_net);
+-	return err;
+-	
++	return ops_init(ops, &init_net);
+ }
+ 
+ static void __unregister_pernet_operations(struct pernet_operations *ops)
 -- 
-1.7.0.4
+1.7.3.4
