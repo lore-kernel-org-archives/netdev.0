@@ -1,41 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] drivers/net: fix unresolved 64bit math in
- mellanox/mlx4/en_dcb_nl.c
-Date: Mon, 16 Apr 2012 02:12:40 -0400 (EDT)
-Message-ID: <20120416.021240.1294096210590640473.davem@davemloft.net>
-References: <20120415.233139.452372897242947075.davem@davemloft.net>
-	<1334549854-16370-1-git-send-email-paul.gortmaker@windriver.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH 1/6] macvtap: zerocopy: fix offset calculation when building
+	skb
+Date: Mon, 16 Apr 2012 14:07:49 +0800
+Message-ID: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: paul.gortmaker@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40975 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892Ab2DPGMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 02:12:49 -0400
-In-Reply-To: <1334549854-16370-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ebiederm@xmission.com
+To: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Mon, 16 Apr 2012 00:17:34 -0400
+This patch fixes the offset calculation when build skb:
 
-> Commit 109d2446052a484c58f07f71f9457bf7b71017f8
-> 
->     "net/mlx4_en: Set max rate-limit for a TC"
-> 
-> introduced 64 bit math operations into mlx4_en_dcbnl_ieee_setmaxrate()
-> 
-> causing the following final link failure on an x86_32 allmodconfig
-> 
->   ERROR: "__udivdi3" [drivers/net/ethernet/mellanox/mlx4/mlx4_en.ko] undefined!
-> 
-> Convert it to use div_u64() instead.
-> 
-> Cc: Amir Vadai <amirv@mellanox.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+- offset1 were used as skb data offset not vector offset
+- reset offset to zero only when we advance to next vector
 
-Applied, thanks Paul.
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/macvtap.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 0427c65..bd4a70d 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -505,10 +505,11 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 		if (copy > size) {
+ 			++from;
+ 			--count;
+-		}
++			offset = 0;
++		} else
++			offset += size;
+ 		copy -= size;
+ 		offset1 += size;
+-		offset = 0;
+ 	}
+ 
+ 	if (len == offset1)
+@@ -519,13 +520,13 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 		int num_pages;
+ 		unsigned long base;
+ 
+-		len = from->iov_len - offset1;
++		len = from->iov_len - offset;
+ 		if (!len) {
+-			offset1 = 0;
++			offset = 0;
+ 			++from;
+ 			continue;
+ 		}
+-		base = (unsigned long)from->iov_base + offset1;
++		base = (unsigned long)from->iov_base + offset;
+ 		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+ 		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+ 		if ((num_pages != size) ||
+@@ -546,7 +547,7 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 			len -= size;
+ 			i++;
+ 		}
+-		offset1 = 0;
++		offset = 0;
+ 		++from;
+ 	}
+ 	return 0;
