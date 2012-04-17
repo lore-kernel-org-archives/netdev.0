@@ -1,188 +1,219 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 06/12] netfilter: icmp proto sysctl support for net namespace
-Date: Tue, 17 Apr 2012 10:56:17 +0800
-Message-ID: <1334631383-12326-7-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 02/12] netfilter: don't register sysctl when register proto
+Date: Tue, 17 Apr 2012 10:56:13 +0800
+Message-ID: <1334631383-12326-3-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	ebiederm@xmission.com, serge.hallyn@canonical.com,
 	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:44696 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755481Ab2DQDfI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Apr 2012 23:35:08 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-add and export functions nf_conntrack_proto_ipv4_icmp_[init,fini]
-for the nf_conntrack_ipv4 modules.
+delete nf_ct_l[3,4]proto_register_sysctl when register l[3,4]proto.
+and add nf_ct_register_net_sysctl,nf_ct_unregister_net_sysctl to
+register the sysctl for net namespace.
 
-modify the nf_ct_icmp_timeout to net->ct.proto.sysctl_icmp_timeout
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c |  116 ++++++++++++++++++++++++--
- 1 files changed, 108 insertions(+), 8 deletions(-)
+ net/netfilter/nf_conntrack_proto.c |  109 +++++-------------------------------
+ 1 files changed, 15 insertions(+), 94 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-index 7cbe9cb..fa827ee 100644
---- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-@@ -12,6 +12,7 @@
- #include <linux/in.h>
- #include <linux/icmp.h>
- #include <linux/seq_file.h>
-+#include <linux/module.h>
- #include <net/ip.h>
- #include <net/checksum.h>
- #include <linux/netfilter_ipv4.h>
-@@ -77,7 +78,7 @@ static int icmp_print_tuple(struct seq_file *s,
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index be3da2c..207cdd8 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -35,12 +35,15 @@ EXPORT_SYMBOL_GPL(nf_ct_l3protos);
+ static DEFINE_MUTEX(nf_ct_proto_mutex);
  
- static unsigned int *icmp_get_timeouts(struct net *net)
+ #ifdef CONFIG_SYSCTL
+-static int
+-nf_ct_register_sysctl(struct ctl_table_header **header, struct ctl_path *path,
+-		      struct ctl_table *table, unsigned int *users)
++int
++nf_ct_register_net_sysctl(struct net *net, 
++			  struct ctl_table_header **header,
++			  struct ctl_path *path,
++			  struct ctl_table *table,
++			  unsigned int *users)
  {
--	return &nf_ct_icmp_timeout;
-+	return &net->ct.proto.sysctl_icmp_timeout;
+ 	if (*header == NULL) {
+-		*header = register_sysctl_paths(path, table);
++		*header = register_net_sysctl_table(net, path, table);
+ 		if (*header == NULL)
+ 			return -ENOMEM;
+ 	}
+@@ -48,17 +51,21 @@ nf_ct_register_sysctl(struct ctl_table_header **header, struct ctl_path *path,
+ 		(*users)++;
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(nf_ct_register_net_sysctl);
+ 
+-static void
+-nf_ct_unregister_sysctl(struct ctl_table_header **header,
+-			struct ctl_table *table, unsigned int *users)
++void
++nf_ct_unregister_net_sysctl(struct ctl_table_header **header,
++			    struct ctl_table *table,
++			    unsigned int *users)
+ {
+ 	if (users != NULL && --*users > 0)
+ 		return;
+ 
+ 	unregister_sysctl_table(*header);
++	kfree(table);
+ 	*header = NULL;
+ }
++EXPORT_SYMBOL_GPL(nf_ct_unregister_net_sysctl);
+ #endif
+ 
+ struct nf_conntrack_l4proto *
+@@ -161,29 +168,6 @@ static int kill_l4proto(struct nf_conn *i, void *data)
+ 	       nf_ct_l3num(i) == l4proto->l3proto;
  }
  
- /* Returns verdict for packet, or -1 for invalid. */
-@@ -308,11 +309,10 @@ icmp_timeout_nla_policy[CTA_TIMEOUT_ICMP_MAX+1] = {
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-static int nf_ct_l3proto_register_sysctl(struct nf_conntrack_l3proto *l3proto)
+-{
+-	int err = 0;
+-
+-#ifdef CONFIG_SYSCTL
+-	if (l3proto->ctl_table != NULL) {
+-		err = nf_ct_register_sysctl(&l3proto->ctl_table_header,
+-					    l3proto->ctl_table_path,
+-					    l3proto->ctl_table, NULL);
+-	}
+-#endif
+-	return err;
+-}
+-
+-static void nf_ct_l3proto_unregister_sysctl(struct nf_conntrack_l3proto *l3proto)
+-{
+-#ifdef CONFIG_SYSCTL
+-	if (l3proto->ctl_table_header != NULL)
+-		nf_ct_unregister_sysctl(&l3proto->ctl_table_header,
+-					l3proto->ctl_table, NULL);
+-#endif
+-}
+-
+ int nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto)
+ {
+ 	int ret = 0;
+@@ -203,10 +187,6 @@ int nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto)
+ 		goto out_unlock;
+ 	}
  
- #ifdef CONFIG_SYSCTL
--static struct ctl_table_header *icmp_sysctl_header;
- static struct ctl_table icmp_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_icmp_timeout",
--		.data		= &nf_ct_icmp_timeout,
-+		.data		= &init_net.ct.proto.sysctl_icmp_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -323,7 +323,7 @@ static struct ctl_table icmp_sysctl_table[] = {
- static struct ctl_table icmp_compat_sysctl_table[] = {
- 	{
- 		.procname	= "ip_conntrack_icmp_timeout",
--		.data		= &nf_ct_icmp_timeout,
-+		.data		= &init_net.ct.proto.sysctl_icmp_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -362,11 +362,111 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp __read_mostly =
- 		.nla_policy	= icmp_timeout_nla_policy,
- 	},
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
-+};
-+
-+static int nf_conntrack_proto_icmp_net_init(struct net *net)
-+{
-+	struct ctl_table *table;
-+	int ret = 0;
-+
-+	net->ct.proto.sysctl_icmp_timeout = nf_ct_icmp_timeout;
-+#ifdef CONFIG_SYSCTL
-+	table = kmemdup(icmp_sysctl_table,
-+			sizeof(icmp_sysctl_table),
-+			GFP_KERNEL);
-+	if (!table)
-+		return -ENOMEM;
-+	table[0].data = &net->ct.proto.sysctl_icmp_timeout;
-+
-+	ret = nf_ct_register_net_sysctl(net,
-+					&net->ct.proto.icmp_sysctl_header,
-+					nf_net_netfilter_sysctl_path,
-+					table,
-+					NULL);
-+	if (ret < 0) {
-+		printk(KERN_ERR
-+			"nf_conntrack icmp: can't register to sysctl.\n");
-+		goto out_register;
-+	}
-+	return 0;
-+out_register:
-+	kfree(table);
-+#endif
-+	return ret;
-+}
-+
-+static void nf_conntrack_proto_icmp_net_fini(struct net *net)
-+{
-+#ifdef CONFIG_SYSCTL
-+	struct ctl_table *table;
-+	table = net->ct.proto.icmp_sysctl_header->ctl_table_arg;
-+
-+	nf_ct_unregister_net_sysctl(&net->ct.proto.icmp_sysctl_header,
-+				    table,
-+				    NULL);
-+#endif
-+}
-+
-+static int nf_conntrack_proto_icmp_compat_init(struct net *net)
-+{
-+	int ret = 0;
- #ifdef CONFIG_SYSCTL
--	.ctl_table_header	= &icmp_sysctl_header,
--	.ctl_table		= icmp_sysctl_table,
- #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
--	.ctl_compat_table	= icmp_compat_sysctl_table,
-+	struct ctl_table *compat_table;
-+	compat_table = kmemdup(icmp_compat_sysctl_table,
-+			       sizeof(icmp_compat_sysctl_table),
-+			       GFP_KERNEL);
-+	if (!compat_table)
-+		return -ENOMEM;
-+	compat_table[0].data = &net->ct.proto.sysctl_icmp_timeout;
-+
-+	ret = nf_ct_register_net_sysctl(net,
-+					&net->ct.proto.icmp_compat_header,
-+					nf_net_ipv4_netfilter_sysctl_path,
-+					compat_table,
-+					NULL);
-+	if (ret < 0) {
-+		printk(KERN_ERR
-+			"nf_conntrack icmp: register compat sysctl failed.\n");
-+		goto out_register;
-+	}
-+	return 0;
-+out_register:
-+	kfree(compat_table);
- #endif
- #endif
--};
-+	return ret;
-+}
-+
-+static void nf_conntrack_proto_icmp_compat_fini(struct net *net)
-+{
-+#ifdef CONFIG_SYSCTL
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	struct ctl_table *compat_table;
-+	compat_table = net->ct.proto.icmp_compat_header->ctl_table_arg;
-+	nf_ct_unregister_net_sysctl(&net->ct.proto.icmp_compat_header,
-+				    compat_table,
-+				    NULL);
-+#endif
-+#endif
-+}
-+
-+int nf_conntrack_proto_ipv4_icmp_init(struct net *net)
-+{
-+	int ret = 0;
-+	ret = nf_conntrack_proto_icmp_net_init(net);
-+	if (ret < 0)
-+		return ret;
-+	ret = nf_conntrack_proto_icmp_compat_init(net);
-+	if (ret < 0)
-+		nf_conntrack_proto_icmp_net_fini(net);
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(nf_conntrack_proto_ipv4_icmp_init);
-+
-+void nf_conntrack_proto_ipv4_icmp_fini(struct net *net)
-+{
-+	nf_conntrack_proto_icmp_compat_fini(net);
-+	nf_conntrack_proto_icmp_net_fini(net);
-+}
-+EXPORT_SYMBOL_GPL(nf_conntrack_proto_ipv4_icmp_fini);
+-	ret = nf_ct_l3proto_register_sysctl(proto);
+-	if (ret < 0)
+-		goto out_unlock;
+-
+ 	if (proto->nlattr_tuple_size)
+ 		proto->nla_size = 3 * proto->nlattr_tuple_size();
+ 
+@@ -230,7 +210,6 @@ void nf_conntrack_l3proto_unregister(struct nf_conntrack_l3proto *proto)
+ 					 ) != proto);
+ 	rcu_assign_pointer(nf_ct_l3protos[proto->l3proto],
+ 			   &nf_conntrack_l3proto_generic);
+-	nf_ct_l3proto_unregister_sysctl(proto);
+ 	mutex_unlock(&nf_ct_proto_mutex);
+ 
+ 	synchronize_rcu();
+@@ -243,52 +222,6 @@ void nf_conntrack_l3proto_unregister(struct nf_conntrack_l3proto *proto)
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_unregister);
+ 
+-static int nf_ct_l4proto_register_sysctl(struct nf_conntrack_l4proto *l4proto)
+-{
+-	int err = 0;
+-
+-#ifdef CONFIG_SYSCTL
+-	if (l4proto->ctl_table != NULL) {
+-		err = nf_ct_register_sysctl(l4proto->ctl_table_header,
+-					    nf_net_netfilter_sysctl_path,
+-					    l4proto->ctl_table,
+-					    l4proto->ctl_table_users);
+-		if (err < 0)
+-			goto out;
+-	}
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	if (l4proto->ctl_compat_table != NULL) {
+-		err = nf_ct_register_sysctl(&l4proto->ctl_compat_table_header,
+-					    nf_net_ipv4_netfilter_sysctl_path,
+-					    l4proto->ctl_compat_table, NULL);
+-		if (err == 0)
+-			goto out;
+-		nf_ct_unregister_sysctl(l4proto->ctl_table_header,
+-					l4proto->ctl_table,
+-					l4proto->ctl_table_users);
+-	}
+-#endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+-out:
+-#endif /* CONFIG_SYSCTL */
+-	return err;
+-}
+-
+-static void nf_ct_l4proto_unregister_sysctl(struct nf_conntrack_l4proto *l4proto)
+-{
+-#ifdef CONFIG_SYSCTL
+-	if (l4proto->ctl_table_header != NULL &&
+-	    *l4proto->ctl_table_header != NULL)
+-		nf_ct_unregister_sysctl(l4proto->ctl_table_header,
+-					l4proto->ctl_table,
+-					l4proto->ctl_table_users);
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	if (l4proto->ctl_compat_table_header != NULL)
+-		nf_ct_unregister_sysctl(&l4proto->ctl_compat_table_header,
+-					l4proto->ctl_compat_table, NULL);
+-#endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+-#endif /* CONFIG_SYSCTL */
+-}
+-
+ /* FIXME: Allow NULL functions and sub in pointers to generic for
+    them. --RR */
+ int nf_conntrack_l4proto_register(struct nf_conntrack_l4proto *l4proto)
+@@ -333,10 +266,6 @@ int nf_conntrack_l4proto_register(struct nf_conntrack_l4proto *l4proto)
+ 		goto out_unlock;
+ 	}
+ 
+-	ret = nf_ct_l4proto_register_sysctl(l4proto);
+-	if (ret < 0)
+-		goto out_unlock;
+-
+ 	l4proto->nla_size = 0;
+ 	if (l4proto->nlattr_size)
+ 		l4proto->nla_size += l4proto->nlattr_size();
+@@ -365,7 +294,6 @@ void nf_conntrack_l4proto_unregister(struct nf_conntrack_l4proto *l4proto)
+ 			) != l4proto);
+ 	rcu_assign_pointer(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
+ 			   &nf_conntrack_l4proto_generic);
+-	nf_ct_l4proto_unregister_sysctl(l4proto);
+ 	mutex_unlock(&nf_ct_proto_mutex);
+ 
+ 	synchronize_rcu();
+@@ -380,12 +308,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_unregister);
+ 
+ int nf_conntrack_proto_init(void)
+ {
+-	unsigned int i;
+-	int err;
+-
+-	err = nf_ct_l4proto_register_sysctl(&nf_conntrack_l4proto_generic);
+-	if (err < 0)
+-		return err;
++	unsigned int i;	
+ 
+ 	for (i = 0; i < AF_MAX; i++)
+ 		rcu_assign_pointer(nf_ct_l3protos[i],
+@@ -397,8 +320,6 @@ void nf_conntrack_proto_fini(void)
+ {
+ 	unsigned int i;
+ 
+-	nf_ct_l4proto_unregister_sysctl(&nf_conntrack_l4proto_generic);
+-
+ 	/* free l3proto protocol tables */
+ 	for (i = 0; i < PF_MAX; i++)
+ 		kfree(nf_ct_protos[i]);
 -- 
 1.7.7.6
+
