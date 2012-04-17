@@ -1,44 +1,54 @@
-From: Tony Zelenoff <antonz@parallels.com>
-Subject: Re: [PATCH 0/9] atl1: add napi to Atheros L1 NIC
-Date: Tue, 17 Apr 2012 12:42:13 +0400
-Message-ID: <4F8D2CE5.1090706@parallels.com>
-References: <1334333394-38404-1-git-send-email-antonz@parallels.com> <20120415.130346.1822341707659142562.davem@davemloft.net> <20120415.132805.143754486571031578.davem@davemloft.net> <4F8BC8C3.6020102@parallels.com> <CAMXMK6v11Hd3BttPMWkb+dLppTiUFbYpPbHgCUz7butVxjYL8g@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 00/12] add namespace support for netfilter protos
+Date: Tue, 17 Apr 2012 10:52:09 +0200
+Message-ID: <20120417085209.GA2100@1984>
+References: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jcliburn@gmail.com" <jcliburn@gmail.com>,
-	Konstantin Khorenko <khorenko@parallels.com>
-To: Chris Snook <chris.snook@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:37429 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755347Ab2DQIla convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 04:41:30 -0400
-In-Reply-To: <CAMXMK6v11Hd3BttPMWkb+dLppTiUFbYpPbHgCUz7butVxjYL8g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	ebiederm@xmission.com, serge.hallyn@canonical.com,
+	dlezcano@fr.ibm.com
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-4/17/12 12:51 AM, Chris Snook =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB=
-:
-> On Mon, Apr 16, 2012 at 12:22 AM, Tony Zelenoff<antonz@parallels.com>=
-  wrote:
->> Also, i'm interested in what to do with Chris Nook address in contac=
-ts list.
->> Reason - mailer respond that this address is not valid anymore. Shou=
-ld i
->> remove him from contacts or leave?
->>
->> Mailer response:
->>
->>   csnook@redhat.com
->>     SMTP error from remote mail server after RCPT TO:<csnook@redhat.=
-com>:
->>     host mx1.redhat.com [209.132.183.28]: 550 5.2.1<csnook@redhat.co=
-m>...
->> Mailbox disabled for this recipient
->
-> MAINTAINERS is your friend :)
-Oh, nice) May be change email address in contacts list?
+Hi Gao,
+
+On Tue, Apr 17, 2012 at 10:56:11AM +0800, Gao feng wrote:
+> Currently the sysctl of netfilter proto is not isolated, so when 
+> changing proto's sysctl in container will cause the host's sysctl 
+> be changed too. it's not expected.
+> 
+> This patch set adds the namespace support for netfilter protos.
+> 
+> impletement four pernet_operations to register sysctl,and disable 
+> register sysctl when protos are registered.
+
+This indeed needs to be fixed, but this patchset has several
+deficiencies. I'll spot them in follow-up emails.
+
+> nf_conntrack_net_proto_ipv4_ops is used to register tcp4(compat),
+> udp4(compat),icmp(compat),ipv4(compat).
+> nf_conntrack_net_proto_ipv6_ops is used to register tcp6,udp6 and 
+> icmpv6.
+> nf_conntrack_net_proto_sctp_ops is used to register sctp4(compat) 
+> and sctp6.
+> nf_conntrack_net_proto_udplite_ops is used to register udplite4
+> and udplite6
+> 
+> these operations will be registered when module be loaded.
+> 
+> And this will break the cttimeout, because timeout_nlattr_to_obj
+> function use the orig timeout(such as tcp_timeouts) to set timeouts.
+> 
+> I will fix this in my next patch.
+
+No way.
+
+You cannot leave the repository in broken / inconsistent state because
+you are not making things good.
+
+Please, hang on until this patchset is fixed to send more patches.
