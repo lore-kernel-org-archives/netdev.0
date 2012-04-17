@@ -1,67 +1,47 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 10/11] batman-adv: print OGM seq numbers as unsigned long
-Date: Tue, 17 Apr 2012 13:58:26 +0200
-Message-ID: <1334663907-22725-11-git-send-email-ordex@autistici.org>
+Subject: [PATCH 11/11] batman-adv: skip the window protection test when the originator has no neighbours
+Date: Tue, 17 Apr 2012 13:58:27 +0200
+Message-ID: <1334663907-22725-12-git-send-email-ordex@autistici.org>
 References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:22107 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:22438 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756033Ab2DQL5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:44 -0400
+	with ESMTP id S1756046Ab2DQL5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:45 -0400
 In-Reply-To: <1334663907-22725-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OGM sequence numbers are declared as uint32_t and so they have to printed
-using %u instead of %d in order to avoid wrong representations.
+When we receive an OGM from from a node for the first time, the last_real_seqno
+field of the orig_node structure has not been initialised yet. The value of this
+field is used to compute the current ogm-seqno window and therefore the
+protection mechanism will probably drop the packet due to an out-of-window error.
+To avoid this situation this patch adds a check to skip the window protection
+mechanism if no neighbour nodes have already been added. When the first
+neighbour node is added, the last_real_seqno field is initialised too.
 
+Reported-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/batman-adv/bat_iv_ogm.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 5bb35df..f36b54c 100644
+index f36b54c..873ea40 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -152,7 +152,7 @@ static void bat_iv_ogm_send_to_if(struct forw_packet *forw_packet,
- 							    "Sending own" :
- 							    "Forwarding"));
- 		bat_dbg(DBG_BATMAN, bat_priv,
--			"%s %spacket (originator %pM, seqno %d, TQ %d, TTL %d, IDF %s, ttvn %d) on interface %s [%pM]\n",
-+			"%s %spacket (originator %pM, seqno %u, TQ %d, TTL %d, IDF %s, ttvn %d) on interface %s [%pM]\n",
- 			fwd_str, (packet_num > 0 ? "aggregated " : ""),
- 			batman_ogm_packet->orig,
- 			ntohl(batman_ogm_packet->seqno),
-@@ -211,7 +211,7 @@ static void bat_iv_ogm_emit(struct forw_packet *forw_packet)
+@@ -861,7 +861,8 @@ static int bat_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
+ 	seq_diff = batman_ogm_packet->seqno - orig_node->last_real_seqno;
  
- 		/* FIXME: what about aggregated packets ? */
- 		bat_dbg(DBG_BATMAN, bat_priv,
--			"%s packet (originator %pM, seqno %d, TTL %d) on interface %s [%pM]\n",
-+			"%s packet (originator %pM, seqno %u, TTL %d) on interface %s [%pM]\n",
- 			(forw_packet->own ? "Sending own" : "Forwarding"),
- 			batman_ogm_packet->orig,
- 			ntohl(batman_ogm_packet->seqno),
-@@ -892,7 +892,7 @@ static int bat_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
+ 	/* signalize caller that the packet is to be dropped. */
+-	if (window_protected(bat_priv, seq_diff,
++	if (!hlist_empty(&orig_node->neigh_list) &&
++	    window_protected(bat_priv, seq_diff,
+ 			     &orig_node->batman_seqno_reset))
+ 		goto out;
  
- 	if (need_update) {
- 		bat_dbg(DBG_BATMAN, bat_priv,
--			"updating last_seqno: old %d, new %d\n",
-+			"updating last_seqno: old %u, new %u\n",
- 			orig_node->last_real_seqno, batman_ogm_packet->seqno);
- 		orig_node->last_real_seqno = batman_ogm_packet->seqno;
- 	}
-@@ -945,7 +945,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 					   batman_ogm_packet->orig) ? 1 : 0);
- 
- 	bat_dbg(DBG_BATMAN, bat_priv,
--		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %d, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
-+		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
- 		ethhdr->h_source, if_incoming->net_dev->name,
- 		if_incoming->net_dev->dev_addr, batman_ogm_packet->orig,
- 		batman_ogm_packet->prev_sender, batman_ogm_packet->seqno,
 -- 
 1.7.9.4
