@@ -1,7 +1,7 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 06/11] batman-adv: refactoring API: find generalized name for bat_ogm_init_primary callback
-Date: Tue, 17 Apr 2012 13:58:22 +0200
-Message-ID: <1334663907-22725-7-git-send-email-ordex@autistici.org>
+Subject: [PATCH 04/11] batman-adv: add iface_disable() callback to routing API
+Date: Tue, 17 Apr 2012 13:58:20 +0200
+Message-ID: <1334663907-22725-5-git-send-email-ordex@autistici.org>
 References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
@@ -10,8 +10,8 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from latitanza.investici.org ([82.94.249.234]:22107 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab2DQL5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:40 -0400
+	with ESMTP id S1754872Ab2DQL5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:38 -0400
 In-Reply-To: <1334663907-22725-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,74 +21,75 @@ From: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c     |    4 ++--
- net/batman-adv/hard-interface.c |    2 +-
- net/batman-adv/main.c           |    2 +-
- net/batman-adv/types.h          |    4 ++--
- 4 files changed, 6 insertions(+), 6 deletions(-)
+ net/batman-adv/bat_iv_ogm.c     |    7 +++++++
+ net/batman-adv/hard-interface.c |    3 +--
+ net/batman-adv/main.c           |    1 +
+ net/batman-adv/types.h          |    2 ++
+ 4 files changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index f31f2e7..9717c7a 100644
+index 4661bd4..b8cb031 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -67,7 +67,7 @@ static void bat_iv_ogm_iface_disable(struct hard_iface *hard_iface)
- 	hard_iface->packet_buff = NULL;
+@@ -52,6 +52,12 @@ static void bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
+ 	batman_ogm_packet->ttvn = 0;
  }
  
--static void bat_iv_ogm_init_primary(struct hard_iface *hard_iface)
-+static void bat_iv_ogm_primary_iface_set(struct hard_iface *hard_iface)
++static void bat_iv_ogm_iface_disable(struct hard_iface *hard_iface)
++{
++	kfree(hard_iface->packet_buff);
++	hard_iface->packet_buff = NULL;
++}
++
+ static void bat_iv_ogm_init_primary(struct hard_iface *hard_iface)
  {
  	struct batman_ogm_packet *batman_ogm_packet;
- 
-@@ -1191,7 +1191,7 @@ static struct bat_algo_ops batman_iv __read_mostly = {
+@@ -1175,6 +1181,7 @@ static void bat_iv_ogm_receive(struct hard_iface *if_incoming,
+ static struct bat_algo_ops batman_iv __read_mostly = {
  	.name = "BATMAN IV",
  	.bat_iface_enable = bat_iv_ogm_iface_enable,
- 	.bat_iface_disable = bat_iv_ogm_iface_disable,
--	.bat_ogm_init_primary = bat_iv_ogm_init_primary,
-+	.bat_primary_iface_set = bat_iv_ogm_primary_iface_set,
++	.bat_iface_disable = bat_iv_ogm_iface_disable,
+ 	.bat_ogm_init_primary = bat_iv_ogm_init_primary,
  	.bat_ogm_update_mac = bat_iv_ogm_update_mac,
  	.bat_ogm_schedule = bat_iv_ogm_schedule,
- 	.bat_ogm_emit = bat_iv_ogm_emit,
 diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 3b391fd..75a555b 100644
+index 4d9b85d..fd9715e 100644
 --- a/net/batman-adv/hard-interface.c
 +++ b/net/batman-adv/hard-interface.c
-@@ -146,7 +146,7 @@ static void primary_if_select(struct bat_priv *bat_priv,
- 	if (!new_hard_iface)
- 		goto out;
+@@ -397,8 +397,7 @@ void hardif_disable_interface(struct hard_iface *hard_iface)
+ 			hardif_free_ref(new_if);
+ 	}
  
--	bat_priv->bat_algo_ops->bat_ogm_init_primary(new_hard_iface);
-+	bat_priv->bat_algo_ops->bat_primary_iface_set(new_hard_iface);
- 	primary_if_update_addr(bat_priv, curr_hard_iface);
+-	kfree(hard_iface->packet_buff);
+-	hard_iface->packet_buff = NULL;
++	bat_priv->bat_algo_ops->bat_iface_disable(hard_iface);
+ 	hard_iface->if_status = IF_NOT_IN_USE;
  
- out:
+ 	/* delete all references to this hard_iface */
 diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index a47a6ce..7913272 100644
+index ca8f395..a47a6ce 100644
 --- a/net/batman-adv/main.c
 +++ b/net/batman-adv/main.c
-@@ -210,7 +210,7 @@ int bat_algo_register(struct bat_algo_ops *bat_algo_ops)
+@@ -209,6 +209,7 @@ int bat_algo_register(struct bat_algo_ops *bat_algo_ops)
+ 
  	/* all algorithms must implement all ops (for now) */
  	if (!bat_algo_ops->bat_iface_enable ||
- 	    !bat_algo_ops->bat_iface_disable ||
--	    !bat_algo_ops->bat_ogm_init_primary ||
-+	    !bat_algo_ops->bat_primary_iface_set ||
++	    !bat_algo_ops->bat_iface_disable ||
+ 	    !bat_algo_ops->bat_ogm_init_primary ||
  	    !bat_algo_ops->bat_ogm_update_mac ||
  	    !bat_algo_ops->bat_ogm_schedule ||
- 	    !bat_algo_ops->bat_ogm_emit ||
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index dd78023..4d93aad 100644
+index 4b92248..b034cf2 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -381,8 +381,8 @@ struct bat_algo_ops {
- 	int (*bat_iface_enable)(struct hard_iface *hard_iface);
- 	/* de-init routing info when hard-interface is disabled */
- 	void (*bat_iface_disable)(struct hard_iface *hard_iface);
--	/* init primary OGM when primary interface is selected */
--	void (*bat_ogm_init_primary)(struct hard_iface *hard_iface);
-+	/* called when primary interface is selected / changed */
-+	void (*bat_primary_iface_set)(struct hard_iface *hard_iface);
+@@ -379,6 +379,8 @@ struct bat_algo_ops {
+ 	char *name;
+ 	/* init routing info when hard-interface is enabled */
+ 	void (*bat_iface_enable)(struct hard_iface *hard_iface);
++	/* de-init routing info when hard-interface is disabled */
++	void (*bat_iface_disable)(struct hard_iface *hard_iface);
+ 	/* init primary OGM when primary interface is selected */
+ 	void (*bat_ogm_init_primary)(struct hard_iface *hard_iface);
  	/* init mac addresses of the OGM belonging to this hard-interface */
- 	void (*bat_ogm_update_mac)(struct hard_iface *hard_iface);
- 	/* prepare a new outgoing OGM for the send queue */
 -- 
 1.7.9.4
