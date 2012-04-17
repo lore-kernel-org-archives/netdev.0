@@ -1,52 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: fix tcp_grow_window() for large incoming frames
-Date: Tue, 17 Apr 2012 11:28:07 +0200
-Message-ID: <1334654887.2472.28.camel@edumazet-glaptop>
+From: Viresh Kumar <viresh.kumar@st.com>
+Subject: [PATCH] stmmac: fix kernel crash when device probed for SPEAr with DT
+Date: Tue, 17 Apr 2012 14:54:00 +0530
+Message-ID: <91ea900ce78bb2054d83e0575c16ac70f3f11511.1334654597.git.viresh.kumar@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	Tom Herbert <therbert@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <spear-devel@list.st.com>, <viresh.linux@gmail.com>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>,
+	Viresh Kumar <viresh.kumar@st.com>
+To: <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:52132 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755956Ab2DQJ2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 05:28:12 -0400
-Received: by bkcik5 with SMTP id ik5so4350596bkc.19
-        for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 02:28:11 -0700 (PDT)
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:33352 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932070Ab2DQJi1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 05:38:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+plat->dma_cfg is never allocated memory and is tried to be filled when we boot
+it for SPEAr SoCs with DT. And so get a kernel crash.
 
-tcp_grow_window() has to grow rcv_ssthresh up to window_clamp, allowing
-sender to increase its window.
+Fix it by allocating memory for dma_cfg.
 
-tcp_grow_window() still assumes a tcp frame is under MSS, but its no
-longer true with LRO/GRO.
-
-This patch fixes one of the performance issue we noticed with GRO on.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Tom Herbert <therbert@google.com>
+Signed-off-by: Viresh Kumar <viresh.kumar@st.com>
 ---
-Sorry for the delay, this was discussed a long time ago.
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
- net/ipv4/tcp_input.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9944c1d..3ff36406 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -335,6 +335,7 @@ static void tcp_grow_window(struct sock *sk, const struct sk_buff *skb)
- 			incr = __tcp_grow_window(sk, skb);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 12bd221..f124f60 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -110,6 +110,14 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 			goto out_unmap;
+ 		}
  
- 		if (incr) {
-+			incr = max_t(int, incr, 2 * skb->len);
- 			tp->rcv_ssthresh = min(tp->rcv_ssthresh + incr,
- 					       tp->window_clamp);
- 			inet_csk(sk)->icsk_ack.quick |= 1;
++		plat_dat->dma_cfg = devm_kzalloc(&pdev->dev,
++				sizeof(*plat_dat->dma_cfg), GFP_KERNEL);
++		if (!plat_dat->dma_cfg) {
++			pr_err("%s: ERROR: no memory for dma_cfg", __func__);
++			ret = -ENOMEM;
++			goto out_unmap;
++		}
++
+ 		ret = stmmac_probe_config_dt(pdev, plat_dat, &mac);
+ 		if (ret) {
+ 			pr_err("%s: main dt probe failed", __func__);
+-- 
+1.7.9
