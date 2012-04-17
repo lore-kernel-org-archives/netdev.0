@@ -1,56 +1,50 @@
-From: "Carlos O'Donell" <carlos-v2tUB8YBRSi3e3T8WW9gsA@public.gmane.org>
-Subject: Re: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
-Date: Tue, 17 Apr 2012 11:43:30 -0400
-Message-ID: <CADZpyix5khp7ngjHsRafWbF7LvW4ZokT+GRHZ=1Uvz+TesbKQQ@mail.gmail.com>
-References: <4F8D497F.8060601@gmail.com>
-	<20120417105107.GA8614@1wt.eu>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] set fake_rtable's dst to NULL to avoid kernel Oops.
+Date: Tue, 17 Apr 2012 08:52:48 -0700
+Message-ID: <20120417085248.3e642294@nehalam.linuxnetplumber.net>
+References: <000001cd1c62$75d10de0$617329a0$%huangpeng@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tetsuo Handa <penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jan Engelhardt <jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120417105107.GA8614-K+wRfnb2/UA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	ctrix+debianbugs@navynet.it, peter.huangpeng@gmail.com,
+	harry.majun@huawei.com
+To: "Peter Huang (Peng)" <peter.huangpeng@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <000001cd1c62$75d10de0$617329a0$%huangpeng@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 17, 2012 at 6:51 AM, Willy Tarreau <w@1wt.eu> wrote:
-> Hi Michael,
->
-> On Tue, Apr 17, 2012 at 10:44:15PM +1200, Michael Kerrisk wrote:
-> (...)
->> The accompanying patch changes unix_mkname() to ensure that a terminating
->> null byte is always located within the first 108 bytes of sun_path.
->> It does change the ABI for the former case where a pathname ran to 108
->> bytes without a null terminator: for that case, the call now fails with
->> the error -EINVAL. What are people's thoughts on applying this?
->
-> My personal opinion is that (as you said), the risk of breaking existing
-> apps is already fairly low, but we must not deliberately break existing
-> apps. Eventhough there are currently a log, this is exactly what sysctls
-> are made for. I would personally like to have a default limit to 107 chars
-> + one zero, with a sysctl option to revert to current behaviour if ever it
-> broke an application. In my opinion it's exactly comparable to the risk of
-> breaking apps with mmap_min_addr : very low risk but must be covered by a
-> workaround (sysctl).
+On Tue, 17 Apr 2012 14:22:26 +0800
+"Peter Huang (Peng)" <peter.huangpeng@huawei.com> wrote:
 
-To further the opinion that the risk is low:
+> When bridge is deleted before tap/vif device's delete, kernel may encounter an oops because of NULL reference to fake_rtable's dst.
+> Set fake_rtable's dst to NULL before sending packets out can solve this problem.
+> 
+> 
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
+> ---
+> include/linux/netfilter_bridge.h |    8 ++++++++
+>  net/bridge/br_forward.c          |    1 +
+>  net/bridge/br_netfilter.c        |    6 +-----
+>  3 files changed, 10 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+> index 0ddd161..70744fe 100644
+> --- a/include/linux/netfilter_bridge.h
+> +++ b/include/linux/netfilter_bridge.h
+> @@ -104,9 +104,17 @@ struct bridge_skb_cb {
+>  	} daddr;
+>  };
+>  
+> +static inline void br_drop_fake_rtable(struct sk_buff *skb) {
+> +	struct dst_entry *dst = skb_dst(skb);
+> +	/* abuse fact that only fake_rtable has DST_NOPEER set */
+> +	if (dst && (dst->flags & DST_NOPEER))
+> +		skb_dst_drop(skb);
+> +}
 
-The Open Solaris SUN_LEN macro uses strlen to compute the length.
-
-The glibc SUN_LEN macro uses strlen to compute the length.
-
-The Mac OS X libc SUN_LEN macro uses strlen to compute the length.
-
-The linux man-pages project sets the user expectation that it is a
-`null-terminated string' (circular argument).
-
-I see every expectation from userspace/glibc that it should be 107 chars + '\0'.
-
-Cheers,
-Carlos.
+This check seems like a disaster waiting to happen when the next
+change to DST table happens.
