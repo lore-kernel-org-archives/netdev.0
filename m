@@ -1,40 +1,51 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 6/6] vhost_net: don't poll on -EFAULT
-Date: Tue, 17 Apr 2012 13:54:55 +0800
-Message-ID: <4F8D05AF.4000309@redhat.com>
-References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com> <20120416060833.14140.28139.stgit@intel-e5620-16-2.englab.nay.redhat.com> <20120416071646.GB25396@redhat.com> <4F8BD81A.7010507@redhat.com> <20120416133859.GB13190@redhat.com> <4F8CE305.9090100@redhat.com> <20120417045736.GA31278@redhat.com>
+From: "majianpeng" <majianpeng@gmail.com>
+Subject: [PATCH] net/core:Remove  memleak reports bykmemeleak_not_leak.
+Date: Tue, 17 Apr 2012 13:58:28 +0800
+Message-ID: <201204171358252962638@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120417045736.GA31278@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev" <netdev@vger.kernel.org>
+To: "davem" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:57886 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752815Ab2DQF5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 01:57:32 -0400
+Received: by dake40 with SMTP id e40so7898860dak.11
+        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 22:57:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/17/2012 12:57 PM, Michael S. Tsirkin wrote:
-> On Tue, Apr 17, 2012 at 11:27:01AM +0800, Jason Wang wrote:
->> On 04/16/2012 09:39 PM, Michael S. Tsirkin wrote:
->>> On Mon, Apr 16, 2012 at 04:28:10PM +0800, Jason Wang wrote:
->>>>>   On 04/16/2012 03:16 PM, Michael S. Tsirkin wrote:
->>>>>>   >On Mon, Apr 16, 2012 at 02:08:33PM +0800, Jason Wang wrote:
->>>>>>>   >>Currently, we restart tx polling unconditionally when sendmsg()
->>>>>>>   >>fails. This would cause unnecessary wakeups of vhost wokers as it's
->>>>>>>   >>only needed when the socket send buffer were exceeded.
->>>>>>   >Why is this a problem?
->>>>>   >   This issue is when guest driver is able to hit the
->>>> -EFAULT, vhost
->>>>>   discard the the descriptor and restart the polling. This would wake
->>>>>   vhost thread and repeat the loop again which waste cpu.
->>> Does same thing happen if we get an error from copy from user?
->>>
->> Right, so do you think it makes sense that we only restart polling
->> on -EAGAIN or -ENOBUFS?
-> Sounds OK. BTW how do you test this?
->
+>From 40131df5df1850b6d0a653f23698b13047c640ec Mon Sep 17 00:00:00 2001
+From: majianpeng <majianpeng@gmail.com>
+Date: Tue, 17 Apr 2012 13:55:39 +0800
+Subject: [PATCH] net/core:Remove  memleak reports bykmemeleak_not_leak.
 
-Not very hard, w/o this patch, we can see almost 100% cpu utilization 
-for vhost thread if guest hit EFAULT or EINVAL. With this patch, the cpu 
-utilization should be very low I think.
+
+Signed-off-by: majianpeng <majianpeng@gmail.com>
+---
+ net/core/sysctl_net_core.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 0c28508..cee5991 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -256,7 +256,7 @@ static __init int sysctl_core_init(void)
+ {
+ 	static struct ctl_table empty[1];
+ 
+-	register_sysctl_paths(net_core_path, empty);
++	kmemleak_not_leak(register_sysctl_paths(net_core_path, empty));
+ 	register_net_sysctl_rotable(net_core_path, net_core_table);
+ 	return register_pernet_subsys(&sysctl_core_ops);
+ }
+-- 
+1.7.5.4
+
+ 				
+--------------
+majianpeng
+2012-04-17
