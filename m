@@ -1,90 +1,52 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 08/11] batman-adv: mark existing ogm variables as batman iv
-Date: Tue, 17 Apr 2012 13:58:24 +0200
-Message-ID: <1334663907-22725-9-git-send-email-ordex@autistici.org>
-References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
+From: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
+Subject: Re: [PATCH v2] bonding: start slaves with link down for ARP monitor
+Date: Tue, 17 Apr 2012 13:58:07 +0200
+Message-ID: <1343782.ObcgmM0SbX@alaris>
+References: <20120414220617.DA8BE45BA2@lion.mk-sys.cz> <19180.1334465333@death.nxdomain> <1410525.5tCeY2AOxF@alaris>
+Reply-To: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Flavio Leitner <fbl@redhat.com>, netdev@vger.kernel.org,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:22107 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755822Ab2DQL5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:42 -0400
-In-Reply-To: <1334663907-22725-1-git-send-email-ordex@autistici.org>
+Received: from cantor2.suse.de ([195.135.220.15]:43141 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754876Ab2DQL6J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:58:09 -0400
+In-Reply-To: <1410525.5tCeY2AOxF@alaris>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek@yahoo.de>
+On Monday 16 of April 2012 12:27EN, Michal Kube=E8ek wrote:
+> On Saturday 14 of April 2012 21:48EN, Jay Vosburgh wrote:
+> > Anybody got a 10 or 100 card laying around with fast autoneg to
+> > try?  Back in the day I used 3c59x and e100s, and I seem to recall
+> > that the 3c59x board I had was pretty speedy at going carrier up.
+>=20
+> It seems these cards are hard to find these days (I tried to find one
+> in our office but no luck yet). However, I tried an onboard adapter
+> with r8169 driver and patched kernel succeeded to detect carrier in
+> time for bonding driver to start the slave in "up" state (and it
+> started in "down" state with unplugged cable so that the detection is
+> correct).
 
-The coming protocol changes also will have a part called "OGM". That
-makes it necessary to introduce a distinction in the code base.
+I tested few more cards:
 
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
----
- net/batman-adv/bat_iv_ogm.c     |    4 ++--
- net/batman-adv/hard-interface.c |    2 +-
- net/batman-adv/packet.h         |    4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
+- two 100 Mb/s Realtek 8139C and 8139D with 8139too driver:
+  driver sets carrier on soon enough and slave starts with "up" and
+  stays that way (same as r8169)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 2e2029c..1d365e2 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -47,7 +47,7 @@ static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
- 		goto out;
- 
- 	batman_ogm_packet = (struct batman_ogm_packet *)hard_iface->packet_buff;
--	batman_ogm_packet->header.packet_type = BAT_OGM;
-+	batman_ogm_packet->header.packet_type = BAT_IV_OGM;
- 	batman_ogm_packet->header.version = COMPAT_VERSION;
- 	batman_ogm_packet->header.ttl = 2;
- 	batman_ogm_packet->flags = NO_FLAGS;
-@@ -934,7 +934,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 	 * packet in an aggregation.  Here we expect that the padding
- 	 * is always zero (or not 0x01)
- 	 */
--	if (batman_ogm_packet->header.packet_type != BAT_OGM)
-+	if (batman_ogm_packet->header.packet_type != BAT_IV_OGM)
- 		return;
- 
- 	/* could be changed by schedule_own_packet() */
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 75a555b..e8c5da3 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -604,7 +604,7 @@ static int batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
- 
- 	switch (batman_ogm_packet->header.packet_type) {
- 		/* batman originator packet */
--	case BAT_OGM:
-+	case BAT_IV_OGM:
- 		ret = recv_bat_ogm_packet(skb, hard_iface);
- 		break;
- 
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 59dec0a..f54969c 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -25,7 +25,7 @@
- #define ETH_P_BATMAN  0x4305	/* unofficial/not registered Ethertype */
- 
- enum bat_packettype {
--	BAT_OGM		 = 0x01,
-+	BAT_IV_OGM	 = 0x01,
- 	BAT_ICMP	 = 0x02,
- 	BAT_UNICAST	 = 0x03,
- 	BAT_BCAST	 = 0x04,
-@@ -38,7 +38,7 @@ enum bat_packettype {
- /* this file is included by batctl which needs these defines */
- #define COMPAT_VERSION 14
- 
--enum batman_flags {
-+enum batman_iv_flags {
- 	PRIMARIES_FIRST_HOP = 1 << 4,
- 	VIS_SERVER	    = 1 << 5,
- 	DIRECTLINK	    = 1 << 6
--- 
-1.7.9.4
+- 1 Gb/s Intel Pro/1000PT (82572EI) with e1000e driver:
+  essentially the same as igb, driver is slow and patch prevents the
+  up -> down -> up sequence by starting the slave in "down" state
+
+- 100 Mb/s Intel (?) cards with DECchip Tulip 21142/3, tulip driver:
+  card/driver either doesn't set the flag properly or is extremely slow
+  with up -> down transition so that the state was "up" all the time
+  no matter what the real link state was
+
+I'll resend v3 with fixed style problem in a moment.
+
+                                                        Michal Kubecek
