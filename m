@@ -1,42 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [BUG] ixgbe: something wrong with queue selection ?
-Date: Tue, 17 Apr 2012 18:07:11 +0100
-Message-ID: <1334682431.2565.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1334653608.6226.11.camel@edumazet-laptop>
-	 <1334654187.2696.2.camel@jtkirshe-mobl> <4F8D93E1.9090000@intel.com>
-	 <4F8D9C91.5010001@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: filter: Just In Time compiler for sparc
+Date: Tue, 17 Apr 2012 19:23:01 +0200
+Message-ID: <1334683381.2472.44.camel@edumazet-glaptop>
+References: <20120416.225823.1395194623649559124.davem@davemloft.net>
+	 <4F8DA21E.9020809@computer.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	<jeffrey.t.kirsher@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:9385 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754968Ab2DQRHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 13:07:16 -0400
-In-Reply-To: <4F8D9C91.5010001@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	sparclinux@vger.kernel.org
+To: Jan Ceuleers <jan.ceuleers@computer.org>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <4F8DA21E.9020809@computer.org>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-04-17 at 09:38 -0700, John Fastabend wrote:
-[...]
-> We could consider using sk_tx_queue_get(sk) in select_queue or better
-> yet use XPS and initialize it at sw init time. I think this would work
-> nicely and finally remove the select_queue() logic I just haven't got
-> to it yet. Hoping to get there the next few weeks.
+On Tue, 2012-04-17 at 19:02 +0200, Jan Ceuleers wrote:
+> David Miller wrote:
+> >
+> > Signed-off-by: David S. Miller<davem@davemloft.net>
+> > ---
+> >
+> > I think I'll commit this to net-next so it's easier to track
+> > any BPF changes we make there.
+> 
+> I hate to nitpick; see below.
+> 
+> > +	bl	bpf_slow_path_word_neg
+> > +	 nop
+> > +	.globl	bpf_jit_load_word_positive_offset
+> > +bpf_jit_load_word_positive_offset:
+> > +	sub	r_HEADLEN, r_OFF, r_TMP
+> > +	cmp	r_TMP, 3
+> > +	ble	bpf_slow_path_word
+> > +	 add	r_SKB_DATA, r_OFF, r_TMP
+> > +	andcc	r_TMP, 3, %g0
+> > +	bne	load_word_unaligned
+> > +	 nop
+> > +	retl
+> > +	 ld	[r_SKB_DATA + r_OFF], r_A
+> 
+> There is inconsistent spacing in multiple places; a few examples shown 
+> above.
 
-Anything like <http://thread.gmane.org/gmane.linux.network/186700/>?
+Thats ok, after a branch : Delay slot
 
-Ben.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+
