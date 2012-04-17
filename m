@@ -1,10 +1,10 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 01/12] netfilter: add struct netns_ct_proto to support
- netfilter namespace
-Date: Tue, 17 Apr 2012 10:54:21 +0200
-Message-ID: <20120417085421.GB2100@1984>
+Subject: Re: [PATCH 02/12] netfilter: don't register sysctl when register
+ proto
+Date: Tue, 17 Apr 2012 10:56:17 +0200
+Message-ID: <20120417085617.GC2100@1984>
 References: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1334631383-12326-2-git-send-email-gaofeng@cn.fujitsu.com>
+ <1334631383-12326-3-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
@@ -13,132 +13,220 @@ Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1334631383-12326-2-git-send-email-gaofeng@cn.fujitsu.com>
+In-Reply-To: <1334631383-12326-3-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 17, 2012 at 10:56:12AM +0800, Gao feng wrote:
-> the struct netns_ct_proto is used to store ctl_table_header and sysctl vars.
-> because udp_conntrack and udplite_conntrack are used by netns_ct_proto,
-> so move the udp_conntrack and udplite_conntrack to the header file,
+On Tue, Apr 17, 2012 at 10:56:13AM +0800, Gao feng wrote:
+> delete nf_ct_l[3,4]proto_register_sysctl when register l[3,4]proto.
+> and add nf_ct_register_net_sysctl,nf_ct_unregister_net_sysctl to
+> register the sysctl for net namespace.
 > 
 > Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 > ---
->  include/linux/netfilter/nf_conntrack_udp.h     |   10 ++++++
->  include/linux/netfilter/nf_conntrack_udplite.h |   10 ++++++
->  include/net/netns/conntrack.h                  |   37 ++++++++++++++++++++++++
->  3 files changed, 57 insertions(+), 0 deletions(-)
->  create mode 100644 include/linux/netfilter/nf_conntrack_udp.h
->  create mode 100644 include/linux/netfilter/nf_conntrack_udplite.h
+>  net/netfilter/nf_conntrack_proto.c |  109 +++++-------------------------------
+>  1 files changed, 15 insertions(+), 94 deletions(-)
 > 
-> diff --git a/include/linux/netfilter/nf_conntrack_udp.h b/include/linux/netfilter/nf_conntrack_udp.h
-> new file mode 100644
-> index 0000000..02869fc
-> --- /dev/null
-> +++ b/include/linux/netfilter/nf_conntrack_udp.h
-> @@ -0,0 +1,10 @@
-> +#ifndef _NF_CONNTRACK_UDP_H
-> +#define _NF_CONNTRACK_UDP_H
-> +
-> +enum udp_conntrack {
-> +	UDP_CT_UNREPLIED,
-> +	UDP_CT_REPLIED,
-> +	UDP_CT_MAX
-> +};
-
-This will be exported to user-space. We don't need this.
-
-> +
-> +#endif /* _NF_CONNTRACK_UDP_H */
-> diff --git a/include/linux/netfilter/nf_conntrack_udplite.h b/include/linux/netfilter/nf_conntrack_udplite.h
-> new file mode 100644
-> index 0000000..62b90a2
-> --- /dev/null
-> +++ b/include/linux/netfilter/nf_conntrack_udplite.h
-> @@ -0,0 +1,10 @@
-> +#ifndef _NF_CONNTRACK_UDPLITE_H
-> +#define _NF_CONNTRACK_UDPLITE_H
-> +
-> +enum udplite_conntrack {
-> +	UDPLITE_CT_UNREPLIED,
-> +	UDPLITE_CT_REPLIED,
-> +	UDPLITE_CT_MAX
-> +};
-> +
-> +#endif /* _NF_CONNTRACK_UDPLITE_H */
-> diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-> index 7a911ec..5845665 100644
-> --- a/include/net/netns/conntrack.h
-> +++ b/include/net/netns/conntrack.h
-> @@ -4,10 +4,46 @@
->  #include <linux/list.h>
->  #include <linux/list_nulls.h>
->  #include <linux/atomic.h>
-> +#include <linux/netfilter/nf_conntrack_tcp.h>
-> +#include <linux/netfilter/nf_conntrack_udp.h>
-> +#include <linux/netfilter/nf_conntrack_udplite.h>
-> +#include <linux/netfilter/nf_conntrack_sctp.h>
+> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+> index be3da2c..207cdd8 100644
+> --- a/net/netfilter/nf_conntrack_proto.c
+> +++ b/net/netfilter/nf_conntrack_proto.c
+> @@ -35,12 +35,15 @@ EXPORT_SYMBOL_GPL(nf_ct_l3protos);
+>  static DEFINE_MUTEX(nf_ct_proto_mutex);
 >  
->  struct ctl_table_header;
->  struct nf_conntrack_ecache;
->  
-> +struct netns_ct_proto {
-> +	unsigned int            sysctl_generic_timeout;
-> +	unsigned int		sysctl_tcp_timeouts[TCP_CONNTRACK_TIMEOUT_MAX];
-> +	unsigned int		sysctl_tcp_loose;
-> +	unsigned int		sysctl_tcp_be_liberal;
-> +	unsigned int		sysctl_tcp_max_retrans;
-> +	unsigned int		sysctl_udp_timeouts[UDP_CT_MAX];
-> +	unsigned int		sysctl_udplite_timeouts[UDPLITE_CT_MAX];
-> +	unsigned int		sysctl_sctp_timeouts[SCTP_CONNTRACK_MAX];
-> +	unsigned int		sysctl_icmp_timeout;
-> +	unsigned int		sysctl_icmpv6_timeout;
-> +#ifdef CONFIG_SYSCTL
-> +	struct ctl_table_header *generic_sysctl_header;
-> +	struct ctl_table_header *tcp_sysctl_header;
-> +	struct ctl_table_header *udp_sysctl_header;
-> +	struct ctl_table_header *udplite_sysctl_header;
-> +	struct ctl_table_header *sctp_sysctl_header;
-> +	struct ctl_table_header *icmp_sysctl_header;
-> +	struct ctl_table_header *icmpv6_sysctl_header;
-> +	unsigned int		tcp_table_users;
-> +	unsigned int		udp_table_users;
-> +#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT 
-> +	struct ctl_table_header *generic_compat_header;
-> +	struct ctl_table_header *tcp_compat_header;
-> +	struct ctl_table_header *udp_compat_header;
-> +	struct ctl_table_header *sctp_compat_header;
-> +	struct ctl_table_header *icmp_compat_header;
-> +	struct ctl_table_header *ipv4_compat_header;
-> +#endif
-> +#endif
-> +};
-
-No.
-
-You cannot just send a patch that adds a structure like this and use
-it in follow-up patches.
-
-You have to make patches that leave the repository in consistent state.
-Instead, you have to populate the structure little by little in your
-patches.
-
-> +
->  struct netns_ct {
->  	atomic_t		count;
->  	unsigned int		expect_count;
-> @@ -26,6 +62,7 @@ struct netns_ct {
->  	int			sysctl_tstamp;
->  	int			sysctl_checksum;
->  	unsigned int		sysctl_log_invalid; /* Log invalid packets */
-> +	struct netns_ct_proto	proto;
 >  #ifdef CONFIG_SYSCTL
->  	struct ctl_table_header	*sysctl_header;
->  	struct ctl_table_header	*acct_sysctl_header;
+> -static int
+> -nf_ct_register_sysctl(struct ctl_table_header **header, struct ctl_path *path,
+> -		      struct ctl_table *table, unsigned int *users)
+> +int
+> +nf_ct_register_net_sysctl(struct net *net, 
+> +			  struct ctl_table_header **header,
+> +			  struct ctl_path *path,
+> +			  struct ctl_table *table,
+> +			  unsigned int *users)
+
+Please, don't rename this function. Just add the *net parameter
+instead.
+
+>  {
+>  	if (*header == NULL) {
+> -		*header = register_sysctl_paths(path, table);
+> +		*header = register_net_sysctl_table(net, path, table);
+>  		if (*header == NULL)
+>  			return -ENOMEM;
+>  	}
+> @@ -48,17 +51,21 @@ nf_ct_register_sysctl(struct ctl_table_header **header, struct ctl_path *path,
+>  		(*users)++;
+>  	return 0;
+>  }
+> +EXPORT_SYMBOL_GPL(nf_ct_register_net_sysctl);
+>  
+> -static void
+> -nf_ct_unregister_sysctl(struct ctl_table_header **header,
+> -			struct ctl_table *table, unsigned int *users)
+> +void
+> +nf_ct_unregister_net_sysctl(struct ctl_table_header **header,
+> +			    struct ctl_table *table,
+> +			    unsigned int *users)
+>  {
+>  	if (users != NULL && --*users > 0)
+>  		return;
+>  
+>  	unregister_sysctl_table(*header);
+> +	kfree(table);
+>  	*header = NULL;
+>  }
+> +EXPORT_SYMBOL_GPL(nf_ct_unregister_net_sysctl);
+>  #endif
+>  
+>  struct nf_conntrack_l4proto *
+> @@ -161,29 +168,6 @@ static int kill_l4proto(struct nf_conn *i, void *data)
+>  	       nf_ct_l3num(i) == l4proto->l3proto;
+>  }
+>  
+> -static int nf_ct_l3proto_register_sysctl(struct nf_conntrack_l3proto *l3proto)
+> -{
+> -	int err = 0;
+> -
+> -#ifdef CONFIG_SYSCTL
+> -	if (l3proto->ctl_table != NULL) {
+> -		err = nf_ct_register_sysctl(&l3proto->ctl_table_header,
+> -					    l3proto->ctl_table_path,
+> -					    l3proto->ctl_table, NULL);
+> -	}
+> -#endif
+> -	return err;
+> -}
+> -
+> -static void nf_ct_l3proto_unregister_sysctl(struct nf_conntrack_l3proto *l3proto)
+> -{
+> -#ifdef CONFIG_SYSCTL
+> -	if (l3proto->ctl_table_header != NULL)
+> -		nf_ct_unregister_sysctl(&l3proto->ctl_table_header,
+> -					l3proto->ctl_table, NULL);
+> -#endif
+> -}
+> -
+>  int nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto)
+>  {
+>  	int ret = 0;
+> @@ -203,10 +187,6 @@ int nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto)
+>  		goto out_unlock;
+>  	}
+>  
+> -	ret = nf_ct_l3proto_register_sysctl(proto);
+> -	if (ret < 0)
+> -		goto out_unlock;
+> -
+>  	if (proto->nlattr_tuple_size)
+>  		proto->nla_size = 3 * proto->nlattr_tuple_size();
+>  
+> @@ -230,7 +210,6 @@ void nf_conntrack_l3proto_unregister(struct nf_conntrack_l3proto *proto)
+>  					 ) != proto);
+>  	rcu_assign_pointer(nf_ct_l3protos[proto->l3proto],
+>  			   &nf_conntrack_l3proto_generic);
+> -	nf_ct_l3proto_unregister_sysctl(proto);
+>  	mutex_unlock(&nf_ct_proto_mutex);
+>  
+>  	synchronize_rcu();
+> @@ -243,52 +222,6 @@ void nf_conntrack_l3proto_unregister(struct nf_conntrack_l3proto *proto)
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_unregister);
+>  
+> -static int nf_ct_l4proto_register_sysctl(struct nf_conntrack_l4proto *l4proto)
+> -{
+> -	int err = 0;
+> -
+> -#ifdef CONFIG_SYSCTL
+> -	if (l4proto->ctl_table != NULL) {
+> -		err = nf_ct_register_sysctl(l4proto->ctl_table_header,
+> -					    nf_net_netfilter_sysctl_path,
+> -					    l4proto->ctl_table,
+> -					    l4proto->ctl_table_users);
+> -		if (err < 0)
+> -			goto out;
+> -	}
+> -#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+> -	if (l4proto->ctl_compat_table != NULL) {
+> -		err = nf_ct_register_sysctl(&l4proto->ctl_compat_table_header,
+> -					    nf_net_ipv4_netfilter_sysctl_path,
+> -					    l4proto->ctl_compat_table, NULL);
+> -		if (err == 0)
+> -			goto out;
+> -		nf_ct_unregister_sysctl(l4proto->ctl_table_header,
+> -					l4proto->ctl_table,
+> -					l4proto->ctl_table_users);
+> -	}
+> -#endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+> -out:
+> -#endif /* CONFIG_SYSCTL */
+> -	return err;
+> -}
+> -
+> -static void nf_ct_l4proto_unregister_sysctl(struct nf_conntrack_l4proto *l4proto)
+> -{
+> -#ifdef CONFIG_SYSCTL
+> -	if (l4proto->ctl_table_header != NULL &&
+> -	    *l4proto->ctl_table_header != NULL)
+> -		nf_ct_unregister_sysctl(l4proto->ctl_table_header,
+> -					l4proto->ctl_table,
+> -					l4proto->ctl_table_users);
+> -#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+> -	if (l4proto->ctl_compat_table_header != NULL)
+> -		nf_ct_unregister_sysctl(&l4proto->ctl_compat_table_header,
+> -					l4proto->ctl_compat_table, NULL);
+> -#endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+> -#endif /* CONFIG_SYSCTL */
+> -}
+> -
+
+Where did this function go?
+
+>  /* FIXME: Allow NULL functions and sub in pointers to generic for
+>     them. --RR */
+>  int nf_conntrack_l4proto_register(struct nf_conntrack_l4proto *l4proto)
+> @@ -333,10 +266,6 @@ int nf_conntrack_l4proto_register(struct nf_conntrack_l4proto *l4proto)
+>  		goto out_unlock;
+>  	}
+>  
+> -	ret = nf_ct_l4proto_register_sysctl(l4proto);
+> -	if (ret < 0)
+> -		goto out_unlock;
+> -
+>  	l4proto->nla_size = 0;
+>  	if (l4proto->nlattr_size)
+>  		l4proto->nla_size += l4proto->nlattr_size();
+> @@ -365,7 +294,6 @@ void nf_conntrack_l4proto_unregister(struct nf_conntrack_l4proto *l4proto)
+>  			) != l4proto);
+>  	rcu_assign_pointer(nf_ct_protos[l4proto->l3proto][l4proto->l4proto],
+>  			   &nf_conntrack_l4proto_generic);
+> -	nf_ct_l4proto_unregister_sysctl(l4proto);
+>  	mutex_unlock(&nf_ct_proto_mutex);
+>  
+>  	synchronize_rcu();
+> @@ -380,12 +308,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_unregister);
+>  
+>  int nf_conntrack_proto_init(void)
+>  {
+> -	unsigned int i;
+> -	int err;
+> -
+> -	err = nf_ct_l4proto_register_sysctl(&nf_conntrack_l4proto_generic);
+> -	if (err < 0)
+> -		return err;
+> +	unsigned int i;	
+>  
+>  	for (i = 0; i < AF_MAX; i++)
+>  		rcu_assign_pointer(nf_ct_l3protos[i],
+> @@ -397,8 +320,6 @@ void nf_conntrack_proto_fini(void)
+>  {
+>  	unsigned int i;
+>  
+> -	nf_ct_l4proto_unregister_sysctl(&nf_conntrack_l4proto_generic);
+> -
+>  	/* free l3proto protocol tables */
+>  	for (i = 0; i < PF_MAX; i++)
+>  		kfree(nf_ct_protos[i]);
 > -- 
 > 1.7.7.6
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
