@@ -1,77 +1,60 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: Netlink, route monitoring, RTM_DELROUTE not issued for ppp peer
- address. Bug or feature?
-Date: Tue, 17 Apr 2012 10:24:53 +0200
-Message-ID: <20120417082453.GI3324248@jupiter.n2.diac24.net>
-References: <8986ed37b55c756ecdeec0315f73e63a@visp.net.lb>
- <023e01cd197d$a9faba40$fdf02ec0$@no>
- <3db49d4a58321a5e185cd67335a60c81@visp.net.lb>
- <20120416081954.1bb994db@nehalam.linuxnetplumber.net>
- <9c375f4b88835bcde92bf3ba8f3434cc@visp.net.lb>
- <2f6d1271c8c6811acbbc5b2603c72115.squirrel@nlc.no>
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: [PATCH 04/37] atl1c: remove VPD register
+Date: Tue, 17 Apr 2012 08:36:41 +0000
+Message-ID: <157393863283F442885425D2C454285623D576A2@nasanexd02a.na.qualcomm.com>
+References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
+	 <1334276102-15866-5-git-send-email-xiong@qca.qualcomm.com>
+	 <20120413.204551.959091962456153270.davem@davemloft.net>
+	 <157393863283F442885425D2C454285623D486D9@nasanexd02a.na.qualcomm.com>,<1334413369.7150.422.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="3eH4Qcq5fItR5cpy"
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	eric.dumazet@gmail.com, stephen.hemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: Stian Skjelstad <stian@nixia.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:43651 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755185Ab2DQIY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Apr 2012 04:24:58 -0400
-Content-Disposition: inline
-In-Reply-To: <2f6d1271c8c6811acbbc5b2603c72115.squirrel@nlc.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334413369.7150.422.camel@deadeye>
+Content-Language: zh-CN
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---3eH4Qcq5fItR5cpy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, Apr 16, 2012 at 10:21:46PM +0200, Stian Skjelstad wrote:
-> > It looks like "correct" behavior should not harm existing programs that
-> > much (just there will be netlink message to delete route that are
-> > already deleted by program, e.g. quagga), but looking to code,
-> > implementing this feature will make significant overhead and in some
-> > cases it can be harmful.
-> > For example if full view BGP interface dropped, it is hundreds of
-> > thousands netlink messages. So seems better i will listen to
-> > address/link changes also and keep routing table in memory.
-> > So better seems to keep as is.
-
-Yes, this concern is quite real, I'd very much like to avoid processing
-400000 DELROUTE messages that add exactly 0 additional meaning since it
-can be inferred from the interface going down.
-
-> If I understand correct, the "missing" RTM_DELROUTE messages actually
-> comes from something similar to "ip route flush dev eth0".
->=20
-> If the amount of traffic is a worry, couldn't there be a RTM_FLUSHROUTE or
-> a special RTM_DELROUTE message that tells that all routes for a given
-> device is removed?
-
-The interface-down message has exactly these semantics. I don't know
-if/where this is documented, but adding a new message seems superfluous
-to me, especially at this point where compatibility is a concern.
-(The ip route flush command deletes routes individually btw.)
-
--David
-
---3eH4Qcq5fItR5cpy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.18 (GNU/Linux)
-
-iF4EAREIAAYFAk+NKNUACgkQCy20tTec6eM1ZQD/YLoyOvFfB2oFQVxoF2Xgi+5n
-XEptIfjAA95JEKmRfPkA/3AL/uljYQPmAxMjQJTYtqhfiLam8gtpWJS7VKmrkxAq
-=ibrd
------END PGP SIGNATURE-----
-
---3eH4Qcq5fItR5cpy--
+T2ssIEkgd2lsbCB1cGRhdGUgaXQuIHRoYW5rcyBhIGxvdAoKLVhpb25nCl9fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18Kt6K8/sjLOiBCZW4gSHV0Y2hpbmdzIFtiaHV0Y2hp
+bmdzQHNvbGFyZmxhcmUuY29tXQq3osvNyrG85DogMjAxMsTqNNTCMTTI1SAyMjoyMgrK1bz+yMs6
+IEh1YW5nLCBYaW9uZwpDYzogRGF2aWQgTWlsbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBs
+aW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBxY2EtbGludXgtdGVhbTsgbmljLWRldmVsCtb3
+zOI6IFJFOiBbUEFUQ0ggMDQvMzddIGF0bDFjOiByZW1vdmUgVlBEIHJlZ2lzdGVyCgpPbiBTYXQs
+IDIwMTItMDQtMTQgYXQgMDk6MTIgKzAwMDAsIEh1YW5nLCBYaW9uZyB3cm90ZToKPgo+ID4gLS0t
+LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+IEZyb206IERhdmlkIE1pbGxlciBbbWFpbHRvOmRh
+dmVtQGRhdmVtbG9mdC5uZXRdCj4gPiBTZW50OiBTYXR1cmRheSwgQXByaWwgMTQsIDIwMTIgODo0
+Ngo+ID4gVG86IEh1YW5nLCBYaW9uZwo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxp
+bnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IHFjYS1saW51eC10ZWFtOyBuaWMtCj4gPiBkZXZl
+bAo+ID4gU3ViamVjdDogUmU6IFtQQVRDSCAwNC8zN10gYXRsMWM6IHJlbW92ZSBWUEQgcmVnaXN0
+ZXIKPiA+Cj4gPiBGcm9tOiB4aW9uZyA8eGlvbmdAcWNhLnF1YWxjb21tLmNvbT4KPiA+IERhdGU6
+IEZyaSwgMTMgQXByIDIwMTIgMDg6MTQ6MjkgKzA4MDAKPiA+Cj4gPiA+IFZQRCByZWdpc3RlciBp
+cyBvbmx5IHVzZWQgZm9yIEwxKGRldmlkPVBDSV9ERVZJQ0VfSURfQVRUQU5TSUNfTDEpIHRvCj4g
+PiA+IGFjY2VzcyBleHRlcm5hbCBOVi1tZW1vcnkuCj4gPiA+IGwxYyAmIGxhdGVyIGNoaXAgZG9l
+c24ndCB1c2UgaXQgYW55IG1vcmUuCj4gPiA+Cj4gPiA+IFNpZ25lZC1vZmYtYnk6IHhpb25nIDx4
+aW9uZ0BxY2EucXVhbGNvbW0uY29tPgo+ID4gPiBUZXN0ZWQtYnk6IExpdSBEYXZpZCA8ZHdsaXVA
+cWNhLnF1YWxjb21tLmNvbT4KPiA+Cj4gPiBZb3UganVzdCBicm9rZSBldGh0b29sIHJlZ2lzdGVy
+IGR1bXBzIHdpdGggdGhpcyBjaGFuZ2UuCj4gPgo+ID4gTm93LCBhbGwgdGhlIGluaXRpYWwgcmVn
+aXN0ZXJzIGFyZSByZXBvcnRlZCBvZmZzZXQgYnkgb25lIGVudHJ5LCB5ZXQgdGhlIGxhc3QgdHdv
+IGFyZQo+ID4gc3RpbGwgcmVwb3J0ZWQgaW4gdGhlaXIgb3JpZ2luYWwgc3BvdHMuCj4gPgo+ID4g
+VGhpcyBsYXlvdXQgaXMgZXhwb3NlZCB0byB1c2Vyc3BhY2UsIGFuZCBpbnRlcnByZXRlZCBieSB0
+b29scywgYW5kIHlvdSBjYW5ub3QKPiA+IGNoYW5nZSBpdC4KPiA+Cj4gPiBJZiB0aGlzIHJlZ2lz
+dGVyIGFsd2F5cyByZXBvcnRzIHNvbWUgdmFsdWUsIHlvdSBzaG91bGQganVzdCBrZWVwIGl0IHRo
+ZXJlIGluIHRoZQo+ID4gZHVtcHMuCj4gPgo+IFRoZSBWUEQgcmVnaXN0ZXIgZG9lc24ndCByZXBv
+cnQgYW55dGhpbmcgOigsIGp1c3QgYSBkdW1teSByZWdpc3RlciBub3cuCj4gd2UgZG9uJ3QgaGF2
+ZSBhbnkgc3BlY2lhbCB0b29scyBpbiB1c2Vyc3BhY2UgdG8gZXhwbGFpbiB0aGUgZHVtcGVkIHJl
+Z2lzdGVycy4KPiBBY3R1YWxseSB0aGUgcHVycG9zZSBvZiBkdW1waW5nIHRoZXNlIHJlZ2lzdGVy
+cyB2aWEgZXRodG9vbCBpcyBqdXN0IGZvciBkZWJ1Zy4KWy4uLl0KCk9mIGNvdXJzZSwgdGhlIHdo
+b2xlIHB1cnBvc2Ugb2YgdGhlIG9wZXJhdGlvbiBpcyBmb3IgZGVidWdnaW5nLiAgQnV0IHlvdQpz
+aG91bGQgYnVtcCB0aGUgZHVtcCB2ZXJzaW9uIG51bWJlciAoY3VycmVudGx5IDApIGV2ZXJ5IHRp
+bWUgeW91IGNoYW5nZQp0aGUgb2Zmc2V0cyBvZiByZWdpc3RlcnMgaW4gdGhlIGR1bXAuCgpCZW4u
+CgotLQpCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVlciwgU29sYXJmbGFyZQpOb3Qgc3BlYWtp
+bmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MgdGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9i
+LgpUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJl
+IHRyYWRlbWFya2VkLgoK
