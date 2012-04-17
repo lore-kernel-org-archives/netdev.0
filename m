@@ -1,41 +1,47 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
-Date: Tue, 17 Apr 2012 12:51:07 +0200
-Message-ID: <20120417105107.GA8614@1wt.eu>
-References: <4F8D497F.8060601@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 00/12] add namespace support for netfilter protos
+Date: Tue, 17 Apr 2012 12:59:00 +0200
+Message-ID: <20120417105900.GA2765@1984>
+References: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <alpine.LNX.2.01.1204171233590.31683@frira.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tetsuo Handa <penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jan Engelhardt <jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-To: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Gao feng <gaofeng@cn.fujitsu.com>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, ebiederm@xmission.com,
+	serge.hallyn@canonical.com, dlezcano@fr.ibm.com
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:37256 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754297Ab2DQK7H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2012 06:59:07 -0400
 Content-Disposition: inline
-In-Reply-To: <4F8D497F.8060601-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <alpine.LNX.2.01.1204171233590.31683@frira.zrqbmnf.qr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+On Tue, Apr 17, 2012 at 12:34:48PM +0200, Jan Engelhardt wrote:
+> 
+> On Tuesday 2012-04-17 04:56, Gao feng wrote:
+> 
+> >Currently the sysctl of netfilter proto is not isolated, so when 
+> >changing proto's sysctl in container will cause the host's sysctl 
+> >be changed too. it's not expected.
+> 
+> I wonder if it made sense to do the configuration of NFCT via
+> netlink as well, and deprecate the sysctl interface.
 
-On Tue, Apr 17, 2012 at 10:44:15PM +1200, Michael Kerrisk wrote:
-(...)
-> The accompanying patch changes unix_mkname() to ensure that a terminating 
-> null byte is always located within the first 108 bytes of sun_path. 
-> It does change the ABI for the former case where a pathname ran to 108
-> bytes without a null terminator: for that case, the call now fails with
-> the error -EINVAL. What are people's thoughts on applying this?
+Good point Jan.
 
-My personal opinion is that (as you said), the risk of breaking existing
-apps is already fairly low, but we must not deliberately break existing
-apps. Eventhough there are currently a log, this is exactly what sysctls
-are made for. I would personally like to have a default limit to 107 chars 
-+ one zero, with a sysctl option to revert to current behaviour if ever it
-broke an application. In my opinion it's exactly comparable to the risk of
-breaking apps with mmap_min_addr : very low risk but must be covered by a
-workaround (sysctl).
+However, we're in inconsistent state now and removing interfaces is
+not easy / fast.
 
-Just my 2 cents,
-Willy
+So I think we have to fix it first and then, if we decide to do so,
+deprecate them.
+
+It seems to me like a good idea to target to providing netlink
+interfaces for all netfilter tweaks and use iptables (or whatsoever.
+command line tool we'll have in the future) to attach specific
+configurations to flow.
+
+Thus, having no more sysctl stuff and module parameters tweaks.
