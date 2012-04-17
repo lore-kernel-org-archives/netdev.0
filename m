@@ -1,8 +1,10 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 00/12] add namespace support for netfilter protos
-Date: Tue, 17 Apr 2012 10:52:09 +0200
-Message-ID: <20120417085209.GA2100@1984>
+Subject: Re: [PATCH 01/12] netfilter: add struct netns_ct_proto to support
+ netfilter namespace
+Date: Tue, 17 Apr 2012 10:54:21 +0200
+Message-ID: <20120417085421.GB2100@1984>
 References: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1334631383-12326-2-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
@@ -11,44 +13,132 @@ Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
+In-Reply-To: <1334631383-12326-2-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Gao,
-
-On Tue, Apr 17, 2012 at 10:56:11AM +0800, Gao feng wrote:
-> Currently the sysctl of netfilter proto is not isolated, so when 
-> changing proto's sysctl in container will cause the host's sysctl 
-> be changed too. it's not expected.
+On Tue, Apr 17, 2012 at 10:56:12AM +0800, Gao feng wrote:
+> the struct netns_ct_proto is used to store ctl_table_header and sysctl vars.
+> because udp_conntrack and udplite_conntrack are used by netns_ct_proto,
+> so move the udp_conntrack and udplite_conntrack to the header file,
 > 
-> This patch set adds the namespace support for netfilter protos.
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  include/linux/netfilter/nf_conntrack_udp.h     |   10 ++++++
+>  include/linux/netfilter/nf_conntrack_udplite.h |   10 ++++++
+>  include/net/netns/conntrack.h                  |   37 ++++++++++++++++++++++++
+>  3 files changed, 57 insertions(+), 0 deletions(-)
+>  create mode 100644 include/linux/netfilter/nf_conntrack_udp.h
+>  create mode 100644 include/linux/netfilter/nf_conntrack_udplite.h
 > 
-> impletement four pernet_operations to register sysctl,and disable 
-> register sysctl when protos are registered.
+> diff --git a/include/linux/netfilter/nf_conntrack_udp.h b/include/linux/netfilter/nf_conntrack_udp.h
+> new file mode 100644
+> index 0000000..02869fc
+> --- /dev/null
+> +++ b/include/linux/netfilter/nf_conntrack_udp.h
+> @@ -0,0 +1,10 @@
+> +#ifndef _NF_CONNTRACK_UDP_H
+> +#define _NF_CONNTRACK_UDP_H
+> +
+> +enum udp_conntrack {
+> +	UDP_CT_UNREPLIED,
+> +	UDP_CT_REPLIED,
+> +	UDP_CT_MAX
+> +};
 
-This indeed needs to be fixed, but this patchset has several
-deficiencies. I'll spot them in follow-up emails.
+This will be exported to user-space. We don't need this.
 
-> nf_conntrack_net_proto_ipv4_ops is used to register tcp4(compat),
-> udp4(compat),icmp(compat),ipv4(compat).
-> nf_conntrack_net_proto_ipv6_ops is used to register tcp6,udp6 and 
-> icmpv6.
-> nf_conntrack_net_proto_sctp_ops is used to register sctp4(compat) 
-> and sctp6.
-> nf_conntrack_net_proto_udplite_ops is used to register udplite4
-> and udplite6
+> +
+> +#endif /* _NF_CONNTRACK_UDP_H */
+> diff --git a/include/linux/netfilter/nf_conntrack_udplite.h b/include/linux/netfilter/nf_conntrack_udplite.h
+> new file mode 100644
+> index 0000000..62b90a2
+> --- /dev/null
+> +++ b/include/linux/netfilter/nf_conntrack_udplite.h
+> @@ -0,0 +1,10 @@
+> +#ifndef _NF_CONNTRACK_UDPLITE_H
+> +#define _NF_CONNTRACK_UDPLITE_H
+> +
+> +enum udplite_conntrack {
+> +	UDPLITE_CT_UNREPLIED,
+> +	UDPLITE_CT_REPLIED,
+> +	UDPLITE_CT_MAX
+> +};
+> +
+> +#endif /* _NF_CONNTRACK_UDPLITE_H */
+> diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
+> index 7a911ec..5845665 100644
+> --- a/include/net/netns/conntrack.h
+> +++ b/include/net/netns/conntrack.h
+> @@ -4,10 +4,46 @@
+>  #include <linux/list.h>
+>  #include <linux/list_nulls.h>
+>  #include <linux/atomic.h>
+> +#include <linux/netfilter/nf_conntrack_tcp.h>
+> +#include <linux/netfilter/nf_conntrack_udp.h>
+> +#include <linux/netfilter/nf_conntrack_udplite.h>
+> +#include <linux/netfilter/nf_conntrack_sctp.h>
+>  
+>  struct ctl_table_header;
+>  struct nf_conntrack_ecache;
+>  
+> +struct netns_ct_proto {
+> +	unsigned int            sysctl_generic_timeout;
+> +	unsigned int		sysctl_tcp_timeouts[TCP_CONNTRACK_TIMEOUT_MAX];
+> +	unsigned int		sysctl_tcp_loose;
+> +	unsigned int		sysctl_tcp_be_liberal;
+> +	unsigned int		sysctl_tcp_max_retrans;
+> +	unsigned int		sysctl_udp_timeouts[UDP_CT_MAX];
+> +	unsigned int		sysctl_udplite_timeouts[UDPLITE_CT_MAX];
+> +	unsigned int		sysctl_sctp_timeouts[SCTP_CONNTRACK_MAX];
+> +	unsigned int		sysctl_icmp_timeout;
+> +	unsigned int		sysctl_icmpv6_timeout;
+> +#ifdef CONFIG_SYSCTL
+> +	struct ctl_table_header *generic_sysctl_header;
+> +	struct ctl_table_header *tcp_sysctl_header;
+> +	struct ctl_table_header *udp_sysctl_header;
+> +	struct ctl_table_header *udplite_sysctl_header;
+> +	struct ctl_table_header *sctp_sysctl_header;
+> +	struct ctl_table_header *icmp_sysctl_header;
+> +	struct ctl_table_header *icmpv6_sysctl_header;
+> +	unsigned int		tcp_table_users;
+> +	unsigned int		udp_table_users;
+> +#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT 
+> +	struct ctl_table_header *generic_compat_header;
+> +	struct ctl_table_header *tcp_compat_header;
+> +	struct ctl_table_header *udp_compat_header;
+> +	struct ctl_table_header *sctp_compat_header;
+> +	struct ctl_table_header *icmp_compat_header;
+> +	struct ctl_table_header *ipv4_compat_header;
+> +#endif
+> +#endif
+> +};
+
+No.
+
+You cannot just send a patch that adds a structure like this and use
+it in follow-up patches.
+
+You have to make patches that leave the repository in consistent state.
+Instead, you have to populate the structure little by little in your
+patches.
+
+> +
+>  struct netns_ct {
+>  	atomic_t		count;
+>  	unsigned int		expect_count;
+> @@ -26,6 +62,7 @@ struct netns_ct {
+>  	int			sysctl_tstamp;
+>  	int			sysctl_checksum;
+>  	unsigned int		sysctl_log_invalid; /* Log invalid packets */
+> +	struct netns_ct_proto	proto;
+>  #ifdef CONFIG_SYSCTL
+>  	struct ctl_table_header	*sysctl_header;
+>  	struct ctl_table_header	*acct_sysctl_header;
+> -- 
+> 1.7.7.6
 > 
-> these operations will be registered when module be loaded.
-> 
-> And this will break the cttimeout, because timeout_nlattr_to_obj
-> function use the orig timeout(such as tcp_timeouts) to set timeouts.
-> 
-> I will fix this in my next patch.
-
-No way.
-
-You cannot leave the repository in broken / inconsistent state because
-you are not making things good.
-
-Please, hang on until this patchset is fixed to send more patches.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
