@@ -1,68 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 2/2] IPVS: make failure of netns init more stable
-Date: Tue, 17 Apr 2012 23:57:13 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1204172242430.1984@ja.ssi.bg>
-References: <1334576378-2034-1-git-send-email-hans.schillstrom@ericsson.com> <1334576378-2034-2-git-send-email-hans.schillstrom@ericsson.com> <alpine.LFD.2.00.1204161621080.1711@ja.ssi.bg> <201204171315.12686.hans.schillstrom@ericsson.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: tg3 'No PHY devices' loading issue
+Date: Tue, 17 Apr 2012 21:59:55 +0100
+Message-ID: <20120417205955.GC3932@decadent.org.uk>
+References: <20120417141856.GA19507@zod.bos.redhat.com>
+ <20120417185007.GA3742@mcarlson.broadcom.com>
+ <20120417191042.GB3932@decadent.org.uk>
+ <20120417194029.GH19507@zod.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "horms@verge.net.au" <horms@verge.net.au>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <201204171315.12686.hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Josh Boyer <jwboyer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120417194029.GH19507@zod.bos.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Tue, 17 Apr 2012, Hans Schillstrom wrote:
-
-> I wonder if we are chasing ghosts...
+On Tue, Apr 17, 2012 at 03:40:30PM -0400, Josh Boyer wrote:
+> On Tue, Apr 17, 2012 at 08:10:42PM +0100, Ben Hutchings wrote:
+> > On Tue, Apr 17, 2012 at 11:50:07AM -0700, Matt Carlson wrote:
+> > > On Tue, Apr 17, 2012 at 10:18:57AM -0400, Josh Boyer wrote:
+> > > > Hi Matt and Michael,
+> > > > 
+> > > > I'm seeing an odd issue with the tg3 driver on one of my development
+> > > > machines.  I've tried kernels 3.2.10, 3.3.0, 3.3.1, 3.3.2 and 3.4-rc3
+> > > > and they all seem to exhibit this issue now.  When the machine boots
+> > > > and the tg3 driver is loaded, it fails to find a PHY and then reports
+> > > > 'Problem fetching invariants of chip'.  If I do a rmmod/modprobe of
+> > > > tg3 after login, the probe seems to work fine and ethernet works as
+> > > > expected.  You can see this in the dmesg below:
+> > [...]
+> > > The 57788 uses the broadcom phylib module.  For some reason, it isn't
+> > > available the first module load attempt.  A while ago, code was added to
+> > > phylib to request modules from userspace if the particular phy support
+> > > code wasn't already loaded.  It looks like this mechanism isn't working
+> > > too well the first time through.
+> > [...]
+> > 
+> > At a guess, tg3 is in the initramfs but broadcom isn't.
 > 
-> With proper fault handling I can't even see a case when it (net->ipvs) can be used.
-> Can you see a case when it could happen?
-> Still we can set it to NULL on error exit and cleanup as you suggested, that doesn't harm I think.
-> 
-> A. If you add a netns and it fails the entire ns will be rolled back, 
->    and no access to that ns can occur.
->    That ns does not exist
+> Good guess.  At least on one of the initramfs' I checked.  I'll verify
+> the others, but it seems likely they match.  As I just said in my other
+> reply, I would have expected tg3 to have a module dep on it to get it
+> included in the initramfs built, but it seems that isn't the case.
+ 
+tg3 doesn't use any symbols from broadcom, which is the only way
+depmod can find dependencies.
 
-	Agreed
+In initramfs-tools (used in Debian and its derivatives) we just copy
+all PHY drivers into the initramfs by default.  dracut should probably
+do the same, at least when phylib is in the initramfs (or built into
+the kernel).  (tg3 does use symbols from phylib.)
 
-> B. If you insert ip_vs.ko when having one or more name spaces and 
->    __ip_vs_init() returns an error the module will be unloaded.
->    All ready loaded ns will not be affected.
+Ben.
 
-	Yes, ip_vs_init fails.
-
-> C. insmod of ex. ip_vs_ftp only affects loaded name spaces
->    and if the load of ip_vs_ftp fails it will be unloaded without affecting ip_vs(.ko)
->    (If ip_vs.ko is not loaded then it has to be loaded first case B...)
-> 
-> With a "compiled in" ip_vs case B doesn't exist.
-
-	It is this case that can happen, we can only guess how
-difficult is to get ENOMEM here. IIRC, we can generate only
-ENOMEM error on IPVS core load.
-
-	I assume Simon has such setup and changes code to
-trigger load error. When I generate ENOMEM on IPVS core init
-for such case I get ENOENT from register_ip_vs_app when
-patch 1 and 2 for apps are applied, i.e. net->ipvs is NULL.
-You can check it with NF_CONNTRACK=y, IP_VS=y and
-IP_VS_FTP=m. You only need to trigger ENOMEM in __ip_vs_init.
-
-> With proper fault handling i.e. all ways returning fault codes to the netns init,
-> there is no need for checking for  "if (!net->ipvs)" or any other action.
-
-	Probably but one check on load does not hurt much.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert Camus
