@@ -1,48 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 6/6] vhost_net: don't poll on -EFAULT
-Date: Tue, 17 Apr 2012 07:57:37 +0300
-Message-ID: <20120417045736.GA31278@redhat.com>
-References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
- <20120416060833.14140.28139.stgit@intel-e5620-16-2.englab.nay.redhat.com>
- <20120416071646.GB25396@redhat.com>
- <4F8BD81A.7010507@redhat.com>
- <20120416133859.GB13190@redhat.com>
- <4F8CE305.9090100@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net/ipv4:Remove two memleak reports by
+ kmemeleak_not_leak
+Date: Tue, 17 Apr 2012 07:18:50 +0200
+Message-ID: <1334639930.2472.4.camel@edumazet-glaptop>
+References: <201204170941274843290@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: majianpeng <majianpeng@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42151 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751148Ab2DQE5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Apr 2012 00:57:30 -0400
-Content-Disposition: inline
-In-Reply-To: <4F8CE305.9090100@redhat.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:35006 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752265Ab2DQFSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 01:18:55 -0400
+Received: by wibhj6 with SMTP id hj6so145144wib.1
+        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 22:18:54 -0700 (PDT)
+In-Reply-To: <201204170941274843290@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 17, 2012 at 11:27:01AM +0800, Jason Wang wrote:
-> On 04/16/2012 09:39 PM, Michael S. Tsirkin wrote:
-> >On Mon, Apr 16, 2012 at 04:28:10PM +0800, Jason Wang wrote:
-> >>>  On 04/16/2012 03:16 PM, Michael S. Tsirkin wrote:
-> >>>>  >On Mon, Apr 16, 2012 at 02:08:33PM +0800, Jason Wang wrote:
-> >>>>>  >>Currently, we restart tx polling unconditionally when sendmsg()
-> >>>>>  >>fails. This would cause unnecessary wakeups of vhost wokers as it's
-> >>>>>  >>only needed when the socket send buffer were exceeded.
-> >>>>  >Why is this a problem?
-> >>>  >  This issue is when guest driver is able to hit the
-> >>-EFAULT, vhost
-> >>>  discard the the descriptor and restart the polling. This would wake
-> >>>  vhost thread and repeat the loop again which waste cpu.
-> >Does same thing happen if we get an error from copy from user?
-> >
+On Tue, 2012-04-17 at 09:41 +0800, majianpeng wrote:
+> From 582ed93b990e88110287ed0388bcb9057b1b8591 Mon Sep 17 00:00:00 2001
+> From: majianpeng <majianpeng@gmail.com>
+> Date: Tue, 17 Apr 2012 09:36:26 +0800
+> Subject: [PATCH] net/ipv4:Remove two memleak reports by kmemeleak_not_leak.
 > 
-> Right, so do you think it makes sense that we only restart polling
-> on -EAGAIN or -ENOBUFS?
+> 
+> Signed-off-by: majianpeng <majianpeng@gmail.com>
+> ---
+>  net/ipv4/route.c |    8 ++++++--
+>  1 files changed, 6 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 167ea10..1984c82 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -3504,7 +3504,11 @@ int __init ip_rt_init(void)
+>   * this nonsense will go away.
+>   */
+>  void __init ip_static_sysctl_init(void)
+> -{
+> -	register_sysctl_paths(ipv4_path, ipv4_skeleton);
+> +{
+> +	struct ctl_table_header *ctl_header;
+> +
+> +	ctl_header = register_sysctl_paths(ipv4_path, ipv4_skeleton);
+> +	if (ctl_header)
+> +		kmemleak_not_leak(ctl_header);
+>  }
+>  #endif
 
-Sounds OK. BTW how do you test this?
+No need for this temp var and conditional.
 
--- 
-MST
+Just :
+
+	kmemleak_not_leak(register_sysctl_paths(ipv4_path, ipv4_skeleton));
