@@ -1,98 +1,110 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
-Date: Tue, 17 Apr 2012 16:18:53 +0400
-Message-ID: <4F8D5FAD.10304@parallels.com>
-References: <20120404220525.GD21505@hostway.ca> <1333593664.18626.577.camel@edumazet-glaptop> <20120417020852.GA18875@hostway.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Simon Kirby <sim@hostway.ca>
+From: James Chapman <jchapman@katalix.com>
+Subject: [RFC PATCH 1/2] ipv6: Export ipv6 functions for use by other protocols
+Date: Tue, 17 Apr 2012 13:29:25 +0100
+Message-ID: <1334665766-11461-2-git-send-email-jchapman@katalix.com>
+References: <y>
+Cc: bcrl@kvack.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:48398 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755821Ab2DQMS4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 08:18:56 -0400
-In-Reply-To: <20120417020852.GA18875@hostway.ca>
+Received: from katalix.com ([82.103.140.233]:52699 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932110Ab2DQM3e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2012 08:29:34 -0400
+In-Reply-To: <y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-17.04.2012 06:08, Simon Kirby =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Thu, Apr 05, 2012 at 04:41:04AM +0200, Eric Dumazet wrote:
->
->> Hmm, is it happening if you remove the nvidia module ?
->>
->> If yes, please try to add slub_debug=3DFZPU
->
-> Finally got annoyed enough at this to bisect it. It doesn't happen ev=
-ery
-> time and I got a bit confused, but I finally tracked it down to:
->
-> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d is the first bad commit
-> commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
-> Author: Stanislav Kinsbursky<skinsbursky@parallels.com>
-> Date:   Mon Mar 12 02:59:41 2012 +0000
->
->      tun: don't hold network namespace by tun sockets
->
->      v3: added previously removed sock_put() to the tun_release() cal=
-lback, because
->      sk_release_kernel() doesn't drop the socket reference.
->
->      v2: sk_release_kernel() used for socket release. Dummy tun_relea=
-se() is
->      required for sk_release_kernel() --->  sock_release() --->  sock=
-->ops->release()
->      call.
->
->      TUN was designed to destroy it's socket on network namesapce shu=
-tdown. But this
->      will never happen for persistent device, because it's socket hol=
-ds network
->      namespace.
->      This patch removes of holding network namespace by TUN socket an=
-d replaces it
->      by creating socket in init_net and then changing it's net it to =
-desired one. On
->      shutdown socket is moved back to init_net prior to final put.
->
->      Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->      Signed-off-by: David S. Miller<davem@davemloft.net>
->
-> ...With this reverted on top of 3.4-rc3, I no longer see crashes when=
- I
-> keep making and breaking the SSH tunnel while running "vmstat 1" in a=
-n
-> SSH session over a socket that is running through that tunnel.
->
-> Simon-
+For implementing other protocols on top of IPv6, such as L2TPv3's IP
+encapsulation over ipv6, we'd like to call some IPv6 functions which
+are not currently exported.
+---
+ net/ipv6/datagram.c      |    4 ++++
+ net/ipv6/exthdrs.c       |    1 +
+ net/ipv6/ip6_flowlabel.c |    1 +
+ net/ipv6/ip6_output.c    |    3 +++
+ 4 files changed, 9 insertions(+), 0 deletions(-)
 
-Hi, Simon.
-Could you please try to apply the patch below on top of your the tree (=
-with=20
-1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d applied) and check does it fix=
- the problem:
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index bb8c72c..1fc4622 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1540,13 +1540,10 @@ static int tun_chr_close(struct inode *inode, s=
-truct=20
-file *file)
-  			if (dev->reg_state =3D=3D NETREG_REGISTERED)
-  				unregister_netdevice(dev);
-  			rtnl_unlock();
--		}
-+		} else
-+			sock_put(tun->socket.sk);
-  	}
-
--	tun =3D tfile->tun;
--	if (tun)
--		sock_put(tun->socket.sk);
--
-  	put_net(tfile->net);
-  	kfree(tfile);
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 7fba35a..b8b61ac 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -22,6 +22,7 @@
+ #include <linux/ipv6.h>
+ #include <linux/route.h>
+ #include <linux/slab.h>
++#include <linux/export.h>
+ 
+ #include <net/ipv6.h>
+ #include <net/ndisc.h>
+@@ -202,6 +203,7 @@ out:
+ 	fl6_sock_release(flowlabel);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ip6_datagram_connect);
+ 
+ void ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
+ 		     __be16 port, u32 info, u8 *payload)
+@@ -414,6 +416,7 @@ out_free_skb:
+ out:
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ipv6_recv_error);
+ 
+ /*
+  *	Handle IPV6_RECVPATHMTU
+@@ -868,3 +871,4 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
+ exit_f:
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(datagram_send_ctl);
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index aa0a51e..a93bd23 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -883,6 +883,7 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
+ 
+ 	return opt;
+ }
++EXPORT_SYMBOL_GPL(ipv6_fixup_options);
+ 
+ /**
+  * fl6_update_dst - update flowi destination address with info given
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 1dd6329..cb43df6 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -294,6 +294,7 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions * opt_space,
+ 	opt_space->opt_flen = fopt->opt_flen;
+ 	return opt_space;
+ }
++EXPORT_SYMBOL_GPL(fl6_merge_options);
+ 
+ static unsigned long check_linger(unsigned long ttl)
+ {
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index b7ca461..2a16aa9 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1535,6 +1535,7 @@ error:
+ 	IP6_INC_STATS(sock_net(sk), rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ip6_append_data);
+ 
+ static void ip6_cork_release(struct inet_sock *inet, struct ipv6_pinfo *np)
+ {
+@@ -1638,6 +1639,7 @@ error:
+ 	IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+ 	goto out;
+ }
++EXPORT_SYMBOL_GPL(ip6_push_pending_frames);
+ 
+ void ip6_flush_pending_frames(struct sock *sk)
+ {
+@@ -1652,3 +1654,4 @@ void ip6_flush_pending_frames(struct sock *sk)
+ 
+ 	ip6_cork_release(inet_sk(sk), inet6_sk(sk));
+ }
++EXPORT_SYMBOL_GPL(ip6_flush_pending_frames);
+-- 
+1.7.0.4
