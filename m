@@ -1,56 +1,59 @@
-From: "majianpeng" <majianpeng@gmail.com>
-Subject: [PATCH] net/ipv4:Remove two memleak reports by kmemeleak_not_leak
-Date: Tue, 17 Apr 2012 09:41:32 +0800
-Message-ID: <201204170941274843290@gmail.com>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
+Date: Mon, 16 Apr 2012 19:08:53 -0700
+Message-ID: <20120417020852.GA18875@hostway.ca>
+References: <20120404220525.GD21505@hostway.ca>
+ <1333593664.18626.577.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "eric.dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:54288 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892Ab2DQBkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 21:40:39 -0400
-Received: by dake40 with SMTP id e40so7640344dak.11
-        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 18:40:39 -0700 (PDT)
+Received: from peace.netnation.com ([204.174.223.2]:52992 "EHLO
+	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751523Ab2DQCIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Apr 2012 22:08:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1333593664.18626.577.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From 582ed93b990e88110287ed0388bcb9057b1b8591 Mon Sep 17 00:00:00 2001
-From: majianpeng <majianpeng@gmail.com>
-Date: Tue, 17 Apr 2012 09:36:26 +0800
-Subject: [PATCH] net/ipv4:Remove two memleak reports by kmemeleak_not_leak.
+On Thu, Apr 05, 2012 at 04:41:04AM +0200, Eric Dumazet wrote:
 
+> Hmm, is it happening if you remove the nvidia module ?
+> 
+> If yes, please try to add slub_debug=FZPU
 
-Signed-off-by: majianpeng <majianpeng@gmail.com>
----
- net/ipv4/route.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+Finally got annoyed enough at this to bisect it. It doesn't happen every
+time and I got a bit confused, but I finally tracked it down to:
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 167ea10..1984c82 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -3504,7 +3504,11 @@ int __init ip_rt_init(void)
-  * this nonsense will go away.
-  */
- void __init ip_static_sysctl_init(void)
--{
--	register_sysctl_paths(ipv4_path, ipv4_skeleton);
-+{
-+	struct ctl_table_header *ctl_header;
-+
-+	ctl_header = register_sysctl_paths(ipv4_path, ipv4_skeleton);
-+	if (ctl_header)
-+		kmemleak_not_leak(ctl_header);
- }
- #endif
--- 
-1.7.5.4
+1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d is the first bad commit
+commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
+Author: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Date:   Mon Mar 12 02:59:41 2012 +0000
 
- 				
---------------
-majianpeng
-2012-04-17
+    tun: don't hold network namespace by tun sockets
+    
+    v3: added previously removed sock_put() to the tun_release() callback, because
+    sk_release_kernel() doesn't drop the socket reference.
+    
+    v2: sk_release_kernel() used for socket release. Dummy tun_release() is
+    required for sk_release_kernel() ---> sock_release() ---> sock->ops->release()
+    call.
+    
+    TUN was designed to destroy it's socket on network namesapce shutdown. But this
+    will never happen for persistent device, because it's socket holds network
+    namespace.
+    This patch removes of holding network namespace by TUN socket and replaces it
+    by creating socket in init_net and then changing it's net it to desired one. On
+    shutdown socket is moved back to init_net prior to final put.
+    
+    Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+...With this reverted on top of 3.4-rc3, I no longer see crashes when I
+keep making and breaking the SSH tunnel while running "vmstat 1" in an
+SSH session over a socket that is running through that tunnel.
+
+Simon-
