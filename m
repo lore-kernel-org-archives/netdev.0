@@ -1,163 +1,90 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 07/11] batman-adv: rename BATMAN_OGM_LEN to BATMAN_OGM_HLEN
-Date: Tue, 17 Apr 2012 13:58:23 +0200
-Message-ID: <1334663907-22725-8-git-send-email-ordex@autistici.org>
+Subject: [PATCH 08/11] batman-adv: mark existing ogm variables as batman iv
+Date: Tue, 17 Apr 2012 13:58:24 +0200
+Message-ID: <1334663907-22725-9-git-send-email-ordex@autistici.org>
 References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:22253 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:22107 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755622Ab2DQL5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:41 -0400
+	with ESMTP id S1755822Ab2DQL5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:42 -0400
 In-Reply-To: <1334663907-22725-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Marek Lindner <lindner_marek@yahoo.de>
 
-Using BATMAN_OGM_LEN leaves one with the impression that this is
-the full packet size which is not the case. Therefore the variable
-is renamed.
+The coming protocol changes also will have a part called "OGM". That
+makes it necessary to introduce a distinction in the code base.
 
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c |   12 ++++++------
- net/batman-adv/packet.h     |    2 +-
- net/batman-adv/routing.c    |    2 +-
- net/batman-adv/send.c       |   12 ++++++------
- 4 files changed, 14 insertions(+), 14 deletions(-)
+ net/batman-adv/bat_iv_ogm.c     |    4 ++--
+ net/batman-adv/hard-interface.c |    2 +-
+ net/batman-adv/packet.h         |    4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 9717c7a..2e2029c 100644
+index 2e2029c..1d365e2 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -40,7 +40,7 @@ static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
- 	get_random_bytes(&random_seqno, sizeof(unsigned long));
- 	atomic_set(&hard_iface->seqno, (uint32_t)random_seqno);
+@@ -47,7 +47,7 @@ static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
+ 		goto out;
  
--	hard_iface->packet_len = BATMAN_OGM_LEN;
-+	hard_iface->packet_len = BATMAN_OGM_HLEN;
- 	hard_iface->packet_buff = kmalloc(hard_iface->packet_len, GFP_ATOMIC);
+ 	batman_ogm_packet = (struct batman_ogm_packet *)hard_iface->packet_buff;
+-	batman_ogm_packet->header.packet_type = BAT_OGM;
++	batman_ogm_packet->header.packet_type = BAT_IV_OGM;
+ 	batman_ogm_packet->header.version = COMPAT_VERSION;
+ 	batman_ogm_packet->header.ttl = 2;
+ 	batman_ogm_packet->flags = NO_FLAGS;
+@@ -934,7 +934,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
+ 	 * packet in an aggregation.  Here we expect that the padding
+ 	 * is always zero (or not 0x01)
+ 	 */
+-	if (batman_ogm_packet->header.packet_type != BAT_OGM)
++	if (batman_ogm_packet->header.packet_type != BAT_IV_OGM)
+ 		return;
  
- 	if (!hard_iface->packet_buff)
-@@ -112,7 +112,7 @@ static uint8_t hop_penalty(uint8_t tq, const struct bat_priv *bat_priv)
- static int bat_iv_ogm_aggr_packet(int buff_pos, int packet_len,
- 				  int tt_num_changes)
- {
--	int next_buff_pos = buff_pos + BATMAN_OGM_LEN + tt_len(tt_num_changes);
-+	int next_buff_pos = buff_pos + BATMAN_OGM_HLEN + tt_len(tt_num_changes);
+ 	/* could be changed by schedule_own_packet() */
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 75a555b..e8c5da3 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -604,7 +604,7 @@ static int batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
  
- 	return (next_buff_pos <= packet_len) &&
- 		(next_buff_pos <= MAX_AGGREGATION_BYTES);
-@@ -162,7 +162,7 @@ static void bat_iv_ogm_send_to_if(struct forw_packet *forw_packet,
- 			batman_ogm_packet->ttvn, hard_iface->net_dev->name,
- 			hard_iface->net_dev->dev_addr);
+ 	switch (batman_ogm_packet->header.packet_type) {
+ 		/* batman originator packet */
+-	case BAT_OGM:
++	case BAT_IV_OGM:
+ 		ret = recv_bat_ogm_packet(skb, hard_iface);
+ 		break;
  
--		buff_pos += BATMAN_OGM_LEN +
-+		buff_pos += BATMAN_OGM_HLEN +
- 				tt_len(batman_ogm_packet->tt_num_changes);
- 		packet_num++;
- 		batman_ogm_packet = (struct batman_ogm_packet *)
-@@ -540,7 +540,7 @@ static void bat_iv_ogm_forward(struct orig_node *orig_node,
- 		batman_ogm_packet->flags &= ~DIRECTLINK;
- 
- 	bat_iv_ogm_queue_add(bat_priv, (unsigned char *)batman_ogm_packet,
--			     BATMAN_OGM_LEN + tt_len(tt_num_changes),
-+			     BATMAN_OGM_HLEN + tt_len(tt_num_changes),
- 			     if_incoming, 0, bat_iv_ogm_fwd_send_time());
- }
- 
-@@ -1173,12 +1173,12 @@ static void bat_iv_ogm_receive(struct hard_iface *if_incoming,
- 		batman_ogm_packet->seqno = ntohl(batman_ogm_packet->seqno);
- 		batman_ogm_packet->tt_crc = ntohs(batman_ogm_packet->tt_crc);
- 
--		tt_buff = packet_buff + buff_pos + BATMAN_OGM_LEN;
-+		tt_buff = packet_buff + buff_pos + BATMAN_OGM_HLEN;
- 
- 		bat_iv_ogm_process(ethhdr, batman_ogm_packet,
- 				   tt_buff, if_incoming);
- 
--		buff_pos += BATMAN_OGM_LEN +
-+		buff_pos += BATMAN_OGM_HLEN +
- 				tt_len(batman_ogm_packet->tt_num_changes);
- 
- 		batman_ogm_packet = (struct batman_ogm_packet *)
 diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 59800e8..59dec0a 100644
+index 59dec0a..f54969c 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
-@@ -126,7 +126,7 @@ struct batman_ogm_packet {
- 	uint16_t tt_crc;
- } __packed;
+@@ -25,7 +25,7 @@
+ #define ETH_P_BATMAN  0x4305	/* unofficial/not registered Ethertype */
  
--#define BATMAN_OGM_LEN sizeof(struct batman_ogm_packet)
-+#define BATMAN_OGM_HLEN sizeof(struct batman_ogm_packet)
+ enum bat_packettype {
+-	BAT_OGM		 = 0x01,
++	BAT_IV_OGM	 = 0x01,
+ 	BAT_ICMP	 = 0x02,
+ 	BAT_UNICAST	 = 0x03,
+ 	BAT_BCAST	 = 0x04,
+@@ -38,7 +38,7 @@ enum bat_packettype {
+ /* this file is included by batctl which needs these defines */
+ #define COMPAT_VERSION 14
  
- struct icmp_packet {
- 	struct batman_header header;
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 78eddc9..ac13a6a 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -254,7 +254,7 @@ int recv_bat_ogm_packet(struct sk_buff *skb, struct hard_iface *hard_iface)
- 	struct ethhdr *ethhdr;
- 
- 	/* drop packet if it has not necessary minimum size */
--	if (unlikely(!pskb_may_pull(skb, BATMAN_OGM_LEN)))
-+	if (unlikely(!pskb_may_pull(skb, BATMAN_OGM_HLEN)))
- 		return NET_RX_DROP;
- 
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index af7a674..b5f078c 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -87,7 +87,7 @@ static void realloc_packet_buffer(struct hard_iface *hard_iface,
- 	/* keep old buffer if kmalloc should fail */
- 	if (new_buff) {
- 		memcpy(new_buff, hard_iface->packet_buff,
--		       BATMAN_OGM_LEN);
-+		       BATMAN_OGM_HLEN);
- 
- 		kfree(hard_iface->packet_buff);
- 		hard_iface->packet_buff = new_buff;
-@@ -101,13 +101,13 @@ static int prepare_packet_buffer(struct bat_priv *bat_priv,
- {
- 	int new_len;
- 
--	new_len = BATMAN_OGM_LEN +
-+	new_len = BATMAN_OGM_HLEN +
- 		  tt_len((uint8_t)atomic_read(&bat_priv->tt_local_changes));
- 
- 	/* if we have too many changes for one packet don't send any
- 	 * and wait for the tt table request which will be fragmented */
- 	if (new_len > hard_iface->soft_iface->mtu)
--		new_len = BATMAN_OGM_LEN;
-+		new_len = BATMAN_OGM_HLEN;
- 
- 	realloc_packet_buffer(hard_iface, new_len);
- 
-@@ -117,14 +117,14 @@ static int prepare_packet_buffer(struct bat_priv *bat_priv,
- 	atomic_set(&bat_priv->tt_ogm_append_cnt, TT_OGM_APPEND_MAX);
- 
- 	return tt_changes_fill_buffer(bat_priv,
--				      hard_iface->packet_buff + BATMAN_OGM_LEN,
--				      hard_iface->packet_len - BATMAN_OGM_LEN);
-+				      hard_iface->packet_buff + BATMAN_OGM_HLEN,
-+				      hard_iface->packet_len - BATMAN_OGM_HLEN);
- }
- 
- static int reset_packet_buffer(struct bat_priv *bat_priv,
- 				struct hard_iface *hard_iface)
- {
--	realloc_packet_buffer(hard_iface, BATMAN_OGM_LEN);
-+	realloc_packet_buffer(hard_iface, BATMAN_OGM_HLEN);
- 	return 0;
- }
- 
+-enum batman_flags {
++enum batman_iv_flags {
+ 	PRIMARIES_FIRST_HOP = 1 << 4,
+ 	VIS_SERVER	    = 1 << 5,
+ 	DIRECTLINK	    = 1 << 6
 -- 
 1.7.9.4
