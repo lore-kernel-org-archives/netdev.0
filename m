@@ -1,105 +1,63 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
-Date: Tue, 17 Apr 2012 22:49:06 +0400
-Message-ID: <4F8DBB22.7060302@parallels.com>
-References: <20120404220525.GD21505@hostway.ca> <1333593664.18626.577.camel@edumazet-glaptop> <20120417020852.GA18875@hostway.ca> <4F8D5FAD.10304@parallels.com> <20120417183528.GA32726@hostway.ca>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: tg3 'No PHY devices' loading issue
+Date: Tue, 17 Apr 2012 11:50:07 -0700
+Message-ID: <20120417185007.GA3742@mcarlson.broadcom.com>
+References: <20120417141856.GA19507@zod.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Simon Kirby <sim@hostway.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:44685 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026Ab2DQStI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 14:49:08 -0400
-In-Reply-To: <20120417183528.GA32726@hostway.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matt Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Josh Boyer" <jwboyer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120417141856.GA19507@zod.bos.redhat.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-17.04.2012 22:35, Simon Kirby =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB=
-:
-> On Tue, Apr 17, 2012 at 04:18:53PM +0400, Stanislav Kinsbursky wrote:
->
->> 17.04.2012 06:08, Simon Kirby ??????????:
->>> On Thu, Apr 05, 2012 at 04:41:04AM +0200, Eric Dumazet wrote:
->>>
->>>> Hmm, is it happening if you remove the nvidia module ?
->>>>
->>>> If yes, please try to add slub_debug=3DFZPU
->>> Finally got annoyed enough at this to bisect it. It doesn't happen =
-every
->>> time and I got a bit confused, but I finally tracked it down to:
->>>
->>> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d is the first bad commit
->>> commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
->>> Author: Stanislav Kinsbursky<skinsbursky@parallels.com>
->>> Date:   Mon Mar 12 02:59:41 2012 +0000
->>>
->>>      tun: don't hold network namespace by tun sockets
->>>
->>>      v3: added previously removed sock_put() to the tun_release() c=
-allback, because
->>>      sk_release_kernel() doesn't drop the socket reference.
->>>
->>>      v2: sk_release_kernel() used for socket release. Dummy tun_rel=
-ease() is
->>>      required for sk_release_kernel() --->   sock_release() --->   =
-sock->ops->release()
->>>      call.
->>>
->>>      TUN was designed to destroy it's socket on network namesapce s=
-hutdown. But this
->>>      will never happen for persistent device, because it's socket h=
-olds network
->>>      namespace.
->>>      This patch removes of holding network namespace by TUN socket =
-and replaces it
->>>      by creating socket in init_net and then changing it's net it t=
-o desired one. On
->>>      shutdown socket is moved back to init_net prior to final put.
->>>
->>>      Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->>>      Signed-off-by: David S. Miller<davem@davemloft.net>
->>>
->>> ...With this reverted on top of 3.4-rc3, I no longer see crashes wh=
-en I
->>> keep making and breaking the SSH tunnel while running "vmstat 1" in=
- an
->>> SSH session over a socket that is running through that tunnel.
->>>
->>> Simon-
->> Hi, Simon.
->> Could you please try to apply the patch below on top of your the
->> tree (with 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d applied) and
->> check does it fix the problem:
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index bb8c72c..1fc4622 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -1540,13 +1540,10 @@ static int tun_chr_close(struct inode
->> *inode, struct file *file)
->>   			if (dev->reg_state =3D=3D NETREG_REGISTERED)
->>   				unregister_netdevice(dev);
->>   			rtnl_unlock();
->> -		}
->> +		} else
->> +			sock_put(tun->socket.sk);
->>   	}
->>
->> -	tun =3D tfile->tun;
->> -	if (tun)
->> -		sock_put(tun->socket.sk);
->> -
->>   	put_net(tfile->net);
->>   	kfree(tfile);
-> (Whitespace-damaged patch, applied manually)
->
-> Yes, I no longer see crashes with this applied. I haven't tried with
-> kmemleak or similar, but it seems to work.
+On Tue, Apr 17, 2012 at 10:18:57AM -0400, Josh Boyer wrote:
+> Hi Matt and Michael,
+> 
+> I'm seeing an odd issue with the tg3 driver on one of my development
+> machines.  I've tried kernels 3.2.10, 3.3.0, 3.3.1, 3.3.2 and 3.4-rc3
+> and they all seem to exhibit this issue now.  When the machine boots
+> and the tg3 driver is loaded, it fails to find a PHY and then reports
+> 'Problem fetching invariants of chip'.  If I do a rmmod/modprobe of
+> tg3 after login, the probe seems to work fine and ethernet works as
+> expected.  You can see this in the dmesg below:
+> 
+> [jwboyer@vader ~]$ dmesg | grep tg3
+> [    2.084969] tg3.c:v3.122 (December 7, 2011)
+> [    2.093511] tg3 mdio bus: probed
+> [    2.093513] tg3 0000:03:00.0: No PHY devices
+> [    2.093531] tg3 0000:03:00.0: Problem fetching invariants of chip, aborting
+> [   90.824697] tg3.c:v3.122 (December 7, 2011)
+> [   90.857068] tg3 mdio bus: probed
+> [   90.862540] tg3 0000:03:00.0: eth0: Tigon3 [partno(BCM57788) rev 57780001] (PCI Express) MAC address 18:03:73:e6:01:88
+> [   90.862547] tg3 0000:03:00.0: eth0: attached PHY driver [Broadcom BCM57780] (mii_bus:phy_addr=300:01)
+> [   90.862552] tg3 0000:03:00.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> [   90.862557] tg3 0000:03:00.0: eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> [   90.919961] tg3 0000:03:00.0: irq 47 for MSI/MSI-X
+> [   91.863311] tg3 0000:03:00.0: p3p1: Link is down
+> [   92.864348] tg3 0000:03:00.0: p3p1: Link is up at 100 Mbps, full duplex
+> [   92.864352] tg3 0000:03:00.0: p3p1: Flow control is on for TX and on for RX
+> 
+> It has worked on some of the older kernels without the need for the
+> manual rmmod/modprobe step, so it seems to be somewhat timing related.
+> I'm not sure if there is a module load ordering issue, but that doesn't
+> seem to be the case.  I can't explain why a later modprobe would work
+> just fine though.
+> 
+> Do you have any thoughts on how to go about debugging/fixing this?  I'd
+> be happy to test and provide whatever information you need.
 
-Sorry for whitespaces.
-And thanks, Simon.
+The 57788 uses the broadcom phylib module.  For some reason, it isn't
+available the first module load attempt.  A while ago, code was added to
+phylib to request modules from userspace if the particular phy support
+code wasn't already loaded.  It looks like this mechanism isn't working
+too well the first time through.
+
+Can you reproduce the problem if you run 'rmmod broadcom' and then
+reload tg3?
