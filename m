@@ -1,60 +1,44 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH 04/37] atl1c: remove VPD register
-Date: Tue, 17 Apr 2012 08:36:41 +0000
-Message-ID: <157393863283F442885425D2C454285623D576A2@nasanexd02a.na.qualcomm.com>
-References: <1334276102-15866-1-git-send-email-xiong@qca.qualcomm.com>
-	 <1334276102-15866-5-git-send-email-xiong@qca.qualcomm.com>
-	 <20120413.204551.959091962456153270.davem@davemloft.net>
-	 <157393863283F442885425D2C454285623D486D9@nasanexd02a.na.qualcomm.com>,<1334413369.7150.422.camel@deadeye>
+From: Tony Zelenoff <antonz@parallels.com>
+Subject: Re: [PATCH 0/9] atl1: add napi to Atheros L1 NIC
+Date: Tue, 17 Apr 2012 12:42:13 +0400
+Message-ID: <4F8D2CE5.1090706@parallels.com>
+References: <1334333394-38404-1-git-send-email-antonz@parallels.com> <20120415.130346.1822341707659142562.davem@davemloft.net> <20120415.132805.143754486571031578.davem@davemloft.net> <4F8BC8C3.6020102@parallels.com> <CAMXMK6v11Hd3BttPMWkb+dLppTiUFbYpPbHgCUz7butVxjYL8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334413369.7150.422.camel@deadeye>
-Content-Language: zh-CN
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"jcliburn@gmail.com" <jcliburn@gmail.com>,
+	Konstantin Khorenko <khorenko@parallels.com>
+To: Chris Snook <chris.snook@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.parallels.com ([195.214.232.42]:37429 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755347Ab2DQIla convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 04:41:30 -0400
+In-Reply-To: <CAMXMK6v11Hd3BttPMWkb+dLppTiUFbYpPbHgCUz7butVxjYL8g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T2ssIEkgd2lsbCB1cGRhdGUgaXQuIHRoYW5rcyBhIGxvdAoKLVhpb25nCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18Kt6K8/sjLOiBCZW4gSHV0Y2hpbmdzIFtiaHV0Y2hp
-bmdzQHNvbGFyZmxhcmUuY29tXQq3osvNyrG85DogMjAxMsTqNNTCMTTI1SAyMjoyMgrK1bz+yMs6
-IEh1YW5nLCBYaW9uZwpDYzogRGF2aWQgTWlsbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBs
-aW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBxY2EtbGludXgtdGVhbTsgbmljLWRldmVsCtb3
-zOI6IFJFOiBbUEFUQ0ggMDQvMzddIGF0bDFjOiByZW1vdmUgVlBEIHJlZ2lzdGVyCgpPbiBTYXQs
-IDIwMTItMDQtMTQgYXQgMDk6MTIgKzAwMDAsIEh1YW5nLCBYaW9uZyB3cm90ZToKPgo+ID4gLS0t
-LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+IEZyb206IERhdmlkIE1pbGxlciBbbWFpbHRvOmRh
-dmVtQGRhdmVtbG9mdC5uZXRdCj4gPiBTZW50OiBTYXR1cmRheSwgQXByaWwgMTQsIDIwMTIgODo0
-Ngo+ID4gVG86IEh1YW5nLCBYaW9uZwo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxp
-bnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IHFjYS1saW51eC10ZWFtOyBuaWMtCj4gPiBkZXZl
-bAo+ID4gU3ViamVjdDogUmU6IFtQQVRDSCAwNC8zN10gYXRsMWM6IHJlbW92ZSBWUEQgcmVnaXN0
-ZXIKPiA+Cj4gPiBGcm9tOiB4aW9uZyA8eGlvbmdAcWNhLnF1YWxjb21tLmNvbT4KPiA+IERhdGU6
-IEZyaSwgMTMgQXByIDIwMTIgMDg6MTQ6MjkgKzA4MDAKPiA+Cj4gPiA+IFZQRCByZWdpc3RlciBp
-cyBvbmx5IHVzZWQgZm9yIEwxKGRldmlkPVBDSV9ERVZJQ0VfSURfQVRUQU5TSUNfTDEpIHRvCj4g
-PiA+IGFjY2VzcyBleHRlcm5hbCBOVi1tZW1vcnkuCj4gPiA+IGwxYyAmIGxhdGVyIGNoaXAgZG9l
-c24ndCB1c2UgaXQgYW55IG1vcmUuCj4gPiA+Cj4gPiA+IFNpZ25lZC1vZmYtYnk6IHhpb25nIDx4
-aW9uZ0BxY2EucXVhbGNvbW0uY29tPgo+ID4gPiBUZXN0ZWQtYnk6IExpdSBEYXZpZCA8ZHdsaXVA
-cWNhLnF1YWxjb21tLmNvbT4KPiA+Cj4gPiBZb3UganVzdCBicm9rZSBldGh0b29sIHJlZ2lzdGVy
-IGR1bXBzIHdpdGggdGhpcyBjaGFuZ2UuCj4gPgo+ID4gTm93LCBhbGwgdGhlIGluaXRpYWwgcmVn
-aXN0ZXJzIGFyZSByZXBvcnRlZCBvZmZzZXQgYnkgb25lIGVudHJ5LCB5ZXQgdGhlIGxhc3QgdHdv
-IGFyZQo+ID4gc3RpbGwgcmVwb3J0ZWQgaW4gdGhlaXIgb3JpZ2luYWwgc3BvdHMuCj4gPgo+ID4g
-VGhpcyBsYXlvdXQgaXMgZXhwb3NlZCB0byB1c2Vyc3BhY2UsIGFuZCBpbnRlcnByZXRlZCBieSB0
-b29scywgYW5kIHlvdSBjYW5ub3QKPiA+IGNoYW5nZSBpdC4KPiA+Cj4gPiBJZiB0aGlzIHJlZ2lz
-dGVyIGFsd2F5cyByZXBvcnRzIHNvbWUgdmFsdWUsIHlvdSBzaG91bGQganVzdCBrZWVwIGl0IHRo
-ZXJlIGluIHRoZQo+ID4gZHVtcHMuCj4gPgo+IFRoZSBWUEQgcmVnaXN0ZXIgZG9lc24ndCByZXBv
-cnQgYW55dGhpbmcgOigsIGp1c3QgYSBkdW1teSByZWdpc3RlciBub3cuCj4gd2UgZG9uJ3QgaGF2
-ZSBhbnkgc3BlY2lhbCB0b29scyBpbiB1c2Vyc3BhY2UgdG8gZXhwbGFpbiB0aGUgZHVtcGVkIHJl
-Z2lzdGVycy4KPiBBY3R1YWxseSB0aGUgcHVycG9zZSBvZiBkdW1waW5nIHRoZXNlIHJlZ2lzdGVy
-cyB2aWEgZXRodG9vbCBpcyBqdXN0IGZvciBkZWJ1Zy4KWy4uLl0KCk9mIGNvdXJzZSwgdGhlIHdo
-b2xlIHB1cnBvc2Ugb2YgdGhlIG9wZXJhdGlvbiBpcyBmb3IgZGVidWdnaW5nLiAgQnV0IHlvdQpz
-aG91bGQgYnVtcCB0aGUgZHVtcCB2ZXJzaW9uIG51bWJlciAoY3VycmVudGx5IDApIGV2ZXJ5IHRp
-bWUgeW91IGNoYW5nZQp0aGUgb2Zmc2V0cyBvZiByZWdpc3RlcnMgaW4gdGhlIGR1bXAuCgpCZW4u
-CgotLQpCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVlciwgU29sYXJmbGFyZQpOb3Qgc3BlYWtp
-bmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MgdGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9i
-LgpUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJl
-IHRyYWRlbWFya2VkLgoK
+4/17/12 12:51 AM, Chris Snook =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB=
+:
+> On Mon, Apr 16, 2012 at 12:22 AM, Tony Zelenoff<antonz@parallels.com>=
+  wrote:
+>> Also, i'm interested in what to do with Chris Nook address in contac=
+ts list.
+>> Reason - mailer respond that this address is not valid anymore. Shou=
+ld i
+>> remove him from contacts or leave?
+>>
+>> Mailer response:
+>>
+>>   csnook@redhat.com
+>>     SMTP error from remote mail server after RCPT TO:<csnook@redhat.=
+com>:
+>>     host mx1.redhat.com [209.132.183.28]: 550 5.2.1<csnook@redhat.co=
+m>...
+>> Mailbox disabled for this recipient
+>
+> MAINTAINERS is your friend :)
+Oh, nice) May be change email address in contacts list?
