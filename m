@@ -1,58 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/ipv4:Remove two memleak reports by
- kmemeleak_not_leak
-Date: Tue, 17 Apr 2012 07:18:50 +0200
-Message-ID: <1334639930.2472.4.camel@edumazet-glaptop>
-References: <201204170941274843290@gmail.com>
+From: "=?utf-8?B?bWFqaWFucGVuZw==?=" <majianpeng@gmail.com>
+Subject: =?utf-8?B?UmU6IFJlOiBbUEFUQ0hdIG5ldC9pcHY0OlJlbW92ZSB0d28gbWVtbGVhayByZXBvcnRzIGJ5a21lbWVsZWFrX25vdF9sZWFr?=
+Date: Tue, 17 Apr 2012 13:22:18 +0800
+Message-ID: <201204171322106565839@gmail.com>
+References: <201204170941274843290@gmail.com>,
+ <1334639930.2472.4.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: majianpeng <majianpeng@gmail.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "=?utf-8?B?bmV0ZGV2?=" <netdev@vger.kernel.org>
+To: "=?utf-8?B?RXJpYyBEdW1hemV0?=" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:35006 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752265Ab2DQFSz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 01:18:55 -0400
-Received: by wibhj6 with SMTP id hj6so145144wib.1
-        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 22:18:54 -0700 (PDT)
-In-Reply-To: <201204170941274843290@gmail.com>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:39977 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752265Ab2DQFV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 01:21:27 -0400
+Received: by mail-pz0-f52.google.com with SMTP id e40so7862184dak.11
+        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 22:21:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-17 at 09:41 +0800, majianpeng wrote:
-> From 582ed93b990e88110287ed0388bcb9057b1b8591 Mon Sep 17 00:00:00 2001
-> From: majianpeng <majianpeng@gmail.com>
-> Date: Tue, 17 Apr 2012 09:36:26 +0800
-> Subject: [PATCH] net/ipv4:Remove two memleak reports by kmemeleak_not_leak.
-> 
-> 
-> Signed-off-by: majianpeng <majianpeng@gmail.com>
-> ---
->  net/ipv4/route.c |    8 ++++++--
->  1 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 167ea10..1984c82 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -3504,7 +3504,11 @@ int __init ip_rt_init(void)
->   * this nonsense will go away.
->   */
->  void __init ip_static_sysctl_init(void)
-> -{
-> -	register_sysctl_paths(ipv4_path, ipv4_skeleton);
-> +{
-> +	struct ctl_table_header *ctl_header;
-> +
-> +	ctl_header = register_sysctl_paths(ipv4_path, ipv4_skeleton);
-> +	if (ctl_header)
-> +		kmemleak_not_leak(ctl_header);
->  }
->  #endif
-
-No need for this temp var and conditional.
-
-Just :
-
-	kmemleak_not_leak(register_sysctl_paths(ipv4_path, ipv4_skeleton));
+VGhhbmtzLEkgd2lsbCBjb3JyZWN0IGl0IGFuZCByZXNlbnQgdGhlIHBhdGNoLg0KDQotLS0tLS0t
+LS0tLS0tLS0tLS0JCQkJIA0KbWFqaWFucGVuZw0KMjAxMi0wNC0xNw0KDQotLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQrlj5Hku7bk
+urrvvJpFcmljIER1bWF6ZXQNCuWPkemAgeaXpeacn++8mjIwMTItMDQtMTcgMTM6MTg6NTQNCuaU
+tuS7tuS6uu+8mm1hamlhbnBlbmcNCuaKhOmAge+8mm5ldGRldg0K5Li76aKY77yaUmU6IFtQQVRD
+SF0gbmV0L2lwdjQ6UmVtb3ZlIHR3byBtZW1sZWFrIHJlcG9ydHMgYnlrbWVtZWxlYWtfbm90X2xl
+YWsNCg0KT24gVHVlLCAyMDEyLTA0LTE3IGF0IDA5OjQxICswODAwLCBtYWppYW5wZW5nIHdyb3Rl
+Og0KPiBGcm9tIDU4MmVkOTNiOTkwZTg4MTEwMjg3ZWQwMzg4YmNiOTA1N2IxYjg1OTEgTW9uIFNl
+cCAxNyAwMDowMDowMCAyMDAxDQo+IEZyb206IG1hamlhbnBlbmcgPG1hamlhbnBlbmdAZ21haWwu
+Y29tPg0KPiBEYXRlOiBUdWUsIDE3IEFwciAyMDEyIDA5OjM2OjI2ICswODAwDQo+IFN1YmplY3Q6
+IFtQQVRDSF0gbmV0L2lwdjQ6UmVtb3ZlIHR3byBtZW1sZWFrIHJlcG9ydHMgYnkga21lbWVsZWFr
+X25vdF9sZWFrLg0KPiANCj4gDQo+IFNpZ25lZC1vZmYtYnk6IG1hamlhbnBlbmcgPG1hamlhbnBl
+bmdAZ21haWwuY29tPg0KPiAtLS0NCj4gIG5ldC9pcHY0L3JvdXRlLmMgfCAgICA4ICsrKysrKy0t
+DQo+ICAxIGZpbGVzIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkNCj4g
+DQo+IGRpZmYgLS1naXQgYS9uZXQvaXB2NC9yb3V0ZS5jIGIvbmV0L2lwdjQvcm91dGUuYw0KPiBp
+bmRleCAxNjdlYTEwLi4xOTg0YzgyIDEwMDY0NA0KPiAtLS0gYS9uZXQvaXB2NC9yb3V0ZS5jDQo+
+ICsrKyBiL25ldC9pcHY0L3JvdXRlLmMNCj4gQEAgLTM1MDQsNyArMzUwNCwxMSBAQCBpbnQgX19p
+bml0IGlwX3J0X2luaXQodm9pZCkNCj4gICAqIHRoaXMgbm9uc2Vuc2Ugd2lsbCBnbyBhd2F5Lg0K
+PiAgICovDQo+ICB2b2lkIF9faW5pdCBpcF9zdGF0aWNfc3lzY3RsX2luaXQodm9pZCkNCj4gLXsN
+Cj4gLQlyZWdpc3Rlcl9zeXNjdGxfcGF0aHMoaXB2NF9wYXRoLCBpcHY0X3NrZWxldG9uKTsNCj4g
+K3sNCj4gKwlzdHJ1Y3QgY3RsX3RhYmxlX2hlYWRlciAqY3RsX2hlYWRlcjsNCj4gKw0KPiArCWN0
+bF9oZWFkZXIgPSByZWdpc3Rlcl9zeXNjdGxfcGF0aHMoaXB2NF9wYXRoLCBpcHY0X3NrZWxldG9u
+KTsNCj4gKwlpZiAoY3RsX2hlYWRlcikNCj4gKwkJa21lbWxlYWtfbm90X2xlYWsoY3RsX2hlYWRl
+cik7DQo+ICB9DQo+ICAjZW5kaWYNCg0KTm8gbmVlZCBmb3IgdGhpcyB0ZW1wIHZhciBhbmQgY29u
+ZGl0aW9uYWwuDQoNCkp1c3QgOg0KDQoJa21lbWxlYWtfbm90X2xlYWsocmVnaXN0ZXJfc3lzY3Rs
+X3BhdGhzKGlwdjRfcGF0aCwgaXB2NF9za2VsZXRvbikpOw0KDQoNCg0K
