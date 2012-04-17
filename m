@@ -1,63 +1,83 @@
-From: Josh Boyer <jwboyer@redhat.com>
-Subject: Re: tg3 'No PHY devices' loading issue
-Date: Tue, 17 Apr 2012 17:07:00 -0400
-Message-ID: <20120417210700.GJ19507@zod.bos.redhat.com>
-References: <20120417141856.GA19507@zod.bos.redhat.com>
- <20120417185007.GA3742@mcarlson.broadcom.com>
- <20120417191042.GB3932@decadent.org.uk>
- <20120417194029.GH19507@zod.bos.redhat.com>
- <20120417205955.GC3932@decadent.org.uk>
+From: Gabor Juhos <juhosg-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 2/2] ath9k: Gather and report IRQ sync_cause errors.
+Date: Tue, 17 Apr 2012 23:07:43 +0200
+Message-ID: <4F8DDB9F.8030302@openwrt.org>
+References: <1334250240-21038-1-git-send-email-greearb@candelatech.com> <1334250240-21038-2-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120417205955.GC3932@decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1334250240-21038-2-git-send-email-greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 17, 2012 at 09:59:55PM +0100, Ben Hutchings wrote:
-> On Tue, Apr 17, 2012 at 03:40:30PM -0400, Josh Boyer wrote:
-> > On Tue, Apr 17, 2012 at 08:10:42PM +0100, Ben Hutchings wrote:
-> > > On Tue, Apr 17, 2012 at 11:50:07AM -0700, Matt Carlson wrote:
-> > > > On Tue, Apr 17, 2012 at 10:18:57AM -0400, Josh Boyer wrote:
-> > > > > Hi Matt and Michael,
-> > > > > 
-> > > > > I'm seeing an odd issue with the tg3 driver on one of my development
-> > > > > machines.  I've tried kernels 3.2.10, 3.3.0, 3.3.1, 3.3.2 and 3.4-rc3
-> > > > > and they all seem to exhibit this issue now.  When the machine boots
-> > > > > and the tg3 driver is loaded, it fails to find a PHY and then reports
-> > > > > 'Problem fetching invariants of chip'.  If I do a rmmod/modprobe of
-> > > > > tg3 after login, the probe seems to work fine and ethernet works as
-> > > > > expected.  You can see this in the dmesg below:
-> > > [...]
-> > > > The 57788 uses the broadcom phylib module.  For some reason, it isn't
-> > > > available the first module load attempt.  A while ago, code was added to
-> > > > phylib to request modules from userspace if the particular phy support
-> > > > code wasn't already loaded.  It looks like this mechanism isn't working
-> > > > too well the first time through.
-> > > [...]
-> > > 
-> > > At a guess, tg3 is in the initramfs but broadcom isn't.
-> > 
-> > Good guess.  At least on one of the initramfs' I checked.  I'll verify
-> > the others, but it seems likely they match.  As I just said in my other
-> > reply, I would have expected tg3 to have a module dep on it to get it
-> > included in the initramfs built, but it seems that isn't the case.
->  
-> tg3 doesn't use any symbols from broadcom, which is the only way
-> depmod can find dependencies.
-> 
-> In initramfs-tools (used in Debian and its derivatives) we just copy
-> all PHY drivers into the initramfs by default.  dracut should probably
-> do the same, at least when phylib is in the initramfs (or built into
-> the kernel).  (tg3 does use symbols from phylib.)
+> From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+>=20
+> Report all defined sync_cause errors in debugfs
+> to aid with debugging.
+>=20
+> Use a macro to print out the interrupts file contents
+> to decrease code duplication.
 
-Heh.  Yep, that's basically what I just concluded as well in my other
-reply.  I'll work with Harald and get that included or something similar
-to it.
+Now, that the patch is in wireless-testing, I have noticed a minor prob=
+lem with it.
 
-josh
+>=20
+> Signed-off-by: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+> ---
+
+
+<...>
+
+> diff --git a/drivers/net/wireless/ath/ath9k/hw.h b/drivers/net/wirele=
+ss/ath/ath9k/hw.h
+> index aa1680a..fba99ef 100644
+> --- a/drivers/net/wireless/ath/ath9k/hw.h
+> +++ b/drivers/net/wireless/ath/ath9k/hw.h
+> @@ -965,6 +965,12 @@ bool ath9k_hw_check_alive(struct ath_hw *ah);
+> =20
+>  bool ath9k_hw_setpower(struct ath_hw *ah, enum ath9k_power_mode mode=
+);
+> =20
+> +#ifdef CONFIG_ATH9K_DEBUGFS
+> +void ath9k_debug_sync_cause(struct ath_common *common, u32 sync_caus=
+e);
+> +#else
+> +static void ath9k_debug_sync_cause(struct ath_common *common, u32 sy=
+nc_cause) {}
+
+Due to a missing 'inline' keyword, this causes a bunch of warnings if
+CONFIG_ATH9K_DEBUGFS is not enabled:
+
+   CC [M]  drivers/net/wireless/ath/main.o
+   CC [M]  drivers/net/wireless/ath/regd.o
+   CC [M]  drivers/net/wireless/ath/hw.o
+   CC [M]  drivers/net/wireless/ath/key.o
+   LD [M]  drivers/net/wireless/ath/ath.o
+   CC [M]  drivers/net/wireless/ath/ath9k/beacon.o
+ drivers/net/wireless/ath/ath9k/hw.h:962: warning: =E2=80=98ath9k_debug=
+_sync_cause=E2=80=99
+defined but not used
+   CC [M]  drivers/net/wireless/ath/ath9k/gpio.o
+ drivers/net/wireless/ath/ath9k/hw.h:962: warning: =E2=80=98ath9k_debug=
+_sync_cause=E2=80=99
+defined but not used
+   CC [M]  drivers/net/wireless/ath/ath9k/init.o
+ drivers/net/wireless/ath/ath9k/hw.h:962: warning: =E2=80=98ath9k_debug=
+_sync_cause=E2=80=99
+defined but not used
+   CC [M]  drivers/net/wireless/ath/ath9k/main.o
+ drivers/net/wireless/ath/ath9k/hw.h:962: warning: =E2=80=98ath9k_debug=
+_sync_cause=E2=80=99
+defined but not used
+   CC [M]  drivers/net/wireless/ath/ath9k/recv.o
+
+-Gabor
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
