@@ -1,44 +1,84 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 12/12] netfilter: export necessary function for generic
- proto
-Date: Tue, 17 Apr 2012 11:01:10 +0200
-Message-ID: <20120417090110.GE2100@1984>
-References: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1334631383-12326-13-git-send-email-gaofeng@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [BUG] ixgbe: something wrong with queue selection ?
+Date: Tue, 17 Apr 2012 11:06:48 +0200
+Message-ID: <1334653608.6226.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	ebiederm@xmission.com, serge.hallyn@canonical.com,
-	dlezcano@fr.ibm.com
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1334631383-12326-13-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:55666 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755484Ab2DQJHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 05:07:03 -0400
+Received: by bkcik5 with SMTP id ik5so4333667bkc.19
+        for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 02:07:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 17, 2012 at 10:56:23AM +0800, Gao feng wrote:
-> export two functions nf_conntrack_proto_generic_net_init and
-> nf_conntrack_proto_generic_net_fini.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> ---
->  include/net/netfilter/nf_conntrack_core.h |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-> index aced085..3c3fabe 100644
-> --- a/include/net/netfilter/nf_conntrack_core.h
-> +++ b/include/net/netfilter/nf_conntrack_core.h
-> @@ -31,6 +31,9 @@ extern void nf_conntrack_cleanup(struct net *net);
->  extern int nf_conntrack_proto_init(void);
->  extern void nf_conntrack_proto_fini(void);
->  
-> +extern int nf_conntrack_proto_generic_net_init(struct net *net);
-> +extern void nf_conntrack_proto_generic_net_fini(struct net *net);
+Hi guys
 
-This does not require a separated patch only for this.
+I have bad feelings with ixgbe and its multiqueue selection.
 
-Please, review the logic that you've follow to split changes.
+On a quad core machine (Q6600), I get lots of reorderings on a single
+TCP stream.
 
-Thank you.
+
+Apparently packets happily spread on all available queues, instead of a
+single one.
+
+This defeats GRO at receiver and TCP performance is really bad.
+
+# ethtool -S eth5|egrep "x_queue_[0123]_packets" ; taskset 1 netperf -H
+192.168.99.1 ; ethtool -S eth5|egrep "x_queue_[0123]_packets"
+     tx_queue_0_packets: 24
+     tx_queue_1_packets: 26
+     tx_queue_2_packets: 32
+     tx_queue_3_packets: 16
+     rx_queue_0_packets: 11
+     rx_queue_1_packets: 47
+     rx_queue_2_packets: 27
+     rx_queue_3_packets: 22
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+192.168.99.1 (192.168.99.1) port 0 AF_INET
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 87380  16384  16384    10.00    3866.43   
+     tx_queue_0_packets: 1653201
+     tx_queue_1_packets: 608000
+     tx_queue_2_packets: 541382
+     tx_queue_3_packets: 536543
+     rx_queue_0_packets: 434703
+     rx_queue_1_packets: 137444
+     rx_queue_2_packets: 131023
+     rx_queue_3_packets: 128407
+
+# ip ro get 192.168.99.1
+192.168.99.1 dev eth5  src 192.168.99.2 
+    cache  ipid 0x438b rtt 4ms rttvar 4ms cwnd 57 reordering 127
+
+# lspci -v -s 02:00.0
+02:00.0 Ethernet controller: Intel Corporation 82599EB 10-Gigabit
+SFI/SFP+ Network Connection (rev 01)
+	Subsystem: Intel Corporation Ethernet Server Adapter X520-2
+	Flags: bus master, fast devsel, latency 0, IRQ 16
+	Memory at f1100000 (64-bit, prefetchable) [size=512K]
+	I/O ports at b000 [size=32]
+	Memory at f1200000 (64-bit, prefetchable) [size=16K]
+	Capabilities: [40] Power Management version 3
+	Capabilities: [50] MSI: Enable- Count=1/1 Maskable+ 64bit+
+	Capabilities: [70] MSI-X: Enable+ Count=64 Masked-
+	Capabilities: [a0] Express Endpoint, MSI 00
+	Capabilities: [100] Advanced Error Reporting
+	Capabilities: [140] Device Serial Number 00-1b-21-ff-ff-4a-fe-54
+	Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
+	Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
+	Kernel driver in use: ixgbe
+	Kernel modules: ixgbe
