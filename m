@@ -1,47 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.4.0-rc2: skb_put() -> skb_over_panic
-Date: Tue, 17 Apr 2012 22:53:51 +0200
-Message-ID: <1334696031.2472.50.camel@edumazet-glaptop>
-References: <1334502964.28012.1.camel@edumazet-glaptop>
-	 <CAA1sL1SJyY7fYJn7OKqo5Pa=b4-r9DW90-5WVGBf==tFjVEBpg@mail.gmail.com>
-	 <1334695506.2472.46.camel@edumazet-glaptop>
-	 <20120417.164748.432392687904063236.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 2/2] IPVS: make failure of netns init more stable
+Date: Tue, 17 Apr 2012 23:57:13 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1204172242430.1984@ja.ssi.bg>
+References: <1334576378-2034-1-git-send-email-hans.schillstrom@ericsson.com> <1334576378-2034-2-git-send-email-hans.schillstrom@ericsson.com> <alpine.LFD.2.00.1204161621080.1711@ja.ssi.bg> <201204171315.12686.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: a.beregalov@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120417.164748.432392687904063236.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "horms@verge.net.au" <horms@verge.net.au>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <201204171315.12686.hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-04-17 at 16:47 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 17 Apr 2012 22:45:06 +0200
-> 
-> > Could you check if commit a21d45726acacc963d8baddf74607d9b74e2b723
-> > (tcp: avoid order-1 allocations on wifi and tx path)
-> > was in your tree ?
-> 
-> I was about to say that I think this is the guilty commit too.
-> 
-> Good thing I held off the -stable submission of that change
-> for a bit :-)
 
-Fix should be easy I think, but yes you can hold stable submission of
-course.
+	Hello,
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 376b2cf..7ac6423 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1096,6 +1096,7 @@ static void __pskb_trim_head(struct sk_buff *skb, int len)
- 	eat = min_t(int, len, skb_headlen(skb));
- 	if (eat) {
- 		__skb_pull(skb, eat);
-+		skb->avail_size -= eat;
- 		len -= eat;
- 		if (!len)
- 			return;
+On Tue, 17 Apr 2012, Hans Schillstrom wrote:
+
+> I wonder if we are chasing ghosts...
+> 
+> With proper fault handling I can't even see a case when it (net->ipvs) can be used.
+> Can you see a case when it could happen?
+> Still we can set it to NULL on error exit and cleanup as you suggested, that doesn't harm I think.
+> 
+> A. If you add a netns and it fails the entire ns will be rolled back, 
+>    and no access to that ns can occur.
+>    That ns does not exist
+
+	Agreed
+
+> B. If you insert ip_vs.ko when having one or more name spaces and 
+>    __ip_vs_init() returns an error the module will be unloaded.
+>    All ready loaded ns will not be affected.
+
+	Yes, ip_vs_init fails.
+
+> C. insmod of ex. ip_vs_ftp only affects loaded name spaces
+>    and if the load of ip_vs_ftp fails it will be unloaded without affecting ip_vs(.ko)
+>    (If ip_vs.ko is not loaded then it has to be loaded first case B...)
+> 
+> With a "compiled in" ip_vs case B doesn't exist.
+
+	It is this case that can happen, we can only guess how
+difficult is to get ENOMEM here. IIRC, we can generate only
+ENOMEM error on IPVS core load.
+
+	I assume Simon has such setup and changes code to
+trigger load error. When I generate ENOMEM on IPVS core init
+for such case I get ENOENT from register_ip_vs_app when
+patch 1 and 2 for apps are applied, i.e. net->ipvs is NULL.
+You can check it with NF_CONNTRACK=y, IP_VS=y and
+IP_VS_FTP=m. You only need to trigger ENOMEM in __ip_vs_init.
+
+> With proper fault handling i.e. all ways returning fault codes to the netns init,
+> there is no need for checking for  "if (!net->ipvs)" or any other action.
+
+	Probably but one check on load does not hurt much.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
