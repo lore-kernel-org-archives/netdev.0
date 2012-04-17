@@ -1,53 +1,62 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 6/6] vhost_net: don't poll on -EFAULT
-Date: Tue, 17 Apr 2012 14:30:27 +0800
-Message-ID: <4F8D0E03.7030105@redhat.com>
-References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com> <20120416060833.14140.28139.stgit@intel-e5620-16-2.englab.nay.redhat.com> <20120416071646.GB25396@redhat.com> <4F8BD81A.7010507@redhat.com> <20120416133859.GB13190@redhat.com> <4F8CE305.9090100@redhat.com> <20120417045736.GA31278@redhat.com> <4F8D05AF.4000309@redhat.com> <20120417060752.GB20674@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 3/6] macvtap: zerocopy: validate vector length before
+ pinning user pages
+Date: Tue, 17 Apr 2012 09:19:19 +0300
+Message-ID: <20120417061918.GA20905@redhat.com>
+References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+ <20120416060807.14140.96229.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+ <1334559183.28012.45.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	xma@us.ibm.com, davem@davemloft.net, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22371 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9811 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754105Ab2DQGah (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Apr 2012 02:30:37 -0400
-In-Reply-To: <20120417060752.GB20674@redhat.com>
+	id S1751110Ab2DQHO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2012 03:14:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1334559183.28012.45.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/17/2012 02:07 PM, Michael S. Tsirkin wrote:
-> On Tue, Apr 17, 2012 at 01:54:55PM +0800, Jason Wang wrote:
->> On 04/17/2012 12:57 PM, Michael S. Tsirkin wrote:
->>> On Tue, Apr 17, 2012 at 11:27:01AM +0800, Jason Wang wrote:
->>>> On 04/16/2012 09:39 PM, Michael S. Tsirkin wrote:
->>>>> On Mon, Apr 16, 2012 at 04:28:10PM +0800, Jason Wang wrote:
->>>>>>>   On 04/16/2012 03:16 PM, Michael S. Tsirkin wrote:
->>>>>>>>   >On Mon, Apr 16, 2012 at 02:08:33PM +0800, Jason Wang wrote:
->>>>>>>>>   >>Currently, we restart tx polling unconditionally when sendmsg()
->>>>>>>>>   >>fails. This would cause unnecessary wakeups of vhost wokers as it's
->>>>>>>>>   >>only needed when the socket send buffer were exceeded.
->>>>>>>>   >Why is this a problem?
->>>>>>>   >    This issue is when guest driver is able to hit the
->>>>>> -EFAULT, vhost
->>>>>>>   discard the the descriptor and restart the polling. This would wake
->>>>>>>   vhost thread and repeat the loop again which waste cpu.
->>>>> Does same thing happen if we get an error from copy from user?
->>>>>
->>>> Right, so do you think it makes sense that we only restart polling
->>>> on -EAGAIN or -ENOBUFS?
->>> Sounds OK. BTW how do you test this?
->>>
->> Not very hard, w/o this patch, we can see almost 100% cpu
->> utilization for vhost thread if guest hit EFAULT or EINVAL. With
->> this patch, the cpu utilization should be very low I think.
-> Yes but do you have a test that makes guest hit EFAULT or EINVAL?
+On Mon, Apr 16, 2012 at 08:53:03AM +0200, Eric Dumazet wrote:
+> On Mon, 2012-04-16 at 14:08 +0800, Jason Wang wrote:
+> > Currently we do not validate the vector length before calling
+> > get_user_pages_fast(), host stack would be easily overflowed by
+> > malicious guest driver who give us a descriptor with length greater
+> > than MAX_SKB_FRAGS. Solve this problem by checking the free entries
+> > before trying to pin user pages.
+> > 
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > ---
+> >  drivers/net/macvtap.c |    2 ++
+> >  1 files changed, 2 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> > index 7cb2684..d197a78 100644
+> > --- a/drivers/net/macvtap.c
+> > +++ b/drivers/net/macvtap.c
+> > @@ -529,6 +529,8 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+> >  		}
+> >  		base = (unsigned long)from->iov_base + offset;
+> >  		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+> > +		if (i + size >= MAX_SKB_FRAGS)
+> > +			return -EFAULT;
+> >  		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+> >  		if ((num_pages != size) ||
+> >  		    (num_pages > MAX_SKB_FRAGS - skb_shinfo(skb)->nr_frags))
+> > 
+> 
+> Hi Jason
+> 
+> Why is -EFAULT the right error code ?
 
-Looks like we can do this by supplying an invalid hdr_len in vnet header 
-as tap does the check for this.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+skb_copy_datagram_from_iovec return -EFAULT on iovs
+that are too large, too, so this is at least consistent.
+
+-- 
+MST
