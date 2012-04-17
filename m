@@ -1,105 +1,68 @@
-From: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
-Date: Tue, 17 Apr 2012 22:44:15 +1200
-Message-ID: <4F8D497F.8060601@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 6/6] vhost_net: don't poll on -EFAULT
+Date: Tue, 17 Apr 2012 18:46:25 +0800
+Message-ID: <4F8D4A01.9040901@redhat.com>
+References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com> <20120416060833.14140.28139.stgit@intel-e5620-16-2.englab.nay.redhat.com> <20120416071646.GB25396@redhat.com> <4F8BD81A.7010507@redhat.com> <20120416133859.GB13190@redhat.com> <4F8CE305.9090100@redhat.com> <20120417045736.GA31278@redhat.com> <4F8D05AF.4000309@redhat.com> <20120417060752.GB20674@redhat.com> <4F8D0E03.7030105@redhat.com> <20120417101820.GB20905@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tetsuo Handa <penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jan Engelhardt <jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org>, Willy Tarreau <w@1wt.eu>,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120417101820.GB20905@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tetsuo Handa sent me a patch to document the kernel's odd 
-behavior when asked to create a UNIX domain socket address where the 
-pathname completely fills the sun_path field without including a null 
-terminator [1]. 
+On 04/17/2012 06:18 PM, Michael S. Tsirkin wrote:
+> On Tue, Apr 17, 2012 at 02:30:27PM +0800, Jason Wang wrote:
+>> >  On 04/17/2012 02:07 PM, Michael S. Tsirkin wrote:
+>>> >  >On Tue, Apr 17, 2012 at 01:54:55PM +0800, Jason Wang wrote:
+>>>> >  >>On 04/17/2012 12:57 PM, Michael S. Tsirkin wrote:
+>>>>> >  >>>On Tue, Apr 17, 2012 at 11:27:01AM +0800, Jason Wang wrote:
+>>>>>> >  >>>>On 04/16/2012 09:39 PM, Michael S. Tsirkin wrote:
+>>>>>>> >  >>>>>On Mon, Apr 16, 2012 at 04:28:10PM +0800, Jason Wang wrote:
+>>>>>>>>> >  >>>>>>>    On 04/16/2012 03:16 PM, Michael S. Tsirkin wrote:
+>>>>>>>>>> >  >>>>>>>>    >On Mon, Apr 16, 2012 at 02:08:33PM +0800, Jason Wang wrote:
+>>>>>>>>>>> >  >>>>>>>>>    >>Currently, we restart tx polling unconditionally when sendmsg()
+>>>>>>>>>>> >  >>>>>>>>>    >>fails. This would cause unnecessary wakeups of vhost wokers as it's
+>>>>>>>>>>> >  >>>>>>>>>    >>only needed when the socket send buffer were exceeded.
+>>>>>>>>>> >  >>>>>>>>    >Why is this a problem?
+>>>>>>>>> >  >>>>>>>    >     This issue is when guest driver is able to hit the
+>>>>>>>> >  >>>>>>-EFAULT, vhost
+>>>>>>>>> >  >>>>>>>    discard the the descriptor and restart the polling. This would wake
+>>>>>>>>> >  >>>>>>>    vhost thread and repeat the loop again which waste cpu.
+>>>>>>> >  >>>>>Does same thing happen if we get an error from copy from user?
+>>>>>>> >  >>>>>
+>>>>>> >  >>>>Right, so do you think it makes sense that we only restart polling
+>>>>>> >  >>>>on -EAGAIN or -ENOBUFS?
+>>>>> >  >>>Sounds OK. BTW how do you test this?
+>>>>> >  >>>
+>>>> >  >>Not very hard, w/o this patch, we can see almost 100% cpu
+>>>> >  >>utilization for vhost thread if guest hit EFAULT or EINVAL. With
+>>>> >  >>this patch, the cpu utilization should be very low I think.
+>>> >  >Yes but do you have a test that makes guest hit EFAULT or EINVAL?
+>> >  
+>> >  Looks like we can do this by supplying an invalid hdr_len in vnet
+>> >  header as tap does the check for this.
+> Ah so you patched qemu to do this? Cool. Can you post the patch for testing pls?
+>
+No, I mean patch the guest driver like this:
 
-One of the consequences of the current kernel behavior is that 
-when a socket address is returned to userspace (via getsockname(), 
-getpeername(), accept(), recvfrom()), applications can't reliably 
-do things such as:
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 019da01..6e2f487 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -582,7 +582,7 @@ static int xmit_skb(struct virtnet_info *vi, struct 
+sk_buff *skb)
+         }
 
-printf("%s\n", addr.sun_path);
+         if (skb_is_gso(skb)) {
+-               hdr->hdr.hdr_len = skb_headlen(skb);
++               hdr->hdr.hdr_len = 65535;
+                 hdr->hdr.gso_size = skb_shinfo(skb)->gso_size;
+                 if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+                         hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
 
-Instead one must either write:
-
-printf("%.*s\n", sizeof(addr.sun_path), addr.sun_path);
-
-or, when retrieving a socket address structure, employ a buffer whose
-size is:
-
-sizeof(struct sockaddr_un) + 1
-
-(This ensures that there is enough space to hold the null terminator
-for the case where a socket was bound to a sun_path with non-NUL characters
-in all 108 bytes. But it entails some casting.)
-
-Tetsuo initially considered there might be a kernel bug here, 
-but an attempt to change the kernel behavior met resistance [2].
-
-The patch at the end of this message is a slightly different 
-fix for the same problem. There are a few reasons why I think 
-it (or some variation) should be considered:
-
-1. Changing the kernel behavior prevents userspace having 
-   to go through the sort of contortions described above
-   in order to handle the 108-non-NUL-bytes-in-sun_path case.
-2. POSIX says that sun_path is a pathname. By (POSIX) definition, 
-   a pathname is null terminated.
-3. Considering these two sets:
-
-   (a) [applications that rely on the assumption that there
-        is a null terminator inside sizeof(sun_path) bytes]
-   (b) [applications that would break if the kernel behavior changed]
-
-   I suspect that set (a) is rather larger than set (b)--or, more 
-   likely still, applications ensure they go for the lowest common
-   denominator limit of 92 (HP-UX) or 104 (historical BSD limit)
-   bytes, and so avoid this issue completely.
-
-The accompanying patch changes unix_mkname() to ensure that a terminating 
-null byte is always located within the first 108 bytes of sun_path. 
-It does change the ABI for the former case where a pathname ran to 108
-bytes without a null terminator: for that case, the call now fails with
-the error -EINVAL. What are people's thoughts on applying this?
-
-[1] http://thread.gmane.org/gmane.linux.network/174473/focus=1861
-[2] http://thread.gmane.org/gmane.linux.kernel/291038
-
-Signed-off-by: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
----
-
---- net/unix/af_unix.c.orig	2012-04-17 09:50:07.383459311 +1200
-+++ net/unix/af_unix.c	2012-04-17 19:49:56.077852639 +1200
-@@ -207,14 +207,16 @@ static int unix_mkname(struct sockaddr_u
- 	if (!sunaddr || sunaddr->sun_family != AF_UNIX)
- 		return -EINVAL;
- 	if (sunaddr->sun_path[0]) {
--		/*
--		 * This may look like an off by one error but it is a bit more
--		 * subtle. 108 is the longest valid AF_UNIX path for a binding.
--		 * sun_path[108] doesn't as such exist.  However in kernel space
--		 * we are guaranteed that it is a valid memory location in our
--		 * kernel address buffer.
--		 */
--		((char *)sunaddr)[len] = 0;
-+		if (len == sizeof(*sunaddr)) {
-+			/*
-+			 * If 'sun_path' is completely filled, the user
-+			 * must include a terminator
-+			 */
-+			if (!memchr(sunaddr->sun_path, '\0',
-+					sizeof(sunaddr->sun_path)))
-+				return -EINVAL;
-+		} else
-+			((char *)sunaddr)[len] = 0;
- 		len = strlen(sunaddr->sun_path)+1+sizeof(short);
- 		return len;
- 	}
+btw, If we still choose to drop the packet, we can hit -EFAULT by send a 
+descriptor with a large number of pages.
