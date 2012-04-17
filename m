@@ -1,122 +1,67 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 05/11] batman-adv: handle routing code initialization properly
-Date: Tue, 17 Apr 2012 13:58:21 +0200
-Message-ID: <1334663907-22725-6-git-send-email-ordex@autistici.org>
+Subject: [PATCH 10/11] batman-adv: print OGM seq numbers as unsigned long
+Date: Tue, 17 Apr 2012 13:58:26 +0200
+Message-ID: <1334663907-22725-11-git-send-email-ordex@autistici.org>
 References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:22253 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:22107 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755822Ab2DQL5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:40 -0400
+	with ESMTP id S1756033Ab2DQL5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 07:57:44 -0400
 In-Reply-To: <1334663907-22725-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek@yahoo.de>
+OGM sequence numbers are declared as uint32_t and so they have to printed
+using %u instead of %d in order to avoid wrong representations.
 
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c     |   11 ++++++++++-
- net/batman-adv/hard-interface.c |   15 ++++++---------
- net/batman-adv/types.h          |    2 +-
- 3 files changed, 17 insertions(+), 11 deletions(-)
+ net/batman-adv/bat_iv_ogm.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index b8cb031..f31f2e7 100644
+index 5bb35df..f36b54c 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -30,10 +30,11 @@
- #include "send.h"
- #include "bat_algo.h"
+@@ -152,7 +152,7 @@ static void bat_iv_ogm_send_to_if(struct forw_packet *forw_packet,
+ 							    "Sending own" :
+ 							    "Forwarding"));
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+-			"%s %spacket (originator %pM, seqno %d, TQ %d, TTL %d, IDF %s, ttvn %d) on interface %s [%pM]\n",
++			"%s %spacket (originator %pM, seqno %u, TQ %d, TTL %d, IDF %s, ttvn %d) on interface %s [%pM]\n",
+ 			fwd_str, (packet_num > 0 ? "aggregated " : ""),
+ 			batman_ogm_packet->orig,
+ 			ntohl(batman_ogm_packet->seqno),
+@@ -211,7 +211,7 @@ static void bat_iv_ogm_emit(struct forw_packet *forw_packet)
  
--static void bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
-+static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
- {
- 	struct batman_ogm_packet *batman_ogm_packet;
- 	unsigned long random_seqno;
-+	int res = -1;
+ 		/* FIXME: what about aggregated packets ? */
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+-			"%s packet (originator %pM, seqno %d, TTL %d) on interface %s [%pM]\n",
++			"%s packet (originator %pM, seqno %u, TTL %d) on interface %s [%pM]\n",
+ 			(forw_packet->own ? "Sending own" : "Forwarding"),
+ 			batman_ogm_packet->orig,
+ 			ntohl(batman_ogm_packet->seqno),
+@@ -892,7 +892,7 @@ static int bat_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
  
- 	/* randomize initial seqno to avoid collision */
- 	get_random_bytes(&random_seqno, sizeof(unsigned long));
-@@ -42,6 +43,9 @@ static void bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
- 	hard_iface->packet_len = BATMAN_OGM_LEN;
- 	hard_iface->packet_buff = kmalloc(hard_iface->packet_len, GFP_ATOMIC);
- 
-+	if (!hard_iface->packet_buff)
-+		goto out;
-+
- 	batman_ogm_packet = (struct batman_ogm_packet *)hard_iface->packet_buff;
- 	batman_ogm_packet->header.packet_type = BAT_OGM;
- 	batman_ogm_packet->header.version = COMPAT_VERSION;
-@@ -50,6 +54,11 @@ static void bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
- 	batman_ogm_packet->tq = TQ_MAX_VALUE;
- 	batman_ogm_packet->tt_num_changes = 0;
- 	batman_ogm_packet->ttvn = 0;
-+
-+	res = 0;
-+
-+out:
-+	return res;
- }
- 
- static void bat_iv_ogm_iface_disable(struct hard_iface *hard_iface)
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index fd9715e..3b391fd 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -304,22 +304,17 @@ int hardif_enable_interface(struct hard_iface *hard_iface,
- 	if (!softif_is_valid(soft_iface)) {
- 		pr_err("Can't create batman mesh interface %s: already exists as regular interface\n",
- 		       soft_iface->name);
--		dev_put(soft_iface);
- 		ret = -EINVAL;
--		goto err;
-+		goto err_dev;
+ 	if (need_update) {
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+-			"updating last_seqno: old %d, new %d\n",
++			"updating last_seqno: old %u, new %u\n",
+ 			orig_node->last_real_seqno, batman_ogm_packet->seqno);
+ 		orig_node->last_real_seqno = batman_ogm_packet->seqno;
  	}
+@@ -945,7 +945,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
+ 					   batman_ogm_packet->orig) ? 1 : 0);
  
- 	hard_iface->soft_iface = soft_iface;
- 	bat_priv = netdev_priv(hard_iface->soft_iface);
- 
--	bat_priv->bat_algo_ops->bat_iface_enable(hard_iface);
--
--	if (!hard_iface->packet_buff) {
--		bat_err(hard_iface->soft_iface,
--			"Can't add interface packet (%s): out of memory\n",
--			hard_iface->net_dev->name);
-+	ret = bat_priv->bat_algo_ops->bat_iface_enable(hard_iface);
-+	if (ret < 0) {
- 		ret = -ENOMEM;
--		goto err;
-+		goto err_dev;
- 	}
- 
- 	hard_iface->if_num = bat_priv->num_ifaces;
-@@ -363,6 +358,8 @@ int hardif_enable_interface(struct hard_iface *hard_iface,
- out:
- 	return 0;
- 
-+err_dev:
-+	dev_put(soft_iface);
- err:
- 	hardif_free_ref(hard_iface);
- 	return ret;
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index b034cf2..dd78023 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -378,7 +378,7 @@ struct bat_algo_ops {
- 	struct hlist_node list;
- 	char *name;
- 	/* init routing info when hard-interface is enabled */
--	void (*bat_iface_enable)(struct hard_iface *hard_iface);
-+	int (*bat_iface_enable)(struct hard_iface *hard_iface);
- 	/* de-init routing info when hard-interface is disabled */
- 	void (*bat_iface_disable)(struct hard_iface *hard_iface);
- 	/* init primary OGM when primary interface is selected */
+ 	bat_dbg(DBG_BATMAN, bat_priv,
+-		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %d, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
++		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
+ 		ethhdr->h_source, if_incoming->net_dev->name,
+ 		if_incoming->net_dev->dev_addr, batman_ogm_packet->orig,
+ 		batman_ogm_packet->prev_sender, batman_ogm_packet->seqno,
 -- 
 1.7.9.4
