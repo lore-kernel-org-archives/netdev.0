@@ -1,48 +1,50 @@
-From: "=?utf-8?B?bWFqaWFucGVuZw==?=" <majianpeng@gmail.com>
-Subject: =?utf-8?B?UmU6IFJlOiBbUEFUQ0hdIG5ldC9pcHY0OlJlbW92ZSB0d28gbWVtbGVhayByZXBvcnRzIGJ5a21lbWVsZWFrX25vdF9sZWFr?=
-Date: Tue, 17 Apr 2012 13:22:18 +0800
-Message-ID: <201204171322106565839@gmail.com>
-References: <201204170941274843290@gmail.com>,
- <1334639930.2472.4.camel@edumazet-glaptop>
+From: "majianpeng" <majianpeng@gmail.com>
+Subject: [PATCH] net/ipv4:Remove two memleak reports by kmemeleak_not_leak.
+Date: Tue, 17 Apr 2012 13:33:31 +0800
+Message-ID: <201204171333149372727@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "=?utf-8?B?bmV0ZGV2?=" <netdev@vger.kernel.org>
-To: "=?utf-8?B?RXJpYyBEdW1hemV0?=" <eric.dumazet@gmail.com>
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev" <netdev@vger.kernel.org>
+To: "eric.dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f52.google.com ([209.85.210.52]:39977 "EHLO
-	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752265Ab2DQFV1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 01:21:27 -0400
-Received: by mail-pz0-f52.google.com with SMTP id e40so7862184dak.11
-        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 22:21:27 -0700 (PDT)
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:32768 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751932Ab2DQFci (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 01:32:38 -0400
+Received: by pbcun15 with SMTP id un15so7212210pbc.19
+        for <netdev@vger.kernel.org>; Mon, 16 Apr 2012 22:32:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzLEkgd2lsbCBjb3JyZWN0IGl0IGFuZCByZXNlbnQgdGhlIHBhdGNoLg0KDQotLS0tLS0t
-LS0tLS0tLS0tLS0JCQkJIA0KbWFqaWFucGVuZw0KMjAxMi0wNC0xNw0KDQotLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQrlj5Hku7bk
-urrvvJpFcmljIER1bWF6ZXQNCuWPkemAgeaXpeacn++8mjIwMTItMDQtMTcgMTM6MTg6NTQNCuaU
-tuS7tuS6uu+8mm1hamlhbnBlbmcNCuaKhOmAge+8mm5ldGRldg0K5Li76aKY77yaUmU6IFtQQVRD
-SF0gbmV0L2lwdjQ6UmVtb3ZlIHR3byBtZW1sZWFrIHJlcG9ydHMgYnlrbWVtZWxlYWtfbm90X2xl
-YWsNCg0KT24gVHVlLCAyMDEyLTA0LTE3IGF0IDA5OjQxICswODAwLCBtYWppYW5wZW5nIHdyb3Rl
-Og0KPiBGcm9tIDU4MmVkOTNiOTkwZTg4MTEwMjg3ZWQwMzg4YmNiOTA1N2IxYjg1OTEgTW9uIFNl
-cCAxNyAwMDowMDowMCAyMDAxDQo+IEZyb206IG1hamlhbnBlbmcgPG1hamlhbnBlbmdAZ21haWwu
-Y29tPg0KPiBEYXRlOiBUdWUsIDE3IEFwciAyMDEyIDA5OjM2OjI2ICswODAwDQo+IFN1YmplY3Q6
-IFtQQVRDSF0gbmV0L2lwdjQ6UmVtb3ZlIHR3byBtZW1sZWFrIHJlcG9ydHMgYnkga21lbWVsZWFr
-X25vdF9sZWFrLg0KPiANCj4gDQo+IFNpZ25lZC1vZmYtYnk6IG1hamlhbnBlbmcgPG1hamlhbnBl
-bmdAZ21haWwuY29tPg0KPiAtLS0NCj4gIG5ldC9pcHY0L3JvdXRlLmMgfCAgICA4ICsrKysrKy0t
-DQo+ICAxIGZpbGVzIGNoYW5nZWQsIDYgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkNCj4g
-DQo+IGRpZmYgLS1naXQgYS9uZXQvaXB2NC9yb3V0ZS5jIGIvbmV0L2lwdjQvcm91dGUuYw0KPiBp
-bmRleCAxNjdlYTEwLi4xOTg0YzgyIDEwMDY0NA0KPiAtLS0gYS9uZXQvaXB2NC9yb3V0ZS5jDQo+
-ICsrKyBiL25ldC9pcHY0L3JvdXRlLmMNCj4gQEAgLTM1MDQsNyArMzUwNCwxMSBAQCBpbnQgX19p
-bml0IGlwX3J0X2luaXQodm9pZCkNCj4gICAqIHRoaXMgbm9uc2Vuc2Ugd2lsbCBnbyBhd2F5Lg0K
-PiAgICovDQo+ICB2b2lkIF9faW5pdCBpcF9zdGF0aWNfc3lzY3RsX2luaXQodm9pZCkNCj4gLXsN
-Cj4gLQlyZWdpc3Rlcl9zeXNjdGxfcGF0aHMoaXB2NF9wYXRoLCBpcHY0X3NrZWxldG9uKTsNCj4g
-K3sNCj4gKwlzdHJ1Y3QgY3RsX3RhYmxlX2hlYWRlciAqY3RsX2hlYWRlcjsNCj4gKw0KPiArCWN0
-bF9oZWFkZXIgPSByZWdpc3Rlcl9zeXNjdGxfcGF0aHMoaXB2NF9wYXRoLCBpcHY0X3NrZWxldG9u
-KTsNCj4gKwlpZiAoY3RsX2hlYWRlcikNCj4gKwkJa21lbWxlYWtfbm90X2xlYWsoY3RsX2hlYWRl
-cik7DQo+ICB9DQo+ICAjZW5kaWYNCg0KTm8gbmVlZCBmb3IgdGhpcyB0ZW1wIHZhciBhbmQgY29u
-ZGl0aW9uYWwuDQoNCkp1c3QgOg0KDQoJa21lbWxlYWtfbm90X2xlYWsocmVnaXN0ZXJfc3lzY3Rs
-X3BhdGhzKGlwdjRfcGF0aCwgaXB2NF9za2VsZXRvbikpOw0KDQoNCg0K
+>From fe9ae7e12cc7bdc56705eb504facb71aa86dfe65 Mon Sep 17 00:00:00 2001
+From: majianpeng <majianpeng@gmail.com>
+Date: Tue, 17 Apr 2012 13:29:55 +0800
+Subject: [PATCH] net/ipv4:Remove two memleak reports by kmemeleak_not_leak.
+
+
+Signed-off-by: majianpeng <majianpeng@gmail.com>
+---
+ net/ipv4/route.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 167ea10..dd15648 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -3505,6 +3505,6 @@ int __init ip_rt_init(void)
+  */
+ void __init ip_static_sysctl_init(void)
+ {
+-	register_sysctl_paths(ipv4_path, ipv4_skeleton);
++	kmemleak_not_leak(register_sysctl_paths(ipv4_path, ipv4_skeleton));
+ }
+ #endif
+-- 
+1.7.5.4
+
+ 				
+--------------
+majianpeng
+2012-04-17
