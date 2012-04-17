@@ -1,69 +1,99 @@
-From: "Christian Benvenuti (benve)" <benve@cisco.com>
-Subject: Route flush on linkdown: physical vs virtual/stacked interfaces
-Date: Tue, 17 Apr 2012 12:33:46 -0500
-Message-ID: <184D23435BECB444AB6B9D4630C8EC8303C541C9@XMB-RCD-303.cisco.com>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
+Date: Tue, 17 Apr 2012 11:35:28 -0700
+Message-ID: <20120417183528.GA32726@hostway.ca>
+References: <20120404220525.GD21505@hostway.ca>
+ <1333593664.18626.577.camel@edumazet-glaptop>
+ <20120417020852.GA18875@hostway.ca>
+ <4F8D5FAD.10304@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcdn-iport-8.cisco.com ([173.37.86.79]:45823 "EHLO
-	rcdn-iport-8.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752656Ab2DQRnT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 13:43:19 -0400
-Received: from xbh-rcd-102.cisco.com (xbh-rcd-102.cisco.com [72.163.62.139])
-	by rcdn-core-5.cisco.com (8.14.3/8.14.3) with ESMTP id q3HHXlGO031527
-	for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 17:33:47 GMT
-Content-class: urn:content-classes:message
+Received: from peace.netnation.com ([204.174.223.2]:53461 "EHLO
+	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751674Ab2DQSfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 14:35:30 -0400
+Content-Disposition: inline
+In-Reply-To: <4F8D5FAD.10304@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we assign an IP address to an interface, the kernel
-configures a number of routes:
-- /32 for the configured IP address
-- /32 for the broadcast/s (two of them)
-- /netmask for the network
-The /32 generated routes go to the LOCAL table, and
-the /netmask route goes to the MAIN table.
-OK.
+On Tue, Apr 17, 2012 at 04:18:53PM +0400, Stanislav Kinsbursky wrote:
 
-When you ifconfig down an interface, the kernel removes
-the /netmask route from the MAIN table but keeps the /32
-routes in the LOCAL table.
-The same happens when there is a link down event on the same
-interface.
-And this is fine.
+> 17.04.2012 06:08, Simon Kirby ??????????:
+> >On Thu, Apr 05, 2012 at 04:41:04AM +0200, Eric Dumazet wrote:
+> >
+> >>Hmm, is it happening if you remove the nvidia module ?
+> >>
+> >>If yes, please try to add slub_debug=FZPU
+> >
+> >Finally got annoyed enough at this to bisect it. It doesn't happen every
+> >time and I got a bit confused, but I finally tracked it down to:
+> >
+> >1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d is the first bad commit
+> >commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
+> >Author: Stanislav Kinsbursky<skinsbursky@parallels.com>
+> >Date:   Mon Mar 12 02:59:41 2012 +0000
+> >
+> >     tun: don't hold network namespace by tun sockets
+> >
+> >     v3: added previously removed sock_put() to the tun_release() callback, because
+> >     sk_release_kernel() doesn't drop the socket reference.
+> >
+> >     v2: sk_release_kernel() used for socket release. Dummy tun_release() is
+> >     required for sk_release_kernel() --->  sock_release() --->  sock->ops->release()
+> >     call.
+> >
+> >     TUN was designed to destroy it's socket on network namesapce shutdown. But this
+> >     will never happen for persistent device, because it's socket holds network
+> >     namespace.
+> >     This patch removes of holding network namespace by TUN socket and replaces it
+> >     by creating socket in init_net and then changing it's net it to desired one. On
+> >     shutdown socket is moved back to init_net prior to final put.
+> >
+> >     Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+> >     Signed-off-by: David S. Miller<davem@davemloft.net>
+> >
+> >...With this reverted on top of 3.4-rc3, I no longer see crashes when I
+> >keep making and breaking the SSH tunnel while running "vmstat 1" in an
+> >SSH session over a socket that is running through that tunnel.
+> >
+> >Simon-
+> 
+> Hi, Simon.
+> Could you please try to apply the patch below on top of your the
+> tree (with 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d applied) and
+> check does it fix the problem:
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index bb8c72c..1fc4622 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1540,13 +1540,10 @@ static int tun_chr_close(struct inode
+> *inode, struct file *file)
+>  			if (dev->reg_state == NETREG_REGISTERED)
+>  				unregister_netdevice(dev);
+>  			rtnl_unlock();
+> -		}
+> +		} else
+> +			sock_put(tun->socket.sk);
+>  	}
+> 
+> -	tun = tfile->tun;
+> -	if (tun)
+> -		sock_put(tun->socket.sk);
+> -
+>  	put_net(tfile->net);
+>  	kfree(tfile);
 
-However, software/stacked devices (like vlan and bridges) behave
-differently with regards to linkdown events:
+(Whitespace-damaged patch, applied manually)
 
-- let's assume we assigned an IP address to a vlan interface
-  # vconfig add eth0 100
-  # ifconfig eth0.100 10.0.1.1 netmask 255.255.255.0
+Yes, I no longer see crashes with this applied. I haven't tried with
+kmemleak or similar, but it seems to work.
 
-- when you ifconfig down the (physical) interface sitting
-  below the vlan interface (eth0 in the above example), the
-  kernel removes all the routes previously generated by
-  the above vlan interface IP address configuration (ie, both
-  the /32 routes and the /netmask route).
+Thanks,
 
-- However, when there is a linkdown event for the lower
-  interface (again eth0 in the above example), the kernel
-  does not remove any of the routes associated with the vlan
-  interface. 
-
-The same happens for example with a bridge if I enslave only
-one NIC and I ifconfig down the latter.
-
-The result is that the /netmask route derived from the vlan
-interface ip config remains in the routing table and becomes
-a black hole.
-Applications will (hopelessly) use it instead of, for
-example, receiving a "network is unreachable" kind of error
-message or using an alternate route.
-
-Since latest net-next still behaves this way, is this behavior
-wanted or is this a bug?
-
-/Chris
+Simon-
