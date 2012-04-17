@@ -1,33 +1,57 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next v3 5/5] r8169: support RTL8411
-Date: Tue, 17 Apr 2012 13:05:19 +0200
-Message-ID: <20120417110519.GA31624@electric-eye.fr.zoreil.com>
-References: <1333089184-1773-5-git-send-email-hayeswang@realtek.com> <1333090086-1815-1-git-send-email-hayeswang@realtek.com> <20120330072521.GA11548@electric-eye.fr.zoreil.com> <52E71C7B42A44FB1A8556BB6B75CD9A0@realtek.com.tw> <20120405083743.GB32027@electric-eye.fr.zoreil.com> <20120409180229.GA28837@electric-eye.fr.zoreil.com> <E2A7860223AF4B52AFE7946163746F02@realtek.com.tw>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [PATCH 2/2] IPVS: make failure of netns init more stable
+Date: Tue, 17 Apr 2012 13:15:10 +0200
+Message-ID: <201204171315.12686.hans.schillstrom@ericsson.com>
+References: <1334576378-2034-1-git-send-email-hans.schillstrom@ericsson.com> <1334576378-2034-2-git-send-email-hans.schillstrom@ericsson.com> <alpine.LFD.2.00.1204161621080.1711@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: hayeswang <hayeswang@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:37886 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752071Ab2DQLJt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Apr 2012 07:09:49 -0400
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "horms@verge.net.au" <horms@verge.net.au>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1204161621080.1711@ja.ssi.bg>
 Content-Disposition: inline
-In-Reply-To: <E2A7860223AF4B52AFE7946163746F02@realtek.com.tw>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hayeswang <hayeswang@realtek.com> :
-[...]
-> The 8111C and the later chips have to set Config2 (0x53) bit 5 to enable PME
-> status for WOL.
+Hello Julian
+On Monday 16 April 2012 16:25:23 Julian Anastasov wrote:
+> 
+> 	Hello,
+[snip]
+> 
+> 	Note that net_generic() and net->ipvs can not be
+> used after ops_exit/ops_free and failed ops_init.
+> 
 
-Thanks, 8402 and 8411 work way better now.
+I wonder if we are chasing ghosts...
 
-> Besides, the config1 (0x52) bit 0 is the read-only. Maybe you could skip
-> setting it.
+With proper fault handling I can't even see a case when it (net->ipvs) can be used.
+Can you see a case when it could happen?
+Still we can set it to NULL on error exit and cleanup as you suggested, that doesn't harm I think.
 
-I have done it as well.
+A. If you add a netns and it fails the entire ns will be rolled back, 
+   and no access to that ns can occur.
+   That ns does not exist
+
+B. If you insert ip_vs.ko when having one or more name spaces and 
+   __ip_vs_init() returns an error the module will be unloaded.
+   All ready loaded ns will not be affected.
+
+C. insmod of ex. ip_vs_ftp only affects loaded name spaces
+   and if the load of ip_vs_ftp fails it will be unloaded without affecting ip_vs(.ko)
+   (If ip_vs.ko is not loaded then it has to be loaded first case B...)
+
+With a "compiled in" ip_vs case B doesn't exist.
+
+With proper fault handling i.e. all ways returning fault codes to the netns init,
+there is no need for checking for  "if (!net->ipvs)" or any other action.
 
 -- 
-Ueimor
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
