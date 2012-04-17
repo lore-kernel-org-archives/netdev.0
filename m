@@ -1,89 +1,43 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] net: qmi_wwan: support Sierra Wireless MC77xx devices in QMI mode
-Date: Tue, 17 Apr 2012 21:38:23 +0200
-Message-ID: <1334691503-31787-1-git-send-email-bjorn@mork.no>
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: Re: tg3 'No PHY devices' loading issue
+Date: Tue, 17 Apr 2012 15:39:09 -0400
+Message-ID: <20120417193908.GG19507@zod.bos.redhat.com>
+References: <20120417141856.GA19507@zod.bos.redhat.com>
+ <20120417185007.GA3742@mcarlson.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:39389 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750763Ab2DQTia (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Apr 2012 15:38:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Matt Carlson <mcarlson@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120417185007.GA3742@mcarlson.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The MC77xx devices can operate in two modes: "Direct IP" or "QMI",
-switchable using a password protected AT command.  Both product ID
-and USB interface configuration will change when switched.
+On Tue, Apr 17, 2012 at 11:50:07AM -0700, Matt Carlson wrote:
+> On Tue, Apr 17, 2012 at 10:18:57AM -0400, Josh Boyer wrote:
+> > It has worked on some of the older kernels without the need for the
+> > manual rmmod/modprobe step, so it seems to be somewhat timing related.
+> > I'm not sure if there is a module load ordering issue, but that doesn't
+> > seem to be the case.  I can't explain why a later modprobe would work
+> > just fine though.
+> > 
+> > Do you have any thoughts on how to go about debugging/fixing this?  I'd
+> > be happy to test and provide whatever information you need.
+> 
+> The 57788 uses the broadcom phylib module.  For some reason, it isn't
+> available the first module load attempt.  A while ago, code was added to
+> phylib to request modules from userspace if the particular phy support
+> code wasn't already loaded.  It looks like this mechanism isn't working
+> too well the first time through.
+> 
+> Can you reproduce the problem if you run 'rmmod broadcom' and then
+> reload tg3?
 
-The "sierra_net" driver supports the "Direct IP" mode.  This driver
-supports the "QMI" mode.
+I'll give it a shot, but that sounds like a quite plausible scenario to
+me.  Oddly, even after the manual modprobe, the broadcom phy module
+doesn't show an increased use count.  There's also no dependency on
+'broadcom' listed for tg3 by modinfo.
 
-There are also multiple possible USB interface configurations in each
-mode, some providing more than one wwan interface.  Like many other
-devices made for Windows, different interface types are identified
-using a static interface number.  We define a Sierra specific
-interface whitelist to support this.
-
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c |   30 ++++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 0fcc075..8ffc733 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -486,6 +486,27 @@ static const struct driver_info	qmi_wwan_force_int=
-4 =3D {
- 	.data		=3D BIT(4), /* interface whitelist bitmap */
- };
-=20
-+/* Sierra Wireless provide equally useless interface descriptors
-+ * Devices in QMI mode can be switched between two different
-+ * configurations:
-+ *   a) USB interface #8 is QMI/wwan
-+ *   b) USB interfaces #8, #19 and #20 are QMI/wwan
-+ *
-+ * Both configurations provide a number of other interfaces (serial++)=
-,
-+ * some of which have the same endpoint configuration as we expect, so
-+ * a whitelist or blacklist is necessary.
-+ *
-+ * FIXME: The below whitelist should include BIT(20).  It does not
-+ * because I cannot get it to work...
-+ */
-+static const struct driver_info	qmi_wwan_sierra =3D {
-+	.description	=3D "Sierra Wireless wwan/QMI device",
-+	.flags		=3D FLAG_WWAN,
-+	.bind		=3D qmi_wwan_bind_gobi,
-+	.unbind		=3D qmi_wwan_unbind_shared,
-+	.manage_power	=3D qmi_wwan_manage_power,
-+	.data		=3D BIT(8) | BIT(19), /* interface whitelist bitmap */
-+};
-=20
- #define HUAWEI_VENDOR_ID	0x12D1
- #define QMI_GOBI_DEVICE(vend, prod) \
-@@ -566,6 +587,15 @@ static const struct usb_device_id products[] =3D {
- 		.bInterfaceProtocol =3D 0xff,
- 		.driver_info        =3D (unsigned long)&qmi_wwan_force_int4,
- 	},
-+	{	/* Sierra Wireless MC77xx in QMI mode */
-+		.match_flags	    =3D USB_DEVICE_ID_MATCH_DEVICE | USB_DEVICE_ID_MATC=
-H_INT_INFO,
-+		.idVendor           =3D 0x1199,
-+		.idProduct          =3D 0x68a2,
-+		.bInterfaceClass    =3D 0xff,
-+		.bInterfaceSubClass =3D 0xff,
-+		.bInterfaceProtocol =3D 0xff,
-+		.driver_info        =3D (unsigned long)&qmi_wwan_sierra,
-+	},
- 	{QMI_GOBI_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
- 	{QMI_GOBI_DEVICE(0x03f0, 0x1f1d)},	/* HP un2400 Gobi Modem Device */
- 	{QMI_GOBI_DEVICE(0x03f0, 0x371d)},	/* HP un2430 Mobile Broadband Modu=
-le */
---=20
-1.7.9.5
+josh
