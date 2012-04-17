@@ -1,79 +1,53 @@
-From: "Peter Huang (Peng)" <peter.huangpeng@huawei.com>
-Subject: [PATCH] set fake_rtable's dst to NULL to avoid kernel Oops.
-Date: Tue, 17 Apr 2012 14:22:26 +0800
-Message-ID: <000001cd1c62$75d10de0$617329a0$%huangpeng@huawei.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 6/6] vhost_net: don't poll on -EFAULT
+Date: Tue, 17 Apr 2012 14:30:27 +0800
+Message-ID: <4F8D0E03.7030105@redhat.com>
+References: <20120416060749.14140.19433.stgit@intel-e5620-16-2.englab.nay.redhat.com> <20120416060833.14140.28139.stgit@intel-e5620-16-2.englab.nay.redhat.com> <20120416071646.GB25396@redhat.com> <4F8BD81A.7010507@redhat.com> <20120416133859.GB13190@redhat.com> <4F8CE305.9090100@redhat.com> <20120417045736.GA31278@redhat.com> <4F8D05AF.4000309@redhat.com> <20120417060752.GB20674@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	ctrix+debianbugs@navynet.it, peter.huangpeng@huawei.com,
-	peter.huangpeng@gmail.com, harry.majun@huawei.com
-To: shemminger@vyatta.com, "'David S. Miller'" <davem@davemloft.net>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-language: zh-cn
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xma@us.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:22371 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754105Ab2DQGah (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2012 02:30:37 -0400
+In-Reply-To: <20120417060752.GB20674@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When bridge is deleted before tap/vif device's delete, kernel may encounter an oops because of NULL reference to fake_rtable's dst.
-Set fake_rtable's dst to NULL before sending packets out can solve this problem.
+On 04/17/2012 02:07 PM, Michael S. Tsirkin wrote:
+> On Tue, Apr 17, 2012 at 01:54:55PM +0800, Jason Wang wrote:
+>> On 04/17/2012 12:57 PM, Michael S. Tsirkin wrote:
+>>> On Tue, Apr 17, 2012 at 11:27:01AM +0800, Jason Wang wrote:
+>>>> On 04/16/2012 09:39 PM, Michael S. Tsirkin wrote:
+>>>>> On Mon, Apr 16, 2012 at 04:28:10PM +0800, Jason Wang wrote:
+>>>>>>>   On 04/16/2012 03:16 PM, Michael S. Tsirkin wrote:
+>>>>>>>>   >On Mon, Apr 16, 2012 at 02:08:33PM +0800, Jason Wang wrote:
+>>>>>>>>>   >>Currently, we restart tx polling unconditionally when sendmsg()
+>>>>>>>>>   >>fails. This would cause unnecessary wakeups of vhost wokers as it's
+>>>>>>>>>   >>only needed when the socket send buffer were exceeded.
+>>>>>>>>   >Why is this a problem?
+>>>>>>>   >    This issue is when guest driver is able to hit the
+>>>>>> -EFAULT, vhost
+>>>>>>>   discard the the descriptor and restart the polling. This would wake
+>>>>>>>   vhost thread and repeat the loop again which waste cpu.
+>>>>> Does same thing happen if we get an error from copy from user?
+>>>>>
+>>>> Right, so do you think it makes sense that we only restart polling
+>>>> on -EAGAIN or -ENOBUFS?
+>>> Sounds OK. BTW how do you test this?
+>>>
+>> Not very hard, w/o this patch, we can see almost 100% cpu
+>> utilization for vhost thread if guest hit EFAULT or EINVAL. With
+>> this patch, the cpu utilization should be very low I think.
+> Yes but do you have a test that makes guest hit EFAULT or EINVAL?
 
-
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
----
-include/linux/netfilter_bridge.h |    8 ++++++++
- net/bridge/br_forward.c          |    1 +
- net/bridge/br_netfilter.c        |    6 +-----
- 3 files changed, 10 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index 0ddd161..70744fe 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -104,9 +104,17 @@ struct bridge_skb_cb {
- 	} daddr;
- };
- 
-+static inline void br_drop_fake_rtable(struct sk_buff *skb) {
-+	struct dst_entry *dst = skb_dst(skb);
-+	/* abuse fact that only fake_rtable has DST_NOPEER set */
-+	if (dst && (dst->flags & DST_NOPEER))
-+		skb_dst_drop(skb);
-+}
-+
- #else
- #define nf_bridge_maybe_copy_header(skb)	(0)
- #define nf_bridge_pad(skb)			(0)
-+#define br_drop_fake_rtable(skb)		(0)
- #endif /* CONFIG_BRIDGE_NETFILTER */
- 
- #endif /* __KERNEL__ */
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c index 61f6534..a2098e3 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -47,6 +47,7 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
- 		kfree_skb(skb);
- 	} else {
- 		skb_push(skb, ETH_HLEN);
-+		br_drop_fake_rtable(skb);
- 		dev_queue_xmit(skb);
- 	}
- 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c index dec4f38..946dcb0 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -694,11 +694,7 @@ static unsigned int br_nf_local_in(unsigned int hook, struct sk_buff *skb,
- 				   const struct net_device *out,
- 				   int (*okfn)(struct sk_buff *))
- {
--	struct rtable *rt = skb_rtable(skb);
--
--	if (rt && rt == bridge_parent_rtable(in))
--		skb_dst_drop(skb);
--
-+	br_drop_fake_rtable(skb);
- 	return NF_ACCEPT;
- }
---------------------------------
-Peter Huang(peng)
+Looks like we can do this by supplying an invalid hdr_len in vnet header 
+as tap does the check for this.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
