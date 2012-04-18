@@ -1,91 +1,96 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 1/2] stmmac: use custom init/exit functions in pm ops
-Date: Wed, 18 Apr 2012 10:28:24 +0200
-Message-ID: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Francesco Virlinzi <francesco.virlinzi@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [net-next 2/2] stmmac: Move the mdio_register/_unregister in probe/remove
+Date: Wed, 18 Apr 2012 10:28:25 +0200
+Message-ID: <1334737705-4508-2-git-send-email-peppe.cavallaro@st.com>
+References: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Francesco Virlinzi <francesco.virlinzi@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:57535 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751847Ab2DRI2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 04:28:36 -0400
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:43490 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751847Ab2DRI2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 04:28:41 -0400
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5BF404F8
-	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 08:28:34 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C548E4DE
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 08:28:38 +0000 (GMT)
 Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C2BD32124
-	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 08:28:33 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 630582126
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 08:28:38 +0000 (GMT)
+In-Reply-To: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Francesco Virlinzi <francesco.virlinzi@st.com>
 
-Freeze and restore can call the custom init/exit functions.
-Also the patch adds a custom data field that can be used
-for storing platform data useful on restore the embedded
-setup (e.g. GPIO, SYSCFG).
+This patch moves the mdio_register/_unregister in probe/remove
+functions and this also is required when hibernation on disk
+is done.
 
-Signed-off-by: Francesco Virlinzi <francesco.virlinzi@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Signed-off-by: Francesco Virlinzi <francesco.virlinzi@st,com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st,com>
 ---
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   17 +++++++++++++----
- include/linux/stmmac.h                             |    1 +
- 2 files changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   20 +++++++++++---------
+ 1 files changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 12bd221..ba30d38 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -189,9 +189,6 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
- 	if (priv->plat->exit)
- 		priv->plat->exit(pdev);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index a64f0d4..b6dce8f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -937,14 +937,6 @@ static int stmmac_open(struct net_device *dev)
  
--	if (priv->plat->exit)
--		priv->plat->exit(pdev);
+ 	stmmac_check_ether_addr(priv);
+ 
+-	/* MDIO bus Registration */
+-	ret = stmmac_mdio_register(dev);
+-	if (ret < 0) {
+-		pr_debug("%s: MDIO bus (id: %d) registration failed",
+-			 __func__, priv->plat->bus_id);
+-		goto open_clk_dis;
+-	}
 -
- 	platform_set_drvdata(pdev, NULL);
+ #ifdef CONFIG_STMMAC_TIMER
+ 	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
+ 	if (unlikely(priv->tm == NULL)) {
+@@ -1067,7 +1059,9 @@ open_error:
+ 	if (priv->phydev)
+ 		phy_disconnect(priv->phydev);
  
- 	iounmap((void *)priv->ioaddr);
-@@ -218,14 +215,26 @@ static int stmmac_pltfr_resume(struct device *dev)
- 
- int stmmac_pltfr_freeze(struct device *dev)
- {
-+	int ret;
-+	struct plat_stmmacenet_data *plat_dat = dev_get_platdata(dev);
- 	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct platform_device *pdev = to_platform_device(dev);
- 
--	return stmmac_freeze(ndev);
-+	ret = stmmac_freeze(ndev);
-+	if (plat_dat->exit)
-+		plat_dat->exit(pdev);
-+
-+	return ret;
++#ifdef CONFIG_STMMAC_TIMER
+ open_clk_dis:
++#endif
+ 	stmmac_clk_disable(priv);
+ 	return ret;
  }
- 
- int stmmac_pltfr_restore(struct device *dev)
- {
-+	struct plat_stmmacenet_data *plat_dat = dev_get_platdata(dev);
- 	struct net_device *ndev = dev_get_drvdata(dev);
-+	struct platform_device *pdev = to_platform_device(dev);
-+
-+	if (plat_dat->init)
-+		plat_dat->init(pdev);
- 
- 	return stmmac_restore(ndev);
- }
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index cf64031..f85c93d 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -109,6 +109,7 @@ struct plat_stmmacenet_data {
- 	int (*init)(struct platform_device *pdev);
- 	void (*exit)(struct platform_device *pdev);
- 	void *custom_cfg;
-+	void *custom_data;
- 	void *bsp_priv;
- };
+@@ -1120,7 +1114,6 @@ static int stmmac_release(struct net_device *dev)
+ #ifdef CONFIG_STMMAC_DEBUG_FS
+ 	stmmac_exit_fs();
  #endif
+-	stmmac_mdio_unregister(dev);
+ 	stmmac_clk_disable(priv);
+ 
+ 	return 0;
+@@ -1932,6 +1925,14 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+ 	else
+ 		priv->clk_csr = priv->plat->clk_csr;
+ 
++	/* MDIO bus Registration */
++	ret = stmmac_mdio_register(ndev);
++	if (ret < 0) {
++		pr_debug("%s: MDIO bus (id: %d) registration failed",
++			 __func__, priv->plat->bus_id);
++		goto error;
++	}
++
+ 	return priv;
+ 
+ error:
+@@ -1959,6 +1960,7 @@ int stmmac_dvr_remove(struct net_device *ndev)
+ 	priv->hw->dma->stop_tx(priv->ioaddr);
+ 
+ 	stmmac_set_mac(priv->ioaddr, false);
++	stmmac_mdio_unregister(ndev);
+ 	netif_carrier_off(ndev);
+ 	unregister_netdev(ndev);
+ 	free_netdev(ndev);
 -- 
 1.7.4.4
