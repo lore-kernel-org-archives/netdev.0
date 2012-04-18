@@ -1,156 +1,80 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re[2]:  [PATCH 2/2] IPVS: make failure of netns init more
-	stable
-Date: Wed, 18 Apr 2012 14:37:43 +0200 (CEST)
-Message-ID: <3r6npeu.69e743752dad7d8eb6a19cbbbdfd1ed9@obelix.schillstrom.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH 3/3] ehea: do not dereference possible NULL port
+Date: Wed, 18 Apr 2012 09:42:52 -0300
+Message-ID: <20120418124252.GA2455@oc1711230544.ibm.com>
+References: <1334673715-16338-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <1334673715-16338-4-git-send-email-cascardo@linux.vnet.ibm.com>
+ <20120417.222912.1038252957653077871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: "Julian Anastasov" <ja@ssi.bg>,
-	"horms@verge.net.au" <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:38842 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609Ab2DRMnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 08:43:11 -0400
+Received: from /spool/local
+	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Wed, 18 Apr 2012 09:42:58 -0300
+Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id E747D1DC004E
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 09:42:51 -0300 (BRT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay02.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q3ICgbA030343574
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 09:42:38 -0300
+Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q3IAggkI028713
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 07:42:42 -0300
+Content-Disposition: inline
+In-Reply-To: <20120417.222912.1038252957653077871.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello 
->
->Hello,
->
->On Tue, 17 Apr 2012, Hans Schillstrom wrote:
->
->> I wonder if we are chasing ghosts...
->> 
->> With proper fault handling I can't even see a case when it (net->ipvs) can be used.
->> Can you see a case when it could happen?
->> Still we can set it to NULL on error exit and cleanup as you suggested, that doesn't harm I think.
->> 
->> A. If you add a netns and it fails the entire ns will be rolled back, 
->>    and no access to that ns can occur.
->>    That ns does not exist
->
->	Agreed
->
->> B. If you insert ip_vs.ko when having one or more name spaces and 
->>    __ip_vs_init() returns an error the module will be unloaded.
->>    All ready loaded ns will not be affected.
->
->	Yes, ip_vs_init fails.
->
->> C. insmod of ex. ip_vs_ftp only affects loaded name spaces
->>    and if the load of ip_vs_ftp fails it will be unloaded without affecting ip_vs(.ko)
->>    (If ip_vs.ko is not loaded then it has to be loaded first case B...)
->> 
->> With a "compiled in" ip_vs case B doesn't exist.
->
->	It is this case that can happen, we can only guess how
->difficult is to get ENOMEM here. IIRC, we can generate only
->ENOMEM error on IPVS core load.
->
->	I assume Simon has such setup and changes code to
->trigger load error. When I generate ENOMEM on IPVS core init
->for such case I get ENOENT from register_ip_vs_app when
->patch 1 and 2 for apps are applied, i.e. net->ipvs is NULL.
->You can check it with NF_CONNTRACK=y, IP_VS=y and
->IP_VS_FTP=m. You only need to trigger ENOMEM in __ip_vs_init.
+On Tue, Apr 17, 2012 at 10:29:12PM -0400, David Miller wrote:
+> From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+> Date: Tue, 17 Apr 2012 11:41:55 -0300
+> 
+> > port may be NULL when we receive an interrupt too early in the probe.
+> > 
+> > commit 8c4877a4128e7931077b024a891a4b284d8756a3, in particular, has
+> > introduced this problem in the case of port state change interrupt.
+> > 
+> > This causes crashes in some situations:
+> 
+> Never fix this kind of bug like this.  Do not make a tasklet or
+> an irq handler pay the price of the probe not doing things in the
+> right order.
+> 
+> Do not register asynchronous threads of control until all the
+> state is setup properly.
+> 
+> That's the right way to fix this problem.
+> 
 
+Sure. That was in my plans too.
 
-I did test this with 4 netns loaded and modprobe ip_vs_ftp
-In the 4:th netns  (ipvs->gen >= 4) fire a -ENOMEM 
-The result was as expected, ip_vs_ftp was not loaded.
+However, at first, I suspected this interrupt may have come from some
+other port from ehca, for example, considering a possible firmware bug.
+After more investigation, I found out that the real problem was some
+physical ports in some odd states, that caused the IRQs before the ports
+were enabled. Note that this is not really supposed to happen.
 
-All patches below was loaded. (included the ipvs NULL check)
+So, consider the possibility that we receive, for a reason like a
+firmware bug, an interrupt is received and the EQE indicates a port
+number we don't know about. We oops even if we have registered the IRQ
+after enabling the ports.
 
-Just for "fun" I also added a printk in the ipvs NULL check
-but I can't trigger it. 
+So, I think it's better to be safe to just check for a NULL pointer in
+the interrupt (which was being checked either way, just not in the right
+place).
 
-Simon:
- do you have any possibility to test it or give me a hint how to do ?
-(Just to make sure that the patches below will be sufficient)
+So, in fact, I just moved a pointer check because the pointer is now
+being used when it wasn't before, due to the commit I referred to.
 
->
->> With proper fault handling i.e. all ways returning fault codes to the netns init,
->> there is no need for checking for  "if (!net->ipvs)" or any other action.
->
->	Probably but one check on load does not hurt much.
+Would you apply this patch if I include the other one, registering the
+IRQ later in the probe process?
 
-I think I have tested all of above now and my conclusion is that we need the following patches
-which also was applied when the tests was run.
-(with a small reservation that I might have missed some..)
-
-[PATCH v3 1/2] netfilter: ipvs: Verify that IP_VS protocol has been registered, Sasha Levin
-[PATCH v3 2/2] netfilter: ipvs: use GFP_KERNEL allocation where possible, Sasha Levin
-
-[PATCH 0/6] Convert some GFP_ATOMIC allocations, Julian Anastasov
-[PATCH 1/6] ipvs: timeout tables do not need GFP_ATOMIC allocation, Julian Anastasov
-[PATCH 2/6] ipvs: SH scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
-[PATCH 5/6] ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init, Julian Anastasov
-[PATCH 6/6] ipvs: WRR scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
-[PATCH 3/6] ipvs: DH scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
-[PATCH 4/6] ipvs: LBLC scheduler does not need GFP_ATOMIC allocation on init, Julian Anastasov
-
-[PATCH] ipvs: fix crash in ip_vs_control_net_cleanup on unload, Julian Anastasov
-
-[PATCH 1/2] ipvs: reset ipvs pointer in netns, Julian Anastasov
-[PATCH 1/2] IPVS: take care of return value from protocol init_netns, Hans Schillstrom
-
-To be safe,  add this to  [PATCH 1/2] ipvs: reset ipvs pointer in netns or make a new patch
-
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 538d74e..c757359 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -439,6 +439,9 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
-        struct ip_vs_app *app;
-        struct netns_ipvs *ipvs = net_ipvs(net);
- 
-+       if (!ipvs)
-+               return ERR_PTR(-ENOENT);
-+
-        app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
-        if (!app)
-                return -ENOMEM;
-
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index 74c7278..1d74996 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -549,6 +549,9 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
- {
-        struct netns_ipvs *ipvs = net_ipvs(net);
- 
-+       if (!ipvs)
-+               return ERR_PTR(-ENOENT);
-+
-        if (!net_eq(net, &init_net)) {
-                ipvs->lblc_ctl_table = kmemdup(vs_vars_table,
-                                                sizeof(vs_vars_table),
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 8620c68..c328ee0 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -743,6 +743,9 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
- {
-        struct netns_ipvs *ipvs = net_ipvs(net);
- 
-+       if (!ipvs)
-+               return ERR_PTR(-ENOENT);
-+
-        if (!net_eq(net, &init_net)) {
-                ipvs->lblcr_ctl_table = kmemdup(vs_vars_table,
-                                                sizeof(vs_vars_table),
-
->
->Regards
->
->--
->Julian Anastasov <ja@ssi.bg>
-
-Regards
-Hans Schillstrom <hans@schillstrom.com>
-
+Thanks for the comment.
+Cascardo.
