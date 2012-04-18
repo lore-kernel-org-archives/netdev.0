@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 11/12] atl1c: using fixed TXQ configuration for l2cb and l1c
-Date: Wed, 18 Apr 2012 13:32:35 +0800
-Message-ID: <1334727156-6830-12-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 12/12] atl1c: restore max-read-request-size in Device Conrol Register
+Date: Wed, 18 Apr 2012 13:32:36 +0800
+Message-ID: <1334727156-6830-13-git-send-email-xiong@qca.qualcomm.com>
 References: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,97 +9,79 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 	xiong <xiong@qca.qualcomm.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:64760 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752533Ab2DRFec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 01:34:32 -0400
 In-Reply-To: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-using fixed TXQ config for l2cb and l1c regardless dmar_block
-to make tx-DMA more stable.
-register REG_TXQ_CTRL is refined as well.
+in some platforms, we found the max-read-request-size in Device Control
+Register is set to 0 by (BIOS?) during bootup, this will cause the
+performance(throughput) very bad.
+Restore it to a min-value.
+register definition of REG_DEVICE_CTRL is removed, using kernel API to
+access it as it's a standard pcie register.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   34 +++++++++++++++++------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   13 ++-------
- 2 files changed, 28 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    6 +-----
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   16 ++++++++++------
+ 2 files changed, 11 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index f502b4d..a0b56ef 100644
+index a0b56ef..a37c82f 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -467,15 +467,31 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define TPD_RING_SIZE_MASK		0xFFFF
+@@ -54,11 +54,7 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define DEVICE_CAP_MAX_PAYLOAD_MASK     0x7
+ #define DEVICE_CAP_MAX_PAYLOAD_SHIFT    0
  
- /* TXQ Control Register */
--#define REG_TXQ_CTRL                	0x1590
--#define	TXQ_NUM_TPD_BURST_MASK     	0xF
--#define TXQ_NUM_TPD_BURST_SHIFT    	0
--#define TXQ_CTRL_IP_OPTION_EN		0x10
--#define TXQ_CTRL_EN                     0x20
--#define TXQ_CTRL_ENH_MODE               0x40
--#define TXQ_CTRL_LS_8023_EN		0x80
--#define TXQ_TXF_BURST_NUM_SHIFT    	16
--#define TXQ_TXF_BURST_NUM_MASK     	0xFFFF
-+#define REG_TXQ_CTRL			0x1590
-+#define TXQ_TXF_BURST_NUM_MASK          0xFFFFUL
-+#define TXQ_TXF_BURST_NUM_SHIFT		16
-+#define L1C_TXQ_TXF_BURST_PREF          0x200
-+#define L2CB_TXQ_TXF_BURST_PREF         0x40
-+#define TXQ_CTRL_PEDING_CLR             BIT(8)
-+#define TXQ_CTRL_LS_8023_EN             BIT(7)
-+#define TXQ_CTRL_ENH_MODE               BIT(6)
-+#define TXQ_CTRL_EN                     BIT(5)
-+#define TXQ_CTRL_IP_OPTION_EN           BIT(4)
-+#define TXQ_NUM_TPD_BURST_MASK          0xFUL
-+#define TXQ_NUM_TPD_BURST_SHIFT         0
-+#define TXQ_NUM_TPD_BURST_DEF           5
-+#define TXQ_CFGV			(\
-+	FIELDX(TXQ_NUM_TPD_BURST, TXQ_NUM_TPD_BURST_DEF) |\
-+	TXQ_CTRL_ENH_MODE |\
-+	TXQ_CTRL_LS_8023_EN |\
-+	TXQ_CTRL_IP_OPTION_EN)
-+#define L1C_TXQ_CFGV			(\
-+	TXQ_CFGV |\
-+	FIELDX(TXQ_TXF_BURST_NUM, L1C_TXQ_TXF_BURST_PREF))
-+#define L2CB_TXQ_CFGV			(\
-+	TXQ_CFGV |\
-+	FIELDX(TXQ_TXF_BURST_NUM, L2CB_TXQ_TXF_BURST_PREF))
-+
+-#define REG_DEVICE_CTRL			0x60
+-#define DEVICE_CTRL_MAX_PAYLOAD_MASK    0x7
+-#define DEVICE_CTRL_MAX_PAYLOAD_SHIFT   5
+-#define DEVICE_CTRL_MAX_RREQ_SZ_MASK    0x7
+-#define DEVICE_CTRL_MAX_RREQ_SZ_SHIFT   12
++#define DEVICE_CTRL_MAXRRS_MIN		2
  
- /* Jumbo packet Threshold for task offload */
- #define REG_TX_TSO_OFFLOAD_THRESH	0x1594 /* In 8-bytes */
+ #define REG_LINK_CTRL			0x68
+ #define LINK_CTRL_L0S_EN		0x01
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index d6ebaa4..8e737a5 100644
+index 8e737a5..b554004 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -1049,7 +1049,6 @@ static void atl1c_configure_tx(struct atl1c_adapter *adapter)
- 	u32 max_pay_load;
+@@ -1045,19 +1045,23 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
+ static void atl1c_configure_tx(struct atl1c_adapter *adapter)
+ {
+ 	struct atl1c_hw *hw = &adapter->hw;
+-	u32 dev_ctrl_data;
+-	u32 max_pay_load;
++	int max_pay_load;
  	u16 tx_offload_thresh;
  	u32 txq_ctrl_data;
--	u32 max_pay_load_data;
  
  	tx_offload_thresh = MAX_TX_OFFLOAD_THRESH;
  	AT_WRITE_REG(hw, REG_TX_TSO_OFFLOAD_THRESH,
-@@ -1059,15 +1058,9 @@ static void atl1c_configure_tx(struct atl1c_adapter *adapter)
- 			DEVICE_CTRL_MAX_RREQ_SZ_MASK;
+ 		(tx_offload_thresh >> 3) & TX_TSO_OFFLOAD_THRESH_MASK);
+-	AT_READ_REG(hw, REG_DEVICE_CTRL, &dev_ctrl_data);
+-	max_pay_load  = (dev_ctrl_data >> DEVICE_CTRL_MAX_RREQ_SZ_SHIFT) &
+-			DEVICE_CTRL_MAX_RREQ_SZ_MASK;
++	max_pay_load = pcie_get_readrq(adapter->pdev) >> 8;
  	hw->dmar_block = min_t(u32, max_pay_load, hw->dmar_block);
- 
--	txq_ctrl_data = (hw->tpd_burst & TXQ_NUM_TPD_BURST_MASK) <<
--			TXQ_NUM_TPD_BURST_SHIFT;
--	if (hw->ctrl_flags & ATL1C_TXQ_MODE_ENHANCE)
--		txq_ctrl_data |= TXQ_CTRL_ENH_MODE;
--	max_pay_load_data = (atl1c_pay_load_size[hw->dmar_block] &
--			TXQ_TXF_BURST_NUM_MASK) << TXQ_TXF_BURST_NUM_SHIFT;
--	if (hw->nic_type == athr_l2c_b || hw->nic_type == athr_l2c_b2)
--		max_pay_load_data >>= 1;
--	txq_ctrl_data |= max_pay_load_data;
-+	txq_ctrl_data =
-+		hw->nic_type == athr_l2c_b || hw->nic_type == athr_l2c_b2 ?
-+		L2CB_TXQ_CFGV : L1C_TXQ_CFGV;
- 
- 	AT_WRITE_REG(hw, REG_TXQ_CTRL, txq_ctrl_data);
- }
+-
++	/*
++	 * if BIOS had changed the dam-read-max-length to an invalid value,
++	 * restore it to default value
++	 */
++	if (hw->dmar_block < DEVICE_CTRL_MAXRRS_MIN) {
++		pcie_set_readrq(adapter->pdev, 128 << DEVICE_CTRL_MAXRRS_MIN);
++		hw->dmar_block = DEVICE_CTRL_MAXRRS_MIN;
++	}
+ 	txq_ctrl_data =
+ 		hw->nic_type == athr_l2c_b || hw->nic_type == athr_l2c_b2 ?
+ 		L2CB_TXQ_CFGV : L1C_TXQ_CFGV;
 -- 
 1.7.7
