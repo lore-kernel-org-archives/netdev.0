@@ -1,91 +1,61 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: tg3: Occassional death on 3.3
-Date: Tue, 17 Apr 2012 17:55:11 -0700
-Message-ID: <20120418005511.GA2944@mcarlson.broadcom.com>
-References: <CAKb7UvjWACB5wF9B1GvznVd64Vby_9ri4SMo57RpAhrhf+awFg@mail.gmail.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: fix rt6_update_expires
+Date: Wed, 18 Apr 2012 10:24:48 +0800
+Message-ID: <4F8E25F0.3040703@cn.fujitsu.com>
+References: <1330064404-24763-1-git-send-email-gaofeng@cn.fujitsu.com> <1333707190-14075-1-git-send-email-gaofeng@cn.fujitsu.com> <20120413.125851.894792528374368454.davem@davemloft.net> <20120416133439.GB18159@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matt Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>, netdev@vger.kernel.org
-To: "Ilia Mirkin" <imirkin@alum.mit.edu>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2211 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753740Ab2DRAzo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Apr 2012 20:55:44 -0400
-In-Reply-To: <CAKb7UvjWACB5wF9B1GvznVd64Vby_9ri4SMo57RpAhrhf+awFg@mail.gmail.com>
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:33449 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752922Ab2DRCYS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:24:18 -0400
+In-Reply-To: <20120416133439.GB18159@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 17, 2012 at 08:22:31PM -0400, Ilia Mirkin wrote:
-> Hello,
-> 
-> I'm observing an issue where it appears that tg3 gets wedged into a
-> bad state every so often, and never recovers. Doing a sequence of
-> 
-> ifconfig eth0 down
-> rmmod broadcom
-> rmmod tg3
-> 
-> modprobe broadcom
-> modprobe tg3
-> 
-> Makes everything work again. The card I have:
-> 
-> 03:00.0 Ethernet controller [0200]: Broadcom Corporation NetLink
-> BCM57788 Gigabit Ethernet PCIe [14e4:1691] (rev 01)
->         Subsystem: Dell XPS 8300 [1028:04aa]
->         Flags: bus master, fast devsel, latency 0, IRQ 45
->         Memory at fb100000 (64-bit, non-prefetchable) [size=64K]
->         Capabilities: [48] Power Management version 3
->         Capabilities: [60] Vendor Specific Information: Len=6c <?>
->         Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
->         Capabilities: [cc] Express Endpoint, MSI 00
->         Capabilities: [100] Advanced Error Reporting
->         Capabilities: [13c] Virtual Channel
->         Capabilities: [160] Device Serial Number [the mac address]
->         Capabilities: [16c] Power Budgeting <?>
->         Kernel driver in use: tg3
->         Kernel modules: tg3
-> 
-> I'm attaching the log for the full data dump, since my mailer will
-> wrap it horribly otherwise, but the interesting lines are:
-> 
-> [2234380.228971] tg3 0000:03:00.0: eth0: transmit timed out, resetting
-> ... some kind of data dump ...
-> [2234382.216682] tg3 0000:03:00.0: eth0: 0: Host status block
-> [00000001:00000080:(0000:01ef:0000):(01ef:00b2)]
-> [2234382.216685] tg3 0000:03:00.0: eth0: 0: NAPI info
-> [00000080:00000080:(00cb:00b2:01ff):01ef:(00b7:0000:0000:0000)]
-> [2234382.319550] tg3 0000:03:00.0: tg3_stop_block timed out, ofs=1400
-> enable_bit=2
-> [2234382.421931] tg3 0000:03:00.0: tg3_stop_block timed out, ofs=c00
-> enable_bit=2
-> [2234382.427199] tg3 0000:03:00.0: eth0: Link is down
-> [2234382.438168] tg3 0000:03:00.0: eth0: Link is down
-> 
-> Any further attempts to use the NIC, like ifconfig down/up result in a
-> similar error log sequence happening. Also, while it's happening, the
-> computer feels extremely laggy for a short period of time (~1s),
-> leading me to believe it's doing an uninterruptible sleep of some kind
-> going on.
-> 
-> This has happened twice, and at least the second time, there was no
-> unusual traffic on the network. It's linked at 100M, and was probably
-> doing 10K/s at most when the error happened. If this is insufficient
-> information, please let me know what I should collect next time this
-> might happen.
-> 
-> Thanks,
+=E4=BA=8E 2012=E5=B9=B404=E6=9C=8816=E6=97=A5 21:34, Jiri Bohac =E5=86=99=
+=E9=81=93:
+>=20
+> Commit 1716a961 (ipv6: fix problem with expired dst cache) broke PMTU
+> discovery. rt6_update_expires() calls dst_set_expires(), which only u=
+pdates
+> dst->expires if it has not been set previously (expires =3D=3D 0) or =
+if the new
+> expires is earlier than the current dst->expires.
+>=20
+> rt6_update_expires() needs to zero rt->dst.expires, otherwise it will=
+ contain
+> ivalid data left over from rt->dst.from and will confuse dst_set_expi=
+res().
+>=20
+> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+>=20
+> diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+> index ad4126f..68c1f94 100644
+> --- a/include/net/ip6_fib.h
+> +++ b/include/net/ip6_fib.h
+> @@ -143,8 +143,13 @@ static inline void rt6_set_expires(struct rt6_in=
+fo *rt, unsigned long expires)
+> =20
+>  static inline void rt6_update_expires(struct rt6_info *rt, int timeo=
+ut)
+>  {
+> -	if (!(rt->rt6i_flags & RTF_EXPIRES) && rt->dst.from)
+> -		dst_release(rt->dst.from);
+> +	if (!(rt->rt6i_flags & RTF_EXPIRES)) {
+> +		if (rt->dst.from)
+> +			dst_release(rt->dst.from);
+> +		/* dst_set_expires relies on expires =3D=3D 0=20
+> +                  if it has not been set previously */
+> +		rt->dst.expires =3D 0;
+> +	}
+> =20
+>  	dst_set_expires(&rt->dst, timeout);
+>  	rt->rt6i_flags |=3D RTF_EXPIRES;
+>=20
 
-Thanks for the report Ilia.  I'm guessing the lag is coming from the
-driver as it logs the register dump to the syslog.
-
-The register dump shows that interrupts are enabled, but the tag value in
-the interrupt mailbox register doesn't match the value in the status block
-or the driver's private tag value.  I'll see where that leads me.
-
-Stay tuned.
+looks good to me, thanks.
