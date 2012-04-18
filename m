@@ -1,36 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 3/3] netdev/of/phy: Add MDIO bus multiplexer driven
- by GPIO lines.
-Date: Tue, 17 Apr 2012 22:53:08 -0400 (EDT)
-Message-ID: <20120417.225308.1588669089502246200.davem@davemloft.net>
-References: <1334683966-12112-1-git-send-email-ddaney.cavm@gmail.com>
-        <1334683966-12112-4-git-send-email-ddaney.cavm@gmail.com>
+Subject: Re: [PATCH] net: filter: remove unused cpu_off
+Date: Tue, 17 Apr 2012 22:57:33 -0400 (EDT)
+Message-ID: <20120417.225733.605856895750092515.davem@davemloft.net>
+References: <1334717479.2472.73.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
-        devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        afleming@gmail.com, galak@kernel.crashing.org,
-        david.daney@cavium.com
-To: ddaney.cavm@gmail.com
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1334683966-12112-4-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33073 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751262Ab2DRC5g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:57:36 -0400
+In-Reply-To: <1334717479.2472.73.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Tue, 17 Apr 2012 10:32:46 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Apr 2012 04:51:19 +0200
 
-> From: David Daney <david.daney@cavium.com>
-> 
-> The GPIO pins select which sub bus is connected to the master.
-> 
-> Initially tested with an sn74cbtlv3253 switch device wired into the
-> MDIO bus.
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Are you sure the Kconfig dependencies are sufficient?  This code seems
-to depend upon OF, and in particular the OF_MDIO stuff.
+Applied, but I added "in sparc JIT" to the subject line.
+
+Thanks.
