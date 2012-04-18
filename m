@@ -1,79 +1,83 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next] bonding,vlan: propagate MAC failover changes to VLANs
-Date: Wed, 18 Apr 2012 11:49:36 -0700
-Message-ID: <11643.1334774976@death.nxdomain>
-References: <10757.1334772163@death.nxdomain> <1334773079.2426.32.camel@bwh-desktop.uk.solarflarecom.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] macvlan/macvtap: Fix vlan tagging on user read
+Date: Wed, 18 Apr 2012 11:54:52 -0700
+Message-ID: <m1hawglvk3.fsf@fess.ebiederm.org>
+References: <1334774098-22886-1-git-send-email-basilgor@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+	Basil Gor <basilgor@gmail.com>
+To: Basil Gor <basil.gor@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:53498 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754036Ab2DRStm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2012 14:49:42 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 18 Apr 2012 14:49:40 -0400
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id E559E38C806E
-	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 14:49:38 -0400 (EDT)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q3IIncGo286280
-	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 14:49:38 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q3IInbwJ014368
-	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 14:49:38 -0400
-In-reply-to: <1334773079.2426.32.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:46791 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752717Ab2DRSvD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 14:51:03 -0400
+In-Reply-To: <1334774098-22886-1-git-send-email-basilgor@gmail.com> (Basil
+	Gor's message of "Wed, 18 Apr 2012 22:34:58 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+Basil Gor <basil.gor@gmail.com> writes:
 
->On Wed, 2012-04-18 at 11:02 -0700, Jay Vosburgh wrote:
->> 	With bonding's fail_over_mac=active, during failover the MAC
->> address of the bond itself changes to match that of the slave.
->> 
->> 	This patch adds a notifier call to cause VLANs stacked atop the
->> bonding to also change their MAC addresses to the new address when a
->> failover occurs.
->> 
->> 	While it is legal for a VLAN to have a MAC address that differs
->> from the underlying device, at least one device (qeth) that requires the
->> use of fail_over_mac for bonding cannot handle the VLAN's MAC differing
->> from that of the bond; thus, it needs the MAC change to propagate up
->> to any VLANs when fail_over_mac is set to active.
->[...]
+> Vlan tag is restored during buffer transmit to a network device (bridge
+> port) in bridging code in case of tun/tap driver. In case of macvtap it
+> has to be done explicitly. Otherwise vlan_tci is ignored and user always
+> gets untagged packets.
 >
->This doesn't make sense to me.  You're applying the behaviour to all
->VLANs on top of a bond, whether or not the underlying device is driven
->by qeth, and ignoring any MAC address changes that don't involve the
->bonding driver.
+> Scenario tested:
+> kvm guests (that use vlans) migration from bridged network to macvtap
+> revealed that packets delivered to guests are always untagged. Dumping
+> and comparing sk_buff in case of tap and macvtap driver showed that
+> macvtap does not restore vlan_tci.
+>
+> With current patch applied I was able to get working network, kvm guests
+> get correctly tagged packets and can reach each other when macvtap in
+> bridge mode (both with no vlans and through vlan interfaces).
 
-	With the patch, the PROPAGATE event is only generated if bonding
-is set for fail_over_mac=active, which is normally only enabled on those
-devices that require it (some devices for IBM's pseries and zseries
-architectures and Infiniband, which doesn't have VLANs).
+My first impression is that this is the wrong place to add a vlan
+header back.
 
-	Devices that do not use bonding's fail_over_mac will not have
-VLANs following MAC changes.
+You need to keep the vlan information in vlan_tci until just
+before the packet is delivered to userspace. Which would suggest
+the best place for these games is macvtap_put_user.
 
->I think either of these would be better fixes:
->1. Make VLAN devices follow changes to the parent device's MAC address
->unless they are assigned an address of their own.
->2. Add a configuration flag for VLAN devices to follow changes to the
->parent device's MAC address.
+Elsewhere vlan headers should not be explicitly stored in the packet.
 
-	#1 would be a behavior change for all VLAN devices, which I
-sought to avoid.
+At least that was the rule last I looked.
 
-	#2 would be an additional configuration option that would have
-to be enabled just for this case (unless VLANs following MAC changes of
-the parent device is a generally desirable feature).  The patch requires
-no additional option settings beyond what are currently in use.
+Eric
 
-	-J
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> Signed-off-by: Basil Gor <basilgor@gmail.com>
+> ---
+>  drivers/net/macvtap.c |    9 +++++++++
+>  1 files changed, 9 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 0427c65..a6802b9 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -1,6 +1,7 @@
+>  #include <linux/etherdevice.h>
+>  #include <linux/if_macvlan.h>
+>  #include <linux/interrupt.h>
+> +#include <linux/if_vlan.h>
+>  #include <linux/nsproxy.h>
+>  #include <linux/compat.h>
+>  #include <linux/if_tun.h>
+> @@ -254,6 +255,14 @@ static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
+>  	if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
+>  		goto drop;
+>  
+> +	if (vlan_tx_tag_present(skb)) {
+> +		skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
+> +		if (unlikely(!skb))
+> +			return NET_RX_DROP;
+> +
+> +		skb->vlan_tci = 0;
+> +	}
+> +
+>  	skb_queue_tail(&q->sk.sk_receive_queue, skb);
+>  	wake_up_interruptible_poll(sk_sleep(&q->sk), POLLIN | POLLRDNORM | POLLRDBAND);
+>  	return NET_RX_SUCCESS;
