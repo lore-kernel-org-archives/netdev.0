@@ -1,94 +1,90 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 08/13] batman-adv: refactoring API: find generalized name for bat_ogm_init_primary callback
-Date: Wed, 18 Apr 2012 12:00:05 +0200
-Message-ID: <1334743210-12338-9-git-send-email-ordex@autistici.org>
+Subject: [PATCH 10/13] batman-adv: mark existing ogm variables as batman iv
+Date: Wed, 18 Apr 2012 12:00:07 +0200
+Message-ID: <1334743210-12338-11-git-send-email-ordex@autistici.org>
 References: <1334743210-12338-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:24768 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:24988 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991Ab2DRJ7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 05:59:35 -0400
+	with ESMTP id S1753035Ab2DRJ7l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 05:59:41 -0400
 In-Reply-To: <1334743210-12338-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Marek Lindner <lindner_marek@yahoo.de>
 
+The coming protocol changes also will have a part called "OGM". That
+makes it necessary to introduce a distinction in the code base.
+
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
  net/batman-adv/bat_iv_ogm.c     |    4 ++--
  net/batman-adv/hard-interface.c |    2 +-
- net/batman-adv/main.c           |    2 +-
- net/batman-adv/types.h          |    4 ++--
- 4 files changed, 6 insertions(+), 6 deletions(-)
+ net/batman-adv/packet.h         |    4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 2714670..c0bdb90 100644
+index a2af289..98f7182 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -67,7 +67,7 @@ static void bat_iv_ogm_iface_disable(struct hard_iface *hard_iface)
- 	hard_iface->packet_buff = NULL;
- }
- 
--static void bat_iv_ogm_init_primary(struct hard_iface *hard_iface)
-+static void bat_iv_ogm_primary_iface_set(struct hard_iface *hard_iface)
- {
- 	struct batman_ogm_packet *batman_ogm_packet;
- 
-@@ -1191,7 +1191,7 @@ static struct bat_algo_ops batman_iv __read_mostly = {
- 	.name = "BATMAN IV",
- 	.bat_iface_enable = bat_iv_ogm_iface_enable,
- 	.bat_iface_disable = bat_iv_ogm_iface_disable,
--	.bat_ogm_init_primary = bat_iv_ogm_init_primary,
-+	.bat_primary_iface_set = bat_iv_ogm_primary_iface_set,
- 	.bat_ogm_update_mac = bat_iv_ogm_update_mac,
- 	.bat_ogm_schedule = bat_iv_ogm_schedule,
- 	.bat_ogm_emit = bat_iv_ogm_emit,
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 3b391fd..75a555b 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -146,7 +146,7 @@ static void primary_if_select(struct bat_priv *bat_priv,
- 	if (!new_hard_iface)
+@@ -47,7 +47,7 @@ static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
  		goto out;
  
--	bat_priv->bat_algo_ops->bat_ogm_init_primary(new_hard_iface);
-+	bat_priv->bat_algo_ops->bat_primary_iface_set(new_hard_iface);
- 	primary_if_update_addr(bat_priv, curr_hard_iface);
+ 	batman_ogm_packet = (struct batman_ogm_packet *)hard_iface->packet_buff;
+-	batman_ogm_packet->header.packet_type = BAT_OGM;
++	batman_ogm_packet->header.packet_type = BAT_IV_OGM;
+ 	batman_ogm_packet->header.version = COMPAT_VERSION;
+ 	batman_ogm_packet->header.ttl = 2;
+ 	batman_ogm_packet->flags = NO_FLAGS;
+@@ -934,7 +934,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
+ 	 * packet in an aggregation.  Here we expect that the padding
+ 	 * is always zero (or not 0x01)
+ 	 */
+-	if (batman_ogm_packet->header.packet_type != BAT_OGM)
++	if (batman_ogm_packet->header.packet_type != BAT_IV_OGM)
+ 		return;
  
- out:
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index a47a6ce..7913272 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -210,7 +210,7 @@ int bat_algo_register(struct bat_algo_ops *bat_algo_ops)
- 	/* all algorithms must implement all ops (for now) */
- 	if (!bat_algo_ops->bat_iface_enable ||
- 	    !bat_algo_ops->bat_iface_disable ||
--	    !bat_algo_ops->bat_ogm_init_primary ||
-+	    !bat_algo_ops->bat_primary_iface_set ||
- 	    !bat_algo_ops->bat_ogm_update_mac ||
- 	    !bat_algo_ops->bat_ogm_schedule ||
- 	    !bat_algo_ops->bat_ogm_emit ||
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index dd78023..4d93aad 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -381,8 +381,8 @@ struct bat_algo_ops {
- 	int (*bat_iface_enable)(struct hard_iface *hard_iface);
- 	/* de-init routing info when hard-interface is disabled */
- 	void (*bat_iface_disable)(struct hard_iface *hard_iface);
--	/* init primary OGM when primary interface is selected */
--	void (*bat_ogm_init_primary)(struct hard_iface *hard_iface);
-+	/* called when primary interface is selected / changed */
-+	void (*bat_primary_iface_set)(struct hard_iface *hard_iface);
- 	/* init mac addresses of the OGM belonging to this hard-interface */
- 	void (*bat_ogm_update_mac)(struct hard_iface *hard_iface);
- 	/* prepare a new outgoing OGM for the send queue */
+ 	/* could be changed by schedule_own_packet() */
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 75a555b..e8c5da3 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -604,7 +604,7 @@ static int batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	switch (batman_ogm_packet->header.packet_type) {
+ 		/* batman originator packet */
+-	case BAT_OGM:
++	case BAT_IV_OGM:
+ 		ret = recv_bat_ogm_packet(skb, hard_iface);
+ 		break;
+ 
+diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
+index 59dec0a..f54969c 100644
+--- a/net/batman-adv/packet.h
++++ b/net/batman-adv/packet.h
+@@ -25,7 +25,7 @@
+ #define ETH_P_BATMAN  0x4305	/* unofficial/not registered Ethertype */
+ 
+ enum bat_packettype {
+-	BAT_OGM		 = 0x01,
++	BAT_IV_OGM	 = 0x01,
+ 	BAT_ICMP	 = 0x02,
+ 	BAT_UNICAST	 = 0x03,
+ 	BAT_BCAST	 = 0x04,
+@@ -38,7 +38,7 @@ enum bat_packettype {
+ /* this file is included by batctl which needs these defines */
+ #define COMPAT_VERSION 14
+ 
+-enum batman_flags {
++enum batman_iv_flags {
+ 	PRIMARIES_FIRST_HOP = 1 << 4,
+ 	VIS_SERVER	    = 1 << 5,
+ 	DIRECTLINK	    = 1 << 6
 -- 
 1.7.9.4
