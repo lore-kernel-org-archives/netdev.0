@@ -1,38 +1,99 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [patch] bnx2x: off by one in
- bnx2x_ets_e3b0_sp_pri_to_cos_set()
-Date: Wed, 18 Apr 2012 12:27:07 +0300
-Message-ID: <1334741227.12363.5.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <20120418065342.GC12831@elgon.mountain>
-Reply-To: eilong@broadcom.com
+From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+Subject: [PATCH v2] set fake_rtable's dst to NULL to avoid kernel Oops.
+Date: Wed, 18 Apr 2012 17:34:07 +0800
+Message-ID: <4F8E8A8F.30901@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "Dan Carpenter" <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1152 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751464Ab2DRJ1Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2012 05:27:24 -0400
-In-Reply-To: <20120418065342.GC12831@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: ctrix+debianbugs@navynet.it, peter.huangpeng@gmail.com,
+	harry.majun@huawei.com, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	"'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-04-18 at 09:53 +0300, Dan Carpenter wrote:
-> The sp_pri_to_cos[] array size depends on the config but lets say it is
-> BX_E3B0_MAX_NUM_COS_PORT0 and max_num_of_cos is also
-> DCBX_E3B0_MAX_NUM_COS_PORT0.  In the original code
-> "pri == max_num_of_cos" was accepted but it is one past the end of the
-> array.
-> 
-> Also we used "pri" before capping it.  It's a harmless read past the end
-> of the array, but it would affect which error message gets printed.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
+Add new flag DST_FAKE_RTABLE to dst_entry struct.
 
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
+---
+  include/linux/netfilter_bridge.h |    8 ++++++++
+  include/net/dst.h                |    1 +
+  net/bridge/br_forward.c          |    1 +
+  net/bridge/br_netfilter.c        |    8 ++------
+  4 files changed, 12 insertions(+), 6 deletions(-)
+diff --git a/include/linux/netfilter_bridge.h 
+b/include/linux/netfilter_bridge.h
+index 0ddd161..eb09e3b 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -104,9 +104,17 @@ struct bridge_skb_cb {
+         } daddr;
+  };
 
-Thanks Dan - this is obviously better.
++static inline void br_drop_fake_rtable(struct sk_buff *skb) {
++       struct dst_entry *dst = skb_dst(skb);
++       /* abuse fact that only fake_rtable has DST_FAKE_RTABLE set */
++       if (dst && (dst->flags & DST_FAKE_RTABLE))
++               skb_dst_drop(skb);
++}
++
+  #else
+  #define nf_bridge_maybe_copy_header(skb)       (0)
+  #define nf_bridge_pad(skb)                     (0)
++#define br_drop_fake_rtable(skb)               (0)
+  #endif /* CONFIG_BRIDGE_NETFILTER */
+
+  #endif /* __KERNEL__ */
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 59c5d18..b094030 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -55,6 +55,7 @@ struct dst_entry {
+  #define DST_NOCACHE            0x0010
+  #define DST_NOCOUNT            0x0020
+  #define DST_NOPEER             0x0040
++#define DST_FAKE_RTABLE                0x0080
+
+         short                   error;
+         short                   obsolete;
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 61f6534..a2098e3 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -47,6 +47,7 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
+                 kfree_skb(skb);
+         } else {
+                 skb_push(skb, ETH_HLEN);
++               br_drop_fake_rtable(skb);
+                 dev_queue_xmit(skb);
+         }
+
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index dec4f38..d7f49b6 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -156,7 +156,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
+         rt->dst.dev = br->dev;
+         rt->dst.path = &rt->dst;
+         dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+-       rt->dst.flags   = DST_NOXFRM | DST_NOPEER;
++       rt->dst.flags   = DST_NOXFRM | DST_NOPEER | DST_FAKE_RTABLE;
+         rt->dst.ops = &fake_dst_ops;
+  }
+
+@@ -694,11 +694,7 @@ static unsigned int br_nf_local_in(unsigned int 
+hook, struct sk_buff *skb,
+                                    const struct net_device *out,
+                                    int (*okfn)(struct sk_buff *))
+  {
+-       struct rtable *rt = skb_rtable(skb);
+-
+-       if (rt && rt == bridge_parent_rtable(in))
+-               skb_dst_drop(skb);
+-
++       br_drop_fake_rtable(skb);
+         return NF_ACCEPT;
+  }
