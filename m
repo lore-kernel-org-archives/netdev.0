@@ -1,36 +1,56 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [RFC PATCH 2/2] l2tp: Introduce L2TPv3 IP encapsulation support
- for IPv6
-Date: Wed, 18 Apr 2012 14:56:39 +0100
-Message-ID: <4F8EC817.1040109@katalix.com>
-References: <y> <1334665766-11461-3-git-send-email-jchapman@katalix.com> <20120418.002820.1941255513481211357.davem@davemloft.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] net/hyperv: RX packets may keep on increasing although
+ the NIC is down
+Date: Wed, 18 Apr 2012 14:10:44 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD331E1@TK5EX14MBXC221.redmond.corp.microsoft.com>
+References: <1334757694-21745-1-git-send-email-wenqi_ma@trendmicro.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcrl@kvack.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	KY Srinivasan <kys@microsoft.com>
+To: Wenqi Ma <wenqi_ma@trendmicro.com.cn>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:52654 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750874Ab2DRN4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2012 09:56:45 -0400
-In-Reply-To: <20120418.002820.1941255513481211357.davem@davemloft.net>
+Received: from db3ehsobe005.messaging.microsoft.com ([213.199.154.143]:20657
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751071Ab2DROKy convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 10:10:54 -0400
+In-Reply-To: <1334757694-21745-1-git-send-email-wenqi_ma@trendmicro.com.cn>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/04/12 05:28, David Miller wrote:
-> From: James Chapman <jchapman@katalix.com>
-> Date: Tue, 17 Apr 2012 13:29:26 +0100
-> 
->> L2TPv3 defines an IP encapsulation packet format where data is carried
->> directly over IP (no UDP). The kernel already has support for L2TP IP
->> encapsulation over IPv4 (l2tp_ip). This patch introduces support for L2TP
->> IP encapsulation over IPv6.
-> 
-> Either the ipv4 side should be changed to use ip4_datagram_connect()
-> or the ipv6 side should duplicate just the parts of
-> ip6_datagram_connect() it needs.
-> 
-> Which is it? :-)
 
-Ok, I'll add a patch to l2tp_ip to have it use ip4_datagram_connect(). :-)
+
+> -----Original Message-----
+> From: Wenqi Ma [mailto:wenqi_ma@trendmicro.com.cn]
+> Sent: Wednesday, April 18, 2012 10:02 AM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; Haiyang Zhang; Wenqi Ma
+> Subject: [PATCH] net/hyperv: RX packets may keep on increasing although
+> the NIC is down
+> 
+> Although the network interface is down, the RX packets number which
+> could be observed by ifconfig may keep on increasing.
+> 
+> This is because the WORK scheduled in netvsc_set_multicast_list()
+> may be executed after netvsc_close(). That means the rndis filter
+> may be re-enabled by do_set_multicast() even if it was closed by
+> netvsc_close().
+> 
+> By canceling possible WORK before close the rndis filter, the issue
+> could be never happened.
+> 
+> Signed-off-by: Wenqi Ma <wenqi_ma@trendmicro.com.cn>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c |   32 +++++++++++++-------------------
+>  1 files changed, 13 insertions(+), 19 deletions(-)
+
+Thanks for patching it. I have some comments --
+The existing "struct set_multicast_work" is no longer in use, so it should be removed now.
+You should also add cancel_work into netvsc_change_mtu().
+
+Thanks,
+- Haiyang
