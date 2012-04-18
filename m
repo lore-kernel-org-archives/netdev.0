@@ -1,99 +1,66 @@
-From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
-Subject: [PATCH v2] set fake_rtable's dst to NULL to avoid kernel Oops.
-Date: Wed, 18 Apr 2012 17:34:07 +0800
-Message-ID: <4F8E8A8F.30901@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] set fake_rtable's dst to NULL to avoid kernel Oops.
+Date: Wed, 18 Apr 2012 11:48:41 +0200
+Message-ID: <1334742521.2472.102.camel@edumazet-glaptop>
+References: <4F8E8A8F.30901@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: ctrix+debianbugs@navynet.it, peter.huangpeng@gmail.com,
-	harry.majun@huawei.com, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	"'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
+	ctrix+debianbugs@navynet.it, peter.huangpeng@gmail.com,
+	harry.majun@huawei.com, linux-kernel@vger.kernel.org
+To: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:54704 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751968Ab2DRJz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 05:55:26 -0400
+In-Reply-To: <4F8E8A8F.30901@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add new flag DST_FAKE_RTABLE to dst_entry struct.
+On Wed, 2012-04-18 at 17:34 +0800, Peter Huang(Peng) wrote:
+> Add new flag DST_FAKE_RTABLE to dst_entry struct.
+> 
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
----
-  include/linux/netfilter_bridge.h |    8 ++++++++
-  include/net/dst.h                |    1 +
-  net/bridge/br_forward.c          |    1 +
-  net/bridge/br_netfilter.c        |    8 ++------
-  4 files changed, 12 insertions(+), 6 deletions(-)
-diff --git a/include/linux/netfilter_bridge.h 
-b/include/linux/netfilter_bridge.h
-index 0ddd161..eb09e3b 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -104,9 +104,17 @@ struct bridge_skb_cb {
-         } daddr;
-  };
+Your changelog is not very helpful. Please add all the information you
+provided in your previous mails. (stack trace and all)
 
-+static inline void br_drop_fake_rtable(struct sk_buff *skb) {
-+       struct dst_entry *dst = skb_dst(skb);
-+       /* abuse fact that only fake_rtable has DST_FAKE_RTABLE set */
-+       if (dst && (dst->flags & DST_FAKE_RTABLE))
-+               skb_dst_drop(skb);
-+}
-+
-  #else
-  #define nf_bridge_maybe_copy_header(skb)       (0)
-  #define nf_bridge_pad(skb)                     (0)
-+#define br_drop_fake_rtable(skb)               (0)
-  #endif /* CONFIG_BRIDGE_NETFILTER */
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
+> ---
+>   include/linux/netfilter_bridge.h |    8 ++++++++
+>   include/net/dst.h                |    1 +
+>   net/bridge/br_forward.c          |    1 +
+>   net/bridge/br_netfilter.c        |    8 ++------
+>   4 files changed, 12 insertions(+), 6 deletions(-)
+> diff --git a/include/linux/netfilter_bridge.h 
+> b/include/linux/netfilter_bridge.h
+> index 0ddd161..eb09e3b 100644
+> --- a/include/linux/netfilter_bridge.h
+> +++ b/include/linux/netfilter_bridge.h
+> @@ -104,9 +104,17 @@ struct bridge_skb_cb {
+>          } daddr;
+>   };
+> 
+> +static inline void br_drop_fake_rtable(struct sk_buff *skb) {
+> +       struct dst_entry *dst = skb_dst(skb);
+> +       /* abuse fact that only fake_rtable has DST_FAKE_RTABLE set */
 
-  #endif /* __KERNEL__ */
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 59c5d18..b094030 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -55,6 +55,7 @@ struct dst_entry {
-  #define DST_NOCACHE            0x0010
-  #define DST_NOCOUNT            0x0020
-  #define DST_NOPEER             0x0040
-+#define DST_FAKE_RTABLE                0x0080
+You are kidding ? I said "Remove this comment, and leave an empty line"
 
-         short                   error;
-         short                   obsolete;
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 61f6534..a2098e3 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -47,6 +47,7 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
-                 kfree_skb(skb);
-         } else {
-                 skb_push(skb, ETH_HLEN);
-+               br_drop_fake_rtable(skb);
-                 dev_queue_xmit(skb);
-         }
+> +       if (dst && (dst->flags & DST_FAKE_RTABLE))
+> +               skb_dst_drop(skb);
+> +}
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index dec4f38..d7f49b6 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -156,7 +156,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
-         rt->dst.dev = br->dev;
-         rt->dst.path = &rt->dst;
-         dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
--       rt->dst.flags   = DST_NOXFRM | DST_NOPEER;
-+       rt->dst.flags   = DST_NOXFRM | DST_NOPEER | DST_FAKE_RTABLE;
-         rt->dst.ops = &fake_dst_ops;
-  }
+Patch mangled, tabulations were replaced by spaces.
 
-@@ -694,11 +694,7 @@ static unsigned int br_nf_local_in(unsigned int 
-hook, struct sk_buff *skb,
-                                    const struct net_device *out,
-                                    int (*okfn)(struct sk_buff *))
-  {
--       struct rtable *rt = skb_rtable(skb);
--
--       if (rt && rt == bridge_parent_rtable(in))
--               skb_dst_drop(skb);
--
-+       br_drop_fake_rtable(skb);
-         return NF_ACCEPT;
-  }
+Please, please please read again Documentation/email-clients.txt, as I
+already mentioned (privately)
+
+Double check _everything_ before your next submission
+
+This is the last time I even care
+
+Thanks
