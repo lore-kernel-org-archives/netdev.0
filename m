@@ -1,171 +1,99 @@
 From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH 2/4] net/ipv6/udp: UDP encapsulation: move socket locking into udpv6_queue_rcv_skb()
-Date: Wed, 18 Apr 2012 09:43:44 -0400
-Message-ID: <20120418134344.GA5113@kvack.org>
+Subject: [PATCH 3/4] net/ipv6/udp: introduce encap_rcv hook into IPv6
+Date: Wed, 18 Apr 2012 09:44:10 -0400
+Message-ID: <20120418134410.GA5143@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jchapman@katalix.com
+Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
 	James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:43602 "EHLO kanga.kvack.org"
+Received: from kanga.kvack.org ([205.233.56.17]:43605 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753386Ab2DRNnp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2012 09:43:45 -0400
+	id S1751125Ab2DRNoK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 09:44:10 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to make sure that when the encap_rcv() hook is introduced it is
-not called with the socket lock held, move socket locking from callers into
-udpv6_queue_rcv_skb(), matching what happens in IPv4.
+Now that the sematics of udpv6_queue_rcv_skb() match IPv4's
+udp_queue_rcv_skb(), introduce the UDP encap_rcv() hook for IPv6.
 
 Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
 ---
- net/ipv6/udp.c |   97 +++++++++++++++++++++++++------------------------------
- 1 files changed, 44 insertions(+), 53 deletions(-)
+ include/net/udp.h |    3 +++
+ net/ipv6/udp.c    |   39 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+), 0 deletions(-)
 
+diff --git a/include/net/udp.h b/include/net/udp.h
+index e66fc29..065f379 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -268,4 +268,7 @@ extern int udp4_ufo_send_check(struct sk_buff *skb);
+ extern struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+ 	netdev_features_t features);
+ extern void udp_encap_enable(void);
++#if IS_ENABLED(CONFIG_IPV6)
++extern void udpv6_encap_enable(void);
++#endif
+ #endif	/* _UDP_H */
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 90fcdf6..e507654 100644
+index e507654..d3a486b 100644
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
-@@ -558,14 +558,25 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 			goto drop;
- 	}
- 
-+	if (sk_rcvqueues_full(sk, skb))
-+		goto drop;
-+
- 	skb_dst_drop(skb);
- 
--	rc = __udpv6_queue_rcv_skb(sk, skb);
-+	bh_lock_sock(sk);
-+	rc = 0;
-+	if (!sock_owned_by_user(sk))
-+		rc = __udpv6_queue_rcv_skb(sk, skb);
-+	else if (sk_add_backlog(sk, skb)) {
-+		bh_unlock_sock(sk);
-+		goto drop;
-+	}
-+	bh_unlock_sock(sk);
- 
- 	return rc;
- drop:
--	atomic_inc(&sk->sk_drops);
- 	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
-+	atomic_inc(&sk->sk_drops);
- 	kfree_skb(skb);
- 	return -1;
+@@ -525,6 +525,14 @@ static __inline__ void udpv6_err(struct sk_buff *skb,
+ 	__udp6_lib_err(skb, opt, type, code, offset, info, &udp_table);
  }
-@@ -614,37 +625,27 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
- static void flush_stack(struct sock **stack, unsigned int count,
- 			struct sk_buff *skb, unsigned int final)
+ 
++static struct static_key udpv6_encap_needed __read_mostly;
++void udpv6_encap_enable(void)
++{
++	if (!static_key_enabled(&udpv6_encap_needed))
++		static_key_slow_inc(&udpv6_encap_needed);
++}
++EXPORT_SYMBOL(udpv6_encap_enable);
++
+ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
  {
--	unsigned int i;
-+	struct sk_buff *skb1 = NULL;
- 	struct sock *sk;
--	struct sk_buff *skb1;
-+	unsigned int i;
+ 	struct udp_sock *up = udp_sk(sk);
+@@ -534,6 +542,37 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto drop;
  
- 	for (i = 0; i < count; i++) {
--		skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
--
- 		sk = stack[i];
--		if (skb1) {
--			if (sk_rcvqueues_full(sk, skb1)) {
--				kfree_skb(skb1);
--				goto drop;
--			}
--			bh_lock_sock(sk);
--			if (!sock_owned_by_user(sk))
--				udpv6_queue_rcv_skb(sk, skb1);
--			else if (sk_add_backlog(sk, skb1)) {
--				kfree_skb(skb1);
--				bh_unlock_sock(sk);
--				goto drop;
--			}
--			bh_unlock_sock(sk);
--			continue;
-+		if (likely(skb1 == NULL))
-+			skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
-+		if (!skb1) {
-+			atomic_inc(&sk->sk_drops);
-+			UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
-+					  IS_UDPLITE(sk));
-+			UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS,
-+					  IS_UDPLITE(sk));
- 		}
--drop:
--		atomic_inc(&sk->sk_drops);
--		UDP6_INC_STATS_BH(sock_net(sk),
--				UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
--		UDP6_INC_STATS_BH(sock_net(sk),
--				UDP_MIB_INERRORS, IS_UDPLITE(sk));
++	if (static_key_false(&udpv6_encap_needed) && up->encap_type) {
++		int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
 +
-+		if (skb1 && udpv6_queue_rcv_skb(sk, skb1) <= 0)
-+			skb1 = NULL;
- 	}
-+	if (unlikely(skb1))
-+		kfree_skb(skb1);
- }
- /*
-  * Note: called only from the BH handler context,
-@@ -784,39 +785,29 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	 * for sock caches... i'll skip this for now.
- 	 */
- 	sk = __udp6_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
-+	if (sk != NULL) {
-+		int ret = udpv6_queue_rcv_skb(sk, skb);
-+		sock_put(sk);
- 
--	if (sk == NULL) {
--		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
--			goto discard;
--
--		if (udp_lib_checksum_complete(skb))
--			goto discard;
--		UDP6_INC_STATS_BH(net, UDP_MIB_NOPORTS,
--				proto == IPPROTO_UDPLITE);
--
--		icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
-+		/* a return value > 0 means to resubmit the input, but
-+		 * it wants the return to be -protocol, or 0
++		/*
++		 * This is an encapsulation socket so pass the skb to
++		 * the socket's udp_encap_rcv() hook. Otherwise, just
++		 * fall through and pass this up the UDP socket.
++		 * up->encap_rcv() returns the following value:
++		 * =0 if skb was successfully passed to the encap
++		 *    handler or was discarded by it.
++		 * >0 if skb should be passed on to UDP.
++		 * <0 if skb should be resubmitted as proto -N
 +		 */
-+		if (ret > 0)
-+			return -ret;
- 
--		kfree_skb(skb);
- 		return 0;
- 	}
- 
--	/* deliver */
--
--	if (sk_rcvqueues_full(sk, skb)) {
--		sock_put(sk);
-+	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
- 		goto discard;
--	}
--	bh_lock_sock(sk);
--	if (!sock_owned_by_user(sk))
--		udpv6_queue_rcv_skb(sk, skb);
--	else if (sk_add_backlog(sk, skb)) {
--		atomic_inc(&sk->sk_drops);
--		bh_unlock_sock(sk);
--		sock_put(sk);
 +
-+	if (udp_lib_checksum_complete(skb))
- 		goto discard;
--	}
--	bh_unlock_sock(sk);
--	sock_put(sk);
++		/* if we're overly short, let UDP handle it */
++		encap_rcv = ACCESS_ONCE(up->encap_rcv);
++		if (skb->len > sizeof(struct udphdr) && encap_rcv != NULL) {
++			int ret;
 +
-+	UDP6_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
-+	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
++			ret = encap_rcv(sk, skb);
++			if (ret <= 0) {
++				UDP_INC_STATS_BH(sock_net(sk),
++						 UDP_MIB_INDATAGRAMS,
++						 is_udplite);
++				return -ret;
++			}
++		}
 +
-+	kfree_skb(skb);
- 	return 0;
- 
- short_packet:
++		/* FALLTHROUGH -- it's a UDP Packet */
++	}
++
+ 	/*
+ 	 * UDP-Lite specific tests, ignored on UDP sockets (see net/ipv4/udp.c).
+ 	 */
 -- 
 1.7.4.1
 
