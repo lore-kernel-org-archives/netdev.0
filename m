@@ -1,79 +1,156 @@
-From: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
-Subject: Re: [PATCH v2] bonding: start slaves with link down for ARP monitor
-Date: Wed, 18 Apr 2012 14:32:31 +0200
-Message-ID: <2570606.YH3Fgdn9ql@alaris>
-References: <20120414220617.DA8BE45BA2@lion.mk-sys.cz> <1410525.5tCeY2AOxF@alaris> <1343782.ObcgmM0SbX@alaris>
-Reply-To: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  [PATCH 2/2] IPVS: make failure of netns init more
+	stable
+Date: Wed, 18 Apr 2012 14:37:43 +0200 (CEST)
+Message-ID: <3r6npeu.69e743752dad7d8eb6a19cbbbdfd1ed9@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Flavio Leitner <fbl@redhat.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:59988 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751917Ab2DRMce convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 08:32:34 -0400
-In-Reply-To: <1343782.ObcgmM0SbX@alaris>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: "Julian Anastasov" <ja@ssi.bg>,
+	"horms@verge.net.au" <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 17 of April 2012 13:58EN, Michal Kube=E8ek wrote:
-> On Monday 16 of April 2012 12:27EN, Michal Kube=E8ek wrote:
-> > On Saturday 14 of April 2012 21:48EN, Jay Vosburgh wrote:
-> > > Anybody got a 10 or 100 card laying around with fast autoneg to
-> > > try?  Back in the day I used 3c59x and e100s, and I seem to recal=
-l
-> > > that the 3c59x board I had was pretty speedy at going carrier up.
-> >=20
-> > It seems these cards are hard to find these days (I tried to find
-> > one
-> > in our office but no luck yet). However, I tried an onboard adapter
-> > with r8169 driver and patched kernel succeeded to detect carrier in
-> > time for bonding driver to start the slave in "up" state (and it
-> > started in "down" state with unplugged cable so that the detection
-> > is
-> > correct).
->=20
-> I tested few more cards:
->=20
-> - two 100 Mb/s Realtek 8139C and 8139D with 8139too driver:
->   driver sets carrier on soon enough and slave starts with "up" and
->   stays that way (same as r8169)
->=20
-> - 1 Gb/s Intel Pro/1000PT (82572EI) with e1000e driver:
->   essentially the same as igb, driver is slow and patch prevents the
->   up -> down -> up sequence by starting the slave in "down" state
->=20
-> - 100 Mb/s Intel (?) cards with DECchip Tulip 21142/3, tulip driver:
->   card/driver either doesn't set the flag properly or is extremely
-> slow with up -> down transition so that the state was "up" all the
-> time no matter what the real link state was
+Hello 
+>
+>Hello,
+>
+>On Tue, 17 Apr 2012, Hans Schillstrom wrote:
+>
+>> I wonder if we are chasing ghosts...
+>> 
+>> With proper fault handling I can't even see a case when it (net->ipvs) can be used.
+>> Can you see a case when it could happen?
+>> Still we can set it to NULL on error exit and cleanup as you suggested, that doesn't harm I think.
+>> 
+>> A. If you add a netns and it fails the entire ns will be rolled back, 
+>>    and no access to that ns can occur.
+>>    That ns does not exist
+>
+>	Agreed
+>
+>> B. If you insert ip_vs.ko when having one or more name spaces and 
+>>    __ip_vs_init() returns an error the module will be unloaded.
+>>    All ready loaded ns will not be affected.
+>
+>	Yes, ip_vs_init fails.
+>
+>> C. insmod of ex. ip_vs_ftp only affects loaded name spaces
+>>    and if the load of ip_vs_ftp fails it will be unloaded without affecting ip_vs(.ko)
+>>    (If ip_vs.ko is not loaded then it has to be loaded first case B...)
+>> 
+>> With a "compiled in" ip_vs case B doesn't exist.
+>
+>	It is this case that can happen, we can only guess how
+>difficult is to get ENOMEM here. IIRC, we can generate only
+>ENOMEM error on IPVS core load.
+>
+>	I assume Simon has such setup and changes code to
+>trigger load error. When I generate ENOMEM on IPVS core init
+>for such case I get ENOENT from register_ip_vs_app when
+>patch 1 and 2 for apps are applied, i.e. net->ipvs is NULL.
+>You can check it with NF_CONNTRACK=y, IP_VS=y and
+>IP_VS_FTP=m. You only need to trigger ENOMEM in __ip_vs_init.
 
-Thanks to Andreas Taschner, I could test some more cards, including=20
-3COM:
 
-- both 3COM's (3C905CX and 3C595 with 3c59x driver) reset the flag fast
-  enough for bonding to detect "up" from the start
+I did test this with 4 netns loaded and modprobe ip_vs_ftp
+In the 4:th netns  (ipvs->gen >= 4) fire a -ENOMEM 
+The result was as expected, ip_vs_ftp was not loaded.
 
-- e100 (Compaq NC3120) took about 46 ms which was too late and slave
-  started in "down", waiting for ARP monitor
+All patches below was loaded. (included the ipvs NULL check)
 
-- Marvell 88E8001 (skge driver) needs 2-3 seconds so that the patch
-  prevented spurious failure
+Just for "fun" I also added a printk in the ipvs NULL check
+but I can't trigger it. 
 
-All tested cards can be divided into three groups:
+Simon:
+ do you have any possibility to test it or give me a hint how to do ?
+(Just to make sure that the patches below will be sufficient)
 
-1. patch helps: igb, e1000e, skge
-2. no change: r8169, 8139too, 3c59x, tulip
-3. delay introduced: e100
+>
+>> With proper fault handling i.e. all ways returning fault codes to the netns init,
+>> there is no need for checking for  "if (!net->ipvs)" or any other action.
+>
+>	Probably but one check on load does not hurt much.
 
-(I also tested a virtual e1000 in VMware Workstation guest, it falls=20
-into group 2 - initial detection fast enough.)
+I think I have tested all of above now and my conclusion is that we need the following patches
+which also was applied when the tests was run.
+(with a small reservation that I might have missed some..)
 
-IMHO the cards currently in use are much more likely to fall into first=
-=20
-group than into third.
+[PATCH v3 1/2] netfilter: ipvs: Verify that IP_VS protocol has been registered, Sasha Levin
+[PATCH v3 2/2] netfilter: ipvs: use GFP_KERNEL allocation where possible, Sasha Levin
 
-                                                         Michal Kubecek
+[PATCH 0/6] Convert some GFP_ATOMIC allocations, Julian Anastasov
+[PATCH 1/6] ipvs: timeout tables do not need GFP_ATOMIC allocation, Julian Anastasov
+[PATCH 2/6] ipvs: SH scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
+[PATCH 5/6] ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init, Julian Anastasov
+[PATCH 6/6] ipvs: WRR scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
+[PATCH 3/6] ipvs: DH scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
+[PATCH 4/6] ipvs: LBLC scheduler does not need GFP_ATOMIC allocation on init, Julian Anastasov
+
+[PATCH] ipvs: fix crash in ip_vs_control_net_cleanup on unload, Julian Anastasov
+
+[PATCH 1/2] ipvs: reset ipvs pointer in netns, Julian Anastasov
+[PATCH 1/2] IPVS: take care of return value from protocol init_netns, Hans Schillstrom
+
+To be safe,  add this to  [PATCH 1/2] ipvs: reset ipvs pointer in netns or make a new patch
+
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 538d74e..c757359 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -439,6 +439,9 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
+        struct ip_vs_app *app;
+        struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++       if (!ipvs)
++               return ERR_PTR(-ENOENT);
++
+        app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
+        if (!app)
+                return -ENOMEM;
+
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 74c7278..1d74996 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -549,6 +549,9 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
+ {
+        struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++       if (!ipvs)
++               return ERR_PTR(-ENOENT);
++
+        if (!net_eq(net, &init_net)) {
+                ipvs->lblc_ctl_table = kmemdup(vs_vars_table,
+                                                sizeof(vs_vars_table),
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index 8620c68..c328ee0 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -743,6 +743,9 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
+ {
+        struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++       if (!ipvs)
++               return ERR_PTR(-ENOENT);
++
+        if (!net_eq(net, &init_net)) {
+                ipvs->lblcr_ctl_table = kmemdup(vs_vars_table,
+                                                sizeof(vs_vars_table),
+
+>
+>Regards
+>
+>--
+>Julian Anastasov <ja@ssi.bg>
+
+Regards
+Hans Schillstrom <hans@schillstrom.com>
+
