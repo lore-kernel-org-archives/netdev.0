@@ -1,160 +1,146 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re[3]: [PATCH 2/2] IPVS: make failure of netns init more
-	stable
-Date: Thu, 19 Apr 2012 00:33:11 +0200 (CEST)
-Message-ID: <3r6npeu.845e0d8f300f1e0189de32ae08f06900@obelix.schillstrom.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
+Date: Thu, 19 Apr 2012 10:50:40 +1200
+Message-ID: <CAKgNAkh46EMDWpessyi0n-EyNoRid-iW1O1RfUpTtzKDv0mZFw@mail.gmail.com>
+References: <4F8D497F.8060601@gmail.com> <20120417.223614.629911246108750471.davem@davemloft.net>
+ <CADZpyix6DZ93f8MQf3Aa1NVV7HCFMAXVAdzRMFBY7xWHHQMPog@mail.gmail.com> <20120418.001650.1042781402985153056.davem@davemloft.net>
+Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "horms@verge.net.au" <horms@verge.net.au>,
-	"Hans Schillstrom" <hans.schillstrom@ericsson.com>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: "Julian Anastasov" <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: carlos-v2tUB8YBRSi3e3T8WW9gsA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org, w@1wt.eu,
+	alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120418.001650.1042781402985153056.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Wed, Apr 18, 2012 at 4:16 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wro=
+te:
+> From: "Carlos O'Donell" <carlos-v2tUB8YBRSi3e3T8WW9gsA@public.gmane.org>
+> Date: Wed, 18 Apr 2012 00:08:47 -0400
 >
->On Wed, 18 Apr 2012, Hans Schillstrom wrote:
+>> I don't clearly understand your position here, and perhaps that's my
+>> own ignorance, but could you please clarify, with examples, exactly
+>> why the change is not acceptable?
 >
->> >trigger load error. When I generate ENOMEM on IPVS core init
->> >for such case I get ENOENT from register_ip_vs_app when
->> >patch 1 and 2 for apps are applied, i.e. net->ipvs is NULL.
->> >You can check it with NF_CONNTRACK=y, IP_VS=y and
->> >IP_VS_FTP=m. You only need to trigger ENOMEM in __ip_vs_init.
->> 
->> 
->> I did test this with 4 netns loaded and modprobe ip_vs_ftp
->> In the 4:th netns  (ipvs->gen >= 4) fire a -ENOMEM 
->> The result was as expected, ip_vs_ftp was not loaded.
->> 
->> All patches below was loaded. (included the ipvs NULL check)
->> 
->> Just for "fun" I also added a printk in the ipvs NULL check
->> but I can't trigger it. 
+> My position is that since millions upon millions of Linux systems, in
+> fact every single Linux system, exists right now with the current
+> behavior we are not helping application writers at all by changing
+> behavior now after it's been this way for nearly 20 years.
 >
->	I trigger it in this way (ip_vs in kernel, ip_vs_ftp
->as module):
+> Because if an application writer wants his code to work on systems
+> that actually exist he has to accomodate the non-NULL termination
+> situation if he wants to inspect or print out an AF_UNIX path.
 >
->        if (1 || ip_vs_app_net_init(net) < 0)
->                goto app_fail;
+> Because every system in existence right now allows the non-NULL
+> terminated AF_UNIX paths, therefore it's possible on every system
+> in existence right now.
 >
->	This causes ip_vs core to fail. I use NET_NS=n.
-
-Thanks, It's a really odd case when you don't have enough memory to start the kernel
-I think it's cured now, it doesn't trigger any dumps now.
-
-Tested with and without CONFIG_NET_NS
-
+> Catch my drift?
 >
->> Simon:
->>  do you have any possibility to test it or give me a hint how to do ?
->> (Just to make sure that the patches below will be sufficient)
->> 
->> >
->> >> With proper fault handling i.e. all ways returning fault codes to the netns init,
->> >> there is no need for checking for  "if (!net->ipvs)" or any other action.
->> >
->> >	Probably but one check on load does not hurt much.
->> 
->> I think I have tested all of above now and my conclusion is that we need the following patches
->> which also was applied when the tests was run.
->> (with a small reservation that I might have missed some..)
->> 
->> [PATCH v3 1/2] netfilter: ipvs: Verify that IP_VS protocol has been registered, Sasha Levin
->> [PATCH v3 2/2] netfilter: ipvs: use GFP_KERNEL allocation where possible, Sasha Levin
->> 
->> [PATCH 0/6] Convert some GFP_ATOMIC allocations, Julian Anastasov
->> [PATCH 1/6] ipvs: timeout tables do not need GFP_ATOMIC allocation, Julian Anastasov
->> [PATCH 2/6] ipvs: SH scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
->> [PATCH 5/6] ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init, Julian Anastasov
->> [PATCH 6/6] ipvs: WRR scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
->> [PATCH 3/6] ipvs: DH scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
->> [PATCH 4/6] ipvs: LBLC scheduler does not need GFP_ATOMIC allocation on init, Julian Anastasov
->> 
->> [PATCH] ipvs: fix crash in ip_vs_control_net_cleanup on unload, Julian Anastasov
->> 
->> [PATCH 1/2] ipvs: reset ipvs pointer in netns, Julian Anastasov
->> [PATCH 1/2] IPVS: take care of return value from protocol init_netns, Hans Schillstrom
->> 
->> To be safe,  add this to  [PATCH 1/2] ipvs: reset ipvs pointer in netns or make a new patch
+> The very thing the patch claims to help, it doesn't. =C2=A0We install=
+ this
+> kernel patch now and then tell application writers that they can just
+> assume all AF_UNIX paths are NULL terminated when they want to print
+> it out, because such code will not actually be guarenteed to work on
+> all deployed Linux machines out there.
+
+Hang on a moment. I did not suggest that we can just tell users they
+can forget about the past. Obviously, users will need to program to
+past kernel behavior here for a good long time yet. (As Alan says
+elsewhere in the thread "they'll be defensively coding for
+the existing API for another ten years for enterprise distros
+anyway".) However, this is about longer-term improvement of the
+quality of implementation; in X years (choose your X) time, a lot of
+new application may not need to care about the old broken behavior.
+See some related examples below.
+
+And you skipped past my other two points. Even if my understanding
+about POSIX mandates is correct, I can understand how we might ignore
+that point. But the last one is still germane:
+
+[[
+3. Considering these two sets:
+
+  (a) [applications that rely on the assumption that there
+       is a null terminator inside sizeof(sun_path) bytes]
+  (b) [applications that would break if the kernel behavior changed]
+
+  I suspect that set (a) is rather larger than set (b)--or, more
+  likely still, applications ensure they go for the lowest common
+  denominator limit of 92 (HP-UX) or 104 (historical BSD limit)
+  bytes, and so avoid this issue completely.
+]]
+
+There may well be potential breakages out there in set (a), and
+improving the QOI would help them. (To put things in terms of Alan's
+response: I suspect that there may well be existing applications that
+are *not* defensively handling the existing API).
+
+Taking the logic you've posed (my reading: "we shouldn't fix old
+brokenness because applications will still need to code to the
+brokenness") to the extreme, we'd *never* fix old pieces of
+brokenness. However, we certainly have precedents for doing exactly
+that:
+
+After nearly 15 years of brokenness (stretching back to the first
+kernels), commit 69be8f189653cd81aae5a74e26615b12871bb72e fixed this
+(sigaction(2)):
+
+   BUGS
+       In kernels up to and including 2.6.13, specifying SA_NODEFER in
+       sa_flags  prevents  not  only  the  delivered signal from being
+       masked during execution of the handler, but  also  the  signals
+       specified in sa_mask.  This bug was fixed in kernel 2.6.14.
+
+Similarly, after brokenness that had run through the entire preceding
+2.4.x kernel series, Linux 2.6.4 fixed this:
+
+    BUGS
+       In kernel 2.4 (and earlier) there is some  strangeness  in  the
+       handling  of  X_OK  tests  for superuser.  If all categories of
+       execute permission are disabled for a nondirectory  file,  then
+       the  only  access() test that returns -1 is when mode is speci=E2=
+=80=90
+       fied as just X_OK; if R_OK or W_OK is also specified  in  mode,
+       then  access() returns 0 for such files.  Early 2.6 kernels (up
+       to and including 2.6.3) also behaved in the same way as  kernel
+       2.4.
+
+(A little background here:
+http://thread.gmane.org/gmane.linux.kernel/158814, and the fix
+eventually went in with
+http://thread.gmane.org/gmane.linux.kernel/178719)
+
+> You cannot just ignore 20 years of precedence and say "oh let's chang=
+e
+> this in the kernel now, and that way application writers don't have t=
+o
+> worry about that lack of NULL termination any more." =C2=A0It simply
+> doesn't work like that.
+
+As should be clear from the above, I agree. But still, I don't think
+the logic "it's broken, and even if we fix it, users will still have
+to code to the old brokenness" is a sufficient argument against
+improving the QOI long-term.
+
+> All of this talk about whether applications actually create non-NULL
+> terminated AF_UNIX paths don't even factor into the conversation.
 >
->	The ip_vs_ftp part is fixed by:
->"[PATCH 2/2] ipvs: fix app registration in netns". So, this check
->for ip_vs_ftp is not needed anymore:
+> So the value proposition for this patch simply does not exist.
 
-Well, I don't think "[PATCH 2/2] ipvs: fix app registration in netns" is needed if the null check is there.
-I have only used the NULL check (without ERR_PTR()  :-)  not the entire patch in my tests.
+Of course, it's your call in the end, but I don't think things are as
+cut-and-dried as your response suggests.
 
-If you think it's needed it is OK for me.
+Cheers,
 
->
->> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
->> index 538d74e..c757359 100644
->> --- a/net/netfilter/ipvs/ip_vs_ftp.c
->> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
->> @@ -439,6 +439,9 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
->>         struct ip_vs_app *app;
->>         struct netns_ipvs *ipvs = net_ipvs(net);
->>  
->> +       if (!ipvs)
->> +               return ERR_PTR(-ENOENT);
->> +
->>         app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
->>         if (!app)
->>                 return -ENOMEM;
->> 
->> diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
->> index 74c7278..1d74996 100644
->> --- a/net/netfilter/ipvs/ip_vs_lblc.c
->> +++ b/net/netfilter/ipvs/ip_vs_lblc.c
->> @@ -549,6 +549,9 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
->>  {
->>         struct netns_ipvs *ipvs = net_ipvs(net);
->>  
->> +       if (!ipvs)
->> +               return ERR_PTR(-ENOENT);
->
->	You can post additional patches for lblc and lblcr but
->use 'return -ENOENT;', ERR_PTR is not appropriate here, it
->is for pointers.
+Michael
 
-Oops, cut & paste
-
->
->> +
->>         if (!net_eq(net, &init_net)) {
->>                 ipvs->lblc_ctl_table = kmemdup(vs_vars_table,
->>                                                 sizeof(vs_vars_table),
->> diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
->> index 8620c68..c328ee0 100644
->> --- a/net/netfilter/ipvs/ip_vs_lblcr.c
->> +++ b/net/netfilter/ipvs/ip_vs_lblcr.c
->> @@ -743,6 +743,9 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
->>  {
->>         struct netns_ipvs *ipvs = net_ipvs(net);
->>  
->> +       if (!ipvs)
->> +               return ERR_PTR(-ENOENT);
->> +
->>         if (!net_eq(net, &init_net)) {
->>                 ipvs->lblcr_ctl_table = kmemdup(vs_vars_table,
->>                                                 sizeof(vs_vars_table),
->
->Regards
->
->--
->Julian Anastasov <ja@ssi.bg>
-
-
---
-Regards 
-Hans Schillstrom <hans@schillstrom.com>
-
-
-
+--=20
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface"; http://man7.org/tlpi/
