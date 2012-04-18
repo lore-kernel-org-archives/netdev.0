@@ -1,33 +1,72 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
-Date: Wed, 18 Apr 2012 13:31:02 -0400 (EDT)
-Message-ID: <20120418.133102.1711079292327461659.davem@davemloft.net>
-References: <CADZpyix6DZ93f8MQf3Aa1NVV7HCFMAXVAdzRMFBY7xWHHQMPog@mail.gmail.com>
-	<20120418.001650.1042781402985153056.davem@davemloft.net>
-	<CADZpyixnQMM5WFWLyvEQ=D-tvrqFGe4PC5WdUzxVtdL96NODJQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: avoid expensive pskb_expand_head() calls
+Date: Wed, 18 Apr 2012 19:40:48 +0200
+Message-ID: <1334770848.2472.314.camel@edumazet-glaptop>
+References: <1334653608.6226.11.camel@edumazet-laptop>
+	 <1334654187.2696.2.camel@jtkirshe-mobl>  <4F8D93E1.9090000@intel.com>
+	 <1334681204.2472.41.camel@edumazet-glaptop>
+	 <1334698722.2472.71.camel@edumazet-glaptop>
+	 <1334764184.2472.299.camel@edumazet-glaptop>  <4F8EF317.10504@hp.com>
+	 <1334769375.2472.310.camel@edumazet-glaptop>  <4F8EFA24.8020909@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org, w@1wt.eu,
-	alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org
-To: carlos-v2tUB8YBRSi3e3T8WW9gsA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CADZpyixnQMM5WFWLyvEQ=D-tvrqFGe4PC5WdUzxVtdL96NODJQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:48602 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456Ab2DRRkz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 13:40:55 -0400
+Received: by bkcik5 with SMTP id ik5so5705818bkc.19
+        for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 10:40:54 -0700 (PDT)
+In-Reply-To: <4F8EFA24.8020909@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Carlos O'Donell" <carlos-v2tUB8YBRSi3e3T8WW9gsA@public.gmane.org>
-Date: Wed, 18 Apr 2012 08:57:58 -0400
+On Wed, 2012-04-18 at 10:30 -0700, Rick Jones wrote:
 
-> In summary your opinion is that the API has and always will allow up
-> to 108 chars to be used in sun_path?
+> I was thinking more about the race if any between the ACK for the last 
+> byte of the 64 KB skb and the transmit completion processing freeing it 
+> in the driver.  But that may be moot.
+> 
 
-Yes.
+No race, its done with atomic operations.
 
-> In which case I will talk to the Austin group to get a good example
-> added to POSIX showing safe usage.
 
-Why would you add language to POSIX for Linux specific behavior?
-Just curious :-)
+> >
+> > # perf stat -r 5 -d -d -o RES.before taskset 1 netperf -H 192.168.99.1 -l 20
+> 
+> I'm still learning about perf, and the manpage I have for it does not 
+> discuss the -d option but is that doing system wide, or only in the 
+> context of the netperf process?
+
+In fact I used -a option and forgot to copy it in the mail I sent
+
+perf stat -h
+
+ usage: perf stat [<options>] [<command>]
+
+    -e, --event <event>   event selector. use 'perf list' to list available events
+        --filter <filter>
+                          event filter
+    -i, --no-inherit      child tasks do not inherit counters
+    -p, --pid <pid>       stat events on existing process id
+    -t, --tid <tid>       stat events on existing thread id
+    -a, --all-cpus        system-wide collection from all CPUs
+    -g, --group           put the counters into a counter group
+    -c, --scale           scale/normalize counters
+    -v, --verbose         be more verbose (show counter open errors, etc)
+    -r, --repeat <n>      repeat command and print average + stddev (max: 100)
+    -n, --null            null run - dont start any counters
+    -d, --detailed        detailed run - start a lot of events
+    -S, --sync            call sync() before starting a run
+    -B, --big-num         print large numbers with thousands' separators
+    -C, --cpu <cpu>       list of cpus to monitor in system-wide
+    -A, --no-aggr         disable CPU count aggregation
+    -x, --field-separator <separator>
+                          print counts with custom separator
+    -G, --cgroup <name>   monitor event in cgroup name only
+    -o, --output <file>   output file name
+        --append          append to the output file
+        --log-fd <n>      log output to fd, instead of stderr
