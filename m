@@ -1,85 +1,75 @@
-From: Wenqi Ma <wenqi_ma@trendmicro.com.cn>
-Subject: [PATCH] net/hyperv: RX packets may keep on increasing although the NIC is down
-Date: Wed, 18 Apr 2012 22:01:34 +0800
-Message-ID: <1334757694-21745-1-git-send-email-wenqi_ma@trendmicro.com.cn>
-Content-Type: text/plain;
-	charset="iso-8859-2"
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, haiyangz@microsoft.com,
-	Wenqi Ma <wenqi_ma@trendmicro.com.cn>
-To: netdev@vger.kernel.org
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: Re: [PATCH 10/11] batman-adv: print OGM seq numbers as unsigned long
+Date: Wed, 18 Apr 2012 08:47:00 +0200
+Message-ID: <20120418064659.GC27966@ritirata.org>
+References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
+ <1334663907-22725-11-git-send-email-ordex@autistici.org>
+ <20120417.224746.802445483718191876.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="0vzXIDBeUiKkjNJl"
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sjdciscan02.udc.trendmicro.com ([66.180.82.18]:41439 "EHLO
-	sjdciscan02.udc.trendmicro.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750874Ab2DRGpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 02:45:34 -0400
+Received: from latitanza.investici.org ([82.94.249.234]:52336 "EHLO
+	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795Ab2DRGqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 02:46:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20120417.224746.802445483718191876.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QWx0aG91Z2ggdGhlIG5ldHdvcmsgaW50ZXJmYWNlIGlzIGRvd24sIHRoZSBSWCBwYWNrZXRzIG51
-bWJlciB3aGljaA0KY291bGQgYmUgb2JzZXJ2ZWQgYnkgaWZjb25maWcgbWF5IGtlZXAgb24gaW5j
-cmVhc2luZy4NCg0KVGhpcyBpcyBiZWNhdXNlIHRoZSBXT1JLIHNjaGVkdWxlZCBpbiBuZXR2c2Nf
-c2V0X211bHRpY2FzdF9saXN0KCkNCm1heSBiZSBleGVjdXRlZCBhZnRlciBuZXR2c2NfY2xvc2Uo
-KS4gVGhhdCBtZWFucyB0aGUgcm5kaXMgZmlsdGVyDQptYXkgYmUgcmUtZW5hYmxlZCBieSBkb19z
-ZXRfbXVsdGljYXN0KCkgZXZlbiBpZiBpdCB3YXMgY2xvc2VkIGJ5DQpuZXR2c2NfY2xvc2UoKS4N
-Cg0KQnkgY2FuY2VsaW5nIHBvc3NpYmxlIFdPUksgYmVmb3JlIGNsb3NlIHRoZSBybmRpcyBmaWx0
-ZXIsIHRoZSBpc3N1ZQ0KY291bGQgYmUgbmV2ZXIgaGFwcGVuZWQuDQoNClNpZ25lZC1vZmYtYnk6
-IFdlbnFpIE1hIDx3ZW5xaV9tYUB0cmVuZG1pY3JvLmNvbS5jbj4NCi0tLQ0KIGRyaXZlcnMvbmV0
-L2h5cGVydi9uZXR2c2NfZHJ2LmMgfCAgIDMyICsrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0t
-LS0tDQogMSBmaWxlcyBjaGFuZ2VkLCAxMyBpbnNlcnRpb25zKCspLCAxOSBkZWxldGlvbnMoLSkN
-Cg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMgYi9kcml2ZXJz
-L25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jDQppbmRleCBkZDI5NDc4Li40YzBlMzMzIDEwMDY0NA0K
-LS0tIGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KKysrIGIvZHJpdmVycy9uZXQv
-aHlwZXJ2L25ldHZzY19kcnYuYw0KQEAgLTQ0LDYgKzQ0LDcgQEAgc3RydWN0IG5ldF9kZXZpY2Vf
-Y29udGV4dCB7DQogCS8qIHBvaW50IGJhY2sgdG8gb3VyIGRldmljZSBjb250ZXh0ICovDQogCXN0
-cnVjdCBodl9kZXZpY2UgKmRldmljZV9jdHg7DQogCXN0cnVjdCBkZWxheWVkX3dvcmsgZHdvcms7
-DQorCXN0cnVjdCB3b3JrX3N0cnVjdCB3b3JrOw0KIH07DQogDQogDQpAQCAtNTgsMjMgKzU5LDIw
-IEBAIHN0cnVjdCBzZXRfbXVsdGljYXN0X3dvcmsgew0KIA0KIHN0YXRpYyB2b2lkIGRvX3NldF9t
-dWx0aWNhc3Qoc3RydWN0IHdvcmtfc3RydWN0ICp3KQ0KIHsNCi0Jc3RydWN0IHNldF9tdWx0aWNh
-c3Rfd29yayAqc3drID0NCi0JCWNvbnRhaW5lcl9vZih3LCBzdHJ1Y3Qgc2V0X211bHRpY2FzdF93
-b3JrLCB3b3JrKTsNCi0Jc3RydWN0IG5ldF9kZXZpY2UgKm5ldCA9IHN3ay0+bmV0Ow0KLQ0KLQlz
-dHJ1Y3QgbmV0X2RldmljZV9jb250ZXh0ICpuZGV2Y3R4ID0gbmV0ZGV2X3ByaXYobmV0KTsNCisJ
-c3RydWN0IG5ldF9kZXZpY2VfY29udGV4dCAqbmRldmN0eCA9DQorCQljb250YWluZXJfb2Yodywg
-c3RydWN0IG5ldF9kZXZpY2VfY29udGV4dCwgd29yayk7DQogCXN0cnVjdCBuZXR2c2NfZGV2aWNl
-ICpudmRldjsNCiAJc3RydWN0IHJuZGlzX2RldmljZSAqcmRldjsNCiANCiAJbnZkZXYgPSBodl9n
-ZXRfZHJ2ZGF0YShuZGV2Y3R4LT5kZXZpY2VfY3R4KTsNCi0JaWYgKG52ZGV2ID09IE5VTEwpDQot
-CQlnb3RvIG91dDsNCisJaWYgKG52ZGV2ID09IE5VTEwgfHwgbnZkZXYtPm5kZXYgPT0gTlVMTCkN
-CisJCXJldHVybjsNCiANCiAJcmRldiA9IG52ZGV2LT5leHRlbnNpb247DQogCWlmIChyZGV2ID09
-IE5VTEwpDQotCQlnb3RvIG91dDsNCisJCXJldHVybjsNCiANCi0JaWYgKG5ldC0+ZmxhZ3MgJiBJ
-RkZfUFJPTUlTQykNCisJaWYgKG52ZGV2LT5uZGV2LT5mbGFncyAmIElGRl9QUk9NSVNDKQ0KIAkJ
-cm5kaXNfZmlsdGVyX3NldF9wYWNrZXRfZmlsdGVyKHJkZXYsDQogCQkJTkRJU19QQUNLRVRfVFlQ
-RV9QUk9NSVNDVU9VUyk7DQogCWVsc2UNCkBAIC04MiwyMSArODAsMTMgQEAgc3RhdGljIHZvaWQg
-ZG9fc2V0X211bHRpY2FzdChzdHJ1Y3Qgd29ya19zdHJ1Y3QgKncpDQogCQkJTkRJU19QQUNLRVRf
-VFlQRV9CUk9BRENBU1QgfA0KIAkJCU5ESVNfUEFDS0VUX1RZUEVfQUxMX01VTFRJQ0FTVCB8DQog
-CQkJTkRJU19QQUNLRVRfVFlQRV9ESVJFQ1RFRCk7DQotDQotb3V0Og0KLQlrZnJlZSh3KTsNCiB9
-DQogDQogc3RhdGljIHZvaWQgbmV0dnNjX3NldF9tdWx0aWNhc3RfbGlzdChzdHJ1Y3QgbmV0X2Rl
-dmljZSAqbmV0KQ0KIHsNCi0Jc3RydWN0IHNldF9tdWx0aWNhc3Rfd29yayAqc3drID0NCi0JCWtt
-YWxsb2Moc2l6ZW9mKHN0cnVjdCBzZXRfbXVsdGljYXN0X3dvcmspLCBHRlBfQVRPTUlDKTsNCi0J
-aWYgKHN3ayA9PSBOVUxMKQ0KLQkJcmV0dXJuOw0KKwlzdHJ1Y3QgbmV0X2RldmljZV9jb250ZXh0
-ICpuZXRfZGV2aWNlX2N0eCA9IG5ldGRldl9wcml2KG5ldCk7DQogDQotCXN3ay0+bmV0ID0gbmV0
-Ow0KLQlJTklUX1dPUksoJnN3ay0+d29yaywgZG9fc2V0X211bHRpY2FzdCk7DQotCXNjaGVkdWxl
-X3dvcmsoJnN3ay0+d29yayk7DQorCXNjaGVkdWxlX3dvcmsoJm5ldF9kZXZpY2VfY3R4LT53b3Jr
-KTsNCiB9DQogDQogc3RhdGljIGludCBuZXR2c2Nfb3BlbihzdHJ1Y3QgbmV0X2RldmljZSAqbmV0
-KQ0KQEAgLTEyNSw2ICsxMTUsOCBAQCBzdGF0aWMgaW50IG5ldHZzY19jbG9zZShzdHJ1Y3QgbmV0
-X2RldmljZSAqbmV0KQ0KIA0KIAluZXRpZl90eF9kaXNhYmxlKG5ldCk7DQogDQorCS8qIE1ha2Ug
-c3VyZSBuZXR2c2Nfc2V0X211bHRpY2FzdF9saXN0IGRvZXNuJ3QgcmUtZW5hYmxlIGZpbHRlciEg
-Ki8NCisJY2FuY2VsX3dvcmtfc3luYygmbmV0X2RldmljZV9jdHgtPndvcmspOw0KIAlyZXQgPSBy
-bmRpc19maWx0ZXJfY2xvc2UoZGV2aWNlX29iaik7DQogCWlmIChyZXQgIT0gMCkNCiAJCW5ldGRl
-dl9lcnIobmV0LCAidW5hYmxlIHRvIGNsb3NlIGRldmljZSAocmV0ICVkKS5cbiIsIHJldCk7DQpA
-QCAtNDAzLDYgKzM5NSw3IEBAIHN0YXRpYyBpbnQgbmV0dnNjX3Byb2JlKHN0cnVjdCBodl9kZXZp
-Y2UgKmRldiwNCiAJbmV0X2RldmljZV9jdHgtPmRldmljZV9jdHggPSBkZXY7DQogCWh2X3NldF9k
-cnZkYXRhKGRldiwgbmV0KTsNCiAJSU5JVF9ERUxBWUVEX1dPUksoJm5ldF9kZXZpY2VfY3R4LT5k
-d29yaywgbmV0dnNjX3NlbmRfZ2FycCk7DQorCUlOSVRfV09SSygmbmV0X2RldmljZV9jdHgtPndv
-cmssIGRvX3NldF9tdWx0aWNhc3QpOw0KIA0KIAluZXQtPm5ldGRldl9vcHMgPSAmZGV2aWNlX29w
-czsNCiANCkBAIC00NTYsNiArNDQ5LDcgQEAgc3RhdGljIGludCBuZXR2c2NfcmVtb3ZlKHN0cnVj
-dCBodl9kZXZpY2UgKmRldikNCiANCiAJbmRldl9jdHggPSBuZXRkZXZfcHJpdihuZXQpOw0KIAlj
-YW5jZWxfZGVsYXllZF93b3JrX3N5bmMoJm5kZXZfY3R4LT5kd29yayk7DQorCWNhbmNlbF93b3Jr
-X3N5bmMoJm5kZXZfY3R4LT53b3JrKTsNCiANCiAJLyogU3RvcCBvdXRib3VuZCBhc2FwICovDQog
-CW5ldGlmX3R4X2Rpc2FibGUobmV0KTsNCi0tIA0KMS43LjENCg0KVFJFTkQgTUlDUk8gRU1BSUwg
-Tk9USUNFDQpUaGUgaW5mb3JtYXRpb24gY29udGFpbmVkIGluIHRoaXMgZW1haWwgYW5kIGFueSBh
-dHRhY2htZW50cyBpcyBjb25maWRlbnRpYWwgYW5kIG1heSBiZSBzdWJqZWN0IHRvIGNvcHlyaWdo
-dCBvciBvdGhlciBpbnRlbGxlY3R1YWwgcHJvcGVydHkgcHJvdGVjdGlvbi4gSWYgeW91IGFyZSBu
-b3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgeW91IGFyZSBub3QgYXV0aG9yaXplZCB0byB1c2Ug
-b3IgZGlzY2xvc2UgdGhpcyBpbmZvcm1hdGlvbiwgYW5kIHdlIHJlcXVlc3QgdGhhdCB5b3Ugbm90
-aWZ5IHVzIGJ5IHJlcGx5IG1haWwgb3IgdGVsZXBob25lIGFuZCBkZWxldGUgdGhlIG9yaWdpbmFs
-IG1lc3NhZ2UgZnJvbSB5b3VyIG1haWwgc3lzdGVtLg==
+
+--0vzXIDBeUiKkjNJl
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Apr 17, 2012 at 10:47:46 -0400, David Miller wrote:
+> From: Antonio Quartulli <ordex@autistici.org>
+> Date: Tue, 17 Apr 2012 13:58:26 +0200
+>=20
+> > OGM sequence numbers are declared as uint32_t and so they have to print=
+ed
+> > using %u instead of %d in order to avoid wrong representations.
+> >=20
+> > Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+>=20
+> Fix this commit message subject, "%u" is "unsigned int" not
+> "unsigned long"
+>=20
+> "unsigned long" would be "%lu"
+
+Yap. The broken part is %u, because the data type we are going to print is
+uint32_t. I'll fix it.
+
+Thank you.
+
+I'll send a new pull request once I'll have fixed these errors.
+
+
+Cheers,
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--0vzXIDBeUiKkjNJl
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQEcBAEBAgAGBQJPjmNjAAoJEFMQTLzJFOZFR+IH/i2ZyJ4xsE0sLJ9HxqxtBD9V
+yNpNjEvyVZ0TZvKLop4gqEQ4uA0iXBDk9tlfeYwA5Kj3KWdt0bhPod72UeayRJGr
+BgnMdcT2kPc1ZjGdEmiMD8bPQgsqvxGhksMkyvE6gAIEhNcyWG2hEFsugX0ozAId
+6zgZRFuP36GtWAZ25sN8t4u7fZmYGTwtr0CdJPRC0i4EqxN4lzThX874zCX+gHCy
+gVv+k9+gh4OoXdDIyrSNzKgmN3KLUE6+V8XMFPfbdobrMAS9HogYiq1rhWNACL9i
+/yWHNbRzj87xzw4rTtZ5EyndOCjm/frcnfZPOwg3Vxl8umCP4gBHhjtQYJ+3hhI=
+=cx9C
+-----END PGP SIGNATURE-----
+
+--0vzXIDBeUiKkjNJl--
