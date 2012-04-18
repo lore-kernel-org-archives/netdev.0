@@ -1,113 +1,171 @@
 From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH 1/4] net/ipv6/udp: UDP encapsulation: break backlog_rcv into __udpv6_queue_rcv_skb
-Date: Wed, 18 Apr 2012 09:42:59 -0400
-Message-ID: <20120418134259.GA5011@kvack.org>
+Subject: [PATCH 2/4] net/ipv6/udp: UDP encapsulation: move socket locking into udpv6_queue_rcv_skb()
+Date: Wed, 18 Apr 2012 09:43:44 -0400
+Message-ID: <20120418134344.GA5113@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
 To: "David S. Miller" <davem@davemloft.net>,
 	James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:43598 "EHLO kanga.kvack.org"
+Received: from kanga.kvack.org ([205.233.56.17]:43602 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753489Ab2DRNnB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2012 09:43:01 -0400
+	id S1753386Ab2DRNnp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 09:43:45 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the first step in reworking the IPv6 UDP code to be structured more
-like the IPv4 UDP code.  This patch creates __udpv6_queue_rcv_skb() with
-the equivalent sematics to __udp_queue_rcv_skb(), and wires it up to the
-backlog_rcv method.
+In order to make sure that when the encap_rcv() hook is introduced it is
+not called with the socket lock held, move socket locking from callers into
+udpv6_queue_rcv_skb(), matching what happens in IPv4.
 
 Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
 ---
- net/ipv6/udp.c |   42 +++++++++++++++++++++++++++---------------
- 1 files changed, 27 insertions(+), 15 deletions(-)
+ net/ipv6/udp.c |   97 +++++++++++++++++++++++++------------------------------
+ 1 files changed, 44 insertions(+), 53 deletions(-)
 
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 37b0699..90fcdf6 100644
+index 90fcdf6..e507654 100644
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
-@@ -496,6 +496,28 @@ out:
- 	sock_put(sk);
- }
- 
-+static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-+{
-+	int rc;
-+
-+	if (!ipv6_addr_any(&inet6_sk(sk)->daddr))
-+		sock_rps_save_rxhash(sk, skb);
-+
-+	rc = sock_queue_rcv_skb(sk, skb);
-+	if (rc < 0) {
-+		int is_udplite = IS_UDPLITE(sk);
-+
-+		/* Note that an ENOMEM error is charged twice */
-+		if (rc == -ENOMEM)
-+			UDP6_INC_STATS_BH(sock_net(sk),
-+					UDP_MIB_RCVBUFERRORS, is_udplite);
-+		UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
-+		kfree_skb(skb);
-+		return -1;
-+	}
-+	return 0;
-+}
-+
- static __inline__ void udpv6_err(struct sk_buff *skb,
- 				 struct inet6_skb_parm *opt, u8 type,
- 				 u8 code, int offset, __be32 info     )
-@@ -503,15 +525,12 @@ static __inline__ void udpv6_err(struct sk_buff *skb,
- 	__udp6_lib_err(skb, opt, type, code, offset, info, &udp_table);
- }
- 
--int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
-+int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	struct udp_sock *up = udp_sk(sk);
- 	int rc;
- 	int is_udplite = IS_UDPLITE(sk);
- 
--	if (!ipv6_addr_any(&inet6_sk(sk)->daddr))
--		sock_rps_save_rxhash(sk, skb);
--
- 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto drop;
- 
-@@ -540,19 +559,12 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+@@ -558,14 +558,25 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 			goto drop;
  	}
  
- 	skb_dst_drop(skb);
--	rc = sock_queue_rcv_skb(sk, skb);
--	if (rc < 0) {
--		/* Note that an ENOMEM error is charged twice */
--		if (rc == -ENOMEM)
--			UDP6_INC_STATS_BH(sock_net(sk),
--					UDP_MIB_RCVBUFERRORS, is_udplite);
--		goto drop_no_sk_drops_inc;
--	}
- 
--	return 0;
-+	rc = __udpv6_queue_rcv_skb(sk, skb);
++	if (sk_rcvqueues_full(sk, skb))
++		goto drop;
 +
-+	return rc;
+ 	skb_dst_drop(skb);
+ 
+-	rc = __udpv6_queue_rcv_skb(sk, skb);
++	bh_lock_sock(sk);
++	rc = 0;
++	if (!sock_owned_by_user(sk))
++		rc = __udpv6_queue_rcv_skb(sk, skb);
++	else if (sk_add_backlog(sk, skb)) {
++		bh_unlock_sock(sk);
++		goto drop;
++	}
++	bh_unlock_sock(sk);
+ 
+ 	return rc;
  drop:
- 	atomic_inc(&sk->sk_drops);
--drop_no_sk_drops_inc:
+-	atomic_inc(&sk->sk_drops);
  	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
++	atomic_inc(&sk->sk_drops);
  	kfree_skb(skb);
  	return -1;
-@@ -1471,7 +1483,7 @@ struct proto udpv6_prot = {
- 	.getsockopt	   = udpv6_getsockopt,
- 	.sendmsg	   = udpv6_sendmsg,
- 	.recvmsg	   = udpv6_recvmsg,
--	.backlog_rcv	   = udpv6_queue_rcv_skb,
-+	.backlog_rcv	   = __udpv6_queue_rcv_skb,
- 	.hash		   = udp_lib_hash,
- 	.unhash		   = udp_lib_unhash,
- 	.rehash		   = udp_v6_rehash,
+ }
+@@ -614,37 +625,27 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
+ static void flush_stack(struct sock **stack, unsigned int count,
+ 			struct sk_buff *skb, unsigned int final)
+ {
+-	unsigned int i;
++	struct sk_buff *skb1 = NULL;
+ 	struct sock *sk;
+-	struct sk_buff *skb1;
++	unsigned int i;
+ 
+ 	for (i = 0; i < count; i++) {
+-		skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
+-
+ 		sk = stack[i];
+-		if (skb1) {
+-			if (sk_rcvqueues_full(sk, skb1)) {
+-				kfree_skb(skb1);
+-				goto drop;
+-			}
+-			bh_lock_sock(sk);
+-			if (!sock_owned_by_user(sk))
+-				udpv6_queue_rcv_skb(sk, skb1);
+-			else if (sk_add_backlog(sk, skb1)) {
+-				kfree_skb(skb1);
+-				bh_unlock_sock(sk);
+-				goto drop;
+-			}
+-			bh_unlock_sock(sk);
+-			continue;
++		if (likely(skb1 == NULL))
++			skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
++		if (!skb1) {
++			atomic_inc(&sk->sk_drops);
++			UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
++					  IS_UDPLITE(sk));
++			UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS,
++					  IS_UDPLITE(sk));
+ 		}
+-drop:
+-		atomic_inc(&sk->sk_drops);
+-		UDP6_INC_STATS_BH(sock_net(sk),
+-				UDP_MIB_RCVBUFERRORS, IS_UDPLITE(sk));
+-		UDP6_INC_STATS_BH(sock_net(sk),
+-				UDP_MIB_INERRORS, IS_UDPLITE(sk));
++
++		if (skb1 && udpv6_queue_rcv_skb(sk, skb1) <= 0)
++			skb1 = NULL;
+ 	}
++	if (unlikely(skb1))
++		kfree_skb(skb1);
+ }
+ /*
+  * Note: called only from the BH handler context,
+@@ -784,39 +785,29 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	 * for sock caches... i'll skip this for now.
+ 	 */
+ 	sk = __udp6_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
++	if (sk != NULL) {
++		int ret = udpv6_queue_rcv_skb(sk, skb);
++		sock_put(sk);
+ 
+-	if (sk == NULL) {
+-		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+-			goto discard;
+-
+-		if (udp_lib_checksum_complete(skb))
+-			goto discard;
+-		UDP6_INC_STATS_BH(net, UDP_MIB_NOPORTS,
+-				proto == IPPROTO_UDPLITE);
+-
+-		icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
++		/* a return value > 0 means to resubmit the input, but
++		 * it wants the return to be -protocol, or 0
++		 */
++		if (ret > 0)
++			return -ret;
+ 
+-		kfree_skb(skb);
+ 		return 0;
+ 	}
+ 
+-	/* deliver */
+-
+-	if (sk_rcvqueues_full(sk, skb)) {
+-		sock_put(sk);
++	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 		goto discard;
+-	}
+-	bh_lock_sock(sk);
+-	if (!sock_owned_by_user(sk))
+-		udpv6_queue_rcv_skb(sk, skb);
+-	else if (sk_add_backlog(sk, skb)) {
+-		atomic_inc(&sk->sk_drops);
+-		bh_unlock_sock(sk);
+-		sock_put(sk);
++
++	if (udp_lib_checksum_complete(skb))
+ 		goto discard;
+-	}
+-	bh_unlock_sock(sk);
+-	sock_put(sk);
++
++	UDP6_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
++	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
++
++	kfree_skb(skb);
+ 	return 0;
+ 
+ short_packet:
 -- 
 1.7.4.1
 
