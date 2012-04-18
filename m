@@ -1,35 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
-Date: Tue, 17 Apr 2012 22:36:14 -0400 (EDT)
-Message-ID: <20120417.223614.629911246108750471.davem@davemloft.net>
-References: <4F8D497F.8060601@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 05/11] batman-adv: handle routing code
+ initialization properly
+Date: Tue, 17 Apr 2012 22:46:30 -0400 (EDT)
+Message-ID: <20120417.224630.1104076946118354940.davem@davemloft.net>
+References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
+	<1334663907-22725-6-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, penguin-kernel@i-love.sakura.ne.jp,
-	linux-api@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	jengelh@medozas.de, w@1wt.eu, alan@lxorguk.ukuu.org.uk
-To: mtk.manpages@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:32918 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533Ab2DRCj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:39:56 -0400
-In-Reply-To: <4F8D497F.8060601@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	lindner_marek-LWAfsSFWpa4@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1334663907-22725-6-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Kerrisk <mtk.manpages@gmail.com>
-Date: Tue, 17 Apr 2012 22:44:15 +1200
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Tue, 17 Apr 2012 13:58:21 +0200
 
-> 1. Changing the kernel behavior prevents userspace having 
->    to go through the sort of contortions described above
->    in order to handle the 108-non-NUL-bytes-in-sun_path case.
+> @@ -30,10 +30,11 @@
+>  #include "send.h"
+>  #include "bat_algo.h"
+>  
+> -static void bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
+> +static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
+>  {
+>  	struct batman_ogm_packet *batman_ogm_packet;
+>  	unsigned long random_seqno;
+> +	int res = -1;
+>  
+>  	/* randomize initial seqno to avoid collision */
+>  	get_random_bytes(&random_seqno, sizeof(unsigned long));
 
-The problem with this logic is that it ignores every single Linux
-system that exists right now.
-
-You need to code this logic into your application unless you don't
-want it to run properly on every Linux system that actually exists.
-
-Sorry, we're not making this change.
+Use real error codes, even as a default, instead of meaningless
+values like -1.
