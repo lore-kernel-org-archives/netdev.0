@@ -1,114 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: avoid expensive pskb_expand_head() calls
-Date: Wed, 18 Apr 2012 19:16:15 +0200
-Message-ID: <1334769375.2472.310.camel@edumazet-glaptop>
-References: <1334653608.6226.11.camel@edumazet-laptop>
-	 <1334654187.2696.2.camel@jtkirshe-mobl>  <4F8D93E1.9090000@intel.com>
-	 <1334681204.2472.41.camel@edumazet-glaptop>
-	 <1334698722.2472.71.camel@edumazet-glaptop>
-	 <1334764184.2472.299.camel@edumazet-glaptop>  <4F8EF317.10504@hp.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: tg3: Occassional death on 3.3
+Date: Wed, 18 Apr 2012 10:19:59 -0700
+Message-ID: <20120418171959.GA4823@mcarlson.broadcom.com>
+References: <CAKb7UvjWACB5wF9B1GvznVd64Vby_9ri4SMo57RpAhrhf+awFg@mail.gmail.com>
+ <20120418005511.GA2944@mcarlson.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: "Ilia Mirkin" <imirkin@alum.mit.edu>,
+	"Michael Chan" <mchan@broadcom.com>, netdev@vger.kernel.org
+To: "Matt Carlson" <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:45004 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752646Ab2DRRQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 13:16:34 -0400
-Received: by bkcik5 with SMTP id ik5so5687236bkc.19
-        for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 10:16:33 -0700 (PDT)
-In-Reply-To: <4F8EF317.10504@hp.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:4911 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753631Ab2DRRUe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 13:20:34 -0400
+In-Reply-To: <20120418005511.GA2944@mcarlson.broadcom.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-04-18 at 10:00 -0700, Rick Jones wrote:
-
-> Is the issue completely sent, or transmit completion processed?  I'd 
-> think it is time to the latter that matters (and includes the former) yes?
+On Tue, Apr 17, 2012 at 05:55:11PM -0700, Matt Carlson wrote:
+> On Tue, Apr 17, 2012 at 08:22:31PM -0400, Ilia Mirkin wrote:
+> > Hello,
+> > 
+> > I'm observing an issue where it appears that tg3 gets wedged into a
+> > bad state every so often, and never recovers. Doing a sequence of
+> > 
+> > ifconfig eth0 down
+> > rmmod broadcom
+> > rmmod tg3
+> > 
+> > modprobe broadcom
+> > modprobe tg3
+> > 
+> > Makes everything work again. The card I have:
+> > 
+> > 03:00.0 Ethernet controller [0200]: Broadcom Corporation NetLink
+> > BCM57788 Gigabit Ethernet PCIe [14e4:1691] (rev 01)
+> >         Subsystem: Dell XPS 8300 [1028:04aa]
+> >         Flags: bus master, fast devsel, latency 0, IRQ 45
+> >         Memory at fb100000 (64-bit, non-prefetchable) [size=64K]
+> >         Capabilities: [48] Power Management version 3
+> >         Capabilities: [60] Vendor Specific Information: Len=6c <?>
+> >         Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
+> >         Capabilities: [cc] Express Endpoint, MSI 00
+> >         Capabilities: [100] Advanced Error Reporting
+> >         Capabilities: [13c] Virtual Channel
+> >         Capabilities: [160] Device Serial Number [the mac address]
+> >         Capabilities: [16c] Power Budgeting <?>
+> >         Kernel driver in use: tg3
+> >         Kernel modules: tg3
+> > 
+> > I'm attaching the log for the full data dump, since my mailer will
+> > wrap it horribly otherwise, but the interesting lines are:
+> > 
+> > [2234380.228971] tg3 0000:03:00.0: eth0: transmit timed out, resetting
+> > ... some kind of data dump ...
+> > [2234382.216682] tg3 0000:03:00.0: eth0: 0: Host status block
+> > [00000001:00000080:(0000:01ef:0000):(01ef:00b2)]
+> > [2234382.216685] tg3 0000:03:00.0: eth0: 0: NAPI info
+> > [00000080:00000080:(00cb:00b2:01ff):01ef:(00b7:0000:0000:0000)]
+> > [2234382.319550] tg3 0000:03:00.0: tg3_stop_block timed out, ofs=1400
+> > enable_bit=2
+> > [2234382.421931] tg3 0000:03:00.0: tg3_stop_block timed out, ofs=c00
+> > enable_bit=2
+> > [2234382.427199] tg3 0000:03:00.0: eth0: Link is down
+> > [2234382.438168] tg3 0000:03:00.0: eth0: Link is down
+> > 
+> > Any further attempts to use the NIC, like ifconfig down/up result in a
+> > similar error log sequence happening. Also, while it's happening, the
+> > computer feels extremely laggy for a short period of time (~1s),
+> > leading me to believe it's doing an uninterruptible sleep of some kind
+> > going on.
+> > 
+> > This has happened twice, and at least the second time, there was no
+> > unusual traffic on the network. It's linked at 100M, and was probably
+> > doing 10K/s at most when the error happened. If this is insufficient
+> > information, please let me know what I should collect next time this
+> > might happen.
+> > 
+> > Thanks,
 > 
-
-I dont know. Fact is we process ACKs before clone skb is freed by TX
-completion.
-
-> Does the ixgbe driver do transmit completions first when it gets a 
-> receive interrupt, or is there still the chance that the receipt of the 
-> last ACK for the 64KB skb will hit TCP before the driver has done the 
-> free?  (Or does that not matter?)
-
-It does transmit completions first, but that doesnt matter, since we
-receive ACK before skb could be drained by NIC and returned to driver
-for TX completion.
-
+> Thanks for the report Ilia.  I'm guessing the lag is coming from the
+> driver as it logs the register dump to the syslog.
 > 
-> > Performance results on my Q6600 cpu and 82599EB 10-Gigabit card :
-> > About 3% less cpu used for same workload (single netperf TCP_STREAM),
-> > bounded by x4 PCI-e slots (4660 Mbits).
-> 
-> Three percent less or three percentage points less?  Including the 
-> details of the netperf-reported service demand would make that clear.
+> The register dump shows that interrupts are enabled, but the tag value in
+> the interrupt mailbox register doesn't match the value in the status block
+> or the driver's private tag value.  I'll see where that leads me.
 
-netperf results are not precise enough, since my setup is limited by PCI
-bandwidth. here are the "perf stat" ones
+O.K.  The interrupt mailbox issue I mentioned above can happen when in
+one-shot MSI mode, but it still smells strange.  If the tag stored in
+the device structure matches the tag value in the status block, there
+should be no more work to do.  In that case, the driver writes the new
+tag to the interrupt mailbox register.
 
-Maybe someone can run the test on 20Gb/40Gb links, and NUMA machine.
+You may be encountering some type of hardware problem.  PCIe register
+0x104 is the Uncorrectable Error Status register.  This register shows
+that the "Unsupported Request Error Status" bit is set.  This definitely
+shouldn't happen.
 
-Before patch :
-
-# perf stat -r 5 -d -d -o RES.before taskset 1 netperf -H 192.168.99.1 -l 20
-
- Performance counter stats for 'taskset 1 netperf -H 192.168.99.1 -l 20' (5 runs):
-
-       6252,882411 task-clock                #    0,312 CPUs utilized            ( +-  0,51% )
-             5 988 context-switches          #    0,958 K/sec                    ( +-  0,34% )
-                 2 CPU-migrations            #    0,000 K/sec                    ( +- 15,31% )
-               389 page-faults               #    0,062 K/sec                  
-     9 938 280 877 cycles                    #    1,589 GHz                      ( +-  0,55% ) [21,19%]
-   <not supported> stalled-cycles-frontend 
-   <not supported> stalled-cycles-backend  
-    11 709 374 305 instructions              #    1,18  insns per cycle          ( +-  0,28% ) [21,32%]
-     1 026 659 544 branches                  #  164,190 M/sec                    ( +-  0,40% ) [21,49%]
-        10 898 375 branch-misses             #    1,06% of all branches          ( +-  1,87% ) [21,54%]
-     5 238 382 991 L1-dcache-loads           #  837,755 M/sec                    ( +-  0,21% ) [14,26%]
-     1 117 076 847 L1-dcache-load-misses     #   21,32% of all L1-dcache hits    ( +-  0,49% ) [14,19%]
-       166 208 073 LLC-loads                 #   26,581 M/sec                    ( +-  0,88% ) [14,33%]
-         3 220 627 LLC-load-misses           #    1,94% of all LL-cache hits     ( +-  2,39% ) [14,31%]
-     9 470 544 759 L1-icache-loads           # 1514,589 M/sec                    ( +-  0,44% ) [14,41%]
-        23 602 610 L1-icache-load-misses     #    0,25% of all L1-icache hits    ( +-  3,10% ) [14,49%]
-     5 241 137 739 dTLB-loads                #  838,195 M/sec                    ( +-  0,18% ) [14,20%]
-         4 970 360 dTLB-load-misses          #    0,09% of all dTLB cache hits   ( +-  1,01% ) [14,47%]
-    11 720 311 101 iTLB-loads                # 1874,385 M/sec                    ( +-  0,34% ) [21,33%]
-           587 825 iTLB-load-misses          #    0,01% of all iTLB cache hits   ( +- 31,06% ) [21,52%]
-
-      20,018804246 seconds time elapsed                                          ( +-  0,00% )
-
-
-After patch :
-
-# perf stat -r 5 -d -d -o RES.after taskset 1 netperf -H 192.168.99.1 -l 20
-
- Performance counter stats for 'taskset 1 netperf -H 192.168.99.1 -l 20' (5 runs):
-
-       6061,208375 task-clock                #    0,303 CPUs utilized            ( +-  0,18% )
-             6 032 context-switches          #    0,995 K/sec                    ( +-  0,22% )
-                 2 CPU-migrations            #    0,000 K/sec                    ( +- 52,44% )
-               390 page-faults               #    0,064 K/sec                    ( +-  0,05% )
-     9 623 179 185 cycles                    #    1,588 GHz                      ( +-  0,16% ) [21,33%]
-   <not supported> stalled-cycles-frontend 
-   <not supported> stalled-cycles-backend  
-    11 724 650 132 instructions              #    1,22  insns per cycle          ( +-  0,22% ) [21,52%]
-     1 025 017 197 branches                  #  169,111 M/sec                    ( +-  0,29% ) [21,75%]
-        10 464 785 branch-misses             #    1,02% of all branches          ( +-  1,78% ) [21,82%]
-     5 230 299 185 L1-dcache-loads           #  862,914 M/sec                    ( +-  0,20% ) [14,55%]
-     1 109 236 741 L1-dcache-load-misses     #   21,21% of all L1-dcache hits    ( +-  0,59% ) [14,59%]
-       161 721 826 LLC-loads                 #   26,681 M/sec                    ( +-  0,58% ) [14,25%]
-         2 974 990 LLC-load-misses           #    1,84% of all LL-cache hits     ( +-  0,95% ) [14,13%]
-     9 233 690 637 L1-icache-loads           # 1523,408 M/sec                    ( +-  0,24% ) [14,14%]
-        17 177 769 L1-icache-load-misses     #    0,19% of all L1-icache hits    ( +-  0,69% ) [14,05%]
-     5 218 114 832 dTLB-loads                #  860,903 M/sec                    ( +-  0,12% ) [14,23%]
-         4 980 060 dTLB-load-misses          #    0,10% of all dTLB cache hits   ( +-  1,23% ) [14,33%]
-    11 743 563 935 iTLB-loads                # 1937,495 M/sec                    ( +-  0,13% ) [21,38%]
-           959 598 iTLB-load-misses          #    0,01% of all iTLB cache hits   ( +- 24,72% ) [21,33%]
-
-      20,019067285 seconds time elapsed                                          ( +-  0,00% )
+Do you know if there are any firmware updates available for your system?
