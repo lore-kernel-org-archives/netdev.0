@@ -1,45 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] set fake_rtable's dst to NULL to avoid kernel Oops.
-Date: Wed, 18 Apr 2012 04:41:57 -0400 (EDT)
-Message-ID: <20120418.044157.1410691335536408716.davem@davemloft.net>
-References: <20120417085248.3e642294@nehalam.linuxnetplumber.net>
-	<1334681323.2472.43.camel@edumazet-glaptop>
-	<4F8E73E3.6080900@huawei.com>
+Subject: Re: [net-next 1/2] stmmac: use custom init/exit functions in pm ops
+Date: Wed, 18 Apr 2012 04:45:37 -0400 (EDT)
+Message-ID: <20120418.044537.721636492887632781.davem@davemloft.net>
+References: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ctrix+debianbugs@navynet.it, peter.huangpeng@gmail.com,
-	harry.majun@huawei.com
-To: peter.huangpeng@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F8E73E3.6080900@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, francesco.virlinzi@st.com
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:35509 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751116Ab2DRIpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 04:45:42 -0400
+In-Reply-To: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
-Date: Wed, 18 Apr 2012 15:57:23 +0800
 
-> On 2012/4/18 0:48, Eric Dumazet wrote:
->> On Tue, 2012-04-17 at 08:52 -0700, Stephen Hemminger wrote:
->>
->>> This check seems like a disaster waiting to happen when the next
->>> change to DST table happens.
->>
->> Please Peter Document this, adding a new DST_FAKE_RTABLE flag
->>
->> #define DST_FAKE_RTABLE DST_NOPEER
->>
->> or just use a bit, we have plenty of them available.
->>
-> 
-> 
-> Add DST_FAKE_RTABLE to dst_entry, this is the new patch.
-> Is this ok?
-> 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
+When posting new versions of patches, change the Subject line to
+indicate this is "v2" or "v3" etc.
 
-Please post new patches as completely new emails, not as replies
-to other emails.
+Also add comments after the "---" in the message body explaining what
+you changed since the previous version.
+
+But frankly Giuseppe, at this point I should NOT have to tell you crap
+like this any more.  You should know how to submit patches properly
+and not make things difficult for me.
