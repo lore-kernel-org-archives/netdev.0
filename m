@@ -1,66 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] set fake_rtable's dst to NULL to avoid kernel Oops.
-Date: Wed, 18 Apr 2012 11:48:41 +0200
-Message-ID: <1334742521.2472.102.camel@edumazet-glaptop>
-References: <4F8E8A8F.30901@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
-	ctrix+debianbugs@navynet.it, peter.huangpeng@gmail.com,
-	harry.majun@huawei.com, linux-kernel@vger.kernel.org
-To: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:54704 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751968Ab2DRJz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 05:55:26 -0400
-In-Reply-To: <4F8E8A8F.30901@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request: batman-adv 2012-04-18
+Date: Wed, 18 Apr 2012 11:59:57 +0200
+Message-ID: <1334743210-12338-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-04-18 at 17:34 +0800, Peter Huang(Peng) wrote:
-> Add new flag DST_FAKE_RTABLE to dst_entry struct.
-> 
+Hello David,
 
-Your changelog is not very helpful. Please add all the information you
-provided in your previous mails. (stack trace and all)
+this is the fixed version of my previous pull request (issued on 2012-04-17).
+In this patchset the issues you reported have been fixed; moreover I'm
+also including two new patches (1/13 and 2/13) which are respectively:
 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
-> ---
->   include/linux/netfilter_bridge.h |    8 ++++++++
->   include/net/dst.h                |    1 +
->   net/bridge/br_forward.c          |    1 +
->   net/bridge/br_netfilter.c        |    8 ++------
->   4 files changed, 12 insertions(+), 6 deletions(-)
-> diff --git a/include/linux/netfilter_bridge.h 
-> b/include/linux/netfilter_bridge.h
-> index 0ddd161..eb09e3b 100644
-> --- a/include/linux/netfilter_bridge.h
-> +++ b/include/linux/netfilter_bridge.h
-> @@ -104,9 +104,17 @@ struct bridge_skb_cb {
->          } daddr;
->   };
-> 
-> +static inline void br_drop_fake_rtable(struct sk_buff *skb) {
-> +       struct dst_entry *dst = skb_dst(skb);
-> +       /* abuse fact that only fake_rtable has DST_FAKE_RTABLE set */
+1/13) a fix for Al Viro's report about the missing htons()
+2/13) a fix for a wrongly duplicated line in a comment
 
-You are kidding ? I said "Remove this comment, and leave an empty line"
+The following changes since commit ecffe75f934b4e3c5301fe5db278068e0efb0d6b:
 
-> +       if (dst && (dst->flags & DST_FAKE_RTABLE))
-> +               skb_dst_drop(skb);
-> +}
+  hippi: fix printk format in rrunner.c (2012-04-16 23:48:38 -0400)
 
-Patch mangled, tabulations were replaced by spaces.
+are available in the git repository at:
 
-Please, please please read again Documentation/email-clients.txt, as I
-already mentioned (privately)
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
 
-Double check _everything_ before your next submission
+for you to fetch changes up to 1e5cc266dbc401d11aefb966ad35e651c2f67414:
 
-This is the last time I even care
+  batman-adv: skip the window protection test when the originator has no neighbours (2012-04-18 09:54:02 +0200)
 
-Thanks
+----------------------------------------------------------------
+Included changes:
+* remove duplicated line in comment
+* add htons() invocation for tt_crc as suggested by Al Viro
+* OriGinator Message seqno initial value is now random
+* some cleanups and fixes
+
+----------------------------------------------------------------
+Antonio Quartulli (5):
+      batman-adv: convert the tt_crc to network order
+      batman-adv: remove duplicated line in comment
+      batman-adv: use ETH_HLEN instead of sizeof(struct ethhdr)
+      batman-adv: print OGM seq numbers as unsigned int
+      batman-adv: skip the window protection test when the originator has no neighbours
+
+Marek Lindner (8):
+      batman-adv: move ogm initialization into the proper function
+      batman-adv: refactoring API: find generalized name for bat_ogm_init callback
+      batman-adv: randomize initial seqno to avoid collision
+      batman-adv: add iface_disable() callback to routing API
+      batman-adv: handle routing code initialization properly
+      batman-adv: refactoring API: find generalized name for bat_ogm_init_primary callback
+      batman-adv: rename BATMAN_OGM_LEN to BATMAN_OGM_HLEN
+      batman-adv: mark existing ogm variables as batman iv
+
+ net/batman-adv/bat_iv_ogm.c            |   63 +++++++++++++++++++++-----------
+ net/batman-adv/bridge_loop_avoidance.c |   11 ++----
+ net/batman-adv/hard-interface.c        |   33 +++++++++--------
+ net/batman-adv/icmp_socket.c           |    4 +-
+ net/batman-adv/main.c                  |    5 ++-
+ net/batman-adv/packet.h                |    6 +--
+ net/batman-adv/routing.c               |   10 ++---
+ net/batman-adv/send.c                  |   14 +++----
+ net/batman-adv/soft-interface.c        |    2 +-
+ net/batman-adv/translation-table.c     |    2 +-
+ net/batman-adv/types.h                 |   12 +++---
+ net/batman-adv/vis.c                   |    8 ++--
+ 12 files changed, 96 insertions(+), 74 deletions(-)
