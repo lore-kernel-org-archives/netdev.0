@@ -1,56 +1,38 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: In tree firmware not kept up to date
-Date: Wed, 18 Apr 2012 10:13:45 +0100
-Message-ID: <1334740425.23948.157.camel@zakaz.uk.xensource.com>
-References: <1334675504.23948.99.camel@zakaz.uk.xensource.com>
-	 <20120417190322.GA3932@decadent.org.uk>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [patch] bnx2x: off by one in
+ bnx2x_ets_e3b0_sp_pri_to_cos_set()
+Date: Wed, 18 Apr 2012 12:27:07 +0300
+Message-ID: <1334741227.12363.5.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <20120418065342.GC12831@elgon.mountain>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Ian Jackson <Ian.Jackson@eu.citrix.com>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120417190322.GA3932@decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "Dan Carpenter" <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1152 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751464Ab2DRJ1Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 05:27:24 -0400
+In-Reply-To: <20120418065342.GC12831@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-17 at 20:03 +0100, Ben Hutchings wrote:
-> On Tue, Apr 17, 2012 at 04:11:44PM +0100, Ian Campbell wrote:
-> > Hello,
-> > 
-> > What is the current policy wrt keeping the in-tree firmware updated
-> > alongside the drivers?
+On Wed, 2012-04-18 at 09:53 +0300, Dan Carpenter wrote:
+> The sp_pri_to_cos[] array size depends on the config but lets say it is
+> BX_E3B0_MAX_NUM_COS_PORT0 and max_num_of_cos is also
+> DCBX_E3B0_MAX_NUM_COS_PORT0.  In the original code
+> "pri == max_num_of_cos" was accepted but it is one past the end of the
+> array.
 > 
-> Muddled.
+> Also we used "pri" before capping it.  It's a harmless read past the end
+> of the array, but it would affect which error message gets printed.
 > 
-> > I use CONFIG_FIRMWARE_IN_KERNEL but a couple of times[0] recently this
-> > has failed me because the in-tree bnx2 driver requires
-> > bnx2/bnx2-mips-09-6.2.1b.fw but the tree contains
-> > firmware/bnx2/bnx2-mips-09-6.2.1a.fw.ihex and not 6.2.1b.
-> > 
-> > Is it a bug that bnx2 was updated without adding the new firmware or is
-> > a bug that the obsolete firmware is still sitting in the tree?
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 > 
-> It's a bug that any firmware is still in-tree, but
-> CONFIG_FIRMWARE_IN_KERNEL hasn't yet been made to work with a separate
-> linux-firmware directory.
 
-Thanks, so the future-proof solution is to clone and install
-firmware-linux.gitwhich is currently a rather manual process but will
-improve at some point.
+Acked-by: Eilon Greenstein <eilong@broadcom.com>
 
-Cheers,
-Ian.
-
-> 
-> Ben.
-> 
-> > Ian.
-> > 
-> > [0] It's possible the same thing and I've just tripped over it more than
-> > once now.
-> 
+Thanks Dan - this is obviously better.
