@@ -1,64 +1,68 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
-Date: Wed, 18 Apr 2012 10:13:18 -0300
-Message-ID: <20120418131318.GB2455@oc1711230544.ibm.com>
-References: <CADZpyix6DZ93f8MQf3Aa1NVV7HCFMAXVAdzRMFBY7xWHHQMPog@mail.gmail.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B6EE2@saturn3.aculab.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH 00/14] usb/net: rndis: first step toward consolidation
+Date: Wed, 18 Apr 2012 13:17:34 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD33174@TK5EX14MBXC221.redmond.corp.microsoft.com>
+References: <1333874813-3861-1-git-send-email-linus.walleij@linaro.org>
+	<A1F3067C9B68744AA19F6802BAB8FFDC0DD215D0@TK5EX14MBXC222.redmond.corp.microsoft.com>
+ <CACRpkdZ79RtQDeQnFczsH8noX01Qp5cmAPysVs-5v=Nb=aBw=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Carlos O'Donell" <carlos@systemhalted.org>,
-	David Miller <davem@davemloft.net>, mtk.manpages@gmail.com,
-	netdev@vger.kernel.org, penguin-kernel@i-love.sakura.ne.jp,
-	linux-api@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	jengelh@medozas.de, w@1wt.eu, alan@lxorguk.ukuu.org.uk
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Felipe Balbi <balbi@ti.com>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: Linus Walleij <linus.walleij@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp02.br.ibm.com ([32.104.18.86]:54215 "EHLO
-	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382Ab2DRNN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 09:13:28 -0400
-Received: from /spool/local
-	by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Wed, 18 Apr 2012 10:13:26 -0300
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EE2@saturn3.aculab.com>
+Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:26812
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753079Ab2DRNRp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 09:17:45 -0400
+In-Reply-To: <CACRpkdZ79RtQDeQnFczsH8noX01Qp5cmAPysVs-5v=Nb=aBw=Q@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 18, 2012 at 09:17:26AM +0100, David Laight wrote:
-> 
-> > 
-> > Why not have:
-> > 
-> > diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> > index d510353..f9f77a7 100644
-> > --- a/net/unix/af_unix.c
-> > +++ b/net/unix/af_unix.c
-> > @@ -216,6 +216,9 @@ static int unix_mkname(struct sockaddr_un
-> > *sunaddr, int len, unsigned *hashp)
-> >                  */
-> >                 ((char *)sunaddr)[len] = 0;
-> >                 len = strlen(sunaddr->sun_path)+1+sizeof(short);
-> > +               /* No null terminator was found in the path. */
-> > +               if (len > sizeof(*sunaddr))
-> > +                       return -EINVAL;
-> >                 return len;
-> 
-> That could generate a kernel page fault!
-> (Depending on what follows (or rather doesn't follow!) sun_path.)
-> You'd need to use memchr() not strlen().
-> 
-> 	David
-> 
 
-Hi, David.
 
-What follows is a 0 byte, because it's set that way in the line before
-strlen. Note that len is tested for sizeof(*sunaddr), and there is a
-huge comment about that extra byte that was omitted.
+> -----Original Message-----
+> From: Linus Walleij [mailto:linus.walleij@linaro.org]
+> Sent: Wednesday, April 18, 2012 8:26 AM
+> To: Haiyang Zhang
+> Cc: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg Kroah-
+> Hartman; David S. Miller; Felipe Balbi; Jussi Kivilinna; Wei Yongjun; Ben
+> Hutchings
+> Subject: Re: [PATCH 00/14] usb/net: rndis: first step toward consolidation
+> 
+> On Sun, Apr 8, 2012 at 3:58 PM, Haiyang Zhang <haiyangz@microsoft.com>
+> wrote:
+> > _______________________________________
+> >> From: Linus Walleij [linus.walleij@linaro.org]
+> >> Sent: Sunday, April 08, 2012 4:46 AM
+> >> To: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg
+> >> Kroah-Hartman; David S. Miller; Felipe Balbi
+> >> Cc: Jussi Kivilinna; Haiyang Zhang; Wei Yongjun; Ben Hutchings; Linus
+> >> Walleij
+> >> Subject: [PATCH 00/14] usb/net: rndis: first step toward
+> >> consolidation
+> >
+> >> So if you like this, let's proceed, but if you're all in "I wanna
+> >> keep this one implementation in my corner" I'll just give up right now.
+> >
+> >> So: what do you think?
+> >
+> > I will test this soon.
+> 
+> Ping on this... any testing so far?
 
-The whole function is at net/unix/af_unix.c:203.
+I saw Jussi Kivilinna <jussi.kivilinna@mbnet.fi>'s comments saying it does not
+work. And your patches are in "changes requested" state. So I'm waiting for
+your updated patches before testing.
 
-Regards,
-Cascardo.
+Thanks,
+- Haiyang
