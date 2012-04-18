@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 2/2] l2tp: Introduce L2TPv3 IP encapsulation
- support for IPv6
-Date: Wed, 18 Apr 2012 00:28:20 -0400 (EDT)
-Message-ID: <20120418.002820.1941255513481211357.davem@davemloft.net>
-References: <y>
-	<1334665766-11461-3-git-send-email-jchapman@katalix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] netfilter: nf_conntrack.h: use this_cpu_inc()
+Date: Wed, 18 Apr 2012 06:36:40 +0200
+Message-ID: <1334723800.2472.88.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcrl@kvack.org
-To: jchapman@katalix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33666 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750696Ab2DRE22 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 00:28:28 -0400
-In-Reply-To: <1334665766-11461-3-git-send-email-jchapman@katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Christoph Lameter <cl@linux.com>, Tejun Heo <tj@kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Tue, 17 Apr 2012 13:29:26 +0100
+From: Eric Dumazet <edumazet@google.com>
 
-> L2TPv3 defines an IP encapsulation packet format where data is carried
-> directly over IP (no UDP). The kernel already has support for L2TP IP
-> encapsulation over IPv4 (l2tp_ip). This patch introduces support for L2TP
-> IP encapsulation over IPv6.
+this_cpu_inc() is IRQ safe and faster than
+local_bh_disable()/__this_cpu_inc()/local_bh_enable(), at least on x86.
 
-Either the ipv4 side should be changed to use ip4_datagram_connect()
-or the ipv6 side should duplicate just the parts of
-ip6_datagram_connect() it needs.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Christoph Lameter <cl@linux.com>
+Cc: Tejun Heo <tj@kernel.org>
+---
+ include/net/netfilter/nf_conntrack.h |   10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-Which is it? :-)
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index ab86036..cce7f6a 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -321,14 +321,8 @@ extern unsigned int nf_conntrack_max;
+ extern unsigned int nf_conntrack_hash_rnd;
+ void init_nf_conntrack_hash_rnd(void);
+ 
+-#define NF_CT_STAT_INC(net, count)	\
+-	__this_cpu_inc((net)->ct.stat->count)
+-#define NF_CT_STAT_INC_ATOMIC(net, count)		\
+-do {							\
+-	local_bh_disable();				\
+-	__this_cpu_inc((net)->ct.stat->count);		\
+-	local_bh_enable();				\
+-} while (0)
++#define NF_CT_STAT_INC(net, count)	  __this_cpu_inc((net)->ct.stat->count)
++#define NF_CT_STAT_INC_ATOMIC(net, count) this_cpu_inc((net)->ct.stat->count)
+ 
+ #define MODULE_ALIAS_NFCT_HELPER(helper) \
+         MODULE_ALIAS("nfct-helper-" helper)
