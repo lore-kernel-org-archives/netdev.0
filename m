@@ -1,30 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
-Date: Tue, 17 Apr 2012 22:59:12 -0400 (EDT)
-Message-ID: <20120417.225912.502373701071930847.davem@davemloft.net>
-References: <1334702885-4411-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: filter: remove unused cpu_off
+Date: Wed, 18 Apr 2012 04:59:52 +0200
+Message-ID: <1334717992.2472.75.camel@edumazet-glaptop>
+References: <1334717479.2472.73.camel@edumazet-glaptop>
+	 <20120417.225733.605856895750092515.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33090 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751765Ab2DRC7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:59:25 -0400
-In-Reply-To: <1334702885-4411-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:42027 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623Ab2DRC74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:59:56 -0400
+Received: by wibhj6 with SMTP id hj6so193916wib.1
+        for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 19:59:55 -0700 (PDT)
+In-Reply-To: <20120417.225733.605856895750092515.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 17 Apr 2012 15:48:03 -0700
-
-> This series of patches contains fixes for ixgbe only.
+On Tue, 2012-04-17 at 22:57 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 18 Apr 2012 04:51:19 +0200
 > 
-> The following are changes since commit a99ff7d0123b19ecad3b589480b6542716ab6b52:
->   net: usb: smsc75xx: fix mtu
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Applied, but I added "in sparc JIT" to the subject line.
+> 
+> Thanks.
 
-Pulled, thanks Jeff.
+No problem, I just copy/pasted your own subjects for this file 
+
+Thanks
