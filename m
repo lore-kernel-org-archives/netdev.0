@@ -1,72 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] set fake_rtable's dst to NULL to avoid kernel Oops.
-Date: Wed, 18 Apr 2012 10:23:54 +0200
-Message-ID: <1334737434.2472.95.camel@edumazet-glaptop>
-References: <000001cd1c62$75d10de0$617329a0$%huangpeng@huawei.com>
-	 <20120417085248.3e642294@nehalam.linuxnetplumber.net>
-	 <1334681323.2472.43.camel@edumazet-glaptop>  <4F8E73E3.6080900@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ctrix+debianbugs@navynet.it,
-	peter.huangpeng@gmail.com, harry.majun@huawei.com
-To: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F8E73E3.6080900@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 1/2] stmmac: use custom init/exit functions in pm ops
+Date: Wed, 18 Apr 2012 10:28:24 +0200
+Message-ID: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Francesco Virlinzi <francesco.virlinzi@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:57535 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751847Ab2DRI2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 04:28:36 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5BF404F8
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 08:28:34 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C2BD32124
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 08:28:33 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-04-18 at 15:57 +0800, Peter Huang(Peng) wrote:
-> On 2012/4/18 0:48, Eric Dumazet wrote:
-> > On Tue, 2012-04-17 at 08:52 -0700, Stephen Hemminger wrote:
-> >
-> >> This check seems like a disaster waiting to happen when the next
-> >> change to DST table happens.
-> >
-> > Please Peter Document this, adding a new DST_FAKE_RTABLE flag
-> >
-> > #define DST_FAKE_RTABLE DST_NOPEER
-> >
-> > or just use a bit, we have plenty of them available.
-> >
-> 
-> 
-> Add DST_FAKE_RTABLE to dst_entry, this is the new patch.
-> Is this ok?
-> 
+From: Francesco Virlinzi <francesco.virlinzi@st.com>
 
-A full new patch is needed, with nice changelog, and proper formatting
-(your mail was mangled)
+Freeze and restore can call the custom init/exit functions.
+Also the patch adds a custom data field that can be used
+for storing platform data useful on restore the embedded
+setup (e.g. GPIO, SYSCFG).
 
+Signed-off-by: Francesco Virlinzi <francesco.virlinzi@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   17 +++++++++++++----
+ include/linux/stmmac.h                             |    1 +
+ 2 files changed, 14 insertions(+), 4 deletions(-)
 
->   };
-> 
-> +static inline void br_drop_fake_rtable(struct sk_buff *skb) {
-> +       struct dst_entry *dst = skb_dst(skb);
-> +       /* abuse fact that only fake_rtable has DST_FAKE_RTABLE set */
-
-Remove the comment, since we dont abuse NOPEER anymore, we use a
-dedicated flag. (keep an empty line)
-
-> +       if (dst && (dst->flags & DST_FAKE_RTABLE))
-> +               skb_dst_drop(skb);
-> +}
-> +
->   #else
->   #define nf_bridge_maybe_copy_header(skb)       (0)
->   #define nf_bridge_pad(skb)                     (0)
-> +#define br_drop_fake_rtable(skb)               (0)
->   #endif /* CONFIG_BRIDGE_NETFILTER */
-> 
->   #endif /* __KERNEL__ */
-> diff --git a/include/net/dst.h b/include/net/dst.h
-> index 59c5d18..b094030 100644
-> --- a/include/net/dst.h
-> +++ b/include/net/dst.h
-> @@ -55,6 +55,7 @@ struct dst_entry {
->   #define DST_NOCACHE            0x0010
->   #define DST_NOCOUNT            0x0020
->   #define DST_NOPEER             0x0040
-> +#define DST_FAKE_RTABLE                0x0080
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 12bd221..ba30d38 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -189,9 +189,6 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
+ 	if (priv->plat->exit)
+ 		priv->plat->exit(pdev);
+ 
+-	if (priv->plat->exit)
+-		priv->plat->exit(pdev);
+-
+ 	platform_set_drvdata(pdev, NULL);
+ 
+ 	iounmap((void *)priv->ioaddr);
+@@ -218,14 +215,26 @@ static int stmmac_pltfr_resume(struct device *dev)
+ 
+ int stmmac_pltfr_freeze(struct device *dev)
+ {
++	int ret;
++	struct plat_stmmacenet_data *plat_dat = dev_get_platdata(dev);
+ 	struct net_device *ndev = dev_get_drvdata(dev);
++	struct platform_device *pdev = to_platform_device(dev);
+ 
+-	return stmmac_freeze(ndev);
++	ret = stmmac_freeze(ndev);
++	if (plat_dat->exit)
++		plat_dat->exit(pdev);
++
++	return ret;
+ }
+ 
+ int stmmac_pltfr_restore(struct device *dev)
+ {
++	struct plat_stmmacenet_data *plat_dat = dev_get_platdata(dev);
+ 	struct net_device *ndev = dev_get_drvdata(dev);
++	struct platform_device *pdev = to_platform_device(dev);
++
++	if (plat_dat->init)
++		plat_dat->init(pdev);
+ 
+ 	return stmmac_restore(ndev);
+ }
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index cf64031..f85c93d 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -109,6 +109,7 @@ struct plat_stmmacenet_data {
+ 	int (*init)(struct platform_device *pdev);
+ 	void (*exit)(struct platform_device *pdev);
+ 	void *custom_cfg;
++	void *custom_data;
+ 	void *bsp_priv;
+ };
+ #endif
+-- 
+1.7.4.4
