@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 08/12] atl1c: wrong register used to stop TXQ
-Date: Wed, 18 Apr 2012 13:32:32 +0800
-Message-ID: <1334727156-6830-9-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 10/12] atl1c: remove dmaw_block
+Date: Wed, 18 Apr 2012 13:32:34 +0800
+Message-ID: <1334727156-6830-11-git-send-email-xiong@qca.qualcomm.com>
 References: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,27 +14,48 @@ In-Reply-To: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-function atl1c_stop_mac uses wrong register of REG_TWSI_CTRL
-to stop mac, replace it with REG_TXQ_CTRL.
+dmaw_block is never used in the driver, remove it.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c.h      |    1 -
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    4 ----
+ 2 files changed, 0 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+index 973c568..0a4bfab 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+@@ -374,7 +374,6 @@ struct atl1c_hw {
+ 	enum atl1c_dma_order dma_order;
+ 	enum atl1c_dma_rcb   rcb_value;
+ 	enum atl1c_dma_req_block dmar_block;
+-	enum atl1c_dma_req_block dmaw_block;
+ 
+ 	u16 device_id;
+ 	u16 vendor_id;
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index ca1259d..b36c033 100644
+index 1ce48d0..d6ebaa4 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -1142,7 +1142,7 @@ static int atl1c_stop_mac(struct atl1c_hw *hw)
+@@ -740,7 +740,6 @@ static int __devinit atl1c_sw_init(struct atl1c_adapter *adapter)
+ 	hw->rfd_burst = 8;
+ 	hw->dma_order = atl1c_dma_ord_out;
+ 	hw->dmar_block = atl1c_dma_req_1024;
+-	hw->dmaw_block = atl1c_dma_req_1024;
+ 	hw->dmar_dly_cnt = 15;
+ 	hw->dmaw_dly_cnt = 4;
  
- 	AT_READ_REG(hw, REG_TXQ_CTRL, &data);
- 	data &= ~TXQ_CTRL_EN;
--	AT_WRITE_REG(hw, REG_TWSI_CTRL, data);
-+	AT_WRITE_REG(hw, REG_TXQ_CTRL, data);
- 
- 	atl1c_wait_until_idle(hw);
- 
+@@ -1056,9 +1055,6 @@ static void atl1c_configure_tx(struct atl1c_adapter *adapter)
+ 	AT_WRITE_REG(hw, REG_TX_TSO_OFFLOAD_THRESH,
+ 		(tx_offload_thresh >> 3) & TX_TSO_OFFLOAD_THRESH_MASK);
+ 	AT_READ_REG(hw, REG_DEVICE_CTRL, &dev_ctrl_data);
+-	max_pay_load  = (dev_ctrl_data >> DEVICE_CTRL_MAX_PAYLOAD_SHIFT) &
+-			DEVICE_CTRL_MAX_PAYLOAD_MASK;
+-	hw->dmaw_block = min_t(u32, max_pay_load, hw->dmaw_block);
+ 	max_pay_load  = (dev_ctrl_data >> DEVICE_CTRL_MAX_RREQ_SZ_SHIFT) &
+ 			DEVICE_CTRL_MAX_RREQ_SZ_MASK;
+ 	hw->dmar_block = min_t(u32, max_pay_load, hw->dmar_block);
 -- 
 1.7.7
