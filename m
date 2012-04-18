@@ -1,35 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: filter: remove unused cpu_off
-Date: Wed, 18 Apr 2012 04:59:52 +0200
-Message-ID: <1334717992.2472.75.camel@edumazet-glaptop>
-References: <1334717479.2472.73.camel@edumazet-glaptop>
-	 <20120417.225733.605856895750092515.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] dmfe: enforce consistent timing delay.
+Date: Tue, 17 Apr 2012 22:59:24 -0400 (EDT)
+Message-ID: <20120417.225924.1599146568561338219.davem@davemloft.net>
+References: <20120417211140.GA12909@electric-eye.fr.zoreil.com>
+	<CANEJEGsb6_6btnu4OdriK=V2MbHcmxmvGy8UgsjNG1VPS_B0oQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: grantgrundler@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:42027 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623Ab2DRC74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:59:56 -0400
-Received: by wibhj6 with SMTP id hj6so193916wib.1
-        for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 19:59:55 -0700 (PDT)
-In-Reply-To: <20120417.225733.605856895750092515.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33107 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623Ab2DRDA3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 23:00:29 -0400
+In-Reply-To: <CANEJEGsb6_6btnu4OdriK=V2MbHcmxmvGy8UgsjNG1VPS_B0oQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-17 at 22:57 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 18 Apr 2012 04:51:19 +0200
-> 
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Applied, but I added "in sparc JIT" to the subject line.
-> 
-> Thanks.
+=46rom: Grant Grundler <grantgrundler@gmail.com>
+Date: Tue, 17 Apr 2012 14:45:38 -0700
 
-No problem, I just copy/pasted your own subjects for this file 
+> On Tue, Apr 17, 2012 at 2:11 PM, Francois Romieu <romieu@fr.zoreil.co=
+m> wrote:
+>> The driver does not always use the same timing for what looks like
+>> the same operations.
+>>
+>> - DCR0
+>> =A0Use the same udelay everywhere for reset. Upper bound is 100 us.
+>> - DCR9
+>> =A0Use 5us delay for srom clock. 1us delay for phy_write_1bit (write=
+s
+>> =A0PHY_DATA_[01]) are not changed as they stay withing a 2,5MHz MDIO
+>> =A0clock range.
+>>
+>> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+>=20
+>=20
+> Reviewed-by: Grant Grundler <grundler@parisc-linux.org>
 
-Thanks
+Applied, thanks.
