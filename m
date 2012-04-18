@@ -1,57 +1,27 @@
-From: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH v3 7/8] i2c-pnx.c: Remove duplicated i2c.h
-Date: Wed, 18 Apr 2012 20:04:20 +0200
-Message-ID: <20120418180420.GC2548@pengutronix.de>
-References: <1333528480-17134-1-git-send-email-stigge@antcom.de>
- <1333528480-17134-8-git-send-email-stigge@antcom.de>
+From: Chir0n <io.chir0n@gmail.com>
+Subject: 3-way handshake timeout
+Date: Wed, 18 Apr 2012 15:07:41 -0300
+Message-ID: <CAC_t5gBtJVji3UkJWuQOg7BPRN92r2Bg0PA3YeZg=FTU+-vj-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2/5bycvrmDh4d1IB"
-Cc: arm-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	srinivas.bakki-3arQi8VN3Tc@public.gmane.org, kevin.wells-3arQi8VN3Tc@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, a.zummo-BfzFCNDTiLLj+vYz1yj4TQ@public.gmane.org,
-	linux-watchdog-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wim-IQzOog9fTRqzQB+pC5nmwQ@public.gmane.org, jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1333528480-17134-8-git-send-email-stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:42462 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751042Ab2DRSHm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 14:07:42 -0400
+Received: by eaaq12 with SMTP id q12so1962612eaa.19
+        for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 11:07:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
---2/5bycvrmDh4d1IB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Can someone tell me where I can discover the timeout of a 3-way
+handshake on linux?
 
-On Wed, Apr 04, 2012 at 10:34:39AM +0200, Roland Stigge wrote:
-> The platforms using i2c-pnx.c both defined a duplicated i2c.h (used nowhe=
-re
-> else). This patch removes those and integrates the contents into the driv=
-er
-> itself.
->=20
-> Signed-off-by: Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>
-> Reviewed-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Thak you!
 
-Applied to next, thanks.
+Regards,
 
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---2/5bycvrmDh4d1IB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iEYEARECAAYFAk+PAiQACgkQD27XaX1/VRszwwCgiHRp1XFouJAIR5iV4ZYIcUIy
-t30AnAxEkK4mKAOWedcSYupQYWYb1g9S
-=9xmr
------END PGP SIGNATURE-----
-
---2/5bycvrmDh4d1IB--
+Chiron
