@@ -1,26 +1,58 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
-Date: Wed, 18 Apr 2012 10:51:28 +0400
-Message-ID: <jsyqeyxth1rla0agcmhp5v7c.1334731888756@email.android.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] bnx2x: off by one in bnx2x_ets_e3b0_sp_pri_to_cos_set()
+Date: Wed, 18 Apr 2012 09:53:42 +0300
+Message-ID: <20120418065342.GC12831@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <sim@hostway.ca>,
-	"eric.dumazet@gmail.com " <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Eilon Greenstein <eilong@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:34419 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874Ab2DRGvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 02:51:31 -0400
+Received: from rcsinet15.oracle.com ([148.87.113.117]:30627 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750934Ab2DRGxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 02:53:52 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-U3VyZSwgIERhdmlkLiAgVGhpcyBpcyBub3QgYSBmaXggeWV0IHNpbmNlIEkgZG9uJ3QgY29tcGxl
-dGVseSB1bmRlcnN0YW5kLCAgd2hhdCdzIGhhcHBlbmluZy4gIEp1c3QgYSBwcm9vZiBvZiBjb25j
-ZXJ0LgoK0J/QvtC70YzQt9C+0LLQsNGC0LXQu9GMIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldD4g0L/QuNGB0LDQuzoKCj5Gcm9tOiBTdGFuaXNsYXYgS2luc2J1cnNreSA8c2tpbnNi
-dXJza3lAcGFyYWxsZWxzLmNvbT4KPkRhdGU6IFR1ZSwgMTcgQXByIDIwMTIgMjI6NDk6MDYgKzA0
-MDAKPgo+PiBTb3JyeSBmb3Igd2hpdGVzcGFjZXMuCj4+IEFuZCB0aGFua3MsIFNpbW9uLgo+Cj5Q
-bGVhc2Ugc3VibWl0IHRoaXMgZml4IGZvcm1hbGx5LCB3aXRoIFNpbW9uJ3MgVGVzdGVkLWJ5Ogo=
+The sp_pri_to_cos[] array size depends on the config but lets say it is
+BX_E3B0_MAX_NUM_COS_PORT0 and max_num_of_cos is also
+DCBX_E3B0_MAX_NUM_COS_PORT0.  In the original code
+"pri == max_num_of_cos" was accepted but it is one past the end of the
+array.
+
+Also we used "pri" before capping it.  It's a harmless read past the end
+of the array, but it would affect which error message gets printed.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index ff882a4..6b21b21 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -922,6 +922,12 @@ static int bnx2x_ets_e3b0_sp_pri_to_cos_set(const struct link_params *params,
+ 	const u8 max_num_of_cos = (port) ? DCBX_E3B0_MAX_NUM_COS_PORT1 :
+ 		DCBX_E3B0_MAX_NUM_COS_PORT0;
+ 
++	if (pri >= max_num_of_cos) {
++		DP(NETIF_MSG_LINK, "bnx2x_ets_e3b0_sp_pri_to_cos_set invalid "
++		   "parameter Illegal strict priority\n");
++	    return -EINVAL;
++	}
++
+ 	if (sp_pri_to_cos[pri] != DCBX_INVALID_COS) {
+ 		DP(NETIF_MSG_LINK, "bnx2x_ets_e3b0_sp_pri_to_cos_set invalid "
+ 				   "parameter There can't be two COS's with "
+@@ -929,12 +935,6 @@ static int bnx2x_ets_e3b0_sp_pri_to_cos_set(const struct link_params *params,
+ 		return -EINVAL;
+ 	}
+ 
+-	if (pri > max_num_of_cos) {
+-		DP(NETIF_MSG_LINK, "bnx2x_ets_e3b0_sp_pri_to_cos_set invalid "
+-		   "parameter Illegal strict priority\n");
+-	    return -EINVAL;
+-	}
+-
+ 	sp_pri_to_cos[pri] = cos_entry;
+ 	return 0;
+ 
