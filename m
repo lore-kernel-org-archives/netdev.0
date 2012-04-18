@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] atl1c: update hardware settings - v1
-Date: Wed, 18 Apr 2012 15:37:10 -0400 (EDT)
-Message-ID: <20120418.153710.430492542259953028.davem@davemloft.net>
-References: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
+Subject: Re: pull request: wireless-next 2012-04-18
+Date: Wed, 18 Apr 2012 15:36:53 -0400 (EDT)
+Message-ID: <20120418.153653.2130740499995307564.davem@davemloft.net>
+References: <20120418190521.GB2436@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com
-To: xiong@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40915 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754768Ab2DRTiE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 15:38:04 -0400
+In-Reply-To: <20120418190521.GB2436@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: xiong <xiong@qca.qualcomm.com>
-Date: Wed, 18 Apr 2012 13:32:24 +0800
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 18 Apr 2012 15:05:22 -0400
 
-> This update contains a serial of patches, most of them are hardware
-> settings related. register definitions are refined (or removed if 
-> meaningless) for each patch.
+> Another batch of wireless updates intended for 3.5...
 > 
-> This is the first serial patches, after reviewed/applied the second
-> serial will be out.
+> Highlights include some wl12xx refactoring, NFC HCI and SHDLC updates,
+> an ath6kl pull, some mesh updates, and the usual updates to iwlwifi,
+> ath9k, brcm80211, mwifiex, libertas, and other drivers.
 > 
-> These patches have addressed all sparse and checkpatch warnings.
-> 
-> Following NICs are tested:
-> AR8131/AR8132/AR8151A/AR8152A/AR8152B
-> Test item includes:
-> build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
+> Please let me know if there are problems!
 
-All applied, thanks.
+Also pulled, thanks a lot.
