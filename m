@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 04/12] atl1c: remove VPD register
-Date: Wed, 18 Apr 2012 13:32:28 +0800
-Message-ID: <1334727156-6830-5-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 06/12] atl1c: split 2 32bit registers of TPD to 4 16bit registers
+Date: Wed, 18 Apr 2012 13:32:30 +0800
+Message-ID: <1334727156-6830-7-git-send-email-xiong@qca.qualcomm.com>
 References: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,79 +14,137 @@ In-Reply-To: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VPD register is only used for L1(devid=PCI_DEVICE_ID_ATTANSIC_L1) to
-access external NV-memory.
-l1c & later chip doesn't use it any more.
-PHY 0/1 registers occupy the last 2 slots of the dump table.
+TPD producer/consumer index is 16bit wide.
+16bit read/write reduce the dependency of the 2 tpd rings (hi and lo)
+rename reg(157C/1580) to keep name coninsistency.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c.h         |    2 +-
- drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c |    7 +++----
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h      |   11 -----------
- 3 files changed, 4 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c.h      |   10 +++++-
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   17 ++++-------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   34 +++++-----------------
+ 3 files changed, 22 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-index c725ee5..cf82b74 100644
+index 93b5991..973c568 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-@@ -100,7 +100,7 @@
- #define ATL1C_ASPM_L0s_ENABLE		0x0001
- #define ATL1C_ASPM_L1_ENABLE		0x0002
+@@ -583,8 +583,14 @@ struct atl1c_adapter {
+ #define AT_WRITE_REGW(a, reg, value) (\
+ 		writew((value), ((a)->hw_addr + reg)))
  
--#define AT_REGS_LEN	(75 * sizeof(u32))
-+#define AT_REGS_LEN	(74 * sizeof(u32))
- #define AT_EEPROM_LEN 	512
+-#define AT_READ_REGW(a, reg) (\
+-		readw((a)->hw_addr + reg))
++#define AT_READ_REGW(a, reg, pdata) do {				\
++		if (unlikely((a)->hibernate)) {				\
++			readw((a)->hw_addr + reg);			\
++			*(u16 *)pdata = readw((a)->hw_addr + reg);	\
++		} else {						\
++			*(u16 *)pdata = readw((a)->hw_addr + reg);	\
++		}							\
++	} while (0)
  
- #define ATL1C_GET_DESC(R, i, type)	(&(((type *)((R)->desc))[i]))
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-index 0a9326a..3feb846 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-@@ -141,8 +141,7 @@ static void atl1c_get_regs(struct net_device *netdev,
- 
- 	memset(p, 0, AT_REGS_LEN);
- 
--	regs->version = 0;
--	AT_READ_REG(hw, REG_VPD_CAP, 		  p++);
-+	regs->version = 1;
- 	AT_READ_REG(hw, REG_PM_CTRL, 		  p++);
- 	AT_READ_REG(hw, REG_MAC_HALF_DUPLX_CTRL,  p++);
- 	AT_READ_REG(hw, REG_TWSI_CTRL, 		  p++);
-@@ -167,9 +166,9 @@ static void atl1c_get_regs(struct net_device *netdev,
- 	AT_READ_REG(hw, REG_WOL_CTRL, 		  p++);
- 
- 	atl1c_read_phy_reg(hw, MII_BMCR, &phy_data);
--	regs_buff[73] =	(u32) phy_data;
-+	regs_buff[AT_REGS_LEN/sizeof(u32) - 2] = (u32) phy_data;
- 	atl1c_read_phy_reg(hw, MII_BMSR, &phy_data);
--	regs_buff[74] = (u32) phy_data;
-+	regs_buff[AT_REGS_LEN/sizeof(u32) - 1] = (u32) phy_data;
- }
- 
- static int atl1c_get_eeprom_len(struct net_device *netdev)
+ #define AT_WRITE_REG_ARRAY(a, reg, offset, value) ( \
+ 		writel((value), (((a)->hw_addr + reg) + ((offset) << 2))))
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index c22d698..f5c7473 100644
+index caff2ae..ca45fad 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -59,17 +59,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define LINK_CTRL_L1_EN			0x02
- #define LINK_CTRL_EXT_SYNC		0x80
+@@ -455,8 +455,8 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define REG_RRD0_HEAD_ADDR_LO		0x1568
+ #define REG_RRD_RING_SIZE		0x1578
+ #define RRD_RING_SIZE_MASK		0x0FFF
+-#define REG_HTPD_HEAD_ADDR_LO		0x157C
+-#define REG_NTPD_HEAD_ADDR_LO		0x1580
++#define REG_TPD_PRI1_ADDR_LO		0x157C
++#define REG_TPD_PRI0_ADDR_LO		0x1580
+ #define REG_TPD_RING_SIZE		0x1584
+ #define TPD_RING_SIZE_MASK		0xFFFF
  
--#define REG_VPD_CAP			0x6C
--#define VPD_CAP_ID_MASK                 0xff
--#define VPD_CAP_ID_SHIFT                0
--#define VPD_CAP_NEXT_PTR_MASK           0xFF
--#define VPD_CAP_NEXT_PTR_SHIFT          8
--#define VPD_CAP_VPD_ADDR_MASK           0x7FFF
--#define VPD_CAP_VPD_ADDR_SHIFT          16
--#define VPD_CAP_VPD_FLAG                0x80000000
+@@ -562,15 +562,10 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define MB_RFDX_PROD_IDX_MASK		0xFFFF
+ #define REG_MB_RFD0_PROD_IDX		0x15E0
+ 
+-#define MB_PRIO_PROD_IDX_MASK		0xFFFF
+-#define REG_MB_PRIO_PROD_IDX		0x15F0
+-#define MB_HTPD_PROD_IDX_SHIFT		0
+-#define MB_NTPD_PROD_IDX_SHIFT		16
 -
--#define REG_VPD_DATA                	0x70
--
- #define REG_PCIE_UC_SEVERITY		0x10C
- #define PCIE_UC_SERVRITY_TRN		0x00000001
- #define PCIE_UC_SERVRITY_DLP		0x00000010
+-#define MB_PRIO_CONS_IDX_MASK		0xFFFF
+-#define REG_MB_PRIO_CONS_IDX		0x15F4
+-#define MB_HTPD_CONS_IDX_SHIFT		0
+-#define MB_NTPD_CONS_IDX_SHIFT		16
++#define REG_TPD_PRI1_PIDX               0x15F0	/* 16bit,hi-tpd producer idx */
++#define REG_TPD_PRI0_PIDX		0x15F2	/* 16bit,lo-tpd producer idx */
++#define REG_TPD_PRI1_CIDX		0x15F4	/* 16bit,hi-tpd consumer idx */
++#define REG_TPD_PRI0_CIDX		0x15F6	/* 16bit,lo-tpd consumer idx */
+ 
+ #define REG_MB_RFD01_CONS_IDX		0x15F8
+ #define MB_RFD0_CONS_IDX_MASK		0x0000FFFF
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index ceb9df5..c7d7640 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -995,10 +995,10 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
+ 			(u32)((tpd_ring[atl1c_trans_normal].dma &
+ 				AT_DMA_HI_ADDR_MASK) >> 32));
+ 	/* just enable normal priority TX queue */
+-	AT_WRITE_REG(hw, REG_NTPD_HEAD_ADDR_LO,
++	AT_WRITE_REG(hw, REG_TPD_PRI0_ADDR_LO,
+ 			(u32)(tpd_ring[atl1c_trans_normal].dma &
+ 				AT_DMA_LO_ADDR_MASK));
+-	AT_WRITE_REG(hw, REG_HTPD_HEAD_ADDR_LO,
++	AT_WRITE_REG(hw, REG_TPD_PRI1_ADDR_LO,
+ 			(u32)(tpd_ring[atl1c_trans_high].dma &
+ 				AT_DMA_LO_ADDR_MASK));
+ 	AT_WRITE_REG(hw, REG_TPD_RING_SIZE,
+@@ -1519,16 +1519,11 @@ static bool atl1c_clean_tx_irq(struct atl1c_adapter *adapter,
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	u16 next_to_clean = atomic_read(&tpd_ring->next_to_clean);
+ 	u16 hw_next_to_clean;
+-	u16 shift;
+-	u32 data;
++	u16 reg;
+ 
+-	if (type == atl1c_trans_high)
+-		shift = MB_HTPD_CONS_IDX_SHIFT;
+-	else
+-		shift = MB_NTPD_CONS_IDX_SHIFT;
++	reg = type == atl1c_trans_high ? REG_TPD_PRI1_CIDX : REG_TPD_PRI0_CIDX;
+ 
+-	AT_READ_REG(&adapter->hw, REG_MB_PRIO_CONS_IDX, &data);
+-	hw_next_to_clean = (data >> shift) & MB_PRIO_PROD_IDX_MASK;
++	AT_READ_REGW(&adapter->hw, reg, &hw_next_to_clean);
+ 
+ 	while (next_to_clean != hw_next_to_clean) {
+ 		buffer_info = &tpd_ring->buffer_info[next_to_clean];
+@@ -2090,23 +2085,10 @@ static void atl1c_tx_queue(struct atl1c_adapter *adapter, struct sk_buff *skb,
+ 			   struct atl1c_tpd_desc *tpd, enum atl1c_trans_queue type)
+ {
+ 	struct atl1c_tpd_ring *tpd_ring = &adapter->tpd_ring[type];
+-	u32 prod_data;
++	u16 reg;
+ 
+-	AT_READ_REG(&adapter->hw, REG_MB_PRIO_PROD_IDX, &prod_data);
+-	switch (type) {
+-	case atl1c_trans_high:
+-		prod_data &= 0xFFFF0000;
+-		prod_data |= tpd_ring->next_to_use & 0xFFFF;
+-		break;
+-	case atl1c_trans_normal:
+-		prod_data &= 0x0000FFFF;
+-		prod_data |= (tpd_ring->next_to_use & 0xFFFF) << 16;
+-		break;
+-	default:
+-		break;
+-	}
+-	wmb();
+-	AT_WRITE_REG(&adapter->hw, REG_MB_PRIO_PROD_IDX, prod_data);
++	reg = type == atl1c_trans_high ? REG_TPD_PRI1_PIDX : REG_TPD_PRI0_PIDX;
++	AT_WRITE_REGW(&adapter->hw, reg, tpd_ring->next_to_use);
+ }
+ 
+ static netdev_tx_t atl1c_xmit_frame(struct sk_buff *skb,
 -- 
 1.7.7
