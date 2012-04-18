@@ -1,39 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 10/11] batman-adv: print OGM seq numbers
- as unsigned long
-Date: Tue, 17 Apr 2012 22:47:46 -0400 (EDT)
-Message-ID: <20120417.224746.802445483718191876.davem@davemloft.net>
-References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
-	<1334663907-22725-11-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: filter: remove unused cpu_off
+Date: Wed, 18 Apr 2012 04:51:19 +0200
+Message-ID: <1334717479.2472.73.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1334663907-22725-11-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:48700 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623Ab2DRCvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:51:23 -0400
+Received: by wibhj6 with SMTP id hj6so188948wib.1
+        for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 19:51:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Tue, 17 Apr 2012 13:58:26 +0200
-
-> OGM sequence numbers are declared as uint32_t and so they have to printed
-> using %u instead of %d in order to avoid wrong representations.
-> 
-> Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-
-Fix this commit message subject, "%u" is "unsigned int" not
-"unsigned long"
-
-"unsigned long" would be "%lu"
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index 4ce0296..1a69244 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -240,8 +240,6 @@ do {	*prog++ = LD32I | RS1(FP) | S13(-(OFF)) | RD(DEST);	\
+ do {	*prog++ = LD32I | RS1(FP) | S13(-(OFF)) | RD(SRC);	\
+ } while (0)
+ 
+-#define cpu_off		offsetof(struct thread_info, cpu)
+-
+ #ifdef CONFIG_SMP
+ #ifdef CONFIG_SPARC64
+ #define emit_load_cpu(REG)						\
