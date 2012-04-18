@@ -1,124 +1,86 @@
-From: Alexander Beregalov <a.beregalov@gmail.com>
-Subject: Re: 3.4.0-rc2: skb_put() -> skb_over_panic
-Date: Wed, 18 Apr 2012 10:37:51 +0400
-Message-ID: <CAA1sL1TN+acPd4NAnFC0soeHzzcJe0ja3_zS5ZkFog11HSDAyA@mail.gmail.com>
-References: <CAA1sL1QTRKnfvCnHWjbSJ-hq6dgZK+KGDPVTrOhsfZcFTs01Mw@mail.gmail.com>
-	<1334502964.28012.1.camel@edumazet-glaptop>
-	<CAA1sL1SJyY7fYJn7OKqo5Pa=b4-r9DW90-5WVGBf==tFjVEBpg@mail.gmail.com>
-	<1334695506.2472.46.camel@edumazet-glaptop>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re: [PATCH 03/11] batman-adv: randomize initial
+ seqno to avoid collision
+Date: Wed, 18 Apr 2012 08:42:03 +0200
+Message-ID: <20120418064202.GA27966@ritirata.org>
+References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
+	<1334663907-22725-4-git-send-email-ordex@autistici.org>
+	<20120417.224527.288514574622832184.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334695506.2472.46.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="mP3DRpeJDSE+ciuQ"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	lindner_marek-LWAfsSFWpa4@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120417.224527.288514574622832184.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 18 April 2012 00:45, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2012-04-18 at 00:15 +0400, Alexander Beregalov wrote:
->> On 15 April 2012 19:16, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Sun, 2012-04-15 at 16:24 +0400, Alexander Beregalov wrote:
->> >> Hi
->> >>
->> >> kernel 3.4.0-rc2-00333-g668ce0a
->> >>
->> >> calltrace is lost on netconsole, sorry.
->> >>
->> >> ethernet is realtek/r8169
->> >>
->> >> It happened already two times with rtorrent, perhaps I can reprod=
-uce
->> >> it, what else can I provide to you?
->> >>
->> > full stack trace needed please.
->> >
->>
->> This time calltrace is different (I saw few last lines of calltrace =
-on
->> a display, but not enough) and netconsole transmitted complete
->> message, but perhaps it is the same problem. At least 'end' is the
->> same.
->>
->>
->> skb_over_panic: text:ffffffff8136d919 len:1248 put:932
->> head:ffff8800babcf800 data:ffff8800babcfd10 tail:0x9f0 end:0x6c0
->> dev:<NULL>
->> ------------[ cut here ]------------
->> kernel BUG at net/core/skbuff.c:127!
->> invalid opcode: 0000 [#1] SMP
->> CPU 3
->> Modules linked in:
->>
->> Pid: 1926, comm: rtorrent Not tainted 3.4.0-rc2-00333-g668ce0a #1
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /D525MW
->> RIP: 0010:[<ffffffff8132414a>] =C2=A0[<ffffffff8132414a>] skb_put+0x=
-7c/0x86
->> RSP: 0018:ffff8800bed83d60 =C2=A0EFLAGS: 00010246
->> RAX: 0000000000000098 RBX: ffff8800b0b244c0 RCX: 000000000000003d
->> RDX: 000000000000000d RSI: 0000000000000046 RDI: ffffffff8162a0b0
->> RBP: ffff8800bed83d80 R08: 0000000000000001 R09: 0000000000000000
->> R10: ffff88002ed840c0 R11: 00000000007e28f6 R12: ffff8800b9cb9180
->> R13: ffff8800b9cb96c0 R14: ffff8800b9cb91a8 R15: ffff8800b0b245a0
->> FS: =C2=A000007fe639e75720(0000) GS:ffff8800bed80000(0000) knlGS:000=
-0000000000000
->> CS: =C2=A00010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> CR2: 00007fe63571a000 CR3: 00000000b53fa000 CR4: 00000000000007e0
->> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->> Process rtorrent (pid: 1926, threadinfo ffff8800bb0a0000, task ffff8=
-800bb1dddc0)
->> Stack:
->> =C2=A000000000000009f0 00000000000006c0 ffffffff814d06e7 ffff8800b9c=
-b9180
->> =C2=A0ffff8800bed83de0 ffffffff8136d919 ffff8800000003a4 0000013c815=
-36640
->> =C2=A0ffff8800b0b245a0 000000cc00000006 ffff8800b0b244c0 ffff8800b0b=
-244c0
->> Call Trace:
->> =C2=A0<IRQ>
->> =C2=A0[<ffffffff8136d919>] tcp_retransmit_skb+0x29a/0x529
->> =C2=A0[<ffffffff8136eebd>] tcp_retransmit_timer+0x358/0x4e7
->> =C2=A0[<ffffffff8136f0e8>] tcp_write_timer+0x9c/0x17d
->> =C2=A0[<ffffffff81035bd0>] run_timer_softirq+0x1eb/0x2bf
->> =C2=A0[<ffffffff8136f04c>] ? tcp_retransmit_timer+0x4e7/0x4e7
->> =C2=A0[<ffffffff810184e9>] ? native_smp_send_reschedule+0x4f/0x51
->> =C2=A0[<ffffffff8102fb52>] __do_softirq+0xbf/0x17d
->> =C2=A0[<ffffffff810188ec>] ? lapic_next_event+0x18/0x1c
->> =C2=A0[<ffffffff813c05cc>] call_softirq+0x1c/0x30
->> =C2=A0[<ffffffff810033d6>] do_softirq+0x33/0x69
->> =C2=A0[<ffffffff8102fdc6>] irq_exit+0x44/0x9c
->> =C2=A0[<ffffffff81018c6f>] smp_apic_timer_interrupt+0x86/0x94
->> =C2=A0[<ffffffff813bfe47>] apic_timer_interrupt+0x67/0x70
->> =C2=A0<EOI>
->> =C2=A0[<ffffffff8131d87e>] ? sock_sendmsg+0xe6/0x106
->> =C2=A0[<ffffffff8135fb7b>] ? tcp_poll+0xaf/0x168
->> =C2=A0[<ffffffff810ff814>] ? ep_send_events_proc+0x67/0x116
->> =C2=A0[<ffffffff8131b8ef>] sock_poll+0x15/0x17
->> =C2=A0[<ffffffff810ff823>] ep_send_events_proc+0x76/0x116
->> =C2=A0[<ffffffff810ff7ad>] ? ep_read_events_proc+0x99/0x99
->> =C2=A0[<ffffffff810fff24>] ep_scan_ready_list.clone.6+0x8f/0x16f
->> =C2=A0[<ffffffff81100277>] ep_poll+0x25f/0x2e2
->> =C2=A0[<ffffffff8131e886>] ? sys_accept4+0x133/0x15f
->> =C2=A0[<ffffffff81100d8e>] sys_epoll_wait+0x90/0xae
->> =C2=A0[<ffffffff813bf2e6>] system_call_fastpath+0x1a/0x1f
->> Code: 8b 57 60 48 89 44 24 10 8b 87 ac 00 00 00 48 89 44 24 08 31 c0
->> 8b bf a8 00 00 00 48 89 3c 24 48 c7 c7 43 07 4d 81 e8 2c 27 09 00 <0=
-f>
->> 0b 89 c0 49 8d 04 00 c9 c3 55 48 89 e5 41 57 41 56 41 55 41
->> RIP =C2=A0[<ffffffff8132414a>] skb_put+0x7c/0x86
->> =C2=A0RSP <ffff8800bed83d60>
->> ---[ end trace a721715cd86be064 ]---
->
-> Thanks a lot, I belive I know where the problem is.
->
-> Could you check if commit a21d45726acacc963d8baddf74607d9b74e2b723
-> (tcp: avoid order-1 allocations on wifi and tx path)
-> was in your tree ?
->
 
-It was,
-git show a21d4572 v3.4-rc2..668ce0a
-shows it
+--mP3DRpeJDSE+ciuQ
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Apr 17, 2012 at 10:45:27 -0400, David Miller wrote:
+> From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+> Date: Tue, 17 Apr 2012 13:58:19 +0200
+>=20
+> > @@ -33,6 +33,11 @@
+> >  static void bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
+> >  {
+> >  	struct batman_ogm_packet *batman_ogm_packet;
+> > +	unsigned long random_seqno;
+> > +
+> > +	/* randomize initial seqno to avoid collision */
+> > +	get_random_bytes(&random_seqno, sizeof(unsigned long));
+> > +	atomic_set(&hard_iface->seqno, (uint32_t)random_seqno);
+>=20
+> This is silly.
+>=20
+> Just use "uint32_t" for the type of random_seqno and the sizeof passed
+> to get_random_bytes.
+>=20
+> And here comes the magic part.
+>=20
+> Amazing, no ugly and pointless casts needed!
+
+I agree :-)
+Thank you for the suggestion.
+
+Cheers,
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--mP3DRpeJDSE+ciuQ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQEcBAEBAgAGBQJPjmI6AAoJEFMQTLzJFOZFsYIH/3zO/mM8jSc4hs3bIR6p7r3q
+AwOeKTA80Xgp3lEcbX8ftNYqNUBMm/jZaOwNMlA2MnfF0h7DcPCKbmpikJ5G86GT
+Xkszkz7lfk2QIXZYof260d9jzeKbGkgJxJyOQAOpjGOne5ICSiAE8ckaT1cVRzB8
+bXID8WfIxUPYmInX5evQ3uQKcoEv+m8rtC+FEmOpgn8EZyR6DMDf/gV1x/rRj9i7
+OcaUPk6hZynIgCoGJUr88GllPUcAH3ri0nMWtuKehHk65dkYaIZxxF58NYstHdbE
+iGcAG7OyneMQ+HbzBreXbtxvAYI4gCdqK38OmvW+yuzoy8RxJ6h6mOtO43JZFVg=
+=9tCz
+-----END PGP SIGNATURE-----
+
+--mP3DRpeJDSE+ciuQ--
