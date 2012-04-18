@@ -1,49 +1,38 @@
-From: "Yaniv Rosner" <yaniv.rosner@broadcom.com>
-Subject: RE: ethtool enhancement proposal
-Date: Wed, 18 Apr 2012 17:20:30 +0000
-Message-ID: <A6AA2EF896BED345B0F23520D832A4B105855E@SJEXCHMB05.corp.ad.broadcom.com>
-References: <A6AA2EF896BED345B0F23520D832A4B10583EC@SJEXCHMB05.corp.ad.broadcom.com>
- <1334765718.2426.14.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: batman-adv 2012-04-18
+Date: Wed, 18 Apr 2012 13:22:48 -0400 (EDT)
+Message-ID: <20120418.132248.2265308681920218130.davem@davemloft.net>
+References: <1334743210-12338-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ben Hutchings" <bhutchings@solarflare.com>
-To: "Stuart Hodgson" <smhodgson@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4911 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751083Ab2DRRUt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2012 13:20:49 -0400
-In-Reply-To: <1334765718.2426.14.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:39678 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102Ab2DRR0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 13:26:04 -0400
+In-Reply-To: <1334743210-12338-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IE9uIFdlZCwgMjAxMi0wNC0xOCBhdCAxMzowNSArMDAwMCwgWWFuaXYgUm9zbmVyIHdyb3Rl
-Og0KPiA+IEhpIEJlbiwNCj4gPiBJIHdhbnQgdG8gcHJvcG9zZSBuZXcgZW5oYW5jZW1lbnQgZm9y
-IHRoZSBldGh0b29sIHRvIGRpc3BsYXkgdGhlDQo+ID4gY29udGVudCBvZiBhdHRhY2hlZCBTRlAr
-IG1vZHVsZS4NCj4gPiBUaGUgZm9ybWF0IHNob3VsZCBiZSBzaW1pbGFyIHRvIHRoZSAiLWUiIG9w
-dGlvbiwgYW5kIG9wdGlvbmFsbHkgcGFyc2UNCj4gPiBpdCdzIGNvbnRlbnQgYmFzZWQgb24gU0ZG
-LTg0NzIuDQo+ID4gUGxlYXNlIGxldCBtZSBrbm93IHdoYXQgeW91IHRoaW5rLg0KPiANCj4gU3R1
-YXJ0IEhvZGdzb24gaXMgd29ya2luZyBvbiBzb21ldGhpbmcgbGlrZSB0aGlzLCB0aG91Z2ggcGFy
-c2luZyBpcw0KPiB1bmNvbmRpdGlvbmFsLiAgSSB0aG91Z2h0IGhlIGhhZCBhbHJlYWR5IHBvc3Rl
-ZCBhIHBhdGNoIHRvIG5ldGRldiwgYnV0IEkNCj4gY2FuJ3Qgc2VlIGl0IGluIHRoZSBhcmNoaXZl
-Lg0KPiANClN0dWFydCwNCkRvIHlvdSBoYXZlIGFuIEVUQSBmb3IgdGhpcyBmZWF0dXJlID8NCg0K
-WWFuaXYNCg0KPiBXZSBkaXNjdXNzZWQgdGhlIGRpZmZlcmVudCBtb2R1bGUgZm9ybWF0cyBhbmQg
-Y2FtZSB0byB0aGUgY29uY2x1c2lvbg0KPiB0aGF0Og0KPiANCj4gLSBNb3N0IG1vZHVsZSB0eXBl
-cyBpbiBjdXJyZW50IHVzZSBoYXZlIGEgMjU2LWJ5dGUgRUVQUk9NLCBmb3JtYXQNCj4gICBkZWZp
-bmVkIGluIFNGRi04MDc5Lg0KPiAtIFNGRi04NDcyIHNwZWNpZmllcyB0d28gMjU2LWJ5dGUgRUVQ
-Uk9Ncy9yZWdpc3RlciBmaWxlcywgdGhlIGZpcnN0DQo+ICAgaWRlbnRpY2FsIHRvIFNGRi04MDc5
-IGFuZCB0aGUgc2Vjb25kIGNhcnJ5aW5nIGRpYWdub3N0aWMgaW5mb3JtYXRpb24uDQo+IC0gVGhl
-IEVUSFRPT0xfR01PRFVMRXtFRVBST00sSU5GT30gY29tbWFuZHMgc2hvdWxkIGVmZmVjdGl2ZWx5
-DQo+ICAgY29uY2F0ZW5hdGUgdGhlIHR3by4NCj4gDQo+IFRoZSBjdXJyZW50IFNvbGFyZmxhcmUg
-Y29udHJvbGxlciBmaXJtd2FyZSBvbmx5IHByb3ZpZGVzIGFjY2VzcyB0byB0aGUNCj4gU0ZGLTgw
-NzkgRUVQUk9NIG9uIFNGUCsgbW9kdWxlcywgc28gU3R1YXJ0J3MgY29kZSBkb2VzIG5vdCBjb3Zl
-ciB0aGUNCj4gYWRkaXRpb25hbCBkaWFnbm9zdGljIGluZm9ybWF0aW9uLiAgQnV0IHRoYXQgc2hv
-dWxkIGJlIGVhc3kgdG8gYWRkIG9uDQo+IHRvcC4NCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJl
-biBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBTb2xhcmZsYXJlDQo+IE5vdCBzcGVha2luZyBm
-b3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+
-IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUg
-dHJhZGVtYXJrZWQuDQo+IA0KDQo=
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Wed, 18 Apr 2012 11:59:57 +0200
+
+> this is the fixed version of my previous pull request (issued on 2012-04-17).
+> In this patchset the issues you reported have been fixed; moreover I'm
+> also including two new patches (1/13 and 2/13) which are respectively:
+> 
+> 1/13) a fix for Al Viro's report about the missing htons()
+> 2/13) a fix for a wrongly duplicated line in a comment
+> 
+> The following changes since commit ecffe75f934b4e3c5301fe5db278068e0efb0d6b:
+> 
+>   hippi: fix printk format in rrunner.c (2012-04-16 23:48:38 -0400)
+> 
+> are available in the git repository at:
+> 
+>   git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+This looks a lot better, pulled, thanks!
