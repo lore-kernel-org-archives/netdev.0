@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 03/12] atl1c: remove HDS register
-Date: Wed, 18 Apr 2012 13:32:27 +0800
-Message-ID: <1334727156-6830-4-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 07/12] atl1c: remove code related to rxq 1/2/3
+Date: Wed, 18 Apr 2012 13:32:31 +0800
+Message-ID: <1334727156-6830-8-git-send-email-xiong@qca.qualcomm.com>
 References: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,45 +14,72 @@ In-Reply-To: <1334727156-6830-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-remove HDS register as it doesn't exist in hardware.
+remove code related to rxq 1/2/3 since multi-q not support.
+refine REG_RXQ_CTRL definition as well.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    7 -------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 --
- 2 files changed, 0 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   29 +++++++++-------------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    3 +-
+ 2 files changed, 13 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index 855aca0..c22d698 100644
+index ca45fad..18c1f18 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -669,13 +669,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- #define REG_INT_RETRIG_TIMER		0x1608
- #define INT_RETRIG_TIMER_MASK		0xFFFF
+@@ -493,26 +493,21 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define ASPM_THRUPUT_LIMIT_NO		0x00
+ #define ASPM_THRUPUT_LIMIT_1M		0x01
+ #define ASPM_THRUPUT_LIMIT_10M		0x02
+-#define ASPM_THRUPUT_LIMIT_100M		0x04
+-#define RXQ1_CTRL_EN			0x10
+-#define RXQ2_CTRL_EN			0x20
+-#define RXQ3_CTRL_EN			0x40
+-#define IPV6_CHKSUM_CTRL_EN		0x80
+-#define RSS_HASH_BITS_MASK		0x00FF
+-#define RSS_HASH_BITS_SHIFT		8
+-#define RSS_HASH_IPV4			0x10000
+-#define RSS_HASH_IPV4_TCP		0x20000
+-#define RSS_HASH_IPV6			0x40000
+-#define RSS_HASH_IPV6_TCP		0x80000
++#define ASPM_THRUPUT_LIMIT_100M		0x03
++#define IPV6_CHKSUM_CTRL_EN		BIT(7)
+ #define RXQ_RFD_BURST_NUM_MASK		0x003F
+ #define RXQ_RFD_BURST_NUM_SHIFT		20
+-#define RSS_MODE_MASK			0x0003
++#define RXQ_NUM_RFD_PREF_DEF		8
++#define RSS_MODE_MASK			3UL
+ #define RSS_MODE_SHIFT			26
+-#define RSS_NIP_QUEUE_SEL_MASK		0x1
+-#define RSS_NIP_QUEUE_SEL_SHIFT		28
+-#define RRS_HASH_CTRL_EN		0x20000000
+-#define RX_CUT_THRU_EN			0x40000000
+-#define RXQ_CTRL_EN			0x80000000
++#define RSS_MODE_DIS			0
++#define RSS_MODE_SQSI			1
++#define RSS_MODE_MQSI			2
++#define RSS_MODE_MQMI			3
++#define RSS_NIP_QUEUE_SEL		BIT(28) /* 0:q0, 1:table */
++#define RRS_HASH_CTRL_EN		BIT(29)
++#define RX_CUT_THRU_EN			BIT(30)
++#define RXQ_CTRL_EN			BIT(31)
  
--#define REG_HDS_CTRL			0x160C
--#define HDS_CTRL_EN			0x0001
--#define HDS_CTRL_BACKFILLSIZE_SHIFT	8
--#define HDS_CTRL_BACKFILLSIZE_MASK	0x0FFF
--#define HDS_CTRL_MAX_HDRSIZE_SHIFT	20
--#define HDS_CTRL_MAC_HDRSIZE_MASK	0x0FFF
--
- #define REG_MAC_RX_STATUS_BIN 		0x1700
- #define REG_MAC_RX_STATUS_END 		0x175c
- #define REG_MAC_TX_STATUS_BIN 		0x1760
+ #define REG_RFD_FREE_THRESH		0x15A4
+ #define RFD_FREE_THRESH_MASK		0x003F
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 226be99..885e892 100644
+index c7d7640..ca1259d 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -1453,8 +1453,6 @@ static int atl1c_configure(struct atl1c_adapter *adapter)
- 	/* set MTU */
- 	AT_WRITE_REG(hw, REG_MTU, hw->max_frame_size + ETH_HLEN +
- 			VLAN_HLEN + ETH_FCS_LEN);
--	/* HDS, disable */
--	AT_WRITE_REG(hw, REG_HDS_CTRL, 0);
+@@ -1137,8 +1137,7 @@ static int atl1c_stop_mac(struct atl1c_hw *hw)
+ 	u32 data;
  
- 	atl1c_configure_tx(adapter);
- 	atl1c_configure_rx(adapter);
+ 	AT_READ_REG(hw, REG_RXQ_CTRL, &data);
+-	data &= ~(RXQ1_CTRL_EN | RXQ2_CTRL_EN |
+-		  RXQ3_CTRL_EN | RXQ_CTRL_EN);
++	data &= ~RXQ_CTRL_EN;
+ 	AT_WRITE_REG(hw, REG_RXQ_CTRL, data);
+ 
+ 	AT_READ_REG(hw, REG_TXQ_CTRL, &data);
 -- 
 1.7.7
