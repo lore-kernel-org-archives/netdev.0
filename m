@@ -1,81 +1,91 @@
-From: John <linux@8192.net>
-Subject: [PATCH V2 2/2] bonding support for IPv6 transmit hashing
-Date: Tue, 17 Apr 2012 17:28:02 -0700
-Message-ID: <4F8E0A92.5090408@8192.net>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: tg3: Occassional death on 3.3
+Date: Tue, 17 Apr 2012 17:55:11 -0700
+Message-ID: <20120418005511.GA2944@mcarlson.broadcom.com>
+References: <CAKb7UvjWACB5wF9B1GvznVd64Vby_9ri4SMo57RpAhrhf+awFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "Matt Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>, netdev@vger.kernel.org
+To: "Ilia Mirkin" <imirkin@alum.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp191.dfw.emailsrvr.com ([67.192.241.191]:36127 "EHLO
-	smtp191.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150Ab2DRAhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 20:37:43 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by smtp9.relay.dfw1a.emailsrvr.com (SMTP Server) with ESMTP id ABD123C0323
-	for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 20:28:00 -0400 (EDT)
-Received: by smtp9.relay.dfw1a.emailsrvr.com (Authenticated sender: john-AT-8192.net) with ESMTPSA id 781883C0264
-	for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 20:28:00 -0400 (EDT)
+Received: from mms3.broadcom.com ([216.31.210.19]:2211 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753740Ab2DRAzo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Apr 2012 20:55:44 -0400
+In-Reply-To: <CAKb7UvjWACB5wF9B1GvznVd64Vby_9ri4SMo57RpAhrhf+awFg@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---- a/Documentation/networking/bonding.txt	2012-02-08 19:21:53.000000000 -0800
-+++ b/Documentation/networking/bonding.txt	2012-02-13 01:11:35.000000000 -0800
-@@ -753,12 +753,22 @@
-  		protocol information to generate the hash.
+On Tue, Apr 17, 2012 at 08:22:31PM -0400, Ilia Mirkin wrote:
+> Hello,
+> 
+> I'm observing an issue where it appears that tg3 gets wedged into a
+> bad state every so often, and never recovers. Doing a sequence of
+> 
+> ifconfig eth0 down
+> rmmod broadcom
+> rmmod tg3
+> 
+> modprobe broadcom
+> modprobe tg3
+> 
+> Makes everything work again. The card I have:
+> 
+> 03:00.0 Ethernet controller [0200]: Broadcom Corporation NetLink
+> BCM57788 Gigabit Ethernet PCIe [14e4:1691] (rev 01)
+>         Subsystem: Dell XPS 8300 [1028:04aa]
+>         Flags: bus master, fast devsel, latency 0, IRQ 45
+>         Memory at fb100000 (64-bit, non-prefetchable) [size=64K]
+>         Capabilities: [48] Power Management version 3
+>         Capabilities: [60] Vendor Specific Information: Len=6c <?>
+>         Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
+>         Capabilities: [cc] Express Endpoint, MSI 00
+>         Capabilities: [100] Advanced Error Reporting
+>         Capabilities: [13c] Virtual Channel
+>         Capabilities: [160] Device Serial Number [the mac address]
+>         Capabilities: [16c] Power Budgeting <?>
+>         Kernel driver in use: tg3
+>         Kernel modules: tg3
+> 
+> I'm attaching the log for the full data dump, since my mailer will
+> wrap it horribly otherwise, but the interesting lines are:
+> 
+> [2234380.228971] tg3 0000:03:00.0: eth0: transmit timed out, resetting
+> ... some kind of data dump ...
+> [2234382.216682] tg3 0000:03:00.0: eth0: 0: Host status block
+> [00000001:00000080:(0000:01ef:0000):(01ef:00b2)]
+> [2234382.216685] tg3 0000:03:00.0: eth0: 0: NAPI info
+> [00000080:00000080:(00cb:00b2:01ff):01ef:(00b7:0000:0000:0000)]
+> [2234382.319550] tg3 0000:03:00.0: tg3_stop_block timed out, ofs=1400
+> enable_bit=2
+> [2234382.421931] tg3 0000:03:00.0: tg3_stop_block timed out, ofs=c00
+> enable_bit=2
+> [2234382.427199] tg3 0000:03:00.0: eth0: Link is down
+> [2234382.438168] tg3 0000:03:00.0: eth0: Link is down
+> 
+> Any further attempts to use the NIC, like ifconfig down/up result in a
+> similar error log sequence happening. Also, while it's happening, the
+> computer feels extremely laggy for a short period of time (~1s),
+> leading me to believe it's doing an uninterruptible sleep of some kind
+> going on.
+> 
+> This has happened twice, and at least the second time, there was no
+> unusual traffic on the network. It's linked at 100M, and was probably
+> doing 10K/s at most when the error happened. If this is insufficient
+> information, please let me know what I should collect next time this
+> might happen.
+> 
+> Thanks,
 
-  		Uses XOR of hardware MAC addresses and IP addresses to
--		generate the hash.  The formula is
-+		generate the hash.  The IPv4 formula is
+Thanks for the report Ilia.  I'm guessing the lag is coming from the
+driver as it logs the register dump to the syslog.
 
-  		(((source IP XOR dest IP) AND 0xffff) XOR
-  			( source MAC XOR destination MAC ))
-  				modulo slave count
+The register dump shows that interrupts are enabled, but the tag value in
+the interrupt mailbox register doesn't match the value in the status block
+or the driver's private tag value.  I'll see where that leads me.
 
-+		The IPv6 forumla is
-+
-+		iphash =
-+			(source ip quad 2 XOR dest IP quad 2) XOR
-+			(source ip quad 3 XOR dest IP quad 3) XOR
-+			(source ip quad 4 XOR dest IP quad 4)
-+
-+		((iphash >> 16) XOR (iphash >> 8) XOR iphash)
-+			modulo slave count
-+
-  		This algorithm will place all traffic to a particular
-  		network peer on the same slave.  For non-IP traffic,
-  		the formula is the same as for the layer2 transmit
-@@ -779,19 +789,30 @@
-  		slaves, although a single connection will not span
-  		multiple slaves.
-
--		The formula for unfragmented TCP and UDP packets is
-+		The formula for unfragmented IPv4 TCP and UDP packets is
-
-  		((source port XOR dest port) XOR
-  			 ((source IP XOR dest IP) AND 0xffff)
-  				modulo slave count
-
--		For fragmented TCP or UDP packets and all other IP
--		protocol traffic, the source and destination port
-+		The formula for unfragmented IPv6 TCP and UDP packets is
-+
-+		iphash =
-+			(source ip quad 2 XOR dest IP quad 2) XOR
-+			(source ip quad 3 XOR dest IP quad 3) XOR
-+			(source ip quad 4 XOR dest IP quad 4)
-+
-+		((source port XOR dest port) XOR
-+			(iphash >> 16) XOR (iphash >> 8) XOR iphash)
-+				modulo slave count
-+
-+		For fragmented TCP or UDP packets and all other IPv4 and
-+		IPv6 protocol traffic, the source and destination port
-  		information is omitted.  For non-IP traffic, the
-  		formula is the same as for the layer2 transmit hash
-  		policy.
-
--		This policy is intended to mimic the behavior of
-+		The IPv4 policy is intended to mimic the behavior of
-  		certain switches, notably Cisco switches with PFC2 as
-  		well as some Foundry and IBM products.
+Stay tuned.
