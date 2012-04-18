@@ -1,75 +1,50 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: [PATCH 10/11] batman-adv: print OGM seq numbers as unsigned long
-Date: Wed, 18 Apr 2012 08:47:00 +0200
-Message-ID: <20120418064659.GC27966@ritirata.org>
-References: <1334663907-22725-1-git-send-email-ordex@autistici.org>
- <1334663907-22725-11-git-send-email-ordex@autistici.org>
- <20120417.224746.802445483718191876.davem@davemloft.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: net: Micrel KSZ8841/2 PCI Ethernet driver
+Date: Wed, 18 Apr 2012 09:47:23 +0300
+Message-ID: <20120418064723.GA12831@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="0vzXIDBeUiKkjNJl"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Tristram.Ha@micrel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:52336 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750795Ab2DRGqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 02:46:08 -0400
+Received: from rcsinet15.oracle.com ([148.87.113.117]:49722 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874Ab2DRGrc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 02:47:32 -0400
 Content-Disposition: inline
-In-Reply-To: <20120417.224746.802445483718191876.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello Tristram,
 
---0vzXIDBeUiKkjNJl
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I was going through some old stuff and I had a question about ksz884x.c.
 
-On Tue, Apr 17, 2012 at 10:47:46 -0400, David Miller wrote:
-> From: Antonio Quartulli <ordex@autistici.org>
-> Date: Tue, 17 Apr 2012 13:58:26 +0200
->=20
-> > OGM sequence numbers are declared as uint32_t and so they have to print=
-ed
-> > using %u instead of %d in order to avoid wrong representations.
-> >=20
-> > Signed-off-by: Antonio Quartulli <ordex@autistici.org>
->=20
-> Fix this commit message subject, "%u" is "unsigned int" not
-> "unsigned long"
->=20
-> "unsigned long" would be "%lu"
+The patch 8ca86fd83eae: "net: Micrel KSZ8841/2 PCI Ethernet driver" 
+from Feb 8, 2010, leads to the following warning:
+drivers/net/ethernet/micrel/ksz884x.c:5678 netdev_set_mac_address()
+	 error: memcpy() 'mac->sa_data' too small (14 vs 32)
 
-Yap. The broken part is %u, because the data type we are going to print is
-uint32_t. I'll fix it.
+  5663  static int netdev_set_mac_address(struct net_device *dev, void *addr)
+  5664  {
+  5665          struct dev_priv *priv = netdev_priv(dev);
+  5666          struct dev_info *hw_priv = priv->adapter;
+  5667          struct ksz_hw *hw = &hw_priv->hw;
+  5668          struct sockaddr *mac = addr;
+  5669          uint interrupt;
+  5670  
+  5671          if (priv->port.first_port > 0)
+  5672                  hw_del_addr(hw, dev->dev_addr);
+  5673          else {
+  5674                  hw->mac_override = 1;
+  5675                  memcpy(hw->override_addr, mac->sa_data, ETH_ALEN);
+  5676          }
+  5677  
+  5678          memcpy(dev->dev_addr, mac->sa_data, MAX_ADDR_LEN);
+                                      ^^^^^^^^^^^^
+This has only 14 bytes so we're copying bogus data from beyond the end
+of the struct into dev->dev_addr.
 
-Thank you.
+  5679  
 
-I'll send a new pull request once I'll have fixed these errors.
-
-
-Cheers,
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---0vzXIDBeUiKkjNJl
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQEcBAEBAgAGBQJPjmNjAAoJEFMQTLzJFOZFR+IH/i2ZyJ4xsE0sLJ9HxqxtBD9V
-yNpNjEvyVZ0TZvKLop4gqEQ4uA0iXBDk9tlfeYwA5Kj3KWdt0bhPod72UeayRJGr
-BgnMdcT2kPc1ZjGdEmiMD8bPQgsqvxGhksMkyvE6gAIEhNcyWG2hEFsugX0ozAId
-6zgZRFuP36GtWAZ25sN8t4u7fZmYGTwtr0CdJPRC0i4EqxN4lzThX874zCX+gHCy
-gVv+k9+gh4OoXdDIyrSNzKgmN3KLUE6+V8XMFPfbdobrMAS9HogYiq1rhWNACL9i
-/yWHNbRzj87xzw4rTtZ5EyndOCjm/frcnfZPOwg3Vxl8umCP4gBHhjtQYJ+3hhI=
-=cx9C
------END PGP SIGNATURE-----
-
---0vzXIDBeUiKkjNJl--
+regards,
+dan carpenter
