@@ -1,64 +1,154 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: [PATCH] sunrpc: fix rpc_pipe.c kernel-doc notation
-Date: Tue, 17 Apr 2012 17:03:59 -0700
-Message-ID: <4F8E04EF.7000707@xenotime.net>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 03/12] netfilter: generic proto sysctl support for net
+ namespace
+Date: Wed, 18 Apr 2012 08:20:41 +0800
+Message-ID: <4F8E08D9.2060304@cn.fujitsu.com>
+References: <1334631383-12326-1-git-send-email-gaofeng@cn.fujitsu.com> <1334631383-12326-4-git-send-email-gaofeng@cn.fujitsu.com> <20120417085813.GD2100@1984> <4F8D4472.6080606@cn.fujitsu.com> <20120417113541.GB2956@1984>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oproxy7-pub.bluehost.com ([67.222.55.9]:50212 "HELO
-	oproxy7-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753651Ab2DRADW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 20:03:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	ebiederm@xmission.com, serge.hallyn@canonical.com,
+	dlezcano@fr.ibm.com
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120417113541.GB2956@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+=E4=BA=8E 2012=E5=B9=B404=E6=9C=8817=E6=97=A5 19:35, Pablo Neira Ayuso =
+=E5=86=99=E9=81=93:
+> On Tue, Apr 17, 2012 at 06:22:42PM +0800, Gao feng wrote:
+>> =E4=BA=8E 2012=E5=B9=B404=E6=9C=8817=E6=97=A5 16:58, Pablo Neira Ayu=
+so =E5=86=99=E9=81=93:
+>>> On Tue, Apr 17, 2012 at 10:56:14AM +0800, Gao feng wrote:
+>>>> register the generic proto's sysctl in pernet_operations.init.
+>>>> and use net->ct.proto.sysctl_generic_timeout replaces nf_ct_generi=
+c_timeout.
+>>>>
+>>>> in the after patch,the timeout_nlattr_to_obj will be modified too.
+>>>>
+>>>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>>>> ---
+>>>>  net/netfilter/nf_conntrack_core.c          |    6 ++
+>>>>  net/netfilter/nf_conntrack_proto_generic.c |   93 +++++++++++++++=
+++++++++++---
+>>>>  2 files changed, 91 insertions(+), 8 deletions(-)
+>>>>
+>>>> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_=
+conntrack_core.c
+>>>> index 729f157..bf11dd6 100644
+>>>> --- a/net/netfilter/nf_conntrack_core.c
+>>>> +++ b/net/netfilter/nf_conntrack_core.c
+>>>> @@ -1358,6 +1358,7 @@ static void nf_conntrack_cleanup_net(struct =
+net *net)
+>>>>  	nf_conntrack_tstamp_fini(net);
+>>>>  	nf_conntrack_acct_fini(net);
+>>>>  	nf_conntrack_expect_fini(net);
+>>>> +	nf_conntrack_proto_generic_net_fini(net);
+>>>>  	kmem_cache_destroy(net->ct.nf_conntrack_cachep);
+>>>>  	kfree(net->ct.slabname);
+>>>>  	free_percpu(net->ct.stat);
+>>>> @@ -1573,6 +1574,9 @@ static int nf_conntrack_init_net(struct net =
+*net)
+>>>>  		printk(KERN_ERR "Unable to create nf_conntrack_hash\n");
+>>>>  		goto err_hash;
+>>>>  	}
+>>>> +	ret =3D nf_conntrack_proto_generic_net_init(net);
+>>>> +	if (ret < 0)
+>>>> +		goto err_generic;
+>>>>  	ret =3D nf_conntrack_expect_init(net);
+>>>>  	if (ret < 0)
+>>>>  		goto err_expect;
+>>>> @@ -1600,6 +1604,8 @@ err_tstamp:
+>>>>  err_acct:
+>>>>  	nf_conntrack_expect_fini(net);
+>>>>  err_expect:
+>>>> +	nf_conntrack_proto_generic_net_fini(net);
+>>>> +err_generic:
+>>>>  	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
+>>>>  err_hash:
+>>>>  	kmem_cache_destroy(net->ct.nf_conntrack_cachep);
+>>>> diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netf=
+ilter/nf_conntrack_proto_generic.c
+>>>> index 835e24c..0d4545b 100644
+>>>> --- a/net/netfilter/nf_conntrack_proto_generic.c
+>>>> +++ b/net/netfilter/nf_conntrack_proto_generic.c
+>>>> @@ -42,7 +42,7 @@ static int generic_print_tuple(struct seq_file *=
+s,
+>>>> =20
+>>>>  static unsigned int *generic_get_timeouts(struct net *net)
+>>>>  {
+>>>> -	return &nf_ct_generic_timeout;
+>>>> +	return &(net->ct.proto.sysctl_generic_timeout);
+>>>>  }
+>>>> =20
+>>>>  /* Returns verdict for packet, or -1 for invalid. */
+>>>> @@ -105,11 +105,10 @@ generic_timeout_nla_policy[CTA_TIMEOUT_GENER=
+IC_MAX+1] =3D {
+>>>>  #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+>>>> =20
+>>>>  #ifdef CONFIG_SYSCTL
+>>>> -static struct ctl_table_header *generic_sysctl_header;
+>>>>  static struct ctl_table generic_sysctl_table[] =3D {
+>>>>  	{
+>>>>  		.procname	=3D "nf_conntrack_generic_timeout",
+>>>> -		.data		=3D &nf_ct_generic_timeout,
+>>>> +		.data		=3D &init_net.ct.proto.sysctl_generic_timeout,
+>>>>  		.maxlen		=3D sizeof(unsigned int),
+>>>>  		.mode		=3D 0644,
+>>>>  		.proc_handler	=3D proc_dointvec_jiffies,
+>>>> @@ -120,7 +119,7 @@ static struct ctl_table generic_sysctl_table[]=
+ =3D {
+>>>>  static struct ctl_table generic_compat_sysctl_table[] =3D {
+>>>>  	{
+>>>>  		.procname	=3D "ip_conntrack_generic_timeout",
+>>>> -		.data		=3D &nf_ct_generic_timeout,
+>>>> +		.data		=3D &init_net.ct.proto.sysctl_generic_timeout,
+>>>>  		.maxlen		=3D sizeof(unsigned int),
+>>>>  		.mode		=3D 0644,
+>>>>  		.proc_handler	=3D proc_dointvec_jiffies,
+>>>> @@ -150,11 +149,89 @@ struct nf_conntrack_l4proto nf_conntrack_l4p=
+roto_generic __read_mostly =3D
+>>>>  		.nla_policy	=3D generic_timeout_nla_policy,
+>>>>  	},
+>>>>  #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+>>>> +};
+>>>> +
+>>>> +int nf_conntrack_proto_generic_net_init(struct net *net)
+>>>
+>>> Please, check int nf_conntrack_ecache_init(struct net *net) for
+>>> instance on how we're doing the per-net registration of netfilter
+>>> modules.
+>>
+>> nf_conntrack_l4proto_generic is registered when loading nf_conntrack=
+ module.
+>> so we should register sysctl in nf_conntrack_init_net.
+>>
+>> I don't know what's wrong here...
+>=20
+> Nothing wrong, just a comestic change.
+>=20
+> I'd like that the protocol and sysctl registration happen in the same
+> function, like in other part of the code, for consistency.
 
-Fix kernel-doc warnings in sunrpc/rpc_pipe.c:
+I got it,maybe we can add a field pernet_operations for nf_conntrack_l[=
+3,4]proto,
+and change nf_ct_l[3,4]proto_register_sysctl to register the pernet_ope=
+rations.
 
-Warning(net/sunrpc/rpc_pipe.c:133): No description found for parameter 'pipe'
-Warning(net/sunrpc/rpc_pipe.c:133): Excess function parameter 'inode' description in 'rpc_queue_upcall'
-Warning(net/sunrpc/rpc_pipe.c:839): No description found for parameter 'pipe'
-Warning(net/sunrpc/rpc_pipe.c:839): Excess function parameter 'ops' description in 'rpc_mkpipe_dentry'
-Warning(net/sunrpc/rpc_pipe.c:839): Excess function parameter 'flags' description in 'rpc_mkpipe_dentry'
-Warning(net/sunrpc/rpc_pipe.c:949): No description found for parameter 'dentry'
-Warning(net/sunrpc/rpc_pipe.c:949): Excess function parameter 'clnt' description in 'rpc_remove_client_dir'
+I think it will work well. ;)
+>=20
+> Probably, you can use http://patchwork.ozlabs.org/patch/152096/ as
+> reference.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- net/sunrpc/rpc_pipe.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
---- lnx-34-rc3.orig/net/sunrpc/rpc_pipe.c
-+++ lnx-34-rc3/net/sunrpc/rpc_pipe.c
-@@ -120,7 +120,7 @@ EXPORT_SYMBOL_GPL(rpc_pipe_generic_upcal
- 
- /**
-  * rpc_queue_upcall - queue an upcall message to userspace
-- * @inode: inode of upcall pipe on which to queue given message
-+ * @pipe: upcall pipe on which to queue given message
-  * @msg: message to queue
-  *
-  * Call with an @inode created by rpc_mkpipe() to queue an upcall.
-@@ -819,9 +819,7 @@ static int rpc_rmdir_depopulate(struct d
-  * @parent: dentry of directory to create new "pipe" in
-  * @name: name of pipe
-  * @private: private data to associate with the pipe, for the caller's use
-- * @ops: operations defining the behavior of the pipe: upcall, downcall,
-- *	release_pipe, open_pipe, and destroy_msg.
-- * @flags: rpc_pipe flags
-+ * @pipe: &rpc_pipe containing input parameters
-  *
-  * Data is made available for userspace to read by calls to
-  * rpc_queue_upcall().  The actual reads will result in calls to
-@@ -943,7 +941,7 @@ struct dentry *rpc_create_client_dir(str
- 
- /**
-  * rpc_remove_client_dir - Remove a directory created with rpc_create_client_dir()
-- * @clnt: rpc client
-+ * @dentry: dentry for the pipe
-  */
- int rpc_remove_client_dir(struct dentry *dentry)
- {
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
