@@ -1,43 +1,56 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 1/2] stmmac: use custom init/exit functions in pm ops
-Date: Wed, 18 Apr 2012 11:07:32 +0200
-Message-ID: <4F8E8454.6070403@st.com>
-References: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com> <20120418.044537.721636492887632781.davem@davemloft.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: In tree firmware not kept up to date
+Date: Wed, 18 Apr 2012 10:13:45 +0100
+Message-ID: <1334740425.23948.157.camel@zakaz.uk.xensource.com>
+References: <1334675504.23948.99.camel@zakaz.uk.xensource.com>
+	 <20120417190322.GA3932@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, francesco.virlinzi@st.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:34315 "EHLO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752015Ab2DRJKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 05:10:02 -0400
-In-Reply-To: <20120418.044537.721636492887632781.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Ian Jackson <Ian.Jackson@eu.citrix.com>,
+	Michael Chan <mchan@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120417190322.GA3932@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/18/2012 10:45 AM, David Miller wrote:
+On Tue, 2012-04-17 at 20:03 +0100, Ben Hutchings wrote:
+> On Tue, Apr 17, 2012 at 04:11:44PM +0100, Ian Campbell wrote:
+> > Hello,
+> > 
+> > What is the current policy wrt keeping the in-tree firmware updated
+> > alongside the drivers?
 > 
-> When posting new versions of patches, change the Subject line to
-> indicate this is "v2" or "v3" etc.
+> Muddled.
 > 
-> Also add comments after the "---" in the message body explaining what
-> you changed since the previous version.
+> > I use CONFIG_FIRMWARE_IN_KERNEL but a couple of times[0] recently this
+> > has failed me because the in-tree bnx2 driver requires
+> > bnx2/bnx2-mips-09-6.2.1b.fw but the tree contains
+> > firmware/bnx2/bnx2-mips-09-6.2.1a.fw.ihex and not 6.2.1b.
+> > 
+> > Is it a bug that bnx2 was updated without adding the new firmware or is
+> > a bug that the obsolete firmware is still sitting in the tree?
 > 
-> But frankly Giuseppe, at this point I should NOT have to tell you crap
-> like this any more.  You should know how to submit patches properly
-> and not make things difficult for me.
+> It's a bug that any firmware is still in-tree, but
+> CONFIG_FIRMWARE_IN_KERNEL hasn't yet been made to work with a separate
+> linux-firmware directory.
+
+Thanks, so the future-proof solution is to clone and install
+firmware-linux.gitwhich is currently a rather manual process but will
+improve at some point.
+
+Cheers,
+Ian.
+
 > 
-
-I had sent this morning these two patches for net.git and for net-next.
-In fact in the latter the driver is aligned to Marc 2012.
-In net.git the stmmac is aligned to Feb 2012.
-
-In any case, do not consider these patches; I'll resend them plus some
-new others soon.
-
-Thx
-
-Regards
-Peppe
+> Ben.
+> 
+> > Ian.
+> > 
+> > [0] It's possible the same thing and I've just tripped over it more than
+> > once now.
+> 
