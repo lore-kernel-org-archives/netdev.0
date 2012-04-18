@@ -1,53 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: ethtool enhancement proposal
-Date: Wed, 18 Apr 2012 17:15:18 +0100
-Message-ID: <1334765718.2426.14.camel@bwh-desktop.uk.solarflarecom.com>
-References: <A6AA2EF896BED345B0F23520D832A4B10583EC@SJEXCHMB05.corp.ad.broadcom.com>
+From: David Daney <david.daney@cavium.com>
+Subject: Re: [PATCH v4 3/3] netdev/of/phy: Add MDIO bus multiplexer driven
+ by GPIO lines.
+Date: Wed, 18 Apr 2012 09:24:56 -0700
+Message-ID: <4F8EEAD8.8050205@cavium.com>
+References: <1334683966-12112-1-git-send-email-ddaney.cavm@gmail.com>	<1334683966-12112-4-git-send-email-ddaney.cavm@gmail.com> <20120417.225308.1588669089502246200.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stuart Hodgson <smhodgson@solarflare.com>
-To: Yaniv Rosner <yaniv.rosner@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:23759 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754226Ab2DRQPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 12:15:25 -0400
-In-Reply-To: <A6AA2EF896BED345B0F23520D832A4B10583EC@SJEXCHMB05.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ddaney.cavm@gmail.com, grant.likely@secretlab.ca,
+	rob.herring@calxeda.com, devicetree-discuss@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org, afleming@gmail.com,
+	galak@kernel.crashing.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120417.225308.1588669089502246200.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-04-18 at 13:05 +0000, Yaniv Rosner wrote:
-> Hi Ben,
-> I want to propose new enhancement for the ethtool to display the
-> content of attached SFP+ module.
-> The format should be similar to the "-e" option, and optionally parse
-> it's content based on SFF-8472.
-> Please let me know what you think.
+On 04/17/2012 07:53 PM, David Miller wrote:
+> From: David Daney<ddaney.cavm@gmail.com>
+> Date: Tue, 17 Apr 2012 10:32:46 -0700
+>
+>> From: David Daney<david.daney@cavium.com>
+>>
+>> The GPIO pins select which sub bus is connected to the master.
+>>
+>> Initially tested with an sn74cbtlv3253 switch device wired into the
+>> MDIO bus.
+>>
+>> Signed-off-by: David Daney<david.daney@cavium.com>
+>
+> Are you sure the Kconfig dependencies are sufficient?  This code seems
+> to depend upon OF, and in particular the OF_MDIO stuff.
+>
 
-Stuart Hodgson is working on something like this, though parsing is
-unconditional.  I thought he had already posted a patch to netdev, but I
-can't see it in the archive.
+You are correct.  Should I:
 
-We discussed the different module formats and came to the conclusion
-that:
+A) Create a patch to fix the dependencies it on top of the previous set?
 
-- Most module types in current use have a 256-byte EEPROM, format
-  defined in SFF-8079.
-- SFF-8472 specifies two 256-byte EEPROMs/register files, the first
-  identical to SFF-8079 and the second carrying diagnostic information.
-- The ETHTOOL_GMODULE{EEPROM,INFO} commands should effectively
-  concatenate the two.
+B) Regenerate the entire set with said patch rolled in?
 
-The current Solarflare controller firmware only provides access to the
-SFF-8079 EEPROM on SFP+ modules, so Stuart's code does not cover the
-additional diagnostic information.  But that should be easy to add on
-top.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+David Daney
