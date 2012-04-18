@@ -1,68 +1,116 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 00/14] usb/net: rndis: first step toward consolidation
-Date: Wed, 18 Apr 2012 13:17:34 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD33174@TK5EX14MBXC221.redmond.corp.microsoft.com>
-References: <1333874813-3861-1-git-send-email-linus.walleij@linaro.org>
-	<A1F3067C9B68744AA19F6802BAB8FFDC0DD215D0@TK5EX14MBXC222.redmond.corp.microsoft.com>
- <CACRpkdZ79RtQDeQnFczsH8noX01Qp5cmAPysVs-5v=Nb=aBw=Q@mail.gmail.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: [PATCH 1/4] net/ipv6/udp: UDP encapsulation: break backlog_rcv into __udpv6_queue_rcv_skb
+Date: Wed, 18 Apr 2012 09:42:59 -0400
+Message-ID: <20120418134259.GA5011@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Felipe Balbi <balbi@ti.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Linus Walleij <linus.walleij@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:26812
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753079Ab2DRNRp convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2012 09:17:45 -0400
-In-Reply-To: <CACRpkdZ79RtQDeQnFczsH8noX01Qp5cmAPysVs-5v=Nb=aBw=Q@mail.gmail.com>
-Content-Language: en-US
+Received: from kanga.kvack.org ([205.233.56.17]:43598 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753489Ab2DRNnB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 09:43:01 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is the first step in reworking the IPv6 UDP code to be structured more
+like the IPv4 UDP code.  This patch creates __udpv6_queue_rcv_skb() with
+the equivalent sematics to __udp_queue_rcv_skb(), and wires it up to the
+backlog_rcv method.
+
+Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+---
+ net/ipv6/udp.c |   42 +++++++++++++++++++++++++++---------------
+ 1 files changed, 27 insertions(+), 15 deletions(-)
+
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 37b0699..90fcdf6 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -496,6 +496,28 @@ out:
+ 	sock_put(sk);
+ }
+ 
++static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++{
++	int rc;
++
++	if (!ipv6_addr_any(&inet6_sk(sk)->daddr))
++		sock_rps_save_rxhash(sk, skb);
++
++	rc = sock_queue_rcv_skb(sk, skb);
++	if (rc < 0) {
++		int is_udplite = IS_UDPLITE(sk);
++
++		/* Note that an ENOMEM error is charged twice */
++		if (rc == -ENOMEM)
++			UDP6_INC_STATS_BH(sock_net(sk),
++					UDP_MIB_RCVBUFERRORS, is_udplite);
++		UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
++		kfree_skb(skb);
++		return -1;
++	}
++	return 0;
++}
++
+ static __inline__ void udpv6_err(struct sk_buff *skb,
+ 				 struct inet6_skb_parm *opt, u8 type,
+ 				 u8 code, int offset, __be32 info     )
+@@ -503,15 +525,12 @@ static __inline__ void udpv6_err(struct sk_buff *skb,
+ 	__udp6_lib_err(skb, opt, type, code, offset, info, &udp_table);
+ }
+ 
+-int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
++int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct udp_sock *up = udp_sk(sk);
+ 	int rc;
+ 	int is_udplite = IS_UDPLITE(sk);
+ 
+-	if (!ipv6_addr_any(&inet6_sk(sk)->daddr))
+-		sock_rps_save_rxhash(sk, skb);
+-
+ 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto drop;
+ 
+@@ -540,19 +559,12 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
+ 	}
+ 
+ 	skb_dst_drop(skb);
+-	rc = sock_queue_rcv_skb(sk, skb);
+-	if (rc < 0) {
+-		/* Note that an ENOMEM error is charged twice */
+-		if (rc == -ENOMEM)
+-			UDP6_INC_STATS_BH(sock_net(sk),
+-					UDP_MIB_RCVBUFERRORS, is_udplite);
+-		goto drop_no_sk_drops_inc;
+-	}
+ 
+-	return 0;
++	rc = __udpv6_queue_rcv_skb(sk, skb);
++
++	return rc;
+ drop:
+ 	atomic_inc(&sk->sk_drops);
+-drop_no_sk_drops_inc:
+ 	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 	kfree_skb(skb);
+ 	return -1;
+@@ -1471,7 +1483,7 @@ struct proto udpv6_prot = {
+ 	.getsockopt	   = udpv6_getsockopt,
+ 	.sendmsg	   = udpv6_sendmsg,
+ 	.recvmsg	   = udpv6_recvmsg,
+-	.backlog_rcv	   = udpv6_queue_rcv_skb,
++	.backlog_rcv	   = __udpv6_queue_rcv_skb,
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.rehash		   = udp_v6_rehash,
+-- 
+1.7.4.1
 
 
-> -----Original Message-----
-> From: Linus Walleij [mailto:linus.walleij@linaro.org]
-> Sent: Wednesday, April 18, 2012 8:26 AM
-> To: Haiyang Zhang
-> Cc: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg Kroah-
-> Hartman; David S. Miller; Felipe Balbi; Jussi Kivilinna; Wei Yongjun; Ben
-> Hutchings
-> Subject: Re: [PATCH 00/14] usb/net: rndis: first step toward consolidation
-> 
-> On Sun, Apr 8, 2012 at 3:58 PM, Haiyang Zhang <haiyangz@microsoft.com>
-> wrote:
-> > _______________________________________
-> >> From: Linus Walleij [linus.walleij@linaro.org]
-> >> Sent: Sunday, April 08, 2012 4:46 AM
-> >> To: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg
-> >> Kroah-Hartman; David S. Miller; Felipe Balbi
-> >> Cc: Jussi Kivilinna; Haiyang Zhang; Wei Yongjun; Ben Hutchings; Linus
-> >> Walleij
-> >> Subject: [PATCH 00/14] usb/net: rndis: first step toward
-> >> consolidation
-> >
-> >> So if you like this, let's proceed, but if you're all in "I wanna
-> >> keep this one implementation in my corner" I'll just give up right now.
-> >
-> >> So: what do you think?
-> >
-> > I will test this soon.
-> 
-> Ping on this... any testing so far?
-
-I saw Jussi Kivilinna <jussi.kivilinna@mbnet.fi>'s comments saying it does not
-work. And your patches are in "changes requested" state. So I'm waiting for
-your updated patches before testing.
-
-Thanks,
-- Haiyang
+-- 
+"Thought is the essence of where you are now."
