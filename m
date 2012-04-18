@@ -1,59 +1,44 @@
-From: Harald Hoyer <harald@redhat.com>
-Subject: Re: tg3 'No PHY devices' loading issue
-Date: Wed, 18 Apr 2012 10:14:47 +0200
-Message-ID: <4F8E77F7.3080300@redhat.com>
-References: <20120417141856.GA19507@zod.bos.redhat.com> <20120417185007.GA3742@mcarlson.broadcom.com> <20120417193908.GG19507@zod.bos.redhat.com> <20120417210549.GI19507@zod.bos.redhat.com>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
+Date: Wed, 18 Apr 2012 09:17:26 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EE2@saturn3.aculab.com>
+References: <CADZpyix6DZ93f8MQf3Aa1NVV7HCFMAXVAdzRMFBY7xWHHQMPog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>
-To: Josh Boyer <jwboyer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120417210549.GI19507@zod.bos.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>, <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>, <jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org>, <w@1wt.eu>,
+	<alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+To: "Carlos O'Donell" <carlos-v2tUB8YBRSi3e3T8WW9gsA@public.gmane.org>,
+	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <CADZpyix6DZ93f8MQf3Aa1NVV7HCFMAXVAdzRMFBY7xWHHQMPog-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am 17.04.2012 23:05, schrieb Josh Boyer:
-> On Tue, Apr 17, 2012 at 03:39:08PM -0400, Josh Boyer wrote:
->> On Tue, Apr 17, 2012 at 11:50:07AM -0700, Matt Carlson wrote:
->>> On Tue, Apr 17, 2012 at 10:18:57AM -0400, Josh Boyer wrote:
->>>> It has worked on some of the older kernels without the need for the
->>>> manual rmmod/modprobe step, so it seems to be somewhat timing related.
->>>> I'm not sure if there is a module load ordering issue, but that doesn't
->>>> seem to be the case.  I can't explain why a later modprobe would work
->>>> just fine though.
->>>>
->>>> Do you have any thoughts on how to go about debugging/fixing this?  I'd
->>>> be happy to test and provide whatever information you need.
->>>
->>> The 57788 uses the broadcom phylib module.  For some reason, it isn't
->>> available the first module load attempt.  A while ago, code was added to
->>> phylib to request modules from userspace if the particular phy support
->>> code wasn't already loaded.  It looks like this mechanism isn't working
->>> too well the first time through.
->>>
->>> Can you reproduce the problem if you run 'rmmod broadcom' and then
->>> reload tg3?
->>
->> I'll give it a shot, but that sounds like a quite plausible scenario to
->> me.  Oddly, even after the manual modprobe, the broadcom phy module
->> doesn't show an increased use count.  There's also no dependency on
->> 'broadcom' listed for tg3 by modinfo.
+ 
 > 
-> If I rmmod both tg3 and broadcom and then just load tg3 (either via
-> insmod or modprobe), it works fine.  It does so because whatever you did
-> to make it request the phylib module from userspace also worked because
-> the broadcom module is loaded as well.
+> Why not have:
 > 
-> So it seems my issue is basically because the initramfs isn't built with
-> the broadcom module included.  I'll have to figure out a way to teach
-> dracut what to do here, since it doesn't seem to be automatically
-> picking it up (Harald CC'd).
-> 
-> Thanks much for the very quick response from everyone.
-> 
-> josh
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index d510353..f9f77a7 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -216,6 +216,9 @@ static int unix_mkname(struct sockaddr_un
+> *sunaddr, int len, unsigned *hashp)
+>                  */
+>                 ((char *)sunaddr)[len] = 0;
+>                 len = strlen(sunaddr->sun_path)+1+sizeof(short);
+> +               /* No null terminator was found in the path. */
+> +               if (len > sizeof(*sunaddr))
+> +                       return -EINVAL;
+>                 return len;
 
-Ok, so we have to include all kernel/drivers/net/phy/*.ko in the initramfs?
+That could generate a kernel page fault!
+(Depending on what follows (or rather doesn't follow!) sun_path.)
+You'd need to use memchr() not strlen().
+
+	David
