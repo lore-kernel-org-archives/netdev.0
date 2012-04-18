@@ -1,39 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] Fix handling of overlength pathname in AF_UNIX sun_path
-Date: Wed, 18 Apr 2012 15:23:52 -0400 (EDT)
-Message-ID: <20120418.152352.748260330741957708.davem@davemloft.net>
-References: <CADZpyixnQMM5WFWLyvEQ=D-tvrqFGe4PC5WdUzxVtdL96NODJQ@mail.gmail.com>
-	<20120418.133102.1711079292327461659.davem@davemloft.net>
-	<CADZpyizwozRjYOvOads0KkqRr2quTo532TC=Ff=cw0sGc3OCQg@mail.gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH 00/14] usb/net: rndis: first step toward consolidation
+Date: Wed, 18 Apr 2012 19:30:16 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD334C8@TK5EX14MBXC221.redmond.corp.microsoft.com>
+References: <1333874813-3861-1-git-send-email-linus.walleij@linaro.org>
+ <A1F3067C9B68744AA19F6802BAB8FFDC0DD215D0@TK5EX14MBXC222.redmond.corp.microsoft.com>
+ <CACRpkdZ79RtQDeQnFczsH8noX01Qp5cmAPysVs-5v=Nb=aBw=Q@mail.gmail.com>
+ <A1F3067C9B68744AA19F6802BAB8FFDC0DD33174@TK5EX14MBXC221.redmond.corp.microsoft.com>
+ <20120418211451.20071p46rovwu5q8@www.81.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages@gmail.com, netdev@vger.kernel.org,
-	penguin-kernel@i-love.sakura.ne.jp, linux-api@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, jengelh@medozas.de, w@1wt.eu,
-	alan@lxorguk.ukuu.org.uk
-To: carlos@systemhalted.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Felipe Balbi <balbi@ti.com>,
+	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40792 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593Ab2DRT0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 15:26:36 -0400
-In-Reply-To: <CADZpyizwozRjYOvOads0KkqRr2quTo532TC=Ff=cw0sGc3OCQg@mail.gmail.com>
+Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:11015
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751532Ab2DRTag convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 15:30:36 -0400
+In-Reply-To: <20120418211451.20071p46rovwu5q8@www.81.fi>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Carlos O'Donell" <carlos@systemhalted.org>
-Date: Wed, 18 Apr 2012 14:48:43 -0400
 
-> POSIX doesn't exist in a vacuum, we need to harmonize reality with the
-> standard. If an implementation exists where sun_path has no
-> null-terminator then it is useful to have POSIX clarify that
-> null-termination is implementation defined behaviour, just like it
-> says that sun_path's length undefined. Under "Application Usage" or
-> "Examples" it's valid to talk about specific implementations.
+
+> -----Original Message-----
+> From: Jussi Kivilinna [mailto:jussi.kivilinna@mbnet.fi]
+> Sent: Wednesday, April 18, 2012 2:15 PM
+> To: Haiyang Zhang
+> Cc: Linus Walleij; netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg
+> Kroah-Hartman; David S. Miller; Felipe Balbi; Wei Yongjun; Ben Hutchings
+> Subject: RE: [PATCH 00/14] usb/net: rndis: first step toward consolidation
 > 
-> See: http://pubs.opengroup.org/onlinepubs/007904975/basedefs/sys/un.h.html,
-> where it talks about BSD in the "Application Usage." It's about time
-> we some "Linux this" and "Linux that" in there.
+> Quoting Haiyang Zhang <haiyangz@microsoft.com>:
+> 
+> >> -----Original Message-----
+> >> From: Linus Walleij [mailto:linus.walleij@linaro.org]
+> >> Sent: Wednesday, April 18, 2012 8:26 AM
+> >> To: Haiyang Zhang
+> >> Cc: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg Kroah-
+> >> Hartman; David S. Miller; Felipe Balbi; Jussi Kivilinna; Wei Yongjun;
+> >> Ben Hutchings
+> >> Subject: Re: [PATCH 00/14] usb/net: rndis: first step toward
+> >> consolidation
+> >>
+> >> On Sun, Apr 8, 2012 at 3:58 PM, Haiyang Zhang
+> >> <haiyangz@microsoft.com>
+> >> wrote:
+> >> > _______________________________________
+> >> >> From: Linus Walleij [linus.walleij@linaro.org]
+> >> >> Sent: Sunday, April 08, 2012 4:46 AM
+> >> >> To: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg
+> >> >> Kroah-Hartman; David S. Miller; Felipe Balbi
+> >> >> Cc: Jussi Kivilinna; Haiyang Zhang; Wei Yongjun; Ben Hutchings;
+> >> >> Linus Walleij
+> >> >> Subject: [PATCH 00/14] usb/net: rndis: first step toward
+> >> >> consolidation
+> >> >
+> >> >> So if you like this, let's proceed, but if you're all in "I wanna
+> >> >> keep this one implementation in my corner" I'll just give up right now.
+> >> >
+> >> >> So: what do you think?
+> >> >
+> >> > I will test this soon.
+> >>
+> >> Ping on this... any testing so far?
+> >
+> > I saw Jussi Kivilinna <jussi.kivilinna@mbnet.fi>'s comments saying it
+> > does not work. And your patches are in "changes requested" state. So
+> > I'm waiting for your updated patches before testing.
+> >
+> 
+> Maybe I should clarify that at least rndis_wlan does not work because of that
+> single patch (09/14). By fixing the problem, the patch-set works with
+> rndis_wlan fine.
+> 
 
-Ok, thanks for explaining.
+I will test after you send out the updated patch set.
+
+Thanks,
+- Haiyang
