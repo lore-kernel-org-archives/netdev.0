@@ -1,34 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: filter: remove unused cpu_off
-Date: Wed, 18 Apr 2012 04:51:19 +0200
-Message-ID: <1334717479.2472.73.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ethernet: fix checkpatch errors
+Date: Tue, 17 Apr 2012 22:50:18 -0400 (EDT)
+Message-ID: <20120417.225018.2141913804796063004.davem@davemloft.net>
+References: <1334672844-10129-1-git-send-email-laura@rosedu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, nhorman@tuxdriver.com
+To: laura@rosedu.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:48700 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623Ab2DRCvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:51:23 -0400
-Received: by wibhj6 with SMTP id hj6so188948wib.1
-        for <netdev@vger.kernel.org>; Tue, 17 Apr 2012 19:51:22 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:33013 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623Ab2DRCv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Apr 2012 22:51:28 -0400
+In-Reply-To: <1334672844-10129-1-git-send-email-laura@rosedu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index 4ce0296..1a69244 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -240,8 +240,6 @@ do {	*prog++ = LD32I | RS1(FP) | S13(-(OFF)) | RD(DEST);	\
- do {	*prog++ = LD32I | RS1(FP) | S13(-(OFF)) | RD(SRC);	\
- } while (0)
- 
--#define cpu_off		offsetof(struct thread_info, cpu)
--
- #ifdef CONFIG_SMP
- #ifdef CONFIG_SPARC64
- #define emit_load_cpu(REG)						\
+From: Laura Vasilescu <laura@rosedu.org>
+Date: Tue, 17 Apr 2012 17:27:24 +0300
+
+> Signed-off-by: Laura Vasilescu <laura@rosedu.org>
+
+I'd rather have the checkpath errors than what we end up with
+your changes:
+
+> -	else if (1 /*dev->flags&IFF_PROMISC */ ) {
+> -		if (unlikely(compare_ether_addr_64bits(eth->h_dest, dev->dev_addr)))
+> +	else if (1 /*dev->flags&IFF_PROMISC */) {
+> +		if (unlikely(compare_ether_addr_64bits(eth->h_dest,
+> +							dev->dev_addr)))
+
+This indentation is wrong, the "dev->dev_addr" argument must line up
+with the first column after the openning parenthesis on the previous
+line.
+
+> -int eth_header_cache(const struct neighbour *neigh, struct hh_cache *hh, __be16 type)
+> +int eth_header_cache(const struct neighbour *neigh,
+> +			struct hh_cache *hh,
+> +			__be16 type)
+
+Same problem here for hh and type args.
