@@ -1,8 +1,7 @@
 From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Subject: batman: keep batman_ogm_packet ->seqno net-endian
-	all along
-Date: Wed, 18 Apr 2012 19:11:50 +0100
-Message-ID: <20120418181150.GE6589@ZenIV.linux.org.uk>
+Subject: batman: trivial endianness annotations
+Date: Wed, 18 Apr 2012 19:14:55 +0100
+Message-ID: <20120418181455.GF6589@ZenIV.linux.org.uk>
 References: <1334743210-12338-1-git-send-email-ordex@autistici.org>
 	<20120418180837.GB6589@ZenIV.linux.org.uk>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
@@ -26,127 +25,201 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Ditto for its ->seqno...
+Missing endianness annotations - on-the-wire data and ip addresses.
+BTW, casting memcpy() arguments to (uint8_t *) is cargo-cult programming -
+they are void *, which is precisely "take any pointer to object"...
 
 Signed-off-by: Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
 ---
- net/batman-adv/bat_iv_ogm.c |   25 ++++++++++---------------
- net/batman-adv/packet.h     |    2 +-
- 2 files changed, 11 insertions(+), 16 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c |    8 ++++----
+ net/batman-adv/distributed-arp-table.c |   16 ++++++++--------
+ net/batman-adv/distributed-arp-table.h |    4 ++--
+ net/batman-adv/packet.h                |   12 ++++++------
+ 4 files changed, 20 insertions(+), 20 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 5aa8861..cc6d4c3 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -34,11 +34,11 @@ static struct neigh_node *bat_iv_ogm_neigh_new(struct hard_iface *hard_iface,
- 					       const uint8_t *neigh_addr,
- 					       struct orig_node *orig_node,
- 					       struct orig_node *orig_neigh,
--					       uint32_t seqno)
-+					       __be32 seqno)
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 8bf9751..d51288b 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -258,7 +258,7 @@ static void bla_send_claim(struct bat_priv *bat_priv, uint8_t *mac,
+ 	struct net_device *soft_iface;
+ 	uint8_t *hw_src;
+ 	struct bla_claim_dst local_claim_dest;
+-	uint32_t zeroip = 0;
++	__be32 zeroip = 0;
+ 
+ 	primary_if = primary_if_get_selected(bat_priv);
+ 	if (!primary_if)
+@@ -506,11 +506,11 @@ static void bla_send_announce(struct bat_priv *bat_priv,
+ 			      struct backbone_gw *backbone_gw)
  {
- 	struct neigh_node *neigh_node;
+ 	uint8_t mac[ETH_ALEN];
+-	uint16_t crc;
++	__be16 crc;
  
--	neigh_node = neigh_node_new(hard_iface, neigh_addr, seqno);
-+	neigh_node = neigh_node_new(hard_iface, neigh_addr, ntohl(seqno));
- 	if (!neigh_node)
- 		goto out;
+ 	memcpy(mac, announce_mac, 4);
+ 	crc = htons(backbone_gw->crc);
+-	memcpy(&mac[4], (uint8_t *)&crc, 2);
++	memcpy(&mac[4], &crc, 2);
  
-@@ -543,8 +543,6 @@ static void bat_iv_ogm_forward(struct orig_node *orig_node,
- 		"Forwarding packet: tq: %i, ttl: %i\n",
- 		batman_ogm_packet->tq, batman_ogm_packet->header.ttl);
+ 	bla_send_claim(bat_priv, mac, backbone_gw->vid, CLAIM_TYPE_ANNOUNCE);
  
--	batman_ogm_packet->seqno = htonl(batman_ogm_packet->seqno);
--
- 	/* switch of primaries first hop flag when forwarding */
- 	batman_ogm_packet->flags &= ~PRIMARIES_FIRST_HOP;
- 	if (is_single_hop_neigh)
-@@ -868,13 +866,14 @@ static int bat_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
- 	int32_t seq_diff;
- 	int need_update = 0;
- 	int set_mark, ret = -1;
-+	uint32_t seqno = ntohl(batman_ogm_packet->seqno);
+@@ -627,7 +627,7 @@ static int handle_announce(struct bat_priv *bat_priv,
  
- 	orig_node = get_orig_node(bat_priv, batman_ogm_packet->orig);
- 	if (!orig_node)
- 		return 0;
+ 	/* handle as ANNOUNCE frame */
+ 	backbone_gw->lasttime = jiffies;
+-	crc = ntohs(*((uint16_t *)(&an_addr[4])));
++	crc = ntohs(*((__be16 *)(&an_addr[4])));
  
- 	spin_lock_bh(&orig_node->ogm_cnt_lock);
--	seq_diff = batman_ogm_packet->seqno - orig_node->last_real_seqno;
-+	seq_diff = seqno - orig_node->last_real_seqno;
+ 	bat_dbg(DBG_BLA, bat_priv,
+ 		"handle_announce(): ANNOUNCE vid %d (sent by %pM)... CRC = %04x\n",
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index b43bece..d87f914 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -192,7 +192,7 @@ static void choose_next_candidate(struct bat_priv *bat_priv,
+  *
+  * return an array of size DHT_CANDIDATES_NUM */
+ static struct dht_candidate *dht_select_candidates(struct bat_priv *bat_priv,
+-						   uint32_t ip_dst)
++						   __be32 ip_dst)
+ {
+ 	int select;
+ 	dat_addr_t last_max = DAT_ADDR_MAX, ip_key;
+@@ -224,7 +224,7 @@ static struct dht_candidate *dht_select_candidates(struct bat_priv *bat_priv,
+  * If the packet is successfully sent to at least one candidate, then this
+  * function returns true */
+ static bool dht_send_data(struct bat_priv *bat_priv, struct sk_buff *skb,
+-			  uint32_t ip, int packet_subtype)
++			  __be32 ip, int packet_subtype)
+ {
+ 	int i;
+ 	bool ret = false;
+@@ -270,7 +270,7 @@ out:
+ /* Update the neighbour entry corresponding to the IP passed as parameter with
+  * the hw address hw. If the neighbour entry doesn't exists, then it will be
+  * created */
+-static void arp_neigh_update(struct bat_priv *bat_priv, uint32_t ip,
++static void arp_neigh_update(struct bat_priv *bat_priv, __be32 ip,
+ 			     uint8_t *hw)
+ {
+ 	struct neighbour *n = NULL;
+@@ -299,7 +299,7 @@ static uint16_t arp_get_type(struct bat_priv *bat_priv, struct sk_buff *skb,
+ {
+ 	struct arphdr *arphdr;
+ 	struct ethhdr *ethhdr;
+-	uint32_t ip_src, ip_dst;
++	__be32 ip_src, ip_dst;
+ 	uint16_t type = 0;
  
- 	/* signalize caller that the packet is to be dropped. */
- 	if (!hlist_empty(&orig_node->neigh_list) &&
-@@ -888,7 +887,7 @@ static int bat_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
+ 	/* pull the ethernet header */
+@@ -352,7 +352,7 @@ bool dat_snoop_outgoing_arp_request(struct bat_priv *bat_priv,
+ 				    struct sk_buff *skb)
+ {
+ 	uint16_t type = 0;
+-	uint32_t ip_dst, ip_src;
++	__be32 ip_dst, ip_src;
+ 	uint8_t *hw_src;
+ 	bool ret = false;
+ 	struct neighbour *n = NULL;
+@@ -414,7 +414,7 @@ bool dat_snoop_incoming_arp_request(struct bat_priv *bat_priv,
+ 				    struct sk_buff *skb, int hdr_size)
+ {
+ 	uint16_t type;
+-	uint32_t ip_src, ip_dst;
++	__be32 ip_src, ip_dst;
+ 	uint8_t *hw_src;
+ 	struct hard_iface *primary_if = NULL;
+ 	struct sk_buff *skb_new;
+@@ -470,7 +470,7 @@ bool dat_snoop_outgoing_arp_reply(struct bat_priv *bat_priv,
+ 				  struct sk_buff *skb)
+ {
+ 	uint16_t type;
+-	uint32_t ip_src, ip_dst;
++	__be32 ip_src, ip_dst;
+ 	uint8_t *hw_src, *hw_dst;
+ 	bool ret = false;
  
- 		is_duplicate |= bat_test_bit(tmp_neigh_node->real_bits,
- 					     orig_node->last_real_seqno,
--					     batman_ogm_packet->seqno);
-+					     seqno);
+@@ -503,7 +503,7 @@ bool dat_snoop_incoming_arp_reply(struct bat_priv *bat_priv,
+ 				  struct sk_buff *skb, int hdr_size)
+ {
+ 	uint16_t type;
+-	uint32_t ip_src, ip_dst;
++	__be32 ip_src, ip_dst;
+ 	uint8_t *hw_src, *hw_dst;
+ 	bool ret = false;
  
- 		if (compare_eth(tmp_neigh_node->addr, ethhdr->h_source) &&
- 		    (tmp_neigh_node->if_incoming == if_incoming))
-@@ -910,8 +909,8 @@ static int bat_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
- 	if (need_update) {
- 		bat_dbg(DBG_BATMAN, bat_priv,
- 			"updating last_seqno: old %u, new %u\n",
--			orig_node->last_real_seqno, batman_ogm_packet->seqno);
--		orig_node->last_real_seqno = batman_ogm_packet->seqno;
-+			orig_node->last_real_seqno, seqno);
-+		orig_node->last_real_seqno = seqno;
- 	}
+diff --git a/net/batman-adv/distributed-arp-table.h b/net/batman-adv/distributed-arp-table.h
+index fcf6c15..01d5b4f 100644
+--- a/net/batman-adv/distributed-arp-table.h
++++ b/net/batman-adv/distributed-arp-table.h
+@@ -33,10 +33,10 @@
  
- 	ret = is_duplicate;
-@@ -967,7 +966,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
- 		ethhdr->h_source, if_incoming->net_dev->name,
- 		if_incoming->net_dev->dev_addr, batman_ogm_packet->orig,
--		batman_ogm_packet->prev_sender, batman_ogm_packet->seqno,
-+		batman_ogm_packet->prev_sender, ntohl(batman_ogm_packet->seqno),
- 		batman_ogm_packet->ttvn, ntohs(batman_ogm_packet->tt_crc),
- 		batman_ogm_packet->tt_num_changes, batman_ogm_packet->tq,
- 		batman_ogm_packet->header.ttl,
-@@ -1039,7 +1038,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 			word = &(orig_neigh_node->bcast_own[offset]);
- 			bat_set_bit(word,
- 				    if_incoming_seqno -
--						batman_ogm_packet->seqno - 2);
-+					ntohl(batman_ogm_packet->seqno) - 2);
- 			orig_neigh_node->bcast_own_sum[if_incoming->if_num] =
- 				bitmap_weight(word, TQ_LOCAL_WINDOW_SIZE);
- 			spin_unlock_bh(&orig_neigh_node->ogm_cnt_lock);
-@@ -1132,7 +1131,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 	 * seqno and similar ttl as the non-duplicate */
- 	if (is_bidirectional &&
- 	    (!is_duplicate ||
--	     ((orig_node->last_real_seqno == batman_ogm_packet->seqno) &&
-+	     ((orig_node->last_real_seqno == ntohl(batman_ogm_packet->seqno)) &&
- 	      (orig_node->last_ttl - 3 <= batman_ogm_packet->header.ttl))))
- 		bat_iv_ogm_orig_update(bat_priv, orig_node, ethhdr,
- 				       batman_ogm_packet, if_incoming,
-@@ -1210,10 +1209,6 @@ static int bat_iv_ogm_receive(struct sk_buff *skb,
+ #define ARP_HW_SRC(skb, hdr_size) ((uint8_t *)(skb->data + hdr_size) + \
+ 				   ETH_HLEN + sizeof(struct arphdr))
+-#define ARP_IP_SRC(skb, hdr_size) (*(uint32_t *)(ARP_HW_SRC(skb, hdr_size) + \
++#define ARP_IP_SRC(skb, hdr_size) (*(__be32 *)(ARP_HW_SRC(skb, hdr_size) + \
+ 				   ETH_ALEN))
+ #define ARP_HW_DST(skb, hdr_size) (ARP_HW_SRC(skb, hdr_size) + ETH_ALEN + 4)
+-#define ARP_IP_DST(skb, hdr_size) (*(uint32_t *)(ARP_HW_SRC(skb, hdr_size) + \
++#define ARP_IP_DST(skb, hdr_size) (*(__be32 *)(ARP_HW_SRC(skb, hdr_size) + \
+ 				   ETH_ALEN * 2 + 4))
  
- 	/* unpack the aggregated packets and process them one by one */
- 	do {
--		/* network to host order for our 32bit seqno and the
--		   orig_interval */
--		batman_ogm_packet->seqno = ntohl(batman_ogm_packet->seqno);
--
- 		tt_buff = packet_buff + buff_pos + BATMAN_OGM_HLEN;
- 
- 		bat_iv_ogm_process(ethhdr, batman_ogm_packet,
+ bool dat_snoop_outgoing_arp_request(struct bat_priv *bat_priv,
 diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 61a7fe0..ad39938 100644
+index ad39938..eb4fdf6 100644
 --- a/net/batman-adv/packet.h
 +++ b/net/batman-adv/packet.h
-@@ -125,7 +125,7 @@ struct batman_header {
- struct batman_ogm_packet {
+@@ -113,7 +113,7 @@ enum bla_claimframe {
+ struct bla_claim_dst {
+ 	uint8_t magic[3];	/* FF:43:05 */
+ 	uint8_t type;		/* bla_claimframe */
+-	uint16_t group;		/* group id */
++	__be16 group;		/* group id */
+ } __packed;
+ 
+ struct batman_header {
+@@ -142,7 +142,7 @@ struct icmp_packet {
+ 	uint8_t  msg_type; /* see ICMP message types above */
+ 	uint8_t  dst[ETH_ALEN];
+ 	uint8_t  orig[ETH_ALEN];
+-	uint16_t seqno;
++	__be16   seqno;
+ 	uint8_t  uid;
+ 	uint8_t  reserved;
+ } __packed;
+@@ -156,7 +156,7 @@ struct icmp_packet_rr {
+ 	uint8_t  msg_type; /* see ICMP message types above */
+ 	uint8_t  dst[ETH_ALEN];
+ 	uint8_t  orig[ETH_ALEN];
+-	uint16_t seqno;
++	__be16   seqno;
+ 	uint8_t  uid;
+ 	uint8_t  rr_cur;
+ 	uint8_t  rr[BAT_RR_LEN][ETH_ALEN];
+@@ -181,20 +181,20 @@ struct unicast_frag_packet {
+ 	uint8_t  flags;
+ 	uint8_t  align;
+ 	uint8_t  orig[ETH_ALEN];
+-	uint16_t seqno;
++	__be16   seqno;
+ } __packed;
+ 
+ struct bcast_packet {
  	struct batman_header header;
- 	uint8_t  flags;    /* 0x40: DIRECTLINK flag, 0x20 VIS_SERVER flag... */
+ 	uint8_t  reserved;
 -	uint32_t seqno;
 +	__be32   seqno;
  	uint8_t  orig[ETH_ALEN];
- 	uint8_t  prev_sender[ETH_ALEN];
- 	uint8_t  gw_flags;  /* flags related to gateway class */
+ } __packed;
+ 
+ struct vis_packet {
+ 	struct batman_header header;
+ 	uint8_t  vis_type;	 /* which type of vis-participant sent this? */
+-	uint32_t seqno;		 /* sequence number */
++	__be32   seqno;		 /* sequence number */
+ 	uint8_t  entries;	 /* number of entries behind this struct */
+ 	uint8_t  reserved;
+ 	uint8_t  vis_orig[ETH_ALEN];	/* originator reporting its neighbors */
 -- 
 1.7.2.5
