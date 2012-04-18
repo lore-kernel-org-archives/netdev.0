@@ -1,96 +1,45 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 2/2] stmmac: Move the mdio_register/_unregister in probe/remove
-Date: Wed, 18 Apr 2012 10:28:25 +0200
-Message-ID: <1334737705-4508-2-git-send-email-peppe.cavallaro@st.com>
-References: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Francesco Virlinzi <francesco.virlinzi@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:43490 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751847Ab2DRI2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 04:28:41 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C548E4DE
-	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 08:28:38 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 630582126
-	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 08:28:38 +0000 (GMT)
-In-Reply-To: <1334737705-4508-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] set fake_rtable's dst to NULL to avoid kernel Oops.
+Date: Wed, 18 Apr 2012 04:41:57 -0400 (EDT)
+Message-ID: <20120418.044157.1410691335536408716.davem@davemloft.net>
+References: <20120417085248.3e642294@nehalam.linuxnetplumber.net>
+	<1334681323.2472.43.camel@edumazet-glaptop>
+	<4F8E73E3.6080900@huawei.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ctrix+debianbugs@navynet.it, peter.huangpeng@gmail.com,
+	harry.majun@huawei.com
+To: peter.huangpeng@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F8E73E3.6080900@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francesco Virlinzi <francesco.virlinzi@st.com>
+From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+Date: Wed, 18 Apr 2012 15:57:23 +0800
 
-This patch moves the mdio_register/_unregister in probe/remove
-functions and this also is required when hibernation on disk
-is done.
+> On 2012/4/18 0:48, Eric Dumazet wrote:
+>> On Tue, 2012-04-17 at 08:52 -0700, Stephen Hemminger wrote:
+>>
+>>> This check seems like a disaster waiting to happen when the next
+>>> change to DST table happens.
+>>
+>> Please Peter Document this, adding a new DST_FAKE_RTABLE flag
+>>
+>> #define DST_FAKE_RTABLE DST_NOPEER
+>>
+>> or just use a bit, we have plenty of them available.
+>>
+> 
+> 
+> Add DST_FAKE_RTABLE to dst_entry, this is the new patch.
+> Is this ok?
+> 
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
 
-Signed-off-by: Francesco Virlinzi <francesco.virlinzi@st,com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st,com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   20 +++++++++++---------
- 1 files changed, 11 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index a64f0d4..b6dce8f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -937,14 +937,6 @@ static int stmmac_open(struct net_device *dev)
- 
- 	stmmac_check_ether_addr(priv);
- 
--	/* MDIO bus Registration */
--	ret = stmmac_mdio_register(dev);
--	if (ret < 0) {
--		pr_debug("%s: MDIO bus (id: %d) registration failed",
--			 __func__, priv->plat->bus_id);
--		goto open_clk_dis;
--	}
--
- #ifdef CONFIG_STMMAC_TIMER
- 	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
- 	if (unlikely(priv->tm == NULL)) {
-@@ -1067,7 +1059,9 @@ open_error:
- 	if (priv->phydev)
- 		phy_disconnect(priv->phydev);
- 
-+#ifdef CONFIG_STMMAC_TIMER
- open_clk_dis:
-+#endif
- 	stmmac_clk_disable(priv);
- 	return ret;
- }
-@@ -1120,7 +1114,6 @@ static int stmmac_release(struct net_device *dev)
- #ifdef CONFIG_STMMAC_DEBUG_FS
- 	stmmac_exit_fs();
- #endif
--	stmmac_mdio_unregister(dev);
- 	stmmac_clk_disable(priv);
- 
- 	return 0;
-@@ -1932,6 +1925,14 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 	else
- 		priv->clk_csr = priv->plat->clk_csr;
- 
-+	/* MDIO bus Registration */
-+	ret = stmmac_mdio_register(ndev);
-+	if (ret < 0) {
-+		pr_debug("%s: MDIO bus (id: %d) registration failed",
-+			 __func__, priv->plat->bus_id);
-+		goto error;
-+	}
-+
- 	return priv;
- 
- error:
-@@ -1959,6 +1960,7 @@ int stmmac_dvr_remove(struct net_device *ndev)
- 	priv->hw->dma->stop_tx(priv->ioaddr);
- 
- 	stmmac_set_mac(priv->ioaddr, false);
-+	stmmac_mdio_unregister(ndev);
- 	netif_carrier_off(ndev);
- 	unregister_netdev(ndev);
- 	free_netdev(ndev);
--- 
-1.7.4.4
+Please post new patches as completely new emails, not as replies
+to other emails.
