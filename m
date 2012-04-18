@@ -1,118 +1,270 @@
-From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
-Subject: Re: [PATCH] set fake_rtable's dst to NULL to avoid kernel Oops.
-Date: Wed, 18 Apr 2012 15:57:23 +0800
-Message-ID: <4F8E73E3.6080900@huawei.com>
-References: <000001cd1c62$75d10de0$617329a0$%huangpeng@huawei.com>
- <20120417085248.3e642294@nehalam.linuxnetplumber.net>
- <1334681323.2472.43.camel@edumazet-glaptop>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH] memcg/tcp: fix warning caused b res->usage go to negative.
+Date: Wed, 18 Apr 2012 17:02:54 +0900
+Message-ID: <4F8E752E.8040906@jp.fujitsu.com>
+References: <4F7408B7.9090706@jp.fujitsu.com> <4F740AEF.7090900@jp.fujitsu.com> <4F742983.1080402@parallels.com> <4F750FE8.2030800@jp.fujitsu.com> <4F7F1091.9040204@parallels.com> <4F839CF1.5050104@jp.fujitsu.com> <4F88637D.5020204@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ctrix+debianbugs@navynet.it,
-	peter.huangpeng@gmail.com, harry.majun@huawei.com
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1334681323.2472.43.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:58239 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389Ab2DRIEo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 04:04:44 -0400
+Received: from m4.gw.fujitsu.co.jp (unknown [10.0.50.74])
+	by fgwmail5.fujitsu.co.jp (Postfix) with ESMTP id BB1103EE0AE
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 17:04:42 +0900 (JST)
+Received: from smail (m4 [127.0.0.1])
+	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id A182845DE51
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 17:04:42 +0900 (JST)
+Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
+	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 88C6E45DE4E
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 17:04:42 +0900 (JST)
+Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 79B7EE08002
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 17:04:42 +0900 (JST)
+Received: from m106.s.css.fujitsu.com (m106.s.css.fujitsu.com [10.240.81.146])
+	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 299131DB803B
+	for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 17:04:42 +0900 (JST)
+In-Reply-To: <4F88637D.5020204@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2012/4/18 0:48, Eric Dumazet wrote:
-> On Tue, 2012-04-17 at 08:52 -0700, Stephen Hemminger wrote:
->
->> This check seems like a disaster waiting to happen when the next
->> change to DST table happens.
->
-> Please Peter Document this, adding a new DST_FAKE_RTABLE flag
->
-> #define DST_FAKE_RTABLE DST_NOPEER
->
-> or just use a bit, we have plenty of them available.
->
+(2012/04/14 2:33), Glauber Costa wrote:
+
+> On 04/09/2012 11:37 PM, KAMEZAWA Hiroyuki wrote:
+>> (2012/04/07 0:49), Glauber Costa wrote:
+>>
+>>> On 03/30/2012 05:44 AM, KAMEZAWA Hiroyuki wrote:
+>>>> Maybe what we can do before lsf/mm summit will be this (avoid warning.)
+>>>> This patch is onto linus's git tree. Patch description is updated.
+>>>>
+>>>> Thanks.
+>>>> -Kame
+>>>> ==
+>>>>   From 4ab80f84bbcb02a790342426c1de84aeb17fcbe9 Mon Sep 17 00:00:00 2001
+>>>> From: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
+>>>> Date: Thu, 29 Mar 2012 14:59:04 +0900
+>>>> Subject: [PATCH] memcg/tcp: fix warning caused b res->usage go to negative.
+>>>>
+>>>> tcp memcontrol starts accouting after res->limit is set. So, if a sockets
+>>>> starts before setting res->limit, there are already used resource.
+>>>> At setting res->limit, accounting starts. The resource will be uncharged
+>>>> and make res_counter below 0 because they are not charged.
+>>>> This causes warning.
+>>>>
+>>>
+>>> Kame,
+>>>
+>>> Please test the following patch and see if it fixes your problems (I
+>>> tested locally, and it triggers me no warnings running the test script
+>>> you provided + an inbound scp -r copy of an iso directory from a remote
+>>> machine)
+>>>
+>>> When you are reviewing, keep in mind that we're likely to have the same
+>>> problems with slab jump labels - since the slab pages will outlive the
+>>> cgroup as well, and it might be worthy to keep this in mind, and provide
+>>> a central point for the jump labels to be set of on cgroup destruction.
+>>>
+>>
+>>
+>> Hm. What happens in following sequence ?
+>>
+>>    1. a memcg is created
+>>    2. put a task into the memcg, start tcp steam
+>>    3. set tcp memory limit
+>>
+>> The resource used between 2 and 3 will cause the problem finally.
+>>
+>> Then, Dave's request
+>> ==
+>> You must either:
+>>
+>> 1) Integrate the socket's existing usage when the limit is set.
+>>
+>> 2) Avoid accounting completely for a socket that started before
+>>     the limit was set.
+>> ==
+>> are not satisfied. So, we need to have a state per sockets, it's accounted
+>> or not. I'll look into this problem again, today.
+>>
+> 
+> Kame,
+> 
+> Let me know what you think of the attached fix.
+> I still need to compile test it in other configs to be sure it doesn't
+> break, etc. But let's agree on it first.
 
 
-Add DST_FAKE_RTABLE to dst_entry, this is the new patch.
-Is this ok?
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
----
-  include/linux/netfilter_bridge.h |    8 ++++++++
-  include/net/dst.h                |    1 +
-  net/bridge/br_forward.c          |    1 +
-  net/bridge/br_netfilter.c        |    8 ++------
-  4 files changed, 12 insertions(+), 6 deletions(-)
-diff --git a/include/linux/netfilter_bridge.h 
-b/include/linux/netfilter_bridge.h
-index 0ddd161..eb09e3b 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -104,9 +104,17 @@ struct bridge_skb_cb {
-         } daddr;
-  };
+> Subject: [PATCH] decrement static keys on real destroy time
+> 
+> We call the destroy function when a cgroup starts to be removed,
+> such as by a rmdir event.
+> 
+> However, because of our reference counters, some objects are still
+> inflight. Right now, we are decrementing the static_keys at destroy()
+> time, meaning that if we get rid of the last static_key reference,
+> some objects will still have charges, but the code to properly
+> uncharge them won't be run.
+> 
+> This becomes a problem specially if it is ever enabled again, because
+> now new charges will be added to the staled charges making keeping
+> it pretty much impossible.
+> 
+> We just need to be careful with the static branch activation:
+> since there is no particular preferred order of their activation,
+> we need to make sure that we only start using it after all
+> call sites are active. This is achieved by having a per-memcg
+> flag that is only updated after static_key_slow_inc() returns.
+> At this time, we are sure all sites are active.
+> 
+> This is made per-memcg, not global, for a reason:
+> it also has the effect of making socket accounting more
+> consistent. The first memcg to be limited will trigger static_key()
+> activation, therefore, accounting. But all the others will then be
+> accounted no matter what. After this patch, only limited memcgs
+> will have its sockets accounted.
+> 
+> [v2: changed a tcp limited flag for a generic proto limited flag ]
+> 
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> ---
+>  include/net/sock.h        |    1 +
+>  mm/memcontrol.c           |   20 ++++++++++++++++++--
+>  net/ipv4/tcp_memcontrol.c |   12 ++++++------
+>  3 files changed, 25 insertions(+), 8 deletions(-)
+> 
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index b3ebe6b..f35ff7d 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -913,6 +913,7 @@ struct cg_proto {
+>  	struct percpu_counter	*sockets_allocated;	/* Current number of sockets. */
+>  	int			*memory_pressure;
+>  	long			*sysctl_mem;
+> +	bool			limited;
 
-+static inline void br_drop_fake_rtable(struct sk_buff *skb) {
-+       struct dst_entry *dst = skb_dst(skb);
-+       /* abuse fact that only fake_rtable has DST_FAKE_RTABLE set */
-+       if (dst && (dst->flags & DST_FAKE_RTABLE))
-+               skb_dst_drop(skb);
-+}
-+
-  #else
-  #define nf_bridge_maybe_copy_header(skb)       (0)
-  #define nf_bridge_pad(skb)                     (0)
-+#define br_drop_fake_rtable(skb)               (0)
-  #endif /* CONFIG_BRIDGE_NETFILTER */
 
-  #endif /* __KERNEL__ */
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 59c5d18..b094030 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -55,6 +55,7 @@ struct dst_entry {
-  #define DST_NOCACHE            0x0010
-  #define DST_NOCOUNT            0x0020
-  #define DST_NOPEER             0x0040
-+#define DST_FAKE_RTABLE                0x0080
+please add comment somewhere. Hmm, 'limited' is good name ?
 
-         short                   error;
-         short                   obsolete;
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 61f6534..a2098e3 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -47,6 +47,7 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
-                 kfree_skb(skb);
-         } else {
-                 skb_push(skb, ETH_HLEN);
-+               br_drop_fake_rtable(skb);
-                 dev_queue_xmit(skb);
-         }
+>  	/*
+>  	 * memcg field is used to find which memcg we belong directly
+>  	 * Each memcg struct can hold more than one cg_proto, so container_of
+> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> index 02b01d2..61f2d31 100644
+> --- a/mm/memcontrol.c
+> +++ b/mm/memcontrol.c
+> @@ -404,6 +404,7 @@ void sock_update_memcg(struct sock *sk)
+>  {
+>  	if (mem_cgroup_sockets_enabled) {
+>  		struct mem_cgroup *memcg;
+> +		struct cg_proto *cg_proto;
+>  
+>  		BUG_ON(!sk->sk_prot->proto_cgroup);
+>  
+> @@ -423,9 +424,10 @@ void sock_update_memcg(struct sock *sk)
+>  
+>  		rcu_read_lock();
+>  		memcg = mem_cgroup_from_task(current);
+> -		if (!mem_cgroup_is_root(memcg)) {
+> +		cg_proto = sk->sk_prot->proto_cgroup(memcg);
+> +		if (!mem_cgroup_is_root(memcg) && cg_proto->limited) {
+>  			mem_cgroup_get(memcg);
+> -			sk->sk_cgrp = sk->sk_prot->proto_cgroup(memcg);
+> +			sk->sk_cgrp = cg_proto;
+>  		}
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index dec4f38..d7f49b6 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -156,7 +156,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
-         rt->dst.dev = br->dev;
-         rt->dst.path = &rt->dst;
-         dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
--       rt->dst.flags   = DST_NOXFRM | DST_NOPEER;
-+       rt->dst.flags   = DST_NOXFRM | DST_NOPEER | DST_FAKE_RTABLE;
-         rt->dst.ops = &fake_dst_ops;
-  }
 
-@@ -694,11 +694,7 @@ static unsigned int br_nf_local_in(unsigned int 
-hook, struct sk_buff *skb,
-                                    const struct net_device *out,
-                                    int (*okfn)(struct sk_buff *))
-  {
--       struct rtable *rt = skb_rtable(skb);
--
--       if (rt && rt == bridge_parent_rtable(in))
--               skb_dst_drop(skb);
--
-+       br_drop_fake_rtable(skb);
-         return NF_ACCEPT;
-  }
+
+Ok, then, sk->sk_cgroup is set only after jump_label is enabled and
+its memcg has limitation.
+
+
+>  		rcu_read_unlock();
+>  	}
+> @@ -442,6 +444,14 @@ void sock_release_memcg(struct sock *sk)
+>  	}
+>  }
+>  
+> +static void disarm_static_keys(struct mem_cgroup *memcg)
+> +{
+> +#ifdef CONFIG_INET
+> +	if (memcg->tcp_mem.cg_proto.limited)
+> +		static_key_slow_dec(&memcg_socket_limit_enabled);
+> +#endif
+> +}
+> +
+>  #ifdef CONFIG_INET
+>  struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
+>  {
+> @@ -452,6 +462,11 @@ struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
+>  }
+>  EXPORT_SYMBOL(tcp_proto_cgroup);
+>  #endif /* CONFIG_INET */
+> +#else
+> +static inline void disarm_static_keys(struct mem_cgroup *memcg)
+> +{
+> +}
+> +
+>  #endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
+>  
+>  static void drain_all_stock_async(struct mem_cgroup *memcg);
+> @@ -4883,6 +4898,7 @@ static void __mem_cgroup_put(struct mem_cgroup *memcg, int count)
+>  {
+>  	if (atomic_sub_and_test(count, &memcg->refcnt)) {
+>  		struct mem_cgroup *parent = parent_mem_cgroup(memcg);
+> +		disarm_static_keys(memcg);
+>  		__mem_cgroup_free(memcg);
+>  		if (parent)
+>  			mem_cgroup_put(parent);
+> diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+> index 1517037..8005667 100644
+> --- a/net/ipv4/tcp_memcontrol.c
+> +++ b/net/ipv4/tcp_memcontrol.c
+> @@ -54,6 +54,7 @@ int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
+>  	cg_proto->sysctl_mem = tcp->tcp_prot_mem;
+>  	cg_proto->memory_allocated = &tcp->tcp_memory_allocated;
+>  	cg_proto->sockets_allocated = &tcp->tcp_sockets_allocated;
+> +	cg_proto->limited = false;
+>  	cg_proto->memcg = memcg;
+>  
+>  	return 0;
+> @@ -74,9 +75,6 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
+>  	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
+>  
+>  	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_LIMIT);
+> -
+> -	if (val != RESOURCE_MAX)
+> -		static_key_slow_dec(&memcg_socket_limit_enabled);
+>  }
+>  EXPORT_SYMBOL(tcp_destroy_cgroup);
+>  
+> @@ -107,10 +105,12 @@ static int tcp_update_limit(struct mem_cgroup *memcg, u64 val)
+>  		tcp->tcp_prot_mem[i] = min_t(long, val >> PAGE_SHIFT,
+>  					     net->ipv4.sysctl_tcp_mem[i]);
+>  
+> -	if (val == RESOURCE_MAX && old_lim != RESOURCE_MAX)
+> -		static_key_slow_dec(&memcg_socket_limit_enabled);
+> -	else if (old_lim == RESOURCE_MAX && val != RESOURCE_MAX)
+> +	if (val == RESOURCE_MAX)
+> +		cg_proto->limited = false;
+
+
+Why we can reset this to be false ? disarm_static_keys() will not work
+at destroy()....
+
+
+> +	else if (val != RESOURCE_MAX && !cg_proto->limited) {
+>  		static_key_slow_inc(&memcg_socket_limit_enabled);
+> +		cg_proto->limited = true;
+> +	}
+>  
+
+Hmm. don't we need any mutex ?
+
+Thanks,
+-Kame
