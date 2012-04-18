@@ -1,137 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re[2]:  [PATCH 2/2] IPVS: make failure of netns init more  stable
-Date: Wed, 18 Apr 2012 23:27:02 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1204182306380.2017@ja.ssi.bg>
-References: <3r6npeu.69e743752dad7d8eb6a19cbbbdfd1ed9@obelix.schillstrom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix retransmit of partially acked frames
+Date: Wed, 18 Apr 2012 16:54:00 -0400 (EDT)
+Message-ID: <20120418.165400.980383816074286216.davem@davemloft.net>
+References: <CAA1sL1TN+acPd4NAnFC0soeHzzcJe0ja3_zS5ZkFog11HSDAyA@mail.gmail.com>
+	<1334734196.2472.91.camel@edumazet-glaptop>
+	<1334780063.2472.352.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "horms@verge.net.au" <horms@verge.net.au>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <3r6npeu.69e743752dad7d8eb6a19cbbbdfd1ed9@obelix.schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: a.beregalov@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, marc@merlins.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334780063.2472.352.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Apr 2012 22:14:23 +0200
 
-	Hello,
-
-On Wed, 18 Apr 2012, Hans Schillstrom wrote:
-
-> >trigger load error. When I generate ENOMEM on IPVS core init
-> >for such case I get ENOENT from register_ip_vs_app when
-> >patch 1 and 2 for apps are applied, i.e. net->ipvs is NULL.
-> >You can check it with NF_CONNTRACK=y, IP_VS=y and
-> >IP_VS_FTP=m. You only need to trigger ENOMEM in __ip_vs_init.
+> From: Eric Dumazet <edumazet@google.com>
 > 
+> Alexander Beregalov reported skb_over_panic errors and provided stack
+> trace.
 > 
-> I did test this with 4 netns loaded and modprobe ip_vs_ftp
-> In the 4:th netns  (ipvs->gen >= 4) fire a -ENOMEM 
-> The result was as expected, ip_vs_ftp was not loaded.
+> I occurs commit a21d45726aca (tcp: avoid order-1 allocations on wifi and
+> tx path) added a regression, when a retransmit is done after a partial
+> ACK.
 > 
-> All patches below was loaded. (included the ipvs NULL check)
+> tcp_retransmit_skb() tries to aggregate several frames if the first one
+> has enough available room to hold the following ones payload. This is
+> controlled by /proc/sys/net/ipv4/tcp_retrans_collapse tunable (default :
+> enabled)
 > 
-> Just for "fun" I also added a printk in the ipvs NULL check
-> but I can't trigger it. 
+> Problem is we must make sure _pskb_trim_head() doesnt fool
+> skb_availroom() when pulling some bytes from skb (this pull is done when
+> receiver ACK part of the frame).
+> 
+> Reported-by: Alexander Beregalov <a.beregalov@gmail.com>
+> Cc: Marc MERLIN <marc@merlins.org>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-	I trigger it in this way (ip_vs in kernel, ip_vs_ftp
-as module):
-
-        if (1 || ip_vs_app_net_init(net) < 0)
-                goto app_fail;
-
-	This causes ip_vs core to fail. I use NET_NS=n.
-
-> Simon:
->  do you have any possibility to test it or give me a hint how to do ?
-> (Just to make sure that the patches below will be sufficient)
-> 
-> >
-> >> With proper fault handling i.e. all ways returning fault codes to the netns init,
-> >> there is no need for checking for  "if (!net->ipvs)" or any other action.
-> >
-> >	Probably but one check on load does not hurt much.
-> 
-> I think I have tested all of above now and my conclusion is that we need the following patches
-> which also was applied when the tests was run.
-> (with a small reservation that I might have missed some..)
-> 
-> [PATCH v3 1/2] netfilter: ipvs: Verify that IP_VS protocol has been registered, Sasha Levin
-> [PATCH v3 2/2] netfilter: ipvs: use GFP_KERNEL allocation where possible, Sasha Levin
-> 
-> [PATCH 0/6] Convert some GFP_ATOMIC allocations, Julian Anastasov
-> [PATCH 1/6] ipvs: timeout tables do not need GFP_ATOMIC allocation, Julian Anastasov
-> [PATCH 2/6] ipvs: SH scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
-> [PATCH 5/6] ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init, Julian Anastasov
-> [PATCH 6/6] ipvs: WRR scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
-> [PATCH 3/6] ipvs: DH scheduler does not need GFP_ATOMIC allocation, Julian Anastasov
-> [PATCH 4/6] ipvs: LBLC scheduler does not need GFP_ATOMIC allocation on init, Julian Anastasov
-> 
-> [PATCH] ipvs: fix crash in ip_vs_control_net_cleanup on unload, Julian Anastasov
-> 
-> [PATCH 1/2] ipvs: reset ipvs pointer in netns, Julian Anastasov
-> [PATCH 1/2] IPVS: take care of return value from protocol init_netns, Hans Schillstrom
-> 
-> To be safe,  add this to  [PATCH 1/2] ipvs: reset ipvs pointer in netns or make a new patch
-
-	The ip_vs_ftp part is fixed by:
-"[PATCH 2/2] ipvs: fix app registration in netns". So, this check
-for ip_vs_ftp is not needed anymore:
-
-> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-> index 538d74e..c757359 100644
-> --- a/net/netfilter/ipvs/ip_vs_ftp.c
-> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
-> @@ -439,6 +439,9 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
->         struct ip_vs_app *app;
->         struct netns_ipvs *ipvs = net_ipvs(net);
->  
-> +       if (!ipvs)
-> +               return ERR_PTR(-ENOENT);
-> +
->         app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
->         if (!app)
->                 return -ENOMEM;
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-> index 74c7278..1d74996 100644
-> --- a/net/netfilter/ipvs/ip_vs_lblc.c
-> +++ b/net/netfilter/ipvs/ip_vs_lblc.c
-> @@ -549,6 +549,9 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
->  {
->         struct netns_ipvs *ipvs = net_ipvs(net);
->  
-> +       if (!ipvs)
-> +               return ERR_PTR(-ENOENT);
-
-	You can post additional patches for lblc and lblcr but
-use 'return -ENOENT;', ERR_PTR is not appropriate here, it
-is for pointers.
-
-> +
->         if (!net_eq(net, &init_net)) {
->                 ipvs->lblc_ctl_table = kmemdup(vs_vars_table,
->                                                 sizeof(vs_vars_table),
-> diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-> index 8620c68..c328ee0 100644
-> --- a/net/netfilter/ipvs/ip_vs_lblcr.c
-> +++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-> @@ -743,6 +743,9 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
->  {
->         struct netns_ipvs *ipvs = net_ipvs(net);
->  
-> +       if (!ipvs)
-> +               return ERR_PTR(-ENOENT);
-> +
->         if (!net_eq(net, &init_net)) {
->                 ipvs->lblcr_ctl_table = kmemdup(vs_vars_table,
->                                                 sizeof(vs_vars_table),
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Applied, thanks.
