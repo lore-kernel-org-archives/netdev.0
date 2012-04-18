@@ -1,57 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: re: net: Micrel KSZ8841/2 PCI Ethernet driver
-Date: Wed, 18 Apr 2012 15:13:14 +0100
-Message-ID: <1334758394.3209.156.camel@deadeye>
-References: <20120418064723.GA12831@elgon.mountain>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] net/hyperv: RX packets may keep on increasing although
+ the NIC is down
+Date: Wed, 18 Apr 2012 14:19:51 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD331FB@TK5EX14MBXC221.redmond.corp.microsoft.com>
+References: <1334757694-21745-1-git-send-email-wenqi_ma@trendmicro.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <Tristram.Ha@micrel.com>, <netdev@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	KY Srinivasan <kys@microsoft.com>
+To: Wenqi Ma <wenqi_ma@trendmicro.com.cn>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:46022 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751532Ab2DRONU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 10:13:20 -0400
-In-Reply-To: <20120418064723.GA12831@elgon.mountain>
+Received: from db3ehsobe002.messaging.microsoft.com ([213.199.154.140]:44025
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751210Ab2DROUX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Apr 2012 10:20:23 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-04-18 at 09:47 +0300, Dan Carpenter wrote:
-> Hello Tristram,
-> 
-> I was going through some old stuff and I had a question about ksz884x.c.
-> 
-> The patch 8ca86fd83eae: "net: Micrel KSZ8841/2 PCI Ethernet driver" 
-> from Feb 8, 2010, leads to the following warning:
-> drivers/net/ethernet/micrel/ksz884x.c:5678 netdev_set_mac_address()
-> 	 error: memcpy() 'mac->sa_data' too small (14 vs 32)
-> 
->   5663  static int netdev_set_mac_address(struct net_device *dev, void *addr)
->   5664  {
->   5665          struct dev_priv *priv = netdev_priv(dev);
->   5666          struct dev_info *hw_priv = priv->adapter;
->   5667          struct ksz_hw *hw = &hw_priv->hw;
->   5668          struct sockaddr *mac = addr;
->   5669          uint interrupt;
->   5670  
->   5671          if (priv->port.first_port > 0)
->   5672                  hw_del_addr(hw, dev->dev_addr);
->   5673          else {
->   5674                  hw->mac_override = 1;
->   5675                  memcpy(hw->override_addr, mac->sa_data, ETH_ALEN);
->   5676          }
->   5677  
->   5678          memcpy(dev->dev_addr, mac->sa_data, MAX_ADDR_LEN);
->                                       ^^^^^^^^^^^^
-> This has only 14 bytes so we're copying bogus data from beyond the end
-> of the struct into dev->dev_addr.
 
-The correct length is ETH_ALEN, as for the previous memcpy().
 
-Ben.
+> -----Original Message-----
+> From: Haiyang Zhang
+> Sent: Wednesday, April 18, 2012 10:11 AM
+> To: 'Wenqi Ma'; netdev@vger.kernel.org
+> Cc: davem@davemloft.net; KY Srinivasan
+> Subject: RE: [PATCH] net/hyperv: RX packets may keep on increasing
+> although the NIC is down
+> 
+> 
+> 
+> > -----Original Message-----
+> > From: Wenqi Ma [mailto:wenqi_ma@trendmicro.com.cn]
+> > Sent: Wednesday, April 18, 2012 10:02 AM
+> > To: netdev@vger.kernel.org
+> > Cc: davem@davemloft.net; Haiyang Zhang; Wenqi Ma
+> > Subject: [PATCH] net/hyperv: RX packets may keep on increasing although
+> > the NIC is down
+> >
+> > Although the network interface is down, the RX packets number which
+> > could be observed by ifconfig may keep on increasing.
+> >
+> > This is because the WORK scheduled in netvsc_set_multicast_list()
+> > may be executed after netvsc_close(). That means the rndis filter
+> > may be re-enabled by do_set_multicast() even if it was closed by
+> > netvsc_close().
+> >
+> > By canceling possible WORK before close the rndis filter, the issue
+> > could be never happened.
+> >
+> > Signed-off-by: Wenqi Ma <wenqi_ma@trendmicro.com.cn>
+> > ---
+> >  drivers/net/hyperv/netvsc_drv.c |   32 +++++++++++++-------------------
+> >  1 files changed, 13 insertions(+), 19 deletions(-)
+> 
+> Thanks for patching it. I have some comments --
+> The existing "struct set_multicast_work" is no longer in use, so it should be
+> removed now.
+> You should also add cancel_work into netvsc_change_mtu().
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Also the patch subject should say what fixes/changes you made, not the bug behavior.
+Recommend something like, "Adding cancellation to set promiscuous mode work".
+
+Thanks,
+- Haiyang
