@@ -1,76 +1,111 @@
-From: Massimo Cetra <ctrix+debianbugs@navynet.it>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: fake rtable dst patch applied but kernel keeps panicing
-Date: Thu, 19 Apr 2012 10:37:46 +0200
-Message-ID: <4F8FCEDA.20504@navynet.it>
-References: <4F8E9291.9000607@navynet.it> <4F8FCB53.7070603@huawei.com>
+Date: Thu, 19 Apr 2012 10:45:08 +0200
+Message-ID: <1334825108.2395.28.camel@edumazet-glaptop>
+References: <4F8E9291.9000607@navynet.it>
+	 <1334745072.2472.110.camel@edumazet-glaptop>  <4F8FC66F.90703@navynet.it>
+	 <1334823256.2395.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+	netdev@vger.kernel.org, peter.huangpeng@huawei.com
+To: Massimo Cetra <mcetra@navynet.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host188-6-static.238-77-b.business.telecomitalia.it ([77.238.6.188]:51527
-	"EHLO max.ctrix.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753227Ab2DSIiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 04:38:24 -0400
-In-Reply-To: <4F8FCB53.7070603@huawei.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:65011 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752353Ab2DSIpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 04:45:13 -0400
+Received: by bkcik5 with SMTP id ik5so6121455bkc.19
+        for <netdev@vger.kernel.org>; Thu, 19 Apr 2012 01:45:12 -0700 (PDT)
+In-Reply-To: <1334823256.2395.2.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/04/2012 10:22, Peter Huang(Peng) wrote:
-> Hi, Massimo
->
-> can this be reproduce easily or depend on some HW or SW environment?
->
-> This patch already verified on 2.6.32.36/54,3.3.1, 3.4.rc[23] for over
-> 6 hours, but didn't encounter this problem.
+On Thu, 2012-04-19 at 10:14 +0200, Eric Dumazet wrote:
+> On Thu, 2012-04-19 at 10:01 +0200, Massimo Cetra wrote:
+> > On 18/04/2012 12:31, Eric Dumazet wrote:
+> > >
+> > > Seems a different issue, skb->nf_bridge seems to be NULL
+> > >
+> > 
+> > This is another trace of another panic.
+> > I hope it may be useful.
+> > Please notice that it is not related to adding/removing br interfaces or 
+> > tun/vic interfaces from a bridge set.
+> > It happened suddenly during a normal workload.
+> > 
+> > When were those bridge-related bugs introduced ?
+> > What's the latest release that seems to work ?
+> > I'm asking so that i can restore some servers to a proper workload.
+> > 
+> > 
+> > Massimo
+> 
+> Maybe you should try latest kernel, because we fixed some bugs lately.
+> 
+> 
 
-The server is a Dell PowerEdge R410.
-
-The network cards are:
-01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5716 
-Gigabit Ethernet (rev 20)
-01:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM5716 
-Gigabit Ethernet (rev 20)
-
-The server is doing nothing except for routing packets and running 
-virtual servers.
-
-This server is guesting about 10 KVM virtual servers in a bridged 
-configuration.
-
-
-lamu:~# brctl show br0
-bridge name     bridge id               STP enabled     interfaces
-br0             8000.0024e869f8eb       yes             eth1
-                                                         kvmnet-db0
-                                                         kvmnet-devel0
-                                                         kvmnet-kermit0
-                                                         kvmnet-mail0
-                                                         kvmnet-max0
-                                                         kvmnet-repo0
-                                                         kvmnet-voip0
-                                                         kvmnet-wper0
-                                                         kvmnet-wsos0
+Oh well, at first glance nf_bridge_unshare() is buggy, not sure if this
+can help your bug, but its another step.
 
 
-kvmnet-* interfaces are tun devices.
+[PATCH] bridge: fix nf_bridge_unshare()
 
--------------------------
+If memory allocation failed, return an error.
 
-Whenever i add a couple of "virtual" bridges assigning an ip address to, 
-for example, br0:1 br0:2, the panic happens a couple of times a day.
+If not, skb->nf_bridge should be updated to point to the copy, not old
+info, or bad things can happen.
 
-If i leave only br0 and br1 it's very hard to trigger (but this may be 
-related to network traffic which, in this case, is very low).
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/bridge/br_netfilter.c |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-By the way, i'm using this kernel (with and without the previous patch) 
-on my workstation which has a br0 interface and some VM attached in the 
-same way.
-I am not experiencing crashes and the only difference is that i don't 
-have, on my desktop, any br0:1 br0:2 interfaces.
-
-Hope it helps.
-
-Max
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index dec4f38..b7c2cec 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -185,21 +185,20 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+ 	return skb->nf_bridge;
+ }
+ 
+-static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
++
++static inline int nf_bridge_unshare(struct sk_buff *skb)
+ {
+-	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
++	struct nf_bridge_info *copy, *nf_bridge = skb->nf_bridge;
+ 
+ 	if (atomic_read(&nf_bridge->use) > 1) {
+-		struct nf_bridge_info *tmp = nf_bridge_alloc(skb);
+-
+-		if (tmp) {
+-			memcpy(tmp, nf_bridge, sizeof(struct nf_bridge_info));
+-			atomic_set(&tmp->use, 1);
+-		}
++		copy = kmemdup(nf_bridge, sizeof(*nf_bridge), GFP_ATOMIC);
++		if (!copy)
++			return -ENOMEM;
++		atomic_set(&copy->use, 1);
+ 		nf_bridge_put(nf_bridge);
+-		nf_bridge = tmp;
++		skb->nf_bridge = copy;
+ 	}
+-	return nf_bridge;
++	return 0;
+ }
+ 
+ static inline void nf_bridge_push_encap_header(struct sk_buff *skb)
+@@ -744,8 +743,9 @@ static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff *skb,
+ 		return NF_ACCEPT;
+ 
+ 	/* Need exclusive nf_bridge_info since we might have multiple
+-	 * different physoutdevs. */
+-	if (!nf_bridge_unshare(skb))
++	 * different physoutdevs.
++	 */
++	if (nf_bridge_unshare(skb))
+ 		return NF_DROP;
+ 
+ 	parent = bridge_parent(out);
