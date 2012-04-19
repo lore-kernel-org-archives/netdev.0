@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qmi_wwan: support Sierra Wireless MC77xx devices
- in QMI mode
-Date: Thu, 19 Apr 2012 15:33:08 -0400 (EDT)
-Message-ID: <20120419.153308.2068714446413918789.davem@davemloft.net>
-References: <1334691503-31787-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH] icplus: fix interrupt for IC+ 101A/G and 1001LF
+Date: Thu, 19 Apr 2012 15:34:41 -0400 (EDT)
+Message-ID: <20120419.153441.1815697413007824890.davem@davemloft.net>
+References: <1334733400-29340-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: bjorn@mork.no
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51777 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51784 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756400Ab2DSTeR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 15:34:17 -0400
-In-Reply-To: <1334691503-31787-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1752958Ab2DSTeq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 15:34:46 -0400
+In-Reply-To: <1334733400-29340-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Tue, 17 Apr 2012 21:38:23 +0200
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Wed, 18 Apr 2012 09:16:40 +0200
 
-> The MC77xx devices can operate in two modes: "Direct IP" or "QMI",
-> switchable using a password protected AT command.  Both product ID
-> and USB interface configuration will change when switched.
->=20
-> The "sierra_net" driver supports the "Direct IP" mode.  This driver
-> supports the "QMI" mode.
->=20
-> There are also multiple possible USB interface configurations in each
-> mode, some providing more than one wwan interface.  Like many other
-> devices made for Windows, different interface types are identified
-> using a static interface number.  We define a Sierra specific
-> interface whitelist to support this.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> This patch fixes and adds the irq handler for the
+> IC+ 101A/G where we need to read the reg17 to clean
+> the irq.
+> Also remove the flag for the 1001LF where no interrupt
+> can be used for this device.
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Applied, thank you.
+Applied, thanks.
