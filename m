@@ -1,74 +1,61 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: [PATCH 1/2] workqueue: Catch more locking problems with flush_work()
-Date: Wed, 18 Apr 2012 20:25:57 -0700
-Message-ID: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org>
-Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
-	Ben Dooks <ben-linux@fluff.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shan Wei <shanwei88@gmail.com>
+Subject: [PATCH] net: fix compile error of leaking kmemleak.h header
+Date: Thu, 19 Apr 2012 12:05:46 +0800
+Message-ID: <4F8F8F1A.6020000@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: majianpeng@gmail.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	NetDev <netdev@vger.kernel.org>,
+	davidshan <davidshan@tencent.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:41276 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770Ab2DSEFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 00:05:00 -0400
+Received: by dake40 with SMTP id e40so10778649dak.11
+        for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 21:05:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If a workqueue is flushed but the work item is not scheduled to
-run, lockdep checking will be circumvented. For example:
+=46rom: Shan Wei <davidshan@tencent.com>
 
- static DEFINE_MUTEX(mutex);
+net/core/sysctl_net_core.c: In function =91sysctl_core_init=92:
+net/core/sysctl_net_core.c:259: error: implicit declaration of function=
+ =91kmemleak_not_leak=92
 
- static void my_work(struct work_struct *w)
- {
-         mutex_lock(&mutex);
-         mutex_unlock(&mutex);
- }
+with same error in net/ipv4/route.c
 
- static DECLARE_WORK(work, my_work);
-
- static int __init start_test_module(void)
- {
-         schedule_work(&work);
-         return 0;
- }
- module_init(start_test_module);
-
- static void __exit stop_test_module(void)
- {
-         mutex_lock(&mutex);
-         flush_work(&work);
-         mutex_unlock(&mutex);
- }
- module_exit(stop_test_module);
-
-would only print a warning if the work item was actively running
-when flush_work() was called. Otherwise flush_work() returns
-early. In this trivial example nothing could go wrong, but if the
-work item is schedule via an interrupt we could potentially have a
-scenario where the work item is running just at the time flush_work()
-is called. This could become a classic AB-BA locking problem.
-
-Add a lockdep hint in flush_work() in the "work not running" case
-so that we always catch this potential deadlock scenario.
-
-Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+Signed-off-by: Shan Wei <davidshan@tencent.com>
 ---
- kernel/workqueue.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ net/core/sysctl_net_core.c |    1 +
+ net/ipv4/route.c           |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/kernel/workqueue.c b/kernel/workqueue.c
-index 66ec08d..eb800df 100644
---- a/kernel/workqueue.c
-+++ b/kernel/workqueue.c
-@@ -2513,8 +2513,11 @@ bool flush_work(struct work_struct *work)
- 		wait_for_completion(&barr.done);
- 		destroy_work_on_stack(&barr.work);
- 		return true;
--	} else
-+	} else {
-+		lock_map_acquire(&work->lockdep_map);
-+		lock_map_release(&work->lockdep_map);
- 		return false;
-+	}
- }
- EXPORT_SYMBOL_GPL(flush_work);
- 
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index cee5991..247c69b 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -14,6 +14,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/init.h>
+ #include <linux/slab.h>
++#include <linux/kmemleak.h>
+=20
+ #include <net/ip.h>
+ #include <net/sock.h>
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index bcd4744..a1c115d 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -109,6 +109,7 @@
+ #include <net/rtnetlink.h>
+ #ifdef CONFIG_SYSCTL
+ #include <linux/sysctl.h>
++#include <linux/kmemleak.h>
+ #endif
+ #include <net/secure_seq.h>
+=20
+--=20
+1.7.1
