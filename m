@@ -1,59 +1,31 @@
 From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: Re: [PATCH 1/2] workqueue: Catch more locking problems with flush_work()
-Date: Thu, 19 Apr 2012 11:10:41 -0700
-Message-ID: <4F905521.9020901@codeaurora.org>
-References: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org> <20120419152841.GA10553@google.com>
+Subject: Re: [PATCH] ks8851: Fix request_irq/free_irq mismatch
+Date: Thu, 19 Apr 2012 11:13:51 -0700
+Message-ID: <4F9055DF.9050509@codeaurora.org>
+References: <1334855837-28366-1-git-send-email-mjr@cs.wisc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ben Dooks <ben-linux@fluff.org>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120419152841.GA10553@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ben@simtec.co.uk, netdev@vger.kernel.org
+To: mjr@cs.wisc.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:31295 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754475Ab2DSSNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 14:13:52 -0400
+In-Reply-To: <1334855837-28366-1-git-send-email-mjr@cs.wisc.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/19/12 08:28, Tejun Heo wrote:
-> On Wed, Apr 18, 2012 at 08:25:57PM -0700, Stephen Boyd wrote:
->> @@ -2513,8 +2513,11 @@ bool flush_work(struct work_struct *work)
->>  		wait_for_completion(&barr.done);
->>  		destroy_work_on_stack(&barr.work);
->>  		return true;
->> -	} else
->> +	} else {
->> +		lock_map_acquire(&work->lockdep_map);
->> +		lock_map_release(&work->lockdep_map);
->>  		return false;
-> We don't have this annotation when start_flush_work() succeeds either,
-> right?  IOW, would lockdep trigger when an actual deadlock happens?
-
-I believe it does although I haven't tested it.
-
-> If not, why not add the acquire/release() before flush_work() does
-> anything?
+On 04/19/12 10:17, mjr@cs.wisc.edu wrote:
+> From: Matt Renzelmann <mjr@cs.wisc.edu>
 >
+> The dev_id parameter passed to free_irq needs to match the one passed
+> to the corresponding request_irq.
+>
+> Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
 
-I was worried about causing false positive lockdep warnings in the case
-that start_flush_work() succeeds and returns true. In that case, lockdep
-is told about the cwq lockdep map:
-
-static bool start_flush_work(struct work_struct *work, struct wq_barrier *barr,
-                             bool wait_executing)
-{
-
-        .....
-
-        if (cwq->wq->saved_max_active == 1 || cwq->wq->flags & WQ_RESCUER)
-                lock_map_acquire(&cwq->wq->lockdep_map);
-        else
-                lock_map_acquire_read(&cwq->wq->lockdep_map);
-
-
-and so if we acquired the work->lockdep_map before the
-cwq->wq->lockdep_map we would get a warning about ABBA between these two
-lockdep maps. At least that is what I'm lead to believe when I look at
-what process_one_work() is doing. Please correct me if I'm wrong.
+Acked-by: Stephen Boyd <sboyd@codeaurora.org>
 
 -- 
 Sent by an employee of the Qualcomm Innovation Center, Inc.
