@@ -1,31 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Thu, 19 Apr 2012 02:40:34 -0400 (EDT)
-Message-ID: <20120419.024034.1013342902483709669.davem@davemloft.net>
-References: <20120419162859.904574e2518c5a904802efbc@canb.auug.org.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v3] set fake_rtable's dst to NULL to avoid kernel Oops.
+Date: Wed, 18 Apr 2012 23:46:49 -0700
+Message-ID: <20120418234649.0bcb3872@nehalam.linuxnetplumber.net>
+References: <4F8F77F5.8020201@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, majianpeng@gmail.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120419162859.904574e2518c5a904802efbc@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
+	ctrix+debianbugs@navynet.it, Eric Dumazet <eric.dumazet@gmail.com>,
+	harry.majun@huawei.com, linux-kernel@vger.kernel.org,
+	peter.huangpeng@gmail.com
+To: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:40962 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752900Ab2DSGq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2012 02:46:57 -0400
+In-Reply-To: <4F8F77F5.8020201@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 19 Apr 2012 16:28:59 +1000
+On Thu, 19 Apr 2012 10:27:01 +0800
+"Peter Huang(Peng)" <peter.huangpeng@huawei.com> wrote:
 
-> After merging the final tree, today's linux-next build (sparc64 defconfig)
-> failed like this:
+> When bridge is deleted before tap/vif device's delete, kernel may 
+> encounter an oops because of NULL reference to fake_rtable's dst.
+> Set fake_rtable's dst to NULL before sending packets out can solve this 
+> problem.
 > 
-> net/ipv4/route.c: In function 'ip_static_sysctl_init':
-> net/ipv4/route.c:3517:2: error: implicit declaration of function 'kmemleak_not_leak' [-Werror=implicit-function-declaration]
-...
-> net/core/sysctl_net_core.c: In function 'sysctl_core_init':
-> net/core/sysctl_net_core.c:259:2: error: implicit declaration of function 'kmemleak_not_leak' [-Werror=implicit-function-declaration]
-...
+> v3 enrich commit header
+> 
+> v2 added a new flag DST_FAKE_RTABLE to dst_entry struct.
+> 
+> 
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
 
-I already checked in a fix for this, thanks Stephen.
+I am okay with the contents of the patch but the formatting is all
+botched. It adds bad indentation and whitespace, please run it
+through checkpatch. 
