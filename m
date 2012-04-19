@@ -1,32 +1,30 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] netfilter: nf_conntrack.h: use this_cpu_inc()
-Date: Thu, 19 Apr 2012 20:16:00 +0200
-Message-ID: <20120419181600.GA17878@1984>
-References: <1334723800.2472.88.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ip6_tunnel: dont drop packet but consume it
+Date: Thu, 19 Apr 2012 14:24:08 -0400 (EDT)
+Message-ID: <20120419.142408.2229524286771694035.davem@davemloft.net>
+References: <1334838257.2395.150.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Christoph Lameter <cl@linux.com>, Tejun Heo <tj@kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Netfilter Development Mailing list
-	<netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1334723800.2472.88.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50998 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755795Ab2DSSYO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 14:24:14 -0400
+In-Reply-To: <1334838257.2395.150.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 18, 2012 at 06:36:40AM +0200, Eric Dumazet wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 19 Apr 2012 14:24:17 +0200
+
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> this_cpu_inc() is IRQ safe and faster than
-> local_bh_disable()/__this_cpu_inc()/local_bh_enable(), at least on x86.
+> When we need to reallocate skb, we dont drop a packet.
+> Call consume_skb() to not confuse dropwatch.
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Christoph Lameter <cl@linux.com>
-> Cc: Tejun Heo <tj@kernel.org>
 
-Applied, thanks.
+Applied.
