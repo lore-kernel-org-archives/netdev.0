@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v3] bonding: start slaves with link down for
- ARP monitor
-Date: Thu, 19 Apr 2012 15:25:38 -0400 (EDT)
-Message-ID: <20120419.152538.430981034620444725.davem@davemloft.net>
-References: <20120417121135.5F9A740290@alaris.suse.cz>
-	<20120418161912.1c0e2f4e@asterix.rh>
+Subject: Re: [PATCH] net: qmi_wwan: support Sierra Wireless MC77xx devices
+ in QMI mode
+Date: Thu, 19 Apr 2012 15:33:08 -0400 (EDT)
+Message-ID: <20120419.153308.2068714446413918789.davem@davemloft.net>
+References: <1334691503-31787-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz, netdev@vger.kernel.org, fubar@us.ibm.com,
-	andy@greyhouse.net
-To: fbl@redhat.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51648 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51777 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753154Ab2DST0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 15:26:21 -0400
-In-Reply-To: <20120418161912.1c0e2f4e@asterix.rh>
+	with ESMTP id S1756400Ab2DSTeR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 15:34:17 -0400
+In-Reply-To: <1334691503-31787-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fbl@redhat.com>
-Date: Wed, 18 Apr 2012 16:19:12 -0300
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Tue, 17 Apr 2012 21:38:23 +0200
 
-> On Tue, 17 Apr 2012 14:02:06 +0200
-> Michal Kubecek <mkubecek@suse.cz> wrote:
-> 
->> Initialize slave device link state as down if ARP monitor is
->> active and net_carrier_ok() returns zero. Also shift initial
->> value of its last_arp_tx so that it doesn't immediately cause
->> fake detection of "up" state.
->> 
->> When ARP monitoring is used, initializing the slave device with
->> up link state can cause ARP monitor to detect link failure
->> before the device is really up (with igb driver, this can take
->> more than two seconds).
->> 
->> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> The MC77xx devices can operate in two modes: "Direct IP" or "QMI",
+> switchable using a password protected AT command.  Both product ID
+> and USB interface configuration will change when switched.
+>=20
+> The "sierra_net" driver supports the "Direct IP" mode.  This driver
+> supports the "QMI" mode.
+>=20
+> There are also multiple possible USB interface configurations in each
+> mode, some providing more than one wwan interface.  Like many other
+> devices made for Windows, different interface types are identified
+> using a static interface number.  We define a Sierra specific
+> interface whitelist to support this.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-Applied, thanks everyone.
+Applied, thank you.
