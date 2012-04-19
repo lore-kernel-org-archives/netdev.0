@@ -1,32 +1,32 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: Re: [PATCH] ks8851: Fix request_irq/free_irq mismatch
-Date: Thu, 19 Apr 2012 11:13:51 -0700
-Message-ID: <4F9055DF.9050509@codeaurora.org>
-References: <1334855837-28366-1-git-send-email-mjr@cs.wisc.edu>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next] netfilter: nf_conntrack.h: use this_cpu_inc()
+Date: Thu, 19 Apr 2012 20:16:00 +0200
+Message-ID: <20120419181600.GA17878@1984>
+References: <1334723800.2472.88.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ben@simtec.co.uk, netdev@vger.kernel.org
-To: mjr@cs.wisc.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:31295 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754475Ab2DSSNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 14:13:52 -0400
-In-Reply-To: <1334855837-28366-1-git-send-email-mjr@cs.wisc.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Christoph Lameter <cl@linux.com>, Tejun Heo <tj@kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netfilter Development Mailing list
+	<netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1334723800.2472.88.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/19/12 10:17, mjr@cs.wisc.edu wrote:
-> From: Matt Renzelmann <mjr@cs.wisc.edu>
->
-> The dev_id parameter passed to free_irq needs to match the one passed
-> to the corresponding request_irq.
->
-> Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
+On Wed, Apr 18, 2012 at 06:36:40AM +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> this_cpu_inc() is IRQ safe and faster than
+> local_bh_disable()/__this_cpu_inc()/local_bh_enable(), at least on x86.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Christoph Lameter <cl@linux.com>
+> Cc: Tejun Heo <tj@kernel.org>
 
-Acked-by: Stephen Boyd <sboyd@codeaurora.org>
-
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
+Applied, thanks.
