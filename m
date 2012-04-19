@@ -1,124 +1,155 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 07/19] net ipv6: Remove unneded registration of an empty net/ipv6/neigh
-Date: Thu, 19 Apr 2012 16:26:19 -0700
-Message-ID: <m18vhrgv6s.fsf@fess.ebiederm.org>
-References: <m1aa27ia6h.fsf@fess.ebiederm.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: e1000e tx queue timeout in 3.3.0 (bisected to BQL
+	support for e1000e)
+Date: Thu, 19 Apr 2012 16:27:07 -0700
+Message-ID: <4F909F4B.1010707@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>, pablo@netfilter.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Pavel Emelyanov <xemul@openvz.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:46188 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919Ab2DSXWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 19:22:19 -0400
-In-Reply-To: <m1aa27ia6h.fsf@fess.ebiederm.org> (Eric W. Biederman's message
-	of "Thu, 19 Apr 2012 16:17:10 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>,
+	e1000-devel list <e1000-devel@lists.sourceforge.net>, therbert@google.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+Test case:
+
+Run full duplex traffic (900Mbps rx, 400Mbps tx) UDP traffic
+(moderate speeds of traffic has issues as well, maybe not as easy to reproduce)
+reset peer interface
+----> tx queue timeout
 
 
-sysctl no longer requires explicit creation of directories.  The neigh
-directory is always populated with at least a default entry so this
-should cause no user visible changes.
+Apr 19 16:12:48 localhost kernel: e1000e: eth2 NIC Link is Down
+Apr 19 16:12:48 localhost kernel: e1000e 0000:08:00.0: eth2: Reset adapter
+Apr 19 16:12:48 localhost kernel: e1000e: eth3 NIC Link is Down
+Apr 19 16:12:50 localhost kernel: e1000e: eth2 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
+Apr 19 16:12:50 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth2: link becomes ready
+Apr 19 16:12:50 localhost kernel: e1000e: eth3 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
+Apr 19 16:12:50 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth3: link becomes ready
+Apr 19 16:12:54 localhost /usr/sbin/irqbalance: Load average increasing, re-enabling all cpus for irq balancing
+Apr 19 16:12:55 localhost kernel: ------------[ cut here ]------------
+Apr 19 16:12:55 localhost kernel: WARNING: at /home/greearb/git/linux-3.3.dev.y/net/sched/sch_generic.c:256 dev_watchdog+0xf4/0x154()
+Apr 19 16:12:55 localhost kernel: Hardware name: X7DBU
+Apr 19 16:12:55 localhost kernel: NETDEV WATCHDOG: eth2 (e1000e): transmit queue 0 timed out
+Apr 19 16:12:55 localhost kernel: Modules linked in: xt_CT iptable_raw 8021q garp stp llc veth ppdev parport_pc lp parport fuse macvlan pktgen iscsi_tcp
+libiscsi_tcp libiscsi scsi_transport_iscsi lockd w83793 w83627hf hwmon_vid coretemp iTCO_wdt microcode iTCO_vendor_support pcspkr i5k_amb ioatdma i2c_i801
+i5000_edac dca edac_core e1000e shpchp uinput sunrpc ipv6 autofs4 floppy radeon ttm drm_kms_helper drm hwmon i2c_algo_bit i2c_core [last unloaded: nf_nat]
+Apr 19 16:12:55 localhost kernel: Pid: 0, comm: kworker/0:1 Not tainted 3.2.0-rc2+ #36
+Apr 19 16:12:55 localhost kernel: Call Trace:
+Apr 19 16:12:55 localhost kernel: <IRQ>  [<ffffffff81042902>] warn_slowpath_common+0x80/0x98
+Apr 19 16:12:55 localhost kernel: [<ffffffff810429ae>] warn_slowpath_fmt+0x41/0x43
+Apr 19 16:12:55 localhost kernel: [<ffffffff8139f8a3>] dev_watchdog+0xf4/0x154
+Apr 19 16:12:55 localhost kernel: [<ffffffff8104d371>] run_timer_softirq+0x16f/0x201
+Apr 19 16:12:55 localhost kernel: [<ffffffff8139f7af>] ? netif_tx_unlock+0x57/0x57
+Apr 19 16:12:55 localhost kernel: [<ffffffff81047e47>] __do_softirq+0x86/0x12f
+Apr 19 16:12:55 localhost kernel: [<ffffffff8105d54e>] ? hrtimer_interrupt+0x12b/0x1bd
+Apr 19 16:12:55 localhost kernel: [<ffffffff8144296c>] call_softirq+0x1c/0x30
+Apr 19 16:12:55 localhost kernel: [<ffffffff8100bb75>] do_softirq+0x41/0x7e
+Apr 19 16:12:55 localhost kernel: [<ffffffff81047c26>] irq_exit+0x3f/0xbb
+Apr 19 16:12:55 localhost kernel: [<ffffffff81021df5>] smp_apic_timer_interrupt+0x85/0x93
+Apr 19 16:12:55 localhost kernel: [<ffffffff814411de>] apic_timer_interrupt+0x6e/0x80
+Apr 19 16:12:55 localhost kernel: <EOI>  [<ffffffff81010b8c>] ? mwait_idle+0x6e/0x8c
+Apr 19 16:12:55 localhost kernel: [<ffffffff81010b7f>] ? mwait_idle+0x61/0x8c
+Apr 19 16:12:55 localhost kernel: [<ffffffff81009e72>] cpu_idle+0x67/0xbe
+Apr 19 16:12:55 localhost kernel: [<ffffffff81435477>] start_secondary+0x194/0x199
+Apr 19 16:12:55 localhost kernel: ---[ end trace e3ca12fc1a8b85da ]---
+Apr 19 16:12:55 localhost kernel: e1000e 0000:08:00.0: eth2: Reset adapter
+Apr 19 16:12:57 localhost abrt-dump-oops[898]: abrt-dump-oops: Found oopses: 1
+Apr 19 16:12:57 localhost abrt-dump-oops[898]: abrt-dump-oops: Creating dump directories
+Apr 19 16:12:57 localhost abrtd: Directory 'oops-2012-04-19-16:12:57-898-0' creation detected
+Apr 19 16:12:57 localhost abrt-dump-oops: Reported 1 kernel oopses to Abrt
+Apr 19 16:12:57 localhost abrtd: Can't open file '/var/spool/abrt/oops-2012-04-19-16:12:57-898-0/uid': No such file or directory
+Apr 19 16:12:57 localhost abrtd: DUP_OF_DIR: /var/spool/abrt/oops-2012-04-19-15:02:13-862-0
+Apr 19 16:12:57 localhost abrtd: Dump directory is a duplicate of /var/spool/abrt/oops-2012-04-19-15:02:13-862-0
+Apr 19 16:12:57 localhost abrtd: Deleting dump directory oops-2012-04-19-16:12:57-898-0 (dup of oops-2012-04-19-15:02:13-862-0), sending dbus signal
+Apr 19 16:12:58 localhost kernel: e1000e: eth2 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
+Apr 19 16:12:58 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth2: link becomes ready
+Apr 19 16:13:03 localhost /usr/sbin/irqbalance: Load average increasing, re-enabling all cpus for irq balancing
+Apr 19 16:13:04 localhost kernel: e1000e 0000:08:00.0: eth2: Reset adapter
+Apr 19 16:13:05 localhost chronyd[1003]: Selected source 108.59.2.194
+Apr 19 16:13:07 localhost kernel: e1000e: eth2 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
+Apr 19 16:13:07 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth2: link becomes ready
+....
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- net/ipv6/af_inet6.c        |   15 ---------------
- net/ipv6/sysctl_net_ipv6.c |   27 ---------------------------
- 2 files changed, 0 insertions(+), 42 deletions(-)
+lspci:
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 8ed1b93..461e789 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -1111,11 +1111,6 @@ static int __init inet6_init(void)
- 	if (err)
- 		goto out_sock_register_fail;
- 
--#ifdef CONFIG_SYSCTL
--	err = ipv6_static_sysctl_register();
--	if (err)
--		goto static_sysctl_fail;
--#endif
- 	tcpv6_prot.sysctl_mem = init_net.ipv4.sysctl_tcp_mem;
- 
- 	/*
-@@ -1242,10 +1237,6 @@ ipmr_fail:
- icmp_fail:
- 	unregister_pernet_subsys(&inet6_net_ops);
- register_pernet_fail:
--#ifdef CONFIG_SYSCTL
--	ipv6_static_sysctl_unregister();
--static_sysctl_fail:
--#endif
- 	sock_unregister(PF_INET6);
- 	rtnl_unregister_all(PF_INET6);
- out_sock_register_fail:
-@@ -1272,9 +1263,6 @@ static void __exit inet6_exit(void)
- 	/* Disallow any further netlink messages */
- 	rtnl_unregister_all(PF_INET6);
- 
--#ifdef CONFIG_SYSCTL
--	ipv6_sysctl_unregister();
--#endif
- 	udpv6_exit();
- 	udplitev6_exit();
- 	tcpv6_exit();
-@@ -1302,9 +1290,6 @@ static void __exit inet6_exit(void)
- 	rawv6_exit();
- 
- 	unregister_pernet_subsys(&inet6_net_ops);
--#ifdef CONFIG_SYSCTL
--	ipv6_static_sysctl_unregister();
--#endif
- 	proto_unregister(&rawv6_prot);
- 	proto_unregister(&udplitev6_prot);
- 	proto_unregister(&udpv6_prot);
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 99279c8..cf1e96a 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -16,18 +16,6 @@
- #include <net/addrconf.h>
- #include <net/inet_frag.h>
- 
--static struct ctl_table empty[1];
--
--static ctl_table ipv6_static_skeleton[] = {
--	{
--		.procname	= "neigh",
--		.maxlen		= 0,
--		.mode		= 0555,
--		.child		= empty,
--	},
--	{ }
--};
--
- static ctl_table ipv6_table_template[] = {
- 	{
- 		.procname	= "route",
-@@ -160,18 +148,3 @@ void ipv6_sysctl_unregister(void)
- 	unregister_net_sysctl_table(ip6_header);
- 	unregister_pernet_subsys(&ipv6_sysctl_net_ops);
- }
--
--static struct ctl_table_header *ip6_base;
--
--int ipv6_static_sysctl_register(void)
--{
--	ip6_base = register_net_sysctl_table(&init_net, net_ipv6_ctl_path, ipv6_static_skeleton);
--	if (ip6_base == NULL)
--		return -ENOMEM;
--	return 0;
--}
--
--void ipv6_static_sysctl_unregister(void)
--{
--	unregister_net_sysctl_table(ip6_base);
--}
+08:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
+	Subsystem: Intel Corporation PRO/1000 PT Dual Port Server Adapter
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0, Cache Line Size: 32 bytes
+	Interrupt: pin A routed to IRQ 74
+	Region 0: Memory at d8300000 (32-bit, non-prefetchable) [size=128K]
+	Region 2: I/O ports at 3000 [size=32]
+	[virtual] Expansion ROM at d8d00000 [disabled] [size=128K]
+	Capabilities: [c8] Power Management version 2
+		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold-)
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
+	Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+		Address: 00000000feeff00c  Data: 41a3
+	Capabilities: [e0] Express (v1) Endpoint, MSI 00
+		DevCap:	MaxPayload 256 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us
+			ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
+		DevCtl:	Report errors: Correctable+ Non-Fatal+ Fatal+ Unsupported+
+			RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+			MaxPayload 128 bytes, MaxReadReq 4096 bytes
+		DevSta:	CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxPwr- TransPend-
+		LnkCap:	Port #1, Speed 2.5GT/s, Width x2, ASPM L0s L1, Latency L0 <4us, L1 <64us
+			ClockPM- Surprise- LLActRep- BwNot-
+		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed 2.5GT/s, Width x2, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
+	Capabilities: [100 v1] Advanced Error Reporting
+		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
+		UEMsk:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+		UESvrt:	DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
+		CESta:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
+		CEMsk:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
+		AERCap:	First Error Pointer: 14, GenCap- CGenEn- ChkCap- ChkEn-
+	Capabilities: [140 v1] Device Serial Number 00-e0-ed-ff-ff-0c-11-6e
+	Kernel driver in use: e1000e
+	Kernel modules: e1000e
+
+
+3f0cfa3bc11e7f00c9994e0f469cbc0e7da7b00c is the first bad commit
+commit 3f0cfa3bc11e7f00c9994e0f469cbc0e7da7b00c
+Author: Tom Herbert <therbert@google.com>
+Date:   Mon Nov 28 16:33:16 2011 +0000
+
+     e1000e: Support for byte queue limits
+
+     Changes to e1000e to use byte queue limits.
+
+     Signed-off-by: Tom Herbert <therbert@google.com>
+     Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+     Signed-off-by: David S. Miller <davem@davemloft.net>
+
+:040000 040000 bf3e2ec64fd74253563e1ab39797b27a5f2df3fe 51914e221547b95a989b5c7e9b037c9370fd734e M	drivers
+
+
+Thanks,
+Ben
+
 -- 
-1.7.2.5
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
+
+------------------------------------------------------------------------------
+For Developers, A Lot Can Happen In A Second.
+Boundary is the first to Know...and Tell You.
+Monitor Your Applications in Ultra-Fine Resolution. Try it FREE!
+http://p.sf.net/sfu/Boundary-d2dvs2
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
