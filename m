@@ -1,42 +1,53 @@
-From: Massimo Cetra <mcetra@navynet.it>
-Subject: Re: [PATCH] set fake_rtable's dst to NULL to avoid kernel Oops.
-Date: Thu, 19 Apr 2012 09:58:39 +0200
-Message-ID: <4F8FC5AF.7020403@navynet.it>
-References: <000001cd1c62$75d10de0$617329a0$%huangpeng@huawei.com> <20120418190450.GA30185@burratino>
+From: xiong <xiong@qca.qualcomm.com>
+Subject: [PATCH 04/11] atl1c: remove dmar_dly_cnt and dmaw_dly_cnt
+Date: Thu, 19 Apr 2012 16:01:24 +0800
+Message-ID: <1334822491-30129-5-git-send-email-xiong@qca.qualcomm.com>
+References: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Peter Huang (Peng)" <peter.huangpeng@huawei.com>,
-	shemminger@vyatta.com, "'David S. Miller'" <davem@davemloft.net>,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, ctrix+debianbugs@navynet.it,
-	peter.huangpeng@gmail.com, harry.majun@huawei.com
-To: Jonathan Nieder <jrnieder@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host188-6-static.238-77-b.business.telecomitalia.it ([77.238.6.188]:51451
-	"EHLO max.ctrix.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752574Ab2DSIEs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 04:04:48 -0400
-In-Reply-To: <20120418190450.GA30185@burratino>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
+	xiong <xiong@qca.qualcomm.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18/04/2012 21:04, Jonathan Nieder wrote:
->
-> Massimo Cetra (cc-ed) tested the patch against a 3.2.y kernel and wrote[1]:
->
->> The patch i applied yesterday to the debian kernel has been installed
->> and the kernel is not panic-ing anymore.
->>
->> I'll try to keep this bug up to date.
->
-> So it seems to work.  Dave, please consider queuing this for stable@
-> when the final patch is ready.
+dmar_dly_cnt and dmaw_dly_cnt aren't used by hardware/driver any more.
 
-Also please consider that the bridge problems are not over and the 
-kernel keeps panicing in a different way...
+Signed-off-by: xiong <xiong@qca.qualcomm.com>
+Tested-by: Liu David <dwliu@qca.qualcomm.com>
+---
+ drivers/net/ethernet/atheros/atl1c/atl1c.h      |    2 --
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 --
+ 2 files changed, 0 insertions(+), 4 deletions(-)
 
-- http://marc.info/?t=133474395500004&r=1&w=2
-
-Thanks,
-Massimo
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+index fa31551..acc2956 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+@@ -382,8 +382,6 @@ struct atl1c_hw {
+ 	u16 phy_id2;
+ 
+ 	u32 intr_mask;
+-	u8 dmaw_dly_cnt;
+-	u8 dmar_dly_cnt;
+ 
+ 	u8 preamble_len;
+ 	u16 max_frame_size;
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index e8e9c10..12b4725 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -745,8 +745,6 @@ static int __devinit atl1c_sw_init(struct atl1c_adapter *adapter)
+ 	hw->rfd_burst = 8;
+ 	hw->dma_order = atl1c_dma_ord_out;
+ 	hw->dmar_block = atl1c_dma_req_1024;
+-	hw->dmar_dly_cnt = 15;
+-	hw->dmaw_dly_cnt = 4;
+ 
+ 	if (atl1c_alloc_queues(adapter)) {
+ 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
+-- 
+1.7.7
