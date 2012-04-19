@@ -1,35 +1,241 @@
 From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH net-next 0/6] TCP connection repair (v4)
-Date: Thu, 19 Apr 2012 17:38:58 +0400
-Message-ID: <4F901572.4040009@parallels.com>
+Subject: [PATCH 1/6] sock: Introduce named constants for sk_reuse
+Date: Thu, 19 Apr 2012 17:39:36 +0400
+Message-ID: <4F901598.4010809@parallels.com>
+References: <4F901572.4040009@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: Linux Netdev List <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:39610 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:30505 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754211Ab2DSNjH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Apr 2012 09:39:07 -0400
+	id S1754211Ab2DSNjo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2012 09:39:44 -0400
+In-Reply-To: <4F901572.4040009@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Name them in a "backward compatible" manner, i.e. reuse or not
+are still 1 and 0 respectively. The reuse value of 2 means that
+the socket with it will forcibly reuse everyone else's port.
 
-Attempt #4 with an API for TCP connection recreation (previous one is
-at http://lists.openwall.net/netdev/2012/03/28/84) re-based on the
-today's net-next tree.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+---
+ drivers/block/drbd/drbd_receiver.c    |    6 +++---
+ drivers/scsi/iscsi_tcp.c              |    2 +-
+ drivers/staging/ramster/cluster/tcp.c |    2 +-
+ fs/ocfs2/cluster/tcp.c                |    2 +-
+ include/net/sock.h                    |   11 +++++++++++
+ net/core/sock.c                       |    2 +-
+ net/econet/af_econet.c                |    4 ++--
+ net/ipv4/af_inet.c                    |    2 +-
+ net/ipv4/inet_connection_sock.c       |    3 +++
+ net/ipv6/af_inet6.c                   |    2 +-
+ net/netfilter/ipvs/ip_vs_sync.c       |    2 +-
+ net/rds/tcp_listen.c                  |    2 +-
+ net/sunrpc/svcsock.c                  |    2 +-
+ 13 files changed, 28 insertions(+), 14 deletions(-)
 
-
-Changes since v3:
-
-* Added repair for TCP options negotiated during 3WHS process, pointed
-  out by Li Yu. The explanation of how this happens is in patch #6.
-
-* Named constant for sk_reuse values as proposed by Ben Hutching.
-
-* Off-by-one in repair-queue sockoption caught by Ben.
-
-Thanks,
-Pavel
+diff --git a/drivers/block/drbd/drbd_receiver.c b/drivers/block/drbd/drbd_receiver.c
+index 43beaca..436f519 100644
+--- a/drivers/block/drbd/drbd_receiver.c
++++ b/drivers/block/drbd/drbd_receiver.c
+@@ -664,7 +664,7 @@ static struct socket *drbd_wait_for_connect(struct drbd_conf *mdev)
+ 	timeo = mdev->net_conf->try_connect_int * HZ;
+ 	timeo += (random32() & 1) ? timeo / 7 : -timeo / 7; /* 28.5% random jitter */
+ 
+-	s_listen->sk->sk_reuse    = 1; /* SO_REUSEADDR */
++	s_listen->sk->sk_reuse    = SK_CAN_REUSE; /* SO_REUSEADDR */
+ 	s_listen->sk->sk_rcvtimeo = timeo;
+ 	s_listen->sk->sk_sndtimeo = timeo;
+ 	drbd_setbufsize(s_listen, mdev->net_conf->sndbuf_size,
+@@ -841,8 +841,8 @@ retry:
+ 		}
+ 	} while (1);
+ 
+-	msock->sk->sk_reuse = 1; /* SO_REUSEADDR */
+-	sock->sk->sk_reuse = 1; /* SO_REUSEADDR */
++	msock->sk->sk_reuse = SK_CAN_REUSE; /* SO_REUSEADDR */
++	sock->sk->sk_reuse = SK_CAN_REUSE; /* SO_REUSEADDR */
+ 
+ 	sock->sk->sk_allocation = GFP_NOIO;
+ 	msock->sk->sk_allocation = GFP_NOIO;
+diff --git a/drivers/scsi/iscsi_tcp.c b/drivers/scsi/iscsi_tcp.c
+index 453a740..9220861 100644
+--- a/drivers/scsi/iscsi_tcp.c
++++ b/drivers/scsi/iscsi_tcp.c
+@@ -662,7 +662,7 @@ iscsi_sw_tcp_conn_bind(struct iscsi_cls_session *cls_session,
+ 
+ 	/* setup Socket parameters */
+ 	sk = sock->sk;
+-	sk->sk_reuse = 1;
++	sk->sk_reuse = SK_CAN_REUSE;
+ 	sk->sk_sndtimeo = 15 * HZ; /* FIXME: make it configurable */
+ 	sk->sk_allocation = GFP_ATOMIC;
+ 
+diff --git a/drivers/staging/ramster/cluster/tcp.c b/drivers/staging/ramster/cluster/tcp.c
+index 3af1b2c..b9721c1 100644
+--- a/drivers/staging/ramster/cluster/tcp.c
++++ b/drivers/staging/ramster/cluster/tcp.c
+@@ -2106,7 +2106,7 @@ static int r2net_open_listening_sock(__be32 addr, __be16 port)
+ 	r2net_listen_sock = sock;
+ 	INIT_WORK(&r2net_listen_work, r2net_accept_many);
+ 
+-	sock->sk->sk_reuse = 1;
++	sock->sk->sk_reuse = SK_CAN_REUSE;
+ 	ret = sock->ops->bind(sock, (struct sockaddr *)&sin, sizeof(sin));
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "ramster: Error %d while binding socket at "
+diff --git a/fs/ocfs2/cluster/tcp.c b/fs/ocfs2/cluster/tcp.c
+index 044e7b5..1bfe880 100644
+--- a/fs/ocfs2/cluster/tcp.c
++++ b/fs/ocfs2/cluster/tcp.c
+@@ -2005,7 +2005,7 @@ static int o2net_open_listening_sock(__be32 addr, __be16 port)
+ 	o2net_listen_sock = sock;
+ 	INIT_WORK(&o2net_listen_work, o2net_accept_many);
+ 
+-	sock->sk->sk_reuse = 1;
++	sock->sk->sk_reuse = SK_CAN_REUSE;
+ 	ret = sock->ops->bind(sock, (struct sockaddr *)&sin, sizeof(sin));
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "o2net: Error %d while binding socket at "
+diff --git a/include/net/sock.h b/include/net/sock.h
+index a6ba1f8..4cdb9b3 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -376,6 +376,17 @@ struct sock {
+ 	void                    (*sk_destruct)(struct sock *sk);
+ };
+ 
++/*
++ * SK_CAN_REUSE and SK_NO_REUSE on a socket mean that the socket is OK
++ * or not whether his port will be reused by someone else. SK_FORCE_REUSE
++ * on a socket means that the socket will reuse everybody else's port
++ * without looking at the other's sk_reuse value.
++ */
++
++#define SK_NO_REUSE	0
++#define SK_CAN_REUSE	1
++#define SK_FORCE_REUSE	2
++
+ static inline int sk_peek_offset(struct sock *sk, int flags)
+ {
+ 	if ((flags & MSG_PEEK) && (sk->sk_peek_off >= 0))
+diff --git a/net/core/sock.c b/net/core/sock.c
+index c7e60ea..679c5bb 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -561,7 +561,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 			sock_valbool_flag(sk, SOCK_DBG, valbool);
+ 		break;
+ 	case SO_REUSEADDR:
+-		sk->sk_reuse = valbool;
++		sk->sk_reuse = (valbool ? SK_CAN_REUSE : SK_NO_REUSE);
+ 		break;
+ 	case SO_TYPE:
+ 	case SO_PROTOCOL:
+diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+index 71b5edc..fa14ca7 100644
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -617,7 +617,7 @@ static int econet_create(struct net *net, struct socket *sock, int protocol,
+ 	if (sk == NULL)
+ 		goto out;
+ 
+-	sk->sk_reuse = 1;
++	sk->sk_reuse = SK_CAN_REUSE;
+ 	sock->ops = &econet_ops;
+ 	sock_init_data(sock, sk);
+ 
+@@ -1012,7 +1012,7 @@ static int __init aun_udp_initialise(void)
+ 		return error;
+ 	}
+ 
+-	udpsock->sk->sk_reuse = 1;
++	udpsock->sk->sk_reuse = SK_CAN_REUSE;
+ 	udpsock->sk->sk_allocation = GFP_ATOMIC; /* we're going to call it
+ 						    from interrupts */
+ 
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 3744c1c..c8f7aee 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -350,7 +350,7 @@ lookup_protocol:
+ 	err = 0;
+ 	sk->sk_no_check = answer_no_check;
+ 	if (INET_PROTOSW_REUSE & answer_flags)
+-		sk->sk_reuse = 1;
++		sk->sk_reuse = SK_CAN_REUSE;
+ 
+ 	inet = inet_sk(sk);
+ 	inet->is_icsk = (INET_PROTOSW_ICSK & answer_flags) != 0;
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 7d972f6..95e6159 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -182,6 +182,9 @@ have_snum:
+ 	goto tb_not_found;
+ tb_found:
+ 	if (!hlist_empty(&tb->owners)) {
++		if (sk->sk_reuse == SK_FORCE_REUSE)
++			goto success;
++
+ 		if (tb->fastreuse > 0 &&
+ 		    sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
+ 		    smallest_size == -1) {
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 8ed1b93..499e74e 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -180,7 +180,7 @@ lookup_protocol:
+ 	err = 0;
+ 	sk->sk_no_check = answer_no_check;
+ 	if (INET_PROTOSW_REUSE & answer_flags)
+-		sk->sk_reuse = 1;
++		sk->sk_reuse = SK_CAN_REUSE;
+ 
+ 	inet = inet_sk(sk);
+ 	inet->is_icsk = (INET_PROTOSW_ICSK & answer_flags) != 0;
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index f4e0b6c..bf5e538 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1368,7 +1368,7 @@ static struct socket *make_receive_sock(struct net *net)
+ 	 */
+ 	sk_change_net(sock->sk, net);
+ 	/* it is equivalent to the REUSEADDR option in user-space */
+-	sock->sk->sk_reuse = 1;
++	sock->sk->sk_reuse = SK_CAN_REUSE;
+ 
+ 	result = sock->ops->bind(sock, (struct sockaddr *) &mcast_addr,
+ 			sizeof(struct sockaddr));
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index 8b5cc4a..7298137 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -145,7 +145,7 @@ int rds_tcp_listen_init(void)
+ 	if (ret < 0)
+ 		goto out;
+ 
+-	sock->sk->sk_reuse = 1;
++	sock->sk->sk_reuse = SK_CAN_REUSE;
+ 	rds_tcp_nonagle(sock);
+ 
+ 	write_lock_bh(&sock->sk->sk_callback_lock);
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index 824d32f..f0132b2 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -1556,7 +1556,7 @@ static struct svc_xprt *svc_create_socket(struct svc_serv *serv,
+ 					(char *)&val, sizeof(val));
+ 
+ 	if (type == SOCK_STREAM)
+-		sock->sk->sk_reuse = 1;		/* allow address reuse */
++		sock->sk->sk_reuse = SK_CAN_REUSE; /* allow address reuse */
+ 	error = kernel_bind(sock, sin, len);
+ 	if (error < 0)
+ 		goto bummer;
+-- 
+1.5.5.6
