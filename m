@@ -1,63 +1,107 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net ax25: Reorder ax25_exit to remove races.
-Date: Wed, 18 Apr 2012 19:11:23 -0700
-Message-ID: <m1hawgjws4.fsf@fess.ebiederm.org>
+From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+Subject: [PATCH v3] set fake_rtable's dst to NULL to avoid kernel Oops.
+Date: Thu, 19 Apr 2012 10:27:01 +0800
+Message-ID: <4F8F77F5.8020201@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, Ralf Baechle <ralf@linux-mips.org>,
-	linux-hams@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: ctrix+debianbugs@navynet.it, Eric Dumazet <eric.dumazet@gmail.com>,
+	harry.majun@huawei.com, linux-kernel@vger.kernel.org,
+	peter.huangpeng@gmail.com, peter.huangpeng@huawei.com
+To: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+When bridge is deleted before tap/vif device's delete, kernel may 
+encounter an oops because of NULL reference to fake_rtable's dst.
+Set fake_rtable's dst to NULL before sending packets out can solve this 
+problem.
 
-While reviewing the sysctl code in ax25 I spotted races in ax25_exit
-where it is possible to receive notifications and packets after already
-freeing up some of the data structures needed to process those
-notifications and updates.
+v3 enrich commit header
 
-Call unregister_netdevice_notifier early so that the rest of the cleanup
-code does not need to deal with network devices.  This takes advantage
-of my recent enhancement to unregister_netdevice_notifier to send
-unregister notifications of all network devices that are current
-registered.
+v2 added a new flag DST_FAKE_RTABLE to dst_entry struct.
 
-Move the unregistration for packet types, socket types and protocol
-types before we cleanup any of the ax25 data structures to remove the
-possibilities of other races.
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
 ---
- net/ax25/af_ax25.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+  include/linux/netfilter_bridge.h |    8 ++++++++
+  include/net/dst.h                |    1 +
+  net/bridge/br_forward.c          |    1 +
+  net/bridge/br_netfilter.c        |    8 ++------
+  4 files changed, 12 insertions(+), 6 deletions(-)
+diff --git a/include/linux/netfilter_bridge.h 
+b/include/linux/netfilter_bridge.h
+index 0ddd161..51745df 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -104,9 +104,17 @@ struct bridge_skb_cb {
+         } daddr;
+  };
 
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index 0906c19..9d9a6a3 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -2011,16 +2011,17 @@ static void __exit ax25_exit(void)
- 	proc_net_remove(&init_net, "ax25_route");
- 	proc_net_remove(&init_net, "ax25");
- 	proc_net_remove(&init_net, "ax25_calls");
--	ax25_rt_free();
--	ax25_uid_free();
--	ax25_dev_free();
- 
--	ax25_unregister_sysctl();
- 	unregister_netdevice_notifier(&ax25_dev_notifier);
-+	ax25_unregister_sysctl();
- 
- 	dev_remove_pack(&ax25_packet_type);
- 
- 	sock_unregister(PF_AX25);
- 	proto_unregister(&ax25_proto);
++static inline void br_drop_fake_rtable(struct sk_buff *skb) {
++       struct dst_entry *dst = skb_dst(skb);
 +
-+	ax25_rt_free();
-+	ax25_uid_free();
-+	ax25_dev_free();
- }
- module_exit(ax25_exit);
--- 
-1.7.2.5
++       if (dst && (dst->flags & DST_FAKE_RTABLE))
++               skb_dst_drop(skb);
++}
++
+  #else
+  #define nf_bridge_maybe_copy_header(skb)       (0)
+  #define nf_bridge_pad(skb)                     (0)
++#define br_drop_fake_rtable(skb)               (0)
+  #endif /* CONFIG_BRIDGE_NETFILTER */
 
+  #endif /* __KERNEL__ */
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 59c5d18..b094030 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -55,6 +55,7 @@ struct dst_entry {
+  #define DST_NOCACHE            0x0010
+  #define DST_NOCOUNT            0x0020
+  #define DST_NOPEER             0x0040
++#define DST_FAKE_RTABLE                0x0080
+
+         short                   error;
+         short                   obsolete;
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 61f6534..a2098e3 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -47,6 +47,7 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
+                 kfree_skb(skb);
+         } else {
+                 skb_push(skb, ETH_HLEN);
++               br_drop_fake_rtable(skb);
+                 dev_queue_xmit(skb);
+         }
+
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index dec4f38..d7f49b6 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -156,7 +156,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
+         rt->dst.dev = br->dev;
+         rt->dst.path = &rt->dst;
+         dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+-       rt->dst.flags   = DST_NOXFRM | DST_NOPEER;
++       rt->dst.flags   = DST_NOXFRM | DST_NOPEER | DST_FAKE_RTABLE;
+         rt->dst.ops = &fake_dst_ops;
+  }
+
+@@ -694,11 +694,7 @@ static unsigned int br_nf_local_in(unsigned int 
+hook, struct sk_buff *skb,
+                                    const struct net_device *out,
+                                    int (*okfn)(struct sk_buff *))
+  {
+-       struct rtable *rt = skb_rtable(skb);
+-
+-       if (rt && rt == bridge_parent_rtable(in))
+-               skb_dst_drop(skb);
+-
++       br_drop_fake_rtable(skb);
+         return NF_ACCEPT;
+  }
