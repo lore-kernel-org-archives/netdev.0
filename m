@@ -1,15 +1,15 @@
 From: Wey-Yi Guy <wey-yi.w.guy@intel.com>
-Subject: [PATCH] update for net-next: iwlwifi: Remove inconsistent and redundant declaration
-Date: Thu, 19 Apr 2012 13:38:44 -0700
-Message-ID: <1334867924-6991-1-git-send-email-wey-yi.w.guy@intel.com>
+Subject: [PATCH] iwlwifi: Remove inconsistent and redundant declaration
+Date: Thu, 19 Apr 2012 13:46:38 -0700
+Message-ID: <1334868398-7095-1-git-send-email-wey-yi.w.guy@intel.com>
 Cc: netdev@vger.kernel.org, David Spinadel <david.spinadel@intel.com>,
 	Wey-Yi Guy <wey-yi.w.guy@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53003 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:50820 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751396Ab2DSUnX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Apr 2012 16:43:23 -0400
+	id S1751396Ab2DSUvR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2012 16:51:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
