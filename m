@@ -1,86 +1,106 @@
-From: <wenqi_ma@trendmicro.com.cn>
-Subject: RE: [PATCH] net/hyperv: RX packets may keep on increasing although
- the NIC is down
-Date: Thu, 19 Apr 2012 00:45:39 +0000
-Message-ID: <16ED384958674747ACD81E6F1D403F4FE088@CDCEXMBX01.tw.trendnet.org>
-References: <1334757694-21745-1-git-send-email-wenqi_ma@trendmicro.com.cn>
-  <A1F3067C9B68744AA19F6802BAB8FFDC0DD331FB@TK5EX14MBXC221.redmond.corp.microsoft.com>
+From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+Subject: [PATCH v2] set fake_rtable's dst to NULL to avoid kernel Oops.
+Date: Thu, 19 Apr 2012 08:52:57 +0800
+Message-ID: <4F8F61E9.202@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <kys@microsoft.com>
-To: <haiyangz@microsoft.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: ctrix+debianbugs@navynet.it, peter.huangpeng@gmail.com,
+	harry.majun@huawei.com, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	peter.huangpeng@huawei.com
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	"'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sjdciscan01.udc.trendmicro.com ([66.180.82.17]:42329 "EHLO
-	sjdciscan01.udc.trendmicro.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754042Ab2DSApn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Apr 2012 20:45:43 -0400
-In-Reply-To: <A1F3067C9B68744AA19F6802BAB8FFDC0DD331FB@TK5EX14MBXC221.redmond.corp.microsoft.com>
-Content-Language: en-US
+Received: from szxga01-in.huawei.com ([58.251.152.64]:38949 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752521Ab2DSAxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 20:53:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for your comments and suggestion, I will resubmit the revised patch later.
-
-Best Regards,
-Wenqi Ma
-
------Original Message-----
-From: Haiyang Zhang [mailto:haiyangz@microsoft.com] 
-Sent: Wednesday, April 18, 2012 10:20 PM
-To: Wenqi Ma (RD-CN); netdev@vger.kernel.org
-Cc: davem@davemloft.net; KY Srinivasan
-Subject: RE: [PATCH] net/hyperv: RX packets may keep on increasing although the NIC is down
+Compared with the patch sent before I added a new flag DST_FAKE_RTABLE 
+to dst_entry struct.
 
 
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
+---
+  include/linux/netfilter_bridge.h |    8 ++++++++
+  include/net/dst.h                |    1 +
+  net/bridge/br_forward.c          |    1 +
+  net/bridge/br_netfilter.c        |    8 ++------
+  4 files changed, 12 insertions(+), 6 deletions(-)
+diff --git a/include/linux/netfilter_bridge.h 
+b/include/linux/netfilter_bridge.h
+index 0ddd161..51745df 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -104,9 +104,17 @@ struct bridge_skb_cb {
+         } daddr;
+  };
 
-> -----Original Message-----
-> From: Haiyang Zhang
-> Sent: Wednesday, April 18, 2012 10:11 AM
-> To: 'Wenqi Ma'; netdev@vger.kernel.org
-> Cc: davem@davemloft.net; KY Srinivasan
-> Subject: RE: [PATCH] net/hyperv: RX packets may keep on increasing
-> although the NIC is down
-> 
-> 
-> 
-> > -----Original Message-----
-> > From: Wenqi Ma [mailto:wenqi_ma@trendmicro.com.cn]
-> > Sent: Wednesday, April 18, 2012 10:02 AM
-> > To: netdev@vger.kernel.org
-> > Cc: davem@davemloft.net; Haiyang Zhang; Wenqi Ma
-> > Subject: [PATCH] net/hyperv: RX packets may keep on increasing although
-> > the NIC is down
-> >
-> > Although the network interface is down, the RX packets number which
-> > could be observed by ifconfig may keep on increasing.
-> >
-> > This is because the WORK scheduled in netvsc_set_multicast_list()
-> > may be executed after netvsc_close(). That means the rndis filter
-> > may be re-enabled by do_set_multicast() even if it was closed by
-> > netvsc_close().
-> >
-> > By canceling possible WORK before close the rndis filter, the issue
-> > could be never happened.
-> >
-> > Signed-off-by: Wenqi Ma <wenqi_ma@trendmicro.com.cn>
-> > ---
-> >  drivers/net/hyperv/netvsc_drv.c |   32 +++++++++++++-------------------
-> >  1 files changed, 13 insertions(+), 19 deletions(-)
-> 
-> Thanks for patching it. I have some comments --
-> The existing "struct set_multicast_work" is no longer in use, so it should be
-> removed now.
-> You should also add cancel_work into netvsc_change_mtu().
++static inline void br_drop_fake_rtable(struct sk_buff *skb) {
++       struct dst_entry *dst = skb_dst(skb);
++
++       if (dst && (dst->flags & DST_FAKE_RTABLE))
++               skb_dst_drop(skb);
++}
++
+  #else
+  #define nf_bridge_maybe_copy_header(skb)       (0)
+  #define nf_bridge_pad(skb)                     (0)
++#define br_drop_fake_rtable(skb)               (0)
+  #endif /* CONFIG_BRIDGE_NETFILTER */
 
-Also the patch subject should say what fixes/changes you made, not the bug behavior.
-Recommend something like, "Adding cancellation to set promiscuous mode work".
+  #endif /* __KERNEL__ */
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 59c5d18..b094030 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -55,6 +55,7 @@ struct dst_entry {
+  #define DST_NOCACHE            0x0010
+  #define DST_NOCOUNT            0x0020
+  #define DST_NOPEER             0x0040
++#define DST_FAKE_RTABLE                0x0080
 
-Thanks,
-- Haiyang
+         short                   error;
+         short                   obsolete;
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 61f6534..a2098e3 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -47,6 +47,7 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
+                 kfree_skb(skb);
+         } else {
+                 skb_push(skb, ETH_HLEN);
++               br_drop_fake_rtable(skb);
+                 dev_queue_xmit(skb);
+         }
 
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index dec4f38..d7f49b6 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -156,7 +156,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
+         rt->dst.dev = br->dev;
+         rt->dst.path = &rt->dst;
+         dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+-       rt->dst.flags   = DST_NOXFRM | DST_NOPEER;
++       rt->dst.flags   = DST_NOXFRM | DST_NOPEER | DST_FAKE_RTABLE;
+         rt->dst.ops = &fake_dst_ops;
+  }
 
-TREND MICRO EMAIL NOTICE
-The information contained in this email and any attachments is confidential and may be subject to copyright or other intellectual property protection. If you are not the intended recipient, you are not authorized to use or disclose this information, and we request that you notify us by reply mail or telephone and delete the original message from your mail system.
+@@ -694,11 +694,7 @@ static unsigned int br_nf_local_in(unsigned int 
+hook, struct sk_buff *skb,
+                                    const struct net_device *out,
+                                    int (*okfn)(struct sk_buff *))
+  {
+-       struct rtable *rt = skb_rtable(skb);
+-
+-       if (rt && rt == bridge_parent_rtable(in))
+-               skb_dst_drop(skb);
+-
++       br_drop_fake_rtable(skb);
+         return NF_ACCEPT;
+  }
