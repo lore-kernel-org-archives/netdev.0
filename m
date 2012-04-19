@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 15/19] net ipv4: Convert devinet to use register_net_sysctl
-Date: Thu, 19 Apr 2012 16:42:09 -0700
-Message-ID: <m1wr5be1bi.fsf@fess.ebiederm.org>
+Subject: [PATCH net-next 16/19] net:  Convert nf_conntrack_proto to use register_net_sysctl
+Date: Thu, 19 Apr 2012 16:43:55 -0700
+Message-ID: <m1r4vje18k.fsf@fess.ebiederm.org>
 References: <m1aa27ia6h.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,118 +11,88 @@ Cc: <netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>,
 	Pavel Emelyanov <xemul@openvz.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:53643 "EHLO
+Received: from out02.mta.xmission.com ([166.70.13.232]:53815 "EHLO
 	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753860Ab2DSXiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 19:38:09 -0400
+	with ESMTP id S1753272Ab2DSXjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 19:39:55 -0400
 In-Reply-To: <m1aa27ia6h.fsf@fess.ebiederm.org> (Eric W. Biederman's message
 	of "Thu, 19 Apr 2012 16:17:10 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Using an ascii path to register_net_sysctl as opposed to the slightly
-awkward ctl_path allows for much simpler code.
-
-We no longer need to malloc dev_name to keep it alive the length of our
-sysctl register instead we can use a small temporary buffer on the
-stack.
+There isn't much advantage here except that strings paths are a bit
+easier to read, and converting everything to them allows me to kill off
+ctl_path.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/ipv4/devinet.c |   39 +++++----------------------------------
- 1 files changed, 5 insertions(+), 34 deletions(-)
+ include/net/netfilter/nf_conntrack_l3proto.h   |    2 +-
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    2 +-
+ net/netfilter/nf_conntrack_proto.c             |    8 ++++----
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 8a01bfb..88c9e3f 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1585,7 +1585,6 @@ static int ipv4_doint_and_flush(ctl_table *ctl, int write,
- static struct devinet_sysctl_table {
- 	struct ctl_table_header *sysctl_header;
- 	struct ctl_table devinet_vars[__IPV4_DEVCONF_MAX];
--	char *dev_name;
- } devinet_sysctl = {
- 	.devinet_vars = {
- 		DEVINET_SYSCTL_COMPLEX_ENTRY(FORWARDING, "forwarding",
-@@ -1627,16 +1626,7 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
- {
- 	int i;
- 	struct devinet_sysctl_table *t;
--
--#define DEVINET_CTL_PATH_DEV	3
--
--	struct ctl_path devinet_ctl_path[] = {
--		{ .procname = "net",  },
--		{ .procname = "ipv4", },
--		{ .procname = "conf", },
--		{ /* to be set */ },
--		{ },
--	};
-+	char path[sizeof("net/ipv4/conf/") + IFNAMSIZ];
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index e8010f4..9699c02 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -65,7 +65,7 @@ struct nf_conntrack_l3proto {
  
- 	t = kmemdup(&devinet_sysctl, sizeof(*t), GFP_KERNEL);
- 	if (!t)
-@@ -1648,27 +1638,15 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
- 		t->devinet_vars[i].extra2 = net;
- 	}
+ #ifdef CONFIG_SYSCTL
+ 	struct ctl_table_header	*ctl_table_header;
+-	struct ctl_path		*ctl_table_path;
++	const char		*ctl_table_path;
+ 	struct ctl_table	*ctl_table;
+ #endif /* CONFIG_SYSCTL */
  
--	/*
--	 * Make a copy of dev_name, because '.procname' is regarded as const
--	 * by sysctl and we wouldn't want anyone to change it under our feet
--	 * (see SIOCSIFNAME).
--	 */
--	t->dev_name = kstrdup(dev_name, GFP_KERNEL);
--	if (!t->dev_name)
--		goto free;
--
--	devinet_ctl_path[DEVINET_CTL_PATH_DEV].procname = t->dev_name;
-+	snprintf(path, sizeof(path), "net/ipv4/conf/%s", dev_name);
- 
--	t->sysctl_header = register_net_sysctl_table(net, devinet_ctl_path,
--			t->devinet_vars);
-+	t->sysctl_header = register_net_sysctl(net, path, t->devinet_vars);
- 	if (!t->sysctl_header)
--		goto free_procname;
-+		goto free;
- 
- 	p->sysctl = t;
- 	return 0;
- 
--free_procname:
--	kfree(t->dev_name);
- free:
- 	kfree(t);
- out:
-@@ -1684,7 +1662,6 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
- 
- 	cnf->sysctl = NULL;
- 	unregister_net_sysctl_table(t->sysctl_header);
--	kfree(t->dev_name);
- 	kfree(t);
- }
- 
-@@ -1714,12 +1691,6 @@ static struct ctl_table ctl_forward_entry[] = {
- 	},
- 	{ },
- };
--
--static __net_initdata struct ctl_path net_ipv4_path[] = {
--	{ .procname = "net", },
--	{ .procname = "ipv4", },
--	{ },
--};
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 345c7dc..91747d4 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -365,7 +365,7 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
+ 	.nla_policy	 = ipv4_nla_policy,
  #endif
+ #if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
+-	.ctl_table_path  = nf_net_ipv4_netfilter_sysctl_path,
++	.ctl_table_path  = "net/ipv4/netfilter",
+ 	.ctl_table	 = ip_ct_sysctl_table,
+ #endif
+ 	.me		 = THIS_MODULE,
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index bbc753f..8b631b0 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -36,11 +36,11 @@ static DEFINE_MUTEX(nf_ct_proto_mutex);
  
- static __net_init int devinet_init_net(struct net *net)
-@@ -1765,7 +1736,7 @@ static __net_init int devinet_init_net(struct net *net)
- 		goto err_reg_dflt;
- 
- 	err = -ENOMEM;
--	forw_hdr = register_net_sysctl_table(net, net_ipv4_path, tbl);
-+	forw_hdr = register_net_sysctl(net, "net/ipv4", tbl);
- 	if (forw_hdr == NULL)
- 		goto err_reg_ctl;
- 	net->ipv4.forw_hdr = forw_hdr;
+ #ifdef CONFIG_SYSCTL
+ static int
+-nf_ct_register_sysctl(struct ctl_table_header **header, struct ctl_path *path,
++nf_ct_register_sysctl(struct ctl_table_header **header, const char *path,
+ 		      struct ctl_table *table, unsigned int *users)
+ {
+ 	if (*header == NULL) {
+-		*header = register_net_sysctl_table(&init_net, path, table);
++		*header = register_net_sysctl(&init_net, path, table);
+ 		if (*header == NULL)
+ 			return -ENOMEM;
+ 	}
+@@ -250,7 +250,7 @@ static int nf_ct_l4proto_register_sysctl(struct nf_conntrack_l4proto *l4proto)
+ #ifdef CONFIG_SYSCTL
+ 	if (l4proto->ctl_table != NULL) {
+ 		err = nf_ct_register_sysctl(l4proto->ctl_table_header,
+-					    nf_net_netfilter_sysctl_path,
++					    "net/netfilter",
+ 					    l4proto->ctl_table,
+ 					    l4proto->ctl_table_users);
+ 		if (err < 0)
+@@ -259,7 +259,7 @@ static int nf_ct_l4proto_register_sysctl(struct nf_conntrack_l4proto *l4proto)
+ #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+ 	if (l4proto->ctl_compat_table != NULL) {
+ 		err = nf_ct_register_sysctl(&l4proto->ctl_compat_table_header,
+-					    nf_net_ipv4_netfilter_sysctl_path,
++					    "net/ipv4/netfilter",
+ 					    l4proto->ctl_compat_table, NULL);
+ 		if (err == 0)
+ 			goto out;
 -- 
 1.7.2.5
