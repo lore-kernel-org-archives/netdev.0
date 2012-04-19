@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 03/11] atl1c: update right threshold for TSO
-Date: Thu, 19 Apr 2012 16:01:23 +0800
-Message-ID: <1334822491-30129-4-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 05/11] atl1c: clear PCIE error status in atl1c_reset_pcie
+Date: Thu, 19 Apr 2012 16:01:25 +0800
+Message-ID: <1334822491-30129-6-git-send-email-xiong@qca.qualcomm.com>
 References: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,83 +9,78 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 	xiong <xiong@qca.qualcomm.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:5685 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753730Ab2DSICC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 04:02:02 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-atl1c_configure_tx used a wrong value of MAX_TX_OFFLOAD_THRESH(9KB)
-for TSO threshold.
-the right value should be 7KB
-Fast Ethernet controller doesn't support Jumbo frame.
+clear PCIE error status (error log is write-1-clear).
+REG_PCIE_UC_SEVERITY is removed as it's a standard pcie register,
+and using kernle API to access it.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
+Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c.h      |    2 --
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    1 +
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   11 ++++++++---
- 3 files changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   13 -------------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   15 +++++++++++----
+ 2 files changed, 11 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-index 0a4bfab..fa31551 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
-@@ -74,8 +74,6 @@
- 
- #define AT_RX_BUF_SIZE		(ETH_FRAME_LEN + VLAN_HLEN + ETH_FCS_LEN)
- #define MAX_JUMBO_FRAME_SIZE	(6*1024)
--#define MAX_TSO_FRAME_SIZE      (7*1024)
--#define MAX_TX_OFFLOAD_THRESH	(9*1024)
- 
- #define AT_MAX_RECEIVE_QUEUE    4
- #define AT_DEF_RECEIVE_QUEUE	1
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index c1aa3ba..c9c6782 100644
+index c9c6782..6d73ac9 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -500,6 +500,7 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- /* Jumbo packet Threshold for task offload */
- #define REG_TX_TSO_OFFLOAD_THRESH	0x1594 /* In 8-bytes */
- #define TX_TSO_OFFLOAD_THRESH_MASK	0x07FF
-+#define MAX_TSO_FRAME_SIZE		(7*1024)
+@@ -61,19 +61,6 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ #define LINK_CTRL_L1_EN			0x02
+ #define LINK_CTRL_EXT_SYNC		0x80
  
- #define	REG_TXF_WATER_MARK		0x1598 /* In 8-bytes */
- #define TXF_WATER_MARK_MASK		0x0FFF
+-#define REG_PCIE_UC_SEVERITY		0x10C
+-#define PCIE_UC_SERVRITY_TRN		0x00000001
+-#define PCIE_UC_SERVRITY_DLP		0x00000010
+-#define PCIE_UC_SERVRITY_PSN_TLP	0x00001000
+-#define PCIE_UC_SERVRITY_FCP		0x00002000
+-#define PCIE_UC_SERVRITY_CPL_TO		0x00004000
+-#define PCIE_UC_SERVRITY_CA		0x00008000
+-#define PCIE_UC_SERVRITY_UC		0x00010000
+-#define PCIE_UC_SERVRITY_ROV		0x00020000
+-#define PCIE_UC_SERVRITY_MLFP		0x00040000
+-#define PCIE_UC_SERVRITY_ECRC		0x00080000
+-#define PCIE_UC_SERVRITY_UR		0x00100000
+-
+ #define REG_DEV_SERIALNUM_CTRL		0x200
+ #define REG_DEV_MAC_SEL_MASK		0x0 /* 0:EUI; 1:MAC */
+ #define REG_DEV_MAC_SEL_SHIFT		0
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index d2f89f0..e8e9c10 100644
+index 12b4725..729381a 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -501,11 +501,16 @@ static int atl1c_set_features(struct net_device *netdev,
- static int atl1c_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct atl1c_adapter *adapter = netdev_priv(netdev);
-+	struct atl1c_hw *hw = &adapter->hw;
- 	int old_mtu   = netdev->mtu;
- 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+@@ -108,6 +108,7 @@ static void atl1c_reset_pcie(struct atl1c_hw *hw, u32 flag)
+ 	u32 data;
+ 	u32 pci_cmd;
+ 	struct pci_dev *pdev = hw->adapter->pdev;
++	int pos;
  
--	if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
--			(max_frame > MAX_JUMBO_FRAME_SIZE)) {
-+	/* Fast Ethernet controller doesn't support jumbo packet */
-+	if (((hw->nic_type == athr_l2c ||
-+	      hw->nic_type == athr_l2c_b ||
-+	      hw->nic_type == athr_l2c_b2) && new_mtu > ETH_DATA_LEN) ||
-+	      max_frame < ETH_ZLEN + ETH_FCS_LEN ||
-+	      max_frame > MAX_JUMBO_FRAME_SIZE) {
- 		if (netif_msg_link(adapter))
- 			dev_warn(&adapter->pdev->dev, "invalid MTU setting\n");
- 		return -EINVAL;
-@@ -1049,7 +1054,7 @@ static void atl1c_configure_tx(struct atl1c_adapter *adapter)
- 	u16 tx_offload_thresh;
- 	u32 txq_ctrl_data;
+ 	AT_READ_REG(hw, PCI_COMMAND, &pci_cmd);
+ 	pci_cmd &= ~PCI_COMMAND_INTX_DISABLE;
+@@ -124,10 +125,16 @@ static void atl1c_reset_pcie(struct atl1c_hw *hw, u32 flag)
+ 	/*
+ 	 * Mask some pcie error bits
+ 	 */
+-	AT_READ_REG(hw, REG_PCIE_UC_SEVERITY, &data);
+-	data &= ~PCIE_UC_SERVRITY_DLP;
+-	data &= ~PCIE_UC_SERVRITY_FCP;
+-	AT_WRITE_REG(hw, REG_PCIE_UC_SEVERITY, data);
++	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_ERR);
++	pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, &data);
++	data &= ~(PCI_ERR_UNC_DLP | PCI_ERR_UNC_FCP);
++	pci_write_config_dword(pdev, pos + PCI_ERR_UNCOR_SEVER, data);
++	/* clear error status */
++	pci_write_config_word(pdev, pci_pcie_cap(pdev) + PCI_EXP_DEVSTA,
++			PCI_EXP_DEVSTA_NFED |
++			PCI_EXP_DEVSTA_FED |
++			PCI_EXP_DEVSTA_CED |
++			PCI_EXP_DEVSTA_URD);
  
--	tx_offload_thresh = MAX_TX_OFFLOAD_THRESH;
-+	tx_offload_thresh = MAX_TSO_FRAME_SIZE;
- 	AT_WRITE_REG(hw, REG_TX_TSO_OFFLOAD_THRESH,
- 		(tx_offload_thresh >> 3) & TX_TSO_OFFLOAD_THRESH_MASK);
- 	max_pay_load = pcie_get_readrq(adapter->pdev) >> 8;
+ 	AT_READ_REG(hw, REG_LTSSM_ID_CTRL, &data);
+ 	data &= ~LTSSM_ID_EN_WRO;
 -- 
 1.7.7
