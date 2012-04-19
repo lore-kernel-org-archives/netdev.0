@@ -1,59 +1,57 @@
-From: "Luis R. Rodriguez" <mcgrof@frijolero.org>
-Subject: compat-wireless-3.4-rc3-1.tar.bz2 released
-Date: Thu, 19 Apr 2012 13:26:30 -0700
-Message-ID: <CAB=NE6W9dFr4X=nVtwYtGuPv90cZUat2b8vRb90mdM+8AEOf=w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next iwlwifi breaks compile - was Re: pull request:
+ wireless-next 2012-04-18
+Date: Thu, 19 Apr 2012 16:27:44 -0400 (EDT)
+Message-ID: <20120419.162744.2197721179697327138.davem@davemloft.net>
+References: <4595B4D22AB93C4FABBA84AAD5AA37FD1258AA@ORSMSX103.amr.corp.intel.com>
+	<20120419.154954.1322943404183128381.davem@davemloft.net>
+	<1334866241.27767.156.camel@wwguy-huron>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: lf_driver_backport@lists.linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: meenakshi.venkataraman@intel.com, socketcan@hartkopp.net,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, david.spinadel@intel.com
+To: wey-yi.w.guy@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52370 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371Ab2DSUbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 16:31:03 -0400
+In-Reply-To: <1334866241.27767.156.camel@wwguy-huron>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I've kicked out a new compat-wireless release based on 3.4-rc3 [0],
-check out the ChangeLog-3.4-rc3 [1] for more details and if you are
-interested in the build log check out the ckmake-3.4-rc1-2.log.bz2
-[2].  Below are the code metrics and the ckmake log summary:
+From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
+Date: Thu, 19 Apr 2012 13:10:41 -0700
 
-compat-wireless code metrics
+> On Thu, 2012-04-19 at 15:49 -0400, David Miller wrote:
+>> From: "Venkataraman, Meenakshi" <meenakshi.venkataraman@intel.com>
+>> Date: Thu, 19 Apr 2012 19:47:58 +0000
+>> 
+>> > It was fixed internally in a subsequent patch, but that patch has
+>> > not made it into net-next. I don't see it in the public iwlwifi
+>> > repository either. We'll add the fix to the repository so you can
+>> > pick it up.
+>> 
+>> That's not how this works.
+>> 
+>> You should submit a patch to fix the build directly to me, immediately,
+>> so that I can push it directly into net-next as fast as possible.
+> 
+> The patch "iwlwifi-Remove-inconsistent-and-redundant-declaratio.patch"
+> already being push to John to address this issue
 
-    829063 - Total upstream lines of code being pulled
-      2748 - backport code changes
-      2333 - backport code additions
-       415 - backport code deletions
-      9575 - backport from compat module
-     12323 - total backport code
-    1.4864 - % of code consists of backport work
+You don't understand, that's exactly what I'm telling you I want
+to avoid.
 
-Base tree: linux-stable.git
-Base tree version: v3.4-rc3
-compat-wireless release: compat-wireless-v3.4-rc3-1
+Then we all have to wait until John takes it, then we have to wait until
+John is able to do a push to me, then we have to wait until I see John's
+request and pull it, and then we have to wait until I am done build
+testing and push the result out.
 
-Trying kernel 3.2.2-030202-generic	[OK]
-Trying kernel 3.1.10-030110-generic	[OK]
-Trying kernel 3.0.18-030018-generic	[OK]
-Trying kernel 2.6.39-02063904-generic	[OK]
-Trying kernel 2.6.38-02063808-generic	[OK]
-Trying kernel 2.6.37-02063706-generic	[OK]
-Trying kernel 2.6.36-02063604-generic	[OK]
-Trying kernel 2.6.35-02063512-generic	[OK]
-Trying kernel 2.6.34-02063410-generic	[OK]
-Trying kernel 2.6.33-02063305-generic	[OK]
-Trying kernel 2.6.32-02063255-generic	[OK]
-Trying kernel 2.6.31-02063113-generic	[OK]
-Trying kernel 2.6.30-02063010-generic	[OK]
-Trying kernel 2.6.29-02062906-generic	[OK]
-Trying kernel 2.6.28-02062810-generic	[OK]
-Trying kernel 2.6.27-020627-generic	[OK]
-Trying kernel 2.6.26-020626-generic	[OK]
-Trying kernel 2.6.25-020625-generic	[OK]
-Trying kernel 2.6.24-020624-generic	[OK]
+All of this red tape adds unacceptble time just to fix the build
+regression added to net-next.
 
-[0] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.4/compat-wireless-3.4-rc3-1.tar.bz2
-[1] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.4/ChangeLog-3.4-rc3
-[2] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.4/ckmake-3.4-rc1-2.log.bz2
-
-  Luis
+PUSH THIS FIX DIRECTLY TO ME NOW so that the build regression can get
+fixed NOW.
