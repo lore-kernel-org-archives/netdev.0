@@ -1,53 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid expensive pskb_expand_head()
- calls
-Date: Thu, 19 Apr 2012 13:30:18 +0200
-Message-ID: <1334835018.2395.66.camel@edumazet-glaptop>
-References: <1334653608.6226.11.camel@edumazet-laptop>
-	 <1334654187.2696.2.camel@jtkirshe-mobl> <4F8D93E1.9090000@intel.com>
-	 <1334681204.2472.41.camel@edumazet-glaptop>
-	 <1334698722.2472.71.camel@edumazet-glaptop>
-	 <1334764184.2472.299.camel@edumazet-glaptop>
-	 <CADVnQy=BkhSBHyN2hyBy=_H64oM8sJvyZZfEjK1x7PYzoLv=5w@mail.gmail.com>
-	 <1334776707.2472.316.camel@edumazet-glaptop>
-	 <1334778707.2472.333.camel@edumazet-glaptop>
-	 <alpine.DEB.2.00.1204191401240.735@wel-95.cs.helsinki.fi>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: skip dead but not buried clients on PipeFS events
+Date: Thu, 19 Apr 2012 15:36:57 +0400
+Message-ID: <4F8FF8D9.5080503@parallels.com>
+References: <20120419105707.32131.79719.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neal Cardwell <ncardwell@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:52407 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753040Ab2DSLaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 07:30:24 -0400
-Received: by bkcik5 with SMTP id ik5so6249261bkc.19
-        for <netdev@vger.kernel.org>; Thu, 19 Apr 2012 04:30:23 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1204191401240.735@wel-95.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120419105707.32131.79719.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-04-19 at 14:10 +0300, Ilpo J=C3=A4rvinen wrote:
+Sorry, but ignore this patch too.
+It can't be that simple because of these cl_count tricks in rpc_release=
+_client...
 
-> Now that you have non-zero offset_ack, are the tcp_fragment() callsit=
-es=20
-> safe and working? ...I'm mostly worried about tcp_mark_head_lost whic=
-h=20
-> does some assumptions about tp->snd_una and TCP_SKB_CB(skb)->seq, how=
-ever,=20
-> also other fragmenting does not preserve offset_ack properly (which m=
-ight=20
-> not be end of world though)?
+19.04.2012 14:57, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> These clients can't be safely dereferenced if their counter in 0.
+>
+> Signee-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>
+> Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>
+> ---
+>   net/sunrpc/clnt.c |    3 ++-
+>   1 files changed, 2 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+> index 6797246..591994d 100644
+> --- a/net/sunrpc/clnt.c
+> +++ b/net/sunrpc/clnt.c
+> @@ -218,7 +218,8 @@ static struct rpc_clnt *rpc_get_client_for_event(=
+struct net *net, int event)
+>   		if (((event =3D=3D RPC_PIPEFS_MOUNT)&&  clnt->cl_dentry) ||
+>   		    ((event =3D=3D RPC_PIPEFS_UMOUNT)&&  !clnt->cl_dentry))
+>   			continue;
+> -		atomic_inc(&clnt->cl_count);
+> +		if (atomic_inc_return(&clnt->cl_count) =3D=3D 1)
+> +			continue;
+>   		spin_unlock(&sn->rpc_client_lock);
+>   		return clnt;
+>   	}
+>
 
-Good point, I'll take a look.
 
-I'll provide a v3 anyway with more performance data, I setup two cards
-in PCI x8 slots to get full bandwidth.
-
-Thanks
+--=20
+Best regards,
+Stanislav Kinsbursky
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
