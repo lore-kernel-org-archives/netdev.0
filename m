@@ -1,50 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 1/4 (V3)] net: ethtool: add the EEE support
-Date: Thu, 19 Apr 2012 16:14:41 +0100
-Message-ID: <1334848481.2426.62.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>
-	 <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com>
-	 <1334269598.2497.50.camel@bwh-desktop.uk.solarflarecom.com>
-	 <4F8BB103.7020107@st.com> <4F900C08.5000906@st.com>
-	 <4F9017C6.8070400@broadcom.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] net/hyperv: Adding cancellation to ensure rndis filter
+ is closed
+Date: Thu, 19 Apr 2012 15:18:41 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD33BA8@TK5EX14MBXC221.redmond.corp.microsoft.com>
+References: <1334831977-5553-1-git-send-email-wenqi_ma@trendmicro.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	KY Srinivasan <kys@microsoft.com>
+To: Wenqi Ma <wenqi_ma@trendmicro.com.cn>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:37280 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751375Ab2DSPOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 11:14:46 -0400
-In-Reply-To: <4F9017C6.8070400@broadcom.com>
+Received: from am1ehsobe003.messaging.microsoft.com ([213.199.154.206]:51645
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752277Ab2DSPWj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2012 11:22:39 -0400
+In-Reply-To: <1334831977-5553-1-git-send-email-wenqi_ma@trendmicro.com.cn>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-04-19 at 16:48 +0300, Yuval Mintz wrote:
-> Hi Peppe,
+
+
+> -----Original Message-----
+> From: Wenqi Ma [mailto:wenqi_ma@trendmicro.com.cn]
+> Sent: Thursday, April 19, 2012 6:40 AM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; Haiyang Zhang; Wenqi Ma
+> Subject: [PATCH] net/hyperv: Adding cancellation to ensure rndis filter is
+> closed
 > 
-> > The "set" will be useful for some eth devices (like the stmmac) that can
-> > stop/enable internally the eee capability (at mac level).
+> Although the network interface is down, the RX packets number which
+> could be observed by ifconfig may keep on increasing.
 > 
-> If you're already implementing this interface, don't you think it might be
-> prudent to create an implementation that can do more than enable/disable
-> the interface?
-[...]
+> This is because the WORK scheduled in netvsc_set_multicast_list()
+> may be executed after netvsc_close(). That means the rndis filter
+> may be re-enabled by do_set_multicast() even if it was closed by
+> netvsc_close().
+> 
+> By canceling possible WORK before close the rndis filter, the issue
+> could be never happened.
+> 
+> Signed-off-by: Wenqi Ma <wenqi_ma@trendmicro.com.cn>
+> Reviewed-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c |   38 ++++++++++++++--------------------
+> ----
+>  1 files changed, 14 insertions(+), 24 deletions(-)
 
-It's not necessary for anyone to *implement* all of this now, but the
-interface should certainly cover any settings that users may reasonably
-want to read and configure.  As with most ethtool 'set' operations, any
-implementation (driver) can disallow changing any or all settings
-(-EOPNOTSUPP or -EINVAL) if it's difficult or impossible to implement
-them.
+Thank you for the patch.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
