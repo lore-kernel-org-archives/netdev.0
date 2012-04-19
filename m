@@ -1,40 +1,48 @@
-From: mjr@cs.wisc.edu
-Subject: [PATCH] Fix request_irq/free_irq mismatch
-Date: Thu, 19 Apr 2012 11:46:17 -0500
-Message-ID: <1334853977-11243-1-git-send-email-mjr@cs.wisc.edu>
-Cc: ben@simtec.co.uk, netdev@vger.kernel.org,
-	Matt Renzelmann <mjr@cs.wisc.edu>
-To: sboyd@codeaurora.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: gro: GRO_MERGED_FREE consumes packets
+Date: Thu, 19 Apr 2012 19:07:40 +0200
+Message-ID: <1334855260.2395.195.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:32904 "EHLO sabe.cs.wisc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755412Ab2DSQxa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Apr 2012 12:53:30 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:51139 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752417Ab2DSRHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 13:07:46 -0400
+Received: by eekc41 with SMTP id c41so2305018eek.19
+        for <netdev@vger.kernel.org>; Thu, 19 Apr 2012 10:07:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Renzelmann <mjr@cs.wisc.edu>
+From: Eric Dumazet <edumazet@google.com>
 
-The dev_id parameter passed to free_irq needs to match the one passed
-to the corresponding request_irq.
+As part of GRO processing, merged skbs should be consumed, not freed, to
+not confuse dropwatch/drop_monitor.
 
-Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/micrel/ks8851.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/core/dev.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index e5dc075..a8b7d5b 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -1524,7 +1524,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c938127..501f3cc 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3542,10 +3542,13 @@ gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ 		break;
  
+ 	case GRO_DROP:
+-	case GRO_MERGED_FREE:
+ 		kfree_skb(skb);
+ 		break;
  
- err_netdev:
--	free_irq(ndev->irq, ndev);
-+	free_irq(ndev->irq, ks);
- 
- err_id:
- err_irq:
--- 
-1.7.5.4
++	case GRO_MERGED_FREE:
++		consume_skb(skb);
++		break;
++
+ 	case GRO_HELD:
+ 	case GRO_MERGED:
+ 		break;
