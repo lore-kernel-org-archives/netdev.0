@@ -1,34 +1,40 @@
-From: Massimo Cetra <ctrix+debianbugs@navynet.it>
-Subject: Re: fake rtable dst patch applied but kernel keeps panicing
-Date: Thu, 19 Apr 2012 12:52:35 +0200
-Message-ID: <4F8FEE73.8030600@navynet.it>
-References: <4F8E9291.9000607@navynet.it>	 <1334745072.2472.110.camel@edumazet-glaptop>  <4F8FC66F.90703@navynet.it>	 <1334823256.2395.2.camel@edumazet-glaptop> <1334825108.2395.28.camel@edumazet-glaptop>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH] SUNRPC: skip dead but not buried clients on PipeFS events
+Date: Thu, 19 Apr 2012 14:57:18 +0400
+Message-ID: <20120419105707.32131.79719.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
-	netdev@vger.kernel.org, peter.huangpeng@huawei.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host188-6-static.238-77-b.business.telecomitalia.it ([77.238.6.188]:51671
-	"EHLO max.ctrix.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539Ab2DSKwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 06:52:43 -0400
-In-Reply-To: <1334825108.2395.28.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 19/04/2012 10:45, Eric Dumazet wrote:
+These clients can't be safely dereferenced if their counter in 0.
 
->> Maybe you should try latest kernel, because we fixed some bugs lately.
->
-> Oh well, at first glance nf_bridge_unshare() is buggy, not sure if this
-> can help your bug, but its another step.
->
+Signee-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-I'm recompiling 3.3.2 with this new patch.
-I'll let you know.
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-Thanks you,
+---
+ net/sunrpc/clnt.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-  Massimo
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index 6797246..591994d 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -218,7 +218,8 @@ static struct rpc_clnt *rpc_get_client_for_event(struct net *net, int event)
+ 		if (((event == RPC_PIPEFS_MOUNT) && clnt->cl_dentry) ||
+ 		    ((event == RPC_PIPEFS_UMOUNT) && !clnt->cl_dentry))
+ 			continue;
+-		atomic_inc(&clnt->cl_count);
++		if (atomic_inc_return(&clnt->cl_count) == 1)
++			continue;
+ 		spin_unlock(&sn->rpc_client_lock);
+ 		return clnt;
+ 	}
