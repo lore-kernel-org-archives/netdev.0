@@ -1,30 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] nf_bridge: remove holes in struct
- nf_bridge_info
-Date: Thu, 19 Apr 2012 07:52:46 -0700
-Message-ID: <20120419075246.0df140e9@s6510.linuxnetplumber.net>
-References: <1334827165.2395.63.camel@edumazet-glaptop>
+From: Jonas Gorski <jonas.gorski@gmail.com>
+Subject: Re: [PATCH] NET: bcm63xx_enet: move phy_(dis)connect into probe/remove
+Date: Thu, 19 Apr 2012 16:52:46 +0200
+Message-ID: <CAOiHx==f0czkaEVTe=+wabQMmifdaN00PMQwaR8f-602Dq56pA@mail.gmail.com>
+References: <1334750537-14896-1-git-send-email-jonas.gorski@gmail.com>
+ <1334753296.5185.3.camel@sakura.staff.proxad.net> <CAOiHx=khEqKaAsD++=0BXEzutaWCgi-30B=6hYyLChfkAaHXXA@mail.gmail.com>
+ <1334842380.5185.29.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: mbizon@freebox.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45353 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752558Ab2DSOwz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Apr 2012 10:52:55 -0400
-In-Reply-To: <1334827165.2395.63.camel@edumazet-glaptop>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:65009 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752558Ab2DSOxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 10:53:08 -0400
+Received: by ghrr11 with SMTP id r11so4467832ghr.19
+        for <netdev@vger.kernel.org>; Thu, 19 Apr 2012 07:53:07 -0700 (PDT)
+In-Reply-To: <1334842380.5185.29.camel@sakura.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Apr 2012 11:19:25 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 19 April 2012 15:33, Maxime Bizon <mbizon@freebox.fr> wrote:
+>
+> On Wed, 2012-04-18 at 21:30 +0200, Jonas Gorski wrote:
+>>
+>> The phy state machine will start in PHY_READY after phy_connect, which
+>> will result in NOPs, so no call to bcm_enet_adjust_phy_link() after
+>> _probe() and before _open(). The state machine starts doing real work
+>> only after calling phy_start(), which happens only after the dma
+>> register accesses in open(). So no race here.
+>
+> If I read the phylib code correctly, after phy_connect() the phy is in
+> READY state, and you can access it via ethtool.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Put use & mask on same location to avoid two holes on 64bit arches
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Yes, but none of the ethtool functions cause register writes in the
+priv->has_phy = true case when in PHY_READY or PHY_HALTED state. All
+they do is modify the phy_device's settings.
+The settings only get taken over when the phy is started and the
+phy_state_machine is running, so after phy_start() was and before
+phy_stop().
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+In the priv->has_phy = false case they do cause register writes since
+bcm_enet_adjust_link() might get called, but these never use the phy
+state machine, so my patch does not change anything there.
+
+
+Jonas
