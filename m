@@ -1,107 +1,94 @@
-From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
-Subject: [PATCH v3] set fake_rtable's dst to NULL to avoid kernel Oops.
-Date: Thu, 19 Apr 2012 10:27:01 +0800
-Message-ID: <4F8F77F5.8020201@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: ctrix+debianbugs@navynet.it, Eric Dumazet <eric.dumazet@gmail.com>,
-	harry.majun@huawei.com, linux-kernel@vger.kernel.org,
-	peter.huangpeng@gmail.com, peter.huangpeng@huawei.com
-To: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wenqi Ma <wenqi_ma@trendmicro.com.cn>
+Subject: [PATCH] net/hyperv: Adding cancellation to ensure rndis filter is closed
+Date: Thu, 19 Apr 2012 18:39:37 +0800
+Message-ID: <1334831977-5553-1-git-send-email-wenqi_ma@trendmicro.com.cn>
+Content-Type: text/plain;
+	charset="iso-8859-2"
+Content-Transfer-Encoding: base64
+Cc: davem@davemloft.net, haiyangz@microsoft.com,
+	Wenqi Ma <wenqi_ma@trendmicro.com.cn>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sjdcsican04.udc.trendmicro.com ([66.180.85.17]:36463 "EHLO
+	sjdciscan04.udc.trendmicro.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752665Ab2DSDBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 23:01:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When bridge is deleted before tap/vif device's delete, kernel may 
-encounter an oops because of NULL reference to fake_rtable's dst.
-Set fake_rtable's dst to NULL before sending packets out can solve this 
-problem.
-
-v3 enrich commit header
-
-v2 added a new flag DST_FAKE_RTABLE to dst_entry struct.
-
-
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Peter Huang <peter.huangpeng@huawei.com>
----
-  include/linux/netfilter_bridge.h |    8 ++++++++
-  include/net/dst.h                |    1 +
-  net/bridge/br_forward.c          |    1 +
-  net/bridge/br_netfilter.c        |    8 ++------
-  4 files changed, 12 insertions(+), 6 deletions(-)
-diff --git a/include/linux/netfilter_bridge.h 
-b/include/linux/netfilter_bridge.h
-index 0ddd161..51745df 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -104,9 +104,17 @@ struct bridge_skb_cb {
-         } daddr;
-  };
-
-+static inline void br_drop_fake_rtable(struct sk_buff *skb) {
-+       struct dst_entry *dst = skb_dst(skb);
-+
-+       if (dst && (dst->flags & DST_FAKE_RTABLE))
-+               skb_dst_drop(skb);
-+}
-+
-  #else
-  #define nf_bridge_maybe_copy_header(skb)       (0)
-  #define nf_bridge_pad(skb)                     (0)
-+#define br_drop_fake_rtable(skb)               (0)
-  #endif /* CONFIG_BRIDGE_NETFILTER */
-
-  #endif /* __KERNEL__ */
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 59c5d18..b094030 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -55,6 +55,7 @@ struct dst_entry {
-  #define DST_NOCACHE            0x0010
-  #define DST_NOCOUNT            0x0020
-  #define DST_NOPEER             0x0040
-+#define DST_FAKE_RTABLE                0x0080
-
-         short                   error;
-         short                   obsolete;
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 61f6534..a2098e3 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -47,6 +47,7 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
-                 kfree_skb(skb);
-         } else {
-                 skb_push(skb, ETH_HLEN);
-+               br_drop_fake_rtable(skb);
-                 dev_queue_xmit(skb);
-         }
-
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index dec4f38..d7f49b6 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -156,7 +156,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
-         rt->dst.dev = br->dev;
-         rt->dst.path = &rt->dst;
-         dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
--       rt->dst.flags   = DST_NOXFRM | DST_NOPEER;
-+       rt->dst.flags   = DST_NOXFRM | DST_NOPEER | DST_FAKE_RTABLE;
-         rt->dst.ops = &fake_dst_ops;
-  }
-
-@@ -694,11 +694,7 @@ static unsigned int br_nf_local_in(unsigned int 
-hook, struct sk_buff *skb,
-                                    const struct net_device *out,
-                                    int (*okfn)(struct sk_buff *))
-  {
--       struct rtable *rt = skb_rtable(skb);
--
--       if (rt && rt == bridge_parent_rtable(in))
--               skb_dst_drop(skb);
--
-+       br_drop_fake_rtable(skb);
-         return NF_ACCEPT;
-  }
+QWx0aG91Z2ggdGhlIG5ldHdvcmsgaW50ZXJmYWNlIGlzIGRvd24sIHRoZSBSWCBwYWNrZXRzIG51
+bWJlciB3aGljaA0KY291bGQgYmUgb2JzZXJ2ZWQgYnkgaWZjb25maWcgbWF5IGtlZXAgb24gaW5j
+cmVhc2luZy4NCg0KVGhpcyBpcyBiZWNhdXNlIHRoZSBXT1JLIHNjaGVkdWxlZCBpbiBuZXR2c2Nf
+c2V0X211bHRpY2FzdF9saXN0KCkNCm1heSBiZSBleGVjdXRlZCBhZnRlciBuZXR2c2NfY2xvc2Uo
+KS4gVGhhdCBtZWFucyB0aGUgcm5kaXMgZmlsdGVyDQptYXkgYmUgcmUtZW5hYmxlZCBieSBkb19z
+ZXRfbXVsdGljYXN0KCkgZXZlbiBpZiBpdCB3YXMgY2xvc2VkIGJ5DQpuZXR2c2NfY2xvc2UoKS4N
+Cg0KQnkgY2FuY2VsaW5nIHBvc3NpYmxlIFdPUksgYmVmb3JlIGNsb3NlIHRoZSBybmRpcyBmaWx0
+ZXIsIHRoZSBpc3N1ZQ0KY291bGQgYmUgbmV2ZXIgaGFwcGVuZWQuDQoNClNpZ25lZC1vZmYtYnk6
+IFdlbnFpIE1hIDx3ZW5xaV9tYUB0cmVuZG1pY3JvLmNvbS5jbj4NClJldmlld2VkLWJ5OiBXZWkg
+WW9uZ2p1biA8eW9uZ2p1bl93ZWlAdHJlbmRtaWNyby5jb20uY24+DQotLS0NCiBkcml2ZXJzL25l
+dC9oeXBlcnYvbmV0dnNjX2Rydi5jIHwgICAzOCArKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLQ0KIDEgZmlsZXMgY2hhbmdlZCwgMTQgaW5zZXJ0aW9ucygrKSwgMjQgZGVsZXRp
+b25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jIGIv
+ZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KaW5kZXggZGQyOTQ3OC4uMmQ1OTEzOCAx
+MDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMNCisrKyBiL2RyaXZl
+cnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMNCkBAIC00NCw2ICs0NCw3IEBAIHN0cnVjdCBuZXRf
+ZGV2aWNlX2NvbnRleHQgew0KIAkvKiBwb2ludCBiYWNrIHRvIG91ciBkZXZpY2UgY29udGV4dCAq
+Lw0KIAlzdHJ1Y3QgaHZfZGV2aWNlICpkZXZpY2VfY3R4Ow0KIAlzdHJ1Y3QgZGVsYXllZF93b3Jr
+IGR3b3JrOw0KKwlzdHJ1Y3Qgd29ya19zdHJ1Y3Qgd29yazsNCiB9Ow0KIA0KIA0KQEAgLTUxLDMw
+ICs1MiwyMiBAQCBzdGF0aWMgaW50IHJpbmdfc2l6ZSA9IDEyODsNCiBtb2R1bGVfcGFyYW0ocmlu
+Z19zaXplLCBpbnQsIFNfSVJVR08pOw0KIE1PRFVMRV9QQVJNX0RFU0MocmluZ19zaXplLCAiUmlu
+ZyBidWZmZXIgc2l6ZSAoIyBvZiBwYWdlcykiKTsNCiANCi1zdHJ1Y3Qgc2V0X211bHRpY2FzdF93
+b3JrIHsNCi0Jc3RydWN0IHdvcmtfc3RydWN0IHdvcms7DQotCXN0cnVjdCBuZXRfZGV2aWNlICpu
+ZXQ7DQotfTsNCi0NCiBzdGF0aWMgdm9pZCBkb19zZXRfbXVsdGljYXN0KHN0cnVjdCB3b3JrX3N0
+cnVjdCAqdykNCiB7DQotCXN0cnVjdCBzZXRfbXVsdGljYXN0X3dvcmsgKnN3ayA9DQotCQljb250
+YWluZXJfb2Yodywgc3RydWN0IHNldF9tdWx0aWNhc3Rfd29yaywgd29yayk7DQotCXN0cnVjdCBu
+ZXRfZGV2aWNlICpuZXQgPSBzd2stPm5ldDsNCi0NCi0Jc3RydWN0IG5ldF9kZXZpY2VfY29udGV4
+dCAqbmRldmN0eCA9IG5ldGRldl9wcml2KG5ldCk7DQorCXN0cnVjdCBuZXRfZGV2aWNlX2NvbnRl
+eHQgKm5kZXZjdHggPQ0KKwkJY29udGFpbmVyX29mKHcsIHN0cnVjdCBuZXRfZGV2aWNlX2NvbnRl
+eHQsIHdvcmspOw0KIAlzdHJ1Y3QgbmV0dnNjX2RldmljZSAqbnZkZXY7DQogCXN0cnVjdCBybmRp
+c19kZXZpY2UgKnJkZXY7DQogDQogCW52ZGV2ID0gaHZfZ2V0X2RydmRhdGEobmRldmN0eC0+ZGV2
+aWNlX2N0eCk7DQotCWlmIChudmRldiA9PSBOVUxMKQ0KLQkJZ290byBvdXQ7DQorCWlmIChudmRl
+diA9PSBOVUxMIHx8IG52ZGV2LT5uZGV2ID09IE5VTEwpDQorCQlyZXR1cm47DQogDQogCXJkZXYg
+PSBudmRldi0+ZXh0ZW5zaW9uOw0KIAlpZiAocmRldiA9PSBOVUxMKQ0KLQkJZ290byBvdXQ7DQor
+CQlyZXR1cm47DQogDQotCWlmIChuZXQtPmZsYWdzICYgSUZGX1BST01JU0MpDQorCWlmIChudmRl
+di0+bmRldi0+ZmxhZ3MgJiBJRkZfUFJPTUlTQykNCiAJCXJuZGlzX2ZpbHRlcl9zZXRfcGFja2V0
+X2ZpbHRlcihyZGV2LA0KIAkJCU5ESVNfUEFDS0VUX1RZUEVfUFJPTUlTQ1VPVVMpOw0KIAllbHNl
+DQpAQCAtODIsMjEgKzc1LDEzIEBAIHN0YXRpYyB2b2lkIGRvX3NldF9tdWx0aWNhc3Qoc3RydWN0
+IHdvcmtfc3RydWN0ICp3KQ0KIAkJCU5ESVNfUEFDS0VUX1RZUEVfQlJPQURDQVNUIHwNCiAJCQlO
+RElTX1BBQ0tFVF9UWVBFX0FMTF9NVUxUSUNBU1QgfA0KIAkJCU5ESVNfUEFDS0VUX1RZUEVfRElS
+RUNURUQpOw0KLQ0KLW91dDoNCi0Ja2ZyZWUodyk7DQogfQ0KIA0KIHN0YXRpYyB2b2lkIG5ldHZz
+Y19zZXRfbXVsdGljYXN0X2xpc3Qoc3RydWN0IG5ldF9kZXZpY2UgKm5ldCkNCiB7DQotCXN0cnVj
+dCBzZXRfbXVsdGljYXN0X3dvcmsgKnN3ayA9DQotCQlrbWFsbG9jKHNpemVvZihzdHJ1Y3Qgc2V0
+X211bHRpY2FzdF93b3JrKSwgR0ZQX0FUT01JQyk7DQotCWlmIChzd2sgPT0gTlVMTCkNCi0JCXJl
+dHVybjsNCisJc3RydWN0IG5ldF9kZXZpY2VfY29udGV4dCAqbmV0X2RldmljZV9jdHggPSBuZXRk
+ZXZfcHJpdihuZXQpOw0KIA0KLQlzd2stPm5ldCA9IG5ldDsNCi0JSU5JVF9XT1JLKCZzd2stPndv
+cmssIGRvX3NldF9tdWx0aWNhc3QpOw0KLQlzY2hlZHVsZV93b3JrKCZzd2stPndvcmspOw0KKwlz
+Y2hlZHVsZV93b3JrKCZuZXRfZGV2aWNlX2N0eC0+d29yayk7DQogfQ0KIA0KIHN0YXRpYyBpbnQg
+bmV0dnNjX29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKm5ldCkNCkBAIC0xMjUsNiArMTEwLDggQEAg
+c3RhdGljIGludCBuZXR2c2NfY2xvc2Uoc3RydWN0IG5ldF9kZXZpY2UgKm5ldCkNCiANCiAJbmV0
+aWZfdHhfZGlzYWJsZShuZXQpOw0KIA0KKwkvKiBNYWtlIHN1cmUgbmV0dnNjX3NldF9tdWx0aWNh
+c3RfbGlzdCBkb2Vzbid0IHJlLWVuYWJsZSBmaWx0ZXIhICovDQorCWNhbmNlbF93b3JrX3N5bmMo
+Jm5ldF9kZXZpY2VfY3R4LT53b3JrKTsNCiAJcmV0ID0gcm5kaXNfZmlsdGVyX2Nsb3NlKGRldmlj
+ZV9vYmopOw0KIAlpZiAocmV0ICE9IDApDQogCQluZXRkZXZfZXJyKG5ldCwgInVuYWJsZSB0byBj
+bG9zZSBkZXZpY2UgKHJldCAlZCkuXG4iLCByZXQpOw0KQEAgLTMzNSw2ICszMjIsNyBAQCBzdGF0
+aWMgaW50IG5ldHZzY19jaGFuZ2VfbXR1KHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2LCBpbnQgbXR1
+KQ0KIA0KIAludmRldi0+c3RhcnRfcmVtb3ZlID0gdHJ1ZTsNCiAJY2FuY2VsX2RlbGF5ZWRfd29y
+a19zeW5jKCZuZGV2Y3R4LT5kd29yayk7DQorCWNhbmNlbF93b3JrX3N5bmMoJm5kZXZjdHgtPndv
+cmspOw0KIAluZXRpZl90eF9kaXNhYmxlKG5kZXYpOw0KIAlybmRpc19maWx0ZXJfZGV2aWNlX3Jl
+bW92ZShoZGV2KTsNCiANCkBAIC00MDMsNiArMzkxLDcgQEAgc3RhdGljIGludCBuZXR2c2NfcHJv
+YmUoc3RydWN0IGh2X2RldmljZSAqZGV2LA0KIAluZXRfZGV2aWNlX2N0eC0+ZGV2aWNlX2N0eCA9
+IGRldjsNCiAJaHZfc2V0X2RydmRhdGEoZGV2LCBuZXQpOw0KIAlJTklUX0RFTEFZRURfV09SSygm
+bmV0X2RldmljZV9jdHgtPmR3b3JrLCBuZXR2c2Nfc2VuZF9nYXJwKTsNCisJSU5JVF9XT1JLKCZu
+ZXRfZGV2aWNlX2N0eC0+d29yaywgZG9fc2V0X211bHRpY2FzdCk7DQogDQogCW5ldC0+bmV0ZGV2
+X29wcyA9ICZkZXZpY2Vfb3BzOw0KIA0KQEAgLTQ1Niw2ICs0NDUsNyBAQCBzdGF0aWMgaW50IG5l
+dHZzY19yZW1vdmUoc3RydWN0IGh2X2RldmljZSAqZGV2KQ0KIA0KIAluZGV2X2N0eCA9IG5ldGRl
+dl9wcml2KG5ldCk7DQogCWNhbmNlbF9kZWxheWVkX3dvcmtfc3luYygmbmRldl9jdHgtPmR3b3Jr
+KTsNCisJY2FuY2VsX3dvcmtfc3luYygmbmRldl9jdHgtPndvcmspOw0KIA0KIAkvKiBTdG9wIG91
+dGJvdW5kIGFzYXAgKi8NCiAJbmV0aWZfdHhfZGlzYWJsZShuZXQpOw0KLS0gDQoxLjcuMQ0KDQpU
+UkVORCBNSUNSTyBFTUFJTCBOT1RJQ0UNClRoZSBpbmZvcm1hdGlvbiBjb250YWluZWQgaW4gdGhp
+cyBlbWFpbCBhbmQgYW55IGF0dGFjaG1lbnRzIGlzIGNvbmZpZGVudGlhbCBhbmQgbWF5IGJlIHN1
+YmplY3QgdG8gY29weXJpZ2h0IG9yIG90aGVyIGludGVsbGVjdHVhbCBwcm9wZXJ0eSBwcm90ZWN0
+aW9uLiBJZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIG5vdCBh
+dXRob3JpemVkIHRvIHVzZSBvciBkaXNjbG9zZSB0aGlzIGluZm9ybWF0aW9uLCBhbmQgd2UgcmVx
+dWVzdCB0aGF0IHlvdSBub3RpZnkgdXMgYnkgcmVwbHkgbWFpbCBvciB0ZWxlcGhvbmUgYW5kIGRl
+bGV0ZSB0aGUgb3JpZ2luYWwgbWVzc2FnZSBmcm9tIHlvdXIgbWFpbCBzeXN0ZW0u
