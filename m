@@ -1,42 +1,40 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH] NET: bcm63xx_enet: move phy_(dis)connect into
- probe/remove
-Date: Thu, 19 Apr 2012 18:17:18 +0200
-Message-ID: <1334852238.5185.40.camel@sakura.staff.proxad.net>
-References: <1334750537-14896-1-git-send-email-jonas.gorski@gmail.com>
-	 <1334753296.5185.3.camel@sakura.staff.proxad.net>
-	 <CAOiHx=khEqKaAsD++=0BXEzutaWCgi-30B=6hYyLChfkAaHXXA@mail.gmail.com>
-	 <1334842380.5185.29.camel@sakura.staff.proxad.net>
-	 <CAOiHx==f0czkaEVTe=+wabQMmifdaN00PMQwaR8f-602Dq56pA@mail.gmail.com>
-Reply-To: mbizon@freebox.fr
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jonas Gorski <jonas.gorski@gmail.com>
+From: mjr@cs.wisc.edu
+Subject: [PATCH] Fix request_irq/free_irq mismatch
+Date: Thu, 19 Apr 2012 11:46:17 -0500
+Message-ID: <1334853977-11243-1-git-send-email-mjr@cs.wisc.edu>
+Cc: ben@simtec.co.uk, netdev@vger.kernel.org,
+	Matt Renzelmann <mjr@cs.wisc.edu>
+To: sboyd@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.iliad.fr ([212.27.33.1]:38265 "EHLO ns.iliad.fr"
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:32904 "EHLO sabe.cs.wisc.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753860Ab2DSQRR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Apr 2012 12:17:17 -0400
-In-Reply-To: <CAOiHx==f0czkaEVTe=+wabQMmifdaN00PMQwaR8f-602Dq56pA@mail.gmail.com>
+	id S1755412Ab2DSQxa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2012 12:53:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Matt Renzelmann <mjr@cs.wisc.edu>
 
-On Thu, 2012-04-19 at 16:52 +0200, Jonas Gorski wrote:
+The dev_id parameter passed to free_irq needs to match the one passed
+to the corresponding request_irq.
 
-> Yes, but none of the ethtool functions cause register writes in the
-> priv->has_phy = true case when in PHY_READY or PHY_HALTED state. All
-> they do is modify the phy_device's settings.
+Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
+---
+ drivers/net/ethernet/micrel/ks8851.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-unless I'm mistaken:
-
-phy_ethtool_sset() => phy_start_aneg()
-
-will kick the state machine even when state is PHY_READY
-
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index e5dc075..a8b7d5b 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1524,7 +1524,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
+ 
+ 
+ err_netdev:
+-	free_irq(ndev->irq, ndev);
++	free_irq(ndev->irq, ks);
+ 
+ err_id:
+ err_irq:
 -- 
-Maxime
+1.7.5.4
