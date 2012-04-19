@@ -1,37 +1,28 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 1/2] workqueue: Catch more locking problems with
- flush_work()
-Date: Thu, 19 Apr 2012 08:28:41 -0700
-Message-ID: <20120419152841.GA10553@google.com>
-References: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] net: filter: Just In Time compiler for sparc
+Date: Thu, 19 Apr 2012 17:29:37 +0200
+Message-ID: <20120419152937.GA1120@merkur.ravnborg.org>
+References: <20120416.225823.1395194623649559124.davem@davemloft.net> <20120417195716.GA26750@merkur.ravnborg.org> <20120417.164400.89608576188768018.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ben Dooks <ben-linux@fluff.org>
-To: Stephen Boyd <sboyd@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <sparclinux-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20120417.164400.89608576188768018.davem@davemloft.net>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 18, 2012 at 08:25:57PM -0700, Stephen Boyd wrote:
-> @@ -2513,8 +2513,11 @@ bool flush_work(struct work_struct *work)
->  		wait_for_completion(&barr.done);
->  		destroy_work_on_stack(&barr.work);
->  		return true;
-> -	} else
-> +	} else {
-> +		lock_map_acquire(&work->lockdep_map);
-> +		lock_map_release(&work->lockdep_map);
->  		return false;
+> 
+> >> +	select HAVE_BPF_JIT
+> > If we sorted this block of select then the chances
+> > for merge conflict would be smaller.
+> > But this is not this patch to do so.
+> 
+> I also think we should create an arch/sparc/Kbuild for sparc
+> too, just like x86 has.
 
-We don't have this annotation when start_flush_work() succeeds either,
-right?  IOW, would lockdep trigger when an actual deadlock happens?
-If not, why not add the acquire/release() before flush_work() does
-anything?
+I will look into both issues.
+But only after the merge window to avoid conflicts.
 
-Thanks.
-
--- 
-tejun
+	Sam
