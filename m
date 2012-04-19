@@ -1,46 +1,42 @@
-From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 07/11] atl1c: clear bit MASTER_CTRL_CLK_SEL_DIS in atl1c_pcie_patch
-Date: Thu, 19 Apr 2012 16:01:27 +0800
-Message-ID: <1334822491-30129-8-git-send-email-xiong@qca.qualcomm.com>
-References: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
+From: Massimo Cetra <mcetra@navynet.it>
+Subject: Re: [PATCH] set fake_rtable's dst to NULL to avoid kernel Oops.
+Date: Thu, 19 Apr 2012 09:58:39 +0200
+Message-ID: <4F8FC5AF.7020403@navynet.it>
+References: <000001cd1c62$75d10de0$617329a0$%huangpeng@huawei.com> <20120418190450.GA30185@burratino>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
-	xiong <xiong@qca.qualcomm.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Peter Huang (Peng)" <peter.huangpeng@huawei.com>,
+	shemminger@vyatta.com, "'David S. Miller'" <davem@davemloft.net>,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, ctrix+debianbugs@navynet.it,
+	peter.huangpeng@gmail.com, harry.majun@huawei.com
+To: Jonathan Nieder <jrnieder@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host188-6-static.238-77-b.business.telecomitalia.it ([77.238.6.188]:51451
+	"EHLO max.ctrix.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752574Ab2DSIEs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 04:04:48 -0400
+In-Reply-To: <20120418190450.GA30185@burratino>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bit MASTER_CTRL_CLK_SEL_DIS could be set before enter suspend
-clear it after resume to enable pclk(PCIE clock) switch to
-low frequency(25M) in some circumstances to save power.
+On 18/04/2012 21:04, Jonathan Nieder wrote:
+>
+> Massimo Cetra (cc-ed) tested the patch against a 3.2.y kernel and wrote[1]:
+>
+>> The patch i applied yesterday to the debian kernel has been installed
+>> and the kernel is not panic-ing anymore.
+>>
+>> I'll try to keep this bug up to date.
+>
+> So it seems to work.  Dave, please consider queuing this for stable@
+> when the final patch is ready.
 
-Signed-off-by: xiong <xiong@qca.qualcomm.com>
-Tested-by: Liu David <dwliu@qca.qualcomm.com>
----
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+Also please consider that the bridge problems are not over and the 
+kernel keeps panicing in a different way...
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 796cc75..9783afc 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -80,7 +80,12 @@ static const u32 atl1c_default_msg = NETIF_MSG_DRV | NETIF_MSG_PROBE |
- 	NETIF_MSG_LINK | NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP;
- static void atl1c_pcie_patch(struct atl1c_hw *hw)
- {
--	u32 data;
-+	u32 mst_data, data;
-+
-+	/* pclk sel could switch to 25M */
-+	AT_READ_REG(hw, REG_MASTER_CTRL, &mst_data);
-+	mst_data &= ~MASTER_CTRL_CLK_SEL_DIS;
-+	AT_WRITE_REG(hw, REG_MASTER_CTRL, mst_data);
- 
- 	AT_READ_REG(hw, REG_PCIE_PHYMISC, &data);
- 	data |= PCIE_PHYMISC_FORCE_RCV_DET;
--- 
-1.7.7
+- http://marc.info/?t=133474395500004&r=1&w=2
+
+Thanks,
+Massimo
