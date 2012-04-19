@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] bnx2x: off by one in bnx2x_ets_e3b0_sp_pri_to_cos_set()
-Date: Thu, 19 Apr 2012 15:23:15 -0400 (EDT)
-Message-ID: <20120419.152315.1499384529431466518.davem@davemloft.net>
-References: <20120418065342.GC12831@elgon.mountain>
-	<1334741227.12363.5.camel@lb-tlvb-eilong.il.broadcom.com>
+Subject: Re: [net-next PATCH v3] bonding: start slaves with link down for
+ ARP monitor
+Date: Thu, 19 Apr 2012 15:25:38 -0400 (EDT)
+Message-ID: <20120419.152538.430981034620444725.davem@davemloft.net>
+References: <20120417121135.5F9A740290@alaris.suse.cz>
+	<20120418161912.1c0e2f4e@asterix.rh>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: eilong@broadcom.com
+Cc: mkubecek@suse.cz, netdev@vger.kernel.org, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51596 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51648 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756250Ab2DSTXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 15:23:21 -0400
-In-Reply-To: <1334741227.12363.5.camel@lb-tlvb-eilong.il.broadcom.com>
+	with ESMTP id S1753154Ab2DST0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 15:26:21 -0400
+In-Reply-To: <20120418161912.1c0e2f4e@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Wed, 18 Apr 2012 12:27:07 +0300
+From: Flavio Leitner <fbl@redhat.com>
+Date: Wed, 18 Apr 2012 16:19:12 -0300
 
-> On Wed, 2012-04-18 at 09:53 +0300, Dan Carpenter wrote:
->> The sp_pri_to_cos[] array size depends on the config but lets say it is
->> BX_E3B0_MAX_NUM_COS_PORT0 and max_num_of_cos is also
->> DCBX_E3B0_MAX_NUM_COS_PORT0.  In the original code
->> "pri == max_num_of_cos" was accepted but it is one past the end of the
->> array.
->> 
->> Also we used "pri" before capping it.  It's a harmless read past the end
->> of the array, but it would affect which error message gets printed.
->> 
->> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->> 
+> On Tue, 17 Apr 2012 14:02:06 +0200
+> Michal Kubecek <mkubecek@suse.cz> wrote:
 > 
-> Acked-by: Eilon Greenstein <eilong@broadcom.com>
+>> Initialize slave device link state as down if ARP monitor is
+>> active and net_carrier_ok() returns zero. Also shift initial
+>> value of its last_arp_tx so that it doesn't immediately cause
+>> fake detection of "up" state.
+>> 
+>> When ARP monitoring is used, initializing the slave device with
+>> up link state can cause ARP monitor to detect link failure
+>> before the device is really up (with igb driver, this can take
+>> more than two seconds).
+>> 
+>> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> 
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
 
 Applied, thanks everyone.
