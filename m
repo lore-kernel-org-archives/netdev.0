@@ -1,85 +1,46 @@
-From: "bfields@fieldses.org" <bfields@fieldses.org>
-Subject: Re: [PATCH] SUNRPC: skip dead but not buried clients on PipeFS
- events
-Date: Thu, 19 Apr 2012 17:40:43 -0400
-Message-ID: <20120419214043.GA23309@fieldses.org>
-References: <20120419105707.32131.79719.stgit@localhost6.localdomain6>
- <4F8FF8D9.5080503@parallels.com>
+From: "Venkataraman, Meenakshi" <meenakshi.venkataraman@intel.com>
+Subject: RE: net-next iwlwifi breaks compile - was Re: pull request:
+ wireless-next 2012-04-18
+Date: Thu, 19 Apr 2012 21:07:23 +0000
+Message-ID: <4595B4D22AB93C4FABBA84AAD5AA37FD1259E6@ORSMSX103.amr.corp.intel.com>
+References: <20120418.153653.2130740499995307564.davem@davemloft.net>
+	<4F8F9977.9040703@hartkopp.net>
+	<4595B4D22AB93C4FABBA84AAD5AA37FD1258AA@ORSMSX103.amr.corp.intel.com>
+ <20120419.154954.1322943404183128381.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "socketcan@hartkopp.net" <socketcan@hartkopp.net>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	James Bottomley <jbottomley@parallels.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+	"Spinadel, David" <david.spinadel@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:33018 "EHLO fieldses.org"
+Received: from mga09.intel.com ([134.134.136.24]:42527 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933493Ab2DSVkt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Apr 2012 17:40:49 -0400
-Content-Disposition: inline
-In-Reply-To: <4F8FF8D9.5080503@parallels.com>
+	id S932747Ab2DSVHY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 17:07:24 -0400
+In-Reply-To: <20120419.154954.1322943404183128381.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 19, 2012 at 03:36:57PM +0400, Stanislav Kinsbursky wrote:
-> Sorry, but ignore this patch too.
-> It can't be that simple because of these cl_count tricks in rpc_relea=
-se_client...
+Hi David,
 
-OK.  Very minor whine:
+>> It was fixed internally in a subsequent patch, but that patch has not
+>> made it into net-next. I don't see it in the public iwlwifi repository
+>> either. We'll add the fix to the repository so you can pick it up.
+>
+>That's not how this works.
+>
+>You should submit a patch to fix the build directly to me, immediately, so that I
+>can push it directly into net-next as fast as possible.
 
->=20
-> 19.04.2012 14:57, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
-:
-> >These clients can't be safely dereferenced if their counter in 0.
-> >
-> >Signee-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
-> >
-> >Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+[MV]  Okay -- this is good to know. Essentially -- if any upstream tree breaks due to our work, then a fix should be directly submitted ASAP to the maintainer of that tree.
 
-I don't mind fixing up trivial slips every now and then, but that doubl=
-e
-signed-off-by seems to happen on a lot of your posts; could you figure
-out what's up with your scripts?
+I see that Wey-Yi has already sent you the fix, so nothing left for me to do on this one.
 
---b.
-
-> >
-> >---
-> >  net/sunrpc/clnt.c |    3 ++-
-> >  1 files changed, 2 insertions(+), 1 deletions(-)
-> >
-> >diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-> >index 6797246..591994d 100644
-> >--- a/net/sunrpc/clnt.c
-> >+++ b/net/sunrpc/clnt.c
-> >@@ -218,7 +218,8 @@ static struct rpc_clnt *rpc_get_client_for_event=
-(struct net *net, int event)
-> >  		if (((event =3D=3D RPC_PIPEFS_MOUNT)&&  clnt->cl_dentry) ||
-> >  		    ((event =3D=3D RPC_PIPEFS_UMOUNT)&&  !clnt->cl_dentry))
-> >  			continue;
-> >-		atomic_inc(&clnt->cl_count);
-> >+		if (atomic_inc_return(&clnt->cl_count) =3D=3D 1)
-> >+			continue;
-> >  		spin_unlock(&sn->rpc_client_lock);
-> >  		return clnt;
-> >  	}
-> >
->=20
->=20
-> --=20
-> Best regards,
-> Stanislav Kinsbursky
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Thanks,
+Meenakshi
