@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 14/19] net ipv6:  Convert addrconf to use register_net_sysctl
-Date: Thu, 19 Apr 2012 16:41:24 -0700
-Message-ID: <m1397zffx7.fsf@fess.ebiederm.org>
+Subject: [PATCH net-next 15/19] net ipv4: Convert devinet to use register_net_sysctl
+Date: Thu, 19 Apr 2012 16:42:09 -0700
+Message-ID: <m1wr5be1bi.fsf@fess.ebiederm.org>
 References: <m1aa27ia6h.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,10 +11,10 @@ Cc: <netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>,
 	Pavel Emelyanov <xemul@openvz.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:59582 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753860Ab2DSXhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 19:37:24 -0400
+Received: from out02.mta.xmission.com ([166.70.13.232]:53643 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753860Ab2DSXiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 19:38:09 -0400
 In-Reply-To: <m1aa27ia6h.fsf@fess.ebiederm.org> (Eric W. Biederman's message
 	of "Thu, 19 Apr 2012 16:17:10 -0700")
 Sender: netdev-owner@vger.kernel.org
@@ -30,42 +30,41 @@ stack.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/ipv6/addrconf.c |   32 ++++----------------------------
- 1 files changed, 4 insertions(+), 28 deletions(-)
+ net/ipv4/devinet.c |   39 +++++----------------------------------
+ 1 files changed, 5 insertions(+), 34 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 4a83983..e3b3421 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4365,7 +4365,6 @@ static struct addrconf_sysctl_table
- {
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 8a01bfb..88c9e3f 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1585,7 +1585,6 @@ static int ipv4_doint_and_flush(ctl_table *ctl, int write,
+ static struct devinet_sysctl_table {
  	struct ctl_table_header *sysctl_header;
- 	ctl_table addrconf_vars[DEVCONF_MAX+1];
+ 	struct ctl_table devinet_vars[__IPV4_DEVCONF_MAX];
 -	char *dev_name;
- } addrconf_sysctl __read_mostly = {
- 	.sysctl_header = NULL,
- 	.addrconf_vars = {
-@@ -4594,17 +4593,7 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
+ } devinet_sysctl = {
+ 	.devinet_vars = {
+ 		DEVINET_SYSCTL_COMPLEX_ENTRY(FORWARDING, "forwarding",
+@@ -1627,16 +1626,7 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
  {
  	int i;
- 	struct addrconf_sysctl_table *t;
+ 	struct devinet_sysctl_table *t;
 -
--#define ADDRCONF_CTL_PATH_DEV	3
+-#define DEVINET_CTL_PATH_DEV	3
 -
--	struct ctl_path addrconf_ctl_path[] = {
--		{ .procname = "net", },
--		{ .procname = "ipv6", },
+-	struct ctl_path devinet_ctl_path[] = {
+-		{ .procname = "net",  },
+-		{ .procname = "ipv4", },
 -		{ .procname = "conf", },
 -		{ /* to be set */ },
 -		{ },
 -	};
--
-+	char path[sizeof("net/ipv6/conf/") + IFNAMSIZ];
++	char path[sizeof("net/ipv4/conf/") + IFNAMSIZ];
  
- 	t = kmemdup(&addrconf_sysctl, sizeof(*t), GFP_KERNEL);
- 	if (t == NULL)
-@@ -4616,27 +4605,15 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
- 		t->addrconf_vars[i].extra2 = net;
+ 	t = kmemdup(&devinet_sysctl, sizeof(*t), GFP_KERNEL);
+ 	if (!t)
+@@ -1648,27 +1638,15 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
+ 		t->devinet_vars[i].extra2 = net;
  	}
  
 -	/*
@@ -76,14 +75,14 @@ index 4a83983..e3b3421 100644
 -	t->dev_name = kstrdup(dev_name, GFP_KERNEL);
 -	if (!t->dev_name)
 -		goto free;
-+	snprintf(path, sizeof(path), "net/ipv6/conf/%s", dev_name);
- 
--	addrconf_ctl_path[ADDRCONF_CTL_PATH_DEV].procname = t->dev_name;
 -
--	t->sysctl_header = register_net_sysctl_table(net, addrconf_ctl_path,
--			t->addrconf_vars);
-+	t->sysctl_header = register_net_sysctl(net, path, t->addrconf_vars);
- 	if (t->sysctl_header == NULL)
+-	devinet_ctl_path[DEVINET_CTL_PATH_DEV].procname = t->dev_name;
++	snprintf(path, sizeof(path), "net/ipv4/conf/%s", dev_name);
+ 
+-	t->sysctl_header = register_net_sysctl_table(net, devinet_ctl_path,
+-			t->devinet_vars);
++	t->sysctl_header = register_net_sysctl(net, path, t->devinet_vars);
+ 	if (!t->sysctl_header)
 -		goto free_procname;
 +		goto free;
  
@@ -95,13 +94,35 @@ index 4a83983..e3b3421 100644
  free:
  	kfree(t);
  out:
-@@ -4653,7 +4630,6 @@ static void __addrconf_sysctl_unregister(struct ipv6_devconf *p)
- 	t = p->sysctl;
- 	p->sysctl = NULL;
+@@ -1684,7 +1662,6 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
+ 
+ 	cnf->sysctl = NULL;
  	unregister_net_sysctl_table(t->sysctl_header);
 -	kfree(t->dev_name);
  	kfree(t);
  }
  
+@@ -1714,12 +1691,6 @@ static struct ctl_table ctl_forward_entry[] = {
+ 	},
+ 	{ },
+ };
+-
+-static __net_initdata struct ctl_path net_ipv4_path[] = {
+-	{ .procname = "net", },
+-	{ .procname = "ipv4", },
+-	{ },
+-};
+ #endif
+ 
+ static __net_init int devinet_init_net(struct net *net)
+@@ -1765,7 +1736,7 @@ static __net_init int devinet_init_net(struct net *net)
+ 		goto err_reg_dflt;
+ 
+ 	err = -ENOMEM;
+-	forw_hdr = register_net_sysctl_table(net, net_ipv4_path, tbl);
++	forw_hdr = register_net_sysctl(net, "net/ipv4", tbl);
+ 	if (forw_hdr == NULL)
+ 		goto err_reg_ctl;
+ 	net->ipv4.forw_hdr = forw_hdr;
 -- 
 1.7.2.5
