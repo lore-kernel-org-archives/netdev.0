@@ -1,86 +1,54 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 1/4 (V3)] net: ethtool: add the EEE support
-Date: Thu, 19 Apr 2012 14:58:48 +0200
-Message-ID: <4F900C08.5000906@st.com>
-References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>  <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com> <1334269598.2497.50.camel@bwh-desktop.uk.solarflarecom.com> <4F8BB103.7020107@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: avoid expensive pskb_expand_head()
+ calls
+Date: Thu, 19 Apr 2012 15:18:01 +0200
+Message-ID: <1334841481.2395.175.camel@edumazet-glaptop>
+References: <1334653608.6226.11.camel@edumazet-laptop>
+	 <1334654187.2696.2.camel@jtkirshe-mobl> <4F8D93E1.9090000@intel.com>
+	 <1334681204.2472.41.camel@edumazet-glaptop>
+	 <1334698722.2472.71.camel@edumazet-glaptop>
+	 <1334764184.2472.299.camel@edumazet-glaptop>
+	 <CADVnQy=BkhSBHyN2hyBy=_H64oM8sJvyZZfEjK1x7PYzoLv=5w@mail.gmail.com>
+	 <1334776707.2472.316.camel@edumazet-glaptop>
+	 <1334778707.2472.333.camel@edumazet-glaptop>
+	 <alpine.DEB.2.00.1204191401240.735@wel-95.cs.helsinki.fi>
+	 <1334835018.2395.66.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rayagond@vayavyalabs.com,
-	davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Neal Cardwell <ncardwell@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:43351 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753449Ab2DSNAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 09:00:52 -0400
-In-Reply-To: <4F8BB103.7020107@st.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:54555 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751307Ab2DSNSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 09:18:10 -0400
+Received: by bkcik5 with SMTP id ik5so6347471bkc.19
+        for <netdev@vger.kernel.org>; Thu, 19 Apr 2012 06:18:09 -0700 (PDT)
+In-Reply-To: <1334835018.2395.66.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Ben,
+On Thu, 2012-04-19 at 13:30 +0200, Eric Dumazet wrote:
 
-On 4/16/2012 7:41 AM, Giuseppe CAVALLARO wrote:
-[snip]
->> What I meant is that userland should be able to find out (a), and,
->> *separately*, either (b) or (c).  That is, there must be at least 2
->> separate flags for this.  In fact, I explicitly requested you define
->> supported/advertising/lp_advertising bitmasks for EEE link modes just
->> like we have for autonegotiation.  But you've made no substantive
->> changes in response to my review, aside from dropping the added field in
->> ethtool_cmd.
-> 
-> Sorry Ben but I believed that (c) was enough.
-> 
->> What you're submitting just isn't good enough for a generic interface,
->> as the ethtool API is supposed to be.  It's not even a good interface to
->> your driver.
-> 
-> yes! I'll rework this and provide new patches asap.
+> I'll provide a v3 anyway with more performance data, I setup two cards
+> in PCI x8 slots to get full bandwidth.
 
-sorry if I disturb you but I want to be sure to avoid to forget
-something else in the next EEE patches (avoiding to continuously disturb
-you).
+Incidentally, using PCI x8 slots dont anymore trigger the slow path on
+unpatched kernel and a single flow (~9410 Mbits)
 
-I'm changing the code for getting/setting the EEE capability and trying
-to follow your suggestions.
+It seems we are lucky enough to TX complete sent clones before trying to
+tcp_trim_head() when processing ACK
 
-The "get" will show the following things; this is a bit different of the
-points "a" "b" and "c" we had discussed. Maybe, this could also be a
-more complete (*) .
-The ethtool (see output below as example) could report the phy
-(supported/advertised/lp_advertised) and mac eee capabilities separately.
+Sounds like a timing issue, and fact that drivers batches TX completions
+and RX completions.
 
-The "set" will be useful for some eth devices (like the stmmac) that can
-stop/enable internally the eee capability (at mac level).
+Also BQL might have changed things a bit here (ixgbe is BQL enabled)
 
-What do you think?
-
-Regards
-Peppe
-
-----
-
-# ./ethtool  eth0
-Settings for eth0:
-
-[snip]
-
-	Current message level: 0x0000003f (63)
-			       drv probe link timer ifdown ifup
-	Link detected: yes
-	Energy-Efficient Ethernet:           -------------------------
-		MAC supports: yes            |-> related to MAC side  |
-		phy supports modes: ...      |-> from MMD 3.20        |
-		phy advertising modes: ...   |-> from MMD 7.60        |
-		LP advertising modes: ...    |-> from MMD 7.61        |
-					     --------------------------
-                                                    (*)
-PS. The "..." above means that we can actually dump: 100BASE-TX EEE etc
-for each advertising modes and also for phy support (reg 3.20).
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Only if I start several concurrent flows I see the pskb_expand_head()
+overhead.
