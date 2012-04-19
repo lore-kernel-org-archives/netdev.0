@@ -1,60 +1,164 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: net-next iwlwifi breaks compile - was Re: pull request: wireless-next
- 2012-04-18
-Date: Thu, 19 Apr 2012 06:49:59 +0200
-Message-ID: <4F8F9977.9040703@hartkopp.net>
-References: <20120418190521.GB2436@tuxdriver.com> <20120418.153653.2130740499995307564.davem@davemloft.net>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Thu, 19 Apr 2012 13:53:35 +0900
+Message-ID: <20120419045333.GA21311@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Meenakshi Venkataraman <meenakshi.venkataraman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120418.153653.2130740499995307564.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 18.04.2012 21:36, David Miller wrote:
+This hook is based on a hook of the same name provided by UDP.  It provides
+a way for to receive packets that have a TCP header and treat them in some
+alternate way.
 
-> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Date: Wed, 18 Apr 2012 15:05:22 -0400
-> 
->> Another batch of wireless updates intended for 3.5...
->>
->> Highlights include some wl12xx refactoring, NFC HCI and SHDLC updates,
->> an ath6kl pull, some mesh updates, and the usual updates to iwlwifi,
->> ath9k, brcm80211, mwifiex, libertas, and other drivers.
->>
->> Please let me know if there are problems!
-> 
-> Also pulled, thanks a lot.
+It is intended to be used by an implementation of the STT tunneling
+protocol within Open vSwtich's datapath. A prototype of such an
+implementation has been made.
 
+The STT draft is available at
+http://tools.ietf.org/html/draft-davie-stt-01
 
-Commit "iwlwifi: move scan related declarations out of iwl-core.h"
+My prototype STT implementation has been posted to the dev-UOEtcQmXneFl884UGnbwIQ@public.gmane.org
+The second version can be found at:
+http://www.mail-archive.com/dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org/msg09001.html
+It needs to be updated to call tcp_encap_enable()
 
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=commitdiff;h=8fb96d6e176cbf0a97b2391fa1fa09e608ee86f8
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 
-breaks the compile when CONFIG_IWLWIFI_DEBUGFS is not set, see:
+---
+v4
+* Make use of static_key,
+  a tonic for insanity suggested by Eric Dumazet
 
-  CC [M]  drivers/net/wireless/iwlwifi/iwl-agn-tt.o
-In file included from drivers/net/wireless/iwlwifi/iwl-agn-tt.c:40:0:
-drivers/net/wireless/iwlwifi/iwl-core.h:97:19: error: static declaration of 'iwl_alloc_traffic_mem' follows non-static declaration
-drivers/net/wireless/iwlwifi/iwl-agn.h:513:5: note: previous declaration of 'iwl_alloc_traffic_mem' was here
-make[4]: *** [drivers/net/wireless/iwlwifi/iwl-agn-tt.o] Error 1
-make[3]: *** [drivers/net/wireless/iwlwifi] Error 2
-make[2]: *** [drivers/net/wireless] Error 2
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
-make: *** Waiting for unfinished jobs....
+v3
+* Replace more UDP references with TCP
+* Move socket accesses to inside socket lock
+  and release lock on return.
 
-Please check these kind of source reorganizations with different CONFIG settings too.
+v2
+* Fix comment to refer to TCP rather than UDP
+* Allow skb to continue traversing the stack if
+  the encap_rcv callback returns a positive value.
+  This is the same behaviour as the UDP hook.
+---
+ include/linux/tcp.h |    3 +++
+ include/net/tcp.h   |    1 +
+ net/ipv4/tcp_ipv4.c |   34 +++++++++++++++++++++++++++++++++-
+ 3 files changed, 37 insertions(+), 1 deletion(-)
 
-Regards,
-Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index b6c62d2..7210b23 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -472,6 +472,9 @@ struct tcp_sock {
+ 	 * contains related tcp_cookie_transactions fields.
+ 	 */
+ 	struct tcp_cookie_values  *cookie_values;
++
++	/* For encapsulation sockets. */
++	int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
+ };
+ 
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index d5984e3..35d4070 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1576,5 +1576,6 @@ static inline struct tcp_extend_values *tcp_xv(struct request_values *rvp)
+ 
+ extern void tcp_v4_init(void);
+ extern void tcp_init(void);
++extern void tcp_encap_enable(void);
+ 
+ #endif	/* _TCP_H */
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0cb86ce..907735d 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -62,6 +62,7 @@
+ #include <linux/init.h>
+ #include <linux/times.h>
+ #include <linux/slab.h>
++#include <linux/static_key.h>
+ 
+ #include <net/net_namespace.h>
+ #include <net/icmp.h>
+@@ -1657,6 +1658,14 @@ csum_err:
+ }
+ EXPORT_SYMBOL(tcp_v4_do_rcv);
+ 
++static struct static_key tcp_encap_needed __read_mostly;
++void tcp_encap_enable(void)
++{
++	if (!static_key_enabled(&tcp_encap_needed))
++		static_key_slow_inc(&tcp_encap_needed);
++}
++EXPORT_SYMBOL(tcp_encap_enable);
++
+ /*
+  *	From tcp_input.c
+  */
+@@ -1666,6 +1675,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	const struct iphdr *iph;
+ 	const struct tcphdr *th;
+ 	struct sock *sk;
++	struct tcp_sock *tp;
+ 	int ret;
+ 	struct net *net = dev_net(skb->dev);
+ 
+@@ -1726,9 +1736,30 @@ process:
+ 
+ 	bh_lock_sock_nested(sk);
+ 	ret = 0;
++
++	tp = tcp_sk(sk);
++	if (static_key_false(&tcp_encap_needed)) {
++		int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
++		encap_rcv = ACCESS_ONCE(tp->encap_rcv);
++		if (encap_rcv != NULL) {
++			/*
++			 * This is an encapsulation socket so pass the skb to
++			 * the socket's tcp_encap_rcv() hook. Otherwise, just
++			 * fall through and pass this up the TCP socket.
++			 * up->encap_rcv() returns the following value:
++			 * <=0 if skb was successfully passed to the encap
++			 *     handler or was discarded by it.
++			 * >0 if skb should be passed on to TCP.
++			 */
++			if (encap_rcv(sk, skb) <= 0) {
++				ret = 0;
++				goto unlock_sock;
++			}
++		}
++	}
++
+ 	if (!sock_owned_by_user(sk)) {
+ #ifdef CONFIG_NET_DMA
+-		struct tcp_sock *tp = tcp_sk(sk);
+ 		if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
+ 			tp->ucopy.dma_chan = net_dma_find_channel();
+ 		if (tp->ucopy.dma_chan)
+@@ -1744,6 +1775,7 @@ process:
+ 		NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
+ 		goto discard_and_relse;
+ 	}
++unlock_sock:
+ 	bh_unlock_sock(sk);
+ 
+ 	sock_put(sk);
+-- 
+1.7.9.5
