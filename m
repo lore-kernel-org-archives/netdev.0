@@ -1,50 +1,49 @@
-From: Jonas Gorski <jonas.gorski@gmail.com>
-Subject: Re: [PATCH] NET: bcm63xx_enet: move phy_(dis)connect into probe/remove
-Date: Thu, 19 Apr 2012 16:52:46 +0200
-Message-ID: <CAOiHx==f0czkaEVTe=+wabQMmifdaN00PMQwaR8f-602Dq56pA@mail.gmail.com>
-References: <1334750537-14896-1-git-send-email-jonas.gorski@gmail.com>
- <1334753296.5185.3.camel@sakura.staff.proxad.net> <CAOiHx=khEqKaAsD++=0BXEzutaWCgi-30B=6hYyLChfkAaHXXA@mail.gmail.com>
- <1334842380.5185.29.camel@sakura.staff.proxad.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: RTM_NEWLINK not received by application when connecting
+ multiple devices simultaneously
+Date: Thu, 19 Apr 2012 07:54:52 -0700
+Message-ID: <20120419075452.379f711b@s6510.linuxnetplumber.net>
+References: <CAKfDRXj+mydkzNFC8q2aE_JWHp3ie0cijC-itkm6sHLuZr98Fw@mail.gmail.com>
+	<4F90208E.6070201@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: mbizon@freebox.fr
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Kristian Evensen <kristian.evensen@gmail.com>,
+	netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:65009 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558Ab2DSOxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 10:53:08 -0400
-Received: by ghrr11 with SMTP id r11so4467832ghr.19
-        for <netdev@vger.kernel.org>; Thu, 19 Apr 2012 07:53:07 -0700 (PDT)
-In-Reply-To: <1334842380.5185.29.camel@sakura.staff.proxad.net>
+Received: from mail.vyatta.com ([76.74.103.46]:45600 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754510Ab2DSOzA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2012 10:55:00 -0400
+In-Reply-To: <4F90208E.6070201@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19 April 2012 15:33, Maxime Bizon <mbizon@freebox.fr> wrote:
->
-> On Wed, 2012-04-18 at 21:30 +0200, Jonas Gorski wrote:
->>
->> The phy state machine will start in PHY_READY after phy_connect, which
->> will result in NOPs, so no call to bcm_enet_adjust_phy_link() after
->> _probe() and before _open(). The state machine starts doing real work
->> only after calling phy_start(), which happens only after the dma
->> register accesses in open(). So no race here.
->
-> If I read the phylib code correctly, after phy_connect() the phy is in
-> READY state, and you can access it via ethtool.
+On Thu, 19 Apr 2012 07:26:22 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-Yes, but none of the ethtool functions cause register writes in the
-priv->has_phy = true case when in PHY_READY or PHY_HALTED state. All
-they do is modify the phy_device's settings.
-The settings only get taken over when the phy is started and the
-phy_state_machine is running, so after phy_start() was and before
-phy_stop().
+> On 04/19/2012 04:44 AM, Kristian Evensen wrote:
+> > Hello,
+> 
+> > The application works as intended when I connect interfaces one by
+> > one. However, if I connect two interfaces "simultaneously", the
+> > RTM_NEWLINK message for one of the interfaces is sometimes not
+> > received. Nothing arrives at the handle. It seems to be random which
+> > RTM_NEWLINK actually arrives. I have only been able to recreate this
+> > problem when connecting two USB 3G modems and automatically dialing
+> > the ISP, but I assume it would happen with other technologies as well.
+> > What puzzles me, is that both RTM_NEWLINK messages are seen by for
+> > example ip monitor. This has led me to conclusion that there is a bug
+> > in my application, and my question is therefore, are there any common
+> > mistakes one can make or things to forget that would cause a message
+> > to get lost or not be received, or does anyone have any tips on where
+> > I can start looking?
+> 
+> Multiple netlink msgs can be received in each read of a netlink
+> socket.  Maybe you are only processing the first one?
 
-In the priv->has_phy = false case they do cause register writes since
-bcm_enet_adjust_link() might get called, but these never use the phy
-state machine, so my patch does not change anything there.
-
-
-Jonas
+I recommend using the libmnl library instead of the older
+libnetlink. The code is cleaner and it handles error cases better.
+In libmnl there is a callback interface for parsing
+netlink messages.
