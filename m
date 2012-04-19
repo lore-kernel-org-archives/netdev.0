@@ -1,56 +1,36 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 1/2 v2] pch_gbe: Do not abort probe on bad MAC
-Date: Thu, 19 Apr 2012 11:41:18 -0700
-Message-ID: <20120419184118.GA11880@kroah.com>
-References: <1333335645-14413-1-git-send-email-tomoya.rohm@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] nf_bridge: remove holes in struct
+ nf_bridge_info
+Date: Thu, 19 Apr 2012 15:19:11 -0400 (EDT)
+Message-ID: <20120419.151911.1950614399106721567.davem@davemloft.net>
+References: <1334827165.2395.63.camel@edumazet-glaptop>
+	<20120419075246.0df140e9@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@vger.kernel.org, Darren Hart <dvhart@linux.intel.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Alan Cox <alan@linux.intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Joe Perches <joe@perches.com>
-To: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:59596 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932126Ab2DSSlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 14:41:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1333335645-14413-1-git-send-email-tomoya.rohm@gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51562 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756398Ab2DSTTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 15:19:18 -0400
+In-Reply-To: <20120419075246.0df140e9@s6510.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 02, 2012 at 12:00:44PM +0900, Tomoya MORINAGA wrote:
-> If the MAC is invalid or not implemented, do not abort the probe. Issue
-> a warning and prevent bringing the interface up until a MAC is set manually
-> (via ifconfig $IFACE hw ether $MAC).
-> 
-> Tested on two platforms, one with a valid MAC, the other without a MAC. The real
-> MAC is used if present, the interface fails to come up until the MAC is set on
-> the other. They successfully get an IP over DHCP and pass a simple ping and
-> login over ssh test.
-> 
-> This is meant to allow the Inforce SYS940X development board:
-> http://www.inforcecomputing.com/SYS940X_ECX.html
-> (and others suffering from a missing MAC) to work with the mainline kernel.
-> Without this patch, the probe will fail and the interface will not be created,
-> preventing the user from configuring the MAC manually.
-> 
-> This does not make any attempt to address a missing or invalid MAC for the
-> pch_phub driver.
-> 
-> commit: 2b53d07891630dead46d65c8f896955fd3ae0302
-> kernel version: 3.0, 3.2
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 19 Apr 2012 07:52:46 -0700
 
-How can you want this in 3.0, when the file this patches is not in the
-3.0 kernel tree?
+> On Thu, 19 Apr 2012 11:19:25 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+>> From: Eric Dumazet <edumazet@google.com>
+>> 
+>> Put use & mask on same location to avoid two holes on 64bit arches
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Please be more careful.
-
-greg k-h
+Applied, thanks.
