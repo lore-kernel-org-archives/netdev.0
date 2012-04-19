@@ -1,67 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: fix compile error of leaking kmemleak.h header
-Date: Thu, 19 Apr 2012 06:22:08 +0200
-Message-ID: <1334809328.2395.0.camel@edumazet-glaptop>
-References: <4F8F8F1A.6020000@gmail.com>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: net-next iwlwifi breaks compile - was Re: pull request: wireless-next
+ 2012-04-18
+Date: Thu, 19 Apr 2012 06:49:59 +0200
+Message-ID: <4F8F9977.9040703@hartkopp.net>
+References: <20120418190521.GB2436@tuxdriver.com> <20120418.153653.2130740499995307564.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, majianpeng@gmail.com,
-	NetDev <netdev@vger.kernel.org>,
-	davidshan <davidshan@tencent.com>
-To: Shan Wei <shanwei88@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:43675 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770Ab2DSEWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 00:22:12 -0400
-Received: by wejx9 with SMTP id x9so5142150wej.19
-        for <netdev@vger.kernel.org>; Wed, 18 Apr 2012 21:22:11 -0700 (PDT)
-In-Reply-To: <4F8F8F1A.6020000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Meenakshi Venkataraman <meenakshi.venkataraman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120418.153653.2130740499995307564.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-04-19 at 12:05 +0800, Shan Wei wrote:
-> From: Shan Wei <davidshan@tencent.com>
->=20
-> net/core/sysctl_net_core.c: In function =E2=80=98sysctl_core_init=E2=80=
-=99:
-> net/core/sysctl_net_core.c:259: error: implicit declaration of functi=
-on =E2=80=98kmemleak_not_leak=E2=80=99
->=20
-> with same error in net/ipv4/route.c
->=20
-> Signed-off-by: Shan Wei <davidshan@tencent.com>
-> ---
->  net/core/sysctl_net_core.c |    1 +
->  net/ipv4/route.c           |    1 +
->  2 files changed, 2 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index cee5991..247c69b 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
-> @@ -14,6 +14,7 @@
->  #include <linux/vmalloc.h>
->  #include <linux/init.h>
->  #include <linux/slab.h>
-> +#include <linux/kmemleak.h>
-> =20
->  #include <net/ip.h>
->  #include <net/sock.h>
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index bcd4744..a1c115d 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -109,6 +109,7 @@
->  #include <net/rtnetlink.h>
->  #ifdef CONFIG_SYSCTL
->  #include <linux/sysctl.h>
-> +#include <linux/kmemleak.h>
->  #endif
->  #include <net/secure_seq.h>
-> =20
+On 18.04.2012 21:36, David Miller wrote:
 
-yep, SLAB doesnt include it like SLUB
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Wed, 18 Apr 2012 15:05:22 -0400
+> 
+>> Another batch of wireless updates intended for 3.5...
+>>
+>> Highlights include some wl12xx refactoring, NFC HCI and SHDLC updates,
+>> an ath6kl pull, some mesh updates, and the usual updates to iwlwifi,
+>> ath9k, brcm80211, mwifiex, libertas, and other drivers.
+>>
+>> Please let me know if there are problems!
+> 
+> Also pulled, thanks a lot.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Commit "iwlwifi: move scan related declarations out of iwl-core.h"
+
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=commitdiff;h=8fb96d6e176cbf0a97b2391fa1fa09e608ee86f8
+
+breaks the compile when CONFIG_IWLWIFI_DEBUGFS is not set, see:
+
+  CC [M]  drivers/net/wireless/iwlwifi/iwl-agn-tt.o
+In file included from drivers/net/wireless/iwlwifi/iwl-agn-tt.c:40:0:
+drivers/net/wireless/iwlwifi/iwl-core.h:97:19: error: static declaration of 'iwl_alloc_traffic_mem' follows non-static declaration
+drivers/net/wireless/iwlwifi/iwl-agn.h:513:5: note: previous declaration of 'iwl_alloc_traffic_mem' was here
+make[4]: *** [drivers/net/wireless/iwlwifi/iwl-agn-tt.o] Error 1
+make[3]: *** [drivers/net/wireless/iwlwifi] Error 2
+make[2]: *** [drivers/net/wireless] Error 2
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
+make: *** Waiting for unfinished jobs....
+
+Please check these kind of source reorganizations with different CONFIG settings too.
+
+Regards,
+Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
