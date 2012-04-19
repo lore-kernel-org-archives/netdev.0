@@ -1,78 +1,56 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: Re: [PATCH 1/2] workqueue: Catch more locking problems with flush_work()
-Date: Thu, 19 Apr 2012 11:36:32 -0700
-Message-ID: <4F905B30.4080501@codeaurora.org>
-References: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org> <20120419081002.GB3963@zhy>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 1/2 v2] pch_gbe: Do not abort probe on bad MAC
+Date: Thu, 19 Apr 2012 11:41:18 -0700
+Message-ID: <20120419184118.GA11880@kroah.com>
+References: <1333335645-14413-1-git-send-email-tomoya.rohm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>
-To: Yong Zhang <yong.zhang0@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120419081002.GB3963@zhy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, Darren Hart <dvhart@linux.intel.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Joe Perches <joe@perches.com>
+To: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:59596 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932126Ab2DSSlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 14:41:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1333335645-14413-1-git-send-email-tomoya.rohm@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/19/12 01:10, Yong Zhang wrote:
-> On Wed, Apr 18, 2012 at 08:25:57PM -0700, Stephen Boyd wrote:
->> If a workqueue is flushed but the work item is not scheduled to
->> run, lockdep checking will be circumvented. For example:
->>
->>  static DEFINE_MUTEX(mutex);
->>
->>  static void my_work(struct work_struct *w)
->>  {
->>          mutex_lock(&mutex);
->>          mutex_unlock(&mutex);
->>  }
->>
->>  static DECLARE_WORK(work, my_work);
->>
->>  static int __init start_test_module(void)
->>  {
->>          schedule_work(&work);
->>          return 0;
->>  }
->>  module_init(start_test_module);
->>
->>  static void __exit stop_test_module(void)
->>  {
->>          mutex_lock(&mutex);
->>          flush_work(&work);
->>          mutex_unlock(&mutex);
->>  }
->>  module_exit(stop_test_module);
->>
->> would only print a warning if the work item was actively running
->> when flush_work() was called. Otherwise flush_work() returns
->> early. In this trivial example nothing could go wrong, but if the
->> work item is schedule via an interrupt we could potentially have a
->> scenario where the work item is running just at the time flush_work()
-> You mean flush_work() could be called in interupt? I don't it is
-> possible.
+On Mon, Apr 02, 2012 at 12:00:44PM +0900, Tomoya MORINAGA wrote:
+> If the MAC is invalid or not implemented, do not abort the probe. Issue
+> a warning and prevent bringing the interface up until a MAC is set manually
+> (via ifconfig $IFACE hw ether $MAC).
+> 
+> Tested on two platforms, one with a valid MAC, the other without a MAC. The real
+> MAC is used if present, the interface fails to come up until the MAC is set on
+> the other. They successfully get an IP over DHCP and pass a simple ping and
+> login over ssh test.
+> 
+> This is meant to allow the Inforce SYS940X development board:
+> http://www.inforcecomputing.com/SYS940X_ECX.html
+> (and others suffering from a missing MAC) to work with the mainline kernel.
+> Without this patch, the probe will fail and the interface will not be created,
+> preventing the user from configuring the MAC manually.
+> 
+> This does not make any attempt to address a missing or invalid MAC for the
+> pch_phub driver.
+> 
+> commit: 2b53d07891630dead46d65c8f896955fd3ae0302
+> kernel version: 3.0, 3.2
 
-No.
+How can you want this in 3.0, when the file this patches is not in the
+3.0 kernel tree?
 
->
->> is called. This could become a classic AB-BA locking problem.
-> I don't see how the deadlock happen, could you please be more
-> specific?
->
+Please be more careful.
 
-Does looking at the second patch help? Basically schedule_work() can run
-the callback right between the time the mutex is acquired and
-flush_work() is called:
-
-CPU0                        CPU1
-
-<irq>
-  schedule_work()           mutex_lock(&mutex)
-<irq return>
-    my_work()               flush_work() 
-      mutex_lock(&mutex)    
-      <deadlock>
-
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
+greg k-h
