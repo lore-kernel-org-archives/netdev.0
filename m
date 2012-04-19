@@ -1,57 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next iwlwifi breaks compile - was Re: pull request:
- wireless-next 2012-04-18
-Date: Thu, 19 Apr 2012 16:27:44 -0400 (EDT)
-Message-ID: <20120419.162744.2197721179697327138.davem@davemloft.net>
-References: <4595B4D22AB93C4FABBA84AAD5AA37FD1258AA@ORSMSX103.amr.corp.intel.com>
-	<20120419.154954.1322943404183128381.davem@davemloft.net>
-	<1334866241.27767.156.camel@wwguy-huron>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: RTM_NEWLINK not received by application when connecting
+ multiple devices simultaneously
+Date: Thu, 19 Apr 2012 13:36:35 -0700
+Message-ID: <20120419133635.7d816d67@nehalam.linuxnetplumber.net>
+References: <CAKfDRXj+mydkzNFC8q2aE_JWHp3ie0cijC-itkm6sHLuZr98Fw@mail.gmail.com>
+	<4F90208E.6070201@candelatech.com>
+	<20120419075452.379f711b@s6510.linuxnetplumber.net>
+	<CAKfDRXjCr0aDSDT8zN8A7_iNX6KAJwrR3NxaB8GAgz5oEiCB3w@mail.gmail.com>
+	<CAKfDRXhAqFzPWAJkzhPdZGsUrtjex8uVwHBynCdvA+Zo6sjMig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: meenakshi.venkataraman@intel.com, socketcan@hartkopp.net,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, david.spinadel@intel.com
-To: wey-yi.w.guy@intel.com
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Kristian Evensen <kristian.evensen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52370 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371Ab2DSUbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 16:31:03 -0400
-In-Reply-To: <1334866241.27767.156.camel@wwguy-huron>
+Received: from mail.vyatta.com ([76.74.103.46]:54673 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932204Ab2DSUgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2012 16:36:38 -0400
+In-Reply-To: <CAKfDRXhAqFzPWAJkzhPdZGsUrtjex8uVwHBynCdvA+Zo6sjMig@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
-Date: Thu, 19 Apr 2012 13:10:41 -0700
+On Thu, 19 Apr 2012 21:54:24 +0200
+Kristian Evensen <kristian.evensen@gmail.com> wrote:
 
-> On Thu, 2012-04-19 at 15:49 -0400, David Miller wrote:
->> From: "Venkataraman, Meenakshi" <meenakshi.venkataraman@intel.com>
->> Date: Thu, 19 Apr 2012 19:47:58 +0000
->> 
->> > It was fixed internally in a subsequent patch, but that patch has
->> > not made it into net-next. I don't see it in the public iwlwifi
->> > repository either. We'll add the fix to the repository so you can
->> > pick it up.
->> 
->> That's not how this works.
->> 
->> You should submit a patch to fix the build directly to me, immediately,
->> so that I can push it directly into net-next as fast as possible.
-> 
-> The patch "iwlwifi-Remove-inconsistent-and-redundant-declaratio.patch"
-> already being push to John to address this issue
+> I spent some more time debugging this now. It turns out that which
+> interface is seen by my application is not random, it is always the
+> first one that is connected. This indicates that the bug is that the
+> netlink message contains information about more than one interface.
+> However, I am not able to prove this.
 
-You don't understand, that's exactly what I'm telling you I want
-to avoid.
+There is no filtering. A dump request always returns all interfaces.
 
-Then we all have to wait until John takes it, then we have to wait until
-John is able to do a push to me, then we have to wait until I see John's
-request and pull it, and then we have to wait until I am done build
-testing and push the result out.
+> When I check for the presence of NLM_F_MULTI, it is always NULL. Also,
+> the length of the received nlmsg (including payload) always equals the
+> numbers of bytes I receive from the netlink socket, i.e., all the data
+> is received.
 
-All of this red tape adds unacceptble time just to fix the build
-regression added to net-next.
+The flags for nested and multi are relatively new. The original ancient
+rtnetlink message formats dont use them, don't depend on them.
+Since rtnetlink is cast in ABI concrete, it can't be fixed.
 
-PUSH THIS FIX DIRECTLY TO ME NOW so that the build regression can get
-fixed NOW.
+> Based on my understanding of netlink, an nlmsg will only contain one
+> packet (for example ifinfomsg), unless the NLM_F_MULTI flag is set. Or
+> am I mistaken?
+
+The only reliable way is to parse the response to GET request is
+to keep reading until you see NLMSG_DONE (or NLMSG_ERROR)
+
+Look at example in libmnl source examples/rtnl/rtnl-link-dump.c
