@@ -1,47 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: allow better page reuse in splice(sock ->
- pipe)
-Date: Thu, 19 Apr 2012 21:38:17 +0200
-Message-ID: <1334864297.2395.220.camel@edumazet-glaptop>
+From: "Venkataraman, Meenakshi" <meenakshi.venkataraman-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: net-next iwlwifi breaks compile - was Re: pull request:
+ wireless-next 2012-04-18
+Date: Thu, 19 Apr 2012 19:47:58 +0000
+Message-ID: <4595B4D22AB93C4FABBA84AAD5AA37FD1258AA@ORSMSX103.amr.corp.intel.com>
+References: <20120418190521.GB2436@tuxdriver.com>
+ <20120418.153653.2130740499995307564.davem@davemloft.net>
+ <4F8F9977.9040703@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:57232 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932254Ab2DSTiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 15:38:23 -0400
-Received: by bkcik5 with SMTP id ik5so6666694bkc.19
-        for <netdev@vger.kernel.org>; Thu, 19 Apr 2012 12:38:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Spinadel, David" <david.spinadel-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4F8F9977.9040703-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hey Oliver,
 
-splice() from socket to pipe needs linear_to_page() helper to transfert
-skb header to part of page.
+>Commit "iwlwifi: move scan related declarations out of iwl-core.h"
+>
+>http://git.kernel.org/?p=linux/kernel/git/davem/net-
+>next.git;a=commitdiff;h=8fb96d6e176cbf0a97b2391fa1fa09e608ee86f8
+>
+>breaks the compile when CONFIG_IWLWIFI_DEBUGFS is not set, see:
 
-We can reset the offset in the current sk->sk_sndmsg_page if we are the
-last user of the page.
+[MV] Sorry about breaking net-next. I took a look at the patch that you've pointed to, and actually it's a patch that caused the problem. The commit that broke it is actually:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/skbuff.c |    3 +++
- 1 file changed, 3 insertions(+)
+iwlwifi: expose static methods for MVM use
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 43c490d..bf257de 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1565,6 +1565,9 @@ new_page:
- 	} else {
- 		unsigned int mlen;
- 
-+		/* If we are the only user of the page, we can reset offset */
-+		if (page_count(p) == 1)
-+			sk->sk_sndmsg_off = 0;
- 		off = sk->sk_sndmsg_off;
- 		mlen = PAGE_SIZE - off;
- 		if (mlen < 64 && mlen < *len) {
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=commit;h=50c1e9a9e3b086465b1467d448c10f7fa1e0eb5c
+
+It was fixed internally in a subsequent patch, but that patch has not made it into net-next. I don't see it in the public iwlwifi repository either. We'll add the fix to the repository so you can pick it up.
+
+Thanks & sorry,
+Meenakshi
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
