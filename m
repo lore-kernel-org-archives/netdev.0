@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 02/11] atl1c: add module parameter for l1c_wait_until_idle
-Date: Thu, 19 Apr 2012 16:01:22 +0800
-Message-ID: <1334822491-30129-3-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 03/11] atl1c: update right threshold for TSO
+Date: Thu, 19 Apr 2012 16:01:23 +0800
+Message-ID: <1334822491-30129-4-git-send-email-xiong@qca.qualcomm.com>
 References: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,113 +10,82 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:5678 "EHLO
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:5685 "EHLO
 	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753698Ab2DSIB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 04:01:56 -0400
+	with ESMTP id S1753730Ab2DSICC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 04:02:02 -0400
 In-Reply-To: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l1c_wait_until_idle is called for serval modules (TXQ/RXQ/TXMAC/RXMAC).
-specific moudle have specific idle/busy status in reg REG_IDLE_STATUS.
-the previous code return wrongly if all modules are in idle status,
-regardless the 'stop' action is applied on individual module.
-Refine the reg REG_IDLE_STATUS definition as well.
+atl1c_configure_tx used a wrong value of MAX_TX_OFFLOAD_THRESH(9KB)
+for TSO threshold.
+the right value should be 7KB
+Fast Ethernet controller doesn't support Jumbo frame.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
-Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   28 ++++++++++++++--------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   11 +++++----
- 2 files changed, 24 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c.h      |    2 --
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    1 +
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   11 ++++++++---
+ 3 files changed, 9 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c.h b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+index 0a4bfab..fa31551 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c.h
+@@ -74,8 +74,6 @@
+ 
+ #define AT_RX_BUF_SIZE		(ETH_FRAME_LEN + VLAN_HLEN + ETH_FCS_LEN)
+ #define MAX_JUMBO_FRAME_SIZE	(6*1024)
+-#define MAX_TSO_FRAME_SIZE      (7*1024)
+-#define MAX_TX_OFFLOAD_THRESH	(9*1024)
+ 
+ #define AT_MAX_RECEIVE_QUEUE    4
+ #define AT_DEF_RECEIVE_QUEUE	1
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index a37c82f..c1aa3ba 100644
+index c1aa3ba..c9c6782 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -227,17 +227,25 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
- 		GPHY_CTRL_HIB_PULSE	|\
- 		GPHY_CTRL_PWDOWN_HW	|\
- 		GPHY_CTRL_PHY_IDDQ)
-+
- /* Block IDLE Status Register */
--#define REG_IDLE_STATUS  		0x1410
--#define IDLE_STATUS_MASK		0x00FF
--#define IDLE_STATUS_RXMAC_NO_IDLE      	0x1
--#define IDLE_STATUS_TXMAC_NO_IDLE      	0x2
--#define IDLE_STATUS_RXQ_NO_IDLE        	0x4
--#define IDLE_STATUS_TXQ_NO_IDLE        	0x8
--#define IDLE_STATUS_DMAR_NO_IDLE       	0x10
--#define IDLE_STATUS_DMAW_NO_IDLE       	0x20
--#define IDLE_STATUS_SMB_NO_IDLE        	0x40
--#define IDLE_STATUS_CMB_NO_IDLE        	0x80
-+#define REG_IDLE_STATUS			0x1410
-+#define IDLE_STATUS_SFORCE_MASK		0xFUL
-+#define IDLE_STATUS_SFORCE_SHIFT	14
-+#define IDLE_STATUS_CALIB_DONE		BIT(13)
-+#define IDLE_STATUS_CALIB_RES_MASK	0x1FUL
-+#define IDLE_STATUS_CALIB_RES_SHIFT	8
-+#define IDLE_STATUS_CALIBERR_MASK	0xFUL
-+#define IDLE_STATUS_CALIBERR_SHIFT	4
-+#define IDLE_STATUS_TXQ_BUSY		BIT(3)
-+#define IDLE_STATUS_RXQ_BUSY		BIT(2)
-+#define IDLE_STATUS_TXMAC_BUSY		BIT(1)
-+#define IDLE_STATUS_RXMAC_BUSY		BIT(0)
-+#define IDLE_STATUS_MASK		(\
-+	IDLE_STATUS_TXQ_BUSY		|\
-+	IDLE_STATUS_RXQ_BUSY		|\
-+	IDLE_STATUS_TXMAC_BUSY		|\
-+	IDLE_STATUS_RXMAC_BUSY)
+@@ -500,6 +500,7 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+ /* Jumbo packet Threshold for task offload */
+ #define REG_TX_TSO_OFFLOAD_THRESH	0x1594 /* In 8-bytes */
+ #define TX_TSO_OFFLOAD_THRESH_MASK	0x07FF
++#define MAX_TSO_FRAME_SIZE		(7*1024)
  
- /* MDIO Control Register */
- #define REG_MDIO_CTRL           	0x1414
+ #define	REG_TXF_WATER_MARK		0x1598 /* In 8-bytes */
+ #define TXF_WATER_MARK_MASK		0x0FFF
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 2e1c9f3..d2f89f0 100644
+index d2f89f0..e8e9c10 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -185,14 +185,14 @@ static inline void atl1c_irq_reset(struct atl1c_adapter *adapter)
-  * atl1c_wait_until_idle - wait up to AT_HW_MAX_IDLE_DELAY reads
-  * of the idle status register until the device is actually idle
-  */
--static u32 atl1c_wait_until_idle(struct atl1c_hw *hw)
-+static u32 atl1c_wait_until_idle(struct atl1c_hw *hw, u32 modu_ctrl)
+@@ -501,11 +501,16 @@ static int atl1c_set_features(struct net_device *netdev,
+ static int atl1c_change_mtu(struct net_device *netdev, int new_mtu)
  {
- 	int timeout;
- 	u32 data;
+ 	struct atl1c_adapter *adapter = netdev_priv(netdev);
++	struct atl1c_hw *hw = &adapter->hw;
+ 	int old_mtu   = netdev->mtu;
+ 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
  
- 	for (timeout = 0; timeout < AT_HW_MAX_IDLE_DELAY; timeout++) {
- 		AT_READ_REG(hw, REG_IDLE_STATUS, &data);
--		if ((data & IDLE_STATUS_MASK) == 0)
-+		if ((data & modu_ctrl) == 0)
- 			return 0;
- 		msleep(1);
- 	}
-@@ -1119,13 +1119,14 @@ static int atl1c_stop_mac(struct atl1c_hw *hw)
- 	data &= ~TXQ_CTRL_EN;
- 	AT_WRITE_REG(hw, REG_TXQ_CTRL, data);
+-	if ((max_frame < ETH_ZLEN + ETH_FCS_LEN) ||
+-			(max_frame > MAX_JUMBO_FRAME_SIZE)) {
++	/* Fast Ethernet controller doesn't support jumbo packet */
++	if (((hw->nic_type == athr_l2c ||
++	      hw->nic_type == athr_l2c_b ||
++	      hw->nic_type == athr_l2c_b2) && new_mtu > ETH_DATA_LEN) ||
++	      max_frame < ETH_ZLEN + ETH_FCS_LEN ||
++	      max_frame > MAX_JUMBO_FRAME_SIZE) {
+ 		if (netif_msg_link(adapter))
+ 			dev_warn(&adapter->pdev->dev, "invalid MTU setting\n");
+ 		return -EINVAL;
+@@ -1049,7 +1054,7 @@ static void atl1c_configure_tx(struct atl1c_adapter *adapter)
+ 	u16 tx_offload_thresh;
+ 	u32 txq_ctrl_data;
  
--	atl1c_wait_until_idle(hw);
-+	atl1c_wait_until_idle(hw, IDLE_STATUS_RXQ_BUSY | IDLE_STATUS_TXQ_BUSY);
- 
- 	AT_READ_REG(hw, REG_MAC_CTRL, &data);
- 	data &= ~(MAC_CTRL_TX_EN | MAC_CTRL_RX_EN);
- 	AT_WRITE_REG(hw, REG_MAC_CTRL, data);
- 
--	return (int)atl1c_wait_until_idle(hw);
-+	return (int)atl1c_wait_until_idle(hw,
-+		IDLE_STATUS_TXMAC_BUSY | IDLE_STATUS_RXMAC_BUSY);
- }
- 
- static void atl1c_enable_rx_ctrl(struct atl1c_hw *hw)
-@@ -1176,7 +1177,7 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
- 	msleep(10);
- 	/* Wait at least 10ms for All module to be Idle */
- 
--	if (atl1c_wait_until_idle(hw)) {
-+	if (atl1c_wait_until_idle(hw, IDLE_STATUS_MASK)) {
- 		dev_err(&pdev->dev,
- 			"MAC state machine can't be idle since"
- 			" disabled for 10ms second\n");
+-	tx_offload_thresh = MAX_TX_OFFLOAD_THRESH;
++	tx_offload_thresh = MAX_TSO_FRAME_SIZE;
+ 	AT_WRITE_REG(hw, REG_TX_TSO_OFFLOAD_THRESH,
+ 		(tx_offload_thresh >> 3) & TX_TSO_OFFLOAD_THRESH_MASK);
+ 	max_pay_load = pcie_get_readrq(adapter->pdev) >> 8;
 -- 
 1.7.7
