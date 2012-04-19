@@ -1,33 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: rx_dropped packets stop with tcpdump running
-Date: Thu, 19 Apr 2012 15:28:08 +0200
-Message-ID: <1334842088.2395.178.camel@edumazet-glaptop>
-References: <DUB108-W3E0658169335663BE7574B23D0@phx.gbl>
-	 <1334841865.2395.177.camel@edumazet-glaptop>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH] NET: bcm63xx_enet: move phy_(dis)connect into
+ probe/remove
+Date: Thu, 19 Apr 2012 15:33:00 +0200
+Message-ID: <1334842380.5185.29.camel@sakura.staff.proxad.net>
+References: <1334750537-14896-1-git-send-email-jonas.gorski@gmail.com>
+	 <1334753296.5185.3.camel@sakura.staff.proxad.net>
+	 <CAOiHx=khEqKaAsD++=0BXEzutaWCgi-30B=6hYyLChfkAaHXXA@mail.gmail.com>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Marco Berizzi <pupilla@hotmail.com>
+Cc: netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jonas Gorski <jonas.gorski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:56927 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753449Ab2DSN2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 09:28:13 -0400
-Received: by bkcik5 with SMTP id ik5so6357066bkc.19
-        for <netdev@vger.kernel.org>; Thu, 19 Apr 2012 06:28:12 -0700 (PDT)
-In-Reply-To: <1334841865.2395.177.camel@edumazet-glaptop>
+Received: from ns.iliad.fr ([212.27.33.1]:32973 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754208Ab2DSNc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Apr 2012 09:32:59 -0400
+In-Reply-To: <CAOiHx=khEqKaAsD++=0BXEzutaWCgi-30B=6hYyLChfkAaHXXA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-04-19 at 15:24 +0200, Eric Dumazet wrote:
 
-> When linux receives a packet with no protocol handler, we increment the
-> rx_dropped counter.
+On Wed, 2012-04-18 at 21:30 +0200, Jonas Gorski wrote:
 > 
-> When you start a tcpdump, all packets are handled, so we dont increment
-> rx_dropped for this reason anymore.
-> 
-> 
+> The phy state machine will start in PHY_READY after phy_connect, which
+> will result in NOPs, so no call to bcm_enet_adjust_phy_link() after
+> _probe() and before _open(). The state machine starts doing real work
+> only after calling phy_start(), which happens only after the dma
+> register accesses in open(). So no race here. 
 
-Its done since 2.6.37 (commit caf586e5)
+If I read the phylib code correctly, after phy_connect() the phy is in
+READY state, and you can access it via ethtool.
+
+-- 
+Maxime
