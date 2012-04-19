@@ -1,94 +1,141 @@
-From: Wenqi Ma <wenqi_ma@trendmicro.com.cn>
-Subject: [PATCH] net/hyperv: Adding cancellation to ensure rndis filter is closed
-Date: Thu, 19 Apr 2012 18:39:37 +0800
-Message-ID: <1334831977-5553-1-git-send-email-wenqi_ma@trendmicro.com.cn>
-Content-Type: text/plain;
-	charset="iso-8859-2"
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, haiyangz@microsoft.com,
-	Wenqi Ma <wenqi_ma@trendmicro.com.cn>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sjdcsican04.udc.trendmicro.com ([66.180.85.17]:36463 "EHLO
-	sjdciscan04.udc.trendmicro.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752665Ab2DSDBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Apr 2012 23:01:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: [PATCH 2/2] ks8851: Fix mutex deadlock in ks8851_net_stop()
+Date: Wed, 18 Apr 2012 20:25:58 -0700
+Message-ID: <1334805958-29119-2-git-send-email-sboyd@codeaurora.org>
+References: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org>
+Cc: netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Ben Dooks <ben-linux@fluff.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QWx0aG91Z2ggdGhlIG5ldHdvcmsgaW50ZXJmYWNlIGlzIGRvd24sIHRoZSBSWCBwYWNrZXRzIG51
-bWJlciB3aGljaA0KY291bGQgYmUgb2JzZXJ2ZWQgYnkgaWZjb25maWcgbWF5IGtlZXAgb24gaW5j
-cmVhc2luZy4NCg0KVGhpcyBpcyBiZWNhdXNlIHRoZSBXT1JLIHNjaGVkdWxlZCBpbiBuZXR2c2Nf
-c2V0X211bHRpY2FzdF9saXN0KCkNCm1heSBiZSBleGVjdXRlZCBhZnRlciBuZXR2c2NfY2xvc2Uo
-KS4gVGhhdCBtZWFucyB0aGUgcm5kaXMgZmlsdGVyDQptYXkgYmUgcmUtZW5hYmxlZCBieSBkb19z
-ZXRfbXVsdGljYXN0KCkgZXZlbiBpZiBpdCB3YXMgY2xvc2VkIGJ5DQpuZXR2c2NfY2xvc2UoKS4N
-Cg0KQnkgY2FuY2VsaW5nIHBvc3NpYmxlIFdPUksgYmVmb3JlIGNsb3NlIHRoZSBybmRpcyBmaWx0
-ZXIsIHRoZSBpc3N1ZQ0KY291bGQgYmUgbmV2ZXIgaGFwcGVuZWQuDQoNClNpZ25lZC1vZmYtYnk6
-IFdlbnFpIE1hIDx3ZW5xaV9tYUB0cmVuZG1pY3JvLmNvbS5jbj4NClJldmlld2VkLWJ5OiBXZWkg
-WW9uZ2p1biA8eW9uZ2p1bl93ZWlAdHJlbmRtaWNyby5jb20uY24+DQotLS0NCiBkcml2ZXJzL25l
-dC9oeXBlcnYvbmV0dnNjX2Rydi5jIHwgICAzOCArKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLQ0KIDEgZmlsZXMgY2hhbmdlZCwgMTQgaW5zZXJ0aW9ucygrKSwgMjQgZGVsZXRp
-b25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jIGIv
-ZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KaW5kZXggZGQyOTQ3OC4uMmQ1OTEzOCAx
-MDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMNCisrKyBiL2RyaXZl
-cnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMNCkBAIC00NCw2ICs0NCw3IEBAIHN0cnVjdCBuZXRf
-ZGV2aWNlX2NvbnRleHQgew0KIAkvKiBwb2ludCBiYWNrIHRvIG91ciBkZXZpY2UgY29udGV4dCAq
-Lw0KIAlzdHJ1Y3QgaHZfZGV2aWNlICpkZXZpY2VfY3R4Ow0KIAlzdHJ1Y3QgZGVsYXllZF93b3Jr
-IGR3b3JrOw0KKwlzdHJ1Y3Qgd29ya19zdHJ1Y3Qgd29yazsNCiB9Ow0KIA0KIA0KQEAgLTUxLDMw
-ICs1MiwyMiBAQCBzdGF0aWMgaW50IHJpbmdfc2l6ZSA9IDEyODsNCiBtb2R1bGVfcGFyYW0ocmlu
-Z19zaXplLCBpbnQsIFNfSVJVR08pOw0KIE1PRFVMRV9QQVJNX0RFU0MocmluZ19zaXplLCAiUmlu
-ZyBidWZmZXIgc2l6ZSAoIyBvZiBwYWdlcykiKTsNCiANCi1zdHJ1Y3Qgc2V0X211bHRpY2FzdF93
-b3JrIHsNCi0Jc3RydWN0IHdvcmtfc3RydWN0IHdvcms7DQotCXN0cnVjdCBuZXRfZGV2aWNlICpu
-ZXQ7DQotfTsNCi0NCiBzdGF0aWMgdm9pZCBkb19zZXRfbXVsdGljYXN0KHN0cnVjdCB3b3JrX3N0
-cnVjdCAqdykNCiB7DQotCXN0cnVjdCBzZXRfbXVsdGljYXN0X3dvcmsgKnN3ayA9DQotCQljb250
-YWluZXJfb2Yodywgc3RydWN0IHNldF9tdWx0aWNhc3Rfd29yaywgd29yayk7DQotCXN0cnVjdCBu
-ZXRfZGV2aWNlICpuZXQgPSBzd2stPm5ldDsNCi0NCi0Jc3RydWN0IG5ldF9kZXZpY2VfY29udGV4
-dCAqbmRldmN0eCA9IG5ldGRldl9wcml2KG5ldCk7DQorCXN0cnVjdCBuZXRfZGV2aWNlX2NvbnRl
-eHQgKm5kZXZjdHggPQ0KKwkJY29udGFpbmVyX29mKHcsIHN0cnVjdCBuZXRfZGV2aWNlX2NvbnRl
-eHQsIHdvcmspOw0KIAlzdHJ1Y3QgbmV0dnNjX2RldmljZSAqbnZkZXY7DQogCXN0cnVjdCBybmRp
-c19kZXZpY2UgKnJkZXY7DQogDQogCW52ZGV2ID0gaHZfZ2V0X2RydmRhdGEobmRldmN0eC0+ZGV2
-aWNlX2N0eCk7DQotCWlmIChudmRldiA9PSBOVUxMKQ0KLQkJZ290byBvdXQ7DQorCWlmIChudmRl
-diA9PSBOVUxMIHx8IG52ZGV2LT5uZGV2ID09IE5VTEwpDQorCQlyZXR1cm47DQogDQogCXJkZXYg
-PSBudmRldi0+ZXh0ZW5zaW9uOw0KIAlpZiAocmRldiA9PSBOVUxMKQ0KLQkJZ290byBvdXQ7DQor
-CQlyZXR1cm47DQogDQotCWlmIChuZXQtPmZsYWdzICYgSUZGX1BST01JU0MpDQorCWlmIChudmRl
-di0+bmRldi0+ZmxhZ3MgJiBJRkZfUFJPTUlTQykNCiAJCXJuZGlzX2ZpbHRlcl9zZXRfcGFja2V0
-X2ZpbHRlcihyZGV2LA0KIAkJCU5ESVNfUEFDS0VUX1RZUEVfUFJPTUlTQ1VPVVMpOw0KIAllbHNl
-DQpAQCAtODIsMjEgKzc1LDEzIEBAIHN0YXRpYyB2b2lkIGRvX3NldF9tdWx0aWNhc3Qoc3RydWN0
-IHdvcmtfc3RydWN0ICp3KQ0KIAkJCU5ESVNfUEFDS0VUX1RZUEVfQlJPQURDQVNUIHwNCiAJCQlO
-RElTX1BBQ0tFVF9UWVBFX0FMTF9NVUxUSUNBU1QgfA0KIAkJCU5ESVNfUEFDS0VUX1RZUEVfRElS
-RUNURUQpOw0KLQ0KLW91dDoNCi0Ja2ZyZWUodyk7DQogfQ0KIA0KIHN0YXRpYyB2b2lkIG5ldHZz
-Y19zZXRfbXVsdGljYXN0X2xpc3Qoc3RydWN0IG5ldF9kZXZpY2UgKm5ldCkNCiB7DQotCXN0cnVj
-dCBzZXRfbXVsdGljYXN0X3dvcmsgKnN3ayA9DQotCQlrbWFsbG9jKHNpemVvZihzdHJ1Y3Qgc2V0
-X211bHRpY2FzdF93b3JrKSwgR0ZQX0FUT01JQyk7DQotCWlmIChzd2sgPT0gTlVMTCkNCi0JCXJl
-dHVybjsNCisJc3RydWN0IG5ldF9kZXZpY2VfY29udGV4dCAqbmV0X2RldmljZV9jdHggPSBuZXRk
-ZXZfcHJpdihuZXQpOw0KIA0KLQlzd2stPm5ldCA9IG5ldDsNCi0JSU5JVF9XT1JLKCZzd2stPndv
-cmssIGRvX3NldF9tdWx0aWNhc3QpOw0KLQlzY2hlZHVsZV93b3JrKCZzd2stPndvcmspOw0KKwlz
-Y2hlZHVsZV93b3JrKCZuZXRfZGV2aWNlX2N0eC0+d29yayk7DQogfQ0KIA0KIHN0YXRpYyBpbnQg
-bmV0dnNjX29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKm5ldCkNCkBAIC0xMjUsNiArMTEwLDggQEAg
-c3RhdGljIGludCBuZXR2c2NfY2xvc2Uoc3RydWN0IG5ldF9kZXZpY2UgKm5ldCkNCiANCiAJbmV0
-aWZfdHhfZGlzYWJsZShuZXQpOw0KIA0KKwkvKiBNYWtlIHN1cmUgbmV0dnNjX3NldF9tdWx0aWNh
-c3RfbGlzdCBkb2Vzbid0IHJlLWVuYWJsZSBmaWx0ZXIhICovDQorCWNhbmNlbF93b3JrX3N5bmMo
-Jm5ldF9kZXZpY2VfY3R4LT53b3JrKTsNCiAJcmV0ID0gcm5kaXNfZmlsdGVyX2Nsb3NlKGRldmlj
-ZV9vYmopOw0KIAlpZiAocmV0ICE9IDApDQogCQluZXRkZXZfZXJyKG5ldCwgInVuYWJsZSB0byBj
-bG9zZSBkZXZpY2UgKHJldCAlZCkuXG4iLCByZXQpOw0KQEAgLTMzNSw2ICszMjIsNyBAQCBzdGF0
-aWMgaW50IG5ldHZzY19jaGFuZ2VfbXR1KHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2LCBpbnQgbXR1
-KQ0KIA0KIAludmRldi0+c3RhcnRfcmVtb3ZlID0gdHJ1ZTsNCiAJY2FuY2VsX2RlbGF5ZWRfd29y
-a19zeW5jKCZuZGV2Y3R4LT5kd29yayk7DQorCWNhbmNlbF93b3JrX3N5bmMoJm5kZXZjdHgtPndv
-cmspOw0KIAluZXRpZl90eF9kaXNhYmxlKG5kZXYpOw0KIAlybmRpc19maWx0ZXJfZGV2aWNlX3Jl
-bW92ZShoZGV2KTsNCiANCkBAIC00MDMsNiArMzkxLDcgQEAgc3RhdGljIGludCBuZXR2c2NfcHJv
-YmUoc3RydWN0IGh2X2RldmljZSAqZGV2LA0KIAluZXRfZGV2aWNlX2N0eC0+ZGV2aWNlX2N0eCA9
-IGRldjsNCiAJaHZfc2V0X2RydmRhdGEoZGV2LCBuZXQpOw0KIAlJTklUX0RFTEFZRURfV09SSygm
-bmV0X2RldmljZV9jdHgtPmR3b3JrLCBuZXR2c2Nfc2VuZF9nYXJwKTsNCisJSU5JVF9XT1JLKCZu
-ZXRfZGV2aWNlX2N0eC0+d29yaywgZG9fc2V0X211bHRpY2FzdCk7DQogDQogCW5ldC0+bmV0ZGV2
-X29wcyA9ICZkZXZpY2Vfb3BzOw0KIA0KQEAgLTQ1Niw2ICs0NDUsNyBAQCBzdGF0aWMgaW50IG5l
-dHZzY19yZW1vdmUoc3RydWN0IGh2X2RldmljZSAqZGV2KQ0KIA0KIAluZGV2X2N0eCA9IG5ldGRl
-dl9wcml2KG5ldCk7DQogCWNhbmNlbF9kZWxheWVkX3dvcmtfc3luYygmbmRldl9jdHgtPmR3b3Jr
-KTsNCisJY2FuY2VsX3dvcmtfc3luYygmbmRldl9jdHgtPndvcmspOw0KIA0KIAkvKiBTdG9wIG91
-dGJvdW5kIGFzYXAgKi8NCiAJbmV0aWZfdHhfZGlzYWJsZShuZXQpOw0KLS0gDQoxLjcuMQ0KDQpU
-UkVORCBNSUNSTyBFTUFJTCBOT1RJQ0UNClRoZSBpbmZvcm1hdGlvbiBjb250YWluZWQgaW4gdGhp
-cyBlbWFpbCBhbmQgYW55IGF0dGFjaG1lbnRzIGlzIGNvbmZpZGVudGlhbCBhbmQgbWF5IGJlIHN1
-YmplY3QgdG8gY29weXJpZ2h0IG9yIG90aGVyIGludGVsbGVjdHVhbCBwcm9wZXJ0eSBwcm90ZWN0
-aW9uLiBJZiB5b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCB5b3UgYXJlIG5vdCBh
-dXRob3JpemVkIHRvIHVzZSBvciBkaXNjbG9zZSB0aGlzIGluZm9ybWF0aW9uLCBhbmQgd2UgcmVx
-dWVzdCB0aGF0IHlvdSBub3RpZnkgdXMgYnkgcmVwbHkgbWFpbCBvciB0ZWxlcGhvbmUgYW5kIGRl
-bGV0ZSB0aGUgb3JpZ2luYWwgbWVzc2FnZSBmcm9tIHlvdXIgbWFpbCBzeXN0ZW0u
+There is a potential deadlock scenario when the ks8851 driver
+is removed. The interrupt handler schedules a workqueue which
+acquires a mutex that ks8851_net_stop() also acquires before
+flushing the workqueue. Previously lockdep wouldn't be able
+to find this problem but now that it has the support we can
+trigger this lockdep warning by rmmoding the driver after
+an ifconfig up.
+
+Fix the possible deadlock by disabling the interrupts in 
+the chip and then release the lock across the workqueue
+flushing. The mutex is only there to proect the registers
+anyway so this should be ok.
+
+=======================================================
+[ INFO: possible circular locking dependency detected ]
+3.0.21-00021-g8b33780-dirty #2911
+-------------------------------------------------------
+rmmod/125 is trying to acquire lock:
+ ((&ks->irq_work)){+.+...}, at: [<c019e0b8>] flush_work+0x0/0xac
+
+but task is already holding lock:
+ (&ks->lock){+.+...}, at: [<bf00b850>] ks8851_net_stop+0x64/0x138 [ks8851]
+
+which lock already depends on the new lock.
+
+
+the existing dependency chain (in reverse order) is:
+
+-> #1 (&ks->lock){+.+...}:
+       [<c01b89c8>] __lock_acquire+0x940/0x9f8
+       [<c01b9058>] lock_acquire+0x10c/0x130
+       [<c083dbec>] mutex_lock_nested+0x68/0x3dc
+       [<bf00bd48>] ks8851_irq_work+0x24/0x46c [ks8851]
+       [<c019c580>] process_one_work+0x2d8/0x518
+       [<c019cb98>] worker_thread+0x220/0x3a0
+       [<c01a2ad4>] kthread+0x88/0x94
+       [<c0107008>] kernel_thread_exit+0x0/0x8
+
+-> #0 ((&ks->irq_work)){+.+...}:
+       [<c01b7984>] validate_chain+0x914/0x1018
+       [<c01b89c8>] __lock_acquire+0x940/0x9f8
+       [<c01b9058>] lock_acquire+0x10c/0x130
+       [<c019e104>] flush_work+0x4c/0xac
+       [<bf00b858>] ks8851_net_stop+0x6c/0x138 [ks8851]
+       [<c06b209c>] __dev_close_many+0x98/0xcc
+       [<c06b2174>] dev_close_many+0x68/0xd0
+       [<c06b22ec>] rollback_registered_many+0xcc/0x2b8
+       [<c06b2554>] rollback_registered+0x28/0x34
+       [<c06b25b8>] unregister_netdevice_queue+0x58/0x7c
+       [<c06b25f4>] unregister_netdev+0x18/0x20
+       [<bf00c1f4>] ks8851_remove+0x64/0xb4 [ks8851]
+       [<c049ddf0>] spi_drv_remove+0x18/0x1c
+       [<c0468e98>] __device_release_driver+0x7c/0xbc
+       [<c0468f64>] driver_detach+0x8c/0xb4
+       [<c0467f00>] bus_remove_driver+0xb8/0xe8
+       [<c01c1d20>] sys_delete_module+0x1e8/0x27c
+       [<c0105ec0>] ret_fast_syscall+0x0/0x3c
+
+other info that might help us debug this:
+
+ Possible unsafe locking scenario:
+
+       CPU0                    CPU1
+       ----                    ----
+  lock(&ks->lock);
+                               lock((&ks->irq_work));
+                               lock(&ks->lock);
+  lock((&ks->irq_work));
+
+ *** DEADLOCK ***
+
+4 locks held by rmmod/125:
+ #0:  (&__lockdep_no_validate__){+.+.+.}, at: [<c0468f44>] driver_detach+0x6c/0xb4
+ #1:  (&__lockdep_no_validate__){+.+.+.}, at: [<c0468f50>] driver_detach+0x78/0xb4
+ #2:  (rtnl_mutex){+.+.+.}, at: [<c06b25e8>] unregister_netdev+0xc/0x20
+ #3:  (&ks->lock){+.+...}, at: [<bf00b850>] ks8851_net_stop+0x64/0x138 [ks8851]
+
+Cc: Ben Dooks <ben-linux@fluff.org>
+Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+---
+ drivers/net/ethernet/micrel/ks8851.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index c722aa60..20f50ec 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -889,16 +889,17 @@ static int ks8851_net_stop(struct net_device *dev)
+ 	netif_stop_queue(dev);
+ 
+ 	mutex_lock(&ks->lock);
++	/* turn off the IRQs and ack any outstanding */
++	ks8851_wrreg16(ks, KS_IER, 0x0000);
++	ks8851_wrreg16(ks, KS_ISR, 0xffff);
++	mutex_unlock(&ks->lock);
+ 
+ 	/* stop any outstanding work */
+ 	flush_work(&ks->irq_work);
+ 	flush_work(&ks->tx_work);
+ 	flush_work(&ks->rxctrl_work);
+ 
+-	/* turn off the IRQs and ack any outstanding */
+-	ks8851_wrreg16(ks, KS_IER, 0x0000);
+-	ks8851_wrreg16(ks, KS_ISR, 0xffff);
+-
++	mutex_lock(&ks->lock);
+ 	/* shutdown RX process */
+ 	ks8851_wrreg16(ks, KS_RXCR1, 0x0000);
+ 
+@@ -907,6 +908,7 @@ static int ks8851_net_stop(struct net_device *dev)
+ 
+ 	/* set powermode to soft power down to save power */
+ 	ks8851_set_powermode(ks, PMECR_PM_SOFTDOWN);
++	mutex_unlock(&ks->lock);
+ 
+ 	/* ensure any queued tx buffers are dumped */
+ 	while (!skb_queue_empty(&ks->txq)) {
+@@ -918,7 +920,6 @@ static int ks8851_net_stop(struct net_device *dev)
+ 		dev_kfree_skb(txb);
+ 	}
+ 
+-	mutex_unlock(&ks->lock);
+ 	return 0;
+ }
+ 
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
