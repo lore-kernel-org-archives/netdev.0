@@ -1,80 +1,65 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH 2/9] atl1c: refine phy-register read/write function
-Date: Fri, 20 Apr 2012 08:54:54 +0000
-Message-ID: <157393863283F442885425D2C454285623D5A948@nasanexd02a.na.qualcomm.com>
-References: <1334902584-15584-1-git-send-email-xiong@qca.qualcomm.com>
- <1334902584-15584-3-git-send-email-xiong@qca.qualcomm.com>
- <4F9112F1.1030403@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F9112F1.1030403@openwrt.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: James Chapman <jchapman@katalix.com>
+Subject: [PATCH 00/10] l2tp: misc fixes and add L2TPv3 IP encap over IPv6
+Date: Fri, 20 Apr 2012 10:02:43 +0100
+Message-ID: <1334912573-28804-1-git-send-email-jchapman@katalix.com>
+Cc: bcrl@kvack.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:58749 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751075Ab2DTJC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2012 05:02:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+IE9u
-IEJlaGFsZiBPZiBGbG9yaWFuIEZhaW5lbGxpDQo+IFNlbnQ6IEZyaWRheSwgQXByaWwgMjAsIDIw
-MTIgMTU6NDENCj4gVG86IEh1YW5nLCBYaW9uZw0KPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsg
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7
-IHFjYS1saW51eC10ZWFtOyBuaWMtZGV2ZWwNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAyLzldIGF0
-bDFjOiByZWZpbmUgcGh5LXJlZ2lzdGVyIHJlYWQvd3JpdGUgZnVuY3Rpb24NCj4gDQo+IEhpIFhp
-b25nLA0KPiANCj4gTGUgMDQvMjAvMTIgMDg6MTYsIHhpb25nIGEgw6ljcml0IDoNCj4gPiBwaHkg
-cmVnaXN0ZXIgaXMgcmVhZC93cml0ZSB2aWEgTURJTyBjb250cm9sIG1vZHVsZSAtLS0gdGhhdCBt
-b2R1bGUNCj4gPiB3aWxsIGJlIGFmZmVjdGVkIGJ5IHRoZSBoaWJlcm5hdGUgc3RhdHVzLCB0byBh
-Y2Nlc3MgcGh5IHJlZ3MgaW4gaGliDQo+ID4gc3R1dHVzLCBzbG93IGZyZXF1ZW5jeSBjbGsgbXVz
-dCBiZSBzZWxlY3RlZC4NCj4gPiBUbyBhY2Nlc3MgcGh5IGV4dGVuc2lvbiByZWdpc3RlciwgdGhl
-IE1ESU8gcmVsYXRlZCByZWdpc3RlcnMgYXJlDQo+ID4gcmVmaW5lZC91cGRhdGVkLCBhIF9jb3Jl
-IGZ1bmN0aW9uIGlzIHJlLXdyb3RlZCBmb3IgYm90aCByZWd1bGFyIFBIWQ0KPiA+IHJlZ3MgYW5k
-IGV4dGVuc2lvbiByZWdzLg0KPiA+IGV4aXN0aW5nIFBIWSByL3cgZnVuY3Rpb24gaXMgcmV2aXNl
-ZCBiYXNlZCBvbiB0aGUgX2NvcmUuDQo+ID4gUEhZIGV4dGVuc2lvbiByZWdpc3RlcnMgd2lsbCBi
-ZSB1c2VkIGZvciB0aGUgY29tbWluZyBwYXRjaGVzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTog
-eGlvbmc8eGlvbmdAcWNhLnF1YWxjb21tLmNvbT4NCj4gPiBUZXN0ZWQtYnk6IExpdSBEYXZpZDxk
-d2xpdUBxY2EucXVhbGNvbW0uY29tPg0KPiA+IC0tLQ0KPiA+ICAgZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvYXRoZXJvcy9hdGwxYy9hdGwxY19ody5jICAgfCAgMTc4DQo+ICsrKysrKysrKysrKysrKysr
-KystLS0tDQo+ID4gICBkcml2ZXJzL25ldC9ldGhlcm5ldC9hdGhlcm9zL2F0bDFjL2F0bDFjX2h3
-LmggICB8ICAgNjQgKysrKystLS0NCj4gPiAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L2F0aGVyb3Mv
-YXRsMWMvYXRsMWNfbWFpbi5jIHwgICAgNCArLQ0KPiA+ICAgMyBmaWxlcyBjaGFuZ2VkLCAxODkg
-aW5zZXJ0aW9ucygrKSwgNTcgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwxY19ody5jDQo+ID4gYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9hdGhlcm9zL2F0bDFjL2F0bDFjX2h3LmMNCj4gPiBpbmRleCBiZDE2Njdj
-Li42Y2JlNzhhIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2F0aGVyb3Mv
-YXRsMWMvYXRsMWNfaHcuYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2F0aGVyb3Mv
-YXRsMWMvYXRsMWNfaHcuYw0KPiA+IEBAIC0yNzcsNjUgKzI3NywxODEgQEAgdm9pZCBhdGwxY19o
-YXNoX3NldChzdHJ1Y3QgYXRsMWNfaHcgKmh3LCB1MzINCj4gaGFzaF92YWx1ZSkNCj4gPiAgIAlB
-VF9XUklURV9SRUdfQVJSQVkoaHcsIFJFR19SWF9IQVNIX1RBQkxFLCBoYXNoX3JlZywgbXRhKTsN
-Cj4gPiAgIH0NCj4gPg0KPiA+ICsNCj4gPiArdm9pZCBhdGwxY19zdG9wX3BoeV9wb2xsaW5nKHN0
-cnVjdCBhdGwxY19odyAqaHcpIHsNCj4gPiArCXUzMiB2YWw7DQo+ID4gKwlpbnQgaTsNCj4gPiAr
-DQo+ID4gKwlpZiAoaHctPmN0cmxfZmxhZ3MmICBBVEwxQ19GUEdBX1ZFUlNJT04pIHsNCj4gPiAr
-CQlBVF9XUklURV9SRUcoaHcsIFJFR19NRElPX0NUUkwsIDApOw0KPiA+ICsJCWZvciAoaSA9IDA7
-IGk8ICBNRElPX01BWF9BQ19UTzsgaSsrKSB7DQo+ID4gKwkJCUFUX1JFQURfUkVHKGh3LCBSRUdf
-TURJT19DVFJMLCZ2YWwpOw0KPiA+ICsJCQlpZiAoMCA9PSAodmFsJiAgTURJT19DVFJMX0JVU1kp
-KQ0KPiA+ICsJCQkJYnJlYWs7DQo+ID4gKwkJCXVkZWxheSgxMCk7DQo+ID4gKwkJfQ0KPiA+ICsJ
-fQ0KPiA+ICt9DQo+IA0KPiBQbGVhc2UgcmVkdWNlIHRoZSBpZGVudGF0aW9uIGJ5IGRvaW5nIHRo
-aXM6DQo+IA0KPiBpZiAoIShody0+Y3RybF9mbGFncyAmIEFMVDFDX0ZQQUdfVkVSU0lPTikpDQo+
-IAlyZXR1cm47DQo+IA0KPiB0aGF0IG1ha2VzIGl0IG11Y2ggbW9yZSByZWFkYWJsZS4NCg0KDQpO
-byBwcm9ibGVtDQoNCg0KPiA+ICsNCj4gPiArdm9pZCBhdGwxY19zdGFydF9waHlfcG9sbGluZyhz
-dHJ1Y3QgYXRsMWNfaHcgKmh3LCB1MTYgY2xrX3NlbCkgew0KPiA+ICsJdTMyIHZhbDsNCj4gPiAr
-CWludCBpOw0KPiA+ICsNCj4gPiArCWlmIChody0+Y3RybF9mbGFncyYgIEFUTDFDX0ZQR0FfVkVS
-U0lPTikgew0KPiA+ICsJCXZhbCA9IE1ESU9fQ1RSTF9TUFJFU19QUk1CTCB8DQo+ID4gKwkJCUZJ
-RUxEWChNRElPX0NUUkxfQ0xLX1NFTCwgY2xrX3NlbCkgfA0KPiA+ICsJCQlGSUVMRFgoTURJT19D
-VFJMX1JFRywgMSkgfA0KPiA+ICsJCQlNRElPX0NUUkxfU1RBUlQgfA0KPiA+ICsJCQlNRElPX0NU
-UkxfT1BfUkVBRDsNCj4gPiArCQlBVF9XUklURV9SRUcoaHcsIFJFR19NRElPX0NUUkwsIHZhbCk7
-DQo+ID4gKwkJZm9yIChpID0gMDsgaTwgIE1ESU9fTUFYX0FDX1RPOyBpKyspIHsNCj4gPiArCQkJ
-QVRfUkVBRF9SRUcoaHcsIFJFR19NRElPX0NUUkwsJnZhbCk7DQo+ID4gKwkJCWlmICgwID09ICh2
-YWwmICBNRElPX0NUUkxfQlVTWSkpDQo+ID4gKwkJCQlicmVhazsNCj4gPiArCQkJdWRlbGF5KDEw
-KTsNCj4gPiArCQl9DQo+ID4gKwkJdmFsIHw9IE1ESU9fQ1RSTF9BUF9FTjsNCj4gPiArCQl2YWwm
-PSB+TURJT19DVFJMX1NUQVJUOw0KPiA+ICsJCUFUX1dSSVRFX1JFRyhodywgUkVHX01ESU9fQ1RS
-TCwgdmFsKTsNCj4gPiArCQl1ZGVsYXkoMzApOw0KPiA+ICsJfQ0KPiA+ICt9DQo+IA0KPiBTZWVt
-cyBsaWtlIHRoZSBmb3IoKSBidXN5LWNoZWNraW5nIG9mIHRoZSByZWdpc3RlciBjb3VsZCB1c2Ug
-dGhlaXIgb3duIGZ1bmN0aW9uDQo+IHNpbmNlIGl0IGlzIHVzZWQgYm90aCBpbiA6IGF0bDFjX3N0
-b3BfcGh5X3BvbGxpbmcoKSBhbmQgYXRsMWNfc3RhcnRfcGh5X3BvbGxpbmcoKS4NCj4gDQoNCkdv
-b2Qgc3VnZ2VzdGlvbi4gSSB3aWxsIHVwZGF0ZS4NCg0K
+This patch series includes several L2TP fixes / cleanups and adds
+L2TPv3 IP encapsulation support for IPv6.
+
+Patches 4-10 depend on Benjamin LaHaise's L2TP UDP IPv6 patches which
+have already been submitted for review. Patches 1-3 are not IPv6
+related so can be reviewed / applied now.
+
+  1. l2tp: fix locking of 64-bit counters for smp
+  2. l2tp: Use ip4_datagram_connect() in l2tp_ip_connect()
+  3. l2tp: remove unused stats from l2tp_ip socket
+  4. pppox: Replace __attribute__((packed)) in if_pppox.h
+  5. l2tp: pppol2tp_connect() handles ipv6 sockaddr variants
+  6. l2tp: show IPv6 addresses in l2tp debugfs file
+  7. l2tp: netlink api for l2tpv3 ipv6 unmanaged tunnels
+  8. ipv6: export ipv6 functions for use by other protocols
+  9. l2tp: introduce L2TPv3 IP encapsulation support for IPv6
+ 10. l2tp: let iproute2 create L2TPv3 IP tunnels using IPv6
+
+A patch for iproute2 to add support for unmanaged L2TPv3 ethernet
+tunnels over IPv6 will be submitted separately.
+
+Chris Elston (4):
+  l2tp: show IPv6 addresses in l2tp debugfs file
+  l2tp: netlink api for l2tpv3 ipv6 unmanaged tunnels
+  ipv6: Export ipv6 functions for use by other protocols
+  l2tp: introduce L2TPv3 IP encapsulation support for IPv6
+
+James Chapman (6):
+  l2tp: fix locking of 64-bit counters for smp
+  l2tp: Use ip4_datagram_connect() in l2tp_ip_connect()
+  l2tp: remove unused stats from l2tp_ip socket
+  pppox: Replace __attribute__((packed)) in if_pppox.h
+  l2tp: pppol2tp_connect() handles ipv6 sockaddr variants
+  l2tp: let iproute2 create L2TPv3 IP tunnels using IPv6
+
+ include/linux/if_pppox.h |   12 +-
+ include/linux/l2tp.h     |   19 ++
+ net/ipv6/datagram.c      |    4 +
+ net/ipv6/exthdrs.c       |    1 +
+ net/ipv6/ip6_flowlabel.c |    1 +
+ net/ipv6/ip6_output.c    |    3 +
+ net/l2tp/Makefile        |    3 +
+ net/l2tp/l2tp_core.c     |  215 ++++++++++---
+ net/l2tp/l2tp_core.h     |    5 +
+ net/l2tp/l2tp_debugfs.c  |    8 +
+ net/l2tp/l2tp_ip.c       |   86 +-----
+ net/l2tp/l2tp_ip6.c      |  792 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/l2tp/l2tp_netlink.c  |  110 ++++++--
+ net/l2tp/l2tp_ppp.c      |   36 ++-
+ 14 files changed, 1133 insertions(+), 162 deletions(-)
+ create mode 100644 net/l2tp/l2tp_ip6.c
