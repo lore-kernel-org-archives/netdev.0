@@ -1,49 +1,99 @@
-From: Ingo van Lil <inguin@gmx.de>
-Subject: [PATCH] Fix tx transfer padding for full-speed USB
-Date: Fri, 20 Apr 2012 12:00:21 +0200
-Message-ID: <1334916021-9124-1-git-send-email-inguin@gmx.de>
-Cc: Ingo van Lil <inguin@gmx.de>
-To: netdev@vger.kernel.org
+From: Massimo Cetra <ctrix+debianbugs@navynet.it>
+Subject: Re: fake rtable dst patch applied but kernel keeps panicing
+Date: Fri, 20 Apr 2012 12:02:17 +0200
+Message-ID: <4F913429.2040705@navynet.it>
+References: <4F8E9291.9000607@navynet.it>	 <1334745072.2472.110.camel@edumazet-glaptop>  <4F8FC66F.90703@navynet.it>	 <1334823256.2395.2.camel@edumazet-glaptop> <1334825108.2395.28.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
+	netdev@vger.kernel.org, peter.huangpeng@huawei.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.23]:58757 "HELO
-	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753670Ab2DTKAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 06:00:34 -0400
+Received: from host188-6-static.238-77-b.business.telecomitalia.it ([77.238.6.188]:33338
+	"EHLO max.ctrix.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753639Ab2DTKCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 06:02:35 -0400
+In-Reply-To: <1334825108.2395.28.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The asix.c USB Ethernet driver avoids ending a tx transfer with a zero-
-length packet by appending a four-byte padding to transfers whose length
-is a multiple of maxpacket. However, the hard-coded 512 byte maxpacket
-length is valid for high-speed USB only; full-speed USB uses 64 byte
-packets.
+On 19/04/2012 10:45, Eric Dumazet wrote:
+> Oh well, at first glance nf_bridge_unshare() is buggy, not sure if this
+> can help your bug, but its another step.
+>
+>
+> [PATCH] bridge: fix nf_bridge_unshare()
+>
+> If memory allocation failed, return an error.
+>
+> If not, skb->nf_bridge should be updated to point to the copy, not old
+> info, or bad things can happen.
+>
+> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
+> ---
+>   net/bridge/br_netfilter.c |   24 ++++++++++++------------
+>   1 file changed, 12 insertions(+), 12 deletions(-)
+>
+> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+> index dec4f38..b7c2cec 100644
+> --- a/net/bridge/br_netfilter.c
+> +++ b/net/bridge/br_netfilter.c
+> @@ -185,21 +185,20 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+>   	return skb->nf_bridge;
+>   }
+>
+> -static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
+> +
+> +static inline int nf_bridge_unshare(struct sk_buff *skb)
+>   {
+> -	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+> +	struct nf_bridge_info *copy, *nf_bridge = skb->nf_bridge;
+>
+>   	if (atomic_read(&nf_bridge->use)>  1) {
+> -		struct nf_bridge_info *tmp = nf_bridge_alloc(skb);
+> -
+> -		if (tmp) {
+> -			memcpy(tmp, nf_bridge, sizeof(struct nf_bridge_info));
+> -			atomic_set(&tmp->use, 1);
+> -		}
+> +		copy = kmemdup(nf_bridge, sizeof(*nf_bridge), GFP_ATOMIC);
+> +		if (!copy)
+> +			return -ENOMEM;
+> +		atomic_set(&copy->use, 1);
+>   		nf_bridge_put(nf_bridge);
+> -		nf_bridge = tmp;
+> +		skb->nf_bridge = copy;
+>   	}
+> -	return nf_bridge;
+> +	return 0;
+>   }
+>
+>   static inline void nf_bridge_push_encap_header(struct sk_buff *skb)
+> @@ -744,8 +743,9 @@ static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff *skb,
+>   		return NF_ACCEPT;
+>
+>   	/* Need exclusive nf_bridge_info since we might have multiple
+> -	 * different physoutdevs. */
+> -	if (!nf_bridge_unshare(skb))
+> +	 * different physoutdevs.
+> +	 */
+> +	if (nf_bridge_unshare(skb))
+>   		return NF_DROP;
+>
+>   	parent = bridge_parent(out);
+>
+>
 
-Signed-off-by: Ingo van Lil <inguin@gmx.de>
----
- drivers/net/usb/asix.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Hello, Eric,
 
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index 5ee032c..aeb2702 100644
---- a/drivers/net/usb/asix.c
-+++ b/drivers/net/usb/asix.c
-@@ -355,7 +355,7 @@ static struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 	u32 packet_len;
- 	u32 padbytes = 0xffff0000;
- 
--	padlen = ((skb->len + 4) % 512) ? 0 : 4;
-+	padlen = ((skb->len + 4) % dev->maxpacket) ? 0 : 4;
- 
- 	if ((!skb_cloned(skb)) &&
- 	    ((headroom + tailroom) >= (4 + padlen))) {
-@@ -377,7 +377,7 @@ static struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 	cpu_to_le32s(&packet_len);
- 	skb_copy_to_linear_data(skb, &packet_len, sizeof(packet_len));
- 
--	if ((skb->len % 512) == 0) {
-+	if (padlen) {
- 		cpu_to_le32s(&padbytes);
- 		memcpy(skb_tail_pointer(skb), &padbytes, sizeof(padbytes));
- 		skb_put(skb, sizeof(padbytes));
--- 
-1.7.7.6
+i applied this patch and Peters last patch to a 3.3.2 kernel.
+The result was a bit disappointing because the step was backwards.
+
+Locally, from the same machine, i could ping each IP of each tun 
+interface used by any virtual server.
+
+ From the LAN such addresses were not pingable while the ip address of 
+the bridge was reachable.
+
+Max
