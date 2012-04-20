@@ -1,59 +1,47 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH] net: dcb: add CEE notify calls
-Date: Fri, 20 Apr 2012 12:49:23 -0700
-Message-ID: <20120420194923.8103.54825.stgit@jf-dev1-dcblab>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com,
-	amirv@dev.mellanox.co.il
-To: davem@davemloft.net
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH v3.4-rc 0/9] pch_gbe: ptp bug fixes
+Date: Fri, 20 Apr 2012 22:09:19 +0200
+Message-ID: <cover.1334949388.git.richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Takahiro Shimizu <tshimizu818@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58377 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1749667Ab2DTUCm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2012 16:02:42 -0400
+Received: from mail-we0-f174.google.com ([74.125.82.174]:63894 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751404Ab2DTUJq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 16:09:46 -0400
+Received: by wejx9 with SMTP id x9so6300952wej.19
+        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 13:09:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds code to trigger CEE events when an APP change or setall
-command is made from user space. This simplifies user space code
-significantly by creating a single interface to listen on that
-works with both firmware and userland agents.
+The content in this patch series originally was posted to netdev by
+Takahiro on March 23, 2012, as a loose group of five patches. These
+patches addressed problems pointed out in review, both on and off
+list.
 
-And if we end up with multiple agents this keeps every thing in
-sync userland agents, firmware agents, and kernel notifier consumers.
+I have taken his work and rebased, squashed, and split it into the
+present form, and I also wrote commit messages that more fully explain
+the changes. Also, I added the last two patches myself.
 
-For an example agent that listens for these events see:
+Richard Cochran (2):
+  pch_gbe: run the ptp bpf just once per packet
+  pch_gbe: remove suspicious comment
 
-https://github.com/jrfastab/cgdcbxd
+Takahiro Shimizu (7):
+  pch_gbe: scale time stamps to nanoseconds
+  pch_gbe: simplify transmit time stamping flag test
+  pch_gbe: reprogram multicast address register on reset
+  pch_gbe: export a method to set the receive match address
+  pch_gbe: improve coding style
+  pch_gbe: do not set the channel control register
+  pch_gbe: correct receive time stamp filtering
 
-cgdcbxd is a daemon used to monitor DCB netlink events and manage
-the net_prio control group sub-system.
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |    1 +
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |  107 +++++++++++++++-----
+ drivers/ptp/Kconfig                                |   10 ++-
+ drivers/ptp/ptp_pch.c                              |    7 +-
+ 4 files changed, 95 insertions(+), 30 deletions(-)
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
-
- net/dcb/dcbnl.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 8dfa1da..656c7c7 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -704,6 +704,7 @@ static int dcbnl_setapp(struct net_device *netdev, struct nlattr **tb,
- 
- 	ret = dcbnl_reply(err, RTM_SETDCB, DCB_CMD_SAPP, DCB_ATTR_APP,
- 			  pid, seq, flags);
-+	dcbnl_cee_notify(netdev, RTM_SETDCB, DCB_CMD_SAPP, seq, 0);
- out:
- 	return ret;
- }
-@@ -936,6 +937,7 @@ static int dcbnl_setall(struct net_device *netdev, struct nlattr **tb,
- 
- 	ret = dcbnl_reply(netdev->dcbnl_ops->setall(netdev), RTM_SETDCB,
- 	                  DCB_CMD_SET_ALL, DCB_ATTR_SET_ALL, pid, seq, flags);
-+	dcbnl_cee_notify(netdev, RTM_SETDCB, DCB_CMD_SET_ALL, seq, 0);
- 
- 	return ret;
- }
+-- 
+1.7.2.5
