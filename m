@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 14/16] tipc: handle <0.0.0> as an alias for this node on outgoing msgs
-Date: Fri, 20 Apr 2012 17:05:22 -0400
-Message-ID: <1334955924-907-15-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 06/16] tipc: Add routines for safe checking of node's network address
+Date: Fri, 20 Apr 2012 17:05:14 -0400
+Message-ID: <1334955924-907-7-git-send-email-paul.gortmaker@windriver.com>
 References: <1334955924-907-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,67 +9,129 @@ Cc: <netdev@vger.kernel.org>, <allan.stephens@windriver.com>,
 	<ying.xue@windriver.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:62205 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:62193 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754591Ab2DTVFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 17:05:43 -0400
+	with ESMTP id S1754129Ab2DTVFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 17:05:33 -0400
 In-Reply-To: <1334955924-907-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Revises handling of send routines for payload messages to ensure that
-they are processed properly even if the node's network address is
-changed in mid-operation. The routines now treat the default node
-address of <0.0.0> as an alias for "this node" when determining where
-to send an outgoing message.
+Introduces routines that test whether a given network address is
+equal to a node's own network address or if it lies within the node's
+own network cluster, and which work properly regardless of whether
+the node is using the default network address <0.0.0> or a non-zero
+network address that is assigned later on. In essence, these routines
+ensure that address <0.0.0> is treated as an alias for "this node",
+regardless of which network address the node is actually using.
+
+Old users of the pre-existing more strict match in_own_cluster()
+have been accordingly redirected to what is now called
+in_own_cluster_exact() --- which does not extend matching to <0,0,0>.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/port.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/tipc/addr.h       |   20 +++++++++++++++++++-
+ net/tipc/bearer.c     |    2 +-
+ net/tipc/name_table.c |    6 +++---
+ net/tipc/node.c       |    2 +-
+ 4 files changed, 24 insertions(+), 6 deletions(-)
 
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index dc7f916..c50819b 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -1217,7 +1217,7 @@ int tipc_send(u32 ref, unsigned int num_sect, struct iovec const *msg_sect,
- 	p_ptr->congested = 1;
- 	if (!tipc_port_congested(p_ptr)) {
- 		destnode = port_peernode(p_ptr);
--		if (likely(destnode != tipc_own_addr))
-+		if (likely(!in_own_node(destnode)))
- 			res = tipc_link_send_sections_fast(p_ptr, msg_sect, num_sect,
- 							   total_len, destnode);
- 		else
-@@ -1267,7 +1267,7 @@ int tipc_send2name(u32 ref, struct tipc_name const *name, unsigned int domain,
- 	msg_set_destport(msg, destport);
+diff --git a/net/tipc/addr.h b/net/tipc/addr.h
+index e4f35af..d706a1d 100644
+--- a/net/tipc/addr.h
++++ b/net/tipc/addr.h
+@@ -50,12 +50,30 @@ static inline u32 tipc_cluster_mask(u32 addr)
+ 	return addr & TIPC_CLUSTER_MASK;
+ }
  
- 	if (likely(destport || destnode)) {
--		if (likely(destnode == tipc_own_addr))
-+		if (likely(in_own_node(destnode)))
- 			res = tipc_port_recv_sections(p_ptr, num_sect,
- 						      msg_sect, total_len);
- 		else if (tipc_own_addr)
-@@ -1315,7 +1315,7 @@ int tipc_send2port(u32 ref, struct tipc_portid const *dest,
- 	msg_set_destport(msg, dest->ref);
- 	msg_set_hdr_sz(msg, BASIC_H_SIZE);
+-static inline int in_own_cluster(u32 addr)
++static inline int in_own_cluster_exact(u32 addr)
+ {
+ 	return !((addr ^ tipc_own_addr) >> 12);
+ }
  
--	if (dest->node == tipc_own_addr)
-+	if (in_own_node(dest->node))
- 		res =  tipc_port_recv_sections(p_ptr, num_sect, msg_sect,
- 					       total_len);
- 	else if (tipc_own_addr)
-@@ -1362,7 +1362,7 @@ int tipc_send_buf2port(u32 ref, struct tipc_portid const *dest,
- 	skb_push(buf, BASIC_H_SIZE);
- 	skb_copy_to_linear_data(buf, msg, BASIC_H_SIZE);
+ /**
++ * in_own_node - test for node inclusion; <0.0.0> always matches
++ */
++
++static inline int in_own_node(u32 addr)
++{
++	return (addr == tipc_own_addr) || !addr;
++}
++
++/**
++ * in_own_cluster - test for cluster inclusion; <0.0.0> always matches
++ */
++
++static inline int in_own_cluster(u32 addr)
++{
++	return in_own_cluster_exact(addr) || !addr;
++}
++
++/**
+  * addr_domain - convert 2-bit scope value to equivalent message lookup domain
+  *
+  * Needed when address of a named message must be looked up a second time
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 5dfd89c..0bfdeba 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -449,7 +449,7 @@ int tipc_enable_bearer(const char *name, u32 disc_domain, u32 priority)
+ 		if (tipc_in_scope(disc_domain, tipc_own_addr)) {
+ 			disc_domain = tipc_own_addr & TIPC_CLUSTER_MASK;
+ 			res = 0;   /* accept any node in own cluster */
+-		} else if (in_own_cluster(disc_domain))
++		} else if (in_own_cluster_exact(disc_domain))
+ 			res = 0;   /* accept specified node in own cluster */
+ 	}
+ 	if (res) {
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 5d70042..1e0518d 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -342,7 +342,7 @@ static struct publication *tipc_nameseq_insert_publ(struct name_seq *nseq,
+ 	list_add(&publ->zone_list, &info->zone_list);
+ 	info->zone_list_size++;
  
--	if (dest->node == tipc_own_addr)
-+	if (in_own_node(dest->node))
- 		res = tipc_port_recv_msg(buf);
- 	else
- 		res = tipc_send_buf_fast(buf, dest->node);
+-	if (in_own_cluster(node)) {
++	if (in_own_cluster_exact(node)) {
+ 		list_add(&publ->cluster_list, &info->cluster_list);
+ 		info->cluster_list_size++;
+ 	}
+@@ -411,7 +411,7 @@ found:
+ 
+ 	/* Remove publication from cluster scope list, if present */
+ 
+-	if (in_own_cluster(node)) {
++	if (in_own_cluster_exact(node)) {
+ 		list_del(&publ->cluster_list);
+ 		info->cluster_list_size--;
+ 	}
+@@ -604,7 +604,7 @@ u32 tipc_nametbl_translate(u32 type, u32 instance, u32 *destnode)
+ 		publ = list_first_entry(&info->node_list, struct publication,
+ 					node_list);
+ 		list_move_tail(&publ->node_list, &info->node_list);
+-	} else if (in_own_cluster(*destnode)) {
++	} else if (in_own_cluster_exact(*destnode)) {
+ 		if (list_empty(&info->cluster_list))
+ 			goto no_match;
+ 		publ = list_first_entry(&info->cluster_list, struct publication,
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index a34cabc..6a71bea 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -72,7 +72,7 @@ struct tipc_node *tipc_node_find(u32 addr)
+ 	struct tipc_node *node;
+ 	struct hlist_node *pos;
+ 
+-	if (unlikely(!in_own_cluster(addr)))
++	if (unlikely(!in_own_cluster_exact(addr)))
+ 		return NULL;
+ 
+ 	hlist_for_each_entry(node, pos, &node_htable[tipc_hashfn(addr)], hash) {
 -- 
 1.7.9.3
