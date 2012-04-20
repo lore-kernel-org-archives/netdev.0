@@ -1,55 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: RTM_NEWLINK not received by application when connecting
- multiple devices simultaneously
-Date: Fri, 20 Apr 2012 08:14:00 -0700
-Message-ID: <20120420081400.67a98836@nehalam.linuxnetplumber.net>
-References: <CAKfDRXj+mydkzNFC8q2aE_JWHp3ie0cijC-itkm6sHLuZr98Fw@mail.gmail.com>
-	<4F90208E.6070201@candelatech.com>
-	<20120419075452.379f711b@s6510.linuxnetplumber.net>
-	<CAKfDRXjCr0aDSDT8zN8A7_iNX6KAJwrR3NxaB8GAgz5oEiCB3w@mail.gmail.com>
-	<CAKfDRXhAqFzPWAJkzhPdZGsUrtjex8uVwHBynCdvA+Zo6sjMig@mail.gmail.com>
-	<20120419133635.7d816d67@nehalam.linuxnetplumber.net>
-	<CAKfDRXih39RVnx1P72due=_v9-ORWf=YUfUTPKcvVbNzVuTLdw@mail.gmail.com>
+From: Marco Berizzi <pupilla@hotmail.com>
+Subject: RE: rx_dropped packets stop with tcpdump running
+Date: Fri, 20 Apr 2012 17:25:28 +0200
+Message-ID: <DUB108-W57C2F8FCF145C20E3B8BF1B2220@phx.gbl>
+References: <DUB108-W3E0658169335663BE7574B23D0@phx.gbl>,<1334841865.2395.177.camel@edumazet-glaptop>,<1334842088.2395.178.camel@edumazet-glaptop>,<061C8A8601E8EE4CA8D8FD6990CEA8910FF2D23F@ORSMSX102.amr.corp.intel.com>
+ <DUB108-W45246BF22ED8BAB93B78C8B2220@phx.gbl>,<4F9179E3.5020507@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
-To: Kristian Evensen <kristian.evensen@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <tushar.n.dave@intel.com>, <netdev@vger.kernel.org>,
+	<eric.dumazet@gmail.com>
+To: <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37781 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932528Ab2DTPOF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2012 11:14:05 -0400
-In-Reply-To: <CAKfDRXih39RVnx1P72due=_v9-ORWf=YUfUTPKcvVbNzVuTLdw@mail.gmail.com>
+Received: from dub0-omc4-s30.dub0.hotmail.com ([157.55.2.105]:32880 "EHLO
+	dub0-omc4-s30.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753824Ab2DTPZe convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2012 11:25:34 -0400
+In-Reply-To: <4F9179E3.5020507@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Apr 2012 16:07:42 +0200
-Kristian Evensen <kristian.evensen@gmail.com> wrote:
 
-> Thank you very much for all the help.
-> 
-> >> I spent some more time debugging this now. It turns out that which
-> >> interface is seen by my application is not random, it is always the
-> >> first one that is connected. This indicates that the bug is that the
-> >> netlink message contains information about more than one interface.
-> >> However, I am not able to prove this.
-> >
-> > There is no filtering. A dump request always returns all interfaces.
-> 
-> I think maybe I didnt explain myself clearly enough, I am sorry. This
-> does not happen when I dump interface info, but at the event of
-> connecting two interfaces at the same time.
-> 
-> I have now converted the application to using libmnl, but I still see
-> the same error. There is one message that is not received by my
-> netlink socket, or at least, the application does not process it. Just
-> in case it was bundled together with the message about the first
-> interface, I tried adding a loop where I received the packets (similar
-> to the one in the -dump example). However, this did not help.
-> 
-> -Kristian
+brian.haley@hp.com wrote:
+> 0x886d or 0x86DD? That second one is IPv6, you might just need to loa=
+d the module.
 
-Check if ip command catches the events (ip monitor).
-What is the type of device? and what do you  mean by connecting?
-(ie installing, doing admin up, operstate transition, carrier)
+here is the tcpdump:
+
+17:23:25.561398 00:19:99:90:ba:72 > ff:ff:ff:ff:ff:ff, ethertype Unknow=
+n (0x886d), length 64:=20
+=A0=A0=A0=A0=A0=A0=A0 0x0000:=A0 0001 0001 000c 24e2 0001 0019 9990 ba7=
+2=A0 ......$........r
+=A0=A0=A0=A0=A0=A0=A0 0x0010:=A0 0000 0500 2304 6364 726f 447b d700 80f=
+8=A0 ....#.cdroD{....
+=A0=A0=A0=A0=A0=A0=A0 0x0020:=A0 ffff 20d1 b631 80fa ffff e02b fb30 80f=
+a=A0 .....1.....+.0..
+=A0=A0=A0=A0=A0=A0=A0 0x0030:=A0 ffff=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+ ..
+17:23:25.561402 00:19:99:90:ba:73 > ff:ff:ff:ff:ff:ff, ethertype Unknow=
+n (0x886d), length 64:=20
+=A0=A0=A0=A0=A0=A0=A0 0x0000:=A0 0001 0001 000c 24e2 0002 0019 9990 ba7=
+2=A0 ......$........r
+=A0=A0=A0=A0=A0=A0=A0 0x0010:=A0 6700 5400 6800 7200 6500 7300 6800 6f0=
+0=A0 g.T.h.r.e.s.h.o.
+=A0=A0=A0=A0=A0=A0=A0 0x0020:=A0 6c00 6400 0000 3700 3200 0000 0000 000=
+0=A0 l.d...7.2.......
+=A0=A0=A0=A0=A0=A0=A0 0x0030:=A0 0000=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+ ..
+
+
+
+ 		 	   		  
