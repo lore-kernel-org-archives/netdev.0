@@ -1,65 +1,104 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 00/10] l2tp: misc fixes and add L2TPv3 IP encap over IPv6
-Date: Fri, 20 Apr 2012 10:02:43 +0100
-Message-ID: <1334912573-28804-1-git-send-email-jchapman@katalix.com>
+Subject: [PATCH 02/10] l2tp: Use ip4_datagram_connect() in l2tp_ip_connect()
+Date: Fri, 20 Apr 2012 10:02:45 +0100
+Message-ID: <1334912573-28804-3-git-send-email-jchapman@katalix.com>
+References: <1334912573-28804-1-git-send-email-jchapman@katalix.com>
 Cc: bcrl@kvack.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:58749 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:58750 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751075Ab2DTJC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750800Ab2DTJC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 20 Apr 2012 05:02:57 -0400
+In-Reply-To: <1334912573-28804-1-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series includes several L2TP fixes / cleanups and adds
-L2TPv3 IP encapsulation support for IPv6.
+Cleanup the l2tp_ip code to make use of an existing ipv4 support function.
 
-Patches 4-10 depend on Benjamin LaHaise's L2TP UDP IPv6 patches which
-have already been submitted for review. Patches 1-3 are not IPv6
-related so can be reviewed / applied now.
+Signed-off-by: James Chapman <jchapman@katalix.com>
+---
+ net/l2tp/l2tp_ip.c |   54 ++++++---------------------------------------------
+ 1 files changed, 7 insertions(+), 47 deletions(-)
 
-  1. l2tp: fix locking of 64-bit counters for smp
-  2. l2tp: Use ip4_datagram_connect() in l2tp_ip_connect()
-  3. l2tp: remove unused stats from l2tp_ip socket
-  4. pppox: Replace __attribute__((packed)) in if_pppox.h
-  5. l2tp: pppol2tp_connect() handles ipv6 sockaddr variants
-  6. l2tp: show IPv6 addresses in l2tp debugfs file
-  7. l2tp: netlink api for l2tpv3 ipv6 unmanaged tunnels
-  8. ipv6: export ipv6 functions for use by other protocols
-  9. l2tp: introduce L2TPv3 IP encapsulation support for IPv6
- 10. l2tp: let iproute2 create L2TPv3 IP tunnels using IPv6
-
-A patch for iproute2 to add support for unmanaged L2TPv3 ethernet
-tunnels over IPv6 will be submitted separately.
-
-Chris Elston (4):
-  l2tp: show IPv6 addresses in l2tp debugfs file
-  l2tp: netlink api for l2tpv3 ipv6 unmanaged tunnels
-  ipv6: Export ipv6 functions for use by other protocols
-  l2tp: introduce L2TPv3 IP encapsulation support for IPv6
-
-James Chapman (6):
-  l2tp: fix locking of 64-bit counters for smp
-  l2tp: Use ip4_datagram_connect() in l2tp_ip_connect()
-  l2tp: remove unused stats from l2tp_ip socket
-  pppox: Replace __attribute__((packed)) in if_pppox.h
-  l2tp: pppol2tp_connect() handles ipv6 sockaddr variants
-  l2tp: let iproute2 create L2TPv3 IP tunnels using IPv6
-
- include/linux/if_pppox.h |   12 +-
- include/linux/l2tp.h     |   19 ++
- net/ipv6/datagram.c      |    4 +
- net/ipv6/exthdrs.c       |    1 +
- net/ipv6/ip6_flowlabel.c |    1 +
- net/ipv6/ip6_output.c    |    3 +
- net/l2tp/Makefile        |    3 +
- net/l2tp/l2tp_core.c     |  215 ++++++++++---
- net/l2tp/l2tp_core.h     |    5 +
- net/l2tp/l2tp_debugfs.c  |    8 +
- net/l2tp/l2tp_ip.c       |   86 +-----
- net/l2tp/l2tp_ip6.c      |  792 ++++++++++++++++++++++++++++++++++++++++++++++
- net/l2tp/l2tp_netlink.c  |  110 ++++++--
- net/l2tp/l2tp_ppp.c      |   36 ++-
- 14 files changed, 1133 insertions(+), 162 deletions(-)
- create mode 100644 net/l2tp/l2tp_ip6.c
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 585d93e..5162592 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -299,67 +299,27 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
+ {
+ 	struct sockaddr_l2tpip *lsa = (struct sockaddr_l2tpip *) uaddr;
+ 	struct inet_sock *inet = inet_sk(sk);
+-	struct flowi4 *fl4;
+-	struct rtable *rt;
+-	__be32 saddr;
+-	int oif, rc;
++	int rc;
+ 
+-	rc = -EINVAL;
+ 	if (addr_len < sizeof(*lsa))
+-		goto out;
++		return -EINVAL;
+ 
+-	rc = -EAFNOSUPPORT;
+-	if (lsa->l2tp_family != AF_INET)
+-		goto out;
+-
+-	lock_sock(sk);
+-
+-	sk_dst_reset(sk);
+-
+-	oif = sk->sk_bound_dev_if;
+-	saddr = inet->inet_saddr;
+-
+-	rc = -EINVAL;
+ 	if (ipv4_is_multicast(lsa->l2tp_addr.s_addr))
+-		goto out;
++		return -EINVAL;
+ 
+-	fl4 = &inet->cork.fl.u.ip4;
+-	rt = ip_route_connect(fl4, lsa->l2tp_addr.s_addr, saddr,
+-			      RT_CONN_FLAGS(sk), oif,
+-			      IPPROTO_L2TP,
+-			      0, 0, sk, true);
+-	if (IS_ERR(rt)) {
+-		rc = PTR_ERR(rt);
+-		if (rc == -ENETUNREACH)
+-			IP_INC_STATS_BH(&init_net, IPSTATS_MIB_OUTNOROUTES);
+-		goto out;
+-	}
++	rc = ip4_datagram_connect(sk, uaddr, addr_len);
++	if (rc < 0)
++		return rc;
+ 
+-	rc = -ENETUNREACH;
+-	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
+-		ip_rt_put(rt);
+-		goto out;
+-	}
++	lock_sock(sk);
+ 
+ 	l2tp_ip_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
+ 
+-	if (!inet->inet_saddr)
+-		inet->inet_saddr = fl4->saddr;
+-	if (!inet->inet_rcv_saddr)
+-		inet->inet_rcv_saddr = fl4->saddr;
+-	inet->inet_daddr = fl4->daddr;
+-	sk->sk_state = TCP_ESTABLISHED;
+-	inet->inet_id = jiffies;
+-
+-	sk_dst_set(sk, &rt->dst);
+-
+ 	write_lock_bh(&l2tp_ip_lock);
+ 	hlist_del_init(&sk->sk_bind_node);
+ 	sk_add_bind_node(sk, &l2tp_ip_bind_table);
+ 	write_unlock_bh(&l2tp_ip_lock);
+ 
+-	rc = 0;
+-out:
+ 	release_sock(sk);
+ 	return rc;
+ }
+-- 
+1.7.0.4
