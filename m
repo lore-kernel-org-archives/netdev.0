@@ -1,295 +1,94 @@
-From: Marco Berizzi <pupilla@hotmail.com>
-Subject: RE: rx_dropped packets stop with tcpdump running
-Date: Fri, 20 Apr 2012 10:34:53 +0200
-Message-ID: <DUB108-W45246BF22ED8BAB93B78C8B2220@phx.gbl>
-References: <DUB108-W3E0658169335663BE7574B23D0@phx.gbl>,<1334841865.2395.177.camel@edumazet-glaptop>,<1334842088.2395.178.camel@edumazet-glaptop>,<061C8A8601E8EE4CA8D8FD6990CEA8910FF2D23F@ORSMSX102.amr.corp.intel.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH net-next 01/19] net: Implement register_net_sysctl.
+Date: Fri, 20 Apr 2012 12:45:07 +0400
+Message-ID: <4F912213.8050507@parallels.com>
+References: <m1aa27ia6h.fsf@fess.ebiederm.org> <m162cvia3s.fsf@fess.ebiederm.org> <4F90F3AB.7050600@parallels.com> <m1obqmakl4.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <eric.dumazet@gmail.com>
-To: <tushar.n.dave@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dub0-omc4-s26.dub0.hotmail.com ([157.55.2.101]:23565 "EHLO
-	dub0-omc4-s26.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751128Ab2DTIlQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2012 04:41:16 -0400
-In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA8910FF2D23F@ORSMSX102.amr.corp.intel.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:29542 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751128Ab2DTIp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2012 04:45:29 -0400
+In-Reply-To: <m1obqmakl4.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/20/2012 12:11 PM, Eric W. Biederman wrote:
+> Pavel Emelyanov <xemul@parallels.com> writes:
+> 
+>>> @@ -117,6 +117,13 @@ struct ctl_table_header *register_net_sysctl_rotable(const
+>>>  }
+>>>  EXPORT_SYMBOL_GPL(register_net_sysctl_rotable);
+>>>  
+>>> +struct ctl_table_header *register_net_sysctl(struct net *net,
+>>> +	const char *path, struct ctl_table *table)
+>>> +{
+>>> +	return __register_sysctl_table(&net->sysctls, path, table);
+>>
+>> Eric, am I right, that after this all sysctl-s registered in init_net will
+>> not be even visible in the non-init net namespaces?
+> 
+> Yes.
+> 
+>> If I'm not mistaken, before this all non-virtualized, i.e. "global" sysctls
+>> were read-only in sub net namespaces and that solved lots of problems for us.
+> 
+> Nope.  There are only 4 sysctls that were both global and read only, and
+> coincidentally I shoved them all into the initial network namespace in
+> patch 4.
 
-tushar.n.dave@intel.com wrote:
-> Marco,
+OK, thanks.
 
-Hi Dave,
+> So this part of the discussion really belongs about patch 4 but whatever.
+> 
+> In principle I don't mind the technique of sysctls that are writable
+> in the initial network namespace and readable everywhere else.  I hate
+> the name register_net_sysctl_rotable because it suggests that every
+> sysctl in the table will all be read-only or something like that.
+> 
+> In practice I think where we are at with converting and looking at
+> sysctls is disaster.
+> 
+> - People complain and want bad hacks so they can avoid writing to
+>   sysctls in containers but don't seem to work on the clean solutions.
+> 
+> - It is not discoverable which sysctls are per network namespace.
+> 
+> - We have only made a grand total 4 sysctls (in 3 tables) writable
+>   in the initial network namespace readable everywhere else.
+> 
+> So I think the best path forward is to just shove all sysctls that
+> aren't per network namespace into the initial network namespace so that
+> it is abundantly clear that they are not per network namespace, and
+> the fix the sysctls that people care about to be per network namespace.
 
-as pointed by Eric, the counter is
-increasing because a windows box is
-sending out packets with ethertype
-0x886d
+Agree.
 
-> Do you see any packet drop at HW level?
+> I do admit their is actual interest in fixing some of the non-converted
+> netfliter sysctls.  So my perception of the situation may be wrong, but
+> right now I honestly think we have been too clever and no one knows what
+> is going on or cares enough to pay detailed attention.
 
-no, at hw level (ethtool -S eth2)
-all is in good shape
+We constantly see two types of problems with proc files and sysctls.
+Various apps fail to work if they cannot do either of two
 
-> How are you measuring drop packet?
+1. find some sysctl without trying to do anything with it
+2. write to some sysctl without checking for the actual result
 
-cat /sys/class/net/eth2/statistics/rx_dropped
+I don't see the ways of fixing any of the above in the generic way. However
+step #1 can be ... work-around-ed by making all non-virtualized sysctls RO
+in containers, but this is also not a perfect solution.
 
-> ethtool -S ethx shows you any packet drop?
-
-no, all fine:
-
-root@Teti:~# ethtool -S eth2
-NIC statistics:
-=A0=A0=A0=A0 rx_packets: 5939685
-=A0=A0=A0=A0 tx_packets: 6108953
-=A0=A0=A0=A0 rx_bytes: 1416989994
-=A0=A0=A0=A0 tx_bytes: 5089228182
-=A0=A0=A0=A0 rx_broadcast: 470407
-=A0=A0=A0=A0 tx_broadcast: 56489
-=A0=A0=A0=A0 rx_multicast: 135
-=A0=A0=A0=A0 tx_multicast: 0
-=A0=A0=A0=A0 rx_errors: 4
-=A0=A0=A0=A0 tx_errors: 0
-=A0=A0=A0=A0 tx_dropped: 0
-=A0=A0=A0=A0 multicast: 135
-=A0=A0=A0=A0 collisions: 0
-=A0=A0=A0=A0 rx_length_errors: 4
-=A0=A0=A0=A0 rx_over_errors: 0
-=A0=A0=A0=A0 rx_crc_errors: 0
-=A0=A0=A0=A0 rx_frame_errors: 0
-=A0=A0=A0=A0 rx_no_buffer_count: 0
-=A0=A0=A0=A0 rx_missed_errors: 0
-=A0=A0=A0=A0 tx_aborted_errors: 0
-=A0=A0=A0=A0 tx_carrier_errors: 0
-=A0=A0=A0=A0 tx_fifo_errors: 0
-=A0=A0=A0=A0 tx_heartbeat_errors: 0
-=A0=A0=A0=A0 tx_window_errors: 0
-=A0=A0=A0=A0 tx_abort_late_coll: 0
-=A0=A0=A0=A0 tx_deferred_ok: 0
-=A0=A0=A0=A0 tx_single_coll_ok: 0
-=A0=A0=A0=A0 tx_multi_coll_ok: 0
-=A0=A0=A0=A0 tx_timeout_count: 0
-=A0=A0=A0=A0 tx_restart_queue: 0
-=A0=A0=A0=A0 rx_long_length_errors: 0
-=A0=A0=A0=A0 rx_short_length_errors: 4
-=A0=A0=A0=A0 rx_align_errors: 0
-=A0=A0=A0=A0 tx_tcp_seg_good: 0
-=A0=A0=A0=A0 tx_tcp_seg_failed: 0
-=A0=A0=A0=A0 rx_flow_control_xon: 0
-=A0=A0=A0=A0 rx_flow_control_xoff: 0
-=A0=A0=A0=A0 tx_flow_control_xon: 0
-=A0=A0=A0=A0 tx_flow_control_xoff: 0
-=A0=A0=A0=A0 rx_long_byte_count: 1416989994
-=A0=A0=A0=A0 rx_csum_offload_good: 5252692
-=A0=A0=A0=A0 rx_csum_offload_errors: 3
-=A0=A0=A0=A0 rx_header_split: 0
-=A0=A0=A0=A0 alloc_rx_buff_failed: 0
-=A0=A0=A0=A0 tx_smbus: 0
-=A0=A0=A0=A0 rx_smbus: 0
-=A0=A0=A0=A0 dropped_smbus: 0
-=A0=A0=A0=A0 rx_dma_failed: 0
-=A0=A0=A0=A0 tx_dma_failed: 0
-
-> Also can you please send me the eeprom dump
-> of you card/LOM. ethtool -e ethx
-
-here is the eeprom dump:
-
-root@Teti:~# ethtool -e eth2
-Offset=A0=A0=A0=A0=A0=A0=A0=A0=A0 Values
-------=A0=A0=A0=A0=A0=A0=A0=A0=A0 ------
-0x0000=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 19 99 ab 2e f6 20 0c 46 f7 01 10 f=
-f ff ff ff=20
-0x0010=A0=A0=A0=A0=A0=A0=A0=A0=A0 31 31 30 32 6b 02 92 11 34 17 d3 10 f=
-f ff 58 a8=20
-0x0020=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 01 20 74 7e ff ff 00 10 c8 00 0=
-0 00 04 27=20
-0x0030=A0=A0=A0=A0=A0=A0=A0=A0=A0 c9 6c 50 31 3e 07 0b 46 84 21 40 01 0=
-0 f0 06 07=20
-0x0040=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 60 80 00 04 0f ff 7f 01 4d 00 c6 0=
-0 00 ff 20=20
-0x0050=A0=A0=A0=A0=A0=A0=A0=A0=A0 28 00 93 00 50 00 01 01 01 00 b3 05 6=
-8 00 ff ff=20
-0x0060=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 01 00 40 28 13 13 40 ff ff ff ff f=
-f ff ff ff=20
-0x0070=A0=A0=A0=A0=A0=A0=A0=A0=A0 ff ff ff ff ff ff ff ff ff ff 20 01 f=
-f ff 6b 08=20
-0x0080=A0=A0=A0=A0=A0=A0=A0=A0=A0 ff ff ff ff ff ff ff ff ff ff ff ff f=
-f ff ff ff=20
-0x0090=A0=A0=A0=A0=A0=A0=A0=A0=A0 ff ff ff ff ff ff ff ff ff ff ff ff f=
-f ff ff ff=20
-0x00a0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 1f 38 0a 00 04 00 00 00 1f 38 0=
-7 00 04 00=20
-0x00b0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 1f 38 08 00 04 00 00 00 1f 38 0=
-9 00 04 00=20
-0x00c0=A0=A0=A0=A0=A0=A0=A0=A0=A0 02 01 01 00 ff ff ff ff ff ff ff ff f=
-f ff ff ff=20
-0x00d0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 1f 38 0a 00 04 00 80 0a 00 20 e=
-f ef ef ef=20
-0x00e0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 1f 38 0b 00 04 00 00 00 1f 38 0=
-3 00 04 00=20
-0x00f0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 1f 38 05 00 04 00 00 00 1f 38 0=
-2 00 04 00=20
-0x0100=A0=A0=A0=A0=A0=A0=A0=A0=A0 80 07 00 20 ef ef ef ef 00 04 00 00 0=
-4 04 00 00=20
-0x0110=A0=A0=A0=A0=A0=A0=A0=A0=A0 08 08 00 08 04 00 08 00 04 00 04 00 f=
-f 00 00 00=20
-0x0120=A0=A0=A0=A0=A0=A0=A0=A0=A0 ff 00 00 04 00 00 00 00 00 00 00 00 0=
-1 01 01 00=20
-0x0130=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 df 09 98 11 00 00 00 00 1f 38 0=
-1 00 04 00=20
-0x0140=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 fd e4 67 00 01 00 00 02 1d 00 20 0=
-0 fd e5 7f=20
-0x0150=A0=A0=A0=A0=A0=A0=A0=A0=A0 81 50 00 00 02 15 00 20 20 7a e2 7f 0=
-2 06 00 20=20
-0x0160=A0=A0=A0=A0=A0=A0=A0=A0=A0 10 84 04 08 00 7c 3f 60 00 00 04 00 0=
-0 82 28 6a=20
-0x0170=A0=A0=A0=A0=A0=A0=A0=A0=A0 01 7a e0 67 01 82 28 72 00 22 0a 10 0=
-a fe ff 61=20
-0x0180=A0=A0=A0=A0=A0=A0=A0=A0=A0 13 fc 44 10 00 00 00 00 00 00 1f 38 9=
-e 02 04 00=20
-0x0190=A0=A0=A0=A0=A0=A0=A0=A0=A0 21 7a e2 7f 82 02 00 20 12 fe 08 88 0=
-1 7e 00 60=20
-0x01a0=A0=A0=A0=A0=A0=A0=A0=A0=A0 14 80 44 10 0b fe ff 61 80 fa ff 27 0=
-6 7a e2 7f=20
-0x01b0=A0=A0=A0=A0=A0=A0=A0=A0=A0 82 09 00 20 08 fe 04 40 00 fe 3f 60 0=
-2 02 80 11=20
-0x01c0=A0=A0=A0=A0=A0=A0=A0=A0=A0 02 02 80 11 02 02 80 11 02 7c 80 11 5=
-7 01 00 00=20
-0x01d0=A0=A0=A0=A0=A0=A0=A0=A0=A0 02 7c 40 11 06 00 00 00 78 fe 6a 50 0=
-4 80 21 08=20
-0x01e0=A0=A0=A0=A0=A0=A0=A0=A0=A0 02 fe 5f 60 40 02 1f 38 e0 04 04 00 0=
-0 80 21 08=20
-0x01f0=A0=A0=A0=A0=A0=A0=A0=A0=A0 04 fe 5f 60 40 02 1f 38 e0 04 04 00 0=
-f fe ff 61=20
-0x0200=A0=A0=A0=A0=A0=A0=A0=A0=A0 17 7a e6 7f 02 02 00 20 00 17 e5 47 0=
-2 01 00 20=20
-0x0210=A0=A0=A0=A0=A0=A0=A0=A0=A0 24 fc 84 10 00 00 00 00 00 00 df 09 9=
-8 11 00 00=20
-0x0220=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 17 e5 47 01 fc c6 79 00 00 00 00 0=
-0 1c 1f 10=20
-0x0230=A0=A0=A0=A0=A0=A0=A0=A0=A0 98 11 00 00 00 00 1f 38 0c 00 04 00 f=
-f ff ff ff=20
-0x0240=A0=A0=A0=A0=A0=A0=A0=A0=A0 69 53 84 03 01 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0250=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0260=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0270=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0280=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0290=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x02a0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x02b0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x02c0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x02d0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x02e0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x02f0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0300=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0310=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0320=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0330=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0340=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0350=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0360=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 03 3d 00 00 0=
-0 00 00 00=20
-0x0370=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 b=
-c 0c 00 00=20
-0x0380=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0390=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x03a0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x03b0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x03c0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x03d0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x03e0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x03f0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0400=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0410=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0420=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0430=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0440=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0450=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0460=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0470=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0480=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0490=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x04a0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x04b0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x04c0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x04d0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x04e0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x04f0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0500=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0510=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0520=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0530=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0540=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0550=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0560=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0570=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0580=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x0590=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x05a0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x05b0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 00 00 00 00 00 00 00 00 0=
-0 00 00 00=20
-0x05c0=A0=A0=A0=A0=A0=A0=A0=A0=A0 00 00 00 00 ff ff ff ff ff ff ff ff f=
-f ff ff ff=20
-[...]
-0x7ff0=A0=A0=A0=A0=A0=A0=A0=A0=A0 ff ff ff ff ff ff ff ff ff ff ff ff f=
-f ff ff ff=20
-
- 		 	   		  
+> Eric
+> 
+> .
+> 
