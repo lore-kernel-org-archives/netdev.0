@@ -1,396 +1,145 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 2/9] atl1c: refine phy-register read/write function
-Date: Fri, 20 Apr 2012 09:40:33 +0200
-Message-ID: <4F9112F1.1030403@openwrt.org>
-References: <1334902584-15584-1-git-send-email-xiong@qca.qualcomm.com> <1334902584-15584-3-git-send-email-xiong@qca.qualcomm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] af_packet: packet_getsockopt() cleanup
+Date: Fri, 20 Apr 2012 09:56:11 +0200
+Message-ID: <1334908571.2395.228.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
-	nic-devel@qualcomm.com
-To: xiong <xiong@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334902584-15584-3-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:60539 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752506Ab2DTH4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 03:56:16 -0400
+Received: by wejx9 with SMTP id x9so5894664wej.19
+        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 00:56:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Xiong,
+From: Eric Dumazet <edumazet@google.com>
 
-Le 04/20/12 08:16, xiong a =C3=A9crit :
-> phy register is read/write via MDIO control module ---
-> that module will be affected by the hibernate status,
-> to access phy regs in hib stutus, slow frequency clk must
-> be selected.
-> To access phy extension register, the MDIO related
-> registers are refined/updated, a _core function is
-> re-wroted for both regular PHY regs and extension regs.
-> existing PHY r/w function is revised based on the _core.
-> PHY extension registers will be used for the comming
-> patches.
->
-> Signed-off-by: xiong<xiong@qca.qualcomm.com>
-> Tested-by: Liu David<dwliu@qca.qualcomm.com>
-> ---
->   drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |  178 ++++++++++++=
-+++++++----
->   drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   64 +++++---
->   drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    4 +-
->   3 files changed, 189 insertions(+), 57 deletions(-)
->
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/=
-net/ethernet/atheros/atl1c/atl1c_hw.c
-> index bd1667c..6cbe78a 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-> @@ -277,65 +277,181 @@ void atl1c_hash_set(struct atl1c_hw *hw, u32 h=
-ash_value)
->   	AT_WRITE_REG_ARRAY(hw, REG_RX_HASH_TABLE, hash_reg, mta);
->   }
->
-> +
-> +void atl1c_stop_phy_polling(struct atl1c_hw *hw)
-> +{
-> +	u32 val;
-> +	int i;
-> +
-> +	if (hw->ctrl_flags&  ATL1C_FPGA_VERSION) {
-> +		AT_WRITE_REG(hw, REG_MDIO_CTRL, 0);
-> +		for (i =3D 0; i<  MDIO_MAX_AC_TO; i++) {
-> +			AT_READ_REG(hw, REG_MDIO_CTRL,&val);
-> +			if (0 =3D=3D (val&  MDIO_CTRL_BUSY))
-> +				break;
-> +			udelay(10);
-> +		}
-> +	}
-> +}
+Factorize code, since most fetched values are int type.
 
-Please reduce the identation by doing this:
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/packet/af_packet.c |   46 ++++++---------------------------------
+ 1 file changed, 8 insertions(+), 38 deletions(-)
 
-if (!(hw->ctrl_flags & ALT1C_FPAG_VERSION))
-	return;
-
-that makes it much more readable.
-
-> +
-> +void atl1c_start_phy_polling(struct atl1c_hw *hw, u16 clk_sel)
-> +{
-> +	u32 val;
-> +	int i;
-> +
-> +	if (hw->ctrl_flags&  ATL1C_FPGA_VERSION) {
-> +		val =3D MDIO_CTRL_SPRES_PRMBL |
-> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-> +			FIELDX(MDIO_CTRL_REG, 1) |
-> +			MDIO_CTRL_START |
-> +			MDIO_CTRL_OP_READ;
-> +		AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
-> +		for (i =3D 0; i<  MDIO_MAX_AC_TO; i++) {
-> +			AT_READ_REG(hw, REG_MDIO_CTRL,&val);
-> +			if (0 =3D=3D (val&  MDIO_CTRL_BUSY))
-> +				break;
-> +			udelay(10);
-> +		}
-> +		val |=3D MDIO_CTRL_AP_EN;
-> +		val&=3D ~MDIO_CTRL_START;
-> +		AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
-> +		udelay(30);
-> +	}
-> +}
-
-Seems like the for() busy-checking of the register could use their own=20
-function since it is used both in : atl1c_stop_phy_polling() and=20
-atl1c_start_phy_polling().
-
-> +
-> +
->   /*
-> - * Reads the value from a PHY register
-> - * hw - Struct containing variables accessed by shared code
-> - * reg_addr - address of the PHY register to read
-> + * atl1c_read_phy_core
-> + * core funtion to read register in PHY via MDIO control regsiter.
-> + * ext: extension register (see IEEE 802.3)
-> + * dev: device address (see IEEE 802.3 DEVAD, PRTAD is fixed to 0)
-> + * reg: reg to read
->    */
-> -int atl1c_read_phy_reg(struct atl1c_hw *hw, u16 reg_addr, u16 *phy_d=
-ata)
-> +int atl1c_read_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
-> +			u16 reg, u16 *phy_data)
->   {
->   	u32 val;
-> +	u16 clk_sel;
->   	int i;
->
-> -	val =3D ((u32)(reg_addr&  MDIO_REG_ADDR_MASK))<<  MDIO_REG_ADDR_SHI=
-=46T |
-> -		MDIO_START | MDIO_SUP_PREAMBLE | MDIO_RW |
-> -		MDIO_CLK_25_4<<  MDIO_CLK_SEL_SHIFT;
-> +	atl1c_stop_phy_polling(hw);
->
-> +	*phy_data =3D 0;
-> +	clk_sel =3D hw->hibernate ? MDIO_CTRL_CLK_25_128 : MDIO_CTRL_CLK_25=
-_4;
-> +	if (ext) {
-> +		val =3D FIELDX(MDIO_EXTN_DEVAD, dev) | FIELDX(MDIO_EXTN_REG, reg);
-> +		AT_WRITE_REG(hw, REG_MDIO_EXTN, val);
-> +		val =3D MDIO_CTRL_SPRES_PRMBL |
-> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-> +			MDIO_CTRL_START |
-> +			MDIO_CTRL_MODE_EXT |
-> +			MDIO_CTRL_OP_READ;
-> +	} else {
-> +		val =3D MDIO_CTRL_SPRES_PRMBL |
-> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-> +			FIELDX(MDIO_CTRL_REG, reg) |
-> +			MDIO_CTRL_START |
-> +			MDIO_CTRL_OP_READ;
-> +	}
->   	AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
->
-> -	for (i =3D 0; i<  MDIO_WAIT_TIMES; i++) {
-> -		udelay(2);
-> +	for (i =3D 0; i<  MDIO_MAX_AC_TO; i++) {
->   		AT_READ_REG(hw, REG_MDIO_CTRL,&val);
-> -		if (!(val&  (MDIO_START | MDIO_BUSY)))
-> +		if (0 =3D=3D (val&  MDIO_CTRL_BUSY)) {
-> +			*phy_data =3D (u16)FIELD_GETX(val, MDIO_CTRL_DATA);
->   			break;
-> +		}
-> +		udelay(10);
-
-same here, you could use the helper for busy-checking MDIO_CTRL_BUSY.
-
->   	}
-> -	if (!(val&  (MDIO_START | MDIO_BUSY))) {
-> -		*phy_data =3D (u16)val;
-> -		return 0;
-> -	}
-> +	if (MDIO_MAX_AC_TO =3D=3D i)
-> +		return -1;
->
-> -	return -1;
-> +	atl1c_start_phy_polling(hw, clk_sel);
-> +
-> +	return 0;
->   }
->
->   /*
-> - * Writes a value to a PHY register
-> - * hw - Struct containing variables accessed by shared code
-> - * reg_addr - address of the PHY register to write
-> - * data - data to write to the PHY
-> + * atl1c_write_phy_core
-> + * core funtion to write to register in PHY via MDIO control regsite=
-r.
-> + * ext: extension register (see IEEE 802.3)
-> + * dev: device address (see IEEE 802.3 DEVAD, PRTAD is fixed to 0)
-> + * reg: reg to write
->    */
-> -int atl1c_write_phy_reg(struct atl1c_hw *hw, u32 reg_addr, u16 phy_d=
-ata)
-> +int atl1c_write_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
-> +			u16 reg, u16 phy_data)
->   {
-> -	int i;
->   	u32 val;
-> +	u16 clk_sel;
-> +	int i;
->
-> -	val =3D ((u32)(phy_data&  MDIO_DATA_MASK))<<  MDIO_DATA_SHIFT   |
-> -	       (reg_addr&  MDIO_REG_ADDR_MASK)<<  MDIO_REG_ADDR_SHIFT |
-> -	       MDIO_SUP_PREAMBLE | MDIO_START |
-> -	       MDIO_CLK_25_4<<  MDIO_CLK_SEL_SHIFT;
-> +	atl1c_stop_phy_polling(hw);
->
-> +	clk_sel =3D hw->hibernate ? MDIO_CTRL_CLK_25_128 : MDIO_CTRL_CLK_25=
-_4;
-> +	if (ext) {
-> +		val =3D FIELDX(MDIO_EXTN_DEVAD, dev) | FIELDX(MDIO_EXTN_REG, reg);
-> +		AT_WRITE_REG(hw, REG_MDIO_EXTN, val);
-> +		val =3D MDIO_CTRL_SPRES_PRMBL |
-> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-> +			FIELDX(MDIO_CTRL_DATA, phy_data) |
-> +			MDIO_CTRL_START |
-> +			MDIO_CTRL_MODE_EXT;
-> +	} else {
-> +		val =3D MDIO_CTRL_SPRES_PRMBL |
-> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-> +			FIELDX(MDIO_CTRL_DATA, phy_data) |
-> +			FIELDX(MDIO_CTRL_REG, reg) |
-> +			MDIO_CTRL_START;
-> +	}
->   	AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
->
-> -	for (i =3D 0; i<  MDIO_WAIT_TIMES; i++) {
-> -		udelay(2);
-> +	for (i =3D 0; i<  MDIO_MAX_AC_TO; i++) {
->   		AT_READ_REG(hw, REG_MDIO_CTRL,&val);
-> -		if (!(val&  (MDIO_START | MDIO_BUSY)))
-> +		if (0 =3D=3D (val&  MDIO_CTRL_BUSY))
->   			break;
-> +		udelay(10);
->   	}
-> +	if (MDIO_MAX_AC_TO =3D=3D i)
-> +		return -1;
->
-> -	if (!(val&  (MDIO_START | MDIO_BUSY)))
-> -		return 0;
-> +	atl1c_start_phy_polling(hw, clk_sel);
->
-> -	return -1;
-> +	return 0;
-> +}
-> +
-> +/*
-> + * Reads the value from a PHY register
-> + * hw - Struct containing variables accessed by shared code
-> + * reg_addr - address of the PHY register to read
-> + */
-> +int atl1c_read_phy_reg(struct atl1c_hw *hw, u16 reg_addr, u16 *phy_d=
-ata)
-> +{
-> +	return atl1c_read_phy_core(hw, false, 0, reg_addr, phy_data);
-> +}
-> +
-> +/*
-> + * Writes a value to a PHY register
-> + * hw - Struct containing variables accessed by shared code
-> + * reg_addr - address of the PHY register to write
-> + * data - data to write to the PHY
-> + */
-> +int atl1c_write_phy_reg(struct atl1c_hw *hw, u32 reg_addr, u16 phy_d=
-ata)
-> +{
-> +	return atl1c_write_phy_core(hw, false, 0, reg_addr, phy_data);
-> +}
-> +
-> +/* read from PHY extension register */
-> +int atl1c_read_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
-> +			u16 reg_addr, u16 *phy_data)
-> +{
-> +	return atl1c_read_phy_core(hw, true, dev_addr, reg_addr, phy_data);
-> +}
-> +
-> +/* write to PHY extension register */
-> +int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
-> +			u16 reg_addr, u16 phy_data)
-> +{
-> +	return atl1c_write_phy_core(hw, true, dev_addr, reg_addr, phy_data)=
-;
->   }
->
->   /*
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/=
-net/ethernet/atheros/atl1c/atl1c_hw.h
-> index 459e141..eb7f3bb 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-> @@ -49,6 +49,16 @@ int atl1c_phy_init(struct atl1c_hw *hw);
->   int atl1c_check_eeprom_exist(struct atl1c_hw *hw);
->   int atl1c_restart_autoneg(struct atl1c_hw *hw);
->   int atl1c_phy_power_saving(struct atl1c_hw *hw);
-> +void atl1c_stop_phy_polling(struct atl1c_hw *hw);
-> +void atl1c_start_phy_polling(struct atl1c_hw *hw, u16 clk_sel);
-> +int atl1c_read_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
-> +			u16 reg, u16 *phy_data);
-> +int atl1c_write_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
-> +			u16 reg, u16 phy_data);
-> +int atl1c_read_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
-> +			u16 reg_addr, u16 *phy_data);
-> +int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
-> +			u16 reg_addr, u16 phy_data);
->   /* register definition */
->   #define REG_DEVICE_CAP              	0x5C
->   #define DEVICE_CAP_MAX_PAYLOAD_MASK     0x7
-> @@ -268,30 +278,36 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw)=
-;
->
->   /* MDIO Control Register */
->   #define REG_MDIO_CTRL           	0x1414
-> -#define MDIO_DATA_MASK          	0xffff  /* On MDIO write, the 16-bi=
-t
-> -						 * control data to write to PHY
-> -						 * MII management register */
-> -#define MDIO_DATA_SHIFT         	0       /* On MDIO read, the 16-bit
-> -						 * status data that was read
-> -						 * from the PHY MII management register */
-> -#define MDIO_REG_ADDR_MASK      	0x1f    /* MDIO register address */
-> -#define MDIO_REG_ADDR_SHIFT     	16
-> -#define MDIO_RW                 	0x200000  /* 1: read, 0: write */
-> -#define MDIO_SUP_PREAMBLE       	0x400000  /* Suppress preamble */
-> -#define MDIO_START              	0x800000  /* Write 1 to initiate th=
-e MDIO
-> -						   * master. And this bit is self
-> -						   * cleared after one cycle */
-> -#define MDIO_CLK_SEL_SHIFT      	24
-> -#define MDIO_CLK_25_4           	0
-> -#define MDIO_CLK_25_6           	2
-> -#define MDIO_CLK_25_8           	3
-> -#define MDIO_CLK_25_10          	4
-> -#define MDIO_CLK_25_14          	5
-> -#define MDIO_CLK_25_20          	6
-> -#define MDIO_CLK_25_28          	7
-> -#define MDIO_BUSY               	0x8000000
-> -#define MDIO_AP_EN              	0x10000000
-> -#define MDIO_WAIT_TIMES         	10
-> +#define MDIO_CTRL_MODE_EXT		BIT(30)
-> +#define MDIO_CTRL_POST_READ		BIT(29)
-> +#define MDIO_CTRL_AP_EN			BIT(28)
-> +#define MDIO_CTRL_BUSY			BIT(27)
-> +#define MDIO_CTRL_CLK_SEL_MASK		0x7UL
-> +#define MDIO_CTRL_CLK_SEL_SHIFT		24
-> +#define MDIO_CTRL_CLK_25_4		0	/* 25MHz divide 4 */
-> +#define MDIO_CTRL_CLK_25_6		2
-> +#define MDIO_CTRL_CLK_25_8		3
-> +#define MDIO_CTRL_CLK_25_10		4
-> +#define MDIO_CTRL_CLK_25_32		5
-> +#define MDIO_CTRL_CLK_25_64		6
-> +#define MDIO_CTRL_CLK_25_128		7
-> +#define MDIO_CTRL_START			BIT(23)
-> +#define MDIO_CTRL_SPRES_PRMBL		BIT(22)
-> +#define MDIO_CTRL_OP_READ		BIT(21)	/* 1:read, 0:write */
-> +#define MDIO_CTRL_REG_MASK		0x1FUL
-> +#define MDIO_CTRL_REG_SHIFT		16
-> +#define MDIO_CTRL_DATA_MASK		0xFFFFUL
-> +#define MDIO_CTRL_DATA_SHIFT		0
-> +#define MDIO_MAX_AC_TO			120	/* 1.2ms timeout for slow clk */
-> +
-> +/* for extension reg access */
-> +#define REG_MDIO_EXTN			0x1448
-> +#define MDIO_EXTN_PORTAD_MASK		0x1FUL
-> +#define MDIO_EXTN_PORTAD_SHIFT		21
-> +#define MDIO_EXTN_DEVAD_MASK		0x1FUL
-> +#define MDIO_EXTN_DEVAD_SHIFT		16
-> +#define MDIO_EXTN_REG_MASK		0xFFFFUL
-> +#define MDIO_EXTN_REG_SHIFT		0
->
->   /* BIST Control and Status Register0 (for the Packet Memory) */
->   #define REG_BIST0_CTRL              	0x141c
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/driver=
-s/net/ethernet/atheros/atl1c/atl1c_main.c
-> index a6c3f05..1f82880 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -2270,7 +2270,7 @@ static int atl1c_open(struct net_device *netdev=
-)
->   		u32 phy_data;
->
->   		AT_READ_REG(&adapter->hw, REG_MDIO_CTRL,&phy_data);
-> -		phy_data |=3D MDIO_AP_EN;
-> +		phy_data |=3D MDIO_CTRL_AP_EN;
->   		AT_WRITE_REG(&adapter->hw, REG_MDIO_CTRL, phy_data);
->   	}
->   	return 0;
-> @@ -2558,7 +2558,7 @@ static int __devinit atl1c_probe(struct pci_dev=
- *pdev,
->   	adapter->mii.mdio_read  =3D atl1c_mdio_read;
->   	adapter->mii.mdio_write =3D atl1c_mdio_write;
->   	adapter->mii.phy_id_mask =3D 0x1f;
-> -	adapter->mii.reg_num_mask =3D MDIO_REG_ADDR_MASK;
-> +	adapter->mii.reg_num_mask =3D MDIO_CTRL_REG_MASK;
->   	netif_napi_add(netdev,&adapter->napi, atl1c_clean, 64);
->   	setup_timer(&adapter->phy_config_timer, atl1c_phy_config,
->   			(unsigned long)adapter);
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 40053a0..0f66174 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -3224,10 +3224,10 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 			     char __user *optval, int __user *optlen)
+ {
+ 	int len;
+-	int val;
++	int val, lv = sizeof(val);
+ 	struct sock *sk = sock->sk;
+ 	struct packet_sock *po = pkt_sk(sk);
+-	void *data;
++	void *data = &val;
+ 	struct tpacket_stats st;
+ 	union tpacket_stats_u st_u;
+ 
+@@ -3242,21 +3242,17 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 	switch (optname) {
+ 	case PACKET_STATISTICS:
+-		if (po->tp_version == TPACKET_V3) {
+-			len = sizeof(struct tpacket_stats_v3);
+-		} else {
+-			if (len > sizeof(struct tpacket_stats))
+-				len = sizeof(struct tpacket_stats);
+-		}
+ 		spin_lock_bh(&sk->sk_receive_queue.lock);
+ 		if (po->tp_version == TPACKET_V3) {
++			lv = sizeof(struct tpacket_stats_v3);
+ 			memcpy(&st_u.stats3, &po->stats,
+-			sizeof(struct tpacket_stats));
++			       sizeof(struct tpacket_stats));
+ 			st_u.stats3.tp_freeze_q_cnt =
+-			po->stats_u.stats3.tp_freeze_q_cnt;
++					po->stats_u.stats3.tp_freeze_q_cnt;
+ 			st_u.stats3.tp_packets += po->stats.tp_drops;
+ 			data = &st_u.stats3;
+ 		} else {
++			lv = sizeof(struct tpacket_stats);
+ 			st = po->stats;
+ 			st.tp_packets += st.tp_drops;
+ 			data = &st;
+@@ -3265,31 +3261,16 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 		spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 		break;
+ 	case PACKET_AUXDATA:
+-		if (len > sizeof(int))
+-			len = sizeof(int);
+ 		val = po->auxdata;
+-
+-		data = &val;
+ 		break;
+ 	case PACKET_ORIGDEV:
+-		if (len > sizeof(int))
+-			len = sizeof(int);
+ 		val = po->origdev;
+-
+-		data = &val;
+ 		break;
+ 	case PACKET_VNET_HDR:
+-		if (len > sizeof(int))
+-			len = sizeof(int);
+ 		val = po->has_vnet_hdr;
+-
+-		data = &val;
+ 		break;
+ 	case PACKET_VERSION:
+-		if (len > sizeof(int))
+-			len = sizeof(int);
+ 		val = po->tp_version;
+-		data = &val;
+ 		break;
+ 	case PACKET_HDRLEN:
+ 		if (len > sizeof(int))
+@@ -3309,39 +3290,28 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 		default:
+ 			return -EINVAL;
+ 		}
+-		data = &val;
+ 		break;
+ 	case PACKET_RESERVE:
+-		if (len > sizeof(unsigned int))
+-			len = sizeof(unsigned int);
+ 		val = po->tp_reserve;
+-		data = &val;
+ 		break;
+ 	case PACKET_LOSS:
+-		if (len > sizeof(unsigned int))
+-			len = sizeof(unsigned int);
+ 		val = po->tp_loss;
+-		data = &val;
+ 		break;
+ 	case PACKET_TIMESTAMP:
+-		if (len > sizeof(int))
+-			len = sizeof(int);
+ 		val = po->tp_tstamp;
+-		data = &val;
+ 		break;
+ 	case PACKET_FANOUT:
+-		if (len > sizeof(int))
+-			len = sizeof(int);
+ 		val = (po->fanout ?
+ 		       ((u32)po->fanout->id |
+ 			((u32)po->fanout->type << 16)) :
+ 		       0);
+-		data = &val;
+ 		break;
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
+ 
++	if (len > lv)
++		len = lv;
+ 	if (put_user(len, optlen))
+ 		return -EFAULT;
+ 	if (copy_to_user(optval, data, len))
