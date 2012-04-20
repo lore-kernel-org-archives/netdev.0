@@ -1,7 +1,7 @@
 From: Tomoya MORINAGA <tomoya.rohm@gmail.com>
-Subject: [PATCH 1/2 v2] pch_gbe: Do not abort probe on bad MAC
-Date: Fri, 20 Apr 2012 15:54:45 +0900
-Message-ID: <1334904885-10171-1-git-send-email-tomoya.rohm@gmail.com>
+Subject: [PATCH 2/2 v2] pch_gbe: Do not abort probe on bad MAC
+Date: Fri, 20 Apr 2012 15:55:13 +0900
+Message-ID: <1334904913-10215-1-git-send-email-tomoya.rohm@gmail.com>
 Cc: Darren Hart <dvhart@linux.intel.com>,
 	Arjan van de Ven <arjan@linux.intel.com>,
 	Alan Cox <alan@linux.intel.com>,
@@ -17,8 +17,8 @@ To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-pz0-f42.google.com ([209.85.210.42]:40984 "EHLO
 	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087Ab2DTGzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 02:55:04 -0400
+	with ESMTP id S1752416Ab2DTGz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 02:55:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -43,7 +43,7 @@ This does not make any attempt to address a missing or invalid MAC for the
 pch_phub driver.
 
 commit 2b53d07891630dead46d65c8f896955fd3ae0302
-kernel 3.0
+kernel 3.2
 
 Cc: stable@vger.kernel.org
 Signed-off-by: Darren Hart <dvhart@linux.intel.com>
@@ -64,14 +64,14 @@ Signed-off-by: Tomoya MORINAGA <tomoya.rohm@gmail.com>
 v2
  - Separate into 2 patches because folder structure was changed.
 ---
- drivers/net/pch_gbe/pch_gbe_main.c |   17 ++++++++++++++---
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   17 ++++++++++++++---
  1 files changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
-index eac3c5c..e7412f2 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -1701,6 +1701,12 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 48406ca..43c7b25 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -1745,6 +1745,12 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
  	struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
  	int err;
  
@@ -84,7 +84,7 @@ index eac3c5c..e7412f2 100644
  	/* hardware has been reset, we need to reload some things */
  	pch_gbe_set_multi(netdev);
  
-@@ -2392,9 +2398,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+@@ -2467,9 +2473,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
  
  	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
  	if (!is_valid_ether_addr(netdev->dev_addr)) {
