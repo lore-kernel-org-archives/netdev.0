@@ -1,223 +1,65 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 2/3] team: allow to enable/disable ports
-Date: Fri, 20 Apr 2012 16:42:05 +0200
-Message-ID: <1334932926-23996-3-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next 3/3] team: add per-port option for enabling/disabling ports
+Date: Fri, 20 Apr 2012 16:42:06 +0200
+Message-ID: <1334932926-23996-4-git-send-email-jpirko@redhat.com>
 References: <1334932926-23996-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16958 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:27628 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754707Ab2DTOmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2012 10:42:16 -0400
+	id S1756881Ab2DTOmS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2012 10:42:18 -0400
 In-Reply-To: <1334932926-23996-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes content of hashlist (used to get port struct by
-computed index (0...en_port_count-1)). Now the hash list contains only
-enabled ports so userspace will be able to say what ports can be used
-for tx/rx. This becomes handy when userspace will need to disable ports
-which does not belong to active aggregator. By default, newly added port
-is enabled.
-
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/team/team.c                  |   51 ++++++++++++++++++++---------
- drivers/net/team/team_mode_loadbalance.c |    2 +-
- drivers/net/team/team_mode_roundrobin.c  |    2 +-
- include/linux/if_team.h                  |   15 +++++----
- 4 files changed, 45 insertions(+), 25 deletions(-)
+ drivers/net/team/team.c |   24 ++++++++++++++++++++++++
+ 1 files changed, 24 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 153a62d..fe7ca40 100644
+index fe7ca40..c61ae35 100644
 --- a/drivers/net/team/team.c
 +++ b/drivers/net/team/team.c
-@@ -559,6 +559,8 @@ static int team_change_mode(struct team *team, const char *kind)
-  * Rx path frame handler
-  ************************/
- 
-+static bool team_port_enabled(struct team_port *port);
-+
- /* note: already called with rcu_read_lock */
- static rx_handler_result_t team_handle_frame(struct sk_buff **pskb)
- {
-@@ -575,8 +577,12 @@ static rx_handler_result_t team_handle_frame(struct sk_buff **pskb)
- 
- 	port = team_port_get_rcu(skb->dev);
- 	team = port->team;
--
--	res = team->ops.receive(team, port, skb);
-+	if (!team_port_enabled(port)) {
-+		/* allow exact match delivery for disabled ports */
-+		res = RX_HANDLER_EXACT;
-+	} else {
-+		res = team->ops.receive(team, port, skb);
-+	}
- 	if (res == RX_HANDLER_ANOTHER) {
- 		struct team_pcpu_stats *pcpu_stats;
- 
-@@ -612,17 +618,25 @@ static bool team_port_find(const struct team *team,
- 	return false;
+@@ -904,6 +904,23 @@ static int team_mode_option_set(struct team *team, struct team_gsetter_ctx *ctx)
+ 	return team_change_mode(team, ctx->data.str_val);
  }
  
-+static bool team_port_enabled(struct team_port *port)
++static int team_port_en_option_get(struct team *team,
++				   struct team_gsetter_ctx *ctx)
 +{
-+	return port->index != -1;
++	ctx->data.bool_val = team_port_enabled(ctx->port);
++	return 0;
 +}
 +
- /*
-- * Add/delete port to the team port list. Write guarded by rtnl_lock.
-- * Takes care of correct port->index setup (might be racy).
-+ * Enable/disable port by adding to enabled port hashlist and setting
-+ * port->index (Might be racy so reader could see incorrect ifindex when
-+ * processing a flying packet, but that is not a problem). Write guarded
-+ * by team->lock.
-  */
--static void team_port_list_add_port(struct team *team,
--				    struct team_port *port)
-+static void team_port_enable(struct team *team,
-+			     struct team_port *port)
- {
--	port->index = team->port_count++;
-+	if (team_port_enabled(port))
-+		return;
-+	port->index = team->en_port_count++;
- 	hlist_add_head_rcu(&port->hlist,
- 			   team_port_index_hash(team, port->index));
--	list_add_tail_rcu(&port->list, &team->port_list);
- }
- 
- static void __reconstruct_port_hlist(struct team *team, int rm_index)
-@@ -630,7 +644,7 @@ static void __reconstruct_port_hlist(struct team *team, int rm_index)
- 	int i;
- 	struct team_port *port;
- 
--	for (i = rm_index + 1; i < team->port_count; i++) {
-+	for (i = rm_index + 1; i < team->en_port_count; i++) {
- 		port = team_get_port_by_index(team, i);
- 		hlist_del_rcu(&port->hlist);
- 		port->index--;
-@@ -639,15 +653,17 @@ static void __reconstruct_port_hlist(struct team *team, int rm_index)
- 	}
- }
- 
--static void team_port_list_del_port(struct team *team,
--				   struct team_port *port)
-+static void team_port_disable(struct team *team,
-+			      struct team_port *port)
- {
- 	int rm_index = port->index;
- 
-+	if (!team_port_enabled(port))
-+		return;
- 	hlist_del_rcu(&port->hlist);
--	list_del_rcu(&port->list);
- 	__reconstruct_port_hlist(team, rm_index);
--	team->port_count--;
-+	team->en_port_count--;
-+	port->index = -1;
- }
- 
- #define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
-@@ -800,7 +816,9 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 		goto err_option_port_add;
- 	}
- 
--	team_port_list_add_port(team, port);
-+	port->index = -1;
-+	team_port_enable(team, port);
-+	list_add_tail_rcu(&port->list, &team->port_list);
- 	team_adjust_ops(team);
- 	__team_compute_features(team);
- 	__team_port_change_check(port, !!netif_carrier_ok(port_dev));
-@@ -849,7 +867,8 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
- 
- 	port->removed = true;
- 	__team_port_change_check(port, false);
--	team_port_list_del_port(team, port);
-+	team_port_disable(team, port);
-+	list_del_rcu(&port->list);
- 	team_adjust_ops(team);
- 	team_option_port_del(team, port);
- 	netdev_rx_handler_unregister(port_dev);
-@@ -956,7 +975,7 @@ static int team_init(struct net_device *dev)
- 		return -ENOMEM;
- 
- 	for (i = 0; i < TEAM_PORT_HASHENTRIES; i++)
--		INIT_HLIST_HEAD(&team->port_hlist[i]);
-+		INIT_HLIST_HEAD(&team->en_port_hlist[i]);
- 	INIT_LIST_HEAD(&team->port_list);
- 
- 	team_adjust_ops(team);
-diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-index 438d5b8..86e8183 100644
---- a/drivers/net/team/team_mode_loadbalance.c
-+++ b/drivers/net/team/team_mode_loadbalance.c
-@@ -38,7 +38,7 @@ static bool lb_transmit(struct team *team, struct sk_buff *skb)
- 	if (unlikely(!fp))
- 		goto drop;
- 	hash = SK_RUN_FILTER(fp, skb);
--	port_index = hash % team->port_count;
-+	port_index = hash % team->en_port_count;
- 	port = team_get_port_by_index_rcu(team, port_index);
- 	if (unlikely(!port))
- 		goto drop;
-diff --git a/drivers/net/team/team_mode_roundrobin.c b/drivers/net/team/team_mode_roundrobin.c
-index a0e8f80..6abfbdc 100644
---- a/drivers/net/team/team_mode_roundrobin.c
-+++ b/drivers/net/team/team_mode_roundrobin.c
-@@ -50,7 +50,7 @@ static bool rr_transmit(struct team *team, struct sk_buff *skb)
- 	struct team_port *port;
- 	int port_index;
- 
--	port_index = rr_priv(team)->sent_packets++ % team->port_count;
-+	port_index = rr_priv(team)->sent_packets++ % team->en_port_count;
- 	port = team_get_port_by_index_rcu(team, port_index);
- 	port = __get_first_port_up(team, port);
- 	if (unlikely(!port))
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index 5fd5ab1..8185f57 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -28,10 +28,10 @@ struct team;
- 
- struct team_port {
- 	struct net_device *dev;
--	struct hlist_node hlist; /* node in hash list */
-+	struct hlist_node hlist; /* node in enabled ports hash list */
- 	struct list_head list; /* node in ordinary list */
- 	struct team *team;
--	int index;
-+	int index; /* index of enabled port. If disabled, it's set to -1 */
- 
- 	bool linkup; /* either state.linkup or user.linkup */
- 
-@@ -125,11 +125,12 @@ struct team {
- 	struct mutex lock; /* used for overall locking, e.g. port lists write */
- 
- 	/*
--	 * port lists with port count
-+	 * List of enabled ports and their count
- 	 */
--	int port_count;
--	struct hlist_head port_hlist[TEAM_PORT_HASHENTRIES];
--	struct list_head port_list;
-+	int en_port_count;
-+	struct hlist_head en_port_hlist[TEAM_PORT_HASHENTRIES];
++static int team_port_en_option_set(struct team *team,
++				   struct team_gsetter_ctx *ctx)
++{
++	if (ctx->data.bool_val)
++		team_port_enable(team, ctx->port);
++	else
++		team_port_disable(team, ctx->port);
++	return 0;
++}
 +
-+	struct list_head port_list; /* list of all ports */
- 
- 	struct list_head option_list;
- 	struct list_head option_inst_list; /* list of option instances */
-@@ -142,7 +143,7 @@ struct team {
- static inline struct hlist_head *team_port_index_hash(struct team *team,
- 						      int port_index)
+ static int team_user_linkup_option_get(struct team *team,
+ 				       struct team_gsetter_ctx *ctx)
  {
--	return &team->port_hlist[port_index & (TEAM_PORT_HASHENTRIES - 1)];
-+	return &team->en_port_hlist[port_index & (TEAM_PORT_HASHENTRIES - 1)];
- }
- 
- static inline struct team_port *team_get_port_by_index(struct team *team,
+@@ -946,6 +963,13 @@ static const struct team_option team_options[] = {
+ 		.setter = team_mode_option_set,
+ 	},
+ 	{
++		.name = "enabled",
++		.type = TEAM_OPTION_TYPE_BOOL,
++		.per_port = true,
++		.getter = team_port_en_option_get,
++		.setter = team_port_en_option_set,
++	},
++	{
+ 		.name = "user_linkup",
+ 		.type = TEAM_OPTION_TYPE_BOOL,
+ 		.per_port = true,
 -- 
 1.7.9.1
