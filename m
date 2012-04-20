@@ -1,75 +1,49 @@
-From: Jiajun Wu <b06378@freescale.com>
-Subject: [PATCH] gianfar: add GRO support
-Date: Fri, 20 Apr 2012 16:54:35 +0800
-Message-ID: <1334912075-27073-1-git-send-email-b06378@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, Jiajun Wu <b06378@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+From: Paolo Pisati <paolo.pisati@canonical.com>
+Subject: [PATCH] smsc95xx: mark link down on startup and let PHY interrupt deal with carrier changes
+Date: Fri, 20 Apr 2012 11:35:21 +0200
+Message-ID: <1334914521-5990-1-git-send-email-paolo.pisati@canonical.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:16027
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750706Ab2DTJKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 05:10:22 -0400
+Received: from youngberry.canonical.com ([91.189.89.112]:59044 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951Ab2DTJf3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 05:35:29 -0400
+Received: from 2-230-238-136.ip204.fastwebnet.it ([2.230.238.136] helo=canonical.com)
+	by youngberry.canonical.com with esmtpsa (TLS1.0:DHE_RSA_AES_128_CBC_SHA1:16)
+	(Exim 4.71)
+	(envelope-from <paolo.pisati@canonical.com>)
+	id 1SLAFU-0003HE-5W
+	for netdev@vger.kernel.org; Fri, 20 Apr 2012 09:35:28 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace netif_receive_skb with napi_gro_receive.
+Without this patch sysfs reports the cable as present
 
-Signed-off-by: Jiajun Wu <b06378@freescale.com>
+flag@flag-desktop:~$ cat /sys/class/net/eth0/carrier
+1
+
+while it's not:
+
+flag@flag-desktop:~$ sudo mii-tool eth0
+eth0: no link
+
+Signed-off-by: Paolo Pisati <paolo.pisati@canonical.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c |   13 +++++++------
- 1 files changed, 7 insertions(+), 6 deletions(-)
+ drivers/net/usb/smsc95xx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index e7bed53..1adb024 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -136,7 +136,7 @@ static void gfar_netpoll(struct net_device *dev);
- int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
- static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
- static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
--			      int amount_pull);
-+			      int amount_pull, struct napi_struct *napi);
- void gfar_halt(struct net_device *dev);
- static void gfar_halt_nodisable(struct net_device *dev);
- void gfar_start(struct net_device *dev);
-@@ -2675,12 +2675,12 @@ static inline void gfar_rx_checksum(struct sk_buff *skb, struct rxfcb *fcb)
- /* gfar_process_frame() -- handle one incoming packet if skb
-  * isn't NULL.  */
- static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
--			      int amount_pull)
-+			      int amount_pull, struct napi_struct *napi)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct rxfcb *fcb = NULL;
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 3444514..93d3252 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1192,7 +1192,7 @@ static const struct driver_info smsc95xx_info = {
+ 	.rx_fixup	= smsc95xx_rx_fixup,
+ 	.tx_fixup	= smsc95xx_tx_fixup,
+ 	.status		= smsc95xx_status,
+-	.flags		= FLAG_ETHER | FLAG_SEND_ZLP,
++	.flags		= FLAG_ETHER | FLAG_SEND_ZLP | FLAG_LINK_INTR,
+ };
  
--	int ret;
-+	gro_result_t ret;
- 
- 	/* fcb is at the beginning if exists */
- 	fcb = (struct rxfcb *)skb->data;
-@@ -2719,9 +2719,9 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- 		__vlan_hwaccel_put_tag(skb, fcb->vlctl);
- 
- 	/* Send the packet up the stack */
--	ret = netif_receive_skb(skb);
-+	ret = napi_gro_receive(napi, skb);
- 
--	if (NET_RX_DROP == ret)
-+	if (GRO_DROP == ret)
- 		priv->extra_stats.kernel_dropped++;
- 
- 	return 0;
-@@ -2783,7 +2783,8 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 				skb_put(skb, pkt_len);
- 				rx_queue->stats.rx_bytes += pkt_len;
- 				skb_record_rx_queue(skb, rx_queue->qindex);
--				gfar_process_frame(dev, skb, amount_pull);
-+				gfar_process_frame(dev, skb, amount_pull,
-+						&rx_queue->grp->napi);
- 
- 			} else {
- 				netif_warn(priv, rx_err, dev, "Missing skb!\n");
+ static const struct usb_device_id products[] = {
 -- 
-1.5.6.5
+1.7.9.5
