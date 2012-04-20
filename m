@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 4/4] stmmac: do not fail when probe and there is no
- csr clk defined
-Date: Thu, 19 Apr 2012 20:09:26 -0400 (EDT)
-Message-ID: <20120419.200926.673327674879645854.davem@davemloft.net>
-References: <1334814502-29707-1-git-send-email-peppe.cavallaro@st.com>
-	<1334814502-29707-4-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH 00/11] atl1c: update hardware settings - v2
+Date: Thu, 19 Apr 2012 20:17:05 -0400 (EDT)
+Message-ID: <20120419.201705.1717095047671342251.davem@davemloft.net>
+References: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com
+To: xiong@qca.qualcomm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55381 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:55422 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919Ab2DTAJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 20:09:31 -0400
-In-Reply-To: <1334814502-29707-4-git-send-email-peppe.cavallaro@st.com>
+	with ESMTP id S1751388Ab2DTARI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Apr 2012 20:17:08 -0400
+In-Reply-To: <1334822491-30129-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Thu, 19 Apr 2012 07:48:22 +0200
+From: xiong <xiong@qca.qualcomm.com>
+Date: Thu, 19 Apr 2012 16:01:20 +0800
 
-> On some platforms, for example where we are doing the bring-up,
-> the csr clock is not passed from the framework and the Ethernet
-> device driver is failing when it can work w/o any issues and
-> using the default values. So this patch just warnings the case
-> of the csr clock cannot be acquired but w/o failing the probe
-> step. I have just tested it on ST STiH415 SoC (ARM).
+> This update contains a serial of patches, most of them are hardware
+> settings related. register definitions are refined (or removed if
+> meaningless) for each patch.
 > 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> This is the second serial patches, after reviewed/applied the third
+> serial will be out.
+> 
+> The patches have addressed all sparse and checkpatch warnings.
+> 
+> Following NICs are tested:
+> AR8131/AR8132/AR8151A/AR8152A/AR8152B
+> Test item includes:
+> build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
 
-Applied.
+Series applied, thanks.
