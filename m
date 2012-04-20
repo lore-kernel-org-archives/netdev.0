@@ -1,145 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] af_packet: packet_getsockopt() cleanup
-Date: Fri, 20 Apr 2012 09:56:11 +0200
-Message-ID: <1334908571.2395.228.camel@edumazet-glaptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 01/19] net: Implement register_net_sysctl.
+Date: Fri, 20 Apr 2012 01:11:51 -0700
+Message-ID: <m1obqmakl4.fsf@fess.ebiederm.org>
+References: <m1aa27ia6h.fsf@fess.ebiederm.org>
+	<m162cvia3s.fsf@fess.ebiederm.org> <4F90F3AB.7050600@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	"pablo\@netfilter.org" <pablo@netfilter.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:60539 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752506Ab2DTH4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 03:56:16 -0400
-Received: by wejx9 with SMTP id x9so5894664wej.19
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 00:56:14 -0700 (PDT)
+Received: from out02.mta.xmission.com ([166.70.13.232]:39192 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752506Ab2DTIHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 04:07:54 -0400
+In-Reply-To: <4F90F3AB.7050600@parallels.com> (Pavel Emelyanov's message of
+	"Fri, 20 Apr 2012 09:27:07 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Pavel Emelyanov <xemul@parallels.com> writes:
 
-Factorize code, since most fetched values are int type.
+>> @@ -117,6 +117,13 @@ struct ctl_table_header *register_net_sysctl_rotable(const
+>>  }
+>>  EXPORT_SYMBOL_GPL(register_net_sysctl_rotable);
+>>  
+>> +struct ctl_table_header *register_net_sysctl(struct net *net,
+>> +	const char *path, struct ctl_table *table)
+>> +{
+>> +	return __register_sysctl_table(&net->sysctls, path, table);
+>
+> Eric, am I right, that after this all sysctl-s registered in init_net will
+> not be even visible in the non-init net namespaces?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/packet/af_packet.c |   46 ++++++---------------------------------
- 1 file changed, 8 insertions(+), 38 deletions(-)
+Yes.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 40053a0..0f66174 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3224,10 +3224,10 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 			     char __user *optval, int __user *optlen)
- {
- 	int len;
--	int val;
-+	int val, lv = sizeof(val);
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po = pkt_sk(sk);
--	void *data;
-+	void *data = &val;
- 	struct tpacket_stats st;
- 	union tpacket_stats_u st_u;
- 
-@@ -3242,21 +3242,17 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 
- 	switch (optname) {
- 	case PACKET_STATISTICS:
--		if (po->tp_version == TPACKET_V3) {
--			len = sizeof(struct tpacket_stats_v3);
--		} else {
--			if (len > sizeof(struct tpacket_stats))
--				len = sizeof(struct tpacket_stats);
--		}
- 		spin_lock_bh(&sk->sk_receive_queue.lock);
- 		if (po->tp_version == TPACKET_V3) {
-+			lv = sizeof(struct tpacket_stats_v3);
- 			memcpy(&st_u.stats3, &po->stats,
--			sizeof(struct tpacket_stats));
-+			       sizeof(struct tpacket_stats));
- 			st_u.stats3.tp_freeze_q_cnt =
--			po->stats_u.stats3.tp_freeze_q_cnt;
-+					po->stats_u.stats3.tp_freeze_q_cnt;
- 			st_u.stats3.tp_packets += po->stats.tp_drops;
- 			data = &st_u.stats3;
- 		} else {
-+			lv = sizeof(struct tpacket_stats);
- 			st = po->stats;
- 			st.tp_packets += st.tp_drops;
- 			data = &st;
-@@ -3265,31 +3261,16 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 		spin_unlock_bh(&sk->sk_receive_queue.lock);
- 		break;
- 	case PACKET_AUXDATA:
--		if (len > sizeof(int))
--			len = sizeof(int);
- 		val = po->auxdata;
--
--		data = &val;
- 		break;
- 	case PACKET_ORIGDEV:
--		if (len > sizeof(int))
--			len = sizeof(int);
- 		val = po->origdev;
--
--		data = &val;
- 		break;
- 	case PACKET_VNET_HDR:
--		if (len > sizeof(int))
--			len = sizeof(int);
- 		val = po->has_vnet_hdr;
--
--		data = &val;
- 		break;
- 	case PACKET_VERSION:
--		if (len > sizeof(int))
--			len = sizeof(int);
- 		val = po->tp_version;
--		data = &val;
- 		break;
- 	case PACKET_HDRLEN:
- 		if (len > sizeof(int))
-@@ -3309,39 +3290,28 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 		default:
- 			return -EINVAL;
- 		}
--		data = &val;
- 		break;
- 	case PACKET_RESERVE:
--		if (len > sizeof(unsigned int))
--			len = sizeof(unsigned int);
- 		val = po->tp_reserve;
--		data = &val;
- 		break;
- 	case PACKET_LOSS:
--		if (len > sizeof(unsigned int))
--			len = sizeof(unsigned int);
- 		val = po->tp_loss;
--		data = &val;
- 		break;
- 	case PACKET_TIMESTAMP:
--		if (len > sizeof(int))
--			len = sizeof(int);
- 		val = po->tp_tstamp;
--		data = &val;
- 		break;
- 	case PACKET_FANOUT:
--		if (len > sizeof(int))
--			len = sizeof(int);
- 		val = (po->fanout ?
- 		       ((u32)po->fanout->id |
- 			((u32)po->fanout->type << 16)) :
- 		       0);
--		data = &val;
- 		break;
- 	default:
- 		return -ENOPROTOOPT;
- 	}
- 
-+	if (len > lv)
-+		len = lv;
- 	if (put_user(len, optlen))
- 		return -EFAULT;
- 	if (copy_to_user(optval, data, len))
+> If I'm not mistaken, before this all non-virtualized, i.e. "global" sysctls
+> were read-only in sub net namespaces and that solved lots of problems for us.
+
+Nope.  There are only 4 sysctls that were both global and read only, and
+coincidentally I shoved them all into the initial network namespace in
+patch 4.
+
+So this part of the discussion really belongs about patch 4 but whatever.
+
+In principle I don't mind the technique of sysctls that are writable
+in the initial network namespace and readable everywhere else.  I hate
+the name register_net_sysctl_rotable because it suggests that every
+sysctl in the table will all be read-only or something like that.
+
+In practice I think where we are at with converting and looking at
+sysctls is disaster.
+
+- People complain and want bad hacks so they can avoid writing to
+  sysctls in containers but don't seem to work on the clean solutions.
+
+- It is not discoverable which sysctls are per network namespace.
+
+- We have only made a grand total 4 sysctls (in 3 tables) writable
+  in the initial network namespace readable everywhere else.
+
+So I think the best path forward is to just shove all sysctls that
+aren't per network namespace into the initial network namespace so that
+it is abundantly clear that they are not per network namespace, and
+the fix the sysctls that people care about to be per network namespace.
+
+I do admit their is actual interest in fixing some of the non-converted
+netfliter sysctls.  So my perception of the situation may be wrong, but
+right now I honestly think we have been too clever and no one knows what
+is going on or cares enough to pay detailed attention.
+
+Eric
