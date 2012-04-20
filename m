@@ -1,235 +1,396 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH 3/3] decrement static keys on real destroy time
-Date: Fri, 20 Apr 2012 16:38:49 +0900
-Message-ID: <4F911289.1050403@jp.fujitsu.com>
-References: <1334875758-20939-1-git-send-email-glommer@parallels.com> <1334875758-20939-4-git-send-email-glommer@parallels.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 2/9] atl1c: refine phy-register read/write function
+Date: Fri, 20 Apr 2012 09:40:33 +0200
+Message-ID: <4F9112F1.1030403@openwrt.org>
+References: <1334902584-15584-1-git-send-email-xiong@qca.qualcomm.com> <1334902584-15584-3-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1334875758-20939-4-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
+	nic-devel@qualcomm.com
+To: xiong <xiong@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1334902584-15584-3-git-send-email-xiong@qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(2012/04/20 7:49), Glauber Costa wrote:
+Hi Xiong,
 
-> We call the destroy function when a cgroup starts to be removed,
-> such as by a rmdir event.
-> 
-> However, because of our reference counters, some objects are still
-> inflight. Right now, we are decrementing the static_keys at destroy()
-> time, meaning that if we get rid of the last static_key reference,
-> some objects will still have charges, but the code to properly
-> uncharge them won't be run.
-> 
-> This becomes a problem specially if it is ever enabled again, because
-> now new charges will be added to the staled charges making keeping
-> it pretty much impossible.
-> 
-> We just need to be careful with the static branch activation:
-> since there is no particular preferred order of their activation,
-> we need to make sure that we only start using it after all
-> call sites are active. This is achieved by having a per-memcg
-> flag that is only updated after static_key_slow_inc() returns.
-> At this time, we are sure all sites are active.
-> 
-> This is made per-memcg, not global, for a reason:
-> it also has the effect of making socket accounting more
-> consistent. The first memcg to be limited will trigger static_key()
-> activation, therefore, accounting. But all the others will then be
-> accounted no matter what. After this patch, only limited memcgs
-> will have its sockets accounted.
-> 
-> [v2: changed a tcp limited flag for a generic proto limited flag ]
-> 
-> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-
-> ---
->  include/net/sock.h        |    9 +++++++
->  mm/memcontrol.c           |   20 +++++++++++++++-
->  net/ipv4/tcp_memcontrol.c |   52 ++++++++++++++++++++++++++++++++++++++------
->  3 files changed, 72 insertions(+), 9 deletions(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index b3ebe6b..c5a2010 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -914,6 +914,15 @@ struct cg_proto {
->  	int			*memory_pressure;
->  	long			*sysctl_mem;
->  	/*
-> +	 * active means it is currently active, and new sockets should
-> +	 * be assigned to cgroups.
-> +	 *
-> +	 * activated means it was ever activated, and we need to
-> +	 * disarm the static keys on destruction
-> +	 */
-> +	bool			activated;
-> +	bool			active; 
-> +	/*
->  	 * memcg field is used to find which memcg we belong directly
->  	 * Each memcg struct can hold more than one cg_proto, so container_of
->  	 * won't really cut.
-> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-> index 7832b4d..01d25a0 100644
-> --- a/mm/memcontrol.c
-> +++ b/mm/memcontrol.c
-> @@ -404,6 +404,7 @@ void sock_update_memcg(struct sock *sk)
->  {
->  	if (mem_cgroup_sockets_enabled) {
->  		struct mem_cgroup *memcg;
-> +		struct cg_proto *cg_proto;
->  
->  		BUG_ON(!sk->sk_prot->proto_cgroup);
->  
-> @@ -423,9 +424,10 @@ void sock_update_memcg(struct sock *sk)
->  
->  		rcu_read_lock();
->  		memcg = mem_cgroup_from_task(current);
-> -		if (!mem_cgroup_is_root(memcg)) {
-> +		cg_proto = sk->sk_prot->proto_cgroup(memcg);
-> +		if (!mem_cgroup_is_root(memcg) && cg_proto->active) {
-
+Le 04/20/12 08:16, xiong a =C3=A9crit :
+> phy register is read/write via MDIO control module ---
+> that module will be affected by the hibernate status,
+> to access phy regs in hib stutus, slow frequency clk must
+> be selected.
+> To access phy extension register, the MDIO related
+> registers are refined/updated, a _core function is
+> re-wroted for both regular PHY regs and extension regs.
+> existing PHY r/w function is revised based on the _core.
+> PHY extension registers will be used for the comming
+> patches.
 >
-
->  			mem_cgroup_get(memcg);
-> -			sk->sk_cgrp = sk->sk_prot->proto_cgroup(memcg);
-> +			sk->sk_cgrp = cg_proto;
->  		}
-
-
-
-Is this correct ? cg_proto->active can be true before all jump_labels are
-patched, then we can loose accounting. That will cause underflow of
-res_countner.
-
-cg_proto->active should be set after jump_label modification.
-Then, things will work, I guess.
-
-Thanks,
--Kame
-
-
-
-
->  		rcu_read_unlock();
->  	}
-> @@ -442,6 +444,14 @@ void sock_release_memcg(struct sock *sk)
->  	}
->  }
->  
-> +static void disarm_static_keys(struct mem_cgroup *memcg)
+> Signed-off-by: xiong<xiong@qca.qualcomm.com>
+> Tested-by: Liu David<dwliu@qca.qualcomm.com>
+> ---
+>   drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |  178 ++++++++++++=
++++++++----
+>   drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   64 +++++---
+>   drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    4 +-
+>   3 files changed, 189 insertions(+), 57 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/=
+net/ethernet/atheros/atl1c/atl1c_hw.c
+> index bd1667c..6cbe78a 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+> @@ -277,65 +277,181 @@ void atl1c_hash_set(struct atl1c_hw *hw, u32 h=
+ash_value)
+>   	AT_WRITE_REG_ARRAY(hw, REG_RX_HASH_TABLE, hash_reg, mta);
+>   }
+>
+> +
+> +void atl1c_stop_phy_polling(struct atl1c_hw *hw)
 > +{
-> +#ifdef CONFIG_INET
-> +	if (memcg->tcp_mem.cg_proto.activated)
-> +		static_key_slow_dec(&memcg_socket_limit_enabled);
-> +#endif
-> +}
+> +	u32 val;
+> +	int i;
 > +
->  #ifdef CONFIG_INET
->  struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
->  {
-> @@ -452,6 +462,11 @@ struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
->  }
->  EXPORT_SYMBOL(tcp_proto_cgroup);
->  #endif /* CONFIG_INET */
-> +#else
-> +static inline void disarm_static_keys(struct mem_cgroup *memcg)
-> +{
-> +}
-> +
->  #endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
->  
->  static void drain_all_stock_async(struct mem_cgroup *memcg);
-> @@ -4883,6 +4898,7 @@ static void __mem_cgroup_put(struct mem_cgroup *memcg, int count)
->  {
->  	if (atomic_sub_and_test(count, &memcg->refcnt)) {
->  		struct mem_cgroup *parent = parent_mem_cgroup(memcg);
-> +		disarm_static_keys(memcg);
->  		__mem_cgroup_free(memcg);
->  		if (parent)
->  			mem_cgroup_put(parent);
-> diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-> index 1517037..d02573a 100644
-> --- a/net/ipv4/tcp_memcontrol.c
-> +++ b/net/ipv4/tcp_memcontrol.c
-> @@ -54,6 +54,8 @@ int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
->  	cg_proto->sysctl_mem = tcp->tcp_prot_mem;
->  	cg_proto->memory_allocated = &tcp->tcp_memory_allocated;
->  	cg_proto->sockets_allocated = &tcp->tcp_sockets_allocated;
-> +	cg_proto->active = false;
-> +	cg_proto->activated = false;
->  	cg_proto->memcg = memcg;
->  
->  	return 0;
-> @@ -74,12 +76,23 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
->  	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
->  
->  	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_LIMIT);
-> -
-> -	if (val != RESOURCE_MAX)
-> -		static_key_slow_dec(&memcg_socket_limit_enabled);
->  }
->  EXPORT_SYMBOL(tcp_destroy_cgroup);
->  
-> +/*
-> + * This is to prevent two writes arriving at the same time
-> + * at kmem.tcp.limit_in_bytes.
-> + *
-> + * There is a race at the first time we write to this file:
-> + *
-> + * - cg_proto->activated == false for all writers.
-> + * - They all do a static_key_slow_inc().
-> + * - When we are finally read to decrement the static_keys,
-> + *   we'll do it only once per activated cgroup. So we won't
-> + *   be able to disable it.
-> + */
-> +static DEFINE_MUTEX(tcp_set_limit_mutex);
-> +
->  static int tcp_update_limit(struct mem_cgroup *memcg, u64 val)
->  {
->  	struct net *net = current->nsproxy->net_ns;
-> @@ -107,10 +120,35 @@ static int tcp_update_limit(struct mem_cgroup *memcg, u64 val)
->  		tcp->tcp_prot_mem[i] = min_t(long, val >> PAGE_SHIFT,
->  					     net->ipv4.sysctl_tcp_mem[i]);
->  
-> -	if (val == RESOURCE_MAX && old_lim != RESOURCE_MAX)
-> -		static_key_slow_dec(&memcg_socket_limit_enabled);
-> -	else if (old_lim == RESOURCE_MAX && val != RESOURCE_MAX)
-> -		static_key_slow_inc(&memcg_socket_limit_enabled);
-> +	if (val == RESOURCE_MAX)
-> +		cg_proto->active = false;
-> +	else if (val != RESOURCE_MAX) {
-> +		cg_proto->active = true;
-> +
-> +
-> +		/*
-> +		 * ->activated needs to be written after the static_key update.
-> +		 *  This is what guarantees that the socket activation function
-> +		 *  is the last one to run. See sock_update_memcg() for details,
-> +		 *  and note that we don't mark any socket as belonging to this
-> +		 *  memcg until that flag is up.
-> +		 *
-> +		 *  We need to do this, because static_keys will span multiple
-> +		 *  sites, but we can't control their order. If we mark a socket
-> +		 *  as accounted, but the accounting functions are not patched in
-> +		 *  yet, we'll lose accounting.
-> +		 *
-> +		 *  We never race with the readers in sock_update_memcg(), because
-> +		 *  when this value change, the code to process it is not patched in
-> +		 *  yet.
-> +		 */
-> +		mutex_lock(&tcp_set_limit_mutex);
-> +		if (!cg_proto->activated) {
-> +			static_key_slow_inc(&memcg_socket_limit_enabled);
-> +			cg_proto->activated = true;
+> +	if (hw->ctrl_flags&  ATL1C_FPGA_VERSION) {
+> +		AT_WRITE_REG(hw, REG_MDIO_CTRL, 0);
+> +		for (i =3D 0; i<  MDIO_MAX_AC_TO; i++) {
+> +			AT_READ_REG(hw, REG_MDIO_CTRL,&val);
+> +			if (0 =3D=3D (val&  MDIO_CTRL_BUSY))
+> +				break;
+> +			udelay(10);
 > +		}
-> +		mutex_unlock(&tcp_set_limit_mutex);
 > +	}
->  
->  	return 0;
->  }
+> +}
+
+Please reduce the identation by doing this:
+
+if (!(hw->ctrl_flags & ALT1C_FPAG_VERSION))
+	return;
+
+that makes it much more readable.
+
+> +
+> +void atl1c_start_phy_polling(struct atl1c_hw *hw, u16 clk_sel)
+> +{
+> +	u32 val;
+> +	int i;
+> +
+> +	if (hw->ctrl_flags&  ATL1C_FPGA_VERSION) {
+> +		val =3D MDIO_CTRL_SPRES_PRMBL |
+> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
+> +			FIELDX(MDIO_CTRL_REG, 1) |
+> +			MDIO_CTRL_START |
+> +			MDIO_CTRL_OP_READ;
+> +		AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
+> +		for (i =3D 0; i<  MDIO_MAX_AC_TO; i++) {
+> +			AT_READ_REG(hw, REG_MDIO_CTRL,&val);
+> +			if (0 =3D=3D (val&  MDIO_CTRL_BUSY))
+> +				break;
+> +			udelay(10);
+> +		}
+> +		val |=3D MDIO_CTRL_AP_EN;
+> +		val&=3D ~MDIO_CTRL_START;
+> +		AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
+> +		udelay(30);
+> +	}
+> +}
+
+Seems like the for() busy-checking of the register could use their own=20
+function since it is used both in : atl1c_stop_phy_polling() and=20
+atl1c_start_phy_polling().
+
+> +
+> +
+>   /*
+> - * Reads the value from a PHY register
+> - * hw - Struct containing variables accessed by shared code
+> - * reg_addr - address of the PHY register to read
+> + * atl1c_read_phy_core
+> + * core funtion to read register in PHY via MDIO control regsiter.
+> + * ext: extension register (see IEEE 802.3)
+> + * dev: device address (see IEEE 802.3 DEVAD, PRTAD is fixed to 0)
+> + * reg: reg to read
+>    */
+> -int atl1c_read_phy_reg(struct atl1c_hw *hw, u16 reg_addr, u16 *phy_d=
+ata)
+> +int atl1c_read_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
+> +			u16 reg, u16 *phy_data)
+>   {
+>   	u32 val;
+> +	u16 clk_sel;
+>   	int i;
+>
+> -	val =3D ((u32)(reg_addr&  MDIO_REG_ADDR_MASK))<<  MDIO_REG_ADDR_SHI=
+=46T |
+> -		MDIO_START | MDIO_SUP_PREAMBLE | MDIO_RW |
+> -		MDIO_CLK_25_4<<  MDIO_CLK_SEL_SHIFT;
+> +	atl1c_stop_phy_polling(hw);
+>
+> +	*phy_data =3D 0;
+> +	clk_sel =3D hw->hibernate ? MDIO_CTRL_CLK_25_128 : MDIO_CTRL_CLK_25=
+_4;
+> +	if (ext) {
+> +		val =3D FIELDX(MDIO_EXTN_DEVAD, dev) | FIELDX(MDIO_EXTN_REG, reg);
+> +		AT_WRITE_REG(hw, REG_MDIO_EXTN, val);
+> +		val =3D MDIO_CTRL_SPRES_PRMBL |
+> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
+> +			MDIO_CTRL_START |
+> +			MDIO_CTRL_MODE_EXT |
+> +			MDIO_CTRL_OP_READ;
+> +	} else {
+> +		val =3D MDIO_CTRL_SPRES_PRMBL |
+> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
+> +			FIELDX(MDIO_CTRL_REG, reg) |
+> +			MDIO_CTRL_START |
+> +			MDIO_CTRL_OP_READ;
+> +	}
+>   	AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
+>
+> -	for (i =3D 0; i<  MDIO_WAIT_TIMES; i++) {
+> -		udelay(2);
+> +	for (i =3D 0; i<  MDIO_MAX_AC_TO; i++) {
+>   		AT_READ_REG(hw, REG_MDIO_CTRL,&val);
+> -		if (!(val&  (MDIO_START | MDIO_BUSY)))
+> +		if (0 =3D=3D (val&  MDIO_CTRL_BUSY)) {
+> +			*phy_data =3D (u16)FIELD_GETX(val, MDIO_CTRL_DATA);
+>   			break;
+> +		}
+> +		udelay(10);
+
+same here, you could use the helper for busy-checking MDIO_CTRL_BUSY.
+
+>   	}
+> -	if (!(val&  (MDIO_START | MDIO_BUSY))) {
+> -		*phy_data =3D (u16)val;
+> -		return 0;
+> -	}
+> +	if (MDIO_MAX_AC_TO =3D=3D i)
+> +		return -1;
+>
+> -	return -1;
+> +	atl1c_start_phy_polling(hw, clk_sel);
+> +
+> +	return 0;
+>   }
+>
+>   /*
+> - * Writes a value to a PHY register
+> - * hw - Struct containing variables accessed by shared code
+> - * reg_addr - address of the PHY register to write
+> - * data - data to write to the PHY
+> + * atl1c_write_phy_core
+> + * core funtion to write to register in PHY via MDIO control regsite=
+r.
+> + * ext: extension register (see IEEE 802.3)
+> + * dev: device address (see IEEE 802.3 DEVAD, PRTAD is fixed to 0)
+> + * reg: reg to write
+>    */
+> -int atl1c_write_phy_reg(struct atl1c_hw *hw, u32 reg_addr, u16 phy_d=
+ata)
+> +int atl1c_write_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
+> +			u16 reg, u16 phy_data)
+>   {
+> -	int i;
+>   	u32 val;
+> +	u16 clk_sel;
+> +	int i;
+>
+> -	val =3D ((u32)(phy_data&  MDIO_DATA_MASK))<<  MDIO_DATA_SHIFT   |
+> -	       (reg_addr&  MDIO_REG_ADDR_MASK)<<  MDIO_REG_ADDR_SHIFT |
+> -	       MDIO_SUP_PREAMBLE | MDIO_START |
+> -	       MDIO_CLK_25_4<<  MDIO_CLK_SEL_SHIFT;
+> +	atl1c_stop_phy_polling(hw);
+>
+> +	clk_sel =3D hw->hibernate ? MDIO_CTRL_CLK_25_128 : MDIO_CTRL_CLK_25=
+_4;
+> +	if (ext) {
+> +		val =3D FIELDX(MDIO_EXTN_DEVAD, dev) | FIELDX(MDIO_EXTN_REG, reg);
+> +		AT_WRITE_REG(hw, REG_MDIO_EXTN, val);
+> +		val =3D MDIO_CTRL_SPRES_PRMBL |
+> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
+> +			FIELDX(MDIO_CTRL_DATA, phy_data) |
+> +			MDIO_CTRL_START |
+> +			MDIO_CTRL_MODE_EXT;
+> +	} else {
+> +		val =3D MDIO_CTRL_SPRES_PRMBL |
+> +			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
+> +			FIELDX(MDIO_CTRL_DATA, phy_data) |
+> +			FIELDX(MDIO_CTRL_REG, reg) |
+> +			MDIO_CTRL_START;
+> +	}
+>   	AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
+>
+> -	for (i =3D 0; i<  MDIO_WAIT_TIMES; i++) {
+> -		udelay(2);
+> +	for (i =3D 0; i<  MDIO_MAX_AC_TO; i++) {
+>   		AT_READ_REG(hw, REG_MDIO_CTRL,&val);
+> -		if (!(val&  (MDIO_START | MDIO_BUSY)))
+> +		if (0 =3D=3D (val&  MDIO_CTRL_BUSY))
+>   			break;
+> +		udelay(10);
+>   	}
+> +	if (MDIO_MAX_AC_TO =3D=3D i)
+> +		return -1;
+>
+> -	if (!(val&  (MDIO_START | MDIO_BUSY)))
+> -		return 0;
+> +	atl1c_start_phy_polling(hw, clk_sel);
+>
+> -	return -1;
+> +	return 0;
+> +}
+> +
+> +/*
+> + * Reads the value from a PHY register
+> + * hw - Struct containing variables accessed by shared code
+> + * reg_addr - address of the PHY register to read
+> + */
+> +int atl1c_read_phy_reg(struct atl1c_hw *hw, u16 reg_addr, u16 *phy_d=
+ata)
+> +{
+> +	return atl1c_read_phy_core(hw, false, 0, reg_addr, phy_data);
+> +}
+> +
+> +/*
+> + * Writes a value to a PHY register
+> + * hw - Struct containing variables accessed by shared code
+> + * reg_addr - address of the PHY register to write
+> + * data - data to write to the PHY
+> + */
+> +int atl1c_write_phy_reg(struct atl1c_hw *hw, u32 reg_addr, u16 phy_d=
+ata)
+> +{
+> +	return atl1c_write_phy_core(hw, false, 0, reg_addr, phy_data);
+> +}
+> +
+> +/* read from PHY extension register */
+> +int atl1c_read_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
+> +			u16 reg_addr, u16 *phy_data)
+> +{
+> +	return atl1c_read_phy_core(hw, true, dev_addr, reg_addr, phy_data);
+> +}
+> +
+> +/* write to PHY extension register */
+> +int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
+> +			u16 reg_addr, u16 phy_data)
+> +{
+> +	return atl1c_write_phy_core(hw, true, dev_addr, reg_addr, phy_data)=
+;
+>   }
+>
+>   /*
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/=
+net/ethernet/atheros/atl1c/atl1c_hw.h
+> index 459e141..eb7f3bb 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+> @@ -49,6 +49,16 @@ int atl1c_phy_init(struct atl1c_hw *hw);
+>   int atl1c_check_eeprom_exist(struct atl1c_hw *hw);
+>   int atl1c_restart_autoneg(struct atl1c_hw *hw);
+>   int atl1c_phy_power_saving(struct atl1c_hw *hw);
+> +void atl1c_stop_phy_polling(struct atl1c_hw *hw);
+> +void atl1c_start_phy_polling(struct atl1c_hw *hw, u16 clk_sel);
+> +int atl1c_read_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
+> +			u16 reg, u16 *phy_data);
+> +int atl1c_write_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
+> +			u16 reg, u16 phy_data);
+> +int atl1c_read_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
+> +			u16 reg_addr, u16 *phy_data);
+> +int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
+> +			u16 reg_addr, u16 phy_data);
+>   /* register definition */
+>   #define REG_DEVICE_CAP              	0x5C
+>   #define DEVICE_CAP_MAX_PAYLOAD_MASK     0x7
+> @@ -268,30 +278,36 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw)=
+;
+>
+>   /* MDIO Control Register */
+>   #define REG_MDIO_CTRL           	0x1414
+> -#define MDIO_DATA_MASK          	0xffff  /* On MDIO write, the 16-bi=
+t
+> -						 * control data to write to PHY
+> -						 * MII management register */
+> -#define MDIO_DATA_SHIFT         	0       /* On MDIO read, the 16-bit
+> -						 * status data that was read
+> -						 * from the PHY MII management register */
+> -#define MDIO_REG_ADDR_MASK      	0x1f    /* MDIO register address */
+> -#define MDIO_REG_ADDR_SHIFT     	16
+> -#define MDIO_RW                 	0x200000  /* 1: read, 0: write */
+> -#define MDIO_SUP_PREAMBLE       	0x400000  /* Suppress preamble */
+> -#define MDIO_START              	0x800000  /* Write 1 to initiate th=
+e MDIO
+> -						   * master. And this bit is self
+> -						   * cleared after one cycle */
+> -#define MDIO_CLK_SEL_SHIFT      	24
+> -#define MDIO_CLK_25_4           	0
+> -#define MDIO_CLK_25_6           	2
+> -#define MDIO_CLK_25_8           	3
+> -#define MDIO_CLK_25_10          	4
+> -#define MDIO_CLK_25_14          	5
+> -#define MDIO_CLK_25_20          	6
+> -#define MDIO_CLK_25_28          	7
+> -#define MDIO_BUSY               	0x8000000
+> -#define MDIO_AP_EN              	0x10000000
+> -#define MDIO_WAIT_TIMES         	10
+> +#define MDIO_CTRL_MODE_EXT		BIT(30)
+> +#define MDIO_CTRL_POST_READ		BIT(29)
+> +#define MDIO_CTRL_AP_EN			BIT(28)
+> +#define MDIO_CTRL_BUSY			BIT(27)
+> +#define MDIO_CTRL_CLK_SEL_MASK		0x7UL
+> +#define MDIO_CTRL_CLK_SEL_SHIFT		24
+> +#define MDIO_CTRL_CLK_25_4		0	/* 25MHz divide 4 */
+> +#define MDIO_CTRL_CLK_25_6		2
+> +#define MDIO_CTRL_CLK_25_8		3
+> +#define MDIO_CTRL_CLK_25_10		4
+> +#define MDIO_CTRL_CLK_25_32		5
+> +#define MDIO_CTRL_CLK_25_64		6
+> +#define MDIO_CTRL_CLK_25_128		7
+> +#define MDIO_CTRL_START			BIT(23)
+> +#define MDIO_CTRL_SPRES_PRMBL		BIT(22)
+> +#define MDIO_CTRL_OP_READ		BIT(21)	/* 1:read, 0:write */
+> +#define MDIO_CTRL_REG_MASK		0x1FUL
+> +#define MDIO_CTRL_REG_SHIFT		16
+> +#define MDIO_CTRL_DATA_MASK		0xFFFFUL
+> +#define MDIO_CTRL_DATA_SHIFT		0
+> +#define MDIO_MAX_AC_TO			120	/* 1.2ms timeout for slow clk */
+> +
+> +/* for extension reg access */
+> +#define REG_MDIO_EXTN			0x1448
+> +#define MDIO_EXTN_PORTAD_MASK		0x1FUL
+> +#define MDIO_EXTN_PORTAD_SHIFT		21
+> +#define MDIO_EXTN_DEVAD_MASK		0x1FUL
+> +#define MDIO_EXTN_DEVAD_SHIFT		16
+> +#define MDIO_EXTN_REG_MASK		0xFFFFUL
+> +#define MDIO_EXTN_REG_SHIFT		0
+>
+>   /* BIST Control and Status Register0 (for the Packet Memory) */
+>   #define REG_BIST0_CTRL              	0x141c
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/driver=
+s/net/ethernet/atheros/atl1c/atl1c_main.c
+> index a6c3f05..1f82880 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> @@ -2270,7 +2270,7 @@ static int atl1c_open(struct net_device *netdev=
+)
+>   		u32 phy_data;
+>
+>   		AT_READ_REG(&adapter->hw, REG_MDIO_CTRL,&phy_data);
+> -		phy_data |=3D MDIO_AP_EN;
+> +		phy_data |=3D MDIO_CTRL_AP_EN;
+>   		AT_WRITE_REG(&adapter->hw, REG_MDIO_CTRL, phy_data);
+>   	}
+>   	return 0;
+> @@ -2558,7 +2558,7 @@ static int __devinit atl1c_probe(struct pci_dev=
+ *pdev,
+>   	adapter->mii.mdio_read  =3D atl1c_mdio_read;
+>   	adapter->mii.mdio_write =3D atl1c_mdio_write;
+>   	adapter->mii.phy_id_mask =3D 0x1f;
+> -	adapter->mii.reg_num_mask =3D MDIO_REG_ADDR_MASK;
+> +	adapter->mii.reg_num_mask =3D MDIO_CTRL_REG_MASK;
+>   	netif_napi_add(netdev,&adapter->napi, atl1c_clean, 64);
+>   	setup_timer(&adapter->phy_config_timer, atl1c_phy_config,
+>   			(unsigned long)adapter);
