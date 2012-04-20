@@ -1,195 +1,106 @@
-From: "Dave, Tushar N" <tushar.n.dave@intel.com>
-Subject: RE: e1000e tx queue timeout in 3.3.0 (bisected to BQL support for
- e1000e)
-Date: Fri, 20 Apr 2012 06:46:47 +0000
-Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA891180C12BB@ORSMSX102.amr.corp.intel.com>
-References: <4F909F4B.1010707@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Ben Greear <greearb@candelatech.com>,
-	netdev <netdev@vger.kernel.org>,
-	e1000-devel list <e1000-devel@lists.sourceforge.net>,
-	"therbert@google.com" <therbert@google.com>
+From: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+Subject: [PATCH 1/2 v2] pch_gbe: Do not abort probe on bad MAC
+Date: Fri, 20 Apr 2012 15:54:45 +0900
+Message-ID: <1334904885-10171-1-git-send-email-tomoya.rohm@gmail.com>
+Cc: Darren Hart <dvhart@linux.intel.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Tomoya MORINAGA <tomoya.rohm@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Joe Perches <joe@perches.com>
+To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:29290 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751557Ab2DTGqu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 02:46:50 -0400
-In-Reply-To: <4F909F4B.1010707@candelatech.com>
-Content-Language: en-US
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:40984 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087Ab2DTGzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 02:55:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I had done some work on this and to me it looks like this can only happen if driver does not report bytes_compl and pkts_compl stats correctly.
+From: Darren Hart <dvhart@linux.intel.com>
 
-I will experiment more tomorrow.
+If the MAC is invalid or not implemented, do not abort the probe. Issue
+a warning and prevent bringing the interface up until a MAC is set manually
+(via ifconfig $IFACE hw ether $MAC).
 
--Tushar
+Tested on two platforms, one with a valid MAC, the other without a MAC. The real
+MAC is used if present, the interface fails to come up until the MAC is set on
+the other. They successfully get an IP over DHCP and pass a simple ping and
+login over ssh test.
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of Ben Greear
->Sent: Thursday, April 19, 2012 4:27 PM
->To: netdev; e1000-devel list; therbert@google.com
->Subject: e1000e tx queue timeout in 3.3.0 (bisected to BQL support for
->e1000e)
->
->Test case:
->
->Run full duplex traffic (900Mbps rx, 400Mbps tx) UDP traffic (moderate
->speeds of traffic has issues as well, maybe not as easy to reproduce)
->reset peer interface
->----> tx queue timeout
->
->
->Apr 19 16:12:48 localhost kernel: e1000e: eth2 NIC Link is Down Apr 19
->16:12:48 localhost kernel: e1000e 0000:08:00.0: eth2: Reset adapter Apr 19
->16:12:48 localhost kernel: e1000e: eth3 NIC Link is Down Apr 19 16:12:50
->localhost kernel: e1000e: eth2 NIC Link is Up 1000 Mbps Full Duplex, Flow
->Control: Rx/Tx Apr 19 16:12:50 localhost kernel: ADDRCONF(NETDEV_CHANGE):
->eth2: link becomes ready Apr 19 16:12:50 localhost kernel: e1000e: eth3
->NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx Apr 19 16:12:50
->localhost kernel: ADDRCONF(NETDEV_CHANGE): eth3: link becomes ready Apr 19
->16:12:54 localhost /usr/sbin/irqbalance: Load average increasing, re-
->enabling all cpus for irq balancing Apr 19 16:12:55 localhost kernel: ----
->--------[ cut here ]------------ Apr 19 16:12:55 localhost kernel:
->WARNING: at /home/greearb/git/linux-3.3.dev.y/net/sched/sch_generic.c:256
->dev_watchdog+0xf4/0x154() Apr 19 16:12:55 localhost kernel: Hardware name:
->X7DBU Apr 19 16:12:55 localhost kernel: NETDEV WATCHDOG: eth2 (e1000e):
->transmit queue 0 timed out Apr 19 16:12:55 localhost kernel: Modules
->linked in: xt_CT iptable_raw 8021q garp stp llc veth ppdev parport_pc lp
->parport fuse macvlan pktgen iscsi_tcp libiscsi_tcp libiscsi
->scsi_transport_iscsi lockd w83793 w83627hf hwmon_vid coretemp iTCO_wdt
->microcode iTCO_vendor_support pcspkr i5k_amb ioatdma i2c_i801 i5000_edac
->dca edac_core e1000e shpchp uinput sunrpc ipv6 autofs4 floppy radeon ttm
->drm_kms_helper drm hwmon i2c_algo_bit i2c_core [last unloaded: nf_nat] Apr
->19 16:12:55 localhost kernel: Pid: 0, comm: kworker/0:1 Not tainted 3.2.0-
->rc2+ #36 Apr 19 16:12:55 localhost kernel: Call Trace:
->Apr 19 16:12:55 localhost kernel: <IRQ>  [<ffffffff81042902>]
->warn_slowpath_common+0x80/0x98 Apr 19 16:12:55 localhost kernel:
->[<ffffffff810429ae>] warn_slowpath_fmt+0x41/0x43 Apr 19 16:12:55 localhost
->kernel: [<ffffffff8139f8a3>] dev_watchdog+0xf4/0x154 Apr 19 16:12:55
->localhost kernel: [<ffffffff8104d371>] run_timer_softirq+0x16f/0x201 Apr
->19 16:12:55 localhost kernel: [<ffffffff8139f7af>] ?
->netif_tx_unlock+0x57/0x57 Apr 19 16:12:55 localhost kernel:
->[<ffffffff81047e47>] __do_softirq+0x86/0x12f Apr 19 16:12:55 localhost
->kernel: [<ffffffff8105d54e>] ? hrtimer_interrupt+0x12b/0x1bd Apr 19
->16:12:55 localhost kernel: [<ffffffff8144296c>] call_softirq+0x1c/0x30 Apr
->19 16:12:55 localhost kernel: [<ffffffff8100bb75>] do_softirq+0x41/0x7e
->Apr 19 16:12:55 localhost kernel: [<ffffffff81047c26>] irq_exit+0x3f/0xbb
->Apr 19 16:12:55 localhost kernel: [<ffffffff81021df5>]
->smp_apic_timer_interrupt+0x85/0x93
->Apr 19 16:12:55 localhost kernel: [<ffffffff814411de>]
->apic_timer_interrupt+0x6e/0x80 Apr 19 16:12:55 localhost kernel: <EOI>
->[<ffffffff81010b8c>] ? mwait_idle+0x6e/0x8c Apr 19 16:12:55 localhost
->kernel: [<ffffffff81010b7f>] ? mwait_idle+0x61/0x8c Apr 19 16:12:55
->localhost kernel: [<ffffffff81009e72>] cpu_idle+0x67/0xbe Apr 19 16:12:55
->localhost kernel: [<ffffffff81435477>] start_secondary+0x194/0x199 Apr 19
->16:12:55 localhost kernel: ---[ end trace e3ca12fc1a8b85da ]--- Apr 19
->16:12:55 localhost kernel: e1000e 0000:08:00.0: eth2: Reset adapter Apr 19
->16:12:57 localhost abrt-dump-oops[898]: abrt-dump-oops: Found oopses: 1
->Apr 19 16:12:57 localhost abrt-dump-oops[898]: abrt-dump-oops: Creating
->dump directories Apr 19 16:12:57 localhost abrtd: Directory 'oops-2012-04-
->19-16:12:57-898-0' creation detected Apr 19 16:12:57 localhost abrt-dump-
->oops: Reported 1 kernel oopses to Abrt Apr 19 16:12:57 localhost abrtd:
->Can't open file '/var/spool/abrt/oops-2012-04-19-16:12:57-898-0/uid': No
->such file or directory Apr 19 16:12:57 localhost abrtd: DUP_OF_DIR:
->/var/spool/abrt/oops-2012-04-19-15:02:13-862-0
->Apr 19 16:12:57 localhost abrtd: Dump directory is a duplicate of
->/var/spool/abrt/oops-2012-04-19-15:02:13-862-0
->Apr 19 16:12:57 localhost abrtd: Deleting dump directory oops-2012-04-19-
->16:12:57-898-0 (dup of oops-2012-04-19-15:02:13-862-0), sending dbus
->signal Apr 19 16:12:58 localhost kernel: e1000e: eth2 NIC Link is Up 1000
->Mbps Full Duplex, Flow Control: Rx/Tx Apr 19 16:12:58 localhost kernel:
->ADDRCONF(NETDEV_CHANGE): eth2: link becomes ready Apr 19 16:13:03
->localhost /usr/sbin/irqbalance: Load average increasing, re-enabling all
->cpus for irq balancing Apr 19 16:13:04 localhost kernel: e1000e
->0000:08:00.0: eth2: Reset adapter Apr 19 16:13:05 localhost chronyd[1003]:
->Selected source 108.59.2.194 Apr 19 16:13:07 localhost kernel: e1000e:
->eth2 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx Apr 19
->16:13:07 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth2: link becomes
->ready ....
->
->lspci:
->
->08:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet
->Controller (rev 06)
->	Subsystem: Intel Corporation PRO/1000 PT Dual Port Server Adapter
->	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+
->Stepping- SERR+ FastB2B- DisINTx+
->	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-><TAbort- <MAbort- >SERR- <PERR- INTx-
->	Latency: 0, Cache Line Size: 32 bytes
->	Interrupt: pin A routed to IRQ 74
->	Region 0: Memory at d8300000 (32-bit, non-prefetchable) [size=128K]
->	Region 2: I/O ports at 3000 [size=32]
->	[virtual] Expansion ROM at d8d00000 [disabled] [size=128K]
->	Capabilities: [c8] Power Management version 2
->		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-
->,D3hot+,D3cold-)
->		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
->	Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
->		Address: 00000000feeff00c  Data: 41a3
->	Capabilities: [e0] Express (v1) Endpoint, MSI 00
->		DevCap:	MaxPayload 256 bytes, PhantFunc 0, Latency L0s
-><512ns, L1 <64us
->			ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
->		DevCtl:	Report errors: Correctable+ Non-Fatal+ Fatal+
->Unsupported+
->			RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
->			MaxPayload 128 bytes, MaxReadReq 4096 bytes
->		DevSta:	CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxPwr-
->TransPend-
->		LnkCap:	Port #1, Speed 2.5GT/s, Width x2, ASPM L0s L1,
->Latency L0 <4us, L1 <64us
->			ClockPM- Surprise- LLActRep- BwNot-
->		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- Retrain-
->CommClk-
->			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
->		LnkSta:	Speed 2.5GT/s, Width x2, TrErr- Train- SlotClk+
->DLActive- BWMgmt- ABWMgmt-
->	Capabilities: [100 v1] Advanced Error Reporting
->		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt-
->RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
->		UEMsk:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt-
->RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
->		UESvrt:	DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt-
->UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
->		CESta:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
->		CEMsk:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
->		AERCap:	First Error Pointer: 14, GenCap- CGenEn- ChkCap-
->ChkEn-
->	Capabilities: [140 v1] Device Serial Number 00-e0-ed-ff-ff-0c-11-6e
->	Kernel driver in use: e1000e
->	Kernel modules: e1000e
->
->
->3f0cfa3bc11e7f00c9994e0f469cbc0e7da7b00c is the first bad commit commit
->3f0cfa3bc11e7f00c9994e0f469cbc0e7da7b00c
->Author: Tom Herbert <therbert@google.com>
->Date:   Mon Nov 28 16:33:16 2011 +0000
->
->     e1000e: Support for byte queue limits
->
->     Changes to e1000e to use byte queue limits.
->
->     Signed-off-by: Tom Herbert <therbert@google.com>
->     Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
->:040000 040000 bf3e2ec64fd74253563e1ab39797b27a5f2df3fe
->51914e221547b95a989b5c7e9b037c9370fd734e M	drivers
->
->
->Thanks,
->Ben
->
->--
->Ben Greear <greearb@candelatech.com>
->Candela Technologies Inc  http://www.candelatech.com
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in the
->body of a message to majordomo@vger.kernel.org More majordomo info at
->http://vger.kernel.org/majordomo-info.html
+This is meant to allow the Inforce SYS940X development board:
+http://www.inforcecomputing.com/SYS940X_ECX.html
+(and others suffering from a missing MAC) to work with the mainline kernel.
+Without this patch, the probe will fail and the interface will not be created,
+preventing the user from configuring the MAC manually.
+
+This does not make any attempt to address a missing or invalid MAC for the
+pch_phub driver.
+
+commit 2b53d07891630dead46d65c8f896955fd3ae0302
+kernel 3.0
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Darren Hart <dvhart@linux.intel.com>
+CC: Arjan van de Ven <arjan@linux.intel.com>
+CC: Alan Cox <alan@linux.intel.com>
+CC: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Paul Gortmaker <paul.gortmaker@windriver.com>
+CC: Jon Mason <jdmason@kudzu.us>
+CC: netdev@vger.kernel.org
+CC: Mark Brown <broonie@opensource.wolfsonmicro.com>
+CC: David Laight <David.Laight@ACULAB.COM>
+CC: Joe Perches <joe@perches.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+---
+v2
+ - Separate into 2 patches because folder structure was changed.
+---
+ drivers/net/pch_gbe/pch_gbe_main.c |   17 ++++++++++++++---
+ 1 files changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
+index eac3c5c..e7412f2 100644
+--- a/drivers/net/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/pch_gbe/pch_gbe_main.c
+@@ -1701,6 +1701,12 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
+ 	struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
+ 	int err;
+ 
++	/* Ensure we have a valid MAC */
++	if (!is_valid_ether_addr(adapter->hw.mac.addr)) {
++		pr_err("Error: Invalid MAC address\n");
++		return -EINVAL;
++	}
++
+ 	/* hardware has been reset, we need to reload some things */
+ 	pch_gbe_set_multi(netdev);
+ 
+@@ -2392,9 +2398,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 
+ 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+-		dev_err(&pdev->dev, "Invalid MAC Address\n");
+-		ret = -EIO;
+-		goto err_free_adapter;
++		/*
++		 * If the MAC is invalid (or just missing), display a warning
++		 * but do not abort setting up the device. pch_gbe_up will
++		 * prevent the interface from being brought up until a valid MAC
++		 * is set.
++		 */
++		dev_err(&pdev->dev, "Invalid MAC address, "
++		                    "interface disabled.\n");
+ 	}
+ 	setup_timer(&adapter->watchdog_timer, pch_gbe_watchdog,
+ 		    (unsigned long)adapter);
+-- 
+1.7.7.6
