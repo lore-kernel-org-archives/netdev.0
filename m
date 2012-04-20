@@ -1,50 +1,61 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH v3.4-rc 6/9] pch_gbe: do not set the channel control register
-Date: Fri, 20 Apr 2012 22:09:25 +0200
-Message-ID: <720be7503b68a59d5152fa929f3639846edae6f7.1334949388.git.richardcochran@gmail.com>
-References: <cover.1334949388.git.richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Takahiro Shimizu <tshimizu818@gmail.com>
-To: <netdev@vger.kernel.org>
+From: mathieu.poirier@linaro.org
+Subject: [PATCH 3/8] caif: include linux/io.h
+Date: Fri, 20 Apr 2012 14:56:11 -0600
+Message-ID: <1334955376-17793-4-git-send-email-mathieu.poirier@linaro.org>
+References: <1334955376-17793-1-git-send-email-mathieu.poirier@linaro.org>
+Cc: arnd@arndb.de, mathieu.poirier@linaro.org
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:57249 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751976Ab2DTUKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 16:10:16 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hq7so1034853wib.1
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 13:10:15 -0700 (PDT)
-In-Reply-To: <cover.1334949388.git.richardcochran@gmail.com>
-In-Reply-To: <cover.1334949388.git.richardcochran@gmail.com>
-References: <cover.1334949388.git.richardcochran@gmail.com>
+Received: from mail-pz0-f52.google.com ([209.85.210.52]:42752 "EHLO
+	mail-pz0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753467Ab2DTU41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 16:56:27 -0400
+Received: by mail-pz0-f52.google.com with SMTP id e40so13460795dak.11
+        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 13:56:27 -0700 (PDT)
+In-Reply-To: <1334955376-17793-1-git-send-email-mathieu.poirier@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Takahiro Shimizu <tshimizu818@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
 
-We will let the pch_gbe code do that according to the receive time stamp
-filter.
+The caif_shmcore requires io.h in order to use ioremap, so include that
+explicitly to compile in all configurations.
 
-[ RC - Rebased Takahiro's changes and wrote a commit message
-  explaining the changes. ]
+Also add a note about the use of ioremap(), which is not a proper way
+to map a DMA buffer into kernel space. It's not completely clear what
+the intention is for using ioremap, but it is clear that the result
+of ioremap must not simply be accessed using kernel pointers but
+should use readl/writel or memcopy_{to,from}io. Assigning the result
+of ioremap to a regular pointer that can also be set to something
+else is not ok.
 
-Signed-off-by: Takahiro Shimizu <tshimizu818@gmail.com>
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
 ---
- drivers/ptp/ptp_pch.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/net/caif/caif_shmcore.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index 9e397fe..08c3311 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -652,8 +652,6 @@ pch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	iowrite32(1, &chip->regs->trgt_lo);
- 	iowrite32(0, &chip->regs->trgt_hi);
- 	iowrite32(PCH_TSE_TTIPEND, &chip->regs->event);
--	/* Version: IEEE1588 v1 and IEEE1588-2008,  Mode: All Evwnt, Locked  */
--	iowrite32(0x80020000, &chip->regs->ch_control);
+diff --git a/drivers/net/caif/caif_shmcore.c b/drivers/net/caif/caif_shmcore.c
+index 5b20413..bc497d7 100644
+--- a/drivers/net/caif/caif_shmcore.c
++++ b/drivers/net/caif/caif_shmcore.c
+@@ -13,6 +13,7 @@
+ #include <linux/list.h>
+ #include <linux/netdevice.h>
+ #include <linux/if_arp.h>
++#include <linux/io.h>
  
- 	pch_eth_enable_set(chip);
+ #include <net/caif/caif_device.h>
+ #include <net/caif/caif_shm.h>
+@@ -647,6 +648,9 @@ int caif_shmcore_probe(struct shmdev_layer *pshm_dev)
+ 		if (pshm_dev->shm_loopback)
+ 			tx_buf->desc_vptr = (unsigned char *)tx_buf->phy_addr;
+ 		else
++			/*
++			 * FIXME: the result of ioremap is not a pointer - arnd
++			 */
+ 			tx_buf->desc_vptr =
+ 					ioremap(tx_buf->phy_addr, TX_BUF_SZ);
  
 -- 
-1.7.2.5
+1.7.5.4
