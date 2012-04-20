@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 09/16] tipc: Ensure network address change doesn't impact new port
-Date: Fri, 20 Apr 2012 17:05:17 -0400
-Message-ID: <1334955924-907-10-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 07/16] tipc: Ensure network address change doesn't impact name table updates
+Date: Fri, 20 Apr 2012 17:05:15 -0400
+Message-ID: <1334955924-907-8-git-send-email-paul.gortmaker@windriver.com>
 References: <1334955924-907-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,64 +9,63 @@ Cc: <netdev@vger.kernel.org>, <allan.stephens@windriver.com>,
 	<ying.xue@windriver.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:65459 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:65456 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754285Ab2DTVFh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 17:05:37 -0400
+	with ESMTP id S1753856Ab2DTVFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 17:05:35 -0400
 In-Reply-To: <1334955924-907-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Re-orders port creation logic so that the initialization of a new
-port's message header template occurs while the port list lock is
-held. This ensures that a change to the node's network address that
-occurs at the same time as the port is being created does not result
-in the template identifying the sender using the former network
-address. The new approach guarantees that the new port's template is
-using the current network address or that it will be updated when
-the address changes.
+Revises routines that add and remove an entry from a node's name table
+so that the publication scope lists are updated properly even if the
+node's network address is changed in mid-operation. The routines now
+recognize the default node address of <0.0.0> as an alias for "this node"
+even after a new network address has been assigned.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/port.c |   15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+ net/tipc/name_table.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 6156c67..3b7162c 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -221,18 +221,25 @@ struct tipc_port *tipc_createport_raw(void *usr_handle,
- 	p_ptr->usr_handle = usr_handle;
- 	p_ptr->max_pkt = MAX_PKT_DEFAULT;
- 	p_ptr->ref = ref;
--	msg = &p_ptr->phdr;
--	tipc_msg_init(msg, importance, TIPC_NAMED_MSG, NAMED_H_SIZE, 0);
--	msg_set_origport(msg, ref);
- 	INIT_LIST_HEAD(&p_ptr->wait_list);
- 	INIT_LIST_HEAD(&p_ptr->subscription.nodesub_list);
- 	p_ptr->dispatcher = dispatcher;
- 	p_ptr->wakeup = wakeup;
- 	p_ptr->user_port = NULL;
- 	k_init_timer(&p_ptr->timer, (Handler)port_timeout, ref);
--	spin_lock_bh(&tipc_port_list_lock);
- 	INIT_LIST_HEAD(&p_ptr->publications);
- 	INIT_LIST_HEAD(&p_ptr->port_list);
-+
-+	/*
-+	 * Must hold port list lock while initializing message header template
-+	 * to ensure a change to node's own network address doesn't result
-+	 * in template containing out-dated network address information
-+	 */
-+
-+	spin_lock_bh(&tipc_port_list_lock);
-+	msg = &p_ptr->phdr;
-+	tipc_msg_init(msg, importance, TIPC_NAMED_MSG, NAMED_H_SIZE, 0);
-+	msg_set_origport(msg, ref);
- 	list_add_tail(&p_ptr->port_list, &ports);
- 	spin_unlock_bh(&tipc_port_list_lock);
- 	return p_ptr;
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 1e0518d..25c2975 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -342,12 +342,12 @@ static struct publication *tipc_nameseq_insert_publ(struct name_seq *nseq,
+ 	list_add(&publ->zone_list, &info->zone_list);
+ 	info->zone_list_size++;
+ 
+-	if (in_own_cluster_exact(node)) {
++	if (in_own_cluster(node)) {
+ 		list_add(&publ->cluster_list, &info->cluster_list);
+ 		info->cluster_list_size++;
+ 	}
+ 
+-	if (node == tipc_own_addr) {
++	if (in_own_node(node)) {
+ 		list_add(&publ->node_list, &info->node_list);
+ 		info->node_list_size++;
+ 	}
+@@ -411,14 +411,14 @@ found:
+ 
+ 	/* Remove publication from cluster scope list, if present */
+ 
+-	if (in_own_cluster_exact(node)) {
++	if (in_own_cluster(node)) {
+ 		list_del(&publ->cluster_list);
+ 		info->cluster_list_size--;
+ 	}
+ 
+ 	/* Remove publication from node scope list, if present */
+ 
+-	if (node == tipc_own_addr) {
++	if (in_own_node(node)) {
+ 		list_del(&publ->node_list);
+ 		info->node_list_size--;
+ 	}
 -- 
 1.7.9.3
