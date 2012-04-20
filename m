@@ -1,84 +1,51 @@
-From: Yong Zhang <yong.zhang0@gmail.com>
-Subject: Re: [PATCH 1/2] workqueue: Catch more locking problems with
- flush_work()
-Date: Fri, 20 Apr 2012 14:01:01 +0800
-Message-ID: <20120420060101.GA16563@zhy>
-References: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org>
- <20120419081002.GB3963@zhy>
- <4F905B30.4080501@codeaurora.org>
- <20120420052633.GA16219@zhy>
-Reply-To: Yong Zhang <yong.zhang0@gmail.com>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: skip dead but not buried clients on PipeFS events
+Date: Fri, 20 Apr 2012 10:05:05 +0400
+Message-ID: <4F90FC91.9090805@parallels.com>
+References: <20120419105707.32131.79719.stgit@localhost6.localdomain6> <4F8FF8D9.5080503@parallels.com> <20120419214043.GA23309@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>
-To: Stephen Boyd <sboyd@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:52719 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751551Ab2DTGBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 02:01:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20120420052633.GA16219@zhy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: "bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120419214043.GA23309-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 20, 2012 at 01:26:33PM +0800, Yong Zhang wrote:
-> On Thu, Apr 19, 2012 at 11:36:32AM -0700, Stephen Boyd wrote:
-> > Does looking at the second patch help? Basically schedule_work() can run
-> > the callback right between the time the mutex is acquired and
-> > flush_work() is called:
-> > 
-> > CPU0                        CPU1
-> > 
-> > <irq>
-> >   schedule_work()           mutex_lock(&mutex)
-> > <irq return>
-> >     my_work()               flush_work() 
-> >       mutex_lock(&mutex)    
-> >       <deadlock>
-> 
-> Get you point. It is a problem. But your patch could introduece false
-> positive since when flush_work() is called that very work may finish
-> running already.
-> 
-> So I think we need the lock_map_acquire()/lock_map_release() only when
-> the work is under processing, no?
+20.04.2012 01:40, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=
+=B0=D0=BB:
+> On Thu, Apr 19, 2012 at 03:36:57PM +0400, Stanislav Kinsbursky wrote:
+>> Sorry, but ignore this patch too.
+>> It can't be that simple because of these cl_count tricks in rpc_rele=
+ase_client...
+> OK.  Very minor whine:
+>
+>> 19.04.2012 14:57, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82=
+:
+>>> These clients can't be safely dereferenced if their counter in 0.
+>>>
+>>> Signee-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>>>
+>>> Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> I don't mind fixing up trivial slips every now and then, but that dou=
+ble
+> signed-off-by seems to happen on a lot of your posts; could you figur=
+e
+> out what's up with your scripts?
 
-But start_flush_work() has tried take care of this issue except it
-doesn't add work->lockdep_map into the chain.
-
-So does below patch help?
-
-Thanks,
-Yong
-
----
-From: Yong Zhang <yong.zhang@windriver.com>
-Date: Fri, 20 Apr 2012 13:44:16 +0800
-Subject: [PATCH] workqueue:lockdep: make flush_work notice deadlock
-
-Connet the lock chain by aquiring work->lockdep_map when
-the tobe-flush work is running.
-
-Signed-off-by: Yong Zhang <yong.zhang0@gmail.com>
-Reported-by: Stephen Boyd <sboyd@codeaurora.org>
----
- kernel/workqueue.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/kernel/workqueue.c b/kernel/workqueue.c
-index bc867e8..c096b05 100644
---- a/kernel/workqueue.c
-+++ b/kernel/workqueue.c
-@@ -2461,6 +2461,8 @@ static bool start_flush_work(struct work_struct *work, struct wq_barrier *barr,
- 		lock_map_acquire(&cwq->wq->lockdep_map);
- 	else
- 		lock_map_acquire_read(&cwq->wq->lockdep_map);
-+	lock_map_acquire(&work->lockdep_map);
-+	lock_map_release(&work->lockdep_map);
- 	lock_map_release(&cwq->wq->lockdep_map);
- 
- 	return true;
--- 
-1.7.5.4
+Yes, sure. Sorry.
+I've noticed this problem just yesterday.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
