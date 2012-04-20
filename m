@@ -1,18 +1,18 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH v3.4-rc 5/9] pch_gbe: improve coding style
-Date: Fri, 20 Apr 2012 22:09:24 +0200
-Message-ID: <d8c501a5825ad71606f326e91f3e8961225efabe.1334949388.git.richardcochran@gmail.com>
+Subject: [PATCH v3.4-rc 7/9] pch_gbe: correct receive time stamp filtering
+Date: Fri, 20 Apr 2012 22:09:26 +0200
+Message-ID: <441d24c71545e0e386187b1f029043a1c8189cd8.1334949388.git.richardcochran@gmail.com>
 References: <cover.1334949388.git.richardcochran@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
 	Takahiro Shimizu <tshimizu818@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:35319 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771Ab2DTUKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 16:10:13 -0400
-Received: by wgbdr13 with SMTP id dr13so10012936wgb.1
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 13:10:12 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:42353 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752208Ab2DTUKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 16:10:20 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hj6so1022509wib.1
+        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 13:10:20 -0700 (PDT)
 In-Reply-To: <cover.1334949388.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1334949388.git.richardcochran@gmail.com>
 References: <cover.1334949388.git.richardcochran@gmail.com>
@@ -21,11 +21,9 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Takahiro Shimizu <tshimizu818@gmail.com>
 
-This patch clears up a few coding style issues:
-
-- Makes two function definitions a bit nicer looking.
-- Remove unneeded parentheses.
-- Simplify macros for register bits.
+This patch fixes the driver so that multicast PTP event messages can
+be recognized by the hardware time stamping unit. The station address
+register must be set according to the desired transport type.
 
 [ RC - Rebased Takahiro's changes and wrote a commit message
   explaining the changes. ]
@@ -33,65 +31,71 @@ This patch clears up a few coding style issues:
 Signed-off-by: Takahiro Shimizu <tshimizu818@gmail.com>
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   14 +++++++++++++-
+ drivers/ptp/Kconfig                                |   10 +++++++---
+ 2 files changed, 20 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index dc15e93..799a85a 100644
+index 799a85a..53ac2fb 100644
 --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -103,9 +103,9 @@ const char pch_driver_version[] = DRV_VERSION;
- /* Macros for ieee1588 */
- /* 0x40 Time Synchronization Channel Control Register Bits */
- #define MASTER_MODE   (1<<0)
--#define SLAVE_MODE    (0<<0)
-+#define SLAVE_MODE    (0)
- #define V2_MODE       (1<<31)
--#define CAP_MODE0     (0<<16)
-+#define CAP_MODE0     (0)
- #define CAP_MODE2     (1<<17)
- 
+@@ -111,6 +111,9 @@ const char pch_driver_version[] = DRV_VERSION;
  /* 0x44 Time Synchronization Channel Event Register Bits */
-@@ -151,8 +151,8 @@ static int pch_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
- 		seqid  == *id);
- }
+ #define TX_SNAPSHOT_LOCKED (1<<0)
+ #define RX_SNAPSHOT_LOCKED (1<<1)
++
++#define PTP_L4_MULTICAST_SA "01:00:5e:00:01:81"
++#define PTP_L2_MULTICAST_SA "01:1b:19:00:00:00"
+ #endif
  
--static void pch_rx_timestamp(
--			struct pch_gbe_adapter *adapter, struct sk_buff *skb)
-+static void
-+pch_rx_timestamp(struct pch_gbe_adapter *adapter, struct sk_buff *skb)
- {
- 	struct skb_shared_hwtstamps *shhwtstamps;
+ static unsigned int copybreak __read_mostly = PCH_GBE_COPYBREAK_DEFAULT;
+@@ -236,6 +239,7 @@ static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ 	struct hwtstamp_config cfg;
+ 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
  	struct pci_dev *pdev;
-@@ -189,8 +189,8 @@ out:
- 	pch_ch_event_write(pdev, RX_SNAPSHOT_LOCKED);
- }
++	u8 station[20];
  
--static void pch_tx_timestamp(
--			struct pch_gbe_adapter *adapter, struct sk_buff *skb)
-+static void
-+pch_tx_timestamp(struct pch_gbe_adapter *adapter, struct sk_buff *skb)
- {
- 	struct skb_shared_hwtstamps shhwtstamps;
- 	struct pci_dev *pdev;
-@@ -263,15 +263,15 @@ static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
- 		adapter->hwts_rx_en = 0;
--		pch_ch_control_write(pdev, (SLAVE_MODE | CAP_MODE0));
-+		pch_ch_control_write(pdev, SLAVE_MODE | CAP_MODE0);
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+ 	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
+ 		return -EFAULT;
+@@ -269,9 +273,17 @@ static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
  		adapter->hwts_rx_en = 1;
--		pch_ch_control_write(pdev, (MASTER_MODE | CAP_MODE0));
-+		pch_ch_control_write(pdev, MASTER_MODE | CAP_MODE0);
+ 		pch_ch_control_write(pdev, MASTER_MODE | CAP_MODE0);
  		break;
- 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
- 		adapter->hwts_rx_en = 1;
--		pch_ch_control_write(pdev, (V2_MODE | CAP_MODE2));
+-	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
++		adapter->hwts_rx_en = 1;
 +		pch_ch_control_write(pdev, V2_MODE | CAP_MODE2);
++		strcpy(station, PTP_L4_MULTICAST_SA);
++		pch_set_station_address(station, pdev);
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+ 		adapter->hwts_rx_en = 1;
+ 		pch_ch_control_write(pdev, V2_MODE | CAP_MODE2);
++		strcpy(station, PTP_L2_MULTICAST_SA);
++		pch_set_station_address(station, pdev);
  		break;
  	default:
  		return -ERANGE;
+diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
+index cd9bc3b..5648dad 100644
+--- a/drivers/ptp/Kconfig
++++ b/drivers/ptp/Kconfig
+@@ -78,9 +78,13 @@ config PTP_1588_CLOCK_PCH
+ 	depends on PCH_GBE
+ 	help
+ 	  This driver adds support for using the PCH EG20T as a PTP
+-	  clock. This clock is only useful if your PTP programs are
+-	  getting hardware time stamps on the PTP Ethernet packets
+-	  using the SO_TIMESTAMPING API.
++	  clock. The hardware supports time stamping of PTP packets
++	  when using the end-to-end delay (E2E) mechansim. The peer
++	  delay mechansim (P2P) is not supported.
++
++	  This clock is only useful if your PTP programs are getting
++	  hardware time stamps on the PTP Ethernet packets using the
++	  SO_TIMESTAMPING API.
+ 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called ptp_pch.
 -- 
 1.7.2.5
