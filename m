@@ -1,14 +1,14 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 08/10] ipv6: Export ipv6 functions for use by other protocols
-Date: Fri, 20 Apr 2012 10:02:51 +0100
-Message-ID: <1334912573-28804-9-git-send-email-jchapman@katalix.com>
+Subject: [PATCH 06/10] l2tp: show IPv6 addresses in l2tp debugfs file
+Date: Fri, 20 Apr 2012 10:02:49 +0100
+Message-ID: <1334912573-28804-7-git-send-email-jchapman@katalix.com>
 References: <1334912573-28804-1-git-send-email-jchapman@katalix.com>
 Cc: bcrl@kvack.org, Chris Elston <celston@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:56663 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:56665 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751938Ab2DTJDA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751981Ab2DTJDA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 20 Apr 2012 05:03:00 -0400
 In-Reply-To: <1334912573-28804-1-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
@@ -16,100 +16,33 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Chris Elston <celston@katalix.com>
 
-For implementing other protocols on top of IPv6, such as L2TPv3's IP
-encapsulation over ipv6, we'd like to call some IPv6 functions which
-are not currently exported. This patch exports them.
+If an L2TP tunnel uses IPv6, make sure the l2tp debugfs file shows the
+IPv6 address correctly.
 
 Signed-off-by: Chris Elston <celston@katalix.com>
 Signed-off-by: James Chapman <jchapman@katalix.com>
 ---
- net/ipv6/datagram.c      |    4 ++++
- net/ipv6/exthdrs.c       |    1 +
- net/ipv6/ip6_flowlabel.c |    1 +
- net/ipv6/ip6_output.c    |    3 +++
- 4 files changed, 9 insertions(+), 0 deletions(-)
+ net/l2tp/l2tp_debugfs.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 7fba35a..b8b61ac 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -22,6 +22,7 @@
- #include <linux/ipv6.h>
- #include <linux/route.h>
- #include <linux/slab.h>
-+#include <linux/export.h>
- 
- #include <net/ipv6.h>
- #include <net/ndisc.h>
-@@ -202,6 +203,7 @@ out:
- 	fl6_sock_release(flowlabel);
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(ip6_datagram_connect);
- 
- void ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
- 		     __be16 port, u32 info, u8 *payload)
-@@ -414,6 +416,7 @@ out_free_skb:
- out:
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(ipv6_recv_error);
- 
- /*
-  *	Handle IPV6_RECVPATHMTU
-@@ -868,3 +871,4 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
- exit_f:
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(datagram_send_ctl);
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index aa0a51e..a93bd23 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -883,6 +883,7 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
- 
- 	return opt;
- }
-+EXPORT_SYMBOL_GPL(ipv6_fixup_options);
- 
- /**
-  * fl6_update_dst - update flowi destination address with info given
-diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index 1dd6329..cb43df6 100644
---- a/net/ipv6/ip6_flowlabel.c
-+++ b/net/ipv6/ip6_flowlabel.c
-@@ -294,6 +294,7 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions * opt_space,
- 	opt_space->opt_flen = fopt->opt_flen;
- 	return opt_space;
- }
-+EXPORT_SYMBOL_GPL(fl6_merge_options);
- 
- static unsigned long check_linger(unsigned long ttl)
- {
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index b7ca461..2a16aa9 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1535,6 +1535,7 @@ error:
- 	IP6_INC_STATS(sock_net(sk), rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(ip6_append_data);
- 
- static void ip6_cork_release(struct inet_sock *inet, struct ipv6_pinfo *np)
- {
-@@ -1638,6 +1639,7 @@ error:
- 	IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
- 	goto out;
- }
-+EXPORT_SYMBOL_GPL(ip6_push_pending_frames);
- 
- void ip6_flush_pending_frames(struct sock *sk)
- {
-@@ -1652,3 +1654,4 @@ void ip6_flush_pending_frames(struct sock *sk)
- 
- 	ip6_cork_release(inet_sk(sk), inet6_sk(sk));
- }
-+EXPORT_SYMBOL_GPL(ip6_flush_pending_frames);
+diff --git a/net/l2tp/l2tp_debugfs.c b/net/l2tp/l2tp_debugfs.c
+index 7613013..c0d57ba 100644
+--- a/net/l2tp/l2tp_debugfs.c
++++ b/net/l2tp/l2tp_debugfs.c
+@@ -122,6 +122,14 @@ static void l2tp_dfs_seq_tunnel_show(struct seq_file *m, void *v)
+ 	seq_printf(m, "\nTUNNEL %u peer %u", tunnel->tunnel_id, tunnel->peer_tunnel_id);
+ 	if (tunnel->sock) {
+ 		struct inet_sock *inet = inet_sk(tunnel->sock);
++
++#if IS_ENABLED(CONFIG_IPV6)
++		if (tunnel->sock->sk_family == AF_INET6) {
++			struct ipv6_pinfo *np = inet6_sk(tunnel->sock);
++			seq_printf(m, " from %pI6c to %pI6c\n",
++				&np->saddr, &np->daddr);
++		} else
++#endif
+ 		seq_printf(m, " from %pI4 to %pI4\n",
+ 			   &inet->inet_saddr, &inet->inet_daddr);
+ 		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
 -- 
 1.7.0.4
