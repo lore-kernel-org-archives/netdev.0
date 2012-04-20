@@ -1,7 +1,7 @@
 From: mathieu.poirier@linaro.org
-Subject: [PATCH 7/8] sungem: use mdelay instead of udelay where necessary
-Date: Fri, 20 Apr 2012 14:56:15 -0600
-Message-ID: <1334955376-17793-8-git-send-email-mathieu.poirier@linaro.org>
+Subject: [PATCH 5/8] 8390: select CRC32 support
+Date: Fri, 20 Apr 2012 14:56:13 -0600
+Message-ID: <1334955376-17793-6-git-send-email-mathieu.poirier@linaro.org>
 References: <1334955376-17793-1-git-send-email-mathieu.poirier@linaro.org>
 Cc: arnd@arndb.de, mathieu.poirier@linaro.org
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
@@ -12,28 +12,26 @@ List-Id: netdev.vger.kernel.org
 
 From: Arnd Bergmann <arnd@arndb.de>
 
-Some architectures like ARM cannot handle large numbers as
-arguments to udelay, so the drivers should use mdelay when
-delaying for multiple miliseconds.
+The ax88796 driver uses the CRC32 functions, so make sure that
+they are actually enabled.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: Mathieu Poirier <mathieu.poirier@linaro.org>
 ---
- drivers/net/ethernet/sun/sungem.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/8390/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
-index 558409f..26c1a2c 100644
---- a/drivers/net/ethernet/sun/sungem.c
-+++ b/drivers/net/ethernet/sun/sungem.c
-@@ -401,7 +401,7 @@ static int gem_rxmac_reset(struct gem *gp)
- 		return 1;
- 	}
- 
--	udelay(5000);
-+	mdelay(5);
- 
- 	/* Execute RX reset command. */
- 	writel(gp->swrst_base | GREG_SWRST_RXRST,
+diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
+index e04ade4..910895c 100644
+--- a/drivers/net/ethernet/8390/Kconfig
++++ b/drivers/net/ethernet/8390/Kconfig
+@@ -60,6 +60,7 @@ config PCMCIA_AXNET
+ config AX88796
+ 	tristate "ASIX AX88796 NE2000 clone support"
+ 	depends on (ARM || MIPS || SUPERH)
++	select CRC32
+ 	select PHYLIB
+ 	select MDIO_BITBANG
+ 	---help---
 -- 
 1.7.5.4
