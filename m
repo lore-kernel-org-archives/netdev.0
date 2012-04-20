@@ -1,49 +1,49 @@
-From: Paolo Pisati <paolo.pisati@canonical.com>
-Subject: [PATCH] smsc95xx: mark link down on startup and let PHY interrupt deal with carrier changes
-Date: Fri, 20 Apr 2012 11:35:21 +0200
-Message-ID: <1334914521-5990-1-git-send-email-paolo.pisati@canonical.com>
+From: Ingo van Lil <inguin@gmx.de>
+Subject: [PATCH] Fix tx transfer padding for full-speed USB
+Date: Fri, 20 Apr 2012 12:00:21 +0200
+Message-ID: <1334916021-9124-1-git-send-email-inguin@gmx.de>
+Cc: Ingo van Lil <inguin@gmx.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:59044 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951Ab2DTJf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 05:35:29 -0400
-Received: from 2-230-238-136.ip204.fastwebnet.it ([2.230.238.136] helo=canonical.com)
-	by youngberry.canonical.com with esmtpsa (TLS1.0:DHE_RSA_AES_128_CBC_SHA1:16)
-	(Exim 4.71)
-	(envelope-from <paolo.pisati@canonical.com>)
-	id 1SLAFU-0003HE-5W
-	for netdev@vger.kernel.org; Fri, 20 Apr 2012 09:35:28 +0000
+Received: from mailout-de.gmx.net ([213.165.64.23]:58757 "HELO
+	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753670Ab2DTKAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 06:00:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this patch sysfs reports the cable as present
+The asix.c USB Ethernet driver avoids ending a tx transfer with a zero-
+length packet by appending a four-byte padding to transfers whose length
+is a multiple of maxpacket. However, the hard-coded 512 byte maxpacket
+length is valid for high-speed USB only; full-speed USB uses 64 byte
+packets.
 
-flag@flag-desktop:~$ cat /sys/class/net/eth0/carrier
-1
-
-while it's not:
-
-flag@flag-desktop:~$ sudo mii-tool eth0
-eth0: no link
-
-Signed-off-by: Paolo Pisati <paolo.pisati@canonical.com>
+Signed-off-by: Ingo van Lil <inguin@gmx.de>
 ---
- drivers/net/usb/smsc95xx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/usb/asix.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 3444514..93d3252 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1192,7 +1192,7 @@ static const struct driver_info smsc95xx_info = {
- 	.rx_fixup	= smsc95xx_rx_fixup,
- 	.tx_fixup	= smsc95xx_tx_fixup,
- 	.status		= smsc95xx_status,
--	.flags		= FLAG_ETHER | FLAG_SEND_ZLP,
-+	.flags		= FLAG_ETHER | FLAG_SEND_ZLP | FLAG_LINK_INTR,
- };
+diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
+index 5ee032c..aeb2702 100644
+--- a/drivers/net/usb/asix.c
++++ b/drivers/net/usb/asix.c
+@@ -355,7 +355,7 @@ static struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 	u32 packet_len;
+ 	u32 padbytes = 0xffff0000;
  
- static const struct usb_device_id products[] = {
+-	padlen = ((skb->len + 4) % 512) ? 0 : 4;
++	padlen = ((skb->len + 4) % dev->maxpacket) ? 0 : 4;
+ 
+ 	if ((!skb_cloned(skb)) &&
+ 	    ((headroom + tailroom) >= (4 + padlen))) {
+@@ -377,7 +377,7 @@ static struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 	cpu_to_le32s(&packet_len);
+ 	skb_copy_to_linear_data(skb, &packet_len, sizeof(packet_len));
+ 
+-	if ((skb->len % 512) == 0) {
++	if (padlen) {
+ 		cpu_to_le32s(&padbytes);
+ 		memcpy(skb_tail_pointer(skb), &padbytes, sizeof(padbytes));
+ 		skb_put(skb, sizeof(padbytes));
 -- 
-1.7.9.5
+1.7.7.6
