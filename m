@@ -1,108 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: e1000e tx queue timeout in 3.3.0 (bisected to BQL
- support for e1000e)
-Date: Fri, 20 Apr 2012 14:24:25 -0700
-Message-ID: <4F91D409.1040401@candelatech.com>
-References: <4F909F4B.1010707@candelatech.com>
-	<CA+mtBx9ZjfC692g1EwNsw=37ijWcGBOUaENCogVS=Bi9rfz0sg@mail.gmail.com>
-	<4F91B250.8090509@candelatech.com>
-	<CA+mtBx9s70wawA4E3+LyOQhJXRr1y-0j_Pzno5bBSz8TS3SUOA@mail.gmail.com>
-	<4F91B554.9060902@candelatech.com> <4F91BC82.2000804@intel.com>
-	<CA+mtBx-K6-O3ea34kmn4LXtx73FqCHF16w7pBSq1fHNN+-DxCA@mail.gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next 04/14] net: Fix issue with netdev_tx_reset_queue not
+ resetting queue from XOFF state
+Date: Fri, 20 Apr 2012 14:31:14 -0700
+Message-ID: <4F91D5A2.2060300@intel.com>
+References: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com> <1331611432-30109-5-git-send-email-jeffrey.t.kirsher@intel.com> <CA+mtBx-BWy=KANgSca9f2vxuu1Km_kPMJbQFa+Nq9q_YYvatBQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	e1000-devel list <e1000-devel@lists.sourceforge.net>
-To: Tom Herbert <therbert@google.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CA+mtBx-K6-O3ea34kmn4LXtx73FqCHF16w7pBSq1fHNN+-DxCA@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Tom Herbert <therbert@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:19784 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754454Ab2DTVbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2012 17:31:15 -0400
+In-Reply-To: <CA+mtBx-BWy=KANgSca9f2vxuu1Km_kPMJbQFa+Nq9q_YYvatBQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/20/2012 02:21 PM, Tom Herbert wrote:
-> Thanks John for pointers to those.  Ben, are you running a kernel with
-> these patches?
+On 4/20/2012 2:19 PM, Tom Herbert wrote:
+> Hi Jeff,
+> 
+>> @@ -3244,7 +3246,6 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
+>>                buffer_info = &tx_ring->tx_buffer_info[i];
+>>                igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
+>>        }
+>> -       netdev_tx_reset_queue(txring_txq(tx_ring));
+>>
+> Why is it necessary to remove this?  If rings are being freed with
+> going through completion path then we would need this reset.  Is this
+> being done elsewhere maybe?
+> 
 
-I don't think so.  I'll add them and re-test.
+Alex moved this into the igb_configure_tx_ring() iirc to catch an ethtool
+test case. He assured me when I reviewed the patch that igb_configure_tx_ring()
+would always be called before netif_carrier_on() so I think(?) that should
+be OK.
 
-Thanks,
-Ben
+The above removed case was called after netif_carrier_off() anyways.
 
->
 > Tom
->
->>
->> Tom, did you see these two patches? Maybe this is resolved by
->> the second patch.
->>
->> We needed these to fixup ixgbe and igb (i didn't test e1000e)
->> looks like we might want to push these at stable. I don't
->> believe they are in 3.3.
->>
->> commit b37c0fbe3f6dfba1f8ad2aed47fb40578a254635
->> Author: Alexander Duyck<alexander.h.duyck@intel.com>
->> Date:   Tue Feb 7 02:29:06 2012 +0000
->>
->>     net: Add memory barriers to prevent possible race in byte queue limits
->>
->>     This change adds a memory barrier to the byte queue limit code to address a
->>     possible race as has been seen in the past with the
->>     netif_stop_queue/netif_wake_queue logic.
->>
->>     Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
->>     Tested-by: Stephen Ko<stephen.s.ko@intel.com>
->>     Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
->>
->>
->> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=b37c0fbe3f6dfba1f8ad2aed47fb40578a254635
->>
->>
->> commit 5c4903549c05bbb373479e0ce2992573c120654a
->> Author: Alexander Duyck<alexander.h.duyck@intel.com>
->> Date:   Tue Feb 7 02:29:01 2012 +0000
->>
->>     net: Fix issue with netdev_tx_reset_queue not resetting queue from XOFF state
->>
->>     We are seeing dev_watchdog hangs on several drivers.  I suspect this is due
->>     to the __QUEUE_STATE_STACK_XOFF bit being set prior to a reset for link
->>     change, and then not being cleared by netdev_tx_reset_queue.  This change
->>     corrects that.
->>
->>     In addition we were seeing dev_watchdog hangs on igb after running the
->>     ethtool tests.  We found this to be due to the fact that the ethtool test
->>     runs the same logic as ndo_start_xmit, but we were never clearing the XOFF
->>     flag since the loopback test in ethtool does not do byte queue accounting.
->>
->>     Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
->>     Tested-by: Stephen Ko<stephen.s.ko@intel.com>
->>     Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
->>
->> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=5c4903549c05bbb373479e0ce2992573c120654a
->>
->>
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
-
-------------------------------------------------------------------------------
-For Developers, A Lot Can Happen In A Second.
-Boundary is the first to Know...and Tell You.
-Monitor Your Applications in Ultra-Fine Resolution. Try it FREE!
-http://p.sf.net/sfu/Boundary-d2dvs2
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
