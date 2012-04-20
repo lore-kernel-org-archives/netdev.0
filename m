@@ -1,55 +1,46 @@
-From: Marco Berizzi <pupilla@hotmail.com>
-Subject: RE: rx_dropped packets stop with tcpdump running
-Date: Fri, 20 Apr 2012 17:25:28 +0200
-Message-ID: <DUB108-W57C2F8FCF145C20E3B8BF1B2220@phx.gbl>
-References: <DUB108-W3E0658169335663BE7574B23D0@phx.gbl>,<1334841865.2395.177.camel@edumazet-glaptop>,<1334842088.2395.178.camel@edumazet-glaptop>,<061C8A8601E8EE4CA8D8FD6990CEA8910FF2D23F@ORSMSX102.amr.corp.intel.com>
- <DUB108-W45246BF22ED8BAB93B78C8B2220@phx.gbl>,<4F9179E3.5020507@hp.com>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: Re: RTM_NEWLINK not received by application when connecting multiple
+ devices simultaneously
+Date: Fri, 20 Apr 2012 17:54:51 +0200
+Message-ID: <CAKfDRXgd-9w_PL47OynVL3LX-Z7vG4skGOkQxOLc74=7jWBBXQ@mail.gmail.com>
+References: <CAKfDRXj+mydkzNFC8q2aE_JWHp3ie0cijC-itkm6sHLuZr98Fw@mail.gmail.com>
+	<4F90208E.6070201@candelatech.com>
+	<20120419075452.379f711b@s6510.linuxnetplumber.net>
+	<CAKfDRXjCr0aDSDT8zN8A7_iNX6KAJwrR3NxaB8GAgz5oEiCB3w@mail.gmail.com>
+	<CAKfDRXhAqFzPWAJkzhPdZGsUrtjex8uVwHBynCdvA+Zo6sjMig@mail.gmail.com>
+	<20120419133635.7d816d67@nehalam.linuxnetplumber.net>
+	<CAKfDRXih39RVnx1P72due=_v9-ORWf=YUfUTPKcvVbNzVuTLdw@mail.gmail.com>
+	<20120420081400.67a98836@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <tushar.n.dave@intel.com>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>
-To: <brian.haley@hp.com>
+Cc: Ben Greear <greearb@candelatech.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dub0-omc4-s30.dub0.hotmail.com ([157.55.2.105]:32880 "EHLO
-	dub0-omc4-s30.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753824Ab2DTPZe convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2012 11:25:34 -0400
-In-Reply-To: <4F9179E3.5020507@hp.com>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:52849 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757165Ab2DTPyw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 11:54:52 -0400
+Received: by iagz16 with SMTP id z16so13558457iag.19
+        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 08:54:51 -0700 (PDT)
+In-Reply-To: <20120420081400.67a98836@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Apr 20, 2012 at 5:14 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+>
+> Check if ip command catches the events (ip monitor).
 
-brian.haley@hp.com wrote:
-> 0x886d or 0x86DD? That second one is IPv6, you might just need to loa=
-d the module.
+ip monitor catches the event, also when I run ip monitor link. I.e.,
+the message is sent to the RTMGRP_LINK, which the application
+subscribes to.
 
-here is the tcpdump:
+> What is the type of device? and what do you =A0mean by connecting?
+> (ie installing, doing admin up, operstate transition, carrier)
 
-17:23:25.561398 00:19:99:90:ba:72 > ff:ff:ff:ff:ff:ff, ethertype Unknow=
-n (0x886d), length 64:=20
-=A0=A0=A0=A0=A0=A0=A0 0x0000:=A0 0001 0001 000c 24e2 0001 0019 9990 ba7=
-2=A0 ......$........r
-=A0=A0=A0=A0=A0=A0=A0 0x0010:=A0 0000 0500 2304 6364 726f 447b d700 80f=
-8=A0 ....#.cdroD{....
-=A0=A0=A0=A0=A0=A0=A0 0x0020:=A0 ffff 20d1 b631 80fa ffff e02b fb30 80f=
-a=A0 .....1.....+.0..
-=A0=A0=A0=A0=A0=A0=A0 0x0030:=A0 ffff=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
- ..
-17:23:25.561402 00:19:99:90:ba:73 > ff:ff:ff:ff:ff:ff, ethertype Unknow=
-n (0x886d), length 64:=20
-=A0=A0=A0=A0=A0=A0=A0 0x0000:=A0 0001 0001 000c 24e2 0002 0019 9990 ba7=
-2=A0 ......$........r
-=A0=A0=A0=A0=A0=A0=A0 0x0010:=A0 6700 5400 6800 7200 6500 7300 6800 6f0=
-0=A0 g.T.h.r.e.s.h.o.
-=A0=A0=A0=A0=A0=A0=A0 0x0020:=A0 6c00 6400 0000 3700 3200 0000 0000 000=
-0=A0 l.d...7.2.......
-=A0=A0=A0=A0=A0=A0=A0 0x0030:=A0 0000=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
- ..
+The devices are USB 3G Modems (Huawei e173). By connecting, I mean
+when ppp has established a successful connection. I.e., the device is
+seen as IFF_RUNNING/IF_OPER_UP.
 
-
-
- 		 	   		  
+-Kristian
