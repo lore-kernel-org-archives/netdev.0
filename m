@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 2/9] atl1c: refine phy-register read/write function
-Date: Fri, 20 Apr 2012 14:16:17 +0800
-Message-ID: <1334902584-15584-3-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 4/9] atl1c: refine SERDES-clock related code
+Date: Fri, 20 Apr 2012 14:16:19 +0800
+Message-ID: <1334902584-15584-5-git-send-email-xiong@qca.qualcomm.com>
 References: <1334902584-15584-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,350 +9,170 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 	xiong <xiong@qca.qualcomm.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:38580 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457Ab2DTGRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 02:17:11 -0400
 In-Reply-To: <1334902584-15584-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-phy register is read/write via MDIO control module ---
-that module will be affected by the hibernate status,
-to access phy regs in hib stutus, slow frequency clk must
-be selected.
-To access phy extension register, the MDIO related
-registers are refined/updated, a _core function is
-re-wroted for both regular PHY regs and extension regs.
-existing PHY r/w function is revised based on the _core.
-PHY extension registers will be used for the comming
-patches.
+bit 17/18 of reg1424 must be clear for l2cb 1.x, or it will cause
+the write-reg operation fail without cable connected.
+so, please do connect the cable when apply this patch to the driver
+to make sure these 2bits are cleared by new driver.
+The revised code is move to al1c_reset_mac.
+SERDES register definition is refined as well.
+
+when do reset MAC, speed/duplex control right should be transferred
+to software before do PHY auto-neg -- by bit MASTER_CTRL_SPEED_MODE_SW.
+SERDES register definition is refined as well.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |  178 +++++++++++++++++++----
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   64 +++++---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    4 +-
- 3 files changed, 189 insertions(+), 57 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c |    2 +-
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h      |   34 +++++++++++------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |   40 +++++++++++++-------
+ 3 files changed, 49 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-index bd1667c..6cbe78a 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-@@ -277,65 +277,181 @@ void atl1c_hash_set(struct atl1c_hw *hw, u32 hash_value)
- 	AT_WRITE_REG_ARRAY(hw, REG_RX_HASH_TABLE, hash_reg, mta);
- }
- 
-+
-+void atl1c_stop_phy_polling(struct atl1c_hw *hw)
-+{
-+	u32 val;
-+	int i;
-+
-+	if (hw->ctrl_flags & ATL1C_FPGA_VERSION) {
-+		AT_WRITE_REG(hw, REG_MDIO_CTRL, 0);
-+		for (i = 0; i < MDIO_MAX_AC_TO; i++) {
-+			AT_READ_REG(hw, REG_MDIO_CTRL, &val);
-+			if (0 == (val & MDIO_CTRL_BUSY))
-+				break;
-+			udelay(10);
-+		}
-+	}
-+}
-+
-+void atl1c_start_phy_polling(struct atl1c_hw *hw, u16 clk_sel)
-+{
-+	u32 val;
-+	int i;
-+
-+	if (hw->ctrl_flags & ATL1C_FPGA_VERSION) {
-+		val = MDIO_CTRL_SPRES_PRMBL |
-+			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-+			FIELDX(MDIO_CTRL_REG, 1) |
-+			MDIO_CTRL_START |
-+			MDIO_CTRL_OP_READ;
-+		AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
-+		for (i = 0; i < MDIO_MAX_AC_TO; i++) {
-+			AT_READ_REG(hw, REG_MDIO_CTRL, &val);
-+			if (0 == (val & MDIO_CTRL_BUSY))
-+				break;
-+			udelay(10);
-+		}
-+		val |= MDIO_CTRL_AP_EN;
-+		val &= ~MDIO_CTRL_START;
-+		AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
-+		udelay(30);
-+	}
-+}
-+
-+
- /*
-- * Reads the value from a PHY register
-- * hw - Struct containing variables accessed by shared code
-- * reg_addr - address of the PHY register to read
-+ * atl1c_read_phy_core
-+ * core funtion to read register in PHY via MDIO control regsiter.
-+ * ext: extension register (see IEEE 802.3)
-+ * dev: device address (see IEEE 802.3 DEVAD, PRTAD is fixed to 0)
-+ * reg: reg to read
-  */
--int atl1c_read_phy_reg(struct atl1c_hw *hw, u16 reg_addr, u16 *phy_data)
-+int atl1c_read_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
-+			u16 reg, u16 *phy_data)
- {
- 	u32 val;
-+	u16 clk_sel;
- 	int i;
- 
--	val = ((u32)(reg_addr & MDIO_REG_ADDR_MASK)) << MDIO_REG_ADDR_SHIFT |
--		MDIO_START | MDIO_SUP_PREAMBLE | MDIO_RW |
--		MDIO_CLK_25_4 << MDIO_CLK_SEL_SHIFT;
-+	atl1c_stop_phy_polling(hw);
- 
-+	*phy_data = 0;
-+	clk_sel = hw->hibernate ? MDIO_CTRL_CLK_25_128 : MDIO_CTRL_CLK_25_4;
-+	if (ext) {
-+		val = FIELDX(MDIO_EXTN_DEVAD, dev) | FIELDX(MDIO_EXTN_REG, reg);
-+		AT_WRITE_REG(hw, REG_MDIO_EXTN, val);
-+		val = MDIO_CTRL_SPRES_PRMBL |
-+			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-+			MDIO_CTRL_START |
-+			MDIO_CTRL_MODE_EXT |
-+			MDIO_CTRL_OP_READ;
-+	} else {
-+		val = MDIO_CTRL_SPRES_PRMBL |
-+			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-+			FIELDX(MDIO_CTRL_REG, reg) |
-+			MDIO_CTRL_START |
-+			MDIO_CTRL_OP_READ;
-+	}
- 	AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
- 
--	for (i = 0; i < MDIO_WAIT_TIMES; i++) {
--		udelay(2);
-+	for (i = 0; i < MDIO_MAX_AC_TO; i++) {
- 		AT_READ_REG(hw, REG_MDIO_CTRL, &val);
--		if (!(val & (MDIO_START | MDIO_BUSY)))
-+		if (0 == (val & MDIO_CTRL_BUSY)) {
-+			*phy_data = (u16)FIELD_GETX(val, MDIO_CTRL_DATA);
- 			break;
-+		}
-+		udelay(10);
- 	}
--	if (!(val & (MDIO_START | MDIO_BUSY))) {
--		*phy_data = (u16)val;
--		return 0;
--	}
-+	if (MDIO_MAX_AC_TO == i)
-+		return -1;
- 
--	return -1;
-+	atl1c_start_phy_polling(hw, clk_sel);
-+
-+	return 0;
- }
- 
- /*
-- * Writes a value to a PHY register
-- * hw - Struct containing variables accessed by shared code
-- * reg_addr - address of the PHY register to write
-- * data - data to write to the PHY
-+ * atl1c_write_phy_core
-+ * core funtion to write to register in PHY via MDIO control regsiter.
-+ * ext: extension register (see IEEE 802.3)
-+ * dev: device address (see IEEE 802.3 DEVAD, PRTAD is fixed to 0)
-+ * reg: reg to write
-  */
--int atl1c_write_phy_reg(struct atl1c_hw *hw, u32 reg_addr, u16 phy_data)
-+int atl1c_write_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
-+			u16 reg, u16 phy_data)
- {
--	int i;
- 	u32 val;
-+	u16 clk_sel;
-+	int i;
- 
--	val = ((u32)(phy_data & MDIO_DATA_MASK)) << MDIO_DATA_SHIFT   |
--	       (reg_addr & MDIO_REG_ADDR_MASK) << MDIO_REG_ADDR_SHIFT |
--	       MDIO_SUP_PREAMBLE | MDIO_START |
--	       MDIO_CLK_25_4 << MDIO_CLK_SEL_SHIFT;
-+	atl1c_stop_phy_polling(hw);
- 
-+	clk_sel = hw->hibernate ? MDIO_CTRL_CLK_25_128 : MDIO_CTRL_CLK_25_4;
-+	if (ext) {
-+		val = FIELDX(MDIO_EXTN_DEVAD, dev) | FIELDX(MDIO_EXTN_REG, reg);
-+		AT_WRITE_REG(hw, REG_MDIO_EXTN, val);
-+		val = MDIO_CTRL_SPRES_PRMBL |
-+			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-+			FIELDX(MDIO_CTRL_DATA, phy_data) |
-+			MDIO_CTRL_START |
-+			MDIO_CTRL_MODE_EXT;
-+	} else {
-+		val = MDIO_CTRL_SPRES_PRMBL |
-+			FIELDX(MDIO_CTRL_CLK_SEL, clk_sel) |
-+			FIELDX(MDIO_CTRL_DATA, phy_data) |
-+			FIELDX(MDIO_CTRL_REG, reg) |
-+			MDIO_CTRL_START;
-+	}
- 	AT_WRITE_REG(hw, REG_MDIO_CTRL, val);
- 
--	for (i = 0; i < MDIO_WAIT_TIMES; i++) {
--		udelay(2);
-+	for (i = 0; i < MDIO_MAX_AC_TO; i++) {
- 		AT_READ_REG(hw, REG_MDIO_CTRL, &val);
--		if (!(val & (MDIO_START | MDIO_BUSY)))
-+		if (0 == (val & MDIO_CTRL_BUSY))
- 			break;
-+		udelay(10);
- 	}
-+	if (MDIO_MAX_AC_TO == i)
-+		return -1;
- 
--	if (!(val & (MDIO_START | MDIO_BUSY)))
--		return 0;
-+	atl1c_start_phy_polling(hw, clk_sel);
- 
--	return -1;
-+	return 0;
-+}
-+
-+/*
-+ * Reads the value from a PHY register
-+ * hw - Struct containing variables accessed by shared code
-+ * reg_addr - address of the PHY register to read
-+ */
-+int atl1c_read_phy_reg(struct atl1c_hw *hw, u16 reg_addr, u16 *phy_data)
-+{
-+	return atl1c_read_phy_core(hw, false, 0, reg_addr, phy_data);
-+}
-+
-+/*
-+ * Writes a value to a PHY register
-+ * hw - Struct containing variables accessed by shared code
-+ * reg_addr - address of the PHY register to write
-+ * data - data to write to the PHY
-+ */
-+int atl1c_write_phy_reg(struct atl1c_hw *hw, u32 reg_addr, u16 phy_data)
-+{
-+	return atl1c_write_phy_core(hw, false, 0, reg_addr, phy_data);
-+}
-+
-+/* read from PHY extension register */
-+int atl1c_read_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
-+			u16 reg_addr, u16 *phy_data)
-+{
-+	return atl1c_read_phy_core(hw, true, dev_addr, reg_addr, phy_data);
-+}
-+
-+/* write to PHY extension register */
-+int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
-+			u16 reg_addr, u16 phy_data)
-+{
-+	return atl1c_write_phy_core(hw, true, dev_addr, reg_addr, phy_data);
- }
- 
- /*
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+index 3feb846..859ea84 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+@@ -153,7 +153,7 @@ static void atl1c_get_regs(struct net_device *netdev,
+ 	AT_READ_REG(hw, REG_LINK_CTRL, 		  p++);
+ 	AT_READ_REG(hw, REG_IDLE_STATUS, 	  p++);
+ 	AT_READ_REG(hw, REG_MDIO_CTRL, 		  p++);
+-	AT_READ_REG(hw, REG_SERDES_LOCK, 	  p++);
++	AT_READ_REG(hw, REG_SERDES,		  p++);
+ 	AT_READ_REG(hw, REG_MAC_CTRL, 		  p++);
+ 	AT_READ_REG(hw, REG_MAC_IPG_IFG, 	  p++);
+ 	AT_READ_REG(hw, REG_MAC_STA_ADDR, 	  p++);
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index 459e141..eb7f3bb 100644
+index eb7f3bb..7be6f5d 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -49,6 +49,16 @@ int atl1c_phy_init(struct atl1c_hw *hw);
- int atl1c_check_eeprom_exist(struct atl1c_hw *hw);
- int atl1c_restart_autoneg(struct atl1c_hw *hw);
- int atl1c_phy_power_saving(struct atl1c_hw *hw);
-+void atl1c_stop_phy_polling(struct atl1c_hw *hw);
-+void atl1c_start_phy_polling(struct atl1c_hw *hw, u16 clk_sel);
-+int atl1c_read_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
-+			u16 reg, u16 *phy_data);
-+int atl1c_write_phy_core(struct atl1c_hw *hw, bool ext, u8 dev,
-+			u16 reg, u16 phy_data);
-+int atl1c_read_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
-+			u16 reg_addr, u16 *phy_data);
-+int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
-+			u16 reg_addr, u16 phy_data);
- /* register definition */
- #define REG_DEVICE_CAP              	0x5C
- #define DEVICE_CAP_MAX_PAYLOAD_MASK     0x7
-@@ -268,30 +278,36 @@ int atl1c_phy_power_saving(struct atl1c_hw *hw);
+@@ -326,18 +326,28 @@ int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
+ #define BIST1_FUSE_FLAG             	0x4
  
- /* MDIO Control Register */
- #define REG_MDIO_CTRL           	0x1414
--#define MDIO_DATA_MASK          	0xffff  /* On MDIO write, the 16-bit
--						 * control data to write to PHY
--						 * MII management register */
--#define MDIO_DATA_SHIFT         	0       /* On MDIO read, the 16-bit
--						 * status data that was read
--						 * from the PHY MII management register */
--#define MDIO_REG_ADDR_MASK      	0x1f    /* MDIO register address */
--#define MDIO_REG_ADDR_SHIFT     	16
--#define MDIO_RW                 	0x200000  /* 1: read, 0: write */
--#define MDIO_SUP_PREAMBLE       	0x400000  /* Suppress preamble */
--#define MDIO_START              	0x800000  /* Write 1 to initiate the MDIO
--						   * master. And this bit is self
--						   * cleared after one cycle */
--#define MDIO_CLK_SEL_SHIFT      	24
--#define MDIO_CLK_25_4           	0
--#define MDIO_CLK_25_6           	2
--#define MDIO_CLK_25_8           	3
--#define MDIO_CLK_25_10          	4
--#define MDIO_CLK_25_14          	5
--#define MDIO_CLK_25_20          	6
--#define MDIO_CLK_25_28          	7
--#define MDIO_BUSY               	0x8000000
--#define MDIO_AP_EN              	0x10000000
--#define MDIO_WAIT_TIMES         	10
-+#define MDIO_CTRL_MODE_EXT		BIT(30)
-+#define MDIO_CTRL_POST_READ		BIT(29)
-+#define MDIO_CTRL_AP_EN			BIT(28)
-+#define MDIO_CTRL_BUSY			BIT(27)
-+#define MDIO_CTRL_CLK_SEL_MASK		0x7UL
-+#define MDIO_CTRL_CLK_SEL_SHIFT		24
-+#define MDIO_CTRL_CLK_25_4		0	/* 25MHz divide 4 */
-+#define MDIO_CTRL_CLK_25_6		2
-+#define MDIO_CTRL_CLK_25_8		3
-+#define MDIO_CTRL_CLK_25_10		4
-+#define MDIO_CTRL_CLK_25_32		5
-+#define MDIO_CTRL_CLK_25_64		6
-+#define MDIO_CTRL_CLK_25_128		7
-+#define MDIO_CTRL_START			BIT(23)
-+#define MDIO_CTRL_SPRES_PRMBL		BIT(22)
-+#define MDIO_CTRL_OP_READ		BIT(21)	/* 1:read, 0:write */
-+#define MDIO_CTRL_REG_MASK		0x1FUL
-+#define MDIO_CTRL_REG_SHIFT		16
-+#define MDIO_CTRL_DATA_MASK		0xFFFFUL
-+#define MDIO_CTRL_DATA_SHIFT		0
-+#define MDIO_MAX_AC_TO			120	/* 1.2ms timeout for slow clk */
-+
-+/* for extension reg access */
-+#define REG_MDIO_EXTN			0x1448
-+#define MDIO_EXTN_PORTAD_MASK		0x1FUL
-+#define MDIO_EXTN_PORTAD_SHIFT		21
-+#define MDIO_EXTN_DEVAD_MASK		0x1FUL
-+#define MDIO_EXTN_DEVAD_SHIFT		16
-+#define MDIO_EXTN_REG_MASK		0xFFFFUL
-+#define MDIO_EXTN_REG_SHIFT		0
+ /* SerDes Lock Detect Control and Status Register */
+-#define REG_SERDES_LOCK            	0x1424
+-#define SERDES_LOCK_DETECT          	0x1  /* SerDes lock detected. This signal
+-					      * comes from Analog SerDes */
+-#define SERDES_LOCK_DETECT_EN       	0x2  /* 1: Enable SerDes Lock detect function */
+-#define SERDES_LOCK_STS_SELFB_PLL_SHIFT 0xE
+-#define SERDES_LOCK_STS_SELFB_PLL_MASK  0x3
+-#define SERDES_OVCLK_18_25		0x0
+-#define SERDES_OVCLK_12_18		0x1
+-#define SERDES_OVCLK_0_4		0x2
+-#define SERDES_OVCLK_4_12		0x3
+-#define SERDES_MAC_CLK_SLOWDOWN		0x20000
+-#define SERDES_PYH_CLK_SLOWDOWN		0x40000
++#define REG_SERDES			0x1424
++#define SERDES_PHY_CLK_SLOWDOWN		BIT(18)
++#define SERDES_MAC_CLK_SLOWDOWN		BIT(17)
++#define SERDES_SELFB_PLL_MASK		0x3UL
++#define SERDES_SELFB_PLL_SHIFT		14
++#define SERDES_PHYCLK_SEL_GTX		BIT(13)	/* 1:gtx_clk, 0:25M */
++#define SERDES_PCIECLK_SEL_SRDS		BIT(12)	/* 1:serdes,0:25M */
++#define SERDES_BUFS_RX_EN		BIT(11)
++#define SERDES_PD_RX			BIT(10)
++#define SERDES_PLL_EN			BIT(9)
++#define SERDES_EN			BIT(8)
++#define SERDES_SELFB_PLL_SEL_CSR	BIT(6)	/* 0:state-machine,1:csr */
++#define SERDES_SELFB_PLL_CSR_MASK	0x3UL
++#define SERDES_SELFB_PLL_CSR_SHIFT	4
++#define SERDES_SELFB_PLL_CSR_4		3	/* 4-12% OV-CLK */
++#define SERDES_SELFB_PLL_CSR_0		2	/* 0-4% OV-CLK */
++#define SERDES_SELFB_PLL_CSR_12		1	/* 12-18% OV-CLK */
++#define SERDES_SELFB_PLL_CSR_18		0	/* 18-25% OV-CLK */
++#define SERDES_VCO_SLOW			BIT(3)
++#define SERDES_VCO_FAST			BIT(2)
++#define SERDES_LOCK_DETECT_EN		BIT(1)
++#define SERDES_LOCK_DETECT		BIT(0)
  
- /* BIST Control and Status Register0 (for the Packet Memory) */
- #define REG_BIST0_CTRL              	0x141c
+ /* MAC Control Register  */
+ #define REG_MAC_CTRL         		0x1480
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index a6c3f05..1f82880 100644
+index f0f348b..cf78287 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -2270,7 +2270,7 @@ static int atl1c_open(struct net_device *netdev)
- 		u32 phy_data;
+@@ -1008,7 +1008,6 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
+ 	struct atl1c_rrd_ring *rrd_ring = &adapter->rrd_ring;
+ 	struct atl1c_tpd_ring *tpd_ring = (struct atl1c_tpd_ring *)
+ 				adapter->tpd_ring;
+-	u32 data;
  
- 		AT_READ_REG(&adapter->hw, REG_MDIO_CTRL, &phy_data);
--		phy_data |= MDIO_AP_EN;
-+		phy_data |= MDIO_CTRL_AP_EN;
- 		AT_WRITE_REG(&adapter->hw, REG_MDIO_CTRL, phy_data);
+ 	/* TPD */
+ 	AT_WRITE_REG(hw, REG_TX_BASE_ADDR_HI,
+@@ -1052,13 +1051,6 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
+ 		AT_WRITE_REG(hw, REG_TXF_WATER_MARK, 0);	/* TX watermark, to enter l1 state.*/
+ 		AT_WRITE_REG(hw, REG_RXD_DMA_CTRL, 0);		/* RXD threshold.*/
  	}
+-	if (hw->nic_type == athr_l2c_b || hw->nic_type == athr_l1d_2) {
+-			/* Power Saving for L2c_B */
+-		AT_READ_REG(hw, REG_SERDES_LOCK, &data);
+-		data |= SERDES_MAC_CLK_SLOWDOWN;
+-		data |= SERDES_PYH_CLK_SLOWDOWN;
+-		AT_WRITE_REG(hw, REG_SERDES_LOCK, data);
+-	}
+ 	/* Load all of base address above */
+ 	AT_WRITE_REG(hw, REG_LOAD_PTR, 1);
+ }
+@@ -1177,7 +1169,7 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
+ {
+ 	struct atl1c_adapter *adapter = (struct atl1c_adapter *)hw->adapter;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	u32 master_ctrl_data = 0;
++	u32 ctrl_data = 0;
+ 
+ 	AT_WRITE_REG(hw, REG_IMR, 0);
+ 	AT_WRITE_REG(hw, REG_ISR, ISR_DIS_INT);
+@@ -1189,10 +1181,9 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
+ 	 * the current PCI configuration.  The global reset bit is self-
+ 	 * clearing, and should clear within a microsecond.
+ 	 */
+-	AT_READ_REG(hw, REG_MASTER_CTRL, &master_ctrl_data);
+-	master_ctrl_data |= MASTER_CTRL_OOB_DIS;
+-	AT_WRITE_REG(hw, REG_MASTER_CTRL,
+-		master_ctrl_data | MASTER_CTRL_SOFT_RST);
++	AT_READ_REG(hw, REG_MASTER_CTRL, &ctrl_data);
++	ctrl_data |= MASTER_CTRL_OOB_DIS;
++	AT_WRITE_REG(hw, REG_MASTER_CTRL, ctrl_data | MASTER_CTRL_SOFT_RST);
+ 
+ 	AT_WRITE_FLUSH(hw);
+ 	msleep(10);
+@@ -1204,7 +1195,28 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
+ 			" disabled for 10ms second\n");
+ 		return -1;
+ 	}
+-	AT_WRITE_REG(hw, REG_MASTER_CTRL, master_ctrl_data);
++	AT_WRITE_REG(hw, REG_MASTER_CTRL, ctrl_data);
++
++	/* driver control speed/duplex */
++	AT_READ_REG(hw, REG_MAC_CTRL, &ctrl_data);
++	AT_WRITE_REG(hw, REG_MAC_CTRL, ctrl_data | MAC_CTRL_SPEED_MODE_SW);
++
++	/* clk switch setting */
++	AT_READ_REG(hw, REG_SERDES, &ctrl_data);
++	switch (hw->nic_type) {
++	case athr_l2c_b:
++		ctrl_data &= ~(SERDES_PHY_CLK_SLOWDOWN |
++				SERDES_MAC_CLK_SLOWDOWN);
++		AT_WRITE_REG(hw, REG_SERDES, ctrl_data);
++		break;
++	case athr_l2c_b2:
++	case athr_l1d_2:
++		ctrl_data |= SERDES_PHY_CLK_SLOWDOWN | SERDES_MAC_CLK_SLOWDOWN;
++		AT_WRITE_REG(hw, REG_SERDES, ctrl_data);
++		break;
++	default:
++		break;
++	}
+ 
  	return 0;
-@@ -2558,7 +2558,7 @@ static int __devinit atl1c_probe(struct pci_dev *pdev,
- 	adapter->mii.mdio_read  = atl1c_mdio_read;
- 	adapter->mii.mdio_write = atl1c_mdio_write;
- 	adapter->mii.phy_id_mask = 0x1f;
--	adapter->mii.reg_num_mask = MDIO_REG_ADDR_MASK;
-+	adapter->mii.reg_num_mask = MDIO_CTRL_REG_MASK;
- 	netif_napi_add(netdev, &adapter->napi, atl1c_clean, 64);
- 	setup_timer(&adapter->phy_config_timer, atl1c_phy_config,
- 			(unsigned long)adapter);
+ }
 -- 
 1.7.7
