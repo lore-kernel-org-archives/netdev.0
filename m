@@ -1,18 +1,18 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH v3.4-rc 3/9] pch_gbe: reprogram multicast address register on reset
-Date: Fri, 20 Apr 2012 22:09:22 +0200
-Message-ID: <f71c502adc71ae53f113965666af6d3a5b7a691c.1334949388.git.richardcochran@gmail.com>
+Subject: [PATCH v3.4-rc 4/9] pch_gbe: export a method to set the receive match address
+Date: Fri, 20 Apr 2012 22:09:23 +0200
+Message-ID: <69ba3908f1e95a8ac7c049238b71b5865cdca8af.1334949388.git.richardcochran@gmail.com>
 References: <cover.1334949388.git.richardcochran@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
 	Takahiro Shimizu <tshimizu818@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:57249 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771Ab2DTUKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 16:10:05 -0400
-Received: by wibhq7 with SMTP id hq7so1034853wib.1
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 13:10:04 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:42353 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771Ab2DTUKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 16:10:10 -0400
+Received: by wibhj6 with SMTP id hj6so1022509wib.1
+        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 13:10:09 -0700 (PDT)
 In-Reply-To: <cover.1334949388.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1334949388.git.richardcochran@gmail.com>
 References: <cover.1334949388.git.richardcochran@gmail.com>
@@ -21,9 +21,8 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Takahiro Shimizu <tshimizu818@gmail.com>
 
-The reset logic after a Rx FIFO overrun will clear the programmed
-multicast addresses. This patch fixes the issue by reprogramming the
-registers after the reset.
+The code in phc_gbe_main will need to call this method in order to set the
+station address register according to the receive time stamping filter.
 
 [ RC - Rebased Takahiro's changes and wrote a commit message
   explaining the changes. ]
@@ -31,101 +30,42 @@ registers after the reset.
 Signed-off-by: Takahiro Shimizu <tshimizu818@gmail.com>
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   60 +++++++++++++++++++-
- 1 files changed, 57 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h |    1 +
+ drivers/ptp/ptp_pch.c                           |    3 ++-
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 6a9a63b..dc15e93 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -383,31 +383,85 @@ static void pch_gbe_mac_mar_set(struct pch_gbe_hw *hw, u8 * addr, u32 index)
- }
- 
- /**
-+ * pch_gbe_mac_save_mac_addr_regs - Save MAC addresse registers
-+ * @hw:		Pointer to the HW structure
-+ * @addr:	Pointer to the MAC address
-+ * @index:  MAC address array register
-+ */
-+static void
-+pch_gbe_mac_save_mac_addr_regs(struct pch_gbe_hw *hw,
-+			struct pch_gbe_regs_mac_adr *mac_adr, u32 index)
-+{
-+	mac_adr->high = ioread32(&hw->reg->mac_adr[index].high);
-+	mac_adr->low = ioread32(&hw->reg->mac_adr[index].low);
-+}
-+
-+/**
-+ * pch_gbe_mac_store_mac_addr_regs - Store MAC addresse registers
-+ * @hw:		Pointer to the HW structure
-+ * @addr:	Pointer to the MAC address
-+ * @index:  MAC address array register
-+ */
-+static void
-+pch_gbe_mac_store_mac_addr_regs(struct pch_gbe_hw *hw,
-+			struct pch_gbe_regs_mac_adr *mac_adr, u32 index)
-+{
-+	u32 adrmask;
-+
-+	adrmask = ioread32(&hw->reg->ADDR_MASK);
-+	iowrite32((adrmask | (0x0001 << index)), &hw->reg->ADDR_MASK);
-+	/* wait busy */
-+	pch_gbe_wait_clr_bit(&hw->reg->ADDR_MASK, PCH_GBE_BUSY);
-+	/* Set the MAC address to the MAC address xA/xB register */
-+	iowrite32(mac_adr->high, &hw->reg->mac_adr[index].high);
-+	iowrite32(mac_adr->low, &hw->reg->mac_adr[index].low);
-+	iowrite32((adrmask & ~(0x0001 << index)), &hw->reg->ADDR_MASK);
-+	/* wait busy */
-+	pch_gbe_wait_clr_bit(&hw->reg->ADDR_MASK, PCH_GBE_BUSY);
-+}
-+
-+#define MAC_ADDR_LIST_NUM 16
-+/**
-  * pch_gbe_mac_reset_hw - Reset hardware
-  * @hw:	Pointer to the HW structure
-  */
- static void pch_gbe_mac_reset_hw(struct pch_gbe_hw *hw)
- {
-+	struct pch_gbe_regs_mac_adr mac_addr_list[MAC_ADDR_LIST_NUM];
-+	int i;
-+
- 	/* Read the MAC address. and store to the private data */
- 	pch_gbe_mac_read_mac_addr(hw);
-+	/* Read other MAC addresses */
-+	for (i = 1; i < MAC_ADDR_LIST_NUM; i++)
-+		pch_gbe_mac_save_mac_addr_regs(hw, &mac_addr_list[i], i);
- 	iowrite32(PCH_GBE_ALL_RST, &hw->reg->RESET);
- #ifdef PCH_GBE_MAC_IFOP_RGMII
- 	iowrite32(PCH_GBE_MODE_GMII_ETHER, &hw->reg->MODE);
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+index dd14915..9f3dbc4 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+@@ -660,6 +660,7 @@ extern u32 pch_src_uuid_lo_read(struct pci_dev *pdev);
+ extern u32 pch_src_uuid_hi_read(struct pci_dev *pdev);
+ extern u64 pch_rx_snap_read(struct pci_dev *pdev);
+ extern u64 pch_tx_snap_read(struct pci_dev *pdev);
++extern int pch_set_station_address(u8 *addr, struct pci_dev *pdev);
  #endif
- 	pch_gbe_wait_clr_bit(&hw->reg->RESET, PCH_GBE_ALL_RST);
--	/* Setup the receive address */
-+	/* Setup the receive addresses */
- 	pch_gbe_mac_mar_set(hw, hw->mac.addr, 0);
-+	for (i = 1; i < MAC_ADDR_LIST_NUM; i++)
-+		pch_gbe_mac_store_mac_addr_regs(hw, &mac_addr_list[i], i);
- 	return;
- }
  
- static void pch_gbe_mac_reset_rx(struct pch_gbe_hw *hw)
+ /* pch_gbe_param.c */
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+index 847a3c3..9e397fe 100644
+--- a/drivers/ptp/ptp_pch.c
++++ b/drivers/ptp/ptp_pch.c
+@@ -308,7 +308,7 @@ static void pch_reset(struct pch_dev *chip)
+  *				    traffic on the  ethernet interface
+  * @addr:	dress which contain the column separated address to be used.
+  */
+-static int pch_set_station_address(u8 *addr, struct pci_dev *pdev)
++int pch_set_station_address(u8 *addr, struct pci_dev *pdev)
  {
--	/* Read the MAC address. and store to the private data */
-+	struct pch_gbe_regs_mac_adr mac_addr_list[MAC_ADDR_LIST_NUM];
-+	int i;
-+
-+	/* Read the MAC addresses. and store to the private data */
- 	pch_gbe_mac_read_mac_addr(hw);
-+	for (i = 1; i < MAC_ADDR_LIST_NUM; i++)
-+		pch_gbe_mac_save_mac_addr_regs(hw, &mac_addr_list[i], i);
- 	iowrite32(PCH_GBE_RX_RST, &hw->reg->RESET);
- 	pch_gbe_wait_clr_bit_irq(&hw->reg->RESET, PCH_GBE_RX_RST);
--	/* Setup the MAC address */
-+	/* Setup the MAC addresses */
- 	pch_gbe_mac_mar_set(hw, hw->mac.addr, 0);
-+	for (i = 1; i < MAC_ADDR_LIST_NUM; i++)
-+		pch_gbe_mac_store_mac_addr_regs(hw, &mac_addr_list[i], i);
- 	return;
+ 	s32 i;
+ 	struct pch_dev *chip = pci_get_drvdata(pdev);
+@@ -352,6 +352,7 @@ static int pch_set_station_address(u8 *addr, struct pci_dev *pdev)
+ 	}
+ 	return 0;
  }
++EXPORT_SYMBOL(pch_set_station_address);
  
+ /*
+  * Interrupt service routine
 -- 
 1.7.2.5
