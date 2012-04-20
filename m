@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 07/16] tipc: Ensure network address change doesn't impact name table updates
-Date: Fri, 20 Apr 2012 17:05:15 -0400
-Message-ID: <1334955924-907-8-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 11/16] tipc: Ensure network address change doesn't impact local connections
+Date: Fri, 20 Apr 2012 17:05:19 -0400
+Message-ID: <1334955924-907-12-git-send-email-paul.gortmaker@windriver.com>
 References: <1334955924-907-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,63 +9,224 @@ Cc: <netdev@vger.kernel.org>, <allan.stephens@windriver.com>,
 	<ying.xue@windriver.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:65456 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:65468 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753856Ab2DTVFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 17:05:35 -0400
+	with ESMTP id S1754454Ab2DTVFj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 17:05:39 -0400
 In-Reply-To: <1334955924-907-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Revises routines that add and remove an entry from a node's name table
-so that the publication scope lists are updated properly even if the
-node's network address is changed in mid-operation. The routines now
-recognize the default node address of <0.0.0> as an alias for "this node"
-even after a new network address has been assigned.
+Revises routines that deal with connections between two ports on
+the same node to ensure the connection is not impacted if the node's
+network address is changed in mid-operation. The routines now treat
+the default node address of <0.0.0> as an alias for "this node" in
+the following situations:
+
+1) Incoming messages destined to a connected port now handle the alias
+properly when validating that the message was sent by the expected
+peer port, ensuring that the message will be accepted regardless of
+whether it specifies the node's old network address or it's current one.
+
+2) The code which completes connection establishment now handles the
+alias properly when determining if the peer port is on the same node
+as the connected port.
+
+An added benefit of addressing issue 1) is that some peer port
+validation code has been relocated to TIPC's socket subsystem, which
+means that validation is no longer done twice when a message is
+sent to a non-socket port (such as TIPC's configuration service or
+network topology service).
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/name_table.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/tipc/node_subscr.c |    2 +-
+ net/tipc/port.c        |   59 ++++++++++++++++++++++++------------------------
+ net/tipc/port.h        |    1 +
+ net/tipc/socket.c      |    3 ++-
+ 4 files changed, 34 insertions(+), 31 deletions(-)
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 1e0518d..25c2975 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -342,12 +342,12 @@ static struct publication *tipc_nameseq_insert_publ(struct name_seq *nseq,
- 	list_add(&publ->zone_list, &info->zone_list);
- 	info->zone_list_size++;
- 
--	if (in_own_cluster_exact(node)) {
-+	if (in_own_cluster(node)) {
- 		list_add(&publ->cluster_list, &info->cluster_list);
- 		info->cluster_list_size++;
+diff --git a/net/tipc/node_subscr.c b/net/tipc/node_subscr.c
+index c3c2815..327ffbb 100644
+--- a/net/tipc/node_subscr.c
++++ b/net/tipc/node_subscr.c
+@@ -45,7 +45,7 @@
+ void tipc_nodesub_subscribe(struct tipc_node_subscr *node_sub, u32 addr,
+ 		       void *usr_handle, net_ev_handler handle_down)
+ {
+-	if (addr == tipc_own_addr) {
++	if (in_own_node(addr)) {
+ 		node_sub->node = NULL;
+ 		return;
  	}
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index f1f6b33..616c72f 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -69,6 +69,28 @@ static inline u32 port_peerport(struct tipc_port *p_ptr)
+ 	return msg_destport(&p_ptr->phdr);
+ }
  
--	if (node == tipc_own_addr) {
-+	if (in_own_node(node)) {
- 		list_add(&publ->node_list, &info->node_list);
- 		info->node_list_size++;
++/*
++ * tipc_port_peer_msg - verify message was sent by connected port's peer
++ *
++ * Handles cases where the node's network address has changed from
++ * the default of <0.0.0> to its configured setting.
++ */
++
++int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg)
++{
++	u32 peernode;
++	u32 orignode;
++
++	if (msg_origport(msg) != port_peerport(p_ptr))
++		return 0;
++
++	orignode = msg_orignode(msg);
++	peernode = port_peernode(p_ptr);
++	return (orignode == peernode) ||
++		(!orignode && (peernode == tipc_own_addr)) ||
++		(!peernode && (orignode == tipc_own_addr));
++}
++
+ /**
+  * tipc_multicast - send a multicast message to local and remote destinations
+  */
+@@ -526,25 +548,21 @@ void tipc_port_recv_proto_msg(struct sk_buff *buf)
+ 	struct tipc_msg *msg = buf_msg(buf);
+ 	struct tipc_port *p_ptr;
+ 	struct sk_buff *r_buf = NULL;
+-	u32 orignode = msg_orignode(msg);
+-	u32 origport = msg_origport(msg);
+ 	u32 destport = msg_destport(msg);
+ 	int wakeable;
+ 
+ 	/* Validate connection */
+ 
+ 	p_ptr = tipc_port_lock(destport);
+-	if (!p_ptr || !p_ptr->connected ||
+-	    (port_peernode(p_ptr) != orignode) ||
+-	    (port_peerport(p_ptr) != origport)) {
++	if (!p_ptr || !p_ptr->connected || !tipc_port_peer_msg(p_ptr, msg)) {
+ 		r_buf = tipc_buf_acquire(BASIC_H_SIZE);
+ 		if (r_buf) {
+ 			msg = buf_msg(r_buf);
+ 			tipc_msg_init(msg, TIPC_HIGH_IMPORTANCE, TIPC_CONN_MSG,
+-				      BASIC_H_SIZE, orignode);
++				      BASIC_H_SIZE, msg_orignode(msg));
+ 			msg_set_errcode(msg, TIPC_ERR_NO_PORT);
+ 			msg_set_origport(msg, destport);
+-			msg_set_destport(msg, origport);
++			msg_set_destport(msg, msg_origport(msg));
+ 		}
+ 		if (p_ptr)
+ 			tipc_port_unlock(p_ptr);
+@@ -681,6 +699,7 @@ static void port_dispatcher_sigh(void *dummy)
+ 		struct tipc_name_seq dseq;
+ 		void *usr_handle;
+ 		int connected;
++		int peer_invalid;
+ 		int published;
+ 		u32 message_type;
+ 
+@@ -701,6 +720,7 @@ static void port_dispatcher_sigh(void *dummy)
+ 		up_ptr = p_ptr->user_port;
+ 		usr_handle = up_ptr->usr_handle;
+ 		connected = p_ptr->connected;
++		peer_invalid = connected && !tipc_port_peer_msg(p_ptr, msg);
+ 		published = p_ptr->published;
+ 
+ 		if (unlikely(msg_errcode(msg)))
+@@ -710,8 +730,6 @@ static void port_dispatcher_sigh(void *dummy)
+ 
+ 		case TIPC_CONN_MSG:{
+ 				tipc_conn_msg_event cb = up_ptr->conn_msg_cb;
+-				u32 peer_port = port_peerport(p_ptr);
+-				u32 peer_node = port_peernode(p_ptr);
+ 				u32 dsz;
+ 
+ 				tipc_port_unlock(p_ptr);
+@@ -720,8 +738,7 @@ static void port_dispatcher_sigh(void *dummy)
+ 				if (unlikely(!connected)) {
+ 					if (tipc_connect2port(dref, &orig))
+ 						goto reject;
+-				} else if ((msg_origport(msg) != peer_port) ||
+-					   (msg_orignode(msg) != peer_node))
++				} else if (peer_invalid)
+ 					goto reject;
+ 				dsz = msg_data_sz(msg);
+ 				if (unlikely(dsz &&
+@@ -773,14 +790,9 @@ err:
+ 		case TIPC_CONN_MSG:{
+ 				tipc_conn_shutdown_event cb =
+ 					up_ptr->conn_err_cb;
+-				u32 peer_port = port_peerport(p_ptr);
+-				u32 peer_node = port_peernode(p_ptr);
+ 
+ 				tipc_port_unlock(p_ptr);
+-				if (!cb || !connected)
+-					break;
+-				if ((msg_origport(msg) != peer_port) ||
+-				    (msg_orignode(msg) != peer_node))
++				if (!cb || !connected || peer_invalid)
+ 					break;
+ 				tipc_disconnect(dref);
+ 				skb_pull(buf, msg_hdr_sz(msg));
+@@ -1157,17 +1169,6 @@ int tipc_port_recv_msg(struct sk_buff *buf)
+ 	/* validate destination & pass to port, otherwise reject message */
+ 	p_ptr = tipc_port_lock(destport);
+ 	if (likely(p_ptr)) {
+-		if (likely(p_ptr->connected)) {
+-			if ((unlikely(msg_origport(msg) !=
+-				      port_peerport(p_ptr))) ||
+-			    (unlikely(msg_orignode(msg) !=
+-				      port_peernode(p_ptr))) ||
+-			    (unlikely(!msg_connected(msg)))) {
+-				err = TIPC_ERR_NO_PORT;
+-				tipc_port_unlock(p_ptr);
+-				goto reject;
+-			}
+-		}
+ 		err = p_ptr->dispatcher(p_ptr, buf);
+ 		tipc_port_unlock(p_ptr);
+ 		if (likely(!err))
+@@ -1175,7 +1176,7 @@ int tipc_port_recv_msg(struct sk_buff *buf)
+ 	} else {
+ 		err = TIPC_ERR_NO_PORT;
  	}
-@@ -411,14 +411,14 @@ found:
+-reject:
++
+ 	return tipc_reject_msg(buf, err);
+ }
  
- 	/* Remove publication from cluster scope list, if present */
+diff --git a/net/tipc/port.h b/net/tipc/port.h
+index 0a632a6..301e1bd 100644
+--- a/net/tipc/port.h
++++ b/net/tipc/port.h
+@@ -201,6 +201,7 @@ int tipc_shutdown(u32 ref);
+  * The following routines require that the port be locked on entry
+  */
+ int tipc_disconnect_port(struct tipc_port *tp_ptr);
++int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg);
  
--	if (in_own_cluster_exact(node)) {
-+	if (in_own_cluster(node)) {
- 		list_del(&publ->cluster_list);
- 		info->cluster_list_size--;
- 	}
- 
- 	/* Remove publication from node scope list, if present */
- 
--	if (node == tipc_own_addr) {
-+	if (in_own_node(node)) {
- 		list_del(&publ->node_list);
- 		info->node_list_size--;
- 	}
+ /*
+  * TIPC messaging routines
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index bcb3314..c19fc4a 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1236,7 +1236,8 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
+ 		if (msg_mcast(msg))
+ 			return TIPC_ERR_NO_PORT;
+ 		if (sock->state == SS_CONNECTED) {
+-			if (!msg_connected(msg))
++			if (!msg_connected(msg) ||
++			    !tipc_port_peer_msg(tipc_sk_port(sk), msg))
+ 				return TIPC_ERR_NO_PORT;
+ 		} else if (sock->state == SS_CONNECTING) {
+ 			if (!msg_connected(msg) && (msg_errcode(msg) == 0))
 -- 
 1.7.9.3
