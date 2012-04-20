@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 03/16] tipc: Separate cluster-scope and zone-scope names into distinct lists
-Date: Fri, 20 Apr 2012 17:05:11 -0400
-Message-ID: <1334955924-907-4-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 01/16] tipc: introduce publication lists struct
+Date: Fri, 20 Apr 2012 17:05:09 -0400
+Message-ID: <1334955924-907-2-git-send-email-paul.gortmaker@windriver.com>
 References: <1334955924-907-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,109 +9,98 @@ Cc: <netdev@vger.kernel.org>, <allan.stephens@windriver.com>,
 	<ying.xue@windriver.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:65444 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:65441 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753758Ab2DTVF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 17:05:29 -0400
+	with ESMTP id S1753487Ab2DTVF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 17:05:27 -0400
 In-Reply-To: <1334955924-907-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Utilizes distinct lists to track zone-scope and cluster-scope names
-published by a node. For now, TIPC continues to process the entries
-in both lists in the same way; however, an upcoming patch will utilize
-the existence of the lists to prevent the sending of cluster-scope names
-to nodes that are not part of the local cluster.
+There is currently a single list that is containing both cluster-scope and
+zone-scope publications, and the list count is a separate free floating
+variable.  Create a struct to bind the count to the list, and to pave
+the way for factoring out the publications into zone/cluster/node scope.
 
-To achieve this, an array of publication lists is introduced, so
-that they can be iterated over and accessed via publ->scope as
-an index where convenient.
+The current "publ_root" most matches what will be the cluster scope
+list, so it is named accordingly in this commit.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/name_distr.c |   31 ++++++++++++++++++++++++++-----
- 1 file changed, 26 insertions(+), 5 deletions(-)
+ net/tipc/name_distr.c |   27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
 
 diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 3be0eb9..8751ea5 100644
+index d57da61..870a001 100644
 --- a/net/tipc/name_distr.c
 +++ b/net/tipc/name_distr.c
-@@ -77,11 +77,29 @@ struct publ_list {
- 	u32 size;
+@@ -68,12 +68,19 @@ struct distr_item {
  };
  
-+static struct publ_list publ_zone = {
-+	.list = LIST_HEAD_INIT(publ_zone.list),
-+	.size = 0,
+ /**
+- * List of externally visible publications by this node --
+- * that is, all publications having scope > TIPC_NODE_SCOPE.
++ * struct publ_list - list of publications made by this node
++ * @list: circular list of publications
++ * @list_size: number of entries in list
+  */
++struct publ_list {
++	struct list_head list;
++	u32 size;
 +};
-+
- static struct publ_list publ_cluster = {
- 	.list = LIST_HEAD_INIT(publ_cluster.list),
- 	.size = 0,
- };
  
-+static struct publ_list publ_node = {
-+	.list = LIST_HEAD_INIT(publ_node.list),
+-static LIST_HEAD(publ_root);
+-static u32 publ_cnt;
++static struct publ_list publ_cluster = {
++	.list = LIST_HEAD_INIT(publ_cluster.list),
 +	.size = 0,
 +};
-+
-+static struct publ_list *publ_lists[] = {
-+	NULL,
-+	&publ_zone,	/* publ_lists[TIPC_ZONE_SCOPE]		*/
-+	&publ_cluster,	/* publ_lists[TIPC_CLUSTER_SCOPE]	*/
-+	&publ_node	/* publ_lists[TIPC_NODE_SCOPE]		*/
-+};
-+
-+
+ 
  /**
   * publ_to_item - add publication info to a publication message
-  */
-@@ -139,8 +157,8 @@ void tipc_named_publish(struct publication *publ)
+@@ -132,8 +139,8 @@ void tipc_named_publish(struct publication *publ)
  	struct sk_buff *buf;
  	struct distr_item *item;
  
--	list_add_tail(&publ->local_list, &publ_cluster.list);
--	publ_cluster.size++;
-+	list_add_tail(&publ->local_list, &publ_lists[publ->scope]->list);
-+	publ_lists[publ->scope]->size++;
+-	list_add_tail(&publ->local_list, &publ_root);
+-	publ_cnt++;
++	list_add_tail(&publ->local_list, &publ_cluster.list);
++	publ_cluster.size++;
  
  	buf = named_prepare_buf(PUBLICATION, ITEM_SIZE, 0);
  	if (!buf) {
-@@ -163,7 +181,7 @@ void tipc_named_withdraw(struct publication *publ)
+@@ -156,7 +163,7 @@ void tipc_named_withdraw(struct publication *publ)
  	struct distr_item *item;
  
  	list_del(&publ->local_list);
--	publ_cluster.size--;
-+	publ_lists[publ->scope]->size--;
+-	publ_cnt--;
++	publ_cluster.size--;
  
  	buf = named_prepare_buf(WITHDRAWAL, ITEM_SIZE, 0);
  	if (!buf) {
-@@ -243,6 +261,7 @@ void tipc_named_node_up(unsigned long nodearg)
+@@ -207,9 +214,9 @@ void tipc_named_node_up(unsigned long nodearg)
+ 	INIT_LIST_HEAD(&message_list);
  
  	read_lock_bh(&tipc_nametbl_lock);
- 	named_distribute(&message_list, node, &publ_cluster, max_item_buf);
-+	named_distribute(&message_list, node, &publ_zone, max_item_buf);
- 	read_unlock_bh(&tipc_nametbl_lock);
+-	rest = publ_cnt * ITEM_SIZE;
++	rest = publ_cluster.size * ITEM_SIZE;
  
- 	tipc_link_send_names(&message_list, (u32)node);
-@@ -340,11 +359,13 @@ void tipc_named_recv(struct sk_buff *buf)
- void tipc_named_reinit(void)
- {
- 	struct publication *publ;
-+	int scope;
+-	list_for_each_entry(publ, &publ_root, local_list) {
++	list_for_each_entry(publ, &publ_cluster.list, local_list) {
+ 		if (!buf) {
+ 			left = (rest <= max_item_buf) ? rest : max_item_buf;
+ 			rest -= left;
+@@ -329,7 +336,7 @@ void tipc_named_reinit(void)
  
  	write_lock_bh(&tipc_nametbl_lock);
  
--	list_for_each_entry(publ, &publ_cluster.list, local_list)
--		publ->node = tipc_own_addr;
-+	for (scope = TIPC_ZONE_SCOPE; scope <= TIPC_CLUSTER_SCOPE; scope++)
-+		list_for_each_entry(publ, &publ_lists[scope]->list, local_list)
-+			publ->node = tipc_own_addr;
+-	list_for_each_entry(publ, &publ_root, local_list)
++	list_for_each_entry(publ, &publ_cluster.list, local_list)
+ 		publ->node = tipc_own_addr;
  
  	write_unlock_bh(&tipc_nametbl_lock);
- }
 -- 
 1.7.9.3
