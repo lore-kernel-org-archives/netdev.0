@@ -1,37 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ks8851: Fix mutex deadlock in ks8851_net_stop()
-Date: Sat, 21 Apr 2012 15:34:40 -0400 (EDT)
-Message-ID: <20120421.153440.1754750876890229323.davem@davemloft.net>
-References: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org>
-	<1334805958-29119-2-git-send-email-sboyd@codeaurora.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Sat, 21 Apr 2012 15:37:43 -0400 (EDT)
+Message-ID: <20120421.153743.699070106218049860.davem@davemloft.net>
+References: <20120419045333.GA21311@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	tj@kernel.org, ben-linux@fluff.org
-To: sboyd@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334805958-29119-2-git-send-email-sboyd@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120419045333.GA21311-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Boyd <sboyd@codeaurora.org>
-Date: Wed, 18 Apr 2012 20:25:58 -0700
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Date: Thu, 19 Apr 2012 13:53:35 +0900
 
-> There is a potential deadlock scenario when the ks8851 driver
-> is removed. The interrupt handler schedules a workqueue which
-> acquires a mutex that ks8851_net_stop() also acquires before
-> flushing the workqueue. Previously lockdep wouldn't be able
-> to find this problem but now that it has the support we can
-> trigger this lockdep warning by rmmoding the driver after
-> an ifconfig up.
+> This hook is based on a hook of the same name provided by UDP.  It provides
+> a way for to receive packets that have a TCP header and treat them in some
+> alternate way.
 > 
-> Fix the possible deadlock by disabling the interrupts in 
-> the chip and then release the lock across the workqueue
-> flushing. The mutex is only there to proect the registers
-> anyway so this should be ok.
- ...
-> Cc: Ben Dooks <ben-linux@fluff.org>
-> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+> It is intended to be used by an implementation of the STT tunneling
+> protocol within Open vSwtich's datapath. A prototype of such an
+> implementation has been made.
+> 
+> The STT draft is available at
+> http://tools.ietf.org/html/draft-davie-stt-01
 
-Applied.
+I think that unlike UDP, you need to let the stack handle the TCP
+packet before taking it into your subsystem.  The reason is that
+otherwise you'll need to handle packet ordering, sequence number gaps,
+and proper TCP ACK'ing and timeout all inside of your module and
+that's simply unacceptable.
+
+Do what the SunRPC layer does, register a TCP socket for the port,
+and use the ->data_ready() socket callback to consume the packets
+into your subsystem.
+
+That allows TCP to do all of it's work, and you just get a sane
+in-order validated datastream on your end.
