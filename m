@@ -1,75 +1,77 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: [PATCHv2] workqueue: Catch more locking problems with flush_work()
-Date: Fri, 20 Apr 2012 17:28:50 -0700
-Message-ID: <1334968130-20724-1-git-send-email-sboyd@codeaurora.org>
-References: <20120420173529.GD32324@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ben Dooks <ben-linux@fluff.org>,
-	Yong Zhang <yong.zhang0@gmail.com>
-To: Tejun Heo <tj@kernel.org>
+From: Yong Zhang <yong.zhang0@gmail.com>
+Subject: Re: [PATCH 1/2] workqueue: Catch more locking problems with flush_work()
+Date: Sat, 21 Apr 2012 08:32:55 +0800
+Message-ID: <CAM2zO=DEmR6jpwW9OZuD-tHchhb-mtSTv2_uWV=4wG8JK7o55g@mail.gmail.com>
+References: <1334805958-29119-1-git-send-email-sboyd@codeaurora.org>
+	<20120419081002.GB3963@zhy>
+	<4F905B30.4080501@codeaurora.org>
+	<20120420052633.GA16219@zhy>
+	<20120420060101.GA16563@zhy>
+	<4F9101A7.5010100@codeaurora.org>
+	<20120420071759.GA17846@zhy>
+	<4F911BCB.7010809@codeaurora.org>
+	<20120420083202.GB17846@zhy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	netdev@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>
+To: Stephen Boyd <sboyd@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120420173529.GD32324@google.com>
+In-Reply-To: <20120420083202.GB17846@zhy>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If a workqueue is flushed with flush_work() lockdep checking can
-be circumvented. For example:
+On Fri, Apr 20, 2012 at 4:32 PM, Yong Zhang <yong.zhang0@gmail.com> wrote:
+> On Fri, Apr 20, 2012 at 01:18:19AM -0700, Stephen Boyd wrote:
+>> On 4/20/2012 12:18 AM, Yong Zhang wrote:
+>> > On Thu, Apr 19, 2012 at 11:26:47PM -0700, Stephen Boyd wrote:
+>> >> complain in the case where the work is not queued. That case is not a
+>> >> false positive. We will get a lockdep warning if the work is running
+>> > IIRC, flush_work() is just a nop when a work is not queued nor running.
+>>
+>> Agreed, but it's better to always print a lockdep warning instead of
+>> only when the deadlock is going to occur.
+>
+> It will IMHO.
 
- static DEFINE_MUTEX(mutex);
+After reconsidering this issue, I recognize I'm wrong from the beginning.
+My suggestion will only warn on the real deadlock. It doesn't follow
+what lockdep want to achieve. Sorry for that.
 
- static void my_work(struct work_struct *w)
- {
-         mutex_lock(&mutex);
-         mutex_unlock(&mutex);
- }
+BTW, your latest patch should work :)
 
- static DECLARE_WORK(work, my_work);
+Thanks,
+Yong
 
- static int __init start_test_module(void)
- {
-         schedule_work(&work);
-         return 0;
- }
- module_init(start_test_module);
+>
+>>
+>> >
+>> >> (when start_flush_work() returns true) solely with the
+>> >> lock_map_acquire() on cwq->wq->lockdep_map.
+>> > Yeah, that is the point we use lockdep to detect deadlock for workqueue.
+>> >
+>> > But when looking at start_flush_work(), for some case
+>> > !(cwq->wq->saved_max_active == 1 || cwq->wq->flags & WQ_RESCUER),
+>> > lock_map_acquire_read() is called, but recursive read is not added to
+>> > the chain list. So when lock_map_acquire_read(&cwq->wq->lockdep_map)
+>> > is called, deadlock will not be detected. I hope you don't hit that
+>> > special case.
+>>
+>> Hmm. Originally I had what you suggested in my patch but I left it out
+>> because I wasn't sure if it would cause false positives.
+>> Do you see any
+>> possibility for false positives?
+>
+> No, I don't. My test indeed show nothing (just build and boot).
+>
+>>I'll add it back in if not.
+>
+> It's great if you can try it :)
+>
+> Thanks,
+> Yong
 
- static void __exit stop_test_module(void)
- {
-         mutex_lock(&mutex);
-         flush_work(&work);
-         mutex_unlock(&mutex);
- }
- module_exit(stop_test_module);
 
-would not always print a warning when flush_work() was called.
-In this trivial example nothing could go wrong since we are
-guaranteed module_init() and module_exit() don't run concurrently,
-but if the work item is schedule asynchronously we could have a
-scenario where the work item is running just at the time flush_work()
-is called resulting in a classic ABBA locking problem.
 
-Add a lockdep hint by acquiring and releasing the work item
-lockdep_map in flush_work() so that we always catch this
-potential deadlock scenario.
-
-Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
----
- kernel/workqueue.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/kernel/workqueue.c b/kernel/workqueue.c
-index 5abf42f..038cf64 100644
---- a/kernel/workqueue.c
-+++ b/kernel/workqueue.c
-@@ -2506,6 +2506,9 @@ bool flush_work(struct work_struct *work)
- {
- 	struct wq_barrier barr;
- 
-+	lock_map_acquire(&work->lockdep_map);
-+	lock_map_release(&work->lockdep_map);
-+
- 	if (start_flush_work(work, &barr, true)) {
- 		wait_for_completion(&barr.done);
- 		destroy_work_on_stack(&barr.work);
 -- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
+Only stand for myself
