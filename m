@@ -1,49 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/hyperv: Adding cancellation to ensure rndis filter
- is closed
-Date: Sat, 21 Apr 2012 15:38:34 -0400 (EDT)
-Message-ID: <20120421.153834.2113475722956246267.davem@davemloft.net>
-References: <1334831977-5553-1-git-send-email-wenqi_ma@trendmicro.com.cn>
-	<A1F3067C9B68744AA19F6802BAB8FFDC0DD33BA8@TK5EX14MBXC221.redmond.corp.microsoft.com>
+Subject: Re: [PATCH net-next 0/6] TCP connection repair (v4)
+Date: Sat, 21 Apr 2012 15:53:54 -0400 (EDT)
+Message-ID: <20120421.155354.769351486098851306.davem@davemloft.net>
+References: <4F901572.4040009@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wenqi_ma@trendmicro.com.cn, netdev@vger.kernel.org,
-	kys@microsoft.com
-To: haiyangz@microsoft.com
+Cc: netdev@vger.kernel.org
+To: xemul@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43465 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:43520 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751340Ab2DUTim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 15:38:42 -0400
-In-Reply-To: <A1F3067C9B68744AA19F6802BAB8FFDC0DD33BA8@TK5EX14MBXC221.redmond.corp.microsoft.com>
+	with ESMTP id S1751138Ab2DUTx5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 15:53:57 -0400
+In-Reply-To: <4F901572.4040009@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu, 19 Apr 2012 15:18:41 +0000
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Thu, 19 Apr 2012 17:38:58 +0400
 
->> From: Wenqi Ma [mailto:wenqi_ma@trendmicro.com.cn]
->> Sent: Thursday, April 19, 2012 6:40 AM
->> To: netdev@vger.kernel.org
->> Cc: davem@davemloft.net; Haiyang Zhang; Wenqi Ma
->> Subject: [PATCH] net/hyperv: Adding cancellation to ensure rndis filter is
->> closed
->> 
->> Although the network interface is down, the RX packets number which
->> could be observed by ifconfig may keep on increasing.
->> 
->> This is because the WORK scheduled in netvsc_set_multicast_list()
->> may be executed after netvsc_close(). That means the rndis filter
->> may be re-enabled by do_set_multicast() even if it was closed by
->> netvsc_close().
->> 
->> By canceling possible WORK before close the rndis filter, the issue
->> could be never happened.
->> 
->> Signed-off-by: Wenqi Ma <wenqi_ma@trendmicro.com.cn>
->> Reviewed-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
- ...
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Attempt #4 with an API for TCP connection recreation (previous one is
+> at http://lists.openwall.net/netdev/2012/03/28/84) re-based on the
+> today's net-next tree.
+> 
+> Changes since v3:
+> 
+> * Added repair for TCP options negotiated during 3WHS process, pointed
+>   out by Li Yu. The explanation of how this happens is in patch #6.
+> 
+> * Named constant for sk_reuse values as proposed by Ben Hutching.
+> 
+> * Off-by-one in repair-queue sockoption caught by Ben.
 
-Applied.
+All applied to net-next, nice work.
+
+Please make the following fix for me.  The option recovery code will
+result in unaligned accesses, for example you'll do a byte aligned
+get_user() for the u16 MSS object in many cases, and this will trap
+and cpus such as sparc.
+
+Either add a padding facility or pass more structured data into the
+socket option.
+
+Thanks.
