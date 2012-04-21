@@ -1,72 +1,52 @@
-From: Basil Gor <basil.gor@gmail.com>
-Subject: [PATCH v2] macvlan/macvtap: Fix vlan tagging on user read
-Date: Sat, 21 Apr 2012 03:20:58 +0400
-Message-ID: <1334964058-3338-1-git-send-email-basilgor@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Basil Gor <basilgor@gmail.com>
-To: netdev@vger.kernel.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: restoring IP multicast addresses when restarting the interface.
+Date: Fri, 20 Apr 2012 21:25:33 -0300
+Message-ID: <20120420212533.78903e3a@asterix.rh>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:34318 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932192Ab2DTXVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 19:21:53 -0400
-Received: by iagz16 with SMTP id z16so14037138iag.19
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 16:21:53 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:62755 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751826Ab2DUA0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Apr 2012 20:26:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vlan tag is restored during buffer transmit to a network device (bridge
-port) in bridging code in case of tun/tap driver. In case of macvtap it
-has to be done explicitly. Otherwise vlan_tci is ignored and user always
-gets untagged packets.
 
-Scenario tested:
-kvm guests (that use vlans) migration from bridged network to macvtap
-revealed that packets delivered to guests are always untagged. Dumping
-and comparing sk_buff in case of tap and macvtap driver showed that
-macvtap does not restore vlan_tci.
+Hello folks,
 
-With current patch applied I was able to get working network, kvm guests
-get correctly tagged packets and can reach each other when macvtap in
-bridge mode (both with no vlans and through vlan interfaces).
+I was told that ntp in multicast mode was not working if you
+restart the interface (ifdown <iface> ; ifup <iface) on an
+older kernel.
 
-Changes from original version:
-vlan header restoring code is moved from macvtap_forward to
-macvtap_receive
+It seemed obvious to me, but when I tried to reproduce this
+upstream (last kernel of today), I noticed that the kernel
+does restore the previous added multicast addresses. Therefore,
+there is no issues.
 
-Signed-off-by: Basil Gor <basilgor@gmail.com>
----
- drivers/net/macvtap.c |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+I found that this is due to mainly this commit below which
+doesn't remove idev when the addresses are deleted.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 0427c65..5e025d9 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -1,6 +1,7 @@
- #include <linux/etherdevice.h>
- #include <linux/if_macvlan.h>
- #include <linux/interrupt.h>
-+#include <linux/if_vlan.h>
- #include <linux/nsproxy.h>
- #include <linux/compat.h>
- #include <linux/if_tun.h>
-@@ -271,6 +272,15 @@ drop:
- static int macvtap_receive(struct sk_buff *skb)
- {
- 	skb_push(skb, ETH_HLEN);
-+
-+	if (vlan_tx_tag_present(skb)) {
-+		skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
-+		if (unlikely(!skb))
-+			return NET_RX_DROP;
-+
-+		skb->vlan_tci = 0;
-+	}
-+
- 	return macvtap_forward(skb->dev, skb);
- }
- 
--- 
-1.7.6.5
+commit 6363097cc4d182f93788131b5d8f72aa91d950a0
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Thu Jun 7 18:35:38 2007 -0700
+
+    [IPV4]: Do not remove idev when addresses are cleared
+    
+    Now that we create idev before addresses are added, it no longer makes
+    sense to remove them when addresses are all deleted.
+    
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+Although the new behavior seems nice and save some user space
+work, I think it was unintentional and likely to be a bug.
+
+What you guys think?
+
+thanks,
+fbl
