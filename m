@@ -1,74 +1,48 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next 04/14] net: Fix issue with netdev_tx_reset_queue not
- resetting queue from XOFF state
-Date: Fri, 20 Apr 2012 20:24:33 -0700
-Message-ID: <CAKgT0UcZZNOH=D5mJDaw3_6femW120ZG0cBc8Nz=-=8h6X17kg@mail.gmail.com>
-References: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1331611432-30109-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CA+mtBx-BWy=KANgSca9f2vxuu1Km_kPMJbQFa+Nq9q_YYvatBQ@mail.gmail.com>
-	<4F91D5A2.2060300@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, John Fastabend <john.r.fastabend@intel.com>
-To: Tom Herbert <therbert@google.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next 0/9] pch_gbe: ptp bug fixes
+Date: Sat, 21 Apr 2012 06:50:27 +0200
+Message-ID: <cover.1334983471.git.richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Takahiro Shimizu <tshimizu818@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:59721 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628Ab2DUDYe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Apr 2012 23:24:34 -0400
-Received: by pbcun15 with SMTP id un15so1728549pbc.19
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 20:24:34 -0700 (PDT)
-In-Reply-To: <4F91D5A2.2060300@intel.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:60519 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751755Ab2DUEuu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 00:50:50 -0400
+Received: by wgbdr13 with SMTP id dr13so10243872wgb.1
+        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 21:50:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 20, 2012 at 2:31 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> On 4/20/2012 2:19 PM, Tom Herbert wrote:
->> Hi Jeff,
->>
->>> @@ -3244,7 +3246,6 @@ static void igb_clean_tx_ring(struct igb_ring=
- *tx_ring)
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0buffer_info =3D &tx_ring->tx_buffer_=
-info[i];
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0igb_unmap_and_free_tx_resource(tx_ri=
-ng, buffer_info);
->>> =A0 =A0 =A0 =A0}
->>> - =A0 =A0 =A0 netdev_tx_reset_queue(txring_txq(tx_ring));
->>>
->> Why is it necessary to remove this? =A0If rings are being freed with
->> going through completion path then we would need this reset. =A0Is t=
-his
->> being done elsewhere maybe?
->>
->
-> Alex moved this into the igb_configure_tx_ring() iirc to catch an eth=
-tool
-> test case. He assured me when I reviewed the patch that igb_configure=
-_tx_ring()
-> would always be called before netif_carrier_on() so I think(?) that s=
-hould
-> be OK.
->
-> The above removed case was called after netif_carrier_off() anyways.
+The content in this patch series originally was posted to netdev by
+Takahiro on March 23, 2012, as a loose group of five patches. These
+patches addressed problems pointed out in review, both on and off
+list.
 
-I don't recall the exact reason now, as John said I think it had to do
-with the ethtool tests not using the same cleanup routine and leaving
-us in a bad state.  I am pretty sure there was some path in which
-where the call was didn't work but I do not recall the exact details
-now.  Most of the reason for moving it is due to the fact that the
-reset is now also clearing the bit, and from the driver perspective we
-didn't need it in two places.  After looking it all over again, I
-suppose this causes a cosmetic issue for the bql "inflight" statistic
-in sysfs since the value will be retained until the interface is
-brought back up with this change.  Is that an issue or something that
-can be lived with since the interface isn't active anyway in this
-case?
+I have taken his work and rebased, squashed, and split it into the
+present form, and I also wrote commit messages that more fully explain
+the changes. Also, I added the last two patches myself.
 
-Thanks,
 
-Alex
+Richard Cochran (2):
+  pch_gbe: run the ptp bpf just once per packet
+  pch_gbe: remove suspicious comment
+
+Takahiro Shimizu (7):
+  pch_gbe: scale time stamps to nanoseconds
+  pch_gbe: simplify transmit time stamping flag test
+  pch_gbe: reprogram multicast address register on reset
+  pch_gbe: export a method to set the receive match address
+  pch_gbe: improve coding style
+  pch_gbe: do not set the channel control register
+  pch_gbe: correct receive time stamp filtering
+
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |    1 +
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |  107 +++++++++++++++-----
+ drivers/ptp/Kconfig                                |   10 ++-
+ drivers/ptp/ptp_pch.c                              |    7 +-
+ 4 files changed, 95 insertions(+), 30 deletions(-)
+
+-- 
+1.7.2.5
