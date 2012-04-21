@@ -1,25 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] drivers/net: randconfig patches for kernel 3.3
-Date: Sat, 21 Apr 2012 15:29:23 -0400 (EDT)
-Message-ID: <20120421.152923.1556933817051385385.davem@davemloft.net>
-References: <1334955376-17793-1-git-send-email-mathieu.poirier@linaro.org>
+Subject: Re: [PATCH v5 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Sat, 21 Apr 2012 15:32:01 -0400 (EDT)
+Message-ID: <20120421.153201.2103447307695063734.davem@davemloft.net>
+References: <1334791254-15987-1-git-send-email-ddaney.cavm@gmail.com>
+        <1334791254-15987-3-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, arnd@arndb.de
-To: mathieu.poirier@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1334955376-17793-1-git-send-email-mathieu.poirier@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+        devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+        afleming@gmail.com, galak@kernel.crashing.org,
+        david.daney@cavium.com
+To: ddaney.cavm@gmail.com
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1334791254-15987-3-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-From: mathieu.poirier@linaro.org
-Date: Fri, 20 Apr 2012 14:56:08 -0600
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Wed, 18 Apr 2012 16:20:53 -0700
 
-> From: Arnd Bergmann <arnd@arndb.de>
-> 
-> These patches fix miscellaneous problems when working
-> with make randconfig.  They were discovered on kernel
-> 3.1-rc4 and have been reformatted for 3.3.
+> +config MDIO_BUS_MUX
+> +	tristate
+> +	help
+> +	  This module provides a driver framework for MDIO bus
+> +	  multiplexers which connect one of several child MDIO busses
+> +	  to a parent bus.  Switching between child busses is done by
+> +	  device specific drivers.
+> +
 
-All applied to net-next, thanks.
+This driver uses OF and OF_MDIO, and therefore need dependencies upon
+them.  Otherwise it can be enabled in configurations which will result
+in build failures.
