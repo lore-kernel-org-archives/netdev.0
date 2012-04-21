@@ -1,48 +1,56 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 0/9] pch_gbe: ptp bug fixes
-Date: Sat, 21 Apr 2012 06:50:27 +0200
-Message-ID: <cover.1334983471.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 2/9] pch_gbe: simplify transmit time stamping flag test
+Date: Sat, 21 Apr 2012 06:50:29 +0200
+Message-ID: <1bdda1655991dca17f5f37f3c992ad060f84e95c.1334983471.git.richardcochran@gmail.com>
+References: <cover.1334983471.git.richardcochran@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
 	Takahiro Shimizu <tshimizu818@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:60519 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751755Ab2DUEuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 00:50:50 -0400
-Received: by wgbdr13 with SMTP id dr13so10243872wgb.1
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 21:50:48 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:46447 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273Ab2DUEuy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 00:50:54 -0400
+Received: by wibhj6 with SMTP id hj6so1246943wib.1
+        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 21:50:53 -0700 (PDT)
+In-Reply-To: <cover.1334983471.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1334983471.git.richardcochran@gmail.com>
+References: <cover.1334983471.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The content in this patch series originally was posted to netdev by
-Takahiro on March 23, 2012, as a loose group of five patches. These
-patches addressed problems pointed out in review, both on and off
-list.
+From: Takahiro Shimizu <tshimizu818@gmail.com>
 
-I have taken his work and rebased, squashed, and split it into the
-present form, and I also wrote commit messages that more fully explain
-the changes. Also, I added the last two patches myself.
+This patch makes logic surrounding the test of the
+transmit time stamping flag more readable.
 
+[ RC - Rebased Takahiro's changes and wrote a commit message
+  explaining the changes. ]
 
-Richard Cochran (2):
-  pch_gbe: run the ptp bpf just once per packet
-  pch_gbe: remove suspicious comment
+Signed-off-by: Takahiro Shimizu <tshimizu818@gmail.com>
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Takahiro Shimizu (7):
-  pch_gbe: scale time stamps to nanoseconds
-  pch_gbe: simplify transmit time stamping flag test
-  pch_gbe: reprogram multicast address register on reset
-  pch_gbe: export a method to set the receive match address
-  pch_gbe: improve coding style
-  pch_gbe: do not set the channel control register
-  pch_gbe: correct receive time stamp filtering
-
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |    1 +
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |  107 +++++++++++++++-----
- drivers/ptp/Kconfig                                |   10 ++-
- drivers/ptp/ptp_pch.c                              |    7 +-
- 4 files changed, 95 insertions(+), 30 deletions(-)
-
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 7c2dabb..6a9a63b 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -199,11 +199,11 @@ static void pch_tx_timestamp(
+ 	u32 cnt, val;
+ 
+ 	shtx = skb_shinfo(skb);
+-	if (unlikely(shtx->tx_flags & SKBTX_HW_TSTAMP && adapter->hwts_tx_en))
+-		shtx->tx_flags |= SKBTX_IN_PROGRESS;
+-	else
++	if (likely(!(shtx->tx_flags & SKBTX_HW_TSTAMP && adapter->hwts_tx_en)))
+ 		return;
+ 
++	shtx->tx_flags |= SKBTX_IN_PROGRESS;
++
+ 	/* Get ieee1588's dev information */
+ 	pdev = adapter->ptp_pdev;
+ 
 -- 
 1.7.2.5
