@@ -1,51 +1,180 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next 04/14] net: Fix issue with netdev_tx_reset_queue not
- resetting queue from XOFF state
-Date: Fri, 20 Apr 2012 23:01:21 -0700
-Message-ID: <CA+mtBx-TJAr-cu-vKYq6m2ZQzn1X1vf+_PKUZXDirnKEF67EAw@mail.gmail.com>
-References: <1331611432-30109-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1331611432-30109-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CA+mtBx-BWy=KANgSca9f2vxuu1Km_kPMJbQFa+Nq9q_YYvatBQ@mail.gmail.com>
-	<4F91D5A2.2060300@intel.com>
-	<CAKgT0UcZZNOH=D5mJDaw3_6femW120ZG0cBc8Nz=-=8h6X17kg@mail.gmail.com>
+From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: use-after-free in usbnet
+Date: Sat, 21 Apr 2012 14:39:20 +0800
+Message-ID: <CA+v9cxZZpL5soSga=MX_bD45KNve-Lnr2Qb6+gr7Mv6Txyh-fA@mail.gmail.com>
+References: <CACVXFVP+U1k7JFTmbabF-k8F3bO9zc58c3tLG6=1nQPcrR9p1g@mail.gmail.com>
+	<Pine.LNX.4.44L0.1203211201560.1369-100000@iolanthe.rowland.org>
+	<CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA@mail.gmail.com>
+	<201203221008.46882.oneukum@suse.de>
+	<CACVXFVODFvtF1DRyWJmnYCByw7sr9QDv_+Taxo5maVaUauDNtg@mail.gmail.com>
+	<CA+v9cxawVwKakF6c_RpAw2XUGWcbqd8M+ZJqyq76Au9rmNosmQ@mail.gmail.com>
+	<CACVXFVM5YBJkDZddeGi1_MPY7EqEV_wtoFy-NtBHYA6rxez0jg@mail.gmail.com>
+	<CA+v9cxZWtGbz6uCSysVbAc1hT27rCiuJXzcvSiTxH-zuQYnrZw@mail.gmail.com>
+	<CACVXFVOc0XZ+eLHGiVwKuiUResRk8Cj9MS4EPMx7k57a0tEJhA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, John Fastabend <john.r.fastabend@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:39563 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752541Ab2DUGBW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 02:01:22 -0400
-Received: by obbta14 with SMTP id ta14so10447330obb.19
-        for <netdev@vger.kernel.org>; Fri, 20 Apr 2012 23:01:21 -0700 (PDT)
-In-Reply-To: <CAKgT0UcZZNOH=D5mJDaw3_6femW120ZG0cBc8Nz=-=8h6X17kg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVOc0XZ+eLHGiVwKuiUResRk8Cj9MS4EPMx7k57a0tEJhA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> I don't recall the exact reason now, as John said I think it had to d=
-o
-> with the ethtool tests not using the same cleanup routine and leaving
-> us in a bad state. =A0I am pretty sure there was some path in which
-> where the call was didn't work but I do not recall the exact details
-> now. =A0Most of the reason for moving it is due to the fact that the
-> reset is now also clearing the bit, and from the driver perspective w=
+On Sat, Apr 21, 2012 at 9:49 AM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote=
+:
+> On Fri, Apr 20, 2012 at 10:56 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>=
+ wrote:
+>> On Fri, Apr 20, 2012 at 10:22 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> w=
+rote:
+>>> On Fri, Apr 20, 2012 at 9:37 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org=
+> wrote:
+>>>>
+>>>> Above patch has already been integrated to mainline. However, mayb=
 e
-> didn't need it in two places. =A0After looking it all over again, I
-> suppose this causes a cosmetic issue for the bql "inflight" statistic
-> in sysfs since the value will be retained until the interface is
-> brought back up with this change. =A0Is that an issue or something th=
-at
-> can be lived with since the interface isn't active anyway in this
-> case?
+>>>> there still exists another potentail use-after-free issue, here is=
+ a
+>>>> case:
+>>>> =A0 =A0 =A0After release the lock in unlink_urbs(), defer_bh() may=
+ move
+>>>> current skb from rxq/txq to dev->done queue, even cause the skb be
+>>>> released. Then in next loop cycle, it can't refer to expected skb,=
+ and
+>>>> may Oops again.
+>>>
+>>> Could you explain in a bit detail? Why can't the expected skb be re=
+fered
+>>> to in next loop?
+>>
+>>
+>> =A0 =A0 =A0unlink_urbs() =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 complete handler
+>> --------------------------------------
+>> -------------------------------------------------
+>> =A0 =A0 spin_unlock_irqrestore()
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rx_compl=
+ete()
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0derver_b=
+h()
+>>
+>> =A0__skb_unlink()
+>>
+>> =A0__skb_queue_tail(&dev->done, skb) =A0 =3D=3D=3D=3D=3D=3D=3D> skb =
+is moved to
+>> dev->done, and can be freed by usbnet_bh()
+>> =A0 =A0 =A0skb_queue_walk_safe()
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tmp =3D skb->next =A0 =3D=
+=3D=3D> refer to freed skb
 >
-On the surface, it seems cleaner and probably a simpler convention to
-clear the state when the buffers are being freed.  If there's a good
-reason not to do this for igb, it makes me wonder if this should be
-done the same way in other drivers...
+> I see the problem, so looks skb_queue_walk_safe is not safe.
+> I don' know why the 2nd ' tmp =3D skb->next' in =A0skb_queue_walk_saf=
+e
+> is needed and it may become unsafe if skb is freed during current loo=
+p.
+>
+> But removing the 2nd 'tmp =3D skb->next' doesn't help the problem, be=
+cause
+> tmp still may become freed after releasing lock.
+>
+>> If its state is x_done/tx_done/rx_cleanup, that means the the skb wi=
+ll
+>> be released soon, right? If so, it should avoid calling
+>> usb_unlink_urb().
+>
+> Even though you can avoid calling unlink for completed URBs, the skbs
+> still may be freed in unlink path because complete handler will be tr=
+iggered
+> by unlink and the referenced skb may be freed before next loop, so yo=
+ur
+> patch can't fix the oops.
+>
 
-Tom
+Hi Ming,
+     That's why my patch uses skb_queue_walk() to traverse the queue,
+it guarantees the skb available in each loop.  Is this what you
+expected?
+
+     The main idea of my patch(it is based on current mainline: 3.4.0-r=
+c3) is:
+     1. If the skb in txq/rxq, then it must be available,
+unlink_urbs() can refer to it safely while it holds  q->lock;
+     2. If the skb in txq/rxq and its state is
+rx_done/tx_done/rx_cleanup, that means the skb's URB is complete, then
+don't need to unlink it again;
+     3. Before releasing  q->lock in unlink_urbs(), it will increase
+the URB's refercount, so even the related skb is freed in future, the
+URB is still available.
+
+Thanks,
+--Huajun
+
+> As far as I can think of, we can hold lock of done queue to forbid sk=
+b free
+> during unlinking. The below patch may fix the problem, are you OK
+> with it?
+
+Just skip trying this per your following email's comments.
+
+>
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index db99536..a9809d4 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -581,7 +581,8 @@ static int unlink_urbs (struct usbnet *dev, struc=
+t
+> sk_buff_head *q)
+> =A0 =A0 =A0 =A0struct sk_buff =A0 =A0 =A0 =A0 =A0*skb, *skbnext;
+> =A0 =A0 =A0 =A0int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 count =3D =
+0;
+>
+> - =A0 =A0 =A0 spin_lock_irqsave (&q->lock, flags);
+> + =A0 =A0 =A0 spin_lock_irqsave(&dev->done.lock, flags);
+> + =A0 =A0 =A0 spin_lock(&q->lock);
+> =A0 =A0 =A0 =A0skb_queue_walk_safe(q, skb, skbnext) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct skb_data =A0 =A0 =A0 =A0 *entry=
+;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct urb =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+*urb;
+> @@ -598,7 +599,7 @@ static int unlink_urbs (struct usbnet *dev, struc=
+t
+> sk_buff_head *q)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * handler(include defer_bh).
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 */
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0usb_get_urb(urb);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock_irqrestore(&q->lock, flags)=
+;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock(&q->lock);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0// during some PM-driven resume scenar=
+ios,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0// these (async) unlinks complete imme=
+diately
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0retval =3D usb_unlink_urb (urb);
+> @@ -607,9 +608,10 @@ static int unlink_urbs (struct usbnet *dev,
+> struct sk_buff_head *q)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0else
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0count++;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0usb_put_urb(urb);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_lock_irqsave(&q->lock, flags);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_lock(&q->lock);
+> =A0 =A0 =A0 =A0}
+> - =A0 =A0 =A0 spin_unlock_irqrestore (&q->lock, flags);
+> + =A0 =A0 =A0 spin_unlock(&q->lock);
+> + =A0 =A0 =A0 spin_unlock_irqrestore(&dev->done.lock, flags);
+> =A0 =A0 =A0 =A0return count;
+> =A0}
+>
+>
+>
+> Thanks,
+> --
+> Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
