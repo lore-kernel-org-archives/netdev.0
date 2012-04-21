@@ -1,52 +1,75 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: restoring IP multicast addresses when restarting the interface.
-Date: Fri, 20 Apr 2012 21:25:33 -0300
-Message-ID: <20120420212533.78903e3a@asterix.rh>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62755 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751826Ab2DUA0l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Apr 2012 20:26:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: [PATCHv2] workqueue: Catch more locking problems with flush_work()
+Date: Fri, 20 Apr 2012 17:28:50 -0700
+Message-ID: <1334968130-20724-1-git-send-email-sboyd@codeaurora.org>
+References: <20120420173529.GD32324@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ben Dooks <ben-linux@fluff.org>,
+	Yong Zhang <yong.zhang0@gmail.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120420173529.GD32324@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+If a workqueue is flushed with flush_work() lockdep checking can
+be circumvented. For example:
 
-Hello folks,
+ static DEFINE_MUTEX(mutex);
 
-I was told that ntp in multicast mode was not working if you
-restart the interface (ifdown <iface> ; ifup <iface) on an
-older kernel.
+ static void my_work(struct work_struct *w)
+ {
+         mutex_lock(&mutex);
+         mutex_unlock(&mutex);
+ }
 
-It seemed obvious to me, but when I tried to reproduce this
-upstream (last kernel of today), I noticed that the kernel
-does restore the previous added multicast addresses. Therefore,
-there is no issues.
+ static DECLARE_WORK(work, my_work);
 
-I found that this is due to mainly this commit below which
-doesn't remove idev when the addresses are deleted.
+ static int __init start_test_module(void)
+ {
+         schedule_work(&work);
+         return 0;
+ }
+ module_init(start_test_module);
 
-commit 6363097cc4d182f93788131b5d8f72aa91d950a0
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Thu Jun 7 18:35:38 2007 -0700
+ static void __exit stop_test_module(void)
+ {
+         mutex_lock(&mutex);
+         flush_work(&work);
+         mutex_unlock(&mutex);
+ }
+ module_exit(stop_test_module);
 
-    [IPV4]: Do not remove idev when addresses are cleared
-    
-    Now that we create idev before addresses are added, it no longer makes
-    sense to remove them when addresses are all deleted.
-    
-    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+would not always print a warning when flush_work() was called.
+In this trivial example nothing could go wrong since we are
+guaranteed module_init() and module_exit() don't run concurrently,
+but if the work item is schedule asynchronously we could have a
+scenario where the work item is running just at the time flush_work()
+is called resulting in a classic ABBA locking problem.
 
+Add a lockdep hint by acquiring and releasing the work item
+lockdep_map in flush_work() so that we always catch this
+potential deadlock scenario.
 
-Although the new behavior seems nice and save some user space
-work, I think it was unintentional and likely to be a bug.
+Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+---
+ kernel/workqueue.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-What you guys think?
-
-thanks,
-fbl
+diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+index 5abf42f..038cf64 100644
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -2506,6 +2506,9 @@ bool flush_work(struct work_struct *work)
+ {
+ 	struct wq_barrier barr;
+ 
++	lock_map_acquire(&work->lockdep_map);
++	lock_map_release(&work->lockdep_map);
++
+ 	if (start_flush_work(work, &barr, true)) {
+ 		wait_for_completion(&barr.done);
+ 		destroy_work_on_stack(&barr.work);
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
