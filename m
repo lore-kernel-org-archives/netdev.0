@@ -1,44 +1,53 @@
-From: David Daney <david.s.daney@gmail.com>
-Subject: Re: [PATCH v5 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
-Date: Sat, 21 Apr 2012 14:25:51 -0700
-Message-ID: <4F9325DF.7020003@gmail.com>
-References: <1334791254-15987-1-git-send-email-ddaney.cavm@gmail.com>        <1334791254-15987-3-git-send-email-ddaney.cavm@gmail.com> <20120421.153201.2103447307695063734.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ddaney.cavm@gmail.com, grant.likely@secretlab.ca,
-	rob.herring@calxeda.com, devicetree-discuss@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-mips@linux-mips.org, afleming@gmail.com,
-	galak@kernel.crashing.org, david.daney@cavium.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120421.153201.2103447307695063734.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Eldad Zack <eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>
+Subject: [PATCH] [brcmsmac] "INTERMEDIATE but not AMPDU" only when tracing
+Date: Sun, 22 Apr 2012 00:48:04 +0200
+Message-ID: <1335048484-5925-1-git-send-email-eldad@fogrefinery.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eldad Zack <eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>
+To: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Roland Vossen <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Kan Yan <kanyan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/21/2012 12:32 PM, David Miller wrote:
-> From: David Daney<ddaney.cavm@gmail.com>
-> Date: Wed, 18 Apr 2012 16:20:53 -0700
->
->> +config MDIO_BUS_MUX
->> +	tristate
->> +	help
->> +	  This module provides a driver framework for MDIO bus
->> +	  multiplexers which connect one of several child MDIO busses
->> +	  to a parent bus.  Switching between child busses is done by
->> +	  device specific drivers.
->> +
-> This driver uses OF and OF_MDIO, and therefore need dependencies upon
-> them.  Otherwise it can be enabled in configurations which will result
-> in build failures.
+I keep getting the following messages on the log buffer:
+[ 2167.097507] ieee80211 phy0: brcms_c_dotxstatus: INTERMEDIATE but not AMPDU
+[ 2281.331305] ieee80211 phy0: brcms_c_dotxstatus: INTERMEDIATE but not AMPDU
+[ 2281.332539] ieee80211 phy0: brcms_c_dotxstatus: INTERMEDIATE but not AMPDU
+[ 2329.876605] ieee80211 phy0: brcms_c_dotxstatus: INTERMEDIATE but not AMPDU
+[ 2329.877354] ieee80211 phy0: brcms_c_dotxstatus: INTERMEDIATE but not AMPDU
+[ 2462.280756] ieee80211 phy0: brcms_c_dotxstatus: INTERMEDIATE but not AMPDU
+[ 2615.651689] ieee80211 phy0: brcms_c_dotxstatus: INTERMEDIATE but not AMPDU
 
-Note that this symbol cannot be selected by the user, only indirectly 
-via the MDIO_BUS_MUX_GPIO symbol (in patch 3/3) which has the proper 
-dependencies.
+>From the code comment I understand that this something that can - and does, quite frequently - happen.
+This patch demotes the message to the trace level.
 
-If we were to specify the dependencies in both places, we gain nothing other than duplication of information.
+Signed-off-by: Eldad Zack <eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>
+---
+ drivers/net/wireless/brcm80211/brcmsmac/main.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-However, if you insist, I will of course add it here too.
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+index 231ddf4..2fc5956 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+@@ -847,8 +847,7 @@ brcms_c_dotxstatus(struct brcms_c_info *wlc, struct tx_status *txs)
+ 	 */
+ 	if (!(txs->status & TX_STATUS_AMPDU)
+ 	    && (txs->status & TX_STATUS_INTERMEDIATE)) {
+-		wiphy_err(wlc->wiphy, "%s: INTERMEDIATE but not AMPDU\n",
+-			  __func__);
++		BCMMSG(wlc->wiphy, "INTERMEDIATE but not AMPDU\n");
+ 		return false;
+ 	}
+ 
+-- 
+1.7.9.5
 
-David Daney
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
