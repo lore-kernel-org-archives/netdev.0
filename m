@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] TCP connection repair (v4)
-Date: Sat, 21 Apr 2012 15:53:54 -0400 (EDT)
-Message-ID: <20120421.155354.769351486098851306.davem@davemloft.net>
-References: <4F901572.4040009@parallels.com>
+Subject: Re: [PATCH] ks8851: Fix request_irq/free_irq mismatch
+Date: Sat, 21 Apr 2012 15:56:11 -0400 (EDT)
+Message-ID: <20120421.155611.867654197068869227.davem@davemloft.net>
+References: <1334855837-28366-1-git-send-email-mjr@cs.wisc.edu>
+	<4F9055DF.9050509@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@parallels.com
+Cc: mjr@cs.wisc.edu, ben@simtec.co.uk, netdev@vger.kernel.org
+To: sboyd@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43520 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:43548 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751138Ab2DUTx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 15:53:57 -0400
-In-Reply-To: <4F901572.4040009@parallels.com>
+	with ESMTP id S1750798Ab2DUT5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 15:57:24 -0400
+In-Reply-To: <4F9055DF.9050509@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Thu, 19 Apr 2012 17:38:58 +0400
+From: Stephen Boyd <sboyd@codeaurora.org>
+Date: Thu, 19 Apr 2012 11:13:51 -0700
 
-> Attempt #4 with an API for TCP connection recreation (previous one is
-> at http://lists.openwall.net/netdev/2012/03/28/84) re-based on the
-> today's net-next tree.
+> On 04/19/12 10:17, mjr@cs.wisc.edu wrote:
+>> From: Matt Renzelmann <mjr@cs.wisc.edu>
+>>
+>> The dev_id parameter passed to free_irq needs to match the one passed
+>> to the corresponding request_irq.
+>>
+>> Signed-off-by: Matt Renzelmann <mjr@cs.wisc.edu>
 > 
-> Changes since v3:
-> 
-> * Added repair for TCP options negotiated during 3WHS process, pointed
->   out by Li Yu. The explanation of how this happens is in patch #6.
-> 
-> * Named constant for sk_reuse values as proposed by Ben Hutching.
-> 
-> * Off-by-one in repair-queue sockoption caught by Ben.
+> Acked-by: Stephen Boyd <sboyd@codeaurora.org>
 
-All applied to net-next, nice work.
-
-Please make the following fix for me.  The option recovery code will
-result in unaligned accesses, for example you'll do a byte aligned
-get_user() for the u16 MSS object in many cases, and this will trap
-and cpus such as sparc.
-
-Either add a padding facility or pass more structured data into the
-socket option.
-
-Thanks.
+Applied, thanks.
