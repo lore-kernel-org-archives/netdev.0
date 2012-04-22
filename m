@@ -1,39 +1,121 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix TCP_MAXSEG for established IPv6 passive
- sockets
-Date: Sun, 22 Apr 2012 17:10:16 -0400 (EDT)
-Message-ID: <20120422.171016.2000807309124070108.davem@davemloft.net>
-References: <1335123947-9906-1-git-send-email-ncardwell@google.com>
-	<1335125694.2395.277.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: speedup skb_splice_bits()
+Date: Mon, 23 Apr 2012 00:26:16 +0200
+Message-ID: <1335133576.2395.409.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org, edumazet@google.com,
-	nanditad@google.com, ycheng@google.com, ilpo.jarvinen@helsinki.fi,
-	maze@google.com, therbert@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
+	Jens Axboe <axboe@kernel.dk>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50527 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751964Ab2DVVK2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 17:10:28 -0400
-In-Reply-To: <1335125694.2395.277.camel@edumazet-glaptop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:45618 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752536Ab2DVW0U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 18:26:20 -0400
+Received: by wejx9 with SMTP id x9so7103998wej.19
+        for <netdev@vger.kernel.org>; Sun, 22 Apr 2012 15:26:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 22 Apr 2012 22:14:54 +0200
+From: Eric Dumazet <edumazet@google.com>
 
-> On Sun, 2012-04-22 at 15:45 -0400, Neal Cardwell wrote:
->> Commit f5fff5d forgot to fix TCP_MAXSEG behavior IPv6 sockets, so IPv6
->> TCP server sockets that used TCP_MAXSEG would find that the advmss of
->> child sockets would be incorrect. This commit mirrors the advmss logic
->> from tcp_v4_syn_recv_sock in tcp_v6_syn_recv_sock. Eventually this
->> logic should probably be shared between IPv4 and IPv6, but this at
->> least fixes this issue.
->> 
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
- ...
-> Acked-by: Eric Dumazet <edumazet@google.com>
+Commit 35f3d14db (pipe: add support for shrinking and growing pipes)
+added a slowdown for splice(socket -> pipe), as we might grow the spd
+used in skb_splice_bits() for each skb we process in splice() syscall.
 
-Applied and queued up for -stable, thanks.
+Its not needed since skb lengths are capped. The default on-stack arrays
+are more than enough.
+
+Use MAX_SKB_FRAGS instead of PIPE_DEF_BUFFERS to describe the reasonable
+limit per skb.
+
+Add coalescing support to help splicing of GRO skbs built from linear
+skbs (linked into frag_list)
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jens Axboe <axboe@kernel.dk>
+Cc: Tom Herbert <therbert@google.com>
+---
+ net/core/skbuff.c |   30 +++++++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 11 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index bf257de..dfb3040 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1581,11 +1581,20 @@ new_page:
+ 	memcpy(page_address(p) + off, page_address(page) + *offset, *len);
+ 	sk->sk_sndmsg_off += *len;
+ 	*offset = off;
+-	get_page(p);
+ 
+ 	return p;
+ }
+ 
++static bool spd_can_coalesce(const struct splice_pipe_desc *spd,
++			     struct page *page,
++			     unsigned int offset)
++{
++	return	spd->nr_pages &&
++		spd->pages[spd->nr_pages - 1] == page &&
++		(spd->partial[spd->nr_pages - 1].offset +
++		 spd->partial[spd->nr_pages - 1].len == offset);
++}
++
+ /*
+  * Fill page/offset/length into spd, if it can hold more pages.
+  */
+@@ -1595,16 +1604,19 @@ static inline int spd_fill_page(struct splice_pipe_desc *spd,
+ 				struct sk_buff *skb, int linear,
+ 				struct sock *sk)
+ {
+-	if (unlikely(spd->nr_pages == pipe->buffers))
++	if (unlikely(spd->nr_pages == MAX_SKB_FRAGS))
+ 		return 1;
+ 
+ 	if (linear) {
+ 		page = linear_to_page(page, len, &offset, skb, sk);
+ 		if (!page)
+ 			return 1;
+-	} else
+-		get_page(page);
+-
++	}
++	if (spd_can_coalesce(spd, page, offset)) {
++		spd->partial[spd->nr_pages - 1].len += *len;
++		return 0;
++	}
++	get_page(page);
+ 	spd->pages[spd->nr_pages] = page;
+ 	spd->partial[spd->nr_pages].len = *len;
+ 	spd->partial[spd->nr_pages].offset = offset;
+@@ -1710,8 +1722,8 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
+ 		    struct pipe_inode_info *pipe, unsigned int tlen,
+ 		    unsigned int flags)
+ {
+-	struct partial_page partial[PIPE_DEF_BUFFERS];
+-	struct page *pages[PIPE_DEF_BUFFERS];
++	struct partial_page partial[MAX_SKB_FRAGS];
++	struct page *pages[MAX_SKB_FRAGS];
+ 	struct splice_pipe_desc spd = {
+ 		.pages = pages,
+ 		.partial = partial,
+@@ -1723,9 +1735,6 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
+ 	struct sock *sk = skb->sk;
+ 	int ret = 0;
+ 
+-	if (splice_grow_spd(pipe, &spd))
+-		return -ENOMEM;
+-
+ 	/*
+ 	 * __skb_splice_bits() only fails if the output has no room left,
+ 	 * so no point in going over the frag_list for the error case.
+@@ -1761,7 +1770,6 @@ done:
+ 		lock_sock(sk);
+ 	}
+ 
+-	splice_shrink_spd(pipe, &spd);
+ 	return ret;
+ }
+ 
