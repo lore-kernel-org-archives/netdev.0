@@ -1,33 +1,53 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: Question with secure_ipv4_port_ephemeral() implementation
-Date: Sun, 22 Apr 2012 23:38:38 +0900
-Message-ID: <201204222338.FHB90661.OFJFOVMFHSOtLQ@I-love.SAKURA.ne.jp>
-References: <201204202130.IJF95312.tQJFLMFOFSVHOO@I-love.SAKURA.ne.jp>
-	<1335065393.3209.361.camel@deadeye>
-	<201204221420.GJB51054.OtHOFSQJFOVMFL@I-love.SAKURA.ne.jp>
-	<1335104462.3209.377.camel@deadeye>
+From: Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Sun, 22 Apr 2012 08:22:24 -0700 (PDT)
+Message-ID: <61c89e02-c916-421e-b469-62b307853b1b@tahiti.vyatta.com>
+References: <20120421.153743.699070106218049860.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:54569 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751504Ab2DVOiv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 10:38:51 -0400
-In-Reply-To: <1335104462.3209.377.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	eric dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120421.153743.699070106218049860.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ben Hutchings wrote:
-> All this randomisation is concerned with preventing spoofing attacks by
-> attackers that can't see any packets routed to the spoofed address.  If
-> they can see the return packets then this is all in vain, which is why
-> we generally want cryptography at the transport or application level.
-> But if they can't then the port offset remains secret - right?
+
+> From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+> Date: Thu, 19 Apr 2012 13:53:35 +0900
 > 
-> (Port randomisation is not very useful on it own due to the small number
-> space, but see
-> <http://en.wikipedia.org/wiki/DNS_cache_poisoning#Prevention_and_mitigation>.)
+> > This hook is based on a hook of the same name provided by UDP.  It
+> > provides
+> > a way for to receive packets that have a TCP header and treat them
+> > in some
+> > alternate way.
+> > 
+> > It is intended to be used by an implementation of the STT tunneling
+> > protocol within Open vSwtich's datapath. A prototype of such an
+> > implementation has been made.
+> > 
+> > The STT draft is available at
+> > http://tools.ietf.org/html/draft-davie-stt-01
+> 
+> I think that unlike UDP, you need to let the stack handle the TCP
+> packet before taking it into your subsystem.  The reason is that
+> otherwise you'll need to handle packet ordering, sequence number
+> gaps,
+> and proper TCP ACK'ing and timeout all inside of your module and
+> that's simply unacceptable.
 
-Thank you. So, this change (which looked to me a regression) is not a regression.
+STT isn't really doing TCP, it just lying and pretending to be
+TCP to allow TSO to work! There is no packet ordering, sequence
+numbers or any real transport layer.  Therefore Simon's
+proposed hook is the only way to support it. But exposing that
+hook does allow for other misuse.
