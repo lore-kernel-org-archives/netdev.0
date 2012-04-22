@@ -1,250 +1,76 @@
-From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: use-after-free in usbnet
-Date: Sun, 22 Apr 2012 10:19:33 +0800
-Message-ID: <CA+v9cxaqL1V3eyv=dhKbqbnXk6wm1qm93DNFbrbwbd1b1X+3rw@mail.gmail.com>
-References: <CACVXFVP+U1k7JFTmbabF-k8F3bO9zc58c3tLG6=1nQPcrR9p1g@mail.gmail.com>
-	<Pine.LNX.4.44L0.1203211201560.1369-100000@iolanthe.rowland.org>
-	<CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA@mail.gmail.com>
-	<201203221008.46882.oneukum@suse.de>
-	<CACVXFVODFvtF1DRyWJmnYCByw7sr9QDv_+Taxo5maVaUauDNtg@mail.gmail.com>
-	<CA+v9cxawVwKakF6c_RpAw2XUGWcbqd8M+ZJqyq76Au9rmNosmQ@mail.gmail.com>
-	<CACVXFVM5YBJkDZddeGi1_MPY7EqEV_wtoFy-NtBHYA6rxez0jg@mail.gmail.com>
-	<CA+v9cxZWtGbz6uCSysVbAc1hT27rCiuJXzcvSiTxH-zuQYnrZw@mail.gmail.com>
-	<CACVXFVOc0XZ+eLHGiVwKuiUResRk8Cj9MS4EPMx7k57a0tEJhA@mail.gmail.com>
-	<CA+v9cxZZpL5soSga=MX_bD45KNve-Lnr2Qb6+gr7Mv6Txyh-fA@mail.gmail.com>
-	<CACVXFVN6kvXk7s4Sc0d_-yKSM=rV3qcuPPBHVZYzoQjnwkGX+Q@mail.gmail.com>
-	<CACVXFVNc_S8pTaBqMzQZx6Dt-tSP_9iXepxJzv=iR9BFu=Tj8g@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 12/19] net neighbour:  Convert to use
+ register_net_sysctl
+Date: Sun, 22 Apr 2012 03:36:55 +0100
+Message-ID: <1335062215.3209.330.camel@deadeye>
+References: <m1aa27ia6h.fsf@fess.ebiederm.org>
+	 <m1ehrjfg2s.fsf@fess.ebiederm.org> <4F90F26B.3090906@parallels.com>
+	 <m1ty0ec1bg.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
-To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVNc_S8pTaBqMzQZx6Dt-tSP_9iXepxJzv=iR9BFu=Tj8g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:24561 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751975Ab2DVCmc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Apr 2012 22:42:32 -0400
+In-Reply-To: <m1ty0ec1bg.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 21, 2012 at 3:45 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote=
-:
-> Hi Huajun,
->
-> On Sat, Apr 21, 2012 at 3:06 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wro=
-te:
->>> Just skip trying this per your following email's comments.
->>
->> I will prepare a new patch later, if you'd like to try it.
->
-> The below patch reverts the below commits:
->
-> =A0 =A0 =A0 0956a8c20b23d429e79ff86d4325583fc06f9eb4
-> =A0 =A0 =A0(usbnet: increase URB reference count before usb_unlink_ur=
-b)
->
-> =A0 =A0 =A04231d47e6fe69f061f96c98c30eaf9fb4c14b96d
-> =A0 =A0 =A0(net/usbnet: avoid recursive locking in usbnet_stop())
->
-> and keep holding tx/rx queue lock during unlinking, but avoid
-> to acquire the same queue lock inside complete handler triggered by
-> usb_unlink_urb.
->
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index db99536..effb34e 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -291,9 +291,11 @@ static void defer_bh(struct usbnet *dev, struct
-> sk_buff *skb, struct sk_buff_hea
-> =A0{
-> =A0 =A0 =A0 =A0unsigned long =A0 =A0 =A0 =A0 =A0 flags;
->
-> - =A0 =A0 =A0 spin_lock_irqsave(&list->lock, flags);
-> + =A0 =A0 =A0 if (!test_cpu_bit(URB_UNLINKING, dev->cpuflags))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_lock_irqsave(&list->lock, flags);
-> =A0 =A0 =A0 =A0__skb_unlink(skb, list);
-> - =A0 =A0 =A0 spin_unlock(&list->lock);
-> + =A0 =A0 =A0 if (!test_cpu_bit(URB_UNLINKING, dev->cpuflags))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock(&list->lock);
-> =A0 =A0 =A0 =A0spin_lock(&dev->done.lock);
-> =A0 =A0 =A0 =A0__skb_queue_tail(&dev->done, skb);
-> =A0 =A0 =A0 =A0if (dev->done.qlen =3D=3D 1)
+On Fri, 2012-04-20 at 00:25 -0700, Eric W. Biederman wrote:
+> Pavel Emelyanov <xemul@parallels.com> writes:
+> 
+> >> @@ -2925,19 +2924,7 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
+> >>  {
+> >>  	struct neigh_sysctl_table *t;
+> >>  	const char *dev_name_source = NULL;
+> >> -
+> >> -#define NEIGH_CTL_PATH_ROOT	0
+> >> -#define NEIGH_CTL_PATH_PROTO	1
+> >> -#define NEIGH_CTL_PATH_NEIGH	2
+> >> -#define NEIGH_CTL_PATH_DEV	3
+> >> -
+> >> -	struct ctl_path neigh_path[] = {
+> >> -		{ .procname = "net",	 },
+> >> -		{ .procname = "proto",	 },
+> >> -		{ .procname = "neigh",	 },
+> >> -		{ .procname = "default", },
+> >> -		{ },
+> >> -	};
+> >> +	char neigh_path[ sizeof("net//neigh/") + IFNAMSIZ + IFNAMSIZ ];
+> >
+> > Why two IFNAMSIZ-es? One is for the dev->name, but the other one is not.
+> > Is it just for not having any other better constant at hands?
+> 
+> Yep.  We don't seem to have any proto name size constants, and all
+> of decnet ipv4 and ipv6 are all shorter than the 16 bytes of IFNAMSIZ.
 
+I don't think it makes any sense to put in IFNAMSIZ as a size for a
+string that isn't a device name.
 
-Then 'flags' may not be initialized, and this will cause problem while
-calling spin_unlock_irqrestore(&dev->done.lock, flags), right?
+> Even if I am wrong the snprintf below truncates it's output to the
+> buffer size and null terminates it so in the worst case we won't cause
+> a buffer overflow, we will just get a truncated path name to pass
+> to sysctl.
+> 
+> Shrug I stopped at good enough but I am happy for a better number.
 
+Truncation by snprintf() is definitely better than overflow, but we
+should also check and WARN so that if someone breaks this it's hard to
+miss.
 
-> @@ -345,7 +347,8 @@ static int rx_submit (struct usbnet *dev, struct
-> urb *urb, gfp_t flags)
-> =A0 =A0 =A0 =A0usb_fill_bulk_urb (urb, dev->udev, dev->in,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb->data, size, rx_complete, skb);
->
-> - =A0 =A0 =A0 spin_lock_irqsave (&dev->rxq.lock, lockflags);
-> + =A0 =A0 =A0 if (!test_cpu_bit(URB_UNLINKING, dev->cpuflags))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_lock_irqsave (&dev->rxq.lock, lock=
-flags);
->
-> =A0 =A0 =A0 =A0if (netif_running (dev->net) &&
-> =A0 =A0 =A0 =A0 =A0 =A0netif_device_present (dev->net) &&
-> @@ -377,7 +380,8 @@ static int rx_submit (struct usbnet *dev, struct
-> urb *urb, gfp_t flags)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0netif_dbg(dev, ifdown, dev->net, "rx: =
-stopped\n");
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0retval =3D -ENOLINK;
-> =A0 =A0 =A0 =A0}
-> - =A0 =A0 =A0 spin_unlock_irqrestore (&dev->rxq.lock, lockflags);
-> + =A0 =A0 =A0 if (!test_cpu_bit(URB_UNLINKING, dev->cpuflags))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock_irqrestore (&dev->rxq.lock,=
- lockflags);
-> =A0 =A0 =A0 =A0if (retval) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_kfree_skb_any (skb);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0usb_free_urb (urb);
-> @@ -582,6 +586,7 @@ static int unlink_urbs (struct usbnet *dev, struc=
-t
-> sk_buff_head *q)
-> =A0 =A0 =A0 =A0int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 count =3D =
-0;
->
-> =A0 =A0 =A0 =A0spin_lock_irqsave (&q->lock, flags);
-> + =A0 =A0 =A0 set_cpu_bit(URB_UNLINKING, dev->cpuflags);
-> =A0 =A0 =A0 =A0skb_queue_walk_safe(q, skb, skbnext) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct skb_data =A0 =A0 =A0 =A0 *entry=
-;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct urb =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-*urb;
-> @@ -590,15 +595,6 @@ static int unlink_urbs (struct usbnet *dev,
-> struct sk_buff_head *q)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0entry =3D (struct skb_data *) skb->cb;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0urb =3D entry->urb;
->
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Get reference count of the URB to =
-avoid it to be
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* freed during usb_unlink_urb, which=
- may trigger
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* use-after-free problem inside usb_=
-unlink_urb since
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* usb_unlink_urb is always racing wi=
-th .complete
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* handler(include defer_bh).
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_get_urb(urb);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock_irqrestore(&q->lock, flags)=
-;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0// during some PM-driven resume scenar=
-ios,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0// these (async) unlinks complete imme=
-diately
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0retval =3D usb_unlink_urb (urb);
-> @@ -606,9 +602,8 @@ static int unlink_urbs (struct usbnet *dev, struc=
-t
-> sk_buff_head *q)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0netdev_dbg(dev->net, "=
-unlink urb err, %d\n", retval);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0else
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0count++;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_put_urb(urb);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_lock_irqsave(&q->lock, flags);
-> =A0 =A0 =A0 =A0}
-> + =A0 =A0 =A0 clear_cpu_bit(URB_UNLINKING, dev->cpuflags);
-> =A0 =A0 =A0 =A0spin_unlock_irqrestore (&q->lock, flags);
-> =A0 =A0 =A0 =A0return count;
-> =A0}
-> @@ -1283,6 +1278,7 @@ void usbnet_disconnect (struct usb_interface *i=
-ntf)
-> =A0 =A0 =A0 =A0usb_kill_urb(dev->interrupt);
-> =A0 =A0 =A0 =A0usb_free_urb(dev->interrupt);
->
-> + =A0 =A0 =A0 free_percpu(dev->cpuflags);
-> =A0 =A0 =A0 =A0free_netdev(net);
-> =A0 =A0 =A0 =A0usb_put_dev (xdev);
-> =A0}
-> @@ -1353,6 +1349,13 @@ usbnet_probe (struct usb_interface *udev, cons=
-t
-> struct usb_device_id *prod)
-> =A0 =A0 =A0 =A0SET_NETDEV_DEV(net, &udev->dev);
->
-> =A0 =A0 =A0 =A0dev =3D netdev_priv(net);
-> +
-> + =A0 =A0 =A0 dev->cpuflags =3D alloc_percpu(unsigned long);
-> + =A0 =A0 =A0 if (!dev->cpuflags) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D -ENOMEM;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out1;
-> + =A0 =A0 =A0 }
-> +
-> =A0 =A0 =A0 =A0dev->udev =3D xdev;
-> =A0 =A0 =A0 =A0dev->intf =3D udev;
-> =A0 =A0 =A0 =A0dev->driver_info =3D info;
-> @@ -1396,7 +1399,7 @@ usbnet_probe (struct usb_interface *udev, const
-> struct usb_device_id *prod)
-> =A0 =A0 =A0 =A0if (info->bind) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0status =3D info->bind (dev, udev);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (status < 0)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out1;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out2;
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0// heuristic: =A0"usb%d" for links we =
-know are two-host,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0// else "eth%d" when there's reasonabl=
-e doubt. =A0userspace
-> @@ -1465,6 +1468,8 @@ usbnet_probe (struct usb_interface *udev, const
-> struct usb_device_id *prod)
-> =A0out3:
-> =A0 =A0 =A0 =A0if (info->unbind)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0info->unbind (dev, udev);
-> +out2:
-> + =A0 =A0 =A0 free_percpu(dev->cpuflags);
-> =A0out1:
-> =A0 =A0 =A0 =A0free_netdev(net);
-> =A0out:
-> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-> index 605b0aa..2dc46f5 100644
-> --- a/include/linux/usb/usbnet.h
-> +++ b/include/linux/usb/usbnet.h
-> @@ -69,8 +69,28 @@ struct usbnet {
-> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 6
-> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 7
-> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 8
-> + =A0 =A0 =A0 unsigned long __percpu *cpuflags;
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define URB_UNLINKING =A0 =A00
+Ben.
 
-Is it possible using a simple bool variable to track whether q->lock
-is hold by unlink_urb() ?  If yes, it can avoid introducing following
-new codes into current code stack.
-
-> =A0};
->
-> +static inline void set_cpu_bit(int nr, unsigned long __percpu *addr)
-> +{
-> + =A0 =A0 =A0 unsigned long *fl =3D __this_cpu_ptr(addr);
-> + =A0 =A0 =A0 set_bit(nr, fl);
-> +}
-> +
-> +static inline void clear_cpu_bit(int nr, unsigned long __percpu *add=
-r)
-> +{
-> + =A0 =A0 =A0 unsigned long *fl =3D __this_cpu_ptr(addr);
-> + =A0 =A0 =A0 clear_bit(nr, fl);
-> +}
-> +
-> +static inline int test_cpu_bit(int nr, unsigned long __percpu *addr)
-> +{
-> + =A0 =A0 =A0 unsigned long *fl =3D __this_cpu_ptr(addr);
-> + =A0 =A0 =A0 return test_bit(nr, fl);
-> +}
-> +
-> =A0static inline struct usb_driver *driver_of(struct usb_interface *i=
-ntf)
-> =A0{
-> =A0 =A0 =A0 =A0return to_usb_driver(intf->dev.driver);
->
->
-> Thanks,
-> --
-> Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
