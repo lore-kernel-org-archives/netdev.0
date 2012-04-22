@@ -1,99 +1,65 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: Question with secure_ipv4_port_ephemeral() implementation
-Date: Sun, 22 Apr 2012 14:20:53 +0900
-Message-ID: <201204221420.GJB51054.OtHOFSQJFOVMFL@I-love.SAKURA.ne.jp>
-References: <201204202130.IJF95312.tQJFLMFOFSVHOO@I-love.SAKURA.ne.jp>
-	<1335065393.3209.361.camel@deadeye>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: rx_dropped packets stop with tcpdump running
+Date: Sun, 22 Apr 2012 01:13:54 -0400
+Message-ID: <20120422011354.623b08d4.billfink@mindspring.com>
+References: <DUB108-W3E0658169335663BE7574B23D0@phx.gbl>
+	<1334841865.2395.177.camel@edumazet-glaptop>
+	<1334842088.2395.178.camel@edumazet-glaptop>
+	<061C8A8601E8EE4CA8D8FD6990CEA8910FF2D23F@ORSMSX102.amr.corp.intel.com>
+	<DUB108-W45246BF22ED8BAB93B78C8B2220@phx.gbl>
+	<4F9179E3.5020507@hp.com>
+	<DUB108-W57C2F8FCF145C20E3B8BF1B2220@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <brian.haley@hp.com>, <tushar.n.dave@intel.com>,
+	<netdev@vger.kernel.org>, <eric.dumazet@gmail.com>
+To: Marco Berizzi <pupilla@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:52549 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954Ab2DVFVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 01:21:40 -0400
-In-Reply-To: <1335065393.3209.361.camel@deadeye>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:57176 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752291Ab2DVFXO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Apr 2012 01:23:14 -0400
+In-Reply-To: <DUB108-W57C2F8FCF145C20E3B8BF1B2220@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> As I understand it, that 8-bit counter was used for all connections, so
-> in order to spoof the source of a TCP connection it was only necessary
-> to guess 24 bits of the ISN.  On a sufficiently fast network, it would
-> now be feasible to carry out a brute force attack that ACKs all possible
-> ISNs before the handshake times-out.  That's not yet feasible if the
-> attacker has to guess all 32 bits of the ISN.
+On Fri, 20 Apr 2012 17:25:28 +0200, Marco Berizzi wrote:
 
-So, the purpose was to make the initial sequence number more random. OK.
+> brian.haley@hp.com wrote:
+> > 0x886d or 0x86DD? That second one is IPv6, you might just need to l=
+oad the module.
+>=20
+> here is the tcpdump:
+>=20
+> 17:23:25.561398 00:19:99:90:ba:72 > ff:ff:ff:ff:ff:ff, ethertype Unkn=
+own (0x886d), length 64:=20
+> =A0=A0=A0=A0=A0=A0=A0 0x0000:=A0 0001 0001 000c 24e2 0001 0019 9990 b=
+a72=A0 ......$........r
+> =A0=A0=A0=A0=A0=A0=A0 0x0010:=A0 0000 0500 2304 6364 726f 447b d700 8=
+0f8=A0 ....#.cdroD{....
+> =A0=A0=A0=A0=A0=A0=A0 0x0020:=A0 ffff 20d1 b631 80fa ffff e02b fb30 8=
+0fa=A0 .....1.....+.0..
+> =A0=A0=A0=A0=A0=A0=A0 0x0030:=A0 ffff=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0 ..
+> 17:23:25.561402 00:19:99:90:ba:73 > ff:ff:ff:ff:ff:ff, ethertype Unkn=
+own (0x886d), length 64:=20
+> =A0=A0=A0=A0=A0=A0=A0 0x0000:=A0 0001 0001 000c 24e2 0002 0019 9990 b=
+a72=A0 ......$........r
+> =A0=A0=A0=A0=A0=A0=A0 0x0010:=A0 6700 5400 6800 7200 6500 7300 6800 6=
+f00=A0 g.T.h.r.e.s.h.o.
+> =A0=A0=A0=A0=A0=A0=A0 0x0020:=A0 6c00 6400 0000 3700 3200 0000 0000 0=
+000=A0 l.d...7.2.......
+> =A0=A0=A0=A0=A0=A0=A0 0x0030:=A0 0000=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0 ..
 
-> The original reason for periodically regenerating the secret was that
-> the hash function was quite weak and the secret could presumably be
-> found in a reasonably short time.  So, without regeneration, the hash
-> also has to be stronger.
+=46YI, a Google search for "ethertype 886d" revealed that this is
+supposedly an Intel ANS probe.  See:
 
-My concern is the purpose of making the automatic local port number selection
-algorithm less random. That commit removed uptime factor from factors that
-determine starting point of available local port scanning (due to removal of
-periodic get_random_bytes() calls).
+  http://fixunix.com/networking/337443-packets-broadcasting-every-secon=
+d.html
 
-368 static inline u32 inet_sk_port_offset(const struct sock *sk)
-369 {
-370         const struct inet_sock *inet = inet_sk(sk);
-371         return secure_ipv4_port_ephemeral(inet->inet_rcv_saddr,
-372                                           inet->inet_daddr,
-373                                           inet->inet_dport);
-374 }
-
-secure_ipv4_port_ephemeral() no longer depends on uptime.
-
-565 int inet_hash_connect(struct inet_timewait_death_row *death_row,
-566                       struct sock *sk)
-567 {
-568         return __inet_hash_connect(death_row, sk, inet_sk_port_offset(sk),
-569                         __inet_check_established, __inet_hash_nolisten);
-570 }
-
-inet_sk_port_offset() no longer depends on uptime.
-It returns same port offset for same addresses.
-
-454 int __inet_hash_connect(struct inet_timewait_death_row *death_row,
-455                 struct sock *sk, u32 port_offset,
-456                 int (*check_established)(struct inet_timewait_death_row *,
-457                         struct sock *, __u16, struct inet_timewait_sock **),
-458                 int (*hash)(struct sock *sk, struct inet_timewait_sock *twp))
-459 {
-460         struct inet_hashinfo *hinfo = death_row->hashinfo;
-461         const unsigned short snum = inet_sk(sk)->inet_num;
-462         struct inet_bind_hashbucket *head;
-463         struct inet_bind_bucket *tb;
-464         int ret;
-465         struct net *net = sock_net(sk);
-466         int twrefcnt = 1;
-467 
-468         if (!snum) {
-469                 int i, remaining, low, high, port;
-470                 static u32 hint;
-471                 u32 offset = hint + port_offset;
-
-port_offset no longer depends on uptime.
-
-472                 struct hlist_node *node;
-473                 struct inet_timewait_sock *tw = NULL;
-474 
-475                 inet_get_local_port_range(&low, &high);
-476                 remaining = (high - low) + 1;
-477 
-478                 local_bh_disable();
-479                 for (i = 1; i <= remaining; i++) {
-480                         port = low + (i + offset) % remaining;
-
-That commit changed to scan available local port independent with uptime.
-
-481                         if (inet_is_reserved_local_port(port))
-482                                 continue;
-
-I worried we unexpectedly made the automatic local port number selection
-algorithm less random. If we expectedly made this algorithm less random,
-I wanted to know whether there was a reason we should not depend on
-uptime factor.
+						-Bill
