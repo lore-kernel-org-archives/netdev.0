@@ -1,56 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: fix TCP_MAXSEG for established IPv6 passive
- sockets
-Date: Sun, 22 Apr 2012 22:14:54 +0200
-Message-ID: <1335125694.2395.277.camel@edumazet-glaptop>
-References: <1335123947-9906-1-git-send-email-ncardwell@google.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] wl12xx: fix size of two memset's in
+ wl1271_cmd_build_arp_rsp()
+Date: Sun, 22 Apr 2012 22:53:59 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1204222252000.27455@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>, ilpo.jarvinen@helsinki.fi,
-	maze@google.com, Tom Herbert <therbert@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Luciano Coelho <coelho@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34167 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752180Ab2DVUO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 16:14:59 -0400
-Received: by wibhj6 with SMTP id hj6so2225093wib.1
-        for <netdev@vger.kernel.org>; Sun, 22 Apr 2012 13:14:58 -0700 (PDT)
-In-Reply-To: <1335123947-9906-1-git-send-email-ncardwell@google.com>
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:13354 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752327Ab2DVUyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 16:54:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-04-22 at 15:45 -0400, Neal Cardwell wrote:
-> Commit f5fff5d forgot to fix TCP_MAXSEG behavior IPv6 sockets, so IPv6
-> TCP server sockets that used TCP_MAXSEG would find that the advmss of
-> child sockets would be incorrect. This commit mirrors the advmss logic
-> from tcp_v4_syn_recv_sock in tcp_v6_syn_recv_sock. Eventually this
-> logic should probably be shared between IPv4 and IPv6, but this at
-> least fixes this issue.
-> 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> ---
->  net/ipv6/tcp_ipv6.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index 86cfe60..98256cf 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1383,6 +1383,10 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
->  	tcp_mtup_init(newsk);
->  	tcp_sync_mss(newsk, dst_mtu(dst));
->  	newtp->advmss = dst_metric_advmss(dst);
-> +	if (tcp_sk(sk)->rx_opt.user_mss &&
-> +	    tcp_sk(sk)->rx_opt.user_mss < newtp->advmss)
-> +		newtp->advmss = tcp_sk(sk)->rx_opt.user_mss;
-> +
->  	tcp_initialize_rcv_mss(newsk);
->  	if (tcp_rsk(req)->snt_synack)
->  		tcp_valid_rtt_meas(newsk,
+We currently do this:
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+...
+	struct wl12xx_arp_rsp_template *tmpl;
+	struct ieee80211_hdr_3addr *hdr;
+...
+	tmpl = (struct wl12xx_arp_rsp_template *)skb_put(skb, sizeof(*tmpl));
+	memset(tmpl, 0, sizeof(tmpl));
+...
+	hdr = (struct ieee80211_hdr_3addr *)skb_push(skb, sizeof(*hdr));
+	memset(hdr, 0, sizeof(*hdr));
+...
+
+I believe we want to set the entire structures to 0 with those
+memset() calls, not just zero the initial part of them (size of the
+pointer bytes).
+
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/net/wireless/wl12xx/cmd.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/wl12xx/cmd.c b/drivers/net/wireless/wl12xx/cmd.c
+index 3414fc1..8e65529 100644
+--- a/drivers/net/wireless/wl12xx/cmd.c
++++ b/drivers/net/wireless/wl12xx/cmd.c
+@@ -1249,7 +1249,7 @@ int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+ 	skb_reserve(skb, sizeof(*hdr) + WL1271_EXTRA_SPACE_MAX);
+ 
+ 	tmpl = (struct wl12xx_arp_rsp_template *)skb_put(skb, sizeof(*tmpl));
+-	memset(tmpl, 0, sizeof(tmpl));
++	memset(tmpl, 0, sizeof(*tmpl));
+ 
+ 	/* llc layer */
+ 	memcpy(tmpl->llc_hdr, rfc1042_header, sizeof(rfc1042_header));
+@@ -1298,7 +1298,7 @@ int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+ 
+ 	/* mac80211 header */
+ 	hdr = (struct ieee80211_hdr_3addr *)skb_push(skb, sizeof(*hdr));
+-	memset(hdr, 0, sizeof(hdr));
++	memset(hdr, 0, sizeof(*hdr));
+ 	fc = IEEE80211_FTYPE_DATA | IEEE80211_FCTL_TODS;
+ 	if (wlvif->sta.qos)
+ 		fc |= IEEE80211_STYPE_QOS_DATA;
+-- 
+1.7.10
+
+
+Please CC me on replies.
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
