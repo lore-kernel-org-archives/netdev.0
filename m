@@ -1,7 +1,7 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Ming Lei <tom.leiming@gmail.com>
 Subject: Re: use-after-free in usbnet
-Date: Sun, 22 Apr 2012 22:15:34 +0800
-Message-ID: <CACVXFVN6TXjxPQ0ZwW9usq5BQc+x8sEWFy+A5RvFFqVH7X5LRg@mail.gmail.com>
+Date: Sun, 22 Apr 2012 22:19:21 +0800
+Message-ID: <CACVXFVMcR4F+tWkhW5GdWg6i5JvSADXZHs-WOoHJUUqPGyHYKQ@mail.gmail.com>
 References: <CACVXFVP+U1k7JFTmbabF-k8F3bO9zc58c3tLG6=1nQPcrR9p1g@mail.gmail.com>
 	<Pine.LNX.4.44L0.1203211201560.1369-100000@iolanthe.rowland.org>
 	<CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA@mail.gmail.com>
@@ -20,28 +20,32 @@ References: <CACVXFVP+U1k7JFTmbabF-k8F3bO9zc58c3tLG6=1nQPcrR9p1g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
-To: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+v9cxZfzATWynXGtEe6gvcD2aRsLqAF3ZN_HM_dyU4W_rQSpg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Oliver Neukum <oneukum@suse.de>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: Huajun Li <huajun.li.lee@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f51.google.com ([209.85.210.51]:44768 "EHLO
+	mail-pz0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725Ab2DVOTV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 10:19:21 -0400
+In-Reply-To: <CA+v9cxZfzATWynXGtEe6gvcD2aRsLqAF3ZN_HM_dyU4W_rQSpg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 22, 2012 at 9:15 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wr=
+On Sun, Apr 22, 2012 at 9:15 PM, Huajun Li <huajun.li.lee@gmail.com> wr=
 ote:
-> On Sun, Apr 22, 2012 at 8:05 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wro=
+> On Sun, Apr 22, 2012 at 8:05 PM, Ming Lei <tom.leiming@gmail.com> wro=
 te:
->> On Sun, Apr 22, 2012 at 10:19 AM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org=
+>> On Sun, Apr 22, 2012 at 10:19 AM, Huajun Li <huajun.li.lee@gmail.com=
 > wrote:
->>> On Sat, Apr 21, 2012 at 3:45 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> w=
+>>> On Sat, Apr 21, 2012 at 3:45 PM, Ming Lei <tom.leiming@gmail.com> w=
 rote:
 >>>> Hi Huajun,
 >>>>
->>>> On Sat, Apr 21, 2012 at 3:06 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> =
+>>>> On Sat, Apr 21, 2012 at 3:06 PM, Ming Lei <tom.leiming@gmail.com> =
 wrote:
 >>>>>> Just skip trying this per your following email's comments.
 >>>>>
@@ -318,7 +322,3 @@ dr)
 
 --=20
 Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
