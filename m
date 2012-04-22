@@ -1,121 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: speedup skb_splice_bits()
-Date: Mon, 23 Apr 2012 00:26:16 +0200
-Message-ID: <1335133576.2395.409.camel@edumazet-glaptop>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Mon, 23 Apr 2012 08:27:09 +0900
+Message-ID: <20120422232706.GA22375@verge.net.au>
+References: <20120419045333.GA21311@verge.net.au>
+	<64d4ef6b-f082-4c25-97c2-528773fb4566@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
-	Jens Axboe <axboe@kernel.dk>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:45618 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752536Ab2DVW0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 18:26:20 -0400
-Received: by wejx9 with SMTP id x9so7103998wej.19
-        for <netdev@vger.kernel.org>; Sun, 22 Apr 2012 15:26:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <64d4ef6b-f082-4c25-97c2-528773fb4566-bX68f012229Xuxj3zoTs5AC/G2K4zDHf@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Sun, Apr 22, 2012 at 08:24:35AM -0700, Stephen Hemminger wrote:
+> 
+> 
+> > This hook is based on a hook of the same name provided by UDP.  It
+> > provides
+> > a way for to receive packets that have a TCP header and treat them in
+> > some
+> > alternate way.
+> > 
+> > It is intended to be used by an implementation of the STT tunneling
+> > protocol within Open vSwtich's datapath. A prototype of such an
+> > implementation has been made.
+> > 
+> > The STT draft is available at
+> > http://tools.ietf.org/html/draft-davie-stt-01
+> > 
+> > My prototype STT implementation has been posted to the
+> > dev-UOEtcQmXneFl884UGnbwIQ@public.gmane.org
+> > The second version can be found at:
+> > http://www.mail-archive.com/dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org/msg09001.html
+> > It needs to be updated to call tcp_encap_enable()
+> > 
+> > Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+> > 
+> >
+> > +static struct static_key tcp_encap_needed __read_mostly;
+> > +void tcp_encap_enable(void)
+> > +{
+> > +	if (!static_key_enabled(&tcp_encap_needed))
+> > +		static_key_slow_inc(&tcp_encap_needed);
+> > +}
+> > +EXPORT_SYMBOL(tcp_encap_enable);
+> 
+> I have reservations about adding such a hook. but if we
+> must, then the hook must be GPL only.
 
-Commit 35f3d14db (pipe: add support for shrinking and growing pipes)
-added a slowdown for splice(socket -> pipe), as we might grow the spd
-used in skb_splice_bits() for each skb we process in splice() syscall.
-
-Its not needed since skb lengths are capped. The default on-stack arrays
-are more than enough.
-
-Use MAX_SKB_FRAGS instead of PIPE_DEF_BUFFERS to describe the reasonable
-limit per skb.
-
-Add coalescing support to help splicing of GRO skbs built from linear
-skbs (linked into frag_list)
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jens Axboe <axboe@kernel.dk>
-Cc: Tom Herbert <therbert@google.com>
----
- net/core/skbuff.c |   30 +++++++++++++++++++-----------
- 1 file changed, 19 insertions(+), 11 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index bf257de..dfb3040 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1581,11 +1581,20 @@ new_page:
- 	memcpy(page_address(p) + off, page_address(page) + *offset, *len);
- 	sk->sk_sndmsg_off += *len;
- 	*offset = off;
--	get_page(p);
- 
- 	return p;
- }
- 
-+static bool spd_can_coalesce(const struct splice_pipe_desc *spd,
-+			     struct page *page,
-+			     unsigned int offset)
-+{
-+	return	spd->nr_pages &&
-+		spd->pages[spd->nr_pages - 1] == page &&
-+		(spd->partial[spd->nr_pages - 1].offset +
-+		 spd->partial[spd->nr_pages - 1].len == offset);
-+}
-+
- /*
-  * Fill page/offset/length into spd, if it can hold more pages.
-  */
-@@ -1595,16 +1604,19 @@ static inline int spd_fill_page(struct splice_pipe_desc *spd,
- 				struct sk_buff *skb, int linear,
- 				struct sock *sk)
- {
--	if (unlikely(spd->nr_pages == pipe->buffers))
-+	if (unlikely(spd->nr_pages == MAX_SKB_FRAGS))
- 		return 1;
- 
- 	if (linear) {
- 		page = linear_to_page(page, len, &offset, skb, sk);
- 		if (!page)
- 			return 1;
--	} else
--		get_page(page);
--
-+	}
-+	if (spd_can_coalesce(spd, page, offset)) {
-+		spd->partial[spd->nr_pages - 1].len += *len;
-+		return 0;
-+	}
-+	get_page(page);
- 	spd->pages[spd->nr_pages] = page;
- 	spd->partial[spd->nr_pages].len = *len;
- 	spd->partial[spd->nr_pages].offset = offset;
-@@ -1710,8 +1722,8 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		    struct pipe_inode_info *pipe, unsigned int tlen,
- 		    unsigned int flags)
- {
--	struct partial_page partial[PIPE_DEF_BUFFERS];
--	struct page *pages[PIPE_DEF_BUFFERS];
-+	struct partial_page partial[MAX_SKB_FRAGS];
-+	struct page *pages[MAX_SKB_FRAGS];
- 	struct splice_pipe_desc spd = {
- 		.pages = pages,
- 		.partial = partial,
-@@ -1723,9 +1735,6 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 	struct sock *sk = skb->sk;
- 	int ret = 0;
- 
--	if (splice_grow_spd(pipe, &spd))
--		return -ENOMEM;
--
- 	/*
- 	 * __skb_splice_bits() only fails if the output has no room left,
- 	 * so no point in going over the frag_list for the error case.
-@@ -1761,7 +1770,6 @@ done:
- 		lock_sock(sk);
- 	}
- 
--	splice_shrink_spd(pipe, &spd);
- 	return ret;
- }
- 
+Sure, I have no objections there.
