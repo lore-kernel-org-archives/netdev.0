@@ -1,44 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Sun, 22 Apr 2012 17:06:58 -0400 (EDT)
-Message-ID: <20120422.170658.1841749508208198136.davem@davemloft.net>
-References: <61c89e02-c916-421e-b469-62b307853b1b@tahiti.vyatta.com>
-	<1335110082.2132.22.camel@mojatatu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix TCP_MAXSEG for established IPv6 passive
+ sockets
+Date: Sun, 22 Apr 2012 17:10:16 -0400 (EDT)
+Message-ID: <20120422.171016.2000807309124070108.davem@davemloft.net>
+References: <1335123947-9906-1-git-send-email-ncardwell@google.com>
+	<1335125694.2395.277.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1335110082.2132.22.camel@mojatatu>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ncardwell@google.com, netdev@vger.kernel.org, edumazet@google.com,
+	nanditad@google.com, ycheng@google.com, ilpo.jarvinen@helsinki.fi,
+	maze@google.com, therbert@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50527 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751964Ab2DVVK2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 17:10:28 -0400
+In-Reply-To: <1335125694.2395.277.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Date: Sun, 22 Apr 2012 11:54:42 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 22 Apr 2012 22:14:54 +0200
 
-> On Sun, 2012-04-22 at 08:22 -0700, Stephen Hemminger wrote:
-> 
->> Therefore Simon's
->> proposed hook is the only way to support it. But exposing that
->> hook does allow for other misuse.
-> 
-> If you object to this, then you gotta object to the UDP equivalent 
-> which has been around for sometime now for legitimate reasons
-> and could be used by STT (I think the claim was no hardware
-> does USO);->
+> On Sun, 2012-04-22 at 15:45 -0400, Neal Cardwell wrote:
+>> Commit f5fff5d forgot to fix TCP_MAXSEG behavior IPv6 sockets, so IPv6
+>> TCP server sockets that used TCP_MAXSEG would find that the advmss of
+>> child sockets would be incorrect. This commit mirrors the advmss logic
+>> from tcp_v4_syn_recv_sock in tcp_v6_syn_recv_sock. Eventually this
+>> logic should probably be shared between IPv4 and IPv6, but this at
+>> least fixes this issue.
+>> 
+>> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+ ...
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-I don't think so, for the UDP case it's much different.  All the
-necessary "protocol" work has been performed on the packet by the time
-the encap handler runs for UDP.
-
-I'm not saying I still object to this TCP thing, however.
+Applied and queued up for -stable, thanks.
