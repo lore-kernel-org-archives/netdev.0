@@ -1,48 +1,134 @@
 From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: use-after-free in usbnet
-Date: Sun, 22 Apr 2012 09:45:55 +0800
-Message-ID: <CA+v9cxbdQW1idnxes95vHMS+j2XPFw4fDfaDLbJa7enMnyq6LQ@mail.gmail.com>
-References: <CACVXFVM5YBJkDZddeGi1_MPY7EqEV_wtoFy-NtBHYA6rxez0jg@mail.gmail.com>
+Date: Sun, 22 Apr 2012 10:02:07 +0800
+Message-ID: <CA+v9cxY73iN43OgW28ERay9REr5vax6mSE8Czmu++6xwZW5X_A@mail.gmail.com>
+References: <CACVXFVP+U1k7JFTmbabF-k8F3bO9zc58c3tLG6=1nQPcrR9p1g@mail.gmail.com>
+	<Pine.LNX.4.44L0.1203211201560.1369-100000@iolanthe.rowland.org>
+	<CACVXFVOVjnWjqpKxbU98DAyUC_OSb8ZL-3WcyYuFXgPJn5UyuA@mail.gmail.com>
+	<201203221008.46882.oneukum@suse.de>
+	<CACVXFVODFvtF1DRyWJmnYCByw7sr9QDv_+Taxo5maVaUauDNtg@mail.gmail.com>
+	<CA+v9cxawVwKakF6c_RpAw2XUGWcbqd8M+ZJqyq76Au9rmNosmQ@mail.gmail.com>
+	<CACVXFVM5YBJkDZddeGi1_MPY7EqEV_wtoFy-NtBHYA6rxez0jg@mail.gmail.com>
 	<CA+v9cxZWtGbz6uCSysVbAc1hT27rCiuJXzcvSiTxH-zuQYnrZw@mail.gmail.com>
 	<CACVXFVOc0XZ+eLHGiVwKuiUResRk8Cj9MS4EPMx7k57a0tEJhA@mail.gmail.com>
-	<20120421.152345.290988116097275353.davem@davemloft.net>
+	<CA+v9cxZZpL5soSga=MX_bD45KNve-Lnr2Qb6+gr7Mv6Txyh-fA@mail.gmail.com>
+	<CACVXFVN6kvXk7s4Sc0d_-yKSM=rV3qcuPPBHVZYzoQjnwkGX+Q@mail.gmail.com>
+	<CA+v9cxa+fyzMOD-=oLLczpu1FDtTwcok+y2FkC=mHzDH3JYJ2A@mail.gmail.com>
+	<CACVXFVOMTbq0zbmsZAt-Pyc=3oqQ=UcWV5HgNryu7s6oMhKpQg@mail.gmail.com>
+	<CA+v9cxZRpthaZ=64tLzKf=AGOqaRVwe5o0UMadiXGuiuXiA7uA@mail.gmail.com>
+	<CACVXFVOemJqfT9OPRer3qzbVEsGyUOupoOUNCBzC4deNRsksQw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
-	davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Fedora Kernel Team <kernel-team-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120421.152345.290988116097275353.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+In-Reply-To: <CACVXFVOemJqfT9OPRer3qzbVEsGyUOupoOUNCBzC4deNRsksQw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 22, 2012 at 3:23 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wro=
-te:
-> From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Sat, 21 Apr 2012 09:49:51 +0800
+On Sat, Apr 21, 2012 at 5:40 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote=
+:
+> Hi Huajun,
 >
->> I see the problem, so looks skb_queue_walk_safe is not safe.
->> I don' know why the 2nd ' tmp =3D skb->next' in =A0skb_queue_walk_sa=
-fe
->> is needed and it may become unsafe if skb is freed during current lo=
-op.
+> On Sat, Apr 21, 2012 at 4:23 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> =
+wrote:
+>> On Sat, Apr 21, 2012 at 3:56 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wr=
+ote:
+>>> Hi Huajun,
+>>>
+>>> On Sat, Apr 21, 2012 at 3:50 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org=
+> wrote:
+>>>
+>>>> Did we on the same page, could you please review my patch again?
+>>>>
+>>>> My draft patch was based on current mainline( 3.4.0-rc3) =A0which =
+had
+>>>> already integrated your previous patch. And in my patch, it replac=
+ed
+>>>> skb_queue_walk_safe() with skb_queue_walk(), so you will not see =A0=
+'tmp
+>>>> =3D skb->next' =A0any more.
+>>>
+>>> Replace skb_queue_walk_safe with skb_queue_walk doesn't improve
+>>> the problem, since 'skb =3D skb->next' in skb_queue_walk still may =
+trigger
+>>> the oops, does it?
+>>>
+>>
+>> No.
+>> In each loop, my patch traverse the queue from its head, and it alwa=
+ys
+>> holds =A0q->lock when it need refer "skb->next", this can make sure =
+the
+>> right skb is not moved out of rxq/txq.
 >
-> I can't see what the problem is, skb_queue_walk_safe() is perfect
-> and does exactly what it advertises to do.
+> OK, your patch can avoid the oops, sorry for miss the point.
 >
-> If 'skb' is unlinked inside of an skb_queue_walk_safe() loop, that's
-> fine, because we won't touch 'skb' in the loop iteration tail code.
+>>
+>> Can this fix what you concern? If so, IMO, there is no need to rever=
+t
+>> your previous patch.
 >
-> Instead, before the loop contents, we pre-fetch skb->next into 'tmp'
-> and then at the end we move 'skb' forward by simply assigning 'tmp'.
+> But your patch may introduce another problem, in fact, what your patc=
+h does
+> is basically same with the below change[1]:
+>
+> So we can find easily that one same URB may be unlinked more than one
+> time with your patch because usb_unlink_urb is asynchronous even thou=
+gh
+> it behaves synchronously sometimes.
+>
+> I remembered that is not allowed, at least usb_unlink_urb's comment s=
+ays so:
+>
+> =A0 =A0 =A0 =A0 =A0URBs complete only once per submission, and may be=
+ canceled only
+> =A0 =A0 =A0 =A0 =A0once per submission.
+>
 
-In this case, the problem is, 'tmp =3D skb->next' can be moved out of
-rxq/txq, and even be freed. Then in next loop cycle, 'skb =3D tmp' will
-refer to a freed skb.  You know, in current code stack, unlink_urbs()
-releases q->lock in each loop, this gives chance to urb complete
-handler to call defer_bh() and cause the problem.
+Yes, this is a problem should be avoided.
+
+> [1], against 3.4.0-rc3
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index db99536..aadf009 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -578,15 +578,19 @@ EXPORT_SYMBOL_GPL(usbnet_purge_paused_rxq);
+> =A0static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q=
+)
+> =A0{
+> =A0 =A0 =A0 =A0unsigned long =A0 =A0 =A0 =A0 =A0 flags;
+> - =A0 =A0 =A0 struct sk_buff =A0 =A0 =A0 =A0 =A0*skb, *skbnext;
+> + =A0 =A0 =A0 struct sk_buff =A0 =A0 =A0 =A0 =A0*skb;
+> =A0 =A0 =A0 =A0int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 count =3D =
+0;
+>
+> =A0 =A0 =A0 =A0spin_lock_irqsave (&q->lock, flags);
+> - =A0 =A0 =A0 skb_queue_walk_safe(q, skb, skbnext) {
+> + =A0 =A0 =A0 while (1) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct skb_data =A0 =A0 =A0 =A0 *entry=
+;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct urb =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+*urb;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 retval;
+>
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb =3D q->next;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb =3D=3D (struct sk_buff *)q)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> +
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0entry =3D (struct skb_data *) skb->cb;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0urb =3D entry->urb;
+>
+>
+> Thanks,
+> --
+> Ming Lei
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
