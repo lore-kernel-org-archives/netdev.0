@@ -1,102 +1,44 @@
-From: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-Subject: Re: [PATCH] wl12xx: fix size of two memset's in
- wl1271_cmd_build_arp_rsp()
-Date: Sun, 22 Apr 2012 22:57:09 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1204222255460.27455@swampdragon.chaosbits.net>
-References: <alpine.LNX.2.00.1204222252000.27455@swampdragon.chaosbits.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Sun, 22 Apr 2012 17:06:58 -0400 (EDT)
+Message-ID: <20120422.170658.1841749508208198136.davem@davemloft.net>
+References: <61c89e02-c916-421e-b469-62b307853b1b@tahiti.vyatta.com>
+	<1335110082.2132.22.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.00.1204222252000.27455-h2p7t3/P30RzeRGmFJ5qR7ZzlVVXadcDXqFh9Ls21Oc@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1335110082.2132.22.camel@mojatatu>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 22 Apr 2012, Jesper Juhl wrote:
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Date: Sun, 22 Apr 2012 11:54:42 -0400
 
-> We currently do this:
+> On Sun, 2012-04-22 at 08:22 -0700, Stephen Hemminger wrote:
 > 
-> int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
-> ...
-> 	struct wl12xx_arp_rsp_template *tmpl;
-> 	struct ieee80211_hdr_3addr *hdr;
-> ...
-> 	tmpl = (struct wl12xx_arp_rsp_template *)skb_put(skb, sizeof(*tmpl));
-> 	memset(tmpl, 0, sizeof(tmpl));
-> ...
-> 	hdr = (struct ieee80211_hdr_3addr *)skb_push(skb, sizeof(*hdr));
-> 	memset(hdr, 0, sizeof(*hdr));
-> ...
+>> Therefore Simon's
+>> proposed hook is the only way to support it. But exposing that
+>> hook does allow for other misuse.
 > 
-> I believe we want to set the entire structures to 0 with those
-> memset() calls, not just zero the initial part of them (size of the
-> pointer bytes).
-> 
+> If you object to this, then you gotta object to the UDP equivalent 
+> which has been around for sometime now for legitimate reasons
+> and could be used by STT (I think the claim was no hardware
+> does USO);->
 
-Sorry, I accidentally copied that code from the fixed version. The above 
-should read:
+I don't think so, for the UDP case it's much different.  All the
+necessary "protocol" work has been performed on the packet by the time
+the encap handler runs for UDP.
 
-
-We currently do this:
-
-int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
-...
-      struct wl12xx_arp_rsp_template *tmpl;
-      struct ieee80211_hdr_3addr *hdr;
-...
-      tmpl = (struct wl12xx_arp_rsp_template *)skb_put(skb, sizeof(*tmpl));
-      memset(tmpl, 0, sizeof(tmpl));
-...
-      hdr = (struct ieee80211_hdr_3addr *)skb_push(skb, sizeof(*hdr));
-      memset(hdr, 0, sizeof(hdr));
-...
-
-I believe we want to set the entire structures to 0 with those
-memset() calls, not just zero the initial part of them (size of the
-pointer bytes).
-
-
-
-
-
-> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-> ---
->  drivers/net/wireless/wl12xx/cmd.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/wl12xx/cmd.c b/drivers/net/wireless/wl12xx/cmd.c
-> index 3414fc1..8e65529 100644
-> --- a/drivers/net/wireless/wl12xx/cmd.c
-> +++ b/drivers/net/wireless/wl12xx/cmd.c
-> @@ -1249,7 +1249,7 @@ int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
->  	skb_reserve(skb, sizeof(*hdr) + WL1271_EXTRA_SPACE_MAX);
->  
->  	tmpl = (struct wl12xx_arp_rsp_template *)skb_put(skb, sizeof(*tmpl));
-> -	memset(tmpl, 0, sizeof(tmpl));
-> +	memset(tmpl, 0, sizeof(*tmpl));
->  
->  	/* llc layer */
->  	memcpy(tmpl->llc_hdr, rfc1042_header, sizeof(rfc1042_header));
-> @@ -1298,7 +1298,7 @@ int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
->  
->  	/* mac80211 header */
->  	hdr = (struct ieee80211_hdr_3addr *)skb_push(skb, sizeof(*hdr));
-> -	memset(hdr, 0, sizeof(hdr));
-> +	memset(hdr, 0, sizeof(*hdr));
->  	fc = IEEE80211_FTYPE_DATA | IEEE80211_FCTL_TODS;
->  	if (wlvif->sta.qos)
->  		fc |= IEEE80211_STYPE_QOS_DATA;
-> 
-
--- 
-Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm not saying I still object to this TCP thing, however.
