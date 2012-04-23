@@ -1,44 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
- for TCP
-Date: Mon, 23 Apr 2012 17:01:01 -0400 (EDT)
-Message-ID: <20120423.170101.1369764871919045849.davem@davemloft.net>
-References: <1335201795.5205.35.camel@edumazet-glaptop>
-	<20120423.160149.1515408777176168288.davem@davemloft.net>
-	<1335213446.5205.65.camel@edumazet-glaptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Mon, 23 Apr 2012 17:08:17 -0400 (EDT)
+Message-ID: <20120423.170817.1103719420692884446.davem@davemloft.net>
+References: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
+	<20120423.161313.1582195533832554777.davem@davemloft.net>
+	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org, therbert@google.com,
-	ncardwell@google.com, maze@google.com, ycheng@google.com,
-	ilpo.jarvinen@helsinki.fi
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60419 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753966Ab2DWVB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 17:01:26 -0400
-In-Reply-To: <1335213446.5205.65.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 23 Apr 2012 22:37:26 +0200
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 23 Apr 2012 13:53:42 -0700
 
-> We could try to coalesce ACKs before backlogging them. I'll work on
-> this.
+> On Mon, Apr 23, 2012 at 1:13 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>> From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+>> Date: Mon, 23 Apr 2012 13:08:49 -0700
+>>
+>>> Assuming that the TCP stack generates large TSO frames on transmit
+>>> (which could be the local stack; something sent by a VM; or packets
+>>> received, coalesced by GRO and then encapsulated by STT) then you can
+>>> just prepend the STT header (possibly slightly adjusting things like
+>>> requested MSS, number of segments, etc. slightly). =A0After that it's
+>>> possible to just output the resulting frame through the IP stack like
+>>> all tunnels do today.
+>>
+>> Which seems to potentially suggest a stronger intergration of the STT
+>> tunnel transmit path into our IP stack rather than the approach Simon
+>> is taking
+> =
 
-Great idea, although I wonder about the effect this could have on RTT
-measurements.  Instead of having N RTT measurements, we'd have just
-one.
+> Did you have something in mind?
 
-Granted, what happens right now wrt. RTT measurements with such huge
-ACK backlogs isn't all that nice either.
-
-Ideally, perhaps, we'd do a timestamp diff at the time we insert the
-packet into the backlog.  That way we wouldn't gain the RTT inaccuracy
-introduced by such queueing delays and ACK backlogs.
-
-Another way to look at it is that the coalesced scheme would actually
-improve RTT measurements, since the most accurate (and least
-"delayed") of the timestamps would be the only one processed :-)
+A normal bonafide tunnel netdevice driver like GRE instead of the
+openvswitch approach Simon is using.
