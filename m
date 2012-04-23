@@ -1,71 +1,53 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net sysctl: Add place holder functions for when sysctl support is compiled out of the kernel.
-Date: Mon, 23 Apr 2012 15:13:02 -0700
-Message-ID: <m1lilmt7v5.fsf_-_@fess.ebiederm.org>
-References: <20120423170701.c96e402234b1387dece11dda@canb.auug.org.au>
-	<4F958598.6080305@xenotime.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for
+ TCP
+Date: Mon, 23 Apr 2012 15:16:42 -0700
+Message-ID: <4F95D4CA.7020005@hp.com>
+References: <1335173934.3293.84.camel@edumazet-glaptop> <4F958DFD.7010207@hp.com> <1335201795.5205.35.camel@edumazet-glaptop> <20120423.160149.1515408777176168288.davem@davemloft.net> <1335213446.5205.65.camel@edumazet-glaptop>  <4F95C22D.3010908@hp.com> <1335216631.5205.71.camel@edumazet-glaptop>  <4F95CECF.6030901@hp.com> <1335218707.5205.87.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Randy Dunlap <rdunlap@xenotime.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4F958598.6080305@xenotime.net> (Randy Dunlap's message of "Mon,
-	23 Apr 2012 09:38:48 -0700")
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	therbert@google.com, ncardwell@google.com, maze@google.com,
+	ycheng@google.com, ilpo.jarvinen@helsinki.fi
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:33286 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753195Ab2DWWQo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 18:16:44 -0400
+In-Reply-To: <1335218707.5205.87.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Randy Dunlap <rdunlap@xenotime.net> reported:
-> On 04/23/2012 12:07 AM, Stephen Rothwell wrote:
+On 04/23/2012 03:05 PM, Eric Dumazet wrote:
+> On Mon, 2012-04-23 at 14:51 -0700, Rick Jones wrote:
+>> On 04/23/2012 02:30 PM, Eric Dumazet wrote:
 >
->> Hi all,
+>>> Yet, in the small time it takes to perform this operation, softirq can
+>>> queue up to 300 packets coming from the other side.
 >>
->> Changes since 20120420:
+>> There is more to it than just queue-up 16 KB right?
 >
+> At full rate, we send 825.000 packets per second, and should receive
+> 412.000 ACKS per second if receiver is standard TCP.
 >
+> The ACK are not smooth, because receiver also have a huge backlog issue
+> and can send train of ACKS. (I have seen backlogs on receiver using more
+> than 500 us to be  processed)
 >
-> ERROR: "unregister_net_sysctl_table" [net/phonet/phonet.ko] undefined!
-> ERROR: "register_net_sysctl" [net/phonet/phonet.ko] undefined!
->
-> when CONFIG_SYSCTL is not enabled.
+> If the copyin(16KB) from user to kernel takes some us (preempt,
+> irqs...), its pretty easy to catch an ACK train in this window.
 
-Add static inline stub functions to gracefully handle the case when sysctl
-support is not present.
+Is it at all possible to have the copies happen without the connection 
+being locked?  If indeed it is possible to be held-off with the 
+connection locked for the better part of 3/4 of a millisecond, just what 
+will that do to 40 or 100 GbE?  If you've been seeing queues of 300 ACKs 
+at 10 GbE that would be 3000 at 100 GbE, and assuming those are all in a 
+2048 byte buffer thats 6MB just of ACKs.  I suppose 100GbE does mean 
+non-trivial quantities of buffering anyway but that does still seem 
+rather high.
 
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- include/net/net_namespace.h |   15 ++++++++++++---
- 1 files changed, 12 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 3ee4a3d..ac9195e 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -284,11 +284,20 @@ struct ctl_table_header;
- 
- #ifdef CONFIG_SYSCTL
- extern int net_sysctl_init(void);
--#else
--static inline int net_sysctl_init(void) { return 0; }
--#endif
- extern struct ctl_table_header *register_net_sysctl(struct net *net,
- 	const char *path, struct ctl_table *table);
- extern void unregister_net_sysctl_table(struct ctl_table_header *header);
-+#else
-+static inline int net_sysctl_init(void) { return 0; }
-+static inline struct ctl_table_header *register_net_sysctl(struct net *net,
-+	const char *path, struct ctl_table *table)
-+{
-+	return NULL;
-+}
-+static inline void unregister_net_sysctl_table(struct ctl_table_header *header)
-+{
-+}
-+#endif
-+
- 
- #endif /* __NET_NET_NAMESPACE_H */
--- 
-1.7.2.5
+rick
+thank goodness for GRO's ACK stretching as an ACK avoidance heuristic I 
+guess...
