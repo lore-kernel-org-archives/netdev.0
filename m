@@ -1,62 +1,98 @@
 From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH v2 0/5] Fix problem with static_key decrement
-Date: Mon, 23 Apr 2012 16:37:42 -0300
-Message-ID: <1335209867-1831-1-git-send-email-glommer@parallels.com>
+Subject: [PATCH v2 4/5] don't take cgroup_mutex in destroy()
+Date: Mon, 23 Apr 2012 16:37:46 -0300
+Message-ID: <1335209867-1831-5-git-send-email-glommer@parallels.com>
+References: <1335209867-1831-1-git-send-email-glommer@parallels.com>
 Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
 	<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1335209867-1831-1-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is my proposed fix for the sock memcg static_key
-problem raised by Kamezawa. In a summary, the problem is
-as follows:
+Most of the destroy functions are only doing very simple things
+like freeing memory.
 
-We are decrementing the jump label when the socket limit is set back to
-unlimited. The problem is that the sockets outlive the memcg, so we can
-only do that when the last reference count is dropped. It is worth
-mentioning that kmem controller for memcg will have the exact same problem.
+The ones who goes through lists and such, already use its own
+locking for those.
 
-If, however, there are no sockets in flight, mem_cgroup_put() during
-->destroy() will be the last one, and the decrementing will happen there.
+* The cgroup itself won't go away until we free it, (after destroy)
+* The parent won't go away because we hold a reference count
+* There are no more tasks in the cgroup, and the cgroup is declared
+  dead (cgroup_is_removed() == true)
 
-But static_key updates cannot happen with the cgroup_mutex held. This is
-because cpusets hold it from within the cpu_hotplug.lock - that static_keys
-take through get_online_cpus() in its cpu hotplug handler.
+[v2: don't cgroup_lock the freezer and blkcg ]
 
-Removing the cgroup_lock() dependency from cpusets is a lot harder, since the
-code for generate_sched_domain() rely on that lock to be held, and it interact
-with the cgroup core code by quite a bit.
+Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+CC: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+CC: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+CC: Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+CC: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ kernel/cgroup.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-The aim of this series is to make ->destroy() a stable point for jump label
-updating, by calling it without the cgroup_mutex held. I believe it to be a
-good thing in itself, since it removes a bit the reach of the almighty
-cgroup_mutex.
-
-I am ready to make any further modifications on this that you guys
-deem necessary.
-
-Thanks
-
-
-Glauber Costa (5):
-  don't attach a task to a dead cgroup
-  blkcg: protect blkcg->policy_list
-  change number_of_cpusets to an atomic
-  don't take cgroup_mutex in destroy()
-  decrement static keys on real destroy time
-
- block/blk-cgroup.c        |    2 +
- include/linux/cpuset.h    |    6 ++--
- include/net/sock.h        |    9 ++++++++
- kernel/cgroup.c           |   12 ++++++----
- kernel/cpuset.c           |   10 ++++----
- mm/memcontrol.c           |   20 ++++++++++++++++-
- net/ipv4/tcp_memcontrol.c |   50 ++++++++++++++++++++++++++++++++++++++------
- 7 files changed, 87 insertions(+), 22 deletions(-)
-
+diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+index 932c318..976d332 100644
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -869,13 +869,13 @@ static void cgroup_diput(struct dentry *dentry, struct inode *inode)
+ 		 * agent */
+ 		synchronize_rcu();
+ 
+-		mutex_lock(&cgroup_mutex);
+ 		/*
+ 		 * Release the subsystem state objects.
+ 		 */
+ 		for_each_subsys(cgrp->root, ss)
+ 			ss->destroy(cgrp);
+ 
++		mutex_lock(&cgroup_mutex);
+ 		cgrp->root->number_of_cgroups--;
+ 		mutex_unlock(&cgroup_mutex);
+ 
+@@ -3994,13 +3994,12 @@ static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
+ 
+  err_destroy:
+ 
++	mutex_unlock(&cgroup_mutex);
+ 	for_each_subsys(root, ss) {
+ 		if (cgrp->subsys[ss->subsys_id])
+ 			ss->destroy(cgrp);
+ 	}
+ 
+-	mutex_unlock(&cgroup_mutex);
+-
+ 	/* Release the reference count that we took on the superblock */
+ 	deactivate_super(sb);
+ 
+@@ -4349,9 +4348,9 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
+ 		int ret = cgroup_init_idr(ss, css);
+ 		if (ret) {
+ 			dummytop->subsys[ss->subsys_id] = NULL;
++			mutex_unlock(&cgroup_mutex);
+ 			ss->destroy(dummytop);
+ 			subsys[i] = NULL;
+-			mutex_unlock(&cgroup_mutex);
+ 			return ret;
+ 		}
+ 	}
+@@ -4447,10 +4446,10 @@ void cgroup_unload_subsys(struct cgroup_subsys *ss)
+ 	 * pointer to find their state. note that this also takes care of
+ 	 * freeing the css_id.
+ 	 */
++	mutex_unlock(&cgroup_mutex);
+ 	ss->destroy(dummytop);
+ 	dummytop->subsys[ss->subsys_id] = NULL;
+ 
+-	mutex_unlock(&cgroup_mutex);
+ }
+ EXPORT_SYMBOL_GPL(cgroup_unload_subsys);
+ 
 -- 
 1.7.7.6
