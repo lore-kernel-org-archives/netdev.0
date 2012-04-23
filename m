@@ -1,99 +1,86 @@
 From: Karsten Keil <isdn@linux-pingi.de>
-Subject: [PATCH 23/28] mISDN: Fix compiler warnings
-Date: Sat, 21 Apr 2012 17:49:11 +0200
-Message-ID: <20120423170551.B37049FB98@pingi6.linux-pingi.de>
+Subject: [PATCH 00/28] MISDN patchset for net-next
+Date: Mon, 23 Apr 2012 18:03:51 +0200
+Message-ID: <20120423170549.33CDA9FB80@pingi6.linux-pingi.de>
 Cc: netdev@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:49402 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.8]:51031 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754391Ab2DWRIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 13:08:25 -0400
+	with ESMTP id S1754333Ab2DWRIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 13:08:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Newer gcc found some possible uninitialized pointer access.
+Hello David,
 
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
----
- drivers/isdn/hardware/mISDN/avmfritz.c |   11 +++++------
- drivers/isdn/hardware/mISDN/hfcmulti.c |    8 ++++----
- 2 files changed, 9 insertions(+), 10 deletions(-)
+please include thes patches into netnext.
 
-diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
-index 3781446..d0bdde3 100644
---- a/drivers/isdn/hardware/mISDN/avmfritz.c
-+++ b/drivers/isdn/hardware/mISDN/avmfritz.c
-@@ -404,7 +404,7 @@ static void
- hdlc_empty_fifo(struct bchannel *bch, int count)
- {
- 	u32 *ptr;
--	u8 *p, copy;
-+	u8 *p;
- 	u32  val, addr;
- 	int cnt;
- 	struct fritzcard *fc = bch->hw;
-@@ -412,13 +412,12 @@ hdlc_empty_fifo(struct bchannel *bch, int count)
- 	pr_debug("%s: %s %d\n", fc->name, __func__, count);
- 	if (test_bit(FLG_RX_OFF, &bch->Flags)) {
- 		/* We drop the content, but need to read all bytes from FIFO */
--		copy = 0;
-+		p = NULL;
- 		if (debug & DEBUG_HW_BFIFO)
- 			printk(KERN_DEBUG "Dropped %d bytes - RX off\n", count);
- 		val = (bch->nr - 1) & 1;
- 		fc->dropcnt[val] += count;
- 	} else {
--		copy = 1;
- 		if (!bch->rx_skb) {
- 			if (test_bit(FLG_TRANSPARENT, &bch->Flags)) {
- 				if (count >= bch->minlen)
-@@ -441,8 +440,8 @@ hdlc_empty_fifo(struct bchannel *bch, int count)
- 			return;
- 		}
- 		p = skb_put(bch->rx_skb, count);
--		ptr = (u32 *)p;
- 	}
-+	ptr = (u32 *)p;
- 	if (AVM_FRITZ_PCIV2 == fc->type)
- 		addr = fc->addr + (bch->nr == 2 ?
- 				   AVM_HDLC_FIFO_2 : AVM_HDLC_FIFO_1);
-@@ -453,13 +452,13 @@ hdlc_empty_fifo(struct bchannel *bch, int count)
- 	cnt = 0;
- 	while (cnt < count) {
- 		val = le32_to_cpu(inl(addr));
--		if (copy) {
-+		if (ptr) {
- 			put_unaligned(val, ptr);
- 			ptr++;
- 		}
- 		cnt += 4;
- 	}
--	if (copy && (debug & DEBUG_HW_BFIFO)) {
-+	if (ptr && (debug & DEBUG_HW_BFIFO)) {
- 		snprintf(fc->log, LOG_SIZE, "B%1d-recv %s %d ",
- 			 bch->nr, fc->name, count);
- 		print_hex_dump_bytes(fc->log, DUMP_PREFIX_OFFSET, p, count);
-diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
-index 884c090..144c35a 100644
---- a/drivers/isdn/hardware/mISDN/hfcmulti.c
-+++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -2456,12 +2456,12 @@ handle_timer_irq(struct hfc_multi *hc)
- 		spin_unlock_irqrestore(&HFClock, flags);
- 	}
- 	if (test_bit(HFC_CHIP_2MBITRAW, &hc->chip)) {
--		if (hc->created[hc->chan[0].port] && hc->chan[ch].bch &&
-+		ch = 0;
-+		if (hc->created[hc->chan[ch].port] && hc->chan[ch].bch &&
- 		    test_bit(FLG_ACTIVE, &hc->chan[ch].bch->Flags)) {
- 			ch_activ++;
--			hfcmulti_tx(hc, 0);
--			hfcmulti_rx(hc, 0);
--			ch = 1;
-+			hfcmulti_tx(hc, ch);
-+			hfcmulti_rx(hc, ch);
- 			if (hc->chan[ch].dch &&
- 			    hc->chan[ch].nt_timer > -1) {
- 				dch = hc->chan[ch].dch;
+This patch collection contains bugfixes and enhancemets to make
+the mISDN stack ready for Fax G3 support in CAPI20 (in userspace).
+
+Tested against net-next from today.
+
+Andreas Eversberg (7):
+  mISDN: Fix NULL pointer bug in if-condition of mISDN_dsp
+  mISDN: Fixed hardware bridging/conference check routine of
+    mISDN_dsp.ko.
+  mISDN: Fixed false interruption of audio during bridging change.
+  mISDN: Added PH_* state info to tei manager.
+  mISDN: Using FLG_ACTIVE flag to determine if layer 1 is active or
+    not.
+  mISDN: Rework of LED status display for HFC-4S/8S/E1 cards.
+  mISDN: Added support for fragmentation of E1 interfaces of hfcmulti
+    driver.
+
+Karsten Keil (20):
+  mISDN: Fix division by zero
+  mISDN: Fix refcounting bug
+  mISDN: Add interface for PCM only access
+  mISDN: Add PCM only B-channel protocol to socket functions
+  mISDN: L2 timeouts need to be queued as L2 event
+  mISDN: Make layer1 timer 3 value configurable
+  mISDN: Layer1 statemachine fix
+  mISDN: DSP scheduling fix
+  mISDN: Help to identify L2 issues
+  mISDN: Add 2MBit mode for HFC E1 card
+  mISDN: Cleanup channel also if it already was deactivated
+  mISDN: Early confirm for transparent data
+  mISDN: Allow the driver to set a minimum length for transparent data
+  mISDN: Add interface to allow upper layers to modify RX buffer limits
+  mISDN: More support for MISDN_CTRL_FILL_EMPTY and MISDN_CTRL_RX_OFF
+  mISDN: Fix compiler warnings
+  mISDN: Bufferlimits for hfcmulti
+  mISDN: Enhance hfcsusb driver
+  mISDN: Add X-Tensions USB ISDN TA XC-525
+  mISDN: Remove additonal PH_DATA confirm for raw data
+
+Martin Bachem (1):
+  mISDN: Bugfix hfcsusb: usb endpoint activation/deactivation
+
+ drivers/isdn/hardware/mISDN/avmfritz.c  |  254 ++++++--
+ drivers/isdn/hardware/mISDN/hfc_multi.h |   94 ++--
+ drivers/isdn/hardware/mISDN/hfcmulti.c  | 1059 +++++++++++++++++++++----------
+ drivers/isdn/hardware/mISDN/hfcpci.c    |   12 +-
+ drivers/isdn/hardware/mISDN/hfcsusb.c   |  224 ++++---
+ drivers/isdn/hardware/mISDN/hfcsusb.h   |   16 +-
+ drivers/isdn/hardware/mISDN/mISDNipac.c |   62 ++-
+ drivers/isdn/hardware/mISDN/mISDNisar.c |   22 +-
+ drivers/isdn/hardware/mISDN/netjet.c    |   21 +-
+ drivers/isdn/hardware/mISDN/w6692.c     |   22 +-
+ drivers/isdn/mISDN/core.c               |   16 +
+ drivers/isdn/mISDN/dsp.h                |    4 +-
+ drivers/isdn/mISDN/dsp_cmx.c            |   19 +-
+ drivers/isdn/mISDN/dsp_dtmf.c           |   19 +-
+ drivers/isdn/mISDN/hwchannel.c          |    9 +-
+ drivers/isdn/mISDN/l1oip_core.c         |    2 +-
+ drivers/isdn/mISDN/layer1.c             |   37 +-
+ drivers/isdn/mISDN/layer2.c             |  119 +++-
+ drivers/isdn/mISDN/socket.c             |    3 +
+ drivers/isdn/mISDN/tei.c                |   71 ++-
+ include/linux/mISDNhw.h                 |   13 +-
+ include/linux/mISDNif.h                 |   88 ++-
+ 22 files changed, 1485 insertions(+), 701 deletions(-)
+
 -- 
 1.7.3.4
