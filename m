@@ -1,60 +1,61 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Mon, 23 Apr 2012 14:14:02 +0900
-Message-ID: <20120423051359.GE11672@verge.net.au>
-References: <61c89e02-c916-421e-b469-62b307853b1b@tahiti.vyatta.com>
-	<1335110082.2132.22.camel@mojatatu>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the net-next tree
+Date: Mon, 23 Apr 2012 16:54:09 +1000
+Message-ID: <20120423165409.d424daced95611012d151aa6@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, eric dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1335110082.2132.22.camel@mojatatu>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__23_Apr_2012_16_54_09_+1000_HUWtHaC8wXxhQHv+"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 22, 2012 at 11:54:42AM -0400, Jamal Hadi Salim wrote:
-> On Sun, 2012-04-22 at 08:22 -0700, Stephen Hemminger wrote:
-> 
-> > STT isn't really doing TCP, it just lying and pretending to be
-> > TCP to allow TSO to work! There is no packet ordering, sequence
-> > numbers or any real transport layer. 
+--Signature=_Mon__23_Apr_2012_16_54_09_+1000_HUWtHaC8wXxhQHv+
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Yes, that is my understanding. Originally I envisaged that an STT
-implementation would rely more heavily on the TCP stack. However, as
-STT doesn't rely on any of the features of TCP other than its header
-this was not the case and (almost) bypassing the TCP stack seems
-to be sufficient.
+Hi all,
 
-I believe the motivation for reusing TCP is, as Stephen suggests,
-to allow some hardware acceleration to occur.
+After merging the net-next tree, today's linux-next build (powerpc
+ppc44x_defconfig) produced these warnings:
 
-> True. It is a nice engineering hack but even as a protocol enhancement
-> questionable at best.
-> 
-> > Therefore Simon's
-> > proposed hook is the only way to support it. But exposing that
-> > hook does allow for other misuse.
-> 
-> If you object to this, then you gotta object to the UDP equivalent 
-> which has been around for sometime now for legitimate reasons
+net/ipv4/tcp_ipv4.c: In function 'tcp_v4_init_sock':
+net/ipv4/tcp_ipv4.c:1891:19: warning: unused variable 'tp' [-Wunused-variab=
+le]
+net/ipv6/tcp_ipv6.c: In function 'tcp_v6_init_sock':
+net/ipv6/tcp_ipv6.c:1836:19: warning: unused variable 'tp' [-Wunused-variab=
+le]
 
-That is basically my reasoning too.
+Introduced by commit 900f65d361d3 ("tcp: move duplicate code from
+tcp_v4_init_sock()/tcp_v6_init_sock()").
 
-> and could be used by STT (I think the claim was no hardware
-> does USO);->
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-I was not involved in the design of STT so I can't comment on that
-although I do suspect you are correct.
+--Signature=_Mon__23_Apr_2012_16_54_09_+1000_HUWtHaC8wXxhQHv+
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPlPyRAAoJEECxmPOUX5FE+FsQAJiexwxIEC6Owvq46O8Hafqx
+kIGXubjiuvsGo0BXk4Q1smUbsrTsEMYhFcOYpkEbC4dADV4yXnUMSBhnqXTZYuD+
+gaNxGJKObviWGOe79GLr90ckmFQRs0/GcGbzYPTD+giErCaVNAcXHZU8hyoMnmcd
+ndIl0OZfDRu8Sp7PnOvJhx8iaAsvwdyORxO139bM84wYtnvBQhRhzmAopvN3P1Z4
+OAbloQipSST4yi6uqyea4DAgZN7OYLanv8tSyh7r+1TS0qfi3dqwDcnCJppbnxdJ
+Db1oPjDOIWAegJxRBCMsXannbZx1cQZXshy8jg7myUMlLTY2rljqAWIS0DmcuJYB
+yH6UKfWqnKmOR7PPACNghuWu9dAqAn/mAJELB2L6XH1mETlVe7GXeBnZltgfU2fb
+xwZXFIClMAQSAHUzvT1oWUyDp9qAEtBQxbI1eaerz/FrPHgw+IHMTfgqN6+W3aQK
+UUnnNL2IKxtddJH/T/dNvAvcx79aw1/6idMLe6VkNCqQJXMxg/xdqqp39YukBmty
+3mMAvRKXqaEdNeX2RNQwlZWEGY54R6AR1gMEDSvFqZn+sdnPlHUZZ55u8VgMKlFV
+kZYUj+Ri5eAYMW5h7QrgD/xXUlY4jFfM4Cb+4v7hAcsC6LjmVr+EbfdNURtO+Hke
+r30/4BAx6BVhYj3KJTNI
+=L1B2
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__23_Apr_2012_16_54_09_+1000_HUWtHaC8wXxhQHv+--
