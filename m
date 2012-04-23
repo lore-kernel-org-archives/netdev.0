@@ -1,47 +1,71 @@
-From: Anatolij Gustschin <agust@denx.de>
-Subject: [PATCH net] net/davinci_emac: fix failing PHY connect attempts
-Date: Tue, 24 Apr 2012 00:06:43 +0200
-Message-ID: <1335218803-8664-1-git-send-email-agust@denx.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:57485 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755201Ab2DWWHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 18:07:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] net sysctl: Add place holder functions for when sysctl support is compiled out of the kernel.
+Date: Mon, 23 Apr 2012 15:13:02 -0700
+Message-ID: <m1lilmt7v5.fsf_-_@fess.ebiederm.org>
+References: <20120423170701.c96e402234b1387dece11dda@canb.auug.org.au>
+	<4F958598.6080305@xenotime.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Randy Dunlap <rdunlap@xenotime.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4F958598.6080305@xenotime.net> (Randy Dunlap's message of "Mon,
+	23 Apr 2012 09:38:48 -0700")
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PHY connect attempts fail if no PHY id is specified in the emac platform
-data and another mdio bus has been registered before 'davinci_mdio' bus. In
-this case when configuring the interface, there will be an attempt to
-connect to already attached PHY on the previously registered mdio bus:
 
-net eth1: PHY already attached
-net eth1: could not connect to phy smsc911x-0:01
-IP-Config: Failed to open eth1
-IP-Config: Device `eth1' not found
+Randy Dunlap <rdunlap@xenotime.net> reported:
+> On 04/23/2012 12:07 AM, Stephen Rothwell wrote:
+>
+>> Hi all,
+>>
+>> Changes since 20120420:
+>
+>
+>
+> ERROR: "unregister_net_sysctl_table" [net/phonet/phonet.ko] undefined!
+> ERROR: "register_net_sysctl" [net/phonet/phonet.ko] undefined!
+>
+> when CONFIG_SYSCTL is not enabled.
 
-Fix this by modifying match_first_device() to match first PHY device
-on 'davinci_mdio' bus.
+Add static inline stub functions to gracefully handle the case when sysctl
+support is not present.
 
-Signed-off-by: Anatolij Gustschin <agust@denx.de>
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/net/net_namespace.h |   15 ++++++++++++---
+ 1 files changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 174a334..08aff1a 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1511,7 +1511,7 @@ static int emac_devioctl(struct net_device *ndev, struct ifreq *ifrq, int cmd)
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 3ee4a3d..ac9195e 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -284,11 +284,20 @@ struct ctl_table_header;
  
- static int match_first_device(struct device *dev, void *data)
- {
--	return 1;
-+	return !strncmp(dev_name(dev), "davinci_mdio", 12);
- }
+ #ifdef CONFIG_SYSCTL
+ extern int net_sysctl_init(void);
+-#else
+-static inline int net_sysctl_init(void) { return 0; }
+-#endif
+ extern struct ctl_table_header *register_net_sysctl(struct net *net,
+ 	const char *path, struct ctl_table *table);
+ extern void unregister_net_sysctl_table(struct ctl_table_header *header);
++#else
++static inline int net_sysctl_init(void) { return 0; }
++static inline struct ctl_table_header *register_net_sysctl(struct net *net,
++	const char *path, struct ctl_table *table)
++{
++	return NULL;
++}
++static inline void unregister_net_sysctl_table(struct ctl_table_header *header)
++{
++}
++#endif
++
  
- /**
+ #endif /* __NET_NET_NAMESPACE_H */
 -- 
-1.7.1
+1.7.2.5
