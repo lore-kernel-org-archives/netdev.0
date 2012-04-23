@@ -1,115 +1,64 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH net-next 05/19] net: Move all of the network sysctls without
- a namespace into init_net.
-Date: Mon, 23 Apr 2012 10:29:41 +0800
-Message-ID: <4F94BE95.8030508@cn.fujitsu.com>
-References: <m1aa27ia6h.fsf@fess.ebiederm.org> <m1k41bgv9q.fsf@fess.ebiederm.org> <4F94A494.7020006@cn.fujitsu.com> <m1sjfvtdvx.fsf@fess.ebiederm.org>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next 04/14] net: Fix issue with netdev_tx_reset_queue not
+ resetting queue from XOFF state
+Date: Sun, 22 Apr 2012 20:21:17 -0700
+Message-ID: <4F94CAAD.1040207@intel.com>
+References: <CAKgT0UcZZNOH=D5mJDaw3_6femW120ZG0cBc8Nz=-=8h6X17kg@mail.gmail.com> <CA+mtBx-TJAr-cu-vKYq6m2ZQzn1X1vf+_PKUZXDirnKEF67EAw@mail.gmail.com> <4F92DFF3.2080301@intel.com> <20120421.161842.1097392704709233196.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>, pablo@netfilter.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Pavel Emelyanov <xemul@openvz.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, alexander.duyck@gmail.com,
+	alexander.h.duyck@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:12836 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753220Ab2DWC3P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Apr 2012 22:29:15 -0400
-In-Reply-To: <m1sjfvtdvx.fsf@fess.ebiederm.org>
+Received: from mga09.intel.com ([134.134.136.24]:58085 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753121Ab2DWDVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Apr 2012 23:21:19 -0400
+In-Reply-To: <20120421.161842.1097392704709233196.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B404=E6=9C=8823=E6=97=A5 09:50, Eric W. Biederman =
-=E5=86=99=E9=81=93:
-> Gao feng <gaofeng@cn.fujitsu.com> writes:
->=20
->> =E4=BA=8E 2012=E5=B9=B404=E6=9C=8820=E6=97=A5 07:24, Eric W. Biederm=
-an =E5=86=99=E9=81=93:
+On 4/21/2012 1:18 PM, David Miller wrote:
+> From: John Fastabend <john.r.fastabend@intel.com>
+> Date: Sat, 21 Apr 2012 09:27:31 -0700
+> 
+>> On 4/20/2012 11:01 PM, Tom Herbert wrote:
+>>>> I don't recall the exact reason now, as John said I think it had to do
+>>>> with the ethtool tests not using the same cleanup routine and leaving
+>>>> us in a bad state.  I am pretty sure there was some path in which
+>>>> where the call was didn't work but I do not recall the exact details
+>>>> now.  Most of the reason for moving it is due to the fact that the
+>>>> reset is now also clearing the bit, and from the driver perspective we
+>>>> didn't need it in two places.  After looking it all over again, I
+>>>> suppose this causes a cosmetic issue for the bql "inflight" statistic
+>>>> in sysfs since the value will be retained until the interface is
+>>>> brought back up with this change.  Is that an issue or something that
+>>>> can be lived with since the interface isn't active anyway in this
+>>>> case?
+>>>>
+>>> On the surface, it seems cleaner and probably a simpler convention to
+>>> clear the state when the buffers are being freed.  If there's a good
+>>> reason not to do this for igb, it makes me wonder if this should be
+>>> done the same way in other drivers...
 >>>
->>> This makes it clearer which sysctls are relative to your current ne=
-twork
->>> namespace.
->>>
->>> This makes it a little less error prone by not exposing sysctls for=
- the
->>> initial network namespace in other namespaces.
->>>
->>> This is the same way we handle all of our other network interfaces =
-to
->>> userspace and I can't honestly remember why we didn't do this for
->>> sysctls right from the start.
->>>
->>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
->>> ---
->>>  drivers/infiniband/core/ucma.c          |    4 ++--
->>>  net/802/tr.c                            |    2 +-
->>>  net/appletalk/sysctl_net_atalk.c        |    4 ++--
->>>  net/ax25/sysctl_net_ax25.c              |    4 ++--
->>>  net/bridge/br_netfilter.c               |    4 ++--
->>>  net/core/neighbour.c                    |    2 +-
->>>  net/core/sysctl_net_core.c              |    2 +-
->>>  net/dccp/sysctl.c                       |    4 ++--
->>>  net/decnet/dn_dev.c                     |    4 ++--
->>>  net/decnet/sysctl_net_decnet.c          |    4 ++--
->>>  net/ipv4/netfilter/ip_queue.c           |    6 +++---
->>>  net/ipv4/route.c                        |    2 +-
->>>  net/ipv4/sysctl_net_ipv4.c              |    4 ++--
->>>  net/ipv6/netfilter/ip6_queue.c          |    6 +++---
->>>  net/ipv6/netfilter/nf_conntrack_reasm.c |    4 ++--
->>>  net/ipv6/sysctl_net_ipv6.c              |    2 +-
->>>  net/ipx/sysctl_net_ipx.c                |    5 +++--
->>>  net/irda/irsysctl.c                     |    4 ++--
->>>  net/llc/sysctl_net_llc.c                |    5 +++--
->>>  net/netfilter/nf_conntrack_proto.c      |    4 ++--
+>>> Tom
 >>
->> Hi Eric
+>> Just dug up the old thread. This was to fix a bug that byte queue limits
+>> was causing with some of the loopback tests evoked from ethtool. The
+>> loopback test uses a separate path to free the buffers which wasn't
+>> calling netdev_tx_reset_queue().
 >>
->> actually,I'm working on making the sysctl and data of nf_conntrack p=
-roto pernet,
->> and I think it's necessary,without the pernet proto timeout,we can't=
- control
->> the container's conntrack timeout unless we change the host's timeou=
-t.
->>
->> maybe somebody want the conntracks in container expired quickly.
->> So I will keep on doing this job base on your patchset.
->>
->> what's your comment?
->=20
-> My quick skim of your patches suggested to me you are doing useful wo=
-rk.
->=20
-> Making sysctls that are not pernet init_net only serve two
-> purposes.
-> - Prevent mistakes by changing a sysctl you think is pernet but globa=
-lly
->   affects the networking stack.
-> - Make it easy to find which sysctls need to be converted.
+>> We should likely just explicitly clear the state in each routine rather
+>> than try to be clever IMO.
+> 
+> Agreed.
 
-OK,I got it.
-
->=20
-> I suspect a lot of sysctls have not been converted simply because no =
-one
-> realized they had not been converted.
->=20
-> I hope my code cleanup did not set you back very much.  I don't belie=
-ve
-> there were any conflicts in principle just a few places where we touc=
-hed
-> the same code.
-
-Yes,just a little of codes,Thanks for your comments.
+Further it can cause a real bug (the qdisc stack bit doesn't get cleared) if
+the real_num_tx_queues is decreased for example in ixgbe when DCB is disabled.
+I'll send a patch to JeffK.
 
 Thanks,
-Gao
-
->=20
-> Eric
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+John
