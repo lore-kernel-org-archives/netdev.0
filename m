@@ -1,42 +1,35 @@
 From: Chris Boot <bootc@bootc.net>
-Subject: [PATCH 1/2] e1000e: Disable ASPM L1 on 82574
-Date: Mon, 23 Apr 2012 22:29:37 +0100
-Message-ID: <1335216578-21542-2-git-send-email-bootc@bootc.net>
-References: <1335216578-21542-1-git-send-email-bootc@bootc.net>
+Subject: [PATCH RFC 0/2] e1000e: 82574 also needs ASPM L1 completely disabled
+Date: Mon, 23 Apr 2012 22:29:36 +0100
+Message-ID: <1335216578-21542-1-git-send-email-bootc@bootc.net>
+References: <9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
 Cc: linux-kernel@vger.kernel.org, nix@esperi.org.uk,
 	carolyn.wyborny@intel.com, Chris Boot <bootc@bootc.net>
 To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1335216578-21542-1-git-send-email-bootc@bootc.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ASPM on the 82574 causes trouble. Currently the driver disables L0s for
-this NIC but only disables L1 if the MTU is >1500. This patch simply
-causes L1 to be disabled regardless of the MTU setting.
+After much toing and froing on LKML, netdev and the e1000 mailing lists
+over the past few months we've determined that the 82574L needs to have
+both ASPM L0s and L1 disabled or else it's likely to lock up. This
+little series does just that, also cleaning up some now-unnecessary code
+that disables L1 on the 82573 and 82574 if the MTU is greater than 1500
+bytes.
 
-Signed-off-by: Chris Boot <bootc@bootc.net>
-Cc: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Cc: Nix <nix@esperi.org.uk>
-Link: https://lkml.org/lkml/2012/3/19/362
----
- drivers/net/ethernet/intel/e1000e/82571.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Please note I haven't as-yet tested this code at all, but I do know that
+disabling ASPM L1 on these NICs (using setpci) fixes the hangs that I
+have been seeing on my Supermicro servers with X9SCL-F boards. I hope to
+get the chance to install an updated kernel on my two afftected servers
+later this week.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index b3fdc69..c6d95f2 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -2061,8 +2061,9 @@ const struct e1000_info e1000_82574_info = {
- 				  | FLAG_HAS_SMART_POWER_DOWN
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
--	.flags2			  = FLAG2_CHECK_PHY_HANG
-+	.flags2			= FLAG2_CHECK_PHY_HANG
- 				  | FLAG2_DISABLE_ASPM_L0S
-+				  | FLAG2_DISABLE_ASPM_L1
- 				  | FLAG2_NO_DISABLE_RX,
- 	.pba			= 32,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
+Chris Boot (2):
+  e1000e: Disable ASPM L1 on 82574
+  e1000e: Remove special case for 82573/82574 ASPM L1 disablement
+
+ drivers/net/ethernet/intel/e1000e/82571.c  |    3 ++-
+ drivers/net/ethernet/intel/e1000e/netdev.c |    8 --------
+ 2 files changed, 2 insertions(+), 9 deletions(-)
+
 -- 
 1.7.10
