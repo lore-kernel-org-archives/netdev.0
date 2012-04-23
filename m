@@ -1,53 +1,62 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for
- TCP
-Date: Mon, 23 Apr 2012 15:16:42 -0700
-Message-ID: <4F95D4CA.7020005@hp.com>
-References: <1335173934.3293.84.camel@edumazet-glaptop> <4F958DFD.7010207@hp.com> <1335201795.5205.35.camel@edumazet-glaptop> <20120423.160149.1515408777176168288.davem@davemloft.net> <1335213446.5205.65.camel@edumazet-glaptop>  <4F95C22D.3010908@hp.com> <1335216631.5205.71.camel@edumazet-glaptop>  <4F95CECF.6030901@hp.com> <1335218707.5205.87.camel@edumazet-glaptop>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Tue, 24 Apr 2012 07:32:55 +0900
+Message-ID: <20120423223255.GG580@verge.net.au>
+References: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
+	<20120423.161313.1582195533832554777.davem@davemloft.net>
+	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
+	<20120423.170817.1103719420692884446.davem@davemloft.net>
+	<CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	therbert@google.com, ncardwell@google.com, maze@google.com,
-	ycheng@google.com, ilpo.jarvinen@helsinki.fi
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:33286 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753195Ab2DWWQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 18:16:44 -0400
-In-Reply-To: <1335218707.5205.87.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/23/2012 03:05 PM, Eric Dumazet wrote:
-> On Mon, 2012-04-23 at 14:51 -0700, Rick Jones wrote:
->> On 04/23/2012 02:30 PM, Eric Dumazet wrote:
->
->>> Yet, in the small time it takes to perform this operation, softirq can
->>> queue up to 300 packets coming from the other side.
->>
->> There is more to it than just queue-up 16 KB right?
->
-> At full rate, we send 825.000 packets per second, and should receive
-> 412.000 ACKS per second if receiver is standard TCP.
->
-> The ACK are not smooth, because receiver also have a huge backlog issue
-> and can send train of ACKS. (I have seen backlogs on receiver using more
-> than 500 us to be  processed)
->
-> If the copyin(16KB) from user to kernel takes some us (preempt,
-> irqs...), its pretty easy to catch an ACK train in this window.
-
-Is it at all possible to have the copies happen without the connection 
-being locked?  If indeed it is possible to be held-off with the 
-connection locked for the better part of 3/4 of a millisecond, just what 
-will that do to 40 or 100 GbE?  If you've been seeing queues of 300 ACKs 
-at 10 GbE that would be 3000 at 100 GbE, and assuming those are all in a 
-2048 byte buffer thats 6MB just of ACKs.  I suppose 100GbE does mean 
-non-trivial quantities of buffering anyway but that does still seem 
-rather high.
-
-rick
-thank goodness for GRO's ACK stretching as an ACK avoidance heuristic I 
-guess...
+T24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMDI6Mzg6MDdQTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3Jv
+dGU6Cj4gT24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMjowOCBQTSwgRGF2aWQgTWlsbGVyIDxkYXZl
+bUBkYXZlbWxvZnQubmV0PiB3cm90ZToKPiA+IEZyb206IEplc3NlIEdyb3NzIDxqZXNzZUBuaWNp
+cmEuY29tPgo+ID4gRGF0ZTogTW9uLCAyMyBBcHIgMjAxMiAxMzo1Mzo0MiAtMDcwMAo+ID4KPiA+
+PiBPbiBNb24sIEFwciAyMywgMjAxMiBhdCAxOjEzIFBNLCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRh
+dmVtbG9mdC5uZXQ+IHdyb3RlOgo+ID4+PiBGcm9tOiBKZXNzZSBHcm9zcyA8amVzc2VAbmljaXJh
+LmNvbT4KPiA+Pj4gRGF0ZTogTW9uLCAyMyBBcHIgMjAxMiAxMzowODo0OSAtMDcwMAo+ID4+Pgo+
+ID4+Pj4gQXNzdW1pbmcgdGhhdCB0aGUgVENQIHN0YWNrIGdlbmVyYXRlcyBsYXJnZSBUU08gZnJh
+bWVzIG9uIHRyYW5zbWl0Cj4gPj4+PiAod2hpY2ggY291bGQgYmUgdGhlIGxvY2FsIHN0YWNrOyBz
+b21ldGhpbmcgc2VudCBieSBhIFZNOyBvciBwYWNrZXRzCj4gPj4+PiByZWNlaXZlZCwgY29hbGVz
+Y2VkIGJ5IEdSTyBhbmQgdGhlbiBlbmNhcHN1bGF0ZWQgYnkgU1RUKSB0aGVuIHlvdSBjYW4KPiA+
+Pj4+IGp1c3QgcHJlcGVuZCB0aGUgU1RUIGhlYWRlciAocG9zc2libHkgc2xpZ2h0bHkgYWRqdXN0
+aW5nIHRoaW5ncyBsaWtlCj4gPj4+PiByZXF1ZXN0ZWQgTVNTLCBudW1iZXIgb2Ygc2VnbWVudHMs
+IGV0Yy4gc2xpZ2h0bHkpLiDCoEFmdGVyIHRoYXQgaXQncwo+ID4+Pj4gcG9zc2libGUgdG8ganVz
+dCBvdXRwdXQgdGhlIHJlc3VsdGluZyBmcmFtZSB0aHJvdWdoIHRoZSBJUCBzdGFjayBsaWtlCj4g
+Pj4+PiBhbGwgdHVubmVscyBkbyB0b2RheS4KPiA+Pj4KPiA+Pj4gV2hpY2ggc2VlbXMgdG8gcG90
+ZW50aWFsbHkgc3VnZ2VzdCBhIHN0cm9uZ2VyIGludGVyZ3JhdGlvbiBvZiB0aGUgU1RUCj4gPj4+
+IHR1bm5lbCB0cmFuc21pdCBwYXRoIGludG8gb3VyIElQIHN0YWNrIHJhdGhlciB0aGFuIHRoZSBh
+cHByb2FjaCBTaW1vbgo+ID4+PiBpcyB0YWtpbmcKPiA+Pgo+ID4+IERpZCB5b3UgaGF2ZSBzb21l
+dGhpbmcgaW4gbWluZD8KPiA+Cj4gPiBBIG5vcm1hbCBib25hZmlkZSB0dW5uZWwgbmV0ZGV2aWNl
+IGRyaXZlciBsaWtlIEdSRSBpbnN0ZWFkIG9mIHRoZQo+ID4gb3BlbnZzd2l0Y2ggYXBwcm9hY2gg
+U2ltb24gaXMgdXNpbmcuCj4gCj4gQWhoLCB5ZXMsIHRoYXQgSSBhZ3JlZSB3aXRoLiAgSW5kZXBl
+bmRlbnQgb2YgdGhpcywgdGhlcmUncyB3b3JrIGJlaW5nCj4gZG9uZSB0byBtYWtlIGl0IHNvIHRo
+YXQgT1ZTIGNhbiB1c2UgdGhlIG5vcm1hbCBpbi10cmVlIHR1bm5lbGluZyBjb2RlCj4gYW5kIG5v
+dCBuZWVkIGl0cyBvd24uICBPbmNlIHRoYXQncyBkb25lIEkgZXhwZWN0IHRoYXQgU1RUIHdpbGwg
+Zm9sbG93Cj4gdGhlIHNhbWUgbW9kZWwuCgpIaSBKZXNzZSwKCkkgYW0gd29uZGVyaW5nIGhvdyBm
+aXJtIHRoZSBwbGFucyB0byBvbiBhbGxvd2luZyBPVlMgdG8gdXNlIGluLXRyZWUgdHVubmVsCmNv
+ZGUgYXJlLiBJJ20gaGFwcHkgdG8gbW92ZSBteSBlZmZvcnRzIG92ZXIgdG8gYW4gaW4tdHJlZSBT
+VFQgaW1wbGVtZW50YXRpb24KYnV0IHVsdGltYXRlbHkgSSB3b3VsZCBsaWtlIHRvIGdldCBTVFQg
+cnVubmluZyBpbiBjb25qdW5jdGlvbiB3aXRoIE9WUy4KX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gu
+b3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
