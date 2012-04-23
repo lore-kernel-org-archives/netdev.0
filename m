@@ -1,85 +1,73 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] net sysctl: Add place holder functions for when sysctl
- support is compiled out of the kernel.
-Date: Mon, 23 Apr 2012 15:38:45 -0700
-Message-ID: <4F95D9F5.3040407@xenotime.net>
-References: <20120423170701.c96e402234b1387dece11dda@canb.auug.org.au>	<4F958598.6080305@xenotime.net> <m1lilmt7v5.fsf_-_@fess.ebiederm.org>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Mon, 23 Apr 2012 15:59:24 -0700
+Message-ID: <CAEP_g=9p0TE59JbrS8QzHj4mEzc-5_hUDzmLRsRxLyUaFX+Z5Q@mail.gmail.com>
+References: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
+	<20120423.161313.1582195533832554777.davem@davemloft.net>
+	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
+	<20120423.170817.1103719420692884446.davem@davemloft.net>
+	<CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
+	<20120423223255.GG580@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <m1lilmt7v5.fsf_-_@fess.ebiederm.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120423223255.GG580-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/23/2012 03:13 PM, Eric W. Biederman wrote:
-
-> 
-> Randy Dunlap <rdunlap@xenotime.net> reported:
->> On 04/23/2012 12:07 AM, Stephen Rothwell wrote:
->>
->>> Hi all,
->>>
->>> Changes since 20120420:
->>
->>
->>
->> ERROR: "unregister_net_sysctl_table" [net/phonet/phonet.ko] undefined!
->> ERROR: "register_net_sysctl" [net/phonet/phonet.ko] undefined!
->>
->> when CONFIG_SYSCTL is not enabled.
-> 
-> Add static inline stub functions to gracefully handle the case when sysctl
-> support is not present.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-
-
-Yep, that works.
-
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
-
-Thanks.
-
-> ---
->  include/net/net_namespace.h |   15 ++++++++++++---
->  1 files changed, 12 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-> index 3ee4a3d..ac9195e 100644
-> --- a/include/net/net_namespace.h
-> +++ b/include/net/net_namespace.h
-> @@ -284,11 +284,20 @@ struct ctl_table_header;
->  
->  #ifdef CONFIG_SYSCTL
->  extern int net_sysctl_init(void);
-> -#else
-> -static inline int net_sysctl_init(void) { return 0; }
-> -#endif
->  extern struct ctl_table_header *register_net_sysctl(struct net *net,
->  	const char *path, struct ctl_table *table);
->  extern void unregister_net_sysctl_table(struct ctl_table_header *header);
-> +#else
-> +static inline int net_sysctl_init(void) { return 0; }
-> +static inline struct ctl_table_header *register_net_sysctl(struct net *net,
-> +	const char *path, struct ctl_table *table)
-> +{
-> +	return NULL;
-> +}
-> +static inline void unregister_net_sysctl_table(struct ctl_table_header *header)
-> +{
-> +}
-> +#endif
-> +
->  
->  #endif /* __NET_NET_NAMESPACE_H */
-
-
-
--- 
-~Randy
+T24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMzozMiBQTSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJn
+ZS5uZXQuYXU+IHdyb3RlOgo+IE9uIE1vbiwgQXByIDIzLCAyMDEyIGF0IDAyOjM4OjA3UE0gLTA3
+MDAsIEplc3NlIEdyb3NzIHdyb3RlOgo+PiBPbiBNb24sIEFwciAyMywgMjAxMiBhdCAyOjA4IFBN
+LCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOgo+PiA+IEZyb206IEpl
+c3NlIEdyb3NzIDxqZXNzZUBuaWNpcmEuY29tPgo+PiA+IERhdGU6IE1vbiwgMjMgQXByIDIwMTIg
+MTM6NTM6NDIgLTA3MDAKPj4gPgo+PiA+PiBPbiBNb24sIEFwciAyMywgMjAxMiBhdCAxOjEzIFBN
+LCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOgo+PiA+Pj4gRnJvbTog
+SmVzc2UgR3Jvc3MgPGplc3NlQG5pY2lyYS5jb20+Cj4+ID4+PiBEYXRlOiBNb24sIDIzIEFwciAy
+MDEyIDEzOjA4OjQ5IC0wNzAwCj4+ID4+Pgo+PiA+Pj4+IEFzc3VtaW5nIHRoYXQgdGhlIFRDUCBz
+dGFjayBnZW5lcmF0ZXMgbGFyZ2UgVFNPIGZyYW1lcyBvbiB0cmFuc21pdAo+PiA+Pj4+ICh3aGlj
+aCBjb3VsZCBiZSB0aGUgbG9jYWwgc3RhY2s7IHNvbWV0aGluZyBzZW50IGJ5IGEgVk07IG9yIHBh
+Y2tldHMKPj4gPj4+PiByZWNlaXZlZCwgY29hbGVzY2VkIGJ5IEdSTyBhbmQgdGhlbiBlbmNhcHN1
+bGF0ZWQgYnkgU1RUKSB0aGVuIHlvdSBjYW4KPj4gPj4+PiBqdXN0IHByZXBlbmQgdGhlIFNUVCBo
+ZWFkZXIgKHBvc3NpYmx5IHNsaWdodGx5IGFkanVzdGluZyB0aGluZ3MgbGlrZQo+PiA+Pj4+IHJl
+cXVlc3RlZCBNU1MsIG51bWJlciBvZiBzZWdtZW50cywgZXRjLiBzbGlnaHRseSkuIMKgQWZ0ZXIg
+dGhhdCBpdCdzCj4+ID4+Pj4gcG9zc2libGUgdG8ganVzdCBvdXRwdXQgdGhlIHJlc3VsdGluZyBm
+cmFtZSB0aHJvdWdoIHRoZSBJUCBzdGFjayBsaWtlCj4+ID4+Pj4gYWxsIHR1bm5lbHMgZG8gdG9k
+YXkuCj4+ID4+Pgo+PiA+Pj4gV2hpY2ggc2VlbXMgdG8gcG90ZW50aWFsbHkgc3VnZ2VzdCBhIHN0
+cm9uZ2VyIGludGVyZ3JhdGlvbiBvZiB0aGUgU1RUCj4+ID4+PiB0dW5uZWwgdHJhbnNtaXQgcGF0
+aCBpbnRvIG91ciBJUCBzdGFjayByYXRoZXIgdGhhbiB0aGUgYXBwcm9hY2ggU2ltb24KPj4gPj4+
+IGlzIHRha2luZwo+PiA+Pgo+PiA+PiBEaWQgeW91IGhhdmUgc29tZXRoaW5nIGluIG1pbmQ/Cj4+
+ID4KPj4gPiBBIG5vcm1hbCBib25hZmlkZSB0dW5uZWwgbmV0ZGV2aWNlIGRyaXZlciBsaWtlIEdS
+RSBpbnN0ZWFkIG9mIHRoZQo+PiA+IG9wZW52c3dpdGNoIGFwcHJvYWNoIFNpbW9uIGlzIHVzaW5n
+Lgo+Pgo+PiBBaGgsIHllcywgdGhhdCBJIGFncmVlIHdpdGguIMKgSW5kZXBlbmRlbnQgb2YgdGhp
+cywgdGhlcmUncyB3b3JrIGJlaW5nCj4+IGRvbmUgdG8gbWFrZSBpdCBzbyB0aGF0IE9WUyBjYW4g
+dXNlIHRoZSBub3JtYWwgaW4tdHJlZSB0dW5uZWxpbmcgY29kZQo+PiBhbmQgbm90IG5lZWQgaXRz
+IG93bi4gwqBPbmNlIHRoYXQncyBkb25lIEkgZXhwZWN0IHRoYXQgU1RUIHdpbGwgZm9sbG93Cj4+
+IHRoZSBzYW1lIG1vZGVsLgo+Cj4gSGkgSmVzc2UsCj4KPiBJIGFtIHdvbmRlcmluZyBob3cgZmly
+bSB0aGUgcGxhbnMgdG8gb24gYWxsb3dpbmcgT1ZTIHRvIHVzZSBpbi10cmVlIHR1bm5lbAo+IGNv
+ZGUgYXJlLiBJJ20gaGFwcHkgdG8gbW92ZSBteSBlZmZvcnRzIG92ZXIgdG8gYW4gaW4tdHJlZSBT
+VFQgaW1wbGVtZW50YXRpb24KPiBidXQgdWx0aW1hdGVseSBJIHdvdWxkIGxpa2UgdG8gZ2V0IFNU
+VCBydW5uaW5nIGluIGNvbmp1bmN0aW9uIHdpdGggT1ZTLgoKSSB3b3VsZCBzYXkgdGhhdCBpdCdz
+IGEgZmlybSBnb2FsIGJ1dCB0aGUgaW1wbGVtZW50YXRpb24gcHJvYmFibHkKc3RpbGwgaGFzIGEg
+d2F5cyB0byBnby4gIEt5bGUgTWVzdGVyeSAoQ0MnZWQpIGhhcyB2b2x1bnRlZXJlZCB0byB3b3Jr
+Cm9uIHRoaXMgaW4gc3VwcG9ydCBvZiBhZGRpbmcgVlhMQU4sIHdoaWNoIG5lZWRzIHNvbWUgYWRk
+aXRpb25hbApmbGV4aWJpbGl0eSB0aGF0IHRoaXMgYXBwcm9hY2ggd291bGQgYWxzbyBwcm92aWRl
+LiAgWW91IG1pZ2h0IHdhbnQgdG8KdGFsayB0byBoaW0gdG8gc2VlIGlmIHRoZXJlIGFyZSB3YXlz
+IHRoYXQgeW91IGd1eXMgY2FuIHdvcmsgdG9nZXRoZXIKb24gaXQgaWYgeW91IGFyZSBpbnRlcmVz
+dGVkLiAgSGF2aW5nIGJldHRlciBpbnRlZ3JhdGlvbiB3aXRoIHVwc3RyZWFtCnR1bm5lbGluZyBp
+cyBkZWZpbml0ZWx5IGEgc3RlcCB0aGF0IE9WUyBuZWVkcyB0byBtYWtlIGFuZCBzb29uZXIgd291
+bGQKYmUgYmV0dGVyIHRoYW4gbGF0ZXIuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRw
+Oi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
