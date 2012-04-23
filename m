@@ -1,55 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
- for TCP
-Date: Mon, 23 Apr 2012 22:37:26 +0200
-Message-ID: <1335213446.5205.65.camel@edumazet-glaptop>
-References: <1335173934.3293.84.camel@edumazet-glaptop>
-	 <4F958DFD.7010207@hp.com> <1335201795.5205.35.camel@edumazet-glaptop>
-	 <20120423.160149.1515408777176168288.davem@davemloft.net>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Mon, 23 Apr 2012 13:53:42 -0700
+Message-ID: <CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
+References: <20120423.151533.694306336485319759.davem@davemloft.net>
+	<20120423121934.195e898c@nehalam.linuxnetplumber.net>
+	<CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
+	<20120423.161313.1582195533832554777.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org, therbert@google.com,
-	ncardwell@google.com, maze@google.com, ycheng@google.com,
-	ilpo.jarvinen@helsinki.fi
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:47374 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754240Ab2DWUhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 16:37:32 -0400
-Received: by bkcik5 with SMTP id ik5so8992366bkc.19
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 13:37:31 -0700 (PDT)
-In-Reply-To: <20120423.160149.1515408777176168288.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120423.161313.1582195533832554777.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-04-23 at 16:01 -0400, David Miller wrote:
-
-> Hmmm... why don't we just acknowledge reality and special case ACKs?
-> 
-
-Yes why not.
-
-
-> If a TCP packet is dataless we should just let it go through no matter
-> what and with no limits.  It is by definition transient and will not
-> get queued up into the socket past this backlog stage.
-> 
-
-Even being transient we need a limit. Without copybreak, an ACK can cost
-2048+256 bytes.
-
-In my 10Gbit tests (standard netperf using 16K buffers), I've seen
-backlogs of 300 ACK packets...
-
-> This proposed patch allows non-dataless packets to eat more space in
-> the backlog, thus the concern and slight pushback.  And from another
-> perspective, having the stack process data packets which will just
-> get dropped when we try to attach it to the receive queue is just
-> wasted work.
-
-We could try to coalesce ACKs before backlogging them. I'll work on
-this.
-
-Thanks
+T24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMToxMyBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZl
+bWxvZnQubmV0PiB3cm90ZToKPiBGcm9tOiBKZXNzZSBHcm9zcyA8amVzc2VAbmljaXJhLmNvbT4K
+PiBEYXRlOiBNb24sIDIzIEFwciAyMDEyIDEzOjA4OjQ5IC0wNzAwCj4KPj4gQXNzdW1pbmcgdGhh
+dCB0aGUgVENQIHN0YWNrIGdlbmVyYXRlcyBsYXJnZSBUU08gZnJhbWVzIG9uIHRyYW5zbWl0Cj4+
+ICh3aGljaCBjb3VsZCBiZSB0aGUgbG9jYWwgc3RhY2s7IHNvbWV0aGluZyBzZW50IGJ5IGEgVk07
+IG9yIHBhY2tldHMKPj4gcmVjZWl2ZWQsIGNvYWxlc2NlZCBieSBHUk8gYW5kIHRoZW4gZW5jYXBz
+dWxhdGVkIGJ5IFNUVCkgdGhlbiB5b3UgY2FuCj4+IGp1c3QgcHJlcGVuZCB0aGUgU1RUIGhlYWRl
+ciAocG9zc2libHkgc2xpZ2h0bHkgYWRqdXN0aW5nIHRoaW5ncyBsaWtlCj4+IHJlcXVlc3RlZCBN
+U1MsIG51bWJlciBvZiBzZWdtZW50cywgZXRjLiBzbGlnaHRseSkuIMKgQWZ0ZXIgdGhhdCBpdCdz
+Cj4+IHBvc3NpYmxlIHRvIGp1c3Qgb3V0cHV0IHRoZSByZXN1bHRpbmcgZnJhbWUgdGhyb3VnaCB0
+aGUgSVAgc3RhY2sgbGlrZQo+PiBhbGwgdHVubmVscyBkbyB0b2RheS4KPgo+IFdoaWNoIHNlZW1z
+IHRvIHBvdGVudGlhbGx5IHN1Z2dlc3QgYSBzdHJvbmdlciBpbnRlcmdyYXRpb24gb2YgdGhlIFNU
+VAo+IHR1bm5lbCB0cmFuc21pdCBwYXRoIGludG8gb3VyIElQIHN0YWNrIHJhdGhlciB0aGFuIHRo
+ZSBhcHByb2FjaCBTaW1vbgo+IGlzIHRha2luZwoKRGlkIHlvdSBoYXZlIHNvbWV0aGluZyBpbiBt
+aW5kPyAgU2luY2UgdGhlIG9yaWdpbmF0aW5nIHN0YWNrIGFscmVhZHkKZ2VuZXJhdGVzIFRTTyBm
+cmFtZXMgdG9kYXksIGl0J3MganVzdCBhIGZldyBsaW5lcyBvZiBjb2RlIHRvIGFkanVzdApmb3Ig
+dGhlIGFkZGl0aW9uIG9mIHRoZSBTVFQgaGVhZGVyIGFzIHRoZSBza2IgaXMgZW5jYXBzdWxhdGVk
+LgpPdGhlcndpc2UsIHRoZSB0cmFuc21pdCBwYXRoIGlzIHRoZSBzYW1lIGFzIHNvbWV0aGluZyBs
+aWtlIEdSRS4gIEwyVFAKZm9sbG93cyBhIGZhaXJseSBzaW1pbGFyIHBhdGggLSBvbiByZWNlaXZl
+IGl0IGJpbmRzIHRvIGEgbGlzdGVuaW5nIFVEUApzb2NrZXQgYW5kIG9uIHRyYW5zbWl0IGl0IHBy
+ZXBlbmRzIGEgaGVhZGVyLCBzZXR1cHMgdXAgY2hlY2tzdW0Kb2ZmbG9hZGluZywgYW5kIG91dHB1
+dHMgZGlyZWN0bHkgdmlhIGlwX3F1ZXVlX3htaXQoKS4KX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gu
+b3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
