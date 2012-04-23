@@ -1,53 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
- for TCP
-Date: Mon, 23 Apr 2012 19:23:15 +0200
-Message-ID: <1335201795.5205.35.camel@edumazet-glaptop>
-References: <1335173934.3293.84.camel@edumazet-glaptop>
-	 <4F958DFD.7010207@hp.com>
+From: "Franky Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] [brcmsmac] "INTERMEDIATE but not AMPDU" only when
+ tracing
+Date: Mon, 23 Apr 2012 10:43:29 -0700
+Message-ID: <4F9594C1.5060000@broadcom.com>
+References: <1335048484-5925-1-git-send-email-eldad@fogrefinery.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:41700 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752619Ab2DWRXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 13:23:54 -0400
-Received: by bkcik5 with SMTP id ik5so8845859bkc.19
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 10:23:52 -0700 (PDT)
-In-Reply-To: <4F958DFD.7010207@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Brett Rudley" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Roland Vossen" <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Kan Yan" <kanyan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Eldad Zack" <eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1335048484-5925-1-git-send-email-eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-04-23 at 10:14 -0700, Rick Jones wrote:
+On 04/21/2012 03:48 PM, Eldad Zack wrote:
+>  From the code comment I understand that this something that can - and does, quite frequently - happen.
+> This patch demotes the message to the trace level.
+>
+> Signed-off-by: Eldad Zack<eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>
 
-> 
-> This will increase what can be queued for arriving segments in general 
-> and not for ACKs specifically yes?  (A possible issue that would have 
-> come-up with my previous wondering about just increasing SO_RCVBUF as 
-> SO_SNDBUF was increasing).  Perhaps only add sk->sk_sndbuf to the limit 
-> if the arriving segment contains no data?
+Thx Eldad,
 
-Thats the backlog limit that we tweak here.
+Acked-by: Franky Lin<frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 
-Its not a big deal if we allow a bit more packets to come and later drop
-them if we hit the real rcvbuf limit. (ACKS wont consume space, since
-they are freed as soon as processed)
-
-By the way, we used to have (sk_rcvbuf << 1) limit in the past.
-
-Before commit c377411f2494a931ff we had :
-
-if (sk->sk_backlog.len >= max(sk->sk_backlog.limit, sk->sk_rcvbuf << 1)) 
-	return -ENOBUFS
-
-We probably had drops in the past but didnt notice, since we lacked 
-a counter for those drops.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
