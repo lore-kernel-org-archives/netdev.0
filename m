@@ -1,103 +1,53 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for
- TCP
-Date: Mon, 23 Apr 2012 10:14:37 -0700
-Message-ID: <4F958DFD.7010207@hp.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
+ for TCP
+Date: Mon, 23 Apr 2012 19:23:15 +0200
+Message-ID: <1335201795.5205.35.camel@edumazet-glaptop>
 References: <1335173934.3293.84.camel@edumazet-glaptop>
+	 <4F958DFD.7010207@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Tom Herbert <therbert@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
-	=?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dz?= =?UTF-8?B?a2k=?=
-	<maze@google.com>, Yuchung Cheng <ycheng@google.com>,
-	=?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:30024 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753392Ab2DWROj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 13:14:39 -0400
-In-Reply-To: <1335173934.3293.84.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:41700 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752619Ab2DWRXy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 13:23:54 -0400
+Received: by bkcik5 with SMTP id ik5so8845859bkc.19
+        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 10:23:52 -0700 (PDT)
+In-Reply-To: <4F958DFD.7010207@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/23/2012 02:38 AM, Eric Dumazet wrote:
-> From: Eric Dumazet<edumazet@google.com>
->
-> While investigating TCP performance problems on 10Gb+ links, we found=
- a
-> tcp sender was dropping lot of incoming ACKS because of sk_rcvbuf lim=
-it
-> in sk_add_backlog(), especially if receiver doesnt use GRO/LRO and se=
-nds
-> one ACK every two MSS segments.
->
-> A sender usually tweaks sk_sndbuf, but sk_rcvbuf stays at its default
-> value (87380), allowing a too small backlog.
->
-> A TCP ACK, even being small, can consume nearly same truesize space t=
-han
-> outgoing packets. Using sk_rcvbuf + sk_sndbuf as a limit makes sense =
-and
-> is fast to compute.
->
-> Performance results on netperf, single flow, receiver with disabled
-> GRO/LRO : 7500 Mbits instead of 6050 Mbits, no more TCPBacklogDrop
-> increments at sender.
->
-> Signed-off-by: Eric Dumazet<edumazet@google.com>
-> Cc: Neal Cardwell<ncardwell@google.com>
-> Cc: Tom Herbert<therbert@google.com>
-> Cc: Maciej =C5=BBenczykowski<maze@google.com>
-> Cc: Yuchung Cheng<ycheng@google.com>
-> Cc: Ilpo J=C3=A4rvinen<ilpo.jarvinen@helsinki.fi>
-> Cc: Rick Jones<rick.jones2@hp.com>
-> ---
->   net/ipv4/tcp_ipv4.c |    3 ++-
->   net/ipv6/tcp_ipv6.c |    3 ++-
->   2 files changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index 917607e..cf97e98 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1752,7 +1752,8 @@ process:
->   			if (!tcp_prequeue(sk, skb))
->   				ret =3D tcp_v4_do_rcv(sk, skb);
->   		}
-> -	} else if (unlikely(sk_add_backlog(sk, skb, sk->sk_rcvbuf))) {
-> +	} else if (unlikely(sk_add_backlog(sk, skb,
-> +					   sk->sk_rcvbuf + sk->sk_sndbuf))) {
->   		bh_unlock_sock(sk);
->   		NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
->   		goto discard_and_relse;
+On Mon, 2012-04-23 at 10:14 -0700, Rick Jones wrote:
 
-This will increase what can be queued for arriving segments in general=20
-and not for ACKs specifically yes?  (A possible issue that would have=20
-come-up with my previous wondering about just increasing SO_RCVBUF as=20
-SO_SNDBUF was increasing).  Perhaps only add sk->sk_sndbuf to the limit=
-=20
-if the arriving segment contains no data?
+> 
+> This will increase what can be queued for arriving segments in general 
+> and not for ACKs specifically yes?  (A possible issue that would have 
+> come-up with my previous wondering about just increasing SO_RCVBUF as 
+> SO_SNDBUF was increasing).  Perhaps only add sk->sk_sndbuf to the limit 
+> if the arriving segment contains no data?
 
-rick
+Thats the backlog limit that we tweak here.
 
+Its not a big deal if we allow a bit more packets to come and later drop
+them if we hit the real rcvbuf limit. (ACKS wont consume space, since
+they are freed as soon as processed)
 
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index b04e6d8..5fb19d3 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1654,7 +1654,8 @@ process:
->   			if (!tcp_prequeue(sk, skb))
->   				ret =3D tcp_v6_do_rcv(sk, skb);
->   		}
-> -	} else if (unlikely(sk_add_backlog(sk, skb, sk->sk_rcvbuf))) {
-> +	} else if (unlikely(sk_add_backlog(sk, skb,
-> +					   sk->sk_rcvbuf + sk->sk_sndbuf))) {
->   		bh_unlock_sock(sk);
->   		NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
->   		goto discard_and_relse;
->
+By the way, we used to have (sk_rcvbuf << 1) limit in the past.
+
+Before commit c377411f2494a931ff we had :
+
+if (sk->sk_backlog.len >= max(sk->sk_backlog.limit, sk->sk_rcvbuf << 1)) 
+	return -ENOBUFS
+
+We probably had drops in the past but didnt notice, since we lacked 
+a counter for those drops.
