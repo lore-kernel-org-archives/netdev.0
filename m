@@ -1,48 +1,39 @@
-From: Paolo Pisati <paolo.pisati@canonical.com>
-Subject: [PATCH v2] smsc95xx: mark link down on startup and let PHY interrupt deal with carrier changes
-Date: Mon, 23 Apr 2012 16:05:20 +0200
-Message-ID: <1335189920-31062-1-git-send-email-paolo.pisati@canonical.com>
-Cc: netdev@vger.kernel.org, Paolo Pisati <paolo.pisati@canonical.com>
-To: Steve Glendinning <steve.glendinning@smsc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:40866 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755391Ab2DWOGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 10:06:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 2/2] netfilter: ipvs: use GFP_KERNEL allocation where
+ possible
+Date: Mon, 23 Apr 2012 07:23:27 -0700
+Message-ID: <20120423142327.GB32269@kroah.com>
+References: <1335183428-2585-1-git-send-email-horms@verge.net.au>
+ <1335183428-2585-3-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Sasha Levin <levinsasha928@gmail.com>, stable@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1335183428-2585-3-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Without this patch sysfs reports the cable as present
+On Mon, Apr 23, 2012 at 09:17:08PM +0900, Simon Horman wrote:
+> From: Sasha Levin <levinsasha928@gmail.com>
+> 
+> Use GFP_KERNEL instead of GFP_ATOMIC when registering an ipvs protocol.
+> 
+> This is safe since it will always run from a process context.
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>  net/netfilter/ipvs/ip_vs_proto.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-flag@flag-desktop:~$ cat /sys/class/net/eth0/carrier
-1
+How does this patch meet the Documentation/stable_kernel_rules.txt
+requirements?
 
-while it's not:
-
-flag@flag-desktop:~$ sudo mii-tool eth0
-eth0: no link
-
-Tested on my Beagle XM.
-
-v2: added mantainer to the list of recipient
-
-Signed-off-by: Paolo Pisati <paolo.pisati@canonical.com>
----
- drivers/net/usb/smsc95xx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 3444514..93d3252 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1192,7 +1192,7 @@ static const struct driver_info smsc95xx_info = {
- 	.rx_fixup	= smsc95xx_rx_fixup,
- 	.tx_fixup	= smsc95xx_tx_fixup,
- 	.status		= smsc95xx_status,
--	.flags		= FLAG_ETHER | FLAG_SEND_ZLP,
-+	.flags		= FLAG_ETHER | FLAG_SEND_ZLP | FLAG_LINK_INTR,
- };
- 
- static const struct usb_device_id products[] = {
--- 
-1.7.9.5
