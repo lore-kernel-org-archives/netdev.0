@@ -1,50 +1,45 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH v1 6/8] dmaengine: enhance network subsystem to support
- DMA device hotplug
-Date: Mon, 23 Apr 2012 11:30:33 -0700
-Message-ID: <CABE8wwvi_Yz8AyALr1-uDW9xSgrSqfrYWhB_22NQ2ydTa81+mg@mail.gmail.com>
-References: <1335189109-4871-1-git-send-email-jiang.liu@huawei.com>
-	<1335189109-4871-7-git-send-email-jiang.liu@huawei.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Mon, 23 Apr 2012 15:15:33 -0400 (EDT)
+Message-ID: <20120423.151533.694306336485319759.davem@davemloft.net>
+References: <20120423051359.GE11672@verge.net.au>
+	<20120423.033658.1229108613501573952.davem@davemloft.net>
+	<20120423083007.GB22556@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Vinod Koul <vinod.koul@intel.com>,
-	Jiang Liu <jiang.liu@huawei.com>,
-	Keping Chen <chenkeping@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jiang Liu <liuj97@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1335189109-4871-7-git-send-email-jiang.liu@huawei.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120423083007.GB22556-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 23, 2012 at 6:51 AM, Jiang Liu <liuj97@gmail.com> wrote:
-> Enhance network subsystem to correctly update DMA channel reference counts,
-> so it won't break DMA device hotplug logic.
->
-> Signed-off-by: Jiang Liu <liuj97@gmail.com>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Date: Mon, 23 Apr 2012 17:30:08 +0900
 
-This introduces an atomic action on every channel touch, which is more
-expensive than what we had previously.  There has always been a
-concern about the overhead of offload that sometimes makes ineffective
-or a loss compared to cpu copies.  In the cases where net_dma shows
-improvement this will eat into / maybe eliminate that advantage.
+> I'm pretty sure the patch I posted added encap_rcv to tcp_sock.
+> Am I missing the point?
 
-Take a look at where dmaengine started [1].  It was from the beginning
-going through contortions to avoid something like this.  We made it
-simpler here [2], but still kept the principle of not dirtying a
-shared cacheline on every channel touch, and certainly not locking it.
+It did, my eyes are failing me :-)
 
-If you are going to hotplug the entire IOH, then you are probably ok
-with network links going down, so could you just down the links and
-remove the driver with the existing code?
+> Currently I am setting up a listening socket. The Open vSwtich tunneling
+> code transmits skbs and using either dev_queue_xmit() or ip_local_out().
+> I'm not sure that I have exercised the ip_local_out() case yet.
 
---
-Dan
+I don't see where on transmit you're going to realize the primary
+stated benefit of STT, that being TSO/GSO.
 
-[1]: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=c13c826
-[2]: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=6f49a57a
+You'll probably want to gather as many packets as possible into a
+larger STT frame for this purpose.  And when switching between STT
+tunnels, leave the packet alone since a GRO STT frame on receive will
+transparently become a STT GSO frame on transmit.
