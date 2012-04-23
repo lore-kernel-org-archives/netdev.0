@@ -1,78 +1,126 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH] net: dcb: add CEE notify calls
-Date: Mon, 23 Apr 2012 06:36:40 -0700
-Message-ID: <4F955AE8.6040802@intel.com>
-References: <20120420194923.8103.54825.stgit@jf-dev1-dcblab> <1335185512.15423.10.camel@lb-tlvb-shmulik.il.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com,
-	amirv@dev.mellanox.co.il
-To: Shmulik Ravid <shmulikr@broadcom.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH] ehea: only register irq after setting up ports
+Date: Mon, 23 Apr 2012 10:46:29 -0300
+Message-ID: <1335188789-6211-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	stable@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:1662 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752454Ab2DWNgl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Apr 2012 09:36:41 -0400
-In-Reply-To: <1335185512.15423.10.camel@lb-tlvb-shmulik.il.broadcom.com>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:56394 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753786Ab2DWNqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 09:46:36 -0400
+Received: from /spool/local
+	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Mon, 23 Apr 2012 10:46:34 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/23/2012 5:51 AM, Shmulik Ravid wrote:
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>
->>  net/dcb/dcbnl.c |    2 ++
->>  1 files changed, 2 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
->> index 8dfa1da..656c7c7 100644
->> --- a/net/dcb/dcbnl.c
->> +++ b/net/dcb/dcbnl.c
->> @@ -704,6 +704,7 @@ static int dcbnl_setapp(struct net_device *netdev, struct nlattr **tb,
->>  
->>  	ret = dcbnl_reply(err, RTM_SETDCB, DCB_CMD_SAPP, DCB_ATTR_APP,
->>  			  pid, seq, flags);
->> +	dcbnl_cee_notify(netdev, RTM_SETDCB, DCB_CMD_SAPP, seq, 0);
->>  out:
->>  	return ret;
->>  }
->> @@ -936,6 +937,7 @@ static int dcbnl_setall(struct net_device *netdev, struct nlattr **tb,
->>  
->>  	ret = dcbnl_reply(netdev->dcbnl_ops->setall(netdev), RTM_SETDCB,
->>  	                  DCB_CMD_SET_ALL, DCB_ATTR_SET_ALL, pid, seq, flags);
->> +	dcbnl_cee_notify(netdev, RTM_SETDCB, DCB_CMD_SET_ALL, seq, 0);
->>  
->>  	return ret;
->>  }
->>
-> 
-> In case of a FW DCBx agent these notification could be a bit confusing.
-> In this case, the dcbnl_setxxx operations are used to set the initial
-> negotiation parameters. dcbnl_setall triggers the negotiation and some
-> time after that the FW DCBx agent driver should send a notification with
-> the newly negotiated values. The notifications sent form within the set
-> operations will return the current negotiated values which may very soon
-> change. If we want to keep the user mode code simple and unified maybe
-> we should send these notifications only if the DCBx agent is host based.
-> 
-> Shmulik 
-> 
+If we receive an interrupt too early before we set up ports in the probe
+function, there won't be any port ready to handle it.
 
-No. We want all the firmware agents and host based agents to look the
-same from the application. The situation you described is exactly the
-same for user space as in firmware. The DCBx state machine starts and may
-call dcbnl_setxxx with initial (local) values. At some later point these
-may change (possibly because of negotiation with a peer) and we need to
-call dcbnl_setxxx again.
+Only registering the irq after the ports are setup fixes the problem,
+and works fine without losing any interrupts.
 
-I don't see how this complicates any user mode code? Presumably the agent
-is listening to DCBx events because it really wants to know the current
-state of DCBx. It seems to me skipping notifications will actually cause
-more issues this results in the hardware being in some state that did not
-trigger any events and the agent will now be out of sync. This is the
-problem I am trying to solve.
+This causes crashes in some situations:
 
-btw with this patch we can remove the notify calls in bnx2x.
+[c000000f7ff7fd60] d000000008e223f0 .ehea_neq_tasklet+0x78/0x148 [ehea]
+[c000000f7ff7fe00] c0000000000b6cac .tasklet_hi_action+0xdc/0x210
+[c000000f7ff7fea0] c0000000000b7cc8 .__do_softirq+0x178/0x300
+[c000000f7ff7ff90] c000000000022694 .call_do_softirq+0x14/0x24
+[c000000f68ee7900] c000000000010e04 .do_softirq+0xec/0x110
+[c000000f68ee79a0] c0000000000b789c .irq_exit+0xac/0xe0
+[c000000f68ee7a20] c0000000000110bc .do_IRQ+0x114/0x2a8
+[c000000f68ee7ae0] c00000000000553c hardware_interrupt_entry+0x18/0x1c
+--- Exception: 501 (Hardware Interrupt) at c00000000000e6bc
+.arch_local_irq_rest
+ore+0x34/0x48
+[link register   ] c000000000017a7c .cpu_idle+0x194/0x2f8
+[c000000f68ee7dd0] c000000000017a70 .cpu_idle+0x188/0x2f8 (unreliable)
+[c000000f68ee7e90] c00000000066b264 .start_secondary+0x3e4/0x524
+[c000000f68ee7f90] c0000000000092e8 .start_secondary_prolog+0x10/0x14
 
-.John
+cpu 0x8: Vector: 300 (Data Access) at [c000000f7ff7fa40]
+    pc: d000000008e21fac: .ehea_parse_eqe+0x6c/0x438 [ehea]
+    lr: d000000008e223f0: .ehea_neq_tasklet+0x78/0x148 [ehea]
+    sp: c000000f7ff7fcc0
+   msr: 8000000000009032
+   dar: 8
+ dsisr: 40000000
+  current = 0xc000000f68efc0c0
+  paca    = 0xc00000000ff41800
+    pid   = 0, comm = kworker/0:1
+
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/net/ethernet/ibm/ehea/ehea_main.c |   30 +++++++++++++++++-----------
+ 1 files changed, 18 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index 3516e17..acf34b6 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -3261,6 +3261,7 @@ static int __devinit ehea_probe_adapter(struct platform_device *dev,
+ 	struct ehea_adapter *adapter;
+ 	const u64 *adapter_handle;
+ 	int ret;
++	int i;
+ 
+ 	if (!dev || !dev->dev.of_node) {
+ 		pr_err("Invalid ibmebus device probed\n");
+@@ -3314,17 +3315,9 @@ static int __devinit ehea_probe_adapter(struct platform_device *dev,
+ 	tasklet_init(&adapter->neq_tasklet, ehea_neq_tasklet,
+ 		     (unsigned long)adapter);
+ 
+-	ret = ibmebus_request_irq(adapter->neq->attr.ist1,
+-				  ehea_interrupt_neq, IRQF_DISABLED,
+-				  "ehea_neq", adapter);
+-	if (ret) {
+-		dev_err(&dev->dev, "requesting NEQ IRQ failed\n");
+-		goto out_kill_eq;
+-	}
+-
+ 	ret = ehea_create_device_sysfs(dev);
+ 	if (ret)
+-		goto out_free_irq;
++		goto out_kill_eq;
+ 
+ 	ret = ehea_setup_ports(adapter);
+ 	if (ret) {
+@@ -3332,15 +3325,28 @@ static int __devinit ehea_probe_adapter(struct platform_device *dev,
+ 		goto out_rem_dev_sysfs;
+ 	}
+ 
++	ret = ibmebus_request_irq(adapter->neq->attr.ist1,
++				  ehea_interrupt_neq, IRQF_DISABLED,
++				  "ehea_neq", adapter);
++	if (ret) {
++		dev_err(&dev->dev, "requesting NEQ IRQ failed\n");
++		goto out_shutdown_ports;
++	}
++
++
+ 	ret = 0;
+ 	goto out;
+ 
++out_shutdown_ports:
++	for (i = 0; i < EHEA_MAX_PORTS; i++)
++		if (adapter->port[i]) {
++			ehea_shutdown_single_port(adapter->port[i]);
++			adapter->port[i] = NULL;
++		}
++
+ out_rem_dev_sysfs:
+ 	ehea_remove_device_sysfs(dev);
+ 
+-out_free_irq:
+-	ibmebus_free_irq(adapter->neq->attr.ist1, adapter);
+-
+ out_kill_eq:
+ 	ehea_destroy_eq(adapter->neq);
+ 
+-- 
+1.7.4.4
