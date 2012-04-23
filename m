@@ -1,63 +1,52 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Mon, 23 Apr 2012 14:38:07 -0700
-Message-ID: <CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
-References: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
- <20120423.161313.1582195533832554777.davem@davemloft.net> <CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
- <20120423.170817.1103719420692884446.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for
+ TCP
+Date: Mon, 23 Apr 2012 14:51:11 -0700
+Message-ID: <4F95CECF.6030901@hp.com>
+References: <1335173934.3293.84.camel@edumazet-glaptop> <4F958DFD.7010207@hp.com> <1335201795.5205.35.camel@edumazet-glaptop> <20120423.160149.1515408777176168288.davem@davemloft.net> <1335213446.5205.65.camel@edumazet-glaptop>  <4F95C22D.3010908@hp.com> <1335216631.5205.71.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, horms@verge.net.au, jhs@mojatatu.com,
-	stephen.hemminger@vyatta.com, netdev@vger.kernel.org,
-	dev@openvswitch.org, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	therbert@google.com, ncardwell@google.com, maze@google.com,
+	ycheng@google.com, ilpo.jarvinen@helsinki.fi
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:36872 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755743Ab2DWVi3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 17:38:29 -0400
-Received: by lbbgf7 with SMTP id gf7so5981lbb.19
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 14:38:27 -0700 (PDT)
-In-Reply-To: <20120423.170817.1103719420692884446.davem@davemloft.net>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:15478 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755828Ab2DWVvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 17:51:17 -0400
+In-Reply-To: <1335216631.5205.71.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 23, 2012 at 2:08 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Jesse Gross <jesse@nicira.com>
-> Date: Mon, 23 Apr 2012 13:53:42 -0700
->
->> On Mon, Apr 23, 2012 at 1:13 PM, David Miller <davem@davemloft.net> =
-wrote:
->>> From: Jesse Gross <jesse@nicira.com>
->>> Date: Mon, 23 Apr 2012 13:08:49 -0700
->>>
->>>> Assuming that the TCP stack generates large TSO frames on transmit
->>>> (which could be the local stack; something sent by a VM; or packet=
-s
->>>> received, coalesced by GRO and then encapsulated by STT) then you =
-can
->>>> just prepend the STT header (possibly slightly adjusting things li=
-ke
->>>> requested MSS, number of segments, etc. slightly). =C2=A0After tha=
-t it's
->>>> possible to just output the resulting frame through the IP stack l=
-ike
->>>> all tunnels do today.
->>>
->>> Which seems to potentially suggest a stronger intergration of the S=
-TT
->>> tunnel transmit path into our IP stack rather than the approach Sim=
-on
->>> is taking
+On 04/23/2012 02:30 PM, Eric Dumazet wrote:
+> On Mon, 2012-04-23 at 13:57 -0700, Rick Jones wrote:
+>> Probably better to call that something other than 16K buffers - the send
+>> size was probably 16K, which reflected SO_SNDBUF at the time the data
+>> socket was created, but clearly SO_SNDBUF grew in that timeframe.
 >>
->> Did you have something in mind?
 >
-> A normal bonafide tunnel netdevice driver like GRE instead of the
-> openvswitch approach Simon is using.
+>
+> Maybe I was not clear : Application does sendmsg() of 16KB buffers.
 
-Ahh, yes, that I agree with.  Independent of this, there's work being
-done to make it so that OVS can use the normal in-tree tunneling code
-and not need its own.  Once that's done I expect that STT will follow
-the same model.
+I'd probably call that a 16K send test.  The root of the issue being 
+there being "send buffers" and "send socket buffers" (and their receive 
+versions).
+
+My "canonical" test - at least one that appears in most of my 
+contemporary scripts uses a 64K send size for the bulk transfer tests. 
+I switch back-and-forth between tests which allow the socket buffer size 
+to be determined automagically, and those where I set both sides' socket 
+buffers to 1M via the test-specific -s and -S options.  In "netperf 
+speak" those would probably be "x64K" and "1Mx64k" respectively.  More 
+generally "<socket buffer size>x<send size>" (I rarely set/specify the 
+receive size in those tests, leaving it at whatever SO_RCVBUF is at the 
+start.
+
+> Yet, in the small time it takes to perform this operation, softirq can
+> queue up to 300 packets coming from the other side.
+
+There is more to it than just queue-up 16 KB right?
+
+rick
