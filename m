@@ -1,43 +1,60 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2] netfilter: ipvs: use GFP_KERNEL allocation where
- possible
-Date: Mon, 23 Apr 2012 23:29:36 +0900
-Message-ID: <20120423142935.GC19734@verge.net.au>
-References: <1335183428-2585-1-git-send-email-horms@verge.net.au>
- <1335183428-2585-3-git-send-email-horms@verge.net.au>
- <20120423142327.GB32269@kroah.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next] tipc: remove inline instances from C source files.
+Date: Mon, 23 Apr 2012 10:49:13 -0400
+Message-ID: <1335192553-19054-1-git-send-email-paul.gortmaker@windriver.com>
+References: <20120420.204519.1199177754002742782.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Sasha Levin <levinsasha928@gmail.com>, stable@vger.kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120423142327.GB32269@kroah.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <allan.stephens@windriver.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:35180 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753344Ab2DWOtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 10:49:15 -0400
+In-Reply-To: <20120420.204519.1199177754002742782.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 23, 2012 at 07:23:27AM -0700, Greg KH wrote:
-> On Mon, Apr 23, 2012 at 09:17:08PM +0900, Simon Horman wrote:
-> > From: Sasha Levin <levinsasha928@gmail.com>
-> > 
-> > Use GFP_KERNEL instead of GFP_ATOMIC when registering an ipvs protocol.
-> > 
-> > This is safe since it will always run from a process context.
-> > 
-> > Cc: stable@vger.kernel.org
-> > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> > Acked-by: Julian Anastasov <ja@ssi.bg>
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > ---
-> >  net/netfilter/ipvs/ip_vs_proto.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> How does this patch meet the Documentation/stable_kernel_rules.txt
-> requirements?
+Untie gcc's hands and let it do what it wants within the
+individual source files.  There are two files, node.c and
+port.c -- only the latter effectively changes (gcc-4.5.2).
+Objdump shows gcc deciding to not inline port_peernode().
 
-Sorry about that, I would like to withdraw this change from
-consideration for stable.
+Suggested-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 6a71bea..76565c9 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -58,7 +58,7 @@ static atomic_t tipc_num_links = ATOMIC_INIT(0);
+  * entries has been chosen so that no hash chain exceeds 8 nodes and will
+  * usually be much smaller (typically only a single node).
+  */
+-static inline unsigned int tipc_hashfn(u32 addr)
++static unsigned int tipc_hashfn(u32 addr)
+ {
+ 	return addr & (NODE_HTABLE_SIZE - 1);
+ }
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index 0f40b10..4aede40 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -59,12 +59,12 @@ static struct sk_buff *port_build_peer_abort_msg(struct tipc_port *, u32 err);
+ static void port_timeout(unsigned long ref);
+ 
+ 
+-static inline u32 port_peernode(struct tipc_port *p_ptr)
++static u32 port_peernode(struct tipc_port *p_ptr)
+ {
+ 	return msg_destnode(&p_ptr->phdr);
+ }
+ 
+-static inline u32 port_peerport(struct tipc_port *p_ptr)
++static u32 port_peerport(struct tipc_port *p_ptr)
+ {
+ 	return msg_destport(&p_ptr->phdr);
+ }
+-- 
+1.7.9.3
