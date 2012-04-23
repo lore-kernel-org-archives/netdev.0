@@ -1,88 +1,236 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net-next 1/3] mlx4_en: Added Ethtool support for TX Interrupt
- coalescing
-Date: Mon, 23 Apr 2012 15:18:33 +0300
-Message-ID: <4F954899.5010009@mellanox.co.il>
+Subject: [PATCH net-next 2/3] mlx4_en: Moving to Interrupts for TX completions
+Date: Mon, 23 Apr 2012 15:18:39 +0300
+Message-ID: <4F95489F.3010000@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:43505 "HELO
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:33634 "HELO
 	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754462Ab2DWMSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 08:18:38 -0400
+	by vger.kernel.org with SMTP id S1753937Ab2DWMSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 08:18:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Moving to interrupts instead of polling fpr TX completions
+Avoiding situations where skb can be held in by the driver for
+a long time (till timer expires).
+The change is also necessary for supporting BQL.
+
+Removing comp_lock that was required because we could handle TX
+completions from several contexts: Interrupts, timer, polling.
+Now there is only interrupts
+
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   19 +++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    6 ++++--
- 2 files changed, 21 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c     |   14 +----
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    4 ++
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     |   59 +-----------------------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    6 +--
+ 4 files changed, 9 insertions(+), 74 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 70346fd..136e06c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -359,8 +359,8 @@ static int mlx4_en_get_coalesce(struct net_device *dev,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index 00b8127..908a460 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -124,11 +124,7 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 	cq->mcq.comp  = cq->is_tx ? mlx4_en_tx_irq : mlx4_en_rx_irq;
+ 	cq->mcq.event = mlx4_en_cq_event;
+ 
+-	if (cq->is_tx) {
+-		init_timer(&cq->timer);
+-		cq->timer.function = mlx4_en_poll_tx_cq;
+-		cq->timer.data = (unsigned long) cq;
+-	} else {
++	if (!cq->is_tx) {
+ 		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_rx_cq, 64);
+ 		napi_enable(&cq->napi);
+ 	}
+@@ -151,16 +147,12 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
+ 
+ void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
  {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 
--	coal->tx_coalesce_usecs = 0;
--	coal->tx_max_coalesced_frames = 0;
-+	coal->tx_coalesce_usecs = priv->tx_usecs;
-+	coal->tx_max_coalesced_frames = priv->tx_frames;
- 	coal->rx_coalesce_usecs = priv->rx_usecs;
- 	coal->rx_max_coalesced_frames = priv->rx_frames;
- 
-@@ -388,6 +388,21 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
- 				MLX4_EN_RX_COAL_TIME :
- 				coal->rx_coalesce_usecs;
- 
-+	/* Setting TX coalescing parameters */
-+	if (coal->tx_coalesce_usecs != priv->tx_usecs ||
-+	    coal->tx_max_coalesced_frames != priv->tx_frames) {
-+		priv->tx_usecs = coal->tx_coalesce_usecs;
-+		priv->tx_frames = coal->tx_max_coalesced_frames;
-+		for (i = 0; i < priv->tx_ring_num; i++) {
-+			priv->tx_cq[i].moder_cnt = priv->tx_frames;
-+			priv->tx_cq[i].moder_time = priv->tx_usecs;
-+			if (mlx4_en_set_cq_moder(priv, &priv->tx_cq[i])) {
-+				en_warn(priv, "Failed changing moderation "
-+					      "for TX cq %d\n", i);
-+			}
-+		}
-+	}
-+
- 	/* Set adaptive coalescing params */
- 	priv->pkt_rate_low = coal->pkt_rate_low;
- 	priv->rx_usecs_low = coal->rx_coalesce_usecs_low;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 35003ad..bfcfd8a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -429,6 +429,8 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
- 	 */
- 	priv->rx_frames = MLX4_EN_RX_COAL_TARGET;
- 	priv->rx_usecs = MLX4_EN_RX_COAL_TIME;
-+	priv->tx_frames = MLX4_EN_TX_COAL_PKTS;
-+	priv->tx_usecs = MLX4_EN_TX_COAL_TIME;
- 	en_dbg(INTR, priv, "Default coalesing params for mtu:%d - "
- 			   "rx_frames:%d rx_usecs:%d\n",
- 		 priv->dev->mtu, priv->rx_frames, priv->rx_usecs);
-@@ -445,8 +447,8 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
- 
- 	for (i = 0; i < priv->tx_ring_num; i++) {
- 		cq = &priv->tx_cq[i];
--		cq->moder_cnt = MLX4_EN_TX_COAL_PKTS;
--		cq->moder_time = MLX4_EN_TX_COAL_TIME;
-+		cq->moder_cnt = priv->tx_frames;
-+		cq->moder_time = priv->tx_usecs;
+-	struct mlx4_en_dev *mdev = priv->mdev;
+-
+-	if (cq->is_tx)
+-		del_timer(&cq->timer);
+-	else {
++	if (!cq->is_tx) {
+ 		napi_disable(&cq->napi);
+ 		netif_napi_del(&cq->napi);
  	}
  
- 	/* Reset auto-moderation params */
+-	mlx4_cq_free(mdev->dev, &cq->mcq);
++	mlx4_cq_free(priv->mdev->dev, &cq->mcq);
+ }
+ 
+ /* Set rx cq moderation parameters */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index bfcfd8a..35ad097 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -667,6 +667,10 @@ int mlx4_en_start_port(struct net_device *dev)
+ 			mlx4_en_deactivate_cq(priv, cq);
+ 			goto tx_err;
+ 		}
++
++		/* Arm CQ for TX completions */
++		mlx4_en_arm_cq(priv, cq);
++
+ 		/* Set initial ownership of all Tx TXBBs to SW (1) */
+ 		for (j = 0; j < tx_ring->buf_size; j += STAMP_STRIDE)
+ 			*((u32 *) (tx_ring->buf + j)) = 0xffffffff;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index d9bab53..2d49342 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -67,8 +67,6 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 
+ 	inline_thold = min(inline_thold, MAX_INLINE);
+ 
+-	spin_lock_init(&ring->comp_lock);
+-
+ 	tmp = size * sizeof(struct mlx4_en_tx_info);
+ 	ring->tx_info = vmalloc(tmp);
+ 	if (!ring->tx_info)
+@@ -377,41 +375,12 @@ void mlx4_en_tx_irq(struct mlx4_cq *mcq)
+ {
+ 	struct mlx4_en_cq *cq = container_of(mcq, struct mlx4_en_cq, mcq);
+ 	struct mlx4_en_priv *priv = netdev_priv(cq->dev);
+-	struct mlx4_en_tx_ring *ring = &priv->tx_ring[cq->ring];
+ 
+-	if (!spin_trylock(&ring->comp_lock))
+-		return;
+ 	mlx4_en_process_tx_cq(cq->dev, cq);
+-	mod_timer(&cq->timer, jiffies + 1);
+-	spin_unlock(&ring->comp_lock);
++	mlx4_en_arm_cq(priv, cq);
+ }
+ 
+ 
+-void mlx4_en_poll_tx_cq(unsigned long data)
+-{
+-	struct mlx4_en_cq *cq = (struct mlx4_en_cq *) data;
+-	struct mlx4_en_priv *priv = netdev_priv(cq->dev);
+-	struct mlx4_en_tx_ring *ring = &priv->tx_ring[cq->ring];
+-	u32 inflight;
+-
+-	INC_PERF_COUNTER(priv->pstats.tx_poll);
+-
+-	if (!spin_trylock_irq(&ring->comp_lock)) {
+-		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
+-		return;
+-	}
+-	mlx4_en_process_tx_cq(cq->dev, cq);
+-	inflight = (u32) (ring->prod - ring->cons - ring->last_nr_txbb);
+-
+-	/* If there are still packets in flight and the timer has not already
+-	 * been scheduled by the Tx routine then schedule it here to guarantee
+-	 * completion processing of these packets */
+-	if (inflight && priv->port_up)
+-		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
+-
+-	spin_unlock_irq(&ring->comp_lock);
+-}
+-
+ static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
+ 						      struct mlx4_en_tx_ring *ring,
+ 						      u32 index,
+@@ -440,25 +409,6 @@ static struct mlx4_en_tx_desc *mlx4_en_bounce_to_desc(struct mlx4_en_priv *priv,
+ 	return ring->buf + index * TXBB_SIZE;
+ }
+ 
+-static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind)
+-{
+-	struct mlx4_en_cq *cq = &priv->tx_cq[tx_ind];
+-	struct mlx4_en_tx_ring *ring = &priv->tx_ring[tx_ind];
+-	unsigned long flags;
+-
+-	/* If we don't have a pending timer, set one up to catch our recent
+-	   post in case the interface becomes idle */
+-	if (!timer_pending(&cq->timer))
+-		mod_timer(&cq->timer, jiffies + MLX4_EN_TX_POLL_TIMEOUT);
+-
+-	/* Poll the CQ every mlx4_en_TX_MODER_POLL packets */
+-	if ((++ring->poll_cnt & (MLX4_EN_TX_POLL_MODER - 1)) == 0)
+-		if (spin_trylock_irqsave(&ring->comp_lock, flags)) {
+-			mlx4_en_process_tx_cq(priv->dev, cq);
+-			spin_unlock_irqrestore(&ring->comp_lock, flags);
+-		}
+-}
+-
+ static int is_inline(struct sk_buff *skb, void **pfrag)
+ {
+ 	void *ptr;
+@@ -590,7 +540,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_tx_ring *ring;
+-	struct mlx4_en_cq *cq;
+ 	struct mlx4_en_tx_desc *tx_desc;
+ 	struct mlx4_wqe_data_seg *data;
+ 	struct skb_frag_struct *frag;
+@@ -638,9 +587,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		ring->blocked = 1;
+ 		priv->port_stats.queue_stopped++;
+ 
+-		/* Use interrupts to find out when queue opened */
+-		cq = &priv->tx_cq[tx_ind];
+-		mlx4_en_arm_cq(priv, cq);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -788,9 +734,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		iowrite32be(ring->doorbell_qpn, ring->bf.uar->map + MLX4_SEND_DOORBELL);
+ 	}
+ 
+-	/* Poll CQ here */
+-	mlx4_en_xmit_poll(priv, tx_ind);
+-
+ 	return NETDEV_TX_OK;
+ 
+ tx_drop:
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 3879c5e..ed8bdd9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -121,7 +121,7 @@ enum {
+ #define MLX4_EN_RX_COAL_TARGET	44
+ #define MLX4_EN_RX_COAL_TIME	0x10
+ 
+-#define MLX4_EN_TX_COAL_PKTS	5
++#define MLX4_EN_TX_COAL_PKTS	16
+ #define MLX4_EN_TX_COAL_TIME	0x80
+ 
+ #define MLX4_EN_RX_RATE_LOW		400000
+@@ -254,7 +254,6 @@ struct mlx4_en_tx_ring {
+ 	unsigned long bytes;
+ 	unsigned long packets;
+ 	unsigned long tx_csum;
+-	spinlock_t comp_lock;
+ 	struct mlx4_bf bf;
+ 	bool bf_enabled;
+ };
+@@ -307,8 +306,6 @@ struct mlx4_en_cq {
+ 	spinlock_t              lock;
+ 	struct net_device      *dev;
+ 	struct napi_struct	napi;
+-	/* Per-core Tx cq processing support */
+-	struct timer_list timer;
+ 	int size;
+ 	int buf_size;
+ 	unsigned vector;
+@@ -529,7 +526,6 @@ void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
+ int mlx4_en_set_cq_moder(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
+ int mlx4_en_arm_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
+ 
+-void mlx4_en_poll_tx_cq(unsigned long data);
+ void mlx4_en_tx_irq(struct mlx4_cq *mcq);
+ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb);
+ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
 -- 
 1.7.7
