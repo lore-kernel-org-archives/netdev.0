@@ -1,101 +1,51 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 2/2] e1000e: Remove special case for
- 82573/82574 ASPM L1 disablement
-Date: Mon, 23 Apr 2012 16:18:39 -0700
-Message-ID: <1335223119.2783.13.camel@jtkirshe-mobl>
-References: <1335216578-21542-1-git-send-email-bootc@bootc.net>
-	<1335216578-21542-3-git-send-email-bootc@bootc.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net sysctl: Add place holder functions for when sysctl
+ support is compiled out of the kernel.
+Date: Mon, 23 Apr 2012 19:24:42 -0400 (EDT)
+Message-ID: <20120423.192442.379812896211622385.davem@davemloft.net>
+References: <4F958598.6080305@xenotime.net>
+	<m1lilmt7v5.fsf_-_@fess.ebiederm.org>
+	<4F95D9F5.3040407@xenotime.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3639331048514413585=="
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	nix@esperi.org.uk, linux-kernel@vger.kernel.org
-To: Chris Boot <bootc@bootc.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1335216578-21542-3-git-send-email-bootc@bootc.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: rdunlap@xenotime.net
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4F95D9F5.3040407@xenotime.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Randy Dunlap <rdunlap@xenotime.net>
+Date: Mon, 23 Apr 2012 15:38:45 -0700
 
---===============3639331048514413585==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-12bCDlL8Kf2mXAWXMILL"
+> On 04/23/2012 03:13 PM, Eric W. Biederman wrote:
+> 
+>> 
+>> Randy Dunlap <rdunlap@xenotime.net> reported:
+>>> On 04/23/2012 12:07 AM, Stephen Rothwell wrote:
+>>>
+>>>> Hi all,
+>>>>
+>>>> Changes since 20120420:
+>>>
+>>>
+>>>
+>>> ERROR: "unregister_net_sysctl_table" [net/phonet/phonet.ko] undefined!
+>>> ERROR: "register_net_sysctl" [net/phonet/phonet.ko] undefined!
+>>>
+>>> when CONFIG_SYSCTL is not enabled.
+>> 
+>> Add static inline stub functions to gracefully handle the case when sysctl
+>> support is not present.
+>> 
+>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> 
+> 
+> Yep, that works.
+> 
+> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
 
-
---=-12bCDlL8Kf2mXAWXMILL
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2012-04-23 at 22:29 +0100, Chris Boot wrote:
-> For the 82573, ASPM L1 gets disabled wholesale so this special-case
-> code
-> is not required. For the 82574 the previous patch does the same as for
-> the 82573, disabling L1 on the adapter. Thus, this code is no longer
-> required and can be removed.
->=20
-> Signed-off-by: Chris Boot <bootc@bootc.net>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c |    8 --------
->  1 file changed, 8 deletions(-)=20
-
-I have added the patch to my queue, thanks Chris!
-
---=-12bCDlL8Kf2mXAWXMILL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPleNPAAoJEOVv75VaS+3Od3MP/2/zlsipy1dwhS4+fRgXs7VI
-B0Ja9znrcKBqOsrJ9gGCXKYt15NDN8O320E0xupdkgBQF/A0V2nl8EUiIqyilGVd
-mcrQ2RFIOeTPexhLy83VCeZ+4HMc8s6+mHFLhrcuWNU/oAEgRNYXmW3/slT/p3dj
-1VhEcTD8PqiWXrklgncgbi43sry++SyKxdoRfNkjzh9CPcmAupHKcRMSc+Kc45Rl
-sHl2m+FUz7H4Qzs1Kwh5FiKkvPzH6IRpXFbn4wMlUAwSfjE0LALNFKu8zRcrrfv7
-PrLZGo7S9uUIKUe15Ts71pbN6XSQ/n3F5zZdUk1Eq1adDBd3LzrJFjxZMMwZ85py
-SkV/rjU3zGkGyd9nZmZ4nkiu82G1uHAx5WUGg9ehXJAm7EPY321T/mRrsQ0M5+Ql
-PEKfj3qwVZMv9yfI9Xd1pmZ9cIievHdyJDYXP1UuFrL6ohQ8CjhvdKVo61ffGWna
-4cWLs2lMIeDpyWwu/JtIFOcv/jKtTC8y0Uy5JEfbLIO+2dJz09HdsjtoBjBUcaOe
-VPwOsFgpqLzHlJxAz4JGlTfsweDceqs2uV1G5CkFYYjqEb/YrqfE3ldsbDXgK2vn
-IB+zklqMW+lGhR8bzo5SwgDptHyDw4fB0VATlCKZyIQJx+IsQhlcqPWuDo9/pHU/
-oG4b953YmIwn5CqLyg28
-=E2gW
------END PGP SIGNATURE-----
-
---=-12bCDlL8Kf2mXAWXMILL--
-
-
-
---===============3639331048514413585==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-For Developers, A Lot Can Happen In A Second.
-Boundary is the first to Know...and Tell You.
-Monitor Your Applications in Ultra-Fine Resolution. Try it FREE!
-http://p.sf.net/sfu/Boundary-d2dvs2
-
---===============3639331048514413585==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============3639331048514413585==--
+Applied, thanks everyone.
