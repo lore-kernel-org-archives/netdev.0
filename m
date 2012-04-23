@@ -1,68 +1,42 @@
 From: Chris Boot <bootc@bootc.net>
-Subject: [PATCH 2/2] e1000e: Remove special case for
-	82573/82574 ASPM L1 disablement
-Date: Mon, 23 Apr 2012 22:29:38 +0100
-Message-ID: <1335216578-21542-3-git-send-email-bootc@bootc.net>
+Subject: [PATCH 1/2] e1000e: Disable ASPM L1 on 82574
+Date: Mon, 23 Apr 2012 22:29:37 +0100
+Message-ID: <1335216578-21542-2-git-send-email-bootc@bootc.net>
 References: <1335216578-21542-1-git-send-email-bootc@bootc.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: nix@esperi.org.uk, Chris Boot <bootc@bootc.net>,
-	linux-kernel@vger.kernel.org
-To: e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Cc: linux-kernel@vger.kernel.org, nix@esperi.org.uk,
+	carolyn.wyborny@intel.com, Chris Boot <bootc@bootc.net>
+To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1335216578-21542-1-git-send-email-bootc@bootc.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For the 82573, ASPM L1 gets disabled wholesale so this special-case code
-is not required. For the 82574 the previous patch does the same as for
-the 82573, disabling L1 on the adapter. Thus, this code is no longer
-required and can be removed.
+ASPM on the 82574 causes trouble. Currently the driver disables L0s for
+this NIC but only disables L1 if the MTU is >1500. This patch simply
+causes L1 to be disabled regardless of the MTU setting.
 
 Signed-off-by: Chris Boot <bootc@bootc.net>
+Cc: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Cc: Nix <nix@esperi.org.uk>
+Link: https://lkml.org/lkml/2012/3/19/362
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    8 --------
- 1 file changed, 8 deletions(-)
+ drivers/net/ethernet/intel/e1000e/82571.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 19ab215..ea96cfd 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5293,14 +5293,6 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 		return -EINVAL;
- 	}
- 
--	/* 82573 Errata 17 */
--	if (((adapter->hw.mac.type == e1000_82573) ||
--	     (adapter->hw.mac.type == e1000_82574)) &&
--	    (max_frame > ETH_FRAME_LEN + ETH_FCS_LEN)) {
--		adapter->flags2 |= FLAG2_DISABLE_ASPM_L1;
--		e1000e_disable_aspm(adapter->pdev, PCIE_LINK_STATE_L1);
--	}
--
- 	while (test_and_set_bit(__E1000_RESETTING, &adapter->state))
- 		usleep_range(1000, 2000);
- 	/* e1000e_down -> e1000e_reset dependent on max_frame_size & mtu */
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index b3fdc69..c6d95f2 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -2061,8 +2061,9 @@ const struct e1000_info e1000_82574_info = {
+ 				  | FLAG_HAS_SMART_POWER_DOWN
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+-	.flags2			  = FLAG2_CHECK_PHY_HANG
++	.flags2			= FLAG2_CHECK_PHY_HANG
+ 				  | FLAG2_DISABLE_ASPM_L0S
++				  | FLAG2_DISABLE_ASPM_L1
+ 				  | FLAG2_NO_DISABLE_RX,
+ 	.pba			= 32,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
 -- 
 1.7.10
-
-
-------------------------------------------------------------------------------
-For Developers, A Lot Can Happen In A Second.
-Boundary is the first to Know...and Tell You.
-Monitor Your Applications in Ultra-Fine Resolution. Try it FREE!
-http://p.sf.net/sfu/Boundary-d2dvs2
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
