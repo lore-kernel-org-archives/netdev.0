@@ -1,71 +1,50 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCHv2] workqueue: Catch more locking problems with
- flush_work()
-Date: Mon, 23 Apr 2012 11:07:57 -0700
-Message-ID: <20120423180757.GD5406@google.com>
-References: <20120420173529.GD32324@google.com>
- <1334968130-20724-1-git-send-email-sboyd@codeaurora.org>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [PATCH v1 6/8] dmaengine: enhance network subsystem to support
+ DMA device hotplug
+Date: Mon, 23 Apr 2012 11:30:33 -0700
+Message-ID: <CABE8wwvi_Yz8AyALr1-uDW9xSgrSqfrYWhB_22NQ2ydTa81+mg@mail.gmail.com>
+References: <1335189109-4871-1-git-send-email-jiang.liu@huawei.com>
+	<1335189109-4871-7-git-send-email-jiang.liu@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ben Dooks <ben-linux@fluff.org>,
-	Yong Zhang <yong.zhang0@gmail.com>
-To: Stephen Boyd <sboyd@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:33826 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752784Ab2DWSIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 14:08:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1334968130-20724-1-git-send-email-sboyd@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Vinod Koul <vinod.koul@intel.com>,
+	Jiang Liu <jiang.liu@huawei.com>,
+	Keping Chen <chenkeping@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiang Liu <liuj97@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1335189109-4871-7-git-send-email-jiang.liu@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 20, 2012 at 05:28:50PM -0700, Stephen Boyd wrote:
-> If a workqueue is flushed with flush_work() lockdep checking can
-> be circumvented. For example:
-> 
->  static DEFINE_MUTEX(mutex);
-> 
->  static void my_work(struct work_struct *w)
->  {
->          mutex_lock(&mutex);
->          mutex_unlock(&mutex);
->  }
-> 
->  static DECLARE_WORK(work, my_work);
-> 
->  static int __init start_test_module(void)
->  {
->          schedule_work(&work);
->          return 0;
->  }
->  module_init(start_test_module);
-> 
->  static void __exit stop_test_module(void)
->  {
->          mutex_lock(&mutex);
->          flush_work(&work);
->          mutex_unlock(&mutex);
->  }
->  module_exit(stop_test_module);
-> 
-> would not always print a warning when flush_work() was called.
-> In this trivial example nothing could go wrong since we are
-> guaranteed module_init() and module_exit() don't run concurrently,
-> but if the work item is schedule asynchronously we could have a
-> scenario where the work item is running just at the time flush_work()
-> is called resulting in a classic ABBA locking problem.
-> 
-> Add a lockdep hint by acquiring and releasing the work item
-> lockdep_map in flush_work() so that we always catch this
-> potential deadlock scenario.
-> 
-> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+On Mon, Apr 23, 2012 at 6:51 AM, Jiang Liu <liuj97@gmail.com> wrote:
+> Enhance network subsystem to correctly update DMA channel reference counts,
+> so it won't break DMA device hotplug logic.
+>
+> Signed-off-by: Jiang Liu <liuj97@gmail.com>
 
-Applied to wq/for-3.5.  Let's see whether it triggers spuriously.
+This introduces an atomic action on every channel touch, which is more
+expensive than what we had previously.  There has always been a
+concern about the overhead of offload that sometimes makes ineffective
+or a loss compared to cpu copies.  In the cases where net_dma shows
+improvement this will eat into / maybe eliminate that advantage.
 
-Thanks.
+Take a look at where dmaengine started [1].  It was from the beginning
+going through contortions to avoid something like this.  We made it
+simpler here [2], but still kept the principle of not dirtying a
+shared cacheline on every channel touch, and certainly not locking it.
 
--- 
-tejun
+If you are going to hotplug the entire IOH, then you are probably ok
+with network links going down, so could you just down the links and
+remove the driver with the existing code?
+
+--
+Dan
+
+[1]: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=c13c826
+[2]: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=6f49a57a
