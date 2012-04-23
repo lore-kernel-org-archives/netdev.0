@@ -1,61 +1,47 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning after merge of the net-next tree
-Date: Mon, 23 Apr 2012 16:54:09 +1000
-Message-ID: <20120423165409.d424daced95611012d151aa6@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Mon__23_Apr_2012_16_54_09_+1000_HUWtHaC8wXxhQHv+"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: frank.blaschka@de.ibm.com
+Subject: [patch 2/2] [PATCH] qeth: Use blkt defaults for OSA Express 4
+Date: Mon, 23 Apr 2012 09:21:42 +0200
+Message-ID: <20120423072158.645482656@de.ibm.com>
+References: <20120423072140.297458261@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Stefan Raspl <raspl@linux.vnet.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:41652 "EHLO
+	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753790Ab2DWHWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 03:22:03 -0400
+Received: from /spool/local
+	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Mon, 23 Apr 2012 08:22:02 +0100
+Content-Disposition: inline; filename=601-qeth-blkt-defaults.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__23_Apr_2012_16_54_09_+1000_HUWtHaC8wXxhQHv+
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Stefan Raspl <raspl@linux.vnet.ibm.com>
 
-Hi all,
+The previous blkt defaults for OSA Express 4 cards produced inadequate
+performance for streaming workloads. The present patch will apply a
+set of more appropriate defaults.
 
-After merging the net-next tree, today's linux-next build (powerpc
-ppc44x_defconfig) produced these warnings:
+Signed-off-by: Stefan Raspl <raspl@linux.vnet.ibm.com>
+Reviewed-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
 
-net/ipv4/tcp_ipv4.c: In function 'tcp_v4_init_sock':
-net/ipv4/tcp_ipv4.c:1891:19: warning: unused variable 'tp' [-Wunused-variab=
-le]
-net/ipv6/tcp_ipv6.c: In function 'tcp_v6_init_sock':
-net/ipv6/tcp_ipv6.c:1836:19: warning: unused variable 'tp' [-Wunused-variab=
-le]
+ drivers/s390/net/qeth_core_main.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Introduced by commit 900f65d361d3 ("tcp: move duplicate code from
-tcp_v4_init_sock()/tcp_v6_init_sock()").
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Mon__23_Apr_2012_16_54_09_+1000_HUWtHaC8wXxhQHv+
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJPlPyRAAoJEECxmPOUX5FE+FsQAJiexwxIEC6Owvq46O8Hafqx
-kIGXubjiuvsGo0BXk4Q1smUbsrTsEMYhFcOYpkEbC4dADV4yXnUMSBhnqXTZYuD+
-gaNxGJKObviWGOe79GLr90ckmFQRs0/GcGbzYPTD+giErCaVNAcXHZU8hyoMnmcd
-ndIl0OZfDRu8Sp7PnOvJhx8iaAsvwdyORxO139bM84wYtnvBQhRhzmAopvN3P1Z4
-OAbloQipSST4yi6uqyea4DAgZN7OYLanv8tSyh7r+1TS0qfi3dqwDcnCJppbnxdJ
-Db1oPjDOIWAegJxRBCMsXannbZx1cQZXshy8jg7myUMlLTY2rljqAWIS0DmcuJYB
-yH6UKfWqnKmOR7PPACNghuWu9dAqAn/mAJELB2L6XH1mETlVe7GXeBnZltgfU2fb
-xwZXFIClMAQSAHUzvT1oWUyDp9qAEtBQxbI1eaerz/FrPHgw+IHMTfgqN6+W3aQK
-UUnnNL2IKxtddJH/T/dNvAvcx79aw1/6idMLe6VkNCqQJXMxg/xdqqp39YukBmty
-3mMAvRKXqaEdNeX2RNQwlZWEGY54R6AR1gMEDSvFqZn+sdnPlHUZZ55u8VgMKlFV
-kZYUj+Ri5eAYMW5h7QrgD/xXUlY4jFfM4Cb+4v7hAcsC6LjmVr+EbfdNURtO+Hke
-r30/4BAx6BVhYj3KJTNI
-=L1B2
------END PGP SIGNATURE-----
-
---Signature=_Mon__23_Apr_2012_16_54_09_+1000_HUWtHaC8wXxhQHv+--
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -1672,7 +1672,8 @@ static void qeth_configure_blkt_default(
+ {
+ 	QETH_DBF_TEXT(SETUP, 2, "cfgblkt");
+ 
+-	if (prcd[74] == 0xF0 && prcd[75] == 0xF0 && prcd[76] == 0xF5) {
++	if (prcd[74] == 0xF0 && prcd[75] == 0xF0 &&
++	    (prcd[76] == 0xF5 || prcd[76] == 0xF6)) {
+ 		card->info.blkt.time_total = 250;
+ 		card->info.blkt.inter_packet = 5;
+ 		card->info.blkt.inter_packet_jumbo = 15;
