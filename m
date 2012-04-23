@@ -1,37 +1,71 @@
-From: "Franky Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] [brcmsmac] "INTERMEDIATE but not AMPDU" only when
- tracing
-Date: Mon, 23 Apr 2012 10:43:29 -0700
-Message-ID: <4F9594C1.5060000@broadcom.com>
-References: <1335048484-5925-1-git-send-email-eldad@fogrefinery.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCHv2] workqueue: Catch more locking problems with
+ flush_work()
+Date: Mon, 23 Apr 2012 11:07:57 -0700
+Message-ID: <20120423180757.GD5406@google.com>
+References: <20120420173529.GD32324@google.com>
+ <1334968130-20724-1-git-send-email-sboyd@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Brett Rudley" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Roland Vossen" <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Kan Yan" <kanyan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Eldad Zack" <eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1335048484-5925-1-git-send-email-eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ben Dooks <ben-linux@fluff.org>,
+	Yong Zhang <yong.zhang0@gmail.com>
+To: Stephen Boyd <sboyd@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:33826 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752784Ab2DWSIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 14:08:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1334968130-20724-1-git-send-email-sboyd@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/21/2012 03:48 PM, Eldad Zack wrote:
->  From the code comment I understand that this something that can - and does, quite frequently - happen.
-> This patch demotes the message to the trace level.
->
-> Signed-off-by: Eldad Zack<eldad-v6AqZgAe4C4dvzyIwGCCOg@public.gmane.org>
+On Fri, Apr 20, 2012 at 05:28:50PM -0700, Stephen Boyd wrote:
+> If a workqueue is flushed with flush_work() lockdep checking can
+> be circumvented. For example:
+> 
+>  static DEFINE_MUTEX(mutex);
+> 
+>  static void my_work(struct work_struct *w)
+>  {
+>          mutex_lock(&mutex);
+>          mutex_unlock(&mutex);
+>  }
+> 
+>  static DECLARE_WORK(work, my_work);
+> 
+>  static int __init start_test_module(void)
+>  {
+>          schedule_work(&work);
+>          return 0;
+>  }
+>  module_init(start_test_module);
+> 
+>  static void __exit stop_test_module(void)
+>  {
+>          mutex_lock(&mutex);
+>          flush_work(&work);
+>          mutex_unlock(&mutex);
+>  }
+>  module_exit(stop_test_module);
+> 
+> would not always print a warning when flush_work() was called.
+> In this trivial example nothing could go wrong since we are
+> guaranteed module_init() and module_exit() don't run concurrently,
+> but if the work item is schedule asynchronously we could have a
+> scenario where the work item is running just at the time flush_work()
+> is called resulting in a classic ABBA locking problem.
+> 
+> Add a lockdep hint by acquiring and releasing the work item
+> lockdep_map in flush_work() so that we always catch this
+> potential deadlock scenario.
+> 
+> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 
-Thx Eldad,
+Applied to wq/for-3.5.  Let's see whether it triggers spuriously.
 
-Acked-by: Franky Lin<frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Thanks.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+tejun
