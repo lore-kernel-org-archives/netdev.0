@@ -1,35 +1,42 @@
-From: Chris Boot <bootc@bootc.net>
-Subject: [PATCH RFC 0/2] e1000e: 82574 also needs ASPM L1 completely disabled
-Date: Mon, 23 Apr 2012 22:29:36 +0100
-Message-ID: <1335216578-21542-1-git-send-email-bootc@bootc.net>
-References: <9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
-Cc: linux-kernel@vger.kernel.org, nix@esperi.org.uk,
-	carolyn.wyborny@intel.com, Chris Boot <bootc@bootc.net>
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
+ for TCP
+Date: Mon, 23 Apr 2012 23:30:31 +0200
+Message-ID: <1335216631.5205.71.camel@edumazet-glaptop>
+References: <1335173934.3293.84.camel@edumazet-glaptop>
+	 <4F958DFD.7010207@hp.com> <1335201795.5205.35.camel@edumazet-glaptop>
+	 <20120423.160149.1515408777176168288.davem@davemloft.net>
+	 <1335213446.5205.65.camel@edumazet-glaptop>  <4F95C22D.3010908@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	therbert@google.com, ncardwell@google.com, maze@google.com,
+	ycheng@google.com, ilpo.jarvinen@helsinki.fi
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:41849 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755731Ab2DWVag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 17:30:36 -0400
+Received: by wibhj6 with SMTP id hj6so3261258wib.1
+        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 14:30:35 -0700 (PDT)
+In-Reply-To: <4F95C22D.3010908@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After much toing and froing on LKML, netdev and the e1000 mailing lists
-over the past few months we've determined that the 82574L needs to have
-both ASPM L0s and L1 disabled or else it's likely to lock up. This
-little series does just that, also cleaning up some now-unnecessary code
-that disables L1 on the 82573 and 82574 if the MTU is greater than 1500
-bytes.
+On Mon, 2012-04-23 at 13:57 -0700, Rick Jones wrote:
+> On 04/23/2012 01:37 PM, Eric Dumazet wrote:
+> > In my 10Gbit tests (standard netperf using 16K buffers), I've seen
+> > backlogs of 300 ACK packets...
+> 
+> Probably better to call that something other than 16K buffers - the send 
+> size was probably 16K, which reflected SO_SNDBUF at the time the data 
+> socket was created, but clearly SO_SNDBUF grew in that timeframe.
+> 
 
-Please note I haven't as-yet tested this code at all, but I do know that
-disabling ASPM L1 on these NICs (using setpci) fixes the hangs that I
-have been seeing on my Supermicro servers with X9SCL-F boards. I hope to
-get the chance to install an updated kernel on my two afftected servers
-later this week.
 
-Chris Boot (2):
-  e1000e: Disable ASPM L1 on 82574
-  e1000e: Remove special case for 82573/82574 ASPM L1 disablement
+Maybe I was not clear : Application does sendmsg() of 16KB buffers.
 
- drivers/net/ethernet/intel/e1000e/82571.c  |    3 ++-
- drivers/net/ethernet/intel/e1000e/netdev.c |    8 --------
- 2 files changed, 2 insertions(+), 9 deletions(-)
-
--- 
-1.7.10
+Yet, in the small time it takes to perform this operation, softirq can
+queue up to 300 packets coming from the other side.
