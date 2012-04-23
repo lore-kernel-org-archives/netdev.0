@@ -1,51 +1,89 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Mon, 23 Apr 2012 13:53:42 -0700
-Message-ID: <CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
-References: <20120423.151533.694306336485319759.davem@davemloft.net>
-	<20120423121934.195e898c@nehalam.linuxnetplumber.net>
-	<CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
-	<20120423.161313.1582195533832554777.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for
+ TCP
+Date: Mon, 23 Apr 2012 13:57:17 -0700
+Message-ID: <4F95C22D.3010908@hp.com>
+References: <1335173934.3293.84.camel@edumazet-glaptop> <4F958DFD.7010207@hp.com> <1335201795.5205.35.camel@edumazet-glaptop> <20120423.160149.1515408777176168288.davem@davemloft.net> <1335213446.5205.65.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20120423.161313.1582195533832554777.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	therbert@google.com, ncardwell@google.com, maze@google.com,
+	ycheng@google.com, ilpo.jarvinen@helsinki.fi
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:47940 "EHLO
+	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752954Ab2DWU5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 16:57:20 -0400
+In-Reply-To: <1335213446.5205.65.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMToxMyBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZl
-bWxvZnQubmV0PiB3cm90ZToKPiBGcm9tOiBKZXNzZSBHcm9zcyA8amVzc2VAbmljaXJhLmNvbT4K
-PiBEYXRlOiBNb24sIDIzIEFwciAyMDEyIDEzOjA4OjQ5IC0wNzAwCj4KPj4gQXNzdW1pbmcgdGhh
-dCB0aGUgVENQIHN0YWNrIGdlbmVyYXRlcyBsYXJnZSBUU08gZnJhbWVzIG9uIHRyYW5zbWl0Cj4+
-ICh3aGljaCBjb3VsZCBiZSB0aGUgbG9jYWwgc3RhY2s7IHNvbWV0aGluZyBzZW50IGJ5IGEgVk07
-IG9yIHBhY2tldHMKPj4gcmVjZWl2ZWQsIGNvYWxlc2NlZCBieSBHUk8gYW5kIHRoZW4gZW5jYXBz
-dWxhdGVkIGJ5IFNUVCkgdGhlbiB5b3UgY2FuCj4+IGp1c3QgcHJlcGVuZCB0aGUgU1RUIGhlYWRl
-ciAocG9zc2libHkgc2xpZ2h0bHkgYWRqdXN0aW5nIHRoaW5ncyBsaWtlCj4+IHJlcXVlc3RlZCBN
-U1MsIG51bWJlciBvZiBzZWdtZW50cywgZXRjLiBzbGlnaHRseSkuIMKgQWZ0ZXIgdGhhdCBpdCdz
-Cj4+IHBvc3NpYmxlIHRvIGp1c3Qgb3V0cHV0IHRoZSByZXN1bHRpbmcgZnJhbWUgdGhyb3VnaCB0
-aGUgSVAgc3RhY2sgbGlrZQo+PiBhbGwgdHVubmVscyBkbyB0b2RheS4KPgo+IFdoaWNoIHNlZW1z
-IHRvIHBvdGVudGlhbGx5IHN1Z2dlc3QgYSBzdHJvbmdlciBpbnRlcmdyYXRpb24gb2YgdGhlIFNU
-VAo+IHR1bm5lbCB0cmFuc21pdCBwYXRoIGludG8gb3VyIElQIHN0YWNrIHJhdGhlciB0aGFuIHRo
-ZSBhcHByb2FjaCBTaW1vbgo+IGlzIHRha2luZwoKRGlkIHlvdSBoYXZlIHNvbWV0aGluZyBpbiBt
-aW5kPyAgU2luY2UgdGhlIG9yaWdpbmF0aW5nIHN0YWNrIGFscmVhZHkKZ2VuZXJhdGVzIFRTTyBm
-cmFtZXMgdG9kYXksIGl0J3MganVzdCBhIGZldyBsaW5lcyBvZiBjb2RlIHRvIGFkanVzdApmb3Ig
-dGhlIGFkZGl0aW9uIG9mIHRoZSBTVFQgaGVhZGVyIGFzIHRoZSBza2IgaXMgZW5jYXBzdWxhdGVk
-LgpPdGhlcndpc2UsIHRoZSB0cmFuc21pdCBwYXRoIGlzIHRoZSBzYW1lIGFzIHNvbWV0aGluZyBs
-aWtlIEdSRS4gIEwyVFAKZm9sbG93cyBhIGZhaXJseSBzaW1pbGFyIHBhdGggLSBvbiByZWNlaXZl
-IGl0IGJpbmRzIHRvIGEgbGlzdGVuaW5nIFVEUApzb2NrZXQgYW5kIG9uIHRyYW5zbWl0IGl0IHBy
-ZXBlbmRzIGEgaGVhZGVyLCBzZXR1cHMgdXAgY2hlY2tzdW0Kb2ZmbG9hZGluZywgYW5kIG91dHB1
-dHMgZGlyZWN0bHkgdmlhIGlwX3F1ZXVlX3htaXQoKS4KX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gu
-b3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+On 04/23/2012 01:37 PM, Eric Dumazet wrote:
+> In my 10Gbit tests (standard netperf using 16K buffers), I've seen
+> backlogs of 300 ACK packets...
+
+Probably better to call that something other than 16K buffers - the send 
+size was probably 16K, which reflected SO_SNDBUF at the time the data 
+socket was created, but clearly SO_SNDBUF grew in that timeframe.
+
+And those values are "standard" for netperf only in the context of 
+(default) Linux - on other platforms the defaults in the stack and so in 
+netperf are probably different.
+
+The classic/migrated classic tests report only the initial socket buffer 
+sizes, not what they become by the end of the test:
+
+raj@tardy:~/netperf2_trunk/src$ ./netperf -H 192.168.1.3
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+192.168.1.3 () port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+  87380  16384  16384    10.00     941.06
+
+To see what they are at the end of the test requires more direct use of 
+the omni path.  Either by way of test type:
+
+raj@tardy:~/netperf2_trunk/src$ ./netperf -H 192.168.1.3 -t omni
+OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.1.3 () 
+port 0 AF_INET
+Local       Remote      Local  Elapsed Throughput Throughput
+Send Socket Recv Socket Send   Time               Units
+Size        Size        Size   (sec)
+Final       Final
+266640      87380       16384  10.00   940.92     10^6bits/s
+
+or omni output selection:
+
+raj@tardy:~/netperf2_trunk/src$ ./netperf -H 192.168.1.3 -- -k 
+lss_size_req,lss_size,lss_size_end,rsr_size_req,rsr_size,rsr_size_end
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+192.168.1.3 () port 0 AF_INET
+LSS_SIZE_REQ=-1
+LSS_SIZE=16384
+LSS_SIZE_END=266640
+RSR_SIZE_REQ=-1
+RSR_SIZE=87380
+RSR_SIZE_END=87380
+
+BTW, does it make sense that the SO_SNDBUF size on the netperf side 
+(lss_size_end - 2.6.38-14-generic kernel) grew larger than the SO_RCVBUF 
+on the netserver side? (3.2.0-rc4+)
+
+rick jones
+
+PS - here is data flowing the other way:
+raj@tardy:~/netperf2_trunk/src$ ./netperf -H 192.168.1.3 -t TCP_MAERTS 
+-- -k lsr_size_req,lsr_size,lsr_size_end,rss_size_req,rss_size,rss_size_end
+MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+192.168.1.3 () port 0 AF_INET
+LSR_SIZE_REQ=-1
+LSR_SIZE=87380
+LSR_SIZE_END=4194304
+RSS_SIZE_REQ=-1
+RSS_SIZE=16384
+RSS_SIZE_END=65536
