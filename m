@@ -1,21 +1,18 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Mon, 23 Apr 2012 13:08:49 -0700
-Message-ID: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
-References: <20120423051359.GE11672@verge.net.au>
-	<20120423.033658.1229108613501573952.davem@davemloft.net>
-	<20120423083007.GB22556@verge.net.au>
-	<20120423.151533.694306336485319759.davem@davemloft.net>
+Date: Mon, 23 Apr 2012 16:13:13 -0400 (EDT)
+Message-ID: <20120423.161313.1582195533832554777.davem@davemloft.net>
+References: <20120423.151533.694306336485319759.davem@davemloft.net>
 	<20120423121934.195e898c@nehalam.linuxnetplumber.net>
+	<CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20120423121934.195e898c-We1ePj4FEcvRI77zikRAJc56i+j3xesD0e7PPNI6Mm0@public.gmane.org>
+In-Reply-To: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -27,42 +24,17 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMTI6MTkgUE0sIFN0ZXBoZW4gSGVtbWluZ2VyCjxzaGVt
-bWluZ2VyQHZ5YXR0YS5jb20+IHdyb3RlOgo+IE9uIE1vbiwgMjMgQXByIDIwMTIgMTU6MTU6MzMg
-LTA0MDAgKEVEVCkKPiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOgo+
-Cj4+IEZyb206IFNpbW9uIEhvcm1hbiA8aG9ybXNAdmVyZ2UubmV0LmF1Pgo+PiBEYXRlOiBNb24s
-IDIzIEFwciAyMDEyIDE3OjMwOjA4ICswOTAwCj4+Cj4+ID4gSSdtIHByZXR0eSBzdXJlIHRoZSBw
-YXRjaCBJIHBvc3RlZCBhZGRlZCBlbmNhcF9yY3YgdG8gdGNwX3NvY2suCj4+ID4gQW0gSSBtaXNz
-aW5nIHRoZSBwb2ludD8KPj4KPj4gSXQgZGlkLCBteSBleWVzIGFyZSBmYWlsaW5nIG1lIDotKQo+
-Pgo+PiA+IEN1cnJlbnRseSBJIGFtIHNldHRpbmcgdXAgYSBsaXN0ZW5pbmcgc29ja2V0LiBUaGUg
-T3BlbiB2U3d0aWNoIHR1bm5lbGluZwo+PiA+IGNvZGUgdHJhbnNtaXRzIHNrYnMgYW5kIHVzaW5n
-IGVpdGhlciBkZXZfcXVldWVfeG1pdCgpIG9yIGlwX2xvY2FsX291dCgpLgo+PiA+IEknbSBub3Qg
-c3VyZSB0aGF0IEkgaGF2ZSBleGVyY2lzZWQgdGhlIGlwX2xvY2FsX291dCgpIGNhc2UgeWV0Lgo+
-Pgo+PiBJIGRvbid0IHNlZSB3aGVyZSBvbiB0cmFuc21pdCB5b3UncmUgZ29pbmcgdG8gcmVhbGl6
-ZSB0aGUgcHJpbWFyeQo+PiBzdGF0ZWQgYmVuZWZpdCBvZiBTVFQsIHRoYXQgYmVpbmcgVFNPL0dT
-Ty4KPj4KPj4gWW91J2xsIHByb2JhYmx5IHdhbnQgdG8gZ2F0aGVyIGFzIG1hbnkgcGFja2V0cyBh
-cyBwb3NzaWJsZSBpbnRvIGEKPj4gbGFyZ2VyIFNUVCBmcmFtZSBmb3IgdGhpcyBwdXJwb3NlLiDC
-oEFuZCB3aGVuIHN3aXRjaGluZyBiZXR3ZWVuIFNUVAo+PiB0dW5uZWxzLCBsZWF2ZSB0aGUgcGFj
-a2V0IGFsb25lIHNpbmNlIGEgR1JPIFNUVCBmcmFtZSBvbiByZWNlaXZlIHdpbGwKPj4gdHJhbnNw
-YXJlbnRseSBiZWNvbWUgYSBTVFQgR1NPIGZyYW1lIG9uIHRyYW5zbWl0Lgo+Pgo+Cj4gSSB0aGlu
-ayB0aGUgcG9pbnQgb2YgdGhlIFRTTyBoYWNrIGlzIHRvIGdldCBhcm91bmQgdGhlIE1UVSBwcm9i
-bGVtIHdoZW4gdHVubmVsaW5nLgo+IFRoZSBhZGRlZCBoZWFkZXIgb2YgdGhlIHR1bm5lbCBlYXRz
-IGludG8gdGhlIHRoZSBwb3NzaWJsZSBNVFUuIFRoZSB1c2Ugb2YgVFNPCj4gaW4gU1RUIGlzIGRl
-c2lnbmVkIHRvIGRlYWwgd2l0aCB0aGUgZmFjdCB0aGF0IGhhcmR3YXJlIGNhbid0IGRvIElQIGZy
-YWdtZW50YXRpb24KPiBvZiBJUCAob3IgVURQKS4KClRoYXQgaXMgYSBiZW5lZmljaWFsIHNpZGUg
-ZWZmZWN0LCBhbHRob3VnaCB0aGUgbWFpbiBnb2FsIGlzIHRvIGp1c3QgdG8KZ2V0IGJhY2sgYWxs
-IG9mIHRoZSBvZmZsb2FkcyB0aGF0IGFyZSBsb3N0IGJlY2F1c2UgaGFyZHdhcmUgY2FuJ3Qgc2Vl
-Cmluc2lkZSBvZiBlbmNhcHN1bGF0ZWQgcGFja2V0cywgd2l0aCBUU08sIExSTywgYW5kIFJTUyBi
-ZWluZyB0aGUgbWFpbgpleGFtcGxlcy4KCkFzc3VtaW5nIHRoYXQgdGhlIFRDUCBzdGFjayBnZW5l
-cmF0ZXMgbGFyZ2UgVFNPIGZyYW1lcyBvbiB0cmFuc21pdAood2hpY2ggY291bGQgYmUgdGhlIGxv
-Y2FsIHN0YWNrOyBzb21ldGhpbmcgc2VudCBieSBhIFZNOyBvciBwYWNrZXRzCnJlY2VpdmVkLCBj
-b2FsZXNjZWQgYnkgR1JPIGFuZCB0aGVuIGVuY2Fwc3VsYXRlZCBieSBTVFQpIHRoZW4geW91IGNh
-bgpqdXN0IHByZXBlbmQgdGhlIFNUVCBoZWFkZXIgKHBvc3NpYmx5IHNsaWdodGx5IGFkanVzdGlu
-ZyB0aGluZ3MgbGlrZQpyZXF1ZXN0ZWQgTVNTLCBudW1iZXIgb2Ygc2VnbWVudHMsIGV0Yy4gc2xp
-Z2h0bHkpLiAgQWZ0ZXIgdGhhdCBpdCdzCnBvc3NpYmxlIHRvIGp1c3Qgb3V0cHV0IHRoZSByZXN1
-bHRpbmcgZnJhbWUgdGhyb3VnaCB0aGUgSVAgc3RhY2sgbGlrZQphbGwgdHVubmVscyBkbyB0b2Rh
-eS4gIFNpbWlsYXJseSwgb24gdGhlIG90aGVyIHNpZGUgdGhlIE5JQyB3aWxsIGJlCmFibGUgdG8g
-cGVyZm9ybSBpdHMgbm9ybWFsIG9mZmxvYWRpbmcgb3BlcmF0aW9ucyBhcyB3ZWxsLgpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0
-CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3Rp
-bmZvL2Rldgo=
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 23 Apr 2012 13:08:49 -0700
+
+> Assuming that the TCP stack generates large TSO frames on transmit
+> (which could be the local stack; something sent by a VM; or packets
+> received, coalesced by GRO and then encapsulated by STT) then you can
+> just prepend the STT header (possibly slightly adjusting things like
+> requested MSS, number of segments, etc. slightly).  After that it's
+> possible to just output the resulting frame through the IP stack like
+> all tunnels do today.
+
+Which seems to potentially suggest a stronger intergration of the STT
+tunnel transmit path into our IP stack rather than the approach Simon
+is taking
