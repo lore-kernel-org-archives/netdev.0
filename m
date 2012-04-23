@@ -1,42 +1,40 @@
-From: "Barak Witkowski" <barak@broadcom.com>
-Subject: [PATCH net-next 3/3] bnx2x: Update driver version to 1.72.50-0
-Date: Mon, 23 Apr 2012 16:05:16 +0300
-Message-ID: <1335186316.14229.29.camel@lb-tlvb-barak.il.broadcom.com>
-Reply-To: barak@broadcom.com
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com
-To: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4268 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752577Ab2DWNJv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Apr 2012 09:09:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL net] IPVS (v2)
+Date: Mon, 23 Apr 2012 22:12:10 +0900
+Message-ID: <1335186732-16002-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Sasha Levin <levinsasha928@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Barak Witkowski <barak@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+sorry for the miss-fire a little earlier. Please consider the following two
+changes for 3.4. The patch from Julian reolves a crash on module unload.
+And the patch from Sasha resolves a crash on initialisation.
 
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+The following changes since commit 6ba900676bec8baaf61aa2f85b7345c0e65774d9:
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 42bb145..e30e2a2 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -23,8 +23,8 @@
-  * (you will need to reboot afterwards) */
- /* #define BNX2X_STOP_ON_ERROR */
- 
--#define DRV_MODULE_VERSION      "1.72.17-0"
--#define DRV_MODULE_RELDATE      "2012/04/02"
-+#define DRV_MODULE_VERSION      "1.72.50-0"
-+#define DRV_MODULE_RELDATE      "2012/04/23"
- #define BNX2X_BC_VER            0x040200
- 
- #if defined(CONFIG_DCB)
--- 
-1.7.9
+  netfilter: nf_conntrack: fix incorrect logic in nf_conntrack_init_net (2012-04-10 13:00:38 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git master
+
+for you to fetch changes up to 0cc4789846744470e50707cbc7f0fbb543e6f2a3:
+
+  ipvs: fix crash in ip_vs_control_net_cleanup on unload (2012-04-23 21:45:50 +0900)
+
+----------------------------------------------------------------
+Julian Anastasov (1):
+      ipvs: fix crash in ip_vs_control_net_cleanup on unload
+
+Sasha Levin (1):
+      netfilter: ipvs: Verify that IP_VS protocol has been registered
+
+ net/netfilter/ipvs/ip_vs_ctl.c   |    4 ++--
+ net/netfilter/ipvs/ip_vs_proto.c |   27 ++++++++++++++++++---------
+ 2 files changed, 20 insertions(+), 11 deletions(-)
