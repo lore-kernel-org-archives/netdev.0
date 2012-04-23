@@ -1,60 +1,53 @@
-From: Stephane Fillod <fillods@users.sf.net>
-Subject: Re: [PATCH v2] smsc95xx: mark link down on startup and let PHY
- interrupt deal with carrier changes
-Date: Mon, 23 Apr 2012 21:43:39 +0200
-Message-ID: <20120423194339.GS5277@charybde.local>
-References: <1335189920-31062-1-git-send-email-paolo.pisati@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
+ for TCP
+Date: Mon, 23 Apr 2012 16:01:49 -0400 (EDT)
+Message-ID: <20120423.160149.1515408777176168288.davem@davemloft.net>
+References: <1335173934.3293.84.camel@edumazet-glaptop>
+	<4F958DFD.7010207@hp.com>
+	<1335201795.5205.35.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	netdev@vger.kernel.org
-To: Paolo Pisati <paolo.pisati@canonical.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org, therbert@google.com,
+	ncardwell@google.com, maze@google.com, ycheng@google.com,
+	ilpo.jarvinen@helsinki.fi
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp21.services.sfr.fr ([93.17.128.2]:7230 "EHLO
-	smtp21.services.sfr.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753995Ab2DWTnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 15:43:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1335189920-31062-1-git-send-email-paolo.pisati@canonical.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59948 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754071Ab2DWUCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 16:02:16 -0400
+In-Reply-To: <1335201795.5205.35.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-lun, Apr 23, 2012, Paolo Pisati skribis:
-> Without this patch sysfs reports the cable as present
-> 
-> flag@flag-desktop:~$ cat /sys/class/net/eth0/carrier
-> 1
-> 
-> while it's not:
-> 
-> flag@flag-desktop:~$ sudo mii-tool eth0
-> eth0: no link
-> 
-> Tested on my Beagle XM.
-> 
-> v2: added mantainer to the list of recipient
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 23 Apr 2012 19:23:15 +0200
 
-His e-mail address has changed, but somehow it has not been updated yet
-in MAINTAINERS directory:  steve.glendinning () shawell.net
-
-> Signed-off-by: Paolo Pisati <paolo.pisati@canonical.com>
-> ---
->  drivers/net/usb/smsc95xx.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> On Mon, 2012-04-23 at 10:14 -0700, Rick Jones wrote:
 > 
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> index 3444514..93d3252 100644
-> --- a/drivers/net/usb/smsc95xx.c
-> +++ b/drivers/net/usb/smsc95xx.c
-> @@ -1192,7 +1192,7 @@ static const struct driver_info smsc95xx_info = {
->  	.rx_fixup	= smsc95xx_rx_fixup,
->  	.tx_fixup	= smsc95xx_tx_fixup,
->  	.status		= smsc95xx_status,
-> -	.flags		= FLAG_ETHER | FLAG_SEND_ZLP,
-> +	.flags		= FLAG_ETHER | FLAG_SEND_ZLP | FLAG_LINK_INTR,
->  };
->  
->  static const struct usb_device_id products[] = {
+>> 
+>> This will increase what can be queued for arriving segments in general 
+>> and not for ACKs specifically yes?  (A possible issue that would have 
+>> come-up with my previous wondering about just increasing SO_RCVBUF as 
+>> SO_SNDBUF was increasing).  Perhaps only add sk->sk_sndbuf to the limit 
+>> if the arriving segment contains no data?
+> 
+> Thats the backlog limit that we tweak here.
+> 
+> Its not a big deal if we allow a bit more packets to come and later drop
+> them if we hit the real rcvbuf limit. (ACKS wont consume space, since
+> they are freed as soon as processed)
 
-Tested this fix successfuly on elder brother smsc75xx, on top of
-another patch yet-to-submit to fix smsc75xx's MDIO access.
+Hmmm... why don't we just acknowledge reality and special case ACKs?
+
+If a TCP packet is dataless we should just let it go through no matter
+what and with no limits.  It is by definition transient and will not
+get queued up into the socket past this backlog stage.
+
+This proposed patch allows non-dataless packets to eat more space in
+the backlog, thus the concern and slight pushback.  And from another
+perspective, having the stack process data packets which will just
+get dropped when we try to attach it to the receive queue is just
+wasted work.
