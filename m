@@ -1,89 +1,171 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2] IPVS: make failure of netns init more stable
-Date: Mon, 23 Apr 2012 22:22:22 +0900
-Message-ID: <20120423132222.GB13990@verge.net.au>
-References: <3r6npeu.69e743752dad7d8eb6a19cbbbdfd1ed9@obelix.schillstrom.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [v12 PATCH 0/3] NETFILTER new target module, HMARK
+Date: Mon, 23 Apr 2012 15:35:25 +0200
+Message-ID: <1335188128-23645-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Hans Schillstrom <hans@schillstrom.com>
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <kaber@trash.net>, <jengelh@medozas.de>,
+	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <3r6npeu.69e743752dad7d8eb6a19cbbbdfd1ed9@obelix.schillstrom.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 18, 2012 at 02:37:43PM +0200, Hans Schillstrom wrote:
-> Hello 
-> >
-> >Hello,
-> >
-> >On Tue, 17 Apr 2012, Hans Schillstrom wrote:
-> >
-> >> I wonder if we are chasing ghosts...
-> >> 
-> >> With proper fault handling I can't even see a case when it (net->ipvs) can be used.
-> >> Can you see a case when it could happen?
-> >> Still we can set it to NULL on error exit and cleanup as you suggested, that doesn't harm I think.
-> >> 
-> >> A. If you add a netns and it fails the entire ns will be rolled back, 
-> >>    and no access to that ns can occur.
-> >>    That ns does not exist
-> >
-> >	Agreed
-> >
-> >> B. If you insert ip_vs.ko when having one or more name spaces and 
-> >>    __ip_vs_init() returns an error the module will be unloaded.
-> >>    All ready loaded ns will not be affected.
-> >
-> >	Yes, ip_vs_init fails.
-> >
-> >> C. insmod of ex. ip_vs_ftp only affects loaded name spaces
-> >>    and if the load of ip_vs_ftp fails it will be unloaded without affecting ip_vs(.ko)
-> >>    (If ip_vs.ko is not loaded then it has to be loaded first case B...)
-> >> 
-> >> With a "compiled in" ip_vs case B doesn't exist.
-> >
-> >	It is this case that can happen, we can only guess how
-> >difficult is to get ENOMEM here. IIRC, we can generate only
-> >ENOMEM error on IPVS core load.
-> >
-> >	I assume Simon has such setup and changes code to
-> >trigger load error. When I generate ENOMEM on IPVS core init
-> >for such case I get ENOENT from register_ip_vs_app when
-> >patch 1 and 2 for apps are applied, i.e. net->ipvs is NULL.
-> >You can check it with NF_CONNTRACK=y, IP_VS=y and
-> >IP_VS_FTP=m. You only need to trigger ENOMEM in __ip_vs_init.
-> 
-> 
-> I did test this with 4 netns loaded and modprobe ip_vs_ftp
-> In the 4:th netns  (ipvs->gen >= 4) fire a -ENOMEM 
-> The result was as expected, ip_vs_ftp was not loaded.
-> 
-> All patches below was loaded. (included the ipvs NULL check)
-> 
-> Just for "fun" I also added a printk in the ipvs NULL check
-> but I can't trigger it. 
-> 
-> Simon:
->  do you have any possibility to test it or give me a hint how to do ?
-> (Just to make sure that the patches below will be sufficient)
+The target allows you to create rules in the "raw" and "mangle" tables
+which alter the netfilter mark (nfmark) field within a given range.
+First a 32 bit hash value is generated then modulus by <limit> and
+finally an offset is added before it's written to nfmark.
+Prior to routing, the nfmark can influence the routing method (see
+"Use netfilter MARK value as routing key") and can also be used by
+other subsystems to change their behavior.
 
-Hi,
+The mark match can also be used to match nfmark produced by this module.
+See the kernel module for more info.
 
-Julian is correct. I made a hack to the code to force it to fail in
-ip_vs_protocol_net_init() right after calling register_ip_vs_proto_netns()
-for TCP.
+REVISION
+Version 12
+	Conntrack support for IPv6, and a buf fix.
 
-With "netfilter: ipvs: Verify that IP_VS protocol has been registered"
-applied I think that you could implement the same "test" by jumping to
-cleanup after the first call to register_ip_vs_proto_netns() in the for
-loop.
+Version 11
+	Changed two comments
 
-In my test all components of IPVS were compiled into the kernel,
-no modules.
+Version 10
+        Even more simplified NAT handling just one switch --hmark-ct
+        some renaming and some minor changes.
+        Renaming of vars in xt_hmark_info
+        Adding helptext and updated man due to --hmark-ct switch
+        Changes are based on Pablos review.
+
+Version 9
+        Simpliefied nat handling in IPv4, some formating
+        checkentry() used in kernel. 
+        Most changes are based on Pablos review.
+
+Version 8
+        method L3 / L3-4 added i.e. Fragment handling changed to:
+        - don't handle in "method L3-4"
+        Syntax change in user mode to be more NF compatible.
+        Most changes are based on Pablos review.
+
+Version 7
+	ahuum, IPv6 descending into icmp error hdr didn't work as expected
+        with ipv6_find_hdr() Now it works as expected.
+
+Version 6
+        Removed ipv6_find_hdr() wrapper (Pablo)
+	NAT / Conntrack compilation switches.
+
+Version 5
+	Use length of mask an smask and dmask and whole IPv6 addr (Jan E)
+	Modify ipv6_find_hdr() and use it while traversing the IPv6 header.
+        Manual changes.
+	More or less all comments implemented.
+
+Version 4
+	Split of IPv6 and IPv4, use IP_CT_IS_REPLY, as Pablo suggested.
+	removed one pskb_may_pull()
+	xtoption parse used in the user space part.
+
+Version 3
+        Handling of SCTP for IPv6 added.
+
+Version 2
+	NAT Added for IPv4
+	IPv6 ICMP handling enhanced.
+	Usage example added
+
+Version 1
+	Initial RFC
+
+
+We (Ericsson) use hmark in-front of ipvs as a pre-loadbalancer and
+handles up to 70 ipvs running in parallel in clusters.
+However hmark is not restricted to run in front of IPVS it can also be used as
+"poor mans" load balancer.
+With this version is also NAT supported as an option, with very high flows
+you might not want to use conntrack.
+
+The idea is to generate a direction independent fw mark range to use as input to
+the routing (i.e. ip rule add fwmark ...).
+Pretty straight forward and simple.
+
+
+Example:
+                                      App Server (Real Server)
+
+                                           +---------+
+                                        -->| Service |
+     Gateway A                             +---------+
+                          /
+            +----------+ /     +----+      +---------+
+--- if -A---| selector |---->  |ipvs|  --->| Service |
+            +----------+ \     +----+      +---------+
+                          \
+                               +----+      +---------+
+                               |ipvs|   -->| Service |
+                               +----+      +---------+
+      Gateway C
+            +----------+ /     +----+
+--- if-B ---| selector | --->  |ipvs|
+            +----------+ \     +----+      +---------+
+                                           | Service |
+                                           +---------+
+                          /
+            +----------+ /     +----+     ..
+--- if-B ---| selector | --->  |ipvs|      +---------+
+            +----------+ \     +----+      | Service |
+                          \                +---------+
+#
+# Example with four ipvs loadbalancers
+#
+iptables -t mangle -I PREROUTING -d $IPADDR -j HMARK --hmark-mod 4 --hmark-offs 100
+
+ip rule add fwmark 100 table 100
+ip rule add fwmark 101 table 101
+ip rule add fwmark 102 table 102
+ip rule add fwmark 103 table 103
+
+ip ro ad table 100 default via x.y.z.1 dev bond1
+ip ro ad table 101 default via x.y.z.2 dev bond1
+ip ro ad table 102 default via x.y.z.3 dev bond1
+ip ro ad table 103 default via x.y.z.4 dev bond1
+
+
+If conntrack doesn't handle the return path,
+do the oposite with HMARK and send it back right to ipvs.
+
+Another exmaple of usage could be if you have cluster originated connections
+and want to spread the connections over a number of interfaces
+(NAT will complpicate things for you in this case)
+
+
+
+                     \  Blade 1
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+   +------+
+-- | Gw-A |          \  Blade 2
+   +------+           \ +----------+      +---------+
+   +------+         <-- | selector | <--- | Service |
+-- | Gw-B |           / +----------+      +---------+
+   +------+          /
+   +------+
+-- | Gw-C |          \
+   +------+           \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+
+                     \  Blande -n
+                      \ +----------+      +---------+
+                    <-- | selector | <--- | Service |
+                      / +----------+      +---------+
+                     /
+
+
+Regards
+Hans Schillstrom <hans.schillstrom@ericsson.com>
+
