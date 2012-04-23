@@ -1,51 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net sysctl: Add place holder functions for when sysctl
- support is compiled out of the kernel.
-Date: Mon, 23 Apr 2012 19:24:42 -0400 (EDT)
-Message-ID: <20120423.192442.379812896211622385.davem@davemloft.net>
-References: <4F958598.6080305@xenotime.net>
-	<m1lilmt7v5.fsf_-_@fess.ebiederm.org>
-	<4F95D9F5.3040407@xenotime.net>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH 01/16] mm: Serialize access to min_free_kbytes
+Date: Mon, 23 Apr 2012 16:50:48 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1204231623210.17030@chino.kir.corp.google.com>
+References: <1334578624-23257-1-git-send-email-mgorman@suse.de> <1334578624-23257-2-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: rdunlap@xenotime.net
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4F95D9F5.3040407@xenotime.net>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+    Linux-Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+    David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+    Peter Zijlstra <a.p.zijlstra@chello.nl>,
+    Mike Christie <michaelc@cs.wisc.edu>, Eric B Munson <emunson@mgebm.net>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1334578624-23257-2-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
-Date: Mon, 23 Apr 2012 15:38:45 -0700
+On Mon, 16 Apr 2012, Mel Gorman wrote:
 
-> On 04/23/2012 03:13 PM, Eric W. Biederman wrote:
+> There is a race between the min_free_kbytes sysctl, memory hotplug
+> and transparent hugepage support enablement.  Memory hotplug uses a
+> zonelists_mutex to avoid a race when building zonelists. Reuse it to
+> serialise watermark updates.
 > 
->> 
->> Randy Dunlap <rdunlap@xenotime.net> reported:
->>> On 04/23/2012 12:07 AM, Stephen Rothwell wrote:
->>>
->>>> Hi all,
->>>>
->>>> Changes since 20120420:
->>>
->>>
->>>
->>> ERROR: "unregister_net_sysctl_table" [net/phonet/phonet.ko] undefined!
->>> ERROR: "register_net_sysctl" [net/phonet/phonet.ko] undefined!
->>>
->>> when CONFIG_SYSCTL is not enabled.
->> 
->> Add static inline stub functions to gracefully handle the case when sysctl
->> support is not present.
->> 
->> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> 
-> 
-> Yep, that works.
-> 
-> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+> [a.p.zijlstra@chello.nl: Older patch fixed the race with spinlock]
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
+> Reviewed-by: Rik van Riel <riel@redhat.com>
 
-Applied, thanks everyone.
+Acked-by: David Rientjes <rientjes@google.com>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
