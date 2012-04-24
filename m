@@ -1,46 +1,75 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: introduce tcp_try_coalesce
-Date: Mon, 23 Apr 2012 21:13:58 -0400
-Message-ID: <CADVnQyngwym7z_zSi8h2U_1e_wVCwGMPZScywWFWM2AYvxyqjw@mail.gmail.com>
-References: <1335201102.5205.28.camel@edumazet-glaptop>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: [PATCH] net ax25: Fix the build when sysctl support is disabled.
+Date: Mon, 23 Apr 2012 18:28:45 -0700
+Message-ID: <4F9601CD.2070000@xenotime.net>
+References: <20120423170701.c96e402234b1387dece11dda@canb.auug.org.au>	<4F95828A.8050403@xenotime.net> <m1obqirn5e.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:45589 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754716Ab2DXBN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 21:13:59 -0400
-Received: by iadi9 with SMTP id i9so229626iad.19
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 18:13:58 -0700 (PDT)
-In-Reply-To: <1335201102.5205.28.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-hams@vger.kernel.org,
+	Ralf Baechle <ralf@linux-mips.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1obqirn5e.fsf_-_@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 23, 2012 at 1:11 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> commit c8628155ece3 (tcp: reduce out_of_order memory use) took care of
-> coalescing tcp segments provided by legacy devices (linear skbs)
->
-> We extend this idea to fragged skbs, as their truesize can be heavy.
->
-> ixgbe for example uses 256+1024+PAGE_SIZE/2 = 3328 bytes per segment.
->
-> Use this coalescing strategy for receive queue too.
->
-> This contributes to reduce number of tcp collapses, at minimal cost, and
-> reduces memory overhead and packets drops.
+On 04/23/2012 05:25 PM, Eric W. Biederman wrote:
 
-The mechanics look solid, but I'm a little concerned about the
-potential added overhead for the new case where tcp_try_coalesce()
-does a skb_copy_bits() for in-order data that it is coalescing at the
-end of the sk_receive_queue. Do you have any performance numbers for
-this case to help suggest whether this added copy is a concern?
+> 
+> Randy Dunlap <rdunlap@xenotime.net> reported:
+> 
+>> On 04/23/2012 12:07 AM, Stephen Rothwell wrote:
+>>
+>>> Hi all,
+>>>
+>>> Changes since 20120420:
+>>
+>>
+>> include/net/ax25.h:447:75: error: expected ';' before '}' token
+>>
+>> static inline int ax25_register_dev_sysctl(ax25_dev *ax25_dev) { return 0 };
+>> static inline void ax25_unregister_dev_sysctl(ax25_dev *ax25_dev) {};
+>>
+>> First function:  move ';' inside braces.
+>> Second function:  drop the ';'.
+> 
+> Put the semicolons where it makes sense.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-neal
+
+Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+
+Thanks.
+
+> ---
+> 
+> Resent to include David Miller.
+> 
+>  include/net/ax25.h |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/ax25.h b/include/net/ax25.h
+> index 8a7a122..5d23521 100644
+> --- a/include/net/ax25.h
+> +++ b/include/net/ax25.h
+> @@ -444,8 +444,8 @@ extern void ax25_uid_free(void);
+>  extern int ax25_register_dev_sysctl(ax25_dev *ax25_dev);
+>  extern void ax25_unregister_dev_sysctl(ax25_dev *ax25_dev);
+>  #else
+> -static inline int ax25_register_dev_sysctl(ax25_dev *ax25_dev) { return 0 };
+> -static inline void ax25_unregister_dev_sysctl(ax25_dev *ax25_dev) {};
+> +static inline int ax25_register_dev_sysctl(ax25_dev *ax25_dev) { return 0; }
+> +static inline void ax25_unregister_dev_sysctl(ax25_dev *ax25_dev) {}
+>  #endif /* CONFIG_SYSCTL */
+>  
+>  #endif
+
+
+
+-- 
+~Randy
