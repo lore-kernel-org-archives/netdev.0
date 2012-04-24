@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: [PATCH] net ax25: Fix the build when sysctl support is disabled.
-Date: Mon, 23 Apr 2012 17:23:55 -0700
-Message-ID: <m1r4vern8k.fsf_-_@fess.ebiederm.org>
+Date: Mon, 23 Apr 2012 17:25:49 -0700
+Message-ID: <m1obqirn5e.fsf_-_@fess.ebiederm.org>
 References: <20120423170701.c96e402234b1387dece11dda@canb.auug.org.au>
 	<4F95828A.8050403@xenotime.net>
 Mime-Version: 1.0
@@ -9,12 +9,13 @@ Content-Type: text/plain; charset=us-ascii
 Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
 	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org, linux-hams@vger.kernel.org,
-	Ralf Baechle <ralf@linux-mips.org>
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
+	Ralf Baechle <ralf@linux-mips.org>,
+	Randy Dunlap <rdunlap@xenotime.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
 In-Reply-To: <4F95828A.8050403@xenotime.net> (Randy Dunlap's message of "Mon,
 	23 Apr 2012 09:25:46 -0700")
-Sender: linux-hams-owner@vger.kernel.org
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
@@ -39,6 +40,9 @@ Put the semicolons where it makes sense.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
+
+Resent to include David Miller.
+
  include/net/ax25.h |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
 
@@ -59,4 +63,3 @@ index 8a7a122..5d23521 100644
  #endif
 -- 
 1.7.2.5
-
