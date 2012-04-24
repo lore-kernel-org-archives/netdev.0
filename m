@@ -1,61 +1,74 @@
-From: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
-Subject: [PATCH] mISDN: Ignore return value of driver_for_each_device in function hfcpci_softirq.
-Date: Wed, 25 Apr 2012 00:13:50 +0100
-Message-ID: <1335309230-23428-1-git-send-email-krzysztof.wilczynski@linux.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net] tg3: Avoid panic from reserved statblk field access
+Date: Tue, 24 Apr 2012 16:37:01 -0700
+Message-ID: <1335310621-7795-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Simon Horman <horms@verge.net.au>,
-	Jiri Kosina <trivial@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2206 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758098Ab2DXXhq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2012 19:37:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46unction hfcpci_softirq uses driver_for_each_device to call _hfcpci_s=
-oftirq for
-each device. Given that _hfcpci_softirq always returns 0, we collect th=
-is return
-value and simply do nothing with it.  This is purely to address the fol=
-lowing
-warning during compilation time:
+When RSS is enabled, interrupt vector 0 does not receive any rx traffic.
+The rx producer index fields for vector 0's status block should be
+considered reserved in this case.  This patch changes the code to
+respect these reserved fields, which avoids a kernel panic when these
+fields take on non-zero values.
 
-  drivers/isdn/hardware/mISDN/hfcpci.c: In function =E2=80=98hfcpci_sof=
-tirq=E2=80=99:
-  drivers/isdn/hardware/mISDN/hfcpci.c:2319: warning: ignoring return v=
-alue of
-    =E2=80=98driver_for_each_device=E2=80=99, declared with attribute w=
-arn_unused_result
-
-Similar approach was used in function cx18_alsa_exit from "cx18-alsa-ma=
-in.c".
-
-Signed-off-by: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/isdn/hardware/mISDN/hfcpci.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   18 ++++++++++++++++--
+ 1 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardwa=
-re/mISDN/hfcpci.c
-index e2c83a2..f0d0180 100644
---- a/drivers/isdn/hardware/mISDN/hfcpci.c
-+++ b/drivers/isdn/hardware/mISDN/hfcpci.c
-@@ -2316,8 +2316,11 @@ _hfcpci_softirq(struct device *dev, void *arg)
- static void
- hfcpci_softirq(void *arg)
- {
--	(void) driver_for_each_device(&hfc_driver.driver, NULL, arg,
--				      _hfcpci_softirq);
-+	int ret;
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 062ac33..ceeab8e 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -879,8 +879,13 @@ static inline unsigned int tg3_has_work(struct tg3_napi *tnapi)
+ 		if (sblk->status & SD_STATUS_LINK_CHG)
+ 			work_exists = 1;
+ 	}
+-	/* check for RX/TX work to do */
+-	if (sblk->idx[0].tx_consumer != tnapi->tx_cons ||
 +
-+	/* Collect return value, but do not use it; suppress GCC warning ... =
-*/
-+	ret =3D driver_for_each_device(&hfc_driver.driver, NULL, arg,
-+				     _hfcpci_softirq);
-=20
- 	/* if next event would be in the past ... */
- 	if ((s32)(hfc_jiffies + tics - jiffies) <=3D 0)
---=20
-1.7.2.5
++	/* check for TX work to do */
++	if (sblk->idx[0].tx_consumer != tnapi->tx_cons)
++		work_exists = 1;
++
++	/* check for RX work to do */
++	if (tnapi->rx_rcb_prod_idx &&
+ 	    *(tnapi->rx_rcb_prod_idx) != tnapi->rx_rcb_ptr)
+ 		work_exists = 1;
+ 
+@@ -6124,6 +6129,9 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ 			return work_done;
+ 	}
+ 
++	if (!tnapi->rx_rcb_prod_idx)
++		return work_done;
++
+ 	/* run RX thread, within the bounds set by NAPI.
+ 	 * All RX "locking" is done by ensuring outside
+ 	 * code synchronizes with tg3->napi.poll()
+@@ -7567,6 +7575,12 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ 		 */
+ 		switch (i) {
+ 		default:
++			if (tg3_flag(tp, ENABLE_RSS)) {
++				tnapi->rx_rcb_prod_idx = NULL;
++				break;
++			}
++			/* Fall through */
++		case 1:
+ 			tnapi->rx_rcb_prod_idx = &sblk->idx[0].rx_producer;
+ 			break;
+ 		case 2:
+-- 
+1.7.3.4
