@@ -1,51 +1,37 @@
-From: Ingo van Lil <inguin@gmx.de>
-Subject: [PATCH] Fix tx transfer padding for full-speed USB
-Date: Tue, 24 Apr 2012 10:05:38 +0200
-Message-ID: <1335254738-12605-1-git-send-email-inguin@gmx.de>
-References: <20120424.002808.1711965470884592541.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, Ingo van Lil <inguin@gmx.de>
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
+ for TCP
+Date: Tue, 24 Apr 2012 04:10:18 -0400 (EDT)
+Message-ID: <20120424.041018.1514311596818654005.davem@davemloft.net>
+References: <1335213446.5205.65.camel@edumazet-glaptop>
+	<1335234012.5205.97.camel@edumazet-glaptop>
+	<alpine.DEB.2.00.1204241026410.735@wel-95.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, rick.jones2@hp.com, netdev@vger.kernel.org,
+	therbert@google.com, ncardwell@google.com, maze@google.com,
+	ycheng@google.com
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.22]:55553 "HELO
-	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1755270Ab2DXIGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:06:00 -0400
-In-Reply-To: <20120424.002808.1711965470884592541.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36849 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755823Ab2DXIKn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:10:43 -0400
+In-Reply-To: <alpine.DEB.2.00.1204241026410.735@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The asix.c USB Ethernet driver avoids ending a tx transfer with a zero-
-length packet by appending a four-byte padding to transfers whose length
-is a multiple of maxpacket. However, the hard-coded 512 byte maxpacket
-length is valid for high-speed USB only; full-speed USB uses 64 byte
-packets.
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 24 Apr 2012 11:01:37 +0300 (EEST)
 
-Signed-off-by: Ingo van Lil <inguin@gmx.de>
----
- drivers/net/usb/asix.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> Why not, but wouldn't it be nicer to coalesce them already in GRO bel=
+ow=20
+> with an assumption that GRO is likely to find some "mss" equivivalent=
+=20
+> which tells the gap between consecutive ACK (or even SACK) seqnos?
 
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index 5ee032c..42b5151 100644
---- a/drivers/net/usb/asix.c
-+++ b/drivers/net/usb/asix.c
-@@ -355,7 +355,7 @@ static struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 	u32 packet_len;
- 	u32 padbytes = 0xffff0000;
- 
--	padlen = ((skb->len + 4) % 512) ? 0 : 4;
-+	padlen = ((skb->len + 4) & (dev->maxpacket - 1)) ? 0 : 4;
- 
- 	if ((!skb_cloned(skb)) &&
- 	    ((headroom + tailroom) >= (4 + padlen))) {
-@@ -377,7 +377,7 @@ static struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 	cpu_to_le32s(&packet_len);
- 	skb_copy_to_linear_data(skb, &packet_len, sizeof(packet_len));
- 
--	if ((skb->len % 512) == 0) {
-+	if (padlen) {
- 		cpu_to_le32s(&padbytes);
- 		memcpy(skb_tail_pointer(skb), &padbytes, sizeof(padbytes));
- 		skb_put(skb, sizeof(padbytes));
--- 
-1.7.7.6
+GRO must be able to precisely reproduce the input stream if the packet
+is forwarded and therefore we end up resegmenting on output with GSO.
+That makes this a non-starter since we must therefore remember all of
+the SACK boundaries in the original packets.
