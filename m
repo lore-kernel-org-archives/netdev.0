@@ -1,38 +1,45 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for
- TCP
-Date: Tue, 24 Apr 2012 10:25:39 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1204241022290.26005@router.home>
-References: <1335173934.3293.84.camel@edumazet-glaptop> <4F958DFD.7010207@hp.com> <1335201795.5205.35.camel@edumazet-glaptop> <20120423.160149.1515408777176168288.davem@davemloft.net> <1335213446.5205.65.camel@edumazet-glaptop>  <4F95C22D.3010908@hp.com>
- <1335216631.5205.71.camel@edumazet-glaptop>  <4F95CECF.6030901@hp.com> <1335218707.5205.87.camel@edumazet-glaptop> <4F95D4CA.7020005@hp.com>
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCH v2] smsc95xx: mark link down on startup and let PHY
+ interrupt deal with carrier changes
+Date: Tue, 24 Apr 2012 16:45:57 +0100
+Message-ID: <CAKh2mn4JLm8f036d7vNimLdA2wCP+Db7xhgUgfsg760yhs3Yjw@mail.gmail.com>
+References: <1335189920-31062-1-git-send-email-paolo.pisati@canonical.com>
+	<20120423194339.GS5277@charybde.local>
+	<20120424.004240.51699724664176823.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	therbert@google.com, ncardwell@google.com, maze@google.com,
-	ycheng@google.com, ilpo.jarvinen@helsinki.fi
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fillods@users.sf.net, paolo.pisati@canonical.com,
+	steve.glendinning@shawell.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp103.prem.mail.ac4.yahoo.com ([76.13.13.42]:45695 "HELO
-	smtp103.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755299Ab2DXPZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 11:25:43 -0400
-In-Reply-To: <4F95D4CA.7020005@hp.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:59830 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755288Ab2DXPp6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 11:45:58 -0400
+Received: by pbbro12 with SMTP id ro12so248283pbb.19
+        for <netdev@vger.kernel.org>; Tue, 24 Apr 2012 08:45:57 -0700 (PDT)
+In-Reply-To: <20120424.004240.51699724664176823.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Apr 2012, Rick Jones wrote:
+Hi all,
 
-> Is it at all possible to have the copies happen without the connection being
-> locked?  If indeed it is possible to be held-off with the connection locked
-> for the better part of 3/4 of a millisecond, just what will that do to 40 or
-> 100 GbE?  If you've been seeing queues of 300 ACKs at 10 GbE that would be
-> 3000 at 100 GbE, and assuming those are all in a 2048 byte buffer thats 6MB
-> just of ACKs.  I suppose 100GbE does mean non-trivial quantities of buffering
-> anyway but that does still seem rather high.
+On 24 April 2012 05:42, David Miller <davem@davemloft.net> wrote:
+>>> v2: added mantainer to the list of recipient
+>>
+>> His e-mail address has changed, but somehow it has not been updated =
+yet
+>> in MAINTAINERS directory: =A0steve.glendinning () shawell.net
+>
+> Steve, please send a maintainers etc. update and please provide
+> feedback on this link status fix.
 
-At some point people will need to realize that it is not business as usual
-if one tries to use the current network porotocols at speeds above 1G.
+I submitted an update to MAINTAINERS last week, I don't think it's
+been picked up yet.
 
-There is a reason for high speed networks implementing new protocols like
-RDMA techniques and lossless characteristics of a network.
+Thanks for the patch Paulo, I'd like to test this out.  I'll get back
+to you in a few days.
+
+--=20
+Steve Glendinning
