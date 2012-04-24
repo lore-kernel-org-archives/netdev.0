@@ -1,55 +1,42 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for TCP
-Date: Tue, 24 Apr 2012 09:44:47 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EEF@saturn3.aculab.com>
-References: <1335213446.5205.65.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
+ for TCP
+Date: Tue, 24 Apr 2012 04:48:37 -0400 (EDT)
+Message-ID: <20120424.044837.771495850418417499.davem@davemloft.net>
+References: <alpine.DEB.2.00.1204241113020.735@wel-95.cs.helsinki.fi>
+	<20120424.042546.2154907239944513463.davem@davemloft.net>
+	<alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <rick.jones2@hp.com>, <netdev@vger.kernel.org>,
-	<therbert@google.com>, <ncardwell@google.com>, <maze@google.com>,
-	<ycheng@google.com>, <ilpo.jarvinen@helsinki.fi>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, rick.jones2@hp.com, netdev@vger.kernel.org,
+	therbert@google.com, ncardwell@google.com, maze@google.com,
+	ycheng@google.com
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:56723 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755270Ab2DXIoy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:44:54 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09862-08 for <netdev@vger.kernel.org>;
- Tue, 24 Apr 2012 09:44:49 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1335213446.5205.65.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:37170 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755863Ab2DXIs7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:48:59 -0400
+In-Reply-To: <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-> On Mon, 2012-04-23 at 16:01 -0400, David Miller wrote:
-> 
-> > Hmmm... why don't we just acknowledge reality and special case ACKs?
-> > 
-> 
-> Yes why not.
-> 
-> 
-> > If a TCP packet is dataless we should just let it go 
-> > through no matter what and with no limits.
-> >  It is by definition transient and will not
-> > get queued up into the socket past this backlog stage.
-> > 
-> 
-> Even being transient we need a limit. Without copybreak, an 
-> ACK can cost 2048+256 bytes.
-> 
-> In my 10Gbit tests (standard netperf using 16K buffers), I've seen
-> backlogs of 300 ACK packets...
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 24 Apr 2012 11:40:27 +0300 (EEST)
 
-What about forcing a copybreak for acks when above the rx buffer size?
-That way you avoid the cost of the copy in teh normal case when
-the data will be freed, but avoid the memory overhead when a lot
-of acks (or rx data) is queued.
+> And the problem I mentioned in the previous mail (in the terms of thi=
+s=20
+> code fragment) is that ackdiff is no longer MSS or 2*MSS because of G=
+RO=20
+> for the opposite direction doesn't trigger all those ACKs a non-GRO=20
+> receiver would.
 
-	David
+This is the ACK counting Eric mentioned, which we need to preserve
+for the purposes of CWND growth.
+
+And in any event, you cannot depend upon the ACK boundaries in any way
+shape or form, 2 * MSS is just one valid mode of ACK'ing.
+
+Whether we get a GRO stretch ACK or a normal 2 * MSS one, it has to
+work properly either way.
