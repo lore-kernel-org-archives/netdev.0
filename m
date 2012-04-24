@@ -1,142 +1,46 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/5] 6lowpan: move frame allocation
-	code to a separate function
-Date: Tue, 24 Apr 2012 14:51:08 +0400
-Message-ID: <1335264671-27127-3-git-send-email-alex.bluesman.smirnov@gmail.com>
-References: <1335264671-27127-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: "Shmulik Ravid" <shmulikr@broadcom.com>
+Subject: Re: [net-next PATCH] net: dcb: add CEE notify calls
+Date: Tue, 24 Apr 2012 15:56:19 +0300
+Message-ID: <1335272179.15423.23.camel@lb-tlvb-shmulik.il.broadcom.com>
+References: <20120420194923.8103.54825.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1335264671-27127-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-Separate frame allocation routine from data processing function.
-This makes code more human readable and easier to understand.
-
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/ieee802154/6lowpan.c |   81 +++++++++++++++++++++++++++-------------------
- 1 files changed, 48 insertions(+), 33 deletions(-)
-
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 7ce508f..d440233 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -650,6 +650,53 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
- 	kfree(entry);
- }
- 
-+static struct lowpan_fragment *
-+lowpan_alloc_new_frame(struct sk_buff *skb, u8 iphc0, u8 len, u8 tag)
-+{
-+	struct lowpan_fragment *frame;
-+
-+	frame = kzalloc(sizeof(struct lowpan_fragment),
-+			GFP_ATOMIC);
-+	if (!frame)
-+		goto frame_err;
-+
-+	INIT_LIST_HEAD(&frame->list);
-+
-+	frame->length = (iphc0 & 7) | (len << 3);
-+	frame->tag = tag;
-+
-+	/* allocate buffer for frame assembling */
-+	frame->skb = alloc_skb(frame->length +
-+			       sizeof(struct ipv6hdr), GFP_ATOMIC);
-+
-+	if (!frame->skb)
-+		goto skb_err;
-+
-+	frame->skb->priority = skb->priority;
-+	frame->skb->dev = skb->dev;
-+
-+	/* reserve headroom for uncompressed ipv6 header */
-+	skb_reserve(frame->skb, sizeof(struct ipv6hdr));
-+	skb_put(frame->skb, frame->length);
-+
-+	init_timer(&frame->timer);
-+	/* time out is the same as for ipv6 - 60 sec */
-+	frame->timer.expires = jiffies + LOWPAN_FRAG_TIMEOUT;
-+	frame->timer.data = (unsigned long)frame;
-+	frame->timer.function = lowpan_fragment_timer_expired;
-+
-+	add_timer(&frame->timer);
-+
-+	list_add_tail(&frame->list, &lowpan_fragments);
-+
-+	return frame;
-+
-+skb_err:
-+	kfree(frame);
-+frame_err:
-+	return NULL;
-+}
-+
- static int
- lowpan_process_data(struct sk_buff *skb)
- {
-@@ -692,41 +739,9 @@ lowpan_process_data(struct sk_buff *skb)
- 
- 		/* alloc new frame structure */
- 		if (!found) {
--			frame = kzalloc(sizeof(struct lowpan_fragment),
--								GFP_ATOMIC);
-+			frame = lowpan_alloc_new_frame(skb, iphc0, len, tag);
- 			if (!frame)
- 				goto unlock_and_drop;
--
--			INIT_LIST_HEAD(&frame->list);
--
--			frame->length = (iphc0 & 7) | (len << 3);
--			frame->tag = tag;
--
--			/* allocate buffer for frame assembling */
--			frame->skb = alloc_skb(frame->length +
--					sizeof(struct ipv6hdr), GFP_ATOMIC);
--
--			if (!frame->skb) {
--				kfree(frame);
--				goto unlock_and_drop;
--			}
--
--			frame->skb->priority = skb->priority;
--			frame->skb->dev = skb->dev;
--
--			/* reserve headroom for uncompressed ipv6 header */
--			skb_reserve(frame->skb, sizeof(struct ipv6hdr));
--			skb_put(frame->skb, frame->length);
--
--			init_timer(&frame->timer);
--			/* time out is the same as for ipv6 - 60 sec */
--			frame->timer.expires = jiffies + LOWPAN_FRAG_TIMEOUT;
--			frame->timer.data = (unsigned long)frame;
--			frame->timer.function = lowpan_fragment_timer_expired;
--
--			add_timer(&frame->timer);
--
--			list_add_tail(&frame->list, &lowpan_fragments);
- 		}
- 
- 		if ((iphc0 & LOWPAN_DISPATCH_MASK) == LOWPAN_DISPATCH_FRAG1)
--- 
-1.7.2.3
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com,
+	amirv@dev.mellanox.co.il
+To: "John Fastabend" <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:2292 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751449Ab2DXKxp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2012 06:53:45 -0400
+In-Reply-To: <20120420194923.8103.54825.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+On Fri, 2012-04-20 at 12:49 -0700, John Fastabend wrote:
+> This adds code to trigger CEE events when an APP change or setall
+> command is made from user space. This simplifies user space code
+> significantly by creating a single interface to listen on that
+> works with both firmware and userland agents.
+> 
+> And if we end up with multiple agents this keeps every thing in
+> sync userland agents, firmware agents, and kernel notifier consumers.
+> 
+> For an example agent that listens for these events see:
+> 
+> https://github.com/jrfastab/cgdcbxd
+> 
+> cgdcbxd is a daemon used to monitor DCB netlink events and manage
+> the net_prio control group sub-system.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+> 
+
+Acked-by: Shmulik Ravid <shmulikr@broadcom.com>
+
+Thanks John,
+
+Shmulik 
