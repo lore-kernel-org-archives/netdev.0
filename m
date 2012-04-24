@@ -1,58 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: introduce tcp_try_coalesce
-Date: Tue, 24 Apr 2012 04:59:32 +0200
-Message-ID: <1335236372.5205.106.camel@edumazet-glaptop>
-References: <1335201102.5205.28.camel@edumazet-glaptop>
-	 <CADVnQy=igJdbcG4J2HU7nEJUNM84qVcLa08h6g6MQQ8-fvgxHg@mail.gmail.com>
-	 <20120423.224602.594997774992725103.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: speedup skb_splice_bits()
+Date: Mon, 23 Apr 2012 23:02:05 -0400 (EDT)
+Message-ID: <20120423.230205.418261556142199877.davem@davemloft.net>
+References: <1335133576.2395.409.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org, therbert@google.com,
-	maze@google.com, ilpo.jarvinen@helsinki.fi
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, therbert@google.com, axboe@kernel.dk
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:58264 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756321Ab2DXC7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 22:59:37 -0400
-Received: by wgbdr13 with SMTP id dr13so189713wgb.1
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 19:59:36 -0700 (PDT)
-In-Reply-To: <20120423.224602.594997774992725103.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34764 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756459Ab2DXDCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 23:02:13 -0400
+In-Reply-To: <1335133576.2395.409.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-23 at 22:46 -0400, David Miller wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 23 Apr 2012 00:26:16 +0200
 
-> Applied, thanks Eric.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Although I'd like to ask you to clean up tcp_try_coalesce() a bit.
+> Commit 35f3d14db (pipe: add support for shrinking and growing pipes)
+> added a slowdown for splice(socket -> pipe), as we might grow the spd
+> used in skb_splice_bits() for each skb we process in splice() syscall.
 > 
-> It effectively returns a boolean, but you've clouded this up by
-> returning an int and defining it in the comment to return "> 0" or
-> not.
+> Its not needed since skb lengths are capped. The default on-stack arrays
+> are more than enough.
 > 
-> Just make it return a real bool.
+> Use MAX_SKB_FRAGS instead of PIPE_DEF_BUFFERS to describe the reasonable
+> limit per skb.
 > 
-> I know why you did this, it makes the "eaten" code somewhat simpler in
-> tcp_data_queue(), but overall it's more confusing how it is now.
+> Add coalescing support to help splicing of GRO skbs built from linear
+> skbs (linked into frag_list)
 > 
-> People look at how the tcp_try_coalesce() return value is interpreted
-> and say "in what cases can it return a negative value?"  We both know
-> it can't, but you have to read the entire function to figure that out.
-> 
-> And that's by definition not intuitive.
-> 
-> Thanks.
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Jens Axboe <axboe@kernel.dk>
+> Cc: Tom Herbert <therbert@google.com>
 
-Sure I'll do the cleanup. You guessed correctly why I did that ;)
+Applied thanks.
 
-In the beginning I did a "return len;" instead of "return 1;" and felt a
-bit uncomfortable in case we merged a zero length message.
-
-Then I added the !th->fin test inside tcp_try_coalesce()
-
-(my initial patch allowed the fin being set for the tcp_data_queue()
-case since tcp_fin() was called anyway)
-
-Thanks
+I'm going to cleanup spd_fill_page() to return a bool.
