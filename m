@@ -1,83 +1,103 @@
 From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v2 5/5] decrement static keys on real destroy time
-Date: Tue, 24 Apr 2012 08:41:42 -0300
-Message-ID: <4F969176.8010804@parallels.com>
-References: <1335209867-1831-1-git-send-email-glommer@parallels.com> <1335209867-1831-6-git-send-email-glommer@parallels.com> <4F9612B9.7050705@jp.fujitsu.com>
+Subject: Re: [PATCH v2 4/5] don't take cgroup_mutex in destroy()
+Date: Tue, 24 Apr 2012 08:42:32 -0300
+Message-ID: <4F9691A8.1070106@parallels.com>
+References: <1335209867-1831-1-git-send-email-glommer@parallels.com> <1335209867-1831-5-git-send-email-glommer@parallels.com> <4F96109A.8000907@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
 Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 To: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F9612B9.7050705-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+In-Reply-To: <4F96109A.8000907-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/23/2012 11:40 PM, KAMEZAWA Hiroyuki wrote:
+On 04/23/2012 11:31 PM, KAMEZAWA Hiroyuki wrote:
 > (2012/04/24 4:37), Glauber Costa wrote:
 > 
->> We call the destroy function when a cgroup starts to be removed,
->> such as by a rmdir event.
+>> Most of the destroy functions are only doing very simple things
+>> like freeing memory.
 >>
->> However, because of our reference counters, some objects are still
->> inflight. Right now, we are decrementing the static_keys at destroy()
->> time, meaning that if we get rid of the last static_key reference,
->> some objects will still have charges, but the code to properly
->> uncharge them won't be run.
+>> The ones who goes through lists and such, already use its own
+>> locking for those.
 >>
->> This becomes a problem specially if it is ever enabled again, because
->> now new charges will be added to the staled charges making keeping
->> it pretty much impossible.
+>> * The cgroup itself won't go away until we free it, (after destroy)
+>> * The parent won't go away because we hold a reference count
+>> * There are no more tasks in the cgroup, and the cgroup is declared
+>>    dead (cgroup_is_removed() == true)
 >>
->> We just need to be careful with the static branch activation:
->> since there is no particular preferred order of their activation,
->> we need to make sure that we only start using it after all
->> call sites are active. This is achieved by having a per-memcg
->> flag that is only updated after static_key_slow_inc() returns.
->> At this time, we are sure all sites are active.
->>
->> This is made per-memcg, not global, for a reason:
->> it also has the effect of making socket accounting more
->> consistent. The first memcg to be limited will trigger static_key()
->> activation, therefore, accounting. But all the others will then be
->> accounted no matter what. After this patch, only limited memcgs
->> will have its sockets accounted.
->>
->> [v2: changed a tcp limited flag for a generic proto limited flag ]
->> [v3: update the current active flag only after the static_key update ]
+>> [v2: don't cgroup_lock the freezer and blkcg ]
 >>
 >> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>> CC: Tejun Heo<tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>> CC: Li Zefan<lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> CC: Kamezawa Hiroyuki<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+>> CC: Vivek Goyal<vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> ---
+>>   kernel/cgroup.c |    9 ++++-----
+>>   1 files changed, 4 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+>> index 932c318..976d332 100644
+>> --- a/kernel/cgroup.c
+>> +++ b/kernel/cgroup.c
+>> @@ -869,13 +869,13 @@ static void cgroup_diput(struct dentry *dentry, struct inode *inode)
+>>   		 * agent */
+>>   		synchronize_rcu();
+>>
+>> -		mutex_lock(&cgroup_mutex);
+>>   		/*
+>>   		 * Release the subsystem state objects.
+>>   		 */
+>>   		for_each_subsys(cgrp->root, ss)
+>>   			ss->destroy(cgrp);
+>>
+>> +		mutex_lock(&cgroup_mutex);
+>>   		cgrp->root->number_of_cgroups--;
+>>   		mutex_unlock(&cgroup_mutex);
+>>
+>> @@ -3994,13 +3994,12 @@ static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
+>>
+>>    err_destroy:
+>>
+>> +	mutex_unlock(&cgroup_mutex);
+>>   	for_each_subsys(root, ss) {
+>>   		if (cgrp->subsys[ss->subsys_id])
+>>   			ss->destroy(cgrp);
+>>   	}
+>>
+>> -	mutex_unlock(&cgroup_mutex);
+>> -
+>>   	/* Release the reference count that we took on the superblock */
+>>   	deactivate_super(sb);
+>>
+>> @@ -4349,9 +4348,9 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
+>>   		int ret = cgroup_init_idr(ss, css);
+>>   		if (ret) {
+>>   			dummytop->subsys[ss->subsys_id] = NULL;
+>> +			mutex_unlock(&cgroup_mutex);
+>>   			ss->destroy(dummytop);
+>>   			subsys[i] = NULL;
+>> -			mutex_unlock(&cgroup_mutex);
+>>   			return ret;
+>>   		}
+>>   	}
+>> @@ -4447,10 +4446,10 @@ void cgroup_unload_subsys(struct cgroup_subsys *ss)
+>>   	 * pointer to find their state. note that this also takes care of
+>>   	 * freeing the css_id.
+>>   	 */
+>> +	mutex_unlock(&cgroup_mutex);
+>>   	ss->destroy(dummytop);
+>>   	dummytop->subsys[ss->subsys_id] = NULL;
+>>
 > 
+> I'm not fully sure but...dummytop->subsys[] update can be done without locking ?
 > 
-> Acked-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-> 
-> A small request below.
-> 
-> <snip>
-> 
-> 
->> +		 * ->activated needs to be written after the static_key update.
->> +		 *  This is what guarantees that the socket activation function
->> +		 *  is the last one to run. See sock_update_memcg() for details,
->> +		 *  and note that we don't mark any socket as belonging to this
->> +		 *  memcg until that flag is up.
->> +		 *
->> +		 *  We need to do this, because static_keys will span multiple
->> +		 *  sites, but we can't control their order. If we mark a socket
->> +		 *  as accounted, but the accounting functions are not patched in
->> +		 *  yet, we'll lose accounting.
->> +		 *
->> +		 *  We never race with the readers in sock_update_memcg(), because
->> +		 *  when this value change, the code to process it is not patched in
->> +		 *  yet.
->> +		 */
->> +		mutex_lock(&tcp_set_limit_mutex);
-> 
-> 
-> Could you explain for what this mutex is in above comment ?
-> 
-This is explained at the site where the mutex is defined.
-If you still want me to mention it here, or maybe expand the explanation
-there, I surely can.
+I don't see a reason why updates to subsys[] after destruction shouldn't
+be safe. But maybe I am wrong.
+
+Tejun? Li?
