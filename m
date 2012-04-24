@@ -1,82 +1,55 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for
- TCP
-Date: Tue, 24 Apr 2012 11:40:27 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
-References: <alpine.DEB.2.00.1204241026410.735@wel-95.cs.helsinki.fi> <20120424.041018.1514311596818654005.davem@davemloft.net> <alpine.DEB.2.00.1204241113020.735@wel-95.cs.helsinki.fi> <20120424.042546.2154907239944513463.davem@davemloft.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for TCP
+Date: Tue, 24 Apr 2012 09:44:47 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EEF@saturn3.aculab.com>
+References: <1335213446.5205.65.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1593727788-1335256827=:735"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, rick.jones2@hp.com,
-	Netdev <netdev@vger.kernel.org>, therbert@google.com,
-	ncardwell@google.com, maze@google.com,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <rick.jones2@hp.com>, <netdev@vger.kernel.org>,
+	<therbert@google.com>, <ncardwell@google.com>, <maze@google.com>,
+	<ycheng@google.com>, <ilpo.jarvinen@helsinki.fi>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43081 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755991Ab2DXIk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:40:29 -0400
-In-Reply-To: <20120424.042546.2154907239944513463.davem@davemloft.net>
+Received: from mx0.aculab.com ([213.249.233.131]:56723 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755270Ab2DXIoy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:44:54 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 09862-08 for <netdev@vger.kernel.org>;
+ Tue, 24 Apr 2012 09:44:49 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1335213446.5205.65.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323329-1593727788-1335256827=:735
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Tue, 24 Apr 2012, David Miller wrote:
-
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Tue, 24 Apr 2012 11:21:18 +0300 (EEST)
+ 
+> On Mon, 2012-04-23 at 16:01 -0400, David Miller wrote:
 > 
-> > On Tue, 24 Apr 2012, David Miller wrote:
+> > Hmmm... why don't we just acknowledge reality and special case ACKs?
 > > 
-> >> That makes this a non-starter since we must therefore remember all of
-> >> the SACK boundaries in the original packets.
-> > 
-> > GRO works because TCP tends to use rather constant MSS, right? ...Since 
-> > ACKs and SACKs are nothing more than reflection of those MSS boundaries of 
-> > the opposite direction I don't find that as impossible as you do because 
-> > the same kind of "mss" assumption can be applied there. But GRO has made 
-> > this somewhat messier now because the receiver doesn't any more generate 
-> > ACK per MSS or ACK per 2*MSS but that could be "fixed" by offloading the 
-> > ACK sending when responding to a GROed packet.
 > 
-> We're talking about accumulating ACKs on GRO not data packets.
+> Yes why not.
+> 
+> 
+> > If a TCP packet is dataless we should just let it go 
+> > through no matter what and with no limits.
+> >  It is by definition transient and will not
+> > get queued up into the socket past this backlog stage.
+> > 
+> 
+> Even being transient we need a limit. Without copybreak, an 
+> ACK can cost 2048+256 bytes.
+> 
+> In my 10Gbit tests (standard netperf using 16K buffers), I've seen
+> backlogs of 300 ACK packets...
 
-So am I... :-). ...Code speaks more than thousands of words:
+What about forcing a copybreak for acks when above the rx buffer size?
+That way you avoid the cost of the copy in teh normal case when
+the data will be freed, but avoid the memory overhead when a lot
+of acks (or rx data) is queued.
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 8bb6ade..33b87b2 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2820,7 +2820,11 @@ found:
- 	flush |= (__force int)(flags & TCP_FLAG_CWR);
- 	flush |= (__force int)((flags ^ tcp_flag_word(th2)) &
- 		  ~(TCP_FLAG_CWR | TCP_FLAG_FIN | TCP_FLAG_PSH));
--	flush |= (__force int)(th->ack_seq ^ th2->ack_seq);
-+
-+	ackgap = skb_shinfo(p)->ack_size;
-+	ackdiff = th2->ack_seq - th->ack_seq;
-+	flush |= (ackdiff - 1) >= ackgap;
-+
- 	for (i = sizeof(*th); i < thlen; i += 4)
- 		flush |= *(u32 *)((u8 *)th + i) ^
- 			 *(u32 *)((u8 *)th2 + i);
-
-
-...Obviously Data and ACK couldn't be GROed at the same time practically 
-(would allow reusing the gso_size field for ack_size). ...But why exactly 
-you think this is not possible or viable solution if fully implemented?
-
-And the problem I mentioned in the previous mail (in the terms of this 
-code fragment) is that ackdiff is no longer MSS or 2*MSS because of GRO 
-for the opposite direction doesn't trigger all those ACKs a non-GRO 
-receiver would.
-
--- 
- i.
---8323329-1593727788-1335256827=:735--
+	David
