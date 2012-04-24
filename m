@@ -1,37 +1,54 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
-Subject: Netlink for kernel<->user space communication?
-Date: Tue, 24 Apr 2012 23:52:34 +0000
-Message-ID: <4F973CC1.8000002@xdin.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Netlink for kernel<->user space communication?
+Date: Tue, 24 Apr 2012 16:57:55 -0700
+Message-ID: <20120424165755.76432821@nehalam.linuxnetplumber.net>
+References: <4F973CC1.8000002@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Arvid Brodin <Arvid.Brodin@xdin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:49424 "EHLO spam1.webland.se"
+Received: from mail.vyatta.com ([76.74.103.46]:50240 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754547Ab2DXXwh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Apr 2012 19:52:37 -0400
-Content-Language: en-US
-Content-ID: <EF6B5477B0DFB5418A3A80A784A94D71@redbull.xdin.com>
+	id S1754063Ab2DXX56 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2012 19:57:58 -0400
+In-Reply-To: <4F973CC1.8000002@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkuDQoNCkknbSB3cml0aW5nIGEga2VybmVsIGRyaXZlciBmb3IgdGhlIEhTUiBwcm90b2NvbCwg
-YSBzdGFuZGFyZCBmb3IgaGlnaCBhdmFpbGFiaWxpdHkNCm5ldHdvcmtzLiBJIHdhbnQgdG8gc2Vu
-ZCBtZXNzYWdlcyBmcm9tIHRoZSBrZXJuZWwgdG8gdXNlciBzcGFjZSBhYm91dCBicm9rZW4gbmV0
-d29yaw0KbGlua3MuIEkgYWxzbyB3YW50IHVzZXIgc3BhY2UgdG8gYmUgYWJsZSB0byBhc2sgdGhl
-IGtlcm5lbCBhYm91dCBpdHMgdmlldyBvZiB0aGUgc3RhdHVzIG9mDQpub2RlcyBvbiB0aGUgbmV0
-d29yay4NCg0KTmV0bGluayBzZWVtcyBsaWtlIGEgZ29vZCB0b29sIGZvciB0aGlzLiAoSXMgaXQ/
-KQ0KDQpCdXQgZG8gSSB1c2UgcmF3IG5ldGxpbms/IChEZXNjcmliZWQgaGVyZTogaHR0cDovL3d3
-dy5saW51eGpvdXJuYWwuY29tL2FydGljbGUvNzM1NiAtIGJ1dA0KdGhpcyBzZWVtcyBhIGJpdCBv
-dXQgb2YgZGF0ZSwgdGhlIGtlcm5lbCBBUEkgZGVzY3JpcHRpb24gZGlmZmVycyBmcm9tIHRvZGF5
-J3Mga2VybmVsDQppbXBsZW1lbnRhdGlvbi4pDQpPciBkbyBJIHVzZSB0aGUgIktlcm5lbCBDb25u
-ZWN0b3IiIChEb2N1bWVudGF0aW9uL2Nvbm5lY3Rvci9jb25uZWN0b3IudHh0KT8NCkRvIEkgdXNl
-IGxpYm5ldGxpbms/DQpPciBkbyBJIHVzZSBsaWJubD8gKFRoaXMgc2VlbXMgdG8gYmUgYWN0aXZl
-bHkgbWFpbnRhaW5lZC4pDQpPciBhcmUgdGhlcmUgbW9yZSBhbmQgZXZlbiBiZXR0ZXIgd2F5cyB0
-byBkbyB0aGlzPw0KDQpJJ20gaGF2aW5nIGEgY2FzZSBvZiBpbmZvcm1hdGlvbiBvdmVybG9hZCBo
-ZXJlIGFuZCB3b3VsZCBiZSBncmF0ZWZ1bCBmb3Igc29tZSBndWlkZWxpbmVzLg0KDQpUaGFua3Ms
-DQpBcnZpZCBCcm9kaW4NCkVuZWEgU2VydmljZXMgU3RvY2tob2xtIEFCIC0gc2luY2UgRmVicnVh
-cnkgMTYgYSBwYXJ0IG9mIFhkaW4gaW4gdGhlIEFsdGVuIEdyb3VwLiBTb29uIHdlDQp3aWxsIGJl
-IHdvcmtpbmcgdW5kZXIgdGhlIGNvbW1vbiBicmFuZCBuYW1lIFhkaW4uIFJlYWQgbW9yZSBhdCB3
-d3cueGRpbi5jb20u
+On Tue, 24 Apr 2012 23:52:34 +0000
+Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
+
+> Hi.
+> 
+> I'm writing a kernel driver for the HSR protocol, a standard for high availability
+> networks. I want to send messages from the kernel to user space about broken network
+> links. I also want user space to be able to ask the kernel about its view of the status of
+> nodes on the network.
+> 
+> Netlink seems like a good tool for this. (Is it?)
+
+Yes.
+
+> But do I use raw netlink? (Described here: http://www.linuxjournal.com/article/7356 - but
+> this seems a bit out of date, the kernel API description differs from today's kernel
+> implementation.)
+
+No. Your driver probably looks like a device so you should be
+using rtnetlink messages.
+
+> Or do I use the "Kernel Connector" (Documentation/connector/connector.txt)?
+no.
+
+> Do I use libnetlink?
+if you extend iproute2 to support your link type, then yes,
+but use the version inside iproute2 (rather than the older extracted libnetlink
+in some distros).
+
+> Or do I use libnl? (This seems to be actively maintained.)
+If you aren't going to be in iproute2 then use libmnl. libnl does lots
+of caching etc, which makes it good for monitoring and gui tools but a pain
+for simple management.
+
+Advice is free, code is what counts.
