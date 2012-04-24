@@ -1,49 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/neigh: move neigh cleanup routine to
- neigh_destroy
-Date: Tue, 24 Apr 2012 00:53:09 -0400 (EDT)
-Message-ID: <20120424.005309.2292973770816115829.davem@davemloft.net>
-References: <1335195282-28738-1-git-send-email-ogerlitz@mellanox.com>
+From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Subject: RE: linux-next: manual merge of the wireless-next tree with the
+ net-next tree
+Date: Tue, 24 Apr 2012 05:07:25 +0000
+Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB3103432@HASMSX103.ger.corp.intel.com>
+References: <20120424124803.f4dc75ea96a875c3f35db615@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shlomop@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35449 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287Ab2DXExP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 00:53:15 -0400
-In-Reply-To: <1335195282-28738-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120424124803.f4dc75ea96a875c3f35db615@canb.auug.org.au>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Mon, 23 Apr 2012 18:34:42 +0300
-
-> From: Shlomo Pongratz <shlomop@mellanox.com>
 > 
-> Move call the neigh_cleanup call to be done from neigh_destroy, this
-> ensures the cleanup callback is invoked only when the neighbour reference
-> count becomes zero (e.g in the same manner as ndo_neigh_destory).
+> Hi John,
 > 
-> Note that with this change neigh_destroy will truly revert the action of
-> neigh_create, as neigh_release which calls neigh_destroy is called directly
-> from various code paths, and thus neigh->parms->neigh_cleanup is not called
-> for these code paths.
+> Today's linux-next merge of the wireless-next tree got a conflict in
+> drivers/net/wireless/iwlwifi/iwl-testmode.c between commit d33e152e1edd
+> ("iwlwifi: Stop using NLA_PUT*()") from the net-next tree and commit
+> 2152268ff911 ("iwlwifi: op_mode holds its pointer to the config") from the
+> wireless-next tree.
 > 
-> Also, with commit 7d26bb103 "bonding: emit event when bonding changes MAC" that
-> triggers netdev address change event, a race was introduced since neigh cleanup
-> can be called when there's reference on the neighbour.
+> I was hoping that we were done with these ... :-(
 > 
-> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> I fixed it up (see below) and can carry the fix as necessary.
 
-With IPOIB, the neigh_cleanup purges references to the neigh when it
-liberates the SKBs in the neigh resolution TX backlog during
-ipoib_neigh_free().
+Thanks Stephen, your fix seems right. In this case, there are only two choices: it is right or it doesn't even compile.
 
-Therefore, with your change, IPOIB neighs will never be destroyed if
-they have any SKBs in their neigh resolution queues.
+> 
+> --
+> Cheers,
+> Stephen Rothwell                    sfr@canb.auug.org.au
+> 
+> diff --cc drivers/net/wireless/iwlwifi/iwl-testmode.c
+> index bb27509,a6b16aa..0000000
+> --- a/drivers/net/wireless/iwlwifi/iwl-testmode.c
+> +++ b/drivers/net/wireless/iwlwifi/iwl-testmode.c
+> @@@ -543,12 -539,11 +543,12 @@@ static int iwl_testmode_driver(struct i
+>   				IWL_ERR(priv, "Memory allocation fail\n");
+>   				return -ENOMEM;
+>   			}
+>  -			NLA_PUT_U32(skb, IWL_TM_ATTR_COMMAND,
+>  -				IWL_TM_CMD_DEV2APP_EEPROM_RSP);
+>  -			NLA_PUT(skb, IWL_TM_ATTR_EEPROM,
+>  -				priv->cfg->base_params->eeprom_size,
+>  -				priv->eeprom);
+>  +			if (nla_put_u32(skb, IWL_TM_ATTR_COMMAND,
+>  +					IWL_TM_CMD_DEV2APP_EEPROM_RSP) ||
+>  +			    nla_put(skb, IWL_TM_ATTR_EEPROM,
+> - 				    cfg(priv)->base_params->eeprom_size,
+> ++				    priv->cfg->base_params->eeprom_size,
+>  +				    priv->eeprom))
+>  +				goto nla_put_failure;
+>   			status = cfg80211_testmode_reply(skb);
+>   			if (status < 0)
+>   				IWL_ERR(priv, "Error sending msg : %d\n",
+---------------------------------------------------------------------
+Intel Israel (74) Limited
 
-I'm not applying this, it's buggy.
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
