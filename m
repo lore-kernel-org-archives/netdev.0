@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] bnx2x: use FW 7.2.51 and add afex support
-Date: Mon, 23 Apr 2012 22:34:31 -0400 (EDT)
-Message-ID: <20120423.223431.1645975348493622347.davem@davemloft.net>
-References: <1335186273.14229.25.camel@lb-tlvb-barak.il.broadcom.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: introduce tcp_try_coalesce
+Date: Mon, 23 Apr 2012 22:39:10 -0400
+Message-ID: <CADVnQy=igJdbcG4J2HU7nEJUNM84qVcLa08h6g6MQQ8-fvgxHg@mail.gmail.com>
+References: <1335201102.5205.28.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: barak@broadcom.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34532 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756368Ab2DXCef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 22:34:35 -0400
-In-Reply-To: <1335186273.14229.25.camel@lb-tlvb-barak.il.broadcom.com>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:46698 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756259Ab2DXCjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 22:39:11 -0400
+Received: by ghrr11 with SMTP id r11so93197ghr.19
+        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 19:39:11 -0700 (PDT)
+In-Reply-To: <1335201102.5205.28.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Barak Witkowski" <barak@broadcom.com>
-Date: Mon, 23 Apr 2012 16:04:33 +0300
+On Mon, Apr 23, 2012 at 1:11 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> commit c8628155ece3 (tcp: reduce out_of_order memory use) took care of
+> coalescing tcp segments provided by legacy devices (linear skbs)
+>
+> We extend this idea to fragged skbs, as their truesize can be heavy.
+>
+> ixgbe for example uses 256+1024+PAGE_SIZE/2 = 3328 bytes per segment.
+>
+> Use this coalescing strategy for receive queue too.
+>
+> This contributes to reduce number of tcp collapses, at minimal cost, and
+> reduces memory overhead and packets drops.
 
-> This patch utilize FW 7.2.51 that was recently added to the linux-firmware tree.
-> 
-> The main feature of this new FW is support of the AFEX multi-function protocol.
-> Supporting the afex protocol requires many changes in the driver, but all of
-> them are required together in order to compile and make the feature operational.
-> Breaking the afex patch into smaller chunks did not seem to increase readability
-> to me.
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-All applied, thanks.
+Thanks for the background info, Eric.
+
+neal
