@@ -1,56 +1,50 @@
-From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 3/5] change number_of_cpusets to an atomic
-Date: Tue, 24 Apr 2012 13:27:09 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1204241318020.26005@router.home>
-References: <1335209867-1831-1-git-send-email-glommer@parallels.com> <1335209867-1831-4-git-send-email-glommer@parallels.com> <alpine.DEB.2.00.1204241001050.26005@router.home> <4F96D1A8.6040604@parallels.com> <alpine.DEB.2.00.1204241120130.26005@router.home>
- <4F96D50D.4020804@parallels.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: restoring IP multicast addresses when restarting the interface.
+Date: Tue, 24 Apr 2012 15:30:23 -0300
+Message-ID: <20120424153023.0913956e@asterix.rh>
+References: <20120420212533.78903e3a@asterix.rh>
+	<20120423121425.GA29883@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F96D50D.4020804-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43115 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756815Ab2DXSaf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2012 14:30:35 -0400
+In-Reply-To: <20120423121425.GA29883@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Apr 2012, Glauber Costa wrote:
+On Mon, 23 Apr 2012 22:14:25 +1000
+Herbert Xu <herbert@gondor.hengli.com.au> wrote:
 
-> > > It doesn't seem to be the case here.
+> On Fri, Apr 20, 2012 at 09:25:33PM -0300, Flavio Leitner wrote:
 > >
-> > How did you figure that? number_of_cpusets was introduced exactly because
-> > the functions are used in places where we do not pay the cost of calling
-> > __cpuset_node_allowed_soft/hardwall. Have a look at these. They may take
-> > locks etc etc in critical allocation paths
-> I am not arguing that.
->
-> You want to avoid the cost of processing a function, that's fair.
-> (Note that by "function call cost" I don't mean the cost of processing a
-> function, but the cost of a (potentially empty) function call.)
-> The real question is: Are you okay with the cost of a branch + a global
-> variable (which is almost read only) fetch?
+> > Although the new behavior seems nice and save some user space
+> > work, I think it was unintentional and likely to be a bug.
+> > 
+> > What you guys think?
+> 
+> Are you talking about multicast subscriptions on the interface?
+ 
+Yes.
 
-No and that is why the static branching comes in. It takes away the global
-read of the number_of_cpusets variable in the critical paths.
+> I don't see why they should disappear when the interface goes
+> down and then comes back up since these ultimately come from
+> application sockets which continue to exist after a down/up.
 
-> The test of a global variable can - and do as of right now - avoid all the
-> expensive operations like locking, sleeping, etc, and if you don't need to
-> squeeze every nanosecond you can, they are often simpler - and therefore
-> better - than static branching.
+Yeah, but that's not how things used to work before, so my
+question is if the kernel should be responsible for keeping
+the subscription or the application.
 
-Better than static branching? This is in critical VM functions and
-reducing the cache footprint there is good for everyone.
+If the admin puts down the interface and remove the module,
+for instance, then the multicast subscription is gone.
+Should the application monitor for that then?
 
-> Just to mention one point I am coming across these days - that initiated all
-> this: static patching holds the cpu_hotplug.lock. So it can't be called if you
-> hold any lock that has been already held under the cpu_hotplug.lock. This will
-> probably mean any lock the cpuset cgroup needs to take, because it is called -
-> and to do a lot of things - from the cpu hotplug handler, that holds the
-> cpu_hotplug.lock.
+David? Any thoughts?
 
-Transitions from one to two cpusets are rare and are only done when a
-cpuset is created in the /dev/cpuset hierachy). You could move the
-code modification outside of locks or defer action into an event
-thread if there are locks in the way.
+thanks,
+fbl
