@@ -1,91 +1,225 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Tue, 24 Apr 2012 14:42:23 +0900
-Message-ID: <20120424054223.GC9249@verge.net.au>
-References: <20120424022514.GB5357@verge.net.au>
-	<2a718516-6883-4a46-b5e2-1c73be2b4b59@tahiti.vyatta.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 08/13] net/stmmac: Remove conditional compilation of clk
+ code
+Date: Tue, 24 Apr 2012 07:57:38 +0200
+Message-ID: <4F9640D2.5080303@st.com>
+References: <cover.1335008617.git.viresh.kumar@st.com>
+ <03d5825c44251e6cbbdb3c3d8e67208f0fd4619d.1335008617.git.viresh.kumar@st.com>
+ <4F964099.7030401@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <2a718516-6883-4a46-b5e2-1c73be2b4b59-bX68f012229Xuxj3zoTs5AC/G2K4zDHf@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mturquette@linaro.org, sshtylyov@mvista.com,
+ ML netdev <netdev@vger.kernel.org>, spear-devel@list.st.com,
+ linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+ akpm@linux-foundation.org, jgarzik@redhat.com,
+ linux-arm-kernel@lists.infradead.org
+To: Viresh Kumar <viresh.linux@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <4F964099.7030401@st.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMDk6NDA6NTdQTSAtMDcwMCwgU3RlcGhlbiBIZW1taW5n
-ZXIgd3JvdGU6Cj4gCj4gCj4gLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLQo+ID4gT24gTW9u
-LCBBcHIgMjMsIDIwMTIgYXQgMDM6NTk6MjRQTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4g
-PiA+IE9uIE1vbiwgQXByIDIzLCAyMDEyIGF0IDM6MzIgUE0sIFNpbW9uIEhvcm1hbiA8aG9ybXNA
-dmVyZ2UubmV0LmF1Pgo+ID4gPiB3cm90ZToKPiA+ID4gPiBPbiBNb24sIEFwciAyMywgMjAxMiBh
-dCAwMjozODowN1BNIC0wNzAwLCBKZXNzZSBHcm9zcyB3cm90ZToKPiA+ID4gPj4gT24gTW9uLCBB
-cHIgMjMsIDIwMTIgYXQgMjowOCBQTSwgRGF2aWQgTWlsbGVyCj4gPiA+ID4+IDxkYXZlbUBkYXZl
-bWxvZnQubmV0PiB3cm90ZToKPiA+ID4gPj4gPiBGcm9tOiBKZXNzZSBHcm9zcyA8amVzc2VAbmlj
-aXJhLmNvbT4KPiA+ID4gPj4gPiBEYXRlOiBNb24sIDIzIEFwciAyMDEyIDEzOjUzOjQyIC0wNzAw
-Cj4gPiA+ID4+ID4KPiA+ID4gPj4gPj4gT24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMToxMyBQTSwg
-RGF2aWQgTWlsbGVyCj4gPiA+ID4+ID4+IDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToKPiA+
-ID4gPj4gPj4+IEZyb206IEplc3NlIEdyb3NzIDxqZXNzZUBuaWNpcmEuY29tPgo+ID4gPiA+PiA+
-Pj4gRGF0ZTogTW9uLCAyMyBBcHIgMjAxMiAxMzowODo0OSAtMDcwMAo+ID4gPiA+PiA+Pj4KPiA+
-ID4gPj4gPj4+PiBBc3N1bWluZyB0aGF0IHRoZSBUQ1Agc3RhY2sgZ2VuZXJhdGVzIGxhcmdlIFRT
-TyBmcmFtZXMgb24KPiA+ID4gPj4gPj4+PiB0cmFuc21pdAo+ID4gPiA+PiA+Pj4+ICh3aGljaCBj
-b3VsZCBiZSB0aGUgbG9jYWwgc3RhY2s7IHNvbWV0aGluZyBzZW50IGJ5IGEgVk07IG9yCj4gPiA+
-ID4+ID4+Pj4gcGFja2V0cwo+ID4gPiA+PiA+Pj4+IHJlY2VpdmVkLCBjb2FsZXNjZWQgYnkgR1JP
-IGFuZCB0aGVuIGVuY2Fwc3VsYXRlZCBieSBTVFQpCj4gPiA+ID4+ID4+Pj4gdGhlbiB5b3UgY2Fu
-Cj4gPiA+ID4+ID4+Pj4ganVzdCBwcmVwZW5kIHRoZSBTVFQgaGVhZGVyIChwb3NzaWJseSBzbGln
-aHRseSBhZGp1c3RpbmcKPiA+ID4gPj4gPj4+PiB0aGluZ3MgbGlrZQo+ID4gPiA+PiA+Pj4+IHJl
-cXVlc3RlZCBNU1MsIG51bWJlciBvZiBzZWdtZW50cywgZXRjLiBzbGlnaHRseSkuIMKgQWZ0ZXIK
-PiA+ID4gPj4gPj4+PiB0aGF0IGl0J3MKPiA+ID4gPj4gPj4+PiBwb3NzaWJsZSB0byBqdXN0IG91
-dHB1dCB0aGUgcmVzdWx0aW5nIGZyYW1lIHRocm91Z2ggdGhlIElQCj4gPiA+ID4+ID4+Pj4gc3Rh
-Y2sgbGlrZQo+ID4gPiA+PiA+Pj4+IGFsbCB0dW5uZWxzIGRvIHRvZGF5Lgo+ID4gPiA+PiA+Pj4K
-PiA+ID4gPj4gPj4+IFdoaWNoIHNlZW1zIHRvIHBvdGVudGlhbGx5IHN1Z2dlc3QgYSBzdHJvbmdl
-ciBpbnRlcmdyYXRpb24KPiA+ID4gPj4gPj4+IG9mIHRoZSBTVFQKPiA+ID4gPj4gPj4+IHR1bm5l
-bCB0cmFuc21pdCBwYXRoIGludG8gb3VyIElQIHN0YWNrIHJhdGhlciB0aGFuIHRoZQo+ID4gPiA+
-PiA+Pj4gYXBwcm9hY2ggU2ltb24KPiA+ID4gPj4gPj4+IGlzIHRha2luZwo+ID4gPiA+PiA+Pgo+
-ID4gPiA+PiA+PiBEaWQgeW91IGhhdmUgc29tZXRoaW5nIGluIG1pbmQ/Cj4gPiA+ID4+ID4KPiA+
-ID4gPj4gPiBBIG5vcm1hbCBib25hZmlkZSB0dW5uZWwgbmV0ZGV2aWNlIGRyaXZlciBsaWtlIEdS
-RSBpbnN0ZWFkIG9mCj4gPiA+ID4+ID4gdGhlCj4gPiA+ID4+ID4gb3BlbnZzd2l0Y2ggYXBwcm9h
-Y2ggU2ltb24gaXMgdXNpbmcuCj4gPiA+ID4+Cj4gPiA+ID4+IEFoaCwgeWVzLCB0aGF0IEkgYWdy
-ZWUgd2l0aC4gwqBJbmRlcGVuZGVudCBvZiB0aGlzLCB0aGVyZSdzIHdvcmsKPiA+ID4gPj4gYmVp
-bmcKPiA+ID4gPj4gZG9uZSB0byBtYWtlIGl0IHNvIHRoYXQgT1ZTIGNhbiB1c2UgdGhlIG5vcm1h
-bCBpbi10cmVlIHR1bm5lbGluZwo+ID4gPiA+PiBjb2RlCj4gPiA+ID4+IGFuZCBub3QgbmVlZCBp
-dHMgb3duLiDCoE9uY2UgdGhhdCdzIGRvbmUgSSBleHBlY3QgdGhhdCBTVFQgd2lsbAo+ID4gPiA+
-PiBmb2xsb3cKPiA+ID4gPj4gdGhlIHNhbWUgbW9kZWwuCj4gPiA+ID4KPiA+ID4gPiBIaSBKZXNz
-ZSwKPiA+ID4gPgo+ID4gPiA+IEkgYW0gd29uZGVyaW5nIGhvdyBmaXJtIHRoZSBwbGFucyB0byBv
-biBhbGxvd2luZyBPVlMgdG8gdXNlCj4gPiA+ID4gaW4tdHJlZSB0dW5uZWwKPiA+ID4gPiBjb2Rl
-IGFyZS4gSSdtIGhhcHB5IHRvIG1vdmUgbXkgZWZmb3J0cyBvdmVyIHRvIGFuIGluLXRyZWUgU1RU
-Cj4gPiA+ID4gaW1wbGVtZW50YXRpb24KPiA+ID4gPiBidXQgdWx0aW1hdGVseSBJIHdvdWxkIGxp
-a2UgdG8gZ2V0IFNUVCBydW5uaW5nIGluIGNvbmp1bmN0aW9uCj4gPiA+ID4gd2l0aCBPVlMuCj4g
-PiA+IAo+ID4gPiBJIHdvdWxkIHNheSB0aGF0IGl0J3MgYSBmaXJtIGdvYWwgYnV0IHRoZSBpbXBs
-ZW1lbnRhdGlvbiBwcm9iYWJseQo+ID4gPiBzdGlsbCBoYXMgYSB3YXlzIHRvIGdvLiAgS3lsZSBN
-ZXN0ZXJ5IChDQydlZCkgaGFzIHZvbHVudGVlcmVkIHRvCj4gPiA+IHdvcmsKPiA+ID4gb24gdGhp
-cyBpbiBzdXBwb3J0IG9mIGFkZGluZyBWWExBTiwgd2hpY2ggbmVlZHMgc29tZSBhZGRpdGlvbmFs
-Cj4gPiA+IGZsZXhpYmlsaXR5IHRoYXQgdGhpcyBhcHByb2FjaCB3b3VsZCBhbHNvIHByb3ZpZGUu
-ICBZb3UgbWlnaHQgd2FudAo+ID4gPiB0bwo+ID4gPiB0YWxrIHRvIGhpbSB0byBzZWUgaWYgdGhl
-cmUgYXJlIHdheXMgdGhhdCB5b3UgZ3V5cyBjYW4gd29yawo+ID4gPiB0b2dldGhlcgo+ID4gPiBv
-biBpdCBpZiB5b3UgYXJlIGludGVyZXN0ZWQuICBIYXZpbmcgYmV0dGVyIGludGVncmF0aW9uIHdp
-dGgKPiA+ID4gdXBzdHJlYW0KPiA+ID4gdHVubmVsaW5nIGlzIGRlZmluaXRlbHkgYSBzdGVwIHRo
-YXQgT1ZTIG5lZWRzIHRvIG1ha2UgYW5kIHNvb25lcgo+ID4gPiB3b3VsZAo+ID4gPiBiZSBiZXR0
-ZXIgdGhhbiBsYXRlci4KPiA+IAo+ID4gSGkgSmVzc2UsIEhpIEt5bGUsCj4gPiAKPiA+IHRoYXQg
-c291bmRzIGxpa2UgYW4gZXhjZWxsZW50IHBsYW4uCj4gPiAKPiA+IEt5bGUsIGRvIHlvdSBoYXZl
-IGFueSB0aG91Z2h0cyBvbiBob3cgd2UgbWlnaHQgYmVzdCB3b3JrIHRvZ2V0aGVyIG9uCj4gPiB0
-aGlzPwo+ID4gUGVyaGFwcyB0aGVyZSBhcmUgc29tZSBwYXRjaGVzIGZsb2F0aW5nIGFyb3VuZCB0
-aGF0IEkgY291bGQgdGFrZSBhCj4gPiBsb29rIGF0Pwo+IAo+IENocmlzVyBoYWQgYSBzdGFydCB0
-byBWeFZsYW4gdHVubmVsIChub24gT1ZTKSwgYW5kIEkgcHJvbWlzZWQgdG8gd29yayBvbgo+IGZp
-bmlzaGluZwoKVGhhbmtzLiBJIGd1ZXNzIHRoYXQgSSBtaWdodCBiZSBhYmxlIHRvIGJhc2UgcGFy
-dHMgb2YgYW4gU1RUIGltcGxlbWVudGF0aW9uCm9uIHRoYXQgd29yay4KCkknZCBsaWtlIHRvIHVz
-ZSBhbiBTVFQgaW1wbGVtZW50YXRpb24gd2l0aCBPVlMsIHNvIGluLXRyZWUgdHVubmVsIHN1cHBv
-cnQKZm9yIE9WUyBpcyBhbHNvIGltcG9ydGFudCB0byBtZS4KCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
-dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
++ netdev
+
+On 4/24/2012 7:56 AM, Giuseppe CAVALLARO wrote:
+> Hello Viresh.
+> 
+> On 4/21/2012 1:47 PM, Viresh Kumar wrote:
+>> With addition of dummy clk_*() calls for non CONFIG_HAVE_CLK cases in clk.h,
+>> there is no need to have clk code enclosed in #ifdef CONFIG_HAVE_CLK, #endif
+>> macros.
+> 
+> I like this patch also because reduces ifdef in the code :-)
+> 
+> Anyway this patch doesn't apply fine either in net-next and in net.git.
+> Also I wonder if you had already tested the driver build on arch w/o
+> HAVE_CLK ... just to avoid kernel build failures on other platforms.
+> 
+> Let me know if I can help you on that.
+> 
+> Peppe
+>>
+>> Signed-off-by: Viresh Kumar <viresh.kumar@st.com>
+>> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> ---
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   40 ---------------------
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   34 +++++++++++-------
+>>  2 files changed, 21 insertions(+), 53 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+>> index 9f2435c..7f85895 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+>> @@ -81,9 +81,7 @@ struct stmmac_priv {
+>>  	struct stmmac_counters mmc;
+>>  	struct dma_features dma_cap;
+>>  	int hw_cap_support;
+>> -#ifdef CONFIG_HAVE_CLK
+>>  	struct clk *stmmac_clk;
+>> -#endif
+>>  	int clk_csr;
+>>  };
+>>  
+>> @@ -103,41 +101,3 @@ int stmmac_dvr_remove(struct net_device *ndev);
+>>  struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+>>  				     struct plat_stmmacenet_data *plat_dat,
+>>  				     void __iomem *addr);
+>> -
+>> -#ifdef CONFIG_HAVE_CLK
+>> -static inline int stmmac_clk_enable(struct stmmac_priv *priv)
+>> -{
+>> -	if (priv->stmmac_clk)
+>> -		return clk_enable(priv->stmmac_clk);
+>> -
+>> -	return 0;
+>> -}
+>> -
+>> -static inline void stmmac_clk_disable(struct stmmac_priv *priv)
+>> -{
+>> -	if (priv->stmmac_clk)
+>> -		clk_disable(priv->stmmac_clk);
+>> -}
+>> -static inline int stmmac_clk_get(struct stmmac_priv *priv)
+>> -{
+>> -	priv->stmmac_clk = clk_get(priv->device, NULL);
+>> -
+>> -	if (IS_ERR(priv->stmmac_clk)) {
+>> -		pr_err("%s: ERROR clk_get failed\n", __func__);
+>> -		return PTR_ERR(priv->stmmac_clk);
+>> -	}
+>> -	return 0;
+>> -}
+>> -#else
+>> -static inline int stmmac_clk_enable(struct stmmac_priv *priv)
+>> -{
+>> -	return 0;
+>> -}
+>> -static inline void stmmac_clk_disable(struct stmmac_priv *priv)
+>> -{
+>> -}
+>> -static inline int stmmac_clk_get(struct stmmac_priv *priv)
+>> -{
+>> -	return 0;
+>> -}
+>> -#endif /* CONFIG_HAVE_CLK */
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index a64f0d4..28b8f30 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -28,6 +28,7 @@
+>>  	https://bugzilla.stlinux.com/
+>>  *******************************************************************************/
+>>  
+>> +#include <linux/clk.h>
+>>  #include <linux/kernel.h>
+>>  #include <linux/interrupt.h>
+>>  #include <linux/ip.h>
+>> @@ -165,7 +166,6 @@ static void stmmac_verify_args(void)
+>>  
+>>  static void stmmac_clk_csr_set(struct stmmac_priv *priv)
+>>  {
+>> -#ifdef CONFIG_HAVE_CLK
+>>  	u32 clk_rate;
+>>  
+>>  	clk_rate = clk_get_rate(priv->stmmac_clk);
+>> @@ -189,7 +189,6 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
+>>  	   * we can not estimate the proper divider as it is not known
+>>  	   * the frequency of clk_csr_i. So we do not change the default
+>>  	   * divider. */
+>> -#endif
+>>  }
+>>  
+>>  #if defined(STMMAC_XMIT_DEBUG) || defined(STMMAC_RX_DEBUG)
+>> @@ -933,7 +932,8 @@ static int stmmac_open(struct net_device *dev)
+>>  	struct stmmac_priv *priv = netdev_priv(dev);
+>>  	int ret;
+>>  
+>> -	stmmac_clk_enable(priv);
+>> +	if (!IS_ERR(priv->stmmac_clk))
+>> +		clk_enable(priv->stmmac_clk);
+>>  
+>>  	stmmac_check_ether_addr(priv);
+>>  
+>> @@ -1068,7 +1068,9 @@ open_error:
+>>  		phy_disconnect(priv->phydev);
+>>  
+>>  open_clk_dis:
+>> -	stmmac_clk_disable(priv);
+>> +	if (!IS_ERR(priv->stmmac_clk))
+>> +		clk_disable(priv->stmmac_clk);
+>> +
+>>  	return ret;
+>>  }
+>>  
+>> @@ -1121,7 +1123,9 @@ static int stmmac_release(struct net_device *dev)
+>>  	stmmac_exit_fs();
+>>  #endif
+>>  	stmmac_mdio_unregister(dev);
+>> -	stmmac_clk_disable(priv);
+>> +
+>> +	if (!IS_ERR(priv->stmmac_clk))
+>> +		clk_disable(priv->stmmac_clk);
+>>  
+>>  	return 0;
+>>  }
+>> @@ -1918,8 +1922,9 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+>>  		goto error;
+>>  	}
+>>  
+>> -	if (stmmac_clk_get(priv))
+>> -		goto error;
+>> +	priv->stmmac_clk = clk_get(priv->device, NULL);
+>> +	if (IS_ERR(priv->stmmac_clk))
+>> +		pr_err("%s: No clock found\n", __func__);
+>>  
+>>  	/* If a specific clk_csr value is passed from the platform
+>>  	 * this means that the CSR Clock Range selection cannot be
+>> @@ -1927,10 +1932,12 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+>>  	 * set the MDC clock dynamically according to the csr actual
+>>  	 * clock input.
+>>  	 */
+>> -	if (!priv->plat->clk_csr)
+>> -		stmmac_clk_csr_set(priv);
+>> -	else
+>> +	if (!priv->plat->clk_csr) {
+>> +		if (!IS_ERR(priv->stmmac_clk))
+>> +			stmmac_clk_csr_set(priv);
+>> +	} else {
+>>  		priv->clk_csr = priv->plat->clk_csr;
+>> +	}
+>>  
+>>  	return priv;
+>>  
+>> @@ -2004,7 +2011,8 @@ int stmmac_suspend(struct net_device *ndev)
+>>  	else {
+>>  		stmmac_set_mac(priv->ioaddr, false);
+>>  		/* Disable clock in case of PWM is off */
+>> -		stmmac_clk_disable(priv);
+>> +		if (!IS_ERR(priv->stmmac_clk))
+>> +			clk_disable(priv->stmmac_clk);
+>>  	}
+>>  	spin_unlock(&priv->lock);
+>>  	return 0;
+>> @@ -2026,9 +2034,9 @@ int stmmac_resume(struct net_device *ndev)
+>>  	 * from another devices (e.g. serial console). */
+>>  	if (device_may_wakeup(priv->device))
+>>  		priv->hw->mac->pmt(priv->ioaddr, 0);
+>> -	else
+>> +	else if (!IS_ERR(priv->stmmac_clk))
+>>  		/* enable the clk prevously disabled */
+>> -		stmmac_clk_enable(priv);
+>> +			clk_enable(priv->stmmac_clk);
+>>  
+>>  	netif_device_attach(ndev);
+>>  
+> 
