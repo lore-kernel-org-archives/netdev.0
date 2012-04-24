@@ -1,92 +1,63 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH v2 5/5] decrement static keys on real destroy time
-Date: Tue, 24 Apr 2012 11:40:57 +0900
-Message-ID: <4F9612B9.7050705@jp.fujitsu.com>
-References: <1335209867-1831-1-git-send-email-glommer@parallels.com> <1335209867-1831-6-git-send-email-glommer@parallels.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: introduce tcp_try_coalesce
+Date: Mon, 23 Apr 2012 22:46:02 -0400 (EDT)
+Message-ID: <20120423.224602.594997774992725103.davem@davemloft.net>
+References: <1335201102.5205.28.camel@edumazet-glaptop>
+	<CADVnQy=igJdbcG4J2HU7nEJUNM84qVcLa08h6g6MQQ8-fvgxHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1335209867-1831-6-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	therbert@google.com, maze@google.com, ilpo.jarvinen@helsinki.fi
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34653 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756267Ab2DXCqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 22:46:15 -0400
+In-Reply-To: <CADVnQy=igJdbcG4J2HU7nEJUNM84qVcLa08h6g6MQQ8-fvgxHg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2012/04/24 4:37), Glauber Costa wrote:
+From: Neal Cardwell <ncardwell@google.com>
+Date: Mon, 23 Apr 2012 22:39:10 -0400
 
-> We call the destroy function when a cgroup starts to be removed,
-> such as by a rmdir event.
+> On Mon, Apr 23, 2012 at 1:11 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> commit c8628155ece3 (tcp: reduce out_of_order memory use) took care of
+>> coalescing tcp segments provided by legacy devices (linear skbs)
+>>
+>> We extend this idea to fragged skbs, as their truesize can be heavy.
+>>
+>> ixgbe for example uses 256+1024+PAGE_SIZE/2 = 3328 bytes per segment.
+>>
+>> Use this coalescing strategy for receive queue too.
+>>
+>> This contributes to reduce number of tcp collapses, at minimal cost, and
+>> reduces memory overhead and packets drops.
 > 
-> However, because of our reference counters, some objects are still
-> inflight. Right now, we are decrementing the static_keys at destroy()
-> time, meaning that if we get rid of the last static_key reference,
-> some objects will still have charges, but the code to properly
-> uncharge them won't be run.
+> Acked-by: Neal Cardwell <ncardwell@google.com>
 > 
-> This becomes a problem specially if it is ever enabled again, because
-> now new charges will be added to the staled charges making keeping
-> it pretty much impossible.
-> 
-> We just need to be careful with the static branch activation:
-> since there is no particular preferred order of their activation,
-> we need to make sure that we only start using it after all
-> call sites are active. This is achieved by having a per-memcg
-> flag that is only updated after static_key_slow_inc() returns.
-> At this time, we are sure all sites are active.
-> 
-> This is made per-memcg, not global, for a reason:
-> it also has the effect of making socket accounting more
-> consistent. The first memcg to be limited will trigger static_key()
-> activation, therefore, accounting. But all the others will then be
-> accounted no matter what. After this patch, only limited memcgs
-> will have its sockets accounted.
-> 
-> [v2: changed a tcp limited flag for a generic proto limited flag ]
-> [v3: update the current active flag only after the static_key update ]
-> 
-> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Thanks for the background info, Eric.
 
+Applied, thanks Eric.
 
-Acked-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Although I'd like to ask you to clean up tcp_try_coalesce() a bit.
 
-A small request below.
+It effectively returns a boolean, but you've clouded this up by
+returning an int and defining it in the comment to return "> 0" or
+not.
 
-<snip>
+Just make it return a real bool.
 
+I know why you did this, it makes the "eaten" code somewhat simpler in
+tcp_data_queue(), but overall it's more confusing how it is now.
 
-> +		 * ->activated needs to be written after the static_key update.
-> +		 *  This is what guarantees that the socket activation function
-> +		 *  is the last one to run. See sock_update_memcg() for details,
-> +		 *  and note that we don't mark any socket as belonging to this
-> +		 *  memcg until that flag is up.
-> +		 *
-> +		 *  We need to do this, because static_keys will span multiple
-> +		 *  sites, but we can't control their order. If we mark a socket
-> +		 *  as accounted, but the accounting functions are not patched in
-> +		 *  yet, we'll lose accounting.
-> +		 *
-> +		 *  We never race with the readers in sock_update_memcg(), because
-> +		 *  when this value change, the code to process it is not patched in
-> +		 *  yet.
-> +		 */
-> +		mutex_lock(&tcp_set_limit_mutex);
+People look at how the tcp_try_coalesce() return value is interpreted
+and say "in what cases can it return a negative value?"  We both know
+it can't, but you have to read the entire function to figure that out.
 
+And that's by definition not intuitive.
 
-Could you explain for what this mutex is in above comment ?
-
-Thanks,
--Kame
-
-> +		if (!cg_proto->activated) {
-> +			static_key_slow_inc(&memcg_socket_limit_enabled);
-> +			cg_proto->activated = true;
-> +		}
-> +		mutex_unlock(&tcp_set_limit_mutex);
-> +		cg_proto->active = true;
-> +	}
->  
->  	return 0;
->  }
+Thanks.
