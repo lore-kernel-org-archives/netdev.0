@@ -1,45 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] b44: properly use pr_fmt()
-Date: Tue, 24 Apr 2012 00:47:45 -0400 (EDT)
-Message-ID: <20120424.004745.1479792296922367681.davem@davemloft.net>
-References: <1335235603-32420-1-git-send-email-mcgrof@do-not-panic.com>
+Subject: Re: [PATCH net] net/neigh: move neigh cleanup routine to
+ neigh_destroy
+Date: Tue, 24 Apr 2012 00:53:09 -0400 (EDT)
+Message-ID: <20120424.005309.2292973770816115829.davem@davemloft.net>
+References: <1335195282-28738-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org
-To: mcgrof@do-not-panic.com
+Cc: netdev@vger.kernel.org, shlomop@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35422 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35449 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499Ab2DXEsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 00:48:03 -0400
-In-Reply-To: <1335235603-32420-1-git-send-email-mcgrof@do-not-panic.com>
+	with ESMTP id S1751287Ab2DXExP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 00:53:15 -0400
+In-Reply-To: <1335195282-28738-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Date: Mon, 23 Apr 2012 19:46:43 -0700
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Mon, 23 Apr 2012 18:34:42 +0300
 
-> From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+> From: Shlomo Pongratz <shlomop@mellanox.com>
 > 
-> pr_fmt() is either defined or we redefine it. Typically
-> drivers define it prior to including printk.h but this
-> is done under the assumption that no other subsystem
-> it uses has already defined pr_fmt(). In such cases
-> pr_fmt() should be undefined and redefined.
+> Move call the neigh_cleanup call to be done from neigh_destroy, this
+> ensures the cleanup callback is invoked only when the neighbour reference
+> count becomes zero (e.g in the same manner as ndo_neigh_destory).
 > 
-> Doing this properly shaves down compilation time quite
-> considerably.
+> Note that with this change neigh_destroy will truly revert the action of
+> neigh_create, as neigh_release which calls neigh_destroy is called directly
+> from various code paths, and thus neigh->parms->neigh_cleanup is not called
+> for these code paths.
 > 
-> Signed-off-by: Luis R. Rodriguez <mcgrof@do-not-panic.com>
+> Also, with commit 7d26bb103 "bonding: emit event when bonding changes MAC" that
+> triggers netdev address change event, a race was introduced since neigh cleanup
+> can be called when there's reference on the neighbour.
+> 
+> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Every driver defines pr_fmt then includes the headers.  I do not
-see any other place which performs the initial undef of pr_fmt
-like you want to start doing here.
+With IPOIB, the neigh_cleanup purges references to the neigh when it
+liberates the SKBs in the neigh resolution TX backlog during
+ipoib_neigh_free().
 
-If there is a reason we should start doing this, it would appear
-to be a universal reason, not one specific to this driver.  If
-that's the case, we should formally agree to this and then work
-on gradually converting all the drivers in reasonably sized chunks.
+Therefore, with your change, IPOIB neighs will never be destroyed if
+they have any SKBs in their neigh resolution queues.
 
-Either way I can't apply this patch as-is, sorry Luis.
+I'm not applying this, it's buggy.
