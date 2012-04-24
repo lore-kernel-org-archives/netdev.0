@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 net-next] af_netlink: drop_monitor/dropwatch
- friendly
-Date: Tue, 24 Apr 2012 00:36:00 -0400 (EDT)
-Message-ID: <20120424.003600.864595029104769883.davem@davemloft.net>
-References: <1335166229.3293.14.camel@edumazet-glaptop>
+Subject: Re: [PATCH] ehea: only register irq after setting up ports
+Date: Tue, 24 Apr 2012 00:37:07 -0400 (EDT)
+Message-ID: <20120424.003707.1304020185354100560.davem@davemloft.net>
+References: <1335188789-6211-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org
+To: cascardo@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35326 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35335 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692Ab2DXEgC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 00:36:02 -0400
-In-Reply-To: <1335166229.3293.14.camel@edumazet-glaptop>
+	with ESMTP id S1751421Ab2DXEhL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 00:37:11 -0400
+In-Reply-To: <1335188789-6211-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 23 Apr 2012 09:30:29 +0200
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Date: Mon, 23 Apr 2012 10:46:29 -0300
 
-> From: Eric Dumazet <edumazet@google.com>
+> If we receive an interrupt too early before we set up ports in the probe
+> function, there won't be any port ready to handle it.
 > 
-> Need to consume_skb() instead of kfree_skb() in netlink_dump() and
-> netlink_unicast_kernel() to avoid false dropwatch positives.
+> Only registering the irq after the ports are setup fixes the problem,
+> and works fine without losing any interrupts.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> This causes crashes in some situations:
+ ...
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+> Cc: stable@vger.kernel.org
 
-Applied.
+Applied, thanks for fixing this properly.
