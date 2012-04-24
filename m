@@ -1,42 +1,69 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCH 1/4] mISDN: Fix NULL pointer bug in if-condition of mISDN_dsp
-Date: Tue, 24 Apr 2012 14:51:49 +0200
-Message-ID: <1335271912-5269-2-git-send-email-kkeil@linux-pingi.de>
-References: <1335271912-5269-1-git-send-email-kkeil@linux-pingi.de>
-Cc: netdev@vger.kernel.org, Andreas Eversberg <jolly@eversberg.eu>
-To: David Miller <davem@davemloft.net>
+From: "jonsmirl@gmail.com" <jonsmirl@gmail.com>
+Subject: Problem with iosize in Davicom DM9000 driver
+Date: Tue, 24 Apr 2012 10:54:41 -0400
+Message-ID: <CAKON4OzatC3nsby3_SA_yG-TtE2-BSXE3Ojkm2DbryxTcANyQg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:55195 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754012Ab2DXMyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 08:54:40 -0400
-In-Reply-To: <1335271912-5269-1-git-send-email-kkeil@linux-pingi.de>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:53156 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754641Ab2DXOyn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 10:54:43 -0400
+Received: by bkuw12 with SMTP id w12so536628bku.19
+        for <netdev@vger.kernel.org>; Tue, 24 Apr 2012 07:54:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Eversberg <jolly@eversberg.eu>
+In the probe code of the DM9000 driver...
 
-Fix a bug (was introduced by a cut & paste error)
-in cases when dsp->conf was NULL.
+	iosize = resource_size(db->data_res);
 
-Signed-off-by: Andreas Eversberg <jolly@eversberg.eu>
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
----
- drivers/isdn/mISDN/dsp_cmx.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+------ iosize is the size of the resource block
+static inline resource_size_t resource_size(const struct resource *res)
+{
+	return res->end - res->start + 1;
+}
 
-diff --git a/drivers/isdn/mISDN/dsp_cmx.c b/drivers/isdn/mISDN/dsp_cmx.c
-index 334feab..b7589c2 100644
---- a/drivers/isdn/mISDN/dsp_cmx.c
-+++ b/drivers/isdn/mISDN/dsp_cmx.c
-@@ -1328,7 +1328,7 @@ dsp_cmx_send_member(struct dsp *dsp, int len, s32 *c, int members)
- 		}
- 		if (dsp->conf && dsp->conf->software && dsp->conf->hardware)
- 			tx_data_only = 1;
--		if (dsp->conf->software && dsp->echo.hardware)
-+		if (dsp->echo.software && dsp->echo.hardware)
- 			tx_data_only = 1;
- 	}
- 
+	db->data_req = request_mem_region(db->data_res->start, iosize,
+					  pdev->name);
+
+	if (db->data_req == NULL) {
+		dev_err(db->dev, "cannot claim data reg area\n");
+		ret = -EIO;
+		goto out;
+	}
+
+	db->io_data = ioremap(db->data_res->start, iosize);
+
+	if (db->io_data == NULL) {
+		dev_err(db->dev, "failed to ioremap data reg\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* fill in parameters for net-dev structure */
+	ndev->base_addr = (unsigned long)db->io_addr;
+	ndev->irq	= db->irq_res->start;
+
+	/* ensure at least we have a default set of IO routines */
+	dm9000_set_io(db, iosize);
+
+--------------------------
+---- but it is passed into this routine which is expecting byte_width.
+---- luckily the default case turns it into 32b IO which works on most systems.
+---- I hit this working on a system with a 16b bus
+
+static void dm9000_set_io(struct board_info *db, int byte_width)
+{
+	/* use the size of the data resource to work out what IO
+	 * routines we want to use
+	 */
+
+	switch (byte_width) {
+
+
+
 -- 
-1.7.3.4
+Jon Smirl
+jonsmirl@gmail.com
