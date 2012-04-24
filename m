@@ -1,49 +1,33 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: restoring IP multicast addresses when restarting the interface.
-Date: Tue, 24 Apr 2012 14:28:33 -0700
-Message-ID: <OFB8B0B17A.86602877-ON882579EA.00741868-882579EA.0075F72B@us.ibm.com>
-References: <20120420212533.78903e3a@asterix.rh>	<20120423121425.GA29883@gondor.apana.org.au>
-	<20120424153023.0913956e@asterix.rh> <20120424.170004.1811627706738841106.davem@davemloft.net>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: My e1000e GBE card is eating all port 623 pks
+Date: Tue, 24 Apr 2012 14:51:28 -0700
+Message-ID: <20120424145128.000070a8@unknown>
+References: <OF8F83D7F0.387F6CCE-ONC12579E7.0049B885-C12579E7.004A4356@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: fbl@redhat.com, herbert@gondor.hengli.com.au,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:43480 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757707Ab2DXVay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 17:30:54 -0400
-Received: from /spool/local
-	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Tue, 24 Apr 2012 15:30:53 -0600
-In-Reply-To: <20120424.170004.1811627706738841106.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:62902 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757722Ab2DXVva (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Apr 2012 17:51:30 -0400
+In-Reply-To: <OF8F83D7F0.387F6CCE-ONC12579E7.0049B885-C12579E7.004A4356@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 04/24/2012 02:00:04 PM:
-
-> From: David Miller <davem@davemloft.net>
-
-> >> I don't see why they should disappear when the interface goes
-> >> down and then comes back up since these ultimately come from
-> >> application sockets which continue to exist after a down/up.
-> > 
-> > Yeah, but that's not how things used to work before, so my
-> > question is if the kernel should be responsible for keeping
-> > the subscription or the application.
-> > 
-> > If the admin puts down the interface and remove the module,
-> > for instance, then the multicast subscription is gone.
-> > Should the application monitor for that then?
-> > 
-> > David? Any thoughts?
+On Sat, 21 Apr 2012 15:31:09 +0200
+Joakim Tjernlund <joakim.tjernlund@transmode.se> wrote:
+ 
+> Looks like port 623 is some mgmt protocol and our e1000e boards are eating these
+> pkgs and this trips NIS, finger and yptest hangs for a long time before timing out and
+> moving on.
 > 
-> David Stevens at IBM and Herbert at the current multicast
-> experts, so I will defer to them.
+> Is there a way to tell the network stack not to eat port 623 pkgs or
+> have NIS not to use port 623?
 
-I think restoring the hardware multicast filter on device up
-is useful, desirable and not a bug. :-)
+I think you might be looking for something like portreserve 
+(see man portreserve)
 
-                                                +-DLS
+Jesse
