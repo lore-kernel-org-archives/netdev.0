@@ -1,45 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
- for TCP
-Date: Mon, 23 Apr 2012 22:27:35 -0400 (EDT)
-Message-ID: <20120423.222735.96654838533519471.davem@davemloft.net>
-References: <20120423.160149.1515408777176168288.davem@davemloft.net>
-	<1335213446.5205.65.camel@edumazet-glaptop>
-	<1335234012.5205.97.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: introduce tcp_try_coalesce
+Date: Tue, 24 Apr 2012 04:29:29 +0200
+Message-ID: <1335234569.5205.100.camel@edumazet-glaptop>
+References: <1335201102.5205.28.camel@edumazet-glaptop>
+	 <CADVnQyngwym7z_zSi8h2U_1e_wVCwGMPZScywWFWM2AYvxyqjw@mail.gmail.com>
+	 <1335233611.5205.90.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org, therbert@google.com,
-	ncardwell@google.com, maze@google.com, ycheng@google.com,
-	ilpo.jarvinen@helsinki.fi
-To: eric.dumazet@gmail.com
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34480 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756250Ab2DXC2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 22:28:00 -0400
-In-Reply-To: <1335234012.5205.97.camel@edumazet-glaptop>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:39202 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756165Ab2DXC3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 22:29:35 -0400
+Received: by wibhr17 with SMTP id hr17so3066694wib.1
+        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 19:29:34 -0700 (PDT)
+In-Reply-To: <1335233611.5205.90.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 24 Apr 2012 04:20:12 +0200
+On Tue, 2012-04-24 at 04:13 +0200, Eric Dumazet wrote:
 
-> On Mon, 2012-04-23 at 22:37 +0200, Eric Dumazet wrote:
-> 
->> We could try to coalesce ACKs before backlogging them. I'll work on
->> this.
->> 
-> 
-> I did an experiment, and found a basic coalescing was not working in
-> case of packet loss and SACK storm.
-> 
-> Doing a smart coalescing in this case sounds really complex.
-> 
-> Should we really continue this way ? 
+> This never happens on connections where performance matters : skb head
+> can only contains one full mss segment.
 
-We can consider it later, but for now let's defer.
+By the way, top end hardware uses fragged skbs.
 
-I'll apply your sk_add_backlog patches for the time being.
-
-Thanks Eric.
+Incidentally this gives better splice() performance (avoids copy of skb
+head to pages)
