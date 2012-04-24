@@ -1,54 +1,58 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: net_sched: gred: red_calc_qavg() called with current qavg for
- backlog?
-Date: Tue, 24 Apr 2012 08:37:30 -0400
-Message-ID: <20120424123730.GI27640@canuck.infradead.org>
-References: <4F930087.7010004@ll.mit.edu>
- <20120421.161032.2225288178918492428.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: david.ward@ll.mit.edu, tgraf@suug.ch, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: [PATCH 4/4] mISDN: DSP scheduling fix
+Date: Tue, 24 Apr 2012 14:51:52 +0200
+Message-ID: <1335271912-5269-5-git-send-email-kkeil@linux-pingi.de>
+References: <1335271912-5269-1-git-send-email-kkeil@linux-pingi.de>
+Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:54812 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753700Ab2DXMhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 08:37:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20120421.161032.2225288178918492428.davem@davemloft.net>
+Received: from moutng.kundenserver.de ([212.227.17.9]:55550 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754081Ab2DXMyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 08:54:39 -0400
+In-Reply-To: <1335271912-5269-1-git-send-email-kkeil@linux-pingi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 21, 2012 at 04:10:32PM -0400, David Miller wrote:
-> From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
-> Date: Sat, 21 Apr 2012 14:46:31 -0400
-> 
-> > In net/sched/sch_gred.c:
-> > 
-> > static int gred_dump(struct Qdisc *sch, struct sk_buff *skb)
-> > {
-> >      struct gred_sched *table = qdisc_priv(sch);
-> > ...
-> >      for (i = 0; i < MAX_DPs; i++) {
-> >          struct gred_sched_data *q = table->tab[i];
-> >          struct tc_gred_qopt opt;
-> > ...
-> >          opt.qave = red_calc_qavg(&q->parms, &q->vars, q->vars.qavg);
-> > 
-> > 
-> > I can't tell if red_calc_qavg is intentionally being passed the current 
-> > qavg as the backlog (which effectively causes qavg to only be 
-> > re-calculated if we are idling)?  Or should this be:
-> > 
-> >          opt.qave = red_calc_qavg(&q->parms,
-> >                                   &q->vars,
-> >                                   gred_backlog(table, q, sch));
-> 
-> Looking at commit 22b33429ab93155895854e9518a253680a920493
-> ("[PKT_SCHED]: GRED: Use new generic red interface") it appears
-> that this line is intentional so that the dump reports the same
-> qave as it would have before Thomas's changes.
+From: Karsten Keil <isdn@linux-pingi.de>
 
-When doing the convert, I simply preserved behaviour. I am not sure on
-what basis the original behaviour has been written.
+dsp_spl_jiffies need to be the same datatype as jiffies (which is ulong).
+If not, on 64 bit systems it will fallback to schedule the DSP every jiffie
+tic as soon jiffies become > 2^32.
+
+Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
+---
+ drivers/isdn/mISDN/dsp.h     |    4 +++-
+ drivers/isdn/mISDN/dsp_cmx.c |    2 +-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/isdn/mISDN/dsp.h b/drivers/isdn/mISDN/dsp.h
+index afe4173..e020957 100644
+--- a/drivers/isdn/mISDN/dsp.h
++++ b/drivers/isdn/mISDN/dsp.h
+@@ -76,7 +76,9 @@ extern u8 dsp_silence;
+ #define MAX_SECONDS_JITTER_CHECK 5
+ 
+ extern struct timer_list dsp_spl_tl;
+-extern u32 dsp_spl_jiffies;
++
++/* the datatype need to match jiffies datatype */
++extern ulong dsp_spl_jiffies;
+ 
+ /* the structure of conferences:
+  *
+diff --git a/drivers/isdn/mISDN/dsp_cmx.c b/drivers/isdn/mISDN/dsp_cmx.c
+index 0c104b9..3a3b3a5 100644
+--- a/drivers/isdn/mISDN/dsp_cmx.c
++++ b/drivers/isdn/mISDN/dsp_cmx.c
+@@ -1624,7 +1624,7 @@ send_packet:
+ 
+ static u32	jittercount; /* counter for jitter check */
+ struct timer_list dsp_spl_tl;
+-u32	dsp_spl_jiffies; /* calculate the next time to fire */
++ulong	dsp_spl_jiffies; /* calculate the next time to fire */
+ static u16	dsp_count; /* last sample count */
+ static int	dsp_count_valid; /* if we have last sample count */
+ 
+-- 
+1.7.3.4
