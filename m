@@ -1,69 +1,36 @@
-From: "jonsmirl@gmail.com" <jonsmirl@gmail.com>
-Subject: Problem with iosize in Davicom DM9000 driver
-Date: Tue, 24 Apr 2012 10:54:41 -0400
-Message-ID: <CAKON4OzatC3nsby3_SA_yG-TtE2-BSXE3Ojkm2DbryxTcANyQg@mail.gmail.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH v2 3/5] change number_of_cpusets to an atomic
+Date: Tue, 24 Apr 2012 10:02:02 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1204241001050.26005@router.home>
+References: <1335209867-1831-1-git-send-email-glommer@parallels.com> <1335209867-1831-4-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	cgroups@vger.kernel.org, Li Zefan <lizefan@huawei.com>,
+	kamezawa.hiroyu@jp.fujitsu.com, David Miller <davem@davemloft.net>,
+	devel@openvz.org
+To: Glauber Costa <glommer@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:53156 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754641Ab2DXOyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 10:54:43 -0400
-Received: by bkuw12 with SMTP id w12so536628bku.19
-        for <netdev@vger.kernel.org>; Tue, 24 Apr 2012 07:54:41 -0700 (PDT)
+Received: from smtp110.prem.mail.ac4.yahoo.com ([76.13.13.93]:43535 "HELO
+	smtp110.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755175Ab2DXPCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 11:02:06 -0400
+In-Reply-To: <1335209867-1831-4-git-send-email-glommer@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the probe code of the DM9000 driver...
+On Mon, 23 Apr 2012, Glauber Costa wrote:
 
-	iosize = resource_size(db->data_res);
+> This will allow us to call destroy() without holding the
+> cgroup_mutex(). Other important updates inside update_flags()
+> are protected by the callback_mutex.
+>
+> We could protect this variable with the callback_mutex as well,
+> as suggested by Li Zefan, but we need to make sure we are protected
+> by that mutex at all times, and some of its updates happen inside the
+> cgroup_mutex - which means we would deadlock.
 
------- iosize is the size of the resource block
-static inline resource_size_t resource_size(const struct resource *res)
-{
-	return res->end - res->start + 1;
-}
+Would this not also be a good case to introduce static branching?
 
-	db->data_req = request_mem_region(db->data_res->start, iosize,
-					  pdev->name);
-
-	if (db->data_req == NULL) {
-		dev_err(db->dev, "cannot claim data reg area\n");
-		ret = -EIO;
-		goto out;
-	}
-
-	db->io_data = ioremap(db->data_res->start, iosize);
-
-	if (db->io_data == NULL) {
-		dev_err(db->dev, "failed to ioremap data reg\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	/* fill in parameters for net-dev structure */
-	ndev->base_addr = (unsigned long)db->io_addr;
-	ndev->irq	= db->irq_res->start;
-
-	/* ensure at least we have a default set of IO routines */
-	dm9000_set_io(db, iosize);
-
---------------------------
----- but it is passed into this routine which is expecting byte_width.
----- luckily the default case turns it into 32b IO which works on most systems.
----- I hit this working on a system with a 16b bus
-
-static void dm9000_set_io(struct board_info *db, int byte_width)
-{
-	/* use the size of the data resource to work out what IO
-	 * routines we want to use
-	 */
-
-	switch (byte_width) {
-
-
-
--- 
-Jon Smirl
-jonsmirl@gmail.com
+number_of_cpusets is used to avoid going through unnecessary processing
+should there be no cpusets in use.
