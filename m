@@ -1,35 +1,45 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH v2 3/5] change number_of_cpusets to an atomic
-Date: Tue, 24 Apr 2012 11:25:46 +0900
-Message-ID: <4F960F2A.9020304@jp.fujitsu.com>
-References: <1335209867-1831-1-git-send-email-glommer@parallels.com> <1335209867-1831-4-git-send-email-glommer@parallels.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
+ for TCP
+Date: Mon, 23 Apr 2012 22:27:35 -0400 (EDT)
+Message-ID: <20120423.222735.96654838533519471.davem@davemloft.net>
+References: <20120423.160149.1515408777176168288.davem@davemloft.net>
+	<1335213446.5205.65.camel@edumazet-glaptop>
+	<1335234012.5205.97.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1335209867-1831-4-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org, therbert@google.com,
+	ncardwell@google.com, maze@google.com, ycheng@google.com,
+	ilpo.jarvinen@helsinki.fi
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34480 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756250Ab2DXC2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 22:28:00 -0400
+In-Reply-To: <1335234012.5205.97.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2012/04/24 4:37), Glauber Costa wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 24 Apr 2012 04:20:12 +0200
 
-> This will allow us to call destroy() without holding the
-> cgroup_mutex(). Other important updates inside update_flags()
-> are protected by the callback_mutex.
+> On Mon, 2012-04-23 at 22:37 +0200, Eric Dumazet wrote:
 > 
-> We could protect this variable with the callback_mutex as well,
-> as suggested by Li Zefan, but we need to make sure we are protected
-> by that mutex at all times, and some of its updates happen inside the
-> cgroup_mutex - which means we would deadlock.
+>> We could try to coalesce ACKs before backlogging them. I'll work on
+>> this.
+>> 
 > 
-> An atomic variable is not expensive, since it is seldom updated,
-> and protect us well.
+> I did an experiment, and found a basic coalescing was not working in
+> case of packet loss and SACK storm.
 > 
-> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Doing a smart coalescing in this case sounds really complex.
+> 
+> Should we really continue this way ? 
 
+We can consider it later, but for now let's defer.
 
-Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+I'll apply your sk_add_backlog patches for the time being.
+
+Thanks Eric.
