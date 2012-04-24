@@ -1,55 +1,53 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
  for TCP
-Date: Tue, 24 Apr 2012 10:53:12 +0200
-Message-ID: <1335257592.5205.131.camel@edumazet-glaptop>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6EEF@saturn3.aculab.com>
+Date: Tue, 24 Apr 2012 10:56:43 +0200
+Message-ID: <1335257803.5205.133.camel@edumazet-glaptop>
+References: <alpine.DEB.2.00.1204241026410.735@wel-95.cs.helsinki.fi>
+	 <20120424.041018.1514311596818654005.davem@davemloft.net>
+	 <alpine.DEB.2.00.1204241113020.735@wel-95.cs.helsinki.fi>
+	 <20120424.042546.2154907239944513463.davem@davemloft.net>
+	 <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
-	maze@google.com, ycheng@google.com, ilpo.jarvinen@helsinki.fi
-To: David Laight <David.Laight@ACULAB.COM>
+	Netdev <netdev@vger.kernel.org>, therbert@google.com,
+	ncardwell@google.com, maze@google.com,
+	Yuchung Cheng <ycheng@google.com>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:39917 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:34068 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756535Ab2DXIxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:53:19 -0400
-Received: by bkuw12 with SMTP id w12so218666bku.19
-        for <netdev@vger.kernel.org>; Tue, 24 Apr 2012 01:53:18 -0700 (PDT)
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EEF@saturn3.aculab.com>
+	with ESMTP id S1754452Ab2DXI4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:56:48 -0400
+Received: by bkuw12 with SMTP id w12so221651bku.19
+        for <netdev@vger.kernel.org>; Tue, 24 Apr 2012 01:56:47 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-04-24 at 09:44 +0100, David Laight wrote:
-> > On Mon, 2012-04-23 at 16:01 -0400, David Miller wrote:
-> > 
-> > > Hmmm... why don't we just acknowledge reality and special case ACKs?
-> > > 
-> > 
-> > Yes why not.
-> > 
-> > 
-> > > If a TCP packet is dataless we should just let it go 
-> > > through no matter what and with no limits.
-> > >  It is by definition transient and will not
-> > > get queued up into the socket past this backlog stage.
-> > > 
-> > 
-> > Even being transient we need a limit. Without copybreak, an 
-> > ACK can cost 2048+256 bytes.
-> > 
-> > In my 10Gbit tests (standard netperf using 16K buffers), I've seen
-> > backlogs of 300 ACK packets...
-> 
-> What about forcing a copybreak for acks when above the rx buffer size?
-> That way you avoid the cost of the copy in teh normal case when
-> the data will be freed, but avoid the memory overhead when a lot
-> of acks (or rx data) is queued.
+On Tue, 2012-04-24 at 11:40 +0300, Ilpo J=C3=A4rvinen wrote:
 
-Thats noise, as the minimal truesize of an ACK packet is 512 + 256 on
-x86_64
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 8bb6ade..33b87b2 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2820,7 +2820,11 @@ found:
+>  	flush |=3D (__force int)(flags & TCP_FLAG_CWR);
+>  	flush |=3D (__force int)((flags ^ tcp_flag_word(th2)) &
+>  		  ~(TCP_FLAG_CWR | TCP_FLAG_FIN | TCP_FLAG_PSH));
+> -	flush |=3D (__force int)(th->ack_seq ^ th2->ack_seq);
+> +
+> +	ackgap =3D skb_shinfo(p)->ack_size;
+> +	ackdiff =3D th2->ack_seq - th->ack_seq;
+> +	flush |=3D (ackdiff - 1) >=3D ackgap;
+> +
+>  	for (i =3D sizeof(*th); i < thlen; i +=3D 4)
+>  		flush |=3D *(u32 *)((u8 *)th + i) ^
+>  			 *(u32 *)((u8 *)th2 + i);
+>=20
 
-The fact that ixgbe provides 1024 + 256 could be fixed in the driver,
-its a 4 lines change actually. Then you already have a minimal skb.
+See how we duplicate tcp stack in GRO layer ;)
+
+Really I have many doubts about GRO today.
