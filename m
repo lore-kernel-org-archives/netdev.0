@@ -1,119 +1,95 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: speedup skb_splice_bits()
-Date: Tue, 24 Apr 2012 05:18:23 +0200
-Message-ID: <1335237503.5205.113.camel@edumazet-glaptop>
-References: <1335133576.2395.409.camel@edumazet-glaptop>
-	 <20120423.230205.418261556142199877.davem@davemloft.net>
-	 <20120423.230641.256329442020745539.davem@davemloft.net>
+Subject: [PATCH net-next] tcp: tcp_try_coalesce returns a boolean
+Date: Tue, 24 Apr 2012 05:34:36 +0200
+Message-ID: <1335238476.5205.122.camel@edumazet-glaptop>
+References: <1335201102.5205.28.camel@edumazet-glaptop>
+	 <CADVnQy=igJdbcG4J2HU7nEJUNM84qVcLa08h6g6MQQ8-fvgxHg@mail.gmail.com>
+	 <20120423.224602.594997774992725103.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, axboe@kernel.dk
+Cc: ncardwell@google.com, netdev@vger.kernel.org, therbert@google.com,
+	maze@google.com, ilpo.jarvinen@helsinki.fi
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:45445 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756502Ab2DXDS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 23:18:28 -0400
-Received: by wibhq7 with SMTP id hq7so188787wib.1
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 20:18:26 -0700 (PDT)
-In-Reply-To: <20120423.230641.256329442020745539.davem@davemloft.net>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:34330 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756508Ab2DXDel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 23:34:41 -0400
+Received: by wejx9 with SMTP id x9so122303wej.19
+        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 20:34:40 -0700 (PDT)
+In-Reply-To: <20120423.224602.594997774992725103.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-23 at 23:06 -0400, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 23 Apr 2012 23:02:05 -0400 (EDT)
-> 
-> > I'm going to cleanup spd_fill_page() to return a bool.
-> 
-> Done, thusly:
-> 
-> --------------------
-> net: Use bool and remove inline in skb_splice_bits() code.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/core/skbuff.c |   58 ++++++++++++++++++++++++++---------------------------
->  1 file changed, 29 insertions(+), 29 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index dfb3040..aaf4abc 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -1547,9 +1547,9 @@ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
->  	put_page(spd->pages[i]);
->  }
->  
-> -static inline struct page *linear_to_page(struct page *page, unsigned int *len,
-> -					  unsigned int *offset,
-> -					  struct sk_buff *skb, struct sock *sk)
-> +static struct page *linear_to_page(struct page *page, unsigned int *len,
-> +				   unsigned int *offset,
-> +				   struct sk_buff *skb, struct sock *sk)
->  {
->  	struct page *p = sk->sk_sndmsg_page;
->  	unsigned int off;
-> @@ -1598,23 +1598,23 @@ static bool spd_can_coalesce(const struct splice_pipe_desc *spd,
->  /*
->   * Fill page/offset/length into spd, if it can hold more pages.
->   */
-> -static inline int spd_fill_page(struct splice_pipe_desc *spd,
-> -				struct pipe_inode_info *pipe, struct page *page,
-> -				unsigned int *len, unsigned int offset,
-> -				struct sk_buff *skb, int linear,
-> -				struct sock *sk)
-> +static bool spd_fill_page(struct splice_pipe_desc *spd,
-> +			  struct pipe_inode_info *pipe, struct page *page,
-> +			  unsigned int *len, unsigned int offset,
-> +			  struct sk_buff *skb, int linear,
+From: Eric Dumazet <edumazet@google.com>
 
-linear could be a bool too 
+This clarifies code intention, as suggested by David.
 
-[PATCH] net: make spd_fill_page() linear argument a bool
-
+Suggested-by: David Miller <davem@davemloft.net>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/core/skbuff.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/ipv4/tcp_input.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index aaf4abc..2342a72 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1601,7 +1601,7 @@ static bool spd_can_coalesce(const struct splice_pipe_desc *spd,
- static bool spd_fill_page(struct splice_pipe_desc *spd,
- 			  struct pipe_inode_info *pipe, struct page *page,
- 			  unsigned int *len, unsigned int offset,
--			  struct sk_buff *skb, int linear,
-+			  struct sk_buff *skb, bool linear,
- 			  struct sock *sk)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bd7aef5..67f352a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4459,23 +4459,23 @@ static inline int tcp_try_rmem_schedule(struct sock *sk, unsigned int size)
+  * to reduce overall memory use and queue lengths, if cost is small.
+  * Packets in ofo or receive queues can stay a long time.
+  * Better try to coalesce them right now to avoid future collapses.
+- * Returns > 0 value if caller should free @from instead of queueing it
++ * Returns true if caller should free @from instead of queueing it
+  */
+-static int tcp_try_coalesce(struct sock *sk,
+-			    struct sk_buff *to,
+-			    struct sk_buff *from)
++static bool tcp_try_coalesce(struct sock *sk,
++			     struct sk_buff *to,
++			     struct sk_buff *from)
  {
- 	if (unlikely(spd->nr_pages == MAX_SKB_FRAGS))
-@@ -1642,7 +1642,7 @@ static inline void __segment_seek(struct page **page, unsigned int *poff,
- static bool __splice_segment(struct page *page, unsigned int poff,
- 			     unsigned int plen, unsigned int *off,
- 			     unsigned int *len, struct sk_buff *skb,
--			     struct splice_pipe_desc *spd, int linear,
-+			     struct splice_pipe_desc *spd, bool linear,
- 			     struct sock *sk,
- 			     struct pipe_inode_info *pipe)
- {
-@@ -1694,7 +1694,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
- 	if (__splice_segment(virt_to_page(skb->data),
- 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
- 			     skb_headlen(skb),
--			     offset, len, skb, spd, 1, sk, pipe))
-+			     offset, len, skb, spd, true, sk, pipe))
- 		return true;
+ 	int len = from->len;
  
- 	/*
-@@ -1705,7 +1705,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
- 
- 		if (__splice_segment(skb_frag_page(f),
- 				     f->page_offset, skb_frag_size(f),
--				     offset, len, skb, spd, 0, sk, pipe))
-+				     offset, len, skb, spd, false, sk, pipe))
- 			return true;
+ 	if (tcp_hdr(from)->fin)
+-		return 0;
++		return false;
+ 	if (len <= skb_tailroom(to)) {
+ 		BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
+ merge:
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPRCVCOALESCE);
+ 		TCP_SKB_CB(to)->end_seq = TCP_SKB_CB(from)->end_seq;
+ 		TCP_SKB_CB(to)->ack_seq = TCP_SKB_CB(from)->ack_seq;
+-		return 1;
++		return true;
  	}
+ 	if (skb_headlen(from) == 0 &&
+ 	    !skb_has_frag_list(to) &&
+@@ -4498,7 +4498,7 @@ merge:
+ 		to->data_len += len;
+ 		goto merge;
+ 	}
+-	return 0;
++	return false;
+ }
  
+ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
+@@ -4539,7 +4539,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
+ 	end_seq = TCP_SKB_CB(skb)->end_seq;
+ 
+ 	if (seq == TCP_SKB_CB(skb1)->end_seq) {
+-		if (tcp_try_coalesce(sk, skb1, skb) <= 0) {
++		if (!tcp_try_coalesce(sk, skb1, skb)) {
+ 			__skb_queue_after(&tp->out_of_order_queue, skb1, skb);
+ 		} else {
+ 			__kfree_skb(skb);
+@@ -4671,7 +4671,7 @@ queue_and_out:
+ 				goto drop;
+ 
+ 			tail = skb_peek_tail(&sk->sk_receive_queue);
+-			eaten = tail ? tcp_try_coalesce(sk, tail, skb) : -1;
++			eaten = (tail && tcp_try_coalesce(sk, tail, skb)) ? 1 : 0;
+ 			if (eaten <= 0) {
+ 				skb_set_owner_r(skb, sk);
+ 				__skb_queue_tail(&sk->sk_receive_queue, skb);
