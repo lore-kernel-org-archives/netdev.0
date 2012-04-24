@@ -1,80 +1,68 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 1/5] 6lowpan: fix segmentation fault caused by mlme request
-Date: Tue, 24 Apr 2012 14:51:07 +0400
-Message-ID: <1335264671-27127-2-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 3/5] 6lowpan: clean up fragments list
+	if module unloaded
+Date: Tue, 24 Apr 2012 14:51:09 +0400
+Message-ID: <1335264671-27127-4-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1335264671-27127-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Cc: davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:54362 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752380Ab2DXKvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 06:51:38 -0400
-Received: by bkuw12 with SMTP id w12so313849bku.19
-        for <netdev@vger.kernel.org>; Tue, 24 Apr 2012 03:51:37 -0700 (PDT)
-In-Reply-To: <1335264671-27127-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1335264671-27127-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add nescesary mlme callbacks to satisfy "iz list" request from user space.
-Due to 6lowpan device doesn't have its own phy, mlme implemented as a pipe
-to real phy to which 6lowpan is attached.
+Clean all the pending fragments and timers if 6lowpan link
+is going to be deleted.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c |   25 +++++++++++++++++++++++++
- 1 files changed, 25 insertions(+), 0 deletions(-)
+ net/ieee802154/6lowpan.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 58c8895..7ce508f 100644
+index d440233..a57174e 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -1044,6 +1044,24 @@ static void lowpan_dev_free(struct net_device *dev)
- 	free_netdev(dev);
- }
- 
-+static struct wpan_phy *lowpan_get_phy(const struct net_device *dev)
-+{
-+	struct net_device *real_dev = lowpan_dev_info(dev)->real_dev;
-+	return ieee802154_mlme_ops(real_dev)->get_phy(real_dev);
-+}
-+
-+static u16 lowpan_get_pan_id(const struct net_device *dev)
-+{
-+	struct net_device *real_dev = lowpan_dev_info(dev)->real_dev;
-+	return ieee802154_mlme_ops(real_dev)->get_pan_id(real_dev);
-+}
-+
-+static u16 lowpan_get_short_addr(const struct net_device *dev)
-+{
-+	struct net_device *real_dev = lowpan_dev_info(dev)->real_dev;
-+	return ieee802154_mlme_ops(real_dev)->get_short_addr(real_dev);
-+}
-+
- static struct header_ops lowpan_header_ops = {
- 	.create	= lowpan_header_create,
- };
-@@ -1053,6 +1071,12 @@ static const struct net_device_ops lowpan_netdev_ops = {
- 	.ndo_set_mac_address	= eth_mac_addr,
- };
- 
-+static struct ieee802154_mlme_ops lowpan_mlme = {
-+	.get_pan_id = lowpan_get_pan_id,
-+	.get_phy = lowpan_get_phy,
-+	.get_short_addr = lowpan_get_short_addr,
-+};
-+
- static void lowpan_setup(struct net_device *dev)
+@@ -1192,11 +1192,20 @@ static void lowpan_dellink(struct net_device *dev, struct list_head *head)
  {
- 	pr_debug("(%s)\n", __func__);
-@@ -1070,6 +1094,7 @@ static void lowpan_setup(struct net_device *dev)
+ 	struct lowpan_dev_info *lowpan_dev = lowpan_dev_info(dev);
+ 	struct net_device *real_dev = lowpan_dev->real_dev;
+-	struct lowpan_dev_record *entry;
+-	struct lowpan_dev_record *tmp;
++	struct lowpan_dev_record *entry, *tmp;
++	struct lowpan_fragment *frame, *tframe;
  
- 	dev->netdev_ops		= &lowpan_netdev_ops;
- 	dev->header_ops		= &lowpan_header_ops;
-+	dev->ml_priv		= &lowpan_mlme;
- 	dev->destructor		= lowpan_dev_free;
- }
+ 	ASSERT_RTNL();
  
++	spin_lock(&flist_lock);
++	list_for_each_entry_safe(frame, tframe, &lowpan_fragments, list) {
++		del_timer(&frame->timer);
++		list_del(&frame->list);
++		dev_kfree_skb(frame->skb);
++		kfree(frame);
++	}
++	spin_unlock(&flist_lock);
++
+ 	mutex_lock(&lowpan_dev_info(dev)->dev_list_mtx);
+ 	list_for_each_entry_safe(entry, tmp, &lowpan_devices, list) {
+ 		if (entry->ldev == dev) {
 -- 
 1.7.2.3
+
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
