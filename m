@@ -1,82 +1,35 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Tue, 24 Apr 2012 11:25:16 +0900
-Message-ID: <20120424022514.GB5357@verge.net.au>
-References: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
-	<20120423.161313.1582195533832554777.davem@davemloft.net>
-	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
-	<20120423.170817.1103719420692884446.davem@davemloft.net>
-	<CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
-	<20120423223255.GG580@verge.net.au>
-	<CAEP_g=9p0TE59JbrS8QzHj4mEzc-5_hUDzmLRsRxLyUaFX+Z5Q@mail.gmail.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH v2 3/5] change number_of_cpusets to an atomic
+Date: Tue, 24 Apr 2012 11:25:46 +0900
+Message-ID: <4F960F2A.9020304@jp.fujitsu.com>
+References: <1335209867-1831-1-git-send-email-glommer@parallels.com> <1335209867-1831-4-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
-	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=9p0TE59JbrS8QzHj4mEzc-5_hUDzmLRsRxLyUaFX+Z5Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1335209867-1831-4-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMDM6NTk6MjRQTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3Jv
-dGU6Cj4gT24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMzozMiBQTSwgU2ltb24gSG9ybWFuIDxob3Jt
-c0B2ZXJnZS5uZXQuYXU+IHdyb3RlOgo+ID4gT24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMDI6Mzg6
-MDdQTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4gPj4gT24gTW9uLCBBcHIgMjMsIDIwMTIg
-YXQgMjowOCBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToKPiA+
-PiA+IEZyb206IEplc3NlIEdyb3NzIDxqZXNzZUBuaWNpcmEuY29tPgo+ID4+ID4gRGF0ZTogTW9u
-LCAyMyBBcHIgMjAxMiAxMzo1Mzo0MiAtMDcwMAo+ID4+ID4KPiA+PiA+PiBPbiBNb24sIEFwciAy
-MywgMjAxMiBhdCAxOjEzIFBNLCBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdy
-b3RlOgo+ID4+ID4+PiBGcm9tOiBKZXNzZSBHcm9zcyA8amVzc2VAbmljaXJhLmNvbT4KPiA+PiA+
-Pj4gRGF0ZTogTW9uLCAyMyBBcHIgMjAxMiAxMzowODo0OSAtMDcwMAo+ID4+ID4+Pgo+ID4+ID4+
-Pj4gQXNzdW1pbmcgdGhhdCB0aGUgVENQIHN0YWNrIGdlbmVyYXRlcyBsYXJnZSBUU08gZnJhbWVz
-IG9uIHRyYW5zbWl0Cj4gPj4gPj4+PiAod2hpY2ggY291bGQgYmUgdGhlIGxvY2FsIHN0YWNrOyBz
-b21ldGhpbmcgc2VudCBieSBhIFZNOyBvciBwYWNrZXRzCj4gPj4gPj4+PiByZWNlaXZlZCwgY29h
-bGVzY2VkIGJ5IEdSTyBhbmQgdGhlbiBlbmNhcHN1bGF0ZWQgYnkgU1RUKSB0aGVuIHlvdSBjYW4K
-PiA+PiA+Pj4+IGp1c3QgcHJlcGVuZCB0aGUgU1RUIGhlYWRlciAocG9zc2libHkgc2xpZ2h0bHkg
-YWRqdXN0aW5nIHRoaW5ncyBsaWtlCj4gPj4gPj4+PiByZXF1ZXN0ZWQgTVNTLCBudW1iZXIgb2Yg
-c2VnbWVudHMsIGV0Yy4gc2xpZ2h0bHkpLiDCoEFmdGVyIHRoYXQgaXQncwo+ID4+ID4+Pj4gcG9z
-c2libGUgdG8ganVzdCBvdXRwdXQgdGhlIHJlc3VsdGluZyBmcmFtZSB0aHJvdWdoIHRoZSBJUCBz
-dGFjayBsaWtlCj4gPj4gPj4+PiBhbGwgdHVubmVscyBkbyB0b2RheS4KPiA+PiA+Pj4KPiA+PiA+
-Pj4gV2hpY2ggc2VlbXMgdG8gcG90ZW50aWFsbHkgc3VnZ2VzdCBhIHN0cm9uZ2VyIGludGVyZ3Jh
-dGlvbiBvZiB0aGUgU1RUCj4gPj4gPj4+IHR1bm5lbCB0cmFuc21pdCBwYXRoIGludG8gb3VyIElQ
-IHN0YWNrIHJhdGhlciB0aGFuIHRoZSBhcHByb2FjaCBTaW1vbgo+ID4+ID4+PiBpcyB0YWtpbmcK
-PiA+PiA+Pgo+ID4+ID4+IERpZCB5b3UgaGF2ZSBzb21ldGhpbmcgaW4gbWluZD8KPiA+PiA+Cj4g
-Pj4gPiBBIG5vcm1hbCBib25hZmlkZSB0dW5uZWwgbmV0ZGV2aWNlIGRyaXZlciBsaWtlIEdSRSBp
-bnN0ZWFkIG9mIHRoZQo+ID4+ID4gb3BlbnZzd2l0Y2ggYXBwcm9hY2ggU2ltb24gaXMgdXNpbmcu
-Cj4gPj4KPiA+PiBBaGgsIHllcywgdGhhdCBJIGFncmVlIHdpdGguIMKgSW5kZXBlbmRlbnQgb2Yg
-dGhpcywgdGhlcmUncyB3b3JrIGJlaW5nCj4gPj4gZG9uZSB0byBtYWtlIGl0IHNvIHRoYXQgT1ZT
-IGNhbiB1c2UgdGhlIG5vcm1hbCBpbi10cmVlIHR1bm5lbGluZyBjb2RlCj4gPj4gYW5kIG5vdCBu
-ZWVkIGl0cyBvd24uIMKgT25jZSB0aGF0J3MgZG9uZSBJIGV4cGVjdCB0aGF0IFNUVCB3aWxsIGZv
-bGxvdwo+ID4+IHRoZSBzYW1lIG1vZGVsLgo+ID4KPiA+IEhpIEplc3NlLAo+ID4KPiA+IEkgYW0g
-d29uZGVyaW5nIGhvdyBmaXJtIHRoZSBwbGFucyB0byBvbiBhbGxvd2luZyBPVlMgdG8gdXNlIGlu
-LXRyZWUgdHVubmVsCj4gPiBjb2RlIGFyZS4gSSdtIGhhcHB5IHRvIG1vdmUgbXkgZWZmb3J0cyBv
-dmVyIHRvIGFuIGluLXRyZWUgU1RUIGltcGxlbWVudGF0aW9uCj4gPiBidXQgdWx0aW1hdGVseSBJ
-IHdvdWxkIGxpa2UgdG8gZ2V0IFNUVCBydW5uaW5nIGluIGNvbmp1bmN0aW9uIHdpdGggT1ZTLgo+
-IAo+IEkgd291bGQgc2F5IHRoYXQgaXQncyBhIGZpcm0gZ29hbCBidXQgdGhlIGltcGxlbWVudGF0
-aW9uIHByb2JhYmx5Cj4gc3RpbGwgaGFzIGEgd2F5cyB0byBnby4gIEt5bGUgTWVzdGVyeSAoQ0Mn
-ZWQpIGhhcyB2b2x1bnRlZXJlZCB0byB3b3JrCj4gb24gdGhpcyBpbiBzdXBwb3J0IG9mIGFkZGlu
-ZyBWWExBTiwgd2hpY2ggbmVlZHMgc29tZSBhZGRpdGlvbmFsCj4gZmxleGliaWxpdHkgdGhhdCB0
-aGlzIGFwcHJvYWNoIHdvdWxkIGFsc28gcHJvdmlkZS4gIFlvdSBtaWdodCB3YW50IHRvCj4gdGFs
-ayB0byBoaW0gdG8gc2VlIGlmIHRoZXJlIGFyZSB3YXlzIHRoYXQgeW91IGd1eXMgY2FuIHdvcmsg
-dG9nZXRoZXIKPiBvbiBpdCBpZiB5b3UgYXJlIGludGVyZXN0ZWQuICBIYXZpbmcgYmV0dGVyIGlu
-dGVncmF0aW9uIHdpdGggdXBzdHJlYW0KPiB0dW5uZWxpbmcgaXMgZGVmaW5pdGVseSBhIHN0ZXAg
-dGhhdCBPVlMgbmVlZHMgdG8gbWFrZSBhbmQgc29vbmVyIHdvdWxkCj4gYmUgYmV0dGVyIHRoYW4g
-bGF0ZXIuCgpIaSBKZXNzZSwgSGkgS3lsZSwKCnRoYXQgc291bmRzIGxpa2UgYW4gZXhjZWxsZW50
-IHBsYW4uCgpLeWxlLCBkbyB5b3UgaGF2ZSBhbnkgdGhvdWdodHMgb24gaG93IHdlIG1pZ2h0IGJl
-c3Qgd29yayB0b2dldGhlciBvbiB0aGlzPwpQZXJoYXBzIHRoZXJlIGFyZSBzb21lIHBhdGNoZXMg
-ZmxvYXRpbmcgYXJvdW5kIHRoYXQgSSBjb3VsZCB0YWtlIGEgbG9vayBhdD8KCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2
-QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8v
-ZGV2Cg==
+(2012/04/24 4:37), Glauber Costa wrote:
+
+> This will allow us to call destroy() without holding the
+> cgroup_mutex(). Other important updates inside update_flags()
+> are protected by the callback_mutex.
+> 
+> We could protect this variable with the callback_mutex as well,
+> as suggested by Li Zefan, but we need to make sure we are protected
+> by that mutex at all times, and some of its updates happen inside the
+> cgroup_mutex - which means we would deadlock.
+> 
+> An atomic variable is not expensive, since it is seldom updated,
+> and protect us well.
+> 
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+
+
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
