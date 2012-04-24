@@ -1,51 +1,85 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH] b44: properly use pr_fmt()
-Date: Mon, 23 Apr 2012 19:46:43 -0700
-Message-ID: <1335235603-32420-1-git-send-email-mcgrof@do-not-panic.com>
-Cc: netdev@vger.kernel.org,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-To: zambrano@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f51.google.com ([209.85.210.51]:63469 "EHLO
-	mail-pz0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756267Ab2DXCqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 22:46:49 -0400
-Received: by dadz8 with SMTP id z8so266181dad.10
-        for <netdev@vger.kernel.org>; Mon, 23 Apr 2012 19:46:49 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the wireless-next tree with the
+ net-next tree
+Date: Tue, 24 Apr 2012 12:48:03 +1000
+Message-ID: <20120424124803.f4dc75ea96a875c3f35db615@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__24_Apr_2012_12_48_03_+1000_RYx7J0P8wXf47REW"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	"Wey-Yi Guy" <wey-yi.w.guy@intel.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+--Signature=_Tue__24_Apr_2012_12_48_03_+1000_RYx7J0P8wXf47REW
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-pr_fmt() is either defined or we redefine it. Typically
-drivers define it prior to including printk.h but this
-is done under the assumption that no other subsystem
-it uses has already defined pr_fmt(). In such cases
-pr_fmt() should be undefined and redefined.
+Hi John,
 
-Doing this properly shaves down compilation time quite
-considerably.
+Today's linux-next merge of the wireless-next tree got a conflict in
+drivers/net/wireless/iwlwifi/iwl-testmode.c between commit d33e152e1edd
+("iwlwifi: Stop using NLA_PUT*()") from the net-next tree and commit
+2152268ff911 ("iwlwifi: op_mode holds its pointer to the config") from
+the wireless-next tree.
 
-Signed-off-by: Luis R. Rodriguez <mcgrof@do-not-panic.com>
----
- drivers/net/ethernet/broadcom/b44.c |    2 ++
- 1 file changed, 2 insertions(+)
+I was hoping that we were done with these ... :-(
 
-diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index 46b8b7d..656f323 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -10,9 +10,11 @@
-  * Distribute under GPL.
-  */
- 
-+#undef pr_fmt
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
- #include <linux/kernel.h>
-+#include <linux/printk.h>
- #include <linux/module.h>
- #include <linux/moduleparam.h>
- #include <linux/types.h>
--- 
-1.7.10.rc1.22.gf5241
+I fixed it up (see below) and can carry the fix as necessary.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/wireless/iwlwifi/iwl-testmode.c
+index bb27509,a6b16aa..0000000
+--- a/drivers/net/wireless/iwlwifi/iwl-testmode.c
++++ b/drivers/net/wireless/iwlwifi/iwl-testmode.c
+@@@ -543,12 -539,11 +543,12 @@@ static int iwl_testmode_driver(struct i
+  				IWL_ERR(priv, "Memory allocation fail\n");
+  				return -ENOMEM;
+  			}
+ -			NLA_PUT_U32(skb, IWL_TM_ATTR_COMMAND,
+ -				IWL_TM_CMD_DEV2APP_EEPROM_RSP);
+ -			NLA_PUT(skb, IWL_TM_ATTR_EEPROM,
+ -				priv->cfg->base_params->eeprom_size,
+ -				priv->eeprom);
+ +			if (nla_put_u32(skb, IWL_TM_ATTR_COMMAND,
+ +					IWL_TM_CMD_DEV2APP_EEPROM_RSP) ||
+ +			    nla_put(skb, IWL_TM_ATTR_EEPROM,
+- 				    cfg(priv)->base_params->eeprom_size,
+++				    priv->cfg->base_params->eeprom_size,
+ +				    priv->eeprom))
+ +				goto nla_put_failure;
+  			status =3D cfg80211_testmode_reply(skb);
+  			if (status < 0)
+  				IWL_ERR(priv, "Error sending msg : %d\n",
+
+--Signature=_Tue__24_Apr_2012_12_48_03_+1000_RYx7J0P8wXf47REW
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPlhRjAAoJEECxmPOUX5FEI5MP/0+2Wqq8cAzuPhh882ISOHkG
+Vv8nSfAKY7giDI5RAG7TwvzdqGybV6RGgbr/ljeSrfFJBgYynmAitw+iYOUU6nb/
+GjjDol0J3u3xNLpCeEfLEB/lwEkmlcPme6klAAg4E+Ni5gfKBeejYBdidgWNfKRX
+9ZgfBMZboYKbM6sclQxNkP6MA1behIDC1XoeTPrzOuwv1Fs/DT2n78NKcbzREUPw
+tmUJIBHx2NW/ihuX0SldZdFFRSSidSkMWPaO3Ovh4c61tmcpHTacGlzClN81qqJD
+C6r10myMGLKfK8Rg4YstlGYkLjM+zZ6Pwns66v09nNndCsn0b+ZnK2QZYGQ+UamO
+aa5t5zVWaInWFB2c2WEqoIXvmEms+F0d1/AGypROFsH7kXZk9Vy30QvI/SuGJ46y
+GxTSCUmPkNPvj+7VtiOo6fI1YtCjxJeeAvMV/ifOAoNLs0dHc4EkfuoxC9FeOKSK
+Y0dycOQYzhMtlpXrk9wmOdZ5ZOe3bMnXHNthcIh5YLtslBP7QchbvrqvmDhsIGiQ
+xMrqzmnPBTscyFSAB8W0zt09KUAZSClKyIlbWkDoAn1cmPoL/RywMRZyodDkAuWE
+lGrUzTx9cO7jNvhQ1B7EEhDx63mfkcXWVhMyGwW+UprxuiZ8+IRWUDe/EQK0a7eO
+ZojfOxeoovg2gmzoc8I/
+=5L06
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__24_Apr_2012_12_48_03_+1000_RYx7J0P8wXf47REW--
