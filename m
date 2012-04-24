@@ -1,72 +1,91 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: RE: linux-next: manual merge of the wireless-next tree with the
- net-next tree
-Date: Tue, 24 Apr 2012 05:07:25 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB3103432@HASMSX103.ger.corp.intel.com>
-References: <20120424124803.f4dc75ea96a875c3f35db615@canb.auug.org.au>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Tue, 24 Apr 2012 14:42:23 +0900
+Message-ID: <20120424054223.GC9249@verge.net.au>
+References: <20120424022514.GB5357@verge.net.au>
+	<2a718516-6883-4a46-b5e2-1c73be2b4b59@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120424124803.f4dc75ea96a875c3f35db615@canb.auug.org.au>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <2a718516-6883-4a46-b5e2-1c73be2b4b59-bX68f012229Xuxj3zoTs5AC/G2K4zDHf@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> 
-> Hi John,
-> 
-> Today's linux-next merge of the wireless-next tree got a conflict in
-> drivers/net/wireless/iwlwifi/iwl-testmode.c between commit d33e152e1edd
-> ("iwlwifi: Stop using NLA_PUT*()") from the net-next tree and commit
-> 2152268ff911 ("iwlwifi: op_mode holds its pointer to the config") from the
-> wireless-next tree.
-> 
-> I was hoping that we were done with these ... :-(
-> 
-> I fixed it up (see below) and can carry the fix as necessary.
-
-Thanks Stephen, your fix seems right. In this case, there are only two choices: it is right or it doesn't even compile.
-
-> 
-> --
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
-> 
-> diff --cc drivers/net/wireless/iwlwifi/iwl-testmode.c
-> index bb27509,a6b16aa..0000000
-> --- a/drivers/net/wireless/iwlwifi/iwl-testmode.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-testmode.c
-> @@@ -543,12 -539,11 +543,12 @@@ static int iwl_testmode_driver(struct i
->   				IWL_ERR(priv, "Memory allocation fail\n");
->   				return -ENOMEM;
->   			}
->  -			NLA_PUT_U32(skb, IWL_TM_ATTR_COMMAND,
->  -				IWL_TM_CMD_DEV2APP_EEPROM_RSP);
->  -			NLA_PUT(skb, IWL_TM_ATTR_EEPROM,
->  -				priv->cfg->base_params->eeprom_size,
->  -				priv->eeprom);
->  +			if (nla_put_u32(skb, IWL_TM_ATTR_COMMAND,
->  +					IWL_TM_CMD_DEV2APP_EEPROM_RSP) ||
->  +			    nla_put(skb, IWL_TM_ATTR_EEPROM,
-> - 				    cfg(priv)->base_params->eeprom_size,
-> ++				    priv->cfg->base_params->eeprom_size,
->  +				    priv->eeprom))
->  +				goto nla_put_failure;
->   			status = cfg80211_testmode_reply(skb);
->   			if (status < 0)
->   				IWL_ERR(priv, "Error sending msg : %d\n",
----------------------------------------------------------------------
-Intel Israel (74) Limited
-
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+T24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMDk6NDA6NTdQTSAtMDcwMCwgU3RlcGhlbiBIZW1taW5n
+ZXIgd3JvdGU6Cj4gCj4gCj4gLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLQo+ID4gT24gTW9u
+LCBBcHIgMjMsIDIwMTIgYXQgMDM6NTk6MjRQTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4g
+PiA+IE9uIE1vbiwgQXByIDIzLCAyMDEyIGF0IDM6MzIgUE0sIFNpbW9uIEhvcm1hbiA8aG9ybXNA
+dmVyZ2UubmV0LmF1Pgo+ID4gPiB3cm90ZToKPiA+ID4gPiBPbiBNb24sIEFwciAyMywgMjAxMiBh
+dCAwMjozODowN1BNIC0wNzAwLCBKZXNzZSBHcm9zcyB3cm90ZToKPiA+ID4gPj4gT24gTW9uLCBB
+cHIgMjMsIDIwMTIgYXQgMjowOCBQTSwgRGF2aWQgTWlsbGVyCj4gPiA+ID4+IDxkYXZlbUBkYXZl
+bWxvZnQubmV0PiB3cm90ZToKPiA+ID4gPj4gPiBGcm9tOiBKZXNzZSBHcm9zcyA8amVzc2VAbmlj
+aXJhLmNvbT4KPiA+ID4gPj4gPiBEYXRlOiBNb24sIDIzIEFwciAyMDEyIDEzOjUzOjQyIC0wNzAw
+Cj4gPiA+ID4+ID4KPiA+ID4gPj4gPj4gT24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMToxMyBQTSwg
+RGF2aWQgTWlsbGVyCj4gPiA+ID4+ID4+IDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToKPiA+
+ID4gPj4gPj4+IEZyb206IEplc3NlIEdyb3NzIDxqZXNzZUBuaWNpcmEuY29tPgo+ID4gPiA+PiA+
+Pj4gRGF0ZTogTW9uLCAyMyBBcHIgMjAxMiAxMzowODo0OSAtMDcwMAo+ID4gPiA+PiA+Pj4KPiA+
+ID4gPj4gPj4+PiBBc3N1bWluZyB0aGF0IHRoZSBUQ1Agc3RhY2sgZ2VuZXJhdGVzIGxhcmdlIFRT
+TyBmcmFtZXMgb24KPiA+ID4gPj4gPj4+PiB0cmFuc21pdAo+ID4gPiA+PiA+Pj4+ICh3aGljaCBj
+b3VsZCBiZSB0aGUgbG9jYWwgc3RhY2s7IHNvbWV0aGluZyBzZW50IGJ5IGEgVk07IG9yCj4gPiA+
+ID4+ID4+Pj4gcGFja2V0cwo+ID4gPiA+PiA+Pj4+IHJlY2VpdmVkLCBjb2FsZXNjZWQgYnkgR1JP
+IGFuZCB0aGVuIGVuY2Fwc3VsYXRlZCBieSBTVFQpCj4gPiA+ID4+ID4+Pj4gdGhlbiB5b3UgY2Fu
+Cj4gPiA+ID4+ID4+Pj4ganVzdCBwcmVwZW5kIHRoZSBTVFQgaGVhZGVyIChwb3NzaWJseSBzbGln
+aHRseSBhZGp1c3RpbmcKPiA+ID4gPj4gPj4+PiB0aGluZ3MgbGlrZQo+ID4gPiA+PiA+Pj4+IHJl
+cXVlc3RlZCBNU1MsIG51bWJlciBvZiBzZWdtZW50cywgZXRjLiBzbGlnaHRseSkuIMKgQWZ0ZXIK
+PiA+ID4gPj4gPj4+PiB0aGF0IGl0J3MKPiA+ID4gPj4gPj4+PiBwb3NzaWJsZSB0byBqdXN0IG91
+dHB1dCB0aGUgcmVzdWx0aW5nIGZyYW1lIHRocm91Z2ggdGhlIElQCj4gPiA+ID4+ID4+Pj4gc3Rh
+Y2sgbGlrZQo+ID4gPiA+PiA+Pj4+IGFsbCB0dW5uZWxzIGRvIHRvZGF5Lgo+ID4gPiA+PiA+Pj4K
+PiA+ID4gPj4gPj4+IFdoaWNoIHNlZW1zIHRvIHBvdGVudGlhbGx5IHN1Z2dlc3QgYSBzdHJvbmdl
+ciBpbnRlcmdyYXRpb24KPiA+ID4gPj4gPj4+IG9mIHRoZSBTVFQKPiA+ID4gPj4gPj4+IHR1bm5l
+bCB0cmFuc21pdCBwYXRoIGludG8gb3VyIElQIHN0YWNrIHJhdGhlciB0aGFuIHRoZQo+ID4gPiA+
+PiA+Pj4gYXBwcm9hY2ggU2ltb24KPiA+ID4gPj4gPj4+IGlzIHRha2luZwo+ID4gPiA+PiA+Pgo+
+ID4gPiA+PiA+PiBEaWQgeW91IGhhdmUgc29tZXRoaW5nIGluIG1pbmQ/Cj4gPiA+ID4+ID4KPiA+
+ID4gPj4gPiBBIG5vcm1hbCBib25hZmlkZSB0dW5uZWwgbmV0ZGV2aWNlIGRyaXZlciBsaWtlIEdS
+RSBpbnN0ZWFkIG9mCj4gPiA+ID4+ID4gdGhlCj4gPiA+ID4+ID4gb3BlbnZzd2l0Y2ggYXBwcm9h
+Y2ggU2ltb24gaXMgdXNpbmcuCj4gPiA+ID4+Cj4gPiA+ID4+IEFoaCwgeWVzLCB0aGF0IEkgYWdy
+ZWUgd2l0aC4gwqBJbmRlcGVuZGVudCBvZiB0aGlzLCB0aGVyZSdzIHdvcmsKPiA+ID4gPj4gYmVp
+bmcKPiA+ID4gPj4gZG9uZSB0byBtYWtlIGl0IHNvIHRoYXQgT1ZTIGNhbiB1c2UgdGhlIG5vcm1h
+bCBpbi10cmVlIHR1bm5lbGluZwo+ID4gPiA+PiBjb2RlCj4gPiA+ID4+IGFuZCBub3QgbmVlZCBp
+dHMgb3duLiDCoE9uY2UgdGhhdCdzIGRvbmUgSSBleHBlY3QgdGhhdCBTVFQgd2lsbAo+ID4gPiA+
+PiBmb2xsb3cKPiA+ID4gPj4gdGhlIHNhbWUgbW9kZWwuCj4gPiA+ID4KPiA+ID4gPiBIaSBKZXNz
+ZSwKPiA+ID4gPgo+ID4gPiA+IEkgYW0gd29uZGVyaW5nIGhvdyBmaXJtIHRoZSBwbGFucyB0byBv
+biBhbGxvd2luZyBPVlMgdG8gdXNlCj4gPiA+ID4gaW4tdHJlZSB0dW5uZWwKPiA+ID4gPiBjb2Rl
+IGFyZS4gSSdtIGhhcHB5IHRvIG1vdmUgbXkgZWZmb3J0cyBvdmVyIHRvIGFuIGluLXRyZWUgU1RU
+Cj4gPiA+ID4gaW1wbGVtZW50YXRpb24KPiA+ID4gPiBidXQgdWx0aW1hdGVseSBJIHdvdWxkIGxp
+a2UgdG8gZ2V0IFNUVCBydW5uaW5nIGluIGNvbmp1bmN0aW9uCj4gPiA+ID4gd2l0aCBPVlMuCj4g
+PiA+IAo+ID4gPiBJIHdvdWxkIHNheSB0aGF0IGl0J3MgYSBmaXJtIGdvYWwgYnV0IHRoZSBpbXBs
+ZW1lbnRhdGlvbiBwcm9iYWJseQo+ID4gPiBzdGlsbCBoYXMgYSB3YXlzIHRvIGdvLiAgS3lsZSBN
+ZXN0ZXJ5IChDQydlZCkgaGFzIHZvbHVudGVlcmVkIHRvCj4gPiA+IHdvcmsKPiA+ID4gb24gdGhp
+cyBpbiBzdXBwb3J0IG9mIGFkZGluZyBWWExBTiwgd2hpY2ggbmVlZHMgc29tZSBhZGRpdGlvbmFs
+Cj4gPiA+IGZsZXhpYmlsaXR5IHRoYXQgdGhpcyBhcHByb2FjaCB3b3VsZCBhbHNvIHByb3ZpZGUu
+ICBZb3UgbWlnaHQgd2FudAo+ID4gPiB0bwo+ID4gPiB0YWxrIHRvIGhpbSB0byBzZWUgaWYgdGhl
+cmUgYXJlIHdheXMgdGhhdCB5b3UgZ3V5cyBjYW4gd29yawo+ID4gPiB0b2dldGhlcgo+ID4gPiBv
+biBpdCBpZiB5b3UgYXJlIGludGVyZXN0ZWQuICBIYXZpbmcgYmV0dGVyIGludGVncmF0aW9uIHdp
+dGgKPiA+ID4gdXBzdHJlYW0KPiA+ID4gdHVubmVsaW5nIGlzIGRlZmluaXRlbHkgYSBzdGVwIHRo
+YXQgT1ZTIG5lZWRzIHRvIG1ha2UgYW5kIHNvb25lcgo+ID4gPiB3b3VsZAo+ID4gPiBiZSBiZXR0
+ZXIgdGhhbiBsYXRlci4KPiA+IAo+ID4gSGkgSmVzc2UsIEhpIEt5bGUsCj4gPiAKPiA+IHRoYXQg
+c291bmRzIGxpa2UgYW4gZXhjZWxsZW50IHBsYW4uCj4gPiAKPiA+IEt5bGUsIGRvIHlvdSBoYXZl
+IGFueSB0aG91Z2h0cyBvbiBob3cgd2UgbWlnaHQgYmVzdCB3b3JrIHRvZ2V0aGVyIG9uCj4gPiB0
+aGlzPwo+ID4gUGVyaGFwcyB0aGVyZSBhcmUgc29tZSBwYXRjaGVzIGZsb2F0aW5nIGFyb3VuZCB0
+aGF0IEkgY291bGQgdGFrZSBhCj4gPiBsb29rIGF0Pwo+IAo+IENocmlzVyBoYWQgYSBzdGFydCB0
+byBWeFZsYW4gdHVubmVsIChub24gT1ZTKSwgYW5kIEkgcHJvbWlzZWQgdG8gd29yayBvbgo+IGZp
+bmlzaGluZwoKVGhhbmtzLiBJIGd1ZXNzIHRoYXQgSSBtaWdodCBiZSBhYmxlIHRvIGJhc2UgcGFy
+dHMgb2YgYW4gU1RUIGltcGxlbWVudGF0aW9uCm9uIHRoYXQgd29yay4KCkknZCBsaWtlIHRvIHVz
+ZSBhbiBTVFQgaW1wbGVtZW50YXRpb24gd2l0aCBPVlMsIHNvIGluLXRyZWUgdHVubmVsIHN1cHBv
+cnQKZm9yIE9WUyBpcyBhbHNvIGltcG9ydGFudCB0byBtZS4KCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
+dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
