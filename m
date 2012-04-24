@@ -1,44 +1,176 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] net: speedup skb_splice_bits()
-Date: Mon, 23 Apr 2012 23:02:05 -0400 (EDT)
-Message-ID: <20120423.230205.418261556142199877.davem@davemloft.net>
+Date: Mon, 23 Apr 2012 23:06:41 -0400 (EDT)
+Message-ID: <20120423.230641.256329442020745539.davem@davemloft.net>
 References: <1335133576.2395.409.camel@edumazet-glaptop>
+	<20120423.230205.418261556142199877.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, therbert@google.com, axboe@kernel.dk
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34764 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34779 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756459Ab2DXDCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 23:02:13 -0400
-In-Reply-To: <1335133576.2395.409.camel@edumazet-glaptop>
+	with ESMTP id S1756454Ab2DXDGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 23:06:45 -0400
+In-Reply-To: <20120423.230205.418261556142199877.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 23 Apr 2012 00:26:16 +0200
+From: David Miller <davem@davemloft.net>
+Date: Mon, 23 Apr 2012 23:02:05 -0400 (EDT)
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Commit 35f3d14db (pipe: add support for shrinking and growing pipes)
-> added a slowdown for splice(socket -> pipe), as we might grow the spd
-> used in skb_splice_bits() for each skb we process in splice() syscall.
-> 
-> Its not needed since skb lengths are capped. The default on-stack arrays
-> are more than enough.
-> 
-> Use MAX_SKB_FRAGS instead of PIPE_DEF_BUFFERS to describe the reasonable
-> limit per skb.
-> 
-> Add coalescing support to help splicing of GRO skbs built from linear
-> skbs (linked into frag_list)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jens Axboe <axboe@kernel.dk>
-> Cc: Tom Herbert <therbert@google.com>
+> I'm going to cleanup spd_fill_page() to return a bool.
 
-Applied thanks.
+Done, thusly:
 
-I'm going to cleanup spd_fill_page() to return a bool.
+--------------------
+net: Use bool and remove inline in skb_splice_bits() code.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/skbuff.c |   58 ++++++++++++++++++++++++++---------------------------
+ 1 file changed, 29 insertions(+), 29 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index dfb3040..aaf4abc 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1547,9 +1547,9 @@ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
+ 	put_page(spd->pages[i]);
+ }
+ 
+-static inline struct page *linear_to_page(struct page *page, unsigned int *len,
+-					  unsigned int *offset,
+-					  struct sk_buff *skb, struct sock *sk)
++static struct page *linear_to_page(struct page *page, unsigned int *len,
++				   unsigned int *offset,
++				   struct sk_buff *skb, struct sock *sk)
+ {
+ 	struct page *p = sk->sk_sndmsg_page;
+ 	unsigned int off;
+@@ -1598,23 +1598,23 @@ static bool spd_can_coalesce(const struct splice_pipe_desc *spd,
+ /*
+  * Fill page/offset/length into spd, if it can hold more pages.
+  */
+-static inline int spd_fill_page(struct splice_pipe_desc *spd,
+-				struct pipe_inode_info *pipe, struct page *page,
+-				unsigned int *len, unsigned int offset,
+-				struct sk_buff *skb, int linear,
+-				struct sock *sk)
++static bool spd_fill_page(struct splice_pipe_desc *spd,
++			  struct pipe_inode_info *pipe, struct page *page,
++			  unsigned int *len, unsigned int offset,
++			  struct sk_buff *skb, int linear,
++			  struct sock *sk)
+ {
+ 	if (unlikely(spd->nr_pages == MAX_SKB_FRAGS))
+-		return 1;
++		return true;
+ 
+ 	if (linear) {
+ 		page = linear_to_page(page, len, &offset, skb, sk);
+ 		if (!page)
+-			return 1;
++			return true;
+ 	}
+ 	if (spd_can_coalesce(spd, page, offset)) {
+ 		spd->partial[spd->nr_pages - 1].len += *len;
+-		return 0;
++		return false;
+ 	}
+ 	get_page(page);
+ 	spd->pages[spd->nr_pages] = page;
+@@ -1622,7 +1622,7 @@ static inline int spd_fill_page(struct splice_pipe_desc *spd,
+ 	spd->partial[spd->nr_pages].offset = offset;
+ 	spd->nr_pages++;
+ 
+-	return 0;
++	return false;
+ }
+ 
+ static inline void __segment_seek(struct page **page, unsigned int *poff,
+@@ -1639,20 +1639,20 @@ static inline void __segment_seek(struct page **page, unsigned int *poff,
+ 	*plen -= off;
+ }
+ 
+-static inline int __splice_segment(struct page *page, unsigned int poff,
+-				   unsigned int plen, unsigned int *off,
+-				   unsigned int *len, struct sk_buff *skb,
+-				   struct splice_pipe_desc *spd, int linear,
+-				   struct sock *sk,
+-				   struct pipe_inode_info *pipe)
++static bool __splice_segment(struct page *page, unsigned int poff,
++			     unsigned int plen, unsigned int *off,
++			     unsigned int *len, struct sk_buff *skb,
++			     struct splice_pipe_desc *spd, int linear,
++			     struct sock *sk,
++			     struct pipe_inode_info *pipe)
+ {
+ 	if (!*len)
+-		return 1;
++		return true;
+ 
+ 	/* skip this segment if already processed */
+ 	if (*off >= plen) {
+ 		*off -= plen;
+-		return 0;
++		return false;
+ 	}
+ 
+ 	/* ignore any bits we already processed */
+@@ -1668,23 +1668,23 @@ static inline int __splice_segment(struct page *page, unsigned int poff,
+ 		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
+ 
+ 		if (spd_fill_page(spd, pipe, page, &flen, poff, skb, linear, sk))
+-			return 1;
++			return true;
+ 
+ 		__segment_seek(&page, &poff, &plen, flen);
+ 		*len -= flen;
+ 
+ 	} while (*len && plen);
+ 
+-	return 0;
++	return false;
+ }
+ 
+ /*
+- * Map linear and fragment data from the skb to spd. It reports failure if the
++ * Map linear and fragment data from the skb to spd. It reports true if the
+  * pipe is full or if we already spliced the requested length.
+  */
+-static int __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+-			     unsigned int *offset, unsigned int *len,
+-			     struct splice_pipe_desc *spd, struct sock *sk)
++static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
++			      unsigned int *offset, unsigned int *len,
++			      struct splice_pipe_desc *spd, struct sock *sk)
+ {
+ 	int seg;
+ 
+@@ -1695,7 +1695,7 @@ static int __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+ 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
+ 			     skb_headlen(skb),
+ 			     offset, len, skb, spd, 1, sk, pipe))
+-		return 1;
++		return true;
+ 
+ 	/*
+ 	 * then map the fragments
+@@ -1706,10 +1706,10 @@ static int __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+ 		if (__splice_segment(skb_frag_page(f),
+ 				     f->page_offset, skb_frag_size(f),
+ 				     offset, len, skb, spd, 0, sk, pipe))
+-			return 1;
++			return true;
+ 	}
+ 
+-	return 0;
++	return false;
+ }
+ 
+ /*
+-- 
+1.7.10
