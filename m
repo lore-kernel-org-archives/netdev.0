@@ -1,176 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: speedup skb_splice_bits()
-Date: Mon, 23 Apr 2012 23:06:41 -0400 (EDT)
-Message-ID: <20120423.230641.256329442020745539.davem@davemloft.net>
-References: <1335133576.2395.409.camel@edumazet-glaptop>
-	<20120423.230205.418261556142199877.davem@davemloft.net>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [PATCH v1 6/8] dmaengine: enhance network subsystem to support
+ DMA device hotplug
+Date: Mon, 23 Apr 2012 20:09:40 -0700
+Message-ID: <CABE8wwvW9MUWaqSUCPMr7_yj7XGtSj+X9VE1-xWrEusZ3TMaqQ@mail.gmail.com>
+References: <1335189109-4871-1-git-send-email-jiang.liu@huawei.com>
+	<1335189109-4871-7-git-send-email-jiang.liu@huawei.com>
+	<CABE8wwvi_Yz8AyALr1-uDW9xSgrSqfrYWhB_22NQ2ydTa81+mg@mail.gmail.com>
+	<4F961041.7010106@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, axboe@kernel.dk
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34779 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756454Ab2DXDGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Apr 2012 23:06:45 -0400
-In-Reply-To: <20120423.230205.418261556142199877.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jiang Liu <liuj97@gmail.com>, Vinod Koul <vinod.koul@intel.com>,
+	Keping Chen <chenkeping@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiang Liu <jiang.liu@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <4F961041.7010106@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 23 Apr 2012 23:02:05 -0400 (EDT)
+On Mon, Apr 23, 2012 at 7:30 PM, Jiang Liu <jiang.liu@huawei.com> wrote:
+>> If you are going to hotplug the entire IOH, then you are probably ok
+>> with network links going down, so could you just down the links and
+>> remove the driver with the existing code?
+>
+> I feel it's a little risky to shut down/restart all network interfaces
+> for hot-removal of IOH, that may disturb the applications.
 
-> I'm going to cleanup spd_fill_page() to return a bool.
+I guess I'm confused... wouldn't the removal of an entire domain of
+pci devices disturb userspace applications?
 
-Done, thusly:
+> And there
+> are also other kinds of clients, such as ASYNC_TX, seems we can't
+> adopt this method to reclaim DMA channels from ASYNC_TX subsystem.
 
---------------------
-net: Use bool and remove inline in skb_splice_bits() code.
+I say handle this like block device hotplug.  I.e. the driver stays
+loaded but the channel is put into an 'offline' state.  So the driver
+hides the fact that the hardware went away.  Similar to how you can
+remove a disk but /dev/sda sticks around until the last reference is
+gone (and the driver 'sd' sticks around until all block devices are
+gone).
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/skbuff.c |   58 ++++++++++++++++++++++++++---------------------------
- 1 file changed, 29 insertions(+), 29 deletions(-)
+I expect the work will be in making sure existing clients are prepared
+to handle NULL returns from ->device_prep_dma_*.  In some cases the
+channel is treated more like a cpu, so a NULL return from
+->device_prep_dma_memcpy() has been interpreted as "device is
+temporarily busy, it is safe to try again".  We would need to change
+that to a permanent indication that the device is gone and not attempt
+retry.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index dfb3040..aaf4abc 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1547,9 +1547,9 @@ static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
- 	put_page(spd->pages[i]);
- }
- 
--static inline struct page *linear_to_page(struct page *page, unsigned int *len,
--					  unsigned int *offset,
--					  struct sk_buff *skb, struct sock *sk)
-+static struct page *linear_to_page(struct page *page, unsigned int *len,
-+				   unsigned int *offset,
-+				   struct sk_buff *skb, struct sock *sk)
- {
- 	struct page *p = sk->sk_sndmsg_page;
- 	unsigned int off;
-@@ -1598,23 +1598,23 @@ static bool spd_can_coalesce(const struct splice_pipe_desc *spd,
- /*
-  * Fill page/offset/length into spd, if it can hold more pages.
-  */
--static inline int spd_fill_page(struct splice_pipe_desc *spd,
--				struct pipe_inode_info *pipe, struct page *page,
--				unsigned int *len, unsigned int offset,
--				struct sk_buff *skb, int linear,
--				struct sock *sk)
-+static bool spd_fill_page(struct splice_pipe_desc *spd,
-+			  struct pipe_inode_info *pipe, struct page *page,
-+			  unsigned int *len, unsigned int offset,
-+			  struct sk_buff *skb, int linear,
-+			  struct sock *sk)
- {
- 	if (unlikely(spd->nr_pages == MAX_SKB_FRAGS))
--		return 1;
-+		return true;
- 
- 	if (linear) {
- 		page = linear_to_page(page, len, &offset, skb, sk);
- 		if (!page)
--			return 1;
-+			return true;
- 	}
- 	if (spd_can_coalesce(spd, page, offset)) {
- 		spd->partial[spd->nr_pages - 1].len += *len;
--		return 0;
-+		return false;
- 	}
- 	get_page(page);
- 	spd->pages[spd->nr_pages] = page;
-@@ -1622,7 +1622,7 @@ static inline int spd_fill_page(struct splice_pipe_desc *spd,
- 	spd->partial[spd->nr_pages].offset = offset;
- 	spd->nr_pages++;
- 
--	return 0;
-+	return false;
- }
- 
- static inline void __segment_seek(struct page **page, unsigned int *poff,
-@@ -1639,20 +1639,20 @@ static inline void __segment_seek(struct page **page, unsigned int *poff,
- 	*plen -= off;
- }
- 
--static inline int __splice_segment(struct page *page, unsigned int poff,
--				   unsigned int plen, unsigned int *off,
--				   unsigned int *len, struct sk_buff *skb,
--				   struct splice_pipe_desc *spd, int linear,
--				   struct sock *sk,
--				   struct pipe_inode_info *pipe)
-+static bool __splice_segment(struct page *page, unsigned int poff,
-+			     unsigned int plen, unsigned int *off,
-+			     unsigned int *len, struct sk_buff *skb,
-+			     struct splice_pipe_desc *spd, int linear,
-+			     struct sock *sk,
-+			     struct pipe_inode_info *pipe)
- {
- 	if (!*len)
--		return 1;
-+		return true;
- 
- 	/* skip this segment if already processed */
- 	if (*off >= plen) {
- 		*off -= plen;
--		return 0;
-+		return false;
- 	}
- 
- 	/* ignore any bits we already processed */
-@@ -1668,23 +1668,23 @@ static inline int __splice_segment(struct page *page, unsigned int poff,
- 		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
- 
- 		if (spd_fill_page(spd, pipe, page, &flen, poff, skb, linear, sk))
--			return 1;
-+			return true;
- 
- 		__segment_seek(&page, &poff, &plen, flen);
- 		*len -= flen;
- 
- 	} while (*len && plen);
- 
--	return 0;
-+	return false;
- }
- 
- /*
-- * Map linear and fragment data from the skb to spd. It reports failure if the
-+ * Map linear and fragment data from the skb to spd. It reports true if the
-  * pipe is full or if we already spliced the requested length.
-  */
--static int __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
--			     unsigned int *offset, unsigned int *len,
--			     struct splice_pipe_desc *spd, struct sock *sk)
-+static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
-+			      unsigned int *offset, unsigned int *len,
-+			      struct splice_pipe_desc *spd, struct sock *sk)
- {
- 	int seg;
- 
-@@ -1695,7 +1695,7 @@ static int __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
- 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
- 			     skb_headlen(skb),
- 			     offset, len, skb, spd, 1, sk, pipe))
--		return 1;
-+		return true;
- 
- 	/*
- 	 * then map the fragments
-@@ -1706,10 +1706,10 @@ static int __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
- 		if (__splice_segment(skb_frag_page(f),
- 				     f->page_offset, skb_frag_size(f),
- 				     offset, len, skb, spd, 0, sk, pipe))
--			return 1;
-+			return true;
- 	}
- 
--	return 0;
-+	return false;
- }
- 
- /*
--- 
-1.7.10
+--
+Dan
