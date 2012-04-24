@@ -1,30 +1,22 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net] net/neigh: move neigh cleanup routine to neigh_destroy
-Date: Tue, 24 Apr 2012 13:05:09 +0300
-Message-ID: <4F967AD5.3010807@mellanox.com>
-References: <1335195282-28738-1-git-send-email-ogerlitz@mellanox.com> <20120424.005309.2292973770816115829.davem@davemloft.net>
+From: Susan Wright <dgarveycobh@eircom.net>
+Subject: Confirm Mail Receipt!!!
+Date: Tue, 24 Apr 2012 10:59:49 +0100 (IST)
+Message-ID: <4774200.3957.1335261589850.JavaMail.root@webmailbox100.eircom.net>
+Reply-To: Susan Wright <taim011@mail2uk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <shlomop@mellanox.com>
-To: David Miller <davem@davemloft.net>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:36598 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756606Ab2DXKFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 06:05:35 -0400
-In-Reply-To: <20120424.005309.2292973770816115829.davem@davemloft.net>
+Received: from mail17.svc.cra.dublin.eircom.net ([159.134.118.216]:39916 "HELO
+	mail17.svc.cra.dublin.eircom.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756600Ab2DXKGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 06:06:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/24/2012 7:53 AM, David Miller wrote:
-> With IPOIB, the neigh_cleanup purges references to the neigh when it 
-> liberates the SKBs in the neigh resolution TX backlog during 
-> ipoib_neigh_free(). Therefore, with your change, IPOIB neighs will 
-> never be destroyed if they have any SKBs in their neigh resolution 
-> queues. I'm not applying this, it's buggy. 
+Good Day
 
-Oh yes indeed, so we will need to address that dependency too when 
-coming to fix the ipoib neigh related races, thanks for spotting this over.
+I have been directed to contact you for a business proposal that requires your attention and acceptance  by my boss, Mr. Tia  Almeida,  the Principal Assurance Manager of BANCO EFISA. kindly indicate your interest by responding to his private email address: taim011@mail2uk.com
 
-Or.
+Secretary
