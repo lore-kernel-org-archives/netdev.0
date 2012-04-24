@@ -1,55 +1,50 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive for
- TCP
-Date: Tue, 24 Apr 2012 13:32:34 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1204241323550.735@wel-95.cs.helsinki.fi>
-References: <alpine.DEB.2.00.1204241113020.735@wel-95.cs.helsinki.fi> <20120424.042546.2154907239944513463.davem@davemloft.net> <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi> <20120424.044837.771495850418417499.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1576193486-1335263554=:735"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, rick.jones2@hp.com,
-	Netdev <netdev@vger.kernel.org>, therbert@google.com,
-	ncardwell@google.com, maze@google.com,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH 0/5][6lowpan] several fixes for 6lowpan
+Date: Tue, 24 Apr 2012 14:51:06 +0400
+Message-ID: <1335264671-27127-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Cc: davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53666 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751298Ab2DXKcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 06:32:36 -0400
-In-Reply-To: <20120424.044837.771495850418417499.davem@davemloft.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:63896 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752359Ab2DXKvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 06:51:38 -0400
+Received: by bkuw12 with SMTP id w12so313831bku.19
+        for <netdev@vger.kernel.org>; Tue, 24 Apr 2012 03:51:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
---8323329-1576193486-1335263554=:735
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+Dear David,
 
-On Tue, 24 Apr 2012, David Miller wrote:
+the following patch-set contains several fixes/improvements for 6lowpan:
+1. fix: segmentation fault caused by mlme request
+2. impr: move frame allocation code to a separate function
+3. fix: clean up fragments list if module unloaded
+4. impr: duplicate definition of IEEE802154_ALEN
+5. fix: add missing spin_lock_init()
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Tue, 24 Apr 2012 11:40:27 +0300 (EEST)
-> 
-> > And the problem I mentioned in the previous mail (in the terms of this 
-> > code fragment) is that ackdiff is no longer MSS or 2*MSS because of GRO 
-> > for the opposite direction doesn't trigger all those ACKs a non-GRO 
-> > receiver would.
-> 
-> And in any event, you cannot depend upon the ACK boundaries in any way
-> shape or form, 2 * MSS is just one valid mode of ACK'ing.
-> 
-> Whether we get a GRO stretch ACK or a normal 2 * MSS one, it has to
-> work properly either way.
+Could you please review them?
 
-I don't see how any of this is that much different from the data side. x 
-bytes, x bytes, x bytes, ... (typically x=MSS) is just one valid mode of 
-data sending, and yet the GRO is currently based on this one mode only. 
-...It of course works properly also when that is not true but won't work 
-as efficiently as when the size remains the same.
+With best regards,
+Alex
 
+8<--
 
--- 
- i.
---8323329-1576193486-1335263554=:735--
+The following changes since commit ac807fa8e625aff58060876d70298c93a59c4252:
+
+  tcp: Fix build warning after tcp_{v4,v6}_init_sock consolidation. (2012-04-23 03:21:58 -0400)
+
+are available in the git repository at:
+  git://local ..BRANCH.NOT.VERIFIED..
+
+Alexander Smirnov (5):
+      6lowpan: fix segmentation fault caused by mlme request
+      6lowpan: move frame allocation code to a separate function
+      6lowpan: clean up fragments list if module unloaded
+      6lowpan: duplicate definition of IEEE802154_ALEN
+      6lowpan: add missing spin_lock_init()
+
+ net/ieee802154/6lowpan.c |  125 ++++++++++++++++++++++++++++++++--------------
+ net/ieee802154/6lowpan.h |    3 -
+ 2 files changed, 88 insertions(+), 40 deletions(-)
