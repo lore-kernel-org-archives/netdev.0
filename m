@@ -1,55 +1,48 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 23/28] mISDN: Fix compiler warnings
-Date: Tue, 24 Apr 2012 09:24:38 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EEE@saturn3.aculab.com>
-References: <20120423170551.B37049FB98@pingi6.linux-pingi.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2 net-next] tcp: sk_add_backlog() is too agressive
+ for TCP
+Date: Tue, 24 Apr 2012 04:25:46 -0400 (EDT)
+Message-ID: <20120424.042546.2154907239944513463.davem@davemloft.net>
+References: <alpine.DEB.2.00.1204241026410.735@wel-95.cs.helsinki.fi>
+	<20120424.041018.1514311596818654005.davem@davemloft.net>
+	<alpine.DEB.2.00.1204241113020.735@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <isdn4linux@listserv.isdn4linux.de>
-To: "Karsten Keil" <isdn@linux-pingi.de>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, rick.jones2@hp.com, netdev@vger.kernel.org,
+	therbert@google.com, ncardwell@google.com, maze@google.com,
+	ycheng@google.com
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:56384 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753268Ab2DXIYp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:24:45 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 12093-02 for <netdev@vger.kernel.org>;
- Tue, 24 Apr 2012 09:24:43 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20120423170551.B37049FB98@pingi6.linux-pingi.de>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36959 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753831Ab2DXI0I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 04:26:08 -0400
+In-Reply-To: <alpine.DEB.2.00.1204241113020.735@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-> diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c 
-> b/drivers/isdn/hardware/mISDN/hfcmulti.c
-> index 884c090..144c35a 100644
-> --- a/drivers/isdn/hardware/mISDN/hfcmulti.c
-> +++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-> @@ -2456,12 +2456,12 @@ handle_timer_irq(struct hfc_multi *hc)
->  		spin_unlock_irqrestore(&HFClock, flags);
->  	}
->  	if (test_bit(HFC_CHIP_2MBITRAW, &hc->chip)) {
-> -		if (hc->created[hc->chan[0].port] && hc->chan[ch].bch &&
-> +		ch = 0;
-> +		if (hc->created[hc->chan[ch].port] && 
-> hc->chan[ch].bch &&
->  		    test_bit(FLG_ACTIVE, &hc->chan[ch].bch->Flags)) {
->  			ch_activ++;
-> -			hfcmulti_tx(hc, 0);
-> -			hfcmulti_rx(hc, 0);
-> -			ch = 1;
-> +			hfcmulti_tx(hc, ch);
-> +			hfcmulti_rx(hc, ch);
->  			if (hc->chan[ch].dch &&
->  			    hc->chan[ch].nt_timer > -1) {
->  				dch = hc->chan[ch].dch;
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Tue, 24 Apr 2012 11:21:18 +0300 (EEST)
 
-That seems to change the fields checked in the final 'if'.
-Not sure it is the intended behaviour.
+> On Tue, 24 Apr 2012, David Miller wrote:
+>=20
+>> That makes this a non-starter since we must therefore remember all o=
+f
+>> the SACK boundaries in the original packets.
+>=20
+> GRO works because TCP tends to use rather constant MSS, right? ...Sin=
+ce=20
+> ACKs and SACKs are nothing more than reflection of those MSS boundari=
+es of=20
+> the opposite direction I don't find that as impossible as you do beca=
+use=20
+> the same kind of "mss" assumption can be applied there. But GRO has m=
+ade=20
+> this somewhat messier now because the receiver doesn't any more gener=
+ate=20
+> ACK per MSS or ACK per 2*MSS but that could be "fixed" by offloading =
+the=20
+> ACK sending when responding to a GROed packet.
 
-	David
+We're talking about accumulating ACKs on GRO not data packets.
