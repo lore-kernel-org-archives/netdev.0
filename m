@@ -1,8 +1,8 @@
 From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 3/5] 6lowpan: clean up fragments list
-	if module unloaded
-Date: Tue, 24 Apr 2012 14:51:09 +0400
-Message-ID: <1335264671-27127-4-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH 2/5] 6lowpan: move frame allocation
+	code to a separate function
+Date: Tue, 24 Apr 2012 14:51:08 +0400
+Message-ID: <1335264671-27127-3-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1335264671-27127-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,41 +21,115 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Clean all the pending fragments and timers if 6lowpan link
-is going to be deleted.
+Separate frame allocation routine from data processing function.
+This makes code more human readable and easier to understand.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c |   13 +++++++++++--
- 1 files changed, 11 insertions(+), 2 deletions(-)
+ net/ieee802154/6lowpan.c |   81 +++++++++++++++++++++++++++-------------------
+ 1 files changed, 48 insertions(+), 33 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index d440233..a57174e 100644
+index 7ce508f..d440233 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -1192,11 +1192,20 @@ static void lowpan_dellink(struct net_device *dev, struct list_head *head)
- {
- 	struct lowpan_dev_info *lowpan_dev = lowpan_dev_info(dev);
- 	struct net_device *real_dev = lowpan_dev->real_dev;
--	struct lowpan_dev_record *entry;
--	struct lowpan_dev_record *tmp;
-+	struct lowpan_dev_record *entry, *tmp;
-+	struct lowpan_fragment *frame, *tframe;
+@@ -650,6 +650,53 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
+ 	kfree(entry);
+ }
  
- 	ASSERT_RTNL();
- 
-+	spin_lock(&flist_lock);
-+	list_for_each_entry_safe(frame, tframe, &lowpan_fragments, list) {
-+		del_timer(&frame->timer);
-+		list_del(&frame->list);
-+		dev_kfree_skb(frame->skb);
-+		kfree(frame);
-+	}
-+	spin_unlock(&flist_lock);
++static struct lowpan_fragment *
++lowpan_alloc_new_frame(struct sk_buff *skb, u8 iphc0, u8 len, u8 tag)
++{
++	struct lowpan_fragment *frame;
 +
- 	mutex_lock(&lowpan_dev_info(dev)->dev_list_mtx);
- 	list_for_each_entry_safe(entry, tmp, &lowpan_devices, list) {
- 		if (entry->ldev == dev) {
++	frame = kzalloc(sizeof(struct lowpan_fragment),
++			GFP_ATOMIC);
++	if (!frame)
++		goto frame_err;
++
++	INIT_LIST_HEAD(&frame->list);
++
++	frame->length = (iphc0 & 7) | (len << 3);
++	frame->tag = tag;
++
++	/* allocate buffer for frame assembling */
++	frame->skb = alloc_skb(frame->length +
++			       sizeof(struct ipv6hdr), GFP_ATOMIC);
++
++	if (!frame->skb)
++		goto skb_err;
++
++	frame->skb->priority = skb->priority;
++	frame->skb->dev = skb->dev;
++
++	/* reserve headroom for uncompressed ipv6 header */
++	skb_reserve(frame->skb, sizeof(struct ipv6hdr));
++	skb_put(frame->skb, frame->length);
++
++	init_timer(&frame->timer);
++	/* time out is the same as for ipv6 - 60 sec */
++	frame->timer.expires = jiffies + LOWPAN_FRAG_TIMEOUT;
++	frame->timer.data = (unsigned long)frame;
++	frame->timer.function = lowpan_fragment_timer_expired;
++
++	add_timer(&frame->timer);
++
++	list_add_tail(&frame->list, &lowpan_fragments);
++
++	return frame;
++
++skb_err:
++	kfree(frame);
++frame_err:
++	return NULL;
++}
++
+ static int
+ lowpan_process_data(struct sk_buff *skb)
+ {
+@@ -692,41 +739,9 @@ lowpan_process_data(struct sk_buff *skb)
+ 
+ 		/* alloc new frame structure */
+ 		if (!found) {
+-			frame = kzalloc(sizeof(struct lowpan_fragment),
+-								GFP_ATOMIC);
++			frame = lowpan_alloc_new_frame(skb, iphc0, len, tag);
+ 			if (!frame)
+ 				goto unlock_and_drop;
+-
+-			INIT_LIST_HEAD(&frame->list);
+-
+-			frame->length = (iphc0 & 7) | (len << 3);
+-			frame->tag = tag;
+-
+-			/* allocate buffer for frame assembling */
+-			frame->skb = alloc_skb(frame->length +
+-					sizeof(struct ipv6hdr), GFP_ATOMIC);
+-
+-			if (!frame->skb) {
+-				kfree(frame);
+-				goto unlock_and_drop;
+-			}
+-
+-			frame->skb->priority = skb->priority;
+-			frame->skb->dev = skb->dev;
+-
+-			/* reserve headroom for uncompressed ipv6 header */
+-			skb_reserve(frame->skb, sizeof(struct ipv6hdr));
+-			skb_put(frame->skb, frame->length);
+-
+-			init_timer(&frame->timer);
+-			/* time out is the same as for ipv6 - 60 sec */
+-			frame->timer.expires = jiffies + LOWPAN_FRAG_TIMEOUT;
+-			frame->timer.data = (unsigned long)frame;
+-			frame->timer.function = lowpan_fragment_timer_expired;
+-
+-			add_timer(&frame->timer);
+-
+-			list_add_tail(&frame->list, &lowpan_fragments);
+ 		}
+ 
+ 		if ((iphc0 & LOWPAN_DISPATCH_MASK) == LOWPAN_DISPATCH_FRAG1)
 -- 
 1.7.2.3
 
