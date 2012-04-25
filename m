@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 8/8] isdn/capi: elliminate capincci_find() in non-middleware case
+Subject: [PATCH 5/8] isdn/gigaset: internal function name cleanup
 Date: Thu, 26 Apr 2012 01:02:20 +0200 (CEST)
-Message-ID: <20120425-patch-gigaset-08.tilman@imap.cc>
+Message-ID: <20120425-patch-gigaset-05.tilman@imap.cc>
 References: <20120425-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -13,102 +13,69 @@ In-Reply-To: <20120425-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If Kernel CAPI is compiled without CONFIG_ISDN_CAPI_MIDDLEWARE,
-the structure retrieved via capincci_find() is never actually
-used, so don't compile that function in that case.
+Functions clear_at_state and free_strings did the same thing;
+drop one of them, keeping the more descriptive name.
+Drop a redundant call.
+Rename function dealloc_at_states to dealloc_temp_at_states
+to clarify its purpose.
 
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/capi/capi.c |   27 +++++++++++++--------------
- 1 files changed, 13 insertions(+), 14 deletions(-)
+ drivers/isdn/gigaset/common.c |   16 +++++-----------
+ 1 files changed, 5 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index 9ee3991..38c4bd8 100644
---- a/drivers/isdn/capi/capi.c
-+++ b/drivers/isdn/capi/capi.c
-@@ -336,11 +336,6 @@ static inline void
- capincci_alloc_minor(struct capidev *cdev, struct capincci *np) { }
- static inline void capincci_free_minor(struct capincci *np) { }
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index 7679270..6c306d4 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -362,7 +362,7 @@ struct event_t *gigaset_add_event(struct cardstate *cs,
+ }
+ EXPORT_SYMBOL_GPL(gigaset_add_event);
  
--static inline unsigned int capincci_minor_opencount(struct capincci *np)
+-static void free_strings(struct at_state_t *at_state)
++static void clear_at_state(struct at_state_t *at_state)
+ {
+ 	int i;
+ 
+@@ -372,18 +372,13 @@ static void free_strings(struct at_state_t *at_state)
+ 	}
+ }
+ 
+-static void clear_at_state(struct at_state_t *at_state)
 -{
--	return 0;
+-	free_strings(at_state);
 -}
 -
- #endif /* !CONFIG_ISDN_CAPI_MIDDLEWARE */
- 
- static struct capincci *capincci_alloc(struct capidev *cdev, u32 ncci)
-@@ -372,6 +367,7 @@ static void capincci_free(struct capidev *cdev, u32 ncci)
- 		}
- }
- 
-+#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
- static struct capincci *capincci_find(struct capidev *cdev, u32 ncci)
+-static void dealloc_at_states(struct cardstate *cs)
++static void dealloc_temp_at_states(struct cardstate *cs)
  {
- 	struct capincci *np;
-@@ -382,7 +378,6 @@ static struct capincci *capincci_find(struct capidev *cdev, u32 ncci)
- 	return NULL;
+ 	struct at_state_t *cur, *next;
+ 
+ 	list_for_each_entry_safe(cur, next, &cs->temp_at_states, list) {
+ 		list_del(&cur->list);
+-		free_strings(cur);
++		clear_at_state(cur);
+ 		kfree(cur);
+ 	}
  }
+@@ -512,7 +507,7 @@ void gigaset_freecs(struct cardstate *cs)
+ 	case 1: /* error when registering to LL */
+ 		gig_dbg(DEBUG_INIT, "clearing at_state");
+ 		clear_at_state(&cs->at_state);
+-		dealloc_at_states(cs);
++		dealloc_temp_at_states(cs);
  
--#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
- /* -------- handle data queue --------------------------------------- */
+ 		/* fall through */
+ 	case 0:	/* error in basic setup */
+@@ -848,8 +843,7 @@ static void cleanup_cs(struct cardstate *cs)
+ 	cs->mstate = MS_UNINITIALIZED;
  
- static struct sk_buff *
-@@ -578,8 +573,8 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
- 	struct tty_struct *tty;
- 	struct capiminor *mp;
- 	u16 datahandle;
--#endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
- 	struct capincci *np;
-+#endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+ 	clear_at_state(&cs->at_state);
+-	dealloc_at_states(cs);
+-	free_strings(&cs->at_state);
++	dealloc_temp_at_states(cs);
+ 	gigaset_at_init(&cs->at_state, NULL, cs, 0);
  
- 	mutex_lock(&cdev->lock);
- 
-@@ -597,6 +592,12 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
- 		goto unlock_out;
- 	}
- 
-+#ifndef CONFIG_ISDN_CAPI_MIDDLEWARE
-+	skb_queue_tail(&cdev->recvqueue, skb);
-+	wake_up_interruptible(&cdev->recvwait);
-+
-+#else /* CONFIG_ISDN_CAPI_MIDDLEWARE */
-+
- 	np = capincci_find(cdev, CAPIMSG_CONTROL(skb->data));
- 	if (!np) {
- 		printk(KERN_ERR "BUG: capi_signal: ncci not found\n");
-@@ -605,12 +606,6 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
- 		goto unlock_out;
- 	}
- 
--#ifndef CONFIG_ISDN_CAPI_MIDDLEWARE
--	skb_queue_tail(&cdev->recvqueue, skb);
--	wake_up_interruptible(&cdev->recvwait);
--
--#else /* CONFIG_ISDN_CAPI_MIDDLEWARE */
--
- 	mp = np->minorp;
- 	if (!mp) {
- 		skb_queue_tail(&cdev->recvqueue, skb);
-@@ -893,6 +888,11 @@ register_out:
- 			return -EFAULT;
- 		return 0;
- 
-+#ifndef CONFIG_ISDN_CAPI_MIDDLEWARE
-+	case CAPI_NCCI_OPENCOUNT:
-+		return 0;
-+
-+#else /* CONFIG_ISDN_CAPI_MIDDLEWARE */
- 	case CAPI_NCCI_OPENCOUNT: {
- 		struct capincci *nccip;
- 		unsigned ncci;
-@@ -909,7 +909,6 @@ register_out:
- 		return count;
- 	}
- 
--#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
- 	case CAPI_NCCI_GETUNIT: {
- 		struct capincci *nccip;
- 		struct capiminor *mp;
+ 	cs->inbuf->inputstate = INS_command;
 -- 
 1.7.3.4
