@@ -1,17 +1,17 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 10/15] batman-adv: introduce is_single_hop_neigh variable to increase readability
-Date: Wed, 25 Apr 2012 15:27:06 +0200
-Message-ID: <1335360431-30027-11-git-send-email-ordex@autistici.org>
+Subject: [PATCH 13/15] batman-adv: rename last_valid to last_seen
+Date: Wed, 25 Apr 2012 15:27:09 +0200
+Message-ID: <1335360431-30027-14-git-send-email-ordex@autistici.org>
 References: <1335360431-30027-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:38990 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:39030 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757213Ab2DYN00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 09:26:26 -0400
+	with ESMTP id S1757480Ab2DYN03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 09:26:29 -0400
 In-Reply-To: <1335360431-30027-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,70 +22,129 @@ Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c |   16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ net/batman-adv/bat_iv_ogm.c |    8 ++++----
+ net/batman-adv/originator.c |   16 ++++++++--------
+ net/batman-adv/types.h      |    8 ++++----
+ 3 files changed, 16 insertions(+), 16 deletions(-)
 
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 8b2db2e..cd8f473 100644
+index e0aaf8c..8652a75 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -480,7 +480,8 @@ static void bat_iv_ogm_queue_add(struct bat_priv *bat_priv,
- static void bat_iv_ogm_forward(struct orig_node *orig_node,
- 			       const struct ethhdr *ethhdr,
- 			       struct batman_ogm_packet *batman_ogm_packet,
--			       int directlink, struct hard_iface *if_incoming)
-+			       bool is_single_hop_neigh,
-+			       struct hard_iface *if_incoming)
+@@ -651,7 +651,7 @@ static void bat_iv_ogm_orig_update(struct bat_priv *bat_priv,
+ 	rcu_read_unlock();
+ 
+ 	orig_node->flags = batman_ogm_packet->flags;
+-	neigh_node->last_valid = jiffies;
++	neigh_node->last_seen = jiffies;
+ 
+ 	spin_lock_bh(&neigh_node->tq_lock);
+ 	ring_buffer_set(neigh_node->tq_recv,
+@@ -772,11 +772,11 @@ static int bat_iv_ogm_calc_tq(struct orig_node *orig_node,
+ 	if (!neigh_node)
+ 		goto out;
+ 
+-	/* if orig_node is direct neighbor update neigh_node last_valid */
++	/* if orig_node is direct neighbor update neigh_node last_seen */
+ 	if (orig_node == orig_neigh_node)
+-		neigh_node->last_valid = jiffies;
++		neigh_node->last_seen = jiffies;
+ 
+-	orig_node->last_valid = jiffies;
++	orig_node->last_seen = jiffies;
+ 
+ 	/* find packet count of corresponding one hop neighbor */
+ 	spin_lock_bh(&orig_node->ogm_cnt_lock);
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 31d7b58..936b2e6 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -285,7 +285,7 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 	hlist_for_each_entry_safe(neigh_node, node, node_tmp,
+ 				  &orig_node->neigh_list, list) {
+ 
+-		if ((has_timed_out(neigh_node->last_valid, PURGE_TIMEOUT)) ||
++		if ((has_timed_out(neigh_node->last_seen, PURGE_TIMEOUT)) ||
+ 		    (neigh_node->if_incoming->if_status == IF_INACTIVE) ||
+ 		    (neigh_node->if_incoming->if_status == IF_NOT_IN_USE) ||
+ 		    (neigh_node->if_incoming->if_status == IF_TO_BE_REMOVED)) {
+@@ -302,9 +302,9 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 					neigh_node->if_incoming->net_dev->name);
+ 			else
+ 				bat_dbg(DBG_BATMAN, bat_priv,
+-					"neighbor timeout: originator %pM, neighbor: %pM, last_valid: %lu\n",
++					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %lu\n",
+ 					orig_node->orig, neigh_node->addr,
+-					(neigh_node->last_valid / HZ));
++					(neigh_node->last_seen / HZ));
+ 
+ 			neigh_purged = true;
+ 
+@@ -327,10 +327,10 @@ static bool purge_orig_node(struct bat_priv *bat_priv,
  {
- 	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
- 	struct neigh_node *router;
-@@ -533,7 +534,7 @@ static void bat_iv_ogm_forward(struct orig_node *orig_node,
+ 	struct neigh_node *best_neigh_node;
  
- 	/* switch of primaries first hop flag when forwarding */
- 	batman_ogm_packet->flags &= ~PRIMARIES_FIRST_HOP;
--	if (directlink)
-+	if (is_single_hop_neigh)
- 		batman_ogm_packet->flags |= DIRECTLINK;
- 	else
- 		batman_ogm_packet->flags &= ~DIRECTLINK;
-@@ -918,7 +919,8 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 	struct neigh_node *orig_neigh_router = NULL;
- 	int has_directlink_flag;
- 	int is_my_addr = 0, is_my_orig = 0, is_my_oldorig = 0;
--	int is_broadcast = 0, is_bidirectional, is_single_hop_neigh;
-+	int is_broadcast = 0, is_bidirectional;
-+	bool is_single_hop_neigh = false;
- 	int is_duplicate;
- 	uint32_t if_incoming_seqno;
- 
-@@ -942,8 +944,8 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 
- 	has_directlink_flag = (batman_ogm_packet->flags & DIRECTLINK ? 1 : 0);
- 
--	is_single_hop_neigh = (compare_eth(ethhdr->h_source,
--					   batman_ogm_packet->orig) ? 1 : 0);
-+	if (compare_eth(ethhdr->h_source, batman_ogm_packet->orig))
-+		is_single_hop_neigh = true;
- 
- 	bat_dbg(DBG_BATMAN, bat_priv,
- 		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
-@@ -1114,7 +1116,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 
- 		/* mark direct link on incoming interface */
- 		bat_iv_ogm_forward(orig_node, ethhdr, batman_ogm_packet,
--				   1, if_incoming);
-+				   is_single_hop_neigh, if_incoming);
- 
+-	if (has_timed_out(orig_node->last_valid, 2 * PURGE_TIMEOUT)) {
++	if (has_timed_out(orig_node->last_seen, 2 * PURGE_TIMEOUT)) {
  		bat_dbg(DBG_BATMAN, bat_priv,
- 			"Forwarding packet: rebroadcast neighbor packet with direct link flag\n");
-@@ -1137,7 +1139,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 	bat_dbg(DBG_BATMAN, bat_priv,
- 		"Forwarding packet: rebroadcast originator packet\n");
- 	bat_iv_ogm_forward(orig_node, ethhdr, batman_ogm_packet,
--			   0, if_incoming);
-+			   is_single_hop_neigh, if_incoming);
+-			"Originator timeout: originator %pM, last_valid %lu\n",
+-			orig_node->orig, (orig_node->last_valid / HZ));
++			"Originator timeout: originator %pM, last_seen %lu\n",
++			orig_node->orig, (orig_node->last_seen / HZ));
+ 		return true;
+ 	} else {
+ 		if (purge_orig_neighbors(bat_priv, orig_node,
+@@ -448,9 +448,9 @@ int orig_seq_print_text(struct seq_file *seq, void *offset)
+ 				goto next;
  
- out_neigh:
- 	if ((orig_neigh_node) && (!is_single_hop_neigh))
+ 			last_seen_secs = jiffies_to_msecs(jiffies -
+-						orig_node->last_valid) / 1000;
++						orig_node->last_seen) / 1000;
+ 			last_seen_msecs = jiffies_to_msecs(jiffies -
+-						orig_node->last_valid) % 1000;
++						orig_node->last_seen) % 1000;
+ 
+ 			seq_printf(seq, "%pM %4i.%03is   (%3i) %pM [%10s]:",
+ 				   orig_node->orig, last_seen_secs,
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index ed6db5c..5ca9b58 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -63,7 +63,7 @@ struct hard_iface {
+ /**
+  *	orig_node - structure for orig_list maintaining nodes of mesh
+  *	@primary_addr: hosts primary interface address
+- *	@last_valid: when last packet from this node was received
++ *	@last_seen: when last packet from this node was received
+  *	@bcast_seqno_reset: time when the broadcast seqno window was reset
+  *	@batman_seqno_reset: time when the batman seqno window was reset
+  *	@gw_flags: flags related to gateway class
+@@ -84,7 +84,7 @@ struct orig_node {
+ 	struct neigh_node __rcu *router; /* rcu protected pointer */
+ 	unsigned long *bcast_own;
+ 	uint8_t *bcast_own_sum;
+-	unsigned long last_valid;
++	unsigned long last_seen;
+ 	unsigned long bcast_seqno_reset;
+ 	unsigned long batman_seqno_reset;
+ 	uint8_t gw_flags;
+@@ -134,7 +134,7 @@ struct gw_node {
+ 
+ /**
+  *	neigh_node
+- *	@last_valid: when last packet via this neighbor was received
++ *	@last_seen: when last packet via this neighbor was received
+  */
+ struct neigh_node {
+ 	struct hlist_node list;
+@@ -145,7 +145,7 @@ struct neigh_node {
+ 	uint8_t tq_avg;
+ 	uint8_t last_ttl;
+ 	struct list_head bonding_list;
+-	unsigned long last_valid;
++	unsigned long last_seen;
+ 	DECLARE_BITMAP(real_bits, TQ_LOCAL_WINDOW_SIZE);
+ 	atomic_t refcount;
+ 	struct rcu_head rcu;
 -- 
 1.7.9.4
