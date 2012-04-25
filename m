@@ -1,144 +1,114 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 7/8] isdn/capi: fix readability damage
+Subject: [PATCH 8/8] isdn/capi: elliminate capincci_find() in non-middleware case
 Date: Thu, 26 Apr 2012 01:02:20 +0200 (CEST)
-Message-ID: <20120425-patch-gigaset-07.tilman@imap.cc>
+Message-ID: <20120425-patch-gigaset-08.tilman@imap.cc>
 References: <20120425-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Karsten Keil <isdn@linux-pingi.de>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([89.1.7.7]:35428 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932516Ab2DYXDc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 19:03:32 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20120425-patch-gigaset-00.tilman@imap.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix up some of the readibility deterioration caused by the recent
-whitespace coding style cleanup.
+If Kernel CAPI is compiled without CONFIG_ISDN_CAPI_MIDDLEWARE,
+the structure retrieved via capincci_find() is never actually
+used, so don't compile that function in that case.
 
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/capi/capi.c    |   23 +++++++----------------
- drivers/isdn/capi/capidrv.c |    8 +++++---
- 2 files changed, 12 insertions(+), 19 deletions(-)
+ drivers/isdn/capi/capi.c |   27 +++++++++++++--------------
+ 1 files changed, 13 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-index b902794..9ee3991 100644
+index 9ee3991..38c4bd8 100644
 --- a/drivers/isdn/capi/capi.c
 +++ b/drivers/isdn/capi/capi.c
-@@ -786,7 +786,6 @@ register_out:
- 		return retval;
+@@ -336,11 +336,6 @@ static inline void
+ capincci_alloc_minor(struct capidev *cdev, struct capincci *np) { }
+ static inline void capincci_free_minor(struct capincci *np) { }
  
- 	case CAPI_GET_VERSION:
--	{
- 		if (copy_from_user(&data.contr, argp,
- 				   sizeof(data.contr)))
- 			return -EFAULT;
-@@ -796,11 +795,9 @@ register_out:
- 		if (copy_to_user(argp, &data.version,
- 				 sizeof(data.version)))
- 			return -EFAULT;
--	}
+-static inline unsigned int capincci_minor_opencount(struct capincci *np)
+-{
 -	return 0;
-+		return 0;
- 
- 	case CAPI_GET_SERIAL:
--	{
- 		if (copy_from_user(&data.contr, argp,
- 				   sizeof(data.contr)))
- 			return -EFAULT;
-@@ -810,10 +807,9 @@ register_out:
- 		if (copy_to_user(argp, data.serial,
- 				 sizeof(data.serial)))
- 			return -EFAULT;
--	}
--	return 0;
-+		return 0;
-+
- 	case CAPI_GET_PROFILE:
--	{
- 		if (copy_from_user(&data.contr, argp,
- 				   sizeof(data.contr)))
- 			return -EFAULT;
-@@ -837,11 +833,9 @@ register_out:
- 		}
- 		if (retval)
- 			return -EFAULT;
--	}
--	return 0;
-+		return 0;
- 
- 	case CAPI_GET_MANUFACTURER:
--	{
- 		if (copy_from_user(&data.contr, argp,
- 				   sizeof(data.contr)))
- 			return -EFAULT;
-@@ -853,8 +847,8 @@ register_out:
- 				 sizeof(data.manufacturer)))
- 			return -EFAULT;
- 
--	}
--	return 0;
-+		return 0;
-+
- 	case CAPI_GET_ERRCODE:
- 		data.errcode = cdev->errcode;
- 		cdev->errcode = CAPI_NOERROR;
-@@ -870,8 +864,7 @@ register_out:
- 			return 0;
- 		return -ENXIO;
- 
--	case CAPI_MANUFACTURER_CMD:
--	{
-+	case CAPI_MANUFACTURER_CMD: {
- 		struct capi_manufacturer_cmd mcmd;
- 		if (!capable(CAP_SYS_ADMIN))
- 			return -EPERM;
-@@ -879,8 +872,6 @@ register_out:
- 			return -EFAULT;
- 		return capi20_manufacturer(mcmd.cmd, mcmd.data);
- 	}
--	return 0;
+-}
 -
- 	case CAPI_SET_FLAGS:
- 	case CAPI_CLR_FLAGS: {
- 		unsigned userflags;
-diff --git a/drivers/isdn/capi/capidrv.c b/drivers/isdn/capi/capidrv.c
-index 6f5016b..832bc80 100644
---- a/drivers/isdn/capi/capidrv.c
-+++ b/drivers/isdn/capi/capidrv.c
-@@ -1593,7 +1593,7 @@ static int capidrv_command(isdn_ctrl *c, capidrv_contr *card)
- 		return capidrv_ioctl(c, card);
+ #endif /* !CONFIG_ISDN_CAPI_MIDDLEWARE */
  
- 	switch (c->command) {
--	case ISDN_CMD_DIAL:{
-+	case ISDN_CMD_DIAL: {
- 		u8 calling[ISDN_MSNLEN + 3];
- 		u8 called[ISDN_MSNLEN + 2];
+ static struct capincci *capincci_alloc(struct capidev *cdev, u32 ncci)
+@@ -372,6 +367,7 @@ static void capincci_free(struct capidev *cdev, u32 ncci)
+ 		}
+ }
  
-@@ -2072,7 +2072,8 @@ static int capidrv_addcontr(u16 contr, struct capi_profile *profp)
- 	card->interface.writebuf_skb = if_sendbuf;
- 	card->interface.writecmd = NULL;
- 	card->interface.readstat = if_readstat;
--	card->interface.features = ISDN_FEATURE_L2_HDLC |
-+	card->interface.features =
-+		ISDN_FEATURE_L2_HDLC |
- 		ISDN_FEATURE_L2_TRANS |
- 		ISDN_FEATURE_L3_TRANS |
- 		ISDN_FEATURE_P_UNKNOWN |
-@@ -2080,7 +2081,8 @@ static int capidrv_addcontr(u16 contr, struct capi_profile *profp)
- 		ISDN_FEATURE_L2_X75UI |
- 		ISDN_FEATURE_L2_X75BUI;
- 	if (profp->support1 & (1 << 2))
--		card->interface.features |= ISDN_FEATURE_L2_V11096 |
-+		card->interface.features |=
-+			ISDN_FEATURE_L2_V11096 |
- 			ISDN_FEATURE_L2_V11019 |
- 			ISDN_FEATURE_L2_V11038;
- 	if (profp->support1 & (1 << 8))
++#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+ static struct capincci *capincci_find(struct capidev *cdev, u32 ncci)
+ {
+ 	struct capincci *np;
+@@ -382,7 +378,6 @@ static struct capincci *capincci_find(struct capidev *cdev, u32 ncci)
+ 	return NULL;
+ }
+ 
+-#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+ /* -------- handle data queue --------------------------------------- */
+ 
+ static struct sk_buff *
+@@ -578,8 +573,8 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
+ 	struct tty_struct *tty;
+ 	struct capiminor *mp;
+ 	u16 datahandle;
+-#endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+ 	struct capincci *np;
++#endif /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+ 
+ 	mutex_lock(&cdev->lock);
+ 
+@@ -597,6 +592,12 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
+ 		goto unlock_out;
+ 	}
+ 
++#ifndef CONFIG_ISDN_CAPI_MIDDLEWARE
++	skb_queue_tail(&cdev->recvqueue, skb);
++	wake_up_interruptible(&cdev->recvwait);
++
++#else /* CONFIG_ISDN_CAPI_MIDDLEWARE */
++
+ 	np = capincci_find(cdev, CAPIMSG_CONTROL(skb->data));
+ 	if (!np) {
+ 		printk(KERN_ERR "BUG: capi_signal: ncci not found\n");
+@@ -605,12 +606,6 @@ static void capi_recv_message(struct capi20_appl *ap, struct sk_buff *skb)
+ 		goto unlock_out;
+ 	}
+ 
+-#ifndef CONFIG_ISDN_CAPI_MIDDLEWARE
+-	skb_queue_tail(&cdev->recvqueue, skb);
+-	wake_up_interruptible(&cdev->recvwait);
+-
+-#else /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+-
+ 	mp = np->minorp;
+ 	if (!mp) {
+ 		skb_queue_tail(&cdev->recvqueue, skb);
+@@ -893,6 +888,11 @@ register_out:
+ 			return -EFAULT;
+ 		return 0;
+ 
++#ifndef CONFIG_ISDN_CAPI_MIDDLEWARE
++	case CAPI_NCCI_OPENCOUNT:
++		return 0;
++
++#else /* CONFIG_ISDN_CAPI_MIDDLEWARE */
+ 	case CAPI_NCCI_OPENCOUNT: {
+ 		struct capincci *nccip;
+ 		unsigned ncci;
+@@ -909,7 +909,6 @@ register_out:
+ 		return count;
+ 	}
+ 
+-#ifdef CONFIG_ISDN_CAPI_MIDDLEWARE
+ 	case CAPI_NCCI_GETUNIT: {
+ 		struct capincci *nccip;
+ 		struct capiminor *mp;
 -- 
 1.7.3.4
