@@ -1,45 +1,44 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: My e1000e GBE card is eating all port 623 pks
-Date: Wed, 25 Apr 2012 12:13:24 +0200
-Message-ID: <OF5EAA95CA.AD556F23-ONC12579EB.00380938-C12579EB.00382894@transmode.se>
-References: <OF8F83D7F0.387F6CCE-ONC12579E7.0049B885-C12579E7.004A4356@transmode.se> <20120424145128.000070a8@unknown> <OF497D4E52.CC9EA3C0-ONC12579EB.0031DCB3-C12579EB.003213E4@transmode.se> <4F97CA9B.3060105@ens-lyon.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: RTAX_FEATURE_ALLFRAG causes inefficient
+ TCP segment sizing
+Date: Wed, 25 Apr 2012 12:15:29 +0200
+Message-ID: <1335348929.3274.33.camel@edumazet-glaptop>
+References: <1335289058.5205.165.camel@edumazet-glaptop>
+	 <CANP3RGd0mV8RcH1zCLBg+N9sgPGbiynhOSfoUAYpcMgYsvzeNA@mail.gmail.com>
+	 <1335298228.5205.168.camel@edumazet-glaptop>
+	 <CANP3RGfhc+4FjB152r58AP66oZQmj0oY-Zh=9qNn9OABCXPwbw@mail.gmail.com>
+	 <1335331960.5205.180.camel@edumazet-glaptop>
+	 <CANP3RGdhs8s_RytR=f8ismSZdGs91bpVq=ZAjb0EOm-gCsDPAw@mail.gmail.com>
+	 <f88609a3e80bbe53233e62dec2699a3e@greed.fud.no>
+	 <CANP3RGcGH6Su8Lvt34eTDF2iv2HSipo2DvybXGQA4pXZj_qb9Q@mail.gmail.com>
+	 <4c435f101fb7c653fd3b4e81980250e7@greed.fud.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org
-To: Brice Goglin <Brice.Goglin@ens-lyon.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Tore Anderson <tore@fud.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([195.58.98.146]:58606 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757167Ab2DYKN1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 06:13:27 -0400
-In-Reply-To: <4F97CA9B.3060105@ens-lyon.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:43020 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757133Ab2DYKPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 06:15:39 -0400
+Received: by bkuw12 with SMTP id w12so1226677bku.19
+        for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 03:15:37 -0700 (PDT)
+In-Reply-To: <4c435f101fb7c653fd3b4e81980250e7@greed.fud.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brice Goglin <Brice.Goglin@ens-lyon.org> wrote on 2012/04/25 11:57:47:
->
-> On 25/04/2012 11:06, Joakim Tjernlund wrote:
-> > Jesse Brandeburg<jesse.brandeburg@intel.com>  wrote on 2012/04/24 23:51:28:
-> >> On Sat, 21 Apr 2012 15:31:09 +0200
-> >> Joakim Tjernlund<joakim.tjernlund@transmode.se>  wrote:
-> >>
-> >>> Looks like port 623 is some mgmt protocol and our e1000e boards are eating these
-> >>> pkgs and this trips NIS, finger and yptest hangs for a long time before timing out and
-> >>> moving on.
-> >>>
-> >>> Is there a way to tell the network stack not to eat port 623 pkgs or
-> >>> have NIS not to use port 623?
-> >> I think you might be looking for something like portreserve
-> >> (see man portreserve)
-> > Seen portreserve on the web(gentoo does not have it) but it seems like a workaround.
-> > Should not eating port 623 be something one should turn on? Now it is default on
-> > and I cannot find a way to turn it off.
-> >
->
-> It might be related to IPMI (UDP/623 iirc). Try looking in your BIOS
-> and/or network firmware config at boot, there might be things to disable
-> there.
+On Wed, 2012-04-25 at 12:04 +0200, Tore Anderson wrote:
 
-Been looking around but didn't find anything to turn this off, can you be more specific
-where to look?
+> 
+> Also, I'm not really sure if the IPv4 minimum PMTU is defined as 576 or
+> 68 bytes. There are some conflicting information out there, and nothing 
+> really
+> authoritative either way (that I've found at least).
+
+576 certainly not.
+
+68 seems to be allowed
