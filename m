@@ -1,40 +1,44 @@
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: [PATCH] crush: include header for global symbols
-Date: Tue, 24 Apr 2012 17:38:37 -0700
-Message-ID: <201204241738.38280.hartleys@visionengravers.com>
+From: Pradeep Kanyar <pradeep.kanyar@gmail.com>
+Subject: Question on IPv6 addresses and netlink message ordering
+Date: Wed, 25 Apr 2012 08:41:16 +0530
+Message-ID: <CAL7k4TzeJAb8ONJyK1ED3sLbpGeoL6_gBobkphbQvD6YYkhL0Q@mail.gmail.com>
+References: <CAL7k4TzFHavRETDo-myeQonR0RyA35v5uwe1NKaxREn3E1xdZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <ceph-devel@vger.kernel.org>,
-	<sage@newdream.net>, <davem@davemloft.net>
-To: Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <ceph-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: ceph-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:47779 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754705Ab2DYDLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Apr 2012 23:11:17 -0400
+Received: by wejx9 with SMTP id x9so829397wej.19
+        for <netdev@vger.kernel.org>; Tue, 24 Apr 2012 20:11:16 -0700 (PDT)
+In-Reply-To: <CAL7k4TzFHavRETDo-myeQonR0RyA35v5uwe1NKaxREn3E1xdZg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Include the header to pickup the definitions of the global symbols.
+Hi,
+If we configure a global IPv6 address on an interface in linux, and if
+we monitor the netlink messages
+[using nl-monitor from libnl for e.g,] I see that we get RTM_NEWROUTE
+for the global address subnet
+first, and then RTM_NEWADDR. Isn't this strange? Shouldn't we be
+seeing RTM_NEWADDR first
+andRTM_NEWROUTE subsequently ....? I put some prints in the path and I
+see that the following
+seems to be order of events [initially at least] when I configure a
+global v6 address on an interface:
 
-Quiets the following sparse warnings:
+1. RTM_NEWROUTE notify in fib6_add_rt2node
+2. RTM_NEWADDR notify in addrconf_dad_completed
 
-warning: symbol 'crush_find_rule' was not declared. Should it be static?
-warning: symbol 'crush_do_rule' was not declared. Should it be static?
+I saw this on a system running 2.6.32 but a cursory look at more
+recent kernels seemed to indicate
+that the code path hasn't changed much in this area [ but I might be wrong ].
 
-Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
-Cc: Sage Weil <sage@newdream.net>
-Cc: "David S. Miller" <davem@davemloft.net>
+Why is this out-of-order? On the contrary, in case of IPv4 addresses,
+we always see RTM_NEWADDR
+first followed by RTM_NEWROUTE [for the directly connected network]
 
----
-
-diff --git a/net/ceph/crush/mapper.c b/net/ceph/crush/mapper.c
-index 854ac53..363f8f7 100644
---- a/net/ceph/crush/mapper.c
-+++ b/net/ceph/crush/mapper.c
-@@ -20,6 +20,7 @@
- 
- #include <linux/crush/crush.h>
- #include <linux/crush/hash.h>
-+#include <linux/crush/mapper.h>
- 
- /*
-  * Implement the core CRUSH mapping algorithm.
+Thanks,
+Pradeep
