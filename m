@@ -1,114 +1,52 @@
-From: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 4/5] don't take cgroup_mutex in destroy()
-Date: Wed, 25 Apr 2012 16:01:03 +0800
-Message-ID: <4F97AF3F.10101@huawei.com>
-References: <1335209867-1831-1-git-send-email-glommer@parallels.com>
- <1335209867-1831-5-git-send-email-glommer@parallels.com>
- <4F96109A.8000907@jp.fujitsu.com> <4F9691A8.1070106@parallels.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 2/4] ipvs: take care of return value from protocol
+ init_netns
+Date: Wed, 25 Apr 2012 11:35:28 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1204251126420.1895@ja.ssi.bg>
+References: <1335339821-29684-1-git-send-email-hans.schillstrom@ericsson.com> <1335339821-29684-3-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7BIT
-Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-reply-to: <4F9691A8.1070106-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, wensong@linux-vs.org,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hans@schillstrom.com
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1335339821-29684-3-git-send-email-hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Glauber Costa wrote:
 
-> On 04/23/2012 11:31 PM, KAMEZAWA Hiroyuki wrote:
->> (2012/04/24 4:37), Glauber Costa wrote:
->>
->>> Most of the destroy functions are only doing very simple things
->>> like freeing memory.
->>>
->>> The ones who goes through lists and such, already use its own
->>> locking for those.
->>>
->>> * The cgroup itself won't go away until we free it, (after destroy)
->>> * The parent won't go away because we hold a reference count
->>> * There are no more tasks in the cgroup, and the cgroup is declared
->>>    dead (cgroup_is_removed() == true)
->>>
->>> [v2: don't cgroup_lock the freezer and blkcg ]
->>>
->>> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
->>> CC: Tejun Heo<tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->>> CC: Li Zefan<lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
->>> CC: Kamezawa Hiroyuki<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
->>> CC: Vivek Goyal<vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>> ---
->>>   kernel/cgroup.c |    9 ++++-----
->>>   1 files changed, 4 insertions(+), 5 deletions(-)
->>>
->>> diff --git a/kernel/cgroup.c b/kernel/cgroup.c
->>> index 932c318..976d332 100644
->>> --- a/kernel/cgroup.c
->>> +++ b/kernel/cgroup.c
->>> @@ -869,13 +869,13 @@ static void cgroup_diput(struct dentry *dentry, struct inode *inode)
->>>   		 * agent */
->>>   		synchronize_rcu();
->>>
->>> -		mutex_lock(&cgroup_mutex);
->>>   		/*
->>>   		 * Release the subsystem state objects.
->>>   		 */
->>>   		for_each_subsys(cgrp->root, ss)
->>>   			ss->destroy(cgrp);
->>>
->>> +		mutex_lock(&cgroup_mutex);
->>>   		cgrp->root->number_of_cgroups--;
->>>   		mutex_unlock(&cgroup_mutex);
->>>
->>> @@ -3994,13 +3994,12 @@ static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
->>>
->>>    err_destroy:
->>>
->>> +	mutex_unlock(&cgroup_mutex);
->>>   	for_each_subsys(root, ss) {
->>>   		if (cgrp->subsys[ss->subsys_id])
->>>   			ss->destroy(cgrp);
->>>   	}
->>>
->>> -	mutex_unlock(&cgroup_mutex);
->>> -
->>>   	/* Release the reference count that we took on the superblock */
->>>   	deactivate_super(sb);
->>>
->>> @@ -4349,9 +4348,9 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
->>>   		int ret = cgroup_init_idr(ss, css);
->>>   		if (ret) {
->>>   			dummytop->subsys[ss->subsys_id] = NULL;
->>> +			mutex_unlock(&cgroup_mutex);
->>>   			ss->destroy(dummytop);
->>>   			subsys[i] = NULL;
->>> -			mutex_unlock(&cgroup_mutex);
->>>   			return ret;
->>>   		}
->>>   	}
->>> @@ -4447,10 +4446,10 @@ void cgroup_unload_subsys(struct cgroup_subsys *ss)
->>>   	 * pointer to find their state. note that this also takes care of
->>>   	 * freeing the css_id.
->>>   	 */
->>> +	mutex_unlock(&cgroup_mutex);
->>>   	ss->destroy(dummytop);
->>>   	dummytop->subsys[ss->subsys_id] = NULL;
->>>
->>
->> I'm not fully sure but...dummytop->subsys[] update can be done without locking ?
->>
-> I don't see a reason why updates to subsys[] after destruction shouldn't
-> be safe. But maybe I am wrong.
+	Hello,
+
+On Wed, 25 Apr 2012, Hans Schillstrom wrote:
+
+> ip_vs_create_timeout_table() can return NULL
+> All functions protocol init_netns is affected of this patch.
 > 
-> Tejun? Li?
-> 
+> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> ---
 
+> diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+> index 6a8d176..0b74795 100644
+> --- a/net/netfilter/ipvs/ip_vs_proto.c
+> +++ b/net/netfilter/ipvs/ip_vs_proto.c
+> @@ -79,7 +79,7 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
+>  	atomic_set(&pd->appcnt, 0);	/* Init app counter */
+>  
+>  	if (pp->init_netns != NULL)
+> -		pp->init_netns(net, pd);
+> +		return pp->init_netns(net, pd);
 
-It's safe for dummpytop->subsys[], but it makes the code a bit subtle.
+	May be it is better to unlink and free the pd here
+if init_netns fails. Currently, protocols attach only
+allocated pointer (pd->timeout_table) and it is not a
+big problem to call exit_netns on failure but lets do
+it safely, every init handler should release its data on
+failure and then we should not call exit_netns.
 
-The worst part is, it's not safe to NULLify subsys[i] without cgroup_mutex. It should be
-ok to do that before calling ->destroy(), but again the code becomes a bit subtler.
+	Patch 1 looks ok and I'll ack it next time.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
