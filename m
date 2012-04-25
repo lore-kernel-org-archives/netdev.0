@@ -1,52 +1,55 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH 12/14 v2] usb/net: rndis: merge command codes
-Date: Wed, 25 Apr 2012 20:39:31 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD36CCA@TK5EX14MBXC221.redmond.corp.microsoft.com>
-References: <1335368163-4792-1-git-send-email-linus.walleij@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-next 2012-04-25
+Date: Wed, 25 Apr 2012 16:39:26 -0400 (EDT)
+Message-ID: <20120425.163926.2209040699696617525.davem@davemloft.net>
+References: <20120425191418.GC16900@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Linus Walleij <linus.walleij@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Felipe Balbi <balbi@ti.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:1466 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758815Ab2DYUjv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 16:39:51 -0400
-In-Reply-To: <1335368163-4792-1-git-send-email-linus.walleij@linaro.org>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:53801 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758960Ab2DYUkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 16:40:37 -0400
+In-Reply-To: <20120425191418.GC16900@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 25 Apr 2012 15:14:19 -0400
 
+> This is another batch of updates intended for 3.5...
+ ...
+> Please let me know if there are problems!
 
-> -----Original Message-----
-> From: Linus Walleij [mailto:linus.walleij@linaro.org]
-> Sent: Wednesday, April 25, 2012 11:36 AM
-> To: netdev@vger.kernel.org; linux-usb@vger.kernel.org; Greg Kroah-Hartman;
-> David S. Miller; Felipe Balbi
-> Cc: Jussi Kivilinna; Haiyang Zhang; Wei Yongjun; Ben Hutchings; Linus
-> Walleij
-> Subject: [PATCH 12/14 v2] usb/net: rndis: merge command codes
-> 
-> Switch the hyperv filter and rndis gadget driver to use the same command
-> enumerators as the other drivers and delete the surplus command codes.
-> 
-> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
-> ---
->  drivers/net/hyperv/rndis_filter.c |   42 ++++++++++++++++++--------------
-> ----
->  drivers/usb/gadget/rndis.c        |   37 +++++++++++++++----------------
->  include/linux/rndis.h             |   17 ---------------
->  3 files changed, 39 insertions(+), 57 deletions(-)
-> 
+There are:
 
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+>From 792545c7bc5d6b922d3778dc602e557d64c83551 Mon Sep 17 00:00:00 2001
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Date: Mon, 23 Apr 2012 19:55:48 -0700
+Subject: [PATCH 88/88] libertas: include sched.h on firmware.c
+
+Do not assume we have our subsystem including this for us,
+at least for older kernels this is not true. Lets just be
+explicit about this requirement for the usage of wake_up().
+
+Signed-off-by: Luis R. Rodriguez <mcgrof@do-not-panic.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+
+This is bogus, wake_up() is defined in linux/wait.h, the whole
+point of the linux/sched.h split up is so that linux/sched.h
+includes could be removed and replaced with actual dependencies.
+
+Also, please don't accept any patches from Luis that add those
+#undef pr_fmt things to the atheros drivers.
+
+He tried to add it an ethernet driver, and I asked him to explain
+exactly why he's doing and that if it's appropriate then it's
+appropriate everywhere not just in a few specific drivers.  He failed
+to respond to me, and therefore failed to explain the situation and
+address my concerned.  And then I saw just today that he's submitting
+the same patch to wireless drivers.  That's not acceptable.
+
+Thanks.
