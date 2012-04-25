@@ -1,197 +1,100 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [PATCH 1/1] ipvs: kernel oops - do_ip_vs_get_ctl
-Date: Wed, 25 Apr 2012 11:36:44 +0200
-Message-ID: <201204251136.46013.hans.schillstrom@ericsson.com>
-References: <1335339884-29825-1-git-send-email-hans.schillstrom@ericsson.com> <1335344761.6337.42.camel@t520>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: RTAX_FEATURE_ALLFRAG causes inefficient
+ TCP segment sizing
+Date: Wed, 25 Apr 2012 11:38:30 +0200
+Message-ID: <1335346710.3274.24.camel@edumazet-glaptop>
+References: <1335289058.5205.165.camel@edumazet-glaptop>
+	 <CANP3RGd0mV8RcH1zCLBg+N9sgPGbiynhOSfoUAYpcMgYsvzeNA@mail.gmail.com>
+	 <1335298228.5205.168.camel@edumazet-glaptop>
+	 <CANP3RGfhc+4FjB152r58AP66oZQmj0oY-Zh=9qNn9OABCXPwbw@mail.gmail.com>
+	 <1335331960.5205.180.camel@edumazet-glaptop>
+	 <CANP3RGdhs8s_RytR=f8ismSZdGs91bpVq=ZAjb0EOm-gCsDPAw@mail.gmail.com>
+	 <f88609a3e80bbe53233e62dec2699a3e@greed.fud.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1335344761.6337.42.camel@t520>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Tore Anderson <tore@fud.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:36594 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756991Ab2DYJig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 05:38:36 -0400
+Received: by eaaq12 with SMTP id q12so428327eaa.19
+        for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 02:38:34 -0700 (PDT)
+In-Reply-To: <f88609a3e80bbe53233e62dec2699a3e@greed.fud.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 25 April 2012 11:06:01 Jesper Dangaard Brouer wrote:
-> Hi Hans,
-> 
-> Thank you for your work.
-> Just some whitespace nitpicks below.
+On Wed, 2012-04-25 at 11:20 +0200, Tore Anderson wrote:
+> * Maciej =C5=BBenczykowski
+>=20
+> >> But we chose to _not_ decrease mtu and adhere to the specs.
+> >
+> > I get that we _choose_ to behave such, and I agree this adheres to
+> > specs.
+>=20
+> "Chose" (past), not "choose" (present). ;-)
+>=20
+> This patch does not make this choice. This patch merely fixes a bug i=
+n
+> the implementation of the choice that was made a long time ago.
+>=20
+> > But I'm not convinced that (even though this is allowed per RFC) th=
+is
+> > is the right choice.
+>=20
+> That is a different issue entirely, but I don't disagree with you. A
+> "min_pmtu" sysctl or something like that would be useful.
+>=20
+> > Also note that IPv6 prefers to see fragmentation happen at the end
+> > hosts, and not at the routers.
+> > Although of course it doesn't treat a tunnel end point as a router.
+>=20
+> Actually, in IPv6, fragmentation *must* be performed by end hosts,
+> routers (including tunnel end points) *cannot* fragment.
+>=20
+> However, the use case for the allfrag feature is not handling tunnels=
+,
+> but IPv4<->IPv6 translation. The issue is that a IPv6 host may very=20
+> well
+> receive an ICMPv6 Packet Too Big indicating a PMTU of <1280 that was
+> originally transmitted by an IPv4 router (as an ICMPv4 Need To=20
+> Fragment)
+> and underwent translation to IPv6.
+>=20
+> In this case, the IPv6 node does not need to reduce the PMTU to <1280
+> (Linux does not), but it is not invalid to have a <1280 MTU link in t=
+he
+> IPv4 internet either, so something else must be done for the
+> communication to work. The solution is then to include the IPv6=20
+> Fragment
+> extension header, so that the translator have a suitable Identificati=
+on
+> value to copy into the translated IPv4 header, and may therefore clea=
+r
+> the Don't Fragment flag, so that the IPv4 router will fragment the
+> packet as it is forwarded onto the low-MTU link.
+>=20
+> In case you're interested, I have a slide deck below that explains th=
+e
+> use case for IPv4<->IPv6 translation. Slide 25 is about the particula=
+r
+> corner case where the allfrag feature is necessary. URL:
+>=20
+> http://fud.no/talks/20120417-RIPE64-The_Case_for_IPv6_Only_Data_Centr=
+es.pdf
 
-OK thanks I forgott to run checkpatch ...
-I'll send a new patch  
 
-> I have not been able to reproduce the bug in:
->   https://bugzilla.redhat.com/show_bug.cgi?id=806704
-> 
-> Can you recommend a (better) way to reproduce this bug?
-> I just want to be able to verify that this fixes the bug in question.
+Hmm, but what if we change linux to choice a) instead of b) ?
 
-I think you need two threads or procs.
-Start a modprobe in thread one then issue a ipvs ioctl in the other.
-The timing is not that easy here :-)
+That is, not cap mtu to minimum value 1280 (and not use anymore
+RTAX_FEATURE_ALLFRAG) : dst_allfrag() would be always false.
 
-> 
-> 
-> On Wed, 2012-04-25 at 09:44 +0200, Hans Schillstrom wrote:
-> > Change order of init so netns init is ready
-> > when register ioctl and netlink.
-> > 
-> > Reported-by: "Ryan O'Hara" <rohara@redhat.com>
-> > Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> > ---
-> >  include/net/ip_vs.h             |    2 +
-> >  net/netfilter/ipvs/ip_vs_core.c |    9 ++++++
-> >  net/netfilter/ipvs/ip_vs_ctl.c  |   52 ++++++++++++++++++++++----------------
-> >  3 files changed, 41 insertions(+), 22 deletions(-)
-> > 
-> > diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> > index f967395..93b81aa 100644
-> > --- a/include/net/ip_vs.h
-> > +++ b/include/net/ip_vs.h
-> > @@ -1201,6 +1201,8 @@ ip_vs_lookup_real_service(struct net *net, int af, __u16 protocol,
-> >  
-> >  extern int ip_vs_use_count_inc(void);
-> >  extern void ip_vs_use_count_dec(void);
-> > +extern int ip_vs_register_nl_ioctl(void);
-> > +extern void ip_vs_unregister_nl_ioctl(void);
-> >  extern int ip_vs_control_init(void);
-> >  extern void ip_vs_control_cleanup(void);
-> >  extern struct ip_vs_dest *
-> > diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> > index d8b1d30..c8f36b9 100644
-> > --- a/net/netfilter/ipvs/ip_vs_core.c
-> > +++ b/net/netfilter/ipvs/ip_vs_core.c
-> > @@ -1995,10 +1995,18 @@ static int __init ip_vs_init(void)
-> >  		goto cleanup_dev;
-> >  	}
-> >  
-> > +	ret = ip_vs_register_nl_ioctl();
-> > +	if (ret < 0) {
-> > +		pr_err("can't register netlink/ioctl.\n");
-> > +		goto cleanup_hooks;
-> > +	}
-> > +
-> >  	pr_info("ipvs loaded.\n");
-> >  
-> >  	return ret;
-> >  
-> > +cleanup_hooks:
-> > +	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
-> >  cleanup_dev:
-> >  	unregister_pernet_device(&ipvs_core_dev_ops);
-> >  cleanup_sub:
-> > @@ -2014,6 +2022,7 @@ exit:
-> >  
-> >  static void __exit ip_vs_cleanup(void)
-> >  {
-> > +	ip_vs_unregister_nl_ioctl();
-> >  	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
-> >  	unregister_pernet_device(&ipvs_core_dev_ops);
-> >  	unregister_pernet_subsys(&ipvs_core_ops);	/* free ip_vs struct */
-> > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> > index 7131417..efaf484 100644
-> > --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> > @@ -3750,21 +3750,10 @@ void __net_exit ip_vs_control_net_cleanup(struct net *net)
-> >  	free_percpu(ipvs->tot_stats.cpustats);
-> >  }
-> >  
-> > -int __init ip_vs_control_init(void)
-> > +int ip_vs_register_nl_ioctl(void)
-> >  {
-> > -	int idx;
-> >  	int ret;
-> >  
-> > -	EnterFunction(2);
-> > -
-> > -	/* Initialize svc_table, ip_vs_svc_fwm_table, rs_table */
-> > -	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
-> > -		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
-> > -		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
-> > -	}
-> > -
-> > -	smp_wmb();	/* Do we really need it now ? */
-> > -
-> >  	ret = nf_register_sockopt(&ip_vs_sockopts);
-> >  	if (ret) {
-> >  		pr_err("cannot register sockopt.\n");
-> > @@ -3776,28 +3765,47 @@ int __init ip_vs_control_init(void)
-> >  		pr_err("cannot register Generic Netlink interface.\n");
-> >  		goto err_genl;
-> >  	}
-> > -
-> > -	ret = register_netdevice_notifier(&ip_vs_dst_notifier);
-> > -	if (ret < 0)
-> > -		goto err_notf;
-> > -
-> > -	LeaveFunction(2);
-> >  	return 0;
-> >  
-> > -err_notf:
-> > -	ip_vs_genl_unregister();
-> >  err_genl:
-> >  	nf_unregister_sockopt(&ip_vs_sockopts);
-> >  err_sock:
-> >  	return ret;
-> >  }
-> >  
-> > +void ip_vs_unregister_nl_ioctl(void) 
-> 
-> There is a extra trailing whitespace behind
-> ip_vs_unregister_nl_ioctl(void)
-> 
-> 
-> > +{
-> > +	ip_vs_genl_unregister();
-> > +	nf_unregister_sockopt(&ip_vs_sockopts);
-> > +}
-> > +
-> > +int __init ip_vs_control_init(void)
-> > +{
-> > +	int idx;
-> > +	int ret;
-> > +
-> > +	EnterFunction(2);
-> > +
-> > +	/* Initialize svc_table, ip_vs_svc_fwm_table, rs_table */
-> > +	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
-> 
-> The for loop is funny spaced...
-> 
-> 
-> > +		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
-> > +		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
-> > +	}
-> > +
-> > +	smp_wmb();	/* Do we really need it now ? */
-> > +
-> > +	ret = register_netdevice_notifier(&ip_vs_dst_notifier);
-> > +	if (ret < 0)
-> > +		return ret;
-> > +
-> > +	LeaveFunction(2);
-> > +	return 0;
-> > +}
-> > +
-> >  
-> >  void ip_vs_control_cleanup(void)
-> >  {
-> >  	EnterFunction(2);
-> >  	unregister_netdevice_notifier(&ip_vs_dst_notifier);
-> > -	ip_vs_genl_unregister();
-> > -	nf_unregister_sockopt(&ip_vs_sockopts);
-> >  	LeaveFunction(2);
-> >  }
-> 
+In this case, do we still need to send the frag header ?
 
--- 
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
+I ask this because some TSO6 implementations probably dont cope very
+well with this added header (untested path)
