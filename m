@@ -1,37 +1,62 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch v3, iproute2 version 3.2.0] Source mode for macvlan
- interface
-Date: Wed, 25 Apr 2012 13:17:51 -0700
-Message-ID: <20120425131751.46baa13b@nehalam.linuxnetplumber.net>
-References: <10839102.1251327929240954.JavaMail.root@5-MeO-DMT.ynet.sk>
+Subject: Re: [PATCH 1/2] ss: fix the incorrect value of total UNIX_DIAG_*
+ number
+Date: Wed, 25 Apr 2012 13:21:26 -0700
+Message-ID: <20120425132126.6859f1be@nehalam.linuxnetplumber.net>
+References: <4F97A484.2040300@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stefan Gula <steweg@ynet.sk>
+Cc: xemul@parallels.com, NetDev <netdev@vger.kernel.org>
+To: Shan Wei <shanwei88@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56316 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:56445 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758712Ab2DYUR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 16:17:58 -0400
-In-Reply-To: <10839102.1251327929240954.JavaMail.root@5-MeO-DMT.ynet.sk>
+	id S1758558Ab2DYUVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 16:21:31 -0400
+In-Reply-To: <4F97A484.2040300@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 30 Jan 2012 14:14:00 +0100 (CET)
-Stefan Gula <steweg@ynet.sk> wrote:
+On Wed, 25 Apr 2012 15:15:16 +0800
+Shan Wei <shanwei88@gmail.com> wrote:
 
-> From: Stefan Gula <steweg@gmail.com>
+> From: Shan Wei <davidshan@tencent.com>
 > 
-> Adjusting iproute2 utility to support new macvlan link type mode
-> called "source". Example of commands that can be applied:
->  ip link add link eth0 name macvlan0 type macvlan mode source
->  ip link set link macvlan0 type macvlan macaddr add 00:11:11:11:11:11
->  ip link set link macvlan0 type macvlan macaddr del 00:11:11:11:11:11
->  ip link set link macvlan0 type macvlan macaddr flush
+> UNIX_DIAG_MAX is included in enum type.
+> It is equal to the total number of enum element.
 > 
-> Signed-off-by: Stefan Gula <steweg@gmail.com>
+> But lots of enum MAX value is defined as the max enum element, e.g. INET_DIAG_MAX, XFRMA_MAX. 
+> The right fixing way seems to define UNIX_DIAG_MAX as UNIX_DIAG_MEMINFO,
+> but this way will break other user application.
 > 
+> So, just fix it on user application.
+> 
+> 
+> Signed-off-by: Shan Wei <davidshan@tencent.com>
+> ---
+>  misc/ss.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/misc/ss.c b/misc/ss.c
+> index 4017918..5f70a26 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -2011,12 +2011,12 @@ void unix_list_print(struct unixstat *list, struct filter *f)
+>  static int unix_show_sock(struct nlmsghdr *nlh, struct filter *f)
+>  {
+>  	struct unix_diag_msg *r = NLMSG_DATA(nlh);
+> -	struct rtattr *tb[UNIX_DIAG_MAX+1];
+> +	struct rtattr *tb[UNIX_DIAG_MAX];
+>  	char name[128];
+>  	int peer_ino;
+>  	int rqlen;
+>  
+> -	parse_rtattr(tb, UNIX_DIAG_MAX, (struct rtattr*)(r+1),
+> +	parse_rtattr(tb, UNIX_DIAG_MAX-1, (struct rtattr*)(r+1),
+>  		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+>  
+>  	if (netid_width)
 
-Please resubmit with man page, after the kernel header changes are in
-Linus's tree (ie. 3.5 merge window).
+Ok, I'll put this in but with a big juicy comment so that nobody
+else is surprised by the fact we got it wrong here.
