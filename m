@@ -1,55 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2012-04-25
-Date: Wed, 25 Apr 2012 16:39:26 -0400 (EDT)
-Message-ID: <20120425.163926.2209040699696617525.davem@davemloft.net>
-References: <20120425191418.GC16900@tuxdriver.com>
+From: Bing Zhao <bzhao@marvell.com>
+Subject: RE: wireless: mwifiex: initial commit for Marvell mwifiex driver
+Date: Wed, 25 Apr 2012 15:08:33 -0700
+Message-ID: <477F20668A386D41ADCC57781B1F7043083A3CC5FF@SC-VEXCH1.marvell.com>
+References: <20120425084445.GA12799@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53801 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758960Ab2DYUkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 16:40:37 -0400
-In-Reply-To: <20120425191418.GC16900@tuxdriver.com>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:51668 "EHLO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757501Ab2DYWKf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 18:10:35 -0400
+In-Reply-To: <20120425084445.GA12799@elgon.mountain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 25 Apr 2012 15:14:19 -0400
+Hi Dan,
 
-> This is another batch of updates intended for 3.5...
- ...
-> Please let me know if there are problems!
+> Hi Bing,
+> 
+> The patch 5e6e3a92b9a4: "wireless: mwifiex: initial commit for
+> Marvell mwifiex driver" from Mar 21, 2011, leads to the following
+> static checker warning:
+> 
+> drivers/net/wireless/mwifiex/sta_ioctl.c:1410
+> mwifiex_set_gen_ie_helper()
+> 	 error: memcmp() 'pvendor_ie->oui' too small (3 vs 4)
 
-There are:
+Thanks for catching this error.
 
->From 792545c7bc5d6b922d3778dc602e557d64c83551 Mon Sep 17 00:00:00 2001
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Date: Mon, 23 Apr 2012 19:55:48 -0700
-Subject: [PATCH 88/88] libertas: include sched.h on firmware.c
+> 
+>   1390  mwifiex_set_gen_ie_helper(struct mwifiex_private *priv, u8 *ie_data_ptr,
+>   1391                            u16 ie_len)
+>   1392  {
+>   1393          int ret = 0;
+>   1394          struct ieee_types_vendor_header *pvendor_ie;
+>   1395          const u8 wpa_oui[] = { 0x00, 0x50, 0xf2, 0x01 };
+>                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 4 byte array.
 
-Do not assume we have our subsystem including this for us,
-at least for older kernels this is not true. Lets just be
-explicit about this requirement for the usage of wake_up().
+The last byte 0x01 is actually the oui_type.
 
-Signed-off-by: Luis R. Rodriguez <mcgrof@do-not-panic.com>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
+	...
+	u8 oui[3];
+	u8 oui_type;
+	...
 
-This is bogus, wake_up() is defined in linux/wait.h, the whole
-point of the linux/sched.h split up is so that linux/sched.h
-includes could be removed and replaced with actual dependencies.
+> 
+>   1396          const u8 wps_oui[] = { 0x00, 0x50, 0xf2, 0x04 };
+>   1397
+>   1398          /* If the passed length is zero, reset the buffer */
+>   1399          if (!ie_len) {
+>   1400                  priv->gen_ie_buf_len = 0;
+>   1401                  priv->wps.session_enable = false;
+>   1402
+>   1403                  return 0;
+>   1404          } else if (!ie_data_ptr) {
+>   1405                  return -1;
+>   1406          }
+>   1407          pvendor_ie = (struct ieee_types_vendor_header *) ie_data_ptr;
+>   1408          /* Test to see if it is a WPA IE, if not, then it is a gen IE */
+>   1409          if (((pvendor_ie->element_id == WLAN_EID_WPA) &&
+>   1410               (!memcmp(pvendor_ie->oui, wpa_oui, sizeof(wpa_oui)))) ||
+>                               ^^^^^^^^^^^^^^^
+> ->oui is only a 3 byte array so we're reading past the end for this
+> comparison.
 
-Also, please don't accept any patches from Luis that add those
-#undef pr_fmt things to the atheros drivers.
+I will fix the misuse of memcmp's.
 
-He tried to add it an ethernet driver, and I asked him to explain
-exactly why he's doing and that if it's appropriate then it's
-appropriate everywhere not just in a few specific drivers.  He failed
-to respond to me, and therefore failed to explain the situation and
-address my concerned.  And then I saw just today that he's submitting
-the same patch to wireless drivers.  That's not acceptable.
+By the way, could you please share with me how you check for this kind of errors?
+Is it coccinelle? I tried with coccicheck but got "spatch.opt unknown option -D" error.
 
-Thanks.
+Thanks,
+Bing
+
+> 
+>   1411              (pvendor_ie->element_id == WLAN_EID_RSN)) {
+> 
+> 
+> There are a couple other similar warnings as well:
+> 
+> drivers/net/wireless/mwifiex/sta_ioctl.c:1435 mwifiex_set_gen_ie_helper()
+> 	error: memcmp() 'pvendor_ie->oui' too small (3 vs 4)
+> drivers/net/wireless/mwifiex/scan.c:1177 mwifiex_update_bss_desc_with_ie()
+> 	error: memcmp() 'vendor_ie->vend_hdr.oui' too small (3 vs 4)
+> drivers/net/wireless/mwifiex/scan.c:1185 mwifiex_update_bss_desc_with_ie()
+> 	error: memcmp() 'vendor_ie->vend_hdr.oui' too small (3 vs 4)
+> 
+> regards,
+> dan carpenter
