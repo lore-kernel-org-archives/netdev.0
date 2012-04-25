@@ -1,74 +1,162 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/2] e1000e: MSI interrupt test failed, using legacy interrupt
-Date: Tue, 24 Apr 2012 22:55:13 -0700
-Message-ID: <1335333314-6814-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/2] e1000e: Fix default interrupt throttle rate not set in NIC HW
+Date: Tue, 24 Apr 2012 22:55:14 -0700
+Message-ID: <1335333314-6814-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1335333314-6814-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Prasanna S Panchamukhi <ppanchamukhi@riverbed.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, Ying Cai <ycai@google.com>,
+	David Decotigny <david.decotigny@google.com>,
+	Jeff Kirsher <jeffrey.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:63052 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758908Ab2DYFzR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 01:55:17 -0400
+	id S1758909Ab2DYFzS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 01:55:18 -0400
 In-Reply-To: <1335333314-6814-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prasanna S Panchamukhi <ppanchamukhi@riverbed.com>
+Based on the original patch from  Ying Cai <ycai@google.com>
+This change ensures that the itr/itr_setting adjustment logic is used,
+even for the default/compiled-in value.
 
-Following logs where seen on Systems with multiple NICs,
-while using MSI interrupts as shown below:
+Context:
+  When we changed the default InterruptThrottleRate value from default
+  (3 = dynamic mode) to 8000 for example, only adapter->itr_setting
+  (which controls interrupt coalescing mode) was set to 8000, but
+  adapter->itr (which controls the value set in NIC register) was not
+  updated accordingly. So from ethtool, it seemed the interrupt
+  throttling is enabled at 8000 intr/s, but the NIC actually was
+  running in dynamic mode which has lower CPU efficiency especially
+  when throughput is not high.
 
-Feb 16 15:09:32 (none) user.notice kernel: 0000:00:0d.0: lan0_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:32 (none) user.notice kernel: 0000:40:0d.0: wan0_1: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:32 (none) user.notice kernel: 0000:40:0d.0: lan0_1: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:32 (none) user.warn kernel: 0000:40:0e.0: wan4_0: MSI interrupt
-test failed, using legacy interrupt.
-Feb 16 15:09:32 (none) user.notice kernel: 0000:00:0e.0: wan1_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:33 (none) user.notice kernel: 0000:00:0e.0: lan1_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:33 (none) user.notice kernel: 0000:00:0f.0: wan2_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:33 (none) user.notice kernel: 0000:00:0f.0: lan2_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:33 (none) user.notice kernel: 0000:40:0a.0: wan3_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:33 (none) user.notice kernel: 0000:40:0a.0: lan3_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:34 (none) user.notice kernel: 0000:40:0e.0: lan4_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:34 (none) user.notice kernel: 0000:40:0f.0: wan5_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-Feb 16 15:09:34 (none) user.notice kernel: 0000:40:0f.0: lan5_0: NIC Link is Up
-1000 Mbps Full Duplex, Flow Control: RX/TX
-
-This patch fixes this problem by increasing the msleep from 50 to 100.
-
-Signed-off-by: Prasanna S Panchamukhi <ppanchamukhi@riverbed.com>
+CC: Ying Cai <ycai@google.com>
+CC: David Decotigny <david.decotigny@google.com>
+Signed-off-by: Jeff Kirsher <jeffrey.kirsher@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/e1000e/param.c |   99 +++++++++++++++-------------
+ 1 files changed, 53 insertions(+), 46 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 19ab215..9520a6a 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3799,7 +3799,7 @@ static int e1000_test_msi_interrupt(struct e1000_adapter *adapter)
- 	/* fire an unusual interrupt on the test handler */
- 	ew32(ICS, E1000_ICS_RXSEQ);
- 	e1e_flush();
--	msleep(50);
-+	msleep(100);
+diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
+index ff796e4..16adeb9 100644
+--- a/drivers/net/ethernet/intel/e1000e/param.c
++++ b/drivers/net/ethernet/intel/e1000e/param.c
+@@ -106,7 +106,7 @@ E1000_PARAM(RxAbsIntDelay, "Receive Absolute Interrupt Delay");
+ /*
+  * Interrupt Throttle Rate (interrupts/sec)
+  *
+- * Valid Range: 100-100000 (0=off, 1=dynamic, 3=dynamic conservative)
++ * Valid Range: 100-100000 or one of: 0=off, 1=dynamic, 3=dynamic conservative
+  */
+ E1000_PARAM(InterruptThrottleRate, "Interrupt Throttling Rate");
+ #define DEFAULT_ITR 3
+@@ -344,53 +344,60 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
  
- 	e1000_irq_disable(adapter);
- 
+ 		if (num_InterruptThrottleRate > bd) {
+ 			adapter->itr = InterruptThrottleRate[bd];
+-			switch (adapter->itr) {
+-			case 0:
+-				e_info("%s turned off\n", opt.name);
+-				break;
+-			case 1:
+-				e_info("%s set to dynamic mode\n", opt.name);
+-				adapter->itr_setting = adapter->itr;
+-				adapter->itr = 20000;
+-				break;
+-			case 3:
+-				e_info("%s set to dynamic conservative mode\n",
+-					opt.name);
+-				adapter->itr_setting = adapter->itr;
+-				adapter->itr = 20000;
+-				break;
+-			case 4:
+-				e_info("%s set to simplified (2000-8000 ints) "
+-				       "mode\n", opt.name);
+-				adapter->itr_setting = 4;
+-				break;
+-			default:
+-				/*
+-				 * Save the setting, because the dynamic bits
+-				 * change itr.
+-				 */
+-				if (e1000_validate_option(&adapter->itr, &opt,
+-							  adapter) &&
+-				    (adapter->itr == 3)) {
+-					/*
+-					 * In case of invalid user value,
+-					 * default to conservative mode.
+-					 */
+-					adapter->itr_setting = adapter->itr;
+-					adapter->itr = 20000;
+-				} else {
+-					/*
+-					 * Clear the lower two bits because
+-					 * they are used as control.
+-					 */
+-					adapter->itr_setting =
+-						adapter->itr & ~3;
+-				}
+-				break;
+-			}
++
++			/*
++			 * Make sure a message is printed for non-special
++			 * values.  And in case of an invalid option, display
++			 * warning, use default and got through itr/itr_setting
++			 * adjustment logic below
++			 */
++			if ((adapter->itr > 4) &&
++			    e1000_validate_option(&adapter->itr, &opt, adapter))
++				adapter->itr = opt.def;
+ 		} else {
+-			adapter->itr_setting = opt.def;
++			/*
++			 * If no option specified, use default value and go
++			 * through the logic below to adjust itr/itr_setting
++			 */
++			adapter->itr = opt.def;
++
++			/*
++			 * Make sure a message is printed for non-special
++			 * default values
++			 */
++			if (adapter->itr > 40)
++				e_info("%s set to default %d\n", opt.name,
++				       adapter->itr);
++		}
++
++		adapter->itr_setting = adapter->itr;
++		switch (adapter->itr) {
++		case 0:
++			e_info("%s turned off\n", opt.name);
++			break;
++		case 1:
++			e_info("%s set to dynamic mode\n", opt.name);
++			adapter->itr = 20000;
++			break;
++		case 3:
++			e_info("%s set to dynamic conservative mode\n",
++			       opt.name);
+ 			adapter->itr = 20000;
++			break;
++		case 4:
++			e_info("%s set to simplified (2000-8000 ints) mode\n",
++			       opt.name);
++			break;
++		default:
++			/*
++			 * Save the setting, because the dynamic bits
++			 * change itr.
++			 *
++			 * Clear the lower two bits because
++			 * they are used as control.
++			 */
++			adapter->itr_setting &= ~3;
++			break;
+ 		}
+ 	}
+ 	{ /* Interrupt Mode */
 -- 
 1.7.7.6
