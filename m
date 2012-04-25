@@ -1,392 +1,95 @@
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 7/7] be2net: Fix FW download for BE
-Date: Wed, 25 Apr 2012 17:17:15 +0530
-Message-ID: <5ddcef54-3f3f-454d-80e3-bbdfd9256f36@exht1.ad.emulex.com>
+From: Tore Anderson <tore@fud.no>
+Subject: Re: [PATCH net-next] ipv6: =?UTF-8?Q?RTAX=5FFEATURE=5FALLFRAG=20c?=  =?UTF-8?Q?auses=20inefficient=20TCP=20segment=20sizing?=
+Date: Wed, 25 Apr 2012 13:49:19 +0200
+Message-ID: <4b7a2708fd4545ac65cfef6561e7f02a@greed.fud.no>
+References: <1335289058.5205.165.camel@edumazet-glaptop>
+ <CANP3RGd0mV8RcH1zCLBg+N9sgPGbiynhOSfoUAYpcMgYsvzeNA@mail.gmail.com>
+ <1335298228.5205.168.camel@edumazet-glaptop>
+ <CANP3RGfhc+4FjB152r58AP66oZQmj0oY-Zh=9qNn9OABCXPwbw@mail.gmail.com>
+ <1335331960.5205.180.camel@edumazet-glaptop>
+ <CANP3RGdhs8s_RytR=f8ismSZdGs91bpVq=ZAjb0EOm-gCsDPAw@mail.gmail.com>
+ <f88609a3e80bbe53233e62dec2699a3e@greed.fud.no>
+ <CANP3RGcGH6Su8Lvt34eTDF2iv2HSipo2DvybXGQA4pXZj_qb9Q@mail.gmail.com>
+ <4c435f101fb7c653fd3b4e81980250e7@greed.fud.no>
+ <CANP3RGf5oTd9mQsXqKj3uXgweMwjs9N3VSeXBHjDXQ7vG0NaSg@mail.gmail.com>
+ <7333a1d306fa2eca215bc9f55d23d03c@greed.fud.no>
+ <CANP3RGeV9Z2z3i4GYyupU2tBVbL-4nX2-h2e8MP=PP4WE2s9qw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
-	Somnath Kotur <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:29223 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758114Ab2DYLsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 07:48:30 -0400
+Received: from greed.fud.no ([87.238.35.20]:56488 "EHLO greed.fud.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758157Ab2DYLtX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 07:49:23 -0400
+In-Reply-To: <CANP3RGeV9Z2z3i4GYyupU2tBVbL-4nX2-h2e8MP=PP4WE2s9qw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Skip flashing a FW component if that component is not present in a
-particular FW UFI image.
+* Maciej =C5=BBenczykowski
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c |    2 +-
- drivers/net/ethernet/emulex/benet/be_hw.h   |   74 ++++++++----
- drivers/net/ethernet/emulex/benet/be_main.c |  168 ++++++++++++++++++---------
- 3 files changed, 166 insertions(+), 78 deletions(-)
+>> I think you forgot to include the explanation why. :-)
+>
+> I did try, I just didn't do a very good job.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 2673081..43167e8 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1979,7 +1979,7 @@ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
- 		OPCODE_COMMON_READ_FLASHROM, sizeof(*req)+4, wrb, NULL);
- 
--	req->params.op_type = cpu_to_le32(IMG_TYPE_REDBOOT);
-+	req->params.op_type = cpu_to_le32(OPTYPE_REDBOOT);
- 	req->params.op_code = cpu_to_le32(FLASHROM_OPER_REPORT);
- 	req->params.offset = cpu_to_le32(offset);
- 	req->params.data_buf_size = cpu_to_le32(0x4);
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index f2c89e3..0949aa6 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -162,22 +162,23 @@
- #define QUERY_FAT	1
- 
- /* Flashrom related descriptors */
-+#define MAX_FLASH_COMP			32
- #define IMAGE_TYPE_FIRMWARE		160
- #define IMAGE_TYPE_BOOTCODE		224
- #define IMAGE_TYPE_OPTIONROM		32
- 
- #define NUM_FLASHDIR_ENTRIES		32
- 
--#define IMG_TYPE_ISCSI_ACTIVE		0
--#define IMG_TYPE_REDBOOT		1
--#define IMG_TYPE_BIOS			2
--#define IMG_TYPE_PXE_BIOS		3
--#define IMG_TYPE_FCOE_BIOS		8
--#define IMG_TYPE_ISCSI_BACKUP		9
--#define IMG_TYPE_FCOE_FW_ACTIVE		10
--#define IMG_TYPE_FCOE_FW_BACKUP 	11
--#define IMG_TYPE_NCSI_FW		13
--#define IMG_TYPE_PHY_FW			99
-+#define OPTYPE_ISCSI_ACTIVE		0
-+#define OPTYPE_REDBOOT			1
-+#define OPTYPE_BIOS			2
-+#define OPTYPE_PXE_BIOS			3
-+#define OPTYPE_FCOE_BIOS		8
-+#define OPTYPE_ISCSI_BACKUP		9
-+#define OPTYPE_FCOE_FW_ACTIVE		10
-+#define OPTYPE_FCOE_FW_BACKUP		11
-+#define OPTYPE_NCSI_FW			13
-+#define OPTYPE_PHY_FW			99
- #define TN_8022				13
- 
- #define ILLEGAL_IOCTL_REQ		2
-@@ -223,6 +224,24 @@
- #define FLASH_REDBOOT_START_g3             (262144)
- #define FLASH_PHY_FW_START_g3		   1310720
- 
-+#define IMAGE_NCSI			16
-+#define IMAGE_OPTION_ROM_PXE		32
-+#define IMAGE_OPTION_ROM_FCoE		33
-+#define IMAGE_OPTION_ROM_ISCSI		34
-+#define IMAGE_FLASHISM_JUMPVECTOR	48
-+#define IMAGE_FLASH_ISM			49
-+#define IMAGE_JUMP_VECTOR		50
-+#define IMAGE_FIRMWARE_iSCSI		160
-+#define IMAGE_FIRMWARE_COMP_iSCSI	161
-+#define IMAGE_FIRMWARE_FCoE		162
-+#define IMAGE_FIRMWARE_COMP_FCoE	163
-+#define IMAGE_FIRMWARE_BACKUP_iSCSI	176
-+#define IMAGE_FIRMWARE_BACKUP_COMP_iSCSI 177
-+#define IMAGE_FIRMWARE_BACKUP_FCoE	178
-+#define IMAGE_FIRMWARE_BACKUP_COMP_FCoE 179
-+#define IMAGE_FIRMWARE_PHY		192
-+#define IMAGE_BOOT_CODE			224
-+
- /************* Rx Packet Type Encoding **************/
- #define BE_UNICAST_PACKET		0
- #define BE_MULTICAST_PACKET		1
-@@ -445,6 +464,7 @@ struct flash_comp {
- 	unsigned long offset;
- 	int optype;
- 	int size;
-+	int img_type;
- };
- 
- struct image_hdr {
-@@ -481,17 +501,19 @@ struct flash_section_hdr {
- 	u32 format_rev;
- 	u32 cksum;
- 	u32 antidote;
--	u32 build_no;
--	u8 id_string[64];
--	u32 active_entry_mask;
--	u32 valid_entry_mask;
--	u32 org_content_mask;
--	u32 rsvd0;
--	u32 rsvd1;
--	u32 rsvd2;
--	u32 rsvd3;
--	u32 rsvd4;
--};
-+	u32 num_images;
-+	u8 id_string[128];
-+	u32 rsvd[4];
-+} __packed;
-+
-+struct flash_section_hdr_g2 {
-+	u32 format_rev;
-+	u32 cksum;
-+	u32 antidote;
-+	u32 build_num;
-+	u8 id_string[128];
-+	u32 rsvd[8];
-+} __packed;
- 
- struct flash_section_entry {
- 	u32 type;
-@@ -503,10 +525,16 @@ struct flash_section_entry {
- 	u32 rsvd0;
- 	u32 rsvd1;
- 	u8 ver_data[32];
--};
-+} __packed;
- 
- struct flash_section_info {
- 	u8 cookie[32];
- 	struct flash_section_hdr fsec_hdr;
- 	struct flash_section_entry fsec_entry[32];
--};
-+} __packed;
-+
-+struct flash_section_info_g2 {
-+	u8 cookie[32];
-+	struct flash_section_hdr_g2 fsec_hdr;
-+	struct flash_section_entry fsec_entry[32];
-+} __packed;
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 8bc9e12..c9f757c 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2759,6 +2759,8 @@ static void be_netpoll(struct net_device *netdev)
- #endif
- 
- #define FW_FILE_HDR_SIGN 	"ServerEngines Corp. "
-+char flash_cookie[2][16] =      {"*** SE FLAS", "H DIRECTORY *** "};
-+
- static bool be_flash_redboot(struct be_adapter *adapter,
- 			const u8 *p, u32 img_start, int image_size,
- 			int hdr_size)
-@@ -2792,58 +2794,101 @@ static bool phy_flashing_required(struct be_adapter *adapter)
- 		adapter->phy.interface_type == PHY_TYPE_BASET_10GB);
- }
- 
-+static bool is_comp_in_ufi(struct be_adapter *adapter,
-+			   struct flash_section_info *fsec, int type)
-+{
-+	int i = 0, img_type = 0;
-+	struct flash_section_info_g2 *fsec_g2 = NULL;
-+
-+	if (adapter->generation != BE_GEN3)
-+		fsec_g2 = (struct flash_section_info_g2 *)fsec;
-+
-+	for (i = 0; i < MAX_FLASH_COMP; i++) {
-+		if (fsec_g2)
-+			img_type = le32_to_cpu(fsec_g2->fsec_entry[i].type);
-+		else
-+			img_type = le32_to_cpu(fsec->fsec_entry[i].type);
-+
-+		if (img_type == type)
-+			return true;
-+	}
-+	return false;
-+
-+}
-+
-+struct flash_section_info *get_fsec_info(struct be_adapter *adapter,
-+					 int header_size,
-+					 const struct firmware *fw)
-+{
-+	struct flash_section_info *fsec = NULL;
-+	const u8 *p = fw->data;
-+
-+	p += header_size;
-+	while (p < (fw->data + fw->size)) {
-+		fsec = (struct flash_section_info *)p;
-+		if (!memcmp(flash_cookie, fsec->cookie, sizeof(flash_cookie)))
-+			return fsec;
-+		p += 32;
-+	}
-+	return NULL;
-+}
-+
- static int be_flash_data(struct be_adapter *adapter,
--			const struct firmware *fw,
--			struct be_dma_mem *flash_cmd, int num_of_images)
-+			 const struct firmware *fw,
-+			 struct be_dma_mem *flash_cmd,
-+			 int num_of_images)
- 
- {
- 	int status = 0, i, filehdr_size = 0;
-+	int img_hdrs_size = (num_of_images * sizeof(struct image_hdr));
- 	u32 total_bytes = 0, flash_op;
- 	int num_bytes;
- 	const u8 *p = fw->data;
- 	struct be_cmd_write_flashrom *req = flash_cmd->va;
- 	const struct flash_comp *pflashcomp;
--	int num_comp;
--
--	static const struct flash_comp gen3_flash_types[10] = {
--		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g3, IMG_TYPE_ISCSI_ACTIVE,
--			FLASH_IMAGE_MAX_SIZE_g3},
--		{ FLASH_REDBOOT_START_g3, IMG_TYPE_REDBOOT,
--			FLASH_REDBOOT_IMAGE_MAX_SIZE_g3},
--		{ FLASH_iSCSI_BIOS_START_g3, IMG_TYPE_BIOS,
--			FLASH_BIOS_IMAGE_MAX_SIZE_g3},
--		{ FLASH_PXE_BIOS_START_g3, IMG_TYPE_PXE_BIOS,
--			FLASH_BIOS_IMAGE_MAX_SIZE_g3},
--		{ FLASH_FCoE_BIOS_START_g3, IMG_TYPE_FCOE_BIOS,
--			FLASH_BIOS_IMAGE_MAX_SIZE_g3},
--		{ FLASH_iSCSI_BACKUP_IMAGE_START_g3, IMG_TYPE_ISCSI_BACKUP,
--			FLASH_IMAGE_MAX_SIZE_g3},
--		{ FLASH_FCoE_PRIMARY_IMAGE_START_g3, IMG_TYPE_FCOE_FW_ACTIVE,
--			FLASH_IMAGE_MAX_SIZE_g3},
--		{ FLASH_FCoE_BACKUP_IMAGE_START_g3, IMG_TYPE_FCOE_FW_BACKUP,
--			FLASH_IMAGE_MAX_SIZE_g3},
--		{ FLASH_NCSI_START_g3, IMG_TYPE_NCSI_FW,
--			FLASH_NCSI_IMAGE_MAX_SIZE_g3},
--		{ FLASH_PHY_FW_START_g3, IMG_TYPE_PHY_FW,
--			FLASH_PHY_FW_IMAGE_MAX_SIZE_g3}
-+	int num_comp, hdr_size;
-+	struct flash_section_info *fsec = NULL;
-+
-+	struct flash_comp gen3_flash_types[] = {
-+		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g3, OPTYPE_ISCSI_ACTIVE,
-+			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_iSCSI},
-+		{ FLASH_REDBOOT_START_g3, OPTYPE_REDBOOT,
-+			FLASH_REDBOOT_IMAGE_MAX_SIZE_g3, IMAGE_BOOT_CODE},
-+		{ FLASH_iSCSI_BIOS_START_g3, OPTYPE_BIOS,
-+			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_ISCSI},
-+		{ FLASH_PXE_BIOS_START_g3, OPTYPE_PXE_BIOS,
-+			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_PXE},
-+		{ FLASH_FCoE_BIOS_START_g3, OPTYPE_FCOE_BIOS,
-+			FLASH_BIOS_IMAGE_MAX_SIZE_g3, IMAGE_OPTION_ROM_FCoE},
-+		{ FLASH_iSCSI_BACKUP_IMAGE_START_g3, OPTYPE_ISCSI_BACKUP,
-+			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_BACKUP_iSCSI},
-+		{ FLASH_FCoE_PRIMARY_IMAGE_START_g3, OPTYPE_FCOE_FW_ACTIVE,
-+			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_FCoE},
-+		{ FLASH_FCoE_BACKUP_IMAGE_START_g3, OPTYPE_FCOE_FW_BACKUP,
-+			FLASH_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_BACKUP_FCoE},
-+		{ FLASH_NCSI_START_g3, OPTYPE_NCSI_FW,
-+			FLASH_NCSI_IMAGE_MAX_SIZE_g3, IMAGE_NCSI},
-+		{ FLASH_PHY_FW_START_g3, OPTYPE_PHY_FW,
-+			FLASH_PHY_FW_IMAGE_MAX_SIZE_g3, IMAGE_FIRMWARE_PHY}
- 	};
--	static const struct flash_comp gen2_flash_types[8] = {
--		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g2, IMG_TYPE_ISCSI_ACTIVE,
--			FLASH_IMAGE_MAX_SIZE_g2},
--		{ FLASH_REDBOOT_START_g2, IMG_TYPE_REDBOOT,
--			FLASH_REDBOOT_IMAGE_MAX_SIZE_g2},
--		{ FLASH_iSCSI_BIOS_START_g2, IMG_TYPE_BIOS,
--			FLASH_BIOS_IMAGE_MAX_SIZE_g2},
--		{ FLASH_PXE_BIOS_START_g2, IMG_TYPE_PXE_BIOS,
--			FLASH_BIOS_IMAGE_MAX_SIZE_g2},
--		{ FLASH_FCoE_BIOS_START_g2, IMG_TYPE_FCOE_BIOS,
--			FLASH_BIOS_IMAGE_MAX_SIZE_g2},
--		{ FLASH_iSCSI_BACKUP_IMAGE_START_g2, IMG_TYPE_ISCSI_BACKUP,
--			FLASH_IMAGE_MAX_SIZE_g2},
--		{ FLASH_FCoE_PRIMARY_IMAGE_START_g2, IMG_TYPE_FCOE_FW_ACTIVE,
--			FLASH_IMAGE_MAX_SIZE_g2},
--		{ FLASH_FCoE_BACKUP_IMAGE_START_g2, IMG_TYPE_FCOE_FW_BACKUP,
--			 FLASH_IMAGE_MAX_SIZE_g2}
-+
-+	struct flash_comp gen2_flash_types[] = {
-+		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g2, OPTYPE_ISCSI_ACTIVE,
-+			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_iSCSI},
-+		{ FLASH_REDBOOT_START_g2, OPTYPE_REDBOOT,
-+			FLASH_REDBOOT_IMAGE_MAX_SIZE_g2, IMAGE_BOOT_CODE},
-+		{ FLASH_iSCSI_BIOS_START_g2, OPTYPE_BIOS,
-+			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_ISCSI},
-+		{ FLASH_PXE_BIOS_START_g2, OPTYPE_PXE_BIOS,
-+			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_PXE},
-+		{ FLASH_FCoE_BIOS_START_g2, OPTYPE_FCOE_BIOS,
-+			FLASH_BIOS_IMAGE_MAX_SIZE_g2, IMAGE_OPTION_ROM_FCoE},
-+		{ FLASH_iSCSI_BACKUP_IMAGE_START_g2, OPTYPE_ISCSI_BACKUP,
-+			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_BACKUP_iSCSI},
-+		{ FLASH_FCoE_PRIMARY_IMAGE_START_g2, OPTYPE_FCOE_FW_ACTIVE,
-+			FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_FCoE},
-+		{ FLASH_FCoE_BACKUP_IMAGE_START_g2, OPTYPE_FCOE_FW_BACKUP,
-+			 FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_BACKUP_FCoE}
- 	};
- 
- 	if (adapter->generation == BE_GEN3) {
-@@ -2855,22 +2900,37 @@ static int be_flash_data(struct be_adapter *adapter,
- 		filehdr_size = sizeof(struct flash_file_hdr_g2);
- 		num_comp = ARRAY_SIZE(gen2_flash_types);
- 	}
-+	/* Get flash section info*/
-+	fsec = get_fsec_info(adapter, filehdr_size + img_hdrs_size, fw);
-+	if (!fsec) {
-+		dev_err(&adapter->pdev->dev,
-+			"Invalid Cookie. UFI corrupted ?\n");
-+		return -1;
-+	}
- 	for (i = 0; i < num_comp; i++) {
--		if ((pflashcomp[i].optype == IMG_TYPE_NCSI_FW) &&
--				memcmp(adapter->fw_ver, "3.102.148.0", 11) < 0)
-+		if (!is_comp_in_ufi(adapter, fsec, pflashcomp[i].img_type))
- 			continue;
--		if (pflashcomp[i].optype == IMG_TYPE_PHY_FW) {
-+
-+		if ((pflashcomp[i].optype == OPTYPE_NCSI_FW) &&
-+		    memcmp(adapter->fw_ver, "3.102.148.0", 11) < 0)
-+			continue;
-+
-+		if (pflashcomp[i].optype == OPTYPE_PHY_FW) {
- 			if (!phy_flashing_required(adapter))
- 				continue;
- 		}
--		if ((pflashcomp[i].optype == IMG_TYPE_REDBOOT) &&
--			(!be_flash_redboot(adapter, fw->data,
--			pflashcomp[i].offset, pflashcomp[i].size, filehdr_size +
--			(num_of_images * sizeof(struct image_hdr)))))
-+
-+		hdr_size = filehdr_size +
-+			   (num_of_images * sizeof(struct image_hdr));
-+
-+		if ((pflashcomp[i].optype == OPTYPE_REDBOOT) &&
-+		    (!be_flash_redboot(adapter, fw->data, pflashcomp[i].offset,
-+				       pflashcomp[i].size, hdr_size)))
- 			continue;
-+
-+		/* Flash the component */
- 		p = fw->data;
--		p += filehdr_size + pflashcomp[i].offset
--			+ (num_of_images * sizeof(struct image_hdr));
-+		p += filehdr_size + pflashcomp[i].offset + img_hdrs_size;
- 		if (p + pflashcomp[i].size > fw->data + fw->size)
- 			return -1;
- 		total_bytes = pflashcomp[i].size;
-@@ -2881,12 +2941,12 @@ static int be_flash_data(struct be_adapter *adapter,
- 				num_bytes = total_bytes;
- 			total_bytes -= num_bytes;
- 			if (!total_bytes) {
--				if (pflashcomp[i].optype == IMG_TYPE_PHY_FW)
-+				if (pflashcomp[i].optype == OPTYPE_PHY_FW)
- 					flash_op = FLASHROM_OPER_PHY_FLASH;
- 				else
- 					flash_op = FLASHROM_OPER_FLASH;
- 			} else {
--				if (pflashcomp[i].optype == IMG_TYPE_PHY_FW)
-+				if (pflashcomp[i].optype == OPTYPE_PHY_FW)
- 					flash_op = FLASHROM_OPER_PHY_SAVE;
- 				else
- 					flash_op = FLASHROM_OPER_SAVE;
-@@ -2898,7 +2958,7 @@ static int be_flash_data(struct be_adapter *adapter,
- 			if (status) {
- 				if ((status == ILLEGAL_IOCTL_REQ) &&
- 					(pflashcomp[i].optype ==
--						IMG_TYPE_PHY_FW))
-+						OPTYPE_PHY_FW))
- 					break;
- 				dev_err(&adapter->pdev->dev,
- 					"cmd to write to flash rom failed.\n");
--- 
-1.6.0.2
+Oh, because of IPv6-in-IPv4 tunnel encap overhead, I get it now.
+
+>> I suppose. This would be invisible to IPv6, though - the=20
+>> fragmentation and
+>> reassembly happens at a lower layer than IPv6. Same as ATM for=20
+>> example. Situation is
+>> described by RFC 2460:
+>
+> It would be invisible (*), and you probably wouldn't really need the
+> frag header in the ipv6 packet,
+> but it would still be desirable to have ipv6 already have packets
+> smaller than ipv4
+> mtu - 20, rather than have to frag/unfrag at the tunnel endpoint.
+> Since it is always more efficient to have fragmented correctly in the
+> first place.
+>
+> (*) Would it be legal for a tunnel endpoint to support ipv6 packets=20
+> up
+> to 1280 bytes in size
+> but still send back a 'packet to big please use 1K mtu' message?
+
+I don't think this is a valid thing to do - either the tunnel server=20
+would
+forward the packet through the tunnel (fragmenting the underlaying IPv4=
+=20
+if
+necessary), and *not* send back a ICMPv6 PTB error at the same time,=20
+OR: it
+would need to drop the packet and *do* send back the ICMPv6 PTB. Not=20
+both
+at the same time.
+
+However, if it is going to drop the large packets and reply with the=20
+PTB, it
+will cause a blackhole with current Linux, because if it get the PTB=20
+with
+MTU=3D1000, it will include the frag header, but *not* reduce the actua=
+l=20
+packet
+size. And since this is pure IPv6 routing, the tunnel server will not=20
+be able
+to fragment the IPv6 packets, since IPv6 routers don't do that (the=20
+presense
+of the Fragmentation header does not change this fact).
+
+So the tunnel routers pretty much *must* support an IPv6 MTU of 1280,=20
+either
+by ensuring the outer IPv4 MTU is 1300 or larger, or by performing IPv4
+fragmentation and reassembly "under the hood".
+
+I don't think it is worth while (or even appropriate) for the Linux=20
+IPv6 stack
+to try to optimize for this.
+
+Tore
