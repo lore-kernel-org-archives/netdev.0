@@ -1,38 +1,54 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/2] iproute2: allow IPv6 addresses for l2tp local and
- remote parameters
-Date: Wed, 25 Apr 2012 13:13:11 -0700
-Message-ID: <20120425131311.0de3b94f@nehalam.linuxnetplumber.net>
-References: <1334921383-32109-1-git-send-email-jchapman@katalix.com>
-	<1334921383-32109-2-git-send-email-jchapman@katalix.com>
+Subject: Re: [PATCH iproute2] pedit action: add mask for changing bits.
+Date: Wed, 25 Apr 2012 13:15:32 -0700
+Message-ID: <20120425131532.79ad7e6b@nehalam.linuxnetplumber.net>
+References: <CAEzD07+0EA12igqAcwbM8VGKLR9Hp0GjJ7t_Jve=JXOrEKvu9w@mail.gmail.com>
+	<1330351135.2384.1039.camel@mojatatu>
+	<CAEzD07KenHteg0S8-OfAwqTNTSQdvPOJsA-m_+8CW-8c_HCgnw@mail.gmail.com>
+	<1330434308.2369.11.camel@mojatatu>
+	<CAEzD07LO9LQR6f_cP7TQ7e9gBCQcnG4O5q0TiALf=Bjyh3cY3g@mail.gmail.com>
+	<1330524080.18226.21.camel@mojatatu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Chris Elston <celston@katalix.com>
-To: James Chapman <jchapman@katalix.com>
+Cc: hadi@cyberus.ca,
+	Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>,
+	netdev@vger.kernel.org
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39210 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:39270 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758558Ab2DYUNS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 16:13:18 -0400
-In-Reply-To: <1334921383-32109-2-git-send-email-jchapman@katalix.com>
+	id S1758558Ab2DYUPg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 16:15:36 -0400
+In-Reply-To: <1330524080.18226.21.camel@mojatatu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Apr 2012 12:29:42 +0100
-James Chapman <jchapman@katalix.com> wrote:
+On Wed, 29 Feb 2012 09:01:20 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-> From: Chris Elston <celston@katalix.com>
+> Hi Anton,
 > 
-> Adds support for parsing IPv6 addresses to the parameters local and
-> remote in the l2tp commands. Requires netlink attributes L2TP_ATTR_IP6_SADDR
-> and L2TP_ATTR_IP6_DADDR, added in a required kernel patch already submitted
-> to netdev.
+> On Wed, 2012-02-29 at 16:12 +0300, Anton 'EvilMan' Danilov wrote:
 > 
-> Also enables printing of IPv6 addresses returned by the L2TP_CMD_TUNNEL_GET
-> request.
+> > 
+> > You are right, mask option isn't needed. Retain option must be used instead it.
+> > 
 > 
-> Signed-off-by: Chris Elston <celston@katalix.com>
-> Signed-off-by: James Chapman <jchapman@katalix.com>
+> Thanks for verifying.
+> 
+> > Action to work on Vlans is fine idea. I'm very interested in this
+> > action. I'll be grateful for any help.
+> 
+> Lets start by defining the interface to be seen by user space
+> such as vlan editing/popping/pushing etc. Then i will help you
+> build it slowly until you are comfortable with moving with it.
+> 
+> As a matter of fact, lets talk offline so we dont add more noise
+> to the list; you can always post the RFC to the list when you are
+> ready.
+> 
+> cheers,
+> jamal
 
-Accepted.
+Did you come to a conclusion, should it be applied as is?
