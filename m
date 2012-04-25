@@ -1,82 +1,429 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCH 2/4] mISDN: Using FLG_ACTIVE flag to determine if layer 1 is active or not.
-Date: Wed, 25 Apr 2012 08:52:12 +0200
-Message-ID: <1335336734-25181-3-git-send-email-kkeil@linux-pingi.de>
-References: <1335336734-25181-1-git-send-email-kkeil@linux-pingi.de>
-Cc: netdev@vger.kernel.org, Andreas Eversberg <andreas@eversberg.eu>
-To: David Miller <davem@davemloft.net>
+From: Armin Schindler <armin@melware.de>
+Subject: Re: [PATCH] isdn/eicon: use standard __init,__exit function markup
+Date: Wed, 25 Apr 2012 08:48:19 +0200
+Message-ID: <4F979E33.4010703@melware.de>
+References: <201204241556.03516.hartleys@visionengravers.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, isdn@linux-pingi.de
+To: H Hartley Sweeten <hartleys@visionengravers.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:61759 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751280Ab2DYGzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 02:55:15 -0400
-In-Reply-To: <1335336734-25181-1-git-send-email-kkeil@linux-pingi.de>
+Received: from mx.melware.de ([176.9.26.174]:55855 "EHLO mx.melware.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750742Ab2DYG4p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 02:56:45 -0400
+In-Reply-To: <201204241556.03516.hartleys@visionengravers.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Eversberg <andreas@eversberg.eu>
+What is the reason for this change?
 
-We already have the flag for L1 active, so we should use it.
-L2 will be solved in a later patch.
+Armin
 
-Signed-off-by: Andreas Eversberg <andreas@eversberg.eu>
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
----
- drivers/isdn/hardware/mISDN/hfcmulti.c |   25 ++++++++++---------------
- 1 files changed, 10 insertions(+), 15 deletions(-)
+On 04/25/2012 12:56 AM, H Hartley Sweeten wrote:
+> Remove the custom DIVA_{INIT,EXIT}_FUNCTION defines and use
+> the standard __init,__exit markup.
+>
+> Signed-off-by: H Hartley Sweeten<hsweeten@visionengravers.com>
+> Cc: Armin Schindler<mac@melware.de>
+> Cc: Karsten Keil<isdn@linux-pingi.de>
+>
+> ---
+>
+> diff --git a/drivers/isdn/hardware/eicon/capifunc.c b/drivers/isdn/ha=
+rdware/eicon/capifunc.c
+> index a576f32..7a0bdbd 100644
+> --- a/drivers/isdn/hardware/eicon/capifunc.c
+> +++ b/drivers/isdn/hardware/eicon/capifunc.c
+> @@ -1120,7 +1120,7 @@ int fax_head_line_time(char *buffer)
+>   /*
+>    * init (alloc) main structures
+>    */
+> -static int DIVA_INIT_FUNCTION init_main_structs(void)
+> +static int __init init_main_structs(void)
+>   {
+>   	if (!(mapped_msg =3D (CAPI_MSG *) diva_os_malloc(0, MAX_MSG_SIZE))=
+) {
+>   		DBG_ERR(("init: failed alloc mapped_msg."))
+> @@ -1181,7 +1181,7 @@ static void do_api_remove_start(void)
+>   /*
+>    * init
+>    */
+> -int DIVA_INIT_FUNCTION init_capifunc(void)
+> +int __init init_capifunc(void)
+>   {
+>   	diva_os_initialize_spin_lock(&api_lock, "capifunc");
+>   	memset(ControllerMap, 0, MAX_DESCRIPTORS + 1);
+> @@ -1209,7 +1209,7 @@ int DIVA_INIT_FUNCTION init_capifunc(void)
+>   /*
+>    * finit
+>    */
+> -void DIVA_EXIT_FUNCTION finit_capifunc(void)
+> +void __exit finit_capifunc(void)
+>   {
+>   	do_api_remove_start();
+>   	divacapi_disconnect_didd();
+> diff --git a/drivers/isdn/hardware/eicon/capimain.c b/drivers/isdn/ha=
+rdware/eicon/capimain.c
+> index eabe0fa..997d46a 100644
+> --- a/drivers/isdn/hardware/eicon/capimain.c
+> +++ b/drivers/isdn/hardware/eicon/capimain.c
+> @@ -118,7 +118,7 @@ void diva_os_set_controller_struct(struct capi_ct=
+r *ctrl)
+>   /*
+>    * module init
+>    */
+> -static int DIVA_INIT_FUNCTION divacapi_init(void)
+> +static int __init divacapi_init(void)
+>   {
+>   	char tmprev[32];
+>   	int ret =3D 0;
+> @@ -144,7 +144,7 @@ static int DIVA_INIT_FUNCTION divacapi_init(void)
+>   /*
+>    * module exit
+>    */
+> -static void DIVA_EXIT_FUNCTION divacapi_exit(void)
+> +static void __exit divacapi_exit(void)
+>   {
+>   	finit_capifunc();
+>   	printk(KERN_INFO "%s: module unloaded.\n", DRIVERLNAME);
+> diff --git a/drivers/isdn/hardware/eicon/diddfunc.c b/drivers/isdn/ha=
+rdware/eicon/diddfunc.c
+> index c4c8220..b0b23ed 100644
+> --- a/drivers/isdn/hardware/eicon/diddfunc.c
+> +++ b/drivers/isdn/hardware/eicon/diddfunc.c
+> @@ -47,7 +47,7 @@ static void *didd_callback(void *context, DESCRIPTO=
+R *adapter,
+>   /*
+>    * connect to didd
+>    */
+> -static int DIVA_INIT_FUNCTION connect_didd(void)
+> +static int __init connect_didd(void)
+>   {
+>   	int x =3D 0;
+>   	int dadapter =3D 0;
+> @@ -79,7 +79,7 @@ static int DIVA_INIT_FUNCTION connect_didd(void)
+>   /*
+>    * disconnect from didd
+>    */
+> -static void DIVA_EXIT_FUNCTION disconnect_didd(void)
+> +static void __exit disconnect_didd(void)
+>   {
+>   	IDI_SYNC_REQ req;
+>
+> @@ -92,7 +92,7 @@ static void DIVA_EXIT_FUNCTION disconnect_didd(void=
+)
+>   /*
+>    * init
+>    */
+> -int DIVA_INIT_FUNCTION diddfunc_init(void)
+> +int __init diddfunc_init(void)
+>   {
+>   	diva_didd_load_time_init();
+>
+> @@ -107,7 +107,7 @@ int DIVA_INIT_FUNCTION diddfunc_init(void)
+>   /*
+>    * finit
+>    */
+> -void DIVA_EXIT_FUNCTION diddfunc_finit(void)
+> +void __exit diddfunc_finit(void)
+>   {
+>   	DbgDeregister();
+>   	disconnect_didd();
+> diff --git a/drivers/isdn/hardware/eicon/diva_didd.c b/drivers/isdn/h=
+ardware/eicon/diva_didd.c
+> index d1d3de0..fab6ccf 100644
+> --- a/drivers/isdn/hardware/eicon/diva_didd.c
+> +++ b/drivers/isdn/hardware/eicon/diva_didd.c
+> @@ -91,7 +91,7 @@ static const struct file_operations divadidd_proc_f=
+ops =3D {
+>   	.release	=3D single_release,
+>   };
+>
+> -static int DIVA_INIT_FUNCTION create_proc(void)
+> +static int __init create_proc(void)
+>   {
+>   	proc_net_eicon =3D proc_mkdir("eicon", init_net.proc_net);
+>
+> @@ -109,7 +109,7 @@ static void remove_proc(void)
+>   	remove_proc_entry("eicon", init_net.proc_net);
+>   }
+>
+> -static int DIVA_INIT_FUNCTION divadidd_init(void)
+> +static int __init divadidd_init(void)
+>   {
+>   	char tmprev[32];
+>   	int ret =3D 0;
+> @@ -141,7 +141,7 @@ out:
+>   	return (ret);
+>   }
+>
+> -static void DIVA_EXIT_FUNCTION divadidd_exit(void)
+> +static void __exit divadidd_exit(void)
+>   {
+>   	diddfunc_finit();
+>   	remove_proc();
+> diff --git a/drivers/isdn/hardware/eicon/divamnt.c b/drivers/isdn/har=
+dware/eicon/divamnt.c
+> index ffa0c31..48db08d 100644
+> --- a/drivers/isdn/hardware/eicon/divamnt.c
+> +++ b/drivers/isdn/hardware/eicon/divamnt.c
+> @@ -184,7 +184,7 @@ static void divas_maint_unregister_chrdev(void)
+>   	unregister_chrdev(major, DEVNAME);
+>   }
+>
+> -static int DIVA_INIT_FUNCTION divas_maint_register_chrdev(void)
+> +static int __init divas_maint_register_chrdev(void)
+>   {
+>   	if ((major =3D register_chrdev(0, DEVNAME,&divas_maint_fops))<  0)
+>   	{
+> @@ -207,7 +207,7 @@ void diva_maint_wakeup_read(void)
+>   /*
+>    *  Driver Load
+>    */
+> -static int DIVA_INIT_FUNCTION maint_init(void)
+> +static int __init maint_init(void)
+>   {
+>   	char tmprev[50];
+>   	int ret =3D 0;
+> @@ -245,7 +245,7 @@ out:
+>   /*
+>   **  Driver Unload
+>   */
+> -static void DIVA_EXIT_FUNCTION maint_exit(void)
+> +static void __exit maint_exit(void)
+>   {
+>   	divas_maint_unregister_chrdev();
+>   	mntfunc_finit();
+> diff --git a/drivers/isdn/hardware/eicon/divasfunc.c b/drivers/isdn/h=
+ardware/eicon/divasfunc.c
+> index 60aaf95..4be5f88 100644
+> --- a/drivers/isdn/hardware/eicon/divasfunc.c
+> +++ b/drivers/isdn/hardware/eicon/divasfunc.c
+> @@ -153,7 +153,7 @@ static void *didd_callback(void *context, DESCRIP=
+TOR *adapter,
+>   /*
+>    * connect to didd
+>    */
+> -static int DIVA_INIT_FUNCTION connect_didd(void)
+> +static int __init connect_didd(void)
+>   {
+>   	int x =3D 0;
+>   	int dadapter =3D 0;
+> @@ -209,7 +209,7 @@ static void disconnect_didd(void)
+>   /*
+>    * init
+>    */
+> -int DIVA_INIT_FUNCTION divasfunc_init(int dbgmask)
+> +int __init divasfunc_init(int dbgmask)
+>   {
+>   	char *version;
+>
+> diff --git a/drivers/isdn/hardware/eicon/divasi.c b/drivers/isdn/hard=
+ware/eicon/divasi.c
+> index a5c8f90..4103a8c 100644
+> --- a/drivers/isdn/hardware/eicon/divasi.c
+> +++ b/drivers/isdn/hardware/eicon/divasi.c
+> @@ -114,7 +114,7 @@ static const struct file_operations um_idi_proc_f=
+ops =3D {
+>   	.release	=3D single_release,
+>   };
+>
+> -static int DIVA_INIT_FUNCTION create_um_idi_proc(void)
+> +static int __init create_um_idi_proc(void)
+>   {
+>   	um_idi_proc_entry =3D proc_create(DRIVERLNAME, S_IRUGO, proc_net_e=
+icon,
+>   					&um_idi_proc_fops);
+> @@ -146,7 +146,7 @@ static void divas_idi_unregister_chrdev(void)
+>   	unregister_chrdev(major, DEVNAME);
+>   }
+>
+> -static int DIVA_INIT_FUNCTION divas_idi_register_chrdev(void)
+> +static int __init divas_idi_register_chrdev(void)
+>   {
+>   	if ((major =3D register_chrdev(0, DEVNAME,&divas_idi_fops))<  0)
+>   	{
+> @@ -161,7 +161,7 @@ static int DIVA_INIT_FUNCTION divas_idi_register_=
+chrdev(void)
+>   /*
+>   ** Driver Load
+>   */
+> -static int DIVA_INIT_FUNCTION divasi_init(void)
+> +static int __init divasi_init(void)
+>   {
+>   	char tmprev[50];
+>   	int ret =3D 0;
+> @@ -202,7 +202,7 @@ out:
+>   /*
+>   ** Driver Unload
+>   */
+> -static void DIVA_EXIT_FUNCTION divasi_exit(void)
+> +static void __exit divasi_exit(void)
+>   {
+>   	idifunc_finit();
+>   	remove_um_idi_proc();
+> diff --git a/drivers/isdn/hardware/eicon/divasmain.c b/drivers/isdn/h=
+ardware/eicon/divasmain.c
+> index 7eaab06..ca6d276 100644
+> --- a/drivers/isdn/hardware/eicon/divasmain.c
+> +++ b/drivers/isdn/hardware/eicon/divasmain.c
+> @@ -673,7 +673,7 @@ static void divas_unregister_chrdev(void)
+>   	unregister_chrdev(major, DEVNAME);
+>   }
+>
+> -static int DIVA_INIT_FUNCTION divas_register_chrdev(void)
+> +static int __init divas_register_chrdev(void)
+>   {
+>   	if ((major =3D register_chrdev(0, DEVNAME,&divas_fops))<  0)
+>   	{
+> @@ -767,7 +767,7 @@ static void __devexit divas_remove_one(struct pci=
+_dev *pdev)
+>   /* ----------------------------------------------------------------=
+----------
+>      Driver Load / Startup
+>      ----------------------------------------------------------------=
+---------- */
+> -static int DIVA_INIT_FUNCTION divas_init(void)
+> +static int __init divas_init(void)
+>   {
+>   	char tmprev[50];
+>   	int ret =3D 0;
+> @@ -831,7 +831,7 @@ out:
+>   /* ----------------------------------------------------------------=
+----------
+>      Driver Unload
+>      ----------------------------------------------------------------=
+---------- */
+> -static void DIVA_EXIT_FUNCTION divas_exit(void)
+> +static void __exit divas_exit(void)
+>   {
+>   	pci_unregister_driver(&diva_pci_driver);
+>   	remove_divas_proc();
+> diff --git a/drivers/isdn/hardware/eicon/idifunc.c b/drivers/isdn/har=
+dware/eicon/idifunc.c
+> index d153e3c..fef6586 100644
+> --- a/drivers/isdn/hardware/eicon/idifunc.c
+> +++ b/drivers/isdn/hardware/eicon/idifunc.c
+> @@ -133,7 +133,7 @@ static void um_remove_card(DESCRIPTOR *d)
+>   /*
+>    * remove all adapter
+>    */
+> -static void DIVA_EXIT_FUNCTION remove_all_idi_proc(void)
+> +static void __exit remove_all_idi_proc(void)
+>   {
+>   	udiva_card *card;
+>   	diva_os_spin_lock_magic_t old_irql;
+> @@ -181,7 +181,7 @@ static void *didd_callback(void *context, DESCRIP=
+TOR *adapter,
+>   /*
+>    * connect DIDD
+>    */
+> -static int DIVA_INIT_FUNCTION connect_didd(void)
+> +static int __init connect_didd(void)
+>   {
+>   	int x =3D 0;
+>   	int dadapter =3D 0;
+> @@ -225,7 +225,7 @@ static int DIVA_INIT_FUNCTION connect_didd(void)
+>   /*
+>    *  Disconnect from DIDD
+>    */
+> -static void DIVA_EXIT_FUNCTION disconnect_didd(void)
+> +static void __exit disconnect_didd(void)
+>   {
+>   	IDI_SYNC_REQ req;
+>
+> @@ -240,7 +240,7 @@ static void DIVA_EXIT_FUNCTION disconnect_didd(vo=
+id)
+>   /*
+>    * init
+>    */
+> -int DIVA_INIT_FUNCTION idifunc_init(void)
+> +int __init idifunc_init(void)
+>   {
+>   	diva_os_initialize_spin_lock(&ll_lock, "idifunc");
+>
+> @@ -260,7 +260,7 @@ int DIVA_INIT_FUNCTION idifunc_init(void)
+>   /*
+>    * finit
+>    */
+> -void DIVA_EXIT_FUNCTION idifunc_finit(void)
+> +void __exit idifunc_finit(void)
+>   {
+>   	diva_user_mode_idi_finit();
+>   	disconnect_didd();
+> diff --git a/drivers/isdn/hardware/eicon/mntfunc.c b/drivers/isdn/har=
+dware/eicon/mntfunc.c
+> index d607260..1cd9aff 100644
+> --- a/drivers/isdn/hardware/eicon/mntfunc.c
+> +++ b/drivers/isdn/hardware/eicon/mntfunc.c
+> @@ -72,7 +72,7 @@ static void *didd_callback(void *context, DESCRIPTO=
+R *adapter,
+>   /*
+>    * connect to didd
+>    */
+> -static int DIVA_INIT_FUNCTION connect_didd(void)
+> +static int __init connect_didd(void)
+>   {
+>   	int x =3D 0;
+>   	int dadapter =3D 0;
+> @@ -114,7 +114,7 @@ static int DIVA_INIT_FUNCTION connect_didd(void)
+>   /*
+>    * disconnect from didd
+>    */
+> -static void DIVA_EXIT_FUNCTION disconnect_didd(void)
+> +static void __exit disconnect_didd(void)
+>   {
+>   	IDI_SYNC_REQ req;
+>
+> @@ -300,7 +300,7 @@ int maint_read_write(void __user *buf, int count)
+>   /*
+>    *  init
+>    */
+> -int DIVA_INIT_FUNCTION mntfunc_init(int *buffer_length, void **buffe=
+r,
+> +int __init mntfunc_init(int *buffer_length, void **buffer,
+>   				    unsigned long diva_dbg_mem)
+>   {
+>   	if (*buffer_length<  64) {
+> @@ -348,7 +348,7 @@ int DIVA_INIT_FUNCTION mntfunc_init(int *buffer_l=
+ength, void **buffer,
+>   /*
+>    *  exit
+>    */
+> -void DIVA_EXIT_FUNCTION mntfunc_finit(void)
+> +void __exit mntfunc_finit(void)
+>   {
+>   	void *buffer;
+>   	int i =3D 100;
+> diff --git a/drivers/isdn/hardware/eicon/platform.h b/drivers/isdn/ha=
+rdware/eicon/platform.h
+> index 7331c3b..b2edb75 100644
+> --- a/drivers/isdn/hardware/eicon/platform.h
+> +++ b/drivers/isdn/hardware/eicon/platform.h
+> @@ -38,9 +38,6 @@
+>   #define DIVA_NO_DEBUGLIB
+>   #endif
+>
+> -#define DIVA_INIT_FUNCTION  __init
+> -#define DIVA_EXIT_FUNCTION  __exit
+> -
+>   #define DIVA_USER_MODE_CARD_CONFIG 1
+>   #define	USE_EXTENDED_DEBUGS 1
+>
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
-index c4e7fda..cc978e8 100644
---- a/drivers/isdn/hardware/mISDN/hfcmulti.c
-+++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -1619,10 +1619,16 @@ hfcmulti_leds(struct hfc_multi *hc)
- 		 * 2 red steady:   TE mode deactivate
- 		 * left green:     L1 active
- 		 * left red:       frame sync, but no L1
--		 * right green:    L2 active
-+		 * todo right green:    L2 active
- 		 */
--		if (hc->chan[hc->dslot].sync != 2) { /* no frame sync */
--			if (hc->chan[hc->dslot].dch->dev.D.protocol
-+		dch = hc->chan[hc->dslot].dch;
-+		if (test_bit(FLG_ACTIVE, &dch->Flags)) {
-+			led[0] = 0;
-+			led[1] = 0;
-+			led[2] = 0;
-+			led[3] = 1;
-+		} else {
-+			if (dch->dev.D.protocol
- 			    != ISDN_P_NT_E1) {
- 				led[0] = 1;
- 				led[1] = 1;
-@@ -1635,12 +1641,6 @@ hfcmulti_leds(struct hfc_multi *hc)
- 			}
- 			led[2] = 0;
- 			led[3] = 0;
--		} else { /* with frame sync */
--			/* TODO make it work */
--			led[0] = 0;
--			led[1] = 0;
--			led[2] = 0;
--			led[3] = 1;
- 		}
- 		leds = (led[0] | (led[1]<<2) | (led[2]<<1) | (led[3]<<3))^0xF;
- 		/* leds are inverted */
-@@ -4062,14 +4062,9 @@ open_dchannel(struct hfc_multi *hc, struct dchannel *dch,
- 		hfcmulti_initmode(dch);
- 		spin_unlock_irqrestore(&hc->lock, flags);
- 	}
--
--	if (((rq->protocol == ISDN_P_NT_S0) && (dch->state == 3)) ||
--	    ((rq->protocol == ISDN_P_TE_S0) && (dch->state == 7)) ||
--	    ((rq->protocol == ISDN_P_NT_E1) && (dch->state == 1)) ||
--	    ((rq->protocol == ISDN_P_TE_E1) && (dch->state == 1))) {
-+	if (test_bit(FLG_ACTIVE, &dch->Flags))
- 		_queue_data(&dch->dev.D, PH_ACTIVATE_IND, MISDN_ID_ANY,
- 			    0, NULL, GFP_KERNEL);
--	}
- 	rq->ch = &dch->dev.D;
- 	if (!try_module_get(THIS_MODULE))
- 		printk(KERN_WARNING "%s:cannot get module\n", __func__);
--- 
-1.7.3.4
+
+--=20
+Mit freundlichen Gr=C3=BC=C3=9Fen / Best regards
+Armin Schindler
+
+Cytronics & Melware
+Weinbergstrasse 39, 55296 Loerzweiler / Germany
+Tel: +49 6138 99998-100
+=46ax: +49 6138 99998-109
+VoIP: sip:info@melware.net
+mailto:info@melware.de
+http://www.melware.de
