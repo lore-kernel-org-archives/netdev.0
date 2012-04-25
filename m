@@ -1,148 +1,131 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Wed, 25 Apr 2012 10:17:25 -0700
-Message-ID: <CAEP_g=8DmQ_-8+ZbATdVhNJKiDSr0HdUgB-+oaqwU1=SqqzXfQ@mail.gmail.com>
-References: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
-	<20120423.161313.1582195533832554777.davem@davemloft.net>
-	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
-	<20120423.170817.1103719420692884446.davem@davemloft.net>
-	<CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
-	<20120423223255.GG580@verge.net.au>
-	<CAEP_g=9p0TE59JbrS8QzHj4mEzc-5_hUDzmLRsRxLyUaFX+Z5Q@mail.gmail.com>
-	<20120424022514.GB5357@verge.net.au>
-	<807AC914-2F33-46C7-99DC-E2F8F0F97531@cisco.com>
-	<20120425083925.GB6661@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20120425083925.GB6661-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH 1/2] ehea: fix allmulticast support
+Date: Wed, 25 Apr 2012 14:32:11 -0300
+Message-ID: <1335375132-4591-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:41878 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756525Ab2DYRcW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 13:32:22 -0400
+Received: from /spool/local
+	by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Wed, 25 Apr 2012 14:32:20 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id F2AFB1DC004B
+	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 14:32:13 -0300 (BRT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q3PHUrW02584734
+	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 14:30:54 -0300
+Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q3PFW5Pg009295
+	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 12:32:05 -0300
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBBcHIgMjUsIDIwMTIgYXQgMTozOSBBTSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJn
-ZS5uZXQuYXU+IHdyb3RlOgo+IE9uIFR1ZSwgQXByIDI0LCAyMDEyIGF0IDA0OjAyOjQxUE0gKzAw
-MDAsIEt5bGUgTWVzdGVyeSAoa21lc3RlcnkpIHdyb3RlOgo+PiBPbiBBcHIgMjMsIDIwMTIsIGF0
-IDk6MjUgUE0sIFNpbW9uIEhvcm1hbiB3cm90ZToKPj4gPiBPbiBNb24sIEFwciAyMywgMjAxMiBh
-dCAwMzo1OToyNFBNIC0wNzAwLCBKZXNzZSBHcm9zcyB3cm90ZToKPj4gPj4gT24gTW9uLCBBcHIg
-MjMsIDIwMTIgYXQgMzozMiBQTSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+IHdy
-b3RlOgo+PiA+Pj4gT24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMDI6Mzg6MDdQTSAtMDcwMCwgSmVz
-c2UgR3Jvc3Mgd3JvdGU6Cj4+ID4+Pj4gT24gTW9uLCBBcHIgMjMsIDIwMTIgYXQgMjowOCBQTSwg
-RGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToKPj4gPj4+Pj4gRnJvbTog
-SmVzc2UgR3Jvc3MgPGplc3NlQG5pY2lyYS5jb20+Cj4+ID4+Pj4+IERhdGU6IE1vbiwgMjMgQXBy
-IDIwMTIgMTM6NTM6NDIgLTA3MDAKPj4gPj4+Pj4KPj4gPj4+Pj4+IE9uIE1vbiwgQXByIDIzLCAy
-MDEyIGF0IDE6MTMgUE0sIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6
-Cj4+ID4+Pj4+Pj4gRnJvbTogSmVzc2UgR3Jvc3MgPGplc3NlQG5pY2lyYS5jb20+Cj4+ID4+Pj4+
-Pj4gRGF0ZTogTW9uLCAyMyBBcHIgMjAxMiAxMzowODo0OSAtMDcwMAo+PiA+Pj4+Pj4+Cj4+ID4+
-Pj4+Pj4+IEFzc3VtaW5nIHRoYXQgdGhlIFRDUCBzdGFjayBnZW5lcmF0ZXMgbGFyZ2UgVFNPIGZy
-YW1lcyBvbiB0cmFuc21pdAo+PiA+Pj4+Pj4+PiAod2hpY2ggY291bGQgYmUgdGhlIGxvY2FsIHN0
-YWNrOyBzb21ldGhpbmcgc2VudCBieSBhIFZNOyBvciBwYWNrZXRzCj4+ID4+Pj4+Pj4+IHJlY2Vp
-dmVkLCBjb2FsZXNjZWQgYnkgR1JPIGFuZCB0aGVuIGVuY2Fwc3VsYXRlZCBieSBTVFQpIHRoZW4g
-eW91IGNhbgo+PiA+Pj4+Pj4+PiBqdXN0IHByZXBlbmQgdGhlIFNUVCBoZWFkZXIgKHBvc3NpYmx5
-IHNsaWdodGx5IGFkanVzdGluZyB0aGluZ3MgbGlrZQo+PiA+Pj4+Pj4+PiByZXF1ZXN0ZWQgTVNT
-LCBudW1iZXIgb2Ygc2VnbWVudHMsIGV0Yy4gc2xpZ2h0bHkpLiDCoEFmdGVyIHRoYXQgaXQncwo+
-PiA+Pj4+Pj4+PiBwb3NzaWJsZSB0byBqdXN0IG91dHB1dCB0aGUgcmVzdWx0aW5nIGZyYW1lIHRo
-cm91Z2ggdGhlIElQIHN0YWNrIGxpa2UKPj4gPj4+Pj4+Pj4gYWxsIHR1bm5lbHMgZG8gdG9kYXku
-Cj4+ID4+Pj4+Pj4KPj4gPj4+Pj4+PiBXaGljaCBzZWVtcyB0byBwb3RlbnRpYWxseSBzdWdnZXN0
-IGEgc3Ryb25nZXIgaW50ZXJncmF0aW9uIG9mIHRoZSBTVFQKPj4gPj4+Pj4+PiB0dW5uZWwgdHJh
-bnNtaXQgcGF0aCBpbnRvIG91ciBJUCBzdGFjayByYXRoZXIgdGhhbiB0aGUgYXBwcm9hY2ggU2lt
-b24KPj4gPj4+Pj4+PiBpcyB0YWtpbmcKPj4gPj4+Pj4+Cj4+ID4+Pj4+PiBEaWQgeW91IGhhdmUg
-c29tZXRoaW5nIGluIG1pbmQ/Cj4+ID4+Pj4+Cj4+ID4+Pj4+IEEgbm9ybWFsIGJvbmFmaWRlIHR1
-bm5lbCBuZXRkZXZpY2UgZHJpdmVyIGxpa2UgR1JFIGluc3RlYWQgb2YgdGhlCj4+ID4+Pj4+IG9w
-ZW52c3dpdGNoIGFwcHJvYWNoIFNpbW9uIGlzIHVzaW5nLgo+PiA+Pj4+Cj4+ID4+Pj4gQWhoLCB5
-ZXMsIHRoYXQgSSBhZ3JlZSB3aXRoLiDCoEluZGVwZW5kZW50IG9mIHRoaXMsIHRoZXJlJ3Mgd29y
-ayBiZWluZwo+PiA+Pj4+IGRvbmUgdG8gbWFrZSBpdCBzbyB0aGF0IE9WUyBjYW4gdXNlIHRoZSBu
-b3JtYWwgaW4tdHJlZSB0dW5uZWxpbmcgY29kZQo+PiA+Pj4+IGFuZCBub3QgbmVlZCBpdHMgb3du
-LiDCoE9uY2UgdGhhdCdzIGRvbmUgSSBleHBlY3QgdGhhdCBTVFQgd2lsbCBmb2xsb3cKPj4gPj4+
-PiB0aGUgc2FtZSBtb2RlbC4KPj4gPj4+Cj4+ID4+PiBIaSBKZXNzZSwKPj4gPj4+Cj4+ID4+PiBJ
-IGFtIHdvbmRlcmluZyBob3cgZmlybSB0aGUgcGxhbnMgdG8gb24gYWxsb3dpbmcgT1ZTIHRvIHVz
-ZSBpbi10cmVlIHR1bm5lbAo+PiA+Pj4gY29kZSBhcmUuIEknbSBoYXBweSB0byBtb3ZlIG15IGVm
-Zm9ydHMgb3ZlciB0byBhbiBpbi10cmVlIFNUVCBpbXBsZW1lbnRhdGlvbgo+PiA+Pj4gYnV0IHVs
-dGltYXRlbHkgSSB3b3VsZCBsaWtlIHRvIGdldCBTVFQgcnVubmluZyBpbiBjb25qdW5jdGlvbiB3
-aXRoIE9WUy4KPj4gPj4KPj4gPj4gSSB3b3VsZCBzYXkgdGhhdCBpdCdzIGEgZmlybSBnb2FsIGJ1
-dCB0aGUgaW1wbGVtZW50YXRpb24gcHJvYmFibHkKPj4gPj4gc3RpbGwgaGFzIGEgd2F5cyB0byBn
-by4gwqBLeWxlIE1lc3RlcnkgKENDJ2VkKSBoYXMgdm9sdW50ZWVyZWQgdG8gd29yawo+PiA+PiBv
-biB0aGlzIGluIHN1cHBvcnQgb2YgYWRkaW5nIFZYTEFOLCB3aGljaCBuZWVkcyBzb21lIGFkZGl0
-aW9uYWwKPj4gPj4gZmxleGliaWxpdHkgdGhhdCB0aGlzIGFwcHJvYWNoIHdvdWxkIGFsc28gcHJv
-dmlkZS4gwqBZb3UgbWlnaHQgd2FudCB0bwo+PiA+PiB0YWxrIHRvIGhpbSB0byBzZWUgaWYgdGhl
-cmUgYXJlIHdheXMgdGhhdCB5b3UgZ3V5cyBjYW4gd29yayB0b2dldGhlcgo+PiA+PiBvbiBpdCBp
-ZiB5b3UgYXJlIGludGVyZXN0ZWQuIMKgSGF2aW5nIGJldHRlciBpbnRlZ3JhdGlvbiB3aXRoIHVw
-c3RyZWFtCj4+ID4+IHR1bm5lbGluZyBpcyBkZWZpbml0ZWx5IGEgc3RlcCB0aGF0IE9WUyBuZWVk
-cyB0byBtYWtlIGFuZCBzb29uZXIgd291bGQKPj4gPj4gYmUgYmV0dGVyIHRoYW4gbGF0ZXIuCj4+
-ID4KPj4gPiBIaSBKZXNzZSwgSGkgS3lsZSwKPj4gPgo+PiA+IHRoYXQgc291bmRzIGxpa2UgYW4g
-ZXhjZWxsZW50IHBsYW4uCj4+ID4KPj4gPiBLeWxlLCBkbyB5b3UgaGF2ZSBhbnkgdGhvdWdodHMg
-b24gaG93IHdlIG1pZ2h0IGJlc3Qgd29yayB0b2dldGhlciBvbiB0aGlzPwo+PiA+IFBlcmhhcHMg
-dGhlcmUgYXJlIHNvbWUgcGF0Y2hlcyBmbG9hdGluZyBhcm91bmQgdGhhdCBJIGNvdWxkIHRha2Ug
-YSBsb29rIGF0Pwo+PiA+Cj4+Cj4+IEhpIFNpbW9uOgo+Pgo+PiBUaGUgVlhMQU4gd29yayBoYXMg
-YmVlbiBzbG93IGdvaW5nIGZvciBtZSBhdCB0aGlzIHBvaW50LiBXaGF0IEkgaGF2ZSB3b3Jrcywg
-YnV0IGlzIGZhciBmcm9tIGNvbXBsZXRlLiBJdCdzIGF2YWlsYWJsZSBoZXJlOgo+Pgo+PiBodHRw
-czovL2dpdGh1Yi5jb20vbWVzdGVyeS9vdnMtdnhsYW4vdHJlZS92eGxhbgo+Pgo+PiBUaGlzIGlz
-IGJhc2VkIG9uIGEgZmFpcmx5IHJlY2VudCB2ZXJzaW9uIG9mIE9WUy4gSSdtIGN1cnJlbnRseSB3
-b3JraW5nIHRvIGFsbG93IHR1bm5lbHMgdG8gYmUgZmxvdy1iYXNlZCByYXRoZXIgdGhhbiBwb3J0
-LWJhc2VkLCBhcyB0aGV5IGN1cnJlbnRseSBleGlzdC4KPj4gQXMgSmVzc2UgbWF5IGhhdmUgbWVu
-dGlvbmVkLCBkb2luZyB0aGlzIGFsbG93cyB1cyB0byBtb3ZlIG1vc3QgdHVubmVsIHN0YXRlIGlu
-dG8gdXNlciBzcGFjZS4gVGhlIG91dGVyIGhlYWRlciBjYW4gbm93IGJlIHBhcnQgb2YgdGhlIGZs
-b3cgbG9va3VwIGFuZCBjYW4KPj4gYmUgcGFzc2VkIHRvIHVzZXIgc3BhY2UsIHNvIHRoaW5ncyBs
-aWtlIG11bHRpY2FzdCBsZWFybmluZyBmb3IgVlhMQU4gYmVjb21lIHBvc3NpYmxlLgo+Pgo+PiBX
-aXRoIHJlZ2FyZHMgdG8gd29ya2luZyB0b2dldGhlciwgcGluZyBtZSBvZmYtbGlzdCBhbmQgd2Ug
-Y2FuIHdvcmsgc29tZXRoaW5nIG91dCwgSSdtIHZlcnkgbXVjaCBpbiBmYXZvciBvZiB0aGlzIQo+
-Cj4gSGkgS3lsZSwKPgo+IHRoZSBjb21wb25lbnQgdGhhdCBpcyBvZiBtb3N0IGludGVyZXN0IHRv
-IG1lIGlzIGVuYWJsaW5nIE9WUyB0byB1c2UgaW4tdHJlZQo+IHR1bm5lbGxpbmcgY29kZSAtIGFz
-IGl0IHNlZW1zIHRoYXQgbWFrZXMgbW9zdCBzZW5zZSBmb3IgYW4gaW1wbGVtZW50YXRpb24KPiBv
-ZiBTVFQuIEkgaGF2ZSB0YWtlbiBhIGJyaWVmIGxvb2sgb3ZlciB5b3VyIHZ4bGFuIHdvcmsgYW5k
-IGl0IGlzbid0IGNsZWFyCj4gdG8gbWUgaWYgaXQgaXMgbW92aW5nIHRvd2FyZHMgYmVpbmcgYW4g
-aW4tdHJlZSBpbXBsZW1lbnRhdGlvbi4gwqBNb3Jlb3ZlciwKPiBJJ20gYSByYXRoZXIgdW5jbGVh
-ciBvbiB3aGF0IGNoYW5nZXMgbmVlZCB0byBiZSBtYWRlIHRvIE9WUyBpbiBvcmRlciBmb3IKPiBp
-bi10cmVlIHR1bm5lbGluZyB0byBiZSB1c2VkLgo+Cj4gTXkgcmVjb2xsZWN0aW9uIGlzIHRoYXQg
-T1ZTIGRpZCBtYWtlIHVzZSBvZiBpbi10cmVlIHR1bm5lbGxpbmcgY29kZQo+IGJ1dCB0aGlzIHdh
-cyByZW1vdmVkIGluIGZhdm91ciBvZiB0aGUgY3VycmVudCBpbXBsZW1lbnRhdGlvbiBmb3IgdmFy
-aW91cwo+IHJlYXNvbnMgKHBlcmZvcm1hbmNlIGJlaW5nIG9uZSBJSVJDKS4gSSBnYXRoZXIgdGhh
-dCByZXZpc2l0aW5nIGluLXRyZWUKPiB0dW5uZWxsaW5nIHdvbid0IHJldmlzaXQgdGhlIHByZXZp
-b3VzIHNldCBvZiBwcm9ibGVtcy4gQnV0IEknbSB1bmNsZWFyIGhvdy4KPgo+IEplc3NlLCBpcyBp
-dCBwb3NzaWJsZSBmb3IgeW91IHRvIGRlc2NyaWJlIHRoYXQgaW4gYSBsaXR0bGUgZGV0YWlsCj4g
-b3IgcG9pbnQgbWUgdG8gc29tZSBpbmZvcm1hdGlvbj8KClRoaXMgd2FzIHdoYXQgSSBoYWQgb3Jp
-Z2luYWxseSB3cml0dGVuIGEgd2hpbGUgYmFjaywgYWx0aG91Z2ggaXQncwptb3JlIGFib3V0IE9W
-UyBpbnRlcm5hbGx5IGFuZCBsZXNzIGFib3V0IGhvdyB0byBjb25uZWN0IHRvIHRoZSBpbi10cmVl
-CmNvZGU6Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvcGlwZXJtYWlsL2Rldi8yMDEyLUZlYnJ1YXJ5
-LzAxNDc3OS5odG1sCgpJbiBvcmRlciB0byBmbGV4aWJseSBpbXBsZW1lbnQgc3VwcG9ydCBmb3Ig
-Y3VycmVudCBhbmQgZnV0dXJlIHR1bm5lbApwcm90b2NvbHMgT1ZTIG5lZWRzIHRvIGJlIGFibGUg
-dG8gZ2V0L3NldCBpbmZvcm1hdGlvbiBhYm91dCB0aGUgb3V0ZXIKdHVubmVsIGhlYWRlciB3aGVu
-IHByb2Nlc3NpbmcgdGhlIGlubmVyIHBhY2tldC4gIEF0IHRoZSB2ZXJ5IGxlYXN0CnRoaXMgaXMg
-c3JjL2RzdCBJUCBhZGRyZXNzZXMgYW5kIHRoZSBrZXkvSUQvVk5JL2V0Yy4gIEluIHRoZSB1cHN0
-cmVhbQp0dW5uZWwgaW1wbGVtZW50YXRpb25zIHRob3NlIGFyZSBpbXBsaWNpdGx5IGVuY29kZWQg
-aW4gdGhlIGRldmljZSB0aGF0CnNlbmRzIG9yIHJlY2VpdmVzIHRoZSBwYWNrZXQuICBIb3dldmVy
-LCB0aGlzIGhhcyBhIHR3byBwcm9ibGVtczoKbnVtYmVyIG9mIGRldmljZXMgYW5kIGFiaWxpdHkg
-dG8gaGFuZGxlIHVua25vd24gdmFsdWVzLiAgV2UgYWRkcmVzc2VkCnBhcnQgb2YgdGhpcyBwcm9i
-bGVtIGJ5IGFsbG93aW5nIHRoZSB0dW5uZWwgSUQgdG8gYmUgc2V0IGFuZCBtYXRjaGVkCnRocm91
-Z2ggdGhlIE9WUyBmbG93IHRhYmxlIGFuZCBhbiBhY3Rpb24uICBJbiBvcmRlciB0byBkbyB0aGlz
-IHdpdGgKdGhlIGluLXRyZWUgdHVubmVsaW5nIGNvZGUsIHdlIG9idmlvdXNseSBuZWVkIGEgd2F5
-IG9mIHBhc3NpbmcgdGhpcwppbmZvcm1hdGlvbiBhcm91bmQgc2luY2UgaXQgd291bGQgY3VycmVu
-dGx5IGdldCBsb3N0IGFzIHdlIHBhc3MKdGhyb3VnaCB0aGUgTGludXggZGV2aWNlIGxheWVyLgoK
-VGhlIHBsYW4gdG8gZGVhbCB3aXRoIHRoYXQgaXMgdG8gYWRkIGEgZnVuY3Rpb24gdG8gdGhlIGlu
-LXRyZWUKdHVubmVsaW5nIGNvZGUgdGhhdCBhbGxvd3MgYSBza2IgdG8gYmUgZW5jYXBzdWxhdGVk
-IHdpdGggc3BlY2lmaWMKcGFyYW1ldGVycyBhbmQgY29udmVyc2VseSBhIGhvb2sgdG8gcmVjZWl2
-ZSBkZWNhcHN1bGF0ZWQgcGFja2V0cyBhbG9uZwp3aXRoIGhlYWRlciBpbmZvLiAgVGhpcyB3b3Vs
-ZCBtYWtlIGFsbCBvZiB0aGUga2VybmVsIHR1bm5lbGluZyBjb2RlCmNvbW1vbiwgd2hpbGUgc3Rp
-bGwgZ2l2aW5nIE9WUyB1c2Vyc3BhY2UgdGhlIGFiaWxpdHkgdG8gaW1wbGVtZW50CmVzc2VudGlh
-bGx5IGFueSB0eXBlIG9mIHR1bm5lbGluZyBwb2xpY3kuICBJbiBtYW55IHdheXMsIHRoaXMgaXMg
-dmVyeQpzaW1pbGFyIHRvIGhvdyB2bGFucyBsb29rIGluIE9WUyB0b2RheS4KCldoaWxlIGl0IHdv
-dWxkIGJlIHBvc3NpYmxlIHRvIGltcGxlbWVudCB0aGUgaG9vayB0byB1c2UgdGhlIGluLXRyZWUK
-dHVubmVsIGNvZGUgdG9kYXkgd2l0aG91dCBhIGxvdCBvZiBjaGFuZ2VzLCB3ZSBhbHJlYWR5IGtu
-b3cgdGhhdCB3ZQp3YW50IHRvIG1vdmUgYXdheSBmcm9tIHBvcnQtYmFzZWQgbW9kZWwgaW4gdGhl
-IE9WUyBrZXJuZWwgbW9kdWxlCnRvd2FyZHMgdGhlIGZsb3cgbW9kZWwuICBBcyB3ZSBwdXNoIHRo
-aXMgdXBzdHJlYW0gdGhlIHVzZXJzcGFjZS9rZXJuZWwKQVBJIHNob3VsZCBiZSB0aGUgY29ycmVj
-dCBvbmUsIHNvIHRoYXQncyB3aHkgdGhlc2UgdHdvIHRoaW5ncyBhcmUgdGllZAp0b2dldGhlci4K
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxp
-bmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1h
-bi9saXN0aW5mby9kZXYK
+There was a bug in the mask of regtype parameter for registering a
+multicast filter. It was ignoring the scope bit, which was wrongly being
+used for all filters. The SCOPE_ALL value adds a filter that allows all
+multicast packets and ignores the MAC parameter, just what allmulticast
+needs. The normals filters, however, should not use SCOPE_ALL.
+
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ehea/ehea_main.c |   24 +++++++++++++++---------
+ drivers/net/ethernet/ibm/ehea/ehea_phyp.h |    2 +-
+ 2 files changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index acf34b6..9dcb5fd 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -290,16 +290,18 @@ static void ehea_update_bcmc_registrations(void)
+ 
+ 				arr[i].adh = adapter->handle;
+ 				arr[i].port_id = port->logical_port_id;
+-				arr[i].reg_type = EHEA_BCMC_SCOPE_ALL |
+-						  EHEA_BCMC_MULTICAST |
++				arr[i].reg_type = EHEA_BCMC_MULTICAST |
+ 						  EHEA_BCMC_UNTAGGED;
++				if (mc_entry->macaddr == 0)
++					arr[i].reg_type |= EHEA_BCMC_SCOPE_ALL;
+ 				arr[i++].macaddr = mc_entry->macaddr;
+ 
+ 				arr[i].adh = adapter->handle;
+ 				arr[i].port_id = port->logical_port_id;
+-				arr[i].reg_type = EHEA_BCMC_SCOPE_ALL |
+-						  EHEA_BCMC_MULTICAST |
++				arr[i].reg_type = EHEA_BCMC_MULTICAST |
+ 						  EHEA_BCMC_VLANID_ALL;
++				if (mc_entry->macaddr == 0)
++					arr[i].reg_type |= EHEA_BCMC_SCOPE_ALL;
+ 				arr[i++].macaddr = mc_entry->macaddr;
+ 				num_registrations -= 2;
+ 			}
+@@ -1838,8 +1840,9 @@ static u64 ehea_multicast_reg_helper(struct ehea_port *port, u64 mc_mac_addr,
+ 	u64 hret;
+ 	u8 reg_type;
+ 
+-	reg_type = EHEA_BCMC_SCOPE_ALL | EHEA_BCMC_MULTICAST
+-		 | EHEA_BCMC_UNTAGGED;
++	reg_type = EHEA_BCMC_MULTICAST | EHEA_BCMC_UNTAGGED;
++	if (mc_mac_addr == 0)
++		reg_type |= EHEA_BCMC_SCOPE_ALL;
+ 
+ 	hret = ehea_h_reg_dereg_bcmc(port->adapter->handle,
+ 				     port->logical_port_id,
+@@ -1847,8 +1850,9 @@ static u64 ehea_multicast_reg_helper(struct ehea_port *port, u64 mc_mac_addr,
+ 	if (hret)
+ 		goto out;
+ 
+-	reg_type = EHEA_BCMC_SCOPE_ALL | EHEA_BCMC_MULTICAST
+-		 | EHEA_BCMC_VLANID_ALL;
++	reg_type = EHEA_BCMC_MULTICAST | EHEA_BCMC_VLANID_ALL;
++	if (mc_mac_addr == 0)
++		reg_type |= EHEA_BCMC_SCOPE_ALL;
+ 
+ 	hret = ehea_h_reg_dereg_bcmc(port->adapter->handle,
+ 				     port->logical_port_id,
+@@ -1898,7 +1902,7 @@ static void ehea_allmulti(struct net_device *dev, int enable)
+ 				netdev_err(dev,
+ 					   "failed enabling IFF_ALLMULTI\n");
+ 		}
+-	} else
++	} else {
+ 		if (!enable) {
+ 			/* Disable ALLMULTI */
+ 			hret = ehea_multicast_reg_helper(port, 0, H_DEREG_BCMC);
+@@ -1908,6 +1912,7 @@ static void ehea_allmulti(struct net_device *dev, int enable)
+ 				netdev_err(dev,
+ 					   "failed disabling IFF_ALLMULTI\n");
+ 		}
++	}
+ }
+ 
+ static void ehea_add_multicast_entry(struct ehea_port *port, u8 *mc_mac_addr)
+@@ -2463,6 +2468,7 @@ static int ehea_down(struct net_device *dev)
+ 		return 0;
+ 
+ 	ehea_drop_multicast_list(dev);
++	ehea_allmulti(dev, 0);
+ 	ehea_broadcast_reg_helper(port, H_DEREG_BCMC);
+ 
+ 	ehea_free_interrupts(dev);
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_phyp.h b/drivers/net/ethernet/ibm/ehea/ehea_phyp.h
+index 52c456e..8364815 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_phyp.h
++++ b/drivers/net/ethernet/ibm/ehea/ehea_phyp.h
+@@ -450,7 +450,7 @@ u64 ehea_h_modify_ehea_port(const u64 adapter_handle, const u16 port_num,
+ 			    void *cb_addr);
+ 
+ #define H_REGBCMC_PN            EHEA_BMASK_IBM(48, 63)
+-#define H_REGBCMC_REGTYPE       EHEA_BMASK_IBM(61, 63)
++#define H_REGBCMC_REGTYPE       EHEA_BMASK_IBM(60, 63)
+ #define H_REGBCMC_MACADDR       EHEA_BMASK_IBM(16, 63)
+ #define H_REGBCMC_VLANID        EHEA_BMASK_IBM(52, 63)
+ 
+-- 
+1.7.4.4
