@@ -1,478 +1,134 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 04/15] batman-adv: Distributed ARP Table - create DHT helper functions
-Date: Wed, 25 Apr 2012 15:27:00 +0200
-Message-ID: <1335360431-30027-5-git-send-email-ordex@autistici.org>
-References: <1335360431-30027-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:38797 "EHLO
-	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752432Ab2DYN0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 09:26:19 -0400
-In-Reply-To: <1335360431-30027-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Kyle Mestery (kmestery)" <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Wed, 25 Apr 2012 13:36:46 +0000
+Message-ID: <CE406DEF-AC48-4029-BCC3-0EB51B4B1A27@cisco.com>
+References: <CAEP_g=_3om5aR=P0ffa9421KhvYYrMEeE33TNcCC9UV6+XVWAQ@mail.gmail.com>
+	<20120423.161313.1582195533832554777.davem@davemloft.net>
+	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
+	<20120423.170817.1103719420692884446.davem@davemloft.net>
+	<CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
+	<20120423223255.GG580@verge.net.au>
+	<CAEP_g=9p0TE59JbrS8QzHj4mEzc-5_hUDzmLRsRxLyUaFX+Z5Q@mail.gmail.com>
+	<20120424022514.GB5357@verge.net.au>
+	<807AC914-2F33-46C7-99DC-E2F8F0F97531@cisco.com>
+	<20120425083925.GB6661@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"<jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>" <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	"<stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>" <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	"<shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>" <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120425083925.GB6661-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Content-Language: en-US
+Content-ID: <AA079373727AB44984B4D4D731308777-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add all the relevant functions in order to manage a Distributed Hash Table over
-the B.A.T.M.A.N.-adv network. It will later be used to store several ARP entries
-and implement DAT (Distributed ARP Table)
+On Apr 25, 2012, at 3:39 AM, Simon Horman wrote:
+> On Tue, Apr 24, 2012 at 04:02:41PM +0000, Kyle Mestery (kmestery) wrote:
+>> On Apr 23, 2012, at 9:25 PM, Simon Horman wrote:
+>>> On Mon, Apr 23, 2012 at 03:59:24PM -0700, Jesse Gross wrote:
+>>>> On Mon, Apr 23, 2012 at 3:32 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+>>>>> On Mon, Apr 23, 2012 at 02:38:07PM -0700, Jesse Gross wrote:
+>>>>>> On Mon, Apr 23, 2012 at 2:08 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>>>>>>> From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+>>>>>>> Date: Mon, 23 Apr 2012 13:53:42 -0700
+>>>>>>> 
+>>>>>>>> On Mon, Apr 23, 2012 at 1:13 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>>>>>>>>> From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+>>>>>>>>> Date: Mon, 23 Apr 2012 13:08:49 -0700
+>>>>>>>>> 
+>>>>>>>>>> Assuming that the TCP stack generates large TSO frames on transmit
+>>>>>>>>>> (which could be the local stack; something sent by a VM; or packets
+>>>>>>>>>> received, coalesced by GRO and then encapsulated by STT) then you can
+>>>>>>>>>> just prepend the STT header (possibly slightly adjusting things like
+>>>>>>>>>> requested MSS, number of segments, etc. slightly).  After that it's
+>>>>>>>>>> possible to just output the resulting frame through the IP stack like
+>>>>>>>>>> all tunnels do today.
+>>>>>>>>> 
+>>>>>>>>> Which seems to potentially suggest a stronger intergration of the STT
+>>>>>>>>> tunnel transmit path into our IP stack rather than the approach Simon
+>>>>>>>>> is taking
+>>>>>>>> 
+>>>>>>>> Did you have something in mind?
+>>>>>>> 
+>>>>>>> A normal bonafide tunnel netdevice driver like GRE instead of the
+>>>>>>> openvswitch approach Simon is using.
+>>>>>> 
+>>>>>> Ahh, yes, that I agree with.  Independent of this, there's work being
+>>>>>> done to make it so that OVS can use the normal in-tree tunneling code
+>>>>>> and not need its own.  Once that's done I expect that STT will follow
+>>>>>> the same model.
+>>>>> 
+>>>>> Hi Jesse,
+>>>>> 
+>>>>> I am wondering how firm the plans to on allowing OVS to use in-tree tunnel
+>>>>> code are. I'm happy to move my efforts over to an in-tree STT implementation
+>>>>> but ultimately I would like to get STT running in conjunction with OVS.
+>>>> 
+>>>> I would say that it's a firm goal but the implementation probably
+>>>> still has a ways to go.  Kyle Mestery (CC'ed) has volunteered to work
+>>>> on this in support of adding VXLAN, which needs some additional
+>>>> flexibility that this approach would also provide.  You might want to
+>>>> talk to him to see if there are ways that you guys can work together
+>>>> on it if you are interested.  Having better integration with upstream
+>>>> tunneling is definitely a step that OVS needs to make and sooner would
+>>>> be better than later.
+>>> 
+>>> Hi Jesse, Hi Kyle,
+>>> 
+>>> that sounds like an excellent plan.
+>>> 
+>>> Kyle, do you have any thoughts on how we might best work together on this?
+>>> Perhaps there are some patches floating around that I could take a look at?
+>>> 
+>> 
+>> Hi Simon:
+>> 
+>> The VXLAN work has been slow going for me at this point. What I have works, but is far from complete. It's available here:
+>> 
+>> https://github.com/mestery/ovs-vxlan/tree/vxlan
+>> 
+>> This is based on a fairly recent version of OVS. I'm currently working to allow tunnels to be flow-based rather than port-based, as they currently exist.
+>> As Jesse may have mentioned, doing this allows us to move most tunnel state into user space. The outer header can now be part of the flow lookup and can
+>> be passed to user space, so things like multicast learning for VXLAN become possible.
+>> 
+>> With regards to working together, ping me off-list and we can work something out, I'm very much in favor of this!
+> 
+> Hi Kyle,
+> 
+> the component that is of most interest to me is enabling OVS to use in-tree
+> tunnelling code - as it seems that makes most sense for an implementation
+> of STT. I have taken a brief look over your vxlan work and it isn't clear
+> to me if it is moving towards being an in-tree implementation.  Moreover,
+> I'm a rather unclear on what changes need to be made to OVS in order for
+> in-tree tunneling to be used.
+> 
+> My recollection is that OVS did make use of in-tree tunnelling code
+> but this was removed in favour of the current implementation for various
+> reasons (performance being one IIRC). I gather that revisiting in-tree
+> tunnelling won't revisit the previous set of problems. But I'm unclear how.
+> 
+> Jesse, is it possible for you to describe that in a little detail
+> or point me to some information?
 
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
----
- net/batman-adv/Makefile                |    1 +
- net/batman-adv/distributed-arp-table.c |  207 ++++++++++++++++++++++++++++++++
- net/batman-adv/distributed-arp-table.h |   66 ++++++++++
- net/batman-adv/hard-interface.c        |    3 +
- net/batman-adv/main.h                  |    6 +
- net/batman-adv/originator.c            |    2 +
- net/batman-adv/types.h                 |   14 +++
- net/batman-adv/unicast.c               |    8 +-
- net/batman-adv/unicast.h               |    4 +
- 9 files changed, 307 insertions(+), 4 deletions(-)
- create mode 100644 net/batman-adv/distributed-arp-table.c
- create mode 100644 net/batman-adv/distributed-arp-table.h
+Simon:
 
-diff --git a/net/batman-adv/Makefile b/net/batman-adv/Makefile
-index 6d5c194..84955b3 100644
---- a/net/batman-adv/Makefile
-+++ b/net/batman-adv/Makefile
-@@ -24,6 +24,7 @@ batman-adv-y += bat_iv_ogm.o
- batman-adv-y += bat_sysfs.o
- batman-adv-y += bitarray.o
- batman-adv-$(CONFIG_BATMAN_ADV_BLA) += bridge_loop_avoidance.o
-+batman-adv-y += distributed-arp-table.o
- batman-adv-y += gateway_client.o
- batman-adv-y += gateway_common.o
- batman-adv-y += hard-interface.o
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-new file mode 100644
-index 0000000..0078478
---- /dev/null
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -0,0 +1,207 @@
-+/*
-+ * Copyright (C) 2011 B.A.T.M.A.N. contributors:
-+ *
-+ * Antonio Quartulli
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA
-+ *
-+ */
-+
-+#include <linux/if_ether.h>
-+#include <linux/if_arp.h>
-+
-+#include "main.h"
-+#include "distributed-arp-table.h"
-+#include "hard-interface.h"
-+#include "originator.h"
-+#include "send.h"
-+#include "types.h"
-+#include "unicast.h"
-+
-+static bool is_orig_node_eligible(struct dht_candidate *res, int select,
-+				  dat_addr_t tmp_max, dat_addr_t max,
-+				  dat_addr_t last_max,
-+				  struct orig_node *candidate,
-+				  struct orig_node *max_orig_node)
-+{
-+	bool ret = false;
-+	int j;
-+
-+	/* Check if we have already selected this neighbour... */
-+	for (j = 0; j < select; j++)
-+		if (res[j].orig_node == candidate)
-+			break;
-+	/* ..and possibly skip it */
-+	if (j < select)
-+		goto out;
-+	/* sanity check: has it already been selected? This should not happen */
-+	if (tmp_max > last_max)
-+		goto out;
-+	/* check if during this iteration we have already found an originator
-+	 * with a closer dht address
-+	 */
-+	if (tmp_max < max)
-+		goto out;
-+	/* this is an hash collision with the temporary selected node. Choose
-+	 * the one with the lowest address
-+	 */
-+	if ((tmp_max == max) &&
-+	    (compare_eth(candidate->orig, max_orig_node->orig) > 0))
-+		goto out;
-+
-+	ret = true;
-+out:
-+	return ret;
-+}
-+
-+/* selects the next candidate by populating cands[select] and modifies last_max
-+ * accordingly
-+ */
-+static void choose_next_candidate(struct bat_priv *bat_priv,
-+				  struct dht_candidate *cands, int select,
-+				  dat_addr_t ip_key, dat_addr_t *last_max)
-+{
-+	dat_addr_t max = 0, tmp_max = 0;
-+	struct orig_node *orig_node, *max_orig_node = NULL;
-+	struct hashtable_t *hash = bat_priv->orig_hash;
-+	struct hlist_node *node;
-+	struct hlist_head *head;
-+	int i;
-+
-+	/* if no node is eligible as candidate, we will leave the candidate as
-+	 * NOT_FOUND
-+	 */
-+	cands[select].type = DHT_CANDIDATE_NOT_FOUND;
-+
-+	/* iterate over the originator list and find the node with closest
-+	 * dht_address which has not been selected yet
-+	 */
-+	for (i = 0; i < hash->size; i++) {
-+		head = &hash->table[i];
-+
-+		rcu_read_lock();
-+		hlist_for_each_entry_rcu(orig_node, node, head, hash_entry) {
-+			/* the dht space is a ring and addresses are unsigned */
-+			tmp_max = DAT_ADDR_MAX - orig_node->dht_addr + ip_key;
-+
-+			if (!is_orig_node_eligible(cands, select, tmp_max, max,
-+						   *last_max, orig_node,
-+						   max_orig_node))
-+				continue;
-+
-+			if (!atomic_inc_not_zero(&orig_node->refcount))
-+				continue;
-+
-+			max = tmp_max;
-+			if (max_orig_node)
-+				orig_node_free_ref(max_orig_node);
-+			max_orig_node = orig_node;
-+		}
-+		rcu_read_unlock();
-+	}
-+	if (max_orig_node) {
-+		cands[select].type = DHT_CANDIDATE_ORIG;
-+		cands[select].orig_node = max_orig_node;
-+		bat_dbg(DBG_DAT, bat_priv,
-+			"dht_select_candidates() %d: selected %pM addr=%u dist=%u\n",
-+			select, max_orig_node->orig, max_orig_node->dht_addr,
-+			max);
-+	}
-+	*last_max = max;
-+}
-+
-+/* Given a key, selects the candidates which the DHT message has to be sent to.
-+ * An originator O is selected if and only if its DHT_ID value is one of three
-+ * closest values (from the LEFT, with wrap around if needed) then the hash
-+ * value of the key. ip_dst is the key.
-+ *
-+ * return an array of size DHT_CANDIDATES_NUM
-+ */
-+static struct dht_candidate *dht_select_candidates(struct bat_priv *bat_priv,
-+						   uint32_t ip_dst)
-+{
-+	int select;
-+	dat_addr_t last_max = DAT_ADDR_MAX, ip_key;
-+	struct dht_candidate *res;
-+
-+	if (!bat_priv->orig_hash)
-+		return NULL;
-+
-+	res = kmalloc(DHT_CANDIDATES_NUM * sizeof(*res), GFP_ATOMIC);
-+	if (!res)
-+		return NULL;
-+
-+	ip_key = (dat_addr_t)hash_ipv4(&ip_dst, DAT_ADDR_MAX);
-+
-+	bat_dbg(DBG_DAT, bat_priv,
-+		"dht_select_candidates(): IP=%pI4 hash(IP)=%u\n", &ip_dst,
-+		ip_key);
-+
-+	for (select = 0; select < DHT_CANDIDATES_NUM; select++)
-+		choose_next_candidate(bat_priv, res, select, ip_key, &last_max);
-+
-+	return res;
-+}
-+
-+/* Sends the skb payload passed as argument to the candidates selected for
-+ * the data represented by 'ip'. The skb is copied by means of pskb_copy()
-+ * and is sent as unicast packet to each of the selected candidate.
-+ *
-+ * If the packet is successfully sent to at least one candidate, then this
-+ * function returns true
-+ */
-+static bool dht_send_data(struct bat_priv *bat_priv, struct sk_buff *skb,
-+			  uint32_t ip, int packet_subtype)
-+{
-+	int i;
-+	bool ret = false;
-+	struct neigh_node *neigh_node = NULL;
-+	struct sk_buff *tmp_skb;
-+	struct dht_candidate *cand = dht_select_candidates(bat_priv, ip);
-+
-+	if (!cand)
-+		goto out;
-+
-+	bat_dbg(DBG_DAT, bat_priv, "DHT_SEND for %pI4\n", &ip);
-+
-+	for (i = 0; i < DHT_CANDIDATES_NUM; i++) {
-+		if (cand[i].type == DHT_CANDIDATE_NOT_FOUND)
-+			continue;
-+
-+		neigh_node = orig_node_get_router(cand[i].orig_node);
-+		if (!neigh_node)
-+			goto free_orig;
-+
-+		tmp_skb = pskb_copy(skb, GFP_ATOMIC);
-+		if (!prepare_unicast_4addr_packet(bat_priv, tmp_skb,
-+						  cand[i].orig_node,
-+						  packet_subtype)) {
-+			kfree_skb(tmp_skb);
-+			goto free_neigh;
-+		}
-+		if (send_skb_packet(tmp_skb, neigh_node->if_incoming,
-+				    neigh_node->addr) == NET_XMIT_SUCCESS)
-+			/* packet sent to a candidate: we can return true */
-+			ret = true;
-+free_neigh:
-+		neigh_node_free_ref(neigh_node);
-+free_orig:
-+		orig_node_free_ref(cand[i].orig_node);
-+	}
-+
-+out:
-+	kfree(cand);
-+	return ret;
-+}
-diff --git a/net/batman-adv/distributed-arp-table.h b/net/batman-adv/distributed-arp-table.h
-new file mode 100644
-index 0000000..94ee0fd
---- /dev/null
-+++ b/net/batman-adv/distributed-arp-table.h
-@@ -0,0 +1,66 @@
-+/*
-+ * Copyright (C) 2011 B.A.T.M.A.N. contributors:
-+ *
-+ * Antonio Quartulli
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA
-+ *
-+ */
-+
-+#ifndef _NET_BATMAN_ADV_ARP_H_
-+#define _NET_BATMAN_ADV_ARP_H_
-+
-+#include "types.h"
-+#include "originator.h"
-+
-+#define DAT_ADDR_MAX biggest_unsigned_int(dat_addr_t)
-+
-+/* hash function to choose an entry in a hash table of given size.
-+ * hash algorithm from http://en.wikipedia.org/wiki/Hash_table
-+ */
-+static inline uint32_t hash_ipv4(const void *data, uint32_t size)
-+{
-+	const unsigned char *key = data;
-+	uint32_t hash = 0;
-+	size_t i;
-+
-+	for (i = 0; i < 4; i++) {
-+		hash += key[i];
-+		hash += (hash << 10);
-+		hash ^= (hash >> 6);
-+	}
-+
-+	hash += (hash << 3);
-+	hash ^= (hash >> 11);
-+	hash += (hash << 15);
-+
-+	return hash % size;
-+}
-+
-+static inline void dat_init_orig_node_dht_addr(struct orig_node *orig_node)
-+{
-+	orig_node->dht_addr = (dat_addr_t)choose_orig(orig_node->orig,
-+						      DAT_ADDR_MAX);
-+}
-+
-+static inline void dat_init_own_dht_addr(struct bat_priv *bat_priv,
-+					 struct hard_iface *primary_if)
-+{
-+	bat_priv->dht_addr = (dat_addr_t)
-+				choose_orig(primary_if->net_dev->dev_addr,
-+					    DAT_ADDR_MAX);
-+}
-+
-+#endif /* _NET_BATMAN_ADV_ARP_H_ */
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 220cb02..1393939 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -20,6 +20,7 @@
-  */
- 
- #include "main.h"
-+#include "distributed-arp-table.h"
- #include "hard-interface.h"
- #include "soft-interface.h"
- #include "send.h"
-@@ -118,6 +119,8 @@ static void primary_if_update_addr(struct bat_priv *bat_priv,
- 	if (!primary_if)
- 		goto out;
- 
-+	dat_init_own_dht_addr(bat_priv, primary_if);
-+
- 	vis_packet = (struct vis_packet *)
- 				bat_priv->my_vis_info->skb_packet->data;
- 	memcpy(vis_packet->vis_orig, primary_if->net_dev->dev_addr, ETH_ALEN);
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index d9ef4ca..395e59d 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -67,6 +67,9 @@
- 
- #define NUM_WORDS BITS_TO_LONGS(TQ_LOCAL_WINDOW_SIZE)
- 
-+/* numbers of originator to contact for any PUT/GET DHT operation */
-+#define DHT_CANDIDATES_NUM 3
-+
- #define LOG_BUF_LEN 8192	  /* has to be a power of 2 */
- 
- #define VIS_INTERVAL 5000	/* 5 seconds */
-@@ -111,6 +114,9 @@ enum uev_type {
- 
- #define GW_THRESHOLD	50
- 
-+#define DHT_CANDIDATE_NOT_FOUND	0
-+#define DHT_CANDIDATE_ORIG	1
-+
- /* Debug Messages */
- #ifdef pr_fmt
- #undef pr_fmt
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index ce49698..31d7b58 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -20,6 +20,7 @@
-  */
- 
- #include "main.h"
-+#include "distributed-arp-table.h"
- #include "originator.h"
- #include "hash.h"
- #include "translation-table.h"
-@@ -224,6 +225,7 @@ struct orig_node *get_orig_node(struct bat_priv *bat_priv, const uint8_t *addr)
- 	orig_node->tt_poss_change = false;
- 	orig_node->bat_priv = bat_priv;
- 	memcpy(orig_node->orig, addr, ETH_ALEN);
-+	dat_init_orig_node_dht_addr(orig_node);
- 	orig_node->router = NULL;
- 	orig_node->tt_crc = 0;
- 	atomic_set(&orig_node->last_ttvn, 0);
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 2f4848b..61e2d78 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -27,6 +27,13 @@
- #include "packet.h"
- #include "bitarray.h"
- 
-+/* dat_addr_t is the type used for all DHT addresses. If it is changed,
-+ * DAT_ADDR_MAX is changed as well.
-+ *
-+ * *Please be careful: dat_addr_t must be UNSIGNED*
-+ */
-+#define dat_addr_t uint16_t
-+
- #define BAT_HEADER_LEN (ETH_HLEN + \
- 	((sizeof(struct unicast_packet) > sizeof(struct bcast_packet) ? \
- 	 sizeof(struct unicast_packet) : \
-@@ -67,6 +74,7 @@ struct hard_iface {
- struct orig_node {
- 	uint8_t orig[ETH_ALEN];
- 	uint8_t primary_addr[ETH_ALEN];
-+	dat_addr_t dht_addr;
- 	struct neigh_node __rcu *router; /* rcu protected pointer */
- 	unsigned long *bcast_own;
- 	uint8_t *bcast_own_sum;
-@@ -221,6 +229,7 @@ struct bat_priv {
- 	struct gw_node __rcu *curr_gw;  /* rcu protected pointer */
- 	atomic_t gw_reselect;
- 	struct hard_iface __rcu *primary_if;  /* rcu protected pointer */
-+	dat_addr_t dht_addr;
- 	struct vis_info *my_vis_info;
- 	struct bat_algo_ops *bat_algo_ops;
- };
-@@ -395,4 +404,9 @@ struct bat_algo_ops {
- 				struct sk_buff *skb);
- };
- 
-+struct dht_candidate {
-+	int type;
-+	struct orig_node *orig_node;
-+};
-+
- #endif /* _NET_BATMAN_ADV_TYPES_H_ */
-diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
-index 96c7cec..b7152c6 100644
---- a/net/batman-adv/unicast.c
-+++ b/net/batman-adv/unicast.c
-@@ -313,10 +313,10 @@ static bool prepare_unicast_packet(struct sk_buff *skb,
- 				     orig_node);
- }
- 
--static bool prepare_unicast_4addr_packet(struct bat_priv *bat_priv,
--					 struct sk_buff *skb,
--					 struct orig_node *orig_node,
--					 int packet_subtype)
-+bool prepare_unicast_4addr_packet(struct bat_priv *bat_priv,
-+				  struct sk_buff *skb,
-+				  struct orig_node *orig_node,
-+				  int packet_subtype)
- {
- 	struct hard_iface *primary_if;
- 	struct unicast_4addr_packet *unicast_4addr_packet;
-diff --git a/net/batman-adv/unicast.h b/net/batman-adv/unicast.h
-index ae9775b..e15aa62 100644
---- a/net/batman-adv/unicast.h
-+++ b/net/batman-adv/unicast.h
-@@ -32,6 +32,10 @@ int frag_reassemble_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
- void frag_list_free(struct list_head *head);
- int frag_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
- 		  struct hard_iface *hard_iface, const uint8_t dstaddr[]);
-+bool prepare_unicast_4addr_packet(struct bat_priv *bat_priv,
-+				  struct sk_buff *skb,
-+				  struct orig_node *orig_node,
-+				  int packet_subtype);
- int unicast_generic_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
- 			     int packet_type, int packet_subtype);
- 
--- 
-1.7.9.4
+The changes I have in there now are taking the first step of trying to add support for flow-based tunneling, in the case of VXLAN. Once we do that, we can remove (if we want) the existing port-based tunneling code. I was planning this as a first step. I would also to understand from Jesse better the direction with regards to moving to in-tree tunneling. I assume the changes Jesse and I had talked about a few months back around flow-based tunneling will still be compatible with the in-tree tunneling as well.
+
+Thanks,
+Kyle
