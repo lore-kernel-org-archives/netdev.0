@@ -1,58 +1,39 @@
-From: Jeffrin Jose <ahiliation@yahoo.co.in>
-Subject: fixed a coding style issue in net/core/sock.c
-Date: Wed, 25 Apr 2012 19:38:52 +0530
-Message-ID: <20120425140852.GA3653@debian.Jeff>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] tcp repair: Fix unaligned access when repairing options
+Date: Wed, 25 Apr 2012 15:11:30 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EF2@saturn3.aculab.com>
+References: <4F97EFA9.2080903@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ahiliation@yahoo.co.in
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Pavel Emelyanov" <xemul@parallels.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Linux Netdev List" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:48922 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757398Ab2DYOLi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 10:11:38 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06624-10 for <netdev@vger.kernel.org>;
+ Wed, 25 Apr 2012 15:11:35 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <4F97EFA9.2080903@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-hello .
-
-I have fixed a coding style issue relating
-to spaces in net/core/sock.c
-
-
->From e05ee2cbdea9a888695f01358fa2ea53ddb2a49b Mon Sep 17 00:00:00 2001
-From: Jeffrin Jose <ahiliation@yahoo.co.in>
-Date: Wed, 25 Apr 2012 19:17:29 +0530
-Subject: [PATCH 8/8] net:Fixed a coding style issue related to spaces.
-
-Fixed a coding style issue relating to spaces
-in net/core/sock.c
-Signed-off-by: Jeffrin Jose <ahiliation@yahoo.co.in>
----
- net/core/sock.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 02f8dfe..65cdc19 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2556,7 +2556,7 @@ static char proto_method_implemented(const void *method)
- }
- static long sock_prot_memory_allocated(struct proto *proto)
- {
--	return proto->memory_allocated != NULL ? proto_memory_allocated(proto): -1L;
-+	return proto->memory_allocated != NULL ? proto_memory_allocated(proto) : -1L;
- }
  
- static char *sock_prot_memory_pressure(struct proto *proto)
--- 
-1.7.9
+> +struct tcp_repair_opt {
+> +	__u8	opt_code;
+> +	__u16	opt_val;
+> +};
 
+That structure has an implied pad field, probably best to
+either make it explicit or change the types.
 
+I'd have thought it would do no harm to use two __u32 fields
+(unless you really need to save memory somewhere).
 
-/Jeffrin.
-
-
--- 
-software engineer
-Bohr Lab
-department of computer science
-Rajagiri school of engineering and technology.
+	David
