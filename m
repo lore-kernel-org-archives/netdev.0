@@ -1,206 +1,478 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 05/15] batman-adv: Distributed ARP Table - add ARP parsing functions
-Date: Wed, 25 Apr 2012 15:27:01 +0200
-Message-ID: <1335360431-30027-6-git-send-email-ordex@autistici.org>
+Subject: [PATCH 04/15] batman-adv: Distributed ARP Table - create DHT helper functions
+Date: Wed, 25 Apr 2012 15:27:00 +0200
+Message-ID: <1335360431-30027-5-git-send-email-ordex@autistici.org>
 References: <1335360431-30027-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:38847 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:38797 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752607Ab2DYN0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 09:26:21 -0400
+	with ESMTP id S1752432Ab2DYN0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 09:26:19 -0400
 In-Reply-To: <1335360431-30027-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ARP messages are now parsed to make it possible to trigger special actions
-depending on their types (snooping).
+Add all the relevant functions in order to manage a Distributed Hash Table over
+the B.A.T.M.A.N.-adv network. It will later be used to store several ARP entries
+and implement DAT (Distributed ARP Table)
 
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/distributed-arp-table.c |  123 ++++++++++++++++++++++++++++++++
- net/batman-adv/distributed-arp-table.h |   10 +++
- net/batman-adv/packet.h                |    5 +-
- 3 files changed, 137 insertions(+), 1 deletion(-)
+ net/batman-adv/Makefile                |    1 +
+ net/batman-adv/distributed-arp-table.c |  207 ++++++++++++++++++++++++++++++++
+ net/batman-adv/distributed-arp-table.h |   66 ++++++++++
+ net/batman-adv/hard-interface.c        |    3 +
+ net/batman-adv/main.h                  |    6 +
+ net/batman-adv/originator.c            |    2 +
+ net/batman-adv/types.h                 |   14 +++
+ net/batman-adv/unicast.c               |    8 +-
+ net/batman-adv/unicast.h               |    4 +
+ 9 files changed, 307 insertions(+), 4 deletions(-)
+ create mode 100644 net/batman-adv/distributed-arp-table.c
+ create mode 100644 net/batman-adv/distributed-arp-table.h
 
+diff --git a/net/batman-adv/Makefile b/net/batman-adv/Makefile
+index 6d5c194..84955b3 100644
+--- a/net/batman-adv/Makefile
++++ b/net/batman-adv/Makefile
+@@ -24,6 +24,7 @@ batman-adv-y += bat_iv_ogm.o
+ batman-adv-y += bat_sysfs.o
+ batman-adv-y += bitarray.o
+ batman-adv-$(CONFIG_BATMAN_ADV_BLA) += bridge_loop_avoidance.o
++batman-adv-y += distributed-arp-table.o
+ batman-adv-y += gateway_client.o
+ batman-adv-y += gateway_common.o
+ batman-adv-y += hard-interface.o
 diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index 0078478..682fb1e 100644
---- a/net/batman-adv/distributed-arp-table.c
+new file mode 100644
+index 0000000..0078478
+--- /dev/null
 +++ b/net/batman-adv/distributed-arp-table.c
-@@ -30,6 +30,75 @@
- #include "types.h"
- #include "unicast.h"
- 
-+#ifdef CONFIG_BATMAN_ADV_DEBUG
-+
-+static void bat_dbg_arp(struct bat_priv *bat_priv, struct sk_buff *skb,
-+			uint16_t type, int hdr_size, char *msg)
-+{
-+	struct unicast_4addr_packet *unicast_4addr_packet;
-+
-+	if (msg)
-+		bat_dbg(DBG_DAT, bat_priv, "%s\n", msg);
-+
-+	bat_dbg(DBG_DAT, bat_priv, "ARP MSG = [src: %pM-%pI4 dst: %pM-%pI4]\n",
-+		ARP_HW_SRC(skb, hdr_size), &ARP_IP_SRC(skb, hdr_size),
-+		ARP_HW_DST(skb, hdr_size), &ARP_IP_DST(skb, hdr_size));
-+
-+	if (hdr_size == 0)
-+		return;
-+
-+	/* if the AP packet is encapsulated in a batman packet, let's print some
-+	 * debug messages
-+	 */
-+	unicast_4addr_packet = (struct unicast_4addr_packet *)skb->data;
-+
-+	switch (unicast_4addr_packet->u.header.packet_type) {
-+	case BAT_UNICAST:
-+		bat_dbg(DBG_DAT, bat_priv,
-+			"* encapsulated within a UNICAST packet\n");
-+		break;
-+	case BAT_UNICAST_4ADDR:
-+		bat_dbg(DBG_DAT, bat_priv,
-+			"* encapsulated within a UNICAST_4ADDR packet (src: %pM)\n",
-+			unicast_4addr_packet->src);
-+		switch (unicast_4addr_packet->subtype) {
-+		case BAT_P_DAT_DHT_PUT:
-+			bat_dbg(DBG_DAT, bat_priv, "* type: DAT_DHT_PUT\n");
-+			break;
-+		case BAT_P_DAT_DHT_GET:
-+			bat_dbg(DBG_DAT, bat_priv, "* type: DAT_DHT_GET\n");
-+			break;
-+		case BAT_P_DAT_CACHE_REPLY:
-+			bat_dbg(DBG_DAT, bat_priv, "* type: DAT_CACHE_REPLY\n");
-+			break;
-+		case BAT_P_DATA:
-+			bat_dbg(DBG_DAT, bat_priv, "* type: DATA\n");
-+			break;
-+		default:
-+			bat_dbg(DBG_DAT, bat_priv, "* type: Unknown!\n");
-+		}
-+		break;
-+	case BAT_BCAST:
-+		bat_dbg(DBG_DAT, bat_priv,
-+			"* encapsulated within a BCAST packet (src: %pM)\n",
-+			((struct bcast_packet *)unicast_4addr_packet)->orig);
-+		break;
-+	default:
-+		bat_dbg(DBG_DAT, bat_priv,
-+			"* encapsulated within an unknown packet type (0x%x)\n",
-+			unicast_4addr_packet->u.header.packet_type);
-+	}
-+}
-+
-+#else
-+
-+static void bat_dbg_arp(struct bat_priv *bat_priv, struct sk_buff *skb,
-+			uint16_t type, int hdr_size, char *msg)
-+{
-+}
-+
-+#endif /* CONFIG_BATMAN_ADV_DEBUG */
-+
- static bool is_orig_node_eligible(struct dht_candidate *res, int select,
- 				  dat_addr_t tmp_max, dat_addr_t max,
- 				  dat_addr_t last_max,
-@@ -205,3 +274,57 @@ out:
- 	kfree(cand);
- 	return ret;
- }
-+
-+/* Returns arphdr->ar_op if the skb contains a valid ARP packet, otherwise
-+ * returns 0
+@@ -0,0 +1,207 @@
++/*
++ * Copyright (C) 2011 B.A.T.M.A.N. contributors:
++ *
++ * Antonio Quartulli
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ *
 + */
-+static uint16_t arp_get_type(struct bat_priv *bat_priv, struct sk_buff *skb,
-+			     int hdr_size)
-+{
-+	struct arphdr *arphdr;
-+	struct ethhdr *ethhdr;
-+	uint32_t ip_src, ip_dst;
-+	uint16_t type = 0;
 +
-+	/* pull the ethernet header */
-+	if (unlikely(!pskb_may_pull(skb, hdr_size + ETH_HLEN)))
-+		goto out;
-+
-+	ethhdr = (struct ethhdr *)(skb->data + hdr_size);
-+
-+	if (ethhdr->h_proto != htons(ETH_P_ARP))
-+		goto out;
-+
-+	/* pull the ARP payload */
-+	if (unlikely(!pskb_may_pull(skb, hdr_size + ETH_HLEN +
-+				    arp_hdr_len(skb->dev))))
-+		goto out;
-+
-+	arphdr = (struct arphdr *)(skb->data + hdr_size + ETH_HLEN);
-+
-+	/* Check whether the ARP packet carries a valid
-+	 * IP information */
-+	if (arphdr->ar_hrd != htons(ARPHRD_ETHER))
-+		goto out;
-+
-+	if (arphdr->ar_pro != htons(ETH_P_IP))
-+		goto out;
-+
-+	if (arphdr->ar_hln != ETH_ALEN)
-+		goto out;
-+
-+	if (arphdr->ar_pln != 4)
-+		goto out;
-+
-+	/* Check for bad reply/request. If the ARP message is not sane, DAT
-+	 * will simply ignore it */
-+	ip_src = ARP_IP_SRC(skb, hdr_size);
-+	ip_dst = ARP_IP_DST(skb, hdr_size);
-+	if (ipv4_is_loopback(ip_src) || ipv4_is_multicast(ip_src) ||
-+	    ipv4_is_loopback(ip_dst) || ipv4_is_multicast(ip_dst))
-+		goto out;
-+
-+	type = ntohs(arphdr->ar_op);
-+out:
-+	return type;
-+}
-diff --git a/net/batman-adv/distributed-arp-table.h b/net/batman-adv/distributed-arp-table.h
-index 94ee0fd..cdd0484 100644
---- a/net/batman-adv/distributed-arp-table.h
-+++ b/net/batman-adv/distributed-arp-table.h
-@@ -25,8 +25,18 @@
- #include "types.h"
- #include "originator.h"
- 
++#include <linux/if_ether.h>
 +#include <linux/if_arp.h>
 +
- #define DAT_ADDR_MAX biggest_unsigned_int(dat_addr_t)
- 
-+#define ARP_HW_SRC(skb, hdr_size) ((uint8_t *)(skb->data + hdr_size) + \
-+				   ETH_HLEN + sizeof(struct arphdr))
-+#define ARP_IP_SRC(skb, hdr_size) (*(uint32_t *)(ARP_HW_SRC(skb, hdr_size) + \
-+				   ETH_ALEN))
-+#define ARP_HW_DST(skb, hdr_size) (ARP_HW_SRC(skb, hdr_size) + ETH_ALEN + 4)
-+#define ARP_IP_DST(skb, hdr_size) (*(uint32_t *)(ARP_HW_SRC(skb, hdr_size) + \
-+				   ETH_ALEN * 2 + 4))
++#include "main.h"
++#include "distributed-arp-table.h"
++#include "hard-interface.h"
++#include "originator.h"
++#include "send.h"
++#include "types.h"
++#include "unicast.h"
 +
- /* hash function to choose an entry in a hash table of given size.
-  * hash algorithm from http://en.wikipedia.org/wiki/Hash_table
++static bool is_orig_node_eligible(struct dht_candidate *res, int select,
++				  dat_addr_t tmp_max, dat_addr_t max,
++				  dat_addr_t last_max,
++				  struct orig_node *candidate,
++				  struct orig_node *max_orig_node)
++{
++	bool ret = false;
++	int j;
++
++	/* Check if we have already selected this neighbour... */
++	for (j = 0; j < select; j++)
++		if (res[j].orig_node == candidate)
++			break;
++	/* ..and possibly skip it */
++	if (j < select)
++		goto out;
++	/* sanity check: has it already been selected? This should not happen */
++	if (tmp_max > last_max)
++		goto out;
++	/* check if during this iteration we have already found an originator
++	 * with a closer dht address
++	 */
++	if (tmp_max < max)
++		goto out;
++	/* this is an hash collision with the temporary selected node. Choose
++	 * the one with the lowest address
++	 */
++	if ((tmp_max == max) &&
++	    (compare_eth(candidate->orig, max_orig_node->orig) > 0))
++		goto out;
++
++	ret = true;
++out:
++	return ret;
++}
++
++/* selects the next candidate by populating cands[select] and modifies last_max
++ * accordingly
++ */
++static void choose_next_candidate(struct bat_priv *bat_priv,
++				  struct dht_candidate *cands, int select,
++				  dat_addr_t ip_key, dat_addr_t *last_max)
++{
++	dat_addr_t max = 0, tmp_max = 0;
++	struct orig_node *orig_node, *max_orig_node = NULL;
++	struct hashtable_t *hash = bat_priv->orig_hash;
++	struct hlist_node *node;
++	struct hlist_head *head;
++	int i;
++
++	/* if no node is eligible as candidate, we will leave the candidate as
++	 * NOT_FOUND
++	 */
++	cands[select].type = DHT_CANDIDATE_NOT_FOUND;
++
++	/* iterate over the originator list and find the node with closest
++	 * dht_address which has not been selected yet
++	 */
++	for (i = 0; i < hash->size; i++) {
++		head = &hash->table[i];
++
++		rcu_read_lock();
++		hlist_for_each_entry_rcu(orig_node, node, head, hash_entry) {
++			/* the dht space is a ring and addresses are unsigned */
++			tmp_max = DAT_ADDR_MAX - orig_node->dht_addr + ip_key;
++
++			if (!is_orig_node_eligible(cands, select, tmp_max, max,
++						   *last_max, orig_node,
++						   max_orig_node))
++				continue;
++
++			if (!atomic_inc_not_zero(&orig_node->refcount))
++				continue;
++
++			max = tmp_max;
++			if (max_orig_node)
++				orig_node_free_ref(max_orig_node);
++			max_orig_node = orig_node;
++		}
++		rcu_read_unlock();
++	}
++	if (max_orig_node) {
++		cands[select].type = DHT_CANDIDATE_ORIG;
++		cands[select].orig_node = max_orig_node;
++		bat_dbg(DBG_DAT, bat_priv,
++			"dht_select_candidates() %d: selected %pM addr=%u dist=%u\n",
++			select, max_orig_node->orig, max_orig_node->dht_addr,
++			max);
++	}
++	*last_max = max;
++}
++
++/* Given a key, selects the candidates which the DHT message has to be sent to.
++ * An originator O is selected if and only if its DHT_ID value is one of three
++ * closest values (from the LEFT, with wrap around if needed) then the hash
++ * value of the key. ip_dst is the key.
++ *
++ * return an array of size DHT_CANDIDATES_NUM
++ */
++static struct dht_candidate *dht_select_candidates(struct bat_priv *bat_priv,
++						   uint32_t ip_dst)
++{
++	int select;
++	dat_addr_t last_max = DAT_ADDR_MAX, ip_key;
++	struct dht_candidate *res;
++
++	if (!bat_priv->orig_hash)
++		return NULL;
++
++	res = kmalloc(DHT_CANDIDATES_NUM * sizeof(*res), GFP_ATOMIC);
++	if (!res)
++		return NULL;
++
++	ip_key = (dat_addr_t)hash_ipv4(&ip_dst, DAT_ADDR_MAX);
++
++	bat_dbg(DBG_DAT, bat_priv,
++		"dht_select_candidates(): IP=%pI4 hash(IP)=%u\n", &ip_dst,
++		ip_key);
++
++	for (select = 0; select < DHT_CANDIDATES_NUM; select++)
++		choose_next_candidate(bat_priv, res, select, ip_key, &last_max);
++
++	return res;
++}
++
++/* Sends the skb payload passed as argument to the candidates selected for
++ * the data represented by 'ip'. The skb is copied by means of pskb_copy()
++ * and is sent as unicast packet to each of the selected candidate.
++ *
++ * If the packet is successfully sent to at least one candidate, then this
++ * function returns true
++ */
++static bool dht_send_data(struct bat_priv *bat_priv, struct sk_buff *skb,
++			  uint32_t ip, int packet_subtype)
++{
++	int i;
++	bool ret = false;
++	struct neigh_node *neigh_node = NULL;
++	struct sk_buff *tmp_skb;
++	struct dht_candidate *cand = dht_select_candidates(bat_priv, ip);
++
++	if (!cand)
++		goto out;
++
++	bat_dbg(DBG_DAT, bat_priv, "DHT_SEND for %pI4\n", &ip);
++
++	for (i = 0; i < DHT_CANDIDATES_NUM; i++) {
++		if (cand[i].type == DHT_CANDIDATE_NOT_FOUND)
++			continue;
++
++		neigh_node = orig_node_get_router(cand[i].orig_node);
++		if (!neigh_node)
++			goto free_orig;
++
++		tmp_skb = pskb_copy(skb, GFP_ATOMIC);
++		if (!prepare_unicast_4addr_packet(bat_priv, tmp_skb,
++						  cand[i].orig_node,
++						  packet_subtype)) {
++			kfree_skb(tmp_skb);
++			goto free_neigh;
++		}
++		if (send_skb_packet(tmp_skb, neigh_node->if_incoming,
++				    neigh_node->addr) == NET_XMIT_SUCCESS)
++			/* packet sent to a candidate: we can return true */
++			ret = true;
++free_neigh:
++		neigh_node_free_ref(neigh_node);
++free_orig:
++		orig_node_free_ref(cand[i].orig_node);
++	}
++
++out:
++	kfree(cand);
++	return ret;
++}
+diff --git a/net/batman-adv/distributed-arp-table.h b/net/batman-adv/distributed-arp-table.h
+new file mode 100644
+index 0000000..94ee0fd
+--- /dev/null
++++ b/net/batman-adv/distributed-arp-table.h
+@@ -0,0 +1,66 @@
++/*
++ * Copyright (C) 2011 B.A.T.M.A.N. contributors:
++ *
++ * Antonio Quartulli
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ *
++ */
++
++#ifndef _NET_BATMAN_ADV_ARP_H_
++#define _NET_BATMAN_ADV_ARP_H_
++
++#include "types.h"
++#include "originator.h"
++
++#define DAT_ADDR_MAX biggest_unsigned_int(dat_addr_t)
++
++/* hash function to choose an entry in a hash table of given size.
++ * hash algorithm from http://en.wikipedia.org/wiki/Hash_table
++ */
++static inline uint32_t hash_ipv4(const void *data, uint32_t size)
++{
++	const unsigned char *key = data;
++	uint32_t hash = 0;
++	size_t i;
++
++	for (i = 0; i < 4; i++) {
++		hash += key[i];
++		hash += (hash << 10);
++		hash ^= (hash >> 6);
++	}
++
++	hash += (hash << 3);
++	hash ^= (hash >> 11);
++	hash += (hash << 15);
++
++	return hash % size;
++}
++
++static inline void dat_init_orig_node_dht_addr(struct orig_node *orig_node)
++{
++	orig_node->dht_addr = (dat_addr_t)choose_orig(orig_node->orig,
++						      DAT_ADDR_MAX);
++}
++
++static inline void dat_init_own_dht_addr(struct bat_priv *bat_priv,
++					 struct hard_iface *primary_if)
++{
++	bat_priv->dht_addr = (dat_addr_t)
++				choose_orig(primary_if->net_dev->dev_addr,
++					    DAT_ADDR_MAX);
++}
++
++#endif /* _NET_BATMAN_ADV_ARP_H_ */
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 220cb02..1393939 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -20,6 +20,7 @@
   */
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index e9f5184..c4533c4 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -37,7 +37,10 @@ enum bat_packettype {
+ 
+ #include "main.h"
++#include "distributed-arp-table.h"
+ #include "hard-interface.h"
+ #include "soft-interface.h"
+ #include "send.h"
+@@ -118,6 +119,8 @@ static void primary_if_update_addr(struct bat_priv *bat_priv,
+ 	if (!primary_if)
+ 		goto out;
+ 
++	dat_init_own_dht_addr(bat_priv, primary_if);
++
+ 	vis_packet = (struct vis_packet *)
+ 				bat_priv->my_vis_info->skb_packet->data;
+ 	memcpy(vis_packet->vis_orig, primary_if->net_dev->dev_addr, ETH_ALEN);
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index d9ef4ca..395e59d 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -67,6 +67,9 @@
+ 
+ #define NUM_WORDS BITS_TO_LONGS(TQ_LOCAL_WINDOW_SIZE)
+ 
++/* numbers of originator to contact for any PUT/GET DHT operation */
++#define DHT_CANDIDATES_NUM 3
++
+ #define LOG_BUF_LEN 8192	  /* has to be a power of 2 */
+ 
+ #define VIS_INTERVAL 5000	/* 5 seconds */
+@@ -111,6 +114,9 @@ enum uev_type {
+ 
+ #define GW_THRESHOLD	50
+ 
++#define DHT_CANDIDATE_NOT_FOUND	0
++#define DHT_CANDIDATE_ORIG	1
++
+ /* Debug Messages */
+ #ifdef pr_fmt
+ #undef pr_fmt
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index ce49698..31d7b58 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include "main.h"
++#include "distributed-arp-table.h"
+ #include "originator.h"
+ #include "hash.h"
+ #include "translation-table.h"
+@@ -224,6 +225,7 @@ struct orig_node *get_orig_node(struct bat_priv *bat_priv, const uint8_t *addr)
+ 	orig_node->tt_poss_change = false;
+ 	orig_node->bat_priv = bat_priv;
+ 	memcpy(orig_node->orig, addr, ETH_ALEN);
++	dat_init_orig_node_dht_addr(orig_node);
+ 	orig_node->router = NULL;
+ 	orig_node->tt_crc = 0;
+ 	atomic_set(&orig_node->last_ttvn, 0);
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 2f4848b..61e2d78 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -27,6 +27,13 @@
+ #include "packet.h"
+ #include "bitarray.h"
+ 
++/* dat_addr_t is the type used for all DHT addresses. If it is changed,
++ * DAT_ADDR_MAX is changed as well.
++ *
++ * *Please be careful: dat_addr_t must be UNSIGNED*
++ */
++#define dat_addr_t uint16_t
++
+ #define BAT_HEADER_LEN (ETH_HLEN + \
+ 	((sizeof(struct unicast_packet) > sizeof(struct bcast_packet) ? \
+ 	 sizeof(struct unicast_packet) : \
+@@ -67,6 +74,7 @@ struct hard_iface {
+ struct orig_node {
+ 	uint8_t orig[ETH_ALEN];
+ 	uint8_t primary_addr[ETH_ALEN];
++	dat_addr_t dht_addr;
+ 	struct neigh_node __rcu *router; /* rcu protected pointer */
+ 	unsigned long *bcast_own;
+ 	uint8_t *bcast_own_sum;
+@@ -221,6 +229,7 @@ struct bat_priv {
+ 	struct gw_node __rcu *curr_gw;  /* rcu protected pointer */
+ 	atomic_t gw_reselect;
+ 	struct hard_iface __rcu *primary_if;  /* rcu protected pointer */
++	dat_addr_t dht_addr;
+ 	struct vis_info *my_vis_info;
+ 	struct bat_algo_ops *bat_algo_ops;
+ };
+@@ -395,4 +404,9 @@ struct bat_algo_ops {
+ 				struct sk_buff *skb);
  };
  
- enum bat_subtype {
--	BAT_P_DATA		= 0x01
-+	BAT_P_DATA		= 0x01,
-+	BAT_P_DAT_DHT_GET	= 0x02,
-+	BAT_P_DAT_DHT_PUT	= 0x03,
-+	BAT_P_DAT_CACHE_REPLY	= 0x04
- };
++struct dht_candidate {
++	int type;
++	struct orig_node *orig_node;
++};
++
+ #endif /* _NET_BATMAN_ADV_TYPES_H_ */
+diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
+index 96c7cec..b7152c6 100644
+--- a/net/batman-adv/unicast.c
++++ b/net/batman-adv/unicast.c
+@@ -313,10 +313,10 @@ static bool prepare_unicast_packet(struct sk_buff *skb,
+ 				     orig_node);
+ }
  
- /* this file is included by batctl which needs these defines */
+-static bool prepare_unicast_4addr_packet(struct bat_priv *bat_priv,
+-					 struct sk_buff *skb,
+-					 struct orig_node *orig_node,
+-					 int packet_subtype)
++bool prepare_unicast_4addr_packet(struct bat_priv *bat_priv,
++				  struct sk_buff *skb,
++				  struct orig_node *orig_node,
++				  int packet_subtype)
+ {
+ 	struct hard_iface *primary_if;
+ 	struct unicast_4addr_packet *unicast_4addr_packet;
+diff --git a/net/batman-adv/unicast.h b/net/batman-adv/unicast.h
+index ae9775b..e15aa62 100644
+--- a/net/batman-adv/unicast.h
++++ b/net/batman-adv/unicast.h
+@@ -32,6 +32,10 @@ int frag_reassemble_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
+ void frag_list_free(struct list_head *head);
+ int frag_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
+ 		  struct hard_iface *hard_iface, const uint8_t dstaddr[]);
++bool prepare_unicast_4addr_packet(struct bat_priv *bat_priv,
++				  struct sk_buff *skb,
++				  struct orig_node *orig_node,
++				  int packet_subtype);
+ int unicast_generic_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
+ 			     int packet_type, int packet_subtype);
+ 
 -- 
 1.7.9.4
