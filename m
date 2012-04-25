@@ -1,33 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp repair: Fix unaligned access when repairing options
-Date: Wed, 25 Apr 2012 14:09:46 -0400 (EDT)
-Message-ID: <20120425.140946.205898008058818096.davem@davemloft.net>
-References: <4F97EFA9.2080903@parallels.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6EF2@saturn3.aculab.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 03/15] batman-adv: add
+	biggest_unsigned_int(x) macro
+Date: Wed, 25 Apr 2012 14:09:04 -0400 (EDT)
+Message-ID: <20120425.140904.935584797119761625.davem@davemloft.net>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6EF3@saturn3.aculab.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6EF4@saturn3.aculab.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, netdev@vger.kernel.org
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52642 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752930Ab2DYSJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 14:09:53 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EF2@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EF4-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Wed, 25 Apr 2012 15:11:30 +0100
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Date: Wed, 25 Apr 2012 15:57:39 +0100
 
 >  
->> +struct tcp_repair_opt {
->> +	__u8	opt_code;
->> +	__u16	opt_val;
->> +};
+>> > +/* Returns the biggest unsigned integer with the sizeof x */
+>> > +#define biggest_unsigned_int(x) (~(x)0)
+>> 
+>> Nope - biggest_unsigned_int(unsigned char) is probably 0xffffffff
 > 
-> That structure has an implied pad field, probably best to
-> either make it explicit or change the types.
+> To correct myself, it is actually ((int)(-1)) (ie a signed value).
 
-Agreed.
+In any event this is just a terrible macro, and too stupid to live.
