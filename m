@@ -1,53 +1,56 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: kernel BUG at include/net/netns/generic.h:41
-Date: Wed, 25 Apr 2012 18:58:55 -0400
-Message-ID: <20120425225855.GA5537@redhat.com>
-References: <20120328002346.GB3077@redhat.com>
- <20120402172600.GA3728@redhat.com>
- <1333390230.13718.34.camel@lade.trondhjem.org>
- <4F7DC37F.7090404@parallels.com>
- <20120405161241.GA23658@redhat.com>
- <4F7DC4CC.9080502@parallels.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 02/14 v2] usb/net: rndis: break out <linux/rndis.h>
+ defines
+Date: Wed, 25 Apr 2012 19:44:47 -0400 (EDT)
+Message-ID: <20120425.194447.1519804940735129000.davem@davemloft.net>
+References: <1335367808-4254-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Myklebust, Trond" <Trond.Myklebust@netapp.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4F7DC4CC.9080502@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, jussi.kivilinna-E01nCVcF24I@public.gmane.org,
+	haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
+	ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org
+To: linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1335367808-4254-1-git-send-email-linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 05, 2012 at 08:14:04PM +0400, Stanislav Kinsbursky wrote:
- > 05.04.2012 20:12, Dave Jones =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
- > > On Thu, Apr 05, 2012 at 08:08:31PM +0400, Stanislav Kinsbursky wro=
-te:
- > >
- > >   >  So, there are few questions to you, Dave:
- > >   >  1) can this happen (PipeFS mount attempt before SUNPRC module=
- insertion has
- > >   >  returned any value) in your case?
- > >
- > > I don't know enough of what systemd is doing to answer this.
- > >
- > >   >  2) how often do you experience this problem? Not every boot, =
-I suppose?
- > >   >  3) And is it easy for you to reproduce?
- > >
- > > It happens most the time, but not every time.
- > >
- >=20
- > Ok, I'll send the patch soon.
- > Hope, it will help.
- >=20
- > --=20
- > Best regards,
- > Stanislav Kinsbursky
+From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Date: Wed, 25 Apr 2012 17:30:08 +0200
 
-I didn't see a follow-up patch on this, and I'm still seeing the BUG in=
- rc4.
+> As a first step to consolidate the RNDIS implementations, break out
+> a common file with all the #defines and move it to <linux/rndis.h>.
+> The compilation screams about double-defines all over the place
+> (as could be expected, this is why we're consolidating) but it
+> compiles cleanly still.
+> 
+> Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
-	Dave
+After this patch the build emits tons of warnings because you've
+left a situation where there will be duplicate definitions:
+
+In file included from drivers/net/hyperv/hyperv_net.h:30:0,
+                 from drivers/net/hyperv/netvsc_drv.c:41:
+include/linux/rndis.h:93:0: warning: "OID_GEN_CURRENT_PACKET_FILTER" redefined [enabled by default]
+include/linux/rndis.h:51:0: note: this is the location of the previous definition
+include/linux/rndis.h:239:0: warning: "RNDIS_STATUS_SUCCESS" redefined [enabled by default]
+ ...
+
+This is unacceptable, the tree must build cleanly and work properly at
+each step in the patch series, in order to ensure bisectability.  You
+can't "fix it up" in a patch later in the series and just assume that
+the whole series is applied.
+
+Also, in the new file you created you added a spurious empty line at
+the end of the file.  Please remove that as GIT notices this when
+applying your patch and thus warns about it.
+
+In fact, please go through this entire patch set (like I was) making
+sure the build is clean and no bugs or bisectability issues are
+introduced each step of the way.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
