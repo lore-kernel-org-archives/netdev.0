@@ -1,49 +1,93 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 0/8] ISDN patches for net-next
+Subject: [PATCH 1/8] isdn/gigaset: ratelimit CAPI message dumps
 Date: Thu, 26 Apr 2012 01:02:19 +0200 (CEST)
-Message-ID: <20120425-patch-gigaset-00.tilman@imap.cc>
+Message-ID: <20120425-patch-gigaset-01.tilman@imap.cc>
+References: <20120425-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Karsten Keil <isdn@linux-pingi.de>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([89.1.7.7]:36957 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932434Ab2DYXDE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 19:03:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120425-patch-gigaset-00.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Karsten, David,
+Introduce a global ratelimit for CAPI message dumps to protect
+against possible log flood.
+Drop the ratelimit for ignored messages which is now covered by the
+global one.
 
-here's a series of eight patches to the Kernel CAPI subsystem and
-the Gigaset driver. Please consider for application to net-next.
-The first three should also go into -stable and are tagged accordingly.
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+CC: stable <stable@kernel.org>
+---
+ drivers/isdn/gigaset/capi.c |   22 +++++++++-------------
+ 1 files changed, 9 insertions(+), 13 deletions(-)
 
-Thanks,
-Tilman
-
-Tilman Schmidt (8):
-      isdn/gigaset: ratelimit CAPI message dumps
-      isdn/gigaset: fix CAPI disconnect B3 handling
-      isdn/gigaset: improve error handling querying firmware version
-      isdn/gigaset: fix readability damage 
-      isdn/gigaset: internal function name cleanup
-      isdn/gigaset: unify function return values
-      isdn/capi: fix readability damage
-      isdn/capi: elliminate capincci_find() in non-middleware case
-
- drivers/isdn/capi/capi.c           |   50 ++---
- drivers/isdn/capi/capidrv.c        |    8 
- drivers/isdn/gigaset/bas-gigaset.c |   44 ++---
- drivers/isdn/gigaset/capi.c        |  118 ++++++-------
- drivers/isdn/gigaset/common.c      |   59 ++----
- drivers/isdn/gigaset/dummyll.c     |    2 
- drivers/isdn/gigaset/ev-layer.c    |  321 ++++++++++++++++++-------------------
- drivers/isdn/gigaset/gigaset.h     |   30 +--
- drivers/isdn/gigaset/i4l.c         |   12 -
- drivers/isdn/gigaset/isocdata.c    |   12 -
- drivers/isdn/gigaset/ser-gigaset.c |   21 +-
- drivers/isdn/gigaset/usb-gigaset.c |   19 +-
- 12 files changed, 341 insertions(+), 355 deletions(-)
+diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
+index 343b5c8..292ca2f 100644
+--- a/drivers/isdn/gigaset/capi.c
++++ b/drivers/isdn/gigaset/capi.c
+@@ -14,6 +14,7 @@
+ #include "gigaset.h"
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
++#include <linux/ratelimit.h>
+ #include <linux/isdn/capilli.h>
+ #include <linux/isdn/capicmd.h>
+ #include <linux/isdn/capiutil.h>
+@@ -223,10 +224,14 @@ get_appl(struct gigaset_capi_ctr *iif, u16 appl)
+ static inline void dump_cmsg(enum debuglevel level, const char *tag, _cmsg *p)
+ {
+ #ifdef CONFIG_GIGASET_DEBUG
++	/* dump at most 20 messages in 20 secs */
++	static DEFINE_RATELIMIT_STATE(msg_dump_ratelimit, 20 * HZ, 20);
+ 	_cdebbuf *cdb;
+ 
+ 	if (!(gigaset_debuglevel & level))
+ 		return;
++	if (!___ratelimit(&msg_dump_ratelimit, tag))
++		return;
+ 
+ 	cdb = capi_cmsg2str(p);
+ 	if (cdb) {
+@@ -2059,12 +2064,6 @@ static void do_reset_b3_req(struct gigaset_capi_ctr *iif,
+ }
+ 
+ /*
+- * dump unsupported/ignored messages at most twice per minute,
+- * some apps send those very frequently
+- */
+-static unsigned long ignored_msg_dump_time;
+-
+-/*
+  * unsupported CAPI message handler
+  */
+ static void do_unsupported(struct gigaset_capi_ctr *iif,
+@@ -2073,8 +2072,7 @@ static void do_unsupported(struct gigaset_capi_ctr *iif,
+ {
+ 	/* decode message */
+ 	capi_message2cmsg(&iif->acmsg, skb->data);
+-	if (printk_timed_ratelimit(&ignored_msg_dump_time, 30 * 1000))
+-		dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
+ 	send_conf(iif, ap, skb, CapiMessageNotSupportedInCurrentState);
+ }
+ 
+@@ -2085,11 +2083,9 @@ static void do_nothing(struct gigaset_capi_ctr *iif,
+ 		       struct gigaset_capi_appl *ap,
+ 		       struct sk_buff *skb)
+ {
+-	if (printk_timed_ratelimit(&ignored_msg_dump_time, 30 * 1000)) {
+-		/* decode message */
+-		capi_message2cmsg(&iif->acmsg, skb->data);
+-		dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
+-	}
++	/* decode message */
++	capi_message2cmsg(&iif->acmsg, skb->data);
++	dump_cmsg(DEBUG_CMD, __func__, &iif->acmsg);
+ 	dev_kfree_skb_any(skb);
+ }
+ 
+-- 
+1.7.3.4
