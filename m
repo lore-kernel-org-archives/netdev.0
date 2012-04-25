@@ -1,95 +1,368 @@
-From: Shannon Lavenia <Shannon@boldstatementmarketing.net>
-Subject: This will make you smile ;)
-Date: Wed, 25 Apr 2012 14:07:27 -0400
-Message-ID: <IVCK87kNBSRYRFnvRSak7Bjbras0jhqcDvG1YKlNIjkM@boldstatementmarketing.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/2] iproute2: add ip-l2tp man page
+Date: Wed, 25 Apr 2012 13:11:18 -0700
+Message-ID: <20120425131118.07159e06@nehalam.linuxnetplumber.net>
+References: <1334921383-32109-1-git-send-email-jchapman@katalix.com>
+	<1334921383-32109-3-git-send-email-jchapman@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [108.167.186.132] ([108.167.186.132]:49043 "EHLO
-	bol.boldstatementmarketing.net" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758428Ab2DYUKP convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 16:10:15 -0400
-Received: from c-98-192-192-85.hsd1.de.comcast.net ([98.192.192.85]:46647 helo=[10.0.1.9])
-	by bol.boldstatementmarketing.net with esmtpa (Exim 4.77)
-	(envelope-from <Shannon@boldstatementmarketing.net>)
-	id 1SN6ch-0003Zz-Iv
-	for netdev@vger.kernel.org; Wed, 25 Apr 2012 13:07:28 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:53859 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758640Ab2DYULW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 16:11:22 -0400
+In-Reply-To: <1334921383-32109-3-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, 20 Apr 2012 12:29:43 +0100
+James Chapman <jchapman@katalix.com> wrote:
 
-Thanks for taking a minute to read this message.
+> Add a man page to cover the "ip l2tp" commands. Add a reference to it
+> in the main ip page.
+> 
+> Signed-off-by: James Chapman <jchapman@katalix.com>
+> ---
+>  man/man8/ip-l2tp.8 |  350 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  man/man8/ip.8      |    3 +-
+>  2 files changed, 352 insertions(+), 1 deletions(-)
+>  create mode 100644 man/man8/ip-l2tp.8
+> 
+> diff --git a/man/man8/ip-l2tp.8 b/man/man8/ip-l2tp.8
+> new file mode 100644
+> index 0000000..c115e7c
+> --- /dev/null
+> +++ b/man/man8/ip-l2tp.8
+> @@ -0,0 +1,350 @@
+> +.TH IP\-L2TP 8 "19 Apr 2012" "iproute2" "Linux"
+> +.SH "NAME"
+> +ip-l2tp - L2TPv3 static unmanaged tunnel configuration
+> +.SH "SYNOPSIS"
+> +.sp
+> +.ad l
+> +.in +8
+> +.ti -8
+> +.B ip
+> +.RI "[ " OPTIONS " ]"
+> +.B l2tp
+> +.RI " { " COMMAND " | "
+> +.BR help " }"
+> +.sp
+> +.ti -8
+> +.BR "ip l2tp add tunnel"
+> +.br
+> +.B remote
+> +.RI "[ " ADDR " ]"
+> +.B local
+> +.RI "[ " ADDR " ]"
+> +.br
+> +.B tunnel_id
+> +.IR ID
+> +.B peer_tunnel_id
+> +.IR ID
+> +.br
+> +.RB "[ " encap " { " ip " | " udp " } ]"
+> +.br
+> +.RB "[ " udp_sport
+> +.IR PORT
+> +.RB " ] [ " udp_dport
+> +.IR PORT
+> +.RB " ]"
+> +.br
+> +.ti -8
+> +.BR "ip l2tp add session"
+> +.RB "[ " name
+> +.IR NAME
+> +.RB " ]"
+> +.br
+> +.B tunnel_id
+> +.IR ID
+> +.B session_id
+> +.IR ID
+> +.B peer_session_id
+> +.IR ID
+> +.br
+> +.RB "[ " cookie
+> +.IR HEXSTR
+> +.RB " ] [ " peer_cookie
+> +.IR HEXSTR
+> +.RB " ]"
+> +.br
+> +.RB "[ " offset
+> +.IR OFFSET
+> +.RB " ] [ " peer_offset
+> +.IR OFFSET
+> +.RB " ]"
+> +.br
+> +.ti -8
+> +.BR "ip l2tp del tunnel"
+> +.B tunnel_id
+> +.IR ID
+> +.br
+> +.ti -8
+> +.BR "ip l2tp del session"
+> +.B tunnel_id
+> +.IR ID
+> +.B session_id
+> +.IR ID
+> +.br
+> +.ti -8
+> +.BR "ip l2tp show tunnel"
+> +.B "[" tunnel_id
+> +.IR ID
+> +.B "]"
+> +.br
+> +.ti -8
+> +.BR "ip l2tp show session"
+> +.B "[" tunnel_id
+> +.IR ID
+> +.B "] [" session_id
+> +.IR ID
+> +.B "]"
+> +.br
+> +.ti -8
+> +.IR NAME " := "
+> +.IR STRING
+> +.ti -8
+> +.IR ADDR " := { " IP_ADDRESS " }"
+> +.ti -8
+> +.IR PORT " := { " NUMBER " }"
+> +.ti -8
+> +.IR ID " := { " NUMBER " }"
+> +.ti -8
+> +.ti -8
+> +.IR HEXSTR " := { 8 or 16 hex digits (4 / 8 bytes) }"
+> +.SH DESCRIPTION
+> +The
+> +.B ip l2tp
+> +commands are used to establish static, or so-called
+> +.I unmanaged
+> +L2TPv3 ethernet tunnels. For unmanaged tunnels, there is no L2TP
+> +control protocol so no userspace daemon is required - tunnels are
+> +manually created by issuing commands at a local system and at a remote
+> +peer.
+> +.PP
+> +L2TPv3 is suitable for Layer-2 tunnelling. Static tunnels are useful
+> +to establish network links across IP networks when the tunnels are
+> +fixed. L2TPv3 tunnels can carry data of more than one session. Each
+> +session is identified by a session_id and its parent tunnel's
+> +tunnel_id. A tunnel must be created before a session can be created in
+> +the tunnel.
+> +.PP
+> +When creating an L2TP tunnel, the IP address of the remote peer is
+> +specified, which can be either an IPv4 or IPv6 address. The local IP
+> +address to be used to reach the peer must also be specified. This is
+> +the address on which the local system will listen for and accept
+> +received L2TP data packets from the peer.
+> +.PP
+> +L2TPv3 defines two packet encapsulation formats: UDP or IP. UDP
+> +encapsulation is most common. IP encapsulation uses a dedicated IP
+> +protocol value to carry L2TP data without the overhead of UDP. Use IP
+> +encapsulation only when there are no NAT devices or firewalls in the
+> +network path.
+> +.PP
+> +When an L2TPv3 ethernet session is created, a virtual network
+> +interface is created for the session, which must then be configured
+> +and brought up, just like any other network interface. When data is
+> +passed through the interface, it is carried over the L2TP tunnel to
+> +the peer. By configuring the system's routing tables or adding the
+> +interface to a bridge, the L2TP interface is like a virtual wire
+> +(pseudowire) connected to the peer.
+> +.PP
+> +Establishing an unmanaged L2TPv3 ethernet pseudowire involves manually
+> +creating L2TP contexts on the local system and at the peer. Parameters
+> +used at each site must correspond or no data will be passed. No
+> +consistency checks are possible since there is no control protocol
+> +used to establish unmanaged L2TP tunnels. Once the virtual network
+> +interface of a given L2TP session is configured and enabled, data can
+> +be transmitted, even if the peer isn't yet configured. If the peer
+> +isn't configured, the L2TP data packets will be discarded by
+> +the peer.
+> +.PP
+> +To establish an unmanaged L2TP tunnel, use
+> +.B l2tp add tunnel
+> +and
+> +.B l2tp add session
+> +commands described in this document. Then configure and enable the
+> +tunnel's virtual network interface, as required.
+> +.PP
+> +Note that unmanaged tunnels carry only ethernet frames. If you need to
+> +carry PPP traffic (L2TPv2) or your peer doesn't support unmanaged
+> +L2TPv3 tunnels, you will need an L2TP server which implements the L2TP
+> +control protocol. The L2TP control protocol allows dynamic L2TP
+> +tunnels and sessions to be established and provides for detecting and
+> +acting upon network failures.
+> +.SS ip l2tp add tunnel - add a new tunnel
+> +.TP
+> +.BI name " NAME "
+> +sets the session network interface name. Default is l2tpethN.
+> +.TP
+> +.BI tunnel_id " ID"
+> +set the tunnel id, which is a 32-bit integer value. Uniquely
+> +identifies the tunnel. The value used must match the peer_tunnel_id
+> +value being used at the peer.
+> +.TP
+> +.BI peer_tunnel_id " ID"
+> +set the peer tunnel id, which is a 32-bit integer value assigned to
+> +the tunnel by the peer. The value used must match the tunnel_id value
+> +being used at the peer.
+> +.TP
+> +.BI remote " ADDR"
+> +set the IP address of the remote peer. May be specified as an IPv4
+> +address or an IPv6 address.
+> +.TP
+> +.BI local " ADDR"
+> +set the IP address of the local interface to be used for the
+> +tunnel. This address must be the address of a local interface. May be
+> +specified as an IPv4 address or an IPv6 address.
+> +.TP
+> +.BI encap " ENCAP"
+> +set the encapsulation type of the tunnel.
+> +.br
+> +Valid values for encapsulation are:
+> +.BR udp ", " ip "."
+> +.TP
+> +.BI udp_sport " PORT"
+> +set the UDP source port to be used for the tunnel. Must be present
+> +when udp encapsulation is selected. Ignored when ip encapsulation is
+> +selected.
+> +.TP
+> +.BI udp_dport " PORT"
+> +set the UDP destination port to be used for the tunnel. Must be
+> +present when udp encapsulation is selected. Ignored when ip
+> +encapsulation is selected.
+> +.SS ip l2tp del tunnel - destroy a tunnel
+> +.TP
+> +.BI tunnel_id " ID"
+> +set the tunnel id of the tunnel to be deleted. All sessions within the
+> +tunnel must be deleted first.
+> +.SS ip l2tp show tunnel - show information about tunnels
+> +.TP
+> +.BI tunnel_id " ID"
+> +set the tunnel id of the tunnel to be shown. If not specified,
+> +information about all tunnels is printed.
+> +.SS ip l2tp add session - add a new session to a tunnel
+> +.TP
+> +.BI name " NAME "
+> +sets the session network interface name. Default is l2tpethN.
+> +.TP
+> +.BI tunnel_id " ID"
+> +set the tunnel id, which is a 32-bit integer value. Uniquely
+> +identifies the tunnel into which the session will be created. The
+> +tunnel must already exist.
+> +.TP
+> +.BI session_id " ID"
+> +set the session id, which is a 32-bit integer value. Uniquely
+> +identifies the session being created. The value used must match the
+> +peer_session_id value being used at the peer.
+> +.TP
+> +.BI peer_session_id " ID"
+> +set the peer session id, which is a 32-bit integer value assigned to
+> +the session by the peer. The value used must match the session_id
+> +value being used at the peer.
+> +.TP
+> +.BI cookie " HEXSTR"
+> +sets an optional cookie value to be assigned to the session. This is a
+> +4 or 8 byte value, specified as 8 or 16 hex digits,
+> +e.g. 014d3636deadbeef. The value must match the peer_cookie value set
+> +at the peer. The cookie value is carried in L2TP data packets and is
+> +checked for expected value at the peer. Default is to use no cookie.
+> +.TP
+> +.BI peer_cookie " HEXSTR"
+> +sets an optional peer cookie value to be assigned to the session. This
+> +is a 4 or 8 byte value, specified as 8 or 16 hex digits,
+> +e.g. 014d3636deadbeef. The value must match the cookie value set at
+> +the peer. It tells the local system what cookie value to expect to
+> +find in received L2TP packets. Default is to use no cookie.
+> +.TP
+> +.BI offset " OFFSET"
+> +sets the byte offset from the L2TP header where user data starts in
+> +transmitted L2TP data packets. This is hardly ever used. If set, the
+> +value must match the peer_offset value used at the peer. Default is 0.
+> +.TP
+> +.BI peer_offset " OFFSET"
+> +sets the byte offset from the L2TP header where user data starts in
+> +received L2TP data packets. This is hardly ever used. If set, the
+> +value must match the offset value used at the peer. Default is 0.
+> +.SS ip l2tp del session - destroy a session
+> +.TP
+> +.BI tunnel_id " ID"
+> +set the tunnel id in which the session to be deleted is located.
+> +.TP
+> +.BI session_id " ID"
+> +set the session id of the session to be deleted.
+> +.SS ip l2tp show session - show information about sessions
+> +.TP
+> +.BI tunnel_id " ID"
+> +set the tunnel id of the session(s) to be shown. If not specified,
+> +information about sessions in all tunnels is printed.
+> +.TP
+> +.BI session_id " ID"
+> +set the session id of the session to be shown. If not specified,
+> +information about all sessions is printed.
+> +.SH EXAMPLES
+> +.PP
+> +.SS Setup L2TP tunnels and sessions
+> +.nf
+> +site-A:# ip l2tp add tunnel tunnel_id 3000 peer_tunnel_id 4000 \\
+> +           encap udp local 1.2.3.4 remote 5.6.7.8 \\
+> +           udp_sport 5000 udp_dport 6000
+> +site-A:# ip l2tp add session tunnel_id 3000 session_id 1000 \\
+> +           peer_session_id 2000
+> +
+> +site-B:# ip l2tp add tunnel tunnel_id 4000 peer_tunnel_id 3000 \\
+> +           encap udp local 5.6.7.8 remote 1.2.3.4 \\
+> +           udp_sport 6000 udp_dport 5000
+> +site-B:# ip l2tp add session tunnel_id 4000 session_id 2000 \\
+> +           peer_session_id 1000
+> +
+> +site-A:# ip link set l2tpeth0 up mtu 1488
+> +
+> +site-B:# ip link set l2tpeth0 up mtu 1488
+> +.fi
+> +.PP
+> +Notice that the IP addresses, UDP ports and tunnel / session ids are
+> +matched and reversed at each site.
+> +.SS Configure as IP interfaces
+> +The two interfaces can be configured with IP addresses if only IP data
+> +is to be carried. This is perhaps the simplest configuration.
+> +.PP
+> +.nf
+> +site-A:# ip addr add 10.42.1.1 peer 10.42.1.2 dev l2tpeth0
+> +
+> +site-B:# ip addr add 10.42.1.2 peer 10.42.1.1 dev l2tpeth0
+> +
+> +site-A:# ping 10.42.1.2
+> +.fi
+> +.PP
+> +Now the link should be usable. Add static routes as needed to have
+> +data sent over the new link.
+> +.PP
+> +.SS Configure as bridged interfaces
+> +To carry non-IP data, the L2TP network interface is added to a bridge
+> +instead of being assigned its own IP address, using standard Linux
+> +utilities.
+> +.PP
+> +.nf
+> +site-A:# brctl addbr br0
+> +site-A:# brctl addif br0 l2tpeth0
+> +site-A:# brctl addif br0 eth0
+> +site-A:# ip link set br0 up promisc on
+> +.fi
+> +.PP
+> +If you are using VLANs, setup a bridge per VLAN and bridge each VLAN
+> +over a separate L2TP session. For example, to bridge VLAN ID 5 on eth1
+> +over an L2TP pseudowire:
+> +.PP
+> +.nf
+> +site-A:# brctl addbr brvlan5
+> +site-A:# brctl addif brvlan5 l2tpeth0.5
+> +site-A:# brctl addif brvlan5 eth1.5
+> +site-A:# ip link set brvlan5 up promisc on
 
-I know your time is valuable and I appreciate it. That's
-why I'm sending you this note. You will benefit from it,
-I promise.
-
-http://www.boldstatementmarketing.com/video3
-
-Like you, I am self-employed. I've had a lot
-of success and have done millions in sales but it's
-been a roller coaster. There's been huge wins and
-big losses. The wins drive me further and the losses...
-
-well, they keep me humble and keep me learning ;)
-
-I've felt the frustration of trying to find new
-clients and customers and it's gotten down-right
-dirty online...
-
-the competition is stiff, Google's just slapping
-everyone (yep...I've been spanked by Google too)
-and it was getting harder and harder to grow my lists and
-customer base.
-
-Not to mention expensive. About a year ago, I transitioned
-everything to offline marketing and that was just tedious, slow
-and, I have to admit, boring.
-
-I was determined to figure out how to get the same or better
-lead flow that I was getting back in 2007 with Google before
-they got spank happy.
-
-It took us almost a year, but we figured it out. I can't believe
-it even took us that long because this is so ridiculously simple...
-
-It was right under our noses the entire time. Every major brand
-is doing it. All the big marketers are doing it.
-
-And now we're doing it and it is bringing in a flood of traffic,
-leads and sales faster than anything we've done before.
-
-Our results now are blowing away what we saw back with Google
-Adwords before they got all funky.
-
-You might already be using this to grow your business...if you are
-congratulations, because I know you're killing it!
-
-If not, learn how now (for fr.ee).
-
-http://www.boldstatementmarketing.com/video3
-
-Just click the link and sign up to get instant access to the fast start
-course for fr.ee and you'll know exactly how to get more leads,
-more customers and a freakin' flood of sales.
-
-I'm excited for you to watch the training. The playing field is wide
-open with this...I'm still shocked by how few business are actually
-using this strategy because it's so darn easy and the results are
-shocking.
-
-Have fun ;)
-Shannon Lavenia
-
-PS: John (my husband) and I are driven by the comments we get
-so leave me a note about the training on the site...I appreciate it and
-love to hear how your succeeding with this training.
-
-Peace.
-
-http://www.boldstatementmarketing.com/video3
+The bridge manages promiscuous itself, setting it manually is not required.
+If it is required, the the implementation of the device is buggy
+and should be fixed.
