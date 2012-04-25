@@ -1,51 +1,51 @@
-From: Prasanna Panchamukhi <ppanchamukhi@riverbed.com>
-Subject: Re: [net 1/2] e1000e: MSI interrupt test failed, using legacy interrupt
-Date: Wed, 25 Apr 2012 15:46:00 -0700
-Message-ID: <4F987EA8.6090700@riverbed.com>
-References: <1335333314-6814-1-git-send-email-jeffrey.t.kirsher@intel.com>	 <1335333314-6814-2-git-send-email-jeffrey.t.kirsher@intel.com> <1335369547.2602.3.camel@bwh-desktop.uk.solarflarecom.com>
-Reply-To: prasanna.panchamukhi@riverbed.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.riverbed.com ([208.70.196.44]:47925 "EHLO
-	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932274Ab2DYWqA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 18:46:00 -0400
-In-Reply-To: <1335369547.2602.3.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH 3/8] isdn/gigaset: improve error handling querying firmware version
+Date: Thu, 26 Apr 2012 01:02:20 +0200 (CEST)
+Message-ID: <20120425-patch-gigaset-03.tilman@imap.cc>
+References: <20120425-patch-gigaset-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120425-patch-gigaset-00.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/25/2012 08:59 AM, Ben Hutchings wrote:
-> On Tue, 2012-04-24 at 22:55 -0700, Jeff Kirsher wrote:
->> From: Prasanna S Panchamukhi<ppanchamukhi@riverbed.com>
->>
->> Following logs where seen on Systems with multiple NICs,
->> while using MSI interrupts as shown below:
-> [...]
->> This patch fixes this problem by increasing the msleep from 50 to 100.
-> [...]
->
-> It probably doesn't, in general.  The out-of-tree version of the sfc
-> driver used to perform an interrupt test during probe, and after fixing
-> it up repeatedly I eventually had to remove it completely as there are
-> so many ways to get a false negative.  Also see the related commit
-> 93e5dfa59b0e26a145a8adce5c9edf50bdaef4c7 ('sfc: Raise self-test
-> timeouts').
->
-Thanks Ben for your review.
-In general Ben's approach looks good fix to avoid false negatives. To 
-give a little
-bit of background, this issues is seen mostly with Intel 82571 Dual/quad 
-port Gigabit ethernet controller add-on NICs and not seen with other 
-Intel ethernet controller NICs. If Ben suggested
-approach is the best way to go, I will provide a patch  soon.
+An out-of-place "OK" response to the "AT+GMR" (get firmware version)
+command turns out to be, more often than not, a delayed response to
+a previous command rather than an actual error, so continue waiting
+for the version number in that case.
 
-Thanks,
-Prasanna
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+CC: stable <stable@kernel.org>
+---
+ drivers/isdn/gigaset/ev-layer.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-> Ben.
->
+diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
+index 624a825..685638a 100644
+--- a/drivers/isdn/gigaset/ev-layer.c
++++ b/drivers/isdn/gigaset/ev-layer.c
+@@ -190,6 +190,7 @@ struct reply_t gigaset_tab_nocid[] =
+ 								  ACT_INIT} },
+ 	{RSP_OK,	121, 121, -1,			  0,  0, {ACT_GOTVER,
+ 								  ACT_INIT} },
++	{RSP_NONE,	121, 121, -1,			120,  0, {ACT_GETSTRING} },
+ 
+ /* leave dle mode */
+ 	{RSP_INIT,	  0,   0, SEQ_DLE0,		201,  5, {0},	"^SDLE=0\r"},
+@@ -1314,8 +1315,9 @@ static void do_action(int action, struct cardstate *cs,
+ 		s = ev->ptr;
+ 
+ 		if (!strcmp(s, "OK")) {
++			/* OK without version string: assume old response */
+ 			*p_genresp = 1;
+-			*p_resp_code = RSP_ERROR;
++			*p_resp_code = RSP_NONE;
+ 			break;
+ 		}
+ 
+-- 
+1.7.3.4
