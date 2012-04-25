@@ -1,158 +1,114 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [PATCH 1/1] ipvs: kernel oops - do_ip_vs_get_ctl
-Date: Wed, 25 Apr 2012 09:44:44 +0200
-Message-ID: <1335339884-29825-1-git-send-email-hans.schillstrom@ericsson.com>
+From: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 4/5] don't take cgroup_mutex in destroy()
+Date: Wed, 25 Apr 2012 16:01:03 +0800
+Message-ID: <4F97AF3F.10101@huawei.com>
+References: <1335209867-1831-1-git-send-email-glommer@parallels.com>
+ <1335209867-1831-5-git-send-email-glommer@parallels.com>
+ <4F96109A.8000907@jp.fujitsu.com> <4F9691A8.1070106@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <horms@verge.net.au>, <ja@ssi.bg>, <wensong@linux-vs.org>,
-	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7BIT
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-reply-to: <4F9691A8.1070106-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Change order of init so netns init is ready
-when register ioctl and netlink.
+Glauber Costa wrote:
 
-Reported-by: "Ryan O'Hara" <rohara@redhat.com>
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
----
- include/net/ip_vs.h             |    2 +
- net/netfilter/ipvs/ip_vs_core.c |    9 ++++++
- net/netfilter/ipvs/ip_vs_ctl.c  |   52 ++++++++++++++++++++++----------------
- 3 files changed, 41 insertions(+), 22 deletions(-)
+> On 04/23/2012 11:31 PM, KAMEZAWA Hiroyuki wrote:
+>> (2012/04/24 4:37), Glauber Costa wrote:
+>>
+>>> Most of the destroy functions are only doing very simple things
+>>> like freeing memory.
+>>>
+>>> The ones who goes through lists and such, already use its own
+>>> locking for those.
+>>>
+>>> * The cgroup itself won't go away until we free it, (after destroy)
+>>> * The parent won't go away because we hold a reference count
+>>> * There are no more tasks in the cgroup, and the cgroup is declared
+>>>    dead (cgroup_is_removed() == true)
+>>>
+>>> [v2: don't cgroup_lock the freezer and blkcg ]
+>>>
+>>> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>>> CC: Tejun Heo<tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>> CC: Li Zefan<lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>>> CC: Kamezawa Hiroyuki<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+>>> CC: Vivek Goyal<vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>> ---
+>>>   kernel/cgroup.c |    9 ++++-----
+>>>   1 files changed, 4 insertions(+), 5 deletions(-)
+>>>
+>>> diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+>>> index 932c318..976d332 100644
+>>> --- a/kernel/cgroup.c
+>>> +++ b/kernel/cgroup.c
+>>> @@ -869,13 +869,13 @@ static void cgroup_diput(struct dentry *dentry, struct inode *inode)
+>>>   		 * agent */
+>>>   		synchronize_rcu();
+>>>
+>>> -		mutex_lock(&cgroup_mutex);
+>>>   		/*
+>>>   		 * Release the subsystem state objects.
+>>>   		 */
+>>>   		for_each_subsys(cgrp->root, ss)
+>>>   			ss->destroy(cgrp);
+>>>
+>>> +		mutex_lock(&cgroup_mutex);
+>>>   		cgrp->root->number_of_cgroups--;
+>>>   		mutex_unlock(&cgroup_mutex);
+>>>
+>>> @@ -3994,13 +3994,12 @@ static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
+>>>
+>>>    err_destroy:
+>>>
+>>> +	mutex_unlock(&cgroup_mutex);
+>>>   	for_each_subsys(root, ss) {
+>>>   		if (cgrp->subsys[ss->subsys_id])
+>>>   			ss->destroy(cgrp);
+>>>   	}
+>>>
+>>> -	mutex_unlock(&cgroup_mutex);
+>>> -
+>>>   	/* Release the reference count that we took on the superblock */
+>>>   	deactivate_super(sb);
+>>>
+>>> @@ -4349,9 +4348,9 @@ int __init_or_module cgroup_load_subsys(struct cgroup_subsys *ss)
+>>>   		int ret = cgroup_init_idr(ss, css);
+>>>   		if (ret) {
+>>>   			dummytop->subsys[ss->subsys_id] = NULL;
+>>> +			mutex_unlock(&cgroup_mutex);
+>>>   			ss->destroy(dummytop);
+>>>   			subsys[i] = NULL;
+>>> -			mutex_unlock(&cgroup_mutex);
+>>>   			return ret;
+>>>   		}
+>>>   	}
+>>> @@ -4447,10 +4446,10 @@ void cgroup_unload_subsys(struct cgroup_subsys *ss)
+>>>   	 * pointer to find their state. note that this also takes care of
+>>>   	 * freeing the css_id.
+>>>   	 */
+>>> +	mutex_unlock(&cgroup_mutex);
+>>>   	ss->destroy(dummytop);
+>>>   	dummytop->subsys[ss->subsys_id] = NULL;
+>>>
+>>
+>> I'm not fully sure but...dummytop->subsys[] update can be done without locking ?
+>>
+> I don't see a reason why updates to subsys[] after destruction shouldn't
+> be safe. But maybe I am wrong.
+> 
+> Tejun? Li?
+> 
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index f967395..93b81aa 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1201,6 +1201,8 @@ ip_vs_lookup_real_service(struct net *net, int af, __u16 protocol,
- 
- extern int ip_vs_use_count_inc(void);
- extern void ip_vs_use_count_dec(void);
-+extern int ip_vs_register_nl_ioctl(void);
-+extern void ip_vs_unregister_nl_ioctl(void);
- extern int ip_vs_control_init(void);
- extern void ip_vs_control_cleanup(void);
- extern struct ip_vs_dest *
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index d8b1d30..c8f36b9 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1995,10 +1995,18 @@ static int __init ip_vs_init(void)
- 		goto cleanup_dev;
- 	}
- 
-+	ret = ip_vs_register_nl_ioctl();
-+	if (ret < 0) {
-+		pr_err("can't register netlink/ioctl.\n");
-+		goto cleanup_hooks;
-+	}
-+
- 	pr_info("ipvs loaded.\n");
- 
- 	return ret;
- 
-+cleanup_hooks:
-+	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
- cleanup_dev:
- 	unregister_pernet_device(&ipvs_core_dev_ops);
- cleanup_sub:
-@@ -2014,6 +2022,7 @@ exit:
- 
- static void __exit ip_vs_cleanup(void)
- {
-+	ip_vs_unregister_nl_ioctl();
- 	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
- 	unregister_pernet_device(&ipvs_core_dev_ops);
- 	unregister_pernet_subsys(&ipvs_core_ops);	/* free ip_vs struct */
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 7131417..efaf484 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3750,21 +3750,10 @@ void __net_exit ip_vs_control_net_cleanup(struct net *net)
- 	free_percpu(ipvs->tot_stats.cpustats);
- }
- 
--int __init ip_vs_control_init(void)
-+int ip_vs_register_nl_ioctl(void)
- {
--	int idx;
- 	int ret;
- 
--	EnterFunction(2);
--
--	/* Initialize svc_table, ip_vs_svc_fwm_table, rs_table */
--	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
--		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
--		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
--	}
--
--	smp_wmb();	/* Do we really need it now ? */
--
- 	ret = nf_register_sockopt(&ip_vs_sockopts);
- 	if (ret) {
- 		pr_err("cannot register sockopt.\n");
-@@ -3776,28 +3765,47 @@ int __init ip_vs_control_init(void)
- 		pr_err("cannot register Generic Netlink interface.\n");
- 		goto err_genl;
- 	}
--
--	ret = register_netdevice_notifier(&ip_vs_dst_notifier);
--	if (ret < 0)
--		goto err_notf;
--
--	LeaveFunction(2);
- 	return 0;
- 
--err_notf:
--	ip_vs_genl_unregister();
- err_genl:
- 	nf_unregister_sockopt(&ip_vs_sockopts);
- err_sock:
- 	return ret;
- }
- 
-+void ip_vs_unregister_nl_ioctl(void) 
-+{
-+	ip_vs_genl_unregister();
-+	nf_unregister_sockopt(&ip_vs_sockopts);
-+}
-+
-+int __init ip_vs_control_init(void)
-+{
-+	int idx;
-+	int ret;
-+
-+	EnterFunction(2);
-+
-+	/* Initialize svc_table, ip_vs_svc_fwm_table, rs_table */
-+	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
-+		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
-+		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
-+	}
-+
-+	smp_wmb();	/* Do we really need it now ? */
-+
-+	ret = register_netdevice_notifier(&ip_vs_dst_notifier);
-+	if (ret < 0)
-+		return ret;
-+
-+	LeaveFunction(2);
-+	return 0;
-+}
-+
- 
- void ip_vs_control_cleanup(void)
- {
- 	EnterFunction(2);
- 	unregister_netdevice_notifier(&ip_vs_dst_notifier);
--	ip_vs_genl_unregister();
--	nf_unregister_sockopt(&ip_vs_sockopts);
- 	LeaveFunction(2);
- }
--- 
-1.7.2.3
 
+It's safe for dummpytop->subsys[], but it makes the code a bit subtle.
+
+The worst part is, it's not safe to NULLify subsys[i] without cgroup_mutex. It should be
+ok to do that before calling ->destroy(), but again the code becomes a bit subtler.
