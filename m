@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] unix_diag: use netlink attribute MAX convention
-Date: Wed, 25 Apr 2012 16:12:23 -0400 (EDT)
-Message-ID: <20120425.161223.2160946147195405748.davem@davemloft.net>
-References: <20120425124743.5b4fb8a3@nehalam.linuxnetplumber.net>
-	<20120425.155717.2099319998110521099.davem@davemloft.net>
-	<20120425130906.7a090d22@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] iproute2: allow IPv6 addresses for l2tp local and
+ remote parameters
+Date: Wed, 25 Apr 2012 13:13:11 -0700
+Message-ID: <20120425131311.0de3b94f@nehalam.linuxnetplumber.net>
+References: <1334921383-32109-1-git-send-email-jchapman@katalix.com>
+	<1334921383-32109-2-git-send-email-jchapman@katalix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shanwei88@gmail.com, xemul@parallels.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, Chris Elston <celston@katalix.com>
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53557 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758428Ab2DYUM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 16:12:27 -0400
-In-Reply-To: <20120425130906.7a090d22@nehalam.linuxnetplumber.net>
+Received: from mail.vyatta.com ([76.74.103.46]:39210 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758558Ab2DYUNS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 16:13:18 -0400
+In-Reply-To: <1334921383-32109-2-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 25 Apr 2012 13:09:06 -0700
+On Fri, 20 Apr 2012 12:29:42 +0100
+James Chapman <jchapman@katalix.com> wrote:
 
-> That doesn't work, not asking original submitter to resubmit.
+> From: Chris Elston <celston@katalix.com>
+> 
+> Adds support for parsing IPv6 addresses to the parameters local and
+> remote in the l2tp commands. Requires netlink attributes L2TP_ATTR_IP6_SADDR
+> and L2TP_ATTR_IP6_DADDR, added in a required kernel patch already submitted
+> to netdev.
+> 
+> Also enables printing of IPv6 addresses returned by the L2TP_CMD_TUNNEL_GET
+> request.
+> 
+> Signed-off-by: Chris Elston <celston@katalix.com>
+> Signed-off-by: James Chapman <jchapman@katalix.com>
 
-It works every single time for me.
-
-If they don't resubmit, they don't really care about their work being
-included, and therefore neither should you.
-
-End of story.
+Accepted.
