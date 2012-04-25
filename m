@@ -1,65 +1,41 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: [PATCH 2/2] ehea: fix promiscuous mode
-Date: Wed, 25 Apr 2012 14:32:12 -0300
-Message-ID: <1335375132-4591-2-git-send-email-cascardo@linux.vnet.ibm.com>
-References: <1335375132-4591-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Breno Leitao <leitao@linux.vnet.ibm.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] unix_diag: use netlink attribute MAX convention
+Date: Wed, 25 Apr 2012 10:38:58 -0700
+Message-ID: <20120425103858.04d149d8@nehalam.linuxnetplumber.net>
+References: <4F97A484.2040300@gmail.com>
+	<20120425092645.180ac196@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Shan Wei <shanwei88@gmail.com>, xemul@parallels.com,
+	NetDev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp03.br.ibm.com ([32.104.18.24]:58604 "EHLO
-	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756735Ab2DYRcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 13:32:24 -0400
-Received: from /spool/local
-	by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Wed, 25 Apr 2012 14:32:22 -0300
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 76FF5352004A
-	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 14:32:17 -0300 (BRT)
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q3PHUuLt3108952
-	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 14:30:56 -0300
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q3PFW7Qf009324
-	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 12:32:07 -0300
-In-Reply-To: <1335375132-4591-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Received: from mail.vyatta.com ([76.74.103.46]:45361 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756680Ab2DYRjB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 13:39:01 -0400
+In-Reply-To: <20120425092645.180ac196@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit a4910b744486254cfa61995954c118fb2283c4fd has broken promiscuous
-mode, which is never set. port->promisc just reflects the last setting
-of PROMISCUOUS mode to avoid doing an extra hypercall when it's already
-set.
+Use the standard convention to define the number of elements
+in unix diag attribute. This fixes future problems like the fact
+the last element (MEMINFO) is not parsed by current iproute2 ss command.
 
-However, since it may fail because of hypervisor permissions, we should
-still respect the multicast settings and not simply exit after setting
-promiscuous mode.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Cc: Breno Leitao <leitao@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ehea/ehea_main.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-index 9dcb5fd..c9069a2 100644
---- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-+++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-@@ -1946,11 +1946,7 @@ static void ehea_set_multicast_list(struct net_device *dev)
- 	struct netdev_hw_addr *ha;
- 	int ret;
+--- a/include/linux/unix_diag.h	2012-02-13 09:23:58.830508614 -0800
++++ b/include/linux/unix_diag.h	2012-04-25 09:36:20.752056963 -0700
+@@ -37,9 +37,9 @@ enum {
+ 	UNIX_DIAG_ICONS,
+ 	UNIX_DIAG_RQLEN,
+ 	UNIX_DIAG_MEMINFO,
+-
+-	UNIX_DIAG_MAX,
++	__UNIX_DIAG_MAX
+ };
++#define UNIX_DIAG_MAX (__UNIX_DIAG_MAX - 1)
  
--	if (port->promisc) {
--		ehea_promiscuous(dev, 1);
--		return;
--	}
--	ehea_promiscuous(dev, 0);
-+	ehea_promiscuous(dev, !!(dev->flags & IFF_PROMISC));
- 
- 	if (dev->flags & IFF_ALLMULTI) {
- 		ehea_allmulti(dev, 1);
--- 
-1.7.4.4
+ struct unix_diag_vfs {
+ 	__u32	udiag_vfs_ino;
