@@ -1,48 +1,95 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] unix_diag: use netlink attribute MAX convention
-Date: Wed, 25 Apr 2012 13:09:06 -0700
-Message-ID: <20120425130906.7a090d22@nehalam.linuxnetplumber.net>
-References: <20120425115609.4ef9ece0@nehalam.linuxnetplumber.net>
-	<20120425.150716.1476178549121153876.davem@davemloft.net>
-	<20120425124743.5b4fb8a3@nehalam.linuxnetplumber.net>
-	<20120425.155717.2099319998110521099.davem@davemloft.net>
+From: Shannon Lavenia <Shannon@boldstatementmarketing.net>
+Subject: This will make you smile ;)
+Date: Wed, 25 Apr 2012 14:07:27 -0400
+Message-ID: <IVCK87kNBSRYRFnvRSak7Bjbras0jhqcDvG1YKlNIjkM@boldstatementmarketing.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shanwei88@gmail.com, xemul@parallels.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53750 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758345Ab2DYUJL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 16:09:11 -0400
-In-Reply-To: <20120425.155717.2099319998110521099.davem@davemloft.net>
+Received: from [108.167.186.132] ([108.167.186.132]:49043 "EHLO
+	bol.boldstatementmarketing.net" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758428Ab2DYUKP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 16:10:15 -0400
+Received: from c-98-192-192-85.hsd1.de.comcast.net ([98.192.192.85]:46647 helo=[10.0.1.9])
+	by bol.boldstatementmarketing.net with esmtpa (Exim 4.77)
+	(envelope-from <Shannon@boldstatementmarketing.net>)
+	id 1SN6ch-0003Zz-Iv
+	for netdev@vger.kernel.org; Wed, 25 Apr 2012 13:07:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 25 Apr 2012 15:57:17 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+Hi,
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Wed, 25 Apr 2012 12:47:43 -0700
-> 
-> > On Wed, 25 Apr 2012 15:07:16 -0400 (EDT)
-> > David Miller <davem@davemloft.net> wrote:
-> > 
-> >> Either you apply them as soon as possible, or you mark them
-> >> appropriately as "Changes Requested" or "Deferred" so that the
-> >> submitter makes appropriate fixes you've asked for, or resubmits when
-> >> it's more appropriate for the change to go in.
-> >> 
-> >> "Under Review" doesn't mean, "I'm waiting for a kernel release with
-> >> the feature".  But that's how you use it.
-> > 
-> > Ok. What is the suggested tag for that.
-> 
-> As I said above, "Deferred", with a note sent to the submitter to resubmit
-> the patch at the appropriate time.
+Thanks for taking a minute to read this message.
 
-That doesn't work, not asking original submitter to resubmit.
-I tried a branch, but git doesn't like branches coming and going
-on remote repos.
-Probably better to just have an ephemeral iproute2-next repo on kernel.org.
+I know your time is valuable and I appreciate it. That's
+why I'm sending you this note. You will benefit from it,
+I promise.
+
+http://www.boldstatementmarketing.com/video3
+
+Like you, I am self-employed. I've had a lot
+of success and have done millions in sales but it's
+been a roller coaster. There's been huge wins and
+big losses. The wins drive me further and the losses...
+
+well, they keep me humble and keep me learning ;)
+
+I've felt the frustration of trying to find new
+clients and customers and it's gotten down-right
+dirty online...
+
+the competition is stiff, Google's just slapping
+everyone (yep...I've been spanked by Google too)
+and it was getting harder and harder to grow my lists and
+customer base.
+
+Not to mention expensive. About a year ago, I transitioned
+everything to offline marketing and that was just tedious, slow
+and, I have to admit, boring.
+
+I was determined to figure out how to get the same or better
+lead flow that I was getting back in 2007 with Google before
+they got spank happy.
+
+It took us almost a year, but we figured it out. I can't believe
+it even took us that long because this is so ridiculously simple...
+
+It was right under our noses the entire time. Every major brand
+is doing it. All the big marketers are doing it.
+
+And now we're doing it and it is bringing in a flood of traffic,
+leads and sales faster than anything we've done before.
+
+Our results now are blowing away what we saw back with Google
+Adwords before they got all funky.
+
+You might already be using this to grow your business...if you are
+congratulations, because I know you're killing it!
+
+If not, learn how now (for fr.ee).
+
+http://www.boldstatementmarketing.com/video3
+
+Just click the link and sign up to get instant access to the fast start
+course for fr.ee and you'll know exactly how to get more leads,
+more customers and a freakin' flood of sales.
+
+I'm excited for you to watch the training. The playing field is wide
+open with this...I'm still shocked by how few business are actually
+using this strategy because it's so darn easy and the results are
+shocking.
+
+Have fun ;)
+Shannon Lavenia
+
+PS: John (my husband) and I are driven by the comments we get
+so leave me a note about the training on the site...I appreciate it and
+love to hear how your succeeding with this training.
+
+Peace.
+
+http://www.boldstatementmarketing.com/video3
