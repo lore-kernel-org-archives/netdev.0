@@ -1,79 +1,128 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH net-next] ipv6: RTAX_FEATURE_ALLFRAG causes inefficient
- TCP segment sizing
-Date: Wed, 25 Apr 2012 00:34:26 -0700
-Message-ID: <CANP3RGdhs8s_RytR=f8ismSZdGs91bpVq=ZAjb0EOm-gCsDPAw@mail.gmail.com>
-References: <1335289058.5205.165.camel@edumazet-glaptop>
-	<CANP3RGd0mV8RcH1zCLBg+N9sgPGbiynhOSfoUAYpcMgYsvzeNA@mail.gmail.com>
-	<1335298228.5205.168.camel@edumazet-glaptop>
-	<CANP3RGfhc+4FjB152r58AP66oZQmj0oY-Zh=9qNn9OABCXPwbw@mail.gmail.com>
-	<1335331960.5205.180.camel@edumazet-glaptop>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [PATCH 2/4] ipvs: take care of return value from protocol init_netns
+Date: Wed, 25 Apr 2012 09:43:41 +0200
+Message-ID: <1335339821-29684-3-git-send-email-hans.schillstrom@ericsson.com>
+References: <1335339821-29684-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tore Anderson <tore@fud.no>, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:58106 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142Ab2DYHe0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 03:34:26 -0400
-Received: by iadi9 with SMTP id i9so2128952iad.19
-        for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 00:34:26 -0700 (PDT)
-In-Reply-To: <1335331960.5205.180.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <horms@verge.net.au>, <ja@ssi.bg>, <wensong@linux-vs.org>,
+	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1335339821-29684-1-git-send-email-hans.schillstrom@ericsson.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> But we chose to _not_ decrease mtu and adhere to the specs.
+ip_vs_create_timeout_table() can return NULL
+All functions protocol init_netns is affected of this patch.
 
-I get that we _choose_ to behave such, and I agree this adheres to specs.
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+---
+ include/net/ip_vs.h                   |    2 +-
+ net/netfilter/ipvs/ip_vs_proto.c      |    2 +-
+ net/netfilter/ipvs/ip_vs_proto_sctp.c |    5 ++++-
+ net/netfilter/ipvs/ip_vs_proto_tcp.c  |    5 ++++-
+ net/netfilter/ipvs/ip_vs_proto_udp.c  |    5 ++++-
+ 5 files changed, 14 insertions(+), 5 deletions(-)
 
-But I'm not convinced that (even though this is allowed per RFC) this
-is the right choice.
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 990216d..f967395 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -392,7 +392,7 @@ struct ip_vs_protocol {
+ 
+ 	void (*exit)(struct ip_vs_protocol *pp);
+ 
+-	void (*init_netns)(struct net *net, struct ip_vs_proto_data *pd);
++	int (*init_netns)(struct net *net, struct ip_vs_proto_data *pd);
+ 
+ 	void (*exit_netns)(struct net *net, struct ip_vs_proto_data *pd);
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index 6a8d176..0b74795 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -79,7 +79,7 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
+ 	atomic_set(&pd->appcnt, 0);	/* Init app counter */
+ 
+ 	if (pp->init_netns != NULL)
+-		pp->init_netns(net, pd);
++		return pp->init_netns(net, pd);
+ 
+ 	return 0;
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+index 1fbf7a2..9f3fb75 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+@@ -1090,7 +1090,7 @@ out:
+  *   timeouts is netns related now.
+  * ---------------------------------------------
+  */
+-static void __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
++static int __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+@@ -1098,6 +1098,9 @@ static void __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
+ 	spin_lock_init(&ipvs->sctp_app_lock);
+ 	pd->timeout_table = ip_vs_create_timeout_table((int *)sctp_timeouts,
+ 							sizeof(sctp_timeouts));
++	if (!pd->timeout_table)
++		return -ENOMEM;
++	return 0;
+ }
+ 
+ static void __ip_vs_sctp_exit(struct net *net, struct ip_vs_proto_data *pd)
+diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+index ef8641f..cd609cc 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+@@ -677,7 +677,7 @@ void ip_vs_tcp_conn_listen(struct net *net, struct ip_vs_conn *cp)
+  *   timeouts is netns related now.
+  * ---------------------------------------------
+  */
+-static void __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
++static int __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+@@ -685,7 +685,10 @@ static void __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
+ 	spin_lock_init(&ipvs->tcp_app_lock);
+ 	pd->timeout_table = ip_vs_create_timeout_table((int *)tcp_timeouts,
+ 							sizeof(tcp_timeouts));
++	if (!pd->timeout_table)
++		return -ENOMEM;
+ 	pd->tcp_state_table =  tcp_states;
++	return 0;
+ }
+ 
+ static void __ip_vs_tcp_exit(struct net *net, struct ip_vs_proto_data *pd)
+diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
+index f4b7262..2fedb2d 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_udp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
+@@ -467,7 +467,7 @@ udp_state_transition(struct ip_vs_conn *cp, int direction,
+ 	cp->timeout = pd->timeout_table[IP_VS_UDP_S_NORMAL];
+ }
+ 
+-static void __udp_init(struct net *net, struct ip_vs_proto_data *pd)
++static int __udp_init(struct net *net, struct ip_vs_proto_data *pd)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+@@ -475,6 +475,9 @@ static void __udp_init(struct net *net, struct ip_vs_proto_data *pd)
+ 	spin_lock_init(&ipvs->udp_app_lock);
+ 	pd->timeout_table = ip_vs_create_timeout_table((int *)udp_timeouts,
+ 							sizeof(udp_timeouts));
++	if (!pd->timeout_table)
++		return -ENOMEM;
++	return 0;
+ }
+ 
+ static void __udp_exit(struct net *net, struct ip_vs_proto_data *pd)
+-- 
+1.7.2.3
 
-> Current linux chose to implement the allfragfeature, so match RFC 2460
-> specs.
->
-> If you want to reduce size of subsequent packets, its a lot more work in
-> linux stack, for small gain, if any.
-
-True, but this is work at the source host (and indeed might possibly
-even be done by tso hardware or at least by gso),
-which is reducing work at whatever the actual tunneling point is.
-It's not actually affecting how much
-work the receiver has to do (indeed it might even decrease it, imagine
-sending 3840 bytes, getting that
-fragmented into 6 packets: 1000, 280, 1000, 280, 1000, 280 instead of
-just 4 packets: 1000, 1000,
-1000, 840 [obviously would need to correct for header overhead, but
-the basis stands])
-
-[side note: indeed 1280 should never be split 1000 + 280, but should
-rather be split into even pieces 640 + 640, to help prevent need for
-further fragmentation further down the line]
-
-Tunneling points are traditionally cpu starved.
-
-Also note that IPv6 prefers to see fragmentation happen at the end
-hosts, and not at the routers.
-Although of course it doesn't treat a tunnel end point as a router.
-
-Also packet loss is better handled by tcp losing segments than by the
-tunnel losing a fragment and thus losing the entire packet.
-
-I guess I simply think we're making the wrong trade off here.
-
-> We only need to properly generate the fragment header, that means
-> reducing the _payload_ by 8 bytes. Not reducing the _mtu_ that still is
-> 1280, as allowed.
->
-> IPv6 must cohabit with IPv4 for the next years, there is no hope
-> thinking it can ignore tunnelings issues, since tunneling is part of the
-> global IPv6 transition that is currently happening.
-
-To be fair this probably isn't super-related to the vast majority of
-IPv4, the vast majority of the IPv4 world out there has mtu's easily
-in excess of 1280+tunneling overhead bytes.
-I wonder if anyone has any statistics, but I'd guess 99.99% of the
-IPv4 internet is 1400+ MTU.
