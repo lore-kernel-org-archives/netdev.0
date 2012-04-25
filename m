@@ -1,55 +1,69 @@
-From: Jeff Mahoney <jeffm@suse.com>
-Subject: [PATCH] dl2k: Tighten ioctl permissions
-Date: Wed, 25 Apr 2012 15:33:43 -0400
-Message-ID: <4F985197.1060607@suse.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] unix_diag: use netlink attribute MAX convention
+Date: Wed, 25 Apr 2012 12:47:43 -0700
+Message-ID: <20120425124743.5b4fb8a3@nehalam.linuxnetplumber.net>
+References: <20120425103858.04d149d8@nehalam.linuxnetplumber.net>
+	<20120425.141658.1934757959636497552.davem@davemloft.net>
+	<20120425115609.4ef9ece0@nehalam.linuxnetplumber.net>
+	<20120425.150716.1476178549121153876.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Network Development <netdev@vger.kernel.org>
+Cc: shanwei88@gmail.com, xemul@parallels.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:47231 "EHLO mx2.suse.de"
+Received: from mail.vyatta.com ([76.74.103.46]:37627 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757285Ab2DYTdr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Apr 2012 15:33:47 -0400
-Received: from relay2.suse.de (unknown [195.135.220.254])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx2.suse.de (Postfix) with ESMTP id B914B8FE69
-	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 21:33:45 +0200 (CEST)
+	id S1757829Ab2DYTrr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 15:47:47 -0400
+In-Reply-To: <20120425.150716.1476178549121153876.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- dl2k's rio_ioctl function defines several ioctls that involve
- operations that should be denied to regular users.
+On Wed, 25 Apr 2012 15:07:16 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
- SIOCDEVPRIVATE + 2 is a renumbered SIOCSMIIREG.
- SIOCDEVPRIVATE + 5 calls netif_stop_queue.
- SIOCDEVPRIVATE + 6 calls netif_wake_queue.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Wed, 25 Apr 2012 11:56:09 -0700
+> 
+> > Do you expect the one utility to use it to have a workaround for
+> > a broken initial version.
+> 
+> I'm not taking that risk.
+> 
+> They thought the same exact thing when they did the autofs struct size
+> compat fix, and it turned out to break things.
+> 
+> Stephen I have an awesome suggestion for you if you want to avoid this
+> in the future, review iproute2 patches more aggressively so you can
+> catch things like this earlier.  Like, when we can actually still
+> safely change things.
 
-Reported-by: Stephan Mueller <stephan.mueller@atsec.com>
-Signed-off-by: Jeff Mahoney <jeffm@suse.com>
----
- drivers/net/ethernet/dlink/dl2k.c |    8 ++++++++
- 1 file changed, 8 insertions(+)
+Sorry it was more of cross project issue in this case. The original
+kernel patch had the problem and was lost in the fog of the other
+issues like the unix diag implementation not building.
 
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -1264,6 +1264,14 @@ rio_ioctl (struct net_device *dev, struc
- 	struct netdev_desc *desc;
- 	int i;
- 
-+	switch (cmd) {
-+	case SIOCDEVPRIVATE + 2:
-+	case SIOCDEVPRIVATE + 5:
-+	case SIOCDEVPRIVATE + 6:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
-+	};
-+
- 	phy_addr = np->phy_addr;
- 	switch (cmd) {
- 	case SIOCDEVPRIVATE:
+A community works best if multiple people look at the code.
+Don't think I would have spotted it unless I compared it to
+other places.
 
--- 
-Jeff Mahoney
-SUSE Labs
+
+> Because currently you let patches rot in patchwork.  There's an
+> iproute2 patch in there assigned to you which is 3 months old, that
+> simply isn't how this is supposed to work.
+> 
+> I hate to keep beating a dead horse, but you don't stay on top of
+> patchwork like you should.  The object is not to let patches just
+> rot in "Under Review" state for months.
+
+I keep patches that are for -next in that state.
+
+> Either you apply them as soon as possible, or you mark them
+> appropriately as "Changes Requested" or "Deferred" so that the
+> submitter makes appropriate fixes you've asked for, or resubmits when
+> it's more appropriate for the change to go in.
+> 
+> "Under Review" doesn't mean, "I'm waiting for a kernel release with
+> the feature".  But that's how you use it.
+
+Ok. What is the suggested tag for that.
