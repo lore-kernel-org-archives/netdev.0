@@ -1,7 +1,7 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 1/7] be2net: Fix VLAN/multicast packet reception
-Date: Wed, 25 Apr 2012 17:16:06 +0530
-Message-ID: <37a5c82b-cdef-4d98-b508-41abb5143e2d@exht1.ad.emulex.com>
+Subject: [PATCH net-next 0/7] be2net fixes
+Date: Wed, 25 Apr 2012 17:15:52 +0530
+Message-ID: <54ea1f39-fd40-40c9-97a4-271ba9e4df49@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
@@ -9,94 +9,28 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht1.emulex.com ([138.239.113.183]:29206 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758677Ab2DYLrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 07:47:11 -0400
+	with ESMTP id S1757737Ab2DYLrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 07:47:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VLAN and multicast hardware filters are limited and can get
-exhausted in adapters with many PCI functions. If setting
-a VLAN or multicast filter fails due to lack of sufficient
-hardware resources, these packets get dropped. Fix this by
-switching to VLAN or multicast promiscous mode so that these
-packets are not dropped.
+Please apply.
+Thanks,
+Padmanabh
 
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   44 ++++++++++++++++++--------
- 1 files changed, 30 insertions(+), 14 deletions(-)
+Padmanabh Ratnakar (7):
+  be2net: Fix VLAN/multicast packet reception
+  be2net: Fix FW download in Lancer
+  be2net: Fix ethtool self test for Lancer
+  be2net: Fix traffic stall INTx mode
+  be2net: Fix Lancer statistics
+  be2net: Fix wrong status getting returned for MCC commands
+  be2net: Fix FW download for BE
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index a5bc608..a9a11d4 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -797,22 +797,30 @@ static int be_vid_config(struct be_adapter *adapter, bool vf, u32 vf_num)
- 	if (adapter->promiscuous)
- 		return 0;
- 
--	if (adapter->vlans_added <= adapter->max_vlans)  {
--		/* Construct VLAN Table to give to HW */
--		for (i = 0; i < VLAN_N_VID; i++) {
--			if (adapter->vlan_tag[i]) {
--				vtag[ntags] = cpu_to_le16(i);
--				ntags++;
--			}
--		}
--		status = be_cmd_vlan_config(adapter, adapter->if_handle,
--					vtag, ntags, 1, 0);
--	} else {
--		status = be_cmd_vlan_config(adapter, adapter->if_handle,
--					NULL, 0, 1, 1);
-+	if (adapter->vlans_added > adapter->max_vlans)
-+		goto set_vlan_promisc;
-+
-+	/* Construct VLAN Table to give to HW */
-+	for (i = 0; i < VLAN_N_VID; i++)
-+		if (adapter->vlan_tag[i])
-+			vtag[ntags++] = cpu_to_le16(i);
-+
-+	status = be_cmd_vlan_config(adapter, adapter->if_handle,
-+				    vtag, ntags, 1, 0);
-+
-+	/* Set to VLAN promisc mode as setting VLAN filter failed */
-+	if (status) {
-+		dev_info(&adapter->pdev->dev, "Exhausted VLAN HW filters.\n");
-+		dev_info(&adapter->pdev->dev, "Disabling HW VLAN filtering.\n");
-+		goto set_vlan_promisc;
- 	}
- 
- 	return status;
-+
-+set_vlan_promisc:
-+	status = be_cmd_vlan_config(adapter, adapter->if_handle,
-+				    NULL, 0, 1, 1);
-+	return status;
- }
- 
- static int be_vlan_add_vid(struct net_device *netdev, u16 vid)
-@@ -862,6 +870,7 @@ ret:
- static void be_set_rx_mode(struct net_device *netdev)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-+	int status;
- 
- 	if (netdev->flags & IFF_PROMISC) {
- 		be_cmd_rx_filter(adapter, IFF_PROMISC, ON);
-@@ -908,7 +917,14 @@ static void be_set_rx_mode(struct net_device *netdev)
- 		}
- 	}
- 
--	be_cmd_rx_filter(adapter, IFF_MULTICAST, ON);
-+	status = be_cmd_rx_filter(adapter, IFF_MULTICAST, ON);
-+
-+	/* Set to MCAST promisc mode if setting MULTICAST address fails */
-+	if (status) {
-+		dev_info(&adapter->pdev->dev, "Exhausted multicast HW filters.\n");
-+		dev_info(&adapter->pdev->dev, "Disabling HW multicast filtering.\n");
-+		be_cmd_rx_filter(adapter, IFF_ALLMULTI, ON);
-+	}
- done:
- 	return;
- }
--- 
-1.6.0.2
+ drivers/net/ethernet/emulex/benet/be.h         |    5 +
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |   93 +++++++----
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |    8 +-
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |    2 +-
+ drivers/net/ethernet/emulex/benet/be_hw.h      |   74 ++++++---
+ drivers/net/ethernet/emulex/benet/be_main.c    |  221 ++++++++++++++++--------
+ 6 files changed, 276 insertions(+), 127 deletions(-)
