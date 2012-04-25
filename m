@@ -1,37 +1,38 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH] tlan: add cast needed for proper 64 bit operation
-Date: Wed, 25 Apr 2012 10:49:20 -0400
-Message-ID: <1335365360-4891-1-git-send-email-bpoirier@suse.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Samuel Chessman <chessman@tux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:43733 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751413Ab2DYOuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 10:50:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: Re: [PATCH 03/15] batman-adv: add
+	biggest_unsigned_int(x) macro
+Date: Wed, 25 Apr 2012 15:57:39 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EF4@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6EF3@saturn3.aculab.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	"Antonio Quartulli" <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EF3-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Changes this beauty into a statement that actually has an effect on amd64.
+=20
+> > +/* Returns the biggest unsigned integer with the sizeof x */
+> > +#define biggest_unsigned_int(x) (~(x)0)
+>=20
+> Nope - biggest_unsigned_int(unsigned char) is probably 0xffffffff
 
-Tested-by: Per Jessen <per@opensuse.org>
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
----
- drivers/net/ethernet/ti/tlan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+To correct myself, it is actually ((int)(-1)) (ie a signed value).
 
-diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
-index 817ad3b..efd3669 100644
---- a/drivers/net/ethernet/ti/tlan.c
-+++ b/drivers/net/ethernet/ti/tlan.c
-@@ -228,7 +228,7 @@ tlan_get_skb(const struct tlan_list *tag)
- 	unsigned long addr;
- 
- 	addr = tag->buffer[9].address;
--	addr |= (tag->buffer[8].address << 16) << 16;
-+	addr |= ((unsigned long) tag->buffer[8].address << 16) << 16;
- 	return (struct sk_buff *) addr;
- }
- 
--- 
-1.7.7
+	David
