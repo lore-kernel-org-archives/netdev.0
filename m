@@ -1,118 +1,108 @@
-From: Jiang Liu <liuj97@gmail.com>
-Subject: Re: [PATCH v1 6/8] dmaengine: enhance network subsystem to support
- DMA device hotplug
-Date: Wed, 25 Apr 2012 23:47:19 +0800
-Message-ID: <4F981C87.60403@gmail.com>
-References: <1335189109-4871-1-git-send-email-jiang.liu@huawei.com> <1335189109-4871-7-git-send-email-jiang.liu@huawei.com> <CABE8wwvi_Yz8AyALr1-uDW9xSgrSqfrYWhB_22NQ2ydTa81+mg@mail.gmail.com> <4F961041.7010106@huawei.com> <CABE8wwvW9MUWaqSUCPMr7_yj7XGtSj+X9VE1-xWrEusZ3TMaqQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jiang Liu <jiang.liu@huawei.com>,
-	Vinod Koul <vinod.koul@intel.com>,
-	Keping Chen <chenkeping@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Williams <dan.j.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABE8wwvW9MUWaqSUCPMr7_yj7XGtSj+X9VE1-xWrEusZ3TMaqQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi Dan,
-	Thanks for your great comments about the performance penalty issue. And I'm trying
-to refine the implementation to reduce penalty caused by hotplug logic. If the algorithm works
-correctly, the optimized hot path code will be:
-
-------------------------------------------------------------------------------
-struct dma_chan *dma_find_channel(enum dma_transaction_type tx_type)
-{
-        struct dma_chan *chan = this_cpu_read(channel_table[tx_type]->chan);
-
-        this_cpu_inc(dmaengine_chan_ref_count);
-        if (static_key_false(&dmaengine_quiesce)) {
-                chan = NULL;
-        }
-
-        return chan;
-}
-EXPORT_SYMBOL(dma_find_channel);
-
-struct dma_chan *dma_get_channel(struct dma_chan *chan)
-{
-        if (static_key_false(&dmaengine_quiesce))
-                atomic_inc(&dmaengine_dirty);
-        this_cpu_inc(dmaengine_chan_ref_count);
-
-        return chan;
-}
-EXPORT_SYMBOL(dma_get_channel);
-
-void dma_put_channel(struct dma_chan *chan)
-{
-        this_cpu_dec(dmaengine_chan_ref_count);
-}
-EXPORT_SYMBOL(dma_put_channel);
------------------------------------------------------------------------------
-
-The disassembled code is:
-(gdb) disassemble dma_find_channel 
-Dump of assembler code for function dma_find_channel:
-   0x0000000000000000 <+0>:	push   %rbp
-   0x0000000000000001 <+1>:	mov    %rsp,%rbp
-   0x0000000000000004 <+4>:	callq  0x9 <dma_find_channel+9>
-   0x0000000000000009 <+9>:	mov    %edi,%edi
-   0x000000000000000b <+11>:	mov    0x0(,%rdi,8),%rax
-   0x0000000000000013 <+19>:	mov    %gs:(%rax),%rax
-   0x0000000000000017 <+23>:	incq   %gs:0x0				//overhead: this_cpu_inc(dmaengine_chan_ref_count)
-   0x0000000000000020 <+32>:	jmpq   0x25 <dma_find_channel+37>	//overhead: if (static_key_false(&dmaengine_quiesce)), will be replaced as NOP by jump label
-   0x0000000000000025 <+37>:	pop    %rbp
-   0x0000000000000026 <+38>:	retq   
-   0x0000000000000027 <+39>:	nopw   0x0(%rax,%rax,1)
-   0x0000000000000030 <+48>:	xor    %eax,%eax
-   0x0000000000000032 <+50>:	pop    %rbp
-   0x0000000000000033 <+51>:	retq   
-End of assembler dump.
-(gdb) disassemble dma_put_channel 	// overhead: to decrease channel reference count, 6 instructions
-Dump of assembler code for function dma_put_channel:
-   0x0000000000000070 <+0>:	push   %rbp
-   0x0000000000000071 <+1>:	mov    %rsp,%rbp
-   0x0000000000000074 <+4>:	callq  0x79 <dma_put_channel+9>
-   0x0000000000000079 <+9>:	decq   %gs:0x0
-   0x0000000000000082 <+18>:	pop    %rbp
-   0x0000000000000083 <+19>:	retq   
-End of assembler dump.
-(gdb) disassemble dma_get_channel 
-Dump of assembler code for function dma_get_channel:
-   0x0000000000000040 <+0>:	push   %rbp
-   0x0000000000000041 <+1>:	mov    %rsp,%rbp
-   0x0000000000000044 <+4>:	callq  0x49 <dma_get_channel+9>
-   0x0000000000000049 <+9>:	mov    %rdi,%rax
-   0x000000000000004c <+12>:	jmpq   0x51 <dma_get_channel+17>
-   0x0000000000000051 <+17>:	incq   %gs:0x0
-   0x000000000000005a <+26>:	pop    %rbp
-   0x000000000000005b <+27>:	retq   
-   0x000000000000005c <+28>:	nopl   0x0(%rax)
-   0x0000000000000060 <+32>:	lock incl 0x0(%rip)        # 0x67 <dma_get_channel+39>
-   0x0000000000000067 <+39>:	jmp    0x51 <dma_get_channel+17>
-End of assembler dump.
-
-So for a typical dma_find_channel()/dma_put_channel(), the total overhead
-is about 10 instructions and two percpu(local) memory updates. And there's
-no shared cache pollution any more. Is this acceptable ff the algorithm 
-works as expected? I will test the code tomorrow.
-
-For typical systems which don't support DMA device hotplug, the overhead
-could be completely removed by condition compilation.
-
-Any comments are welcomed!
-
-Thanks!
---gerry
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next] bonding,vlan: propagate MAC failover changes to VLANs
+Date: Wed, 25 Apr 2012 08:51:16 -0700
+Message-ID: <32057.1335369076@death.nxdomain>
+References: <10757.1334772163@death.nxdomain> <1334773079.2426.32.camel@bwh-desktop.uk.solarflarecom.com> <11643.1334774976@death.nxdomain> <1334776810.2426.44.camel@bwh-desktop.uk.solarflarecom.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:35181 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755573Ab2DYPw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Apr 2012 11:52:27 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Wed, 25 Apr 2012 11:52:26 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 8B5FE6E804B
+	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 11:52:23 -0400 (EDT)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q3PFqKjQ123354
+	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 11:52:20 -0400
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q3PFpJiJ003601
+	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 09:51:20 -0600
+In-reply-to: <1334776810.2426.44.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On 04/24/2012 11:09 AM, Dan Williams wrote:
->>> If you are going to hotplug the entire IOH, then you are probably ok
+	Please do not apply this patch; we've found an alternate
+solution that doesn't require this change.
+
+Ben Hutchings <bhutchings@solarflare.com> wrote:
+
+>On Wed, 2012-04-18 at 11:49 -0700, Jay Vosburgh wrote:
+>> Ben Hutchings <bhutchings@solarflare.com> wrote:
+>> 
+>> >On Wed, 2012-04-18 at 11:02 -0700, Jay Vosburgh wrote:
+>> >> 	With bonding's fail_over_mac=active, during failover the MAC
+>> >> address of the bond itself changes to match that of the slave.
+>> >> 
+>> >> 	This patch adds a notifier call to cause VLANs stacked atop the
+>> >> bonding to also change their MAC addresses to the new address when a
+>> >> failover occurs.
+>> >> 
+>> >> 	While it is legal for a VLAN to have a MAC address that differs
+>> >> from the underlying device, at least one device (qeth) that requires the
+>> >> use of fail_over_mac for bonding cannot handle the VLAN's MAC differing
+>> >> from that of the bond; thus, it needs the MAC change to propagate up
+>> >> to any VLANs when fail_over_mac is set to active.
+>> >[...]
+>> >
+>> >This doesn't make sense to me.  You're applying the behaviour to all
+>> >VLANs on top of a bond, whether or not the underlying device is driven
+>> >by qeth, and ignoring any MAC address changes that don't involve the
+>> >bonding driver.
+>> 
+>> 	With the patch, the PROPAGATE event is only generated if bonding
+>> is set for fail_over_mac=active, which is normally only enabled on those
+>> devices that require it (some devices for IBM's pseries and zseries
+>> architectures and Infiniband, which doesn't have VLANs).
+>
+>Yeah, OK, that makes sense.
+>
+>> 	Devices that do not use bonding's fail_over_mac will not have
+>> VLANs following MAC changes.
+>
+>I take it that the devices with this limitation on source MAC address
+>have an essentially unchangeable MAC address?  If they are limited to
+>single address but it's changeable then they should be emitting this
+>notification too.
+
+	It's not that it can't change the MAC, the issue has to do with
+the packet forwarding logic on the actual device that services the
+various virtual devices configured on the LPARs.  This being s390, it's
+not quite that simple, but that's the short version.
+
+>> >I think either of these would be better fixes:
+>> >1. Make VLAN devices follow changes to the parent device's MAC address
+>> >unless they are assigned an address of their own.
+>> >2. Add a configuration flag for VLAN devices to follow changes to the
+>> >parent device's MAC address.
+>> 
+>> 	#1 would be a behavior change for all VLAN devices, which I
+>> sought to avoid.
+>> 
+>> 	#2 would be an additional configuration option that would have
+>> to be enabled just for this case (unless VLANs following MAC changes of
+>> the parent device is a generally desirable feature).
+>
+>I don't know whether it is generally desirable.  My guess would be that
+>unless a VLAN device is explicitly configured to use its own address
+>then it is desirable.
+>
+>> The patch requires
+>> no additional option settings beyond what are currently in use.
+>
+>Right, I understand that this ought to Just Work, if possible.
+>
+>Ben.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
