@@ -1,49 +1,46 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH net-next] ipv6: RTAX_FEATURE_ALLFRAG causes inefficient
- TCP segment sizing
-Date: Wed, 25 Apr 2012 02:52:02 -0700
-Message-ID: <CANP3RGeQR8pguGQgBy_vdL_jjeo52q2LOawBDAPey5gh7OwTHQ@mail.gmail.com>
-References: <1335289058.5205.165.camel@edumazet-glaptop>
-	<CANP3RGd0mV8RcH1zCLBg+N9sgPGbiynhOSfoUAYpcMgYsvzeNA@mail.gmail.com>
-	<1335298228.5205.168.camel@edumazet-glaptop>
-	<CANP3RGfhc+4FjB152r58AP66oZQmj0oY-Zh=9qNn9OABCXPwbw@mail.gmail.com>
-	<1335331960.5205.180.camel@edumazet-glaptop>
-	<CANP3RGdhs8s_RytR=f8ismSZdGs91bpVq=ZAjb0EOm-gCsDPAw@mail.gmail.com>
-	<f88609a3e80bbe53233e62dec2699a3e@greed.fud.no>
-	<1335346710.3274.24.camel@edumazet-glaptop>
+From: Brice Goglin <Brice.Goglin@ens-lyon.org>
+Subject: Re: My e1000e GBE card is eating all port 623 pks
+Date: Wed, 25 Apr 2012 11:57:47 +0200
+Message-ID: <4F97CA9B.3060105@ens-lyon.org>
+References: <OF8F83D7F0.387F6CCE-ONC12579E7.0049B885-C12579E7.004A4356@transmode.se> <20120424145128.000070a8@unknown> <OF497D4E52.CC9EA3C0-ONC12579EB.0031DCB3-C12579EB.003213E4@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tore Anderson <tore@fud.no>, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:35525 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757477Ab2DYJwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 05:52:03 -0400
-Received: by iadi9 with SMTP id i9so2272954iad.19
-        for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 02:52:02 -0700 (PDT)
-In-Reply-To: <1335346710.3274.24.camel@edumazet-glaptop>
+Received: from smtpfb1-g21.free.fr ([212.27.42.9]:57843 "EHLO
+	smtpfb1-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757503Ab2DYJ6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 05:58:36 -0400
+Received: from smtp2-g21.free.fr (smtp2-g21.free.fr [212.27.42.2])
+	by smtpfb1-g21.free.fr (Postfix) with ESMTP id 0C7C52E0F7
+	for <netdev@vger.kernel.org>; Wed, 25 Apr 2012 11:58:31 +0200 (CEST)
+In-Reply-To: <OF497D4E52.CC9EA3C0-ONC12579EB.0031DCB3-C12579EB.003213E4@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hmm, but what if we change linux to choice a) instead of b) ?
+On 25/04/2012 11:06, Joakim Tjernlund wrote:
+> Jesse Brandeburg<jesse.brandeburg@intel.com>  wrote on 2012/04/24 23:51:28:
+>> On Sat, 21 Apr 2012 15:31:09 +0200
+>> Joakim Tjernlund<joakim.tjernlund@transmode.se>  wrote:
+>>
+>>> Looks like port 623 is some mgmt protocol and our e1000e boards are eating these
+>>> pkgs and this trips NIS, finger and yptest hangs for a long time before timing out and
+>>> moving on.
+>>>
+>>> Is there a way to tell the network stack not to eat port 623 pkgs or
+>>> have NIS not to use port 623?
+>> I think you might be looking for something like portreserve
+>> (see man portreserve)
+> Seen portreserve on the web(gentoo does not have it) but it seems like a workaround.
+> Should not eating port 623 be something one should turn on? Now it is default on
+> and I cannot find a way to turn it off.
 >
-> That is, not cap mtu to minimum value 1280 (and not use anymore
-> RTAX_FEATURE_ALLFRAG) : dst_allfrag() would be always false.
->
-> In this case, do we still need to send the frag header ?
 
-Yeah, I was wondering about that myself.
+It might be related to IPMI (UDP/623 iirc). Try looking in your BIOS 
+and/or network firmware config at boot, there might be things to disable 
+there.
 
-By my reading of the relevant RFC it's not quite clear whether you
-truly must include the frag header even if you choose to obey the
-lower than 1280 mtu.
-Although I don't see any reason why you would need to...
-So long as there's a decent minimum pmtu we're willing to obey.
-
-> I ask this because some TSO6 implementations probably dont cope very
-> well with this added header (untested path)
-
-Yes, I was thinking the same thing, hence why I mentioned GSO.
+Brice
