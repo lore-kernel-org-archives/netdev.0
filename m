@@ -1,56 +1,39 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH 00/10] atl1c: update hardware settings - v3
-Date: Thu, 26 Apr 2012 09:13:14 +0000
-Message-ID: <157393863283F442885425D2C454285623D5E63C@nasanexd02a.na.qualcomm.com>
-References: <1335421638-16304-1-git-send-email-xiong@qca.qualcomm.com>
- <20120426.050542.243663587525305831.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 26 Apr 2012 05:11:12 -0400 (EDT)
+Message-ID: <20120426.051112.593865044382599274.davem@davemloft.net>
+References: <1335333314-6814-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120426.050542.243663587525305831.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58096 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752216Ab2DZJLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:11:17 -0400
+In-Reply-To: <1335333314-6814-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ok, I will update quirks.c for the next patch set. Thanks !
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 24 Apr 2012 22:55:12 -0700
 
--Xiong
+> This series of patches contains fixes for e1000e only.
+> 
+> The following are changes since commit 2a5809499e35b53a6044fd34e72b242688b7a862:
+>   asix: Fix tx transfer padding for full-speed USB
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+> 
+> Jeff Kirsher (1):
+>   e1000e: Fix default interrupt throttle rate not set in NIC HW
+> 
+> Prasanna S Panchamukhi (1):
+>   e1000e: MSI interrupt test failed, using legacy interrupt
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, April 26, 2012 17:06
-> To: Huang, Xiong
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; qca-linux-team; nic-
-> devel
-> Subject: Re: [PATCH 00/10] atl1c: update hardware settings - v3
-> 
-> From: xiong <xiong@qca.qualcomm.com>
-> Date: Thu, 26 Apr 2012 14:27:08 +0800
-> 
-> > This update contains a serial of patches, most of them are hardware
-> > settings related. register definitions are refined (or removed if
-> > meaningless) for each patch.
-> >
-> > This is the third serial patches, after reviewed/applied the fourth
-> > serial will be out.
-> >
-> > The patches have addressed all sparse and checkpatch warnings.
-> >
-> > Following NICs are tested:
-> > AR8131/AR8132/AR8151A/AR8152A/AR8152B
-> > Test item includes:
-> > build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
-> 
-> I've applied patches #1 until #9, patch #10 needs to be done differently.
-> 
-> The PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG bit should be set via a PCI quirk
-> entry in drivers/pci/quirks.c just as it is done for other devices which have this
-> problem.
-> 
-> Thank you.
+Pulled, but longer term you guys might want to take Ben's suggestion
+and just take the interrupt self-test out altogether.
+
+Thanks.
