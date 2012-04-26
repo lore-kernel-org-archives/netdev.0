@@ -1,33 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] b44: properly use pr_fmt()
-Date: Thu, 26 Apr 2012 16:07:57 -0400 (EDT)
-Message-ID: <20120426.160757.1741140873728970494.davem@davemloft.net>
-References: <CAB=NE6WBw3aJrch0JvxZ7jGb_rFW5Z4XWvYc1KqsBqBu+G8mjw@mail.gmail.com>
-	<CAB=NE6ViDGHPn=OsqFK1rJb-5J+1xzvf3h9+Rd-MgmWpn-T2fA@mail.gmail.com>
-	<CAB=NE6VR6hPqoUmRH=YVr+MKu+Sn8tq2asv957zfD+SVWzk75A@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] IPVS: ip_vs_sync.c: local functions should not be exposed
+ globally
+Date: Thu, 26 Apr 2012 23:11:54 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1204262301160.2078@ja.ssi.bg>
+References: <201204261129.53927.hartleys@visionengravers.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	arend@broadcom.com, joe@perches.com
-To: mcgrof@do-not-panic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34910 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759200Ab2DZUIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 16:08:05 -0400
-In-Reply-To: <CAB=NE6VR6hPqoUmRH=YVr+MKu+Sn8tq2asv957zfD+SVWzk75A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>
+To: H Hartley Sweeten <hartleys@visionengravers.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201204261129.53927.hartleys@visionengravers.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Date: Thu, 26 Apr 2012 08:53:30 -0700
 
-> OK I found no pr_fmt warnings at all for make allmodconfig ; make V=1
-> ; on v3.4-rc4. For this and others reason stated then yes, this patch
-> is simply bogus.
+	Hello,
 
-This is what I expected, thanks for sorting this out :-)
+On Thu, 26 Apr 2012, H Hartley Sweeten wrote:
 
-We're in the rally!
+> Functions not referenced outside of a source file should be marked
+> static to prevent it from being exposed globally.
+> 
+> This quiets the sparse warnings:
+> 
+> warning: symbol 'ip_vs_sync_conn_v0' was not declared. Should it be static?
+> 
+> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> 
+> ---
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+> index bf5e538..49a1fe8 100644
+> --- a/net/netfilter/ipvs/ip_vs_sync.c
+> +++ b/net/netfilter/ipvs/ip_vs_sync.c
+> @@ -446,7 +446,7 @@ ip_vs_sync_buff_create_v0(struct netns_ipvs *ipvs)
+>   *      Version 0 , could be switched in by sys_ctl.
+>   *      Add an ip_vs_conn information into the current sync_buff.
+>   */
+> -void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
+> +static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
+
+	The 3 patches for IPVS look correct but this change
+is already not needed after one of our planned changes:
+
+"ipvs: reduce sync rate with time thresholds"
+
+	Not sure how we will avoid the collision, may be
+Simon will take only the other 2 changes? Or David will
+take all changes and we have to rebase?
+
+>  {
+>  	struct netns_ipvs *ipvs = net_ipvs(net);
+>  	struct ip_vs_sync_mesg_v0 *m;
+> --
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
