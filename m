@@ -1,21 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] mISDN: DSP scheduling fix (version 2)
-Date: Thu, 26 Apr 2012 03:14:14 -0400 (EDT)
-Message-ID: <20120426.031414.982610761017545447.davem@davemloft.net>
-References: <1335423288-30702-1-git-send-email-kkeil@linux-pingi.de>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [v2 PATCH 0/2] ipvs: netns avoid crash at netns init
+Date: Thu, 26 Apr 2012 09:45:33 +0200
+Message-ID: <1335426335-5093-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, isdn@linux-pingi.de
-To: kkeil@linux-pingi.de
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <horms@verge.net.au>, <ja@ssi.bg>, <wensong@linux-vs.org>,
+	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<netfilter-devel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57315 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752982Ab2DZHOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 03:14:18 -0400
-In-Reply-To: <1335423288-30702-1-git-send-email-kkeil@linux-pingi.de>
+Received: from mailgw2.ericsson.se ([193.180.251.37]:61650 "EHLO
+	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752982Ab2DZHpi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 03:45:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Two simple patches that avoid crashes for no memory at netns init.
 
-All 4 patches applied to net-next, thanks.
+- Check return value of protocoll init.
+- Null check of net-ipvs in shedulers.
+
+
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+-- 
+1.7.2.3
