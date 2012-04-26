@@ -1,31 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] mISDN Fix and enhancements for the HFC 4S/8S/E1
- driver
-Date: Thu, 26 Apr 2012 05:32:22 -0400 (EDT)
-Message-ID: <20120426.053222.758941722296369043.davem@davemloft.net>
-References: <1335336734-25181-1-git-send-email-kkeil@linux-pingi.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net 0/3][6lowpan] fixes for 6lowpan
+Date: Thu, 26 Apr 2012 05:33:12 -0400 (EDT)
+Message-ID: <20120426.053312.42943533178901452.davem@davemloft.net>
+References: <1335432298-17161-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kkeil@linux-pingi.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58321 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754909Ab2DZJc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:32:27 -0400
-In-Reply-To: <1335336734-25181-1-git-send-email-kkeil@linux-pingi.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1335432298-17161-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Karsten Keil <kkeil@linux-pingi.de>
-Date: Wed, 25 Apr 2012 08:52:10 +0200
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 26 Apr 2012 13:24:55 +0400
 
-> For net-next.
-> 
-> Patchset contains fixes for issues fond in long time testing.
-> The LED support now works as proposed by the card documentation.
-> For special cases you can now split a E1 line into independ logical
-> instances.
+> The following patch set contains several fixes for the 6lowpan holes which lead
+> to unpredictable module state.
 
-All applied, thanks Karsten.
+All applied, thanks.
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
