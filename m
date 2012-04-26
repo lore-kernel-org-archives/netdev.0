@@ -1,47 +1,42 @@
 From: Somnath Kotur <Somnath.Kotur@emulex.com>
-Subject: [PATCH net-next 5/5] be2net: Fix EEH error reset before a flash dump completes
-Date: Thu, 26 Apr 2012 19:59:47 +0530
-Message-ID: <41027429-3be4-408f-9831-27a362d7f136@exht1.ad.emulex.com>
+Subject: [PATCH net-next 1/5] be2net: Fix to not set link speed for disabled functions of a UMC card
+Date: Thu, 26 Apr 2012 20:00:27 +0530
+Message-ID: <03f9ab21-5074-4bd8-98c2-b15674af8ad3@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Somnath Kotur <somnath.kotur@emulex.com>,
-	Sathya Perla <Sathya.Perla@emulex.com>
+Cc: Somnath Kotur <somnath.kotur@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:47292 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:47299 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751506Ab2DZOj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 10:39:29 -0400
+	with ESMTP id S1751506Ab2DZOkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 10:40:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Somnath Kotur <somnath.kotur@emulex.com>
 
-An EEH error can cause the FW to trigger a flash debug dump.
-Resetting the card while flash dump is in progress can cause it not to recover.
-Wait for it to finish before letting EEH flow to reset the card.
+This renders the interface view somewhat inconsistent from the Host OS POV
+considering the rest of the interfaces are showing their respective speeds
+based on the bandwidth assigned to them.
 
-Signed-off-by: Sathya Perla <Sathya.Perla@emulex.com>
 Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 602ba6c..435e2ed 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3830,6 +3830,11 @@ static pci_ers_result_t be_eeh_err_detected(struct pci_dev *pdev,
- 
- 	pci_disable_device(pdev);
- 
-+	/* The error could cause the FW to trigger a flash debug dump.
-+	 * Resetting the card while flash dump is in progress
-+	 * can cause it not to recover; wait for it to finish
-+	 */
-+	ssleep(30);
- 	return PCI_ERS_RESULT_NEED_RESET;
- }
- 
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 0c6f06e..a00983e 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -558,7 +558,7 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 				be_link_status_update(adapter, link_status);
+ 			if (link_speed)
+ 				et_speed = link_speed;
+-			else
++			else if (link_status)
+ 				et_speed = convert_to_et_speed(port_speed);
+ 		} else {
+ 			et_speed = adapter->phy.forced_port_speed;
 -- 
 1.5.6.1
