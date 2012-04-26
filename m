@@ -1,63 +1,36 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] IPVS: ip_vs_sync.c: local functions should not be exposed
- globally
-Date: Thu, 26 Apr 2012 23:11:54 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1204262301160.2078@ja.ssi.bg>
-References: <201204261129.53927.hartleys@visionengravers.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] allow skb->head to point/alias to first skb frag
+Date: Thu, 26 Apr 2012 16:12:21 -0400 (EDT)
+Message-ID: <20120426.161221.923108657396544878.davem@davemloft.net>
+References: <CANP3RGdnZk5b-gMkF8BPScrp9xos4X1u3n58ocuBQhTT7taE8A@mail.gmail.com>
+	<1335443554.2775.33.camel@edumazet-glaptop>
+	<1335448252.2775.41.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>
-To: H Hartley Sweeten <hartleys@visionengravers.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204261129.53927.hartleys@visionengravers.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: maze@google.com, ilpo.jarvinen@helsinki.fi, rick.jones2@hp.com,
+	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
+	ycheng@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34960 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757042Ab2DZUMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 16:12:44 -0400
+In-Reply-To: <1335448252.2775.41.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Apr 2012 15:50:52 +0200
 
-	Hello,
-
-On Thu, 26 Apr 2012, H Hartley Sweeten wrote:
-
-> Functions not referenced outside of a source file should be marked
-> static to prevent it from being exposed globally.
+> Here is the raw patch. (tg3 part is dirty and needs some helpers)
 > 
-> This quiets the sparse warnings:
-> 
-> warning: symbol 'ip_vs_sync_conn_v0' was not declared. Should it be static?
-> 
-> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> 
-> ---
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> index bf5e538..49a1fe8 100644
-> --- a/net/netfilter/ipvs/ip_vs_sync.c
-> +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> @@ -446,7 +446,7 @@ ip_vs_sync_buff_create_v0(struct netns_ipvs *ipvs)
->   *      Version 0 , could be switched in by sys_ctl.
->   *      Add an ip_vs_conn information into the current sync_buff.
->   */
-> -void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
-> +static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
+> I am working on the TCP coalesce part, the splice() helpers (to avoid a
+> copy), and split in five different patches for further
+> discussion/inclusion.
 
-	The 3 patches for IPVS look correct but this change
-is already not needed after one of our planned changes:
+Ok, I like it.
 
-"ipvs: reduce sync rate with time thresholds"
-
-	Not sure how we will avoid the collision, may be
-Simon will take only the other 2 changes? Or David will
-take all changes and we have to rebase?
-
->  {
->  	struct netns_ipvs *ipvs = net_ipvs(net);
->  	struct ip_vs_sync_mesg_v0 *m;
-> --
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+I was confused into thinking that you were going to put this head page
+into skb_shared_info()'s page vector.  But you're not.
