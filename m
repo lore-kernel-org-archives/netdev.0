@@ -1,53 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [v2 PATCH 1/1] ipvs: kernel oops - do_ip_vs_get_ctl
-Date: Thu, 26 Apr 2012 18:05:20 +0900
-Message-ID: <20120426090520.GA5801@verge.net.au>
-References: <1335419264-1225-1-git-send-email-hans.schillstrom@ericsson.com>
- <1335427841.3131.28.camel@t520>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/10] atl1c: update hardware settings - v3
+Date: Thu, 26 Apr 2012 05:05:42 -0400 (EDT)
+Message-ID: <20120426.050542.243663587525305831.davem@davemloft.net>
+References: <1335421638-16304-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>, ja@ssi.bg,
-	wensong@linux-vs.org, rohara@redhat.com, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	hans@schillstrom.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1335427841.3131.28.camel@t520>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com
+To: xiong@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1335421638-16304-1-git-send-email-xiong@qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 26, 2012 at 10:10:41AM +0200, Jesper Dangaard Brouer wrote:
-> On Thu, 2012-04-26 at 07:47 +0200, Hans Schillstrom wrote:
-> > Change order of init so netns init is ready
-> > when register ioctl and netlink.
-> > 
-> > Ver2 
-> > 	Whitespace fixes and __init added.
-> > 
-> > Reported-by: "Ryan O'Hara" <rohara@redhat.com>
-> > Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: xiong <xiong@qca.qualcomm.com>
+Date: Thu, 26 Apr 2012 14:27:08 +0800
+
+> This update contains a serial of patches, most of them are hardware
+> settings related. register definitions are refined (or removed if
+> meaningless) for each patch.
 > 
-> Looks good, interdiff says you fixed up things, and I have tested it
-> against the net tree, good work :-)
+> This is the third serial patches, after reviewed/applied the fourth
+> serial will be out.
 > 
-> Is this a stable tree candidate?
+> The patches have addressed all sparse and checkpatch warnings.
+> 
+> Following NICs are tested:
+> AR8131/AR8132/AR8151A/AR8152A/AR8152B
+> Test item includes:
+> build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
 
-Yes, I think so.
+I've applied patches #1 until #9, patch #10 needs to be done
+differently.
 
-I now have the following 7 changes in my ipvs tree on kernel.org.
+The PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG bit should be set via a PCI
+quirk entry in drivers/pci/quirks.c just as it is done for other
+devices which have this problem.
 
-The last two are already in Pablo's net tree and I intend
-to send a pull request for the remaining 5 soon.
-
-It is my opinion that all 7 patches are stable tree material.
-
-ipvs: kernel oops - do_ip_vs_get_ctl
-ipvs: take care of return value from protocol init_netns
-ipvs: null check of net->ipvs in lblc(r) shedulers
-ipvs: reset ipvs pointer in netns
-ipvs: add check in ftp for initialized core
-ipvs: fix crash in ip_vs_control_net_cleanup on unload
-ipvs: Verify that IP_VS protocol has been registered
-
-
+Thank you.
