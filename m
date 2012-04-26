@@ -1,150 +1,83 @@
-From: Pavel Emelyanov <xemul@sacred.ru>
-Subject: [PATCH] tcp repair: Fix unaligned access when repairing options (v2)
-Date: Thu, 26 Apr 2012 13:43:04 +0400
-Message-ID: <4F9918A8.20100@sacred.ru>
-Reply-To: Pavel Emelyanov <xemul@parallels.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+Subject: Re: [RFC] allow skb->head to point/alias to first skb frag
+Date: Thu, 26 Apr 2012 03:09:32 -0700
+Message-ID: <CANP3RGdnZk5b-gMkF8BPScrp9xos4X1u3n58ocuBQhTT7taE8A@mail.gmail.com>
+References: <1335427854.2775.15.camel@edumazet-glaptop>
+	<20120426.043623.1317043382565428400.davem@davemloft.net>
+	<1335431402.2775.24.camel@edumazet-glaptop>
+	<20120426.051800.637617874638567499.davem@davemloft.net>
+	<1335432147.2775.27.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, ilpo.jarvinen@helsinki.fi,
+	rick.jones2@hp.com, netdev@vger.kernel.org, therbert@google.com,
+	ncardwell@google.com, ycheng@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([195.22.104.170]:34507 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754883Ab2DZKHv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2012 06:07:51 -0400
-Received: from [10.24.20.94] (newvpn.parallels.com [195.214.232.74] (may be forged))
-	(authenticated bits=0)
-	by sacred.ru (8.13.8/8.13.8) with ESMTP id q3Q9h6fY028185
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 13:43:07 +0400
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:37236 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754353Ab2DZKJd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 06:09:33 -0400
+Received: by vcqp1 with SMTP id p1so758954vcq.19
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 03:09:32 -0700 (PDT)
+In-Reply-To: <1335432147.2775.27.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
+it would be very useful if there was an api for freeing skb->head memor=
+y...
 
-Don't pick __u8/__u16 values directly from raw pointers, but instead use
-an array of structures of code:value pairs. This is OK, since the buffer
-we take options from is not an skb memory, but a user-to-kernel one.
+I've fooled around with a single memory buffer for both the head and
+the data and seen huge performance wins under heavy packet load (half
+the amount of malloc/free), but could never quite get it to be 100%
+stable.
 
-For those options which don't require any value now, require this to be
-zero (for potential future extension of this API).
+On Thu, Apr 26, 2012 at 2:22 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> On Thu, 2012-04-26 at 05:18 -0400, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Thu, 26 Apr 2012 11:10:02 +0200
+>>
+>> > The 'frag' would have a known size : 2048 bytes
+>> >
+>> > But the end of it would be used by struct skb_shared_info
+>> >
+>> > so data_len would be 0 in fact.
+>> >
+>> > This would look like a regular linear skb.
+>> >
+>> > Just a bit set in skb to say : Warning, skb->head was not kmalloce=
+d :
+>> > replace kfree(head) by put_page(...)
+>> >
+>> > And this bit would be tested in GRO or tcp merge to 'upgrade' this
+>> > skb->head to proper page/frag
+>>
+>> And what happens if this ends up in a piece of code which wants to
+>> append a page frag?
+>>
+>> Or a piece of code which copies an SKB, including page frag parts?
+>>
+>> All I'm saying is that the number of tests necessary to make this wo=
+rk
+>> properly might become prohibitive.
+>
+> I'll cook a patch, I believe not so many parts assume skb->head can b=
+e
+> kmalloc()/kfree(). This should be contained in net/core/skbuff.c only=
+=2E
+>
+> Elsewhere we use skb->head as a pointer to memory. It will stay the
+> same.
+>
+>
+>
 
-v2: Changed tcp_repair_opt to use two __u32-s as spotted by David Laight.
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
----
- include/linux/tcp.h |    5 ++++
- net/ipv4/tcp.c      |   60 +++++++++++++++++---------------------------------
- 2 files changed, 26 insertions(+), 39 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 9865936..d0401d9 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -111,6 +111,11 @@ enum {
- #define TCP_QUEUE_SEQ		21
- #define TCP_REPAIR_OPTIONS	22
- 
-+struct tcp_repair_opt {
-+	__u32	opt_code;
-+	__u32	opt_val;
-+};
-+
- enum {
- 	TCP_NO_QUEUE,
- 	TCP_RECV_QUEUE,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index de6a238..9670af3 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2283,60 +2283,40 @@ static inline int tcp_can_repair_sock(struct sock *sk)
- 		((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_ESTABLISHED));
- }
- 
--static int tcp_repair_options_est(struct tcp_sock *tp, char __user *optbuf, unsigned int len)
-+static int tcp_repair_options_est(struct tcp_sock *tp,
-+		struct tcp_repair_opt __user *optbuf, unsigned int len)
- {
--	/*
--	 * Options are stored in CODE:VALUE form where CODE is 8bit and VALUE
--	 * fits the respective TCPOLEN_ size
--	 */
-+	struct tcp_repair_opt opt;
- 
--	while (len > 0) {
--		u8 opcode;
--
--		if (get_user(opcode, optbuf))
-+	while (len >= sizeof(opt)) {
-+		if (copy_from_user(&opt, optbuf, sizeof(opt)))
- 			return -EFAULT;
- 
- 		optbuf++;
--		len--;
--
--		switch (opcode) {
--		case TCPOPT_MSS: {
--			u16 in_mss;
-+		len -= sizeof(opt);
- 
--			if (len < sizeof(in_mss))
--				return -ENODATA;
--			if (get_user(in_mss, optbuf))
--				return -EFAULT;
--
--			tp->rx_opt.mss_clamp = in_mss;
--
--			optbuf += sizeof(in_mss);
--			len -= sizeof(in_mss);
-+		switch (opt.opt_code) {
-+		case TCPOPT_MSS:
-+			tp->rx_opt.mss_clamp = opt.opt_val;
- 			break;
--		}
--		case TCPOPT_WINDOW: {
--			u8 wscale;
--
--			if (len < sizeof(wscale))
--				return -ENODATA;
--			if (get_user(wscale, optbuf))
--				return -EFAULT;
--
--			if (wscale > 14)
-+		case TCPOPT_WINDOW:
-+			if (opt.opt_val > 14)
- 				return -EFBIG;
- 
--			tp->rx_opt.snd_wscale = wscale;
--
--			optbuf += sizeof(wscale);
--			len -= sizeof(wscale);
-+			tp->rx_opt.snd_wscale = opt.opt_val;
- 			break;
--		}
- 		case TCPOPT_SACK_PERM:
-+			if (opt.opt_val != 0)
-+				return -EINVAL;
-+
- 			tp->rx_opt.sack_ok |= TCP_SACK_SEEN;
- 			if (sysctl_tcp_fack)
- 				tcp_enable_fack(tp);
- 			break;
- 		case TCPOPT_TIMESTAMP:
-+			if (opt.opt_val != 0)
-+				return -EINVAL;
-+
- 			tp->rx_opt.tstamp_ok = 1;
- 			break;
- 		}
-@@ -2557,7 +2537,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		if (!tp->repair)
- 			err = -EINVAL;
- 		else if (sk->sk_state == TCP_ESTABLISHED)
--			err = tcp_repair_options_est(tp, optval, optlen);
-+			err = tcp_repair_options_est(tp,
-+					(struct tcp_repair_opt __user *)optval,
-+					optlen);
- 		else
- 			err = -EPERM;
- 		break;
+--=20
+Maciej A. =C5=BBenczykowski
+Kernel Networking Developer @ Google
+1600 Amphitheatre Parkway, Mountain View, CA 94043
+tel: +1 (650) 253-0062
