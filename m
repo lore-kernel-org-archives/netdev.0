@@ -1,60 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] allow skb->head to point/alias to first skb frag
-Date: Thu, 26 Apr 2012 11:10:02 +0200
-Message-ID: <1335431402.2775.24.camel@edumazet-glaptop>
-References: <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
-	 <1335257803.5205.133.camel@edumazet-glaptop>
-	 <1335427854.2775.15.camel@edumazet-glaptop>
-	 <20120426.043623.1317043382565428400.davem@davemloft.net>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [GIT PULL] net/at91: at91_ether fixes for 3.4-rc
+Date: Thu, 26 Apr 2012 11:14:56 +0200
+Message-ID: <4F991210.8060409@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, rick.jones2@hp.com,
-	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
-	maze@google.com, ycheng@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:60161 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753180Ab2DZJKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:10:08 -0400
-Received: by eekc41 with SMTP id c41so524102eek.19
-        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 02:10:07 -0700 (PDT)
-In-Reply-To: <20120426.043623.1317043382565428400.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Victor <avictor.za@gmail.com>,
+ Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+ Linux Kernel list <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+ linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-04-26 at 04:36 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 26 Apr 2012 10:10:54 +0200
-> 
-> > Idea would have :
-> > 
-> > 1) struct sk_buff
-> > 2) skb->head points to frag (aliasing, no memory allocation)
-> > 3) frag of 2048 (or PAGE_SIZE/2 or PAGE_SIZE)
-> 
-> What would you set skb->data_len and skb->len to?
-> 
-> How would you handle tailroom?  We have the rule that you can't append
-> to the tail of a fragmented SKB (I mean append, the way that IPSEC
-> wants to write data to the end of an SKB when encrypting, for
-> example).  This is only allowed on fully linear SKBs.
-> 
-> So, for this reason and others, you can't pretend that this new
-> construction is linear in any way.  It would break a bunch of things.
+Hi David,
 
+Can you please pull those fixes for 3.4-rc? The ARM/AT91 part
+of modifications is pretty small and bounded to a single SoC so
+it will not mess with arm-soc git tree.
 
-The 'frag' would have a known size : 2048 bytes
+Tell me if you need other information on this signed tag...
 
-But the end of it would be used by struct skb_shared_info
+The following changes since commit 66f75a5d028beaf67c931435fdc3e7823125730c:
 
-so data_len would be 0 in fact.
+  Linux 3.4-rc4 (2012-04-21 14:47:52 -0700)
 
-This would look like a regular linear skb.
+are available in the git repository at:
 
-Just a bit set in skb to say : Warning, skb->head was not kmalloced :
-replace kfree(head) by put_page(...)
+  git://github.com/at91linux/linux-at91.git tags/at91-3.4-net-fixes
 
-And this bit would be tested in GRO or tcp merge to 'upgrade' this
-skb->head to proper page/frag
+for you to fetch changes up to cfc991548b5b73c8038f41877da1cd0104945cf5:
+
+  net/at91_ether: use gpio_to_irq for phy IRQ line (2012-04-26 10:22:40 +0200)
+
+----------------------------------------------------------------
+Both fixes are about at91_ether.c driver: It is only used in a single
+Atmel AT91 SoC: AT91RM9200.
+The removal of fixed mapping is a long standing refinement which will
+convert this driver to a more typical resources management.
+The gpio fix is needed now that we have moved AT91 to irqdomains.
+
+----------------------------------------------------------------
+Andrew Victor (1):
+      AT91: Remove fixed mapping for AT91RM9200 ethernet
+
+Nicolas Ferre (1):
+      net/at91_ether: use gpio_to_irq for phy IRQ line
+
+ arch/arm/mach-at91/at91rm9200.c            |   10 --
+ arch/arm/mach-at91/at91rm9200_devices.c    |    4 +-
+ arch/arm/mach-at91/include/mach/hardware.h |    1 -
+ drivers/net/ethernet/cadence/at91_ether.c  |  535 ++++++++++++++++++++++++++++++++++++++++++++-------------------------------------
+ drivers/net/ethernet/cadence/at91_ether.h  |    1 +
+ 5 files changed, 291 insertions(+), 260 deletions(-)
+
+Best regards,
+-- 
+Nicolas Ferre
