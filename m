@@ -1,103 +1,64 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net] cdc_ether: Ignore bogus union descriptor for RNDIS devices
-Date: Thu, 26 Apr 2012 12:55:03 +0200
-Message-ID: <1335437703-6800-1-git-send-email-bjorn@mork.no>
-References: <201204260931.30327.oliver@neukum.org>
+From: "Luis R. Rodriguez" <mcgrof-kCJ/WVjk54vrZ44/DZwexQ@public.gmane.org>
+Subject: Re: pull request: wireless-next 2012-04-25
+Date: Thu, 26 Apr 2012 04:46:34 -0700
+Message-ID: <CAB=NE6Xqi42GgDRHg-oPuLgofXYGpBrLm-YPa+AfyQ+NhsK3ww@mail.gmail.com>
+References: <20120425191418.GC16900@tuxdriver.com> <20120425.163926.2209040699696617525.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Markus Kolb <linux-201011@tower-net.de>,
-	=?UTF-8?q?Iker=20Salm=C3=B3n=20San=20Mill=C3=A1n?=
-	<shaola@esdebian.org>, Jonathan Nieder <jrnieder@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>, 655387@bugs.debian.org,
-	stable@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:38024 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754353Ab2DZKzw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2012 06:55:52 -0400
-In-Reply-To: <201204260931.30327.oliver@neukum.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120425.163926.2209040699696617525.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Some RNDIS devices include a bogus CDC Union descriptor pointing
-to non-existing interfaces.  The RNDIS code is already prepared
-to handle devices without a CDC Union descriptor by hardwiring
-the driver to use interfaces 0 and 1, which is correct for the
-devices with the bogus descriptor as well. So we can reuse the
-existing workaround.
+On Wed, Apr 25, 2012 at 1:39 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wro=
+te:
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Wed, 25 Apr 2012 15:14:19 -0400
+>
+>> This is another batch of updates intended for 3.5...
+> =C2=A0...
+>> Please let me know if there are problems!
+>
+> There are:
+>
+> From 792545c7bc5d6b922d3778dc602e557d64c83551 Mon Sep 17 00:00:00 200=
+1
+> From: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+> Date: Mon, 23 Apr 2012 19:55:48 -0700
+> Subject: [PATCH 88/88] libertas: include sched.h on firmware.c
+>
+> Do not assume we have our subsystem including this for us,
+> at least for older kernels this is not true. Lets just be
+> explicit about this requirement for the usage of wake_up().
+>
+> Signed-off-by: Luis R. Rodriguez <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+>
+> This is bogus, wake_up() is defined in linux/wait.h, the whole
+> point of the linux/sched.h split up is so that linux/sched.h
+> includes could be removed and replaced with actual dependencies.
+>
+> Also, please don't accept any patches from Luis that add those
+> #undef pr_fmt things to the atheros drivers.
+>
+> He tried to add it an ethernet driver, and I asked him to explain
+> exactly why he's doing and that if it's appropriate then it's
+> appropriate everywhere not just in a few specific drivers. =C2=A0He f=
+ailed
+> to respond to me, and therefore failed to explain the situation and
+> address my concerned. =C2=A0And then I saw just today that he's submi=
+tting
+> the same patch to wireless drivers. =C2=A0That's not acceptable.
 
-Cc: Markus Kolb <linux-201011@tower-net.de>
-Cc: Iker Salm=C3=B3n San Mill=C3=A1n <shaola@esdebian.org>
-Cc: Jonathan Nieder <jrnieder@gmail.com>
-Cc: Oliver Neukum <oliver@neukum.org>
-Cc: 655387@bugs.debian.org
-Cc: stable@vger.kernel.org
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
-Something like this, then?
+Sorry about that, I missed your reply, will dig it up and reply.
 
-This has only been build tested by me as I don't have any of the affect=
-ed
-devices.  It would be great if any of the reporters could verify that i=
-t
-solves the problem.  I can provide prebuilt modules for Debian 3.2 base=
-d
-kernels to simplify the testing (just rmmod and insmod - no need to bui=
-ld
-or boot).  Send me an email if you want the module.
-
-Sorry for the long delay in following up this.  I totally forgot about =
-it.
-
-
-Bj=C3=B8rn
-
- drivers/net/usb/cdc_ether.c |   12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 90a3002..4ed5a38 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -83,6 +83,7 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struc=
-t usb_interface *intf)
- 	struct cdc_state		*info =3D (void *) &dev->data;
- 	int				status;
- 	int				rndis;
-+	bool				android_rndis_quirk =3D false;
- 	struct usb_driver		*driver =3D driver_of(intf);
- 	struct usb_cdc_mdlm_desc	*desc =3D NULL;
- 	struct usb_cdc_mdlm_detail_desc *detail =3D NULL;
-@@ -195,6 +196,11 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, st=
-ruct usb_interface *intf)
- 					info->control,
- 					info->u->bSlaveInterface0,
- 					info->data);
-+				/* fall back to hard-wiring for RNDIS */
-+				if (rndis) {
-+					android_rndis_quirk =3D true;
-+					goto next_desc;
-+				}
- 				goto bad_desc;
- 			}
- 			if (info->control !=3D intf) {
-@@ -271,8 +277,12 @@ next_desc:
- 	/* Microsoft ActiveSync based and some regular RNDIS devices lack the
- 	 * CDC descriptors, so we'll hard-wire the interfaces and not check
- 	 * for descriptors.
-+	 *
-+	 * Some Android RNDIS devices have a CDC Union descriptor pointing
-+	 * to non-existing interfaces.  Ignore that and attempt the same
-+	 * hard-wired 0 and 1 interfaces.
- 	 */
--	if (rndis && !info->u) {
-+	if (rndis && (!info->u || android_rndis_quirk)) {
- 		info->control =3D usb_ifnum_to_if(dev->udev, 0);
- 		info->data =3D usb_ifnum_to_if(dev->udev, 1);
- 		if (!info->control || !info->data) {
---=20
-1.7.10
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
