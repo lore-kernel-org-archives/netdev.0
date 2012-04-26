@@ -1,52 +1,41 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH 1/2] iproute2: allow IPv6 addresses for l2tp local and
- remote parameters
-Date: Thu, 26 Apr 2012 09:32:21 +0100
-Message-ID: <4F990815.9000007@katalix.com>
-References: <1334921383-32109-1-git-send-email-jchapman@katalix.com> <1334921383-32109-2-git-send-email-jchapman@katalix.com> <20120425131311.0de3b94f@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] allow skb->head to point/alias to first skb frag
+Date: Thu, 26 Apr 2012 04:36:23 -0400 (EDT)
+Message-ID: <20120426.043623.1317043382565428400.davem@davemloft.net>
+References: <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
+	<1335257803.5205.133.camel@edumazet-glaptop>
+	<1335427854.2775.15.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Chris Elston <celston@katalix.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: ilpo.jarvinen@helsinki.fi, rick.jones2@hp.com,
+	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
+	maze@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:38281 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754883Ab2DZIcY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2012 04:32:24 -0400
-In-Reply-To: <20120425131311.0de3b94f@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57818 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754908Ab2DZIgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 04:36:49 -0400
+In-Reply-To: <1335427854.2775.15.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/04/12 21:13, Stephen Hemminger wrote:
-> On Fri, 20 Apr 2012 12:29:42 +0100
-> James Chapman <jchapman@katalix.com> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Apr 2012 10:10:54 +0200
+
+> Idea would have :
 > 
->> From: Chris Elston <celston@katalix.com>
->>
->> Adds support for parsing IPv6 addresses to the parameters local and
->> remote in the l2tp commands. Requires netlink attributes L2TP_ATTR_IP6_SADDR
->> and L2TP_ATTR_IP6_DADDR, added in a required kernel patch already submitted
->> to netdev.
->>
->> Also enables printing of IPv6 addresses returned by the L2TP_CMD_TUNNEL_GET
->> request.
->>
->> Signed-off-by: Chris Elston <celston@katalix.com>
->> Signed-off-by: James Chapman <jchapman@katalix.com>
-> 
-> Accepted.
+> 1) struct sk_buff
+> 2) skb->head points to frag (aliasing, no memory allocation)
+> 3) frag of 2048 (or PAGE_SIZE/2 or PAGE_SIZE)
 
-The kernel patches that this code depends on aren't in the tree yet
-(kernel header file update). It uses new netlink attributes so the
-iproute2 git compile fails.
+What would you set skb->data_len and skb->len to?
 
-I suggest revert the patch for now. I'll resubmit when the dependencies
-are in the netdev tree.
+How would you handle tailroom?  We have the rule that you can't append
+to the tail of a fragmented SKB (I mean append, the way that IPSEC
+wants to write data to the end of an SKB when encrypting, for
+example).  This is only allowed on fully linear SKBs.
 
-
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+So, for this reason and others, you can't pretend that this new
+construction is linear in any way.  It would break a bunch of things.
