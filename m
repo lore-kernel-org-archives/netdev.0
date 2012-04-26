@@ -1,44 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Heavy spin_lock contention in __udp4_lib_mcast_deliver increase
-Date: Thu, 26 Apr 2012 18:31:28 +0200
-Message-ID: <1335457888.2775.55.camel@edumazet-glaptop>
-References: <20120426151527.GA2479@BohrerMBP.rgmadvisors.com>
-	 <1335455595.2775.47.camel@edumazet-glaptop>
-	 <20120426162819.GD2479@BohrerMBP.rgmadvisors.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [PATCH] b44: properly use pr_fmt()
+Date: Thu, 26 Apr 2012 08:53:30 -0700
+Message-ID: <CAB=NE6VR6hPqoUmRH=YVr+MKu+Sn8tq2asv957zfD+SVWzk75A@mail.gmail.com>
+References: <1335235603-32420-1-git-send-email-mcgrof@do-not-panic.com>
+ <20120424.004745.1479792296922367681.davem@davemloft.net> <CAB=NE6WBw3aJrch0JvxZ7jGb_rFW5Z4XWvYc1KqsBqBu+G8mjw@mail.gmail.com>
+ <CAB=NE6ViDGHPn=OsqFK1rJb-5J+1xzvf3h9+Rd-MgmWpn-T2fA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
+	Arend Van Spriel <arend@broadcom.com>,
+	Joe Perches <joe@perches.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:59891 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758327Ab2DZQbg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 12:31:36 -0400
-Received: by eaaq12 with SMTP id q12so395717eaa.19
-        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 09:31:35 -0700 (PDT)
-In-Reply-To: <20120426162819.GD2479@BohrerMBP.rgmadvisors.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:59074 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757849Ab2DZQst convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 12:48:49 -0400
+In-Reply-To: <CAB=NE6ViDGHPn=OsqFK1rJb-5J+1xzvf3h9+Rd-MgmWpn-T2fA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-04-26 at 11:28 -0500, Shawn Bohrer wrote:
+On Thu, Apr 26, 2012 at 6:02 AM, Luis R. Rodriguez
+<mcgrof@do-not-panic.com> wrote:
+> On Thu, Apr 26, 2012 at 5:23 AM, Luis R. Rodriguez
+> <mcgrof@do-not-panic.com> wrote:
+>> On Mon, Apr 23, 2012 at 9:47 PM, David Miller <davem@davemloft.net> =
+wrote:
+>>> From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+>>> Date: Mon, 23 Apr 2012 19:46:43 -0700
+>>>
+>>>> From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+>>>>
+>>>> pr_fmt() is either defined or we redefine it. Typically
+>>>> drivers define it prior to including printk.h but this
+>>>> is done under the assumption that no other subsystem
+>>>> it uses has already defined pr_fmt(). In such cases
+>>>> pr_fmt() should be undefined and redefined.
+>>>>
+>>>> Doing this properly shaves down compilation time quite
+>>>> considerably.
+>>>>
+>>>> Signed-off-by: Luis R. Rodriguez <mcgrof@do-not-panic.com>
+>>>
+>>> Every driver defines pr_fmt then includes the headers. =C2=A0I do n=
+ot
+>>> see any other place which performs the initial undef of pr_fmt
+>>> like you want to start doing here.
+>>
+>> One example is, and that is where I got the hint:
+>>
+>> drivers/net/wireless/mwifiex/decl.h
+>>
+>>> If there is a reason we should start doing this, it would appear
+>>> to be a universal reason, not one specific to this driver.
+>>
+>> Sure.
+>>
+>>> If that's the case, we should formally agree to this and then work
+>>> on gradually converting all the drivers in reasonably sized chunks.
+>>
+>> Understood.
+>>
+>>> Either way I can't apply this patch as-is, sorry Luis.
+>>
+>> So the issue can occur if any parent header ends up defining this,
+>> this could happen if a subsystem wants to define the pr_fmt in their
+>> own header and a driver for example wants to override this. In theor=
+y
+>> this does not occur but in practice this may vary and if we want to
+>> ensure this does not happen perhaps the thing to do is to document
+>> this as such.
+>>
+>> I just tested allmodconfig though and checked compilation for V=3D1
+>> against drivers/net/wireless/ and found no issues against linux-next
+>> though so in practice at least for wireless networking it seems we a=
+re
+>> squeaky clean in its usage. I'll test across the kernel though next =
+to
+>> see if there are any real violators of the assumption. Unfortunately
+>> I've hit an issue with compiling allmodconfig already with linux-nex=
+t
+>> that is already reported so my homework will be to find a shiny
+>> linux-next to compile test against allmodconfig.
+>>
+>> An area that this does clearly happen but that likely does not merit
+>> and upstream change for is in the backport work compat that defines
+>> this for older kernels and later we have to also backport users of
+>> pr_fmt such as pr_emerg_once. Ultimately drivers will want to actual=
+ly
+>> then override this and in that case the undef is necessary as
+>> otherwise you get the redefinition warning which incurs in practice =
+a
+>> considerable CPU performance hit at compilation time.
+>
+> Additionally Arend has pointed pointed out that previously printk.h
+> was removed as a direct include as well given that kernel.h includes
+> it already:
+>
+> https://lkml.org/lkml/2011/5/25/331
+>
+> So this would be a second issue with this patch.
 
-> No in this case it is 300 unique multicast addresses, and there is one
-> socket listening to each multicast address.  So a single message is
-> only copied once to a single socket.  The bottle neck appears to be
-> that even though a single message is only going to get copied to a
-> single socket we still have to walk the list of all 300 sockets while
-> holding the spin lock to figure that out.  The incoming packet rate is
-> also roughly evenly distributed across all 300 multicast addresses so
-> even though we have multiple receive queues they are all contending
-> for the same spin lock.
-> 
+OK I found no pr_fmt warnings at all for make allmodconfig ; make V=3D1
+; on v3.4-rc4. For this and others reason stated then yes, this patch
+is simply bogus.
 
-I repeat my question : Are these 300 sockets bound to the same UDP
-port ?
-
-If not, they should be spreaded in hash table.
-
-You can make this hash table very big to reduce hash collisions
-
-Boot parameter : uhash_entries=65536
+  Luis
