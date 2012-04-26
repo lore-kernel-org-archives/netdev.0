@@ -1,36 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ehea: fix promiscuous mode
-Date: Thu, 26 Apr 2012 05:08:18 -0400 (EDT)
-Message-ID: <20120426.050818.1152356410786660098.davem@davemloft.net>
-References: <1335375132-4591-1-git-send-email-cascardo@linux.vnet.ibm.com>
-	<1335375132-4591-2-git-send-email-cascardo@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leitao@linux.vnet.ibm.com
-To: cascardo@linux.vnet.ibm.com
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH] net: usb: smsc95xx: fix mtu
+Date: Thu, 26 Apr 2012 10:02:44 +0100
+Message-ID: <1335430964-1018-1-git-send-email-steve.glendinning@shawell.net>
+Cc: Stephane Fillod <fillods@users.sf.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58070 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755512Ab2DZJIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:08:23 -0400
-In-Reply-To: <1335375132-4591-2-git-send-email-cascardo@linux.vnet.ibm.com>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:37130 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073Ab2DZJJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:09:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Date: Wed, 25 Apr 2012 14:32:12 -0300
+Make smsc95xx recalculate the hard_mtu after adjusting the hard_header_len.
 
-> commit a4910b744486254cfa61995954c118fb2283c4fd has broken promiscuous
-> mode, which is never set. port->promisc just reflects the last setting
-> of PROMISCUOUS mode to avoid doing an extra hypercall when it's already
-> set.
-> 
-> However, since it may fail because of hypervisor permissions, we should
-> still respect the multicast settings and not simply exit after setting
-> promiscuous mode.
-> 
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-> Cc: Breno Leitao <leitao@linux.vnet.ibm.com>
+Without this, usbnet adjusts the MTU down to 1492 bytes, and the host is
+unable to receive standard 1500-byte frames from the device.
 
-Applied.
+Inspired by same fixes on cdc_eem 78fb72f7936c01d5b426c03a691eca082b03f2b9
+and smsc75xx a99ff7d0123b19ecad3b589480b6542716ab6b52.
+
+Tested on i386 with EVB-LAN9500-LC.
+
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+---
+ drivers/net/usb/smsc95xx.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 5f19f84..53a1ba5 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1017,6 +1017,7 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	dev->net->ethtool_ops = &smsc95xx_ethtool_ops;
+ 	dev->net->flags |= IFF_MULTICAST;
+ 	dev->net->hard_header_len += SMSC95XX_TX_OVERHEAD_CSUM;
++	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
+ 	return 0;
+ }
+ 
+-- 
+1.7.5.4
