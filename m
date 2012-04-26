@@ -1,88 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Heavy spin_lock contention in __udp4_lib_mcast_deliver increase
-Date: Thu, 26 Apr 2012 17:53:15 +0200
-Message-ID: <1335455595.2775.47.camel@edumazet-glaptop>
-References: <20120426151527.GA2479@BohrerMBP.rgmadvisors.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
+Date: Thu, 26 Apr 2012 09:13:50 -0700
+Message-ID: <CAEP_g=8VQizt5iUc_yR+PynMYpZgD4ep+o379JK8k-KCKMYgmg@mail.gmail.com>
+References: <20120423.161313.1582195533832554777.davem@davemloft.net>
+	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
+	<20120423.170817.1103719420692884446.davem@davemloft.net>
+	<CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
+	<20120423223255.GG580@verge.net.au>
+	<CAEP_g=9p0TE59JbrS8QzHj4mEzc-5_hUDzmLRsRxLyUaFX+Z5Q@mail.gmail.com>
+	<20120424022514.GB5357@verge.net.au>
+	<807AC914-2F33-46C7-99DC-E2F8F0F97531@cisco.com>
+	<20120425083925.GB6661@verge.net.au>
+	<CAEP_g=8DmQ_-8+ZbATdVhNJKiDSr0HdUgB-+oaqwU1=SqqzXfQ@mail.gmail.com>
+	<20120426071321.GA25781@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:46459 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752885Ab2DZPxV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 11:53:21 -0400
-Received: by eekc41 with SMTP id c41so657224eek.19
-        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 08:53:19 -0700 (PDT)
-In-Reply-To: <20120426151527.GA2479@BohrerMBP.rgmadvisors.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120426071321.GA25781-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-04-26 at 10:15 -0500, Shawn Bohrer wrote:
-> I've been doing some UDP multicast benchmarking and noticed that as we
-> increase the number of sockets/multicast addresses the performance
-> degrades.  The test I'm running has multiple machines sending packets
-> on multiple multicast addresses.  A single receiving machine opens one
-> socket per multicast address to receive all the packets.  The
-> receiving process is bound to a core that is not processing
-> interrupts.
-> 
-> Running this test with 300 multicast addresses and sockets and
-> profiling the receiving machine with 'perf -a -g' I can see the
-> following:
-> 
-> 
-> # Events: 45K cycles
-> #
-> # Overhead
-> # ........  .....................................
-> #
->     52.56%  [k] _raw_spin_lock
->             |
->             |--99.09%-- __udp4_lib_mcast_deliver
->     20.10%  [k] __udp4_lib_mcast_deliver
->             |
->             --- __udp4_lib_rcv
-> 
-> So if I understand this correctly 52.56% of the time is spent
-> contending for the spin_lock in __udp4_lib_mcast_deliver.  If I
-> understand the code correctly it appears that for every packet
-> received we walk the list of all UDP sockets while holding the
-> spin_lock.  Therefore I believe the thing that hurts so much in this
-> case is that we have a lot of UDP sockets.
-> 
-> Are there any ideas on how we can improve the performance in this
-> case?  Honestly I have two ideas though my understanding of the
-> network stack is limited and it is unclear to me how to implement
-> either of them.
-> 
-> The first idea is to use RCU instead of acquiring the spin_lock.  This
-> is what the Unicast path does however looking back to 271b72c7 "udp:
-> RCU handling for Unicast packets." Eric points out that the multicast
-> path is difficult.  It appears from that commit description that the
-> problem is that since we have to find all sockets interested in
-> receiving the packet instead of just one that restarting the scan of
-> the hlist could lead us to deliver the packet twice to the same
-> socket.  That commit is rather old though I believe things may have
-> changed.  Looking at commit 1240d137 "ipv4: udp: Optimise multicast
-> reception" I can see that Eric also has already done some work to
-> reduce how long the spin_lock is held in __udp4_lib_mcast_deliver().
-> That commit also says "It's also a base for a future RCU conversion of
-> multicast recption".  Is the idea that you could remove duplicate
-> sockets within flush_stack()?  Actually I don't think that would work
-> since flush_stack() can be called multiple times if the stack gets
-> full.
-> 
-> The second idea would be to hash the sockets to reduce the number of
-> sockets to walk for each packet.  Once again it looks like the Unicast
-> path already does this in commits 512615b6b "udp: secondary hash on
-> (local port, local address)" and 5051ebd27 "ipv4: udp: optimize
-> unicast RX path".  Perhaps these hash lists could be used, however I
-> don't think they can since they currently use RCU and thus it might
-> depend on converting to RCU first.
-
-Let me understand
-
-You have 300 sockets bound to the same port, so a single message must be
-copied 300 times and delivered to those sockets ?
+T24gVGh1LCBBcHIgMjYsIDIwMTIgYXQgMTI6MTMgQU0sIFNpbW9uIEhvcm1hbiA8aG9ybXNAdmVy
+Z2UubmV0LmF1PiB3cm90ZToKPiBPbiBXZWQsIEFwciAyNSwgMjAxMiBhdCAxMDoxNzoyNUFNIC0w
+NzAwLCBKZXNzZSBHcm9zcyB3cm90ZToKPj4gT24gV2VkLCBBcHIgMjUsIDIwMTIgYXQgMTozOSBB
+TSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+IHdyb3RlOgo+PiA+Cj4+ID4gSGkg
+S3lsZSwKPj4gPgo+PiA+IHRoZSBjb21wb25lbnQgdGhhdCBpcyBvZiBtb3N0IGludGVyZXN0IHRv
+IG1lIGlzIGVuYWJsaW5nIE9WUyB0byB1c2UgaW4tdHJlZQo+PiA+IHR1bm5lbGxpbmcgY29kZSAt
+IGFzIGl0IHNlZW1zIHRoYXQgbWFrZXMgbW9zdCBzZW5zZSBmb3IgYW4gaW1wbGVtZW50YXRpb24K
+Pj4gPiBvZiBTVFQuIEkgaGF2ZSB0YWtlbiBhIGJyaWVmIGxvb2sgb3ZlciB5b3VyIHZ4bGFuIHdv
+cmsgYW5kIGl0IGlzbid0IGNsZWFyCj4+ID4gdG8gbWUgaWYgaXQgaXMgbW92aW5nIHRvd2FyZHMg
+YmVpbmcgYW4gaW4tdHJlZSBpbXBsZW1lbnRhdGlvbi4gwqBNb3Jlb3ZlciwKPj4gPiBJJ20gYSBy
+YXRoZXIgdW5jbGVhciBvbiB3aGF0IGNoYW5nZXMgbmVlZCB0byBiZSBtYWRlIHRvIE9WUyBpbiBv
+cmRlciBmb3IKPj4gPiBpbi10cmVlIHR1bm5lbGluZyB0byBiZSB1c2VkLgo+PiA+Cj4+ID4gTXkg
+cmVjb2xsZWN0aW9uIGlzIHRoYXQgT1ZTIGRpZCBtYWtlIHVzZSBvZiBpbi10cmVlIHR1bm5lbGxp
+bmcgY29kZQo+PiA+IGJ1dCB0aGlzIHdhcyByZW1vdmVkIGluIGZhdm91ciBvZiB0aGUgY3VycmVu
+dCBpbXBsZW1lbnRhdGlvbiBmb3IgdmFyaW91cwo+PiA+IHJlYXNvbnMgKHBlcmZvcm1hbmNlIGJl
+aW5nIG9uZSBJSVJDKS4gSSBnYXRoZXIgdGhhdCByZXZpc2l0aW5nIGluLXRyZWUKPj4gPiB0dW5u
+ZWxsaW5nIHdvbid0IHJldmlzaXQgdGhlIHByZXZpb3VzIHNldCBvZiBwcm9ibGVtcy4gQnV0IEkn
+bSB1bmNsZWFyIGhvdy4KPj4gPgo+PiA+IEplc3NlLCBpcyBpdCBwb3NzaWJsZSBmb3IgeW91IHRv
+IGRlc2NyaWJlIHRoYXQgaW4gYSBsaXR0bGUgZGV0YWlsCj4+ID4gb3IgcG9pbnQgbWUgdG8gc29t
+ZSBpbmZvcm1hdGlvbj8KPj4KPj4gVGhpcyB3YXMgd2hhdCBJIGhhZCBvcmlnaW5hbGx5IHdyaXR0
+ZW4gYSB3aGlsZSBiYWNrLCBhbHRob3VnaCBpdCdzCj4+IG1vcmUgYWJvdXQgT1ZTIGludGVybmFs
+bHkgYW5kIGxlc3MgYWJvdXQgaG93IHRvIGNvbm5lY3QgdG8gdGhlIGluLXRyZWUKPj4gY29kZToK
+Pj4gaHR0cDovL29wZW52c3dpdGNoLm9yZy9waXBlcm1haWwvZGV2LzIwMTItRmVicnVhcnkvMDE0
+Nzc5Lmh0bWwKPj4KPj4gSW4gb3JkZXIgdG8gZmxleGlibHkgaW1wbGVtZW50IHN1cHBvcnQgZm9y
+IGN1cnJlbnQgYW5kIGZ1dHVyZSB0dW5uZWwKPj4gcHJvdG9jb2xzIE9WUyBuZWVkcyB0byBiZSBh
+YmxlIHRvIGdldC9zZXQgaW5mb3JtYXRpb24gYWJvdXQgdGhlIG91dGVyCj4+IHR1bm5lbCBoZWFk
+ZXIgd2hlbiBwcm9jZXNzaW5nIHRoZSBpbm5lciBwYWNrZXQuIMKgQXQgdGhlIHZlcnkgbGVhc3QK
+Pj4gdGhpcyBpcyBzcmMvZHN0IElQIGFkZHJlc3NlcyBhbmQgdGhlIGtleS9JRC9WTkkvZXRjLiDC
+oEluIHRoZSB1cHN0cmVhbQo+PiB0dW5uZWwgaW1wbGVtZW50YXRpb25zIHRob3NlIGFyZSBpbXBs
+aWNpdGx5IGVuY29kZWQgaW4gdGhlIGRldmljZSB0aGF0Cj4+IHNlbmRzIG9yIHJlY2VpdmVzIHRo
+ZSBwYWNrZXQuIMKgSG93ZXZlciwgdGhpcyBoYXMgYSB0d28gcHJvYmxlbXM6Cj4+IG51bWJlciBv
+ZiBkZXZpY2VzIGFuZCBhYmlsaXR5IHRvIGhhbmRsZSB1bmtub3duIHZhbHVlcy4gwqBXZSBhZGRy
+ZXNzZWQKPj4gcGFydCBvZiB0aGlzIHByb2JsZW0gYnkgYWxsb3dpbmcgdGhlIHR1bm5lbCBJRCB0
+byBiZSBzZXQgYW5kIG1hdGNoZWQKPj4gdGhyb3VnaCB0aGUgT1ZTIGZsb3cgdGFibGUgYW5kIGFu
+IGFjdGlvbi4gwqBJbiBvcmRlciB0byBkbyB0aGlzIHdpdGgKPj4gdGhlIGluLXRyZWUgdHVubmVs
+aW5nIGNvZGUsIHdlIG9idmlvdXNseSBuZWVkIGEgd2F5IG9mIHBhc3NpbmcgdGhpcwo+PiBpbmZv
+cm1hdGlvbiBhcm91bmQgc2luY2UgaXQgd291bGQgY3VycmVudGx5IGdldCBsb3N0IGFzIHdlIHBh
+c3MKPj4gdGhyb3VnaCB0aGUgTGludXggZGV2aWNlIGxheWVyLgo+Pgo+PiBUaGUgcGxhbiB0byBk
+ZWFsIHdpdGggdGhhdCBpcyB0byBhZGQgYSBmdW5jdGlvbiB0byB0aGUgaW4tdHJlZQo+PiB0dW5u
+ZWxpbmcgY29kZSB0aGF0IGFsbG93cyBhIHNrYiB0byBiZSBlbmNhcHN1bGF0ZWQgd2l0aCBzcGVj
+aWZpYwo+PiBwYXJhbWV0ZXJzIGFuZCBjb252ZXJzZWx5IGEgaG9vayB0byByZWNlaXZlIGRlY2Fw
+c3VsYXRlZCBwYWNrZXRzIGFsb25nCj4+IHdpdGggaGVhZGVyIGluZm8uIMKgVGhpcyB3b3VsZCBt
+YWtlIGFsbCBvZiB0aGUga2VybmVsIHR1bm5lbGluZyBjb2RlCj4+IGNvbW1vbiwgd2hpbGUgc3Rp
+bGwgZ2l2aW5nIE9WUyB1c2Vyc3BhY2UgdGhlIGFiaWxpdHkgdG8gaW1wbGVtZW50Cj4+IGVzc2Vu
+dGlhbGx5IGFueSB0eXBlIG9mIHR1bm5lbGluZyBwb2xpY3kuIMKgSW4gbWFueSB3YXlzLCB0aGlz
+IGlzIHZlcnkKPj4gc2ltaWxhciB0byBob3cgdmxhbnMgbG9vayBpbiBPVlMgdG9kYXkuCj4+Cj4+
+IFdoaWxlIGl0IHdvdWxkIGJlIHBvc3NpYmxlIHRvIGltcGxlbWVudCB0aGUgaG9vayB0byB1c2Ug
+dGhlIGluLXRyZWUKPj4gdHVubmVsIGNvZGUgdG9kYXkgd2l0aG91dCBhIGxvdCBvZiBjaGFuZ2Vz
+LCB3ZSBhbHJlYWR5IGtub3cgdGhhdCB3ZQo+PiB3YW50IHRvIG1vdmUgYXdheSBmcm9tIHBvcnQt
+YmFzZWQgbW9kZWwgaW4gdGhlIE9WUyBrZXJuZWwgbW9kdWxlCj4+IHRvd2FyZHMgdGhlIGZsb3cg
+bW9kZWwuIMKgQXMgd2UgcHVzaCB0aGlzIHVwc3RyZWFtIHRoZSB1c2Vyc3BhY2Uva2VybmVsCj4+
+IEFQSSBzaG91bGQgYmUgdGhlIGNvcnJlY3Qgb25lLCBzbyB0aGF0J3Mgd2h5IHRoZXNlIHR3byB0
+aGluZ3MgYXJlIHRpZWQKPj4gdG9nZXRoZXIuCj4KPgo+IFRoYW5rcywgdGhhdCBleHBsYW5hdGlv
+biBhbG9uZyB3aXRoIEt5bGUncyByZXNwb25zZSBoZWxwcyBhIGxvdC4KPgo+IEl0IHNlZW1zIHRv
+IG1lIHRoYXQgc29tZXRoaW5nIEkgY291bGQgaGVscCBvdXQgd2l0aCBpcyB0aGUgaW1wbGVtZW50
+YXRpb24KPiBvZiB0aGUgc2V0X3R1bm5lbCBhY3Rpb24gd2hpY2ggZXh0ZW50cyBhbmQgcmVwbGFj
+ZXMgdGhlIHR1bl9pZCBhY3Rpb24uCj4gSXQgc2VlbXMgdGhhdCBpcyBhIHJlcXVpcmVtZW50IGZv
+ciB0aGUgc2NoZW1lIHlvdSBkZXNjcmliZSBhYm92ZS4KPgo+IGh0dHA6Ly9vcGVudnN3aXRjaC5v
+cmcvcGlwZXJtYWlsL2Rldi8yMDEyLUFwcmlsLzAxNjIzOS5odG1sCgpJIGFncmVlIHRoYXQncyBw
+cm9iYWJseSB0aGUgYmVzdCBwbGFjZSB0byBzdGFydCB1bmxlc3MgS3lsZSBoYXMgc29tZQpzcGVj
+aWZpYyBwbGFucyBvdGhlcndpc2UuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
+b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
