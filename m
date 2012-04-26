@@ -1,42 +1,41 @@
-From: Somnath Kotur <Somnath.Kotur@emulex.com>
-Subject: [PATCH net-next 1/5] be2net: Fix to not set link speed for disabled functions of a UMC card
-Date: Thu, 26 Apr 2012 20:00:27 +0530
-Message-ID: <03f9ab21-5074-4bd8-98c2-b15674af8ad3@exht1.ad.emulex.com>
+From: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+Subject: Re: [PATCH] mISDN: Ignore return value of driver_for_each_device in
+ function hfcpci_softirq.
+Date: Thu, 26 Apr 2012 16:08:44 +0100
+Message-ID: <CAC52Y8Z_QpnVA37i1GYTWdx5sydVCcke+7dbVx=pCftT3=P5nw@mail.gmail.com>
+References: <1335309230-23428-1-git-send-email-krzysztof.wilczynski@linux.com> <20120425.204231.1586199621022282253.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Somnath Kotur <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:47299 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751506Ab2DZOkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 10:40:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: isdn@linux-pingi.de, gregkh@linuxfoundation.org,
+	horms@verge.net.au, trivial@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120425.204231.1586199621022282253.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Somnath Kotur <somnath.kotur@emulex.com>
+Hi,
 
-This renders the interface view somewhat inconsistent from the Host OS POV
-considering the rest of the interfaces are showing their respective speeds
-based on the bandwidth assigned to them.
+[...]
+> I'm not applying this, at least not with a more intelligent analysis
+> of why any error or other non-zero value signalled by
+> driver_for_each_device should be completely ignored, and no error
+> handling should be performed.
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_ethtool.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+This is a fair point.  It should not be ignored.  I was looking through
+the code and found few cases where the return value was not checked
+for potential errors (I assume that it was collected to avoid warning being
+produced, but that was about it) without printing an error message.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 0c6f06e..a00983e 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -558,7 +558,7 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 				be_link_status_update(adapter, link_status);
- 			if (link_speed)
- 				et_speed = link_speed;
--			else
-+			else if (link_status)
- 				et_speed = convert_to_et_speed(port_speed);
- 		} else {
- 			et_speed = adapter->phy.forced_port_speed;
--- 
-1.5.6.1
+The following could most certainly use better error reporting concerning
+use of driver_for_each_device:
+
+drivers/isdn/hardware/mISDN/hfcpci.c
+drivers/media/video/cx18/cx18-alsa-main.c
+drivers/media/video/ivtv/ivtvfb.c
+
+I will look into it making suitable changes.  Thanks for pointing it
+out to me! :)
+
+KW
