@@ -1,43 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dl2k: Clean up rio_ioctl
-Date: Thu, 26 Apr 2012 05:38:59 -0400 (EDT)
-Message-ID: <20120426.053859.370303075509597686.davem@davemloft.net>
-References: <4F989789.9040405@suse.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH] tcp repair: Fix unaligned access when repairing options
+ (v2)
+Date: Thu, 26 Apr 2012 13:41:14 +0400
+Message-ID: <4F99183A.7010204@parallels.com>
+References: <4F990C71.3020500@parallels.com> <20120426.052336.664675835426476301.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jeffm@suse.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David.Laight@ACULAB.COM" <David.Laight@ACULAB.COM>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58406 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753941Ab2DZJjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:39:04 -0400
-In-Reply-To: <4F989789.9040405@suse.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:25974 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751827Ab2DZJlY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2012 05:41:24 -0400
+In-Reply-To: <20120426.052336.664675835426476301.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Mahoney <jeffm@suse.com>
-Date: Wed, 25 Apr 2012 20:32:09 -0400
+On 04/26/2012 01:23 PM, David Miller wrote:
+> From: Pavel Emelyanov <xemul@parallels.com>
+> Date: Thu, 26 Apr 2012 12:50:57 +0400
+> 
+>> Don't pick __u8/__u16 values directly from raw pointers, but instead use
+>> an array of structures of code:value pairs. This is OK, since the buffer
+>> we take options from is not an skb memory, but a user-to-kernel one.
+>>
+>> For those options which don't require any value now, require this to be
+>> zero (for potential future extension of this API).
+>>
+>> v2: Changed tcp_repair_opt to use two __u32-s as spotted by David Laight.
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> 
+> Hmmm, this didn't show up on netdev, I wonder why?
 
-> The dl2k driver's rio_ioctl call has a few issues:
-> - No permissions checking
-> - Implements SIOCGMIIREG and SIOCGMIIREG using the SIOCDEVPRIVATE numbers
-> - Has a few ioctls that may have been used for debugging at one point
->   but have no place in the kernel proper.
-> 
-> This patch removes all but the MII ioctls, renumbers them to use the
-> standard ones, and adds the proper permission check for SIOCSMIIREG.
-> 
-> We can also get rid of the dl2k-specific struct mii_data in favor of
-> the generic struct mii_ioctl_data.
-> 
-> Since we have the phyid on hand, we can add the SIOCGMIIPHY ioctl too.
-> 
-> Most of the MII code for the driver could probably be converted to use
-> the generic MII library but I don't have a device to test the results.
-> 
-> Reported-by: Stephan Mueller <stephan.mueller@atsec.com>
-> Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+So do I :( I haven't received any mail with errors from netdev, neither
+Parallels mail server reported any problems.
 
-Applied, thanks.
+I will resubmit this one again.
+
+Thanks,
+Pavel
