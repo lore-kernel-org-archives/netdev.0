@@ -1,151 +1,24 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next 3/3] qlcnic: Allow a predefined set of capture masks for FW dump
-Date: Thu, 26 Apr 2012 13:31:31 -0700
-Message-ID: <1335472292-24335-3-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH net-next 0/3] qlcnic: Bug fixes
+Date: Thu, 26 Apr 2012 13:31:32 -0700
+Message-ID: <1335472292-24335-4-git-send-email-anirban.chakraborty@qlogic.com>
 References: <1335472292-24335-1-git-send-email-anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev <netdev@vger.kernel.org>,
 	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish Chopra <manish.chopra@qlogic.com>
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:25235
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:11189
 	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758914Ab2DZUrO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 16:47:14 -0400
+	by vger.kernel.org with ESMTP id S1757501Ab2DZUrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 16:47:13 -0400
 In-Reply-To: <1335472292-24335-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
+Please apply to net-next.
 
-o 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F and 0xFF are the allowed capture masks.
-o Updated driver version to 5.0.28
-
-Signed-off-by: Manish chopra <manish.chopra@qlogic.com>
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    4 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   34 ++++++++++---------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h    |    4 ++
- 3 files changed, 24 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index a7e2f74..8680a5d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -36,8 +36,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 27
--#define QLCNIC_LINUX_VERSIONID  "5.0.27"
-+#define _QLCNIC_LINUX_SUBVERSION 28
-+#define QLCNIC_LINUX_VERSIONID  "5.0.28"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 5f2ad81..735423f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -1278,7 +1278,7 @@ qlcnic_get_dump_data(struct net_device *netdev, struct ethtool_dump *dump,
- static int
- qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- {
--	int ret = 0;
-+	int i;
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
- 	u32 state;
-@@ -1291,12 +1291,12 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 		}
- 		if (!fw_dump->enable) {
- 			netdev_info(netdev, "FW dump not enabled\n");
--			return ret;
-+			return 0;
- 		}
- 		if (fw_dump->clr) {
- 			netdev_info(netdev,
- 			"Previous dump not cleared, not forcing dump\n");
--			return ret;
-+			return 0;
- 		}
- 		netdev_info(netdev, "Forcing a FW dump\n");
- 		qlcnic_dev_request_reset(adapter);
-@@ -1306,7 +1306,7 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 			netdev_info(netdev, "Disabling FW dump\n");
- 			fw_dump->enable = 0;
- 		}
--		return ret;
-+		return 0;
- 	case QLCNIC_ENABLE_FW_DUMP:
- 		if (!fw_dump->tmpl_hdr) {
- 			netdev_err(netdev, "FW dump not supported\n");
-@@ -1316,34 +1316,36 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 			netdev_info(netdev, "Enabling FW dump\n");
- 			fw_dump->enable = 1;
- 		}
--		return ret;
-+		return 0;
- 	case QLCNIC_FORCE_FW_RESET:
- 		netdev_info(netdev, "Forcing a FW reset\n");
- 		qlcnic_dev_request_reset(adapter);
- 		adapter->flags &= ~QLCNIC_FW_RESET_OWNER;
--		return ret;
-+		return 0;
- 	case QLCNIC_SET_QUIESCENT:
- 	case QLCNIC_RESET_QUIESCENT:
- 		state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
- 		if (state == QLCNIC_DEV_FAILED || (state == QLCNIC_DEV_BADBAD))
- 			netdev_info(netdev, "Device in FAILED state\n");
--		return ret;
-+		return 0;
- 	default:
- 		if (!fw_dump->tmpl_hdr) {
- 			netdev_err(netdev, "FW dump not supported\n");
- 			return -ENOTSUPP;
- 		}
--		if (val->flag > QLCNIC_DUMP_MASK_MAX ||
--			val->flag < QLCNIC_DUMP_MASK_MIN) {
--				netdev_info(netdev,
--				"Invalid dump level: 0x%x\n", val->flag);
--				return -EINVAL;
-+		for (i = 0; i < ARRAY_SIZE(FW_DUMP_LEVELS); i++) {
-+			if (val->flag == FW_DUMP_LEVELS[i]) {
-+				fw_dump->tmpl_hdr->drv_cap_mask =
-+							val->flag;
-+				netdev_info(netdev, "Driver mask changed to: 0x%x\n",
-+					fw_dump->tmpl_hdr->drv_cap_mask);
-+				return 0;
-+			}
- 		}
--		fw_dump->tmpl_hdr->drv_cap_mask = val->flag & 0xff;
--		netdev_info(netdev, "Driver mask changed to: 0x%x\n",
--			fw_dump->tmpl_hdr->drv_cap_mask);
-+		netdev_info(netdev, "Invalid dump level: 0x%x\n", val->flag);
-+		return -EINVAL;
- 	}
--	return ret;
-+	return 0;
- }
- 
- const struct ethtool_ops qlcnic_ethtool_ops = {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-index e6a77fe..6ced319 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-@@ -778,6 +778,10 @@ struct qlcnic_legacy_intr_set {
- #define FLASH_ROM_WINDOW	0x42110030
- #define FLASH_ROM_DATA		0x42150000
- 
-+
-+static const u32 FW_DUMP_LEVELS[] = {
-+	0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff };
-+
- static const u32 MIU_TEST_READ_DATA[] = {
- 	0x410000A8, 0x410000AC, 0x410000B8, 0x410000BC, };
- 
--- 
-1.7.4.1
+Thanks,
+Anirban
