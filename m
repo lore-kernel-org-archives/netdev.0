@@ -1,39 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 26 Apr 2012 05:11:12 -0400 (EDT)
-Message-ID: <20120426.051112.593865044382599274.davem@davemloft.net>
-References: <1335333314-6814-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] allow skb->head to point/alias to first skb frag
+Date: Thu, 26 Apr 2012 11:10:02 +0200
+Message-ID: <1335431402.2775.24.camel@edumazet-glaptop>
+References: <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
+	 <1335257803.5205.133.camel@edumazet-glaptop>
+	 <1335427854.2775.15.camel@edumazet-glaptop>
+	 <20120426.043623.1317043382565428400.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: ilpo.jarvinen@helsinki.fi, rick.jones2@hp.com,
+	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
+	maze@google.com, ycheng@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58096 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752216Ab2DZJLR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:11:17 -0400
-In-Reply-To: <1335333314-6814-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:60161 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753180Ab2DZJKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:10:08 -0400
+Received: by eekc41 with SMTP id c41so524102eek.19
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 02:10:07 -0700 (PDT)
+In-Reply-To: <20120426.043623.1317043382565428400.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 24 Apr 2012 22:55:12 -0700
-
-> This series of patches contains fixes for e1000e only.
+On Thu, 2012-04-26 at 04:36 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 26 Apr 2012 10:10:54 +0200
 > 
-> The following are changes since commit 2a5809499e35b53a6044fd34e72b242688b7a862:
->   asix: Fix tx transfer padding for full-speed USB
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+> > Idea would have :
+> > 
+> > 1) struct sk_buff
+> > 2) skb->head points to frag (aliasing, no memory allocation)
+> > 3) frag of 2048 (or PAGE_SIZE/2 or PAGE_SIZE)
 > 
-> Jeff Kirsher (1):
->   e1000e: Fix default interrupt throttle rate not set in NIC HW
+> What would you set skb->data_len and skb->len to?
 > 
-> Prasanna S Panchamukhi (1):
->   e1000e: MSI interrupt test failed, using legacy interrupt
+> How would you handle tailroom?  We have the rule that you can't append
+> to the tail of a fragmented SKB (I mean append, the way that IPSEC
+> wants to write data to the end of an SKB when encrypting, for
+> example).  This is only allowed on fully linear SKBs.
+> 
+> So, for this reason and others, you can't pretend that this new
+> construction is linear in any way.  It would break a bunch of things.
 
-Pulled, but longer term you guys might want to take Ben's suggestion
-and just take the interrupt self-test out altogether.
 
-Thanks.
+The 'frag' would have a known size : 2048 bytes
+
+But the end of it would be used by struct skb_shared_info
+
+so data_len would be 0 in fact.
+
+This would look like a regular linear skb.
+
+Just a bit set in skb to say : Warning, skb->head was not kmalloced :
+replace kfree(head) by put_page(...)
+
+And this bit would be tested in GRO or tcp merge to 'upgrade' this
+skb->head to proper page/frag
