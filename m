@@ -1,103 +1,68 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3 2/2] decrement static keys on real destroy time
-Date: Thu, 26 Apr 2012 14:39:16 -0700
-Message-ID: <20120426213916.GD27486@google.com>
-References: <1335475463-25167-1-git-send-email-glommer@parallels.com>
- <1335475463-25167-3-git-send-email-glommer@parallels.com>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: Re: Heavy spin_lock contention in __udp4_lib_mcast_deliver increase
+Date: Thu, 26 Apr 2012 16:44:05 -0500
+Message-ID: <20120426214405.GF2479@BohrerMBP.rgmadvisors.com>
+References: <20120426151527.GA2479@BohrerMBP.rgmadvisors.com>
+ <1335455595.2775.47.camel@edumazet-glaptop>
+ <20120426162819.GD2479@BohrerMBP.rgmadvisors.com>
+ <1335457888.2775.55.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:39449 "EHLO
+	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753936Ab2DZVoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 17:44:08 -0400
+Received: by mail-ob0-f178.google.com with SMTP id wc18so125157obb.9
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 14:44:07 -0700 (PDT)
+In-Reply-To: <1335457888.2775.55.camel@edumazet-glaptop>
 Content-Disposition: inline
-In-Reply-To: <1335475463-25167-3-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Glauber.
+On Thu, Apr 26, 2012 at 06:31:28PM +0200, Eric Dumazet wrote:
+> On Thu, 2012-04-26 at 11:28 -0500, Shawn Bohrer wrote:
+> 
+> > No in this case it is 300 unique multicast addresses, and there is one
+> > socket listening to each multicast address.  So a single message is
+> > only copied once to a single socket.  The bottle neck appears to be
+> > that even though a single message is only going to get copied to a
+> > single socket we still have to walk the list of all 300 sockets while
+> > holding the spin lock to figure that out.  The incoming packet rate is
+> > also roughly evenly distributed across all 300 multicast addresses so
+> > even though we have multiple receive queues they are all contending
+> > for the same spin lock.
+> > 
+> 
+> I repeat my question : Are these 300 sockets bound to the same UDP
+> port ?
+> 
+> If not, they should be spreaded in hash table.
+> 
+> You can make this hash table very big to reduce hash collisions
+> 
+> Boot parameter : uhash_entries=65536
 
-Overall, I like this approach much better.  Just some nits below.
+Thanks Eric I don't know how I missed this.  In my test all 300
+sockets were bound to the same UDP port so they were all falling into
+the same bucket.  Switching the test to use unique ports solves the
+issue.
 
-On Thu, Apr 26, 2012 at 06:24:23PM -0300, Glauber Costa wrote:
-> @@ -4836,6 +4851,18 @@ static void free_work(struct work_struct *work)
->  	int size = sizeof(struct mem_cgroup);
->  
->  	memcg = container_of(work, struct mem_cgroup, work_freeing);
-> +	/*
-> +	 * We need to make sure that (at least for now), the jump label
-> +	 * destruction code runs outside of the cgroup lock. It is in theory
-> +	 * possible to call the cgroup destruction function outside of that
-> +	 * lock, but it is not yet done. rate limiting plus the deferred
-> +	 * interface for static_branch destruction guarantees that it will
-> +	 * run through schedule_work(), therefore, not holding any cgroup
-> +	 * related lock (this is, of course, until someone decides to write
-> +	 * a schedule_work cgroup :p )
-> +	 */
+I didn't try your other patch to increase the stack size up to 512
+sockets because I don't think we need it.  We rarely have more than a
+single socket per machine receiving packets on a multicast address so
+I think the current stack size is sufficient for us.  Or perhaps once
+again I may be misunderstanding the purpose of that patch.
 
-Isn't the above a bit too verbose?  Wouldn't just stating the locking
-dependency be enough?
-
-> +	disarm_static_keys(memcg);
->  	if (size < PAGE_SIZE)
->  		kfree(memcg);
->  	else
-> diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-> index 1517037..7790008 100644
-> --- a/net/ipv4/tcp_memcontrol.c
-> +++ b/net/ipv4/tcp_memcontrol.c
-> @@ -54,6 +54,8 @@ int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
->  	cg_proto->sysctl_mem = tcp->tcp_prot_mem;
->  	cg_proto->memory_allocated = &tcp->tcp_memory_allocated;
->  	cg_proto->sockets_allocated = &tcp->tcp_sockets_allocated;
-> +	cg_proto->active = false;
-> +	cg_proto->activated = false;
-
-Isn't the memory zallocd?  I find 0 / NULL / false inits unnecessary
-and even misleading (can the memory be non-zero here?).  Another side
-effect is that it tends to get out of sync as more fields are added.
-
-> +/*
-> + * This is to prevent two writes arriving at the same time
-> + * at kmem.tcp.limit_in_bytes.
-> + *
-> + * There is a race at the first time we write to this file:
-> + *
-> + * - cg_proto->activated == false for all writers.
-> + * - They all do a static_key_slow_inc().
-> + * - When we are finally read to decrement the static_keys,
-                            ^
-                            ready
-
-> + *   we'll do it only once per activated cgroup. So we won't
-> + *   be able to disable it.
-> + *
-> + *   Also, after the first caller increments the static_branch
-> + *   counter, all others will return right away. That does not mean,
-> + *   however, that the update is finished.
-> + *
-> + *   Without this mutex, it would then be possible for a second writer
-> + *   to get to the update site, return 
-
-I kinda don't follow the above sentence.
-
-> + *   When a user updates limit of 2 cgroups at once, following happens.
-> + *
-> + *   	CPU A				CPU B
-> + *
-> + *	if (cg_proto->activated)	if (cg->proto_activated)
-> + *		static_key_inc()		static_key_inc()
-> + * 		=> set counter 0->1		=> set counter 1->2,
-> + * 						return immediately.
-> + * 		=> hold mutex			=> cg_proto->activated = true. 
-> + * 		=> overwrite jmps.
-
-Isn't this something which should be solved from static_keys API?  Why
-is this being worked around from memcg?  Also, I again hope that the
-explanation is slightly more concise.
-
-Thanks.
+--
+Shawn
 
 -- 
-tejun
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
