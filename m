@@ -1,47 +1,36 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: kernel BUG at include/net/netns/generic.h:41
-Date: Thu, 26 Apr 2012 10:06:53 -0400
-Message-ID: <20120426140653.GA2111@redhat.com>
-References: <20120328002346.GB3077@redhat.com>
- <20120402172600.GA3728@redhat.com>
- <1333390230.13718.34.camel@lade.trondhjem.org>
- <4F7DC37F.7090404@parallels.com>
- <20120405161241.GA23658@redhat.com>
- <4F7DC4CC.9080502@parallels.com>
- <20120425225855.GA5537@redhat.com>
- <4F98EA72.6010300@parallels.com>
+From: Somnath Kotur <Somnath.Kotur@emulex.com>
+Subject: [PATCH net-next 0/5] be2net fixes
+Date: Thu, 26 Apr 2012 19:57:14 +0530
+Message-ID: <9029d129-fbaa-4d4c-b3f0-4268da3ba1b0@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Myklebust, Trond" <Trond.Myklebust@netapp.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4F98EA72.6010300@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:47275 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753184Ab2DZOhA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 10:37:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 26, 2012 at 10:25:54AM +0400, Stanislav Kinsbursky wrote:
- 
- > >   >  >
- > >   >  >    >   2) how often do you experience this problem? Not every boot, I suppose?
- > >   >  >    >   3) And is it easy for you to reproduce?
- > >   >  >
- > >   >  >  It happens most the time, but not every time.
- > >   >
- > >   >  Ok, I'll send the patch soon.
- > >   >  Hope, it will help.
- > >
- > > I didn't see a follow-up patch on this, and I'm still seeing the BUG in rc4.
- > >
- > Dave, search for "SUNRPC: register PipeFS file system after pernet 
- > sybsystem" in your mail.
- > You are in CC list.
+From: Somnath Kotur <somnath.kotur@emulex.com>
 
-ah, missed that somehow.
-I see it's now in Linus' tree too,
+Please apply.
 
-Thanks,
+Thanks
+Somnath
 
-	Dave
+Somnath Kotur (5):
+  be2net: Fix to not set link speed for disabled functions of a UMC
+    card
+  be2net: Fix to allow setting of debug levels in the firmware.
+  be2net: Fix to apply duplex value as unknown when link is down.
+  be2net: Record receive queue index in skb to aid RPS.
+  be2net: Fix EEH error reset before a flash dump completes
+
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |   59 ++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |   69 +++++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   71 +++++++++++++++++++++++-
+ drivers/net/ethernet/emulex/benet/be_main.c    |    7 ++
+ 4 files changed, 204 insertions(+), 2 deletions(-)
