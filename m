@@ -1,30 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: call consume_skb() in frag/reassembly
-Date: Wed, 25 Apr 2012 20:40:23 -0400 (EDT)
-Message-ID: <20120425.204023.2208260917073200324.davem@davemloft.net>
-References: <1335298679.5205.173.camel@edumazet-glaptop>
+Subject: Re: [PATCH] mISDN: Ignore return value of driver_for_each_device
+ in function hfcpci_softirq.
+Date: Wed, 25 Apr 2012 20:42:31 -0400 (EDT)
+Message-ID: <20120425.204231.1586199621022282253.davem@davemloft.net>
+References: <1335309230-23428-1-git-send-email-krzysztof.wilczynski@linux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: isdn@linux-pingi.de, gregkh@linuxfoundation.org,
+	horms@verge.net.au, trivial@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: krzysztof.wilczynski@linux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55281 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:55309 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932686Ab2DZAkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 20:40:25 -0400
-In-Reply-To: <1335298679.5205.173.camel@edumazet-glaptop>
+	with ESMTP id S932693Ab2DZAmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Apr 2012 20:42:44 -0400
+In-Reply-To: <1335309230-23428-1-git-send-email-krzysztof.wilczynski@linux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 24 Apr 2012 22:17:59 +0200
-
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Some kfree_skb() calls should be replaced by consume_skb() to avoid
-> drop_monitor/dropwatch false positives.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied, thanks Eric.
+RnJvbTogS3J6eXN6dG9mIFdpbGN6eW5za2kgPGtyenlzenRvZi53aWxjenluc2tpQGxpbnV4LmNv
+bT4NCkRhdGU6IFdlZCwgMjUgQXByIDIwMTIgMDA6MTM6NTAgKzAxMDANCg0KPiBGdW5jdGlvbiBo
+ZmNwY2lfc29mdGlycSB1c2VzIGRyaXZlcl9mb3JfZWFjaF9kZXZpY2UgdG8gY2FsbCBfaGZjcGNp
+X3NvZnRpcnEgZm9yDQo+IGVhY2ggZGV2aWNlLiBHaXZlbiB0aGF0IF9oZmNwY2lfc29mdGlycSBh
+bHdheXMgcmV0dXJucyAwLCB3ZSBjb2xsZWN0IHRoaXMgcmV0dXJuDQo+IHZhbHVlIGFuZCBzaW1w
+bHkgZG8gbm90aGluZyB3aXRoIGl0LiAgVGhpcyBpcyBwdXJlbHkgdG8gYWRkcmVzcyB0aGUgZm9s
+bG93aW5nDQo+IHdhcm5pbmcgZHVyaW5nIGNvbXBpbGF0aW9uIHRpbWU6DQo+IA0KPiAgIGRyaXZl
+cnMvaXNkbi9oYXJkd2FyZS9tSVNETi9oZmNwY2kuYzogSW4gZnVuY3Rpb24goWhmY3BjaV9zb2Z0
+aXJxojoNCj4gICBkcml2ZXJzL2lzZG4vaGFyZHdhcmUvbUlTRE4vaGZjcGNpLmM6MjMxOTogd2Fy
+bmluZzogaWdub3JpbmcgcmV0dXJuIHZhbHVlIG9mDQo+ICAgICChZHJpdmVyX2Zvcl9lYWNoX2Rl
+dmljZaIsIGRlY2xhcmVkIHdpdGggYXR0cmlidXRlIHdhcm5fdW51c2VkX3Jlc3VsdA0KPiANCj4g
+U2ltaWxhciBhcHByb2FjaCB3YXMgdXNlZCBpbiBmdW5jdGlvbiBjeDE4X2Fsc2FfZXhpdCBmcm9t
+ICJjeDE4LWFsc2EtbWFpbi5jIi4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEtyenlzenRvZiBXaWxj
+enluc2tpIDxrcnp5c3p0b2Yud2lsY3p5bnNraUBsaW51eC5jb20+DQoNClRoZXJlIGlzIG5vIHZh
+bHVlIGluIHRoZSB3YXJuaW5nIGlmIHdlIHNpbXBseSBjb252ZXJ0IGVhY2ggc3VjaCBjYXNlDQp0
+byBpZ25vcmUgdGhlIHJldHVybiB2YWx1ZS4NCg0KSSdtIG5vdCBhcHBseWluZyB0aGlzLCBhdCBs
+ZWFzdCBub3Qgd2l0aCBhIG1vcmUgaW50ZWxsaWdlbnQgYW5hbHlzaXMNCm9mIHdoeSBhbnkgZXJy
+b3Igb3Igb3RoZXIgbm9uLXplcm8gdmFsdWUgc2lnbmFsbGVkIGJ5DQpkcml2ZXJfZm9yX2VhY2hf
+ZGV2aWNlIHNob3VsZCBiZSBjb21wbGV0ZWx5IGlnbm9yZWQsIGFuZCBubyBlcnJvcg0KaGFuZGxp
+bmcgc2hvdWxkIGJlIHBlcmZvcm1lZC4NCg==
