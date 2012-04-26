@@ -1,38 +1,54 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3 2/2] decrement static keys on real destroy time
-Date: Thu, 26 Apr 2012 15:32:14 -0700
-Message-ID: <CAOS58YPKtZ-oLOtaNqgbxB4Nf0Vc=eL+FjgfMj4a9T0yjn57Sg@mail.gmail.com>
-References: <1335475463-25167-1-git-send-email-glommer@parallels.com>
-	<1335475463-25167-3-git-send-email-glommer@parallels.com>
-	<20120426213916.GD27486@google.com>
-	<4F99C50D.6070503@parallels.com>
-	<20120426221324.GE27486@google.com>
-	<4F99C980.3030801@parallels.com>
-	<CAOS58YOKUq7GTTZRcw19dth+HgThoNTEcqBKeNO0ftB4rFJ97A@mail.gmail.com>
-	<4F99CC17.4080006@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F99CC17.4080006-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH v4 0/3] fix problem with static_branch() for sock memcg
+Date: Thu, 26 Apr 2012 19:51:04 -0300
+Message-ID: <1335480667-8301-1-git-send-email-glommer@parallels.com>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Li Zefan <lizefan@huawei.com>, Tejun Heo <tj@kernel.org>,
+	<kamezawa.hiroyu@jp.fujitsu.com>, <linux-mm@kvack.org>,
+	<devel@openvz.org>
+To: <cgroups@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 26, 2012 at 3:28 PM, Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
-> We need a broader audience for this, but if I understand the interface
-> right, those functions should not be called in fast paths at all (contrary
-> to the static_branch tests)
->
-> The static_branch tests can be called from irq context, so we can't just get
-> rid of the atomic op and use the mutex everywhere, we'd have
-> to live with both.
->
-> I will repost this series, with some more people in the CC list.
+Hi,
 
-Great, thanks!
+While trying to fulfill's Christoph's request for using static_branches
+to do part of the role of number_of_cpusets in the cpuset cgroup, I took
+a much more extensive look at the cpuset code (Thanks Christoph).
+
+I started to feel that removing the cgroup_lock() from cpuset's
+destroy is not as safe as I first imagined. At the very best, is not safe
+enough to be bundled in a bugfix and deserves its own analysis.
+
+I started then to consider another approach. While I voiced many times
+that I would not like to do deferred updates for the static_branches, doing
+that during destroy time would be perfectly acceptable IMHO (creation is
+another story). In a summary, we are effectively calling the static_branch
+updates only when the last reference to the memcg is gone. And that is
+already asynchronous by nature, and we cope well with that.
+
+In memcg, it turns out that we already do deferred freeing of the memcg
+structure depending on the size of struct mem_cgroup.
+
+My proposal is to always do that, and then we get a worker more or less
+for free. Patch 3 is basically the same I had posted before, but without
+the mutex lock protection, now in the static branch guaranteed interface.
+
+Let me know if this is acceptable.
+
+Thanks
+
+Glauber Costa (3):
+  make jump_labels wait while updates are in place
+  Always free struct memcg through schedule_work()
+  decrement static keys on real destroy time
+
+ include/net/sock.h        |    9 ++++++++
+ kernel/jump_label.c       |   13 ++++++++---
+ mm/memcontrol.c           |   50 +++++++++++++++++++++++++++++++++-----------
+ net/ipv4/tcp_memcontrol.c |   34 ++++++++++++++++++++++++------
+ 4 files changed, 82 insertions(+), 24 deletions(-)
 
 -- 
-tejun
+1.7.7.6
