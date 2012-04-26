@@ -1,93 +1,21 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Thu, 26 Apr 2012 16:13:21 +0900
-Message-ID: <20120426071321.GA25781@verge.net.au>
-References: <20120423.161313.1582195533832554777.davem@davemloft.net>
-	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
-	<20120423.170817.1103719420692884446.davem@davemloft.net>
-	<CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
-	<20120423223255.GG580@verge.net.au>
-	<CAEP_g=9p0TE59JbrS8QzHj4mEzc-5_hUDzmLRsRxLyUaFX+Z5Q@mail.gmail.com>
-	<20120424022514.GB5357@verge.net.au>
-	<807AC914-2F33-46C7-99DC-E2F8F0F97531@cisco.com>
-	<20120425083925.GB6661@verge.net.au>
-	<CAEP_g=8DmQ_-8+ZbATdVhNJKiDSr0HdUgB-+oaqwU1=SqqzXfQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4] mISDN: DSP scheduling fix (version 2)
+Date: Thu, 26 Apr 2012 03:14:14 -0400 (EDT)
+Message-ID: <20120426.031414.982610761017545447.davem@davemloft.net>
+References: <1335423288-30702-1-git-send-email-kkeil@linux-pingi.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=8DmQ_-8+ZbATdVhNJKiDSr0HdUgB-+oaqwU1=SqqzXfQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, isdn@linux-pingi.de
+To: kkeil@linux-pingi.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57315 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752982Ab2DZHOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 03:14:18 -0400
+In-Reply-To: <1335423288-30702-1-git-send-email-kkeil@linux-pingi.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBBcHIgMjUsIDIwMTIgYXQgMTA6MTc6MjVBTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3Jv
-dGU6Cj4gT24gV2VkLCBBcHIgMjUsIDIwMTIgYXQgMTozOSBBTSwgU2ltb24gSG9ybWFuIDxob3Jt
-c0B2ZXJnZS5uZXQuYXU+IHdyb3RlOgo+ID4KPiA+IEhpIEt5bGUsCj4gPgo+ID4gdGhlIGNvbXBv
-bmVudCB0aGF0IGlzIG9mIG1vc3QgaW50ZXJlc3QgdG8gbWUgaXMgZW5hYmxpbmcgT1ZTIHRvIHVz
-ZSBpbi10cmVlCj4gPiB0dW5uZWxsaW5nIGNvZGUgLSBhcyBpdCBzZWVtcyB0aGF0IG1ha2VzIG1v
-c3Qgc2Vuc2UgZm9yIGFuIGltcGxlbWVudGF0aW9uCj4gPiBvZiBTVFQuIEkgaGF2ZSB0YWtlbiBh
-IGJyaWVmIGxvb2sgb3ZlciB5b3VyIHZ4bGFuIHdvcmsgYW5kIGl0IGlzbid0IGNsZWFyCj4gPiB0
-byBtZSBpZiBpdCBpcyBtb3ZpbmcgdG93YXJkcyBiZWluZyBhbiBpbi10cmVlIGltcGxlbWVudGF0
-aW9uLiDCoE1vcmVvdmVyLAo+ID4gSSdtIGEgcmF0aGVyIHVuY2xlYXIgb24gd2hhdCBjaGFuZ2Vz
-IG5lZWQgdG8gYmUgbWFkZSB0byBPVlMgaW4gb3JkZXIgZm9yCj4gPiBpbi10cmVlIHR1bm5lbGlu
-ZyB0byBiZSB1c2VkLgo+ID4KPiA+IE15IHJlY29sbGVjdGlvbiBpcyB0aGF0IE9WUyBkaWQgbWFr
-ZSB1c2Ugb2YgaW4tdHJlZSB0dW5uZWxsaW5nIGNvZGUKPiA+IGJ1dCB0aGlzIHdhcyByZW1vdmVk
-IGluIGZhdm91ciBvZiB0aGUgY3VycmVudCBpbXBsZW1lbnRhdGlvbiBmb3IgdmFyaW91cwo+ID4g
-cmVhc29ucyAocGVyZm9ybWFuY2UgYmVpbmcgb25lIElJUkMpLiBJIGdhdGhlciB0aGF0IHJldmlz
-aXRpbmcgaW4tdHJlZQo+ID4gdHVubmVsbGluZyB3b24ndCByZXZpc2l0IHRoZSBwcmV2aW91cyBz
-ZXQgb2YgcHJvYmxlbXMuIEJ1dCBJJ20gdW5jbGVhciBob3cuCj4gPgo+ID4gSmVzc2UsIGlzIGl0
-IHBvc3NpYmxlIGZvciB5b3UgdG8gZGVzY3JpYmUgdGhhdCBpbiBhIGxpdHRsZSBkZXRhaWwKPiA+
-IG9yIHBvaW50IG1lIHRvIHNvbWUgaW5mb3JtYXRpb24/Cj4gCj4gVGhpcyB3YXMgd2hhdCBJIGhh
-ZCBvcmlnaW5hbGx5IHdyaXR0ZW4gYSB3aGlsZSBiYWNrLCBhbHRob3VnaCBpdCdzCj4gbW9yZSBh
-Ym91dCBPVlMgaW50ZXJuYWxseSBhbmQgbGVzcyBhYm91dCBob3cgdG8gY29ubmVjdCB0byB0aGUg
-aW4tdHJlZQo+IGNvZGU6Cj4gaHR0cDovL29wZW52c3dpdGNoLm9yZy9waXBlcm1haWwvZGV2LzIw
-MTItRmVicnVhcnkvMDE0Nzc5Lmh0bWwKPiAKPiBJbiBvcmRlciB0byBmbGV4aWJseSBpbXBsZW1l
-bnQgc3VwcG9ydCBmb3IgY3VycmVudCBhbmQgZnV0dXJlIHR1bm5lbAo+IHByb3RvY29scyBPVlMg
-bmVlZHMgdG8gYmUgYWJsZSB0byBnZXQvc2V0IGluZm9ybWF0aW9uIGFib3V0IHRoZSBvdXRlcgo+
-IHR1bm5lbCBoZWFkZXIgd2hlbiBwcm9jZXNzaW5nIHRoZSBpbm5lciBwYWNrZXQuICBBdCB0aGUg
-dmVyeSBsZWFzdAo+IHRoaXMgaXMgc3JjL2RzdCBJUCBhZGRyZXNzZXMgYW5kIHRoZSBrZXkvSUQv
-Vk5JL2V0Yy4gIEluIHRoZSB1cHN0cmVhbQo+IHR1bm5lbCBpbXBsZW1lbnRhdGlvbnMgdGhvc2Ug
-YXJlIGltcGxpY2l0bHkgZW5jb2RlZCBpbiB0aGUgZGV2aWNlIHRoYXQKPiBzZW5kcyBvciByZWNl
-aXZlcyB0aGUgcGFja2V0LiAgSG93ZXZlciwgdGhpcyBoYXMgYSB0d28gcHJvYmxlbXM6Cj4gbnVt
-YmVyIG9mIGRldmljZXMgYW5kIGFiaWxpdHkgdG8gaGFuZGxlIHVua25vd24gdmFsdWVzLiAgV2Ug
-YWRkcmVzc2VkCj4gcGFydCBvZiB0aGlzIHByb2JsZW0gYnkgYWxsb3dpbmcgdGhlIHR1bm5lbCBJ
-RCB0byBiZSBzZXQgYW5kIG1hdGNoZWQKPiB0aHJvdWdoIHRoZSBPVlMgZmxvdyB0YWJsZSBhbmQg
-YW4gYWN0aW9uLiAgSW4gb3JkZXIgdG8gZG8gdGhpcyB3aXRoCj4gdGhlIGluLXRyZWUgdHVubmVs
-aW5nIGNvZGUsIHdlIG9idmlvdXNseSBuZWVkIGEgd2F5IG9mIHBhc3NpbmcgdGhpcwo+IGluZm9y
-bWF0aW9uIGFyb3VuZCBzaW5jZSBpdCB3b3VsZCBjdXJyZW50bHkgZ2V0IGxvc3QgYXMgd2UgcGFz
-cwo+IHRocm91Z2ggdGhlIExpbnV4IGRldmljZSBsYXllci4KPiAKPiBUaGUgcGxhbiB0byBkZWFs
-IHdpdGggdGhhdCBpcyB0byBhZGQgYSBmdW5jdGlvbiB0byB0aGUgaW4tdHJlZQo+IHR1bm5lbGlu
-ZyBjb2RlIHRoYXQgYWxsb3dzIGEgc2tiIHRvIGJlIGVuY2Fwc3VsYXRlZCB3aXRoIHNwZWNpZmlj
-Cj4gcGFyYW1ldGVycyBhbmQgY29udmVyc2VseSBhIGhvb2sgdG8gcmVjZWl2ZSBkZWNhcHN1bGF0
-ZWQgcGFja2V0cyBhbG9uZwo+IHdpdGggaGVhZGVyIGluZm8uICBUaGlzIHdvdWxkIG1ha2UgYWxs
-IG9mIHRoZSBrZXJuZWwgdHVubmVsaW5nIGNvZGUKPiBjb21tb24sIHdoaWxlIHN0aWxsIGdpdmlu
-ZyBPVlMgdXNlcnNwYWNlIHRoZSBhYmlsaXR5IHRvIGltcGxlbWVudAo+IGVzc2VudGlhbGx5IGFu
-eSB0eXBlIG9mIHR1bm5lbGluZyBwb2xpY3kuICBJbiBtYW55IHdheXMsIHRoaXMgaXMgdmVyeQo+
-IHNpbWlsYXIgdG8gaG93IHZsYW5zIGxvb2sgaW4gT1ZTIHRvZGF5Lgo+IAo+IFdoaWxlIGl0IHdv
-dWxkIGJlIHBvc3NpYmxlIHRvIGltcGxlbWVudCB0aGUgaG9vayB0byB1c2UgdGhlIGluLXRyZWUK
-PiB0dW5uZWwgY29kZSB0b2RheSB3aXRob3V0IGEgbG90IG9mIGNoYW5nZXMsIHdlIGFscmVhZHkg
-a25vdyB0aGF0IHdlCj4gd2FudCB0byBtb3ZlIGF3YXkgZnJvbSBwb3J0LWJhc2VkIG1vZGVsIGlu
-IHRoZSBPVlMga2VybmVsIG1vZHVsZQo+IHRvd2FyZHMgdGhlIGZsb3cgbW9kZWwuICBBcyB3ZSBw
-dXNoIHRoaXMgdXBzdHJlYW0gdGhlIHVzZXJzcGFjZS9rZXJuZWwKPiBBUEkgc2hvdWxkIGJlIHRo
-ZSBjb3JyZWN0IG9uZSwgc28gdGhhdCdzIHdoeSB0aGVzZSB0d28gdGhpbmdzIGFyZSB0aWVkCj4g
-dG9nZXRoZXIuCgoKVGhhbmtzLCB0aGF0IGV4cGxhbmF0aW9uIGFsb25nIHdpdGggS3lsZSdzIHJl
-c3BvbnNlIGhlbHBzIGEgbG90LgoKSXQgc2VlbXMgdG8gbWUgdGhhdCBzb21ldGhpbmcgSSBjb3Vs
-ZCBoZWxwIG91dCB3aXRoIGlzIHRoZSBpbXBsZW1lbnRhdGlvbgpvZiB0aGUgc2V0X3R1bm5lbCBh
-Y3Rpb24gd2hpY2ggZXh0ZW50cyBhbmQgcmVwbGFjZXMgdGhlIHR1bl9pZCBhY3Rpb24uCkl0IHNl
-ZW1zIHRoYXQgaXMgYSByZXF1aXJlbWVudCBmb3IgdGhlIHNjaGVtZSB5b3UgZGVzY3JpYmUgYWJv
-dmUuCgpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL3BpcGVybWFpbC9kZXYvMjAxMi1BcHJpbC8wMTYy
-MzkuaHRtbApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
-ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+
+All 4 patches applied to net-next, thanks.
