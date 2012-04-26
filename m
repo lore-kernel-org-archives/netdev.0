@@ -1,104 +1,175 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 1/4 (V3)] net: ethtool: add the EEE support
-Date: Thu, 26 Apr 2012 09:48:28 +0200
-Message-ID: <4F98FDCC.3040807@st.com>
-References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>   <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com>  <1334269598.2497.50.camel@bwh-desktop.uk.solarflarecom.com>  <4F8BB103.7020107@st.com> <4F900C08.5000906@st.com> <1334849401.2426.73.camel@bwh-desktop.uk.solarflarecom.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [v2 PATCH 1/1] ipvs: kernel oops - do_ip_vs_get_ctl
+Date: Thu, 26 Apr 2012 11:11:17 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1204261110020.1879@ja.ssi.bg>
+References: <1335419264-1225-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, rayagond@vayavyalabs.com,
-	davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:33290 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750908Ab2DZHvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 03:51:09 -0400
-In-Reply-To: <1334849401.2426.73.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, wensong@linux-vs.org, brouer@redhat.com,
+	rohara@redhat.com, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hans@schillstrom.com
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1335419264-1225-1-git-send-email-hans.schillstrom@ericsson.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Ben
 
-On 4/19/2012 5:30 PM, Ben Hutchings wrote:
-[snip]
->> I'm changing the code for getting/setting the EEE capability and try=
-ing
->> to follow your suggestions.
->>
->> The "get" will show the following things; this is a bit different of=
- the
->> points "a" "b" and "c" we had discussed. Maybe, this could also be a
->> more complete (*) .
->> The ethtool (see output below as example) could report the phy
->> (supported/advertised/lp_advertised) and mac eee capabilities separa=
-tely.
->=20
-> Sounds reasonable.
->=20
->> The "set" will be useful for some eth devices (like the stmmac) that=
- can
->> stop/enable internally the eee capability (at mac level).
->=20
-> I don't know much about EEE, but shouldn't the driver take care of
-> configuring the MAC for this whenever the PHY is set to advertise EEE
-> capability?
+	Hello,
 
-Yes indeed this can be done at driver level. So could I definitely
-remove it from ethtool? What do you suggest?
+On Thu, 26 Apr 2012, Hans Schillstrom wrote:
 
-In case of the stmmac I could add a specific driver option via sys to
-enable/disable the eee and set timer.
+> Change order of init so netns init is ready
+> when register ioctl and netlink.
+> 
+> Ver2 
+> 	Whitespace fixes and __init added.
+> 
+> Reported-by: "Ryan O'Hara" <rohara@redhat.com>
+> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
->> [snip]
->>
->> 	Current message level: 0x0000003f (63)
->> 			       drv probe link timer ifdown ifup
->> 	Link detected: yes
->> 	Energy-Efficient Ethernet:           -------------------------
->> 		MAC supports: yes            |-> related to MAC side  |
->> 		phy supports modes: ...      |-> from MMD 3.20        |
->> 		phy advertising modes: ...   |-> from MMD 7.60        |
->> 		LP advertising modes: ...    |-> from MMD 7.61        |
->> 					     --------------------------
->>                                                     (*)
->> PS. The "..." above means that we can actually dump: 100BASE-TX EEE =
-etc
->> for each advertising modes and also for phy support (reg 3.20).
->=20
-> Yes, that's the sort of information I would expect to see (but try to=
- be
-> consistent with the wording used for AN).:
+Acked-by: Julian Anastasov <ja@ssi.bg>
 
-e.g. SUPPORTED_100baseT_EEE ... ADVERTISED_<...>
+> ---
+>  include/net/ip_vs.h             |    2 +
+>  net/netfilter/ipvs/ip_vs_core.c |    9 ++++++
+>  net/netfilter/ipvs/ip_vs_ctl.c  |   52 ++++++++++++++++++++++----------------
+>  3 files changed, 41 insertions(+), 22 deletions(-)
+> 
+> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+> index f967395..93b81aa 100644
+> --- a/include/net/ip_vs.h
+> +++ b/include/net/ip_vs.h
+> @@ -1201,6 +1201,8 @@ ip_vs_lookup_real_service(struct net *net, int af, __u16 protocol,
+>  
+>  extern int ip_vs_use_count_inc(void);
+>  extern void ip_vs_use_count_dec(void);
+> +extern int ip_vs_register_nl_ioctl(void);
+> +extern void ip_vs_unregister_nl_ioctl(void);
+>  extern int ip_vs_control_init(void);
+>  extern void ip_vs_control_cleanup(void);
+>  extern struct ip_vs_dest *
+> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+> index d8b1d30..c8f36b9 100644
+> --- a/net/netfilter/ipvs/ip_vs_core.c
+> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> @@ -1995,10 +1995,18 @@ static int __init ip_vs_init(void)
+>  		goto cleanup_dev;
+>  	}
+>  
+> +	ret = ip_vs_register_nl_ioctl();
+> +	if (ret < 0) {
+> +		pr_err("can't register netlink/ioctl.\n");
+> +		goto cleanup_hooks;
+> +	}
+> +
+>  	pr_info("ipvs loaded.\n");
+>  
+>  	return ret;
+>  
+> +cleanup_hooks:
+> +	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
+>  cleanup_dev:
+>  	unregister_pernet_device(&ipvs_core_dev_ops);
+>  cleanup_sub:
+> @@ -2014,6 +2022,7 @@ exit:
+>  
+>  static void __exit ip_vs_cleanup(void)
+>  {
+> +	ip_vs_unregister_nl_ioctl();
+>  	nf_unregister_hooks(ip_vs_ops, ARRAY_SIZE(ip_vs_ops));
+>  	unregister_pernet_device(&ipvs_core_dev_ops);
+>  	unregister_pernet_subsys(&ipvs_core_ops);	/* free ip_vs struct */
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 7131417..efaf484 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -3750,21 +3750,10 @@ void __net_exit ip_vs_control_net_cleanup(struct net *net)
+>  	free_percpu(ipvs->tot_stats.cpustats);
+>  }
+>  
+> -int __init ip_vs_control_init(void)
+> +int __init ip_vs_register_nl_ioctl(void)
+>  {
+> -	int idx;
+>  	int ret;
+>  
+> -	EnterFunction(2);
+> -
+> -	/* Initialize svc_table, ip_vs_svc_fwm_table, rs_table */
+> -	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++)  {
+> -		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
+> -		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
+> -	}
+> -
+> -	smp_wmb();	/* Do we really need it now ? */
+> -
+>  	ret = nf_register_sockopt(&ip_vs_sockopts);
+>  	if (ret) {
+>  		pr_err("cannot register sockopt.\n");
+> @@ -3776,28 +3765,47 @@ int __init ip_vs_control_init(void)
+>  		pr_err("cannot register Generic Netlink interface.\n");
+>  		goto err_genl;
+>  	}
+> -
+> -	ret = register_netdevice_notifier(&ip_vs_dst_notifier);
+> -	if (ret < 0)
+> -		goto err_notf;
+> -
+> -	LeaveFunction(2);
+>  	return 0;
+>  
+> -err_notf:
+> -	ip_vs_genl_unregister();
+>  err_genl:
+>  	nf_unregister_sockopt(&ip_vs_sockopts);
+>  err_sock:
+>  	return ret;
+>  }
+>  
+> +void ip_vs_unregister_nl_ioctl(void)
+> +{
+> +	ip_vs_genl_unregister();
+> +	nf_unregister_sockopt(&ip_vs_sockopts);
+> +}
+> +
+> +int __init ip_vs_control_init(void)
+> +{
+> +	int idx;
+> +	int ret;
+> +
+> +	EnterFunction(2);
+> +
+> +	/* Initialize svc_table, ip_vs_svc_fwm_table, rs_table */
+> +	for (idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
+> +		INIT_LIST_HEAD(&ip_vs_svc_table[idx]);
+> +		INIT_LIST_HEAD(&ip_vs_svc_fwm_table[idx]);
+> +	}
+> +
+> +	smp_wmb();	/* Do we really need it now ? */
+> +
+> +	ret = register_netdevice_notifier(&ip_vs_dst_notifier);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	LeaveFunction(2);
+> +	return 0;
+> +}
+> +
+>  
+>  void ip_vs_control_cleanup(void)
+>  {
+>  	EnterFunction(2);
+>  	unregister_netdevice_notifier(&ip_vs_dst_notifier);
+> -	ip_vs_genl_unregister();
+> -	nf_unregister_sockopt(&ip_vs_sockopts);
+>  	LeaveFunction(2);
+>  }
+> -- 
+> 1.7.2.3
 
-> The EEE advertising mask presumably should be changeable similarly to
-> the AN advertising mask ('ethtool -s <devname> eeeadv <mask>').  But =
-I
-> don't know how the two advertising masks interact.  Is one supposed t=
-o
-> be a subset of the other?  Currently ethtool automatically changes th=
-e
-> AN advertising mask in response to a speed/duplex change; should it a=
-lso
-> try to change the EEE advertising mask?
+Regards
 
-I've just verified the IEEE (Table 45=E2=80=93150a=E2=80=94EEE advertis=
-ement register
-(Register 7.60) bit definitions) and sorry for my delay in reply but I
-was in trouble because looking at the registers for the phy (I am using=
-)
-the reg 7.60 was in RO and I couldn't understand how to set the mask.
-I confirm that the Adv reg from the std is R/W and the mask as you
-suggest could be set according to the speed.
-The EEE should work on duplex mode only.
-
-I wonder so if if the final patch I should have no new option for the
-ethtool command and EEE info are directly passed from the kernel like
-speed and duplex when call get_settings.
-
-Peppe
-
->=20
-> Ben.
->=20
+--
+Julian Anastasov <ja@ssi.bg>
