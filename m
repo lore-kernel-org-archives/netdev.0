@@ -1,33 +1,52 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [v2 PATCH 0/2] ipvs: netns avoid crash at netns init
-Date: Thu, 26 Apr 2012 11:30:00 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1204261126340.1879@ja.ssi.bg>
-References: <1335426335-5093-1-git-send-email-hans.schillstrom@ericsson.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH 1/2] iproute2: allow IPv6 addresses for l2tp local and
+ remote parameters
+Date: Thu, 26 Apr 2012 09:32:21 +0100
+Message-ID: <4F990815.9000007@katalix.com>
+References: <1334921383-32109-1-git-send-email-jchapman@katalix.com> <1334921383-32109-2-git-send-email-jchapman@katalix.com> <20120425131311.0de3b94f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: horms@verge.net.au, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1335426335-5093-1-git-send-email-hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Chris Elston <celston@katalix.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:38281 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754883Ab2DZIcY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2012 04:32:24 -0400
+In-Reply-To: <20120425131311.0de3b94f@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-On Thu, 26 Apr 2012, Hans Schillstrom wrote:
-
-> Two simple patches that avoid crashes for no memory at netns init.
+On 25/04/12 21:13, Stephen Hemminger wrote:
+> On Fri, 20 Apr 2012 12:29:42 +0100
+> James Chapman <jchapman@katalix.com> wrote:
 > 
-> - Check return value of protocoll init.
-> - Null check of net-ipvs in shedulers.
+>> From: Chris Elston <celston@katalix.com>
+>>
+>> Adds support for parsing IPv6 addresses to the parameters local and
+>> remote in the l2tp commands. Requires netlink attributes L2TP_ATTR_IP6_SADDR
+>> and L2TP_ATTR_IP6_DADDR, added in a required kernel patch already submitted
+>> to netdev.
+>>
+>> Also enables printing of IPv6 addresses returned by the L2TP_CMD_TUNNEL_GET
+>> request.
+>>
+>> Signed-off-by: Chris Elston <celston@katalix.com>
+>> Signed-off-by: James Chapman <jchapman@katalix.com>
 > 
-> 
-> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> Accepted.
 
-	Both patches look ok
+The kernel patches that this code depends on aren't in the tree yet
+(kernel header file update). It uses new netlink attributes so the
+iproute2 git compile fails.
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
+I suggest revert the patch for now. I'll resubmit when the dependencies
+are in the netdev tree.
 
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
