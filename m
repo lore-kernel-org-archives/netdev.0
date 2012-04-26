@@ -1,48 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/5] be2net: Fix to allow setting of debug
- levels in the firmware.
-Date: Thu, 26 Apr 2012 18:29:48 +0100
-Message-ID: <1335461388.2712.25.camel@bwh-desktop.uk.solarflarecom.com>
-References: <464dcb28-2450-4e0b-a30f-d8c9104bac86@exht1.ad.emulex.com>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Subject: [PATCH] NFC: nci/data.c: quiet sparse noise about plain integer as NULL pointer
+Date: Thu, 26 Apr 2012 10:31:16 -0700
+Message-ID: <201204261031.16737.hartleys@visionengravers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Somnath Kotur <Somnath.Kotur@emulex.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:15729 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752161Ab2DZR3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 13:29:55 -0400
-In-Reply-To: <464dcb28-2450-4e0b-a30f-d8c9104bac86@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
+	<lauro.venancio@openbossa.org>, <aloisio.almeida@openbossa.org>,
+	<sameo@linux.intel.com>, <davem@davemloft.net>
+To: Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-04-26 at 19:57 +0530, Somnath Kotur wrote:
-> From: Somnath Kotur <somnath.kotur@emulex.com>
-[...]
-> @@ -893,6 +959,7 @@ const struct ethtool_ops be_ethtool_ops = {
->  	.set_pauseparam = be_set_pauseparam,
->  	.get_strings = be_get_stat_strings,
->  	.set_phys_id = be_set_phys_id,
-> +	.set_msglevel = be_set_msglevel,
->  	.get_sset_count = be_get_sset_count,
->  	.get_ethtool_stats = be_get_ethtool_stats,
->  	.get_regs_len = be_get_reg_len,
+Pointers should be cleared with NULL, not 0.
 
-This operation is intended for controlling logging by the driver, and
-the flags are defined in <linux/netdevice.h>.  (Not exported to userland
-yet, but ethtool knows their names.)
+Quiets a couple sparse warnings of the type:
 
-If your firmware supports some kind of logging then it may be reasonable
-to have this control both driver and firmware, but not *just* the
-firmware.
+warning: Using plain integer as NULL pointer
 
-You should also implement the get_msglevel operation at the same time.
+Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
+Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 
-Ben.
+---
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/net/nfc/nci/data.c b/net/nfc/nci/data.c
+index a0bc326..76c48c5 100644
+--- a/net/nfc/nci/data.c
++++ b/net/nfc/nci/data.c
+@@ -49,7 +49,7 @@ void nci_data_exchange_complete(struct nci_dev *ndev, struct sk_buff *skb,
+ 
+ 	if (cb) {
+ 		ndev->data_exchange_cb = NULL;
+-		ndev->data_exchange_cb_context = 0;
++		ndev->data_exchange_cb_context = NULL;
+ 
+ 		/* forward skb to nfc core */
+ 		cb(cb_context, skb, err);
+@@ -200,10 +200,10 @@ static void nci_add_rx_data_frag(struct nci_dev *ndev,
+ 			pr_err("error adding room for accumulated rx data\n");
+ 
+ 			kfree_skb(skb);
+-			skb = 0;
++			skb = NULL;
+ 
+ 			kfree_skb(ndev->rx_data_reassembly);
+-			ndev->rx_data_reassembly = 0;
++			ndev->rx_data_reassembly = NULL;
+ 
+ 			err = -ENOMEM;
+ 			goto exit;
+@@ -216,7 +216,7 @@ static void nci_add_rx_data_frag(struct nci_dev *ndev,
+ 
+ 		/* third, free old reassembly */
+ 		kfree_skb(ndev->rx_data_reassembly);
+-		ndev->rx_data_reassembly = 0;
++		ndev->rx_data_reassembly = NULL;
+ 	}
+ 
+ 	if (pbf == NCI_PBF_CONT) {
