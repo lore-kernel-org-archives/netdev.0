@@ -1,146 +1,37 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH] tcp repair: Fix unaligned access when repairing options (v2)
-Date: Thu, 26 Apr 2012 12:50:57 +0400
-Message-ID: <4F990C71.3020500@parallels.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2] pedit action: add mask for changing bits.
+Date: Thu, 26 Apr 2012 06:21:36 -0400
+Message-ID: <1335435696.7123.1.camel@mojatatu>
+References: <CAEzD07+0EA12igqAcwbM8VGKLR9Hp0GjJ7t_Jve=JXOrEKvu9w@mail.gmail.com>
+	 <1330351135.2384.1039.camel@mojatatu>
+	 <CAEzD07KenHteg0S8-OfAwqTNTSQdvPOJsA-m_+8CW-8c_HCgnw@mail.gmail.com>
+	 <1330434308.2369.11.camel@mojatatu>
+	 <CAEzD07LO9LQR6f_cP7TQ7e9gBCQcnG4O5q0TiALf=Bjyh3cY3g@mail.gmail.com>
+	 <1330524080.18226.21.camel@mojatatu>
+	 <20120425131532.79ad7e6b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>
-To: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:5533 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750908Ab2DZKVe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Apr 2012 06:21:34 -0400
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:58042 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908Ab2DZKVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 06:21:40 -0400
+Received: by iadi9 with SMTP id i9so1382567iad.19
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 03:21:39 -0700 (PDT)
+In-Reply-To: <20120425131532.79ad7e6b@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't pick __u8/__u16 values directly from raw pointers, but instead use
-an array of structures of code:value pairs. This is OK, since the buffer
-we take options from is not an skb memory, but a user-to-kernel one.
+On Wed, 2012-04-25 at 13:15 -0700, Stephen Hemminger wrote:
 
-For those options which don't require any value now, require this to be
-zero (for potential future extension of this API).
+> Did you come to a conclusion, should it be applied as is?
 
-v2: Changed tcp_repair_opt to use two __u32-s as spotted by David Laight.
+No, dont apply it as is please. 
+EvilMan should have a new version when he gets to it.
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-
----
- include/linux/tcp.h |    5 ++++
- net/ipv4/tcp.c      |   60 +++++++++++++++++---------------------------------
- 2 files changed, 26 insertions(+), 39 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 9865936..d0401d9 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -111,6 +111,11 @@ enum {
- #define TCP_QUEUE_SEQ		21
- #define TCP_REPAIR_OPTIONS	22
- 
-+struct tcp_repair_opt {
-+	__u32	opt_code;
-+	__u32	opt_val;
-+};
-+
- enum {
- 	TCP_NO_QUEUE,
- 	TCP_RECV_QUEUE,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index de6a238..9670af3 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2283,60 +2283,40 @@ static inline int tcp_can_repair_sock(struct sock *sk)
- 		((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_ESTABLISHED));
- }
- 
--static int tcp_repair_options_est(struct tcp_sock *tp, char __user *optbuf, unsigned int len)
-+static int tcp_repair_options_est(struct tcp_sock *tp,
-+		struct tcp_repair_opt __user *optbuf, unsigned int len)
- {
--	/*
--	 * Options are stored in CODE:VALUE form where CODE is 8bit and VALUE
--	 * fits the respective TCPOLEN_ size
--	 */
-+	struct tcp_repair_opt opt;
- 
--	while (len > 0) {
--		u8 opcode;
--
--		if (get_user(opcode, optbuf))
-+	while (len >= sizeof(opt)) {
-+		if (copy_from_user(&opt, optbuf, sizeof(opt)))
- 			return -EFAULT;
- 
- 		optbuf++;
--		len--;
--
--		switch (opcode) {
--		case TCPOPT_MSS: {
--			u16 in_mss;
-+		len -= sizeof(opt);
- 
--			if (len < sizeof(in_mss))
--				return -ENODATA;
--			if (get_user(in_mss, optbuf))
--				return -EFAULT;
--
--			tp->rx_opt.mss_clamp = in_mss;
--
--			optbuf += sizeof(in_mss);
--			len -= sizeof(in_mss);
-+		switch (opt.opt_code) {
-+		case TCPOPT_MSS:
-+			tp->rx_opt.mss_clamp = opt.opt_val;
- 			break;
--		}
--		case TCPOPT_WINDOW: {
--			u8 wscale;
--
--			if (len < sizeof(wscale))
--				return -ENODATA;
--			if (get_user(wscale, optbuf))
--				return -EFAULT;
--
--			if (wscale > 14)
-+		case TCPOPT_WINDOW:
-+			if (opt.opt_val > 14)
- 				return -EFBIG;
- 
--			tp->rx_opt.snd_wscale = wscale;
--
--			optbuf += sizeof(wscale);
--			len -= sizeof(wscale);
-+			tp->rx_opt.snd_wscale = opt.opt_val;
- 			break;
--		}
- 		case TCPOPT_SACK_PERM:
-+			if (opt.opt_val != 0)
-+				return -EINVAL;
-+
- 			tp->rx_opt.sack_ok |= TCP_SACK_SEEN;
- 			if (sysctl_tcp_fack)
- 				tcp_enable_fack(tp);
- 			break;
- 		case TCPOPT_TIMESTAMP:
-+			if (opt.opt_val != 0)
-+				return -EINVAL;
-+
- 			tp->rx_opt.tstamp_ok = 1;
- 			break;
- 		}
-@@ -2557,7 +2537,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		if (!tp->repair)
- 			err = -EINVAL;
- 		else if (sk->sk_state == TCP_ESTABLISHED)
--			err = tcp_repair_options_est(tp, optval, optlen);
-+			err = tcp_repair_options_est(tp,
-+					(struct tcp_repair_opt __user *)optval,
-+					optlen);
- 		else
- 			err = -EPERM;
- 		break;
--- 
-1.5.5.6
+cheers,
+jamal
