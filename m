@@ -1,178 +1,155 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 04/10] atl1c: refine SERDES-clock related code
-Date: Thu, 26 Apr 2012 14:27:12 +0800
-Message-ID: <1335421638-16304-5-git-send-email-xiong@qca.qualcomm.com>
-References: <1335421638-16304-1-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 09/10] atl1c: refine start/enable code for MAC module
+Date: Thu, 26 Apr 2012 14:41:00 +0800
+Message-ID: <1335422461-16588-2-git-send-email-xiong@qca.qualcomm.com>
+References: <1335422461-16588-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 	xiong <xiong@qca.qualcomm.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:17482 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754119Ab2DZG2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 02:28:33 -0400
-In-Reply-To: <1335421638-16304-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1335422461-16588-1-git-send-email-xiong@qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-bit 17/18 of reg1424 must be clear for l2cb 1.x, or it will cause
-the write-reg operation fail without cable connected.
-so, please do connect the cable when apply this patch to the driver
-to make sure these 2bits are cleared by new driver.
-The revised code is move to al1c_reset_mac.
-SERDES register definition is refined as well.
-
-when do reset MAC, speed/duplex control right should be transferred
-to software before do PHY auto-neg -- by bit MASTER_CTRL_SPEED_MODE_SW.
-SERDES register definition is refined as well.
+merge TXQ/RXQ/MAC start/enable code to one function as they
+are started/enabled at the same time, just like stop/disable them
+in the function of atl1c_stop_mac.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c |    2 +-
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h      |   34 +++++++++++------
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |   40 +++++++++++++-------
- 3 files changed, 49 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   89 +++++++----------------
+ 1 files changed, 28 insertions(+), 61 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-index 3feb846..859ea84 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-@@ -153,7 +153,7 @@ static void atl1c_get_regs(struct net_device *netdev,
- 	AT_READ_REG(hw, REG_LINK_CTRL, 		  p++);
- 	AT_READ_REG(hw, REG_IDLE_STATUS, 	  p++);
- 	AT_READ_REG(hw, REG_MDIO_CTRL, 		  p++);
--	AT_READ_REG(hw, REG_SERDES_LOCK, 	  p++);
-+	AT_READ_REG(hw, REG_SERDES,		  p++);
- 	AT_READ_REG(hw, REG_MAC_CTRL, 		  p++);
- 	AT_READ_REG(hw, REG_MAC_IPG_IFG, 	  p++);
- 	AT_READ_REG(hw, REG_MAC_STA_ADDR, 	  p++);
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-index cb2d20b..113e67b 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
-@@ -327,18 +327,28 @@ int atl1c_write_phy_ext(struct atl1c_hw *hw, u8 dev_addr,
- #define BIST1_FUSE_FLAG             	0x4
- 
- /* SerDes Lock Detect Control and Status Register */
--#define REG_SERDES_LOCK            	0x1424
--#define SERDES_LOCK_DETECT          	0x1  /* SerDes lock detected. This signal
--					      * comes from Analog SerDes */
--#define SERDES_LOCK_DETECT_EN       	0x2  /* 1: Enable SerDes Lock detect function */
--#define SERDES_LOCK_STS_SELFB_PLL_SHIFT 0xE
--#define SERDES_LOCK_STS_SELFB_PLL_MASK  0x3
--#define SERDES_OVCLK_18_25		0x0
--#define SERDES_OVCLK_12_18		0x1
--#define SERDES_OVCLK_0_4		0x2
--#define SERDES_OVCLK_4_12		0x3
--#define SERDES_MAC_CLK_SLOWDOWN		0x20000
--#define SERDES_PYH_CLK_SLOWDOWN		0x40000
-+#define REG_SERDES			0x1424
-+#define SERDES_PHY_CLK_SLOWDOWN		BIT(18)
-+#define SERDES_MAC_CLK_SLOWDOWN		BIT(17)
-+#define SERDES_SELFB_PLL_MASK		0x3UL
-+#define SERDES_SELFB_PLL_SHIFT		14
-+#define SERDES_PHYCLK_SEL_GTX		BIT(13)	/* 1:gtx_clk, 0:25M */
-+#define SERDES_PCIECLK_SEL_SRDS		BIT(12)	/* 1:serdes,0:25M */
-+#define SERDES_BUFS_RX_EN		BIT(11)
-+#define SERDES_PD_RX			BIT(10)
-+#define SERDES_PLL_EN			BIT(9)
-+#define SERDES_EN			BIT(8)
-+#define SERDES_SELFB_PLL_SEL_CSR	BIT(6)	/* 0:state-machine,1:csr */
-+#define SERDES_SELFB_PLL_CSR_MASK	0x3UL
-+#define SERDES_SELFB_PLL_CSR_SHIFT	4
-+#define SERDES_SELFB_PLL_CSR_4		3	/* 4-12% OV-CLK */
-+#define SERDES_SELFB_PLL_CSR_0		2	/* 0-4% OV-CLK */
-+#define SERDES_SELFB_PLL_CSR_12		1	/* 12-18% OV-CLK */
-+#define SERDES_SELFB_PLL_CSR_18		0	/* 18-25% OV-CLK */
-+#define SERDES_VCO_SLOW			BIT(3)
-+#define SERDES_VCO_FAST			BIT(2)
-+#define SERDES_LOCK_DETECT_EN		BIT(1)
-+#define SERDES_LOCK_DETECT		BIT(0)
- 
- /* MAC Control Register  */
- #define REG_MAC_CTRL         		0x1480
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index f0f348b..cf78287 100644
+index d03112c..25b7b00 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -1008,7 +1008,6 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
- 	struct atl1c_rrd_ring *rrd_ring = &adapter->rrd_ring;
- 	struct atl1c_tpd_ring *tpd_ring = (struct atl1c_tpd_ring *)
- 				adapter->tpd_ring;
--	u32 data;
+@@ -53,11 +53,9 @@ MODULE_LICENSE("GPL");
+ MODULE_VERSION(ATL1C_DRV_VERSION);
  
- 	/* TPD */
- 	AT_WRITE_REG(hw, REG_TX_BASE_ADDR_HI,
-@@ -1052,13 +1051,6 @@ static void atl1c_configure_des_ring(struct atl1c_adapter *adapter)
- 		AT_WRITE_REG(hw, REG_TXF_WATER_MARK, 0);	/* TX watermark, to enter l1 state.*/
- 		AT_WRITE_REG(hw, REG_RXD_DMA_CTRL, 0);		/* RXD threshold.*/
- 	}
--	if (hw->nic_type == athr_l2c_b || hw->nic_type == athr_l1d_2) {
--			/* Power Saving for L2c_B */
--		AT_READ_REG(hw, REG_SERDES_LOCK, &data);
--		data |= SERDES_MAC_CLK_SLOWDOWN;
--		data |= SERDES_PYH_CLK_SLOWDOWN;
--		AT_WRITE_REG(hw, REG_SERDES_LOCK, data);
--	}
- 	/* Load all of base address above */
- 	AT_WRITE_REG(hw, REG_LOAD_PTR, 1);
+ static int atl1c_stop_mac(struct atl1c_hw *hw);
+-static void atl1c_enable_rx_ctrl(struct atl1c_hw *hw);
+-static void atl1c_enable_tx_ctrl(struct atl1c_hw *hw);
+ static void atl1c_disable_l0s_l1(struct atl1c_hw *hw);
+ static void atl1c_set_aspm(struct atl1c_hw *hw, u16 link_speed);
+-static void atl1c_setup_mac_ctrl(struct atl1c_adapter *adapter);
++static void atl1c_start_mac(struct atl1c_adapter *adapter);
+ static void atl1c_clean_rx_irq(struct atl1c_adapter *adapter,
+ 		   int *work_done, int work_to_do);
+ static int atl1c_up(struct atl1c_adapter *adapter);
+@@ -276,9 +274,7 @@ static void atl1c_check_link_status(struct atl1c_adapter *adapter)
+ 			adapter->link_speed  = speed;
+ 			adapter->link_duplex = duplex;
+ 			atl1c_set_aspm(hw, speed);
+-			atl1c_enable_tx_ctrl(hw);
+-			atl1c_enable_rx_ctrl(hw);
+-			atl1c_setup_mac_ctrl(adapter);
++			atl1c_start_mac(adapter);
+ 			if (netif_msg_link(adapter))
+ 				dev_info(&pdev->dev,
+ 					"%s: %s NIC Link is Up<%d Mbps %s>\n",
+@@ -1132,22 +1128,36 @@ static int atl1c_stop_mac(struct atl1c_hw *hw)
+ 		IDLE_STATUS_TXMAC_BUSY | IDLE_STATUS_RXMAC_BUSY);
  }
-@@ -1177,7 +1169,7 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
+ 
+-static void atl1c_enable_rx_ctrl(struct atl1c_hw *hw)
++static void atl1c_start_mac(struct atl1c_adapter *adapter)
  {
- 	struct atl1c_adapter *adapter = (struct atl1c_adapter *)hw->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
--	u32 master_ctrl_data = 0;
-+	u32 ctrl_data = 0;
+-	u32 data;
++	struct atl1c_hw *hw = &adapter->hw;
++	u32 mac, txq, rxq;
  
- 	AT_WRITE_REG(hw, REG_IMR, 0);
- 	AT_WRITE_REG(hw, REG_ISR, ISR_DIS_INT);
-@@ -1189,10 +1181,9 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
- 	 * the current PCI configuration.  The global reset bit is self-
- 	 * clearing, and should clear within a microsecond.
- 	 */
--	AT_READ_REG(hw, REG_MASTER_CTRL, &master_ctrl_data);
--	master_ctrl_data |= MASTER_CTRL_OOB_DIS;
--	AT_WRITE_REG(hw, REG_MASTER_CTRL,
--		master_ctrl_data | MASTER_CTRL_SOFT_RST);
-+	AT_READ_REG(hw, REG_MASTER_CTRL, &ctrl_data);
-+	ctrl_data |= MASTER_CTRL_OOB_DIS;
-+	AT_WRITE_REG(hw, REG_MASTER_CTRL, ctrl_data | MASTER_CTRL_SOFT_RST);
+-	AT_READ_REG(hw, REG_RXQ_CTRL, &data);
+-	data |= RXQ_CTRL_EN;
+-	AT_WRITE_REG(hw, REG_RXQ_CTRL, data);
+-}
++	hw->mac_duplex = adapter->link_duplex == FULL_DUPLEX ? true : false;
++	hw->mac_speed = adapter->link_speed == SPEED_1000 ?
++		atl1c_mac_speed_1000 : atl1c_mac_speed_10_100;
  
- 	AT_WRITE_FLUSH(hw);
- 	msleep(10);
-@@ -1204,7 +1195,28 @@ static int atl1c_reset_mac(struct atl1c_hw *hw)
- 			" disabled for 10ms second\n");
- 		return -1;
- 	}
--	AT_WRITE_REG(hw, REG_MASTER_CTRL, master_ctrl_data);
-+	AT_WRITE_REG(hw, REG_MASTER_CTRL, ctrl_data);
+-static void atl1c_enable_tx_ctrl(struct atl1c_hw *hw)
+-{
+-	u32 data;
++	AT_READ_REG(hw, REG_TXQ_CTRL, &txq);
++	AT_READ_REG(hw, REG_RXQ_CTRL, &rxq);
++	AT_READ_REG(hw, REG_MAC_CTRL, &mac);
+ 
+-	AT_READ_REG(hw, REG_TXQ_CTRL, &data);
+-	data |= TXQ_CTRL_EN;
+-	AT_WRITE_REG(hw, REG_TXQ_CTRL, data);
++	txq |= TXQ_CTRL_EN;
++	rxq |= RXQ_CTRL_EN;
++	mac |= MAC_CTRL_TX_EN | MAC_CTRL_TX_FLOW |
++	       MAC_CTRL_RX_EN | MAC_CTRL_RX_FLOW |
++	       MAC_CTRL_ADD_CRC | MAC_CTRL_PAD |
++	       MAC_CTRL_BC_EN | MAC_CTRL_SINGLE_PAUSE_EN |
++	       MAC_CTRL_HASH_ALG_CRC32;
++	if (hw->mac_duplex)
++		mac |= MAC_CTRL_DUPLX;
++	else
++		mac &= ~MAC_CTRL_DUPLX;
++	mac = FIELD_SETX(mac, MAC_CTRL_SPEED, hw->mac_speed);
++	mac = FIELD_SETX(mac, MAC_CTRL_PRMLEN, hw->preamble_len);
 +
-+	/* driver control speed/duplex */
-+	AT_READ_REG(hw, REG_MAC_CTRL, &ctrl_data);
-+	AT_WRITE_REG(hw, REG_MAC_CTRL, ctrl_data | MAC_CTRL_SPEED_MODE_SW);
-+
-+	/* clk switch setting */
-+	AT_READ_REG(hw, REG_SERDES, &ctrl_data);
-+	switch (hw->nic_type) {
-+	case athr_l2c_b:
-+		ctrl_data &= ~(SERDES_PHY_CLK_SLOWDOWN |
-+				SERDES_MAC_CLK_SLOWDOWN);
-+		AT_WRITE_REG(hw, REG_SERDES, ctrl_data);
-+		break;
-+	case athr_l2c_b2:
-+	case athr_l1d_2:
-+		ctrl_data |= SERDES_PHY_CLK_SLOWDOWN | SERDES_MAC_CLK_SLOWDOWN;
-+		AT_WRITE_REG(hw, REG_SERDES, ctrl_data);
-+		break;
-+	default:
-+		break;
-+	}
- 
- 	return 0;
++	AT_WRITE_REG(hw, REG_TXQ_CTRL, txq);
++	AT_WRITE_REG(hw, REG_RXQ_CTRL, rxq);
++	AT_WRITE_REG(hw, REG_MAC_CTRL, mac);
  }
+ 
+ /*
+@@ -1296,49 +1306,6 @@ static void atl1c_set_aspm(struct atl1c_hw *hw, u16 link_speed)
+ 	return;
+ }
+ 
+-static void atl1c_setup_mac_ctrl(struct atl1c_adapter *adapter)
+-{
+-	struct atl1c_hw *hw = &adapter->hw;
+-	struct net_device *netdev = adapter->netdev;
+-	u32 mac_ctrl_data;
+-
+-	mac_ctrl_data = MAC_CTRL_TX_EN | MAC_CTRL_RX_EN;
+-	mac_ctrl_data |= (MAC_CTRL_TX_FLOW | MAC_CTRL_RX_FLOW);
+-
+-	if (adapter->link_duplex == FULL_DUPLEX) {
+-		hw->mac_duplex = true;
+-		mac_ctrl_data |= MAC_CTRL_DUPLX;
+-	}
+-
+-	if (adapter->link_speed == SPEED_1000)
+-		hw->mac_speed = atl1c_mac_speed_1000;
+-	else
+-		hw->mac_speed = atl1c_mac_speed_10_100;
+-
+-	mac_ctrl_data |= (hw->mac_speed & MAC_CTRL_SPEED_MASK) <<
+-			MAC_CTRL_SPEED_SHIFT;
+-
+-	mac_ctrl_data |= (MAC_CTRL_ADD_CRC | MAC_CTRL_PAD);
+-	mac_ctrl_data |= ((hw->preamble_len & MAC_CTRL_PRMLEN_MASK) <<
+-			MAC_CTRL_PRMLEN_SHIFT);
+-
+-	__atl1c_vlan_mode(netdev->features, &mac_ctrl_data);
+-
+-	mac_ctrl_data |= MAC_CTRL_BC_EN;
+-	if (netdev->flags & IFF_PROMISC)
+-		mac_ctrl_data |= MAC_CTRL_PROMIS_EN;
+-	if (netdev->flags & IFF_ALLMULTI)
+-		mac_ctrl_data |= MAC_CTRL_MC_ALL_EN;
+-
+-	mac_ctrl_data |= MAC_CTRL_SINGLE_PAUSE_EN;
+-	if (hw->nic_type == athr_l1d || hw->nic_type == athr_l2c_b2 ||
+-	    hw->nic_type == athr_l1d_2) {
+-		mac_ctrl_data |= MAC_CTRL_SPEED_MODE_SW;
+-		mac_ctrl_data |= MAC_CTRL_HASH_ALG_CRC32;
+-	}
+-	AT_WRITE_REG(hw, REG_MAC_CTRL, mac_ctrl_data);
+-}
+-
+ /*
+  * atl1c_configure - Configure Transmit&Receive Unit after Reset
+  * @adapter: board private structure
 -- 
 1.7.7
