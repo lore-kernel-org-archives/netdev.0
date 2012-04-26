@@ -1,54 +1,99 @@
 From: Glauber Costa <glommer@parallels.com>
-Subject: [PATCH v4 0/3] fix problem with static_branch() for sock memcg
-Date: Thu, 26 Apr 2012 19:51:04 -0300
-Message-ID: <1335480667-8301-1-git-send-email-glommer@parallels.com>
+Subject: [PATCH v4 1/3] make jump_labels wait while updates are in place
+Date: Thu, 26 Apr 2012 19:51:05 -0300
+Message-ID: <1335480667-8301-2-git-send-email-glommer@parallels.com>
+References: <1335480667-8301-1-git-send-email-glommer@parallels.com>
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	Li Zefan <lizefan@huawei.com>, Tejun Heo <tj@kernel.org>,
 	<kamezawa.hiroyu@jp.fujitsu.com>, <linux-mm@kvack.org>,
-	<devel@openvz.org>
+	<devel@openvz.org>, Glauber Costa <glommer@parallels.com>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Michal Hocko <mhocko@suse.cz>, Ingo Molnar <mingo@elte.hu>,
+	Jason Baron <jbaron@redhat.com>
 To: <cgroups@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1335480667-8301-1-git-send-email-glommer@parallels.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+In mem cgroup, we need to guarantee that two concurrent updates
+of the jump_label interface wait for each other. IOW, we can't have
+other updates returning while the first one is still patching the
+kernel around, otherwise we'll race.
 
-While trying to fulfill's Christoph's request for using static_branches
-to do part of the role of number_of_cpusets in the cpuset cgroup, I took
-a much more extensive look at the cpuset code (Thanks Christoph).
+I believe this is something that can fit well in the static branch
+API, without noticeable disadvantages:
 
-I started to feel that removing the cgroup_lock() from cpuset's
-destroy is not as safe as I first imagined. At the very best, is not safe
-enough to be bundled in a bugfix and deserves its own analysis.
+* in the common case, it will be a quite simple lock/unlock operation
+* Every context that calls static_branch_slow* already expects to be
+  in sleeping context because it will mutex_lock the unlikely case.
+* static_key_slow_inc is not expected to be called in any fast path,
+  otherwise it would be expected to have quite a different name. Therefore
+  the mutex + atomic combination instead of just an atomic should not kill
+  us.
 
-I started then to consider another approach. While I voiced many times
-that I would not like to do deferred updates for the static_branches, doing
-that during destroy time would be perfectly acceptable IMHO (creation is
-another story). In a summary, we are effectively calling the static_branch
-updates only when the last reference to the memcg is gone. And that is
-already asynchronous by nature, and we cope well with that.
+Signed-off-by: Glauber Costa <glommer@parallels.com>
+CC: Tejun Heo <tj@kernel.org>
+CC: Li Zefan <lizefan@huawei.com>
+CC: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+CC: Johannes Weiner <hannes@cmpxchg.org>
+CC: Michal Hocko <mhocko@suse.cz>
+CC: Ingo Molnar <mingo@elte.hu>
+CC: Jason Baron <jbaron@redhat.com>
+---
+ kernel/jump_label.c |   21 +++++++++++----------
+ 1 files changed, 11 insertions(+), 10 deletions(-)
 
-In memcg, it turns out that we already do deferred freeing of the memcg
-structure depending on the size of struct mem_cgroup.
-
-My proposal is to always do that, and then we get a worker more or less
-for free. Patch 3 is basically the same I had posted before, but without
-the mutex lock protection, now in the static branch guaranteed interface.
-
-Let me know if this is acceptable.
-
-Thanks
-
-Glauber Costa (3):
-  make jump_labels wait while updates are in place
-  Always free struct memcg through schedule_work()
-  decrement static keys on real destroy time
-
- include/net/sock.h        |    9 ++++++++
- kernel/jump_label.c       |   13 ++++++++---
- mm/memcontrol.c           |   50 +++++++++++++++++++++++++++++++++-----------
- net/ipv4/tcp_memcontrol.c |   34 ++++++++++++++++++++++++------
- 4 files changed, 82 insertions(+), 24 deletions(-)
-
+diff --git a/kernel/jump_label.c b/kernel/jump_label.c
+index 4304919..5d09cb4 100644
+--- a/kernel/jump_label.c
++++ b/kernel/jump_label.c
+@@ -57,17 +57,16 @@ static void jump_label_update(struct static_key *key, int enable);
+ 
+ void static_key_slow_inc(struct static_key *key)
+ {
++	jump_label_lock();
+ 	if (atomic_inc_not_zero(&key->enabled))
+-		return;
++		goto out;
+ 
+-	jump_label_lock();
+-	if (atomic_read(&key->enabled) == 0) {
+-		if (!jump_label_get_branch_default(key))
+-			jump_label_update(key, JUMP_LABEL_ENABLE);
+-		else
+-			jump_label_update(key, JUMP_LABEL_DISABLE);
+-	}
++	if (!jump_label_get_branch_default(key))
++		jump_label_update(key, JUMP_LABEL_ENABLE);
++	else
++		jump_label_update(key, JUMP_LABEL_DISABLE);
+ 	atomic_inc(&key->enabled);
++out:
+ 	jump_label_unlock();
+ }
+ EXPORT_SYMBOL_GPL(static_key_slow_inc);
+@@ -75,10 +74,11 @@ EXPORT_SYMBOL_GPL(static_key_slow_inc);
+ static void __static_key_slow_dec(struct static_key *key,
+ 		unsigned long rate_limit, struct delayed_work *work)
+ {
+-	if (!atomic_dec_and_mutex_lock(&key->enabled, &jump_label_mutex)) {
++	jump_label_lock();
++	if (atomic_dec_and_test(&key->enabled)) {
+ 		WARN(atomic_read(&key->enabled) < 0,
+ 		     "jump label: negative count!\n");
+-		return;
++		goto out;
+ 	}
+ 
+ 	if (rate_limit) {
+@@ -90,6 +90,7 @@ static void __static_key_slow_dec(struct static_key *key,
+ 		else
+ 			jump_label_update(key, JUMP_LABEL_ENABLE);
+ 	}
++out:
+ 	jump_label_unlock();
+ }
+ 
 -- 
 1.7.7.6
