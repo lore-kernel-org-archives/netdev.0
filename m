@@ -1,409 +1,235 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next 2/3] qlcnic: Adding mac statistics to ethtool.
-Date: Thu, 26 Apr 2012 13:31:30 -0700
-Message-ID: <1335472292-24335-2-git-send-email-anirban.chakraborty@qlogic.com>
-References: <1335472292-24335-1-git-send-email-anirban.chakraborty@qlogic.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH 06/10] net: add support for
+ per-paged-fragment destructors
+Date: Thu, 26 Apr 2012 16:44:50 -0400
+Message-ID: <20120426204450.GA7392@phenom.dumpdata.com>
+References: <1334067965.5394.22.camel@zakaz.uk.xensource.com>
+ <1334067984-7706-6-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Wei Liu <wei.liu2@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, xen-devel@lists.xen.org,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+	David Miller <davem@davemloft.net>
+To: Ian Campbell <ian.campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe003.messaging.microsoft.com ([216.32.180.13]:11211
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758866Ab2DZUrO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 16:47:14 -0400
-In-Reply-To: <1335472292-24335-1-git-send-email-anirban.chakraborty@qlogic.com>
+Received: from acsinet15.oracle.com ([141.146.126.227]:23673 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757178Ab2DZUuq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 16:50:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1334067984-7706-6-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+On Tue, Apr 10, 2012 at 03:26:20PM +0100, Ian Campbell wrote:
+> Entities which care about the complete lifecycle of pages which they =
+inject
+> into the network stack via an skb paged fragment can choose to set th=
+is
+> destructor in order to receive a callback when the stack is really fi=
+nished
+> with a page (including all clones, retransmits, pull-ups etc etc).
+>=20
+> This destructor will always be propagated alongside the struct page w=
+hen
+> copying skb_frag_t->page. This is the reason I chose to embed the des=
+tructor in
+> a "struct { } page" within the skb_frag_t, rather than as a separate =
+field,
+> since it allows existing code which propagates ->frags[N].page to Jus=
+t
+> Work(tm).
+>=20
+> When the destructor is present the page reference counting is done sl=
+ightly
+> differently. No references are held by the network stack on the struc=
+t page (it
+> is up to the caller to manage this as necessary) instead the network =
+stack will
+> track references via the count embedded in the destructor structure. =
+When this
+> reference count reaches zero then the destructor will be called and t=
+he caller
+> can take the necesary steps to release the page (i.e. release the str=
+uct page
+> reference itself).
+>=20
+> The intention is that callers can use this callback to delay completi=
+on to
+> _their_ callers until the network stack has completely released the p=
+age, in
+> order to prevent use-after-free or modification of data pages which a=
+re still
+> in use by the stack.
+>=20
+> It is allowable (indeed expected) for a caller to share a single dest=
+ructor
+> instance between multiple pages injected into the stack e.g. a group =
+of pages
+> included in a single higher level operation might share a destructor =
+which is
+> used to complete that higher level operation.
+>=20
+> With this change and the previous two changes to shinfo alignment and=
+ field
+> orderring it is now the case tyhat on a 64 bit system with 64 byte ca=
+che lines,
+                              ^^^^ - that.
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   56 ++++++++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |   73 ++++++++++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  127 +++++++++++++++++---
- 3 files changed, 226 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index f419965..a7e2f74 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -607,6 +607,7 @@ struct qlcnic_recv_context {
- #define QLCNIC_CDRP_CMD_CONFIG_PORT		0x0000002E
- #define QLCNIC_CDRP_CMD_TEMP_SIZE		0x0000002f
- #define QLCNIC_CDRP_CMD_GET_TEMP_HDR		0x00000030
-+#define QLCNIC_CDRP_CMD_GET_MAC_STATS		0x00000037
- 
- #define QLCNIC_RCODE_SUCCESS		0
- #define QLCNIC_RCODE_NOT_SUPPORTED	9
-@@ -1180,18 +1181,62 @@ struct qlcnic_esw_func_cfg {
- #define QLCNIC_STATS_ESWITCH		2
- #define QLCNIC_QUERY_RX_COUNTER		0
- #define QLCNIC_QUERY_TX_COUNTER		1
--#define QLCNIC_ESW_STATS_NOT_AVAIL	0xffffffffffffffffULL
-+#define QLCNIC_STATS_NOT_AVAIL	0xffffffffffffffffULL
-+#define QLCNIC_FILL_STATS(VAL1) \
-+	(((VAL1) == QLCNIC_STATS_NOT_AVAIL) ? 0 : VAL1)
-+#define QLCNIC_MAC_STATS 1
-+#define QLCNIC_ESW_STATS 2
- 
- #define QLCNIC_ADD_ESW_STATS(VAL1, VAL2)\
- do {	\
--	if (((VAL1) == QLCNIC_ESW_STATS_NOT_AVAIL) && \
--	    ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
-+	if (((VAL1) == QLCNIC_STATS_NOT_AVAIL) && \
-+	    ((VAL2) != QLCNIC_STATS_NOT_AVAIL)) \
- 		(VAL1) = (VAL2); \
--	else if (((VAL1) != QLCNIC_ESW_STATS_NOT_AVAIL) && \
--		 ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
-+	else if (((VAL1) != QLCNIC_STATS_NOT_AVAIL) && \
-+		 ((VAL2) != QLCNIC_STATS_NOT_AVAIL)) \
- 			(VAL1) += (VAL2); \
- } while (0)
- 
-+struct qlcnic_mac_statistics{
-+	__le64	mac_tx_frames;
-+	__le64	mac_tx_bytes;
-+	__le64	mac_tx_mcast_pkts;
-+	__le64	mac_tx_bcast_pkts;
-+	__le64	mac_tx_pause_cnt;
-+	__le64	mac_tx_ctrl_pkt;
-+	__le64	mac_tx_lt_64b_pkts;
-+	__le64	mac_tx_lt_127b_pkts;
-+	__le64	mac_tx_lt_255b_pkts;
-+	__le64	mac_tx_lt_511b_pkts;
-+	__le64	mac_tx_lt_1023b_pkts;
-+	__le64	mac_tx_lt_1518b_pkts;
-+	__le64	mac_tx_gt_1518b_pkts;
-+	__le64	rsvd1[3];
-+
-+	__le64	mac_rx_frames;
-+	__le64	mac_rx_bytes;
-+	__le64	mac_rx_mcast_pkts;
-+	__le64	mac_rx_bcast_pkts;
-+	__le64	mac_rx_pause_cnt;
-+	__le64	mac_rx_ctrl_pkt;
-+	__le64	mac_rx_lt_64b_pkts;
-+	__le64	mac_rx_lt_127b_pkts;
-+	__le64	mac_rx_lt_255b_pkts;
-+	__le64	mac_rx_lt_511b_pkts;
-+	__le64	mac_rx_lt_1023b_pkts;
-+	__le64	mac_rx_lt_1518b_pkts;
-+	__le64	mac_rx_gt_1518b_pkts;
-+	__le64	rsvd2[3];
-+
-+	__le64	mac_rx_length_error;
-+	__le64	mac_rx_length_small;
-+	__le64	mac_rx_length_large;
-+	__le64	mac_rx_jabber;
-+	__le64	mac_rx_dropped;
-+	__le64	mac_rx_crc_error;
-+	__le64	mac_align_error;
-+} __packed;
-+
- struct __qlcnic_esw_statistics {
- 	__le16 context_id;
- 	__le16 version;
-@@ -1512,6 +1557,7 @@ int qlcnic_get_port_stats(struct qlcnic_adapter *, const u8, const u8,
- int qlcnic_get_eswitch_stats(struct qlcnic_adapter *, const u8, u8,
- 					struct __qlcnic_esw_statistics *);
- int qlcnic_clear_esw_stats(struct qlcnic_adapter *adapter, u8, u8, u8);
-+int qlcnic_get_mac_stats(struct qlcnic_adapter *, struct qlcnic_mac_statistics *);
- extern int qlcnic_config_tso;
- 
- /*
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-index 569a837..8db8524 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-@@ -905,6 +905,65 @@ int qlcnic_get_port_stats(struct qlcnic_adapter *adapter, const u8 func,
- 	return err;
- }
- 
-+/* This routine will retrieve the MAC statistics from firmware */
-+int qlcnic_get_mac_stats(struct qlcnic_adapter *adapter,
-+		struct qlcnic_mac_statistics *mac_stats)
-+{
-+	struct qlcnic_mac_statistics *stats;
-+	struct qlcnic_cmd_args cmd;
-+	size_t stats_size = sizeof(struct qlcnic_mac_statistics);
-+	dma_addr_t stats_dma_t;
-+	void *stats_addr;
-+	int err;
-+
-+	stats_addr = dma_alloc_coherent(&adapter->pdev->dev, stats_size,
-+			&stats_dma_t, GFP_KERNEL);
-+	if (!stats_addr) {
-+		dev_err(&adapter->pdev->dev,
-+			"%s: Unable to allocate memory.\n", __func__);
-+		return -ENOMEM;
-+	}
-+	memset(stats_addr, 0, stats_size);
-+	memset(&cmd, 0, sizeof(cmd));
-+	cmd.req.cmd = QLCNIC_CDRP_CMD_GET_MAC_STATS;
-+	cmd.req.arg1 = stats_size << 16;
-+	cmd.req.arg2 = MSD(stats_dma_t);
-+	cmd.req.arg3 = LSD(stats_dma_t);
-+
-+	qlcnic_issue_cmd(adapter, &cmd);
-+	err = cmd.rsp.cmd;
-+
-+	if (!err) {
-+		stats = stats_addr;
-+		mac_stats->mac_tx_frames = le64_to_cpu(stats->mac_tx_frames);
-+		mac_stats->mac_tx_bytes = le64_to_cpu(stats->mac_tx_bytes);
-+		mac_stats->mac_tx_mcast_pkts =
-+					le64_to_cpu(stats->mac_tx_mcast_pkts);
-+		mac_stats->mac_tx_bcast_pkts =
-+					le64_to_cpu(stats->mac_tx_bcast_pkts);
-+		mac_stats->mac_rx_frames = le64_to_cpu(stats->mac_rx_frames);
-+		mac_stats->mac_rx_bytes = le64_to_cpu(stats->mac_rx_bytes);
-+		mac_stats->mac_rx_mcast_pkts =
-+					le64_to_cpu(stats->mac_rx_mcast_pkts);
-+		mac_stats->mac_rx_length_error =
-+				le64_to_cpu(stats->mac_rx_length_error);
-+		mac_stats->mac_rx_length_small =
-+				le64_to_cpu(stats->mac_rx_length_small);
-+		mac_stats->mac_rx_length_large =
-+				le64_to_cpu(stats->mac_rx_length_large);
-+		mac_stats->mac_rx_jabber = le64_to_cpu(stats->mac_rx_jabber);
-+		mac_stats->mac_rx_dropped = le64_to_cpu(stats->mac_rx_dropped);
-+		mac_stats->mac_rx_crc_error = le64_to_cpu(stats->mac_rx_crc_error);
-+	} else {
-+		dev_info(&adapter->pdev->dev,
-+			"%s: Get mac stats failed =%d.\n", __func__, err);
-+	}
-+
-+	dma_free_coherent(&adapter->pdev->dev, stats_size, stats_addr,
-+		stats_dma_t);
-+	return err;
-+}
-+
- int qlcnic_get_eswitch_stats(struct qlcnic_adapter *adapter, const u8 eswitch,
- 		const u8 rx_tx, struct __qlcnic_esw_statistics *esw_stats) {
- 
-@@ -920,13 +979,13 @@ int qlcnic_get_eswitch_stats(struct qlcnic_adapter *adapter, const u8 eswitch,
- 		return -EIO;
- 
- 	memset(esw_stats, 0, sizeof(u64));
--	esw_stats->unicast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
--	esw_stats->multicast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
--	esw_stats->broadcast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
--	esw_stats->dropped_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
--	esw_stats->errors = QLCNIC_ESW_STATS_NOT_AVAIL;
--	esw_stats->local_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
--	esw_stats->numbytes = QLCNIC_ESW_STATS_NOT_AVAIL;
-+	esw_stats->unicast_frames = QLCNIC_STATS_NOT_AVAIL;
-+	esw_stats->multicast_frames = QLCNIC_STATS_NOT_AVAIL;
-+	esw_stats->broadcast_frames = QLCNIC_STATS_NOT_AVAIL;
-+	esw_stats->dropped_frames = QLCNIC_STATS_NOT_AVAIL;
-+	esw_stats->errors = QLCNIC_STATS_NOT_AVAIL;
-+	esw_stats->local_frames = QLCNIC_STATS_NOT_AVAIL;
-+	esw_stats->numbytes = QLCNIC_STATS_NOT_AVAIL;
- 	esw_stats->context_id = eswitch;
- 
- 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index f19e11e..5f2ad81 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -78,8 +78,46 @@ static const char qlcnic_device_gstrings_stats[][ETH_GSTRING_LEN] = {
- 	"tx numbytes",
- };
- 
--#define QLCNIC_STATS_LEN	ARRAY_SIZE(qlcnic_gstrings_stats)
-+static const char qlcnic_mac_stats_strings [][ETH_GSTRING_LEN] = {
-+	"mac_tx_frames",
-+	"mac_tx_bytes",
-+	"mac_tx_mcast_pkts",
-+	"mac_tx_bcast_pkts",
-+	"mac_tx_pause_cnt",
-+	"mac_tx_ctrl_pkt",
-+	"mac_tx_lt_64b_pkts",
-+	"mac_tx_lt_127b_pkts",
-+	"mac_tx_lt_255b_pkts",
-+	"mac_tx_lt_511b_pkts",
-+	"mac_tx_lt_1023b_pkts",
-+	"mac_tx_lt_1518b_pkts",
-+	"mac_tx_gt_1518b_pkts",
-+	"mac_rx_frames",
-+	"mac_rx_bytes",
-+	"mac_rx_mcast_pkts",
-+	"mac_rx_bcast_pkts",
-+	"mac_rx_pause_cnt",
-+	"mac_rx_ctrl_pkt",
-+	"mac_rx_lt_64b_pkts",
-+	"mac_rx_lt_127b_pkts",
-+	"mac_rx_lt_255b_pkts",
-+	"mac_rx_lt_511b_pkts",
-+	"mac_rx_lt_1023b_pkts",
-+	"mac_rx_lt_1518b_pkts",
-+	"mac_rx_gt_1518b_pkts",
-+	"mac_rx_length_error",
-+	"mac_rx_length_small",
-+	"mac_rx_length_large",
-+	"mac_rx_jabber",
-+	"mac_rx_dropped",
-+	"mac_rx_crc_error",
-+	"mac_align_error",
-+};
-+
-+#define QLCNIC_STATS_LEN ARRAY_SIZE(qlcnic_gstrings_stats)
-+#define QLCNIC_MAC_STATS_LEN ARRAY_SIZE(qlcnic_mac_stats_strings)
- #define QLCNIC_DEVICE_STATS_LEN	ARRAY_SIZE(qlcnic_device_gstrings_stats)
-+#define QLCNIC_TOTAL_STATS_LEN QLCNIC_STATS_LEN + QLCNIC_MAC_STATS_LEN
- 
- static const char qlcnic_gstrings_test[][ETH_GSTRING_LEN] = {
- 	"Register_Test_on_offline",
-@@ -644,8 +682,8 @@ static int qlcnic_get_sset_count(struct net_device *dev, int sset)
- 		return QLCNIC_TEST_LEN;
- 	case ETH_SS_STATS:
- 		if (adapter->flags & QLCNIC_ESWITCH_ENABLED)
--			return QLCNIC_STATS_LEN + QLCNIC_DEVICE_STATS_LEN;
--		return QLCNIC_STATS_LEN;
-+			return QLCNIC_TOTAL_STATS_LEN + QLCNIC_DEVICE_STATS_LEN;
-+		return QLCNIC_TOTAL_STATS_LEN;
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -851,7 +889,7 @@ static void
- qlcnic_get_strings(struct net_device *dev, u32 stringset, u8 * data)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(dev);
--	int index, i;
-+	int index, i, j;
- 
- 	switch (stringset) {
- 	case ETH_SS_TEST:
-@@ -864,6 +902,11 @@ qlcnic_get_strings(struct net_device *dev, u32 stringset, u8 * data)
- 			       qlcnic_gstrings_stats[index].stat_string,
- 			       ETH_GSTRING_LEN);
- 		}
-+		for (j = 0; j < QLCNIC_MAC_STATS_LEN; index++, j++) {
-+			memcpy(data + index * ETH_GSTRING_LEN,
-+			       qlcnic_mac_stats_strings[j],
-+			       ETH_GSTRING_LEN);
-+		}
- 		if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED))
- 			return;
- 		for (i = 0; i < QLCNIC_DEVICE_STATS_LEN; index++, i++) {
-@@ -874,22 +917,64 @@ qlcnic_get_strings(struct net_device *dev, u32 stringset, u8 * data)
- 	}
- }
- 
--#define QLCNIC_FILL_ESWITCH_STATS(VAL1) \
--	(((VAL1) == QLCNIC_ESW_STATS_NOT_AVAIL) ? 0 : VAL1)
--
- static void
--qlcnic_fill_device_stats(int *index, u64 *data,
--		struct __qlcnic_esw_statistics *stats)
-+qlcnic_fill_stats(int *index, u64 *data, void *stats, int type)
- {
- 	int ind = *index;
- 
--	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->unicast_frames);
--	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->multicast_frames);
--	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->broadcast_frames);
--	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->dropped_frames);
--	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->errors);
--	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->local_frames);
--	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->numbytes);
-+	if (type == QLCNIC_MAC_STATS) {
-+		struct qlcnic_mac_statistics *mac_stats =
-+					(struct qlcnic_mac_statistics *)stats;
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_frames);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_bytes);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_mcast_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_bcast_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_pause_cnt);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_ctrl_pkt);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_64b_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_127b_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_255b_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_511b_pkts);
-+		data[ind++] =
-+			QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_1023b_pkts);
-+		data[ind++] =
-+			QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_1518b_pkts);
-+		data[ind++] =
-+			QLCNIC_FILL_STATS(mac_stats->mac_tx_gt_1518b_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_frames);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_bytes);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_mcast_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_bcast_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_pause_cnt);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_ctrl_pkt);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_64b_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_127b_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_255b_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_511b_pkts);
-+		data[ind++] =
-+			QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_1023b_pkts);
-+		data[ind++] =
-+			QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_1518b_pkts);
-+		data[ind++] =
-+			QLCNIC_FILL_STATS(mac_stats->mac_rx_gt_1518b_pkts);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_length_error);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_length_small);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_length_large);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_jabber);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_dropped);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_crc_error);
-+		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_align_error);
-+	} else if (type == QLCNIC_ESW_STATS) {
-+		struct __qlcnic_esw_statistics *esw_stats =
-+				(struct __qlcnic_esw_statistics *)stats;
-+		data[ind++] = QLCNIC_FILL_STATS(esw_stats->unicast_frames);
-+		data[ind++] = QLCNIC_FILL_STATS(esw_stats->multicast_frames);
-+		data[ind++] = QLCNIC_FILL_STATS(esw_stats->broadcast_frames);
-+		data[ind++] = QLCNIC_FILL_STATS(esw_stats->dropped_frames);
-+		data[ind++] = QLCNIC_FILL_STATS(esw_stats->errors);
-+		data[ind++] = QLCNIC_FILL_STATS(esw_stats->local_frames);
-+		data[ind++] = QLCNIC_FILL_STATS(esw_stats->numbytes);
-+	}
- 
- 	*index = ind;
- }
-@@ -900,6 +985,7 @@ qlcnic_get_ethtool_stats(struct net_device *dev,
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(dev);
- 	struct qlcnic_esw_statistics port_stats;
-+	struct qlcnic_mac_statistics mac_stats;
- 	int index, ret;
- 
- 	for (index = 0; index < QLCNIC_STATS_LEN; index++) {
-@@ -911,6 +997,11 @@ qlcnic_get_ethtool_stats(struct net_device *dev,
- 		     sizeof(u64)) ? *(u64 *)p:(*(u32 *)p);
- 	}
- 
-+	/* Retrieve MAC statistics from firmware */
-+	memset(&mac_stats, 0, sizeof(struct qlcnic_mac_statistics));
-+	qlcnic_get_mac_stats(adapter, &mac_stats);
-+	qlcnic_fill_stats(&index, data, &mac_stats, QLCNIC_MAC_STATS);
-+
- 	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED))
- 		return;
- 
-@@ -920,14 +1011,14 @@ qlcnic_get_ethtool_stats(struct net_device *dev,
- 	if (ret)
- 		return;
- 
--	qlcnic_fill_device_stats(&index, data, &port_stats.rx);
-+	qlcnic_fill_stats(&index, data, &port_stats.rx, QLCNIC_ESW_STATS);
- 
- 	ret = qlcnic_get_port_stats(adapter, adapter->ahw->pci_func,
- 			QLCNIC_QUERY_TX_COUNTER, &port_stats.tx);
- 	if (ret)
- 		return;
- 
--	qlcnic_fill_device_stats(&index, data, &port_stats.tx);
-+	qlcnic_fill_stats(&index, data, &port_stats.tx, QLCNIC_ESW_STATS);
- }
- 
- static int qlcnic_set_led(struct net_device *dev,
--- 
-1.7.4.1
+> everything from nr_frags until the end of frags[0] is on the same cac=
+heline.
+>=20
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
+> Cc: netdev@vger.kernel.org
+> ---
+>  include/linux/skbuff.h |   43 ++++++++++++++++++++++++++++++++++++++=
++++++
+>  net/core/skbuff.c      |   17 +++++++++++++++++
+>  2 files changed, 60 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index f0ae39c..6ac283e 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -166,9 +166,15 @@ struct sk_buff;
+> =20
+>  typedef struct skb_frag_struct skb_frag_t;
+> =20
+> +struct skb_frag_destructor {
+> +	atomic_t ref;
+> +	int (*destroy)(struct skb_frag_destructor *destructor);
+> +};
+> +
+>  struct skb_frag_struct {
+>  	struct {
+>  		struct page *p;
+> +		struct skb_frag_destructor *destructor;
+>  	} page;
+>  #if (BITS_PER_LONG > 32) || (PAGE_SIZE >=3D 65536)
+>  	__u32 page_offset;
+> @@ -1221,6 +1227,31 @@ static inline int skb_pagelen(const struct sk_=
+buff *skb)
+>  }
+> =20
+>  /**
+> + * skb_frag_set_destructor - set destructor for a paged fragment
+> + * @skb: buffer containing fragment to be initialised
+> + * @i: paged fragment index to initialise
+> + * @destroy: the destructor to use for this fragment
+> + *
+> + * Sets @destroy as the destructor to be called when all references =
+to
+> + * the frag @i in @skb (tracked over skb_clone, retransmit, pull-ups=
+,
+> + * etc) are released.
+> + *
+> + * When a destructor is set then reference counting is performed on
+> + * @destroy->ref. When the ref reaches zero then @destroy->destroy
+> + * will be called. The caller is responsible for holding and managin=
+g
+> + * any other references (such a the struct page reference count).
+> + *
+> + * This function must be called before any use of skb_frag_ref() or
+> + * skb_frag_unref().
+> + */
+> +static inline void skb_frag_set_destructor(struct sk_buff *skb, int =
+i,
+> +					   struct skb_frag_destructor *destroy)
+> +{
+> +	skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+> +	frag->page.destructor =3D destroy;
+> +}
+> +
+> +/**
+>   * __skb_fill_page_desc - initialise a paged fragment in an skb
+>   * @skb: buffer containing fragment to be initialised
+>   * @i: paged fragment index to initialise
+> @@ -1239,6 +1270,7 @@ static inline void __skb_fill_page_desc(struct =
+sk_buff *skb, int i,
+>  	skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+> =20
+>  	frag->page.p		  =3D page;
+> +	frag->page.destructor     =3D NULL;
+>  	frag->page_offset	  =3D off;
+>  	skb_frag_size_set(frag, size);
+>  }
+> @@ -1743,6 +1775,9 @@ static inline struct page *skb_frag_page(const =
+skb_frag_t *frag)
+>  	return frag->page.p;
+>  }
+> =20
+> +extern void skb_frag_destructor_ref(struct skb_frag_destructor *dest=
+roy);
+> +extern void skb_frag_destructor_unref(struct skb_frag_destructor *de=
+stroy);
+> +
+>  /**
+>   * __skb_frag_ref - take an addition reference on a paged fragment.
+>   * @frag: the paged fragment
+> @@ -1751,6 +1786,10 @@ static inline struct page *skb_frag_page(const=
+ skb_frag_t *frag)
+>   */
+>  static inline void __skb_frag_ref(skb_frag_t *frag)
+>  {
+> +	if (unlikely(frag->page.destructor)) {
+> +		skb_frag_destructor_ref(frag->page.destructor);
+> +		return;
+> +	}
+>  	get_page(skb_frag_page(frag));
+>  }
+> =20
+> @@ -1774,6 +1813,10 @@ static inline void skb_frag_ref(struct sk_buff=
+ *skb, int f)
+>   */
+>  static inline void __skb_frag_unref(skb_frag_t *frag)
+>  {
+> +	if (unlikely(frag->page.destructor)) {
+> +		skb_frag_destructor_unref(frag->page.destructor);
+> +		return;
+> +	}
+>  	put_page(skb_frag_page(frag));
+>  }
+> =20
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index b8a41d6..9ec88ce 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -349,6 +349,23 @@ struct sk_buff *dev_alloc_skb(unsigned int lengt=
+h)
+>  }
+>  EXPORT_SYMBOL(dev_alloc_skb);
+> =20
+> +void skb_frag_destructor_ref(struct skb_frag_destructor *destroy)
+> +{
+> +	BUG_ON(destroy =3D=3D NULL);
+> +	atomic_inc(&destroy->ref);
+> +}
+> +EXPORT_SYMBOL(skb_frag_destructor_ref);
+> +
+> +void skb_frag_destructor_unref(struct skb_frag_destructor *destroy)
+> +{
+> +	if (destroy =3D=3D NULL)
+> +		return;
+> +
+> +	if (atomic_dec_and_test(&destroy->ref))
+> +		destroy->destroy(destroy);
+> +}
+> +EXPORT_SYMBOL(skb_frag_destructor_unref);
+> +
+>  static void skb_drop_list(struct sk_buff **listp)
+>  {
+>  	struct sk_buff *list =3D *listp;
+> --=20
+> 1.7.2.5
+>=20
+>=20
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
