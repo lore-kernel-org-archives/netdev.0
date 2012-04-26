@@ -1,24 +1,409 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next 0/3] qlcnic: Bug fixes
-Date: Thu, 26 Apr 2012 13:31:32 -0700
-Message-ID: <1335472292-24335-4-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH net-next 2/3] qlcnic: Adding mac statistics to ethtool.
+Date: Thu, 26 Apr 2012 13:31:30 -0700
+Message-ID: <1335472292-24335-2-git-send-email-anirban.chakraborty@qlogic.com>
 References: <1335472292-24335-1-git-send-email-anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev <netdev@vger.kernel.org>,
 	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:11189
+Received: from va3ehsobe003.messaging.microsoft.com ([216.32.180.13]:11211
 	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757501Ab2DZUrN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 16:47:13 -0400
+	by vger.kernel.org with ESMTP id S1758866Ab2DZUrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 16:47:14 -0400
 In-Reply-To: <1335472292-24335-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please apply to net-next.
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Thanks,
-Anirban
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   56 ++++++++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |   73 ++++++++++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  127 +++++++++++++++++---
+ 3 files changed, 226 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index f419965..a7e2f74 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -607,6 +607,7 @@ struct qlcnic_recv_context {
+ #define QLCNIC_CDRP_CMD_CONFIG_PORT		0x0000002E
+ #define QLCNIC_CDRP_CMD_TEMP_SIZE		0x0000002f
+ #define QLCNIC_CDRP_CMD_GET_TEMP_HDR		0x00000030
++#define QLCNIC_CDRP_CMD_GET_MAC_STATS		0x00000037
+ 
+ #define QLCNIC_RCODE_SUCCESS		0
+ #define QLCNIC_RCODE_NOT_SUPPORTED	9
+@@ -1180,18 +1181,62 @@ struct qlcnic_esw_func_cfg {
+ #define QLCNIC_STATS_ESWITCH		2
+ #define QLCNIC_QUERY_RX_COUNTER		0
+ #define QLCNIC_QUERY_TX_COUNTER		1
+-#define QLCNIC_ESW_STATS_NOT_AVAIL	0xffffffffffffffffULL
++#define QLCNIC_STATS_NOT_AVAIL	0xffffffffffffffffULL
++#define QLCNIC_FILL_STATS(VAL1) \
++	(((VAL1) == QLCNIC_STATS_NOT_AVAIL) ? 0 : VAL1)
++#define QLCNIC_MAC_STATS 1
++#define QLCNIC_ESW_STATS 2
+ 
+ #define QLCNIC_ADD_ESW_STATS(VAL1, VAL2)\
+ do {	\
+-	if (((VAL1) == QLCNIC_ESW_STATS_NOT_AVAIL) && \
+-	    ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
++	if (((VAL1) == QLCNIC_STATS_NOT_AVAIL) && \
++	    ((VAL2) != QLCNIC_STATS_NOT_AVAIL)) \
+ 		(VAL1) = (VAL2); \
+-	else if (((VAL1) != QLCNIC_ESW_STATS_NOT_AVAIL) && \
+-		 ((VAL2) != QLCNIC_ESW_STATS_NOT_AVAIL)) \
++	else if (((VAL1) != QLCNIC_STATS_NOT_AVAIL) && \
++		 ((VAL2) != QLCNIC_STATS_NOT_AVAIL)) \
+ 			(VAL1) += (VAL2); \
+ } while (0)
+ 
++struct qlcnic_mac_statistics{
++	__le64	mac_tx_frames;
++	__le64	mac_tx_bytes;
++	__le64	mac_tx_mcast_pkts;
++	__le64	mac_tx_bcast_pkts;
++	__le64	mac_tx_pause_cnt;
++	__le64	mac_tx_ctrl_pkt;
++	__le64	mac_tx_lt_64b_pkts;
++	__le64	mac_tx_lt_127b_pkts;
++	__le64	mac_tx_lt_255b_pkts;
++	__le64	mac_tx_lt_511b_pkts;
++	__le64	mac_tx_lt_1023b_pkts;
++	__le64	mac_tx_lt_1518b_pkts;
++	__le64	mac_tx_gt_1518b_pkts;
++	__le64	rsvd1[3];
++
++	__le64	mac_rx_frames;
++	__le64	mac_rx_bytes;
++	__le64	mac_rx_mcast_pkts;
++	__le64	mac_rx_bcast_pkts;
++	__le64	mac_rx_pause_cnt;
++	__le64	mac_rx_ctrl_pkt;
++	__le64	mac_rx_lt_64b_pkts;
++	__le64	mac_rx_lt_127b_pkts;
++	__le64	mac_rx_lt_255b_pkts;
++	__le64	mac_rx_lt_511b_pkts;
++	__le64	mac_rx_lt_1023b_pkts;
++	__le64	mac_rx_lt_1518b_pkts;
++	__le64	mac_rx_gt_1518b_pkts;
++	__le64	rsvd2[3];
++
++	__le64	mac_rx_length_error;
++	__le64	mac_rx_length_small;
++	__le64	mac_rx_length_large;
++	__le64	mac_rx_jabber;
++	__le64	mac_rx_dropped;
++	__le64	mac_rx_crc_error;
++	__le64	mac_align_error;
++} __packed;
++
+ struct __qlcnic_esw_statistics {
+ 	__le16 context_id;
+ 	__le16 version;
+@@ -1512,6 +1557,7 @@ int qlcnic_get_port_stats(struct qlcnic_adapter *, const u8, const u8,
+ int qlcnic_get_eswitch_stats(struct qlcnic_adapter *, const u8, u8,
+ 					struct __qlcnic_esw_statistics *);
+ int qlcnic_clear_esw_stats(struct qlcnic_adapter *adapter, u8, u8, u8);
++int qlcnic_get_mac_stats(struct qlcnic_adapter *, struct qlcnic_mac_statistics *);
+ extern int qlcnic_config_tso;
+ 
+ /*
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+index 569a837..8db8524 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+@@ -905,6 +905,65 @@ int qlcnic_get_port_stats(struct qlcnic_adapter *adapter, const u8 func,
+ 	return err;
+ }
+ 
++/* This routine will retrieve the MAC statistics from firmware */
++int qlcnic_get_mac_stats(struct qlcnic_adapter *adapter,
++		struct qlcnic_mac_statistics *mac_stats)
++{
++	struct qlcnic_mac_statistics *stats;
++	struct qlcnic_cmd_args cmd;
++	size_t stats_size = sizeof(struct qlcnic_mac_statistics);
++	dma_addr_t stats_dma_t;
++	void *stats_addr;
++	int err;
++
++	stats_addr = dma_alloc_coherent(&adapter->pdev->dev, stats_size,
++			&stats_dma_t, GFP_KERNEL);
++	if (!stats_addr) {
++		dev_err(&adapter->pdev->dev,
++			"%s: Unable to allocate memory.\n", __func__);
++		return -ENOMEM;
++	}
++	memset(stats_addr, 0, stats_size);
++	memset(&cmd, 0, sizeof(cmd));
++	cmd.req.cmd = QLCNIC_CDRP_CMD_GET_MAC_STATS;
++	cmd.req.arg1 = stats_size << 16;
++	cmd.req.arg2 = MSD(stats_dma_t);
++	cmd.req.arg3 = LSD(stats_dma_t);
++
++	qlcnic_issue_cmd(adapter, &cmd);
++	err = cmd.rsp.cmd;
++
++	if (!err) {
++		stats = stats_addr;
++		mac_stats->mac_tx_frames = le64_to_cpu(stats->mac_tx_frames);
++		mac_stats->mac_tx_bytes = le64_to_cpu(stats->mac_tx_bytes);
++		mac_stats->mac_tx_mcast_pkts =
++					le64_to_cpu(stats->mac_tx_mcast_pkts);
++		mac_stats->mac_tx_bcast_pkts =
++					le64_to_cpu(stats->mac_tx_bcast_pkts);
++		mac_stats->mac_rx_frames = le64_to_cpu(stats->mac_rx_frames);
++		mac_stats->mac_rx_bytes = le64_to_cpu(stats->mac_rx_bytes);
++		mac_stats->mac_rx_mcast_pkts =
++					le64_to_cpu(stats->mac_rx_mcast_pkts);
++		mac_stats->mac_rx_length_error =
++				le64_to_cpu(stats->mac_rx_length_error);
++		mac_stats->mac_rx_length_small =
++				le64_to_cpu(stats->mac_rx_length_small);
++		mac_stats->mac_rx_length_large =
++				le64_to_cpu(stats->mac_rx_length_large);
++		mac_stats->mac_rx_jabber = le64_to_cpu(stats->mac_rx_jabber);
++		mac_stats->mac_rx_dropped = le64_to_cpu(stats->mac_rx_dropped);
++		mac_stats->mac_rx_crc_error = le64_to_cpu(stats->mac_rx_crc_error);
++	} else {
++		dev_info(&adapter->pdev->dev,
++			"%s: Get mac stats failed =%d.\n", __func__, err);
++	}
++
++	dma_free_coherent(&adapter->pdev->dev, stats_size, stats_addr,
++		stats_dma_t);
++	return err;
++}
++
+ int qlcnic_get_eswitch_stats(struct qlcnic_adapter *adapter, const u8 eswitch,
+ 		const u8 rx_tx, struct __qlcnic_esw_statistics *esw_stats) {
+ 
+@@ -920,13 +979,13 @@ int qlcnic_get_eswitch_stats(struct qlcnic_adapter *adapter, const u8 eswitch,
+ 		return -EIO;
+ 
+ 	memset(esw_stats, 0, sizeof(u64));
+-	esw_stats->unicast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
+-	esw_stats->multicast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
+-	esw_stats->broadcast_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
+-	esw_stats->dropped_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
+-	esw_stats->errors = QLCNIC_ESW_STATS_NOT_AVAIL;
+-	esw_stats->local_frames = QLCNIC_ESW_STATS_NOT_AVAIL;
+-	esw_stats->numbytes = QLCNIC_ESW_STATS_NOT_AVAIL;
++	esw_stats->unicast_frames = QLCNIC_STATS_NOT_AVAIL;
++	esw_stats->multicast_frames = QLCNIC_STATS_NOT_AVAIL;
++	esw_stats->broadcast_frames = QLCNIC_STATS_NOT_AVAIL;
++	esw_stats->dropped_frames = QLCNIC_STATS_NOT_AVAIL;
++	esw_stats->errors = QLCNIC_STATS_NOT_AVAIL;
++	esw_stats->local_frames = QLCNIC_STATS_NOT_AVAIL;
++	esw_stats->numbytes = QLCNIC_STATS_NOT_AVAIL;
+ 	esw_stats->context_id = eswitch;
+ 
+ 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index f19e11e..5f2ad81 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -78,8 +78,46 @@ static const char qlcnic_device_gstrings_stats[][ETH_GSTRING_LEN] = {
+ 	"tx numbytes",
+ };
+ 
+-#define QLCNIC_STATS_LEN	ARRAY_SIZE(qlcnic_gstrings_stats)
++static const char qlcnic_mac_stats_strings [][ETH_GSTRING_LEN] = {
++	"mac_tx_frames",
++	"mac_tx_bytes",
++	"mac_tx_mcast_pkts",
++	"mac_tx_bcast_pkts",
++	"mac_tx_pause_cnt",
++	"mac_tx_ctrl_pkt",
++	"mac_tx_lt_64b_pkts",
++	"mac_tx_lt_127b_pkts",
++	"mac_tx_lt_255b_pkts",
++	"mac_tx_lt_511b_pkts",
++	"mac_tx_lt_1023b_pkts",
++	"mac_tx_lt_1518b_pkts",
++	"mac_tx_gt_1518b_pkts",
++	"mac_rx_frames",
++	"mac_rx_bytes",
++	"mac_rx_mcast_pkts",
++	"mac_rx_bcast_pkts",
++	"mac_rx_pause_cnt",
++	"mac_rx_ctrl_pkt",
++	"mac_rx_lt_64b_pkts",
++	"mac_rx_lt_127b_pkts",
++	"mac_rx_lt_255b_pkts",
++	"mac_rx_lt_511b_pkts",
++	"mac_rx_lt_1023b_pkts",
++	"mac_rx_lt_1518b_pkts",
++	"mac_rx_gt_1518b_pkts",
++	"mac_rx_length_error",
++	"mac_rx_length_small",
++	"mac_rx_length_large",
++	"mac_rx_jabber",
++	"mac_rx_dropped",
++	"mac_rx_crc_error",
++	"mac_align_error",
++};
++
++#define QLCNIC_STATS_LEN ARRAY_SIZE(qlcnic_gstrings_stats)
++#define QLCNIC_MAC_STATS_LEN ARRAY_SIZE(qlcnic_mac_stats_strings)
+ #define QLCNIC_DEVICE_STATS_LEN	ARRAY_SIZE(qlcnic_device_gstrings_stats)
++#define QLCNIC_TOTAL_STATS_LEN QLCNIC_STATS_LEN + QLCNIC_MAC_STATS_LEN
+ 
+ static const char qlcnic_gstrings_test[][ETH_GSTRING_LEN] = {
+ 	"Register_Test_on_offline",
+@@ -644,8 +682,8 @@ static int qlcnic_get_sset_count(struct net_device *dev, int sset)
+ 		return QLCNIC_TEST_LEN;
+ 	case ETH_SS_STATS:
+ 		if (adapter->flags & QLCNIC_ESWITCH_ENABLED)
+-			return QLCNIC_STATS_LEN + QLCNIC_DEVICE_STATS_LEN;
+-		return QLCNIC_STATS_LEN;
++			return QLCNIC_TOTAL_STATS_LEN + QLCNIC_DEVICE_STATS_LEN;
++		return QLCNIC_TOTAL_STATS_LEN;
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -851,7 +889,7 @@ static void
+ qlcnic_get_strings(struct net_device *dev, u32 stringset, u8 * data)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
+-	int index, i;
++	int index, i, j;
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_TEST:
+@@ -864,6 +902,11 @@ qlcnic_get_strings(struct net_device *dev, u32 stringset, u8 * data)
+ 			       qlcnic_gstrings_stats[index].stat_string,
+ 			       ETH_GSTRING_LEN);
+ 		}
++		for (j = 0; j < QLCNIC_MAC_STATS_LEN; index++, j++) {
++			memcpy(data + index * ETH_GSTRING_LEN,
++			       qlcnic_mac_stats_strings[j],
++			       ETH_GSTRING_LEN);
++		}
+ 		if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED))
+ 			return;
+ 		for (i = 0; i < QLCNIC_DEVICE_STATS_LEN; index++, i++) {
+@@ -874,22 +917,64 @@ qlcnic_get_strings(struct net_device *dev, u32 stringset, u8 * data)
+ 	}
+ }
+ 
+-#define QLCNIC_FILL_ESWITCH_STATS(VAL1) \
+-	(((VAL1) == QLCNIC_ESW_STATS_NOT_AVAIL) ? 0 : VAL1)
+-
+ static void
+-qlcnic_fill_device_stats(int *index, u64 *data,
+-		struct __qlcnic_esw_statistics *stats)
++qlcnic_fill_stats(int *index, u64 *data, void *stats, int type)
+ {
+ 	int ind = *index;
+ 
+-	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->unicast_frames);
+-	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->multicast_frames);
+-	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->broadcast_frames);
+-	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->dropped_frames);
+-	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->errors);
+-	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->local_frames);
+-	data[ind++] = QLCNIC_FILL_ESWITCH_STATS(stats->numbytes);
++	if (type == QLCNIC_MAC_STATS) {
++		struct qlcnic_mac_statistics *mac_stats =
++					(struct qlcnic_mac_statistics *)stats;
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_frames);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_bytes);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_mcast_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_bcast_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_pause_cnt);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_ctrl_pkt);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_64b_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_127b_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_255b_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_511b_pkts);
++		data[ind++] =
++			QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_1023b_pkts);
++		data[ind++] =
++			QLCNIC_FILL_STATS(mac_stats->mac_tx_lt_1518b_pkts);
++		data[ind++] =
++			QLCNIC_FILL_STATS(mac_stats->mac_tx_gt_1518b_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_frames);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_bytes);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_mcast_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_bcast_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_pause_cnt);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_ctrl_pkt);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_64b_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_127b_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_255b_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_511b_pkts);
++		data[ind++] =
++			QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_1023b_pkts);
++		data[ind++] =
++			QLCNIC_FILL_STATS(mac_stats->mac_rx_lt_1518b_pkts);
++		data[ind++] =
++			QLCNIC_FILL_STATS(mac_stats->mac_rx_gt_1518b_pkts);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_length_error);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_length_small);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_length_large);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_jabber);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_dropped);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_rx_crc_error);
++		data[ind++] = QLCNIC_FILL_STATS(mac_stats->mac_align_error);
++	} else if (type == QLCNIC_ESW_STATS) {
++		struct __qlcnic_esw_statistics *esw_stats =
++				(struct __qlcnic_esw_statistics *)stats;
++		data[ind++] = QLCNIC_FILL_STATS(esw_stats->unicast_frames);
++		data[ind++] = QLCNIC_FILL_STATS(esw_stats->multicast_frames);
++		data[ind++] = QLCNIC_FILL_STATS(esw_stats->broadcast_frames);
++		data[ind++] = QLCNIC_FILL_STATS(esw_stats->dropped_frames);
++		data[ind++] = QLCNIC_FILL_STATS(esw_stats->errors);
++		data[ind++] = QLCNIC_FILL_STATS(esw_stats->local_frames);
++		data[ind++] = QLCNIC_FILL_STATS(esw_stats->numbytes);
++	}
+ 
+ 	*index = ind;
+ }
+@@ -900,6 +985,7 @@ qlcnic_get_ethtool_stats(struct net_device *dev,
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
+ 	struct qlcnic_esw_statistics port_stats;
++	struct qlcnic_mac_statistics mac_stats;
+ 	int index, ret;
+ 
+ 	for (index = 0; index < QLCNIC_STATS_LEN; index++) {
+@@ -911,6 +997,11 @@ qlcnic_get_ethtool_stats(struct net_device *dev,
+ 		     sizeof(u64)) ? *(u64 *)p:(*(u32 *)p);
+ 	}
+ 
++	/* Retrieve MAC statistics from firmware */
++	memset(&mac_stats, 0, sizeof(struct qlcnic_mac_statistics));
++	qlcnic_get_mac_stats(adapter, &mac_stats);
++	qlcnic_fill_stats(&index, data, &mac_stats, QLCNIC_MAC_STATS);
++
+ 	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED))
+ 		return;
+ 
+@@ -920,14 +1011,14 @@ qlcnic_get_ethtool_stats(struct net_device *dev,
+ 	if (ret)
+ 		return;
+ 
+-	qlcnic_fill_device_stats(&index, data, &port_stats.rx);
++	qlcnic_fill_stats(&index, data, &port_stats.rx, QLCNIC_ESW_STATS);
+ 
+ 	ret = qlcnic_get_port_stats(adapter, adapter->ahw->pci_func,
+ 			QLCNIC_QUERY_TX_COUNTER, &port_stats.tx);
+ 	if (ret)
+ 		return;
+ 
+-	qlcnic_fill_device_stats(&index, data, &port_stats.tx);
++	qlcnic_fill_stats(&index, data, &port_stats.tx, QLCNIC_ESW_STATS);
+ }
+ 
+ static int qlcnic_set_led(struct net_device *dev,
+-- 
+1.7.4.1
