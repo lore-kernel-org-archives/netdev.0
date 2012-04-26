@@ -1,7 +1,7 @@
 From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: [PATCH] NFC: nci/ntf.c: quiet sparse noise about plain integer as NULL pointer
-Date: Thu, 26 Apr 2012 10:59:28 -0700
-Message-ID: <201204261059.28568.hartleys@visionengravers.com>
+Subject: [PATCH] NFC: hci/core.c: local variables should not be exposed globally
+Date: Thu, 26 Apr 2012 11:05:40 -0700
+Message-ID: <201204261105.41355.hartleys@visionengravers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -14,11 +14,12 @@ Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pointers should be cleared with NULL, not 0.
+The variable 'hci_nfc_ops' is only referenced in this file and
+should be marked static to prevent it from being exposed globally.
 
-Quiets a couple sparse warnings of the type:
+Quites the sparse warning:
 
-warning: Using plain integer as NULL pointer
+warning: symbol 'hci_nfc_ops' was not declared. Should it be static?
 
 Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
 Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
@@ -28,16 +29,16 @@ Cc: "David S. Miller" <davem@davemloft.net>
 
 ---
 
-diff --git a/net/nfc/nci/ntf.c b/net/nfc/nci/ntf.c
-index 99e1632..cb26461 100644
---- a/net/nfc/nci/ntf.c
-+++ b/net/nfc/nci/ntf.c
-@@ -497,7 +497,7 @@ static void nci_rf_deactivate_ntf_packet(struct nci_dev *ndev,
- 	/* drop partial rx data packet */
- 	if (ndev->rx_data_reassembly) {
- 		kfree_skb(ndev->rx_data_reassembly);
--		ndev->rx_data_reassembly = 0;
-+		ndev->rx_data_reassembly = NULL;
- 	}
+diff --git a/net/nfc/hci/core.c b/net/nfc/hci/core.c
+index 86fd00d..0ce5ee4 100644
+--- a/net/nfc/hci/core.c
++++ b/net/nfc/hci/core.c
+@@ -605,7 +605,7 @@ static int hci_data_exchange(struct nfc_dev *nfc_dev, u32 target_idx,
+ 	return 0;
+ }
  
- 	/* complete the data exchange transaction, if exists */
+-struct nfc_ops hci_nfc_ops = {
++static struct nfc_ops hci_nfc_ops = {
+ 	.dev_up = hci_dev_up,
+ 	.dev_down = hci_dev_down,
+ 	.start_poll = hci_start_poll,
