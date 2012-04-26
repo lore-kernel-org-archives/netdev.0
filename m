@@ -1,111 +1,145 @@
-From: "Kyle Mestery (kmestery)" <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Thu, 26 Apr 2012 16:16:36 +0000
-Message-ID: <6D8BC25C-993E-4187-A277-930DDE6AB9AD@cisco.com>
-References: <20120423.161313.1582195533832554777.davem@davemloft.net>
-	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
-	<20120423.170817.1103719420692884446.davem@davemloft.net>
-	<CAEP_g=-52GOr3LzbUB+97ftNQBZV=7NWXqfWN6GMfq5KmdO25A@mail.gmail.com>
-	<20120423223255.GG580@verge.net.au>
-	<CAEP_g=9p0TE59JbrS8QzHj4mEzc-5_hUDzmLRsRxLyUaFX+Z5Q@mail.gmail.com>
-	<20120424022514.GB5357@verge.net.au>
-	<807AC914-2F33-46C7-99DC-E2F8F0F97531@cisco.com>
-	<20120425083925.GB6661@verge.net.au>
-	<CAEP_g=8DmQ_-8+ZbATdVhNJKiDSr0HdUgB-+oaqwU1=SqqzXfQ@mail.gmail.com>
-	<20120426071321.GA25781@verge.net.au>
-	<CAEP_g=8VQizt5iUc_yR+PynMYpZgD4ep+o379JK8k-KCKMYgmg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Heavy spin_lock contention in __udp4_lib_mcast_deliver increase
+Date: Thu, 26 Apr 2012 18:18:32 +0200
+Message-ID: <1335457112.2775.50.camel@edumazet-glaptop>
+References: <20120426151527.GA2479@BohrerMBP.rgmadvisors.com>
+	 <1335455595.2775.47.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"<jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>" <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-	"<shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>" <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEP_g=8VQizt5iUc_yR+PynMYpZgD4ep+o379JK8k-KCKMYgmg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Content-ID: <76EC6FA6D7AB70419443496876238EE6-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:61712 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757718Ab2DZQSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 12:18:39 -0400
+Received: by eekc41 with SMTP id c41so665616eek.19
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 09:18:38 -0700 (PDT)
+In-Reply-To: <1335455595.2775.47.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2012-04-26 at 17:53 +0200, Eric Dumazet wrote:
 
-On Apr 26, 2012, at 11:13 AM, Jesse Gross wrote:
-
-> On Thu, Apr 26, 2012 at 12:13 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
->> On Wed, Apr 25, 2012 at 10:17:25AM -0700, Jesse Gross wrote:
->>> On Wed, Apr 25, 2012 at 1:39 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
->>>> 
->>>> Hi Kyle,
->>>> 
->>>> the component that is of most interest to me is enabling OVS to use in-tree
->>>> tunnelling code - as it seems that makes most sense for an implementation
->>>> of STT. I have taken a brief look over your vxlan work and it isn't clear
->>>> to me if it is moving towards being an in-tree implementation.  Moreover,
->>>> I'm a rather unclear on what changes need to be made to OVS in order for
->>>> in-tree tunneling to be used.
->>>> 
->>>> My recollection is that OVS did make use of in-tree tunnelling code
->>>> but this was removed in favour of the current implementation for various
->>>> reasons (performance being one IIRC). I gather that revisiting in-tree
->>>> tunnelling won't revisit the previous set of problems. But I'm unclear how.
->>>> 
->>>> Jesse, is it possible for you to describe that in a little detail
->>>> or point me to some information?
->>> 
->>> This was what I had originally written a while back, although it's
->>> more about OVS internally and less about how to connect to the in-tree
->>> code:
->>> http://openvswitch.org/pipermail/dev/2012-February/014779.html
->>> 
->>> In order to flexibly implement support for current and future tunnel
->>> protocols OVS needs to be able to get/set information about the outer
->>> tunnel header when processing the inner packet.  At the very least
->>> this is src/dst IP addresses and the key/ID/VNI/etc.  In the upstream
->>> tunnel implementations those are implicitly encoded in the device that
->>> sends or receives the packet.  However, this has a two problems:
->>> number of devices and ability to handle unknown values.  We addressed
->>> part of this problem by allowing the tunnel ID to be set and matched
->>> through the OVS flow table and an action.  In order to do this with
->>> the in-tree tunneling code, we obviously need a way of passing this
->>> information around since it would currently get lost as we pass
->>> through the Linux device layer.
->>> 
->>> The plan to deal with that is to add a function to the in-tree
->>> tunneling code that allows a skb to be encapsulated with specific
->>> parameters and conversely a hook to receive decapsulated packets along
->>> with header info.  This would make all of the kernel tunneling code
->>> common, while still giving OVS userspace the ability to implement
->>> essentially any type of tunneling policy.  In many ways, this is very
->>> similar to how vlans look in OVS today.
->>> 
->>> While it would be possible to implement the hook to use the in-tree
->>> tunnel code today without a lot of changes, we already know that we
->>> want to move away from port-based model in the OVS kernel module
->>> towards the flow model.  As we push this upstream the userspace/kernel
->>> API should be the correct one, so that's why these two things are tied
->>> together.
->> 
->> 
->> Thanks, that explanation along with Kyle's response helps a lot.
->> 
->> It seems to me that something I could help out with is the implementation
->> of the set_tunnel action which extents and replaces the tun_id action.
->> It seems that is a requirement for the scheme you describe above.
->> 
->> http://openvswitch.org/pipermail/dev/2012-April/016239.html
+> Let me understand
 > 
-> I agree that's probably the best place to start unless Kyle has some
-> specific plans otherwise.
+> You have 300 sockets bound to the same port, so a single message must be
+> copied 300 times and delivered to those sockets ?
+> 
+> 
 
-Simon and I chatted off-list, and this is indeed where we plan to start.
+Please try the following patch. It should allow up to 512 sockets (on
+x86_64) to be stored in stack, and delivery performed out of the locked
+section.
+
+ net/ipv4/udp.c |   16 ++++++++++++----
+ net/ipv6/udp.c |   15 +++++++++++----
+ 2 files changed, 23 insertions(+), 8 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 279fd08..beb9ea6 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1539,13 +1539,20 @@ static void flush_stack(struct sock **stack, unsigned int count,
+ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 				    struct udphdr  *uh,
+ 				    __be32 saddr, __be32 daddr,
+-				    struct udp_table *udptable)
++				    struct udp_table *udptable,
++				   int proto)
+ {
+-	struct sock *sk, *stack[256 / sizeof(struct sock *)];
++	struct sock *sk, **stack;
+ 	struct udp_hslot *hslot = udp_hashslot(udptable, net, ntohs(uh->dest));
+ 	int dif;
+ 	unsigned int i, count = 0;
+ 
++	stack = kmalloc(PAGE_SIZE, GFP_ATOMIC);
++	if (unlikely(!stack)) {
++		UDP_INC_STATS_BH(net, UDP_MIB_RCVBUFERRORS, proto == IPPROTO_UDPLITE);
++		kfree_skb(skb);
++		return 0;
++	}
+ 	spin_lock(&hslot->lock);
+ 	sk = sk_nulls_head(&hslot->head);
+ 	dif = skb->dev->ifindex;
+@@ -1554,7 +1561,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		stack[count++] = sk;
+ 		sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
+ 				       daddr, uh->source, saddr, dif);
+-		if (unlikely(count == ARRAY_SIZE(stack))) {
++		if (unlikely(count == PAGE_SIZE/sizeof(*sk))) {
+ 			if (!sk)
+ 				break;
+ 			flush_stack(stack, count, skb, ~0);
+@@ -1580,6 +1587,7 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 	} else {
+ 		kfree_skb(skb);
+ 	}
++	kfree(stack);
+ 	return 0;
+ }
+ 
+@@ -1661,7 +1669,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 
+ 	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
+ 		return __udp4_lib_mcast_deliver(net, skb, uh,
+-				saddr, daddr, udptable);
++				saddr, daddr, udptable, proto);
+ 
+ 	sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index d39bbc9..fc79b87 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -640,14 +640,20 @@ drop:
+  */
+ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		const struct in6_addr *saddr, const struct in6_addr *daddr,
+-		struct udp_table *udptable)
++		struct udp_table *udptable, int proto)
+ {
+-	struct sock *sk, *stack[256 / sizeof(struct sock *)];
++	struct sock *sk, **stack;
+ 	const struct udphdr *uh = udp_hdr(skb);
+ 	struct udp_hslot *hslot = udp_hashslot(udptable, net, ntohs(uh->dest));
+ 	int dif;
+ 	unsigned int i, count = 0;
+ 
++	stack = kmalloc(PAGE_SIZE, GFP_ATOMIC);
++	if (unlikely(!stack)) {
++		UDP6_INC_STATS_BH(net, UDP_MIB_RCVBUFERRORS, proto == IPPROTO_UDPLITE);
++		kfree_skb(skb);
++		return 0;
++	}
+ 	spin_lock(&hslot->lock);
+ 	sk = sk_nulls_head(&hslot->head);
+ 	dif = inet6_iif(skb);
+@@ -656,7 +662,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		stack[count++] = sk;
+ 		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
+ 				       uh->source, saddr, dif);
+-		if (unlikely(count == ARRAY_SIZE(stack))) {
++		if (unlikely(count == PAGE_SIZE/sizeof(*sk))) {
+ 			if (!sk)
+ 				break;
+ 			flush_stack(stack, count, skb, ~0);
+@@ -679,6 +685,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 	} else {
+ 		kfree_skb(skb);
+ 	}
++	kfree(stack);
+ 	return 0;
+ }
+ 
+@@ -763,7 +770,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	 */
+ 	if (ipv6_addr_is_multicast(daddr))
+ 		return __udp6_lib_mcast_deliver(net, skb,
+-				saddr, daddr, udptable);
++				saddr, daddr, udptable, proto);
+ 
+ 	/* Unicast */
+ 
