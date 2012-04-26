@@ -1,54 +1,52 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: kernel BUG at include/net/netns/generic.h:41
-Date: Thu, 26 Apr 2012 10:25:54 +0400
-Message-ID: <4F98EA72.6010300@parallels.com>
-References: <20120328002346.GB3077@redhat.com> <20120402172600.GA3728@redhat.com> <1333390230.13718.34.camel@lade.trondhjem.org> <4F7DC37F.7090404@parallels.com> <20120405161241.GA23658@redhat.com> <4F7DC4CC.9080502@parallels.com> <20120425225855.GA5537@redhat.com>
+From: xiong <xiong@qca.qualcomm.com>
+Subject: [PATCH 00/10] atl1c: update hardware settings - v3
+Date: Thu, 26 Apr 2012 14:27:08 +0800
+Message-ID: <1335421638-16304-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Dave Jones <davej@redhat.com>,
-	"Myklebust, Trond" <Trond.Myklebust@netapp.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120425225855.GA5537@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
+	xiong <xiong@qca.qualcomm.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:27229 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751804Ab2DZG1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 02:27:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-26.04.2012 02:58, Dave Jones =D0=BD=D0=B0=D0=BF=D0=B8=D1=81=D0=B0=D0=BB=
-:
-> On Thu, Apr 05, 2012 at 08:14:04PM +0400, Stanislav Kinsbursky wrote:
->   >  05.04.2012 20:12, Dave Jones =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->   >  >  On Thu, Apr 05, 2012 at 08:08:31PM +0400, Stanislav Kinsbursk=
-y wrote:
->   >  >
->   >  >    >   So, there are few questions to you, Dave:
->   >  >    >   1) can this happen (PipeFS mount attempt before SUNPRC =
-module insertion has
->   >  >    >   returned any value) in your case?
->   >  >
->   >  >  I don't know enough of what systemd is doing to answer this.
->   >  >
->   >  >    >   2) how often do you experience this problem? Not every =
-boot, I suppose?
->   >  >    >   3) And is it easy for you to reproduce?
->   >  >
->   >  >  It happens most the time, but not every time.
->   >  >
->   >
->   >  Ok, I'll send the patch soon.
->   >  Hope, it will help.
->   >
->   >  --=20
->   >  Best regards,
->   >  Stanislav Kinsbursky
->
-> I didn't see a follow-up patch on this, and I'm still seeing the BUG =
-in rc4.
->
-> 	Dave
+This update contains a serial of patches, most of them are hardware
+settings related. register definitions are refined (or removed if
+meaningless) for each patch.
 
-Dave, search for "SUNRPC: register PipeFS file system after pernet=20
-sybsystem" in your mail.
-You are in CC list.
+This is the third serial patches, after reviewed/applied the fourth
+serial will be out.
+
+The patches have addressed all sparse and checkpatch warnings.
+
+Following NICs are tested:
+AR8131/AR8132/AR8151A/AR8152A/AR8152B
+Test item includes:
+build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
+
+xiong (10):
+  atl1c: remove REG_PHY_STATUS
+  atl1c: refine phy-register read/write function
+  atl1c: remove PHY contrl in atl1c_reset_pcie
+  atl1c: refine SERDES-clock related code
+  atl1c: remove PHY polling from atl1c_open
+  atl1c: update PHY reset related routine
+  atl1c: remove PHY reset/init for link down event
+  atl1c: add function atl1c_power_saving
+  atl1c: refine start/enable code for MAC module
+  atl1c: add flag of PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG
+
+ drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c |    2 +-
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.c      |  428 ++++++++++++-----
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h      |  501 +++++++++++++-------
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |  240 +++-------
+ 4 files changed, 700 insertions(+), 471 deletions(-)
+
+-- 
+1.7.7
