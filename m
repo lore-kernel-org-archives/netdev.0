@@ -1,44 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] smsc95xx: mark link down on startup and let PHY
- interrupt deal with carrier changes
-Date: Thu, 26 Apr 2012 05:56:35 -0400 (EDT)
-Message-ID: <20120426.055635.352589797599676545.davem@davemloft.net>
-References: <20120424.004240.51699724664176823.davem@davemloft.net>
-	<CAKh2mn4JLm8f036d7vNimLdA2wCP+Db7xhgUgfsg760yhs3Yjw@mail.gmail.com>
-	<CAKh2mn6YM=Jmpmfr7ErM0cRjsMc97DzoBLcA45gh9yzSpQDRJg@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/2][6lowpan] code
+ improvements and refactorings
+Date: Thu, 26 Apr 2012 06:02:24 -0400 (EDT)
+Message-ID: <20120426.060224.1132950729383112780.davem@davemloft.net>
+References: <1335432951-17340-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: fillods@users.sf.net, paolo.pisati@canonical.com,
-	netdev@vger.kernel.org
-To: steve@shawell.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58522 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908Ab2DZJ4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:56:50 -0400
-In-Reply-To: <CAKh2mn6YM=Jmpmfr7ErM0cRjsMc97DzoBLcA45gh9yzSpQDRJg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1335432951-17340-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Steve Glendinning <steve@shawell.net>
-Date: Thu, 26 Apr 2012 10:41:33 +0100
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 26 Apr 2012 13:35:49 +0400
 
-> Hi all,
-> 
-> On 24 April 2012 16:45, Steve Glendinning <steve@shawell.net> wrote:
->> Hi all,
->>
->> On 24 April 2012 05:42, David Miller <davem@davemloft.net> wrote:
->>>
->>> Steve, please send a maintainers etc. update and please provide
->>> feedback on this link status fix.
-> 
-> Good catch Paolo, this patch fixes reporting of link status when the
-> device is first connected with no ethernet cable plugged in.
-> 
-> I'll prepare the same patch for smsc75xx as it also suffers from the same issue.
-> 
-> Acked-by: Steve Glendinning <steve.glendinning@shawell.net>
+> The following patches contains 6lowpan code improvements.
 
-Applied.
+Both applied, thanks.
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
