@@ -1,7 +1,7 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+From: "Kyle Mestery (kmestery)" <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 Subject: Re: [RFC v4] Add TCP encap_rcv hook (repost)
-Date: Thu, 26 Apr 2012 09:13:50 -0700
-Message-ID: <CAEP_g=8VQizt5iUc_yR+PynMYpZgD4ep+o379JK8k-KCKMYgmg@mail.gmail.com>
+Date: Thu, 26 Apr 2012 16:16:36 +0000
+Message-ID: <6D8BC25C-993E-4187-A277-930DDE6AB9AD@cisco.com>
 References: <20120423.161313.1582195533832554777.davem@davemloft.net>
 	<CAEP_g=8EVOVgDaWnu3sd+qHxNZ7+ogjzBkuWvfVHNAqX2DRf=g@mail.gmail.com>
 	<20120423.170817.1103719420692884446.davem@davemloft.net>
@@ -13,14 +13,21 @@ References: <20120423.161313.1582195533832554777.davem@davemloft.net>
 	<20120425083925.GB6661@verge.net.au>
 	<CAEP_g=8DmQ_-8+ZbATdVhNJKiDSr0HdUgB-+oaqwU1=SqqzXfQ@mail.gmail.com>
 	<20120426071321.GA25781@verge.net.au>
+	<CAEP_g=8VQizt5iUc_yR+PynMYpZgD4ep+o379JK8k-KCKMYgmg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "<dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"<jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>" <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	"<shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>" <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20120426071321.GA25781-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+In-Reply-To: <CAEP_g=8VQizt5iUc_yR+PynMYpZgD4ep+o379JK8k-KCKMYgmg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Content-ID: <76EC6FA6D7AB70419443496876238EE6-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -32,66 +39,73 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBBcHIgMjYsIDIwMTIgYXQgMTI6MTMgQU0sIFNpbW9uIEhvcm1hbiA8aG9ybXNAdmVy
-Z2UubmV0LmF1PiB3cm90ZToKPiBPbiBXZWQsIEFwciAyNSwgMjAxMiBhdCAxMDoxNzoyNUFNIC0w
-NzAwLCBKZXNzZSBHcm9zcyB3cm90ZToKPj4gT24gV2VkLCBBcHIgMjUsIDIwMTIgYXQgMTozOSBB
-TSwgU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+IHdyb3RlOgo+PiA+Cj4+ID4gSGkg
-S3lsZSwKPj4gPgo+PiA+IHRoZSBjb21wb25lbnQgdGhhdCBpcyBvZiBtb3N0IGludGVyZXN0IHRv
-IG1lIGlzIGVuYWJsaW5nIE9WUyB0byB1c2UgaW4tdHJlZQo+PiA+IHR1bm5lbGxpbmcgY29kZSAt
-IGFzIGl0IHNlZW1zIHRoYXQgbWFrZXMgbW9zdCBzZW5zZSBmb3IgYW4gaW1wbGVtZW50YXRpb24K
-Pj4gPiBvZiBTVFQuIEkgaGF2ZSB0YWtlbiBhIGJyaWVmIGxvb2sgb3ZlciB5b3VyIHZ4bGFuIHdv
-cmsgYW5kIGl0IGlzbid0IGNsZWFyCj4+ID4gdG8gbWUgaWYgaXQgaXMgbW92aW5nIHRvd2FyZHMg
-YmVpbmcgYW4gaW4tdHJlZSBpbXBsZW1lbnRhdGlvbi4gwqBNb3Jlb3ZlciwKPj4gPiBJJ20gYSBy
-YXRoZXIgdW5jbGVhciBvbiB3aGF0IGNoYW5nZXMgbmVlZCB0byBiZSBtYWRlIHRvIE9WUyBpbiBv
-cmRlciBmb3IKPj4gPiBpbi10cmVlIHR1bm5lbGluZyB0byBiZSB1c2VkLgo+PiA+Cj4+ID4gTXkg
-cmVjb2xsZWN0aW9uIGlzIHRoYXQgT1ZTIGRpZCBtYWtlIHVzZSBvZiBpbi10cmVlIHR1bm5lbGxp
-bmcgY29kZQo+PiA+IGJ1dCB0aGlzIHdhcyByZW1vdmVkIGluIGZhdm91ciBvZiB0aGUgY3VycmVu
-dCBpbXBsZW1lbnRhdGlvbiBmb3IgdmFyaW91cwo+PiA+IHJlYXNvbnMgKHBlcmZvcm1hbmNlIGJl
-aW5nIG9uZSBJSVJDKS4gSSBnYXRoZXIgdGhhdCByZXZpc2l0aW5nIGluLXRyZWUKPj4gPiB0dW5u
-ZWxsaW5nIHdvbid0IHJldmlzaXQgdGhlIHByZXZpb3VzIHNldCBvZiBwcm9ibGVtcy4gQnV0IEkn
-bSB1bmNsZWFyIGhvdy4KPj4gPgo+PiA+IEplc3NlLCBpcyBpdCBwb3NzaWJsZSBmb3IgeW91IHRv
-IGRlc2NyaWJlIHRoYXQgaW4gYSBsaXR0bGUgZGV0YWlsCj4+ID4gb3IgcG9pbnQgbWUgdG8gc29t
-ZSBpbmZvcm1hdGlvbj8KPj4KPj4gVGhpcyB3YXMgd2hhdCBJIGhhZCBvcmlnaW5hbGx5IHdyaXR0
-ZW4gYSB3aGlsZSBiYWNrLCBhbHRob3VnaCBpdCdzCj4+IG1vcmUgYWJvdXQgT1ZTIGludGVybmFs
-bHkgYW5kIGxlc3MgYWJvdXQgaG93IHRvIGNvbm5lY3QgdG8gdGhlIGluLXRyZWUKPj4gY29kZToK
-Pj4gaHR0cDovL29wZW52c3dpdGNoLm9yZy9waXBlcm1haWwvZGV2LzIwMTItRmVicnVhcnkvMDE0
-Nzc5Lmh0bWwKPj4KPj4gSW4gb3JkZXIgdG8gZmxleGlibHkgaW1wbGVtZW50IHN1cHBvcnQgZm9y
-IGN1cnJlbnQgYW5kIGZ1dHVyZSB0dW5uZWwKPj4gcHJvdG9jb2xzIE9WUyBuZWVkcyB0byBiZSBh
-YmxlIHRvIGdldC9zZXQgaW5mb3JtYXRpb24gYWJvdXQgdGhlIG91dGVyCj4+IHR1bm5lbCBoZWFk
-ZXIgd2hlbiBwcm9jZXNzaW5nIHRoZSBpbm5lciBwYWNrZXQuIMKgQXQgdGhlIHZlcnkgbGVhc3QK
-Pj4gdGhpcyBpcyBzcmMvZHN0IElQIGFkZHJlc3NlcyBhbmQgdGhlIGtleS9JRC9WTkkvZXRjLiDC
-oEluIHRoZSB1cHN0cmVhbQo+PiB0dW5uZWwgaW1wbGVtZW50YXRpb25zIHRob3NlIGFyZSBpbXBs
-aWNpdGx5IGVuY29kZWQgaW4gdGhlIGRldmljZSB0aGF0Cj4+IHNlbmRzIG9yIHJlY2VpdmVzIHRo
-ZSBwYWNrZXQuIMKgSG93ZXZlciwgdGhpcyBoYXMgYSB0d28gcHJvYmxlbXM6Cj4+IG51bWJlciBv
-ZiBkZXZpY2VzIGFuZCBhYmlsaXR5IHRvIGhhbmRsZSB1bmtub3duIHZhbHVlcy4gwqBXZSBhZGRy
-ZXNzZWQKPj4gcGFydCBvZiB0aGlzIHByb2JsZW0gYnkgYWxsb3dpbmcgdGhlIHR1bm5lbCBJRCB0
-byBiZSBzZXQgYW5kIG1hdGNoZWQKPj4gdGhyb3VnaCB0aGUgT1ZTIGZsb3cgdGFibGUgYW5kIGFu
-IGFjdGlvbi4gwqBJbiBvcmRlciB0byBkbyB0aGlzIHdpdGgKPj4gdGhlIGluLXRyZWUgdHVubmVs
-aW5nIGNvZGUsIHdlIG9idmlvdXNseSBuZWVkIGEgd2F5IG9mIHBhc3NpbmcgdGhpcwo+PiBpbmZv
-cm1hdGlvbiBhcm91bmQgc2luY2UgaXQgd291bGQgY3VycmVudGx5IGdldCBsb3N0IGFzIHdlIHBh
-c3MKPj4gdGhyb3VnaCB0aGUgTGludXggZGV2aWNlIGxheWVyLgo+Pgo+PiBUaGUgcGxhbiB0byBk
-ZWFsIHdpdGggdGhhdCBpcyB0byBhZGQgYSBmdW5jdGlvbiB0byB0aGUgaW4tdHJlZQo+PiB0dW5u
-ZWxpbmcgY29kZSB0aGF0IGFsbG93cyBhIHNrYiB0byBiZSBlbmNhcHN1bGF0ZWQgd2l0aCBzcGVj
-aWZpYwo+PiBwYXJhbWV0ZXJzIGFuZCBjb252ZXJzZWx5IGEgaG9vayB0byByZWNlaXZlIGRlY2Fw
-c3VsYXRlZCBwYWNrZXRzIGFsb25nCj4+IHdpdGggaGVhZGVyIGluZm8uIMKgVGhpcyB3b3VsZCBt
-YWtlIGFsbCBvZiB0aGUga2VybmVsIHR1bm5lbGluZyBjb2RlCj4+IGNvbW1vbiwgd2hpbGUgc3Rp
-bGwgZ2l2aW5nIE9WUyB1c2Vyc3BhY2UgdGhlIGFiaWxpdHkgdG8gaW1wbGVtZW50Cj4+IGVzc2Vu
-dGlhbGx5IGFueSB0eXBlIG9mIHR1bm5lbGluZyBwb2xpY3kuIMKgSW4gbWFueSB3YXlzLCB0aGlz
-IGlzIHZlcnkKPj4gc2ltaWxhciB0byBob3cgdmxhbnMgbG9vayBpbiBPVlMgdG9kYXkuCj4+Cj4+
-IFdoaWxlIGl0IHdvdWxkIGJlIHBvc3NpYmxlIHRvIGltcGxlbWVudCB0aGUgaG9vayB0byB1c2Ug
-dGhlIGluLXRyZWUKPj4gdHVubmVsIGNvZGUgdG9kYXkgd2l0aG91dCBhIGxvdCBvZiBjaGFuZ2Vz
-LCB3ZSBhbHJlYWR5IGtub3cgdGhhdCB3ZQo+PiB3YW50IHRvIG1vdmUgYXdheSBmcm9tIHBvcnQt
-YmFzZWQgbW9kZWwgaW4gdGhlIE9WUyBrZXJuZWwgbW9kdWxlCj4+IHRvd2FyZHMgdGhlIGZsb3cg
-bW9kZWwuIMKgQXMgd2UgcHVzaCB0aGlzIHVwc3RyZWFtIHRoZSB1c2Vyc3BhY2Uva2VybmVsCj4+
-IEFQSSBzaG91bGQgYmUgdGhlIGNvcnJlY3Qgb25lLCBzbyB0aGF0J3Mgd2h5IHRoZXNlIHR3byB0
-aGluZ3MgYXJlIHRpZWQKPj4gdG9nZXRoZXIuCj4KPgo+IFRoYW5rcywgdGhhdCBleHBsYW5hdGlv
-biBhbG9uZyB3aXRoIEt5bGUncyByZXNwb25zZSBoZWxwcyBhIGxvdC4KPgo+IEl0IHNlZW1zIHRv
-IG1lIHRoYXQgc29tZXRoaW5nIEkgY291bGQgaGVscCBvdXQgd2l0aCBpcyB0aGUgaW1wbGVtZW50
-YXRpb24KPiBvZiB0aGUgc2V0X3R1bm5lbCBhY3Rpb24gd2hpY2ggZXh0ZW50cyBhbmQgcmVwbGFj
-ZXMgdGhlIHR1bl9pZCBhY3Rpb24uCj4gSXQgc2VlbXMgdGhhdCBpcyBhIHJlcXVpcmVtZW50IGZv
-ciB0aGUgc2NoZW1lIHlvdSBkZXNjcmliZSBhYm92ZS4KPgo+IGh0dHA6Ly9vcGVudnN3aXRjaC5v
-cmcvcGlwZXJtYWlsL2Rldi8yMDEyLUFwcmlsLzAxNjIzOS5odG1sCgpJIGFncmVlIHRoYXQncyBw
-cm9iYWJseSB0aGUgYmVzdCBwbGFjZSB0byBzdGFydCB1bmxlc3MgS3lsZSBoYXMgc29tZQpzcGVj
-aWZpYyBwbGFucyBvdGhlcndpc2UuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
-b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+
+On Apr 26, 2012, at 11:13 AM, Jesse Gross wrote:
+
+> On Thu, Apr 26, 2012 at 12:13 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+>> On Wed, Apr 25, 2012 at 10:17:25AM -0700, Jesse Gross wrote:
+>>> On Wed, Apr 25, 2012 at 1:39 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+>>>> 
+>>>> Hi Kyle,
+>>>> 
+>>>> the component that is of most interest to me is enabling OVS to use in-tree
+>>>> tunnelling code - as it seems that makes most sense for an implementation
+>>>> of STT. I have taken a brief look over your vxlan work and it isn't clear
+>>>> to me if it is moving towards being an in-tree implementation.  Moreover,
+>>>> I'm a rather unclear on what changes need to be made to OVS in order for
+>>>> in-tree tunneling to be used.
+>>>> 
+>>>> My recollection is that OVS did make use of in-tree tunnelling code
+>>>> but this was removed in favour of the current implementation for various
+>>>> reasons (performance being one IIRC). I gather that revisiting in-tree
+>>>> tunnelling won't revisit the previous set of problems. But I'm unclear how.
+>>>> 
+>>>> Jesse, is it possible for you to describe that in a little detail
+>>>> or point me to some information?
+>>> 
+>>> This was what I had originally written a while back, although it's
+>>> more about OVS internally and less about how to connect to the in-tree
+>>> code:
+>>> http://openvswitch.org/pipermail/dev/2012-February/014779.html
+>>> 
+>>> In order to flexibly implement support for current and future tunnel
+>>> protocols OVS needs to be able to get/set information about the outer
+>>> tunnel header when processing the inner packet.  At the very least
+>>> this is src/dst IP addresses and the key/ID/VNI/etc.  In the upstream
+>>> tunnel implementations those are implicitly encoded in the device that
+>>> sends or receives the packet.  However, this has a two problems:
+>>> number of devices and ability to handle unknown values.  We addressed
+>>> part of this problem by allowing the tunnel ID to be set and matched
+>>> through the OVS flow table and an action.  In order to do this with
+>>> the in-tree tunneling code, we obviously need a way of passing this
+>>> information around since it would currently get lost as we pass
+>>> through the Linux device layer.
+>>> 
+>>> The plan to deal with that is to add a function to the in-tree
+>>> tunneling code that allows a skb to be encapsulated with specific
+>>> parameters and conversely a hook to receive decapsulated packets along
+>>> with header info.  This would make all of the kernel tunneling code
+>>> common, while still giving OVS userspace the ability to implement
+>>> essentially any type of tunneling policy.  In many ways, this is very
+>>> similar to how vlans look in OVS today.
+>>> 
+>>> While it would be possible to implement the hook to use the in-tree
+>>> tunnel code today without a lot of changes, we already know that we
+>>> want to move away from port-based model in the OVS kernel module
+>>> towards the flow model.  As we push this upstream the userspace/kernel
+>>> API should be the correct one, so that's why these two things are tied
+>>> together.
+>> 
+>> 
+>> Thanks, that explanation along with Kyle's response helps a lot.
+>> 
+>> It seems to me that something I could help out with is the implementation
+>> of the set_tunnel action which extents and replaces the tun_id action.
+>> It seems that is a requirement for the scheme you describe above.
+>> 
+>> http://openvswitch.org/pipermail/dev/2012-April/016239.html
+> 
+> I agree that's probably the best place to start unless Kyle has some
+> specific plans otherwise.
+
+Simon and I chatted off-list, and this is indeed where we plan to start.
