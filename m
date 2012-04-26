@@ -1,57 +1,150 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [GIT PULL] net/at91: at91_ether fixes for 3.4-rc
-Date: Thu, 26 Apr 2012 12:07:41 +0200
-Message-ID: <4F991E6D.4020303@atmel.com>
-References: <4F991210.8060409@atmel.com>
- <20120426.052006.1832921763623188173.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@sacred.ru>
+Subject: [PATCH] tcp repair: Fix unaligned access when repairing options (v2)
+Date: Thu, 26 Apr 2012 13:43:04 +0400
+Message-ID: <4F9918A8.20100@sacred.ru>
+Reply-To: Pavel Emelyanov <xemul@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, avictor.za@gmail.com, plagnioj@jcrosoft.com,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20120426.052006.1832921763623188173.davem@davemloft.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+To: Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([195.22.104.170]:34507 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754883Ab2DZKHv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Apr 2012 06:07:51 -0400
+Received: from [10.24.20.94] (newvpn.parallels.com [195.214.232.74] (may be forged))
+	(authenticated bits=0)
+	by sacred.ru (8.13.8/8.13.8) with ESMTP id q3Q9h6fY028185
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 13:43:07 +0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/26/2012 11:20 AM, David Miller :
-> From: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Date: Thu, 26 Apr 2012 11:14:56 +0200
-> 
->> Can you please pull those fixes for 3.4-rc? The ARM/AT91 part
->> of modifications is pretty small and bounded to a single SoC so
->> it will not mess with arm-soc git tree.
-> 
-> Please post the patches themselves to netdev.
-> 
-> You can give me pull requests, but those go into the "[PATCH 0/N] ..."
-> email, it doesn't preclude you're still having to post the actual
-> patches.
-> 
-> Otherwise nobody can review your work.
+From: Pavel Emelyanov <xemul@parallels.com>
 
-Both patches have been posted on netdev (but independently):
+Don't pick __u8/__u16 values directly from raw pointers, but instead use
+an array of structures of code:value pairs. This is OK, since the buffer
+we take options from is not an skb memory, but a user-to-kernel one.
 
-First has been posted on February 13th:
-http://www.spinics.net/lists/netdev/msg188868.html
-With a question from myself a few days ago:
-http://www.spinics.net/lists/netdev/msg196183.html
-And I can find ancestors back in May 2011...
+For those options which don't require any value now, require this to be
+zero (for potential future extension of this API).
 
-Second one has been posted on April 23rd:
-http://www.spinics.net/lists/netdev/msg196002.html
+v2: Changed tcp_repair_opt to use two __u32-s as spotted by David Laight.
 
-So, should I repost both of them as patch series?
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-Best regards,
--- 
-Nicolas Ferre
+---
+ include/linux/tcp.h |    5 ++++
+ net/ipv4/tcp.c      |   60 +++++++++++++++++---------------------------------
+ 2 files changed, 26 insertions(+), 39 deletions(-)
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 9865936..d0401d9 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -111,6 +111,11 @@ enum {
+ #define TCP_QUEUE_SEQ		21
+ #define TCP_REPAIR_OPTIONS	22
+ 
++struct tcp_repair_opt {
++	__u32	opt_code;
++	__u32	opt_val;
++};
++
+ enum {
+ 	TCP_NO_QUEUE,
+ 	TCP_RECV_QUEUE,
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index de6a238..9670af3 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2283,60 +2283,40 @@ static inline int tcp_can_repair_sock(struct sock *sk)
+ 		((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_ESTABLISHED));
+ }
+ 
+-static int tcp_repair_options_est(struct tcp_sock *tp, char __user *optbuf, unsigned int len)
++static int tcp_repair_options_est(struct tcp_sock *tp,
++		struct tcp_repair_opt __user *optbuf, unsigned int len)
+ {
+-	/*
+-	 * Options are stored in CODE:VALUE form where CODE is 8bit and VALUE
+-	 * fits the respective TCPOLEN_ size
+-	 */
++	struct tcp_repair_opt opt;
+ 
+-	while (len > 0) {
+-		u8 opcode;
+-
+-		if (get_user(opcode, optbuf))
++	while (len >= sizeof(opt)) {
++		if (copy_from_user(&opt, optbuf, sizeof(opt)))
+ 			return -EFAULT;
+ 
+ 		optbuf++;
+-		len--;
+-
+-		switch (opcode) {
+-		case TCPOPT_MSS: {
+-			u16 in_mss;
++		len -= sizeof(opt);
+ 
+-			if (len < sizeof(in_mss))
+-				return -ENODATA;
+-			if (get_user(in_mss, optbuf))
+-				return -EFAULT;
+-
+-			tp->rx_opt.mss_clamp = in_mss;
+-
+-			optbuf += sizeof(in_mss);
+-			len -= sizeof(in_mss);
++		switch (opt.opt_code) {
++		case TCPOPT_MSS:
++			tp->rx_opt.mss_clamp = opt.opt_val;
+ 			break;
+-		}
+-		case TCPOPT_WINDOW: {
+-			u8 wscale;
+-
+-			if (len < sizeof(wscale))
+-				return -ENODATA;
+-			if (get_user(wscale, optbuf))
+-				return -EFAULT;
+-
+-			if (wscale > 14)
++		case TCPOPT_WINDOW:
++			if (opt.opt_val > 14)
+ 				return -EFBIG;
+ 
+-			tp->rx_opt.snd_wscale = wscale;
+-
+-			optbuf += sizeof(wscale);
+-			len -= sizeof(wscale);
++			tp->rx_opt.snd_wscale = opt.opt_val;
+ 			break;
+-		}
+ 		case TCPOPT_SACK_PERM:
++			if (opt.opt_val != 0)
++				return -EINVAL;
++
+ 			tp->rx_opt.sack_ok |= TCP_SACK_SEEN;
+ 			if (sysctl_tcp_fack)
+ 				tcp_enable_fack(tp);
+ 			break;
+ 		case TCPOPT_TIMESTAMP:
++			if (opt.opt_val != 0)
++				return -EINVAL;
++
+ 			tp->rx_opt.tstamp_ok = 1;
+ 			break;
+ 		}
+@@ -2557,7 +2537,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 		if (!tp->repair)
+ 			err = -EINVAL;
+ 		else if (sk->sk_state == TCP_ESTABLISHED)
+-			err = tcp_repair_options_est(tp, optval, optlen);
++			err = tcp_repair_options_est(tp,
++					(struct tcp_repair_opt __user *)optval,
++					optlen);
+ 		else
+ 			err = -EPERM;
+ 		break;
