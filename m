@@ -1,41 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] allow skb->head to point/alias to first skb frag
-Date: Thu, 26 Apr 2012 04:36:23 -0400 (EDT)
-Message-ID: <20120426.043623.1317043382565428400.davem@davemloft.net>
-References: <alpine.DEB.2.00.1204241131580.735@wel-95.cs.helsinki.fi>
-	<1335257803.5205.133.camel@edumazet-glaptop>
-	<1335427854.2775.15.camel@edumazet-glaptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [v2 PATCH 0/2] ipvs: netns avoid crash at netns init
+Date: Thu, 26 Apr 2012 17:57:46 +0900
+Message-ID: <20120426085744.GA3537@verge.net.au>
+References: <1335426335-5093-1-git-send-email-hans.schillstrom@ericsson.com>
+ <alpine.LFD.2.00.1204261126340.1879@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, rick.jones2@hp.com,
-	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
-	maze@google.com, ycheng@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57818 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754908Ab2DZIgt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 04:36:49 -0400
-In-Reply-To: <1335427854.2775.15.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	wensong@linux-vs.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hans@schillstrom.com
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1204261126340.1879@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 26 Apr 2012 10:10:54 +0200
-
-> Idea would have :
+On Thu, Apr 26, 2012 at 11:30:00AM +0300, Julian Anastasov wrote:
 > 
-> 1) struct sk_buff
-> 2) skb->head points to frag (aliasing, no memory allocation)
-> 3) frag of 2048 (or PAGE_SIZE/2 or PAGE_SIZE)
+> 	Hello,
+> 
+> On Thu, 26 Apr 2012, Hans Schillstrom wrote:
+> 
+> > Two simple patches that avoid crashes for no memory at netns init.
+> > 
+> > - Check return value of protocoll init.
+> > - Null check of net-ipvs in shedulers.
+> > 
+> > 
+> > Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> 
+> 	Both patches look ok
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
 
-What would you set skb->data_len and skb->len to?
-
-How would you handle tailroom?  We have the rule that you can't append
-to the tail of a fragmented SKB (I mean append, the way that IPSEC
-wants to write data to the end of an SKB when encrypting, for
-example).  This is only allowed on fully linear SKBs.
-
-So, for this reason and others, you can't pretend that this new
-construction is linear in any way.  It would break a bunch of things.
+Thanks, applied to ipvs.
