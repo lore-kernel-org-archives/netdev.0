@@ -1,17 +1,17 @@
 From: H Hartley Sweeten <hartleys@visionengravers.com>
-Subject: [PATCH] IPVS: ip_vs_proto.c: local functions should not be exposed globally
-Date: Thu, 26 Apr 2012 11:26:15 -0700
-Message-ID: <201204261126.15699.hartleys@visionengravers.com>
+Subject: [PATCH] IPVS: ip_vs_sync.c: local functions should not be exposed globally
+Date: Thu, 26 Apr 2012 11:29:53 -0700
+Message-ID: <201204261129.53927.hartleys@visionengravers.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
 To: Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail160.messagelabs.com ([216.82.253.99]:32710 "EHLO
-	mail160.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758745Ab2DZS01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 14:26:27 -0400
+Received: from mail131.messagelabs.com ([216.82.242.99]:35219 "EHLO
+	mail131.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756893Ab2DZSaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 14:30:21 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,23 +21,23 @@ static to prevent it from being exposed globally.
 
 This quiets the sparse warnings:
 
-warning: symbol '__ipvs_proto_data_get' was not declared. Should it be static?
+warning: symbol 'ip_vs_sync_conn_v0' was not declared. Should it be static?
 
 Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 
 ---
 
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 6eda11d..d5d1d92 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -153,7 +153,7 @@ EXPORT_SYMBOL(ip_vs_proto_get);
- /*
-  *	get ip_vs_protocol object data by netns and proto
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index bf5e538..49a1fe8 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -446,7 +446,7 @@ ip_vs_sync_buff_create_v0(struct netns_ipvs *ipvs)
+  *      Version 0 , could be switched in by sys_ctl.
+  *      Add an ip_vs_conn information into the current sync_buff.
   */
--struct ip_vs_proto_data *
-+static struct ip_vs_proto_data *
- __ipvs_proto_data_get(struct netns_ipvs *ipvs, unsigned short proto)
+-void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
++static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
  {
- 	struct ip_vs_proto_data *pd;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct ip_vs_sync_mesg_v0 *m;
