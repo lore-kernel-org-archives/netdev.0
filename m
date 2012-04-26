@@ -1,68 +1,47 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [GIT PULL] net/at91: at91_ether fixes for 3.4-rc
-Date: Thu, 26 Apr 2012 11:14:56 +0200
-Message-ID: <4F991210.8060409@atmel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] allow skb->head to point/alias to first skb frag
+Date: Thu, 26 Apr 2012 05:18:00 -0400 (EDT)
+Message-ID: <20120426.051800.637617874638567499.davem@davemloft.net>
+References: <1335427854.2775.15.camel@edumazet-glaptop>
+	<20120426.043623.1317043382565428400.davem@davemloft.net>
+	<1335431402.2775.24.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Victor <avictor.za@gmail.com>,
- Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
- Linux Kernel list <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
- linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: ilpo.jarvinen@helsinki.fi, rick.jones2@hp.com,
+	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
+	maze@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58180 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754123Ab2DZJSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 05:18:25 -0400
+In-Reply-To: <1335431402.2775.24.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Apr 2012 11:10:02 +0200
 
-Can you please pull those fixes for 3.4-rc? The ARM/AT91 part
-of modifications is pretty small and bounded to a single SoC so
-it will not mess with arm-soc git tree.
+> The 'frag' would have a known size : 2048 bytes
+> 
+> But the end of it would be used by struct skb_shared_info
+> 
+> so data_len would be 0 in fact.
+> 
+> This would look like a regular linear skb.
+> 
+> Just a bit set in skb to say : Warning, skb->head was not kmalloced :
+> replace kfree(head) by put_page(...)
+> 
+> And this bit would be tested in GRO or tcp merge to 'upgrade' this
+> skb->head to proper page/frag
 
-Tell me if you need other information on this signed tag...
+And what happens if this ends up in a piece of code which wants to
+append a page frag?
 
-The following changes since commit 66f75a5d028beaf67c931435fdc3e7823125730c:
+Or a piece of code which copies an SKB, including page frag parts?
 
-  Linux 3.4-rc4 (2012-04-21 14:47:52 -0700)
-
-are available in the git repository at:
-
-  git://github.com/at91linux/linux-at91.git tags/at91-3.4-net-fixes
-
-for you to fetch changes up to cfc991548b5b73c8038f41877da1cd0104945cf5:
-
-  net/at91_ether: use gpio_to_irq for phy IRQ line (2012-04-26 10:22:40 +0200)
-
-----------------------------------------------------------------
-Both fixes are about at91_ether.c driver: It is only used in a single
-Atmel AT91 SoC: AT91RM9200.
-The removal of fixed mapping is a long standing refinement which will
-convert this driver to a more typical resources management.
-The gpio fix is needed now that we have moved AT91 to irqdomains.
-
-----------------------------------------------------------------
-Andrew Victor (1):
-      AT91: Remove fixed mapping for AT91RM9200 ethernet
-
-Nicolas Ferre (1):
-      net/at91_ether: use gpio_to_irq for phy IRQ line
-
- arch/arm/mach-at91/at91rm9200.c            |   10 --
- arch/arm/mach-at91/at91rm9200_devices.c    |    4 +-
- arch/arm/mach-at91/include/mach/hardware.h |    1 -
- drivers/net/ethernet/cadence/at91_ether.c  |  535 ++++++++++++++++++++++++++++++++++++++++++++-------------------------------------
- drivers/net/ethernet/cadence/at91_ether.h  |    1 +
- 5 files changed, 291 insertions(+), 260 deletions(-)
-
-Best regards,
--- 
-Nicolas Ferre
+All I'm saying is that the number of tests necessary to make this work
+properly might become prohibitive.
