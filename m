@@ -1,36 +1,78 @@
-From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 02/14 v2] usb/net: rndis: break out <linux/rndis.h> defines
-Date: Fri, 27 Apr 2012 13:24:06 +0200
-Message-ID: <CACRpkdZoV7FcERUnYMozFkgaog7nr9XeT91jsL4G26pGQiq4GA@mail.gmail.com>
-References: <1335367808-4254-1-git-send-email-linus.walleij@linaro.org>
-	<20120425.194447.1519804940735129000.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH 5/5 net-next] net: makes skb_splice_bits() aware of
+ skb->head_frag
+Date: Fri, 27 Apr 2012 14:10:03 +0200
+Message-ID: <1335528603.2775.246.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, jussi.kivilinna-E01nCVcF24I@public.gmane.org,
-	haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
-	ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120425.194447.1519804940735129000.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Tom Herbert <therbert@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:48424 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759994Ab2D0MKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 08:10:11 -0400
+Received: by bkuw12 with SMTP id w12so444626bku.19
+        for <netdev@vger.kernel.org>; Fri, 27 Apr 2012 05:10:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 26, 2012 at 1:44 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+=46rom: Eric Dumazet <edumazet@google.com>
 
-> After this patch the build emits tons of warnings because you've
-> left a situation where there will be duplicate definitions:
+__skb_splice_bits() can check if skb to be spliced has its skb->head
+mapped to a page fragment, instead of a kmalloc() area.
 
-Sure, that was on purpose, doing it step-wise so we could find
-bisect if something broke in the step of ironing out the duplicate
-defines. So actually it was being cautious (maybe in a bad way.)
+If so we can avoid a copy of the skb head and get a reference on
+underlying page.
 
-But I'll just squash the duplication-removal patches now that
-we know it works, and we end on warning-free patches.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Maciej =C5=BBenczykowski <maze@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Matt Carlson <mcarlson@broadcom.com>
+Cc: Michael Chan <mchan@broadcom.com>
+---
+ net/core/skbuff.c |   10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-Yours,
-Linus Walleij
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 2ad1ee7..e5bd086 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1699,14 +1699,18 @@ static bool __skb_splice_bits(struct sk_buff *s=
+kb, struct pipe_inode_info *pipe,
+ 			      struct splice_pipe_desc *spd, struct sock *sk)
+ {
+ 	int seg;
++	bool head_is_linear =3D !skb->head_frag;
+=20
+-	/*
+-	 * map the linear part
++	/* map the linear part :
++	 * If skb->head_frag is set, this 'linear' part is backed
++	 * by a fragment, and we can avoid a copy.
+ 	 */
+ 	if (__splice_segment(virt_to_page(skb->data),
+ 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
+ 			     skb_headlen(skb),
+-			     offset, len, skb, spd, true, sk, pipe))
++			     offset, len, skb, spd,
++			     head_is_linear,
++			     sk, pipe))
+ 		return true;
+=20
+ 	/*
