@@ -1,69 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/4 net-next] tg3: provide frags as skb head
-Date: Fri, 27 Apr 2012 17:33:06 +0100
-Message-ID: <1335544386.2618.50.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1335522889.2775.231.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: clean up use of jiffies in tcp_rcv_rtt_measure()
+Date: Fri, 27 Apr 2012 12:35:15 -0400 (EDT)
+Message-ID: <20120427.123515.881990026294758581.davem@davemloft.net>
+References: <1335540577-32554-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, edumazet@google.com, nanditad@google.com,
+	ycheng@google.com, ilpo.jarvinen@helsinki.fi, therbert@google.com
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:9341 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754460Ab2D0QdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 12:33:12 -0400
-In-Reply-To: <1335522889.2775.231.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43524 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758980Ab2D0Qf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 12:35:26 -0400
+In-Reply-To: <1335540577-32554-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-04-27 at 12:34 +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> This patch converts tg3 driver, one of our reference drivers, to use new
-> build_skb() api in frag mode.
-> 
-> Instead of using kmalloc() to allocate the memory block that will be
-> used by build_skb() as skb->head, we use a page fragment.
-> 
-> This is a followup of patch "net: allow skb->head to be a page fragment"
-> 
-> This allows GRO, TCP coalescing, and splice() to be more efficient.
-> 
-> Incidentally, this also removes SLUB slow path contention in kfree()
-[...]
-> @@ -5617,17 +5626,48 @@ static void tg3_tx(struct tg3_napi *tnapi)
->  	}
->  }
->  
-> +static void *tg3_frag_alloc(struct tg3_rx_prodring_set *tpr)
-> +{
-> +	void *data;
-> +
-> +	if (tpr->rx_page_size < TG3_FRAGSIZE) {
-> +		struct page *page = alloc_page(GFP_ATOMIC);
-> +
-> +		if (!page)
-> +			return NULL;
-> +		atomic_add((PAGE_SIZE / TG3_FRAGSIZE) - 1, &page->_count); 
-> +		tpr->rx_page_addr = page_address(page);
-[...]
+From: Neal Cardwell <ncardwell@google.com>
+Date: Fri, 27 Apr 2012 11:29:37 -0400
 
-page_address() may return NULL if CONFIG_HIGHMEM is enabled.  And that's
-going to be a general problem with this scheme on 32-bit machines.
+> Clean up a reference to jiffies in tcp_rcv_rtt_measure() that should
+> instead reference tcp_time_stamp. Since the result of the subtraction
+> is passed into a function taking u32, this should not change any
+> behavior (and indeed the generated assembly does not change on
+> x86_64). However, it seems worth cleaning this up for consistency and
+> clarity (and perhaps to avoid bugs if this is copied and pasted
+> somewhere else).
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied, thanks.
