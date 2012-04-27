@@ -1,214 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/6] e1000e: 82579 potential system hang on stress when ME enabled
-Date: Fri, 27 Apr 2012 02:36:51 -0700
-Message-ID: <1335519413-1892-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1335519413-1892-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 27 Apr 2012 02:36:47 -0700
+Message-ID: <1335519413-1892-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:58719 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:58063 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759939Ab2D0Jg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2012 05:36:57 -0400
-In-Reply-To: <1335519413-1892-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1759151Ab2D0Jgz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2012 05:36:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+This series of patches contains updates for e1000e, igb and
+ixgbe.
 
-Previously, a workaround was added to address a hardware bug in the
-PCIm2PCI arbiter where a write by the driver of the Transmit/Receive
-Descriptor Tail register could happen concurrently with a write of any
-MAC CSR register by the Manageability Engine (ME) which could cause the
-Tail register to have an incorrect value.  The arbiter is supposed to
-prevent the concurrent writes but there is a bug that can cause the Host
-(driver) access to be acknowledged later than it should.
-After further investigation, it was discovered that a driver write access
-of any MAC CSR register after being idle for some time can be lost when
-ME is accessing a MAC CSR register.  When this happens, no further target
-access is claimed by the MAC which could hang the system.
-The workaround to check bit 24 in the FWSM register (set only when ME is
-accessing a MAC CSR register) and delay for a limited amount of time until
-it is cleared is now done for all driver writes of MAC CSR registers on
-82579 with ME enabled.  In the rare case when the driver is writing the
-Tail register and ME is accessing any MAC CSR register for a duration
-longer than the maximum delay, write the register and verify it has the
-correct value before continuing, otherwise reset the device.
+The following are changes since commit 82981930125abfd39d7c8378a9cfdf5e1be2002b:
+  net: cleanups in sock_setsockopt()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-This patch also moves some pre-existing macros from the hardware-specific
-header file to the more appropriate generic driver header file.
+Bruce Allan (2):
+  e1000e: 82579 packet drop workaround
+  e1000e: 82579 potential system hang on stress when ME enabled
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/e1000.h  |   37 ++++++++++++++++++++
- drivers/net/ethernet/intel/e1000e/hw.h     |   10 -----
- drivers/net/ethernet/intel/e1000e/netdev.c |   51 +++++++++-------------------
- 3 files changed, 53 insertions(+), 45 deletions(-)
+Jacob Keller (1):
+  ixgbe: check for WoL support in single function
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index b83897f..1dc2067 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -735,9 +735,46 @@ static inline u32 __er32(struct e1000_hw *hw, unsigned long reg)
- 	return readl(hw->hw_addr + reg);
- }
- 
-+#define er32(reg)	__er32(hw, E1000_##reg)
-+
-+/**
-+ * __ew32_prepare - prepare to write to MAC CSR register on certain parts
-+ * @hw: pointer to the HW structure
-+ *
-+ * When updating the MAC CSR registers, the Manageability Engine (ME) could
-+ * be accessing the registers at the same time.  Normally, this is handled in
-+ * h/w by an arbiter but on some parts there is a bug that acknowledges Host
-+ * accesses later than it should which could result in the register to have
-+ * an incorrect value.  Workaround this by checking the FWSM register which
-+ * has bit 24 set while ME is accessing MAC CSR registers, wait if it is set
-+ * and try again a number of times.
-+ **/
-+static inline s32 __ew32_prepare(struct e1000_hw *hw)
-+{
-+	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
-+
-+	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
-+		udelay(50);
-+
-+	return i;
-+}
-+
- static inline void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
- {
-+	if (hw->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
-+		__ew32_prepare(hw);
-+
- 	writel(val, hw->hw_addr + reg);
- }
- 
-+#define ew32(reg, val)	__ew32(hw, E1000_##reg, (val))
-+
-+#define e1e_flush()	er32(STATUS)
-+
-+#define E1000_WRITE_REG_ARRAY(a, reg, offset, value) \
-+	(__ew32((a), (reg + ((offset) << 2)), (value)))
-+
-+#define E1000_READ_REG_ARRAY(a, reg, offset) \
-+	(readl((a)->hw_addr + reg + ((offset) << 2)))
-+
- #endif /* _E1000_H_ */
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 923d3fd..7ca1b68 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -36,16 +36,6 @@ struct e1000_adapter;
- 
- #include "defines.h"
- 
--#define er32(reg)	__er32(hw, E1000_##reg)
--#define ew32(reg,val)	__ew32(hw, E1000_##reg, (val))
--#define e1e_flush()	er32(STATUS)
--
--#define E1000_WRITE_REG_ARRAY(a, reg, offset, value) \
--	(writel((value), ((a)->hw_addr + reg + ((offset) << 2))))
--
--#define E1000_READ_REG_ARRAY(a, reg, offset) \
--	(readl((a)->hw_addr + reg + ((offset) << 2)))
--
- enum e1e_registers {
- 	E1000_CTRL     = 0x00000, /* Device Control - RW */
- 	E1000_STATUS   = 0x00008, /* Device Status - RO */
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 851f793..cdfb1d6 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -538,43 +538,15 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 	adapter->hw_csum_good++;
- }
- 
--/**
-- * e1000e_update_tail_wa - helper function for e1000e_update_[rt]dt_wa()
-- * @hw: pointer to the HW structure
-- * @tail: address of tail descriptor register
-- * @i: value to write to tail descriptor register
-- *
-- * When updating the tail register, the ME could be accessing Host CSR
-- * registers at the same time.  Normally, this is handled in h/w by an
-- * arbiter but on some parts there is a bug that acknowledges Host accesses
-- * later than it should which could result in the descriptor register to
-- * have an incorrect value.  Workaround this by checking the FWSM register
-- * which has bit 24 set while ME is accessing Host CSR registers, wait
-- * if it is set and try again a number of times.
-- **/
--static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, void __iomem *tail,
--					unsigned int i)
--{
--	unsigned int j = 0;
--
--	while ((j++ < E1000_ICH_FWSM_PCIM2PCI_COUNT) &&
--	       (er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI))
--		udelay(50);
--
--	writel(i, tail);
--
--	if ((j == E1000_ICH_FWSM_PCIM2PCI_COUNT) && (i != readl(tail)))
--		return E1000_ERR_SWFW_SYNC;
--
--	return 0;
--}
--
- static void e1000e_update_rdt_wa(struct e1000_ring *rx_ring, unsigned int i)
- {
- 	struct e1000_adapter *adapter = rx_ring->adapter;
- 	struct e1000_hw *hw = &adapter->hw;
-+	s32 ret_val = __ew32_prepare(hw);
-+
-+	writel(i, rx_ring->tail);
- 
--	if (e1000e_update_tail_wa(hw, rx_ring->tail, i)) {
-+	if (unlikely(!ret_val && (i != readl(rx_ring->tail)))) {
- 		u32 rctl = er32(RCTL);
- 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
- 		e_err("ME firmware caused invalid RDT - resetting\n");
-@@ -586,8 +558,11 @@ static void e1000e_update_tdt_wa(struct e1000_ring *tx_ring, unsigned int i)
- {
- 	struct e1000_adapter *adapter = tx_ring->adapter;
- 	struct e1000_hw *hw = &adapter->hw;
-+	s32 ret_val = __ew32_prepare(hw);
- 
--	if (e1000e_update_tail_wa(hw, tx_ring->tail, i)) {
-+	writel(i, tx_ring->tail);
-+
-+	if (unlikely(!ret_val && (i != readl(tx_ring->tail)))) {
- 		u32 tctl = er32(TCTL);
- 		ew32(TCTL, tctl & ~E1000_TCTL_EN);
- 		e_err("ME firmware caused invalid TDT - resetting\n");
-@@ -1646,7 +1621,10 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
- 	adapter->flags2 &= ~FLAG2_IS_DISCARDING;
- 
- 	writel(0, rx_ring->head);
--	writel(0, rx_ring->tail);
-+	if (rx_ring->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
-+		e1000e_update_rdt_wa(rx_ring, 0);
-+	else
-+		writel(0, rx_ring->tail);
- }
- 
- static void e1000e_downshift_workaround(struct work_struct *work)
-@@ -2319,7 +2297,10 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
- 	tx_ring->next_to_clean = 0;
- 
- 	writel(0, tx_ring->head);
--	writel(0, tx_ring->tail);
-+	if (tx_ring->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
-+		e1000e_update_tdt_wa(tx_ring, 0);
-+	else
-+		writel(0, tx_ring->tail);
- }
- 
- /**
+Matthew Vick (3):
+  e1000e: Disable Far-End LoopBack following reset on 80003ES2LAN.
+  e1000e: Enable DMA Burst Mode on 82574 by default.
+  igb: Force flow control off during reset when forcing speed.
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c  |    8 ++
+ drivers/net/ethernet/intel/e1000e/82571.c        |    3 +-
+ drivers/net/ethernet/intel/e1000e/e1000.h        |   37 +++++++++
+ drivers/net/ethernet/intel/e1000e/hw.h           |   10 ---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c      |   11 +++
+ drivers/net/ethernet/intel/e1000e/netdev.c       |   51 ++++---------
+ drivers/net/ethernet/intel/igb/igb_main.c        |    7 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   51 +-----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   88 ++++++++++++++--------
+ 10 files changed, 143 insertions(+), 125 deletions(-)
+
 -- 
 1.7.7.6
