@@ -1,56 +1,50 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 27 Apr 2012 12:02:05 +1000
-Message-ID: <20120427120205.3860dd924261ee7a7c42eda4@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: cleanups in sock_setsockopt()
+Date: Fri, 27 Apr 2012 08:02:20 +0200
+Message-ID: <1335506540.2775.75.camel@edumazet-glaptop>
+References: <1335505319.2775.72.camel@edumazet-glaptop>
+	 <20120427.014848.764959411706970704.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__27_Apr_2012_12_02_05_+1000_0+kj1ht.5khjefHK"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:44802 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755948Ab2D0GCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 02:02:25 -0400
+Received: by wibhq7 with SMTP id hq7so272227wib.1
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 23:02:24 -0700 (PDT)
+In-Reply-To: <20120427.014848.764959411706970704.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__27_Apr_2012_12_02_05_+1000_0+kj1ht.5khjefHK
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Fri, 2012-04-27 at 01:48 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 27 Apr 2012 07:41:59 +0200
+>=20
+> > From: Eric Dumazet <edumazet@google.com>
+> >=20
+> > Use min()/max() macros, reformat two comments, use !!test_bit() to
+> > match !!sock_flag()
+> >=20
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>=20
+> Introduces warnings:
+>=20
+> net/core/sock.c: In function =E2=80=98sock_setsockopt=E2=80=99:
+> net/core/sock.c:584:9: warning: comparison of distinct pointer types =
+lacks a cast [enabled by default]
+> net/core/sock.c:605:9: warning: comparison of distinct pointer types =
+lacks a cast [enabled by default]
+> net/core/sock.c:623:19: warning: comparison of distinct pointer types=
+ lacks a cast [enabled by default]
+>=20
+> and that makes sense since int is signed and __u32 is not.
+>=20
+> Your compiler didn't spit that out too?
 
-Hi all,
+Hmm... I wonder how I missed these...
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/ethernet/intel/e1000e/param.c between commit 727c356f4d79
-("e1000e: Fix default interrupt throttle rate not set in NIC HW") from
-the net tree and commit 6ad651456e3c ("e1000e: cleanup remaining strings
-split across multiple lines") from the net-next tree.
-
-The former included the change from the latter, so I used that.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Fri__27_Apr_2012_12_02_05_+1000_0+kj1ht.5khjefHK
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJPmf4dAAoJEECxmPOUX5FEflkP/1jeHrlFOLJE21sat9zSfDmm
-Olhc3cUQM5HXoAKhei2npS4IGU5IjPJ9rl10RBxhAGb8VxWin/Vc4JkbtMa6EhEi
-toAEEgtx/WRzG7U76RkAf6dCs16ocXuok41NuVMrb6aTd1+hy4/UHjlWC32ql4Ah
-y00cjG1/P0zXeUbQhJR1btr6UoKVoL7PJcuO77US8FFGOA2PqAUA6UfDuNw3SEGr
-IXSexeEhvFayE4iITjXRtfxA+Ok7bb4Rmg8Z0QJbYlR+MpAprsQ+jP/eKXXeDm6H
-rpQbMeho4bUdiXtU9QyeiJIALFChl7V7jNhDF+cAPlrgmq2MRX6XIlsOj846cxz6
-/wxP+GWsJm6XxVdlVZ3wDcB4Es4Ylp7v4738SIo/51Vn2vnsRYIkctfdUYSUNQoe
-C9WA2Kfc3wY8lxVDc14VL1iA0GOiTMs4xE9rsgQBv/+u46GUcgOhjoBFWJ/v7R4N
-lgz4kdKvlUq5FoD2KKyOGyfNRlM9N3LW8W0f9lyb5ga/a+ZeqnduYHHhzeC8udrO
-IUHYs4WBv/sfvlsgPZITyIHll9s9bHrHSMUnktrGGUnyLUg1yWK0kxzGGk/NhZrb
-14TVEAK9C2z4hLew+aENEZRFV6bz334TlcgKoRWfYZl/TY2LhEX0nyap+RwVTSGe
-sstA2PmlujhXIw7tO5ji
-=PFYo
------END PGP SIGNATURE-----
-
---Signature=_Fri__27_Apr_2012_12_02_05_+1000_0+kj1ht.5khjefHK--
+I'll fix this, thanks
