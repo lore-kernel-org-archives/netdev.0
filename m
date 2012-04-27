@@ -1,69 +1,29 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH net-next] net: doc: merge /proc/sys/net/core/* documents into
- one place
-Date: Fri, 27 Apr 2012 10:52:52 +0800
-Message-ID: <4F9A0A04.7090703@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] crush: include header for global symbols
+Date: Fri, 27 Apr 2012 00:04:14 -0400 (EDT)
+Message-ID: <20120427.000414.1200447282191234979.davem@davemloft.net>
+References: <201204241738.38280.hartleys@visionengravers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f51.google.com ([209.85.210.51]:37402 "EHLO
-	mail-pz0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758110Ab2D0CwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 22:52:05 -0400
-Received: by dadz8 with SMTP id z8so354138dad.10
-        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 19:52:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ceph-devel@vger.kernel.org, sage@newdream.net
+To: hartleys@visionengravers.com
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <201204241738.38280.hartleys@visionengravers.com>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shan Wei <davidshan@tencent.com>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Date: Tue, 24 Apr 2012 17:38:37 -0700
 
-All parameter descriptions in /proc/sys/net/core/* now is separated
-two places. So, merge them into Documentation/sysctl/net.txt.
+> Include the header to pickup the definitions of the global symbols.
+> 
+> Quiets the following sparse warnings:
+> 
+> warning: symbol 'crush_find_rule' was not declared. Should it be static?
+> warning: symbol 'crush_do_rule' was not declared. Should it be static?
+> 
+> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
 
-
-Signed-off-by: Shan Wei <davidshan@tencent.com>
----
- Documentation/networking/ip-sysctl.txt |    5 +----
- Documentation/sysctl/net.txt           |    7 +++++++
- 2 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index bd80ba5..9b569a2 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1484,11 +1484,8 @@ addr_scope_policy - INTEGER
- 
- 
- /proc/sys/net/core/*
--dev_weight - INTEGER
--	The maximum number of packets that kernel can handle on a NAPI
--	interrupt, it's a Per-CPU variable.
-+	Please see: Documentation/sysctl/net.txt for descriptions of these entries.
- 
--	Default: 64
- 
- /proc/sys/net/unix/*
- max_dgram_qlen - INTEGER
-diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
-index 3201a70..98335b7 100644
---- a/Documentation/sysctl/net.txt
-+++ b/Documentation/sysctl/net.txt
-@@ -43,6 +43,13 @@ Values :
- 	1 - enable the JIT
- 	2 - enable the JIT and ask the compiler to emit traces on kernel log.
- 
-+dev_weight
-+--------------
-+
-+The maximum number of packets that kernel can handle on a NAPI interrupt,
-+it's a Per-CPU variable.
-+Default: 64
-+
- rmem_default
- ------------
- 
--- 
-1.7.1
+Applied.
