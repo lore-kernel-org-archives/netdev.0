@@ -1,151 +1,76 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 07/17] netfilter: add namespace support for l4proto_icmp
-Date: Fri, 27 Apr 2012 17:37:54 +0800
-Message-ID: <1335519484-6089-8-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH v2 00/17] netfilter: add namespace support for netfilter protos
+Date: Fri, 27 Apr 2012 17:37:47 +0800
+Message-ID: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	serge.hallyn@canonical.com, ebiederm@xmission.com,
 	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:1624 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1759966Ab2D0Jhr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2012 05:37:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-implement icmp_init_net is to initial the pernet data for
-icmp proto.
+Currently the sysctl of netfilter proto is not isolated, so when
+changing proto's sysctl in container will cause the host's sysctl
+be changed too. it's not expected.
 
-beacuse nf_icmp_net is a field of netns_ct,so when proto is icmp,
-return net->ct.proto.icmp in function nf_ct_l4proto_net.
+This patch set adds the namespace support for netfilter protos.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- include/net/netns/conntrack.h                |    6 ++++
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c |   39 ++++++++++++++++++++++++--
- net/netfilter/nf_conntrack_proto.c           |    2 +
- 3 files changed, 44 insertions(+), 3 deletions(-)
+impletement four pernet_operations to register sysctl and initial
+pernet data for proto.
 
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index a1b967d..82de500 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -45,10 +45,16 @@ struct nf_udp_net {
- 	unsigned int timeouts[UDP_CT_MAX];
- };
- 
-+struct nf_icmp_net {
-+	struct nf_proto_net pn;
-+	unsigned int timeout;
-+};
-+
- struct nf_ip_net {
- 	struct nf_generic_net   generic;
- 	struct nf_tcp_net       tcp;
- 	struct nf_udp_net	udp;
-+	struct nf_icmp_net	icmp;
- #if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
- 	struct ctl_table_header *ctl_table_header;
- 	struct ctl_table        *ctl_table;
-diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-index 0847e37..f468d10 100644
---- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-@@ -23,6 +23,11 @@
- 
- static unsigned int nf_ct_icmp_timeout __read_mostly = 30*HZ;
- 
-+static inline struct nf_icmp_net *icmp_pernet(struct net *net)
-+{
-+	return &net->ct.proto.icmp;
-+}
-+
- static bool icmp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
- 			      struct nf_conntrack_tuple *tuple)
- {
-@@ -77,7 +82,7 @@ static int icmp_print_tuple(struct seq_file *s,
- 
- static unsigned int *icmp_get_timeouts(struct net *net)
- {
--	return &nf_ct_icmp_timeout;
-+	return &icmp_pernet(net)->timeout;
- }
- 
- /* Returns verdict for packet, or -1 for invalid. */
-@@ -312,7 +317,6 @@ static struct ctl_table_header *icmp_sysctl_header;
- static struct ctl_table icmp_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_icmp_timeout",
--		.data		= &nf_ct_icmp_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -323,7 +327,6 @@ static struct ctl_table icmp_sysctl_table[] = {
- static struct ctl_table icmp_compat_sysctl_table[] = {
- 	{
- 		.procname	= "ip_conntrack_icmp_timeout",
--		.data		= &nf_ct_icmp_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -333,10 +336,39 @@ static struct ctl_table icmp_compat_sysctl_table[] = {
- #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
- #endif /* CONFIG_SYSCTL */
- 
-+static int icmp_init_net(struct net *net, u_int8_t compat)
-+{
-+	struct nf_icmp_net *in = icmp_pernet(net);
-+	struct nf_proto_net *pn = (struct nf_proto_net *)in;
-+	in->timeout = nf_ct_icmp_timeout;
-+
-+#ifdef CONFIG_SYSCTL
-+	pn->ctl_table = kmemdup(icmp_sysctl_table,
-+				sizeof(icmp_sysctl_table),
-+				GFP_KERNEL);
-+	if (!pn->ctl_table)
-+		return -ENOMEM;
-+	pn->ctl_table[0].data = &in->timeout;
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	pn->ctl_compat_table = kmemdup(icmp_compat_sysctl_table,
-+				       sizeof(icmp_compat_sysctl_table),
-+				       GFP_KERNEL);
-+	if (!pn->ctl_compat_table) {
-+		kfree(pn->ctl_table);
-+		pn->ctl_table = NULL;
-+		return -ENOMEM;
-+	}
-+	pn->ctl_compat_table[0].data = &in->timeout;
-+#endif
-+#endif
-+	return 0;
-+}
-+
- struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp __read_mostly =
- {
- 	.l3proto		= PF_INET,
- 	.l4proto		= IPPROTO_ICMP,
-+	.compat			= 1,
- 	.name			= "icmp",
- 	.pkt_to_tuple		= icmp_pkt_to_tuple,
- 	.invert_tuple		= icmp_invert_tuple,
-@@ -369,4 +401,5 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp __read_mostly =
- 	.ctl_compat_table	= icmp_compat_sysctl_table,
- #endif
- #endif
-+	.init_net		= icmp_init_net,
- };
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index fafad1e..ebf4de9 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -292,6 +292,8 @@ static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
- 		return (struct nf_proto_net *)&net->ct.proto.tcp;
- 	case IPPROTO_UDP:
- 		return (struct nf_proto_net *)&net->ct.proto.udp;
-+	case IPPROTO_ICMP:
-+		return (struct nf_proto_net *)&net->ct.proto.icmp;
- 	case 255: /* l4proto_generic */
- 		return (struct nf_proto_net *)&net->ct.proto.generic;
- 	default:
+-ipv4_net_ops is used to register tcp4(compat),
+ udp4(compat),icmp(compat),ipv4(compat).
+-ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
+-sctp_net_ops is used to register sctp4(compat) and sctp6.
+-udplite_net_ops is used to register udplite4 and udplite6
+
+extern l[3,4]proto (sysctl) register functions to make them support
+namespace.
+
+finailly add namespace support for cttimeout.
+
+Gao feng (17):
+  netfilter: add struct nf_proto_net for register l4proto sysctl
+  netfilter: add namespace support for l4proto
+  netfilter: add namespace support for l3proto
+  netfilter: add namespace support for l4proto_generic
+  netfilter: add namespace support for l4proto_tcp
+  netfilter: add namespace support for l4proto_udp
+  netfilter: add namespace support for l4proto_icmp
+  netfilter: add namespace support for l4proto_icmpv6
+  netfilter: add namespace support for l3proto_ipv4
+  netfilter: add namespace support for l3proto_ipv6
+  netfilter: add namespace support for l4proto_sctp
+  netfilter: add namespace support for l4proto_udplite
+  netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
+  netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
+  netfilter: cleanup sysctl for l4proto and l3proto
+  netfilter: add namespace support for cttimeout
+  netfilter: cttimeout use pernet data of l4proto
+
+ include/net/netfilter/nf_conntrack_l3proto.h   |   11 +-
+ include/net/netfilter/nf_conntrack_l4proto.h   |   32 ++-
+ include/net/netns/conntrack.h                  |   55 ++++
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  127 ++++++---
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   55 +++-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   88 ++++--
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   38 ++-
+ net/netfilter/nf_conntrack_core.c              |    7 +-
+ net/netfilter/nf_conntrack_proto.c             |  390 ++++++++++++++----------
+ net/netfilter/nf_conntrack_proto_dccp.c        |  141 +++++----
+ net/netfilter/nf_conntrack_proto_generic.c     |   69 ++++-
+ net/netfilter/nf_conntrack_proto_gre.c         |   66 +++--
+ net/netfilter/nf_conntrack_proto_sctp.c        |  157 +++++++---
+ net/netfilter/nf_conntrack_proto_tcp.c         |  136 ++++++---
+ net/netfilter/nf_conntrack_proto_udp.c         |   90 ++++--
+ net/netfilter/nf_conntrack_proto_udplite.c     |  125 ++++++--
+ net/netfilter/nfnetlink_cttimeout.c            |   13 +-
+ 17 files changed, 1068 insertions(+), 532 deletions(-)
+
 -- 
 1.7.7.6
-
