@@ -1,45 +1,69 @@
 From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH 2/2] ss: implement -M option to get all memory information
-Date: Fri, 27 Apr 2012 10:04:17 +0800
-Message-ID: <4F99FEA1.2000700@gmail.com>
-References: <4F97A48F.4010109@gmail.com> <20120425104128.4d6e13e1@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] net: doc: merge /proc/sys/net/core/* documents into
+ one place
+Date: Fri, 27 Apr 2012 10:52:52 +0800
+Message-ID: <4F9A0A04.7090703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, NetDev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: NetDev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f51.google.com ([209.85.210.51]:41920 "EHLO
+Received: from mail-pz0-f51.google.com ([209.85.210.51]:37402 "EHLO
 	mail-pz0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757840Ab2D0CDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 22:03:30 -0400
-Received: by dadz8 with SMTP id z8so303809dad.10
-        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 19:03:29 -0700 (PDT)
-In-Reply-To: <20120425104128.4d6e13e1@nehalam.linuxnetplumber.net>
+	with ESMTP id S1758110Ab2D0CwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 22:52:05 -0400
+Received: by dadz8 with SMTP id z8so354138dad.10
+        for <netdev@vger.kernel.org>; Thu, 26 Apr 2012 19:52:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger said, at 2012/4/26 1:41:
+From: Shan Wei <davidshan@tencent.com>
 
->>  "   -m, --memory        show socket memory usage\n"
->> +"   -M, --skmem         show socket memory information.\n"
->> +"                       this option which will replace -m, is valid since Linux 3.3.\n"
-> 
-> Please don't add reference to kernel version.
-> Why does this need to be a new option? Maybe just do the right thing
-> if present in the netlink response?
+All parameter descriptions in /proc/sys/net/core/* now is separated
+two places. So, merge them into Documentation/sysctl/net.txt.
 
 
-Actually, I'm ok for your suggestion that using a existing option(-m) to
-export all memory information. But with a new option is better for us.
+Signed-off-by: Shan Wei <davidshan@tencent.com>
+---
+ Documentation/networking/ip-sysctl.txt |    5 +----
+ Documentation/sysctl/net.txt           |    7 +++++++
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-Maybe some people use latest iproute source with under kernel 3.3.0, some don't.
--m option will take different user experience, specially for UDP socket.
-Currently -m option has no effect on UDP socket which i will submit another patch
-to export memory information for. new option, fresh experience.
-
-(Exporting out memory information will help us to analysis dropped packets 
-which recorded in RcvbufErrors and SndbufErrors.)
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index bd80ba5..9b569a2 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1484,11 +1484,8 @@ addr_scope_policy - INTEGER
  
-
  
+ /proc/sys/net/core/*
+-dev_weight - INTEGER
+-	The maximum number of packets that kernel can handle on a NAPI
+-	interrupt, it's a Per-CPU variable.
++	Please see: Documentation/sysctl/net.txt for descriptions of these entries.
+ 
+-	Default: 64
+ 
+ /proc/sys/net/unix/*
+ max_dgram_qlen - INTEGER
+diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+index 3201a70..98335b7 100644
+--- a/Documentation/sysctl/net.txt
++++ b/Documentation/sysctl/net.txt
+@@ -43,6 +43,13 @@ Values :
+ 	1 - enable the JIT
+ 	2 - enable the JIT and ask the compiler to emit traces on kernel log.
+ 
++dev_weight
++--------------
++
++The maximum number of packets that kernel can handle on a NAPI interrupt,
++it's a Per-CPU variable.
++Default: 64
++
+ rmem_default
+ ------------
+ 
+-- 
+1.7.1
