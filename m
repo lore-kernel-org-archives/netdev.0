@@ -1,7 +1,7 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 1/5] ipvs: add check in ftp for initialized core
-Date: Fri, 27 Apr 2012 09:53:55 +0900
-Message-ID: <1335488039-13471-2-git-send-email-horms@verge.net.au>
+Subject: [PATCH 3/5] ipvs: null check of net->ipvs in lblc(r) shedulers
+Date: Fri, 27 Apr 2012 09:53:57 +0900
+Message-ID: <1335488039-13471-4-git-send-email-horms@verge.net.au>
 References: <1335488039-13471-1-git-send-email-horms@verge.net.au>
 Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org,
@@ -11,37 +11,56 @@ Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
 	Jesper Dangaard Brouer <brouer@redhat.com>,
 	Simon Horman <horms@verge.net.au>
 To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:58361 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753970Ab2D0AyY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 20:54:24 -0400
 In-Reply-To: <1335488039-13471-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-	Avoid crash when registering ip_vs_ftp after
+Avoid crash when registering shedulers after
 the IPVS core initialization for netns fails. Do this by
 checking for present core (net->ipvs).
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Acked-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_ftp.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/netfilter/ipvs/ip_vs_lblc.c  |    3 +++
+ net/netfilter/ipvs/ip_vs_lblcr.c |    3 +++
+ 2 files changed, 6 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 538d74e..e39f693 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -439,6 +439,8 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
- 	struct ip_vs_app *app;
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 0f16283..caa4370 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -551,6 +551,9 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
+ {
  	struct netns_ipvs *ipvs = net_ipvs(net);
  
 +	if (!ipvs)
 +		return -ENOENT;
- 	app = kmemdup(&ip_vs_ftp, sizeof(struct ip_vs_app), GFP_KERNEL);
- 	if (!app)
- 		return -ENOMEM;
++
+ 	if (!net_eq(net, &init_net)) {
+ 		ipvs->lblc_ctl_table = kmemdup(vs_vars_table,
+ 						sizeof(vs_vars_table),
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index eec797f..548bf37 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -745,6 +745,9 @@ static int __net_init __ip_vs_lblcr_init(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++	if (!ipvs)
++		return -ENOENT;
++
+ 	if (!net_eq(net, &init_net)) {
+ 		ipvs->lblcr_ctl_table = kmemdup(vs_vars_table,
+ 						sizeof(vs_vars_table),
 -- 
 1.7.9.5
-
