@@ -1,203 +1,228 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 12/17] netfilter: add namespace support for l4proto_udplite
-Date: Fri, 27 Apr 2012 17:37:59 +0800
-Message-ID: <1335519484-6089-13-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 13/17] netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
+Date: Fri, 27 Apr 2012 17:38:00 +0800
+Message-ID: <1335519484-6089-14-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	serge.hallyn@canonical.com, ebiederm@xmission.com,
 	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:1624 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1760003Ab2D0Jh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2012 05:37:56 -0400
 In-Reply-To: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-add pernet_operations udplite_net_ops and register it when
-module nf_conntrack_proto_udplite is loaded.
-move the l4proto_register from module_init function to
-udplite_net_ops.init.
-
-and implement udplite_init_net to initial the pernet sysctl
-table for udplite[4,6] protos.
+move the nf_conntrack_l4proto_register from module_init to
+dccp_net_ops.init,and change the struct dccp_net to adjust
+to the nf_conntrack_l4proto_register.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/netfilter/nf_conntrack_proto_udplite.c |  103 +++++++++++++++++++++++-----
- 1 files changed, 85 insertions(+), 18 deletions(-)
+ net/netfilter/nf_conntrack_proto_dccp.c |  135 ++++++++++++++++---------------
+ 1 files changed, 69 insertions(+), 66 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index 4d60a53..1e90cf5 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -35,6 +35,17 @@ static unsigned int udplite_timeouts[UDPLITE_CT_MAX] = {
- 	[UDPLITE_CT_REPLIED]	= 180*HZ,
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index ef706a4..bc2ed4c 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -387,12 +387,9 @@ dccp_state_table[CT_DCCP_ROLE_MAX + 1][DCCP_PKT_SYNCACK + 1][CT_DCCP_MAX + 1] =
+ /* this module per-net specifics */
+ static int dccp_net_id __read_mostly;
+ struct dccp_net {
++	struct nf_proto_net np;
+ 	int dccp_loose;
+ 	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
+-#ifdef CONFIG_SYSCTL
+-	struct ctl_table_header *sysctl_header;
+-	struct ctl_table *sysctl_table;
+-#endif
  };
  
-+static int udplite_net_id __read_mostly;
-+struct udplite_net {
-+	struct nf_proto_net pn;
-+	unsigned int timeouts[UDPLITE_CT_MAX];
-+};
-+
-+static inline struct udplite_net *udplite_pernet(struct net *net)
-+{
-+	return net_generic(net, udplite_net_id);
-+}
-+
- static bool udplite_pkt_to_tuple(const struct sk_buff *skb,
- 				 unsigned int dataoff,
- 				 struct nf_conntrack_tuple *tuple)
-@@ -70,7 +81,7 @@ static int udplite_print_tuple(struct seq_file *s,
- 
- static unsigned int *udplite_get_timeouts(struct net *net)
- {
--	return udplite_timeouts;
-+	return udplite_pernet(net)->timeouts;
- }
- 
- /* Returns verdict for packet, and may modify conntracktype */
-@@ -209,14 +220,12 @@ static struct ctl_table_header *udplite_sysctl_header;
- static struct ctl_table udplite_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_udplite_timeout",
--		.data		= &udplite_timeouts[UDPLITE_CT_UNREPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_udplite_timeout_stream",
--		.data		= &udplite_timeouts[UDPLITE_CT_REPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -225,10 +234,36 @@ static struct ctl_table udplite_sysctl_table[] = {
+ static inline struct dccp_net *dccp_pernet(struct net *net)
+@@ -817,9 +814,50 @@ static struct ctl_table dccp_sysctl_table[] = {
  };
  #endif /* CONFIG_SYSCTL */
  
-+static int udplite_init_net(struct net *net, u_int8_t compat)
++static int dccp_init_net(struct net *net, u_int8_t compat)
 +{
-+	int i;
-+	struct udplite_net *un = udplite_pernet(net);
-+	struct nf_proto_net *pn = (struct nf_proto_net *)un;
++
++	struct dccp_net *dn = dccp_pernet(net);
++	struct nf_proto_net *pn = (struct nf_proto_net *)dn;
++
 +#ifdef CONFIG_SYSCTL
 +	if (!pn->ctl_table) {
 +#else
 +	if (!pn->users++) {
 +#endif
-+		for (i = 0 ; i < UDPLITE_CT_MAX; i++)
-+			un->timeouts[i] = udplite_timeouts[i];
++		/* default values */
++		dn->dccp_loose = 1;
++		dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
++		dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
++		dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
++		dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
++		dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
++		dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
++		dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
 +#ifdef CONFIG_SYSCTL
-+		pn->ctl_table = kmemdup(udplite_sysctl_table,
-+					sizeof(udplite_sysctl_table),
++		pn->ctl_table = kmemdup(dccp_sysctl_table,
++					sizeof(dccp_sysctl_table),
 +					GFP_KERNEL);
 +		if (!pn->ctl_table)
 +			return -ENOMEM;
-+		pn->ctl_table[0].data = &un->timeouts[UDPLITE_CT_UNREPLIED];
-+		pn->ctl_table[1].data = &un->timeouts[UDPLITE_CT_REPLIED];
++
++		pn->ctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
++		pn->ctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
++		pn->ctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
++		pn->ctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
++		pn->ctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
++		pn->ctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
++		pn->ctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
++		pn->ctl_table[7].data = &dn->dccp_loose;
 +#endif
 +	}
 +	return 0;
 +}
 +
- static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4 __read_mostly =
- {
- 	.l3proto		= PF_INET,
- 	.l4proto		= IPPROTO_UDPLITE,
+ static struct nf_conntrack_l4proto dccp_proto4 __read_mostly = {
+ 	.l3proto		= AF_INET,
+ 	.l4proto		= IPPROTO_DCCP,
 +	.compat			= 0,
- 	.name			= "udplite",
- 	.pkt_to_tuple		= udplite_pkt_to_tuple,
- 	.invert_tuple		= udplite_invert_tuple,
-@@ -258,12 +293,15 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4 __read_mostly =
- 	.ctl_table_header	= &udplite_sysctl_header,
- 	.ctl_table		= udplite_sysctl_table,
- #endif
-+	.net_id			= &udplite_net_id,
-+	.init_net		= udplite_init_net,
+ 	.name			= "dccp",
+ 	.pkt_to_tuple		= dccp_pkt_to_tuple,
+ 	.invert_tuple		= dccp_invert_tuple,
+@@ -847,11 +885,14 @@ static struct nf_conntrack_l4proto dccp_proto4 __read_mostly = {
+ 		.nla_policy	= dccp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
++	.net_id			= &dccp_net_id,
++	.init_net		= dccp_init_net,
  };
  
- static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite6 __read_mostly =
- {
- 	.l3proto		= PF_INET6,
- 	.l4proto		= IPPROTO_UDPLITE,
+ static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
+ 	.l3proto		= AF_INET6,
+ 	.l4proto		= IPPROTO_DCCP,
 +	.compat			= 0,
- 	.name			= "udplite",
- 	.pkt_to_tuple		= udplite_pkt_to_tuple,
- 	.invert_tuple		= udplite_invert_tuple,
-@@ -293,29 +331,58 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite6 __read_mostly =
- 	.ctl_table_header	= &udplite_sysctl_header,
- 	.ctl_table		= udplite_sysctl_table,
- #endif
-+	.net_id			= &udplite_net_id,
-+	.init_net		= udplite_init_net,
+ 	.name			= "dccp",
+ 	.pkt_to_tuple		= dccp_pkt_to_tuple,
+ 	.invert_tuple		= dccp_invert_tuple,
+@@ -879,55 +920,39 @@ static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
+ 		.nla_policy	= dccp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
++	.net_id			= &dccp_net_id,
++	.init_net		= dccp_init_net,
  };
  
--static int __init nf_conntrack_proto_udplite_init(void)
-+static int udplite_net_init(struct net *net)
+ static __net_init int dccp_net_init(struct net *net)
  {
--	int err;
+-	struct dccp_net *dn = dccp_pernet(net);
 -
--	err = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udplite4);
--	if (err < 0)
--		goto err1;
--	err = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udplite6);
--	if (err < 0)
--		goto err2;
+-	/* default values */
+-	dn->dccp_loose = 1;
+-	dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
+-	dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
+-	dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
+-	dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
+-	dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
+-	dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
+-	dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
+-
+-#ifdef CONFIG_SYSCTL
+-	dn->sysctl_table = kmemdup(dccp_sysctl_table,
+-			sizeof(dccp_sysctl_table), GFP_KERNEL);
+-	if (!dn->sysctl_table)
+-		return -ENOMEM;
+-
+-	dn->sysctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
+-	dn->sysctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
+-	dn->sysctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
+-	dn->sysctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
+-	dn->sysctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
+-	dn->sysctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
+-	dn->sysctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
+-	dn->sysctl_table[7].data = &dn->dccp_loose;
+-
+-	dn->sysctl_header = register_net_sysctl(net, "net/netfilter",
+-						dn->sysctl_table);
+-	if (!dn->sysctl_header) {
+-		kfree(dn->sysctl_table);
+-		return -ENOMEM;
 +	int ret = 0;
-+
 +	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_udplite4);
++					    &dccp_proto4);
 +	if (ret < 0) {
-+		pr_err("nf_conntrack_l4proto_udplite4 :protocol register failed.\n");
++		pr_err("nf_conntrack_l4proto_dccp4 :protocol register failed.\n");
 +		goto out;
 +	}
 +	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_udplite6);
++					    &dccp_proto6);
 +	if (ret < 0) {
-+		pr_err("nf_conntrack_l4proto_udplite4 :protocol register failed.\n");
-+		goto cleanup_udplite4;
-+	}
++		pr_err("nf_conntrack_l4proto_dccp6 :protocol register failed.\n");
++		goto cleanup_dccp4;
+ 	}
+-#endif
+-
  	return 0;
--err2:
--	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udplite4);
--err1:
--	return err;
-+
-+cleanup_udplite4:
++cleanup_dccp4:
 +	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_udplite4);
++					&dccp_proto4);
 +out:
 +	return ret;
-+}
-+
-+static void udplite_net_exit(struct net *net)
-+{
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_udplite6);
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_udplite4);
-+}
-+
-+static struct pernet_operations udplite_net_ops = {
-+	.init = udplite_net_init,
-+	.exit = udplite_net_exit,
-+	.id   = &udplite_net_id,
-+	.size = sizeof(struct udplite_net),
-+};
-+
-+static int __init nf_conntrack_proto_udplite_init(void)
-+{
-+	return register_pernet_subsys(&udplite_net_ops);
  }
  
- static void __exit nf_conntrack_proto_udplite_exit(void)
+ static __net_exit void dccp_net_exit(struct net *net)
  {
--	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udplite6);
--	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udplite4);
-+	unregister_pernet_subsys(&udplite_net_ops);
+-	struct dccp_net *dn = dccp_pernet(net);
+-#ifdef CONFIG_SYSCTL
+-	unregister_net_sysctl_table(dn->sysctl_header);
+-	kfree(dn->sysctl_table);
+-#endif
++	nf_conntrack_l4proto_unregister(net,
++					&dccp_proto6);
++	nf_conntrack_l4proto_unregister(net,
++					&dccp_proto4);
  }
  
- module_init(nf_conntrack_proto_udplite_init);
+ static struct pernet_operations dccp_net_ops = {
+@@ -939,34 +964,12 @@ static struct pernet_operations dccp_net_ops = {
+ 
+ static int __init nf_conntrack_proto_dccp_init(void)
+ {
+-	int err;
+-
+-	err = register_pernet_subsys(&dccp_net_ops);
+-	if (err < 0)
+-		goto err1;
+-
+-	err = nf_conntrack_l4proto_register(&dccp_proto4);
+-	if (err < 0)
+-		goto err2;
+-
+-	err = nf_conntrack_l4proto_register(&dccp_proto6);
+-	if (err < 0)
+-		goto err3;
+-	return 0;
+-
+-err3:
+-	nf_conntrack_l4proto_unregister(&dccp_proto4);
+-err2:
+-	unregister_pernet_subsys(&dccp_net_ops);
+-err1:
+-	return err;
++	return register_pernet_subsys(&dccp_net_ops);
+ }
+ 
+ static void __exit nf_conntrack_proto_dccp_fini(void)
+ {
+ 	unregister_pernet_subsys(&dccp_net_ops);
+-	nf_conntrack_l4proto_unregister(&dccp_proto6);
+-	nf_conntrack_l4proto_unregister(&dccp_proto4);
+ }
+ 
+ module_init(nf_conntrack_proto_dccp_init);
 -- 
 1.7.7.6
-
