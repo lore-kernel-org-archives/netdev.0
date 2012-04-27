@@ -1,52 +1,51 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH 4/4] forcedeth: add transmit timestamping support
-Date: Fri, 27 Apr 2012 15:04:07 -0400
-Message-ID: <1335553447-11964-5-git-send-email-willemb@google.com>
-References: <1335553447-11964-1-git-send-email-willemb@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	jeffrey.t.kirscher@intel.com, eilong@broadcom.com,
-	aabdulla@nvidia.com
+From: WEB ADMINISTRATOR <info@webmaster.org>
+Subject: Technical Support
+Date: Fri, 27 Apr 2012 13:52:31 -0500
+Message-ID: <20120427135231.16986sh4jmnym70g__43788.7383778163$1335554946$gmane$org@mail.inp.gob.ec>
+Reply-To: webmaster2012@admin.in.th
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f74.google.com ([209.85.216.74]:49576 "EHLO
-	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759422Ab2D0TLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 15:11:54 -0400
-Received: by qabg24 with SMTP id g24so94993qab.1
-        for <netdev@vger.kernel.org>; Fri, 27 Apr 2012 12:11:53 -0700 (PDT)
-In-Reply-To: <1335553447-11964-1-git-send-email-willemb@google.com>
+Received: from mail.inp.gob.ec ([190.110.215.78]:43398 "EHLO mail.inp.gob.ec"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759116Ab2D0T2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2012 15:28:43 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Insert an skb_tx_timestamp call in both ndo_start_xmit routines
-Tested to work for the nv_start_xmit_optimized case
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- drivers/net/ethernet/nvidia/forcedeth.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index d93a088..928913c 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -2279,6 +2279,8 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	netdev_sent_queue(np->dev, skb->len);
- 
-+	skb_tx_timestamp(skb);
-+
- 	np->put_tx.orig = put_tx;
- 
- 	spin_unlock_irqrestore(&np->lock, flags);
-@@ -2426,6 +2428,8 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 
- 	netdev_sent_queue(np->dev, skb->len);
- 
-+	skb_tx_timestamp(skb);
-+
- 	np->put_tx.ex = put_tx;
- 
- 	spin_unlock_irqrestore(&np->lock, flags);
+Your webmail quota system has exceeded the storage limit,Due To hidden
+files On your mailbox,Your Are Currently Running On 23GB to  Validate your
+mailbox and increase your quota.
+
+In addition, You are advice to fill in your
+appropriate email login information in order to boost your webmail quota
+and to enhance the security of your email account.
+
+Email: ...............
+Username:................
+password:................
+Confirm password .............
+
+If your mailbox remains de-activated for an extended period of time, it
+may result in further limitations or eventual closure
+
+Technical Support
+192.168.0.1
+
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
+
+
+
 -- 
-1.7.7.3
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
