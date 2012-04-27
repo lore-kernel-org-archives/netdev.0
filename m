@@ -1,41 +1,214 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: [BUG report] net.core.rmem_default is larger than net.core.rmem_max
-Date: Fri, 27 Apr 2012 17:31:22 +0800
-Message-ID: <4F9A676A.8070406@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/6] e1000e: 82579 potential system hang on stress when ME enabled
+Date: Fri, 27 Apr 2012 02:36:51 -0700
+Message-ID: <1335519413-1892-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1335519413-1892-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f51.google.com ([209.85.210.51]:51721 "EHLO
-	mail-pz0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754623Ab2D0Jad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 05:30:33 -0400
-Received: by dadz8 with SMTP id z8so772179dad.10
-        for <netdev@vger.kernel.org>; Fri, 27 Apr 2012 02:30:33 -0700 (PDT)
+Received: from mga11.intel.com ([192.55.52.93]:58719 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759939Ab2D0Jg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2012 05:36:57 -0400
+In-Reply-To: <1335519413-1892-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-It's unconventional that "default" value  is greater than "max". :-(
+Previously, a workaround was added to address a hardware bug in the
+PCIm2PCI arbiter where a write by the driver of the Transmit/Receive
+Descriptor Tail register could happen concurrently with a write of any
+MAC CSR register by the Manageability Engine (ME) which could cause the
+Tail register to have an incorrect value.  The arbiter is supposed to
+prevent the concurrent writes but there is a bug that can cause the Host
+(driver) access to be acknowledged later than it should.
+After further investigation, it was discovered that a driver write access
+of any MAC CSR register after being idle for some time can be lost when
+ME is accessing a MAC CSR register.  When this happens, no further target
+access is claimed by the MAC which could hang the system.
+The workaround to check bit 24 in the FWSM register (set only when ME is
+accessing a MAC CSR register) and delay for a limited amount of time until
+it is cleared is now done for all driver writes of MAC CSR registers on
+82579 with ME enabled.  In the rare case when the driver is writing the
+Tail register and ME is accessing any MAC CSR register for a duration
+longer than the maximum delay, write the register and verify it has the
+correct value before continuing, otherwise reset the device.
 
-net.core.rmem_max = 131071
-net.core.rmem_default = 229376
+This patch also moves some pre-existing macros from the hardware-specific
+header file to the more appropriate generic driver header file.
 
-net.core.wmem_max = 131071
-net.core.wmem_default = 229376
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/e1000.h  |   37 ++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/hw.h     |   10 -----
+ drivers/net/ethernet/intel/e1000e/netdev.c |   51 +++++++++-------------------
+ 3 files changed, 53 insertions(+), 45 deletions(-)
 
-
-And bisect the code to find the following commit caused this phenomenon.
-This patch increase SK_WMEM_MAX and SK_RMEM_MAX which are used to 
-initialize them.
-But rmem_max and wmem_max value are still be covered according the RAM size
-in sk_init().
-
-87fb4b7b533073eeeaed0b6bf7c2328995f6c075 is the first bad commit
-commit 87fb4b7b533073eeeaed0b6bf7c2328995f6c075
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Thu Oct 13 07:28:54 2011 +0000
-
-    net: more accurate skb truesize
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index b83897f..1dc2067 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -735,9 +735,46 @@ static inline u32 __er32(struct e1000_hw *hw, unsigned long reg)
+ 	return readl(hw->hw_addr + reg);
+ }
+ 
++#define er32(reg)	__er32(hw, E1000_##reg)
++
++/**
++ * __ew32_prepare - prepare to write to MAC CSR register on certain parts
++ * @hw: pointer to the HW structure
++ *
++ * When updating the MAC CSR registers, the Manageability Engine (ME) could
++ * be accessing the registers at the same time.  Normally, this is handled in
++ * h/w by an arbiter but on some parts there is a bug that acknowledges Host
++ * accesses later than it should which could result in the register to have
++ * an incorrect value.  Workaround this by checking the FWSM register which
++ * has bit 24 set while ME is accessing MAC CSR registers, wait if it is set
++ * and try again a number of times.
++ **/
++static inline s32 __ew32_prepare(struct e1000_hw *hw)
++{
++	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
++
++	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
++		udelay(50);
++
++	return i;
++}
++
+ static inline void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
+ {
++	if (hw->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
++		__ew32_prepare(hw);
++
+ 	writel(val, hw->hw_addr + reg);
+ }
+ 
++#define ew32(reg, val)	__ew32(hw, E1000_##reg, (val))
++
++#define e1e_flush()	er32(STATUS)
++
++#define E1000_WRITE_REG_ARRAY(a, reg, offset, value) \
++	(__ew32((a), (reg + ((offset) << 2)), (value)))
++
++#define E1000_READ_REG_ARRAY(a, reg, offset) \
++	(readl((a)->hw_addr + reg + ((offset) << 2)))
++
+ #endif /* _E1000_H_ */
+diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
+index 923d3fd..7ca1b68 100644
+--- a/drivers/net/ethernet/intel/e1000e/hw.h
++++ b/drivers/net/ethernet/intel/e1000e/hw.h
+@@ -36,16 +36,6 @@ struct e1000_adapter;
+ 
+ #include "defines.h"
+ 
+-#define er32(reg)	__er32(hw, E1000_##reg)
+-#define ew32(reg,val)	__ew32(hw, E1000_##reg, (val))
+-#define e1e_flush()	er32(STATUS)
+-
+-#define E1000_WRITE_REG_ARRAY(a, reg, offset, value) \
+-	(writel((value), ((a)->hw_addr + reg + ((offset) << 2))))
+-
+-#define E1000_READ_REG_ARRAY(a, reg, offset) \
+-	(readl((a)->hw_addr + reg + ((offset) << 2)))
+-
+ enum e1e_registers {
+ 	E1000_CTRL     = 0x00000, /* Device Control - RW */
+ 	E1000_STATUS   = 0x00008, /* Device Status - RO */
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 851f793..cdfb1d6 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -538,43 +538,15 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
+ 	adapter->hw_csum_good++;
+ }
+ 
+-/**
+- * e1000e_update_tail_wa - helper function for e1000e_update_[rt]dt_wa()
+- * @hw: pointer to the HW structure
+- * @tail: address of tail descriptor register
+- * @i: value to write to tail descriptor register
+- *
+- * When updating the tail register, the ME could be accessing Host CSR
+- * registers at the same time.  Normally, this is handled in h/w by an
+- * arbiter but on some parts there is a bug that acknowledges Host accesses
+- * later than it should which could result in the descriptor register to
+- * have an incorrect value.  Workaround this by checking the FWSM register
+- * which has bit 24 set while ME is accessing Host CSR registers, wait
+- * if it is set and try again a number of times.
+- **/
+-static inline s32 e1000e_update_tail_wa(struct e1000_hw *hw, void __iomem *tail,
+-					unsigned int i)
+-{
+-	unsigned int j = 0;
+-
+-	while ((j++ < E1000_ICH_FWSM_PCIM2PCI_COUNT) &&
+-	       (er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI))
+-		udelay(50);
+-
+-	writel(i, tail);
+-
+-	if ((j == E1000_ICH_FWSM_PCIM2PCI_COUNT) && (i != readl(tail)))
+-		return E1000_ERR_SWFW_SYNC;
+-
+-	return 0;
+-}
+-
+ static void e1000e_update_rdt_wa(struct e1000_ring *rx_ring, unsigned int i)
+ {
+ 	struct e1000_adapter *adapter = rx_ring->adapter;
+ 	struct e1000_hw *hw = &adapter->hw;
++	s32 ret_val = __ew32_prepare(hw);
++
++	writel(i, rx_ring->tail);
+ 
+-	if (e1000e_update_tail_wa(hw, rx_ring->tail, i)) {
++	if (unlikely(!ret_val && (i != readl(rx_ring->tail)))) {
+ 		u32 rctl = er32(RCTL);
+ 		ew32(RCTL, rctl & ~E1000_RCTL_EN);
+ 		e_err("ME firmware caused invalid RDT - resetting\n");
+@@ -586,8 +558,11 @@ static void e1000e_update_tdt_wa(struct e1000_ring *tx_ring, unsigned int i)
+ {
+ 	struct e1000_adapter *adapter = tx_ring->adapter;
+ 	struct e1000_hw *hw = &adapter->hw;
++	s32 ret_val = __ew32_prepare(hw);
+ 
+-	if (e1000e_update_tail_wa(hw, tx_ring->tail, i)) {
++	writel(i, tx_ring->tail);
++
++	if (unlikely(!ret_val && (i != readl(tx_ring->tail)))) {
+ 		u32 tctl = er32(TCTL);
+ 		ew32(TCTL, tctl & ~E1000_TCTL_EN);
+ 		e_err("ME firmware caused invalid TDT - resetting\n");
+@@ -1646,7 +1621,10 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
+ 	adapter->flags2 &= ~FLAG2_IS_DISCARDING;
+ 
+ 	writel(0, rx_ring->head);
+-	writel(0, rx_ring->tail);
++	if (rx_ring->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
++		e1000e_update_rdt_wa(rx_ring, 0);
++	else
++		writel(0, rx_ring->tail);
+ }
+ 
+ static void e1000e_downshift_workaround(struct work_struct *work)
+@@ -2319,7 +2297,10 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
+ 	tx_ring->next_to_clean = 0;
+ 
+ 	writel(0, tx_ring->head);
+-	writel(0, tx_ring->tail);
++	if (tx_ring->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
++		e1000e_update_tdt_wa(tx_ring, 0);
++	else
++		writel(0, tx_ring->tail);
+ }
+ 
+ /**
+-- 
+1.7.7.6
