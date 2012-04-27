@@ -1,186 +1,123 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 4/4 net-next] tcp: makes tcp_try_coalesce aware of
- skb->head_frag
-Date: Fri, 27 Apr 2012 12:38:33 +0200
-Message-ID: <1335523113.2775.239.camel@edumazet-glaptop>
+From: Sedat Dilek <sedat.dilek@googlemail.com>
+Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
+Date: Fri, 27 Apr 2012 12:57:50 +0200
+Message-ID: <CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com>
+References: <1335517711-6522-1-git-send-email-sedat.dilek@gmail.com>
+	<20120427091405.GS3157@wantstofly.org>
+	<CA+icZUVAK3NHmbG5kR1KhqGe9mAimWWzLz-MfXOXbyry3Sz73w@mail.gmail.com>
+	<20120427094007.GU3157@wantstofly.org>
+	<CA+icZUUiYwpHpqe5_kz1rLzTT13qQMwpNpDH7EOaRrVi_c8Z2Q@mail.gmail.com>
+	<20120427094637.GV3157@wantstofly.org>
+	<CA+icZUXNZ=exTnR=OgD_9bpt_0s-KnR+v-K6u+XzQr4HBoTQHQ@mail.gmail.com>
+	<20120427095842.GW3157@wantstofly.org>
+	<CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com>
+	<20120427101732.GX3157@wantstofly.org>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Tom Herbert <therbert@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary=00248c6a66bab59acc04bea6f901
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:62335 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759804Ab2D0Kik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 06:38:40 -0400
-Received: by bkuw12 with SMTP id w12so389388bku.19
-        for <netdev@vger.kernel.org>; Fri, 27 Apr 2012 03:38:38 -0700 (PDT)
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:37506 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759764Ab2D0K5v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 06:57:51 -0400
+In-Reply-To: <20120427101732.GX3157@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <edumazet@google.com>
+--00248c6a66bab59acc04bea6f901
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-TCP coalesce can check if skb to be merged has its skb->head mapped to =
-a
-page fragment, instead of a kmalloc() area.
+On Fri, Apr 27, 2012 at 12:17 PM, Lennert Buytenhek
+<buytenh@wantstofly.org> wrote:
+> On Fri, Apr 27, 2012 at 12:12:13PM +0200, Sedat Dilek wrote:
+>
+>> >> >> >> Are you planning to or even working on support (for) 8361 devic=
+es?
+>> >> >> >
+>> >> >> > I don't have any such plans, and I don't know of anyone who does=
+.
+>> >> >>
+>> >> >> Does 8361 require firmware support?
+>> >> >
+>> >> > What do you mean by that?
+>> >>
+>> >> IIRC ath5k for example needs no external firmware file.
+>> >
+>> > The 8361 requires firmware to be loaded into it before it'll do
+>> > anything useful.
+>> >
+>> >
+>> >> >> Does a firmware file exist (name?)?
+>> >> >
+>> >> > There's firmware for the 8361 out there, however, that version of
+>> >> > the firmware implements a firmware API that is different from the
+>> >> > one that mwl8k currently implements.
+>> >> >
+>> >> > You could add 8361 support to mwl8k, but then you'd have to go over
+>> >> > all the firmware command invocations in mwl8k and make sure that th=
+ey
+>> >> > will work on the 8361 firmware that you're trying to support as wel=
+l.
+>> >>
+>> >> Without having a 8361 this will be even harder to walk through.
+>> >>
+>> >> Anyway, thanks for your detailed explanations.
+>> >>
+>> >> What's the alternative for such affected users?
+>> >> Use ndis-wrapper?
+>> >
+>> > I'm not sure. =C2=A0I've never tried to get a 8361 work under Linux.
+>>
+>> Just found on [1] this same wrong patch in [2] :-).
+>> Dunno if [3] worked and from where they have stolen fw-files.
+>>
+>> - Sedat -
+>>
+>> [1] https://dev.openwrt.org/ticket/7209
+>> [2] https://dev.openwrt.org/attachment/ticket/7209/mwl8k_fix_pci_id.patc=
+h
+>> [3] https://dev.openwrt.org/attachment/ticket/7209/mwl8k_8361p.patch
+>
+> I doubt that [3] is really all that's needed to make it work. =C2=A0But i=
+f
+> there's someone for whom it works, I'd like them to run some tests on
+> mwl8k + [3] on 88w8361p.
 
-We had to disable coalescing in this case, for performance reasons.
+Just asked lautriv to do so (he will do against linux-3.3.3), lets' see.
+Also, I refreshed and adapted a bit the instructions (see attachment).
 
-We 'upgrade' skb->head as a fragment in itself.
+- Sedat -
 
-This reduces number of cache misses when user makes its copies, since a
-less sk_buff are fetched.
+--00248c6a66bab59acc04bea6f901
+Content-Type: text/plain; charset=US-ASCII; name="mwl8k_extract_firmware.txt"
+Content-Disposition: attachment; filename="mwl8k_extract_firmware.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_h1j4m2kc0
 
-This makes receive and ofo queues shorter and thus reduce cache line
-misses in TCP stack.
-
-This is a followup of patch "net: allow skb->head to be a page fragment=
-"
-
-Tested with tg3 nic, with GRO on or off. We can see "TCPRcvCoalesce"
-counter being incremented.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Maciej =C5=BBenczykowski <maze@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
-Cc: Matt Carlson <mcarlson@broadcom.com>
-Cc: Michael Chan <mchan@broadcom.com>
----
- net/ipv4/tcp_input.c |   55 ++++++++++++++++++++++++++++++++---------
- 1 file changed, 43 insertions(+), 12 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c93b0cb..96a631d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4464,10 +4464,12 @@ static inline int tcp_try_rmem_schedule(struct =
-sock *sk, unsigned int size)
-  */
- static bool tcp_try_coalesce(struct sock *sk,
- 			     struct sk_buff *to,
--			     struct sk_buff *from)
-+			     struct sk_buff *from,
-+			     bool *fragstolen)
- {
--	int len =3D from->len;
-+	int delta, len =3D from->len;
-=20
-+	*fragstolen =3D false;
- 	if (tcp_hdr(from)->fin)
- 		return false;
- 	if (len <=3D skb_tailroom(to)) {
-@@ -4478,15 +4480,19 @@ merge:
- 		TCP_SKB_CB(to)->ack_seq =3D TCP_SKB_CB(from)->ack_seq;
- 		return true;
- 	}
-+
-+	if (skb_has_frag_list(to) || skb_has_frag_list(from))
-+		return false;
-+
- 	if (skb_headlen(from) =3D=3D 0 &&
--	    !skb_has_frag_list(to) &&
--	    !skb_has_frag_list(from) &&
- 	    (skb_shinfo(to)->nr_frags +
- 	     skb_shinfo(from)->nr_frags <=3D MAX_SKB_FRAGS)) {
--		int delta =3D from->truesize - ksize(from->head) -
--			    SKB_DATA_ALIGN(sizeof(struct sk_buff));
-+		WARN_ON_ONCE(from->head_frag);
-+		delta =3D from->truesize - ksize(from->head) -
-+			SKB_DATA_ALIGN(sizeof(struct sk_buff));
-=20
- 		WARN_ON_ONCE(delta < len);
-+copyfrags:
- 		memcpy(skb_shinfo(to)->frags + skb_shinfo(to)->nr_frags,
- 		       skb_shinfo(from)->frags,
- 		       skb_shinfo(from)->nr_frags * sizeof(skb_frag_t));
-@@ -4499,6 +4505,20 @@ merge:
- 		to->data_len +=3D len;
- 		goto merge;
- 	}
-+	if (from->head_frag) {
-+		struct page *page;
-+		unsigned int offset;
-+
-+		if (skb_shinfo(to)->nr_frags + skb_shinfo(from)->nr_frags >=3D MAX_S=
-KB_FRAGS)
-+			return false;
-+		page =3D virt_to_head_page(from->head);
-+		offset =3D from->data - (unsigned char *)page_address(page);
-+		skb_fill_page_desc(to, skb_shinfo(to)->nr_frags,
-+				   page, offset, skb_headlen(from));
-+		*fragstolen =3D true;
-+		delta =3D len; /* we dont know real truesize... */
-+		goto copyfrags;
-+	}
- 	return false;
- }
-=20
-@@ -4540,10 +4560,15 @@ static void tcp_data_queue_ofo(struct sock *sk,=
- struct sk_buff *skb)
- 	end_seq =3D TCP_SKB_CB(skb)->end_seq;
-=20
- 	if (seq =3D=3D TCP_SKB_CB(skb1)->end_seq) {
--		if (!tcp_try_coalesce(sk, skb1, skb)) {
-+		bool fragstolen;
-+
-+		if (!tcp_try_coalesce(sk, skb1, skb, &fragstolen)) {
- 			__skb_queue_after(&tp->out_of_order_queue, skb1, skb);
- 		} else {
--			__kfree_skb(skb);
-+			if (fragstolen)
-+				kmem_cache_free(skbuff_head_cache, skb);
-+			else
-+				__kfree_skb(skb);
- 			skb =3D NULL;
- 		}
-=20
-@@ -4626,6 +4651,7 @@ static void tcp_data_queue(struct sock *sk, struc=
-t sk_buff *skb)
- 	const struct tcphdr *th =3D tcp_hdr(skb);
- 	struct tcp_sock *tp =3D tcp_sk(sk);
- 	int eaten =3D -1;
-+	bool fragstolen =3D false;
-=20
- 	if (TCP_SKB_CB(skb)->seq =3D=3D TCP_SKB_CB(skb)->end_seq)
- 		goto drop;
-@@ -4672,7 +4698,9 @@ queue_and_out:
- 				goto drop;
-=20
- 			tail =3D skb_peek_tail(&sk->sk_receive_queue);
--			eaten =3D (tail && tcp_try_coalesce(sk, tail, skb)) ? 1 : 0;
-+			eaten =3D (tail &&
-+				 tcp_try_coalesce(sk, tail, skb,
-+						  &fragstolen)) ? 1 : 0;
- 			if (eaten <=3D 0) {
- 				skb_set_owner_r(skb, sk);
- 				__skb_queue_tail(&sk->sk_receive_queue, skb);
-@@ -4699,9 +4727,12 @@ queue_and_out:
-=20
- 		tcp_fast_path_check(sk);
-=20
--		if (eaten > 0)
--			__kfree_skb(skb);
--		else if (!sock_flag(sk, SOCK_DEAD))
-+		if (eaten > 0) {
-+			if (fragstolen)
-+				kmem_cache_free(skbuff_head_cache, skb);
-+			else
-+				__kfree_skb(skb);
-+		} else if (!sock_flag(sk, SOCK_DEAD))
- 			sk->sk_data_ready(sk, 0);
- 		return;
- 	}
+IyMjIEhFTFAtMTogaHR0cHM6Ly9mb3J1bS5vcGVud3J0Lm9yZy92aWV3dG9waWMucGhwP3BpZD0x
+MDMyNDMjcDEwMzI0MwojIyMgSEVMUC0yOiBodHRwczovL2ZvcnVtLm9wZW53cnQub3JnL3ZpZXd0
+b3BpYy5waHA/cGlkPTExMDAwNCNwMTEwMDA0CgojIyMgRnJvbSBIRUxQLTE6CgpUbyBleHRyYWN0
+IHRoZSBmaXJtd2FyZSBmb3IgdGhlIG13bDhrIGRyaXZlciwgb3BlbiB5b3VyIFVidW50dSB0ZXJt
+aW5hbDoKCnN1ZG8gYXB0LWdldCBpbnN0YWxsIGNhYmV4dHJhY3QgdW5zaGllbGQKCm1rZGlyIG13
+bDhrCmNkIG13bDhrCgp3Z2V0IC1PIG1ydjhrX2V4dHJhY3RfZncuYyAnaHR0cDovL21hcmMuaW5m
+by8/bD1saW51eC13aXJlbGVzcyZtPTEyNjU0MDY3NDQxOTMzMCZxPXAzJwp3Z2V0IGZ0cDovL2Rv
+d25sb2Fkcy5uZXRnZWFyLmNvbS9maWxlcy93bjMxMXRfNF8yX3NldHVwLmV4ZQoKbWtkaXIgbWVz
+cwpjYWJleHRyYWN0IC1GIERpc2sxL2RhdGEqLiogLWQgbWVzcyB3bjMxMXRfNF8yX3NldHVwLmV4
+ZQp1bnNoaWVsZCAtZyBEcml2ZXIgLWQgbWVzcyB4IG1lc3MvRGlzazEvZGF0YTEuY2FiCmdjYyAt
+byBtcnY4a19leHRyYWN0X2Z3IG1ydjhrX2V4dHJhY3RfZncuYwouL21ydjhrX2V4dHJhY3RfZncg
+bWVzcy9Ecml2ZXIvbmV0bXcxNDUuc3lzCnJtIC1yIG1lc3MKCm1kNXN1bSAtYiAqLmZ3Cm12IGZt
+aW1hZ2VfOFhYMS5mdyBmbWltYWdlXzgzNjMuZncKbXYgaGVscGVyXzhYWDEuZncgaGVscGVyXzgz
+NjMuZncKCiMjIyBGcm9tIEhFTFAtMjogRm9yIE1hcndlbGwgODM2MVAKCm1kNXN1bSAtYiAqLmZ3
+IHwgZWdyZXAgJzQ4Yzc5YjA4NWY3ZjVhNTkwZDNkYmMxNTY0N2U1MTlmfDBmZTExZjQxNWFkYmJk
+NWU4Y2EwMzY0MTcwNWM0YTZjJwpbIE9VVFBVVCBdCjQ4Yzc5YjA4NWY3ZjVhNTkwZDNkYmMxNTY0
+N2U1MTlmICpmbWltYWdlXzhYWDAuZncKMGZlMTFmNDE1YWRiYmQ1ZThjYTAzNjQxNzA1YzRhNmMg
+KmhlbHBlcl84WFgwLmZ3CgptdiBmbWltYWdlXzhYWDAuZncgZm1pbWFnZV84MzYxcC5mdwptdiBo
+ZWxwZXJfOFhYMC5mdyBoZWxwZXJfODM2MXAuZncKCiMjIyBQQVRDSDogaHR0cHM6Ly9kZXYub3Bl
+bndydC5vcmcvYXR0YWNobWVudC90aWNrZXQvNzIwOS9td2w4a184MzYxcC5wYXRjaAoKCi1kaWxl
+a3MgLy8gMjctQXByLTIwMTIKCg==
+--00248c6a66bab59acc04bea6f901--
