@@ -1,53 +1,57 @@
-From: Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
-Subject: RE: [PATCH 00/14 v2] usb/net: rndis: first step toward consolidation
-Date: Fri, 27 Apr 2012 12:56:55 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD3B7DB@TK5EX14MBXC221.redmond.corp.microsoft.com>
-References: <1335367783-4184-1-git-send-email-linus.walleij@linaro.org>
-	<A1F3067C9B68744AA19F6802BAB8FFDC0DD36C9E@TK5EX14MBXC221.redmond.corp.microsoft.com>
- <CACRpkdYmeRweAe3YJmZztAJ9A5C_qvVwCmG3M-qwmrsv9Sq79A@mail.gmail.com>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re:
+ =?utf-8?q?=5BPATCH_03/15=5D_batman-adv=3A_add_bigg?=
+ =?utf-8?q?est=5Funsigned=5Fint=28x=29_macro?=
+Date: Fri, 27 Apr 2012 14:51:08 +0200
+Message-ID: <f56ca946ce96504fcedbbfef0967b210@autistici.org>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6EF3@saturn3.aculab.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6EF4@saturn3.aculab.com>
+	<20120425.140904.935584797119761625.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
-	Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
-	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	KY Srinivasan <kys-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
-To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACRpkdYmeRweAe3YJmZztAJ9A5C_qvVwCmG3M-qwmrsv9Sq79A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, david.laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org,
+	b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20120425.140904.935584797119761625.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Il 25.04.2012 20:09 David Miller ha scritto:
+> From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+> Date: Wed, 25 Apr 2012 15:57:39 +0100
+>
+>>
+>>> > +/* Returns the biggest unsigned integer with the sizeof x */
+>>> > +#define biggest_unsigned_int(x) (~(x)0)
+>>>
+>>> Nope - biggest_unsigned_int(unsigned char) is probably 0xffffffff
+>>
+>> To correct myself, it is actually ((int)(-1)) (ie a signed value).
+>
+> In any event this is just a terrible macro, and too stupid to live.
+
+Hello David,
+
+ok. So the suggestion is to directly use the ~ operator in the code 
+without creating a macro.
+If the rest of the patchset is ok, I will eliminate this macro and 
+resend the pull request again.
+
+Cheers,
 
 
-> -----Original Message-----
-> From: Linus Walleij [mailto:linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org]
-> Sent: Friday, April 27, 2012 8:29 AM
-> To: Haiyang Zhang
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Greg Kroah-
-> Hartman; David S. Miller; Felipe Balbi; Jussi Kivilinna; Wei Yongjun; Ben
-> Hutchings; KY Srinivasan
-> Subject: Re: [PATCH 00/14 v2] usb/net: rndis: first step toward consolidation
-> 
-> On Wed, Apr 25, 2012 at 10:36 PM, Haiyang Zhang
-> <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org> wrote:
-> 
-> > I tested Hyper-V netvsc driver, it works fine with the patches.
-> 
-> Thanks! Can I add yout Tested-by: on them?
-
-Yes, you can, after I test the version 3.
-
-Thanks,
-- Haiyang
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Antonio Quartulli
