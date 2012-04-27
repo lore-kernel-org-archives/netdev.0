@@ -1,51 +1,31 @@
-From: WEB ADMINISTRATOR <info@webmaster.org>
-Subject: Technical Support
-Date: Fri, 27 Apr 2012 13:52:31 -0500
-Message-ID: <20120427135231.16986sh4jmnym70g__43788.7383778163$1335554946$gmane$org@mail.inp.gob.ec>
-Reply-To: webmaster2012@admin.in.th
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH 3/4] bnx2x: add transmit timestamping support
+Date: Fri, 27 Apr 2012 22:30:57 +0300
+Message-ID: <1335555057.12363.14.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1335553447-11964-1-git-send-email-willemb@google.com>
+ <1335553447-11964-4-git-send-email-willemb@google.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	jeffrey.t.kirscher@intel.com, aabdulla@nvidia.com,
+	meravs@broadcom.com
+To: "Willem de Bruijn" <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.inp.gob.ec ([190.110.215.78]:43398 "EHLO mail.inp.gob.ec"
+Received: from mms2.broadcom.com ([216.31.210.18]:2414 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759116Ab2D0T2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2012 15:28:43 -0400
-Content-Disposition: inline
+	id S1761224Ab2D0TbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2012 15:31:16 -0400
+In-Reply-To: <1335553447-11964-4-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2012-04-27 at 15:04 -0400, Willem de Bruijn wrote:
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
+Acked-by: Eilon Greenstein <eilong@broadcom.com>
 
-Your webmail quota system has exceeded the storage limit,Due To hidden
-files On your mailbox,Your Are Currently Running On 23GB to  Validate your
-mailbox and increase your quota.
-
-In addition, You are advice to fill in your
-appropriate email login information in order to boost your webmail quota
-and to enhance the security of your email account.
-
-Email: ...............
-Username:................
-password:................
-Confirm password .............
-
-If your mailbox remains de-activated for an extended period of time, it
-may result in further limitations or eventual closure
-
-Technical Support
-192.168.0.1
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
-
-
-
--- 
-This message has been scanned for viruses and
-dangerous content by MailScanner, and is
-believed to be clean.
+Thanks Willem - Merav was just testing exactly the same change, so far
+it seems to be working on our side as well :)
