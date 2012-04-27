@@ -1,286 +1,81 @@
-From: David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 2/5] netdev: mdio-octeon.c: Convert to use device tree.
-Date: Thu, 26 Apr 2012 18:20:27 -0700
-Message-ID: <1335489630-27017-3-git-send-email-ddaney.cavm@gmail.com>
-References: <1335489630-27017-1-git-send-email-ddaney.cavm@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
- Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1335489630-27017-1-git-send-email-ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH v2 0/5] MIPS: OCTEON: Convert some device to use Device Tree.
+Date: Thu, 26 Apr 2012 18:20:25 -0700
+Message-ID: <1335489630-27017-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>,
+	netdev@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	" David S. Miller" <davem@davemloft.net>,
+	"Jean Delvare (PC drivers, core)" <khali@linux-fr.org>,
+	"Ben Dooks (embedded platforms)" <ben-linux@fluff.org>,
+	"Wolfram Sang (embedded platforms)" <w.sang@pengutronix.de>,
+	linux-i2c@vger.kernel.org
+To: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+From: David Daney <david.daney@cavium.com>
 
-Get the MDIO bus controller addresses from the device tree, small
-clean up in use of devm_*
+This patch set depends on the previous set to add Device Tree to
+OCTEON.  That set can be found among other places here:
 
-Remove, now unused, platform device setup code.
+http://marc.info/?l=linux-kernel&m=133548781607480
 
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
----
- arch/mips/cavium-octeon/octeon-platform.c |   30 ---------
- drivers/net/phy/mdio-octeon.c             |   92 ++++++++++++++++++-----------
- 2 files changed, 58 insertions(+), 64 deletions(-)
+For v2:
 
-diff --git a/arch/mips/cavium-octeon/octeon-platform.c b/arch/mips/cavium-octeon/octeon-platform.c
-index f62a40f..66cabc2 100644
---- a/arch/mips/cavium-octeon/octeon-platform.c
-+++ b/arch/mips/cavium-octeon/octeon-platform.c
-@@ -168,36 +168,6 @@ out:
- }
- device_initcall(octeon_rng_device_init);
- 
--/* Octeon SMI/MDIO interface.  */
--static int __init octeon_mdiobus_device_init(void)
--{
--	struct platform_device *pd;
--	int ret = 0;
--
--	if (octeon_is_simulation())
--		return 0; /* No mdio in the simulator. */
--
--	/* The bus number is the platform_device id.  */
--	pd = platform_device_alloc("mdio-octeon", 0);
--	if (!pd) {
--		ret = -ENOMEM;
--		goto out;
--	}
--
--	ret = platform_device_add(pd);
--	if (ret)
--		goto fail;
--
--	return ret;
--fail:
--	platform_device_put(pd);
--
--out:
--	return ret;
--
--}
--device_initcall(octeon_mdiobus_device_init);
--
- /* Octeon mgmt port Ethernet interface.  */
- static int __init octeon_mgmt_device_init(void)
- {
-diff --git a/drivers/net/phy/mdio-octeon.c b/drivers/net/phy/mdio-octeon.c
-index 826d961..d4015aa 100644
---- a/drivers/net/phy/mdio-octeon.c
-+++ b/drivers/net/phy/mdio-octeon.c
-@@ -3,14 +3,17 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (C) 2009 Cavium Networks
-+ * Copyright (C) 2009,2011 Cavium, Inc.
-  */
- 
--#include <linux/gfp.h>
--#include <linux/init.h>
--#include <linux/module.h>
- #include <linux/platform_device.h>
-+#include <linux/of_mdio.h>
-+#include <linux/delay.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/gfp.h>
- #include <linux/phy.h>
-+#include <linux/io.h>
- 
- #include <asm/octeon/octeon.h>
- #include <asm/octeon/cvmx-smix-defs.h>
-@@ -18,9 +21,17 @@
- #define DRV_VERSION "1.0"
- #define DRV_DESCRIPTION "Cavium Networks Octeon SMI/MDIO driver"
- 
-+#define SMI_CMD		0x0
-+#define SMI_WR_DAT	0x8
-+#define SMI_RD_DAT	0x10
-+#define SMI_CLK		0x18
-+#define SMI_EN		0x20
-+
- struct octeon_mdiobus {
- 	struct mii_bus *mii_bus;
--	int unit;
-+	u64 register_base;
-+	resource_size_t mdio_phys;
-+	resource_size_t regsize;
- 	int phy_irq[PHY_MAX_ADDR];
- };
- 
-@@ -35,15 +46,15 @@ static int octeon_mdiobus_read(struct mii_bus *bus, int phy_id, int regnum)
- 	smi_cmd.s.phy_op = 1; /* MDIO_CLAUSE_22_READ */
- 	smi_cmd.s.phy_adr = phy_id;
- 	smi_cmd.s.reg_adr = regnum;
--	cvmx_write_csr(CVMX_SMIX_CMD(p->unit), smi_cmd.u64);
-+	cvmx_write_csr(p->register_base + SMI_CMD, smi_cmd.u64);
- 
- 	do {
- 		/*
- 		 * Wait 1000 clocks so we don't saturate the RSL bus
- 		 * doing reads.
- 		 */
--		cvmx_wait(1000);
--		smi_rd.u64 = cvmx_read_csr(CVMX_SMIX_RD_DAT(p->unit));
-+		__delay(1000);
-+		smi_rd.u64 = cvmx_read_csr(p->register_base + SMI_RD_DAT);
- 	} while (smi_rd.s.pending && --timeout);
- 
- 	if (smi_rd.s.val)
-@@ -62,21 +73,21 @@ static int octeon_mdiobus_write(struct mii_bus *bus, int phy_id,
- 
- 	smi_wr.u64 = 0;
- 	smi_wr.s.dat = val;
--	cvmx_write_csr(CVMX_SMIX_WR_DAT(p->unit), smi_wr.u64);
-+	cvmx_write_csr(p->register_base + SMI_WR_DAT, smi_wr.u64);
- 
- 	smi_cmd.u64 = 0;
- 	smi_cmd.s.phy_op = 0; /* MDIO_CLAUSE_22_WRITE */
- 	smi_cmd.s.phy_adr = phy_id;
- 	smi_cmd.s.reg_adr = regnum;
--	cvmx_write_csr(CVMX_SMIX_CMD(p->unit), smi_cmd.u64);
-+	cvmx_write_csr(p->register_base + SMI_CMD, smi_cmd.u64);
- 
- 	do {
- 		/*
- 		 * Wait 1000 clocks so we don't saturate the RSL bus
- 		 * doing reads.
- 		 */
--		cvmx_wait(1000);
--		smi_wr.u64 = cvmx_read_csr(CVMX_SMIX_WR_DAT(p->unit));
-+		__delay(1000);
-+		smi_wr.u64 = cvmx_read_csr(p->register_base + SMI_WR_DAT);
- 	} while (smi_wr.s.pending && --timeout);
- 
- 	if (timeout <= 0)
-@@ -88,38 +99,44 @@ static int octeon_mdiobus_write(struct mii_bus *bus, int phy_id,
- static int __devinit octeon_mdiobus_probe(struct platform_device *pdev)
- {
- 	struct octeon_mdiobus *bus;
-+	struct resource *res_mem;
- 	union cvmx_smix_en smi_en;
--	int i;
- 	int err = -ENOENT;
- 
- 	bus = devm_kzalloc(&pdev->dev, sizeof(*bus), GFP_KERNEL);
- 	if (!bus)
- 		return -ENOMEM;
- 
--	/* The platform_device id is our unit number.  */
--	bus->unit = pdev->id;
-+	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+
-+	if (res_mem == NULL) {
-+		dev_err(&pdev->dev, "found no memory resource\n");
-+		err = -ENXIO;
-+		goto fail;
-+	}
-+	bus->mdio_phys = res_mem->start;
-+	bus->regsize = resource_size(res_mem);
-+	if (!devm_request_mem_region(&pdev->dev, bus->mdio_phys, bus->regsize,
-+				     res_mem->name)) {
-+		dev_err(&pdev->dev, "request_mem_region failed\n");
-+		goto fail;
-+	}
-+	bus->register_base =
-+		(u64)devm_ioremap(&pdev->dev, bus->mdio_phys, bus->regsize);
- 
- 	bus->mii_bus = mdiobus_alloc();
- 
- 	if (!bus->mii_bus)
--		goto err;
-+		goto fail;
- 
- 	smi_en.u64 = 0;
- 	smi_en.s.en = 1;
--	cvmx_write_csr(CVMX_SMIX_EN(bus->unit), smi_en.u64);
--
--	/*
--	 * Standard Octeon evaluation boards don't support phy
--	 * interrupts, we need to poll.
--	 */
--	for (i = 0; i < PHY_MAX_ADDR; i++)
--		bus->phy_irq[i] = PHY_POLL;
-+	cvmx_write_csr(bus->register_base + SMI_EN, smi_en.u64);
- 
- 	bus->mii_bus->priv = bus;
- 	bus->mii_bus->irq = bus->phy_irq;
- 	bus->mii_bus->name = "mdio-octeon";
--	snprintf(bus->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
--		bus->mii_bus->name, bus->unit);
-+	snprintf(bus->mii_bus->id, MII_BUS_ID_SIZE, "%llx", bus->register_base);
- 	bus->mii_bus->parent = &pdev->dev;
- 
- 	bus->mii_bus->read = octeon_mdiobus_read;
-@@ -127,20 +144,18 @@ static int __devinit octeon_mdiobus_probe(struct platform_device *pdev)
- 
- 	dev_set_drvdata(&pdev->dev, bus);
- 
--	err = mdiobus_register(bus->mii_bus);
-+	err = of_mdiobus_register(bus->mii_bus, pdev->dev.of_node);
- 	if (err)
--		goto err_register;
-+		goto fail_register;
- 
- 	dev_info(&pdev->dev, "Version " DRV_VERSION "\n");
- 
- 	return 0;
--err_register:
-+fail_register:
- 	mdiobus_free(bus->mii_bus);
--
--err:
--	devm_kfree(&pdev->dev, bus);
-+fail:
- 	smi_en.u64 = 0;
--	cvmx_write_csr(CVMX_SMIX_EN(bus->unit), smi_en.u64);
-+	cvmx_write_csr(bus->register_base + SMI_EN, smi_en.u64);
- 	return err;
- }
- 
-@@ -154,14 +169,23 @@ static int __devexit octeon_mdiobus_remove(struct platform_device *pdev)
- 	mdiobus_unregister(bus->mii_bus);
- 	mdiobus_free(bus->mii_bus);
- 	smi_en.u64 = 0;
--	cvmx_write_csr(CVMX_SMIX_EN(bus->unit), smi_en.u64);
-+	cvmx_write_csr(bus->register_base + SMI_EN, smi_en.u64);
- 	return 0;
- }
- 
-+static struct of_device_id octeon_mdiobus_match[] = {
-+	{
-+		.compatible = "cavium,octeon-3860-mdio",
-+	},
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, octeon_mdiobus_match);
-+
- static struct platform_driver octeon_mdiobus_driver = {
- 	.driver = {
- 		.name		= "mdio-octeon",
- 		.owner		= THIS_MODULE,
-+		.of_match_table = octeon_mdiobus_match,
- 	},
- 	.probe		= octeon_mdiobus_probe,
- 	.remove		= __devexit_p(octeon_mdiobus_remove),
+No functional changes, but minor clean-ups to use some new device tree
+helper functions.
+
+Some Acked-bys added.
+
+I am suggesting that all these go via Ralf's linux-mips.org tree as
+they depend on other patches in that tree.
+
+>From v1:
+
+The patches are for drivers scattered throughout the tree, but there
+is an order dependency as well as the dependency mentioned above, so
+it may be preferable to merge them all via Ralf's linux-mips.org tree
+rather that separately via the various device sub-system maintainers.
+
+The mdio-octeon.c and octeon_mgmt patches were already Acked-by davem.
+
+The i2c has been seen before, but to my knowledge was never acked.
+
+The octeon_ethernet patch is in staging and has also been seen before.
+
+The serial patch is new.
+
+
+David Daney (5):
+  i2c: Convert i2c-octeon.c to use device tree.
+  netdev: mdio-octeon.c: Convert to use device tree.
+  netdev: octeon_mgmt: Convert to use device tree.
+  staging: octeon_ethernet: Convert to use device tree.
+  MIPS: Octeon: Use device tree to register serial ports.
+
+ arch/mips/cavium-octeon/octeon-irq.c      |    8 -
+ arch/mips/cavium-octeon/octeon-platform.c |  176 ----------------
+ arch/mips/cavium-octeon/serial.c          |  134 +++++--------
+ arch/mips/include/asm/octeon/octeon.h     |    5 -
+ drivers/i2c/busses/i2c-octeon.c           |   92 +++++----
+ drivers/net/ethernet/octeon/octeon_mgmt.c |  312 +++++++++++++++++++----------
+ drivers/net/phy/mdio-octeon.c             |   92 ++++++---
+ drivers/staging/octeon/ethernet-mdio.c    |   28 ++--
+ drivers/staging/octeon/ethernet.c         |  153 +++++++++-----
+ drivers/staging/octeon/octeon-ethernet.h  |    3 +
+ 10 files changed, 484 insertions(+), 519 deletions(-)
+
+Cc: netdev@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc:  David S. Miller <davem@davemloft.net>
+Cc: "Jean Delvare (PC drivers, core)" <khali@linux-fr.org>
+Cc: "Ben Dooks (embedded platforms)" <ben-linux@fluff.org>
+Cc: "Wolfram Sang (embedded platforms)" <w.sang@pengutronix.de>
+Cc: linux-i2c@vger.kernel.org
 -- 
 1.7.2.3
