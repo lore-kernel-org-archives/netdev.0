@@ -1,54 +1,81 @@
-From: =?ISO-8859-15?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
-Subject: sky2 still badly broken
-Date: Fri, 27 Apr 2012 22:15:10 +0200
-Message-ID: <4F9AFE4E.8010108@linuxsystems.it>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFT] sky2: fix status length check on older chips
+Date: Fri, 27 Apr 2012 13:41:27 -0700
+Message-ID: <20120427134127.6d536a96@nehalam.linuxnetplumber.net>
+References: <4F9AFE4E.8010108@linuxsystems.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?B?TmljY29s8g==?= Belli <darkbasic@linuxsystems.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxsystems.it ([2.119.245.41]:54052 "EHLO
-	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759754Ab2D0UYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 16:24:36 -0400
-Received: from [192.168.2.8] (unknown [192.168.2.8])
-	by mail.linuxsystems.it (Postfix) with ESMTPSA id 15591141B8
-	for <netdev@vger.kernel.org>; Fri, 27 Apr 2012 22:14:18 +0200 (CEST)
+Received: from mail.vyatta.com ([76.74.103.46]:38387 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761395Ab2D0Ula (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Apr 2012 16:41:30 -0400
+In-Reply-To: <4F9AFE4E.8010108@linuxsystems.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dmesg is full of
+Mirko and I were working on a related issue, here is his fix.
+I proposed a similar alternative, but he was unavailable to test it,
+and therefore was still pending.  Does this fix your problem?
+=================
 
-[ 1464.914044] sky2 0000:06:00.0: eth0: rx error, status 0x5220002=20
-length 1314
-[ 1465.005628] sky2 0000:06:00.0: eth0: rx error, status 0x7ffc0001=20
-length 532
-[ 1465.204459] sky2 0000:06:00.0: eth0: rx error, status 0x7ffc0001=20
-length 532
-[ 1465.825909] sky2 0000:06:00.0: eth0: rx error, status 0x7ffc0001=20
-length 532
-[ 1468.715858] net_ratelimit: 3 callbacks suppressed
-[ 1468.715865] sky2 0000:06:00.0: eth0: rx error, status 0x7ffc0001=20
-length 532
 
-dhcp does not work (after a few minutes it does not renew the ip)
+From: From: Mirko Lindner <mlindner@marvell.com>
 
-while under heavy load the card resets and I have to unload and reload=20
-the module
+Bug: The VLAN bit of the MAC RX Status Word is unreliable in several older
+supported chips. Sometimes the VLAN bit is not set for valid VLAN packets
+and also sometimes the VLAN bit is set for non-VLAN packets that came after
+a VLAN packet. This results in a receive length error when VLAN hardware
+tagging is enabled.
 
-also transfer rate is VERY low.
+Fix: The driver uses only VLAN information included in VLAN status list elements,
+that signals that the VLAN tag field is valid. It must ignore the VLAN bit in the
+MAC RX Status Word. An additional variable set when evaluating the VLAN opcodes
+is used to indicate that the received packet is a VLAN packet and a packet length
+correction (subtraction of VLAN header length) must be done.
 
-lowering the mtu does help a bit, but it doesn't make miracles...
+Signed-off-by: Mirko Lindner <mlindner@marvell.com>
 
-kernel 3.4.0-rc4
 
-06:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8055 PCI-=
-E=20
-Gigabit Ethernet Controller (rev 13)
 
-http://forums.gentoo.org/viewtopic-t-487018-start-0-postdays-0-postorde=
-r-asc-highlight-.html
-
-Thanks,
-Niccol=F2
+--- a/drivers/net/ethernet/marvell/sky2.c	2012-04-18 23:44:40.637276647 -0700
++++ b/drivers/net/ethernet/marvell/sky2.c	2012-04-27 13:36:07.487834432 -0700
+@@ -2580,7 +2580,7 @@ static struct sk_buff *sky2_receive(stru
+ 	struct sk_buff *skb = NULL;
+ 	u16 count = (status & GMR_FS_LEN) >> 16;
+ 
+-	if (status & GMR_FS_VLAN)
++	if (sky2->rx_vlan)
+ 		count -= VLAN_HLEN;	/* Account for vlan tag */
+ 
+ 	netif_printk(sky2, rx_status, KERN_DEBUG, dev,
+@@ -2646,11 +2646,13 @@ static inline void sky2_tx_done(struct n
+ 	}
+ }
+ 
+-static inline void sky2_skb_rx(const struct sky2_port *sky2,
+-			       u32 status, struct sk_buff *skb)
++static inline void sky2_skb_rx(struct sky2_port *sky2,
++				struct sk_buff *skb)
+ {
+-	if (status & GMR_FS_VLAN)
++	if (sky2->rx_vlan) {
+ 		__vlan_hwaccel_put_tag(skb, be16_to_cpu(sky2->rx_tag));
++		sky2->rx_vlan = 0;
++	}
+ 
+ 	if (skb->ip_summed == CHECKSUM_NONE)
+ 		netif_receive_skb(skb);
+--- a/drivers/net/ethernet/marvell/sky2.h	2012-02-13 09:23:53.642447236 -0800
++++ b/drivers/net/ethernet/marvell/sky2.h	2012-04-27 13:36:07.487834432 -0700
+@@ -2242,6 +2242,7 @@ struct sky2_port {
+ 	u16		     rx_data_size;
+ 	u16		     rx_nfrags;
+ 	u16		     rx_tag;
++	u8		     rx_vlan;
+ 
+ 	struct {
+ 		unsigned long last;
