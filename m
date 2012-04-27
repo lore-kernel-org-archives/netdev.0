@@ -1,49 +1,76 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: Re: [PATCH RFC 1/2] netfilter: conntrack: remove RCU usage in
- conntrack notifier
-Date: Fri, 27 Apr 2012 16:14:59 -0400
-Message-ID: <20120427201459.GA31254@d2.synalogic.ca>
-References: <1335551333-6103-1-git-send-email-bpoirier@suse.de>
- <1335553131.2775.252.camel@edumazet-glaptop>
+From: Tony Cheneau <tony.cheneau+zigbeedev-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
+Subject: Re:
+	=?utf-8?q?=5BPATCH_2/2=5D_net/ieee802154/6lo?=
+	=?utf-8?b?d3Bhbi5jOiAgcmV1c2UgZXRoX21hY19hZGRyKCk=?=
+Date: Fri, 27 Apr 2012 22:21:05 +0200
+Message-ID: <92f4dc09fca1e6ec54f12ca61b8b8e55@amnesiak.org>
+References: <1329914199-30862-1-git-send-email-danny.kukawka@bisect.de>
+	<1329914199-30862-3-git-send-email-danny.kukawka@bisect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Arun Sharma <asharma@fb.com>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1335553131.2775.252.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Danny Kukawka <dkukawka-l3A5Bk7waGM@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1329914199-30862-3-git-send-email-danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2012/04/27 20:58, Eric Dumazet wrote:
-> On Fri, 2012-04-27 at 14:28 -0400, Benjamin Poirier wrote:
-> > I think that the rcu usage in this code is pointless. It should either be
-> > removed or, if it was intended to protect against something, it ought to make
-> > that clear.
-> > 
-> > 1) The code does not make use of the deferred deletion/wait for completion rcu
-> > api (ie. synchronize_rcu(), call_rcu()).
-> > 2) It does not benefit from the barriers implied by the rcu primitives used.
-> > The code deals with callback pointers. There's no need to order writes to the
-> > function code (!) before writes to the function pointers here.
-> > ---
-> 
-> At a first glance, this seems pretty wrong.
-> 
-> code can disappear under you, thats for sure.
-> 
-> CONFIG_NF_CT_NETLINK=m
-> 
-> hint : module unload contains an rcu barrier.
-> 
-
-Thank you Eric. I had indeed failed to consider module load/unload
-cases, which are effectively "writes to function code".
+SGVsbG8sCgpJIGJlbGlldmUgdGhlIGZvbGxvd2luZyBwYXRjaCBzaG91bGQgbm90IGhhdmUgYmVl
+biBhcHBsaWVkIGFuZCBzaG91bGQgCm5vdyBiZSByZXZlcnRlZC4KVGhlIHJlYXNvbiBpcyBiZWNh
+dXNlIGV0aF9tYWNfYWRkcigpIGlzIG5vdCBmdW5jdGlvbmFsbHkgZXF1aXZhbGVudCB0byAKbG93
+cGFuX3NldF9hZGRyZXNzKCkgdGhhdCBpdCByZXBsYWNlczoKLSBsb3dwYW5fc2V0X2FkZHJlc3Mo
+KSBjb3BpZXMgZGV2LT5hZGRyX2xlbiBieXRlcywgd2hlcmUgZGV2LT5hZGRyX2xlbiAKaXMgc2V0
+IHRvIDggYnl0ZXMgZm9yIElFRUU4MDIxNTQgZGV2aWNlcyAodGhpcyBpcyBhbiBJRUVFIEVVSS02
+NCAKYWRkcmVzcykuIEhlbmNlLCB0aGUgZnVuY3Rpb24gY29waWVzIHRoZSBmdWxsIDggYnl0ZXMg
+b2YgdGhlIGFkZHJlc3MuCi0gZXRoX21hY19hZGRyKCkgY29waWVzIEVUSF9BTEVOIGJ5dGVzLCB3
+aGVyZSBFVEhfQUxFTiBpcyBzZXQgdG8gNi4gCkhlbmNlLCB0aGUgZnVuY3Rpb24gY29waWVzIG9u
+bHkgNiBieXRlcyBvZiB0aGUgOCBieXRlcyBhZGRyZXNzLiBTbywgMiAKYnl0ZXMgb2YgdGhlIGFk
+ZHJlc3MgYXJlIG5ldmVyIGNvcGllZC4KCkRvZXMgdGhpcyBzb3VuZCByZWFzb25hYmxlPwoKUmVn
+YXJkcywKVG9ueQoKCkxlIDIyLjAyLjIwMTIgMTQ6MzYsIERhbm55IEt1a2F3a2EgYSDDqWNyaXTC
+oDoKPiBVc2UgZXRoX21hY19hZGRyKCkgZm9yIC5uZG9fc2V0X21hY19hZGRyZXNzLCByZW1vdmUK
+PiBsb3dwYW5fc2V0X2FkZHJlc3Mgc2luY2UgaXQgZG8gY3VycmVudGx5IHRoZSBzYW1lIGFzCj4g
+ZXRoX21hY19hZGRyKCkuIEFkZGl0aW9uYWwgYWR2YW50YWdlOiBldGhfbWFjX2FkZHIoKSBhbHJl
+YWR5Cj4gY2hlY2tzIGlmIHRoZSBnaXZlbiBhZGRyZXNzIGlzIHZhbGlkCj4KPiBTaWduZWQtb2Zm
+LWJ5OiBEYW5ueSBLdWthd2thIDxkYW5ueS5rdWthd2thQGJpc2VjdC5kZT4KPiAtLS0KPiAgbmV0
+L2llZWU4MDIxNTQvNmxvd3Bhbi5jIHwgICAxNiArKy0tLS0tLS0tLS0tLS0tCj4gIDEgZmlsZXMg
+Y2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAxNCBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQg
+YS9uZXQvaWVlZTgwMjE1NC82bG93cGFuLmMgYi9uZXQvaWVlZTgwMjE1NC82bG93cGFuLmMKPiBp
+bmRleCBlNGVjYzFlLi4zNjg1MTU4IDEwMDY0NAo+IC0tLSBhL25ldC9pZWVlODAyMTU0LzZsb3dw
+YW4uYwo+ICsrKyBiL25ldC9pZWVlODAyMTU0LzZsb3dwYW4uYwo+IEBAIC01NSw2ICs1NSw3IEBA
+Cj4gICNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4KPiAgI2luY2x1ZGUgPGxpbnV4L21vZHVsZXBh
+cmFtLmg+Cj4gICNpbmNsdWRlIDxsaW51eC9uZXRkZXZpY2UuaD4KPiArI2luY2x1ZGUgPGxpbnV4
+L2V0aGVyZGV2aWNlLmg+Cj4gICNpbmNsdWRlIDxuZXQvYWZfaWVlZTgwMjE1NC5oPgo+ICAjaW5j
+bHVkZSA8bmV0L2llZWU4MDIxNTQuaD4KPiAgI2luY2x1ZGUgPG5ldC9pZWVlODAyMTU0X25ldGRl
+di5oPgo+IEBAIC05MjQsMTkgKzkyNSw2IEBAIGRyb3A6Cj4gIAlyZXR1cm4gLUVJTlZBTDsKPiAg
+fQo+Cj4gLXN0YXRpYyBpbnQgbG93cGFuX3NldF9hZGRyZXNzKHN0cnVjdCBuZXRfZGV2aWNlICpk
+ZXYsIHZvaWQgKnApCj4gLXsKPiAtCXN0cnVjdCBzb2NrYWRkciAqc2EgPSBwOwo+IC0KPiAtCWlm
+IChuZXRpZl9ydW5uaW5nKGRldikpCj4gLQkJcmV0dXJuIC1FQlVTWTsKPiAtCj4gLQkvKiBUT0RP
+OiB2YWxpZGF0ZSBhZGRyICovCj4gLQltZW1jcHkoZGV2LT5kZXZfYWRkciwgc2EtPnNhX2RhdGEs
+IGRldi0+YWRkcl9sZW4pOwo+IC0KPiAtCXJldHVybiAwOwo+IC19Cj4gLQo+ICBzdGF0aWMgaW50
+IGxvd3Bhbl9nZXRfbWFjX2hlYWRlcl9sZW5ndGgoc3RydWN0IHNrX2J1ZmYgKnNrYikKPiAgewo+
+ICAJLyoKPiBAQCAtMTA2Miw3ICsxMDUwLDcgQEAgc3RhdGljIHN0cnVjdCBoZWFkZXJfb3BzIGxv
+d3Bhbl9oZWFkZXJfb3BzID0gewo+Cj4gIHN0YXRpYyBjb25zdCBzdHJ1Y3QgbmV0X2RldmljZV9v
+cHMgbG93cGFuX25ldGRldl9vcHMgPSB7Cj4gIAkubmRvX3N0YXJ0X3htaXQJCT0gbG93cGFuX3ht
+aXQsCj4gLQkubmRvX3NldF9tYWNfYWRkcmVzcwk9IGxvd3Bhbl9zZXRfYWRkcmVzcywKPiArCS5u
+ZG9fc2V0X21hY19hZGRyZXNzCT0gZXRoX21hY19hZGRyLAo+ICB9Owo+Cj4gIHN0YXRpYyB2b2lk
+IGxvd3Bhbl9zZXR1cChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQoKCi0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLQpMaXZlIFNlY3VyaXR5IFZpcnR1YWwgQ29uZmVyZW5jZQpFeGNsdXNpdmUgbGl2ZSBldmVu
+dCB3aWxsIGNvdmVyIGFsbCB0aGUgd2F5cyB0b2RheSdzIHNlY3VyaXR5IGFuZCAKdGhyZWF0IGxh
+bmRzY2FwZSBoYXMgY2hhbmdlZCBhbmQgaG93IElUIG1hbmFnZXJzIGNhbiByZXNwb25kLiBEaXNj
+dXNzaW9ucyAKd2lsbCBpbmNsdWRlIGVuZHBvaW50IHNlY3VyaXR5LCBtb2JpbGUgc2VjdXJpdHkg
+YW5kIHRoZSBsYXRlc3QgaW4gbWFsd2FyZSAKdGhyZWF0cy4gaHR0cDovL3d3dy5hY2NlbGFjb21t
+LmNvbS9qYXcvc2ZybmwwNDI0MjAxMi8xMTQvNTAxMjIyNjMvCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4LXppZ2JlZS1kZXZlbCBtYWlsaW5nIGxp
+c3QKTGludXgtemlnYmVlLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3Rz
+LnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9saW51eC16aWdiZWUtZGV2ZWwK
