@@ -1,25 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn/eicon: use standard __init,__exit function markup
-Date: Fri, 27 Apr 2012 00:04:08 -0400 (EDT)
-Message-ID: <20120427.000408.889398727032151984.davem@davemloft.net>
-References: <201204241556.03516.hartleys@visionengravers.com>
+Subject: Re: [PATCH net-next 0/3] be2net: Patch series
+Date: Fri, 27 Apr 2012 00:04:56 -0400 (EDT)
+Message-ID: <20120427.000456.1834118936967382222.davem@davemloft.net>
+References: <20120427014223.GA698@akhaparde-VBox>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mac@melware.de, isdn@linux-pingi.de
-To: hartleys@visionengravers.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204241556.03516.hartleys@visionengravers.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ajit.khaparde@Emulex.Com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38192 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752217Ab2D0EFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 00:05:00 -0400
+In-Reply-To: <20120427014223.GA698@akhaparde-VBox>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: H Hartley Sweeten <hartleys@visionengravers.com>
-Date: Tue, 24 Apr 2012 15:56:03 -0700
+From: Ajit Khaparde <ajit.khaparde@Emulex.Com>
+Date: Thu, 26 Apr 2012 20:42:23 -0500
 
-> Remove the custom DIVA_{INIT,EXIT}_FUNCTION defines and use
-> the standard __init,__exit markup.
-> 
-> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+> Series of 3 patches against net-next
+> Please apply.
 
-Applied.
+All applied, thanks.
