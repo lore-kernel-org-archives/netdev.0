@@ -1,159 +1,68 @@
-From: =?GB2312?B?saPV5tPFu923osaxMTM5Mjg0NzI0MjHVxQ==?=
-	<enoshaplwelo@yahoo.com>
-Subject: 72012-4-28
-Date: Sat, 28 Apr 2012 03:43:01 +0800
-Message-ID: <201204280343016402457@yahoo.com>
+From: Prasanna Panchamukhi <ppanchamukhi@riverbed.com>
+Subject: Re: [PATCH] e1000e:  MSI interrupt test failed,
+	using legacy interrupt
+Date: Fri, 27 Apr 2012 12:52:11 -0700
+Message-ID: <4F9AF8EB.60703@riverbed.com>
+References: <1335485150-2765-1-git-send-email-prasanna.panchamukhi@riverbed.com>
+	<1335490840.4056.137.camel@deadeye>
+Reply-To: prasanna.panchamukhi@riverbed.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="----=inr889_9700_397963402.336898"
-To: "nelhage" <nelhage@ksplice.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm14-vm3.bullet.mail.sg3.yahoo.com ([106.10.149.34]:34245 "HELO
-	nm14-vm3.bullet.mail.sg3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751088Ab2D0Ttr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 15:49:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	e1000-devel@lists.sourceforge.net, gospo@redhat.com, sassmann@redhat.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1335490840.4056.137.camel@deadeye>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+On 04/26/2012 06:40 PM, Ben Hutchings wrote:
+> On Thu, 2012-04-26 at 17:05 -0700, prasanna.panchamukhi@riverbed.com
+> wrote:
+>> From: Prasanna S. Panchamukhi<ppanchamukhi@riverbed.com>
+>>
+>> Following logs where seen on Systems with multiple NICs&  ports,
+>> while using MSI interrupts as shown below:
+> [...]
+>> This patch changes the IRQ tests to use polling loops starting with a
+>> delay of 1 tick and doubling that if necessary up to a maximum total
+>> delay of approximately 1 second.
+> [...]
+>
+> I don't think you entirely understood my point.  This exponential
+> back-off was the best I could come up with for a self-test
+> (ethtool -t) where we have to answer the question 'are interrupts
+> working' in a reasonable time, and the user can decide for themselves
+> whether this was a false negative.
+>
+> If you want a definite answer in order to make an automatic decision
+> about interrupt modes, there really is no valid time limit.  I think the
+This issue is not able interrupt mode selection.
 
-------=inr889_9700_397963402.336898
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: base64
-
-nelhage@ksplice.com
-=C4=E3--=BA=C3=A3=A1
-207.179.55.106
+-Prasanna
+> proper way to do interrupt mode selection in an in-tree driver is to
+> rely on no-MSI quirks for chipsets and devices in the PCI core.
+>
+> Ben.
+>
 
 
-------=inr889_9700_397963402.336898
-Content-Type: image/gif;
-	name="Ycglpu_9894.gif"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="Ycglpu_9894.gif"
-
-GIF87aN=01>=00w=00=00,=00=00=00=00N=01>=00=87=00=00=00=00=003=00=00f=
-=00=0
-0=99=00=00=CC=00=00=FF=003=00=0033=003f=003=99=003=CC=003=FF=00f=
-=00=00f3=
-00ff=00f=99=00f=CC=00f=FF=00=99=00=00=993=00=99f=00=99=99=00=
-=99=CC=00=99=
-FF=00=CC=00=00=CC3=00=CCf=00=CC=99=00=CC=CC=00=CC=FF=00=
-=FF=00=00=FF3=00=F
-Ff=00=FF=99=00=FF=CC=00=FF=FF3=00=003=0033=00f3=00=
-=993=00=CC3=00=FF33=003
-3333f33=9933=CC33=FF3f=003f33ff3f=993f=CC3f=FF3=
-=99=003=9933=99f3=99=993=9
-9=CC3=99=FF3=CC=003=CC33=CCf3=CC=993=CC=CC3=
-=CC=FF3=FF=003=FF33=FFf3=FF=99
-3=FF=CC3=FF=FFf=00=00f=003f=00ff=00=99f=
-=00=CCf=00=FFf3=00f33f3ff3=99f3=CC
-f3=FFff=00ff3fffff=99ff=CCff=FFf=99=
-=00f=993f=99ff=99=99f=99=CCf=99=FFf=CC
-=00f=CC3f=CCff=CC=99f=CC=CCf=CC=
-=FFf=FF=00f=FF3f=FFff=FF=99f=FF=CCf=FF=FF=
-99=00=00=99=003=99=00f=99=00=
-=99=99=00=CC=99=00=FF=993=00=9933=993f=993=99
-=993=CC=993=FF=99f=00=99f=
-3=99ff=99f=99=99f=CC=99f=FF=99=99=00=99=993=99=9
-9f=99=99=99=99=99=CC=
-=99=99=FF=99=CC=00=99=CC3=99=CCf=99=CC=99=99=CC=CC=99
-=CC=FF=99=FF=00=
-=99=FF3=99=FFf=99=FF=99=99=FF=CC=99=FF=FF=CC=00=00=CC=003=
-CC=00f=CC=00=
-=99=CC=00=CC=CC=00=FF=CC3=00=CC33=CC3f=CC3=99=CC3=CC=CC3=FF=C
-Cf=00=CCf=
-3=CCff=CCf=99=CCf=CC=CCf=FF=CC=99=00=CC=993=CC=99f=CC=99=99=CC=9
-9=CC=
-=CC=99=FF=CC=CC=00=CC=CC3=CC=CCf=CC=CC=99=CC=CC=CC=CC=CC=FF=CC=FF=00=
-
-=CC=FF3=CC=FFf=CC=FF=99=CC=FF=CC=CC=FF=FF=FF=00=00=FF=003=FF=00f=FF=00=
-=
-99=FF=00=CC=FF=00=FF=FF3=00=FF33=FF3f=FF3=99=FF3=CC=FF3=FF=FFf=00=FFf=
-3=FF
-ff=FFf=99=FFf=CC=FFf=FF=FF=99=00=FF=993=FF=99f=FF=99=99=FF=99=CC=
-=FF=99=FF
-=FF=CC=00=FF=CC3=FF=CCf=FF=CC=99=FF=CC=CC=FF=CC=FF=FF=FF=00=
-=FF=FF3=FF=FFf
-=FF=FF=99=FF=FF=CC=FF=FF=FF=00=00=00=00=00=00=00=00=00=
-=00=00=00=00=00=00=
-00=00=00=00=00=00=00=00=00=00=00=00=00=00=00=00=00=
-=00=00=00=00=00=00=00=0
-0=00=00=00=00=00=00=00=00=00=00=00=00=00=00=00=
-=00=00=00=00=00=00=00=00=00
-=00=00=00=00=00=00=00=00=00=00=00=00=00=00=
-=00=00=00=00=00=00=00=00=00=00=
-00=00=00=00=00=00=00=00=00=00=00=00=00=
-=00=00=00=00=00=00=00=00=00=00=00=0
-0=00=00=00=00=00=00=00=08=FF=00=AF=
-=08=1CH=B0=A0=C1=83=08=13*\=C8=B0=A1=C3
-=87=10#J=9CH=B1=A2=C5=8B=183j=
-=DC=C8=B1=A3=C7=8F C=8A=1CI=B2=A4=C9=93(S=AA
-\=C9=B2=A5=CB=970c=CA=9CI=
-=B3=A6=CD=9B8o=D2=C8=C9=B3=A7=CF=9F%w=02=1DJ=B4=
-A8Q=86B=8F*]=CA=14g=D2=
-=A6P=A3JE=F9t=AA=D5=ABX-V=CD=CA=B5=ABW=83[=BF=8A=1D
-+5,=D9=B3h=8B=9AM=
-=CB=B6=AD=CD=B5n=E3=CAe	w=AE=DD=BB#=EB=E2=DD=CB=17=A3=DE
-=BE=80=03?=FC+=
-=B8=B0a=82=84=0F+=16=9Cx=B1c=BC=8D=1FK=96=1By=B2e=B4=95/k=F
-E=9Ay=B3=E7=
-=AC=9D?=8B=8E=1Az=B4=E9=A5=A5O=AB=1E=9Az=B5=EB=9E=AD_=0F=A4A=9
-B=B6=EC=
-=96=B1o=83=AD=9D[7R=DF=C0=83=0B=1FN=BC=B8=F1=E3=C8=93=AF\=C1B6=8B=
-15=
-=CA{=02=00=A0{zt=9C=D6_=B2=08=D0=9Ckv=E1,=BA_=FFYA] =8B=EF=11=03L_=CF~=
-
-z=80=87=E8=172=17H=BE|=C6=F5=D0/=02=C8=EF=9E w=96=F1=BDv=1E{WX=D1=DF=
-=15
-=03=8Aw=D0v=E1=3D=D7=DC=80=EDE=A8`B=01=1Ed=E0t=F9%(=D0z
-E=E8=A1=87=0E=AD=F7
- =87=1BNg=05C=F5}=E8a~=0BU(=1A=84=11=9A=97=DDy,=1E=
-=94"{
-Z7`D.=0E=04=E3w=
-1A=12(=1F=8E
-=12=D9`x=0C=C1=D8=1D=84%=F6=E8=A3=8AP=9E=C8=90=93=9E=85W=DF=84
-VL=A8P=
-=8A=10=86=07=E5z=EF)=D4=E3=8F=D3)=98=A0=86=F0})bB=17=B6'=1E=93=11Y=
-F1_=
-=93=DDq=89d=9A=02>=87=E3=8D=11=D6H=90=86	=F2=B9g=99b=DAw=90z=EDA'g=A2G
-=
->=D4=A5=97"BjhA=88=B6=F7g=A4=95=06 e=88=84"H=A2DTNF=A6=9A=9F=16=D4%=87=
-
-	=96=99 =A2Z=0E=14=AA=84=A3~=FF=D8!=A9cz=B8=A8=9A~=B6=18=A9=90=13=85=
-=FA=1
-8~=F8=C9=08=80=99=18"4=AA=A7jR8=E9Bg=D2=DA=AAA=9F=AEYb=AE=97=D2=
-=AA*=B3=D6
-B=F9lA=BEJ=D6=E6=B0%=12=0B=EE=82"=92H=1E=85=D4=8E=B7,=B6=E3=
-=0E=C4j=A7=8E:
-=DB=D0=8F=DCq=E9P=AC=D9=C2=DBb=BA=9A=F5y=85=B6=C6=12=BAc=
-=93=B2*=0B=11=9A=
-AE=BA=D7mAY&<=EEy=9B=B2;)=AF=BA=96=B9=A9=B4Ln=C7=1E=
-=BF=DC=AE=ABY=AC=92=C6
-=18=B0=C8=EA=0E{=E4=9D=85=C6=DB.=B2=F5qL.=AD.=0B=
-;q=A9=0BE=EC=F0=93=F1=A1=
-AC=EBi=826g=DD=85=08=8Fl=E9=BF=D6R=DBm=D0=E5=
-=AE=ACk=A5=EEyI=EC=B68O
-a=CC
-	=C1=89=AC=C7Sb-*=81A=A7=AA=B4A=80Z=97o=BA=BE"=0C!=D0=F7Zw=E5=CDDC=
-]=ED=B2
-8R=14=AC=CC=BDj=3D=19=C6=FArH3=D8=02=AB=E4=AA=E0=DA	C=1D*=9Ag=
-=0F=18=A6A=1
-1=B7It=84a=A6=98v=80J=82*=ED=D5=92=EB=860=ABW`=EE=A3=B8n=
-=D2=A7c=99=F5=E1=
-B9%=86=91/n=B2=95=A5=CE-s=99{+d5A=82v~P=A2o=F3h=F7=8B=
-=16=A7=18&=BE=1D=0F=
-3D t=81=AEg=B3=C1=CA=FAK=F0=8AQ=B7=1A=BB=F1|=BB=F8=
-=E5=84d=FA=F9z=D6=C0=8D
-=9A=A3=87=D0k=89=E6=9ACS=8F=10=8E_C=D9=BB=EB=C9=
-=BE=8C=B5=8A=B9J=D8=FC=ED	
-=07w=E6=9C=94=D2=DE=D0
-=CC=A9/=A3=DB=049=AF=EF=EC=F6=D7
-=E2=C8=1C=8B=1EB=1
-6=F5,D=1Dng=C2)[=00=A8=C6=BFbYd>`=D3=94C=AC@=1E=06J=
-=ECk=14=A1 =06!r4=0B^=
-E7=83 =0C=A1=08GH=C2=12=9A=F0=84%=84=80
-Q=C8B=A8=04=04=00;
-
-------=inr889_9700_397963402.336898--
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
