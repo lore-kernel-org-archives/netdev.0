@@ -1,66 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] e1000e:  MSI interrupt test failed,
- using legacy interrupt
-Date: Fri, 27 Apr 2012 02:40:40 +0100
-Message-ID: <1335490840.4056.137.camel@deadeye>
-References: <1335485150-2765-1-git-send-email-prasanna.panchamukhi@riverbed.com>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next 1/3] be2net: Ignore status of some ioctls during
+ driver load
+Date: Thu, 26 Apr 2012 20:42:31 -0500
+Message-ID: <20120427014231.GA721@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	e1000-devel@lists.sourceforge.net, gospo@redhat.com, sassmann@redhat.com
-To: <prasanna.panchamukhi@riverbed.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1335485150-2765-1-git-send-email-prasanna.panchamukhi@riverbed.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:56116 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757840Ab2D0Bmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Apr 2012 21:42:45 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-04-26 at 17:05 -0700, prasanna.panchamukhi@riverbed.com
-wrote:
-> From: Prasanna S. Panchamukhi <ppanchamukhi@riverbed.com>
-> 
-> Following logs where seen on Systems with multiple NICs & ports,
-> while using MSI interrupts as shown below:
-[...]
-> This patch changes the IRQ tests to use polling loops starting with a
-> delay of 1 tick and doubling that if necessary up to a maximum total
-> delay of approximately 1 second.
-[...]
 
-I don't think you entirely understood my point.  This exponential
-back-off was the best I could come up with for a self-test
-(ethtool -t) where we have to answer the question 'are interrupts
-working' in a reasonable time, and the user can decide for themselves
-whether this was a false negative.
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |   17 ++++-------------
+ 1 files changed, 4 insertions(+), 13 deletions(-)
 
-If you want a definite answer in order to make an automatic decision
-about interrupt modes, there really is no valid time limit.  I think the
-proper way to do interrupt mode selection in an in-tree driver is to
-rely on no-MSI quirks for chipsets and devices in the PCI core.
-
-Ben.
-
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index c9f757c..c8f7b3a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2704,24 +2704,15 @@ static int be_setup(struct be_adapter *adapter)
+ 
+ 	be_cmd_get_fw_ver(adapter, adapter->fw_ver, NULL);
+ 
+-	status = be_vid_config(adapter, false, 0);
+-	if (status)
+-		goto err;
++	be_vid_config(adapter, false, 0);
+ 
+ 	be_set_rx_mode(adapter->netdev);
+ 
+-	status = be_cmd_get_flow_control(adapter, &tx_fc, &rx_fc);
+-	/* For Lancer: It is legal for this cmd to fail on VF */
+-	if (status && (be_physfn(adapter) || !lancer_chip(adapter)))
+-		goto err;
++	be_cmd_get_flow_control(adapter, &tx_fc, &rx_fc);
+ 
+-	if (rx_fc != adapter->rx_fc || tx_fc != adapter->tx_fc) {
+-		status = be_cmd_set_flow_control(adapter, adapter->tx_fc,
++	if (rx_fc != adapter->rx_fc || tx_fc != adapter->tx_fc)
++		be_cmd_set_flow_control(adapter, adapter->tx_fc,
+ 					adapter->rx_fc);
+-		/* For Lancer: It is legal for this cmd to fail on VF */
+-		if (status && (be_physfn(adapter) || !lancer_chip(adapter)))
+-			goto err;
+-	}
+ 
+ 	pcie_set_readrq(adapter->pdev, 4096);
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+1.7.5.4
