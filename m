@@ -1,7 +1,7 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 06/17] netfilter: add namespace support for l4proto_udp
-Date: Fri, 27 Apr 2012 17:37:53 +0800
-Message-ID: <1335519484-6089-7-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 14/17] netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
+Date: Fri, 27 Apr 2012 17:38:01 +0800
+Message-ID: <1335519484-6089-15-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	serge.hallyn@canonical.com, ebiederm@xmission.com,
@@ -12,209 +12,153 @@ In-Reply-To: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-implement udp_init_net to initial the pernet sysctl data for
-udp protos.
+move the nf_conntrack_l4proto_register from module_init to
+proto_gre_net_ops.init.
 
-Because udp_init_net is called by l4proto_udp[4,6],so use
-nf_proto_net.users to identify if the pernet data is initialized
-when CONFIG_SYSCTL is not configured.
+and use gre_pernet to replace net_generic.
 
-nf_udp_net as a field of netns_ct,when proto is udp,
-return net->ct.proto.udp in function nf_ct_l4proto_net.
-
-and move enum udp_conntrack to conntrack.h
+because gre proto has no sysctl,so only need to initial pernet data
+for gre proto.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- include/net/netns/conntrack.h          |   12 ++++++
- net/netfilter/nf_conntrack_proto.c     |    2 +
- net/netfilter/nf_conntrack_proto_udp.c |   65 ++++++++++++++++++++++++++-----
- 3 files changed, 68 insertions(+), 11 deletions(-)
+ net/netfilter/nf_conntrack_proto_gre.c |   56 ++++++++++++++++++++------------
+ 1 files changed, 35 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index 14cf47d..a1b967d 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -34,9 +34,21 @@ struct nf_tcp_net {
- 	unsigned int tcp_max_retrans;
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index 4bf6b4e..8d70452 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -54,13 +54,20 @@ static unsigned int gre_timeouts[GRE_CT_MAX] = {
+ 
+ static int proto_gre_net_id __read_mostly;
+ struct netns_proto_gre {
++	struct nf_proto_net	nf;
+ 	rwlock_t		keymap_lock;
+ 	struct list_head	keymap_list;
++	unsigned int		gre_timeouts[GRE_CT_MAX];
  };
  
-+enum udp_conntrack {
-+	UDP_CT_UNREPLIED,
-+	UDP_CT_REPLIED,
-+	UDP_CT_MAX
-+};
-+
-+struct nf_udp_net {
-+	struct nf_proto_net pn;
-+	unsigned int timeouts[UDP_CT_MAX];
-+};
-+
- struct nf_ip_net {
- 	struct nf_generic_net   generic;
- 	struct nf_tcp_net       tcp;
-+	struct nf_udp_net	udp;
- #if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
- 	struct ctl_table_header *ctl_table_header;
- 	struct ctl_table        *ctl_table;
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 25fd237..fafad1e 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -290,6 +290,8 @@ static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
- 	switch (l4proto->l4proto) {
- 	case IPPROTO_TCP:
- 		return (struct nf_proto_net *)&net->ct.proto.tcp;
-+	case IPPROTO_UDP:
-+		return (struct nf_proto_net *)&net->ct.proto.udp;
- 	case 255: /* l4proto_generic */
- 		return (struct nf_proto_net *)&net->ct.proto.generic;
- 	default:
-diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
-index 7259a6b..072ef9c 100644
---- a/net/netfilter/nf_conntrack_proto_udp.c
-+++ b/net/netfilter/nf_conntrack_proto_udp.c
-@@ -25,17 +25,16 @@
- #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
- #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
- 
--enum udp_conntrack {
--	UDP_CT_UNREPLIED,
--	UDP_CT_REPLIED,
--	UDP_CT_MAX
--};
--
- static unsigned int udp_timeouts[UDP_CT_MAX] = {
- 	[UDP_CT_UNREPLIED]	= 30*HZ,
- 	[UDP_CT_REPLIED]	= 180*HZ,
- };
- 
-+static inline struct nf_udp_net *udp_pernet(struct net *net)
++static inline struct netns_proto_gre *gre_pernet(struct net *net)
 +{
-+	return &net->ct.proto.udp;
++	return net_generic(net, proto_gre_net_id);
 +}
 +
- static bool udp_pkt_to_tuple(const struct sk_buff *skb,
- 			     unsigned int dataoff,
- 			     struct nf_conntrack_tuple *tuple)
-@@ -73,7 +72,7 @@ static int udp_print_tuple(struct seq_file *s,
- 
- static unsigned int *udp_get_timeouts(struct net *net)
+ void nf_ct_gre_keymap_flush(struct net *net)
  {
--	return udp_timeouts;
-+	return udp_pernet(net)->timeouts;
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_ct_gre_keymap *km, *tmp;
+ 
+ 	write_lock_bh(&net_gre->keymap_lock);
+@@ -85,7 +92,7 @@ static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
+ /* look up the source key for a given tuple */
+ static __be16 gre_keymap_lookup(struct net *net, struct nf_conntrack_tuple *t)
+ {
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_ct_gre_keymap *km;
+ 	__be16 key = 0;
+ 
+@@ -109,7 +116,7 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
+ 			 struct nf_conntrack_tuple *t)
+ {
+ 	struct net *net = nf_ct_net(ct);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_conn_help *help = nfct_help(ct);
+ 	struct nf_ct_gre_keymap **kmp, *km;
+ 
+@@ -150,7 +157,7 @@ EXPORT_SYMBOL_GPL(nf_ct_gre_keymap_add);
+ void nf_ct_gre_keymap_destroy(struct nf_conn *ct)
+ {
+ 	struct net *net = nf_ct_net(ct);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_conn_help *help = nfct_help(ct);
+ 	enum ip_conntrack_dir dir;
+ 
+@@ -237,7 +244,7 @@ static int gre_print_conntrack(struct seq_file *s, struct nf_conn *ct)
+ 
+ static unsigned int *gre_get_timeouts(struct net *net)
+ {
+-	return gre_timeouts;
++	return gre_pernet(net)->gre_timeouts;
  }
  
- /* Returns verdict for packet, and may modify conntracktype */
-@@ -205,14 +204,12 @@ static struct ctl_table_header *udp_sysctl_header;
- static struct ctl_table udp_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_udp_timeout",
--		.data		= &udp_timeouts[UDP_CT_UNREPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "nf_conntrack_udp_timeout_stream",
--		.data		= &udp_timeouts[UDP_CT_REPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -223,14 +220,12 @@ static struct ctl_table udp_sysctl_table[] = {
- static struct ctl_table udp_compat_sysctl_table[] = {
- 	{
- 		.procname	= "ip_conntrack_udp_timeout",
--		.data		= &udp_timeouts[UDP_CT_UNREPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
- 	{
- 		.procname	= "ip_conntrack_udp_timeout_stream",
--		.data		= &udp_timeouts[UDP_CT_REPLIED],
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -240,10 +235,55 @@ static struct ctl_table udp_compat_sysctl_table[] = {
- #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
- #endif /* CONFIG_SYSCTL */
+ /* Returns verdict for packet, and may modify conntrack */
+@@ -339,6 +346,18 @@ gre_timeout_nla_policy[CTA_TIMEOUT_GRE_MAX+1] = {
+ };
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
  
-+static int udp_init_net(struct net *net, u_int8_t compat)
++static int gre_init_net(struct net *net, u_int8_t compat)
 +{
 +	int i;
-+	struct nf_udp_net *un = udp_pernet(net);
-+	struct nf_proto_net *pn = (struct nf_proto_net *)un;
-+#ifdef CONFIG_SYSCTL
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	if (compat) {
-+		pn->ctl_compat_table = kmemdup(udp_compat_sysctl_table,
-+					       sizeof(udp_compat_sysctl_table),
-+					       GFP_KERNEL);
-+		if (!pn->ctl_compat_table)
-+			return -ENOMEM;
++	struct netns_proto_gre *net_gre = gre_pernet(net);
 +
-+		pn->ctl_compat_table[0].data = &un->timeouts[UDP_CT_UNREPLIED];
-+		pn->ctl_compat_table[1].data = &un->timeouts[UDP_CT_REPLIED];
-+	}
-+#endif
-+	if (!pn->ctl_table) {
-+#else
-+	if (!pn->user++) {
-+#endif
-+		for (i = 0; i < UDP_CT_MAX; i++)
-+			un->timeouts[i] = udp_timeouts[i];
-+#ifdef CONFIG_SYSCTL
-+		pn->ctl_table = kmemdup(udp_sysctl_table,
-+					sizeof(udp_sysctl_table),
-+					GFP_KERNEL);
-+		if (!pn->ctl_table) {
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+			if (compat) {
-+				kfree(pn->ctl_compat_table);
-+				pn->ctl_compat_table = NULL;
-+			}
-+#endif
-+			return -ENOMEM;
-+		}
-+		pn->ctl_table[0].data = &un->timeouts[UDP_CT_UNREPLIED];
-+		pn->ctl_table[1].data = &un->timeouts[UDP_CT_REPLIED];
-+#endif
-+	}
++	rwlock_init(&net_gre->keymap_lock);
++	INIT_LIST_HEAD(&net_gre->keymap_list);
++	for (i = 0; i < GRE_CT_MAX; i++)
++		net_gre->gre_timeouts[i] = gre_timeouts[i];
 +	return 0;
 +}
 +
- struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 __read_mostly =
- {
- 	.l3proto		= PF_INET,
- 	.l4proto		= IPPROTO_UDP,
-+	.compat			= 1,
- 	.name			= "udp",
- 	.pkt_to_tuple		= udp_pkt_to_tuple,
- 	.invert_tuple		= udp_invert_tuple,
-@@ -275,6 +315,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 __read_mostly =
- 	.ctl_compat_table	= udp_compat_sysctl_table,
- #endif
- #endif
-+	.init_net		= udp_init_net,
+ /* protocol helper struct */
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
+ 	.l3proto	 = AF_INET,
+@@ -368,20 +387,24 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
+ 		.nla_policy	= gre_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
++	.net_id		= &proto_gre_net_id,
++	.init_net	= gre_init_net,
  };
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp4);
  
-@@ -282,6 +323,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
+ static int proto_gre_net_init(struct net *net)
  {
- 	.l3proto		= PF_INET6,
- 	.l4proto		= IPPROTO_UDP,
-+	.compat			= 0,
- 	.name			= "udp",
- 	.pkt_to_tuple		= udp_pkt_to_tuple,
- 	.invert_tuple		= udp_invert_tuple,
-@@ -310,5 +352,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
- 	.ctl_table_header	= &udp_sysctl_header,
- 	.ctl_table		= udp_sysctl_table,
- #endif
-+	.init_net		= udp_init_net,
- };
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp6);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
+-
+-	rwlock_init(&net_gre->keymap_lock);
+-	INIT_LIST_HEAD(&net_gre->keymap_list);
+-
+-	return 0;
++	int ret = 0;
++	ret = nf_conntrack_l4proto_register(net,
++					    &nf_conntrack_l4proto_gre4);
++	if (ret < 0)
++		pr_err("nf_conntrack_l4proto_gre4 :protocol register failed.\n");
++	return ret;
+ }
+ 
+ static void proto_gre_net_exit(struct net *net)
+ {
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_gre4);
+ 	nf_ct_gre_keymap_flush(net);
+ }
+ 
+@@ -394,20 +417,11 @@ static struct pernet_operations proto_gre_net_ops = {
+ 
+ static int __init nf_ct_proto_gre_init(void)
+ {
+-	int rv;
+-
+-	rv = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_gre4);
+-	if (rv < 0)
+-		return rv;
+-	rv = register_pernet_subsys(&proto_gre_net_ops);
+-	if (rv < 0)
+-		nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_gre4);
+-	return rv;
++	return register_pernet_subsys(&proto_gre_net_ops);
+ }
+ 
+ static void __exit nf_ct_proto_gre_fini(void)
+ {
+-	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_gre4);
+ 	unregister_pernet_subsys(&proto_gre_net_ops);
+ }
+ 
 -- 
 1.7.7.6
 
