@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: bond_update_speed_duplex() can
- return void since no callers check its return
-Date: Fri, 27 Apr 2012 00:04:31 -0400 (EDT)
-Message-ID: <20120427.000431.275079983903950298.davem@davemloft.net>
-References: <20120426212030.269072900341@tardy>
+Subject: Re: [PATCH net-next] net: doc: merge /proc/sys/net/core/*
+ documents into one place
+Date: Fri, 27 Apr 2012 00:07:03 -0400 (EDT)
+Message-ID: <20120427.000703.505167223823823346.davem@davemloft.net>
+References: <4F9A0A04.7090703@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com
-To: rick.jones2@hp.com, raj@tardy.cup.hp.com
+Cc: netdev@vger.kernel.org
+To: shanwei88@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38218 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38224 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741Ab2D0EGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 00:06:48 -0400
-In-Reply-To: <20120426212030.269072900341@tardy>
+	with ESMTP id S1750811Ab2D0EHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 00:07:06 -0400
+In-Reply-To: <4F9A0A04.7090703@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: raj@tardy.cup.hp.com (Rick Jones)
-Date: Thu, 26 Apr 2012 14:20:30 -0700 (PDT)
+From: Shan Wei <shanwei88@gmail.com>
+Date: Fri, 27 Apr 2012 10:52:52 +0800
 
-> From: Rick Jones <rick.jones2@hp.com>
+> From: Shan Wei <davidshan@tencent.com>
 > 
-> As none of the callers of bond_update_speed_duplex (need to) check its
-> return value, there is little point in it returning anything.
+> All parameter descriptions in /proc/sys/net/core/* now is separated
+> two places. So, merge them into Documentation/sysctl/net.txt.
 > 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> Signed-off-by: Shan Wei <davidshan@tencent.com>
 
-Applied.
+I'll apply this, thanks.
