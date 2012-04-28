@@ -1,85 +1,226 @@
-From: "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>
-Subject: Re: [PATCH] 9p: disconnect channel when PCI device is removed
-Date: Sat, 28 Apr 2012 23:46:26 +0530
-Message-ID: <87d36rafid.fsf@skywalker.in.ibm.com>
-References: <1334353716-19483-1-git-send-email-levinsasha928@gmail.com> <87iph118pd.fsf@skywalker.in.ibm.com> <CA+1xoqfgA6DJL7ztMOdfLZedV6YwzZPUfbovFykdSSZy0Aio6w@mail.gmail.com> <87ehrodjt6.fsf@skywalker.in.ibm.com> <CA+1xoqfQ0Cj5pibxN8ZTXbksezH4NqOERaiYav=D7BA+v86m3A@mail.gmail.com>User-Agent: Notmuch/0.11.1+346~g13d19c3 (http://notmuchmail.org) Emacs/23.3.1 (x86_64-pc-linux-gnu)
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, ericvh@gmail.com, jvrao@linux.vnet.ibm.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davej@redhat.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+1xoqfQ0Cj5pibxN8ZTXbksezH4NqOERaiYav=D7BA+v86m3A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH v2 3/3] RFC tcp: early retransmit: delayed fast retransmit
+Date: Sat, 28 Apr 2012 11:46:21 -0700
+Message-ID: <1335638781-960-3-git-send-email-ycheng@google.com>
+References: <1335638781-960-1-git-send-email-ycheng@google.com>
+Cc: ncardwell@google.com, nanditad@google.com, edumazet@gmail.com,
+	netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f202.google.com ([209.85.213.202]:46342 "EHLO
+	mail-yx0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751284Ab2D1Sqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 14:46:34 -0400
+Received: by yenq2 with SMTP id q2so190001yen.1
+        for <netdev@vger.kernel.org>; Sat, 28 Apr 2012 11:46:33 -0700 (PDT)
+In-Reply-To: <1335638781-960-1-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sasha Levin <levinsasha928@gmail.com> writes:
+Implementing the advanced early retransmit (sysctl_tcp_early_retrans==2).
+Delays the fast retransmit by an interval of RTT/4. We borrow the
+RTO timer to implement the delay. If we receive another ACK or send
+a new packet, the timer is cancelled and restored to original RTO
+value offset by time elapsed.  When the delayed-ER timer fires,
+we enter fast recovery and perform fast retransmit.
 
-> On Mon, Apr 16, 2012 at 12:59 PM, Aneesh Kumar K.V
-> <aneesh.kumar@linux.vnet.ibm.com> wrote:
->> Sasha Levin <levinsasha928@gmail.com> writes:
->>
->>> On Sun, Apr 15, 2012 at 2:27 PM, Aneesh Kumar K.V
->>> <aneesh.kumar@linux.vnet.ibm.com> wrote:
->>>> Sasha Levin <levinsasha928@gmail.com> writes:
->>>>
->>>>> When a virtio_9p pci device is being removed, we should close dow=
-n any
->>>>> active channels and free up resources, we're not supposed to BUG(=
-) if there's
->>>>> still an open channel since it's a valid case when removing the P=
-CI device.
->>>>>
->>>>> Otherwise, removing the PCI device with an open channel would cau=
-se the
->>>>> following BUG():
->>>>>
->>>> ...
->>>>
->>>>> diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
->>>>> index 3d43206..5af18d1 100644
->>>>> --- a/net/9p/trans_virtio.c
->>>>> +++ b/net/9p/trans_virtio.c
->>>>> @@ -615,7 +615,8 @@ static void p9_virtio_remove(struct virtio_de=
-vice *vdev)
->>>>> =C2=A0{
->>>>> =C2=A0 =C2=A0 =C2=A0 struct virtio_chan *chan =3D vdev->priv;
->>>>>
->>>>> - =C2=A0 =C2=A0 BUG_ON(chan->inuse);
->>>>> + =C2=A0 =C2=A0 if (chan->inuse)
->>>>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 p9_virtio_close(chan-=
->client);
->>>>> =C2=A0 =C2=A0 =C2=A0 vdev->config->del_vqs(vdev);
->>>>>
->>>>> =C2=A0 =C2=A0 =C2=A0 mutex_lock(&virtio_9p_lock);
->>>>
->>>> But an umount should have resulted in p9_virtio_close ? How are yo=
-u
->>>> removing the device ? Are you removing the device with file system
->>>> mounted =C2=A0?. In that case may be we should return EBUSY ?
->>>
->>> I signal the underlying PCI device to remove (echo 1 >
->>> /sys/devices/pci0000\:00/[...]/remove), we can't really prevent tha=
-t
->>> thing so we must clean up ourselves.
->>
->> What does that mean for the mounted file system ? What would happen =
-to
->> the pending fs operations in that case ?
->
-> I'm guessing that all of them should be canceled.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ include/linux/tcp.h   |    4 +-
+ include/net/tcp.h     |    3 ++
+ net/ipv4/tcp_input.c  |   69 ++++++++++++++++++++++++++++++++++++++++++++-----
+ net/ipv4/tcp_output.c |    5 +--
+ net/ipv4/tcp_timer.c  |    5 +++
+ 5 files changed, 74 insertions(+), 12 deletions(-)
 
-Pending operation we can cancel, but what about dirty pages in cached
-mode ? Also how does virtio-blk handle this ?=20
-
-> virtio-pci simulates
-> a PCI device, if the PCI device is unplugged there's not much to do
-> about the filesystem or pending requests.
-
-Ideal thing to do would be to make remove return -EBUSY; let the user
-umount. But looking at the code, I guess there is no easy way to return
-error from remove callback ?
-
--aneesh
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 7d08a79..da5b659 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -369,8 +369,8 @@ struct tcp_sock {
+ 		thin_lto    : 1,/* Use linear timeouts for thin streams */
+ 		thin_dupack : 1,/* Fast retransmit on first dupack      */
+ 		repair      : 1,
+-		do_early_retrans: 1;/* Enable RFC5827 early-retransmit  */
+-
++		do_early_retrans: 1,/* Enable RFC5827 early retransmit (ER) */
++		early_retrans_delayed: 1; /* Delayed ER timer installed */
+ 	u8	frto_counter;	/* Number of new acks after RTO */
+ 	u8	repair_queue;
+ 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 685437a..5283aa4 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -500,6 +500,8 @@ extern void tcp_send_delayed_ack(struct sock *sk);
+ 
+ /* tcp_input.c */
+ extern void tcp_cwnd_application_limited(struct sock *sk);
++extern void tcp_resume_early_retransmit(struct sock *sk);
++extern void tcp_rearm_rto(struct sock *sk);
+ 
+ /* tcp_timer.c */
+ extern void tcp_init_xmit_timers(struct sock *);
+@@ -805,6 +807,7 @@ static inline void tcp_enable_early_retrans(struct tcp_sock *tp)
+ {
+ 	tp->do_early_retrans = sysctl_tcp_early_retrans &&
+ 		!sysctl_tcp_thin_dupack && sysctl_tcp_reordering == 3;
++	tp->early_retrans_delayed = 0;
+ }
+ 
+ static inline void tcp_disable_early_retrans(struct tcp_sock *tp)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 98c586d..8abf63b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2342,6 +2342,27 @@ static inline int tcp_dupack_heuristics(const struct tcp_sock *tp)
+ 	return tcp_is_fack(tp) ? tp->fackets_out : tp->sacked_out + 1;
+ }
+ 
++static bool tcp_pause_early_retransmit(struct sock *sk, int flag)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	unsigned long delay;
++
++	/* Delay early retransmit and entering fast recovery for
++	 * max(RTT/4, 2msec) unless ack has ECE mark, no RTT samples
++	 * available, or RTO is scheduled to fire first.
++	 */
++	if (sysctl_tcp_early_retrans < 2 || (flag & FLAG_ECE) || !tp->srtt)
++		return false;
++
++	delay = max_t(unsigned long, (tp->srtt >> 5), msecs_to_jiffies(2));
++	if (!time_after(inet_csk(sk)->icsk_timeout, (jiffies + delay)))
++		return false;
++
++	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, delay, TCP_RTO_MAX);
++	tp->early_retrans_delayed = 1;
++	return true;
++}
++
+ static inline int tcp_skb_timedout(const struct sock *sk,
+ 				   const struct sk_buff *skb)
+ {
+@@ -2449,7 +2470,7 @@ static inline int tcp_head_timedout(const struct sock *sk)
+  * Main question: may we further continue forward transmission
+  * with the same cwnd?
+  */
+-static int tcp_time_to_recover(struct sock *sk)
++static int tcp_time_to_recover(struct sock *sk, int flag)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	__u32 packets_out;
+@@ -2503,7 +2524,7 @@ static int tcp_time_to_recover(struct sock *sk)
+ 	if (tp->do_early_retrans && !tp->retrans_out && tp->sacked_out &&
+ 	    (tp->packets_out == (tp->sacked_out + 1) && tp->packets_out < 4) &&
+ 	    !tcp_may_send_now(sk))
+-		return 1;
++		return !tcp_pause_early_retransmit(sk, flag);
+ 
+ 	return 0;
+ }
+@@ -3170,7 +3191,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 		if (icsk->icsk_ca_state <= TCP_CA_Disorder)
+ 			tcp_try_undo_dsack(sk);
+ 
+-		if (!tcp_time_to_recover(sk)) {
++		if (!tcp_time_to_recover(sk, flag)) {
+ 			tcp_try_to_open(sk, flag);
+ 			return;
+ 		}
+@@ -3269,16 +3290,47 @@ static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ /* Restart timer after forward progress on connection.
+  * RFC2988 recommends to restart timer to now+rto.
+  */
+-static void tcp_rearm_rto(struct sock *sk)
++void tcp_rearm_rto(struct sock *sk)
+ {
+-	const struct tcp_sock *tp = tcp_sk(sk);
++	struct tcp_sock *tp = tcp_sk(sk);
+ 
+ 	if (!tp->packets_out) {
+ 		inet_csk_clear_xmit_timer(sk, ICSK_TIME_RETRANS);
+ 	} else {
+-		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+-					  inet_csk(sk)->icsk_rto, TCP_RTO_MAX);
++		u32 rto = inet_csk(sk)->icsk_rto;
++		/* Offset the time elapsed after installing regular RTO */
++		if (tp->early_retrans_delayed) {
++			struct sk_buff *skb = tcp_write_queue_head(sk);
++			const u32 rto_time_stamp = TCP_SKB_CB(skb)->when + rto;
++			s32 delta = (s32)(rto_time_stamp - tcp_time_stamp);
++			/* delta may not be positive if the socket is locked
++			 * when the delayed ER timer fires and is rescheduled.
++			 */
++			if (delta > 0)
++				rto = delta;
++		}
++		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
++					  TCP_RTO_MAX);
+ 	}
++	tp->early_retrans_delayed = 0;
++}
++
++/* This function is called when the delayed ER timer fires. TCP enters
++ * fast recovery and performs fast-retransmit.
++ */
++void tcp_resume_early_retransmit(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	tcp_rearm_rto(sk);
++
++	/* Stop if ER is disabled after the delayed ER timer is scheduled */
++	if (!tp->do_early_retrans)
++		return;
++
++	tcp_enter_recovery(sk, false);
++	tcp_update_scoreboard(sk, 1);
++	tcp_xmit_retransmit_queue(sk);
+ }
+ 
+ /* If we get here, the whole TSO packet has not been acked. */
+@@ -3727,6 +3779,9 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	if (after(ack, tp->snd_nxt))
+ 		goto invalid_ack;
+ 
++	if (tp->early_retrans_delayed)
++		tcp_rearm_rto(sk);
++
+ 	if (after(ack, prior_snd_una))
+ 		flag |= FLAG_SND_UNA_ADVANCED;
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 834e89f..d947330 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -78,9 +78,8 @@ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
+ 		tp->frto_counter = 3;
+ 
+ 	tp->packets_out += tcp_skb_pcount(skb);
+-	if (!prior_packets)
+-		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+-					  inet_csk(sk)->icsk_rto, TCP_RTO_MAX);
++	if (!prior_packets || tp->early_retrans_delayed)
++		tcp_rearm_rto(sk);
+ }
+ 
+ /* SND.NXT, if window was not shrunk.
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 34d4a02..e911e6c 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -319,6 +319,11 @@ void tcp_retransmit_timer(struct sock *sk)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 
++	if (tp->early_retrans_delayed) {
++		tcp_resume_early_retransmit(sk);
++		return;
++	}
++
+ 	if (!tp->packets_out)
+ 		goto out;
+ 
+-- 
+1.7.7.3
