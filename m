@@ -1,39 +1,51 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next] pch_gbe: reprogram multicast address register
- on reset
-Date: Sat, 28 Apr 2012 18:41:34 +0200
-Message-ID: <20120428164133.GB2165@netboy.at.omicron.at>
-References: <1335592421-31406-1-git-send-email-roy.qing.li@gmail.com>
+From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
+Subject: Re: [PATCH 01/10] atl1c: add workaround for issue of bit INTX-disable
+ for MSI interrupt
+Date: Sat, 28 Apr 2012 10:21:40 -0700
+Message-ID: <CAB=NE6VhF=nj8-n_QY339VOzQUEPZsSzsOd7Q2TwgyUywzdjNA@mail.gmail.com>
+References: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
+ <1335578325-21326-2-git-send-email-xiong@qca.qualcomm.com>
+ <20120428020510.GJ14465@tux> <157393863283F442885425D2C454285623D5F96D@nasanexd02a.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, tshimizu818@gmail.com
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:40482 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753127Ab2D1Qlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 12:41:44 -0400
-Received: by wgbdr13 with SMTP id dr13so1736886wgb.1
-        for <netdev@vger.kernel.org>; Sat, 28 Apr 2012 09:41:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1335592421-31406-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:64560 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754622Ab2D1RWC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 13:22:02 -0400
+In-Reply-To: <157393863283F442885425D2C454285623D5F96D@nasanexd02a.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 28, 2012 at 01:53:41PM +0800, roy.qing.li@gmail.com wrote:
-> From: RongQing.Li <roy.qing.li@gmail.com>
-> 
-> The reset logic after a Rx FIFO overrun will clear the programmed
-> multicast addresses. This patch fixes the issue by reprogramming the
-> registers after the reset.
-> 
-> The commit eefc48b tried to fix this problem, but it introduces
-> unnecessary codes. In fact, all multicast addresses have been saved
-> in netdev->mc, So we can call pch_gbe_set_multi() directly after
-> reset_hw and reset_rx.
-> 
-> This commit kills 50+ line codes
+On Sat, Apr 28, 2012 at 2:53 AM, Huang, Xiong <xiong@qca.qualcomm.com> =
+wrote:
+> Thanks Luis, =C2=A0just one question:
+>
+> I don't know which kernel version contains the updated pci/quirks.c, =
+so,
+> if I write the patch file (a 58-drivers-pci-quirks.patch) as:
+>
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+>
+> +#if (LINUX_VERSION_CODE >=3D KERNEL_VERSION(2,6,22))
+> + =C2=A0 =C2=A0 =C2=A0 pdev->dev_flags |=3D PCI_DEV_FLAGS_MSI_INTX_DI=
+SABLE_BUG;
+> +#endif
+>
+>
+> It seems not good for the kernel with updated pci/quirks.c
+>
+> Any better suggestion ? thanks
 
-Looks good to me.
+That looks good for the backport, you would just ifdef around <
+KERNEL_VERSION(3,5,0)
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+  Luis
