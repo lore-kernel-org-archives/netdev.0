@@ -1,117 +1,129 @@
 From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCH 5/8] mISDN: Make layer1 timer 3 value configurable
-Date: Sat, 28 Apr 2012 13:43:21 +0200
-Message-ID: <1335613404-10187-6-git-send-email-kkeil@linux-pingi.de>
+Subject: [PATCH 3/8] Sometimes the ISDN chip only controls the D-channel
+Date: Sat, 28 Apr 2012 13:43:19 +0200
+Message-ID: <1335613404-10187-4-git-send-email-kkeil@linux-pingi.de>
 References: <1335613404-10187-1-git-send-email-kkeil@linux-pingi.de>
-Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:53795 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.187]:52994 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753090Ab2D1LrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 07:47:23 -0400
+	with ESMTP id S1751905Ab2D1LrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 07:47:25 -0400
 In-Reply-To: <1335613404-10187-1-git-send-email-kkeil@linux-pingi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <isdn@linux-pingi.de>
-
-For certification test it is very useful to change the layer1
-timer3 value on runtime.
+The B-channels are only accessed via the PCM backplane.
+Add infrastruckture for this special mode.
 
 Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
 ---
- drivers/isdn/mISDN/layer1.c |   16 ++++++++++++++--
+ drivers/isdn/mISDN/socket.c |    3 +++
  include/linux/mISDNhw.h     |    3 +++
- include/linux/mISDNif.h     |    3 ++-
- 3 files changed, 19 insertions(+), 3 deletions(-)
+ include/linux/mISDNif.h     |   13 +++++++++----
+ 3 files changed, 15 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/isdn/mISDN/layer1.c b/drivers/isdn/mISDN/layer1.c
-index 0fc49b3..ff05153 100644
---- a/drivers/isdn/mISDN/layer1.c
-+++ b/drivers/isdn/mISDN/layer1.c
-@@ -30,11 +30,12 @@ struct layer1 {
- 	struct FsmInst l1m;
- 	struct FsmTimer timer;
- 	int delay;
-+	int t3_value;
- 	struct dchannel *dch;
- 	dchannel_l1callback *dcb;
- };
- 
--#define TIMER3_VALUE 7000
-+#define TIMER3_DEFAULT_VALUE	7000
- 
- static
- struct Fsm l1fsm_s = {NULL, 0, 0, NULL, NULL};
-@@ -233,7 +234,7 @@ l1_activate_s(struct FsmInst *fi, int event, void *arg)
- {
- 	struct layer1 *l1 = fi->userdata;
- 
--	mISDN_FsmRestartTimer(&l1->timer, TIMER3_VALUE, EV_TIMER3, NULL, 2);
-+	mISDN_FsmRestartTimer(&l1->timer, l1->t3_value, EV_TIMER3, NULL, 2);
- 	test_and_set_bit(FLG_L1_T3RUN, &l1->Flags);
- 	l1->dcb(l1->dch, HW_RESET_REQ);
- }
-@@ -356,6 +357,16 @@ l1_event(struct layer1 *l1, u_int event)
- 		release_l1(l1);
+diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
+index abe2d69..502bcf1 100644
+--- a/drivers/isdn/mISDN/socket.c
++++ b/drivers/isdn/mISDN/socket.c
+@@ -270,6 +270,7 @@ data_sock_release(struct socket *sock)
  		break;
- 	default:
-+		if ((event & ~HW_TIMER3_VMASK) == HW_TIMER3_VALUE) {
-+			int val = event & HW_TIMER3_VMASK;
-+
-+			if (val < 5)
-+				val = 5;
-+			if (val > 30)
-+				val = 30;
-+			l1->t3_value = val;
-+			break;
-+		}
- 		if (*debug & DEBUG_L1)
- 			printk(KERN_DEBUG "%s %x unhandled\n",
- 			       __func__, event);
-@@ -377,6 +388,7 @@ create_l1(struct dchannel *dch, dchannel_l1callback *dcb) {
- 	nl1->l1m.fsm = &l1fsm_s;
- 	nl1->l1m.state = ST_L1_F3;
- 	nl1->Flags = 0;
-+	nl1->t3_value = TIMER3_DEFAULT_VALUE;
- 	nl1->l1m.debug = *debug & DEBUG_L1_FSM;
- 	nl1->l1m.userdata = nl1;
- 	nl1->l1m.userint = 0;
+ 	case ISDN_P_LAPD_TE:
+ 	case ISDN_P_LAPD_NT:
++	case ISDN_P_B_PCM:
+ 	case ISDN_P_B_RAW:
+ 	case ISDN_P_B_HDLC:
+ 	case ISDN_P_B_X75SLP:
+@@ -544,6 +545,7 @@ data_sock_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
+ 		err = create_l2entity(_pms(sk)->dev, &_pms(sk)->ch,
+ 				      sk->sk_protocol, maddr);
+ 		break;
++	case ISDN_P_B_PCM:
+ 	case ISDN_P_B_RAW:
+ 	case ISDN_P_B_HDLC:
+ 	case ISDN_P_B_X75SLP:
+@@ -800,6 +802,7 @@ mISDN_sock_create(struct net *net, struct socket *sock, int proto, int kern)
+ 	case ISDN_P_NT_E1:
+ 	case ISDN_P_LAPD_TE:
+ 	case ISDN_P_LAPD_NT:
++	case ISDN_P_B_PCM:
+ 	case ISDN_P_B_RAW:
+ 	case ISDN_P_B_HDLC:
+ 	case ISDN_P_B_X75SLP:
 diff --git a/include/linux/mISDNhw.h b/include/linux/mISDNhw.h
-index 74d5734..7075753 100644
+index 4af8414..74d5734 100644
 --- a/include/linux/mISDNhw.h
 +++ b/include/linux/mISDNhw.h
-@@ -136,6 +136,9 @@ extern int	create_l1(struct dchannel *, dchannel_l1callback *);
- #define HW_TESTRX_RAW	0x9602
- #define HW_TESTRX_HDLC	0x9702
- #define HW_TESTRX_OFF	0x9802
-+#define HW_TIMER3_IND	0x9902
-+#define HW_TIMER3_VALUE	0x9a00
-+#define HW_TIMER3_VMASK	0x00FF
- 
- struct layer1;
- extern int	l1_event(struct layer1 *, u_int);
+@@ -5,6 +5,7 @@
+  *   Basic declarations for the mISDN HW channels
+  *
+  * Copyright 2008  by Karsten Keil <kkeil@novell.com>
++ * Copyright 2009-2012  by Karsten Keil <kkeil@linux-pingi.de>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -148,6 +149,8 @@ struct bchannel {
+ 	u_int			state;
+ 	void			*hw;
+ 	int			slot;	/* multiport card channel slot */
++	int			pcm_tx;	/* PCM tx slot nr */
++	int			pcm_rx;	/* PCM rx slot nr */
+ 	struct timer_list	timer;
+ 	/* receive data */
+ 	struct sk_buff		*rx_skb;
 diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
-index b7457e8..322d316 100644
+index b5e7f22..bdda647 100644
 --- a/include/linux/mISDNif.h
 +++ b/include/linux/mISDNif.h
 @@ -37,7 +37,7 @@
   */
  #define	MISDN_MAJOR_VERSION	1
  #define	MISDN_MINOR_VERSION	1
--#define MISDN_RELEASE		26
-+#define MISDN_RELEASE		27
+-#define MISDN_RELEASE		21
++#define MISDN_RELEASE		24
  
  /* primitives for information exchange
   * generell format
-@@ -374,6 +374,7 @@ clear_channelmap(u_int nr, u_char *map)
+@@ -229,7 +229,7 @@
+ 
+ #define ISDN_P_B_MASK		0x1f
+ #define ISDN_P_B_START		0x20
+-
++#define ISDN_P_B_PCM		0x20
+ #define ISDN_P_B_RAW		0x21
+ #define ISDN_P_B_HDLC		0x22
+ #define ISDN_P_B_X75SLP		0x23
+@@ -360,8 +360,8 @@ clear_channelmap(u_int nr, u_char *map)
+ #define MISDN_CTRL_LOOP			0x0001
+ #define MISDN_CTRL_CONNECT		0x0002
+ #define MISDN_CTRL_DISCONNECT		0x0004
+-#define MISDN_CTRL_PCMCONNECT		0x0010
+-#define MISDN_CTRL_PCMDISCONNECT	0x0020
++#define MISDN_CTRL_GET_PCM_SLOTS	0x0010
++#define MISDN_CTRL_SET_PCM_SLOTS	0x0020
+ #define MISDN_CTRL_SETPEER		0x0040
+ #define MISDN_CTRL_UNSETPEER		0x0080
  #define MISDN_CTRL_RX_OFF		0x0100
- #define MISDN_CTRL_FILL_EMPTY		0x0200
- #define MISDN_CTRL_GETPEER		0x0400
-+#define MISDN_CTRL_L1_TIMER3		0x0800
- #define MISDN_CTRL_HW_FEATURES_OP	0x2000
- #define MISDN_CTRL_HW_FEATURES		0x2001
- #define MISDN_CTRL_HFC_OP		0x4000
+@@ -381,6 +381,10 @@ clear_channelmap(u_int nr, u_char *map)
+ #define MISDN_CTRL_HFC_WD_INIT		0x4009
+ #define MISDN_CTRL_HFC_WD_RESET		0x400A
+ 
++/* special PCM slot numbers */
++#define MISDN_PCM_SLOT_DISABLE	-1	/* PCM disabled */
++#define MISDN_PCM_SLOT_IGNORE	-2	/* PCM setting will be not changed */
++
+ /* socket options */
+ #define MISDN_TIME_STAMP		0x0001
+ 
+@@ -389,6 +393,7 @@ struct mISDN_ctrl_req {
+ 	int		channel;
+ 	int		p1;
+ 	int		p2;
++	int		p3;
+ };
+ 
+ /* muxer options */
 -- 
 1.7.3.4
