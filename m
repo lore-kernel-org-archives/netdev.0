@@ -1,124 +1,50 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH 1/4 net-next] net: allow skb->head to be a page fragment
-Date: Fri, 27 Apr 2012 17:27:44 -0700
-Message-ID: <4F9B3980.1080605@intel.com>
-References: <1335522818.2775.227.camel@edumazet-glaptop>
+From: <Somnath.Kotur@Emulex.Com>
+Subject: RE: [PATCH net-next 2/5] be2net: Fix to allow setting of debug
+ levels in the firmware.
+Date: Fri, 27 Apr 2012 18:23:22 -0700
+Message-ID: <ab50cee9-d72c-44aa-ba13-9dcff8296a27@exht2.ad.emulex.com>
+References: <464dcb28-2450-4e0b-a30f-d8c9104bac86@exht1.ad.emulex.com>
+ <1335461388.2712.25.camel@bwh-desktop.uk.solarflarecom.com>
+ <3367B80B08154D42A3B2BC708B5D41F6440F8979D6@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
-	Neal Cardwell <ncardwell@google.com>,
-	Tom Herbert <therbert@google.com>,
-	=?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <Somnath.Kotur@Emulex.Com>, <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7049 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758207Ab2D1A1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Apr 2012 20:27:45 -0400
-In-Reply-To: <1335522818.2775.227.camel@edumazet-glaptop>
+Received: from exht2.emulex.com ([138.239.113.184]:17793 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753409Ab2D1BXt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 21:23:49 -0400
+In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F6440F8979D6@EXMAIL.ad.emulex.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/27/2012 03:33 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> skb->head is currently allocated from kmalloc(). This is convenient but
-> has the drawback the data cannot be converted to a page fragment if
-> needed.
->
-> We have three spots were it hurts :
->
-> 1) GRO aggregation
->
->  When a linear skb must be appended to another skb, GRO uses the
-> frag_list fallback, very inefficient since we keep all struct sk_buff
-> around. So drivers enabling GRO but delivering linear skbs to network
-> stack aren't enabling full GRO power.
->
-> 2) splice(socket -> pipe).
->
->  We must copy the linear part to a page fragment.
->  This kind of defeats splice() purpose (zero copy claim)
->
-> 3) TCP coalescing.
->
->  Recently introduced, this permits to group several contiguous segments
-> into a single skb. This shortens queue lengths and save kernel memory,
-> and greatly reduce probabilities of TCP collapses. This coalescing
-> doesnt work on linear skbs (or we would need to copy data, this would be
-> too slow)
->
-> Given all these issues, the following patch introduces the possibility
-> of having skb->head be a fragment in itself. We use a new skb flag,
-> skb->head_frag to carry this information.
->
-> build_skb() is changed to accept a frag_size argument. Drivers willing
-> to provide a page fragment instead of kmalloc() data will set a non zero
-> value, set to the fragment size.
->
-> Then, on situations we need to convert the skb head to a frag in itself,
-> we can check if skb->head_frag is set and avoid the copies or various
-> fallbacks we have.
->
-> This means drivers currently using frags could be updated to avoid the
-> current skb->head allocation and reduce their memory footprint (aka skb
-> truesize). (thats 512 or 1024 bytes saved per skb). This also makes
-> bpf/netfilter faster since the 'first frag' will be part of skb linear
-> part, no need to copy data.
-[...]
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 2342a72..effa75d 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -245,6 +245,7 @@ EXPORT_SYMBOL(__alloc_skb);
->  /**
->   * build_skb - build a network buffer
->   * @data: data buffer provided by caller
-> + * @frag_size: size of fragment, or 0 if head was kmalloced
->   *
->   * Allocate a new &sk_buff. Caller provides space holding head and
->   * skb_shared_info. @data must have been allocated by kmalloc()
-> @@ -258,20 +259,21 @@ EXPORT_SYMBOL(__alloc_skb);
->   *  before giving packet to stack.
->   *  RX rings only contains data buffers, not full skbs.
->   */
-> -struct sk_buff *build_skb(void *data)
-> +struct sk_buff *build_skb(void *data, unsigned int frag_size)
->  {
->  	struct skb_shared_info *shinfo;
->  	struct sk_buff *skb;
-> -	unsigned int size;
-> +	unsigned int size = frag_size ? : ksize(data);
->  
->  	skb = kmem_cache_alloc(skbuff_head_cache, GFP_ATOMIC);
->  	if (!skb)
->  		return NULL;
->  
-> -	size = ksize(data) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> +	size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
->  
->  	memset(skb, 0, offsetof(struct sk_buff, tail));
->  	skb->truesize = SKB_TRUESIZE(size);
-> +	skb->head_frag = frag_size != 0;
->  	atomic_set(&skb->users, 1);
->  	skb->head = data;
->  	skb->data = data;
-
-This doesn't seem right to me.  You are only counting the piece of the
-page that got filled with data and the piece that will get overwritten
-with the shared info.  What about the rest of the page?  It looks like
-in the tg3 patch you have the driver using a half page.  Based on this
-function I suspect the resultant truesize would be something like 64 +
-256 + 320 for an ack.  Shouldn't your truesize in that case be 2048 + 256?
-
-Thanks,
-
-Alex
+QmVuLA0KIENvdWxkIHlvdSBwbHMgcmVzcG9uZCB0byBteSByZXBsaWVzIGlubGluZS4NCg0KVGhh
+bmtzDQpTb21uYXRoDQogICAgICAgDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4g
+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3du
+ZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgU29tbmF0aC5Lb3R1ckBFbXVsZXguQ29t
+DQo+IFNlbnQ6IEZyaWRheSwgQXByaWwgMjcsIDIwMTIgMTI6MTYgUE0NCj4gVG86IGJodXRjaGlu
+Z3NAc29sYXJmbGFyZS5jb20NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVj
+dDogUkU6IFtQQVRDSCBuZXQtbmV4dCAyLzVdIGJlMm5ldDogRml4IHRvIGFsbG93IHNldHRpbmcg
+b2YgZGVidWcgbGV2ZWxzDQo+IGluIHRoZSBmaXJtd2FyZS4NCj4gDQo+ID4gPiBUaGlzIG9wZXJh
+dGlvbiBpcyBpbnRlbmRlZCBmb3IgY29udHJvbGxpbmcgbG9nZ2luZyBieSB0aGUgZHJpdmVyLA0K
+PiA+ID4gYW5kIHRoZSBmbGFncw0KPiA+IGFyZSBkZWZpbmVkIGluIDxsaW51eC9uZXRkZXZpY2Uu
+aD4uICAoTm90IGV4cG9ydGVkIHRvIHVzZXJsYW5kIHlldCwNCj4gPiBidXQgZXRodG9vbCBrbm93
+cyB0aGVpciBuYW1lcy4pDQo+ID4NCj4gPiBJZiB5b3VyIGZpcm13YXJlIHN1cHBvcnRzIHNvbWUg
+a2luZCBvZiBsb2dnaW5nIHRoZW4gaXQgbWF5IGJlDQo+ID4gcmVhc29uYWJsZSB0byBoYXZlIHRo
+aXMgY29udHJvbCBib3RoIGRyaXZlciBhbmQgZmlybXdhcmUsIGJ1dCBub3QgKmp1c3QqDQo+IHRo
+ZSBmaXJtd2FyZS4NCj4gVGhhbmtzIGZvciB5b3VyIGNvbW1lbnRzIEJlbi4NCj4gDQo+IEN1cnJl
+bnRseSB0aGUgZHJpdmVyIGxvZ3Mgb25seSBhIHZlcnkgZmV3IGNyaXRpY2FsIGVycm9ycy93YXJu
+aW5nczsgc28gd2UgZmVsdCBpdA0KPiBtaWdodCBiZSBhbiBvdmVya2lsbCB0byBkZWZpbmUgZHJp
+dmVyIGxvZyBsZXZlbHMuDQo+IE9uIHRoZSBvdGhlciBoYW5kLCB0aGUgRi9XIGhhcyBleHRlbnNp
+dmUgbG9nZ2luZyBhbmQgdHJhY2luZyBmYWNpbGl0eSBhbmQgdGhlDQo+IGV0aHRvb2wgJ21zZ2xl
+dmVsJyBvcHRpb24gc2VlbWVkIGxpa2UgYSByZWFzb25hYmxlIG1ldGhvZCBmb3IgY29udHJvbGxp
+bmcNCj4gdGhlIGxvZ2dpbmcgbGV2ZWwuDQo+IA0KPiA+DQo+ID4gWW91IHNob3VsZCBhbHNvIGlt
+cGxlbWVudCB0aGUgZ2V0X21zZ2xldmVsIG9wZXJhdGlvbiBhdCB0aGUgc2FtZSB0aW1lLg0KPiAN
+Cj4gWWVzIHlvdSBhcmUgY29ycmVjdC4gV2Ugd2lsbCBpbXBsZW1lbnQgdGhlIGdldF9tc2dsZXZl
+bCBhbmQgcmUtcG9zdCB0aGUNCj4gcGF0Y2guDQo+ID4NCj4gPiBCZW4uDQo+ID4NCj4gDQo+IFRo
+YW5rcw0KPiBTb20NCj4gTiAgICAgciAgeSAgIGIgWCAgx6d2IF4gKd66ey5uICsgICB6IF4gKSAg
+IHcqamcgICAeICAgICDdomovICAgeiDeliAgMiDemSAgICYgKd+hIGEgIH8gIB4gRyAgIGggDyBq
+Oit2DQo+IHcg2aUNCg==
