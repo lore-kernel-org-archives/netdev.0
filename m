@@ -1,92 +1,96 @@
-From: Karsten Keil <keil@b1-systems.de>
-Subject: Re: [PATCH 1/8] isdn/gigaset: ratelimit CAPI message dumps
-Date: Sat, 28 Apr 2012 11:29:32 +0200
-Message-ID: <4F9BB87C.4050103@b1-systems.de>
-References: <20120425-patch-gigaset-00.tilman@imap.cc> <20120425-patch-gigaset-01.tilman@imap.cc> <4F98EDB1.5090702@b1-systems.de> <4F9A7510.5010808@imap.cc>
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: [PATCH 01/10] atl1c: add workaround for issue of bit
+ INTX-disable for MSI interrupt
+Date: Sat, 28 Apr 2012 09:53:41 +0000
+Message-ID: <157393863283F442885425D2C454285623D5F96D@nasanexd02a.na.qualcomm.com>
+References: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
+ <1335578325-21326-2-git-send-email-xiong@qca.qualcomm.com>
+ <20120428020510.GJ14465@tux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>,
-	Hansjoerg Lipp <hjlipp@web.de>,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F9A7510.5010808@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>
+To: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:46338 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751890Ab2D1Jxn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 05:53:43 -0400
+In-Reply-To: <20120428020510.GJ14465@tux>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Thanks Luis,  just one question:
 
-Am 27.04.2012 12:29, schrieb Tilman Schmidt:
-> Am 26.04.2012 08:39, schrieb Karsten Keil:
->> Am 26.04.2012 01:02, schrieb Tilman Schmidt:
->>> Introduce a global ratelimit for CAPI message dumps to protect
->>>  against possible log flood. Drop the ratelimit for ignored=20
->>> messages which is now covered by the global one.
->>=20
->> Hmm, I think the only CAPI messages which would need a ratelimit=20
->> are related to the DATA_B3 messages. If you need CAPI debug=20
->> messages in most cases you do not need all of the DATA_B3, but=20
->> you do not want to miss any other message related to the call=20
->> control. With a general rate limit you do not have the control,=20
->> which messages are logged and which are not.
->=20
-> The ratelimit introduced by this patch only applies to messages=20
-> other than DATA_B3. Logging DATA_B3 messages is not done via=20
-> dump_cmsg().
->=20
+I don't know which kernel version contains the updated pci/quirks.c, so, 
+if I write the patch file (a 58-drivers-pci-quirks.patch) as:
 
-Thanks for the clarification, forget about my objection.
-I ack this patch now.
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 
-> I'd like to ratelimit specifically non-DATA_B3 messages because I=20
-> saw a (possibly buggy) CAPI application flooding the log with=20
-> FACILITY messages. Equally important, I'd like to make the=20
-> ratelimit in do_nothing() / do_unsupported() bursty because I had
-> a case where I needed to see several ignored/unhandled CAPI
-> messages in quick succession. So this patch is killing two birds
-> with one stone for me.
->=20
-> The burst limit of 20 messages in 20 seconds is chosen to allow a=20
-> complete call setup sequence to be logged, while limiting to one=20
-> message per second in the long run.
->=20
->> And here maybe some cases, when even the DATA_B3 are important=20
->> (e.g. searching bugs in flow control), so I would make it still=20
->> conditional to allow to print all messages.
->=20
-> DATA_B3 dumps produce an enormous amount of log data and are=20
-> therefore controlled separately by the DEBUG_MCMD flag. Someone
-> who enables that should know what she or he does. But if you need
-> them, you need them all. A ratelimit doesn't make sense there in
-> my experience.
->=20
->> And I'm not sure, if this is really something for stable.
->=20
-> It's pretty simple and localized, a net simplification, and only=20
-> affects generation of debugging messages, so I think it's safe.
-> But if you see a problem there I can drop the "CC: stable" line.
->=20
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22))
++	pdev->dev_flags |= PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG;
++#endif
 
-I let the decision about it to you and the stable maintainers.
 
-- --=20
-Karsten Keil
-Linux Kernel Development
-Tel: +49 175 7249132
-Mail: keil@b1-systems.de
+It seems not good for the kernel with updated pci/quirks.c
 
-B1 Systems GmbH
-Osterfeldstra=DFe 7 / 85088 Vohburg / http://www.b1-systems.de
-GF: Ralph Dehner / Unternehmenssitz: Vohburg / AG: Ingolstadt,HRB 3537
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.16 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+Any better suggestion ? thanks
 
-iEYEARECAAYFAk+buHwACgkQo5VVC52CNcRoygCfWwPlWZ+A48OwEkr/MtK6PeNG
-0UEAnipdxPSZDKa4s99LlGYwvggWIIAJ
-=3DCLr6
------END PGP SIGNATURE-----
+
+-Xiong
+
+> -----Original Message-----
+> From: Luis R. Rodriguez [mailto:mcgrof@gmail.com] On Behalf Of Luis R.
+> Rodriguez
+> Sent: Saturday, April 28, 2012 10:05
+> To: Huang, Xiong
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; qca-linux-team; nic-devel
+> Subject: Re: [PATCH 01/10] atl1c: add workaround for issue of bit INTX-disable
+> for MSI interrupt
+> 
+> On Sat, Apr 28, 2012 at 09:58:36AM +0800, xiong wrote:
+> > All supported devices have one issue that msi interrupt doesn't assert
+> > if pci command register bit (PCI_COMMAND_INTX_DISABLE) is set.
+> > Add workaround in drivers/pci/quirks.c
+> >
+> > Signed-off-by: xiong <xiong@qca.qualcomm.com>
+> > ---
+> >  drivers/pci/quirks.c |   12 ++++++++++++
+> >  1 files changed, 12 insertions(+), 0 deletions(-)
+> >
+> > diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c index
+> > 4bf7102..953ec3f 100644
+> > --- a/drivers/pci/quirks.c
+> > +++ b/drivers/pci/quirks.c
+> > @@ -2626,6 +2626,18 @@
+> DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI,
+> > 0x4374,  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, 0x4375,
+> >  			quirk_msi_intx_disable_bug);
+> >
+> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1062,
+> > +			quirk_msi_intx_disable_bug);
+> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1063,
+> > +			quirk_msi_intx_disable_bug);
+> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2060,
+> > +			quirk_msi_intx_disable_bug);
+> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2062,
+> > +			quirk_msi_intx_disable_bug);
+> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1073,
+> > +			quirk_msi_intx_disable_bug);
+> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1083,
+> > +			quirk_msi_intx_disable_bug);
+> >  #endif /* CONFIG_PCI_MSI */
+> 
+> Xiong -- just a heads up, I think to backport these then you can send me patches
+> for compat-wireless to do the work around itself on the driver on a patch under
+> patches/ you can say create a 58-drivers-pci-quirks.patch which pathces your
+> driver there.
+> 
+>   Luis
