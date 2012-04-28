@@ -1,43 +1,118 @@
-From: Gerard Lledo <gerard.lledo@gmail.com>
-Subject: [PATCH] sungem: Fix WakeOnLan
-Date: Sat, 28 Apr 2012 21:52:37 +0300
-Message-ID: <1335639157-6336-1-git-send-email-gerard.lledo@gmail.com>
-Cc: davem@davemloft.net, Gerard Lledo <gerard.lledo@gmail.com>
-To: netdev@vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH v2 1/3] RFC tcp: early retransmit: tcp_enter_recovery()
+Date: Sat, 28 Apr 2012 11:46:19 -0700
+Message-ID: <1335638781-960-1-git-send-email-ycheng@google.com>
+Cc: ncardwell@google.com, nanditad@google.com, edumazet@gmail.com,
+	netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:41853 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751424Ab2D1SxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 14:53:13 -0400
-Received: by lbbgf7 with SMTP id gf7so1186727lbb.19
-        for <netdev@vger.kernel.org>; Sat, 28 Apr 2012 11:53:12 -0700 (PDT)
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:50146 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856Ab2D1Sxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 14:53:42 -0400
+Received: by vbnl22 with SMTP id l22so191809vbn.1
+        for <netdev@vger.kernel.org>; Sat, 28 Apr 2012 11:53:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerard Lledo <gerard.lledo@gmail.com>
+This a prepartion patch that refactors the code to enter recovery
+into a new function tcp_enter_recovery(). It's needed to implement
+the delayed fast retransmit in ER.
 
-WakeOnLan was broken in this driver because gp->asleep_wol is a 1-bit
-bitfield and it was being assigned WAKE_MAGIC, which is (1 << 5).
-gp->asleep_wol remains 0 and the machine never wakes up.  Fixed by casting
-gp->wake_on_lan to bool.  Tested on an iBook G4.
-
-Signed-off-by: Gerard Lledo <gerard.lledo@gmail.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- drivers/net/ethernet/sun/sungem.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ChangeLog in v2:
+ Fix sysctl_tcp_early_retrans default to 2
+ Re-arrange the patch parts so they are individually compilable and functional.
 
-diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
-index 558409f..4ba9690 100644
---- a/drivers/net/ethernet/sun/sungem.c
-+++ b/drivers/net/ethernet/sun/sungem.c
-@@ -2339,7 +2339,7 @@ static int gem_suspend(struct pci_dev *pdev, pm_message_t state)
- 	netif_device_detach(dev);
+ net/ipv4/tcp_input.c |   61 +++++++++++++++++++++++++++----------------------
+ 1 files changed, 34 insertions(+), 27 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c93b0cb..22df826 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3022,6 +3022,38 @@ static void tcp_update_cwnd_in_recovery(struct sock *sk, int newly_acked_sacked,
+ 	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
+ }
  
- 	/* Switch off chip, remember WOL setting */
--	gp->asleep_wol = gp->wake_on_lan;
-+	gp->asleep_wol = !!gp->wake_on_lan;
- 	gem_do_stop(dev, gp->asleep_wol);
++static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	int mib_idx;
++
++	if (tcp_is_reno(tp))
++		mib_idx = LINUX_MIB_TCPRENORECOVERY;
++	else
++		mib_idx = LINUX_MIB_TCPSACKRECOVERY;
++
++	NET_INC_STATS_BH(sock_net(sk), mib_idx);
++
++	tp->high_seq = tp->snd_nxt;
++	tp->prior_ssthresh = 0;
++	tp->undo_marker = tp->snd_una;
++	tp->undo_retrans = tp->retrans_out;
++
++	if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
++		if (!ece_ack)
++			tp->prior_ssthresh = tcp_current_ssthresh(sk);
++		tp->snd_ssthresh = inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
++		TCP_ECN_queue_cwr(tp);
++	}
++
++	tp->bytes_acked = 0;
++	tp->snd_cwnd_cnt = 0;
++	tp->prior_cwnd = tp->snd_cwnd;
++	tp->prr_delivered = 0;
++	tp->prr_out = 0;
++	tcp_set_ca_state(sk, TCP_CA_Recovery);
++}
++
+ /* Process an event, which can update packets-in-flight not trivially.
+  * Main goal of this function is to calculate new estimate for left_out,
+  * taking into account both packets sitting in receiver's buffer and
+@@ -3041,7 +3073,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
+ 				    (tcp_fackets_out(tp) > tp->reordering));
+-	int fast_rexmit = 0, mib_idx;
++	int fast_rexmit = 0;
  
- 	/* Unlock the network stack */
+ 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
+ 		tp->sacked_out = 0;
+@@ -3142,32 +3174,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 		}
+ 
+ 		/* Otherwise enter Recovery state */
+-
+-		if (tcp_is_reno(tp))
+-			mib_idx = LINUX_MIB_TCPRENORECOVERY;
+-		else
+-			mib_idx = LINUX_MIB_TCPSACKRECOVERY;
+-
+-		NET_INC_STATS_BH(sock_net(sk), mib_idx);
+-
+-		tp->high_seq = tp->snd_nxt;
+-		tp->prior_ssthresh = 0;
+-		tp->undo_marker = tp->snd_una;
+-		tp->undo_retrans = tp->retrans_out;
+-
+-		if (icsk->icsk_ca_state < TCP_CA_CWR) {
+-			if (!(flag & FLAG_ECE))
+-				tp->prior_ssthresh = tcp_current_ssthresh(sk);
+-			tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+-			TCP_ECN_queue_cwr(tp);
+-		}
+-
+-		tp->bytes_acked = 0;
+-		tp->snd_cwnd_cnt = 0;
+-		tp->prior_cwnd = tp->snd_cwnd;
+-		tp->prr_delivered = 0;
+-		tp->prr_out = 0;
+-		tcp_set_ca_state(sk, TCP_CA_Recovery);
++		tcp_enter_recovery(sk, (flag & FLAG_ECE));
+ 		fast_rexmit = 1;
+ 	}
+ 
 -- 
-1.7.10
+1.7.7.3
