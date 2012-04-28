@@ -1,50 +1,48 @@
-From: <Somnath.Kotur@Emulex.Com>
-Subject: RE: [PATCH net-next 2/5] be2net: Fix to allow setting of debug
- levels in the firmware.
-Date: Fri, 27 Apr 2012 18:23:22 -0700
-Message-ID: <ab50cee9-d72c-44aa-ba13-9dcff8296a27@exht2.ad.emulex.com>
-References: <464dcb28-2450-4e0b-a30f-d8c9104bac86@exht1.ad.emulex.com>
- <1335461388.2712.25.camel@bwh-desktop.uk.solarflarecom.com>
- <3367B80B08154D42A3B2BC708B5D41F6440F8979D6@EXMAIL.ad.emulex.com>
+From: xiong <xiong@qca.qualcomm.com>
+Subject: [PATCH 00/10] atl1c: update hardware settings - v4
+Date: Sat, 28 Apr 2012 09:58:35 +0800
+Message-ID: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <Somnath.Kotur@Emulex.Com>, <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:17793 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753409Ab2D1BXt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 21:23:49 -0400
-In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F6440F8979D6@EXMAIL.ad.emulex.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
+	xiong <xiong@qca.qualcomm.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QmVuLA0KIENvdWxkIHlvdSBwbHMgcmVzcG9uZCB0byBteSByZXBsaWVzIGlubGluZS4NCg0KVGhh
-bmtzDQpTb21uYXRoDQogICAgICAgDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4g
-RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3du
-ZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgU29tbmF0aC5Lb3R1ckBFbXVsZXguQ29t
-DQo+IFNlbnQ6IEZyaWRheSwgQXByaWwgMjcsIDIwMTIgMTI6MTYgUE0NCj4gVG86IGJodXRjaGlu
-Z3NAc29sYXJmbGFyZS5jb20NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVj
-dDogUkU6IFtQQVRDSCBuZXQtbmV4dCAyLzVdIGJlMm5ldDogRml4IHRvIGFsbG93IHNldHRpbmcg
-b2YgZGVidWcgbGV2ZWxzDQo+IGluIHRoZSBmaXJtd2FyZS4NCj4gDQo+ID4gPiBUaGlzIG9wZXJh
-dGlvbiBpcyBpbnRlbmRlZCBmb3IgY29udHJvbGxpbmcgbG9nZ2luZyBieSB0aGUgZHJpdmVyLA0K
-PiA+ID4gYW5kIHRoZSBmbGFncw0KPiA+IGFyZSBkZWZpbmVkIGluIDxsaW51eC9uZXRkZXZpY2Uu
-aD4uICAoTm90IGV4cG9ydGVkIHRvIHVzZXJsYW5kIHlldCwNCj4gPiBidXQgZXRodG9vbCBrbm93
-cyB0aGVpciBuYW1lcy4pDQo+ID4NCj4gPiBJZiB5b3VyIGZpcm13YXJlIHN1cHBvcnRzIHNvbWUg
-a2luZCBvZiBsb2dnaW5nIHRoZW4gaXQgbWF5IGJlDQo+ID4gcmVhc29uYWJsZSB0byBoYXZlIHRo
-aXMgY29udHJvbCBib3RoIGRyaXZlciBhbmQgZmlybXdhcmUsIGJ1dCBub3QgKmp1c3QqDQo+IHRo
-ZSBmaXJtd2FyZS4NCj4gVGhhbmtzIGZvciB5b3VyIGNvbW1lbnRzIEJlbi4NCj4gDQo+IEN1cnJl
-bnRseSB0aGUgZHJpdmVyIGxvZ3Mgb25seSBhIHZlcnkgZmV3IGNyaXRpY2FsIGVycm9ycy93YXJu
-aW5nczsgc28gd2UgZmVsdCBpdA0KPiBtaWdodCBiZSBhbiBvdmVya2lsbCB0byBkZWZpbmUgZHJp
-dmVyIGxvZyBsZXZlbHMuDQo+IE9uIHRoZSBvdGhlciBoYW5kLCB0aGUgRi9XIGhhcyBleHRlbnNp
-dmUgbG9nZ2luZyBhbmQgdHJhY2luZyBmYWNpbGl0eSBhbmQgdGhlDQo+IGV0aHRvb2wgJ21zZ2xl
-dmVsJyBvcHRpb24gc2VlbWVkIGxpa2UgYSByZWFzb25hYmxlIG1ldGhvZCBmb3IgY29udHJvbGxp
-bmcNCj4gdGhlIGxvZ2dpbmcgbGV2ZWwuDQo+IA0KPiA+DQo+ID4gWW91IHNob3VsZCBhbHNvIGlt
-cGxlbWVudCB0aGUgZ2V0X21zZ2xldmVsIG9wZXJhdGlvbiBhdCB0aGUgc2FtZSB0aW1lLg0KPiAN
-Cj4gWWVzIHlvdSBhcmUgY29ycmVjdC4gV2Ugd2lsbCBpbXBsZW1lbnQgdGhlIGdldF9tc2dsZXZl
-bCBhbmQgcmUtcG9zdCB0aGUNCj4gcGF0Y2guDQo+ID4NCj4gPiBCZW4uDQo+ID4NCj4gDQo+IFRo
-YW5rcw0KPiBTb20NCj4gTiAgICAgciAgeSAgIGIgWCAgx6d2IF4gKd66ey5uICsgICB6IF4gKSAg
-IHcqamcgICAeICAgICDdomovICAgeiDeliAgMiDemSAgICYgKd+hIGEgIH8gIB4gRyAgIGggDyBq
-Oit2DQo+IHcg2aUNCg==
+This update contains a serial of patches, most of them are hardware
+settings related. register definitions are refined (or removed if
+meaningless) for each patch.
+
+This is the last patch set.
+
+The patches have addressed all sparse and checkpatch warnings.
+
+Following NICs are tested:
+AR8131/AR8132/AR8151A/AR8152A/AR8152B
+Test item includes:
+build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
+
+xiong (10):
+  atl1c: add workaround for issue of bit INTX-disable for MSI interrupt
+  atl1c: add PHY link event(up/down) patch
+  atl1c: clear WoL status when reset pcie
+  atl1c: remove code of closing register writable attribution
+  atl1c: refine mac address related code
+  atl1c: enlarge L1 response waiting timer
+  atl1c: cancel task when interface closed
+  atl1c: do MAC-reset when PHY link down
+  atl1c: Disable L0S when no cable link
+  atl1c: remove PHY polling from atl1c_change_mtu
+
+ drivers/net/ethernet/atheros/atl1c/atl1c.h      |    1 +
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |  141 ++++++++++++---------
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   35 ++---
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |  153 +++++++++++++++++------
+ drivers/pci/quirks.c                            |   12 ++
+ 5 files changed, 220 insertions(+), 122 deletions(-)
+
+-- 
+1.7.7
