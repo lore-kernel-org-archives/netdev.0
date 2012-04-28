@@ -1,67 +1,57 @@
-From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 03/10] atl1c: clear WoL status when reset pcie
-Date: Sat, 28 Apr 2012 09:58:38 +0800
-Message-ID: <1335578325-21326-4-git-send-email-xiong@qca.qualcomm.com>
+From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
+Subject: Re: [PATCH 01/10] atl1c: add workaround for issue of bit
+ INTX-disable for MSI interrupt
+Date: Fri, 27 Apr 2012 19:05:10 -0700
+Message-ID: <20120428020510.GJ14465@tux>
 References: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
+ <1335578325-21326-2-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
-	xiong <xiong@qca.qualcomm.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
+	nic-devel@qualcomm.com
+To: xiong <xiong@qca.qualcomm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
+Content-Disposition: inline
+In-Reply-To: <1335578325-21326-2-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-WoL status is read-clear and should be cleared when in S0
-status.
-putting it in atl1c_reset_pcie is more suitable than
-in atl1c_get_permanent_address.
+On Sat, Apr 28, 2012 at 09:58:36AM +0800, xiong wrote:
+> All supported devices have one issue that msi interrupt doesn't assert
+> if pci command register bit (PCI_COMMAND_INTX_DISABLE) is set.
+> Add workaround in drivers/pci/quirks.c
+> 
+> Signed-off-by: xiong <xiong@qca.qualcomm.com>
+> ---
+>  drivers/pci/quirks.c |   12 ++++++++++++
+>  1 files changed, 12 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index 4bf7102..953ec3f 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -2626,6 +2626,18 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, 0x4374,
+>  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, 0x4375,
+>  			quirk_msi_intx_disable_bug);
+>  
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1062,
+> +			quirk_msi_intx_disable_bug);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1063,
+> +			quirk_msi_intx_disable_bug);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2060,
+> +			quirk_msi_intx_disable_bug);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2062,
+> +			quirk_msi_intx_disable_bug);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1073,
+> +			quirk_msi_intx_disable_bug);
+> +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1083,
+> +			quirk_msi_intx_disable_bug);
+>  #endif /* CONFIG_PCI_MSI */
 
-Signed-off-by: xiong <xiong@qca.qualcomm.com>
-Tested-by: Liu David <dwliu@qca.qualcomm.com>
----
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |    5 -----
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    3 +++
- 2 files changed, 3 insertions(+), 5 deletions(-)
+Xiong -- just a heads up, I think to backport these then you can
+send me patches for compat-wireless to do the work around itself on
+the driver on a patch under patches/ you can say create a 
+58-drivers-pci-quirks.patch which pathces your driver there.
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-index 209c179..49f433e 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-@@ -73,7 +73,6 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
- 	u32 otp_ctrl_data;
- 	u32 twsi_ctrl_data;
- 	u32 ltssm_ctrl_data;
--	u32 wol_data;
- 	u8  eth_addr[ETH_ALEN];
- 	u16 phy_data;
- 	bool raise_vol = false;
-@@ -114,10 +113,6 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
- 		ltssm_ctrl_data &= ~LTSSM_ID_EN_WRO;
- 		AT_WRITE_REG(hw, REG_LTSSM_ID_CTRL, ltssm_ctrl_data);
- 
--		/* clear any WOL settings */
--		AT_WRITE_REG(hw, REG_WOL_CTRL, 0);
--		AT_READ_REG(hw, REG_WOL_CTRL, &wol_data);
--
- 
- 		AT_READ_REG(hw, REG_TWSI_CTRL, &twsi_ctrl_data);
- 		twsi_ctrl_data |= TWSI_CTRL_SW_LDSTART;
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 50df437..6552913 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -133,6 +133,9 @@ static void atl1c_reset_pcie(struct atl1c_hw *hw, u32 flag)
- 	 */
- 	pci_enable_wake(pdev, PCI_D3hot, 0);
- 	pci_enable_wake(pdev, PCI_D3cold, 0);
-+	/* wol sts read-clear */
-+	AT_READ_REG(hw, REG_WOL_CTRL, &data);
-+	AT_WRITE_REG(hw, REG_WOL_CTRL, 0);
- 
- 	/*
- 	 * Mask some pcie error bits
--- 
-1.7.7
+  Luis
