@@ -1,96 +1,64 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH 01/10] atl1c: add workaround for issue of bit
- INTX-disable for MSI interrupt
-Date: Sat, 28 Apr 2012 09:53:41 +0000
-Message-ID: <157393863283F442885425D2C454285623D5F96D@nasanexd02a.na.qualcomm.com>
-References: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
- <1335578325-21326-2-git-send-email-xiong@qca.qualcomm.com>
- <20120428020510.GJ14465@tux>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [PATCH 23/28] mISDN: Fix compiler warnings
+Date: Sat, 28 Apr 2012 12:03:16 +0200
+Message-ID: <4F9BC064.4070608@linux-pingi.de>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6EEE@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	isdn4linux@listserv.isdn4linux.de
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:46338 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751890Ab2D1Jxn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 05:53:43 -0400
-In-Reply-To: <20120428020510.GJ14465@tux>
-Content-Language: en-US
+Received: from moutng.kundenserver.de ([212.227.17.9]:59484 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751931Ab2D1KHS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 06:07:18 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6EEE@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Luis,  just one question:
+Hi David,
 
-I don't know which kernel version contains the updated pci/quirks.c, so, 
-if I write the patch file (a 58-drivers-pci-quirks.patch) as:
+thanks for the review.
 
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-
-+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22))
-+	pdev->dev_flags |= PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG;
-+#endif
-
-
-It seems not good for the kernel with updated pci/quirks.c
-
-Any better suggestion ? thanks
-
-
--Xiong
-
-> -----Original Message-----
-> From: Luis R. Rodriguez [mailto:mcgrof@gmail.com] On Behalf Of Luis R.
-> Rodriguez
-> Sent: Saturday, April 28, 2012 10:05
-> To: Huang, Xiong
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; qca-linux-team; nic-devel
-> Subject: Re: [PATCH 01/10] atl1c: add workaround for issue of bit INTX-disable
-> for MSI interrupt
+Am 24.04.2012 10:24, schrieb David Laight:
+>  
+>> diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c 
+>> b/drivers/isdn/hardware/mISDN/hfcmulti.c
+>> index 884c090..144c35a 100644
+>> --- a/drivers/isdn/hardware/mISDN/hfcmulti.c
+>> +++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
+>> @@ -2456,12 +2456,12 @@ handle_timer_irq(struct hfc_multi *hc)
+>>  		spin_unlock_irqrestore(&HFClock, flags);
+>>  	}
+>>  	if (test_bit(HFC_CHIP_2MBITRAW, &hc->chip)) {
+>> -		if (hc->created[hc->chan[0].port] && hc->chan[ch].bch &&
+>> +		ch = 0;
+>> +		if (hc->created[hc->chan[ch].port] && 
+>> hc->chan[ch].bch &&
+>>  		    test_bit(FLG_ACTIVE, &hc->chan[ch].bch->Flags)) {
+>>  			ch_activ++;
+>> -			hfcmulti_tx(hc, 0);
+>> -			hfcmulti_rx(hc, 0);
+>> -			ch = 1;
+>> +			hfcmulti_tx(hc, ch);
+>> +			hfcmulti_rx(hc, ch);
+>>  			if (hc->chan[ch].dch &&
+>>  			    hc->chan[ch].nt_timer > -1) {
+>>  				dch = hc->chan[ch].dch;
 > 
-> On Sat, Apr 28, 2012 at 09:58:36AM +0800, xiong wrote:
-> > All supported devices have one issue that msi interrupt doesn't assert
-> > if pci command register bit (PCI_COMMAND_INTX_DISABLE) is set.
-> > Add workaround in drivers/pci/quirks.c
-> >
-> > Signed-off-by: xiong <xiong@qca.qualcomm.com>
-> > ---
-> >  drivers/pci/quirks.c |   12 ++++++++++++
-> >  1 files changed, 12 insertions(+), 0 deletions(-)
-> >
-> > diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c index
-> > 4bf7102..953ec3f 100644
-> > --- a/drivers/pci/quirks.c
-> > +++ b/drivers/pci/quirks.c
-> > @@ -2626,6 +2626,18 @@
-> DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI,
-> > 0x4374,  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, 0x4375,
-> >  			quirk_msi_intx_disable_bug);
-> >
-> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1062,
-> > +			quirk_msi_intx_disable_bug);
-> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1063,
-> > +			quirk_msi_intx_disable_bug);
-> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2060,
-> > +			quirk_msi_intx_disable_bug);
-> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2062,
-> > +			quirk_msi_intx_disable_bug);
-> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1073,
-> > +			quirk_msi_intx_disable_bug);
-> > +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1083,
-> > +			quirk_msi_intx_disable_bug);
-> >  #endif /* CONFIG_PCI_MSI */
+> That seems to change the fields checked in the final 'if'.
+> Not sure it is the intended behaviour.
 > 
-> Xiong -- just a heads up, I think to backport these then you can send me patches
-> for compat-wireless to do the work around itself on the driver on a patch under
-> patches/ you can say create a 58-drivers-pci-quirks.patch which pathces your
-> driver there.
-> 
->   Luis
+
+Yes it is the correct behavior, it was wrong before. If the
+HFC_CHIP_2MBITRAW flag is set, only hc->chan[0] should be used.
+This did not make trouble, because you normally do not use any
+D-channnel in 2 MBit mode, calling the D-Channel specific functions
+still makes sense for the L1 state machine, when using this
+mode to emulate a E1 Layer1 tester, which was the main reson to
+implement this mode.
+
+Karsten
