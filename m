@@ -1,48 +1,54 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 00/10] atl1c: update hardware settings - v4
-Date: Sat, 28 Apr 2012 09:58:35 +0800
-Message-ID: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 01/10] atl1c: add workaround for issue of bit INTX-disable for MSI interrupt
+Date: Sat, 28 Apr 2012 09:58:36 +0800
+Message-ID: <1335578325-21326-2-git-send-email-xiong@qca.qualcomm.com>
+References: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 	xiong <xiong@qca.qualcomm.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:34550 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758833Ab2D1B7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Apr 2012 21:59:11 -0400
+In-Reply-To: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This update contains a serial of patches, most of them are hardware
-settings related. register definitions are refined (or removed if
-meaningless) for each patch.
+All supported devices have one issue that msi interrupt doesn't assert
+if pci command register bit (PCI_COMMAND_INTX_DISABLE) is set.
+Add workaround in drivers/pci/quirks.c
 
-This is the last patch set.
+Signed-off-by: xiong <xiong@qca.qualcomm.com>
+---
+ drivers/pci/quirks.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-The patches have addressed all sparse and checkpatch warnings.
-
-Following NICs are tested:
-AR8131/AR8132/AR8151A/AR8152A/AR8152B
-Test item includes:
-build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
-
-xiong (10):
-  atl1c: add workaround for issue of bit INTX-disable for MSI interrupt
-  atl1c: add PHY link event(up/down) patch
-  atl1c: clear WoL status when reset pcie
-  atl1c: remove code of closing register writable attribution
-  atl1c: refine mac address related code
-  atl1c: enlarge L1 response waiting timer
-  atl1c: cancel task when interface closed
-  atl1c: do MAC-reset when PHY link down
-  atl1c: Disable L0S when no cable link
-  atl1c: remove PHY polling from atl1c_change_mtu
-
- drivers/net/ethernet/atheros/atl1c/atl1c.h      |    1 +
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |  141 ++++++++++++---------
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   35 ++---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |  153 +++++++++++++++++------
- drivers/pci/quirks.c                            |   12 ++
- 5 files changed, 220 insertions(+), 122 deletions(-)
-
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 4bf7102..953ec3f 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -2626,6 +2626,18 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, 0x4374,
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, 0x4375,
+ 			quirk_msi_intx_disable_bug);
+ 
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1062,
++			quirk_msi_intx_disable_bug);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1063,
++			quirk_msi_intx_disable_bug);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2060,
++			quirk_msi_intx_disable_bug);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2062,
++			quirk_msi_intx_disable_bug);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1073,
++			quirk_msi_intx_disable_bug);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1083,
++			quirk_msi_intx_disable_bug);
+ #endif /* CONFIG_PCI_MSI */
+ 
+ /* Allow manual resource allocation for PCI hotplug bridges
 -- 
 1.7.7
