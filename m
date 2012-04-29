@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] AT91: Remove fixed mapping for AT91RM9200 ethernet
-Date: Sat, 28 Apr 2012 21:49:12 -0400 (EDT)
-Message-ID: <20120428.214912.1328835829329133918.davem@davemloft.net>
-References: <3ad9b1273c4f30d42dcc3bdf6d03470111246f14.1335435759.git.nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net: smsc75xx: fix MDIO access
+Date: Sat, 28 Apr 2012 21:55:36 -0400 (EDT)
+Message-ID: <20120428.215536.1073848205954371267.davem@davemloft.net>
+References: <20120426195517.GU5277@charybde.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, avictor.za@gmail.com,
-	plagnioj@jcrosoft.com
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3ad9b1273c4f30d42dcc3bdf6d03470111246f14.1335435759.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net
+To: fillods@users.sf.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54598 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753016Ab2D2Bzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 21:55:48 -0400
+In-Reply-To: <20120426195517.GU5277@charybde.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Thu, 26 Apr 2012 12:30:42 +0200
+From: Stephane Fillod <fillods@users.sf.net>
+Date: Thu, 26 Apr 2012 21:55:17 +0200
 
-> From: Andrew Victor <avictor.za@gmail.com>
+> * make MDIO read/write to work, the MII_ACCESS_BUSY bit was missing
+>   to actually trigger the I/O. Rem: the smsc75xx is different from
+>   the smsc95xx in that regard.
+> * fix PHY interrupt acknowledge, which needs a mdio_write
+>   to clear PHY_INT_SRC instead of a usual read like in smsc95xx.
+> * fix bug in phy_init loop that was ignoring BMCR reset bit,
+>   akin to smsc95xx's d946092000698fd204d82a9d239103c656fb63bf
+> * mark link down on startup and let PHY interrupt deal with carrier
+>   changes, akin to 07d69d4238418746a7b85c5d05ec17c658a2a390
+> * declare the smsc75xx's MII as GMII capable
 > 
-> The AT91RM9200 Ethernet controller still has a fixed IO mapping.
-> So:
-> * Remove the fixed IO mapping and AT91_VA_BASE_EMAC definition.
-> * Pass the physical base-address via platform-resources to the driver.
-> * Convert at91_ether.c driver to perform an ioremap().
-> * Ethernet PHY detection needs to be performed during the driver
-> initialization process, it can no longer be done first.
+> Tested on ARM/Omap3 with LAN7500-CEB.
 > 
-> Signed-off-by: Andrew Victor <linux@maxim.org.za>
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Signed-off-by: Stephane Fillod <fillods@users.sf.net>
+> Cc: Steve Glendinning <steve.glendinning@shawell.net>
 
-Applied to net-next.
+Steve, could you give this a quick review?
+
+Thanks.
