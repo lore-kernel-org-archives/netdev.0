@@ -1,236 +1,160 @@
-From: Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
-Date: Sun, 29 Apr 2012 19:49:36 +0200
-Message-ID: <CA+icZUUj8utveS7e6wh-BU3A4yk4FsiQ9YGRk6BowL+ex35wFw@mail.gmail.com>
-References: <CA+icZUVAK3NHmbG5kR1KhqGe9mAimWWzLz-MfXOXbyry3Sz73w@mail.gmail.com>
-	<CA+icZUUiYwpHpqe5_kz1rLzTT13qQMwpNpDH7EOaRrVi_c8Z2Q@mail.gmail.com>
-	<20120427094637.GV3157@wantstofly.org>
-	<CA+icZUXNZ=exTnR=OgD_9bpt_0s-KnR+v-K6u+XzQr4HBoTQHQ@mail.gmail.com>
-	<20120427095842.GW3157@wantstofly.org>
-	<CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com>
-	<20120427101732.GX3157@wantstofly.org>
-	<CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com>
-	<CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com>
-	<20120427185809.GZ3157@wantstofly.org>
-	<CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com>
-	<CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com>
-	<CAJfuBxw7YFAC9CLAGNmg3nM_g2xH2vuiz07D-3xOcyn2XuP5vA@mail.gmail.com>
-	<CA+icZUVT6kvqj47x26FU2qjbMHc=jr9_Lso=zduf_cmcSrv=UQ@mail.gmail.com>
-	<CAJfuBxwz2PmNY37VB7Wx+GdQcOcS6Y96EM_JNtvs-dyv-imL6g@mail.gmail.com>
-	<CA+icZUXrGuY+0GLJCmL9CH7i7vnvXAyAE2vXNAXM_3Q30B4nPA@mail.gmail.com>
-	<4F9D7BB8.4000007@coldplug.net>
-Reply-To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Chris Boot <bootc@bootc.net>
+Subject: Re: [PATCH RFC 0/2] e1000e: 82574 also needs ASPM L1
+	completely disabled
+Date: Sun, 29 Apr 2012 19:03:52 +0100
+Message-ID: <4F9D8288.3000001@bootc.net>
+References: <9BBC4E0CF881AA4299206E2E1412B6260E512E0C@ORSMSX102.amr.corp.intel.com>
+	<1335216578-21542-1-git-send-email-bootc@bootc.net>
+	<20120423161119.0000022f@unknown> <87y5pe1o89.fsf@spindle.srvr.nix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jim Cromie <jim.cromie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: admin <admin-kieEQ4o6Pv7k1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4F9D7BB8.4000007-kieEQ4o6Pv7k1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>, linux-kernel@vger.kernel.org
+To: Nix <nix@esperi.org.uk>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <87y5pe1o89.fsf@spindle.srvr.nix>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 29, 2012 at 7:34 PM, admin <admin-kieEQ4o6Pv7k1uMJSBkQmQ@public.gmane.org> wrote:
-> On 04/29/2012 01:26 AM, Sedat Dilek wrote:
->>
->> On Sun, Apr 29, 2012 at 1:11 AM, Jim Cromie<jim.cromie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> =C2=
-=A0wrote:
->>>
->>> On Sat, Apr 28, 2012 at 4:49 PM, Sedat Dilek<sedat.dilek@googlemail=
-=2Ecom>
->>> =C2=A0wrote:
->>>>
->>>> On Sun, Apr 29, 2012 at 12:36 AM, Jim Cromie<jim.cromie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>> =C2=A0wrote:
->>>>>>>
->>>>>>> As already pointed out, no Marwell WLAN hardware here. Marvell =
-comics
->>>>>>> of course :-).
->>>
->>> (I had to leave that one..:-)
->>>
->>>
->>>
->>>>>> A new tarball from lautriv with same outputs as before, but now =
-tested
->>>>>> with Linux-3.4-rc4.
->>>>>>
->>>>>> - Sedat -
->>>>>
->>>>>
->>>>> heres my logs, using firmware extracted by Sedat's script,
->>>>> and the patch on mwl8k.c
->>>>>
->>>>> bottom-line, it appears to be working.
->>>>>
->>>>> its contents are a bit more pedantic, and includes data for
->>>>> another wifi card (rtl8180 based) also in the box.
->>>>> It was obtained by this script:
->>>>>
->>>>> #!/bin/bash
->>>>>
->>>>> # dmesg (Linux-3.3.3)
->>>>> # e_n_a (/etc/network/interfaces)
->>>>> # ifconfig output
->>>>> # iwconfig output
->>>>> # iw_phy output
->>>>> # ps_axu (WPA) output
->>>>>
->>>>> devs=3D"wlan0 wlan1"
->>>>> apmac=3D00:14:d1:e8:65:0a
->>>>>
->>>>> loudly () {
->>>>> =C2=A0 =C2=A0echo "# $@"
->>>>> =C2=A0 =C2=A0fname=3D`echo $@ | sed -e 's/ /-/g'`
->>>>> =C2=A0 =C2=A0$@ 2> =C2=A0$fname-err | tee $fname
->>>>> =C2=A0 =C2=A0[ $? !=3D 0 ]&& =C2=A0echo non-zero exit on $fname: =
-$?
->>>>> =C2=A0 =C2=A0[ -s $fname-err ] || rm $fname-err
->>>>> }
->>>>>
->>>>> ( iw --debug event -f> =C2=A0iw-event-f )&
->>>>> pid_event=3D$!
->>>>>
->>>>> for N in 0 1 ; do
->>>>> =C2=A0 =C2=A0loudly iw dev wlan$N interface add fish$N type monit=
-or # flags none
->>>>> =C2=A0 =C2=A0loudly iw dev fish$N set channel 8
->>>>> =C2=A0 =C2=A0loudly ifconfig fish$N up
->>>>> =C2=A0 =C2=A0( tcpdump -i fish$N -s 65000 -p -U -w =C2=A0fish$N.d=
-ump )&
->>>>> =C2=A0 =C2=A0pid_dump_fish$N=3D$!
->>>>> done
->>>>>
->>>>> loudly iw list
->>>>>
->>>>> #loudly iwspy
->>>>> # gives: Interface doesn't support wireless statistic collection
->>>>>
->>>>> for dev in $devs ; do
->>>>> =C2=A0 =C2=A0loudly ifconfig $dev
->>>>> =C2=A0 =C2=A0loudly iwconfig $dev
->>>>> =C2=A0 =C2=A0loudly iwlist $dev scan
->>>>> =C2=A0 =C2=A0loudly iw dev $dev info
->>>>> =C2=A0 =C2=A0loudly iw dev $dev link
->>>>> =C2=A0 =C2=A0loudly iw dev $dev scan
->>>>> =C2=A0 =C2=A0loudly iw dev $dev survey dump
->>>>> done
->>>>>
->>>>> for phy in $phys ; do
->>>>> =C2=A0 =C2=A0loudly iw phy $phy info
->>>>> done
->>>>>
->>>>> # these are unsupported on wlan0
->>>>> loudly iw dev wlan1 survey dump
->>>>> loudly iw dev wlan1 station dump
->>>>> loudly iw dev wlan1 station get $apmac
->>>>>
->>>>>
->>>>> for N in 0 1 ; do
->>>>> =C2=A0 =C2=A0loudly iw dev fish$N del
->>>>> done
->>>>>
->>>>> kill $pid_dump_fish0 $pid_dump_fish0
->>>>> kill $pid_event
->>>>>
->>>>> dmesg> =C2=A0dmesg
->>>>>
->>>>> grep -vE '^#|key' /etc/network/interfaces> =C2=A0e_n_a
->>>>>
->>>>> exit
->>>>
->>>> Hi Jim,
->>>>
->>>> thanks for your testing and the nice testcase-script!
->>>>
->>>> lautriv you wanna run some more tests with Jim's script?
->>>>
->>>> Jim, how stable/fast/reliable is your WLAN connection?
->>>> Suspend/resume tested?
->>>
->>> I havent tested reliability in any way.
->>> in fact, I havent tested any data-xfer per se,
->>> will do an iperf test soon.
->>>
->>> That said, bitrate is quite low, I havent looked at why.
->>>
->>> jimc@chumly:~/projects/lx/wifi/mwl8k-8361p-logs$ grep -i MBit *
->>> iw-dev-wlan0-link: =C2=A0 =C2=A0 =C2=A0tx bitrate: 11.0 MBit/s
->>> iw-dev-wlan1-link: =C2=A0 =C2=A0 =C2=A0tx bitrate: 1.0 MBit/s
->>> iw-dev-wlan1-station-dump: =C2=A0 =C2=A0 =C2=A0tx bitrate: =C2=A0 =C2=
-=A0 1.0 MBit/s
->>> iw-dev-wlan1-station-get-00:14:d1:e8:65:0a: =C2=A0 =C2=A0 tx bitrat=
-e: =C2=A0 =C2=A0 1.0
->>> MBit/s
->>>
->>> my laptop is much faster than both cards in the soekris box, to sam=
-e AP
->>>
->>> Connected to 00:14:d1:e8:65:0a (on wlan0)
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0SSID: yoduh
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0freq: 2447
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0RX: 191134302 bytes (2120068 packets)
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0TX: 17440426 bytes (120666 packets)
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0signal: -45 dBm
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0tx bitrate: 54.0 MBit/s
->>>
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0bss flags:
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0dtim period: =C2=A0 =C2=A00
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0beacon int: =C2=A0 =C2=A0 100
->>>
->>>
->>> If you all have some suggestions on this, Id like to hear them.
->>> And of course, any other testing you'd like too.
->>>
->>>
->>>> Hope this helps to get native Linux support for 8361p.
->>>
->>> hear hear.
->>> FWIW, =C2=A0I pulled this card out of a dead Netgear WNR854T,
->>> which is linux based (and GPL compliant)
->>>
->>>> Regards,
->>>> - Sedat -
->>>>
->>>> P.S.: BTW, only to clarify it should be "e_n_i" as short-form for
->>>> /etc/network/interfaces file, but e_n_a sounds more female and nic=
-er
->>>> :-).
->>>
->>> I caught that, but it wasnt worth "correcting" ;-)
->>>
->>> thanks
->>> Jim
->>
->> Unfortunately, [1] says not much about debugging.
->> Anyway, Lennert has some new informations.
->> Let's see what the experts will say.
->>
->> - Sedat -
->>
->> [1] http://wireless.kernel.org/en/users/Drivers/mwl8k
->>
+On 29/04/2012 17:45, Nix wrote:
+> On 24 Apr 2012, Jesse Brandeburg outgrape:
 >
-> ok, as far as i can see for now, it looks like the actual solution is
-> ignoring/rejecting any manual command to set parameters, neither iwco=
-nfig
-> nor iw will change any settings. wpa_sup brings the card up and does =
-also
-> WPA2 but nothing else is tuneable thus a connection via 1Mb/s.
->
-> attaching a tarball from the results of the script which produced 42 =
-files
-> of output.
->
+>> Please let us know the results of your testing, we will let you know if
+>> we see any issues as well.
 
-Credits for the script go to Jim, not me!
+Right, I have finally managed to test my patch on my servers. I've had a 
+really tough week with them due to my cluster falling over inexplicably 
+so I didn't want to change too much too soon after everything came back up.
 
-- Sedat -
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The patch does properly disable ASPM L1 as well as L0s as before. Unlike 
+for Nix, these do remain disabled. I'll keep running with the patch now 
+but I'm confident this will solve my NIC lockups just as Nix's setpci 
+incantations did.
+
+Please apply the patches. I'd also really like to have them CCed to 
+stable so that Debian will pick them up in time.
+
+> Alas, it has no effect at all here; L0s and L1 claim to be being
+> disabled at boot time, but if you ask with lspci you see that they are
+> not. I strongly suspect that they *are* being disabled, but then get
+> re-enabled by something else, because even if I force them off with
+> setpci in the boot scripts, by the time the scripts have finished
+> executing and I've got to a root prompt where I can run setpci, L0s and
+> L1 are always back on again.
+
+Indeed our troubles must be different. My patch definitely disables ASPM 
+fully on the NIC and the upstream device as evidenced by lspci.
+
+Here are extracts from the boot logs and lspci before my patch:
+
+[    3.305372] e1000e: Intel(R) PRO/1000 Network Driver - 1.5.1-k
+[    3.317015] e1000e: Copyright(c) 1999 - 2011 Intel Corporation.
+[    3.328436] e1000e 0000:00:19.0: PCI INT A -> GSI 20 (level, low) -> 
+IRQ 20
+[    3.328482] e1000e 0000:00:19.0: setting latency timer to 64
+[    3.329493] e1000e 0000:00:19.0: irq 45 for MSI/MSI-X
+[    3.679153] e1000e 0000:00:19.0: eth1: (PCI Express:2.5GT/s:Width x1) 
+00:25:90:56:ac:d1
+[    3.691391] e1000e 0000:00:19.0: eth1: Intel(R) PRO/1000 Network 
+Connection
+[    3.703689] e1000e 0000:00:19.0: eth1: MAC: 10, PHY: 11, PBA No: 
+FFFFFF-0FF
+[    3.715639] e1000e 0000:05:00.0: Disabling ASPM L0s
+[    4.156806] e1000e 0000:05:00.0: PCI INT A -> GSI 16 (level, low) -> 
+IRQ 16
+[    4.371659] e1000e 0000:05:00.0: setting latency timer to 64
+[    4.371928] e1000e 0000:05:00.0: irq 65 for MSI/MSI-X
+[    4.371933] e1000e 0000:05:00.0: irq 66 for MSI/MSI-X
+[    4.371937] e1000e 0000:05:00.0: irq 67 for MSI/MSI-X
+[    4.485505] e1000e 0000:05:00.0: eth3: (PCI Express:2.5GT/s:Width x1) 
+00:25:90:56:ac:d0
+[    4.485507] e1000e 0000:05:00.0: eth3: Intel(R) PRO/1000 Network 
+Connection
+[    4.485647] e1000e 0000:05:00.0: eth3: MAC: 3, PHY: 8, PBA No: FFFFFF-0FF
+[   14.237551] e1000e 0000:00:19.0: irq 45 for MSI/MSI-X
+[   14.293193] e1000e 0000:00:19.0: irq 45 for MSI/MSI-X
+[   16.160177] e1000e: eth2 NIC Link is Up 100 Mbps Full Duplex, Flow 
+Control: None
+[   16.174293] e1000e 0000:05:00.0: eth2: 10/100 speed: disabling TSO
+
+tidyup ~ # lspci -vvv -s 05:00.0 | grep ASPM
+                 LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, 
+Latency L0 <128ns, L1 <64us
+                 LnkCtl: ASPM L1 Enabled; RCB 64 bytes Disabled- 
+Retrain- CommClk+
+tidyup ~ # lspci -vvv -s 00:1c.4 | grep ASPM
+                 LnkCap: Port #5, Speed 5GT/s, Width x1, ASPM L0s L1, 
+Latency L0 <512ns, L1 <4us
+                 LnkCtl: ASPM L1 Enabled; RCB 64 bytes Disabled- 
+Retrain- CommClk+
+
+And now the same kernel with the patch applied:
+
+[    3.310165] e1000e: Intel(R) PRO/1000 Network Driver - 1.5.1-k
+[    3.321625] e1000e: Copyright(c) 1999 - 2011 Intel Corporation.
+[    3.332996] e1000e 0000:00:19.0: PCI INT A -> GSI 20 (level, low) -> 
+IRQ 20
+[    3.413898] e1000e 0000:00:19.0: setting latency timer to 64
+[    3.426699] e1000e 0000:00:19.0: irq 54 for MSI/MSI-X
+[    3.731112] e1000e 0000:00:19.0: eth2: (PCI Express:2.5GT/s:Width x1) 
+00:25:90:56:ac:d1
+[    3.743437] e1000e 0000:00:19.0: eth2: Intel(R) PRO/1000 Network 
+Connection
+[    3.755918] e1000e 0000:00:19.0: eth2: MAC: 10, PHY: 11, PBA No: 
+FFFFFF-0FF
+[    3.768758] e1000e 0000:05:00.0: Disabling ASPM L0s L1
+[    3.794095] e1000e 0000:05:00.0: PCI INT A -> GSI 16 (level, low) -> 
+IRQ 16
+[    3.794178] e1000e 0000:05:00.0: setting latency timer to 64
+[    3.795074] e1000e 0000:05:00.0: irq 64 for MSI/MSI-X
+[    3.795088] e1000e 0000:05:00.0: irq 65 for MSI/MSI-X
+[    3.795107] e1000e 0000:05:00.0: irq 66 for MSI/MSI-X
+[    3.912691] e1000e 0000:05:00.0: eth3: (PCI Express:2.5GT/s:Width x1) 
+00:25:90:56:ac:d0
+[    3.912693] e1000e 0000:05:00.0: eth3: Intel(R) PRO/1000 Network 
+Connection
+[    3.912842] e1000e 0000:05:00.0: eth3: MAC: 3, PHY: 8, PBA No: FFFFFF-0FF
+[   14.454955] e1000e 0000:00:19.0: irq 54 for MSI/MSI-X
+[   14.507724] e1000e 0000:00:19.0: irq 54 for MSI/MSI-X
+[   15.944706] e1000e: eth2 NIC Link is Up 100 Mbps Full Duplex, Flow 
+Control: None
+[   15.956279] e1000e 0000:05:00.0: eth2: 10/100 speed: disabling TSO
+
+tidyup ~ # lspci -vvv -s 05:00.0 | grep ASPM
+                 LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, 
+Latency L0 <128ns, L1 <64us
+                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- 
+CommClk+
+tidyup ~ # lspci -vvv -s 00:1c.4 | grep ASPM
+                 LnkCap: Port #5, Speed 5GT/s, Width x1, ASPM L0s L1, 
+Latency L0 <512ns, L1 <4us
+                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- 
+CommClk+
+
+Cheers,
+Chris
+
+-- 
+Chris Boot
+bootc@bootc.net
+
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
