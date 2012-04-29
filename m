@@ -1,125 +1,61 @@
-From: Eldad Zack <eldad@fogrefinery.com>
-Subject: [PATCH] [IPV6] remove sysctl accept_source_route
-Date: Sun, 29 Apr 2012 12:37:10 +0200
-Message-ID: <1335695830-19176-1-git-send-email-eldad@fogrefinery.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eldad Zack <eldad@fogrefinery.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 6/6] tilegx network driver: initial support
+Date: Sun, 29 Apr 2012 11:15:15 +0000
+Message-ID: <201204291115.16127.arnd@arndb.de>
+References: <201204062059.q36KxjEO011317@farm-0027.internal.tilera.com> <201204131034.03544.arnd@arndb.de> <4F9C6A0A.5090109@tilera.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:41616 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802Ab2D2KhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2012 06:37:22 -0400
-Received: by eaaq12 with SMTP id q12so483749eaa.19
-        for <netdev@vger.kernel.org>; Sun, 29 Apr 2012 03:37:21 -0700 (PDT)
+Received: from moutng.kundenserver.de ([212.227.126.171]:50270 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752208Ab2D2LPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2012 07:15:33 -0400
+In-Reply-To: <4F9C6A0A.5090109@tilera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The only place where the accpet_source_route flag is checked is when we
-are processing the type 2 routing header. In that case we only allow it if
-it (1) has only segments left = 1 and (2) if it matches our home address,
-which is the behavior required by RFC 6275 (see sections 8.5, 11.3.3), and
-it doesn't make sense to block rh2 when we're a mobile node.
+On Saturday 28 April 2012, Chris Metcalf wrote:
+> On 4/13/2012 6:34 AM, Arnd Bergmann wrote:
+> > On Thursday 12 April 2012, Chris Metcalf wrote:
+> >> On 4/10/2012 6:42 AM, Arnd Bergmann wrote:
+> >>> Ok, but please remove tile_net_devs then.
+> >>> I think a better abstraction for tile_net_devs_for_channel would be
+> >>> some interface that lets you add private data to a channel so when
+> >>> you get data from a channel, you can extract that pointer from the driver
+> >>> using the channel.
+> >> I think what would be clearer is to document how and why we are using this
+> >> additional data structure.  We do access via both arrays where it is
+> >> efficient to do so, so getting rid of either of them doesn't seem right. 
+> 
+> In the latest round of changes (to be mailed shortly), we eliminated one of
+> the arrays entirely.  We now just have an array of net_device pointers
+> indexed by channel, which we need since we get packets from the hardware
+> and are only given the channel.  To get the device, we have to look it up
+> in the array.
+> 
+> Since this is now the only array of net_device pointers, I eliminated the
+> bychannel*() API I discussed in the previous email, since its use didn't
+> seem as compelling any more.
+> 
+> >> Let's keep the "normal" tile_net_devs[] as is, indexed by devno, and make
+> >> the tile_net_devs_for_channel[] more abstracted by using the following code:
+> > The tile_net_devs still feels dirty. You basically only
+> > use it in tile_net_handle_egress_timer(), but there you don't
+> > actually take the mutex that protects addition and removal from
+> > the array, so it's racy in case of hotplug.
+> 
+> We don't free the net_device structures themselves, so it's safe to do a
+> lookup in the array and then dereference the net_device pointer even if we
+> are doing an "ifconfig down" in another thread.  The only way you could
+> imagine the net_device getting structures getting freed was via module
+> unload, but it turns out that was pretty broken anyway, so I've just
+> removed it altogether in the latest version of the patch.  So once you have
+> a net_device pointer, it remains valid.
 
-Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
----
- include/linux/ipv6.h |    2 --
- net/ipv6/addrconf.c  |   10 ----------
- net/ipv6/exthdrs.c   |    6 ------
- 3 files changed, 18 deletions(-)
+Ok, sounds all good then.
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 8260ef7..a77c6fe 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -162,7 +162,6 @@ struct ipv6_devconf {
- #endif
- #endif
- 	__s32		proxy_ndp;
--	__s32		accept_source_route;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	__s32		optimistic_dad;
- #endif
-@@ -208,7 +207,6 @@ enum {
- 	DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN,
- 	DEVCONF_PROXY_NDP,
- 	DEVCONF_OPTIMISTIC_DAD,
--	DEVCONF_ACCEPT_SOURCE_ROUTE,
- 	DEVCONF_MC_FORWARDING,
- 	DEVCONF_DISABLE_IPV6,
- 	DEVCONF_ACCEPT_DAD,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index e3b3421..bca2acf 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -194,7 +194,6 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- #endif
- #endif
- 	.proxy_ndp		= 0,
--	.accept_source_route	= 0,	/* we do not accept RH0 by default. */
- 	.disable_ipv6		= 0,
- 	.accept_dad		= 1,
- };
-@@ -228,7 +227,6 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- #endif
- #endif
- 	.proxy_ndp		= 0,
--	.accept_source_route	= 0,	/* we do not accept RH0 by default. */
- 	.disable_ipv6		= 0,
- 	.accept_dad		= 1,
- };
-@@ -3905,7 +3903,6 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- #endif
- #endif
- 	array[DEVCONF_PROXY_NDP] = cnf->proxy_ndp;
--	array[DEVCONF_ACCEPT_SOURCE_ROUTE] = cnf->accept_source_route;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	array[DEVCONF_OPTIMISTIC_DAD] = cnf->optimistic_dad;
- #endif
-@@ -4535,13 +4532,6 @@ static struct addrconf_sysctl_table
- 			.mode		= 0644,
- 			.proc_handler	= proc_dointvec,
- 		},
--		{
--			.procname	= "accept_source_route",
--			.data		= &ipv6_devconf.accept_source_route,
--			.maxlen		= sizeof(int),
--			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
--		},
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 		{
- 			.procname       = "optimistic_dad",
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index aa0a51e..597cf2a 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -337,12 +337,8 @@ static int ipv6_rthdr_rcv(struct sk_buff *skb)
- 	struct ipv6_rt_hdr *hdr;
- 	struct rt0_hdr *rthdr;
- 	struct net *net = dev_net(skb->dev);
--	int accept_source_route = net->ipv6.devconf_all->accept_source_route;
- 
- 	idev = __in6_dev_get(skb->dev);
--	if (idev && accept_source_route > idev->cnf.accept_source_route)
--		accept_source_route = idev->cnf.accept_source_route;
--
- 	if (!pskb_may_pull(skb, skb_transport_offset(skb) + 8) ||
- 	    !pskb_may_pull(skb, (skb_transport_offset(skb) +
- 				 ((skb_transport_header(skb)[1] + 1) << 3)))) {
-@@ -393,8 +389,6 @@ looped_back:
- 	switch (hdr->type) {
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- 	case IPV6_SRCRT_TYPE_2:
--		if (accept_source_route < 0)
--			goto unknown_rh;
- 		/* Silently discard invalid RTH type 2 */
- 		if (hdr->hdrlen != 2 || hdr->segments_left != 1) {
- 			IP6_INC_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
--- 
-1.7.10
+	Arnd
