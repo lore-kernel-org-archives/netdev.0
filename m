@@ -1,113 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 1/4 (V3)] net: ethtool: add the EEE support
-Date: Sun, 29 Apr 2012 22:56:55 +0100
-Message-ID: <1335736615.2424.42.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>
-	 <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com>
-	 <1334269598.2497.50.camel@bwh-desktop.uk.solarflarecom.com>
-	 <4F8BB103.7020107@st.com> <4F900C08.5000906@st.com>
-	 <1334849401.2426.73.camel@bwh-desktop.uk.solarflarecom.com>
-	 <4F98FDCC.3040807@st.com>
-	 <1335460660.2712.15.camel@bwh-desktop.uk.solarflarecom.com>
-	 <4F9AA927.4080400@st.com> <4F9D07FB.1010208@broadcom.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 3/5] ipvs: null check of net->ipvs in lblc(r) shedulers
+Date: Mon, 30 Apr 2012 01:43:01 +0200
+Message-ID: <20120429234301.GA4790@1984>
+References: <1335488039-13471-1-git-send-email-horms@verge.net.au>
+ <1335488039-13471-4-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Yuval Mintz <yuvalmin@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16623 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754002Ab2D2V5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2012 17:57:00 -0400
-In-Reply-To: <4F9D07FB.1010208@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1335488039-13471-4-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-04-29 at 12:20 +0300, Yuval Mintz wrote:
-> On 04/27/2012 05:11 PM, Giuseppe CAVALLARO wrote:
+On Fri, Apr 27, 2012 at 09:53:57AM +0900, Simon Horman wrote:
+> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 > 
-> > On 4/26/2012 7:17 PM, Ben Hutchings wrote:
-> >> On Thu, 2012-04-26 at 09:48 +0200, Giuseppe CAVALLARO wrote:
-> >>> Hello Ben
-> >>>
-> >>> On 4/19/2012 5:30 PM, Ben Hutchings wrote:
-> >>> [snip]
-> >>>>> I'm changing the code for getting/setting the EEE capability and trying
-> >>>>> to follow your suggestions.
-> >>>>>
-> >>>>> The "get" will show the following things; this is a bit different of the
-> >>>>> points "a" "b" and "c" we had discussed. Maybe, this could also be a
-> >>>>> more complete (*) .
-> >>>>> The ethtool (see output below as example) could report the phy
-> >>>>> (supported/advertised/lp_advertised) and mac eee capabilities separately.
-> >>>> Sounds reasonable.
-> >>>>
-> >>>>> The "set" will be useful for some eth devices (like the stmmac) that can
-> >>>>> stop/enable internally the eee capability (at mac level).
-> >>>> I don't know much about EEE, but shouldn't the driver take care of
-> >>>> configuring the MAC for this whenever the PHY is set to advertise EEE
-> >>>> capability?
-> >>> Yes indeed this can be done at driver level. So could I definitely
-> >>> remove it from ethtool? What do you suggest?
-> >>>
-> >>> In case of the stmmac I could add a specific driver option via sys to
-> >>> enable/disable the eee and set timer.
-> >> Generally, ethtool doesn't distinguish MAC and PHY settings because they
-> >> have to be configured consistently for the device to do anything useful.
-> >> If there is some good use for enabling EEE in the MAC and not the PHY,
-> >> or vice versa, then this should be exposed in the ethtool interface.
-> >> But if not then I don't believe it needs to be in either an ethtool or a
-> >> driver-specific interface.
-> > Thanks Ben for this clarification: in case of the stmmac the option is
-> > useful to stop a timer to enter in lpi state for the tx.
-> > So it's worth having that and from ethtool.
+> Avoid crash when registering shedulers after
+> the IPVS core initialization for netns fails. Do this by
+> checking for present core (net->ipvs).
+> 
+> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> Julian Anastasov <ja@ssi.bg>
 
-I think I finally get it.  If we negotiate a 100BASE-TX link (or one of
-the various backplane modes) with EEE enabled, we allow the link partner
-to assert LPI but we might still not want to assert it in the transmit
-direction.  Right?  (Whereas for 1000BASE-T and 10GBASE-T this would be
-useless, since both sides must assert LPI before any transition can
-happen.)
+This incomplete tag has slipped through, right?
 
-> How will a user turn off EEE support using this implementation?
+Looking at the archive, I don't see any comment from Julian on this,
+so I'll just remove it from the patch description.
 
-At the ethtool API level this would be done by clearing the EEE
-advertising mask.  At the command-line level there could be a shortcut
-for this, just as you can use 'autoneg on' and 'autoneg off' rather than
-specifying a mask of link modes.
-
-> Are you suggesting a "set" that works similarly to the control of the pause
-> parameters - that is, a user could either shutdown EEE or only Tx, which
-> will mean to the driver "don't enter Tx LPI mode"?
->
-> Keep in mind that if later an interface controlling the LPI timers would be
-> added (as a measure of user control to the power saving vs. latency issue),
-> it could make this 'partial' closure interface redundant.
->
-> Perhaps "set" should only turn the EEE feature on/off entirely (adv. them or
-> not, since clearly the link will have to be re-established afterwards), and
-> we should have a different function that prevents entry into LPI mode in Tx
-> - one whose functionality could later on be extended.
-
-It sounds like this might as well be included, even if not all
-drivers/hardware would allow the values to be changed.  So the command
-structure would have at least:
-
-1. EEE link mode supported flags (get-only)
-2. EEE link mode advertising flags (get/set)
-3. Ditto for link partner (get-only)
-4. TX LPI enable flag (get/set)
-5. TX LPI timer values (get/set but driver may reject changes)
-
-But if it's not yet clear exactly what timer parameters will be useful,
-we could leave some reserved space and then later define them along with
-flags to indicate whether the driver understands them.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I'll fix this minor nitppick myself. No need to resend. But you'll
+have to rebase your tree, sorry.
