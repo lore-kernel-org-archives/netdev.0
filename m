@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smsc75xx: fix MDIO access
-Date: Sat, 28 Apr 2012 21:55:36 -0400 (EDT)
-Message-ID: <20120428.215536.1073848205954371267.davem@davemloft.net>
-References: <20120426195517.GU5277@charybde.local>
+Subject: Re: [PATCH net-next 1/2] drivers/net/oki-semi: Remove the
+ definition of PCH_GBE_ETH_ALEN
+Date: Sat, 28 Apr 2012 22:00:14 -0400 (EDT)
+Message-ID: <20120428.220014.1885704725231159526.davem@davemloft.net>
+References: <1335510073-14018-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net
-To: fillods@users.sf.net
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54598 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54620 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753016Ab2D2Bzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 21:55:48 -0400
-In-Reply-To: <20120426195517.GU5277@charybde.local>
+	with ESMTP id S1755760Ab2D2CAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Apr 2012 22:00:17 -0400
+In-Reply-To: <1335510073-14018-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephane Fillod <fillods@users.sf.net>
-Date: Thu, 26 Apr 2012 21:55:17 +0200
+From: roy.qing.li@gmail.com
+Date: Fri, 27 Apr 2012 15:01:12 +0800
 
-> * make MDIO read/write to work, the MII_ACCESS_BUSY bit was missing
->   to actually trigger the I/O. Rem: the smsc75xx is different from
->   the smsc95xx in that regard.
-> * fix PHY interrupt acknowledge, which needs a mdio_write
->   to clear PHY_INT_SRC instead of a usual read like in smsc95xx.
-> * fix bug in phy_init loop that was ignoring BMCR reset bit,
->   akin to smsc95xx's d946092000698fd204d82a9d239103c656fb63bf
-> * mark link down on startup and let PHY interrupt deal with carrier
->   changes, akin to 07d69d4238418746a7b85c5d05ec17c658a2a390
-> * declare the smsc75xx's MII as GMII capable
+> From: RongQing.Li <roy.qing.li@gmail.com>
 > 
-> Tested on ARM/Omap3 with LAN7500-CEB.
+> PCH_GBE_ETH_ALEN is equal to ETH_ALEN, so we can replace it with
+> ETH_ALEN.
 > 
-> Signed-off-by: Stephane Fillod <fillods@users.sf.net>
-> Cc: Steve Glendinning <steve.glendinning@shawell.net>
+> If they are not equal, it must be a bug, since this is ethernet,
+> and the address has been already stored to mc_addr_list as ETH_ALEN
+> bytes when call pch_gbe_mac_mc_addr_list_update.
+> 
+> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
 
-Steve, could you give this a quick review?
-
-Thanks.
+Applied.
