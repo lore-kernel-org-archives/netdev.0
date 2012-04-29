@@ -1,82 +1,125 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH 02/10] atl1c: add PHY link event(up/down) patch
-Date: Sun, 29 Apr 2012 10:07:17 +0000
-Message-ID: <157393863283F442885425D2C454285623D5FCD8@nasanexd02a.na.qualcomm.com>
-References: <1335578325-21326-1-git-send-email-xiong@qca.qualcomm.com>
- <1335578325-21326-3-git-send-email-xiong@qca.qualcomm.com>
- <201204281924.20714.florian@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: Florian Fainelli <florian@openwrt.org>
+From: Eldad Zack <eldad@fogrefinery.com>
+Subject: [PATCH] [IPV6] remove sysctl accept_source_route
+Date: Sun, 29 Apr 2012 12:37:10 +0200
+Message-ID: <1335695830-19176-1-git-send-email-eldad@fogrefinery.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Eldad Zack <eldad@fogrefinery.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:60504 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752835Ab2D2KHS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2012 06:07:18 -0400
-In-Reply-To: <201204281924.20714.florian@openwrt.org>
-Content-Language: en-US
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:41616 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802Ab2D2KhW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2012 06:37:22 -0400
+Received: by eaaq12 with SMTP id q12so483749eaa.19
+        for <netdev@vger.kernel.org>; Sun, 29 Apr 2012 03:37:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > +struct atl1c_platform_patch {
-> > +	u16 pci_vid;
-> > +	u16 pci_did;
-> > +	u8  pci_revid;
-> > +	u16 subsystem_vid;
-> > +	u16 subsystem_did;
-> > +	u32 patch_flag;
-> > +#define ATL1C_LINK_PATCH	0x1
-> > +};
-> > +static struct atl1c_platform_patch plats[] = {
-> 
-> This should be static const.
+The only place where the accpet_source_route flag is checked is when we
+are processing the type 2 routing header. In that case we only allow it if
+it (1) has only segments left = 1 and (2) if it matches our home address,
+which is the behavior required by RFC 6275 (see sections 8.5, 11.3.3), and
+it doesn't make sense to block rh2 when we're a mobile node.
 
-Thanks. It is.
+Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
+---
+ include/linux/ipv6.h |    2 --
+ net/ipv6/addrconf.c  |   10 ----------
+ net/ipv6/exthdrs.c   |    6 ------
+ 3 files changed, 18 deletions(-)
 
-> 
-> > +{0x1969, 0x2060, 0xC1, 0x1019, 0x8152, 0x1}, {0x1969, 0x2060, 0xC1,
-> > +0x1019, 0x2060, 0x1}, {0x1969, 0x2060, 0xC1, 0x1019, 0xE000, 0x1},
-> > +{0x1969, 0x2062, 0xC0, 0x1019, 0x8152, 0x1}, {0x1969, 0x2062, 0xC0,
-> > +0x1019, 0x2062, 0x1}, {0x1969, 0x2062, 0xC0, 0x1458, 0xE000, 0x1},
-> > +{0x1969, 0x2062, 0xC1, 0x1019, 0x8152, 0x1}, {0x1969, 0x2062, 0xC1,
-> > +0x1019, 0x2062, 0x1}, {0x1969, 0x2062, 0xC1, 0x1458, 0xE000, 0x1},
-> > +{0x1969, 0x2062, 0xC1, 0x1565, 0x2802, 0x1}, {0x1969, 0x2062, 0xC1,
-> > +0x1565, 0x2801, 0x1}, {0x1969, 0x1073, 0xC0, 0x1019, 0x8151, 0x1},
-> > +{0x1969, 0x1073, 0xC0, 0x1019, 0x1073, 0x1}, {0x1969, 0x1073, 0xC0,
-> > +0x1458, 0xE000, 0x1}, {0x1969, 0x1083, 0xC0, 0x1458, 0xE000, 0x1},
-> > +{0x1969, 0x1083, 0xC0, 0x1019, 0x8151, 0x1}, {0x1969, 0x1083, 0xC0,
-> > +0x1019, 0x1083, 0x1}, {0x1969, 0x1083, 0xC0, 0x1462, 0x7680, 0x1},
-> > +{0x1969, 0x1083, 0xC0, 0x1565, 0x2803, 0x1}, {0},
-> 
-> Since patch_flag is always set to 0x1, just remove it, if you find a matching entry,
-> apply the patch. Vendor ID is always the same, remove it as well.
-> 
-Thanks, Florain.
-It's reasonable to remove Vendor ID since this driver only support one dedicated VID.
-But for patch_flag, I'm afraid it could be used for other bug/issue, though we found 
-One link issue (=flag bit 0) till now. Otherwise, I will not use ATL1C_LINK_PATCH in function
-atl1c_patch_assign.
-
-> Looking at the supported PCI devices table, this patching table is applicable to all
-> Atheros PCI device id and none of the Attansic PCI device id, this suggests that
-
-Atl1c driver only supports Atheros PCI device id, Attansic device id is supported by 
-Atl1e & atlx.
-
-> your table should be reversed, and you should only list the devices *not*
-> needing the patch, this should make the lookup code smaller.
-> 
-
-It's almost impossible, there is over 200+ modules sold out, the issue is related to PCB layout,
-The total percentage of issue modules is much lower than the normal.
-
-
-
-B.R.
-Xiong
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 8260ef7..a77c6fe 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -162,7 +162,6 @@ struct ipv6_devconf {
+ #endif
+ #endif
+ 	__s32		proxy_ndp;
+-	__s32		accept_source_route;
+ #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+ 	__s32		optimistic_dad;
+ #endif
+@@ -208,7 +207,6 @@ enum {
+ 	DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN,
+ 	DEVCONF_PROXY_NDP,
+ 	DEVCONF_OPTIMISTIC_DAD,
+-	DEVCONF_ACCEPT_SOURCE_ROUTE,
+ 	DEVCONF_MC_FORWARDING,
+ 	DEVCONF_DISABLE_IPV6,
+ 	DEVCONF_ACCEPT_DAD,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index e3b3421..bca2acf 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -194,7 +194,6 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ #endif
+ #endif
+ 	.proxy_ndp		= 0,
+-	.accept_source_route	= 0,	/* we do not accept RH0 by default. */
+ 	.disable_ipv6		= 0,
+ 	.accept_dad		= 1,
+ };
+@@ -228,7 +227,6 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ #endif
+ #endif
+ 	.proxy_ndp		= 0,
+-	.accept_source_route	= 0,	/* we do not accept RH0 by default. */
+ 	.disable_ipv6		= 0,
+ 	.accept_dad		= 1,
+ };
+@@ -3905,7 +3903,6 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ #endif
+ #endif
+ 	array[DEVCONF_PROXY_NDP] = cnf->proxy_ndp;
+-	array[DEVCONF_ACCEPT_SOURCE_ROUTE] = cnf->accept_source_route;
+ #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+ 	array[DEVCONF_OPTIMISTIC_DAD] = cnf->optimistic_dad;
+ #endif
+@@ -4535,13 +4532,6 @@ static struct addrconf_sysctl_table
+ 			.mode		= 0644,
+ 			.proc_handler	= proc_dointvec,
+ 		},
+-		{
+-			.procname	= "accept_source_route",
+-			.data		= &ipv6_devconf.accept_source_route,
+-			.maxlen		= sizeof(int),
+-			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
+-		},
+ #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+ 		{
+ 			.procname       = "optimistic_dad",
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index aa0a51e..597cf2a 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -337,12 +337,8 @@ static int ipv6_rthdr_rcv(struct sk_buff *skb)
+ 	struct ipv6_rt_hdr *hdr;
+ 	struct rt0_hdr *rthdr;
+ 	struct net *net = dev_net(skb->dev);
+-	int accept_source_route = net->ipv6.devconf_all->accept_source_route;
+ 
+ 	idev = __in6_dev_get(skb->dev);
+-	if (idev && accept_source_route > idev->cnf.accept_source_route)
+-		accept_source_route = idev->cnf.accept_source_route;
+-
+ 	if (!pskb_may_pull(skb, skb_transport_offset(skb) + 8) ||
+ 	    !pskb_may_pull(skb, (skb_transport_offset(skb) +
+ 				 ((skb_transport_header(skb)[1] + 1) << 3)))) {
+@@ -393,8 +389,6 @@ looped_back:
+ 	switch (hdr->type) {
+ #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+ 	case IPV6_SRCRT_TYPE_2:
+-		if (accept_source_route < 0)
+-			goto unknown_rh;
+ 		/* Silently discard invalid RTH type 2 */
+ 		if (hdr->hdrlen != 2 || hdr->segments_left != 1) {
+ 			IP6_INC_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
+-- 
+1.7.10
