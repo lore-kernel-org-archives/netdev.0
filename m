@@ -1,83 +1,171 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: [net-next 1/4 (V3)] net: ethtool: add the EEE support
-Date: Sun, 29 Apr 2012 12:20:59 +0300
-Message-ID: <4F9D07FB.1010208@broadcom.com>
-References: <1333704559-11251-1-git-send-email-peppe.cavallaro@st.com>
- <1333704559-11251-2-git-send-email-peppe.cavallaro@st.com>
- <1334269598.2497.50.camel@bwh-desktop.uk.solarflarecom.com>
- <4F8BB103.7020107@st.com> <4F900C08.5000906@st.com>
- <1334849401.2426.73.camel@bwh-desktop.uk.solarflarecom.com>
- <4F98FDCC.3040807@st.com>
- <1335460660.2712.15.camel@bwh-desktop.uk.solarflarecom.com>
- <4F9AA927.4080400@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: inconsistent lock/deadlock crash, vanilla 3.3.4, 32bit, tcp
+Date: Sun, 29 Apr 2012 11:21:56 +0200
+Message-ID: <1335691316.2900.100.camel@edumazet-glaptop>
+References: <13fc59c8e3be34ddb3c7bb5c17b1bdf8@visp.net.lb>
+	 <1335688036.2900.80.camel@edumazet-glaptop>
+	 <4ba0969cecac9a8e677d1b1eed1a5742@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: "Giuseppe CAVALLARO" <peppe.cavallaro@st.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org, Glauber Costa <glommer@parallels.com>
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3873 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753788Ab2D2JW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Apr 2012 05:22:26 -0400
-In-Reply-To: <4F9AA927.4080400@st.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:38970 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752765Ab2D2JWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2012 05:22:01 -0400
+In-Reply-To: <4ba0969cecac9a8e677d1b1eed1a5742@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/27/2012 05:11 PM, Giuseppe CAVALLARO wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> On 4/26/2012 7:17 PM, Ben Hutchings wrote:
->> On Thu, 2012-04-26 at 09:48 +0200, Giuseppe CAVALLARO wrote:
->>> Hello Ben
->>>
->>> On 4/19/2012 5:30 PM, Ben Hutchings wrote:
->>> [snip]
->>>>> I'm changing the code for getting/setting the EEE capability and trying
->>>>> to follow your suggestions.
->>>>>
->>>>> The "get" will show the following things; this is a bit different of the
->>>>> points "a" "b" and "c" we had discussed. Maybe, this could also be a
->>>>> more complete (*) .
->>>>> The ethtool (see output below as example) could report the phy
->>>>> (supported/advertised/lp_advertised) and mac eee capabilities separately.
->>>> Sounds reasonable.
->>>>
->>>>> The "set" will be useful for some eth devices (like the stmmac) that can
->>>>> stop/enable internally the eee capability (at mac level).
->>>> I don't know much about EEE, but shouldn't the driver take care of
->>>> configuring the MAC for this whenever the PHY is set to advertise EEE
->>>> capability?
->>> Yes indeed this can be done at driver level. So could I definitely
->>> remove it from ethtool? What do you suggest?
->>>
->>> In case of the stmmac I could add a specific driver option via sys to
->>> enable/disable the eee and set timer.
->> Generally, ethtool doesn't distinguish MAC and PHY settings because they
->> have to be configured consistently for the device to do anything useful.
->> If there is some good use for enabling EEE in the MAC and not the PHY,
->> or vice versa, then this should be exposed in the ethtool interface.
->> But if not then I don't believe it needs to be in either an ethtool or a
->> driver-specific interface.
-> Thanks Ben for this clarification: in case of the stmmac the option is
-> useful to stop a timer to enter in lpi state for the tx.
-> So it's worth having that and from ethtool.
+On Sun, 2012-04-29 at 11:46 +0300, Denys Fedoryshchenko wrote:
 
-How will a user turn off EEE support using this implementation?
+> I will try to deploy it and test as soon as someone will powercycle 
+> server on other side.
+> 
 
-Are you suggesting a "set" that works similarly to the control of the pause
-parameters - that is, a user could either shutdown EEE or only Tx, which
-will mean to the driver "don't enter Tx LPI mode"?
+Prefer the second patch, this is a better one. I submit an official
+patch right now.
 
-Keep in mind that if later an interface controlling the LPI timers would be
-added (as a measure of user control to the power saving vs. latency issue),
-it could make this 'partial' closure interface redundant.
+Thanks !
 
-Perhaps "set" should only turn the EEE feature on/off entirely (adv. them or
-not, since clearly the link will have to be re-established afterwards), and
-we should have a different function that prevents entry into LPI mode in Tx
-- one whose functionality could later on be extended.
+[PATCH] net: fix sk_sockets_allocated_read_positive
 
-Regards,
-Yuval
+Denys Fedoryshchenko reported frequent crashes on a proxy server and kindly
+provided a lockdep report that explains it all :
+
+
+  [  762.903868]
+  [  762.903880] =================================
+  [  762.903890] [ INFO: inconsistent lock state ]
+  [  762.903903] 3.3.4-build-0061 #8 Not tainted
+  [  762.904133] ---------------------------------
+  [  762.904344] inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
+  [  762.904542] squid/1603 [HC0[0]:SC0[0]:HE1:SE1] takes:
+  [  762.904542]  (key#3){+.?...}, at: [<c0232cc4>] 
+__percpu_counter_sum+0xd/0x58
+  [  762.904542] {IN-SOFTIRQ-W} state was registered at:
+  [  762.904542]   [<c0158b84>] __lock_acquire+0x284/0xc26
+  [  762.904542]   [<c01598e8>] lock_acquire+0x71/0x85
+  [  762.904542]   [<c0349765>] _raw_spin_lock+0x33/0x40
+  [  762.904542]   [<c0232c93>] __percpu_counter_add+0x58/0x7c
+  [  762.904542]   [<c02cfde1>] sk_clone_lock+0x1e5/0x200
+  [  762.904542]   [<c0303ee4>] inet_csk_clone_lock+0xe/0x78
+  [  762.904542]   [<c0315778>] tcp_create_openreq_child+0x1b/0x404
+  [  762.904542]   [<c031339c>] tcp_v4_syn_recv_sock+0x32/0x1c1
+  [  762.904542]   [<c031615a>] tcp_check_req+0x1fd/0x2d7
+  [  762.904542]   [<c0313f77>] tcp_v4_do_rcv+0xab/0x194
+  [  762.904542]   [<c03153bb>] tcp_v4_rcv+0x3b3/0x5cc
+  [  762.904542]   [<c02fc0c4>] ip_local_deliver_finish+0x13a/0x1e9
+  [  762.904542]   [<c02fc539>] NF_HOOK.clone.11+0x46/0x4d
+  [  762.904542]   [<c02fc652>] ip_local_deliver+0x41/0x45
+  [  762.904542]   [<c02fc4d1>] ip_rcv_finish+0x31a/0x33c
+  [  762.904542]   [<c02fc539>] NF_HOOK.clone.11+0x46/0x4d
+  [  762.904542]   [<c02fc857>] ip_rcv+0x201/0x23e
+  [  762.904542]   [<c02daa3a>] __netif_receive_skb+0x319/0x368
+  [  762.904542]   [<c02dac07>] netif_receive_skb+0x4e/0x7d
+  [  762.904542]   [<c02dacf6>] napi_skb_finish+0x1e/0x34
+  [  762.904542]   [<c02db122>] napi_gro_receive+0x20/0x24
+  [  762.904542]   [<f85d1743>] e1000_receive_skb+0x3f/0x45 [e1000e]
+  [  762.904542]   [<f85d3464>] e1000_clean_rx_irq+0x1f9/0x284 [e1000e]
+  [  762.904542]   [<f85d3926>] e1000_clean+0x62/0x1f4 [e1000e]
+  [  762.904542]   [<c02db228>] net_rx_action+0x90/0x160
+  [  762.904542]   [<c012a445>] __do_softirq+0x7b/0x118
+  [  762.904542] irq event stamp: 156915469
+  [  762.904542] hardirqs last  enabled at (156915469): [<c019b4f4>] 
+__slab_alloc.clone.58.clone.63+0xc4/0x2de
+  [  762.904542] hardirqs last disabled at (156915468): [<c019b452>] 
+__slab_alloc.clone.58.clone.63+0x22/0x2de
+  [  762.904542] softirqs last  enabled at (156915466): [<c02ce677>] 
+lock_sock_nested+0x64/0x6c
+  [  762.904542] softirqs last disabled at (156915464): [<c0349914>] 
+_raw_spin_lock_bh+0xe/0x45
+  [  762.904542]
+  [  762.904542] other info that might help us debug this:
+  [  762.904542]  Possible unsafe locking scenario:
+  [  762.904542]
+  [  762.904542]        CPU0
+  [  762.904542]        ----
+  [  762.904542]   lock(key#3);
+  [  762.904542]   <Interrupt>
+  [  762.904542]     lock(key#3);
+  [  762.904542]
+  [  762.904542]  *** DEADLOCK ***
+  [  762.904542]
+  [  762.904542] 1 lock held by squid/1603:
+  [  762.904542]  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<c03055c0>] 
+lock_sock+0xa/0xc
+  [  762.904542]
+  [  762.904542] stack backtrace:
+  [  762.904542] Pid: 1603, comm: squid Not tainted 3.3.4-build-0061 #8
+  [  762.904542] Call Trace:
+  [  762.904542]  [<c0347b73>] ? printk+0x18/0x1d
+  [  762.904542]  [<c015873a>] valid_state+0x1f6/0x201
+  [  762.904542]  [<c0158816>] mark_lock+0xd1/0x1bb
+  [  762.904542]  [<c015876b>] ? mark_lock+0x26/0x1bb
+  [  762.904542]  [<c015805d>] ? check_usage_forwards+0x77/0x77
+  [  762.904542]  [<c0158bf8>] __lock_acquire+0x2f8/0xc26
+  [  762.904542]  [<c0159b8e>] ? mark_held_locks+0x5d/0x7b
+  [  762.904542]  [<c0159cf6>] ? trace_hardirqs_on+0xb/0xd
+  [  762.904542]  [<c0158dd4>] ? __lock_acquire+0x4d4/0xc26
+  [  762.904542]  [<c01598e8>] lock_acquire+0x71/0x85
+  [  762.904542]  [<c0232cc4>] ? __percpu_counter_sum+0xd/0x58
+  [  762.904542]  [<c0349765>] _raw_spin_lock+0x33/0x40
+  [  762.904542]  [<c0232cc4>] ? __percpu_counter_sum+0xd/0x58
+  [  762.904542]  [<c0232cc4>] __percpu_counter_sum+0xd/0x58
+  [  762.904542]  [<c02cebc4>] __sk_mem_schedule+0xdd/0x1c7
+  [  762.904542]  [<c02d178d>] ? __alloc_skb+0x76/0x100
+  [  762.904542]  [<c0305e8e>] sk_wmem_schedule+0x21/0x2d
+  [  762.904542]  [<c0306370>] sk_stream_alloc_skb+0x42/0xaa
+  [  762.904542]  [<c0306567>] tcp_sendmsg+0x18f/0x68b
+  [  762.904542]  [<c031f3dc>] ? ip_fast_csum+0x30/0x30
+  [  762.904542]  [<c0320193>] inet_sendmsg+0x53/0x5a
+  [  762.904542]  [<c02cb633>] sock_aio_write+0xd2/0xda
+  [  762.904542]  [<c015876b>] ? mark_lock+0x26/0x1bb
+  [  762.904542]  [<c01a1017>] do_sync_write+0x9f/0xd9
+  [  762.904542]  [<c01a2111>] ? file_free_rcu+0x2f/0x2f
+  [  762.904542]  [<c01a17a1>] vfs_write+0x8f/0xab
+  [  762.904542]  [<c01a284d>] ? fget_light+0x75/0x7c
+  [  762.904542]  [<c01a1900>] sys_write+0x3d/0x5e
+  [  762.904542]  [<c0349ec9>] syscall_call+0x7/0xb
+  [  762.904542]  [<c0340000>] ? rp_sidt+0x41/0x83
+
+
+Bug is that sk_sockets_allocated_read_positive() calls
+percpu_counter_sum_positive() without BH being disabled.
+
+This bug was added in commit 180d8cd942ce33
+(foundations of per-cgroup memory pressure controlling.), since previous
+code was using percpu_counter_read_positive() which is IRQ safe.
+
+In __sk_mem_schedule() we dont need the precise count of allocated
+sockets and can revert to previous behavior.
+
+Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+Sined-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Glauber Costa <glommer@parallels.com>
+---
+ include/net/sock.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 188532e..5a0a58a 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1129,9 +1129,9 @@ sk_sockets_allocated_read_positive(struct sock *sk)
+ 	struct proto *prot = sk->sk_prot;
+ 
+ 	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		return percpu_counter_sum_positive(sk->sk_cgrp->sockets_allocated);
++		return percpu_counter_read_positive(sk->sk_cgrp->sockets_allocated);
+ 
+-	return percpu_counter_sum_positive(prot->sockets_allocated);
++	return percpu_counter_read_positive(prot->sockets_allocated);
+ }
+ 
+ static inline int
