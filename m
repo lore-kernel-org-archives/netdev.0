@@ -1,41 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] netfilter updates for 3.4-rc5
-Date: Mon, 30 Apr 2012 13:23:54 -0400 (EDT)
-Message-ID: <20120430.132354.1636633057674161055.davem@davemloft.net>
-References: <1335799015-2003-1-git-send-email-pablo@netfilter.org>
+Subject: Re: bridge: Fix fatal typo in setup of multicast_querier_expired
+Date: Mon, 30 Apr 2012 13:27:38 -0400 (EDT)
+Message-ID: <20120430.132738.647233864900000159.davem@davemloft.net>
+References: <20120430102256.GA32587@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1335799015-2003-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.hengli.com.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40860 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756402Ab2D3R1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 13:27:44 -0400
+In-Reply-To: <20120430102256.GA32587@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Mon, 30 Apr 2012 17:16:47 +0200
+From: Herbert Xu <herbert@gondor.hengli.com.au>
+Date: Mon, 30 Apr 2012 20:22:56 +1000
 
-> This patchset contains the following fixes:
+> Unfortunately it seems that I didn't properly test the case of
+> an expired external querier in the recent multicast bridge series.
 > 
-> * One fix in the initialization path of the IPVS modules spotted by
->   the the trinity syscall fuzz testing tool from Sasha Levin.
+> The setup of the timer in that case is completely broken and leads
+> to a NULL-pointer dereference.  This patch fixes it.
 > 
-> * Three patches to address more weak/buggy error handling in the
->   initialization path of the IPVS modules from Hans Schillinstrom.
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+ ...
+> -		    br_multicast_querier_expired, 0);
+> +		    br_multicast_querier_expired, (unsigned long)br);
+>  	setup_timer(&br->multicast_query_timer, br_multicast_query_expired,
+>  		    (unsigned long)br);
+>  }
 > 
-> * Fix a regression in the initialization path of ipvs_ctl (introduced in
->   2.6.39) due from Julian Anastasov.
-> 
-> * A couple more initialization path robust error checkings from Julian
->   Anastasov.
-> 
-> * One silly fix for xt_CT target for the case in which the new
->   cttimeout infrastructure is not used, eg. --helper or --notrack,
->   by myself.
-> 
-> You can pull these fixes from:
-> 
-> git://1984.lsi.us.es/net master
+> Sorry for the screw-up.
 
-Pulled, thanks Pablo.
+Please do not put comments after the patch, this made the second hunk
+reject when I pulled it out of patchwork.
+
+Anyways, fixed up and applied.
