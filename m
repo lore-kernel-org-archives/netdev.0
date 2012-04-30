@@ -1,47 +1,53 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: getting host CPU utilization (was Re: [PATCH V7 2/4 net-next]
- skbuff: Add userspace zero-copy buffers in skb)
-Date: Mon, 30 Apr 2012 09:54:47 -0700
-Message-ID: <4F9EC3D7.1090906@hp.com>
-References: <1306610588.5180.87.camel@localhost.localdomain> <1309189510.21764.1.camel@localhost.localdomain> <20110627.155426.51839633424542723.davem@davemloft.net> <1309279892.3559.6.camel@localhost.localdomain> <4E0A0D34.2070507@hp.com> <20120430091246.GB5414@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 06/15] batman-adv: Distributed ARP Table
+ - add snooping functions for ARP messages
+Date: Mon, 30 Apr 2012 13:05:55 -0400 (EDT)
+Message-ID: <20120430.130555.48557916635285475.davem@davemloft.net>
+References: <1335689867-8017-1-git-send-email-ordex@autistici.org>
+	<1335689867-8017-7-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Shirley Ma <mashirle@us.ibm.com>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	avi@redhat.com, arnd@arndb.de, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120430091246.GB5414@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1335689867-8017-7-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/30/2012 02:12 AM, Michael S. Tsirkin wrote:
-> On Tue, Jun 28, 2011 at 10:19:48AM -0700, Rick Jones wrote:
->> one of these days I'll have to find a good way to get accurate
->> overall CPU utilization from within a guest and teach netperf about
->> it.
->
-> I think the cleanest way would be to run another netperf server on the
-> host.  netperf would get a flag with host address and get cpu
-> utilization info.
->
-> This is what we currently do manually: run mpstat on the host.
->
-> Thoughts?
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Sun, 29 Apr 2012 10:57:38 +0200
 
-I might be able to enhance the LOC_CPU/REM_CPU calibration tests to be 
-bona fide CPU utilization tests.
+> In case of an ARP message going in or out the soft_iface, it is intercepted and
+> a special action is performed. In particular the DHT helper functions previously
+> implemented are used to store all the ARP entries belonging to the network in
+> order to provide a fast and unicast lookup instead of the classic broadcast
+> flooding mechanism.
+> Each node stores the entries it is responsible for (following the DHT rules) in
+> its soft_iface ARP table. This makes it possible to reuse the kernel data
+> structures and functions for ARP management.
+> 
+> Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 
-> By the way, could you point me to code used by netperf
-> to measure CPU utilization on Linux? I'd like to figure
-> out why isn't the result always consistent with e.g. mpstat.
+Sorry, I'm not letting subsystems outside of net/ipv4/arp.c and related
+code make changes to the ARP table.
 
-That would be src/netcpu_procstat.c .  That code is automagically 
-selected by the configure script when it determines the compilation is 
-happening under Linux.  You can, if you wish, manually set it though I 
-suspect the only other mechanism known to netperf that would function 
-under Linux is the "looper" (aka CPU soaker) method.
+I plan to make major surgery to the way neighbour table entries are
+handled and therefore the less people who get their grubby paws
+directly in there, the better.
 
-rick
+Find a way to propagate the ARP packet into the properl ARP receive
+path to cause the state update to occur, I'm not letting you trigger
+it by hand in the batman-adv code.
+
+Sorry.
