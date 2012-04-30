@@ -1,55 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: skb_set_dev do not unconditionally drop ref to dst
-Date: Mon, 30 Apr 2012 07:51:33 +0200
-Message-ID: <1335765093.2296.4.camel@edumazet-glaptop>
-References: <20120430053804.GA59677@tuxmaker.boeblingen.de.ibm.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net-next
+ tree related)
+Date: Mon, 30 Apr 2012 15:58:36 +1000
+Message-ID: <20120430155836.44bcf3846c80cf686bb9cb77@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>
-To: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:40783 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012Ab2D3Fvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 01:51:38 -0400
-In-Reply-To: <20120430053804.GA59677@tuxmaker.boeblingen.de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__30_Apr_2012_15_58_36_+1000_0DNPLrMHO_FxEYW8"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Benjamin LaHaise <bcrl@kvack.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-04-30 at 07:38 +0200, Frank Blaschka wrote:
-> From: Frank Blaschka <frank.blaschka@de.ibm.com>
-> 
-> commit 8a83a00b0735190384a348156837918271034144 unconditionally
-> drops dst reference when skb->dev is set. This causes a regression
-> with VLAN and the qeth_l3 network driver. qeth_l3 can not get gw
-> information from the skb coming from the vlan driver. It is only
-> valid to drop the dst in case of different name spaces.
-> 
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-> ---
->  net/core/dev.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1881,8 +1881,8 @@ EXPORT_SYMBOL(netif_device_attach);
->  #ifdef CONFIG_NET_NS
->  void skb_set_dev(struct sk_buff *skb, struct net_device *dev)
->  {
-> -	skb_dst_drop(skb);
->  	if (skb->dev && !net_eq(dev_net(skb->dev), dev_net(dev))) {
-> +		skb_dst_drop(skb);
->  		secpath_reset(skb);
->  		nf_reset(skb);
->  		skb_init_secmark(skb);
-> 
+--Signature=_Mon__30_Apr_2012_15_58_36_+1000_0DNPLrMHO_FxEYW8
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-You forgot CC Arnd Bergmann <arnd@arndb.de> ?
+Hi all,
 
-But we do want to do the skb_dst_drop() in dev_forward_skb()
+After merging the final tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
 
-Your patch breaks dev_forward_skb() then.
+net/l2tp/l2tp_core.c: In function 'l2tp_verify_udp_checksum':
+net/l2tp/l2tp_core.c:464:7: error: implicit declaration of function 'csum_i=
+pv6_magic' [-Werror=3Dimplicit-function-declaration]
 
-But apparently this forward path was alredy broken in Arnd patch...
+Caused by commit d2cf3361677e ("net/l2tp: add support for L2TP over IPv6
+UDP").  Include file missing.
+
+I have reverted that commit for today.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Mon__30_Apr_2012_15_58_36_+1000_0DNPLrMHO_FxEYW8
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPnioMAAoJEECxmPOUX5FEtLgP/iJ+VneztJSwWoM4+YLUIcxG
+qG8QhVHbkb35aO2nH1fdIExCIV0MXxKJvQiNe9+0OLVnScfAofrSW2+3yscR8dzC
+0YgHLddOJL7Njgg6JzTUDtQXH9d0ibK2Wppz27K5EITsCrfF8L2M75q961mM1xUy
+J+IxLJk9743y/dXhovjD4Or2zJKYZGptT3E3VdSyvFTMA0Ug2PDS1wPMi3BNFWid
+dyavUJD1HA9OZnIoeMG0azT3YuJElhNmmwvfCZF/Al0Jhp4S6lkY9Fvqu50K2gFA
+rHlusDjPJ/Sl/bhem4TjOFp5I+DTC1rNmgQ6/HJq2DxdPwfYCiB4I/aHqIkEp9OL
+x5wfXIuOjQmRAOB/fl0hXL9VkhyiTSk76hYWmlfgVL0XdUz722fV1xJ+SslLUJRC
+kWRZspn/BdRjHC8Pwsh3ViHlPoOhNzlbCl0MOEPAxL1fO+xenQQDfXzZutTDtPMV
+cWonDFn/9SiFh3DOAtE2qQduEyQtkY947fWOKgnP6j0iM+Elw/4277Fzf98+5mGZ
+fSSjOP7QUfofMFo2FK/YtQCjSHy+h/L2SxuxIcHZMioQ1ACKyRw8X2h9HBEv7OSm
+lZ+n+3ppsVRl2PP2Ok5yRi++X0xC6IfCky8OWx+HjIkfewJPg24UKKKDWfY9LoqW
+uHEOYAdvtZHuRsNSndvw
+=tMh/
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__30_Apr_2012_15_58_36_+1000_0DNPLrMHO_FxEYW8--
