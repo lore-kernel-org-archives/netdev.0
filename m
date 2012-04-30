@@ -1,48 +1,128 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 06/10 net-next] l2tp: show IPv6 addresses in l2tp debugfs file
-Date: Mon, 30 Apr 2012 08:48:51 +0100
-Message-ID: <1335772135-27910-7-git-send-email-jchapman@katalix.com>
+Subject: [PATCH 10/10 net-next] l2tp: let iproute2 create L2TPv3 IP tunnels using IPv6
+Date: Mon, 30 Apr 2012 08:48:55 +0100
+Message-ID: <1335772135-27910-11-git-send-email-jchapman@katalix.com>
 References: <1335772135-27910-1-git-send-email-jchapman@katalix.com>
-Cc: Chris Elston <celston@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:53477 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:53476 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754819Ab2D3Hs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 03:48:59 -0400
+	id S1755133Ab2D3HtB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 03:49:01 -0400
+Received: from localhost.localdomain (jchapman.plus.com [80.229.30.198])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: james)
+	by mail.katalix.com (Postfix) with ESMTPSA id 68CD5A620CB
+	for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 08:49:00 +0100 (BST)
 In-Reply-To: <1335772135-27910-1-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Elston <celston@katalix.com>
+The netlink API lets users create unmanaged L2TPv3 tunnels using
+iproute2. Until now, a request to create an unmanaged L2TPv3 IP
+encapsulation tunnel over IPv6 would be rejected with
+EPROTONOSUPPORT. Now that l2tp_ip6 implements sockets for L2TP IP
+encapsulation over IPv6, we can add support for that tunnel type.
 
-If an L2TP tunnel uses IPv6, make sure the l2tp debugfs file shows the
-IPv6 address correctly.
-
-Signed-off-by: Chris Elston <celston@katalix.com>
 Signed-off-by: James Chapman <jchapman@katalix.com>
 ---
- net/l2tp/l2tp_debugfs.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+ net/l2tp/l2tp_core.c |   72 ++++++++++++++++++++++++++++++++++---------------
+ 1 files changed, 50 insertions(+), 22 deletions(-)
 
-diff --git a/net/l2tp/l2tp_debugfs.c b/net/l2tp/l2tp_debugfs.c
-index 7613013..c0d57ba 100644
---- a/net/l2tp/l2tp_debugfs.c
-+++ b/net/l2tp/l2tp_debugfs.c
-@@ -122,6 +122,14 @@ static void l2tp_dfs_seq_tunnel_show(struct seq_file *m, void *v)
- 	seq_printf(m, "\nTUNNEL %u peer %u", tunnel->tunnel_id, tunnel->peer_tunnel_id);
- 	if (tunnel->sock) {
- 		struct inet_sock *inet = inet_sk(tunnel->sock);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (tunnel->sock->sk_family == AF_INET6) {
-+			struct ipv6_pinfo *np = inet6_sk(tunnel->sock);
-+			seq_printf(m, " from %pI6c to %pI6c\n",
-+				&np->saddr, &np->daddr);
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 5a7d908..7415620 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1367,6 +1367,7 @@ static int l2tp_tunnel_sock_create(u32 tunnel_id, u32 peer_tunnel_id, struct l2t
+ 	struct sockaddr_in udp_addr;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	struct sockaddr_in6 udp6_addr;
++	struct sockaddr_l2tpip6 ip6_addr;
+ #endif
+ 	struct sockaddr_l2tpip ip_addr;
+ 	struct socket *sock = NULL;
+@@ -1436,32 +1437,59 @@ static int l2tp_tunnel_sock_create(u32 tunnel_id, u32 peer_tunnel_id, struct l2t
+ 	case L2TP_ENCAPTYPE_IP:
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		if (cfg->local_ip6 && cfg->peer_ip6) {
+-			/* IP encap over IPv6 not yet supported */
+-			err = -EPROTONOSUPPORT;
+-			goto out;
+-		}
+-#endif
+-		err = sock_create(AF_INET, SOCK_DGRAM, IPPROTO_L2TP, sockp);
+-		if (err < 0)
+-			goto out;
++			err = sock_create(AF_INET6, SOCK_DGRAM, IPPROTO_L2TP,
++					  sockp);
++			if (err < 0)
++				goto out;
+ 
+-		sock = *sockp;
++			sock = *sockp;
+ 
+-		memset(&ip_addr, 0, sizeof(ip_addr));
+-		ip_addr.l2tp_family = AF_INET;
+-		ip_addr.l2tp_addr = cfg->local_ip;
+-		ip_addr.l2tp_conn_id = tunnel_id;
+-		err = kernel_bind(sock, (struct sockaddr *) &ip_addr, sizeof(ip_addr));
+-		if (err < 0)
+-			goto out;
++			memset(&ip6_addr, 0, sizeof(ip6_addr));
++			ip6_addr.l2tp_family = AF_INET6;
++			memcpy(&ip6_addr.l2tp_addr, cfg->local_ip6,
++			       sizeof(ip6_addr.l2tp_addr));
++			ip6_addr.l2tp_conn_id = tunnel_id;
++			err = kernel_bind(sock, (struct sockaddr *) &ip6_addr,
++					  sizeof(ip6_addr));
++			if (err < 0)
++				goto out;
+ 
+-		ip_addr.l2tp_family = AF_INET;
+-		ip_addr.l2tp_addr = cfg->peer_ip;
+-		ip_addr.l2tp_conn_id = peer_tunnel_id;
+-		err = kernel_connect(sock, (struct sockaddr *) &ip_addr, sizeof(ip_addr), 0);
+-		if (err < 0)
+-			goto out;
++			ip6_addr.l2tp_family = AF_INET6;
++			memcpy(&ip6_addr.l2tp_addr, cfg->peer_ip6,
++			       sizeof(ip6_addr.l2tp_addr));
++			ip6_addr.l2tp_conn_id = peer_tunnel_id;
++			err = kernel_connect(sock,
++					     (struct sockaddr *) &ip6_addr,
++					     sizeof(ip6_addr), 0);
++			if (err < 0)
++				goto out;
 +		} else
 +#endif
- 		seq_printf(m, " from %pI4 to %pI4\n",
- 			   &inet->inet_saddr, &inet->inet_daddr);
- 		if (tunnel->encap == L2TP_ENCAPTYPE_UDP)
++		{
++			err = sock_create(AF_INET, SOCK_DGRAM, IPPROTO_L2TP,
++					  sockp);
++			if (err < 0)
++				goto out;
+ 
++			sock = *sockp;
++
++			memset(&ip_addr, 0, sizeof(ip_addr));
++			ip_addr.l2tp_family = AF_INET;
++			ip_addr.l2tp_addr = cfg->local_ip;
++			ip_addr.l2tp_conn_id = tunnel_id;
++			err = kernel_bind(sock, (struct sockaddr *) &ip_addr,
++					  sizeof(ip_addr));
++			if (err < 0)
++				goto out;
++
++			ip_addr.l2tp_family = AF_INET;
++			ip_addr.l2tp_addr = cfg->peer_ip;
++			ip_addr.l2tp_conn_id = peer_tunnel_id;
++			err = kernel_connect(sock, (struct sockaddr *) &ip_addr,
++					     sizeof(ip_addr), 0);
++			if (err < 0)
++				goto out;
++		}
+ 		break;
+ 
+ 	default:
 -- 
 1.7.0.4
