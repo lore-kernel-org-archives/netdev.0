@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 06/10] tipc: remove redundant memset and stale comment from subscr.c
-Date: Mon, 30 Apr 2012 18:37:04 -0400
-Message-ID: <1335825428-16053-7-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 09/10] tipc: Reject payload messages with invalid message type
+Date: Mon, 30 Apr 2012 18:37:07 -0400
+Message-ID: <1335825428-16053-10-git-send-email-paul.gortmaker@windriver.com>
 References: <1335825428-16053-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,49 +10,48 @@ Cc: <netdev@vger.kernel.org>, <allan.stephens@windriver.com>,
 	<ying.xue@windriver.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:45985 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:45991 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757343Ab2D3WhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 18:37:20 -0400
+	with ESMTP id S1757367Ab2D3WhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 18:37:23 -0400
 In-Reply-To: <1335825428-16053-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Eliminate code to zero-out the main topology service structure,
-which is already zeroed-out.
+Adds check to ensure TIPC sockets reject incoming payload messages
+that have an unrecognized message type.
 
-Get rid of a comment documenting a field of the main topology
-service structure that no longer exists.
-
-Both are cosmetic changes with no impact on runtime behaviour.
+Remove the old open question about whether TIPC_ERR_NO_PORT is
+the proper return value.  It is appropriate here since there are
+valid instances where another node can make use of the reply,
+and at this point in time the host is already broadcasting TIPC
+data, so there are no real security concerns.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/subscr.c |    2 --
- 1 file changed, 2 deletions(-)
+ net/tipc/socket.c |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index b2964e9..af93ea9 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -56,7 +56,6 @@ struct tipc_subscriber {
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 6d4991e..3c00b40 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1223,11 +1223,8 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
  
- /**
-  * struct top_srv - TIPC network topology subscription service
-- * @user_ref: TIPC userid of subscription service
-  * @setup_port: reference to TIPC port that handles subscription requests
-  * @subscription_count: number of active subscriptions (not subscribers!)
-  * @subscriber_list: list of ports subscribing to service
-@@ -535,7 +534,6 @@ int tipc_subscr_start(void)
- 	struct tipc_name_seq seq = {TIPC_TOP_SRV, TIPC_TOP_SRV, TIPC_TOP_SRV};
- 	int res;
+ 	/* Reject message if it is wrong sort of message for socket */
  
--	memset(&topsrv, 0, sizeof(topsrv));
- 	spin_lock_init(&topsrv.lock);
- 	INIT_LIST_HEAD(&topsrv.subscriber_list);
+-	/*
+-	 * WOULD IT BE BETTER TO JUST DISCARD THESE MESSAGES INSTEAD?
+-	 * "NO PORT" ISN'T REALLY THE RIGHT ERROR CODE, AND THERE MAY
+-	 * BE SECURITY IMPLICATIONS INHERENT IN REJECTING INVALID TRAFFIC
+-	 */
++	if (msg_type(msg) > TIPC_DIRECT_MSG)
++		return TIPC_ERR_NO_PORT;
  
+ 	if (sock->state == SS_READY) {
+ 		if (msg_connected(msg))
 -- 
 1.7.9.6
