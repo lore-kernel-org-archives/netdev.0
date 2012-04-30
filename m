@@ -1,35 +1,49 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH net-next] net/l2tp: fix build error in l2tp from missing ipv6 checksum include
-Date: Mon, 30 Apr 2012 13:24:02 -0400
-Message-ID: <20120430172402.GL17021@kvack.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Mon, 30 Apr 2012 13:22:03 -0400 (EDT)
+Message-ID: <20120430.132203.912342595853741106.davem@davemloft.net>
 References: <20120430155836.44bcf3846c80cf686bb9cb77@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:41714 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755228Ab2D3RYG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 13:24:06 -0400
-Content-Disposition: inline
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bcrl@kvack.org
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
 In-Reply-To: <20120430155836.44bcf3846c80cf686bb9cb77@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 30 Apr 2012 15:58:36 +1000
 
-Can you please verify if the patch below fixes the issue?  Thanks.
+> Hi all,
+> 
+> After merging the final tree, today's linux-next build (powerpc
+> allyesconfig) failed like this:
+> 
+> net/l2tp/l2tp_core.c: In function 'l2tp_verify_udp_checksum':
+> net/l2tp/l2tp_core.c:464:7: error: implicit declaration of function 'csum_ipv6_magic' [-Werror=implicit-function-declaration]
+> 
+> Caused by commit d2cf3361677e ("net/l2tp: add support for L2TP over IPv6
+> UDP").  Include file missing.
+> 
+> I have reverted that commit for today.
 
-		-ben
-----
-net/l2tp: fix build error in l2tp from missing ipv6 checksum include
+The fix is less work than the revert on this one isn't it? :-)
 
-L2TP needs to ensure the IPv6 checksum helpers are included.
+Pushed to net-next, thanks Stephen:
 
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+--------------------
+l2tp: Add missing net/net/ip6_checksum.h include.
+
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
+ net/l2tp/l2tp_core.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
 diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
 index e91d559..0ca9bc3 100644
 --- a/net/l2tp/l2tp_core.c
@@ -42,3 +56,5 @@ index e91d559..0ca9bc3 100644
  
  #include <asm/byteorder.h>
  #include <linux/atomic.h>
+-- 
+1.7.7.6
