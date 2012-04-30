@@ -1,106 +1,115 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 05/10 net-next] l2tp: pppol2tp_connect() handles ipv6 sockaddr variants
-Date: Mon, 30 Apr 2012 08:48:50 +0100
-Message-ID: <1335772135-27910-6-git-send-email-jchapman@katalix.com>
+Subject: [PATCH 08/10 net-next] ipv6: Export ipv6 functions for use by other protocols
+Date: Mon, 30 Apr 2012 08:48:53 +0100
+Message-ID: <1335772135-27910-9-git-send-email-jchapman@katalix.com>
 References: <1335772135-27910-1-git-send-email-jchapman@katalix.com>
+Cc: Chris Elston <celston@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:53476 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:53479 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754877Ab2D3Hs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 03:48:59 -0400
-Received: from localhost.localdomain (jchapman.plus.com [80.229.30.198])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: james)
-	by mail.katalix.com (Postfix) with ESMTPSA id E8BD9A62115
-	for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 08:48:57 +0100 (BST)
+	id S1752426Ab2D3HtA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 03:49:00 -0400
 In-Reply-To: <1335772135-27910-1-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Userspace uses connect() to associate a pppol2tp socket with a tunnel
-socket. This needs to allow the caller to supply the new IPv6
-sockaddr_pppol2tp structures if IPv6 is used.
+From: Chris Elston <celston@katalix.com>
 
+For implementing other protocols on top of IPv6, such as L2TPv3's IP
+encapsulation over ipv6, we'd like to call some IPv6 functions which
+are not currently exported. This patch exports them.
+
+Signed-off-by: Chris Elston <celston@katalix.com>
 Signed-off-by: James Chapman <jchapman@katalix.com>
 ---
- net/l2tp/l2tp_ppp.c |   36 ++++++++++++++++++++++++++++--------
- 1 files changed, 28 insertions(+), 8 deletions(-)
+ net/ipv6/datagram.c      |    4 ++++
+ net/ipv6/exthdrs.c       |    1 +
+ net/ipv6/ip6_flowlabel.c |    1 +
+ net/ipv6/ip6_output.c    |    3 +++
+ 4 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index 27b9dec..9f2c421 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -628,7 +628,6 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 7fba35a..b8b61ac 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -22,6 +22,7 @@
+ #include <linux/ipv6.h>
+ #include <linux/route.h>
+ #include <linux/slab.h>
++#include <linux/export.h>
+ 
+ #include <net/ipv6.h>
+ #include <net/ndisc.h>
+@@ -202,6 +203,7 @@ out:
+ 	fl6_sock_release(flowlabel);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ip6_datagram_connect);
+ 
+ void ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
+ 		     __be16 port, u32 info, u8 *payload)
+@@ -414,6 +416,7 @@ out_free_skb:
+ out:
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ipv6_recv_error);
+ 
+ /*
+  *	Handle IPV6_RECVPATHMTU
+@@ -868,3 +871,4 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
+ exit_f:
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(datagram_send_ctl);
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index aa0a51e..a93bd23 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -883,6 +883,7 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
+ 
+ 	return opt;
+ }
++EXPORT_SYMBOL_GPL(ipv6_fixup_options);
+ 
+ /**
+  * fl6_update_dst - update flowi destination address with info given
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 1dd6329..cb43df6 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -294,6 +294,7 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions * opt_space,
+ 	opt_space->opt_flen = fopt->opt_flen;
+ 	return opt_space;
+ }
++EXPORT_SYMBOL_GPL(fl6_merge_options);
+ 
+ static unsigned long check_linger(unsigned long ttl)
  {
- 	struct sock *sk = sock->sk;
- 	struct sockaddr_pppol2tp *sp = (struct sockaddr_pppol2tp *) uservaddr;
--	struct sockaddr_pppol2tpv3 *sp3 = (struct sockaddr_pppol2tpv3 *) uservaddr;
- 	struct pppox_sock *po = pppox_sk(sk);
- 	struct l2tp_session *session = NULL;
- 	struct l2tp_tunnel *tunnel;
-@@ -657,7 +656,13 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 	if (sk->sk_user_data)
- 		goto end; /* socket is already attached */
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index b7ca461..2a16aa9 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1535,6 +1535,7 @@ error:
+ 	IP6_INC_STATS(sock_net(sk), rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ip6_append_data);
  
--	/* Get params from socket address. Handle L2TPv2 and L2TPv3 */
-+	/* Get params from socket address. Handle L2TPv2 and L2TPv3.
-+	 * This is nasty because there are different sockaddr_pppol2tp
-+	 * structs for L2TPv2, L2TPv3, over IPv4 and IPv6. We use
-+	 * the sockaddr size to determine which structure the caller
-+	 * is using.
-+	 */
-+	peer_tunnel_id = 0;
- 	if (sockaddr_len == sizeof(struct sockaddr_pppol2tp)) {
- 		fd = sp->pppol2tp.fd;
- 		tunnel_id = sp->pppol2tp.s_tunnel;
-@@ -665,12 +670,31 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 		session_id = sp->pppol2tp.s_session;
- 		peer_session_id = sp->pppol2tp.d_session;
- 	} else if (sockaddr_len == sizeof(struct sockaddr_pppol2tpv3)) {
-+		struct sockaddr_pppol2tpv3 *sp3 =
-+			(struct sockaddr_pppol2tpv3 *) sp;
- 		ver = 3;
- 		fd = sp3->pppol2tp.fd;
- 		tunnel_id = sp3->pppol2tp.s_tunnel;
- 		peer_tunnel_id = sp3->pppol2tp.d_tunnel;
- 		session_id = sp3->pppol2tp.s_session;
- 		peer_session_id = sp3->pppol2tp.d_session;
-+	} else if (sockaddr_len == sizeof(struct sockaddr_pppol2tpin6)) {
-+		struct sockaddr_pppol2tpin6 *sp6 =
-+			(struct sockaddr_pppol2tpin6 *) sp;
-+		fd = sp6->pppol2tp.fd;
-+		tunnel_id = sp6->pppol2tp.s_tunnel;
-+		peer_tunnel_id = sp6->pppol2tp.d_tunnel;
-+		session_id = sp6->pppol2tp.s_session;
-+		peer_session_id = sp6->pppol2tp.d_session;
-+	} else if (sockaddr_len == sizeof(struct sockaddr_pppol2tpv3in6)) {
-+		struct sockaddr_pppol2tpv3in6 *sp6 =
-+			(struct sockaddr_pppol2tpv3in6 *) sp;
-+		ver = 3;
-+		fd = sp6->pppol2tp.fd;
-+		tunnel_id = sp6->pppol2tp.s_tunnel;
-+		peer_tunnel_id = sp6->pppol2tp.d_tunnel;
-+		session_id = sp6->pppol2tp.s_session;
-+		peer_session_id = sp6->pppol2tp.d_session;
- 	} else {
- 		error = -EINVAL;
- 		goto end; /* bad socket address */
-@@ -711,12 +735,8 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 	if (tunnel->recv_payload_hook == NULL)
- 		tunnel->recv_payload_hook = pppol2tp_recv_payload_hook;
+ static void ip6_cork_release(struct inet_sock *inet, struct ipv6_pinfo *np)
+ {
+@@ -1638,6 +1639,7 @@ error:
+ 	IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
+ 	goto out;
+ }
++EXPORT_SYMBOL_GPL(ip6_push_pending_frames);
  
--	if (tunnel->peer_tunnel_id == 0) {
--		if (ver == 2)
--			tunnel->peer_tunnel_id = sp->pppol2tp.d_tunnel;
--		else
--			tunnel->peer_tunnel_id = sp3->pppol2tp.d_tunnel;
--	}
-+	if (tunnel->peer_tunnel_id == 0)
-+		tunnel->peer_tunnel_id = peer_tunnel_id;
+ void ip6_flush_pending_frames(struct sock *sk)
+ {
+@@ -1652,3 +1654,4 @@ void ip6_flush_pending_frames(struct sock *sk)
  
- 	/* Create session if it doesn't already exist. We handle the
- 	 * case where a session was previously created by the netlink
+ 	ip6_cork_release(inet_sk(sk), inet6_sk(sk));
+ }
++EXPORT_SYMBOL_GPL(ip6_flush_pending_frames);
 -- 
 1.7.0.4
