@@ -1,159 +1,282 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: inconsistent lock/deadlock crash, vanilla 3.3.4, 32bit, tcp
-Date: Mon, 30 Apr 2012 01:45:29 -0300
-Message-ID: <4F9E18E9.5010503@parallels.com>
-References: <13fc59c8e3be34ddb3c7bb5c17b1bdf8@visp.net.lb>  <1335688036.2900.80.camel@edumazet-glaptop>  <1335688804.2900.83.camel@edumazet-glaptop> <1335689052.2900.86.camel@edumazet-glaptop>
+From: Jan Seiffert <kaffeemonster@googlemail.com>
+Subject: [REGRESSION][PATCH V5 3/3] bpf jit: Let the powerpc jit handle negative
+ offsets
+Date: Mon, 30 Apr 2012 07:02:19 +0200
+Message-ID: <4F9E1CDB.9020104@googlemail.com>
+References: <4F75CA89.4010709@googlemail.com>  <4F75D2A5.7060407@googlemail.com>  <20120403.180302.342779808900865443.davem@davemloft.net>  <1333491102.3040.12.camel@pasglop> <1335753820.20866.27.camel@pasglop> <1335759088.20866.32.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<matt@ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<linuxppc-dev@lists.ozlabs.org>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1335689052.2900.86.camel@edumazet-glaptop>
+In-Reply-To: <1335759088.20866.32.camel@pasglop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/29/2012 05:44 AM, Eric Dumazet wrote:
-> On Sun, 2012-04-29 at 10:40 +0200, Eric Dumazet wrote:
->> On Sun, 2012-04-29 at 10:27 +0200, Eric Dumazet wrote:
->>> On Sun, 2012-04-29 at 10:41 +0300, Denys Fedoryshchenko wrote:
->>>> I apologize for late night post, and a lot of trash left in report.
->>>> I will cleanup it up now, and send with CC to maintainers.
->>>>
->>>> Server job are proxy, with very high rate of new connections.
->>>> Deadlock at peaktime can be easily reproduced in 10-15 minutes.
->>>>
->>>> Deadlock occured on almost all 3.3-stable versions (tried 3.3.3 -
->>>> 3.3.4). It is not easy to try older kernel,
->>>> but if required i can try.
->>>> Usually also, because SYN rate very high, i can see:
->>>> [   51.612987] TCP: Possible SYN flooding on port 8080. Sending
->>>> cookies.  Check SNMP counters.
->>>>
->>>>    [  762.903868]
->>>>    [  762.903880] =================================
->>>>    [  762.903890] [ INFO: inconsistent lock state ]
->>>>    [  762.903903] 3.3.4-build-0061 #8 Not tainted
->>>>    [  762.904133] ---------------------------------
->>>>    [  762.904344] inconsistent {IN-SOFTIRQ-W} ->  {SOFTIRQ-ON-W} usage.
->>>>    [  762.904542] squid/1603 [HC0[0]:SC0[0]:HE1:SE1] takes:
->>>>    [  762.904542]  (key#3){+.?...}, at: [<c0232cc4>]
->>>> __percpu_counter_sum+0xd/0x58
->>>>    [  762.904542] {IN-SOFTIRQ-W} state was registered at:
->>>>    [  762.904542]   [<c0158b84>] __lock_acquire+0x284/0xc26
->>>>    [  762.904542]   [<c01598e8>] lock_acquire+0x71/0x85
->>>>    [  762.904542]   [<c0349765>] _raw_spin_lock+0x33/0x40
->>>>    [  762.904542]   [<c0232c93>] __percpu_counter_add+0x58/0x7c
->>>>    [  762.904542]   [<c02cfde1>] sk_clone_lock+0x1e5/0x200
->>>>    [  762.904542]   [<c0303ee4>] inet_csk_clone_lock+0xe/0x78
->>>>    [  762.904542]   [<c0315778>] tcp_create_openreq_child+0x1b/0x404
->>>>    [  762.904542]   [<c031339c>] tcp_v4_syn_recv_sock+0x32/0x1c1
->>>>    [  762.904542]   [<c031615a>] tcp_check_req+0x1fd/0x2d7
->>>>    [  762.904542]   [<c0313f77>] tcp_v4_do_rcv+0xab/0x194
->>>>    [  762.904542]   [<c03153bb>] tcp_v4_rcv+0x3b3/0x5cc
->>>>    [  762.904542]   [<c02fc0c4>] ip_local_deliver_finish+0x13a/0x1e9
->>>>    [  762.904542]   [<c02fc539>] NF_HOOK.clone.11+0x46/0x4d
->>>>    [  762.904542]   [<c02fc652>] ip_local_deliver+0x41/0x45
->>>>    [  762.904542]   [<c02fc4d1>] ip_rcv_finish+0x31a/0x33c
->>>>    [  762.904542]   [<c02fc539>] NF_HOOK.clone.11+0x46/0x4d
->>>>    [  762.904542]   [<c02fc857>] ip_rcv+0x201/0x23e
->>>>    [  762.904542]   [<c02daa3a>] __netif_receive_skb+0x319/0x368
->>>>    [  762.904542]   [<c02dac07>] netif_receive_skb+0x4e/0x7d
->>>>    [  762.904542]   [<c02dacf6>] napi_skb_finish+0x1e/0x34
->>>>    [  762.904542]   [<c02db122>] napi_gro_receive+0x20/0x24
->>>>    [  762.904542]   [<f85d1743>] e1000_receive_skb+0x3f/0x45 [e1000e]
->>>>    [  762.904542]   [<f85d3464>] e1000_clean_rx_irq+0x1f9/0x284 [e1000e]
->>>>    [  762.904542]   [<f85d3926>] e1000_clean+0x62/0x1f4 [e1000e]
->>>>    [  762.904542]   [<c02db228>] net_rx_action+0x90/0x160
->>>>    [  762.904542]   [<c012a445>] __do_softirq+0x7b/0x118
->>>>    [  762.904542] irq event stamp: 156915469
->>>>    [  762.904542] hardirqs last  enabled at (156915469): [<c019b4f4>]
->>>> __slab_alloc.clone.58.clone.63+0xc4/0x2de
->>>>    [  762.904542] hardirqs last disabled at (156915468): [<c019b452>]
->>>> __slab_alloc.clone.58.clone.63+0x22/0x2de
->>>>    [  762.904542] softirqs last  enabled at (156915466): [<c02ce677>]
->>>> lock_sock_nested+0x64/0x6c
->>>>    [  762.904542] softirqs last disabled at (156915464): [<c0349914>]
->>>> _raw_spin_lock_bh+0xe/0x45
->>>>    [  762.904542]
->>>>    [  762.904542] other info that might help us debug this:
->>>>    [  762.904542]  Possible unsafe locking scenario:
->>>>    [  762.904542]
->>>>    [  762.904542]        CPU0
->>>>    [  762.904542]        ----
->>>>    [  762.904542]   lock(key#3);
->>>>    [  762.904542]<Interrupt>
->>>>    [  762.904542]     lock(key#3);
->>>>    [  762.904542]
->>>>    [  762.904542]  *** DEADLOCK ***
->>>>    [  762.904542]
->>>>    [  762.904542] 1 lock held by squid/1603:
->>>>    [  762.904542]  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<c03055c0>]
->>>> lock_sock+0xa/0xc
->>>>    [  762.904542]
->>>>    [  762.904542] stack backtrace:
->>>>    [  762.904542] Pid: 1603, comm: squid Not tainted 3.3.4-build-0061 #8
->>>>    [  762.904542] Call Trace:
->>>>    [  762.904542]  [<c0347b73>] ? printk+0x18/0x1d
->>>>    [  762.904542]  [<c015873a>] valid_state+0x1f6/0x201
->>>>    [  762.904542]  [<c0158816>] mark_lock+0xd1/0x1bb
->>>>    [  762.904542]  [<c015876b>] ? mark_lock+0x26/0x1bb
->>>>    [  762.904542]  [<c015805d>] ? check_usage_forwards+0x77/0x77
->>>>    [  762.904542]  [<c0158bf8>] __lock_acquire+0x2f8/0xc26
->>>>    [  762.904542]  [<c0159b8e>] ? mark_held_locks+0x5d/0x7b
->>>>    [  762.904542]  [<c0159cf6>] ? trace_hardirqs_on+0xb/0xd
->>>>    [  762.904542]  [<c0158dd4>] ? __lock_acquire+0x4d4/0xc26
->>>>    [  762.904542]  [<c01598e8>] lock_acquire+0x71/0x85
->>>>    [  762.904542]  [<c0232cc4>] ? __percpu_counter_sum+0xd/0x58
->>>>    [  762.904542]  [<c0349765>] _raw_spin_lock+0x33/0x40
->>>>    [  762.904542]  [<c0232cc4>] ? __percpu_counter_sum+0xd/0x58
->>>>    [  762.904542]  [<c0232cc4>] __percpu_counter_sum+0xd/0x58
->>>>    [  762.904542]  [<c02cebc4>] __sk_mem_schedule+0xdd/0x1c7
->>>>    [  762.904542]  [<c02d178d>] ? __alloc_skb+0x76/0x100
->>>>    [  762.904542]  [<c0305e8e>] sk_wmem_schedule+0x21/0x2d
->>>>    [  762.904542]  [<c0306370>] sk_stream_alloc_skb+0x42/0xaa
->>>>    [  762.904542]  [<c0306567>] tcp_sendmsg+0x18f/0x68b
->>>>    [  762.904542]  [<c031f3dc>] ? ip_fast_csum+0x30/0x30
->>>>    [  762.904542]  [<c0320193>] inet_sendmsg+0x53/0x5a
->>>>    [  762.904542]  [<c02cb633>] sock_aio_write+0xd2/0xda
->>>>    [  762.904542]  [<c015876b>] ? mark_lock+0x26/0x1bb
->>>>    [  762.904542]  [<c01a1017>] do_sync_write+0x9f/0xd9
->>>>    [  762.904542]  [<c01a2111>] ? file_free_rcu+0x2f/0x2f
->>>>    [  762.904542]  [<c01a17a1>] vfs_write+0x8f/0xab
->>>>    [  762.904542]  [<c01a284d>] ? fget_light+0x75/0x7c
->>>>    [  762.904542]  [<c01a1900>] sys_write+0x3d/0x5e
->>>>    [  762.904542]  [<c0349ec9>] syscall_call+0x7/0xb
->>>>    [  762.904542]  [<c0340000>] ? rp_sidt+0x41/0x83
->>>>
->>>
->>>
->>> OK, so when we have memory pressure we can call
->>> percpu_counter_read_positive() with SOFTIRQ enabled, and lockdep
->>> complains...
->>>
->>> This bug was probably added in 2008, in commit 1748376b6626a
->>> (net: Use a percpu_counter for sockets_allocated)
->>
->> Hmm, no this patch was fine.
->>
->> Bug was in fact added by Glauber Costa in commit 180d8cd942ce336b2c869
->> (foundations of per-cgroup memory pressure controlling.)
->>
->> Because he replaced the safe percpu_counter_read_positive() call to
->> unsafe percpu_counter_sum_positive() in
->> sk_sockets_allocated_read_positive()
->>
->> But anyway the patch I sent should fix the problem.
->
-> Thinking again, I am not sure why Glauber did this change. He probably
-> made a typo or something.
->
+Now the helper function from filter.c for negative offsets is exported,
+it can be used it in the jit to handle negative offsets.
 
-Indeed.
+First modify the asm load helper functions to handle:
+- know positive offsets
+- know negative offsets
+- any offset
 
-It wasn't my intent to change that, it was a mistake.
+then the compiler can be modified to explicitly use these helper
+when appropriate.
 
-Very sorry.
+This fixes the case of a negative X register and allows to lift
+the restriction that bpf programs with negative offsets can't
+be jited.
+
+Tested-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Signed-off-by: Jan Seiffert <kaffeemonster@googlemail.com>
+---
+ arch/powerpc/net/bpf_jit.h      |    8 +++-
+ arch/powerpc/net/bpf_jit_64.S   |  108 ++++++++++++++++++++++++++++++++++-----
+ arch/powerpc/net/bpf_jit_comp.c |   26 +++------
+ 3 files changed, 111 insertions(+), 31 deletions(-)
+
+diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
+index af1ab5e..5c3cf2d 100644
+--- a/arch/powerpc/net/bpf_jit.h
++++ b/arch/powerpc/net/bpf_jit.h
+@@ -48,7 +48,13 @@
+ /*
+  * Assembly helpers from arch/powerpc/net/bpf_jit.S:
+  */
+-extern u8 sk_load_word[], sk_load_half[], sk_load_byte[], sk_load_byte_msh[];
++#define DECLARE_LOAD_FUNC(func)	\
++	extern u8 func[], func##_negative_offset[], func##_positive_offset[]
++
++DECLARE_LOAD_FUNC(sk_load_word);
++DECLARE_LOAD_FUNC(sk_load_half);
++DECLARE_LOAD_FUNC(sk_load_byte);
++DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ 
+ #define FUNCTION_DESCR_SIZE	24
+ 
+diff --git a/arch/powerpc/net/bpf_jit_64.S b/arch/powerpc/net/bpf_jit_64.S
+index ff4506e..55ba385 100644
+--- a/arch/powerpc/net/bpf_jit_64.S
++++ b/arch/powerpc/net/bpf_jit_64.S
+@@ -31,14 +31,13 @@
+  * then branch directly to slow_path_XXX if required.  (In fact, could
+  * load a spare GPR with the address of slow_path_generic and pass size
+  * as an argument, making the call site a mtlr, li and bllr.)
+- *
+- * Technically, the "is addr < 0" check is unnecessary & slowing down
+- * the ABS path, as it's statically checked on generation.
+  */
+ 	.globl	sk_load_word
+ sk_load_word:
+ 	cmpdi	r_addr, 0
+-	blt	bpf_error
++	blt	bpf_slow_path_word_neg
++	.globl	sk_load_word_positive_offset
++sk_load_word_positive_offset:
+ 	/* Are we accessing past headlen? */
+ 	subi	r_scratch1, r_HL, 4
+ 	cmpd	r_scratch1, r_addr
+@@ -51,7 +50,9 @@ sk_load_word:
+ 	.globl	sk_load_half
+ sk_load_half:
+ 	cmpdi	r_addr, 0
+-	blt	bpf_error
++	blt	bpf_slow_path_half_neg
++	.globl	sk_load_half_positive_offset
++sk_load_half_positive_offset:
+ 	subi	r_scratch1, r_HL, 2
+ 	cmpd	r_scratch1, r_addr
+ 	blt	bpf_slow_path_half
+@@ -61,7 +62,9 @@ sk_load_half:
+ 	.globl	sk_load_byte
+ sk_load_byte:
+ 	cmpdi	r_addr, 0
+-	blt	bpf_error
++	blt	bpf_slow_path_byte_neg
++	.globl	sk_load_byte_positive_offset
++sk_load_byte_positive_offset:
+ 	cmpd	r_HL, r_addr
+ 	ble	bpf_slow_path_byte
+ 	lbzx	r_A, r_D, r_addr
+@@ -69,22 +72,20 @@ sk_load_byte:
+ 
+ /*
+  * BPF_S_LDX_B_MSH: ldxb  4*([offset]&0xf)
+- * r_addr is the offset value, already known positive
++ * r_addr is the offset value
+  */
+ 	.globl sk_load_byte_msh
+ sk_load_byte_msh:
++	cmpdi	r_addr, 0
++	blt	bpf_slow_path_byte_msh_neg
++	.globl sk_load_byte_msh_positive_offset
++sk_load_byte_msh_positive_offset:
+ 	cmpd	r_HL, r_addr
+ 	ble	bpf_slow_path_byte_msh
+ 	lbzx	r_X, r_D, r_addr
+ 	rlwinm	r_X, r_X, 2, 32-4-2, 31-2
+ 	blr
+ 
+-bpf_error:
+-	/* Entered with cr0 = lt */
+-	li	r3, 0
+-	/* Generated code will 'blt epilogue', returning 0. */
+-	blr
+-
+ /* Call out to skb_copy_bits:
+  * We'll need to back up our volatile regs first; we have
+  * local variable space at r1+(BPF_PPC_STACK_BASIC).
+@@ -136,3 +137,84 @@ bpf_slow_path_byte_msh:
+ 	lbz	r_X, BPF_PPC_STACK_BASIC+(2*8)(r1)
+ 	rlwinm	r_X, r_X, 2, 32-4-2, 31-2
+ 	blr
++
++/* Call out to bpf_internal_load_pointer_neg_helper:
++ * We'll need to back up our volatile regs first; we have
++ * local variable space at r1+(BPF_PPC_STACK_BASIC).
++ * Allocate a new stack frame here to remain ABI-compliant in
++ * stashing LR.
++ */
++#define sk_negative_common(SIZE)				\
++	mflr	r0;						\
++	std	r0, 16(r1);					\
++	/* R3 goes in parameter space of caller's frame */	\
++	std	r_skb, (BPF_PPC_STACKFRAME+48)(r1);		\
++	std	r_A, (BPF_PPC_STACK_BASIC+(0*8))(r1);		\
++	std	r_X, (BPF_PPC_STACK_BASIC+(1*8))(r1);		\
++	stdu	r1, -BPF_PPC_SLOWPATH_FRAME(r1);		\
++	/* R3 = r_skb, as passed */				\
++	mr	r4, r_addr;					\
++	li	r5, SIZE;					\
++	bl	bpf_internal_load_pointer_neg_helper;		\
++	/* R3 != 0 on success */				\
++	addi	r1, r1, BPF_PPC_SLOWPATH_FRAME;			\
++	ld	r0, 16(r1);					\
++	ld	r_A, (BPF_PPC_STACK_BASIC+(0*8))(r1);		\
++	ld	r_X, (BPF_PPC_STACK_BASIC+(1*8))(r1);		\
++	mtlr	r0;						\
++	cmpldi	r3, 0;						\
++	beq	bpf_error_slow;	/* cr0 = EQ */			\
++	mr	r_addr, r3;					\
++	ld	r_skb, (BPF_PPC_STACKFRAME+48)(r1);		\
++	/* Great success! */
++
++bpf_slow_path_word_neg:
++	lis     r_scratch1,-32	/* SKF_LL_OFF */
++	cmpd	r_addr, r_scratch1	/* addr < SKF_* */
++	blt	bpf_error	/* cr0 = LT */
++	.globl	sk_load_word_negative_offset
++sk_load_word_negative_offset:
++	sk_negative_common(4)
++	lwz	r_A, 0(r_addr)
++	blr
++
++bpf_slow_path_half_neg:
++	lis     r_scratch1,-32	/* SKF_LL_OFF */
++	cmpd	r_addr, r_scratch1	/* addr < SKF_* */
++	blt	bpf_error	/* cr0 = LT */
++	.globl	sk_load_half_negative_offset
++sk_load_half_negative_offset:
++	sk_negative_common(2)
++	lhz	r_A, 0(r_addr)
++	blr
++
++bpf_slow_path_byte_neg:
++	lis     r_scratch1,-32	/* SKF_LL_OFF */
++	cmpd	r_addr, r_scratch1	/* addr < SKF_* */
++	blt	bpf_error	/* cr0 = LT */
++	.globl	sk_load_byte_negative_offset
++sk_load_byte_negative_offset:
++	sk_negative_common(1)
++	lbz	r_A, 0(r_addr)
++	blr
++
++bpf_slow_path_byte_msh_neg:
++	lis     r_scratch1,-32	/* SKF_LL_OFF */
++	cmpd	r_addr, r_scratch1	/* addr < SKF_* */
++	blt	bpf_error	/* cr0 = LT */
++	.globl	sk_load_byte_msh_negative_offset
++sk_load_byte_msh_negative_offset:
++	sk_negative_common(1)
++	lbz	r_X, 0(r_addr)
++	rlwinm	r_X, r_X, 2, 32-4-2, 31-2
++	blr
++
++bpf_error_slow:
++	/* fabricate a cr0 = lt */
++	li	r_scratch1, -1
++	cmpdi	r_scratch1, 0
++bpf_error:
++	/* Entered with cr0 = lt */
++	li	r3, 0
++	/* Generated code will 'blt epilogue', returning 0. */
++	blr
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 73619d3..2dc8b14 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -127,6 +127,9 @@ static void bpf_jit_build_epilogue(u32 *image, struct codegen_context *ctx)
+ 	PPC_BLR();
+ }
+ 
++#define CHOOSE_LOAD_FUNC(K, func) \
++	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
++
+ /* Assemble the body code between the prologue & epilogue. */
+ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 			      struct codegen_context *ctx,
+@@ -391,21 +394,16 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 
+ 			/*** Absolute loads from packet header/data ***/
+ 		case BPF_S_LD_W_ABS:
+-			func = sk_load_word;
++			func = CHOOSE_LOAD_FUNC(K, sk_load_word);
+ 			goto common_load;
+ 		case BPF_S_LD_H_ABS:
+-			func = sk_load_half;
++			func = CHOOSE_LOAD_FUNC(K, sk_load_half);
+ 			goto common_load;
+ 		case BPF_S_LD_B_ABS:
+-			func = sk_load_byte;
++			func = CHOOSE_LOAD_FUNC(K, sk_load_byte);
+ 		common_load:
+-			/*
+-			 * Load from [K].  Reference with the (negative)
+-			 * SKF_NET_OFF/SKF_LL_OFF offsets is unsupported.
+-			 */
++			/* Load from [K]. */
+ 			ctx->seen |= SEEN_DATAREF;
+-			if ((int)K < 0)
+-				return -ENOTSUPP;
+ 			PPC_LI64(r_scratch1, func);
+ 			PPC_MTLR(r_scratch1);
+ 			PPC_LI32(r_addr, K);
+@@ -429,7 +427,7 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 		common_load_ind:
+ 			/*
+ 			 * Load from [X + K].  Negative offsets are tested for
+-			 * in the helper functions, and result in a 'ret 0'.
++			 * in the helper functions.
+ 			 */
+ 			ctx->seen |= SEEN_DATAREF | SEEN_XREG;
+ 			PPC_LI64(r_scratch1, func);
+@@ -443,13 +441,7 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 			break;
+ 
+ 		case BPF_S_LDX_B_MSH:
+-			/*
+-			 * x86 version drops packet (RET 0) when K<0, whereas
+-			 * interpreter does allow K<0 (__load_pointer, special
+-			 * ancillary data).  common_load returns ENOTSUPP if K<0,
+-			 * so we fall back to interpreter & filter works.
+-			 */
+-			func = sk_load_byte_msh;
++			func = CHOOSE_LOAD_FUNC(K, sk_load_byte_msh);
+ 			goto common_load;
+ 			break;
+ 
