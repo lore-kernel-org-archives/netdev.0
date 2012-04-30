@@ -1,61 +1,64 @@
-From: joseph daniel <josephdanielwalter@gmail.com>
-Subject: [PATCH] net/nfc: Fix the compilation warning
-Date: Mon, 30 Apr 2012 13:43:15 +0600
-Message-ID: <1335771795-18961-1-git-send-email-josephdanielwalter@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 1/1] export sysctl symbols needed by ip_vs_sync
+Date: Mon, 30 Apr 2012 10:47:45 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1204301034450.1649@ja.ssi.bg>
+References: <1335766430-30528-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: joseph daniel <josephdanielwalter@gmail.com>
-To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:54414 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367Ab2D3Hn1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 03:43:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Horms <horms@verge.net.au>, Wensong Zhang <wensong@linux-vs.org>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, hans@schillstrom.com
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1335766430-30528-1-git-send-email-hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-the nfc_llcp_general_bytes is defined in nfc/core.c as
-    static inline u8 *nfc_llcp_general_bytes(struct nfc_dev *dev, size_=
-t *gb_len).
 
-as in nfc/nfc.h:
-    static inline u8 *nfc_llcp_general_bytes(struct nfc_dev *dev, u8 *g=
-b_len), as
-    CONFIG_NFC_LLCP is not defined.
+	Hello,
 
-so we got some warnings,
-net/nfc/core.c:207:2: warning: passing argument 2 of =E2=80=98nfc_llcp_=
-general_bytes=E2=80=99 from incompatible pointer type [enabled by defau=
-lt]
-net/nfc/nfc.h:87:19: note: expected =E2=80=98u8 *=E2=80=99 but argument=
- is of type =E2=80=98size_t *=E2=80=99
+On Mon, 30 Apr 2012, Hans Schillstrom wrote:
 
-Signed-off-by: joseph daniel <josephdanielwalter@gmail.com>
----
- net/nfc/nfc.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> To build ip_vs as a module sysctl_rmem_max and sysctl_wmem_max
+> needs to be exported.
+> The dependency was added by "ipvs: wakeup master thread" patch
+> 
+> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> ---
+>  net/core/sock.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 679c5bb..be8fe5d 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -258,7 +258,9 @@ static struct lock_class_key af_callback_keys[AF_MAX];
+>  
+>  /* Run time adjustable parameters. */
+>  __u32 sysctl_wmem_max __read_mostly = SK_WMEM_MAX;
+> +EXPORT_SYMBOL(sysctl_wmem_max);
+>  __u32 sysctl_rmem_max __read_mostly = SK_RMEM_MAX;
+> +EXPORT_SYMBOL(sysctl_rmem_max);
+>  __u32 sysctl_wmem_default __read_mostly = SK_WMEM_MAX;
+>  __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
+>  
+> -- 
+> 1.7.2.3
 
-diff --git a/net/nfc/nfc.h b/net/nfc/nfc.h
-index ec8794c..549382c 100644
---- a/net/nfc/nfc.h
-+++ b/net/nfc/nfc.h
-@@ -84,7 +84,7 @@ static inline int nfc_llcp_set_remote_gb(struct nfc_d=
-ev *dev,
- 	return 0;
- }
-=20
--static inline u8 *nfc_llcp_general_bytes(struct nfc_dev *dev, u8 *gb_l=
-en)
-+static inline u8 *nfc_llcp_general_bytes(struct nfc_dev *dev, size_t *=
-gb_len)
- {
- 	*gb_len =3D 0;
- 	return NULL;
---=20
-1.7.9.5
+	I see why I missed this error. There is some
+inefficiency in the build process. Once, I tested the
+netns init problems with CONFIG_IP_VS=y, later switched back
+to CONFIG_IP_VS=m without 'make clean' but the ip_vs.ko
+is not considered, I still get ip_vs as builtin, not as
+module:
+
+# cat net/netfilter/ipvs/modules.builtin
+kernel/net/netfilter/ipvs/ip_vs.ko
+
+	Is only 'make clean' a solution for such
+y->m change?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
