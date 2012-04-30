@@ -1,97 +1,70 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 6/6] tilegx network driver: initial support
-Date: Mon, 30 Apr 2012 14:35:08 +0000
-Message-ID: <201204301435.08810.arnd@arndb.de>
-References: <201204062059.q36KxjEO011317@farm-0027.internal.tilera.com> <201204291856.q3TIusXq007168@farm-0027.internal.tilera.com> <201204291859.q3TIxIWB007275@farm-0027.internal.tilera.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201204291859.q3TIxIWB007275@farm-0027.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH 0/8] netfilter updates for 3.4-rc5
+Date: Mon, 30 Apr 2012 17:16:47 +0200
+Message-ID: <1335799015-2003-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 06 April 2012, Chris Metcalf wrote:
-> This change adds support for the tilegx network driver based on the
-> GXIO IORPC support in the tilegx software stack, using the on-chip
-> mPIPE packet processing engine.
-> 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-All my previous comments have been addressed. A few more details
-that I noticed only now:
+Hi David!
 
+This patchset contains the following fixes:
 
-> +/* A mutex for "tile_net_devs_for_channel". */
-> +static struct mutex tile_net_devs_for_channel_mutex;
+* One fix in the initialization path of the IPVS modules spotted by
+  the the trinity syscall fuzz testing tool from Sasha Levin.
 
-static DEFINE_MUTEX()
+* Three patches to address more weak/buggy error handling in the
+  initialization path of the IPVS modules from Hans Schillinstrom.
 
-> +/* The per-cpu info. */
-> +static DEFINE_PER_CPU(struct tile_net_info, per_cpu_info);
-> +
-> +/* Access to "per_cpu_info". */
-> +static struct tile_net_info *infos[NR_CPUS];
+* Fix a regression in the initialization path of ipvs_ctl (introduced in
+  2.6.39) due from Julian Anastasov.
 
-The arrays should not be needed. Using per_cpu() on the variable
-in front of it does the same.
+* A couple more initialization path robust error checkings from Julian
+  Anastasov.
 
-> +static int __init network_cpus_setup(char *str)
-> +{
-> +	int rc = cpulist_parse_crop(str, &network_cpus_map);
-> +	if (rc != 0) {
-> +		pr_warning("network_cpus=%s: malformed cpu list\n",
-> +		       str);
-> +	} else {
-> +
-> +		/* Remove dedicated cpus. */
-> +		cpumask_and(&network_cpus_map, &network_cpus_map,
-> +			    cpu_possible_mask);
-> +
-> +
-> +		if (cpumask_empty(&network_cpus_map)) {
-> +			pr_warning("Ignoring network_cpus='%s'.\n", str);
-> +		} else {
-> +			char buf[1024];
-> +			cpulist_scnprintf(buf, sizeof(buf), &network_cpus_map);
-> +			pr_info("Linux network CPUs: %s\n", buf);
-> +			network_cpus_used = true;
-> +		}
-> +	}
-> +
-> +	return 0;
-> +}
-> +__setup("network_cpus=", network_cpus_setup);
+* One silly fix for xt_CT target for the case in which the new
+  cttimeout infrastructure is not used, eg. --helper or --notrack,
+  by myself.
 
-In device drivers, use module_param() instead of __setup() so that you can
-set the arguments on the kernel command line and using modprobe with the
-same syntax.
+You can pull these fixes from:
 
-> +/* This function takes "skb", consisting of a header template and a
-> + * (presumably) huge payload, and egresses it as one or more segments
-> + * (aka packets), each consisting of a (possibly modified) copy of the
-> + * header plus a piece of the payload, via "tcp segmentation offload".
-> + *
-> + * Usually, "data" will contain the header template, of size "sh_len",
-> + * and "sh->frags" will contain "skb->data_len" bytes of payload, and
-> + * there will be "sh->gso_segs" segments.
-> + *
-> + * Sometimes, if "sendfile()" requires copying, we will be called with
-> + * "data" containing the header and payload, with "frags" being empty.
-> + *
-> + * Sometimes, for example when using NFS over TCP, a single segment can
-> + * span 3 fragments.  This requires special care below.
-> + *
-> + * See "emulate_large_send_offload()" for some reference code, which
-> + * does not handle checksumming.
-> + */
-> +static int tile_net_tx_tso(struct sk_buff *skb, struct net_device *dev)
-> +{
+git://1984.lsi.us.es/net master
 
-This function seems too long to be readable. I would suggest splitting
-out some of the loop bodies in it into separate functions.
+Thanks!
 
-	Arnd
+Hans Schillstrom (3):
+  ipvs: null check of net->ipvs in lblc(r) shedulers
+  ipvs: take care of return value from protocol init_netns
+  ipvs: kernel oops - do_ip_vs_get_ctl
+
+Julian Anastasov (3):
+  ipvs: fix crash in ip_vs_control_net_cleanup on unload
+  ipvs: add check in ftp for initialized core
+  ipvs: reset ipvs pointer in netns
+
+Pablo Neira Ayuso (1):
+  netfilter: xt_CT: fix wrong checking in the timeout assignment path
+
+Sasha Levin (1):
+  ipvs: Verify that IP_VS protocol has been registered
+
+ include/net/ip_vs.h                   |    4 ++-
+ net/netfilter/ipvs/ip_vs_core.c       |   11 +++++++
+ net/netfilter/ipvs/ip_vs_ctl.c        |   56 +++++++++++++++++++--------------
+ net/netfilter/ipvs/ip_vs_ftp.c        |    2 ++
+ net/netfilter/ipvs/ip_vs_lblc.c       |    3 ++
+ net/netfilter/ipvs/ip_vs_lblcr.c      |    3 ++
+ net/netfilter/ipvs/ip_vs_proto.c      |   38 +++++++++++++++-------
+ net/netfilter/ipvs/ip_vs_proto_sctp.c |    5 ++-
+ net/netfilter/ipvs/ip_vs_proto_tcp.c  |    5 ++-
+ net/netfilter/ipvs/ip_vs_proto_udp.c  |    5 ++-
+ net/netfilter/xt_CT.c                 |    2 +-
+ 11 files changed, 94 insertions(+), 40 deletions(-)
+
+-- 
+1.7.9.5
+
