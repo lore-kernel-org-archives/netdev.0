@@ -1,56 +1,98 @@
-From: Jan Seiffert <kaffeemonster@googlemail.com>
-Subject: Re: [REGRESSION][PATCH V4 3/3] bpf jit: Let the powerpc jit handle
- negative offsets
-Date: Tue, 1 May 2012 00:32:13 +0200
-Message-ID: <4F9F12ED.1090009@googlemail.com>
-References: <1335760199.20866.33.camel@pasglop>  <4F9E188E.80503@googlemail.com> <1335763568.20866.37.camel@pasglop>  <20120430.134140.1738751315208907289.davem@davemloft.net>  <1335822926.20866.47.camel@pasglop> <1335823049.20866.48.camel@pasglop>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 01/10] tipc: Optimize re-initialization of configuration service
+Date: Mon, 30 Apr 2012 18:36:59 -0400
+Message-ID: <1335825428-16053-2-git-send-email-paul.gortmaker@windriver.com>
+References: <1335825428-16053-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1335823049.20866.48.camel@pasglop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <allan.stephens@windriver.com>,
+	<jon.maloy@ericsson.com>, <erik.hugne@ericsson.com>,
+	<ying.xue@windriver.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:35012 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757128Ab2D3WhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 18:37:14 -0400
+In-Reply-To: <1335825428-16053-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Benjamin Herrenschmidt schrieb:
-> On Tue, 2012-05-01 at 07:55 +1000, Benjamin Herrenschmidt wrote:
->> On Mon, 2012-04-30 at 13:41 -0400, David Miller wrote:
->>> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
->>> Date: Mon, 30 Apr 2012 15:26:08 +1000
->>>
->>>> David, what's the right way to fix that ?
->>>
->>> There is no doubt that sock_fprog is the correct datastructure to use.
->>
->> Ok, so the right fix is to email anybody who posted code using struct
->> bpf_program to fix their code ? :-)
-> 
-> Actually, the right fix is for anybody using pcap-bpf.h to not
-> use SO_ATTACH_FILTER directly but to use pcap_setfilter() which
-> handles the compatibility.
-> 
+From: Allan Stephens <allan.stephens@windriver.com>
 
-*shudder*
-Link to another lib for only one function because....
+Streamlines the job of re-initializing TIPC's configuration service
+when a node's network address is first assigned. Rather than destroying
+the configuration server port and then recreating it, TIPC now simply
+withdraws the existing {0,<0.0.0>} name publication and creates a new
+{0,<Z.C.N>} name publication that identifies the node's network address
+to interested subscribers.
 
-http://cvsweb.netbsd.org/bsdweb.cgi/src/sys/net/bpf.h?rev=1.59&content-type=text/x-cvsweb-markup&only_with_tag=MAIN
-The "Original" says it's an u_int.
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/config.c |   15 +++++++++++++++
+ net/tipc/config.h |    1 +
+ net/tipc/net.c    |    3 +--
+ 3 files changed, 17 insertions(+), 2 deletions(-)
 
-But i guess it is unfixable without breaking something, except with ugly code.
-Should the padding at least be made explicit in the in-kernel struct?
-Did anyone ever tested the 32bit on 64bit compat code (different padding)?
-
-> I'll start spamming web sites who tell people to do the wrong thing.
-> 
-> Cheers,
-> Ben.
-> 
-
-Greetings
-	Jan
-
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index f5458ed..a4988cd 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -489,6 +489,21 @@ failed:
+ 	return res;
+ }
+ 
++void tipc_cfg_reinit(void)
++{
++	struct tipc_name_seq seq;
++	int res;
++
++	seq.type = TIPC_CFG_SRV;
++	seq.lower = seq.upper = 0;
++	tipc_withdraw(config_port_ref, TIPC_ZONE_SCOPE, &seq);
++
++	seq.lower = seq.upper = tipc_own_addr;
++	res = tipc_publish(config_port_ref, TIPC_ZONE_SCOPE, &seq);
++	if (res)
++		err("Unable to reinitialize configuration service\n");
++}
++
+ void tipc_cfg_stop(void)
+ {
+ 	if (config_port_ref) {
+diff --git a/net/tipc/config.h b/net/tipc/config.h
+index 80da6eb..1f252f3 100644
+--- a/net/tipc/config.h
++++ b/net/tipc/config.h
+@@ -66,6 +66,7 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd,
+ 				int headroom);
+ 
+ int  tipc_cfg_init(void);
++void tipc_cfg_reinit(void);
+ void tipc_cfg_stop(void);
+ 
+ #endif
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 5fab4ff..f4a490b 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -176,7 +176,6 @@ int tipc_net_start(u32 addr)
+ 	char addr_string[16];
+ 
+ 	tipc_subscr_stop();
+-	tipc_cfg_stop();
+ 
+ 	write_lock_bh(&tipc_net_lock);
+ 	tipc_own_addr = addr;
+@@ -186,7 +185,7 @@ int tipc_net_start(u32 addr)
+ 	write_unlock_bh(&tipc_net_lock);
+ 
+ 	tipc_k_signal((Handler)tipc_subscr_start, 0);
+-	tipc_k_signal((Handler)tipc_cfg_init, 0);
++	tipc_cfg_reinit();
+ 
+ 	info("Started in network mode\n");
+ 	info("Own node address %s, network identity %u\n",
 -- 
-A UDP packet walks into a
+1.7.9.6
