@@ -1,27 +1,42 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: usbnet: fix misc bugs
-Date: Mon, 30 Apr 2012 16:51:01 +0800
-Message-ID: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:41790 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751441Ab2D3IvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 04:51:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/3] usbnet: fix leak of transfer buffer of dev->interrupt
+Date: Mon, 30 Apr 2012 16:51:02 +0800
+Message-ID: <1335775864-4873-2-git-send-email-tom.leiming@gmail.com>
+References: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1335775864-4873-1-git-send-email-tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-These patches fix three bugs in usbnet:
-	usbnet: fix leak of transfer buffer of dev->interrupt
-	usbnet: fix failure handling in usbnet_probe
-	usbnet: fix skb traversing races during unlink(v1)
+The transfer buffer of dev->interrupt is allocated in .probe path,
+but not freed in .disconnet path, so mark the interrupt URB as
+URB_FREE_BUFFER to free the buffer when the URB is destroyed.
 
- drivers/net/usb/usbnet.c   |   58 ++++++++++++++++++++++++++++++++------------
- include/linux/usb/usbnet.h |    3 ++-
- 2 files changed, 44 insertions(+), 17 deletions(-)
+Signed-off-by: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/usb/usbnet.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Thanks,
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index db99536..5b38a3a 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -210,6 +210,7 @@ static int init_status (struct usbnet *dev, struct usb_interface *intf)
+ 		} else {
+ 			usb_fill_int_urb(dev->interrupt, dev->udev, pipe,
+ 				buf, maxp, intr_complete, dev, period);
++			dev->interrupt->transfer_flags |= URB_FREE_BUFFER;
+ 			dev_dbg(&intf->dev,
+ 				"status ep%din, %d bytes period %d\n",
+ 				usb_pipeendpoint(pipe), maxp, period);
+-- 
+1.7.9.5
+
 --
-Ming Lei
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
