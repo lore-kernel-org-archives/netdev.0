@@ -1,46 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/10 net-next] l2tp: misc fixes and add L2TPv3 IP
- encap over IPv6
-Date: Mon, 30 Apr 2012 13:46:37 -0400 (EDT)
-Message-ID: <20120430.134637.1965477081443499316.davem@davemloft.net>
-References: <1335772135-27910-1-git-send-email-jchapman@katalix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/4 net-next] net: make GRO aware of skb->head_frag
+Date: Mon, 30 Apr 2012 19:54:06 +0200
+Message-ID: <1335808446.2296.7.camel@edumazet-glaptop>
+References: <1335523026.2775.236.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41040 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752968Ab2D3Rqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 13:46:43 -0400
-In-Reply-To: <1335772135-27910-1-git-send-email-jchapman@katalix.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:59227 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754920Ab2D3RyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 13:54:12 -0400
+Received: by eaaq12 with SMTP id q12so757655eaa.19
+        for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 10:54:11 -0700 (PDT)
+In-Reply-To: <1335523026.2775.236.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Mon, 30 Apr 2012 08:48:45 +0100
+On Fri, 2012-04-27 at 12:37 +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+...
 
-> This patch series includes several L2TP fixes / cleanups and adds
-> L2TPv3 IP encapsulation support for IPv6, building on the L2TP UDP
-> IPv6 support recently added by Ben LaHaise.
-> 
->   1. l2tp: fix locking of 64-bit counters for smp
->   2. l2tp: Use ip4_datagram_connect() in l2tp_ip_connect()
->   3. l2tp: remove unused stats from l2tp_ip socket
->   4. pppox: Replace __attribute__((packed)) in if_pppox.h
->   5. l2tp: pppol2tp_connect() handles ipv6 sockaddr variants
->   6. l2tp: show IPv6 addresses in l2tp debugfs file
->   7. l2tp: netlink api for l2tpv3 ipv6 unmanaged tunnels
->   8. ipv6: export ipv6 functions for use by other protocols
->   9. l2tp: introduce L2TPv3 IP encapsulation support for IPv6
->  10. l2tp: let iproute2 create L2TPv3 IP tunnels using IPv6
-> 
-> Patches 1-4 are fixes / cleanups.
-> Patches 5-6 improve on the L2TP UDP IPv6 changes recently added.
-> Patches 7-10 add functionality.
-> 
-> A patch for iproute2 to add support for unmanaged L2TPv3 ethernet
-> tunnels over IPv6 will be submitted separately.
+> +		first_offset = skb->head -
+> +			       (unsigned char *)page_address(page) +
+> +			       offset;
+> +
+> +		pinfo->nr_frags = nr_frags + 1 + skbinfo->nr_frags;
+> +
 
-Series applied to net-next, thanks James.
+Oops. I realize this is a previous version of this patch.  
+
+skb->head should be changed by skb->data here, I'll post a v2 for this
+GRO change.
