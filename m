@@ -1,69 +1,62 @@
-From: Jan Seiffert <kaffeemonster@googlemail.com>
-Subject: Re: [REGRESSION][PATCH V4 3/3] bpf jit: Let the powerpc jit handle
- negative offsets
-Date: Mon, 30 Apr 2012 05:43:05 +0200
-Message-ID: <4F9E0A49.8090201@googlemail.com>
-References: <4F75CA89.4010709@googlemail.com>  <4F75D2A5.7060407@googlemail.com>  <20120403.180302.342779808900865443.davem@davemloft.net>  <1333491102.3040.12.camel@pasglop> <1335753820.20866.27.camel@pasglop>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: fix infinite cwnd in tcp_complete_cwr()
+Date: Sun, 29 Apr 2012 23:49:01 -0400
+Message-ID: <CADVnQymtZq7BwKkidYWbNK-Yq0OgzcAWP0RodYeLup-foOKtdw@mail.gmail.com>
+References: <1335639894-18569-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<matt@ozlabs.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1335753820.20866.27.camel@pasglop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, ilpo.jarvinen@helsinki.fi,
+	nanditad@google.com, netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:33918 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755082Ab2D3DtB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2012 23:49:01 -0400
+Received: by iadi9 with SMTP id i9so3596951iad.19
+        for <netdev@vger.kernel.org>; Sun, 29 Apr 2012 20:49:01 -0700 (PDT)
+In-Reply-To: <1335639894-18569-1-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Benjamin Herrenschmidt schrieb:
-> On Wed, 2012-04-04 at 08:11 +1000, Benjamin Herrenschmidt wrote:
->> On Tue, 2012-04-03 at 18:03 -0400, David Miller wrote:
->> 
->>>> Signed-off-by: Jan Seiffert <kaffeemonster@googlemail.com>
->>>> 
->>>> I have only compile tested this, -ENOHARDWARE. Can someone with
->>>> more powerpc kung-fu review and maybe test this? Esp. powerpc
->>>> asm is not my strong point. I think i botched the stack frame
->>>> in the call setup. Help?
->>> 
->>> I'm not applying this until a powerpc person tests it.
->>> 
->>> Also, we have an ARM JIT in the tree which probably needs to be
->>> fixed similarly.
->> 
->> Matt's having a look at powerpc
-> 
-> Ok, he hasn't so I'll dig a bit.
-> 
+On Sat, Apr 28, 2012 at 3:04 PM, Yuchung Cheng <ycheng@google.com> wrot=
+e:
+> When the cwnd reduction is done, ssthresh may be infinite
+> if TCP enters CWR via ECN or F-RTO. If cwnd is not undone, i.e.,
+> undo_marker is set, tcp_complete_cwr() falsely set cwnd to the
+> infinite ssthresh value. The correct operation is to keep cwnd
+> intact because it has been updated in ECN or F-RTO.
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> ---
+> =A0net/ipv4/tcp_input.c | =A0 =A08 +++++---
+> =A01 files changed, 5 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index c93b0cb..ac417de 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2868,11 +2868,13 @@ static inline void tcp_complete_cwr(struct so=
+ck *sk)
+>
+> =A0 =A0 =A0 =A0/* Do not moderate cwnd if it's already undone in cwr =
+or recovery. */
+> =A0 =A0 =A0 =A0if (tp->undo_marker) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (inet_csk(sk)->icsk_ca_state =3D=3D =
+TCP_CA_CWR)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (inet_csk(sk)->icsk_ca_state =3D=3D =
+TCP_CA_CWR) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tp->snd_cwnd =3D min(t=
+p->snd_cwnd, tp->snd_ssthresh);
 
-That would be great Benjamin!
+In this TCP_CA_CWR case the patch needs to add the assignment:
 
-> No obvious wrongness (but I'm not very familiar with bpf),
+     tp->snd_cwnd_stamp =3D tcp_time_stamp;
 
-As long as you know PPC ASM you are my man ;-)
+I know that was in earlier versions of your patch; looks like it just
+got accidentally dropped on this latest version.
 
-> though I do have a comment: sk_negative_common() and
-> bpf_slow_path_common() should be made one and single macro which
-> takes the fallback function as an argument.
-> 
+Otherwise, looks good to me.
 
-I don't know if this is possible.
-The return value is different (one returns 0 on success, the other != 0,
-the return value of != is needed). I didn't wanted to change to much,
-because i'm not fluent in ppc.
-
-> I'll mess around & try to test using Jan test case & will come back 
-> with an updated patch.
-> 
-
-Would be great!
-
-> Cheers, Ben.
-> 
-
-Greetings
-	Jan
-
--- 
-A UDP packet walks into a
+neal
