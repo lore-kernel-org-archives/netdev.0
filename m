@@ -1,139 +1,37 @@
-From: pablo@netfilter.org
-Subject: [PATCH 6/8] ipvs: take care of return value from protocol init_netns
-Date: Mon, 30 Apr 2012 17:16:53 +0200
-Message-ID: <1335799015-2003-7-git-send-email-pablo@netfilter.org>
-References: <1335799015-2003-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/2] sky2: propogate rx hash when packet is copied
+Date: Mon, 30 Apr 2012 08:49:45 -0700
+Message-ID: <20120430155027.152144873@vyatta.com>
+References: <20120430154944.890709139@vyatta.com>
+Cc: netdev@vger.kernel.org, Mirko Lindner <mlindner@marvell.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34543 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756100Ab2D3PR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 11:17:29 -0400
-In-Reply-To: <1335799015-2003-1-git-send-email-pablo@netfilter.org>
+Received: from sfca-50.vyatta.com ([76.74.103.50]:44365 "EHLO fiji.vyatta.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753134Ab2D3P4h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 11:56:37 -0400
+Content-Disposition: inline; filename=sky2-rxhash.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+When a small packet is received, the driver copies it to a new skb to allow
+reusing the full size Rx buffer. The copy was propogating the checksum offload
+but not the receive hash information. The bug is impact was mostly harmless
+and therefore not observed until reviewing this area of code.
 
-ip_vs_create_timeout_table() can return NULL
-All functions protocol init_netns is affected of this patch.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h                   |    2 +-
- net/netfilter/ipvs/ip_vs_proto.c      |   11 +++++++++--
- net/netfilter/ipvs/ip_vs_proto_sctp.c |    5 ++++-
- net/netfilter/ipvs/ip_vs_proto_tcp.c  |    5 ++++-
- net/netfilter/ipvs/ip_vs_proto_udp.c  |    5 ++++-
- 5 files changed, 22 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 2bdee51..6d90dda 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -393,7 +393,7 @@ struct ip_vs_protocol {
- 
- 	void (*exit)(struct ip_vs_protocol *pp);
- 
--	void (*init_netns)(struct net *net, struct ip_vs_proto_data *pd);
-+	int (*init_netns)(struct net *net, struct ip_vs_proto_data *pd);
- 
- 	void (*exit_netns)(struct net *net, struct ip_vs_proto_data *pd);
- 
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index a62360e..ed835e6 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -78,8 +78,15 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
- 	ipvs->proto_data_table[hash] = pd;
- 	atomic_set(&pd->appcnt, 0);	/* Init app counter */
- 
--	if (pp->init_netns != NULL)
--		pp->init_netns(net, pd);
-+	if (pp->init_netns != NULL) {
-+		int ret = pp->init_netns(net, pd);
-+		if (ret) {
-+			/* unlink an free proto data */
-+			ipvs->proto_data_table[hash] = pd->next;
-+			kfree(pd);
-+			return ret;
-+		}
-+	}
- 
- 	return 0;
- }
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index 1fbf7a2..9f3fb75 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -1090,7 +1090,7 @@ out:
-  *   timeouts is netns related now.
-  * ---------------------------------------------
-  */
--static void __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
-+static int __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -1098,6 +1098,9 @@ static void __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	spin_lock_init(&ipvs->sctp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)sctp_timeouts,
- 							sizeof(sctp_timeouts));
-+	if (!pd->timeout_table)
-+		return -ENOMEM;
-+	return 0;
- }
- 
- static void __ip_vs_sctp_exit(struct net *net, struct ip_vs_proto_data *pd)
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index ef8641f..cd609cc 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -677,7 +677,7 @@ void ip_vs_tcp_conn_listen(struct net *net, struct ip_vs_conn *cp)
-  *   timeouts is netns related now.
-  * ---------------------------------------------
-  */
--static void __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
-+static int __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -685,7 +685,10 @@ static void __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	spin_lock_init(&ipvs->tcp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)tcp_timeouts,
- 							sizeof(tcp_timeouts));
-+	if (!pd->timeout_table)
-+		return -ENOMEM;
- 	pd->tcp_state_table =  tcp_states;
-+	return 0;
- }
- 
- static void __ip_vs_tcp_exit(struct net *net, struct ip_vs_proto_data *pd)
-diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
-index f4b7262..2fedb2d 100644
---- a/net/netfilter/ipvs/ip_vs_proto_udp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
-@@ -467,7 +467,7 @@ udp_state_transition(struct ip_vs_conn *cp, int direction,
- 	cp->timeout = pd->timeout_table[IP_VS_UDP_S_NORMAL];
- }
- 
--static void __udp_init(struct net *net, struct ip_vs_proto_data *pd)
-+static int __udp_init(struct net *net, struct ip_vs_proto_data *pd)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-@@ -475,6 +475,9 @@ static void __udp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	spin_lock_init(&ipvs->udp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)udp_timeouts,
- 							sizeof(udp_timeouts));
-+	if (!pd->timeout_table)
-+		return -ENOMEM;
-+	return 0;
- }
- 
- static void __udp_exit(struct net *net, struct ip_vs_proto_data *pd)
--- 
-1.7.9.5
+--- a/drivers/net/ethernet/marvell/sky2.c	2012-04-30 08:19:56.225976395 -0700
++++ b/drivers/net/ethernet/marvell/sky2.c	2012-04-30 08:21:05.395136397 -0700
+@@ -2494,8 +2494,11 @@ static struct sk_buff *receive_copy(stru
+ 		skb_copy_from_linear_data(re->skb, skb->data, length);
+ 		skb->ip_summed = re->skb->ip_summed;
+ 		skb->csum = re->skb->csum;
++		skb->rxhash = re->skb->rxhash;
++
+ 		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
+ 					       length, PCI_DMA_FROMDEVICE);
++		re->skb->rxhash = 0;
+ 		re->skb->ip_summed = CHECKSUM_NONE;
+ 		skb_put(skb, length);
+ 	}
