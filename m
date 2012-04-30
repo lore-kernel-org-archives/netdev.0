@@ -1,74 +1,41 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] usbnet: fix skb traversing races during unlink
-Date: Mon, 30 Apr 2012 16:13:40 +0800
-Message-ID: <CACVXFVPzZF1BTN+0frDh5EyQnpAvkPSbMEAhWmUw2OgaTEwF1g@mail.gmail.com>
-References: <1335522095-9012-1-git-send-email-tom.leiming@gmail.com>
-	<20120428.221832.360259077795872366.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	oneukum-l3A5Bk7waGM@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120428.221832.360259077795872366.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: [PATCH 1/2] net: ucc_geth, increase no. of HW RX descriptors
+Date: Mon, 30 Apr 2012 10:36:54 +0200
+Message-ID: <1335775015-14718-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.transmode.se ([195.58.98.146]:54649 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751696Ab2D3IhK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 04:37:10 -0400
+Received: from mail1.transmode.se (mail1.transmode.se [192.168.201.18])
+	by gw1.transmode.se (Postfix) with ESMTP id 0B5C525803A
+	for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 10:37:08 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 29, 2012 at 10:18 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wr=
-ote:
-> From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Fri, 27 Apr 2012 18:21:35 +0800
->
->> +/*The caller must hold list->lock*/
->
-> Please put spaces in your comments, like this:
->
-> /* The caller must hold list->lock */
->
->> +
->> + =A0 =A0 =A0 =A0 =A0 =A0 /*speedup unlink by blocking resubmit*/
->
-> Same here.
+In a busy network we see ucc_geth is dropping RX pkgs every now
+and then. Increase the RX queues HW descriptors from
+16 to 32 to deal with this.
 
-OK, will do it.
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
+ drivers/net/ethernet/freescale/ucc_geth.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->>
->> - =A0 =A0 =A0 =A0 =A0 =A0 entry =3D (struct skb_data *) skb->cb;
->> + =A0 =A0 =A0 =A0 =A0 =A0 skb_queue_walk(q, skb) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 entry =3D (struct skb_data=
- *) skb->cb;
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (entry->state !=3D unli=
-nk_start)
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
->> + =A0 =A0 =A0 =A0 =A0 =A0 }
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (skb =3D=3D (struct sk_buff *)q)
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
->
-> Please do not expose the internal details of SKB lists
-> with a test like this. =A0Eventually this will all be
-> converted to struct list_head and this kind of test
-> will cause unnecessary pain for such a conversion.
->
-> Instead, code it like this, as you would for a loop
-> using list_for_each*() or similar:
->
-> =A0 =A0 =A0 =A0skb_queue_walk(q, skb) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (condition)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto found;
-> =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0/* No matching entry. */
-> =A0 =A0 =A0 =A0break;
-> found:
-
-Good suggestion, will do it.
-
-
-Thanks,
---=20
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/freescale/ucc_geth.h b/drivers/net/ethernet/freescale/ucc_geth.h
+index 2e395a2..f71b3e7 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth.h
++++ b/drivers/net/ethernet/freescale/ucc_geth.h
+@@ -877,7 +877,7 @@ struct ucc_geth_hardware_statistics {
+ 
+ /* Driver definitions */
+ #define TX_BD_RING_LEN                          0x10
+-#define RX_BD_RING_LEN                          0x10
++#define RX_BD_RING_LEN                          0x20
+ 
+ #define TX_RING_MOD_MASK(size)                  (size-1)
+ #define RX_RING_MOD_MASK(size)                  (size-1)
+-- 
+1.7.3.4
