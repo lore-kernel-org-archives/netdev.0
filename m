@@ -1,55 +1,175 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/3] igbvf: fix the bug when initializing the igbvf
-Date: Mon, 30 Apr 2012 16:16:32 -0700
-Message-ID: <1335827794-26992-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1335827794-26992-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shan Wei <shanwei88@gmail.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Samuel Liao <samuelliao@tencent.com>,
-	Shan Wei <davidshan@tencent.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH 3/4 v2 net-next] net: make GRO aware of skb->head_frag
+Date: Mon, 30 Apr 2012 16:36:02 -0700
+Message-ID: <4F9F21E2.3080407@intel.com>
+References: <1335523026.2775.236.camel@edumazet-glaptop> <1335809434.2296.9.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	=?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
+	=?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48974 "EHLO mga02.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:5178 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756932Ab2D3XQg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 19:16:36 -0400
-In-Reply-To: <1335827794-26992-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1756767Ab2D3XgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 19:36:03 -0400
+In-Reply-To: <1335809434.2296.9.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei88@gmail.com>
+On 04/30/2012 11:10 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> GRO can check if skb to be merged has its skb->head mapped to a page
+> fragment, instead of a kmalloc() area.
+>
+> We 'upgrade' skb->head as a fragment in itself
+>
+> This avoids the frag_list fallback, and permits to build true GRO skb
+> (one sk_buff and up to 16 fragments), using less memory.
+>
+> This reduces number of cache misses when user makes its copy, since a
+> single sk_buff is fetched.
+>
+> This is a followup of patch "net: allow skb->head to be a page fragme=
+nt"
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Maciej =C5=BBenczykowski <maze@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Tom Herbert <therbert@google.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: Ben Hutchings <bhutchings@solarflare.com>
+> Cc: Matt Carlson <mcarlson@broadcom.com>
+> Cc: Michael Chan <mchan@broadcom.com>
+> ---
+>
+> v2: change skb->head by skb->data to compute correct first_offset in
+> frag
+>
+>  include/linux/netdevice.h |    2 ++
+>  include/linux/skbuff.h    |    1 +
+>  net/core/dev.c            |    5 ++++-
+>  net/core/skbuff.c         |   27 ++++++++++++++++++++++++++-
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index e0b70e9..7f377fb 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1509,6 +1509,8 @@ struct napi_gro_cb {
+> =20
+>  	/* Free the skb? */
+>  	int free;
+> +#define NAPI_GRO_FREE		  1
+> +#define NAPI_GRO_FREE_STOLEN_HEAD 2
+>  };
+> =20
+>  #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 9d28a22..2c75e98 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -561,6 +561,7 @@ static inline struct rtable *skb_rtable(const str=
+uct sk_buff *skb)
+>  extern void kfree_skb(struct sk_buff *skb);
+>  extern void consume_skb(struct sk_buff *skb);
+>  extern void	       __kfree_skb(struct sk_buff *skb);
+> +extern struct kmem_cache *skbuff_head_cache;
+>  extern struct sk_buff *__alloc_skb(unsigned int size,
+>  				   gfp_t priority, int fclone, int node);
+>  extern struct sk_buff *build_skb(void *data, unsigned int frag_size)=
+;
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 501f3cc..a2be59f 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3546,7 +3546,10 @@ gro_result_t napi_skb_finish(gro_result_t ret,=
+ struct sk_buff *skb)
+>  		break;
+> =20
+>  	case GRO_MERGED_FREE:
+> -		consume_skb(skb);
+> +		if (NAPI_GRO_CB(skb)->free =3D=3D NAPI_GRO_FREE_STOLEN_HEAD)
+> +			kmem_cache_free(skbuff_head_cache, skb);
+> +		else
+> +			__kfree_skb(skb);
+>  		break;
+> =20
+>  	case GRO_HELD:
+How can you go from consume_skb() which checks for skb->users to a case
+that doesn't, or are you guaranteed that there is no way to get here
+with skb->users greater than 1?
 
-Maybe it's a typo, but it cause that igbvf can't be initialized successfully.
-Set perm_addr value using valid dev_addr, although which is equal to hw.mac.addr.
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index effa75d..2ad1ee7 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -69,7 +69,7 @@
+>  #include <trace/events/skb.h>
+>  #include <linux/highmem.h>
+> =20
+> -static struct kmem_cache *skbuff_head_cache __read_mostly;
+> +struct kmem_cache *skbuff_head_cache __read_mostly;
+>  static struct kmem_cache *skbuff_fclone_cache __read_mostly;
+> =20
+>  static void sock_pipe_buf_release(struct pipe_inode_info *pipe,
+> @@ -2901,6 +2901,31 @@ int skb_gro_receive(struct sk_buff **head, str=
+uct sk_buff *skb)
+> =20
+>  		NAPI_GRO_CB(skb)->free =3D 1;
+>  		goto done;
+> +	} else if (skb->head_frag) {
+> +		int nr_frags =3D pinfo->nr_frags;
+> +		skb_frag_t *frag =3D pinfo->frags + nr_frags;
+> +		struct page *page =3D virt_to_head_page(skb->head);
+> +		unsigned int first_size =3D headlen - offset;
+> +		unsigned int first_offset;
+> +
+> +		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS)
+> +			return -E2BIG;
+> +
+> +		first_offset =3D skb->data -
+> +			       (unsigned char *)page_address(page) +
+> +			       offset;
+> +
+> +		pinfo->nr_frags =3D nr_frags + 1 + skbinfo->nr_frags;
+> +
+> +		frag->page.p	  =3D page;
+> +		frag->page_offset =3D first_offset;
+> +		skb_frag_size_set(frag, first_size);
+> +
+> +		memcpy(frag + 1, skbinfo->frags, sizeof(*frag) * skbinfo->nr_frags=
+);
+> +		/* We dont need to clear skbinfo->nr_frags here */
+> +
+> +		NAPI_GRO_CB(skb)->free =3D NAPI_GRO_FREE_STOLEN_HEAD;
+> +		goto done;
+>  	} else if (skb_gro_len(p) !=3D pinfo->gso_size)
+>  		return -E2BIG;
+> =20
+>
+>
+Maybe I missed something, but shouldn't you be checking skb->cloned, an=
+d
+skb_shinfo()->dataref before you can consider just dropping the
+sk_buff?  It seems like if you are sharing the frag with a clone you
+would have to retain the skb->head so that you can track the dataref.=20
+Otherwise you will likely cause issues because the stack could end up
+freeing the sk_buff, or the GRO frame will be capable of calling
+put_page and freeing the page out from under the clone.
 
-Signed-off-by: Samuel Liao <samuelliao@tencent.com>
-Signed-off-by: Shan Wei <davidshan@tencent.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igbvf/netdev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Thanks,
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index d61ca2a..8ec74b0 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -2731,14 +2731,14 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
- 			netdev->addr_len);
- 	}
- 
--	if (!is_valid_ether_addr(netdev->perm_addr)) {
-+	if (!is_valid_ether_addr(netdev->dev_addr)) {
- 		dev_err(&pdev->dev, "Invalid MAC Address: %pM\n",
- 		        netdev->dev_addr);
- 		err = -EIO;
- 		goto err_hw_init;
- 	}
- 
--	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
-+	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
- 
- 	setup_timer(&adapter->watchdog_timer, &igbvf_watchdog,
- 	            (unsigned long) adapter);
--- 
-1.7.7.6
+Alex
