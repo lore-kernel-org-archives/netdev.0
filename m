@@ -1,62 +1,57 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp: fix infinite cwnd in tcp_complete_cwr()
-Date: Sun, 29 Apr 2012 23:49:01 -0400
-Message-ID: <CADVnQymtZq7BwKkidYWbNK-Yq0OgzcAWP0RodYeLup-foOKtdw@mail.gmail.com>
-References: <1335639894-18569-1-git-send-email-ycheng@google.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [REGRESSION][PATCH V4 3/3] bpf jit: Let the powerpc jit handle
+ negative offsets
+Date: Mon, 30 Apr 2012 14:11:28 +1000
+Message-ID: <1335759088.20866.32.camel@pasglop>
+References: <4F75CA89.4010709@googlemail.com>
+	 <4F75D2A5.7060407@googlemail.com>
+	 <20120403.180302.342779808900865443.davem@davemloft.net>
+	 <1333491102.3040.12.camel@pasglop> <1335753820.20866.27.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, ilpo.jarvinen@helsinki.fi,
-	nanditad@google.com, netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:33918 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755082Ab2D3DtB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Apr 2012 23:49:01 -0400
-Received: by iadi9 with SMTP id i9so3596951iad.19
-        for <netdev@vger.kernel.org>; Sun, 29 Apr 2012 20:49:01 -0700 (PDT)
-In-Reply-To: <1335639894-18569-1-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kaffeemonster@googlemail.com, eric.dumazet@gmail.com,
+	matt@ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1335753820.20866.27.camel@pasglop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 28, 2012 at 3:04 PM, Yuchung Cheng <ycheng@google.com> wrot=
-e:
-> When the cwnd reduction is done, ssthresh may be infinite
-> if TCP enters CWR via ECN or F-RTO. If cwnd is not undone, i.e.,
-> undo_marker is set, tcp_complete_cwr() falsely set cwnd to the
-> infinite ssthresh value. The correct operation is to keep cwnd
-> intact because it has been updated in ECN or F-RTO.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
-> =A0net/ipv4/tcp_input.c | =A0 =A08 +++++---
-> =A01 files changed, 5 insertions(+), 3 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index c93b0cb..ac417de 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -2868,11 +2868,13 @@ static inline void tcp_complete_cwr(struct so=
-ck *sk)
->
-> =A0 =A0 =A0 =A0/* Do not moderate cwnd if it's already undone in cwr =
-or recovery. */
-> =A0 =A0 =A0 =A0if (tp->undo_marker) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (inet_csk(sk)->icsk_ca_state =3D=3D =
-TCP_CA_CWR)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (inet_csk(sk)->icsk_ca_state =3D=3D =
-TCP_CA_CWR) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tp->snd_cwnd =3D min(t=
-p->snd_cwnd, tp->snd_ssthresh);
+On Mon, 2012-04-30 at 12:43 +1000, Benjamin Herrenschmidt wrote:
 
-In this TCP_CA_CWR case the patch needs to add the assignment:
+> > Matt's having a look at powerpc
+> 
+> Ok, he hasn't so I'll dig a bit.
+> 
+> No obvious wrongness (but I'm not very familiar with bpf), though I do
+> have a comment: sk_negative_common() and bpf_slow_path_common() should
+> be made one and single macro which takes the fallback function as an
+> argument.
 
-     tp->snd_cwnd_stamp =3D tcp_time_stamp;
+Ok, with the compile fix below it seems to work for me:
 
-I know that was in earlier versions of your patch; looks like it just
-got accidentally dropped on this latest version.
+(Feel free to fold that into the original patch)
 
-Otherwise, looks good to me.
-
-neal
+diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
+index af1ab5e..5c3cf2d 100644
+--- a/arch/powerpc/net/bpf_jit.h
++++ b/arch/powerpc/net/bpf_jit.h
+@@ -48,7 +48,13 @@
+ /*
+  * Assembly helpers from arch/powerpc/net/bpf_jit.S:
+  */
+-extern u8 sk_load_word[], sk_load_half[], sk_load_byte[], sk_load_byte_msh[];
++#define DECLARE_LOAD_FUNC(func)	\
++	extern u8 func[], func##_negative_offset[], func##_positive_offset[]
++
++DECLARE_LOAD_FUNC(sk_load_word);
++DECLARE_LOAD_FUNC(sk_load_half);
++DECLARE_LOAD_FUNC(sk_load_byte);
++DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ 
+ #define FUNCTION_DESCR_SIZE	24
+ 
+Cheers,
+Ben.
