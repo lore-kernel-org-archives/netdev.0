@@ -1,42 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [REGRESSION][PATCH V5 3/3] bpf jit: Let the powerpc jit handle
- negative offsets
-Date: Mon, 30 Apr 2012 13:41:48 -0400 (EDT)
-Message-ID: <20120430.134148.722408249106132399.davem@davemloft.net>
-References: <1335753820.20866.27.camel@pasglop>
-	<1335759088.20866.32.camel@pasglop>
-	<4F9E1CDB.9020104@googlemail.com>
+Subject: Re: [PATCH v2] tcp: fix infinite cwnd in tcp_complete_cwr()
+Date: Mon, 30 Apr 2012 13:45:40 -0400 (EDT)
+Message-ID: <20120430.134540.610433288172120407.davem@davemloft.net>
+References: <1335801618-31498-1-git-send-email-ycheng@google.com>
+	<CADVnQymFjqqT__kCN-0vqz+jqBLez7aoQZ14KEV5=m=Ed=Nayw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org,
-	eric.dumazet@gmail.com, matt@ozlabs.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: kaffeemonster@googlemail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F9E1CDB.9020104@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ycheng@google.com, ilpo.jarvinen@helsinki.fi, nanditad@google.com,
+	netdev@vger.kernel.org
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41035 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752968Ab2D3Rpx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 13:45:53 -0400
+In-Reply-To: <CADVnQymFjqqT__kCN-0vqz+jqBLez7aoQZ14KEV5=m=Ed=Nayw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Seiffert <kaffeemonster@googlemail.com>
-Date: Mon, 30 Apr 2012 07:02:19 +0200
+=46rom: Neal Cardwell <ncardwell@google.com>
+Date: Mon, 30 Apr 2012 12:25:56 -0400
 
-> Now the helper function from filter.c for negative offsets is exported,
-> it can be used it in the jit to handle negative offsets.
-> 
-> First modify the asm load helper functions to handle:
-> - know positive offsets
-> - know negative offsets
-> - any offset
-> 
-> then the compiler can be modified to explicitly use these helper
-> when appropriate.
-> 
-> This fixes the case of a negative X register and allows to lift
-> the restriction that bpf programs with negative offsets can't
-> be jited.
-> 
-> Tested-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Signed-off-by: Jan Seiffert <kaffeemonster@googlemail.com>
+> On Mon, Apr 30, 2012 at 12:00 PM, Yuchung Cheng <ycheng@google.com> w=
+rote:
+>> When the cwnd reduction is done, ssthresh may be infinite
+>> if TCP enters CWR via ECN or F-RTO. If cwnd is not undone, i.e.,
+>> undo_marker is set, tcp_complete_cwr() falsely set cwnd to the
+>> infinite ssthresh value. The correct operation is to keep cwnd
+>> intact because it has been updated in ECN or F-RTO.
+>>
+>> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+>> ---
+>> ChangeLog since v1:
+>> =A0- Add snd_cwnd_stamp timestamping in CWR mode
+>>
+>> =A0net/ipv4/tcp_input.c | =A0 =A09 ++++++---
+>> =A01 files changed, 6 insertions(+), 3 deletions(-)
+>=20
+> Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
