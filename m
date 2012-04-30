@@ -1,44 +1,46 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [REGRESSION][PATCH V4 3/3] bpf jit: Let the powerpc jit handle
- negative offsets
-Date: Mon, 30 Apr 2012 15:26:08 +1000
-Message-ID: <1335763568.20866.37.camel@pasglop>
-References: <4F75CA89.4010709@googlemail.com>
-	 <4F75D2A5.7060407@googlemail.com>
-	 <20120403.180302.342779808900865443.davem@davemloft.net>
-	 <1333491102.3040.12.camel@pasglop> <1335753820.20866.27.camel@pasglop>
-	 <1335759088.20866.32.camel@pasglop> <4F9E1496.9060603@googlemail.com>
-	 <1335760199.20866.33.camel@pasglop> <4F9E188E.80503@googlemail.com>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: [PATCH] net: skb_set_dev do not unconditionally drop ref to dst
+Date: Mon, 30 Apr 2012 07:38:04 +0200
+Message-ID: <20120430053804.GA59677@tuxmaker.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	matt@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: kaffeemonster@googlemail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:45860 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751012Ab2D3F0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 01:26:23 -0400
-In-Reply-To: <4F9E188E.80503@googlemail.com>
+Received: from e06smtp12.uk.ibm.com ([195.75.94.108]:34987 "EHLO
+	e06smtp12.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751564Ab2D3FiK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 01:38:10 -0400
+Received: from /spool/local
+	by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <blaschka@linux.vnet.ibm.com>;
+	Mon, 30 Apr 2012 06:38:08 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-> No idea, i was going by the old saying:
-> "Thou shall not include kernel header, or you will feel the wrath of angry
-> kernel gurus."
+commit 8a83a00b0735190384a348156837918271034144 unconditionally
+drops dst reference when skb->dev is set. This causes a regression
+with VLAN and the qeth_l3 network driver. qeth_l3 can not get gw
+information from the skb coming from the vlan driver. It is only
+valid to drop the dst in case of different name spaces.
 
-Heh :-)
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
+ net/core/dev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Well, googling around, it looks like there's a mix of both type of
-programs out there. Those using a struct bpf_program and those using a
-struct soft_fprog.
-
-Only the latter will work on BE machines as far as I can tell.
-
-David, what's the right way to fix that ?
-
-Cheers,
-Ben.
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1881,8 +1881,8 @@ EXPORT_SYMBOL(netif_device_attach);
+ #ifdef CONFIG_NET_NS
+ void skb_set_dev(struct sk_buff *skb, struct net_device *dev)
+ {
+-	skb_dst_drop(skb);
+ 	if (skb->dev && !net_eq(dev_net(skb->dev), dev_net(dev))) {
++		skb_dst_drop(skb);
+ 		secpath_reset(skb);
+ 		nf_reset(skb);
+ 		skb_init_secmark(skb);
