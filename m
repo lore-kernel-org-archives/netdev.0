@@ -1,86 +1,53 @@
-From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-Subject: [PATCH 2/2] cs89x0_platform : avoid requesting the i/o memory range twice
-Date: Mon, 30 Apr 2012 11:58:09 +0200
-Message-ID: <1335779889-30454-1-git-send-email-jaccon.bastiaansen@gmail.com>
-Cc: festevam@gmail.com, linux-arm-kernel@lists.infradead.org,
-	kernel@pengutronix.de, netdev@vger.kernel.org,
-	Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-To: s.hauer@pengutronix.de, gfm@funxed.com, davem@davemloft.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: bridge: Fix fatal typo in setup of multicast_querier_expired
+Date: Mon, 30 Apr 2012 20:22:56 +1000
+Message-ID: <20120430102256.GA32587@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:53474 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752297Ab2D3J6Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 05:58:16 -0400
-Received: by mail-ey0-f174.google.com with SMTP id q12so631024eaa.19
-        for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 02:58:16 -0700 (PDT)
+Received: from sting.hengli.com.au ([178.18.18.71]:53948 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755574Ab2D3KXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 06:23:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the platform driver option of the cs89x0 driver is used, the i/o
-memory range is requested twice, resulting in a failed driver
-initialization.
+Unfortunately it seems that I didn't properly test the case of
+an expired external querier in the recent multicast bridge series.
 
-Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
----
- drivers/net/ethernet/cirrus/cs89x0.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+The setup of the timer in that case is completely broken and leads
+to a NULL-pointer dereference.  This patch fixes it.
 
-diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-index 95737e9..f88a237 100644
---- a/drivers/net/ethernet/cirrus/cs89x0.c
-+++ b/drivers/net/ethernet/cirrus/cs89x0.c
-@@ -544,14 +544,15 @@ cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular)
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 26df642..b320871 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -744,8 +744,7 @@ static void br_multicast_local_router_expired(unsigned long data)
  
-         }
+ static void br_multicast_querier_expired(unsigned long data)
+ {
+-	struct net_bridge_port *port = (void *)data;
+-	struct net_bridge *br = port->br;
++	struct net_bridge *br = (void *)data;
  
-+#ifndef CONFIG_CS89x0_PLATFORM
- 	/* Grab the region so we can find another board if autoIRQ fails. */
- 	/* WTF is going on here? */
- 	if (!request_region(ioaddr & ~3, NETCARD_IO_EXTENT, DRV_NAME)) {
- 		printk(KERN_ERR "%s: request_region(0x%lx, 0x%x) failed\n",
- 				DRV_NAME, ioaddr, NETCARD_IO_EXTENT);
--		retval = -EBUSY;
--		goto out1;
-+		return -EBUSY;
- 	}
-+#endif
- 
- 	/* if they give us an odd I/O address, then do ONE write to
-            the address port, to get it back to address zero, where we
-@@ -565,7 +566,7 @@ cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular)
- 				printk(KERN_ERR "%s: bad signature 0x%x\n",
- 					dev->name, readword(ioaddr & ~3, ADD_PORT));
- 		        	retval = -ENODEV;
--				goto out2;
-+				goto out1;
- 			}
- 	}
- 
-@@ -580,7 +581,7 @@ cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular)
- 			CHIP_EISA_ID_SIG_STR "\n",
- 			dev->name, ioaddr, DATA_PORT, tmp);
-   		retval = -ENODEV;
--  		goto out2;
-+		goto out1;
- 	}
- 
- 	/* Fill in the 'dev' fields. */
-@@ -799,13 +800,12 @@ cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular)
- 
- 	retval = register_netdev(dev);
- 	if (retval)
--		goto out3;
-+		goto out2;
- 	return 0;
--out3:
--	writeword(dev->base_addr, ADD_PORT, PP_ChipID);
- out2:
--	release_region(ioaddr & ~3, NETCARD_IO_EXTENT);
-+	writeword(dev->base_addr, ADD_PORT, PP_ChipID);
- out1:
-+	release_region(ioaddr & ~3, NETCARD_IO_EXTENT);
- 	return retval;
+ 	spin_lock(&br->multicast_lock);
+ 	if (!netif_running(br->dev) || br->multicast_disabled)
+@@ -1581,7 +1580,7 @@ void br_multicast_init(struct net_bridge *br)
+ 	setup_timer(&br->multicast_router_timer,
+ 		    br_multicast_local_router_expired, 0);
+ 	setup_timer(&br->multicast_querier_timer,
+-		    br_multicast_querier_expired, 0);
++		    br_multicast_querier_expired, (unsigned long)br);
+ 	setup_timer(&br->multicast_query_timer, br_multicast_query_expired,
+ 		    (unsigned long)br);
  }
- 
+
+Sorry for the screw-up.
 -- 
-1.7.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
