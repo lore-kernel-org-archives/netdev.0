@@ -1,253 +1,109 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: [PATCH 07/10 net-next] l2tp: netlink api for l2tpv3 ipv6 unmanaged tunnels
-Date: Mon, 30 Apr 2012 08:48:52 +0100
-Message-ID: <1335772135-27910-8-git-send-email-jchapman@katalix.com>
+Subject: [PATCH 02/10 net-next] l2tp: Use ip4_datagram_connect() in l2tp_ip_connect()
+Date: Mon, 30 Apr 2012 08:48:47 +0100
+Message-ID: <1335772135-27910-3-git-send-email-jchapman@katalix.com>
 References: <1335772135-27910-1-git-send-email-jchapman@katalix.com>
-Cc: Chris Elston <celston@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:53478 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:53474 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752297Ab2D3Hs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 03:48:59 -0400
+	id S1752839Ab2D3Hs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 03:48:58 -0400
+Received: from localhost.localdomain (jchapman.plus.com [80.229.30.198])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: james)
+	by mail.katalix.com (Postfix) with ESMTPSA id E5538A620FC
+	for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 08:48:56 +0100 (BST)
 In-Reply-To: <1335772135-27910-1-git-send-email-jchapman@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Elston <celston@katalix.com>
+Cleanup the l2tp_ip code to make use of an existing ipv4 support function.
 
-This patch adds support for unmanaged L2TPv3 tunnels over IPv6 using
-the netlink API. We already support unmanaged L2TPv3 tunnels over
-IPv4. A patch to iproute2 to make use of this feature will be
-submitted separately.
-
-Signed-off-by: Chris Elston <celston@katalix.com>
 Signed-off-by: James Chapman <jchapman@katalix.com>
 ---
- include/linux/l2tp.h    |    2 +
- net/l2tp/l2tp_core.c    |   78 ++++++++++++++++++++++++++++++++++++----------
- net/l2tp/l2tp_core.h    |    4 ++
- net/l2tp/l2tp_netlink.c |   48 ++++++++++++++++++++++++++--
- 4 files changed, 111 insertions(+), 21 deletions(-)
+ net/l2tp/l2tp_ip.c |   54 ++++++---------------------------------------------
+ 1 files changed, 7 insertions(+), 47 deletions(-)
 
-diff --git a/include/linux/l2tp.h b/include/linux/l2tp.h
-index e77d7f9..16b8347 100644
---- a/include/linux/l2tp.h
-+++ b/include/linux/l2tp.h
-@@ -108,6 +108,8 @@ enum {
- 	L2TP_ATTR_MTU,			/* u16 */
- 	L2TP_ATTR_MRU,			/* u16 */
- 	L2TP_ATTR_STATS,		/* nested */
-+	L2TP_ATTR_IP6_SADDR,		/* struct in6_addr */
-+	L2TP_ATTR_IP6_DADDR,		/* struct in6_addr */
- 	__L2TP_ATTR_MAX,
- };
- 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 5e27c05..5a7d908 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1365,31 +1365,68 @@ static int l2tp_tunnel_sock_create(u32 tunnel_id, u32 peer_tunnel_id, struct l2t
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 585d93e..5162592 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -299,67 +299,27 @@ static int l2tp_ip_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len
  {
- 	int err = -EINVAL;
- 	struct sockaddr_in udp_addr;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct sockaddr_in6 udp6_addr;
-+#endif
- 	struct sockaddr_l2tpip ip_addr;
- 	struct socket *sock = NULL;
+ 	struct sockaddr_l2tpip *lsa = (struct sockaddr_l2tpip *) uaddr;
+ 	struct inet_sock *inet = inet_sk(sk);
+-	struct flowi4 *fl4;
+-	struct rtable *rt;
+-	__be32 saddr;
+-	int oif, rc;
++	int rc;
  
- 	switch (cfg->encap) {
- 	case L2TP_ENCAPTYPE_UDP:
--		err = sock_create(AF_INET, SOCK_DGRAM, 0, sockp);
--		if (err < 0)
--			goto out;
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (cfg->local_ip6 && cfg->peer_ip6) {
-+			err = sock_create(AF_INET6, SOCK_DGRAM, 0, sockp);
-+			if (err < 0)
-+				goto out;
+-	rc = -EINVAL;
+ 	if (addr_len < sizeof(*lsa))
+-		goto out;
++		return -EINVAL;
  
--		sock = *sockp;
-+			sock = *sockp;
+-	rc = -EAFNOSUPPORT;
+-	if (lsa->l2tp_family != AF_INET)
+-		goto out;
+-
+-	lock_sock(sk);
+-
+-	sk_dst_reset(sk);
+-
+-	oif = sk->sk_bound_dev_if;
+-	saddr = inet->inet_saddr;
+-
+-	rc = -EINVAL;
+ 	if (ipv4_is_multicast(lsa->l2tp_addr.s_addr))
+-		goto out;
++		return -EINVAL;
  
--		memset(&udp_addr, 0, sizeof(udp_addr));
--		udp_addr.sin_family = AF_INET;
--		udp_addr.sin_addr = cfg->local_ip;
--		udp_addr.sin_port = htons(cfg->local_udp_port);
--		err = kernel_bind(sock, (struct sockaddr *) &udp_addr, sizeof(udp_addr));
--		if (err < 0)
--			goto out;
-+			memset(&udp6_addr, 0, sizeof(udp6_addr));
-+			udp6_addr.sin6_family = AF_INET6;
-+			memcpy(&udp6_addr.sin6_addr, cfg->local_ip6,
-+			       sizeof(udp6_addr.sin6_addr));
-+			udp6_addr.sin6_port = htons(cfg->local_udp_port);
-+			err = kernel_bind(sock, (struct sockaddr *) &udp6_addr,
-+					  sizeof(udp6_addr));
-+			if (err < 0)
-+				goto out;
+-	fl4 = &inet->cork.fl.u.ip4;
+-	rt = ip_route_connect(fl4, lsa->l2tp_addr.s_addr, saddr,
+-			      RT_CONN_FLAGS(sk), oif,
+-			      IPPROTO_L2TP,
+-			      0, 0, sk, true);
+-	if (IS_ERR(rt)) {
+-		rc = PTR_ERR(rt);
+-		if (rc == -ENETUNREACH)
+-			IP_INC_STATS_BH(&init_net, IPSTATS_MIB_OUTNOROUTES);
+-		goto out;
+-	}
++	rc = ip4_datagram_connect(sk, uaddr, addr_len);
++	if (rc < 0)
++		return rc;
  
--		udp_addr.sin_family = AF_INET;
--		udp_addr.sin_addr = cfg->peer_ip;
--		udp_addr.sin_port = htons(cfg->peer_udp_port);
--		err = kernel_connect(sock, (struct sockaddr *) &udp_addr, sizeof(udp_addr), 0);
--		if (err < 0)
--			goto out;
-+			udp6_addr.sin6_family = AF_INET6;
-+			memcpy(&udp6_addr.sin6_addr, cfg->peer_ip6,
-+			       sizeof(udp6_addr.sin6_addr));
-+			udp6_addr.sin6_port = htons(cfg->peer_udp_port);
-+			err = kernel_connect(sock,
-+					     (struct sockaddr *) &udp6_addr,
-+					     sizeof(udp6_addr), 0);
-+			if (err < 0)
-+				goto out;
-+		} else
-+#endif
-+		{
-+			err = sock_create(AF_INET, SOCK_DGRAM, 0, sockp);
-+			if (err < 0)
-+				goto out;
-+
-+			sock = *sockp;
-+
-+			memset(&udp_addr, 0, sizeof(udp_addr));
-+			udp_addr.sin_family = AF_INET;
-+			udp_addr.sin_addr = cfg->local_ip;
-+			udp_addr.sin_port = htons(cfg->local_udp_port);
-+			err = kernel_bind(sock, (struct sockaddr *) &udp_addr,
-+					  sizeof(udp_addr));
-+			if (err < 0)
-+				goto out;
-+
-+			udp_addr.sin_family = AF_INET;
-+			udp_addr.sin_addr = cfg->peer_ip;
-+			udp_addr.sin_port = htons(cfg->peer_udp_port);
-+			err = kernel_connect(sock,
-+					     (struct sockaddr *) &udp_addr,
-+					     sizeof(udp_addr), 0);
-+			if (err < 0)
-+				goto out;
-+		}
+-	rc = -ENETUNREACH;
+-	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
+-		ip_rt_put(rt);
+-		goto out;
+-	}
++	lock_sock(sk);
  
- 		if (!cfg->use_udp_checksums)
- 			sock->sk->sk_no_check = UDP_CSUM_NOXMIT;
-@@ -1397,6 +1434,13 @@ static int l2tp_tunnel_sock_create(u32 tunnel_id, u32 peer_tunnel_id, struct l2t
- 		break;
+ 	l2tp_ip_sk(sk)->peer_conn_id = lsa->l2tp_conn_id;
  
- 	case L2TP_ENCAPTYPE_IP:
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (cfg->local_ip6 && cfg->peer_ip6) {
-+			/* IP encap over IPv6 not yet supported */
-+			err = -EPROTONOSUPPORT;
-+			goto out;
-+		}
-+#endif
- 		err = sock_create(AF_INET, SOCK_DGRAM, IPPROTO_L2TP, sockp);
- 		if (err < 0)
- 			goto out;
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index a8c943b..0bf60fc 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -151,6 +151,10 @@ struct l2tp_tunnel_cfg {
- 	/* Used only for kernel-created sockets */
- 	struct in_addr		local_ip;
- 	struct in_addr		peer_ip;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct in6_addr		*local_ip6;
-+	struct in6_addr		*peer_ip6;
-+#endif
- 	u16			local_udp_port;
- 	u16			peer_udp_port;
- 	unsigned int		use_udp_checksums:1;
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index 1dbb977..24edad0 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -133,10 +133,25 @@ static int l2tp_nl_cmd_tunnel_create(struct sk_buff *skb, struct genl_info *info
- 	if (info->attrs[L2TP_ATTR_FD]) {
- 		fd = nla_get_u32(info->attrs[L2TP_ATTR_FD]);
- 	} else {
--		if (info->attrs[L2TP_ATTR_IP_SADDR])
--			cfg.local_ip.s_addr = nla_get_be32(info->attrs[L2TP_ATTR_IP_SADDR]);
--		if (info->attrs[L2TP_ATTR_IP_DADDR])
--			cfg.peer_ip.s_addr = nla_get_be32(info->attrs[L2TP_ATTR_IP_DADDR]);
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (info->attrs[L2TP_ATTR_IP6_SADDR] &&
-+		    info->attrs[L2TP_ATTR_IP6_DADDR]) {
-+			cfg.local_ip6 = nla_data(
-+				info->attrs[L2TP_ATTR_IP6_SADDR]);
-+			cfg.peer_ip6 = nla_data(
-+				info->attrs[L2TP_ATTR_IP6_DADDR]);
-+		} else
-+#endif
-+		if (info->attrs[L2TP_ATTR_IP_SADDR] &&
-+		    info->attrs[L2TP_ATTR_IP_DADDR]) {
-+			cfg.local_ip.s_addr = nla_get_be32(
-+				info->attrs[L2TP_ATTR_IP_SADDR]);
-+			cfg.peer_ip.s_addr = nla_get_be32(
-+				info->attrs[L2TP_ATTR_IP_DADDR]);
-+		} else {
-+			ret = -EINVAL;
-+			goto out;
-+		}
- 		if (info->attrs[L2TP_ATTR_UDP_SPORT])
- 			cfg.local_udp_port = nla_get_u16(info->attrs[L2TP_ATTR_UDP_SPORT]);
- 		if (info->attrs[L2TP_ATTR_UDP_DPORT])
-@@ -225,6 +240,9 @@ static int l2tp_nl_tunnel_send(struct sk_buff *skb, u32 pid, u32 seq, int flags,
- 	struct nlattr *nest;
- 	struct sock *sk = NULL;
- 	struct inet_sock *inet;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct ipv6_pinfo *np = NULL;
-+#endif
- 	struct l2tp_stats stats;
- 	unsigned int start;
+-	if (!inet->inet_saddr)
+-		inet->inet_saddr = fl4->saddr;
+-	if (!inet->inet_rcv_saddr)
+-		inet->inet_rcv_saddr = fl4->saddr;
+-	inet->inet_daddr = fl4->daddr;
+-	sk->sk_state = TCP_ESTABLISHED;
+-	inet->inet_id = jiffies;
+-
+-	sk_dst_set(sk, &rt->dst);
+-
+ 	write_lock_bh(&l2tp_ip_lock);
+ 	hlist_del_init(&sk->sk_bind_node);
+ 	sk_add_bind_node(sk, &l2tp_ip_bind_table);
+ 	write_unlock_bh(&l2tp_ip_lock);
  
-@@ -273,6 +291,11 @@ static int l2tp_nl_tunnel_send(struct sk_buff *skb, u32 pid, u32 seq, int flags,
- 	if (!sk)
- 		goto out;
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (sk->sk_family == AF_INET6)
-+		np = inet6_sk(sk);
-+#endif
-+
- 	inet = inet_sk(sk);
- 
- 	switch (tunnel->encap) {
-@@ -284,6 +307,15 @@ static int l2tp_nl_tunnel_send(struct sk_buff *skb, u32 pid, u32 seq, int flags,
- 			goto nla_put_failure;
- 		/* NOBREAK */
- 	case L2TP_ENCAPTYPE_IP:
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (np) {
-+			if (nla_put(skb, L2TP_ATTR_IP6_SADDR, sizeof(np->saddr),
-+				    &np->saddr) ||
-+			    nla_put(skb, L2TP_ATTR_IP6_DADDR, sizeof(np->daddr),
-+				    &np->daddr))
-+				goto nla_put_failure;
-+		} else
-+#endif
- 		if (nla_put_be32(skb, L2TP_ATTR_IP_SADDR, inet->inet_saddr) ||
- 		    nla_put_be32(skb, L2TP_ATTR_IP_DADDR, inet->inet_daddr))
- 			goto nla_put_failure;
-@@ -752,6 +784,14 @@ static struct nla_policy l2tp_nl_policy[L2TP_ATTR_MAX + 1] = {
- 	[L2TP_ATTR_MTU]			= { .type = NLA_U16, },
- 	[L2TP_ATTR_MRU]			= { .type = NLA_U16, },
- 	[L2TP_ATTR_STATS]		= { .type = NLA_NESTED, },
-+	[L2TP_ATTR_IP6_SADDR] = {
-+		.type = NLA_BINARY,
-+		.len = sizeof(struct in6_addr),
-+	},
-+	[L2TP_ATTR_IP6_DADDR] = {
-+		.type = NLA_BINARY,
-+		.len = sizeof(struct in6_addr),
-+	},
- 	[L2TP_ATTR_IFNAME] = {
- 		.type = NLA_NUL_STRING,
- 		.len = IFNAMSIZ - 1,
+-	rc = 0;
+-out:
+ 	release_sock(sk);
+ 	return rc;
+ }
 -- 
 1.7.0.4
