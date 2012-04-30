@@ -1,50 +1,38 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 03/10] tipc: Optimize termination of configuration service
-Date: Mon, 30 Apr 2012 18:37:01 -0400
-Message-ID: <1335825428-16053-4-git-send-email-paul.gortmaker@windriver.com>
-References: <1335825428-16053-1-git-send-email-paul.gortmaker@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <allan.stephens@windriver.com>,
-	<jon.maloy@ericsson.com>, <erik.hugne@ericsson.com>,
-	<ying.xue@windriver.com>
-To: <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 30 Apr 2012 16:16:31 -0700
+Message-ID: <1335827794-26992-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35018 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756767Ab2D3WhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 18:37:16 -0400
-In-Reply-To: <1335825428-16053-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mga02.intel.com ([134.134.136.20]:48974 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756884Ab2D3XQg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 19:16:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Allan Stephens <allan.stephens@windriver.com>
+This series of patches contains fixes for igbvf and ixgbe.
 
-Termination no longer tests to see if the configuration service
-port was successfully created or not. In the unlikely event that the
-port was not created, attempting to delete the non-existent port is
-detected gracefully and causes no harm.
+The following are changes since commit 1cebce36d660c83bd1353e41f3e66abd4686f215:
+  tcp: fix infinite cwnd in tcp_complete_cwr()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- net/tipc/config.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Alexander Duyck (1):
+  ixgbe: Fix a memory leak in IEEE DCB
 
-diff --git a/net/tipc/config.c b/net/tipc/config.c
-index a4988cd..843d7ae 100644
---- a/net/tipc/config.c
-+++ b/net/tipc/config.c
-@@ -506,8 +506,6 @@ void tipc_cfg_reinit(void)
- 
- void tipc_cfg_stop(void)
- {
--	if (config_port_ref) {
--		tipc_deleteport(config_port_ref);
--		config_port_ref = 0;
--	}
-+	tipc_deleteport(config_port_ref);
-+	config_port_ref = 0;
- }
+Shan Wei (1):
+  igbvf: fix the bug when initializing the igbvf
+
+Yi Zou (1):
+  ixgbe: fix calling skb_put on nonlinear skb assertion bug
+
+ drivers/net/ethernet/intel/igbvf/netdev.c     |    4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 +++++----
+ 3 files changed, 8 insertions(+), 6 deletions(-)
+
 -- 
-1.7.9.6
+1.7.7.6
