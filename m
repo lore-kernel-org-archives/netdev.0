@@ -1,29 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: inconsistent lock/deadlock crash, vanilla 3.3.4, 32bit, tcp
-Date: Mon, 30 Apr 2012 12:49:56 -0400 (EDT)
-Message-ID: <20120430.124956.549873851265050903.davem@davemloft.net>
-References: <1335688804.2900.83.camel@edumazet-glaptop>
-	<1335689052.2900.86.camel@edumazet-glaptop>
-	<4F9E18E9.5010503@parallels.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: getting host CPU utilization (was Re: [PATCH V7 2/4 net-next]
+ skbuff: Add userspace zero-copy buffers in skb)
+Date: Mon, 30 Apr 2012 09:54:47 -0700
+Message-ID: <4F9EC3D7.1090906@hp.com>
+References: <1306610588.5180.87.camel@localhost.localdomain> <1309189510.21764.1.camel@localhost.localdomain> <20110627.155426.51839633424542723.davem@davemloft.net> <1309279892.3559.6.camel@localhost.localdomain> <4E0A0D34.2070507@hp.com> <20120430091246.GB5414@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, denys@visp.net.lb, netdev@vger.kernel.org,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org
-To: glommer@parallels.com
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	avi@redhat.com, arnd@arndb.de, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F9E18E9.5010503@parallels.com>
+In-Reply-To: <20120430091246.GB5414@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Glauber Costa <glommer@parallels.com>
-Date: Mon, 30 Apr 2012 01:45:29 -0300
+On 04/30/2012 02:12 AM, Michael S. Tsirkin wrote:
+> On Tue, Jun 28, 2011 at 10:19:48AM -0700, Rick Jones wrote:
+>> one of these days I'll have to find a good way to get accurate
+>> overall CPU utilization from within a guest and teach netperf about
+>> it.
+>
+> I think the cleanest way would be to run another netperf server on the
+> host.  netperf would get a flag with host address and get cpu
+> utilization info.
+>
+> This is what we currently do manually: run mpstat on the host.
+>
+> Thoughts?
 
-> It wasn't my intent to change that, it was a mistake.
+I might be able to enhance the LOC_CPU/REM_CPU calibration tests to be 
+bona fide CPU utilization tests.
 
-I very much regret succumbing to the unreasonable pressure to apply
-your original patches.
+> By the way, could you point me to code used by netperf
+> to measure CPU utilization on Linux? I'd like to figure
+> out why isn't the result always consistent with e.g. mpstat.
 
-We've come to learn that they were full of errors and that they needed
-to cook for several more months before being included.
+That would be src/netcpu_procstat.c .  That code is automagically 
+selected by the configure script when it determines the compilation is 
+happening under Linux.  You can, if you wish, manually set it though I 
+suspect the only other mechanism known to netperf that would function 
+under Linux is the "looper" (aka CPU soaker) method.
+
+rick
