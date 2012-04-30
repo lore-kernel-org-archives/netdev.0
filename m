@@ -1,53 +1,73 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: bridge: Fix fatal typo in setup of multicast_querier_expired
-Date: Mon, 30 Apr 2012 20:22:56 +1000
-Message-ID: <20120430102256.GA32587@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 5/5] be2net: Fix to allow set/get of debug
+ levels in the Firmware.
+Date: Mon, 30 Apr 2012 15:13:22 +0100
+Message-ID: <1335795202.2685.8.camel@bwh-desktop.uk.solarflarecom.com>
+References: <a32d6d08-5428-4bfd-85fc-2ac8d560d5d8@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Suresh Reddy <Suresh.Reddy@emulex.com>
+To: Somnath Kotur <somnath.kotur@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:53948 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755574Ab2D3KXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 06:23:00 -0400
-Content-Disposition: inline
+Received: from webmail.solarflare.com ([12.187.104.25]:52075 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751500Ab2D3ON1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 10:13:27 -0400
+In-Reply-To: <a32d6d08-5428-4bfd-85fc-2ac8d560d5d8@exht1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unfortunately it seems that I didn't properly test the case of
-an expired external querier in the recent multicast bridge series.
+On Mon, 2012-04-30 at 11:35 +0530, Somnath Kotur wrote:
+> Suggested-by: Ben Hutchings <bhutchings@solarflare.com>
 
-The setup of the timer in that case is completely broken and leads
-to a NULL-pointer dereference.  This patch fixes it.
+No, not really.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+[...]
+> +static void be_set_msglevel(struct net_device *netdev, u32 data)
+> +{
+> +	struct be_adapter *adapter = netdev_priv(netdev);
+> +	struct be_dma_mem extfat_cmd;
+> +	struct be_fat_conf_params *cfgs;
+> +	int status;
+> +	int i, j;
+> +
+> +	if (lancer_chip(adapter)) {
+> +		dev_err(&adapter->pdev->dev, "Operation not supported\n");
+> +		return;
+> +	}
+> +
+> +	switch (data) {
+> +	case TRACE_LEVEL_ALL:
+> +	case TRACE_LEVEL_ENTER_FUNCTION:
+> +	case TRACE_LEVEL_VERBOSE:
+> +	case TRACE_LEVEL_INFO:
+> +	case TRACE_LEVEL_TEST:
+> +	case TRACE_LEVEL_SHOW:
+> +	case TRACE_LEVEL_WARNING:
+> +	case TRACE_LEVEL_ERROR:
+> +	case TRACE_LEVEL_FATAL:
+> +	case TRACE_LEVEL_ALWAYS:
+> +	case TRACE_LEVEL_DISABLED:
+> +		break;
+> +	default:
+> +		dev_err(&adapter->pdev->dev, "Invalid message level value\n");
+> +		return;
+> +	}
+[...]
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 26df642..b320871 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -744,8 +744,7 @@ static void br_multicast_local_router_expired(unsigned long data)
- 
- static void br_multicast_querier_expired(unsigned long data)
- {
--	struct net_bridge_port *port = (void *)data;
--	struct net_bridge *br = port->br;
-+	struct net_bridge *br = (void *)data;
- 
- 	spin_lock(&br->multicast_lock);
- 	if (!netif_running(br->dev) || br->multicast_disabled)
-@@ -1581,7 +1580,7 @@ void br_multicast_init(struct net_bridge *br)
- 	setup_timer(&br->multicast_router_timer,
- 		    br_multicast_local_router_expired, 0);
- 	setup_timer(&br->multicast_querier_timer,
--		    br_multicast_querier_expired, 0);
-+		    br_multicast_querier_expired, (unsigned long)br);
- 	setup_timer(&br->multicast_query_timer, br_multicast_query_expired,
- 		    (unsigned long)br);
- }
+So far as I'm concerned, the message 'level' should be a msg_enable
+bitmask as used by the 'netif' logging functions.  This convention
+hasn't been consistently implemented in existing drivers and still isn't
+documented in <linux/ethtool.h>.  But the ethtool utility interprets it
+according to this convention, and that was commented as being intended
+since at least 2005 (beginning of git history).
 
-Sorry for the screw-up.
+Ben.
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
