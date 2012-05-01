@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 07/10] atl1c: cancel task when interface closed
-Date: Tue, 1 May 2012 09:38:55 +0800
-Message-ID: <1335836338-9425-8-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 09/10] atl1c: Disable L0S when no cable link
+Date: Tue, 1 May 2012 09:38:57 +0800
+Message-ID: <1335836338-9425-10-git-send-email-xiong@qca.qualcomm.com>
 References: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,37 +14,26 @@ In-Reply-To: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-common_task might be running while close routine is called,
-wait/cancel it.
+L0S might be unstable if no cable link, only enable it when link up.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index d910dbb..b95ef45 100644
+index e6c62d0..05ce8ec 100644
 --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
 +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -330,6 +330,9 @@ static void atl1c_common_task(struct work_struct *work)
- 	adapter = container_of(work, struct atl1c_adapter, common_task);
- 	netdev = adapter->netdev;
+@@ -1326,7 +1326,7 @@ static void atl1c_set_aspm(struct atl1c_hw *hw, u16 link_speed)
+ 	}
  
-+	if (test_bit(__AT_DOWN, &adapter->flags))
-+		return;
-+
- 	if (test_and_clear_bit(ATL1C_WORK_EVENT_RESET, &adapter->work_event)) {
- 		netif_device_detach(netdev);
- 		atl1c_down(adapter);
-@@ -2311,6 +2314,8 @@ static int atl1c_close(struct net_device *netdev)
- 	struct atl1c_adapter *adapter = netdev_priv(netdev);
- 
- 	WARN_ON(test_bit(__AT_RESETTING, &adapter->flags));
-+	set_bit(__AT_DOWN, &adapter->flags);
-+	cancel_work_sync(&adapter->common_task);
- 	atl1c_down(adapter);
- 	atl1c_free_ring_resources(adapter);
- 	return 0;
+ 	/* L0S/L1 enable */
+-	if (hw->ctrl_flags & ATL1C_ASPM_L0S_SUPPORT)
++	if ((hw->ctrl_flags & ATL1C_ASPM_L0S_SUPPORT) && link_speed != SPEED_0)
+ 		pm_ctrl_data |= PM_CTRL_ASPM_L0S_EN | PM_CTRL_MAC_ASPM_CHK;
+ 	if (hw->ctrl_flags & ATL1C_ASPM_L1_SUPPORT)
+ 		pm_ctrl_data |= PM_CTRL_ASPM_L1_EN | PM_CTRL_MAC_ASPM_CHK;
 -- 
 1.7.7
