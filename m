@@ -1,47 +1,29 @@
-From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 02/13 v4] usb/net: rndis: break out <linux/rndis.h> defines
-Date: Tue, 1 May 2012 21:09:28 +0200
-Message-ID: <CACRpkdZLg5f9uWrT1hYSWhiL-i-=NSUtuPAGKrWcC4+LZs5ACA@mail.gmail.com>
-References: <1335896546-13315-1-git-send-email-linus.walleij@linaro.org>
-	<A1F3067C9B68744AA19F6802BAB8FFDC0DD3CAAA@TK5EX14MBXC221.redmond.corp.microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netem: add ECN capability
+Date: Tue, 01 May 2012 15:13:37 -0400 (EDT)
+Message-ID: <20120501.151337.753252928902549562.davem@davemloft.net>
+References: <20120501095938.7214e4a5@s6510.linuxnetplumber.net>
+	<20120501.131750.636505003036346376.davem@davemloft.net>
+	<CAA93jw7r8UTTEy9KjmQekbuJ6U7hVVURtr0z9pw9L8wa67BUZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
-	Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
-	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-To: Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <A1F3067C9B68744AA19F6802BAB8FFDC0DD3CAAA-Jfd81uAzPQthtgIzimG1dFir+X/St4rqwBk/1ggFUS45P9zcU8sUGwC/G2K4zDHf@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
+	hagen@jauu.net
+To: dave.taht@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52340 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754290Ab2EATNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 15:13:49 -0400
+In-Reply-To: <CAA93jw7r8UTTEy9KjmQekbuJ6U7hVVURtr0z9pw9L8wa67BUZA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 1, 2012 at 8:54 PM, Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org> =
-wrote:
+From: Dave Taht <dave.taht@gmail.com>
+Date: Tue, 1 May 2012 11:49:51 -0700
 
->> ChangeLog v2->v3:
->> - Squashed subsequent patch removing duplicate entries into
->> =A0 this patch so it's bisectable without any compilation warnings.
->
-> I have not reviewed this version yet.
->
-> Also, I think you should merge the "ChangeLog v2->v3" into the patch
-> comments. Don't need to say "The compilation screams about double-def=
-ines
-> all over the place" any more.
+> As I think about it, I think he could handle the ninja problem, tho.
 
-This one is completely bogus, please review the v4 versions of the
-patches instead. I was halfway on this one and screwed it up
-somehow, I've had better days :-(
-
-Thanks,
-Linus Walleij
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Eric is the Networking Ninja.
