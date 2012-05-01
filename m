@@ -1,62 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/3] ixgbe: Fix a memory leak in IEEE DCB
-Date: Mon, 30 Apr 2012 18:58:14 -0700
-Message-ID: <1335837495-9722-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 3/3] ixgbe: fix calling skb_put on nonlinear skb assertion bug
+Date: Mon, 30 Apr 2012 18:58:15 -0700
+Message-ID: <1335837495-9722-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1335837495-9722-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Yi Zou <yi.zou@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:59030 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757941Ab2EAB6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 21:58:17 -0400
+	id S1757533Ab2EAB6S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 21:58:18 -0400
 In-Reply-To: <1335837495-9722-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Yi Zou <yi.zou@intel.com>
 
-The driver was freeing memory in shutdown instead of remove.  As a result
-we were leaking memory if IEEE DCB was enabled and we loaded/unloaded the
-driver.  This change moves the freeing of the memory into the remove
-routine where it belongs.
+With the support to bounce buffer added, the skb is coming as nonlinear in the
+case of non-DDPed data frames for FCoE, which is mostly ok as the FCoE stack
+would take care of that. However, for target mode, we have to set the FC CRC
+and FC EOF field to allow the protocol stack to not drop the frame for the last
+data frame of that sequence. So fix this by linearizing the skb first before
+doing skb_put().
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Yi Zou <yi.zou@intel.com>
+Tested-by: Marcus Dennis <marcusx.e.dennis@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index a7f3cd8..88f6b2e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4873,10 +4873,6 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index 77ea4b7..bc07933 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -437,6 +437,7 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ 	 */
+ 	if ((fh->fh_r_ctl == FC_RCTL_DD_SOL_DATA) &&
+ 	    (fctl & FC_FC_END_SEQ)) {
++		skb_linearize(skb);
+ 		crc = (struct fcoe_crc_eof *)skb_put(skb, sizeof(*crc));
+ 		crc->fcoe_eof = FC_EOF_T;
  	}
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
--#ifdef CONFIG_DCB
--	kfree(adapter->ixgbe_ieee_pfc);
--	kfree(adapter->ixgbe_ieee_ets);
--#endif
- 
- #ifdef CONFIG_PM
- 	retval = pci_save_state(pdev);
-@@ -7224,6 +7220,11 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
- 
- 	ixgbe_release_hw_control(adapter);
- 
-+#ifdef CONFIG_DCB
-+	kfree(adapter->ixgbe_ieee_pfc);
-+	kfree(adapter->ixgbe_ieee_ets);
-+
-+#endif
- 	iounmap(adapter->hw.hw_addr);
- 	pci_release_selected_regions(pdev, pci_select_bars(pdev,
- 				     IORESOURCE_MEM));
 -- 
 1.7.7.6
