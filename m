@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/10] atl1c: update hardware settings - v4
-Date: Mon, 30 Apr 2012 21:45:29 -0400 (EDT)
-Message-ID: <20120430.214529.2122095913227933283.davem@davemloft.net>
-References: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
+Subject: Re: [PATCH 1/4] e1000: add transmit timestamping support
+Date: Mon, 30 Apr 2012 21:46:28 -0400 (EDT)
+Message-ID: <20120430.214628.169383322754675783.davem@davemloft.net>
+References: <1335553447-11964-1-git-send-email-willemb@google.com>
+	<1335553447-11964-2-git-send-email-willemb@google.com>
+	<1335599262.2900.50.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com
-To: xiong@qca.qualcomm.com
+Cc: willemb@google.com, netdev@vger.kernel.org,
+	jeffrey.t.kirscher@intel.com, eilong@broadcom.com,
+	aabdulla@nvidia.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44848 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:44861 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757070Ab2EABpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 21:45:32 -0400
-In-Reply-To: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
+	with ESMTP id S1757445Ab2EABqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 21:46:35 -0400
+In-Reply-To: <1335599262.2900.50.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: xiong <xiong@qca.qualcomm.com>
-Date: Tue, 1 May 2012 09:38:48 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 28 Apr 2012 09:47:42 +0200
 
-> This update contains a serial of patches, most of them are hardware
-> settings related. register definitions are refined (or removed if
-> meaningless) for each patch.
-> 
-> This is the last patch set.
-> 
-> The patches have addressed all sparse and checkpatch warnings.
-> 
-> Following NICs are tested:
-> AR8131/AR8132/AR8151A/AR8152A/AR8152B
-> Test item includes:
-> build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
+> On Fri, 2012-04-27 at 15:04 -0400, Willem de Bruijn wrote:
+>> Signed-off-by: Willem de Bruijn <willemb@google.com>
+...
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-All applied, thanks.
+Applied.
