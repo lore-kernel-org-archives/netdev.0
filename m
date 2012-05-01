@@ -1,91 +1,40 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 2/7] batman-adv: introduce is_single_hop_neigh variable to increase readability
-Date: Tue,  1 May 2012 10:01:01 +0200
-Message-ID: <1335859266-7546-3-git-send-email-ordex@autistici.org>
-References: <1335859266-7546-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH 00/10 net-next] l2tp: misc fixes and add L2TPv3 IP encap
+ over IPv6
+Date: Tue, 01 May 2012 09:38:05 +0100
+Message-ID: <4F9FA0ED.7000402@katalix.com>
+References: <1335772135-27910-1-git-send-email-jchapman@katalix.com> <20120430.134637.1965477081443499316.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:24194 "EHLO
-	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751584Ab2EAIAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 04:00:15 -0400
-In-Reply-To: <1335859266-7546-1-git-send-email-ordex@autistici.org>
+Received: from katalix.com ([82.103.140.233]:55709 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752561Ab2EAIiM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 04:38:12 -0400
+In-Reply-To: <20120430.134637.1965477081443499316.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek@yahoo.de>
+On 30/04/12 18:46, David Miller wrote:
+> From: James Chapman <jchapman@katalix.com>
+> Date: Mon, 30 Apr 2012 08:48:45 +0100
+> 
+>> This patch series includes several L2TP fixes / cleanups and adds
+>> L2TPv3 IP encapsulation support for IPv6, building on the L2TP UDP
+>> IPv6 support recently added by Ben LaHaise.
+> 
+> Series applied to net-next, thanks James.
 
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
----
- net/batman-adv/bat_iv_ogm.c |   16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+Thanks Dave.
+For some reason, I can't see the commits in the net-next tree. Are they
+still in your local tree?
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 8b2db2e..cd8f473 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -480,7 +480,8 @@ static void bat_iv_ogm_queue_add(struct bat_priv *bat_priv,
- static void bat_iv_ogm_forward(struct orig_node *orig_node,
- 			       const struct ethhdr *ethhdr,
- 			       struct batman_ogm_packet *batman_ogm_packet,
--			       int directlink, struct hard_iface *if_incoming)
-+			       bool is_single_hop_neigh,
-+			       struct hard_iface *if_incoming)
- {
- 	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
- 	struct neigh_node *router;
-@@ -533,7 +534,7 @@ static void bat_iv_ogm_forward(struct orig_node *orig_node,
- 
- 	/* switch of primaries first hop flag when forwarding */
- 	batman_ogm_packet->flags &= ~PRIMARIES_FIRST_HOP;
--	if (directlink)
-+	if (is_single_hop_neigh)
- 		batman_ogm_packet->flags |= DIRECTLINK;
- 	else
- 		batman_ogm_packet->flags &= ~DIRECTLINK;
-@@ -918,7 +919,8 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 	struct neigh_node *orig_neigh_router = NULL;
- 	int has_directlink_flag;
- 	int is_my_addr = 0, is_my_orig = 0, is_my_oldorig = 0;
--	int is_broadcast = 0, is_bidirectional, is_single_hop_neigh;
-+	int is_broadcast = 0, is_bidirectional;
-+	bool is_single_hop_neigh = false;
- 	int is_duplicate;
- 	uint32_t if_incoming_seqno;
- 
-@@ -942,8 +944,8 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 
- 	has_directlink_flag = (batman_ogm_packet->flags & DIRECTLINK ? 1 : 0);
- 
--	is_single_hop_neigh = (compare_eth(ethhdr->h_source,
--					   batman_ogm_packet->orig) ? 1 : 0);
-+	if (compare_eth(ethhdr->h_source, batman_ogm_packet->orig))
-+		is_single_hop_neigh = true;
- 
- 	bat_dbg(DBG_BATMAN, bat_priv,
- 		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
-@@ -1114,7 +1116,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 
- 		/* mark direct link on incoming interface */
- 		bat_iv_ogm_forward(orig_node, ethhdr, batman_ogm_packet,
--				   1, if_incoming);
-+				   is_single_hop_neigh, if_incoming);
- 
- 		bat_dbg(DBG_BATMAN, bat_priv,
- 			"Forwarding packet: rebroadcast neighbor packet with direct link flag\n");
-@@ -1137,7 +1139,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 	bat_dbg(DBG_BATMAN, bat_priv,
- 		"Forwarding packet: rebroadcast originator packet\n");
- 	bat_iv_ogm_forward(orig_node, ethhdr, batman_ogm_packet,
--			   0, if_incoming);
-+			   is_single_hop_neigh, if_incoming);
- 
- out_neigh:
- 	if ((orig_neigh_node) && (!is_single_hop_neigh))
+
 -- 
-1.7.9.4
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
