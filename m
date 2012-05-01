@@ -1,41 +1,25 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: add a prefetch in socket backlog processing
-Date: Tue, 01 May 2012 04:07:09 +0200
-Message-ID: <1335838029.11396.12.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net v2 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 30 Apr 2012 22:07:42 -0400 (EDT)
+Message-ID: <20120430.220742.1649514768347101030.davem@davemloft.net>
+References: <1335837495-9722-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:33377 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881Ab2EACHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 22:07:15 -0400
-Received: by wejx9 with SMTP id x9so2143462wej.19
-        for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 19:07:14 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:45085 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881Ab2EACHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 22:07:47 -0400
+In-Reply-To: <1335837495-9722-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 30 Apr 2012 18:58:12 -0700
 
-TCP or UDP stacks have big enough latencies that prefetching next
-pointer is worth it.
+> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/sock.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 836bca6..1a88351 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1700,6 +1700,7 @@ static void __release_sock(struct sock *sk)
- 		do {
- 			struct sk_buff *next = skb->next;
- 
-+			prefetch(next);
- 			WARN_ON_ONCE(skb_dst_is_noref(skb));
- 			skb->next = NULL;
- 			sk_backlog_rcv(sk, skb);
+Pulled, thanks Jeff.
