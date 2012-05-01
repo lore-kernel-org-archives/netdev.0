@@ -1,34 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: add a prefetch in socket backlog
- processing
-Date: Tue, 01 May 2012 08:42:31 +0200
-Message-ID: <1335854551.11396.28.camel@edumazet-glaptop>
-References: <1335838029.11396.12.camel@edumazet-glaptop>
-	 <1335842663.26217.10.camel@joe2Laptop>
-	 <1335854091.11396.21.camel@edumazet-glaptop>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2x: remove some bloat
+Date: Tue, 1 May 2012 09:57:43 +0300
+Message-ID: <1335855463.12363.16.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1335598761.2900.49.camel@edumazet-glaptop>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Neal Cardwell" <ncardwell@google.com>,
+	"Tom Herbert" <therbert@google.com>,
+	"Maciej =?UTF-8?Q?=C5=BBenczykowski?=" <maze@google.com>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Matt Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:40435 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751246Ab2EAGmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 02:42:36 -0400
-Received: by wgbdr13 with SMTP id dr13so1211696wgb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 23:42:35 -0700 (PDT)
-In-Reply-To: <1335854091.11396.21.camel@edumazet-glaptop>
+Received: from mms3.broadcom.com ([216.31.210.19]:2107 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751714Ab2EAG61 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 02:58:27 -0400
+In-Reply-To: <1335598761.2900.49.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-01 at 08:34 +0200, Eric Dumazet wrote:
+On Sat, 2012-04-28 at 09:39 +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>=20
+> Before doing skb->head_frag work on bnx2x driver, I found too much st=
+uff
+> was inlined in bnx2x/bnx2x_cmn.h for no good reason and made my work =
+not
+> very easy.
+>=20
+> Move some big functions out of this include file to the respective .c
+> file.
+>=20
+> A lot of inline keywords are not needed at all in this huge driver.
+>=20
+>    text	   data	    bss	    dec	    hex	filename
+>  490083	   1270	     56	 491409	  77f91	bnx2x/bnx2x.ko.before
+>  484206	   1270	     56	 485532	  7689c	bnx2x/bnx2x.ko
+>=20
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Eilon Greenstein <eilong@broadcom.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Maciej =C5=BBenczykowski <maze@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Tom Herbert <therbert@google.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: Ben Hutchings <bhutchings@solarflare.com>
+> Cc: Matt Carlson <mcarlson@broadcom.com>
+> Cc: Michael Chan <mchan@broadcom.com>
 
-> Basically this patch avoids one memory cache miss per iteration.
-> 
+Acked-by: Eilon Greenstein <eilong@broadcom.com>
 
-This patch was the easy part.
-
-I am now working on refining __skb_dequeue() API to avoid the cache line
-miss when we perform the __skb_unlink() and allow a prefetch(next) as
-well, to speedup process_backlog().
+Thanks Eric - it makes sense.
