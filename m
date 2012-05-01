@@ -1,69 +1,58 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: add a prefetch in socket backlog
- processing
-Date: Tue, 01 May 2012 08:34:51 +0200
-Message-ID: <1335854091.11396.21.camel@edumazet-glaptop>
-References: <1335838029.11396.12.camel@edumazet-glaptop>
-	 <1335842663.26217.10.camel@joe2Laptop>
+Subject: Re: [PATCH 3/4 v2 net-next] net: make GRO aware of skb->head_frag
+Date: Tue, 01 May 2012 08:39:38 +0200
+Message-ID: <1335854378.11396.26.camel@edumazet-glaptop>
+References: <1335523026.2775.236.camel@edumazet-glaptop>
+	 <1335809434.2296.9.camel@edumazet-glaptop> <4F9F21E2.3080407@intel.com>
+	 <1335835677.11396.5.camel@edumazet-glaptop>
+	 <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:63594 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925Ab2EAGe4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 02:34:56 -0400
-Received: by wibhq7 with SMTP id hq7so3531250wib.1
-        for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 23:34:55 -0700 (PDT)
-In-Reply-To: <1335842663.26217.10.camel@joe2Laptop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:49572 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750917Ab2EAGjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 02:39:43 -0400
+Received: by were53 with SMTP id e53so11031wer.19
+        for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 23:39:42 -0700 (PDT)
+In-Reply-To: <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-04-30 at 20:24 -0700, Joe Perches wrote:
-> On Tue, 2012-05-01 at 04:07 +0200, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > TCP or UDP stacks have big enough latencies that prefetching next
-> > pointer is worth it.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
-> >  net/core/sock.c |    1 +
-> >  1 file changed, 1 insertion(+)
-> > 
-> > diff --git a/net/core/sock.c b/net/core/sock.c
-> > index 836bca6..1a88351 100644
-> > --- a/net/core/sock.c
-> > +++ b/net/core/sock.c
-> > @@ -1700,6 +1700,7 @@ static void __release_sock(struct sock *sk)
-> >  		do {
-> >  			struct sk_buff *next = skb->next;
-> >  
-> > +			prefetch(next);
-> >  			WARN_ON_ONCE(skb_dst_is_noref(skb));
-> >  			skb->next = NULL;
-> >  			sk_backlog_rcv(sk, skb);
-> 
-> Hi Eric.
-> 
-> Why should next be "prefetch"ed when
-> two lines below it's set to null and
-> the only use is as a pointer not as
-> an apparently undereferenced pointer?
-> 
+On Mon, 2012-04-30 at 22:33 -0700, Alexander Duyck wrote:
+
+> The question I had was more specific to GRO.  As long as we have
+> skb->users == 1 and the skb isn't cloned we should be fine.   It just
+> hadn't occurred to me before that napi_gro_receive had the extra
+> requirement that the skb couldn't be cloned.
 > 
 
-Thats because you have no idea of what is happening ?
+OK
 
-next points to the next skb in list (after this skb)
+By the way, even if skb was cloned, we would be allowed to steal
+skb->head.
 
-prefetch(next) instructs CPU to preload its cache with the memory
-content of first cache line of next skb (it contains its own ->next
-pointer)
+When we clone an oskb we :
 
-After prefetch(next), we clear skb->next before continuing, but we later
-will need the memory we preloaded in cpu cache at next iteration.
+1) allocate a struct nskb sk_buff (or use the shadow in case of TCP)
+2) increment dataref
+3) link skb->head
 
-Basically this patch avoids one memory cache miss per iteration.
+After cloning()  nskb->users == 1, and oskb->users is unchanged
+
+I believe you are referring to skb_get(oskb), that ones increment
+oskb->users and skb_shared(oskb) then returns true.
