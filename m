@@ -1,63 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] tipc: last batch from the sourceforge
- queue
-Date: Mon, 30 Apr 2012 21:45:06 -0400 (EDT)
-Message-ID: <20120430.214506.837284274083120278.davem@davemloft.net>
-References: <1335825428-16053-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH 00/10] atl1c: update hardware settings - v4
+Date: Mon, 30 Apr 2012 21:45:29 -0400 (EDT)
+Message-ID: <20120430.214529.2122095913227933283.davem@davemloft.net>
+References: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
-	jon.maloy@ericsson.com, erik.hugne@ericsson.com,
-	ying.xue@windriver.com
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com
+To: xiong@qca.qualcomm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44840 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:44848 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757312Ab2EABpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 21:45:16 -0400
-In-Reply-To: <1335825428-16053-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S1757070Ab2EABpc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 21:45:32 -0400
+In-Reply-To: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Mon, 30 Apr 2012 18:36:58 -0400
+From: xiong <xiong@qca.qualcomm.com>
+Date: Tue, 1 May 2012 09:38:48 +0800
 
-> I'm glad to say this represents the last batch of salvaged commits
-> from what was the sourceforge queue of stuff misplaced on the older
-> v2.6.19/v1.7.x baseline.  Going forward, folks got a clear message
-> that they _must_ put forward any new/prospective changes on netdev
-> for peer review and ask for continuous integration and not stockpile
-> crap in a corner (cause I'm sure as hell not going to volunteer to
-> be Winston Wolf for it again).
+> This update contains a serial of patches, most of them are hardware
+> settings related. register definitions are refined (or removed if
+> meaningless) for each patch.
 > 
-> Anyway, knowing that there isn't any more "old" patches from that to
-> worry about, I took the opportunity to close out by clobbering a bunch
-> of needless extra blank lines following comments, since there isn't
-> any pending patch context fallout to worry about.  This one cosmetic
-> change alone makes up most of the diffstat, giving:
+> This is the last patch set.
 > 
->  32 files changed, 16 insertions(+), 530 deletions(-)
+> The patches have addressed all sparse and checkpatch warnings.
 > 
-> out of the total:
-> 
->  34 files changed, 58 insertions(+), 567 deletions(-)
+> Following NICs are tested:
+> AR8131/AR8132/AR8151A/AR8152A/AR8152B
+> Test item includes:
+> build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
 
-You must feel like you've just moved a mountain, Mr. Wolf.
-
-> That aside, the meat of what is here is:
-> 
->   -reduce some of the build up/tear down on configuration paths
-> 
->   -more strict checks on published names and payload types
-> 
->   -factor out some duplicated code;  +some redundant code deletion.
-> 
-> Testing has been the usual 64 <---> 32bit using tipc-utils ptts.
-> 
-> I still want to look at your suggestion of reusing existing code
-> for the logging stuff someday, now that the queue is closed out,
-> but that is completely separate from the backlog, and it probably
-> isn't going to be happening in the 3.5 timeframe.
-
-Pulled, thanks.
+All applied, thanks.
