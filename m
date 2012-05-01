@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 01/10] atl1c: add workaround for issue of bit INTX-disable for MSI interrupt
-Date: Tue, 1 May 2012 09:38:49 +0800
-Message-ID: <1335836338-9425-2-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 03/10] atl1c: clear WoL status when reset pcie
+Date: Tue, 1 May 2012 09:38:51 +0800
+Message-ID: <1335836338-9425-4-git-send-email-xiong@qca.qualcomm.com>
 References: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,37 +14,54 @@ In-Reply-To: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All supported devices have one issue that msi interrupt doesn't assert
-if pci command register bit (PCI_COMMAND_INTX_DISABLE) is set.
-Add workaround in drivers/pci/quirks.c
+WoL status is read-clear and should be cleared when in S0
+status.
+putting it in atl1c_reset_pcie is more suitable than
+in atl1c_get_permanent_address.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
+Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/pci/quirks.c |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |    5 -----
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    3 +++
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 4bf7102..953ec3f 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -2626,6 +2626,18 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, 0x4374,
- DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, 0x4375,
- 			quirk_msi_intx_disable_bug);
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+index 209c179..49f433e 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+@@ -73,7 +73,6 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
+ 	u32 otp_ctrl_data;
+ 	u32 twsi_ctrl_data;
+ 	u32 ltssm_ctrl_data;
+-	u32 wol_data;
+ 	u8  eth_addr[ETH_ALEN];
+ 	u16 phy_data;
+ 	bool raise_vol = false;
+@@ -114,10 +113,6 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
+ 		ltssm_ctrl_data &= ~LTSSM_ID_EN_WRO;
+ 		AT_WRITE_REG(hw, REG_LTSSM_ID_CTRL, ltssm_ctrl_data);
  
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1062,
-+			quirk_msi_intx_disable_bug);
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1063,
-+			quirk_msi_intx_disable_bug);
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2060,
-+			quirk_msi_intx_disable_bug);
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x2062,
-+			quirk_msi_intx_disable_bug);
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1073,
-+			quirk_msi_intx_disable_bug);
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATTANSIC, 0x1083,
-+			quirk_msi_intx_disable_bug);
- #endif /* CONFIG_PCI_MSI */
+-		/* clear any WOL settings */
+-		AT_WRITE_REG(hw, REG_WOL_CTRL, 0);
+-		AT_READ_REG(hw, REG_WOL_CTRL, &wol_data);
+-
  
- /* Allow manual resource allocation for PCI hotplug bridges
+ 		AT_READ_REG(hw, REG_TWSI_CTRL, &twsi_ctrl_data);
+ 		twsi_ctrl_data |= TWSI_CTRL_SW_LDSTART;
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 6d5b374..63da1d8 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -133,6 +133,9 @@ static void atl1c_reset_pcie(struct atl1c_hw *hw, u32 flag)
+ 	 */
+ 	pci_enable_wake(pdev, PCI_D3hot, 0);
+ 	pci_enable_wake(pdev, PCI_D3cold, 0);
++	/* wol sts read-clear */
++	AT_READ_REG(hw, REG_WOL_CTRL, &data);
++	AT_WRITE_REG(hw, REG_WOL_CTRL, 0);
+ 
+ 	/*
+ 	 * Mask some pcie error bits
 -- 
 1.7.7
