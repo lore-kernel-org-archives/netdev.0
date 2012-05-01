@@ -1,104 +1,72 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 05/16] mm: allow PF_MEMALLOC from softirq context
-Date: Tue, 1 May 2012 15:08:13 -0700
-Message-ID: <20120501150813.657cd5c0.akpm@linux-foundation.org>
-References: <1334578624-23257-1-git-send-email-mgorman@suse.de>
-	<1334578624-23257-6-git-send-email-mgorman@suse.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: e1000e tx queue timeout in 3.3.0 (bisected to BQL
+ support for e1000e)
+Date: Tue, 01 May 2012 15:08:18 -0700
+Message-ID: <4FA05ED2.3030608@candelatech.com>
+References: <CA+mtBx-K6-O3ea34kmn4LXtx73FqCHF16w7pBSq1fHNN+-DxCA@mail.gmail.com>
+	<4F91DB7B.7060601@candelatech.com>
+	<4FA05153.1010903@candelatech.com>
+	<20120501.174914.654247970871851432.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
- Neil Brown <neilb@suse.de>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Mike
- Christie <michaelc@cs.wisc.edu>, Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1334578624-23257-6-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, therbert@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20120501.174914.654247970871851432.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Apr 2012 13:16:52 +0100
-Mel Gorman <mgorman@suse.de> wrote:
-
-> This is needed to allow network softirq packet processing to make
-> use of PF_MEMALLOC.
-
-hm, why?  You just added __GFP_MEMALLOC so we don't need to futz with
-PF_MEMALLOC?
-
-> Currently softirq context cannot use PF_MEMALLOC due to it not being
-> associated with a task, and therefore not having task flags to fiddle
-> with - thus the gfp to alloc flag mapping ignores the task flags when
-> in interrupts (hard or soft) context.
-> 
-> Allowing softirqs to make use of PF_MEMALLOC therefore requires some
-> trickery.  We basically borrow the task flags from whatever process
-> happens to be preempted by the softirq.
-> 
-> So we modify the gfp to alloc flags mapping to not exclude task flags
-> in softirq context, and modify the softirq code to save, clear and
-> restore the PF_MEMALLOC flag.
-> 
-> The save and clear, ensures the preempted task's PF_MEMALLOC flag
-> doesn't leak into the softirq. The restore ensures a softirq's
-> PF_MEMALLOC flag cannot leak back into the preempted process.
-> 
-> ...
+On 05/01/2012 02:49 PM, David Miller wrote:
+> From: Ben Greear<greearb@candelatech.com>
+> Date: Tue, 01 May 2012 14:10:43 -0700
 >
-> --- a/include/linux/sched.h
-> +++ b/include/linux/sched.h
-> @@ -1913,6 +1913,13 @@ static inline void rcu_copy_process(struct task_struct *p)
->  
->  #endif
->  
-> +static inline void tsk_restore_flags(struct task_struct *p,
-> +				     unsigned long pflags, unsigned long mask)
-
-The naming is poor.
-
-p -> "tsk" or "task"
-pflags -> "old_flags"
-mask -> "flags"
-
-> +{
-> +	p->flags &= ~mask;
-> +	p->flags |= pflags & mask;
-> +}
-> +
->  #ifdef CONFIG_SMP
->  extern void do_set_cpus_allowed(struct task_struct *p,
->  			       const struct cpumask *new_mask);
-> diff --git a/kernel/softirq.c b/kernel/softirq.c
-> index 671f959..d349caa 100644
-> --- a/kernel/softirq.c
-> +++ b/kernel/softirq.c
-> @@ -210,6 +210,8 @@ asmlinkage void __do_softirq(void)
->  	__u32 pending;
->  	int max_restart = MAX_SOFTIRQ_RESTART;
->  	int cpu;
-> +	unsigned long pflags = current->flags;
-
-"old_flags"
-
-> +	current->flags &= ~PF_MEMALLOC;
-
-The line before this one would be a suitable place for a comment!
-
->  	pending = local_softirq_pending();
->  	account_system_vtime(current);
-> @@ -265,6 +267,7 @@ restart:
->  
->  	account_system_vtime(current);
->  	__local_bh_enable(SOFTIRQ_OFFSET);
-> +	tsk_restore_flags(current, pflags, PF_MEMALLOC);
->  }
->  
-> ...
+>> On 04/20/2012 02:56 PM, Ben Greear wrote:
+>>> On 04/20/2012 02:21 PM, Tom Herbert wrote:
+>>>> Thanks John for pointers to those.  Ben, are you running a kernel with
+>>>> these patches?
+>>>
+>>> I just tested this on my e1000e and igb machine.  With these patches,
+>>> I can no longer reproduce the problem.
+>>>
+>>> So, please make sure those are queued up for 3.3 stable!
+>>
+>> Dave:  I think these patches below should go to 3.3 stable.
+>>
+>> They are not queued for stable yet as far as I can tell.
 >
+> I let the Intel developers handle -stable submissions for their
+> drivers.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I don't think this is specific to their drivers.
+
+But, as long as _someone_ is pushing it to stable,
+it is fine by me.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
