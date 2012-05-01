@@ -1,58 +1,93 @@
-From: "Linus Walleij" <linus.walleij@linaro.org>
-Subject: [PATCH 13/13 v4] usb/net: rndis: move bus message definition
-Date: Tue,  1 May 2012 20:23:50 +0200
-Message-ID: <1335896630-13695-1-git-send-email-linus.walleij@linaro.org>
-Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Felipe Balbi <balbi@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.df.lth.se ([194.47.250.12]:60810 "EHLO mail.df.lth.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758182Ab2EASXy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 14:23:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH v2 00/17] netfilter: add namespace support for netfilter protos
+Date: Tue, 01 May 2012 11:47:45 -0700
+Message-ID: <m1zk9rwxf2.fsf@fess.ebiederm.org>
+References: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, serge.hallyn@canonical.com,
+	dlezcano@fr.ibm.com
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com> (Gao
+	feng's message of "Fri, 27 Apr 2012 17:37:47 +0800")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This moves the bus message definition to land together with the
-other message types. This message is not used in the kernel but
-I'm keeping it anyway.
+Gao feng <gaofeng@cn.fujitsu.com> writes:
 
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
----
- include/linux/rndis.h |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+> Currently the sysctl of netfilter proto is not isolated, so when
+> changing proto's sysctl in container will cause the host's sysctl
+> be changed too. it's not expected.
+>
+> This patch set adds the namespace support for netfilter protos.
+>
+> impletement four pernet_operations to register sysctl and initial
+> pernet data for proto.
+>
+> -ipv4_net_ops is used to register tcp4(compat),
+>  udp4(compat),icmp(compat),ipv4(compat).
+> -ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
+> -sctp_net_ops is used to register sctp4(compat) and sctp6.
+> -udplite_net_ops is used to register udplite4 and udplite6
+>
+> extern l[3,4]proto (sysctl) register functions to make them support
+> namespace.
+>
+> finailly add namespace support for cttimeout.
 
-diff --git a/include/linux/rndis.h b/include/linux/rndis.h
-index 3f2ba8f..0c8dc71 100644
---- a/include/linux/rndis.h
-+++ b/include/linux/rndis.h
-@@ -31,6 +31,11 @@
- #define RNDIS_MSG_INDICATE	0x00000007
- #define RNDIS_MSG_KEEPALIVE	0x00000008
- #define RNDIS_MSG_KEEPALIVE_C	(RNDIS_MSG_KEEPALIVE|RNDIS_MSG_COMPLETION)
-+/*
-+ * Reserved message type for private communication between lower-layer host
-+ * driver and remote device, if necessary.
-+ */
-+#define RNDIS_MSG_BUS		0xff000001
- 
- /* codes for "status" field of completion messages */
- #define	RNDIS_STATUS_SUCCESS			0x00000000
-@@ -383,9 +388,3 @@
- #define REMOTE_CONDIS_MP_DELETE_VC_CMPLT	0x80008002
- #define REMOTE_CONDIS_MP_ACTIVATE_VC_CMPLT	0x80008005
- #define REMOTE_CONDIS_MP_DEACTIVATE_VC_CMPLT	0x80008006
--
--/*
-- * Reserved message type for private communication between lower-layer host
-- * driver and remote device, if necessary.
-- */
--#define REMOTE_NDIS_BUS_MSG			0xff000001
--- 
-1.7.7.6
+I am a bit out of it this week so I could not look at these patches
+in the detail that I would like.  However skimming through it looks
+like you addressed your review comments, and the changes look like
+the kind of changes I would expect from something like this.
+
+I assume you have tested to make certain your code actually works.
+
+So on that basis for the patchset:
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+Anyone else want to chime in or does everyone else figure
+that this code is ready to be merged and no additional comments
+are necessary?
+
+Eric
+
+
+> Gao feng (17):
+>   netfilter: add struct nf_proto_net for register l4proto sysctl
+>   netfilter: add namespace support for l4proto
+>   netfilter: add namespace support for l3proto
+>   netfilter: add namespace support for l4proto_generic
+>   netfilter: add namespace support for l4proto_tcp
+>   netfilter: add namespace support for l4proto_udp
+>   netfilter: add namespace support for l4proto_icmp
+>   netfilter: add namespace support for l4proto_icmpv6
+>   netfilter: add namespace support for l3proto_ipv4
+>   netfilter: add namespace support for l3proto_ipv6
+>   netfilter: add namespace support for l4proto_sctp
+>   netfilter: add namespace support for l4proto_udplite
+>   netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
+>   netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
+>   netfilter: cleanup sysctl for l4proto and l3proto
+>   netfilter: add namespace support for cttimeout
+>   netfilter: cttimeout use pernet data of l4proto
+>
+>  include/net/netfilter/nf_conntrack_l3proto.h   |   11 +-
+>  include/net/netfilter/nf_conntrack_l4proto.h   |   32 ++-
+>  include/net/netns/conntrack.h                  |   55 ++++
+>  net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  127 ++++++---
+>  net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   55 +++-
+>  net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   88 ++++--
+>  net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   38 ++-
+>  net/netfilter/nf_conntrack_core.c              |    7 +-
+>  net/netfilter/nf_conntrack_proto.c             |  390 ++++++++++++++----------
+>  net/netfilter/nf_conntrack_proto_dccp.c        |  141 +++++----
+>  net/netfilter/nf_conntrack_proto_generic.c     |   69 ++++-
+>  net/netfilter/nf_conntrack_proto_gre.c         |   66 +++--
+>  net/netfilter/nf_conntrack_proto_sctp.c        |  157 +++++++---
+>  net/netfilter/nf_conntrack_proto_tcp.c         |  136 ++++++---
+>  net/netfilter/nf_conntrack_proto_udp.c         |   90 ++++--
+>  net/netfilter/nf_conntrack_proto_udplite.c     |  125 ++++++--
+>  net/netfilter/nfnetlink_cttimeout.c            |   13 +-
+>  17 files changed, 1068 insertions(+), 532 deletions(-)
