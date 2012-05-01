@@ -1,63 +1,318 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Tue,  1 May 2012 01:51:01 -0700
-Message-ID: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com
+Subject: [net-next 2/8] e1000e: PHY initialization flow changes for 82577/8/9
+Date: Tue,  1 May 2012 01:51:03 -0700
+Message-ID: <1335862269-28914-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:46313 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:42217 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753891Ab2EAIvL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 04:51:11 -0400
+	id S1753979Ab2EAIvM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 04:51:12 -0400
+In-Reply-To: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of patches contains updates for e1000e and ixgbe.
-Special note that this series contains the v2 of the ixgbe
-thermal data patches (patches 4-6), which have been revised based on
-feedback from the community (Ben Hutchings).
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-The following are changes since commit 80bcb4238dd858d8ae460b62aac2f4165db58c3c:
-  atl1c: remove PHY polling from atl1c_change_mtu
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+The PHY initialization flows and assorted workarounds for 82577/8/9 done
+during driver load and resume from Sx should be the same yet they are not.
+Combine the current flows/workarounds into a common set of functions that
+are called during the different code paths.
 
-Bruce Allan (3):
-  e1000e: workaround EEPROM configuration change on 82579
-  e1000e: PHY initialization flow changes for 82577/8/9
-  e1000e: fix .ndo_set_rx_mode for 82579
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |  247 ++++++++++++++++-----------
+ 1 files changed, 146 insertions(+), 101 deletions(-)
 
-Don Skidmore (3):
-  ixgbe: add support functions to access thermal data
-  ixgbe: add hwmon interface to export thermal data
-  ixgbe: add syfs interface for to export read only driver information
-
-Greg Rose (2):
-  ixgbe: Deny MACVLAN requests from VFs with admin set MAC
-  ixgbe: Reset max_vfs to zero when user request is out of range
-
- drivers/net/ethernet/intel/Kconfig              |    8 +
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    1 +
- drivers/net/ethernet/intel/e1000e/82571.c       |    4 +-
- drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
- drivers/net/ethernet/intel/e1000e/hw.h          |    6 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |  339 +++++++++----
- drivers/net/ethernet/intel/e1000e/mac.c         |   10 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      |   12 +-
- drivers/net/ethernet/intel/ixgbe/Makefile       |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h        |   26 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  169 +++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |   13 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   13 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c  |    6 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c  |  583 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |   40 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |    2 +
- 19 files changed, 1120 insertions(+), 120 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 2506ee2..4c8b0fb 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -287,25 +287,126 @@ static inline void __ew32flash(struct e1000_hw *hw, unsigned long reg, u32 val)
+ #define ew16flash(reg, val)	__ew16flash(hw, (reg), (val))
+ #define ew32flash(reg, val)	__ew32flash(hw, (reg), (val))
+ 
+-static void e1000_toggle_lanphypc_value_ich8lan(struct e1000_hw *hw)
++/**
++ *  e1000_phy_is_accessible_pchlan - Check if able to access PHY registers
++ *  @hw: pointer to the HW structure
++ *
++ *  Test access to the PHY registers by reading the PHY ID registers.  If
++ *  the PHY ID is already known (e.g. resume path) compare it with known ID,
++ *  otherwise assume the read PHY ID is correct if it is valid.
++ *
++ *  Assumes the sw/fw/hw semaphore is already acquired.
++ **/
++static bool e1000_phy_is_accessible_pchlan(struct e1000_hw *hw)
+ {
+-	u32 reg;
++	u16 phy_reg;
++	u32 phy_id;
+ 
+-	/* Set Phy Config Counter to 50msec */
+-	reg = er32(FEXTNVM3);
+-	reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
+-	reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
+-	ew32(FEXTNVM3, reg);
+-
+-	/* Toggle LANPHYPC Value bit */
+-	reg = er32(CTRL);
+-	reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
+-	reg &= ~E1000_CTRL_LANPHYPC_VALUE;
+-	ew32(CTRL, reg);
+-	e1e_flush();
+-	udelay(10);
+-	reg &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
+-	ew32(CTRL, reg);
++	hw->phy.ops.read_reg_locked(hw, PHY_ID1, &phy_reg);
++	phy_id = (u32)(phy_reg << 16);
++	hw->phy.ops.read_reg_locked(hw, PHY_ID2, &phy_reg);
++	phy_id |= (u32)(phy_reg & PHY_REVISION_MASK);
++
++	if (hw->phy.id) {
++		if (hw->phy.id == phy_id)
++			return true;
++	} else {
++		if ((phy_id != 0) && (phy_id != PHY_REVISION_MASK))
++			hw->phy.id = phy_id;
++		return true;
++	}
++
++	return false;
++}
++
++/**
++ *  e1000_init_phy_workarounds_pchlan - PHY initialization workarounds
++ *  @hw: pointer to the HW structure
++ *
++ *  Workarounds/flow necessary for PHY initialization during driver load
++ *  and resume paths.
++ **/
++static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
++{
++	u32 mac_reg, fwsm = er32(FWSM);
++	s32 ret_val;
++
++	ret_val = hw->phy.ops.acquire(hw);
++	if (ret_val) {
++		e_dbg("Failed to initialize PHY flow\n");
++		return ret_val;
++	}
++
++	/*
++	 * The MAC-PHY interconnect may be in SMBus mode.  If the PHY is
++	 * inaccessible and resetting the PHY is not blocked, toggle the
++	 * LANPHYPC Value bit to force the interconnect to PCIe mode.
++	 */
++	switch (hw->mac.type) {
++	case e1000_pch2lan:
++		/*
++		 * Gate automatic PHY configuration by hardware on
++		 * non-managed 82579
++		 */
++		if (!(fwsm & E1000_ICH_FWSM_FW_VALID))
++			e1000_gate_hw_phy_config_ich8lan(hw, true);
++
++		if (e1000_phy_is_accessible_pchlan(hw))
++			break;
++
++		/* fall-through */
++	case e1000_pchlan:
++		if ((hw->mac.type == e1000_pchlan) &&
++		    (fwsm & E1000_ICH_FWSM_FW_VALID))
++			break;
++
++		if (hw->phy.ops.check_reset_block(hw)) {
++			e_dbg("Required LANPHYPC toggle blocked by ME\n");
++			break;
++		}
++
++		e_dbg("Toggling LANPHYPC\n");
++
++		/* Set Phy Config Counter to 50msec */
++		mac_reg = er32(FEXTNVM3);
++		mac_reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
++		mac_reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
++		ew32(FEXTNVM3, mac_reg);
++
++		/* Toggle LANPHYPC Value bit */
++		mac_reg = er32(CTRL);
++		mac_reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
++		mac_reg &= ~E1000_CTRL_LANPHYPC_VALUE;
++		ew32(CTRL, mac_reg);
++		e1e_flush();
++		udelay(10);
++		mac_reg &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
++		ew32(CTRL, mac_reg);
++		e1e_flush();
++		msleep(50);
++		break;
++	default:
++		break;
++	}
++
++	hw->phy.ops.release(hw);
++
++	/*
++	 * Reset the PHY before any access to it.  Doing so, ensures
++	 * that the PHY is in a known good state before we read/write
++	 * PHY registers.  The generic reset is sufficient here,
++	 * because we haven't determined the PHY type yet.
++	 */
++	ret_val = e1000e_phy_hw_reset_generic(hw);
++
++	/* Ungate automatic PHY configuration on non-managed 82579 */
++	if ((hw->mac.type == e1000_pch2lan) &&
++	    !(fwsm & E1000_ICH_FWSM_FW_VALID)) {
++		usleep_range(10000, 20000);
++		e1000_gate_hw_phy_config_ich8lan(hw, false);
++	}
++
++	return ret_val;
+ }
+ 
+ /**
+@@ -335,65 +436,34 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	phy->ops.power_down           = e1000_power_down_phy_copper_ich8lan;
+ 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
+ 
+-	if (!hw->phy.ops.check_reset_block(hw)) {
+-		u32 fwsm = er32(FWSM);
+-
+-		/*
+-		 * The MAC-PHY interconnect may still be in SMBus mode after
+-		 * Sx->S0.  If resetting the PHY is not blocked, toggle the
+-		 * LANPHYPC Value bit to force the interconnect to PCIe mode.
+-		 */
+-		e1000_toggle_lanphypc_value_ich8lan(hw);
+-		msleep(50);
+-
+-		/*
+-		 * Gate automatic PHY configuration by hardware on
+-		 * non-managed 82579
+-		 */
+-		if ((hw->mac.type == e1000_pch2lan) &&
+-		    !(fwsm & E1000_ICH_FWSM_FW_VALID))
+-			e1000_gate_hw_phy_config_ich8lan(hw, true);
+-
+-		/*
+-		 * Reset the PHY before any access to it.  Doing so, ensures
+-		 * that the PHY is in a known good state before we read/write
+-		 * PHY registers.  The generic reset is sufficient here,
+-		 * because we haven't determined the PHY type yet.
+-		 */
+-		ret_val = e1000e_phy_hw_reset_generic(hw);
+-		if (ret_val)
+-			return ret_val;
++	phy->id = e1000_phy_unknown;
+ 
+-		/* Ungate automatic PHY configuration on non-managed 82579 */
+-		if ((hw->mac.type == e1000_pch2lan) &&
+-		    !(fwsm & E1000_ICH_FWSM_FW_VALID)) {
+-			usleep_range(10000, 20000);
+-			e1000_gate_hw_phy_config_ich8lan(hw, false);
+-		}
+-	}
++	ret_val = e1000_init_phy_workarounds_pchlan(hw);
++	if (ret_val)
++		return ret_val;
+ 
+-	phy->id = e1000_phy_unknown;
+-	switch (hw->mac.type) {
+-	default:
+-		ret_val = e1000e_get_phy_id(hw);
+-		if (ret_val)
+-			return ret_val;
+-		if ((phy->id != 0) && (phy->id != PHY_REVISION_MASK))
++	if (phy->id == e1000_phy_unknown)
++		switch (hw->mac.type) {
++		default:
++			ret_val = e1000e_get_phy_id(hw);
++			if (ret_val)
++				return ret_val;
++			if ((phy->id != 0) && (phy->id != PHY_REVISION_MASK))
++				break;
++			/* fall-through */
++		case e1000_pch2lan:
++			/*
++			 * In case the PHY needs to be in mdio slow mode,
++			 * set slow mode and try to get the PHY id again.
++			 */
++			ret_val = e1000_set_mdio_slow_mode_hv(hw);
++			if (ret_val)
++				return ret_val;
++			ret_val = e1000e_get_phy_id(hw);
++			if (ret_val)
++				return ret_val;
+ 			break;
+-		/* fall-through */
+-	case e1000_pch2lan:
+-		/*
+-		 * In case the PHY needs to be in mdio slow mode,
+-		 * set slow mode and try to get the PHY id again.
+-		 */
+-		ret_val = e1000_set_mdio_slow_mode_hv(hw);
+-		if (ret_val)
+-			return ret_val;
+-		ret_val = e1000e_get_phy_id(hw);
+-		if (ret_val)
+-			return ret_val;
+-		break;
+-	}
++		}
+ 	phy->type = e1000e_get_phy_type_from_id(phy->id);
+ 
+ 	switch (phy->type) {
+@@ -3736,41 +3806,16 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
+  **/
+ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+ {
+-	u16 phy_id1, phy_id2;
+ 	s32 ret_val;
+ 
+-	if ((hw->mac.type != e1000_pch2lan) ||
+-	    hw->phy.ops.check_reset_block(hw))
++	if (hw->mac.type < e1000_pch2lan)
+ 		return;
+ 
+-	ret_val = hw->phy.ops.acquire(hw);
++	ret_val = e1000_init_phy_workarounds_pchlan(hw);
+ 	if (ret_val) {
+-		e_dbg("Failed to acquire PHY semaphore in resume\n");
++		e_dbg("Failed to init PHY flow ret_val=%d\n", ret_val);
+ 		return;
+ 	}
+-
+-	/* Test access to the PHY registers by reading the ID regs */
+-	ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID1, &phy_id1);
+-	if (ret_val)
+-		goto release;
+-	ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID2, &phy_id2);
+-	if (ret_val)
+-		goto release;
+-
+-	if (hw->phy.id == ((u32)(phy_id1 << 16) |
+-			   (u32)(phy_id2 & PHY_REVISION_MASK)))
+-		goto release;
+-
+-	e1000_toggle_lanphypc_value_ich8lan(hw);
+-
+-	hw->phy.ops.release(hw);
+-	msleep(50);
+-	e1000_phy_hw_reset(hw);
+-	msleep(50);
+-	return;
+-
+-release:
+-	hw->phy.ops.release(hw);
+ }
+ 
+ /**
 -- 
 1.7.7.6
