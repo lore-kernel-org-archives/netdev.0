@@ -1,7 +1,7 @@
 From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 09/13 v4] usb/net: rndis: delete duplicate packet types
-Date: Tue,  1 May 2012 20:23:23 +0200
-Message-ID: <1335896603-13559-1-git-send-email-linus.walleij@linaro.org>
+Subject: [PATCH 10/13 v4] usb/net: rndis: move and namespace PnP defines
+Date: Tue,  1 May 2012 20:23:30 +0200
+Message-ID: <1335896610-13593-1-git-send-email-linus.walleij@linaro.org>
 Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
 	Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
 	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
@@ -15,31 +15,59 @@ Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The NDIS_*-prefixed packet types have equivalent RNDIS_*-
-prefixed types, besides nothing in the kernel use these defines.
+This moves the PnP OID definitions to the RNDIS_* namespace
+and puts them in the next falling slot in the list. Oh, the comment
+above the PnP defines was referring to some obsolete or out-of-tree
+driver so removed it, and removed my own comments telling where each
+header segment came from as well, we have moved everything around by
+this point anyway.
 
 Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 ---
- include/linux/rndis.h |   13 -------------
- 1 files changed, 0 insertions(+), 13 deletions(-)
+ include/linux/rndis.h |   27 ++++++++++++---------------
+ 1 files changed, 12 insertions(+), 15 deletions(-)
 
 diff --git a/include/linux/rndis.h b/include/linux/rndis.h
-index 4857959..83b3d70 100644
+index 83b3d70..bdad7ab 100644
 --- a/include/linux/rndis.h
 +++ b/include/linux/rndis.h
-@@ -185,19 +185,6 @@
- #define NDIS_MINIPORT_SUPPORTS_CANCEL_SEND_PACKETS    0x00800000
- #define NDIS_MINIPORT_64BITS_DMA                      0x01000000
+@@ -1,4 +1,7 @@
+-/* From include/linux/usb/rndis_host.h */
++/*
++ * Remote Network Driver Interface Specification (RNDIS)
++ * definitions of the magic numbers used by this protocol
++ */
  
--#define NDIS_PACKET_TYPE_DIRECTED	0x00000001
--#define NDIS_PACKET_TYPE_MULTICAST	0x00000002
--#define NDIS_PACKET_TYPE_ALL_MULTICAST	0x00000004
--#define NDIS_PACKET_TYPE_BROADCAST	0x00000008
--#define NDIS_PACKET_TYPE_SOURCE_ROUTING	0x00000010
--#define NDIS_PACKET_TYPE_PROMISCUOUS	0x00000020
--#define NDIS_PACKET_TYPE_SMT		0x00000040
--#define NDIS_PACKET_TYPE_ALL_LOCAL	0x00000080
--#define NDIS_PACKET_TYPE_GROUP		0x00000100
--#define NDIS_PACKET_TYPE_ALL_FUNCTIONAL	0x00000200
--#define NDIS_PACKET_TYPE_FUNCTIONAL	0x00000400
--#define NDIS_PACKET_TYPE_MAC_FRAME	0x00000800
+ #define RNDIS_MSG_COMPLETION	0x80000000
+ 
+@@ -148,8 +151,6 @@
+ #define RNDIS_PACKET_TYPE_FUNCTIONAL		0x00004000
+ #define RNDIS_PACKET_TYPE_MAC_FRAME		0x00008000
+ 
+-/* From drivers/usb/gadget/ndis.h */
+-
+ /* NDIS_PNP_CAPABILITIES.Flags constants */
+ #define NDIS_DEVICE_WAKE_UP_ENABLE                0x00000001
+ #define NDIS_DEVICE_WAKE_ON_PATTERN_MATCH_ENABLE  0x00000002
+@@ -194,8 +195,6 @@
+ #define NDIS_MAC_OPTION_8021P_PRIORITY          0x00000040
+ #define NDIS_MAC_OPTION_RESERVED                0x80000000
+ 
+-/* From drivers/usb/gadget/rndis.h */
+-
+ /* Remote NDIS Versions */
+ #define RNDIS_MAJOR_VERSION		0x00000001
+ #define RNDIS_MINOR_VERSION		0x00000000
+@@ -222,16 +221,6 @@
+ #define RNDIS_DF_CONNECTION_ORIENTED	0x00000002U
+ #define RNDIS_DF_RAW_DATA		0x00000004U
+ 
+-/* from drivers/net/sk98lin/h/skgepnmi.h */
+-#define OID_PNP_CAPABILITIES			0xFD010100
+-#define OID_PNP_SET_POWER			0xFD010101
+-#define OID_PNP_QUERY_POWER			0xFD010102
+-#define OID_PNP_ADD_WAKE_UP_PATTERN		0xFD010103
+-#define OID_PNP_REMOVE_WAKE_UP_PATTERN		0xFD010104
+-#define OID_PNP_ENABLE_WAKE_UP			0xFD010106
+-
+-/* From drivers/net/hyperv/hyperv_net.h */
