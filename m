@@ -1,74 +1,103 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 3.4-rc: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-Date: Tue, 1 May 2012 22:04:03 +0200
-Message-ID: <20120501200403.GA20763@electric-eye.fr.zoreil.com>
-References: <20120501182405.3dda59b9@stein> <20120501172748.GA17117@electric-eye.fr.zoreil.com> <20120501200423.6804dcf0@stein>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [E1000-devel] e1000e tx queue timeout in 3.3.0 (bisected to BQL
+ support for e1000e)
+Date: Tue, 01 May 2012 14:10:43 -0700
+Message-ID: <4FA05153.1010903@candelatech.com>
+References: <4F909F4B.1010707@candelatech.com> <CA+mtBx9ZjfC692g1EwNsw=37ijWcGBOUaENCogVS=Bi9rfz0sg@mail.gmail.com> <4F91B250.8090509@candelatech.com> <CA+mtBx9s70wawA4E3+LyOQhJXRr1y-0j_Pzno5bBSz8TS3SUOA@mail.gmail.com> <4F91B554.9060902@candelatech.com> <4F91BC82.2000804@intel.com> <CA+mtBx-K6-O3ea34kmn4LXtx73FqCHF16w7pBSq1fHNN+-DxCA@mail.gmail.com> <4F91DB7B.7060601@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	e1000-devel list <e1000-devel@lists.sourceforge.net>
+To: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:42657 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751868Ab2EAUJv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 16:09:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20120501200423.6804dcf0@stein>
+Received: from mail.candelatech.com ([208.74.158.172]:48895 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208Ab2EAVKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 17:10:55 -0400
+In-Reply-To: <4F91DB7B.7060601@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stefan Richter <stefanr@s5r6.in-berlin.de> :
-[...]
-> # dmesg | grep XID
-> r8169 0000:0b:00.0: eth0: RTL8168c/8111c at 0xffffc9000005e000,
-> 00:23:54:91:8a:2b, XID 1c4000c0 IRQ 49
+On 04/20/2012 02:56 PM, Ben Greear wrote:
+> On 04/20/2012 02:21 PM, Tom Herbert wrote:
+>> Thanks John for pointers to those.  Ben, are you running a kernel with
+>> these patches?
+>
+> I just tested this on my e1000e and igb machine.  With these patches,
+> I can no longer reproduce the problem.
+>
+> So, please make sure those are queued up for 3.3 stable!
 
-I have no idea what has gone wrong with this chipset during the
-3.3 to 3.4-rc5 move.
+Dave:  I think these patches below should go to 3.3 stable.
 
-Can you apply the patch below on top of current ethtool
-(git://git.kernel.org/pub/scm/network/ethtool/ethtool.git) and see
-if it is enough to compare the register dumps (ethtool -d eth0).
+They are not queued for stable yet as far as I can tell.
 
-diff --git a/realtek.c b/realtek.c
-index c3d7ae5..ac83829 100644
---- a/realtek.c
-+++ b/realtek.c
-@@ -33,6 +33,7 @@ enum chip_type {
- 	RTL8101Ebc,
- 	RTL8100E1,
- 	RTL8100E2,
-+	RTL8168c0,
- };
- 
- enum {
-@@ -65,6 +66,7 @@ static struct chip_info {
- 	{ "RTL-8101Ebc",	HW_REVID(0, 0, 1, 1, 0, 1, 0, 0) },
- 	{ "RTL-8100E(1)",	HW_REVID(0, 0, 1, 1, 0, 0, 1, 0) },
- 	{ "RTL-8100E(2)",	HW_REVID(0, 0, 1, 1, 1, 0, 1, 0) },
-+	{ "RTL-8168c",		HW_REVID(0, 0, 1, 1, 1, 1, 0, 1) },
- 	{ }
- };
- 
+Thanks,
+Ben
 
-> 
-> # ethtool eth0
-> Settings for eth0:
-[...]
->                                drv probe ifdown ifup
->         Link detected: yes
+>
+> Thanks,
+> Ben
+>
+>>
+>> Tom
+>>
+>>>
+>>> Tom, did you see these two patches? Maybe this is resolved by
+>>> the second patch.
+>>>
+>>> We needed these to fixup ixgbe and igb (i didn't test e1000e)
+>>> looks like we might want to push these at stable. I don't
+>>> believe they are in 3.3.
+>>>
+>>> commit b37c0fbe3f6dfba1f8ad2aed47fb40578a254635
+>>> Author: Alexander Duyck<alexander.h.duyck@intel.com>
+>>> Date:   Tue Feb 7 02:29:06 2012 +0000
+>>>
+>>>      net: Add memory barriers to prevent possible race in byte queue limits
+>>>
+>>>      This change adds a memory barrier to the byte queue limit code to address a
+>>>      possible race as has been seen in the past with the
+>>>      netif_stop_queue/netif_wake_queue logic.
+>>>
+>>>      Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
+>>>      Tested-by: Stephen Ko<stephen.s.ko@intel.com>
+>>>      Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+>>>
+>>>
+>>> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=b37c0fbe3f6dfba1f8ad2aed47fb40578a254635
+>>>
+>>>
+>>> commit 5c4903549c05bbb373479e0ce2992573c120654a
+>>> Author: Alexander Duyck<alexander.h.duyck@intel.com>
+>>> Date:   Tue Feb 7 02:29:01 2012 +0000
+>>>
+>>>      net: Fix issue with netdev_tx_reset_queue not resetting queue from XOFF state
+>>>
+>>>      We are seeing dev_watchdog hangs on several drivers.  I suspect this is due
+>>>      to the __QUEUE_STATE_STACK_XOFF bit being set prior to a reset for link
+>>>      change, and then not being cleared by netdev_tx_reset_queue.  This change
+>>>      corrects that.
+>>>
+>>>      In addition we were seeing dev_watchdog hangs on igb after running the
+>>>      ethtool tests.  We found this to be due to the fact that the ethtool test
+>>>      runs the same logic as ndo_start_xmit, but we were never clearing the XOFF
+>>>      flag since the loopback test in ethtool does not do byte queue accounting.
+>>>
+>>>      Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
+>>>      Tested-by: Stephen Ko<stephen.s.ko@intel.com>
+>>>      Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+>>>
+>>> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=5c4903549c05bbb373479e0ce2992573c120654a
+>>>
+>>>
+>
+>
 
-Everything seems normal and we should be able to see both link up and down
-messages.
-
-> # ethtool -i eth0
-[...]
-
-Ok. This is a firmware free chipset anyway. Nothing strange in the interface
-stats (ethtool -S eth0) ?
-
-You may have to narrow things. Can you check if the r8169.c at
-036dafa28da1e2565a8529de2ae663c37b7a0060 behaves the same ?
 
 -- 
-Ueimor
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
