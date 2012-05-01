@@ -1,324 +1,388 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/8] e1000e: fix .ndo_set_rx_mode for 82579
-Date: Tue,  1 May 2012 01:51:04 -0700
-Message-ID: <1335862269-28914-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 6/8] ixgbe: add syfs interface for to export read only driver information
+Date: Tue,  1 May 2012 01:51:07 -0700
+Message-ID: <1335862269-28914-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:46313 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753891Ab2EAIvN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 04:51:13 -0400
+	id S1754287Ab2EAIvP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 04:51:15 -0400
 In-Reply-To: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Secondary unicast and multicast addresses are added to the Receive
-Address registers (RAR) for most parts supported by the driver.  For
-82579, there is only one actual RAR and a number of Shared Receive Address
-registers (SHRAR) that are shared among the driver and f/w which can be
-reserved and write-protected by the f/w.  On this device, use the SHRARs
-that are not taken by f/w for the additional addresses.
+This patch exports non-thermal (which was done via hwmon in an earlier
+patch) data to sysfs which isn't readily available elsewhere.  All of the
+fields are read only as this interface is to only export driver data.
 
-Add a MAC ops function pointer infrastructure (similar to other MAC
-operations in the driver) for setting RARs, introduce a new rar_set
-function for 82579 and convert the existing code that sets RARs on other
-devices to a generic rar_set function.
-
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |    1 +
- drivers/net/ethernet/intel/e1000e/82571.c       |    4 +-
- drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
- drivers/net/ethernet/intel/e1000e/hw.h          |    5 ++
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |   72 ++++++++++++++++++++++-
- drivers/net/ethernet/intel/e1000e/mac.c         |   10 ++--
- drivers/net/ethernet/intel/e1000e/netdev.c      |   12 ++--
- 7 files changed, 92 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |  322 +++++++++++++++++++++++-
+ 1 files changed, 317 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index a212846..66f9877 100644
---- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -1439,6 +1439,7 @@ static const struct e1000_mac_operations es2_mac_ops = {
- 	/* setup_physical_interface dependent on media type */
- 	.setup_led		= e1000e_setup_led_generic,
- 	.config_collision_dist	= e1000e_config_collision_dist_generic,
-+	.rar_set		= e1000e_rar_set_generic,
- };
- 
- static const struct e1000_phy_operations es2_phy_ops = {
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index d0ea316..7b02e87 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1762,7 +1762,8 @@ void e1000e_set_laa_state_82571(struct e1000_hw *hw, bool state)
- 		 * incoming packets directed to this port are dropped.
- 		 * Eventually the LAA will be in RAR[0] and RAR[14].
- 		 */
--		e1000e_rar_set(hw, hw->mac.addr, hw->mac.rar_entry_count - 1);
-+		hw->mac.ops.rar_set(hw, hw->mac.addr,
-+				    hw->mac.rar_entry_count - 1);
- }
- 
- /**
-@@ -1926,6 +1927,7 @@ static const struct e1000_mac_operations e82571_mac_ops = {
- 	.setup_led		= e1000e_setup_led_generic,
- 	.config_collision_dist	= e1000e_config_collision_dist_generic,
- 	.read_mac_addr		= e1000_read_mac_addr_82571,
-+	.rar_set		= e1000e_rar_set_generic,
- };
- 
- static const struct e1000_phy_operations e82_phy_ops_igp = {
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 1dc2067..1da9bfa 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -576,7 +576,7 @@ extern void e1000e_init_rx_addrs(struct e1000_hw *hw, u16 rar_count);
- extern void e1000e_update_mc_addr_list_generic(struct e1000_hw *hw,
- 					       u8 *mc_addr_list,
- 					       u32 mc_addr_count);
--extern void e1000e_rar_set(struct e1000_hw *hw, u8 *addr, u32 index);
-+extern void e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index);
- extern s32 e1000e_set_fc_watermarks(struct e1000_hw *hw);
- extern void e1000e_set_pcie_no_snoop(struct e1000_hw *hw, u32 no_snoop);
- extern s32 e1000e_get_hw_semaphore(struct e1000_hw *hw);
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 3a5acb5..00a0ebb 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -200,6 +200,10 @@ enum e1e_registers {
- #define E1000_RA        (E1000_RAL(0))
- 	E1000_RAH_BASE = 0x05404, /* Receive Address High - RW */
- #define E1000_RAH(_n)   (E1000_RAH_BASE + ((_n) * 8))
-+	E1000_SHRAL_BASE = 0x05438, /* Shared Receive Address Low - RW */
-+#define E1000_SHRAL(_n)   (E1000_SHRAL_BASE + ((_n) * 8))
-+	E1000_SHRAH_BASE = 0x0543C, /* Shared Receive Address High - RW */
-+#define E1000_SHRAH(_n)   (E1000_SHRAH_BASE + ((_n) * 8))
- 	E1000_VFTA     = 0x05600, /* VLAN Filter Table Array - RW Array */
- 	E1000_WUC      = 0x05800, /* Wakeup Control - RW */
- 	E1000_WUFC     = 0x05808, /* Wakeup Filter Control - RW */
-@@ -782,6 +786,7 @@ struct e1000_mac_operations {
- 	s32  (*setup_led)(struct e1000_hw *);
- 	void (*write_vfta)(struct e1000_hw *, u32, u32);
- 	void (*config_collision_dist)(struct e1000_hw *);
-+	void (*rar_set)(struct e1000_hw *, u8 *, u32);
- 	s32  (*read_mac_addr)(struct e1000_hw *);
- };
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 4c8b0fb..ca34ebf 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -115,6 +115,7 @@
- #define PCIE_ICH8_SNOOP_ALL		PCIE_NO_SNOOP_ALL
- 
- #define E1000_ICH_RAR_ENTRIES		7
-+#define E1000_PCH2_RAR_ENTRIES		5 /* RAR[0], SHRA[0-3] */
- 
- #define PHY_PAGE_SHIFT 5
- #define PHY_REG(page, reg) (((page) << PHY_PAGE_SHIFT) | \
-@@ -259,6 +260,7 @@ static s32  e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
- static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw);
- static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw);
- static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw);
-+static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index);
- static s32 e1000_k1_workaround_lv(struct e1000_hw *hw);
- static void e1000_gate_hw_phy_config_ich8lan(struct e1000_hw *hw, bool gate);
- 
-@@ -672,8 +674,11 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
- 		mac->ops.led_on = e1000_led_on_ich8lan;
- 		mac->ops.led_off = e1000_led_off_ich8lan;
- 		break;
--	case e1000_pchlan:
- 	case e1000_pch2lan:
-+		mac->rar_entry_count = E1000_PCH2_RAR_ENTRIES;
-+		mac->ops.rar_set = e1000_rar_set_pch2lan;
-+		/* fall-through */
-+	case e1000_pchlan:
- 		/* check management mode */
- 		mac->ops.check_mng_mode = e1000_check_mng_mode_pchlan;
- 		/* ID LED init */
-@@ -1048,6 +1053,70 @@ static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw)
- }
- 
- /**
-+ *  e1000_rar_set_pch2lan - Set receive address register
-+ *  @hw: pointer to the HW structure
-+ *  @addr: pointer to the receive address
-+ *  @index: receive address array register
-+ *
-+ *  Sets the receive address array register at index to the address passed
-+ *  in by addr.  For 82579, RAR[0] is the base address register that is to
-+ *  contain the MAC address but RAR[1-6] are reserved for manageability (ME).
-+ *  Use SHRA[0-3] in place of those reserved for ME.
-+ **/
-+static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+index aa41fb7..6601986 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+@@ -41,6 +41,310 @@
+  * This file provides a sysfs interface to export information from the
+  * driver.  The information presented is READ-ONLY.
+  */
++
++static struct net_device *ixgbe_get_netdev(struct kobject *kobj)
 +{
-+	u32 rar_low, rar_high;
++	struct net_device *netdev;
++	struct kobject *parent = kobj->parent;
++	struct device *device_info_kobj;
 +
-+	/*
-+	 * HW expects these in little endian so we reverse the byte order
-+	 * from network order (big endian) to little endian
-+	 */
-+	rar_low = ((u32)addr[0] |
-+		   ((u32)addr[1] << 8) |
-+		   ((u32)addr[2] << 16) | ((u32)addr[3] << 24));
++	if (kobj == NULL)
++		return NULL;
 +
-+	rar_high = ((u32)addr[4] | ((u32)addr[5] << 8));
++	device_info_kobj = container_of(parent, struct device, kobj);
++	if (device_info_kobj == NULL)
++		return NULL;
 +
-+	/* If MAC address zero, no need to set the AV bit */
-+	if (rar_low || rar_high)
-+		rar_high |= E1000_RAH_AV;
-+
-+	if (index == 0) {
-+		ew32(RAL(index), rar_low);
-+		e1e_flush();
-+		ew32(RAH(index), rar_high);
-+		e1e_flush();
-+		return;
-+	}
-+
-+	if (index < hw->mac.rar_entry_count) {
-+		s32 ret_val;
-+
-+		ret_val = e1000_acquire_swflag_ich8lan(hw);
-+		if (ret_val)
-+			goto out;
-+
-+		ew32(SHRAL(index - 1), rar_low);
-+		e1e_flush();
-+		ew32(SHRAH(index - 1), rar_high);
-+		e1e_flush();
-+
-+		e1000_release_swflag_ich8lan(hw);
-+
-+		/* verify the register updates */
-+		if ((er32(SHRAL(index - 1)) == rar_low) &&
-+		    (er32(SHRAH(index - 1)) == rar_high))
-+			return;
-+
-+		e_dbg("SHRA[%d] might be locked by ME - FWSM=0x%8.8x\n",
-+		      (index - 1), er32(FWSM));
-+	}
-+
-+out:
-+	e_dbg("Failed to write receive address at index %d\n", index);
++	netdev = container_of(device_info_kobj, struct net_device, dev);
++	return netdev;
 +}
 +
-+/**
-  *  e1000_check_reset_block_ich8lan - Check if PHY reset is blocked
-  *  @hw: pointer to the HW structure
-  *
-@@ -4100,6 +4169,7 @@ static const struct e1000_mac_operations ich8_mac_ops = {
- 	.setup_physical_interface= e1000_setup_copper_link_ich8lan,
- 	/* id_led_init dependent on mac type */
- 	.config_collision_dist	= e1000e_config_collision_dist_generic,
-+	.rar_set		= e1000e_rar_set_generic,
- };
++static struct ixgbe_adapter *ixgbe_get_adapter(struct kobject *kobj)
++{
++	struct ixgbe_adapter *adapter;
++	struct net_device *netdev = ixgbe_get_netdev(kobj);
++
++	if (netdev == NULL)
++		return NULL;
++
++	adapter = netdev_priv(netdev);
++	return adapter;
++}
++
++static ssize_t ixgbe_rxupacks(struct kobject *kobj,
++			      struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_hw *hw;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	hw = &adapter->hw;
++	if (hw == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_TPR));
++}
++
++static ssize_t ixgbe_rxmpacks(struct kobject *kobj,
++			      struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_hw *hw;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	hw = &adapter->hw;
++	if (hw == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_MPRC));
++}
++
++static ssize_t ixgbe_rxbpacks(struct kobject *kobj,
++			      struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_hw *hw;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	hw = &adapter->hw;
++	if (hw == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_BPRC));
++}
++
++static ssize_t ixgbe_txupacks(struct kobject *kobj,
++			      struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_hw *hw;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	hw = &adapter->hw;
++	if (hw == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_TPT));
++}
++
++static ssize_t ixgbe_txmpacks(struct kobject *kobj,
++			      struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_hw *hw;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	hw = &adapter->hw;
++	if (hw == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_MPTC));
++}
++
++static ssize_t ixgbe_txbpacks(struct kobject *kobj,
++			      struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_hw *hw;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	hw = &adapter->hw;
++	if (hw == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_BPTC));
++}
++
++static ssize_t ixgbe_maclla1(struct kobject *kobj,
++			     struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_hw *hw;
++	u16 eeprom_buff[6];
++	int first_word = 0x37;
++	int word_count = 6;
++	int rc;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	hw = &adapter->hw;
++	if (hw == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
++
++	rc = hw->eeprom.ops.read_buffer(hw, first_word, word_count,
++					eeprom_buff);
++	if (rc)
++		return snprintf(buf, PAGE_SIZE, "error: reading buffer\n");
++
++	switch (hw->bus.func) {
++	case 0:
++		return snprintf(buf, PAGE_SIZE, "0x%04X%04X%04X\n",
++				eeprom_buff[0],
++				eeprom_buff[1],
++				eeprom_buff[2]);
++	case 1:
++		return snprintf(buf, PAGE_SIZE, "0x%04X%04X%04X\n",
++				eeprom_buff[3],
++				eeprom_buff[4],
++				eeprom_buff[5]);
++	}
++
++	return snprintf(buf, PAGE_SIZE, "unexpected port %d\n", hw->bus.func);
++}
++
++static ssize_t ixgbe_txdscqsz(struct kobject *kobj,
++			      struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", adapter->tx_ring[0]->count);
++}
++
++static ssize_t ixgbe_rxdscqsz(struct kobject *kobj,
++			      struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", adapter->rx_ring[0]->count);
++}
++
++static ssize_t ixgbe_rxqavg(struct kobject *kobj,
++			    struct kobj_attribute *attr, char *buf)
++{
++	int index;
++	int diff = 0;
++	u16 ntc;
++	u16 ntu;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	for (index = 0; index < adapter->num_rx_queues; index++) {
++		ntc = adapter->rx_ring[index]->next_to_clean;
++		ntu = adapter->rx_ring[index]->next_to_use;
++
++		if (ntc >= ntu)
++			diff += (ntc - ntu);
++		else
++			diff += (adapter->rx_ring[index]->count - ntu + ntc);
++	}
++
++	if (adapter->num_rx_queues <= 0)
++		return snprintf(buf, PAGE_SIZE,
++				"can't calculate, number of queues %d\n",
++				adapter->num_rx_queues);
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", diff/adapter->num_rx_queues);
++}
++
++static ssize_t ixgbe_txqavg(struct kobject *kobj,
++			    struct kobj_attribute *attr, char *buf)
++{
++	int index;
++	int diff = 0;
++	u16 ntc;
++	u16 ntu;
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	for (index = 0; index < adapter->num_tx_queues; index++) {
++		ntc = adapter->tx_ring[index]->next_to_clean;
++		ntu = adapter->tx_ring[index]->next_to_use;
++
++		if (ntc >= ntu)
++			diff += (ntc - ntu);
++		else
++			diff += (adapter->tx_ring[index]->count - ntu + ntc);
++	}
++
++	if (adapter->num_tx_queues <= 0)
++		return snprintf(buf, PAGE_SIZE,
++				"can't calculate, number of queues %d\n",
++				adapter->num_tx_queues);
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", diff/adapter->num_tx_queues);
++}
++
++static ssize_t ixgbe_funcnbr(struct kobject *kobj,
++			     struct kobj_attribute *attr, char *buf)
++{
++	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
++
++	if (adapter == NULL)
++		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", adapter->num_vfs);
++}
++
++/* Initialize the attributes */
++static struct kobj_attribute ixgbe_sysfs_rxupacks_attr =
++	__ATTR(rxupacks, 0444, ixgbe_rxupacks, NULL);
++static struct kobj_attribute ixgbe_sysfs_rxmpacks_attr =
++	__ATTR(rxmpacks, 0444, ixgbe_rxmpacks, NULL);
++static struct kobj_attribute ixgbe_sysfs_rxbpacks_attr =
++	__ATTR(rxbpacks, 0444, ixgbe_rxbpacks, NULL);
++static struct kobj_attribute ixgbe_sysfs_txupacks_attr =
++	__ATTR(txupacks, 0444, ixgbe_txupacks, NULL);
++static struct kobj_attribute ixgbe_sysfs_txmpacks_attr =
++	__ATTR(txmpacks, 0444, ixgbe_txmpacks, NULL);
++static struct kobj_attribute ixgbe_sysfs_txbpacks_attr =
++	__ATTR(txbpacks, 0444, ixgbe_txbpacks, NULL);
++static struct kobj_attribute ixgbe_sysfs_maclla1_attr =
++	__ATTR(maclla1, 0444, ixgbe_maclla1, NULL);
++static struct kobj_attribute ixgbe_sysfs_txdscqsz_attr =
++	__ATTR(txdscqsz, 0444, ixgbe_txdscqsz, NULL);
++static struct kobj_attribute ixgbe_sysfs_rxdscqsz_attr =
++	__ATTR(rxdscqsz, 0444, ixgbe_rxdscqsz, NULL);
++static struct kobj_attribute ixgbe_sysfs_txqavg_attr =
++	__ATTR(txqavg, 0444, ixgbe_txqavg, NULL);
++static struct kobj_attribute ixgbe_sysfs_rxqavg_attr =
++	__ATTR(rxqavg, 0444, ixgbe_rxqavg, NULL);
++static struct kobj_attribute ixgbe_sysfs_funcnbr_attr =
++	__ATTR(funcnbr, 0444, ixgbe_funcnbr, NULL);
++
++static struct attribute *attrs[] = {
++	&ixgbe_sysfs_rxupacks_attr.attr,
++	&ixgbe_sysfs_rxmpacks_attr.attr,
++	&ixgbe_sysfs_rxbpacks_attr.attr,
++	&ixgbe_sysfs_txupacks_attr.attr,
++	&ixgbe_sysfs_txmpacks_attr.attr,
++	&ixgbe_sysfs_txbpacks_attr.attr,
++	&ixgbe_sysfs_maclla1_attr.attr,
++	&ixgbe_sysfs_txdscqsz_attr.attr,
++	&ixgbe_sysfs_rxdscqsz_attr.attr,
++	&ixgbe_sysfs_txqavg_attr.attr,
++	&ixgbe_sysfs_rxqavg_attr.attr,
++	&ixgbe_sysfs_funcnbr_attr.attr,
++	NULL
++};
++
++/* add attributes to a group */
++static struct attribute_group attr_group = {
++	.attrs = attrs,
++};
++
+ #ifdef CONFIG_IXGBE_HWMON
  
- static const struct e1000_phy_operations ich8_phy_ops = {
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index d832749..026e8b3 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -143,12 +143,12 @@ void e1000e_init_rx_addrs(struct e1000_hw *hw, u16 rar_count)
- 	/* Setup the receive address */
- 	e_dbg("Programming MAC Address into RAR[0]\n");
+ /* hwmon callback functions */
+@@ -185,8 +489,11 @@ static void ixgbe_sysfs_del_adapter(struct ixgbe_adapter *adapter)
+ 		hwmon_device_unregister(adapter->ixgbe_hwmon_buff.device);
+ #endif /* CONFIG_IXGBE_HWMON */
  
--	e1000e_rar_set(hw, hw->mac.addr, 0);
-+	hw->mac.ops.rar_set(hw, hw->mac.addr, 0);
- 
- 	/* Zero out the other (rar_entry_count - 1) receive addresses */
- 	e_dbg("Clearing RAR[1-%u]\n", rar_count - 1);
- 	for (i = 1; i < rar_count; i++)
--		e1000e_rar_set(hw, mac_addr, i);
-+		hw->mac.ops.rar_set(hw, mac_addr, i);
+-	if (adapter->info_kobj != NULL)
++	if (adapter->info_kobj != NULL) {
++		sysfs_remove_group(adapter->info_kobj, &attr_group);
+ 		kobject_put(adapter->info_kobj);
++		adapter->info_kobj = NULL;
++	}
  }
  
- /**
-@@ -215,13 +215,13 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
- 	 * same as the normal permanent MAC address stored by the HW into the
- 	 * RAR. Do this by mapping this address into RAR0.
- 	 */
--	e1000e_rar_set(hw, alt_mac_addr, 0);
-+	hw->mac.ops.rar_set(hw, alt_mac_addr, 0);
- 
- 	return 0;
- }
- 
- /**
-- *  e1000e_rar_set - Set receive address register
-+ *  e1000e_rar_set_generic - Set receive address register
-  *  @hw: pointer to the HW structure
-  *  @addr: pointer to the receive address
-  *  @index: receive address array register
-@@ -229,7 +229,7 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
-  *  Sets the receive address array register at index to the address passed
-  *  in by addr.
-  **/
--void e1000e_rar_set(struct e1000_hw *hw, u8 *addr, u32 index)
-+void e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index)
- {
- 	u32 rar_low, rar_high;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 140fee1..c0e211b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3209,7 +3209,7 @@ static int e1000e_write_uc_addr_list(struct net_device *netdev)
- 		netdev_for_each_uc_addr(ha, netdev) {
- 			if (!rar_entries)
- 				break;
--			e1000e_rar_set(hw, ha->addr, rar_entries--);
-+			hw->mac.ops.rar_set(hw, ha->addr, rar_entries--);
- 			count++;
- 		}
- 	}
-@@ -4018,6 +4018,7 @@ static int e1000_close(struct net_device *netdev)
- static int e1000_set_mac(struct net_device *netdev, void *p)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
- 	struct sockaddr *addr = p;
- 
- 	if (!is_valid_ether_addr(addr->sa_data))
-@@ -4026,7 +4027,7 @@ static int e1000_set_mac(struct net_device *netdev, void *p)
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
- 	memcpy(adapter->hw.mac.addr, addr->sa_data, netdev->addr_len);
- 
--	e1000e_rar_set(&adapter->hw, adapter->hw.mac.addr, 0);
-+	hw->mac.ops.rar_set(&adapter->hw, adapter->hw.mac.addr, 0);
- 
- 	if (adapter->flags & FLAG_RESET_OVERWRITES_LAA) {
- 		/* activate the work around */
-@@ -4040,9 +4041,8 @@ static int e1000_set_mac(struct net_device *netdev, void *p)
- 		 * are dropped. Eventually the LAA will be in RAR[0] and
- 		 * RAR[14]
- 		 */
--		e1000e_rar_set(&adapter->hw,
--			      adapter->hw.mac.addr,
--			      adapter->hw.mac.rar_entry_count - 1);
-+		hw->mac.ops.rar_set(&adapter->hw, adapter->hw.mac.addr,
-+				    adapter->hw.mac.rar_entry_count - 1);
+ /* called from ixgbe_main.c */
+@@ -213,17 +520,22 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ 		goto err;
  	}
  
- 	return 0;
-@@ -4621,7 +4621,7 @@ link_up:
- 	 * reset from the other port. Set the appropriate LAA in RAR[0]
- 	 */
- 	if (e1000e_get_laa_state_82571(hw))
--		e1000e_rar_set(hw, adapter->hw.mac.addr, 0);
-+		hw->mac.ops.rar_set(hw, adapter->hw.mac.addr, 0);
++	rc = sysfs_create_group(adapter->info_kobj, &attr_group);
++	if (rc)
++		goto err;
++
+ #ifdef CONFIG_IXGBE_HWMON
+ 	/* If this method isn't defined we don't support thermals */
+ 	if (adapter->hw.mac.ops.init_thermal_sensor_thresh == NULL) {
+-		rc = -EPERM;
+-		goto err;
++		goto exit;
+ 	}
  
- 	if (adapter->flags2 & FLAG2_CHECK_PHY_HANG)
- 		e1000e_check_82574_phy_workaround(adapter);
+ 	/* Don't create thermal hwmon interface if no sensors present */
+ 	rc = adapter->hw.mac.ops.init_thermal_sensor_thresh(&adapter->hw);
+-	if (rc)
+-		goto err;
++	if (rc) {
++		rc = 0;
++		goto exit;
++	}
+ 
+ 	/*
+ 	 * Allocation space for max attributs
 -- 
 1.7.7.6
