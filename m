@@ -1,62 +1,62 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Dave Taht <dave.taht@gmail.com>
 Subject: Re: [PATCH net-next] netem: add ECN capability
-Date: Tue, 1 May 2012 11:28:50 +0200
-Message-ID: <20120501092849.GB3453@hell>
+Date: Tue, 1 May 2012 03:14:36 -0700
+Message-ID: <CAA93jw4sG9EYsM26vm-8cRf5GBGjAL3LDRR7FfPFdN7XT0P0jg@mail.gmail.com>
 References: <1335863465.11396.45.camel@edumazet-glaptop>
+	<20120501092849.GB3453@hell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Tom Herbert <therbert@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
 	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:42730 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754392Ab2EAJiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 05:38:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1335863465.11396.45.camel@edumazet-glaptop>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:55668 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752410Ab2EAKOj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 06:14:39 -0400
+Received: by wibhq7 with SMTP id hq7so3669928wib.1
+        for <netdev@vger.kernel.org>; Tue, 01 May 2012 03:14:36 -0700 (PDT)
+In-Reply-To: <20120501092849.GB3453@hell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nice!
+On Tue, May 1, 2012 at 2:28 AM, Hagen Paul Pfeifer <hagen@jauu.net> wro=
+te:
+> Nice!
+
+Applause as well! While this is something of a fork of this
+discussion, I would rather like to resurrect a variant of the old
+'time in queue' patch...
+
+http://patchwork.ozlabs.org/patch/125329/
+
+As best as I recall we'd run into trouble with combining things like
+netem and complex qdiscs, because we had basically overrun the size of
+the control block.
+
+And then there was a long discussion of all that and I forget if any
+conclusion was reached.
+
+An alternative to reducing the length of the control block was to find
+some way to leverage this sanely in the qdisc layer...
+
+#define HAVE_HW_TIME_STAMP
+
+/**
+ * struct skb_shared_hwtstamps - hardware time stamps
+ * @hwtstamp:   hardware time stamp transformed into duration
+ *              since arbitrary point in time
+ * @syststamp:  hwtstamp transformed to system time base
+ *
 
 
-* Eric Dumazet | 2012-05-01 11:11:05 [+0200]:
-
-> 	u32 loss;
->+	u32 ecn;
-
-Why no bool here Eric?
-
-> 	u32 limit;
-> 	u32 counter;
-> 	u32 gap;
->@@ -374,9 +376,12 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-> 		++count;
-> 
-> 	/* Drop packet? */
->-	if (loss_event(q))
->-		--count;
->-
->+	if (loss_event(q)) {
->+		if (q->ecn && INET_ECN_set_ce(skb))
->+			sch->qstats.drops++; /* mark packet */
->+		else
->+			--count;
->+	}
-> 	if (count == 0) {
-> 		sch->qstats.drops++;
-> 		kfree_skb(skb);
->@@ -706,6 +711,7 @@ static const struct nla_policy netem_policy[TCA_NETEM_MAX + 1] = {
-> 	[TCA_NETEM_CORRUPT]	= { .len = sizeof(struct tc_netem_corrupt) },
-> 	[TCA_NETEM_RATE]	= { .len = sizeof(struct tc_netem_rate) },
-> 	[TCA_NETEM_LOSS]	= { .type = NLA_NESTED },
->+	[TCA_NETEM_ECN]		= { .type = NLA_U32 },
-
-This netem API, what a heck ... Ideal we would extend TCA_NETEM_LOSS
-somehow[tm], but yes ... ;(
-
-Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+http://www.bufferbloat.net
