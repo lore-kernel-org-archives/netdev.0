@@ -1,40 +1,154 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH 00/10 net-next] l2tp: misc fixes and add L2TPv3 IP encap
- over IPv6
-Date: Tue, 01 May 2012 09:38:05 +0100
-Message-ID: <4F9FA0ED.7000402@katalix.com>
-References: <1335772135-27910-1-git-send-email-jchapman@katalix.com> <20120430.134637.1965477081443499316.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/8] e1000e: workaround EEPROM configuration change on 82579
+Date: Tue,  1 May 2012 01:51:02 -0700
+Message-ID: <1335862269-28914-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:55709 "EHLO mail.katalix.com"
+Received: from mga09.intel.com ([134.134.136.24]:46313 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752561Ab2EAIiM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 04:38:12 -0400
-In-Reply-To: <20120430.134637.1965477081443499316.davem@davemloft.net>
+	id S1753918Ab2EAIvM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 04:51:12 -0400
+In-Reply-To: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/04/12 18:46, David Miller wrote:
-> From: James Chapman <jchapman@katalix.com>
-> Date: Mon, 30 Apr 2012 08:48:45 +0100
-> 
->> This patch series includes several L2TP fixes / cleanups and adds
->> L2TPv3 IP encapsulation support for IPv6, building on the L2TP UDP
->> IPv6 support recently added by Ben LaHaise.
-> 
-> Series applied to net-next, thanks James.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Thanks Dave.
-For some reason, I can't see the commits in the net-next tree. Are they
-still in your local tree?
+An update to the EEPROM on 82579 will extend a delay in hardware to fix an
+issue with WoL not working after a G3->S5 transition which is unrelated to
+the driver.  However, this extended delay conflicts with nominal operation
+of the device when it is initialized by the driver and after every reset
+of the hardware (i.e. the driver starts configuring the device before the
+hardware is done with it's own configuration work).  The workaround for
+when the driver is in control of the device is to tell the hardware after
+every reset the configuration delay should be the original shorter one.
 
+Some pre-existing variables are renamed generically to be re-used with
+new register accesses.
 
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/hw.h      |    1 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |   48 ++++++++++++++++++--------
+ 2 files changed, 34 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
+index 7ca1b68..3a5acb5 100644
+--- a/drivers/net/ethernet/intel/e1000e/hw.h
++++ b/drivers/net/ethernet/intel/e1000e/hw.h
+@@ -51,6 +51,7 @@ enum e1e_registers {
+ 	E1000_FEXTNVM  = 0x00028, /* Future Extended NVM - RW */
+ 	E1000_FCT      = 0x00030, /* Flow Control Type - RW */
+ 	E1000_VET      = 0x00038, /* VLAN Ether Type - RW */
++	E1000_FEXTNVM3 = 0x0003C, /* Future Extended NVM 3 - RW */
+ 	E1000_ICR      = 0x000C0, /* Interrupt Cause Read - R/clr */
+ 	E1000_ITR      = 0x000C4, /* Interrupt Throttling Rate - RW */
+ 	E1000_ICS      = 0x000C8, /* Interrupt Cause Set - WO */
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index d7fd1e8..2506ee2 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -105,6 +105,9 @@
+ #define E1000_FEXTNVM_SW_CONFIG		1
+ #define E1000_FEXTNVM_SW_CONFIG_ICH8M (1 << 27) /* Bit redefined for ICH8M :/ */
+ 
++#define E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK    0x0C000000
++#define E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC  0x08000000
++
+ #define E1000_FEXTNVM4_BEACON_DURATION_MASK    0x7
+ #define E1000_FEXTNVM4_BEACON_DURATION_8USEC   0x7
+ #define E1000_FEXTNVM4_BEACON_DURATION_16USEC  0x3
+@@ -286,16 +289,23 @@ static inline void __ew32flash(struct e1000_hw *hw, unsigned long reg, u32 val)
+ 
+ static void e1000_toggle_lanphypc_value_ich8lan(struct e1000_hw *hw)
+ {
+-	u32 ctrl;
++	u32 reg;
+ 
+-	ctrl = er32(CTRL);
+-	ctrl |= E1000_CTRL_LANPHYPC_OVERRIDE;
+-	ctrl &= ~E1000_CTRL_LANPHYPC_VALUE;
+-	ew32(CTRL, ctrl);
++	/* Set Phy Config Counter to 50msec */
++	reg = er32(FEXTNVM3);
++	reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
++	reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
++	ew32(FEXTNVM3, reg);
++
++	/* Toggle LANPHYPC Value bit */
++	reg = er32(CTRL);
++	reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
++	reg &= ~E1000_CTRL_LANPHYPC_VALUE;
++	ew32(CTRL, reg);
+ 	e1e_flush();
+ 	udelay(10);
+-	ctrl &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
+-	ew32(CTRL, ctrl);
++	reg &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
++	ew32(CTRL, reg);
+ }
+ 
+ /**
+@@ -3071,8 +3081,8 @@ static s32 e1000_get_bus_info_ich8lan(struct e1000_hw *hw)
+ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ {
+ 	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
+-	u16 reg;
+-	u32 ctrl, kab;
++	u16 kum_cfg;
++	u32 ctrl, reg;
+ 	s32 ret_val;
+ 
+ 	/*
+@@ -3106,12 +3116,12 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 	}
+ 
+ 	if (hw->mac.type == e1000_pchlan) {
+-		/* Save the NVM K1 bit setting*/
+-		ret_val = e1000_read_nvm(hw, E1000_NVM_K1_CONFIG, 1, &reg);
++		/* Save the NVM K1 bit setting */
++		ret_val = e1000_read_nvm(hw, E1000_NVM_K1_CONFIG, 1, &kum_cfg);
+ 		if (ret_val)
+ 			return ret_val;
+ 
+-		if (reg & E1000_NVM_K1_ENABLE)
++		if (kum_cfg & E1000_NVM_K1_ENABLE)
+ 			dev_spec->nvm_k1_enabled = true;
+ 		else
+ 			dev_spec->nvm_k1_enabled = false;
+@@ -3141,6 +3151,14 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 	/* cannot issue a flush here because it hangs the hardware */
+ 	msleep(20);
+ 
++	/* Set Phy Config Counter to 50msec */
++	if (hw->mac.type == e1000_pch2lan) {
++		reg = er32(FEXTNVM3);
++		reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
++		reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
++		ew32(FEXTNVM3, reg);
++	}
++
+ 	if (!ret_val)
+ 		clear_bit(__E1000_ACCESS_SHARED_RESOURCE, &hw->adapter->state);
+ 
+@@ -3165,9 +3183,9 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 	ew32(IMC, 0xffffffff);
+ 	er32(ICR);
+ 
+-	kab = er32(KABGTXD);
+-	kab |= E1000_KABGTXD_BGSQLBIAS;
+-	ew32(KABGTXD, kab);
++	reg = er32(KABGTXD);
++	reg |= E1000_KABGTXD_BGSQLBIAS;
++	ew32(KABGTXD, reg);
+ 
+ 	return 0;
+ }
 -- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+1.7.7.6
