@@ -1,38 +1,97 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 00/14 v3] usb/net: rndis: first step toward consolidation
-Date: Tue, 1 May 2012 20:17:53 +0200
-Message-ID: <CACRpkda5iSbj1V3qhwmZpRR97-xeOfHwAFJASuFNrUK=HuGEYQ@mail.gmail.com>
-References: <1335896085-12435-1-git-send-email-linus.walleij@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Felipe Balbi <balbi@ti.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] drop_monitor: prevent init path from scheduling on the wrong cpu
+Date: Tue,  1 May 2012 14:18:02 -0400
+Message-ID: <1335896282-11738-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:45126 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751877Ab2EASRy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 14:17:54 -0400
-Received: by yhmm54 with SMTP id m54so66933yhm.19
-        for <netdev@vger.kernel.org>; Tue, 01 May 2012 11:17:53 -0700 (PDT)
-In-Reply-To: <1335896085-12435-1-git-send-email-linus.walleij@linaro.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56096 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756025Ab2EASSc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 14:18:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 1, 2012 at 8:14 PM, Linus Walleij <linus.walleij@linaro.org> wrote:
+I just noticed after some recent updates, that the init path for the drop
+monitor protocol has a minor error.  drop monitor maintains a per cpu structure,
+that gets initalized from a single cpu.  Normally this is fine, as the protocol
+isn't in use yet, but I recently made a change that causes a failed skb
+allocation to reschedule itself .  Given the current code, the implication is
+that this workqueue reschedule will take place on the wrong cpu.  If drop
+monitor is used early during the boot process, its possible that two cpus will
+access a single per-cpu structure in parallel, possibly leading to data
+corruption.
 
-> This version of the patch set squashes ex. patch 3/15 into 2/15
-> and creates a patch set that is bisectable at every step without
-> compile warnings.
+This patch fixes the situation, by storing the cpu number that a given instance
+of this per-cpu data should be accessed from.  In the case of a need for a
+reschedule, the cpu stored in the struct is assigned the rescheule, rather than
+the currently executing cpu
 
-Bah forget this, I'll send a v4 from the *right* branch... :-(
-(Yes I deleted the false branch now.)
+Tested successfully by myself.
 
-Yours,
-Linus Walleij
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: David Miller <davem@davemloft.net>
+---
+ net/core/drop_monitor.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index 7592943..a7cad74 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -49,6 +49,7 @@ struct per_cpu_dm_data {
+ 	struct sk_buff __rcu *skb;
+ 	atomic_t dm_hit_count;
+ 	struct timer_list send_timer;
++	int cpu;
+ };
+ 
+ struct dm_hw_stat_delta {
+@@ -73,7 +74,6 @@ static int dm_hit_limit = 64;
+ static int dm_delay = 1;
+ static unsigned long dm_hw_check_delta = 2*HZ;
+ static LIST_HEAD(hw_stats_list);
+-static int initialized = 0;
+ 
+ static void reset_per_cpu_data(struct per_cpu_dm_data *data)
+ {
+@@ -96,8 +96,8 @@ static void reset_per_cpu_data(struct per_cpu_dm_data *data)
+ 				  sizeof(struct net_dm_alert_msg));
+ 		msg = nla_data(nla);
+ 		memset(msg, 0, al);
+-	} else if (initialized)
+-		schedule_work_on(smp_processor_id(), &data->dm_alert_work);
++	} else
++		schedule_work_on(data->cpu, &data->dm_alert_work);
+ 
+ 	/*
+ 	 * Don't need to lock this, since we are guaranteed to only
+@@ -121,6 +121,8 @@ static void send_dm_alert(struct work_struct *unused)
+ 	struct sk_buff *skb;
+ 	struct per_cpu_dm_data *data = &get_cpu_var(dm_cpu_data);
+ 
++	WARN_ON_ONCE(data->cpu != smp_processor_id());
++
+ 	/*
+ 	 * Grab the skb we're about to send
+ 	 */
+@@ -404,14 +406,14 @@ static int __init init_net_drop_monitor(void)
+ 
+ 	for_each_present_cpu(cpu) {
+ 		data = &per_cpu(dm_cpu_data, cpu);
+-		reset_per_cpu_data(data);
++		data->cpu = cpu;
+ 		INIT_WORK(&data->dm_alert_work, send_dm_alert);
+ 		init_timer(&data->send_timer);
+ 		data->send_timer.data = cpu;
+ 		data->send_timer.function = sched_send_work;
++		reset_per_cpu_data(data);
+ 	}
+ 
+-	initialized = 1;
+ 
+ 	goto out;
+ 
+-- 
+1.7.7.6
