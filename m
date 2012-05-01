@@ -1,42 +1,26 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 3.4-rc: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-Date: Tue, 1 May 2012 19:27:48 +0200
-Message-ID: <20120501172748.GA17117@electric-eye.fr.zoreil.com>
-References: <20120501182405.3dda59b9@stein>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] sky2 patches
+Date: Tue, 01 May 2012 13:39:45 -0400 (EDT)
+Message-ID: <20120501.133945.578156318557083627.davem@davemloft.net>
+References: <20120430154944.890709139@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:42183 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757235Ab2EARdf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 13:33:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20120501182405.3dda59b9@stein>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51389 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753977Ab2EARjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 13:39:47 -0400
+In-Reply-To: <20120430154944.890709139@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stefan Richter <stefanr@s5r6.in-berlin.de> :
-[...]
-> I switched from 3.3 to 3.4-rc5 yesterday and am getting the following warning
-> some time after boot (e.g. this time about two hours after boot).  What's up
-> with that?
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 30 Apr 2012 08:49:44 -0700
 
-The device stopped being able to transmit anything at some point (netdev
-watchdog message). The warnings always look the same. If the device does
-not recover, we have a problem. Do we ?
+> These are both patches against net-next but should be
+> applied to -net and stable as well.
 
-[...]
-> There are no noticeable issues, but I don't run anything demanding on the
-> interface right now which would make any downtime obvious.
-
-I don't understand: is it a low traffic interface or a no traffic one ?
-
-> It is an RTL8168(?) on an Asus M3A78-EM motherboard.
-
-dmesg | grep XID should identify the chipset. You may consider sending
-an 'ethtool eth0' and 'ethtool -i eth0'.
-
--- 
-Ueimor
+Both applied to 'net' and queued up for -stable, thanks.
