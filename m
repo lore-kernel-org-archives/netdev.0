@@ -1,54 +1,41 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/3] igbvf: fix the bug when initializing the igbvf
-Date: Mon, 30 Apr 2012 18:58:13 -0700
-Message-ID: <1335837495-9722-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1335837495-9722-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Samuel Liao <samuelliao@tencent.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Shan Wei <davidshan@tencent.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: add a prefetch in socket backlog processing
+Date: Tue, 01 May 2012 04:07:09 +0200
+Message-ID: <1335838029.11396.12.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:59030 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757918Ab2EAB6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 21:58:17 -0400
-In-Reply-To: <1335837495-9722-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:33377 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881Ab2EACHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 22:07:15 -0400
+Received: by wejx9 with SMTP id x9so2143462wej.19
+        for <netdev@vger.kernel.org>; Mon, 30 Apr 2012 19:07:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Liao <samuelliao@tencent.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Maybe it's a typo, but it cause that igbvf can't be initialized successfully.
-Set perm_addr value using valid dev_addr, although which is equal to hw.mac.addr.
+TCP or UDP stacks have big enough latencies that prefetching next
+pointer is worth it.
 
-Signed-off-by: Samuel Liao <samuelliao@tencent.com>
-Signed-off-by: Shan Wei <davidshan@tencent.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/core/sock.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index d61ca2a..8ec74b0 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -2731,14 +2731,14 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
- 			netdev->addr_len);
- 	}
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 836bca6..1a88351 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1700,6 +1700,7 @@ static void __release_sock(struct sock *sk)
+ 		do {
+ 			struct sk_buff *next = skb->next;
  
--	if (!is_valid_ether_addr(netdev->perm_addr)) {
-+	if (!is_valid_ether_addr(netdev->dev_addr)) {
- 		dev_err(&pdev->dev, "Invalid MAC Address: %pM\n",
- 		        netdev->dev_addr);
- 		err = -EIO;
- 		goto err_hw_init;
- 	}
- 
--	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
-+	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
- 
- 	setup_timer(&adapter->watchdog_timer, &igbvf_watchdog,
- 	            (unsigned long) adapter);
--- 
-1.7.7.6
++			prefetch(next);
+ 			WARN_ON_ONCE(skb_dst_is_noref(skb));
+ 			skb->next = NULL;
+ 			sk_backlog_rcv(sk, skb);
