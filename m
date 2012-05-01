@@ -1,309 +1,116 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 4/8] ixgbe: add support functions to access thermal data
-Date: Tue,  1 May 2012 01:51:05 -0700
-Message-ID: <1335862269-28914-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] netem: add ECN capability
+Date: Tue, 01 May 2012 11:11:05 +0200
+Message-ID: <1335863465.11396.45.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42217 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754101Ab2EAIvN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 04:51:13 -0400
-In-Reply-To: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:33823 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752375Ab2EAJLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 05:11:10 -0400
+Received: by eaaq12 with SMTP id q12so861470eaa.19
+        for <netdev@vger.kernel.org>; Tue, 01 May 2012 02:11:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Some 82599 adapters contain thermal data that we can get to via
-an i2c interface.  These functions provide support to get at that
-data.  A following patch will export this data.
+Add ECN (Explicit Congestion Notification) marking capability to netem
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+tc qdisc add dev eth0 root netem drop 0.5 ecn
+
+Instead of dropping packets, try to ECN mark them.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  171 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |   13 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |   40 ++++++
- 3 files changed, 224 insertions(+), 0 deletions(-)
+ include/linux/pkt_sched.h |    1 +
+ net/sched/sch_netem.c     |   18 +++++++++++++++---
+ 2 files changed, 16 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index e598881..6c6c66e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3604,3 +3604,174 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
- 	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr_ext);
- 	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
- }
-+
-+static const u8 ixgbe_emc_temp_data[4] = {
-+	IXGBE_EMC_INTERNAL_DATA,
-+	IXGBE_EMC_DIODE1_DATA,
-+	IXGBE_EMC_DIODE2_DATA,
-+	IXGBE_EMC_DIODE3_DATA
-+};
-+static const u8 ixgbe_emc_therm_limit[4] = {
-+	IXGBE_EMC_INTERNAL_THERM_LIMIT,
-+	IXGBE_EMC_DIODE1_THERM_LIMIT,
-+	IXGBE_EMC_DIODE2_THERM_LIMIT,
-+	IXGBE_EMC_DIODE3_THERM_LIMIT
-+};
-+
-+/**
-+ *  ixgbe_get_ets_data - Extracts the ETS bit data
-+ *  @hw: pointer to hardware structure
-+ *  @ets_cfg: extected ETS data
-+ *  @ets_offset: offset of ETS data
-+ *
-+ *  Returns error code.
-+ **/
-+static s32 ixgbe_get_ets_data(struct ixgbe_hw *hw, u16 *ets_cfg,
-+			      u16 *ets_offset)
-+{
-+	s32 status = 0;
-+
-+	status = hw->eeprom.ops.read(hw, IXGBE_ETS_CFG, ets_offset);
-+	if (status)
-+		goto out;
-+
-+	if ((*ets_offset == 0x0000) || (*ets_offset == 0xFFFF)) {
-+		status = IXGBE_NOT_IMPLEMENTED;
-+		goto out;
-+	}
-+
-+	status = hw->eeprom.ops.read(hw, *ets_offset, ets_cfg);
-+	if (status)
-+		goto out;
-+
-+	if ((*ets_cfg & IXGBE_ETS_TYPE_MASK) != IXGBE_ETS_TYPE_EMC_SHIFTED) {
-+		status = IXGBE_NOT_IMPLEMENTED;
-+		goto out;
-+	}
-+
-+out:
-+	return status;
-+}
-+
-+/**
-+ *  ixgbe_get_thermal_sensor_data - Gathers thermal sensor data
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Returns the thermal sensor data structure
-+ **/
-+s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw)
-+{
-+	s32 status = 0;
-+	u16 ets_offset;
-+	u16 ets_cfg;
-+	u16 ets_sensor;
-+	u8  num_sensors;
-+	u8  i;
-+	struct ixgbe_thermal_sensor_data *data = &hw->mac.thermal_sensor_data;
-+
-+	/* Only support thermal sensors attached to 82599 physical port 0 */
-+	if ((hw->mac.type != ixgbe_mac_82599EB) ||
-+	     (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)) {
-+		status = IXGBE_NOT_IMPLEMENTED;
-+		goto out;
-+	}
-+
-+	status = ixgbe_get_ets_data(hw, &ets_cfg, &ets_offset);
-+	if (status)
-+		goto out;
-+
-+	num_sensors = (ets_cfg & IXGBE_ETS_NUM_SENSORS_MASK);
-+	if (num_sensors > IXGBE_MAX_SENSORS)
-+		num_sensors = IXGBE_MAX_SENSORS;
-+
-+	for (i = 0; i < num_sensors; i++) {
-+		u8  sensor_index;
-+		u8  sensor_location;
-+
-+		status = hw->eeprom.ops.read(hw, (ets_offset + 1 + i),
-+					     &ets_sensor);
-+		if (status)
-+			goto out;
-+
-+		sensor_index = ((ets_sensor & IXGBE_ETS_DATA_INDEX_MASK) >>
-+				IXGBE_ETS_DATA_INDEX_SHIFT);
-+		sensor_location = ((ets_sensor & IXGBE_ETS_DATA_LOC_MASK) >>
-+				   IXGBE_ETS_DATA_LOC_SHIFT);
-+
-+		if (sensor_location != 0) {
-+			status = hw->phy.ops.read_i2c_byte(hw,
-+					ixgbe_emc_temp_data[sensor_index],
-+					IXGBE_I2C_THERMAL_SENSOR_ADDR,
-+					&data->sensor[i].temp);
-+			if (status)
-+				goto out;
-+		}
-+	}
-+out:
-+	return status;
-+}
-+
-+/**
-+ * ixgbe_init_thermal_sensor_thresh_generic - Inits thermal sensor thresholds
-+ * @hw: pointer to hardware structure
-+ *
-+ * Inits the thermal sensor thresholds according to the NVM map
-+ * and save off the threshold and location values into mac.thermal_sensor_data
-+ **/
-+s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw)
-+{
-+	s32 status = 0;
-+	u16 ets_offset;
-+	u16 ets_cfg;
-+	u16 ets_sensor;
-+	u8  low_thresh_delta;
-+	u8  num_sensors;
-+	u8  therm_limit;
-+	u8  i;
-+	struct ixgbe_thermal_sensor_data *data = &hw->mac.thermal_sensor_data;
-+
-+	memset(data, 0, sizeof(struct ixgbe_thermal_sensor_data));
-+
-+	/* Only support thermal sensors attached to 82599 physical port 0 */
-+	if ((hw->mac.type != ixgbe_mac_82599EB) ||
-+	    (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)) {
-+		status = IXGBE_NOT_IMPLEMENTED;
-+		goto out;
-+	}
-+
-+	status = ixgbe_get_ets_data(hw, &ets_cfg, &ets_offset);
-+	if (status)
-+		goto out;
-+
-+	low_thresh_delta = ((ets_cfg & IXGBE_ETS_LTHRES_DELTA_MASK) >>
-+			     IXGBE_ETS_LTHRES_DELTA_SHIFT);
-+	num_sensors = (ets_cfg & IXGBE_ETS_NUM_SENSORS_MASK);
-+	if (num_sensors > IXGBE_MAX_SENSORS)
-+		num_sensors = IXGBE_MAX_SENSORS;
-+
-+	for (i = 0; i < num_sensors; i++) {
-+		u8  sensor_index;
-+		u8  sensor_location;
-+
-+		hw->eeprom.ops.read(hw, (ets_offset + 1 + i), &ets_sensor);
-+		sensor_index = ((ets_sensor & IXGBE_ETS_DATA_INDEX_MASK) >>
-+				IXGBE_ETS_DATA_INDEX_SHIFT);
-+		sensor_location = ((ets_sensor & IXGBE_ETS_DATA_LOC_MASK) >>
-+				   IXGBE_ETS_DATA_LOC_SHIFT);
-+		therm_limit = ets_sensor & IXGBE_ETS_DATA_HTHRESH_MASK;
-+
-+		hw->phy.ops.write_i2c_byte(hw,
-+			ixgbe_emc_therm_limit[sensor_index],
-+			IXGBE_I2C_THERMAL_SENSOR_ADDR, therm_limit);
-+
-+		if (sensor_location == 0)
-+			continue;
-+
-+		data->sensor[i].location = sensor_location;
-+		data->sensor[i].caution_thresh = therm_limit;
-+		data->sensor[i].max_op_thresh = therm_limit - low_thresh_delta;
-+	}
-+out:
-+	return status;
-+}
-+
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index d6d3432..f992777 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -107,6 +107,19 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
- void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
- 			     u32 headroom, int strategy);
- 
-+#define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
-+#define IXGBE_EMC_INTERNAL_DATA		0x00
-+#define IXGBE_EMC_INTERNAL_THERM_LIMIT	0x20
-+#define IXGBE_EMC_DIODE1_DATA		0x01
-+#define IXGBE_EMC_DIODE1_THERM_LIMIT	0x19
-+#define IXGBE_EMC_DIODE2_DATA		0x23
-+#define IXGBE_EMC_DIODE2_THERM_LIMIT	0x1A
-+#define IXGBE_EMC_DIODE3_DATA		0x2A
-+#define IXGBE_EMC_DIODE3_THERM_LIMIT	0x30
-+
-+s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw);
-+s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
-+
- #define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
- 
- #ifndef writeq
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 4acd9e6..d82e25c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -112,6 +112,27 @@
- #define IXGBE_I2C_DATA_OUT  0x00000008
- #define IXGBE_I2C_CLOCK_STRETCHING_TIMEOUT	500
- 
-+#define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
-+#define IXGBE_EMC_INTERNAL_DATA		0x00
-+#define IXGBE_EMC_INTERNAL_THERM_LIMIT	0x20
-+#define IXGBE_EMC_DIODE1_DATA		0x01
-+#define IXGBE_EMC_DIODE1_THERM_LIMIT	0x19
-+#define IXGBE_EMC_DIODE2_DATA		0x23
-+#define IXGBE_EMC_DIODE2_THERM_LIMIT	0x1A
-+
-+#define IXGBE_MAX_SENSORS		3
-+
-+struct ixgbe_thermal_diode_data {
-+	u8 location;
-+	u8 temp;
-+	u8 caution_thresh;
-+	u8 max_op_thresh;
-+};
-+
-+struct ixgbe_thermal_sensor_data {
-+	struct ixgbe_thermal_diode_data sensor[IXGBE_MAX_SENSORS];
-+};
-+
- /* Interrupt Registers */
- #define IXGBE_EICR      0x00800
- #define IXGBE_EICS      0x00808
-@@ -1678,6 +1699,22 @@ enum {
- #define IXGBE_PBANUM0_PTR       0x15
- #define IXGBE_PBANUM1_PTR       0x16
- #define IXGBE_FREE_SPACE_PTR    0X3E
-+
-+/* External Thermal Sensor Config */
-+#define IXGBE_ETS_CFG                   0x26
-+#define IXGBE_ETS_LTHRES_DELTA_MASK     0x07C0
-+#define IXGBE_ETS_LTHRES_DELTA_SHIFT    6
-+#define IXGBE_ETS_TYPE_MASK             0x0038
-+#define IXGBE_ETS_TYPE_SHIFT            3
-+#define IXGBE_ETS_TYPE_EMC              0x000
-+#define IXGBE_ETS_TYPE_EMC_SHIFTED      0x000
-+#define IXGBE_ETS_NUM_SENSORS_MASK      0x0007
-+#define IXGBE_ETS_DATA_LOC_MASK         0x3C00
-+#define IXGBE_ETS_DATA_LOC_SHIFT        10
-+#define IXGBE_ETS_DATA_INDEX_MASK       0x0300
-+#define IXGBE_ETS_DATA_INDEX_SHIFT      8
-+#define IXGBE_ETS_DATA_HTHRESH_MASK     0x00FF
-+
- #define IXGBE_SAN_MAC_ADDR_PTR  0x28
- #define IXGBE_DEVICE_CAPS       0x2C
- #define IXGBE_SERIAL_NUMBER_MAC_ADDR 0x11
-@@ -2775,6 +2812,8 @@ struct ixgbe_mac_operations {
- 
- 	/* Manageability interface */
- 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
-+	s32 (*get_thermal_sensor_data)(struct ixgbe_hw *);
-+	s32 (*init_thermal_sensor_thresh)(struct ixgbe_hw *hw);
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 410b33d..ffe975c 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -509,6 +509,7 @@ enum {
+ 	TCA_NETEM_CORRUPT,
+ 	TCA_NETEM_LOSS,
+ 	TCA_NETEM_RATE,
++	TCA_NETEM_ECN,
+ 	__TCA_NETEM_MAX,
  };
  
- struct ixgbe_phy_operations {
-@@ -2832,6 +2871,7 @@ struct ixgbe_mac_info {
- 	bool                            orig_link_settings_stored;
- 	bool                            autotry_restart;
- 	u8                              flags;
-+	struct ixgbe_thermal_sensor_data  thermal_sensor_data;
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 1109731..231cd11 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -26,6 +26,7 @@
+ 
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
++#include <net/inet_ecn.h>
+ 
+ #define VERSION "1.3"
+ 
+@@ -78,6 +79,7 @@ struct netem_sched_data {
+ 	psched_tdiff_t jitter;
+ 
+ 	u32 loss;
++	u32 ecn;
+ 	u32 limit;
+ 	u32 counter;
+ 	u32 gap;
+@@ -374,9 +376,12 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		++count;
+ 
+ 	/* Drop packet? */
+-	if (loss_event(q))
+-		--count;
+-
++	if (loss_event(q)) {
++		if (q->ecn && INET_ECN_set_ce(skb))
++			sch->qstats.drops++; /* mark packet */
++		else
++			--count;
++	}
+ 	if (count == 0) {
+ 		sch->qstats.drops++;
+ 		kfree_skb(skb);
+@@ -706,6 +711,7 @@ static const struct nla_policy netem_policy[TCA_NETEM_MAX + 1] = {
+ 	[TCA_NETEM_CORRUPT]	= { .len = sizeof(struct tc_netem_corrupt) },
+ 	[TCA_NETEM_RATE]	= { .len = sizeof(struct tc_netem_rate) },
+ 	[TCA_NETEM_LOSS]	= { .type = NLA_NESTED },
++	[TCA_NETEM_ECN]		= { .type = NLA_U32 },
  };
  
- struct ixgbe_phy_info {
--- 
-1.7.7.6
+ static int parse_attr(struct nlattr *tb[], int maxtype, struct nlattr *nla,
+@@ -776,6 +782,9 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (tb[TCA_NETEM_RATE])
+ 		get_rate(sch, tb[TCA_NETEM_RATE]);
+ 
++	if (tb[TCA_NETEM_ECN])
++		q->ecn = nla_get_u32(tb[TCA_NETEM_ECN]);
++
+ 	q->loss_model = CLG_RANDOM;
+ 	if (tb[TCA_NETEM_LOSS])
+ 		ret = get_loss_clg(sch, tb[TCA_NETEM_LOSS]);
+@@ -902,6 +911,9 @@ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	if (nla_put(skb, TCA_NETEM_RATE, sizeof(rate), &rate))
+ 		goto nla_put_failure;
+ 
++	if (q->ecn && nla_put_u32(skb, TCA_NETEM_ECN, q->ecn))
++		goto nla_put_failure;
++
+ 	if (dump_loss_model(q, skb) != 0)
+ 		goto nla_put_failure;
+ 
