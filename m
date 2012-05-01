@@ -1,53 +1,126 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/1] sky2: fix YUKON FE+ rev. A0, ingress VLAN tagged
- frame problem
-Date: Tue, 1 May 2012 09:54:23 -0700
-Message-ID: <20120501095423.4039457a@s6510.linuxnetplumber.net>
-References: <1335887340-24284-1-git-send-email-cucchimichele@tiscali.it>
+Subject: Re: [PATCH net-next] netem: add ECN capability
+Date: Tue, 1 May 2012 09:59:14 -0700
+Message-ID: <20120501095914.0e60ff6a@s6510.linuxnetplumber.net>
+References: <1335863465.11396.45.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Mirko Lindner <mlindner@marvell.com>, netdev@vger.kernel.org
-To: Michele Cucchi <cucchimichele@tiscali.it>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51725 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:55748 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753532Ab2EAQy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 12:54:29 -0400
-In-Reply-To: <1335887340-24284-1-git-send-email-cucchimichele@tiscali.it>
+	id S1752561Ab2EAQ7X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 12:59:23 -0400
+In-Reply-To: <1335863465.11396.45.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  1 May 2012 17:49:00 +0200
-Michele Cucchi <cucchimichele@tiscali.it> wrote:
+On Tue, 01 May 2012 11:11:05 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> The cards based on chip YUKON FE+ revision A0, fails to correctly receive VLAN tagged frames. The ingress frames stays on raw physical interface and don't reach VLANS allocated interfaces.
-> The problem is the double call of __vlan_hwaccel_put_tag function, one in the sky2_skb_rx function and the other in the vlans global function vlan_untag.
-> Adding a check of card version and revision in the sky2_skb_rx function allow to skip the first time call of __vlan_hwaccel_put_tag and to fix the problem.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This fix is tested on 3.4-rc5.
+> Add ECN (Explicit Congestion Notification) marking capability to netem
 > 
-> Signed-off-by: Michele Cucchi <cucchimichele@tiscali.it>
+> tc qdisc add dev eth0 root netem drop 0.5 ecn
+> 
+> Instead of dropping packets, try to ECN mark them.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Tom Herbert <therbert@google.com>
+> Cc: Hagen Paul Pfeifer <hagen@jauu.net>
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
 > ---
->  drivers/net/ethernet/marvell/sky2.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletions(-)
+>  include/linux/pkt_sched.h |    1 +
+>  net/sched/sch_netem.c     |   18 +++++++++++++++---
+>  2 files changed, 16 insertions(+), 3 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-> index c9b504e..2be0351 100644
-> --- a/drivers/net/ethernet/marvell/sky2.c
-> +++ b/drivers/net/ethernet/marvell/sky2.c
-> @@ -2649,7 +2649,10 @@ static inline void sky2_tx_done(struct net_device *dev, u16 last)
->  static inline void sky2_skb_rx(const struct sky2_port *sky2,
->  			       u32 status, struct sk_buff *skb)
->  {
-> -	if (status & GMR_FS_VLAN)
-> +	/* Workaround for YUKON FE+ rev. A0, vlan untag problem */
-> +	if ((status & GMR_FS_VLAN) &&
-> +	(!(sky2->hw->chip_id == CHIP_ID_YUKON_FE_P &&
-> +	sky2->hw->chip_rev == CHIP_REV_YU_FE2_A0)))
->  		__vlan_hwaccel_put_tag(skb, be16_to_cpu(sky2->rx_tag));
+> diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+> index 410b33d..ffe975c 100644
+> --- a/include/linux/pkt_sched.h
+> +++ b/include/linux/pkt_sched.h
+> @@ -509,6 +509,7 @@ enum {
+>  	TCA_NETEM_CORRUPT,
+>  	TCA_NETEM_LOSS,
+>  	TCA_NETEM_RATE,
+> +	TCA_NETEM_ECN,
+>  	__TCA_NETEM_MAX,
+>  };
 >  
->  	if (skb->ip_summed == CHECKSUM_NONE)
+> diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+> index 1109731..231cd11 100644
+> --- a/net/sched/sch_netem.c
+> +++ b/net/sched/sch_netem.c
+> @@ -26,6 +26,7 @@
+>  
+>  #include <net/netlink.h>
+>  #include <net/pkt_sched.h>
+> +#include <net/inet_ecn.h>
+>  
+>  #define VERSION "1.3"
+>  
+> @@ -78,6 +79,7 @@ struct netem_sched_data {
+>  	psched_tdiff_t jitter;
+>  
+>  	u32 loss;
+> +	u32 ecn;
+>  	u32 limit;
+>  	u32 counter;
+>  	u32 gap;
+> @@ -374,9 +376,12 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  		++count;
+>  
+>  	/* Drop packet? */
+> -	if (loss_event(q))
+> -		--count;
+> -
+> +	if (loss_event(q)) {
+> +		if (q->ecn && INET_ECN_set_ce(skb))
+> +			sch->qstats.drops++; /* mark packet */
+> +		else
+> +			--count;
+> +	}
+>  	if (count == 0) {
+>  		sch->qstats.drops++;
+>  		kfree_skb(skb);
+> @@ -706,6 +711,7 @@ static const struct nla_policy netem_policy[TCA_NETEM_MAX + 1] = {
+>  	[TCA_NETEM_CORRUPT]	= { .len = sizeof(struct tc_netem_corrupt) },
+>  	[TCA_NETEM_RATE]	= { .len = sizeof(struct tc_netem_rate) },
+>  	[TCA_NETEM_LOSS]	= { .type = NLA_NESTED },
+> +	[TCA_NETEM_ECN]		= { .type = NLA_U32 },
+>  };
+>  
+>  static int parse_attr(struct nlattr *tb[], int maxtype, struct nlattr *nla,
+> @@ -776,6 +782,9 @@ static int netem_change(struct Qdisc *sch, struct nlattr *opt)
+>  	if (tb[TCA_NETEM_RATE])
+>  		get_rate(sch, tb[TCA_NETEM_RATE]);
+>  
+> +	if (tb[TCA_NETEM_ECN])
+> +		q->ecn = nla_get_u32(tb[TCA_NETEM_ECN]);
+> +
+>  	q->loss_model = CLG_RANDOM;
+>  	if (tb[TCA_NETEM_LOSS])
+>  		ret = get_loss_clg(sch, tb[TCA_NETEM_LOSS]);
+> @@ -902,6 +911,9 @@ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
+>  	if (nla_put(skb, TCA_NETEM_RATE, sizeof(rate), &rate))
+>  		goto nla_put_failure;
+>  
+> +	if (q->ecn && nla_put_u32(skb, TCA_NETEM_ECN, q->ecn))
+> +		goto nla_put_failure;
+> +
+>  	if (dump_loss_model(q, skb) != 0)
+>  		goto nla_put_failure;
 
-A better solution to this was started by Mirko and revised by me.
-It is was posted yesterday.
+The concept is fine, but a couple of questions.
+ 1. Why a whole u32 for boolean?
+ 2. The logic in this part of netem is setup to handle case of random duplication
+    combined with random loss. With ecn option set, will this code correctly
+    handled a duplication combined with a loss and send one packet?
+    It looks like the new code would change that behaviour.
