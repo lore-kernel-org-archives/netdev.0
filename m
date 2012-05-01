@@ -1,7 +1,8 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 00/10] atl1c: update hardware settings - v4
-Date: Tue, 1 May 2012 09:38:48 +0800
-Message-ID: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 04/10] atl1c: remove code of closing register writable attribution
+Date: Tue, 1 May 2012 09:38:52 +0800
+Message-ID: <1335836338-9425-5-git-send-email-xiong@qca.qualcomm.com>
+References: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
@@ -9,40 +10,42 @@ Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This update contains a serial of patches, most of them are hardware
-settings related. register definitions are refined (or removed if
-meaningless) for each patch.
+The Close-action is done by atl1c_reset_pcie, remove it from
+atl1c_get_permanent_address.
 
-This is the last patch set.
+Signed-off-by: xiong <xiong@qca.qualcomm.com>
+Tested-by: Liu David <dwliu@qca.qualcomm.com>
+---
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
-The patches have addressed all sparse and checkpatch warnings.
-
-Following NICs are tested:
-AR8131/AR8132/AR8151A/AR8152A/AR8152B
-Test item includes:
-build/install/uninstall/dhcp/ping/iperf/wol/reboot/etc.
-
-xiong (10):
-  atl1c: add workaround for issue of bit INTX-disable for MSI interrupt
-  atl1c: add PHY link event(up/down) patch
-  atl1c: clear WoL status when reset pcie
-  atl1c: remove code of closing register writable attribution
-  atl1c: refine mac address related code
-  atl1c: enlarge L1 response waiting timer
-  atl1c: cancel task when interface closed
-  atl1c: do MAC-reset when PHY link down
-  atl1c: Disable L0S when no cable link
-  atl1c: remove PHY polling from atl1c_change_mtu
-
- drivers/net/ethernet/atheros/atl1c/atl1c.h      |    1 +
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.c   |  141 ++++++++++++----------
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |   35 ++---
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |  151 +++++++++++++++++------
- drivers/pci/quirks.c                            |   12 ++
- 5 files changed, 218 insertions(+), 122 deletions(-)
-
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+index 49f433e..2522685 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
+@@ -72,7 +72,6 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
+ 	u32 i;
+ 	u32 otp_ctrl_data;
+ 	u32 twsi_ctrl_data;
+-	u32 ltssm_ctrl_data;
+ 	u8  eth_addr[ETH_ALEN];
+ 	u16 phy_data;
+ 	bool raise_vol = false;
+@@ -108,11 +107,6 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
+ 			udelay(20);
+ 			raise_vol = true;
+ 		}
+-		/* close open bit of ReadOnly*/
+-		AT_READ_REG(hw, REG_LTSSM_ID_CTRL, &ltssm_ctrl_data);
+-		ltssm_ctrl_data &= ~LTSSM_ID_EN_WRO;
+-		AT_WRITE_REG(hw, REG_LTSSM_ID_CTRL, ltssm_ctrl_data);
+-
+ 
+ 		AT_READ_REG(hw, REG_TWSI_CTRL, &twsi_ctrl_data);
+ 		twsi_ctrl_data |= TWSI_CTRL_SW_LDSTART;
 -- 
 1.7.7
