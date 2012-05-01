@@ -1,40 +1,44 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
-Date: Tue, 1 May 2012 17:49:27 +0200
-Message-ID: <20120501154927.GR3157@wantstofly.org>
-References: <20120427095842.GW3157@wantstofly.org>
- <CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com>
- <20120427101732.GX3157@wantstofly.org>
- <CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com>
- <CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com>
- <20120427185809.GZ3157@wantstofly.org>
- <CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com>
- <CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com>
- <20120501125102.GN3157@wantstofly.org>
- <CA+icZUV=qtXwVxb+uvQJcsza0y+6k2LHJFFPnECY0M=QWBexaQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lautriv <admin@coldplug.net>,
-	Jim Cromie <jim.cromie@gmail.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: sedat.dilek@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+icZUV=qtXwVxb+uvQJcsza0y+6k2LHJFFPnECY0M=QWBexaQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michele Cucchi <cucchimichele@tiscali.it>
+Subject: [PATCH 1/1] sky2: fix YUKON FE+ rev. A0, ingress VLAN tagged frame problem
+Date: Tue,  1 May 2012 17:49:00 +0200
+Message-ID: <1335887340-24284-1-git-send-email-cucchimichele@tiscali.it>
+Cc: netdev@vger.kernel.org, Michele Cucchi <cucchimichele@tiscali.it>
+To: Mirko Lindner <mlindner@marvell.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from santino.mail.tiscali.it ([213.205.33.245]:39043 "EHLO
+	santino.mail.tiscali.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752380Ab2EAPyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 11:54:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 01, 2012 at 03:54:49PM +0200, Sedat Dilek wrote:
+The cards based on chip YUKON FE+ revision A0, fails to correctly receive VLAN tagged frames. The ingress frames stays on raw physical interface and don't reach VLANS allocated interfaces.
+The problem is the double call of __vlan_hwaccel_put_tag function, one in the sky2_skb_rx function and the other in the vlans global function vlan_untag.
+Adding a check of card version and revision in the sky2_skb_rx function allow to skip the first time call of __vlan_hwaccel_put_tag and to fix the problem.
 
-> Some more concerns...
-> Dunno, if [4] is really correct and how to use one and same device-id
-> for 8363 ***and*** 8361P:
-> ...
-> { PCI_VDEVICE(MARVELL, 0x2a02), .driver_data = MWL8363, },
+This fix is tested on 3.4-rc5.
 
-No, you'll have to add a MWL8361P to the enum, and add a
-mwl8k_device_info table entry for that, and then add the PCI ID
-table entry with the MWL8361P identifier.
+Signed-off-by: Michele Cucchi <cucchimichele@tiscali.it>
+---
+ drivers/net/ethernet/marvell/sky2.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index c9b504e..2be0351 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -2649,7 +2649,10 @@ static inline void sky2_tx_done(struct net_device *dev, u16 last)
+ static inline void sky2_skb_rx(const struct sky2_port *sky2,
+ 			       u32 status, struct sk_buff *skb)
+ {
+-	if (status & GMR_FS_VLAN)
++	/* Workaround for YUKON FE+ rev. A0, vlan untag problem */
++	if ((status & GMR_FS_VLAN) &&
++	(!(sky2->hw->chip_id == CHIP_ID_YUKON_FE_P &&
++	sky2->hw->chip_rev == CHIP_REV_YU_FE2_A0)))
+ 		__vlan_hwaccel_put_tag(skb, be16_to_cpu(sky2->rx_tag));
+ 
+ 	if (skb->ip_summed == CHECKSUM_NONE)
+-- 
+1.7.2.5
