@@ -1,49 +1,324 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/8] ixgbe: Deny MACVLAN requests from VFs with admin set MAC
-Date: Tue,  1 May 2012 01:51:08 -0700
-Message-ID: <1335862269-28914-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/8] e1000e: fix .ndo_set_rx_mode for 82579
+Date: Tue,  1 May 2012 01:51:04 -0700
+Message-ID: <1335862269-28914-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42217 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:46313 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753918Ab2EAIvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 04:51:16 -0400
+	id S1753891Ab2EAIvN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 04:51:13 -0400
 In-Reply-To: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-If the host VMM administrator has set the virtual function device's
-MAC address then also deny VF requests for MACVLAN filters.
+Secondary unicast and multicast addresses are added to the Receive
+Address registers (RAR) for most parts supported by the driver.  For
+82579, there is only one actual RAR and a number of Shared Receive Address
+registers (SHRAR) that are shared among the driver and f/w which can be
+reserved and write-protected by the f/w.  On this device, use the SHRARs
+that are not taken by f/w for the additional addresses.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Garrett, Robert <robertx.e.garrett@intel.com>
+Add a MAC ops function pointer infrastructure (similar to other MAC
+operations in the driver) for setting RARs, introduce a new rar_set
+function for 82579 and convert the existing code that sets RARs on other
+devices to a generic rar_set function.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |    1 +
+ drivers/net/ethernet/intel/e1000e/82571.c       |    4 +-
+ drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
+ drivers/net/ethernet/intel/e1000e/hw.h          |    5 ++
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |   72 ++++++++++++++++++++++-
+ drivers/net/ethernet/intel/e1000e/mac.c         |   10 ++--
+ drivers/net/ethernet/intel/e1000e/netdev.c      |   12 ++--
+ 7 files changed, 92 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 88a58cb..3985637 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -635,6 +635,12 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 		}
+diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+index a212846..66f9877 100644
+--- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
++++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+@@ -1439,6 +1439,7 @@ static const struct e1000_mac_operations es2_mac_ops = {
+ 	/* setup_physical_interface dependent on media type */
+ 	.setup_led		= e1000e_setup_led_generic,
+ 	.config_collision_dist	= e1000e_config_collision_dist_generic,
++	.rar_set		= e1000e_rar_set_generic,
+ };
+ 
+ static const struct e1000_phy_operations es2_phy_ops = {
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index d0ea316..7b02e87 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -1762,7 +1762,8 @@ void e1000e_set_laa_state_82571(struct e1000_hw *hw, bool state)
+ 		 * incoming packets directed to this port are dropped.
+ 		 * Eventually the LAA will be in RAR[0] and RAR[14].
+ 		 */
+-		e1000e_rar_set(hw, hw->mac.addr, hw->mac.rar_entry_count - 1);
++		hw->mac.ops.rar_set(hw, hw->mac.addr,
++				    hw->mac.rar_entry_count - 1);
+ }
+ 
+ /**
+@@ -1926,6 +1927,7 @@ static const struct e1000_mac_operations e82571_mac_ops = {
+ 	.setup_led		= e1000e_setup_led_generic,
+ 	.config_collision_dist	= e1000e_config_collision_dist_generic,
+ 	.read_mac_addr		= e1000_read_mac_addr_82571,
++	.rar_set		= e1000e_rar_set_generic,
+ };
+ 
+ static const struct e1000_phy_operations e82_phy_ops_igp = {
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 1dc2067..1da9bfa 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -576,7 +576,7 @@ extern void e1000e_init_rx_addrs(struct e1000_hw *hw, u16 rar_count);
+ extern void e1000e_update_mc_addr_list_generic(struct e1000_hw *hw,
+ 					       u8 *mc_addr_list,
+ 					       u32 mc_addr_count);
+-extern void e1000e_rar_set(struct e1000_hw *hw, u8 *addr, u32 index);
++extern void e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index);
+ extern s32 e1000e_set_fc_watermarks(struct e1000_hw *hw);
+ extern void e1000e_set_pcie_no_snoop(struct e1000_hw *hw, u32 no_snoop);
+ extern s32 e1000e_get_hw_semaphore(struct e1000_hw *hw);
+diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
+index 3a5acb5..00a0ebb 100644
+--- a/drivers/net/ethernet/intel/e1000e/hw.h
++++ b/drivers/net/ethernet/intel/e1000e/hw.h
+@@ -200,6 +200,10 @@ enum e1e_registers {
+ #define E1000_RA        (E1000_RAL(0))
+ 	E1000_RAH_BASE = 0x05404, /* Receive Address High - RW */
+ #define E1000_RAH(_n)   (E1000_RAH_BASE + ((_n) * 8))
++	E1000_SHRAL_BASE = 0x05438, /* Shared Receive Address Low - RW */
++#define E1000_SHRAL(_n)   (E1000_SHRAL_BASE + ((_n) * 8))
++	E1000_SHRAH_BASE = 0x0543C, /* Shared Receive Address High - RW */
++#define E1000_SHRAH(_n)   (E1000_SHRAH_BASE + ((_n) * 8))
+ 	E1000_VFTA     = 0x05600, /* VLAN Filter Table Array - RW Array */
+ 	E1000_WUC      = 0x05800, /* Wakeup Control - RW */
+ 	E1000_WUFC     = 0x05808, /* Wakeup Filter Control - RW */
+@@ -782,6 +786,7 @@ struct e1000_mac_operations {
+ 	s32  (*setup_led)(struct e1000_hw *);
+ 	void (*write_vfta)(struct e1000_hw *, u32, u32);
+ 	void (*config_collision_dist)(struct e1000_hw *);
++	void (*rar_set)(struct e1000_hw *, u8 *, u32);
+ 	s32  (*read_mac_addr)(struct e1000_hw *);
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 4c8b0fb..ca34ebf 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -115,6 +115,7 @@
+ #define PCIE_ICH8_SNOOP_ALL		PCIE_NO_SNOOP_ALL
+ 
+ #define E1000_ICH_RAR_ENTRIES		7
++#define E1000_PCH2_RAR_ENTRIES		5 /* RAR[0], SHRA[0-3] */
+ 
+ #define PHY_PAGE_SHIFT 5
+ #define PHY_REG(page, reg) (((page) << PHY_PAGE_SHIFT) | \
+@@ -259,6 +260,7 @@ static s32  e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
+ static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw);
++static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index);
+ static s32 e1000_k1_workaround_lv(struct e1000_hw *hw);
+ static void e1000_gate_hw_phy_config_ich8lan(struct e1000_hw *hw, bool gate);
+ 
+@@ -672,8 +674,11 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
+ 		mac->ops.led_on = e1000_led_on_ich8lan;
+ 		mac->ops.led_off = e1000_led_off_ich8lan;
  		break;
- 	case IXGBE_VF_SET_MACVLAN:
-+		if (adapter->vfinfo[vf].pf_set_mac) {
-+			e_warn(drv, "VF %d requested MACVLAN filter but is "
-+				    "administratively denied\n", vf);
-+			retval = -1;
-+			break;
-+		}
- 		index = (msgbuf[0] & IXGBE_VT_MSGINFO_MASK) >>
- 			IXGBE_VT_MSGINFO_SHIFT;
- 		/*
+-	case e1000_pchlan:
+ 	case e1000_pch2lan:
++		mac->rar_entry_count = E1000_PCH2_RAR_ENTRIES;
++		mac->ops.rar_set = e1000_rar_set_pch2lan;
++		/* fall-through */
++	case e1000_pchlan:
+ 		/* check management mode */
+ 		mac->ops.check_mng_mode = e1000_check_mng_mode_pchlan;
+ 		/* ID LED init */
+@@ -1048,6 +1053,70 @@ static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw)
+ }
+ 
+ /**
++ *  e1000_rar_set_pch2lan - Set receive address register
++ *  @hw: pointer to the HW structure
++ *  @addr: pointer to the receive address
++ *  @index: receive address array register
++ *
++ *  Sets the receive address array register at index to the address passed
++ *  in by addr.  For 82579, RAR[0] is the base address register that is to
++ *  contain the MAC address but RAR[1-6] are reserved for manageability (ME).
++ *  Use SHRA[0-3] in place of those reserved for ME.
++ **/
++static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
++{
++	u32 rar_low, rar_high;
++
++	/*
++	 * HW expects these in little endian so we reverse the byte order
++	 * from network order (big endian) to little endian
++	 */
++	rar_low = ((u32)addr[0] |
++		   ((u32)addr[1] << 8) |
++		   ((u32)addr[2] << 16) | ((u32)addr[3] << 24));
++
++	rar_high = ((u32)addr[4] | ((u32)addr[5] << 8));
++
++	/* If MAC address zero, no need to set the AV bit */
++	if (rar_low || rar_high)
++		rar_high |= E1000_RAH_AV;
++
++	if (index == 0) {
++		ew32(RAL(index), rar_low);
++		e1e_flush();
++		ew32(RAH(index), rar_high);
++		e1e_flush();
++		return;
++	}
++
++	if (index < hw->mac.rar_entry_count) {
++		s32 ret_val;
++
++		ret_val = e1000_acquire_swflag_ich8lan(hw);
++		if (ret_val)
++			goto out;
++
++		ew32(SHRAL(index - 1), rar_low);
++		e1e_flush();
++		ew32(SHRAH(index - 1), rar_high);
++		e1e_flush();
++
++		e1000_release_swflag_ich8lan(hw);
++
++		/* verify the register updates */
++		if ((er32(SHRAL(index - 1)) == rar_low) &&
++		    (er32(SHRAH(index - 1)) == rar_high))
++			return;
++
++		e_dbg("SHRA[%d] might be locked by ME - FWSM=0x%8.8x\n",
++		      (index - 1), er32(FWSM));
++	}
++
++out:
++	e_dbg("Failed to write receive address at index %d\n", index);
++}
++
++/**
+  *  e1000_check_reset_block_ich8lan - Check if PHY reset is blocked
+  *  @hw: pointer to the HW structure
+  *
+@@ -4100,6 +4169,7 @@ static const struct e1000_mac_operations ich8_mac_ops = {
+ 	.setup_physical_interface= e1000_setup_copper_link_ich8lan,
+ 	/* id_led_init dependent on mac type */
+ 	.config_collision_dist	= e1000e_config_collision_dist_generic,
++	.rar_set		= e1000e_rar_set_generic,
+ };
+ 
+ static const struct e1000_phy_operations ich8_phy_ops = {
+diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
+index d832749..026e8b3 100644
+--- a/drivers/net/ethernet/intel/e1000e/mac.c
++++ b/drivers/net/ethernet/intel/e1000e/mac.c
+@@ -143,12 +143,12 @@ void e1000e_init_rx_addrs(struct e1000_hw *hw, u16 rar_count)
+ 	/* Setup the receive address */
+ 	e_dbg("Programming MAC Address into RAR[0]\n");
+ 
+-	e1000e_rar_set(hw, hw->mac.addr, 0);
++	hw->mac.ops.rar_set(hw, hw->mac.addr, 0);
+ 
+ 	/* Zero out the other (rar_entry_count - 1) receive addresses */
+ 	e_dbg("Clearing RAR[1-%u]\n", rar_count - 1);
+ 	for (i = 1; i < rar_count; i++)
+-		e1000e_rar_set(hw, mac_addr, i);
++		hw->mac.ops.rar_set(hw, mac_addr, i);
+ }
+ 
+ /**
+@@ -215,13 +215,13 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
+ 	 * same as the normal permanent MAC address stored by the HW into the
+ 	 * RAR. Do this by mapping this address into RAR0.
+ 	 */
+-	e1000e_rar_set(hw, alt_mac_addr, 0);
++	hw->mac.ops.rar_set(hw, alt_mac_addr, 0);
+ 
+ 	return 0;
+ }
+ 
+ /**
+- *  e1000e_rar_set - Set receive address register
++ *  e1000e_rar_set_generic - Set receive address register
+  *  @hw: pointer to the HW structure
+  *  @addr: pointer to the receive address
+  *  @index: receive address array register
+@@ -229,7 +229,7 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
+  *  Sets the receive address array register at index to the address passed
+  *  in by addr.
+  **/
+-void e1000e_rar_set(struct e1000_hw *hw, u8 *addr, u32 index)
++void e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index)
+ {
+ 	u32 rar_low, rar_high;
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 140fee1..c0e211b 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3209,7 +3209,7 @@ static int e1000e_write_uc_addr_list(struct net_device *netdev)
+ 		netdev_for_each_uc_addr(ha, netdev) {
+ 			if (!rar_entries)
+ 				break;
+-			e1000e_rar_set(hw, ha->addr, rar_entries--);
++			hw->mac.ops.rar_set(hw, ha->addr, rar_entries--);
+ 			count++;
+ 		}
+ 	}
+@@ -4018,6 +4018,7 @@ static int e1000_close(struct net_device *netdev)
+ static int e1000_set_mac(struct net_device *netdev, void *p)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
++	struct e1000_hw *hw = &adapter->hw;
+ 	struct sockaddr *addr = p;
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+@@ -4026,7 +4027,7 @@ static int e1000_set_mac(struct net_device *netdev, void *p)
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 	memcpy(adapter->hw.mac.addr, addr->sa_data, netdev->addr_len);
+ 
+-	e1000e_rar_set(&adapter->hw, adapter->hw.mac.addr, 0);
++	hw->mac.ops.rar_set(&adapter->hw, adapter->hw.mac.addr, 0);
+ 
+ 	if (adapter->flags & FLAG_RESET_OVERWRITES_LAA) {
+ 		/* activate the work around */
+@@ -4040,9 +4041,8 @@ static int e1000_set_mac(struct net_device *netdev, void *p)
+ 		 * are dropped. Eventually the LAA will be in RAR[0] and
+ 		 * RAR[14]
+ 		 */
+-		e1000e_rar_set(&adapter->hw,
+-			      adapter->hw.mac.addr,
+-			      adapter->hw.mac.rar_entry_count - 1);
++		hw->mac.ops.rar_set(&adapter->hw, adapter->hw.mac.addr,
++				    adapter->hw.mac.rar_entry_count - 1);
+ 	}
+ 
+ 	return 0;
+@@ -4621,7 +4621,7 @@ link_up:
+ 	 * reset from the other port. Set the appropriate LAA in RAR[0]
+ 	 */
+ 	if (e1000e_get_laa_state_82571(hw))
+-		e1000e_rar_set(hw, adapter->hw.mac.addr, 0);
++		hw->mac.ops.rar_set(hw, adapter->hw.mac.addr, 0);
+ 
+ 	if (adapter->flags2 & FLAG2_CHECK_PHY_HANG)
+ 		e1000e_check_82574_phy_workaround(adapter);
 -- 
 1.7.7.6
