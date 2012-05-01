@@ -1,7 +1,7 @@
 From: xiong <xiong@qca.qualcomm.com>
-Subject: [PATCH 04/10] atl1c: remove code of closing register writable attribution
-Date: Tue, 1 May 2012 09:38:52 +0800
-Message-ID: <1335836338-9425-5-git-send-email-xiong@qca.qualcomm.com>
+Subject: [PATCH 07/10] atl1c: cancel task when interface closed
+Date: Tue, 1 May 2012 09:38:55 +0800
+Message-ID: <1335836338-9425-8-git-send-email-xiong@qca.qualcomm.com>
 References: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,38 +14,37 @@ In-Reply-To: <1335836338-9425-1-git-send-email-xiong@qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Close-action is done by atl1c_reset_pcie, remove it from
-atl1c_get_permanent_address.
+common_task might be running while close routine is called,
+wait/cancel it.
 
 Signed-off-by: xiong <xiong@qca.qualcomm.com>
 Tested-by: Liu David <dwliu@qca.qualcomm.com>
 ---
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.c |    6 ------
- 1 files changed, 0 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-index 49f433e..2522685 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-@@ -72,7 +72,6 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
- 	u32 i;
- 	u32 otp_ctrl_data;
- 	u32 twsi_ctrl_data;
--	u32 ltssm_ctrl_data;
- 	u8  eth_addr[ETH_ALEN];
- 	u16 phy_data;
- 	bool raise_vol = false;
-@@ -108,11 +107,6 @@ static int atl1c_get_permanent_address(struct atl1c_hw *hw)
- 			udelay(20);
- 			raise_vol = true;
- 		}
--		/* close open bit of ReadOnly*/
--		AT_READ_REG(hw, REG_LTSSM_ID_CTRL, &ltssm_ctrl_data);
--		ltssm_ctrl_data &= ~LTSSM_ID_EN_WRO;
--		AT_WRITE_REG(hw, REG_LTSSM_ID_CTRL, ltssm_ctrl_data);
--
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index d910dbb..b95ef45 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -330,6 +330,9 @@ static void atl1c_common_task(struct work_struct *work)
+ 	adapter = container_of(work, struct atl1c_adapter, common_task);
+ 	netdev = adapter->netdev;
  
- 		AT_READ_REG(hw, REG_TWSI_CTRL, &twsi_ctrl_data);
- 		twsi_ctrl_data |= TWSI_CTRL_SW_LDSTART;
++	if (test_bit(__AT_DOWN, &adapter->flags))
++		return;
++
+ 	if (test_and_clear_bit(ATL1C_WORK_EVENT_RESET, &adapter->work_event)) {
+ 		netif_device_detach(netdev);
+ 		atl1c_down(adapter);
+@@ -2311,6 +2314,8 @@ static int atl1c_close(struct net_device *netdev)
+ 	struct atl1c_adapter *adapter = netdev_priv(netdev);
+ 
+ 	WARN_ON(test_bit(__AT_RESETTING, &adapter->flags));
++	set_bit(__AT_DOWN, &adapter->flags);
++	cancel_work_sync(&adapter->common_task);
+ 	atl1c_down(adapter);
+ 	atl1c_free_ring_resources(adapter);
+ 	return 0;
 -- 
 1.7.7
