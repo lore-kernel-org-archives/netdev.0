@@ -1,42 +1,57 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
-Date: Tue, 1 May 2012 14:51:54 +0200
-Message-ID: <20120501125154.GO3157@wantstofly.org>
-References: <CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com>
- <20120427101732.GX3157@wantstofly.org>
- <CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com>
- <CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com>
- <20120427185809.GZ3157@wantstofly.org>
- <CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com>
- <CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com>
- <CAJfuBxw7YFAC9CLAGNmg3nM_g2xH2vuiz07D-3xOcyn2XuP5vA@mail.gmail.com>
- <CA+icZUVT6kvqj47x26FU2qjbMHc=jr9_Lso=zduf_cmcSrv=UQ@mail.gmail.com>
- <CAJfuBxwz2PmNY37VB7Wx+GdQcOcS6Y96EM_JNtvs-dyv-imL6g@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: add a prefetch in socket backlog
+ processing
+Date: Tue, 01 May 2012 06:09:17 -0700
+Message-ID: <1335877757.26217.67.camel@joe2Laptop>
+References: <1335838029.11396.12.camel@edumazet-glaptop>
+	 <1335842663.26217.10.camel@joe2Laptop>
+	 <1335854091.11396.21.camel@edumazet-glaptop>
+	 <1335873153.26217.35.camel@joe2Laptop>
+	 <1335875351.11396.55.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sedat.dilek@gmail.com, "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	lautriv <admin@coldplug.net>
-To: Jim Cromie <jim.cromie@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:61351 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750743Ab2EAMv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 08:51:56 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJfuBxwz2PmNY37VB7Wx+GdQcOcS6Y96EM_JNtvs-dyv-imL6g@mail.gmail.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:44010 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754781Ab2EANJU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 09:09:20 -0400
+In-Reply-To: <1335875351.11396.55.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 28, 2012 at 05:11:06PM -0600, Jim Cromie wrote:
-
-> That said, bitrate is quite low, I havent looked at why.
+On Tue, 2012-05-01 at 14:29 +0200, Eric Dumazet wrote:
+> On Tue, 2012-05-01 at 04:52 -0700, Joe Perches wrote:
 > 
-> jimc@chumly:~/projects/lx/wifi/mwl8k-8361p-logs$ grep -i MBit *
-> iw-dev-wlan0-link:	tx bitrate: 11.0 MBit/s
-> iw-dev-wlan1-link:	tx bitrate: 1.0 MBit/s
-> iw-dev-wlan1-station-dump:	tx bitrate:	1.0 MBit/s
-> iw-dev-wlan1-station-get-00:14:d1:e8:65:0a:	tx bitrate:	1.0 MBit/s
+> > That's true for cpus with sufficient cache but prefetch
+> > might be wasteful for cpus without (like some ARMs).
+> > 
+> > Some of the sk_backlog_rcv functions like tcp_v4_do_rcv
+> > can be relatively large.
+> 
+> You speak of icache here. Thats different matter.
+> 
+> My patch does a prefetch of data (dcache)
 
-You can ignore those values, they don't reflect the actual
-transmittion rate in use.
+Actually I meant cpus with an integrated cache
+like the old arm 710 and the sh3/7710.
+
+I think those are still possible compilation
+targets, but perhaps no one cares anymore.
+
+> How this prefetch() is different than other ones in kernel ?
+
+I'm not suggesting prefetch isn't useful.
+
+If prefetch improves performance for the general case
+it's good.  If the prefetch can also be trivially
+compile time wrapped to not impact older supported
+targets, I think that's good too.
+
+> For old cpus, you can use linux 2.4 it works much better.
+
+Deprecating older targets may not be a bad thing either.
+
+cheers, Joe
