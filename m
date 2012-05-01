@@ -1,30 +1,45 @@
-From: =?ISO-8859-1?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
-Subject: Re: sky2 still badly broken
-Date: Tue, 01 May 2012 01:50:03 +0200
-Message-ID: <4F9F252B.6060703@linuxsystems.it>
-References: <4F9AFE4E.8010108@linuxsystems.it> <20120430122501.5fff4b1e@nehalam.linuxnetplumber.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [REGRESSION][PATCH V4 3/3] bpf jit: Let the powerpc jit handle
+ negative offsets
+Date: Tue, 01 May 2012 10:26:27 +1000
+Message-ID: <1335831987.20866.93.camel@pasglop>
+References: <1335760199.20866.33.camel@pasglop>
+	 <4F9E188E.80503@googlemail.com> <1335763568.20866.37.camel@pasglop>
+	 <20120430.134140.1738751315208907289.davem@davemloft.net>
+	 <1335822926.20866.47.camel@pasglop> <1335823049.20866.48.camel@pasglop>
+	 <4F9F12ED.1090009@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxsystems.it ([2.119.245.41]:35760 "EHLO
-	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756704Ab2D3XtE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Apr 2012 19:49:04 -0400
-In-Reply-To: <20120430122501.5fff4b1e@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jan Seiffert <kaffeemonster@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F9F12ED.1090009@googlemail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Il 30/04/2012 21:25, Stephen Hemminger ha scritto:
-> You are getting CRC and FIFO overrun errors. What laptop is this?
-> Everything works fine on my old Fuijitsu with same chip (but rev 14).
-> You could try taking out the status bit checks and see if the
-> packets are really okay and the Marvell chip is complaining about
-> bogus status.
+On Tue, 2012-05-01 at 00:32 +0200, Jan Seiffert wrote:
 
-Laptop is a Samsung X360. I will make a little dump.
+> *shudder*
+> Link to another lib for only one function because....
+> 
+> http://cvsweb.netbsd.org/bsdweb.cgi/src/sys/net/bpf.h?rev=1.59&content-type=text/x-cvsweb-markup&only_with_tag=MAIN
+> The "Original" says it's an u_int.
+> 
+> But i guess it is unfixable without breaking something, except with ugly code.
+> Should the padding at least be made explicit in the in-kernel struct?
+> Did anyone ever tested the 32bit on 64bit compat code (different padding)?
 
-Niccol=F2
+Haven't tested no. A quick google pointed to 2 web pages telling people
+to do the wrong thing and 4 broken programs out there, interestingly in
+different ways :-) (somebody's doing a reinterpret_cast of one struct
+into another, somebody does his/her own local redefinition of the
+struct ... using a ulong !, etc....)
+
+I don't see a good way to sort that out other than introducing a new
+kernel-side structure, change the sockopt number, and support the old
+one as backward binary compat, but that's gross.
+
+Cheers,
+Ben.
