@@ -1,97 +1,74 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] drop_monitor: prevent init path from scheduling on the wrong cpu
-Date: Tue,  1 May 2012 14:18:02 -0400
-Message-ID: <1335896282-11738-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: "Linus Walleij" <linus.walleij@linaro.org>
+Subject: [PATCH 00/13 v4] usb/net: rndis: first step toward consolidation
+Date: Tue,  1 May 2012 20:22:09 +0200
+Message-ID: <1335896529-13246-1-git-send-email-linus.walleij@linaro.org>
+Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Felipe Balbi <balbi@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56096 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756025Ab2EASSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 14:18:32 -0400
+Received: from mail.df.lth.se ([194.47.250.12]:60697 "EHLO mail.df.lth.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755293Ab2EASWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 14:22:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I just noticed after some recent updates, that the init path for the drop
-monitor protocol has a minor error.  drop monitor maintains a per cpu structure,
-that gets initalized from a single cpu.  Normally this is fine, as the protocol
-isn't in use yet, but I recently made a change that causes a failed skb
-allocation to reschedule itself .  Given the current code, the implication is
-that this workqueue reschedule will take place on the wrong cpu.  If drop
-monitor is used early during the boot process, its possible that two cpus will
-access a single per-cpu structure in parallel, possibly leading to data
-corruption.
+The REAL v4 patch set... forget v3 :-(
 
-This patch fixes the situation, by storing the cpu number that a given instance
-of this per-cpu data should be accessed from.  In the case of a need for a
-reschedule, the cpu stored in the struct is assigned the rescheule, rather than
-the currently executing cpu
+This version of the patch set squashes ex. patch 3/15 into 2/15
+and creates a patch set that is bisectable at every step without
+compile warnings.
 
-Tested successfully by myself.
+Tested with the following configured in:
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: David Miller <davem@davemloft.net>
----
- net/core/drop_monitor.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
+CONFIG_HYPERV
+CONFIG_HYPERV_UTILS
+CONFIG_HYPERV_NET
+CONFIG_USB_USBNET
+CONFIG_USB_NET_CDCETHER
+CONFIG_USB_NET_RNDIS_HOST
+CONFIG_USB_NET_RNDIS_WLAN
+CONFIG_USB_GADGET
+CONFIG_USB_ETH
+CONFIG_USB_ETH_RNDIS
 
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index 7592943..a7cad74 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -49,6 +49,7 @@ struct per_cpu_dm_data {
- 	struct sk_buff __rcu *skb;
- 	atomic_t dm_hit_count;
- 	struct timer_list send_timer;
-+	int cpu;
- };
- 
- struct dm_hw_stat_delta {
-@@ -73,7 +74,6 @@ static int dm_hit_limit = 64;
- static int dm_delay = 1;
- static unsigned long dm_hw_check_delta = 2*HZ;
- static LIST_HEAD(hw_stats_list);
--static int initialized = 0;
- 
- static void reset_per_cpu_data(struct per_cpu_dm_data *data)
- {
-@@ -96,8 +96,8 @@ static void reset_per_cpu_data(struct per_cpu_dm_data *data)
- 				  sizeof(struct net_dm_alert_msg));
- 		msg = nla_data(nla);
- 		memset(msg, 0, al);
--	} else if (initialized)
--		schedule_work_on(smp_processor_id(), &data->dm_alert_work);
-+	} else
-+		schedule_work_on(data->cpu, &data->dm_alert_work);
- 
- 	/*
- 	 * Don't need to lock this, since we are guaranteed to only
-@@ -121,6 +121,8 @@ static void send_dm_alert(struct work_struct *unused)
- 	struct sk_buff *skb;
- 	struct per_cpu_dm_data *data = &get_cpu_var(dm_cpu_data);
- 
-+	WARN_ON_ONCE(data->cpu != smp_processor_id());
-+
- 	/*
- 	 * Grab the skb we're about to send
- 	 */
-@@ -404,14 +406,14 @@ static int __init init_net_drop_monitor(void)
- 
- 	for_each_present_cpu(cpu) {
- 		data = &per_cpu(dm_cpu_data, cpu);
--		reset_per_cpu_data(data);
-+		data->cpu = cpu;
- 		INIT_WORK(&data->dm_alert_work, send_dm_alert);
- 		init_timer(&data->send_timer);
- 		data->send_timer.data = cpu;
- 		data->send_timer.function = sched_send_work;
-+		reset_per_cpu_data(data);
- 	}
- 
--	initialized = 1;
- 
- 	goto out;
- 
+As mentioned in previous patch series this is to consolidate
+RNDIS defines in the kernel as a first step toward consolidating
+data structures and code.
+
+Linus Walleij (13):
+  usb/net: rndis: inline the cpu_to_le32() macro
+  usb/net: rndis: break out <linux/rndis.h> defines
+  usb/net: rndis: remove ambigous status codes
+  usb/net: rndis: eliminate first set of duplicate OIDs
+  usb/net: rndis: merge duplicate 802_* OIDs
+  usb/net: rndis: delete surplus defines
+  usb/net: rndis: group all status codes together
+  usb/net: rndis: merge media type definitions
+  usb/net: rndis: delete duplicate packet types
+  usb/net: rndis: move and namespace PnP defines
+  usb/net: rndis: merge command codes
+  usb/net: rndis: fixup a few name prefixes
+  usb/net: rndis: move bus message definition
+
+ drivers/net/hyperv/hyperv_net.h   |  290 +---------------------------
+ drivers/net/hyperv/rndis_filter.c |   46 +++---
+ drivers/net/usb/rndis_host.c      |   52 +++---
+ drivers/net/wireless/rndis_wlan.c |  295 ++++++++++++----------------
+ drivers/usb/gadget/f_rndis.c      |    6 +-
+ drivers/usb/gadget/ndis.h         |  164 ----------------
+ drivers/usb/gadget/rndis.c        |  271 +++++++++++++-------------
+ drivers/usb/gadget/rndis.h        |   48 +-----
+ include/linux/rndis.h             |  390 +++++++++++++++++++++++++++++++++++++
+ include/linux/usb/rndis_host.h    |   66 +------
+ 10 files changed, 706 insertions(+), 922 deletions(-)
+ create mode 100644 include/linux/rndis.h
+
 -- 
 1.7.7.6
