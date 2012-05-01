@@ -1,70 +1,66 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [PATCH net-next] netem: add ECN capability
-Date: Tue, 1 May 2012 11:49:51 -0700
-Message-ID: <CAA93jw7r8UTTEy9KjmQekbuJ6U7hVVURtr0z9pw9L8wa67BUZA@mail.gmail.com>
-References: <1335863465.11396.45.camel@edumazet-glaptop>
-	<20120501.094051.655617860554790911.davem@davemloft.net>
-	<20120501095938.7214e4a5@s6510.linuxnetplumber.net>
-	<20120501.131750.636505003036346376.davem@davemloft.net>
+From: Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
+Subject: RE: [PATCH 02/13 v4] usb/net: rndis: break out <linux/rndis.h>
+ defines
+Date: Tue, 1 May 2012 18:54:54 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DD3CAAA@TK5EX14MBXC221.redmond.corp.microsoft.com>
+References: <1335896546-13315-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, therbert@google.com, ncardwell@google.com,
-	hagen@jauu.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:61434 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752581Ab2EAStx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 14:49:53 -0400
-Received: by wibhj6 with SMTP id hj6so3962974wib.1
-        for <netdev@vger.kernel.org>; Tue, 01 May 2012 11:49:51 -0700 (PDT)
-In-Reply-To: <20120501.131750.636505003036346376.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Tue, May 1, 2012 at 10:17 AM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Tue, 1 May 2012 09:59:38 -0700
->
->> On Tue, 01 May 2012 09:40:51 -0400 (EDT)
->> David Miller <davem@davemloft.net> wrote:
->>
->>> From: Eric Dumazet <eric.dumazet@gmail.com>
->>> Date: Tue, 01 May 2012 11:11:05 +0200
->>>
->>> > From: Eric Dumazet <edumazet@google.com>
->>> >
->>> > Add ECN (Explicit Congestion Notification) marking capability to =
-netem
->>> >
->>> > tc qdisc add dev eth0 root netem drop 0.5 ecn
->>> >
->>> > Instead of dropping packets, try to ECN mark them.
->>> >
->>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->>>
->>> Applied.
->>
->> At least give a day of review, rather than premature acceptance
->
-> Yeah, because Eric Dumazet is going to fall off the face of the
-> planet and not fix whatever problems you have with his work.
->
-> Get real Stephen.
-
-I'd be more concerned about wayward buses, or a team of elite
-ninja's hired by outraged BSD and windows hackers sent to slow
-eric down.
-
-As I think about it, I think he could handle the ninja problem, tho.
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
+	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1335896546-13315-1-git-send-email-linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
 
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-http://www.bufferbloat.net
+> -----Original Message-----
+> From: Linus Walleij [mailto:linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org]
+> Sent: Tuesday, May 01, 2012 2:22 PM
+> To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Greg Kroah-Hartman;
+> David S. Miller; Felipe Balbi
+> Cc: Jussi Kivilinna; Haiyang Zhang; Wei Yongjun; Ben Hutchings; Linus
+> Walleij
+> Subject: [PATCH 02/13 v4] usb/net: rndis: break out <linux/rndis.h>
+> defines
+> 
+> As a first step to consolidate the RNDIS implementations, break out
+> a common file with all the #defines and move it to <linux/rndis.h>.
+> The compilation screams about double-defines all over the place
+> (as could be expected, this is why we're consolidating) but it
+> compiles cleanly still.
+> 
+> This also deletes the immediate duplicated defines in the
+> <linux/rndis.h> file that yields a lot of compilation warnings.
+> 
+> Reviewed-by: Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
+> Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> ---
+> ChangeLog v2->v3:
+> - Squashed subsequent patch removing duplicate entries into
+>   this patch so it's bisectable without any compilation warnings.
+
+I have not reviewed this version yet.
+
+Also, I think you should merge the "ChangeLog v2->v3" into the patch
+comments. Don't need to say "The compilation screams about double-defines
+all over the place" any more.
+
+Thanks,
+- Haiyang
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
