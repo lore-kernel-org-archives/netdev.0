@@ -1,48 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/3] ixgbe: fix calling skb_put on nonlinear skb assertion bug
-Date: Mon, 30 Apr 2012 18:58:15 -0700
-Message-ID: <1335837495-9722-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 1/3] igbvf: fix the bug when initializing the igbvf
+Date: Mon, 30 Apr 2012 18:58:13 -0700
+Message-ID: <1335837495-9722-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1335837495-9722-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Yi Zou <yi.zou@intel.com>, netdev@vger.kernel.org,
+Cc: Samuel Liao <samuelliao@tencent.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Shan Wei <davidshan@tencent.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:59030 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757533Ab2EAB6S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Apr 2012 21:58:18 -0400
+	id S1757918Ab2EAB6R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Apr 2012 21:58:17 -0400
 In-Reply-To: <1335837495-9722-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yi Zou <yi.zou@intel.com>
+From: Samuel Liao <samuelliao@tencent.com>
 
-With the support to bounce buffer added, the skb is coming as nonlinear in the
-case of non-DDPed data frames for FCoE, which is mostly ok as the FCoE stack
-would take care of that. However, for target mode, we have to set the FC CRC
-and FC EOF field to allow the protocol stack to not drop the frame for the last
-data frame of that sequence. So fix this by linearizing the skb first before
-doing skb_put().
+Maybe it's a typo, but it cause that igbvf can't be initialized successfully.
+Set perm_addr value using valid dev_addr, although which is equal to hw.mac.addr.
 
-Signed-off-by: Yi Zou <yi.zou@intel.com>
-Tested-by: Marcus Dennis <marcusx.e.dennis@intel.com>
+Signed-off-by: Samuel Liao <samuelliao@tencent.com>
+Signed-off-by: Shan Wei <davidshan@tencent.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/igbvf/netdev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index 77ea4b7..bc07933 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -437,6 +437,7 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
- 	 */
- 	if ((fh->fh_r_ctl == FC_RCTL_DD_SOL_DATA) &&
- 	    (fctl & FC_FC_END_SEQ)) {
-+		skb_linearize(skb);
- 		crc = (struct fcoe_crc_eof *)skb_put(skb, sizeof(*crc));
- 		crc->fcoe_eof = FC_EOF_T;
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index d61ca2a..8ec74b0 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -2731,14 +2731,14 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
+ 			netdev->addr_len);
  	}
+ 
+-	if (!is_valid_ether_addr(netdev->perm_addr)) {
++	if (!is_valid_ether_addr(netdev->dev_addr)) {
+ 		dev_err(&pdev->dev, "Invalid MAC Address: %pM\n",
+ 		        netdev->dev_addr);
+ 		err = -EIO;
+ 		goto err_hw_init;
+ 	}
+ 
+-	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
++	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+ 
+ 	setup_timer(&adapter->watchdog_timer, &igbvf_watchdog,
+ 	            (unsigned long) adapter);
 -- 
 1.7.7.6
