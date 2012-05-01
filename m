@@ -1,50 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: fix two typos in skbuff.h
-Date: Tue, 01 May 2012 09:29:16 +0200
-Message-ID: <1335857356.11396.31.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:49705 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750917Ab2EAH3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 03:29:21 -0400
-Received: by wgbds11 with SMTP id ds11so2975547wgb.1
-        for <netdev@vger.kernel.org>; Tue, 01 May 2012 00:29:20 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request: batman-adv 2012-05-01
+Date: Tue,  1 May 2012 10:00:59 +0200
+Message-ID: <1335859266-7546-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hello David,
 
-fix kernel doc typos in function names
+this is the new version of my previous pull request (issued on 2012-04-29).
+I'd like to see this changesin net-next/linux-3.5.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/skbuff.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+In this pull request I entirely removed the D.A.T. code, that as we were
+discussing in the previous thread, needs some rewriting to avoid directly
+dealing with the neigh table.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 775292a..111f26b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1020,7 +1020,7 @@ static inline void skb_queue_splice(const struct sk_buff_head *list,
- }
- 
- /**
-- *	skb_queue_splice - join two skb lists and reinitialise the emptied list
-+ *	skb_queue_splice_init - join two skb lists and reinitialise the emptied list
-  *	@list: the new list to add
-  *	@head: the place to add it in the first list
-  *
-@@ -1051,7 +1051,7 @@ static inline void skb_queue_splice_tail(const struct sk_buff_head *list,
- }
- 
- /**
-- *	skb_queue_splice_tail - join two skb lists and reinitialise the emptied list
-+ *	skb_queue_splice_tail_init - join two skb lists and reinitialise the emptied list
-  *	@list: the new list to add
-  *	@head: the place to add it in the first list
-  *
+This patchset only contains fixes and cleanups.
+
+Letme know if there is any problem!
+
+Thank you,
+	Antonio
+
+The following changes since commit 7a2a66a0ac1cf93d30869c4ecbfc71a2fda19397:
+
+  Add linux-next specific files for 20120423 (2012-04-23 16:58:43 +1000)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 969e62ad00763fed9ea28700ef7a7d97fdbfddf3:
+
+  batman-adv: split neigh_new function into generic and batman iv specific parts (2012-05-01 00:37:58 +0200)
+
+----------------------------------------------------------------
+Included changes:
+
+* minor fixes and cleanups
+* minor routing protocol API cleanups
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+      batman-adv: fix wrong dhcp option list browsing
+
+Marek Lindner (6):
+      batman-adv: introduce is_single_hop_neigh variable to increase readability
+      batman-adv: introduce packet type handler array for incoming packets
+      batman-adv: register batman ogm receive function during protocol init
+      batman-adv: rename last_valid to last_seen
+      batman-adv: replace HZ calculations with jiffies_to_msecs()
+      batman-adv: split neigh_new function into generic and batman iv specific parts
+
+ net/batman-adv/bat_debugfs.c    |    4 +-
+ net/batman-adv/bat_iv_ogm.c     |   95 +++++++++++++++++++++++-------
+ net/batman-adv/gateway_client.c |    6 +-
+ net/batman-adv/hard-interface.c |  113 ------------------------------------
+ net/batman-adv/main.c           |  122 ++++++++++++++++++++++++++++++++++++++-
+ net/batman-adv/main.h           |    6 ++
+ net/batman-adv/originator.c     |   50 ++++++++--------
+ net/batman-adv/originator.h     |    6 +-
+ net/batman-adv/routing.c        |   22 ++++---
+ net/batman-adv/routing.h        |    4 +-
+ net/batman-adv/send.c           |    2 +-
+ net/batman-adv/types.h          |   11 ++--
+ 12 files changed, 249 insertions(+), 192 deletions(-)
