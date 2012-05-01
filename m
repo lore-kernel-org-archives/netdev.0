@@ -1,101 +1,74 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: 3.4-rc: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed
- out
-Date: Tue, 1 May 2012 20:04:23 +0200
-Message-ID: <20120501200423.6804dcf0@stein>
-References: <20120501182405.3dda59b9@stein>
-	<20120501172748.GA17117@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:52883 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758537Ab2EASE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 14:04:27 -0400
-In-Reply-To: <20120501172748.GA17117@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 00/14 v3] usb/net: rndis: first step toward consolidation
+Date: Tue,  1 May 2012 20:14:45 +0200
+Message-ID: <1335896085-12435-1-git-send-email-linus.walleij@linaro.org>
+Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
+	Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On May 01 Francois Romieu wrote:
-> Stefan Richter <stefanr@s5r6.in-berlin.de> :
-> [...]
-> > I switched from 3.3 to 3.4-rc5 yesterday and am getting the following warning
-> > some time after boot (e.g. this time about two hours after boot).  What's up
-> > with that?
-> 
-> The device stopped being able to transmit anything at some point (netdev
-> watchdog message). The warnings always look the same. If the device does
-> not recover, we have a problem. Do we ?
+This version of the patch set squashes ex. patch 3/15 into 2/15
+and creates a patch set that is bisectable at every step without
+compile warnings.
 
-So far it always recovers.
+Tested with the following configured in:
 
-> [...]
-> > There are no noticeable issues, but I don't run anything demanding on the
-> > interface right now which would make any downtime obvious.
-> 
-> I don't understand: is it a low traffic interface or a no traffic one ?
+CONFIG_HYPERV
+CONFIG_HYPERV_UTILS
+CONFIG_HYPERV_NET
+CONFIG_USB_USBNET
+CONFIG_USB_NET_CDCETHER
+CONFIG_USB_NET_RNDIS_HOST
+CONFIG_USB_NET_RNDIS_WLAN
+CONFIG_USB_GADGET
+CONFIG_USB_ETH
+CONFIG_USB_ETH_RNDIS
 
-It is connected to a 100 Mbit/s switch + router and from there to a cable
-modem (average traffic about 40 kBit/s, peak maybe 5 Mbit/s or so) and to
-another PC for very occasional NFS and ssh (peak = what 100baseT is able
-to).
+As mentioned in previous patch series this is to consolidate
+RNDIS defines in the kernel as a first step toward consolidating
+data structures and code.
 
-The latter kind of usage did not coincide with one of those events yet, I
-think.  At least I haven't noticed.  And the former kind of usage is
-unreliable enough externally that I only noticed those transmit queue
-time-outs from their showing up in the syslog.
+Linus Walleij (14):
+  usb/net: rndis: inline the cpu_to_le32() macro
+  usb/net: rndis: break out <linux/rndis.h> defines
+  usb/net: rndis: remove duplicate definitions
+  usb/net: rndis: remove ambigous status codes
+  usb/net: rndis: eliminate first set of duplicate OIDs
+  usb/net: rndis: merge duplicate 802_* OIDs
+  usb/net: rndis: delete surplus defines
+  usb/net: rndis: group all status codes together
+  usb/net: rndis: merge media type definitions
+  usb/net: rndis: delete duplicate packet types
+  usb/net: rndis: move and namespace PnP defines
+  usb/net: rndis: merge command codes
+  usb/net: rndis: fixup a few name prefixes
+  usb/net: rndis: move bus message definition
 
-> > It is an RTL8168(?) on an Asus M3A78-EM motherboard.
-> 
-> dmesg | grep XID should identify the chipset. You may consider sending
-> an 'ethtool eth0' and 'ethtool -i eth0'.
+ drivers/net/hyperv/hyperv_net.h   |  290 +---------------------------
+ drivers/net/hyperv/rndis_filter.c |   46 +++---
+ drivers/net/usb/rndis_host.c      |   52 +++---
+ drivers/net/wireless/rndis_wlan.c |  295 ++++++++++++----------------
+ drivers/usb/gadget/f_rndis.c      |    6 +-
+ drivers/usb/gadget/ndis.h         |  164 ----------------
+ drivers/usb/gadget/rndis.c        |  271 +++++++++++++-------------
+ drivers/usb/gadget/rndis.h        |   48 +-----
+ include/linux/rndis.h             |  390 +++++++++++++++++++++++++++++++++++++
+ include/linux/usb/rndis_host.h    |   66 +------
+ 10 files changed, 706 insertions(+), 922 deletions(-)
+ create mode 100644 include/linux/rndis.h
 
-# dmesg | grep XID
-r8169 0000:0b:00.0: eth0: RTL8168c/8111c at 0xffffc9000005e000,
-00:23:54:91:8a:2b, XID 1c4000c0 IRQ 49
-
-# ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
-                                1000baseT/Half 1000baseT/Full 
-        Supported pause frame use: No
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
-                                1000baseT/Half 1000baseT/Full 
-        Advertised pause frame use: Symmetric Receive-only
-        Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  10baseT/Half 10baseT/Full 
-                                             100baseT/Half 100baseT/Full 
-        Link partner advertised pause frame use: Symmetric
-        Link partner advertised auto-negotiation: Yes
-        Speed: 100Mb/s
-        Duplex: Full
-        Port: MII
-        PHYAD: 0
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: pumbg
-        Wake-on: g
-        Current message level: 0x00000033 (51)
-                               drv probe ifdown ifup
-        Link detected: yes
-
-# ethtool -i eth0
-driver: r8169
-version: 2.3LK-NAPI
-firmware-version: 
-bus-info: 0000:0b:00.0
-supports-statistics: yes
-supports-test: no
-supports-eeprom-access: no
-supports-register-dump: yes
 -- 
-Stefan Richter
--=====-===-- -=-= ----=
-http://arcgraph.de/sr/
+1.7.7.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
