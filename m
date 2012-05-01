@@ -1,388 +1,309 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 6/8] ixgbe: add syfs interface for to export read only driver information
-Date: Tue,  1 May 2012 01:51:07 -0700
-Message-ID: <1335862269-28914-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 4/8] ixgbe: add support functions to access thermal data
+Date: Tue,  1 May 2012 01:51:05 -0700
+Message-ID: <1335862269-28914-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:46313 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:42217 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754287Ab2EAIvP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 04:51:15 -0400
+	id S1754101Ab2EAIvN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 May 2012 04:51:13 -0400
 In-Reply-To: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch exports non-thermal (which was done via hwmon in an earlier
-patch) data to sysfs which isn't readily available elsewhere.  All of the
-fields are read only as this interface is to only export driver data.
+Some 82599 adapters contain thermal data that we can get to via
+an i2c interface.  These functions provide support to get at that
+data.  A following patch will export this data.
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |  322 +++++++++++++++++++++++-
- 1 files changed, 317 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  171 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |   13 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |   40 ++++++
+ 3 files changed, 224 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-index aa41fb7..6601986 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-@@ -41,6 +41,310 @@
-  * This file provides a sysfs interface to export information from the
-  * driver.  The information presented is READ-ONLY.
-  */
-+
-+static struct net_device *ixgbe_get_netdev(struct kobject *kobj)
-+{
-+	struct net_device *netdev;
-+	struct kobject *parent = kobj->parent;
-+	struct device *device_info_kobj;
-+
-+	if (kobj == NULL)
-+		return NULL;
-+
-+	device_info_kobj = container_of(parent, struct device, kobj);
-+	if (device_info_kobj == NULL)
-+		return NULL;
-+
-+	netdev = container_of(device_info_kobj, struct net_device, dev);
-+	return netdev;
-+}
-+
-+static struct ixgbe_adapter *ixgbe_get_adapter(struct kobject *kobj)
-+{
-+	struct ixgbe_adapter *adapter;
-+	struct net_device *netdev = ixgbe_get_netdev(kobj);
-+
-+	if (netdev == NULL)
-+		return NULL;
-+
-+	adapter = netdev_priv(netdev);
-+	return adapter;
-+}
-+
-+static ssize_t ixgbe_rxupacks(struct kobject *kobj,
-+			      struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_hw *hw;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	hw = &adapter->hw;
-+	if (hw == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_TPR));
-+}
-+
-+static ssize_t ixgbe_rxmpacks(struct kobject *kobj,
-+			      struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_hw *hw;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	hw = &adapter->hw;
-+	if (hw == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_MPRC));
-+}
-+
-+static ssize_t ixgbe_rxbpacks(struct kobject *kobj,
-+			      struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_hw *hw;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	hw = &adapter->hw;
-+	if (hw == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_BPRC));
-+}
-+
-+static ssize_t ixgbe_txupacks(struct kobject *kobj,
-+			      struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_hw *hw;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	hw = &adapter->hw;
-+	if (hw == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_TPT));
-+}
-+
-+static ssize_t ixgbe_txmpacks(struct kobject *kobj,
-+			      struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_hw *hw;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	hw = &adapter->hw;
-+	if (hw == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_MPTC));
-+}
-+
-+static ssize_t ixgbe_txbpacks(struct kobject *kobj,
-+			      struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_hw *hw;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	hw = &adapter->hw;
-+	if (hw == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", IXGBE_READ_REG(hw, IXGBE_BPTC));
-+}
-+
-+static ssize_t ixgbe_maclla1(struct kobject *kobj,
-+			     struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_hw *hw;
-+	u16 eeprom_buff[6];
-+	int first_word = 0x37;
-+	int word_count = 6;
-+	int rc;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	hw = &adapter->hw;
-+	if (hw == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no hw data\n");
-+
-+	rc = hw->eeprom.ops.read_buffer(hw, first_word, word_count,
-+					eeprom_buff);
-+	if (rc)
-+		return snprintf(buf, PAGE_SIZE, "error: reading buffer\n");
-+
-+	switch (hw->bus.func) {
-+	case 0:
-+		return snprintf(buf, PAGE_SIZE, "0x%04X%04X%04X\n",
-+				eeprom_buff[0],
-+				eeprom_buff[1],
-+				eeprom_buff[2]);
-+	case 1:
-+		return snprintf(buf, PAGE_SIZE, "0x%04X%04X%04X\n",
-+				eeprom_buff[3],
-+				eeprom_buff[4],
-+				eeprom_buff[5]);
-+	}
-+
-+	return snprintf(buf, PAGE_SIZE, "unexpected port %d\n", hw->bus.func);
-+}
-+
-+static ssize_t ixgbe_txdscqsz(struct kobject *kobj,
-+			      struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", adapter->tx_ring[0]->count);
-+}
-+
-+static ssize_t ixgbe_rxdscqsz(struct kobject *kobj,
-+			      struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", adapter->rx_ring[0]->count);
-+}
-+
-+static ssize_t ixgbe_rxqavg(struct kobject *kobj,
-+			    struct kobj_attribute *attr, char *buf)
-+{
-+	int index;
-+	int diff = 0;
-+	u16 ntc;
-+	u16 ntu;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	for (index = 0; index < adapter->num_rx_queues; index++) {
-+		ntc = adapter->rx_ring[index]->next_to_clean;
-+		ntu = adapter->rx_ring[index]->next_to_use;
-+
-+		if (ntc >= ntu)
-+			diff += (ntc - ntu);
-+		else
-+			diff += (adapter->rx_ring[index]->count - ntu + ntc);
-+	}
-+
-+	if (adapter->num_rx_queues <= 0)
-+		return snprintf(buf, PAGE_SIZE,
-+				"can't calculate, number of queues %d\n",
-+				adapter->num_rx_queues);
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", diff/adapter->num_rx_queues);
-+}
-+
-+static ssize_t ixgbe_txqavg(struct kobject *kobj,
-+			    struct kobj_attribute *attr, char *buf)
-+{
-+	int index;
-+	int diff = 0;
-+	u16 ntc;
-+	u16 ntu;
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	for (index = 0; index < adapter->num_tx_queues; index++) {
-+		ntc = adapter->tx_ring[index]->next_to_clean;
-+		ntu = adapter->tx_ring[index]->next_to_use;
-+
-+		if (ntc >= ntu)
-+			diff += (ntc - ntu);
-+		else
-+			diff += (adapter->tx_ring[index]->count - ntu + ntc);
-+	}
-+
-+	if (adapter->num_tx_queues <= 0)
-+		return snprintf(buf, PAGE_SIZE,
-+				"can't calculate, number of queues %d\n",
-+				adapter->num_tx_queues);
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", diff/adapter->num_tx_queues);
-+}
-+
-+static ssize_t ixgbe_funcnbr(struct kobject *kobj,
-+			     struct kobj_attribute *attr, char *buf)
-+{
-+	struct ixgbe_adapter *adapter = ixgbe_get_adapter(kobj);
-+
-+	if (adapter == NULL)
-+		return snprintf(buf, PAGE_SIZE, "error: no adapter\n");
-+
-+	return snprintf(buf, PAGE_SIZE, "%d\n", adapter->num_vfs);
-+}
-+
-+/* Initialize the attributes */
-+static struct kobj_attribute ixgbe_sysfs_rxupacks_attr =
-+	__ATTR(rxupacks, 0444, ixgbe_rxupacks, NULL);
-+static struct kobj_attribute ixgbe_sysfs_rxmpacks_attr =
-+	__ATTR(rxmpacks, 0444, ixgbe_rxmpacks, NULL);
-+static struct kobj_attribute ixgbe_sysfs_rxbpacks_attr =
-+	__ATTR(rxbpacks, 0444, ixgbe_rxbpacks, NULL);
-+static struct kobj_attribute ixgbe_sysfs_txupacks_attr =
-+	__ATTR(txupacks, 0444, ixgbe_txupacks, NULL);
-+static struct kobj_attribute ixgbe_sysfs_txmpacks_attr =
-+	__ATTR(txmpacks, 0444, ixgbe_txmpacks, NULL);
-+static struct kobj_attribute ixgbe_sysfs_txbpacks_attr =
-+	__ATTR(txbpacks, 0444, ixgbe_txbpacks, NULL);
-+static struct kobj_attribute ixgbe_sysfs_maclla1_attr =
-+	__ATTR(maclla1, 0444, ixgbe_maclla1, NULL);
-+static struct kobj_attribute ixgbe_sysfs_txdscqsz_attr =
-+	__ATTR(txdscqsz, 0444, ixgbe_txdscqsz, NULL);
-+static struct kobj_attribute ixgbe_sysfs_rxdscqsz_attr =
-+	__ATTR(rxdscqsz, 0444, ixgbe_rxdscqsz, NULL);
-+static struct kobj_attribute ixgbe_sysfs_txqavg_attr =
-+	__ATTR(txqavg, 0444, ixgbe_txqavg, NULL);
-+static struct kobj_attribute ixgbe_sysfs_rxqavg_attr =
-+	__ATTR(rxqavg, 0444, ixgbe_rxqavg, NULL);
-+static struct kobj_attribute ixgbe_sysfs_funcnbr_attr =
-+	__ATTR(funcnbr, 0444, ixgbe_funcnbr, NULL);
-+
-+static struct attribute *attrs[] = {
-+	&ixgbe_sysfs_rxupacks_attr.attr,
-+	&ixgbe_sysfs_rxmpacks_attr.attr,
-+	&ixgbe_sysfs_rxbpacks_attr.attr,
-+	&ixgbe_sysfs_txupacks_attr.attr,
-+	&ixgbe_sysfs_txmpacks_attr.attr,
-+	&ixgbe_sysfs_txbpacks_attr.attr,
-+	&ixgbe_sysfs_maclla1_attr.attr,
-+	&ixgbe_sysfs_txdscqsz_attr.attr,
-+	&ixgbe_sysfs_rxdscqsz_attr.attr,
-+	&ixgbe_sysfs_txqavg_attr.attr,
-+	&ixgbe_sysfs_rxqavg_attr.attr,
-+	&ixgbe_sysfs_funcnbr_attr.attr,
-+	NULL
-+};
-+
-+/* add attributes to a group */
-+static struct attribute_group attr_group = {
-+	.attrs = attrs,
-+};
-+
- #ifdef CONFIG_IXGBE_HWMON
- 
- /* hwmon callback functions */
-@@ -185,8 +489,11 @@ static void ixgbe_sysfs_del_adapter(struct ixgbe_adapter *adapter)
- 		hwmon_device_unregister(adapter->ixgbe_hwmon_buff.device);
- #endif /* CONFIG_IXGBE_HWMON */
- 
--	if (adapter->info_kobj != NULL)
-+	if (adapter->info_kobj != NULL) {
-+		sysfs_remove_group(adapter->info_kobj, &attr_group);
- 		kobject_put(adapter->info_kobj);
-+		adapter->info_kobj = NULL;
-+	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index e598881..6c6c66e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3604,3 +3604,174 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
+ 	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr_ext);
+ 	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
  }
- 
- /* called from ixgbe_main.c */
-@@ -213,17 +520,22 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
- 		goto err;
- 	}
- 
-+	rc = sysfs_create_group(adapter->info_kobj, &attr_group);
-+	if (rc)
-+		goto err;
 +
- #ifdef CONFIG_IXGBE_HWMON
- 	/* If this method isn't defined we don't support thermals */
- 	if (adapter->hw.mac.ops.init_thermal_sensor_thresh == NULL) {
--		rc = -EPERM;
--		goto err;
-+		goto exit;
- 	}
- 
- 	/* Don't create thermal hwmon interface if no sensors present */
- 	rc = adapter->hw.mac.ops.init_thermal_sensor_thresh(&adapter->hw);
--	if (rc)
--		goto err;
-+	if (rc) {
-+		rc = 0;
-+		goto exit;
++static const u8 ixgbe_emc_temp_data[4] = {
++	IXGBE_EMC_INTERNAL_DATA,
++	IXGBE_EMC_DIODE1_DATA,
++	IXGBE_EMC_DIODE2_DATA,
++	IXGBE_EMC_DIODE3_DATA
++};
++static const u8 ixgbe_emc_therm_limit[4] = {
++	IXGBE_EMC_INTERNAL_THERM_LIMIT,
++	IXGBE_EMC_DIODE1_THERM_LIMIT,
++	IXGBE_EMC_DIODE2_THERM_LIMIT,
++	IXGBE_EMC_DIODE3_THERM_LIMIT
++};
++
++/**
++ *  ixgbe_get_ets_data - Extracts the ETS bit data
++ *  @hw: pointer to hardware structure
++ *  @ets_cfg: extected ETS data
++ *  @ets_offset: offset of ETS data
++ *
++ *  Returns error code.
++ **/
++static s32 ixgbe_get_ets_data(struct ixgbe_hw *hw, u16 *ets_cfg,
++			      u16 *ets_offset)
++{
++	s32 status = 0;
++
++	status = hw->eeprom.ops.read(hw, IXGBE_ETS_CFG, ets_offset);
++	if (status)
++		goto out;
++
++	if ((*ets_offset == 0x0000) || (*ets_offset == 0xFFFF)) {
++		status = IXGBE_NOT_IMPLEMENTED;
++		goto out;
 +	}
++
++	status = hw->eeprom.ops.read(hw, *ets_offset, ets_cfg);
++	if (status)
++		goto out;
++
++	if ((*ets_cfg & IXGBE_ETS_TYPE_MASK) != IXGBE_ETS_TYPE_EMC_SHIFTED) {
++		status = IXGBE_NOT_IMPLEMENTED;
++		goto out;
++	}
++
++out:
++	return status;
++}
++
++/**
++ *  ixgbe_get_thermal_sensor_data - Gathers thermal sensor data
++ *  @hw: pointer to hardware structure
++ *
++ *  Returns the thermal sensor data structure
++ **/
++s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw)
++{
++	s32 status = 0;
++	u16 ets_offset;
++	u16 ets_cfg;
++	u16 ets_sensor;
++	u8  num_sensors;
++	u8  i;
++	struct ixgbe_thermal_sensor_data *data = &hw->mac.thermal_sensor_data;
++
++	/* Only support thermal sensors attached to 82599 physical port 0 */
++	if ((hw->mac.type != ixgbe_mac_82599EB) ||
++	     (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)) {
++		status = IXGBE_NOT_IMPLEMENTED;
++		goto out;
++	}
++
++	status = ixgbe_get_ets_data(hw, &ets_cfg, &ets_offset);
++	if (status)
++		goto out;
++
++	num_sensors = (ets_cfg & IXGBE_ETS_NUM_SENSORS_MASK);
++	if (num_sensors > IXGBE_MAX_SENSORS)
++		num_sensors = IXGBE_MAX_SENSORS;
++
++	for (i = 0; i < num_sensors; i++) {
++		u8  sensor_index;
++		u8  sensor_location;
++
++		status = hw->eeprom.ops.read(hw, (ets_offset + 1 + i),
++					     &ets_sensor);
++		if (status)
++			goto out;
++
++		sensor_index = ((ets_sensor & IXGBE_ETS_DATA_INDEX_MASK) >>
++				IXGBE_ETS_DATA_INDEX_SHIFT);
++		sensor_location = ((ets_sensor & IXGBE_ETS_DATA_LOC_MASK) >>
++				   IXGBE_ETS_DATA_LOC_SHIFT);
++
++		if (sensor_location != 0) {
++			status = hw->phy.ops.read_i2c_byte(hw,
++					ixgbe_emc_temp_data[sensor_index],
++					IXGBE_I2C_THERMAL_SENSOR_ADDR,
++					&data->sensor[i].temp);
++			if (status)
++				goto out;
++		}
++	}
++out:
++	return status;
++}
++
++/**
++ * ixgbe_init_thermal_sensor_thresh_generic - Inits thermal sensor thresholds
++ * @hw: pointer to hardware structure
++ *
++ * Inits the thermal sensor thresholds according to the NVM map
++ * and save off the threshold and location values into mac.thermal_sensor_data
++ **/
++s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw)
++{
++	s32 status = 0;
++	u16 ets_offset;
++	u16 ets_cfg;
++	u16 ets_sensor;
++	u8  low_thresh_delta;
++	u8  num_sensors;
++	u8  therm_limit;
++	u8  i;
++	struct ixgbe_thermal_sensor_data *data = &hw->mac.thermal_sensor_data;
++
++	memset(data, 0, sizeof(struct ixgbe_thermal_sensor_data));
++
++	/* Only support thermal sensors attached to 82599 physical port 0 */
++	if ((hw->mac.type != ixgbe_mac_82599EB) ||
++	    (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)) {
++		status = IXGBE_NOT_IMPLEMENTED;
++		goto out;
++	}
++
++	status = ixgbe_get_ets_data(hw, &ets_cfg, &ets_offset);
++	if (status)
++		goto out;
++
++	low_thresh_delta = ((ets_cfg & IXGBE_ETS_LTHRES_DELTA_MASK) >>
++			     IXGBE_ETS_LTHRES_DELTA_SHIFT);
++	num_sensors = (ets_cfg & IXGBE_ETS_NUM_SENSORS_MASK);
++	if (num_sensors > IXGBE_MAX_SENSORS)
++		num_sensors = IXGBE_MAX_SENSORS;
++
++	for (i = 0; i < num_sensors; i++) {
++		u8  sensor_index;
++		u8  sensor_location;
++
++		hw->eeprom.ops.read(hw, (ets_offset + 1 + i), &ets_sensor);
++		sensor_index = ((ets_sensor & IXGBE_ETS_DATA_INDEX_MASK) >>
++				IXGBE_ETS_DATA_INDEX_SHIFT);
++		sensor_location = ((ets_sensor & IXGBE_ETS_DATA_LOC_MASK) >>
++				   IXGBE_ETS_DATA_LOC_SHIFT);
++		therm_limit = ets_sensor & IXGBE_ETS_DATA_HTHRESH_MASK;
++
++		hw->phy.ops.write_i2c_byte(hw,
++			ixgbe_emc_therm_limit[sensor_index],
++			IXGBE_I2C_THERMAL_SENSOR_ADDR, therm_limit);
++
++		if (sensor_location == 0)
++			continue;
++
++		data->sensor[i].location = sensor_location;
++		data->sensor[i].caution_thresh = therm_limit;
++		data->sensor[i].max_op_thresh = therm_limit - low_thresh_delta;
++	}
++out:
++	return status;
++}
++
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index d6d3432..f992777 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -107,6 +107,19 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
+ void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
+ 			     u32 headroom, int strategy);
  
- 	/*
- 	 * Allocation space for max attributs
++#define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
++#define IXGBE_EMC_INTERNAL_DATA		0x00
++#define IXGBE_EMC_INTERNAL_THERM_LIMIT	0x20
++#define IXGBE_EMC_DIODE1_DATA		0x01
++#define IXGBE_EMC_DIODE1_THERM_LIMIT	0x19
++#define IXGBE_EMC_DIODE2_DATA		0x23
++#define IXGBE_EMC_DIODE2_THERM_LIMIT	0x1A
++#define IXGBE_EMC_DIODE3_DATA		0x2A
++#define IXGBE_EMC_DIODE3_THERM_LIMIT	0x30
++
++s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw);
++s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
++
+ #define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
+ 
+ #ifndef writeq
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 4acd9e6..d82e25c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -112,6 +112,27 @@
+ #define IXGBE_I2C_DATA_OUT  0x00000008
+ #define IXGBE_I2C_CLOCK_STRETCHING_TIMEOUT	500
+ 
++#define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
++#define IXGBE_EMC_INTERNAL_DATA		0x00
++#define IXGBE_EMC_INTERNAL_THERM_LIMIT	0x20
++#define IXGBE_EMC_DIODE1_DATA		0x01
++#define IXGBE_EMC_DIODE1_THERM_LIMIT	0x19
++#define IXGBE_EMC_DIODE2_DATA		0x23
++#define IXGBE_EMC_DIODE2_THERM_LIMIT	0x1A
++
++#define IXGBE_MAX_SENSORS		3
++
++struct ixgbe_thermal_diode_data {
++	u8 location;
++	u8 temp;
++	u8 caution_thresh;
++	u8 max_op_thresh;
++};
++
++struct ixgbe_thermal_sensor_data {
++	struct ixgbe_thermal_diode_data sensor[IXGBE_MAX_SENSORS];
++};
++
+ /* Interrupt Registers */
+ #define IXGBE_EICR      0x00800
+ #define IXGBE_EICS      0x00808
+@@ -1678,6 +1699,22 @@ enum {
+ #define IXGBE_PBANUM0_PTR       0x15
+ #define IXGBE_PBANUM1_PTR       0x16
+ #define IXGBE_FREE_SPACE_PTR    0X3E
++
++/* External Thermal Sensor Config */
++#define IXGBE_ETS_CFG                   0x26
++#define IXGBE_ETS_LTHRES_DELTA_MASK     0x07C0
++#define IXGBE_ETS_LTHRES_DELTA_SHIFT    6
++#define IXGBE_ETS_TYPE_MASK             0x0038
++#define IXGBE_ETS_TYPE_SHIFT            3
++#define IXGBE_ETS_TYPE_EMC              0x000
++#define IXGBE_ETS_TYPE_EMC_SHIFTED      0x000
++#define IXGBE_ETS_NUM_SENSORS_MASK      0x0007
++#define IXGBE_ETS_DATA_LOC_MASK         0x3C00
++#define IXGBE_ETS_DATA_LOC_SHIFT        10
++#define IXGBE_ETS_DATA_INDEX_MASK       0x0300
++#define IXGBE_ETS_DATA_INDEX_SHIFT      8
++#define IXGBE_ETS_DATA_HTHRESH_MASK     0x00FF
++
+ #define IXGBE_SAN_MAC_ADDR_PTR  0x28
+ #define IXGBE_DEVICE_CAPS       0x2C
+ #define IXGBE_SERIAL_NUMBER_MAC_ADDR 0x11
+@@ -2775,6 +2812,8 @@ struct ixgbe_mac_operations {
+ 
+ 	/* Manageability interface */
+ 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
++	s32 (*get_thermal_sensor_data)(struct ixgbe_hw *);
++	s32 (*init_thermal_sensor_thresh)(struct ixgbe_hw *hw);
+ };
+ 
+ struct ixgbe_phy_operations {
+@@ -2832,6 +2871,7 @@ struct ixgbe_mac_info {
+ 	bool                            orig_link_settings_stored;
+ 	bool                            autotry_restart;
+ 	u8                              flags;
++	struct ixgbe_thermal_sensor_data  thermal_sensor_data;
+ };
+ 
+ struct ixgbe_phy_info {
 -- 
 1.7.7.6
