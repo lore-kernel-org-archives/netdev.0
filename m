@@ -1,54 +1,114 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 1/7] batman-adv: fix wrong dhcp option list
-	browsing
-Date: Tue,  1 May 2012 10:01:00 +0200
-Message-ID: <1335859266-7546-2-git-send-email-ordex@autistici.org>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 6/7] batman-adv: replace HZ calculations with jiffies_to_msecs()
+Date: Tue,  1 May 2012 10:01:05 +0200
+Message-ID: <1335859266-7546-7-git-send-email-ordex@autistici.org>
 References: <1335859266-7546-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1335859266-7546-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from investici.nine.ch ([217.150.252.179]:24232 "EHLO
+	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752771Ab2EAIAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 04:00:18 -0400
+In-Reply-To: <1335859266-7546-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In is_type_dhcprequest(), while parsing a DHCP message, if the entry we found in
-the option list is neither a padding nor the dhcp-type, we have to ignore it and
-jump as many bytes as its length + 1. The "+ 1" byte is given by the subtype
-field itself that has to be jumped too.
+From: Marek Lindner <lindner_marek@yahoo.de>
 
-Reported-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/gateway_client.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/batman-adv/bat_debugfs.c |    4 ++--
+ net/batman-adv/originator.c  |   15 ++++++++++-----
+ net/batman-adv/send.c        |    2 +-
+ 3 files changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 6f9b9b7..47f7186 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -558,10 +558,10 @@ static bool is_type_dhcprequest(struct sk_buff *skb, int header_len)
- 			p++;
+diff --git a/net/batman-adv/bat_debugfs.c b/net/batman-adv/bat_debugfs.c
+index 916380c..3b588f8 100644
+--- a/net/batman-adv/bat_debugfs.c
++++ b/net/batman-adv/bat_debugfs.c
+@@ -83,8 +83,8 @@ int debug_log(struct bat_priv *bat_priv, const char *fmt, ...)
  
- 			/* ...and then we jump over the data */
--			if (pkt_len < *p)
-+			if (pkt_len < 1 + (*p))
- 				goto out;
--			pkt_len -= *p;
--			p += (*p);
-+			pkt_len -= 1 + (*p);
-+			p += 1 + (*p);
- 		}
+ 	va_start(args, fmt);
+ 	vscnprintf(tmp_log_buf, sizeof(tmp_log_buf), fmt, args);
+-	fdebug_log(bat_priv->debug_log, "[%10lu] %s",
+-		   (jiffies / HZ), tmp_log_buf);
++	fdebug_log(bat_priv->debug_log, "[%10u] %s",
++		   jiffies_to_msecs(jiffies), tmp_log_buf);
+ 	va_end(args);
+ 
+ 	return 0;
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 21c1f83..962636b 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -35,7 +35,8 @@ static void purge_orig(struct work_struct *work);
+ static void start_purge_timer(struct bat_priv *bat_priv)
+ {
+ 	INIT_DELAYED_WORK(&bat_priv->orig_work, purge_orig);
+-	queue_delayed_work(bat_event_workqueue, &bat_priv->orig_work, 1 * HZ);
++	queue_delayed_work(bat_event_workqueue,
++			   &bat_priv->orig_work, msecs_to_jiffies(1000));
+ }
+ 
+ /* returns 1 if they are the same originator */
+@@ -274,6 +275,7 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 	struct hlist_node *node, *node_tmp;
+ 	struct neigh_node *neigh_node;
+ 	bool neigh_purged = false;
++	unsigned long last_seen;
+ 
+ 	*best_neigh_node = NULL;
+ 
+@@ -288,6 +290,8 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 		    (neigh_node->if_incoming->if_status == IF_NOT_IN_USE) ||
+ 		    (neigh_node->if_incoming->if_status == IF_TO_BE_REMOVED)) {
+ 
++			last_seen = neigh_node->last_seen;
++
+ 			if ((neigh_node->if_incoming->if_status ==
+ 								IF_INACTIVE) ||
+ 			    (neigh_node->if_incoming->if_status ==
+@@ -300,9 +304,9 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 					neigh_node->if_incoming->net_dev->name);
+ 			else
+ 				bat_dbg(DBG_BATMAN, bat_priv,
+-					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %lu\n",
++					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %u\n",
+ 					orig_node->orig, neigh_node->addr,
+-					(neigh_node->last_seen / HZ));
++					jiffies_to_msecs(last_seen));
+ 
+ 			neigh_purged = true;
+ 
+@@ -327,8 +331,9 @@ static bool purge_orig_node(struct bat_priv *bat_priv,
+ 
+ 	if (has_timed_out(orig_node->last_seen, 2 * PURGE_TIMEOUT)) {
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+-			"Originator timeout: originator %pM, last_seen %lu\n",
+-			orig_node->orig, (orig_node->last_seen / HZ));
++			"Originator timeout: originator %pM, last_seen %u\n",
++			orig_node->orig,
++			jiffies_to_msecs(orig_node->last_seen));
+ 		return true;
+ 	} else {
+ 		if (purge_orig_neighbors(bat_priv, orig_node,
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 7c66b61..8e74d97 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -292,7 +292,7 @@ static void send_outstanding_bcast_packet(struct work_struct *work)
+ 	/* if we still have some more bcasts to send */
+ 	if (forw_packet->num_packets < 3) {
+ 		_add_bcast_packet_to_list(bat_priv, forw_packet,
+-					  ((5 * HZ) / 1000));
++					  msecs_to_jiffies(5));
+ 		return;
  	}
- out:
+ 
 -- 
 1.7.9.4
