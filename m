@@ -1,72 +1,183 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: e1000e tx queue timeout in 3.3.0 (bisected to BQL
- support for e1000e)
-Date: Tue, 01 May 2012 15:08:18 -0700
-Message-ID: <4FA05ED2.3030608@candelatech.com>
-References: <CA+mtBx-K6-O3ea34kmn4LXtx73FqCHF16w7pBSq1fHNN+-DxCA@mail.gmail.com>
-	<4F91DB7B.7060601@candelatech.com>
-	<4FA05153.1010903@candelatech.com>
-	<20120501.174914.654247970871851432.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 15/16] mm: Throttle direct reclaimers if PF_MEMALLOC
+ reserves are low and swap is backed by network storage
+Date: Tue, 1 May 2012 15:24:37 -0700
+Message-ID: <20120501152437.194f0fc2.akpm@linux-foundation.org>
+References: <1334578624-23257-1-git-send-email-mgorman@suse.de>
+	<1334578624-23257-16-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, therbert@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20120501.174914.654247970871851432.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
+ LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
+ Neil Brown <neilb@suse.de>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Mike
+ Christie <michaelc@cs.wisc.edu>, Eric B Munson <emunson@mgebm.net>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1334578624-23257-16-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 05/01/2012 02:49 PM, David Miller wrote:
-> From: Ben Greear<greearb@candelatech.com>
-> Date: Tue, 01 May 2012 14:10:43 -0700
+On Mon, 16 Apr 2012 13:17:02 +0100
+Mel Gorman <mgorman@suse.de> wrote:
+
+> If swap is backed by network storage such as NBD, there is a risk
+> that a large number of reclaimers can hang the system by consuming
+> all PF_MEMALLOC reserves. To avoid these hangs, the administrator
+> must tune min_free_kbytes in advance which is a bit fragile.
+> 
+> This patch throttles direct reclaimers if half the PF_MEMALLOC reserves
+> are in use. If the system is routinely getting throttled the system
+> administrator can increase min_free_kbytes so degradation is smoother
+> but the system will keep running.
+> 
 >
->> On 04/20/2012 02:56 PM, Ben Greear wrote:
->>> On 04/20/2012 02:21 PM, Tom Herbert wrote:
->>>> Thanks John for pointers to those.  Ben, are you running a kernel with
->>>> these patches?
->>>
->>> I just tested this on my e1000e and igb machine.  With these patches,
->>> I can no longer reproduce the problem.
->>>
->>> So, please make sure those are queued up for 3.3 stable!
->>
->> Dave:  I think these patches below should go to 3.3 stable.
->>
->> They are not queued for stable yet as far as I can tell.
+> ...
 >
-> I let the Intel developers handle -stable submissions for their
-> drivers.
+> +static bool pfmemalloc_watermark_ok(pg_data_t *pgdat)
+> +{
+> +	struct zone *zone;
+> +	unsigned long pfmemalloc_reserve = 0;
+> +	unsigned long free_pages = 0;
+> +	int i;
+> +	bool wmark_ok;
+> +
+> +	for (i = 0; i <= ZONE_NORMAL; i++) {
+> +		zone = &pgdat->node_zones[i];
+> +		pfmemalloc_reserve += min_wmark_pages(zone);
+> +		free_pages += zone_page_state(zone, NR_FREE_PAGES);
+> +	}
+> +
+> +	wmark_ok = (free_pages > pfmemalloc_reserve / 2) ? true : false;
 
-I don't think this is specific to their drivers.
+	wmark_ok = free_pages > pfmemalloc_reserve / 2;
 
-But, as long as _someone_ is pushing it to stable,
-it is fine by me.
+> +
+> +	/* kswapd must be awake if processes are being throttled */
+> +	if (!wmark_ok && waitqueue_active(&pgdat->kswapd_wait)) {
+> +		pgdat->classzone_idx = min(pgdat->classzone_idx,
+> +						(enum zone_type)ZONE_NORMAL);
+> +		wake_up_interruptible(&pgdat->kswapd_wait);
+> +	}
+> +
+> +	return wmark_ok;
+> +}
+> +
+> +/*
+> + * Throttle direct reclaimers if backing storage is backed by the network
+> + * and the PFMEMALLOC reserve for the preferred node is getting dangerously
+> + * depleted. kswapd will continue to make progress and wake the processes
+> + * when the low watermark is reached
+> + */
+> +static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
+> +					nodemask_t *nodemask)
+> +{
+> +	struct zone *zone;
+> +	int high_zoneidx = gfp_zone(gfp_mask);
+> +	pg_data_t *pgdat;
+> +
+> +	/* Kernel threads such as kjournald should not be throttled */
 
-Thanks,
-Ben
+The comment should explain "why", not "what".  Particularly when the
+"what" was bleedin obvious ;)
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Also...   why?
 
+> +	if (current->flags & PF_KTHREAD)
+> +		return;
+> +
+> +	/* Check if the pfmemalloc reserves are ok */
+> +	first_zones_zonelist(zonelist, high_zoneidx, NULL, &zone);
+> +	pgdat = zone->zone_pgdat;
+> +	if (pfmemalloc_watermark_ok(pgdat))
+> +		return;
+> +
+> +	/*
+> +	 * If the caller cannot enter the filesystem, it's possible that it
+> +	 * is processing a journal transaction. In this case, it is not safe
+> +	 * to block on pfmemalloc_wait as kswapd could also be blocked waiting
+> +	 * to start a transaction. Instead, throttle for up to a second before
+> +	 * the reclaim must continue.
+> +	 */
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+I suppose this applies to fs locks in general, not just to
+journal_start()?
+
+> +	if (!(gfp_mask & __GFP_FS)) {
+> +		wait_event_interruptible_timeout(pgdat->pfmemalloc_wait,
+> +			pfmemalloc_watermark_ok(pgdat), HZ);
+> +		return;
+> +	}
+> +
+> +	/* Throttle until kswapd wakes the process */
+> +	wait_event_killable(zone->zone_pgdat->pfmemalloc_wait,
+> +		pfmemalloc_watermark_ok(pgdat));
+> +}
+> +
+>  unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
+>  				gfp_t gfp_mask, nodemask_t *nodemask)
+>  {
+>
+> ...
+>
+> @@ -2610,6 +2686,20 @@ static bool sleeping_prematurely(pg_data_t *pgdat, int order, long remaining,
+>  	if (remaining)
+>  		return true;
+>  
+> +	/*
+> +	 * There is a potential race between when kswapd checks it watermarks
+
+"its"
+
+> +	 * and a process gets throttled. There is also a potential race if
+> +	 * processes get throttled, kswapd wakes, a large process exits therby
+> +	 * balancing the zones that causes kswapd to miss a wakeup. If kswapd
+> +	 * is going to sleep, no process should be sleeping on pfmemalloc_wait
+> +	 * so wake them now if necessary. If necessary, processes will wake
+> +	 * kswapd and get throttled again
+> +	 */
+
+Yes, the possibility for missed wakeups here worried me.  There's no
+synchronization and it would be easy to leave holes.
+
+It's good that there is no timeout on the throttling - a timeout would
+cover up rare races most nastily.
+
+> +	if (waitqueue_active(&pgdat->pfmemalloc_wait)) {
+> +		wake_up(&pgdat->pfmemalloc_wait);
+> +		return true;
+> +	}
+
+A bool-returning function called "sleeping_prematurely" should have no
+side-effects.  But it now performs wakeups.  Wanna see if there is a
+way of making this nicer?
+
+>  	/* Check the watermark levels */
+>  	for (i = 0; i <= classzone_idx; i++) {
+>  		struct zone *zone = pgdat->node_zones + i;
+> @@ -2871,6 +2961,12 @@ loop_again:
+>  			}
+>  
+>  		}
+> +
+> +		/* Wake throttled direct reclaimers if low watermark is met */
+
+s/"what"/"why"/ !
+
+> +		if (waitqueue_active(&pgdat->pfmemalloc_wait) &&
+> +				pfmemalloc_watermark_ok(pgdat))
+> +			wake_up(&pgdat->pfmemalloc_wait);
+> +
+>  		if (all_zones_ok || (order && pgdat_balanced(pgdat, balanced, *classzone_idx)))
+>  			break;		/* kswapd: all done */
+>  		/*
+>
+> ...
+>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
