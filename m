@@ -1,189 +1,78 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: bonding: don't increase rx_dropped after processing LACPDUs
-Date: Wed, 2 May 2012 22:51:18 +0200
-Message-ID: <20120502205118.GB25355@midget.suse.cz>
-References: <20120502202309.GA25355@midget.suse.cz>
- <1335991009.22133.639.camel@edumazet-glaptop>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next] net: take care of cloned skbs in tcp_try_coalesce()
+Date: Wed, 02 May 2012 13:55:55 -0700
+Message-ID: <4FA19F5B.7040407@intel.com>
+References: <1335523026.2775.236.camel@edumazet-glaptop>  <1335809434.2296.9.camel@edumazet-glaptop> <4F9F21E2.3080407@intel.com>  <1335835677.11396.5.camel@edumazet-glaptop>  <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>  <1335854378.11396.26.camel@edumazet-glaptop>  <4FA00C9F.8080409@intel.com>  <1335891892.22133.23.camel@edumazet-glaptop> <4FA06A94.8050704@intel.com>  <4FA06D7A.6090800@intel.com>  <1335926862.22133.42.camel@edumazet-glaptop>  <1335946384.22133.119.camel@edumazet-glaptop> <4FA15830.6080600@intel.com>  <1335975168.22133.578.camel@edumazet-glaptop> <4FA1606A.6040607@intel.com>  <1335977179.22133.599.camel@edumazet-glaptop>  <4FA17781.6080306@intel.com> <1335982515.22133.610.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Bohac <jbohac@suse.cz>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	=?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
+	=?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49708 "EHLO mx2.suse.de"
+Received: from mga09.intel.com ([134.134.136.24]:22438 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757383Ab2EBUvV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2012 16:51:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1335991009.22133.639.camel@edumazet-glaptop>
+	id S1756582Ab2EBUz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2012 16:55:56 -0400
+In-Reply-To: <1335982515.22133.610.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 02, 2012 at 10:36:49PM +0200, Eric Dumazet wrote:
-> > +			if (ret == RX_HANDLER_CONSUMED)
-> > +				kfree_skb(skb);
-> 
-> After this point, you have use after free :
-> 
-> if (bond_should_deliver_exact_match(skb, slave, bond)) { 
-> 	...
-> }
-> skb->dev = bond->dev;
+On 05/02/2012 11:15 AM, Eric Dumazet wrote:
+> On Wed, 2012-05-02 at 11:05 -0700, Alexander Duyck wrote:
+>
+>> You're correct about the fragstolen case, I actually was thinking of the
+>> first patch you sent, not this second one.
+>>
+>> However we still have a problem.  What we end up with now is a case of
+>> sharing in which the clone skb no longer knows that it is sharing the
+>> head with another skb.  The dataref will drop to 1 when we call
+>> __kfree_skb.  This means that any other function out there that tries to
+>> see if the skb is shared would return false.  This could lead to issues
+>> if there is anything out there that manipulates the data in head based
+>> on the false assumption that it is not cloned.  What we would probably
+>> need to do in this case is tweak the logic for skb_cloned.  If you are
+>> using a head_frag you should probably add a check that returns true if
+>> cloned is true and page_count is greater than 1.  We should be safe in
+>> the case of skb_header_cloned since we already dropped are dataref when
+>> we stole the page and freed the skb.
+> I really dont understand this concern.
+>
+> When skb is cloned, we copy in head_frag __skb_clone()
+>
+> So both skbs have the bit set, and dataref = 2.
+>
+> first skb is freed, dataref becomes 1 and nothing special  happen
+>
+> >From this point, skb->head is not 'shared' anymore (taken your own
+> words). And we are free to do whatever we want.
+>
+> second skb is freed, dataref becomes 0 and we call the right destructor.
+The problem is that the stack will not be able to detect sharing.  As
+long as page_count is greater than 2 and skb->cloned is set we should be
+telling any callers to skb_cloned that the head is cloned.  Otherwise we
+can run into issues elsewhere with well meaning code checking and not
+detecting sharing, and then mangling the header.
 
-Thanks for spotting this! Let's just return immediately at that
-point. Fixed version below:
+Also I am not sure if the big monolithic changes are really the best way
+to approach this.  It would be nice if we could fix this incrementally
+instead of trying to do it all at once since there are multiple issues
+that need to be addressed.
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+I will try to submit a few patches from my end later today.  I still
+need to look over all of the changes from the past couple of weeks that
+were based on the assumption that the IP stack completely owned the skb.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2173,9 +2173,10 @@ re_arm:
-  * received frames (loopback). Since only the payload is given to this
-  * function, it check for loopback.
-  */
--static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
-+static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
- {
- 	struct port *port;
-+	int ret = RX_HANDLER_ANOTHER;
- 
- 	if (length >= sizeof(struct lacpdu)) {
- 
-@@ -2184,11 +2185,12 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 		if (!port->slave) {
- 			pr_warning("%s: Warning: port of slave %s is uninitialized\n",
- 				   slave->dev->name, slave->dev->master->name);
--			return;
-+			return ret;
- 		}
- 
- 		switch (lacpdu->subtype) {
- 		case AD_TYPE_LACPDU:
-+			ret = RX_HANDLER_CONSUMED;
- 			pr_debug("Received LACPDU on port %d\n",
- 				 port->actor_port_number);
- 			/* Protect against concurrent state machines */
-@@ -2198,6 +2200,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 			break;
- 
- 		case AD_TYPE_MARKER:
-+			ret = RX_HANDLER_CONSUMED;
- 			// No need to convert fields to Little Endian since we don't use the marker's fields.
- 
- 			switch (((struct bond_marker *)lacpdu)->tlv_type) {
-@@ -2219,6 +2222,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 			}
- 		}
- 	}
-+	return ret;
- }
- 
- /**
-@@ -2456,18 +2460,20 @@ out:
- 	return NETDEV_TX_OK;
- }
- 
--void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
-+int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
- 			  struct slave *slave)
- {
-+	int ret = RX_HANDLER_ANOTHER;
- 	if (skb->protocol != PKT_TYPE_LACPDU)
--		return;
-+		return ret;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
--		return;
-+		return ret;
- 
- 	read_lock(&bond->lock);
--	bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
-+	ret = bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
- 	read_unlock(&bond->lock);
-+	return ret;
- }
- 
- /*
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index 235b2cc..5ee7e3c 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -274,7 +274,7 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave);
- void bond_3ad_handle_link_change(struct slave *slave, char link);
- int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
- int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
--void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
-+int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
- 			  struct slave *slave);
- int bond_3ad_set_carrier(struct bonding *bond);
- void bond_3ad_update_lacp_rate(struct bonding *bond);
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 62d2409..0a0f4a6 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1444,8 +1444,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 	struct sk_buff *skb = *pskb;
- 	struct slave *slave;
- 	struct bonding *bond;
--	void (*recv_probe)(struct sk_buff *, struct bonding *,
-+	int (*recv_probe)(struct sk_buff *, struct bonding *,
- 				struct slave *);
-+	int ret = RX_HANDLER_ANOTHER;
- 
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (unlikely(!skb))
-@@ -1464,8 +1465,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 		struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
- 
- 		if (likely(nskb)) {
--			recv_probe(nskb, bond, slave);
-+			ret = recv_probe(nskb, bond, slave);
- 			dev_kfree_skb(nskb);
-+			if (ret == RX_HANDLER_CONSUMED) {
-+				kfree_skb(skb);
-+				return ret;
-+			}
- 		}
- 	}
- 
-@@ -1487,7 +1492,7 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 		memcpy(eth_hdr(skb)->h_dest, bond->dev->dev_addr, ETH_ALEN);
- 	}
- 
--	return RX_HANDLER_ANOTHER;
-+	return ret;
- }
- 
- /* enslave device <slave> to bond device <master> */
-@@ -2723,7 +2728,7 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
- 	}
- }
- 
--static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
-+static int bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave)
- {
- 	struct arphdr *arp;
-@@ -2731,7 +2736,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 	__be32 sip, tip;
- 
- 	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
--		return;
-+		return RX_HANDLER_ANOTHER;
- 
- 	read_lock(&bond->lock);
- 
-@@ -2776,6 +2781,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 
- out_unlock:
- 	read_unlock(&bond->lock);
-+	return RX_HANDLER_ANOTHER;
- }
- 
- /*
+Thanks,
 
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Alex
