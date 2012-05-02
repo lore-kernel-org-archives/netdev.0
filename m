@@ -1,72 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: take care of cloned skbs in
- tcp_try_coalesce()
-Date: Wed, 02 May 2012 20:15:15 +0200
-Message-ID: <1335982515.22133.610.camel@edumazet-glaptop>
-References: <1335523026.2775.236.camel@edumazet-glaptop>
-	 <1335809434.2296.9.camel@edumazet-glaptop> <4F9F21E2.3080407@intel.com>
-	 <1335835677.11396.5.camel@edumazet-glaptop>
-	 <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>
-	 <1335854378.11396.26.camel@edumazet-glaptop>  <4FA00C9F.8080409@intel.com>
-	 <1335891892.22133.23.camel@edumazet-glaptop> <4FA06A94.8050704@intel.com>
-	 <4FA06D7A.6090800@intel.com>  <1335926862.22133.42.camel@edumazet-glaptop>
-	 <1335946384.22133.119.camel@edumazet-glaptop> <4FA15830.6080600@intel.com>
-	 <1335975168.22133.578.camel@edumazet-glaptop> <4FA1606A.6040607@intel.com>
-	 <1335977179.22133.599.camel@edumazet-glaptop>  <4FA17781.6080306@intel.com>
+From: Jeff Mahoney <jeffm@suse.com>
+Subject: [PATCH] ehea: add alias entry for portN properties
+Date: Wed, 02 May 2012 14:26:22 -0400
+Message-ID: <4FA17C4E.1030905@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Network Development <netdev@vger.kernel.org>,
+	Olaf Hering <ohering@suse.com>
+To: Breno Leitao <leitao@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36113 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755500Ab2EBSPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 14:15:20 -0400
-Received: by mail-bk0-f46.google.com with SMTP id ji2so711365bkc.19
-        for <netdev@vger.kernel.org>; Wed, 02 May 2012 11:15:19 -0700 (PDT)
-In-Reply-To: <4FA17781.6080306@intel.com>
+Received: from cantor2.suse.de ([195.135.220.15]:41942 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755697Ab2EBS02 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2012 14:26:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-02 at 11:05 -0700, Alexander Duyck wrote:
+Use separate table for alias entries in the ehea module,
+otherwise the probe() function will operate on the separate ports
+instead of the lhea-"root" entry of the device-tree
 
-> You're correct about the fragstolen case, I actually was thinking of the
-> first patch you sent, not this second one.
-> 
-> However we still have a problem.  What we end up with now is a case of
-> sharing in which the clone skb no longer knows that it is sharing the
-> head with another skb.  The dataref will drop to 1 when we call
-> __kfree_skb.  This means that any other function out there that tries to
-> see if the skb is shared would return false.  This could lead to issues
-> if there is anything out there that manipulates the data in head based
-> on the false assumption that it is not cloned.  What we would probably
-> need to do in this case is tweak the logic for skb_cloned.  If you are
-> using a head_frag you should probably add a check that returns true if
-> cloned is true and page_count is greater than 1.  We should be safe in
-> the case of skb_header_cloned since we already dropped are dataref when
-> we stole the page and freed the skb.
+Initially reported here:
+https://bugzilla.novell.com/show_bug.cgi?id=435215
 
-I really dont understand this concern.
+Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+Signed-off-by: Olaf Hering <ohering@suse.com>
+---
+ drivers/net/ethernet/ibm/ehea/ehea_main.c |   14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-When skb is cloned, we copy in head_frag __skb_clone()
-
-So both skbs have the bit set, and dataref = 2.
-
-first skb is freed, dataref becomes 1 and nothing special  happen
-
->From this point, skb->head is not 'shared' anymore (taken your own
-words). And we are free to do whatever we want.
-
-second skb is freed, dataref becomes 0 and we call the right destructor.
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -103,6 +103,19 @@ static int __devinit ehea_probe_adapter(
+ 
+ static int __devexit ehea_remove(struct platform_device *dev);
+ 
++static struct of_device_id ehea_module_device_table[] = {
++	{
++		.name = "lhea",
++		.compatible = "IBM,lhea",
++	},
++	{
++		.type = "network",
++		.compatible = "IBM,lhea-ethernet",
++	},
++	{},
++};
++MODULE_DEVICE_TABLE(of, ehea_module_device_table);
++
+ static struct of_device_id ehea_device_table[] = {
+ 	{
+ 		.name = "lhea",
+@@ -110,7 +123,6 @@ static struct of_device_id ehea_device_t
+ 	},
+ 	{},
+ };
+-MODULE_DEVICE_TABLE(of, ehea_device_table);
+ 
+ static struct of_platform_driver ehea_driver = {
+ 	.driver = {
+-- 
+Jeff Mahoney
+SUSE Labs
