@@ -1,45 +1,99 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2012-05-01
-Date: Wed, 02 May 2012 00:05:23 -0400 (EDT)
-Message-ID: <20120502.000523.307160882398092059.davem@davemloft.net>
-References: <20120501183157.GA2987@tuxdriver.com>
+From: Deng-Cheng Zhu <dczhu@mips.com>
+Subject: Re: [PATCH] RPS: Sparse connection optimizations
+Date: Wed, 2 May 2012 12:08:23 +0800
+Message-ID: <4FA0B337.1070401@mips.com>
+References: <1335607805-735-1-git-send-email-dczhu@mips.com> <1335614156.2900.66.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120501183157.GA2987-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <therbert@google.com>,
+	<netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dns0.mips.com ([12.201.5.70]:41038 "EHLO dns0.mips.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751003Ab2EBEId (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2012 00:08:33 -0400
+In-Reply-To: <1335614156.2900.66.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 1 May 2012 14:31:58 -0400
+On 04/28/2012 07:55 PM, Eric Dumazet wrote:
+> On Sat, 2012-04-28 at 18:10 +0800, Deng-Cheng Zhu wrote:
+>> From: Deng-Cheng Zhu<dczhu@mips.com>
+>>
+>> Currently, choosing target CPU to process the incoming packet is based on
+>> skb->rxhash. In the case of sparse connections, this could lead to
+>> relatively low and inconsistent bandwidth while doing network throughput
+>> tests -- CPU selection in the RPS map is imbalanced. Even with the same
+>> hash value, 2 packets could come from different devices. Besides, on
+>> architectures like MIPS with multi-threaded cores, siblings of CPU0 should
+>> not be selected when others are not saturated.
+>
+> What CPU0 is doing so special you have to mention it in this changelog ?
 
-> Part of these are Bluetooth -- Gustavo says:
-> 
-> "A few more fixes to 3.4, there is three new device id supported, a missing
-> break and a fix to retain key during the connection."
-> 
-> Along with those, we have some 802.11 fixes.  Felix gives us a fix
-> for sending EAP frames for AP VLAN interfaces.  Franky gives us
-> two brcmfmac fixes, one for missed event completions and another
-> for an improperly initialized function pointer.  Grazvydas Ignotas
-> gives us a couple of wl1251 fixes for some improperly freed memory.
-> Jonathan Bither gives us an ath5k fix for an AHB resource leak.
-> Seth Forshee gives us a b43 fix to avoid a crash when b43 fails to
-> properly initialize.  Finally, Wey-yi gives us a fixup for a previously
-> merged fix to use the correct firmware for certain iwlwifi devices.
-> 
-> The brcmfmac fixes are bigger than I would like to see.  But since
-> they are isolated to that driver and fix real problems, I felt they
-> were still acceptable.
-> 
-> Please let me know if there are problems!
+Serve the NIC hardware irq and do the 1st part of softirq in RPS.
+Changes relating to this will be made in v2. Thanks.
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>> This patch introduces a feature that allows some flows to select their CPUs
+>> by looping the RPS CPU maps. Some tests were performed on the MIPS Malta
+>> 1004K platform (2 cores, each with 2 VPEs) at 25Mhz with 2 Intel Pro/1000
+>> NICs. The Malta board works as a router between 2 PCs. Using iperf, here
+>> are results:
+>
+>
+> RPS on a router ? Thats not very good, unless you perform a crazy amount
+> of work in iptables rules maybe ?
+>
+> One packet comes, its better to handle it right now and send it right
+> now on the same cpu. No IPI cost, no cache line misses...
+
+Theoretically, you are right. But RPS works early -- when the hot CPU
+gets really hot, RPS takes effect even with forwarding workload. Earlier
+experiments on the mentioned Malta platform proved it as well
+(typically 45% ~ more than doubled, amazingly).
+
+>
+> RPS is something more suitable to TCP handling in local host because
+> stack has big memory footprint and latencies, not for forwarding
+> workload.
+
+See above.
+
+> I suspect you can reach more throughput using appropriate tunings
+> (correct interrupt affinities). This sounds like a bad config from the
+> very beginning.
+
+Unfortunately, on the Malta platform, NIC irqs are not suitable for SMP
+IRQ affinity -- they are based on XT-PIC. However, I did do some RPS
+tests where different CPU masks were assigned to the 2 NICs. And the
+throughput *WAS* better than that of assigning the same mask to NICs.
+But the problem addressed in this patch *STILL* exists -- hash indexing
+causes imbalance across CPUs in the case of sparse connections.
+
+>
+>> +};
+>> +
+>> +static struct cpu_flow flow[CONFIG_NR_RPS_MAP_LOOPS][NR_CPUS];
+>
+> Thats absolutely not allowed to add a [NR_CPUS] array anywhere in linux
+> kernel in 2012.
+
+Good advice. Will be different in V2.
+
+>
+>> +/*
+>> + * We've got CONFIG_SMP to do RPS, so only arch define is needed here to access
+>> + * sibling specific information.
+>> + */
+>> +#if defined(CONFIG_MIPS)
+>
+> Thats not allowed to add a CONFIG_somearch in net/core/dev.c
+
+Good advice too.
+
+
+Thanks!
+
+Deng-Cheng
