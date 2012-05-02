@@ -1,47 +1,46 @@
-From: <Somnath.Kotur@Emulex.Com>
-Subject: RE: [PATCH net-next 0/4] be2net fixes
-Date: Wed, 2 May 2012 07:04:52 -0700
-Message-ID: <ca4655b2-2790-4504-bf56-532ef1895c2f@exht1.ad.emulex.com>
-References: <1335965986-31886-1-git-send-email-somnath.kotur@emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: l2tp: unlock socket lock before returning from
+ l2tp_ip_sendmsg
+Date: Wed, 02 May 2012 16:32:36 +0200
+Message-ID: <1335969156.22133.570.camel@edumazet-glaptop>
+References: <1335967123-2588-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <Somnath.Kotur@Emulex.Com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jchapman@katalix.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davej@redhat.com
+To: Sasha Levin <levinsasha928@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:19562 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753039Ab2EBOFS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 10:05:18 -0400
-In-Reply-To: <1335965986-31886-1-git-send-email-somnath.kotur@emulex.com>
-Content-Language: en-US
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:58363 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754193Ab2EBOcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 10:32:41 -0400
+In-Reply-To: <1335967123-2588-1-git-send-email-levinsasha928@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
-Have sent the 4 patches from the earlier patch series of 5 as is without updating the individual patch numbers i.e they still denote patch 1/5 etc.
-Pls let me know if this is a problem and/or if you want me to resend them again? 
+On Wed, 2012-05-02 at 15:58 +0200, Sasha Levin wrote:
+> l2tp_ip_sendmsg could return without releasing socket lock, making it all the
+> way to userspace, and generating the following warning:
+> 
+> [  130.891594] ================================================
+> [  130.894569] [ BUG: lock held when returning to user space! ]
+> [  130.897257] 3.4.0-rc5-next-20120501-sasha #104 Tainted: G        W
+> [  130.900336] ------------------------------------------------
+> [  130.902996] trinity/8384 is leaving the kernel with locks still held!
+> [  130.906106] 1 lock held by trinity/8384:
+> [  130.907924]  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff82b9503f>] l2tp_ip_sendmsg+0x2f/0x550
+> 
+> Introduced by commit 2f16270 ("l2tp: Fix locking in l2tp_ip.c").
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> ---
 
-Thanks
-Somnath
+Oh well, please read Documentation/stable_kernel_rules.txt
 
-> -----Original Message-----
-> From: Somnath Kotur [mailto:somnath.kotur@emulex.com]
-> Sent: Wednesday, May 02, 2012 7:10 PM
-> To: netdev@vger.kernel.org
-> Cc: Kotur, Somnath
-> Subject: [PATCH net-next 0/4] be2net fixes
-> 
-> Re-posting patches 1-4 from the earlier patch set of 5.
-> Incorporated review comment from Ben Hutchings in patch 2.
-> Will address comments in Patch 5 and send it out seperately.
-> 
-> Somnath Kotur (4):
->   be2net: Fix to not set link speed for disabled functions of a UMC
->     card
->   be2net: Fix to apply duplex value as unknown when link is down.
->   be2net: Record receive queue index in skb to aid RPS.
->   be2net: Fix EEH error reset before a flash dump completes
-> 
->  drivers/net/ethernet/emulex/benet/be_ethtool.c |    4 ++--
->  drivers/net/ethernet/emulex/benet/be_main.c    |    7 +++++++
->  2 files changed, 9 insertions(+), 2 deletions(-)
+Also, David prefers to handle stable submissions himself for net tree.
+
+Anyway :
+
+Acked-by: Eric Dumazet <edumazet@google.com>
