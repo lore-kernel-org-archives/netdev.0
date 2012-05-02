@@ -1,181 +1,63 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: bonding: don't increase rx_dropped after processing LACPDUs
-Date: Wed, 2 May 2012 22:23:09 +0200
-Message-ID: <20120502202309.GA25355@midget.suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: implement tcp coalescing in
+ tcp_queue_rcv()
+Date: Wed, 02 May 2012 22:23:07 +0200
+Message-ID: <1335990187.22133.636.camel@edumazet-glaptop>
+References: <1335523026.2775.236.camel@edumazet-glaptop>
+	 <1335809434.2296.9.camel@edumazet-glaptop> <4F9F21E2.3080407@intel.com>
+	 <1335835677.11396.5.camel@edumazet-glaptop>
+	 <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>
+	 <1335854378.11396.26.camel@edumazet-glaptop>  <4FA00C9F.8080409@intel.com>
+	 <1335891892.22133.23.camel@edumazet-glaptop> <4FA06A94.8050704@intel.com>
+	 <4FA06D7A.6090800@intel.com>  <1335926862.22133.42.camel@edumazet-glaptop>
+	 <1335946384.22133.119.camel@edumazet-glaptop> <4FA15830.6080600@intel.com>
+	 <1335975168.22133.578.camel@edumazet-glaptop> <4FA1606A.6040607@intel.com>
+	 <1335977179.22133.599.camel@edumazet-glaptop>
+	 <1335981358.22133.605.camel@edumazet-glaptop>
+	 <1335988709.22133.632.camel@edumazet-glaptop>
+	 <1335989484.9611.11.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48264 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756471Ab2EBUXN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2012 16:23:13 -0400
-Content-Disposition: inline
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:44027 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756739Ab2EBUXO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 16:23:14 -0400
+Received: by bkcji2 with SMTP id ji2so805686bkc.19
+        for <netdev@vger.kernel.org>; Wed, 02 May 2012 13:23:12 -0700 (PDT)
+In-Reply-To: <1335989484.9611.11.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 3aba891d, bonding processes LACP frames (802.3ad
-mode) with bond_handle_frame(). Currently a copy of the skb is
-made and the original is left to be processed by other
-rx_handlers and the rest of the network stack by returning
-RX_HANDLER_ANOTHER.  As there is no protocol handler for
-PKT_TYPE_LACPDU, the frame is dropped and dev->rx_dropped
-increased.
+On Wed, 2012-05-02 at 13:11 -0700, Joe Perches wrote:
 
-Fix this by making bond_handle_frame() return RX_HANDLER_CONSUMED
-if bonding has processed the LACP frame.  
-
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+> It might be useful to comment that this is/can be initialized to
+> false in tcp_try_coalesce via tcp_recv_queue.
 
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2173,9 +2173,10 @@ re_arm:
-  * received frames (loopback). Since only the payload is given to this
-  * function, it check for loopback.
-  */
--static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
-+static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
- {
- 	struct port *port;
-+	int ret = RX_HANDLER_ANOTHER;
- 
- 	if (length >= sizeof(struct lacpdu)) {
- 
-@@ -2184,11 +2185,12 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 		if (!port->slave) {
- 			pr_warning("%s: Warning: port of slave %s is uninitialized\n",
- 				   slave->dev->name, slave->dev->master->name);
--			return;
-+			return ret;
- 		}
- 
- 		switch (lacpdu->subtype) {
- 		case AD_TYPE_LACPDU:
-+			ret = RX_HANDLER_CONSUMED;
- 			pr_debug("Received LACPDU on port %d\n",
- 				 port->actor_port_number);
- 			/* Protect against concurrent state machines */
-@@ -2198,6 +2200,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 			break;
- 
- 		case AD_TYPE_MARKER:
-+			ret = RX_HANDLER_CONSUMED;
- 			// No need to convert fields to Little Endian since we don't use the marker's fields.
- 
- 			switch (((struct bond_marker *)lacpdu)->tlv_type) {
-@@ -2219,6 +2222,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 			}
- 		}
- 	}
-+	return ret;
- }
- 
- /**
-@@ -2456,18 +2460,20 @@ out:
- 	return NETDEV_TX_OK;
- }
- 
--void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
-+int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
- 			  struct slave *slave)
- {
-+	int ret = RX_HANDLER_ANOTHER;
- 	if (skb->protocol != PKT_TYPE_LACPDU)
--		return;
-+		return ret;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
--		return;
-+		return ret;
- 
- 	read_lock(&bond->lock);
--	bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
-+	ret = bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
- 	read_unlock(&bond->lock);
-+	return ret;
- }
- 
- /*
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index 235b2cc..5ee7e3c 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -274,7 +274,7 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave);
- void bond_3ad_handle_link_change(struct slave *slave, char link);
- int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
- int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
--void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
-+int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
- 			  struct slave *slave);
- int bond_3ad_set_carrier(struct bonding *bond);
- void bond_3ad_update_lacp_rate(struct bonding *bond);
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 62d2409..30eace7 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1444,8 +1444,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 	struct sk_buff *skb = *pskb;
- 	struct slave *slave;
- 	struct bonding *bond;
--	void (*recv_probe)(struct sk_buff *, struct bonding *,
-+	int (*recv_probe)(struct sk_buff *, struct bonding *,
- 				struct slave *);
-+	int ret = RX_HANDLER_ANOTHER;
- 
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (unlikely(!skb))
-@@ -1464,8 +1465,10 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 		struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
- 
- 		if (likely(nskb)) {
--			recv_probe(nskb, bond, slave);
-+			ret = recv_probe(nskb, bond, slave);
- 			dev_kfree_skb(nskb);
-+			if (ret == RX_HANDLER_CONSUMED)
-+				kfree_skb(skb);
- 		}
- 	}
- 
-@@ -1487,7 +1490,7 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 		memcpy(eth_hdr(skb)->h_dest, bond->dev->dev_addr, ETH_ALEN);
- 	}
- 
--	return RX_HANDLER_ANOTHER;
-+	return ret;
- }
- 
- /* enslave device <slave> to bond device <master> */
-@@ -2723,7 +2726,7 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
- 	}
- }
- 
--static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
-+static int bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave)
- {
- 	struct arphdr *arp;
-@@ -2731,7 +2734,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 	__be32 sip, tip;
- 
- 	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
--		return;
-+		return RX_HANDLER_ANOTHER;
- 
- 	read_lock(&bond->lock);
- 
-@@ -2776,6 +2779,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 
- out_unlock:
- 	read_unlock(&bond->lock);
-+	return RX_HANDLER_ANOTHER;
- }
- 
- /*
+> Otherwise this looks like a possibly uninitialized test
+> of fragstolen.  Maybe there's a path where tail is null
+> in tcp_recv_queue and it's an uninitialized test anyway.
 
+If tcp_queue_rcv() returns 1, fragstolen is initialized in
+tcp_try_coalesce().
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+If tcp_queue_rcv() returns 0, fragstolen content is undefined and we
+dont care.
+
+If a compiler or static checker complains, its only their problem.
