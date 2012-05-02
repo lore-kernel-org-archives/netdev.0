@@ -1,47 +1,71 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [V2 PATCH 0/9] vhost/macvtap zeropcopy fixes
-Date: Wed, 02 May 2012 11:41:21 +0800
-Message-ID: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Subject: [V2 PATCH 1/9] macvtap: zerocopy: fix offset calculation when
+ building skb
+Date: Wed, 02 May 2012 11:41:30 +0800
+Message-ID: <20120502034130.11782.25906.stgit@amd-6168-8-1.englab.nay.redhat.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
 	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1378 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752494Ab2EBDqi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 23:46:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an updated since the last series of vhost/macvtap zerocopy fixes which
-fixes the the possible transmission stall, host kernel stack overflow and other
-misc fixes.
+This patch fixes the offset calculation when building skb:
 
-Changes from V1:
-- Addressing comments from Eric and Michael.
-- Adding more fixes into the seires.
+- offset1 were used as skb data offset not vector offset
+- reset offset to zero only when we advance to next vector
 
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
+ drivers/net/macvtap.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
-Jason Wang (9):
-      macvtap: zerocopy: fix offset calculation when building skb
-      macvtap: zerocopy: fix truesize underestimation
-      macvtap: zerocopy: put page when fail to get all requested user pages
-      macvtap: zerocopy: set SKBTX_DEV_ZEROCOPY only when skb is built successfully
-      macvtap: zerocopy: validate vectors before building skb
-      vhost_net: zerocopy: fix possible NULL pointer dereference of vq->bufs
-      vhost_net: re-poll only on EAGAIN or ENOBUFS
-      vhost_net: zerocopy: adding and signalling immediately when fully copied
-      vhost: zerocopy: poll vq in zerocopy callback
-
-
- drivers/net/macvtap.c |   57 ++++++++++++++++++++++++++++++++++---------------
- drivers/vhost/net.c   |    7 ++++--
- drivers/vhost/vhost.c |    1 +
- 3 files changed, 46 insertions(+), 19 deletions(-)
-
--- 
-Jason Wang
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 0427c65..bd4a70d 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -505,10 +505,11 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 		if (copy > size) {
+ 			++from;
+ 			--count;
+-		}
++			offset = 0;
++		} else
++			offset += size;
+ 		copy -= size;
+ 		offset1 += size;
+-		offset = 0;
+ 	}
+ 
+ 	if (len == offset1)
+@@ -519,13 +520,13 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 		int num_pages;
+ 		unsigned long base;
+ 
+-		len = from->iov_len - offset1;
++		len = from->iov_len - offset;
+ 		if (!len) {
+-			offset1 = 0;
++			offset = 0;
+ 			++from;
+ 			continue;
+ 		}
+-		base = (unsigned long)from->iov_base + offset1;
++		base = (unsigned long)from->iov_base + offset;
+ 		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+ 		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+ 		if ((num_pages != size) ||
+@@ -546,7 +547,7 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 			len -= size;
+ 			i++;
+ 		}
+-		offset1 = 0;
++		offset = 0;
+ 		++from;
+ 	}
+ 	return 0;
