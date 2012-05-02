@@ -1,237 +1,43 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] netfilter: xt_recent: Add optional mask option for
- xt_recent
-Date: Wed, 2 May 2012 03:01:19 +0200
-Message-ID: <20120502010119.GB15074@1984>
-References: <1331033084-23803-1-git-send-email-denys@visp.net.lb>
+From: Pat Erley <pat-lkml-Jx9fsTfDDR3YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
+Date: Tue, 01 May 2012 21:12:25 -0400
+Message-ID: <4FA089F9.1020602@erley.org>
+References: <20120427094637.GV3157@wantstofly.org> <CA+icZUXNZ=exTnR=OgD_9bpt_0s-KnR+v-K6u+XzQr4HBoTQHQ@mail.gmail.com> <20120427095842.GW3157@wantstofly.org> <CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com> <20120427101732.GX3157@wantstofly.org> <CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com> <CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com> <20120427185809.GZ3157@wantstofly.org> <CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com> <CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com> <20120501125102.GN3157@wantstofly.org> <CA+icZUV=qtXwVxb+uvQJcsza0y+6k2LHJFFPnECY0M=QWBexaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <netfilter-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1331033084-23803-1-git-send-email-denys@visp.net.lb>
-Sender: netfilter-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lautriv <admin-kieEQ4o6Pv7k1uMJSBkQmQ@public.gmane.org>,
+	Jim Cromie <jim.cromie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>
+To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+icZUV=qtXwVxb+uvQJcsza0y+6k2LHJFFPnECY0M=QWBexaQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 06, 2012 at 01:24:44PM +0200, Denys Fedoryshchenko wrote:
-> Use case for this feature:
-> 1)In some occasions if you need to allow,block,match specific subnet.
-> 2)I can use recent as a trigger when netfilter rule matches, with mask 0.0.0.0
-> 
-> Example:
-> 
-> If you ping 8.8.8.8, after that you can't ping 2.2.2.10
-> 
-> Tested for backward compatibility:
-> )old (userspace) iptables, new kernel
-> )old kernel, new iptables
-> )new kernel, new iptables
-> 
-> Signed-off-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> ---
->  include/linux/netfilter.h           |   11 +++++
->  include/linux/netfilter/xt_recent.h |   10 +++++
->  net/netfilter/xt_recent.c           |   70 +++++++++++++++++++++++++++++++----
->  3 files changed, 83 insertions(+), 8 deletions(-)
-> 
-> diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-> index b809265..c132de6 100644
-> --- a/include/linux/netfilter.h
-> +++ b/include/linux/netfilter.h
-> @@ -85,6 +85,17 @@ static inline int NF_DROP_GETERR(int verdict)
-> 	return -(verdict >> NF_VERDICT_QBITS);
->  }
-> 
-> +
-> +static inline void nf_inet_addr_mask(const union nf_inet_addr *a1,
-> +				    union nf_inet_addr *result,
-> +				    const union nf_inet_addr *mask)
-> +{
-> +	result->all[0] = a1->all[0] & mask->all[0];
-> +	result->all[1] = a1->all[1] & mask->all[1];
-> +	result->all[2] = a1->all[2] & mask->all[2];
-> +	result->all[3] = a1->all[3] & mask->all[3];
-> +}
+On 05/01/2012 09:54 AM, Sedat Dilek wrote:
+> --- a/drivers/net/wireless/mwl8k.c
+> +++ b/drivers/net/wireless/mwl8k.c
+> @@ -5225,6 +5225,7 @@ static void mwl8k_finalize_join_worker(struct work_struct *work)
+>   }
+>
+>   enum {
+> +	MWL8361P = 0,
+>   	MWL8363 = 0,
+>   	MWL8687,
+>   	MWL8366,
 
-Please, put this function in the xt_recent. I prefer leave it there
-until more clients of it show up.
+I'm not an expert, but isn't this giving both 8361P and 8363 the same values in the enum?
 
-> +
->  static inline int nf_inet_addr_cmp(const union nf_inet_addr *a1,
-> 				   const union nf_inet_addr *a2)
->  {
-> diff --git a/include/linux/netfilter/xt_recent.h b/include/linux/netfilter/xt_recent.h
-> index 83318e0..6ef36c1 100644
-> --- a/include/linux/netfilter/xt_recent.h
-> +++ b/include/linux/netfilter/xt_recent.h
-> @@ -32,4 +32,14 @@ struct xt_recent_mtinfo {
-> 	__u8 side;
->  };
-> 
-> +struct xt_recent_mtinfo_v1 {
-> +	__u32 seconds;
-> +	__u32 hit_count;
-> +	__u8 check_set;
-> +	__u8 invert;
-> +	char name[XT_RECENT_NAME_LEN];
-> +	__u8 side;
-> +	union nf_inet_addr mask;
-> +};
-> +
->  #endif /* _LINUX_NETFILTER_XT_RECENT_H */
-> diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-> index d2ff15a..bdc38fa 100644
-> --- a/net/netfilter/xt_recent.c
-> +++ b/net/netfilter/xt_recent.c
-> @@ -75,6 +75,7 @@ struct recent_entry {
->  struct recent_table {
-> 	struct list_head	list;
-> 	char			name[XT_RECENT_NAME_LEN];
-> +	union nf_inet_addr	mask;
-> 	unsigned int		refcnt;
-> 	unsigned int		entries;
-> 	struct list_head	lru_list;
-> @@ -228,10 +229,11 @@ recent_mt(const struct sk_buff *skb, struct xt_action_param *par)
->  {
-> 	struct net *net = dev_net(par->in ? par->in : par->out);
-> 	struct recent_net *recent_net = recent_pernet(net);
-> -	const struct xt_recent_mtinfo *info = par->matchinfo;
-> +	const struct xt_recent_mtinfo_v1 *info = par->matchinfo;
-> 	struct recent_table *t;
-> 	struct recent_entry *e;
-> 	union nf_inet_addr addr = {};
-> +	union nf_inet_addr addr_masked;
-> 	u_int8_t ttl;
-> 	bool ret = info->invert;
-> 
-> @@ -261,12 +263,15 @@ recent_mt(const struct sk_buff *skb, struct xt_action_param *par)
-> 
-> 	spin_lock_bh(&recent_lock);
-> 	t = recent_table_lookup(recent_net, info->name);
-> -	e = recent_entry_lookup(t, &addr, par->family,
-> +
-> +	nf_inet_addr_mask(&addr, &addr_masked, &t->mask);
-> +
-> +	e = recent_entry_lookup(t, &addr_masked, par->family,
-> 				(info->check_set & XT_RECENT_TTL) ? ttl : 0);
-> 	if (e == NULL) {
-> 		if (!(info->check_set & XT_RECENT_SET))
-> 			goto out;
-> -		e = recent_entry_init(t, &addr, par->family, ttl);
-> +		e = recent_entry_init(t, &addr_masked, par->family, ttl);
-> 		if (e == NULL)
-> 			par->hotdrop = true;
-> 		ret = !ret;
-> @@ -306,10 +311,10 @@ out:
-> 	return ret;
->  }
-> 
-> -static int recent_mt_check(const struct xt_mtchk_param *par)
-> +static int recent_mt_check(const struct xt_mtchk_param *par,
-> +	const struct xt_recent_mtinfo_v1 *info)
->  {
-> 	struct recent_net *recent_net = recent_pernet(par->net);
-> -	const struct xt_recent_mtinfo *info = par->matchinfo;
-> 	struct recent_table *t;
->  #ifdef CONFIG_PROC_FS
-> 	struct proc_dir_entry *pde;
-> @@ -361,6 +366,8 @@ static int recent_mt_check(const struct xt_mtchk_param *par)
-> 		goto out;
-> 	}
-> 	t->refcnt = 1;
-> +
-> +	memcpy(&t->mask, &info->mask, sizeof(t->mask));
-> 	strcpy(t->name, info->name);
-> 	INIT_LIST_HEAD(&t->lru_list);
-> 	for (i = 0; i < ip_list_hash_size; i++)
-> @@ -385,10 +392,37 @@ out:
-> 	return ret;
->  }
-> 
-> +static int recent_mt_check_v0(const struct xt_mtchk_param *par)
-> +{
-> +	const struct xt_recent_mtinfo_v0 *info_v0 = par->matchinfo;
-> +	struct xt_recent_mtinfo_v1 *info_v1 = par->matchinfo;
-> +	int ret;
-> +
-> +	info_v1 = kzalloc(sizeof(struct xt_recent_mtinfo_v1),
-> +		    GFP_KERNEL);
+Is that intended?
 
-Better allocate this in the stack. It's fairly small and it is used
-temporarily.
-
-> +	if (info_v1 == NULL)
-> +		return -ENOMEM;
-> +
-> +
-> +	/* Copy old data */
-> +	memcpy(info_v1, info_v0, sizeof(struct xt_recent_mtinfo));
-> +	/* Default mask will make same behavior as old recent */
-> +	memset(info_v1->mask.all, 0xFF, sizeof(info_v1->mask.all));
-> +	ret = recent_mt_check(par, info_v1);
-> +
-> +	kfree(info_v1);
-> +	return ret;
-> +}
-> +
-> +static int recent_mt_check_v1(const struct xt_mtchk_param *par)
-> +{
-> +	return recent_mt_check(par, par->matchinfo);
-> +}
-> +
->  static void recent_mt_destroy(const struct xt_mtdtor_param *par)
->  {
-> 	struct recent_net *recent_net = recent_pernet(par->net);
-> -	const struct xt_recent_mtinfo *info = par->matchinfo;
-> +	const struct xt_recent_mtinfo_v1 *info = par->matchinfo;
-> 	struct recent_table *t;
-> 
-> 	mutex_lock(&recent_mutex);
-> @@ -625,7 +659,7 @@ static struct xt_match recent_mt_reg[] __read_mostly = {
-> 		.family     = NFPROTO_IPV4,
-> 		.match      = recent_mt,
-> 		.matchsize  = sizeof(struct xt_recent_mtinfo),
-> -		.checkentry = recent_mt_check,
-> +		.checkentry = recent_mt_check_v0,
-> 		.destroy    = recent_mt_destroy,
-> 		.me         = THIS_MODULE,
-> 	},
-> @@ -635,10 +669,30 @@ static struct xt_match recent_mt_reg[] __read_mostly = {
-> 		.family     = NFPROTO_IPV6,
-> 		.match      = recent_mt,
-> 		.matchsize  = sizeof(struct xt_recent_mtinfo),
-> -		.checkentry = recent_mt_check,
-> +		.checkentry = recent_mt_check_v0,
-> 		.destroy    = recent_mt_destroy,
-> 		.me         = THIS_MODULE,
-> 	},
-> +	{
-> +		.name       = "recent",
-> +		.revision   = 1,
-> +		.family     = NFPROTO_IPV4,
-> +		.match      = recent_mt,
-> +		.matchsize  = sizeof(struct xt_recent_mtinfo_v1),
-> +		.checkentry = recent_mt_check_v1,
-> +		.destroy    = recent_mt_destroy,
-> +		.me         = THIS_MODULE,
-> +	},
-> +	{
-> +		.name       = "recent",
-> +		.revision   = 1,
-> +		.family     = NFPROTO_IPV6,
-> +		.match      = recent_mt,
-> +		.matchsize  = sizeof(struct xt_recent_mtinfo_v1),
-> +		.checkentry = recent_mt_check_v1,
-> +		.destroy    = recent_mt_destroy,
-> +		.me         = THIS_MODULE,
-> +	}
->  };
-> 
->  static int __init recent_mt_init(void)
-> --
-> 1.7.3.4
+Pat Erley
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
