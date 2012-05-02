@@ -1,46 +1,39 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net-next 3/5] be2net: Record receive queue index in skb to aid RPS.
-Date: Wed, 2 May 2012 19:10:49 +0530
-Message-ID: <d1bf7d36-9c55-407f-8087-6d1af05b5011@exht1.ad.emulex.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH] net: l2tp: unlock socket lock before returning from l2tp_ip_sendmsg
+Date: Wed, 2 May 2012 15:49:41 +0200
+Message-ID: <CA+1xoqfVQfPseoSuBLY99nx_BuXpoGD4X6_xKk9_BoG0Mo__jw@mail.gmail.com>
+References: <1335964237-1139-1-git-send-email-levinsasha928@gmail.com> <1335965318.22133.568.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Somnath Kotur <somnath.kotur@emulex.com>,
-	Sarveshwar Bandi <Sarveshwar.Bandi@emulex.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:19202 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752939Ab2EBNmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 09:42:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, jchapman@katalix.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davej@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1335965318.22133.568.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, May 2, 2012 at 3:28 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Good catch, but please use existing code style in this function.
+>
+> rc =3D -EDESTADDRREQ;
+> if (sk->sk_state !=3D TCP_ESTABLISHED)
+> =A0 =A0 =A0 =A0goto out;
+>
+> Also, please add in your commit message bug origin to ease stable tea=
+m
+> work (not counting reviewers work)
+>
+> Bug added in commit 2f16270f41e1 (l2tp: Fix locking in l2tp_ip.c)
+>
+> Really, given the amount of patches you already sent, you should alre=
+ady
+> know that.
+>
+> Thanks
+>
+>
 
-Signed-off-by: Sarveshwar Bandi <Sarveshwar.Bandi@emulex.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index c8f7b3a..b7bc905 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1259,6 +1259,7 @@ static void be_rx_compl_process(struct be_rx_obj *rxo,
- 		skb_checksum_none_assert(skb);
- 
- 	skb->protocol = eth_type_trans(skb, netdev);
-+	skb_record_rx_queue(skb, rxo - &adapter->rx_obj[0]);
- 	if (netdev->features & NETIF_F_RXHASH)
- 		skb->rxhash = rxcp->rss_hash;
- 
-@@ -1315,6 +1316,7 @@ void be_rx_compl_process_gro(struct be_rx_obj *rxo, struct napi_struct *napi,
- 	skb->len = rxcp->pkt_size;
- 	skb->data_len = rxcp->pkt_size;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	skb_record_rx_queue(skb, rxo - &adapter->rx_obj[0]);
- 	if (adapter->netdev->features & NETIF_F_RXHASH)
- 		skb->rxhash = rxcp->rss_hash;
- 
--- 
-1.5.6.1
+Understood. I'll resend.
