@@ -1,84 +1,119 @@
-From: Breno Leitao <brenohl@br.ibm.com>
-Subject: Re: [PATCH] ehea: add alias entry for portN properties
-Date: Wed, 02 May 2012 15:34:12 -0300
-Message-ID: <4FA17E24.3020306@br.ibm.com>
-References: <4FA17C4E.1030905@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Mahoney <jeffm@suse.com>,
-	Breno Leitao <leitao@linux.vnet.ibm.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Olaf Hering <ohering@suse.com>
-To: Thadeu Lima De Souza Cascardo <thadeul@br.ibm.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH v3 1/3] tcp: early retransmit: tcp_enter_recovery()
+Date: Wed,  2 May 2012 11:46:29 -0700
+Message-ID: <1335984391-31340-1-git-send-email-ycheng@google.com>
+Cc: ncardwell@google.com, nanditad@google.com, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp03.br.ibm.com ([32.104.18.24]:55418 "EHLO
-	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755606Ab2EBSeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 14:34:18 -0400
-Received: from /spool/local
-	by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <brenohl@br.ibm.com>;
-	Wed, 2 May 2012 15:34:16 -0300
-Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
-	by d24dlp02.br.ibm.com (Postfix) with ESMTP id D517A1DC004D
-	for <netdev@vger.kernel.org>; Wed,  2 May 2012 15:34:09 -0300 (BRT)
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by d24relay02.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q42IXqg126739192
-	for <netdev@vger.kernel.org>; Wed, 2 May 2012 15:33:52 -0300
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q42GY17Y008790
-	for <netdev@vger.kernel.org>; Wed, 2 May 2012 13:34:02 -0300
-In-Reply-To: <4FA17C4E.1030905@suse.com>
+Received: from mail-bk0-f74.google.com ([209.85.214.74]:52612 "EHLO
+	mail-bk0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755850Ab2EBSqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 14:46:34 -0400
+Received: by bkty5 with SMTP id y5so54679bkt.1
+        for <netdev@vger.kernel.org>; Wed, 02 May 2012 11:46:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thadeu,
+This a prepartion patch that refactors the code to enter recovery
+into a new function tcp_enter_recovery(). It's needed to implement
+the delayed fast retransmit in ER.
 
-Could you check this patch, please?
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ChangeLog since v1:
+ - swaped with part 1 and part2
+ChangeLog since v2:
+ - removed RFC in commit message
+ 
+ net/ipv4/tcp_input.c |   61 +++++++++++++++++++++++++++----------------------
+ 1 files changed, 34 insertions(+), 27 deletions(-)
 
-Thanks
-On 05/02/2012 03:26 PM, Jeff Mahoney wrote:
-> Use separate table for alias entries in the ehea module,
-> otherwise the probe() function will operate on the separate ports
-> instead of the lhea-"root" entry of the device-tree
-> 
-> Initially reported here:
-> https://bugzilla.novell.com/show_bug.cgi?id=435215
-> 
-> Signed-off-by: Jeff Mahoney <jeffm@suse.com>
-> Signed-off-by: Olaf Hering <ohering@suse.com>
-> ---
->  drivers/net/ethernet/ibm/ehea/ehea_main.c |   14 +++++++++++++-
->  1 file changed, 13 insertions(+), 1 deletion(-)
-> 
-> --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-> @@ -103,6 +103,19 @@ static int __devinit ehea_probe_adapter(
-> 
->  static int __devexit ehea_remove(struct platform_device *dev);
-> 
-> +static struct of_device_id ehea_module_device_table[] = {
-> +	{
-> +		.name = "lhea",
-> +		.compatible = "IBM,lhea",
-> +	},
-> +	{
-> +		.type = "network",
-> +		.compatible = "IBM,lhea-ethernet",
-> +	},
-> +	{},
-> +};
-> +MODULE_DEVICE_TABLE(of, ehea_module_device_table);
-> +
->  static struct of_device_id ehea_device_table[] = {
->  	{
->  		.name = "lhea",
-> @@ -110,7 +123,6 @@ static struct of_device_id ehea_device_t
->  	},
->  	{},
->  };
-> -MODULE_DEVICE_TABLE(of, ehea_device_table);
-> 
->  static struct of_platform_driver ehea_driver = {
->  	.driver = {
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c93b0cb..22df826 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3022,6 +3022,38 @@ static void tcp_update_cwnd_in_recovery(struct sock *sk, int newly_acked_sacked,
+ 	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
+ }
+ 
++static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	int mib_idx;
++
++	if (tcp_is_reno(tp))
++		mib_idx = LINUX_MIB_TCPRENORECOVERY;
++	else
++		mib_idx = LINUX_MIB_TCPSACKRECOVERY;
++
++	NET_INC_STATS_BH(sock_net(sk), mib_idx);
++
++	tp->high_seq = tp->snd_nxt;
++	tp->prior_ssthresh = 0;
++	tp->undo_marker = tp->snd_una;
++	tp->undo_retrans = tp->retrans_out;
++
++	if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
++		if (!ece_ack)
++			tp->prior_ssthresh = tcp_current_ssthresh(sk);
++		tp->snd_ssthresh = inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
++		TCP_ECN_queue_cwr(tp);
++	}
++
++	tp->bytes_acked = 0;
++	tp->snd_cwnd_cnt = 0;
++	tp->prior_cwnd = tp->snd_cwnd;
++	tp->prr_delivered = 0;
++	tp->prr_out = 0;
++	tcp_set_ca_state(sk, TCP_CA_Recovery);
++}
++
+ /* Process an event, which can update packets-in-flight not trivially.
+  * Main goal of this function is to calculate new estimate for left_out,
+  * taking into account both packets sitting in receiver's buffer and
+@@ -3041,7 +3073,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
+ 				    (tcp_fackets_out(tp) > tp->reordering));
+-	int fast_rexmit = 0, mib_idx;
++	int fast_rexmit = 0;
+ 
+ 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
+ 		tp->sacked_out = 0;
+@@ -3142,32 +3174,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 		}
+ 
+ 		/* Otherwise enter Recovery state */
+-
+-		if (tcp_is_reno(tp))
+-			mib_idx = LINUX_MIB_TCPRENORECOVERY;
+-		else
+-			mib_idx = LINUX_MIB_TCPSACKRECOVERY;
+-
+-		NET_INC_STATS_BH(sock_net(sk), mib_idx);
+-
+-		tp->high_seq = tp->snd_nxt;
+-		tp->prior_ssthresh = 0;
+-		tp->undo_marker = tp->snd_una;
+-		tp->undo_retrans = tp->retrans_out;
+-
+-		if (icsk->icsk_ca_state < TCP_CA_CWR) {
+-			if (!(flag & FLAG_ECE))
+-				tp->prior_ssthresh = tcp_current_ssthresh(sk);
+-			tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+-			TCP_ECN_queue_cwr(tp);
+-		}
+-
+-		tp->bytes_acked = 0;
+-		tp->snd_cwnd_cnt = 0;
+-		tp->prior_cwnd = tp->snd_cwnd;
+-		tp->prr_delivered = 0;
+-		tp->prr_out = 0;
+-		tcp_set_ca_state(sk, TCP_CA_Recovery);
++		tcp_enter_recovery(sk, (flag & FLAG_ECE));
+ 		fast_rexmit = 1;
+ 	}
+ 
+-- 
+1.7.7.3
