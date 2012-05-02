@@ -1,8 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [V2 PATCH 6/9] vhost_net: zerocopy: fix possible NULL pointer
- dereference of vq->bufs
-Date: Wed, 02 May 2012 11:42:23 +0800
-Message-ID: <20120502034223.11782.31222.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Subject: [V2 PATCH 4/9] macvtap: zerocopy: set SKBTX_DEV_ZEROCOPY only when
+ skb is built successfully
+Date: Wed, 02 May 2012 11:42:06 +0800
+Message-ID: <20120502034206.11782.91643.stgit@amd-6168-8-1.englab.nay.redhat.com>
 References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,26 +15,43 @@ In-Reply-To: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.co
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When we want to disable vhost_net backend while there's a tx work, a possible
-NULL pointer defernece may happen we we try to deference the vq->bufs after
-vhost_net_set_backend() assign a NULL to it.
+Current the SKBTX_DEV_ZEROCOPY is set unconditionally after
+zerocopy_sg_from_iovec(), this would lead NULL pointer when macvtap
+fails to build zerocopy skb because destructor_arg was not
+initialized. Solve this by set this flag after the skb were built
+successfully.
 
-As suggested by Michael, fix this by checking the vq->bufs instead of
-vhost_sock_zcopy().
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/vhost/net.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/macvtap.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index f0da2c3..ffdc0d8 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -166,7 +166,7 @@ static void handle_tx(struct vhost_net *net)
- 	if (wmem < sock->sk->sk_sndbuf / 2)
- 		tx_poll_stop(net);
- 	hdr_size = vq->vhost_hlen;
--	zcopy = vhost_sock_zcopy(sock);
-+	zcopy = vq->ubufs;
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 9ab182a..a4ff694 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -699,10 +699,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	if (!skb)
+ 		goto err;
  
- 	for (;;) {
- 		/* Release DMAs done buffers first */
+-	if (zerocopy) {
++	if (zerocopy)
+ 		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
+-		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+-	} else
++	else
+ 		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
+ 						   len);
+ 	if (err)
+@@ -721,8 +720,10 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+ 	rcu_read_lock_bh();
+ 	vlan = rcu_dereference_bh(q->vlan);
+ 	/* copy skb_ubuf_info for callback when skb has no error */
+-	if (zerocopy)
++	if (zerocopy) {
+ 		skb_shinfo(skb)->destructor_arg = m->msg_control;
++		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
++	}
+ 	if (vlan)
+ 		macvlan_start_xmit(skb, vlan->dev);
+ 	else
