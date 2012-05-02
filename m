@@ -1,53 +1,30 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [V2 PATCH 0/9] vhost/macvtap zeropcopy fixes
-Date: Wed, 2 May 2012 08:50:09 +0300
-Message-ID: <20120502055008.GA29319@redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL next-net] IPVS
+Date: Wed, 2 May 2012 14:53:49 +0900
+Message-ID: <20120502055345.GA28625@verge.net.au>
+References: <1335921901-21284-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
-	davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1335921901-21284-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 02, 2012 at 11:41:21AM +0800, Jason Wang wrote:
-> This is an updated since the last series of vhost/macvtap zerocopy fixes which
-> fixes the the possible transmission stall, host kernel stack overflow and other
-> misc fixes.
+On Wed, May 02, 2012 at 10:24:44AM +0900, Simon Horman wrote:
+> Hi Pablo,
 > 
-> Changes from V1:
-> - Addressing comments from Eric and Michael.
-> - Adding more fixes into the seires.
+> please consider the following 5 changes for 3.4, they are all bug fixes.
+> I would also like these changes considered for stable.
 
-Thanks for fixing this.
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Hi Pablo,
 
-Dave, can you merge this for 3.4 please?
-Thanks!
-
-> ---
-> 
-> Jason Wang (9):
->       macvtap: zerocopy: fix offset calculation when building skb
->       macvtap: zerocopy: fix truesize underestimation
->       macvtap: zerocopy: put page when fail to get all requested user pages
->       macvtap: zerocopy: set SKBTX_DEV_ZEROCOPY only when skb is built successfully
->       macvtap: zerocopy: validate vectors before building skb
->       vhost_net: zerocopy: fix possible NULL pointer dereference of vq->bufs
->       vhost_net: re-poll only on EAGAIN or ENOBUFS
->       vhost_net: zerocopy: adding and signalling immediately when fully copied
->       vhost: zerocopy: poll vq in zerocopy callback
-> 
-> 
->  drivers/net/macvtap.c |   57 ++++++++++++++++++++++++++++++++++---------------
->  drivers/vhost/net.c   |    7 ++++--
->  drivers/vhost/vhost.c |    1 +
->  3 files changed, 46 insertions(+), 19 deletions(-)
-> 
-> -- 
-> Jason Wang
+Hans has pointed out to me that the series should include one more patch.
+I will send an updated series ASAP.
