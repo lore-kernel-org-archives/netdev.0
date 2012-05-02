@@ -1,121 +1,233 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH v4 1/3] tcp: early retransmit: tcp_enter_recovery()
-Date: Wed,  2 May 2012 16:30:02 -0700
-Message-ID: <1336001404-21879-1-git-send-email-ycheng@google.com>
+Subject: [PATCH v4 3/3] tcp: early retransmit: delayed fast retransmit
+Date: Wed,  2 May 2012 16:30:04 -0700
+Message-ID: <1336001404-21879-3-git-send-email-ycheng@google.com>
+References: <1336001404-21879-1-git-send-email-ycheng@google.com>
 Cc: ncardwell@google.com, nanditad@google.com, netdev@vger.kernel.org,
 	Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f202.google.com ([209.85.220.202]:42792 "EHLO
-	mail-vx0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751822Ab2EBXaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 19:30:20 -0400
-Received: by vcbfl13 with SMTP id fl13so14840vcb.1
+Received: from mail-bk0-f74.google.com ([209.85.214.74]:35885 "EHLO
+	mail-bk0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752720Ab2EBXaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 19:30:22 -0400
+Received: by bkty5 with SMTP id y5so61334bkt.1
         for <netdev@vger.kernel.org>; Wed, 02 May 2012 16:30:20 -0700 (PDT)
+In-Reply-To: <1336001404-21879-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This a prepartion patch that refactors the code to enter recovery
-into a new function tcp_enter_recovery(). It's needed to implement
-the delayed fast retransmit in ER.
+Implementing the advanced early retransmit (sysctl_tcp_early_retrans==2).
+Delays the fast retransmit by an interval of RTT/4. We borrow the
+RTO timer to implement the delay. If we receive another ACK or send
+a new packet, the timer is cancelled and restored to original RTO
+value offset by time elapsed.  When the delayed-ER timer fires,
+we enter fast recovery and perform fast retransmit.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
-ChangeLog since v1:
- - swaped with part 1 and part2
-ChangeLog since v2:
-  - removed RFC in commit message
-ChangeLog since v3:
-  - nothing
+ChangeLog in v2:
+ - Set sysctl_tcp_early_retrans default to 2
+ChangeLog in v3:
+  - use separate u8 for early retrans stats in tcp_sock
+  - disable ER if detects any reordering
+ChangeLog in v4:
+  - move disabling ER code on reordering into part2
 
- net/ipv4/tcp_input.c |   61 +++++++++++++++++++++++++++----------------------
- 1 files changed, 34 insertions(+), 27 deletions(-)
+ include/linux/tcp.h   |    3 +-
+ include/net/tcp.h     |    3 ++
+ net/ipv4/tcp_input.c  |   69 ++++++++++++++++++++++++++++++++++++++++++++-----
+ net/ipv4/tcp_output.c |    5 +--
+ net/ipv4/tcp_timer.c  |    5 +++
+ 5 files changed, 74 insertions(+), 11 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c93b0cb..22df826 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3022,6 +3022,38 @@ static void tcp_update_cwnd_in_recovery(struct sock *sk, int newly_acked_sacked,
- 	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 7859b41..d9b42c5be 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -372,7 +372,8 @@ struct tcp_sock {
+ 		repair      : 1,
+ 		unused      : 1;
+ 	u8	repair_queue;
+-	u8	do_early_retrans:1;/* Enable RFC5827 early-retransmit  */
++	u8	do_early_retrans:1,/* Enable RFC5827 early-retransmit  */
++		early_retrans_delayed:1; /* Delayed ER timer installed */
+ 
+ /* RTT measurement */
+ 	u32	srtt;		/* smoothed round trip time << 3	*/
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 685437a..5283aa4 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -500,6 +500,8 @@ extern void tcp_send_delayed_ack(struct sock *sk);
+ 
+ /* tcp_input.c */
+ extern void tcp_cwnd_application_limited(struct sock *sk);
++extern void tcp_resume_early_retransmit(struct sock *sk);
++extern void tcp_rearm_rto(struct sock *sk);
+ 
+ /* tcp_timer.c */
+ extern void tcp_init_xmit_timers(struct sock *);
+@@ -805,6 +807,7 @@ static inline void tcp_enable_early_retrans(struct tcp_sock *tp)
+ {
+ 	tp->do_early_retrans = sysctl_tcp_early_retrans &&
+ 		!sysctl_tcp_thin_dupack && sysctl_tcp_reordering == 3;
++	tp->early_retrans_delayed = 0;
  }
  
-+static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
+ static inline void tcp_disable_early_retrans(struct tcp_sock *tp)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 82194c7..6c0bc6f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2344,6 +2344,27 @@ static inline int tcp_dupack_heuristics(const struct tcp_sock *tp)
+ 	return tcp_is_fack(tp) ? tp->fackets_out : tp->sacked_out + 1;
+ }
+ 
++static bool tcp_pause_early_retransmit(struct sock *sk, int flag)
 +{
 +	struct tcp_sock *tp = tcp_sk(sk);
-+	int mib_idx;
++	unsigned long delay;
 +
-+	if (tcp_is_reno(tp))
-+		mib_idx = LINUX_MIB_TCPRENORECOVERY;
-+	else
-+		mib_idx = LINUX_MIB_TCPSACKRECOVERY;
++	/* Delay early retransmit and entering fast recovery for
++	 * max(RTT/4, 2msec) unless ack has ECE mark, no RTT samples
++	 * available, or RTO is scheduled to fire first.
++	 */
++	if (sysctl_tcp_early_retrans < 2 || (flag & FLAG_ECE) || !tp->srtt)
++		return false;
 +
-+	NET_INC_STATS_BH(sock_net(sk), mib_idx);
++	delay = max_t(unsigned long, (tp->srtt >> 5), msecs_to_jiffies(2));
++	if (!time_after(inet_csk(sk)->icsk_timeout, (jiffies + delay)))
++		return false;
 +
-+	tp->high_seq = tp->snd_nxt;
-+	tp->prior_ssthresh = 0;
-+	tp->undo_marker = tp->snd_una;
-+	tp->undo_retrans = tp->retrans_out;
-+
-+	if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
-+		if (!ece_ack)
-+			tp->prior_ssthresh = tcp_current_ssthresh(sk);
-+		tp->snd_ssthresh = inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
-+		TCP_ECN_queue_cwr(tp);
-+	}
-+
-+	tp->bytes_acked = 0;
-+	tp->snd_cwnd_cnt = 0;
-+	tp->prior_cwnd = tp->snd_cwnd;
-+	tp->prr_delivered = 0;
-+	tp->prr_out = 0;
-+	tcp_set_ca_state(sk, TCP_CA_Recovery);
++	inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, delay, TCP_RTO_MAX);
++	tp->early_retrans_delayed = 1;
++	return true;
 +}
 +
- /* Process an event, which can update packets-in-flight not trivially.
-  * Main goal of this function is to calculate new estimate for left_out,
-  * taking into account both packets sitting in receiver's buffer and
-@@ -3041,7 +3073,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ static inline int tcp_skb_timedout(const struct sock *sk,
+ 				   const struct sk_buff *skb)
+ {
+@@ -2451,7 +2472,7 @@ static inline int tcp_head_timedout(const struct sock *sk)
+  * Main question: may we further continue forward transmission
+  * with the same cwnd?
+  */
+-static int tcp_time_to_recover(struct sock *sk)
++static int tcp_time_to_recover(struct sock *sk, int flag)
+ {
  	struct tcp_sock *tp = tcp_sk(sk);
- 	int do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
- 				    (tcp_fackets_out(tp) > tp->reordering));
--	int fast_rexmit = 0, mib_idx;
-+	int fast_rexmit = 0;
+ 	__u32 packets_out;
+@@ -2505,7 +2526,7 @@ static int tcp_time_to_recover(struct sock *sk)
+ 	if (tp->do_early_retrans && !tp->retrans_out && tp->sacked_out &&
+ 	    (tp->packets_out == (tp->sacked_out + 1) && tp->packets_out < 4) &&
+ 	    !tcp_may_send_now(sk))
+-		return 1;
++		return !tcp_pause_early_retransmit(sk, flag);
  
- 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
- 		tp->sacked_out = 0;
-@@ -3142,32 +3174,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 	return 0;
+ }
+@@ -3172,7 +3193,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
+ 		if (icsk->icsk_ca_state <= TCP_CA_Disorder)
+ 			tcp_try_undo_dsack(sk);
+ 
+-		if (!tcp_time_to_recover(sk)) {
++		if (!tcp_time_to_recover(sk, flag)) {
+ 			tcp_try_to_open(sk, flag);
+ 			return;
  		}
+@@ -3271,16 +3292,47 @@ static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ /* Restart timer after forward progress on connection.
+  * RFC2988 recommends to restart timer to now+rto.
+  */
+-static void tcp_rearm_rto(struct sock *sk)
++void tcp_rearm_rto(struct sock *sk)
+ {
+-	const struct tcp_sock *tp = tcp_sk(sk);
++	struct tcp_sock *tp = tcp_sk(sk);
  
- 		/* Otherwise enter Recovery state */
--
--		if (tcp_is_reno(tp))
--			mib_idx = LINUX_MIB_TCPRENORECOVERY;
--		else
--			mib_idx = LINUX_MIB_TCPSACKRECOVERY;
--
--		NET_INC_STATS_BH(sock_net(sk), mib_idx);
--
--		tp->high_seq = tp->snd_nxt;
--		tp->prior_ssthresh = 0;
--		tp->undo_marker = tp->snd_una;
--		tp->undo_retrans = tp->retrans_out;
--
--		if (icsk->icsk_ca_state < TCP_CA_CWR) {
--			if (!(flag & FLAG_ECE))
--				tp->prior_ssthresh = tcp_current_ssthresh(sk);
--			tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
--			TCP_ECN_queue_cwr(tp);
--		}
--
--		tp->bytes_acked = 0;
--		tp->snd_cwnd_cnt = 0;
--		tp->prior_cwnd = tp->snd_cwnd;
--		tp->prr_delivered = 0;
--		tp->prr_out = 0;
--		tcp_set_ca_state(sk, TCP_CA_Recovery);
-+		tcp_enter_recovery(sk, (flag & FLAG_ECE));
- 		fast_rexmit = 1;
+ 	if (!tp->packets_out) {
+ 		inet_csk_clear_xmit_timer(sk, ICSK_TIME_RETRANS);
+ 	} else {
+-		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+-					  inet_csk(sk)->icsk_rto, TCP_RTO_MAX);
++		u32 rto = inet_csk(sk)->icsk_rto;
++		/* Offset the time elapsed after installing regular RTO */
++		if (tp->early_retrans_delayed) {
++			struct sk_buff *skb = tcp_write_queue_head(sk);
++			const u32 rto_time_stamp = TCP_SKB_CB(skb)->when + rto;
++			s32 delta = (s32)(rto_time_stamp - tcp_time_stamp);
++			/* delta may not be positive if the socket is locked
++			 * when the delayed ER timer fires and is rescheduled.
++			 */
++			if (delta > 0)
++				rto = delta;
++		}
++		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
++					  TCP_RTO_MAX);
  	}
++	tp->early_retrans_delayed = 0;
++}
++
++/* This function is called when the delayed ER timer fires. TCP enters
++ * fast recovery and performs fast-retransmit.
++ */
++void tcp_resume_early_retransmit(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	tcp_rearm_rto(sk);
++
++	/* Stop if ER is disabled after the delayed ER timer is scheduled */
++	if (!tp->do_early_retrans)
++		return;
++
++	tcp_enter_recovery(sk, false);
++	tcp_update_scoreboard(sk, 1);
++	tcp_xmit_retransmit_queue(sk);
+ }
+ 
+ /* If we get here, the whole TSO packet has not been acked. */
+@@ -3729,6 +3781,9 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	if (after(ack, tp->snd_nxt))
+ 		goto invalid_ack;
+ 
++	if (tp->early_retrans_delayed)
++		tcp_rearm_rto(sk);
++
+ 	if (after(ack, prior_snd_una))
+ 		flag |= FLAG_SND_UNA_ADVANCED;
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 834e89f..d947330 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -78,9 +78,8 @@ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
+ 		tp->frto_counter = 3;
+ 
+ 	tp->packets_out += tcp_skb_pcount(skb);
+-	if (!prior_packets)
+-		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
+-					  inet_csk(sk)->icsk_rto, TCP_RTO_MAX);
++	if (!prior_packets || tp->early_retrans_delayed)
++		tcp_rearm_rto(sk);
+ }
+ 
+ /* SND.NXT, if window was not shrunk.
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 34d4a02..e911e6c 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -319,6 +319,11 @@ void tcp_retransmit_timer(struct sock *sk)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 
++	if (tp->early_retrans_delayed) {
++		tcp_resume_early_retransmit(sk);
++		return;
++	}
++
+ 	if (!tp->packets_out)
+ 		goto out;
  
 -- 
 1.7.7.3
