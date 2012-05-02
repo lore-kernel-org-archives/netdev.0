@@ -1,50 +1,86 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [RFC] [PATCH] ipv6: Fix potential hang in mif6_add
-Date: Wed, 02 May 2012 11:39:57 +0530
-Message-ID: <20120502060957.30368.34595.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH] netfilter: Fix error in ipq_enqueue_packet
+Date: Wed, 02 May 2012 11:40:29 +0530
+Message-ID: <20120502061029.30442.48870.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, kaber@trash.net,
+	Krishna Kumar <krkumar2@in.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp03.au.ibm.com ([202.81.31.145]:33798 "EHLO
-	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751503Ab2EBGKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 02:10:46 -0400
+Received: from e23smtp07.au.ibm.com ([202.81.31.140]:60974 "EHLO
+	e23smtp07.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788Ab2EBGKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 02:10:51 -0400
 Received: from /spool/local
-	by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e23smtp07.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
-	Wed, 2 May 2012 06:01:01 +1000
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q426A0218192242
-	for <netdev@vger.kernel.org>; Wed, 2 May 2012 16:10:00 +1000
-Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q426A0Xf000960
-	for <netdev@vger.kernel.org>; Wed, 2 May 2012 16:10:00 +1000
+	Wed, 2 May 2012 06:03:16 +1000
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q4263gNa1339476
+	for <netdev@vger.kernel.org>; Wed, 2 May 2012 16:03:42 +1000
+Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
+	by d23av01.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q426AVBm010813
+	for <netdev@vger.kernel.org>; Wed, 2 May 2012 16:10:32 +1000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a potential "waiting for %s to become free" hang.
-mif6_add() called ip6mr_reg_vif to allocate/register a
-netdevice, which also took an extra reference on the
-device. On error, mif6_add should drop this reference
-before unregistering the device.
-
-(untested, noticed from code walkthrough)
+ipq_enqueue_packet sets status=-EINVAL and calls
+ipq_build_packet_message(entry, &status). This can
+set status=0 while returning an skb. The next line:
+	if (!peer_pid)
+		goto err_out_free_nskb;
+which wrongly returns success.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- net/ipv6/ip6mr.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/netfilter/ip_queue.c  |    6 ++++--
+ net/ipv6/netfilter/ip6_queue.c |    6 ++++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-diff -ruNp org/net/ipv6/ip6mr.c new/net/ipv6/ip6mr.c
---- org/net/ipv6/ip6mr.c	2012-04-19 09:03:34.000000000 +0530
-+++ new/net/ipv6/ip6mr.c	2012-05-02 10:51:01.953110994 +0530
-@@ -937,8 +937,8 @@ static int mif6_add(struct net *net, str
- 			return -ENOBUFS;
- 		err = dev_set_allmulti(dev, 1);
- 		if (err) {
--			unregister_netdevice(dev);
- 			dev_put(dev);
-+			unregister_netdevice(dev);
- 			return err;
- 		}
- 		break;
+diff -ruNp org/net/ipv4/netfilter/ip_queue.c new/net/ipv4/netfilter/ip_queue.c
+--- org/net/ipv4/netfilter/ip_queue.c	2012-04-23 08:28:23.000000000 +0530
++++ new/net/ipv4/netfilter/ip_queue.c	2012-05-02 11:28:33.899790397 +0530
+@@ -227,7 +227,7 @@ nlmsg_failure:
+ static int
+ ipq_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ {
+-	int status = -EINVAL;
++	int status;
+ 	struct sk_buff *nskb;
+ 
+ 	if (copy_mode == IPQ_COPY_NONE)
+@@ -239,8 +239,10 @@ ipq_enqueue_packet(struct nf_queue_entry
+ 
+ 	spin_lock_bh(&queue_lock);
+ 
+-	if (!peer_pid)
++	if (!peer_pid) {
++		status = -EINVAL;
+ 		goto err_out_free_nskb;
++	}
+ 
+ 	if (queue_total >= queue_maxlen) {
+ 		queue_dropped++;
+diff -ruNp org/net/ipv6/netfilter/ip6_queue.c new/net/ipv6/netfilter/ip6_queue.c
+--- org/net/ipv6/netfilter/ip6_queue.c	2012-04-23 08:28:23.000000000 +0530
++++ new/net/ipv6/netfilter/ip6_queue.c	2012-05-02 11:30:21.199578311 +0530
+@@ -227,7 +227,7 @@ nlmsg_failure:
+ static int
+ ipq_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ {
+-	int status = -EINVAL;
++	int status;
+ 	struct sk_buff *nskb;
+ 
+ 	if (copy_mode == IPQ_COPY_NONE)
+@@ -239,8 +239,10 @@ ipq_enqueue_packet(struct nf_queue_entry
+ 
+ 	spin_lock_bh(&queue_lock);
+ 
+-	if (!peer_pid)
++	if (!peer_pid) {
++		status = -EINVAL;
+ 		goto err_out_free_nskb;
++	}
+ 
+ 	if (queue_total >= queue_maxlen) {
+ 		queue_dropped++;
