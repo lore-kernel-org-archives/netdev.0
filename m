@@ -1,8 +1,8 @@
-From: "=?ISO-8859-1?Q?Alex_Villac=ED=ADs_Lasso?="
+From: =?ISO-8859-1?Q?Alex_Villac=ED=ADs_Lasso?=
 	<avillaci@fiec.espol.edu.ec>
 Subject: Re: WARNING: at net/sched/sch_generic.c:256 dev_watchdog+0x277/0x280()
-Date: Wed, 02 May 2012 14:26:25 -0500
-Message-ID: <4FA18A61.3060803@ceibo.fiec.espol.edu.ec>
+Date: Wed, 02 May 2012 14:20:57 -0500
+Message-ID: <4FA18919.8010503@fiec.espol.edu.ec>
 References: <4F92EC8D.2010806@fiec.espol.edu.ec>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
@@ -10,15 +10,15 @@ Content-Type: text/plain; charset=ISO-8859-1;
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ceibo.fiec.espol.edu.ec ([200.9.176.5]:46241 "EHLO
+Received: from ceibo.fiec.espol.edu.ec ([200.9.176.5]:50151 "EHLO
 	ceibo.fiec.espol.edu.ec" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756438Ab2EBT0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 15:26:33 -0400
-Received: from mail-yw0-f48.google.com (mail-yw0-f48.google.com [209.85.213.48])
-	by ceibo.fiec.espol.edu.ec (8.13.8/8.13.8) with ESMTP id q42JQSq4001108
-	for <netdev@vger.kernel.org>; Wed, 2 May 2012 14:26:28 -0500
-Received: by yhfq46 with SMTP id q46so1187725yhf.7
-        for <netdev@vger.kernel.org>; Wed, 02 May 2012 12:26:28 -0700 (PDT)
+	with ESMTP id S1756218Ab2EBTdI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 15:33:08 -0400
+Received: from mail-gg0-f176.google.com (mail-gg0-f176.google.com [209.85.161.176])
+	by ceibo.fiec.espol.edu.ec (8.13.8/8.13.8) with ESMTP id q42JL0Jg032563
+	for <netdev@vger.kernel.org>; Wed, 2 May 2012 14:21:00 -0500
+Received: by ggcs6 with SMTP id s6so118832ggc.7
+        for <netdev@vger.kernel.org>; Wed, 02 May 2012 12:21:00 -0700 (PDT)
 In-Reply-To: <4F92EC8D.2010806@fiec.espol.edu.ec>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -70,4 +70,4 @@ c3 #35
 > [ 1494.721181] r8169 0000:02:00.0: p17p1: link up
 >
 >
-Still present in 3.4-rc5 (2)
+Still present in 3.4-rc5.
