@@ -1,43 +1,76 @@
-From: Pat Erley <pat-lkml-Jx9fsTfDDR3YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
-Date: Tue, 01 May 2012 21:12:25 -0400
-Message-ID: <4FA089F9.1020602@erley.org>
-References: <20120427094637.GV3157@wantstofly.org> <CA+icZUXNZ=exTnR=OgD_9bpt_0s-KnR+v-K6u+XzQr4HBoTQHQ@mail.gmail.com> <20120427095842.GW3157@wantstofly.org> <CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com> <20120427101732.GX3157@wantstofly.org> <CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com> <CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com> <20120427185809.GZ3157@wantstofly.org> <CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com> <CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com> <20120501125102.GN3157@wantstofly.org> <CA+icZUV=qtXwVxb+uvQJcsza0y+6k2LHJFFPnECY0M=QWBexaQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lautriv <admin-kieEQ4o6Pv7k1uMJSBkQmQ@public.gmane.org>,
-	Jim Cromie <jim.cromie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>
-To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+icZUV=qtXwVxb+uvQJcsza0y+6k2LHJFFPnECY0M=QWBexaQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL next-net] IPVS
+Date: Wed,  2 May 2012 10:24:44 +0900
+Message-ID: <1335921901-21284-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/01/2012 09:54 AM, Sedat Dilek wrote:
-> --- a/drivers/net/wireless/mwl8k.c
-> +++ b/drivers/net/wireless/mwl8k.c
-> @@ -5225,6 +5225,7 @@ static void mwl8k_finalize_join_worker(struct work_struct *work)
->   }
->
->   enum {
-> +	MWL8361P = 0,
->   	MWL8363 = 0,
->   	MWL8687,
->   	MWL8366,
+Hi Pablo,
 
-I'm not an expert, but isn't this giving both 8361P and 8363 the same values in the enum?
+please consider the following 5 changes for 3.4, they are all bug fixes.
+I would also like these changes considered for stable.
 
-Is that intended?
+Please note that there will be a conflict with the following when merged with
+net-next:
 
-Pat Erley
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	4a17fd5 sock: Introduce named constants for sk_reuse
+
+
+The following changes since commit c3dc836d807a9b9855eefe535fdcbcf7cbb7a574:
+
+  netfilter: bridge: optionally set indev to vlan (2012-04-24 01:22:44 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
+
+for you to fetch changes up to f0cb1dbac57864ed702da8ada6a00155fff0a13b:
+
+  IPVS: ip_vs_proto.c: local functions should not be exposed globally (2012-05-02 10:12:37 +0900)
+
+----------------------------------------------------------------
+H Hartley Sweeten (2):
+      IPVS: ip_vs_ftp.c: local functions should not be exposed globally
+      IPVS: ip_vs_proto.c: local functions should not be exposed globally
+
+Julian Anastasov (14):
+      ipvs: timeout tables do not need GFP_ATOMIC allocation
+      ipvs: LBLC scheduler does not need GFP_ATOMIC allocation on init
+      ipvs: DH scheduler does not need GFP_ATOMIC allocation
+      ipvs: WRR scheduler does not need GFP_ATOMIC allocation
+      ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init
+      ipvs: SH scheduler does not need GFP_ATOMIC allocation
+      ipvs: ignore IP_VS_CONN_F_NOOUTPUT in backup server
+      ipvs: remove check for IP_VS_CONN_F_SYNC from ip_vs_bind_dest
+      ipvs: fix ip_vs_try_bind_dest to rebind app and transmitter
+      ipvs: always update some of the flags bits in backup
+      ipvs: wakeup master thread
+      ipvs: reduce sync rate with time thresholds
+      ipvs: add support for sync threads
+      ipvs: optimize the use of flags in ip_vs_bind_dest
+
+Sasha Levin (1):
+      netfilter: ipvs: use GFP_KERNEL allocation where possible
+
+ include/linux/ip_vs.h            |    5 +
+ include/net/ip_vs.h              |   87 ++++-
+ net/netfilter/ipvs/ip_vs_conn.c  |   69 ++--
+ net/netfilter/ipvs/ip_vs_core.c  |   30 +-
+ net/netfilter/ipvs/ip_vs_ctl.c   |   70 +++-
+ net/netfilter/ipvs/ip_vs_dh.c    |    2 +-
+ net/netfilter/ipvs/ip_vs_ftp.c   |    2 +-
+ net/netfilter/ipvs/ip_vs_lblc.c  |    2 +-
+ net/netfilter/ipvs/ip_vs_lblcr.c |    2 +-
+ net/netfilter/ipvs/ip_vs_proto.c |    6 +-
+ net/netfilter/ipvs/ip_vs_sh.c    |    2 +-
+ net/netfilter/ipvs/ip_vs_sync.c  |  662 ++++++++++++++++++++++++++------------
+ net/netfilter/ipvs/ip_vs_wrr.c   |    2 +-
+ 13 files changed, 667 insertions(+), 274 deletions(-)
