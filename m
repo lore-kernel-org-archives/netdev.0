@@ -1,15 +1,13 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: take care of cloned skbs in
- tcp_try_coalesce()
-Date: Wed, 02 May 2012 10:13:04 +0200
-Message-ID: <1335946384.22133.119.camel@edumazet-glaptop>
+Subject: Re: [PATCH 3/4 v2 net-next] net: make GRO aware of skb->head_frag
+Date: Wed, 02 May 2012 10:24:44 +0200
+Message-ID: <1335947084.22133.134.camel@edumazet-glaptop>
 References: <1335523026.2775.236.camel@edumazet-glaptop>
 	 <1335809434.2296.9.camel@edumazet-glaptop> <4F9F21E2.3080407@intel.com>
 	 <1335835677.11396.5.camel@edumazet-glaptop>
 	 <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>
 	 <1335854378.11396.26.camel@edumazet-glaptop>  <4FA00C9F.8080409@intel.com>
-	 <1335891892.22133.23.camel@edumazet-glaptop> <4FA06A94.8050704@intel.com>
-	 <4FA06D7A.6090800@intel.com>  <1335926862.22133.42.camel@edumazet-glaptop>
+	 <1335891892.22133.23.camel@edumazet-glaptop>  <4FA03D69.6060907@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -27,70 +25,36 @@ Cc: Alexander Duyck <alexander.duyck@gmail.com>,
 	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
 To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:57958 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752492Ab2EBINK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 04:13:10 -0400
-Received: by eekc41 with SMTP id c41so78320eek.19
-        for <netdev@vger.kernel.org>; Wed, 02 May 2012 01:13:08 -0700 (PDT)
-In-Reply-To: <1335926862.22133.42.camel@edumazet-glaptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:48413 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752492Ab2EBIYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 04:24:51 -0400
+Received: by eaaq12 with SMTP id q12so80632eaa.19
+        for <netdev@vger.kernel.org>; Wed, 02 May 2012 01:24:50 -0700 (PDT)
+In-Reply-To: <4FA03D69.6060907@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, 2012-05-01 at 12:45 -0700, Alexander Duyck wrote:
 
-Before stealing fragments or skb head, we must make sure skb is not
-cloned.
+> I have a hacked together ixgbe up and running now with the new build_skb
+> logic and RSC/LRO disabled.  It looks like it is giving me a 5%
+> performance boost for small packet routing, but I am using more CPU for
+> netperf TCP receive tests and I was wondering if you had seen anything
+> similar on the tg3 driver?
 
-If skb is cloned, we must take references on pages instead.
+Really hard to say, numbers are so small on Gb link :
 
-Bug happened using tcpdump (if not using mmap())
+what do you use to make your numbers ?
 
-Reported-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_input.c |   17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+netperf -H 172.30.42.23 -t OMNI -C -c 
+OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.30.42.23 (172.30.42.23) port 0 AF_INET
+Local       Local       Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service  
+Send Socket Send Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand   
+Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units    
+Final       Final                                             %     Method %      Method                          
+1700840     1700840     16384  10.01   931.60     10^6bits/s  4.50  S      1.32   S      1.582   2.783   usec/KB  
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 96a631d..7686d7f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4467,7 +4467,7 @@ static bool tcp_try_coalesce(struct sock *sk,
- 			     struct sk_buff *from,
- 			     bool *fragstolen)
- {
--	int delta, len = from->len;
-+	int i, delta, len = from->len;
- 
- 	*fragstolen = false;
- 	if (tcp_hdr(from)->fin)
-@@ -4497,7 +4497,13 @@ copyfrags:
- 		       skb_shinfo(from)->frags,
- 		       skb_shinfo(from)->nr_frags * sizeof(skb_frag_t));
- 		skb_shinfo(to)->nr_frags += skb_shinfo(from)->nr_frags;
--		skb_shinfo(from)->nr_frags = 0;
-+
-+		if (skb_cloned(from))
-+			for (i = 0; i < skb_shinfo(from)->nr_frags; i++)
-+				skb_frag_ref(from, i);
-+		else
-+			skb_shinfo(from)->nr_frags = 0;
-+
- 		to->truesize += delta;
- 		atomic_add(delta, &sk->sk_rmem_alloc);
- 		sk_mem_charge(sk, delta);
-@@ -4515,7 +4521,12 @@ copyfrags:
- 		offset = from->data - (unsigned char *)page_address(page);
- 		skb_fill_page_desc(to, skb_shinfo(to)->nr_frags,
- 				   page, offset, skb_headlen(from));
--		*fragstolen = true;
-+
-+		if (skb_cloned(from))
-+			get_page(page);
-+		else
-+			*fragstolen = true;
-+
- 		delta = len; /* we dont know real truesize... */
- 		goto copyfrags;
- 	}
+About ixgbe, feel free to send your patch ;)
+
+Thanks !
