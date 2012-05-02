@@ -1,47 +1,40 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 06/18] ipvs: SH scheduler does not need GFP_ATOMIC allocation
-Date: Wed,  2 May 2012 15:22:30 +0900
-Message-ID: <1335939762-1912-7-git-send-email-horms@verge.net.au>
-References: <1335939762-1912-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1335939762-1912-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [V2 PATCH 0/9] vhost/macvtap zeropcopy fixes
+Date: Wed, 02 May 2012 02:44:27 -0400 (EDT)
+Message-ID: <20120502.024427.22049954455309204.davem@davemloft.net>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<20120502055008.GA29319@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jasowang@redhat.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57281 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098Ab2EBGoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 02:44:34 -0400
+In-Reply-To: <20120502055008.GA29319@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 2 May 2012 08:50:09 +0300
 
-        Schedulers are initialized and bound to services only
-on commands.
+> On Wed, May 02, 2012 at 11:41:21AM +0800, Jason Wang wrote:
+>> This is an updated since the last series of vhost/macvtap zerocopy fixes which
+>> fixes the the possible transmission stall, host kernel stack overflow and other
+>> misc fixes.
+>> 
+>> Changes from V1:
+>> - Addressing comments from Eric and Michael.
+>> - Adding more fixes into the seires.
+> 
+> Thanks for fixing this.
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> Dave, can you merge this for 3.4 please?
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_sh.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index 91e97ee..0512652 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -162,7 +162,7 @@ static int ip_vs_sh_init_svc(struct ip_vs_service *svc)
- 
- 	/* allocate the SH table for this service */
- 	tbl = kmalloc(sizeof(struct ip_vs_sh_bucket)*IP_VS_SH_TAB_SIZE,
--		      GFP_ATOMIC);
-+		      GFP_KERNEL);
- 	if (tbl == NULL)
- 		return -ENOMEM;
- 
--- 
-1.7.10
-
+It's rather late in the -RC for such a large patch set.
