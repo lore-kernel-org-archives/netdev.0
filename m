@@ -1,60 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/4 v2 net-next] net: make GRO aware of skb->head_frag
-Date: Wed, 02 May 2012 10:24:44 +0200
-Message-ID: <1335947084.22133.134.camel@edumazet-glaptop>
-References: <1335523026.2775.236.camel@edumazet-glaptop>
-	 <1335809434.2296.9.camel@edumazet-glaptop> <4F9F21E2.3080407@intel.com>
-	 <1335835677.11396.5.camel@edumazet-glaptop>
-	 <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>
-	 <1335854378.11396.26.camel@edumazet-glaptop>  <4FA00C9F.8080409@intel.com>
-	 <1335891892.22133.23.camel@edumazet-glaptop>  <4FA03D69.6060907@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next v2 6/8] ixgbe: add syfs interface for to export read
+ only driver information
+Date: Wed, 02 May 2012 01:41:47 -0700
+Message-ID: <1335948107.2656.33.camel@jtkirshe-mobl>
+References: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1335862269-28914-7-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20120501.100241.1409452912879198250.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-yrXZqWoITxuyi/SIlmgJ"
+Cc: donald.c.skidmore@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:48413 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752492Ab2EBIYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 04:24:51 -0400
-Received: by eaaq12 with SMTP id q12so80632eaa.19
-        for <netdev@vger.kernel.org>; Wed, 02 May 2012 01:24:50 -0700 (PDT)
-In-Reply-To: <4FA03D69.6060907@intel.com>
+Received: from mga01.intel.com ([192.55.52.88]:9482 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754329Ab2EBIls (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2012 04:41:48 -0400
+In-Reply-To: <20120501.100241.1409452912879198250.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-01 at 12:45 -0700, Alexander Duyck wrote:
 
-> I have a hacked together ixgbe up and running now with the new build_skb
-> logic and RSC/LRO disabled.  It looks like it is giving me a 5%
-> performance boost for small packet routing, but I am using more CPU for
-> netperf TCP receive tests and I was wondering if you had seen anything
-> similar on the tg3 driver?
+--=-yrXZqWoITxuyi/SIlmgJ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Really hard to say, numbers are so small on Gb link :
+On Tue, 2012-05-01 at 10:02 -0400, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Tue,  1 May 2012 01:51:07 -0700
+>=20
+> > From: Don Skidmore <donald.c.skidmore@intel.com>
+> >=20
+> > This patch exports non-thermal (which was done via hwmon in an earlier
+> > patch) data to sysfs which isn't readily available elsewhere.  All of t=
+he
+> > fields are read only as this interface is to only export driver data.
+> >=20
+> > Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+> > Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>=20
+> I don't like it.
+>=20
+> Some of this stuff is generic and belongs somewhere like ethtool, for
+> example the descriptor sizes and queue sizes.
+>=20
+> The others are reading registers, and we have an ethtool API for that
+> already.
+>=20
+> But putting anything like this in sysfs is pointless, because the
+> stuff that other cards have too will then go into differently named
+> sysfs files which, as is oft repeated here, is a terrible user
+> experience.
+>=20
+> If you want to do this right, add a new ethtool interface that allows
+> the publication of card specific unchanging values, in a style like
+> what we already do for statistics.  Have one query that gets the
+> string list, and then another which fetches the actual values.
+>=20
+> I hate sysfs, don't send me any more patches that add sysfs files for
+> networking devices. :-)
 
-what do you use to make your numbers ?
+Ok.
 
-netperf -H 172.30.42.23 -t OMNI -C -c 
-OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 172.30.42.23 (172.30.42.23) port 0 AF_INET
-Local       Local       Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service  
-Send Socket Send Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand   
-Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units    
-Final       Final                                             %     Method %      Method                          
-1700840     1700840     16384  10.01   931.60     10^6bits/s  4.50  S      1.32   S      1.582   2.783   usec/KB  
+So the other two patches (patch 4 & 5 in the series) should be fine
+since they integrate hwmon interface like how Ben Hutchings has done
+with other drivers and do not add any sysfs, correct?
 
-About ixgbe, feel free to send your patch ;)
+--=-yrXZqWoITxuyi/SIlmgJ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Thanks !
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJPoPNLAAoJEOVv75VaS+3OsLAP/iPoWdHbXJFm6k+F2GKRlTvp
+w9w6ZZDoXvS73x3QBA+FHOy1+mgqc26Pu4uGB70AgD/W9B3QcoiORLC/aVsmt1Z+
+6gDjgs8FVohIas0c/13Rh9gSommVP2Mh7F1dVyx9XNYFDw/BvuoGq40HjJKlzvT4
+NewuzMuZYyjG0Suon5Q6xEZ+Bmd56dTvgYZUdscJ7E02GR7DSx2qorPI3TWcqhi+
+v5hYTO8Uc9fsGk4jOWaf9pFHx7flbPDrljj9urdZUCHEupRh2K28zM68YSMZ6UPG
+dBZyk1YPwiRgPPrihDjQgCpqhWDDRnRGMuHaxLuVKyN+tic/sx6grPnm1CH0a2zS
+4xs6C1qihckQ9LomKGkq248oU858SyaPZ1TqIbdnW2cs+e7FFqur+SOlvWY/SHQB
+tR7s97Kg0e3Bp9ed1WTGpQbSZtvf9oDX9bbZ7tboPyXaCnosXgLaWGhQoE63yn5n
+tCQu0NrsAij3l5SZNM7gp/lKg2Vw6eJZhulMRnJ6KrqzK4dZQmygH4qf7HgwiuTG
+edDIeQ2ddHV/D1iXbZLgBk2KqWRrE1PgcJJtAIplT6zWZVWZoTD+YRtQuM683NZt
+gWTYQX//p00S9heuBRlyuszgKLISI1S8+fkX/2iOQTMIjI/xUlp5gL76VhROWC4k
+cLNqghS7Qn3SAYcmU5qQ
+=of+I
+-----END PGP SIGNATURE-----
+
+--=-yrXZqWoITxuyi/SIlmgJ--
