@@ -1,50 +1,28 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 05/17] ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init
-Date: Wed,  2 May 2012 10:24:49 +0900
-Message-ID: <1335921901-21284-6-git-send-email-horms@verge.net.au>
-References: <1335921901-21284-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:59923 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756253Ab2EBBZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 21:25:25 -0400
-In-Reply-To: <1335921901-21284-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH v3 2/2] netfilter: ipvs: use GFP_KERNEL allocation where
+ possible
+Date: Wed, 2 May 2012 10:19:50 +0900
+Message-ID: <20120502011949.GA20415@verge.net.au>
+References: <1334421467-30313-1-git-send-email-levinsasha928@gmail.com>
+ <1334421467-30313-2-git-send-email-levinsasha928@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: wensong@linux-vs.org, ja@ssi.bg, kaber@trash.net,
+	davem@davemloft.net, davej@redhat.com, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1334421467-30313-2-git-send-email-levinsasha928@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+On Sat, Apr 14, 2012 at 12:37:47PM -0400, Sasha Levin wrote:
+> Use GFP_KERNEL instead of GFP_ATOMIC when registering an ipvs protocol.
+> 
+> This is safe since it will always run from a process context.
 
-	Schedulers are initialized and bound to services only
-on commands.
+For the benefit of patchwork, this patch is in ipvs-next.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_lblcr.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 7498756..00906ea 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -511,7 +511,7 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- 	/*
- 	 *    Allocate the ip_vs_lblcr_table for this service
- 	 */
--	tbl = kmalloc(sizeof(*tbl), GFP_ATOMIC);
-+	tbl = kmalloc(sizeof(*tbl), GFP_KERNEL);
- 	if (tbl == NULL)
- 		return -ENOMEM;
- 
--- 
-1.7.9.5
+Thanks again for the good work.
