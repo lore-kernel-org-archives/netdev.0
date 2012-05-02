@@ -1,119 +1,263 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH v3 1/3] tcp: early retransmit: tcp_enter_recovery()
-Date: Wed,  2 May 2012 11:46:29 -0700
-Message-ID: <1335984391-31340-1-git-send-email-ycheng@google.com>
+Subject: [PATCH v3 2/3] tcp: early retransmit
+Date: Wed,  2 May 2012 11:46:30 -0700
+Message-ID: <1335984391-31340-2-git-send-email-ycheng@google.com>
+References: <1335984391-31340-1-git-send-email-ycheng@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: ncardwell@google.com, nanditad@google.com, netdev@vger.kernel.org,
 	Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f74.google.com ([209.85.214.74]:52612 "EHLO
-	mail-bk0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755850Ab2EBSqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 14:46:34 -0400
-Received: by bkty5 with SMTP id y5so54679bkt.1
+Received: from mail-ey0-f202.google.com ([209.85.215.202]:58237 "EHLO
+	mail-ey0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755981Ab2EBSqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 14:46:35 -0400
+Received: by eaaq10 with SMTP id q10so54372eaa.1
         for <netdev@vger.kernel.org>; Wed, 02 May 2012 11:46:33 -0700 (PDT)
+In-Reply-To: <1335984391-31340-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This a prepartion patch that refactors the code to enter recovery
-into a new function tcp_enter_recovery(). It's needed to implement
-the delayed fast retransmit in ER.
+This patch implements RFC 5827 early retransmit (ER) for TCP.
+It reduces DUPACK threshold (dupthresh) if outstanding packets are
+less than 4 to recover losses by fast recovery instead of timeout.
+
+While the algorithm is simple, small but frequent network reordering
+makes this feature dangerous: the connection repeatedly enter
+false recovery and degrade performance. Therefore we implement
+a mitigation suggested in the appendix of the RFC that delays
+entering fast recovery by a small interval, i.e., RTT/4. But when
+the network reordering degree is too large, i.e., 3 packets,
+ER is disabled to avoid false fast recoveries for the rest of
+the connection. The performance impact of ER is summarized in
+section 6 of the paper "Proportional Rate Reduction for TCP=E2=80=9D,
+IMC 2011. http://conferences.sigcomm.org/imc/2011/docs/p155.pdf
+
+Note that Linux has a similar feature called THIN_DUPACK. The
+differences are THIN_DUPACK do not mitigate reorderings and is only
+used after slow start. Currently ER is disabled if THIN_DUPACK is
+enabled. I would be happy to merge THIN_DUPACK feature with ER if
+people think it's a good idea.
+
+ER is enabled by sysctl_tcp_early_retrans:
+  0: Disables ER
+
+  1: Reduce dupthresh to packets_out - 1 when outstanding packets < 4.
+
+  2: (Default) reduce dupthresh like mode 1. In addition, delay
+     entering fast recovery by RTT/4.
+
+Note: mode 2 is implemented in the third part of this patch series.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
-ChangeLog since v1:
- - swaped with part 1 and part2
-ChangeLog since v2:
- - removed RFC in commit message
- 
- net/ipv4/tcp_input.c |   61 +++++++++++++++++++++++++++----------------------
- 1 files changed, 34 insertions(+), 27 deletions(-)
+ChangeLog in v2:
+ - swapped part1 and part2
+ChangeLog in v3:
+ - trivial text fixes in documentation.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c93b0cb..22df826 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3022,6 +3022,38 @@ static void tcp_update_cwnd_in_recovery(struct sock *sk, int newly_acked_sacked,
- 	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
+ Documentation/networking/ip-sysctl.txt |   14 ++++++++++++++
+ include/linux/tcp.h                    |    7 ++++---
+ include/net/tcp.h                      |   15 +++++++++++++++
+ net/ipv4/sysctl_net_ipv4.c             |   10 ++++++++++
+ net/ipv4/tcp.c                         |    3 +++
+ net/ipv4/tcp_input.c                   |   13 +++++++++++++
+ net/ipv4/tcp_minisocks.c               |    1 +
+ 7 files changed, 60 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
+working/ip-sysctl.txt
+index 9b569a2..34916e7 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -190,6 +190,20 @@ tcp_cookie_size - INTEGER
+ tcp_dsack - BOOLEAN
+ 	Allows TCP to send "duplicate" SACKs.
+=20
++tcp_early_retrans - INTEGER
++	Enable Early Retransmit (ER), per RFC 5827. ER lowers the threshold
++	for triggering fast retransmit when the amount of outstanding data is
++	small and when no previously unsent data can be transmitted (such
++	that limited transmit could be used).
++	Possible values:
++		0 disables ER
++		1 enables ER
++		2 enables ER but delays fast recovery and fast retransmit
++		  by a fourth of RTT. This mitigates connection falsely
++		  recovers when network has a small degree of reordering
++		  (less than 3 packets).
++	Default: 2
++
+ tcp_ecn - INTEGER
+ 	Enable Explicit Congestion Notification (ECN) in TCP. ECN is only
+ 	used when both ends of the TCP flow support it. It is useful to
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 278af9e..7d08a79 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -365,12 +365,13 @@ struct tcp_sock {
+=20
+ 	u32	frto_highmark;	/* snd_nxt when RTO occurred */
+ 	u16	advmss;		/* Advertised MSS			*/
+-	u8	frto_counter;	/* Number of new acks after RTO */
+-	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
++	u16	nonagle     : 4,/* Disable Nagle algorithm?             */
+ 		thin_lto    : 1,/* Use linear timeouts for thin streams */
+ 		thin_dupack : 1,/* Fast retransmit on first dupack      */
+ 		repair      : 1,
+-		unused      : 1;
++		do_early_retrans: 1;/* Enable RFC5827 early-retransmit  */
++
++	u8	frto_counter;	/* Number of new acks after RTO */
+ 	u8	repair_queue;
+=20
+ /* RTT measurement */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 0fb84de..685437a 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -252,6 +252,7 @@ extern int sysctl_tcp_max_ssthresh;
+ extern int sysctl_tcp_cookie_size;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
++extern int sysctl_tcp_early_retrans;
+=20
+ extern atomic_long_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+@@ -797,6 +798,20 @@ static inline void tcp_enable_fack(struct tcp_sock=
+ *tp)
+ 	tp->rx_opt.sack_ok |=3D TCP_FACK_ENABLED;
  }
- 
-+static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
+=20
++/* TCP early-retransmit (ER) is similar to but more conservative than
++ * the thin-dupack feature.  Enable ER only if thin-dupack is disabled=
+=2E
++ */
++static inline void tcp_enable_early_retrans(struct tcp_sock *tp)
 +{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	int mib_idx;
-+
-+	if (tcp_is_reno(tp))
-+		mib_idx = LINUX_MIB_TCPRENORECOVERY;
-+	else
-+		mib_idx = LINUX_MIB_TCPSACKRECOVERY;
-+
-+	NET_INC_STATS_BH(sock_net(sk), mib_idx);
-+
-+	tp->high_seq = tp->snd_nxt;
-+	tp->prior_ssthresh = 0;
-+	tp->undo_marker = tp->snd_una;
-+	tp->undo_retrans = tp->retrans_out;
-+
-+	if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
-+		if (!ece_ack)
-+			tp->prior_ssthresh = tcp_current_ssthresh(sk);
-+		tp->snd_ssthresh = inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
-+		TCP_ECN_queue_cwr(tp);
-+	}
-+
-+	tp->bytes_acked = 0;
-+	tp->snd_cwnd_cnt = 0;
-+	tp->prior_cwnd = tp->snd_cwnd;
-+	tp->prr_delivered = 0;
-+	tp->prr_out = 0;
-+	tcp_set_ca_state(sk, TCP_CA_Recovery);
++	tp->do_early_retrans =3D sysctl_tcp_early_retrans &&
++		!sysctl_tcp_thin_dupack && sysctl_tcp_reordering =3D=3D 3;
 +}
 +
- /* Process an event, which can update packets-in-flight not trivially.
-  * Main goal of this function is to calculate new estimate for left_out,
-  * taking into account both packets sitting in receiver's buffer and
-@@ -3041,7 +3073,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
- 				    (tcp_fackets_out(tp) > tp->reordering));
--	int fast_rexmit = 0, mib_idx;
-+	int fast_rexmit = 0;
- 
- 	if (WARN_ON(!tp->packets_out && tp->sacked_out))
- 		tp->sacked_out = 0;
-@@ -3142,32 +3174,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
- 		}
- 
- 		/* Otherwise enter Recovery state */
--
--		if (tcp_is_reno(tp))
--			mib_idx = LINUX_MIB_TCPRENORECOVERY;
--		else
--			mib_idx = LINUX_MIB_TCPSACKRECOVERY;
--
--		NET_INC_STATS_BH(sock_net(sk), mib_idx);
--
--		tp->high_seq = tp->snd_nxt;
--		tp->prior_ssthresh = 0;
--		tp->undo_marker = tp->snd_una;
--		tp->undo_retrans = tp->retrans_out;
--
--		if (icsk->icsk_ca_state < TCP_CA_CWR) {
--			if (!(flag & FLAG_ECE))
--				tp->prior_ssthresh = tcp_current_ssthresh(sk);
--			tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
--			TCP_ECN_queue_cwr(tp);
--		}
--
--		tp->bytes_acked = 0;
--		tp->snd_cwnd_cnt = 0;
--		tp->prior_cwnd = tp->snd_cwnd;
--		tp->prr_delivered = 0;
--		tp->prr_out = 0;
--		tcp_set_ca_state(sk, TCP_CA_Recovery);
-+		tcp_enter_recovery(sk, (flag & FLAG_ECE));
- 		fast_rexmit = 1;
++static inline void tcp_disable_early_retrans(struct tcp_sock *tp)
++{
++	tp->do_early_retrans =3D 0;
++}
++
+ static inline unsigned int tcp_left_out(const struct tcp_sock *tp)
+ {
+ 	return tp->sacked_out + tp->lost_out;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 33417f8..ef32956 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -27,6 +27,7 @@
+ #include <net/tcp_memcontrol.h>
+=20
+ static int zero;
++static int two =3D 2;
+ static int tcp_retr1_max =3D 255;
+ static int ip_local_port_range_min[] =3D { 1, 1 };
+ static int ip_local_port_range_max[] =3D { 65535, 65535 };
+@@ -677,6 +678,15 @@ static struct ctl_table ipv4_table[] =3D {
+ 		.proc_handler   =3D proc_dointvec
+ 	},
+ 	{
++		.procname	=3D "tcp_early_retrans",
++		.data		=3D &sysctl_tcp_early_retrans,
++		.maxlen		=3D sizeof(int),
++		.mode		=3D 0644,
++		.proc_handler	=3D proc_dointvec_minmax,
++		.extra1		=3D &zero,
++		.extra2		=3D &two,
++	},
++	{
+ 		.procname	=3D "udp_mem",
+ 		.data		=3D &sysctl_udp_mem,
+ 		.maxlen		=3D sizeof(sysctl_udp_mem),
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 9670af3..6802c89 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -395,6 +395,7 @@ void tcp_init_sock(struct sock *sk)
+ 	tp->mss_cache =3D TCP_MSS_DEFAULT;
+=20
+ 	tp->reordering =3D sysctl_tcp_reordering;
++	tcp_enable_early_retrans(tp);
+ 	icsk->icsk_ca_ops =3D &tcp_init_congestion_ops;
+=20
+ 	sk->sk_state =3D TCP_CLOSE;
+@@ -2495,6 +2496,8 @@ static int do_tcp_setsockopt(struct sock *sk, int=
+ level,
+ 			err =3D -EINVAL;
+ 		else
+ 			tp->thin_dupack =3D val;
++			if (tp->thin_dupack)
++				tcp_disable_early_retrans(tp);
+ 		break;
+=20
+ 	case TCP_REPAIR:
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 22df826..98c586d 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -99,6 +99,7 @@ int sysctl_tcp_thin_dupack __read_mostly;
+=20
+ int sysctl_tcp_moderate_rcvbuf __read_mostly =3D 1;
+ int sysctl_tcp_abc __read_mostly;
++int sysctl_tcp_early_retrans __read_mostly =3D 2;
+=20
+ #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
+ #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
+@@ -906,6 +907,7 @@ static void tcp_init_metrics(struct sock *sk)
+ 	if (dst_metric(dst, RTAX_REORDERING) &&
+ 	    tp->reordering !=3D dst_metric(dst, RTAX_REORDERING)) {
+ 		tcp_disable_fack(tp);
++		tcp_disable_early_retrans(tp);
+ 		tp->reordering =3D dst_metric(dst, RTAX_REORDERING);
  	}
- 
--- 
+=20
+@@ -987,6 +989,7 @@ static void tcp_update_reordering(struct sock *sk, =
+const int metric,
+ 		       tp->undo_marker ? tp->undo_retrans : 0);
+ #endif
+ 		tcp_disable_fack(tp);
++		tcp_disable_early_retrans(tp);
+ 	}
+ }
+=20
+@@ -2492,6 +2495,16 @@ static int tcp_time_to_recover(struct sock *sk)
+ 	    tcp_is_sack(tp) && !tcp_send_head(sk))
+ 		return 1;
+=20
++	/* Trick#6: TCP early retransmit, per RFC5827.  To avoid spurious
++	 * retransmissions due to small network reorderings, we implement
++	 * Mitigation A.3 in the RFC and delay the retransmission for a short
++	 * interval if appropriate.
++	 */
++	if (tp->do_early_retrans && !tp->retrans_out && tp->sacked_out &&
++	    (tp->packets_out =3D=3D (tp->sacked_out + 1) && tp->packets_out <=
+ 4) &&
++	    !tcp_may_send_now(sk))
++		return 1;
++
+ 	return 0;
+ }
+=20
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 3cabafb..6f6a918 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -482,6 +482,7 @@ struct sock *tcp_create_openreq_child(struct sock *=
+sk, struct request_sock *req,
+ 		newtp->sacked_out =3D 0;
+ 		newtp->fackets_out =3D 0;
+ 		newtp->snd_ssthresh =3D TCP_INFINITE_SSTHRESH;
++		tcp_enable_early_retrans(newtp);
+=20
+ 		/* So many TCP implementations out there (incorrectly) count the
+ 		 * initial SYN frame in their delayed-ACK and congestion control
+--=20
 1.7.7.3
