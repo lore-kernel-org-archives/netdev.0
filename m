@@ -1,62 +1,117 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 00/17] netfilter: add namespace support for
- netfilter protos
-Date: Wed, 2 May 2012 02:40:20 +0200
-Message-ID: <20120502004020.GA14999@1984>
-References: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
- <m1zk9rwxf2.fsf@fess.ebiederm.org>
+Subject: Re: [PATCH RFC 2/2] netfilter: conntrack: replace mutex with
+ cmpxchg
+Date: Wed, 2 May 2012 02:51:02 +0200
+Message-ID: <20120502005102.GB14999@1984>
+References: <1335551333-6103-1-git-send-email-bpoirier@suse.de>
+ <1335551333-6103-2-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Gao feng <gaofeng@cn.fujitsu.com>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, serge.hallyn@canonical.com,
-	dlezcano@fr.ibm.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Arun Sharma <asharma@fb.com>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Benjamin Poirier <bpoirier@suse.de>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <m1zk9rwxf2.fsf@fess.ebiederm.org>
+In-Reply-To: <1335551333-6103-2-git-send-email-bpoirier@suse.de>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On Fri, Apr 27, 2012 at 02:28:53PM -0400, Benjamin Poirier wrote:
+> This mutex protects a single pointer.
 
-On Tue, May 01, 2012 at 11:47:45AM -0700, Eric W. Biederman wrote:
-> Gao feng <gaofeng@cn.fujitsu.com> writes:
-> 
-> > Currently the sysctl of netfilter proto is not isolated, so when
-> > changing proto's sysctl in container will cause the host's sysctl
-> > be changed too. it's not expected.
-> >
-> > This patch set adds the namespace support for netfilter protos.
-> >
-> > impletement four pernet_operations to register sysctl and initial
-> > pernet data for proto.
-> >
-> > -ipv4_net_ops is used to register tcp4(compat),
-> >  udp4(compat),icmp(compat),ipv4(compat).
-> > -ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
-> > -sctp_net_ops is used to register sctp4(compat) and sctp6.
-> > -udplite_net_ops is used to register udplite4 and udplite6
-> >
-> > extern l[3,4]proto (sysctl) register functions to make them support
-> > namespace.
-> >
-> > finailly add namespace support for cttimeout.
-> 
-> I am a bit out of it this week so I could not look at these patches
-> in the detail that I would like.  However skimming through it looks
-> like you addressed your review comments, and the changes look like
-> the kind of changes I would expect from something like this.
-> 
-> I assume you have tested to make certain your code actually works.
-> 
-> So on that basis for the patchset:
-> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> 
-> Anyone else want to chime in or does everyone else figure
-> that this code is ready to be merged and no additional comments
-> are necessary?
+You seem to be using an old Linux kernel tree. This doesn't apply.
 
-I also want to see this code in this round of net-next.
-
-Yet, I'd like to have it a closer look to the patches. Please, be
-patient.
+> ---
+>  net/netfilter/nf_conntrack_ecache.c |   38 +++++++++-------------------------
+>  1 files changed, 10 insertions(+), 28 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
+> index 0134009..603eb69 100644
+> --- a/net/netfilter/nf_conntrack_ecache.c
+> +++ b/net/netfilter/nf_conntrack_ecache.c
+> @@ -25,8 +25,6 @@
+>  #include <net/netfilter/nf_conntrack_core.h>
+>  #include <net/netfilter/nf_conntrack_extend.h>
+>  
+> -static DEFINE_MUTEX(nf_ct_ecache_mutex);
+> -
+>  /* deliver cached events and clear cache entry - must be called with locally
+>   * disabled softirqs */
+>  void nf_ct_deliver_cached_events(struct nf_conn *ct)
+> @@ -80,52 +78,36 @@ EXPORT_SYMBOL_GPL(nf_ct_deliver_cached_events);
+>  int nf_conntrack_register_notifier(struct net *net,
+>  				   struct nf_ct_event_notifier *new)
+>  {
+> -	int ret = 0;
+> -
+> -	mutex_lock(&nf_ct_ecache_mutex);
+> -	if (net->ct.nf_conntrack_event_cb != NULL)
+> -		ret = -EBUSY;
+> +	if (cmpxchg(&net->ct.nf_conntrack_event_cb, NULL, new) != NULL)
+> +		return -EBUSY;
+>  	else
+> -		net->ct.nf_conntrack_event_cb = new;
+> -	mutex_unlock(&nf_ct_ecache_mutex);
+> -
+> -	return ret;
+> +		return 0;
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_register_notifier);
+>  
+>  void nf_conntrack_unregister_notifier(struct net *net,
+>  				      struct nf_ct_event_notifier *new)
+>  {
+> -	mutex_lock(&nf_ct_ecache_mutex);
+> -	BUG_ON(net->ct.nf_conntrack_event_cb != new);
+> -	net->ct.nf_conntrack_event_cb = NULL;
+> -	mutex_unlock(&nf_ct_ecache_mutex);
+> +	if (xchg(&net->ct.nf_conntrack_event_cb, NULL) != new)
+> +		BUG();
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_unregister_notifier);
+>  
+>  int nf_ct_expect_register_notifier(struct net *net,
+>  				   struct nf_exp_event_notifier *new)
+>  {
+> -	int ret = 0;
+> -
+> -	mutex_lock(&nf_ct_ecache_mutex);
+> -	if (net->ct.nf_expect_event_cb != NULL)
+> -		ret = -EBUSY;
+> +	if (cmpxchg(&net->ct.nf_expect_event_cb, NULL, new) != NULL)
+> +		return -EBUSY;
+>  	else
+> -		net->ct.nf_expect_event_cb = new;
+> -	mutex_unlock(&nf_ct_ecache_mutex);
+> -
+> -	return ret;
+> +		return 0;
+>  }
+>  EXPORT_SYMBOL_GPL(nf_ct_expect_register_notifier);
+>  
+>  void nf_ct_expect_unregister_notifier(struct net *net,
+>  				      struct nf_exp_event_notifier *new)
+>  {
+> -	mutex_lock(&nf_ct_ecache_mutex);
+> -	BUG_ON(net->ct.nf_expect_event_cb != new);
+> -	net->ct.nf_expect_event_cb = NULL;
+> -	mutex_unlock(&nf_ct_ecache_mutex);
+> +	if (xchg(&net->ct.nf_expect_event_cb, NULL) != new)
+> +		BUG();
+>  }
+>  EXPORT_SYMBOL_GPL(nf_ct_expect_unregister_notifier);
+>  
+> -- 
+> 1.7.7
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
