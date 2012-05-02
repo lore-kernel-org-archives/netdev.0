@@ -1,95 +1,84 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 6/8] ixgbe: add syfs interface for to export read
- only driver information
-Date: Wed, 02 May 2012 01:41:47 -0700
-Message-ID: <1335948107.2656.33.camel@jtkirshe-mobl>
-References: <1335862269-28914-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1335862269-28914-7-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20120501.100241.1409452912879198250.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH 01/14 v3] usb/net: rndis: inline the cpu_to_le32() macro
+Date: Wed, 2 May 2012 09:44:22 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6EFE@saturn3.aculab.com>
+References: <1335896100-12469-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-yrXZqWoITxuyi/SIlmgJ"
-Cc: donald.c.skidmore@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:9482 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754329Ab2EBIls (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 May 2012 04:41:48 -0400
-In-Reply-To: <20120501.100241.1409452912879198250.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jussi Kivilinna" <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
+	"Haiyang Zhang" <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+	"Wei Yongjun" <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
+	"Ben Hutchings" <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+To: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Greg Kroah-Hartman" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Felipe Balbi" <balbi-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1335896100-12469-1-git-send-email-linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+> -----Original Message-----
+> From: netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org 
+> [mailto:netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Linus Walleij
+> Sent: 01 May 2012 19:15
+> To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Greg 
+> Kroah-Hartman; David S. Miller; Felipe Balbi
+> Cc: Jussi Kivilinna; Haiyang Zhang; Wei Yongjun; Ben 
+> Hutchings; Linus Walleij
+> Subject: [PATCH 01/14 v3] usb/net: rndis: inline the 
+> cpu_to_le32() macro
+> 
+> The header file <linux/usb/rndis_host.h> used a number of #defines
+> that included the cpu_to_le32() macro to assure the result will be
+> in LE endianness. Inlining this into the code instead of using it
+> in the code definitions yields consolidation opportunities later
+> on as you will see in the following patches. The individual
+> drivers also used local defines - all are switched over to the
+> pattern of doing the conversion at the call sites instead.
+> 
+> Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> ---
+>  drivers/net/usb/rndis_host.c      |   52 +++++++-------
+>  drivers/net/wireless/rndis_wlan.c |  138 
+> +++++++++++++++++++------------------
+>  include/linux/usb/rndis_host.h    |   84 +++++++++++-----------
+>  3 files changed, 139 insertions(+), 135 deletions(-)
+> 
+> diff --git a/drivers/net/usb/rndis_host.c 
+> b/drivers/net/usb/rndis_host.c
+> index c8f1b5b..05cad0b 100644
+> --- a/drivers/net/usb/rndis_host.c
+> +++ b/drivers/net/usb/rndis_host.c
+> @@ -78,10 +78,10 @@ static void rndis_msg_indicate(struct 
+> usbnet *dev, struct rndis_indicate *msg,
+>  		dev->driver_info->indication(dev, msg, buflen);
+>  	} else {
+>  		switch (msg->status) {
+> -		case RNDIS_STATUS_MEDIA_CONNECT:
+> +		case cpu_to_le32(RNDIS_STATUS_MEDIA_CONNECT):
+>  			dev_info(udev, "rndis media connect\n");
+>  			break;
+
+I don't actually see how this helps!
+It seems to make the code more unreadable and more likely to
+be wrong (due to typos/coding slipups etc).
+I didn't see anything in the earlier versions of the patches
+where leaving the constants 'host endian' helped.
+
+I also actually suspect that the generated code for some of the
+switch statements would be better if the 'status' were byteswapped.
+In particular it might allow the compiler to use a jump table
+(when all the case labels are in one set of values).
+
+	David
 
 
---=-yrXZqWoITxuyi/SIlmgJ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2012-05-01 at 10:02 -0400, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Tue,  1 May 2012 01:51:07 -0700
->=20
-> > From: Don Skidmore <donald.c.skidmore@intel.com>
-> >=20
-> > This patch exports non-thermal (which was done via hwmon in an earlier
-> > patch) data to sysfs which isn't readily available elsewhere.  All of t=
-he
-> > fields are read only as this interface is to only export driver data.
-> >=20
-> > Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> > Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->=20
-> I don't like it.
->=20
-> Some of this stuff is generic and belongs somewhere like ethtool, for
-> example the descriptor sizes and queue sizes.
->=20
-> The others are reading registers, and we have an ethtool API for that
-> already.
->=20
-> But putting anything like this in sysfs is pointless, because the
-> stuff that other cards have too will then go into differently named
-> sysfs files which, as is oft repeated here, is a terrible user
-> experience.
->=20
-> If you want to do this right, add a new ethtool interface that allows
-> the publication of card specific unchanging values, in a style like
-> what we already do for statistics.  Have one query that gets the
-> string list, and then another which fetches the actual values.
->=20
-> I hate sysfs, don't send me any more patches that add sysfs files for
-> networking devices. :-)
-
-Ok.
-
-So the other two patches (patch 4 & 5 in the series) should be fine
-since they integrate hwmon interface like how Ben Hutchings has done
-with other drivers and do not add any sysfs, correct?
-
---=-yrXZqWoITxuyi/SIlmgJ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPoPNLAAoJEOVv75VaS+3OsLAP/iPoWdHbXJFm6k+F2GKRlTvp
-w9w6ZZDoXvS73x3QBA+FHOy1+mgqc26Pu4uGB70AgD/W9B3QcoiORLC/aVsmt1Z+
-6gDjgs8FVohIas0c/13Rh9gSommVP2Mh7F1dVyx9XNYFDw/BvuoGq40HjJKlzvT4
-NewuzMuZYyjG0Suon5Q6xEZ+Bmd56dTvgYZUdscJ7E02GR7DSx2qorPI3TWcqhi+
-v5hYTO8Uc9fsGk4jOWaf9pFHx7flbPDrljj9urdZUCHEupRh2K28zM68YSMZ6UPG
-dBZyk1YPwiRgPPrihDjQgCpqhWDDRnRGMuHaxLuVKyN+tic/sx6grPnm1CH0a2zS
-4xs6C1qihckQ9LomKGkq248oU858SyaPZ1TqIbdnW2cs+e7FFqur+SOlvWY/SHQB
-tR7s97Kg0e3Bp9ed1WTGpQbSZtvf9oDX9bbZ7tboPyXaCnosXgLaWGhQoE63yn5n
-tCQu0NrsAij3l5SZNM7gp/lKg2Vw6eJZhulMRnJ6KrqzK4dZQmygH4qf7HgwiuTG
-edDIeQ2ddHV/D1iXbZLgBk2KqWRrE1PgcJJtAIplT6zWZVWZoTD+YRtQuM683NZt
-gWTYQX//p00S9heuBRlyuszgKLISI1S8+fkX/2iOQTMIjI/xUlp5gL76VhROWC4k
-cLNqghS7Qn3SAYcmU5qQ
-=of+I
------END PGP SIGNATURE-----
-
---=-yrXZqWoITxuyi/SIlmgJ--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
