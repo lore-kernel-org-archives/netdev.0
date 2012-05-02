@@ -1,7 +1,7 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 05/18] ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init
-Date: Wed,  2 May 2012 15:22:29 +0900
-Message-ID: <1335939762-1912-6-git-send-email-horms@verge.net.au>
+Subject: [PATCH 06/18] ipvs: SH scheduler does not need GFP_ATOMIC allocation
+Date: Wed,  2 May 2012 15:22:30 +0900
+Message-ID: <1335939762-1912-7-git-send-email-horms@verge.net.au>
 References: <1335939762-1912-1-git-send-email-horms@verge.net.au>
 Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org,
@@ -12,39 +12,36 @@ Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
 	Hans Schillstrom <hans@schillstrom.com>,
 	Simon Horman <horms@verge.net.au>
 To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:44692 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755403Ab2EBGWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 02:22:49 -0400
+Return-path: <lvs-devel-owner@vger.kernel.org>
 In-Reply-To: <1335939762-1912-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Julian Anastasov <ja@ssi.bg>
 
-	Schedulers are initialized and bound to services only
+        Schedulers are initialized and bound to services only
 on commands.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_lblcr.c |    2 +-
+ net/netfilter/ipvs/ip_vs_sh.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 7498756..00906ea 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -511,7 +511,7 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- 	/*
- 	 *    Allocate the ip_vs_lblcr_table for this service
- 	 */
--	tbl = kmalloc(sizeof(*tbl), GFP_ATOMIC);
-+	tbl = kmalloc(sizeof(*tbl), GFP_KERNEL);
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index 91e97ee..0512652 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -162,7 +162,7 @@ static int ip_vs_sh_init_svc(struct ip_vs_service *svc)
+ 
+ 	/* allocate the SH table for this service */
+ 	tbl = kmalloc(sizeof(struct ip_vs_sh_bucket)*IP_VS_SH_TAB_SIZE,
+-		      GFP_ATOMIC);
++		      GFP_KERNEL);
  	if (tbl == NULL)
  		return -ENOMEM;
  
 -- 
 1.7.10
+
