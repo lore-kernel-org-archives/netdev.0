@@ -1,78 +1,63 @@
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
-Date: Wed, 2 May 2012 10:58:56 +0200
-Message-ID: <CA+icZUVLKEs4YAiByqeUpD6cRUyF+bvb2SY=PYebDKU8b+653A@mail.gmail.com>
-References: <CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com>
-	<20120427101732.GX3157@wantstofly.org>
-	<CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com>
-	<CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com>
-	<20120427185809.GZ3157@wantstofly.org>
-	<CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com>
-	<CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com>
-	<20120501125102.GN3157@wantstofly.org>
-	<CA+icZUV=qtXwVxb+uvQJcsza0y+6k2LHJFFPnECY0M=QWBexaQ@mail.gmail.com>
-	<4FA089F9.1020602@erley.org>
-	<20120502023836.GW3157@wantstofly.org>
-Reply-To: sedat.dilek@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pat Erley <pat-lkml@erley.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lautriv <admin@coldplug.net>,
-	Jim Cromie <jim.cromie@gmail.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Wed,  2 May 2012 02:13:38 -0700
+Message-ID: <1335950025-13294-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:64257 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755289Ab2EBI65 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 04:58:57 -0400
-In-Reply-To: <20120502023836.GW3157@wantstofly.org>
+Received: from mga14.intel.com ([143.182.124.37]:59017 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751824Ab2EBJOC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2012 05:14:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 2, 2012 at 4:38 AM, Lennert Buytenhek
-<buytenh@wantstofly.org> wrote:
-> On Tue, May 01, 2012 at 09:12:25PM -0400, Pat Erley wrote:
->
->> >--- a/drivers/net/wireless/mwl8k.c
->> >+++ b/drivers/net/wireless/mwl8k.c
->> >@@ -5225,6 +5225,7 @@ static void mwl8k_finalize_join_worker(struct=
- work_struct *work)
->> > =C2=A0}
->> >
->> > =C2=A0enum {
->> >+ =C2=A0 =C2=A0MWL8361P =3D 0,
->> > =C2=A0 =C2=A0 MWL8363 =3D 0,
->> > =C2=A0 =C2=A0 MWL8687,
->> > =C2=A0 =C2=A0 MWL8366,
->>
->> I'm not an expert, but isn't this giving both 8361P and 8363 the
->> same values in the enum?
->
-> Yeah, this is broken.
+This series of patches contains updates for e1000e and ixgbe.
+Patch 4 & 5 integrate the hwmon interface for ixgbe as Ben Hutchings
+has done for other drivers.
 
-Before this email, Helmut pointed me to the enum thingie in a private q=
-uery.
-As I was busy with OverlayFS the last days, I couldn't give that
-information back.
+v2: dropped the ixgbe patch which added the sysfs interface
 
-So, this should be:
-=2E..
-  enum {
-     MWL8361P =3D 0,
-     MWL8363,
-     MWL8687,
-     MWL8366,
-=2E..
+The following are changes since commit e4ae004b84b315dd4b762e474f97403eac70f76a:
+  netem: add ECN capability
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Shall I cook up a new patch with a proper history and documented
-origin (original patch is from OpenWrt, I refreshed it against
-upstream)?
-=2E..add some Tested-by (Helmut, Jim)...
-=2E..send that to linux-wireless ML for a review?
+Bruce Allan (3):
+  e1000e: workaround EEPROM configuration change on 82579
+  e1000e: PHY initialization flow changes for 82577/8/9
+  e1000e: fix .ndo_set_rx_mode for 82579
 
-- Sedat -
+Don Skidmore (2):
+  ixgbe: add support functions to access thermal data
+  ixgbe: add hwmon interface to export thermal data
+
+Greg Rose (2):
+  ixgbe: Deny MACVLAN requests from VFs with admin set MAC
+  ixgbe: Reset max_vfs to zero when user request is out of range
+
+ drivers/net/ethernet/intel/Kconfig              |    8 +
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |    1 +
+ drivers/net/ethernet/intel/e1000e/82571.c       |    4 +-
+ drivers/net/ethernet/intel/e1000e/e1000.h       |    2 +-
+ drivers/net/ethernet/intel/e1000e/hw.h          |    6 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |  339 ++++++++++++++++-------
+ drivers/net/ethernet/intel/e1000e/mac.c         |   10 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c      |   12 +-
+ drivers/net/ethernet/intel/ixgbe/Makefile       |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h        |   26 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  169 +++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |   13 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   13 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c  |    6 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c  |  271 ++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |   40 +++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |    2 +
+ 19 files changed, 808 insertions(+), 120 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+
+-- 
+1.7.7.6
