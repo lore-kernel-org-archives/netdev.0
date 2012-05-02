@@ -1,92 +1,101 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [V2 PATCH 5/9] macvtap: zerocopy: validate vectors before building
- skb
-Date: Wed, 02 May 2012 11:42:15 +0800
-Message-ID: <20120502034215.11782.9051.stgit@amd-6168-8-1.englab.nay.redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/4 v2 net-next] net: make GRO aware of skb->head_frag
+Date: Wed, 02 May 2012 05:54:09 +0200
+Message-ID: <1335930849.22133.45.camel@edumazet-glaptop>
+References: <1335523026.2775.236.camel@edumazet-glaptop>
+	 <1335809434.2296.9.camel@edumazet-glaptop> <4F9F21E2.3080407@intel.com>
+	 <1335835677.11396.5.camel@edumazet-glaptop>
+	 <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>
+	 <1335854378.11396.26.camel@edumazet-glaptop>  <4FA00C9F.8080409@intel.com>
+	 <1335891892.22133.23.camel@edumazet-glaptop> <4FA06A94.8050704@intel.com>
+	 <4FA06D7A.6090800@intel.com>  <1335926862.22133.42.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
-	davem@davemloft.net
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22403 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758669Ab2EBDrb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 May 2012 23:47:31 -0400
-In-Reply-To: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:47599 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753039Ab2EBDyP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 23:54:15 -0400
+Received: by wibhj6 with SMTP id hj6so4245268wib.1
+        for <netdev@vger.kernel.org>; Tue, 01 May 2012 20:54:14 -0700 (PDT)
+In-Reply-To: <1335926862.22133.42.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There're several reasons that the vectors need to be validated:
+On Wed, 2012-05-02 at 04:47 +0200, Eric Dumazet wrote:
 
-- Return error when caller provides vectors whose num is greater than UIO_MAXIOV.
-- Linearize part of skb when userspace provides vectors grater than MAX_SKB_FRAGS.
-- Return error when userspace provides vectors whose total length may exceed
-- MAX_SKB_FRAGS * PAGE_SIZE.
+> Thanks Alex, I'll take a look.
+> 
+> It seems my tcpdump is different than yours.
+> 
+> 
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/macvtap.c |   25 +++++++++++++++++++++----
- 1 files changed, 21 insertions(+), 4 deletions(-)
+I'll test following patch in a couple of hours :
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index a4ff694..163559c 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -529,9 +529,10 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
- 		}
- 		base = (unsigned long)from->iov_base + offset;
- 		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+		if (i + size > MAX_SKB_FRAGS)
-+			return -EMSGSIZE;
- 		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
--		if ((num_pages != size) ||
--		    (num_pages > MAX_SKB_FRAGS - skb_shinfo(skb)->nr_frags)) {
-+		if (num_pages != size) {
- 			for (i = 0; i < num_pages; i++)
- 				put_page(page[i]);
- 			return -EFAULT;
-@@ -651,7 +652,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	int err;
- 	struct virtio_net_hdr vnet_hdr = { 0 };
- 	int vnet_hdr_len = 0;
--	int copylen;
-+	int copylen = 0;
- 	bool zerocopy = false;
+Thanks !
+
+ net/ipv4/tcp_input.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 96a631d..910a794 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4467,7 +4467,8 @@ static bool tcp_try_coalesce(struct sock *sk,
+ 			     struct sk_buff *from,
+ 			     bool *fragstolen)
+ {
+-	int delta, len = from->len;
++	int i, delta, len = from->len;
++	bool fastpath;
  
- 	if (q->flags & IFF_VNET_HDR) {
-@@ -680,15 +681,31 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	if (unlikely(len < ETH_HLEN))
- 		goto err;
+ 	*fragstolen = false;
+ 	if (tcp_hdr(from)->fin)
+@@ -4484,6 +4485,7 @@ merge:
+ 	if (skb_has_frag_list(to) || skb_has_frag_list(from))
+ 		return false;
  
-+	err = -EMSGSIZE;
-+	if (unlikely(count > UIO_MAXIOV))
-+		goto err;
++	fastpath = !from->cloned || atomic_read(&skb_shinfo(from)->dataref) == 1;
+ 	if (skb_headlen(from) == 0 &&
+ 	    (skb_shinfo(to)->nr_frags +
+ 	     skb_shinfo(from)->nr_frags <= MAX_SKB_FRAGS)) {
+@@ -4497,7 +4499,13 @@ copyfrags:
+ 		       skb_shinfo(from)->frags,
+ 		       skb_shinfo(from)->nr_frags * sizeof(skb_frag_t));
+ 		skb_shinfo(to)->nr_frags += skb_shinfo(from)->nr_frags;
+-		skb_shinfo(from)->nr_frags = 0;
 +
- 	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY))
- 		zerocopy = true;
- 
- 	if (zerocopy) {
-+		/* Userspace may produce vectors with count greater than
-+		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
-+		 * to let the rest of data to be fit in the frags.
-+		 */
-+		if (count > MAX_SKB_FRAGS) {
-+			copylen = iov_length(iv, count - MAX_SKB_FRAGS);
-+			if (copylen < vnet_hdr_len)
-+				copylen = 0;
-+			else
-+				copylen -= vnet_hdr_len;
-+		}
- 		/* There are 256 bytes to be copied in skb, so there is enough
- 		 * room for skb expand head in case it is used.
- 		 * The rest buffer is mapped from userspace.
- 		 */
--		copylen = vnet_hdr.hdr_len;
-+		if (copylen < vnet_hdr.hdr_len)
-+			copylen = vnet_hdr.hdr_len;
- 		if (!copylen)
- 			copylen = GOODCOPY_LEN;
- 	} else
++		if (fastpath)
++			skb_shinfo(from)->nr_frags = 0;
++		else
++			for (i = 0; i < skb_shinfo(from)->nr_frags; i++)
++				skb_frag_ref(from, i);
++
+ 		to->truesize += delta;
+ 		atomic_add(delta, &sk->sk_rmem_alloc);
+ 		sk_mem_charge(sk, delta);
+@@ -4515,7 +4523,9 @@ copyfrags:
+ 		offset = from->data - (unsigned char *)page_address(page);
+ 		skb_fill_page_desc(to, skb_shinfo(to)->nr_frags,
+ 				   page, offset, skb_headlen(from));
+-		*fragstolen = true;
++		*fragstolen = fastpath;
++		if (!fastpath)
++			get_page(page);
+ 		delta = len; /* we dont know real truesize... */
+ 		goto copyfrags;
+ 	}
