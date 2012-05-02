@@ -1,49 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bonding: don't increase rx_dropped after processing LACPDUs
-Date: Wed, 02 May 2012 19:41:05 -0400 (EDT)
-Message-ID: <20120502.194105.1211756092128572035.davem@davemloft.net>
-References: <20120502202309.GA25355@midget.suse.cz>
-	<1335991009.22133.639.camel@edumazet-glaptop>
-	<20120502205118.GB25355@midget.suse.cz>
+Subject: Re: [net-next v2 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 02 May 2012 19:45:35 -0400 (EDT)
+Message-ID: <20120502.194535.73059000886850739.davem@davemloft.net>
+References: <1335950025-13294-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, fubar@us.ibm.com, andy@greyhouse.net,
-	netdev@vger.kernel.org
-To: jbohac@suse.cz
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	bhutchings@solarflare.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37572 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:37601 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751164Ab2EBXmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 19:42:19 -0400
-In-Reply-To: <20120502205118.GB25355@midget.suse.cz>
+	with ESMTP id S1751985Ab2EBXpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 19:45:42 -0400
+In-Reply-To: <1335950025-13294-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Bohac <jbohac@suse.cz>
-Date: Wed, 2 May 2012 22:51:18 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  2 May 2012 02:13:38 -0700
 
-> On Wed, May 02, 2012 at 10:36:49PM +0200, Eric Dumazet wrote:
->> > +			if (ret == RX_HANDLER_CONSUMED)
->> > +				kfree_skb(skb);
->> 
->> After this point, you have use after free :
->> 
->> if (bond_should_deliver_exact_match(skb, slave, bond)) { 
->> 	...
->> }
->> skb->dev = bond->dev;
+> This series of patches contains updates for e1000e and ixgbe.
+> Patch 4 & 5 integrate the hwmon interface for ixgbe as Ben Hutchings
+> has done for other drivers.
 > 
-> Thanks for spotting this! Let's just return immediately at that
-> point. Fixed version below:
+> v2: dropped the ixgbe patch which added the sysfs interface
 > 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+> The following are changes since commit e4ae004b84b315dd4b762e474f97403eac70f76a:
+>   netem: add ECN capability
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Please don't do this.
-
-When you post a fixed version of a patch, post it with the full
-proper commit message and signoff.
-
-I'm not going to go back to your original posting and put that
-commit message from there into the fixed patch.  That's your
-job as a patch submitter, not mine.
+Pulled, thanks Jeff.
