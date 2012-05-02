@@ -1,51 +1,63 @@
-From: Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
-Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
-Date: Wed, 2 May 2012 04:38:36 +0200
-Message-ID: <20120502023836.GW3157@wantstofly.org>
-References: <CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com>
- <20120427101732.GX3157@wantstofly.org>
- <CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com>
- <CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com>
- <20120427185809.GZ3157@wantstofly.org>
- <CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com>
- <CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com>
- <20120501125102.GN3157@wantstofly.org>
- <CA+icZUV=qtXwVxb+uvQJcsza0y+6k2LHJFFPnECY0M=QWBexaQ@mail.gmail.com>
- <4FA089F9.1020602@erley.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/4 v2 net-next] net: make GRO aware of skb->head_frag
+Date: Wed, 02 May 2012 04:45:03 +0200
+Message-ID: <1335926703.22133.39.camel@edumazet-glaptop>
+References: <1335523026.2775.236.camel@edumazet-glaptop>
+	 <1335809434.2296.9.camel@edumazet-glaptop> <4F9F21E2.3080407@intel.com>
+	 <1335835677.11396.5.camel@edumazet-glaptop>
+	 <CAKgT0UdeVvJe6k5OitkKgujSw3SQSOvtQ84KrPch8xdd=5ub1A@mail.gmail.com>
+	 <1335854378.11396.26.camel@edumazet-glaptop>  <4FA00C9F.8080409@intel.com>
+	 <1335891892.22133.23.camel@edumazet-glaptop>  <4FA03D69.6060907@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lautriv <admin-kieEQ4o6Pv7k1uMJSBkQmQ@public.gmane.org>,
-	Jim Cromie <jim.cromie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>
-To: Pat Erley <pat-lkml-Jx9fsTfDDR3YtjvyW6yDsg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4FA089F9.1020602-Jx9fsTfDDR3YtjvyW6yDsg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:37427 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758440Ab2EBCpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 May 2012 22:45:09 -0400
+Received: by wibhq7 with SMTP id hq7so141322wib.1
+        for <netdev@vger.kernel.org>; Tue, 01 May 2012 19:45:07 -0700 (PDT)
+In-Reply-To: <4FA03D69.6060907@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 01, 2012 at 09:12:25PM -0400, Pat Erley wrote:
+On Tue, 2012-05-01 at 12:45 -0700, Alexander Duyck wrote:
 
-> >--- a/drivers/net/wireless/mwl8k.c
-> >+++ b/drivers/net/wireless/mwl8k.c
-> >@@ -5225,6 +5225,7 @@ static void mwl8k_finalize_join_worker(struct work_struct *work)
-> >  }
-> >
-> >  enum {
-> >+	MWL8361P = 0,
-> >  	MWL8363 = 0,
-> >  	MWL8687,
-> >  	MWL8366,
+> I wasn't worried about the kfree vs put_page, I was worried about the
+> coalesce case.  However, it looks like you are correct and I am not
+> seeing any issues so everything seems to be working fine.
 > 
-> I'm not an expert, but isn't this giving both 8361P and 8363 the
-> same values in the enum?
+> I have a hacked together ixgbe up and running now with the new build_skb
+> logic and RSC/LRO disabled.  It looks like it is giving me a 5%
+> performance boost for small packet routing, but I am using more CPU for
+> netperf TCP receive tests and I was wondering if you had seen anything
+> similar on the tg3 driver?
+> 
 
-Yeah, this is broken.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+Hmm, tg3 perf for small packets is not changed, because tg3 uses
+copybreak anyway.
+
+#define TG3_RX_COPY_THRESHOLD       256
+
+For big packets, I have no changes in netperf because GRO cannot really
+provide big enough skbs at 1Gb speed.
+
+The changes are noticeable when BDP (Bandwidth*Delay Product) is large
+and some packet losses happen : You notice lower latencies in TCP stack,
+because of less collapses (big copies)
