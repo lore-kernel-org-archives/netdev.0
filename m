@@ -1,98 +1,84 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: sky2 still badly broken
-Date: Wed, 2 May 2012 11:56:18 -0700
-Message-ID: <20120502115618.04ab8ff9@s6510.linuxnetplumber.net>
-References: <4F9AFE4E.8010108@linuxsystems.it>
-	<20120430122501.5fff4b1e@nehalam.linuxnetplumber.net>
-	<4FA14EC6.6050207@linuxsystems.it>
+Subject: Re: [PATCH 2/2] ss: implement -M option to get all memory
+ information
+Date: Wed, 2 May 2012 12:00:42 -0700
+Message-ID: <20120502120042.5420644a@s6510.linuxnetplumber.net>
+References: <4F97A48F.4010109@gmail.com>
+	<20120425104128.4d6e13e1@nehalam.linuxnetplumber.net>
+	<4F99FEA1.2000700@gmail.com>
+	<20120427102138.67bd6b3a@nehalam.linuxnetplumber.net>
+	<4FA1021E.6030905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?TmljY29sw7I=?= Belli <darkbasic@linuxsystems.it>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: xemul@parallels.com, NetDev <netdev@vger.kernel.org>
+To: Shan Wei <shanwei88@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36126 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:42816 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755587Ab2EBS4Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 14:56:25 -0400
-In-Reply-To: <4FA14EC6.6050207@linuxsystems.it>
+	id S1755500Ab2EBTAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 May 2012 15:00:47 -0400
+In-Reply-To: <4FA1021E.6030905@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 02 May 2012 17:12:06 +0200
-Niccol=C3=B2 Belli <darkbasic@linuxsystems.it> wrote:
+On Wed, 02 May 2012 17:45:02 +0800
+Shan Wei <shanwei88@gmail.com> wrote:
 
-> Il 30/04/2012 21:25, Stephen Hemminger ha scritto:
-> > You are getting CRC and FIFO overrun errors. What laptop is this?
-> > Everything works fine on my old Fuijitsu with same chip (but rev 14=
-).
-> > You could try taking out the status bit checks and see if the
-> > packets are really okay and the Marvell chip is complaining about
-> > bogus status.
->=20
-> I compiled 3.4-rc5 + both sky2 patches you recently published and I d=
-id=20
-> some more tests:
->=20
-> Point to point: works flawlessly.
-> Attached to the switch: rx errors, even downloading a very small 89 K=
-B=20
-> file :(
->=20
-> This is the dump using IPv4:
-> http://files.linuxsystems.it/temp/2012-05/sky2_ipv4.pcap
->=20
-> dmesg (I did an rmmod -f sky2 before doing the test):
-> [ 1147.885026] sky2 0000:06:00.0: eth0: disabling interface
-> [ 1148.909548] sky2: driver version 1.30
-> [ 1148.909764] sky2 0000:06:00.0: Yukon-2 EC Ultra chip revision 3
-> [ 1148.914367] sky2 0000:06:00.0: irq 45 for MSI/MSI-X
-> [ 1148.916310] sky2 0000:06:00.0: eth0: addr 00:13:77:b4:1b:fa
-> [ 1148.942297] sky2 0000:06:00.0: eth0: enabling interface
-> [ 1148.944225] ADDRCONF(NETDEV_UP): eth0: link is not ready
-> [ 1151.496295] sky2 0000:06:00.0: eth0: Link is up at 1000 Mbps, full=
-=20
-> duplex, flow control rx
-> [ 1151.497614] ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-> [ 1178.479437] device eth0 entered promiscuous mode
-> [ 1179.541707] *sky2 0000:06:00.0: eth0: rx error, status 0x7ffc0001=20
-> length 1468*
-> [ 1179.544110] *sky2 0000:06:00.0: eth0: rx error, status 0x7ffc0001=20
-> length 1468*
-> [ 1181.642598] device eth0 left promiscuous mode
->=20
->=20
->=20
->=20
-> This is the dump using IPv6:
-> http://files.linuxsystems.it/temp/2012-05/sky2_ipv6.pcap
->=20
-> dmesg (I did an rmmod -f sky2 before doing the test):
-> [ 1314.225572] sky2 0000:06:00.0: eth0: disabling interface
-> [ 1315.248523] sky2: driver version 1.30
-> [ 1315.248731] sky2 0000:06:00.0: Yukon-2 EC Ultra chip revision 3
-> [ 1315.249333] sky2 0000:06:00.0: irq 45 for MSI/MSI-X
-> [ 1315.250307] sky2 0000:06:00.0: eth0: addr 00:13:77:b4:1b:fa
-> [ 1315.271364] sky2 0000:06:00.0: eth0: enabling interface
-> [ 1315.273015] ADDRCONF(NETDEV_UP): eth0: link is not ready
-> [ 1317.875985] sky2 0000:06:00.0: eth0: Link is up at 1000 Mbps, full=
-=20
-> duplex, flow control rx
-> [ 1317.877311] ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-> [ 1345.946062] device eth0 entered promiscuous mode
-> [ 1349.119848] device eth0 left promiscuous mode
-> [ 1376.231698] device eth0 entered promiscuous mode
-> [ 1377.369095] *sky2 0000:06:00.0: eth0: rx error, status 0x7ffc0001=20
-> length 1468*
-> [ 1379.618257] device eth0 left promiscuous mode
->=20
->=20
->=20
-> Switch is a Netgear GS724Tv3 firmware 5.0.3.5
->=20
->=20
-> Cheers,
-> Niccol=C3=B2
+> Hi stephen:
+> 
+> Stephen Hemminger said, at 2012/4/28 1:21:
+> 
+> > Lots of options return more or different information based on kernel
+> > version, probably the biggest example is how stats are processed.
+> 
+> 
+> how about the following patch?
+> 
+> ----
+> [PATCH] ss: use new INET_DIAG_SKMEMINFO option to get memory information for tcp socket
+> 
+> 
+> Signed-off-by: Shan Wei <davidshan@tencent.com>
+> ---
+>  misc/ss.c |   16 ++++++++++++++--
+>  1 files changed, 14 insertions(+), 2 deletions(-)
+> 
+> diff --git a/misc/ss.c b/misc/ss.c
+> index 5f70a26..3cfc9e8 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -1336,7 +1336,17 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
+>  	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr*)(r+1),
+>  		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+>  
+> -	if (tb[INET_DIAG_MEMINFO]) {
+> +	if (tb[INET_DIAG_SKMEMINFO]) {
+> +		const unsigned int *skmeminfo =  RTA_DATA(tb[INET_DIAG_SKMEMINFO]);
+> +		printf(" skmem:(r%u,rb%u,t%u,tb%u,f%u,w%u,o%u)",
+> +			skmeminfo[SK_MEMINFO_RMEM_ALLOC],
+> +			skmeminfo[SK_MEMINFO_RCVBUF],
+> +			skmeminfo[SK_MEMINFO_WMEM_ALLOC],
+> +			skmeminfo[SK_MEMINFO_SNDBUF],
+> +			skmeminfo[SK_MEMINFO_FWD_ALLOC],
+> +			skmeminfo[SK_MEMINFO_WMEM_QUEUED],
+> +			skmeminfo[SK_MEMINFO_OPTMEM]);
+> +	}else if (tb[INET_DIAG_MEMINFO]) {
+>  		const struct inet_diag_meminfo *minfo
+>  			= RTA_DATA(tb[INET_DIAG_MEMINFO]);
+>  		printf(" mem:(r%u,w%u,f%u,t%u)",
+> @@ -1505,8 +1515,10 @@ static int tcp_show_netlink(struct filter *f, FILE *dump_fp, int socktype)
+>  	memset(&req.r, 0, sizeof(req.r));
+>  	req.r.idiag_family = AF_INET;
+>  	req.r.idiag_states = f->states;
+> -	if (show_mem)
+> +	if (show_mem) {
+>  		req.r.idiag_ext |= (1<<(INET_DIAG_MEMINFO-1));
+> +		req.r.idiag_ext |= (1<<(INET_DIAG_SKMEMINFO-1));
+> +	}
+>  
+>  	if (show_tcpinfo) {
+>  		req.r.idiag_ext |= (1<<(INET_DIAG_INFO-1));
 
-It could be that your switch doesn't do autonegotiation or flow
-control. You are getting receive fifo overflow errors.
+This looks good, is the skmeminfo a superset of the old meminfo?
+But your code is broken on 64 bit. skmeminfo in kernel is an array of __u32!
