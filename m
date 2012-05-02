@@ -1,309 +1,318 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/7] ixgbe: add support functions to access thermal data
-Date: Wed,  2 May 2012 02:13:42 -0700
-Message-ID: <1335950025-13294-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/7] e1000e: PHY initialization flow changes for 82577/8/9
+Date: Wed,  2 May 2012 02:13:40 -0700
+Message-ID: <1335950025-13294-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1335950025-13294-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, bhutchings@solarflare.com,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:19601 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:11097 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752145Ab2EBJOE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752374Ab2EBJOE (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 2 May 2012 05:14:04 -0400
 In-Reply-To: <1335950025-13294-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Some 82599 adapters contain thermal data that we can get to via
-an i2c interface.  These functions provide support to get at that
-data.  A following patch will export this data.
+The PHY initialization flows and assorted workarounds for 82577/8/9 done
+during driver load and resume from Sx should be the same yet they are not.
+Combine the current flows/workarounds into a common set of functions that
+are called during the different code paths.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  171 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |   13 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |   40 ++++++
- 3 files changed, 224 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |  247 ++++++++++++++++-----------
+ 1 files changed, 146 insertions(+), 101 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index e598881..6c6c66e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3604,3 +3604,174 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
- 	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr_ext);
- 	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
- }
-+
-+static const u8 ixgbe_emc_temp_data[4] = {
-+	IXGBE_EMC_INTERNAL_DATA,
-+	IXGBE_EMC_DIODE1_DATA,
-+	IXGBE_EMC_DIODE2_DATA,
-+	IXGBE_EMC_DIODE3_DATA
-+};
-+static const u8 ixgbe_emc_therm_limit[4] = {
-+	IXGBE_EMC_INTERNAL_THERM_LIMIT,
-+	IXGBE_EMC_DIODE1_THERM_LIMIT,
-+	IXGBE_EMC_DIODE2_THERM_LIMIT,
-+	IXGBE_EMC_DIODE3_THERM_LIMIT
-+};
-+
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 2506ee2..4c8b0fb 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -287,25 +287,126 @@ static inline void __ew32flash(struct e1000_hw *hw, unsigned long reg, u32 val)
+ #define ew16flash(reg, val)	__ew16flash(hw, (reg), (val))
+ #define ew32flash(reg, val)	__ew32flash(hw, (reg), (val))
+ 
+-static void e1000_toggle_lanphypc_value_ich8lan(struct e1000_hw *hw)
 +/**
-+ *  ixgbe_get_ets_data - Extracts the ETS bit data
-+ *  @hw: pointer to hardware structure
-+ *  @ets_cfg: extected ETS data
-+ *  @ets_offset: offset of ETS data
++ *  e1000_phy_is_accessible_pchlan - Check if able to access PHY registers
++ *  @hw: pointer to the HW structure
 + *
-+ *  Returns error code.
++ *  Test access to the PHY registers by reading the PHY ID registers.  If
++ *  the PHY ID is already known (e.g. resume path) compare it with known ID,
++ *  otherwise assume the read PHY ID is correct if it is valid.
++ *
++ *  Assumes the sw/fw/hw semaphore is already acquired.
 + **/
-+static s32 ixgbe_get_ets_data(struct ixgbe_hw *hw, u16 *ets_cfg,
-+			      u16 *ets_offset)
-+{
-+	s32 status = 0;
++static bool e1000_phy_is_accessible_pchlan(struct e1000_hw *hw)
+ {
+-	u32 reg;
++	u16 phy_reg;
++	u32 phy_id;
+ 
+-	/* Set Phy Config Counter to 50msec */
+-	reg = er32(FEXTNVM3);
+-	reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
+-	reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
+-	ew32(FEXTNVM3, reg);
+-
+-	/* Toggle LANPHYPC Value bit */
+-	reg = er32(CTRL);
+-	reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
+-	reg &= ~E1000_CTRL_LANPHYPC_VALUE;
+-	ew32(CTRL, reg);
+-	e1e_flush();
+-	udelay(10);
+-	reg &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
+-	ew32(CTRL, reg);
++	hw->phy.ops.read_reg_locked(hw, PHY_ID1, &phy_reg);
++	phy_id = (u32)(phy_reg << 16);
++	hw->phy.ops.read_reg_locked(hw, PHY_ID2, &phy_reg);
++	phy_id |= (u32)(phy_reg & PHY_REVISION_MASK);
 +
-+	status = hw->eeprom.ops.read(hw, IXGBE_ETS_CFG, ets_offset);
-+	if (status)
-+		goto out;
-+
-+	if ((*ets_offset == 0x0000) || (*ets_offset == 0xFFFF)) {
-+		status = IXGBE_NOT_IMPLEMENTED;
-+		goto out;
++	if (hw->phy.id) {
++		if (hw->phy.id == phy_id)
++			return true;
++	} else {
++		if ((phy_id != 0) && (phy_id != PHY_REVISION_MASK))
++			hw->phy.id = phy_id;
++		return true;
 +	}
 +
-+	status = hw->eeprom.ops.read(hw, *ets_offset, ets_cfg);
-+	if (status)
-+		goto out;
-+
-+	if ((*ets_cfg & IXGBE_ETS_TYPE_MASK) != IXGBE_ETS_TYPE_EMC_SHIFTED) {
-+		status = IXGBE_NOT_IMPLEMENTED;
-+		goto out;
-+	}
-+
-+out:
-+	return status;
++	return false;
 +}
 +
 +/**
-+ *  ixgbe_get_thermal_sensor_data - Gathers thermal sensor data
-+ *  @hw: pointer to hardware structure
++ *  e1000_init_phy_workarounds_pchlan - PHY initialization workarounds
++ *  @hw: pointer to the HW structure
 + *
-+ *  Returns the thermal sensor data structure
++ *  Workarounds/flow necessary for PHY initialization during driver load
++ *  and resume paths.
 + **/
-+s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw)
++static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
 +{
-+	s32 status = 0;
-+	u16 ets_offset;
-+	u16 ets_cfg;
-+	u16 ets_sensor;
-+	u8  num_sensors;
-+	u8  i;
-+	struct ixgbe_thermal_sensor_data *data = &hw->mac.thermal_sensor_data;
++	u32 mac_reg, fwsm = er32(FWSM);
++	s32 ret_val;
 +
-+	/* Only support thermal sensors attached to 82599 physical port 0 */
-+	if ((hw->mac.type != ixgbe_mac_82599EB) ||
-+	     (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)) {
-+		status = IXGBE_NOT_IMPLEMENTED;
-+		goto out;
++	ret_val = hw->phy.ops.acquire(hw);
++	if (ret_val) {
++		e_dbg("Failed to initialize PHY flow\n");
++		return ret_val;
 +	}
 +
-+	status = ixgbe_get_ets_data(hw, &ets_cfg, &ets_offset);
-+	if (status)
-+		goto out;
++	/*
++	 * The MAC-PHY interconnect may be in SMBus mode.  If the PHY is
++	 * inaccessible and resetting the PHY is not blocked, toggle the
++	 * LANPHYPC Value bit to force the interconnect to PCIe mode.
++	 */
++	switch (hw->mac.type) {
++	case e1000_pch2lan:
++		/*
++		 * Gate automatic PHY configuration by hardware on
++		 * non-managed 82579
++		 */
++		if (!(fwsm & E1000_ICH_FWSM_FW_VALID))
++			e1000_gate_hw_phy_config_ich8lan(hw, true);
 +
-+	num_sensors = (ets_cfg & IXGBE_ETS_NUM_SENSORS_MASK);
-+	if (num_sensors > IXGBE_MAX_SENSORS)
-+		num_sensors = IXGBE_MAX_SENSORS;
++		if (e1000_phy_is_accessible_pchlan(hw))
++			break;
 +
-+	for (i = 0; i < num_sensors; i++) {
-+		u8  sensor_index;
-+		u8  sensor_location;
++		/* fall-through */
++	case e1000_pchlan:
++		if ((hw->mac.type == e1000_pchlan) &&
++		    (fwsm & E1000_ICH_FWSM_FW_VALID))
++			break;
 +
-+		status = hw->eeprom.ops.read(hw, (ets_offset + 1 + i),
-+					     &ets_sensor);
-+		if (status)
-+			goto out;
-+
-+		sensor_index = ((ets_sensor & IXGBE_ETS_DATA_INDEX_MASK) >>
-+				IXGBE_ETS_DATA_INDEX_SHIFT);
-+		sensor_location = ((ets_sensor & IXGBE_ETS_DATA_LOC_MASK) >>
-+				   IXGBE_ETS_DATA_LOC_SHIFT);
-+
-+		if (sensor_location != 0) {
-+			status = hw->phy.ops.read_i2c_byte(hw,
-+					ixgbe_emc_temp_data[sensor_index],
-+					IXGBE_I2C_THERMAL_SENSOR_ADDR,
-+					&data->sensor[i].temp);
-+			if (status)
-+				goto out;
++		if (hw->phy.ops.check_reset_block(hw)) {
++			e_dbg("Required LANPHYPC toggle blocked by ME\n");
++			break;
 +		}
-+	}
-+out:
-+	return status;
-+}
 +
-+/**
-+ * ixgbe_init_thermal_sensor_thresh_generic - Inits thermal sensor thresholds
-+ * @hw: pointer to hardware structure
-+ *
-+ * Inits the thermal sensor thresholds according to the NVM map
-+ * and save off the threshold and location values into mac.thermal_sensor_data
-+ **/
-+s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw)
-+{
-+	s32 status = 0;
-+	u16 ets_offset;
-+	u16 ets_cfg;
-+	u16 ets_sensor;
-+	u8  low_thresh_delta;
-+	u8  num_sensors;
-+	u8  therm_limit;
-+	u8  i;
-+	struct ixgbe_thermal_sensor_data *data = &hw->mac.thermal_sensor_data;
++		e_dbg("Toggling LANPHYPC\n");
 +
-+	memset(data, 0, sizeof(struct ixgbe_thermal_sensor_data));
++		/* Set Phy Config Counter to 50msec */
++		mac_reg = er32(FEXTNVM3);
++		mac_reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
++		mac_reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
++		ew32(FEXTNVM3, mac_reg);
 +
-+	/* Only support thermal sensors attached to 82599 physical port 0 */
-+	if ((hw->mac.type != ixgbe_mac_82599EB) ||
-+	    (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)) {
-+		status = IXGBE_NOT_IMPLEMENTED;
-+		goto out;
++		/* Toggle LANPHYPC Value bit */
++		mac_reg = er32(CTRL);
++		mac_reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
++		mac_reg &= ~E1000_CTRL_LANPHYPC_VALUE;
++		ew32(CTRL, mac_reg);
++		e1e_flush();
++		udelay(10);
++		mac_reg &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
++		ew32(CTRL, mac_reg);
++		e1e_flush();
++		msleep(50);
++		break;
++	default:
++		break;
 +	}
 +
-+	status = ixgbe_get_ets_data(hw, &ets_cfg, &ets_offset);
-+	if (status)
-+		goto out;
++	hw->phy.ops.release(hw);
 +
-+	low_thresh_delta = ((ets_cfg & IXGBE_ETS_LTHRES_DELTA_MASK) >>
-+			     IXGBE_ETS_LTHRES_DELTA_SHIFT);
-+	num_sensors = (ets_cfg & IXGBE_ETS_NUM_SENSORS_MASK);
-+	if (num_sensors > IXGBE_MAX_SENSORS)
-+		num_sensors = IXGBE_MAX_SENSORS;
++	/*
++	 * Reset the PHY before any access to it.  Doing so, ensures
++	 * that the PHY is in a known good state before we read/write
++	 * PHY registers.  The generic reset is sufficient here,
++	 * because we haven't determined the PHY type yet.
++	 */
++	ret_val = e1000e_phy_hw_reset_generic(hw);
 +
-+	for (i = 0; i < num_sensors; i++) {
-+		u8  sensor_index;
-+		u8  sensor_location;
-+
-+		hw->eeprom.ops.read(hw, (ets_offset + 1 + i), &ets_sensor);
-+		sensor_index = ((ets_sensor & IXGBE_ETS_DATA_INDEX_MASK) >>
-+				IXGBE_ETS_DATA_INDEX_SHIFT);
-+		sensor_location = ((ets_sensor & IXGBE_ETS_DATA_LOC_MASK) >>
-+				   IXGBE_ETS_DATA_LOC_SHIFT);
-+		therm_limit = ets_sensor & IXGBE_ETS_DATA_HTHRESH_MASK;
-+
-+		hw->phy.ops.write_i2c_byte(hw,
-+			ixgbe_emc_therm_limit[sensor_index],
-+			IXGBE_I2C_THERMAL_SENSOR_ADDR, therm_limit);
-+
-+		if (sensor_location == 0)
-+			continue;
-+
-+		data->sensor[i].location = sensor_location;
-+		data->sensor[i].caution_thresh = therm_limit;
-+		data->sensor[i].max_op_thresh = therm_limit - low_thresh_delta;
++	/* Ungate automatic PHY configuration on non-managed 82579 */
++	if ((hw->mac.type == e1000_pch2lan) &&
++	    !(fwsm & E1000_ICH_FWSM_FW_VALID)) {
++		usleep_range(10000, 20000);
++		e1000_gate_hw_phy_config_ich8lan(hw, false);
 +	}
-+out:
-+	return status;
-+}
 +
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index d6d3432..f992777 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -107,6 +107,19 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
- void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
- 			     u32 headroom, int strategy);
++	return ret_val;
+ }
  
-+#define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
-+#define IXGBE_EMC_INTERNAL_DATA		0x00
-+#define IXGBE_EMC_INTERNAL_THERM_LIMIT	0x20
-+#define IXGBE_EMC_DIODE1_DATA		0x01
-+#define IXGBE_EMC_DIODE1_THERM_LIMIT	0x19
-+#define IXGBE_EMC_DIODE2_DATA		0x23
-+#define IXGBE_EMC_DIODE2_THERM_LIMIT	0x1A
-+#define IXGBE_EMC_DIODE3_DATA		0x2A
-+#define IXGBE_EMC_DIODE3_THERM_LIMIT	0x30
-+
-+s32 ixgbe_get_thermal_sensor_data_generic(struct ixgbe_hw *hw);
-+s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
-+
- #define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
+ /**
+@@ -335,65 +436,34 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	phy->ops.power_down           = e1000_power_down_phy_copper_ich8lan;
+ 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
  
- #ifndef writeq
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 4acd9e6..d82e25c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -112,6 +112,27 @@
- #define IXGBE_I2C_DATA_OUT  0x00000008
- #define IXGBE_I2C_CLOCK_STRETCHING_TIMEOUT	500
+-	if (!hw->phy.ops.check_reset_block(hw)) {
+-		u32 fwsm = er32(FWSM);
+-
+-		/*
+-		 * The MAC-PHY interconnect may still be in SMBus mode after
+-		 * Sx->S0.  If resetting the PHY is not blocked, toggle the
+-		 * LANPHYPC Value bit to force the interconnect to PCIe mode.
+-		 */
+-		e1000_toggle_lanphypc_value_ich8lan(hw);
+-		msleep(50);
+-
+-		/*
+-		 * Gate automatic PHY configuration by hardware on
+-		 * non-managed 82579
+-		 */
+-		if ((hw->mac.type == e1000_pch2lan) &&
+-		    !(fwsm & E1000_ICH_FWSM_FW_VALID))
+-			e1000_gate_hw_phy_config_ich8lan(hw, true);
+-
+-		/*
+-		 * Reset the PHY before any access to it.  Doing so, ensures
+-		 * that the PHY is in a known good state before we read/write
+-		 * PHY registers.  The generic reset is sufficient here,
+-		 * because we haven't determined the PHY type yet.
+-		 */
+-		ret_val = e1000e_phy_hw_reset_generic(hw);
+-		if (ret_val)
+-			return ret_val;
++	phy->id = e1000_phy_unknown;
  
-+#define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
-+#define IXGBE_EMC_INTERNAL_DATA		0x00
-+#define IXGBE_EMC_INTERNAL_THERM_LIMIT	0x20
-+#define IXGBE_EMC_DIODE1_DATA		0x01
-+#define IXGBE_EMC_DIODE1_THERM_LIMIT	0x19
-+#define IXGBE_EMC_DIODE2_DATA		0x23
-+#define IXGBE_EMC_DIODE2_THERM_LIMIT	0x1A
-+
-+#define IXGBE_MAX_SENSORS		3
-+
-+struct ixgbe_thermal_diode_data {
-+	u8 location;
-+	u8 temp;
-+	u8 caution_thresh;
-+	u8 max_op_thresh;
-+};
-+
-+struct ixgbe_thermal_sensor_data {
-+	struct ixgbe_thermal_diode_data sensor[IXGBE_MAX_SENSORS];
-+};
-+
- /* Interrupt Registers */
- #define IXGBE_EICR      0x00800
- #define IXGBE_EICS      0x00808
-@@ -1678,6 +1699,22 @@ enum {
- #define IXGBE_PBANUM0_PTR       0x15
- #define IXGBE_PBANUM1_PTR       0x16
- #define IXGBE_FREE_SPACE_PTR    0X3E
-+
-+/* External Thermal Sensor Config */
-+#define IXGBE_ETS_CFG                   0x26
-+#define IXGBE_ETS_LTHRES_DELTA_MASK     0x07C0
-+#define IXGBE_ETS_LTHRES_DELTA_SHIFT    6
-+#define IXGBE_ETS_TYPE_MASK             0x0038
-+#define IXGBE_ETS_TYPE_SHIFT            3
-+#define IXGBE_ETS_TYPE_EMC              0x000
-+#define IXGBE_ETS_TYPE_EMC_SHIFTED      0x000
-+#define IXGBE_ETS_NUM_SENSORS_MASK      0x0007
-+#define IXGBE_ETS_DATA_LOC_MASK         0x3C00
-+#define IXGBE_ETS_DATA_LOC_SHIFT        10
-+#define IXGBE_ETS_DATA_INDEX_MASK       0x0300
-+#define IXGBE_ETS_DATA_INDEX_SHIFT      8
-+#define IXGBE_ETS_DATA_HTHRESH_MASK     0x00FF
-+
- #define IXGBE_SAN_MAC_ADDR_PTR  0x28
- #define IXGBE_DEVICE_CAPS       0x2C
- #define IXGBE_SERIAL_NUMBER_MAC_ADDR 0x11
-@@ -2775,6 +2812,8 @@ struct ixgbe_mac_operations {
+-		/* Ungate automatic PHY configuration on non-managed 82579 */
+-		if ((hw->mac.type == e1000_pch2lan) &&
+-		    !(fwsm & E1000_ICH_FWSM_FW_VALID)) {
+-			usleep_range(10000, 20000);
+-			e1000_gate_hw_phy_config_ich8lan(hw, false);
+-		}
+-	}
++	ret_val = e1000_init_phy_workarounds_pchlan(hw);
++	if (ret_val)
++		return ret_val;
  
- 	/* Manageability interface */
- 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
-+	s32 (*get_thermal_sensor_data)(struct ixgbe_hw *);
-+	s32 (*init_thermal_sensor_thresh)(struct ixgbe_hw *hw);
- };
+-	phy->id = e1000_phy_unknown;
+-	switch (hw->mac.type) {
+-	default:
+-		ret_val = e1000e_get_phy_id(hw);
+-		if (ret_val)
+-			return ret_val;
+-		if ((phy->id != 0) && (phy->id != PHY_REVISION_MASK))
++	if (phy->id == e1000_phy_unknown)
++		switch (hw->mac.type) {
++		default:
++			ret_val = e1000e_get_phy_id(hw);
++			if (ret_val)
++				return ret_val;
++			if ((phy->id != 0) && (phy->id != PHY_REVISION_MASK))
++				break;
++			/* fall-through */
++		case e1000_pch2lan:
++			/*
++			 * In case the PHY needs to be in mdio slow mode,
++			 * set slow mode and try to get the PHY id again.
++			 */
++			ret_val = e1000_set_mdio_slow_mode_hv(hw);
++			if (ret_val)
++				return ret_val;
++			ret_val = e1000e_get_phy_id(hw);
++			if (ret_val)
++				return ret_val;
+ 			break;
+-		/* fall-through */
+-	case e1000_pch2lan:
+-		/*
+-		 * In case the PHY needs to be in mdio slow mode,
+-		 * set slow mode and try to get the PHY id again.
+-		 */
+-		ret_val = e1000_set_mdio_slow_mode_hv(hw);
+-		if (ret_val)
+-			return ret_val;
+-		ret_val = e1000e_get_phy_id(hw);
+-		if (ret_val)
+-			return ret_val;
+-		break;
+-	}
++		}
+ 	phy->type = e1000e_get_phy_type_from_id(phy->id);
  
- struct ixgbe_phy_operations {
-@@ -2832,6 +2871,7 @@ struct ixgbe_mac_info {
- 	bool                            orig_link_settings_stored;
- 	bool                            autotry_restart;
- 	u8                              flags;
-+	struct ixgbe_thermal_sensor_data  thermal_sensor_data;
- };
+ 	switch (phy->type) {
+@@ -3736,41 +3806,16 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
+  **/
+ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+ {
+-	u16 phy_id1, phy_id2;
+ 	s32 ret_val;
  
- struct ixgbe_phy_info {
+-	if ((hw->mac.type != e1000_pch2lan) ||
+-	    hw->phy.ops.check_reset_block(hw))
++	if (hw->mac.type < e1000_pch2lan)
+ 		return;
+ 
+-	ret_val = hw->phy.ops.acquire(hw);
++	ret_val = e1000_init_phy_workarounds_pchlan(hw);
+ 	if (ret_val) {
+-		e_dbg("Failed to acquire PHY semaphore in resume\n");
++		e_dbg("Failed to init PHY flow ret_val=%d\n", ret_val);
+ 		return;
+ 	}
+-
+-	/* Test access to the PHY registers by reading the ID regs */
+-	ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID1, &phy_id1);
+-	if (ret_val)
+-		goto release;
+-	ret_val = hw->phy.ops.read_reg_locked(hw, PHY_ID2, &phy_id2);
+-	if (ret_val)
+-		goto release;
+-
+-	if (hw->phy.id == ((u32)(phy_id1 << 16) |
+-			   (u32)(phy_id2 & PHY_REVISION_MASK)))
+-		goto release;
+-
+-	e1000_toggle_lanphypc_value_ich8lan(hw);
+-
+-	hw->phy.ops.release(hw);
+-	msleep(50);
+-	e1000_phy_hw_reset(hw);
+-	msleep(50);
+-	return;
+-
+-release:
+-	hw->phy.ops.release(hw);
+ }
+ 
+ /**
 -- 
 1.7.7.6
