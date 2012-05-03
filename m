@@ -1,44 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: implement tcp coalescing in
- tcp_queue_rcv()
-Date: Wed, 02 May 2012 21:11:57 -0400 (EDT)
-Message-ID: <20120502.211157.2201073892985382154.davem@davemloft.net>
-References: <1335977179.22133.599.camel@edumazet-glaptop>
-	<1335981358.22133.605.camel@edumazet-glaptop>
-	<1335988709.22133.632.camel@edumazet-glaptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net v2] cdc_ether: Ignore bogus union descriptor for
+ RNDIS devices
+Date: Wed, 02 May 2012 21:14:11 -0400 (EDT)
+Message-ID: <20120502.211411.560705499667456177.davem@davemloft.net>
+References: <201204261356.03000.oliver@neukum.org>
+	<1335443710-2627-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, alexander.h.duyck@intel.com,
-	netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
-	jeffrey.t.kirsher@intel.com, mchan@broadcom.com,
-	mcarlson@broadcom.com, herbert@gondor.hengli.com.au,
-	bhutchings@solarflare.com, ilpo.jarvinen@helsinki.fi,
-	maze@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38368 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752849Ab2ECBMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 21:12:13 -0400
-In-Reply-To: <1335988709.22133.632.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-201011-TzK+PxyQ8t4hFhg+JK9F0w@public.gmane.org, shaola-r/HQZD9NxM9g9hUCZPvPmw@public.gmane.org, jrnieder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, 655387-61a8vm9lEZVf4u+23C9RwQ@public.gmane.org, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1335443710-2627-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 02 May 2012 21:58:29 +0200
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Thu, 26 Apr 2012 14:35:10 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Extend tcp coalescing implementing it from tcp_queue_rcv(), the main
-> receiver function when application is not blocked in recvmsg().
-> 
-> Function tcp_queue_rcv() is moved a bit to allow its call from
-> tcp_data_queue()
-> 
-> This gives good results especially if GRO could not kick, and if skb
-> head is a fragment.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> The same comments as for v1 regarding testing applies.  This is build
+> tested only.  Should go through some functional testing before being
+> applied.
 
-Applied.
+Well?  Is anyone gonna test this?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
