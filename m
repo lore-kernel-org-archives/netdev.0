@@ -1,30 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 00/13 v4] usb/net: rndis: first step toward
- consolidation
-Date: Wed, 02 May 2012 20:20:20 -0400 (EDT)
-Message-ID: <20120502.202020.1507739621351234969.davem@davemloft.net>
-References: <1335896529-13246-1-git-send-email-linus.walleij@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: implement tcp coalescing in
+ tcp_queue_rcv()
+Date: Wed, 02 May 2012 20:32:18 -0400 (EDT)
+Message-ID: <20120502.203218.1285569354339728768.davem@davemloft.net>
+References: <1335988709.22133.632.camel@edumazet-glaptop>
+	<1335989484.9611.11.camel@joe2Laptop>
+	<1335990187.22133.636.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, jussi.kivilinna-E01nCVcF24I@public.gmane.org,
-	haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
-	ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org
-To: linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1335896529-13246-1-git-send-email-linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: joe@perches.com, alexander.duyck@gmail.com,
+	alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	ncardwell@google.com, therbert@google.com,
+	jeffrey.t.kirsher@intel.com, mchan@broadcom.com,
+	mcarlson@broadcom.com, herbert@gondor.hengli.com.au,
+	bhutchings@solarflare.com, ilpo.jarvinen@helsinki.fi,
+	maze@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38007 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753054Ab2ECAct (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:32:49 -0400
+In-Reply-To: <1335990187.22133.636.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Date: Tue,  1 May 2012 20:22:09 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 02 May 2012 22:23:07 +0200
 
-> The REAL v4 patch set... forget v3 :-(
+> If a compiler or static checker complains, its only their problem.
 
-You'll definitely need to submit at least a v5, especially
-after all of the endian bugs that have been spotted.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It's also my problem, since it makes it even harder for me to see
+any meaningful new warnings that crop up.
