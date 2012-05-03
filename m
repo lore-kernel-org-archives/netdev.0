@@ -1,69 +1,81 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: Re: [PATCH 3/8] Sometimes the ISDN chip only controls the D-channel
-Date: Thu, 03 May 2012 09:31:04 +0200
-Message-ID: <4FA23438.6090103@linux-pingi.de>
-References: <1335613404-10187-4-git-send-email-kkeil@linux-pingi.de> <20120501.133007.569588994121475807.davem@davemloft.net> <4FA2265D.6040000@linux-pingi.de> <20120503.025059.1771068683530938115.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [v2 PATCH 1/4] tcp: Fix truesize accounting in tcp_try_coalesce
+Date: Thu, 03 May 2012 09:48:54 +0200
+Message-ID: <1336031334.3503.23.camel@edumazet-glaptop>
+References: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
+	 <20120503071859.13636.30050.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, edumazet@google.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:56653 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753779Ab2ECHg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 03:36:29 -0400
-In-Reply-To: <20120503.025059.1771068683530938115.davem@davemloft.net>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:57600 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752970Ab2ECHs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 03:48:57 -0400
+Received: by eaaq12 with SMTP id q12so404467eaa.19
+        for <netdev@vger.kernel.org>; Thu, 03 May 2012 00:48:56 -0700 (PDT)
+In-Reply-To: <20120503071859.13636.30050.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 03.05.2012 08:50, schrieb David Miller:
-> From: Karsten Keil <kkeil@linux-pingi.de>
-> Date: Thu, 03 May 2012 08:31:57 +0200
+On Thu, 2012-05-03 at 00:18 -0700, Alexander Duyck wrote:
+> This patch addresses several issues in the way we were tracking the
+> truesize in tcp_try_coalesce.
 > 
->> I did put the additional PCM infrastructure in this series, because
->> the approval test was done with it in place.
->> I did plan the update of the low level drivers in a separate patchset
->> from the beginning.
->>
->> What do you prefer, adding the driver part now, as additional patch, or
->> removing this additional infrastruckture part and submit it in a later
->> series ?
+> First it was using ksize which prevents us from having a 0 sized head frag
+> and getting a usable result.  To resolve that this patch uses the end
+> pointer which is set based off either ksize, or the frag_size supplied in
+> build_skb.  This allows us to compute the original truesize of the entire
+> buffer and remove that value leaving us with just what was added as pages.
 > 
-> I feel like I'm talking to a wall.
+> The second issue was the use of skb->len if there is a mergeable head frag.
+> We should only need to remove the size of an data aligned sk_buff from our
+> current skb->truesize to compute the delta for a buffer with a reused head.
+> By using skb->len the value of truesize was being artificially reduced
+> which means that head frags could use more memory than buffers using
+> standard allocations.
 > 
-> A patch should do one, and only one thing.  It should not have
-> changes which are unrelated to that one thing.
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
 > 
-
-Sorry I disagree here, this patch does exactly one thing, it add the
-infrastructure in the mISDN core to allow the PCM only B-channel mode.
-PCM only mode need a special protocol and a mechanism to set/get/store
-the PCM slots of the card, and this is for what the extra stuff is used.
-
-
-> What part of this is so hard to understand?
+>  net/ipv4/tcp_input.c |   10 ++++------
+>  1 files changed, 4 insertions(+), 6 deletions(-)
 > 
-> To make matters worse, you didn't even make a mention of those
-> unrelated changes in your commit message.
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index c6f78e2..3cb273a 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -4565,12 +4565,10 @@ merge:
+>  	if (skb_headlen(from) == 0 &&
+>  	    (skb_shinfo(to)->nr_frags +
+>  	     skb_shinfo(from)->nr_frags <= MAX_SKB_FRAGS)) {
+> -		WARN_ON_ONCE(from->head_frag);
+> -		delta = from->truesize - ksize(from->head) -
+> -			SKB_DATA_ALIGN(sizeof(struct sk_buff));
+> -
+> -		WARN_ON_ONCE(delta < len);
+> +		delta = from->truesize -
+> +			SKB_TRUESIZE(skb_end_pointer(from) - from->head);
+>  copyfrags:
+> +		WARN_ON_ONCE(delta < len);
+>  		memcpy(skb_shinfo(to)->frags + skb_shinfo(to)->nr_frags,
+>  		       skb_shinfo(from)->frags,
+>  		       skb_shinfo(from)->nr_frags * sizeof(skb_frag_t));
+> @@ -4600,7 +4598,7 @@ copyfrags:
+>  		skb_fill_page_desc(to, skb_shinfo(to)->nr_frags,
+>  				   page, offset, skb_headlen(from));
+>  		*fragstolen = true;
+> -		delta = len; /* we dont know real truesize... */
+> +		delta = from->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
+>  		goto copyfrags;
+>  	}
+>  	return false;
 > 
+> --
 
-Yes, I was not verbose enough in the commit message and it was my error
-to include it in this series, without the use case. Maybe I'm too
-deep in the ISDN stuff so I forget that 3 parties do not see how it fit
-together.
-
-So would you accept this patch with a changed commit message like this ?
-
-Sometimes the ISDN chip only controls the D-channel
-
-The B-channels are connected only via the PCM backplane.
-For this special case we need two things, a protocol which do not enable
-the normal IO path and a method to set/get and store the PCM slots to be
-used on the backplane.
-This patch add the core infrastructure for both. A later patch will
-add the methods to the supported low level drivers.
-
-> So that patch was bogus on at least two counts.
-> 
-> 
+Acked-by: Eric Dumazet <edumazet@google.com>
