@@ -1,42 +1,47 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 2/9] net: Use SKB_WITH_OVERHEAD in build_skb
-Date: Thu, 3 May 2012 15:56:04 +0100
-Message-ID: <1336056971-7839-2-git-send-email-ian.campbell@citrix.com>
-References: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 00/16] Swap-over-NBD without deadlocking V9
+Date: Thu, 3 May 2012 16:00:48 +0100
+Message-ID: <20120503150048.GI11435@suse.de>
+References: <1334578624-23257-1-git-send-email-mgorman@suse.de>
+ <20120501152826.b970a098.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:43303 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757315Ab2ECO7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 10:59:23 -0400
-In-Reply-To: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20120501152826.b970a098.akpm@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/skbuff.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On Tue, May 01, 2012 at 03:28:26PM -0700, Andrew Morton wrote:
+> 
+> This patchset is far less ghastly than I feared/remembered/dreamed ;)
+> 
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index a056d7c..c60b603 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -263,7 +263,7 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
- 	if (!skb)
- 		return NULL;
- 
--	size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+	size = SKB_WITH_OVERHEAD(size);
- 
- 	memset(skb, 0, offsetof(struct sk_buff, tail));
- 	skb->truesize = SKB_TRUESIZE(size);
+That might be the best comment the series ever received :)
+
+> The mm parts, anyway.  Are the net guys on board with it all?
+
+They are cc'd but have not given any feedback in a while. That could be
+because they are happy with it or because if they felt the MM parts were
+blocking the series then it was unnecessary to review the network parts.
+
+Any of the networking people care to comment?
+
 -- 
-1.7.2.5
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
