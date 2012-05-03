@@ -1,46 +1,34 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v4 3/3] tcp: early retransmit: delayed fast retransmit
-Date: Wed, 2 May 2012 20:15:19 -0400
-Message-ID: <CADVnQy=cYPN20JjG47VjsfH12dq7T7-LC0z0XUWhBCo8SCo2cg@mail.gmail.com>
-References: <1336001404-21879-1-git-send-email-ycheng@google.com>
-	<1336001404-21879-3-git-send-email-ycheng@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: usbnet: fix misc bugs
+Date: Wed, 02 May 2012 20:14:44 -0400 (EDT)
+Message-ID: <20120502.201444.2074945018843883757.davem@davemloft.net>
+References: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, ilpo.jarvinen@helsinki.fi,
-	nanditad@google.com, netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: tom.leiming@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:44918 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750893Ab2ECAPU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:15:20 -0400
-Received: by yenm10 with SMTP id m10so806758yen.19
-        for <netdev@vger.kernel.org>; Wed, 02 May 2012 17:15:20 -0700 (PDT)
-In-Reply-To: <1336001404-21879-3-git-send-email-ycheng@google.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:37858 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753755Ab2ECAQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:16:21 -0400
+In-Reply-To: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 2, 2012 at 7:30 PM, Yuchung Cheng <ycheng@google.com> wrote=
-:
-> Implementing the advanced early retransmit (sysctl_tcp_early_retrans=3D=
-=3D2).
-> Delays the fast retransmit by an interval of RTT/4. We borrow the
-> RTO timer to implement the delay. If we receive another ACK or send
-> a new packet, the timer is cancelled and restored to original RTO
-> value offset by time elapsed. =A0When the delayed-ER timer fires,
-> we enter fast recovery and perform fast retransmit.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
-> ChangeLog in v2:
-> =A0- Set sysctl_tcp_early_retrans default to 2
-> ChangeLog in v3:
-> =A0- use separate u8 for early retrans stats in tcp_sock
-> =A0- disable ER if detects any reordering
-> ChangeLog in v4:
-> =A0- move disabling ER code on reordering into part2
+From: Ming Lei <tom.leiming@gmail.com>
+Date: Mon, 30 Apr 2012 16:51:01 +0800
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+> These patches fix three bugs in usbnet:
+> 	usbnet: fix leak of transfer buffer of dev->interrupt
+> 	usbnet: fix failure handling in usbnet_probe
+> 	usbnet: fix skb traversing races during unlink(v1)
 
-neal
+The third fix looks quite critical, but depends upon an interface
+not present in Linus's tree, nor mine.  That doesn't work.
+
+You need to find a way to propagate this fix into Linus's tree
+as well as all -stable trees that need that fix, but without
+this unmet dependency.
