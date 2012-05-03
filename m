@@ -1,62 +1,51 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 7/9] net: add skb_orphan_frags to copy aside frags with
- destructors
-Date: Fri, 4 May 2012 00:10:24 +0300
-Message-ID: <20120503210826.GA30504@redhat.com>
-References: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
- <1336056971-7839-7-git-send-email-ian.campbell@citrix.com>
- <20120503154142.GB27671@redhat.com>
- <20120503.135532.1038384417514973419.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2 ] Update man8 Makefile
+Date: Thu, 3 May 2012 14:16:37 -0700
+Message-ID: <20120503141637.56db6bed@nehalam.linuxnetplumber.net>
+References: <1336076146-5464-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ian.campbell@citrix.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Christoph J. Thompson" <cjsthompson@gmail.com>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20253 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:52884 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754928Ab2ECVKV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2012 17:10:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20120503.135532.1038384417514973419.davem@davemloft.net>
+	id S1753382Ab2ECVQo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 17:16:44 -0400
+In-Reply-To: <1336076146-5464-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 03, 2012 at 01:55:32PM -0400, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Thu, 3 May 2012 18:41:43 +0300
+On Thu,  3 May 2012 13:15:46 -0700
+Vijay Subramanian <subramanian.vijay@gmail.com> wrote:
+
+> Commit (761a1e60 iproute2 - Split up manual page installation )
+> introduced man/man8/Makefile but did not add all the man pages.
+> This patch adds the missing man pages for installation.
 > 
-> > On Thu, May 03, 2012 at 03:56:09PM +0100, Ian Campbell wrote:
-> >> This should be used by drivers which need to hold on to an skb for an extended
-> >> (perhaps unbounded) period of time. e.g. the tun driver which relies on
-> >> userspace consuming the skb.
-> >> 
-> >> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> >> Cc: mst@redhat.com
-> > 
-> > 
-> > Right. But local sockets queue at socket forever as well.
-> > I think this should be called in skb_set_owner_r?
-> > 
-> > This might somewhat penalize speed for local clients in the name
-> > of correctness but these are rare so being correct is
-> > more important I think.
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> ---
+>  man/man8/Makefile |    6 +++++-
+>  1 files changed, 5 insertions(+), 1 deletions(-)
 > 
-> But, on the other hand, putting the check into skb_set_owner_r() is a
-> not so nice test to have in the fast path of every socket receive.
+> diff --git a/man/man8/Makefile b/man/man8/Makefile
+> index 5d64012..6873a4b 100644
+> --- a/man/man8/Makefile
+> +++ b/man/man8/Makefile
+> @@ -3,7 +3,11 @@ TARGETS = ip-address.8 ip-link.8 ip-route.8
+>  MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
+>  	tc-bfifo.8 tc-cbq-details.8 tc-cbq.8 tc-drr.8 tc-htb.8 \
+>  	tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 tc-sfq.8 \
+> -	tc-tbf.8 tc.8 rtstat.8 ctstat.8 nstat.8 routef.8
+> +	tc-tbf.8 tc.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
+> +	tc-sfb.8 tc-netem.8 tc-choke.8 ip-tunnel.8 ip-rule.8 ip-ntable.8 \
+> +	ip-monitor.8 tc-stab.8 tc-hfsc.8 ip-xfrm.8 ip-netns.8 \
+> +	ip-neighbour.8 ip-mroute.8 ip-maddress.8 ip-addrlabel.8
+> +
+>  
+>  all: $(TARGETS)
+>  
 
-True.  Hmm we orphan skbs when we loop them back
-so how about reusing the skb->destructor for this?
-
-We could teach pskb_copy pskb_expand_head etc that
-when skb with this flag is cloned (expand head etc)
-destructor would be set to a function that copies frags.
-(clone is less of a fast path so I think adding
- a branch there is less of an issue).
-
-Of course destructor is also called from kfree_skb
-but we could clear this flag before the call
-in kfree_skb so that destructor can distinguish.
-
--- 
-MST
+Applied, thanks
