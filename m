@@ -1,7 +1,7 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 5/9] net: pad skb data and shinfo as a whole rather than individually
-Date: Thu, 3 May 2012 15:56:07 +0100
-Message-ID: <1336056971-7839-5-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 8/9] net: add paged frag destructor support to kernel_sendpage.
+Date: Thu, 3 May 2012 15:56:10 +0100
+Message-ID: <1336056971-7839-8-git-send-email-ian.campbell@citrix.com>
 References: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,160 +11,521 @@ Cc: David Miller <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:43178 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:11350 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756053Ab2ECO4O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2012 10:56:14 -0400
+	id S1755113Ab2ECO4P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 10:56:15 -0400
 In-Reply-To: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reduces the minimum overhead required for this allocation such that the
-shinfo can be grown in the following patch without overflowing 2048 bytes for a
-1500 byte frame.
-
-Reducing this overhead while also growing the shinfo means that sometimes the
-tail end of the data can end up in the same cache line as the beginning of the
-shinfo. Specifically in the case of the 64 byte cache lines on a 64 bit system
-the first 8 bytes of shinfo can overlap the tail cacheline of the data. In many
-cases the allocation slop means that there is no overlap.
-
-In order to ensure that the hot struct members remain on the same 64 byte cache
-line move the "destructor_arg" member to the front, this member is not used on
-any hot path so it is a good choice to potentially be on a separate cache line
-(and which addtionally may be shared with skb->data).
-
-Also rather than relying on knowledge about the size and layout of the rest of
-the shinfo to ensure that the right parts of the shinfo are aligned decree that
-nr_frags will be cache aligned and therefore that the 64 bytes starting at
-nr_frags should contain the hot struct members.
-
-All this avoids hitting an extra cache line on hot operations such as
-kfree_skb.
-
-On 4k pages this motion and alignment strategy (along with the following frag
-size increase) results in the shinfo abutting the very end of the allocation.
-On larger pages (where SKB_MAX_FRAGS can be smaller) it means that we still
-correctly align the hot data without needing to make assumptions about the data
-layout outside of the hot 64-bytes of the shinfo.
-
-Explicitly aligning nr_frags, rather than relying on analysis of the shinfo
-layout was suggested by Alexander Duyck <alexander.h.duyck@intel.com>
+This requires adding a new argument to various sendpage hooks up and down the
+stack. At the moment this parameter is always NULL.
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
 ---
- include/linux/skbuff.h |   50 +++++++++++++++++++++++++++++------------------
- net/core/skbuff.c      |    9 +++++++-
- 2 files changed, 39 insertions(+), 20 deletions(-)
+ drivers/block/drbd/drbd_main.c           |    1 +
+ drivers/scsi/iscsi_tcp.c                 |    4 ++--
+ drivers/scsi/iscsi_tcp.h                 |    3 ++-
+ drivers/target/iscsi/iscsi_target_util.c |    3 ++-
+ fs/dlm/lowcomms.c                        |    4 ++--
+ fs/ocfs2/cluster/tcp.c                   |    1 +
+ include/linux/net.h                      |    6 +++++-
+ include/net/inet_common.h                |    4 +++-
+ include/net/ip.h                         |    4 +++-
+ include/net/sock.h                       |    8 +++++---
+ include/net/tcp.h                        |    4 +++-
+ net/ceph/messenger.c                     |    2 +-
+ net/core/sock.c                          |    6 +++++-
+ net/ipv4/af_inet.c                       |    9 ++++++---
+ net/ipv4/ip_output.c                     |    6 ++++--
+ net/ipv4/tcp.c                           |   24 +++++++++++++++---------
+ net/ipv4/udp.c                           |   11 ++++++-----
+ net/ipv4/udp_impl.h                      |    5 +++--
+ net/rds/tcp_send.c                       |    1 +
+ net/socket.c                             |   11 +++++++----
+ net/sunrpc/svcsock.c                     |    6 +++---
+ net/sunrpc/xprtsock.c                    |    2 +-
+ 22 files changed, 81 insertions(+), 44 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 19e348f..3698625 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -41,19 +41,24 @@
+diff --git a/drivers/block/drbd/drbd_main.c b/drivers/block/drbd/drbd_main.c
+index 211fc44..e70ba0c 100644
+--- a/drivers/block/drbd/drbd_main.c
++++ b/drivers/block/drbd/drbd_main.c
+@@ -2584,6 +2584,7 @@ static int _drbd_send_page(struct drbd_conf *mdev, struct page *page,
+ 	set_fs(KERNEL_DS);
+ 	do {
+ 		sent = mdev->data.socket->ops->sendpage(mdev->data.socket, page,
++							NULL,
+ 							offset, len,
+ 							msg_flags);
+ 		if (sent == -EAGAIN) {
+diff --git a/drivers/scsi/iscsi_tcp.c b/drivers/scsi/iscsi_tcp.c
+index 9220861..724d32538 100644
+--- a/drivers/scsi/iscsi_tcp.c
++++ b/drivers/scsi/iscsi_tcp.c
+@@ -284,8 +284,8 @@ static int iscsi_sw_tcp_xmit_segment(struct iscsi_tcp_conn *tcp_conn,
+ 		if (!segment->data) {
+ 			sg = segment->sg;
+ 			offset += segment->sg_offset + sg->offset;
+-			r = tcp_sw_conn->sendpage(sk, sg_page(sg), offset,
+-						  copy, flags);
++			r = tcp_sw_conn->sendpage(sk, sg_page(sg), NULL,
++						  offset, copy, flags);
+ 		} else {
+ 			struct msghdr msg = { .msg_flags = flags };
+ 			struct kvec iov = {
+diff --git a/drivers/scsi/iscsi_tcp.h b/drivers/scsi/iscsi_tcp.h
+index 666fe09..1e23265 100644
+--- a/drivers/scsi/iscsi_tcp.h
++++ b/drivers/scsi/iscsi_tcp.h
+@@ -52,7 +52,8 @@ struct iscsi_sw_tcp_conn {
+ 	uint32_t		sendpage_failures_cnt;
+ 	uint32_t		discontiguous_hdr_cnt;
  
- #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
- 				 ~(SMP_CACHE_BYTES - 1))
--/* maximum data size which can fit into an allocation of X bytes */
--#define SKB_WITH_OVERHEAD(X)	\
--	((X) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-+
- /*
-- * minimum allocation size required for an skb containing X bytes of data
-- *
-- * We do our best to align skb_shared_info on a separate cache
-- * line. It usually works because kmalloc(X > SMP_CACHE_BYTES) gives
-- * aligned memory blocks, unless SLUB/SLAB debug is enabled.  Both
-- * skb->head and skb_shared_info are cache line aligned.
-+ * We do our best to align the hot members of skb_shared_info on a
-+ * separate cache line.  We explicitly align the nr_frags field and
-+ * arrange that the order of the fields in skb_shared_info is such
-+ * that the interesting fields are nr_frags onwards and are therefore
-+ * cache line aligned.
-  */
--#define SKB_ALLOCSIZE(X)	\
--	(SKB_DATA_ALIGN((X)) + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-+#define SKB_SHINFO_SIZE							\
-+	(SKB_DATA_ALIGN(sizeof(struct skb_shared_info)			\
-+			- offsetof(struct skb_shared_info, nr_frags))	\
-+	 + offsetof(struct skb_shared_info, nr_frags))
-+
-+/* maximum data size which can fit into an allocation of X bytes */
-+#define SKB_WITH_OVERHEAD(X)	((X) - SKB_SHINFO_SIZE)
-+
-+/* minimum allocation size required for an skb containing X bytes of data */
-+#define SKB_ALLOCSIZE(X)	(SKB_DATA_ALIGN((X) + SKB_SHINFO_SIZE))
- 
- #define SKB_MAX_ORDER(X, ORDER) \
- 	SKB_WITH_OVERHEAD((PAGE_SIZE << (ORDER)) - (X))
-@@ -63,7 +68,7 @@
- /* return minimum truesize of one skb containing X bytes of data */
- #define SKB_TRUESIZE(X) ((X) +						\
- 			 SKB_DATA_ALIGN(sizeof(struct sk_buff)) +	\
--			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-+			 SKB_SHINFO_SIZE)
- 
- /* A. Checksumming of received packets by device.
-  *
-@@ -263,6 +268,19 @@ struct ubuf_info {
-  * the end of the header data, ie. at skb->end.
-  */
- struct skb_shared_info {
-+	/* Intermediate layers must ensure that destructor_arg
-+	 * remains valid until skb destructor */
-+	void		*destructor_arg;
-+
-+	/* Warning: all fields from here until dataref are cleared in
-+	 * skb_shinfo_init() (called from __alloc_skb, build_skb,
-+	 * skb_recycle, etc).
-+	 *
-+	 * nr_frags will always be aligned to the start of a cache
-+	 * line. It is intended that everything from nr_frags until at
-+	 * least frags[0] (inclusive) should fit into the same 64-byte
-+	 * cache line.
-+	 */
- 	unsigned char	nr_frags;
- 	__u8		tx_flags;
- 	unsigned short	gso_size;
-@@ -273,15 +291,9 @@ struct skb_shared_info {
- 	struct skb_shared_hwtstamps hwtstamps;
- 	__be32          ip6_frag_id;
- 
--	/*
--	 * Warning : all fields before dataref are cleared in __alloc_skb()
--	 */
-+	/* fields from nr_frags until dataref are cleared in skb_shinfo_init */
- 	atomic_t	dataref;
- 
--	/* Intermediate layers must ensure that destructor_arg
--	 * remains valid until skb destructor */
--	void *		destructor_arg;
--
- 	/* must be last field, see pskb_expand_head() */
- 	skb_frag_t	frags[MAX_SKB_FRAGS];
+-	ssize_t (*sendpage)(struct socket *, struct page *, int, size_t, int);
++	ssize_t (*sendpage)(struct socket *, struct page *,
++			    struct skb_frag_destructor *, int, size_t, int);
  };
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index e96f68b..fab6de0 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -149,8 +149,15 @@ static void skb_shinfo_init(struct sk_buff *skb)
- {
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
  
-+	/* Ensure that nr_frags->frags[0] (at least) fits into a
-+	 * single cache line. */
-+	BUILD_BUG_ON((offsetof(struct skb_shared_info, frags[1])
-+		      - offsetof(struct skb_shared_info, nr_frags)) > 64);
-+
- 	/* make sure we initialize shinfo sequentially */
--	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
-+	memset(&shinfo->nr_frags, 0,
-+	       offsetof(struct skb_shared_info, dataref)
-+	       - offsetof(struct skb_shared_info, nr_frags));
- 	atomic_set(&shinfo->dataref, 1);
- 	kmemcheck_annotate_variable(shinfo->destructor_arg);
+ struct iscsi_sw_tcp_host {
+diff --git a/drivers/target/iscsi/iscsi_target_util.c b/drivers/target/iscsi/iscsi_target_util.c
+index 4eba86d..d876dae 100644
+--- a/drivers/target/iscsi/iscsi_target_util.c
++++ b/drivers/target/iscsi/iscsi_target_util.c
+@@ -1323,7 +1323,8 @@ send_hdr:
+ 		u32 sub_len = min_t(u32, data_len, space);
+ send_pg:
+ 		tx_sent = conn->sock->ops->sendpage(conn->sock,
+-					sg_page(sg), sg->offset + offset, sub_len, 0);
++					sg_page(sg), NULL,
++					sg->offset + offset, sub_len, 0);
+ 		if (tx_sent != sub_len) {
+ 			if (tx_sent == -EAGAIN) {
+ 				pr_err("tcp_sendpage() returned"
+diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
+index 133ef6d..0673cea 100644
+--- a/fs/dlm/lowcomms.c
++++ b/fs/dlm/lowcomms.c
+@@ -1336,8 +1336,8 @@ static void send_to_sock(struct connection *con)
+ 
+ 		ret = 0;
+ 		if (len) {
+-			ret = kernel_sendpage(con->sock, e->page, offset, len,
+-					      msg_flags);
++			ret = kernel_sendpage(con->sock, e->page, NULL,
++					      offset, len, msg_flags);
+ 			if (ret == -EAGAIN || ret == 0) {
+ 				if (ret == -EAGAIN &&
+ 				    test_bit(SOCK_ASYNC_NOSPACE, &con->sock->flags) &&
+diff --git a/fs/ocfs2/cluster/tcp.c b/fs/ocfs2/cluster/tcp.c
+index 1bfe880..c82a711 100644
+--- a/fs/ocfs2/cluster/tcp.c
++++ b/fs/ocfs2/cluster/tcp.c
+@@ -983,6 +983,7 @@ static void o2net_sendpage(struct o2net_sock_container *sc,
+ 		mutex_lock(&sc->sc_send_lock);
+ 		ret = sc->sc_sock->ops->sendpage(sc->sc_sock,
+ 						 virt_to_page(kmalloced_virt),
++						 NULL,
+ 						 (long)kmalloced_virt & ~PAGE_MASK,
+ 						 size, MSG_DONTWAIT);
+ 		mutex_unlock(&sc->sc_send_lock);
+diff --git a/include/linux/net.h b/include/linux/net.h
+index be60c7f..d9b0d648 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -157,6 +157,7 @@ struct kiocb;
+ struct sockaddr;
+ struct msghdr;
+ struct module;
++struct skb_frag_destructor;
+ 
+ struct proto_ops {
+ 	int		family;
+@@ -203,6 +204,7 @@ struct proto_ops {
+ 	int		(*mmap)	     (struct file *file, struct socket *sock,
+ 				      struct vm_area_struct * vma);
+ 	ssize_t		(*sendpage)  (struct socket *sock, struct page *page,
++				      struct skb_frag_destructor *destroy,
+ 				      int offset, size_t size, int flags);
+ 	ssize_t 	(*splice_read)(struct socket *sock,  loff_t *ppos,
+ 				       struct pipe_inode_info *pipe, size_t len, unsigned int flags);
+@@ -274,7 +276,9 @@ extern int kernel_getsockopt(struct socket *sock, int level, int optname,
+ 			     char *optval, int *optlen);
+ extern int kernel_setsockopt(struct socket *sock, int level, int optname,
+ 			     char *optval, unsigned int optlen);
+-extern int kernel_sendpage(struct socket *sock, struct page *page, int offset,
++extern int kernel_sendpage(struct socket *sock, struct page *page,
++			   struct skb_frag_destructor *destroy,
++			   int offset,
+ 			   size_t size, int flags);
+ extern int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
+ extern int kernel_sock_shutdown(struct socket *sock,
+diff --git a/include/net/inet_common.h b/include/net/inet_common.h
+index 22fac98..91cd8d0 100644
+--- a/include/net/inet_common.h
++++ b/include/net/inet_common.h
+@@ -21,7 +21,9 @@ extern int inet_dgram_connect(struct socket *sock, struct sockaddr * uaddr,
+ extern int inet_accept(struct socket *sock, struct socket *newsock, int flags);
+ extern int inet_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			struct msghdr *msg, size_t size);
+-extern ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
++extern ssize_t inet_sendpage(struct socket *sock, struct page *page,
++			     struct skb_frag_destructor *frag,
++			     int offset,
+ 			     size_t size, int flags);
+ extern int inet_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			struct msghdr *msg, size_t size, int flags);
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 94ddb69c..dbd7ecb 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -114,7 +114,9 @@ extern int		ip_append_data(struct sock *sk, struct flowi4 *fl4,
+ 				struct rtable **rt,
+ 				unsigned int flags);
+ extern int		ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb);
+-extern ssize_t		ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
++extern ssize_t		ip_append_page(struct sock *sk, struct flowi4 *fl4,
++				struct page *page,
++				struct skb_frag_destructor *destroy,
+ 				int offset, size_t size, int flags);
+ extern struct sk_buff  *__ip_make_skb(struct sock *sk,
+ 				      struct flowi4 *fl4,
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 68a2834..c999f48 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -848,6 +848,7 @@ struct proto {
+ 					size_t len, int noblock, int flags, 
+ 					int *addr_len);
+ 	int			(*sendpage)(struct sock *sk, struct page *page,
++					struct skb_frag_destructor *destroy,
+ 					int offset, size_t size, int flags);
+ 	int			(*bind)(struct sock *sk, 
+ 					struct sockaddr *uaddr, int addr_len);
+@@ -1466,9 +1467,10 @@ extern int			sock_no_mmap(struct file *file,
+ 					     struct socket *sock,
+ 					     struct vm_area_struct *vma);
+ extern ssize_t			sock_no_sendpage(struct socket *sock,
+-						struct page *page,
+-						int offset, size_t size, 
+-						int flags);
++					struct page *page,
++					struct skb_frag_destructor *destroy,
++					int offset, size_t size,
++					int flags);
+ 
+ /*
+  * Functions to fill in entries in struct proto_ops when a protocol
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 0fb84de..81dbfde8 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -331,7 +331,9 @@ extern void *tcp_v4_tw_get_peer(struct sock *sk);
+ extern int tcp_v4_tw_remember_stamp(struct inet_timewait_sock *tw);
+ extern int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		       size_t size);
+-extern int tcp_sendpage(struct sock *sk, struct page *page, int offset,
++extern int tcp_sendpage(struct sock *sk, struct page *page,
++			struct skb_frag_destructor *destroy,
++			int offset,
+ 			size_t size, int flags);
+ extern int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+ extern int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+index 36fa6bf..b355be1 100644
+--- a/net/ceph/messenger.c
++++ b/net/ceph/messenger.c
+@@ -320,7 +320,7 @@ static int ceph_tcp_sendpage(struct socket *sock, struct page *page,
+ 	int flags = MSG_DONTWAIT | MSG_NOSIGNAL | (more ? MSG_MORE : MSG_EOR);
+ 	int ret;
+ 
+-	ret = kernel_sendpage(sock, page, offset, size, flags);
++	ret = kernel_sendpage(sock, page, NULL, offset, size, flags);
+ 	if (ret == -EAGAIN)
+ 		ret = 0;
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 1a88351..cffff5f 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1953,7 +1953,9 @@ int sock_no_mmap(struct file *file, struct socket *sock, struct vm_area_struct *
  }
+ EXPORT_SYMBOL(sock_no_mmap);
+ 
+-ssize_t sock_no_sendpage(struct socket *sock, struct page *page, int offset, size_t size, int flags)
++ssize_t sock_no_sendpage(struct socket *sock, struct page *page,
++			 struct skb_frag_destructor *destroy,
++			 int offset, size_t size, int flags)
+ {
+ 	ssize_t res;
+ 	struct msghdr msg = {.msg_flags = flags};
+@@ -1963,6 +1965,8 @@ ssize_t sock_no_sendpage(struct socket *sock, struct page *page, int offset, siz
+ 	iov.iov_len = size;
+ 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
+ 	kunmap(page);
++	/* kernel_sendmsg copies so we can destroy immediately */
++	skb_frag_destructor_unref(destroy);
+ 	return res;
+ }
+ EXPORT_SYMBOL(sock_no_sendpage);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index c8f7aee..b1caf89 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -747,7 +747,9 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+ }
+ EXPORT_SYMBOL(inet_sendmsg);
+ 
+-ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
++ssize_t inet_sendpage(struct socket *sock, struct page *page,
++		      struct skb_frag_destructor *destroy,
++		      int offset,
+ 		      size_t size, int flags)
+ {
+ 	struct sock *sk = sock->sk;
+@@ -760,8 +762,9 @@ ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
+ 		return -EAGAIN;
+ 
+ 	if (sk->sk_prot->sendpage)
+-		return sk->sk_prot->sendpage(sk, page, offset, size, flags);
+-	return sock_no_sendpage(sock, page, offset, size, flags);
++		return sk->sk_prot->sendpage(sk, page, destroy,
++					     offset, size, flags);
++	return sock_no_sendpage(sock, page, destroy, offset, size, flags);
+ }
+ EXPORT_SYMBOL(inet_sendpage);
+ 
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 7652751..877ff62 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1129,6 +1129,7 @@ int ip_append_data(struct sock *sk, struct flowi4 *fl4,
+ }
+ 
+ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
++		       struct skb_frag_destructor *destroy,
+ 		       int offset, size_t size, int flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+@@ -1242,11 +1243,12 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
+ 		i = skb_shinfo(skb)->nr_frags;
+ 		if (len > size)
+ 			len = size;
+-		if (skb_can_coalesce(skb, i, page, NULL, offset)) {
++		if (skb_can_coalesce(skb, i, page, destroy, offset)) {
+ 			skb_frag_size_add(&skb_shinfo(skb)->frags[i-1], len);
+ 		} else if (i < MAX_SKB_FRAGS) {
+-			get_page(page);
+ 			skb_fill_page_desc(skb, i, page, offset, len);
++			skb_frag_set_destructor(skb, i, destroy);
++			skb_frag_ref(skb, i);
+ 		} else {
+ 			err = -EMSGSIZE;
+ 			goto error;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 2d590ca..bee7864 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -822,8 +822,11 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
+ 	return mss_now;
+ }
+ 
+-static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
+-			 size_t psize, int flags)
++static ssize_t do_tcp_sendpages(struct sock *sk,
++				struct page **pages,
++				struct skb_frag_destructor *destroy,
++				int poffset,
++				size_t psize, int flags)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	int mss_now, size_goal;
+@@ -870,7 +873,7 @@ new_segment:
+ 			copy = size;
+ 
+ 		i = skb_shinfo(skb)->nr_frags;
+-		can_coalesce = skb_can_coalesce(skb, i, page, NULL, offset);
++		can_coalesce = skb_can_coalesce(skb, i, page, destroy, offset);
+ 		if (!can_coalesce && i >= MAX_SKB_FRAGS) {
+ 			tcp_mark_push(tp, skb);
+ 			goto new_segment;
+@@ -881,8 +884,9 @@ new_segment:
+ 		if (can_coalesce) {
+ 			skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], copy);
+ 		} else {
+-			get_page(page);
+ 			skb_fill_page_desc(skb, i, page, offset, copy);
++			skb_frag_set_destructor(skb, i, destroy);
++			skb_frag_ref(skb, i);
+ 		}
+ 
+ 		skb->len += copy;
+@@ -937,18 +941,20 @@ out_err:
+ 	return sk_stream_error(sk, flags, err);
+ }
+ 
+-int tcp_sendpage(struct sock *sk, struct page *page, int offset,
+-		 size_t size, int flags)
++int tcp_sendpage(struct sock *sk, struct page *page,
++		 struct skb_frag_destructor *destroy,
++		 int offset, size_t size, int flags)
+ {
+ 	ssize_t res;
+ 
+ 	if (!(sk->sk_route_caps & NETIF_F_SG) ||
+ 	    !(sk->sk_route_caps & NETIF_F_ALL_CSUM))
+-		return sock_no_sendpage(sk->sk_socket, page, offset, size,
+-					flags);
++		return sock_no_sendpage(sk->sk_socket, page, destroy,
++					offset, size, flags);
+ 
+ 	lock_sock(sk);
+-	res = do_tcp_sendpages(sk, &page, offset, size, flags);
++	res = do_tcp_sendpages(sk, &page, destroy,
++			       offset, size, flags);
+ 	release_sock(sk);
+ 	return res;
+ }
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 279fd08..c69aa65 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1032,8 +1032,9 @@ do_confirm:
+ }
+ EXPORT_SYMBOL(udp_sendmsg);
+ 
+-int udp_sendpage(struct sock *sk, struct page *page, int offset,
+-		 size_t size, int flags)
++int udp_sendpage(struct sock *sk, struct page *page,
++		 struct skb_frag_destructor *destroy,
++		 int offset, size_t size, int flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct udp_sock *up = udp_sk(sk);
+@@ -1061,11 +1062,11 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+ 	}
+ 
+ 	ret = ip_append_page(sk, &inet->cork.fl.u.ip4,
+-			     page, offset, size, flags);
++			     page, destroy, offset, size, flags);
+ 	if (ret == -EOPNOTSUPP) {
+ 		release_sock(sk);
+-		return sock_no_sendpage(sk->sk_socket, page, offset,
+-					size, flags);
++		return sock_no_sendpage(sk->sk_socket, page, destroy,
++					offset, size, flags);
+ 	}
+ 	if (ret < 0) {
+ 		udp_flush_pending_frames(sk);
+diff --git a/net/ipv4/udp_impl.h b/net/ipv4/udp_impl.h
+index 5a681e2..aa8eca2 100644
+--- a/net/ipv4/udp_impl.h
++++ b/net/ipv4/udp_impl.h
+@@ -23,8 +23,9 @@ extern int	compat_udp_getsockopt(struct sock *sk, int level, int optname,
+ #endif
+ extern int	udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			    size_t len, int noblock, int flags, int *addr_len);
+-extern int	udp_sendpage(struct sock *sk, struct page *page, int offset,
+-			     size_t size, int flags);
++extern int	udp_sendpage(struct sock *sk, struct page *page,
++			     struct skb_frag_destructor *destroy,
++			     int offset, size_t size, int flags);
+ extern int	udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ extern void	udp_destroy_sock(struct sock *sk);
+ 
+diff --git a/net/rds/tcp_send.c b/net/rds/tcp_send.c
+index 1b4fd68..71503ad 100644
+--- a/net/rds/tcp_send.c
++++ b/net/rds/tcp_send.c
+@@ -119,6 +119,7 @@ int rds_tcp_xmit(struct rds_connection *conn, struct rds_message *rm,
+ 	while (sg < rm->data.op_nents) {
+ 		ret = tc->t_sock->ops->sendpage(tc->t_sock,
+ 						sg_page(&rm->data.op_sg[sg]),
++						NULL,
+ 						rm->data.op_sg[sg].offset + off,
+ 						rm->data.op_sg[sg].length - off,
+ 						MSG_DONTWAIT|MSG_NOSIGNAL);
+diff --git a/net/socket.c b/net/socket.c
+index d3aaa4f..f92c9c2 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -815,7 +815,7 @@ static ssize_t sock_sendpage(struct file *file, struct page *page,
+ 	/* more is a combination of MSG_MORE and MSG_SENDPAGE_NOTLAST */
+ 	flags |= more;
+ 
+-	return kernel_sendpage(sock, page, offset, size, flags);
++	return kernel_sendpage(sock, page, NULL, offset, size, flags);
+ }
+ 
+ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+@@ -3349,15 +3349,18 @@ int kernel_setsockopt(struct socket *sock, int level, int optname,
+ }
+ EXPORT_SYMBOL(kernel_setsockopt);
+ 
+-int kernel_sendpage(struct socket *sock, struct page *page, int offset,
++int kernel_sendpage(struct socket *sock, struct page *page,
++		    struct skb_frag_destructor *destroy,
++		    int offset,
+ 		    size_t size, int flags)
+ {
+ 	sock_update_classid(sock->sk);
+ 
+ 	if (sock->ops->sendpage)
+-		return sock->ops->sendpage(sock, page, offset, size, flags);
++		return sock->ops->sendpage(sock, page, destroy,
++					   offset, size, flags);
+ 
+-	return sock_no_sendpage(sock, page, offset, size, flags);
++	return sock_no_sendpage(sock, page, destroy, offset, size, flags);
+ }
+ EXPORT_SYMBOL(kernel_sendpage);
+ 
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index f0132b2..f6d8c73 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -185,7 +185,7 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
+ 	/* send head */
+ 	if (slen == xdr->head[0].iov_len)
+ 		flags = 0;
+-	len = kernel_sendpage(sock, headpage, headoffset,
++	len = kernel_sendpage(sock, headpage, NULL, headoffset,
+ 				  xdr->head[0].iov_len, flags);
+ 	if (len != xdr->head[0].iov_len)
+ 		goto out;
+@@ -198,7 +198,7 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
+ 	while (pglen > 0) {
+ 		if (slen == size)
+ 			flags = 0;
+-		result = kernel_sendpage(sock, *ppage, base, size, flags);
++		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
+ 		if (result > 0)
+ 			len += result;
+ 		if (result != size)
+@@ -212,7 +212,7 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
+ 
+ 	/* send tail */
+ 	if (xdr->tail[0].iov_len) {
+-		result = kernel_sendpage(sock, tailpage, tailoffset,
++		result = kernel_sendpage(sock, tailpage, NULL, tailoffset,
+ 				   xdr->tail[0].iov_len, 0);
+ 		if (result > 0)
+ 			len += result;
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 890b03f..f1995dc 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -408,7 +408,7 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
+ 		remainder -= len;
+ 		if (remainder != 0 || more)
+ 			flags |= MSG_MORE;
+-		err = sock->ops->sendpage(sock, *ppage, base, len, flags);
++		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
+ 		if (remainder == 0 || err != len)
+ 			break;
+ 		sent += err;
 -- 
 1.7.2.5
