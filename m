@@ -1,37 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2012-05-03
-Date: Thu, 03 May 2012 13:05:16 -0400 (EDT)
-Message-ID: <20120503.130516.1008806127286088740.davem@davemloft.net>
-References: <20120503152206.GL9285@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] tilegx network driver: initial support
+Date: Thu, 03 May 2012 13:07:38 -0400 (EDT)
+Message-ID: <20120503.130738.203857602354001769.davem@davemloft.net>
+References: <201205011759.q41HxR21020043@farm-0012.internal.tilera.com>
+	<20120503.014156.149171097979026872.davem@davemloft.net>
+	<4FA2A81C.8020402@tilera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120503152206.GL9285-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: arnd@arndb.de, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: cmetcalf@tilera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FA2A81C.8020402@tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 3 May 2012 11:22:06 -0400
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Thu, 3 May 2012 11:45:32 -0400
 
-> This is a batch of updates intended for 3.5.  It also includes a pull
-> from the wireless tree which resolved some build dependencies.
-> 
-> Highlights of this pull request include some refactoring in the
-> bluetooth directories, some HT enhancements for mac80211, an expansion
-> of the ethtool support for cfg80211- and mac80211-based drivers,
-> and some more iwlwifi refactoring.
-> 
-> It looks like some of the bluetooth device ID patches got committed
-> on both the bluetooth and the bluetooth-next trees.  I'll ask them to
-> be more careful about that, but I didn't think it was worth asking
-> for rebases since that would be disruptive to the downstream trees
-> and since git handles the situation reasonably well already.
+> Thanks, I've removed it from my branch.  (Since it's a trivial update, I
+> won't repost the change on LKML unless I get any more feedback that needs
+> addressing.)
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sorry, this approach doesn't work, you should post a new version
+more expediently.
+
+When I see something so terrible like I saw this time, I just provide
+feedback on that major issue and stop reviewing.
