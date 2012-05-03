@@ -1,63 +1,198 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/9] e1000e: Resolve intermittent negotiation issue on 82574/82583.
-Date: Thu,  3 May 2012 02:56:26 -0700
-Message-ID: <1336038992-3144-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/9] e1000e: cleanup long [read|write]_reg_locked PHY ops function pointers
+Date: Thu,  3 May 2012 02:56:25 -0700
+Message-ID: <1336038992-3144-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:51334 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:64596 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754069Ab2ECJ4f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753981Ab2ECJ4f (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 3 May 2012 05:56:35 -0400
 In-Reply-To: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-For 82574 and 82583 devices, resolve an intermittent link issue where
-the link negotiates to 100Mbps rather than 1Gbps when powering off the
-PHY and powering on the PHY after several seconds.
+Calling the locked versions of the read/write PHY ops function pointers
+often produces excessively long lines.  Shorten these as is done with
+the non-locked versions of the PHY register read/write functions.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/phy.c |   18 +++++++++++++++++-
- 1 files changed, 17 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h   |   10 ++++++
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |   47 +++++++++++----------------
+ 2 files changed, 29 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index bd5ef64..ad22b8c 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -722,8 +722,24 @@ s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw)
- 		phy_data |= M88E1000_PSCR_POLARITY_REVERSAL;
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 1da9bfa..c960cf8 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -673,11 +673,21 @@ static inline s32 e1e_rphy(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	return hw->phy.ops.read_reg(hw, offset, data);
+ }
  
- 	/* Enable downshift on BM (disabled by default) */
--	if (phy->type == e1000_phy_bm)
-+	if (phy->type == e1000_phy_bm) {
-+		/* For 82574/82583, first disable then enable downshift */
-+		if (phy->id == BME1000_E_PHY_ID_R2) {
-+			phy_data &= ~BME1000_PSCR_ENABLE_DOWNSHIFT;
-+			ret_val = e1e_wphy(hw, M88E1000_PHY_SPEC_CTRL,
-+					   phy_data);
-+			if (ret_val)
-+				return ret_val;
-+			/* Commit the changes. */
-+			ret_val = e1000e_commit_phy(hw);
-+			if (ret_val) {
-+				e_dbg("Error committing the PHY changes\n");
-+				return ret_val;
-+			}
-+		}
++static inline s32 e1e_rphy_locked(struct e1000_hw *hw, u32 offset, u16 *data)
++{
++	return hw->phy.ops.read_reg_locked(hw, offset, data);
++}
 +
- 		phy_data |= BME1000_PSCR_ENABLE_DOWNSHIFT;
-+	}
+ static inline s32 e1e_wphy(struct e1000_hw *hw, u32 offset, u16 data)
+ {
+ 	return hw->phy.ops.write_reg(hw, offset, data);
+ }
  
- 	ret_val = e1e_wphy(hw, M88E1000_PHY_SPEC_CTRL, phy_data);
++static inline s32 e1e_wphy_locked(struct e1000_hw *hw, u32 offset, u16 data)
++{
++	return hw->phy.ops.write_reg_locked(hw, offset, data);
++}
++
+ static inline s32 e1000_get_cable_length(struct e1000_hw *hw)
+ {
+ 	return hw->phy.ops.get_cable_length(hw);
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index ca34ebf..c58ed26 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -304,9 +304,9 @@ static bool e1000_phy_is_accessible_pchlan(struct e1000_hw *hw)
+ 	u16 phy_reg;
+ 	u32 phy_id;
+ 
+-	hw->phy.ops.read_reg_locked(hw, PHY_ID1, &phy_reg);
++	e1e_rphy_locked(hw, PHY_ID1, &phy_reg);
+ 	phy_id = (u32)(phy_reg << 16);
+-	hw->phy.ops.read_reg_locked(hw, PHY_ID2, &phy_reg);
++	e1e_rphy_locked(hw, PHY_ID2, &phy_reg);
+ 	phy_id |= (u32)(phy_reg & PHY_REVISION_MASK);
+ 
+ 	if (hw->phy.id) {
+@@ -1271,8 +1271,7 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
+ 		reg_addr &= PHY_REG_MASK;
+ 		reg_addr |= phy_page;
+ 
+-		ret_val = phy->ops.write_reg_locked(hw, (u32)reg_addr,
+-						    reg_data);
++		ret_val = e1e_wphy_locked(hw, (u32)reg_addr, reg_data);
+ 		if (ret_val)
+ 			goto release;
+ 	}
+@@ -1309,8 +1308,8 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link)
+ 	/* Disable K1 when link is 1Gbps, otherwise use the NVM setting */
+ 	if (link) {
+ 		if (hw->phy.type == e1000_phy_82578) {
+-			ret_val = hw->phy.ops.read_reg_locked(hw, BM_CS_STATUS,
+-			                                          &status_reg);
++			ret_val = e1e_rphy_locked(hw, BM_CS_STATUS,
++						  &status_reg);
+ 			if (ret_val)
+ 				goto release;
+ 
+@@ -1325,8 +1324,7 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link)
+ 		}
+ 
+ 		if (hw->phy.type == e1000_phy_82577) {
+-			ret_val = hw->phy.ops.read_reg_locked(hw, HV_M_STATUS,
+-			                                          &status_reg);
++			ret_val = e1e_rphy_locked(hw, HV_M_STATUS, &status_reg);
+ 			if (ret_val)
+ 				goto release;
+ 
+@@ -1341,15 +1339,13 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link)
+ 		}
+ 
+ 		/* Link stall fix for link up */
+-		ret_val = hw->phy.ops.write_reg_locked(hw, PHY_REG(770, 19),
+-		                                           0x0100);
++		ret_val = e1e_wphy_locked(hw, PHY_REG(770, 19), 0x0100);
+ 		if (ret_val)
+ 			goto release;
+ 
+ 	} else {
+ 		/* Link stall fix for link down */
+-		ret_val = hw->phy.ops.write_reg_locked(hw, PHY_REG(770, 19),
+-		                                           0x4100);
++		ret_val = e1e_wphy_locked(hw, PHY_REG(770, 19), 0x4100);
+ 		if (ret_val)
+ 			goto release;
+ 	}
+@@ -1448,7 +1444,7 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
+ 
+ 	mac_reg = er32(PHY_CTRL);
+ 
+-	ret_val = hw->phy.ops.read_reg_locked(hw, HV_OEM_BITS, &oem_reg);
++	ret_val = e1e_rphy_locked(hw, HV_OEM_BITS, &oem_reg);
  	if (ret_val)
+ 		goto release;
+ 
+@@ -1475,7 +1471,7 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
+ 	    !hw->phy.ops.check_reset_block(hw))
+ 		oem_reg |= HV_OEM_BITS_RESTART_AN;
+ 
+-	ret_val = hw->phy.ops.write_reg_locked(hw, HV_OEM_BITS, oem_reg);
++	ret_val = e1e_wphy_locked(hw, HV_OEM_BITS, oem_reg);
+ 
+ release:
+ 	hw->phy.ops.release(hw);
+@@ -1571,11 +1567,10 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+ 	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+-	ret_val = hw->phy.ops.read_reg_locked(hw, BM_PORT_GEN_CFG, &phy_data);
++	ret_val = e1e_rphy_locked(hw, BM_PORT_GEN_CFG, &phy_data);
+ 	if (ret_val)
+ 		goto release;
+-	ret_val = hw->phy.ops.write_reg_locked(hw, BM_PORT_GEN_CFG,
+-					       phy_data & 0x00FF);
++	ret_val = e1e_wphy_locked(hw, BM_PORT_GEN_CFG, phy_data & 0x00FF);
+ release:
+ 	hw->phy.ops.release(hw);
+ 
+@@ -1807,20 +1802,18 @@ static s32 e1000_lv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+ 	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+-	ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_ADDR,
+-					       I82579_MSE_THRESHOLD);
++	ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR, I82579_MSE_THRESHOLD);
+ 	if (ret_val)
+ 		goto release;
+ 	/* set MSE higher to enable link to stay up when noise is high */
+-	ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_DATA, 0x0034);
++	ret_val = e1e_wphy_locked(hw, I82579_EMI_DATA, 0x0034);
+ 	if (ret_val)
+ 		goto release;
+-	ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_ADDR,
+-					       I82579_MSE_LINK_DOWN);
++	ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR, I82579_MSE_LINK_DOWN);
+ 	if (ret_val)
+ 		goto release;
+ 	/* drop link after 5 times MSE threshold was reached */
+-	ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_DATA, 0x0005);
++	ret_val = e1e_wphy_locked(hw, I82579_EMI_DATA, 0x0005);
+ release:
+ 	hw->phy.ops.release(hw);
+ 
+@@ -1995,12 +1988,10 @@ static s32 e1000_post_phy_reset_ich8lan(struct e1000_hw *hw)
+ 		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			return ret_val;
+-		ret_val = hw->phy.ops.write_reg_locked(hw, I82579_EMI_ADDR,
+-						       I82579_LPI_UPDATE_TIMER);
++		ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR,
++					  I82579_LPI_UPDATE_TIMER);
+ 		if (!ret_val)
+-			ret_val = hw->phy.ops.write_reg_locked(hw,
+-							       I82579_EMI_DATA,
+-							       0x1387);
++			ret_val = e1e_wphy_locked(hw, I82579_EMI_DATA, 0x1387);
+ 		hw->phy.ops.release(hw);
+ 	}
+ 
 -- 
 1.7.7.6
