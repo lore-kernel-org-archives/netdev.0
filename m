@@ -1,40 +1,29 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [GIT] Networking
-Date: Thu, 03 May 2012 15:06:53 +0530
-Message-ID: <4FA251B5.8080109@linux.vnet.ibm.com>
-References: <20120503.025951.1393913795357644010.davem@davemloft.net> <4FA24AB1.9010108@linux.vnet.ibm.com> <20120503.053246.92708809581536438.davem@davemloft.net>
+From: =?UTF-8?B?TmljY29sw7IgQmVsbGk=?= <darkbasic@linuxsystems.it>
+Subject: Re: sky2 still badly broken
+Date: Thu, 03 May 2012 11:40:10 +0200
+Message-ID: <4FA2527A.6020808@linuxsystems.it>
+References: <4F9AFE4E.8010108@linuxsystems.it> <20120430122501.5fff4b1e@nehalam.linuxnetplumber.net> <4FA14EC6.6050207@linuxsystems.it> <20120502115618.04ab8ff9@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bpoirier@suse.de, jeffrey.t.kirsher@intel.com, rjw@sisk.pl,
-	linux-pm@vger.kernel.org, stephen.s.ko@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120503.053246.92708809581536438.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linuxsystems.it ([2.119.245.41]:45551 "EHLO
+	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756021Ab2ECJjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 05:39:04 -0400
+In-Reply-To: <20120502115618.04ab8ff9@s6510.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/03/2012 03:02 PM, David Miller wrote:
+Il 02/05/2012 20:56, Stephen Hemminger ha scritto:
+> It could be that your switch doesn't do autonegotiation or flow
+> control. You are getting receive fifo overflow errors.
 
-> From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-> Date: Thu, 03 May 2012 14:36:57 +0530
-> 
->> https://lkml.org/lkml/2012/4/5/197
-> 
-> Networking patches not posted to netdev and the Intel ethernet driver
-> maintainers will be ignored.
-> 
+I don't have this problem with other NICs. Also transfer rate is very=20
+low (even 2 MB/s sometimes) while I get ~110MB/s with other NICs (and=20
+the same switch of course).
 
-
-Jeff Kirsher (Intel ethernet driver maintainer) already acked that
-patchset (both patches).
-
-https://lkml.org/lkml/2012/4/5/376
-https://lkml.org/lkml/2012/4/5/377
-
-One went upstream, the other didn't (yet). That's my concern.
-
-Regards,
-Srivatsa S. Bhat
+Niccol=C3=B2
