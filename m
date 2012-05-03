@@ -1,34 +1,38 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH v3] tilegx network driver: initial support
-Date: Thu, 3 May 2012 13:25:57 -0400
-Message-ID: <4FA2BFA5.20304@tilera.com>
-References: <201205011759.q41HxR21020043@farm-0012.internal.tilera.com> <20120503.014156.149171097979026872.davem@davemloft.net> <4FA2A81C.8020402@tilera.com> <20120503.130738.203857602354001769.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: pull request: wireless-next 2012-05-03
+Date: Thu, 03 May 2012 10:29:46 -0700
+Message-ID: <1336066186.13866.25.camel@joe2Laptop>
+References: <20120503152206.GL9285@tuxdriver.com>
+	 <20120503.130516.1008806127286088740.davem@davemloft.net>
+	 <20120503.131707.112550136096227430.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <arnd@arndb.de>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120503.130738.203857602354001769.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:41484 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752474Ab2ECR3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 13:29:48 -0400
+In-Reply-To: <20120503.131707.112550136096227430.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/3/2012 1:07 PM, David Miller wrote:
-> From: Chris Metcalf <cmetcalf@tilera.com>
-> Date: Thu, 3 May 2012 11:45:32 -0400
->
->> Thanks, I've removed it from my branch.  (Since it's a trivial update, I
->> won't repost the change on LKML unless I get any more feedback that needs
->> addressing.)
-> Sorry, this approach doesn't work, you should post a new version
-> more expediently.
->
-> When I see something so terrible like I saw this time, I just provide
-> feedback on that major issue and stop reviewing.
+On Thu, 2012-05-03 at 13:17 -0400, David Miller wrote:
+>  ...
+> -		if (hdev->discovery.type == DISCOV_TYPE_INTERLEAVED) {
+> +		if (hdev->discovery.type == DISCOV_TYPE_INTERLEAVED &&
+> +				hdev->discovery.state == DISCOVERY_FINDING) {
+> 
+> Really, we went through this a million times very recently and I'm
+> not pulling anything into my tree that has garbage like this in it.
 
-Thanks, good to know.  Will do.
+Perhaps the bluetooth folk can adopt using
 
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+scripts/checkpatch.pl --strict
+
+or maybe checkpatch could be changed to use
+--strict on patches in net and drivers/net
+automatically.
