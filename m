@@ -1,29 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 3/3] usbnet: fix skb traversing races during unlink(v1)
-Date: Wed, 02 May 2012 20:12:12 -0400 (EDT)
-Message-ID: <20120502.201212.909292764269133334.davem@davemloft.net>
-References: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
-	<1335775864-4873-4-git-send-email-tom.leiming@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ucc_geth: Add 16 bytes to max TX frame for VLANs
+Date: Wed, 02 May 2012 20:12:35 -0400 (EDT)
+Message-ID: <20120502.201235.1329621426123380213.davem@davemloft.net>
+References: <1335775015-14718-1-git-send-email-Joakim.Tjernlund@transmode.se>
+	<1335775015-14718-2-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	oneukum-l3A5Bk7waGM@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1335775864-4873-4-git-send-email-tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Joakim.Tjernlund@transmode.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:37814 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754407Ab2ECAMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:12:43 -0400
+In-Reply-To: <1335775015-14718-2-git-send-email-Joakim.Tjernlund@transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 30 Apr 2012 16:51:04 +0800
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Mon, 30 Apr 2012 10:36:55 +0200
 
-> This patch depends on the usb_block_urb/usb_unblock_urb patch from
-> Oliver.
+> Creating a VLAN interface on top of ucc_geth adds 4 bytes
+> to the frame and the HW controller is not prepared to
+> TX a frame bigger than 1518 bytes which is 4 bytes too
+> small for a full VLAN frame. Add 16 bytes which will handle
+> the a simple VLAN and leaves 12 bytes for future expansion.
+> 
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 
-Therefore I cannot apply it to any of my trees.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
