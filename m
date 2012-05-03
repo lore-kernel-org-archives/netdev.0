@@ -1,37 +1,34 @@
-From: Amit Shah <amit.shah@redhat.com>
-Subject: Re: [PATCH RFC] virtio-net: remove useless disable on freeze
-Date: Thu, 3 May 2012 16:29:59 +0530
-Message-ID: <20120503105959.GM13421@amit.redhat.com>
-References: <20120404091954.GA3776@redhat.com>
+From: Marco Berizzi <pupilla@hotmail.com>
+Subject: RE: rx_dropped packets stop with tcpdump running
+Date: Thu, 3 May 2012 13:08:25 +0200
+Message-ID: <DUB108-W3055C086AE5AF99FC1FC37B22F0@phx.gbl>
+References: <DUB108-W3E0658169335663BE7574B23D0@phx.gbl>,<1334841865.2395.177.camel@edumazet-glaptop>,<1334842088.2395.178.camel@edumazet-glaptop>,<061C8A8601E8EE4CA8D8FD6990CEA8910FF2D23F@ORSMSX102.amr.corp.intel.com>,<DUB108-W45246BF22ED8BAB93B78C8B2220@phx.gbl>
+	<4F9179E3.5020507@hp.com>,<DUB108-W57C2F8FCF145C20E3B8BF1B2220@phx.gbl>,<20120422011354.623b08d4.billfink@mindspring.com>,<061C8A8601E8EE4CA8D8FD6990CEA891180CC211@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20120404091954.GA3776@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <brian.haley@hp.com>, <netdev@vger.kernel.org>,
+	<eric.dumazet@gmail.com>, <billfink@mindspring.com>
+To: <tushar.n.dave@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dub0-omc4-s29.dub0.hotmail.com ([157.55.2.104]:30857 "EHLO
+	dub0-omc4-s29.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752846Ab2ECLI1 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 07:08:27 -0400
+In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA891180CC211@ORSMSX102.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (Wed) 04 Apr 2012 [12:19:55], Michael S. Tsirkin wrote:
-> disable_cb is just an optimization: it
-> can not guarantee that there are no callbacks.
 
-Even then, what's the harm in keeping it?  If indeed there's an
-attempt to raise an interrupt after the host has been notified, it
-will be suppressed.
+> From: tushar.n.dave@intel.com
 
-Also, disable_cb seems to be used elsewhere in the virtio_net.c file,
-to suit similar purposes.
+> Looking at the eeprom dump you provided, looks like this issue may get fixed by eeprom update.
+> Would you please try eeprom update script, fixeep-82574_83.sh , from
+> https://sourceforge.net/projects/e1000/files/e1000e%20stable/eeprom_fix_82574_or_82583/
 
-		Amit
+Hi Dave,
+
+Sorry for the huge delay.
+I have applied the update, but I see the dropped packets.
+ 		 	   		  
