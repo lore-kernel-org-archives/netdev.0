@@ -1,49 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: l2tp: unlock socket lock before returning from
- l2tp_ip_sendmsg
-Date: Wed, 02 May 2012 21:05:09 -0400 (EDT)
-Message-ID: <20120502.210509.1240046301942391500.davem@davemloft.net>
-References: <1335967123-2588-1-git-send-email-levinsasha928@gmail.com>
-	<1335969156.22133.570.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next 0/4] be2net fixes
+Date: Wed, 02 May 2012 21:07:40 -0400 (EDT)
+Message-ID: <20120502.210740.328667962599363816.davem@davemloft.net>
+References: <88a38ad8-0db5-47cb-a868-59e13a8f746d@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: levinsasha928@gmail.com, jchapman@katalix.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davej@redhat.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1335969156.22133.570.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38317 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754152Ab2ECBHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 21:07:44 -0400
+In-Reply-To: <88a38ad8-0db5-47cb-a868-59e13a8f746d@exht1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 02 May 2012 16:32:36 +0200
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Wed, 2 May 2012 19:09:46 +0530
 
-> On Wed, 2012-05-02 at 15:58 +0200, Sasha Levin wrote:
->> l2tp_ip_sendmsg could return without releasing socket lock, making it all the
->> way to userspace, and generating the following warning:
->> 
->> [  130.891594] ================================================
->> [  130.894569] [ BUG: lock held when returning to user space! ]
->> [  130.897257] 3.4.0-rc5-next-20120501-sasha #104 Tainted: G        W
->> [  130.900336] ------------------------------------------------
->> [  130.902996] trinity/8384 is leaving the kernel with locks still held!
->> [  130.906106] 1 lock held by trinity/8384:
->> [  130.907924]  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff82b9503f>] l2tp_ip_sendmsg+0x2f/0x550
->> 
->> Introduced by commit 2f16270 ("l2tp: Fix locking in l2tp_ip.c").
->> 
->> Cc: stable@vger.kernel.org
->> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
->> ---
+> Re-posting patches 1-4 from the earlier patch set of 5.
+> Incorporated review comment from Ben Hutchings in patch 2.
+> Will address comments in Patch 5 and send it out seperately.
 > 
-> Oh well, please read Documentation/stable_kernel_rules.txt
-> 
-> Also, David prefers to handle stable submissions himself for net tree.
-> 
-> Anyway :
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> Somnath Kotur (4):
+>   be2net: Fix to not set link speed for disabled functions of a UMC
+>     card
+>   be2net: Fix to apply duplex value as unknown when link is down.
+>   be2net: Record receive queue index in skb to aid RPS.
+>   be2net: Fix EEH error reset before a flash dump completes
 
-Applied.
+All applied, thanks.
