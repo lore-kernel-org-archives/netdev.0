@@ -1,44 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/8] Sometimes the ISDN chip only controls the D-channel
-Date: Thu, 03 May 2012 02:50:59 -0400 (EDT)
-Message-ID: <20120503.025059.1771068683530938115.davem@davemloft.net>
-References: <1335613404-10187-4-git-send-email-kkeil@linux-pingi.de>
-	<20120501.133007.569588994121475807.davem@davemloft.net>
-	<4FA2265D.6040000@linux-pingi.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: WARNING: at net/sched/sch_generic.c:256 dev_watchdog+0x277/0x280()
+Date: Thu, 3 May 2012 08:47:26 +0200
+Message-ID: <20120503064726.GA17337@electric-eye.fr.zoreil.com>
+References: <4F92EC8D.2010806@fiec.espol.edu.ec> <4FA18919.8010503@fiec.espol.edu.ec> <20120502225227.GA12309@electric-eye.fr.zoreil.com> <4FA1C331.80909@fiec.espol.edu.ec>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: kkeil@linux-pingi.de
+To: Alex =?utf-8?B?VmlsbGFjw63CrXM=?= Lasso
+	<avillaci@fiec.espol.edu.ec>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40384 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752459Ab2ECGvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 02:51:07 -0400
-In-Reply-To: <4FA2265D.6040000@linux-pingi.de>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:46168 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752455Ab2ECGxW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 02:53:22 -0400
+Content-Disposition: inline
+In-Reply-To: <4FA1C331.80909@fiec.espol.edu.ec>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <kkeil@linux-pingi.de>
-Date: Thu, 03 May 2012 08:31:57 +0200
+(please avoid posting twice)
 
-> I did put the additional PCM infrastructure in this series, because
-> the approval test was done with it in place.
-> I did plan the update of the low level drivers in a separate patchset
-> from the beginning.
-> 
-> What do you prefer, adding the driver part now, as additional patch, or
-> removing this additional infrastruckture part and submit it in a later
-> series ?
+Alex Villac=C3=AD=C2=ADs Lasso <avillaci@fiec.espol.edu.ec> :
+[...]
+> I am currently away from the target computer. How should I check for =
+this? lspci?
 
-I feel like I'm talking to a wall.
+lspci can not tell much. Use 'dmesg | grep XID' instead.
 
-A patch should do one, and only one thing.  It should not have
-changes which are unrelated to that one thing.
+A complete dmesg would be welcome.
 
-What part of this is so hard to understand?
+It could help to know a few things :
+- does the problem qualify as a regression since some kernel version ?
+  If so which one ?
+- can it be reproduced with a kernel that has not been vbox tainted ?
+- does networking recover ?
 
-To make matters worse, you didn't even make a mention of those
-unrelated changes in your commit message.
+Thanks.
 
-So that patch was bogus on at least two counts.
+--=20
+Ueimor
