@@ -1,87 +1,72 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3 1/2] vhost-net: fix handle_rx buffer size
-Date: Thu, 3 May 2012 15:39:20 +0300
-Message-ID: <20120503123919.GA26366@redhat.com>
-References: <m1ipgtzwew.fsf@fess.ebiederm.org>
- <1335373275-336-1-git-send-email-basil.gor@gmail.com>
- <m1bomfgivx.fsf@fess.ebiederm.org>
+From: Luciano Coelho <coelho@ti.com>
+Subject: Re: [PATCH] wl12xx: fix size of two memset's in
+ wl1271_cmd_build_arp_rsp()
+Date: Thu, 03 May 2012 15:56:41 +0300
+Message-ID: <1336049801.12189.31.camel@cumari.coelho.fi>
+References: <alpine.LNX.2.00.1204222252000.27455@swampdragon.chaosbits.net>
+	 <alpine.LNX.2.00.1204222255460.27455@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Basil Gor <basil.gor@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43703 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754215Ab2ECMjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2012 08:39:16 -0400
-Content-Disposition: inline
-In-Reply-To: <m1bomfgivx.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jesper Juhl <jj@chaosbits.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1204222255460.27455@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 25, 2012 at 10:30:10PM -0700, Eric W. Biederman wrote:
-> Basil Gor <basil.gor@gmail.com> writes:
+On Sun, 2012-04-22 at 22:57 +0200, Jesper Juhl wrote:
+> On Sun, 22 Apr 2012, Jesper Juhl wrote:
 > 
-> > Take vlan header length into account, when vlan id is stored as
-> > vlan_tci. Otherwise tagged packets comming from macvtap will be
-> > truncated.
+> > We currently do this:
+> > 
+> > int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+> > ...
+> > 	struct wl12xx_arp_rsp_template *tmpl;
+> > 	struct ieee80211_hdr_3addr *hdr;
+> > ...
+> > 	tmpl = (struct wl12xx_arp_rsp_template *)skb_put(skb, sizeof(*tmpl));
+> > 	memset(tmpl, 0, sizeof(tmpl));
+> > ...
+> > 	hdr = (struct ieee80211_hdr_3addr *)skb_push(skb, sizeof(*hdr));
+> > 	memset(hdr, 0, sizeof(*hdr));
+> > ...
+> > 
+> > I believe we want to set the entire structures to 0 with those
+> > memset() calls, not just zero the initial part of them (size of the
+> > pointer bytes).
+> > 
 > 
-> Better.
+> Sorry, I accidentally copied that code from the fixed version. The above 
+> should read:
 > 
-> In recvmsg you are still missing handling of PACKET_AUXDATA
-> that includes aux.tp_vlan_tci === vlan_id and
-> aux.tp_status === TP_STATUS_VLAN_VALID.
 > 
-> That is the way pf_packet sockets report the vlan.  Not
-> in the actual packet itself.
+> We currently do this:
 > 
-> Eric
-
-And vhost can't handle this without userspace changes,
-because put_cmsg expects a userspace pointer.
-
-So maybe, until someone says they care about this bug,
-for now it's enough to check
-	msg->msg_flags & MSG_CTRUNC
-and error out in vhost.
-
-Either this, or add a flag to put_cmsg that will
-cause it to do memcpy instead of copy to user.
-
-
-> > Signed-off-by: Basil Gor <basil.gor@gmail.com>
+> int wl1271_cmd_build_arp_rsp(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+> ...
+>       struct wl12xx_arp_rsp_template *tmpl;
+>       struct ieee80211_hdr_3addr *hdr;
+> ...
+>       tmpl = (struct wl12xx_arp_rsp_template *)skb_put(skb, sizeof(*tmpl));
+>       memset(tmpl, 0, sizeof(tmpl));
+> ...
+>       hdr = (struct ieee80211_hdr_3addr *)skb_push(skb, sizeof(*hdr));
+>       memset(hdr, 0, sizeof(hdr));
+> ...
+> 
+> I believe we want to set the entire structures to 0 with those
+> memset() calls, not just zero the initial part of them (size of the
+> pointer bytes).
+> 
+> 
+> 
+> 
+> 
+> > Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 > > ---
-> >  drivers/vhost/net.c |    7 ++++++-
-> >  1 files changed, 6 insertions(+), 1 deletions(-)
-> >
-> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > index 1f21d2a..5c17010 100644
-> > --- a/drivers/vhost/net.c
-> > +++ b/drivers/vhost/net.c
-> > @@ -24,6 +24,7 @@
-> >  #include <linux/if_arp.h>
-> >  #include <linux/if_tun.h>
-> >  #include <linux/if_macvlan.h>
-> > +#include <linux/if_vlan.h>
-> >  
-> >  #include <net/sock.h>
-> >  
-> > @@ -283,8 +284,12 @@ static int peek_head_len(struct sock *sk)
-> >  
-> >  	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
-> >  	head = skb_peek(&sk->sk_receive_queue);
-> > -	if (likely(head))
-> > +	if (likely(head)) {
-> >  		len = head->len;
-> > +		if (vlan_tx_tag_present(head))
-> > +			len += VLAN_HLEN;
-> > +	}
-> > +
-> >  	spin_unlock_irqrestore(&sk->sk_receive_queue.lock, flags);
-> >  	return len;
-> >  }
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Applied with the fixed commit log and merged into the new directory
+structure.  Thanks Jesper!
