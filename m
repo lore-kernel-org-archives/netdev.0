@@ -1,51 +1,78 @@
-From: "Bedia, Vaibhav" <vaibhav.bedia@ti.com>
-Subject: RE: [PATCH] net: davinci_emac: Add pre_open, post_stop platform
- callbacks
-Date: Thu, 3 May 2012 19:25:36 +0000
-Message-ID: <B5906170F1614E41A8A28DE3B8D121433EA7366B@DBDE01.ent.ti.com>
-References: <20120502234718.GA5432@animalcreek.com>
- <B5906170F1614E41A8A28DE3B8D121433EA72820@DBDE01.ent.ti.com>
- <20120503160917.GA11310@animalcreek.com>
- <B5906170F1614E41A8A28DE3B8D121433EA73591@DBDE01.ent.ti.com>
- <20120503184632.GA28089@animalcreek.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next PATCH v4 0/8] Managing the forwarding database(FDB)
+Date: Thu, 03 May 2012 12:26:47 -0700
+Message-ID: <4FA2DBF7.40108@intel.com>
+References: <20120415163905.14091.30491.stgit@jf-dev1-dcblab> <20120415.130637.2258594023349277277.davem@davemloft.net> <20120502150830.GA2976@redhat.com> <4FA1ACA1.2080808@intel.com> <20120503054859.GH8266@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: "Mark A. Greer" <mgreer@animalcreek.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, bhutchings@solarflare.com,
+	sri@us.ibm.com, hadi@cyberus.ca, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gregory.v.rose@intel.com,
+	krkumar2@in.ibm.com, roprabhu@cisco.com
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:42665 "EHLO arroyo.ext.ti.com"
+Received: from mga09.intel.com ([134.134.136.24]:25251 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755347Ab2ECT0P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 15:26:15 -0400
-In-Reply-To: <20120503184632.GA28089@animalcreek.com>
-Content-Language: en-US
+	id S1755347Ab2ECT07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 15:26:59 -0400
+In-Reply-To: <20120503054859.GH8266@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 04, 2012 at 00:16:32, Mark A. Greer wrote:
-[...]
-> > 
-> > So, if I understood this correctly, it's effectively like blocking a low power
-> > state transition (here wfi execution) when EMAC is active?
+On 5/2/2012 10:48 PM, Michael S. Tsirkin wrote:
+> On Wed, May 02, 2012 at 02:52:33PM -0700, John Fastabend wrote:
+>> On 5/2/2012 8:08 AM, Michael S. Tsirkin wrote:
+>>> On Sun, Apr 15, 2012 at 01:06:37PM -0400, David Miller wrote:
+>>>> From: John Fastabend <john.r.fastabend@intel.com>
+>>>> Date: Sun, 15 Apr 2012 09:43:51 -0700
+>>>>
+>>>>> The following series is a submission for net-next to allow
+>>>>> embedded switches and other stacked devices other then the
+>>>>> Linux bridge to manage a forwarding database.
+>>>>>
+>>>>> Previously discussed here,
+>>>>>
+>>>>> http://lists.openwall.net/netdev/2012/03/19/26
+>>>>>
+>>>>> v4: propagate return codes correctly for ndo_dflt_Fdb_dump()
+>>>>>
+>>>>> v3: resolve the macvlan patch 8/8 to fix a dev_set_promiscuity()
+>>>>>     error and add the flags field to change and get link routines.
+>>>>>
+>>>>> v2: addressed feedback from Ben Hutchings resolving a typo in the
+>>>>>     multicast add/del routines and improving the error handling
+>>>>>     when both NTF_SELF and NTF_MASTER are set.
+>>>>>
+>>>>> I've tested this with 'br' tool published by Stephen Hemminger
+>>>>> soon to be renamed 'bridge' I believe and various traffic
+>>>>> generators mostly pktgen, ping, and netperf.
+>>>>
+>>>> All applied, if we need any more tweaks we can just add them
+>>>> on top of this work.
+>>>>
+>>>> Thanks John.
+>>>
+>>> John, do you plan to update kvm userspace to use this interface?
+>>>
+>>
+>> No immediate plans. I would really appreciate it if you or one
+>> of the IBM developers working in this space took it on. Of course
+>> if no one steps up I guess I can eventually get at it but it will
+>> be sometime. For now I've been doing this manually with the bridge
+>> tool yet to be published.
+>>
+>> .John
 > 
-> Assuming "it" is my patch, correct.
+> It'll be easier once you publish the tool, qemu can just run
+> scripts like it does for ifup/ifdown now.
 > 
 
-Recently I was thinking about how to get certain drivers to disallow some or all
-low power states and to me this also seems to fall in a similar category.
+Agreed.
 
-One of the suggestions that I got was to check if the 'wakeup' entry associated with
-the device under sysfs could be leveraged for this. The PM code could maintain
-a whitelist (or blacklist) of devices and it decides the low power state to enter
-based on the 'wakeup' entries associated with these devices. In this particular case,
-maybe the driver could simply set this entry to non-wakeup capable when necessary and
-then let the PM code take care of skipping the wfi execution.
+Stephen when do you think you will be able to submit 'br' renamed
+'bridge' for the iproute2 package? I've been using it now for sometime
+without any issues and it seems to be working great for me.
 
-Thoughts/brickbats welcome :)
-
-Regards,
-Vaibhav
+Thanks,
+John
