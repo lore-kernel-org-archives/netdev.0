@@ -1,55 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/9][pull request] Intel Wired LAN Dirver Updates
-Date: Thu,  3 May 2012 02:56:23 -0700
-Message-ID: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 1/9] e1000e: suggest a possible workaround to a device hang on 82577/8
+Date: Thu,  3 May 2012 02:56:24 -0700
+Message-ID: <1336038992-3144-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:64596 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751941Ab2ECJ4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752196Ab2ECJ4e (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 3 May 2012 05:56:34 -0400
+In-Reply-To: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of patches contains updates for e1000e and ixgbevf.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-The following are changes since commit af94bf6db1d58d26f1cdab145b6312ad363254a6:
-  ixgbe: Fix use after free on module remove
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+There is a known issue in the 82577 and 82578 device that can cause a hang
+in the device hardware during traffic stress; the current workaround in the
+driver is to disable transmit flow control by default.  If the user enables
+transmit flow control and the device hang occurs, provide a message in the
+syslog suggesting to re-enable the workaround.
 
-Bruce Allan (2):
-  e1000e: suggest a possible workaround to a device hang on 82577/8
-  e1000e: cleanup long [read|write]_reg_locked PHY ops function
-    pointers
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Chris Boot (2):
-  e1000e: Disable ASPM L1 on 82574
-  e1000e: Remove special case for 82573/82574 ASPM L1 disablement
-
-Greg Rose (3):
-  ixgbevf: Add support to recognize 100mb link speed
-  ixgbevf: Make sure jumbo frames are set correctly after PF reset
-  ixgbevf: Update version string
-
-Matthew Vick (2):
-  e1000e: Resolve intermittent negotiation issue on 82574/82583.
-  e1000e: Driver workaround for IPv6 Header Extension Erratum.
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c   |    8 +++
- drivers/net/ethernet/intel/e1000e/82571.c         |   13 +++++-
- drivers/net/ethernet/intel/e1000e/e1000.h         |   10 ++++
- drivers/net/ethernet/intel/e1000e/ich8lan.c       |   54 ++++++++++-----------
- drivers/net/ethernet/intel/e1000e/netdev.c        |   21 ++------
- drivers/net/ethernet/intel/e1000e/phy.c           |   18 +++++++-
- drivers/net/ethernet/intel/ixgbevf/defines.h      |    2 +
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |   18 +++++--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   30 ++++++------
- drivers/net/ethernet/intel/ixgbevf/vf.c           |   12 ++++-
- 11 files changed, 119 insertions(+), 69 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index c0e211b..e86b524 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1084,6 +1084,10 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 	      phy_1000t_status,
+ 	      phy_ext_status,
+ 	      pci_status);
++
++	/* Suggest workaround for known h/w issue */
++	if ((hw->mac.type == e1000_pchlan) && (er32(CTRL) & E1000_CTRL_TFCE))
++		e_err("Try turning off Tx pause (flow control) via ethtool\n");
+ }
+ 
+ /**
 -- 
 1.7.7.6
