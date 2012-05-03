@@ -1,123 +1,69 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [v2 PATCH 3/4] tcp: move stats merge to the end of tcp_try_coalesce
-Date: Thu, 03 May 2012 00:19:09 -0700
-Message-ID: <20120503071909.13636.43086.stgit@gitlad.jf.intel.com>
-References: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [PATCH 3/8] Sometimes the ISDN chip only controls the D-channel
+Date: Thu, 03 May 2012 09:31:04 +0200
+Message-ID: <4FA23438.6090103@linux-pingi.de>
+References: <1335613404-10187-4-git-send-email-kkeil@linux-pingi.de> <20120501.133007.569588994121475807.davem@davemloft.net> <4FA2265D.6040000@linux-pingi.de> <20120503.025059.1771068683530938115.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	edumazet@google.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:39586 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754758Ab2ECHTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2012 03:19:16 -0400
-In-Reply-To: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
+Received: from moutng.kundenserver.de ([212.227.126.171]:56653 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753779Ab2ECHg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 03:36:29 -0400
+In-Reply-To: <20120503.025059.1771068683530938115.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change cleans up the last bits of tcp_try_coalesce so that we only
-need one goto which jumps to the end of the function.  The idea is to make
-the code more readable by putting things in a linear order so that we start
-execution at the top of the function, and end it at the bottom.
+Am 03.05.2012 08:50, schrieb David Miller:
+> From: Karsten Keil <kkeil@linux-pingi.de>
+> Date: Thu, 03 May 2012 08:31:57 +0200
+> 
+>> I did put the additional PCM infrastructure in this series, because
+>> the approval test was done with it in place.
+>> I did plan the update of the low level drivers in a separate patchset
+>> from the beginning.
+>>
+>> What do you prefer, adding the driver part now, as additional patch, or
+>> removing this additional infrastruckture part and submit it in a later
+>> series ?
+> 
+> I feel like I'm talking to a wall.
+> 
+> A patch should do one, and only one thing.  It should not have
+> changes which are unrelated to that one thing.
+> 
 
-I also made a slight tweak to the code for handling frags when we are a
-clone.  Instead of making it an if (clone) loop else nr_frags = 0 I changed
-the logic so that if (!clone) we just set the number of frags to 0 which
-disables the for loop anyway.
+Sorry I disagree here, this patch does exactly one thing, it add the
+infrastructure in the mISDN core to allow the PCM only B-channel mode.
+PCM only mode need a special protocol and a mechanism to set/get/store
+the PCM slots of the card, and this is for what the extra stuff is used.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
 
- net/ipv4/tcp_input.c |   55 ++++++++++++++++++++++++++------------------------
- 1 files changed, 29 insertions(+), 26 deletions(-)
+> What part of this is so hard to understand?
+> 
+> To make matters worse, you didn't even make a mention of those
+> unrelated changes in your commit message.
+> 
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 41fa5df..84e69e0 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4548,15 +4548,13 @@ static bool tcp_try_coalesce(struct sock *sk,
- 	int i, delta, len = from->len;
- 
- 	*fragstolen = false;
-+
- 	if (tcp_hdr(from)->fin || skb_cloned(to))
- 		return false;
-+
- 	if (len <= skb_tailroom(to)) {
- 		BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
--merge:
--		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPRCVCOALESCE);
--		TCP_SKB_CB(to)->end_seq = TCP_SKB_CB(from)->end_seq;
--		TCP_SKB_CB(to)->ack_seq = TCP_SKB_CB(from)->ack_seq;
--		return true;
-+		goto merge;
- 	}
- 
- 	if (skb_has_frag_list(to) || skb_has_frag_list(from))
-@@ -4581,7 +4579,6 @@ merge:
- 		skb_fill_page_desc(to, skb_shinfo(to)->nr_frags,
- 				   page, offset, skb_headlen(from));
- 		*fragstolen = true;
--		goto copyfrags;
- 	} else {
- 		if (skb_shinfo(to)->nr_frags +
- 		    skb_shinfo(from)->nr_frags > MAX_SKB_FRAGS)
-@@ -4589,27 +4586,33 @@ merge:
- 
- 		delta = from->truesize -
- 			SKB_TRUESIZE(skb_end_pointer(from) - from->head);
--copyfrags:
--		WARN_ON_ONCE(delta < len);
--		memcpy(skb_shinfo(to)->frags + skb_shinfo(to)->nr_frags,
--		       skb_shinfo(from)->frags,
--		       skb_shinfo(from)->nr_frags * sizeof(skb_frag_t));
--		skb_shinfo(to)->nr_frags += skb_shinfo(from)->nr_frags;
--
--		if (skb_cloned(from))
--			for (i = 0; i < skb_shinfo(from)->nr_frags; i++)
--				skb_frag_ref(from, i);
--		else
--			skb_shinfo(from)->nr_frags = 0;
--
--		to->truesize += delta;
--		atomic_add(delta, &sk->sk_rmem_alloc);
--		sk_mem_charge(sk, delta);
--		to->len += len;
--		to->data_len += len;
--		goto merge;
- 	}
--	return false;
-+
-+	WARN_ON_ONCE(delta < len);
-+
-+	memcpy(skb_shinfo(to)->frags + skb_shinfo(to)->nr_frags,
-+	       skb_shinfo(from)->frags,
-+	       skb_shinfo(from)->nr_frags * sizeof(skb_frag_t));
-+	skb_shinfo(to)->nr_frags += skb_shinfo(from)->nr_frags;
-+
-+	if (!skb_cloned(from))
-+		skb_shinfo(from)->nr_frags = 0;
-+
-+	/* if the skb is cloned this does nothing since we set nr_frags to 0 */
-+	for (i = 0; i < skb_shinfo(from)->nr_frags; i++)
-+		skb_frag_ref(from, i);
-+
-+	to->truesize += delta;
-+	atomic_add(delta, &sk->sk_rmem_alloc);
-+	sk_mem_charge(sk, delta);
-+	to->len += len;
-+	to->data_len += len;
-+
-+merge:
-+	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPRCVCOALESCE);
-+	TCP_SKB_CB(to)->end_seq = TCP_SKB_CB(from)->end_seq;
-+	TCP_SKB_CB(to)->ack_seq = TCP_SKB_CB(from)->ack_seq;
-+	return true;
- }
- 
- static void kfree_skb_partial(struct sk_buff *skb, bool head_stolen)
+Yes, I was not verbose enough in the commit message and it was my error
+to include it in this series, without the use case. Maybe I'm too
+deep in the ISDN stuff so I forget that 3 parties do not see how it fit
+together.
+
+So would you accept this patch with a changed commit message like this ?
+
+Sometimes the ISDN chip only controls the D-channel
+
+The B-channels are connected only via the PCM backplane.
+For this special case we need two things, a protocol which do not enable
+the normal IO path and a method to set/get and store the PCM slots to be
+used on the backplane.
+This patch add the core infrastructure for both. A later patch will
+add the methods to the supported low level drivers.
+
+> So that patch was bogus on at least two counts.
+> 
+> 
