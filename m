@@ -1,45 +1,33 @@
-From: Rob Janssen <rob.janssen76@gmail.com>
-Subject: arcnet: protocol is buggy messages in 3.0 kernel, not in 2.33 kernel
-Date: Thu, 3 May 2012 14:21:11 +0200
-Message-ID: <CAJDhSdc5J1xzvxYhvru6kjqAbq1NAtvWQCu-tXbi4aE_NXGXrg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] skb: Add skb_head_is_locked helper function
+Date: Thu, 03 May 2012 14:31:02 +0200
+Message-ID: <1336048262.3752.9.camel@edumazet-glaptop>
+References: <20120503110942.18281.27820.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, edumazet@google.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:58426 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243Ab2ECMVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 08:21:11 -0400
-Received: by vcqp1 with SMTP id p1so1183412vcq.19
-        for <netdev@vger.kernel.org>; Thu, 03 May 2012 05:21:11 -0700 (PDT)
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:53744 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753933Ab2ECMbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 08:31:10 -0400
+Received: by lbbgm6 with SMTP id gm6so1206760lbb.19
+        for <netdev@vger.kernel.org>; Thu, 03 May 2012 05:31:08 -0700 (PDT)
+In-Reply-To: <20120503110942.18281.27820.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all
+On Thu, 2012-05-03 at 04:09 -0700, Alexander Duyck wrote:
+> This patch adds support for a skb_head_is_locked helper function.  It is
+> meant to be used any time we are considering transferring the head from
+> skb->head to a paged frag.  If the head is locked it means we cannot remove
+> the head from the skb so it must be copied or we must take the skb as a
+> whole.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
 
-Since we've moved from the 2.33 kernel to the 3.0 kernel, we see the
-following kernel messages in dmesg:
-
-protocol 001a is buggy, dev arc0 skb=c702e2f4
-
-The device involved is an arcnet device.
-The warning is logged by dev.c, see the following code snippet:
-
-if (skb_network_header(skb2) < skb2->data ||
-			    skb2->network_header > skb2->tail) {
-				if (net_ratelimit())
-					printk(KERN_CRIT "protocol %04x is "
-					       "buggy, dev %s skb=%04x\n",
-					       ntohs(skb2->protocol),
-					       dev->name, skb_network_header(skb2));
-				skb_reset_network_header(skb2);
-			}
-I added some logging, and it appears that skb2->network_header is
-placed in memory beyond skb2->tail (the second check).
-
-Does anyone have what causes this message in the 3.0 kernel and/or how
-to fix this ?
-
-Thanks in advance,
-
-Rob Janssen
+Acked-by: Eric Dumazet <edumazet@google.com>
