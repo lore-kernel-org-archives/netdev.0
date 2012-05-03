@@ -1,47 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [v2 PATCH 3/4] tcp: move stats merge to the end of
- tcp_try_coalesce
-Date: Thu, 03 May 2012 09:52:45 +0200
-Message-ID: <1336031565.3503.25.camel@edumazet-glaptop>
-References: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
-	 <20120503071909.13636.43086.stgit@gitlad.jf.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/8] Sometimes the ISDN chip only controls the D-channel
+Date: Thu, 03 May 2012 04:08:27 -0400 (EDT)
+Message-ID: <20120503.040827.1676148884337744047.davem@davemloft.net>
+References: <4FA2265D.6040000@linux-pingi.de>
+	<20120503.025059.1771068683530938115.davem@davemloft.net>
+	<4FA23438.6090103@linux-pingi.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, edumazet@google.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: netdev@vger.kernel.org
+To: kkeil@linux-pingi.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:57088 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752109Ab2ECHws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 03:52:48 -0400
-Received: by eekc41 with SMTP id c41so411574eek.19
-        for <netdev@vger.kernel.org>; Thu, 03 May 2012 00:52:47 -0700 (PDT)
-In-Reply-To: <20120503071909.13636.43086.stgit@gitlad.jf.intel.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40994 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751716Ab2ECIIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 04:08:34 -0400
+In-Reply-To: <4FA23438.6090103@linux-pingi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-03 at 00:19 -0700, Alexander Duyck wrote:
-> This change cleans up the last bits of tcp_try_coalesce so that we only
-> need one goto which jumps to the end of the function.  The idea is to make
-> the code more readable by putting things in a linear order so that we start
-> execution at the top of the function, and end it at the bottom.
-> 
-> I also made a slight tweak to the code for handling frags when we are a
-> clone.  Instead of making it an if (clone) loop else nr_frags = 0 I changed
-> the logic so that if (!clone) we just set the number of frags to 0 which
-> disables the for loop anyway.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
-> 
->  net/ipv4/tcp_input.c |   55 ++++++++++++++++++++++++++------------------------
->  1 files changed, 29 insertions(+), 26 deletions(-)
+From: Karsten Keil <kkeil@linux-pingi.de>
+Date: Thu, 03 May 2012 09:31:04 +0200
 
+> PCM only mode need a special protocol and a mechanism to set/get/store
+> the PCM slots of the card, and this is for what the extra stuff is used.
 
-Thanks a lot Alex, this patch serie looks very good.
+It changed the values of some macros which are actually used by the
+code.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Then it adds members to structures, and defines, which are completely
+unused.
+
+The latter part is completely bogus.
+
+This is the second time I'm saying this again.  I'm not saying it
+a third time, instead I'll just ignore you.
