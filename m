@@ -1,7 +1,7 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 7/9] net: add skb_orphan_frags to copy aside frags with destructors
-Date: Thu, 3 May 2012 15:56:09 +0100
-Message-ID: <1336056971-7839-7-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 5/9] net: pad skb data and shinfo as a whole rather than individually
+Date: Thu, 3 May 2012 15:56:07 +0100
+Message-ID: <1336056971-7839-5-git-send-email-ian.campbell@citrix.com>
 References: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,167 +11,160 @@ Cc: David Miller <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:11350 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:43178 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756056Ab2ECO4O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756053Ab2ECO4O (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 3 May 2012 10:56:14 -0400
 In-Reply-To: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should be used by drivers which need to hold on to an skb for an extended
-(perhaps unbounded) period of time. e.g. the tun driver which relies on
-userspace consuming the skb.
+This reduces the minimum overhead required for this allocation such that the
+shinfo can be grown in the following patch without overflowing 2048 bytes for a
+1500 byte frame.
+
+Reducing this overhead while also growing the shinfo means that sometimes the
+tail end of the data can end up in the same cache line as the beginning of the
+shinfo. Specifically in the case of the 64 byte cache lines on a 64 bit system
+the first 8 bytes of shinfo can overlap the tail cacheline of the data. In many
+cases the allocation slop means that there is no overlap.
+
+In order to ensure that the hot struct members remain on the same 64 byte cache
+line move the "destructor_arg" member to the front, this member is not used on
+any hot path so it is a good choice to potentially be on a separate cache line
+(and which addtionally may be shared with skb->data).
+
+Also rather than relying on knowledge about the size and layout of the rest of
+the shinfo to ensure that the right parts of the shinfo are aligned decree that
+nr_frags will be cache aligned and therefore that the 64 bytes starting at
+nr_frags should contain the hot struct members.
+
+All this avoids hitting an extra cache line on hot operations such as
+kfree_skb.
+
+On 4k pages this motion and alignment strategy (along with the following frag
+size increase) results in the shinfo abutting the very end of the allocation.
+On larger pages (where SKB_MAX_FRAGS can be smaller) it means that we still
+correctly align the hot data without needing to make assumptions about the data
+layout outside of the hot 64-bytes of the shinfo.
+
+Explicitly aligning nr_frags, rather than relying on analysis of the shinfo
+layout was suggested by Alexander Duyck <alexander.h.duyck@intel.com>
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: mst@redhat.com
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/net/tun.c      |    1 +
- include/linux/skbuff.h |   11 ++++++++
- net/core/skbuff.c      |   68 ++++++++++++++++++++++++++++++++++-------------
- 3 files changed, 61 insertions(+), 19 deletions(-)
+ include/linux/skbuff.h |   50 +++++++++++++++++++++++++++++------------------
+ net/core/skbuff.c      |    9 +++++++-
+ 2 files changed, 39 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index bb8c72c..b53e04e 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -415,6 +415,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Orphan the skb - required as we might hang on to it
- 	 * for indefinite time. */
- 	skb_orphan(skb);
-+	skb_orphan_frags(skb, GFP_KERNEL);
- 
- 	/* Enqueue packet */
- 	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index ccc7d93..9145f83 100644
+index 19e348f..3698625 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -1711,6 +1711,17 @@ static inline void skb_orphan(struct sk_buff *skb)
- }
+@@ -41,19 +41,24 @@
  
- /**
-+ *	skb_orphan_frags - orphan the frags contained in a buffer
-+ *	@skb: buffer to orphan frags from
-+ *	@gfp_mask: allocation mask for replacement pages
-+ *
-+ *	For each frag in the SKB which has a destructor (i.e. has an
-+ *	owner) create a copy of that frag and release the original
-+ *	page by calling the destructor.
-+ */
-+extern int skb_orphan_frags(struct sk_buff *skb, gfp_t gfp_mask);
+ #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
+ 				 ~(SMP_CACHE_BYTES - 1))
+-/* maximum data size which can fit into an allocation of X bytes */
+-#define SKB_WITH_OVERHEAD(X)	\
+-	((X) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
 +
-+/**
-  *	__skb_queue_purge - empty a list
-  *	@list: list to empty
+ /*
+- * minimum allocation size required for an skb containing X bytes of data
+- *
+- * We do our best to align skb_shared_info on a separate cache
+- * line. It usually works because kmalloc(X > SMP_CACHE_BYTES) gives
+- * aligned memory blocks, unless SLUB/SLAB debug is enabled.  Both
+- * skb->head and skb_shared_info are cache line aligned.
++ * We do our best to align the hot members of skb_shared_info on a
++ * separate cache line.  We explicitly align the nr_frags field and
++ * arrange that the order of the fields in skb_shared_info is such
++ * that the interesting fields are nr_frags onwards and are therefore
++ * cache line aligned.
+  */
+-#define SKB_ALLOCSIZE(X)	\
+-	(SKB_DATA_ALIGN((X)) + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
++#define SKB_SHINFO_SIZE							\
++	(SKB_DATA_ALIGN(sizeof(struct skb_shared_info)			\
++			- offsetof(struct skb_shared_info, nr_frags))	\
++	 + offsetof(struct skb_shared_info, nr_frags))
++
++/* maximum data size which can fit into an allocation of X bytes */
++#define SKB_WITH_OVERHEAD(X)	((X) - SKB_SHINFO_SIZE)
++
++/* minimum allocation size required for an skb containing X bytes of data */
++#define SKB_ALLOCSIZE(X)	(SKB_DATA_ALIGN((X) + SKB_SHINFO_SIZE))
+ 
+ #define SKB_MAX_ORDER(X, ORDER) \
+ 	SKB_WITH_OVERHEAD((PAGE_SIZE << (ORDER)) - (X))
+@@ -63,7 +68,7 @@
+ /* return minimum truesize of one skb containing X bytes of data */
+ #define SKB_TRUESIZE(X) ((X) +						\
+ 			 SKB_DATA_ALIGN(sizeof(struct sk_buff)) +	\
+-			 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
++			 SKB_SHINFO_SIZE)
+ 
+ /* A. Checksumming of received packets by device.
   *
+@@ -263,6 +268,19 @@ struct ubuf_info {
+  * the end of the header data, ie. at skb->end.
+  */
+ struct skb_shared_info {
++	/* Intermediate layers must ensure that destructor_arg
++	 * remains valid until skb destructor */
++	void		*destructor_arg;
++
++	/* Warning: all fields from here until dataref are cleared in
++	 * skb_shinfo_init() (called from __alloc_skb, build_skb,
++	 * skb_recycle, etc).
++	 *
++	 * nr_frags will always be aligned to the start of a cache
++	 * line. It is intended that everything from nr_frags until at
++	 * least frags[0] (inclusive) should fit into the same 64-byte
++	 * cache line.
++	 */
+ 	unsigned char	nr_frags;
+ 	__u8		tx_flags;
+ 	unsigned short	gso_size;
+@@ -273,15 +291,9 @@ struct skb_shared_info {
+ 	struct skb_shared_hwtstamps hwtstamps;
+ 	__be32          ip6_frag_id;
+ 
+-	/*
+-	 * Warning : all fields before dataref are cleared in __alloc_skb()
+-	 */
++	/* fields from nr_frags until dataref are cleared in skb_shinfo_init */
+ 	atomic_t	dataref;
+ 
+-	/* Intermediate layers must ensure that destructor_arg
+-	 * remains valid until skb destructor */
+-	void *		destructor_arg;
+-
+ 	/* must be last field, see pskb_expand_head() */
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+ };
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 945b807..f009abb 100644
+index e96f68b..fab6de0 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -697,31 +697,25 @@ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
- }
- EXPORT_SYMBOL_GPL(skb_morph);
- 
--/*	skb_copy_ubufs	-	copy userspace skb frags buffers to kernel
-- *	@skb: the skb to modify
-- *	@gfp_mask: allocation priority
-- *
-- *	This must be called on SKBTX_DEV_ZEROCOPY skb.
-- *	It will copy all frags into kernel and drop the reference
-- *	to userspace pages.
-- *
-- *	If this function is called from an interrupt gfp_mask() must be
-- *	%GFP_ATOMIC.
-- *
-- *	Returns 0 on success or a negative error code on failure
-- *	to allocate kernel memory to copy to.
-+/*
-+ * If uarg != NULL copy and replace all frags.
-+ * If uarg == NULL then only copy and replace those which have a destructor
-+ * pointer.
-  */
--int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
-+static int skb_copy_frags(struct sk_buff *skb, gfp_t gfp_mask,
-+			  struct ubuf_info *uarg)
+@@ -149,8 +149,15 @@ static void skb_shinfo_init(struct sk_buff *skb)
  {
- 	int i;
- 	int num_frags = skb_shinfo(skb)->nr_frags;
- 	struct page *page, *head = NULL;
--	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
  
- 	for (i = 0; i < num_frags; i++) {
- 		u8 *vaddr;
- 		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
- 
-+		if (!uarg && !f->page.destructor)
-+			continue;
++	/* Ensure that nr_frags->frags[0] (at least) fits into a
++	 * single cache line. */
++	BUILD_BUG_ON((offsetof(struct skb_shared_info, frags[1])
++		      - offsetof(struct skb_shared_info, nr_frags)) > 64);
 +
- 		page = alloc_page(GFP_ATOMIC);
- 		if (!page) {
- 			while (head) {
-@@ -739,11 +733,16 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 		head = page;
- 	}
- 
--	/* skb frags release userspace buffers */
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+	/* skb frags release buffers */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-+		if (!uarg && !f->page.destructor)
-+			continue;
- 		skb_frag_unref(skb, i);
-+	}
- 
--	uarg->callback(uarg);
-+	if (uarg)
-+		uarg->callback(uarg);
- 
- 	/* skb frags point to kernel buffers */
- 	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
-@@ -752,10 +751,41 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 		head = (struct page *)head->private;
- 	}
- 
--	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
- 	return 0;
+ 	/* make sure we initialize shinfo sequentially */
+-	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
++	memset(&shinfo->nr_frags, 0,
++	       offsetof(struct skb_shared_info, dataref)
++	       - offsetof(struct skb_shared_info, nr_frags));
+ 	atomic_set(&shinfo->dataref, 1);
+ 	kmemcheck_annotate_variable(shinfo->destructor_arg);
  }
- 
-+/*	skb_copy_ubufs	-	copy userspace skb frags buffers to kernel
-+ *	@skb: the skb to modify
-+ *	@gfp_mask: allocation priority
-+ *
-+ *	This must be called on SKBTX_DEV_ZEROCOPY skb.
-+ *	It will copy all frags into kernel and drop the reference
-+ *	to userspace pages.
-+ *
-+ *	If this function is called from an interrupt gfp_mask() must be
-+ *	%GFP_ATOMIC.
-+ *
-+ *	Returns 0 on success or a negative error code on failure
-+ *	to allocate kernel memory to copy to.
-+ */
-+int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
-+{
-+	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
-+	int rc;
-+
-+	rc = skb_copy_frags(skb, gfp_mask, uarg);
-+
-+	if (rc == 0)
-+		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
-+
-+	return rc;
-+}
-+
-+int skb_orphan_frags(struct sk_buff *skb, gfp_t gfp_mask)
-+{
-+	return skb_copy_frags(skb, gfp_mask, NULL);
-+}
-+EXPORT_SYMBOL(skb_orphan_frags);
- 
- /**
-  *	skb_clone	-	duplicate an sk_buff
 -- 
 1.7.2.5
