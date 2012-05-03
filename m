@@ -1,60 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Thu, 03 May 2012 02:26:26 -0400 (EDT)
-Message-ID: <20120503.022626.788447039512782116.davem@davemloft.net>
-References: <20120503161623.ad219e088031fd66be212407@canb.auug.org.au>
+Subject: Re: [PATCH] net: skb_set_dev do not unconditionally drop ref to dst
+Date: Thu, 03 May 2012 02:28:37 -0400 (EDT)
+Message-ID: <20120503.022837.2021054007853235758.davem@davemloft.net>
+References: <1335765093.2296.4.camel@edumazet-glaptop>
+	<20120502055018.GA50959@tuxmaker.boeblingen.de.ibm.com>
+	<1335941961.22133.48.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, edumazet@google.com
-To: sfr@canb.auug.org.au
+Cc: blaschka@linux.vnet.ibm.com, netdev@vger.kernel.org, arnd@arndb.de,
+	linux-s390@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40241 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40247 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118Ab2ECG2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 02:28:36 -0400
-In-Reply-To: <20120503161623.ad219e088031fd66be212407@canb.auug.org.au>
+	with ESMTP id S1754091Ab2ECG2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 02:28:45 -0400
+In-Reply-To: <1335941961.22133.48.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 3 May 2012 16:16:23 +1000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 02 May 2012 08:59:21 +0200
 
-> After merging the final tree, today's linux-next build (sparc32 defconfig)
-> failed like this:
-> 
-> net/core/sock.c: In function '__release_sock':
-> net/core/sock.c:1703:4: error: implicit declaration of function 'prefetch' [-Werror=implicit-function-declaration]
-> 
-> Caused by commit e4cbb02a1070 ("net: add a prefetch in socket backlog
-> processing").
-> 
-> I have reverted that commit for today.
+> If Arnd doesnt care to even reply, we can just revert his buggy
+> patch, instead of trying to understand and fix all issues.
 
-Fixed as follows:
-
---------------------
-net: Add missing linux/prefetch.h include to net/core/sock.c
-
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/sock.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 1a88351..b8c818e 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -113,6 +113,7 @@
- #include <linux/user_namespace.h>
- #include <linux/static_key.h>
- #include <linux/memcontrol.h>
-+#include <linux/prefetch.h>
- 
- #include <asm/uaccess.h>
- 
--- 
-1.7.10
+Agreed, it's the best sounding solution by far.
