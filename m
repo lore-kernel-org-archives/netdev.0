@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [v2 PATCH 0/4] Cleanup tcp_try_coalesce, fix module lockup on ixgbe
-Date: Thu, 03 May 2012 00:18:54 -0700
-Message-ID: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
+Subject: [v2 PATCH 1/4] tcp: Fix truesize accounting in tcp_try_coalesce
+Date: Thu, 03 May 2012 00:18:59 -0700
+Message-ID: <20120503071859.13636.30050.stgit@gitlad.jf.intel.com>
+References: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,45 +12,62 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:46583 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754732Ab2ECHSk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2012 03:18:40 -0400
+	id S1754885Ab2ECHSp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 03:18:45 -0400
+In-Reply-To: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set represents the original patch I had done for trying to cleanup
-tcp_try_coalesce broken into 3 patches.  The first one illustrates how I
-believe we should be updating the truesize based on either the size of
-sk_buff in the case of head reuse, or sk_buff plus the size of the head in
-the case of a headlen of 0.
+This patch addresses several issues in the way we were tracking the
+truesize in tcp_try_coalesce.
 
-The other two patches go through and reorder things so there isn't as much
-need for gotos.  I believe it makes the code much more readable since it
-starts at the top and finishes at the bottom instead of looping through the
-entire code path a few times.
+First it was using ksize which prevents us from having a 0 sized head frag
+and getting a usable result.  To resolve that this patch uses the end
+pointer which is set based off either ksize, or the frag_size supplied in
+build_skb.  This allows us to compute the original truesize of the entire
+buffer and remove that value leaving us with just what was added as pages.
 
-The last patch addresses an issue I ran into on ixgbe.  It turns out the
-recent HWMON patch added a but on 82598 adapters that caused the driver to
-get hung in module unload.  I figured I would submit it directly since it
-is a small change to fix an issue that could have a larger impact.
+The second issue was the use of skb->len if there is a mergeable head frag.
+We should only need to remove the size of an data aligned sk_buff from our
+current skb->truesize to compute the delta for a buffer with a reused head.
+By using skb->len the value of truesize was being artificially reduced
+which means that head frags could use more memory than buffers using
+standard allocations.
 
-On that note I am going to sleep now and will respond to any reviews and/or
-comments in the morning.
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
-Alexander Duyck (4):
-      ixgbe: Fix use after free on module remove
-      tcp: move stats merge to the end of tcp_try_coalesce
-      tcp: Move code related to head frag in tcp_try_coalesce
-      tcp: Fix truesize accounting in tcp_try_coalesce
+ net/ipv4/tcp_input.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
 
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |    4 +
- net/ipv4/tcp_input.c                           |   83 +++++++++++++-----------
- 2 files changed, 49 insertions(+), 38 deletions(-)
-
--- 
-
-Thanks,
-
-Alex
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c6f78e2..3cb273a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4565,12 +4565,10 @@ merge:
+ 	if (skb_headlen(from) == 0 &&
+ 	    (skb_shinfo(to)->nr_frags +
+ 	     skb_shinfo(from)->nr_frags <= MAX_SKB_FRAGS)) {
+-		WARN_ON_ONCE(from->head_frag);
+-		delta = from->truesize - ksize(from->head) -
+-			SKB_DATA_ALIGN(sizeof(struct sk_buff));
+-
+-		WARN_ON_ONCE(delta < len);
++		delta = from->truesize -
++			SKB_TRUESIZE(skb_end_pointer(from) - from->head);
+ copyfrags:
++		WARN_ON_ONCE(delta < len);
+ 		memcpy(skb_shinfo(to)->frags + skb_shinfo(to)->nr_frags,
+ 		       skb_shinfo(from)->frags,
+ 		       skb_shinfo(from)->nr_frags * sizeof(skb_frag_t));
+@@ -4600,7 +4598,7 @@ copyfrags:
+ 		skb_fill_page_desc(to, skb_shinfo(to)->nr_frags,
+ 				   page, offset, skb_headlen(from));
+ 		*fragstolen = true;
+-		delta = len; /* we dont know real truesize... */
++		delta = from->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
+ 		goto copyfrags;
+ 	}
+ 	return false;
