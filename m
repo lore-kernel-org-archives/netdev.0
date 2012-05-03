@@ -1,140 +1,117 @@
 From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCHv2 2/7] mISDN: Fix refcounting bug
-Date: Thu,  3 May 2012 17:47:27 +0200
-Message-ID: <1336060052-27119-3-git-send-email-kkeil@linux-pingi.de>
+Subject: [PATCHv2 4/7] mISDN: Make layer1 timer 3 value configurable
+Date: Thu,  3 May 2012 17:47:29 +0200
+Message-ID: <1336060052-27119-5-git-send-email-kkeil@linux-pingi.de>
 References: <1336060052-27119-1-git-send-email-kkeil@linux-pingi.de>
-Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
-	Karsten Keil <keil@b1-systems.de>
+Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:55310 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.171]:49467 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757596Ab2ECPxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 11:53:04 -0400
+	with ESMTP id S1757563Ab2ECPxC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 11:53:02 -0400
 In-Reply-To: <1336060052-27119-1-git-send-email-kkeil@linux-pingi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Karsten Keil <isdn@linux-pingi.de>
 
-Under some configs it was still not possible to unload the driver,
-because the module use count was srewed up.
+For certification test it is very useful to change the layer1
+timer3 value on runtime.
 
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
+Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
 ---
- drivers/isdn/mISDN/tei.c |   52 +++++++++++++++++++++++++++++++++------------
- 1 files changed, 38 insertions(+), 14 deletions(-)
+ drivers/isdn/mISDN/layer1.c |   16 ++++++++++++++--
+ include/linux/mISDNhw.h     |    3 +++
+ include/linux/mISDNif.h     |    3 ++-
+ 3 files changed, 19 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
-index 969766f..0023433 100644
---- a/drivers/isdn/mISDN/tei.c
-+++ b/drivers/isdn/mISDN/tei.c
-@@ -790,18 +790,22 @@ tei_ph_data_ind(struct teimgr *tm, u_int mt, u_char *dp, int len)
- static struct layer2 *
- create_new_tei(struct manager *mgr, int tei, int sapi)
- {
--	u_long		opt = 0;
--	u_long		flags;
--	int		id;
--	struct layer2	*l2;
-+	unsigned long		opt = 0;
-+	unsigned long		flags;
-+	int			id;
-+	struct layer2		*l2;
-+	struct channel_req	rq;
+diff --git a/drivers/isdn/mISDN/layer1.c b/drivers/isdn/mISDN/layer1.c
+index 0fc49b3..ff05153 100644
+--- a/drivers/isdn/mISDN/layer1.c
++++ b/drivers/isdn/mISDN/layer1.c
+@@ -30,11 +30,12 @@ struct layer1 {
+ 	struct FsmInst l1m;
+ 	struct FsmTimer timer;
+ 	int delay;
++	int t3_value;
+ 	struct dchannel *dch;
+ 	dchannel_l1callback *dcb;
+ };
  
- 	if (!mgr->up)
- 		return NULL;
- 	if ((tei >= 0) && (tei < 64))
- 		test_and_set_bit(OPTION_L2_FIXEDTEI, &opt);
--	if (mgr->ch.st->dev->Dprotocols
--	    & ((1 << ISDN_P_TE_E1) | (1 << ISDN_P_NT_E1)))
-+	if (mgr->ch.st->dev->Dprotocols & ((1 << ISDN_P_TE_E1) |
-+	    (1 << ISDN_P_NT_E1))) {
- 		test_and_set_bit(OPTION_L2_PMX, &opt);
-+		rq.protocol = ISDN_P_NT_E1;
-+	} else
-+		rq.protocol = ISDN_P_NT_S0;
- 	l2 = create_l2(mgr->up, ISDN_P_LAPD_NT, opt, tei, sapi);
- 	if (!l2) {
- 		printk(KERN_WARNING "%s:no memory for layer2\n", __func__);
-@@ -836,6 +840,14 @@ create_new_tei(struct manager *mgr, int tei, int sapi)
- 		l2->ch.recv = mgr->ch.recv;
- 		l2->ch.peer = mgr->ch.peer;
- 		l2->ch.ctrl(&l2->ch, OPEN_CHANNEL, NULL);
-+		/* We need open here L1 for the manager as well (refcounting) */
-+		rq.adr.dev = mgr->ch.st->dev->id;
-+		id = mgr->ch.st->own.ctrl(&mgr->ch.st->own, OPEN_CHANNEL, &rq);
-+		if (id < 0) {
-+			printk(KERN_WARNING "%s: cannot open L1\n", __func__);
-+			l2->ch.ctrl(&l2->ch, CLOSE_CHANNEL, NULL);
-+			l2 = NULL;
+-#define TIMER3_VALUE 7000
++#define TIMER3_DEFAULT_VALUE	7000
+ 
+ static
+ struct Fsm l1fsm_s = {NULL, 0, 0, NULL, NULL};
+@@ -233,7 +234,7 @@ l1_activate_s(struct FsmInst *fi, int event, void *arg)
+ {
+ 	struct layer1 *l1 = fi->userdata;
+ 
+-	mISDN_FsmRestartTimer(&l1->timer, TIMER3_VALUE, EV_TIMER3, NULL, 2);
++	mISDN_FsmRestartTimer(&l1->timer, l1->t3_value, EV_TIMER3, NULL, 2);
+ 	test_and_set_bit(FLG_L1_T3RUN, &l1->Flags);
+ 	l1->dcb(l1->dch, HW_RESET_REQ);
+ }
+@@ -356,6 +357,16 @@ l1_event(struct layer1 *l1, u_int event)
+ 		release_l1(l1);
+ 		break;
+ 	default:
++		if ((event & ~HW_TIMER3_VMASK) == HW_TIMER3_VALUE) {
++			int val = event & HW_TIMER3_VMASK;
++
++			if (val < 5)
++				val = 5;
++			if (val > 30)
++				val = 30;
++			l1->t3_value = val;
++			break;
 +		}
- 	}
- 	return l2;
- }
-@@ -978,10 +990,11 @@ TEIrelease(struct layer2 *l2)
- static int
- create_teimgr(struct manager *mgr, struct channel_req *crq)
- {
--	struct layer2	*l2;
--	u_long		opt = 0;
--	u_long		flags;
--	int		id;
-+	struct layer2		*l2;
-+	unsigned long		opt = 0;
-+	unsigned long		flags;
-+	int			id;
-+	struct channel_req	l1rq;
+ 		if (*debug & DEBUG_L1)
+ 			printk(KERN_DEBUG "%s %x unhandled\n",
+ 			       __func__, event);
+@@ -377,6 +388,7 @@ create_l1(struct dchannel *dch, dchannel_l1callback *dcb) {
+ 	nl1->l1m.fsm = &l1fsm_s;
+ 	nl1->l1m.state = ST_L1_F3;
+ 	nl1->Flags = 0;
++	nl1->t3_value = TIMER3_DEFAULT_VALUE;
+ 	nl1->l1m.debug = *debug & DEBUG_L1_FSM;
+ 	nl1->l1m.userdata = nl1;
+ 	nl1->l1m.userint = 0;
+diff --git a/include/linux/mISDNhw.h b/include/linux/mISDNhw.h
+index 4af8414..de165b5 100644
+--- a/include/linux/mISDNhw.h
++++ b/include/linux/mISDNhw.h
+@@ -135,6 +135,9 @@ extern int	create_l1(struct dchannel *, dchannel_l1callback *);
+ #define HW_TESTRX_RAW	0x9602
+ #define HW_TESTRX_HDLC	0x9702
+ #define HW_TESTRX_OFF	0x9802
++#define HW_TIMER3_IND	0x9902
++#define HW_TIMER3_VALUE	0x9a00
++#define HW_TIMER3_VMASK	0x00FF
  
- 	if (*debug & DEBUG_L2_TEI)
- 		printk(KERN_DEBUG "%s: %s proto(%x) adr(%d %d %d %d)\n",
-@@ -1016,6 +1029,7 @@ create_teimgr(struct manager *mgr, struct channel_req *crq)
- 		if (crq->protocol == ISDN_P_LAPD_TE)
- 			test_and_set_bit(MGR_OPT_USER, &mgr->options);
- 	}
-+	l1rq.adr = crq->adr;
- 	if (mgr->ch.st->dev->Dprotocols
- 	    & ((1 << ISDN_P_TE_E1) | (1 << ISDN_P_NT_E1)))
- 		test_and_set_bit(OPTION_L2_PMX, &opt);
-@@ -1055,24 +1069,34 @@ create_teimgr(struct manager *mgr, struct channel_req *crq)
- 		l2->tm->tei_m.fsm = &teifsmu;
- 		l2->tm->tei_m.state = ST_TEI_NOP;
- 		l2->tm->tval = 1000; /* T201  1 sec */
-+		if (test_bit(OPTION_L2_PMX, &opt))
-+			l1rq.protocol = ISDN_P_TE_E1;
-+		else
-+			l1rq.protocol = ISDN_P_TE_S0;
- 	} else {
- 		l2->tm->tei_m.fsm = &teifsmn;
- 		l2->tm->tei_m.state = ST_TEI_NOP;
- 		l2->tm->tval = 2000; /* T202  2 sec */
-+		if (test_bit(OPTION_L2_PMX, &opt))
-+			l1rq.protocol = ISDN_P_NT_E1;
-+		else
-+			l1rq.protocol = ISDN_P_NT_S0;
- 	}
- 	mISDN_FsmInitTimer(&l2->tm->tei_m, &l2->tm->timer);
- 	write_lock_irqsave(&mgr->lock, flags);
- 	id = get_free_id(mgr);
- 	list_add_tail(&l2->list, &mgr->layer2);
- 	write_unlock_irqrestore(&mgr->lock, flags);
--	if (id < 0) {
--		l2->ch.ctrl(&l2->ch, CLOSE_CHANNEL, NULL);
--	} else {
-+	if (id >= 0) {
- 		l2->ch.nr = id;
- 		l2->up->nr = id;
- 		crq->ch = &l2->ch;
--		id = 0;
-+		/* We need open here L1 for the manager as well (refcounting) */
-+		id = mgr->ch.st->own.ctrl(&mgr->ch.st->own, OPEN_CHANNEL,
-+					  &l1rq);
- 	}
-+	if (id < 0)
-+		l2->ch.ctrl(&l2->ch, CLOSE_CHANNEL, NULL);
- 	return id;
- }
+ struct layer1;
+ extern int	l1_event(struct layer1 *, u_int);
+diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
+index b80f764..9cc8ce5 100644
+--- a/include/linux/mISDNif.h
++++ b/include/linux/mISDNif.h
+@@ -37,7 +37,7 @@
+  */
+ #define	MISDN_MAJOR_VERSION	1
+ #define	MISDN_MINOR_VERSION	1
+-#define MISDN_RELEASE		26
++#define MISDN_RELEASE		27
  
+ /* primitives for information exchange
+  * generell format
+@@ -372,6 +372,7 @@ clear_channelmap(u_int nr, u_char *map)
+ #define MISDN_CTRL_RX_OFF		0x0100
+ #define MISDN_CTRL_FILL_EMPTY		0x0200
+ #define MISDN_CTRL_GETPEER		0x0400
++#define MISDN_CTRL_L1_TIMER3		0x0800
+ #define MISDN_CTRL_HW_FEATURES_OP	0x2000
+ #define MISDN_CTRL_HW_FEATURES		0x2001
+ #define MISDN_CTRL_HFC_OP		0x4000
 -- 
 1.7.3.4
