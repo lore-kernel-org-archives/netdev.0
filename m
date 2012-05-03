@@ -1,84 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [GIT] Networking
-Date: Thu, 03 May 2012 02:44:52 -0700
-Message-ID: <1336038292.2656.64.camel@jtkirshe-mobl>
-References: <20120503.025951.1393913795357644010.davem@davemloft.net>
-	 <4FA24AB1.9010108@linux.vnet.ibm.com>
-	 <20120503.053246.92708809581536438.davem@davemloft.net>
-	 <4FA251B5.8080109@linux.vnet.ibm.com>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-jvzXcgtMPYpsFUz4ry2W"
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bpoirier@suse.de, rjw@sisk.pl,
-	linux-pm@vger.kernel.org, stephen.s.ko@intel.com
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FA251B5.8080109@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [net-next 0/9][pull request] Intel Wired LAN Dirver Updates
+Date: Thu,  3 May 2012 02:56:23 -0700
+Message-ID: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:64596 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751941Ab2ECJ4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 05:56:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This series of patches contains updates for e1000e and ixgbevf.
 
---=-jvzXcgtMPYpsFUz4ry2W
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The following are changes since commit af94bf6db1d58d26f1cdab145b6312ad363254a6:
+  ixgbe: Fix use after free on module remove
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-On Thu, 2012-05-03 at 15:06 +0530, Srivatsa S. Bhat wrote:
-> On 05/03/2012 03:02 PM, David Miller wrote:
->=20
-> > From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-> > Date: Thu, 03 May 2012 14:36:57 +0530
-> >=20
-> >> https://lkml.org/lkml/2012/4/5/197
-> >=20
-> > Networking patches not posted to netdev and the Intel ethernet driver
-> > maintainers will be ignored.
-> >=20
->=20
->=20
-> Jeff Kirsher (Intel ethernet driver maintainer) already acked that
-> patchset (both patches).
->=20
-> https://lkml.org/lkml/2012/4/5/376
-> https://lkml.org/lkml/2012/4/5/377
->=20
-> One went upstream, the other didn't (yet). That's my concern.
->=20
-> Regards,
-> Srivatsa S. Bhat
->=20
+Bruce Allan (2):
+  e1000e: suggest a possible workaround to a device hang on 82577/8
+  e1000e: cleanup long [read|write]_reg_locked PHY ops function
+    pointers
 
-The second has not been ignored or dropped.  I pushed one of the patches
-and we are finishing up the validation on the second patch.  I should
-have the second patch pushed here in the next day or so.  I apologize
-for not being able to push both patches at the same time.
+Chris Boot (2):
+  e1000e: Disable ASPM L1 on 82574
+  e1000e: Remove special case for 82573/82574 ASPM L1 disablement
 
-Cheers,
-Jeff
+Greg Rose (3):
+  ixgbevf: Add support to recognize 100mb link speed
+  ixgbevf: Make sure jumbo frames are set correctly after PF reset
+  ixgbevf: Update version string
 
---=-jvzXcgtMPYpsFUz4ry2W
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Matthew Vick (2):
+  e1000e: Resolve intermittent negotiation issue on 82574/82583.
+  e1000e: Driver workaround for IPv6 Header Extension Erratum.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c   |    8 +++
+ drivers/net/ethernet/intel/e1000e/82571.c         |   13 +++++-
+ drivers/net/ethernet/intel/e1000e/e1000.h         |   10 ++++
+ drivers/net/ethernet/intel/e1000e/ich8lan.c       |   54 ++++++++++-----------
+ drivers/net/ethernet/intel/e1000e/netdev.c        |   21 ++------
+ drivers/net/ethernet/intel/e1000e/phy.c           |   18 +++++++-
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |    2 +
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |   18 +++++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    2 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   30 ++++++------
+ drivers/net/ethernet/intel/ixgbevf/vf.c           |   12 ++++-
+ 11 files changed, 119 insertions(+), 69 deletions(-)
 
-iQIcBAABCgAGBQJPolOUAAoJEOVv75VaS+3OJEkP/02wN4ZZGCdgS09DCDvmcxio
-r5QlFrAGqfXOENF4H/Tj0HPCat7ai9CyiH8iHwD2lK5lCqDuxHSeKW4Lphf/Eh+b
-hoOh2ixgDixA+nc23kfVGzpwkkys4FK3Y3CIQw/WA7oVyrlJsIL8USA5wbs0XBis
-umD09inqnVZWVGyPtWc3ZSGcyRtIH+zBHixBHmt7FOUsoXnYgOgcnkTX2O4JnbCY
-Gt798nX2f5xRSxvxA4ShAXeQvjL0b0Q4Z8AE6IFvQaftlRREr+tJ7YuCIGg34MXc
-uDmhK65Sy3yCkPsjaQptslqU3aMwKc0FC+++ZuP/P4z7jIau1NHzeCk/0DIl/3kT
-o6aeB39ZGwhwFPUvp65HEeCNIUA97Hmokxb0WVYcerWpK1LqePkEGf2HPookeeLf
-H/sA4eR5larUlPwDLZUT6ttdfRDsd5q4IIm1z+Ea0FRXyredJz3KHGZH0yjzppgh
-OQle19Ab9r0rrbwfwjDXlEtOiYEsqcO8TLBBxD6eIYg/7gZ2r5zb1/uAvp5fnRdD
-MGkLvKrUCCnV8IppvM4NJ7bpq4OMe+pAzMc1TX1twTkY8t1Hg7JnWtu4vui9LYO/
-K03rbssG7satfBt4ilQ8KqSj0uFkseGXnfLrPu2dsY2MREgD2OxGghoxTa/TBcdH
-bF48JuisCS56goKHfD5q
-=1sgJ
------END PGP SIGNATURE-----
-
---=-jvzXcgtMPYpsFUz4ry2W--
+-- 
+1.7.7.6
