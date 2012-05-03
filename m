@@ -1,81 +1,47 @@
-From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH] bnx2x: bug fix when loading after SAN boot
-Date: Thu, 3 May 2012 11:22:00 +0300
-Message-ID: <1336033320-16440-1-git-send-email-ariele@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v2 PATCH 1/4] tcp: Fix truesize accounting in tcp_try_coalesce
+Date: Thu, 03 May 2012 04:21:59 -0400 (EDT)
+Message-ID: <20120503.042159.938231117013356970.davem@davemloft.net>
+References: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
+	<20120503071859.13636.30050.stgit@gitlad.jf.intel.com>
+	<1336031334.3503.23.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>
-To: ariele@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, edumazet@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1866 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751716Ab2ECIVg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2012 04:21:36 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:41082 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753148Ab2ECIWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 04:22:05 -0400
+In-Reply-To: <1336031334.3503.23.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a bug fix for an "interface fails to load" issue.
-The issue occurs when bnx2x driver loads after UNDI driver was previously
-loaded over the chip. In such a scenario the UNDI driver is loaded and operates
-in the pre-boot kernel, within its own specific host memory address range.
-When the pre-boot stage is complete, the real kernel is loaded, in a new and
-distinct host memory address range. The transition from pre-boot stage to boot
-is asynchronous from UNDI point of view.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 03 May 2012 09:48:54 +0200
 
-A race condition occurs when UNDI driver triggers a DMAE transaction to valid
-host addresses in the pre-boot stage, when control is diverted to the real
-kernel. This results in access to illegal addresses by our HW as the addresses
-which were valid in the preboot stage are no longer considered valid.
-Specifically, the 'was_error' bit in the pci glue of our device is set. This
-causes all following pci transactions from chip to host to timeout (in
-accordance to the pci spec).
+> On Thu, 2012-05-03 at 00:18 -0700, Alexander Duyck wrote:
+>> This patch addresses several issues in the way we were tracking the
+>> truesize in tcp_try_coalesce.
+>> 
+>> First it was using ksize which prevents us from having a 0 sized head frag
+>> and getting a usable result.  To resolve that this patch uses the end
+>> pointer which is set based off either ksize, or the frag_size supplied in
+>> build_skb.  This allows us to compute the original truesize of the entire
+>> buffer and remove that value leaving us with just what was added as pages.
+>> 
+>> The second issue was the use of skb->len if there is a mergeable head frag.
+>> We should only need to remove the size of an data aligned sk_buff from our
+>> current skb->truesize to compute the delta for a buffer with a reused head.
+>> By using skb->len the value of truesize was being artificially reduced
+>> which means that head frags could use more memory than buffers using
+>> standard allocations.
+>> 
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+ ...
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   23 +++++++++++++++++++++-
- 1 files changed, 22 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index e077d25..795fc49 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9122,13 +9122,34 @@ static int __devinit bnx2x_prev_unload_common(struct bnx2x *bp)
- 	return bnx2x_prev_mcp_done(bp);
- }
- 
-+/* previous driver DMAE transaction may have occurred when pre-boot stage ended
-+ * and boot began, or when kdump kernel was loaded. Either case would invalidate
-+ * the addresses of the transaction, resulting in was-error bit set in the pci
-+ * causing all hw-to-host pcie transactions to timeout. If this happened we want
-+ * to clear the interrupt which detected this from the pglueb and the was done
-+ * bit
-+ */
-+static void __devinit bnx2x_prev_interrupted_dmae(struct bnx2x *bp)
-+{
-+	u32 val = REG_RD(bp, PGLUE_B_REG_PGLUE_B_INT_STS);
-+	if (val & PGLUE_B_PGLUE_B_INT_STS_REG_WAS_ERROR_ATTN) {
-+		BNX2X_ERR("was error bit was found to be set in pglueb upon startup. Clearing");
-+		REG_WR(bp, PGLUE_B_REG_WAS_ERROR_PF_7_0_CLR, 1 << BP_FUNC(bp));
-+	}
-+}
-+
- static int __devinit bnx2x_prev_unload(struct bnx2x *bp)
- {
- 	int time_counter = 10;
- 	u32 rc, fw, hw_lock_reg, hw_lock_val;
- 	BNX2X_DEV_INFO("Entering Previous Unload Flow\n");
- 
--       /* Release previously held locks */
-+	/* clear hw from errors which mnay have resulted from an interrupted
-+	 * dmae transaction.
-+	 */
-+	bnx2x_prev_interrupted_dmae(bp);
-+
-+	/* Release previously held locks */
- 	hw_lock_reg = (BP_FUNC(bp) <= 5) ?
- 		      (MISC_REG_DRIVER_CONTROL_1 + BP_FUNC(bp) * 8) :
- 		      (MISC_REG_DRIVER_CONTROL_7 + (BP_FUNC(bp) - 6) * 8);
--- 
-1.7.9.GIT
+Applied.
