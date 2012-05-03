@@ -1,233 +1,112 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 9/9] sunrpc: use SKB fragment destructors to delay completion until page is released by network stack.
-Date: Thu, 3 May 2012 15:56:11 +0100
-Message-ID: <1336056971-7839-9-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 4/9] skb: add skb_shinfo_init and use for both alloc_skb, build_skb and skb_recycle
+Date: Thu, 3 May 2012 15:56:06 +0100
+Message-ID: <1336056971-7839-4-git-send-email-ian.campbell@citrix.com>
 References: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	"Michael S. Tsirkin" <mst@redhat.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Neil Brown <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@fieldses.org>, linux-nfs@vger.kernel.org
+	Ian Campbell <ian.campbell@citrix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:60785 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:37758 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757331Ab2ECO7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 10:59:24 -0400
+	with ESMTP id S1757102Ab2ECO7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 10:59:22 -0400
 In-Reply-To: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This prevents an issue where an ACK is delayed, a retransmit is queued (either
-at the RPC or TCP level) and the ACK arrives before the retransmission hits the
-wire. If this happens to an NFS WRITE RPC then the write() system call
-completes and the userspace process can continue, potentially modifying data
-referenced by the retransmission before the retransmission occurs.
+There is only one semantic change here which is that skb_recycle now does:
+	kmemcheck_annotate_variable(shinfo->destructor_arg)
+I don't think it was erroneously missing before (since in the skb_recycle case
+it will have happened previously) but I beleive it is harmless to do it again
+and this saves having a different copy of the same code for the recycle case.
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Acked-by: Trond Myklebust <Trond.Myklebust@netapp.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Neil Brown <neilb@suse.de>
-Cc: "J. Bruce Fields" <bfields@fieldses.org>
-Cc: linux-nfs@vger.kernel.org
-Cc: netdev@vger.kernel.org
 ---
- include/linux/sunrpc/xdr.h  |    2 ++
- include/linux/sunrpc/xprt.h |    5 ++++-
- net/sunrpc/clnt.c           |   27 ++++++++++++++++++++++-----
- net/sunrpc/svcsock.c        |    3 ++-
- net/sunrpc/xprt.c           |   12 ++++++++++++
- net/sunrpc/xprtsock.c       |    3 ++-
- 6 files changed, 44 insertions(+), 8 deletions(-)
+ net/core/skbuff.c |   30 +++++++++++++-----------------
+ 1 files changed, 13 insertions(+), 17 deletions(-)
 
-diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
-index af70af3..ff1b121 100644
---- a/include/linux/sunrpc/xdr.h
-+++ b/include/linux/sunrpc/xdr.h
-@@ -16,6 +16,7 @@
- #include <asm/byteorder.h>
- #include <asm/unaligned.h>
- #include <linux/scatterlist.h>
-+#include <linux/skbuff.h>
- 
- /*
-  * Buffer adjustment
-@@ -57,6 +58,7 @@ struct xdr_buf {
- 			tail[1];	/* Appended after page data */
- 
- 	struct page **	pages;		/* Array of contiguous pages */
-+	struct skb_frag_destructor *destructor;
- 	unsigned int	page_base,	/* Start of page data */
- 			page_len,	/* Length of page data */
- 			flags;		/* Flags for data disposition */
-diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
-index 77d278d..e8d3f18 100644
---- a/include/linux/sunrpc/xprt.h
-+++ b/include/linux/sunrpc/xprt.h
-@@ -92,7 +92,10 @@ struct rpc_rqst {
- 						/* A cookie used to track the
- 						   state of the transport
- 						   connection */
--	
-+	struct skb_frag_destructor destructor;	/* SKB paged fragment
-+						 * destructor for
-+						 * transmitted pages*/
-+
- 	/*
- 	 * Partial send handling
- 	 */
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index 6797246..351bf3d 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -61,6 +61,7 @@ static void	call_reserve(struct rpc_task *task);
- static void	call_reserveresult(struct rpc_task *task);
- static void	call_allocate(struct rpc_task *task);
- static void	call_decode(struct rpc_task *task);
-+static void	call_complete(struct rpc_task *task);
- static void	call_bind(struct rpc_task *task);
- static void	call_bind_status(struct rpc_task *task);
- static void	call_transmit(struct rpc_task *task);
-@@ -1416,6 +1417,8 @@ rpc_xdr_encode(struct rpc_task *task)
- 			 (char *)req->rq_buffer + req->rq_callsize,
- 			 req->rq_rcvsize);
- 
-+	req->rq_snd_buf.destructor = &req->destructor;
-+
- 	p = rpc_encode_header(task);
- 	if (p == NULL) {
- 		printk(KERN_INFO "RPC: couldn't encode RPC header, exit EIO\n");
-@@ -1581,6 +1584,7 @@ call_connect_status(struct rpc_task *task)
- static void
- call_transmit(struct rpc_task *task)
- {
-+	struct rpc_rqst *req = task->tk_rqstp;
- 	dprint_status(task);
- 
- 	task->tk_action = call_status;
-@@ -1614,8 +1618,8 @@ call_transmit(struct rpc_task *task)
- 	call_transmit_status(task);
- 	if (rpc_reply_expected(task))
- 		return;
--	task->tk_action = rpc_exit_task;
--	rpc_wake_up_queued_task(&task->tk_xprt->pending, task);
-+	task->tk_action = call_complete;
-+	skb_frag_destructor_unref(&req->destructor);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c60b603..e96f68b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -145,6 +145,16 @@ static void skb_under_panic(struct sk_buff *skb, int sz, void *here)
+ 	BUG();
  }
  
- /*
-@@ -1688,7 +1692,8 @@ call_bc_transmit(struct rpc_task *task)
- 		return;
- 	}
- 
--	task->tk_action = rpc_exit_task;
-+	task->tk_action = call_complete;
-+	skb_frag_destructor_unref(&req->destructor);
- 	if (task->tk_status < 0) {
- 		printk(KERN_NOTICE "RPC: Could not send backchannel reply "
- 			"error: %d\n", task->tk_status);
-@@ -1728,7 +1733,6 @@ call_bc_transmit(struct rpc_task *task)
- 			"error: %d\n", task->tk_status);
- 		break;
- 	}
--	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
- }
- #endif /* CONFIG_SUNRPC_BACKCHANNEL */
- 
-@@ -1906,12 +1910,14 @@ call_decode(struct rpc_task *task)
- 		return;
- 	}
- 
--	task->tk_action = rpc_exit_task;
-+	task->tk_action = call_complete;
- 
- 	if (decode) {
- 		task->tk_status = rpcauth_unwrap_resp(task, decode, req, p,
- 						      task->tk_msg.rpc_resp);
- 	}
-+	rpc_sleep_on(&req->rq_xprt->pending, task, NULL);
-+	skb_frag_destructor_unref(&req->destructor);
- 	dprintk("RPC: %5u call_decode result %d\n", task->tk_pid,
- 			task->tk_status);
- 	return;
-@@ -1926,6 +1932,17 @@ out_retry:
- 	}
- }
- 
-+/*
-+ * 8.	Wait for pages to be released by the network stack.
-+ */
-+static void
-+call_complete(struct rpc_task *task)
++static void skb_shinfo_init(struct sk_buff *skb)
 +{
-+	dprintk("RPC: %5u call_complete result %d\n",
-+		task->tk_pid, task->tk_status);
-+	task->tk_action = rpc_exit_task;
++	struct skb_shared_info *shinfo = skb_shinfo(skb);
++
++	/* make sure we initialize shinfo sequentially */
++	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
++	atomic_set(&shinfo->dataref, 1);
++	kmemcheck_annotate_variable(shinfo->destructor_arg);
 +}
 +
- static __be32 *
- rpc_encode_header(struct rpc_task *task)
+ /* 	Allocate a new skbuff. We do this ourselves so we can fill in a few
+  *	'private' fields and also do memory statistics to find all the
+  *	[BEEP] leaks.
+@@ -170,7 +180,6 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 			    int fclone, int node)
  {
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index f6d8c73..1145929 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -198,7 +198,8 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
- 	while (pglen > 0) {
- 		if (slen == size)
- 			flags = 0;
--		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
-+		result = kernel_sendpage(sock, *ppage, xdr->destructor,
-+					 base, size, flags);
- 		if (result > 0)
- 			len += result;
- 		if (result != size)
-diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-index 6fe2dce..f8418a0 100644
---- a/net/sunrpc/xprt.c
-+++ b/net/sunrpc/xprt.c
-@@ -1108,6 +1108,16 @@ static inline void xprt_init_xid(struct rpc_xprt *xprt)
- 	xprt->xid = net_random();
- }
+ 	struct kmem_cache *cache;
+-	struct skb_shared_info *shinfo;
+ 	struct sk_buff *skb;
+ 	u8 *data;
  
-+static int xprt_complete_skb_pages(struct skb_frag_destructor *destroy)
-+{
-+	struct rpc_rqst	*req =
-+		container_of(destroy, struct rpc_rqst, destructor);
-+
-+	dprintk("RPC: %5u completing skb pages\n", req->rq_task->tk_pid);
-+	rpc_wake_up_queued_task(&req->rq_xprt->pending, req->rq_task);
-+	return 0;
-+}
-+
- static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
+@@ -210,11 +219,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	skb->mac_header = ~0U;
+ #endif
+ 
+-	/* make sure we initialize shinfo sequentially */
+-	shinfo = skb_shinfo(skb);
+-	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+-	atomic_set(&shinfo->dataref, 1);
+-	kmemcheck_annotate_variable(shinfo->destructor_arg);
++	skb_shinfo_init(skb);
+ 
+ 	if (fclone) {
+ 		struct sk_buff *child = skb + 1;
+@@ -255,7 +260,6 @@ EXPORT_SYMBOL(__alloc_skb);
+  */
+ struct sk_buff *build_skb(void *data, unsigned int frag_size)
  {
- 	struct rpc_rqst	*req = task->tk_rqstp;
-@@ -1120,6 +1130,8 @@ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
- 	req->rq_xid     = xprt_alloc_xid(xprt);
- 	req->rq_release_snd_buf = NULL;
- 	xprt_reset_majortimeo(req);
-+	atomic_set(&req->destructor.ref, 1);
-+	req->destructor.destroy = &xprt_complete_skb_pages;
- 	dprintk("RPC: %5u reserved req %p xid %08x\n", task->tk_pid,
- 			req, ntohl(req->rq_xid));
+-	struct skb_shared_info *shinfo;
+ 	struct sk_buff *skb;
+ 	unsigned int size = frag_size ? : ksize(data);
+ 
+@@ -277,11 +281,7 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
+ 	skb->mac_header = ~0U;
+ #endif
+ 
+-	/* make sure we initialize shinfo sequentially */
+-	shinfo = skb_shinfo(skb);
+-	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+-	atomic_set(&shinfo->dataref, 1);
+-	kmemcheck_annotate_variable(shinfo->destructor_arg);
++	skb_shinfo_init(skb);
+ 
+ 	return skb;
  }
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index f1995dc..44e07f3 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -408,7 +408,8 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
- 		remainder -= len;
- 		if (remainder != 0 || more)
- 			flags |= MSG_MORE;
--		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
-+		err = sock->ops->sendpage(sock, *ppage, xdr->destructor,
-+					  base, len, flags);
- 		if (remainder == 0 || err != len)
- 			break;
- 		sent += err;
+@@ -546,13 +546,9 @@ EXPORT_SYMBOL(consume_skb);
+  */
+ void skb_recycle(struct sk_buff *skb)
+ {
+-	struct skb_shared_info *shinfo;
+-
+ 	skb_release_head_state(skb);
+ 
+-	shinfo = skb_shinfo(skb);
+-	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+-	atomic_set(&shinfo->dataref, 1);
++	skb_shinfo_init(skb);
+ 
+ 	memset(skb, 0, offsetof(struct sk_buff, tail));
+ 	skb->data = skb->head + NET_SKB_PAD;
 -- 
 1.7.2.5
