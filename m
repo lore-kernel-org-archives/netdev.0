@@ -1,358 +1,161 @@
-From: David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v6 3/3] netdev/of/phy: Add MDIO bus multiplexer driven by GPIO
- lines.
-Date: Wed,  2 May 2012 18:16:39 -0700
-Message-ID: <1336007799-31016-4-git-send-email-ddaney.cavm@gmail.com>
-References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the wireless-next tree with the
+ net-next tree
+Date: Thu, 3 May 2012 11:31:10 +1000
+Message-ID: <20120503113110.3eded43c5dc526a471c69dd2@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, afleming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
- Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
- Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1336007799-31016-1-git-send-email-ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__3_May_2012_11_31_10_+1000_eenyizu+U6djWlZZ"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ashok Nagarajan <ashok@cozybit.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+--Signature=_Thu__3_May_2012_11_31_10_+1000_eenyizu+U6djWlZZ
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The GPIO pins select which sub bus is connected to the master.
+Hi John,
 
-Initially tested with an sn74cbtlv3253 switch device wired into the
-MDIO bus.
+Today's linux-next merge of the wireless-next tree got a conflict in
+net/wireless/nl80211.c between commit 9360ffd18597 ("wireless: Stop using
+NLA_PUT*()") from the net-next tree and commit 0a9b3782ef40 ("{nl,cfg,mac}
+80211: Allow user to see/configure HT protection mode") from the
+wireless-next tree.
 
-Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
----
- .../devicetree/bindings/net/mdio-mux-gpio.txt      |  127 +++++++++++++++++
- drivers/net/phy/Kconfig                            |   10 ++
- drivers/net/phy/Makefile                           |    1 +
- drivers/net/phy/mdio-mux-gpio.c                    |  142 ++++++++++++++++++++
- 4 files changed, 280 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/mdio-mux-gpio.txt
- create mode 100644 drivers/net/phy/mdio-mux-gpio.c
+I fixed it up (see below) and can carry the fix as necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --git a/Documentation/devicetree/bindings/net/mdio-mux-gpio.txt b/Documentation/devicetree/bindings/net/mdio-mux-gpio.txt
-new file mode 100644
-index 0000000..7938411
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/mdio-mux-gpio.txt
-@@ -0,0 +1,127 @@
-+Properties for an MDIO bus multiplexer/switch controlled by GPIO pins.
-+
-+This is a special case of a MDIO bus multiplexer.  One or more GPIO
-+lines are used to control which child bus is connected.
-+
-+Required properties in addition to the generic multiplexer properties:
-+
-+- compatible : mdio-mux-gpio.
-+- gpios : GPIO specifiers for each GPIO line.  One or more must be specified.
-+
-+
-+Example :
-+
-+	/* The parent MDIO bus. */
-+	smi1: mdio@1180000001900 {
-+		compatible = "cavium,octeon-3860-mdio";
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+		reg = <0x11800 0x00001900 0x0 0x40>;
-+	};
-+
-+	/*
-+	   An NXP sn74cbtlv3253 dual 1-of-4 switch controlled by a
-+	   pair of GPIO lines.  Child busses 2 and 3 populated with 4
-+	   PHYs each.
-+	 */
-+	mdio-mux {
-+		compatible = "mdio-mux-gpio";
-+		gpios = <&gpio1 3 0>, <&gpio1 4 0>;
-+		mdio-parent-bus = <&smi1>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		mdio@2 {
-+			reg = <2>;
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			phy11: ethernet-phy@1 {
-+				reg = <1>;
-+				compatible = "marvell,88e1149r";
-+				marvell,reg-init = <3 0x10 0 0x5777>,
-+					<3 0x11 0 0x00aa>,
-+					<3 0x12 0 0x4105>,
-+					<3 0x13 0 0x0a60>;
-+				interrupt-parent = <&gpio>;
-+				interrupts = <10 8>; /* Pin 10, active low */
-+			};
-+			phy12: ethernet-phy@2 {
-+				reg = <2>;
-+				compatible = "marvell,88e1149r";
-+				marvell,reg-init = <3 0x10 0 0x5777>,
-+					<3 0x11 0 0x00aa>,
-+					<3 0x12 0 0x4105>,
-+					<3 0x13 0 0x0a60>;
-+				interrupt-parent = <&gpio>;
-+				interrupts = <10 8>; /* Pin 10, active low */
-+			};
-+			phy13: ethernet-phy@3 {
-+				reg = <3>;
-+				compatible = "marvell,88e1149r";
-+				marvell,reg-init = <3 0x10 0 0x5777>,
-+					<3 0x11 0 0x00aa>,
-+					<3 0x12 0 0x4105>,
-+					<3 0x13 0 0x0a60>;
-+				interrupt-parent = <&gpio>;
-+				interrupts = <10 8>; /* Pin 10, active low */
-+			};
-+			phy14: ethernet-phy@4 {
-+				reg = <4>;
-+				compatible = "marvell,88e1149r";
-+				marvell,reg-init = <3 0x10 0 0x5777>,
-+					<3 0x11 0 0x00aa>,
-+					<3 0x12 0 0x4105>,
-+					<3 0x13 0 0x0a60>;
-+				interrupt-parent = <&gpio>;
-+				interrupts = <10 8>; /* Pin 10, active low */
-+			};
-+		};
-+
-+		mdio@3 {
-+			reg = <3>;
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			phy21: ethernet-phy@1 {
-+				reg = <1>;
-+				compatible = "marvell,88e1149r";
-+				marvell,reg-init = <3 0x10 0 0x5777>,
-+					<3 0x11 0 0x00aa>,
-+					<3 0x12 0 0x4105>,
-+					<3 0x13 0 0x0a60>;
-+				interrupt-parent = <&gpio>;
-+				interrupts = <12 8>; /* Pin 12, active low */
-+			};
-+			phy22: ethernet-phy@2 {
-+				reg = <2>;
-+				compatible = "marvell,88e1149r";
-+				marvell,reg-init = <3 0x10 0 0x5777>,
-+					<3 0x11 0 0x00aa>,
-+					<3 0x12 0 0x4105>,
-+					<3 0x13 0 0x0a60>;
-+				interrupt-parent = <&gpio>;
-+				interrupts = <12 8>; /* Pin 12, active low */
-+			};
-+			phy23: ethernet-phy@3 {
-+				reg = <3>;
-+				compatible = "marvell,88e1149r";
-+				marvell,reg-init = <3 0x10 0 0x5777>,
-+					<3 0x11 0 0x00aa>,
-+					<3 0x12 0 0x4105>,
-+					<3 0x13 0 0x0a60>;
-+				interrupt-parent = <&gpio>;
-+				interrupts = <12 8>; /* Pin 12, active low */
-+			};
-+			phy24: ethernet-phy@4 {
-+				reg = <4>;
-+				compatible = "marvell,88e1149r";
-+				marvell,reg-init = <3 0x10 0 0x5777>,
-+					<3 0x11 0 0x00aa>,
-+					<3 0x12 0 0x4105>,
-+					<3 0x13 0 0x0a60>;
-+				interrupt-parent = <&gpio>;
-+				interrupts = <12 8>; /* Pin 12, active low */
-+			};
-+		};
-+	};
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 99c0674a..944cdfb 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -144,6 +144,16 @@ config MDIO_BUS_MUX
- 	  to a parent bus.  Switching between child busses is done by
- 	  device specific drivers.
- 
-+config MDIO_BUS_MUX_GPIO
-+	tristate "Support for GPIO controlled MDIO bus multiplexers"
-+	depends on OF_GPIO && OF_MDIO
-+	select MDIO_BUS_MUX
-+	help
-+	  This module provides a driver for MDIO bus multiplexers that
-+	  are controlled via GPIO lines.  The multiplexer connects one of
-+	  several child MDIO busses to a parent bus.  Child bus
-+	  selection is under the control of GPIO lines.
-+
- endif # PHYLIB
- 
- config MICREL_KS8995MA
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index a6b50e7..f51af68 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -26,3 +26,4 @@ obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
- obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
- obj-$(CONFIG_AMD_PHY)		+= amd.o
- obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
-+obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
-diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
-new file mode 100644
-index 0000000..e0cc4ef
---- /dev/null
-+++ b/drivers/net/phy/mdio-mux-gpio.c
-@@ -0,0 +1,142 @@
-+/*
-+ * This file is subject to the terms and conditions of the GNU General Public
-+ * License.  See the file "COPYING" in the main directory of this archive
-+ * for more details.
-+ *
-+ * Copyright (C) 2011, 2012 Cavium, Inc.
-+ */
-+
-+#include <linux/platform_device.h>
-+#include <linux/device.h>
-+#include <linux/of_mdio.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/phy.h>
-+#include <linux/mdio-mux.h>
-+#include <linux/of_gpio.h>
-+
-+#define DRV_VERSION "1.0"
-+#define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
-+
-+#define MDIO_MUX_GPIO_MAX_BITS 8
-+
-+struct mdio_mux_gpio_state {
-+	int gpio[MDIO_MUX_GPIO_MAX_BITS];
-+	unsigned int num_gpios;
-+	void *mux_handle;
-+};
-+
-+static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
-+				   void *data)
-+{
-+	int change;
-+	unsigned int n;
-+	struct mdio_mux_gpio_state *s = data;
-+
-+	if (current_child == desired_child)
-+		return 0;
-+
-+	change = current_child == -1 ? -1 : current_child ^ desired_child;
-+
-+	for (n = 0; n < s->num_gpios; n++) {
-+		if (change & 1)
-+			gpio_set_value_cansleep(s->gpio[n],
-+						(desired_child & 1) != 0);
-+		change >>= 1;
-+		desired_child >>= 1;
-+	}
-+
-+	return 0;
-+}
-+
-+static int __devinit mdio_mux_gpio_probe(struct platform_device *pdev)
-+{
-+	enum of_gpio_flags f;
-+	struct mdio_mux_gpio_state *s;
-+	unsigned int num_gpios;
-+	unsigned int n;
-+	int r;
-+
-+	if (!pdev->dev.of_node)
-+		return -ENODEV;
-+
-+	num_gpios = of_gpio_count(pdev->dev.of_node);
-+	if (num_gpios == 0 || num_gpios > MDIO_MUX_GPIO_MAX_BITS)
-+		return -ENODEV;
-+
-+	s = devm_kzalloc(&pdev->dev, sizeof(*s), GFP_KERNEL);
-+	if (!s)
-+		return -ENOMEM;
-+
-+	s->num_gpios = num_gpios;
-+
-+	for (n = 0; n < num_gpios; ) {
-+		int gpio = of_get_gpio_flags(pdev->dev.of_node, n, &f);
-+		if (gpio < 0) {
-+			r = (gpio == -ENODEV) ? -EPROBE_DEFER : gpio;
-+			goto err;
-+		}
-+		s->gpio[n] = gpio;
-+
-+		n++;
-+
-+		r = gpio_request(gpio, "mdio_mux_gpio");
-+		if (r)
-+			goto err;
-+
-+		r = gpio_direction_output(gpio, 0);
-+		if (r)
-+			goto err;
-+	}
-+
-+	r = mdio_mux_init(&pdev->dev,
-+			  mdio_mux_gpio_switch_fn, &s->mux_handle, s);
-+
-+	if (r == 0) {
-+		pdev->dev.platform_data = s;
-+		return 0;
-+	}
-+err:
-+	while (n) {
-+		n--;
-+		gpio_free(s->gpio[n]);
-+	}
-+	devm_kfree(&pdev->dev, s);
-+	return r;
-+}
-+
-+static int __devexit mdio_mux_gpio_remove(struct platform_device *pdev)
-+{
-+	struct mdio_mux_gpio_state *s = pdev->dev.platform_data;
-+	mdio_mux_uninit(s->mux_handle);
-+	return 0;
-+}
-+
-+static struct of_device_id mdio_mux_gpio_match[] = {
-+	{
-+		.compatible = "mdio-mux-gpio",
-+	},
-+	{
-+		/* Legacy compatible property. */
-+		.compatible = "cavium,mdio-mux-sn74cbtlv3253",
-+	},
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, mdio_mux_gpio_match);
-+
-+static struct platform_driver mdio_mux_gpio_driver = {
-+	.driver = {
-+		.name		= "mdio-mux-gpio",
-+		.owner		= THIS_MODULE,
-+		.of_match_table = mdio_mux_gpio_match,
-+	},
-+	.probe		= mdio_mux_gpio_probe,
-+	.remove		= __devexit_p(mdio_mux_gpio_remove),
-+};
-+
-+module_platform_driver(mdio_mux_gpio_driver);
-+
-+MODULE_DESCRIPTION(DRV_DESCRIPTION);
-+MODULE_VERSION(DRV_VERSION);
-+MODULE_AUTHOR("David Daney");
-+MODULE_LICENSE("GPL");
--- 
-1.7.2.3
+diff --cc net/wireless/nl80211.c
+index d5005c5,859bd66..0000000
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@@ -3348,50 -3292,51 +3348,52 @@@ static int nl80211_get_mesh_config(stru
+  	pinfoattr =3D nla_nest_start(msg, NL80211_ATTR_MESH_CONFIG);
+  	if (!pinfoattr)
+  		goto nla_put_failure;
+ -	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_RETRY_TIMEOUT,
+ -			cur_params.dot11MeshRetryTimeout);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_CONFIRM_TIMEOUT,
+ -			cur_params.dot11MeshConfirmTimeout);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_HOLDING_TIMEOUT,
+ -			cur_params.dot11MeshHoldingTimeout);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_MAX_PEER_LINKS,
+ -			cur_params.dot11MeshMaxPeerLinks);
+ -	NLA_PUT_U8(msg, NL80211_MESHCONF_MAX_RETRIES,
+ -			cur_params.dot11MeshMaxRetries);
+ -	NLA_PUT_U8(msg, NL80211_MESHCONF_TTL,
+ -			cur_params.dot11MeshTTL);
+ -	NLA_PUT_U8(msg, NL80211_MESHCONF_ELEMENT_TTL,
+ -			cur_params.element_ttl);
+ -	NLA_PUT_U8(msg, NL80211_MESHCONF_AUTO_OPEN_PLINKS,
+ -			cur_params.auto_open_plinks);
+ -	NLA_PUT_U32(msg, NL80211_MESHCONF_SYNC_OFFSET_MAX_NEIGHBOR,
+ -			cur_params.dot11MeshNbrOffsetMaxNeighbor);
+ -	NLA_PUT_U8(msg, NL80211_MESHCONF_HWMP_MAX_PREQ_RETRIES,
+ -			cur_params.dot11MeshHWMPmaxPREQretries);
+ -	NLA_PUT_U32(msg, NL80211_MESHCONF_PATH_REFRESH_TIME,
+ -			cur_params.path_refresh_time);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_MIN_DISCOVERY_TIMEOUT,
+ -			cur_params.min_discovery_timeout);
+ -	NLA_PUT_U32(msg, NL80211_MESHCONF_HWMP_ACTIVE_PATH_TIMEOUT,
+ -			cur_params.dot11MeshHWMPactivePathTimeout);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_HWMP_PREQ_MIN_INTERVAL,
+ -			cur_params.dot11MeshHWMPpreqMinInterval);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_HWMP_PERR_MIN_INTERVAL,
+ -			cur_params.dot11MeshHWMPperrMinInterval);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_HWMP_NET_DIAM_TRVS_TIME,
+ -			cur_params.dot11MeshHWMPnetDiameterTraversalTime);
+ -	NLA_PUT_U8(msg, NL80211_MESHCONF_HWMP_ROOTMODE,
+ -			cur_params.dot11MeshHWMPRootMode);
+ -	NLA_PUT_U16(msg, NL80211_MESHCONF_HWMP_RANN_INTERVAL,
+ -			cur_params.dot11MeshHWMPRannInterval);
+ -	NLA_PUT_U8(msg, NL80211_MESHCONF_GATE_ANNOUNCEMENTS,
+ -			cur_params.dot11MeshGateAnnouncementProtocol);
+ -	NLA_PUT_U8(msg, NL80211_MESHCONF_FORWARDING,
+ -			cur_params.dot11MeshForwarding);
+ -	NLA_PUT_U32(msg, NL80211_MESHCONF_RSSI_THRESHOLD,
+ -			cur_params.rssi_threshold);
+ -	NLA_PUT_U32(msg, NL80211_MESHCONF_HT_OPMODE,
+ -			cur_params.ht_opmode);
+ +	if (nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_RETRY_TIMEOUT,
+ +			cur_params.dot11MeshRetryTimeout) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_CONFIRM_TIMEOUT,
+ +			cur_params.dot11MeshConfirmTimeout) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_HOLDING_TIMEOUT,
+ +			cur_params.dot11MeshHoldingTimeout) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_MAX_PEER_LINKS,
+ +			cur_params.dot11MeshMaxPeerLinks) ||
+ +	    nla_put_u8(msg, NL80211_MESHCONF_MAX_RETRIES,
+ +		       cur_params.dot11MeshMaxRetries) ||
+ +	    nla_put_u8(msg, NL80211_MESHCONF_TTL,
+ +		       cur_params.dot11MeshTTL) ||
+ +	    nla_put_u8(msg, NL80211_MESHCONF_ELEMENT_TTL,
+ +		       cur_params.element_ttl) ||
+ +	    nla_put_u8(msg, NL80211_MESHCONF_AUTO_OPEN_PLINKS,
+ +		       cur_params.auto_open_plinks) ||
+ +	    nla_put_u32(msg, NL80211_MESHCONF_SYNC_OFFSET_MAX_NEIGHBOR,
+ +			cur_params.dot11MeshNbrOffsetMaxNeighbor) ||
+ +	    nla_put_u8(msg, NL80211_MESHCONF_HWMP_MAX_PREQ_RETRIES,
+ +		       cur_params.dot11MeshHWMPmaxPREQretries) ||
+ +	    nla_put_u32(msg, NL80211_MESHCONF_PATH_REFRESH_TIME,
+ +			cur_params.path_refresh_time) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_MIN_DISCOVERY_TIMEOUT,
+ +			cur_params.min_discovery_timeout) ||
+ +	    nla_put_u32(msg, NL80211_MESHCONF_HWMP_ACTIVE_PATH_TIMEOUT,
+ +			cur_params.dot11MeshHWMPactivePathTimeout) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_HWMP_PREQ_MIN_INTERVAL,
+ +			cur_params.dot11MeshHWMPpreqMinInterval) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_HWMP_PERR_MIN_INTERVAL,
+ +			cur_params.dot11MeshHWMPperrMinInterval) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_HWMP_NET_DIAM_TRVS_TIME,
+ +			cur_params.dot11MeshHWMPnetDiameterTraversalTime) ||
+ +	    nla_put_u8(msg, NL80211_MESHCONF_HWMP_ROOTMODE,
+ +		       cur_params.dot11MeshHWMPRootMode) ||
+ +	    nla_put_u16(msg, NL80211_MESHCONF_HWMP_RANN_INTERVAL,
+ +			cur_params.dot11MeshHWMPRannInterval) ||
+ +	    nla_put_u8(msg, NL80211_MESHCONF_GATE_ANNOUNCEMENTS,
+ +		       cur_params.dot11MeshGateAnnouncementProtocol) ||
+ +	    nla_put_u8(msg, NL80211_MESHCONF_FORWARDING,
+ +		       cur_params.dot11MeshForwarding) ||
+ +	    nla_put_u32(msg, NL80211_MESHCONF_RSSI_THRESHOLD,
+- 			cur_params.rssi_threshold))
+++			cur_params.rssi_threshold) ||
+++	    nla_put_u32(msg, NL80211_MESHCONF_HT_OPMODE,
+++			cur_params.ht_opmode))
+ +		goto nla_put_failure;
+  	nla_nest_end(msg, pinfoattr);
+  	genlmsg_end(msg, hdr);
+  	return genlmsg_reply(msg, info);
+
+--Signature=_Thu__3_May_2012_11_31_10_+1000_eenyizu+U6djWlZZ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPod/eAAoJEECxmPOUX5FEaSAP/20XC39SPAp7htMgy2UW7cvI
+4glq0Lfpgjomv1xGGTr4k3AZuJi0Y0a0q9iFz/wTwAQHOtBuM7kd4IURLaOWIk3z
+oYI1RqpNUnq2ysOUdlFTudS4nVM2HNZCeWFDjcxMjhvKnQ8J245RQjR3icsFL4ll
+BpzHrd08xC+kyT4Fuujz8p3JYaqUEB3qgMDpy2h9LYhZZf3dKJblrBSB9AhaZh2J
+dgSzo6AKT0+v6K7nUFLVzDi625MKA+w6eX6TPb+azdqzPdh/YdDWI/nQkM0AAQwM
+3W8cyf1O4RKu84qEtY7HiVMk1m6Xa36SSSw/sgKmnJF6ghEgTZJQXVm7QF+dRRDl
+lGvDBFkUGiSCx59ctLnURsok8S4dquZX1ObdIFvIl5cJgtFX40lFtUsJlRMIP51C
+NUWzcZGkSnM1bkSZ3bM50TX4lRGB16mwq/82OvoLbm2hiH6YY7ogL5xyulipRyzH
+q1ycX4CmvHVYISpBq7uZIN6hLtDJA/TSF7woEpssaOAQneE2wysw1rrvSOG7CSN2
+nODNWTA1f6BNamZ2igewdbdEebamOT9VN2VTWsYU5wmQK5jqDOb/d4dp5BnpfKZl
+hEVJml56xroK02FIs5ojKFvPHJN2JZf0wvikMUeYUVXBz2MPsSNH5rd9NnMv8aTf
+Iaqg4nuwfUi2PR9s78ym
+=2vnO
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__3_May_2012_11_31_10_+1000_eenyizu+U6djWlZZ--
