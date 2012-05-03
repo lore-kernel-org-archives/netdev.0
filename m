@@ -1,87 +1,77 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v4 0/8] Managing the forwarding database(FDB)
-Date: Thu, 03 May 2012 12:38:13 -0700
-Message-ID: <4FA2DEA5.6050802@intel.com>
-References: <20120415163905.14091.30491.stgit@jf-dev1-dcblab> <20120415.130637.2258594023349277277.davem@davemloft.net> <20120502150830.GA2976@redhat.com> <4FA1ACA1.2080808@intel.com> <4FA1C50C.7010405@us.ibm.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [net-next 5/9] e1000e: Disable ASPM L1 on 82574
+Date: Thu, 3 May 2012 20:12:47 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6261882C3A9@FMSMSX151.amr.corp.intel.com>
+References: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1336038992-3144-6-git-send-email-jeffrey.t.kirsher@intel.com>
+ <87d36ld1as.fsf@spindle.srvr.nix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, hadi@cyberus.ca,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gregory.v.rose@intel.com, krkumar2@in.ibm.com
-To: Sridhar Samudrala <sri@us.ibm.com>,
-	Roopa Prabhu <roopa.prabhu@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	Chris Boot <bootc@bootc.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Nix <nix@esperi.org.uk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:18597 "EHLO mga02.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:64938 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755879Ab2ECTiN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 May 2012 15:38:13 -0400
-In-Reply-To: <4FA1C50C.7010405@us.ibm.com>
+	id S1754876Ab2ECUMt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 16:12:49 -0400
+In-Reply-To: <87d36ld1as.fsf@spindle.srvr.nix>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/2/2012 4:36 PM, Sridhar Samudrala wrote:
-> On 5/2/2012 2:52 PM, John Fastabend wrote:
->> On 5/2/2012 8:08 AM, Michael S. Tsirkin wrote:
->>> On Sun, Apr 15, 2012 at 01:06:37PM -0400, David Miller wrote:
->>>> From: John Fastabend<john.r.fastabend@intel.com>
->>>> Date: Sun, 15 Apr 2012 09:43:51 -0700
->>>>
->>>>> The following series is a submission for net-next to allow
->>>>> embedded switches and other stacked devices other then the
->>>>> Linux bridge to manage a forwarding database.
->>>>>
->>>>> Previously discussed here,
->>>>>
->>>>> http://lists.openwall.net/netdev/2012/03/19/26
->>>>>
->>>>> v4: propagate return codes correctly for ndo_dflt_Fdb_dump()
->>>>>
->>>>> v3: resolve the macvlan patch 8/8 to fix a dev_set_promiscuity()
->>>>>      error and add the flags field to change and get link routines.
->>>>>
->>>>> v2: addressed feedback from Ben Hutchings resolving a typo in the
->>>>>      multicast add/del routines and improving the error handling
->>>>>      when both NTF_SELF and NTF_MASTER are set.
->>>>>
->>>>> I've tested this with 'br' tool published by Stephen Hemminger
->>>>> soon to be renamed 'bridge' I believe and various traffic
->>>>> generators mostly pktgen, ping, and netperf.
->>>> All applied, if we need any more tweaks we can just add them
->>>> on top of this work.
->>>>
->>>> Thanks John.
->>> John, do you plan to update kvm userspace to use this interface?
->>>
->> No immediate plans. I would really appreciate it if you or one
->> of the IBM developers working in this space took it on. Of course
->> if no one steps up I guess I can eventually get at it but it will
->> be sometime. For now I've been doing this manually with the bridge
->> tool yet to be published.
->>
->>
-> Does this mean that when we add an interface to a bridge, it need not be put in promiscuous mode and
-> add/delete fdb entries dynamically?
 
-The net/bridge will automatically put the interface in promisc mode
-when the device is attached. We do need to add/delete fdb entries
-though to allow forwarding packets from the virtual function and
-any emulated devices e.g. tap devices on the bridge.
 
-Currently I am doing this by manually running a tool Stephen created.
-My hope would be to integrate this with KVM so that when I setup my
-VM with an emulated device and have SR-IOV enabled perhaps for direct
-assign use case qemu/libvirt also adds the VM address to the embedded
-switch FDB.
+>-----Original Message-----
+>From: Nix [mailto:nix@esperi.org.uk]
+>Sent: Thursday, May 03, 2012 3:09 AM
+>To: Kirsher, Jeffrey T
+>Cc: davem@davemloft.net; Chris Boot; netdev@vger.kernel.org;
+>gospo@redhat.com; sassmann@redhat.com; Wyborny, Carolyn
+>Subject: Re: [net-next 5/9] e1000e: Disable ASPM L1 on 82574
+>
+ [..]
+>(reminder: this is known not to fix the instance of this problem I am
+>experiencing, where ASPM is being re-enabled by something even if turned
+>off via setpci during boot, though it does fix those instances seen by
+>others where that doesn't happen. I'd have done more printf()-scattering
+>debugging to see where it's turned back on if it wasn't that this is
+>happening on an always-on server for which rebooting outside the dead of
+>night is a long-winded chore...)
+>
+>FWIW I have also seen -- very rare -- lockups of the same nature on
+>82574L links in 100MbE mode using non-jumbo frames. However they are far
+>more common on GbE jumbo-framed links, normally taking less than an hour
+>to take the link down with a wildly corrupted register set (as shown by
+>ethtool).
+>
+>(It's annoying this firmware isn't flashable so we could just *fix* this
+>bug rather than working around it. :( )
+>
+>
+>I think I might cheat a bit next and printk_once() the state of ASPM L1
+>on the errant PCI device from inside the scheduler when it flips from L1
+>off to L1 on again. At 100 tests per second that should indicate at what
+>time the thing is turned back on fairly tightly: even if not providing a
+>direct clue as to which bit of the kernel is doing it, if I combine it
+>with a set -x in userspace it should at least indicate what bit of the
+>boot process is happening at the same time. It'll be the weekend before
+>I can try that though.
+>
+>--
+>NULL && (void)
 
-> Or are we talking only about VMs attached to macvtap?
-> 
+Hello,
 
-The macvlan bridge calls dev_uc_add and dev_uc_sync so in this case
-we shouldn't need to explicitly add entries to the embedded bridge
-on the physical function.
+It would be good to know why/how your system is re-enabling the setting.  The problem is not solvable in firmware unfortunately and is somewhat platform dependent. MMIO-tracer might be used to try and see when the re-enabling config space is written, but it might be too heavyweight for a live production system.
 
-> Thanks
-> Sridhar
-> 
+I am also working on a patch to the driver to detect the condition and then do a slot reset to avoid a whole system reboot.  Would you be willing to test it in your problem system?
+
+Thanks,
+
+Carolyn
