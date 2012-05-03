@@ -1,41 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 PATCH 4/4] ixgbe: Fix use after free on module remove
-Date: Thu, 03 May 2012 04:22:27 -0400 (EDT)
-Message-ID: <20120503.042227.360345661727432549.davem@davemloft.net>
-References: <20120503071141.13636.37564.stgit@gitlad.jf.intel.com>
-	<20120503071914.13636.31157.stgit@gitlad.jf.intel.com>
+From: Liu ping fan <kernelfans@gmail.com>
+Subject: vhost-net: is there a race for sock in handle_tx/rx?
+Date: Thu, 3 May 2012 16:33:55 +0800
+Message-ID: <CAFgQCTtKWR6F3D_mPcGe69HvZbYmmAdXreSWLZQrdi+0T3i2ag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	edumazet@google.com
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41105 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753148Ab2ECIWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 04:22:30 -0400
-In-Reply-To: <20120503071914.13636.31157.stgit@gitlad.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Thu, 03 May 2012 00:19:14 -0700
+Hi,
 
-> While testing the TCP changes I had to fix an issue in order to be able to
-> load and unload the module.
-> 
-> The recent patch that added thermal sensor support added a use after free
-> bug on module unload with an 82598 adapter in the system.  To resolve the
-> issue I have updated the code so that when we free the info_kobj we set it
-> back to NULL.
-> 
-> I suspect there are likely other bugs present, but I will leave that for
-> another patch that can undergo more testing.
-> 
-> I am submitting this directly to net-next since this fixes a fairly serious
-> bug that will lock up the ixgbe module until the system is rebooted.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+During reading the vhost-net code, I find the following,
 
-Applied.
+static void handle_tx(struct vhost_net *net)
+{
+	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
+	unsigned out, in, s;
+	int head;
+	struct msghdr msg = {
+		.msg_name = NULL,
+		.msg_namelen = 0,
+		.msg_control = NULL,
+		.msg_controllen = 0,
+		.msg_iov = vq->iov,
+		.msg_flags = MSG_DONTWAIT,
+	};
+	size_t len, total_len = 0;
+	int err, wmem;
+	size_t hdr_size;
+	struct socket *sock;
+	struct vhost_ubuf_ref *uninitialized_var(ubufs);
+	bool zcopy;
+
+	/* TODO: check that we are running from vhost_worker? */
+	sock = rcu_dereference_check(vq->private_data, 1);
+	if (!sock)
+		return;
+
+           --------------------------------> Qemu calls
+vhost_net_set_backend() to set a new backend fd, and close
+@oldsock->file. And  sock->file refcnt==0.
+
+                                              Can vhost_worker prevent
+itself from such situation? And how?
+
+	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+       .........................................................................
+
+Is it a race?
+
+Thanks and regards,
+pingfan
