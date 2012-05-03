@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: fix handling single MSIX mode for
- 57710/57711
-Date: Wed, 02 May 2012 20:04:15 -0400 (EDT)
-Message-ID: <20120502.200415.1592177809882949817.davem@davemloft.net>
-References: <1335957393-21804-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCH 1/2] net: ucc_geth, increase no. of HW RX descriptors
+Date: Wed, 02 May 2012 20:10:10 -0400 (EDT)
+Message-ID: <20120502.201010.149609774304936802.davem@davemloft.net>
+References: <1335775015-14718-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: dmitry@broadcom.com
+Cc: netdev@vger.kernel.org
+To: Joakim.Tjernlund@transmode.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37738 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:37795 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752525Ab2ECAES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:04:18 -0400
-In-Reply-To: <1335957393-21804-1-git-send-email-dmitry@broadcom.com>
+	with ESMTP id S1750893Ab2ECALe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:11:34 -0400
+In-Reply-To: <1335775015-14718-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Wed, 2 May 2012 14:16:33 +0300
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Mon, 30 Apr 2012 10:36:54 +0200
 
-> commit 30a5de7723a8a4211be02e94236e9167a424fd07 added
-> ability to use single MSI-X vector, but lack proper
-> handling for 57710/57711 HW
+> In a busy network we see ucc_geth is dropping RX pkgs every now
+> and then. Increase the RX queues HW descriptors from
+> 16 to 32 to deal with this.
 > 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 
-Applied, thanks.
+Applied.
