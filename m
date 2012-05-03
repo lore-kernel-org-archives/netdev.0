@@ -1,34 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: usbnet: fix misc bugs
-Date: Wed, 02 May 2012 20:14:44 -0400 (EDT)
-Message-ID: <20120502.201444.2074945018843883757.davem@davemloft.net>
-References: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 00/13 v4] usb/net: rndis: first step toward
+ consolidation
+Date: Wed, 02 May 2012 20:20:20 -0400 (EDT)
+Message-ID: <20120502.202020.1507739621351234969.davem@davemloft.net>
+References: <1335896529-13246-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: tom.leiming@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37858 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753755Ab2ECAQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:16:21 -0400
-In-Reply-To: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, jussi.kivilinna-E01nCVcF24I@public.gmane.org,
+	haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
+	ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org
+To: linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1335896529-13246-1-git-send-email-linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ming Lei <tom.leiming@gmail.com>
-Date: Mon, 30 Apr 2012 16:51:01 +0800
+From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Date: Tue,  1 May 2012 20:22:09 +0200
 
-> These patches fix three bugs in usbnet:
-> 	usbnet: fix leak of transfer buffer of dev->interrupt
-> 	usbnet: fix failure handling in usbnet_probe
-> 	usbnet: fix skb traversing races during unlink(v1)
+> The REAL v4 patch set... forget v3 :-(
 
-The third fix looks quite critical, but depends upon an interface
-not present in Linus's tree, nor mine.  That doesn't work.
-
-You need to find a way to propagate this fix into Linus's tree
-as well as all -stable trees that need that fix, but without
-this unmet dependency.
+You'll definitely need to submit at least a v5, especially
+after all of the endian bugs that have been spotted.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
