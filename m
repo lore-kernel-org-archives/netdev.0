@@ -1,48 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: [PATCH 2/2] tcp: cleanup tcp_try_coalesce
-Date: Thu, 03 May 2012 07:19:33 +0200
-Message-ID: <1336022373.12425.24.camel@edumazet-glaptop>
-References: <20120503033018.5482.89902.stgit@gitlad.jf.intel.com>
-	 <20120503033901.5482.27183.stgit@gitlad.jf.intel.com>
-	 <1336017985.12425.9.camel@edumazet-glaptop>  <4FA21087.1080801@gmail.com>
+Date: Thu, 03 May 2012 01:25:02 -0400 (EDT)
+Message-ID: <20120503.012502.44731688706812861.davem@davemloft.net>
+References: <1336017985.12425.9.camel@edumazet-glaptop>
+	<4FA21087.1080801@gmail.com>
+	<1336022373.12425.24.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Eric Dumazet <edumazet@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:44241 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588Ab2ECFTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 01:19:39 -0400
-Received: by wibhr7 with SMTP id hr7so279679wib.1
-        for <netdev@vger.kernel.org>; Wed, 02 May 2012 22:19:38 -0700 (PDT)
-In-Reply-To: <4FA21087.1080801@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1336022373.12425.24.camel@edumazet-glaptop>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-05-02 at 21:58 -0700, Alexander Duyck wrote:
-> The question I have is how can you get into a case where the ksize is 
-> different from the end offset plus the aligned size of skb_shared_info?  
-> From what I can tell it looks like the only place we can lie is if we 
-> use build_skb with the frag_size option, and in that case we are using a 
-> page, not kmalloc memory.  Otherwise in all other cases __alloc_skb or 
-> build_skb is using ksize(skb->head) - SKB_DATA_ALIGN(struct 
-> skb_shared_info) to set the end pointer, so reversing that should give 
-> us the same value as ksize(skb->head).
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 03 May 2012 07:19:33 +0200
 
+> My last patch against iwlwifi is still waiting to make its way into
+> official tree.
+> 
+> http://www.spinics.net/lists/netdev/msg192629.html
 
-Right after skb is allocated (build_skb() or other skb_alloc...
-variants), truesize is correct by construction.
+John, please rectify this situation.
 
-Then drivers add fragments and can make truesize smaller than reality.
+The Intel Wireless folks said they would test it, but that was more
+than a month ago.
 
-And Intel drivers are known to abuse truesize.
+It's not acceptable to let bug fixes rot for that long, I don't care
+what their special internal testing procedure is.
 
-My last patch against iwlwifi is still waiting to make its way into
-official tree.
+If they give you further pushback, please just ignore them and apply
+Eric's fix directly.
 
-http://www.spinics.net/lists/netdev/msg192629.html
+Thank you.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
