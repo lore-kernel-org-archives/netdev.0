@@ -1,111 +1,63 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCHv2 6/7] mISDN: Layer1 statemachine fix
-Date: Thu,  3 May 2012 17:47:31 +0200
-Message-ID: <1336060052-27119-7-git-send-email-kkeil@linux-pingi.de>
-References: <1336060052-27119-1-git-send-email-kkeil@linux-pingi.de>
-Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:60435 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757599Ab2ECPxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 11:53:04 -0400
-In-Reply-To: <1336060052-27119-1-git-send-email-kkeil@linux-pingi.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Mark A. Greer" <mgreer@animalcreek.com>
+Subject: Re: [PATCH] net: davinci_emac: Add pre_open, post_stop platform
+ callbacks
+Date: Thu, 3 May 2012 09:09:18 -0700
+Message-ID: <20120503160917.GA11310@animalcreek.com>
+References: <20120502234718.GA5432@animalcreek.com>
+ <B5906170F1614E41A8A28DE3B8D121433EA72820@DBDE01.ent.ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: "Bedia, Vaibhav" <vaibhav.bedia@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <B5906170F1614E41A8A28DE3B8D121433EA72820@DBDE01.ent.ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Karsten Keil <isdn@linux-pingi.de>
+On Thu, May 03, 2012 at 10:44:44AM +0000, Bedia, Vaibhav wrote:
+> On Thu, May 03, 2012 at 05:17:18, Mark A. Greer wrote:
+> > From: "Mark A. Greer" <mgreer@animalcreek.com>
+> > 
+> > The davinci EMAC driver has been incorporated into the am35x
+> > family of SoC's which is OMAP-based.  The incorporation is
+> > incomplete in that the EMAC cannot unblock the [ARM] core if
+> > its blocked on a 'wfi' instruction.  This is an issue with
+> > the cpu_idle code because it has the core execute a 'wfi'
+> > instruction.
+> > 
+> > To work around this issue, add platform data callbacks which
+> > are called at the beginning of the open routine and at the
+> > end of the stop routine of the davinci_emac driver.  The
+> > callbacks allow the platform code to issue disable_hlt() and
+> > enable_hlt() calls appropriately.  Calling disable_hlt()
+> > prevents cpu_idle from issuing the 'wfi' instruction.
+> > 
+> > It is not sufficient to simply call disable_hlt() when
+> > there is an EMAC present because it could be present but
+> > not actually used in which case, we do want the 'wfi' to
+> > be executed.
+> > 
+> 
+> Are you trying to say that if ARM executes _just_ wfi and _absolutely
+> nothing else_ is done in the OMAP PM code, EMAC stops working?
 
-The timer3 and the activation delay timer need to be
-independent.
-If timer3 fires do not reqest power up we have to send only INFO 0.
-Now layer1 pass TBR3 again.
+No, I'm saying the EMAC can't wake the core from the wfi so if nothing
+else happens in the system, its effectively hung.  If something else
+does happen in the system (e.g., a timer expires), the the system is
+extremely slow because because its only waking up when a timer (or
+something else wakes it up--but not net traffic).  This is very apparent
+when using an nfs-mounted rootfs. It doesn't hang but its extremely
+slow because occasionally something else wakes up the core but it
+spends most of its time stuck in the wfi when it should be handling
+net/nfs traffic.
 
-Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
----
- drivers/isdn/mISDN/layer1.c |   24 ++++++++++++++----------
- 1 files changed, 14 insertions(+), 10 deletions(-)
+> However, if this is indeed the case, then probably a better solution would be
+> to invoke disable_hlt() from the board file when EMAC support is compiled in.
 
-diff --git a/drivers/isdn/mISDN/layer1.c b/drivers/isdn/mISDN/layer1.c
-index ff05153..98a455d 100644
---- a/drivers/isdn/mISDN/layer1.c
-+++ b/drivers/isdn/mISDN/layer1.c
-@@ -28,7 +28,8 @@ static u_int *debug;
- struct layer1 {
- 	u_long Flags;
- 	struct FsmInst l1m;
--	struct FsmTimer timer;
-+	struct FsmTimer timer3;
-+	struct FsmTimer timerX;
- 	int delay;
- 	int t3_value;
- 	struct dchannel *dch;
-@@ -135,7 +136,7 @@ l1_deact_req_s(struct FsmInst *fi, int event, void *arg)
- 	struct layer1 *l1 = fi->userdata;
- 
- 	mISDN_FsmChangeState(fi, ST_L1_F3);
--	mISDN_FsmRestartTimer(&l1->timer, 550, EV_TIMER_DEACT, NULL, 2);
-+	mISDN_FsmRestartTimer(&l1->timerX, 550, EV_TIMER_DEACT, NULL, 2);
- 	test_and_set_bit(FLG_L1_DEACTTIMER, &l1->Flags);
- }
- 
-@@ -180,11 +181,11 @@ l1_info4_ind(struct FsmInst *fi, int event, void *arg)
- 	mISDN_FsmChangeState(fi, ST_L1_F7);
- 	l1->dcb(l1->dch, INFO3_P8);
- 	if (test_and_clear_bit(FLG_L1_DEACTTIMER, &l1->Flags))
--		mISDN_FsmDelTimer(&l1->timer, 4);
-+		mISDN_FsmDelTimer(&l1->timerX, 4);
- 	if (!test_bit(FLG_L1_ACTIVATED, &l1->Flags)) {
- 		if (test_and_clear_bit(FLG_L1_T3RUN, &l1->Flags))
--			mISDN_FsmDelTimer(&l1->timer, 3);
--		mISDN_FsmRestartTimer(&l1->timer, 110, EV_TIMER_ACT, NULL, 2);
-+			mISDN_FsmDelTimer(&l1->timer3, 3);
-+		mISDN_FsmRestartTimer(&l1->timerX, 110, EV_TIMER_ACT, NULL, 2);
- 		test_and_set_bit(FLG_L1_ACTTIMER, &l1->Flags);
- 	}
- }
-@@ -200,9 +201,9 @@ l1_timer3(struct FsmInst *fi, int event, void *arg)
- 			l1->dcb(l1->dch, HW_D_NOBLOCKED);
- 		l1->dcb(l1->dch, PH_DEACTIVATE_IND);
- 	}
--	if (l1->l1m.state != ST_L1_F6) {
-+	if (l1->l1m.state != ST_L1_F6) { /* stay in F6 */
- 		mISDN_FsmChangeState(fi, ST_L1_F3);
--		l1->dcb(l1->dch, HW_POWERUP_REQ);
-+		/* do not force anything here, we need send INFO 0 */
- 	}
- }
- 
-@@ -234,8 +235,9 @@ l1_activate_s(struct FsmInst *fi, int event, void *arg)
- {
- 	struct layer1 *l1 = fi->userdata;
- 
--	mISDN_FsmRestartTimer(&l1->timer, l1->t3_value, EV_TIMER3, NULL, 2);
-+	mISDN_FsmRestartTimer(&l1->timer3, l1->t3_value, EV_TIMER3, NULL, 2);
- 	test_and_set_bit(FLG_L1_T3RUN, &l1->Flags);
-+	/* Tell HW to send INFO 1 */
- 	l1->dcb(l1->dch, HW_RESET_REQ);
- }
- 
-@@ -303,7 +305,8 @@ static struct FsmNode L1SFnList[] =
- 
- static void
- release_l1(struct layer1 *l1) {
--	mISDN_FsmDelTimer(&l1->timer, 0);
-+	mISDN_FsmDelTimer(&l1->timerX, 0);
-+	mISDN_FsmDelTimer(&l1->timer3, 0);
- 	if (l1->dch)
- 		l1->dch->l1 = NULL;
- 	module_put(THIS_MODULE);
-@@ -395,7 +398,8 @@ create_l1(struct dchannel *dch, dchannel_l1callback *dcb) {
- 	nl1->l1m.printdebug = l1m_debug;
- 	nl1->dch = dch;
- 	nl1->dcb = dcb;
--	mISDN_FsmInitTimer(&nl1->l1m, &nl1->timer);
-+	mISDN_FsmInitTimer(&nl1->l1m, &nl1->timer3);
-+	mISDN_FsmInitTimer(&nl1->l1m, &nl1->timerX);
- 	__module_get(THIS_MODULE);
- 	dch->l1 = nl1;
- 	return 0;
--- 
-1.7.3.4
+Kevin addressed this one.  Thanks Kevin.
+
+Mark
