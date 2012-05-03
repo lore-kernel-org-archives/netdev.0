@@ -1,34 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skb: Add skb_head_is_locked helper function
-Date: Thu, 03 May 2012 13:23:11 -0400 (EDT)
-Message-ID: <20120503.132311.1913257345591054180.davem@davemloft.net>
-References: <20120503110942.18281.27820.stgit@gitlad.jf.intel.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [PATCH v3] tilegx network driver: initial support
+Date: Thu, 3 May 2012 13:25:57 -0400
+Message-ID: <4FA2BFA5.20304@tilera.com>
+References: <201205011759.q41HxR21020043@farm-0012.internal.tilera.com> <20120503.014156.149171097979026872.davem@davemloft.net> <4FA2A81C.8020402@tilera.com> <20120503.130738.203857602354001769.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	edumazet@google.com
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45526 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753072Ab2ECRXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 13:23:14 -0400
-In-Reply-To: <20120503110942.18281.27820.stgit@gitlad.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <arnd@arndb.de>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120503.130738.203857602354001769.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Thu, 03 May 2012 04:09:42 -0700
+On 5/3/2012 1:07 PM, David Miller wrote:
+> From: Chris Metcalf <cmetcalf@tilera.com>
+> Date: Thu, 3 May 2012 11:45:32 -0400
+>
+>> Thanks, I've removed it from my branch.  (Since it's a trivial update, I
+>> won't repost the change on LKML unless I get any more feedback that needs
+>> addressing.)
+> Sorry, this approach doesn't work, you should post a new version
+> more expediently.
+>
+> When I see something so terrible like I saw this time, I just provide
+> feedback on that major issue and stop reviewing.
 
-> This patch adds support for a skb_head_is_locked helper function.  It is
-> meant to be used any time we are considering transferring the head from
-> skb->head to a paged frag.  If the head is locked it means we cannot remove
-> the head from the skb so it must be copied or we must take the skb as a
-> whole.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Thanks, good to know.  Will do.
 
-Thanks for following up on this instead of going to sleep :-)
-
-Applied.
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
