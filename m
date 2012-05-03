@@ -1,55 +1,37 @@
-From: "Bedia, Vaibhav" <vaibhav.bedia@ti.com>
-Subject: RE: [PATCH] net: davinci_emac: Add pre_open, post_stop platform
- callbacks
-Date: Thu, 3 May 2012 10:44:44 +0000
-Message-ID: <B5906170F1614E41A8A28DE3B8D121433EA72820@DBDE01.ent.ti.com>
-References: <20120502234718.GA5432@animalcreek.com>
+From: Amit Shah <amit.shah@redhat.com>
+Subject: Re: [PATCH RFC] virtio-net: remove useless disable on freeze
+Date: Thu, 3 May 2012 16:29:59 +0530
+Message-ID: <20120503105959.GM13421@amit.redhat.com>
+References: <20120404091954.GA3776@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: "Mark A. Greer" <mgreer@animalcreek.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:55742 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754080Ab2ECKpZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 06:45:25 -0400
-In-Reply-To: <20120502234718.GA5432@animalcreek.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20120404091954.GA3776@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 03, 2012 at 05:17:18, Mark A. Greer wrote:
-> From: "Mark A. Greer" <mgreer@animalcreek.com>
-> 
-> The davinci EMAC driver has been incorporated into the am35x
-> family of SoC's which is OMAP-based.  The incorporation is
-> incomplete in that the EMAC cannot unblock the [ARM] core if
-> its blocked on a 'wfi' instruction.  This is an issue with
-> the cpu_idle code because it has the core execute a 'wfi'
-> instruction.
-> 
-> To work around this issue, add platform data callbacks which
-> are called at the beginning of the open routine and at the
-> end of the stop routine of the davinci_emac driver.  The
-> callbacks allow the platform code to issue disable_hlt() and
-> enable_hlt() calls appropriately.  Calling disable_hlt()
-> prevents cpu_idle from issuing the 'wfi' instruction.
-> 
-> It is not sufficient to simply call disable_hlt() when
-> there is an EMAC present because it could be present but
-> not actually used in which case, we do want the 'wfi' to
-> be executed.
-> 
+On (Wed) 04 Apr 2012 [12:19:55], Michael S. Tsirkin wrote:
+> disable_cb is just an optimization: it
+> can not guarantee that there are no callbacks.
 
-Are you trying to say that if ARM executes _just_ wfi and _absolutely
-nothing else_ is done in the OMAP PM code, EMAC stops working?
+Even then, what's the harm in keeping it?  If indeed there's an
+attempt to raise an interrupt after the host has been notified, it
+will be suppressed.
 
-However, if this is indeed the case, then probably a better solution would be
-to invoke disable_hlt() from the board file when EMAC support is compiled in.
+Also, disable_cb seems to be used elsewhere in the virtio_net.c file,
+to suit similar purposes.
 
-Regards,
-Vaibhav
+		Amit
