@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: implement tcp coalescing in
- tcp_queue_rcv()
-Date: Wed, 02 May 2012 20:32:18 -0400 (EDT)
-Message-ID: <20120502.203218.1285569354339728768.davem@davemloft.net>
-References: <1335988709.22133.632.camel@edumazet-glaptop>
-	<1335989484.9611.11.camel@joe2Laptop>
-	<1335990187.22133.636.camel@edumazet-glaptop>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: usbnet: fix misc bugs
+Date: Thu, 3 May 2012 08:34:53 +0800
+Message-ID: <CACVXFVPJ71ZqZxTOEYDZ5VaW4C3H2qOmijQHDMi9EZJ-KDVacw@mail.gmail.com>
+References: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
+	<20120502.201444.2074945018843883757.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, alexander.duyck@gmail.com,
-	alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-	ncardwell@google.com, therbert@google.com,
-	jeffrey.t.kirsher@intel.com, mchan@broadcom.com,
-	mcarlson@broadcom.com, herbert@gondor.hengli.com.au,
-	bhutchings@solarflare.com, ilpo.jarvinen@helsinki.fi,
-	maze@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38007 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753054Ab2ECAct (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:32:49 -0400
-In-Reply-To: <1335990187.22133.636.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120502.201444.2074945018843883757.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 02 May 2012 22:23:07 +0200
+On Thu, May 3, 2012 at 8:14 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrot=
+e:
+> From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Mon, 30 Apr 2012 16:51:01 +0800
+>
+>> These patches fix three bugs in usbnet:
+>> =A0 =A0 =A0 usbnet: fix leak of transfer buffer of dev->interrupt
+>> =A0 =A0 =A0 usbnet: fix failure handling in usbnet_probe
+>> =A0 =A0 =A0 usbnet: fix skb traversing races during unlink(v1)
+>
+> The third fix looks quite critical, but depends upon an interface
+> not present in Linus's tree, nor mine. =A0That doesn't work.
+>
+> You need to find a way to propagate this fix into Linus's tree
+> as well as all -stable trees that need that fix, but without
+> this unmet dependency.
 
-> If a compiler or static checker complains, its only their problem.
+OK, usb_block_urb/usb_unlock_urb is not a must to fix the
+problem, which is added to speed up the unlink. I will submit
+a new version without them.
 
-It's also my problem, since it makes it even harder for me to see
-any meaningful new warnings that crop up.
+Thanks,
+--=20
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
