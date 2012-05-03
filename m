@@ -1,33 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] skb: Add skb_head_is_locked helper function
-Date: Thu, 03 May 2012 14:31:02 +0200
-Message-ID: <1336048262.3752.9.camel@edumazet-glaptop>
-References: <20120503110942.18281.27820.stgit@gitlad.jf.intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: skb_set_dev do not unconditionally drop ref to dst
+Date: Thu, 3 May 2012 12:32:27 +0000
+Message-ID: <201205031232.27842.arnd@arndb.de>
+References: <1335765093.2296.4.camel@edumazet-glaptop> <1335941961.22133.48.camel@edumazet-glaptop> <20120503.022837.2021054007853235758.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, edumazet@google.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: eric.dumazet@gmail.com, blaschka@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:53744 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753933Ab2ECMbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 08:31:10 -0400
-Received: by lbbgm6 with SMTP id gm6so1206760lbb.19
-        for <netdev@vger.kernel.org>; Thu, 03 May 2012 05:31:08 -0700 (PDT)
-In-Reply-To: <20120503110942.18281.27820.stgit@gitlad.jf.intel.com>
+Received: from moutng.kundenserver.de ([212.227.126.186]:54132 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753915Ab2ECMcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 08:32:43 -0400
+In-Reply-To: <20120503.022837.2021054007853235758.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-03 at 04:09 -0700, Alexander Duyck wrote:
-> This patch adds support for a skb_head_is_locked helper function.  It is
-> meant to be used any time we are considering transferring the head from
-> skb->head to a paged frag.  If the head is locked it means we cannot remove
-> the head from the skb so it must be copied or we must take the skb as a
-> whole.
+On Thursday 03 May 2012, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 02 May 2012 08:59:21 +0200
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
+> > If Arnd doesnt care to even reply, we can just revert his buggy
+> > patch, instead of trying to understand and fix all issues.
+> 
+> Agreed, it's the best sounding solution by far.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+I've tried to understand what I've done back then but also couldn't
+remember, so I won't complain when it gets reverted.
+
+For all I know I did this because it looked broken back then, but
+I don't remember a specific way in which it could be exploited
+to escape a namespace.
+
+	Arnd
