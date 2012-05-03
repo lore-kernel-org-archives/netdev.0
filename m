@@ -1,44 +1,90 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] virtio-net: remove useless disable on freeze
-Date: Thu, 3 May 2012 14:08:45 +0300
-Message-ID: <20120503110845.GA25569@redhat.com>
-References: <20120404091954.GA3776@redhat.com>
-	<20120503105959.GM13421@amit.redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH] skb: Add skb_head_is_locked helper function
+Date: Thu, 03 May 2012 04:09:42 -0700
+Message-ID: <20120503110942.18281.27820.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Amit Shah <amit.shah@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20120503105959.GM13421@amit.redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	edumazet@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:58308 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752846Ab2ECLJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 07:09:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 03, 2012 at 04:29:59PM +0530, Amit Shah wrote:
-> On (Wed) 04 Apr 2012 [12:19:55], Michael S. Tsirkin wrote:
-> > disable_cb is just an optimization: it
-> > can not guarantee that there are no callbacks.
-> 
-> Even then, what's the harm in keeping it?  If indeed there's an
-> attempt to raise an interrupt after the host has been notified, it
-> will be suppressed.
+This patch adds support for a skb_head_is_locked helper function.  It is
+meant to be used any time we are considering transferring the head from
+skb->head to a paged frag.  If the head is locked it means we cannot remove
+the head from the skb so it must be copied or we must take the skb as a
+whole.
 
-It won't. It's not a guarantee, e.g. with event index on
-it does nothing at all.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
 
-> Also, disable_cb seems to be used elsewhere in the virtio_net.c file,
-> to suit similar purposes.
-> 
-> 		Amit
+ include/linux/skbuff.h |   14 ++++++++++++++
+ net/core/skbuff.c      |    3 +--
+ net/ipv4/tcp_input.c   |    2 +-
+ 3 files changed, 16 insertions(+), 3 deletions(-)
 
-Where?
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 988fc49..37f5391 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2566,5 +2566,19 @@ static inline bool skb_is_recycleable(const struct sk_buff *skb, int skb_size)
+ 
+ 	return true;
+ }
++
++/**
++ * skb_head_is_locked - Determine if the skb->head is locked down
++ * @skb: skb to check
++ *
++ * The head on skbs build around a head frag can be removed if they are
++ * not cloned.  This function returns true if the skb head is locked down
++ * due to either being allocated via kmalloc, or by being a clone with
++ * multiple references to the head.
++ */
++static inline bool skb_head_is_locked(const struct sk_buff *skb)
++{
++	return !skb->head_frag || skb_cloned(skb);
++}
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 9e8caa0..dc514e3 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1699,7 +1699,6 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+ 			      struct splice_pipe_desc *spd, struct sock *sk)
+ {
+ 	int seg;
+-	bool head_is_locked = !skb->head_frag || skb_cloned(skb);
+ 
+ 	/* map the linear part :
+ 	 * If skb->head_frag is set, this 'linear' part is backed by a
+@@ -1710,7 +1709,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+ 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
+ 			     skb_headlen(skb),
+ 			     offset, len, skb, spd,
+-			     head_is_locked,
++			     skb_head_is_locked(skb),
+ 			     sk, pipe))
+ 		return true;
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 84e69e0..7b2d351 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4568,7 +4568,7 @@ static bool tcp_try_coalesce(struct sock *sk,
+ 		    skb_shinfo(from)->nr_frags >= MAX_SKB_FRAGS)
+ 			return false;
+ 
+-		if (!from->head_frag || skb_cloned(from))
++		if (skb_head_is_locked(from))
+ 			return false;
+ 
+ 		delta = from->truesize - SKB_DATA_ALIGN(sizeof(struct sk_buff));
