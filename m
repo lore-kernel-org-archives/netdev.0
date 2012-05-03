@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 3/3] tcp: early retransmit: delayed fast retransmit
-Date: Wed, 02 May 2012 20:56:37 -0400 (EDT)
-Message-ID: <20120502.205637.19625325390404925.davem@davemloft.net>
-References: <1336001404-21879-1-git-send-email-ycheng@google.com>
-	<1336001404-21879-3-git-send-email-ycheng@google.com>
+Subject: Re: [PATCH] net/pasemi: fix compiler warning
+Date: Wed, 02 May 2012 20:53:12 -0400 (EDT)
+Message-ID: <20120502.205312.1917428334537687075.davem@davemloft.net>
+References: <20120503105146.83f0a4a074dafad0443b875d@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, ncardwell@google.com,
-	nanditad@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
+Cc: netdev@vger.kernel.org, olof@lixom.net, netdev@pradeepdalvi.com,
+	linuxppc-dev@lists.ozlabs.org
+To: sfr@canb.auug.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38201 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38212 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754802Ab2ECA4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:56:47 -0400
-In-Reply-To: <1336001404-21879-3-git-send-email-ycheng@google.com>
+	with ESMTP id S1755263Ab2ECA5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 May 2012 20:57:24 -0400
+In-Reply-To: <20120503105146.83f0a4a074dafad0443b875d@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Wed,  2 May 2012 16:30:04 -0700
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 3 May 2012 10:51:46 +1000
 
-> Implementing the advanced early retransmit (sysctl_tcp_early_retrans==2).
-> Delays the fast retransmit by an interval of RTT/4. We borrow the
-> RTO timer to implement the delay. If we receive another ACK or send
-> a new packet, the timer is cancelled and restored to original RTO
-> value offset by time elapsed.  When the delayed-ER timer fires,
-> we enter fast recovery and perform fast retransmit.
+> Fix this compiler warning (on PowerPC) by not marking a parameter as
+> const:
 > 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> drivers/net/ethernet/pasemi/pasemi_mac.c: In function 'pasemi_mac_replenish_rx_ring':
+> drivers/net/ethernet/pasemi/pasemi_mac.c:646:3: warning: passing argument 1 of 'netdev_alloc_skb' discards qualifiers from pointer target type
+> include/linux/skbuff.h:1706:31: note: expected 'struct net_device *' but argument is of type 'const struct net_device *'
+> 
+> Cc: Olof Johansson <olof@lixom.net>
+> Cc: Pradeep A. Dalvi <netdev@pradeepdalvi.com>
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-Applied.
+Applied, thanks.
