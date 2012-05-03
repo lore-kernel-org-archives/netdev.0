@@ -1,38 +1,87 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: skb_set_dev do not unconditionally drop ref to dst
-Date: Thu, 3 May 2012 12:32:27 +0000
-Message-ID: <201205031232.27842.arnd@arndb.de>
-References: <1335765093.2296.4.camel@edumazet-glaptop> <1335941961.22133.48.camel@edumazet-glaptop> <20120503.022837.2021054007853235758.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v3 1/2] vhost-net: fix handle_rx buffer size
+Date: Thu, 3 May 2012 15:39:20 +0300
+Message-ID: <20120503123919.GA26366@redhat.com>
+References: <m1ipgtzwew.fsf@fess.ebiederm.org>
+ <1335373275-336-1-git-send-email-basil.gor@gmail.com>
+ <m1bomfgivx.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, blaschka@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Basil Gor <basil.gor@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:54132 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753915Ab2ECMcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 08:32:43 -0400
-In-Reply-To: <20120503.022837.2021054007853235758.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:43703 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754215Ab2ECMjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 May 2012 08:39:16 -0400
+Content-Disposition: inline
+In-Reply-To: <m1bomfgivx.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 03 May 2012, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 02 May 2012 08:59:21 +0200
+On Wed, Apr 25, 2012 at 10:30:10PM -0700, Eric W. Biederman wrote:
+> Basil Gor <basil.gor@gmail.com> writes:
 > 
-> > If Arnd doesnt care to even reply, we can just revert his buggy
-> > patch, instead of trying to understand and fix all issues.
+> > Take vlan header length into account, when vlan id is stored as
+> > vlan_tci. Otherwise tagged packets comming from macvtap will be
+> > truncated.
 > 
-> Agreed, it's the best sounding solution by far.
+> Better.
+> 
+> In recvmsg you are still missing handling of PACKET_AUXDATA
+> that includes aux.tp_vlan_tci === vlan_id and
+> aux.tp_status === TP_STATUS_VLAN_VALID.
+> 
+> That is the way pf_packet sockets report the vlan.  Not
+> in the actual packet itself.
+> 
+> Eric
 
-I've tried to understand what I've done back then but also couldn't
-remember, so I won't complain when it gets reverted.
+And vhost can't handle this without userspace changes,
+because put_cmsg expects a userspace pointer.
 
-For all I know I did this because it looked broken back then, but
-I don't remember a specific way in which it could be exploited
-to escape a namespace.
+So maybe, until someone says they care about this bug,
+for now it's enough to check
+	msg->msg_flags & MSG_CTRUNC
+and error out in vhost.
 
-	Arnd
+Either this, or add a flag to put_cmsg that will
+cause it to do memcpy instead of copy to user.
+
+
+> > Signed-off-by: Basil Gor <basil.gor@gmail.com>
+> > ---
+> >  drivers/vhost/net.c |    7 ++++++-
+> >  1 files changed, 6 insertions(+), 1 deletions(-)
+> >
+> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > index 1f21d2a..5c17010 100644
+> > --- a/drivers/vhost/net.c
+> > +++ b/drivers/vhost/net.c
+> > @@ -24,6 +24,7 @@
+> >  #include <linux/if_arp.h>
+> >  #include <linux/if_tun.h>
+> >  #include <linux/if_macvlan.h>
+> > +#include <linux/if_vlan.h>
+> >  
+> >  #include <net/sock.h>
+> >  
+> > @@ -283,8 +284,12 @@ static int peek_head_len(struct sock *sk)
+> >  
+> >  	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
+> >  	head = skb_peek(&sk->sk_receive_queue);
+> > -	if (likely(head))
+> > +	if (likely(head)) {
+> >  		len = head->len;
+> > +		if (vlan_tx_tag_present(head))
+> > +			len += VLAN_HLEN;
+> > +	}
+> > +
+> >  	spin_unlock_irqrestore(&sk->sk_receive_queue.lock, flags);
+> >  	return len;
+> >  }
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
