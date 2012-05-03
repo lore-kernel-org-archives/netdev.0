@@ -1,84 +1,42 @@
-From: Liu ping fan <kernelfans@gmail.com>
-Subject: Re: vhost-net: is there a race for sock in handle_tx/rx?
-Date: Thu, 3 May 2012 17:08:04 +0800
-Message-ID: <CAFgQCTuUmwWF3vumXLZ=BZKLToypaYE_sL44-iFrXp5Qtwze2Q@mail.gmail.com>
-References: <CAFgQCTtKWR6F3D_mPcGe69HvZbYmmAdXreSWLZQrdi+0T3i2ag@mail.gmail.com>
-	<20120503084115.GM8266@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/6] tcp: Repair socket queues
+Date: Thu, 03 May 2012 11:08:40 +0200
+Message-ID: <1336036120.10187.7.camel@edumazet-glaptop>
+References: <4F901572.4040009@parallels.com>
+	 <4F9015ED.7020607@parallels.com>
+	 <1335957064.22133.428.camel@edumazet-glaptop>
+	 <4FA248E4.7060501@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120503084115.GM8266@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:52518 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756610Ab2ECJIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 May 2012 05:08:44 -0400
+Received: by eekc41 with SMTP id c41so435084eek.19
+        for <netdev@vger.kernel.org>; Thu, 03 May 2012 02:08:43 -0700 (PDT)
+In-Reply-To: <4FA248E4.7060501@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oh, got it. It is a very interesting implement.
+On Thu, 2012-05-03 at 12:59 +0400, Pavel Emelyanov wrote:
+> On 05/02/2012 03:11 PM, Eric Dumazet wrote:
 
-Thanks and regards,
-pingfan
+> > I am not sure any check is performed on 'size' ?
+> 
+> No, no checks here.
+> 
+> > A caller might trigger OOM or wrap bug.
+> 
+> Well, yes, but this ability is given to CAP_SYS_NET_ADMIN users only.
+> Do you think it's nonetheless worth accounting this allocation into
+> the socket's rmem?
 
-On Thu, May 3, 2012 at 4:41 PM, Michael S. Tsirkin <mst@redhat.com> wro=
-te:
-> On Thu, May 03, 2012 at 04:33:55PM +0800, Liu ping fan wrote:
->> Hi,
->>
->> During reading the vhost-net code, I find the following,
->>
->> static void handle_tx(struct vhost_net *net)
->> {
->> =C2=A0 =C2=A0 =C2=A0 struct vhost_virtqueue *vq =3D &net->dev.vqs[VH=
-OST_NET_VQ_TX];
->> =C2=A0 =C2=A0 =C2=A0 unsigned out, in, s;
->> =C2=A0 =C2=A0 =C2=A0 int head;
->> =C2=A0 =C2=A0 =C2=A0 struct msghdr msg =3D {
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .msg_name =3D NULL,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .msg_namelen =3D 0,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .msg_control =3D NU=
-LL,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .msg_controllen =3D=
- 0,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .msg_iov =3D vq->io=
-v,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .msg_flags =3D MSG_=
-DONTWAIT,
->> =C2=A0 =C2=A0 =C2=A0 };
->> =C2=A0 =C2=A0 =C2=A0 size_t len, total_len =3D 0;
->> =C2=A0 =C2=A0 =C2=A0 int err, wmem;
->> =C2=A0 =C2=A0 =C2=A0 size_t hdr_size;
->> =C2=A0 =C2=A0 =C2=A0 struct socket *sock;
->> =C2=A0 =C2=A0 =C2=A0 struct vhost_ubuf_ref *uninitialized_var(ubufs)=
-;
->> =C2=A0 =C2=A0 =C2=A0 bool zcopy;
->>
->> =C2=A0 =C2=A0 =C2=A0 /* TODO: check that we are running from vhost_w=
-orker? */
->> =C2=A0 =C2=A0 =C2=A0 sock =3D rcu_dereference_check(vq->private_data=
-, 1);
->> =C2=A0 =C2=A0 =C2=A0 if (!sock)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return;
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0---------------------------=
------> Qemu calls
->> vhost_net_set_backend() to set a new backend fd, and close
->> @oldsock->file. And =C2=A0sock->file refcnt=3D=3D0.
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 Can vhost_worker prevent
->> itself from such situation? And how?
->>
->> =C2=A0 =C2=A0 =C2=A0 wmem =3D atomic_read(&sock->sk->sk_wmem_alloc);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0.........................................=
-=2E...............................
->>
->> Is it a race?
->>
->> Thanks and regards,
->> pingfan
->
-> See comment before void __rcu *private_data in vhost.h
->
->
+Yes, something must be done...
+
+Might be a good reason to un-inline tcp_try_rmem_schedule(), this fat
+thing...
