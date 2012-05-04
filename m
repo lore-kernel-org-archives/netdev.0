@@ -1,308 +1,180 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCHv3 6/6] mISDN: Help to identify the card
-Date: Fri,  4 May 2012 16:15:35 +0200
-Message-ID: <1336140935-25830-7-git-send-email-kkeil@linux-pingi.de>
-References: <1336140935-25830-1-git-send-email-kkeil@linux-pingi.de>
-Cc: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:57908 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755939Ab2EDOVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2012 10:21:23 -0400
-In-Reply-To: <1336140935-25830-1-git-send-email-kkeil@linux-pingi.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+Subject: Re: [PATCH v3 0/7] ARM: davinci: add support for the am1808 based
+	enbw_cmc board
+Date: Fri, 4 May 2012 17:33:22 +0200
+Message-ID: <4FA3F6C2.9010602@denx.de>
+References: <1330945804-3379-1-git-send-email-hs@denx.de>
+Reply-To: <hs-ynQEQJNshbs@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>, Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>,
+        Sergei Shtylyov
+	<sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+        Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ben Dooks
+	<ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
+        David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1330945804-3379-1-git-send-email-hs-ynQEQJNshbs@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Karsten Keil <isdn@linux-pingi.de>
+Hello,
 
-With multiple cards is hard to figure out which port caused trouble
-int the layer2 routines (e.g. got a timeout).
-Now we have the informations in the log output.
+this v3 patchset is now pending for more than 1 month without
+seeing comments for it. Are there no more issues?
 
-Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
----
- drivers/isdn/mISDN/core.c   |   16 +++++++++
- drivers/isdn/mISDN/layer2.c |   76 +++++++++++++++++++++++++------------------
- include/linux/mISDNif.h     |    3 +-
- 3 files changed, 62 insertions(+), 33 deletions(-)
+Should I rebase it (if no further comments occur), as it is
+pending so long? (If so, against which tree?)
 
-diff --git a/drivers/isdn/mISDN/core.c b/drivers/isdn/mISDN/core.c
-index a24530f..c401634 100644
---- a/drivers/isdn/mISDN/core.c
-+++ b/drivers/isdn/mISDN/core.c
-@@ -355,6 +355,22 @@ mISDN_unregister_Bprotocol(struct Bprotocol *bp)
- }
- EXPORT_SYMBOL(mISDN_unregister_Bprotocol);
- 
-+static const char *msg_no_channel = "<no channel>";
-+static const char *msg_no_stack = "<no stack>";
-+static const char *msg_no_stackdev = "<no stack device>";
-+
-+const char *mISDNDevName4ch(struct mISDNchannel *ch)
-+{
-+	if (!ch)
-+		return msg_no_channel;
-+	if (!ch->st)
-+		return msg_no_stack;
-+	if (!ch->st->dev)
-+		return msg_no_stackdev;
-+	return dev_name(&ch->st->dev->dev);
-+};
-+EXPORT_SYMBOL(mISDNDevName4ch);
-+
- static int
- mISDNInit(void)
- {
-diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
-index b6fbaec..0dc8abc 100644
---- a/drivers/isdn/mISDN/layer2.c
-+++ b/drivers/isdn/mISDN/layer2.c
-@@ -110,8 +110,8 @@ l2m_debug(struct FsmInst *fi, char *fmt, ...)
- 	vaf.fmt = fmt;
- 	vaf.va = &va;
- 
--	printk(KERN_DEBUG "l2 (sapi %d tei %d): %pV\n",
--	       l2->sapi, l2->tei, &vaf);
-+	printk(KERN_DEBUG "%s l2 (sapi %d tei %d): %pV\n",
-+	       mISDNDevName4ch(&l2->ch), l2->sapi, l2->tei, &vaf);
- 
- 	va_end(va);
- }
-@@ -154,7 +154,8 @@ l2up(struct layer2 *l2, u_int prim, struct sk_buff *skb)
- 	mISDN_HEAD_ID(skb) = (l2->ch.nr << 16) | l2->ch.addr;
- 	err = l2->up->send(l2->up, skb);
- 	if (err) {
--		printk(KERN_WARNING "%s: err=%d\n", __func__, err);
-+		printk(KERN_WARNING "%s: dev %s err=%d\n", __func__,
-+		       mISDNDevName4ch(&l2->ch), err);
- 		dev_kfree_skb(skb);
- 	}
- }
-@@ -178,7 +179,8 @@ l2up_create(struct layer2 *l2, u_int prim, int len, void *arg)
- 		memcpy(skb_put(skb, len), arg, len);
- 	err = l2->up->send(l2->up, skb);
- 	if (err) {
--		printk(KERN_WARNING "%s: err=%d\n", __func__, err);
-+		printk(KERN_WARNING "%s: dev %s err=%d\n", __func__,
-+		       mISDNDevName4ch(&l2->ch), err);
- 		dev_kfree_skb(skb);
- 	}
- }
-@@ -189,7 +191,8 @@ l2down_skb(struct layer2 *l2, struct sk_buff *skb) {
- 
- 	ret = l2->ch.recv(l2->ch.peer, skb);
- 	if (ret && (*debug & DEBUG_L2_RECV))
--		printk(KERN_DEBUG "l2down_skb: ret(%d)\n", ret);
-+		printk(KERN_DEBUG "l2down_skb: dev %s ret(%d)\n",
-+		       mISDNDevName4ch(&l2->ch), ret);
- 	return ret;
- }
- 
-@@ -289,18 +292,18 @@ l2_timeout(struct FsmInst *fi, int event, void *arg)
- 
- 	skb = mI_alloc_skb(0, GFP_ATOMIC);
- 	if (!skb) {
--		printk(KERN_WARNING "L2(%d,%d) nr:%x timer %s lost - no skb\n",
--		       l2->sapi, l2->tei, l2->ch.nr, event == EV_L2_T200 ?
--		       "T200" : "T203");
-+		printk(KERN_WARNING "%s: L2(%d,%d) nr:%x timer %s no skb\n",
-+		       mISDNDevName4ch(&l2->ch), l2->sapi, l2->tei,
-+		       l2->ch.nr, event == EV_L2_T200 ? "T200" : "T203");
- 		return;
- 	}
- 	hh = mISDN_HEAD_P(skb);
- 	hh->prim = event == EV_L2_T200 ? DL_TIMER200_IND : DL_TIMER203_IND;
- 	hh->id = l2->ch.nr;
- 	if (*debug & DEBUG_TIMER)
--		printk(KERN_DEBUG "L2(%d,%d) nr:%x timer %s expired\n",
--		       l2->sapi, l2->tei, l2->ch.nr, event == EV_L2_T200 ?
--		       "T200" : "T203");
-+		printk(KERN_DEBUG "%s: L2(%d,%d) nr:%x timer %s expired\n",
-+		       mISDNDevName4ch(&l2->ch), l2->sapi, l2->tei,
-+		       l2->ch.nr, event == EV_L2_T200 ? "T200" : "T203");
- 	if (l2->ch.st)
- 		l2->ch.st->own.recv(&l2->ch.st->own, skb);
- }
-@@ -309,8 +312,8 @@ static int
- l2mgr(struct layer2 *l2, u_int prim, void *arg) {
- 	long c = (long)arg;
- 
--	printk(KERN_WARNING
--	       "l2mgr: addr:%x prim %x %c\n", l2->id, prim, (char)c);
-+	printk(KERN_WARNING "l2mgr: dev %s addr:%x prim %x %c\n",
-+	       mISDNDevName4ch(&l2->ch), l2->id, prim, (char)c);
- 	if (test_bit(FLG_LAPD, &l2->flag) &&
- 	    !test_bit(FLG_FIXED_TEI, &l2->flag)) {
- 		switch (c) {
-@@ -632,8 +635,8 @@ send_uframe(struct layer2 *l2, struct sk_buff *skb, u_char cmd, u_char cr)
- 	else {
- 		skb = mI_alloc_skb(i, GFP_ATOMIC);
- 		if (!skb) {
--			printk(KERN_WARNING "%s: can't alloc skbuff\n",
--			       __func__);
-+			printk(KERN_WARNING "%s: can't alloc skbuff in %s\n",
-+			       mISDNDevName4ch(&l2->ch), __func__);
- 			return;
- 		}
- 	}
-@@ -1118,8 +1121,8 @@ enquiry_cr(struct layer2 *l2, u_char typ, u_char cr, u_char pf)
- 		tmp[i++] = (l2->vr << 5) | typ | (pf ? 0x10 : 0);
- 	skb = mI_alloc_skb(i, GFP_ATOMIC);
- 	if (!skb) {
--		printk(KERN_WARNING
--		       "isdnl2 can't alloc sbbuff for enquiry_cr\n");
-+		printk(KERN_WARNING "%s: isdnl2 can't alloc sbbuff in %s\n",
-+		       mISDNDevName4ch(&l2->ch), __func__);
- 		return;
- 	}
- 	memcpy(skb_put(skb, i), tmp, i);
-@@ -1179,7 +1182,7 @@ invoke_retransmission(struct layer2 *l2, unsigned int nr)
- 			else
- 				printk(KERN_WARNING
- 				       "%s: windowar[%d] is NULL\n",
--				       __func__, p1);
-+				       mISDNDevName4ch(&l2->ch), p1);
- 			l2->windowar[p1] = NULL;
- 		}
- 		mISDN_FsmEvent(&l2->l2m, EV_L2_ACK_PULL, NULL);
-@@ -1490,8 +1493,8 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
- 		p1 = (l2->vs - l2->va) % 8;
- 	p1 = (p1 + l2->sow) % l2->window;
- 	if (l2->windowar[p1]) {
--		printk(KERN_WARNING "isdnl2 try overwrite ack queue entry %d\n",
--		       p1);
-+		printk(KERN_WARNING "%s: l2 try overwrite ack queue entry %d\n",
-+		       mISDNDevName4ch(&l2->ch), p1);
- 		dev_kfree_skb(l2->windowar[p1]);
- 	}
- 	l2->windowar[p1] = skb;
-@@ -1511,12 +1514,14 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
- 		memcpy(skb_push(nskb, i), header, i);
- 	else {
- 		printk(KERN_WARNING
--		       "isdnl2 pull_iqueue skb header(%d/%d) too short\n", i, p1);
-+		       "%s: L2 pull_iqueue skb header(%d/%d) too short\n",
-+		       mISDNDevName4ch(&l2->ch), i, p1);
- 		oskb = nskb;
- 		nskb = mI_alloc_skb(oskb->len + i, GFP_ATOMIC);
- 		if (!nskb) {
- 			dev_kfree_skb(oskb);
--			printk(KERN_WARNING "%s: no skb mem\n", __func__);
-+			printk(KERN_WARNING "%s: no skb mem in %s\n",
-+			       mISDNDevName4ch(&l2->ch), __func__);
- 			return;
- 		}
- 		memcpy(skb_put(nskb, i), header, i);
-@@ -1892,7 +1897,8 @@ ph_data_indication(struct layer2 *l2, struct mISDNhead *hh, struct sk_buff *skb)
- 		ptei = *datap++;
- 		if ((psapi & 1) || !(ptei & 1)) {
- 			printk(KERN_WARNING
--			       "l2 D-channel frame wrong EA0/EA1\n");
-+			       "%s l2 D-channel frame wrong EA0/EA1\n",
-+			       mISDNDevName4ch(&l2->ch));
- 			return ret;
- 		}
- 		psapi >>= 2;
-@@ -1901,7 +1907,8 @@ ph_data_indication(struct layer2 *l2, struct mISDNhead *hh, struct sk_buff *skb)
- 			/* not our business */
- 			if (*debug & DEBUG_L2)
- 				printk(KERN_DEBUG "%s: sapi %d/%d mismatch\n",
--				       __func__, psapi, l2->sapi);
-+				       mISDNDevName4ch(&l2->ch), psapi,
-+				       l2->sapi);
- 			dev_kfree_skb(skb);
- 			return 0;
- 		}
-@@ -1909,7 +1916,7 @@ ph_data_indication(struct layer2 *l2, struct mISDNhead *hh, struct sk_buff *skb)
- 			/* not our business */
- 			if (*debug & DEBUG_L2)
- 				printk(KERN_DEBUG "%s: tei %d/%d mismatch\n",
--				       __func__, ptei, l2->tei);
-+				       mISDNDevName4ch(&l2->ch), ptei, l2->tei);
- 			dev_kfree_skb(skb);
- 			return 0;
- 		}
-@@ -1950,7 +1957,8 @@ ph_data_indication(struct layer2 *l2, struct mISDNhead *hh, struct sk_buff *skb)
- 	} else
- 		c = 'L';
- 	if (c) {
--		printk(KERN_WARNING "l2 D-channel frame error %c\n", c);
-+		printk(KERN_WARNING "%s:l2 D-channel frame error %c\n",
-+		       mISDNDevName4ch(&l2->ch), c);
- 		mISDN_FsmEvent(&l2->l2m, EV_L2_FRAME_ERROR, (void *)(long)c);
- 	}
- 	return ret;
-@@ -1964,15 +1972,16 @@ l2_send(struct mISDNchannel *ch, struct sk_buff *skb)
- 	int			ret = -EINVAL;
- 
- 	if (*debug & DEBUG_L2_RECV)
--		printk(KERN_DEBUG "%s: prim(%x) id(%x) sapi(%d) tei(%d)\n",
--		       __func__, hh->prim, hh->id, l2->sapi, l2->tei);
-+		printk(KERN_DEBUG "%s: %s prim(%x) id(%x) sapi(%d) tei(%d)\n",
-+		       __func__, mISDNDevName4ch(&l2->ch), hh->prim, hh->id,
-+		       l2->sapi, l2->tei);
- 	if (hh->prim == DL_INTERN_MSG) {
- 		struct mISDNhead *chh = hh + 1; /* saved copy */
- 
- 		*hh = *chh;
- 		if (*debug & DEBUG_L2_RECV)
- 			printk(KERN_DEBUG "%s: prim(%x) id(%x) internal msg\n",
--			       __func__, hh->prim, hh->id);
-+				mISDNDevName4ch(&l2->ch), hh->prim, hh->id);
- 	}
- 	switch (hh->prim) {
- 	case PH_DATA_IND:
-@@ -2053,7 +2062,8 @@ tei_l2(struct layer2 *l2, u_int cmd, u_long arg)
- 	int		ret = -EINVAL;
- 
- 	if (*debug & DEBUG_L2_TEI)
--		printk(KERN_DEBUG "%s: cmd(%x)\n", __func__, cmd);
-+		printk(KERN_DEBUG "%s: cmd(%x) in %s\n",
-+		       mISDNDevName4ch(&l2->ch), cmd, __func__);
- 	switch (cmd) {
- 	case (MDL_ASSIGN_REQ):
- 		ret = mISDN_FsmEvent(&l2->l2m, EV_L2_MDL_ASSIGN, (void *)arg);
-@@ -2066,7 +2076,8 @@ tei_l2(struct layer2 *l2, u_int cmd, u_long arg)
- 		break;
- 	case (MDL_ERROR_RSP):
- 		/* ETS 300-125 5.3.2.1 Test: TC13010 */
--		printk(KERN_NOTICE "MDL_ERROR|REQ (tei_l2)\n");
-+		printk(KERN_NOTICE "%s: MDL_ERROR|REQ (tei_l2)\n",
-+		       mISDNDevName4ch(&l2->ch));
- 		ret = mISDN_FsmEvent(&l2->l2m, EV_L2_MDL_ERROR, NULL);
- 		break;
- 	}
-@@ -2098,7 +2109,8 @@ l2_ctrl(struct mISDNchannel *ch, u_int cmd, void *arg)
- 	u_int			info;
- 
- 	if (*debug & DEBUG_L2_CTRL)
--		printk(KERN_DEBUG "%s:(%x)\n", __func__, cmd);
-+		printk(KERN_DEBUG "%s: %s cmd(%x)\n",
-+		       mISDNDevName4ch(ch), __func__, cmd);
- 
- 	switch (cmd) {
- 	case OPEN_CHANNEL:
-diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
-index 9cc8ce5..ce6e613 100644
---- a/include/linux/mISDNif.h
-+++ b/include/linux/mISDNif.h
-@@ -37,7 +37,7 @@
-  */
- #define	MISDN_MAJOR_VERSION	1
- #define	MISDN_MINOR_VERSION	1
--#define MISDN_RELEASE		27
-+#define MISDN_RELEASE		28
- 
- /* primitives for information exchange
-  * generell format
-@@ -591,6 +591,7 @@ static inline struct mISDNdevice *dev_to_mISDN(struct device *dev)
- extern void	set_channel_address(struct mISDNchannel *, u_int, u_int);
- extern void	mISDN_clock_update(struct mISDNclock *, int, struct timeval *);
- extern unsigned short mISDN_clock_get(void);
-+extern const char *mISDNDevName4ch(struct mISDNchannel *);
- 
- #endif /* __KERNEL__ */
- #endif /* mISDNIF_H */
+Thanks.
+
+bye,
+Heiko
+
+Heiko Schocher wrote:
+> This patchserie add support for the davinci am1808 based
+> enbw_cmc board.
+> 
+> Important: I rebased this patchserie against the irqdomain/next
+> branch from grant likely, as he suggested to rework the OF
+> intcontroller changes to the irqdomain work, branch found here:
+> 
+> http://git.secretlab.ca/?p=linux-2.6.git;a=shortlog;h=refs/heads/irqdomain/next
+> 
+>     git://git.secretlab.ca/git/linux-2.6.git irqdomain/next
+> 
+>     commit 280ad7fda5f95211857fda38960f2b6fdf6edd3e
+>     Author: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+>     Date:   Fri Feb 24 14:58:54 2012 -0700
+> 
+>     mfd: twl-core: Add IRQ_DOMAIN dependency
+> 
+> changes for v2:
+> Post this patchserie now as v2, as reworked in the
+> comments I got for the RFC serie.
+> 
+> changes for v3:
+> - Interrupt Controller:
+>   - comment from Sergei Shtylyov:
+>     - rename compatible" prop to "ti,cp_intc"
+>     - cp_intc_init() is now also for the of case
+>       the name of the init function (it calls the
+>       "new" __cp_intc_init() function, which was
+>       the "old" cp_intc_init()). Through this
+>       rework the changes for OF is better visible.
+>       As the OF case uses the irq_domain rework from
+>       Grant Likely, maybe the none OF case can use
+>       this also, but this should be tested on a hw ...
+>  
+> Got no comments to the following points, I noted in the
+> RFC series, so posting this patchseries with them:
+> 
+> - ARM: davinci: configure davinci aemif chipselects through OF
+>   not moved to mfd, as mentioned in this discussion:
+>   http://davinci-linux-open-source.1494791.n2.nabble.com/PATCH-arm-davinci-configure-davinci-aemif-chipselects-through-OF-td7059739.html
+>   instead use a phandle in the DTS, so drivers which
+>   uses the davinci aemif, can call davinci_aemif_setup_timing_of()
+> 
+>   This is just thought as an RFC ... The enbw_cmc board
+>   support not really need to setup this bus timings, as
+>   they are setup in U-Boot ... but I want to post this,
+>   as I think, it is a nice to have, and I am not really
+>   sure, if this has to be a MFD device (If so, all bus
+>   interfaces for other SoCs should be converted also to
+>   MFD devices) ... as an example how this can be used
+>   I add this to the davinci nand controller OF support
+>   patch, in this patchserie.
+> 
+> - ARM: davinci: mux: add OF support
+>   I want to get rid of the pin setup code in board code ...
+>   This patch introduces a davinci_cfg_reg_of() function,
+>   which davinci drivers can call, if they found a
+>   "pinmux-handle", so used in the following drivers in
+>   this patchserie:
+> 
+>   drivers/net/ethernet/ti/davinci_emac
+>   drivers/i2c/busses/i2c-davinci.c
+>   drivers/mtd/nand/davinci_nand.c
+> 
+> - post this board support with USB support, even though
+>   USB is only working with the 10 ms "workaround", posted here:
+>   http://comments.gmane.org/gmane.linux.usb.general/54505
+>   I see this issue also on the AM1808 TMDXEXP1808L evalboard.
+> 
+> - MMC and USB are not using OF support yet, ideas how to port
+>   this are welcome. I need for USB and MMC board specific
+>   callbacks, how to solve this with OF support?
+> 
+> Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+> Cc: linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+> Cc: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
+> Cc: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+> Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>
+> Cc: Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>
+> Cc: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+> 
+> Heiko Schocher (7):
+>   ARM: davinci, intc: Add OF support for TI interrupt controller
+>   ARM: davinci: configure davinci aemif chipselects through OF
+>   ARM: davinci: mux: add OF support
+>   ARM: davinci: net: davinci_emac: add OF support
+>   ARM: davinci: i2c: add OF support
+>   ARM: mtd: nand: davinci: add OF support for davinci nand controller
+>   ARM: davinci: add support for the am1808 based enbw_cmc board
+> 
+>  .../devicetree/bindings/arm/davinci/aemif.txt      |  119 ++++++
+>  .../bindings/arm/davinci/davinci_emac.txt          |   43 +++
+>  .../devicetree/bindings/arm/davinci/i2c.txt        |   33 ++
+>  .../devicetree/bindings/arm/davinci/intc.txt       |   27 ++
+>  .../devicetree/bindings/arm/davinci/mux.txt        |   40 ++
+>  .../devicetree/bindings/arm/davinci/nand.txt       |   74 ++++
+>  arch/arm/boot/dts/enbw_cmc.dts                     |  268 ++++++++++++++
+>  arch/arm/configs/enbw_cmc_defconfig                |  123 +++++++
+>  arch/arm/mach-davinci/Kconfig                      |    9 +
+>  arch/arm/mach-davinci/Makefile                     |    1 +
+>  arch/arm/mach-davinci/aemif.c                      |   86 +++++-
+>  arch/arm/mach-davinci/board-enbw-cmc.c             |  380 ++++++++++++++++++++
+>  arch/arm/mach-davinci/cp_intc.c                    |   87 ++++-
+>  arch/arm/mach-davinci/include/mach/aemif.h         |    1 +
+>  arch/arm/mach-davinci/include/mach/mux.h           |    2 +
+>  arch/arm/mach-davinci/include/mach/uncompress.h    |    1 +
+>  arch/arm/mach-davinci/mux.c                        |   73 ++++-
+>  drivers/i2c/busses/i2c-davinci.c                   |   37 ++
+>  drivers/mtd/nand/davinci_nand.c                    |   85 +++++-
+>  drivers/net/ethernet/ti/davinci_emac.c             |   94 +++++-
+>  20 files changed, 1569 insertions(+), 14 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/arm/davinci/aemif.txt
+>  create mode 100644 Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
+>  create mode 100644 Documentation/devicetree/bindings/arm/davinci/i2c.txt
+>  create mode 100644 Documentation/devicetree/bindings/arm/davinci/intc.txt
+>  create mode 100644 Documentation/devicetree/bindings/arm/davinci/mux.txt
+>  create mode 100644 Documentation/devicetree/bindings/arm/davinci/nand.txt
+>  create mode 100644 arch/arm/boot/dts/enbw_cmc.dts
+>  create mode 100644 arch/arm/configs/enbw_cmc_defconfig
+>  create mode 100644 arch/arm/mach-davinci/board-enbw-cmc.c
+> 
+
 -- 
-1.7.3.4
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd-ynQEQJNshbs@public.gmane.org
