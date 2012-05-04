@@ -1,60 +1,58 @@
 From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCHv3 1/6] mISDN: Added PH_* state info to tei manager.
-Date: Fri,  4 May 2012 16:15:30 +0200
-Message-ID: <1336140935-25830-2-git-send-email-kkeil@linux-pingi.de>
-References: <1336140935-25830-1-git-send-email-kkeil@linux-pingi.de>
-Cc: netdev@vger.kernel.org, Andreas Eversberg <andreas@eversberg.eu>,
-	Karsten Keil <keil@b1-systems.de>
+Subject: [PATCHv3 0/6] mISDN: Collection of patches for layer1/layer2
+Date: Fri,  4 May 2012 16:15:29 +0200
+Message-ID: <1336140935-25830-1-git-send-email-kkeil@linux-pingi.de>
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:54634 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.10]:55227 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757331Ab2EDOVY (ORCPT
+	with ESMTP id S1757246Ab2EDOVY (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2012 10:21:24 -0400
-In-Reply-To: <1336140935-25830-1-git-send-email-kkeil@linux-pingi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Eversberg <andreas@eversberg.eu>
+Version 3
+	Implement the TIMER3 configuration in one patch.
+        Fix additional issues found by checkpatch --strict
 
-Tei manager reports current layer 1 state on creation.
-On state change it reports it to the socket interface.
+Version 2
+I removed the PCM only stuff and the 2MBit test mode and will rework
+them for a later submit. I added the lowlevel driver changes for the TIMER3
+config to this series.
 
-Signed-off-by: Andreas Eversberg <andreas@eversberg.eu>
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
----
- drivers/isdn/mISDN/tei.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+These patches are mainly the outcome of a TBR3 recertification done
+within BT labs.
+The patches itself are very well tested more as 10000 valid/invalid
+call setup were done in preparartion for the TBR3 aproval.
 
-diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
-index ba2bc0c..969766f 100644
---- a/drivers/isdn/mISDN/tei.c
-+++ b/drivers/isdn/mISDN/tei.c
-@@ -1023,6 +1023,8 @@ create_teimgr(struct manager *mgr, struct channel_req *crq)
- 		mgr->up = crq->ch;
- 		id = DL_INFO_L2_CONNECT;
- 		teiup_create(mgr, DL_INFORMATION_IND, sizeof(id), &id);
-+		if (test_bit(MGR_PH_ACTIVE, &mgr->options))
-+			teiup_create(mgr, PH_ACTIVATE_IND, 0, NULL);
- 		crq->ch = NULL;
- 		if (!list_empty(&mgr->layer2)) {
- 			read_lock_irqsave(&mgr->lock, flags);
-@@ -1096,12 +1098,16 @@ mgr_send(struct mISDNchannel *ch, struct sk_buff *skb)
- 		break;
- 	case PH_ACTIVATE_IND:
- 		test_and_set_bit(MGR_PH_ACTIVE, &mgr->options);
-+		if (mgr->up)
-+			teiup_create(mgr, PH_ACTIVATE_IND, 0, NULL);
- 		mISDN_FsmEvent(&mgr->deact, EV_ACTIVATE_IND, NULL);
- 		do_send(mgr);
- 		ret = 0;
- 		break;
- 	case PH_DEACTIVATE_IND:
- 		test_and_clear_bit(MGR_PH_ACTIVE, &mgr->options);
-+		if (mgr->up)
-+			teiup_create(mgr, PH_DEACTIVATE_IND, 0, NULL);
- 		mISDN_FsmEvent(&mgr->deact, EV_DEACTIVATE_IND, NULL);
- 		ret = 0;
- 		break;
+For net-next.
+
+
+Andreas Eversberg (1):
+  mISDN: Added PH_* state info to tei manager.
+
+Karsten Keil (5):
+  mISDN: Fix refcounting bug
+  mISDN: L2 timeouts need to be queued as L2 event
+  mISDN: Make layer1 timer 3 value configurable
+  mISDN: Layer1 statemachine fix
+  mISDN: Help to identify the card
+
+ drivers/isdn/hardware/mISDN/avmfritz.c  |    5 +-
+ drivers/isdn/hardware/mISDN/hfcmulti.c  |    5 +-
+ drivers/isdn/hardware/mISDN/hfcpci.c    |    5 +-
+ drivers/isdn/hardware/mISDN/mISDNipac.c |   17 +++--
+ drivers/isdn/hardware/mISDN/netjet.c    |    5 +-
+ drivers/isdn/hardware/mISDN/speedfax.c  |    5 +-
+ drivers/isdn/hardware/mISDN/w6692.c     |    5 +-
+ drivers/isdn/mISDN/core.c               |   16 ++++
+ drivers/isdn/mISDN/layer1.c             |   36 +++++++---
+ drivers/isdn/mISDN/layer2.c             |  120 +++++++++++++++++++++++--------
+ drivers/isdn/mISDN/tei.c                |   72 ++++++++++++++-----
+ include/linux/mISDNhw.h                 |    3 +
+ include/linux/mISDNif.h                 |    9 ++-
+ 13 files changed, 234 insertions(+), 69 deletions(-)
+
 -- 
 1.7.3.4
