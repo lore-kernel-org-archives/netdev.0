@@ -1,48 +1,221 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/2] cs89x0_platform : Use ioread16/iowrite16 instead of
- inw/outw
-Date: Fri, 4 May 2012 09:05:33 +0000
-Message-ID: <201205040905.33383.arnd@arndb.de>
-References: <1335779839-30420-1-git-send-email-jaccon.bastiaansen@gmail.com>
- <201204301419.27119.arnd@arndb.de>
- <CAGzjT4cUPuwHQ-46saDWdFjweekWrYt7TTJMsUORGXd8FdLpLQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de, kernel@pengutronix.de,
- gfm@funxed.com, festevam@gmail.com, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAGzjT4cUPuwHQ-46saDWdFjweekWrYt7TTJMsUORGXd8FdLpLQ@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: John Crispin <blogic@openwrt.org>
+Subject: [PATCH 13/14] NET: MIPS: lantiq: implement OF support inside the etop driver
+Date: Fri,  4 May 2012 14:18:38 +0200
+Message-ID: <1336133919-26525-13-git-send-email-blogic@openwrt.org>
+References: <1336133919-26525-1-git-send-email-blogic@openwrt.org>
+Cc: linux-mips@linux-mips.org, John Crispin <blogic@openwrt.org>,
+	netdev@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:57895 "EHLO nbd.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755701Ab2EDMuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2012 08:50:10 -0400
+In-Reply-To: <1336133919-26525-1-git-send-email-blogic@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 03 May 2012, Jaccon Bastiaansen wrote:
-> So if I understand you correctly you would like to have an
-> iopart_map() call in the cs89x0_probe() function and use the return
-> value of that iopart_map() call as ioaddr parameter of the
-> cs89x0_probe1() function. Is this correct? This would make the
-> cs89x0_probe() function similar to the cs89x0_platform_probe()
-> function where the return value of the ioremap() call is used as
-> ioaddr parameter of the cs89x0_probe1() function.
+This patch makes it possible to load the driver for the ETOP ethernet on
+Lantiq SoC from a devicetree.
 
-Correct. Currently the code relies on some platforms defining
-the inw/outw functions to the same thing as readw/writew, which
-is not a correct behaviour. If we change it to always use
-ioread16/iowrite16, it will be correct in either case.
+Additionally we convert the driver to using the new clkdev clock in favour of
+the old ltq_pmu_*() api.
 
-> But why do you want to convert the current 16 bit accesses in the
-> #else path to 32 bit accesses? Why not using ioread16()/iowrite16()?
+Signed-off-by: John Crispin <blogic@openwrt.org>
+Cc: netdev@vger.kernel.org
+---
+This patch is part of a series moving the mips/lantiq target to OF and clkdev
+support. The patch, once Acked, should go upstream via Ralf's MIPS tree.
 
-Sorry, typo on my side, I meant ioread16/iowrite16.
+ drivers/net/ethernet/lantiq_etop.c |   63 +++++++++++++++++++++++++++++------
+ 1 files changed, 52 insertions(+), 11 deletions(-)
 
-	Arnd
+diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
+index 5dc9cbd..c0443d4 100644
+--- a/drivers/net/ethernet/lantiq_etop.c
++++ b/drivers/net/ethernet/lantiq_etop.c
+@@ -29,19 +29,22 @@
+ #include <linux/tcp.h>
+ #include <linux/skbuff.h>
+ #include <linux/mm.h>
+-#include <linux/platform_device.h>
+ #include <linux/ethtool.h>
+ #include <linux/init.h>
+ #include <linux/delay.h>
+ #include <linux/io.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/module.h>
++#include <linux/of_platform.h>
++#include <linux/of_net.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_gpio.h>
+ 
+ #include <asm/checksum.h>
+ 
+ #include <lantiq_soc.h>
+ #include <xway_dma.h>
+-#include <lantiq_platform.h>
+ 
+ #define LTQ_ETOP_MDIO		0x11804
+ #define MDIO_REQUEST		0x80000000
+@@ -73,6 +76,7 @@
+ #define ETOP_CGEN		0x800
+ 
+ /* use 2 static channels for TX/RX */
++#define LTQ_DMA_CH0_INT		INT_NUM_IM2_IRL0
+ #define LTQ_ETOP_TX_CHANNEL	1
+ #define LTQ_ETOP_RX_CHANNEL	6
+ #define IS_TX(x)		(x == LTQ_ETOP_TX_CHANNEL)
+@@ -99,12 +103,17 @@ struct ltq_etop_chan {
+ struct ltq_etop_priv {
+ 	struct net_device *netdev;
+ 	struct platform_device *pdev;
+-	struct ltq_eth_data *pldata;
+ 	struct resource *res;
+ 
+ 	struct mii_bus *mii_bus;
+ 	struct phy_device *phydev;
+ 
++	struct clk *clk;
++	const void *mac;
++	int mii_mode;
++	int tx_irq;
++	int rx_irq;
++
+ 	struct ltq_etop_chan ch[MAX_DMA_CHAN];
+ 	int tx_free[MAX_DMA_CHAN >> 1];
+ 
+@@ -239,7 +248,7 @@ ltq_etop_hw_exit(struct net_device *dev)
+ 	struct ltq_etop_priv *priv = netdev_priv(dev);
+ 	int i;
+ 
+-	ltq_pmu_disable(PMU_PPE);
++	clk_disable(priv->clk);
+ 	for (i = 0; i < MAX_DMA_CHAN; i++)
+ 		if (IS_TX(i) || IS_RX(i))
+ 			ltq_etop_free_channel(dev, &priv->ch[i]);
+@@ -251,9 +260,9 @@ ltq_etop_hw_init(struct net_device *dev)
+ 	struct ltq_etop_priv *priv = netdev_priv(dev);
+ 	int i;
+ 
+-	ltq_pmu_enable(PMU_PPE);
++	clk_enable(priv->clk);
+ 
+-	switch (priv->pldata->mii_mode) {
++	switch (priv->mii_mode) {
+ 	case PHY_INTERFACE_MODE_RMII:
+ 		ltq_etop_w32_mask(ETOP_MII_MASK,
+ 			ETOP_MII_REVERSE, LTQ_ETOP_CFG);
+@@ -266,7 +275,7 @@ ltq_etop_hw_init(struct net_device *dev)
+ 
+ 	default:
+ 		netdev_err(dev, "unknown mii mode %d\n",
+-			priv->pldata->mii_mode);
++			priv->mii_mode);
+ 		return -ENOTSUPP;
+ 	}
+ 
+@@ -395,7 +404,7 @@ ltq_etop_mdio_probe(struct net_device *dev)
+ 	}
+ 
+ 	phydev = phy_connect(dev, dev_name(&phydev->dev), &ltq_etop_mdio_link,
+-			0, priv->pldata->mii_mode);
++			0, priv->mii_mode);
+ 
+ 	if (IS_ERR(phydev)) {
+ 		netdev_err(dev, "Could not attach to PHY\n");
+@@ -643,7 +652,7 @@ ltq_etop_init(struct net_device *dev)
+ 		goto err_hw;
+ 	ltq_etop_change_mtu(dev, 1500);
+ 
+-	memcpy(&mac, &priv->pldata->mac, sizeof(struct sockaddr));
++	memcpy(&mac.sa_data, &priv->mac, ETH_ALEN);
+ 	if (!is_valid_ether_addr(mac.sa_data)) {
+ 		pr_warn("etop: invalid MAC, using random\n");
+ 		random_ether_addr(mac.sa_data);
+@@ -707,9 +716,12 @@ static const struct net_device_ops ltq_eth_netdev_ops = {
+ static int __init
+ ltq_etop_probe(struct platform_device *pdev)
+ {
++	struct device_node *node = pdev->dev.of_node;
+ 	struct net_device *dev;
+ 	struct ltq_etop_priv *priv;
+ 	struct resource *res;
++	struct clk *clk;
++	struct resource irqres[2];
+ 	int err;
+ 	int i;
+ 
+@@ -737,6 +749,20 @@ ltq_etop_probe(struct platform_device *pdev)
+ 		goto err_out;
+ 	}
+ 
++	err = of_irq_to_resource_table(node, irqres, 2);
++	if (err != 2) {
++		dev_err(&pdev->dev, "not enough irqs defined\n");
++		err = -EINVAL;
++		goto err_out;
++	}
++
++	clk = clk_get(&pdev->dev, NULL);
++	if (IS_ERR(clk)) {
++		dev_err(&pdev->dev, "Failed to get clock\n");
++		err = PTR_ERR(clk);
++		goto err_out;
++	}
++
+ 	dev = alloc_etherdev_mq(sizeof(struct ltq_etop_priv), 4);
+ 	if (!dev) {
+ 		err = -ENOMEM;
+@@ -748,9 +774,15 @@ ltq_etop_probe(struct platform_device *pdev)
+ 	priv = netdev_priv(dev);
+ 	priv->res = res;
+ 	priv->pdev = pdev;
+-	priv->pldata = dev_get_platdata(&pdev->dev);
+ 	priv->netdev = dev;
+ 	spin_lock_init(&priv->lock);
++	priv->tx_irq = irqres[0].start;
++	priv->rx_irq = irqres[1].start;
++	priv->mii_mode = of_get_phy_mode(node);
++	priv->mac = of_get_mac_address(node);
++	priv->clk = clk;
++	if (priv->mii_mode < 0)
++		priv->mii_mode = PHY_INTERFACE_MODE_MII;
+ 
+ 	for (i = 0; i < MAX_DMA_CHAN; i++) {
+ 		if (IS_TX(i))
+@@ -779,21 +811,30 @@ static int __devexit
+ ltq_etop_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *dev = platform_get_drvdata(pdev);
++	struct ltq_etop_priv *priv = netdev_priv(dev);
+ 
+ 	if (dev) {
+ 		netif_tx_stop_all_queues(dev);
+ 		ltq_etop_hw_exit(dev);
+ 		ltq_etop_mdio_cleanup(dev);
++		clk_put(priv->clk);
+ 		unregister_netdev(dev);
+ 	}
+ 	return 0;
+ }
+ 
++static const struct of_device_id ltq_etop_match[] = {
++	{ .compatible = "lantiq,etop-xway" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, ltq_etop_match);
++
+ static struct platform_driver ltq_mii_driver = {
+ 	.remove = __devexit_p(ltq_etop_remove),
+ 	.driver = {
+-		.name = "ltq_etop",
++		.name = "etop-xway",
+ 		.owner = THIS_MODULE,
++		.of_match_table = ltq_etop_match,
+ 	},
+ };
+ 
+-- 
+1.7.9.1
