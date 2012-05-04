@@ -1,55 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] tilegx network driver: initial support
-Date: Fri, 04 May 2012 02:42:16 -0400 (EDT)
-Message-ID: <20120504.024216.1730395431103337434.davem@davemloft.net>
-References: <201205011759.q41HxR21020043@farm-0012.internal.tilera.com>
-	<20120503.014156.149171097979026872.davem@davemloft.net>
-	<201205031936.q43Ja9Xb031644@lab-41.internal.tilera.com>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [PATCHv2 4/7] mISDN: Make layer1 timer 3 value configurable
+Date: Fri, 04 May 2012 08:47:09 +0200
+Message-ID: <4FA37B6D.3070001@linux-pingi.de>
+References: <1336060052-27119-1-git-send-email-kkeil@linux-pingi.de> <1336060052-27119-5-git-send-email-kkeil@linux-pingi.de> <20120503.170830.1574473660496726919.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: cmetcalf@tilera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201205031936.q43Ja9Xb031644@lab-41.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, isdn@linux-pingi.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:59521 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753177Ab2EDGwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2012 02:52:53 -0400
+In-Reply-To: <20120503.170830.1574473660496726919.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Thu, 3 May 2012 12:41:56 -0400
+Am 03.05.2012 23:08, schrieb David Miller:
+> From: Karsten Keil <kkeil@linux-pingi.de>
+> Date: Thu,  3 May 2012 17:47:29 +0200
+> 
+>> @@ -372,6 +372,7 @@ clear_channelmap(u_int nr, u_char *map)
+>>  #define MISDN_CTRL_RX_OFF		0x0100
+>>  #define MISDN_CTRL_FILL_EMPTY		0x0200
+>>  #define MISDN_CTRL_GETPEER		0x0400
+>> +#define MISDN_CTRL_L1_TIMER3		0x0800
+>>  #define MISDN_CTRL_HW_FEATURES_OP	0x2000
+>>  #define MISDN_CTRL_HW_FEATURES		0x2001
+>>  #define MISDN_CTRL_HFC_OP		0x4000
+> 
+> This define is completely unused by this patch.
+> 
+> To say that I'm frustrated by this process would be an understatement.
+> 
+> 
 
-> +/* First, "tile_net_init_module()" initializes each network cpu to
-> + * handle incoming packets, and initializes all the network devices.
-> + *
-> + * Then, "ifconfig DEVICE up" calls "tile_net_open()", which will
-> + * turn on packet processing, if needed.
-> + *
-> + * If "ifconfig DEVICE down" is called, it uses "tile_net_stop()" to
-> + * stop egress, and possibly turn off packet processing.
-> + *
-> + * We start out with the ingress IRQ enabled on each CPU.  When it
-> + * fires, it is automatically disabled, and we call "napi_schedule()".
-> + * This will cause "tile_net_poll()" to be called, which will pull
-> + * packets from the netio queue, filtering them out, or passing them
-> + * to "netif_receive_skb()".  If our budget is exhausted, we will
-> + * return, knowing we will be called again later.  Otherwise, we
-> + * reenable the ingress IRQ, and call "napi_complete()".
+It is used in the next patch of the series. I usually make different
+patches for core infrastructure  changes and the low level driver changes.
+If you think it would be better to do this in one patch - I can provide
+a new series.
 
-This is not the place where you document how the generic networking
-brings devices up and down, and what driver methods are called during
-those actions.
-
-Imagine if every driver writer decided to do this.
-
-> +#define TILE_NET_MAX_COMPS 64
-> +
-> +
-
-Please get rid of all of these more-than-one empty line sequences.
-
-> +#define ROUND_UP(n, align) (((n) + (align) - 1) & -(align))
-
-This is ALIGN() from linux/kernel.h, please us it.
-
-At this rate I anticipate at least 20 rounds of review, this driver
-still needs quite a bit of work.
+Karsten
