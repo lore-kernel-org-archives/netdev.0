@@ -1,52 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/4] ixgbe: fix race condition with shutdown
-Date: Fri,  4 May 2012 04:05:01 -0700
-Message-ID: <1336129504-29919-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1336129504-29919-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Hariharan Nagarajan <hanagara@cisco.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: bonding: don't increase rx_dropped after processing LACPDUs
+Date: Fri, 4 May 2012 14:15:45 +0200
+Message-ID: <20120504121545.GA32665@midget.suse.cz>
+References: <20120502202309.GA25355@midget.suse.cz>
+ <1335991009.22133.639.camel@edumazet-glaptop>
+ <20120502205118.GB25355@midget.suse.cz>
+ <1765.1336000239@death.nxdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Bohac <jbohac@suse.cz>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56123 "EHLO mga09.intel.com"
+Received: from cantor2.suse.de ([195.135.220.15]:58520 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755395Ab2EDLFG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2012 07:05:06 -0400
-In-Reply-To: <1336129504-29919-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1755472Ab2EDMPr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2012 08:15:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1765.1336000239@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+On Wed, May 02, 2012 at 04:10:39PM -0700, Jay Vosburgh wrote:
+> 	Won't this make it impossible to bind a PF_PACKET socket to
+> sll_protocol == ETH_P_SLOW and see the LACPDUs, but only when bonding is
+> running 802.3ad? 
 
-It was possible for shutdown to pull the rug out from other driver entry
-points.  Now we just grab the rtnl lock before taking everything apart.
-Thanks to Hariharan for noticing this tight race condition.
+yes it will...
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Cc: Hariharan Nagarajan <hanagara@cisco.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+> This because the ptype_all check in
+> __netif_receive_skb happens before the rx_handler, but the ptype_base
+> check (bound packet socket, for example) happens after.  Currently,
+> libpcap looks to bind to ETH_P_ALL, so it won't be affected.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 88f6b2e..d9dbf87 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4866,10 +4866,12 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 	netif_device_detach(netdev);
+Does it make any sense for the packet socket not to bind to
+ETH_P_ALL? With all the rx_handlers interfering with the packet
+(e.g. modifying skb->dev, modifying the MAC address), binding to
+ETH_P_SLOW will never reliably get you the the original frame
+with reliable information about the incoming device. 
+
+> If so, is that something we care about?
+
+I think not.
  
- 	if (netif_running(netdev)) {
-+		rtnl_lock();
- 		ixgbe_down(adapter);
- 		ixgbe_free_irq(adapter);
- 		ixgbe_free_all_tx_resources(adapter);
- 		ixgbe_free_all_rx_resources(adapter);
-+		rtnl_unlock();
- 	}
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
+
 -- 
-1.7.7.6
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
