@@ -1,61 +1,674 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/8] ixgbe: Track instances of buffer available but no DMA resources present
-Date: Fri,  4 May 2012 03:35:11 -0700
-Message-ID: <1336127716-20383-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 7/8] ixgbe: Reorder link flow control functions in ixgbe_common.c
+Date: Fri,  4 May 2012 03:35:15 -0700
+Message-ID: <1336127716-20383-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1336127716-20383-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2289 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:7953 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754901Ab2EDKfU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2012 06:35:20 -0400
+	id S1755385Ab2EDKfX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2012 06:35:23 -0400
 In-Reply-To: <1336127716-20383-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change makes it so that we can track instances of where a packet was
-dropped due to a packet being received when there are no DMA buffers
-available in the ring.
-
-For some reason this was only being enabled with RSC, however it makes
-more sense to always have this feature on so that we can track any cases
-where we might drop a buffer due to an Rx ring being full.
+We can avoid many of the forward declarations found in ixgbe_common.c by
+just reordering things so this patch does that to help cleanup the code.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  572 +++++++++++------------
+ 1 files changed, 282 insertions(+), 290 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 688c7bb..09409ae 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4967,9 +4967,6 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
- 	if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
- 		u64 rsc_count = 0;
- 		u64 rsc_flush = 0;
--		for (i = 0; i < 16; i++)
--			adapter->hw_rx_no_dma_resources +=
--				IXGBE_READ_REG(hw, IXGBE_QPRDC(i));
- 		for (i = 0; i < adapter->num_rx_queues; i++) {
- 			rsc_count += adapter->rx_ring[i]->rx_stats.rsc_count;
- 			rsc_flush += adapter->rx_ring[i]->rx_stats.rsc_flush;
-@@ -5072,6 +5069,9 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
- 		hwstats->b2ospc += IXGBE_READ_REG(hw, IXGBE_B2OSPC);
- 		hwstats->b2ogprc += IXGBE_READ_REG(hw, IXGBE_B2OGPRC);
- 	case ixgbe_mac_82599EB:
-+		for (i = 0; i < 16; i++)
-+			adapter->hw_rx_no_dma_resources +=
-+					     IXGBE_READ_REG(hw, IXGBE_QPRDC(i));
- 		hwstats->gorc += IXGBE_READ_REG(hw, IXGBE_GORCL);
- 		IXGBE_READ_REG(hw, IXGBE_GORCH); /* to clear */
- 		hwstats->gotc += IXGBE_READ_REG(hw, IXGBE_GOTCL);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 9854d94..3035f19 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -47,13 +47,6 @@ static void ixgbe_lower_eeprom_clk(struct ixgbe_hw *hw, u32 *eec);
+ static void ixgbe_release_eeprom(struct ixgbe_hw *hw);
+ 
+ static s32 ixgbe_mta_vector(struct ixgbe_hw *hw, u8 *mc_addr);
+-static s32 ixgbe_fc_autoneg_fiber(struct ixgbe_hw *hw);
+-static s32 ixgbe_fc_autoneg_backplane(struct ixgbe_hw *hw);
+-static s32 ixgbe_fc_autoneg_copper(struct ixgbe_hw *hw);
+-static s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
+-static s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
+-			      u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm);
+-static s32 ixgbe_setup_fc(struct ixgbe_hw *hw, s32 packetbuf_num);
+ static s32 ixgbe_poll_eerd_eewr_done(struct ixgbe_hw *hw, u32 ee_reg);
+ static s32 ixgbe_read_eeprom_buffer_bit_bang(struct ixgbe_hw *hw, u16 offset,
+ 					     u16 words, u16 *data);
+@@ -64,6 +57,216 @@ static s32 ixgbe_detect_eeprom_page_size_generic(struct ixgbe_hw *hw,
+ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
+ 
+ /**
++ *  ixgbe_device_supports_autoneg_fc - Check if phy supports autoneg flow
++ *  control
++ *  @hw: pointer to hardware structure
++ *
++ *  There are several phys that do not support autoneg flow control. This
++ *  function check the device id to see if the associated phy supports
++ *  autoneg flow control.
++ **/
++static s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
++{
++
++	switch (hw->device_id) {
++	case IXGBE_DEV_ID_X540T:
++		return 0;
++	case IXGBE_DEV_ID_82599_T3_LOM:
++		return 0;
++	default:
++		return IXGBE_ERR_FC_NOT_SUPPORTED;
++	}
++}
++
++/**
++ *  ixgbe_setup_fc - Set up flow control
++ *  @hw: pointer to hardware structure
++ *
++ *  Called at init time to set up flow control.
++ **/
++static s32 ixgbe_setup_fc(struct ixgbe_hw *hw, s32 packetbuf_num)
++{
++	s32 ret_val = 0;
++	u32 reg = 0, reg_bp = 0;
++	u16 reg_cu = 0;
++
++#ifdef CONFIG_DCB
++	if (hw->fc.requested_mode == ixgbe_fc_pfc) {
++		hw->fc.current_mode = hw->fc.requested_mode;
++		goto out;
++	}
++
++#endif /* CONFIG_DCB */
++	/* Validate the packetbuf configuration */
++	if (packetbuf_num < 0 || packetbuf_num > 7) {
++		hw_dbg(hw, "Invalid packet buffer number [%d], expected range is 0-7\n",
++		       packetbuf_num);
++		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
++		goto out;
++	}
++
++	/*
++	 * Validate the water mark configuration.  Zero water marks are invalid
++	 * because it causes the controller to just blast out fc packets.
++	 */
++	if (!hw->fc.low_water ||
++	    !hw->fc.high_water[packetbuf_num] ||
++	    !hw->fc.pause_time) {
++		hw_dbg(hw, "Invalid water mark configuration\n");
++		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
++		goto out;
++	}
++
++	/*
++	 * Validate the requested mode.  Strict IEEE mode does not allow
++	 * ixgbe_fc_rx_pause because it will cause us to fail at UNH.
++	 */
++	if (hw->fc.strict_ieee && hw->fc.requested_mode == ixgbe_fc_rx_pause) {
++		hw_dbg(hw, "ixgbe_fc_rx_pause not valid in strict IEEE mode\n");
++		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
++		goto out;
++	}
++
++	/*
++	 * 10gig parts do not have a word in the EEPROM to determine the
++	 * default flow control setting, so we explicitly set it to full.
++	 */
++	if (hw->fc.requested_mode == ixgbe_fc_default)
++		hw->fc.requested_mode = ixgbe_fc_full;
++
++	/*
++	 * Set up the 1G and 10G flow control advertisement registers so the
++	 * HW will be able to do fc autoneg once the cable is plugged in.  If
++	 * we link at 10G, the 1G advertisement is harmless and vice versa.
++	 */
++
++	switch (hw->phy.media_type) {
++	case ixgbe_media_type_fiber:
++	case ixgbe_media_type_backplane:
++		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
++		reg_bp = IXGBE_READ_REG(hw, IXGBE_AUTOC);
++		break;
++
++	case ixgbe_media_type_copper:
++		hw->phy.ops.read_reg(hw, MDIO_AN_ADVERTISE,
++					MDIO_MMD_AN, &reg_cu);
++		break;
++
++	default:
++		;
++	}
++
++	/*
++	 * The possible values of fc.requested_mode are:
++	 * 0: Flow control is completely disabled
++	 * 1: Rx flow control is enabled (we can receive pause frames,
++	 *    but not send pause frames).
++	 * 2: Tx flow control is enabled (we can send pause frames but
++	 *    we do not support receiving pause frames).
++	 * 3: Both Rx and Tx flow control (symmetric) are enabled.
++#ifdef CONFIG_DCB
++	 * 4: Priority Flow Control is enabled.
++#endif
++	 * other: Invalid.
++	 */
++	switch (hw->fc.requested_mode) {
++	case ixgbe_fc_none:
++		/* Flow control completely disabled by software override. */
++		reg &= ~(IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
++		if (hw->phy.media_type == ixgbe_media_type_backplane)
++			reg_bp &= ~(IXGBE_AUTOC_SYM_PAUSE |
++				    IXGBE_AUTOC_ASM_PAUSE);
++		else if (hw->phy.media_type == ixgbe_media_type_copper)
++			reg_cu &= ~(IXGBE_TAF_SYM_PAUSE | IXGBE_TAF_ASM_PAUSE);
++		break;
++	case ixgbe_fc_rx_pause:
++		/*
++		 * Rx Flow control is enabled and Tx Flow control is
++		 * disabled by software override. Since there really
++		 * isn't a way to advertise that we are capable of RX
++		 * Pause ONLY, we will advertise that we support both
++		 * symmetric and asymmetric Rx PAUSE.  Later, we will
++		 * disable the adapter's ability to send PAUSE frames.
++		 */
++		reg |= (IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
++		if (hw->phy.media_type == ixgbe_media_type_backplane)
++			reg_bp |= (IXGBE_AUTOC_SYM_PAUSE |
++				   IXGBE_AUTOC_ASM_PAUSE);
++		else if (hw->phy.media_type == ixgbe_media_type_copper)
++			reg_cu |= (IXGBE_TAF_SYM_PAUSE | IXGBE_TAF_ASM_PAUSE);
++		break;
++	case ixgbe_fc_tx_pause:
++		/*
++		 * Tx Flow control is enabled, and Rx Flow control is
++		 * disabled by software override.
++		 */
++		reg |= (IXGBE_PCS1GANA_ASM_PAUSE);
++		reg &= ~(IXGBE_PCS1GANA_SYM_PAUSE);
++		if (hw->phy.media_type == ixgbe_media_type_backplane) {
++			reg_bp |= (IXGBE_AUTOC_ASM_PAUSE);
++			reg_bp &= ~(IXGBE_AUTOC_SYM_PAUSE);
++		} else if (hw->phy.media_type == ixgbe_media_type_copper) {
++			reg_cu |= (IXGBE_TAF_ASM_PAUSE);
++			reg_cu &= ~(IXGBE_TAF_SYM_PAUSE);
++		}
++		break;
++	case ixgbe_fc_full:
++		/* Flow control (both Rx and Tx) is enabled by SW override. */
++		reg |= (IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
++		if (hw->phy.media_type == ixgbe_media_type_backplane)
++			reg_bp |= (IXGBE_AUTOC_SYM_PAUSE |
++				   IXGBE_AUTOC_ASM_PAUSE);
++		else if (hw->phy.media_type == ixgbe_media_type_copper)
++			reg_cu |= (IXGBE_TAF_SYM_PAUSE | IXGBE_TAF_ASM_PAUSE);
++		break;
++#ifdef CONFIG_DCB
++	case ixgbe_fc_pfc:
++		goto out;
++		break;
++#endif /* CONFIG_DCB */
++	default:
++		hw_dbg(hw, "Flow control param set incorrectly\n");
++		ret_val = IXGBE_ERR_CONFIG;
++		goto out;
++		break;
++	}
++
++	if (hw->mac.type != ixgbe_mac_X540) {
++		/*
++		 * Enable auto-negotiation between the MAC & PHY;
++		 * the MAC will advertise clause 37 flow control.
++		 */
++		IXGBE_WRITE_REG(hw, IXGBE_PCS1GANA, reg);
++		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GLCTL);
++
++		/* Disable AN timeout */
++		if (hw->fc.strict_ieee)
++			reg &= ~IXGBE_PCS1GLCTL_AN_1G_TIMEOUT_EN;
++
++		IXGBE_WRITE_REG(hw, IXGBE_PCS1GLCTL, reg);
++		hw_dbg(hw, "Set up FC; PCS1GLCTL = 0x%08X\n", reg);
++	}
++
++	/*
++	 * AUTOC restart handles negotiation of 1G and 10G on backplane
++	 * and copper. There is no need to set the PCS1GCTL register.
++	 *
++	 */
++	if (hw->phy.media_type == ixgbe_media_type_backplane) {
++		reg_bp |= IXGBE_AUTOC_AN_RESTART;
++		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, reg_bp);
++	} else if ((hw->phy.media_type == ixgbe_media_type_copper) &&
++		    (ixgbe_device_supports_autoneg_fc(hw) == 0)) {
++		hw->phy.ops.write_reg(hw, MDIO_AN_ADVERTISE,
++				      MDIO_MMD_AN, reg_cu);
++	}
++
++	hw_dbg(hw, "Set up FC; IXGBE_AUTOC = 0x%08X\n", reg);
++out:
++	return ret_val;
++}
++
++/**
+  *  ixgbe_start_hw_generic - Prepare hardware for Tx/Rx
+  *  @hw: pointer to hardware structure
+  *
+@@ -2043,63 +2246,52 @@ out:
+ }
+ 
+ /**
+- *  ixgbe_fc_autoneg - Configure flow control
++ *  ixgbe_negotiate_fc - Negotiate flow control
+  *  @hw: pointer to hardware structure
++ *  @adv_reg: flow control advertised settings
++ *  @lp_reg: link partner's flow control settings
++ *  @adv_sym: symmetric pause bit in advertisement
++ *  @adv_asm: asymmetric pause bit in advertisement
++ *  @lp_sym: symmetric pause bit in link partner advertisement
++ *  @lp_asm: asymmetric pause bit in link partner advertisement
+  *
+- *  Compares our advertised flow control capabilities to those advertised by
+- *  our link partner, and determines the proper flow control mode to use.
++ *  Find the intersection between advertised settings and link partner's
++ *  advertised settings
+  **/
+-void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
++static s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
++			      u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm)
+ {
+-	s32 ret_val = IXGBE_ERR_FC_NOT_NEGOTIATED;
+-	ixgbe_link_speed speed;
+-	bool link_up;
+-
+-	/*
+-	 * AN should have completed when the cable was plugged in.
+-	 * Look for reasons to bail out.  Bail out if:
+-	 * - FC autoneg is disabled, or if
+-	 * - link is not up.
+-	 *
+-	 * Since we're being called from an LSC, link is already known to be up.
+-	 * So use link_up_wait_to_complete=false.
+-	 */
+-	if (hw->fc.disable_fc_autoneg)
+-		goto out;
+-
+-	hw->mac.ops.check_link(hw, &speed, &link_up, false);
+-	if (!link_up)
+-		goto out;
+-
+-	switch (hw->phy.media_type) {
+-	/* Autoneg flow control on fiber adapters */
+-	case ixgbe_media_type_fiber:
+-		if (speed == IXGBE_LINK_SPEED_1GB_FULL)
+-			ret_val = ixgbe_fc_autoneg_fiber(hw);
+-		break;
+-
+-	/* Autoneg flow control on backplane adapters */
+-	case ixgbe_media_type_backplane:
+-		ret_val = ixgbe_fc_autoneg_backplane(hw);
+-		break;
++	if ((!(adv_reg)) ||  (!(lp_reg)))
++		return IXGBE_ERR_FC_NOT_NEGOTIATED;
+ 
+-	/* Autoneg flow control on copper adapters */
+-	case ixgbe_media_type_copper:
+-		if (ixgbe_device_supports_autoneg_fc(hw) == 0)
+-			ret_val = ixgbe_fc_autoneg_copper(hw);
+-		break;
+-
+-	default:
+-		break;
+-	}
+-
+-out:
+-	if (ret_val == 0) {
+-		hw->fc.fc_was_autonegged = true;
++	if ((adv_reg & adv_sym) && (lp_reg & lp_sym)) {
++		/*
++		 * Now we need to check if the user selected Rx ONLY
++		 * of pause frames.  In this case, we had to advertise
++		 * FULL flow control because we could not advertise RX
++		 * ONLY. Hence, we must now check to see if we need to
++		 * turn OFF the TRANSMISSION of PAUSE frames.
++		 */
++		if (hw->fc.requested_mode == ixgbe_fc_full) {
++			hw->fc.current_mode = ixgbe_fc_full;
++			hw_dbg(hw, "Flow Control = FULL.\n");
++		} else {
++			hw->fc.current_mode = ixgbe_fc_rx_pause;
++			hw_dbg(hw, "Flow Control=RX PAUSE frames only\n");
++		}
++	} else if (!(adv_reg & adv_sym) && (adv_reg & adv_asm) &&
++		   (lp_reg & lp_sym) && (lp_reg & lp_asm)) {
++		hw->fc.current_mode = ixgbe_fc_tx_pause;
++		hw_dbg(hw, "Flow Control = TX PAUSE frames only.\n");
++	} else if ((adv_reg & adv_sym) && (adv_reg & adv_asm) &&
++		   !(lp_reg & lp_sym) && (lp_reg & lp_asm)) {
++		hw->fc.current_mode = ixgbe_fc_rx_pause;
++		hw_dbg(hw, "Flow Control = RX PAUSE frames only.\n");
+ 	} else {
+-		hw->fc.fc_was_autonegged = false;
+-		hw->fc.current_mode = hw->fc.requested_mode;
++		hw->fc.current_mode = ixgbe_fc_none;
++		hw_dbg(hw, "Flow Control = NONE.\n");
+ 	}
++	return 0;
+ }
+ 
+ /**
+@@ -2202,241 +2394,63 @@ static s32 ixgbe_fc_autoneg_copper(struct ixgbe_hw *hw)
+ }
+ 
+ /**
+- *  ixgbe_negotiate_fc - Negotiate flow control
+- *  @hw: pointer to hardware structure
+- *  @adv_reg: flow control advertised settings
+- *  @lp_reg: link partner's flow control settings
+- *  @adv_sym: symmetric pause bit in advertisement
+- *  @adv_asm: asymmetric pause bit in advertisement
+- *  @lp_sym: symmetric pause bit in link partner advertisement
+- *  @lp_asm: asymmetric pause bit in link partner advertisement
+- *
+- *  Find the intersection between advertised settings and link partner's
+- *  advertised settings
+- **/
+-static s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
+-			      u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm)
+-{
+-	if ((!(adv_reg)) ||  (!(lp_reg)))
+-		return IXGBE_ERR_FC_NOT_NEGOTIATED;
+-
+-	if ((adv_reg & adv_sym) && (lp_reg & lp_sym)) {
+-		/*
+-		 * Now we need to check if the user selected Rx ONLY
+-		 * of pause frames.  In this case, we had to advertise
+-		 * FULL flow control because we could not advertise RX
+-		 * ONLY. Hence, we must now check to see if we need to
+-		 * turn OFF the TRANSMISSION of PAUSE frames.
+-		 */
+-		if (hw->fc.requested_mode == ixgbe_fc_full) {
+-			hw->fc.current_mode = ixgbe_fc_full;
+-			hw_dbg(hw, "Flow Control = FULL.\n");
+-		} else {
+-			hw->fc.current_mode = ixgbe_fc_rx_pause;
+-			hw_dbg(hw, "Flow Control=RX PAUSE frames only\n");
+-		}
+-	} else if (!(adv_reg & adv_sym) && (adv_reg & adv_asm) &&
+-		   (lp_reg & lp_sym) && (lp_reg & lp_asm)) {
+-		hw->fc.current_mode = ixgbe_fc_tx_pause;
+-		hw_dbg(hw, "Flow Control = TX PAUSE frames only.\n");
+-	} else if ((adv_reg & adv_sym) && (adv_reg & adv_asm) &&
+-		   !(lp_reg & lp_sym) && (lp_reg & lp_asm)) {
+-		hw->fc.current_mode = ixgbe_fc_rx_pause;
+-		hw_dbg(hw, "Flow Control = RX PAUSE frames only.\n");
+-	} else {
+-		hw->fc.current_mode = ixgbe_fc_none;
+-		hw_dbg(hw, "Flow Control = NONE.\n");
+-	}
+-	return 0;
+-}
+-
+-/**
+- *  ixgbe_setup_fc - Set up flow control
++ *  ixgbe_fc_autoneg - Configure flow control
+  *  @hw: pointer to hardware structure
+  *
+- *  Called at init time to set up flow control.
++ *  Compares our advertised flow control capabilities to those advertised by
++ *  our link partner, and determines the proper flow control mode to use.
+  **/
+-static s32 ixgbe_setup_fc(struct ixgbe_hw *hw, s32 packetbuf_num)
++void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+ {
+-	s32 ret_val = 0;
+-	u32 reg = 0, reg_bp = 0;
+-	u16 reg_cu = 0;
+-
+-#ifdef CONFIG_DCB
+-	if (hw->fc.requested_mode == ixgbe_fc_pfc) {
+-		hw->fc.current_mode = hw->fc.requested_mode;
+-		goto out;
+-	}
+-
+-#endif /* CONFIG_DCB */
+-	/* Validate the packetbuf configuration */
+-	if (packetbuf_num < 0 || packetbuf_num > 7) {
+-		hw_dbg(hw, "Invalid packet buffer number [%d], expected range "
+-		       "is 0-7\n", packetbuf_num);
+-		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
+-		goto out;
+-	}
++	s32 ret_val = IXGBE_ERR_FC_NOT_NEGOTIATED;
++	ixgbe_link_speed speed;
++	bool link_up;
+ 
+ 	/*
+-	 * Validate the water mark configuration.  Zero water marks are invalid
+-	 * because it causes the controller to just blast out fc packets.
++	 * AN should have completed when the cable was plugged in.
++	 * Look for reasons to bail out.  Bail out if:
++	 * - FC autoneg is disabled, or if
++	 * - link is not up.
++	 *
++	 * Since we're being called from an LSC, link is already known to be up.
++	 * So use link_up_wait_to_complete=false.
+ 	 */
+-	if (!hw->fc.low_water ||
+-	    !hw->fc.high_water[packetbuf_num] ||
+-	    !hw->fc.pause_time) {
+-		hw_dbg(hw, "Invalid water mark configuration\n");
+-		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
++	if (hw->fc.disable_fc_autoneg)
+ 		goto out;
+-	}
+ 
+-	/*
+-	 * Validate the requested mode.  Strict IEEE mode does not allow
+-	 * ixgbe_fc_rx_pause because it will cause us to fail at UNH.
+-	 */
+-	if (hw->fc.strict_ieee && hw->fc.requested_mode == ixgbe_fc_rx_pause) {
+-		hw_dbg(hw, "ixgbe_fc_rx_pause not valid in strict "
+-		       "IEEE mode\n");
+-		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
++	hw->mac.ops.check_link(hw, &speed, &link_up, false);
++	if (!link_up)
+ 		goto out;
+-	}
+-
+-	/*
+-	 * 10gig parts do not have a word in the EEPROM to determine the
+-	 * default flow control setting, so we explicitly set it to full.
+-	 */
+-	if (hw->fc.requested_mode == ixgbe_fc_default)
+-		hw->fc.requested_mode = ixgbe_fc_full;
+-
+-	/*
+-	 * Set up the 1G and 10G flow control advertisement registers so the
+-	 * HW will be able to do fc autoneg once the cable is plugged in.  If
+-	 * we link at 10G, the 1G advertisement is harmless and vice versa.
+-	 */
+ 
+ 	switch (hw->phy.media_type) {
++	/* Autoneg flow control on fiber adapters */
+ 	case ixgbe_media_type_fiber:
++		if (speed == IXGBE_LINK_SPEED_1GB_FULL)
++			ret_val = ixgbe_fc_autoneg_fiber(hw);
++		break;
++
++	/* Autoneg flow control on backplane adapters */
+ 	case ixgbe_media_type_backplane:
+-		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
+-		reg_bp = IXGBE_READ_REG(hw, IXGBE_AUTOC);
++		ret_val = ixgbe_fc_autoneg_backplane(hw);
+ 		break;
+ 
++	/* Autoneg flow control on copper adapters */
+ 	case ixgbe_media_type_copper:
+-		hw->phy.ops.read_reg(hw, MDIO_AN_ADVERTISE,
+-					MDIO_MMD_AN, &reg_cu);
++		if (ixgbe_device_supports_autoneg_fc(hw) == 0)
++			ret_val = ixgbe_fc_autoneg_copper(hw);
+ 		break;
+ 
+ 	default:
+-		;
+-	}
+-
+-	/*
+-	 * The possible values of fc.requested_mode are:
+-	 * 0: Flow control is completely disabled
+-	 * 1: Rx flow control is enabled (we can receive pause frames,
+-	 *    but not send pause frames).
+-	 * 2: Tx flow control is enabled (we can send pause frames but
+-	 *    we do not support receiving pause frames).
+-	 * 3: Both Rx and Tx flow control (symmetric) are enabled.
+-#ifdef CONFIG_DCB
+-	 * 4: Priority Flow Control is enabled.
+-#endif
+-	 * other: Invalid.
+-	 */
+-	switch (hw->fc.requested_mode) {
+-	case ixgbe_fc_none:
+-		/* Flow control completely disabled by software override. */
+-		reg &= ~(IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
+-		if (hw->phy.media_type == ixgbe_media_type_backplane)
+-			reg_bp &= ~(IXGBE_AUTOC_SYM_PAUSE |
+-				    IXGBE_AUTOC_ASM_PAUSE);
+-		else if (hw->phy.media_type == ixgbe_media_type_copper)
+-			reg_cu &= ~(IXGBE_TAF_SYM_PAUSE | IXGBE_TAF_ASM_PAUSE);
+-		break;
+-	case ixgbe_fc_rx_pause:
+-		/*
+-		 * Rx Flow control is enabled and Tx Flow control is
+-		 * disabled by software override. Since there really
+-		 * isn't a way to advertise that we are capable of RX
+-		 * Pause ONLY, we will advertise that we support both
+-		 * symmetric and asymmetric Rx PAUSE.  Later, we will
+-		 * disable the adapter's ability to send PAUSE frames.
+-		 */
+-		reg |= (IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
+-		if (hw->phy.media_type == ixgbe_media_type_backplane)
+-			reg_bp |= (IXGBE_AUTOC_SYM_PAUSE |
+-				   IXGBE_AUTOC_ASM_PAUSE);
+-		else if (hw->phy.media_type == ixgbe_media_type_copper)
+-			reg_cu |= (IXGBE_TAF_SYM_PAUSE | IXGBE_TAF_ASM_PAUSE);
+ 		break;
+-	case ixgbe_fc_tx_pause:
+-		/*
+-		 * Tx Flow control is enabled, and Rx Flow control is
+-		 * disabled by software override.
+-		 */
+-		reg |= (IXGBE_PCS1GANA_ASM_PAUSE);
+-		reg &= ~(IXGBE_PCS1GANA_SYM_PAUSE);
+-		if (hw->phy.media_type == ixgbe_media_type_backplane) {
+-			reg_bp |= (IXGBE_AUTOC_ASM_PAUSE);
+-			reg_bp &= ~(IXGBE_AUTOC_SYM_PAUSE);
+-		} else if (hw->phy.media_type == ixgbe_media_type_copper) {
+-			reg_cu |= (IXGBE_TAF_ASM_PAUSE);
+-			reg_cu &= ~(IXGBE_TAF_SYM_PAUSE);
+-		}
+-		break;
+-	case ixgbe_fc_full:
+-		/* Flow control (both Rx and Tx) is enabled by SW override. */
+-		reg |= (IXGBE_PCS1GANA_SYM_PAUSE | IXGBE_PCS1GANA_ASM_PAUSE);
+-		if (hw->phy.media_type == ixgbe_media_type_backplane)
+-			reg_bp |= (IXGBE_AUTOC_SYM_PAUSE |
+-				   IXGBE_AUTOC_ASM_PAUSE);
+-		else if (hw->phy.media_type == ixgbe_media_type_copper)
+-			reg_cu |= (IXGBE_TAF_SYM_PAUSE | IXGBE_TAF_ASM_PAUSE);
+-		break;
+-#ifdef CONFIG_DCB
+-	case ixgbe_fc_pfc:
+-		goto out;
+-		break;
+-#endif /* CONFIG_DCB */
+-	default:
+-		hw_dbg(hw, "Flow control param set incorrectly\n");
+-		ret_val = IXGBE_ERR_CONFIG;
+-		goto out;
+-		break;
+-	}
+-
+-	if (hw->mac.type != ixgbe_mac_X540) {
+-		/*
+-		 * Enable auto-negotiation between the MAC & PHY;
+-		 * the MAC will advertise clause 37 flow control.
+-		 */
+-		IXGBE_WRITE_REG(hw, IXGBE_PCS1GANA, reg);
+-		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GLCTL);
+-
+-		/* Disable AN timeout */
+-		if (hw->fc.strict_ieee)
+-			reg &= ~IXGBE_PCS1GLCTL_AN_1G_TIMEOUT_EN;
+-
+-		IXGBE_WRITE_REG(hw, IXGBE_PCS1GLCTL, reg);
+-		hw_dbg(hw, "Set up FC; PCS1GLCTL = 0x%08X\n", reg);
+ 	}
+ 
+-	/*
+-	 * AUTOC restart handles negotiation of 1G and 10G on backplane
+-	 * and copper. There is no need to set the PCS1GCTL register.
+-	 *
+-	 */
+-	if (hw->phy.media_type == ixgbe_media_type_backplane) {
+-		reg_bp |= IXGBE_AUTOC_AN_RESTART;
+-		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, reg_bp);
+-	} else if ((hw->phy.media_type == ixgbe_media_type_copper) &&
+-		    (ixgbe_device_supports_autoneg_fc(hw) == 0)) {
+-		hw->phy.ops.write_reg(hw, MDIO_AN_ADVERTISE,
+-				      MDIO_MMD_AN, reg_cu);
+-	}
+-
+-	hw_dbg(hw, "Set up FC; IXGBE_AUTOC = 0x%08X\n", reg);
+ out:
+-	return ret_val;
++	if (ret_val == 0) {
++		hw->fc.fc_was_autonegged = true;
++	} else {
++		hw->fc.fc_was_autonegged = false;
++		hw->fc.current_mode = hw->fc.requested_mode;
++	}
+ }
+ 
+ /**
+@@ -3207,28 +3221,6 @@ wwn_prefix_out:
+ }
+ 
+ /**
+- *  ixgbe_device_supports_autoneg_fc - Check if phy supports autoneg flow
+- *  control
+- *  @hw: pointer to hardware structure
+- *
+- *  There are several phys that do not support autoneg flow control. This
+- *  function check the device id to see if the associated phy supports
+- *  autoneg flow control.
+- **/
+-static s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
+-{
+-
+-	switch (hw->device_id) {
+-	case IXGBE_DEV_ID_X540T:
+-		return 0;
+-	case IXGBE_DEV_ID_82599_T3_LOM:
+-		return 0;
+-	default:
+-		return IXGBE_ERR_FC_NOT_SUPPORTED;
+-	}
+-}
+-
+-/**
+  *  ixgbe_set_mac_anti_spoofing - Enable/Disable MAC anti-spoofing
+  *  @hw: pointer to hardware structure
+  *  @enable: enable or disable switch for anti-spoofing
 -- 
 1.7.7.6
