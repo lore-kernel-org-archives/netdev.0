@@ -1,221 +1,42 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH 13/14] NET: MIPS: lantiq: implement OF support inside the etop driver
-Date: Fri,  4 May 2012 14:18:38 +0200
-Message-ID: <1336133919-26525-13-git-send-email-blogic@openwrt.org>
-References: <1336133919-26525-1-git-send-email-blogic@openwrt.org>
-Cc: linux-mips@linux-mips.org, John Crispin <blogic@openwrt.org>,
-	netdev@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: skb_peek()/skb_peek_tail() cleanups
+Date: Fri, 04 May 2012 15:01:31 +0200
+Message-ID: <1336136491.3752.318.camel@edumazet-glaptop>
+References: <1335839506.11396.17.camel@edumazet-glaptop>
+	 <20120501.094127.190023878792795840.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:57895 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755701Ab2EDMuK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2012 08:50:10 -0400
-In-Reply-To: <1336133919-26525-1-git-send-email-blogic@openwrt.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:37730 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750880Ab2EDNBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2012 09:01:36 -0400
+Received: by bkcji2 with SMTP id ji2so2183592bkc.19
+        for <netdev@vger.kernel.org>; Fri, 04 May 2012 06:01:35 -0700 (PDT)
+In-Reply-To: <20120501.094127.190023878792795840.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes it possible to load the driver for the ETOP ethernet on
-Lantiq SoC from a devicetree.
+On Tue, 2012-05-01 at 09:41 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 01 May 2012 04:31:46 +0200
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > remove useless casts and rename variables for less confusion.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> Applied, I really need to get back to completing the list_head
+> conversion :-/
 
-Additionally we convert the driver to using the new clkdev clock in favour of
-the old ltq_pmu_*() api.
+Actually doubly linked lists everywhere has a performance issue.
 
-Signed-off-by: John Crispin <blogic@openwrt.org>
-Cc: netdev@vger.kernel.org
----
-This patch is part of a series moving the mips/lantiq target to OF and clkdev
-support. The patch, once Acked, should go upstream via Ralf's MIPS tree.
+When we dequeue one skb, we must bring in cpu cache the next skb as
+well, to perform the unlink.
 
- drivers/net/ethernet/lantiq_etop.c |   63 +++++++++++++++++++++++++++++------
- 1 files changed, 52 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-index 5dc9cbd..c0443d4 100644
---- a/drivers/net/ethernet/lantiq_etop.c
-+++ b/drivers/net/ethernet/lantiq_etop.c
-@@ -29,19 +29,22 @@
- #include <linux/tcp.h>
- #include <linux/skbuff.h>
- #include <linux/mm.h>
--#include <linux/platform_device.h>
- #include <linux/ethtool.h>
- #include <linux/init.h>
- #include <linux/delay.h>
- #include <linux/io.h>
- #include <linux/dma-mapping.h>
- #include <linux/module.h>
-+#include <linux/of_platform.h>
-+#include <linux/of_net.h>
-+#include <linux/of_address.h>
-+#include <linux/of_irq.h>
-+#include <linux/of_gpio.h>
- 
- #include <asm/checksum.h>
- 
- #include <lantiq_soc.h>
- #include <xway_dma.h>
--#include <lantiq_platform.h>
- 
- #define LTQ_ETOP_MDIO		0x11804
- #define MDIO_REQUEST		0x80000000
-@@ -73,6 +76,7 @@
- #define ETOP_CGEN		0x800
- 
- /* use 2 static channels for TX/RX */
-+#define LTQ_DMA_CH0_INT		INT_NUM_IM2_IRL0
- #define LTQ_ETOP_TX_CHANNEL	1
- #define LTQ_ETOP_RX_CHANNEL	6
- #define IS_TX(x)		(x == LTQ_ETOP_TX_CHANNEL)
-@@ -99,12 +103,17 @@ struct ltq_etop_chan {
- struct ltq_etop_priv {
- 	struct net_device *netdev;
- 	struct platform_device *pdev;
--	struct ltq_eth_data *pldata;
- 	struct resource *res;
- 
- 	struct mii_bus *mii_bus;
- 	struct phy_device *phydev;
- 
-+	struct clk *clk;
-+	const void *mac;
-+	int mii_mode;
-+	int tx_irq;
-+	int rx_irq;
-+
- 	struct ltq_etop_chan ch[MAX_DMA_CHAN];
- 	int tx_free[MAX_DMA_CHAN >> 1];
- 
-@@ -239,7 +248,7 @@ ltq_etop_hw_exit(struct net_device *dev)
- 	struct ltq_etop_priv *priv = netdev_priv(dev);
- 	int i;
- 
--	ltq_pmu_disable(PMU_PPE);
-+	clk_disable(priv->clk);
- 	for (i = 0; i < MAX_DMA_CHAN; i++)
- 		if (IS_TX(i) || IS_RX(i))
- 			ltq_etop_free_channel(dev, &priv->ch[i]);
-@@ -251,9 +260,9 @@ ltq_etop_hw_init(struct net_device *dev)
- 	struct ltq_etop_priv *priv = netdev_priv(dev);
- 	int i;
- 
--	ltq_pmu_enable(PMU_PPE);
-+	clk_enable(priv->clk);
- 
--	switch (priv->pldata->mii_mode) {
-+	switch (priv->mii_mode) {
- 	case PHY_INTERFACE_MODE_RMII:
- 		ltq_etop_w32_mask(ETOP_MII_MASK,
- 			ETOP_MII_REVERSE, LTQ_ETOP_CFG);
-@@ -266,7 +275,7 @@ ltq_etop_hw_init(struct net_device *dev)
- 
- 	default:
- 		netdev_err(dev, "unknown mii mode %d\n",
--			priv->pldata->mii_mode);
-+			priv->mii_mode);
- 		return -ENOTSUPP;
- 	}
- 
-@@ -395,7 +404,7 @@ ltq_etop_mdio_probe(struct net_device *dev)
- 	}
- 
- 	phydev = phy_connect(dev, dev_name(&phydev->dev), &ltq_etop_mdio_link,
--			0, priv->pldata->mii_mode);
-+			0, priv->mii_mode);
- 
- 	if (IS_ERR(phydev)) {
- 		netdev_err(dev, "Could not attach to PHY\n");
-@@ -643,7 +652,7 @@ ltq_etop_init(struct net_device *dev)
- 		goto err_hw;
- 	ltq_etop_change_mtu(dev, 1500);
- 
--	memcpy(&mac, &priv->pldata->mac, sizeof(struct sockaddr));
-+	memcpy(&mac.sa_data, &priv->mac, ETH_ALEN);
- 	if (!is_valid_ether_addr(mac.sa_data)) {
- 		pr_warn("etop: invalid MAC, using random\n");
- 		random_ether_addr(mac.sa_data);
-@@ -707,9 +716,12 @@ static const struct net_device_ops ltq_eth_netdev_ops = {
- static int __init
- ltq_etop_probe(struct platform_device *pdev)
- {
-+	struct device_node *node = pdev->dev.of_node;
- 	struct net_device *dev;
- 	struct ltq_etop_priv *priv;
- 	struct resource *res;
-+	struct clk *clk;
-+	struct resource irqres[2];
- 	int err;
- 	int i;
- 
-@@ -737,6 +749,20 @@ ltq_etop_probe(struct platform_device *pdev)
- 		goto err_out;
- 	}
- 
-+	err = of_irq_to_resource_table(node, irqres, 2);
-+	if (err != 2) {
-+		dev_err(&pdev->dev, "not enough irqs defined\n");
-+		err = -EINVAL;
-+		goto err_out;
-+	}
-+
-+	clk = clk_get(&pdev->dev, NULL);
-+	if (IS_ERR(clk)) {
-+		dev_err(&pdev->dev, "Failed to get clock\n");
-+		err = PTR_ERR(clk);
-+		goto err_out;
-+	}
-+
- 	dev = alloc_etherdev_mq(sizeof(struct ltq_etop_priv), 4);
- 	if (!dev) {
- 		err = -ENOMEM;
-@@ -748,9 +774,15 @@ ltq_etop_probe(struct platform_device *pdev)
- 	priv = netdev_priv(dev);
- 	priv->res = res;
- 	priv->pdev = pdev;
--	priv->pldata = dev_get_platdata(&pdev->dev);
- 	priv->netdev = dev;
- 	spin_lock_init(&priv->lock);
-+	priv->tx_irq = irqres[0].start;
-+	priv->rx_irq = irqres[1].start;
-+	priv->mii_mode = of_get_phy_mode(node);
-+	priv->mac = of_get_mac_address(node);
-+	priv->clk = clk;
-+	if (priv->mii_mode < 0)
-+		priv->mii_mode = PHY_INTERFACE_MODE_MII;
- 
- 	for (i = 0; i < MAX_DMA_CHAN; i++) {
- 		if (IS_TX(i))
-@@ -779,21 +811,30 @@ static int __devexit
- ltq_etop_remove(struct platform_device *pdev)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
-+	struct ltq_etop_priv *priv = netdev_priv(dev);
- 
- 	if (dev) {
- 		netif_tx_stop_all_queues(dev);
- 		ltq_etop_hw_exit(dev);
- 		ltq_etop_mdio_cleanup(dev);
-+		clk_put(priv->clk);
- 		unregister_netdev(dev);
- 	}
- 	return 0;
- }
- 
-+static const struct of_device_id ltq_etop_match[] = {
-+	{ .compatible = "lantiq,etop-xway" },
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, ltq_etop_match);
-+
- static struct platform_driver ltq_mii_driver = {
- 	.remove = __devexit_p(ltq_etop_remove),
- 	.driver = {
--		.name = "ltq_etop",
-+		.name = "etop-xway",
- 		.owner = THIS_MODULE,
-+		.of_match_table = ltq_etop_match,
- 	},
- };
- 
--- 
-1.7.9.1
+In some places it would be better to not have a double linked list, and
+only perform a prefetch(skb->next).
