@@ -1,180 +1,140 @@
-From: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-Subject: Re: [PATCH v3 0/7] ARM: davinci: add support for the am1808 based
-	enbw_cmc board
-Date: Fri, 4 May 2012 17:33:22 +0200
-Message-ID: <4FA3F6C2.9010602@denx.de>
-References: <1330945804-3379-1-git-send-email-hs@denx.de>
-Reply-To: <hs-ynQEQJNshbs@public.gmane.org>
+From: Kevin Hilman <khilman@ti.com>
+Subject: Re: [PATCH] net: davinci_emac: Add pre_open, post_stop platform callbacks
+Date: Fri, 04 May 2012 07:31:30 -0700
+Message-ID: <87fwbgdnlp.fsf@ti.com>
+References: <20120502234718.GA5432@animalcreek.com>
+	<B5906170F1614E41A8A28DE3B8D121433EA72820@DBDE01.ent.ti.com>
+	<20120503160917.GA11310@animalcreek.com>
+	<B5906170F1614E41A8A28DE3B8D121433EA73591@DBDE01.ent.ti.com>
+	<20120503184632.GA28089@animalcreek.com>
+	<B5906170F1614E41A8A28DE3B8D121433EA7366B@DBDE01.ent.ti.com>
+	<1336076542.2998.23.camel@bwh-desktop.uk.solarflarecom.com>
+	<87ehr1gdcv.fsf@ti.com>
+	<B5906170F1614E41A8A28DE3B8D121433EA81B04@DBDE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>, Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>,
-        Sergei Shtylyov
-	<sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-        Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ben Dooks
-	<ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
-        David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1330945804-3379-1-git-send-email-hs-ynQEQJNshbs@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"Mark A. Greer" <mgreer@animalcreek.com>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap\@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"linux-arm-kernel\@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: "Bedia\, Vaibhav" <vaibhav.bedia@ti.com>, nsekhar@ti.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <B5906170F1614E41A8A28DE3B8D121433EA81B04@DBDE01.ent.ti.com>
+	(Vaibhav Bedia's message of "Fri, 4 May 2012 13:55:58 +0000")
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
++Sekhar
 
-this v3 patchset is now pending for more than 1 month without
-seeing comments for it. Are there no more issues?
+"Bedia, Vaibhav" <vaibhav.bedia@ti.com> writes:
 
-Should I rebase it (if no further comments occur), as it is
-pending so long? (If so, against which tree?)
+> Hi Kevin,
+>
+> On Fri, May 04, 2012 at 03:02:16, Hilman, Kevin wrote:
+>> Ben Hutchings <bhutchings@solarflare.com> writes:
+>> 
+>> > On Thu, 2012-05-03 at 19:25 +0000, Bedia, Vaibhav wrote:
+>> >> On Fri, May 04, 2012 at 00:16:32, Mark A. Greer wrote:
+>> >> [...]
+>> >> > > 
+>> >> > > So, if I understood this correctly, it's effectively like blocking a low power
+>> >> > > state transition (here wfi execution) when EMAC is active?
+>> >> > 
+>> >> > Assuming "it" is my patch, correct.
+>> >> > 
+>> >> 
+>> >> Recently I was thinking about how to get certain drivers to disallow some or all
+>> >> low power states and to me this also seems to fall in a similar category.
+>> >> 
+>> >> One of the suggestions that I got was to check if the 'wakeup' entry associated with
+>> >> the device under sysfs could be leveraged for this. The PM code could maintain
+>> >> a whitelist (or blacklist) of devices and it decides the low power state to enter
+>> >> based on the 'wakeup' entries associated with these devices. In this particular case,
+>> >> maybe the driver could simply set this entry to non-wakeup capable when necessary and
+>> >> then let the PM code take care of skipping the wfi execution.
+>> >> 
+>> >> Thoughts/brickbats welcome :)
+>> >
+>> > You can maybe (ab)use the pm_qos mechanism for this.
+>> 
+>> I thought of using this too, but it doesn't actually solve the problem:
+>> 
+>> Using PM QoS, you can avoid hitting the deeper idle states by setting a
+>> very low wakeup latency.  However, on ARM platforms, even the shallowest
+>> idle states use the WFI instruction, and the EMAC would still not be
+>> able to wake the system from WFI.  A possibility would be define the
+>> shallowest idle state to be one that doesn't call WFI and just does
+>> cpu_relax().  However, that would only work for CPUidle since PM QoS
+>> constraints are only checked by CPUidle.  So, a non-CPUidle kernel would
+>> still have this bug. :(
+>> 
+>> Ultimately, this is just broken HW.  This network HW was bolted onto an
+>> existing SoC without consideration for wakeup capabilities.  The result
+>> is that any use of this device with networking has to completely disable
+>> SoC power management.
+>> 
+>
+> I was checking with internally with some folks on the issue being addressed
+> in this patch and unfortunately no one seems to be aware of this :(
 
-Thanks.
+Do you mean they are not aware that the EMAC cannot wakeup th SoC, or
+they are not aware that having a device that cannot wakup the SoC has
+such an impact on Linux.
 
-bye,
-Heiko
+> Mark mentioned nfs mounted rootfs being slow but in my limited testing I
+> didn't observe this on an AM3517 board. I am yet to go through the PSP code
+> to be fully sure that wfi instruction is indeed being executed but I wanted
+> to check if I need to do something specific to reproduce this at my end.
 
-Heiko Schocher wrote:
-> This patchserie add support for the davinci am1808 based
-> enbw_cmc board.
-> 
-> Important: I rebased this patchserie against the irqdomain/next
-> branch from grant likely, as he suggested to rework the OF
-> intcontroller changes to the irqdomain work, branch found here:
-> 
-> http://git.secretlab.ca/?p=linux-2.6.git;a=shortlog;h=refs/heads/irqdomain/next
-> 
->     git://git.secretlab.ca/git/linux-2.6.git irqdomain/next
-> 
->     commit 280ad7fda5f95211857fda38960f2b6fdf6edd3e
->     Author: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
->     Date:   Fri Feb 24 14:58:54 2012 -0700
-> 
->     mfd: twl-core: Add IRQ_DOMAIN dependency
-> 
-> changes for v2:
-> Post this patchserie now as v2, as reworked in the
-> comments I got for the RFC serie.
-> 
-> changes for v3:
-> - Interrupt Controller:
->   - comment from Sergei Shtylyov:
->     - rename compatible" prop to "ti,cp_intc"
->     - cp_intc_init() is now also for the of case
->       the name of the init function (it calls the
->       "new" __cp_intc_init() function, which was
->       the "old" cp_intc_init()). Through this
->       rework the changes for OF is better visible.
->       As the OF case uses the irq_domain rework from
->       Grant Likely, maybe the none OF case can use
->       this also, but this should be tested on a hw ...
->  
-> Got no comments to the following points, I noted in the
-> RFC series, so posting this patchseries with them:
-> 
-> - ARM: davinci: configure davinci aemif chipselects through OF
->   not moved to mfd, as mentioned in this discussion:
->   http://davinci-linux-open-source.1494791.n2.nabble.com/PATCH-arm-davinci-configure-davinci-aemif-chipselects-through-OF-td7059739.html
->   instead use a phandle in the DTS, so drivers which
->   uses the davinci aemif, can call davinci_aemif_setup_timing_of()
-> 
->   This is just thought as an RFC ... The enbw_cmc board
->   support not really need to setup this bus timings, as
->   they are setup in U-Boot ... but I want to post this,
->   as I think, it is a nice to have, and I am not really
->   sure, if this has to be a MFD device (If so, all bus
->   interfaces for other SoCs should be converted also to
->   MFD devices) ... as an example how this can be used
->   I add this to the davinci nand controller OF support
->   patch, in this patchserie.
-> 
-> - ARM: davinci: mux: add OF support
->   I want to get rid of the pin setup code in board code ...
->   This patch introduces a davinci_cfg_reg_of() function,
->   which davinci drivers can call, if they found a
->   "pinmux-handle", so used in the following drivers in
->   this patchserie:
-> 
->   drivers/net/ethernet/ti/davinci_emac
->   drivers/i2c/busses/i2c-davinci.c
->   drivers/mtd/nand/davinci_nand.c
-> 
-> - post this board support with USB support, even though
->   USB is only working with the 10 ms "workaround", posted here:
->   http://comments.gmane.org/gmane.linux.usb.general/54505
->   I see this issue also on the AM1808 TMDXEXP1808L evalboard.
-> 
-> - MMC and USB are not using OF support yet, ideas how to port
->   this are welcome. I need for USB and MMC board specific
->   callbacks, how to solve this with OF support?
-> 
-> Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-> Cc: linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-> Cc: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
-> Cc: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-> Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>
-> Cc: Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>
-> Cc: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-> 
-> Heiko Schocher (7):
->   ARM: davinci, intc: Add OF support for TI interrupt controller
->   ARM: davinci: configure davinci aemif chipselects through OF
->   ARM: davinci: mux: add OF support
->   ARM: davinci: net: davinci_emac: add OF support
->   ARM: davinci: i2c: add OF support
->   ARM: mtd: nand: davinci: add OF support for davinci nand controller
->   ARM: davinci: add support for the am1808 based enbw_cmc board
-> 
->  .../devicetree/bindings/arm/davinci/aemif.txt      |  119 ++++++
->  .../bindings/arm/davinci/davinci_emac.txt          |   43 +++
->  .../devicetree/bindings/arm/davinci/i2c.txt        |   33 ++
->  .../devicetree/bindings/arm/davinci/intc.txt       |   27 ++
->  .../devicetree/bindings/arm/davinci/mux.txt        |   40 ++
->  .../devicetree/bindings/arm/davinci/nand.txt       |   74 ++++
->  arch/arm/boot/dts/enbw_cmc.dts                     |  268 ++++++++++++++
->  arch/arm/configs/enbw_cmc_defconfig                |  123 +++++++
->  arch/arm/mach-davinci/Kconfig                      |    9 +
->  arch/arm/mach-davinci/Makefile                     |    1 +
->  arch/arm/mach-davinci/aemif.c                      |   86 +++++-
->  arch/arm/mach-davinci/board-enbw-cmc.c             |  380 ++++++++++++++++++++
->  arch/arm/mach-davinci/cp_intc.c                    |   87 ++++-
->  arch/arm/mach-davinci/include/mach/aemif.h         |    1 +
->  arch/arm/mach-davinci/include/mach/mux.h           |    2 +
->  arch/arm/mach-davinci/include/mach/uncompress.h    |    1 +
->  arch/arm/mach-davinci/mux.c                        |   73 ++++-
->  drivers/i2c/busses/i2c-davinci.c                   |   37 ++
->  drivers/mtd/nand/davinci_nand.c                    |   85 +++++-
->  drivers/net/ethernet/ti/davinci_emac.c             |   94 +++++-
->  20 files changed, 1569 insertions(+), 14 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/arm/davinci/aemif.txt
->  create mode 100644 Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
->  create mode 100644 Documentation/devicetree/bindings/arm/davinci/i2c.txt
->  create mode 100644 Documentation/devicetree/bindings/arm/davinci/intc.txt
->  create mode 100644 Documentation/devicetree/bindings/arm/davinci/mux.txt
->  create mode 100644 Documentation/devicetree/bindings/arm/davinci/nand.txt
->  create mode 100644 arch/arm/boot/dts/enbw_cmc.dts
->  create mode 100644 arch/arm/configs/enbw_cmc_defconfig
->  create mode 100644 arch/arm/mach-davinci/board-enbw-cmc.c
-> 
+Based on my discussion with Mark, I suspect that the kernel you're using
+is simply not going idle.
 
--- 
-DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd-ynQEQJNshbs@public.gmane.org
+> Irrespective of the above problem being present in the h/w, I feel the approach
+> of adding platform callbacks for blocking deeper idle states will create problems
+> when this is required for multiple peripherals. 
+
+I agree.  If we have to do this for multiple peripherals, the curren
+approach it will become unwieldy.
+
+> I agree that the default behavior should be to support the deepest
+> idle state based on the peripherals being used but IMO the user should
+> have the flexibility to change this behavior if he wishes to do so.
+
+Well, we always have the option of booting with 'nohlt' on the
+commandline.
+
+Since nobody seems to have thought about idle power management in the HW
+design, maybe we shouldn't break our backs to hack around the
+HW brokenness.
+
+Personally, I'm perfectly OK leaving the default behavior of
+sluggish/unresponsive devices that are not wakeup capable.  The only fix
+is to not sleep, and that can be accomplished on the cmdline using
+nohlt (at the expense of some energy savings.)
+
+> I don't know whether the usage of the 'wakeup' entries for giving this
+> control to users qualifies as an abuse of the infrastructure. 
+
+It does.
+
+> If it does, perhaps there should some other mechanism for letting
+> users control the system behavior.
+
+Come to think of it, the right solution here is probably to use runtime
+PM.  We could then to add some custom hooks for davinci_emac in the
+device code to use enable_hlt/disable_hlt based on activity.
+
+In order to do that though, the davinci_emac driver needs to be runtime
+PM converted.
+
+Kevin
+
+
+
+
+
+
+
+
