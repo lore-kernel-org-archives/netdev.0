@@ -1,44 +1,59 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 00/16] Swap-over-NBD without deadlocking V9
-Date: Fri, 4 May 2012 11:16:59 +0100
-Message-ID: <20120504101659.GK11435@suse.de>
-References: <1334578624-23257-1-git-send-email-mgorman@suse.de>
- <20120501152826.b970a098.akpm@linux-foundation.org>
- <20120503150048.GI11435@suse.de>
- <20120503.130611.160512784868698446.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, neilb@suse.de,
-	a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120503.130611.160512784868698446.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
+Date: Fri,  4 May 2012 03:35:08 -0700
+Message-ID: <1336127716-20383-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:2289 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754901Ab2EDKfT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2012 06:35:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 03, 2012 at 01:06:11PM -0400, David Miller wrote:
-> From: Mel Gorman <mgorman@suse.de>
-> Date: Thu, 3 May 2012 16:00:48 +0100
-> 
-> > Any of the networking people care to comment?
-> 
-> Post another series with any lingering feedback you've received and
-> I'll make sure it gets queued up in patchwork so that it gets properly
-> reviewed by us.
-> 
+This series of patches contains updates for e1000e and ixgbe.
+The e1000e updates the version number and adds support for i217
+silicon.  The ixgbe patches are cleanups/re-organizations to
+the driver.
 
-Will do, thanks a lot. Tests are currently running on a rebased series
-and I'll post after a successful completion.
+The following are changes since commit f19250883fe09dd2b6b5f818d84874837948c546:
+  net/niu: remove one superfluous dma mask check
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Alexander Duyck (6):
+  ixgbe: Track instances of buffer available but no DMA resources
+    present
+  ixgbe: Reorder the ring to q_vector mapping to improve performance
+  ixgbe: Make ixgbe_fc_autoneg return void and always set current_mode
+  ixgbe: Use __free_pages instead of put_page to release pages
+  ixgbe: Reorder link flow control functions in ixgbe_common.c
+  ixgbe: Update link flow control to correctly handle multiple packet
+    buffer DCB
+
+Bruce Allan (1):
+  e1000e: initial support for i217
+
+Matthew Vick (1):
+  e1000e: Update driver version number
+
+ drivers/net/ethernet/intel/e1000e/defines.h        |    8 +
+ drivers/net/ethernet/intel/e1000e/e1000.h          |    2 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c        |   17 +-
+ drivers/net/ethernet/intel/e1000e/hw.h             |    9 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c        |  370 +++++++++++-
+ drivers/net/ethernet/intel/e1000e/netdev.c         |   19 +-
+ drivers/net/ethernet/intel/e1000e/phy.c            |    3 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |   65 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |  631 +++++++++-----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |    4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   13 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |   35 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   27 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |    5 +-
+ 14 files changed, 751 insertions(+), 457 deletions(-)
 
 -- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.7.7.6
