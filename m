@@ -1,67 +1,93 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] RPS: Sparse connection optimizations - v2
-Date: Fri, 04 May 2012 22:53:27 +0200
-Message-ID: <1336164807.3752.465.camel@edumazet-glaptop>
-References: <1336035412-2161-1-git-send-email-dczhu@mips.com>
-	 <CA+mtBx_J=fm3+k6_NzMH9KCdrYpZPwT2XBQe4r424eNDCKzazg@mail.gmail.com>
-	 <4FA35A3D.8000205@mips.com>
-	 <CA+mtBx-CErRU=3ewkAjVrGN3dGzjsTz8Q-E8J+Xa+529OVEvwA@mail.gmail.com>
-	 <1336146448.3752.349.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] tcp: be more strict before accepting ECN
+ negociation
+Date: Fri, 04 May 2012 22:49:06 +0200
+Message-ID: <1336164546.3752.460.camel@edumazet-glaptop>
+References: <1336144442.3752.348.camel@edumazet-glaptop>
+	 <4FA41B5B.5080103@hp.com> <1336155815.3752.365.camel@edumazet-glaptop>
+	 <4FA42491.2020104@hp.com> <1336158359.3752.382.camel@edumazet-glaptop>
+	 <4FA43A03.4090707@hp.com>  <4FA43DCE.8040901@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Deng-Cheng Zhu <dczhu@mips.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Perry Lorier <perryl@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Wilmer van der Gaast <wilmer@google.com>,
+	Dave =?ISO-8859-1?Q?T=E4ht?= <dave.taht@bufferbloat.net>,
+	Ankur Jain <jankur@google.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35737 "EHLO
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:42462 "EHLO
 	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759765Ab2EDUxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2012 16:53:31 -0400
-Received: by wibhr7 with SMTP id hr7so1740286wib.1
-        for <netdev@vger.kernel.org>; Fri, 04 May 2012 13:53:30 -0700 (PDT)
-In-Reply-To: <1336146448.3752.349.camel@edumazet-glaptop>
+	with ESMTP id S932896Ab2EDUtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2012 16:49:13 -0400
+Received: by wibhr7 with SMTP id hr7so1737876wib.1
+        for <netdev@vger.kernel.org>; Fri, 04 May 2012 13:49:12 -0700 (PDT)
+In-Reply-To: <4FA43DCE.8040901@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-05-04 at 17:47 +0200, Eric Dumazet wrote:
-> On Fri, 2012-05-04 at 08:31 -0700, Tom Herbert wrote:
-> > > I think the mechanisms of rps_dev_flow_table and cpu_flow (in this
-> > > patch) are different: The former works along with rps_sock_flow_table
-> > > whose CPU info is based on recvmsg by the application. But for the tests
-> > > like what I did, there's no application involved.
-> > >
-> > While rps_sock_flow_table is currently only managed by recvmsg, it
-> > still is the general mechanism that maps flows to CPUs for steering.
-> > There should be nothing preventing you from populating and managing
-> > entries in other ways.
+On Fri, 2012-05-04 at 13:36 -0700, Rick Jones wrote:
+> On 05/04/2012 01:20 PM, Rick Jones wrote:
+> > True, I'm looking at more than the ECN bits, but in the 90 minutes the
+> > tcpdump has been running there have been no packets with the any of the
+> > 8 bits at ip[1] being 1 anyway :) Netperf.org doesn't get a massive
+> > quantity of traffic. It may go the entire week-end or longer without
+> > seeing such a packet.
 > 
-> It might be done from a netfilter module, activated in FORWARD chain for
-> example.
+> I see fate is working as intended, or someone decided to try to feed me 
+> my words :) for within 6 minutes of my sending the above I got:
 > 
+> 13:26:16.866007 IP (tos 0x3,CE, ttl 41, id 28850, offset 0, flags [DF], 
+> proto TCP (6), length 64)
+>      somesystemin.de.55363 > www.netperf.org.www: Flags [S], cksum 
+> 0x4cfc (correct), seq 304457158, win 65535, options [mss 1460,nop,wscale 
+> 3,nop,nop,TS val 288116308 ecr 0,sackOK,eol], length 0
+> 13:26:17.831880 IP (tos 0x3,CE, ttl 41, id 6911, offset 0, flags [DF], 
+> proto TCP (6), length 64)
+>      somesystemin.de.55367 > www.netperf.org.www: Flags [S], cksum 
+> 0x17aa (correct), seq 586073737, win 65535, options [mss 1460,nop,wscale 
+> 3,nop,nop,TS val 288117270 ecr 0,sackOK,eol], length 0
+> 13:26:17.831929 IP (tos 0x3,CE, ttl 41, id 28924, offset 0, flags [DF], 
+> proto TCP (6), length 64)
+>      somesystemin.de.55368 > www.netperf.org.www: Flags [S], cksum 
+> 0x07cc (correct), seq 1513398047, win 65535, options [mss 
+> 1460,nop,wscale 3,nop,nop,TS val 288117271 ecr 0,sackOK,eol], length 0
+> 13:26:17.831952 IP (tos 0x3,CE, ttl 41, id 2494, offset 0, flags [DF], 
+> proto TCP (6), length 64)
+>      somesystemin.de.55366 > www.netperf.org.www: Flags [S], cksum 
+> 0x75f4 (correct), seq 1153058420, win 65535, options [mss 
+> 1460,nop,wscale 3,nop,nop,TS val 288117270 ecr 0,sackOK,eol], length 0
+> 13:26:17.832177 IP (tos 0x3,CE, ttl 41, id 6854, offset 0, flags [DF], 
+> proto TCP (6), length 64)
+>      somesystemin.de.55365 > www.netperf.org.www: Flags [S], cksum 
+> 0xfca0 (correct), seq 2332522875, win 65535, options [mss 
+> 1460,nop,wscale 3,nop,nop,TS val 288117270 ecr 0,sackOK,eol], length 0
+> 13:26:17.832239 IP (tos 0x3,CE, ttl 41, id 64733, offset 0, flags [DF], 
+> proto TCP (6), length 64)
+>      somesystemin.de.55364 > www.netperf.org.www: Flags [S], cksum 
+> 0x7414 (correct), seq 1544827132, win 65535, options [mss 
+> 1460,nop,wscale 3,nop,nop,TS val 288117270 ecr 0,sackOK,eol], length 0
+> 13:26:38.649126 IP (tos 0x3,CE, ttl 41, id 9860, offset 0, flags [DF], 
+> proto TCP (6), length 64)
+>      somesystemin.de.55369 > www.netperf.org.www: Flags [S], cksum 
+> 0x6270 (correct), seq 683091230, win 65535, options [mss 1460,nop,wscale 
+> 3,nop,nop,TS val 288137968 ecr 0,sackOK,eol], length 0
+> 13:26:39.417589 IP (tos 0x3,CE, ttl 41, id 13478, offset 0, flags [DF], 
+> proto TCP (6), length 64)
+>      somesystemin.de.55370 > www.netperf.org.www: Flags [S], cksum 
+> 0x2862 (correct), seq 3168323595, win 65535, options [mss 
+> 1460,nop,wscale 3,nop,nop,TS val 288138734 ecr 0,sackOK,eol], length 0
 > 
+> rick
 
-A good indicator of the network load of a cpu would be to gather
-&per_cpu(softnet_data, cpu)->input_pkt_queue.qlen in an EWMA.
+Interesting indeed ;)
 
+Did you check if it was spoofed ?
 
-We could dynamically adjust active cpus in RPS set given the load of the
-machine.
-
-On low load, cpu handling NIC interrupt could also bypass RPS and avoid
-IPI to other cpus for low overhead.
-
-tcpu = map->cpus[((u64) skb->rxhash * map->len) >> 32];
-
-->
-
-	if (map->curlen) {
-		tcpu = map->cpus[((u64) skb->rxhash * map->curlen) >> 32];
-		if (cpu_online(tcpu)) 
-			return tcpu;
-	}	
-	return -1;
-
-Every second or so (to reduce Out Of Order impact), allow curlen to be
-incremented/decremented in [0 .. map->len] if load is
-increasing/lowering.
+(did the 3WHS really completed)
