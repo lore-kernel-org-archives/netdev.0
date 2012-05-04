@@ -1,66 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: pull request: wireless-next 2012-05-03
-Date: Fri, 04 May 2012 02:42:34 -0700
-Message-ID: <1336124554.1766.11.camel@joe2Laptop>
-References: <20120503152206.GL9285@tuxdriver.com>
-	 <20120503.130516.1008806127286088740.davem@davemloft.net>
-	 <20120503.131707.112550136096227430.davem@davemloft.net>
-	 <1336066186.13866.25.camel@joe2Laptop> <4FA399E1.5080708@broadcom.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 7/9] net: add skb_orphan_frags to copy aside frags with
+ destructors
+Date: Fri, 4 May 2012 13:03:11 +0300
+Message-ID: <20120504100310.GB31083@redhat.com>
+References: <20120503154142.GB27671@redhat.com>
+ <20120503.135532.1038384417514973419.davem@davemloft.net>
+ <20120503210826.GA30504@redhat.com>
+ <20120504.025433.1474691040952890731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: ian.campbell@citrix.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:32822 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753676Ab2EDJmf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2012 05:42:35 -0400
-In-Reply-To: <4FA399E1.5080708@broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:65169 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753256Ab2EDKDI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2012 06:03:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20120504.025433.1474691040952890731.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-05-04 at 10:57 +0200, Arend van Spriel wrote:
-> On 05/03/2012 07:29 PM, Joe Perches wrote:
-> > On Thu, 2012-05-03 at 13:17 -0400, David Miller wrote:
-> >>  ...
-> >> -		if (hdev->discovery.type == DISCOV_TYPE_INTERLEAVED) {
-> >> +		if (hdev->discovery.type == DISCOV_TYPE_INTERLEAVED &&
-> >> +				hdev->discovery.state == DISCOVERY_FINDING) {
-> >>
-> >> Really, we went through this a million times very recently and I'm
-> >> not pulling anything into my tree that has garbage like this in it.
-> > 
-> > Perhaps the bluetooth folk can adopt using
-> > 
-> > scripts/checkpatch.pl --strict
-> > 
-> > or maybe checkpatch could be changed to use
-> > --strict on patches in net and drivers/net
-> > automatically.
+On Fri, May 04, 2012 at 02:54:33AM -0400, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Fri, 4 May 2012 00:10:24 +0300
 > 
-> When the --strict option was added it
+> > Hmm we orphan skbs when we loop them back so how about reusing the
+> > skb->destructor for this?
+> 
+> That's one possibility.
+> 
+> But I fear we're about to toss Ian into yet another rabbit hole. :-)
+> 
+> Let's try to converge on something quickly as I think integration of
+> his work has been delayed enough as-is.
 
---strict was added to checkpatch in 2007
-to quiet some of the more controversial
-output messages.
+This is more intrusive than I'd like because on
+error we need to free the skb, so need
+to return error code from orphan, but it does not add
+an extra branch since skb_orphan is inline.
+So intrusive but should not hurt fast path.
 
-> So why not do --strict by default and get rid of the option flag.
+It's weekend here, I'll work on a patch like this
+Sunday.
 
-Some subsystem maintainers would again
-complain about checkpatch output verbosity.
-
-Maybe some of the less controversial CHK 
-tests can be changed to WARN.
-
-Still, who really cares whether or not
-multiline indentation is aligned after an
-open parenthesis or on a tabstop?
-
-Ted Ts'o had an idea awhile back about
-adding .checkpatch config files to every
-directory that had specific formatting
-wants.  That might work too.
-
-https://lkml.org/lkml/2012/3/13/662
+-- 
+MST
