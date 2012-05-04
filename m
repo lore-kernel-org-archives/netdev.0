@@ -1,38 +1,37 @@
-From: Deng-Cheng Zhu <dczhu@mips.com>
-Subject: Re: [PATCH v2] RPS: Sparse connection optimizations - v2
-Date: Fri, 4 May 2012 12:25:33 +0800
-Message-ID: <4FA35A3D.8000205@mips.com>
-References: <1336035412-2161-1-git-send-email-dczhu@mips.com> <CA+mtBx_J=fm3+k6_NzMH9KCdrYpZPwT2XBQe4r424eNDCKzazg@mail.gmail.com>
+From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the
+ wireless tree
+Date: Thu, 03 May 2012 21:35:30 -0700
+Message-ID: <1336106130.11261.5.camel@wwguy-huron>
+References: <20120504132138.d0142070434e502dfcb8a980@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dns0.mips.com ([12.201.5.70]:55112 "EHLO dns0.mips.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750789Ab2EDEZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2012 00:25:43 -0400
-In-Reply-To: <CA+mtBx_J=fm3+k6_NzMH9KCdrYpZPwT2XBQe4r424eNDCKzazg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	alexander.duyck@gmail.com, alexander.h.duyck@intel.com,
+	jeffrey.t.kirsher@intel.com, linux-wireless@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120504132138.d0142070434e502dfcb8a980@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/04/2012 11:22 AM, Tom Herbert wrote:
->> +struct cpu_flow {
->> +       struct net_device *dev;
->> +       u32 rxhash;
->> +       unsigned long ts;
->> +};
->
-> This seems like overkill, we already have the rps_flow_table and this
-> used in accelerated RFS so the device can also take advantage of
-> steering.
+On Fri, 2012-05-04 at 13:21 +1000, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net-next tree got conflicts in
+> drivers/net/wireless/iwlwifi/iwl-trans.h,
+> drivers/net/wireless/iwlwifi/iwl-trans-pcie-rx.c, and
+> drivers/net/wireless/iwlwifi/iwl-agn-rx.c between commit ed90542b0ce5
+> ("iwlwifi: fix skb truesize underestimation") from the wireless tree and
+> various commits from the net-next tree.
+> 
+> This was anticipated and I have applied the fix supplied by John (see
+> below just to check).  Thanks to John for this!
 
-I think the mechanisms of rps_dev_flow_table and cpu_flow (in this
-patch) are different: The former works along with rps_sock_flow_table
-whose CPU info is based on recvmsg by the application. But for the tests
-like what I did, there's no application involved.
+Thanks everyone to help address this, it is my miss to cause all these trouble
 
-
-Deng-Cheng
+Wey
