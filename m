@@ -1,53 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: be more strict before accepting ECN
- negociation
-Date: Fri, 04 May 2012 20:23:35 +0200
-Message-ID: <1336155815.3752.365.camel@edumazet-glaptop>
-References: <1336144442.3752.348.camel@edumazet-glaptop>
-	 <4FA41B5B.5080103@hp.com>
+From: "Mark A. Greer" <mgreer@animalcreek.com>
+Subject: Re: [PATCH] net: davinci_emac: Add pre_open, post_stop platform
+ callbacks
+Date: Fri, 4 May 2012 11:29:38 -0700
+Message-ID: <20120504182938.GB28910@animalcreek.com>
+References: <20120502234718.GA5432@animalcreek.com>
+ <B5906170F1614E41A8A28DE3B8D121433EA72820@DBDE01.ent.ti.com>
+ <20120503160917.GA11310@animalcreek.com>
+ <B5906170F1614E41A8A28DE3B8D121433EA73591@DBDE01.ent.ti.com>
+ <20120503184632.GA28089@animalcreek.com>
+ <B5906170F1614E41A8A28DE3B8D121433EA7366B@DBDE01.ent.ti.com>
+ <1336076542.2998.23.camel@bwh-desktop.uk.solarflarecom.com>
+ <87ehr1gdcv.fsf@ti.com>
+ <B5906170F1614E41A8A28DE3B8D121433EA81B04@DBDE01.ent.ti.com>
+ <87fwbgdnlp.fsf@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Perry Lorier <perryl@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Wilmer van der Gaast <wilmer@google.com>,
-	Dave =?ISO-8859-1?Q?T=E4ht?= <dave.taht@bufferbloat.net>,
-	Ankur Jain <jankur@google.com>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:44010 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753875Ab2EDSXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2012 14:23:45 -0400
-Received: by bkcji2 with SMTP id ji2so2448196bkc.19
-        for <netdev@vger.kernel.org>; Fri, 04 May 2012 11:23:43 -0700 (PDT)
-In-Reply-To: <4FA41B5B.5080103@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Bedia, Vaibhav" <vaibhav.bedia@ti.com>, nsekhar@ti.com,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Kevin Hilman <khilman@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87fwbgdnlp.fsf@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-05-04 at 11:09 -0700, Rick Jones wrote:
-> On 05/04/2012 08:14 AM, Eric Dumazet wrote:
-> > From: Eric Dumazet<edumazet@google.com>
-> >
-> > It appears some networks play bad games with the two bits reserved for
-> > ECN. This can trigger false congestion notifications and very slow
-> > transferts.
-> >
-> > Since RFC 3168 (6.1.1) forbids SYN packets to carry CT bits, we can
-> > disable TCP ECN negociation if it happens we receive mangled CT bits in
-> > the SYN packet.
+On Fri, May 04, 2012 at 07:31:30AM -0700, Kevin Hilman wrote:
+> "Bedia, Vaibhav" <vaibhav.bedia@ti.com> writes:
+
+Hi Kevin.
+
+> > If it does, perhaps there should some other mechanism for letting
+> > users control the system behavior.
 > 
-> What sort of networks were these?  Any chance it was some sort of 
-> attempt to add ECN to FastOpen?
+> Come to think of it, the right solution here is probably to use runtime
+> PM.  We could then to add some custom hooks for davinci_emac in the
+> device code to use enable_hlt/disable_hlt based on activity.
 
-Nothing to do with fastopen.
+That was my first thought, actually, but that only works if its
+okay for the driver to call enable_hlt/disable_hlt directly (i.e.,
+have runtime_suspend() call enable_hlt() and runtime_resume() call
+disable_hlt()).  However, I assumed it would _not_ be acceptable for
+the driver to issue those calls directly.  Its a platform-specific
+issue that we shouldn't be polluting the driver with and there are
+currently no drivers that call them under the drivers directory.
 
-Just take a look at a random http server and sample all SYN packets it
-receives.
+If its not okay to call enable_hlt/disable_hlt directly, then we still
+need callback hooks to the plaform code (i.e., some version of this
+patch).
 
-Some of them have TOS bits 0 or 1 set, or even both bits set.
+> In order to do that though, the davinci_emac driver needs to be runtime
+> PM converted.
+
+We probably should pm_runtime-ize the driver either way but we need
+to resolve the question of whether its okay for the driver to call
+enable_hlt/disable_hlt directly or not.  If it is okay, we call them
+in runtime_suspend/resume.  If it isn't okay, then we still need 
+platform callback hooks.
+
+Mark
