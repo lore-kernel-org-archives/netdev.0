@@ -1,88 +1,80 @@
-From: "dilieto@lineone.net" <dilieto@lineone.net>
-Subject: Re: [REGRESSION][PATCH] Fix an old sky2 WOL regression
-Date: Fri, 4 May 2012 21:17:02 +0100 (BST)
-Message-ID: <32467848.260261336162622524.JavaMail.defaultUser@defaultHost>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tcp: be more strict before accepting ECN negociation
+Date: Fri, 04 May 2012 13:36:30 -0700
+Message-ID: <4FA43DCE.8040901@hp.com>
+References: <1336144442.3752.348.camel@edumazet-glaptop> <4FA41B5B.5080103@hp.com> <1336155815.3752.365.camel@edumazet-glaptop> <4FA42491.2020104@hp.com> <1336158359.3752.382.camel@edumazet-glaptop> <4FA43A03.4090707@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>, arekm@maven.pl,
-	Jared <nitro@legroom.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Knut_Petersen@t-online.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Perry Lorier <perryl@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Wilmer van der Gaast <wilmer@google.com>,
+	=?UTF-8?B?RGF2ZSBUw6RodA==?= <dave.taht@bufferbloat.net>,
+	Ankur Jain <jankur@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:38276 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753868Ab2EDUgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 May 2012 16:36:32 -0400
+In-Reply-To: <4FA43A03.4090707@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Knut,
+On 05/04/2012 01:20 PM, Rick Jones wrote:
+> True, I'm looking at more than the ECN bits, but in the 90 minutes the
+> tcpdump has been running there have been no packets with the any of the
+> 8 bits at ip[1] being 1 anyway :) Netperf.org doesn't get a massive
+> quantity of traffic. It may go the entire week-end or longer without
+> seeing such a packet.
 
-I am sorry it took a while to try it due to other=20
-commitments, however I can now confirm the patch works on my ASUS P5LD2=
-=20
-motherboard.
+I see fate is working as intended, or someone decided to try to feed me 
+my words :) for within 6 minutes of my sending the above I got:
 
-Many thanks
-Nicola
+13:26:16.866007 IP (tos 0x3,CE, ttl 41, id 28850, offset 0, flags [DF], 
+proto TCP (6), length 64)
+     somesystemin.de.55363 > www.netperf.org.www: Flags [S], cksum 
+0x4cfc (correct), seq 304457158, win 65535, options [mss 1460,nop,wscale 
+3,nop,nop,TS val 288116308 ecr 0,sackOK,eol], length 0
+13:26:17.831880 IP (tos 0x3,CE, ttl 41, id 6911, offset 0, flags [DF], 
+proto TCP (6), length 64)
+     somesystemin.de.55367 > www.netperf.org.www: Flags [S], cksum 
+0x17aa (correct), seq 586073737, win 65535, options [mss 1460,nop,wscale 
+3,nop,nop,TS val 288117270 ecr 0,sackOK,eol], length 0
+13:26:17.831929 IP (tos 0x3,CE, ttl 41, id 28924, offset 0, flags [DF], 
+proto TCP (6), length 64)
+     somesystemin.de.55368 > www.netperf.org.www: Flags [S], cksum 
+0x07cc (correct), seq 1513398047, win 65535, options [mss 
+1460,nop,wscale 3,nop,nop,TS val 288117271 ecr 0,sackOK,eol], length 0
+13:26:17.831952 IP (tos 0x3,CE, ttl 41, id 2494, offset 0, flags [DF], 
+proto TCP (6), length 64)
+     somesystemin.de.55366 > www.netperf.org.www: Flags [S], cksum 
+0x75f4 (correct), seq 1153058420, win 65535, options [mss 
+1460,nop,wscale 3,nop,nop,TS val 288117270 ecr 0,sackOK,eol], length 0
+13:26:17.832177 IP (tos 0x3,CE, ttl 41, id 6854, offset 0, flags [DF], 
+proto TCP (6), length 64)
+     somesystemin.de.55365 > www.netperf.org.www: Flags [S], cksum 
+0xfca0 (correct), seq 2332522875, win 65535, options [mss 
+1460,nop,wscale 3,nop,nop,TS val 288117270 ecr 0,sackOK,eol], length 0
+13:26:17.832239 IP (tos 0x3,CE, ttl 41, id 64733, offset 0, flags [DF], 
+proto TCP (6), length 64)
+     somesystemin.de.55364 > www.netperf.org.www: Flags [S], cksum 
+0x7414 (correct), seq 1544827132, win 65535, options [mss 
+1460,nop,wscale 3,nop,nop,TS val 288117270 ecr 0,sackOK,eol], length 0
+13:26:38.649126 IP (tos 0x3,CE, ttl 41, id 9860, offset 0, flags [DF], 
+proto TCP (6), length 64)
+     somesystemin.de.55369 > www.netperf.org.www: Flags [S], cksum 
+0x6270 (correct), seq 683091230, win 65535, options [mss 1460,nop,wscale 
+3,nop,nop,TS val 288137968 ecr 0,sackOK,eol], length 0
+13:26:39.417589 IP (tos 0x3,CE, ttl 41, id 13478, offset 0, flags [DF], 
+proto TCP (6), length 64)
+     somesystemin.de.55370 > www.netperf.org.www: Flags [S], cksum 
+0x2862 (correct), seq 3168323595, win 65535, options [mss 
+1460,nop,wscale 3,nop,nop,TS val 288138734 ecr 0,sackOK,eol], length 0
 
-On 2012-03-21 12:40, Knut Petersen=20
-wrote:
-> Sky2 Wake on LAN is broken since February 2010 on a number of=20
-systems.
-> Yes. More than two years.
->
-> We know about the problem and=20
-the cause since October 2010
-> (Bugzilla bug #19492). It=C2=B4s commit=20
-87b09f1f25cd1e01d7c50bf423c7fe33027d7511.
->
-> Stephen, David: You=20
-signed off that commit.
->
-> Andrew: You called it a regression in=20
-October 2010.
->
-> It has been proposed to revert the commit that caused=20
-the problem.
-> Nothing happened.
->
-> I proposed to re-establish the old=20
-code for dmi_match()ed systems.
-> Without success.
->
-> Now it is=20
-proposed to re-establish the old code as a configuration option.
-> If=20
-nothing happens again I will propose a module parameter ;-)
->
->=20
-Stephen, I don=C2=B4t want to be a pain in the neck, and it is not my=20
-intention
-> to offend you by my "attitude". But I simply cannot=20
-understand why this
-> know regression is not fixed. The bit we talk=20
-about is documented,
-> and in fact it was set for a number of kernel=20
-versions unconditionally.
-> Nobody complained about ruined hardware or=20
-minor problems.
->
-> The systems affected are old enough that no=20
-manufacturer cares about
-> them, but they are still quite usable for a=20
-lot of jobs (kernel 3.3 compile
-> time here is below 15 minutes).
->
->=20
-If there is a problem in the kernel and if we do know an easy solution,
-
-> that solution should be commited to the kernel, no matter what is=20
-written
-> in some random documentation, no matter if we could blame=20
-some
-> BIOS authors. That=C2=B4s the way Linux works - at least I thought=20
-so.
->
-> cu,
-> Knut
+rick
