@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/8] ixgbe: Use __free_pages instead of put_page to release pages
-Date: Fri,  4 May 2012 03:35:14 -0700
-Message-ID: <1336127716-20383-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/8] ixgbe: Make ixgbe_fc_autoneg return void and always set current_mode
+Date: Fri,  4 May 2012 03:35:13 -0700
+Message-ID: <1336127716-20383-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1336127716-20383-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2289 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:55510 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755361Ab2EDKfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754928Ab2EDKfW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 4 May 2012 06:35:22 -0400
 In-Reply-To: <1336127716-20383-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,41 +18,172 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change replaces the calls to put_page with calls to __free_page.
-
-Since the FCoE code is able to access order 1 pages I thought it would be a
-good idea to change things over to using __free_pages since that is the
-preferred approach for freeing pages.
+This change makes it so that ixgbe_fc_autoneg is a void and always sets the
+current_mode.  Previously if the link was down we would return an error,
+however there is no harm in simply treating a link down case as a case in
+which autoneg simply failed.  This allows us to rely on the return value of
+the ixgbe_fc_enable call now since there should be no cases where it
+returns an error that would normally be ignored.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |    4 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   37 +++++++----------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |    1 -
+ 4 files changed, 13 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 09409ae..c2ceda9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1144,7 +1144,7 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
- 	 * there isn't much point in holding memory we can't use
- 	 */
- 	if (dma_mapping_error(rx_ring->dev, dma)) {
--		put_page(page);
-+		__free_pages(page, ixgbe_rx_pg_order(rx_ring));
- 		bi->page = NULL;
- 
- 		rx_ring->rx_stats.alloc_rx_page_failed++;
-@@ -4102,7 +4102,8 @@ static void ixgbe_clean_rx_ring(struct ixgbe_ring *rx_ring)
- 				       DMA_FROM_DEVICE);
- 		rx_buffer->dma = 0;
- 		if (rx_buffer->page)
--			put_page(rx_buffer->page);
-+			__free_pages(rx_buffer->page,
-+				     ixgbe_rx_pg_order(rx_ring));
- 		rx_buffer->page = NULL;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 6175845..badcf82 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -363,9 +363,7 @@ static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
  	}
  
+ 	/* Negotiate the fc mode to use */
+-	ret_val = ixgbe_fc_autoneg(hw);
+-	if (ret_val == IXGBE_ERR_FLOW_CONTROL)
+-		goto out;
++	ixgbe_fc_autoneg(hw);
+ 
+ 	/* Disable any previous flow control settings */
+ 	fctrl_reg = IXGBE_READ_REG(hw, IXGBE_FCTRL);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index e2b0519..9854d94 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -1940,9 +1940,7 @@ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 
+ #endif /* CONFIG_DCB */
+ 	/* Negotiate the fc mode to use */
+-	ret_val = ixgbe_fc_autoneg(hw);
+-	if (ret_val == IXGBE_ERR_FLOW_CONTROL)
+-		goto out;
++	ixgbe_fc_autoneg(hw);
+ 
+ 	/* Disable any previous flow control settings */
+ 	mflcn_reg = IXGBE_READ_REG(hw, IXGBE_MFLCN);
+@@ -2051,15 +2049,12 @@ out:
+  *  Compares our advertised flow control capabilities to those advertised by
+  *  our link partner, and determines the proper flow control mode to use.
+  **/
+-s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw)
++void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+ {
+ 	s32 ret_val = IXGBE_ERR_FC_NOT_NEGOTIATED;
+ 	ixgbe_link_speed speed;
+ 	bool link_up;
+ 
+-	if (hw->fc.disable_fc_autoneg)
+-		goto out;
+-
+ 	/*
+ 	 * AN should have completed when the cable was plugged in.
+ 	 * Look for reasons to bail out.  Bail out if:
+@@ -2069,11 +2064,12 @@ s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+ 	 * Since we're being called from an LSC, link is already known to be up.
+ 	 * So use link_up_wait_to_complete=false.
+ 	 */
++	if (hw->fc.disable_fc_autoneg)
++		goto out;
++
+ 	hw->mac.ops.check_link(hw, &speed, &link_up, false);
+-	if (!link_up) {
+-		ret_val = IXGBE_ERR_FLOW_CONTROL;
++	if (!link_up)
+ 		goto out;
+-	}
+ 
+ 	switch (hw->phy.media_type) {
+ 	/* Autoneg flow control on fiber adapters */
+@@ -2104,7 +2100,6 @@ out:
+ 		hw->fc.fc_was_autonegged = false;
+ 		hw->fc.current_mode = hw->fc.requested_mode;
+ 	}
+-	return ret_val;
+ }
+ 
+ /**
+@@ -2116,7 +2111,7 @@ out:
+ static s32 ixgbe_fc_autoneg_fiber(struct ixgbe_hw *hw)
+ {
+ 	u32 pcs_anadv_reg, pcs_lpab_reg, linkstat;
+-	s32 ret_val;
++	s32 ret_val = IXGBE_ERR_FC_NOT_NEGOTIATED;
+ 
+ 	/*
+ 	 * On multispeed fiber at 1g, bail out if
+@@ -2126,10 +2121,8 @@ static s32 ixgbe_fc_autoneg_fiber(struct ixgbe_hw *hw)
+ 
+ 	linkstat = IXGBE_READ_REG(hw, IXGBE_PCS1GLSTA);
+ 	if ((!!(linkstat & IXGBE_PCS1GLSTA_AN_COMPLETE) == 0) ||
+-	    (!!(linkstat & IXGBE_PCS1GLSTA_AN_TIMED_OUT) == 1)) {
+-		ret_val = IXGBE_ERR_FC_NOT_NEGOTIATED;
++	    (!!(linkstat & IXGBE_PCS1GLSTA_AN_TIMED_OUT) == 1))
+ 		goto out;
+-	}
+ 
+ 	pcs_anadv_reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
+ 	pcs_lpab_reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANLP);
+@@ -2153,7 +2146,7 @@ out:
+ static s32 ixgbe_fc_autoneg_backplane(struct ixgbe_hw *hw)
+ {
+ 	u32 links2, anlp1_reg, autoc_reg, links;
+-	s32 ret_val;
++	s32 ret_val = IXGBE_ERR_FC_NOT_NEGOTIATED;
+ 
+ 	/*
+ 	 * On backplane, bail out if
+@@ -2161,21 +2154,13 @@ static s32 ixgbe_fc_autoneg_backplane(struct ixgbe_hw *hw)
+ 	 * - we are 82599 and link partner is not AN enabled
+ 	 */
+ 	links = IXGBE_READ_REG(hw, IXGBE_LINKS);
+-	if ((links & IXGBE_LINKS_KX_AN_COMP) == 0) {
+-		hw->fc.fc_was_autonegged = false;
+-		hw->fc.current_mode = hw->fc.requested_mode;
+-		ret_val = IXGBE_ERR_FC_NOT_NEGOTIATED;
++	if ((links & IXGBE_LINKS_KX_AN_COMP) == 0)
+ 		goto out;
+-	}
+ 
+ 	if (hw->mac.type == ixgbe_mac_82599EB) {
+ 		links2 = IXGBE_READ_REG(hw, IXGBE_LINKS2);
+-		if ((links2 & IXGBE_LINKS2_AN_SUPPORTED) == 0) {
+-			hw->fc.fc_was_autonegged = false;
+-			hw->fc.current_mode = hw->fc.requested_mode;
+-			ret_val = IXGBE_ERR_FC_NOT_NEGOTIATED;
++		if ((links2 & IXGBE_LINKS2_AN_SUPPORTED) == 0)
+ 			goto out;
+-		}
+ 	}
+ 	/*
+ 	 * Read the 10g AN autoc and LP ability registers and resolve
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index f992777..9e8a1c0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -78,7 +78,7 @@ s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
+ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packetbuf_num);
+-s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw);
++void ixgbe_fc_autoneg(struct ixgbe_hw *hw);
+ 
+ s32 ixgbe_validate_mac_addr(u8 *mac_addr);
+ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index d82e25c..5337260 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2981,7 +2981,6 @@ struct ixgbe_info {
+ #define IXGBE_ERR_OVERTEMP                      -26
+ #define IXGBE_ERR_FC_NOT_NEGOTIATED             -27
+ #define IXGBE_ERR_FC_NOT_SUPPORTED              -28
+-#define IXGBE_ERR_FLOW_CONTROL                  -29
+ #define IXGBE_ERR_SFP_SETUP_NOT_COMPLETE        -30
+ #define IXGBE_ERR_PBA_SECTION                   -31
+ #define IXGBE_ERR_INVALID_ARGUMENT              -32
 -- 
 1.7.7.6
