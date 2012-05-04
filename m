@@ -1,48 +1,32 @@
 From: Jiri Bohac <jbohac@suse.cz>
 Subject: Re: bonding: don't increase rx_dropped after processing LACPDUs
-Date: Fri, 4 May 2012 14:15:45 +0200
-Message-ID: <20120504121545.GA32665@midget.suse.cz>
+Date: Fri, 4 May 2012 14:16:29 +0200
+Message-ID: <20120504121629.GB32665@midget.suse.cz>
 References: <20120502202309.GA25355@midget.suse.cz>
  <1335991009.22133.639.camel@edumazet-glaptop>
  <20120502205118.GB25355@midget.suse.cz>
- <1765.1336000239@death.nxdomain>
+ <20120502.194105.1211756092128572035.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Bohac <jbohac@suse.cz>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: jbohac@suse.cz, eric.dumazet@gmail.com, fubar@us.ibm.com,
+	andy@greyhouse.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:58520 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:58540 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755472Ab2EDMPr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2012 08:15:47 -0400
+	id S1755472Ab2EDMQb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2012 08:16:31 -0400
 Content-Disposition: inline
-In-Reply-To: <1765.1336000239@death.nxdomain>
+In-Reply-To: <20120502.194105.1211756092128572035.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 02, 2012 at 04:10:39PM -0700, Jay Vosburgh wrote:
-> 	Won't this make it impossible to bind a PF_PACKET socket to
-> sll_protocol == ETH_P_SLOW and see the LACPDUs, but only when bonding is
-> running 802.3ad? 
+On Wed, May 02, 2012 at 07:41:05PM -0400, David Miller wrote:
+> I'm not going to go back to your original posting and put that
+> commit message from there into the fixed patch.  That's your
+> job as a patch submitter, not mine.
 
-yes it will...
-
-> This because the ptype_all check in
-> __netif_receive_skb happens before the rx_handler, but the ptype_base
-> check (bound packet socket, for example) happens after.  Currently,
-> libpcap looks to bind to ETH_P_ALL, so it won't be affected.
-
-Does it make any sense for the packet socket not to bind to
-ETH_P_ALL? With all the rx_handlers interfering with the packet
-(e.g. modifying skb->dev, modifying the MAC address), binding to
-ETH_P_SLOW will never reliably get you the the original frame
-with reliable information about the incoming device. 
-
-> If so, is that something we care about?
-
-I think not.
- 
+Sorry! I'll resend...
 
 -- 
 Jiri Bohac <jbohac@suse.cz>
