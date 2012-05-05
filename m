@@ -1,47 +1,55 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 0/3] First pass of cleanups for pskb_expand_head
-Date: Fri, 04 May 2012 23:51:33 -0700
-Message-ID: <4FA4CDF5.3070208@gmail.com>
-References: <20120505001059.21292.31647.stgit@gitlad.jf.intel.com> <1336196671.3752.490.camel@edumazet-glaptop>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [net-next 2/8] e1000e: initial support for i217
+Date: Sat, 05 May 2012 10:01:39 +0200
+Message-ID: <87mx5njbto.fsf@nemi.mork.no>
+References: <1336127716-20383-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1336127716-20383-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, Bruce Allan <bruce.w.allan@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:59051 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752507Ab2EEGvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2012 02:51:43 -0400
-Received: by yenm10 with SMTP id m10so2887468yen.19
-        for <netdev@vger.kernel.org>; Fri, 04 May 2012 23:51:42 -0700 (PDT)
-In-Reply-To: <1336196671.3752.490.camel@edumazet-glaptop>
+Received: from canardo.mork.no ([148.122.252.1]:47052 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752130Ab2EEIBz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2012 04:01:55 -0400
+In-Reply-To: <1336127716-20383-3-git-send-email-jeffrey.t.kirsher@intel.com>
+	(Jeff Kirsher's message of "Fri, 4 May 2012 03:35:10 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/4/2012 10:44 PM, Eric Dumazet wrote:
-> On Fri, 2012-05-04 at 17:26 -0700, Alexander Duyck wrote:
->> pull the actual value.
->>
->> There are a few more items that I will try to get to next week.  The big one
->> is the fact that pskb_expand_head can mess up the truesize since it can
->> allocate a new head but never updates the truesize.  I plan on adding a helper
->> function for the cases where we are just using it unshare the head so I can
->> identify the places where we are actually modifying the size.
-> In the old days, truesize adjustements were done after
-> pskb_expand_head() calls. (Mabye because some contexts didnt care of
-> truesize for ephemeral skbs, not charged to a socket)
->
-> So it will be a nice cleanup for sure.
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
 
-I suspect the reason for no truesize adjustment is because this function 
-gets called in the transmit path, and we probably should be adjusting 
-truesize while there is still a desctructor in place that will turn 
-around and subtract the truesize from the socket memory.  I'm still 
-thinking about what would be the best solution to that, but in the 
-meantime I figure I can at least add a helper function to handle all the 
-pskb_expand_head(skb, 0, 0, GFP_ATOMIC) cases and just replace them with 
-something like skb_unshare_head(skb).  That way I will have a better 
-idea of the few cases where we might actually impact truesize.
+> diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/ne=
+t/ethernet/intel/e1000e/defines.h
+> index 3a50259..11c4666 100644
+> --- a/drivers/net/ethernet/intel/e1000e/defines.h
+> +++ b/drivers/net/ethernet/intel/e1000e/defines.h
+> @@ -74,7 +74,9 @@
+>  #define E1000_WUS_BC           E1000_WUFC_BC
+> =20
+>  /* Extended Device Control */
+> +#define E1000_CTRL_EXT_LPCD  0x00000004     /* LCD Power Cycle Done =
+*/
+>  #define E1000_CTRL_EXT_SDP3_DATA 0x00000080 /* Value of SW Definable=
+ Pin 3 */
+> +#define E1000_CTRL_EXT_FORCE_SMBUS 0x00000004 /* Force SMBus mode*/
+>  #define E1000_CTRL_EXT_EE_RST    0x00002000 /* Reinitialize from EEP=
+ROM */
+>  #define E1000_CTRL_EXT_SPD_BYPS  0x00008000 /* Speed Select Bypass *=
+/
+>  #define E1000_CTRL_EXT_RO_DIS    0x00020000 /* Relaxed Ordering disa=
+ble */
+
+The mangled sorting and alignment of the new entries made me wonder if
+this was a typo.  But reading further below it looks like
+E1000_CTRL_EXT_LPCD is input and E1000_CTRL_EXT_FORCE_SMBUS is output.
+If that is correct, then it probably deserves a small comment here alon=
+g
+with better sorting and alignment to make it clear that the duplicate
+value is intentional?
+
+
+Bj=C3=B8rn
