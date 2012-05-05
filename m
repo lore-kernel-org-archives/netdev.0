@@ -1,7 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH 1/3] skb: Drop bad code from pskb_expand_head
-Date: Fri, 04 May 2012 17:26:46 -0700
-Message-ID: <20120505002645.21292.38368.stgit@gitlad.jf.intel.com>
+Subject: [PATCH 2/3] skb: Drop "fastpath" variable for skb_cloned check in
+	pskb_expand_head
+Date: Fri, 04 May 2012 17:26:51 -0700
+Message-ID: <20120505002651.21292.19680.stgit@gitlad.jf.intel.com>
 References: <20120505001059.21292.31647.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,56 +11,75 @@ Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	jeffrey.t.kirsher@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:53771 "EHLO mga14.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:24583 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758571Ab2EEA0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 May 2012 20:26:32 -0400
+	id S1758571Ab2EEA0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 May 2012 20:26:36 -0400
 In-Reply-To: <20120505001059.21292.31647.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The fast-path for pskb_expand_head contains a check where the size plus the
-unaligned size of skb_shared_info is compared against the size of the data
-buffer.  This code path has two issues.  First is the fact that after the
-recent changes by Eric Dumazet to __alloc_skb and build_skb the shared info
-is always placed in the optimal spot for a buffer size making this check
-unnecessary.  The second issue is the fact that the check doesn't take into
-account the aligned size of shared info.  As a result the code burns cycles
-doing a memcpy with nothing actually being shifted.
+Since there is now only one spot that actually uses "fastpath" there isn't
+much point in carrying it.  Instead we can just use a check for skb_cloned
+to verify if we can perform the fast-path free for the head or not.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
- net/core/skbuff.c |   12 ------------
- 1 files changed, 0 insertions(+), 12 deletions(-)
+ net/core/skbuff.c |   22 ++++++++--------------
+ 1 files changed, 8 insertions(+), 14 deletions(-)
 
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c199aa4..4d085d4 100644
+index 4d085d4..17e4b1e 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -951,17 +951,6 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 		fastpath = atomic_read(&skb_shinfo(skb)->dataref) == delta;
- 	}
+@@ -932,7 +932,6 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	u8 *data;
+ 	int size = nhead + (skb_end_pointer(skb) - skb->head) + ntail;
+ 	long off;
+-	bool fastpath;
  
--	if (fastpath && !skb->head_frag &&
--	    size + sizeof(struct skb_shared_info) <= ksize(skb->head)) {
--		memmove(skb->head + size, skb_shinfo(skb),
--			offsetof(struct skb_shared_info,
--				 frags[skb_shinfo(skb)->nr_frags]));
--		memmove(skb->head + nhead, skb->head,
--			skb_tail_pointer(skb) - skb->head);
--		off = nhead;
--		goto adjust_others;
+ 	BUG_ON(nhead < 0);
+ 
+@@ -941,16 +940,6 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 
+ 	size = SKB_DATA_ALIGN(size);
+ 
+-	/* Check if we can avoid taking references on fragments if we own
+-	 * the last reference on skb->head. (see skb_release_data())
+-	 */
+-	if (!skb->cloned)
+-		fastpath = true;
+-	else {
+-		int delta = skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1;
+-		fastpath = atomic_read(&skb_shinfo(skb)->dataref) == delta;
 -	}
 -
  	data = kmalloc(size + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
  		       gfp_mask);
  	if (!data)
-@@ -997,7 +986,6 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+@@ -966,9 +955,12 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	       skb_shinfo(skb),
+ 	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
  
- 	skb->head     = data;
- 	skb->head_frag = 0;
--adjust_others:
- 	skb->data    += off;
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- 	skb->end      = size;
+-	if (fastpath) {
+-		skb_free_head(skb);
+-	} else {
++	/*
++	 * if shinfo is shared we must drop the old head gracefully, but if it
++	 * is not we can just drop the old head and let the existing refcount
++	 * be since all we did is relocate the values
++	 */
++	if (skb_cloned(skb)) {
+ 		/* copy this zero copy skb frags */
+ 		if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+ 			if (skb_copy_ubufs(skb, gfp_mask))
+@@ -981,6 +973,8 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 			skb_clone_fraglist(skb);
+ 
+ 		skb_release_data(skb);
++	} else {
++		skb_free_head(skb);
+ 	}
+ 	off = (data + nhead) - skb->head;
+ 
