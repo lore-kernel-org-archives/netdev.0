@@ -1,60 +1,44 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Subject: Re: IP_MULTICAST_IF getsockopt man part
-Date: Sat, 5 May 2012 23:57:35 +1200
-Message-ID: <CAKgNAkgBz_dRV97JVV1Np0YuEd0EVqoLPZkajiE_KJ2Lk20YRA@mail.gmail.com>
-References: <20120504090013.GA2362@minipsycho>
-Reply-To: mtk.manpages@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-man@vger.kernel.org, netdev@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Sat,  5 May 2012 05:38:09 -0700
+Message-ID: <1336221493-913-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:46245 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755174Ab2EEL54 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2012 07:57:56 -0400
-In-Reply-To: <20120504090013.GA2362@minipsycho>
+Received: from mga02.intel.com ([134.134.136.20]:42294 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755401Ab2EEMiQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 May 2012 08:38:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 4, 2012 at 9:00 PM, Jiri Pirko <jpirko@redhat.com> wrote:
-> Hi.
->
-> <quote>
-> IP_MULTICAST_IF (since Linux 1.2)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Set the local device for a=
- multicast socket.
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Argument is an ip_mreqn or=
- ip_mreq structure
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0similar to IP_ADD_MEMBERSH=
-IP.
-> </quote>
->
-> That is not true. Setsockopt recognizes only ip_mreqn and in_addr. I
-> made patch which makes it recognize ip_mreq as well. So that would be
-> probably ok.
-> http://patchwork.ozlabs.org/patch/156815/
->
-> On the other hand, getsockopt works only with in_addr. That I think i=
-s
-> good behaviour but manpages here needs to be corrected in this way (r=
-ead
-> part needs to be added here)
+This series of patches contains updates for e1000e and ixgbe.
 
-Jirka,
+NOTE- The ixgbe patch can and probably should be applied to
+David Miller's net tree as well.
 
-I'm having trouble to understand what you mean. Perhaps it would be
-simplest if you showed your proposed replacement text for the text
-quoted above.
+The following are changes since commit bd14b1b2e29bd6812597f896dde06eaf7c6d2f24:
+  tcp: be more strict before accepting ECN negociation
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Thanks,
+Bruce Allan (2):
+  e1000e: enable forced master/slave on 82577
+  e1000e: increase version number
 
-Michael
+John Fastabend (1):
+  ixgbe: dcb: IEEE PFC stats and reset logic incorrect
 
+Richard Alpe (1):
+  e1000e: clear REQ and GNT in EECD (82571 && 82572)
 
+ drivers/net/ethernet/intel/e1000e/82571.c       |   12 ++++-
+ drivers/net/ethernet/intel/e1000e/netdev.c      |    2 +-
+ drivers/net/ethernet/intel/e1000e/phy.c         |   71 ++++++++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |    7 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |    6 ++-
+ 5 files changed, 69 insertions(+), 29 deletions(-)
 
---=20
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+-- 
+1.7.7.6
