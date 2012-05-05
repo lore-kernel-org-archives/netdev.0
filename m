@@ -1,55 +1,57 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [net-next 2/8] e1000e: initial support for i217
-Date: Sat, 05 May 2012 10:01:39 +0200
-Message-ID: <87mx5njbto.fsf@nemi.mork.no>
-References: <1336127716-20383-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1336127716-20383-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 01/13 v4] usb/net: rndis: inline the cpu_to_le32() macro
+Date: Sat, 5 May 2012 11:01:42 +0200
+Message-ID: <CACRpkdY0t2UvU9vX4kPxV+BPOaerOWw4UKzTe_RjLOpYr2akDg@mail.gmail.com>
+References: <1335896538-13281-1-git-send-email-linus.walleij@linaro.org>
+	<20120502182938.15804ij32yd8jsis@www.81.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, Bruce Allan <bruce.w.allan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:47052 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752130Ab2EEIBz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2012 04:01:55 -0400
-In-Reply-To: <1336127716-20383-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	(Jeff Kirsher's message of "Fri, 4 May 2012 03:35:10 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
+	Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+To: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120502182938.15804ij32yd8jsis-tzMWlZeEOor1KXRcyAk9cg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
+On Wed, May 2, 2012 at 5:29 PM, Jussi Kivilinna
+<jussi.kivilinna-E01nCVcF24I@public.gmane.org> wrote:
 
-> diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/ne=
-t/ethernet/intel/e1000e/defines.h
-> index 3a50259..11c4666 100644
-> --- a/drivers/net/ethernet/intel/e1000e/defines.h
-> +++ b/drivers/net/ethernet/intel/e1000e/defines.h
-> @@ -74,7 +74,9 @@
->  #define E1000_WUS_BC           E1000_WUFC_BC
-> =20
->  /* Extended Device Control */
-> +#define E1000_CTRL_EXT_LPCD  0x00000004     /* LCD Power Cycle Done =
-*/
->  #define E1000_CTRL_EXT_SDP3_DATA 0x00000080 /* Value of SW Definable=
- Pin 3 */
-> +#define E1000_CTRL_EXT_FORCE_SMBUS 0x00000004 /* Force SMBus mode*/
->  #define E1000_CTRL_EXT_EE_RST    0x00002000 /* Reinitialize from EEP=
-ROM */
->  #define E1000_CTRL_EXT_SPD_BYPS  0x00008000 /* Speed Select Bypass *=
-/
->  #define E1000_CTRL_EXT_RO_DIS    0x00020000 /* Relaxed Ordering disa=
-ble */
+> Quoting Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>:
+>
+>> The header file <linux/usb/rndis_host.h> used a number of #defines
+>> that included the cpu_to_le32() macro to assure the result will be
+>> in LE endianness. Inlining this into the code instead of using it
+>> in the code definitions yields consolidation opportunities later
+>> on as you will see in the following patches. The individual
+>> drivers also used local defines - all are switched over to the
+>> pattern of doing the conversion at the call sites instead.
+>>
+>
+> After this patch, endianness checks with sparse output:
+(...)
+> Patch fixing this attached.
 
-The mangled sorting and alignment of the new entries made me wonder if
-this was a typo.  But reading further below it looks like
-E1000_CTRL_EXT_LPCD is input and E1000_CTRL_EXT_FORCE_SMBUS is output.
-If that is correct, then it probably deserves a small comment here alon=
-g
-with better sorting and alignment to make it clear that the duplicate
-value is intentional?
+Thanks! Folded this into patch 1 and added your Signed-off-by.
 
+> Patch-set to clean-up ugliness caused by this patch at:
+> http://koti.mbnet.fi/axh/kernel/rndis_wlan/
 
-Bj=C3=B8rn
+This seems like a good middle-ground as compared to the
+other suggestion to force all defines to be cpu_to_le32().
+
+Do you want me to rebase this on top of my series (there was
+a number of conflicts later in the series) and carry it as part
+of this patch set?
+
+Yours,
+Linus Walleij
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
