@@ -1,143 +1,75 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v4 0/8] Managing the forwarding database(FDB)
-Date: Fri, 04 May 2012 22:00:08 -0700
-Message-ID: <4FA4B3D8.60707@intel.com>
-References: <20120415163905.14091.30491.stgit@jf-dev1-dcblab> <20120415.130637.2258594023349277277.davem@davemloft.net> <20120502150830.GA2976@redhat.com> <4FA1ACA1.2080808@intel.com> <4FA1C50C.7010405@us.ibm.com> <4FA2DEA5.6050802@intel.com> <4FA36C78.80509@us.ibm.com> <CAGe6so8q26X=HoQx+P-wkoLMtq1NhRerk98-v0cxhUpvMH4zmQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/3] skb: Drop bad code from pskb_expand_head
+Date: Sat, 05 May 2012 07:35:30 +0200
+Message-ID: <1336196130.3752.483.camel@edumazet-glaptop>
+References: <20120505001059.21292.31647.stgit@gitlad.jf.intel.com>
+	 <20120505002645.21292.38368.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, hadi@cyberus.ca,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gregory.v.rose@intel.com, krkumar2@in.ibm.com
-To: Roopa Prabhu <roopa.prabhu@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:40310 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750739Ab2EEFAK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 May 2012 01:00:10 -0400
-In-Reply-To: <CAGe6so8q26X=HoQx+P-wkoLMtq1NhRerk98-v0cxhUpvMH4zmQ@mail.gmail.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:57316 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025Ab2EEFff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2012 01:35:35 -0400
+Received: by wibhj6 with SMTP id hj6so1911212wib.1
+        for <netdev@vger.kernel.org>; Fri, 04 May 2012 22:35:34 -0700 (PDT)
+In-Reply-To: <20120505002645.21292.38368.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/4/2012 1:34 PM, Roopa Prabhu wrote:
+On Fri, 2012-05-04 at 17:26 -0700, Alexander Duyck wrote:
+> The fast-path for pskb_expand_head contains a check where the size plus the
+> unaligned size of skb_shared_info is compared against the size of the data
+> buffer.  This code path has two issues.  First is the fact that after the
+> recent changes by Eric Dumazet to __alloc_skb and build_skb the shared info
+> is always placed in the optimal spot for a buffer size making this check
+> unnecessary.  The second issue is the fact that the check doesn't take into
+> account the aligned size of shared info.  As a result the code burns cycles
+> doing a memcpy with nothing actually being shifted.
 > 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
 > 
-> On Thu, May 3, 2012 at 10:43 PM, Sridhar Samudrala <sri@us.ibm.com <mailto:sri@us.ibm.com>> wrote:
+>  net/core/skbuff.c |   12 ------------
+>  1 files changed, 0 insertions(+), 12 deletions(-)
 > 
->     On 5/3/2012 12:38 PM, John Fastabend wrote:
-> 
->         On 5/2/2012 4:36 PM, Sridhar Samudrala wrote:
-> 
->             On 5/2/2012 2:52 PM, John Fastabend wrote:
-> 
->                 On 5/2/2012 8:08 AM, Michael S. Tsirkin wrote:
-> 
->                     On Sun, Apr 15, 2012 at 01:06:37PM -0400, David Miller wrote:
-> 
->                         From: John Fastabend<john.r.fastabend@__intel.com <mailto:john.r.fastabend@intel.com>>
->                         Date: Sun, 15 Apr 2012 09:43:51 -0700
-> 
->                             The following series is a submission for net-next to allow
->                             embedded switches and other stacked devices other then the
->                             Linux bridge to manage a forwarding database.
-> 
->                             Previously discussed here,
-> 
->                             http://lists.openwall.net/__netdev/2012/03/19/26 <http://lists.openwall.net/netdev/2012/03/19/26>
-> 
->                             v4: propagate return codes correctly for ndo_dflt_Fdb_dump()
-> 
->                             v3: resolve the macvlan patch 8/8 to fix a dev_set_promiscuity()
->                                  error and add the flags field to change and get link routines.
-> 
->                             v2: addressed feedback from Ben Hutchings resolving a typo in the
->                                  multicast add/del routines and improving the error handling
->                                  when both NTF_SELF and NTF_MASTER are set.
-> 
->                             I've tested this with 'br' tool published by Stephen Hemminger
->                             soon to be renamed 'bridge' I believe and various traffic
->                             generators mostly pktgen, ping, and netperf.
-> 
->                         All applied, if we need any more tweaks we can just add them
->                         on top of this work.
-> 
->                         Thanks John.
-> 
->                     John, do you plan to update kvm userspace to use this interface?
-> 
->                 No immediate plans. I would really appreciate it if you or one
->                 of the IBM developers working in this space took it on. Of course
->                 if no one steps up I guess I can eventually get at it but it will
->                 be sometime. For now I've been doing this manually with the bridge
->                 tool yet to be published.
-> 
-> 
->             Does this mean that when we add an interface to a bridge, it need not be put in promiscuous mode and
->             add/delete fdb entries dynamically?
-> 
->         The net/bridge will automatically put the interface in promisc mode
->         when the device is attached. We do need to add/delete fdb entries
->         though to allow forwarding packets from the virtual function and
->         any emulated devices e.g. tap devices on the bridge.
-> 
-> 
->     Consider the following scenario where we have a SR-IOV NIC with 1 PF
->     and 2 VFs (VF1 & VF2).
->     - eth0 is the PF which is attached to bridge br0 and connected to 2 VMs VM1 and VM2.
->     - eth1 is the VF1 terminated on the host and assigned to VM3 via macvtap0 in passthru mode.
->     - VF2 is directly assigned to VM4 via pci-device assignment.
-> 
->      VM1      VM2         VM3           VM4
->     (mac1)  (mac2)     (mac3)         (mac4)
->      |        |           |             |
->      |        |           |             |
->     vnet0   vnet1         |             |
->      |        |           |             |
->      \        /           |             |
->      \      /            |             |
->        br0            macvtap0         |
->         |              (mac3)          |
->         |                |             |
->        eth0            eth1            |
->         |              (mac3)          |
->         |               |              |
->       ------------------------------__------
->      | PF              VF1           VF2  |
->      |                                    |
->      |                 VEB                |
->      ------------------------------__------
-> 
->     In this setup, i think when VM1 and VM2 come up, mac1 and mac2 have to be added to the
->     embedded bridge's fdb.  Once we add these 2 entries, all the 4 VMs can talk to each other.
->     Is this correct?
-> 
-
-Correct as Roopa indicated.
-
->     Now, if VM1 or VM2 wants to add secondary mac addresses, i think we need qemu to add a new fdb
->     entry when it receives add mac address command via virtio control vq.
-> 
-> 
-> yes. I had used (with some tweaks) some existing qemu patches on patchwork to try this out with my implementation.
-> 
-> The links to the patches on patchwork are listed in my cover mail at http://marc.info/?l=linux-netdev&m=131534911001054&w=2 <http://marc.info/?l=linux-netdev&m=131534911001054&w=2>
-> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index c199aa4..4d085d4 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -951,17 +951,6 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+>  		fastpath = atomic_read(&skb_shinfo(skb)->dataref) == delta;
+>  	}
 >  
-> 
->     Can we add multiple mac addresses to VFs? For example VM3 and VM4 trying to add a secondary mac address.
-
-Yes this is why we also added the fdb interface to the macvlan device as well.
-
-> 
->     What about VMs trying to create VLANs? I think this will work on VM1 and VM2. However with VM3
->     and VM4, i think we need qemu to add vlans to the VFs when the VMs create them.
-> 
-> 
-> yes for vlans too, the qemu patches pointed out above can be reused.
-> 
-> Thanks,
-> Roopa
+> -	if (fastpath && !skb->head_frag &&
+> -	    size + sizeof(struct skb_shared_info) <= ksize(skb->head)) {
+> -		memmove(skb->head + size, skb_shinfo(skb),
+> -			offsetof(struct skb_shared_info,
+> -				 frags[skb_shinfo(skb)->nr_frags]));
+> -		memmove(skb->head + nhead, skb->head,
+> -			skb_tail_pointer(skb) - skb->head);
+> -		off = nhead;
+> -		goto adjust_others;
+> -	}
+> -
+>  	data = kmalloc(size + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
+>  		       gfp_mask);
+>  	if (!data)
+> @@ -997,7 +986,6 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 >  
+>  	skb->head     = data;
+>  	skb->head_frag = 0;
+> -adjust_others:
+>  	skb->data    += off;
+>  #ifdef NET_SKBUFF_DATA_USES_OFFSET
+>  	skb->end      = size;
 > 
+
+I totally agree this code is no longer needed, we already have the
+skb_shared_info at the end of the buffer.
+
+Acked-by: Eric Dumazet <edumazet@google.com>
