@@ -1,260 +1,95 @@
-From: Oskar Berggren <oskar.berggren@gmail.com>
-Subject: ipctl - new tool for efficient read/write of net related sysctl
-Date: Sat, 5 May 2012 17:13:54 +0200
-Message-ID: <CAHOuc7MQiquWxMZ4YApXXKdsRY_StrTfAK9r_DdkstyYe+kCPQ@mail.gmail.com>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: [net-next 5/9] e1000e: Disable ASPM L1 on 82574
+Date: Sat, 05 May 2012 17:33:45 +0100
+Message-ID: <87fwbea8pi.fsf@spindle.srvr.nix>
+References: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1336038992-3144-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<87d36ld1as.fsf@spindle.srvr.nix>
+	<9BBC4E0CF881AA4299206E2E1412B6261882C3A9@FMSMSX151.amr.corp.intel.com>
+	<87sjfhaukf.fsf@spindle.srvr.nix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: "Kirsher\, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem\@davemloft.net" <davem@davemloft.net>,
+	Chris Boot <bootc@bootc.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo\@redhat.com" <gospo@redhat.com>,
+	"sassmann\@redhat.com" <sassmann@redhat.com>
+To: "Wyborny\, Carolyn" <carolyn.wyborny@intel.com>,
+	Matthew Garrett <mjg@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:44853 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755391Ab2EEPOP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2012 11:14:15 -0400
-Received: by obbtb18 with SMTP id tb18so5556694obb.19
-        for <netdev@vger.kernel.org>; Sat, 05 May 2012 08:14:14 -0700 (PDT)
+Received: from icebox.esperi.org.uk ([81.187.191.129]:40416 "EHLO
+	mail.esperi.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756219Ab2EEQeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 May 2012 12:34:03 -0400
+In-Reply-To: <87sjfhaukf.fsf@spindle.srvr.nix> (nix@esperi.org.uk's message of
+	"Thu, 03 May 2012 21:17:04 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 3 May 2012, nix@esperi.org.uk outgrape:
 
-In a project of mine I need to read (and possibly set) many of the properties
-found under /proc/sys/net/ipv4/conf/. This is simple enough, except that
-when you have hundreds of interfaces, it is really slow. In my tests it takes
-about 4 seconds to read a single variable for 700 interfaces. For a while I
-worked around this using the binary sysctl() interface, but this is deprecated.
+> On 3 May 2012, Carolyn Wyborny told this:
+>
+>> It would be good to know why/how your system is re-enabling the
+>> setting. The problem is not solvable in firmware unfortunately and is
+>> somewhat platform dependent. MMIO-tracer might be used to try and see
+>
+> I entirely forgot about that tool! *Definitely* worth trying.
+>
+> I'll give it a try this weekend.
 
-In an experiment to get around this limitation I have created "ipctl", a kernel
-module and accompanying user space library/tool. Communication between
-kernel and user space is based on generic netlink. What used to take
-seconds now happen in a few milliseconds.
+Well, mmiotrace was a total flop: massive numbers of unexpected
+secondary interrupts and a hard lockup. Still, I've now diagnosed this
+bug and it's right up Matthew Garrett's street!
 
-So far I have only implemented support for the proxy_arp setting. Do you
-think it's worthwhile to pursue this to create something more complete? Are
-there other ideas on how one might get fast read/write of the IP-related
-settings in procfs?
+Matthew: the problem here is a server with an 82574L (controlled by the
+e1000e driver). This NIC has a hardware bug causing it to lock up in a
+way that only a reboot can solve in an hour or two if PCIe ASPM is not
+disabled during boot (leaving me with my home directory stuck behind a
+dead NIC on a headless machine, most annoying). The driver is attempting
+to disable it, but failing.
 
-The full source code is available at:
-https://github.com/oskarb/ipctl
+>> when the re-enabling config space is written, but it might be too
+>> heavyweight for a live production system.
+>
+> Given that the re-enabling happens at around the same time as the boot
+> scripts finish running (it's done by the time I can log in), that's not
+> going to be a problem. Hence my speculation that it's being re-enabled
+> when the interface stabilizes (which is, of course, asynchronous) or
+> something like that.
 
-Kernel module enclosed below. Haven't done much kernel programming
-before, so comments are most welcome!
+This is wrong. The disable never happens. The BIOS has been told to
+enable PCIe ASPM. However, the kernel log says:
 
-/Oskar
+May  5 17:06:53 spindle info: [    0.629699]  pci0000:00: Requesting ACPI _OSC control (0x1d)
+May  5 17:06:53 spindle info: [    0.629941]  pci0000:00: ACPI _OSC request failed (AE_NOT_FOUND), returned control mask: 0x1d
+May  5 17:06:53 spindle info: [    0.630373] ACPI _OSC control for PCIe not granted, disabling ASPM
 
+Unless pcie_aspm=force has been specified on the kernel command line,
+this flips aspm_disabled to 1.
 
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/inetdevice.h>
-#include <linux/netdevice.h>
-#include <net/netlink.h>
-#include <net/genetlink.h>
-#include "../../include/libipctl/ipctl-nl.h"
+The e1000e driver then says (with a bit of extra debugging info I
+added):
 
-#define MOD_AUTHOR "Oskar Berggren <oskar.berggren@gmail.com>"
-#define MOD_DESC "A module to offer efficient mass control of the IP
-sysctl family traditionally controlled through /proc."
-#define MOD_VER "0.1"
+May  5 17:06:53 spindle info: [    1.248153] e1000e 0000:03:00.0: Disabling ASPM L0s L1
+May  5 17:06:53 spindle info: [    1.248393] e1000e 0000:03:00.0: Disabling ASPM via pci_disable_link_state_locked()
+May  5 17:06:53 spindle info: [    1.248823] e1000e 0000:03:00.0: aspm disabled, not forcing
 
+i.e. because aspm_disabled is set, pci/pcie/aspm.c refuses to make any
+changes at all to ASPM link state, not even to turn *off* ASPM on a
+device on which the BIOS turned it on at boot. So ASPM remains enabled
+and the NIC eventually locks up.
 
-static int ipctl_get_proxyarp_by_ifindex(int ifIndex, int *on)
-{
-	struct net *net = &init_net;
-	struct net_device *dev;
-	struct in_device *in_dev;
+The question here is how to fix it. It appears that the motherboard or
+BIOS on this machine does not grant _OSC control even (especially?) if
+you have turned on PCIe ASPM in the BIOS. But perhaps even if _OSC is
+not granted you should permit PCIe to be *disabled* by drivers, just not
+enabled? (The BIOS appears to be buggy in this area: if you turn off
+ASPM, save, and go back into setup, ASPM has turned itself back on
+again!)
 
-	dev = dev_get_by_index(net, ifIndex);
-
-	if (dev)
-	{
-		if (__in_dev_get_rtnl(dev))
-		{
-			in_dev = __in_dev_get_rtnl(dev);
-			*on = IN_DEV_CONF_GET(in_dev, PROXY_ARP);
-		}
-
-		dev_put(dev);  // Release reference.
-	}
-
-	return 0;
-}
-
-
-static int ipctl_set_proxyarp_by_ifindex(int ifIndex, int on)
-{
-	struct net *net = &init_net;
-	struct net_device *dev;
-	struct in_device *in_dev;
-
-	dev = dev_get_by_index(net, ifIndex);
-
-	if (dev)
-	{
-		if (__in_dev_get_rtnl(dev))
-		{
-			in_dev = __in_dev_get_rtnl(dev);
-			IN_DEV_CONF_SET(in_dev, PROXY_ARP, on);
-		}
-
-		dev_put(dev);  // Release reference.
-	}
-
-	return 0;
-}
-
-
-/* family definition */
-static struct genl_family ipctl_gnl_family = {
-	.id = GENL_ID_GENERATE,
-	.hdrsize = 0,
-	.name = IPCTL_GENL_NAME,
-	.version = IPCTL_GENL_VERSION,
-	.maxattr = IPCTL_ATTR_MAX,
-};
-
-
-static int ipctl_reply(struct sk_buff *skb, struct genl_info *info,
-		       int property, int ifIndex, int value)
-{
-	struct sk_buff *skb_reply;
-	void *msg_head;
-	int rc;
-
-	pr_debug("ipctl: reply start\n");
-
-	skb_reply = genlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-	if (skb_reply == NULL)
-		goto out;
-
-	msg_head = genlmsg_put(skb_reply, 0, info->snd_seq,
-&ipctl_gnl_family, 0, IPCTL_CMD_GET);
-	if (msg_head == NULL) {
-		rc = -ENOMEM;
-		goto out;
-	}
-
-	rc = nla_put_u32(skb_reply, IPCTL_ATTR_PROPERTY, property);
-	if (rc != 0)
-		goto out;
-
-	rc = nla_put_u32(skb_reply, IPCTL_ATTR_IFINDEX, ifIndex);
-	if (rc != 0)
-		goto out;
-
-	rc = nla_put_u8(skb_reply, IPCTL_ATTR_VALUE, value);
-	if (rc != 0)
-		goto out;
-	
-	/* finalize the message */
-	genlmsg_end(skb_reply, msg_head);
-
-	rc = genlmsg_reply(skb_reply , info);
-	if (rc != 0)
-		goto out;
-
-	return 0;
-out:
-	pr_warning("ipctl: Error occured in reply: %d\n", rc);
-
-	return rc;
-}
-
-
-/* handler for SET messages via NETLINK */
-int ipctl_set(struct sk_buff *skb, struct genl_info *info)
-{
-	/* message handling code goes here; return 0 on success, negative
-	 * values on failure */
-
-	int property = nla_get_u32(info->attrs[IPCTL_ATTR_PROPERTY]);
-	int ifIndex = nla_get_u32(info->attrs[IPCTL_ATTR_IFINDEX]);
-	int value = nla_get_u8(info->attrs[IPCTL_ATTR_VALUE]);
-
-	pr_debug("ipctl: set p=%d i=%d v=%d\n", property, ifIndex, value);
-
-	if (property == IPCTL_PROPERTY_PROXYARP)
-		return ipctl_set_proxyarp_by_ifindex(ifIndex, value);
-
-	return 0;
-}
-
-
-/* handler for GET messages via NETLINK */
-int ipctl_get(struct sk_buff *skb, struct genl_info *info)
-{
-	/* message handling code goes here; return 0 on success, negative
-	 * values on failure */
-
-	int property = nla_get_u32(info->attrs[IPCTL_ATTR_PROPERTY]);
-	int ifIndex = nla_get_u32(info->attrs[IPCTL_ATTR_IFINDEX]);
-	int value = 0;
-	int retval = 0;
-
-	pr_debug("ipctl: get p=%d i=%d\n", property, ifIndex);
-
-	if (property == IPCTL_PROPERTY_PROXYARP)
-		retval = ipctl_get_proxyarp_by_ifindex(ifIndex, &value);
-
-	if (retval)
-		return retval;
-
-	return ipctl_reply(skb, info, property, ifIndex, value);
-}
-
-
-/* NETLINK operation definition */
-struct genl_ops ipctl_gnl_ops_set = {
-	.cmd = IPCTL_CMD_SET,
-	.flags = GENL_ADMIN_PERM,
-	.policy = ipctl_genl_policy,
-	.doit = ipctl_set,
-	.dumpit = NULL,
-};
-
-struct genl_ops ipctl_gnl_ops_get = {
-	.cmd = IPCTL_CMD_GET,
-	.flags = 0,
-	.policy = ipctl_genl_policy,
-	.doit = ipctl_get,
-	.dumpit = NULL,
-};
-
-
-static int __init ipctl_init(void)
-{
-	int rc;
-
-	printk(KERN_INFO "ipctl: %s.\n", MOD_VER);
-
-	rc = genl_register_family(&ipctl_gnl_family);
-	if (rc)
-		printk("ipctl: genl_register_family: %d.\n", rc);
-
-	rc = genl_register_ops(&ipctl_gnl_family, &ipctl_gnl_ops_set);
-	if (rc)
-		printk("ipctl: genl_register_ops: %d.\n", rc);
-
-	rc = genl_register_ops(&ipctl_gnl_family, &ipctl_gnl_ops_get);
-	if (rc)
-		printk("ipctl: genl_register_ops: %d.\n", rc);
-
-	/*
-	 * A non 0 return means init_module failed; module can't be loaded.
-	 */
-	return 0;
-}
-
-
-static void __exit ipctl_exit(void)
-{
-	genl_unregister_family(&ipctl_gnl_family);
-}
-
-
-module_init(ipctl_init);
-module_exit(ipctl_exit);
-
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR(MOD_AUTHOR);
-MODULE_DESCRIPTION(MOD_DESC);
-MODULE_VERSION(MOD_VER);
+I'm not sure what the right thing to do is here: I don't know enough
+about this area. But it does seem very strange that the only way I have
+to turn off PCIe ASPM reliably on this device is to tell the kernel to
+forcibly turn it *on*!
