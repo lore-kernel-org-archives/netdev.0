@@ -1,49 +1,45 @@
-From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: Implementing RFCs from IETF
-Date: Sun, 6 May 2012 17:28:54 +0300
-Message-ID: <201205061728.54687.remi@remlab.net>
-References: <1336312774.11610.7.camel@oc4748611672.ibm.com> <201205061707.50204.remi@remlab.net> <1336313708.11610.11.camel@oc4748611672.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2x: bug fix when loading after SAN boot
+Date: Sun, 06 May 2012 12:38:34 -0400 (EDT)
+Message-ID: <20120506.123834.956789615986300329.davem@davemloft.net>
+References: <1336033320-16440-1-git-send-email-ariele@broadcom.com>
+	<20120504.115753.1701261151183409987.davem@davemloft.net>
+	<1336158940.12363.19.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ariele@broadcom.com, netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oyp.chewa.net ([91.121.6.101]:49978 "EHLO oyp.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753099Ab2EFO25 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2012 10:28:57 -0400
-Received: from basile.localnet (ip6-localhost [IPv6:::1])
-	by oyp.chewa.net (Postfix) with ESMTP id C17F42019E
-	for <netdev@vger.kernel.org>; Sun,  6 May 2012 16:28:35 +0200 (CEST)
-In-Reply-To: <1336313708.11610.11.camel@oc4748611672.ibm.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41479 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753950Ab2EFQih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2012 12:38:37 -0400
+In-Reply-To: <1336158940.12363.19.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 6 mai 2012 17:15:08 Onkar, vous avez =E9crit :
-> > But the copyright license does prevent example code from being copi=
-ed
-> > into the kernel (or any other GPL piece), in many cases.
->=20
-> If the RFC proposes some solution to existing problem and this soluti=
-on
-> is proposed by some guys , at say CISCO or IBM , then does that solut=
-ion
-> have some kind of copyright which prevents people form other companie=
-s
-> from implementing the RFC in the Linux kernel ?
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Fri, 4 May 2012 22:15:40 +0300
 
-Please refer to the copyright statements found in the RFC. netdev is no=
-t the=20
-right place for lawyering.
+> On Fri, 2012-05-04 at 11:57 -0400, David Miller wrote:
+>> From: "Ariel Elior" <ariele@broadcom.com>
+>> Date: Thu, 3 May 2012 11:22:00 +0300
+>> 
+>> > +	/* clear hw from errors which mnay have resulted from an interrupted
+>> > +	 * dmae transaction.
+>> > +	 */
+>> 
+>> Please fix the typos in this comment.
+>> 
+> 
+> Sure - thanks for pointing that out:
+> 
+> Subject: [PATCH net v2] bnx2x: bug fix when loading after SAN boot
 
-> > Also some RFC have IPR separate claims.
->=20
-> If possible , can you please give me one example on this as a referen=
-ce.
+Don't reply to a discussion with a patch you intend me to apply.
 
-You can find them on the IETF website.
+When you do that, I have to edit all of this other crap in the
+thread out of the commit message.  That makes more work for me.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
-http://fi.linkedin.com/in/remidenis
+Always post new patches as fresh patch postings to the list.
