@@ -1,76 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL net-next v2] IPVS
-Date: Sun, 6 May 2012 23:56:32 +0200
-Message-ID: <20120506215632.GA22852@1984>
-References: <1335939762-1912-1-git-send-email-horms@verge.net.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [PATCH net-next 1/3] Add capability to retrieve plug-in module
+ EEPROM
+Date: Sun, 6 May 2012 23:05:46 +0100
+Message-ID: <1336341946.8274.228.camel@deadeye>
+References: <4F9031BF.10106@solarflare.com>
+	 <20120423.172848.1733968863825393980.davem@davemloft.net>
+	 <1335289485.17274.46.camel@bwh-desktop.uk.solarflarecom.com>
+	 <A6AA2EF896BED345B0F23520D832A4B106AD8E@SJEXCHMB05.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1335939762-1912-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "smhodgson@solarflare.com" <smhodgson@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
+	"decot@google.com" <decot@google.com>,
+	"alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Yaniv Rosner <yaniv.rosner@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <A6AA2EF896BED345B0F23520D832A4B106AD8E@SJEXCHMB05.corp.ad.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Simon,
+On Sun, 2012-05-06 at 08:02 +0000, Yaniv Rosner wrote:
+> > On Mon, 2012-04-23 at 17:28 -0400, David Miller wrote:
+> > > You can't just submit three seperate patches each with the same exact
+> > > Subject line.
+> > >
+> > > Otherwise someone scanning the commit headers can't figure out what
+> > > is different in each of these changes.
+> > >
+> > > There also is no signoff from Ben for patches #2 or #3, did he review
+> > > them?  If so, why didn't he ACK or sign off on it?  If not, why not?
+> > 
+> > Sorry, I've been busy with another project.  I'll reply to Stuart's
+> > patches faster next round.
+> > 
+> > Ben.
+> 
+> Hi Stuart,
+> It's been 3 weeks since you sent the initial patch series which were not
+> accepted. Please reply if you're going to resubmit fixed patches soon,
+> otherwise I'll take over, and complete this task from where you left it.
 
-On Wed, May 02, 2012 at 03:22:24PM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider the following 18 changes for 3.5.
-> 
-> This replaces a 17 patch pull request that I sent earlier today by adding a
-> patch from Hans patch to the head of the request.  You should be able to
-> just pull again if you have already pulled the original series and not
-> applied anything else on top.
-> 
-> Please note that there will be a conflict with the following when merged
-> with net-next due to the following change which is already present in
-> David's tree. It should be a trivial merge but please let me know if you
-> want to handle this another way.
-> 
-> 	4a17fd5 sock: Introduce named constants for sk_reuse
-> 
-> The following changes since commit c3dc836d807a9b9855eefe535fdcbcf7cbb7a574:
-> 
->   netfilter: bridge: optionally set indev to vlan (2012-04-24 01:22:44 +0200)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
+I'll be making a pull request including Stuart's patches in the next few
+days.
 
-Pulled, thanks.
+Ben.
 
-I have fixed some minor glitches, see below.
-
-> for you to fetch changes up to 3de4b8ca4ffa3dafaeef985fabe152a1717a8ea0:
-> 
->   export sysctl symbols needed by ip_vs_sync (2012-05-02 14:48:55 +0900)
-> 
-> ----------------------------------------------------------------
-> H Hartley Sweeten (2):
->       IPVS: ip_vs_ftp.c: local functions should not be exposed globally
->       IPVS: ip_vs_proto.c: local functions should not be exposed globally
-        ^^^^
-Please, use consistent tagging across patches (sometimes this is in
-uppercase, sometimes lowercase).
-
-I think using the same tagging is good for grepping for changes.
-
-I have also removed the CC tag to David Miller in those two patches
-above from H. Hartely, they are not useful anymore.
-
-> Hans Schillstrom (1):
->       export sysctl symbols needed by ip_vs_sync
-     ^^^
-
-This one missed "net: " or "sock: " tag in the beginnging. I added
-"net: " here.
-
-I have manually fixed this, but you'll have to rebase your tree, sorry.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
