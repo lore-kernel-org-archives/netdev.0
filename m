@@ -1,96 +1,60 @@
-From: Oskar Berggren <oskar.berggren@gmail.com>
-Subject: Re: ipctl - new tool for efficient read/write of net related sysctl
-Date: Sun, 6 May 2012 14:46:01 +0200
-Message-ID: <CAHOuc7PjmcF=EhEUDEqfF_RShezxDqzc+53frNwWqhww8YQ+mA@mail.gmail.com>
-References: <CAHOuc7MQiquWxMZ4YApXXKdsRY_StrTfAK9r_DdkstyYe+kCPQ@mail.gmail.com>
- <9241f146-d0f7-415b-a652-acd1bf34e95a@tahiti.vyatta.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 7/9] net: add skb_orphan_frags to copy aside frags with
+ destructors
+Date: Sun, 6 May 2012 16:54:17 +0300
+Message-ID: <20120506135416.GA29007@redhat.com>
+References: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
+ <1336056971-7839-7-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Ian Campbell <ian.campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:51040 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753469Ab2EFMqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2012 08:46:22 -0400
-Received: by obbtb18 with SMTP id tb18so6787739obb.19
-        for <netdev@vger.kernel.org>; Sun, 06 May 2012 05:46:21 -0700 (PDT)
-In-Reply-To: <9241f146-d0f7-415b-a652-acd1bf34e95a@tahiti.vyatta.com>
+Received: from mx1.redhat.com ([209.132.183.28]:5390 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751537Ab2EFNyS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 May 2012 09:54:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1336056971-7839-7-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/5/6 Stephen Hemminger <stephen.hemminger@vyatta.com>:
->
->>
->> In a project of mine I need to read (and possibly set) many of the
->> properties
->> found under /proc/sys/net/ipv4/conf/. This is simple enough, except
->> that
->> when you have hundreds of interfaces, it is really slow. In my tests
->> it takes
->> about 4 seconds to read a single variable for 700 interfaces. For a
->> while I
->> worked around this using the binary sysctl() interface, but this is
->> deprecated.
->>
->
-> What about exposing these as NETLINK attributes? That would be faster
-> and you could do bulk updates.
+On Thu, May 03, 2012 at 03:56:09PM +0100, Ian Campbell wrote:
+> This should be used by drivers which need to hold on to an skb for an extended
+> (perhaps unbounded) period of time. e.g. the tun driver which relies on
+> userspace consuming the skb.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: mst@redhat.com
+> ---
+>  drivers/net/tun.c      |    1 +
+>  include/linux/skbuff.h |   11 ++++++++
+>  net/core/skbuff.c      |   68 ++++++++++++++++++++++++++++++++++-------------
+>  3 files changed, 61 insertions(+), 19 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index bb8c72c..b53e04e 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -415,6 +415,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	/* Orphan the skb - required as we might hang on to it
+>  	 * for indefinite time. */
+>  	skb_orphan(skb);
+> +	skb_orphan_frags(skb, GFP_KERNEL);
+>  
+>  	/* Enqueue packet */
+>  	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
 
 
-This is my first attempt at using NETLINK, so could you please elaborate?
-Below is the generic netlink interface I implemented so far. Any pointers
-on how I should do this differently?
+BTW, didn't notice at the moment but there seem to be
+a couple of other problems:
 
+1. this is using GFP_KERNEL on xmit path.
+2. And it's not just a question of passing in GFP_ATOMIC:
+return status needs to be checked.
+3. Scanning all frags just in case one of them has
+a descructor also won't help performace :(
 
-#ifndef IPCTL_NL_H_INCLUDED
-#define IPCTL_NL_H_INCLUDED
-
-/* Copyright (C) 2012 Oskar Berggren <oskar.berggren@gmail.com
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- */
-
-
-/* NETLINK attributes */
-enum {
-  IPCTL_ATTR_UNSPEC,
-  IPCTL_ATTR_PROPERTY,   /* Use IPCTL_PROPERTY_*  */
-  IPCTL_ATTR_IFINDEX,
-  IPCTL_ATTR_VALUE,
-  __IPCTL_ATTR_MAX,
-};
-#define IPCTL_ATTR_MAX (__IPCTL_ATTR_MAX - 1)
-
-/* attribute policy */
-static struct nla_policy ipctl_genl_policy[IPCTL_ATTR_MAX + 1] = {
-	[IPCTL_ATTR_PROPERTY] = { .type = NLA_U32 },
-	[IPCTL_ATTR_IFINDEX] = { .type = NLA_U32 },
-	[IPCTL_ATTR_VALUE] = { .type = NLA_U8 },
-};
-
-
-/* NETLINK commands */
-enum {
-  IPCTL_CMD_UNSPEC,
-  IPCTL_CMD_SET,
-  IPCTL_CMD_GET,
-  __IPCTL_CMD_MAX,
-};
-#define IPCTL_CMD_MAX (__IPCTL_CMD_MAX - 1)
-
-
-/* Values for IPCTL_ATTR_PROPERTY. */
-enum {
-  IPCTL_PROPERTY_PROXYARP,
-};
-
-
-/* ipctl use the generic netlink facility. */
-#define IPCTL_GENL_NAME "ipctl"
-
-#define IPCTL_GENL_VERSION 1
-
-#endif
+-- 
+MST
