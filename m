@@ -1,55 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH net-next 1/3] Add capability to retrieve plug-in module
- EEPROM
-Date: Sun, 6 May 2012 23:05:46 +0100
-Message-ID: <1336341946.8274.228.camel@deadeye>
-References: <4F9031BF.10106@solarflare.com>
-	 <20120423.172848.1733968863825393980.davem@davemloft.net>
-	 <1335289485.17274.46.camel@bwh-desktop.uk.solarflarecom.com>
-	 <A6AA2EF896BED345B0F23520D832A4B106AD8E@SJEXCHMB05.corp.ad.broadcom.com>
+From: Jonathan Nieder <jrnieder@gmail.com>
+Subject: Re: [PATCH] sky2: override for PCI legacy power management
+Date: Sun, 6 May 2012 17:26:30 -0500
+Message-ID: <20120506222630.GA32309@burratino>
+References: <4F69BE2E.7070903@t-online.de>
+ <20120321083205.360a7a3b@nehalam.linuxnetplumber.net>
+ <CAErSpo67PEaZ6JuMUntWLfR8SUpQgZERD_cKV6rWd=FF0tZ6DQ@mail.gmail.com>
+ <4F6BA960.6020003@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "smhodgson@solarflare.com" <smhodgson@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"decot@google.com" <decot@google.com>,
-	"alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Yaniv Rosner <yaniv.rosner@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <A6AA2EF896BED345B0F23520D832A4B106AD8E@SJEXCHMB05.corp.ad.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>, arekm@maven.pl,
+	Jared <nitro@legroom.net>, dilieto@lineone.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Knut Petersen <Knut_Petersen@t-online.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:56221 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754778Ab2EFW0k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2012 18:26:40 -0400
+Content-Disposition: inline
+In-Reply-To: <4F6BA960.6020003@t-online.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-05-06 at 08:02 +0000, Yaniv Rosner wrote:
-> > On Mon, 2012-04-23 at 17:28 -0400, David Miller wrote:
-> > > You can't just submit three seperate patches each with the same exact
-> > > Subject line.
-> > >
-> > > Otherwise someone scanning the commit headers can't figure out what
-> > > is different in each of these changes.
-> > >
-> > > There also is no signoff from Ben for patches #2 or #3, did he review
-> > > them?  If so, why didn't he ACK or sign off on it?  If not, why not?
-> > 
-> > Sorry, I've been busy with another project.  I'll reply to Stuart's
-> > patches faster next round.
-> > 
-> > Ben.
-> 
-> Hi Stuart,
-> It's been 3 weeks since you sent the initial patch series which were not
-> accepted. Please reply if you're going to resubmit fixed patches soon,
-> otherwise I'll take over, and complete this task from where you left it.
+Knut Petersen wrote, a few months ago:
 
-I'll be making a pull request including Stuart's patches in the next few
-days.
+> It=C2=B4s easy to dmi_match() known broken systems - I have dmidecode
+> outputs of four systems that definitely need the patch.
+>
+> Two ASUSTek P5* mainboards with AMI BIOSes, two AOpen i915G*
+> mainboards with Award/Phoenix BIOSes.
 
-Ben.
+Yes, please.  Could you attach those to [1]?
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+Jonathan
+
+[1] https://bugzilla.kernel.org/show_bug.cgi?id=3D19492
