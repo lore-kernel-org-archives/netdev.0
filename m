@@ -1,38 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
-Date: Sun, 06 May 2012 13:25:13 -0400 (EDT)
-Message-ID: <20120506.132513.36895742709809565.davem@davemloft.net>
-References: <1336221493-913-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 7/9] net: add skb_orphan_frags to copy aside frags with
+ destructors
+Date: Sun, 6 May 2012 20:01:56 +0300
+Message-ID: <20120506170156.GA30827@redhat.com>
+References: <20120503154142.GB27671@redhat.com>
+ <20120503.135532.1038384417514973419.davem@davemloft.net>
+ <20120503210826.GA30504@redhat.com>
+ <20120504.025433.1474691040952890731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: ian.campbell@citrix.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41752 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754109Ab2EFRZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2012 13:25:17 -0400
-In-Reply-To: <1336221493-913-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38223 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753920Ab2EFSUu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 May 2012 14:20:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20120504.025433.1474691040952890731.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat,  5 May 2012 05:38:09 -0700
-
-> This series of patches contains updates for e1000e and ixgbe.
+On Fri, May 04, 2012 at 02:54:33AM -0400, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Fri, 4 May 2012 00:10:24 +0300
 > 
-> NOTE- The ixgbe patch can and probably should be applied to
-> David Miller's net tree as well.
+> > Hmm we orphan skbs when we loop them back so how about reusing the
+> > skb->destructor for this?
 > 
-> The following are changes since commit bd14b1b2e29bd6812597f896dde06eaf7c6d2f24:
->   tcp: be more strict before accepting ECN negociation
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> That's one possibility.
+> 
+> But I fear we're about to toss Ian into yet another rabbit hole. :-)
+> 
+> Let's try to converge on something quickly as I think integration of
+> his work has been delayed enough as-is.
 
-No new changes there?
+OK I tried doing this and I recalled why we
+do the copy with ubufs before clone:
+the problem is that shinfo is shared between skbs,
+so modifying frags like skb_orphan_frags does is racy.
+Stuck for now.
 
-[davem@drr net-next]$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
->From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
- * branch            master     -> FETCH_HEAD
-Already up-to-date.
+So I have a question: how about reusing the TX_DEV_ZEROCOPY
+machinery for this, instead of frag destructors?
+
+Thanks,
+
+-- 
+MST
