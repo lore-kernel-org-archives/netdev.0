@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] skb: Drop bad code from pskb_expand_head
-Date: Sun, 06 May 2012 13:13:37 -0400 (EDT)
-Message-ID: <20120506.131337.363109018749374511.davem@davemloft.net>
-References: <20120505001059.21292.31647.stgit@gitlad.jf.intel.com>
-	<20120505002645.21292.38368.stgit@gitlad.jf.intel.com>
-	<1336196130.3752.483.camel@edumazet-glaptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net v2] cdc_ether: Ignore bogus union descriptor for
+ RNDIS devices
+Date: Sun, 06 May 2012 13:12:14 -0400 (EDT)
+Message-ID: <20120506.131214.1140346395458072945.davem@davemloft.net>
+References: <01138af4-69c3-4adb-b7f6-1e5e6f471df2@email.android.com>
+	<20120503.011129.639700793389264897.davem@davemloft.net>
+	<4FA64ECC.7030005@kolbs-net.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41691 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754010Ab2EFRNk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2012 13:13:40 -0400
-In-Reply-To: <1336196130.3752.483.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-201011-TzK+PxyQ8t4hFhg+JK9F0w@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, shaola-r/HQZD9NxM9g9hUCZPvPmw@public.gmane.org, jrnieder-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, 655387-61a8vm9lEZVf4u+23C9RwQ@public.gmane.org, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: markus-cHz7HMenPf4hFhg+JK9F0w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4FA64ECC.7030005-cHz7HMenPf4hFhg+JK9F0w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 05 May 2012 07:35:30 +0200
+From: Markus Kolb <markus-cHz7HMenPf4hFhg+JK9F0w@public.gmane.org>
+Date: Sun, 06 May 2012 12:13:32 +0200
 
-> On Fri, 2012-05-04 at 17:26 -0700, Alexander Duyck wrote:
->> The fast-path for pskb_expand_head contains a check where the size plus the
->> unaligned size of skb_shared_info is compared against the size of the data
->> buffer.  This code path has two issues.  First is the fact that after the
->> recent changes by Eric Dumazet to __alloc_skb and build_skb the shared info
->> is always placed in the optimal spot for a buffer size making this check
->> unnecessary.  The second issue is the fact that the check doesn't take into
->> account the aligned size of shared info.  As a result the code burns cycles
->> doing a memcpy with nothing actually being shifted.
->> 
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
- ...
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> David Miller wrote on 03.05.2012 07:11:
+>> From: Markus Kolb<linux-201011-TzK+PxyQ8t4hFhg+JK9F0w@public.gmane.org>
+>> Date: Thu, 03 May 2012 06:57:39 +0200
+>>
+>>> I'll build it during next rainy day and will report its success
+>>> after some usage ;-)
+>>
+>> Thank you.
+> 
+> Works without any problem for me.
+> So maybe this patch will be included in the official kernels before
+> I'll buy a new mobile phone?! ;-)
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
