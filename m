@@ -1,66 +1,48 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Netlink for kernel<->user space communication?
-Date: Mon, 7 May 2012 15:33:07 -0700
-Message-ID: <20120507153307.551b29ed@nehalam.linuxnetplumber.net>
-References: <4FA817C8.9040204@xdin.com>
+From: Julien Ducourthial <jducourt@free.fr>
+Subject: r8169: problem with TSO (TX_BUFFS_AVAIL negative value)
+Date: Tue, 08 May 2012 00:35:44 +0200
+Message-ID: <1336430144.11363.35.camel@blackbone.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Arvid Brodin <Arvid.Brodin@xdin.com>
+Cc: netdev@vger.kernel.org, kernel@vger.kernel.org
+To: nic_swsd@realtek.com, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52583 "EHLO mail.vyatta.com"
+Received: from smtp1-g21.free.fr ([212.27.42.1]:51111 "EHLO smtp1-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753340Ab2EGWdL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2012 18:33:11 -0400
-In-Reply-To: <4FA817C8.9040204@xdin.com>
+	id S1753340Ab2EGWfx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2012 18:35:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 May 2012 18:43:23 +0000
-Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
+Hi,
 
-> On Tue, 24 Apr 2012 16:57:55 -0700
-> Stephen Hemminger <shemminger@xxxxxxxxxx> wrote:
-> > On Tue, 24 Apr 2012 23:52:34 +0000
-> > Arvid Brodin <Arvid.Brodin@xxxxxxxx> wrote:
-> > 
-> >> Hi.
-> >> 
-> >> I'm writing a kernel driver for the HSR protocol, a standard for high availability
-> >> networks. I want to send messages from the kernel to user space about broken network
-> >> links. I also want user space to be able to ask the kernel about its view of the status of
-> >> nodes on the network.
-> >> 
-> >> Netlink seems like a good tool for this. (Is it?)
-> > 
-> > Yes.
-> > 
-> >> But do I use raw netlink? (Described here: http://www.linuxjournal.com/article/7356 - but
-> >> this seems a bit out of date, the kernel API description differs from today's kernel
-> >> implementation.)
-> > 
-> > No. Your driver probably looks like a device so you should be
-> > using rtnetlink messages.
-> 
-> I'm already using rtnetlink messages to add and remove my device, which works fine (see
-> e.g. http://www.spinics.net/lists/netdev/msg192817.html - although I didn't think it
-> meaningful to include the iproute2 patch here, until the kernel part is ready).
-> 
-> The protocol specifies transmission of "supervision frames" every 2 seconds, e.g. to check
-> link integrity. Every such frame should be received from two directions in the ring - if
-> only one is received, then there is a link problem.
+Whenever I activate TSO on my realtek based NIC, it gets stuck after a
+while under heavy traffic (both under an zotac amd board with a 8111e on
+board and an intel D510MO atom with 8111d on board).
 
-Why not just manipulate the carrier or operational state (see Documentation/networking/operstate)
-and use the existing notification on link changes. If you don't get heartbeat then change
-the state of the device to indicate lower device is down with set_operstate(), the necessary
-link everts propgate back as netlink events.
+After doing some investigation (with systemtap), the problem seems to be
+that the net_device is not stopped when all TX descriptors are in use.
 
-> I'd like to notify user space about every such occurence. Is there a rtnetlink message
-> type that fits this? The stuff in rtnetlink.h seems to be mostly concerned with specific
-> user space commands (there is something called RTNLGRP_NOTIFY but I couldn't find any
-> instances of it being used in the kernel, nor any documentation).
-> 
+This behavior comes from the macro TX_BUFFS_AVAIL(tp). It is an unsigned
+expression but returns -1 when the transmit queue is full (the macro
+handles the room for the skb and the frags). 
 
-I am trying to steer you to use existing API's because then existing programs and
-infrastructure can deal with the new device type.
+This condition only happens when you have skb with lots of frags
+(otherwise the nic is stopped before all TX desc are in use), hence only
+in the tso case for me.
+
+I made a small patch to avoid negative values, and the driver works
+great with TSO. With my atom based board I can now reach maximum
+throughput as an NFS server.
+
+Best regards,
+
+Julien Ducourthial (1):
+  r8169: fix problem with TSO (TX_BUFFS_AVAIL negative value)
+
+ drivers/net/ethernet/realtek/r8169.c |   16 ++++++++++------
+ 1 files changed, 10 insertions(+), 6 deletions(-)
+
+-- 
+1.7.7.6
