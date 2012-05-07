@@ -1,75 +1,37 @@
-From: Erwan Velu <erwanaliasr1@gmail.com>
-Subject: [PATCH] pch_gbe: Adding read memory barriers
-Date: Mon, 07 May 2012 19:39:47 +0200
-Message-ID: <4FA808E3.1030908@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pch_gbe: Adding read memory barriers
+Date: Mon, 07 May 2012 13:44:51 -0400 (EDT)
+Message-ID: <20120507.134451.951672483281209005.davem@davemloft.net>
+References: <4FA808E3.1030908@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070504030608060709050009"
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	stable@vger.kernel.org, tshimizu818@gmail.com
+To: erwanaliasr1@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FA808E3.1030908@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070504030608060709050009
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Date: Mon, 07 May 2012 19:39:47 +0200
 
-Dear Linux Kernel Developers,
+> Please find attached
 
-Please find attached, a patch to solve "Received CRC" errors reported by 
-the pch_gbe driver under heavy load. It occurred on an Intel ATOM E620T 
-while running a 300mbit/sec multicast network stream leading to a ~100% 
-cpu usage.
+First of all, for a patch which is not accepted yet you do not
+CC: stable.
 
-This patch got validated on the 3.2.16 kernel but also apply to the 3.x
-family.
+Second of all, do not put text in the main body of your email which is
+unrelated to the patch and should not end up in the commit message.
 
-Getting it into stable would be perfect as it solves reliability issues.
+Instead, post your patch to the appropriate primary mailing lists,
+and if it's accepted it can then be submitted to -stable at some
+later time.
 
-Cheers,
-Erwan Velu
+Your patch posting email should be composed purely of the commit
+log message in the message body, followed by the actual patch.
 
---------------070504030608060709050009
-Content-Type: application/octet-stream;
- name="0001-pch_gbe-Adding-read-memory-barriers.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="0001-pch_gbe-Adding-read-memory-barriers.patch"
-
-RnJvbSAzYjY1ODAyZTRjNWE4ODI3YTg0MDIyMDY2ZjEwZGVjNGQ2MWMxZjIyIE1vbiBTZXAg
-MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBFcndhbiBWZWx1IDxlcndhbi52ZWx1QHpvZGlhY2Fl
-cm9zcGFjZS5jb20+CkRhdGU6IE1vbiwgNyBNYXkgMjAxMiAxNDo1MzoxNyArMDIwMApTdWJq
-ZWN0OiBbUEFUQ0ggMS8xXSBwY2hfZ2JlOiBBZGRpbmcgcmVhZCBtZW1vcnkgYmFycmllcnMK
-ClVuZGVyIGEgc3Ryb25nIGluY29taW5nIHBhY2tldCBzdHJlYW0gYW5kL29yIGhpZ2ggY3B1
-IHVzYWdlLAp0aGUgcGNoX2diZSBkcml2ZXIgcmVwb3J0cyAiUmVjZWl2ZSBDUkMgRXJyb3Ii
-IGFuZCBkaXNjYXJkcyBwYWNrZXQuCgpBZGRpbmcgcm1iKCkgY2FsbHMgYmVmb3JlIGNvbnNp
-ZGVyaW5nIHRoZSBuZXR3b3JrIGNhcmQncyBzdGF0dXMgc29sdmUKdGhpcyBpc3N1ZXMuCgpT
-aWduZWQtb2ZmLWJ5OiBFcndhbiBWZWx1IDxlcndhbi52ZWx1QHpvZGlhY2Flcm9zcGFjZS5j
-b20+Ci0tLQogLi4uL25ldC9ldGhlcm5ldC9va2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVfbWFp
-bi5jICAgfCAgICA4ICsrKysrKysrCiAxIGZpbGVzIGNoYW5nZWQsIDggaW5zZXJ0aW9ucygr
-KSwgMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9v
-a2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-b2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4uYwppbmRleCA0ODQwNmNhLi43NzQ2Y2Ez
-IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9va2ktc2VtaS9wY2hfZ2JlL3Bj
-aF9nYmVfbWFpbi5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3BjaF9n
-YmUvcGNoX2diZV9tYWluLmMKQEAgLTEyMjIsNiArMTIyMiw4IEBAIHN0YXRpYyBpcnFyZXR1
-cm5fdCBwY2hfZ2JlX2ludHIoaW50IGlycSwgdm9pZCAqZGF0YSkKIAkJfQogCX0KIAorCXNt
-cF9ybWIoKTsgLyogcHJldmVudCBhbnkgb3RoZXIgcmVhZHMgYmVmb3JlKi8KKwogCS8qIFdo
-ZW4gcmVxdWVzdCBzdGF0dXMgaXMgUmVjZWl2ZSBpbnRlcnJ1cHRpb24gKi8KIAlpZiAoKGlu
-dF9zdCAmIChQQ0hfR0JFX0lOVF9SWF9ETUFfQ01QTFQgfCBQQ0hfR0JFX0lOVF9UWF9DTVBM
-VCkpIHx8CiAJICAgIChhZGFwdGVyLT5yeF9zdG9wX2ZsYWcgPT0gdHJ1ZSkpIHsKQEAgLTEz
-OTAsNiArMTM5Miw5IEBAIHBjaF9nYmVfY2xlYW5fdHgoc3RydWN0IHBjaF9nYmVfYWRhcHRl
-ciAqYWRhcHRlciwKIAogCWkgPSB0eF9yaW5nLT5uZXh0X3RvX2NsZWFuOwogCXR4X2Rlc2Mg
-PSBQQ0hfR0JFX1RYX0RFU0MoKnR4X3JpbmcsIGkpOworCisJcm1iKCk7ICAvKiBwcmV2ZW50
-IGFueSBvdGhlciByZWFkcyBiZWZvcmUqLworCiAJcHJfZGVidWcoImdiZWNfc3RhdHVzOjB4
-JTA0eCAgZG1hX3N0YXR1czoweCUwNHhcbiIsCiAJCSB0eF9kZXNjLT5nYmVjX3N0YXR1cywg
-dHhfZGVzYy0+ZG1hX3N0YXR1cyk7CiAKQEAgLTE0OTAsNiArMTQ5NSw5IEBAIHBjaF9nYmVf
-Y2xlYW5fcngoc3RydWN0IHBjaF9nYmVfYWRhcHRlciAqYWRhcHRlciwKIAl3aGlsZSAoKndv
-cmtfZG9uZSA8IHdvcmtfdG9fZG8pIHsKIAkJLyogQ2hlY2sgUnggZGVzY3JpcHRvciBzdGF0
-dXMgKi8KIAkJcnhfZGVzYyA9IFBDSF9HQkVfUlhfREVTQygqcnhfcmluZywgaSk7CisKKwkJ
-cm1iKCk7IC8qIHByZXZlbnQgYW55IG90aGVyIHJlYWRzIGJlZm9yZSovCisKIAkJaWYgKHJ4
-X2Rlc2MtPmdiZWNfc3RhdHVzID09IERTQ19JTklUMTYpCiAJCQlicmVhazsKIAkJY2xlYW5l
-ZCA9IHRydWU7Ci0tIAoxLjcuNC40Cgo=
---------------070504030608060709050009--
+Otherwise the maintainer that applies your patch has to edit out
+all of this other flowery text that is unrelated to the commit
+and that makes more work for them.
