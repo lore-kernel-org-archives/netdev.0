@@ -1,55 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] RPS: Sparse connection optimizations - v2
-Date: Mon, 07 May 2012 09:38:02 +0200
-Message-ID: <1336376282.3752.2252.camel@edumazet-glaptop>
-References: <1336035412-2161-1-git-send-email-dczhu@mips.com>
-	 <CA+mtBx_J=fm3+k6_NzMH9KCdrYpZPwT2XBQe4r424eNDCKzazg@mail.gmail.com>
-	 <4FA35A3D.8000205@mips.com>
-	 <CA+mtBx-CErRU=3ewkAjVrGN3dGzjsTz8Q-E8J+Xa+529OVEvwA@mail.gmail.com>
-	 <4FA77051.20804@mips.com>
+From: Dong Aisheng <aisheng.dong@freescale.com>
+Subject: Re: [PATCH RESEND 0/5] Adopt pinctrl support for a few outstanding
+ imx drivers
+Date: Mon, 7 May 2012 15:53:44 +0800
+Message-ID: <20120507075344.GC23607@shlinux2.ap.freescale.net>
+References: <1336352040-28447-1-git-send-email-shawn.guo@linaro.org>
+ <20120507065001.GA23607@shlinux2.ap.freescale.net>
+ <20120507073403.GG19389@S2101-09.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Deng-Cheng Zhu <dczhu@mips.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:41149 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754194Ab2EGHiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 03:38:08 -0400
-Received: by eekc41 with SMTP id c41so1314898eek.19
-        for <netdev@vger.kernel.org>; Mon, 07 May 2012 00:38:06 -0700 (PDT)
-In-Reply-To: <4FA77051.20804@mips.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Dong Aisheng-B29396 <B29396@freescale.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+	"linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Olof Johansson <olof@lixom.net>,
+	"spi-devel-general@lists.sourceforge.net"
+	<spi-devel-general@lists.sourceforge.net>,
+	Dong Aisheng <dong.aisheng@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <linux-serial-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120507073403.GG19389@S2101-09.ap.freescale.net>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-05-07 at 14:48 +0800, Deng-Cheng Zhu wrote:
-> On 05/04/2012 11:31 PM, Tom Herbert wrote:
-> >> I think the mechanisms of rps_dev_flow_table and cpu_flow (in this
-> >> patch) are different: The former works along with rps_sock_flow_table
-> >> whose CPU info is based on recvmsg by the application. But for the tests
-> >> like what I did, there's no application involved.
-> >>
-> > While rps_sock_flow_table is currently only managed by recvmsg, it
-> > still is the general mechanism that maps flows to CPUs for steering.
-> > There should be nothing preventing you from populating and managing
-> > entries in other ways.
+On Mon, May 07, 2012 at 03:34:06PM +0800, Shawn Guo wrote:
+> On Mon, May 07, 2012 at 02:50:02PM +0800, Dong Aisheng wrote:
+> > Shouldn't we add the pinctrl states in dts file at the same time
+> > with this patch series or using another separate patch to add them
+> > before this series to avoid breaking the exist mx6q platforms?
+> > 
+> Ah, I just noticed that your patch "ARM: imx: enable pinctrl dummy
+> states" did not cover imx6q.  I think we should do the same for imx6q,
+Yes, doing that was to force people to add pinctrl states in dts file
+rather than using dummy state since mx6 supports pinctrl driver.
+
+> so that we can separate dts update from the driver change.  When all
+> imx6q boards' dts files get updated to have pins defined for the
+> devices, we can then remove dummy state for imx6q.  Doing so will ease
+> the pinctrl migration for those imx6q boards.
 > 
-> Well, even using rps_sock_flow_table to map the sparse flows to CPUs,
-> we still need a data structure to describe a single flow -- that's what
-> struct cpu_flow is doing. Besides, rps_sock_flow_table, by its meaning,
-> does not seem to make sense for our purpose. How about keeping the patch
-> as is but renaming struct cpu_flow to struct rps_sparse_flow? It's like:
+Well, considering we have several mx6 boards, i think i can also be fine
+with this way to ease the mx6q pinctrl migration.
+
+> Will update your patch on my branch to have dummy state enabled for
+> imx6q.
 > 
+Then go ahead.
 
-sock_flow_table is about mapping a flow (by its rxhash) to cpu.
+Regards
+Dong Aisheng
 
-If you feel 'sock' is bad name, you can rename it.
-
-You dont need adding new data structure and code in fast path.
-
-Only the first packet of a new flow might be handled by 'the wrong cpu'.
-
-If you add code in forward path to change flow_table for next packets,
-added cost in fast path is null.
