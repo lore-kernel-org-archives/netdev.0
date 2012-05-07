@@ -1,43 +1,57 @@
-From: Adrian Chadd <adrian@freebsd.org>
-Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
-Date: Mon, 7 May 2012 11:26:39 -0700
-Message-ID: <CAJ-Vmok92fR_JfqD2BrnP7A0c8Vs5K7T-77nzt7B+sPPgk6KNw@mail.gmail.com>
-References: <20120427094637.GV3157@wantstofly.org>
-	<CA+icZUXNZ=exTnR=OgD_9bpt_0s-KnR+v-K6u+XzQr4HBoTQHQ@mail.gmail.com>
-	<20120427095842.GW3157@wantstofly.org>
-	<CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com>
-	<20120427101732.GX3157@wantstofly.org>
-	<CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com>
-	<CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com>
-	<20120427185809.GZ3157@wantstofly.org>
-	<CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com>
-	<CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com>
-	<20120501125102.GN3157@wantstofly.org>
-	<1336406944.2385.24.camel@dcbw.foobar.com>
-	<1336408965.2385.25.camel@dcbw.foobar.com>
+From: Arvid Brodin <Arvid.Brodin@xdin.com>
+Subject: Re: Netlink for kernel<->user space communication?
+Date: Mon, 7 May 2012 18:43:23 +0000
+Message-ID: <4FA817C8.9040204@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, sedat.dilek@gmail.com,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, lautriv <admin@coldplug.net>,
-	Jim Cromie <jim.cromie@gmail.com>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:33992 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756334Ab2EGS0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 14:26:39 -0400
-In-Reply-To: <1336408965.2385.25.camel@dcbw.foobar.com>
+Received: from spam1.webland.se ([91.207.112.90]:62774 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755028Ab2EGSnZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2012 14:43:25 -0400
+Content-Language: en-US
+Content-ID: <AA3D1BA8AE533F42B9FD093C2BB627A3@redbull.xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Let me see if the topdog firmware that FreeBSD ships with supports hostap mode.
-
-I'm having aggregation issues but I think that's driver side, not firmware side.
-
-
-
-Adrian
+T24gVHVlLCAyNCBBcHIgMjAxMiAxNjo1Nzo1NSAtMDcwMA0KU3RlcGhlbiBIZW1taW5nZXIgPHNo
+ZW1taW5nZXJAeHh4eHh4eHh4eD4gd3JvdGU6DQo+IE9uIFR1ZSwgMjQgQXByIDIwMTIgMjM6NTI6
+MzQgKzAwMDANCj4gQXJ2aWQgQnJvZGluIDxBcnZpZC5Ccm9kaW5AeHh4eHh4eHg+IHdyb3RlOg0K
+PiANCj4+IEhpLg0KPj4gDQo+PiBJJ20gd3JpdGluZyBhIGtlcm5lbCBkcml2ZXIgZm9yIHRoZSBI
+U1IgcHJvdG9jb2wsIGEgc3RhbmRhcmQgZm9yIGhpZ2ggYXZhaWxhYmlsaXR5DQo+PiBuZXR3b3Jr
+cy4gSSB3YW50IHRvIHNlbmQgbWVzc2FnZXMgZnJvbSB0aGUga2VybmVsIHRvIHVzZXIgc3BhY2Ug
+YWJvdXQgYnJva2VuIG5ldHdvcmsNCj4+IGxpbmtzLiBJIGFsc28gd2FudCB1c2VyIHNwYWNlIHRv
+IGJlIGFibGUgdG8gYXNrIHRoZSBrZXJuZWwgYWJvdXQgaXRzIHZpZXcgb2YgdGhlIHN0YXR1cyBv
+Zg0KPj4gbm9kZXMgb24gdGhlIG5ldHdvcmsuDQo+PiANCj4+IE5ldGxpbmsgc2VlbXMgbGlrZSBh
+IGdvb2QgdG9vbCBmb3IgdGhpcy4gKElzIGl0PykNCj4gDQo+IFllcy4NCj4gDQo+PiBCdXQgZG8g
+SSB1c2UgcmF3IG5ldGxpbms/IChEZXNjcmliZWQgaGVyZTogaHR0cDovL3d3dy5saW51eGpvdXJu
+YWwuY29tL2FydGljbGUvNzM1NiAtIGJ1dA0KPj4gdGhpcyBzZWVtcyBhIGJpdCBvdXQgb2YgZGF0
+ZSwgdGhlIGtlcm5lbCBBUEkgZGVzY3JpcHRpb24gZGlmZmVycyBmcm9tIHRvZGF5J3Mga2VybmVs
+DQo+PiBpbXBsZW1lbnRhdGlvbi4pDQo+IA0KPiBOby4gWW91ciBkcml2ZXIgcHJvYmFibHkgbG9v
+a3MgbGlrZSBhIGRldmljZSBzbyB5b3Ugc2hvdWxkIGJlDQo+IHVzaW5nIHJ0bmV0bGluayBtZXNz
+YWdlcy4NCg0KSSdtIGFscmVhZHkgdXNpbmcgcnRuZXRsaW5rIG1lc3NhZ2VzIHRvIGFkZCBhbmQg
+cmVtb3ZlIG15IGRldmljZSwgd2hpY2ggd29ya3MgZmluZSAoc2VlDQplLmcuIGh0dHA6Ly93d3cu
+c3Bpbmljcy5uZXQvbGlzdHMvbmV0ZGV2L21zZzE5MjgxNy5odG1sIC0gYWx0aG91Z2ggSSBkaWRu
+J3QgdGhpbmsgaXQNCm1lYW5pbmdmdWwgdG8gaW5jbHVkZSB0aGUgaXByb3V0ZTIgcGF0Y2ggaGVy
+ZSwgdW50aWwgdGhlIGtlcm5lbCBwYXJ0IGlzIHJlYWR5KS4NCg0KVGhlIHByb3RvY29sIHNwZWNp
+ZmllcyB0cmFuc21pc3Npb24gb2YgInN1cGVydmlzaW9uIGZyYW1lcyIgZXZlcnkgMiBzZWNvbmRz
+LCBlLmcuIHRvIGNoZWNrDQpsaW5rIGludGVncml0eS4gRXZlcnkgc3VjaCBmcmFtZSBzaG91bGQg
+YmUgcmVjZWl2ZWQgZnJvbSB0d28gZGlyZWN0aW9ucyBpbiB0aGUgcmluZyAtIGlmDQpvbmx5IG9u
+ZSBpcyByZWNlaXZlZCwgdGhlbiB0aGVyZSBpcyBhIGxpbmsgcHJvYmxlbS4NCg0KSSdkIGxpa2Ug
+dG8gbm90aWZ5IHVzZXIgc3BhY2UgYWJvdXQgZXZlcnkgc3VjaCBvY2N1cmVuY2UuIElzIHRoZXJl
+IGEgcnRuZXRsaW5rIG1lc3NhZ2UNCnR5cGUgdGhhdCBmaXRzIHRoaXM/IFRoZSBzdHVmZiBpbiBy
+dG5ldGxpbmsuaCBzZWVtcyB0byBiZSBtb3N0bHkgY29uY2VybmVkIHdpdGggc3BlY2lmaWMNCnVz
+ZXIgc3BhY2UgY29tbWFuZHMgKHRoZXJlIGlzIHNvbWV0aGluZyBjYWxsZWQgUlROTEdSUF9OT1RJ
+RlkgYnV0IEkgY291bGRuJ3QgZmluZCBhbnkNCmluc3RhbmNlcyBvZiBpdCBiZWluZyB1c2VkIGlu
+IHRoZSBrZXJuZWwsIG5vciBhbnkgZG9jdW1lbnRhdGlvbikuDQoNCg0KPj4gT3IgZG8gSSB1c2Ug
+dGhlICJLZXJuZWwgQ29ubmVjdG9yIiAoRG9jdW1lbnRhdGlvbi9jb25uZWN0b3IvY29ubmVjdG9y
+LnR4dCk/DQo+IG5vLg0KDQpZb3VyIHJlcGx5IGRpZG4ndCByZWFjaCBtZSBmb3Igc29tZSByZWFz
+b24gLSBJIGZvdW5kIGl0IGp1c3QgeWVzdGVyZGF5IG9uIHNwaW5pY3MgLSBhbmQgaW4NCnRoZSBt
+ZWFudGltZSBJJ3ZlIGltcGxlbWVudGVkIHRoZSBub3RpZmljYXRpb24gdXNpbmcgdGhlIGNvbm5l
+Y3RvciBwcm90b2NvbC4uLiA6LXwNCg0KDQotLSANCkFydmlkIEJyb2Rpbg0KRW5lYSBTZXJ2aWNl
+cyBTdG9ja2hvbG0gQUIgLSBzaW5jZSBGZWJydWFyeSAxNiBhIHBhcnQgb2YgWGRpbiBpbiB0aGUg
+QWx0ZW4gR3JvdXAuIFNvb24gd2UNCndpbGwgYmUgd29ya2luZyB1bmRlciB0aGUgY29tbW9uIGJy
+YW5kIG5hbWUgWGRpbi4gUmVhZCBtb3JlIGF0IHd3dy54ZGluLmNvbS4=
