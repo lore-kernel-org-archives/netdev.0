@@ -1,78 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 07 May 2012 00:12:58 -0700
-Message-ID: <1336374778.2386.1.camel@jtkirshe-mobl>
-References: <1336221493-913-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20120506.132513.36895742709809565.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>
+Subject: Re: [PATCH] 9p: disconnect channel when PCI device is removed
+Date: Mon, 07 May 2012 12:44:03 +0530
+Message-ID: <87pqagzcn8.fsf@skywalker.in.ibm.com>
+References: <1334353716-19483-1-git-send-email-levinsasha928@gmail.com> <87397chebf.fsf@rustcorp.com.au>User-Agent: Notmuch/0.11.1+346~g13d19c3 (http://notmuchmail.org) Emacs/23.3.1 (x86_64-pc-linux-gnu)
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Ct7zcx/iOHzcQUcwnybn"
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davej@redhat.com, Sasha Levin <levinsasha928@gmail.com>
+To: Rusty Russell <rusty@rustcorp.com.au>,
+	Sasha Levin <levinsasha928@gmail.com>, davem@davemloft.net,
+	ericvh@gmail.com, jvrao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:34853 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755339Ab2EGHNU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2012 03:13:20 -0400
-In-Reply-To: <20120506.132513.36895742709809565.davem@davemloft.net>
+Received: from e23smtp09.au.ibm.com ([202.81.31.142]:60777 "EHLO
+	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755079Ab2EGHPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 03:15:31 -0400
+Received: from /spool/local
+	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <aneesh.kumar@linux.vnet.ibm.com>;
+	Mon, 7 May 2012 08:03:44 +1000
+In-Reply-To: <87397chebf.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Rusty Russell <rusty@rustcorp.com.au> writes:
 
---=-Ct7zcx/iOHzcQUcwnybn
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> On Fri, 13 Apr 2012 17:48:36 -0400, Sasha Levin <levinsasha928@gmail.com> wrote:
+>> When a virtio_9p pci device is being removed, we should close down any
+>> active channels and free up resources, we're not supposed to BUG() if there's
+>> still an open channel since it's a valid case when removing the PCI device.
+>> 
+>> Otherwise, removing the PCI device with an open channel would cause the
+>> following BUG():
+>
+> (Damn changed notmuch.el bindings!  Previous reply went only to Sasha).
+>
+> Applied thanks,
+> Rusty.
 
-On Sun, 2012-05-06 at 13:25 -0400, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Sat,  5 May 2012 05:38:09 -0700
->=20
-> > This series of patches contains updates for e1000e and ixgbe.
-> >=20
-> > NOTE- The ixgbe patch can and probably should be applied to
-> > David Miller's net tree as well.
-> >=20
-> > The following are changes since commit bd14b1b2e29bd6812597f896dde06eaf=
-7c6d2f24:
-> >   tcp: be more strict before accepting ECN negociation
-> > and are available in the git repository at:
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next maste=
-r
->=20
-> No new changes there?
->=20
-> [davem@drr net-next]$ git pull git://git.kernel.org/pub/scm/linux/kernel/=
-git/jkirsher/net-next master
-> From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
->  * branch            master     -> FETCH_HEAD
-> Already up-to-date.
+I am not sure whether the patch is sufficient, p9_virtio_remove does a
+kfree(chan) and since we are not doing anything at the file system
+level, we would still allow new 9p client request. That means
+p9_virtio_request would be dereferencing a freed memory.
 
-Sorry Dave, I thought I had pushed the changes but it appears I did not.
-I have rectified that and now my net-next tree contains the four
-patches.
-
---=-Ct7zcx/iOHzcQUcwnybn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPp3X6AAoJEOVv75VaS+3O0qAQAJ4scKLZRRfPHwTt8l/lWiaj
-ontM7pUWBESl+9mC2kskTB532EUB0RFtaVcoeiP15nkz/gp1C7zX450JVmiurZo0
-BOz/xMq2kC82ZvyoM8CXctUQMKSt7qrVy0fFdtmtRP4U7P3bjxzwAILCCxChHQ21
-RlrVKEsJomSjfiZF9s5UaNZ2kdfALgjLgHR/9rrmRn/hJTpAoq+bBBd3U1Jmqpt8
-+UQevawA1OydIcv5sVL95Id86wuLtB7GI1VUC/gPrOlut5b64UfA2Uq2/ZBK7vV9
-wTKLpu/8pt1xGpPg5dowhp8F9sLCnr7ZMzTm5kmMIJi9KNTbN47Bbb+ce8A1j6yx
-+Oz//zlsuV7O1ttAEhh88JbXqY78LQSSHYVCv6TDjR8lxNrIUp+aRPp1QJy4610G
-JXR2erlmuIWz1oSTvFnIwaD0rVTGaBrfRB+4KTbaJbDEm9/shJ/Gh+9oh6GZxnNw
-rEg4rvkFp93FQV04len1iwaCSLyhJY02vIcNawcameKYff3i+3cmLR4zVS9LHy/B
-JRx/5bgorgWeV4EZCKPUBtxUvyGtXyXCidTgQO9qVOVQHsYufXA8T7c6O9z6WJLh
-K94e3SWfw1ce+ohdDsBXGkz5zAXq74gJ3ousz7hrqpWQfCgZ+HMynSAfbZueOe7l
-116+ZzR2fRAvv/KLBOro
-=twGV
------END PGP SIGNATURE-----
-
---=-Ct7zcx/iOHzcQUcwnybn--
+-aneesh
