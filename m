@@ -1,77 +1,57 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 00/17] netfilter: add namespace support for
- netfilter protos
-Date: Tue, 8 May 2012 01:19:55 +0200
-Message-ID: <20120507231955.GA5716@1984>
-References: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: compare_ether_addr[_64bits]() has no ordering
+Date: Mon, 07 May 2012 19:20:52 -0400 (EDT)
+Message-ID: <20120507.192052.181899101154654170.davem@davemloft.net>
+References: <1336397946.4325.27.camel@jlt3.sipsolutions.net>
+	<1336398809.3752.2313.camel@edumazet-glaptop>
+	<1336399961.4325.30.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	serge.hallyn@canonical.com, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52341 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755219Ab2EGXV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 19:21:58 -0400
+In-Reply-To: <1336399961.4325.30.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Mon, 07 May 2012 16:12:41 +0200
 
-On Fri, Apr 27, 2012 at 05:37:47PM +0800, Gao feng wrote:
-> Currently the sysctl of netfilter proto is not isolated, so when
-> changing proto's sysctl in container will cause the host's sysctl
-> be changed too. it's not expected.
+> On Mon, 2012-05-07 at 15:53 +0200, Eric Dumazet wrote:
+>> On Mon, 2012-05-07 at 15:39 +0200, Johannes Berg wrote:
+>> > From: Johannes Berg <johannes.berg@intel.com>
+>> > 
+>> > Neither compare_ether_addr() nor compare_ether_addr_64bits()
+>> > (as it can fall back to the former) have comparison semantics
+>> > like memcmp() where the sign of the return value indicates sort
+>> > order. We had a bug in the wireless code due to a blind memcmp
+>> > replacement because of this.
+>> > 
+>> > A cursory look suggests that the wireless bug was the only one
+>> > due to this semantic difference.
+>> > 
+>> > Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+>> > ---
+>> >  include/linux/etherdevice.h |   11 ++++++-----
+>> >  1 file changed, 6 insertions(+), 5 deletions(-)
+>> 
+>> The right way to avoid this kind of problems is to change these
+>> functions to return a bool
 > 
-> This patch set adds the namespace support for netfilter protos.
-> 
-> impletement four pernet_operations to register sysctl and initial
-> pernet data for proto.
-> 
-> -ipv4_net_ops is used to register tcp4(compat),
->  udp4(compat),icmp(compat),ipv4(compat).
-> -ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
-> -sctp_net_ops is used to register sctp4(compat) and sctp6.
-> -udplite_net_ops is used to register udplite4 and udplite6
-> 
-> extern l[3,4]proto (sysctl) register functions to make them support
-> namespace.
-> 
-> finailly add namespace support for cttimeout.
->
-> Gao feng (17):
->   netfilter: add struct nf_proto_net for register l4proto sysctl
->   netfilter: add namespace support for l4proto
->   netfilter: add namespace support for l3proto
->   netfilter: add namespace support for l4proto_generic
->   netfilter: add namespace support for l4proto_tcp
->   netfilter: add namespace support for l4proto_udp
->   netfilter: add namespace support for l4proto_icmp
->   netfilter: add namespace support for l4proto_icmpv6
->   netfilter: add namespace support for l3proto_ipv4
->   netfilter: add namespace support for l3proto_ipv6
->   netfilter: add namespace support for l4proto_sctp
->   netfilter: add namespace support for l4proto_udplite
->   netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
->   netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
->   netfilter: cleanup sysctl for l4proto and l3proto
->   netfilter: add namespace support for cttimeout
->   netfilter: cttimeout use pernet data of l4proto
+> Well, I guess so, but that'd be a weird thing for a compare_ function...
+> should probably be named equal_... then, but I'm not really able to do
+> such a huge change on the first day after my vacation :-)
 
-I've been having a look at this patchset several times since last
-week. The logic that it follows to split changes into patches is not
-correct. This breaks the compilation of my tree since patch 2 until
-the entire patchset is applied.
+It's true the name could be improved, but changing the name is quite
+a large undertaking even with automated scripts.
 
-This has to start by one patch that adds the basic infrastructure to
-register the layer 3 and 4 conntrack timeout per-net support and it
-prepares the per-protocol per-net support. This implies to
-propagate the minimal set of changes to make sure it compiles, ie.
-modify clients to use the new interface to register init_net.
+Even the bool change is slightly painful, since all of the explicit
+tests against integers (%99.999 of these are in wireless BTW :-) would
+need to be adjusted.
 
-Then, follow-up per-protocol patches that use the new infrastructure
-implement the per-protocol support. All this without breaking the
-compilation of my tree between patches.
-
-I'm all for fixing the existing unfinished container support for
-Netfilter, but this needs to be done appropriately.
+For now, I'll just apply Johannes's comment fix.
