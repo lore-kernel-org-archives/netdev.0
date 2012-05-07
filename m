@@ -1,72 +1,33 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH RESEND 2/5] net: fec: adopt pinctrl support
-Date: Mon,  7 May 2012 08:53:57 +0800
-Message-ID: <1336352040-28447-3-git-send-email-shawn.guo@linaro.org>
-References: <1336352040-28447-1-git-send-email-shawn.guo@linaro.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Olof Johansson <olof@lixom.net>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Dong Aisheng <dong.aisheng@linaro.org>,
-	Shawn Guo <shawn.guo@linaro.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] 9p: disconnect channel when PCI device is removed
+Date: Mon, 07 May 2012 12:45:16 +0930
+Message-ID: <87397chebf.fsf@rustcorp.com.au>
+References: <1334353716-19483-1-git-send-email-levinsasha928@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davej@redhat.com, Sasha Levin <levinsasha928@gmail.com>
+To: Sasha Levin <levinsasha928@gmail.com>, davem@davemloft.net,
+	ericvh@gmail.com, aneesh.kumar@linux.vnet.ibm.com,
+	jvrao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:61005 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755077Ab2EGAx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 May 2012 20:53:57 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rp8so6011295pbb.19
-        for <netdev@vger.kernel.org>; Sun, 06 May 2012 17:53:57 -0700 (PDT)
-In-Reply-To: <1336352040-28447-1-git-send-email-shawn.guo@linaro.org>
+Received: from ozlabs.org ([203.10.76.45]:51537 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751973Ab2EGFYR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2012 01:24:17 -0400
+In-Reply-To: <1334353716-19483-1-git-send-email-levinsasha928@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: netdev@vger.kernel.org
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
----
- drivers/net/ethernet/freescale/fec.c |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+On Fri, 13 Apr 2012 17:48:36 -0400, Sasha Levin <levinsasha928@gmail.com> wrote:
+> When a virtio_9p pci device is being removed, we should close down any
+> active channels and free up resources, we're not supposed to BUG() if there's
+> still an open channel since it's a valid case when removing the PCI device.
+> 
+> Otherwise, removing the PCI device with an open channel would cause the
+> following BUG():
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index a12b3f5..500c106 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -48,6 +48,7 @@
- #include <linux/of_device.h>
- #include <linux/of_gpio.h>
- #include <linux/of_net.h>
-+#include <linux/pinctrl/consumer.h>
- 
- #include <asm/cacheflush.h>
- 
-@@ -1542,6 +1543,7 @@ fec_probe(struct platform_device *pdev)
- 	struct resource *r;
- 	const struct of_device_id *of_id;
- 	static int dev_id;
-+	struct pinctrl *pinctrl;
- 
- 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
- 	if (of_id)
-@@ -1609,6 +1611,12 @@ fec_probe(struct platform_device *pdev)
- 		}
- 	}
- 
-+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
-+	if (IS_ERR(pinctrl)) {
-+		ret = PTR_ERR(pinctrl);
-+		goto failed_pin;
-+	}
-+
- 	fep->clk = clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(fep->clk)) {
- 		ret = PTR_ERR(fep->clk);
-@@ -1639,6 +1647,7 @@ failed_mii_init:
- failed_init:
- 	clk_disable_unprepare(fep->clk);
- 	clk_put(fep->clk);
-+failed_pin:
- failed_clk:
- 	for (i = 0; i < FEC_IRQ_NUM; i++) {
- 		irq = platform_get_irq(pdev, i);
--- 
-1.7.5.4
+(Damn changed notmuch.el bindings!  Previous reply went only to Sasha).
+
+Applied thanks,
+Rusty.
