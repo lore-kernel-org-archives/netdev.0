@@ -1,93 +1,77 @@
-From: Julien Ducourthial <jducourt@free.fr>
-Subject: [PATCH] r8169: fix problem with TSO (TX_BUFFS_AVAIL negative value)
-Date: Tue, 08 May 2012 00:39:27 +0200
-Message-ID: <1336430367.11363.38.camel@blackbone.local>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2 00/17] netfilter: add namespace support for
+ netfilter protos
+Date: Tue, 8 May 2012 01:19:55 +0200
+Message-ID: <20120507231955.GA5716@1984>
+References: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The r8169 may get stuck or show bad behaviour after activating TSO :
-the net_device is not stopped when it has no more TX descriptors.
-This problem comes from TX_BUFS_AVAIL which may reach -1 when all
-transmit descriptors are in use. The patch simply tries to keep positive
-values.
+Hi,
 
-Tested with 8111d(onboard) on a D510MO, and with 8111e(onboard) on a
-Zotac 890GXITX.
+On Fri, Apr 27, 2012 at 05:37:47PM +0800, Gao feng wrote:
+> Currently the sysctl of netfilter proto is not isolated, so when
+> changing proto's sysctl in container will cause the host's sysctl
+> be changed too. it's not expected.
+> 
+> This patch set adds the namespace support for netfilter protos.
+> 
+> impletement four pernet_operations to register sysctl and initial
+> pernet data for proto.
+> 
+> -ipv4_net_ops is used to register tcp4(compat),
+>  udp4(compat),icmp(compat),ipv4(compat).
+> -ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
+> -sctp_net_ops is used to register sctp4(compat) and sctp6.
+> -udplite_net_ops is used to register udplite4 and udplite6
+> 
+> extern l[3,4]proto (sysctl) register functions to make them support
+> namespace.
+> 
+> finailly add namespace support for cttimeout.
+>
+> Gao feng (17):
+>   netfilter: add struct nf_proto_net for register l4proto sysctl
+>   netfilter: add namespace support for l4proto
+>   netfilter: add namespace support for l3proto
+>   netfilter: add namespace support for l4proto_generic
+>   netfilter: add namespace support for l4proto_tcp
+>   netfilter: add namespace support for l4proto_udp
+>   netfilter: add namespace support for l4proto_icmp
+>   netfilter: add namespace support for l4proto_icmpv6
+>   netfilter: add namespace support for l3proto_ipv4
+>   netfilter: add namespace support for l3proto_ipv6
+>   netfilter: add namespace support for l4proto_sctp
+>   netfilter: add namespace support for l4proto_udplite
+>   netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
+>   netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
+>   netfilter: cleanup sysctl for l4proto and l3proto
+>   netfilter: add namespace support for cttimeout
+>   netfilter: cttimeout use pernet data of l4proto
 
-Signed-off-by: Julien Ducourthial <jducourt@free.fr>
----
- drivers/net/ethernet/realtek/r8169.c |   16 ++++++++++------
- 1 files changed, 10 insertions(+), 6 deletions(-)
+I've been having a look at this patchset several times since last
+week. The logic that it follows to split changes into patches is not
+correct. This breaks the compilation of my tree since patch 2 until
+the entire patchset is applied.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c
-b/drivers/net/ethernet/realtek/r8169.c
-index f545093..d1e3c51 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -61,8 +61,12 @@
- #define R8169_MSG_DEFAULT \
- 	(NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN)
- 
--#define TX_BUFFS_AVAIL(tp) \
--	(tp->dirty_tx + NUM_TX_DESC - tp->cur_tx - 1)
-+#define TX_SLOTS_AVAIL(tp) \
-+	(tp->dirty_tx + NUM_TX_DESC - tp->cur_tx)
-+
-+/* A skbuff with nr_frags needs nr_frags+1 entries in the tx queue */
-+#define TX_FRAGS_READY_FOR(tp,nr_frags) \
-+	(TX_SLOTS_AVAIL(tp) >= (nr_frags+1))
- 
- /* Maximum number of multicast addresses to filter (vs.
-Rx-all-multicast).
-    The RTL chips use a 64 element hash table based on the Ethernet CRC.
-*/
-@@ -5115,7 +5119,7 @@ static netdev_tx_t rtl8169_start_xmit(struct
-sk_buff *skb,
- 	u32 opts[2];
- 	int frags;
- 
--	if (unlikely(TX_BUFFS_AVAIL(tp) < skb_shinfo(skb)->nr_frags)) {
-+	if (unlikely(!TX_FRAGS_READY_FOR(tp, skb_shinfo(skb)->nr_frags))) {
- 		netif_err(tp, drv, dev, "BUG! Tx Ring full when queue awake!\n");
- 		goto err_stop_0;
- 	}
-@@ -5169,7 +5173,7 @@ static netdev_tx_t rtl8169_start_xmit(struct
-sk_buff *skb,
- 
- 	mmiowb();
- 
--	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
-+	if (!TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
- 		/* Avoid wrongly optimistic queue wake-up: rtl_tx thread must
- 		 * not miss a ring update when it notices a stopped queue.
- 		 */
-@@ -5183,7 +5187,7 @@ static netdev_tx_t rtl8169_start_xmit(struct
-sk_buff *skb,
- 		 * can't.
- 		 */
- 		smp_mb();
--		if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
-+		if (TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS))
- 			netif_wake_queue(dev);
- 	}
- 
-@@ -5306,7 +5310,7 @@ static void rtl_tx(struct net_device *dev, struct
-rtl8169_private *tp)
- 		 */
- 		smp_mb();
- 		if (netif_queue_stopped(dev) &&
--		    (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
-+		    TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
- 			netif_wake_queue(dev);
- 		}
- 		/*
--- 
-1.7.7.6
+This has to start by one patch that adds the basic infrastructure to
+register the layer 3 and 4 conntrack timeout per-net support and it
+prepares the per-protocol per-net support. This implies to
+propagate the minimal set of changes to make sure it compiles, ie.
+modify clients to use the new interface to register init_net.
+
+Then, follow-up per-protocol patches that use the new infrastructure
+implement the per-protocol support. All this without breaking the
+compilation of my tree between patches.
+
+I'm all for fixing the existing unfinished container support for
+Netfilter, but this needs to be done appropriately.
