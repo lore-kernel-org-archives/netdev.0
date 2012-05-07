@@ -1,47 +1,67 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: compare_ether_addr[_64bits]() has no ordering
-Date: Mon, 07 May 2012 16:12:41 +0200
-Message-ID: <1336399961.4325.30.camel@jlt3.sipsolutions.net>
-References: <1336397946.4325.27.camel@jlt3.sipsolutions.net>
-	 <1336398809.3752.2313.camel@edumazet-glaptop>
-	 (sfid-20120507_155404_477858_B3C1D724)
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net] cdc_ether: add Novatel USB551L device IDs for FLAG_WWAN
+Date: Mon, 07 May 2012 09:24:51 -0500
+Message-ID: <1336400691.2385.10.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:47860 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757022Ab2EGOMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 10:12:42 -0400
-In-Reply-To: <1336398809.3752.2313.camel@edumazet-glaptop> (sfid-20120507_155404_477858_B3C1D724)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-05-07 at 15:53 +0200, Eric Dumazet wrote:
-> On Mon, 2012-05-07 at 15:39 +0200, Johannes Berg wrote:
-> > From: Johannes Berg <johannes.berg@intel.com>
-> > 
-> > Neither compare_ether_addr() nor compare_ether_addr_64bits()
-> > (as it can fall back to the former) have comparison semantics
-> > like memcmp() where the sign of the return value indicates sort
-> > order. We had a bug in the wireless code due to a blind memcmp
-> > replacement because of this.
-> > 
-> > A cursory look suggests that the wireless bug was the only one
-> > due to this semantic difference.
-> > 
-> > Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> > ---
-> >  include/linux/etherdevice.h |   11 ++++++-----
-> >  1 file changed, 6 insertions(+), 5 deletions(-)
-> 
-> The right way to avoid this kind of problems is to change these
-> functions to return a bool
+Needs to be tagged with FLAG_WWAN, which since it has generic
+descriptors, won't happen if we don't override the generic
+driver info.
 
-Well, I guess so, but that'd be a weird thing for a compare_ function...
-should probably be named equal_... then, but I'm not really able to do
-such a huge change on the first day after my vacation :-)
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/usb/cdc_ether.c |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
 
-johannes
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 90a3002..41cd7da 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -475,6 +475,7 @@ static const struct driver_info wwan_info = {
+ /*-------------------------------------------------------------------------*/
+ 
+ #define HUAWEI_VENDOR_ID	0x12D1
++#define NOVATEL_VENDOR_ID	0x1410
+ 
+ static const struct usb_device_id	products [] = {
+ /*
+@@ -592,6 +593,21 @@ static const struct usb_device_id	products [] = {
+  * because of bugs/quirks in a given product (like Zaurus, above).
+  */
+ {
++	/* Novatel USB551L */
++	/* This match must come *before* the generic CDC-ETHER match so that
++	 * we get FLAG_WWAN set on the device, since it's descriptors are
++	 * generic CDC-ETHER.
++	 */
++	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
++		 | USB_DEVICE_ID_MATCH_PRODUCT
++		 | USB_DEVICE_ID_MATCH_INT_INFO,
++	.idVendor               = NOVATEL_VENDOR_ID,
++	.idProduct		= 0xB001,
++	.bInterfaceClass	= USB_CLASS_COMM,
++	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
++	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
++	.driver_info = (unsigned long)&wwan_info,
++}, {
+ 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
+ 			USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long) &cdc_info,
+-- 
+1.7.7.6
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
