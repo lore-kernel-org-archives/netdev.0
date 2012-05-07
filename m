@@ -1,57 +1,64 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
-Subject: Re: Netlink for kernel<->user space communication?
-Date: Mon, 7 May 2012 18:43:23 +0000
-Message-ID: <4FA817C8.9040204@xdin.com>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  [v12 PATCH 2/3] NETFILTER module xt_hmark, new
+	target for HASH based fwmark
+Date: Mon, 7 May 2012 21:09:05 +0200 (CEST)
+Message-ID: <0k0r53l.c3371735fb25ebebfdc229b1e397a36f@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:62774 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755028Ab2EGSnZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2012 14:43:25 -0400
-Content-Language: en-US
-Content-ID: <AA3D1BA8AE533F42B9FD093C2BB627A3@redbull.xdin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Pablo Neira Ayuso" <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyNCBBcHIgMjAxMiAxNjo1Nzo1NSAtMDcwMA0KU3RlcGhlbiBIZW1taW5nZXIgPHNo
-ZW1taW5nZXJAeHh4eHh4eHh4eD4gd3JvdGU6DQo+IE9uIFR1ZSwgMjQgQXByIDIwMTIgMjM6NTI6
-MzQgKzAwMDANCj4gQXJ2aWQgQnJvZGluIDxBcnZpZC5Ccm9kaW5AeHh4eHh4eHg+IHdyb3RlOg0K
-PiANCj4+IEhpLg0KPj4gDQo+PiBJJ20gd3JpdGluZyBhIGtlcm5lbCBkcml2ZXIgZm9yIHRoZSBI
-U1IgcHJvdG9jb2wsIGEgc3RhbmRhcmQgZm9yIGhpZ2ggYXZhaWxhYmlsaXR5DQo+PiBuZXR3b3Jr
-cy4gSSB3YW50IHRvIHNlbmQgbWVzc2FnZXMgZnJvbSB0aGUga2VybmVsIHRvIHVzZXIgc3BhY2Ug
-YWJvdXQgYnJva2VuIG5ldHdvcmsNCj4+IGxpbmtzLiBJIGFsc28gd2FudCB1c2VyIHNwYWNlIHRv
-IGJlIGFibGUgdG8gYXNrIHRoZSBrZXJuZWwgYWJvdXQgaXRzIHZpZXcgb2YgdGhlIHN0YXR1cyBv
-Zg0KPj4gbm9kZXMgb24gdGhlIG5ldHdvcmsuDQo+PiANCj4+IE5ldGxpbmsgc2VlbXMgbGlrZSBh
-IGdvb2QgdG9vbCBmb3IgdGhpcy4gKElzIGl0PykNCj4gDQo+IFllcy4NCj4gDQo+PiBCdXQgZG8g
-SSB1c2UgcmF3IG5ldGxpbms/IChEZXNjcmliZWQgaGVyZTogaHR0cDovL3d3dy5saW51eGpvdXJu
-YWwuY29tL2FydGljbGUvNzM1NiAtIGJ1dA0KPj4gdGhpcyBzZWVtcyBhIGJpdCBvdXQgb2YgZGF0
-ZSwgdGhlIGtlcm5lbCBBUEkgZGVzY3JpcHRpb24gZGlmZmVycyBmcm9tIHRvZGF5J3Mga2VybmVs
-DQo+PiBpbXBsZW1lbnRhdGlvbi4pDQo+IA0KPiBOby4gWW91ciBkcml2ZXIgcHJvYmFibHkgbG9v
-a3MgbGlrZSBhIGRldmljZSBzbyB5b3Ugc2hvdWxkIGJlDQo+IHVzaW5nIHJ0bmV0bGluayBtZXNz
-YWdlcy4NCg0KSSdtIGFscmVhZHkgdXNpbmcgcnRuZXRsaW5rIG1lc3NhZ2VzIHRvIGFkZCBhbmQg
-cmVtb3ZlIG15IGRldmljZSwgd2hpY2ggd29ya3MgZmluZSAoc2VlDQplLmcuIGh0dHA6Ly93d3cu
-c3Bpbmljcy5uZXQvbGlzdHMvbmV0ZGV2L21zZzE5MjgxNy5odG1sIC0gYWx0aG91Z2ggSSBkaWRu
-J3QgdGhpbmsgaXQNCm1lYW5pbmdmdWwgdG8gaW5jbHVkZSB0aGUgaXByb3V0ZTIgcGF0Y2ggaGVy
-ZSwgdW50aWwgdGhlIGtlcm5lbCBwYXJ0IGlzIHJlYWR5KS4NCg0KVGhlIHByb3RvY29sIHNwZWNp
-ZmllcyB0cmFuc21pc3Npb24gb2YgInN1cGVydmlzaW9uIGZyYW1lcyIgZXZlcnkgMiBzZWNvbmRz
-LCBlLmcuIHRvIGNoZWNrDQpsaW5rIGludGVncml0eS4gRXZlcnkgc3VjaCBmcmFtZSBzaG91bGQg
-YmUgcmVjZWl2ZWQgZnJvbSB0d28gZGlyZWN0aW9ucyBpbiB0aGUgcmluZyAtIGlmDQpvbmx5IG9u
-ZSBpcyByZWNlaXZlZCwgdGhlbiB0aGVyZSBpcyBhIGxpbmsgcHJvYmxlbS4NCg0KSSdkIGxpa2Ug
-dG8gbm90aWZ5IHVzZXIgc3BhY2UgYWJvdXQgZXZlcnkgc3VjaCBvY2N1cmVuY2UuIElzIHRoZXJl
-IGEgcnRuZXRsaW5rIG1lc3NhZ2UNCnR5cGUgdGhhdCBmaXRzIHRoaXM/IFRoZSBzdHVmZiBpbiBy
-dG5ldGxpbmsuaCBzZWVtcyB0byBiZSBtb3N0bHkgY29uY2VybmVkIHdpdGggc3BlY2lmaWMNCnVz
-ZXIgc3BhY2UgY29tbWFuZHMgKHRoZXJlIGlzIHNvbWV0aGluZyBjYWxsZWQgUlROTEdSUF9OT1RJ
-RlkgYnV0IEkgY291bGRuJ3QgZmluZCBhbnkNCmluc3RhbmNlcyBvZiBpdCBiZWluZyB1c2VkIGlu
-IHRoZSBrZXJuZWwsIG5vciBhbnkgZG9jdW1lbnRhdGlvbikuDQoNCg0KPj4gT3IgZG8gSSB1c2Ug
-dGhlICJLZXJuZWwgQ29ubmVjdG9yIiAoRG9jdW1lbnRhdGlvbi9jb25uZWN0b3IvY29ubmVjdG9y
-LnR4dCk/DQo+IG5vLg0KDQpZb3VyIHJlcGx5IGRpZG4ndCByZWFjaCBtZSBmb3Igc29tZSByZWFz
-b24gLSBJIGZvdW5kIGl0IGp1c3QgeWVzdGVyZGF5IG9uIHNwaW5pY3MgLSBhbmQgaW4NCnRoZSBt
-ZWFudGltZSBJJ3ZlIGltcGxlbWVudGVkIHRoZSBub3RpZmljYXRpb24gdXNpbmcgdGhlIGNvbm5l
-Y3RvciBwcm90b2NvbC4uLiA6LXwNCg0KDQotLSANCkFydmlkIEJyb2Rpbg0KRW5lYSBTZXJ2aWNl
-cyBTdG9ja2hvbG0gQUIgLSBzaW5jZSBGZWJydWFyeSAxNiBhIHBhcnQgb2YgWGRpbiBpbiB0aGUg
-QWx0ZW4gR3JvdXAuIFNvb24gd2UNCndpbGwgYmUgd29ya2luZyB1bmRlciB0aGUgY29tbW9uIGJy
-YW5kIG5hbWUgWGRpbi4gUmVhZCBtb3JlIGF0IHd3dy54ZGluLmNvbS4=
+>On Mon, May 07, 2012 at 02:57:30PM +0200, Hans Schillstrom wrote:
+>> On Monday 07 May 2012 14:22:32 Pablo Neira Ayuso wrote:
+>> > On Mon, May 07, 2012 at 02:09:46PM +0200, Hans Schillstrom wrote:
+>> > > On Monday 07 May 2012 13:56:12 Pablo Neira Ayuso wrote:
+>> > > > On Mon, May 07, 2012 at 11:14:34AM +0200, Hans Schillstrom wrote:
+>> > > > > > > We have plenty of rules where just source port mask is zero.
+>> > > > > > > and the dest-port-mask is 0xfffc (or 0xffff)
+>> > > > > > 
+>> > > > > > 0xffff and 0x0000 means on/off respectively.
+>> > > > > > 
+>> > > > > > Still curious, how can 0xfffc be useful?
+>> > > > > 
+>> > > > > That's a special case where an appl is using 4 ports.
+>> > > > > But in general, have not seen other than "on/off" except for above.
+>> > > > 
+>> > > > I see. Well I'm fine with this way to switch on/off things, just
+>> > > > wanted some clafication.
+>> > > > 
+>> > > > Still one final thing I'd like to remove before inclusion:
+>> > > > 
+>> > > > +       union hmark_ports       port_mask;
+>> > > > +       union hmark_ports       port_set;
+>> > > > +       __u32                   spi_mask;
+>> > > > +       __u32                   spi_set;
+>> > > > 
+>> > > > the spi_mask seems redundant. The port_mask already provides u32 for
+>> > > > it.
+>> > > 
+>> > > No problems, I'll remove it.
+>> > 
+>> > OK. As a nice side-effect, this will lead to removing the branch that
+>> > tests ESP/AH in hmark_set_tuple_ports.
+>> >
+>> Yes, only check if not ESP or AH to swap src/dst
+>
+>Do you really that branch? I mean, unless I'm missing anything, swapping
+>them shouldn't be a problem.
+
+Well, 
+that was just to keep backward compatibility and make my tests happy.
+I'll remove them and change my test setup.
+
+
+
+
