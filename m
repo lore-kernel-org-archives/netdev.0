@@ -1,108 +1,75 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] mwl8k: Add 0x2a02 PCI device-id (Marvell 88W8361)
-Date: Mon, 07 May 2012 11:42:45 -0500
-Message-ID: <1336408965.2385.25.camel@dcbw.foobar.com>
-References: <20120427094637.GV3157@wantstofly.org>
-	 <CA+icZUXNZ=exTnR=OgD_9bpt_0s-KnR+v-K6u+XzQr4HBoTQHQ@mail.gmail.com>
-	 <20120427095842.GW3157@wantstofly.org>
-	 <CA+icZUWuynSaPE4pdxzoP783pw7r=5x27ewXN_pkR5VS=0kKUg@mail.gmail.com>
-	 <20120427101732.GX3157@wantstofly.org>
-	 <CA+icZUUnJPeDmL9xXfvj62an40bXwwaOnrJmxmLN_cBt9PyCZA@mail.gmail.com>
-	 <CA+icZUV76wSBj88EpzmWbO=u2dP23yi5P98nN2KZehBUni9mEg@mail.gmail.com>
-	 <20120427185809.GZ3157@wantstofly.org>
-	 <CA+icZUWQmCRdjucb4+Nf24_zbJ4fzzp7zjqhKjXE6U01rppDfA@mail.gmail.com>
-	 <CA+icZUXSaEMA=KbQP9UQcU6ZMBh8QD2sv-O=6r_Ly8is==gvSA@mail.gmail.com>
-	 <20120501125102.GN3157@wantstofly.org>
-	 <1336406944.2385.24.camel@dcbw.foobar.com>
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Subject: [PATCH] pch_gbe: Adding read memory barriers
+Date: Mon, 07 May 2012 19:39:47 +0200
+Message-ID: <4FA808E3.1030908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lautriv <admin-kieEQ4o6Pv7k1uMJSBkQmQ@public.gmane.org>,
-	Jim Cromie <jim.cromie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1336406944.2385.24.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed;
+ boundary="------------070504030608060709050009"
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org, tshimizu818@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-05-07 at 11:09 -0500, Dan Williams wrote:
-> On Tue, 2012-05-01 at 14:51 +0200, Lennert Buytenhek wrote:
-> > On Sun, Apr 29, 2012 at 12:25:21AM +0200, Sedat Dilek wrote:
-> > 
-> > > > On 1st sight, logs look fine:
-> > > >
-> > > > [21:52:52] <lautriv> [    6.050967] ieee80211 phy0: 88w8361p v4,
-> > > > 00173f3bdde3, STA firmware 2.1.4.25
-> > > >
-> > > > But WLAN connection is not that fast and stable as lautriv reports
-> > > > (several abnormalities were observed).
-> > > >
-> > > > I requested a tarball which includes:
-> > > > * dmesg (Linux-3.3.3)
-> > > > * e_n_a (/etc/network/interfaces)
-> > > > * ifconfig output
-> > > > * iwconfig output
-> > > > * iw_phy output
-> > > > * ps_axu (WPA) output
-> > > >
-> > > > lautriv will be so kind to be around on #linux-wireless/Freenode the
-> > > > next days (UTC+2: German/Swiss local-time).
-> > > > Just ping him.
-> > > >
-> > > > Hope you have fun, together!
-> > > >
-> > > > - Sedat -
-> > > 
-> > > A new tarball from lautriv with same outputs as before, but now tested
-> > > with Linux-3.4-rc4.
-> > 
-> > The output looks good enough for me to ACK adding the PCI ID.
-> > 
-> > Can the firmware being used here be submitted to the linux-firmware
-> > git tree?
-> 
-> So Marvell sent John a driver for TopDog a long time ago, which he put
-> up on kernel.org.  That driver was reworked by Louis and put up in a git
-> tree, but both were lost to the kernel.org hack.  I have git backups of
-> both git trees.  I put Louis' cleanup here:
-> 
-> http://people.redhat.com/dcbw/mrvl_cb82.tar.bz2
-> 
-> That driver (mrvl_cb82) has the following PCI IDs:
-> 
-> static const struct pci_device_id mwl_id_tbl[] __devinitdata = {
->         { PCI_VDEVICE(MARVELL, 0x2a02), 0 },
->         { PCI_VDEVICE(MARVELL, 0x2a03), 1 },
->         { PCI_VDEVICE(MARVELL, 0x2a06), 2 },
->         { PCI_VDEVICE(MARVELL, 0x2a07), 3 },
->         { PCI_VDEVICE(MARVELL, 0x2a04), 4 },
->         { PCI_VDEVICE(MARVELL, 0x2a08), 5 },
->         { PCI_VDEVICE(MARVELL, 0x2a0a), 6 },
->         { PCI_VDEVICE(MARVELL, 0x2a0b), 7 },
->         { PCI_VDEVICE(MARVELL, 0x2a0c), 8 },
->         { 0 }
-> };
-> 
-> and supposedly works for CB82 + CB85.  The firmware helper for CB82
-> looks pretty close to the mwl8k one.
-> 
-> The firmware API exposed by mrvl_cb82 looks very close to mwl8k
-> actually.  I only checked the HostCmd bits, not the structures, so I
-> would expect a few differences.  There are some commands that mwl8k
-> exposes that mrvl_cb82 does not and vice versa, but I'm not sure if the
-> drivers actually use those commands.
+This is a multi-part message in MIME format.
+--------------070504030608060709050009
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-As for AP mode, the Marvell Extranet does have AP-mode drivers for the
-8361 and 8363, but the zipfiles are password-protected and I have no
-idea what license they are supposed to be under due to that.  Thus I
-cannot get the AP mode firmware for those either to submit to
-linux-firmware.
+Dear Linux Kernel Developers,
 
-Dan
+Please find attached, a patch to solve "Received CRC" errors reported by 
+the pch_gbe driver under heavy load. It occurred on an Intel ATOM E620T 
+while running a 300mbit/sec multicast network stream leading to a ~100% 
+cpu usage.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch got validated on the 3.2.16 kernel but also apply to the 3.x
+family.
+
+Getting it into stable would be perfect as it solves reliability issues.
+
+Cheers,
+Erwan Velu
+
+--------------070504030608060709050009
+Content-Type: application/octet-stream;
+ name="0001-pch_gbe-Adding-read-memory-barriers.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="0001-pch_gbe-Adding-read-memory-barriers.patch"
+
+RnJvbSAzYjY1ODAyZTRjNWE4ODI3YTg0MDIyMDY2ZjEwZGVjNGQ2MWMxZjIyIE1vbiBTZXAg
+MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBFcndhbiBWZWx1IDxlcndhbi52ZWx1QHpvZGlhY2Fl
+cm9zcGFjZS5jb20+CkRhdGU6IE1vbiwgNyBNYXkgMjAxMiAxNDo1MzoxNyArMDIwMApTdWJq
+ZWN0OiBbUEFUQ0ggMS8xXSBwY2hfZ2JlOiBBZGRpbmcgcmVhZCBtZW1vcnkgYmFycmllcnMK
+ClVuZGVyIGEgc3Ryb25nIGluY29taW5nIHBhY2tldCBzdHJlYW0gYW5kL29yIGhpZ2ggY3B1
+IHVzYWdlLAp0aGUgcGNoX2diZSBkcml2ZXIgcmVwb3J0cyAiUmVjZWl2ZSBDUkMgRXJyb3Ii
+IGFuZCBkaXNjYXJkcyBwYWNrZXQuCgpBZGRpbmcgcm1iKCkgY2FsbHMgYmVmb3JlIGNvbnNp
+ZGVyaW5nIHRoZSBuZXR3b3JrIGNhcmQncyBzdGF0dXMgc29sdmUKdGhpcyBpc3N1ZXMuCgpT
+aWduZWQtb2ZmLWJ5OiBFcndhbiBWZWx1IDxlcndhbi52ZWx1QHpvZGlhY2Flcm9zcGFjZS5j
+b20+Ci0tLQogLi4uL25ldC9ldGhlcm5ldC9va2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVfbWFp
+bi5jICAgfCAgICA4ICsrKysrKysrCiAxIGZpbGVzIGNoYW5nZWQsIDggaW5zZXJ0aW9ucygr
+KSwgMCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9v
+a2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+b2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4uYwppbmRleCA0ODQwNmNhLi43NzQ2Y2Ez
+IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9va2ktc2VtaS9wY2hfZ2JlL3Bj
+aF9nYmVfbWFpbi5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3BjaF9n
+YmUvcGNoX2diZV9tYWluLmMKQEAgLTEyMjIsNiArMTIyMiw4IEBAIHN0YXRpYyBpcnFyZXR1
+cm5fdCBwY2hfZ2JlX2ludHIoaW50IGlycSwgdm9pZCAqZGF0YSkKIAkJfQogCX0KIAorCXNt
+cF9ybWIoKTsgLyogcHJldmVudCBhbnkgb3RoZXIgcmVhZHMgYmVmb3JlKi8KKwogCS8qIFdo
+ZW4gcmVxdWVzdCBzdGF0dXMgaXMgUmVjZWl2ZSBpbnRlcnJ1cHRpb24gKi8KIAlpZiAoKGlu
+dF9zdCAmIChQQ0hfR0JFX0lOVF9SWF9ETUFfQ01QTFQgfCBQQ0hfR0JFX0lOVF9UWF9DTVBM
+VCkpIHx8CiAJICAgIChhZGFwdGVyLT5yeF9zdG9wX2ZsYWcgPT0gdHJ1ZSkpIHsKQEAgLTEz
+OTAsNiArMTM5Miw5IEBAIHBjaF9nYmVfY2xlYW5fdHgoc3RydWN0IHBjaF9nYmVfYWRhcHRl
+ciAqYWRhcHRlciwKIAogCWkgPSB0eF9yaW5nLT5uZXh0X3RvX2NsZWFuOwogCXR4X2Rlc2Mg
+PSBQQ0hfR0JFX1RYX0RFU0MoKnR4X3JpbmcsIGkpOworCisJcm1iKCk7ICAvKiBwcmV2ZW50
+IGFueSBvdGhlciByZWFkcyBiZWZvcmUqLworCiAJcHJfZGVidWcoImdiZWNfc3RhdHVzOjB4
+JTA0eCAgZG1hX3N0YXR1czoweCUwNHhcbiIsCiAJCSB0eF9kZXNjLT5nYmVjX3N0YXR1cywg
+dHhfZGVzYy0+ZG1hX3N0YXR1cyk7CiAKQEAgLTE0OTAsNiArMTQ5NSw5IEBAIHBjaF9nYmVf
+Y2xlYW5fcngoc3RydWN0IHBjaF9nYmVfYWRhcHRlciAqYWRhcHRlciwKIAl3aGlsZSAoKndv
+cmtfZG9uZSA8IHdvcmtfdG9fZG8pIHsKIAkJLyogQ2hlY2sgUnggZGVzY3JpcHRvciBzdGF0
+dXMgKi8KIAkJcnhfZGVzYyA9IFBDSF9HQkVfUlhfREVTQygqcnhfcmluZywgaSk7CisKKwkJ
+cm1iKCk7IC8qIHByZXZlbnQgYW55IG90aGVyIHJlYWRzIGJlZm9yZSovCisKIAkJaWYgKHJ4
+X2Rlc2MtPmdiZWNfc3RhdHVzID09IERTQ19JTklUMTYpCiAJCQlicmVhazsKIAkJY2xlYW5l
+ZCA9IHRydWU7Ci0tIAoxLjcuNC40Cgo=
+--------------070504030608060709050009--
