@@ -1,37 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pch_gbe: Adding read memory barriers
-Date: Mon, 07 May 2012 13:44:51 -0400 (EDT)
-Message-ID: <20120507.134451.951672483281209005.davem@davemloft.net>
-References: <4FA808E3.1030908@gmail.com>
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Subject: [PATCH] pch_gbe: Adding read memory barriers
+Date: Mon, 07 May 2012 19:49:58 +0200
+Message-ID: <4FA80B46.5070405@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, tshimizu818@gmail.com
-To: erwanaliasr1@gmail.com
+Cc: tshimizu818@gmail.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FA808E3.1030908@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Erwan Velu <erwanaliasr1@gmail.com>
-Date: Mon, 07 May 2012 19:39:47 +0200
+ From 3b65802e4c5a8827a84022066f10dec4d61c1f22 Mon Sep 17 00:00:00 2001
+From: Erwan Velu <erwan.velu@zodiacaerospace.com>
+Date: Mon, 7 May 2012 14:53:17 +0200
+Subject: [PATCH 1/1] pch_gbe: Adding read memory barriers
 
-> Please find attached
+Under a strong incoming packet stream and/or high cpu usage,
+the pch_gbe driver reports "Receive CRC Error" and discards packet.
 
-First of all, for a patch which is not accepted yet you do not
-CC: stable.
+It occurred on an Intel ATOM E620T while running a 300mbit/sec multicast 
+network stream leading to a ~100% cpu usage.
 
-Second of all, do not put text in the main body of your email which is
-unrelated to the patch and should not end up in the commit message.
+Adding rmb() calls before considering the network card's status solve
+this issues.
 
-Instead, post your patch to the appropriate primary mailing lists,
-and if it's accepted it can then be submitted to -stable at some
-later time.
+This patch got validated on the 3.2.16 kernel but also apply to the 3.x 
+family.
 
-Your patch posting email should be composed purely of the commit
-log message in the message body, followed by the actual patch.
+Getting it into stable would be perfect as it solves reliability issues.
 
-Otherwise the maintainer that applies your patch has to edit out
-all of this other flowery text that is unrelated to the commit
-and that makes more work for them.
+
+Signed-off-by: Erwan Velu <erwan.velu@zodiacaerospace.com>
+---
+  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |    8 ++++++++
+  1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c 
+b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 48406ca..7746ca3 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -1222,6 +1222,8 @@ static irqreturn_t pch_gbe_intr(int irq, void *data)
+  		}
+  	}
+
++	smp_rmb(); /* prevent any other reads before*/
++
+  	/* When request status is Receive interruption */
+  	if ((int_st & (PCH_GBE_INT_RX_DMA_CMPLT | PCH_GBE_INT_TX_CMPLT)) ||
+  	    (adapter->rx_stop_flag == true)) {
+@@ -1390,6 +1392,9 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+
+  	i = tx_ring->next_to_clean;
+  	tx_desc = PCH_GBE_TX_DESC(*tx_ring, i);
++
++	rmb();  /* prevent any other reads before*/
++
+  	pr_debug("gbec_status:0x%04x  dma_status:0x%04x\n",
+  		 tx_desc->gbec_status, tx_desc->dma_status);
+
+@@ -1490,6 +1495,9 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
+  	while (*work_done < work_to_do) {
+  		/* Check Rx descriptor status */
+  		rx_desc = PCH_GBE_RX_DESC(*rx_ring, i);
++
++		rmb(); /* prevent any other reads before*/
++
+  		if (rx_desc->gbec_status == DSC_INIT16)
+  			break;
+  		cleaned = true;
+-- 
+1.7.4.4
