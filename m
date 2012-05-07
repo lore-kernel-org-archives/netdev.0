@@ -1,44 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC 4/6] tun: orphan frags on xmit
-Date: Mon, 7 May 2012 16:54:47 +0300
-Message-ID: <248cee8310a8d41b58b988dfea94e75ee79c6647.1336397823.git.mst@redhat.com>
-References: <cover.1336397823.git.mst@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: compare_ether_addr[_64bits]() has no ordering
+Date: Mon, 07 May 2012 16:12:41 +0200
+Message-ID: <1336399961.4325.30.camel@jlt3.sipsolutions.net>
+References: <1336397946.4325.27.camel@jlt3.sipsolutions.net>
+	 <1336398809.3752.2313.camel@edumazet-glaptop>
+	 (sfid-20120507_155404_477858_B3C1D724)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57989 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756171Ab2EGNyp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2012 09:54:45 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1336397823.git.mst@redhat.com>
+Received: from he.sipsolutions.net ([78.46.109.217]:47860 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757022Ab2EGOMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 10:12:42 -0400
+In-Reply-To: <1336398809.3752.2313.camel@edumazet-glaptop> (sfid-20120507_155404_477858_B3C1D724)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tun xmit is actually receive of the internal tun
-socket. Orphan the frags same as we do for normal rx path.
+On Mon, 2012-05-07 at 15:53 +0200, Eric Dumazet wrote:
+> On Mon, 2012-05-07 at 15:39 +0200, Johannes Berg wrote:
+> > From: Johannes Berg <johannes.berg@intel.com>
+> > 
+> > Neither compare_ether_addr() nor compare_ether_addr_64bits()
+> > (as it can fall back to the former) have comparison semantics
+> > like memcmp() where the sign of the return value indicates sort
+> > order. We had a bug in the wireless code due to a blind memcmp
+> > replacement because of this.
+> > 
+> > A cursory look suggests that the wireless bug was the only one
+> > due to this semantic difference.
+> > 
+> > Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> > ---
+> >  include/linux/etherdevice.h |   11 ++++++-----
+> >  1 file changed, 6 insertions(+), 5 deletions(-)
+> 
+> The right way to avoid this kind of problems is to change these
+> functions to return a bool
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/tun.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Well, I guess so, but that'd be a weird thing for a compare_ function...
+should probably be named equal_... then, but I'm not really able to do
+such a huge change on the first day after my vacation :-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index bb8c72c..1ccbfd0 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -414,6 +414,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Orphan the skb - required as we might hang on to it
- 	 * for indefinite time. */
-+	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
-+		goto drop;
- 	skb_orphan(skb);
- 
- 	/* Enqueue packet */
--- 
-MST
+johannes
