@@ -1,98 +1,179 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [v12 PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Mon, 7 May 2012 11:03:28 +0200
-Message-ID: <20120507090328.GA27650@1984>
-References: <1335188128-23645-1-git-send-email-hans.schillstrom@ericsson.com>
- <201205021949.48741.hans.schillstrom@ericsson.com>
- <20120506225738.GA23009@1984>
- <201205071020.44449.hans.schillstrom@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201205071020.44449.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 1/2] stmmac: extend mac addr reg and fix perfect filering
+Date: Mon,  7 May 2012 11:12:32 +0200
+Message-ID: <1336381953-18041-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Gianni Antoniazzi <gianni.antoniazzi-ext@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:52739 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755718Ab2EGJMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 05:12:44 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 4576095
+	for <netdev@vger.kernel.org>; Mon,  7 May 2012 09:12:39 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 94FE4239A
+	for <netdev@vger.kernel.org>; Mon,  7 May 2012 09:12:39 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 07, 2012 at 10:20:42AM +0200, Hans Schillstrom wrote:
-> On Monday 07 May 2012 00:57:38 Pablo Neira Ayuso wrote:
-> > Hi Hans,
-> > 
-> > [...]
-> > > > > > Regarding ICMP traffic, I think we can use the ID field for the
-> > > > > > hashing as well. Thus, we handle ICMP like other protocols.
-> > > > >
-> > > > > Yes why not, I can give it a try.
-> > > > >
-> > >
-> > > I think we wait with this one..
-> > 
-> > I see. This is easy to add for the conntrack side, but it will require
-> > some extra code for the packet-based solution.
-> 
-> Actually I think there is very little gain to spread with type 
-> and then we must add a user mode possibility to turn it off 
-> i.e. a --hmark-icmp-type-mask 
-> 
-> > Not directly related to this but, I know that your intention is to
-> > make this as flexible as possible. However, I still don't find how I
-> > would use the port mask feature in any of my setups.  Basically, I
-> > don't come up with any useful example for this situation.
-> 
-> We have plenty of rules where just source port mask is zero.
-> and the dest-port-mask is 0xfffc (or 0xffff)
+This patch is to extend the number of MAC address registers
+for 16 to 32. In fact, other new 16 registers are available in new
+chips and this can help on perfect filter mode for unicast.
 
-0xffff and 0x0000 means on/off respectively.
+This patch also fixes the perfect filtering mode by setting the
+bit 31 in the MAC address registers.
 
-Still curious, how can 0xfffc be useful?
+Signed-off-by: Gianni Antoniazzi <gianni.antoniazzi-ext@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    8 +++++---
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   11 +++++++++--
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |    7 ++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    4 ++--
+ 7 files changed, 25 insertions(+), 10 deletions(-)
 
-> > I'm also telling this because I think that ICMP support will be
-> > easier to add if port masking is removed.
-> > 
-> > [...]
-> > > This is what I have done.
-> > >
-> > > - I reduced the code size a little bit by combining the hmark_ct_set_htuple_ipvX into one func.
-> > >   by adding a hmark_addr6_mask() and hmark_addr_any_mask()
-> > >   Note that using "otuple->src.l3num" as param 1 in both src and dst is not a typo.
-> > >   (it's not set in the rtuple)
-> > 
-> > Good one, this made the code even smaller.
-> > 
-> > > - Made the if (dst < src) swap() in the hmark_hash() since it should be used by every caller.
-> > 
-> > Not really, you don't need for the conntrack part. The original tuple
-> > is always the same, not matter where the packet is coming from. I have
-> > removed this again so it only affects packet-based hashing.
-> 
-> Yes original tuple is always the same but not always less than the rtuple.
-> If you have two nodes that should produce the same hmark,
-> one with conntrack an one without you must make a compare to make it consistent.
-
-I see, for consistency still makes sense although this seems to me
-like still strange configuration. In what scenario would you use two
-different approaches?
-
-> > > - Moved the L3 check a little bit earlier.
-> > 
-> > good.
-> > 
-> > > - changed return values for fragments.
-> > 
-> > With this, you're giving up on trying to classify fragments. Do you
-> > really want this?
-> > 
-> > From my point of view, if your firewalls (assuming they are the HMARK
-> > classification) are stateless, it still makes sense to me to classify
-> > fragments using the XT_HMARK_METHOD_L3_4.
-> 
-> I do agree, it is back to "return 0" again.
-
-OK.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index f5dedcb..7164509 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -280,7 +280,7 @@ struct stmmac_ops {
+ 	/* Handle extra events on specific interrupts hw dependent */
+ 	void (*host_irq_status) (void __iomem *ioaddr);
+ 	/* Multicast filter setting */
+-	void (*set_filter) (struct net_device *dev);
++	void (*set_filter) (struct net_device *dev, int id);
+ 	/* Flow control setting */
+ 	void (*flow_ctrl) (void __iomem *ioaddr, unsigned int duplex,
+ 			   unsigned int fc, unsigned int pause_time);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+index 54339a7..53ed56b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+@@ -61,9 +61,11 @@ enum power_event {
+ };
+ 
+ /* GMAC HW ADDR regs */
+-#define GMAC_ADDR_HIGH(reg)		(0x00000040+(reg * 8))
+-#define GMAC_ADDR_LOW(reg)		(0x00000044+(reg * 8))
+-#define GMAC_MAX_UNICAST_ADDRESSES	16
++#define GMAC_ADDR_HIGH(reg)	(((reg > 15) ? 0x00000800 : 0x00000040) + \
++				(reg * 8))
++#define GMAC_ADDR_LOW(reg)	(((reg > 15) ? 0x00000804 : 0x00000044) + \
++				(reg * 8))
++#define GMAC_MAX_PERFECT_ADDRESSES	32
+ 
+ #define GMAC_AN_CTRL	0x000000c0	/* AN control */
+ #define GMAC_AN_STATUS	0x000000c4	/* AN status */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index e7cbcd9..c32af05 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -84,10 +84,11 @@ static void dwmac1000_get_umac_addr(void __iomem *ioaddr, unsigned char *addr,
+ 				GMAC_ADDR_LOW(reg_n));
+ }
+ 
+-static void dwmac1000_set_filter(struct net_device *dev)
++static void dwmac1000_set_filter(struct net_device *dev, int id)
+ {
+ 	void __iomem *ioaddr = (void __iomem *) dev->base_addr;
+ 	unsigned int value = 0;
++	unsigned int perfect_addr_number;
+ 
+ 	CHIP_DBG(KERN_INFO "%s: # mcasts %d, # unicast %d\n",
+ 		 __func__, netdev_mc_count(dev), netdev_uc_count(dev));
+@@ -121,8 +122,14 @@ static void dwmac1000_set_filter(struct net_device *dev)
+ 		writel(mc_filter[1], ioaddr + GMAC_HASH_HIGH);
+ 	}
+ 
++	/* Extra 16 regs are available in cores newer than the 3.40. */
++	if (id > 34)
++		perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES;
++	else
++		perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES / 2;
++
+ 	/* Handle multiple unicast addresses (perfect filtering)*/
+-	if (netdev_uc_count(dev) > GMAC_MAX_UNICAST_ADDRESSES)
++	if (netdev_uc_count(dev) > perfect_addr_number)
+ 		/* Switch to promiscuous mode is more than 16 addrs
+ 		   are required */
+ 		value |= GMAC_FRAME_FILTER_PR;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+index efde50f..19e0f4e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+@@ -89,7 +89,7 @@ static void dwmac100_get_umac_addr(void __iomem *ioaddr, unsigned char *addr,
+ 	stmmac_get_mac_addr(ioaddr, addr, MAC_ADDR_HIGH, MAC_ADDR_LOW);
+ }
+ 
+-static void dwmac100_set_filter(struct net_device *dev)
++static void dwmac100_set_filter(struct net_device *dev, int id)
+ {
+ 	void __iomem *ioaddr = (void __iomem *) dev->base_addr;
+ 	u32 value = readl(ioaddr + MAC_CONTROL);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+index f20aa12..3edbfa2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+@@ -31,6 +31,8 @@
+ #define DWMAC_LIB_DBG(fmt, args...)  do { } while (0)
+ #endif
+ 
++#define GMAC_HI_REG_AE		0x80000000
++
+ /* CSR1 enables the transmit DMA to check for new descriptor */
+ void dwmac_enable_dma_transmission(void __iomem *ioaddr)
+ {
+@@ -233,7 +235,10 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
+ 	unsigned long data;
+ 
+ 	data = (addr[5] << 8) | addr[4];
+-	writel(data, ioaddr + high);
++	/* For MAC Addr registers se have to set the Address Enable (AE)
++	 * bit that has no effect on the High Reg 0 where the bit 31 (MO)
++	 * is RO. */
++	writel(data | GMAC_HI_REG_AE, ioaddr + high);
+ 	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
+ 	writel(data, ioaddr + low);
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index db2de9a..6b5d060 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -85,6 +85,7 @@ struct stmmac_priv {
+ 	struct clk *stmmac_clk;
+ #endif
+ 	int clk_csr;
++	int synopsys_id;
+ };
+ 
+ extern int phyaddr;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 1a4cf81..a9699ae 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1465,7 +1465,7 @@ static void stmmac_set_rx_mode(struct net_device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 
+ 	spin_lock(&priv->lock);
+-	priv->hw->mac->set_filter(dev);
++	priv->hw->mac->set_filter(dev, priv->synopsys_id);
+ 	spin_unlock(&priv->lock);
+ }
+ 
+@@ -1806,7 +1806,7 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 	priv->hw->ring = &ring_mode_ops;
+ 
+ 	/* Get and dump the chip ID */
+-	stmmac_get_synopsys_id(priv);
++	priv->synopsys_id = stmmac_get_synopsys_id(priv);
+ 
+ 	/* Get the HW capability (new GMAC newer than 3.50a) */
+ 	priv->hw_cap_support = stmmac_get_hw_features(priv);
+-- 
+1.7.4.4
