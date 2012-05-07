@@ -1,62 +1,77 @@
-From: Dong Aisheng <aisheng.dong@freescale.com>
-Subject: Re: [PATCH RESEND 0/5] Adopt pinctrl support for a few outstanding
- imx drivers
-Date: Mon, 7 May 2012 15:53:44 +0800
-Message-ID: <20120507075344.GC23607@shlinux2.ap.freescale.net>
-References: <1336352040-28447-1-git-send-email-shawn.guo@linaro.org>
- <20120507065001.GA23607@shlinux2.ap.freescale.net>
- <20120507073403.GG19389@S2101-09.ap.freescale.net>
+From: Deng-Cheng Zhu <dczhu@mips.com>
+Subject: Re: [PATCH v2] RPS: Sparse connection optimizations - v2
+Date: Mon, 7 May 2012 16:01:35 +0800
+Message-ID: <4FA7815F.8030101@mips.com>
+References: <1336035412-2161-1-git-send-email-dczhu@mips.com>	 <CA+mtBx_J=fm3+k6_NzMH9KCdrYpZPwT2XBQe4r424eNDCKzazg@mail.gmail.com>	 <4FA35A3D.8000205@mips.com>	 <CA+mtBx-CErRU=3ewkAjVrGN3dGzjsTz8Q-E8J+Xa+529OVEvwA@mail.gmail.com>	 <4FA77051.20804@mips.com> <1336376282.3752.2252.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Dong Aisheng-B29396 <B29396@freescale.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
-	"linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Olof Johansson <olof@lixom.net>,
-	"spi-devel-general@lists.sourceforge.net"
-	<spi-devel-general@lists.sourceforge.net>,
-	Dong Aisheng <dong.aisheng@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Shawn Guo <shawn.guo@linaro.org>
-Return-path: <linux-serial-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120507073403.GG19389@S2101-09.ap.freescale.net>
-Sender: linux-serial-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dns0.mips.com ([12.201.5.70]:55224 "EHLO dns0.mips.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755349Ab2EGIBm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2012 04:01:42 -0400
+In-Reply-To: <1336376282.3752.2252.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 07, 2012 at 03:34:06PM +0800, Shawn Guo wrote:
-> On Mon, May 07, 2012 at 02:50:02PM +0800, Dong Aisheng wrote:
-> > Shouldn't we add the pinctrl states in dts file at the same time
-> > with this patch series or using another separate patch to add them
-> > before this series to avoid breaking the exist mx6q platforms?
-> > 
-> Ah, I just noticed that your patch "ARM: imx: enable pinctrl dummy
-> states" did not cover imx6q.  I think we should do the same for imx6q,
-Yes, doing that was to force people to add pinctrl states in dts file
-rather than using dummy state since mx6 supports pinctrl driver.
+On 05/07/2012 03:38 PM, Eric Dumazet wrote:
+> On Mon, 2012-05-07 at 14:48 +0800, Deng-Cheng Zhu wrote:
+>> On 05/04/2012 11:31 PM, Tom Herbert wrote:
+>>>> I think the mechanisms of rps_dev_flow_table and cpu_flow (in this
+>>>> patch) are different: The former works along with rps_sock_flow_table
+>>>> whose CPU info is based on recvmsg by the application. But for the tests
+>>>> like what I did, there's no application involved.
+>>>>
+>>> While rps_sock_flow_table is currently only managed by recvmsg, it
+>>> still is the general mechanism that maps flows to CPUs for steering.
+>>> There should be nothing preventing you from populating and managing
+>>> entries in other ways.
+>>
+>> Well, even using rps_sock_flow_table to map the sparse flows to CPUs,
+>> we still need a data structure to describe a single flow -- that's what
+>> struct cpu_flow is doing. Besides, rps_sock_flow_table, by its meaning,
+>> does not seem to make sense for our purpose. How about keeping the patch
+>> as is but renaming struct cpu_flow to struct rps_sparse_flow? It's like:
+>>
+>
+> sock_flow_table is about mapping a flow (by its rxhash) to cpu.
+>
+> If you feel 'sock' is bad name, you can rename it.
+>
+> You dont need adding new data structure and code in fast path.
+>
+> Only the first packet of a new flow might be handled by 'the wrong cpu'.
+>
+> If you add code in forward path to change flow_table for next packets,
+> added cost in fast path is null.
 
-> so that we can separate dts update from the driver change.  When all
-> imx6q boards' dts files get updated to have pins defined for the
-> devices, we can then remove dummy state for imx6q.  Doing so will ease
-> the pinctrl migration for those imx6q boards.
-> 
-Well, considering we have several mx6 boards, i think i can also be fine
-with this way to ease the mx6q pinctrl migration.
+Did you really read my patch and understand what I commented? When I was
+talking about using rps_sparse_flow (initially cpu_flow), neither
+rps_sock_flow_table nor rps_dev_flow_table is activated (number of
+entries: 0).
 
-> Will update your patch on my branch to have dummy state enabled for
-> imx6q.
-> 
-Then go ahead.
+FYI below:
 
-Regards
-Dong Aisheng
+On 05/04/2012 11:39 AM, Deng-Cheng Zhu wrote:
+ > On 05/04/2012 11:22 AM, Tom Herbert wrote:
+ >>> +struct cpu_flow {
+ >>> + struct net_device *dev;
+ >>> + u32 rxhash;
+ >>> + unsigned long ts;
+ >>> +};
+ >>
+ >> This seems like overkill, we already have the rps_flow_table and this
+ >> used in accelerated RFS so the device can also take advantage of
+ >> steering. Maybe somehow program that table for your sparse flows?
+ >
+ > In fact I did ever try something different in rps_flow_cnt (except for
+ > rps_cpus, the only tunable thing relating to RPS in sysfs, am I
+ > missing something?) and found no effect in my tests (iperf between 2
+ > PCs via Malta which works as router and uses iptables/NAT+RPS)...
 
+
+Deng-Cheng
