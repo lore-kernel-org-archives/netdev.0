@@ -1,36 +1,65 @@
-From: Eldad Zack <eldad@fogrefinery.com>
-Subject: Re: [PATCH resend] [IPV6] remove sysctl accept_source_route
-Date: Mon, 7 May 2012 22:52:01 +0200
-Message-ID: <CABe5r8LD=wVoaAi+wukc_XiRY-sotF8U7xH2Ok-_ODevoaoi1A@mail.gmail.com>
-References: <1336249737-26661-1-git-send-email-eldad@fogrefinery.com>
-	<20120506.124151.864202935548493756.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL net-next] macvtap, vhost and virtio tools updates
+Date: Mon, 7 May 2012 23:55:39 +0300
+Message-ID: <20120507205537.GA27950@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org, jasowang@redhat.com,
+	mst@redhat.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120506.124151.864202935548493756.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm sorry, I wasn't aware of that.
-I will check it from now on.
+There are mostly bugfixes here.
+I hope to merge some more patches by 3.5, in particular
+vlan support fixes are waiting for Eric's ack,
+and a version of tracepoint patch might be
+ready in time, but let's merge what's ready so it's testable.
 
-Eldad
+This includes a ton of zerocopy fixes by Jason -
+good stuff but too intrusive for 3.4 and zerocopy is experimental
+anyway.
 
-On 6 May 2012 18:41, David Miller <davem@davemloft.net> wrote:
->
-> Why are you resending this?
->
-> Your patch is sitting in patchwork waiting to be reviewed and applied=
-=2E
->
-> When you needlessly resend a patch it makes more work for me, so do
-> not do this. =A0Check the queue at:
->
-> http://patchwork.ozlabs.org/project/netdev/list/
->
-> first.
+virtio supported delayed interrupt for a while now
+so adding support to the virtio tool made sense
+
+Please pull into net-next and merge for 3.5.
+Thanks!
+
+MST
+
+The following changes since commit e4ae004b84b315dd4b762e474f97403eac70f76a:
+
+  netem: add ECN capability (2012-05-01 09:39:48 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
+
+for you to fetch changes up to c70aa540c7a9f67add11ad3161096fb95233aa2e:
+
+  vhost: zerocopy: poll vq in zerocopy callback (2012-05-02 18:22:25 +0300)
+
+----------------------------------------------------------------
+Jason Wang (9):
+      macvtap: zerocopy: fix offset calculation when building skb
+      macvtap: zerocopy: fix truesize underestimation
+      macvtap: zerocopy: put page when fail to get all requested user pages
+      macvtap: zerocopy: set SKBTX_DEV_ZEROCOPY only when skb is built successfully
+      macvtap: zerocopy: validate vectors before building skb
+      vhost_net: zerocopy: fix possible NULL pointer dereference of vq->bufs
+      vhost_net: re-poll only on EAGAIN or ENOBUFS
+      vhost_net: zerocopy: adding and signalling immediately when fully copied
+      vhost: zerocopy: poll vq in zerocopy callback
+
+Michael S. Tsirkin (1):
+      virtio/tools: add delayed interupt mode
+
+ drivers/net/macvtap.c       |   57 ++++++++++++++++++++++++++++++-------------
+ drivers/vhost/net.c         |    7 ++++-
+ drivers/vhost/vhost.c       |    1 +
+ tools/virtio/linux/virtio.h |    1 +
+ tools/virtio/virtio_test.c  |   26 ++++++++++++++++---
+ 5 files changed, 69 insertions(+), 23 deletions(-)
