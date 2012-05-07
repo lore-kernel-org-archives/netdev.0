@@ -1,64 +1,69 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re[2]:  [v12 PATCH 2/3] NETFILTER module xt_hmark, new
-	target for HASH based fwmark
-Date: Mon, 7 May 2012 21:09:05 +0200 (CEST)
-Message-ID: <0k0r53l.c3371735fb25ebebfdc229b1e397a36f@obelix.schillstrom.com>
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Subject: [PATCH] pch_gbe: Adding read memory barriers
+Date: Mon, 07 May 2012 21:30:12 +0200
+Message-ID: <4FA822C4.60809@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Pablo Neira Ayuso" <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tshimizu818@gmail.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:38850 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753964Ab2EGTaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 15:30:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->On Mon, May 07, 2012 at 02:57:30PM +0200, Hans Schillstrom wrote:
->> On Monday 07 May 2012 14:22:32 Pablo Neira Ayuso wrote:
->> > On Mon, May 07, 2012 at 02:09:46PM +0200, Hans Schillstrom wrote:
->> > > On Monday 07 May 2012 13:56:12 Pablo Neira Ayuso wrote:
->> > > > On Mon, May 07, 2012 at 11:14:34AM +0200, Hans Schillstrom wrote:
->> > > > > > > We have plenty of rules where just source port mask is zero.
->> > > > > > > and the dest-port-mask is 0xfffc (or 0xffff)
->> > > > > > 
->> > > > > > 0xffff and 0x0000 means on/off respectively.
->> > > > > > 
->> > > > > > Still curious, how can 0xfffc be useful?
->> > > > > 
->> > > > > That's a special case where an appl is using 4 ports.
->> > > > > But in general, have not seen other than "on/off" except for above.
->> > > > 
->> > > > I see. Well I'm fine with this way to switch on/off things, just
->> > > > wanted some clafication.
->> > > > 
->> > > > Still one final thing I'd like to remove before inclusion:
->> > > > 
->> > > > +       union hmark_ports       port_mask;
->> > > > +       union hmark_ports       port_set;
->> > > > +       __u32                   spi_mask;
->> > > > +       __u32                   spi_set;
->> > > > 
->> > > > the spi_mask seems redundant. The port_mask already provides u32 for
->> > > > it.
->> > > 
->> > > No problems, I'll remove it.
->> > 
->> > OK. As a nice side-effect, this will lead to removing the branch that
->> > tests ESP/AH in hmark_set_tuple_ports.
->> >
->> Yes, only check if not ESP or AH to swap src/dst
->
->Do you really that branch? I mean, unless I'm missing anything, swapping
->them shouldn't be a problem.
+ From bb1e271db0fa1a29df19bede69faf8004389132d Mon Sep 17 00:00:00 2001
+From: Erwan Velu <erwan.velu@zodiacaerospace.com>
+Date: Mon, 7 May 2012 19:15:29 +0000
+Subject: [PATCH 1/1] pch_gbe: Adding read memory barriers
 
-Well, 
-that was just to keep backward compatibility and make my tests happy.
-I'll remove them and change my test setup.
+Under a strong incoming packet stream and/or high cpu usage,
+the pch_gbe driver reports "Receive CRC Error" and discards packet.
 
+It occurred on an Intel ATOM E620T while running a 300mbit/sec multicast
+network stream leading to a ~100% cpu usage.
 
+Adding rmb() calls before considering the network card's status solve
+this issue.
 
+Getting it into stable would be perfect as it solves reliability issues.
 
+Signed-off-by: Erwan Velu <erwan.velu@zodiacaerospace.com>
+---
+  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |    3 +++
+  1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c 
+b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 8035e5f..ace3654 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -1413,6 +1413,7 @@ static irqreturn_t pch_gbe_intr(int irq, void *data)
+  			pch_gbe_mac_set_pause_packet(hw);
+  		}
+  	}
++	smp_rmb(); /* prevent any other reads before*/
+
+  	/* When request status is Receive interruption */
+  	if ((int_st & (PCH_GBE_INT_RX_DMA_CMPLT | PCH_GBE_INT_TX_CMPLT)) ||
+@@ -1582,6 +1584,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+
+  	i = tx_ring->next_to_clean;
+  	tx_desc = PCH_GBE_TX_DESC(*tx_ring, i);
++	rmb();  /* prevent any other reads before*/
+  	pr_debug("gbec_status:0x%04x  dma_status:0x%04x\n",
+  		 tx_desc->gbec_status, tx_desc->dma_status);
+
+@@ -1682,6 +1685,7 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
+  	while (*work_done < work_to_do) {
+  		/* Check Rx descriptor status */
+  		rx_desc = PCH_GBE_RX_DESC(*rx_ring, i);
++		rmb(); /* prevent any other reads before*/
+  		if (rx_desc->gbec_status == DSC_INIT16)
+  			break;
+  		cleaned = true;
+-- 
+1.7.3.4
