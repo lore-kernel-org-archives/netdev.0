@@ -1,139 +1,64 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [v12 PATCH 2/3] NETFILTER module xt_hmark, new target for HASH based fwmark
-Date: Mon, 7 May 2012 14:57:30 +0200
-Message-ID: <201205071457.32127.hans.schillstrom@ericsson.com>
-References: <1335188128-23645-1-git-send-email-hans.schillstrom@ericsson.com> <201205071409.47945.hans.schillstrom@ericsson.com> <20120507122232.GA32146@1984>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] net: compare_ether_addr[_64bits]() has no ordering
+Date: Mon, 07 May 2012 15:39:06 +0200
+Message-ID: <1336397946.4325.27.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.ericsson.se ([193.180.251.37]:62509 "EHLO
-	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753449Ab2EGM5f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 08:57:35 -0400
-In-Reply-To: <20120507122232.GA32146@1984>
-Content-Disposition: inline
+Received: from he.sipsolutions.net ([78.46.109.217]:34888 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756162Ab2EGNjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 09:39:08 -0400
+Received: by sipsolutions.net with esmtpsa (TLS1.0:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.77)
+	(envelope-from <johannes@sipsolutions.net>)
+	id 1SRO9a-0000mQ-OB
+	for netdev@vger.kernel.org; Mon, 07 May 2012 15:39:06 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 07 May 2012 14:22:32 Pablo Neira Ayuso wrote:
-> On Mon, May 07, 2012 at 02:09:46PM +0200, Hans Schillstrom wrote:
-> > On Monday 07 May 2012 13:56:12 Pablo Neira Ayuso wrote:
-> > > On Mon, May 07, 2012 at 11:14:34AM +0200, Hans Schillstrom wrote:
-> > > > > > We have plenty of rules where just source port mask is zero.
-> > > > > > and the dest-port-mask is 0xfffc (or 0xffff)
-> > > > > 
-> > > > > 0xffff and 0x0000 means on/off respectively.
-> > > > > 
-> > > > > Still curious, how can 0xfffc be useful?
-> > > > 
-> > > > That's a special case where an appl is using 4 ports.
-> > > > But in general, have not seen other than "on/off" except for above.
-> > > 
-> > > I see. Well I'm fine with this way to switch on/off things, just
-> > > wanted some clafication.
-> > > 
-> > > Still one final thing I'd like to remove before inclusion:
-> > > 
-> > > +       union hmark_ports       port_mask;
-> > > +       union hmark_ports       port_set;
-> > > +       __u32                   spi_mask;
-> > > +       __u32                   spi_set;
-> > > 
-> > > the spi_mask seems redundant. The port_mask already provides u32 for
-> > > it.
-> > 
-> > No problems, I'll remove it.
-> 
-> OK. As a nice side-effect, this will lead to removing the branch that
-> tests ESP/AH in hmark_set_tuple_ports.
->
-Yes, only check if not ESP or AH to swap src/dst
+From: Johannes Berg <johannes.berg@intel.com>
 
-+static void
-+hmark_set_tuple_ports(const struct sk_buff *skb, unsigned int nhoff,
-+		      struct hmark_tuple *t, const struct xt_hmark_info *info)
-+{
-+	int protoff;
-+
-+	protoff = proto_ports_offset(t->proto);
-+	if (protoff < 0)
-+		return;
-+
-+	nhoff += protoff;
-+	if (skb_copy_bits(skb, nhoff, &t->uports, sizeof(t->uports)) < 0)
-+		return;
-+
-+	t->uports.v32 = (t->uports.v32 & info->port_mask.v32) |
-+			info->port_set.v32;
-+
-+	if (t->proto != IPPROTO_ESP && t->proto != IPPROTO_AH)
-+		if (t->uports.p16.dst < t->uports.p16.src)
-+			swap(t->uports.p16.dst, t->uports.p16.src);
-+}
+Neither compare_ether_addr() nor compare_ether_addr_64bits()
+(as it can fall back to the former) have comparison semantics
+like memcmp() where the sign of the return value indicates sort
+order. We had a bug in the wireless code due to a blind memcmp
+replacement because of this.
 
-> Please, use the patch that I sent you yesterday. Recover the swap
-> behaviour that you need, I'll mangle the patch myself to add the
-> little comment to explain why we do this with CT as well.
-> 
-> BTW, note that you do *not* have to remove the XT_HMARK_SPI flags, we
-> still need those for iptables-save.
-> 
-> While at it:
-> 
-> +enum {                      
-> +       XT_HMARK_NONE,       
-> +       XT_HMARK_SADR_AND,   
-> +       XT_HMARK_DADR_AND,   
-> +       XT_HMARK_SPI_AND,    
-> +       XT_HMARK_SPI_OR,    
-> 
-> remove all trailing _OR
-> 
-> +       XT_HMARK_SPORT_AND,  
-> +       XT_HMARK_DPORT_AND,  
-> +       XT_HMARK_SPORT_OR,   
-> +       XT_HMARK_DPORT_OR,   
-> +       XT_HMARK_PROTO_AND,
-> 
-> rename all _AND by _MASK.
-> 
-> +       XT_HMARK_RND,        
-> +       XT_HMARK_MODULUS,    
-> +       XT_HMARK_OFFSET,     
-> +       XT_HMARK_CT,         
-> +       XT_HMARK_METHOD_L3,  
-> +       XT_HMARK_METHOD_L3_4,
-> };
-> 
-> What I'm asking should require very little changes in the kernel-code.
-> 
+A cursory look suggests that the wireless bug was the only one
+due to this semantic difference.
 
-I'll send you the updates later to day
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ include/linux/etherdevice.h |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-> > > In case you want to support different masks for AH/ESP and TCP, you
-> > > could do the following:
-> > > 
-> > > iptables -I PREROUTING -t mangle -p esp -j HARK --spi-mask 0xffff0000
-> > > iptables -I PREROUTING -t mangle -p tcp -j HARK --port-mask 0xfffc
-> > > 
-> > > Any objection?
-> > 
-> > I don't think this is a problem, but it should be written in the man page
-> > that ports and spi share mask so they can't be used at the same time.
-> 
-> documentation is fine.
-> 
-> iptables can stop this by spotting a warning message from user-space.
-
-If you think thats enough, I fine with that.
-
--- 
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
+--- a/include/linux/etherdevice.h	2012-04-12 05:40:35.000000000 +0200
++++ b/include/linux/etherdevice.h	2012-05-07 15:34:28.000000000 +0200
+@@ -159,7 +159,8 @@ static inline void eth_hw_addr_random(st
+  * @addr1: Pointer to a six-byte array containing the Ethernet address
+  * @addr2: Pointer other six-byte array containing the Ethernet address
+  *
+- * Compare two ethernet addresses, returns 0 if equal
++ * Compare two ethernet addresses, returns 0 if equal, non-zero otherwise.
++ * Unlike memcmp(), it doesn't return a value suitable for sorting.
+  */
+ static inline unsigned compare_ether_addr(const u8 *addr1, const u8 *addr2)
+ {
+@@ -184,10 +185,10 @@ static inline unsigned long zap_last_2by
+  * @addr1: Pointer to an array of 8 bytes
+  * @addr2: Pointer to an other array of 8 bytes
+  *
+- * Compare two ethernet addresses, returns 0 if equal.
+- * Same result than "memcmp(addr1, addr2, ETH_ALEN)" but without conditional
+- * branches, and possibly long word memory accesses on CPU allowing cheap
+- * unaligned memory reads.
++ * Compare two ethernet addresses, returns 0 if equal, non-zero otherwise.
++ * Unlike memcmp(), it doesn't return a value suitable for sorting.
++ * The function doesn't need any conditional branches and possibly uses
++ * word memory accesses on CPU allowing cheap unaligned memory reads.
+  * arrays = { byte1, byte2, byte3, byte4, byte6, byte7, pad1, pad2}
+  *
+  * Please note that alignment of addr1 & addr2 is only guaranted to be 16 bits.
