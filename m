@@ -1,64 +1,49 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [v12 PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
- based fwmark
-Date: Mon, 7 May 2012 16:54:45 +0200
-Message-ID: <20120507145445.GB1301@1984>
-References: <1335188128-23645-1-git-send-email-hans.schillstrom@ericsson.com>
- <201205071409.47945.hans.schillstrom@ericsson.com>
- <20120507122232.GA32146@1984>
- <201205071457.32127.hans.schillstrom@ericsson.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: New commands to configure IOV features
+Date: Mon, 7 May 2012 08:16:34 -0700
+Message-ID: <20120507081634.000003f8.gregory.v.rose@intel.com>
+References: <4FA7AF62.8000405@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55684 "EHLO mail.us.es"
+Received: from mga14.intel.com ([143.182.124.37]:27457 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756882Ab2EGOyw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 May 2012 10:54:52 -0400
-Content-Disposition: inline
-In-Reply-To: <201205071457.32127.hans.schillstrom@ericsson.com>
+	id S1756287Ab2EGPQi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2012 11:16:38 -0400
+In-Reply-To: <4FA7AF62.8000405@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 07, 2012 at 02:57:30PM +0200, Hans Schillstrom wrote:
-> On Monday 07 May 2012 14:22:32 Pablo Neira Ayuso wrote:
-> > On Mon, May 07, 2012 at 02:09:46PM +0200, Hans Schillstrom wrote:
-> > > On Monday 07 May 2012 13:56:12 Pablo Neira Ayuso wrote:
-> > > > On Mon, May 07, 2012 at 11:14:34AM +0200, Hans Schillstrom wrote:
-> > > > > > > We have plenty of rules where just source port mask is zero.
-> > > > > > > and the dest-port-mask is 0xfffc (or 0xffff)
-> > > > > > 
-> > > > > > 0xffff and 0x0000 means on/off respectively.
-> > > > > > 
-> > > > > > Still curious, how can 0xfffc be useful?
-> > > > > 
-> > > > > That's a special case where an appl is using 4 ports.
-> > > > > But in general, have not seen other than "on/off" except for above.
-> > > > 
-> > > > I see. Well I'm fine with this way to switch on/off things, just
-> > > > wanted some clafication.
-> > > > 
-> > > > Still one final thing I'd like to remove before inclusion:
-> > > > 
-> > > > +       union hmark_ports       port_mask;
-> > > > +       union hmark_ports       port_set;
-> > > > +       __u32                   spi_mask;
-> > > > +       __u32                   spi_set;
-> > > > 
-> > > > the spi_mask seems redundant. The port_mask already provides u32 for
-> > > > it.
-> > > 
-> > > No problems, I'll remove it.
-> > 
-> > OK. As a nice side-effect, this will lead to removing the branch that
-> > tests ESP/AH in hmark_set_tuple_ports.
-> >
-> Yes, only check if not ESP or AH to swap src/dst
+On Mon, 7 May 2012 14:17:54 +0300
+Yuval Mintz <yuvalmin@broadcom.com> wrote:
 
-Do you really that branch? I mean, unless I'm missing anything, swapping
-them shouldn't be a problem.
+> I've tried to figure out if there was a standard interface
+> (ethtool/iproute) through which a user could configure the number
+> of vfs in his system.
+> 
+> I've seen the RFC suggested in
+> http://markmail.org/thread/qblfcv7zbxsxp7q6, and
+> http://markmail.org/thread/fw54dcppmxuxoe6n, but failed to see any
+> later references to it (commits or further discussion on this topic).
+> 
+> How exactly are things standing with these RFCs? Were they abandoned?
+
+The only way to configure the number of VFs continues to be through the
+max_vfs module parameter.  I've got a patch to do it through ethtool
+sitting on the back burner but due to other requirements of my day job
+I've not been able to work on it since last fall.
+
+- Greg
+
+> 
+> Thanks,
+> Yuval
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
