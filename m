@@ -1,87 +1,87 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: ipctl - new tool for efficient read/write of net related sysctl
-Date: Mon, 7 May 2012 02:14:22 -0400
-Message-ID: <20120507061422.GA21089@canuck.infradead.org>
-References: <CAHOuc7MQiquWxMZ4YApXXKdsRY_StrTfAK9r_DdkstyYe+kCPQ@mail.gmail.com>
- <9241f146-d0f7-415b-a652-acd1bf34e95a@tahiti.vyatta.com>
- <CAHOuc7PjmcF=EhEUDEqfF_RShezxDqzc+53frNwWqhww8YQ+mA@mail.gmail.com>
+From: Dong Aisheng <aisheng.dong@freescale.com>
+Subject: Re: [PATCH RESEND 0/5] Adopt pinctrl support for a few outstanding
+ imx drivers
+Date: Mon, 7 May 2012 14:50:02 +0800
+Message-ID: <20120507065001.GA23607@shlinux2.ap.freescale.net>
+References: <1336352040-28447-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: Oskar Berggren <oskar.berggren@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:41005 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751726Ab2EGGOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 02:14:25 -0400
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	<linux-can@vger.kernel.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	<linux-i2c@vger.kernel.org>, <linux-serial@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Olof Johansson <olof@lixom.net>,
+	<spi-devel-general@lists.sourceforge.net>,
+	Dong Aisheng <dong.aisheng@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAHOuc7PjmcF=EhEUDEqfF_RShezxDqzc+53frNwWqhww8YQ+mA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1336352040-28447-1-git-send-email-shawn.guo@linaro.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 06, 2012 at 02:46:01PM +0200, Oskar Berggren wrote:
-> 2012/5/6 Stephen Hemminger <stephen.hemminger@vyatta.com>:
-> >
-> >>
-> >> In a project of mine I need to read (and possibly set) many of the
-> >> properties
-> >> found under /proc/sys/net/ipv4/conf/. This is simple enough, except
-> >> that
-> >> when you have hundreds of interfaces, it is really slow. In my tests
-> >> it takes
-> >> about 4 seconds to read a single variable for 700 interfaces. For a
-> >> while I
-> >> worked around this using the binary sysctl() interface, but this is
-> >> deprecated.
-> >>
-> >
-> > What about exposing these as NETLINK attributes? That would be faster
-> > and you could do bulk updates.
+On Mon, May 07, 2012 at 08:53:55AM +0800, Shawn Guo wrote:
+> With patch 5b3aa5f (pinctrl: add pinctrl_provide_dummies interface for
+> platforms to use) applied on pinctrl tree, and patch "ARM: imx: enable
+> pinctrl dummy states" [1] being there, we are ready to adopt pinctrl
+> API for imx drivers.  So let's start from a few outstanding ones.
+> 
+> I would expect to ask Arnd and Olof to pull pinctrl tree into arm-soc
+> as a dependency and then have series [1] and this patch set go through
+> arm-soc tree to ease the merge process.
+> 
+Shouldn't we add the pinctrl states in dts file at the same time
+with this patch series or using another separate patch to add them
+before this series to avoid breaking the exist mx6q platforms?
+
+> Resend to have subsystem lists Cc-ed.
+> 
+> Regards,
+> Shawn
+> 
+> [1] http://thread.gmane.org/gmane.linux.kernel.mmc/14180
+> 
+> Shawn Guo (5):
+>   tty: serial: imx: adopt pinctrl support
+...
+
+>   net: fec: adopt pinctrl support
+>   can: flexcan: adopt pinctrl support
+This two also depends on another patch you sent.
+[PATCH RESEND 1/9] ARM: mxs: enable pinctrl dummy states
+http://www.spinics.net/lists/arm-kernel/msg173341.html
+
+Maybe you can put this two in the mxs convert series to avoid breaking
+mxs platforms.
+[PATCH 0/9] Enable pinctrl support for mach-mxs
+http://www.spinics.net/lists/arm-kernel/msg173312.html
+
+Regards
+Dong Aisheng
+
+>   i2c: imx: adopt pinctrl support
+>   spi/imx: adopt pinctrl support
+> 
+>  drivers/i2c/busses/i2c-imx.c         |    8 ++++++++
+>  drivers/net/can/flexcan.c            |    6 ++++++
+>  drivers/net/ethernet/freescale/fec.c |    9 +++++++++
+>  drivers/spi/spi-imx.c                |    8 ++++++++
+>  drivers/tty/serial/imx.c             |    8 ++++++++
+>  5 files changed, 39 insertions(+), 0 deletions(-)
+> 
+> -- 
+> 1.7.5.4
 > 
 > 
-> This is my first attempt at using NETLINK, so could you please elaborate?
-> Below is the generic netlink interface I implemented so far. Any pointers
-> on how I should do this differently?
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> 
 
-What Stephen means is to use the existing message types RTM_SETLINK
-and RTM_GETLINK in the NETLINK_ROUTE family.
-
-This is already partially implemented. See the IFLA_AF_SPEC attribute
-carrying IPV4_DEVCONF_ and DEVCONF_ (IPv6). Grep for rtnl_af_register()
-and you will find the corresponding implementations.
-
-Feel free to complete these existing interfaces, such as adding write
-support to IPv6 or adding support to iproute2 which is currently
-lacking.
-
-src/nl-link-list.c in the libnl sources allows you to display the
-configurations:
-
-$ src/nl-link-list --details --name virbr0-nic
-virbr0-nic ether 52:54:00:cb:da:db master virbr0 <broadcast,multicast> 
-    mtu 1500 txqlen 500 weight 0 qdisc noop index 7 
-    brd ff:ff:ff:ff:ff:ff state down mode default
-    ipv4 devconf:
-      forwarding            1  mc_forwarding         0  proxy_arp             0
-      accept_redirects      1  secure_redirects      1  send_redirects        1
-      shared_media          1  rp_filter             1  accept_source_route   0
-      bootp_relay           0  log_martians          0  tag                   0
-      arpfilter             0  medium_id             0  noxfrm                0
-      nopolicy              0  force_igmp_version    0  arp_announce          0
-      arp_ignore            0  promote_secondaries   0  arp_accept            0
-      arp_notify            0  accept_local          0  src_vmark             0
-      proxy_arp_pvlan       0  
-    ipv6 max-reasm-len 64KiB <>
-      create-stamp 13.35s reachable-time 40s 898msec retrans-time 1s
-      devconf:
-      forwarding            1  hoplimit             64  mtu6               1500
-      accept_ra             1  accept_redirects      1  autoconf              1
-      dad_transmits         1  rtr_solicits          3  rtr_solicit_interval 4s
-      rtr_solicit_delay    1s  use_tempaddr          0  temp_valid_lft       7d
-      temp_prefered_lft    1d  regen_max_retry       3  max_desync_factor   600
-      max_addresses        16  force_mld_version     0  accept_ra_defrtr      1
-      accept_ra_pinfo       1  accept_ra_rtr_pref    1  rtr_probe_interval   1m
-      accept_ra_rt_info     0  proxy_ndp             0  optimistic_dad        0
-      accept_source_route   0  mc_forwarding         0  disable_ipv6          0
-      accept_dad            1  force_tllao           0  
