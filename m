@@ -1,46 +1,47 @@
 From: pablo@netfilter.org
-Subject: [PATCH 20/25] ipvs: ip_vs_ftp: local functions should not be exposed globally
-Date: Tue,  8 May 2012 20:38:18 +0200
-Message-ID: <1336502303-1722-21-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 22/25] net: export sysctl_[r|w]mem_max symbols needed by ip_vs_sync
+Date: Tue,  8 May 2012 20:38:20 +0200
+Message-ID: <1336502303-1722-23-git-send-email-pablo@netfilter.org>
 References: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, openbsc@lists.osmocom.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39623 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:39881 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756670Ab2EHSkZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 14:40:25 -0400
+	id S1756670Ab2EHSkx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 14:40:53 -0400
 In-Reply-To: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: H Hartley Sweeten <hartleys@visionengravers.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-Functions not referenced outside of a source file should be marked
-static to prevent it from being exposed globally.
+To build ip_vs as a module sysctl_rmem_max and sysctl_wmem_max
+needs to be exported.
 
-This quiets the sparse warnings:
+The dependency was added by "ipvs: wakeup master thread" patch.
 
-warning: symbol 'ip_vs_ftp_init' was not declared. Should it be static?
-
-Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
+Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_ftp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/sock.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 510f2b5..b20b29c 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -485,7 +485,7 @@ static struct pernet_operations ip_vs_ftp_ops = {
- 	.exit = __ip_vs_ftp_exit,
- };
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b8c818e..26ed27f 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -259,7 +259,9 @@ static struct lock_class_key af_callback_keys[AF_MAX];
  
--int __init ip_vs_ftp_init(void)
-+static int __init ip_vs_ftp_init(void)
- {
- 	int rv;
+ /* Run time adjustable parameters. */
+ __u32 sysctl_wmem_max __read_mostly = SK_WMEM_MAX;
++EXPORT_SYMBOL(sysctl_wmem_max);
+ __u32 sysctl_rmem_max __read_mostly = SK_RMEM_MAX;
++EXPORT_SYMBOL(sysctl_rmem_max);
+ __u32 sysctl_wmem_default __read_mostly = SK_WMEM_MAX;
+ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
  
 -- 
 1.7.9.5
