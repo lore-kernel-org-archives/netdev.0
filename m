@@ -1,77 +1,61 @@
 From: pablo@netfilter.org
-Subject: [PATCH 19/25] ipvs: optimize the use of flags in ip_vs_bind_dest
-Date: Tue,  8 May 2012 02:22:13 +0200
-Message-ID: <1336436539-5880-20-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 23/25] netfilter: nf_ct_expect: partially implement ctnetlink_change_expect
+Date: Tue,  8 May 2012 02:22:17 +0200
+Message-ID: <1336436539-5880-24-git-send-email-pablo@netfilter.org>
 References: <1336436539-5880-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51851 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932193Ab2EHAXN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2012 20:23:13 -0400
 In-Reply-To: <1336436539-5880-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Kelvie Wong <kelvie@ieee.org>
 
-	cp->flags is marked volatile but ip_vs_bind_dest
-can safely modify the flags, so save some CPU cycles by
-using temp variable.
+This refreshes the "timeout" attribute in existing expectations if one is
+given.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+The use case for this would be for userspace helpers to extend the lifetime
+of the expectation when requested, as this is not possible right now
+without deleting/recreating the expectation.
+
+I use this specifically for forwarding DCERPC traffic through:
+
+DCERPC has a port mapper daemon that chooses a (seemingly) random port for
+future traffic to go to. We expect this traffic (with a reasonable
+timeout), but sometimes the port mapper will tell the client to continue
+using the same port. This allows us to extend the expectation accordingly.
+
+Signed-off-by: Kelvie Wong <kelvie@ieee.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_conn.c |   15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ net/netfilter/nf_conntrack_netlink.c |   10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 6a43c93..7f21b91 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -548,6 +548,7 @@ static inline void
- ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 462ec2d..6f4b00a 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -2080,7 +2080,15 @@ static int
+ ctnetlink_change_expect(struct nf_conntrack_expect *x,
+ 			const struct nlattr * const cda[])
  {
- 	unsigned int conn_flags;
-+	__u32 flags;
+-	return -EOPNOTSUPP;
++	if (cda[CTA_EXPECT_TIMEOUT]) {
++		if (!del_timer(&x->timeout))
++			return -ETIME;
++
++		x->timeout.expires = jiffies +
++			ntohl(nla_get_be32(cda[CTA_EXPECT_TIMEOUT])) * HZ;
++		add_timer(&x->timeout);
++	}
++	return 0;
+ }
  
- 	/* if dest is NULL, then return directly */
- 	if (!dest)
-@@ -559,17 +560,19 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
- 	conn_flags = atomic_read(&dest->conn_flags);
- 	if (cp->protocol != IPPROTO_UDP)
- 		conn_flags &= ~IP_VS_CONN_F_ONE_PACKET;
-+	flags = cp->flags;
- 	/* Bind with the destination and its corresponding transmitter */
--	if (cp->flags & IP_VS_CONN_F_SYNC) {
-+	if (flags & IP_VS_CONN_F_SYNC) {
- 		/* if the connection is not template and is created
- 		 * by sync, preserve the activity flag.
- 		 */
--		if (!(cp->flags & IP_VS_CONN_F_TEMPLATE))
-+		if (!(flags & IP_VS_CONN_F_TEMPLATE))
- 			conn_flags &= ~IP_VS_CONN_F_INACTIVE;
- 		/* connections inherit forwarding method from dest */
--		cp->flags &= ~(IP_VS_CONN_F_FWD_MASK | IP_VS_CONN_F_NOOUTPUT);
-+		flags &= ~(IP_VS_CONN_F_FWD_MASK | IP_VS_CONN_F_NOOUTPUT);
- 	}
--	cp->flags |= conn_flags;
-+	flags |= conn_flags;
-+	cp->flags = flags;
- 	cp->dest = dest;
- 
- 	IP_VS_DBG_BUF(7, "Bind-dest %s c:%s:%d v:%s:%d "
-@@ -584,11 +587,11 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
- 		      atomic_read(&dest->refcnt));
- 
- 	/* Update the connection counters */
--	if (!(cp->flags & IP_VS_CONN_F_TEMPLATE)) {
-+	if (!(flags & IP_VS_CONN_F_TEMPLATE)) {
- 		/* It is a normal connection, so modify the counters
- 		 * according to the flags, later the protocol can
- 		 * update them on state change */
--		if (!(cp->flags & IP_VS_CONN_F_INACTIVE))
-+		if (!(flags & IP_VS_CONN_F_INACTIVE))
- 			atomic_inc(&dest->activeconns);
- 		else
- 			atomic_inc(&dest->inactconns);
+ static const struct nla_policy exp_nat_nla_policy[CTA_EXPECT_NAT_MAX+1] = {
 -- 
 1.7.9.5
-
