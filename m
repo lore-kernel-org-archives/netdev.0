@@ -1,42 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: compare_ether_addr[_64bits]() has no ordering
-Date: Tue, 08 May 2012 03:31:20 -0400 (EDT)
-Message-ID: <20120508.033120.1272130362698029549.davem@davemloft.net>
-References: <1336454744.4328.2.camel@jlt3.sipsolutions.net>
-	<20120508.022647.1186809783650560801.davem@davemloft.net>
-	<1336458936.29640.2.camel@joe2Laptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 13/25] ipvs: remove check for IP_VS_CONN_F_SYNC from
+ ip_vs_bind_dest
+Date: Tue, 8 May 2012 09:32:23 +0200
+Message-ID: <20120508073223.GB8465@1984>
+References: <1336436539-5880-14-git-send-email-pablo@netfilter.org>
+ <20120507.213607.2054696052002528963.davem@davemloft.net>
+ <20120508020843.GA9027@verge.net.au>
+ <20120507.221617.296952751857969791.davem@davemloft.net>
+ <20120508031545.GB9027@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55286 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752699Ab2EHHcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2012 03:32:31 -0400
-In-Reply-To: <1336458936.29640.2.camel@joe2Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120508031545.GB9027@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 07 May 2012 23:35:36 -0700
-
-> On Tue, 2012-05-08 at 02:26 -0400, David Miller wrote:
->> From: Johannes Berg <johannes@sipsolutions.net>
->> Date: Tue, 08 May 2012 07:25:44 +0200
->> 
->> > I suppose I could fix those first and then later change the type, but I
->> > think having a "compare_ether_addr" function that returns *false* when
->> > they *match* would be rather confusing. I'd rather have
->> > "equal_ether_addr()" that returns *true* when they match.
->> > 
->> > I guess we could introduce equal_ether_addr() though and slowly convert,
->> > keeping compare_ether_addr() as a sort of wrapper around it.
->> 
->> Indeed, this is one way to proceed.
+On Tue, May 08, 2012 at 12:15:47PM +0900, Simon Horman wrote:
+> On Mon, May 07, 2012 at 10:16:17PM -0400, David Miller wrote:
+> > From: Simon Horman <horms@verge.net.au>
+> > Date: Tue, 8 May 2012 11:08:44 +0900
+> > 
+> > > can I fix this up as a subsequent patch?
+> > 
+> > Pablo's tree needs to get respun to address the other feedback
+> > I gave, so no reason for him or you to not fix this as well.
 > 
-> perhaps is_equal_ether_addr or is_same_ether_addr instead?
+> Understood.
 
-Hmmm, my first choice would have been "eth_addr_equal()"
+Yes, I'll fix it myself.
+
+Expect a new batch in a couple of minutes.
