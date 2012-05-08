@@ -1,41 +1,54 @@
 From: pablo@netfilter.org
-Subject: [PATCH 12/25] ipvs: ignore IP_VS_CONN_F_NOOUTPUT in backup server
-Date: Tue,  8 May 2012 09:49:41 +0200
-Message-ID: <1336463394-3119-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/25] netfilter: nf_conntrack: use this_cpu_inc()
+Date: Tue,  8 May 2012 09:49:32 +0200
+Message-ID: <1336463394-3119-4-git-send-email-pablo@netfilter.org>
 References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41135 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753854Ab2EHHuW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 03:50:22 -0400
 In-Reply-To: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Eric Dumazet <edumazet@google.com>
 
-	As IP_VS_CONN_F_NOOUTPUT is derived from the
-forwarding method we should get it from conn_flags just
-like we do it for IP_VS_CONN_F_FWD_MASK bits when binding
-to real server.
+this_cpu_inc() is IRQ safe and faster than
+local_bh_disable()/__this_cpu_inc()/local_bh_enable(), at least on x86.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Christoph Lameter <cl@linux.com>
+Cc: Tejun Heo <tj@kernel.org>
+Reviewed-by: Christoph Lameter <cl@linux.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_conn.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/net/netfilter/nf_conntrack.h |   10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 4a09b78..f562e63 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -567,7 +567,7 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
- 		if (!(cp->flags & IP_VS_CONN_F_TEMPLATE))
- 			conn_flags &= ~IP_VS_CONN_F_INACTIVE;
- 		/* connections inherit forwarding method from dest */
--		cp->flags &= ~IP_VS_CONN_F_FWD_MASK;
-+		cp->flags &= ~(IP_VS_CONN_F_FWD_MASK | IP_VS_CONN_F_NOOUTPUT);
- 	}
- 	cp->flags |= conn_flags;
- 	cp->dest = dest;
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index ab86036..cce7f6a 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -321,14 +321,8 @@ extern unsigned int nf_conntrack_max;
+ extern unsigned int nf_conntrack_hash_rnd;
+ void init_nf_conntrack_hash_rnd(void);
+ 
+-#define NF_CT_STAT_INC(net, count)	\
+-	__this_cpu_inc((net)->ct.stat->count)
+-#define NF_CT_STAT_INC_ATOMIC(net, count)		\
+-do {							\
+-	local_bh_disable();				\
+-	__this_cpu_inc((net)->ct.stat->count);		\
+-	local_bh_enable();				\
+-} while (0)
++#define NF_CT_STAT_INC(net, count)	  __this_cpu_inc((net)->ct.stat->count)
++#define NF_CT_STAT_INC_ATOMIC(net, count) this_cpu_inc((net)->ct.stat->count)
+ 
+ #define MODULE_ALIAS_NFCT_HELPER(helper) \
+         MODULE_ALIAS("nfct-helper-" helper)
 -- 
 1.7.9.5
-
