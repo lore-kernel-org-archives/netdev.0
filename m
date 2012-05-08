@@ -1,1550 +1,936 @@
 From: pablo@netfilter.org
-Subject: [PATCH 25/25] netfilter: remove ip_queue support
-Date: Tue,  8 May 2012 09:49:54 +0200
-Message-ID: <1336463394-3119-26-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 18/25] ipvs: add support for sync threads
+Date: Tue,  8 May 2012 09:49:47 +0200
+Message-ID: <1336463394-3119-19-git-send-email-pablo@netfilter.org>
 References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41282 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:41241 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757625Ab2EHHuq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 03:50:46 -0400
+	id S1757352Ab2EHHui (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 03:50:38 -0400
 In-Reply-To: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Julian Anastasov <ja@ssi.bg>
 
-This patch removes ip_queue support which was marked as obsolete
-years ago. The nfnetlink_queue modules provides more advanced
-user-space packet queueing mechanism.
+	Allow master and backup servers to use many threads
+for sync traffic. Add sysctl var "sync_ports" to define the
+number of threads. Every thread will use single UDP port,
+thread 0 will use the default port 8848 while last thread
+will use port 8848+sync_ports-1.
 
-This patch also removes capability code included in SELinux that
-refers to ip_queue. Otherwise, we break compilation.
+	The sync traffic for connections is scheduled to many
+master threads based on the cp address but one connection is
+always assigned to same thread to avoid reordering of the
+sync messages.
 
-Several warning has been sent regarding this to the mailing list
-in the past month without anyone rising the hand to stop this
-with some strong argument.
+	Remove ip_vs_sync_switch_mode because this check
+for sync mode change is still risky. Instead, check for mode
+change under sync_buff_lock.
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+	Make sure the backup socks do not block on reading.
+
+Special thanks to Aleksey Chudov for helping in all tests.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Tested-by: Aleksey Chudov <aleksey.chudov@gmail.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- Documentation/ABI/removed/ip_queue      |    9 +
- include/linux/netfilter_ipv4/Kbuild     |    1 -
- include/linux/netfilter_ipv4/ip_queue.h |   72 ----
- include/linux/netlink.h                 |    2 +-
- net/ipv4/netfilter/Makefile             |    3 -
- net/ipv4/netfilter/ip_queue.c           |  639 ------------------------------
- net/ipv6/netfilter/Kconfig              |   22 --
- net/ipv6/netfilter/Makefile             |    1 -
- net/ipv6/netfilter/ip6_queue.c          |  641 -------------------------------
- security/selinux/nlmsgtab.c             |   13 -
- 10 files changed, 10 insertions(+), 1393 deletions(-)
- create mode 100644 Documentation/ABI/removed/ip_queue
- delete mode 100644 include/linux/netfilter_ipv4/ip_queue.h
- delete mode 100644 net/ipv4/netfilter/ip_queue.c
- delete mode 100644 net/ipv6/netfilter/ip6_queue.c
+ include/net/ip_vs.h             |   34 +++-
+ net/netfilter/ipvs/ip_vs_conn.c |    7 +
+ net/netfilter/ipvs/ip_vs_ctl.c  |   29 ++-
+ net/netfilter/ipvs/ip_vs_sync.c |  401 ++++++++++++++++++++++++---------------
+ 4 files changed, 305 insertions(+), 166 deletions(-)
 
-diff --git a/Documentation/ABI/removed/ip_queue b/Documentation/ABI/removed/ip_queue
-new file mode 100644
-index 0000000..3243613
---- /dev/null
-+++ b/Documentation/ABI/removed/ip_queue
-@@ -0,0 +1,9 @@
-+What:		ip_queue
-+Date:		finally removed in kernel v3.5.0
-+Contact:	Pablo Neira Ayuso <pablo@netfilter.org>
-+Description:
-+	ip_queue has been replaced by nfnetlink_queue which provides
-+	more advanced queueing mechanism to user-space. The ip_queue
-+	module was already announced to become obsolete years ago.
-+
-+Users:
-diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
-index 31f8bec..c61b8fb 100644
---- a/include/linux/netfilter_ipv4/Kbuild
-+++ b/include/linux/netfilter_ipv4/Kbuild
-@@ -1,4 +1,3 @@
--header-y += ip_queue.h
- header-y += ip_tables.h
- header-y += ipt_CLUSTERIP.h
- header-y += ipt_ECN.h
-diff --git a/include/linux/netfilter_ipv4/ip_queue.h b/include/linux/netfilter_ipv4/ip_queue.h
-deleted file mode 100644
-index a03507f..0000000
---- a/include/linux/netfilter_ipv4/ip_queue.h
-+++ /dev/null
-@@ -1,72 +0,0 @@
--/*
-- * This is a module which is used for queueing IPv4 packets and
-- * communicating with userspace via netlink.
-- *
-- * (C) 2000 James Morris, this code is GPL.
-- */
--#ifndef _IP_QUEUE_H
--#define _IP_QUEUE_H
--
--#ifdef __KERNEL__
--#ifdef DEBUG_IPQ
--#define QDEBUG(x...) printk(KERN_DEBUG ## x)
--#else
--#define QDEBUG(x...)
--#endif  /* DEBUG_IPQ */
--#else
--#include <net/if.h>
--#endif	/* ! __KERNEL__ */
--
--/* Messages sent from kernel */
--typedef struct ipq_packet_msg {
--	unsigned long packet_id;	/* ID of queued packet */
--	unsigned long mark;		/* Netfilter mark value */
--	long timestamp_sec;		/* Packet arrival time (seconds) */
--	long timestamp_usec;		/* Packet arrvial time (+useconds) */
--	unsigned int hook;		/* Netfilter hook we rode in on */
--	char indev_name[IFNAMSIZ];	/* Name of incoming interface */
--	char outdev_name[IFNAMSIZ];	/* Name of outgoing interface */
--	__be16 hw_protocol;		/* Hardware protocol (network order) */
--	unsigned short hw_type;		/* Hardware type */
--	unsigned char hw_addrlen;	/* Hardware address length */
--	unsigned char hw_addr[8];	/* Hardware address */
--	size_t data_len;		/* Length of packet data */
--	unsigned char payload[0];	/* Optional packet data */
--} ipq_packet_msg_t;
--
--/* Messages sent from userspace */
--typedef struct ipq_mode_msg {
--	unsigned char value;		/* Requested mode */
--	size_t range;			/* Optional range of packet requested */
--} ipq_mode_msg_t;
--
--typedef struct ipq_verdict_msg {
--	unsigned int value;		/* Verdict to hand to netfilter */
--	unsigned long id;		/* Packet ID for this verdict */
--	size_t data_len;		/* Length of replacement data */
--	unsigned char payload[0];	/* Optional replacement packet */
--} ipq_verdict_msg_t;
--
--typedef struct ipq_peer_msg {
--	union {
--		ipq_verdict_msg_t verdict;
--		ipq_mode_msg_t mode;
--	} msg;
--} ipq_peer_msg_t;
--
--/* Packet delivery modes */
--enum {
--	IPQ_COPY_NONE,		/* Initial mode, packets are dropped */
--	IPQ_COPY_META,		/* Copy metadata */
--	IPQ_COPY_PACKET		/* Copy metadata + packet (range) */
--};
--#define IPQ_COPY_MAX IPQ_COPY_PACKET
--
--/* Types of messages */
--#define IPQM_BASE	0x10	/* standard netlink messages below this */
--#define IPQM_MODE	(IPQM_BASE + 1)		/* Mode request from peer */
--#define IPQM_VERDICT	(IPQM_BASE + 2)		/* Verdict from peer */ 
--#define IPQM_PACKET	(IPQM_BASE + 3)		/* Packet from kernel */
--#define IPQM_MAX	(IPQM_BASE + 4)
--
--#endif /*_IP_QUEUE_H*/
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index a2092f5..0f628ff 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -7,7 +7,7 @@
- #define NETLINK_ROUTE		0	/* Routing/device hook				*/
- #define NETLINK_UNUSED		1	/* Unused number				*/
- #define NETLINK_USERSOCK	2	/* Reserved for user mode socket protocols 	*/
--#define NETLINK_FIREWALL	3	/* Firewalling hook				*/
-+#define NETLINK_FIREWALL	3	/* Unused number, formerly ip_queue		*/
- #define NETLINK_SOCK_DIAG	4	/* socket monitoring				*/
- #define NETLINK_NFLOG		5	/* netfilter/iptables ULOG */
- #define NETLINK_XFRM		6	/* ipsec */
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 240b684..c20674d 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -66,6 +66,3 @@ obj-$(CONFIG_IP_NF_ARP_MANGLE) += arpt_mangle.o
- 
- # just filtering instance of ARP tables for now
- obj-$(CONFIG_IP_NF_ARPFILTER) += arptable_filter.o
--
--obj-$(CONFIG_IP_NF_QUEUE) += ip_queue.o
--
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-deleted file mode 100644
-index 94d45e1..0000000
---- a/net/ipv4/netfilter/ip_queue.c
-+++ /dev/null
-@@ -1,639 +0,0 @@
--/*
-- * This is a module which is used for queueing IPv4 packets and
-- * communicating with userspace via netlink.
-- *
-- * (C) 2000-2002 James Morris <jmorris@intercode.com.au>
-- * (C) 2003-2005 Netfilter Core Team <coreteam@netfilter.org>
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2 as
-- * published by the Free Software Foundation.
-- */
--#include <linux/module.h>
--#include <linux/skbuff.h>
--#include <linux/init.h>
--#include <linux/ip.h>
--#include <linux/notifier.h>
--#include <linux/netdevice.h>
--#include <linux/netfilter.h>
--#include <linux/netfilter_ipv4/ip_queue.h>
--#include <linux/netfilter_ipv4/ip_tables.h>
--#include <linux/netlink.h>
--#include <linux/spinlock.h>
--#include <linux/sysctl.h>
--#include <linux/proc_fs.h>
--#include <linux/seq_file.h>
--#include <linux/security.h>
--#include <linux/net.h>
--#include <linux/mutex.h>
--#include <linux/slab.h>
--#include <net/net_namespace.h>
--#include <net/sock.h>
--#include <net/route.h>
--#include <net/netfilter/nf_queue.h>
--#include <net/ip.h>
--
--#define IPQ_QMAX_DEFAULT 1024
--#define IPQ_PROC_FS_NAME "ip_queue"
--#define NET_IPQ_QMAX 2088
--#define NET_IPQ_QMAX_NAME "ip_queue_maxlen"
--
--typedef int (*ipq_cmpfn)(struct nf_queue_entry *, unsigned long);
--
--static unsigned char copy_mode __read_mostly = IPQ_COPY_NONE;
--static unsigned int queue_maxlen __read_mostly = IPQ_QMAX_DEFAULT;
--static DEFINE_SPINLOCK(queue_lock);
--static int peer_pid __read_mostly;
--static unsigned int copy_range __read_mostly;
--static unsigned int queue_total;
--static unsigned int queue_dropped = 0;
--static unsigned int queue_user_dropped = 0;
--static struct sock *ipqnl __read_mostly;
--static LIST_HEAD(queue_list);
--static DEFINE_MUTEX(ipqnl_mutex);
--
--static inline void
--__ipq_enqueue_entry(struct nf_queue_entry *entry)
--{
--       list_add_tail(&entry->list, &queue_list);
--       queue_total++;
--}
--
--static inline int
--__ipq_set_mode(unsigned char mode, unsigned int range)
--{
--	int status = 0;
--
--	switch(mode) {
--	case IPQ_COPY_NONE:
--	case IPQ_COPY_META:
--		copy_mode = mode;
--		copy_range = 0;
--		break;
--
--	case IPQ_COPY_PACKET:
--		if (range > 0xFFFF)
--			range = 0xFFFF;
--		copy_range = range;
--		copy_mode = mode;
--		break;
--
--	default:
--		status = -EINVAL;
--
--	}
--	return status;
--}
--
--static void __ipq_flush(ipq_cmpfn cmpfn, unsigned long data);
--
--static inline void
--__ipq_reset(void)
--{
--	peer_pid = 0;
--	net_disable_timestamp();
--	__ipq_set_mode(IPQ_COPY_NONE, 0);
--	__ipq_flush(NULL, 0);
--}
--
--static struct nf_queue_entry *
--ipq_find_dequeue_entry(unsigned long id)
--{
--	struct nf_queue_entry *entry = NULL, *i;
--
--	spin_lock_bh(&queue_lock);
--
--	list_for_each_entry(i, &queue_list, list) {
--		if ((unsigned long)i == id) {
--			entry = i;
--			break;
--		}
--	}
--
--	if (entry) {
--		list_del(&entry->list);
--		queue_total--;
--	}
--
--	spin_unlock_bh(&queue_lock);
--	return entry;
--}
--
--static void
--__ipq_flush(ipq_cmpfn cmpfn, unsigned long data)
--{
--	struct nf_queue_entry *entry, *next;
--
--	list_for_each_entry_safe(entry, next, &queue_list, list) {
--		if (!cmpfn || cmpfn(entry, data)) {
--			list_del(&entry->list);
--			queue_total--;
--			nf_reinject(entry, NF_DROP);
--		}
--	}
--}
--
--static void
--ipq_flush(ipq_cmpfn cmpfn, unsigned long data)
--{
--	spin_lock_bh(&queue_lock);
--	__ipq_flush(cmpfn, data);
--	spin_unlock_bh(&queue_lock);
--}
--
--static struct sk_buff *
--ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
--{
--	sk_buff_data_t old_tail;
--	size_t size = 0;
--	size_t data_len = 0;
--	struct sk_buff *skb;
--	struct ipq_packet_msg *pmsg;
--	struct nlmsghdr *nlh;
--	struct timeval tv;
--
--	switch (ACCESS_ONCE(copy_mode)) {
--	case IPQ_COPY_META:
--	case IPQ_COPY_NONE:
--		size = NLMSG_SPACE(sizeof(*pmsg));
--		break;
--
--	case IPQ_COPY_PACKET:
--		if (entry->skb->ip_summed == CHECKSUM_PARTIAL &&
--		    (*errp = skb_checksum_help(entry->skb)))
--			return NULL;
--
--		data_len = ACCESS_ONCE(copy_range);
--		if (data_len == 0 || data_len > entry->skb->len)
--			data_len = entry->skb->len;
--
--		size = NLMSG_SPACE(sizeof(*pmsg) + data_len);
--		break;
--
--	default:
--		*errp = -EINVAL;
--		return NULL;
--	}
--
--	skb = alloc_skb(size, GFP_ATOMIC);
--	if (!skb)
--		goto nlmsg_failure;
--
--	old_tail = skb->tail;
--	nlh = NLMSG_PUT(skb, 0, 0, IPQM_PACKET, size - sizeof(*nlh));
--	pmsg = NLMSG_DATA(nlh);
--	memset(pmsg, 0, sizeof(*pmsg));
--
--	pmsg->packet_id       = (unsigned long )entry;
--	pmsg->data_len        = data_len;
--	tv = ktime_to_timeval(entry->skb->tstamp);
--	pmsg->timestamp_sec   = tv.tv_sec;
--	pmsg->timestamp_usec  = tv.tv_usec;
--	pmsg->mark            = entry->skb->mark;
--	pmsg->hook            = entry->hook;
--	pmsg->hw_protocol     = entry->skb->protocol;
--
--	if (entry->indev)
--		strcpy(pmsg->indev_name, entry->indev->name);
--	else
--		pmsg->indev_name[0] = '\0';
--
--	if (entry->outdev)
--		strcpy(pmsg->outdev_name, entry->outdev->name);
--	else
--		pmsg->outdev_name[0] = '\0';
--
--	if (entry->indev && entry->skb->dev &&
--	    entry->skb->mac_header != entry->skb->network_header) {
--		pmsg->hw_type = entry->skb->dev->type;
--		pmsg->hw_addrlen = dev_parse_header(entry->skb,
--						    pmsg->hw_addr);
--	}
--
--	if (data_len)
--		if (skb_copy_bits(entry->skb, 0, pmsg->payload, data_len))
--			BUG();
--
--	nlh->nlmsg_len = skb->tail - old_tail;
--	return skb;
--
--nlmsg_failure:
--	kfree_skb(skb);
--	*errp = -EINVAL;
--	printk(KERN_ERR "ip_queue: error creating packet message\n");
--	return NULL;
--}
--
--static int
--ipq_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
--{
--	int status = -EINVAL;
--	struct sk_buff *nskb;
--
--	if (copy_mode == IPQ_COPY_NONE)
--		return -EAGAIN;
--
--	nskb = ipq_build_packet_message(entry, &status);
--	if (nskb == NULL)
--		return status;
--
--	spin_lock_bh(&queue_lock);
--
--	if (!peer_pid)
--		goto err_out_free_nskb;
--
--	if (queue_total >= queue_maxlen) {
--		queue_dropped++;
--		status = -ENOSPC;
--		if (net_ratelimit())
--			  printk (KERN_WARNING "ip_queue: full at %d entries, "
--				  "dropping packets(s). Dropped: %d\n", queue_total,
--				  queue_dropped);
--		goto err_out_free_nskb;
--	}
--
--	/* netlink_unicast will either free the nskb or attach it to a socket */
--	status = netlink_unicast(ipqnl, nskb, peer_pid, MSG_DONTWAIT);
--	if (status < 0) {
--		queue_user_dropped++;
--		goto err_out_unlock;
--	}
--
--	__ipq_enqueue_entry(entry);
--
--	spin_unlock_bh(&queue_lock);
--	return status;
--
--err_out_free_nskb:
--	kfree_skb(nskb);
--
--err_out_unlock:
--	spin_unlock_bh(&queue_lock);
--	return status;
--}
--
--static int
--ipq_mangle_ipv4(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
--{
--	int diff;
--	struct iphdr *user_iph = (struct iphdr *)v->payload;
--	struct sk_buff *nskb;
--
--	if (v->data_len < sizeof(*user_iph))
--		return 0;
--	diff = v->data_len - e->skb->len;
--	if (diff < 0) {
--		if (pskb_trim(e->skb, v->data_len))
--			return -ENOMEM;
--	} else if (diff > 0) {
--		if (v->data_len > 0xFFFF)
--			return -EINVAL;
--		if (diff > skb_tailroom(e->skb)) {
--			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
--					       diff, GFP_ATOMIC);
--			if (!nskb) {
--				printk(KERN_WARNING "ip_queue: error "
--				      "in mangle, dropping packet\n");
--				return -ENOMEM;
--			}
--			kfree_skb(e->skb);
--			e->skb = nskb;
--		}
--		skb_put(e->skb, diff);
--	}
--	if (!skb_make_writable(e->skb, v->data_len))
--		return -ENOMEM;
--	skb_copy_to_linear_data(e->skb, v->payload, v->data_len);
--	e->skb->ip_summed = CHECKSUM_NONE;
--
--	return 0;
--}
--
--static int
--ipq_set_verdict(struct ipq_verdict_msg *vmsg, unsigned int len)
--{
--	struct nf_queue_entry *entry;
--
--	if (vmsg->value > NF_MAX_VERDICT || vmsg->value == NF_STOLEN)
--		return -EINVAL;
--
--	entry = ipq_find_dequeue_entry(vmsg->id);
--	if (entry == NULL)
--		return -ENOENT;
--	else {
--		int verdict = vmsg->value;
--
--		if (vmsg->data_len && vmsg->data_len == len)
--			if (ipq_mangle_ipv4(vmsg, entry) < 0)
--				verdict = NF_DROP;
--
--		nf_reinject(entry, verdict);
--		return 0;
--	}
--}
--
--static int
--ipq_set_mode(unsigned char mode, unsigned int range)
--{
--	int status;
--
--	spin_lock_bh(&queue_lock);
--	status = __ipq_set_mode(mode, range);
--	spin_unlock_bh(&queue_lock);
--	return status;
--}
--
--static int
--ipq_receive_peer(struct ipq_peer_msg *pmsg,
--		 unsigned char type, unsigned int len)
--{
--	int status = 0;
--
--	if (len < sizeof(*pmsg))
--		return -EINVAL;
--
--	switch (type) {
--	case IPQM_MODE:
--		status = ipq_set_mode(pmsg->msg.mode.value,
--				      pmsg->msg.mode.range);
--		break;
--
--	case IPQM_VERDICT:
--		status = ipq_set_verdict(&pmsg->msg.verdict,
--					 len - sizeof(*pmsg));
--		break;
--	default:
--		status = -EINVAL;
--	}
--	return status;
--}
--
--static int
--dev_cmp(struct nf_queue_entry *entry, unsigned long ifindex)
--{
--	if (entry->indev)
--		if (entry->indev->ifindex == ifindex)
--			return 1;
--	if (entry->outdev)
--		if (entry->outdev->ifindex == ifindex)
--			return 1;
--#ifdef CONFIG_BRIDGE_NETFILTER
--	if (entry->skb->nf_bridge) {
--		if (entry->skb->nf_bridge->physindev &&
--		    entry->skb->nf_bridge->physindev->ifindex == ifindex)
--			return 1;
--		if (entry->skb->nf_bridge->physoutdev &&
--		    entry->skb->nf_bridge->physoutdev->ifindex == ifindex)
--			return 1;
--	}
--#endif
--	return 0;
--}
--
--static void
--ipq_dev_drop(int ifindex)
--{
--	ipq_flush(dev_cmp, ifindex);
--}
--
--#define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0)
--
--static inline void
--__ipq_rcv_skb(struct sk_buff *skb)
--{
--	int status, type, pid, flags;
--	unsigned int nlmsglen, skblen;
--	struct nlmsghdr *nlh;
--	bool enable_timestamp = false;
--
--	skblen = skb->len;
--	if (skblen < sizeof(*nlh))
--		return;
--
--	nlh = nlmsg_hdr(skb);
--	nlmsglen = nlh->nlmsg_len;
--	if (nlmsglen < sizeof(*nlh) || skblen < nlmsglen)
--		return;
--
--	pid = nlh->nlmsg_pid;
--	flags = nlh->nlmsg_flags;
--
--	if(pid <= 0 || !(flags & NLM_F_REQUEST) || flags & NLM_F_MULTI)
--		RCV_SKB_FAIL(-EINVAL);
--
--	if (flags & MSG_TRUNC)
--		RCV_SKB_FAIL(-ECOMM);
--
--	type = nlh->nlmsg_type;
--	if (type < NLMSG_NOOP || type >= IPQM_MAX)
--		RCV_SKB_FAIL(-EINVAL);
--
--	if (type <= IPQM_BASE)
--		return;
--
--	if (!capable(CAP_NET_ADMIN))
--		RCV_SKB_FAIL(-EPERM);
--
--	spin_lock_bh(&queue_lock);
--
--	if (peer_pid) {
--		if (peer_pid != pid) {
--			spin_unlock_bh(&queue_lock);
--			RCV_SKB_FAIL(-EBUSY);
--		}
--	} else {
--		enable_timestamp = true;
--		peer_pid = pid;
--	}
--
--	spin_unlock_bh(&queue_lock);
--	if (enable_timestamp)
--		net_enable_timestamp();
--	status = ipq_receive_peer(NLMSG_DATA(nlh), type,
--				  nlmsglen - NLMSG_LENGTH(0));
--	if (status < 0)
--		RCV_SKB_FAIL(status);
--
--	if (flags & NLM_F_ACK)
--		netlink_ack(skb, nlh, 0);
--}
--
--static void
--ipq_rcv_skb(struct sk_buff *skb)
--{
--	mutex_lock(&ipqnl_mutex);
--	__ipq_rcv_skb(skb);
--	mutex_unlock(&ipqnl_mutex);
--}
--
--static int
--ipq_rcv_dev_event(struct notifier_block *this,
--		  unsigned long event, void *ptr)
--{
--	struct net_device *dev = ptr;
--
--	if (!net_eq(dev_net(dev), &init_net))
--		return NOTIFY_DONE;
--
--	/* Drop any packets associated with the downed device */
--	if (event == NETDEV_DOWN)
--		ipq_dev_drop(dev->ifindex);
--	return NOTIFY_DONE;
--}
--
--static struct notifier_block ipq_dev_notifier = {
--	.notifier_call	= ipq_rcv_dev_event,
--};
--
--static int
--ipq_rcv_nl_event(struct notifier_block *this,
--		 unsigned long event, void *ptr)
--{
--	struct netlink_notify *n = ptr;
--
--	if (event == NETLINK_URELEASE && n->protocol == NETLINK_FIREWALL) {
--		spin_lock_bh(&queue_lock);
--		if ((net_eq(n->net, &init_net)) && (n->pid == peer_pid))
--			__ipq_reset();
--		spin_unlock_bh(&queue_lock);
--	}
--	return NOTIFY_DONE;
--}
--
--static struct notifier_block ipq_nl_notifier = {
--	.notifier_call	= ipq_rcv_nl_event,
--};
--
--#ifdef CONFIG_SYSCTL
--static struct ctl_table_header *ipq_sysctl_header;
--
--static ctl_table ipq_table[] = {
--	{
--		.procname	= NET_IPQ_QMAX_NAME,
--		.data		= &queue_maxlen,
--		.maxlen		= sizeof(queue_maxlen),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{ }
--};
--#endif
--
--#ifdef CONFIG_PROC_FS
--static int ip_queue_show(struct seq_file *m, void *v)
--{
--	spin_lock_bh(&queue_lock);
--
--	seq_printf(m,
--		      "Peer PID          : %d\n"
--		      "Copy mode         : %hu\n"
--		      "Copy range        : %u\n"
--		      "Queue length      : %u\n"
--		      "Queue max. length : %u\n"
--		      "Queue dropped     : %u\n"
--		      "Netlink dropped   : %u\n",
--		      peer_pid,
--		      copy_mode,
--		      copy_range,
--		      queue_total,
--		      queue_maxlen,
--		      queue_dropped,
--		      queue_user_dropped);
--
--	spin_unlock_bh(&queue_lock);
--	return 0;
--}
--
--static int ip_queue_open(struct inode *inode, struct file *file)
--{
--	return single_open(file, ip_queue_show, NULL);
--}
--
--static const struct file_operations ip_queue_proc_fops = {
--	.open		= ip_queue_open,
--	.read		= seq_read,
--	.llseek		= seq_lseek,
--	.release	= single_release,
--	.owner		= THIS_MODULE,
--};
--#endif
--
--static const struct nf_queue_handler nfqh = {
--	.name	= "ip_queue",
--	.outfn	= &ipq_enqueue_packet,
--};
--
--static int __init ip_queue_init(void)
--{
--	int status = -ENOMEM;
--	struct proc_dir_entry *proc __maybe_unused;
--
--	netlink_register_notifier(&ipq_nl_notifier);
--	ipqnl = netlink_kernel_create(&init_net, NETLINK_FIREWALL, 0,
--				      ipq_rcv_skb, NULL, THIS_MODULE);
--	if (ipqnl == NULL) {
--		printk(KERN_ERR "ip_queue: failed to create netlink socket\n");
--		goto cleanup_netlink_notifier;
--	}
--
--#ifdef CONFIG_PROC_FS
--	proc = proc_create(IPQ_PROC_FS_NAME, 0, init_net.proc_net,
--			   &ip_queue_proc_fops);
--	if (!proc) {
--		printk(KERN_ERR "ip_queue: failed to create proc entry\n");
--		goto cleanup_ipqnl;
--	}
--#endif
--	register_netdevice_notifier(&ipq_dev_notifier);
--#ifdef CONFIG_SYSCTL
--	ipq_sysctl_header = register_sysctl_paths(net_ipv4_ctl_path, ipq_table);
--#endif
--	status = nf_register_queue_handler(NFPROTO_IPV4, &nfqh);
--	if (status < 0) {
--		printk(KERN_ERR "ip_queue: failed to register queue handler\n");
--		goto cleanup_sysctl;
--	}
--	return status;
--
--cleanup_sysctl:
--#ifdef CONFIG_SYSCTL
--	unregister_sysctl_table(ipq_sysctl_header);
--#endif
--	unregister_netdevice_notifier(&ipq_dev_notifier);
--	proc_net_remove(&init_net, IPQ_PROC_FS_NAME);
--cleanup_ipqnl: __maybe_unused
--	netlink_kernel_release(ipqnl);
--	mutex_lock(&ipqnl_mutex);
--	mutex_unlock(&ipqnl_mutex);
--
--cleanup_netlink_notifier:
--	netlink_unregister_notifier(&ipq_nl_notifier);
--	return status;
--}
--
--static void __exit ip_queue_fini(void)
--{
--	nf_unregister_queue_handlers(&nfqh);
--
--	ipq_flush(NULL, 0);
--
--#ifdef CONFIG_SYSCTL
--	unregister_sysctl_table(ipq_sysctl_header);
--#endif
--	unregister_netdevice_notifier(&ipq_dev_notifier);
--	proc_net_remove(&init_net, IPQ_PROC_FS_NAME);
--
--	netlink_kernel_release(ipqnl);
--	mutex_lock(&ipqnl_mutex);
--	mutex_unlock(&ipqnl_mutex);
--
--	netlink_unregister_notifier(&ipq_nl_notifier);
--}
--
--MODULE_DESCRIPTION("IPv4 packet queue handler");
--MODULE_AUTHOR("James Morris <jmorris@intercode.com.au>");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_FIREWALL);
--
--module_init(ip_queue_init);
--module_exit(ip_queue_fini);
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index d33cddd..1013534 100644
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -25,28 +25,6 @@ config NF_CONNTRACK_IPV6
- 
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
--config IP6_NF_QUEUE
--	tristate "IP6 Userspace queueing via NETLINK (OBSOLETE)"
--	depends on INET && IPV6 && NETFILTER
--	depends on NETFILTER_ADVANCED
--	---help---
--
--	  This option adds a queue handler to the kernel for IPv6
--	  packets which enables users to receive the filtered packets
--	  with QUEUE target using libipq.
--
--	  This option enables the old IPv6-only "ip6_queue" implementation
--	  which has been obsoleted by the new "nfnetlink_queue" code (see
--	  CONFIG_NETFILTER_NETLINK_QUEUE).
--
--	  (C) Fernando Anton 2001
--	  IPv64 Project - Work based in IPv64 draft by Arturo Azcorra.
--	  Universidad Carlos III de Madrid
--	  Universidad Politecnica de Alcala de Henares
--	  email: <fanton@it.uc3m.es>.
--
--	  To compile it as a module, choose M here.  If unsure, say N.
--
- config IP6_NF_IPTABLES
- 	tristate "IP6 tables support (required for filtering)"
- 	depends on INET && IPV6
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index d4dfd0a..534d3f2 100644
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -6,7 +6,6 @@
- obj-$(CONFIG_IP6_NF_IPTABLES) += ip6_tables.o
- obj-$(CONFIG_IP6_NF_FILTER) += ip6table_filter.o
- obj-$(CONFIG_IP6_NF_MANGLE) += ip6table_mangle.o
--obj-$(CONFIG_IP6_NF_QUEUE) += ip6_queue.o
- obj-$(CONFIG_IP6_NF_RAW) += ip6table_raw.o
- obj-$(CONFIG_IP6_NF_SECURITY) += ip6table_security.o
- 
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-deleted file mode 100644
-index a34c9e4..0000000
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ /dev/null
-@@ -1,641 +0,0 @@
--/*
-- * This is a module which is used for queueing IPv6 packets and
-- * communicating with userspace via netlink.
-- *
-- * (C) 2001 Fernando Anton, this code is GPL.
-- *     IPv64 Project - Work based in IPv64 draft by Arturo Azcorra.
-- *     Universidad Carlos III de Madrid - Leganes (Madrid) - Spain
-- *     Universidad Politecnica de Alcala de Henares - Alcala de H. (Madrid) - Spain
-- *     email: fanton@it.uc3m.es
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2 as
-- * published by the Free Software Foundation.
-- */
--#include <linux/module.h>
--#include <linux/skbuff.h>
--#include <linux/init.h>
--#include <linux/ipv6.h>
--#include <linux/notifier.h>
--#include <linux/netdevice.h>
--#include <linux/netfilter.h>
--#include <linux/netlink.h>
--#include <linux/spinlock.h>
--#include <linux/sysctl.h>
--#include <linux/proc_fs.h>
--#include <linux/seq_file.h>
--#include <linux/mutex.h>
--#include <linux/slab.h>
--#include <net/net_namespace.h>
--#include <net/sock.h>
--#include <net/ipv6.h>
--#include <net/ip6_route.h>
--#include <net/netfilter/nf_queue.h>
--#include <linux/netfilter_ipv4/ip_queue.h>
--#include <linux/netfilter_ipv4/ip_tables.h>
--#include <linux/netfilter_ipv6/ip6_tables.h>
--
--#define IPQ_QMAX_DEFAULT 1024
--#define IPQ_PROC_FS_NAME "ip6_queue"
--#define NET_IPQ_QMAX_NAME "ip6_queue_maxlen"
--
--typedef int (*ipq_cmpfn)(struct nf_queue_entry *, unsigned long);
--
--static unsigned char copy_mode __read_mostly = IPQ_COPY_NONE;
--static unsigned int queue_maxlen __read_mostly = IPQ_QMAX_DEFAULT;
--static DEFINE_SPINLOCK(queue_lock);
--static int peer_pid __read_mostly;
--static unsigned int copy_range __read_mostly;
--static unsigned int queue_total;
--static unsigned int queue_dropped = 0;
--static unsigned int queue_user_dropped = 0;
--static struct sock *ipqnl __read_mostly;
--static LIST_HEAD(queue_list);
--static DEFINE_MUTEX(ipqnl_mutex);
--
--static inline void
--__ipq_enqueue_entry(struct nf_queue_entry *entry)
--{
--       list_add_tail(&entry->list, &queue_list);
--       queue_total++;
--}
--
--static inline int
--__ipq_set_mode(unsigned char mode, unsigned int range)
--{
--	int status = 0;
--
--	switch(mode) {
--	case IPQ_COPY_NONE:
--	case IPQ_COPY_META:
--		copy_mode = mode;
--		copy_range = 0;
--		break;
--
--	case IPQ_COPY_PACKET:
--		if (range > 0xFFFF)
--			range = 0xFFFF;
--		copy_range = range;
--		copy_mode = mode;
--		break;
--
--	default:
--		status = -EINVAL;
--
--	}
--	return status;
--}
--
--static void __ipq_flush(ipq_cmpfn cmpfn, unsigned long data);
--
--static inline void
--__ipq_reset(void)
--{
--	peer_pid = 0;
--	net_disable_timestamp();
--	__ipq_set_mode(IPQ_COPY_NONE, 0);
--	__ipq_flush(NULL, 0);
--}
--
--static struct nf_queue_entry *
--ipq_find_dequeue_entry(unsigned long id)
--{
--	struct nf_queue_entry *entry = NULL, *i;
--
--	spin_lock_bh(&queue_lock);
--
--	list_for_each_entry(i, &queue_list, list) {
--		if ((unsigned long)i == id) {
--			entry = i;
--			break;
--		}
--	}
--
--	if (entry) {
--		list_del(&entry->list);
--		queue_total--;
--	}
--
--	spin_unlock_bh(&queue_lock);
--	return entry;
--}
--
--static void
--__ipq_flush(ipq_cmpfn cmpfn, unsigned long data)
--{
--	struct nf_queue_entry *entry, *next;
--
--	list_for_each_entry_safe(entry, next, &queue_list, list) {
--		if (!cmpfn || cmpfn(entry, data)) {
--			list_del(&entry->list);
--			queue_total--;
--			nf_reinject(entry, NF_DROP);
--		}
--	}
--}
--
--static void
--ipq_flush(ipq_cmpfn cmpfn, unsigned long data)
--{
--	spin_lock_bh(&queue_lock);
--	__ipq_flush(cmpfn, data);
--	spin_unlock_bh(&queue_lock);
--}
--
--static struct sk_buff *
--ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
--{
--	sk_buff_data_t old_tail;
--	size_t size = 0;
--	size_t data_len = 0;
--	struct sk_buff *skb;
--	struct ipq_packet_msg *pmsg;
--	struct nlmsghdr *nlh;
--	struct timeval tv;
--
--	switch (ACCESS_ONCE(copy_mode)) {
--	case IPQ_COPY_META:
--	case IPQ_COPY_NONE:
--		size = NLMSG_SPACE(sizeof(*pmsg));
--		break;
--
--	case IPQ_COPY_PACKET:
--		if (entry->skb->ip_summed == CHECKSUM_PARTIAL &&
--		    (*errp = skb_checksum_help(entry->skb)))
--			return NULL;
--
--		data_len = ACCESS_ONCE(copy_range);
--		if (data_len == 0 || data_len > entry->skb->len)
--			data_len = entry->skb->len;
--
--		size = NLMSG_SPACE(sizeof(*pmsg) + data_len);
--		break;
--
--	default:
--		*errp = -EINVAL;
--		return NULL;
--	}
--
--	skb = alloc_skb(size, GFP_ATOMIC);
--	if (!skb)
--		goto nlmsg_failure;
--
--	old_tail = skb->tail;
--	nlh = NLMSG_PUT(skb, 0, 0, IPQM_PACKET, size - sizeof(*nlh));
--	pmsg = NLMSG_DATA(nlh);
--	memset(pmsg, 0, sizeof(*pmsg));
--
--	pmsg->packet_id       = (unsigned long )entry;
--	pmsg->data_len        = data_len;
--	tv = ktime_to_timeval(entry->skb->tstamp);
--	pmsg->timestamp_sec   = tv.tv_sec;
--	pmsg->timestamp_usec  = tv.tv_usec;
--	pmsg->mark            = entry->skb->mark;
--	pmsg->hook            = entry->hook;
--	pmsg->hw_protocol     = entry->skb->protocol;
--
--	if (entry->indev)
--		strcpy(pmsg->indev_name, entry->indev->name);
--	else
--		pmsg->indev_name[0] = '\0';
--
--	if (entry->outdev)
--		strcpy(pmsg->outdev_name, entry->outdev->name);
--	else
--		pmsg->outdev_name[0] = '\0';
--
--	if (entry->indev && entry->skb->dev &&
--	    entry->skb->mac_header != entry->skb->network_header) {
--		pmsg->hw_type = entry->skb->dev->type;
--		pmsg->hw_addrlen = dev_parse_header(entry->skb, pmsg->hw_addr);
--	}
--
--	if (data_len)
--		if (skb_copy_bits(entry->skb, 0, pmsg->payload, data_len))
--			BUG();
--
--	nlh->nlmsg_len = skb->tail - old_tail;
--	return skb;
--
--nlmsg_failure:
--	kfree_skb(skb);
--	*errp = -EINVAL;
--	printk(KERN_ERR "ip6_queue: error creating packet message\n");
--	return NULL;
--}
--
--static int
--ipq_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
--{
--	int status = -EINVAL;
--	struct sk_buff *nskb;
--
--	if (copy_mode == IPQ_COPY_NONE)
--		return -EAGAIN;
--
--	nskb = ipq_build_packet_message(entry, &status);
--	if (nskb == NULL)
--		return status;
--
--	spin_lock_bh(&queue_lock);
--
--	if (!peer_pid)
--		goto err_out_free_nskb;
--
--	if (queue_total >= queue_maxlen) {
--		queue_dropped++;
--		status = -ENOSPC;
--		if (net_ratelimit())
--			printk (KERN_WARNING "ip6_queue: fill at %d entries, "
--				"dropping packet(s).  Dropped: %d\n", queue_total,
--				queue_dropped);
--		goto err_out_free_nskb;
--	}
--
--	/* netlink_unicast will either free the nskb or attach it to a socket */
--	status = netlink_unicast(ipqnl, nskb, peer_pid, MSG_DONTWAIT);
--	if (status < 0) {
--		queue_user_dropped++;
--		goto err_out_unlock;
--	}
--
--	__ipq_enqueue_entry(entry);
--
--	spin_unlock_bh(&queue_lock);
--	return status;
--
--err_out_free_nskb:
--	kfree_skb(nskb);
--
--err_out_unlock:
--	spin_unlock_bh(&queue_lock);
--	return status;
--}
--
--static int
--ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
--{
--	int diff;
--	struct ipv6hdr *user_iph = (struct ipv6hdr *)v->payload;
--	struct sk_buff *nskb;
--
--	if (v->data_len < sizeof(*user_iph))
--		return 0;
--	diff = v->data_len - e->skb->len;
--	if (diff < 0) {
--		if (pskb_trim(e->skb, v->data_len))
--			return -ENOMEM;
--	} else if (diff > 0) {
--		if (v->data_len > 0xFFFF)
--			return -EINVAL;
--		if (diff > skb_tailroom(e->skb)) {
--			nskb = skb_copy_expand(e->skb, skb_headroom(e->skb),
--					       diff, GFP_ATOMIC);
--			if (!nskb) {
--				printk(KERN_WARNING "ip6_queue: OOM "
--				      "in mangle, dropping packet\n");
--				return -ENOMEM;
--			}
--			kfree_skb(e->skb);
--			e->skb = nskb;
--		}
--		skb_put(e->skb, diff);
--	}
--	if (!skb_make_writable(e->skb, v->data_len))
--		return -ENOMEM;
--	skb_copy_to_linear_data(e->skb, v->payload, v->data_len);
--	e->skb->ip_summed = CHECKSUM_NONE;
--
--	return 0;
--}
--
--static int
--ipq_set_verdict(struct ipq_verdict_msg *vmsg, unsigned int len)
--{
--	struct nf_queue_entry *entry;
--
--	if (vmsg->value > NF_MAX_VERDICT || vmsg->value == NF_STOLEN)
--		return -EINVAL;
--
--	entry = ipq_find_dequeue_entry(vmsg->id);
--	if (entry == NULL)
--		return -ENOENT;
--	else {
--		int verdict = vmsg->value;
--
--		if (vmsg->data_len && vmsg->data_len == len)
--			if (ipq_mangle_ipv6(vmsg, entry) < 0)
--				verdict = NF_DROP;
--
--		nf_reinject(entry, verdict);
--		return 0;
--	}
--}
--
--static int
--ipq_set_mode(unsigned char mode, unsigned int range)
--{
--	int status;
--
--	spin_lock_bh(&queue_lock);
--	status = __ipq_set_mode(mode, range);
--	spin_unlock_bh(&queue_lock);
--	return status;
--}
--
--static int
--ipq_receive_peer(struct ipq_peer_msg *pmsg,
--		 unsigned char type, unsigned int len)
--{
--	int status = 0;
--
--	if (len < sizeof(*pmsg))
--		return -EINVAL;
--
--	switch (type) {
--	case IPQM_MODE:
--		status = ipq_set_mode(pmsg->msg.mode.value,
--				      pmsg->msg.mode.range);
--		break;
--
--	case IPQM_VERDICT:
--		status = ipq_set_verdict(&pmsg->msg.verdict,
--					 len - sizeof(*pmsg));
--		break;
--	default:
--		status = -EINVAL;
--	}
--	return status;
--}
--
--static int
--dev_cmp(struct nf_queue_entry *entry, unsigned long ifindex)
--{
--	if (entry->indev)
--		if (entry->indev->ifindex == ifindex)
--			return 1;
--
--	if (entry->outdev)
--		if (entry->outdev->ifindex == ifindex)
--			return 1;
--#ifdef CONFIG_BRIDGE_NETFILTER
--	if (entry->skb->nf_bridge) {
--		if (entry->skb->nf_bridge->physindev &&
--		    entry->skb->nf_bridge->physindev->ifindex == ifindex)
--			return 1;
--		if (entry->skb->nf_bridge->physoutdev &&
--		    entry->skb->nf_bridge->physoutdev->ifindex == ifindex)
--			return 1;
--	}
--#endif
--	return 0;
--}
--
--static void
--ipq_dev_drop(int ifindex)
--{
--	ipq_flush(dev_cmp, ifindex);
--}
--
--#define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0)
--
--static inline void
--__ipq_rcv_skb(struct sk_buff *skb)
--{
--	int status, type, pid, flags;
--	unsigned int nlmsglen, skblen;
--	struct nlmsghdr *nlh;
--	bool enable_timestamp = false;
--
--	skblen = skb->len;
--	if (skblen < sizeof(*nlh))
--		return;
--
--	nlh = nlmsg_hdr(skb);
--	nlmsglen = nlh->nlmsg_len;
--	if (nlmsglen < sizeof(*nlh) || skblen < nlmsglen)
--		return;
--
--	pid = nlh->nlmsg_pid;
--	flags = nlh->nlmsg_flags;
--
--	if(pid <= 0 || !(flags & NLM_F_REQUEST) || flags & NLM_F_MULTI)
--		RCV_SKB_FAIL(-EINVAL);
--
--	if (flags & MSG_TRUNC)
--		RCV_SKB_FAIL(-ECOMM);
--
--	type = nlh->nlmsg_type;
--	if (type < NLMSG_NOOP || type >= IPQM_MAX)
--		RCV_SKB_FAIL(-EINVAL);
--
--	if (type <= IPQM_BASE)
--		return;
--
--	if (!capable(CAP_NET_ADMIN))
--		RCV_SKB_FAIL(-EPERM);
--
--	spin_lock_bh(&queue_lock);
--
--	if (peer_pid) {
--		if (peer_pid != pid) {
--			spin_unlock_bh(&queue_lock);
--			RCV_SKB_FAIL(-EBUSY);
--		}
--	} else {
--		enable_timestamp = true;
--		peer_pid = pid;
--	}
--
--	spin_unlock_bh(&queue_lock);
--	if (enable_timestamp)
--		net_enable_timestamp();
--
--	status = ipq_receive_peer(NLMSG_DATA(nlh), type,
--				  nlmsglen - NLMSG_LENGTH(0));
--	if (status < 0)
--		RCV_SKB_FAIL(status);
--
--	if (flags & NLM_F_ACK)
--		netlink_ack(skb, nlh, 0);
--}
--
--static void
--ipq_rcv_skb(struct sk_buff *skb)
--{
--	mutex_lock(&ipqnl_mutex);
--	__ipq_rcv_skb(skb);
--	mutex_unlock(&ipqnl_mutex);
--}
--
--static int
--ipq_rcv_dev_event(struct notifier_block *this,
--		  unsigned long event, void *ptr)
--{
--	struct net_device *dev = ptr;
--
--	if (!net_eq(dev_net(dev), &init_net))
--		return NOTIFY_DONE;
--
--	/* Drop any packets associated with the downed device */
--	if (event == NETDEV_DOWN)
--		ipq_dev_drop(dev->ifindex);
--	return NOTIFY_DONE;
--}
--
--static struct notifier_block ipq_dev_notifier = {
--	.notifier_call	= ipq_rcv_dev_event,
--};
--
--static int
--ipq_rcv_nl_event(struct notifier_block *this,
--		 unsigned long event, void *ptr)
--{
--	struct netlink_notify *n = ptr;
--
--	if (event == NETLINK_URELEASE && n->protocol == NETLINK_IP6_FW) {
--		spin_lock_bh(&queue_lock);
--		if ((net_eq(n->net, &init_net)) && (n->pid == peer_pid))
--			__ipq_reset();
--		spin_unlock_bh(&queue_lock);
--	}
--	return NOTIFY_DONE;
--}
--
--static struct notifier_block ipq_nl_notifier = {
--	.notifier_call	= ipq_rcv_nl_event,
--};
--
--#ifdef CONFIG_SYSCTL
--static struct ctl_table_header *ipq_sysctl_header;
--
--static ctl_table ipq_table[] = {
--	{
--		.procname	= NET_IPQ_QMAX_NAME,
--		.data		= &queue_maxlen,
--		.maxlen		= sizeof(queue_maxlen),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{ }
--};
--#endif
--
--#ifdef CONFIG_PROC_FS
--static int ip6_queue_show(struct seq_file *m, void *v)
--{
--	spin_lock_bh(&queue_lock);
--
--	seq_printf(m,
--		      "Peer PID          : %d\n"
--		      "Copy mode         : %hu\n"
--		      "Copy range        : %u\n"
--		      "Queue length      : %u\n"
--		      "Queue max. length : %u\n"
--		      "Queue dropped     : %u\n"
--		      "Netfilter dropped : %u\n",
--		      peer_pid,
--		      copy_mode,
--		      copy_range,
--		      queue_total,
--		      queue_maxlen,
--		      queue_dropped,
--		      queue_user_dropped);
--
--	spin_unlock_bh(&queue_lock);
--	return 0;
--}
--
--static int ip6_queue_open(struct inode *inode, struct file *file)
--{
--	return single_open(file, ip6_queue_show, NULL);
--}
--
--static const struct file_operations ip6_queue_proc_fops = {
--	.open		= ip6_queue_open,
--	.read		= seq_read,
--	.llseek		= seq_lseek,
--	.release	= single_release,
--	.owner		= THIS_MODULE,
--};
--#endif
--
--static const struct nf_queue_handler nfqh = {
--	.name	= "ip6_queue",
--	.outfn	= &ipq_enqueue_packet,
--};
--
--static int __init ip6_queue_init(void)
--{
--	int status = -ENOMEM;
--	struct proc_dir_entry *proc __maybe_unused;
--
--	netlink_register_notifier(&ipq_nl_notifier);
--	ipqnl = netlink_kernel_create(&init_net, NETLINK_IP6_FW, 0,
--			              ipq_rcv_skb, NULL, THIS_MODULE);
--	if (ipqnl == NULL) {
--		printk(KERN_ERR "ip6_queue: failed to create netlink socket\n");
--		goto cleanup_netlink_notifier;
--	}
--
--#ifdef CONFIG_PROC_FS
--	proc = proc_create(IPQ_PROC_FS_NAME, 0, init_net.proc_net,
--			   &ip6_queue_proc_fops);
--	if (!proc) {
--		printk(KERN_ERR "ip6_queue: failed to create proc entry\n");
--		goto cleanup_ipqnl;
--	}
--#endif
--	register_netdevice_notifier(&ipq_dev_notifier);
--#ifdef CONFIG_SYSCTL
--	ipq_sysctl_header = register_sysctl_paths(net_ipv6_ctl_path, ipq_table);
--#endif
--	status = nf_register_queue_handler(NFPROTO_IPV6, &nfqh);
--	if (status < 0) {
--		printk(KERN_ERR "ip6_queue: failed to register queue handler\n");
--		goto cleanup_sysctl;
--	}
--	return status;
--
--cleanup_sysctl:
--#ifdef CONFIG_SYSCTL
--	unregister_sysctl_table(ipq_sysctl_header);
--#endif
--	unregister_netdevice_notifier(&ipq_dev_notifier);
--	proc_net_remove(&init_net, IPQ_PROC_FS_NAME);
--
--cleanup_ipqnl: __maybe_unused
--	netlink_kernel_release(ipqnl);
--	mutex_lock(&ipqnl_mutex);
--	mutex_unlock(&ipqnl_mutex);
--
--cleanup_netlink_notifier:
--	netlink_unregister_notifier(&ipq_nl_notifier);
--	return status;
--}
--
--static void __exit ip6_queue_fini(void)
--{
--	nf_unregister_queue_handlers(&nfqh);
--
--	ipq_flush(NULL, 0);
--
--#ifdef CONFIG_SYSCTL
--	unregister_sysctl_table(ipq_sysctl_header);
--#endif
--	unregister_netdevice_notifier(&ipq_dev_notifier);
--	proc_net_remove(&init_net, IPQ_PROC_FS_NAME);
--
--	netlink_kernel_release(ipqnl);
--	mutex_lock(&ipqnl_mutex);
--	mutex_unlock(&ipqnl_mutex);
--
--	netlink_unregister_notifier(&ipq_nl_notifier);
--}
--
--MODULE_DESCRIPTION("IPv6 packet queue handler");
--MODULE_LICENSE("GPL");
--MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_IP6_FW);
--
--module_init(ip6_queue_init);
--module_exit(ip6_queue_fini);
-diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-index 0920ea3..d309e7f 100644
---- a/security/selinux/nlmsgtab.c
-+++ b/security/selinux/nlmsgtab.c
-@@ -14,7 +14,6 @@
- #include <linux/netlink.h>
- #include <linux/rtnetlink.h>
- #include <linux/if.h>
--#include <linux/netfilter_ipv4/ip_queue.h>
- #include <linux/inet_diag.h>
- #include <linux/xfrm.h>
- #include <linux/audit.h>
-@@ -70,12 +69,6 @@ static struct nlmsg_perm nlmsg_route_perms[] =
- 	{ RTM_SETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 941df45..75824e2 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -785,6 +785,16 @@ struct ip_vs_app {
+ 	void (*timeout_change)(struct ip_vs_app *app, int flags);
  };
  
--static struct nlmsg_perm nlmsg_firewall_perms[] =
--{
--	{ IPQM_MODE,		NETLINK_FIREWALL_SOCKET__NLMSG_WRITE },
--	{ IPQM_VERDICT,		NETLINK_FIREWALL_SOCKET__NLMSG_WRITE },
++struct ipvs_master_sync_state {
++	struct list_head	sync_queue;
++	struct ip_vs_sync_buff	*sync_buff;
++	int			sync_queue_len;
++	unsigned int		sync_queue_delay;
++	struct task_struct	*master_thread;
++	struct delayed_work	master_wakeup_work;
++	struct netns_ipvs	*ipvs;
++};
++
+ /* IPVS in network namespace */
+ struct netns_ipvs {
+ 	int			gen;		/* Generation */
+@@ -871,6 +881,7 @@ struct netns_ipvs {
+ #endif
+ 	int			sysctl_snat_reroute;
+ 	int			sysctl_sync_ver;
++	int			sysctl_sync_ports;
+ 	int			sysctl_sync_qlen_max;
+ 	int			sysctl_sync_sock_size;
+ 	int			sysctl_cache_bypass;
+@@ -894,16 +905,11 @@ struct netns_ipvs {
+ 	spinlock_t		est_lock;
+ 	struct timer_list	est_timer;	/* Estimation timer */
+ 	/* ip_vs_sync */
+-	struct list_head	sync_queue;
+-	int			sync_queue_len;
+-	unsigned int		sync_queue_delay;
+-	struct delayed_work	master_wakeup_work;
+ 	spinlock_t		sync_lock;
+-	struct ip_vs_sync_buff  *sync_buff;
++	struct ipvs_master_sync_state *ms;
+ 	spinlock_t		sync_buff_lock;
+-	struct sockaddr_in	sync_mcast_addr;
+-	struct task_struct	*master_thread;
+-	struct task_struct	*backup_thread;
++	struct task_struct	**backup_threads;
++	int			threads_mask;
+ 	int			send_mesg_maxlen;
+ 	int			recv_mesg_maxlen;
+ 	volatile int		sync_state;
+@@ -927,6 +933,7 @@ struct netns_ipvs {
+ #define IPVS_SYNC_SEND_DELAY	(HZ / 50)
+ #define IPVS_SYNC_CHECK_PERIOD	HZ
+ #define IPVS_SYNC_FLUSH_TIME	(HZ * 2)
++#define IPVS_SYNC_PORTS_MAX	(1 << 6)
+ 
+ #ifdef CONFIG_SYSCTL
+ 
+@@ -955,6 +962,11 @@ static inline int sysctl_sync_ver(struct netns_ipvs *ipvs)
+ 	return ipvs->sysctl_sync_ver;
+ }
+ 
++static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
++{
++	return ACCESS_ONCE(ipvs->sysctl_sync_ports);
++}
++
+ static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
+ {
+ 	return ipvs->sysctl_sync_qlen_max;
+@@ -992,6 +1004,11 @@ static inline int sysctl_sync_ver(struct netns_ipvs *ipvs)
+ 	return DEFAULT_SYNC_VER;
+ }
+ 
++static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
++{
++	return 1;
++}
++
+ static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
+ {
+ 	return IPVS_SYNC_QLEN_MAX;
+@@ -1242,7 +1259,6 @@ extern struct ip_vs_stats ip_vs_stats;
+ extern const struct ctl_path net_vs_ctl_path[];
+ extern int sysctl_ip_vs_sync_ver;
+ 
+-extern void ip_vs_sync_switch_mode(struct net *net, int mode);
+ extern struct ip_vs_service *
+ ip_vs_service_get(struct net *net, int af, __u32 fwmark, __u16 protocol,
+ 		  const union nf_inet_addr *vaddr, __be16 vport);
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 4f3205d..c7edf20 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -619,12 +619,19 @@ struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp)
+ 	if (dest) {
+ 		struct ip_vs_proto_data *pd;
+ 
++		spin_lock(&cp->lock);
++		if (cp->dest) {
++			spin_unlock(&cp->lock);
++			return dest;
++		}
++
+ 		/* Applications work depending on the forwarding method
+ 		 * but better to reassign them always when binding dest */
+ 		if (cp->app)
+ 			ip_vs_unbind_app(cp);
+ 
+ 		ip_vs_bind_dest(cp, dest);
++		spin_unlock(&cp->lock);
+ 
+ 		/* Update its packet transmitter */
+ 		cp->packet_xmit = NULL;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 83bdbbc..0e599a4 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1657,9 +1657,24 @@ proc_do_sync_mode(ctl_table *table, int write,
+ 		if ((*valp < 0) || (*valp > 1)) {
+ 			/* Restore the correct value */
+ 			*valp = val;
+-		} else {
+-			struct net *net = current->nsproxy->net_ns;
+-			ip_vs_sync_switch_mode(net, val);
++		}
++	}
++	return rc;
++}
++
++static int
++proc_do_sync_ports(ctl_table *table, int write,
++		   void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int *valp = table->data;
++	int val = *valp;
++	int rc;
++
++	rc = proc_dointvec(table, write, buffer, lenp, ppos);
++	if (write && (*valp != val)) {
++		if (*valp < 1 || !is_power_of_2(*valp)) {
++			/* Restore the correct value */
++			*valp = val;
+ 		}
+ 	}
+ 	return rc;
+@@ -1723,6 +1738,12 @@ static struct ctl_table vs_vars[] = {
+ 		.proc_handler	= &proc_do_sync_mode,
+ 	},
+ 	{
++		.procname	= "sync_ports",
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_do_sync_ports,
++	},
++	{
+ 		.procname	= "sync_qlen_max",
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+@@ -3693,6 +3714,8 @@ int __net_init ip_vs_control_net_init_sysctl(struct net *net)
+ 	tbl[idx++].data = &ipvs->sysctl_snat_reroute;
+ 	ipvs->sysctl_sync_ver = 1;
+ 	tbl[idx++].data = &ipvs->sysctl_sync_ver;
++	ipvs->sysctl_sync_ports = 1;
++	tbl[idx++].data = &ipvs->sysctl_sync_ports;
+ 	ipvs->sysctl_sync_qlen_max = nr_free_buffer_pages() / 32;
+ 	tbl[idx++].data = &ipvs->sysctl_sync_qlen_max;
+ 	ipvs->sysctl_sync_sock_size = 0;
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 4aa9290..8550f37 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -196,6 +196,7 @@ struct ip_vs_sync_thread_data {
+ 	struct net *net;
+ 	struct socket *sock;
+ 	char *buf;
++	int id;
+ };
+ 
+ /* Version 0 definition of packet sizes */
+@@ -271,13 +272,6 @@ struct ip_vs_sync_buff {
+ 	unsigned char           *end;
+ };
+ 
+-/* multicast addr */
+-static struct sockaddr_in mcast_addr = {
+-	.sin_family		= AF_INET,
+-	.sin_port		= cpu_to_be16(IP_VS_SYNC_PORT),
+-	.sin_addr.s_addr	= cpu_to_be32(IP_VS_SYNC_GROUP),
 -};
 -
- static struct nlmsg_perm nlmsg_tcpdiag_perms[] =
- {
- 	{ TCPDIAG_GETSOCK,	NETLINK_TCPDIAG_SOCKET__NLMSG_READ },
-@@ -145,12 +138,6 @@ int selinux_nlmsg_lookup(u16 sclass, u16 nlmsg_type, u32 *perm)
- 				 sizeof(nlmsg_route_perms));
- 		break;
+ /*
+  * Copy of struct ip_vs_seq
+  * From unaligned network order to aligned host order
+@@ -300,22 +294,22 @@ static void hton_seq(struct ip_vs_seq *ho, struct ip_vs_seq *no)
+ 	put_unaligned_be32(ho->previous_delta, &no->previous_delta);
+ }
  
--	case SECCLASS_NETLINK_FIREWALL_SOCKET:
--	case SECCLASS_NETLINK_IP6FW_SOCKET:
--		err = nlmsg_perm(nlmsg_type, perm, nlmsg_firewall_perms,
--				 sizeof(nlmsg_firewall_perms));
--		break;
+-static inline struct ip_vs_sync_buff *sb_dequeue(struct netns_ipvs *ipvs)
++static inline struct ip_vs_sync_buff *
++sb_dequeue(struct netns_ipvs *ipvs, struct ipvs_master_sync_state *ms)
+ {
+ 	struct ip_vs_sync_buff *sb;
+ 
+ 	spin_lock_bh(&ipvs->sync_lock);
+-	if (list_empty(&ipvs->sync_queue)) {
++	if (list_empty(&ms->sync_queue)) {
+ 		sb = NULL;
+ 		__set_current_state(TASK_INTERRUPTIBLE);
+ 	} else {
+-		sb = list_entry(ipvs->sync_queue.next,
+-				struct ip_vs_sync_buff,
++		sb = list_entry(ms->sync_queue.next, struct ip_vs_sync_buff,
+ 				list);
+ 		list_del(&sb->list);
+-		ipvs->sync_queue_len--;
+-		if (!ipvs->sync_queue_len)
+-			ipvs->sync_queue_delay = 0;
++		ms->sync_queue_len--;
++		if (!ms->sync_queue_len)
++			ms->sync_queue_delay = 0;
+ 	}
+ 	spin_unlock_bh(&ipvs->sync_lock);
+ 
+@@ -338,7 +332,7 @@ ip_vs_sync_buff_create(struct netns_ipvs *ipvs)
+ 		kfree(sb);
+ 		return NULL;
+ 	}
+-	sb->mesg->reserved = 0;  /* old nr_conns i.e. must be zeo now */
++	sb->mesg->reserved = 0;  /* old nr_conns i.e. must be zero now */
+ 	sb->mesg->version = SYNC_PROTO_VER;
+ 	sb->mesg->syncid = ipvs->master_syncid;
+ 	sb->mesg->size = sizeof(struct ip_vs_sync_mesg);
+@@ -357,20 +351,21 @@ static inline void ip_vs_sync_buff_release(struct ip_vs_sync_buff *sb)
+ 	kfree(sb);
+ }
+ 
+-static inline void sb_queue_tail(struct netns_ipvs *ipvs)
++static inline void sb_queue_tail(struct netns_ipvs *ipvs,
++				 struct ipvs_master_sync_state *ms)
+ {
+-	struct ip_vs_sync_buff *sb = ipvs->sync_buff;
++	struct ip_vs_sync_buff *sb = ms->sync_buff;
+ 
+ 	spin_lock(&ipvs->sync_lock);
+ 	if (ipvs->sync_state & IP_VS_STATE_MASTER &&
+-	    ipvs->sync_queue_len < sysctl_sync_qlen_max(ipvs)) {
+-		if (!ipvs->sync_queue_len)
+-			schedule_delayed_work(&ipvs->master_wakeup_work,
++	    ms->sync_queue_len < sysctl_sync_qlen_max(ipvs)) {
++		if (!ms->sync_queue_len)
++			schedule_delayed_work(&ms->master_wakeup_work,
+ 					      max(IPVS_SYNC_SEND_DELAY, 1));
+-		ipvs->sync_queue_len++;
+-		list_add_tail(&sb->list, &ipvs->sync_queue);
+-		if ((++ipvs->sync_queue_delay) == IPVS_SYNC_WAKEUP_RATE)
+-			wake_up_process(ipvs->master_thread);
++		ms->sync_queue_len++;
++		list_add_tail(&sb->list, &ms->sync_queue);
++		if ((++ms->sync_queue_delay) == IPVS_SYNC_WAKEUP_RATE)
++			wake_up_process(ms->master_thread);
+ 	} else
+ 		ip_vs_sync_buff_release(sb);
+ 	spin_unlock(&ipvs->sync_lock);
+@@ -381,15 +376,15 @@ static inline void sb_queue_tail(struct netns_ipvs *ipvs)
+  *	than the specified time or the specified time is zero.
+  */
+ static inline struct ip_vs_sync_buff *
+-get_curr_sync_buff(struct netns_ipvs *ipvs, unsigned long time)
++get_curr_sync_buff(struct netns_ipvs *ipvs, struct ipvs_master_sync_state *ms,
++		   unsigned long time)
+ {
+ 	struct ip_vs_sync_buff *sb;
+ 
+ 	spin_lock_bh(&ipvs->sync_buff_lock);
+-	if (ipvs->sync_buff &&
+-	    time_after_eq(jiffies - ipvs->sync_buff->firstuse, time)) {
+-		sb = ipvs->sync_buff;
+-		ipvs->sync_buff = NULL;
++	sb = ms->sync_buff;
++	if (sb && time_after_eq(jiffies - sb->firstuse, time)) {
++		ms->sync_buff = NULL;
+ 		__set_current_state(TASK_RUNNING);
+ 	} else
+ 		sb = NULL;
+@@ -397,31 +392,10 @@ get_curr_sync_buff(struct netns_ipvs *ipvs, unsigned long time)
+ 	return sb;
+ }
+ 
+-/*
+- * Switch mode from sending version 0 or 1
+- *  - must handle sync_buf
+- */
+-void ip_vs_sync_switch_mode(struct net *net, int mode)
++static inline int
++select_master_thread_id(struct netns_ipvs *ipvs, struct ip_vs_conn *cp)
+ {
+-	struct netns_ipvs *ipvs = net_ipvs(net);
+-	struct ip_vs_sync_buff *sb;
 -
- 	case SECCLASS_NETLINK_TCPDIAG_SOCKET:
- 		err = nlmsg_perm(nlmsg_type, perm, nlmsg_tcpdiag_perms,
- 				 sizeof(nlmsg_tcpdiag_perms));
+-	spin_lock_bh(&ipvs->sync_buff_lock);
+-	if (!(ipvs->sync_state & IP_VS_STATE_MASTER))
+-		goto unlock;
+-	sb = ipvs->sync_buff;
+-	if (mode == sysctl_sync_ver(ipvs) || !sb)
+-		goto unlock;
+-
+-	/* Buffer empty ? then let buf_create do the job  */
+-	if (sb->mesg->size <= sizeof(struct ip_vs_sync_mesg)) {
+-		ip_vs_sync_buff_release(sb);
+-		ipvs->sync_buff = NULL;
+-	} else
+-		sb_queue_tail(ipvs);
+-
+-unlock:
+-	spin_unlock_bh(&ipvs->sync_buff_lock);
++	return ((long) cp >> (1 + ilog2(sizeof(*cp)))) & ipvs->threads_mask;
+ }
+ 
+ /*
+@@ -543,6 +517,9 @@ static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp,
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct ip_vs_sync_mesg_v0 *m;
+ 	struct ip_vs_sync_conn_v0 *s;
++	struct ip_vs_sync_buff *buff;
++	struct ipvs_master_sync_state *ms;
++	int id;
+ 	int len;
+ 
+ 	if (unlikely(cp->af != AF_INET))
+@@ -555,20 +532,37 @@ static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp,
+ 		return;
+ 
+ 	spin_lock(&ipvs->sync_buff_lock);
+-	if (!ipvs->sync_buff) {
+-		ipvs->sync_buff =
+-			ip_vs_sync_buff_create_v0(ipvs);
+-		if (!ipvs->sync_buff) {
++	if (!(ipvs->sync_state & IP_VS_STATE_MASTER)) {
++		spin_unlock(&ipvs->sync_buff_lock);
++		return;
++	}
++
++	id = select_master_thread_id(ipvs, cp);
++	ms = &ipvs->ms[id];
++	buff = ms->sync_buff;
++	if (buff) {
++		m = (struct ip_vs_sync_mesg_v0 *) buff->mesg;
++		/* Send buffer if it is for v1 */
++		if (!m->nr_conns) {
++			sb_queue_tail(ipvs, ms);
++			ms->sync_buff = NULL;
++			buff = NULL;
++		}
++	}
++	if (!buff) {
++		buff = ip_vs_sync_buff_create_v0(ipvs);
++		if (!buff) {
+ 			spin_unlock(&ipvs->sync_buff_lock);
+ 			pr_err("ip_vs_sync_buff_create failed.\n");
+ 			return;
+ 		}
++		ms->sync_buff = buff;
+ 	}
+ 
+ 	len = (cp->flags & IP_VS_CONN_F_SEQ_MASK) ? FULL_CONN_SIZE :
+ 		SIMPLE_CONN_SIZE;
+-	m = (struct ip_vs_sync_mesg_v0 *)ipvs->sync_buff->mesg;
+-	s = (struct ip_vs_sync_conn_v0 *)ipvs->sync_buff->head;
++	m = (struct ip_vs_sync_mesg_v0 *) buff->mesg;
++	s = (struct ip_vs_sync_conn_v0 *) buff->head;
+ 
+ 	/* copy members */
+ 	s->reserved = 0;
+@@ -589,12 +583,12 @@ static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp,
+ 
+ 	m->nr_conns++;
+ 	m->size += len;
+-	ipvs->sync_buff->head += len;
++	buff->head += len;
+ 
+ 	/* check if there is a space for next one */
+-	if (ipvs->sync_buff->head + FULL_CONN_SIZE > ipvs->sync_buff->end) {
+-		sb_queue_tail(ipvs);
+-		ipvs->sync_buff = NULL;
++	if (buff->head + FULL_CONN_SIZE > buff->end) {
++		sb_queue_tail(ipvs, ms);
++		ms->sync_buff = NULL;
+ 	}
+ 	spin_unlock(&ipvs->sync_buff_lock);
+ 
+@@ -619,6 +613,9 @@ void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp, int pkts)
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct ip_vs_sync_mesg *m;
+ 	union ip_vs_sync_conn *s;
++	struct ip_vs_sync_buff *buff;
++	struct ipvs_master_sync_state *ms;
++	int id;
+ 	__u8 *p;
+ 	unsigned int len, pe_name_len, pad;
+ 
+@@ -645,6 +642,13 @@ sloop:
+ 	}
+ 
+ 	spin_lock(&ipvs->sync_buff_lock);
++	if (!(ipvs->sync_state & IP_VS_STATE_MASTER)) {
++		spin_unlock(&ipvs->sync_buff_lock);
++		return;
++	}
++
++	id = select_master_thread_id(ipvs, cp);
++	ms = &ipvs->ms[id];
+ 
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (cp->af == AF_INET6)
+@@ -663,27 +667,32 @@ sloop:
+ 
+ 	/* check if there is a space for this one  */
+ 	pad = 0;
+-	if (ipvs->sync_buff) {
+-		pad = (4 - (size_t)ipvs->sync_buff->head) & 3;
+-		if (ipvs->sync_buff->head + len + pad > ipvs->sync_buff->end) {
+-			sb_queue_tail(ipvs);
+-			ipvs->sync_buff = NULL;
++	buff = ms->sync_buff;
++	if (buff) {
++		m = buff->mesg;
++		pad = (4 - (size_t) buff->head) & 3;
++		/* Send buffer if it is for v0 */
++		if (buff->head + len + pad > buff->end || m->reserved) {
++			sb_queue_tail(ipvs, ms);
++			ms->sync_buff = NULL;
++			buff = NULL;
+ 			pad = 0;
+ 		}
+ 	}
+ 
+-	if (!ipvs->sync_buff) {
+-		ipvs->sync_buff = ip_vs_sync_buff_create(ipvs);
+-		if (!ipvs->sync_buff) {
++	if (!buff) {
++		buff = ip_vs_sync_buff_create(ipvs);
++		if (!buff) {
+ 			spin_unlock(&ipvs->sync_buff_lock);
+ 			pr_err("ip_vs_sync_buff_create failed.\n");
+ 			return;
+ 		}
++		ms->sync_buff = buff;
++		m = buff->mesg;
+ 	}
+ 
+-	m = ipvs->sync_buff->mesg;
+-	p = ipvs->sync_buff->head;
+-	ipvs->sync_buff->head += pad + len;
++	p = buff->head;
++	buff->head += pad + len;
+ 	m->size += pad + len;
+ 	/* Add ev. padding from prev. sync_conn */
+ 	while (pad--)
+@@ -834,6 +843,7 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
+ 		kfree(param->pe_data);
+ 
+ 		dest = cp->dest;
++		spin_lock(&cp->lock);
+ 		if ((cp->flags ^ flags) & IP_VS_CONN_F_INACTIVE &&
+ 		    !(flags & IP_VS_CONN_F_TEMPLATE) && dest) {
+ 			if (flags & IP_VS_CONN_F_INACTIVE) {
+@@ -847,6 +857,7 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
+ 		flags &= IP_VS_CONN_F_BACKUP_UPD_MASK;
+ 		flags |= cp->flags & ~IP_VS_CONN_F_BACKUP_UPD_MASK;
+ 		cp->flags = flags;
++		spin_unlock(&cp->lock);
+ 		if (!dest) {
+ 			dest = ip_vs_try_bind_dest(cp);
+ 			if (dest)
+@@ -1399,9 +1410,15 @@ static int bind_mcastif_addr(struct socket *sock, char *ifname)
+ /*
+  *      Set up sending multicast socket over UDP
+  */
+-static struct socket *make_send_sock(struct net *net)
++static struct socket *make_send_sock(struct net *net, int id)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
++	/* multicast addr */
++	struct sockaddr_in mcast_addr = {
++		.sin_family		= AF_INET,
++		.sin_port		= cpu_to_be16(IP_VS_SYNC_PORT + id),
++		.sin_addr.s_addr	= cpu_to_be32(IP_VS_SYNC_GROUP),
++	};
+ 	struct socket *sock;
+ 	int result;
+ 
+@@ -1453,9 +1470,15 @@ error:
+ /*
+  *      Set up receiving multicast socket over UDP
+  */
+-static struct socket *make_receive_sock(struct net *net)
++static struct socket *make_receive_sock(struct net *net, int id)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
++	/* multicast addr */
++	struct sockaddr_in mcast_addr = {
++		.sin_family		= AF_INET,
++		.sin_port		= cpu_to_be16(IP_VS_SYNC_PORT + id),
++		.sin_addr.s_addr	= cpu_to_be32(IP_VS_SYNC_GROUP),
++	};
+ 	struct socket *sock;
+ 	int result;
+ 
+@@ -1549,10 +1572,10 @@ ip_vs_receive(struct socket *sock, char *buffer, const size_t buflen)
+ 	iov.iov_base     = buffer;
+ 	iov.iov_len      = (size_t)buflen;
+ 
+-	len = kernel_recvmsg(sock, &msg, &iov, 1, buflen, 0);
++	len = kernel_recvmsg(sock, &msg, &iov, 1, buflen, MSG_DONTWAIT);
+ 
+ 	if (len < 0)
+-		return -1;
++		return len;
+ 
+ 	LeaveFunction(7);
+ 	return len;
+@@ -1561,44 +1584,47 @@ ip_vs_receive(struct socket *sock, char *buffer, const size_t buflen)
+ /* Wakeup the master thread for sending */
+ static void master_wakeup_work_handler(struct work_struct *work)
+ {
+-	struct netns_ipvs *ipvs = container_of(work, struct netns_ipvs,
+-					       master_wakeup_work.work);
++	struct ipvs_master_sync_state *ms =
++		container_of(work, struct ipvs_master_sync_state,
++			     master_wakeup_work.work);
++	struct netns_ipvs *ipvs = ms->ipvs;
+ 
+ 	spin_lock_bh(&ipvs->sync_lock);
+-	if (ipvs->sync_queue_len &&
+-	    ipvs->sync_queue_delay < IPVS_SYNC_WAKEUP_RATE) {
+-		ipvs->sync_queue_delay = IPVS_SYNC_WAKEUP_RATE;
+-		wake_up_process(ipvs->master_thread);
++	if (ms->sync_queue_len &&
++	    ms->sync_queue_delay < IPVS_SYNC_WAKEUP_RATE) {
++		ms->sync_queue_delay = IPVS_SYNC_WAKEUP_RATE;
++		wake_up_process(ms->master_thread);
+ 	}
+ 	spin_unlock_bh(&ipvs->sync_lock);
+ }
+ 
+ /* Get next buffer to send */
+ static inline struct ip_vs_sync_buff *
+-next_sync_buff(struct netns_ipvs *ipvs)
++next_sync_buff(struct netns_ipvs *ipvs, struct ipvs_master_sync_state *ms)
+ {
+ 	struct ip_vs_sync_buff *sb;
+ 
+-	sb = sb_dequeue(ipvs);
++	sb = sb_dequeue(ipvs, ms);
+ 	if (sb)
+ 		return sb;
+ 	/* Do not delay entries in buffer for more than 2 seconds */
+-	return get_curr_sync_buff(ipvs, IPVS_SYNC_FLUSH_TIME);
++	return get_curr_sync_buff(ipvs, ms, IPVS_SYNC_FLUSH_TIME);
+ }
+ 
+ static int sync_thread_master(void *data)
+ {
+ 	struct ip_vs_sync_thread_data *tinfo = data;
+ 	struct netns_ipvs *ipvs = net_ipvs(tinfo->net);
++	struct ipvs_master_sync_state *ms = &ipvs->ms[tinfo->id];
+ 	struct sock *sk = tinfo->sock->sk;
+ 	struct ip_vs_sync_buff *sb;
+ 
+ 	pr_info("sync thread started: state = MASTER, mcast_ifn = %s, "
+-		"syncid = %d\n",
+-		ipvs->master_mcast_ifn, ipvs->master_syncid);
++		"syncid = %d, id = %d\n",
++		ipvs->master_mcast_ifn, ipvs->master_syncid, tinfo->id);
+ 
+ 	for (;;) {
+-		sb = next_sync_buff(ipvs);
++		sb = next_sync_buff(ipvs, ms);
+ 		if (unlikely(kthread_should_stop()))
+ 			break;
+ 		if (!sb) {
+@@ -1624,12 +1650,12 @@ done:
+ 		ip_vs_sync_buff_release(sb);
+ 
+ 	/* clean up the sync_buff queue */
+-	while ((sb = sb_dequeue(ipvs)))
++	while ((sb = sb_dequeue(ipvs, ms)))
+ 		ip_vs_sync_buff_release(sb);
+ 	__set_current_state(TASK_RUNNING);
+ 
+ 	/* clean up the current sync_buff */
+-	sb = get_curr_sync_buff(ipvs, 0);
++	sb = get_curr_sync_buff(ipvs, ms, 0);
+ 	if (sb)
+ 		ip_vs_sync_buff_release(sb);
+ 
+@@ -1648,8 +1674,8 @@ static int sync_thread_backup(void *data)
+ 	int len;
+ 
+ 	pr_info("sync thread started: state = BACKUP, mcast_ifn = %s, "
+-		"syncid = %d\n",
+-		ipvs->backup_mcast_ifn, ipvs->backup_syncid);
++		"syncid = %d, id = %d\n",
++		ipvs->backup_mcast_ifn, ipvs->backup_syncid, tinfo->id);
+ 
+ 	while (!kthread_should_stop()) {
+ 		wait_event_interruptible(*sk_sleep(tinfo->sock->sk),
+@@ -1661,7 +1687,8 @@ static int sync_thread_backup(void *data)
+ 			len = ip_vs_receive(tinfo->sock, tinfo->buf,
+ 					ipvs->recv_mesg_maxlen);
+ 			if (len <= 0) {
+-				pr_err("receiving message error\n");
++				if (len != -EAGAIN)
++					pr_err("receiving message error\n");
+ 				break;
+ 			}
+ 
+@@ -1685,90 +1712,140 @@ static int sync_thread_backup(void *data)
+ int start_sync_thread(struct net *net, int state, char *mcast_ifn, __u8 syncid)
+ {
+ 	struct ip_vs_sync_thread_data *tinfo;
+-	struct task_struct **realtask, *task;
++	struct task_struct **array = NULL, *task;
+ 	struct socket *sock;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+-	char *name, *buf = NULL;
++	char *name;
+ 	int (*threadfn)(void *data);
++	int id, count;
+ 	int result = -ENOMEM;
+ 
+ 	IP_VS_DBG(7, "%s(): pid %d\n", __func__, task_pid_nr(current));
+ 	IP_VS_DBG(7, "Each ip_vs_sync_conn entry needs %Zd bytes\n",
+ 		  sizeof(struct ip_vs_sync_conn_v0));
+ 
++	if (!ipvs->sync_state) {
++		count = clamp(sysctl_sync_ports(ipvs), 1, IPVS_SYNC_PORTS_MAX);
++		ipvs->threads_mask = count - 1;
++	} else
++		count = ipvs->threads_mask + 1;
+ 
+ 	if (state == IP_VS_STATE_MASTER) {
+-		if (ipvs->master_thread)
++		if (ipvs->ms)
+ 			return -EEXIST;
+ 
+ 		strlcpy(ipvs->master_mcast_ifn, mcast_ifn,
+ 			sizeof(ipvs->master_mcast_ifn));
+ 		ipvs->master_syncid = syncid;
+-		realtask = &ipvs->master_thread;
+-		name = "ipvs_master:%d";
++		name = "ipvs-m:%d:%d";
+ 		threadfn = sync_thread_master;
+-		ipvs->sync_queue_len = 0;
+-		ipvs->sync_queue_delay = 0;
+-		INIT_DELAYED_WORK(&ipvs->master_wakeup_work,
+-				  master_wakeup_work_handler);
+-		sock = make_send_sock(net);
+ 	} else if (state == IP_VS_STATE_BACKUP) {
+-		if (ipvs->backup_thread)
++		if (ipvs->backup_threads)
+ 			return -EEXIST;
+ 
+ 		strlcpy(ipvs->backup_mcast_ifn, mcast_ifn,
+ 			sizeof(ipvs->backup_mcast_ifn));
+ 		ipvs->backup_syncid = syncid;
+-		realtask = &ipvs->backup_thread;
+-		name = "ipvs_backup:%d";
++		name = "ipvs-b:%d:%d";
+ 		threadfn = sync_thread_backup;
+-		sock = make_receive_sock(net);
+ 	} else {
+ 		return -EINVAL;
+ 	}
+ 
+-	if (IS_ERR(sock)) {
+-		result = PTR_ERR(sock);
+-		goto out;
+-	}
++	if (state == IP_VS_STATE_MASTER) {
++		struct ipvs_master_sync_state *ms;
+ 
+-	set_sync_mesg_maxlen(net, state);
+-	if (state == IP_VS_STATE_BACKUP) {
+-		buf = kmalloc(ipvs->recv_mesg_maxlen, GFP_KERNEL);
+-		if (!buf)
+-			goto outsocket;
++		ipvs->ms = kzalloc(count * sizeof(ipvs->ms[0]), GFP_KERNEL);
++		if (!ipvs->ms)
++			goto out;
++		ms = ipvs->ms;
++		for (id = 0; id < count; id++, ms++) {
++			INIT_LIST_HEAD(&ms->sync_queue);
++			ms->sync_queue_len = 0;
++			ms->sync_queue_delay = 0;
++			INIT_DELAYED_WORK(&ms->master_wakeup_work,
++					  master_wakeup_work_handler);
++			ms->ipvs = ipvs;
++		}
++	} else {
++		array = kzalloc(count * sizeof(struct task_struct *),
++				GFP_KERNEL);
++		if (!array)
++			goto out;
+ 	}
++	set_sync_mesg_maxlen(net, state);
+ 
+-	tinfo = kmalloc(sizeof(*tinfo), GFP_KERNEL);
+-	if (!tinfo)
+-		goto outbuf;
+-
+-	tinfo->net = net;
+-	tinfo->sock = sock;
+-	tinfo->buf = buf;
++	tinfo = NULL;
++	for (id = 0; id < count; id++) {
++		if (state == IP_VS_STATE_MASTER)
++			sock = make_send_sock(net, id);
++		else
++			sock = make_receive_sock(net, id);
++		if (IS_ERR(sock)) {
++			result = PTR_ERR(sock);
++			goto outtinfo;
++		}
++		tinfo = kmalloc(sizeof(*tinfo), GFP_KERNEL);
++		if (!tinfo)
++			goto outsocket;
++		tinfo->net = net;
++		tinfo->sock = sock;
++		if (state == IP_VS_STATE_BACKUP) {
++			tinfo->buf = kmalloc(ipvs->recv_mesg_maxlen,
++					     GFP_KERNEL);
++			if (!tinfo->buf)
++				goto outtinfo;
++		}
++		tinfo->id = id;
+ 
+-	task = kthread_run(threadfn, tinfo, name, ipvs->gen);
+-	if (IS_ERR(task)) {
+-		result = PTR_ERR(task);
+-		goto outtinfo;
++		task = kthread_run(threadfn, tinfo, name, ipvs->gen, id);
++		if (IS_ERR(task)) {
++			result = PTR_ERR(task);
++			goto outtinfo;
++		}
++		tinfo = NULL;
++		if (state == IP_VS_STATE_MASTER)
++			ipvs->ms[id].master_thread = task;
++		else
++			array[id] = task;
+ 	}
+ 
+ 	/* mark as active */
+-	*realtask = task;
++
++	if (state == IP_VS_STATE_BACKUP)
++		ipvs->backup_threads = array;
++	spin_lock_bh(&ipvs->sync_buff_lock);
+ 	ipvs->sync_state |= state;
++	spin_unlock_bh(&ipvs->sync_buff_lock);
+ 
+ 	/* increase the module use count */
+ 	ip_vs_use_count_inc();
+ 
+ 	return 0;
+ 
+-outtinfo:
+-	kfree(tinfo);
+-outbuf:
+-	kfree(buf);
+ outsocket:
+ 	sk_release_kernel(sock->sk);
++
++outtinfo:
++	if (tinfo) {
++		sk_release_kernel(tinfo->sock->sk);
++		kfree(tinfo->buf);
++		kfree(tinfo);
++	}
++	count = id;
++	while (count-- > 0) {
++		if (state == IP_VS_STATE_MASTER)
++			kthread_stop(ipvs->ms[count].master_thread);
++		else
++			kthread_stop(array[count]);
++	}
++	kfree(array);
++
+ out:
++	if (!(ipvs->sync_state & IP_VS_STATE_MASTER)) {
++		kfree(ipvs->ms);
++		ipvs->ms = NULL;
++	}
+ 	return result;
+ }
+ 
+@@ -1776,39 +1853,60 @@ out:
+ int stop_sync_thread(struct net *net, int state)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
++	struct task_struct **array;
++	int id;
+ 	int retc = -EINVAL;
+ 
+ 	IP_VS_DBG(7, "%s(): pid %d\n", __func__, task_pid_nr(current));
+ 
+ 	if (state == IP_VS_STATE_MASTER) {
+-		if (!ipvs->master_thread)
++		if (!ipvs->ms)
+ 			return -ESRCH;
+ 
+-		pr_info("stopping master sync thread %d ...\n",
+-			task_pid_nr(ipvs->master_thread));
+-
+ 		/*
+ 		 * The lock synchronizes with sb_queue_tail(), so that we don't
+ 		 * add sync buffers to the queue, when we are already in
+ 		 * progress of stopping the master sync daemon.
+ 		 */
+ 
+-		spin_lock_bh(&ipvs->sync_lock);
++		spin_lock_bh(&ipvs->sync_buff_lock);
++		spin_lock(&ipvs->sync_lock);
+ 		ipvs->sync_state &= ~IP_VS_STATE_MASTER;
+-		spin_unlock_bh(&ipvs->sync_lock);
+-		cancel_delayed_work_sync(&ipvs->master_wakeup_work);
+-		retc = kthread_stop(ipvs->master_thread);
+-		ipvs->master_thread = NULL;
++		spin_unlock(&ipvs->sync_lock);
++		spin_unlock_bh(&ipvs->sync_buff_lock);
++
++		retc = 0;
++		for (id = ipvs->threads_mask; id >= 0; id--) {
++			struct ipvs_master_sync_state *ms = &ipvs->ms[id];
++			int ret;
++
++			pr_info("stopping master sync thread %d ...\n",
++				task_pid_nr(ms->master_thread));
++			cancel_delayed_work_sync(&ms->master_wakeup_work);
++			ret = kthread_stop(ms->master_thread);
++			if (retc >= 0)
++				retc = ret;
++		}
++		kfree(ipvs->ms);
++		ipvs->ms = NULL;
+ 	} else if (state == IP_VS_STATE_BACKUP) {
+-		if (!ipvs->backup_thread)
++		if (!ipvs->backup_threads)
+ 			return -ESRCH;
+ 
+-		pr_info("stopping backup sync thread %d ...\n",
+-			task_pid_nr(ipvs->backup_thread));
+-
+ 		ipvs->sync_state &= ~IP_VS_STATE_BACKUP;
+-		retc = kthread_stop(ipvs->backup_thread);
+-		ipvs->backup_thread = NULL;
++		array = ipvs->backup_threads;
++		retc = 0;
++		for (id = ipvs->threads_mask; id >= 0; id--) {
++			int ret;
++
++			pr_info("stopping backup sync thread %d ...\n",
++				task_pid_nr(array[id]));
++			ret = kthread_stop(array[id]);
++			if (retc >= 0)
++				retc = ret;
++		}
++		kfree(array);
++		ipvs->backup_threads = NULL;
+ 	}
+ 
+ 	/* decrease the module use count */
+@@ -1825,13 +1923,8 @@ int __net_init ip_vs_sync_net_init(struct net *net)
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+ 	__mutex_init(&ipvs->sync_mutex, "ipvs->sync_mutex", &__ipvs_sync_key);
+-	INIT_LIST_HEAD(&ipvs->sync_queue);
+ 	spin_lock_init(&ipvs->sync_lock);
+ 	spin_lock_init(&ipvs->sync_buff_lock);
+-
+-	ipvs->sync_mcast_addr.sin_family = AF_INET;
+-	ipvs->sync_mcast_addr.sin_port = cpu_to_be16(IP_VS_SYNC_PORT);
+-	ipvs->sync_mcast_addr.sin_addr.s_addr = cpu_to_be32(IP_VS_SYNC_GROUP);
+ 	return 0;
+ }
+ 
 -- 
 1.7.9.5
