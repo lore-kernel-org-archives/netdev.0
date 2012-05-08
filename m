@@ -1,54 +1,50 @@
 From: pablo@netfilter.org
-Subject: [PATCH 03/25] netfilter: nf_conntrack: use this_cpu_inc()
-Date: Tue,  8 May 2012 09:49:32 +0200
-Message-ID: <1336463394-3119-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/25] ipvs: remove check for IP_VS_CONN_F_SYNC from ip_vs_bind_dest
+Date: Tue,  8 May 2012 09:49:42 +0200
+Message-ID: <1336463394-3119-14-git-send-email-pablo@netfilter.org>
 References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41135 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753854Ab2EHHuW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 03:50:22 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Julian Anastasov <ja@ssi.bg>
 
-this_cpu_inc() is IRQ safe and faster than
-local_bh_disable()/__this_cpu_inc()/local_bh_enable(), at least on x86.
+	As the IP_VS_CONN_F_INACTIVE bit is properly set
+in cp->flags for all kind of connections we do not need to
+add special checks for synced connections when updating
+the activeconns/inactconns counters for first time. Now
+logic will look just like in ip_vs_unbind_dest.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Christoph Lameter <cl@linux.com>
-Cc: Tejun Heo <tj@kernel.org>
-Reviewed-by: Christoph Lameter <cl@linux.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/netfilter/nf_conntrack.h |   10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ net/netfilter/ipvs/ip_vs_conn.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index ab86036..cce7f6a 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -321,14 +321,8 @@ extern unsigned int nf_conntrack_max;
- extern unsigned int nf_conntrack_hash_rnd;
- void init_nf_conntrack_hash_rnd(void);
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index f562e63..1c1bb30 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -585,11 +585,11 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
  
--#define NF_CT_STAT_INC(net, count)	\
--	__this_cpu_inc((net)->ct.stat->count)
--#define NF_CT_STAT_INC_ATOMIC(net, count)		\
--do {							\
--	local_bh_disable();				\
--	__this_cpu_inc((net)->ct.stat->count);		\
--	local_bh_enable();				\
--} while (0)
-+#define NF_CT_STAT_INC(net, count)	  __this_cpu_inc((net)->ct.stat->count)
-+#define NF_CT_STAT_INC_ATOMIC(net, count) this_cpu_inc((net)->ct.stat->count)
- 
- #define MODULE_ALIAS_NFCT_HELPER(helper) \
-         MODULE_ALIAS("nfct-helper-" helper)
+ 	/* Update the connection counters */
+ 	if (!(cp->flags & IP_VS_CONN_F_TEMPLATE)) {
+-		/* It is a normal connection, so increase the inactive
+-		   connection counter because it is in TCP SYNRECV
+-		   state (inactive) or other protocol inacive state */
+-		if ((cp->flags & IP_VS_CONN_F_SYNC) &&
+-		    (!(cp->flags & IP_VS_CONN_F_INACTIVE)))
++		/* It is a normal connection, so modify the counters
++		 * according to the flags, later the protocol can
++		 * update them on state change
++		 */
++		if (!(cp->flags & IP_VS_CONN_F_INACTIVE))
+ 			atomic_inc(&dest->activeconns);
+ 		else
+ 			atomic_inc(&dest->inactconns);
 -- 
 1.7.9.5
+
