@@ -1,101 +1,428 @@
 From: pablo@netfilter.org
-Subject: [PATCH 24/25] netfilter: nf_conntrack: fix explicit helper attachment and NAT
-Date: Tue,  8 May 2012 09:49:53 +0200
-Message-ID: <1336463394-3119-25-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 16/25] ipvs: wakeup master thread
+Date: Tue,  8 May 2012 09:49:45 +0200
+Message-ID: <1336463394-3119-17-git-send-email-pablo@netfilter.org>
 References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41260 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757472Ab2EHHul (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 03:50:41 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Julian Anastasov <ja@ssi.bg>
 
-Explicit helper attachment via the CT target is broken with NAT
-if non-standard ports are used. This problem was hidden behind
-the automatic helper assignment routine. Thus, it becomes more
-noticeable now that we can disable the automatic helper assignment
-with Eric Leblond's:
+	High rate of sync messages in master can lead to
+overflowing the socket buffer and dropping the messages.
+Fixed sleep of 1 second without wakeup events is not suitable
+for loaded masters,
 
-9e8ac5a netfilter: nf_ct_helper: allow to disable automatic helper assignment
+	Use delayed_work to schedule sending for queued messages
+and limit the delay to IPVS_SYNC_SEND_DELAY (20ms). This will
+reduce the rate of wakeups but to avoid sending long bursts we
+wakeup the master thread after IPVS_SYNC_WAKEUP_RATE (8) messages.
 
-Basically, nf_conntrack_alter_reply asks for looking up the helper
-up if NAT is enabled. Unfortunately, we don't have the conntrack
-template at that point anymore.
+	Add hard limit for the queued messages before sending
+by using "sync_qlen_max" sysctl var. It defaults to 1/32 of
+the memory pages but actually represents number of messages.
+It will protect us from allocating large parts of memory
+when the sending rate is lower than the queuing rate.
 
-Since we don't want to rely on the automatic helper assignment,
-we can skip the second look-up and stick to the helper that was
-attached by iptables. With the CT target, the user is in full
-control of helper attachment, thus, the policy is to trust what
-the user explicitly configures via iptables (no automatic magic
-anymore).
+	As suggested by Pablo, add new sysctl var
+"sync_sock_size" to configure the SNDBUF (master) or
+RCVBUF (slave) socket limit. Default value is 0 (preserve
+system defaults).
 
-Interestingly, this bug was hidden by the automatic helper look-up
-code. But it can be easily trigger if you attach the helper in
-a non-standard port, eg.
+	Change the master thread to detect and block on
+SNDBUF overflow, so that we do not drop messages when
+the socket limit is low but the sync_qlen_max limit is
+not reached. On ENOBUFS or other errors just drop the
+messages.
 
-iptables -I PREROUTING -t raw -p tcp --dport 8888 \
-	-j CT --helper ftp
+	Change master thread to enter TASK_INTERRUPTIBLE
+state early, so that we do not miss wakeups due to messages or
+kthread_should_stop event.
 
-And you disabled the automatic helper assignment.
+Thanks to Pablo Neira Ayuso for his valuable feedback!
 
-I added the IPS_HELPER_BIT that allows us to differenciate between
-a helper that has been explicitly attached and those that have been
-automatically assigned. I didn't come up with a better solution
-(having backward compatibility in mind).
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/linux/netfilter/nf_conntrack_common.h |    4 ++++
- net/netfilter/nf_conntrack_helper.c           |   13 ++++++++++++-
- 2 files changed, 16 insertions(+), 1 deletion(-)
+ include/net/ip_vs.h             |   29 ++++++++
+ net/netfilter/ipvs/ip_vs_ctl.c  |   16 +++++
+ net/netfilter/ipvs/ip_vs_sync.c |  149 ++++++++++++++++++++++++++++++---------
+ 3 files changed, 162 insertions(+), 32 deletions(-)
 
-diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
-index 0d3dd66..d146872 100644
---- a/include/linux/netfilter/nf_conntrack_common.h
-+++ b/include/linux/netfilter/nf_conntrack_common.h
-@@ -83,6 +83,10 @@ enum ip_conntrack_status {
- 	/* Conntrack is a fake untracked entry */
- 	IPS_UNTRACKED_BIT = 12,
- 	IPS_UNTRACKED = (1 << IPS_UNTRACKED_BIT),
-+
-+	/* Conntrack got a helper explicitly attached via CT target. */
-+	IPS_HELPER_BIT = 13,
-+	IPS_HELPER = (1 << IPS_HELPER_BIT),
- };
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index a903a82..8721a78 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -870,6 +870,8 @@ struct netns_ipvs {
+ #endif
+ 	int			sysctl_snat_reroute;
+ 	int			sysctl_sync_ver;
++	int			sysctl_sync_qlen_max;
++	int			sysctl_sync_sock_size;
+ 	int			sysctl_cache_bypass;
+ 	int			sysctl_expire_nodest_conn;
+ 	int			sysctl_expire_quiescent_template;
+@@ -890,6 +892,9 @@ struct netns_ipvs {
+ 	struct timer_list	est_timer;	/* Estimation timer */
+ 	/* ip_vs_sync */
+ 	struct list_head	sync_queue;
++	int			sync_queue_len;
++	unsigned int		sync_queue_delay;
++	struct delayed_work	master_wakeup_work;
+ 	spinlock_t		sync_lock;
+ 	struct ip_vs_sync_buff  *sync_buff;
+ 	spinlock_t		sync_buff_lock;
+@@ -912,6 +917,10 @@ struct netns_ipvs {
+ #define DEFAULT_SYNC_THRESHOLD	3
+ #define DEFAULT_SYNC_PERIOD	50
+ #define DEFAULT_SYNC_VER	1
++#define IPVS_SYNC_WAKEUP_RATE	8
++#define IPVS_SYNC_QLEN_MAX	(IPVS_SYNC_WAKEUP_RATE * 4)
++#define IPVS_SYNC_SEND_DELAY	(HZ / 50)
++#define IPVS_SYNC_CHECK_PERIOD	HZ
  
- /* Connection tracking event types */
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index 55234dd..fee8fd7 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -181,10 +181,21 @@ int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
- 	struct net *net = nf_ct_net(ct);
- 	int ret = 0;
+ #ifdef CONFIG_SYSCTL
  
-+	/* We already got a helper explicitly attached. The function
-+	 * nf_conntrack_alter_reply - in case NAT is in use - asks for looking
-+	 * the helper up again. Since now the user is in full control of
-+	 * making consistent helper configurations, skip this automatic
-+	 * re-lookup, otherwise we'll lose the helper.
-+	 */
-+	if (test_bit(IPS_HELPER_BIT, &ct->status))
-+		return 0;
+@@ -930,6 +939,16 @@ static inline int sysctl_sync_ver(struct netns_ipvs *ipvs)
+ 	return ipvs->sysctl_sync_ver;
+ }
+ 
++static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
++{
++	return ipvs->sysctl_sync_qlen_max;
++}
 +
- 	if (tmpl != NULL) {
- 		help = nfct_help(tmpl);
--		if (help != NULL)
-+		if (help != NULL) {
- 			helper = help->helper;
-+			set_bit(IPS_HELPER_BIT, &ct->status);
-+		}
++static inline int sysctl_sync_sock_size(struct netns_ipvs *ipvs)
++{
++	return ipvs->sysctl_sync_sock_size;
++}
++
+ #else
+ 
+ static inline int sysctl_sync_threshold(struct netns_ipvs *ipvs)
+@@ -947,6 +966,16 @@ static inline int sysctl_sync_ver(struct netns_ipvs *ipvs)
+ 	return DEFAULT_SYNC_VER;
+ }
+ 
++static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
++{
++	return IPVS_SYNC_QLEN_MAX;
++}
++
++static inline int sysctl_sync_sock_size(struct netns_ipvs *ipvs)
++{
++	return 0;
++}
++
+ #endif
+ 
+ /*
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index b8d0df7..854e9a6 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1718,6 +1718,18 @@ static struct ctl_table vs_vars[] = {
+ 		.proc_handler	= &proc_do_sync_mode,
+ 	},
+ 	{
++		.procname	= "sync_qlen_max",
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
++		.procname	= "sync_sock_size",
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
+ 		.procname	= "cache_bypass",
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+@@ -3662,6 +3674,10 @@ int __net_init ip_vs_control_net_init_sysctl(struct net *net)
+ 	tbl[idx++].data = &ipvs->sysctl_snat_reroute;
+ 	ipvs->sysctl_sync_ver = 1;
+ 	tbl[idx++].data = &ipvs->sysctl_sync_ver;
++	ipvs->sysctl_sync_qlen_max = nr_free_buffer_pages() / 32;
++	tbl[idx++].data = &ipvs->sysctl_sync_qlen_max;
++	ipvs->sysctl_sync_sock_size = 0;
++	tbl[idx++].data = &ipvs->sysctl_sync_sock_size;
+ 	tbl[idx++].data = &ipvs->sysctl_cache_bypass;
+ 	tbl[idx++].data = &ipvs->sysctl_expire_nodest_conn;
+ 	tbl[idx++].data = &ipvs->sysctl_expire_quiescent_template;
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index eeed767..eafc1d2 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -307,11 +307,15 @@ static inline struct ip_vs_sync_buff *sb_dequeue(struct netns_ipvs *ipvs)
+ 	spin_lock_bh(&ipvs->sync_lock);
+ 	if (list_empty(&ipvs->sync_queue)) {
+ 		sb = NULL;
++		__set_current_state(TASK_INTERRUPTIBLE);
+ 	} else {
+ 		sb = list_entry(ipvs->sync_queue.next,
+ 				struct ip_vs_sync_buff,
+ 				list);
+ 		list_del(&sb->list);
++		ipvs->sync_queue_len--;
++		if (!ipvs->sync_queue_len)
++			ipvs->sync_queue_delay = 0;
+ 	}
+ 	spin_unlock_bh(&ipvs->sync_lock);
+ 
+@@ -358,9 +362,16 @@ static inline void sb_queue_tail(struct netns_ipvs *ipvs)
+ 	struct ip_vs_sync_buff *sb = ipvs->sync_buff;
+ 
+ 	spin_lock(&ipvs->sync_lock);
+-	if (ipvs->sync_state & IP_VS_STATE_MASTER)
++	if (ipvs->sync_state & IP_VS_STATE_MASTER &&
++	    ipvs->sync_queue_len < sysctl_sync_qlen_max(ipvs)) {
++		if (!ipvs->sync_queue_len)
++			schedule_delayed_work(&ipvs->master_wakeup_work,
++					      max(IPVS_SYNC_SEND_DELAY, 1));
++		ipvs->sync_queue_len++;
+ 		list_add_tail(&sb->list, &ipvs->sync_queue);
+-	else
++		if ((++ipvs->sync_queue_delay) == IPVS_SYNC_WAKEUP_RATE)
++			wake_up_process(ipvs->master_thread);
++	} else
+ 		ip_vs_sync_buff_release(sb);
+ 	spin_unlock(&ipvs->sync_lock);
+ }
+@@ -379,6 +390,7 @@ get_curr_sync_buff(struct netns_ipvs *ipvs, unsigned long time)
+ 	    time_after_eq(jiffies - ipvs->sync_buff->firstuse, time)) {
+ 		sb = ipvs->sync_buff;
+ 		ipvs->sync_buff = NULL;
++		__set_current_state(TASK_RUNNING);
+ 	} else
+ 		sb = NULL;
+ 	spin_unlock_bh(&ipvs->sync_buff_lock);
+@@ -392,26 +404,23 @@ get_curr_sync_buff(struct netns_ipvs *ipvs, unsigned long time)
+ void ip_vs_sync_switch_mode(struct net *net, int mode)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
++	struct ip_vs_sync_buff *sb;
+ 
++	spin_lock_bh(&ipvs->sync_buff_lock);
+ 	if (!(ipvs->sync_state & IP_VS_STATE_MASTER))
+-		return;
+-	if (mode == sysctl_sync_ver(ipvs) || !ipvs->sync_buff)
+-		return;
++		goto unlock;
++	sb = ipvs->sync_buff;
++	if (mode == sysctl_sync_ver(ipvs) || !sb)
++		goto unlock;
+ 
+-	spin_lock_bh(&ipvs->sync_buff_lock);
+ 	/* Buffer empty ? then let buf_create do the job  */
+-	if (ipvs->sync_buff->mesg->size <=  sizeof(struct ip_vs_sync_mesg)) {
+-		kfree(ipvs->sync_buff);
++	if (sb->mesg->size <= sizeof(struct ip_vs_sync_mesg)) {
++		ip_vs_sync_buff_release(sb);
+ 		ipvs->sync_buff = NULL;
+-	} else {
+-		spin_lock_bh(&ipvs->sync_lock);
+-		if (ipvs->sync_state & IP_VS_STATE_MASTER)
+-			list_add_tail(&ipvs->sync_buff->list,
+-				      &ipvs->sync_queue);
+-		else
+-			ip_vs_sync_buff_release(ipvs->sync_buff);
+-		spin_unlock_bh(&ipvs->sync_lock);
+-	}
++	} else
++		sb_queue_tail(ipvs);
++
++unlock:
+ 	spin_unlock_bh(&ipvs->sync_buff_lock);
+ }
+ 
+@@ -1130,6 +1139,28 @@ static void ip_vs_process_message(struct net *net, __u8 *buffer,
+ 
+ 
+ /*
++ *      Setup sndbuf (mode=1) or rcvbuf (mode=0)
++ */
++static void set_sock_size(struct sock *sk, int mode, int val)
++{
++	/* setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)); */
++	/* setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)); */
++	lock_sock(sk);
++	if (mode) {
++		val = clamp_t(int, val, (SOCK_MIN_SNDBUF + 1) / 2,
++			      sysctl_wmem_max);
++		sk->sk_sndbuf = val * 2;
++		sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
++	} else {
++		val = clamp_t(int, val, (SOCK_MIN_RCVBUF + 1) / 2,
++			      sysctl_rmem_max);
++		sk->sk_rcvbuf = val * 2;
++		sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
++	}
++	release_sock(sk);
++}
++
++/*
+  *      Setup loopback of outgoing multicasts on a sending socket
+  */
+ static void set_mcast_loop(struct sock *sk, u_char loop)
+@@ -1305,6 +1336,9 @@ static struct socket *make_send_sock(struct net *net)
+ 
+ 	set_mcast_loop(sock->sk, 0);
+ 	set_mcast_ttl(sock->sk, 1);
++	result = sysctl_sync_sock_size(ipvs);
++	if (result > 0)
++		set_sock_size(sock->sk, 1, result);
+ 
+ 	result = bind_mcastif_addr(sock, ipvs->master_mcast_ifn);
+ 	if (result < 0) {
+@@ -1350,6 +1384,9 @@ static struct socket *make_receive_sock(struct net *net)
+ 	sk_change_net(sock->sk, net);
+ 	/* it is equivalent to the REUSEADDR option in user-space */
+ 	sock->sk->sk_reuse = 1;
++	result = sysctl_sync_sock_size(ipvs);
++	if (result > 0)
++		set_sock_size(sock->sk, 0, result);
+ 
+ 	result = sock->ops->bind(sock, (struct sockaddr *) &mcast_addr,
+ 			sizeof(struct sockaddr));
+@@ -1392,18 +1429,22 @@ ip_vs_send_async(struct socket *sock, const char *buffer, const size_t length)
+ 	return len;
+ }
+ 
+-static void
++static int
+ ip_vs_send_sync_msg(struct socket *sock, struct ip_vs_sync_mesg *msg)
+ {
+ 	int msize;
++	int ret;
+ 
+ 	msize = msg->size;
+ 
+ 	/* Put size in network byte order */
+ 	msg->size = htons(msg->size);
+ 
+-	if (ip_vs_send_async(sock, (char *)msg, msize) != msize)
+-		pr_err("ip_vs_send_async error\n");
++	ret = ip_vs_send_async(sock, (char *)msg, msize);
++	if (ret >= 0 || ret == -EAGAIN)
++		return ret;
++	pr_err("ip_vs_send_async error %d\n", ret);
++	return 0;
+ }
+ 
+ static int
+@@ -1428,36 +1469,75 @@ ip_vs_receive(struct socket *sock, char *buffer, const size_t buflen)
+ 	return len;
+ }
+ 
++/* Wakeup the master thread for sending */
++static void master_wakeup_work_handler(struct work_struct *work)
++{
++	struct netns_ipvs *ipvs = container_of(work, struct netns_ipvs,
++					       master_wakeup_work.work);
++
++	spin_lock_bh(&ipvs->sync_lock);
++	if (ipvs->sync_queue_len &&
++	    ipvs->sync_queue_delay < IPVS_SYNC_WAKEUP_RATE) {
++		ipvs->sync_queue_delay = IPVS_SYNC_WAKEUP_RATE;
++		wake_up_process(ipvs->master_thread);
++	}
++	spin_unlock_bh(&ipvs->sync_lock);
++}
++
++/* Get next buffer to send */
++static inline struct ip_vs_sync_buff *
++next_sync_buff(struct netns_ipvs *ipvs)
++{
++	struct ip_vs_sync_buff *sb;
++
++	sb = sb_dequeue(ipvs);
++	if (sb)
++		return sb;
++	/* Do not delay entries in buffer for more than 2 seconds */
++	return get_curr_sync_buff(ipvs, 2 * HZ);
++}
+ 
+ static int sync_thread_master(void *data)
+ {
+ 	struct ip_vs_sync_thread_data *tinfo = data;
+ 	struct netns_ipvs *ipvs = net_ipvs(tinfo->net);
++	struct sock *sk = tinfo->sock->sk;
+ 	struct ip_vs_sync_buff *sb;
+ 
+ 	pr_info("sync thread started: state = MASTER, mcast_ifn = %s, "
+ 		"syncid = %d\n",
+ 		ipvs->master_mcast_ifn, ipvs->master_syncid);
+ 
+-	while (!kthread_should_stop()) {
+-		while ((sb = sb_dequeue(ipvs))) {
+-			ip_vs_send_sync_msg(tinfo->sock, sb->mesg);
+-			ip_vs_sync_buff_release(sb);
++	for (;;) {
++		sb = next_sync_buff(ipvs);
++		if (unlikely(kthread_should_stop()))
++			break;
++		if (!sb) {
++			schedule_timeout(IPVS_SYNC_CHECK_PERIOD);
++			continue;
+ 		}
+-
+-		/* check if entries stay in ipvs->sync_buff for 2 seconds */
+-		sb = get_curr_sync_buff(ipvs, 2 * HZ);
+-		if (sb) {
+-			ip_vs_send_sync_msg(tinfo->sock, sb->mesg);
+-			ip_vs_sync_buff_release(sb);
++		while (ip_vs_send_sync_msg(tinfo->sock, sb->mesg) < 0) {
++			int ret = 0;
++
++			__wait_event_interruptible(*sk_sleep(sk),
++						   sock_writeable(sk) ||
++						   kthread_should_stop(),
++						   ret);
++			if (unlikely(kthread_should_stop()))
++				goto done;
+ 		}
+-
+-		schedule_timeout_interruptible(HZ);
++		ip_vs_sync_buff_release(sb);
  	}
  
- 	help = nfct_help(ct);
++done:
++	__set_current_state(TASK_RUNNING);
++	if (sb)
++		ip_vs_sync_buff_release(sb);
++
+ 	/* clean up the sync_buff queue */
+ 	while ((sb = sb_dequeue(ipvs)))
+ 		ip_vs_sync_buff_release(sb);
++	__set_current_state(TASK_RUNNING);
+ 
+ 	/* clean up the current sync_buff */
+ 	sb = get_curr_sync_buff(ipvs, 0);
+@@ -1538,6 +1618,10 @@ int start_sync_thread(struct net *net, int state, char *mcast_ifn, __u8 syncid)
+ 		realtask = &ipvs->master_thread;
+ 		name = "ipvs_master:%d";
+ 		threadfn = sync_thread_master;
++		ipvs->sync_queue_len = 0;
++		ipvs->sync_queue_delay = 0;
++		INIT_DELAYED_WORK(&ipvs->master_wakeup_work,
++				  master_wakeup_work_handler);
+ 		sock = make_send_sock(net);
+ 	} else if (state == IP_VS_STATE_BACKUP) {
+ 		if (ipvs->backup_thread)
+@@ -1623,6 +1707,7 @@ int stop_sync_thread(struct net *net, int state)
+ 		spin_lock_bh(&ipvs->sync_lock);
+ 		ipvs->sync_state &= ~IP_VS_STATE_MASTER;
+ 		spin_unlock_bh(&ipvs->sync_lock);
++		cancel_delayed_work_sync(&ipvs->master_wakeup_work);
+ 		retc = kthread_stop(ipvs->master_thread);
+ 		ipvs->master_thread = NULL;
+ 	} else if (state == IP_VS_STATE_BACKUP) {
 -- 
 1.7.9.5
+
