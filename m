@@ -1,90 +1,58 @@
-From: Thomas Pilarski <thomas.pi@arcor.de>
-Subject: Re: [PATCH] r8169: fix problem with TSO (TX_BUFFS_AVAIL negative
- value)
-Date: Tue, 08 May 2012 12:21:26 +0200
-Message-ID: <4FA8F3A6.2070305@arcor.de>
-References: <1336430367.11363.38.camel@blackbone.local> <20120507234205.GA2230@electric-eye.fr.zoreil.com> <20120508100657.GA10744@electric-eye.fr.zoreil.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH RFC 0/6] copy aside frags with destructors (was [PATCH
+ 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
+Date: Tue, 8 May 2012 11:54:11 +0100
+Message-ID: <1336474451.14542.63.camel@zakaz.uk.xensource.com>
+References: <cover.1336397823.git.mst@redhat.com>
+	 <20120508094114.GA14694@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Alex_Villac=ED=ADs_Lasso?=
-	<avillaci@fiec.espol.edu.ec>, Thomas Pilarski <thomas.pi@arcor.de>,
-	Julien Ducourthial <jducourt@free.fr>,
-	Hayes Wang <hayeswang@realtek.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120508100657.GA10744@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:53248 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752484Ab2EHKyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2012 06:54:13 -0400
+In-Reply-To: <20120508094114.GA14694@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I have already tested the patch with the kernel 3.3.4 and the module
-from bugzilla (https://bugzilla.kernel.org/attachment.cgi?id=72682). The
-iommu error still occurs.
+On Tue, 2012-05-08 at 10:41 +0100, Michael S. Tsirkin wrote:
+> On Mon, May 07, 2012 at 04:53:46PM +0300, Michael S. Tsirkin wrote:
+> > > > > But I fear we're about to toss Ian into yet another rabbit hole. :-)
+> > > > > 
+> > > > > Let's try to converge on something quickly as I think integration of
+> > > > > his work has been delayed enough as-is.
+> 
+> ...
+> 
+> > Here's a first stub at a fix. Basically to be able to modify frags on
+> > the fly we must make sure the skb isn't cloned, so the moment someone
+> > clones the skb we need to trigger the frag copy logic.  And this is
+> > exactly what happens with SKBTX_DEV_ZEROCOPY so it seems to make sense
+> > to reuse that logic.
+> > 
+> > The below patchset replaces patch 7
+> > ([PATCH 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
+> > in Ian's patchset and needs to be applied there.
+> > 
+> > 
+> > Compiled only but I'd like to hear what people think all the same
+> > because it does add a couple of branches on fast path.  On the other
+> > hand this makes it generic so the same logic will be reusable for packet
+> > sockets (which IIRC are currently buggy in the same way as sunrpc) and
+> > for adding zero copy support to tun.
+> > 
+> > Please comment,
+> > Thanks!
+> 
+> Ian, just to stress, need your ack that this does what you wanted.
 
-Am 08.05.2012 12:06, schrieb Francois Romieu:
-> Francois Romieu <romieu@fr.zoreil.com> :
-> [...]
->> Alex, Thomas, can you check if Julien's patch below fixes your broken
->> kernels as well ? 
-> You will have better luck with a patch whose lines are correctly formed.
->
-> Patch below applies on top of 3.4-rc6.
->
-> (Julien, please check your mail user agent)
->
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index f545093..d1e3c51 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -61,8 +61,12 @@
->  #define R8169_MSG_DEFAULT \
->  	(NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN)
->  
-> -#define TX_BUFFS_AVAIL(tp) \
-> -	(tp->dirty_tx + NUM_TX_DESC - tp->cur_tx - 1)
-> +#define TX_SLOTS_AVAIL(tp) \
-> +	(tp->dirty_tx + NUM_TX_DESC - tp->cur_tx)
-> +
-> +/* A skbuff with nr_frags needs nr_frags+1 entries in the tx queue */
-> +#define TX_FRAGS_READY_FOR(tp,nr_frags) \
-> +	(TX_SLOTS_AVAIL(tp) >= (nr_frags + 1))
->  
->  /* Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
->     The RTL chips use a 64 element hash table based on the Ethernet CRC. */
-> @@ -5115,7 +5119,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
->  	u32 opts[2];
->  	int frags;
->  
-> -	if (unlikely(TX_BUFFS_AVAIL(tp) < skb_shinfo(skb)->nr_frags)) {
-> +	if (unlikely(!TX_FRAGS_READY_FOR(tp, skb_shinfo(skb)->nr_frags))) {
->  		netif_err(tp, drv, dev, "BUG! Tx Ring full when queue awake!\n");
->  		goto err_stop_0;
->  	}
-> @@ -5169,7 +5173,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
->  
->  	mmiowb();
->  
-> -	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
-> +	if (!TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
->  		/* Avoid wrongly optimistic queue wake-up: rtl_tx thread must
->  		 * not miss a ring update when it notices a stopped queue.
->  		 */
-> @@ -5183,7 +5187,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
->  		 * can't.
->  		 */
->  		smp_mb();
-> -		if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
-> +		if (TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS))
->  			netif_wake_queue(dev);
->  	}
->  
-> @@ -5306,7 +5310,7 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
->  		 */
->  		smp_mb();
->  		if (netif_queue_stopped(dev) &&
-> -		    (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
-> +		    TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
->  			netif_wake_queue(dev);
->  		}
->  		/*
+Sure, yesterday was a public holiday and today looks likely to be crazy
+busy. I'll try and have a look later in the week.
+
+Ian.
