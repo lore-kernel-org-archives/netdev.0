@@ -1,74 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [README] net --> net-next merge
-Date: Tue, 08 May 2012 02:02:40 -0700
-Message-ID: <1336467760.2442.4.camel@jtkirshe-mobl>
-References: <20120507.234113.2269441747611427613.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC 0/6] copy aside frags with destructors (was [PATCH
+ 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
+Date: Tue, 8 May 2012 12:41:14 +0300
+Message-ID: <20120508094114.GA14694@redhat.com>
+References: <cover.1336397823.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-IFRHzOApuYw1bQWECPQZ"
-Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	linville@tuxdriver.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58646 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36936 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751097Ab2EHJC4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 05:02:56 -0400
-In-Reply-To: <20120507.234113.2269441747611427613.davem@davemloft.net>
+	id S1751241Ab2EHJlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 05:41:16 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1336397823.git.mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, May 07, 2012 at 04:53:46PM +0300, Michael S. Tsirkin wrote:
+> > > > But I fear we're about to toss Ian into yet another rabbit hole. :-)
+> > > > 
+> > > > Let's try to converge on something quickly as I think integration of
+> > > > his work has been delayed enough as-is.
 
---=-IFRHzOApuYw1bQWECPQZ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+...
 
-On Mon, 2012-05-07 at 23:41 -0400, David Miller wrote:
-> I just merged net into net-next, there were two major conflicts.
->=20
-> 1) The known iwlwifi conflict due to the skb->truesize bug fix in
->    'net'.
->=20
->    I used the conflict resolution posted by John and later by Stephen
->    when he resolved it for -next.
->=20
->    John, please double-check my work.
->=20
-> 2) drivers/net/ethernet/intel/e1000e/param.c got a conflict in
->    the code which validates adapter->itr settings.
->=20
->    The net-next side looked more sophisticated so that's what I
->    used.
->=20
->    Jeff, please double-check and send me fixup patches if necessary.
->=20
-> Thanks.
+> Here's a first stub at a fix. Basically to be able to modify frags on
+> the fly we must make sure the skb isn't cloned, so the moment someone
+> clones the skb we need to trigger the frag copy logic.  And this is
+> exactly what happens with SKBTX_DEV_ZEROCOPY so it seems to make sense
+> to reuse that logic.
+> 
+> The below patchset replaces patch 7
+> ([PATCH 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
+> in Ian's patchset and needs to be applied there.
+> 
+> 
+> Compiled only but I'd like to hear what people think all the same
+> because it does add a couple of branches on fast path.  On the other
+> hand this makes it generic so the same logic will be reusable for packet
+> sockets (which IIRC are currently buggy in the same way as sunrpc) and
+> for adding zero copy support to tun.
+> 
+> Please comment,
+> Thanks!
 
-Yeah, I will need to send a fixup patch.  I have something for you later
-today.  Thanks Dave!
+Ian, just to stress, need your ack that this does what you wanted.
 
---=-IFRHzOApuYw1bQWECPQZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJPqOEwAAoJEOVv75VaS+3OPmQQAIO8kFFmrjGqQPHVpROnhp3h
-nkCLe3l60pJYIXsZbQ5DXiFgHEKc+3d8u0Lzihd8FmE+baKd3JA0IrvoL5zPYUmO
-6Z6oEvUDZteD9dprlF7iPT5Vi8mOpwYLJJ+iVSkBbWC/DRE8BS1X4Ia+LFCdQywP
-Vwsvk93C7dTVqgYbMmUifvaIt6GA6PKOsL43fr7jdTEiRR5L2spFwlBSmUg0U2Rw
-9klWlAqTjFpJm+HdoeplgBDG6k4/1t8VZ/KIsOCy32CFH7us0x7AjHLDrC8cWLGe
-lciD3KwhSUKpQWSgM3t8AoI40kKbzsnO/e9jhyCP6TRXAr0lVN4jbXZJTSm+bWEt
-ShuiP/T4zcGLxRDtbsLTe0XYPCFy1/D/BLuHEPzfVmsN2Z55HEGkfhh+xjvkDoUy
-X4Xn4GzicsYfVQD4El5oLrGdC3ny9ikydivG/vZugEgJf/bsR/n/xBsSmkLoup2l
-+ov1J3WSIhbwey8qA0sCWnecfNnGKE5z922QEo12N7LnsJYokZfdyKzfpmxWZmqk
-PkP+Jg1ORPQwSrJg1B2S/erV28/DgG3+h3XARAy5dqMKttt3OtBWw7qlqr1Amt6j
-uNIPgDVE6x6hkbRioo75t29a/TzP0k7qOBlv+3bzYTtR+Ih4S8JH4t3FqGrgs7IQ
-6Zlqig7legOobmzPym/J
-=26qQ
------END PGP SIGNATURE-----
-
---=-IFRHzOApuYw1bQWECPQZ--
+-- 
+MST
