@@ -1,43 +1,44 @@
 From: pablo@netfilter.org
-Subject: [PATCH 09/25] ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init
-Date: Tue,  8 May 2012 20:38:07 +0200
-Message-ID: <1336502303-1722-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/25] ipvs: ignore IP_VS_CONN_F_NOOUTPUT in backup server
+Date: Tue,  8 May 2012 20:38:10 +0200
+Message-ID: <1336502303-1722-13-git-send-email-pablo@netfilter.org>
 References: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, openbsc@lists.osmocom.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38957 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:38970 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755230Ab2EHSjN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 14:39:13 -0400
+	id S1755230Ab2EHSjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 14:39:16 -0400
 In-Reply-To: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julian Anastasov <ja@ssi.bg>
 
-	Schedulers are initialized and bound to services only
-on commands.
+	As IP_VS_CONN_F_NOOUTPUT is derived from the
+forwarding method we should get it from conn_flags just
+like we do it for IP_VS_CONN_F_FWD_MASK bits when binding
+to real server.
 
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_lblcr.c |    2 +-
+ net/netfilter/ipvs/ip_vs_conn.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 9dcd39a..570e31e 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -511,7 +511,7 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- 	/*
- 	 *    Allocate the ip_vs_lblcr_table for this service
- 	 */
--	tbl = kmalloc(sizeof(*tbl), GFP_ATOMIC);
-+	tbl = kmalloc(sizeof(*tbl), GFP_KERNEL);
- 	if (tbl == NULL)
- 		return -ENOMEM;
- 
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 4a09b78..f562e63 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -567,7 +567,7 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
+ 		if (!(cp->flags & IP_VS_CONN_F_TEMPLATE))
+ 			conn_flags &= ~IP_VS_CONN_F_INACTIVE;
+ 		/* connections inherit forwarding method from dest */
+-		cp->flags &= ~IP_VS_CONN_F_FWD_MASK;
++		cp->flags &= ~(IP_VS_CONN_F_FWD_MASK | IP_VS_CONN_F_NOOUTPUT);
+ 	}
+ 	cp->flags |= conn_flags;
+ 	cp->dest = dest;
 -- 
 1.7.9.5
