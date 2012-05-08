@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: [README] net --> net-next merge
-Date: Mon, 07 May 2012 23:41:13 -0400 (EDT)
-Message-ID: <20120507.234113.2269441747611427613.davem@davemloft.net>
+Subject: Re: [PATCH 0/3] smsc75xx: more minor fixes
+Date: Mon, 07 May 2012 23:44:46 -0400 (EDT)
+Message-ID: <20120507.234446.722270343364945890.davem@davemloft.net>
+References: <1336129033-15826-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linville@tuxdriver.com,
-	jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@shawell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54111 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54115 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757751Ab2EHDo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 23:44:27 -0400
+	with ESMTP id S1757751Ab2EHDot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 23:44:49 -0400
+In-Reply-To: <1336129033-15826-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Fri,  4 May 2012 11:57:10 +0100
 
-I just merged net into net-next, there were two major conflicts.
+> 3 more minor patches for smsc75xx
+> 
+> Steve Glendinning (3):
+>   smsc75xx: replace 0xffff with PHY_INT_SRC_CLEAR_ALL
+>   smsc75xx: eliminate unnecessary phy register read
+>   smsc75xx: let EEPROM determine GPIO/LED settings
 
-1) The known iwlwifi conflict due to the skb->truesize bug fix in
-   'net'.
-
-   I used the conflict resolution posted by John and later by Stephen
-   when he resolved it for -next.
-
-   John, please double-check my work.
-
-2) drivers/net/ethernet/intel/e1000e/param.c got a conflict in
-   the code which validates adapter->itr settings.
-
-   The net-next side looked more sophisticated so that's what I
-   used.
-
-   Jeff, please double-check and send me fixup patches if necessary.
-
-Thanks.
+All applied to net-next.  Please be specific in the future about where
+you want patches applied, these wouldn't apply cleanly until I merged
+'net' into 'net-next' to propagate recent bug fixes first.
