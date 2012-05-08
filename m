@@ -1,69 +1,154 @@
 From: pablo@netfilter.org
-Subject: [PATCH 01/25] netfilter: nf_ct_ecache: refactor notifier registration
-Date: Tue,  8 May 2012 09:49:30 +0200
-Message-ID: <1336463394-3119-2-git-send-email-pablo@netfilter.org>
-References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 00/25] [v2] netfilter updates for net-next (upcoming 3.5)
+Date: Tue,  8 May 2012 09:49:29 +0200
+Message-ID: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tony Zelenoff <antonz@parallels.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-* ret variable initialization removed as useless
-* similar code strings concatenated and functions code
-  flow became more plain
+Hi David,
 
-Signed-off-by: Tony Zelenoff <antonz@parallels.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_ecache.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+Second version including requested updates.
 
-diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
-index 5bd3047d..3a3409f 100644
---- a/net/netfilter/nf_conntrack_ecache.c
-+++ b/net/netfilter/nf_conntrack_ecache.c
-@@ -84,7 +84,7 @@ EXPORT_SYMBOL_GPL(nf_ct_deliver_cached_events);
- int nf_conntrack_register_notifier(struct net *net,
- 				   struct nf_ct_event_notifier *new)
- {
--	int ret = 0;
-+	int ret;
- 	struct nf_ct_event_notifier *notify;
- 
- 	mutex_lock(&nf_ct_ecache_mutex);
-@@ -95,8 +95,7 @@ int nf_conntrack_register_notifier(struct net *net,
- 		goto out_unlock;
- 	}
- 	rcu_assign_pointer(net->ct.nf_conntrack_event_cb, new);
--	mutex_unlock(&nf_ct_ecache_mutex);
--	return ret;
-+	ret = 0;
- 
- out_unlock:
- 	mutex_unlock(&nf_ct_ecache_mutex);
-@@ -121,7 +120,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_unregister_notifier);
- int nf_ct_expect_register_notifier(struct net *net,
- 				   struct nf_exp_event_notifier *new)
- {
--	int ret = 0;
-+	int ret;
- 	struct nf_exp_event_notifier *notify;
- 
- 	mutex_lock(&nf_ct_ecache_mutex);
-@@ -132,8 +131,7 @@ int nf_ct_expect_register_notifier(struct net *net,
- 		goto out_unlock;
- 	}
- 	rcu_assign_pointer(net->ct.nf_expect_event_cb, new);
--	mutex_unlock(&nf_ct_ecache_mutex);
--	return ret;
-+	ret = 0;
- 
- out_unlock:
- 	mutex_unlock(&nf_ct_ecache_mutex);
+The following patchset contains the Netfilter updates for net-next.
+Most notably:
+
+* The new /proc/sys/net/netfilter/nf_conntrack_helper entry that
+  allows to disable the automatic conntrack helper assignment from
+  Eric Leblond. This patch also spots a warning to inform the user
+  that this behaviour will be removed at some point. The automatic
+  conntrack helper assignment may allows attackers to open hole in
+  the firewall to access the protected network segments (with
+  incorrect configurations). More information on this issue at:
+
+  https://home.regit.org/netfilter-en/secure-use-of-helpers/
+
+  In the near future, all conntrack helpers will be explicitly
+  attached via the CT target, as we longing discussed during
+  the last netfilter workshop.
+
+* One new sysctl to translate the input device to vlan device name
+  from Florian Westphal. He required this to get the REDIRECT target
+  working with another sysctl vlan-on-top-of-bridge.
+
+* Major improvements in the ip_vs_sync code from Julian Anastasov.
+  They aim to improve scalability and to address possible message
+  loss due to socket overrun under high rate of synchronization
+  messages.
+
+* Several minor memory allocation flags fixes from IPVS people
+  contributors.
+
+* Eric Leblond's patch spotted one problem that becomes noticeable
+  if a) automatic helper assignment is disabled, and b) if NAT is
+  in use, and c) the CT target is used to attach a non-standard
+  conntrack helper port. This fix comes from myself.
+
+* One small update to allow updating the expectation timeout from
+  Kelvie Wong.
+
+* Finally, remove ip[6]_queue support since they have been marked
+  as obsolete since long time ago. Now, we have nfnetlink_queue
+  which is way more flexible from myself.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/net-next master
+
+If time allows, I'd like to send a second batch. There a several patches
+that are very close to get into shape still on netfilter-devel.
+
+Thanks!
+
+Eric Dumazet (1):
+  netfilter: nf_conntrack: use this_cpu_inc()
+
+Eric Leblond (1):
+  netfilter: nf_ct_helper: allow to disable automatic helper assignment
+
+Florian Westphal (1):
+  netfilter: bridge: optionally set indev to vlan
+
+H Hartley Sweeten (2):
+  ipvs: ip_vs_ftp: local functions should not be exposed globally
+  ipvs: ip_vs_proto: local functions should not be exposed globally
+
+Hans Schillstrom (1):
+  net: export sysctl_[r|w]mem_max symbols needed by ip_vs_sync
+
+Julian Anastasov (14):
+  ipvs: timeout tables do not need GFP_ATOMIC allocation
+  ipvs: LBLC scheduler does not need GFP_ATOMIC allocation on init
+  ipvs: DH scheduler does not need GFP_ATOMIC allocation
+  ipvs: WRR scheduler does not need GFP_ATOMIC allocation
+  ipvs: LBLCR scheduler does not need GFP_ATOMIC allocation on init
+  ipvs: SH scheduler does not need GFP_ATOMIC allocation
+  ipvs: ignore IP_VS_CONN_F_NOOUTPUT in backup server
+  ipvs: remove check for IP_VS_CONN_F_SYNC from ip_vs_bind_dest
+  ipvs: fix ip_vs_try_bind_dest to rebind app and transmitter
+  ipvs: always update some of the flags bits in backup
+  ipvs: wakeup master thread
+  ipvs: reduce sync rate with time thresholds
+  ipvs: add support for sync threads
+  ipvs: optimize the use of flags in ip_vs_bind_dest
+
+Kelvie Wong (1):
+  netfilter: nf_ct_expect: partially implement ctnetlink_change_expect
+
+Pablo Neira Ayuso (2):
+  netfilter: nf_conntrack: fix explicit helper attachment and NAT
+  netfilter: remove ip_queue support
+
+Sasha Levin (1):
+  ipvs: use GFP_KERNEL allocation where possible
+
+Tony Zelenoff (1):
+  netfilter: nf_ct_ecache: refactor notifier registration
+
+ Documentation/ABI/removed/ip_queue            |    9 +
+ Documentation/networking/ip-sysctl.txt        |   13 +-
+ include/linux/ip_vs.h                         |    5 +
+ include/linux/netfilter/nf_conntrack_common.h |    4 +
+ include/linux/netfilter_ipv4/Kbuild           |    1 -
+ include/linux/netfilter_ipv4/ip_queue.h       |   72 ---
+ include/linux/netlink.h                       |    2 +-
+ include/net/ip_vs.h                           |   87 +++-
+ include/net/netfilter/nf_conntrack.h          |   10 +-
+ include/net/netfilter/nf_conntrack_helper.h   |    4 +-
+ include/net/netns/conntrack.h                 |    3 +
+ net/bridge/br_netfilter.c                     |   26 +-
+ net/core/sock.c                               |    2 +
+ net/ipv4/netfilter/Makefile                   |    3 -
+ net/ipv4/netfilter/ip_queue.c                 |  639 ------------------------
+ net/ipv6/netfilter/Kconfig                    |   22 -
+ net/ipv6/netfilter/Makefile                   |    1 -
+ net/ipv6/netfilter/ip6_queue.c                |  641 ------------------------
+ net/netfilter/ipvs/ip_vs_conn.c               |   69 ++-
+ net/netfilter/ipvs/ip_vs_core.c               |   30 +-
+ net/netfilter/ipvs/ip_vs_ctl.c                |   70 ++-
+ net/netfilter/ipvs/ip_vs_dh.c                 |    2 +-
+ net/netfilter/ipvs/ip_vs_ftp.c                |    2 +-
+ net/netfilter/ipvs/ip_vs_lblc.c               |    2 +-
+ net/netfilter/ipvs/ip_vs_lblcr.c              |    2 +-
+ net/netfilter/ipvs/ip_vs_proto.c              |    6 +-
+ net/netfilter/ipvs/ip_vs_sh.c                 |    2 +-
+ net/netfilter/ipvs/ip_vs_sync.c               |  662 +++++++++++++++++--------
+ net/netfilter/ipvs/ip_vs_wrr.c                |    2 +-
+ net/netfilter/nf_conntrack_core.c             |   15 +-
+ net/netfilter/nf_conntrack_ecache.c           |   10 +-
+ net/netfilter/nf_conntrack_helper.c           |  120 ++++-
+ net/netfilter/nf_conntrack_netlink.c          |   10 +-
+ security/selinux/nlmsgtab.c                   |   13 -
+ 34 files changed, 853 insertions(+), 1708 deletions(-)
+ create mode 100644 Documentation/ABI/removed/ip_queue
+ delete mode 100644 include/linux/netfilter_ipv4/ip_queue.h
+ delete mode 100644 net/ipv4/netfilter/ip_queue.c
+ delete mode 100644 net/ipv6/netfilter/ip6_queue.c
+
 -- 
 1.7.9.5
 
