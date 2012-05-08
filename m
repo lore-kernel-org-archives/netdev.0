@@ -1,61 +1,45 @@
 From: pablo@netfilter.org
-Subject: [PATCH 23/25] netfilter: nf_ct_expect: partially implement ctnetlink_change_expect
-Date: Tue,  8 May 2012 20:38:21 +0200
-Message-ID: <1336502303-1722-24-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/25] ipvs: use GFP_KERNEL allocation where possible
+Date: Tue,  8 May 2012 20:38:09 +0200
+Message-ID: <1336502303-1722-12-git-send-email-pablo@netfilter.org>
 References: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, openbsc@lists.osmocom.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39158 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:38968 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756433Ab2EHSjt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 14:39:49 -0400
+	id S1755323Ab2EHSjP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 14:39:15 -0400
 In-Reply-To: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kelvie Wong <kelvie@ieee.org>
+From: Sasha Levin <levinsasha928@gmail.com>
 
-This refreshes the "timeout" attribute in existing expectations if one is
-given.
+Use GFP_KERNEL instead of GFP_ATOMIC when registering an ipvs protocol.
 
-The use case for this would be for userspace helpers to extend the lifetime
-of the expectation when requested, as this is not possible right now
-without deleting/recreating the expectation.
+This is safe since it will always run from a process context.
 
-I use this specifically for forwarding DCERPC traffic through:
-
-DCERPC has a port mapper daemon that chooses a (seemingly) random port for
-future traffic to go to. We expect this traffic (with a reasonable
-timeout), but sometimes the port mapper will tell the client to continue
-using the same port. This allows us to extend the expectation accordingly.
-
-Signed-off-by: Kelvie Wong <kelvie@ieee.org>
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_netlink.c |   10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+ net/netfilter/ipvs/ip_vs_proto.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 462ec2d..6f4b00a 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -2080,7 +2080,15 @@ static int
- ctnetlink_change_expect(struct nf_conntrack_expect *x,
- 			const struct nlattr * const cda[])
- {
--	return -EOPNOTSUPP;
-+	if (cda[CTA_EXPECT_TIMEOUT]) {
-+		if (!del_timer(&x->timeout))
-+			return -ETIME;
-+
-+		x->timeout.expires = jiffies +
-+			ntohl(nla_get_be32(cda[CTA_EXPECT_TIMEOUT])) * HZ;
-+		add_timer(&x->timeout);
-+	}
-+	return 0;
- }
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index ca16476..e91c898 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -68,7 +68,7 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	unsigned int hash = IP_VS_PROTO_HASH(pp->protocol);
+ 	struct ip_vs_proto_data *pd =
+-			kzalloc(sizeof(struct ip_vs_proto_data), GFP_ATOMIC);
++			kzalloc(sizeof(struct ip_vs_proto_data), GFP_KERNEL);
  
- static const struct nla_policy exp_nat_nla_policy[CTA_EXPECT_NAT_MAX+1] = {
+ 	if (!pd)
+ 		return -ENOMEM;
 -- 
 1.7.9.5
