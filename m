@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Tue, 8 May 2012 22:35:08 +0300
-Message-ID: <20120508193507.GC28536@redhat.com>
+Date: Tue, 8 May 2012 22:50:30 +0300
+Message-ID: <20120508195029.GA29111@redhat.com>
 References: <20120408171323.GA16012@redhat.com>
  <1334044558.3126.5.camel@edumazet-glaptop>
  <20120410084151.GA27193@redhat.com>
@@ -26,25 +26,26 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Herbert Xu <herbert@gondor.hengli.com.au>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1983 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755917Ab2EHTfa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 15:35:30 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1334065929.5300.40.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Tue, Apr 10, 2012 at 03:52:09PM +0200, Eric Dumazet wrote:
-> By the way, skb orphaning should already be done in skb_orphan_try(),
-> not sure why its done again in tun_net_xmit().
+> With following patch, no more qdisc on top of tun device,
 
-Because we need to force it for skbs which have tx_flags set.
+I'm not sure killing qdisc is a right direction.
+I think tun queue is currently oversized but I
+also think we would benefit from a smart queue
+management. As it is if tun user gets delayed,
+stale packets accumulate in the queue and there's
+no way to get rid of them without ploughing through
+the backlog.
 
-> Note we perform orphaning
-> right before giving skb to device on premise it'll be sent (and freed)
-> in a reasonable amount of time.
+In a sense we don't really need the queue in tun at all,
+the only reason we have it at all, is to make code simpler.
+We could thinkably move skbs from qdisc directly to userspace.
 
-It is usually the case. I think this assumption holds for
-tun normally.
+-- 
+MST
