@@ -1,101 +1,455 @@
 From: pablo@netfilter.org
-Subject: [PATCH 24/25] netfilter: nf_conntrack: fix explicit helper attachment and NAT
-Date: Tue,  8 May 2012 20:38:22 +0200
-Message-ID: <1336502303-1722-25-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/25] ipvs: reduce sync rate with time thresholds
+Date: Tue,  8 May 2012 20:38:15 +0200
+Message-ID: <1336502303-1722-18-git-send-email-pablo@netfilter.org>
 References: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, openbsc@lists.osmocom.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39318 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:39401 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756629Ab2EHSkN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 14:40:13 -0400
+	id S1756629Ab2EHSkT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 14:40:19 -0400
 In-Reply-To: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Julian Anastasov <ja@ssi.bg>
 
-Explicit helper attachment via the CT target is broken with NAT
-if non-standard ports are used. This problem was hidden behind
-the automatic helper assignment routine. Thus, it becomes more
-noticeable now that we can disable the automatic helper assignment
-with Eric Leblond's:
+	Add two new sysctl vars to control the sync rate with the
+main idea to reduce the rate for connection templates because
+currently it depends on the packet rate for controlled connections.
+This mechanism should be useful also for normal connections
+with high traffic.
 
-9e8ac5a netfilter: nf_ct_helper: allow to disable automatic helper assignment
+sync_refresh_period: in seconds, difference in reported connection
+	timer that triggers new sync message. It can be used to
+	avoid sync messages for the specified period (or half of
+	the connection timeout if it is lower) if connection state
+	is not changed from last sync.
 
-Basically, nf_conntrack_alter_reply asks for looking up the helper
-up if NAT is enabled. Unfortunately, we don't have the conntrack
-template at that point anymore.
+sync_retries: integer, 0..3, defines sync retries with period of
+	sync_refresh_period/8. Useful to protect against loss of
+	sync messages.
 
-Since we don't want to rely on the automatic helper assignment,
-we can skip the second look-up and stick to the helper that was
-attached by iptables. With the CT target, the user is in full
-control of helper attachment, thus, the policy is to trust what
-the user explicitly configures via iptables (no automatic magic
-anymore).
+	Allow sysctl_sync_threshold to be used with
+sysctl_sync_period=0, so that only single sync message is sent
+if sync_refresh_period is also 0.
 
-Interestingly, this bug was hidden by the automatic helper look-up
-code. But it can be easily trigger if you attach the helper in
-a non-standard port, eg.
+	Add new field "sync_endtime" in connection structure to
+hold the reported time when connection expires. The 2 lowest
+bits will represent the retry count.
 
-iptables -I PREROUTING -t raw -p tcp --dport 8888 \
-	-j CT --helper ftp
+	As the sysctl_sync_period now can be 0 use ACCESS_ONCE to
+avoid division by zero.
 
-And you disabled the automatic helper assignment.
+	Special thanks to Aleksey Chudov for being patient with me,
+for his extensive reports and helping in all tests.
 
-I added the IPS_HELPER_BIT that allows us to differenciate between
-a helper that has been explicitly attached and those that have been
-automatically assigned. I didn't come up with a better solution
-(having backward compatibility in mind).
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Tested-by: Aleksey Chudov <aleksey.chudov@gmail.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/linux/netfilter/nf_conntrack_common.h |    4 ++++
- net/netfilter/nf_conntrack_helper.c           |   13 ++++++++++++-
- 2 files changed, 16 insertions(+), 1 deletion(-)
+ include/net/ip_vs.h             |   30 +++++++++-
+ net/netfilter/ipvs/ip_vs_conn.c |    7 ++-
+ net/netfilter/ipvs/ip_vs_core.c |   30 +---------
+ net/netfilter/ipvs/ip_vs_ctl.c  |   25 +++++++-
+ net/netfilter/ipvs/ip_vs_sync.c |  121 +++++++++++++++++++++++++++++++++------
+ 5 files changed, 165 insertions(+), 48 deletions(-)
 
-diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
-index 0d3dd66..d146872 100644
---- a/include/linux/netfilter/nf_conntrack_common.h
-+++ b/include/linux/netfilter/nf_conntrack_common.h
-@@ -83,6 +83,10 @@ enum ip_conntrack_status {
- 	/* Conntrack is a fake untracked entry */
- 	IPS_UNTRACKED_BIT = 12,
- 	IPS_UNTRACKED = (1 << IPS_UNTRACKED_BIT),
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 30e43c8..d3a4b93 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -504,6 +504,7 @@ struct ip_vs_conn {
+ 						 * state transition triggerd
+ 						 * synchronization
+ 						 */
++	unsigned long		sync_endtime;	/* jiffies + sent_retries */
+ 
+ 	/* Control members */
+ 	struct ip_vs_conn       *control;       /* Master control connection */
+@@ -875,6 +876,8 @@ struct netns_ipvs {
+ 	int			sysctl_expire_nodest_conn;
+ 	int			sysctl_expire_quiescent_template;
+ 	int			sysctl_sync_threshold[2];
++	unsigned int		sysctl_sync_refresh_period;
++	int			sysctl_sync_retries;
+ 	int			sysctl_nat_icmp_send;
+ 
+ 	/* ip_vs_lblc */
+@@ -916,10 +919,13 @@ struct netns_ipvs {
+ #define DEFAULT_SYNC_THRESHOLD	3
+ #define DEFAULT_SYNC_PERIOD	50
+ #define DEFAULT_SYNC_VER	1
++#define DEFAULT_SYNC_REFRESH_PERIOD	(0U * HZ)
++#define DEFAULT_SYNC_RETRIES		0
+ #define IPVS_SYNC_WAKEUP_RATE	8
+ #define IPVS_SYNC_QLEN_MAX	(IPVS_SYNC_WAKEUP_RATE * 4)
+ #define IPVS_SYNC_SEND_DELAY	(HZ / 50)
+ #define IPVS_SYNC_CHECK_PERIOD	HZ
++#define IPVS_SYNC_FLUSH_TIME	(HZ * 2)
+ 
+ #ifdef CONFIG_SYSCTL
+ 
+@@ -930,7 +936,17 @@ static inline int sysctl_sync_threshold(struct netns_ipvs *ipvs)
+ 
+ static inline int sysctl_sync_period(struct netns_ipvs *ipvs)
+ {
+-	return ipvs->sysctl_sync_threshold[1];
++	return ACCESS_ONCE(ipvs->sysctl_sync_threshold[1]);
++}
 +
-+	/* Conntrack got a helper explicitly attached via CT target. */
-+	IPS_HELPER_BIT = 13,
-+	IPS_HELPER = (1 << IPS_HELPER_BIT),
- };
++static inline unsigned int sysctl_sync_refresh_period(struct netns_ipvs *ipvs)
++{
++	return ACCESS_ONCE(ipvs->sysctl_sync_refresh_period);
++}
++
++static inline int sysctl_sync_retries(struct netns_ipvs *ipvs)
++{
++	return ipvs->sysctl_sync_retries;
+ }
  
- /* Connection tracking event types */
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index 317f6e4..4fa2ff9 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -182,10 +182,21 @@ int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
- 	struct net *net = nf_ct_net(ct);
- 	int ret = 0;
+ static inline int sysctl_sync_ver(struct netns_ipvs *ipvs)
+@@ -960,6 +976,16 @@ static inline int sysctl_sync_period(struct netns_ipvs *ipvs)
+ 	return DEFAULT_SYNC_PERIOD;
+ }
  
-+	/* We already got a helper explicitly attached. The function
-+	 * nf_conntrack_alter_reply - in case NAT is in use - asks for looking
-+	 * the helper up again. Since now the user is in full control of
-+	 * making consistent helper configurations, skip this automatic
-+	 * re-lookup, otherwise we'll lose the helper.
-+	 */
-+	if (test_bit(IPS_HELPER_BIT, &ct->status))
++static inline unsigned int sysctl_sync_refresh_period(struct netns_ipvs *ipvs)
++{
++	return DEFAULT_SYNC_REFRESH_PERIOD;
++}
++
++static inline int sysctl_sync_retries(struct netns_ipvs *ipvs)
++{
++	return DEFAULT_SYNC_RETRIES & 3;
++}
++
+ static inline int sysctl_sync_ver(struct netns_ipvs *ipvs)
+ {
+ 	return DEFAULT_SYNC_VER;
+@@ -1248,7 +1274,7 @@ extern struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp);
+ extern int start_sync_thread(struct net *net, int state, char *mcast_ifn,
+ 			     __u8 syncid);
+ extern int stop_sync_thread(struct net *net, int state);
+-extern void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp);
++extern void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp, int pkts);
+ 
+ 
+ /*
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index fd74f88..4f3205d 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -762,7 +762,8 @@ int ip_vs_check_template(struct ip_vs_conn *ct)
+ static void ip_vs_conn_expire(unsigned long data)
+ {
+ 	struct ip_vs_conn *cp = (struct ip_vs_conn *)data;
+-	struct netns_ipvs *ipvs = net_ipvs(ip_vs_conn_net(cp));
++	struct net *net = ip_vs_conn_net(cp);
++	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+ 	cp->timeout = 60*HZ;
+ 
+@@ -827,6 +828,9 @@ static void ip_vs_conn_expire(unsigned long data)
+ 		  atomic_read(&cp->refcnt)-1,
+ 		  atomic_read(&cp->n_control));
+ 
++	if (ipvs->sync_state & IP_VS_STATE_MASTER)
++		ip_vs_sync_conn(net, cp, sysctl_sync_threshold(ipvs));
++
+ 	ip_vs_conn_put(cp);
+ }
+ 
+@@ -900,6 +904,7 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
+ 	/* Set its state and timeout */
+ 	cp->state = 0;
+ 	cp->timeout = 3*HZ;
++	cp->sync_endtime = jiffies & ~3UL;
+ 
+ 	/* Bind its packet transmitter */
+ #ifdef CONFIG_IP_VS_IPV6
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index c8f36b9..a54b018c 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1613,34 +1613,8 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+ 	else
+ 		pkts = atomic_add_return(1, &cp->in_pkts);
+ 
+-	if ((ipvs->sync_state & IP_VS_STATE_MASTER) &&
+-	    cp->protocol == IPPROTO_SCTP) {
+-		if ((cp->state == IP_VS_SCTP_S_ESTABLISHED &&
+-			(pkts % sysctl_sync_period(ipvs)
+-			 == sysctl_sync_threshold(ipvs))) ||
+-				(cp->old_state != cp->state &&
+-				 ((cp->state == IP_VS_SCTP_S_CLOSED) ||
+-				  (cp->state == IP_VS_SCTP_S_SHUT_ACK_CLI) ||
+-				  (cp->state == IP_VS_SCTP_S_SHUT_ACK_SER)))) {
+-			ip_vs_sync_conn(net, cp);
+-			goto out;
+-		}
+-	}
+-
+-	/* Keep this block last: TCP and others with pp->num_states <= 1 */
+-	else if ((ipvs->sync_state & IP_VS_STATE_MASTER) &&
+-	    (((cp->protocol != IPPROTO_TCP ||
+-	       cp->state == IP_VS_TCP_S_ESTABLISHED) &&
+-	      (pkts % sysctl_sync_period(ipvs)
+-	       == sysctl_sync_threshold(ipvs))) ||
+-	     ((cp->protocol == IPPROTO_TCP) && (cp->old_state != cp->state) &&
+-	      ((cp->state == IP_VS_TCP_S_FIN_WAIT) ||
+-	       (cp->state == IP_VS_TCP_S_CLOSE) ||
+-	       (cp->state == IP_VS_TCP_S_CLOSE_WAIT) ||
+-	       (cp->state == IP_VS_TCP_S_TIME_WAIT)))))
+-		ip_vs_sync_conn(net, cp);
+-out:
+-	cp->old_state = cp->state;
++	if (ipvs->sync_state & IP_VS_STATE_MASTER)
++		ip_vs_sync_conn(net, cp, pkts);
+ 
+ 	ip_vs_conn_put(cp);
+ 	return ret;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index bd3827e..a77b9bd 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1599,6 +1599,10 @@ static int ip_vs_zero_all(struct net *net)
+ }
+ 
+ #ifdef CONFIG_SYSCTL
++
++static int zero;
++static int three = 3;
++
+ static int
+ proc_do_defense_mode(ctl_table *table, int write,
+ 		     void __user *buffer, size_t *lenp, loff_t *ppos)
+@@ -1632,7 +1636,8 @@ proc_do_sync_threshold(ctl_table *table, int write,
+ 	memcpy(val, valp, sizeof(val));
+ 
+ 	rc = proc_dointvec(table, write, buffer, lenp, ppos);
+-	if (write && (valp[0] < 0 || valp[1] < 0 || valp[0] >= valp[1])) {
++	if (write && (valp[0] < 0 || valp[1] < 0 ||
++	    (valp[0] >= valp[1] && valp[1]))) {
+ 		/* Restore the correct value */
+ 		memcpy(valp, val, sizeof(val));
+ 	}
+@@ -1755,6 +1760,20 @@ static struct ctl_table vs_vars[] = {
+ 		.proc_handler	= proc_do_sync_threshold,
+ 	},
+ 	{
++		.procname	= "sync_refresh_period",
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_jiffies,
++	},
++	{
++		.procname	= "sync_retries",
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &three,
++	},
++	{
+ 		.procname	= "nat_icmp_send",
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+@@ -3678,6 +3697,10 @@ int __net_init ip_vs_control_net_init_sysctl(struct net *net)
+ 	ipvs->sysctl_sync_threshold[1] = DEFAULT_SYNC_PERIOD;
+ 	tbl[idx].data = &ipvs->sysctl_sync_threshold;
+ 	tbl[idx++].maxlen = sizeof(ipvs->sysctl_sync_threshold);
++	ipvs->sysctl_sync_refresh_period = DEFAULT_SYNC_REFRESH_PERIOD;
++	tbl[idx++].data = &ipvs->sysctl_sync_refresh_period;
++	ipvs->sysctl_sync_retries = clamp_t(int, DEFAULT_SYNC_RETRIES, 0, 3);
++	tbl[idx++].data = &ipvs->sysctl_sync_retries;
+ 	tbl[idx++].data = &ipvs->sysctl_nat_icmp_send;
+ 
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index b3235b2..8d6a421 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -451,11 +451,94 @@ ip_vs_sync_buff_create_v0(struct netns_ipvs *ipvs)
+ 	return sb;
+ }
+ 
++/* Check if conn should be synced.
++ * pkts: conn packets, use sysctl_sync_threshold to avoid packet check
++ * - (1) sync_refresh_period: reduce sync rate. Additionally, retry
++ *	sync_retries times with period of sync_refresh_period/8
++ * - (2) if both sync_refresh_period and sync_period are 0 send sync only
++ *	for state changes or only once when pkts matches sync_threshold
++ * - (3) templates: rate can be reduced only with sync_refresh_period or
++ *	with (2)
++ */
++static int ip_vs_sync_conn_needed(struct netns_ipvs *ipvs,
++				  struct ip_vs_conn *cp, int pkts)
++{
++	unsigned long orig = ACCESS_ONCE(cp->sync_endtime);
++	unsigned long now = jiffies;
++	unsigned long n = (now + cp->timeout) & ~3UL;
++	unsigned int sync_refresh_period;
++	int sync_period;
++	int force;
++
++	/* Check if we sync in current state */
++	if (unlikely(cp->flags & IP_VS_CONN_F_TEMPLATE))
++		force = 0;
++	else if (likely(cp->protocol == IPPROTO_TCP)) {
++		if (!((1 << cp->state) &
++		      ((1 << IP_VS_TCP_S_ESTABLISHED) |
++		       (1 << IP_VS_TCP_S_FIN_WAIT) |
++		       (1 << IP_VS_TCP_S_CLOSE) |
++		       (1 << IP_VS_TCP_S_CLOSE_WAIT) |
++		       (1 << IP_VS_TCP_S_TIME_WAIT))))
++			return 0;
++		force = cp->state != cp->old_state;
++		if (force && cp->state != IP_VS_TCP_S_ESTABLISHED)
++			goto set;
++	} else if (unlikely(cp->protocol == IPPROTO_SCTP)) {
++		if (!((1 << cp->state) &
++		      ((1 << IP_VS_SCTP_S_ESTABLISHED) |
++		       (1 << IP_VS_SCTP_S_CLOSED) |
++		       (1 << IP_VS_SCTP_S_SHUT_ACK_CLI) |
++		       (1 << IP_VS_SCTP_S_SHUT_ACK_SER))))
++			return 0;
++		force = cp->state != cp->old_state;
++		if (force && cp->state != IP_VS_SCTP_S_ESTABLISHED)
++			goto set;
++	} else {
++		/* UDP or another protocol with single state */
++		force = 0;
++	}
++
++	sync_refresh_period = sysctl_sync_refresh_period(ipvs);
++	if (sync_refresh_period > 0) {
++		long diff = n - orig;
++		long min_diff = max(cp->timeout >> 1, 10UL * HZ);
++
++		/* Avoid sync if difference is below sync_refresh_period
++		 * and below the half timeout.
++		 */
++		if (abs(diff) < min_t(long, sync_refresh_period, min_diff)) {
++			int retries = orig & 3;
++
++			if (retries >= sysctl_sync_retries(ipvs))
++				return 0;
++			if (time_before(now, orig - cp->timeout +
++					(sync_refresh_period >> 3)))
++				return 0;
++			n |= retries + 1;
++		}
++	}
++	sync_period = sysctl_sync_period(ipvs);
++	if (sync_period > 0) {
++		if (!(cp->flags & IP_VS_CONN_F_TEMPLATE) &&
++		    pkts % sync_period != sysctl_sync_threshold(ipvs))
++			return 0;
++	} else if (sync_refresh_period <= 0 &&
++		   pkts != sysctl_sync_threshold(ipvs))
 +		return 0;
 +
- 	if (tmpl != NULL) {
- 		help = nfct_help(tmpl);
--		if (help != NULL)
-+		if (help != NULL) {
- 			helper = help->helper;
-+			set_bit(IPS_HELPER_BIT, &ct->status);
-+		}
- 	}
++set:
++	cp->old_state = cp->state;
++	n = cmpxchg(&cp->sync_endtime, orig, n);
++	return n == orig || force;
++}
++
+ /*
+  *      Version 0 , could be switched in by sys_ctl.
+  *      Add an ip_vs_conn information into the current sync_buff.
+  */
+-void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
++static void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp,
++			       int pkts)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct ip_vs_sync_mesg_v0 *m;
+@@ -468,6 +551,9 @@ void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
+ 	if (cp->flags & IP_VS_CONN_F_ONE_PACKET)
+ 		return;
  
- 	help = nfct_help(ct);
++	if (!ip_vs_sync_conn_needed(ipvs, cp, pkts))
++		return;
++
+ 	spin_lock(&ipvs->sync_buff_lock);
+ 	if (!ipvs->sync_buff) {
+ 		ipvs->sync_buff =
+@@ -513,8 +599,14 @@ void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
+ 	spin_unlock(&ipvs->sync_buff_lock);
+ 
+ 	/* synchronize its controller if it has */
+-	if (cp->control)
+-		ip_vs_sync_conn(net, cp->control);
++	cp = cp->control;
++	if (cp) {
++		if (cp->flags & IP_VS_CONN_F_TEMPLATE)
++			pkts = atomic_add_return(1, &cp->in_pkts);
++		else
++			pkts = sysctl_sync_threshold(ipvs);
++		ip_vs_sync_conn(net, cp->control, pkts);
++	}
+ }
+ 
+ /*
+@@ -522,7 +614,7 @@ void ip_vs_sync_conn_v0(struct net *net, struct ip_vs_conn *cp)
+  *      Called by ip_vs_in.
+  *      Sending Version 1 messages
+  */
+-void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp)
++void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp, int pkts)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct ip_vs_sync_mesg *m;
+@@ -532,13 +624,16 @@ void ip_vs_sync_conn(struct net *net, struct ip_vs_conn *cp)
+ 
+ 	/* Handle old version of the protocol */
+ 	if (sysctl_sync_ver(ipvs) == 0) {
+-		ip_vs_sync_conn_v0(net, cp);
++		ip_vs_sync_conn_v0(net, cp, pkts);
+ 		return;
+ 	}
+ 	/* Do not sync ONE PACKET */
+ 	if (cp->flags & IP_VS_CONN_F_ONE_PACKET)
+ 		goto control;
+ sloop:
++	if (!ip_vs_sync_conn_needed(ipvs, cp, pkts))
++		goto control;
++
+ 	/* Sanity checks */
+ 	pe_name_len = 0;
+ 	if (cp->pe_data_len) {
+@@ -653,16 +748,10 @@ control:
+ 	cp = cp->control;
+ 	if (!cp)
+ 		return;
+-	/*
+-	 * Reduce sync rate for templates
+-	 * i.e only increment in_pkts for Templates.
+-	 */
+-	if (cp->flags & IP_VS_CONN_F_TEMPLATE) {
+-		int pkts = atomic_add_return(1, &cp->in_pkts);
+-
+-		if (pkts % sysctl_sync_period(ipvs) != 1)
+-			return;
+-	}
++	if (cp->flags & IP_VS_CONN_F_TEMPLATE)
++		pkts = atomic_add_return(1, &cp->in_pkts);
++	else
++		pkts = sysctl_sync_threshold(ipvs);
+ 	goto sloop;
+ }
+ 
+@@ -1494,7 +1583,7 @@ next_sync_buff(struct netns_ipvs *ipvs)
+ 	if (sb)
+ 		return sb;
+ 	/* Do not delay entries in buffer for more than 2 seconds */
+-	return get_curr_sync_buff(ipvs, 2 * HZ);
++	return get_curr_sync_buff(ipvs, IPVS_SYNC_FLUSH_TIME);
+ }
+ 
+ static int sync_thread_master(void *data)
 -- 
 1.7.9.5
