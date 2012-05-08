@@ -1,43 +1,101 @@
 From: pablo@netfilter.org
-Subject: [PATCH 20/25] ipvs: ip_vs_ftp: local functions should not be exposed globally
-Date: Tue,  8 May 2012 02:22:14 +0200
-Message-ID: <1336436539-5880-21-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 24/25] netfilter: nf_conntrack: fix explicit helper attachment and NAT
+Date: Tue,  8 May 2012 02:22:18 +0200
+Message-ID: <1336436539-5880-25-git-send-email-pablo@netfilter.org>
 References: <1336436539-5880-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51858 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932247Ab2EHAXO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2012 20:23:14 -0400
 In-Reply-To: <1336436539-5880-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: H Hartley Sweeten <hartleys@visionengravers.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Functions not referenced outside of a source file should be marked
-static to prevent it from being exposed globally.
+Explicit helper attachment via the CT target is broken with NAT
+if non-standard ports are used. This problem was hidden behind
+the automatic helper assignment routine. Thus, it becomes more
+noticeable now that we can disable the automatic helper assignment
+with Eric Leblond's:
 
-This quiets the sparse warnings:
+9e8ac5a netfilter: nf_ct_helper: allow to disable automatic helper assignment
 
-warning: symbol 'ip_vs_ftp_init' was not declared. Should it be static?
+Basically, nf_conntrack_alter_reply asks for looking up the helper
+up if NAT is enabled. Unfortunately, we don't have the conntrack
+template at that point anymore.
 
-Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Since we don't want to rely on the automatic helper assignment,
+we can skip the second look-up and stick to the helper that was
+attached by iptables. With the CT target, the user is in full
+control of helper attachment, thus, the policy is to trust what
+the user explicitly configures via iptables (no automatic magic
+anymore).
+
+Interestingly, this bug was hidden by the automatic helper look-up
+code. But it can be easily trigger if you attach the helper in
+a non-standard port, eg.
+
+iptables -I PREROUTING -t raw -p tcp --dport 8888 \
+	-j CT --helper ftp
+
+And you disabled the automatic helper assignment.
+
+I added the IPS_HELPER_BIT that allows us to differenciate between
+a helper that has been explicitly attached and those that have been
+automatically assigned. I didn't come up with a better solution
+(having backward compatibility in mind).
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_ftp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/netfilter/nf_conntrack_common.h |    4 ++++
+ net/netfilter/nf_conntrack_helper.c           |   13 ++++++++++++-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index debb8c7..091bec9 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -483,7 +483,7 @@ static struct pernet_operations ip_vs_ftp_ops = {
- 	.exit = __ip_vs_ftp_exit,
+diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
+index 0d3dd66..d146872 100644
+--- a/include/linux/netfilter/nf_conntrack_common.h
++++ b/include/linux/netfilter/nf_conntrack_common.h
+@@ -83,6 +83,10 @@ enum ip_conntrack_status {
+ 	/* Conntrack is a fake untracked entry */
+ 	IPS_UNTRACKED_BIT = 12,
+ 	IPS_UNTRACKED = (1 << IPS_UNTRACKED_BIT),
++
++	/* Conntrack got a helper explicitly attached via CT target. */
++	IPS_HELPER_BIT = 13,
++	IPS_HELPER = (1 << IPS_HELPER_BIT),
  };
  
--int __init ip_vs_ftp_init(void)
-+static int __init ip_vs_ftp_init(void)
- {
- 	int rv;
+ /* Connection tracking event types */
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index 52ff897..dec15df 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -181,10 +181,21 @@ int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
+ 	struct net *net = nf_ct_net(ct);
+ 	int ret = 0;
  
++	/* We already got a helper explicitly attached. The function
++	 * nf_conntrack_alter_reply - in case NAT is in use - asks for looking
++	 * the helper up again. Since now the user is in full control of
++	 * making consistent helper configurations, skip this automatic
++	 * re-lookup, otherwise we'll lose the helper.
++	 */
++	if (test_bit(IPS_HELPER_BIT, &ct->status))
++		return 0;
++
+ 	if (tmpl != NULL) {
+ 		help = nfct_help(tmpl);
+-		if (help != NULL)
++		if (help != NULL) {
+ 			helper = help->helper;
++			set_bit(IPS_HELPER_BIT, &ct->status);
++		}
+ 	}
+ 
+ 	help = nfct_help(ct);
 -- 
 1.7.9.5
-
