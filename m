@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 3/3] netdev/of/phy: Add MDIO bus multiplexer driven
- by GPIO lines.
-Date: Mon, 07 May 2012 22:59:00 -0400 (EDT)
-Message-ID: <20120507.225900.1607360124849584710.davem@davemloft.net>
-References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com>
-        <1336007799-31016-4-git-send-email-ddaney.cavm@gmail.com>
+Subject: Re: [patch net-next] net: IP_MULTICAST_IF setsockopt now
+ recognizes struct mreq
+Date: Mon, 07 May 2012 23:03:46 -0400 (EDT)
+Message-ID: <20120507.230346.1913300136495718066.davem@davemloft.net>
+References: <1336120665-954-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, grant.likely@secretlab.ca,
-        rob.herring@calxeda.com, devicetree-discuss@lists.ozlabs.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mips@linux-mips.org, afleming@gmail.com,
-        galak@kernel.crashing.org, david.daney@cavium.com
-To: ddaney.cavm@gmail.com
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1336007799-31016-4-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: jpirko@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53896 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758045Ab2EHDGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 23:06:24 -0400
+In-Reply-To: <1336120665-954-1-git-send-email-jpirko@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Wed,  2 May 2012 18:16:39 -0700
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri,  4 May 2012 10:37:45 +0200
 
-> From: David Daney <david.daney@cavium.com>
+> Until now, struct mreq has not been recognized and it was worked with
+> as with struct in_addr. That means imr_multiaddr was copied to
+> imr_address. So do recognize struct mreq here and copy that correctly.
 > 
-> The GPIO pins select which sub bus is connected to the master.
-> 
-> Initially tested with an sn74cbtlv3253 switch device wired into the
-> MDIO bus.
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Applied.
+Fair enough, applied.
