@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 11/25] ipvs: use GFP_KERNEL allocation where possible
-Date: Tue,  8 May 2012 09:49:40 +0200
-Message-ID: <1336463394-3119-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/25] ipvs: WRR scheduler does not need GFP_ATOMIC allocation
+Date: Tue,  8 May 2012 09:49:38 +0200
+Message-ID: <1336463394-3119-10-git-send-email-pablo@netfilter.org>
 References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,33 +10,31 @@ In-Reply-To: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sasha Levin <levinsasha928@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
 
-Use GFP_KERNEL instead of GFP_ATOMIC when registering an ipvs protocol.
+	Schedulers are initialized and bound to services only
+on commands.
 
-This is safe since it will always run from a process context.
-
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_proto.c |    2 +-
+ net/netfilter/ipvs/ip_vs_wrr.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index a981b7c..8726488 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -71,7 +71,7 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 	unsigned int hash = IP_VS_PROTO_HASH(pp->protocol);
- 	struct ip_vs_proto_data *pd =
--			kzalloc(sizeof(struct ip_vs_proto_data), GFP_ATOMIC);
-+			kzalloc(sizeof(struct ip_vs_proto_data), GFP_KERNEL);
- 
- 	if (!pd)
+diff --git a/net/netfilter/ipvs/ip_vs_wrr.c b/net/netfilter/ipvs/ip_vs_wrr.c
+index fd0d4e0..231be7d 100644
+--- a/net/netfilter/ipvs/ip_vs_wrr.c
++++ b/net/netfilter/ipvs/ip_vs_wrr.c
+@@ -84,7 +84,7 @@ static int ip_vs_wrr_init_svc(struct ip_vs_service *svc)
+ 	/*
+ 	 *    Allocate the mark variable for WRR scheduling
+ 	 */
+-	mark = kmalloc(sizeof(struct ip_vs_wrr_mark), GFP_ATOMIC);
++	mark = kmalloc(sizeof(struct ip_vs_wrr_mark), GFP_KERNEL);
+ 	if (mark == NULL)
  		return -ENOMEM;
+ 
 -- 
 1.7.9.5
 
