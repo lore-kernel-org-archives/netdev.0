@@ -1,31 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/25] [v2] netfilter updates for net-next (upcoming
- 3.5)
-Date: Tue, 08 May 2012 13:12:30 -0400 (EDT)
-Message-ID: <20120508.131230.1416742757463609913.davem@davemloft.net>
-References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
-	<20120508.124926.2241646617733136639.davem@davemloft.net>
-	<20120508171049.GA16205@1984>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: batostr() function
+Date: Tue, 08 May 2012 10:18:52 -0700
+Message-ID: <1336497532.29640.24.camel@joe2Laptop>
+References: <1336391383.4325.24.camel@jlt3.sipsolutions.net>
+	 <CANq1E4QW4vSn_r9C=rirShE+-eyPjRX+b5tpC+mx69Hs6aEYqQ@mail.gmail.com>
+	 <1336487108.4320.2.camel@jlt3.sipsolutions.net>
+	 <20120508143011.GD29352@aemeltch-MOBL1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120508171049.GA16205@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	David Herrmann <dh.herrmann-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andrei Emeltchenko <andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120508143011.GD29352@aemeltch-MOBL1>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 8 May 2012 19:10:49 +0200
-
-> I can rebase all my patches on top of fresh tree, fix all conflicts
-> myself and send you another patchset that will apply to your current
-> tree.
+On Tue, 2012-05-08 at 17:30 +0300, Andrei Emeltchenko wrote:
+> On Tue, May 08, 2012 at 04:25:08PM +0200, Johannes Berg wrote:
+> > On Tue, 2012-05-08 at 15:30 +0200, David Herrmann wrote:
+> > > Hi Johannes
+> > > 
+> > > On Mon, May 7, 2012 at 1:49 PM, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> > > > Really? 2 static buffers that are used alternately based on a static
+> > > > variable? How can that possibly be thread-safe? That may work in very
+> > > > restricted scenarios, but ...
+> > > 
+> > > Looking at "git blame" it seems the whole function is still from
+> > > linux-2.4. Looks like no-one ever noticed. I've sent a patchset fixing
+> > > it, thanks.
+> > 
+> > I was thinking you could use %pM, but it seems BT addresses are stored
+> > the wrong way around for some reason ...
 > 
-> Please, let me know how to proceed.
+> This looks like better idea then allocating buffers, we can use swap to
+> take care about "wrong order".
 
-Yes, please build a tree that compiles properly :-)
-
-The error is pretty trivial to reproduce, just "allmodconfig" like I
-do.
+https://lkml.org/lkml/2010/12/3/358
