@@ -1,100 +1,148 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH v2 00/17] netfilter: add namespace support for netfilter
- protos
-Date: Tue, 08 May 2012 08:53:56 +0800
-Message-ID: <4FA86EA4.6000903@cn.fujitsu.com>
-References: <1335519484-6089-1-git-send-email-gaofeng@cn.fujitsu.com> <20120507231955.GA5716@1984>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 0/2] extend sch_mqprio to distribute traffic
+ not only by ETS TC
+Date: Mon, 07 May 2012 17:54:16 -0700
+Message-ID: <4FA86EB8.2050006@intel.com>
+References: <1336287910-12010-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	serge.hallyn@canonical.com, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Oren Duer <oren@mellanox.com>, Liran Liss <liranl@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:26500 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755631Ab2EHAx0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 20:53:26 -0400
-In-Reply-To: <20120507231955.GA5716@1984>
+Received: from mga14.intel.com ([143.182.124.37]:64943 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756773Ab2EHAyR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 May 2012 20:54:17 -0400
+In-Reply-To: <1336287910-12010-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,Pablo
+On 5/6/2012 12:05 AM, Amir Vadai wrote:
+> This series comes to revive the discussion initiated on the thread "net:
+> support tx_ring per UP in HW based QoS mechanism" (see
+> http://marc.info/?t=133165957200004&r=1&w=2) with the major issue to be address
+> is - how should sk_prio<=>  TC be done, for both, tagged and untagged traffic.
+> Following is a staged description addressing the background, problem
+> description, current situation, suggestion for the change and implementation of
+> it.
 
-=E4=BA=8E 2012=E5=B9=B405=E6=9C=8808=E6=97=A5 07:19, Pablo Neira Ayuso =
-=E5=86=99=E9=81=93:
-> Hi,
->=20
-> On Fri, Apr 27, 2012 at 05:37:47PM +0800, Gao feng wrote:
->> Currently the sysctl of netfilter proto is not isolated, so when
->> changing proto's sysctl in container will cause the host's sysctl
->> be changed too. it's not expected.
->>
->> This patch set adds the namespace support for netfilter protos.
->>
->> impletement four pernet_operations to register sysctl and initial
->> pernet data for proto.
->>
->> -ipv4_net_ops is used to register tcp4(compat),
->>  udp4(compat),icmp(compat),ipv4(compat).
->> -ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
->> -sctp_net_ops is used to register sctp4(compat) and sctp6.
->> -udplite_net_ops is used to register udplite4 and udplite6
->>
->> extern l[3,4]proto (sysctl) register functions to make them support
->> namespace.
->>
->> finailly add namespace support for cttimeout.
->>
->> Gao feng (17):
->>   netfilter: add struct nf_proto_net for register l4proto sysctl
->>   netfilter: add namespace support for l4proto
->>   netfilter: add namespace support for l3proto
->>   netfilter: add namespace support for l4proto_generic
->>   netfilter: add namespace support for l4proto_tcp
->>   netfilter: add namespace support for l4proto_udp
->>   netfilter: add namespace support for l4proto_icmp
->>   netfilter: add namespace support for l4proto_icmpv6
->>   netfilter: add namespace support for l3proto_ipv4
->>   netfilter: add namespace support for l3proto_ipv6
->>   netfilter: add namespace support for l4proto_sctp
->>   netfilter: add namespace support for l4proto_udplite
->>   netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_registe=
-r
->>   netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_registe=
-r
->>   netfilter: cleanup sysctl for l4proto and l3proto
->>   netfilter: add namespace support for cttimeout
->>   netfilter: cttimeout use pernet data of l4proto
->=20
-> I've been having a look at this patchset several times since last
-> week. The logic that it follows to split changes into patches is not
-> correct. This breaks the compilation of my tree since patch 2 until
-> the entire patchset is applied.
->=20
-> This has to start by one patch that adds the basic infrastructure to
-> register the layer 3 and 4 conntrack timeout per-net support and it
-> prepares the per-protocol per-net support. This implies to
-> propagate the minimal set of changes to make sure it compiles, ie.
-> modify clients to use the new interface to register init_net.
->=20
-> Then, follow-up per-protocol patches that use the new infrastructure
-> implement the per-protocol support. All this without breaking the
-> compilation of my tree between patches.
+OK but the mqprio qdisc is only concerned with mapping skb->priority to
+queue sets I perhaps unfortunately called the queue sets tc's. Try not
+to get hung up on my perhaps limiting naming of variables and functions.
 
-Okay,I will fix this as you said,and do you have some comments about
-the logic of this patchset?
+mqprio is used outside of 802.1Q as well in these cases a traffic class
+is not usually even defined.
 
->=20
-> I'm all for fixing the existing unfinished container support for
-> Netfilter, but this needs to be done appropriately.
+> 
+> Background
+> ----------
+> Egress traffic has 3 layers of management to configure QoS attributes:
+> * Application - sets sk_prio
+>   * setsockopt() - application may set sk_prio using SO_PRIORITY or IP_TOS
+> * Host admin - sets sk_prio <=> UP
+>   * net_prio cgroup
 
-I'm happy to see this.
+net_prio cgroup is about setting skb->priority not really UP.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-d=
-evel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+>   * Egress map for tagged traffic
+> * Net admin - sets UP <=> TC + TC QoS attributes
+>   * lldpad
+> Commit 4f57c087de9 "net: implement mechanism for HW based QOS" introduced a
+> mechanism for lower layer devices to steer traffic using skb->priority to tx
+> queues.
+
+yep that was my first comment.
+
+> 
+> Problem
+> -------
+> How should sk_prio <=> TC be done, for both, tagged and untagged traffic?
+> 
+> Current situation
+> -----------------
+> * The network priority cgroup infrastructure commit 5bc1421e, introduced implicit
+>   assumption that sk_prio == UP.
+
+I don't think this is true at least this is not my perspective.
+
+The cgroup infrastructure in that commit sets the skb->priority. What you
+do with the priority and if you map it to a UP or qdisc classes or some
+other thing is up to the lower layers. In the DCBX context it eventually
+gets mapped to some queue sets but that is only one usage case.
+
+> * tc tool is used to map UP <=> TC for both tagged and untagged traffic.
+
+Yes. But this is just a display issue. If I was being more general I
+would have named this 'priority to queue set'. A bit short sighted
+on my part.
+
+> * egress map and lldptool and ignored when tc tool is being used.
+
+Agreed. And this creates a bit of a nuisance but I believe it can
+be resolved in user space. AFAIK all the interfaces needed are available.
+
+> * HW queue is per TC.
+> 
+> Suggestion
+> ----------
+> * sk_prio is an attribute controlled by the Application or cgroup.
+>   As used to be in tagged traffic
+
+This is the current usage correct?
+
+> * tc tool is used by the Host admin and sets sk_prio <=> UP for untagged
+>   traffic. The rest of the chain is UP <=> TC mapped by the Net admin (using
+>   DCBx netlink).
+
+This seems fine. But, what exactly is broken today? If you use the current
+mqprio qdisc and rename tc to queue_set then this works right?
+
+
+>   To keep backward compatibility, will have an option to set tc tool to
+>   compatabilty mode, in which, the old sk_prio <=> TC will be kept.
+> * Depending on HW, queue selection is by UP or by TC.
+> 
+> Implementation
+> --------------
+> Extended mqprio hw attribute:
+> * Bit 1: is queue offset/count owned by HW
+> * Bits 2-7: HW queueing type. 
+>   * 0 - by ETS TC
+>   * 1 - by UP
+> 
+> __skb_tx_hash() is now aware to the HW queuing type (pg_type): for pg_type
+> being ETS TC, traffic is distributed as it was before - tagged and untagged
+> packets are distributed by netdev_get_prio_tc_map. For pg_type being UP, tagged
+> and untagged packets are distributed by UP (taken from egress map for tagged
+> traffic, or netdev_get_prio_tc_map for untagged).
+
+I guess I don't see why we need this. If you keep the mqprio priority to
+queue set mapping set to 1:1. Then modify the egress map accordingly then
+this should work right?
+
+For example:
+
+If we want to map 8 802.1Q priority code points onto 4 traffic classes this
+should work,
+
+egress map: 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3      <-- vlan layer inserts correct tag
+mqprio up2tc: 0:0 1:1 2:2 3:3 4:4 5:5 6:6 7:7    <-- mqprio with unfortunate 'tc' name maps priority to queues
+dcbnl up2tc: 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3     <-- dcbx pushes up2tc mapping correctly
+
+We may need to fixup userspace tools some but I think the kernel mechanisms
+are in place.
+
+BTW I did think about this while implementing the existing code and decided
+that rather than create more if/else branches the case you are describing
+could be handled by independently controlling the priority to queue set mappings
+in mqprio and the egress map.
+
+Feel free to let me know where I went wrong or why this doesn't work on
+your hardware. I agree though we may need to fixup lldpad and maybe even
+'tc' some to get this to look correct in user space and get automagically
+setup correctly.
+
+Thanks,
+.John
