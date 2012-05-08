@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/4] netxen: added miniDIMM support in driver.
-Date: Tue, 08 May 2012 12:53:11 -0400 (EDT)
-Message-ID: <20120508.125311.1669426371305176333.davem@davemloft.net>
-References: <1336489288-22347-1-git-send-email-rajesh.borundia@qlogic.com>
-	<1336489288-22347-4-git-send-email-rajesh.borundia@qlogic.com>
+Subject: Re: [PATCH] ipv4: Fixed checkpatch warnings and errors
+Date: Tue, 08 May 2012 13:01:39 -0400 (EDT)
+Message-ID: <20120508.130139.515602646900287732.davem@davemloft.net>
+References: <1336474704-9366-1-git-send-email-cristian.chilipirea@gmail.com>
+	<4FA9382A.9090709@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	sony.chacko@qlogic.com, sucheta.chakraborty@qlogic.com
-To: rajesh.borundia@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59477 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757256Ab2EHQxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2012 12:53:14 -0400
-In-Reply-To: <1336489288-22347-4-git-send-email-rajesh.borundia@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cristian.chilipirea@gmail.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	daniel.baluta@gmail.com
+To: greearb@candelatech.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FA9382A.9090709@candelatech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Date: Tue, 8 May 2012 08:01:27 -0700
+From: Ben Greear <greearb@candelatech.com>
+Date: Tue, 08 May 2012 08:13:46 -0700
 
-> +static struct bin_attribute bin_attr_dimm = {
-> +	.attr = {.name = "dimm", .mode = (S_IRUGO | S_IWUSR)},
+> On 05/08/2012 03:58 AM, Cristian Chilipirea wrote:
+>> Fixed warnings and errors in af_inet.c.
+> 
+>>   #ifdef CONFIG_COMPAT
+>> -static int inet_compat_ioctl(struct socket *sock, unsigned int cmd,
+>> -unsigned long arg)
+>> +static int inet_compat_ioctl(struct socket *sock, unsigned int cmd,
+>> +		unsigned long arg)
+>>   {
+> 
+> That is so much worse than what was there before.
+> 
+> Lets stop useless checkpatch crap on existing code
+> unless it's really ugly.
 
-How about a space next to the braces?
+Agreed, this patch is terrible.
