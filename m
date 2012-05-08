@@ -1,36 +1,54 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: SO_TIMESTAMP on tcp sockets?
-Date: Mon, 7 May 2012 18:39:48 -0700
-Message-ID: <CALCETrVUjLz63uzr+UTf-G1jq9QDcX6Gf9D6AWK8_GmunsJGnw@mail.gmail.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 1/3] openvswitch: Add length check when retrieving
+	TCP flags.
+Date: Mon,  7 May 2012 18:51:23 -0700
+Message-ID: <1336441885-11085-2-git-send-email-jesse@nicira.com>
+References: <1336441885-11085-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:50666 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756623Ab2EHBkJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 21:40:09 -0400
-Received: by dady13 with SMTP id y13so1984294dad.19
-        for <netdev@vger.kernel.org>; Mon, 07 May 2012 18:40:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1336441885-11085-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I've been using SO_TIMESTAMPNS to good effect on udp sockets.  I'd
-like to do the same thing for tcp.  I realize that this is
-semantically strange [1], but I don't think there's a real issue for
-my use case.  We have very thin streams -- we are likely to process
-each incoming segment as it is received, and I want the most precise
-timestamp possible on each segment.
+When collecting TCP flags we check that the IP header indicates that
+a TCP header is present but not that the packet is actually long
+enough to contain the header.  This adds a check to prevent reading
+off the end of the packet.
 
-A simple approach (I think) would be for a recvmsg on a tcp socket
-with SO_TIMESTAMP(NS) to return at most one skb worth of data along
-with the timestamp associated with that skb.  This could be a little
-strange if multiple segments overlap or if lro is involved, but
-neither of those cases seems like a major problem.
+In practice, this is only likely to result in reading of bad data and
+not a crash due to the presence of struct skb_shared_info at the end
+of the packet.
 
-Is there any interest in something like this?
+Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+---
+ net/openvswitch/flow.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks,
-Andy
-
-[1] http://comments.gmane.org/gmane.linux.network/159574
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 1252c30..2a11ec2 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -183,7 +183,8 @@ void ovs_flow_used(struct sw_flow *flow, struct sk_buff *skb)
+ 	u8 tcp_flags = 0;
+ 
+ 	if (flow->key.eth.type == htons(ETH_P_IP) &&
+-	    flow->key.ip.proto == IPPROTO_TCP) {
++	    flow->key.ip.proto == IPPROTO_TCP &&
++	    likely(skb->len >= skb_transport_offset(skb) + sizeof(struct tcphdr))) {
+ 		u8 *tcp = (u8 *)tcp_hdr(skb);
+ 		tcp_flags = *(tcp + TCP_FLAGS_OFFSET) & TCP_FLAG_MASK;
+ 	}
+-- 
+1.7.9.5
