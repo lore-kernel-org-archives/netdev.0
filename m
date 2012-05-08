@@ -1,14 +1,14 @@
 From: pablo@netfilter.org
 Subject: [PATCH 04/25] netfilter: bridge: optionally set indev to vlan
-Date: Tue,  8 May 2012 09:49:33 +0200
-Message-ID: <1336463394-3119-5-git-send-email-pablo@netfilter.org>
+Date: Tue,  8 May 2012 09:49:34 +0200
+Message-ID: <1336463394-3119-6-git-send-email-pablo@netfilter.org>
 References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41141 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:41147 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754540Ab2EHHuY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753016Ab2EHHuY (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 8 May 2012 03:50:24 -0400
 In-Reply-To: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
