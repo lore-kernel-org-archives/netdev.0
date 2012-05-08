@@ -1,42 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 13/25] ipvs: remove check for IP_VS_CONN_F_SYNC from
- ip_vs_bind_dest
-Date: Mon, 07 May 2012 22:17:42 -0400 (EDT)
-Message-ID: <20120507.221742.778683822772023608.davem@davemloft.net>
-References: <1336436539-5880-14-git-send-email-pablo@netfilter.org>
-	<20120507.213607.2054696052002528963.davem@davemloft.net>
-	<alpine.LNX.2.01.1205080414470.19642@frira.vanv.qr>
+Subject: Re: [PATCH 0/8] ISDN patches for net-next
+Date: Mon, 07 May 2012 22:29:12 -0400 (EDT)
+Message-ID: <20120507.222912.1594023027707777260.davem@davemloft.net>
+References: <20120425-patch-gigaset-00.tilman@imap.cc>
+	<4FA867B1.9080003@imap.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jengelh@inai.de
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1205080414470.19642@frira.vanv.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org, hjlipp@web.de,
+	keil@b1-systems.de, i4ldeveloper@listserv.isdn4linux.de,
+	linux-kernel@vger.kernel.org
+To: tilman@imap.cc
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FA867B1.9080003@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@inai.de>
-Date: Tue, 8 May 2012 04:15:15 +0200 (CEST)
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Tue, 08 May 2012 02:24:17 +0200
 
-> On Tuesday 2012-05-08 03:36, David Miller wrote:
+> On 26.04.2012 01:02, /me wrote:
+>> here's a series of eight patches to the Kernel CAPI subsystem and
+>> the Gigaset driver. Please consider for application to net-next.
+>> The first three should also go into -stable and are tagged accordingly.
 > 
->>From: pablo@netfilter.org
->>Date: Tue,  8 May 2012 02:22:07 +0200
->>
->>> +		/* It is a normal connection, so modify the counters
->>> +		 * according to the flags, later the protocol can
->>> +		 * update them on state change */
->>
->>Rather:
->>
->>		/* It is a normal connection, so modify the counters
->>		 * according to the flags, later the protocol can
->>		 * update them on state change
->>		 */
-> 
-> Well, CodingStyle even says
+> Is there anything missing for these to be accepted into net-next?
+> Or should I just be patient?
 
-We've discussed this to death, subsystem maintainers can ask
-for whatever they want and this is what I've asked for for years.
+I'll take care of it, I just put them back into "under review" state
+in patchwork.
