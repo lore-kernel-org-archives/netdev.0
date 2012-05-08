@@ -1,26 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/25] [v3] netfilter updates for net-next (upcoming
- 3.5)
-Date: Tue, 08 May 2012 14:51:00 -0400 (EDT)
-Message-ID: <20120508.145100.1375355121119755193.davem@davemloft.net>
-References: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v4 1/2] vhost-net: fix handle_rx buffer size
+Date: Tue, 8 May 2012 22:27:33 +0300
+Message-ID: <20120508192732.GA28536@redhat.com>
+References: <1336121724-31902-1-git-send-email-basil.gor@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, openbsc@lists.osmocom.org
-To: pablo@netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Basil Gor <basil.gor@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60621 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754589Ab2EHSwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2012 14:52:11 -0400
-In-Reply-To: <1336502303-1722-1-git-send-email-pablo@netfilter.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55352 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755396Ab2EHT1c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 15:27:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1336121724-31902-1-git-send-email-basil.gor@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Tue,  8 May 2012 20:37:58 +0200
+On Fri, May 04, 2012 at 12:55:23PM +0400, Basil Gor wrote:
+> Take vlan header length into account, when vlan id is stored as
+> vlan_tci. Otherwise tagged packets comming from macvtap will be
+> truncated.
+> 
+> Signed-off-by: Basil Gor <basil.gor@gmail.com>
 
-> git://1984.lsi.us.es/net-next master
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Pulled, thanks.
+This doesn't fix packet socket backends but that can be
+handled separately later.
+
+Eric, ack?
+
+> ---
+>  drivers/vhost/net.c |    7 ++++++-
+>  1 files changed, 6 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 1f21d2a..5c17010 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -24,6 +24,7 @@
+>  #include <linux/if_arp.h>
+>  #include <linux/if_tun.h>
+>  #include <linux/if_macvlan.h>
+> +#include <linux/if_vlan.h>
+>  
+>  #include <net/sock.h>
+>  
+> @@ -283,8 +284,12 @@ static int peek_head_len(struct sock *sk)
+>  
+>  	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
+>  	head = skb_peek(&sk->sk_receive_queue);
+> -	if (likely(head))
+> +	if (likely(head)) {
+>  		len = head->len;
+> +		if (vlan_tx_tag_present(head))
+> +			len += VLAN_HLEN;
+> +	}
+> +
+>  	spin_unlock_irqrestore(&sk->sk_receive_queue.lock, flags);
+>  	return len;
+>  }
+> -- 
+> 1.7.6.5
