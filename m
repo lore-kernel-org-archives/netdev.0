@@ -1,79 +1,51 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: [PATCH] net: update the usage of
-	CHECKSUM_UNNECESSARY
-Date: Tue, 8 May 2012 19:20:58 +0100
-Message-ID: <1336501258.2749.3.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120319211241.11291.53271.stgit@localhost6.localdomain6>
- <20120508174831.GA27406@redhat.com>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: batostr() function
+Date: Tue, 8 May 2012 11:26:53 -0700
+Message-ID: <CAB=NE6VLbGkXfB+zCt_J3xpiUE7ThE2ynPpGZCGWCE+uE+7u_g@mail.gmail.com>
+References: <1336391383.4325.24.camel@jlt3.sipsolutions.net>
+ <CANq1E4QW4vSn_r9C=rirShE+-eyPjRX+b5tpC+mx69Hs6aEYqQ@mail.gmail.com>
+ <1336487108.4320.2.camel@jlt3.sipsolutions.net> <20120508143011.GD29352@aemeltch-MOBL1>
+ <1336497532.29640.24.camel@joe2Laptop> <1336499313.4320.4.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, devel-s9riP+hp16TNLxjTenLetw@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-In-Reply-To: <20120508174831.GA27406-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.open-fcoe.org/mailman/options/devel>,
- <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-fcoe.org/pipermail/devel>
-List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-fcoe.org/mailman/listinfo/devel>,
- <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Andrei Emeltchenko <andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Herrmann <dh.herrmann-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1336499313.4320.4.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-05-08 at 20:48 +0300, Michael S. Tsirkin wrote:
-> On Mon, Mar 19, 2012 at 02:12:41PM -0700, Yi Zou wrote:
-> > As suggested by Ben, this adds the clarification on the usage of
-> > CHECKSUM_UNNECESSARY on the outgoing patch. Also add the usage
-> > description of NETIF_F_FCOE_CRC and CHECKSUM_UNNECESSARY
-> > for the kernel FCoE protocol driver.
-> > 
-> > This is a follow-up to the following:
-> > http://patchwork.ozlabs.org/patch/147315/
-> > 
-> > Signed-off-by: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> > Cc: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-> > Cc: Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> > Cc: www.Open-FCoE.org <devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-> > ---
-> > 
-> >  include/linux/skbuff.h |    7 +++++++
-> >  1 files changed, 7 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> > index 8dc8257..a2b9953 100644
-> > --- a/include/linux/skbuff.h
-> > +++ b/include/linux/skbuff.h
-> > @@ -94,6 +94,13 @@
-> >   *			  about CHECKSUM_UNNECESSARY. 8)
-> >   *	NETIF_F_IPV6_CSUM about as dumb as the last one but does IPv6 instead.
-> >   *
-> > + *	UNNECESSARY: device will do per protocol specific csum. Protocol drivers
-> > + *	that do not want net to perform the checksum calculation should use
-> > + *	this flag in their outgoing skbs.
-> > + *	NETIF_F_FCOE_CRC  this indicates the device can do FCoE FC CRC
-> > + *			  offload. Correspondingly, the FCoE protocol driver
-> > + *			  stack should use CHECKSUM_UNNECESSARY.
-> > + *
-> >   *	Any questions? No questions, good. 		--ANK
-> >   */
-> >  
-> 
-> So just to make sure I understand, you never get
-> UNNECESSARY packets on tx unless you declared NETIF_F_FCOE_CRC?
-> 
-> Maybe the comment says this somehow but could not figure it out.
+On Tue, May 8, 2012 at 10:48 AM, Johannes Berg
+<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Tue, 2012-05-08 at 10:18 -0700, Joe Perches wrote:
+>> On Tue, 2012-05-08 at 17:30 +0300, Andrei Emeltchenko wrote:
+>> > On Tue, May 08, 2012 at 04:25:08PM +0200, Johannes Berg wrote:
+>> > > On Tue, 2012-05-08 at 15:30 +0200, David Herrmann wrote:
+>> > > > Hi Johannes
+>> > > >
+>> > > > On Mon, May 7, 2012 at 1:49 PM, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+>> > > > > Really? 2 static buffers that are used alternately based on a static
+>> > > > > variable? How can that possibly be thread-safe? That may work in very
+>> > > > > restricted scenarios, but ...
+>> > > >
+>> > > > Looking at "git blame" it seems the whole function is still from
+>> > > > linux-2.4. Looks like no-one ever noticed. I've sent a patchset fixing
+>> > > > it, thanks.
+>> > >
+>> > > I was thinking you could use %pM, but it seems BT addresses are stored
+>> > > the wrong way around for some reason ...
+>> >
+>> > This looks like better idea then allocating buffers, we can use swap to
+>> > take care about "wrong order".
+>>
+>> https://lkml.org/lkml/2010/12/3/358
+>
+> Pretty much what I had in mind, thanks. Luis, you'll notice that this
+> will be a pain to backport in compat. :-)
 
-That's what should happen now.  In future CHECKSUM_UNNECESSARY could be
-used on output by other protocols which don't use TCP/IP-style
-checksums, but always dependent on the output device supporting the
-relevant offload feature.
+Mumble grumble. Oh well! :) I'm starting to enjoy the curve balls.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+  Luis
