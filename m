@@ -1,30 +1,34 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 13/25] ipvs: remove check for IP_VS_CONN_F_SYNC from
- ip_vs_bind_dest
-Date: Tue, 8 May 2012 12:15:47 +0900
-Message-ID: <20120508031545.GB9027@verge.net.au>
-References: <1336436539-5880-14-git-send-email-pablo@netfilter.org>
- <20120507.213607.2054696052002528963.davem@davemloft.net>
- <20120508020843.GA9027@verge.net.au>
- <20120507.221617.296952751857969791.davem@davemloft.net>
+From: Dong Aisheng <aisheng.dong@freescale.com>
+Subject: Re: [PATCH RESEND 2/5] net: fec: adopt pinctrl support
+Date: Tue, 8 May 2012 11:44:32 +0800
+Message-ID: <20120508034431.GG23607@shlinux2.ap.freescale.net>
+References: <1336352040-28447-1-git-send-email-shawn.guo@linaro.org>
+ <1336352040-28447-3-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Olof Johansson <olof@lixom.net>,
+	Dong Aisheng <dong.aisheng@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:51120 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757686Ab2EHDhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 23:37:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20120507.221617.296952751857969791.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1336352040-28447-3-git-send-email-shawn.guo@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 07, 2012 at 10:16:17PM -0400, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Tue, 8 May 2012 11:08:44 +0900
-> 
-> > can I fix this up as a subsequent patch?
-> 
-> Pablo's tree needs to get respun to address the other feedback
-> I gave, so no reason for him or you to not fix this as well.
+On Mon, May 07, 2012 at 08:53:57AM +0800, Shawn Guo wrote:
+> Cc: netdev@vger.kernel.org
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
 
-Understood.
+Acked-by: Dong Aisheng <dong.aisheng@linaro.org>
+
+Regards
+Dong Aisheng
