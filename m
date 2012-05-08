@@ -1,43 +1,74 @@
-From: pablo@netfilter.org
-Subject: [PATCH 06/25] ipvs: LBLC scheduler does not need GFP_ATOMIC allocation on init
-Date: Tue,  8 May 2012 09:49:36 +0200
-Message-ID: <1336463394-3119-8-git-send-email-pablo@netfilter.org>
-References: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [README] net --> net-next merge
+Date: Tue, 08 May 2012 02:02:40 -0700
+Message-ID: <1336467760.2442.4.camel@jtkirshe-mobl>
+References: <20120507.234113.2269441747611427613.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-IFRHzOApuYw1bQWECPQZ"
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	linville@tuxdriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41154 "EHLO mail.us.es"
+Received: from mga01.intel.com ([192.55.52.88]:58646 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755900Ab2EHHuZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 03:50:25 -0400
-In-Reply-To: <1336463394-3119-1-git-send-email-pablo@netfilter.org>
+	id S1751097Ab2EHJC4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 05:02:56 -0400
+In-Reply-To: <20120507.234113.2269441747611427613.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
 
-	Schedulers are initialized and bound to services only
-on commands.
+--=-IFRHzOApuYw1bQWECPQZ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_lblc.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Mon, 2012-05-07 at 23:41 -0400, David Miller wrote:
+> I just merged net into net-next, there were two major conflicts.
+>=20
+> 1) The known iwlwifi conflict due to the skb->truesize bug fix in
+>    'net'.
+>=20
+>    I used the conflict resolution posted by John and later by Stephen
+>    when he resolved it for -next.
+>=20
+>    John, please double-check my work.
+>=20
+> 2) drivers/net/ethernet/intel/e1000e/param.c got a conflict in
+>    the code which validates adapter->itr settings.
+>=20
+>    The net-next side looked more sophisticated so that's what I
+>    used.
+>=20
+>    Jeff, please double-check and send me fixup patches if necessary.
+>=20
+> Thanks.
 
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index 27c24f1..7ba1672 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -342,7 +342,7 @@ static int ip_vs_lblc_init_svc(struct ip_vs_service *svc)
- 	/*
- 	 *    Allocate the ip_vs_lblc_table for this service
- 	 */
--	tbl = kmalloc(sizeof(*tbl), GFP_ATOMIC);
-+	tbl = kmalloc(sizeof(*tbl), GFP_KERNEL);
- 	if (tbl == NULL)
- 		return -ENOMEM;
- 
--- 
-1.7.9.5
+Yeah, I will need to send a fixup patch.  I have something for you later
+today.  Thanks Dave!
+
+--=-IFRHzOApuYw1bQWECPQZ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJPqOEwAAoJEOVv75VaS+3OPmQQAIO8kFFmrjGqQPHVpROnhp3h
+nkCLe3l60pJYIXsZbQ5DXiFgHEKc+3d8u0Lzihd8FmE+baKd3JA0IrvoL5zPYUmO
+6Z6oEvUDZteD9dprlF7iPT5Vi8mOpwYLJJ+iVSkBbWC/DRE8BS1X4Ia+LFCdQywP
+Vwsvk93C7dTVqgYbMmUifvaIt6GA6PKOsL43fr7jdTEiRR5L2spFwlBSmUg0U2Rw
+9klWlAqTjFpJm+HdoeplgBDG6k4/1t8VZ/KIsOCy32CFH7us0x7AjHLDrC8cWLGe
+lciD3KwhSUKpQWSgM3t8AoI40kKbzsnO/e9jhyCP6TRXAr0lVN4jbXZJTSm+bWEt
+ShuiP/T4zcGLxRDtbsLTe0XYPCFy1/D/BLuHEPzfVmsN2Z55HEGkfhh+xjvkDoUy
+X4Xn4GzicsYfVQD4El5oLrGdC3ny9ikydivG/vZugEgJf/bsR/n/xBsSmkLoup2l
++ov1J3WSIhbwey8qA0sCWnecfNnGKE5z922QEo12N7LnsJYokZfdyKzfpmxWZmqk
+PkP+Jg1ORPQwSrJg1B2S/erV28/DgG3+h3XARAy5dqMKttt3OtBWw7qlqr1Amt6j
+uNIPgDVE6x6hkbRioo75t29a/TzP0k7qOBlv+3bzYTtR+Ih4S8JH4t3FqGrgs7IQ
+6Zlqig7legOobmzPym/J
+=26qQ
+-----END PGP SIGNATURE-----
+
+--=-IFRHzOApuYw1bQWECPQZ--
