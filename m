@@ -1,53 +1,69 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: batostr() function
-Date: Tue, 08 May 2012 19:48:33 +0200
-Message-ID: <1336499313.4320.4.camel@jlt3.sipsolutions.net>
-References: <1336391383.4325.24.camel@jlt3.sipsolutions.net>
-	 <CANq1E4QW4vSn_r9C=rirShE+-eyPjRX+b5tpC+mx69Hs6aEYqQ@mail.gmail.com>
-	 <1336487108.4320.2.camel@jlt3.sipsolutions.net>
-	 <20120508143011.GD29352@aemeltch-MOBL1>
-	 <1336497532.29640.24.camel@joe2Laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net: update the usage of CHECKSUM_UNNECESSARY
+Date: Tue, 8 May 2012 20:48:32 +0300
+Message-ID: <20120508174831.GA27406@redhat.com>
+References: <20120319211241.11291.53271.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>,
-	David Herrmann <dh.herrmann@googlemail.com>,
-	linux-bluetooth@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devel@open-fcoe.org,
+	bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com
+To: Yi Zou <yi.zou@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:41480 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276Ab2EHRsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2012 13:48:36 -0400
-In-Reply-To: <1336497532.29640.24.camel@joe2Laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:54489 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751184Ab2EHRsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 May 2012 13:48:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20120319211241.11291.53271.stgit@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-08 at 10:18 -0700, Joe Perches wrote:
-> On Tue, 2012-05-08 at 17:30 +0300, Andrei Emeltchenko wrote:
-> > On Tue, May 08, 2012 at 04:25:08PM +0200, Johannes Berg wrote:
-> > > On Tue, 2012-05-08 at 15:30 +0200, David Herrmann wrote:
-> > > > Hi Johannes
-> > > > 
-> > > > On Mon, May 7, 2012 at 1:49 PM, Johannes Berg <johannes@sipsolutions.net> wrote:
-> > > > > Really? 2 static buffers that are used alternately based on a static
-> > > > > variable? How can that possibly be thread-safe? That may work in very
-> > > > > restricted scenarios, but ...
-> > > > 
-> > > > Looking at "git blame" it seems the whole function is still from
-> > > > linux-2.4. Looks like no-one ever noticed. I've sent a patchset fixing
-> > > > it, thanks.
-> > > 
-> > > I was thinking you could use %pM, but it seems BT addresses are stored
-> > > the wrong way around for some reason ...
-> > 
-> > This looks like better idea then allocating buffers, we can use swap to
-> > take care about "wrong order".
+On Mon, Mar 19, 2012 at 02:12:41PM -0700, Yi Zou wrote:
+> As suggested by Ben, this adds the clarification on the usage of
+> CHECKSUM_UNNECESSARY on the outgoing patch. Also add the usage
+> description of NETIF_F_FCOE_CRC and CHECKSUM_UNNECESSARY
+> for the kernel FCoE protocol driver.
 > 
-> https://lkml.org/lkml/2010/12/3/358
+> This is a follow-up to the following:
+> http://patchwork.ozlabs.org/patch/147315/
+> 
+> Signed-off-by: Yi Zou <yi.zou@intel.com>
+> Cc: Ben Hutchings <bhutchings@solarflare.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: www.Open-FCoE.org <devel@open-fcoe.org>
+> ---
+> 
+>  include/linux/skbuff.h |    7 +++++++
+>  1 files changed, 7 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 8dc8257..a2b9953 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -94,6 +94,13 @@
+>   *			  about CHECKSUM_UNNECESSARY. 8)
+>   *	NETIF_F_IPV6_CSUM about as dumb as the last one but does IPv6 instead.
+>   *
+> + *	UNNECESSARY: device will do per protocol specific csum. Protocol drivers
+> + *	that do not want net to perform the checksum calculation should use
+> + *	this flag in their outgoing skbs.
+> + *	NETIF_F_FCOE_CRC  this indicates the device can do FCoE FC CRC
+> + *			  offload. Correspondingly, the FCoE protocol driver
+> + *			  stack should use CHECKSUM_UNNECESSARY.
+> + *
+>   *	Any questions? No questions, good. 		--ANK
+>   */
+>  
 
-Pretty much what I had in mind, thanks. Luis, you'll notice that this
-will be a pain to backport in compat. :-)
+So just to make sure I understand, you never get
+UNNECESSARY packets on tx unless you declared NETIF_F_FCOE_CRC?
 
-johannes
+Maybe the comment says this somehow but could not figure it out.
+
+
+
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
