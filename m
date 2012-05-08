@@ -1,34 +1,38 @@
-From: Dong Aisheng <aisheng.dong@freescale.com>
-Subject: Re: [PATCH RESEND 2/5] net: fec: adopt pinctrl support
-Date: Tue, 8 May 2012 11:44:32 +0800
-Message-ID: <20120508034431.GG23607@shlinux2.ap.freescale.net>
-References: <1336352040-28447-1-git-send-email-shawn.guo@linaro.org>
- <1336352040-28447-3-git-send-email-shawn.guo@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: [README] net --> net-next merge
+Date: Mon, 07 May 2012 23:41:13 -0400 (EDT)
+Message-ID: <20120507.234113.2269441747611427613.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Olof Johansson <olof@lixom.net>,
-	Dong Aisheng <dong.aisheng@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Shawn Guo <shawn.guo@linaro.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, linville@tuxdriver.com,
+	jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:51120 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757686Ab2EHDhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 23:37:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1336352040-28447-3-git-send-email-shawn.guo@linaro.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54111 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757751Ab2EHDo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 May 2012 23:44:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 07, 2012 at 08:53:57AM +0800, Shawn Guo wrote:
-> Cc: netdev@vger.kernel.org
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
 
-Acked-by: Dong Aisheng <dong.aisheng@linaro.org>
+I just merged net into net-next, there were two major conflicts.
 
-Regards
-Dong Aisheng
+1) The known iwlwifi conflict due to the skb->truesize bug fix in
+   'net'.
+
+   I used the conflict resolution posted by John and later by Stephen
+   when he resolved it for -next.
+
+   John, please double-check my work.
+
+2) drivers/net/ethernet/intel/e1000e/param.c got a conflict in
+   the code which validates adapter->itr settings.
+
+   The net-next side looked more sophisticated so that's what I
+   used.
+
+   Jeff, please double-check and send me fixup patches if necessary.
+
+Thanks.
