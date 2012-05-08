@@ -1,67 +1,38 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 0/6] copy aside frags with destructors (was [PATCH
- 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
-Date: Tue, 8 May 2012 17:49:07 +0300
-Message-ID: <20120508144906.GA24510@redhat.com>
-References: <cover.1336397823.git.mst@redhat.com>
- <20120508094114.GA14694@redhat.com>
- <1336474451.14542.63.camel@zakaz.uk.xensource.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] ipv4: Fixed checkpatch warnings and errors
+Date: Tue, 08 May 2012 08:13:46 -0700
+Message-ID: <4FA9382A.9090709@candelatech.com>
+References: <1336474704-9366-1-git-send-email-cristian.chilipirea@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37551 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754689Ab2EHOtG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 May 2012 10:49:06 -0400
-Content-Disposition: inline
-In-Reply-To: <1336474451.14542.63.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, daniel.baluta@gmail.com
+To: Cristian Chilipirea <cristian.chilipirea@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1336474704-9366-1-git-send-email-cristian.chilipirea@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 08, 2012 at 11:54:11AM +0100, Ian Campbell wrote:
-> On Tue, 2012-05-08 at 10:41 +0100, Michael S. Tsirkin wrote:
-> > On Mon, May 07, 2012 at 04:53:46PM +0300, Michael S. Tsirkin wrote:
-> > > > > > But I fear we're about to toss Ian into yet another rabbit hole. :-)
-> > > > > > 
-> > > > > > Let's try to converge on something quickly as I think integration of
-> > > > > > his work has been delayed enough as-is.
-> > 
-> > ...
-> > 
-> > > Here's a first stub at a fix. Basically to be able to modify frags on
-> > > the fly we must make sure the skb isn't cloned, so the moment someone
-> > > clones the skb we need to trigger the frag copy logic.  And this is
-> > > exactly what happens with SKBTX_DEV_ZEROCOPY so it seems to make sense
-> > > to reuse that logic.
-> > > 
-> > > The below patchset replaces patch 7
-> > > ([PATCH 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
-> > > in Ian's patchset and needs to be applied there.
-> > > 
-> > > 
-> > > Compiled only but I'd like to hear what people think all the same
-> > > because it does add a couple of branches on fast path.  On the other
-> > > hand this makes it generic so the same logic will be reusable for packet
-> > > sockets (which IIRC are currently buggy in the same way as sunrpc) and
-> > > for adding zero copy support to tun.
-> > > 
-> > > Please comment,
-> > > Thanks!
-> > 
-> > Ian, just to stress, need your ack that this does what you wanted.
-> 
-> Sure, yesterday was a public holiday and today looks likely to be crazy
-> busy. I'll try and have a look later in the week.
-> 
-> Ian.
-> 
+On 05/08/2012 03:58 AM, Cristian Chilipirea wrote:
+> Fixed warnings and errors in af_inet.c.
 
-In case you or anyone else has cycles to test this, here's the
-updated tree, net-next based - so far I verified that it builds and boots
-and regular networking works, but didn't test nfs yet.
+>   #ifdef CONFIG_COMPAT
+> -static int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+> +static int inet_compat_ioctl(struct socket *sock, unsigned int cmd,
+> +		unsigned long arg)
+>   {
 
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git refs/heads/zerocopy
+That is so much worse than what was there before.
+
+Lets stop useless checkpatch crap on existing code
+unless it's really ugly.
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
