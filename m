@@ -1,51 +1,85 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] net: orphan queued skbs if device tx can stall
-Date: Tue, 8 May 2012 22:50:30 +0300
-Message-ID: <20120508195029.GA29111@redhat.com>
-References: <20120408171323.GA16012@redhat.com>
- <1334044558.3126.5.camel@edumazet-glaptop>
- <20120410084151.GA27193@redhat.com>
- <1334048100.3126.21.camel@edumazet-glaptop>
- <20120410093140.GA27651@redhat.com>
- <1334052259.3126.68.camel@edumazet-glaptop>
- <20120410112459.GA28825@redhat.com>
- <1334058300.3126.99.camel@edumazet-glaptop>
- <20120410124151.GA29808@redhat.com>
- <1334065929.5300.40.camel@edumazet-glaptop>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: SO_TIMESTAMP on tcp sockets?
+Date: Tue, 8 May 2012 14:35:14 -0700
+Message-ID: <CALCETrUeBhH8irvZmpYPdjnnLwTfaLTEgU6g_m+r=82iLcREpw@mail.gmail.com>
+References: <CALCETrVUjLz63uzr+UTf-G1jq9QDcX6Gf9D6AWK8_GmunsJGnw@mail.gmail.com>
+ <1336451831.3752.2373.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1334065929.5300.40.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:34237 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751445Ab2EHVff convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2012 17:35:35 -0400
+Received: by pbbrp8 with SMTP id rp8so8555375pbb.19
+        for <netdev@vger.kernel.org>; Tue, 08 May 2012 14:35:35 -0700 (PDT)
+In-Reply-To: <1336451831.3752.2373.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 10, 2012 at 03:52:09PM +0200, Eric Dumazet wrote:
-> With following patch, no more qdisc on top of tun device,
+On Mon, May 7, 2012 at 9:37 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> On Mon, 2012-05-07 at 18:39 -0700, Andy Lutomirski wrote:
+>> I've been using SO_TIMESTAMPNS to good effect on udp sockets. =A0I'd
+>> like to do the same thing for tcp. =A0I realize that this is
+>> semantically strange [1], but I don't think there's a real issue for
+>> my use case. =A0We have very thin streams -- we are likely to proces=
+s
+>> each incoming segment as it is received, and I want the most precise
+>> timestamp possible on each segment.
+>>
+>> A simple approach (I think) would be for a recvmsg on a tcp socket
+>> with SO_TIMESTAMP(NS) to return at most one skb worth of data along
+>> with the timestamp associated with that skb. =A0This could be a litt=
+le
+>> strange if multiple segments overlap or if lro is involved, but
+>> neither of those cases seems like a major problem.
+>>
+>> Is there any interest in something like this?
+>>
+>
+> LRO/GRO is not really a problem, buffers are merged because they are
+> received in a very short time period. If you want nanosec timestampin=
+g
+> on TCP, just cancel the whole idea.
+>
+> TCP can 'collapse' several buffers onto single ones (to reduce memory
+> overhead). Which timestamp would be chosen at collapse time ?
+>
+> net-next also has tcp coalescing, wich also merge buffers as soon as
+> they enter receive or ofo queue.
 
-I'm not sure killing qdisc is a right direction.
-I think tun queue is currently oversized but I
-also think we would benefit from a smart queue
-management. As it is if tun user gets delayed,
-stale packets accumulate in the queue and there's
-no way to get rid of them without ploughing through
-the backlog.
+Hmm.  Here are two possibilities:
 
-In a sense we don't really need the queue in tun at all,
-the only reason we have it at all, is to make code simpler.
-We could thinkably move skbs from qdisc directly to userspace.
+1. When timestamping is on, turn off all coalescing on that socket.
+Throughput starts to suck, but at least for my use case this is
+irrelevant.
 
--- 
-MST
+2. Instead of timestamping when a given piece of data arrived,
+timestamp when the socket last became readable in the POLLIN sense.
+Return the answer as ancillary data on the first recvmsg after the
+socket becomes readable.  This would be enough for my purposes.
+(Basically, I want to be able to correlate my receives with pcap data,
+at least in the common case, and I also want to be able to estimate
+latency between the network interrupt and my app handling the data.
+The phy timestamp would be even better, but that's not supported on my
+hardware.)
+
+>
+> Another problem with SO_TIMESTAMPNS is it globally enables time stamp=
+ing
+> on all skbs on the host, adding some latencies. (ktime_get() can be
+> slowed down when time keeping triggers and hold xtime seqlock)
+>
+>
+
+This doesn't bother me too much -- I'm already paying that cost.  In
+any case, it should be mostly fixable by taking the xtime lock for
+write a lot less often than we do now.  Getting the time (via vdso,
+which is probably much better optimized than ktime_get) takes about
+15ns on my machine.
+
+--Andy
