@@ -1,38 +1,19 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] ipv4: Fixed checkpatch warnings and errors
-Date: Tue, 08 May 2012 08:13:46 -0700
-Message-ID: <4FA9382A.9090709@candelatech.com>
-References: <1336474704-9366-1-git-send-email-cristian.chilipirea@gmail.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH 0/4] netxen: Fixes
+Date: Tue, 8 May 2012 08:01:24 -0700
+Message-ID: <1336489288-22347-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, daniel.baluta@gmail.com
-To: Cristian Chilipirea <cristian.chilipirea@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1336474704-9366-1-git-send-email-cristian.chilipirea@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from am1ehsobe003.messaging.microsoft.com ([213.199.154.206]:50342
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755949Ab2EHPRi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 May 2012 11:17:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/08/2012 03:58 AM, Cristian Chilipirea wrote:
-> Fixed warnings and errors in af_inet.c.
-
->   #ifdef CONFIG_COMPAT
-> -static int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
-> +static int inet_compat_ioctl(struct socket *sock, unsigned int cmd,
-> +		unsigned long arg)
->   {
-
-That is so much worse than what was there before.
-
-Lets stop useless checkpatch crap on existing code
-unless it's really ugly.
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Please apply it to net-next.
