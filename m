@@ -1,43 +1,68 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 1/3] netdev/of/phy: New function: of_mdio_find_bus().
-Date: Mon, 07 May 2012 22:58:42 -0400 (EDT)
-Message-ID: <20120507.225842.692131427998127266.davem@davemloft.net>
-References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com>
-        <1336007799-31016-2-git-send-email-ddaney.cavm@gmail.com>
+Subject: Re: [PATCH] [IPV6] remove sysctl accept_source_route
+Date: Mon, 07 May 2012 22:56:31 -0400 (EDT)
+Message-ID: <20120507.225631.1240115443298845028.davem@davemloft.net>
+References: <1335695830-19176-1-git-send-email-eldad@fogrefinery.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, grant.likely@secretlab.ca,
-        rob.herring@calxeda.com, devicetree-discuss@lists.ozlabs.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mips@linux-mips.org, afleming@gmail.com,
-        galak@kernel.crashing.org, david.daney@cavium.com
-To: ddaney.cavm@gmail.com
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1336007799-31016-2-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: eldad@fogrefinery.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1335695830-19176-1-git-send-email-eldad@fogrefinery.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Wed,  2 May 2012 18:16:37 -0700
+From: Eldad Zack <eldad@fogrefinery.com>
+Date: Sun, 29 Apr 2012 12:37:10 +0200
 
-> From: David Daney <david.daney@cavium.com>
+> The only place where the accpet_source_route flag is checked is when we
+> are processing the type 2 routing header. In that case we only allow it if
+> it (1) has only segments left = 1 and (2) if it matches our home address,
+> which is the behavior required by RFC 6275 (see sections 8.5, 11.3.3), and
+> it doesn't make sense to block rh2 when we're a mobile node.
 > 
-> Add of_mdio_find_bus() which allows an mii_bus to be located given its
-> associated the device tree node.
-> 
-> This is needed by the follow-on patch to add a driver for MDIO bus
-> multiplexers.
-> 
-> The of_mdiobus_register() function is modified so that the device tree
-> node is recorded in the mii_bus.  Then we can find it again by
-> iterating over all mdio_bus_class devices.
-> 
-> Because the OF device tree has now become an integral part of the
-> kernel, this can live in mdio_bus.c (which contains the needed
-> mdio_bus_class structure) instead of of_mdio.c.
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
+> Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
 
-Applied.
+Considering commits:
+
+commit c382bb9d32a55029fb13b118858e25908fab4617
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Tue Jul 10 22:47:58 2007 -0700
+
+    [IPV6]: Restore semantics of Routing Header processing.
+    
+    The "fix" for emerging security threat was overkill and it broke
+    basic semantic of IPv6 routing header processing.  We should assume
+    RT0 (or even RT2, depends on configuration) as "unknown" RH type so
+    that we
+    - silently ignore the routing header if segleft == 0
+    - send ICMPv6 Parameter Problem message back to the sender,
+      otherwise.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+and:
+
+commit bb4dbf9e61d0801927e7df2569bb3dd8287ea301
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Tue Jul 10 22:55:49 2007 -0700
+
+    [IPV6]: Do not send RH0 anymore.
+    
+    Based on <draft-ietf-ipv6-deprecate-rh0-00.txt>.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+the current behavior seems very much intentional.
+
+Secondly, we cannot just delete sysctls like this, if someone
+depends upon whatever current behavior is we will break them.
+
+Therefore, on either account, I cannot apply this patch.
+
+Sorry.
