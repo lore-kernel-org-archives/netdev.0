@@ -1,17 +1,17 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 07/14] batman-adv: split neigh_new function into generic and batman iv specific parts
-Date: Wed,  9 May 2012 13:12:49 +0200
-Message-ID: <1336561976-16088-8-git-send-email-ordex@autistici.org>
+Subject: [PATCH 10/14] batman-adv: rename sysfs macros to reflect the soft-interface dependency
+Date: Wed,  9 May 2012 13:12:52 +0200
+Message-ID: <1336561976-16088-11-git-send-email-ordex@autistici.org>
 References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:52734 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:52797 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757745Ab2EILMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:42 -0400
+	with ESMTP id S1757955Ab2EILMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:47 -0400
 In-Reply-To: <1336561976-16088-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,145 +19,123 @@ List-ID: <netdev.vger.kernel.org>
 From: Marek Lindner <lindner_marek@yahoo.de>
 
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c |   40 ++++++++++++++++++++++++++++++++++------
- net/batman-adv/originator.c |   27 ++++++++++-----------------
- net/batman-adv/originator.h |    6 ++----
- 3 files changed, 46 insertions(+), 27 deletions(-)
+ net/batman-adv/bat_sysfs.c |   57 ++++++++++++++++++++++----------------------
+ 1 file changed, 29 insertions(+), 28 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 8652a75..4baabf9 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -30,6 +30,32 @@
- #include "send.h"
- #include "bat_algo.h"
+diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
+index 2c81688..913299d 100644
+--- a/net/batman-adv/bat_sysfs.c
++++ b/net/batman-adv/bat_sysfs.c
+@@ -63,7 +63,7 @@ struct bat_attribute bat_attr_##_name = {	\
+ 	.store  = _store,			\
+ };
  
-+static struct neigh_node *bat_iv_ogm_neigh_new(struct hard_iface *hard_iface,
-+					       const uint8_t *neigh_addr,
-+					       struct orig_node *orig_node,
-+					       struct orig_node *orig_neigh,
-+					       uint32_t seqno)
-+{
-+	struct neigh_node *neigh_node;
-+
-+	neigh_node = neigh_node_new(hard_iface, neigh_addr, seqno);
-+	if (!neigh_node)
-+		goto out;
-+
-+	INIT_LIST_HEAD(&neigh_node->bonding_list);
-+	spin_lock_init(&neigh_node->tq_lock);
-+
-+	neigh_node->orig_node = orig_neigh;
-+	neigh_node->if_incoming = hard_iface;
-+
-+	spin_lock_bh(&orig_node->neigh_list_lock);
-+	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
-+	spin_unlock_bh(&orig_node->neigh_list_lock);
-+
-+out:
-+	return neigh_node;
-+}
-+
- static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
- {
- 	struct batman_ogm_packet *batman_ogm_packet;
-@@ -638,8 +664,9 @@ static void bat_iv_ogm_orig_update(struct bat_priv *bat_priv,
- 		if (!orig_tmp)
- 			goto unlock;
- 
--		neigh_node = create_neighbor(orig_node, orig_tmp,
--					     ethhdr->h_source, if_incoming);
-+		neigh_node = bat_iv_ogm_neigh_new(if_incoming, ethhdr->h_source,
-+						  orig_node, orig_tmp,
-+						  batman_ogm_packet->seqno);
- 
- 		orig_node_free_ref(orig_tmp);
- 		if (!neigh_node)
-@@ -764,10 +791,11 @@ static int bat_iv_ogm_calc_tq(struct orig_node *orig_node,
- 	rcu_read_unlock();
- 
- 	if (!neigh_node)
--		neigh_node = create_neighbor(orig_neigh_node,
--					     orig_neigh_node,
--					     orig_neigh_node->orig,
--					     if_incoming);
-+		neigh_node = bat_iv_ogm_neigh_new(if_incoming,
-+						  orig_neigh_node->orig,
-+						  orig_neigh_node,
-+						  orig_neigh_node,
-+						  batman_ogm_packet->seqno);
- 
- 	if (!neigh_node)
- 		goto out;
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 962636b..1bcc9c5 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -85,35 +85,28 @@ struct neigh_node *orig_node_get_router(struct orig_node *orig_node)
- 	return router;
+-#define BAT_ATTR_STORE_BOOL(_name, _post_func)				\
++#define BAT_ATTR_SIF_STORE_BOOL(_name, _post_func)			\
+ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
+ 		      char *buff, size_t count)				\
+ {									\
+@@ -73,9 +73,9 @@ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
+ 				 &bat_priv->_name, net_dev);		\
  }
  
--struct neigh_node *create_neighbor(struct orig_node *orig_node,
--				   struct orig_node *orig_neigh_node,
--				   const uint8_t *neigh,
--				   struct hard_iface *if_incoming)
-+struct neigh_node *neigh_node_new(struct hard_iface *hard_iface,
-+				  const uint8_t *neigh_addr, uint32_t seqno)
- {
--	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
-+	struct bat_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
- 	struct neigh_node *neigh_node;
+-#define BAT_ATTR_SHOW_BOOL(_name)					\
+-ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
+-			    char *buff)					\
++#define BAT_ATTR_SIF_SHOW_BOOL(_name)					\
++ssize_t show_##_name(struct kobject *kobj,				\
++		     struct attribute *attr, char *buff)		\
+ {									\
+ 	struct bat_priv *bat_priv = kobj_to_batpriv(kobj);		\
+ 	return sprintf(buff, "%s\n",					\
+@@ -83,16 +83,17 @@ ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
+ 		       "disabled" : "enabled");				\
+ }									\
  
--	bat_dbg(DBG_BATMAN, bat_priv,
--		"Creating new last-hop neighbor of originator\n");
--
- 	neigh_node = kzalloc(sizeof(*neigh_node), GFP_ATOMIC);
- 	if (!neigh_node)
--		return NULL;
-+		goto out;
+-/* Use this, if you are going to turn a [name] in bat_priv on or off */
+-#define BAT_ATTR_BOOL(_name, _mode, _post_func)				\
+-	static BAT_ATTR_STORE_BOOL(_name, _post_func)			\
+-	static BAT_ATTR_SHOW_BOOL(_name)				\
++/* Use this, if you are going to turn a [name] in the soft-interface
++ * (bat_priv) on or off */
++#define BAT_ATTR_SIF_BOOL(_name, _mode, _post_func)			\
++	static BAT_ATTR_SIF_STORE_BOOL(_name, _post_func)		\
++	static BAT_ATTR_SIF_SHOW_BOOL(_name)				\
+ 	static BAT_ATTR(_name, _mode, show_##_name, store_##_name)
  
- 	INIT_HLIST_NODE(&neigh_node->list);
--	INIT_LIST_HEAD(&neigh_node->bonding_list);
--	spin_lock_init(&neigh_node->tq_lock);
  
--	memcpy(neigh_node->addr, neigh, ETH_ALEN);
--	neigh_node->orig_node = orig_neigh_node;
--	neigh_node->if_incoming = if_incoming;
-+	memcpy(neigh_node->addr, neigh_addr, ETH_ALEN);
- 
- 	/* extra reference for return */
- 	atomic_set(&neigh_node->refcount, 2);
- 
--	spin_lock_bh(&orig_node->neigh_list_lock);
--	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
--	spin_unlock_bh(&orig_node->neigh_list_lock);
-+	bat_dbg(DBG_BATMAN, bat_priv,
-+		"Creating new neighbor %pM, initial seqno %d\n",
-+		neigh_addr, seqno);
-+
-+out:
- 	return neigh_node;
+-#define BAT_ATTR_STORE_UINT(_name, _min, _max, _post_func)		\
++#define BAT_ATTR_SIF_STORE_UINT(_name, _min, _max, _post_func)		\
+ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
+-			     char *buff, size_t count)			\
++		      char *buff, size_t count)				\
+ {									\
+ 	struct net_device *net_dev = kobj_to_netdev(kobj);		\
+ 	struct bat_priv *bat_priv = netdev_priv(net_dev);		\
+@@ -100,19 +101,19 @@ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
+ 				 attr, &bat_priv->_name, net_dev);	\
  }
  
-diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
-index 3fe2eda..64c5d94 100644
---- a/net/batman-adv/originator.h
-+++ b/net/batman-adv/originator.h
-@@ -29,10 +29,8 @@ void originator_free(struct bat_priv *bat_priv);
- void purge_orig_ref(struct bat_priv *bat_priv);
- void orig_node_free_ref(struct orig_node *orig_node);
- struct orig_node *get_orig_node(struct bat_priv *bat_priv, const uint8_t *addr);
--struct neigh_node *create_neighbor(struct orig_node *orig_node,
--				   struct orig_node *orig_neigh_node,
--				   const uint8_t *neigh,
--				   struct hard_iface *if_incoming);
-+struct neigh_node *neigh_node_new(struct hard_iface *hard_iface,
-+				  const uint8_t *neigh_addr, uint32_t seqno);
- void neigh_node_free_ref(struct neigh_node *neigh_node);
- struct neigh_node *orig_node_get_router(struct orig_node *orig_node);
- int orig_seq_print_text(struct seq_file *seq, void *offset);
+-#define BAT_ATTR_SHOW_UINT(_name)					\
+-ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
+-			    char *buff)					\
++#define BAT_ATTR_SIF_SHOW_UINT(_name)					\
++ssize_t show_##_name(struct kobject *kobj,				\
++		     struct attribute *attr, char *buff)		\
+ {									\
+ 	struct bat_priv *bat_priv = kobj_to_batpriv(kobj);		\
+ 	return sprintf(buff, "%i\n", atomic_read(&bat_priv->_name));	\
+ }									\
+ 
+-/* Use this, if you are going to set [name] in bat_priv to unsigned integer
+- * values only */
+-#define BAT_ATTR_UINT(_name, _mode, _min, _max, _post_func)		\
+-	static BAT_ATTR_STORE_UINT(_name, _min, _max, _post_func)	\
+-	static BAT_ATTR_SHOW_UINT(_name)				\
++/* Use this, if you are going to set [name] in the soft-interface
++ * (bat_priv) to an unsigned integer value */
++#define BAT_ATTR_SIF_UINT(_name, _mode, _min, _max, _post_func)		\
++	static BAT_ATTR_SIF_STORE_UINT(_name, _min, _max, _post_func)	\
++	static BAT_ATTR_SIF_SHOW_UINT(_name)				\
+ 	static BAT_ATTR(_name, _mode, show_##_name, store_##_name)
+ 
+ 
+@@ -384,24 +385,24 @@ static ssize_t store_gw_bwidth(struct kobject *kobj, struct attribute *attr,
+ 	return gw_bandwidth_set(net_dev, buff, count);
+ }
+ 
+-BAT_ATTR_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
+-BAT_ATTR_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
++BAT_ATTR_SIF_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
++BAT_ATTR_SIF_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
+ #ifdef CONFIG_BATMAN_ADV_BLA
+-BAT_ATTR_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
++BAT_ATTR_SIF_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
+ #endif
+-BAT_ATTR_BOOL(fragmentation, S_IRUGO | S_IWUSR, update_min_mtu);
+-BAT_ATTR_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
++BAT_ATTR_SIF_BOOL(fragmentation, S_IRUGO | S_IWUSR, update_min_mtu);
++BAT_ATTR_SIF_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
+ static BAT_ATTR(vis_mode, S_IRUGO | S_IWUSR, show_vis_mode, store_vis_mode);
+ static BAT_ATTR(routing_algo, S_IRUGO, show_bat_algo, NULL);
+ static BAT_ATTR(gw_mode, S_IRUGO | S_IWUSR, show_gw_mode, store_gw_mode);
+-BAT_ATTR_UINT(orig_interval, S_IRUGO | S_IWUSR, 2 * JITTER, INT_MAX, NULL);
+-BAT_ATTR_UINT(hop_penalty, S_IRUGO | S_IWUSR, 0, TQ_MAX_VALUE, NULL);
+-BAT_ATTR_UINT(gw_sel_class, S_IRUGO | S_IWUSR, 1, TQ_MAX_VALUE,
+-	      post_gw_deselect);
++BAT_ATTR_SIF_UINT(orig_interval, S_IRUGO | S_IWUSR, 2 * JITTER, INT_MAX, NULL);
++BAT_ATTR_SIF_UINT(hop_penalty, S_IRUGO | S_IWUSR, 0, TQ_MAX_VALUE, NULL);
++BAT_ATTR_SIF_UINT(gw_sel_class, S_IRUGO | S_IWUSR, 1, TQ_MAX_VALUE,
++		  post_gw_deselect);
+ static BAT_ATTR(gw_bandwidth, S_IRUGO | S_IWUSR, show_gw_bwidth,
+ 		store_gw_bwidth);
+ #ifdef CONFIG_BATMAN_ADV_DEBUG
+-BAT_ATTR_UINT(log_level, S_IRUGO | S_IWUSR, 0, 15, NULL);
++BAT_ATTR_SIF_UINT(log_level, S_IRUGO | S_IWUSR, 0, 15, NULL);
+ #endif
+ 
+ static struct bat_attribute *mesh_attrs[] = {
 -- 
 1.7.9.4
