@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 02/13] 802: Convert compare_ether_addr to ether_addr_equal
-Date: Tue,  8 May 2012 21:56:46 -0700
-Message-ID: <ee8418803f60b1a19ccb098cecb7c23396659380.1336538938.git.joe@perches.com>
+Subject: [PATCH 01/13] etherdevice.h: Add ether_addr_equal
+Date: Tue,  8 May 2012 21:56:45 -0700
+Message-ID: <3796a3dd31e7a7d48430c257d75f67194f389ffc.1336538938.git.joe@perches.com>
 References: <cover.1336538937.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
@@ -11,72 +11,40 @@ In-Reply-To: <cover.1336538937.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the new bool function ether_addr_equal to add
-some clarity and reduce the likelihood for misuse
-of compare_ether_addr for sorting.
+Add a boolean function to check if 2 ethernet addresses
+are the same.
 
-Done via cocci script:
-
-$ cat compare_ether_addr.cocci
-@@
-expression a,b;
-@@
--	!compare_ether_addr(a, b)
-+	ether_addr_equal(a, b)
-
-@@
-expression a,b;
-@@
--	compare_ether_addr(a, b)
-+	!ether_addr_equal(a, b)
-
-@@
-expression a,b;
-@@
--	!ether_addr_equal(a, b) == 0
-+	ether_addr_equal(a, b)
-
-@@
-expression a,b;
-@@
--	!ether_addr_equal(a, b) != 0
-+	!ether_addr_equal(a, b)
-
-@@
-expression a,b;
-@@
--	ether_addr_equal(a, b) == 0
-+	!ether_addr_equal(a, b)
-
-@@
-expression a,b;
-@@
--	ether_addr_equal(a, b) != 0
-+	ether_addr_equal(a, b)
-
-@@
-expression a,b;
-@@
--	!!ether_addr_equal(a, b)
-+	ether_addr_equal(a, b)
+This is to avoid any confusion about compare_ether_addr
+returning an unsigned, and not being able to use the
+compare_ether_addr function for sorting ala memcmp.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/802/stp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/linux/etherdevice.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/net/802/stp.c b/net/802/stp.c
-index 15540b7..2c40ba0 100644
---- a/net/802/stp.c
-+++ b/net/802/stp.c
-@@ -46,7 +46,7 @@ static int stp_pdu_rcv(struct sk_buff *skb, struct net_device *dev,
- 		proto = rcu_dereference(garp_protos[eh->h_dest[5] -
- 						    GARP_ADDR_MIN]);
- 		if (proto &&
--		    compare_ether_addr(eh->h_dest, proto->group_address))
-+		    !ether_addr_equal(eh->h_dest, proto->group_address))
- 			goto err;
- 	} else
- 		proto = rcu_dereference(stp_proto);
+diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+index c47631f..f330114 100644
+--- a/include/linux/etherdevice.h
++++ b/include/linux/etherdevice.h
+@@ -171,6 +171,18 @@ static inline unsigned compare_ether_addr(const u8 *addr1, const u8 *addr2)
+ 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
+ }
+ 
++/**
++ * ether_addr_equal - Compare two Ethernet addresses
++ * @addr1: Pointer to a six-byte array containing the Ethernet address
++ * @addr2: Pointer other six-byte array containing the Ethernet address
++ *
++ * Compare two ethernet addresses, returns true if equal
++ */
++static inline bool ether_addr_equal(const u8 *addr1, const u8 *addr2)
++{
++	return !compare_ether_addr(addr1, addr2);
++}
++
+ static inline unsigned long zap_last_2bytes(unsigned long value)
+ {
+ #ifdef __BIG_ENDIAN
 -- 
 1.7.8.111.gad25c.dirty
