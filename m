@@ -1,101 +1,91 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: pull request: batman-adv 2012-05-09
-Date: Wed,  9 May 2012 13:12:42 +0200
-Message-ID: <1336561976-16088-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 02/14] batman-adv: introduce is_single_hop_neigh variable to increase readability
+Date: Wed,  9 May 2012 13:12:44 +0200
+Message-ID: <1336561976-16088-3-git-send-email-ordex@autistici.org>
+References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from investici.nine.ch ([217.150.252.179]:52734 "EHLO
+	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751531Ab2EILMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:35 -0400
+In-Reply-To: <1336561976-16088-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear David,
+From: Marek Lindner <lindner_marek@yahoo.de>
 
-here is a new set of changes I would like to propose for next-next/linux-3.5.
-Changes proposed here are the same of the last unsuccessful pull request, issued
-on 2012-05-01, plus some other minor fixes.
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ net/batman-adv/bat_iv_ogm.c |   16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-The patchset is based on your net-next tree.
-Please, let me know if there is any problem.
-
-
-Sorry again for the touble I caused last time, but it was really a mistake, it
-was not my intention to let you pull an entire wrong tree.
-
-
-
-Thank you very much,
-		Antonio
-
-
-The following changes since commit 9bb862beb6e5839e92f709d33fda07678f062f20:
-
-  Merge branch 'master' of git://1984.lsi.us.es/net-next (2012-05-08 14:40:21 -0400)
-
-are available in the git repository at:
-
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to ab74e43c05964efe75472b5433ede8800ecbfc43:
-
-  batman-adv: add contributor name (2012-05-09 09:54:55 +0200)
-
-----------------------------------------------------------------
-Included changes:
-
-* fix a little bug in the DHCP packet snooping introduced so far
-* minor fixes and cleanups
-* minor routing protocol API cleanups
-* add a new contributor name to translation-table.{c,h}
-* update copyright years in file headers
-
-----------------------------------------------------------------
-Antonio Quartulli (3):
-      batman-adv: fix wrong dhcp option list browsing
-      batman-adv: update copyright years
-      batman-adv: add contributor name
-
-Linus Luessing (1):
-      batman-adv: Adding hard_iface specific sysfs wrapper macros for UINT
-
-Marek Lindner (10):
-      batman-adv: introduce is_single_hop_neigh variable to increase readability
-      batman-adv: introduce packet type handler array for incoming packets
-      batman-adv: register batman ogm receive function during protocol init
-      batman-adv: rename last_valid to last_seen
-      batman-adv: replace HZ calculations with jiffies_to_msecs()
-      batman-adv: split neigh_new function into generic and batman iv specific parts
-      batman-adv: ignore protocol packets if the interface did not enable this protocol
-      batman-adv: refactoring API: find generalized name for bat_ogm_update_mac callback
-      batman-adv: rename sysfs macros to reflect the soft-interface dependency
-      batman-adv: fix checkpatch string complaint
-
- net/batman-adv/bat_debugfs.c           |    4 +-
- net/batman-adv/bat_iv_ogm.c            |  176 +++++++++++++++++++++-----------
- net/batman-adv/bat_sysfs.c             |  100 +++++++++++++-----
- net/batman-adv/bridge_loop_avoidance.c |    2 +-
- net/batman-adv/bridge_loop_avoidance.h |    2 +-
- net/batman-adv/gateway_client.c        |    6 +-
- net/batman-adv/hard-interface.c        |  117 +--------------------
- net/batman-adv/main.c                  |  124 +++++++++++++++++++++-
- net/batman-adv/main.h                  |    6 ++
- net/batman-adv/originator.c            |   50 +++++----
- net/batman-adv/originator.h            |    6 +-
- net/batman-adv/packet.h                |    1 +
- net/batman-adv/routing.c               |   22 ++--
- net/batman-adv/routing.h               |    4 +-
- net/batman-adv/send.c                  |    2 +-
- net/batman-adv/translation-table.c     |    2 +-
- net/batman-adv/translation-table.h     |    2 +-
- net/batman-adv/types.h                 |   16 ++-
- 18 files changed, 377 insertions(+), 265 deletions(-)
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 8b2db2e..cd8f473 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -480,7 +480,8 @@ static void bat_iv_ogm_queue_add(struct bat_priv *bat_priv,
+ static void bat_iv_ogm_forward(struct orig_node *orig_node,
+ 			       const struct ethhdr *ethhdr,
+ 			       struct batman_ogm_packet *batman_ogm_packet,
+-			       int directlink, struct hard_iface *if_incoming)
++			       bool is_single_hop_neigh,
++			       struct hard_iface *if_incoming)
+ {
+ 	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
+ 	struct neigh_node *router;
+@@ -533,7 +534,7 @@ static void bat_iv_ogm_forward(struct orig_node *orig_node,
+ 
+ 	/* switch of primaries first hop flag when forwarding */
+ 	batman_ogm_packet->flags &= ~PRIMARIES_FIRST_HOP;
+-	if (directlink)
++	if (is_single_hop_neigh)
+ 		batman_ogm_packet->flags |= DIRECTLINK;
+ 	else
+ 		batman_ogm_packet->flags &= ~DIRECTLINK;
+@@ -918,7 +919,8 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
+ 	struct neigh_node *orig_neigh_router = NULL;
+ 	int has_directlink_flag;
+ 	int is_my_addr = 0, is_my_orig = 0, is_my_oldorig = 0;
+-	int is_broadcast = 0, is_bidirectional, is_single_hop_neigh;
++	int is_broadcast = 0, is_bidirectional;
++	bool is_single_hop_neigh = false;
+ 	int is_duplicate;
+ 	uint32_t if_incoming_seqno;
+ 
+@@ -942,8 +944,8 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
+ 
+ 	has_directlink_flag = (batman_ogm_packet->flags & DIRECTLINK ? 1 : 0);
+ 
+-	is_single_hop_neigh = (compare_eth(ethhdr->h_source,
+-					   batman_ogm_packet->orig) ? 1 : 0);
++	if (compare_eth(ethhdr->h_source, batman_ogm_packet->orig))
++		is_single_hop_neigh = true;
+ 
+ 	bat_dbg(DBG_BATMAN, bat_priv,
+ 		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
+@@ -1114,7 +1116,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
+ 
+ 		/* mark direct link on incoming interface */
+ 		bat_iv_ogm_forward(orig_node, ethhdr, batman_ogm_packet,
+-				   1, if_incoming);
++				   is_single_hop_neigh, if_incoming);
+ 
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+ 			"Forwarding packet: rebroadcast neighbor packet with direct link flag\n");
+@@ -1137,7 +1139,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
+ 	bat_dbg(DBG_BATMAN, bat_priv,
+ 		"Forwarding packet: rebroadcast originator packet\n");
+ 	bat_iv_ogm_forward(orig_node, ethhdr, batman_ogm_packet,
+-			   0, if_incoming);
++			   is_single_hop_neigh, if_incoming);
+ 
+ out_neigh:
+ 	if ((orig_neigh_node) && (!is_single_hop_neigh))
+-- 
+1.7.9.4
