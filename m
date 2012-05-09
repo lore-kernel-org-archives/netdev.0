@@ -1,19 +1,15 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 13/13] dsa: Convert compare_ether_addr to ether_addr_equal
-Date: Tue,  8 May 2012 21:56:57 -0700
-Message-ID: <8c3464767ed2cecfdd02753824459a41b48d89b2.1336538938.git.joe@perches.com>
+Subject: [PATCH 03/13] 8021q: Convert compare_ether_addr to ether_addr_equal
+Date: Tue,  8 May 2012 21:56:47 -0700
+Message-ID: <8167269651fa71407be1938157a7db7f0451bc5f.1336538938.git.joe@perches.com>
 References: <cover.1336538937.git.joe@perches.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41961 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751855Ab2EIE7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 00:59:35 -0400
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1336538937.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Use the new bool function ether_addr_equal to add
 some clarity and reduce the likelihood for misuse
@@ -66,54 +62,99 @@ expression a,b;
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/dsa/slave.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ net/8021q/vlan.c      |   10 +++++-----
+ net/8021q/vlan_core.c |    3 +--
+ net/8021q/vlan_dev.c  |   10 +++++-----
+ 3 files changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 56cf9b8..e32083d 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -66,7 +66,7 @@ static int dsa_slave_open(struct net_device *dev)
- 	if (!(master->flags & IFF_UP))
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index efea35b..6089f0c 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -266,19 +266,19 @@ static void vlan_sync_address(struct net_device *dev,
+ 	struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
+ 
+ 	/* May be called without an actual change */
+-	if (!compare_ether_addr(vlan->real_dev_addr, dev->dev_addr))
++	if (ether_addr_equal(vlan->real_dev_addr, dev->dev_addr))
+ 		return;
+ 
+ 	/* vlan address was different from the old address and is equal to
+ 	 * the new address */
+-	if (compare_ether_addr(vlandev->dev_addr, vlan->real_dev_addr) &&
+-	    !compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
++	if (!ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
++	    ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
+ 		dev_uc_del(dev, vlandev->dev_addr);
+ 
+ 	/* vlan address was equal to the old address and is different from
+ 	 * the new address */
+-	if (!compare_ether_addr(vlandev->dev_addr, vlan->real_dev_addr) &&
+-	    compare_ether_addr(vlandev->dev_addr, dev->dev_addr))
++	if (ether_addr_equal(vlandev->dev_addr, vlan->real_dev_addr) &&
++	    !ether_addr_equal(vlandev->dev_addr, dev->dev_addr))
+ 		dev_uc_add(dev, vlandev->dev_addr);
+ 
+ 	memcpy(vlan->real_dev_addr, dev->dev_addr, ETH_ALEN);
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 4d39d80..8ca533c 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -31,8 +31,7 @@ bool vlan_do_receive(struct sk_buff **skbp, bool last_handler)
+ 		/* Our lower layer thinks this is not local, let's make sure.
+ 		 * This allows the VLAN to have a different MAC than the
+ 		 * underlying device, and still route correctly. */
+-		if (!compare_ether_addr(eth_hdr(skb)->h_dest,
+-					vlan_dev->dev_addr))
++		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
+ 			skb->pkt_type = PACKET_HOST;
+ 	}
+ 
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 9988d4a..eaf5f21 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -277,7 +277,7 @@ static int vlan_dev_open(struct net_device *dev)
+ 	    !(vlan->flags & VLAN_FLAG_LOOSE_BINDING))
  		return -ENETDOWN;
  
--	if (compare_ether_addr(dev->dev_addr, master->dev_addr)) {
-+	if (!ether_addr_equal(dev->dev_addr, master->dev_addr)) {
- 		err = dev_uc_add(master, dev->dev_addr);
+-	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr)) {
++	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr)) {
+ 		err = dev_uc_add(real_dev, dev->dev_addr);
  		if (err < 0)
  			goto out;
-@@ -89,7 +89,7 @@ clear_allmulti:
+@@ -307,7 +307,7 @@ clear_allmulti:
  	if (dev->flags & IFF_ALLMULTI)
- 		dev_set_allmulti(master, -1);
+ 		dev_set_allmulti(real_dev, -1);
  del_unicast:
--	if (compare_ether_addr(dev->dev_addr, master->dev_addr))
-+	if (!ether_addr_equal(dev->dev_addr, master->dev_addr))
- 		dev_uc_del(master, dev->dev_addr);
+-	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
++	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
+ 		dev_uc_del(real_dev, dev->dev_addr);
  out:
- 	return err;
-@@ -107,7 +107,7 @@ static int dsa_slave_close(struct net_device *dev)
+ 	netif_carrier_off(dev);
+@@ -326,7 +326,7 @@ static int vlan_dev_stop(struct net_device *dev)
  	if (dev->flags & IFF_PROMISC)
- 		dev_set_promiscuity(master, -1);
+ 		dev_set_promiscuity(real_dev, -1);
  
--	if (compare_ether_addr(dev->dev_addr, master->dev_addr))
-+	if (!ether_addr_equal(dev->dev_addr, master->dev_addr))
- 		dev_uc_del(master, dev->dev_addr);
+-	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
++	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
+ 		dev_uc_del(real_dev, dev->dev_addr);
  
- 	return 0;
-@@ -146,13 +146,13 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
+ 	netif_carrier_off(dev);
+@@ -345,13 +345,13 @@ static int vlan_dev_set_mac_address(struct net_device *dev, void *p)
  	if (!(dev->flags & IFF_UP))
  		goto out;
  
--	if (compare_ether_addr(addr->sa_data, master->dev_addr)) {
-+	if (!ether_addr_equal(addr->sa_data, master->dev_addr)) {
- 		err = dev_uc_add(master, addr->sa_data);
+-	if (compare_ether_addr(addr->sa_data, real_dev->dev_addr)) {
++	if (!ether_addr_equal(addr->sa_data, real_dev->dev_addr)) {
+ 		err = dev_uc_add(real_dev, addr->sa_data);
  		if (err < 0)
  			return err;
  	}
  
--	if (compare_ether_addr(dev->dev_addr, master->dev_addr))
-+	if (!ether_addr_equal(dev->dev_addr, master->dev_addr))
- 		dev_uc_del(master, dev->dev_addr);
+-	if (compare_ether_addr(dev->dev_addr, real_dev->dev_addr))
++	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr))
+ 		dev_uc_del(real_dev, dev->dev_addr);
  
  out:
 -- 
