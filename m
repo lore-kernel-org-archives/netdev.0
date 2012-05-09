@@ -1,70 +1,145 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH] pch_gbe: Adding read memory barriers
-Date: Wed, 9 May 2012 14:18:30 +0100
-Message-ID: <1336569510.8274.360.camel@deadeye>
-References: <4FA822C4.60809@gmail.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F602CD83CB@saturn3.aculab.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH RFC 0/6] copy aside frags with destructors (was [PATCH
+ 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
+Date: Wed, 9 May 2012 14:18:49 +0100
+Message-ID: <1336569529.25514.109.camel@zakaz.uk.xensource.com>
+References: <cover.1336397823.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Erwan Velu <erwanaliasr1@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <tshimizu818@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F602CD83CB@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:43613 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757805Ab2EINTG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 09:19:06 -0400
+In-Reply-To: <cover.1336397823.git.mst@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-09 at 11:47 +0100, David Laight wrote:
-> > Under a strong incoming packet stream and/or high cpu usage,
-> > the pch_gbe driver reports "Receive CRC Error" and discards packet.
-> > 
-> > It occurred on an Intel ATOM E620T while running a 
-> > 300mbit/sec multicast
-> > network stream leading to a ~100% cpu usage.
-> > 
-> > Adding rmb() calls before considering the network card's status solve
-> > this issue.
-> > 
-> > Getting it into stable would be perfect as it solves 
-> > reliability issues.
-> > 
-> > Signed-off-by: Erwan Velu <erwan.velu@zodiacaerospace.com>
-> > ---
-> >   .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |    3 +++
-> >   1 files changed, 3 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c 
-> > b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> > index 8035e5f..ace3654 100644
-> > --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> > +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> > @@ -1413,6 +1413,7 @@ static irqreturn_t pch_gbe_intr(int 
-> > irq, void *data)
-> >   			pch_gbe_mac_set_pause_packet(hw);
-> >   		}
-> >   	}
-> > +	smp_rmb(); /* prevent any other reads before*/
+On Mon, 2012-05-07 at 14:53 +0100, Michael S. Tsirkin wrote:
+> On Fri, May 04, 2012 at 11:51:31AM +0100, Ian Campbell wrote:
+> > On Fri, 2012-05-04 at 11:03 +0100, Michael S. Tsirkin wrote:
+> > > On Fri, May 04, 2012 at 02:54:33AM -0400, David Miller wrote:
+> > > > From: "Michael S. Tsirkin" <mst@redhat.com>
+> > > > Date: Fri, 4 May 2012 00:10:24 +0300
+> > > > 
+> > > > > Hmm we orphan skbs when we loop them back so how about reusing the
+> > > > > skb->destructor for this?
+> > > > 
+> > > > That's one possibility.
 > 
-> Under the assumption that your memory references are uncached,
-> you only need to stop gcc reordering the object code,
-> Rather than actually adding one of the 'fence' instructions.
+> So originally I thought it would work: destructor would wake the
+> original owner which would do data copy and modify the fragments.  But
+> then I unfortunately realized that would be racy: the new owner could be
 
-Also, the usual MMIO functions already include compiler barriers.
+By "new owner" you mean the owner of some other skb which refernences
+the same shinfo (so either clone or the original if we currently hold a
+clone).
 
-> So you should only need: asm volatile(:::"memory")
-> NFI which define generates that, the defines in the copy of
-> sysdep.h I just looked at always include one of the fences.
+> using the old frags and there appears no way for us to
+> make sure it doesn't so that we can put the original page.
 
-This is barrier().  But I think this must be intended to control
-ordering of fields that are written elsewhere.
+Right, the key issue is, I think, that cloning etc take an extra dataref
+on the shinfo but do not take references on the frags. This is obviously
+sane but does cause the issue above.
 
-Really, this needs a much more specific comment to explain the intent.
-Then reviewers can work out whether it actually achieves the intent!
+> And the same logic applies to modifying the frags at any
+> other time if the skb is cloned. So it seems we must copy if we
+> want to clone the skb.
 
-Ben.
+Right. I had been hoping that the frag destructors could avoid this but
+it seems like this is not going to be the case.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Just as a thought experiment would taking a frag ref on clone help us?
+(lets assume for now that, iff there are destructors, this is cheaper
+than the copy). I think this doesn't work -- since although the ref will
+mean that the page doesn't go away under anyone elses feet after we've
+orphaned it we will have lost the pointer to the original page by the
+time that other ref is dropped, so freeing it will be tricky.
+
+So following that train of thought a step further -- would creating a
+new shinfo entirely on frag orphan buy us anything (and at what cost)?
+Obviously it an extra allocation -- but we are already allocating N
+pages of new frag. The others skb's referencing the shared shinfo would
+still continue to see the old shinfo, pages and refs until they
+themselves needed to orphan the frags (if they do, they might avoid it).
+
+I think that could work, but I'm not sure it is worth the complexity.
+Basically all it means that if you are bridging + flooding then you
+would potentially save some number of a copies depending on the types of
+devices on each port.
+
+[...]
+
+> Second option is what macvtap zero copy uses and it already
+> does copy on clone too. So I hacked that to make it support tcp/udp
+> used by sunrpc.
+
+This does seem like it is the preferable solution.
+
+I haven't read the patches yet, so maybe you already support this, but
+it would be good to allow the creator of an skb to declare that it
+doesn't want this behaviour, e.g. because it has some other mechanism
+for dealing with this copy out for the case where an skb gets held
+somewhere.
+
+Ian.
+
+> > > > 
+> > > > But I fear we're about to toss Ian into yet another rabbit hole. :-)
+> > > > 
+> > > > Let's try to converge on something quickly as I think integration of
+> > > > his work has been delayed enough as-is.
+> 
+> ...
+> 
+> > > It's weekend here, I'll work on a patch like this
+> > > Sunday.
+> > 
+> > Thanks, I was starting to feel my nose twitching and my ears beginning
+> > to elongate ;-)
+> > 
+> > Ian.
+> 
+> Here's a first stub at a fix. Basically to be able to modify frags on
+> the fly we must make sure the skb isn't cloned, so the moment someone
+> clones the skb we need to trigger the frag copy logic.  And this is
+> exactly what happens with SKBTX_DEV_ZEROCOPY so it seems to make sense
+> to reuse that logic.
+> 
+> The below patchset replaces patch 7
+> ([PATCH 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
+> in Ian's patchset and needs to be applied there.
+> 
+> 
+> Compiled only but I'd like to hear what people think all the same
+> because it does add a couple of branches on fast path.  On the other
+> hand this makes it generic so the same logic will be reusable for packet
+> sockets (which IIRC are currently buggy in the same way as sunrpc) and
+> for adding zero copy support to tun.
+> 
+> Please comment,
+> Thanks!
+> 
+> -- 
+> MST
+> 
+> 
+> Michael S. Tsirkin (6):
+>   skbuff: support per-page destructors in copy_ubufs
+>   skbuff: add an api to orphan frags
+>   skbuff: convert to skb_orphan_frags
+>   tun: orphan frags on xmit
+>   net: orphan frags on receive
+>   skbuff: set zerocopy flag on frag destructor
+> 
+>  drivers/net/tun.c      |    2 ++
+>  include/linux/skbuff.h |   41 +++++++++++++++++++++++++++++++++++++++++
+>  net/core/dev.c         |    2 ++
+>  net/core/skbuff.c      |   43 +++++++++++++++++++++++++------------------
+>  4 files changed, 70 insertions(+), 18 deletions(-)
+> 
