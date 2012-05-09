@@ -1,106 +1,154 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 7/9] net: add skb_orphan_frags to copy aside frags with
- destructors
-Date: Wed, 9 May 2012 10:36:31 +0100
-Message-ID: <1336556191.25514.44.camel@zakaz.uk.xensource.com>
-References: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
-	 <1336056971-7839-7-git-send-email-ian.campbell@citrix.com>
-	 <20120507102441.GA18591@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [v12 PATCH 2/3] NETFILTER module xt_hmark, new target for HASH
+ based fwmark
+Date: Wed, 9 May 2012 12:38:20 +0200
+Message-ID: <20120509103820.GA22608@1984>
+References: <1335188128-23645-1-git-send-email-hans.schillstrom@ericsson.com>
+ <201205071409.47945.hans.schillstrom@ericsson.com>
+ <20120507122232.GA32146@1984>
+ <201205080937.36853.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:47251 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758939Ab2EIJgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 05:36:33 -0400
-In-Reply-To: <20120507102441.GA18591@redhat.com>
+Received: from mail.us.es ([193.147.175.20]:44291 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750877Ab2EIKi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2012 06:38:29 -0400
+Content-Disposition: inline
+In-Reply-To: <201205080937.36853.hans.schillstrom@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> > index 945b807..f009abb 100644
-> > --- a/net/core/skbuff.c
-> > +++ b/net/core/skbuff.c
-> > @@ -697,31 +697,25 @@ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
-> >  }
-> >  EXPORT_SYMBOL_GPL(skb_morph);
-> >  
-> > -/*	skb_copy_ubufs	-	copy userspace skb frags buffers to kernel
-> > - *	@skb: the skb to modify
-> > - *	@gfp_mask: allocation priority
-> > - *
-> > - *	This must be called on SKBTX_DEV_ZEROCOPY skb.
-> > - *	It will copy all frags into kernel and drop the reference
-> > - *	to userspace pages.
-> > - *
-> > - *	If this function is called from an interrupt gfp_mask() must be
-> > - *	%GFP_ATOMIC.
-> > - *
-> > - *	Returns 0 on success or a negative error code on failure
-> > - *	to allocate kernel memory to copy to.
-> > +/*
-> > + * If uarg != NULL copy and replace all frags.
-> > + * If uarg == NULL then only copy and replace those which have a destructor
-> > + * pointer.
-> >   */
-> > -int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
-> > +static int skb_copy_frags(struct sk_buff *skb, gfp_t gfp_mask,
-> > +			  struct ubuf_info *uarg)
-> >  {
-> >  	int i;
-> >  	int num_frags = skb_shinfo(skb)->nr_frags;
-> >  	struct page *page, *head = NULL;
-> > -	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
-> >  
-> >  	for (i = 0; i < num_frags; i++) {
-> >  		u8 *vaddr;
-> >  		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-> >  
-> > +		if (!uarg && !f->page.destructor)
-> > +			continue;
-> > +
-> >  		page = alloc_page(GFP_ATOMIC);
-> >  		if (!page) {
-> >  			while (head) {
-> > @@ -739,11 +733,16 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
-> >  		head = page;
-> >  	}
-> >  
-> > -	/* skb frags release userspace buffers */
-> > -	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-> > +	/* skb frags release buffers */
-> > +	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-> > +		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-> > +		if (!uarg && !f->page.destructor)
-> > +			continue;
-> >  		skb_frag_unref(skb, i);
-> > +	}
-> >  
-> > -	uarg->callback(uarg);
-> > +	if (uarg)
-> > +		uarg->callback(uarg);
-> >  
+On Tue, May 08, 2012 at 09:37:35AM +0200, Hans Schillstrom wrote:
+> From d5065af3988cc7561a02f30bae8342e1a89126a4 Mon Sep 17 00:00:00 2001
+> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> Date: Wed, 2 May 2012 07:49:47 +0000
+> Subject: netfilter: add xt_hmark target for hash-based skb
+>  marking
 > 
-> So above we only linked up copied pages, but below we
-> try to use the list for all frags. Looks like a bug,
-> I think it needs to check destructor and uarg too.
-
-You are absolutely correct. We need the same check in all three loops.
-
+> The target allows you to create rules in the "raw" and "mangle" tables
+> which set the skbuff mark by means of hash calculation within a given
+> range. The nfmark can influence the routing method (see "Use netfilter
+> MARK value as routing key") and can also be used by other subsystems to
+> change their behaviour.
 > 
+> Some examples:
 > 
-> >  	/* skb frags point to kernel buffers */
-> >  	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
-> > @@ -752,10 +751,41 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
-> >  		head = (struct page *)head->private;
-> >  	}
-> >  
-> > -	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
-> >  	return 0;
-> >  }
+> * Default rule handles all TCP, UDP, SCTP, ESP & AH
+> 
+>  iptables -t mangle -A PREROUTING -m state --state NEW,ESTABLISHED,RELATED \
+> 	-j HMARK --hmark-offset 10000 --hmark-mod 10
+> 
+> * Handle SCTP and hash dest port only and produce a nfmark between 100-119.
+> 
+>  iptables -t mangle -A PREROUTING -p SCTP -j HMARK --src-mask 0 --dst-mask 0 \
+> 	--sp-mask 0 --offset 100 --mod 20
+> 
+> * Fragment safe Layer 3 only, that keep a class C network flow together
+> 
+>  iptables -t mangle -A PREROUTING -j HMARK --method L3 \
+> 	--src-mask 24 --mod 20 --offset 100
+
+I have removed these examples. Just in case we make changes to the
+user-space part. We'll have the time for this (the entire 3.5 cycle).
+
+Some minor glitches I made on this patch:
+
+>  include/linux/netfilter/xt_HMARK.h |   48 +++++
+>  net/netfilter/Kconfig              |   15 ++
+>  net/netfilter/Makefile             |    1 +
+>  net/netfilter/xt_HMARK.c           |  358 ++++++++++++++++++++++++++++++++++++
+>  4 files changed, 422 insertions(+)
+>  create mode 100644 include/linux/netfilter/xt_HMARK.h
+>  create mode 100644 net/netfilter/xt_HMARK.c
+> 
+> diff --git a/include/linux/netfilter/xt_HMARK.h b/include/linux/netfilter/xt_HMARK.h
+> new file mode 100644
+> index 0000000..05e43ba
+> --- /dev/null
+> +++ b/include/linux/netfilter/xt_HMARK.h
+> @@ -0,0 +1,46 @@
+> +#ifndef XT_HMARK_H_
+> +#define XT_HMARK_H_
+> +
+> +#include <linux/types.h>
+> +
+> +enum {
+> +	XT_HMARK_NONE,
+
+this means (1 << 0) is unused. I have removed this _NONE.
+
+> +	XT_HMARK_SADR_MASK,
+> +	XT_HMARK_DADR_MASK,
+> +	XT_HMARK_SPI_MASK,
+> +	XT_HMARK_SPI,
+> +	XT_HMARK_SPORT_MASK,
+> +	XT_HMARK_DPORT_MASK,
+> +	XT_HMARK_SPORT,
+> +	XT_HMARK_DPORT,
+> +	XT_HMARK_PROTO_MASK,
+> +	XT_HMARK_RND,
+> +	XT_HMARK_MODULUS,
+> +	XT_HMARK_OFFSET,
+> +	XT_HMARK_CT,
+> +	XT_HMARK_METHOD_L3,
+> +	XT_HMARK_METHOD_L3_4,
+
+I have also rearrange the order of the flags:
+
+enum {
+        XT_HMARK_SADDR_MASK,
+        XT_HMARK_DADDR_MASK,
+        XT_HMARK_SPI,       
+        XT_HMARK_SPI_MASK,  
+        XT_HMARK_SPORT,     
+        XT_HMARK_DPORT,     
+        XT_HMARK_SPORT_MASK,
+        XT_HMARK_DPORT_MASK,
+        XT_HMARK_PROTO_MASK,
+        XT_HMARK_RND,       
+        XT_HMARK_MODULUS,   
+        XT_HMARK_OFFSET,    
+        XT_HMARK_CT,        
+        XT_HMARK_METHOD_L3, 
+        XT_HMARK_METHOD_L3_4,
+};
+
+I don't want people to ask me why we where using some strange order in
+the flag definition in the future (yes, you'll have to recompile your
+iptables HMARK support in your setups, sorry)
+
+> +};
+> +#define XT_HMARK_FLAG(flag)	(1 << flag)
+> +
+> +union hmark_ports {
+> +	struct {
+> +		__u16	src;
+> +		__u16	dst;
+> +	} p16;
+> +	__u32	v32;
+> +};
+> +
+> +struct xt_hmark_info {
+> +	union nf_inet_addr	src_mask;	/* Source address mask */
+> +	union nf_inet_addr	dst_mask;	/* Dest address mask */
+> +	union hmark_ports	port_mask;
+> +	union hmark_ports	port_set;
+> +	__u32			flags;		/* Print out only */
+> +	__u16			proto_mask;	/* L4 Proto mask */
+> +	__u32			hashrnd;
+> +	__u32			hmodulus;	/* Modulus */
+> +	__u32			hoffset;	/* Offset */
+
+I've removed these comments, they provide no extra information. Still
+I left the one that described hoffset, that may seem not obvious.
+
+> +#endif /* XT_HMARK_H_ */
+
+I have applied this, I'm going to pass it to davem.
