@@ -1,24 +1,19 @@
 From: Agarwal Nikhil-B38457 <B38457@freescale.com>
 Subject: Memory exhaust issue with only IPsec policies configured on
  continuous traffic
-Date: Wed, 9 May 2012 09:10:14 +0000
-Message-ID: <F0B93D0554724543876B9A180DC988575B70E7@039-SN1MPN1-001.039d.mgd.msft.net>
+Date: Wed, 9 May 2012 09:23:16 +0000
+Message-ID: <F0B93D0554724543876B9A180DC988575B7430@039-SN1MPN1-001.039d.mgd.msft.net>
+References: <F0B93D0554724543876B9A180DC988575B70E7@039-SN1MPN1-001.039d.mgd.msft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-	"linux-netdev@vger.kernel.org" <linux-netdev@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe002.messaging.microsoft.com ([213.199.154.205]:30183
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751834Ab2EIJKc convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 05:10:32 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F0B93D0554724543876B9A180DC988575B70E7@039-SN1MPN1-001.039d.mgd.msft.net>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi all,
 =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 In a typical scenario, when =
