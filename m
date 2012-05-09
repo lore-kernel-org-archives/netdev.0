@@ -1,99 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 04/13] bridge: netfilter: Convert compare_ether_addr to
- ether_addr_equal
-Date: Wed, 9 May 2012 08:07:52 -0700
-Message-ID: <20120509080752.43489fb0@nehalam.linuxnetplumber.net>
-References: <cover.1336538937.git.joe@perches.com>
-	<5a91d328db3393320170723cdfc9395ad59182c6.1336538938.git.joe@perches.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC 5/6] net: orphan frags on receive
+Date: Wed, 9 May 2012 18:12:02 +0300
+Message-ID: <20120509151202.GB20474@redhat.com>
+References: <cover.1336397823.git.mst@redhat.com>
+ <a3353f6235d877c6b2d300eb5a914dbc9b78824d.1336397823.git.mst@redhat.com>
+ <1336571692.25514.122.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Bart De Schuymer <bart.de.schuymer@pandora.be>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <5a91d328db3393320170723cdfc9395ad59182c6.1336538938.git.joe@perches.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32653 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759850Ab2EIPMB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2012 11:12:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1336571692.25514.122.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue,  8 May 2012 21:56:48 -0700
-Joe Perches <joe@perches.com> wrote:
+On Wed, May 09, 2012 at 02:54:52PM +0100, Ian Campbell wrote:
+> On Mon, 2012-05-07 at 14:54 +0100, Michael S. Tsirkin wrote:
+> > zero copy packets are normally sent to the outside
+> > network, but bridging, tun etc might loop them
+> > back to host networking stack. If this happens
+> > destructors will never be called, so orphan
+> > the frags immediately on receive.
+> 
+> I think this deceptively simply patch is actually the meat of the
+> series.
+> It's been a long time since I dug into the bridging code. Am I right
+> that this function is only reached when an SKB is going to be delivered
+> locally and not when forwarding to another port on the bridge?
+> 
+> Ian.
 
-> Use the new bool function ether_addr_equal to add
-> some clarity and reduce the likelihood for misuse
-> of compare_ether_addr for sorting.
-> 
-> Done via cocci script:
-> 
-> $ cat compare_ether_addr.cocci
-> @@
-> expression a,b;
-> @@
-> -	!compare_ether_addr(a, b)
-> +	ether_addr_equal(a, b)
-> 
-> @@
-> expression a,b;
-> @@
-> -	compare_ether_addr(a, b)
-> +	!ether_addr_equal(a, b)
-> 
-> @@
-> expression a,b;
-> @@
-> -	!ether_addr_equal(a, b) == 0
-> +	ether_addr_equal(a, b)
-> 
-> @@
-> expression a,b;
-> @@
-> -	!ether_addr_equal(a, b) != 0
-> +	!ether_addr_equal(a, b)
-> 
-> @@
-> expression a,b;
-> @@
-> -	ether_addr_equal(a, b) == 0
-> +	!ether_addr_equal(a, b)
-> 
-> @@
-> expression a,b;
-> @@
-> -	ether_addr_equal(a, b) != 0
-> +	ether_addr_equal(a, b)
-> 
-> @@
-> expression a,b;
-> @@
-> -	!!ether_addr_equal(a, b)
-> +	ether_addr_equal(a, b)
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  net/bridge/netfilter/ebt_stp.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/bridge/netfilter/ebt_stp.c b/net/bridge/netfilter/ebt_stp.c
-> index 5b33a2e..071d872 100644
-> --- a/net/bridge/netfilter/ebt_stp.c
-> +++ b/net/bridge/netfilter/ebt_stp.c
-> @@ -164,8 +164,8 @@ static int ebt_stp_mt_check(const struct xt_mtchk_param *par)
->  	    !(info->bitmask & EBT_STP_MASK))
->  		return -EINVAL;
->  	/* Make sure the match only receives stp frames */
-> -	if (compare_ether_addr(e->destmac, bridge_ula) ||
-> -	    compare_ether_addr(e->destmsk, msk) || !(e->bitmask & EBT_DESTMAC))
-> +	if (!ether_addr_equal(e->destmac, bridge_ula) ||
-> +	    !ether_addr_equal(e->destmsk, msk) || !(e->bitmask & EBT_DESTMAC))
->  		return -EINVAL;
->  
->  	return 0;
+I think so - bridge uses netdev_rx_handler_unregister
+so it does not go through packet handlers.
 
-All look good.
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> >  net/core/dev.c |    2 ++
+> >  1 files changed, 2 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index a2be59f..c0cdc00 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -1630,6 +1630,8 @@ static inline int deliver_skb(struct sk_buff *skb,
+> >  			      struct packet_type *pt_prev,
+> >  			      struct net_device *orig_dev)
+> >  {
+> > +	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+> > +		return -ENOMEM;
+> >  	atomic_inc(&skb->users);
+> >  	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+> >  }
+> 
