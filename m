@@ -1,54 +1,163 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 01/14] batman-adv: fix wrong dhcp option list
-	browsing
-Date: Wed,  9 May 2012 13:12:43 +0200
-Message-ID: <1336561976-16088-2-git-send-email-ordex@autistici.org>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 07/14] batman-adv: split neigh_new function into generic and batman iv specific parts
+Date: Wed,  9 May 2012 13:12:49 +0200
+Message-ID: <1336561976-16088-8-git-send-email-ordex@autistici.org>
 References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1336561976-16088-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from investici.nine.ch ([217.150.252.179]:52734 "EHLO
+	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757745Ab2EILMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:42 -0400
+In-Reply-To: <1336561976-16088-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In is_type_dhcprequest(), while parsing a DHCP message, if the entry we found in
-the option list is neither a padding nor the dhcp-type, we have to ignore it and
-jump as many bytes as its length + 1. The "+ 1" byte is given by the subtype
-field itself that has to be jumped too.
+From: Marek Lindner <lindner_marek@yahoo.de>
 
-Reported-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/gateway_client.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/batman-adv/bat_iv_ogm.c |   40 ++++++++++++++++++++++++++++++++++------
+ net/batman-adv/originator.c |   27 ++++++++++-----------------
+ net/batman-adv/originator.h |    6 ++----
+ 3 files changed, 46 insertions(+), 27 deletions(-)
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 6f9b9b7..47f7186 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -558,10 +558,10 @@ static bool is_type_dhcprequest(struct sk_buff *skb, int header_len)
- 			p++;
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 8652a75..4baabf9 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -30,6 +30,32 @@
+ #include "send.h"
+ #include "bat_algo.h"
  
- 			/* ...and then we jump over the data */
--			if (pkt_len < *p)
-+			if (pkt_len < 1 + (*p))
- 				goto out;
--			pkt_len -= *p;
--			p += (*p);
-+			pkt_len -= 1 + (*p);
-+			p += 1 + (*p);
- 		}
- 	}
- out:
++static struct neigh_node *bat_iv_ogm_neigh_new(struct hard_iface *hard_iface,
++					       const uint8_t *neigh_addr,
++					       struct orig_node *orig_node,
++					       struct orig_node *orig_neigh,
++					       uint32_t seqno)
++{
++	struct neigh_node *neigh_node;
++
++	neigh_node = neigh_node_new(hard_iface, neigh_addr, seqno);
++	if (!neigh_node)
++		goto out;
++
++	INIT_LIST_HEAD(&neigh_node->bonding_list);
++	spin_lock_init(&neigh_node->tq_lock);
++
++	neigh_node->orig_node = orig_neigh;
++	neigh_node->if_incoming = hard_iface;
++
++	spin_lock_bh(&orig_node->neigh_list_lock);
++	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
++	spin_unlock_bh(&orig_node->neigh_list_lock);
++
++out:
++	return neigh_node;
++}
++
+ static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
+ {
+ 	struct batman_ogm_packet *batman_ogm_packet;
+@@ -638,8 +664,9 @@ static void bat_iv_ogm_orig_update(struct bat_priv *bat_priv,
+ 		if (!orig_tmp)
+ 			goto unlock;
+ 
+-		neigh_node = create_neighbor(orig_node, orig_tmp,
+-					     ethhdr->h_source, if_incoming);
++		neigh_node = bat_iv_ogm_neigh_new(if_incoming, ethhdr->h_source,
++						  orig_node, orig_tmp,
++						  batman_ogm_packet->seqno);
+ 
+ 		orig_node_free_ref(orig_tmp);
+ 		if (!neigh_node)
+@@ -764,10 +791,11 @@ static int bat_iv_ogm_calc_tq(struct orig_node *orig_node,
+ 	rcu_read_unlock();
+ 
+ 	if (!neigh_node)
+-		neigh_node = create_neighbor(orig_neigh_node,
+-					     orig_neigh_node,
+-					     orig_neigh_node->orig,
+-					     if_incoming);
++		neigh_node = bat_iv_ogm_neigh_new(if_incoming,
++						  orig_neigh_node->orig,
++						  orig_neigh_node,
++						  orig_neigh_node,
++						  batman_ogm_packet->seqno);
+ 
+ 	if (!neigh_node)
+ 		goto out;
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 962636b..1bcc9c5 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -85,35 +85,28 @@ struct neigh_node *orig_node_get_router(struct orig_node *orig_node)
+ 	return router;
+ }
+ 
+-struct neigh_node *create_neighbor(struct orig_node *orig_node,
+-				   struct orig_node *orig_neigh_node,
+-				   const uint8_t *neigh,
+-				   struct hard_iface *if_incoming)
++struct neigh_node *neigh_node_new(struct hard_iface *hard_iface,
++				  const uint8_t *neigh_addr, uint32_t seqno)
+ {
+-	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
++	struct bat_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
+ 	struct neigh_node *neigh_node;
+ 
+-	bat_dbg(DBG_BATMAN, bat_priv,
+-		"Creating new last-hop neighbor of originator\n");
+-
+ 	neigh_node = kzalloc(sizeof(*neigh_node), GFP_ATOMIC);
+ 	if (!neigh_node)
+-		return NULL;
++		goto out;
+ 
+ 	INIT_HLIST_NODE(&neigh_node->list);
+-	INIT_LIST_HEAD(&neigh_node->bonding_list);
+-	spin_lock_init(&neigh_node->tq_lock);
+ 
+-	memcpy(neigh_node->addr, neigh, ETH_ALEN);
+-	neigh_node->orig_node = orig_neigh_node;
+-	neigh_node->if_incoming = if_incoming;
++	memcpy(neigh_node->addr, neigh_addr, ETH_ALEN);
+ 
+ 	/* extra reference for return */
+ 	atomic_set(&neigh_node->refcount, 2);
+ 
+-	spin_lock_bh(&orig_node->neigh_list_lock);
+-	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
+-	spin_unlock_bh(&orig_node->neigh_list_lock);
++	bat_dbg(DBG_BATMAN, bat_priv,
++		"Creating new neighbor %pM, initial seqno %d\n",
++		neigh_addr, seqno);
++
++out:
+ 	return neigh_node;
+ }
+ 
+diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
+index 3fe2eda..64c5d94 100644
+--- a/net/batman-adv/originator.h
++++ b/net/batman-adv/originator.h
+@@ -29,10 +29,8 @@ void originator_free(struct bat_priv *bat_priv);
+ void purge_orig_ref(struct bat_priv *bat_priv);
+ void orig_node_free_ref(struct orig_node *orig_node);
+ struct orig_node *get_orig_node(struct bat_priv *bat_priv, const uint8_t *addr);
+-struct neigh_node *create_neighbor(struct orig_node *orig_node,
+-				   struct orig_node *orig_neigh_node,
+-				   const uint8_t *neigh,
+-				   struct hard_iface *if_incoming);
++struct neigh_node *neigh_node_new(struct hard_iface *hard_iface,
++				  const uint8_t *neigh_addr, uint32_t seqno);
+ void neigh_node_free_ref(struct neigh_node *neigh_node);
+ struct neigh_node *orig_node_get_router(struct orig_node *orig_node);
+ int orig_seq_print_text(struct seq_file *seq, void *offset);
 -- 
 1.7.9.4
