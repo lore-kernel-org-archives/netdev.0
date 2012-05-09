@@ -1,53 +1,114 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 08/14] batman-adv: ignore protocol packets if the interface did not enable this protocol
-Date: Wed,  9 May 2012 13:12:50 +0200
-Message-ID: <1336561976-16088-9-git-send-email-ordex@autistici.org>
+Subject: [PATCH 06/14] batman-adv: replace HZ calculations with jiffies_to_msecs()
+Date: Wed,  9 May 2012 13:12:48 +0200
+Message-ID: <1336561976-16088-7-git-send-email-ordex@autistici.org>
 References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:52880 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:52797 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757768Ab2EILMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:43 -0400
+	with ESMTP id S1757676Ab2EILMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:40 -0400
 In-Reply-To: <1336561976-16088-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Marek Lindner <lindner_marek@yahoo.de>
 
-Reported-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+ net/batman-adv/bat_debugfs.c |    4 ++--
+ net/batman-adv/originator.c  |   15 ++++++++++-----
+ net/batman-adv/send.c        |    2 +-
+ 3 files changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 4baabf9..689fc98 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -1186,6 +1186,7 @@ out:
- static int bat_iv_ogm_receive(struct sk_buff *skb,
- 			      struct hard_iface *if_incoming)
- {
-+	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
- 	struct batman_ogm_packet *batman_ogm_packet;
- 	struct ethhdr *ethhdr;
- 	int buff_pos = 0, packet_len;
-@@ -1196,6 +1197,11 @@ static int bat_iv_ogm_receive(struct sk_buff *skb,
- 	if (!ret)
- 		return NET_RX_DROP;
+diff --git a/net/batman-adv/bat_debugfs.c b/net/batman-adv/bat_debugfs.c
+index 916380c..3b588f8 100644
+--- a/net/batman-adv/bat_debugfs.c
++++ b/net/batman-adv/bat_debugfs.c
+@@ -83,8 +83,8 @@ int debug_log(struct bat_priv *bat_priv, const char *fmt, ...)
  
-+	/* did we receive a B.A.T.M.A.N. IV OGM packet on an interface
-+	 * that does not have B.A.T.M.A.N. IV enabled ? */
-+	if (bat_priv->bat_algo_ops->bat_ogm_emit != bat_iv_ogm_emit)
-+		return NET_RX_DROP;
+ 	va_start(args, fmt);
+ 	vscnprintf(tmp_log_buf, sizeof(tmp_log_buf), fmt, args);
+-	fdebug_log(bat_priv->debug_log, "[%10lu] %s",
+-		   (jiffies / HZ), tmp_log_buf);
++	fdebug_log(bat_priv->debug_log, "[%10u] %s",
++		   jiffies_to_msecs(jiffies), tmp_log_buf);
+ 	va_end(args);
+ 
+ 	return 0;
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 21c1f83..962636b 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -35,7 +35,8 @@ static void purge_orig(struct work_struct *work);
+ static void start_purge_timer(struct bat_priv *bat_priv)
+ {
+ 	INIT_DELAYED_WORK(&bat_priv->orig_work, purge_orig);
+-	queue_delayed_work(bat_event_workqueue, &bat_priv->orig_work, 1 * HZ);
++	queue_delayed_work(bat_event_workqueue,
++			   &bat_priv->orig_work, msecs_to_jiffies(1000));
+ }
+ 
+ /* returns 1 if they are the same originator */
+@@ -274,6 +275,7 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 	struct hlist_node *node, *node_tmp;
+ 	struct neigh_node *neigh_node;
+ 	bool neigh_purged = false;
++	unsigned long last_seen;
+ 
+ 	*best_neigh_node = NULL;
+ 
+@@ -288,6 +290,8 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 		    (neigh_node->if_incoming->if_status == IF_NOT_IN_USE) ||
+ 		    (neigh_node->if_incoming->if_status == IF_TO_BE_REMOVED)) {
+ 
++			last_seen = neigh_node->last_seen;
 +
- 	packet_len = skb_headlen(skb);
- 	ethhdr = (struct ethhdr *)skb_mac_header(skb);
- 	packet_buff = skb->data;
+ 			if ((neigh_node->if_incoming->if_status ==
+ 								IF_INACTIVE) ||
+ 			    (neigh_node->if_incoming->if_status ==
+@@ -300,9 +304,9 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 					neigh_node->if_incoming->net_dev->name);
+ 			else
+ 				bat_dbg(DBG_BATMAN, bat_priv,
+-					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %lu\n",
++					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %u\n",
+ 					orig_node->orig, neigh_node->addr,
+-					(neigh_node->last_seen / HZ));
++					jiffies_to_msecs(last_seen));
+ 
+ 			neigh_purged = true;
+ 
+@@ -327,8 +331,9 @@ static bool purge_orig_node(struct bat_priv *bat_priv,
+ 
+ 	if (has_timed_out(orig_node->last_seen, 2 * PURGE_TIMEOUT)) {
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+-			"Originator timeout: originator %pM, last_seen %lu\n",
+-			orig_node->orig, (orig_node->last_seen / HZ));
++			"Originator timeout: originator %pM, last_seen %u\n",
++			orig_node->orig,
++			jiffies_to_msecs(orig_node->last_seen));
+ 		return true;
+ 	} else {
+ 		if (purge_orig_neighbors(bat_priv, orig_node,
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 7c66b61..8e74d97 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -292,7 +292,7 @@ static void send_outstanding_bcast_packet(struct work_struct *work)
+ 	/* if we still have some more bcasts to send */
+ 	if (forw_packet->num_packets < 3) {
+ 		_add_bcast_packet_to_list(bat_priv, forw_packet,
+-					  ((5 * HZ) / 1000));
++					  msecs_to_jiffies(5));
+ 		return;
+ 	}
+ 
 -- 
 1.7.9.4
