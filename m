@@ -1,57 +1,77 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [net-next 2/8] e1000e: initial support for i217
-Date: Wed, 9 May 2012 16:25:00 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A184188BC3CC@ORSMSX102.amr.corp.intel.com>
-References: <1336127716-20383-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1336127716-20383-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <87mx5njbto.fsf@nemi.mork.no>
+From: Jonathan Nieder <jrnieder@gmail.com>
+Subject: [3.2.y] phy:icplus:fix Auto Power Saving in ip101a_config_init.
+Date: Wed, 9 May 2012 12:18:47 -0500
+Message-ID: <20120509171847.GC4884@burratino>
+References: <1333360929-31506-1-git-send-email-srinivas.kandagatla@st.com>
+ <20120403.184937.744089580257691570.davem@davemloft.net>
+ <20120509072537.GA437@burratino>
+ <20120509.115729.1982766903625560504.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, srinivas.kandagatla@st.com,
+	netdev@vger.kernel.org, peppe.cavallaro@st.com,
+	Ben Hutchings <ben@decadent.org.uk>
+To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:19449 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757777Ab2EIQZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 12:25:27 -0400
-In-Reply-To: <87mx5njbto.fsf@nemi.mork.no>
-Content-Language: en-US
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:42087 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755333Ab2EIRS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 13:18:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20120509.115729.1982766903625560504.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCasO4cm4gTW9yayBbbWFpbHRv
-OmJqb3JuQG1vcmsubm9dDQo+IFNlbnQ6IFNhdHVyZGF5LCBNYXkgMDUsIDIwMTIgMTowMiBBTQ0K
-PiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBBbGxh
-biwgQnJ1Y2UgVzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gZ29zcG9AcmVkaGF0LmNvbTsg
-c2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0IDIvOF0gZTEwMDBl
-OiBpbml0aWFsIHN1cHBvcnQgZm9yIGkyMTcNCj4gDQo+IEplZmYgS2lyc2hlciA8amVmZnJleS50
-LmtpcnNoZXJAaW50ZWwuY29tPiB3cml0ZXM6DQo+IA0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvZGVmaW5lcy5oDQo+IGIvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvZTEwMDBlL2RlZmluZXMuaA0KPiA+IGluZGV4IDNhNTAyNTkuLjExYzQ2NjYg
-MTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL2RlZmlu
-ZXMuaA0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9kZWZpbmVz
-LmgNCj4gPiBAQCAtNzQsNyArNzQsOSBAQA0KPiA+ICAjZGVmaW5lIEUxMDAwX1dVU19CQyAgICAg
-ICAgICAgRTEwMDBfV1VGQ19CQw0KPiA+DQo+ID4gIC8qIEV4dGVuZGVkIERldmljZSBDb250cm9s
-ICovDQo+ID4gKyNkZWZpbmUgRTEwMDBfQ1RSTF9FWFRfTFBDRCAgMHgwMDAwMDAwNCAgICAgLyog
-TENEIFBvd2VyIEN5Y2xlIERvbmUNCj4gKi8NCj4gPiAgI2RlZmluZSBFMTAwMF9DVFJMX0VYVF9T
-RFAzX0RBVEEgMHgwMDAwMDA4MCAvKiBWYWx1ZSBvZiBTVw0KPiBEZWZpbmFibGUgUGluIDMgKi8N
-Cj4gPiArI2RlZmluZSBFMTAwMF9DVFJMX0VYVF9GT1JDRV9TTUJVUyAweDAwMDAwMDA0IC8qIEZv
-cmNlIFNNQnVzIG1vZGUqLw0KPiA+ICAjZGVmaW5lIEUxMDAwX0NUUkxfRVhUX0VFX1JTVCAgICAw
-eDAwMDAyMDAwIC8qIFJlaW5pdGlhbGl6ZSBmcm9tDQo+IEVFUFJPTSAqLw0KPiA+ICAjZGVmaW5l
-IEUxMDAwX0NUUkxfRVhUX1NQRF9CWVBTICAweDAwMDA4MDAwIC8qIFNwZWVkIFNlbGVjdCBCeXBh
-c3MNCj4gKi8NCj4gPiAgI2RlZmluZSBFMTAwMF9DVFJMX0VYVF9ST19ESVMgICAgMHgwMDAyMDAw
-MCAvKiBSZWxheGVkIE9yZGVyaW5nDQo+IGRpc2FibGUgKi8NCj4gDQo+IFRoZSBtYW5nbGVkIHNv
-cnRpbmcgYW5kIGFsaWdubWVudCBvZiB0aGUgbmV3IGVudHJpZXMgbWFkZSBtZSB3b25kZXIgaWYN
-Cj4gdGhpcyB3YXMgYSB0eXBvLiAgQnV0IHJlYWRpbmcgZnVydGhlciBiZWxvdyBpdCBsb29rcyBs
-aWtlDQo+IEUxMDAwX0NUUkxfRVhUX0xQQ0QgaXMgaW5wdXQgYW5kIEUxMDAwX0NUUkxfRVhUX0ZP
-UkNFX1NNQlVTIGlzIG91dHB1dC4NCj4gSWYgdGhhdCBpcyBjb3JyZWN0LCB0aGVuIGl0IHByb2Jh
-Ymx5IGRlc2VydmVzIGEgc21hbGwgY29tbWVudCBoZXJlDQo+IGFsb25nDQo+IHdpdGggYmV0dGVy
-IHNvcnRpbmcgYW5kIGFsaWdubWVudCB0byBtYWtlIGl0IGNsZWFyIHRoYXQgdGhlIGR1cGxpY2F0
-ZQ0KPiB2YWx1ZSBpcyBpbnRlbnRpb25hbD8NCj4gDQo+IA0KPiBCasO4cm4NCg0KSXQgaXMgYSB0
-eXBvLiAgQW4gdXBkYXRlZCBwYXRjaCB3aWxsIGZvbGxvdyBzb29uLg0KDQpUaGFua3MgZm9yIHNw
-b3R0aW5nIHRoYXQsDQpCcnVjZS4NCg==
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Date: Mon, 2 Apr 2012 00:02:09 +0000
+
+[ Upstream commit b3300146aa8efc5d3937fd33f3cfdc580a3843bc ]
+
+This patch fixes Auto Power Saving configuration in ip101a_config_init
+which was broken as there is no phy register write followed after
+setting IP101A_APS_ON flag.
+
+This patch also fixes the return value of ip101a_config_init.
+
+Without this patch ip101a_config_init returns 2 which is not an error
+accroding to IS_ERR and the mac driver will continue accessing 2 as
+valid pointer to phy_dev resulting in memory fault.
+
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
+---
+David Miller wrote:
+> From: Jonathan Nieder <jrnieder@gmail.com>
+
+>> I'm guessing 3.2.y needs this, too, since it also includes
+>> v3.2-rc1~129^2~247 ("net/phy: add IC+ IP101A and support APS").
+>>
+>> Here's a quick backport made by adjusting the context line to
+>> use IP101A_APS_ON instead of IP101A_G_APS_ON.
+>>
+>> Please include it in some later stable update if appropriate.
+>
+> Please submit this directly to the stable list.
+
+Thanks for looking it over.  Doing so.
+
+ drivers/net/phy/icplus.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
+index c81f136ae670..b14230016d9b 100644
+--- a/drivers/net/phy/icplus.c
++++ b/drivers/net/phy/icplus.c
+@@ -150,7 +150,8 @@ static int ip101a_config_init(struct phy_device *phydev)
+ 	/* Enable Auto Power Saving mode */
+ 	c = phy_read(phydev, IP10XX_SPEC_CTRL_STATUS);
+ 	c |= IP101A_APS_ON;
+-	return c;
++
++	return phy_write(phydev, IP10XX_SPEC_CTRL_STATUS, c);
+ }
+ 
+ static int ip175c_read_status(struct phy_device *phydev)
+-- 
+1.7.10.1
