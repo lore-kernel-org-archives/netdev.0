@@ -1,91 +1,75 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
-Subject: Re: Netlink for kernel<->user space communication?
-Date: Wed, 9 May 2012 23:32:08 +0000
-Message-ID: <4FAAFE76.9060508@xdin.com>
-References: <4FA817C8.9040204@xdin.com>
- <20120507153307.551b29ed@nehalam.linuxnetplumber.net>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/3] usbnet: fix skb traversing races during unlink(v1)
+Date: Thu, 10 May 2012 07:47:47 +0800
+Message-ID: <CACVXFVNYFSSP2+MFXAqT60E0qOp8+hjU3u0SbYoWHA_a5ouaxw@mail.gmail.com>
+References: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
+	<1335775864-4873-4-git-send-email-tom.leiming@gmail.com>
+	<20120502.201212.909292764269133334.davem@davemloft.net>
+	<20120503090450.41704527@tom-ThinkPad-T410>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:61970 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758726Ab2EIXcL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 19:32:11 -0400
-In-Reply-To: <20120507153307.551b29ed@nehalam.linuxnetplumber.net>
-Content-Language: en-US
-Content-ID: <1B504995E38008418EAF51A3A0CBFC63@redbull.xdin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	oneukum-l3A5Bk7waGM@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120503090450.41704527@tom-ThinkPad-T410>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2012-05-08 00:33, Stephen Hemminger wrote:
-> On Mon, 7 May 2012 18:43:23 +0000
-> Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
-> 
->> On Tue, 24 Apr 2012 16:57:55 -0700
->> Stephen Hemminger <shemminger@xxxxxxxxxx> wrote:
->>> On Tue, 24 Apr 2012 23:52:34 +0000
->>> Arvid Brodin <Arvid.Brodin@xxxxxxxx> wrote:
->>>
->>>> Hi.
->>>>
->>>> I'm writing a kernel driver for the HSR protocol, a standard for high availability
->>>> networks. I want to send messages from the kernel to user space about broken network
->>>> links. I also want user space to be able to ask the kernel about its view of the status of
->>>> nodes on the network.
->>>>
->>>> Netlink seems like a good tool for this. (Is it?)
->>>
->>> Yes.
->>>
->>>> But do I use raw netlink? (Described here: http://www.linuxjournal.com/article/7356 - but
->>>> this seems a bit out of date, the kernel API description differs from today's kernel
->>>> implementation.)
->>>
->>> No. Your driver probably looks like a device so you should be
->>> using rtnetlink messages.
->>
->> I'm already using rtnetlink messages to add and remove my device, which works fine (see
->> e.g. http://www.spinics.net/lists/netdev/msg192817.html - although I didn't think it
->> meaningful to include the iproute2 patch here, until the kernel part is ready).
->>
->> The protocol specifies transmission of "supervision frames" every 2 seconds, e.g. to check
->> link integrity. Every such frame should be received from two directions in the ring - if
->> only one is received, then there is a link problem.
-> 
-> Why not just manipulate the carrier or operational state (see Documentation/networking/operstate)
-> and use the existing notification on link changes. If you don't get heartbeat then change
-> the state of the device to indicate lower device is down with set_operstate(), the necessary
-> link everts propgate back as netlink events.
+Hi David,
 
-With HSR, all nodes in the network ring can detect a link problem anywhere in the ring. So
-I need a way to communicate link problems that does not concern the host's devices at all,
-but rather the state of the network as a whole. A typical message might say "Frames from
-node 01:23:45:67:89:AB is only received over Slave Interface 1!" This indicates a problem
-since all frames should be received over both slave interfaces. The broken link can be
-anywhere between this node and the indicated node. If user space is aware of the network
-topology, it can figure out exactly where the damage is by looking at which nodes' frames
-are received over which slave interface.
+On Thu, May 3, 2012 at 9:04 AM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> From a87ff961f0a5d50223bd084dfac4fe5ce84f3913 Mon Sep 17 00:00:00 200=
+1
+> From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Thu, 26 Apr 2012 11:33:46 +0800
+> Subject: [PATCH] usbnet: fix skb traversing races during unlink(v2)
+>
+> Commit 4231d47e6fe69f061f96c98c30eaf9fb4c14b96d(net/usbnet: avoid
+> recursive locking in usbnet_stop()) fixes the recursive locking
+> problem by releasing the skb queue lock before unlink, but may
+> cause skb traversing races:
+> =A0 =A0 =A0 =A0- after URB is unlinked and the queue lock is released=
+,
+> =A0 =A0 =A0 =A0the refered skb and skb->next may be moved to done que=
+ue,
+> =A0 =A0 =A0 =A0even be released
+> =A0 =A0 =A0 =A0- in skb_queue_walk_safe, the next skb is still obtain=
+ed
+> =A0 =A0 =A0 =A0by next pointer of the last skb
+> =A0 =A0 =A0 =A0- so maybe trigger oops or other problems
+>
+> This patch extends the usage of entry->state to describe 'start_unlin=
+k'
+> state, so always holding the queue(rx/tx) lock to change the state if
+> the referd skb is in rx or tx queue because we need to know if the
+> refered urb has been started unlinking in unlink_urbs.
+>
+> The other part of this patch is based on Huajun's patch:
+> always traverse from head of the tx/rx queue to get skb which is
+> to be unlinked but not been started unlinking.
+>
+> Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+> Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+> ---
+> v2:
+> =A0 =A0 =A0 =A0- if the Rx URB has been marked as being unlink, just =
+not resubmit it
+> =A0 =A0 =A0 =A0in complete handler, so usb_block_urb/usb_unblock_urb =
+can be avoided,
 
-(Thanks for the operstates info though, I hadn't discovered IF_OPER_LOWERLAYERDOWN! I will
-use it to indicate a local slave is down.)
+Considered that this one(v2) doesn't depend on usb tree any more and lo=
+oks
+no one objects it, could you apply this one on your tree?
 
-
->> I'd like to notify user space about every such occurence. Is there a rtnetlink message
->> type that fits this? The stuff in rtnetlink.h seems to be mostly concerned with specific
->> user space commands (there is something called RTNLGRP_NOTIFY but I couldn't find any
->> instances of it being used in the kernel, nor any documentation).
->>
-> 
-> I am trying to steer you to use existing API's because then existing programs and
-> infrastructure can deal with the new device type.
-
-I really appreciate that! I want to use existing API's as far as possible. That's why I
-keep sending you all these questions. :)
-
-
--- 
-Arvid Brodin
-XDIN AB | Jan Stenbecks Torg 17 | SE-164 40 Kista | Sweden | xdin.com
+Thanks,
+--=20
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
