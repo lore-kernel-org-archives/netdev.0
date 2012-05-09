@@ -1,33 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 0/6] copy aside frags with destructors (was [PATCH
- 7/9] net: add skb_orphan_frags to copy aside frags with destructors)
-Date: Wed, 9 May 2012 18:27:10 +0300
-Message-ID: <20120509152709.GA20755@redhat.com>
-References: <cover.1336397823.git.mst@redhat.com>
- <1336569529.25514.109.camel@zakaz.uk.xensource.com>
- <20120509135240.GA19246@redhat.com>
- <1336572107.25514.127.camel@zakaz.uk.xensource.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] pch_gbe: Adding read memory barriers
+Date: Wed, 9 May 2012 16:39:16 +0100
+Message-ID: <1336577956.8274.364.camel@deadeye>
+References: <4FA822C4.60809@gmail.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F602CD83CB@saturn3.aculab.com>
+	 <1336569510.8274.360.camel@deadeye>
+	 <CAL2JzuxirjAnmbcV+R=MJFAi1+ayrRnM6i0Dz5poqMuG7Cxwxg@mail.gmail.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F602CD848A@saturn3.aculab.com>
+	 <CAL2JzuxawnesC+=Fqyu71Hkwi5gnRughe_NYM4k1c=zqDoNGRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61942 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758144Ab2EIP1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 11:27:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1336572107.25514.127.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@aculab.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <tshimizu818@gmail.com>
+To: Erwan Velu <erwanaliasr1@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAL2JzuxawnesC+=Fqyu71Hkwi5gnRughe_NYM4k1c=zqDoNGRg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 09, 2012 at 03:01:47PM +0100, Ian Campbell wrote:
-> I took a look at a fairly high level and it all looked sensible, I've
-> not looked closely at the details, not run it yet, I hope I can do that
-> shortly.
+On Wed, 2012-05-09 at 17:20 +0200, Erwan Velu wrote:
+> Thanks for this very clear description.
 
-In particular you can trace skb_copy_ubufs to verify that
-it's called in the scenario where we want a copybreak
-and not called where unexpected e.g. in bridge forwarding.
+It might be clear, but it's not very relevant: you need to understand
+the Linux kernel barrier APIs (which cover all architectures).  See
+Documentation/memory-barriers.txt.
+
+> As I'm pretty new to this kind of integration in the kernel, do you
+> request me to test this volatile option ?
+> Does the patch tends to be rejected for this issue ?
+> What should be the next step for my patch ?
+[...]
+
+Explain what kind of reordering you are trying to avoid.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
