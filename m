@@ -1,7 +1,7 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 10/14] batman-adv: rename sysfs macros to reflect the soft-interface dependency
-Date: Wed,  9 May 2012 13:12:52 +0200
-Message-ID: <1336561976-16088-11-git-send-email-ordex@autistici.org>
+Subject: [PATCH 09/14] batman-adv: refactoring API: find generalized name for bat_ogm_update_mac callback
+Date: Wed,  9 May 2012 13:12:51 +0200
+Message-ID: <1336561976-16088-10-git-send-email-ordex@autistici.org>
 References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
@@ -10,8 +10,8 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from investici.nine.ch ([217.150.252.179]:52797 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757955Ab2EILMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:47 -0400
+	with ESMTP id S1757791Ab2EILMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:45 -0400
 In-Reply-To: <1336561976-16088-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,121 +21,115 @@ From: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_sysfs.c |   57 ++++++++++++++++++++++----------------------
- 1 file changed, 29 insertions(+), 28 deletions(-)
+ net/batman-adv/bat_iv_ogm.c     |   24 ++++++++++++------------
+ net/batman-adv/hard-interface.c |    4 ++--
+ net/batman-adv/main.c           |    2 +-
+ net/batman-adv/types.h          |    5 +++--
+ 4 files changed, 18 insertions(+), 17 deletions(-)
 
-diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
-index 2c81688..913299d 100644
---- a/net/batman-adv/bat_sysfs.c
-+++ b/net/batman-adv/bat_sysfs.c
-@@ -63,7 +63,7 @@ struct bat_attribute bat_attr_##_name = {	\
- 	.store  = _store,			\
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 689fc98..a0fe1de 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -93,6 +93,17 @@ static void bat_iv_ogm_iface_disable(struct hard_iface *hard_iface)
+ 	hard_iface->packet_buff = NULL;
+ }
+ 
++static void bat_iv_ogm_iface_update_mac(struct hard_iface *hard_iface)
++{
++	struct batman_ogm_packet *batman_ogm_packet;
++
++	batman_ogm_packet = (struct batman_ogm_packet *)hard_iface->packet_buff;
++	memcpy(batman_ogm_packet->orig,
++	       hard_iface->net_dev->dev_addr, ETH_ALEN);
++	memcpy(batman_ogm_packet->prev_sender,
++	       hard_iface->net_dev->dev_addr, ETH_ALEN);
++}
++
+ static void bat_iv_ogm_primary_iface_set(struct hard_iface *hard_iface)
+ {
+ 	struct batman_ogm_packet *batman_ogm_packet;
+@@ -102,17 +113,6 @@ static void bat_iv_ogm_primary_iface_set(struct hard_iface *hard_iface)
+ 	batman_ogm_packet->header.ttl = TTL;
+ }
+ 
+-static void bat_iv_ogm_update_mac(struct hard_iface *hard_iface)
+-{
+-	struct batman_ogm_packet *batman_ogm_packet;
+-
+-	batman_ogm_packet = (struct batman_ogm_packet *)hard_iface->packet_buff;
+-	memcpy(batman_ogm_packet->orig,
+-	       hard_iface->net_dev->dev_addr, ETH_ALEN);
+-	memcpy(batman_ogm_packet->prev_sender,
+-	       hard_iface->net_dev->dev_addr, ETH_ALEN);
+-}
+-
+ /* when do we schedule our own ogm to be sent */
+ static unsigned long bat_iv_ogm_emit_send_time(const struct bat_priv *bat_priv)
+ {
+@@ -1235,8 +1235,8 @@ static struct bat_algo_ops batman_iv __read_mostly = {
+ 	.name = "BATMAN IV",
+ 	.bat_iface_enable = bat_iv_ogm_iface_enable,
+ 	.bat_iface_disable = bat_iv_ogm_iface_disable,
++	.bat_iface_update_mac = bat_iv_ogm_iface_update_mac,
+ 	.bat_primary_iface_set = bat_iv_ogm_primary_iface_set,
+-	.bat_ogm_update_mac = bat_iv_ogm_update_mac,
+ 	.bat_ogm_schedule = bat_iv_ogm_schedule,
+ 	.bat_ogm_emit = bat_iv_ogm_emit,
  };
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 95f869c..0b84bb1 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -228,7 +228,7 @@ static void hardif_activate_interface(struct hard_iface *hard_iface)
  
--#define BAT_ATTR_STORE_BOOL(_name, _post_func)				\
-+#define BAT_ATTR_SIF_STORE_BOOL(_name, _post_func)			\
- ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
- 		      char *buff, size_t count)				\
- {									\
-@@ -73,9 +73,9 @@ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
- 				 &bat_priv->_name, net_dev);		\
- }
+ 	bat_priv = netdev_priv(hard_iface->soft_iface);
  
--#define BAT_ATTR_SHOW_BOOL(_name)					\
--ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
--			    char *buff)					\
-+#define BAT_ATTR_SIF_SHOW_BOOL(_name)					\
-+ssize_t show_##_name(struct kobject *kobj,				\
-+		     struct attribute *attr, char *buff)		\
- {									\
- 	struct bat_priv *bat_priv = kobj_to_batpriv(kobj);		\
- 	return sprintf(buff, "%s\n",					\
-@@ -83,16 +83,17 @@ ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
- 		       "disabled" : "enabled");				\
- }									\
+-	bat_priv->bat_algo_ops->bat_ogm_update_mac(hard_iface);
++	bat_priv->bat_algo_ops->bat_iface_update_mac(hard_iface);
+ 	hard_iface->if_status = IF_TO_BE_ACTIVATED;
  
--/* Use this, if you are going to turn a [name] in bat_priv on or off */
--#define BAT_ATTR_BOOL(_name, _mode, _post_func)				\
--	static BAT_ATTR_STORE_BOOL(_name, _post_func)			\
--	static BAT_ATTR_SHOW_BOOL(_name)				\
-+/* Use this, if you are going to turn a [name] in the soft-interface
-+ * (bat_priv) on or off */
-+#define BAT_ATTR_SIF_BOOL(_name, _mode, _post_func)			\
-+	static BAT_ATTR_SIF_STORE_BOOL(_name, _post_func)		\
-+	static BAT_ATTR_SIF_SHOW_BOOL(_name)				\
- 	static BAT_ATTR(_name, _mode, show_##_name, store_##_name)
+ 	/**
+@@ -524,7 +524,7 @@ static int hard_if_event(struct notifier_block *this,
+ 		check_known_mac_addr(hard_iface->net_dev);
  
+ 		bat_priv = netdev_priv(hard_iface->soft_iface);
+-		bat_priv->bat_algo_ops->bat_ogm_update_mac(hard_iface);
++		bat_priv->bat_algo_ops->bat_iface_update_mac(hard_iface);
  
--#define BAT_ATTR_STORE_UINT(_name, _min, _max, _post_func)		\
-+#define BAT_ATTR_SIF_STORE_UINT(_name, _min, _max, _post_func)		\
- ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
--			     char *buff, size_t count)			\
-+		      char *buff, size_t count)				\
- {									\
- 	struct net_device *net_dev = kobj_to_netdev(kobj);		\
- 	struct bat_priv *bat_priv = netdev_priv(net_dev);		\
-@@ -100,19 +101,19 @@ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
- 				 attr, &bat_priv->_name, net_dev);	\
- }
- 
--#define BAT_ATTR_SHOW_UINT(_name)					\
--ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
--			    char *buff)					\
-+#define BAT_ATTR_SIF_SHOW_UINT(_name)					\
-+ssize_t show_##_name(struct kobject *kobj,				\
-+		     struct attribute *attr, char *buff)		\
- {									\
- 	struct bat_priv *bat_priv = kobj_to_batpriv(kobj);		\
- 	return sprintf(buff, "%i\n", atomic_read(&bat_priv->_name));	\
- }									\
- 
--/* Use this, if you are going to set [name] in bat_priv to unsigned integer
-- * values only */
--#define BAT_ATTR_UINT(_name, _mode, _min, _max, _post_func)		\
--	static BAT_ATTR_STORE_UINT(_name, _min, _max, _post_func)	\
--	static BAT_ATTR_SHOW_UINT(_name)				\
-+/* Use this, if you are going to set [name] in the soft-interface
-+ * (bat_priv) to an unsigned integer value */
-+#define BAT_ATTR_SIF_UINT(_name, _mode, _min, _max, _post_func)		\
-+	static BAT_ATTR_SIF_STORE_UINT(_name, _min, _max, _post_func)	\
-+	static BAT_ATTR_SIF_SHOW_UINT(_name)				\
- 	static BAT_ATTR(_name, _mode, show_##_name, store_##_name)
- 
- 
-@@ -384,24 +385,24 @@ static ssize_t store_gw_bwidth(struct kobject *kobj, struct attribute *attr,
- 	return gw_bandwidth_set(net_dev, buff, count);
- }
- 
--BAT_ATTR_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
--BAT_ATTR_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
-+BAT_ATTR_SIF_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
-+BAT_ATTR_SIF_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
- #ifdef CONFIG_BATMAN_ADV_BLA
--BAT_ATTR_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
-+BAT_ATTR_SIF_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
- #endif
--BAT_ATTR_BOOL(fragmentation, S_IRUGO | S_IWUSR, update_min_mtu);
--BAT_ATTR_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
-+BAT_ATTR_SIF_BOOL(fragmentation, S_IRUGO | S_IWUSR, update_min_mtu);
-+BAT_ATTR_SIF_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
- static BAT_ATTR(vis_mode, S_IRUGO | S_IWUSR, show_vis_mode, store_vis_mode);
- static BAT_ATTR(routing_algo, S_IRUGO, show_bat_algo, NULL);
- static BAT_ATTR(gw_mode, S_IRUGO | S_IWUSR, show_gw_mode, store_gw_mode);
--BAT_ATTR_UINT(orig_interval, S_IRUGO | S_IWUSR, 2 * JITTER, INT_MAX, NULL);
--BAT_ATTR_UINT(hop_penalty, S_IRUGO | S_IWUSR, 0, TQ_MAX_VALUE, NULL);
--BAT_ATTR_UINT(gw_sel_class, S_IRUGO | S_IWUSR, 1, TQ_MAX_VALUE,
--	      post_gw_deselect);
-+BAT_ATTR_SIF_UINT(orig_interval, S_IRUGO | S_IWUSR, 2 * JITTER, INT_MAX, NULL);
-+BAT_ATTR_SIF_UINT(hop_penalty, S_IRUGO | S_IWUSR, 0, TQ_MAX_VALUE, NULL);
-+BAT_ATTR_SIF_UINT(gw_sel_class, S_IRUGO | S_IWUSR, 1, TQ_MAX_VALUE,
-+		  post_gw_deselect);
- static BAT_ATTR(gw_bandwidth, S_IRUGO | S_IWUSR, show_gw_bwidth,
- 		store_gw_bwidth);
- #ifdef CONFIG_BATMAN_ADV_DEBUG
--BAT_ATTR_UINT(log_level, S_IRUGO | S_IWUSR, 0, 15, NULL);
-+BAT_ATTR_SIF_UINT(log_level, S_IRUGO | S_IWUSR, 0, 15, NULL);
- #endif
- 
- static struct bat_attribute *mesh_attrs[] = {
+ 		primary_if = primary_if_get_selected(bat_priv);
+ 		if (!primary_if)
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index f80c447..083a299 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -329,8 +329,8 @@ int bat_algo_register(struct bat_algo_ops *bat_algo_ops)
+ 	/* all algorithms must implement all ops (for now) */
+ 	if (!bat_algo_ops->bat_iface_enable ||
+ 	    !bat_algo_ops->bat_iface_disable ||
++	    !bat_algo_ops->bat_iface_update_mac ||
+ 	    !bat_algo_ops->bat_primary_iface_set ||
+-	    !bat_algo_ops->bat_ogm_update_mac ||
+ 	    !bat_algo_ops->bat_ogm_schedule ||
+ 	    !bat_algo_ops->bat_ogm_emit) {
+ 		pr_info("Routing algo '%s' does not implement required ops\n",
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 9fa8b73..2873a90 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -381,10 +381,11 @@ struct bat_algo_ops {
+ 	int (*bat_iface_enable)(struct hard_iface *hard_iface);
+ 	/* de-init routing info when hard-interface is disabled */
+ 	void (*bat_iface_disable)(struct hard_iface *hard_iface);
++	/* (re-)init mac addresses of the protocol information
++	 * belonging to this hard-interface */
++	void (*bat_iface_update_mac)(struct hard_iface *hard_iface);
+ 	/* called when primary interface is selected / changed */
+ 	void (*bat_primary_iface_set)(struct hard_iface *hard_iface);
+-	/* init mac addresses of the OGM belonging to this hard-interface */
+-	void (*bat_ogm_update_mac)(struct hard_iface *hard_iface);
+ 	/* prepare a new outgoing OGM for the send queue */
+ 	void (*bat_ogm_schedule)(struct hard_iface *hard_iface,
+ 				 int tt_num_changes);
 -- 
 1.7.9.4
