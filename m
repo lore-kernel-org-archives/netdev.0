@@ -1,62 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] netfilter updates for net-next (upcoming 3.5),
- batch 2
-Date: Wed, 09 May 2012 18:11:19 -0400 (EDT)
-Message-ID: <20120509.181119.549113304045405166.davem@davemloft.net>
-References: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43827 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932487Ab2EIWMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 18:12:31 -0400
-In-Reply-To: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: [PATCH] xfrm: take iphdr size into account for esp payload size calculation
+Date: Wed,  9 May 2012 18:35:52 -0400
+Message-ID: <1336602952-10479-1-git-send-email-bpoirier@suse.de>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: pablo@netfilter.org
-Date: Wed,  9 May 2012 13:33:03 +0200
+Corrects the function that determines the esp payload size.
+The calculations done in esp4_get_mtu lead to overlength frames in transport
+mode for certain mtu values (eg. 1499 leads to FRAGFAILS) and suboptimal
+frames for others (eg. 1500, where the addition of padding in the esp header
+can be avoided).
 
-> This is a second batch of netfilter updates for net-next, they contain:
-> 
-> * The new HMARK target from Hans Schillstrom. It took lots of spins
->   to get this into shape. This target provides a hash-based packet / flow
->   pre-classifier for iptables that can be used to distribute packets
->   / flows between uplinks and backend servers. It provides to modes, one
->   that relies on conntrack, and one that is stateless per-packet.
-> 
-> * Byte-based cost calculation for the hashlimit match, to detect when
->   a host consumes more bandwidth than expected. This patch from Florian
->   Westphal.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/net-next
+According to what is done, mainly in esp_output(), net_header_len aka
+sizeof(struct iphdr) must be taken into account before doing the alignment
+calculation.
 
-Pulled.
+Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
 
-Two suggested improvements:
+---
+Tested with
+* transport mode E
+* transport mode EA
+* transport mode E + ah
+* tunnel mode E
 
-1) The HMARK hash is quite expensive, because it uses a modulus.
+Not tested with BEET, but it should be the same as transport mode
+	draft-nikander-esp-beet-mode-03.txt Section 5.2:
+	"The wire packet format is identical to the ESP transport mode"
+---
+ net/ipv4/esp4.c |   24 +++---------------------
+ 1 files changed, 3 insertions(+), 21 deletions(-)
 
-   Consider adjusting it to use the usual trick:
-
-	((u64)(HASH_VAL * HASH_SIZE)) >> 32
-
-   so that this can be a multiply instead of a modulus.
-
-2) XT_HASHLIMIT_MAX is cumbersome.
-
-   The canonical way to validate if the set bits are in	a
-   valid range is to have a "_ALL" macro, and test:
-
-	if (val & ~XT_HASHLIMIT_ALL)
-		goto err;
-
-   or similar.
-
-Thanks.
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 89a47b3..60f2738 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -459,28 +459,10 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
+ 	struct esp_data *esp = x->data;
+ 	u32 blksize = ALIGN(crypto_aead_blocksize(esp->aead), 4);
+ 	u32 align = max_t(u32, blksize, esp->padlen);
+-	u32 rem;
+ 
+-	mtu -= x->props.header_len + crypto_aead_authsize(esp->aead);
+-	rem = mtu & (align - 1);
+-	mtu &= ~(align - 1);
+-
+-	switch (x->props.mode) {
+-	case XFRM_MODE_TUNNEL:
+-		break;
+-	default:
+-	case XFRM_MODE_TRANSPORT:
+-		/* The worst case */
+-		mtu -= blksize - 4;
+-		mtu += min_t(u32, blksize - 4, rem);
+-		break;
+-	case XFRM_MODE_BEET:
+-		/* The worst case. */
+-		mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem);
+-		break;
+-	}
+-
+-	return mtu - 2;
++	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
++			sizeof(struct iphdr)) & ~(align - 1)) + (sizeof(struct
++			iphdr) - 2);
+ }
+ 
+ static void esp4_err(struct sk_buff *skb, u32 info)
+-- 
+1.7.7
