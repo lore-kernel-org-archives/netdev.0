@@ -1,141 +1,182 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [v12 PATCH 1/3] NETFILTER added flags to ipv6_find_hdr()
-Date: Wed, 9 May 2012 13:01:08 +0200
-Message-ID: <20120509110108.GA22776@1984>
-References: <1335188128-23645-1-git-send-email-hans.schillstrom@ericsson.com>
- <1335188128-23645-2-git-send-email-hans.schillstrom@ericsson.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: [PATCH v3][resend] bonding: don't increase rx_dropped after
+ processing LACPDUs
+Date: Wed, 9 May 2012 13:01:40 +0200
+Message-ID: <20120509110140.GA9817@midget.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Cc: andy@greyhouse.net, netdev@vger.kernel.org, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51603 "EHLO mail.us.es"
+Received: from cantor2.suse.de ([195.135.220.15]:59783 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751076Ab2EILBM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 07:01:12 -0400
+	id S1757325Ab2EILBn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2012 07:01:43 -0400
 Content-Disposition: inline
-In-Reply-To: <1335188128-23645-2-git-send-email-hans.schillstrom@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have applied this with minor changes.
+Since commit 3aba891d, bonding processes LACP frames (802.3ad
+mode) with bond_handle_frame(). Currently a copy of the skb is
+made and the original is left to be processed by other
+rx_handlers and the rest of the network stack by returning
+RX_HANDLER_ANOTHER.  As there is no protocol handler for
+PKT_TYPE_LACPDU, the frame is dropped and dev->rx_dropped
+increased.
 
-BTW, please use the following patch tagging next time, I'll save time:
+Fix this by making bond_handle_frame() return RX_HANDLER_CONSUMED
+if bonding has processed the LACP frame.
 
-netfilter: ip6_tables: add flags parameter to ipv6_find_hdr()
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
-note the initial netfilter, then ip6_tables, then the description.
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2173,9 +2173,10 @@ re_arm:
+  * received frames (loopback). Since only the payload is given to this
+  * function, it check for loopback.
+  */
+-static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
++static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
+ {
+ 	struct port *port;
++	int ret = RX_HANDLER_ANOTHER;
+ 
+ 	if (length >= sizeof(struct lacpdu)) {
+ 
+@@ -2184,11 +2185,12 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
+ 		if (!port->slave) {
+ 			pr_warning("%s: Warning: port of slave %s is uninitialized\n",
+ 				   slave->dev->name, slave->dev->master->name);
+-			return;
++			return ret;
+ 		}
+ 
+ 		switch (lacpdu->subtype) {
+ 		case AD_TYPE_LACPDU:
++			ret = RX_HANDLER_CONSUMED;
+ 			pr_debug("Received LACPDU on port %d\n",
+ 				 port->actor_port_number);
+ 			/* Protect against concurrent state machines */
+@@ -2198,6 +2200,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
+ 			break;
+ 
+ 		case AD_TYPE_MARKER:
++			ret = RX_HANDLER_CONSUMED;
+ 			// No need to convert fields to Little Endian since we don't use the marker's fields.
+ 
+ 			switch (((struct bond_marker *)lacpdu)->tlv_type) {
+@@ -2219,6 +2222,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
+ 			}
+ 		}
+ 	}
++	return ret;
+ }
+ 
+ /**
+@@ -2456,18 +2460,20 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
+-void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
++int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+ 			  struct slave *slave)
+ {
++	int ret = RX_HANDLER_ANOTHER;
+ 	if (skb->protocol != PKT_TYPE_LACPDU)
+-		return;
++		return ret;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
+-		return;
++		return ret;
+ 
+ 	read_lock(&bond->lock);
+-	bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
++	ret = bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
+ 	read_unlock(&bond->lock);
++	return ret;
+ }
+ 
+ /*
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index 235b2cc..5ee7e3c 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -274,7 +274,7 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave);
+ void bond_3ad_handle_link_change(struct slave *slave, char link);
+ int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
+ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
+-void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
++int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+ 			  struct slave *slave);
+ int bond_3ad_set_carrier(struct bonding *bond);
+ void bond_3ad_update_lacp_rate(struct bonding *bond);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 62d2409..0a0f4a6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1444,8 +1444,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 	struct sk_buff *skb = *pskb;
+ 	struct slave *slave;
+ 	struct bonding *bond;
+-	void (*recv_probe)(struct sk_buff *, struct bonding *,
++	int (*recv_probe)(struct sk_buff *, struct bonding *,
+ 				struct slave *);
++	int ret = RX_HANDLER_ANOTHER;
+ 
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+@@ -1464,8 +1465,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 		struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
+ 
+ 		if (likely(nskb)) {
+-			recv_probe(nskb, bond, slave);
++			ret = recv_probe(nskb, bond, slave);
+ 			dev_kfree_skb(nskb);
++			if (ret == RX_HANDLER_CONSUMED) {
++				consume_skb(skb);
++				return ret;
++			}
+ 		}
+ 	}
+ 
+@@ -1487,7 +1492,7 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 		memcpy(eth_hdr(skb)->h_dest, bond->dev->dev_addr, ETH_ALEN);
+ 	}
+ 
+-	return RX_HANDLER_ANOTHER;
++	return ret;
+ }
+ 
+ /* enslave device <slave> to bond device <master> */
+@@ -2723,7 +2728,7 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
+ 	}
+ }
+ 
+-static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
++static int bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
+ 			 struct slave *slave)
+ {
+ 	struct arphdr *arp;
+@@ -2731,7 +2736,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
+ 	__be32 sip, tip;
+ 
+ 	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
+-		return;
++		return RX_HANDLER_ANOTHER;
+ 
+ 	read_lock(&bond->lock);
+ 
+@@ -2776,6 +2781,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
+ 
+ out_unlock:
+ 	read_unlock(&bond->lock);
++	return RX_HANDLER_ANOTHER;
+ }
+ 
+ /*
 
-This is useful for grepping.
-
-More minor glitches:
-
-On Mon, Apr 23, 2012 at 03:35:26PM +0200, Hans Schillstrom wrote:
-> Two new flags to ipv6_find_hdr,
-> One that tells us that this is a fragment.
-> One that stops at AH if any i.e. treat it like a transport header.
-> i.e. make handling of ESP and AH the same.
-> Param offset can now point to an inner icmp ipv5 header.
-> 
-> Version 3:
->     offset param into ipv6_find_hdr set to zero.
-> 
-> Version 2:
->     wrapper removed and changes made at every call.
-> 
-> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> ---
->  include/linux/netfilter_ipv6/ip6_tables.h |   12 +++++++++-
->  net/ipv6/netfilter/ip6_tables.c           |   35 ++++++++++++++++++++++++----
->  net/ipv6/netfilter/ip6t_ah.c              |    4 +-
->  net/ipv6/netfilter/ip6t_frag.c            |    4 +-
->  net/ipv6/netfilter/ip6t_hbh.c             |    4 +-
->  net/ipv6/netfilter/ip6t_rt.c              |    4 +-
->  net/netfilter/xt_TPROXY.c                 |    4 +-
->  net/netfilter/xt_socket.c                 |    4 +-
->  8 files changed, 53 insertions(+), 18 deletions(-)
-> 
-> diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
-> index 1bc898b..d96a39d 100644
-> --- a/include/linux/netfilter_ipv6/ip6_tables.h
-> +++ b/include/linux/netfilter_ipv6/ip6_tables.h
-> @@ -287,6 +287,7 @@ extern unsigned int ip6t_do_table(struct sk_buff *skb,
->  				  struct xt_table *table);
->  
->  /* Check for an extension */
-> +
-
-removed this extra line.
-
->  static inline int
->  ip6t_ext_hdr(u8 nexthdr)
->  {	return (nexthdr == IPPROTO_HOPOPTS) ||
-> @@ -298,9 +299,18 @@ ip6t_ext_hdr(u8 nexthdr)
->  	       (nexthdr == IPPROTO_DSTOPTS);
->  }
->  
-> +
-
-removed double extra line.
-
-> +extern int ip6t_ext_hdr(u8 nexthdr);
-> +enum {
-> +	IP6T_FH_FRAG,
-> +	IP6T_FH_AUTH,
-
-removed these two above, the are not used anywhere in the code.
-
-> +	IP6T_FH_F_FRAG = 1 << IP6T_FH_FRAG,
-> +	IP6T_FH_F_AUTH = 1 << IP6T_FH_AUTH,
-> +};
-> +
->  /* find specified header and get offset to it */
->  extern int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
-> -			 int target, unsigned short *fragoff);
-> +			 int target, unsigned short *fragoff, int *fragflg);
->  
->  #ifdef CONFIG_COMPAT
->  #include <net/compat.h>
-> diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-> index d4e350f..1f18662 100644
-> --- a/net/ipv6/netfilter/ip6_tables.c
-> +++ b/net/ipv6/netfilter/ip6_tables.c
-> @@ -133,7 +133,7 @@ ip6_packet_match(const struct sk_buff *skb,
->  		int protohdr;
->  		unsigned short _frag_off;
->  
-> -		protohdr = ipv6_find_hdr(skb, protoff, -1, &_frag_off);
-> +		protohdr = ipv6_find_hdr(skb, protoff, -1, &_frag_off, NULL);
->  		if (protohdr < 0) {
->  			if (_frag_off == 0)
->  				*hotdrop = true;
-> @@ -362,6 +362,7 @@ ip6t_do_table(struct sk_buff *skb,
->  		const struct xt_entry_match *ematch;
->  
->  		IP_NF_ASSERT(e);
-> +		acpar.thoff = 0;
->  		if (!ip6_packet_match(skb, indev, outdev, &e->ipv6,
->  		    &acpar.thoff, &acpar.fragoff, &acpar.hotdrop)) {
->   no_match:
-> @@ -2277,6 +2278,8 @@ static void __exit ip6_tables_fini(void)
->   * find the offset to specified header or the protocol number of last header
->   * if target < 0. "last header" is transport protocol header, ESP, or
->   * "No next header".
-> + * Note, *offset is used as input param. an if != 0
-> + * it must be an offset to an inner ipv6 header ex. icmp error
->   *
->   * If target header is found, its offset is set in *offset and return protocol
->   * number. Otherwise, return -1.
-> @@ -2289,17 +2292,34 @@ static void __exit ip6_tables_fini(void)
->   * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
->   * isn't NULL.
->   *
-> + * if flags != NULL AND
-> + *    it's a fragment the frag flag "IP6T_FH_F_FRAG" will be set
-> + *    it's an AH header and IP6T_FH_F_AUTH is set and target < 0
-> + *      stop at AH (i.e. treat is as a transport header)
-
-I've cleaned up these comments. The format does not look very orthodox
-(I'm not blaming your English, but the way the text is organized).
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
