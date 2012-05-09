@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 1/5] netfilter: ip6_tables: add flags parameter to ipv6_find_hdr()
-Date: Wed,  9 May 2012 13:33:04 +0200
-Message-ID: <1336563188-6720-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/5] netfilter: hashlimit: byte-based limit mode
+Date: Wed,  9 May 2012 13:33:08 +0200
+Message-ID: <1336563188-6720-6-git-send-email-pablo@netfilter.org>
 References: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,255 +10,239 @@ In-Reply-To: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: Florian Westphal <fw@strlen.de>
 
-This patch adds the flags parameter to ipv6_find_hdr. This flags
-allows us to:
+can be used e.g. for ingress traffic policing or
+to detect when a host/port consumes more bandwidth than expected.
 
-* know if this is a fragment.
-* stop at the AH header, so the information contained in that header
-  can be used for some specific packet handling.
+This is done by optionally making cost to mean
+"cost per 16-byte-chunk-of-data" instead of "cost per packet".
 
-This patch also adds the offset parameter for inspection of one
-inner IPv6 header that is contained in error messages.
-
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter_ipv6/ip6_tables.h |    7 +++++-
- net/ipv6/netfilter/ip6_tables.c           |   36 +++++++++++++++++++++++++----
- net/ipv6/netfilter/ip6t_ah.c              |    4 ++--
- net/ipv6/netfilter/ip6t_frag.c            |    4 ++--
- net/ipv6/netfilter/ip6t_hbh.c             |    4 ++--
- net/ipv6/netfilter/ip6t_rt.c              |    4 ++--
- net/netfilter/xt_TPROXY.c                 |    4 ++--
- net/netfilter/xt_socket.c                 |    4 ++--
- 8 files changed, 49 insertions(+), 18 deletions(-)
+ include/linux/netfilter/xt_hashlimit.h |   10 ++-
+ net/netfilter/xt_hashlimit.c           |  116 ++++++++++++++++++++++++++------
+ 2 files changed, 106 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
-index 1bc898b..08c2cbb 100644
---- a/include/linux/netfilter_ipv6/ip6_tables.h
-+++ b/include/linux/netfilter_ipv6/ip6_tables.h
-@@ -298,9 +298,14 @@ ip6t_ext_hdr(u8 nexthdr)
- 	       (nexthdr == IPPROTO_DSTOPTS);
+diff --git a/include/linux/netfilter/xt_hashlimit.h b/include/linux/netfilter/xt_hashlimit.h
+index b1925b5..05fe799 100644
+--- a/include/linux/netfilter/xt_hashlimit.h
++++ b/include/linux/netfilter/xt_hashlimit.h
+@@ -6,7 +6,11 @@
+ /* timings are in milliseconds. */
+ #define XT_HASHLIMIT_SCALE 10000
+ /* 1/10,000 sec period => max of 10,000/sec.  Min rate is then 429490
+-   seconds, or one every 59 hours. */
++ * seconds, or one packet every 59 hours.
++ */
++
++/* packet length accounting is done in 16-byte steps */
++#define XT_HASHLIMIT_BYTE_SHIFT 4
+ 
+ /* details of this structure hidden by the implementation */
+ struct xt_hashlimit_htable;
+@@ -17,6 +21,10 @@ enum {
+ 	XT_HASHLIMIT_HASH_SIP = 1 << 2,
+ 	XT_HASHLIMIT_HASH_SPT = 1 << 3,
+ 	XT_HASHLIMIT_INVERT   = 1 << 4,
++	XT_HASHLIMIT_BYTES    = 1 << 5,
++#ifdef __KERNEL__
++	XT_HASHLIMIT_MAX      = 1 << 6,
++#endif
+ };
+ 
+ struct hashlimit_cfg {
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index b6bbd06..d0424f9 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -388,6 +388,18 @@ static void htable_put(struct xt_hashlimit_htable *hinfo)
+ 
+ #define CREDITS_PER_JIFFY POW2_BELOW32(MAX_CPJ)
+ 
++/* in byte mode, the lowest possible rate is one packet/second.
++ * credit_cap is used as a counter that tells us how many times we can
++ * refill the "credits available" counter when it becomes empty.
++ */
++#define MAX_CPJ_BYTES (0xFFFFFFFF / HZ)
++#define CREDITS_PER_JIFFY_BYTES POW2_BELOW32(MAX_CPJ_BYTES)
++
++static u32 xt_hashlimit_len_to_chunks(u32 len)
++{
++	return (len >> XT_HASHLIMIT_BYTE_SHIFT) + 1;
++}
++
+ /* Precision saver. */
+ static u32 user2credits(u32 user)
+ {
+@@ -399,21 +411,53 @@ static u32 user2credits(u32 user)
+ 	return (user * HZ * CREDITS_PER_JIFFY) / XT_HASHLIMIT_SCALE;
  }
  
-+enum {
-+	IP6T_FH_F_FRAG	= (1 << 0),
-+	IP6T_FH_F_AUTH	= (1 << 1),
-+};
-+
- /* find specified header and get offset to it */
- extern int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
--			 int target, unsigned short *fragoff);
-+			 int target, unsigned short *fragoff, int *fragflg);
- 
- #ifdef CONFIG_COMPAT
- #include <net/compat.h>
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index d4e350f..308bdd6 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -133,7 +133,7 @@ ip6_packet_match(const struct sk_buff *skb,
- 		int protohdr;
- 		unsigned short _frag_off;
- 
--		protohdr = ipv6_find_hdr(skb, protoff, -1, &_frag_off);
-+		protohdr = ipv6_find_hdr(skb, protoff, -1, &_frag_off, NULL);
- 		if (protohdr < 0) {
- 			if (_frag_off == 0)
- 				*hotdrop = true;
-@@ -362,6 +362,7 @@ ip6t_do_table(struct sk_buff *skb,
- 		const struct xt_entry_match *ematch;
- 
- 		IP_NF_ASSERT(e);
-+		acpar.thoff = 0;
- 		if (!ip6_packet_match(skb, indev, outdev, &e->ipv6,
- 		    &acpar.thoff, &acpar.fragoff, &acpar.hotdrop)) {
-  no_match:
-@@ -2278,6 +2279,10 @@ static void __exit ip6_tables_fini(void)
-  * if target < 0. "last header" is transport protocol header, ESP, or
-  * "No next header".
-  *
-+ * Note that *offset is used as input/output parameter. an if it is not zero,
-+ * then it must be a valid offset to an inner IPv6 header. This can be used
-+ * to explore inner IPv6 header, eg. ICMPv6 error messages.
-+ *
-  * If target header is found, its offset is set in *offset and return protocol
-  * number. Otherwise, return -1.
-  *
-@@ -2289,17 +2294,33 @@ static void __exit ip6_tables_fini(void)
-  * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
-  * isn't NULL.
-  *
-+ * if flags is not NULL and it's a fragment, then the frag flag IP6T_FH_F_FRAG
-+ * will be set. If it's an AH header, the IP6T_FH_F_AUTH flag is set and
-+ * target < 0, then this function will stop at the AH header.
-  */
- int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
--		  int target, unsigned short *fragoff)
-+		  int target, unsigned short *fragoff, int *flags)
+-static void rateinfo_recalc(struct dsthash_ent *dh, unsigned long now)
++static u32 user2credits_byte(u32 user)
  {
- 	unsigned int start = skb_network_offset(skb) + sizeof(struct ipv6hdr);
- 	u8 nexthdr = ipv6_hdr(skb)->nexthdr;
--	unsigned int len = skb->len - start;
-+	unsigned int len;
- 
- 	if (fragoff)
- 		*fragoff = 0;
- 
-+	if (*offset) {
-+		struct ipv6hdr _ip6, *ip6;
+-	dh->rateinfo.credit += (now - dh->rateinfo.prev) * CREDITS_PER_JIFFY;
+-	if (dh->rateinfo.credit > dh->rateinfo.credit_cap)
+-		dh->rateinfo.credit = dh->rateinfo.credit_cap;
++	u64 us = user;
++	us *= HZ * CREDITS_PER_JIFFY_BYTES;
++	return (u32) (us >> 32);
++}
 +
-+		ip6 = skb_header_pointer(skb, *offset, sizeof(_ip6), &_ip6);
-+		if (!ip6 || (ip6->version != 6)) {
-+			printk(KERN_ERR "IPv6 header not found\n");
-+			return -EBADMSG;
++static void rateinfo_recalc(struct dsthash_ent *dh, unsigned long now, u32 mode)
++{
++	unsigned long delta = now - dh->rateinfo.prev;
++	u32 cap;
++
++	if (delta == 0)
++		return;
++
+ 	dh->rateinfo.prev = now;
++
++	if (mode & XT_HASHLIMIT_BYTES) {
++		u32 tmp = dh->rateinfo.credit;
++		dh->rateinfo.credit += CREDITS_PER_JIFFY_BYTES * delta;
++		cap = CREDITS_PER_JIFFY_BYTES * HZ;
++		if (tmp >= dh->rateinfo.credit) {/* overflow */
++			dh->rateinfo.credit = cap;
++			return;
 +		}
-+		start = *offset + sizeof(struct ipv6hdr);
-+		nexthdr = ip6->nexthdr;
++	} else {
++		dh->rateinfo.credit += delta * CREDITS_PER_JIFFY;
++		cap = dh->rateinfo.credit_cap;
 +	}
-+	len = skb->len - start;
++	if (dh->rateinfo.credit > cap)
++		dh->rateinfo.credit = cap;
+ }
+ 
+ static void rateinfo_init(struct dsthash_ent *dh,
+ 			  struct xt_hashlimit_htable *hinfo)
+ {
+ 	dh->rateinfo.prev = jiffies;
+-	dh->rateinfo.credit = user2credits(hinfo->cfg.avg * hinfo->cfg.burst);
+-	dh->rateinfo.cost = user2credits(hinfo->cfg.avg);
+-	dh->rateinfo.credit_cap = dh->rateinfo.credit;
++	if (hinfo->cfg.mode & XT_HASHLIMIT_BYTES) {
++		dh->rateinfo.credit = CREDITS_PER_JIFFY_BYTES * HZ;
++		dh->rateinfo.cost = user2credits_byte(hinfo->cfg.avg);
++		dh->rateinfo.credit_cap = hinfo->cfg.burst;
++	} else {
++		dh->rateinfo.credit = user2credits(hinfo->cfg.avg *
++						   hinfo->cfg.burst);
++		dh->rateinfo.cost = user2credits(hinfo->cfg.avg);
++		dh->rateinfo.credit_cap = dh->rateinfo.credit;
++	}
+ }
+ 
+ static inline __be32 maskl(__be32 a, unsigned int l)
+@@ -519,6 +563,21 @@ hashlimit_init_dst(const struct xt_hashlimit_htable *hinfo,
+ 	return 0;
+ }
+ 
++static u32 hashlimit_byte_cost(unsigned int len, struct dsthash_ent *dh)
++{
++	u64 tmp = xt_hashlimit_len_to_chunks(len);
++	tmp = tmp * dh->rateinfo.cost;
 +
- 	while (nexthdr != target) {
- 		struct ipv6_opt_hdr _hdr, *hp;
- 		unsigned int hdrlen;
-@@ -2316,6 +2337,9 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 		if (nexthdr == NEXTHDR_FRAGMENT) {
- 			unsigned short _frag_off;
- 			__be16 *fp;
++	if (unlikely(tmp > CREDITS_PER_JIFFY_BYTES * HZ))
++		tmp = CREDITS_PER_JIFFY_BYTES * HZ;
 +
-+			if (flags)	/* Indicate that this is a fragment */
-+				*flags |= IP6T_FH_F_FRAG;
- 			fp = skb_header_pointer(skb,
- 						start+offsetof(struct frag_hdr,
- 							       frag_off),
-@@ -2336,9 +2360,11 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 				return -ENOENT;
- 			}
- 			hdrlen = 8;
--		} else if (nexthdr == NEXTHDR_AUTH)
-+		} else if (nexthdr == NEXTHDR_AUTH) {
-+			if (flags && (*flags & IP6T_FH_F_AUTH) && (target < 0))
-+				break;
- 			hdrlen = (hp->hdrlen + 2) << 2;
--		else
-+		} else
- 			hdrlen = ipv6_optlen(hp);
++	if (dh->rateinfo.credit < tmp && dh->rateinfo.credit_cap) {
++		dh->rateinfo.credit_cap--;
++		dh->rateinfo.credit = CREDITS_PER_JIFFY_BYTES * HZ;
++	}
++	return (u32) tmp;
++}
++
+ static bool
+ hashlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+@@ -527,6 +586,7 @@ hashlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	unsigned long now = jiffies;
+ 	struct dsthash_ent *dh;
+ 	struct dsthash_dst dst;
++	u32 cost;
  
- 		nexthdr = hp->nexthdr;
-diff --git a/net/ipv6/netfilter/ip6t_ah.c b/net/ipv6/netfilter/ip6t_ah.c
-index 89cccc5..04099ab 100644
---- a/net/ipv6/netfilter/ip6t_ah.c
-+++ b/net/ipv6/netfilter/ip6t_ah.c
-@@ -41,11 +41,11 @@ static bool ah_mt6(const struct sk_buff *skb, struct xt_action_param *par)
- 	struct ip_auth_hdr _ah;
- 	const struct ip_auth_hdr *ah;
- 	const struct ip6t_ah *ahinfo = par->matchinfo;
--	unsigned int ptr;
-+	unsigned int ptr = 0;
- 	unsigned int hdrlen = 0;
- 	int err;
+ 	if (hashlimit_init_dst(hinfo, &dst, skb, par->thoff) < 0)
+ 		goto hotdrop;
+@@ -544,12 +604,17 @@ hashlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	} else {
+ 		/* update expiration timeout */
+ 		dh->expires = now + msecs_to_jiffies(hinfo->cfg.expire);
+-		rateinfo_recalc(dh, now);
++		rateinfo_recalc(dh, now, hinfo->cfg.mode);
+ 	}
  
--	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_AUTH, NULL);
-+	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_AUTH, NULL, NULL);
- 	if (err < 0) {
- 		if (err != -ENOENT)
- 			par->hotdrop = true;
-diff --git a/net/ipv6/netfilter/ip6t_frag.c b/net/ipv6/netfilter/ip6t_frag.c
-index eda898f..3b5735e 100644
---- a/net/ipv6/netfilter/ip6t_frag.c
-+++ b/net/ipv6/netfilter/ip6t_frag.c
-@@ -40,10 +40,10 @@ frag_mt6(const struct sk_buff *skb, struct xt_action_param *par)
- 	struct frag_hdr _frag;
- 	const struct frag_hdr *fh;
- 	const struct ip6t_frag *fraginfo = par->matchinfo;
--	unsigned int ptr;
-+	unsigned int ptr = 0;
- 	int err;
+-	if (dh->rateinfo.credit >= dh->rateinfo.cost) {
++	if (info->cfg.mode & XT_HASHLIMIT_BYTES)
++		cost = hashlimit_byte_cost(skb->len, dh);
++	else
++		cost = dh->rateinfo.cost;
++
++	if (dh->rateinfo.credit >= cost) {
+ 		/* below the limit */
+-		dh->rateinfo.credit -= dh->rateinfo.cost;
++		dh->rateinfo.credit -= cost;
+ 		spin_unlock(&dh->lock);
+ 		rcu_read_unlock_bh();
+ 		return !(info->cfg.mode & XT_HASHLIMIT_INVERT);
+@@ -571,14 +636,6 @@ static int hashlimit_mt_check(const struct xt_mtchk_param *par)
+ 	struct xt_hashlimit_mtinfo1 *info = par->matchinfo;
+ 	int ret;
  
--	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_FRAGMENT, NULL);
-+	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_FRAGMENT, NULL, NULL);
- 	if (err < 0) {
- 		if (err != -ENOENT)
- 			par->hotdrop = true;
-diff --git a/net/ipv6/netfilter/ip6t_hbh.c b/net/ipv6/netfilter/ip6t_hbh.c
-index 59df051..01df142 100644
---- a/net/ipv6/netfilter/ip6t_hbh.c
-+++ b/net/ipv6/netfilter/ip6t_hbh.c
-@@ -50,7 +50,7 @@ hbh_mt6(const struct sk_buff *skb, struct xt_action_param *par)
- 	const struct ipv6_opt_hdr *oh;
- 	const struct ip6t_opts *optinfo = par->matchinfo;
- 	unsigned int temp;
--	unsigned int ptr;
-+	unsigned int ptr = 0;
- 	unsigned int hdrlen = 0;
- 	bool ret = false;
- 	u8 _opttype;
-@@ -62,7 +62,7 @@ hbh_mt6(const struct sk_buff *skb, struct xt_action_param *par)
+-	/* Check for overflow. */
+-	if (info->cfg.burst == 0 ||
+-	    user2credits(info->cfg.avg * info->cfg.burst) <
+-	    user2credits(info->cfg.avg)) {
+-		pr_info("overflow, try lower: %u/%u\n",
+-			info->cfg.avg, info->cfg.burst);
+-		return -ERANGE;
+-	}
+ 	if (info->cfg.gc_interval == 0 || info->cfg.expire == 0)
+ 		return -EINVAL;
+ 	if (info->name[sizeof(info->name)-1] != '\0')
+@@ -591,6 +648,26 @@ static int hashlimit_mt_check(const struct xt_mtchk_param *par)
+ 			return -EINVAL;
+ 	}
  
- 	err = ipv6_find_hdr(skb, &ptr,
- 			    (par->match == &hbh_mt6_reg[0]) ?
--			    NEXTHDR_HOP : NEXTHDR_DEST, NULL);
-+			    NEXTHDR_HOP : NEXTHDR_DEST, NULL, NULL);
- 	if (err < 0) {
- 		if (err != -ENOENT)
- 			par->hotdrop = true;
-diff --git a/net/ipv6/netfilter/ip6t_rt.c b/net/ipv6/netfilter/ip6t_rt.c
-index d8488c5..2c99b94 100644
---- a/net/ipv6/netfilter/ip6t_rt.c
-+++ b/net/ipv6/netfilter/ip6t_rt.c
-@@ -42,14 +42,14 @@ static bool rt_mt6(const struct sk_buff *skb, struct xt_action_param *par)
- 	const struct ipv6_rt_hdr *rh;
- 	const struct ip6t_rt *rtinfo = par->matchinfo;
- 	unsigned int temp;
--	unsigned int ptr;
-+	unsigned int ptr = 0;
- 	unsigned int hdrlen = 0;
- 	bool ret = false;
- 	struct in6_addr _addr;
- 	const struct in6_addr *ap;
- 	int err;
++	if (info->cfg.mode >= XT_HASHLIMIT_MAX) {
++		pr_info("Unknown mode mask %X, kernel too old?\n",
++						info->cfg.mode);
++		return -EINVAL;
++	}
++
++	/* Check for overflow. */
++	if (info->cfg.mode & XT_HASHLIMIT_BYTES) {
++		if (user2credits_byte(info->cfg.avg) == 0) {
++			pr_info("overflow, rate too high: %u\n", info->cfg.avg);
++			return -EINVAL;
++		}
++	} else if (info->cfg.burst == 0 ||
++		    user2credits(info->cfg.avg * info->cfg.burst) <
++		    user2credits(info->cfg.avg)) {
++			pr_info("overflow, try lower: %u/%u\n",
++				info->cfg.avg, info->cfg.burst);
++			return -ERANGE;
++	}
++
+ 	mutex_lock(&hashlimit_mutex);
+ 	info->hinfo = htable_find_get(net, info->name, par->family);
+ 	if (info->hinfo == NULL) {
+@@ -683,10 +760,11 @@ static int dl_seq_real_show(struct dsthash_ent *ent, u_int8_t family,
+ 				   struct seq_file *s)
+ {
+ 	int res;
++	const struct xt_hashlimit_htable *ht = s->private;
  
--	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_ROUTING, NULL);
-+	err = ipv6_find_hdr(skb, &ptr, NEXTHDR_ROUTING, NULL, NULL);
- 	if (err < 0) {
- 		if (err != -ENOENT)
- 			par->hotdrop = true;
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index 35a959a..146033a 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -282,10 +282,10 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
- 	struct sock *sk;
- 	const struct in6_addr *laddr;
- 	__be16 lport;
--	int thoff;
-+	int thoff = 0;
- 	int tproto;
+ 	spin_lock(&ent->lock);
+ 	/* recalculate to show accurate numbers */
+-	rateinfo_recalc(ent, jiffies);
++	rateinfo_recalc(ent, jiffies, ht->cfg.mode);
  
--	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
-+	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
- 	if (tproto < 0) {
- 		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
- 		return NF_DROP;
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 72bb07f..9ea482d 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -263,10 +263,10 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
- 	struct sock *sk;
- 	struct in6_addr *daddr, *saddr;
- 	__be16 dport, sport;
--	int thoff, tproto;
-+	int thoff = 0, tproto;
- 	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
- 
--	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL);
-+	tproto = ipv6_find_hdr(skb, &thoff, -1, NULL, NULL);
- 	if (tproto < 0) {
- 		pr_debug("unable to find transport header in IPv6 packet, dropping\n");
- 		return NF_DROP;
+ 	switch (family) {
+ 	case NFPROTO_IPV4:
 -- 
 1.7.9.5
 
