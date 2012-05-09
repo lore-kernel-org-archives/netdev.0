@@ -1,38 +1,83 @@
-From: =?ISO-8859-1?Q?Alex_Villac=EDs_Lasso?= <a_villacis@palosanto.com>
-Subject: Re: [PATCH] r8169: fix problem with TSO (TX_BUFFS_AVAIL negative
- value)
-Date: Tue, 08 May 2012 23:12:28 -0500
-Message-ID: <4FA9EEAC.7010201@palosanto.com>
-References: <1336430367.11363.38.camel@blackbone.local> <20120507234205.GA2230@electric-eye.fr.zoreil.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 00/13] net: Add and use ether_addr_equal
+Date: Tue,  8 May 2012 21:56:44 -0700
+Message-ID: <cover.1336538937.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Pilarski <thomas.pi@arcor.de>,
-	Julien Ducourthial <jducourt@free.fr>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.palosanto.com ([200.93.199.101]:43695 "EHLO
-	pbx.palosanto.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853Ab2EIEMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 00:12:50 -0400
-In-Reply-To: <20120507234205.GA2230@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-wireless@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-El 07/05/12 18:42, Francois Romieu escribi=F3:
-> Julien Ducourthial<jducourt@free.fr>  :
->> The r8169 may get stuck or show bad behaviour after activating TSO :
->> the net_device is not stopped when it has no more TX descriptors.
->> This problem comes from TX_BUFS_AVAIL which may reach -1 when all
->> transmit descriptors are in use. The patch simply tries to keep posi=
-tive
->> values.
-> It seems more than good.
->
-> Alex, Thomas, can you check if Julien's patch below fixes your broken
-> kernels as well ?
->
-No luck. The backtrace still appears after using the patched driver.
+Add a boolean function to test 2 ethernet addresses for equality
+Convert compare_ether_addr uses to ether_addr_equal
+
+Joe Perches (13):
+  etherdevice.h: Add ether_addr_equal
+  802: Convert compare_ether_addr to ether_addr_equal
+  8021q: Convert compare_ether_addr to ether_addr_equal
+  bridge: netfilter: Convert compare_ether_addr to ether_addr_equal
+  bridge: Convert compare_ether_addr to ether_addr_equal
+  atm: Convert compare_ether_addr to ether_addr_equal
+  bluetooth: Convert compare_ether_addr to ether_addr_equal
+  mac80211: Convert compare_ether_addr to ether_addr_equal
+  mac80211: Convert compare_ether_addr to ether_addr_equal by hand
+  netfilter: Convert compare_ether_addr to ether_addr_equal
+  wireless: Convert compare_ether_addr to ether_addr_equal
+  wireless: Convert compare_ether_addr to ether_addr_equal by hand
+  dsa: Convert compare_ether_addr to ether_addr_equal
+
+ include/linux/etherdevice.h               |   12 +++++++++
+ net/802/stp.c                             |    2 +-
+ net/8021q/vlan.c                          |   10 +++---
+ net/8021q/vlan_core.c                     |    3 +-
+ net/8021q/vlan_dev.c                      |   10 +++---
+ net/atm/lec.c                             |    6 ++--
+ net/atm/mpc.c                             |    3 +-
+ net/bluetooth/bnep/core.c                 |    6 ++--
+ net/bridge/br_device.c                    |    2 +-
+ net/bridge/br_fdb.c                       |   14 +++++-----
+ net/bridge/br_input.c                     |    2 +-
+ net/bridge/br_stp_bpdu.c                  |    2 +-
+ net/bridge/br_stp_if.c                    |   11 +++----
+ net/bridge/netfilter/ebt_stp.c            |    4 +-
+ net/dsa/slave.c                           |   10 +++---
+ net/mac80211/cfg.c                        |    2 +-
+ net/mac80211/ibss.c                       |   12 ++++----
+ net/mac80211/ieee80211_i.h                |    2 +-
+ net/mac80211/iface.c                      |    2 +-
+ net/mac80211/mesh.c                       |    4 +-
+ net/mac80211/mesh_hwmp.c                  |   14 +++++-----
+ net/mac80211/mesh_pathtbl.c               |   12 ++++----
+ net/mac80211/mlme.c                       |   29 +++++++++------------
+ net/mac80211/rx.c                         |   39 +++++++++++++---------------
+ net/mac80211/scan.c                       |    2 +-
+ net/mac80211/sta_info.c                   |    8 +++---
+ net/mac80211/sta_info.h                   |    2 +-
+ net/mac80211/status.c                     |    2 +-
+ net/mac80211/tx.c                         |   11 +++----
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c |    4 +-
+ net/netfilter/xt_mac.c                    |    2 +-
+ net/wireless/ibss.c                       |    2 +-
+ net/wireless/mlme.c                       |   31 +++++++++++------------
+ net/wireless/scan.c                       |    2 +-
+ net/wireless/util.c                       |   11 +++----
+ net/wireless/wext-sme.c                   |    2 +-
+ net/wireless/wext-spy.c                   |    2 +-
+ 37 files changed, 147 insertions(+), 147 deletions(-)
+
+-- 
+1.7.8.111.gad25c.dirty
