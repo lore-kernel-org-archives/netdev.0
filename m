@@ -1,56 +1,109 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 09/13] mac80211: Convert compare_ether_addr to ether_addr_equal by hand
-Date: Tue,  8 May 2012 21:56:53 -0700
-Message-ID: <95ab271a19bf0fc4c4fa007e95b76edc8d6b5611.1336538938.git.joe@perches.com>
+Subject: [PATCH 10/13] netfilter: Convert compare_ether_addr to ether_addr_equal
+Date: Tue,  8 May 2012 21:56:54 -0700
+Message-ID: <6fc964a05b125385dc75798c24226bf20e16aa5d.1336538938.git.joe@perches.com>
 References: <cover.1336538937.git.joe@perches.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-owner@vger.kernel.org>
 In-Reply-To: <cover.1336538937.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-spatch/coccinelle isn't perfect.  It doesn't understand
-__aligned(x) and doesn't convert functions it can't parse.
+Use the new bool function ether_addr_equal to add
+some clarity and reduce the likelihood for misuse
+of compare_ether_addr for sorting.
 
-Convert the remaining compare_ether_addr uses.
+Done via cocci script:
+
+$ cat compare_ether_addr.cocci
+@@
+expression a,b;
+@@
+-	!compare_ether_addr(a, b)
++	ether_addr_equal(a, b)
+
+@@
+expression a,b;
+@@
+-	compare_ether_addr(a, b)
++	!ether_addr_equal(a, b)
+
+@@
+expression a,b;
+@@
+-	!ether_addr_equal(a, b) == 0
++	ether_addr_equal(a, b)
+
+@@
+expression a,b;
+@@
+-	!ether_addr_equal(a, b) != 0
++	!ether_addr_equal(a, b)
+
+@@
+expression a,b;
+@@
+-	ether_addr_equal(a, b) == 0
++	!ether_addr_equal(a, b)
+
+@@
+expression a,b;
+@@
+-	ether_addr_equal(a, b) != 0
++	ether_addr_equal(a, b)
+
+@@
+expression a,b;
+@@
+-	!!ether_addr_equal(a, b)
++	ether_addr_equal(a, b)
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/mac80211/rx.c       |    4 ++--
- net/mac80211/sta_info.h |    2 +-
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c |    4 ++--
+ net/netfilter/xt_mac.c                    |    2 +-
  2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 26bfd6f..d722c40 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -1714,8 +1714,8 @@ static bool ieee80211_frame_allowed(struct ieee80211_rx_data *rx, __le16 fc)
- 	 * of whether the frame was encrypted or not.
- 	 */
- 	if (ehdr->h_proto == rx->sdata->control_port_protocol &&
--	    (compare_ether_addr(ehdr->h_dest, rx->sdata->vif.addr) == 0 ||
--	     compare_ether_addr(ehdr->h_dest, pae_group_addr) == 0))
-+	    (ether_addr_equal(ehdr->h_dest, rx->sdata->vif.addr) ||
-+	     ether_addr_equal(ehdr->h_dest, pae_group_addr)))
- 		return true;
- 
- 	if (ieee80211_802_1x_port_control(rx) ||
-diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
-index f75f5d9..e920b22 100644
---- a/net/mac80211/sta_info.h
-+++ b/net/mac80211/sta_info.h
-@@ -501,7 +501,7 @@ void for_each_sta_info_type_check(struct ieee80211_local *local,
- 		nxt = _sta ? rcu_dereference(_sta->hnext) : NULL	\
- 	     )								\
- 	/* compare address and run code only if it matches */		\
--	if (compare_ether_addr(_sta->sta.addr, (_addr)) == 0)
-+	if (ether_addr_equal(_sta->sta.addr, (_addr)))
- 
- /*
-  * Get STA info by index, BROKEN!
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 0bb16c4..d7eaf10 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -111,7 +111,7 @@ bitmap_ipmac_test(struct ip_set *set, void *value, u32 timeout, u32 flags)
+ 		return -EAGAIN;
+ 	case MAC_FILLED:
+ 		return data->ether == NULL ||
+-		       compare_ether_addr(data->ether, elem->ether) == 0;
++		       ether_addr_equal(data->ether, elem->ether);
+ 	}
+ 	return 0;
+ }
+@@ -225,7 +225,7 @@ bitmap_ipmac_ttest(struct ip_set *set, void *value, u32 timeout, u32 flags)
+ 		return -EAGAIN;
+ 	case MAC_FILLED:
+ 		return (data->ether == NULL ||
+-			compare_ether_addr(data->ether, elem->ether) == 0) &&
++			ether_addr_equal(data->ether, elem->ether)) &&
+ 		       !bitmap_expired(map, data->id);
+ 	}
+ 	return 0;
+diff --git a/net/netfilter/xt_mac.c b/net/netfilter/xt_mac.c
+index 8160f6b..d5b4fd4 100644
+--- a/net/netfilter/xt_mac.c
++++ b/net/netfilter/xt_mac.c
+@@ -36,7 +36,7 @@ static bool mac_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 		return false;
+ 	if (skb_mac_header(skb) + ETH_HLEN > skb->data)
+ 		return false;
+-	ret  = compare_ether_addr(eth_hdr(skb)->h_source, info->srcaddr) == 0;
++	ret  = ether_addr_equal(eth_hdr(skb)->h_source, info->srcaddr);
+ 	ret ^= info->invert;
+ 	return ret;
+ }
 -- 
 1.7.8.111.gad25c.dirty
+
