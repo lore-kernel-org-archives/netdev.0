@@ -1,182 +1,101 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH v3][resend] bonding: don't increase rx_dropped after
- processing LACPDUs
-Date: Wed, 9 May 2012 13:01:40 +0200
-Message-ID: <20120509110140.GA9817@midget.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andy@greyhouse.net, netdev@vger.kernel.org, fubar@us.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:59783 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757325Ab2EILBn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 07:01:43 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request: batman-adv 2012-05-09
+Date: Wed,  9 May 2012 13:12:42 +0200
+Message-ID: <1336561976-16088-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 3aba891d, bonding processes LACP frames (802.3ad
-mode) with bond_handle_frame(). Currently a copy of the skb is
-made and the original is left to be processed by other
-rx_handlers and the rest of the network stack by returning
-RX_HANDLER_ANOTHER.  As there is no protocol handler for
-PKT_TYPE_LACPDU, the frame is dropped and dev->rx_dropped
-increased.
+Dear David,
 
-Fix this by making bond_handle_frame() return RX_HANDLER_CONSUMED
-if bonding has processed the LACP frame.
+here is a new set of changes I would like to propose for next-next/linux-3.5.
+Changes proposed here are the same of the last unsuccessful pull request, issued
+on 2012-05-01, plus some other minor fixes.
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+The patchset is based on your net-next tree.
+Please, let me know if there is any problem.
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2173,9 +2173,10 @@ re_arm:
-  * received frames (loopback). Since only the payload is given to this
-  * function, it check for loopback.
-  */
--static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
-+static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
- {
- 	struct port *port;
-+	int ret = RX_HANDLER_ANOTHER;
- 
- 	if (length >= sizeof(struct lacpdu)) {
- 
-@@ -2184,11 +2185,12 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 		if (!port->slave) {
- 			pr_warning("%s: Warning: port of slave %s is uninitialized\n",
- 				   slave->dev->name, slave->dev->master->name);
--			return;
-+			return ret;
- 		}
- 
- 		switch (lacpdu->subtype) {
- 		case AD_TYPE_LACPDU:
-+			ret = RX_HANDLER_CONSUMED;
- 			pr_debug("Received LACPDU on port %d\n",
- 				 port->actor_port_number);
- 			/* Protect against concurrent state machines */
-@@ -2198,6 +2200,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 			break;
- 
- 		case AD_TYPE_MARKER:
-+			ret = RX_HANDLER_CONSUMED;
- 			// No need to convert fields to Little Endian since we don't use the marker's fields.
- 
- 			switch (((struct bond_marker *)lacpdu)->tlv_type) {
-@@ -2219,6 +2222,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
- 			}
- 		}
- 	}
-+	return ret;
- }
- 
- /**
-@@ -2456,18 +2460,20 @@ out:
- 	return NETDEV_TX_OK;
- }
- 
--void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
-+int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
- 			  struct slave *slave)
- {
-+	int ret = RX_HANDLER_ANOTHER;
- 	if (skb->protocol != PKT_TYPE_LACPDU)
--		return;
-+		return ret;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
--		return;
-+		return ret;
- 
- 	read_lock(&bond->lock);
--	bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
-+	ret = bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
- 	read_unlock(&bond->lock);
-+	return ret;
- }
- 
- /*
-diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
-index 235b2cc..5ee7e3c 100644
---- a/drivers/net/bonding/bond_3ad.h
-+++ b/drivers/net/bonding/bond_3ad.h
-@@ -274,7 +274,7 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave);
- void bond_3ad_handle_link_change(struct slave *slave, char link);
- int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
- int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
--void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
-+int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
- 			  struct slave *slave);
- int bond_3ad_set_carrier(struct bonding *bond);
- void bond_3ad_update_lacp_rate(struct bonding *bond);
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 62d2409..0a0f4a6 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1444,8 +1444,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 	struct sk_buff *skb = *pskb;
- 	struct slave *slave;
- 	struct bonding *bond;
--	void (*recv_probe)(struct sk_buff *, struct bonding *,
-+	int (*recv_probe)(struct sk_buff *, struct bonding *,
- 				struct slave *);
-+	int ret = RX_HANDLER_ANOTHER;
- 
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (unlikely(!skb))
-@@ -1464,8 +1465,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 		struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
- 
- 		if (likely(nskb)) {
--			recv_probe(nskb, bond, slave);
-+			ret = recv_probe(nskb, bond, slave);
- 			dev_kfree_skb(nskb);
-+			if (ret == RX_HANDLER_CONSUMED) {
-+				consume_skb(skb);
-+				return ret;
-+			}
- 		}
- 	}
- 
-@@ -1487,7 +1492,7 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 		memcpy(eth_hdr(skb)->h_dest, bond->dev->dev_addr, ETH_ALEN);
- 	}
- 
--	return RX_HANDLER_ANOTHER;
-+	return ret;
- }
- 
- /* enslave device <slave> to bond device <master> */
-@@ -2723,7 +2728,7 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
- 	}
- }
- 
--static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
-+static int bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave)
- {
- 	struct arphdr *arp;
-@@ -2731,7 +2736,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 	__be32 sip, tip;
- 
- 	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
--		return;
-+		return RX_HANDLER_ANOTHER;
- 
- 	read_lock(&bond->lock);
- 
-@@ -2776,6 +2781,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
- 
- out_unlock:
- 	read_unlock(&bond->lock);
-+	return RX_HANDLER_ANOTHER;
- }
- 
- /*
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Sorry again for the touble I caused last time, but it was really a mistake, it
+was not my intention to let you pull an entire wrong tree.
+
+
+
+Thank you very much,
+		Antonio
+
+
+The following changes since commit 9bb862beb6e5839e92f709d33fda07678f062f20:
+
+  Merge branch 'master' of git://1984.lsi.us.es/net-next (2012-05-08 14:40:21 -0400)
+
+are available in the git repository at:
+
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to ab74e43c05964efe75472b5433ede8800ecbfc43:
+
+  batman-adv: add contributor name (2012-05-09 09:54:55 +0200)
+
+----------------------------------------------------------------
+Included changes:
+
+* fix a little bug in the DHCP packet snooping introduced so far
+* minor fixes and cleanups
+* minor routing protocol API cleanups
+* add a new contributor name to translation-table.{c,h}
+* update copyright years in file headers
+
+----------------------------------------------------------------
+Antonio Quartulli (3):
+      batman-adv: fix wrong dhcp option list browsing
+      batman-adv: update copyright years
+      batman-adv: add contributor name
+
+Linus Luessing (1):
+      batman-adv: Adding hard_iface specific sysfs wrapper macros for UINT
+
+Marek Lindner (10):
+      batman-adv: introduce is_single_hop_neigh variable to increase readability
+      batman-adv: introduce packet type handler array for incoming packets
+      batman-adv: register batman ogm receive function during protocol init
+      batman-adv: rename last_valid to last_seen
+      batman-adv: replace HZ calculations with jiffies_to_msecs()
+      batman-adv: split neigh_new function into generic and batman iv specific parts
+      batman-adv: ignore protocol packets if the interface did not enable this protocol
+      batman-adv: refactoring API: find generalized name for bat_ogm_update_mac callback
+      batman-adv: rename sysfs macros to reflect the soft-interface dependency
+      batman-adv: fix checkpatch string complaint
+
+ net/batman-adv/bat_debugfs.c           |    4 +-
+ net/batman-adv/bat_iv_ogm.c            |  176 +++++++++++++++++++++-----------
+ net/batman-adv/bat_sysfs.c             |  100 +++++++++++++-----
+ net/batman-adv/bridge_loop_avoidance.c |    2 +-
+ net/batman-adv/bridge_loop_avoidance.h |    2 +-
+ net/batman-adv/gateway_client.c        |    6 +-
+ net/batman-adv/hard-interface.c        |  117 +--------------------
+ net/batman-adv/main.c                  |  124 +++++++++++++++++++++-
+ net/batman-adv/main.h                  |    6 ++
+ net/batman-adv/originator.c            |   50 +++++----
+ net/batman-adv/originator.h            |    6 +-
+ net/batman-adv/packet.h                |    1 +
+ net/batman-adv/routing.c               |   22 ++--
+ net/batman-adv/routing.h               |    4 +-
+ net/batman-adv/send.c                  |    2 +-
+ net/batman-adv/translation-table.c     |    2 +-
+ net/batman-adv/translation-table.h     |    2 +-
+ net/batman-adv/types.h                 |   16 ++-
+ 18 files changed, 377 insertions(+), 265 deletions(-)
