@@ -1,61 +1,26 @@
-From: pablo@netfilter.org
-Subject: [PATCH 4/5] netfilter: hashlimit: move rateinfo initialization to helper
-Date: Wed,  9 May 2012 13:33:07 +0200
-Message-ID: <1336563188-6720-5-git-send-email-pablo@netfilter.org>
-References: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33924 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758240Ab2EILdl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 07:33:41 -0400
-In-Reply-To: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next] netfilter: remove two dropwatch false
+ positives
+Date: Wed, 9 May 2012 13:36:47 +0200
+Message-ID: <20120509113647.GA23243@1984>
+References: <1335942790.22133.55.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1335942790.22133.55.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+On Wed, May 02, 2012 at 09:13:10AM +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> After skb_copy_expand() call, we want to switch skbs without dropping
+> original one. Call consume_skb() to avoid drop_monitor sending a drop
+> event.
 
-followup patch would bloat main match function too much.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_hashlimit.c |   15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
-
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 2195eb0..b6bbd06 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -407,6 +407,15 @@ static void rateinfo_recalc(struct dsthash_ent *dh, unsigned long now)
- 	dh->rateinfo.prev = now;
- }
- 
-+static void rateinfo_init(struct dsthash_ent *dh,
-+			  struct xt_hashlimit_htable *hinfo)
-+{
-+	dh->rateinfo.prev = jiffies;
-+	dh->rateinfo.credit = user2credits(hinfo->cfg.avg * hinfo->cfg.burst);
-+	dh->rateinfo.cost = user2credits(hinfo->cfg.avg);
-+	dh->rateinfo.credit_cap = dh->rateinfo.credit;
-+}
-+
- static inline __be32 maskl(__be32 a, unsigned int l)
- {
- 	return l ? htonl(ntohl(a) & ~0 << (32 - l)) : 0;
-@@ -531,11 +540,7 @@ hashlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 			goto hotdrop;
- 		}
- 		dh->expires = jiffies + msecs_to_jiffies(hinfo->cfg.expire);
--		dh->rateinfo.prev = jiffies;
--		dh->rateinfo.credit = user2credits(hinfo->cfg.avg *
--		                      hinfo->cfg.burst);
--		dh->rateinfo.credit_cap = dh->rateinfo.credit;
--		dh->rateinfo.cost = user2credits(hinfo->cfg.avg);
-+		rateinfo_init(dh, hinfo);
- 	} else {
- 		/* update expiration timeout */
- 		dh->expires = now + msecs_to_jiffies(hinfo->cfg.expire);
--- 
-1.7.9.5
+We have removed ip_queue in 3.5. That's why I cannot take this patch.
