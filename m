@@ -1,42 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] pch_gbe: Adding read memory barriers
-Date: Wed, 9 May 2012 16:39:16 +0100
-Message-ID: <1336577956.8274.364.camel@deadeye>
-References: <4FA822C4.60809@gmail.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F602CD83CB@saturn3.aculab.com>
-	 <1336569510.8274.360.camel@deadeye>
-	 <CAL2JzuxirjAnmbcV+R=MJFAi1+ayrRnM6i0Dz5poqMuG7Cxwxg@mail.gmail.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F602CD848A@saturn3.aculab.com>
-	 <CAL2JzuxawnesC+=Fqyu71Hkwi5gnRughe_NYM4k1c=zqDoNGRg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3.3.0] phy:icplus:fix Auto Power Saving in
+ ip101a_config_init.
+Date: Wed, 09 May 2012 11:57:29 -0400 (EDT)
+Message-ID: <20120509.115729.1982766903625560504.davem@davemloft.net>
+References: <1333360929-31506-1-git-send-email-srinivas.kandagatla@st.com>
+	<20120403.184937.744089580257691570.davem@davemloft.net>
+	<20120509072537.GA437@burratino>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@aculab.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <tshimizu818@gmail.com>
-To: Erwan Velu <erwanaliasr1@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAL2JzuxawnesC+=Fqyu71Hkwi5gnRughe_NYM4k1c=zqDoNGRg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: srinivas.kandagatla@st.com, netdev@vger.kernel.org,
+	peppe.cavallaro@st.com
+To: jrnieder@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41021 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932108Ab2EIP5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 11:57:38 -0400
+In-Reply-To: <20120509072537.GA437@burratino>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-09 at 17:20 +0200, Erwan Velu wrote:
-> Thanks for this very clear description.
+From: Jonathan Nieder <jrnieder@gmail.com>
+Date: Wed, 9 May 2012 02:25:37 -0500
 
-It might be clear, but it's not very relevant: you need to understand
-the Linux kernel barrier APIs (which cover all architectures).  See
-Documentation/memory-barriers.txt.
+> Hi Dave,
+> 
+> David Miller wrote:
+>> From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+> 
+>>> This patch fixes Auto Power Saving configuration in ip101a_config_init
+>>> which was broken as there is no phy register write followed after
+>>> setting IP101A_APS_ON flag.
+>>>
+>>> This patch also fixes the return value of ip101a_config_init.
+>>>
+>>> Without this patch ip101a_config_init returns 2 which is not an error
+>>> accroding to IS_ERR and the mac driver will continue accessing 2 as
+>>> valid pointer to phy_dev resulting in memory fault.
+>>>
+>>> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+>>
+>> Applied and queued up for -stable, thanks.
+> 
+> I'm guessing 3.2.y needs this, too, since it also includes
+> v3.2-rc1~129^2~247 ("net/phy: add IC+ IP101A and support APS").
+> 
+> Here's a quick backport made by adjusting the context line to
+> use IP101A_APS_ON instead of IP101A_G_APS_ON.
+> 
+> Please include it in some later stable update if appropriate.
 
-> As I'm pretty new to this kind of integration in the kernel, do you
-> request me to test this volatile option ?
-> Does the patch tends to be rejected for this issue ?
-> What should be the next step for my patch ?
-[...]
-
-Explain what kind of reordering you are trying to avoid.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Please submit this directly to the stable list.
