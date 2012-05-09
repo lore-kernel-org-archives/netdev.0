@@ -1,50 +1,64 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 01/13] etherdevice.h: Add ether_addr_equal
-Date: Tue,  8 May 2012 21:56:45 -0700
-Message-ID: <3796a3dd31e7a7d48430c257d75f67194f389ffc.1336538938.git.joe@perches.com>
-References: <cover.1336538937.git.joe@perches.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1336538937.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Oskar Berggren <oskar.berggren@gmail.com>
+Subject: Re: ipctl - new tool for efficient read/write of net related sysctl
+Date: Wed, 9 May 2012 07:22:39 +0200
+Message-ID: <CAHOuc7Nd_=H6UVUYbjvy9cjYHu+x4kcGm8qTZqyb8dQu5tyR-g@mail.gmail.com>
+References: <CAHOuc7MQiquWxMZ4YApXXKdsRY_StrTfAK9r_DdkstyYe+kCPQ@mail.gmail.com>
+ <9241f146-d0f7-415b-a652-acd1bf34e95a@tahiti.vyatta.com> <CAHOuc7PjmcF=EhEUDEqfF_RShezxDqzc+53frNwWqhww8YQ+mA@mail.gmail.com>
+ <20120507061422.GA21089@canuck.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: Oskar Berggren <oskar.berggren@gmail.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:57754 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751365Ab2EIFXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 01:23:00 -0400
+Received: by obbtb18 with SMTP id tb18so10783818obb.19
+        for <netdev@vger.kernel.org>; Tue, 08 May 2012 22:23:00 -0700 (PDT)
+In-Reply-To: <20120507061422.GA21089@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a boolean function to check if 2 ethernet addresses
-are the same.
+2012/5/7 Thomas Graf <tgraf@infradead.org>:
+> On Sun, May 06, 2012 at 02:46:01PM +0200, Oskar Berggren wrote:
+>> 2012/5/6 Stephen Hemminger <stephen.hemminger@vyatta.com>:
+>> >
+>> >>
+>> >> In a project of mine I need to read (and possibly set) many of the
+>> >> properties
+>> >> found under /proc/sys/net/ipv4/conf/. This is simple enough, except
+>> >> that
+>> >> when you have hundreds of interfaces, it is really slow. In my tests
+>> >> it takes
+>> >> about 4 seconds to read a single variable for 700 interfaces. For a
+>> >> while I
+>> >> worked around this using the binary sysctl() interface, but this is
+>> >> deprecated.
+>> >>
+>> >
+>> > What about exposing these as NETLINK attributes? That would be faster
+>> > and you could do bulk updates.
+>>
+>>
+>> This is my first attempt at using NETLINK, so could you please elaborate?
+>> Below is the generic netlink interface I implemented so far. Any pointers
+>> on how I should do this differently?
+>
+> What Stephen means is to use the existing message types RTM_SETLINK
+> and RTM_GETLINK in the NETLINK_ROUTE family.
+>
+> This is already partially implemented. See the IFLA_AF_SPEC attribute
+> carrying IPV4_DEVCONF_ and DEVCONF_ (IPv6). Grep for rtnl_af_register()
+> and you will find the corresponding implementations.
+>
+> Feel free to complete these existing interfaces, such as adding write
+> support to IPv6 or adding support to iproute2 which is currently
+> lacking.
 
-This is to avoid any confusion about compare_ether_addr
-returning an unsigned, and not being able to use the
-compare_ether_addr function for sorting ala memcmp.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/linux/etherdevice.h |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
+Cool, this seems to be exactly what I need. I'll experiment with it
+when I get the time.
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index c47631f..f330114 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -171,6 +171,18 @@ static inline unsigned compare_ether_addr(const u8 *addr1, const u8 *addr2)
- 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
- }
- 
-+/**
-+ * ether_addr_equal - Compare two Ethernet addresses
-+ * @addr1: Pointer to a six-byte array containing the Ethernet address
-+ * @addr2: Pointer other six-byte array containing the Ethernet address
-+ *
-+ * Compare two ethernet addresses, returns true if equal
-+ */
-+static inline bool ether_addr_equal(const u8 *addr1, const u8 *addr2)
-+{
-+	return !compare_ether_addr(addr1, addr2);
-+}
-+
- static inline unsigned long zap_last_2bytes(unsigned long value)
- {
- #ifdef __BIG_ENDIAN
--- 
-1.7.8.111.gad25c.dirty
+/Oskar
