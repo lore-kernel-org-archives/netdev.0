@@ -1,74 +1,77 @@
-From: Nix <nix@esperi.org.uk>
-Subject: Re: [net-next 5/9] e1000e: Disable ASPM L1 on 82574
-Date: Wed, 09 May 2012 15:02:55 +0100
-Message-ID: <87d36dbgfk.fsf@spindle.srvr.nix>
-References: <1336038992-3144-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1336038992-3144-6-git-send-email-jeffrey.t.kirsher@intel.com>
-	<87d36ld1as.fsf@spindle.srvr.nix>
-	<9BBC4E0CF881AA4299206E2E1412B6261882C3A9@FMSMSX151.amr.corp.intel.com>
-	<87sjfhaukf.fsf@spindle.srvr.nix> <87fwbea8pi.fsf@spindle.srvr.nix>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] pch_gbe: Adding read memory barriers
+Date: Wed, 9 May 2012 15:44:47 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F602CD848A@saturn3.aculab.com>
+References: <4FA822C4.60809@gmail.com><AE90C24D6B3A694183C094C60CF0A2F602CD83CB@saturn3.aculab.com><1336569510.8274.360.camel@deadeye> <CAL2JzuxirjAnmbcV+R=MJFAi1+ayrRnM6i0Dz5poqMuG7Cxwxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Matthew Garrett <mjg@redhat.com>,
-	"Kirsher\, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem\@davemloft.net" <davem@davemloft.net>,
-	Chris Boot <bootc@bootc.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo\@redhat.com" <gospo@redhat.com>,
-	"sassmann\@redhat.com" <sassmann@redhat.com>
-To: "Wyborny\, Carolyn" <carolyn.wyborny@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from icebox.esperi.org.uk ([81.187.191.129]:56859 "EHLO
-	mail.esperi.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755693Ab2EIODU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 10:03:20 -0400
-In-Reply-To: <87fwbea8pi.fsf@spindle.srvr.nix> (nix@esperi.org.uk's message of
-	"Sat, 05 May 2012 17:33:45 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<tshimizu818@gmail.com>
+To: "Erwan Velu" <erwanaliasr1@gmail.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <CAL2JzuxirjAnmbcV+R=MJFAi1+ayrRnM6i0Dz5poqMuG7Cxwxg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5 May 2012, nix@esperi.org.uk outgrape:
+ 
+> So I've been reading how does others drivers are working regarding
+this type of message.
+> While reading many drivers, I found that many does rmb() calls at this
+points.
+> As I'm not a linux kernel expert, I did mimic them to the result
+> and it was good since the errors disappeared.
 
-> The question here is how to fix it. It appears that the motherboard or
-> BIOS on this machine does not grant _OSC control even (especially?) if
-> you have turned on PCIe ASPM in the BIOS. But perhaps even if _OSC is
-> not granted you should permit PCIe to be *disabled* by drivers, just not
-> enabled? (The BIOS appears to be buggy in this area: if you turn off
-> ASPM, save, and go back into setup, ASPM has turned itself back on
-> again!)
+> So do you mean the patch is wrong or shall I rework only the comments
+?
 
-This turned out to be me not knowing how to drive the BIOS's deeply
-unintuitive configuration program. If I turn PCIe ASPM off in the BIOS,
-the kernel does exactly the same as it does in my previous message (i.e.
-decides that ASPM is disabled due to the failure of an _OSC request,
-then refuses to change the ASPM link state of the e1000e), but since the
-BIOS has already disabled ASPM, the card is not in crash-happy mode and
-I don't need to force anything off by hand.
+The problem is that barriers are not understood at all well
+by most driver writers - so a lot of code is sub-optimal.
 
-But if I turn ASPM on, as reported in my previous message the kernel
-promptly bans itself from changing any PCIe ASPM link states whatsoever,
-and the e1000e locks up about an hour later.
+It isn't helped by the readability of the cpu documentation,
+never mind some old docs that described something that an
+engineer thought they might want to allow - rather than
+describing what any cpus actually did/do.
 
-I presume that
+For x86 cpus (amd and intel at least) reads and writes to
+uncached memory and io are guaranteed to happen in instruction
+order. For other cpus (sparc and ppc) such reads can
+overtake writes - requiring something to force the write to
+complete (eg a synchronising instruction, or maybe a readeback).
 
-May  5 17:06:53 spindle info: [    0.629699]  pci0000:00: Requesting ACPI _OSC control (0x1d)
-May  5 17:06:53 spindle info: [    0.629941]  pci0000:00: ACPI _OSC request failed (AE_NOT_FOUND), returned control mask: 0x1d
-May  5 17:06:53 spindle info: [    0.630373] ACPI _OSC control for PCIe not granted, disabling ASPM
+One problem is that the barrier instructions are generally
+slow - so you don't want to use them where unnecessary,
+however whether you need them is somewhat hardware specific
+and the typical OS lists of barriers doesn't cover all the
+cases - even for things that are actually compile time knowable.
+Eg: what you need between a write to 'dma coherent' memory
+and a write to a control register depends on whether 'dma
+coherency' is implemented by disabling the cache.
 
-is reporting some sort of BIOS bug, but it is at best confusing to have
-the boot messages reporting that ASPM is disabled: better perhaps to
-describe this as 'leaving ASPM on all devices how the BIOS set it' and
-have the e1000e driver emit a giant flaming warning if it spots this
-happening on an 82574L with ASPM turned on. (Or, alternatively, permit
-ASPM to be turned off when the system is in this state, but not on,
-whereupon the existing code in the e1000e driver will do the right
-thing. But I don't know if that will break any laptops. This machine is
-very much not a laptop.)
+For SMP there may be additional synchronisation, especially
+for cached data, but for most drivers that is handled by
+mutex/lock operations.
 
-> I'm not sure what the right thing to do is here: I don't know enough
-> about this area. But it does seem very strange that the only way I have
-> to turn off PCIe ASPM reliably on this device is to tell the kernel to
-> forcibly turn it *on*!
+The other, and separate, issue is making sure that the compiler
+itself doesn't reorder of optimise away memory cycles.
+By far the best way is to mark the data (not the pointer to the
+data) 'volatile', this forces the compiler to generate object
+code for every variable reference in the source, and in the right
+order.
+Sometimes that is inappropiate, gcc's asm volatile (:::"memory")
+tells the compiler that this asm statement might modify all
+of memory (even though there are actually no instructions!).
+This forces it to avoid having anything in a register that is
+a copy of something in memory - thus enforcing the order of
+memory accesses.
+It can also be used to reduce register pressure within the
+compiler.
 
-This is still strange, though it seems that turning ASPM completely off
-in the BIOS will also serve.
+In your case I suspect that the compiler has re-ordered the
+reads - adding almost anything between them will change the
+order.
+
+	David
