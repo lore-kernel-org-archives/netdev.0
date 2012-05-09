@@ -1,60 +1,41 @@
-From: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] ip.7: Improve explanation about calling listen or connect
-Date: Wed,  9 May 2012 09:30:36 -0300
-Message-ID: <1336566636-14713-1-git-send-email-fbl@redhat.com>
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] netfilter: remove two dropwatch false positives
+Date: Wed, 09 May 2012 15:00:40 +0200
+Message-ID: <1336568440.21775.17.camel@edumazet-laptop>
+References: <1335942790.22133.55.camel@edumazet-glaptop>
+	 <20120509113647.GA23243@1984>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120509113647.GA23243@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- man7/ip.7 |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
+Le mercredi 09 mai 2012 =C3=A0 13:36 +0200, Pablo Neira Ayuso a =C3=A9c=
+rit :
+> On Wed, May 02, 2012 at 09:13:10AM +0200, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >=20
+> > After skb_copy_expand() call, we want to switch skbs without droppi=
+ng
+> > original one. Call consume_skb() to avoid drop_monitor sending a dr=
+op
+> > event.
+>=20
+> We have removed ip_queue in 3.5. That's why I cannot take this patch.
 
-diff --git a/man7/ip.7 b/man7/ip.7
-index 9f560df..84fe32d 100644
---- a/man7/ip.7
-+++ b/man7/ip.7
-@@ -69,12 +69,11 @@ For
- you may specify a valid IANA IP protocol defined in
- RFC\ 1700 assigned numbers.
- .PP
--.\" FIXME ip current does an autobind in listen, but I'm not sure
--.\" if that should be documented.
- When a process wants to receive new incoming packets or connections, it
- should bind a socket to a local interface address using
- .BR bind (2).
--Only one IP socket may be bound to any given local (address, port) pair.
-+In this case, only one IP socket may be bound to any given local
-+(address, port) pair.
- When
- .B INADDR_ANY
- is specified in the bind call, the socket will be bound to
-@@ -82,10 +81,14 @@ is specified in the bind call, the socket will be bound to
- local interfaces.
- When
- .BR listen (2)
--or
-+is called on an unbound socket, the socket is automatically bound
-+to a random free port with the local address set to
-+.BR INADDR_ANY .
-+When
- .BR connect (2)
--are called on an unbound socket, it is automatically bound to a
--random free port with the local address set to
-+is called on an unbound socket, the socket is automatically bound
-+to a random free port or an usable shared port with the local address
-+set to
- .BR INADDR_ANY .
- 
- A TCP local socket address that has been bound is unavailable for
--- 
-1.7.7.1
+So far, so good !
+
+Thanks
+
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
