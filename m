@@ -1,210 +1,481 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net-next 0/2] extend sch_mqprio to distribute traffic
- not only by ETS TC
-Date: Tue, 08 May 2012 23:22:36 -0700
-Message-ID: <4FAA0D2C.6040306@intel.com>
-References: <1336287910-12010-1-git-send-email-amirv@mellanox.com> <4FA86EB8.2050006@intel.com> <4FA92606.6070401@mellanox.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next] be2net: avoid disabling sriov while VFs are assigned
+Date: Wed, 9 May 2012 11:11:24 +0530
+Message-ID: <647fcd25-8a85-4d63-a1ef-8b867832c2c7@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Oren Duer <oren@mellanox.com>,
-	Liran Liss <liranl@mellanox.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: text/plain
+Cc: Sathya Perla <sathya.perla@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63068 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756106Ab2EIGWj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 02:22:39 -0400
-In-Reply-To: <4FA92606.6070401@mellanox.com>
+Received: from exht1.emulex.com ([138.239.113.183]:12211 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752197Ab2EIFwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 01:52:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/8/2012 6:56 AM, Amir Vadai wrote:
-> On 05/08/2012 03:54 AM, John Fastabend wrote:
->> On 5/6/2012 12:05 AM, Amir Vadai wrote:
->>> This series comes to revive the discussion initiated on the thread "net:
->>> support tx_ring per UP in HW based QoS mechanism" (see
->>> http://marc.info/?t=133165957200004&r=1&w=2) with the major issue to be address
->>> is - how should sk_prio<=>   TC be done, for both, tagged and untagged traffic.
->>> Following is a staged description addressing the background, problem
->>> description, current situation, suggestion for the change and implementation of
->>> it.
->>
->> OK but the mqprio qdisc is only concerned with mapping skb->priority to
->> queue sets I perhaps unfortunately called the queue sets tc's. Try not
->> to get hung up on my perhaps limiting naming of variables and functions.
-> I understand that.
+Calling pci_disable_sriov() while VFs are assigned to VMs causes
+kernel panic. This patch uses PCI_DEV_FLAGS_ASSIGNED bit state of the
+VF's pci_dev to avoid this. Also, the unconditional function reset cmd
+issued on a PF probe can delete the VF configuration for the
+previously enabled VFs. A scratchpad register is now used to issue a
+function reset only when needed (i.e., in a crash dump scenario.)
 
-I figured you did. Just wanted to state it again.
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |   22 ++--
+ drivers/net/ethernet/emulex/benet/be_hw.h   |    2 +
+ drivers/net/ethernet/emulex/benet/be_main.c |  199 ++++++++++++++++-----------
+ 3 files changed, 134 insertions(+), 89 deletions(-)
 
-> 
->>
->> mqprio is used outside of 802.1Q as well in these cases a traffic class
->> is not usually even defined.
->>
->>>
-
-[...]
-
->>> Implementation
->>> --------------
->>> Extended mqprio hw attribute:
->>> * Bit 1: is queue offset/count owned by HW
->>> * Bits 2-7: HW queueing type.
->>>    * 0 - by ETS TC
->>>    * 1 - by UP
->>>
->>> __skb_tx_hash() is now aware to the HW queuing type (pg_type): for pg_type
->>> being ETS TC, traffic is distributed as it was before - tagged and untagged
->>> packets are distributed by netdev_get_prio_tc_map. For pg_type being UP, tagged
->>> and untagged packets are distributed by UP (taken from egress map for tagged
->>> traffic, or netdev_get_prio_tc_map for untagged).
->>
->> I guess I don't see why we need this. If you keep the mqprio priority to
->> queue set mapping set to 1:1. Then modify the egress map accordingly then
->> this should work right?
->>
->> For example:
->>
->> If we want to map 8 802.1Q priority code points onto 4 traffic classes this
->> should work,
->>
->> egress map: 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3<-- vlan layer inserts correct tag
->> mqprio up2tc: 0:0 1:1 2:2 3:3 4:4 5:5 6:6 7:7<-- mqprio with unfortunate 'tc' name maps priority to queues
-> But mqprio is mapping sk_priority to queue set, which is different from UP to queue set.
-> The term UP which we use, is the 8021q PCP in tagged traffic, and a priority mapped by the host admin for untagged traffic.
-> What you wrote, is actually, that the application will set the priority without enabling the host admin to control it.
->> dcbnl up2tc: 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3<-- dcbx pushes up2tc mapping correctly
-> 
-> For example, lets take an application that calls setsockopt(SO_PRIORITY, 2):
-> according to egress map: 8021q PCP field in vlan tag should be set to 1 (=UP)
-> according to mqprio: a tx ring belonging to UP 2 will be selected.
-> according to dcbnl: traffic will have ETS attributes of TC 1
-> 
-> Except some conceptual problems, it won't work:
-> 8021q PCP field is set by HW according to the tx ring (UP=2). which
-> is different from the one that the user configured in the egress_map
-> (UP=1).
-
-sorry I set it up wrong above but it _can_ be made to work as best I
-can tell (for a single egress_map at least)
-
-egress map: 0:0 1:1 2:2 3:3 4:4 5:5 6:6 7:7     <-- ignored
-mqprio    : 0:0 1:1 2:2 3:3 4:4 5:5 6:6 7:7     <-- map priority to up queue sets
-up2tc     : 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3     <-- dcbx negotiated up2tc map
-
-With your example application does setsockopt(SO_PRIORITY, 2):
-	according to egress map : insert PCP 2
-	according to mqprio	: tx ring belonging to UP2 is selected
-	accroding to dcbnl	: traffic will have ETS attributes of TC1
-
-The point is either you use the skb->priority to PCP map and then a 1:1
-mqprio map or you use the mqprio map directly. Agree?
-
-One more example translating the case with these patches onto a case
-without these patches as I understand them.
-
-first with these patches mapping:
-
-up2tc     : 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3     <-- dcbnl up2tc map 
-egress map: 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3     <-- sets pcp bits
-mqprio    : 0:0 1:1 2:2 3:3 4:4 5:5 6:6 7:7     <-- with PGROUP_UP set
-
-equivalent mapping without PGROUP_UP set
-
-up2tc     : 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3     <-- dcbnl negotiated up2tc map 
-egress map: 0:0 1:0 2:0 3:0 4:0 5:0 6:0 7:0     <-- default unset egress map
-mqprio    : 0:0 1:0 2:1 3:1 4:2 5:2 6:3 7:3     <-- with PGROUP_UP set
-
-Application sets skb->priority to 2, in the first case egress map
-sets the PCP to 1 and mqprio maps it to queues for UP1 based on PCP bits.
-
-In case two egress map does nothing but skb->priority is still 2 so the
-mqprio maps these to queues associated with UP1 so everything works
-still.
-
-I apologize if I'm missing something here but it seems correct to me. Spell
-it out for me if I am still wrong.
-
-> 
->>
->> We may need to fixup userspace tools some but I think the kernel mechanisms
->> are in place.
->>
->> BTW I did think about this while implementing the existing code and decided
->> that rather than create more if/else branches the case you are describing
->> could be handled by independently controlling the priority to queue set mappings
->> in mqprio and the egress map.
->>
->> Feel free to let me know where I went wrong or why this doesn't work on
->> your hardware. I agree though we may need to fixup lldpad and maybe even
->> 'tc' some to get this to look correct in user space and get automagically
->> setup correctly.
->>
->> Thanks,
->> .John
-> 
-> I think I understand your stand, that mqprio mapping should be generic
-> and should not be TC nor UP oriented.
-> 
-
-Right. Also I want to avoid user space having to somehow "know" which
-mode to put the qdisc in. Checking if the hardware is a mellanox card
-does not scale.
-
-> The problem is that our HW needs the queues to be selected by UP. ETS
-> TC mapping is configured before traffic starts, and therefore ETS
-> attributes are enforced by HW according to the UP, which the tx ring
-> belongs to. Same thing for vlan tag in tagged traffic. 8021q PCP is
-> placed by HW according to the tx ring.
-
-OK. Can you agree though in the case where we restrict the egress_map
-to be the same for all vlan's on a real_dev the existing mqprio map
-_can_ work?
-
-> 
-> For backward compatibility, tagged traffic should be steered to a tx
-> ring by UP taken from egress map - skb_tx_hash() as it is today, can't
-> do it. Even if we implement ndo_select_queue(), we will need to
-> duplicate most of the code from skb_tx_hash(), because there are more
-> than one tx ring per UP, and we need skb_tx_hash() to be able to select
-> a ring from a range of rings belonging to a UP.
-
-agreed implementing this in select_queue() is no good.
-
-> 
-> Also, there are some configurations that can't be done by mqprio and
-> egress map. For example when having two vlans with different egress
-> maps.
-
-This is a good example thanks. This currently doesn't work for hardware
-that maps tx_rings to traffic classes either. So if we need/want to
-solve this case then I guess we need something like your patches. Note
-I think the patch you submitted should work regardless if you map
-the PCP bits to UP queues or PCP bits to TC queues. We could use this
-in both cases which helps my user space concerns.
-
-> 
-> And in the conceptual level, I think that kernel should not accept bad
-> configurations and rely on user space to protect it.
-
-I disagree policy should be managed in user space. Also I see no reason
-to create a strong coupling between egress maps and mqprio maps. I can
-imagine a case where they could be used independently. DCB is just one
-usage model for mqprio. Using a bit like you did seems fine though.
-
-> 
-> - Amir
-
-Assuming we want the multiple different egress map case to work I guess
-we will have to do something like this. At least right now I can't think
-of anything better but I'll think on it tomorrow some more.
-
-The other thought would be to provide a qdisc hook before queue selection
-to attach 'tc filters' and provide a new action to hash a skb across
-queue sets.
-
-Thanks,
-John
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index c3ee910..ecf1a81 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -313,6 +313,11 @@ struct be_vf_cfg {
+ 	u32 tx_rate;
+ };
+ 
++enum vf_state {
++	ENABLED = 0,
++	ASSIGNED = 1
++};
++
+ #define BE_FLAGS_LINK_STATUS_INIT		1
+ #define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
+ #define BE_UC_PMAC_COUNT		30
+@@ -403,8 +408,9 @@ struct be_adapter {
+ 	u32 flash_status;
+ 	struct completion flash_compl;
+ 
+-	u32 num_vfs;
+-	u8 is_virtfn;
++	u32 num_vfs;		/* Number of VFs provisioned by PF driver */
++	u32 dev_num_vfs;	/* Number of VFs supported by HW */
++	u8 virtfn;
+ 	struct be_vf_cfg *vf_cfg;
+ 	bool be3_native;
+ 	u32 sli_family;
+@@ -417,8 +423,10 @@ struct be_adapter {
+ 	u32 uc_macs;		/* Count of secondary UC MAC programmed */
+ };
+ 
+-#define be_physfn(adapter) (!adapter->is_virtfn)
++#define be_physfn(adapter)		(!adapter->virtfn)
+ #define	sriov_enabled(adapter)		(adapter->num_vfs > 0)
++#define	sriov_want(adapter)		(adapter->dev_num_vfs && num_vfs && \
++					 be_physfn(adapter))
+ #define for_all_vfs(adapter, vf_cfg, i)					\
+ 	for (i = 0, vf_cfg = &adapter->vf_cfg[i]; i < adapter->num_vfs;	\
+ 		i++, vf_cfg++)
+@@ -547,14 +555,6 @@ static inline u8 is_udp_pkt(struct sk_buff *skb)
+ 	return val;
+ }
+ 
+-static inline void be_check_sriov_fn_type(struct be_adapter *adapter)
+-{
+-	u32 sli_intf;
+-
+-	pci_read_config_dword(adapter->pdev, SLI_INTF_REG_OFFSET, &sli_intf);
+-	adapter->is_virtfn = (sli_intf & SLI_INTF_FT_MASK) ? 1 : 0;
+-}
+-
+ static inline void be_vf_eth_addr_generate(struct be_adapter *adapter, u8 *mac)
+ {
+ 	u32 addr;
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 0949aa6..f38b58c 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -58,6 +58,8 @@
+ 
+ #define SLI_PORT_CONTROL_IP_MASK	0x08000000
+ 
++#define PCICFG_CUST_SCRATCHPAD_CSR	0x1EC
++
+ /********* Memory BAR register ************/
+ #define PCICFG_MEMBAR_CTRL_INT_CTRL_OFFSET 	0xfc
+ /* Host Interrupt Enable, if set interrupts are enabled although "PCI Interrupt
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 6d5d30b..a01f734 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1049,6 +1049,29 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
+ 	return status;
+ }
+ 
++static int be_find_vfs(struct be_adapter *adapter, int vf_state)
++{
++	struct pci_dev *dev, *pdev = adapter->pdev;
++	int vfs = 0, assigned_vfs = 0, pos, vf_fn;
++	u16 offset, stride;
++
++	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
++	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_OFFSET, &offset);
++	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_STRIDE, &stride);
++
++	dev = pci_get_device(pdev->vendor, PCI_ANY_ID, NULL);
++	while (dev) {
++		vf_fn = (pdev->devfn + offset + stride * vfs) & 0xFFFF;
++		if (dev->is_virtfn && dev->devfn == vf_fn) {
++			vfs++;
++			if (dev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
++				assigned_vfs++;
++		}
++		dev = pci_get_device(pdev->vendor, PCI_ANY_ID, dev);
++	}
++	return (vf_state == ASSIGNED) ? assigned_vfs : vfs;
++}
++
+ static void be_eqd_update(struct be_adapter *adapter, struct be_eq_obj *eqo)
+ {
+ 	struct be_rx_stats *stats = rx_stats(&adapter->rx_obj[eqo->idx]);
+@@ -1789,9 +1812,9 @@ static void be_tx_queues_destroy(struct be_adapter *adapter)
+ 
+ static int be_num_txqs_want(struct be_adapter *adapter)
+ {
+-	if (sriov_enabled(adapter) || be_is_mc(adapter) ||
+-		lancer_chip(adapter) || !be_physfn(adapter) ||
+-		adapter->generation == BE_GEN2)
++	if (sriov_want(adapter) || be_is_mc(adapter) ||
++	    lancer_chip(adapter) || !be_physfn(adapter) ||
++	    adapter->generation == BE_GEN2)
+ 		return 1;
+ 	else
+ 		return MAX_TX_QS;
+@@ -2118,7 +2141,7 @@ static void be_msix_disable(struct be_adapter *adapter)
+ static uint be_num_rss_want(struct be_adapter *adapter)
+ {
+ 	if ((adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
+-	     adapter->num_vfs == 0 && be_physfn(adapter) &&
++	     !sriov_want(adapter) && be_physfn(adapter) &&
+ 	     !be_is_mc(adapter))
+ 		return (adapter->be3_native) ? BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
+ 	else
+@@ -2152,53 +2175,6 @@ done:
+ 	return;
+ }
+ 
+-static int be_sriov_enable(struct be_adapter *adapter)
+-{
+-	be_check_sriov_fn_type(adapter);
+-
+-#ifdef CONFIG_PCI_IOV
+-	if (be_physfn(adapter) && num_vfs) {
+-		int status, pos;
+-		u16 dev_vfs;
+-
+-		pos = pci_find_ext_capability(adapter->pdev,
+-						PCI_EXT_CAP_ID_SRIOV);
+-		pci_read_config_word(adapter->pdev,
+-				     pos + PCI_SRIOV_TOTAL_VF, &dev_vfs);
+-
+-		adapter->num_vfs = min_t(u16, num_vfs, dev_vfs);
+-		if (adapter->num_vfs != num_vfs)
+-			dev_info(&adapter->pdev->dev,
+-				 "Device supports %d VFs and not %d\n",
+-				 adapter->num_vfs, num_vfs);
+-
+-		status = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
+-		if (status)
+-			adapter->num_vfs = 0;
+-
+-		if (adapter->num_vfs) {
+-			adapter->vf_cfg = kcalloc(num_vfs,
+-						sizeof(struct be_vf_cfg),
+-						GFP_KERNEL);
+-			if (!adapter->vf_cfg)
+-				return -ENOMEM;
+-		}
+-	}
+-#endif
+-	return 0;
+-}
+-
+-static void be_sriov_disable(struct be_adapter *adapter)
+-{
+-#ifdef CONFIG_PCI_IOV
+-	if (sriov_enabled(adapter)) {
+-		pci_disable_sriov(adapter->pdev);
+-		kfree(adapter->vf_cfg);
+-		adapter->num_vfs = 0;
+-	}
+-#endif
+-}
+-
+ static inline int be_msix_vec_get(struct be_adapter *adapter,
+ 				struct be_eq_obj *eqo)
+ {
+@@ -2500,6 +2476,11 @@ static void be_vf_clear(struct be_adapter *adapter)
+ 	struct be_vf_cfg *vf_cfg;
+ 	u32 vf;
+ 
++	if (be_find_vfs(adapter, ASSIGNED)) {
++		dev_warn(&adapter->pdev->dev, "VFs are assigned to VMs\n");
++		goto done;
++	}
++
+ 	for_all_vfs(adapter, vf_cfg, vf) {
+ 		if (lancer_chip(adapter))
+ 			be_cmd_set_mac_list(adapter, NULL, 0, vf + 1);
+@@ -2509,6 +2490,10 @@ static void be_vf_clear(struct be_adapter *adapter)
+ 
+ 		be_cmd_if_destroy(adapter, vf_cfg->if_handle, vf + 1);
+ 	}
++	pci_disable_sriov(adapter->pdev);
++done:
++	kfree(adapter->vf_cfg);
++	adapter->num_vfs = 0;
+ }
+ 
+ static int be_clear(struct be_adapter *adapter)
+@@ -2538,29 +2523,60 @@ static int be_clear(struct be_adapter *adapter)
+ 	be_cmd_fw_clean(adapter);
+ 
+ 	be_msix_disable(adapter);
+-	kfree(adapter->pmac_id);
++	pci_write_config_dword(adapter->pdev, PCICFG_CUST_SCRATCHPAD_CSR, 0);
+ 	return 0;
+ }
+ 
+-static void be_vf_setup_init(struct be_adapter *adapter)
++static int be_vf_setup_init(struct be_adapter *adapter)
+ {
+ 	struct be_vf_cfg *vf_cfg;
+ 	int vf;
+ 
++	adapter->vf_cfg = kcalloc(adapter->num_vfs, sizeof(*vf_cfg),
++				  GFP_KERNEL);
++	if (!adapter->vf_cfg)
++		return -ENOMEM;
++
+ 	for_all_vfs(adapter, vf_cfg, vf) {
+ 		vf_cfg->if_handle = -1;
+ 		vf_cfg->pmac_id = -1;
+ 	}
++	return 0;
+ }
+ 
+ static int be_vf_setup(struct be_adapter *adapter)
+ {
+ 	struct be_vf_cfg *vf_cfg;
++	struct device *dev = &adapter->pdev->dev;
+ 	u32 cap_flags, en_flags, vf;
+ 	u16 def_vlan, lnk_speed;
+-	int status;
++	int status, enabled_vfs;
++
++	enabled_vfs = be_find_vfs(adapter, ENABLED);
++	if (enabled_vfs) {
++		dev_warn(dev, "%d VFs are already enabled\n", enabled_vfs);
++		dev_warn(dev, "Ignoring num_vfs=%d setting\n", num_vfs);
++		return 0;
++	}
+ 
+-	be_vf_setup_init(adapter);
++	if (num_vfs > adapter->dev_num_vfs) {
++		dev_warn(dev, "Device supports %d VFs and not %d\n",
++			 adapter->dev_num_vfs, num_vfs);
++		num_vfs = adapter->dev_num_vfs;
++	}
++
++	status = pci_enable_sriov(adapter->pdev, num_vfs);
++	if (!status) {
++		adapter->num_vfs = num_vfs;
++	} else {
++		/* Platform doesn't support SRIOV though device supports it */
++		dev_warn(dev, "SRIOV enable failed\n");
++		return 0;
++	}
++
++	status = be_vf_setup_init(adapter);
++	if (status)
++		goto err;
+ 
+ 	cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
+ 				BE_IF_FLAGS_MULTICAST;
+@@ -2571,9 +2587,11 @@ static int be_vf_setup(struct be_adapter *adapter)
+ 			goto err;
+ 	}
+ 
+-	status = be_vf_eth_addr_config(adapter);
+-	if (status)
+-		goto err;
++	if (!enabled_vfs) {
++		status = be_vf_eth_addr_config(adapter);
++		if (status)
++			goto err;
++	}
+ 
+ 	for_all_vfs(adapter, vf_cfg, vf) {
+ 		status = be_cmd_link_status_query(adapter, NULL, &lnk_speed,
+@@ -2630,9 +2648,25 @@ do_none:
+ 	return status;
+ }
+ 
++/* Routine to query per function resource limits */
++static int be_get_config(struct be_adapter *adapter)
++{
++	int pos;
++	u16 dev_num_vfs;
++
++	pos = pci_find_ext_capability(adapter->pdev, PCI_EXT_CAP_ID_SRIOV);
++	if (pos) {
++		pci_read_config_word(adapter->pdev, pos + PCI_SRIOV_TOTAL_VF,
++				     &dev_num_vfs);
++		adapter->dev_num_vfs = dev_num_vfs;
++	}
++	return 0;
++}
++
+ static int be_setup(struct be_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
++	struct device *dev = &adapter->pdev->dev;
+ 	u32 cap_flags, en_flags;
+ 	u32 tx_fc, rx_fc;
+ 	int status;
+@@ -2640,6 +2674,8 @@ static int be_setup(struct be_adapter *adapter)
+ 
+ 	be_setup_init(adapter);
+ 
++	be_get_config(adapter);
++
+ 	be_cmd_req_native_mode(adapter);
+ 
+ 	be_msix_enable(adapter);
+@@ -2718,10 +2754,11 @@ static int be_setup(struct be_adapter *adapter)
+ 
+ 	pcie_set_readrq(adapter->pdev, 4096);
+ 
+-	if (sriov_enabled(adapter)) {
+-		status = be_vf_setup(adapter);
+-		if (status)
+-			goto err;
++	if (be_physfn(adapter) && num_vfs) {
++		if (adapter->dev_num_vfs)
++			be_vf_setup(adapter);
++		else
++			dev_warn(dev, "device doesn't support SRIOV\n");
+ 	}
+ 
+ 	be_cmd_get_phy_info(adapter);
+@@ -2731,6 +2768,7 @@ static int be_setup(struct be_adapter *adapter)
+ 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
+ 	adapter->flags |= BE_FLAGS_WORKER_SCHEDULED;
+ 
++	pci_write_config_dword(adapter->pdev, PCICFG_CUST_SCRATCHPAD_CSR, 1);
+ 	return 0;
+ err:
+ 	be_clear(adapter);
+@@ -3352,8 +3390,6 @@ static void __devexit be_remove(struct pci_dev *pdev)
+ 
+ 	be_ctrl_cleanup(adapter);
+ 
+-	be_sriov_disable(adapter);
+-
+ 	pci_set_drvdata(pdev, NULL);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+@@ -3367,7 +3403,7 @@ bool be_is_wol_supported(struct be_adapter *adapter)
+ 		!be_is_wol_excluded(adapter)) ? true : false;
+ }
+ 
+-static int be_get_config(struct be_adapter *adapter)
++static int be_get_initial_config(struct be_adapter *adapter)
+ {
+ 	int status;
+ 
+@@ -3410,7 +3446,7 @@ static int be_get_config(struct be_adapter *adapter)
+ 	return 0;
+ }
+ 
+-static int be_dev_family_check(struct be_adapter *adapter)
++static int be_dev_type_check(struct be_adapter *adapter)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	u32 sli_intf = 0, if_type;
+@@ -3443,6 +3479,9 @@ static int be_dev_family_check(struct be_adapter *adapter)
+ 	default:
+ 		adapter->generation = 0;
+ 	}
++
++	pci_read_config_dword(adapter->pdev, SLI_INTF_REG_OFFSET, &sli_intf);
++	adapter->virtfn = (sli_intf & SLI_INTF_FT_MASK) ? 1 : 0;
+ 	return 0;
+ }
+ 
+@@ -3586,6 +3625,14 @@ reschedule:
+ 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
+ }
+ 
++static bool be_reset_required(struct be_adapter *adapter)
++{
++	u32 reg;
++
++	pci_read_config_dword(adapter->pdev, PCICFG_CUST_SCRATCHPAD_CSR, &reg);
++	return reg;
++}
++
+ static int __devinit be_probe(struct pci_dev *pdev,
+ 			const struct pci_device_id *pdev_id)
+ {
+@@ -3611,7 +3658,7 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	adapter->pdev = pdev;
+ 	pci_set_drvdata(pdev, adapter);
+ 
+-	status = be_dev_family_check(adapter);
++	status = be_dev_type_check(adapter);
+ 	if (status)
+ 		goto free_netdev;
+ 
+@@ -3629,13 +3676,9 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 		}
+ 	}
+ 
+-	status = be_sriov_enable(adapter);
+-	if (status)
+-		goto free_netdev;
+-
+ 	status = be_ctrl_init(adapter);
+ 	if (status)
+-		goto disable_sriov;
++		goto free_netdev;
+ 
+ 	if (lancer_chip(adapter)) {
+ 		status = lancer_wait_ready(adapter);
+@@ -3662,9 +3705,11 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	if (status)
+ 		goto ctrl_clean;
+ 
+-	status = be_cmd_reset_function(adapter);
+-	if (status)
+-		goto ctrl_clean;
++	if (be_reset_required(adapter)) {
++		status = be_cmd_reset_function(adapter);
++		if (status)
++			goto ctrl_clean;
++	}
+ 
+ 	/* The INTR bit may be set in the card when probed by a kdump kernel
+ 	 * after a crash.
+@@ -3676,7 +3721,7 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	if (status)
+ 		goto ctrl_clean;
+ 
+-	status = be_get_config(adapter);
++	status = be_get_initial_config(adapter);
+ 	if (status)
+ 		goto stats_clean;
+ 
+@@ -3705,8 +3750,6 @@ stats_clean:
+ 	be_stats_cleanup(adapter);
+ ctrl_clean:
+ 	be_ctrl_cleanup(adapter);
+-disable_sriov:
+-	be_sriov_disable(adapter);
+ free_netdev:
+ 	free_netdev(netdev);
+ 	pci_set_drvdata(pdev, NULL);
+-- 
+1.7.4
