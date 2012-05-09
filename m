@@ -1,62 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 5/6] net: orphan frags on receive
-Date: Wed, 9 May 2012 18:12:02 +0300
-Message-ID: <20120509151202.GB20474@redhat.com>
-References: <cover.1336397823.git.mst@redhat.com>
- <a3353f6235d877c6b2d300eb5a914dbc9b78824d.1336397823.git.mst@redhat.com>
- <1336571692.25514.122.camel@zakaz.uk.xensource.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] net: skb_set_dev do not unconditionally drop ref to dst
+Date: Wed, 9 May 2012 08:16:15 -0700
+Message-ID: <20120509081615.7be58fb3@nehalam.linuxnetplumber.net>
+References: <20120430053804.GA59677@tuxmaker.boeblingen.de.ibm.com>
+	<1335765093.2296.4.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Frank Blaschka <blaschka@linux.vnet.ibm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32653 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:36278 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759850Ab2EIPMB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 11:12:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1336571692.25514.122.camel@zakaz.uk.xensource.com>
+	id S1757038Ab2EIPQS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2012 11:16:18 -0400
+In-Reply-To: <1335765093.2296.4.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 09, 2012 at 02:54:52PM +0100, Ian Campbell wrote:
-> On Mon, 2012-05-07 at 14:54 +0100, Michael S. Tsirkin wrote:
-> > zero copy packets are normally sent to the outside
-> > network, but bridging, tun etc might loop them
-> > back to host networking stack. If this happens
-> > destructors will never be called, so orphan
-> > the frags immediately on receive.
-> 
-> I think this deceptively simply patch is actually the meat of the
-> series.
-> It's been a long time since I dug into the bridging code. Am I right
-> that this function is only reached when an SKB is going to be delivered
-> locally and not when forwarding to another port on the bridge?
-> 
-> Ian.
+On Mon, 30 Apr 2012 07:51:33 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-I think so - bridge uses netdev_rx_handler_unregister
-so it does not go through packet handlers.
-
+> On Mon, 2012-04-30 at 07:38 +0200, Frank Blaschka wrote:
+> > From: Frank Blaschka <frank.blaschka@de.ibm.com>
 > > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > commit 8a83a00b0735190384a348156837918271034144 unconditionally
+> > drops dst reference when skb->dev is set. This causes a regression
+> > with VLAN and the qeth_l3 network driver. qeth_l3 can not get gw
+> > information from the skb coming from the vlan driver. It is only
+> > valid to drop the dst in case of different name spaces.
+> > 
+> > Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 > > ---
-> >  net/core/dev.c |    2 ++
-> >  1 files changed, 2 insertions(+), 0 deletions(-)
+> >  net/core/dev.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
 > > 
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index a2be59f..c0cdc00 100644
 > > --- a/net/core/dev.c
 > > +++ b/net/core/dev.c
-> > @@ -1630,6 +1630,8 @@ static inline int deliver_skb(struct sk_buff *skb,
-> >  			      struct packet_type *pt_prev,
-> >  			      struct net_device *orig_dev)
+> > @@ -1881,8 +1881,8 @@ EXPORT_SYMBOL(netif_device_attach);
+> >  #ifdef CONFIG_NET_NS
+> >  void skb_set_dev(struct sk_buff *skb, struct net_device *dev)
 > >  {
-> > +	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
-> > +		return -ENOMEM;
-> >  	atomic_inc(&skb->users);
-> >  	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
-> >  }
+> > -	skb_dst_drop(skb);
+> >  	if (skb->dev && !net_eq(dev_net(skb->dev), dev_net(dev))) {
+> > +		skb_dst_drop(skb);
+> >  		secpath_reset(skb);
+> >  		nf_reset(skb);
+> >  		skb_init_secmark(skb);
+> > 
 > 
+> You forgot CC Arnd Bergmann <arnd@arndb.de> ?
+> 
+> But we do want to do the skb_dst_drop() in dev_forward_skb()
+> 
+> Your patch breaks dev_forward_skb() then.
+> 
+> But apparently this forward path was alredy broken in Arnd patch...
+
+Is this related to why, PMTU discover is broken now over GRE.
+The simple case of doing a TCP transfer from local host over
+GRE tunnel hangs.
+
+What happens is that skb_dst(skb) is null in ip_tunnel_xmit.
+Which leads to the MTU not being updated, and the ICMP_FRAG_NEEDED
+is never sent.
