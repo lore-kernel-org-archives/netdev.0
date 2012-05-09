@@ -1,108 +1,81 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next] e1000e: Fix merge conflict (net->net-next)
-Date: Wed,  9 May 2012 02:23:46 -0700
-Message-ID: <1336555426-13934-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:9592 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758913Ab2EIJXt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 05:23:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: IP_MULTICAST_IF getsockopt man part
+Date: Wed, 9 May 2012 11:34:28 +0200
+Message-ID: <20120509093428.GB1696@minipsycho.brq.redhat.com>
+References: <20120504090013.GA2362@minipsycho>
+ <CAKgNAkgBz_dRV97JVV1Np0YuEd0EVqoLPZkajiE_KJ2Lk20YRA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAKgNAkgBz_dRV97JVV1Np0YuEd0EVqoLPZkajiE_KJ2Lk20YRA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-During merge of net to net-next the changes in patch:
+Sat, May 05, 2012 at 01:57:35PM CEST, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+>On Fri, May 4, 2012 at 9:00 PM, Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>> Hi.
+>>
+>> <quote>
+>> IP_MULTICAST_IF (since Linux 1.2)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Set the local device for =
+a multicast socket.
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Argument is an ip_mreqn o=
+r ip_mreq structure
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0similar to IP_ADD_MEMBERS=
+HIP.
+>> </quote>
+>>
+>> That is not true. Setsockopt recognizes only ip_mreqn and in_addr. I
+>> made patch which makes it recognize ip_mreq as well. So that would b=
+e
+>> probably ok.
+>> http://patchwork.ozlabs.org/patch/156815/
+>>
+>> On the other hand, getsockopt works only with in_addr. That I think =
+is
+>> good behaviour but manpages here needs to be corrected in this way (=
+read
+>> part needs to be added here)
+>
+>Jirka,
+>
+>I'm having trouble to understand what you mean. Perhaps it would be
+>simplest if you showed your proposed replacement text for the text
+>quoted above.
 
-e1000e: Fix default interrupt throttle rate not set in NIC HW
+<orig>
+IP_MULTICAST_IF (since Linux 1.2)
+Set the local device for a multicast socket. Argument is an ip_mreqn
+or ip_mreq structure similar to IP_ADD_MEMBERSHIP.
+</orig>
+<new>
+IP_MULTICAST_IF (since Linux 1.2)
+Set or read the local device for a multicast socket.
+Argument for set is an ip_mreqn or ip_mreq or addr_in structure.
+Argument for read is an addr_in structure.
+</new>
 
-got munged in param.c of the e1000e driver.  This rectifies the
-merge issues.
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+Jirka
 
-This patch is also available on my net-next tree on kernel.org if you
-want to pull this patch.
 
----
- drivers/net/ethernet/intel/e1000e/param.c |   56 ++++++-----------------------
- 1 files changed, 11 insertions(+), 45 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
-index 42444d1..55cc156 100644
---- a/drivers/net/ethernet/intel/e1000e/param.c
-+++ b/drivers/net/ethernet/intel/e1000e/param.c
-@@ -344,50 +344,16 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 
- 		if (num_InterruptThrottleRate > bd) {
- 			adapter->itr = InterruptThrottleRate[bd];
--			switch (adapter->itr) {
--			case 0:
--				e_info("%s turned off\n", opt.name);
--				break;
--			case 1:
--				e_info("%s set to dynamic mode\n", opt.name);
--				adapter->itr_setting = adapter->itr;
--				adapter->itr = 20000;
--				break;
--			case 3:
--				e_info("%s set to dynamic conservative mode\n",
--					opt.name);
--				adapter->itr_setting = adapter->itr;
--				adapter->itr = 20000;
--				break;
--			case 4:
--				e_info("%s set to simplified (2000-8000 ints) mode\n",
--				       opt.name);
--				adapter->itr_setting = 4;
--				break;
--			default:
--				/*
--				 * Save the setting, because the dynamic bits
--				 * change itr.
--				 */
--				if (e1000_validate_option(&adapter->itr, &opt,
--							  adapter) &&
--				    (adapter->itr == 3)) {
--					/*
--					 * In case of invalid user value,
--					 * default to conservative mode.
--					 */
--					adapter->itr_setting = adapter->itr;
--					adapter->itr = 20000;
--				} else {
--					/*
--					 * Clear the lower two bits because
--					 * they are used as control.
--					 */
--					adapter->itr_setting =
--						adapter->itr & ~3;
--				}
--				break;
--			}
-+
-+			/*
-+			 * Make sure a message is printed for non-special
-+			 * values. And in case of an invalid option, display
-+			 * warning, use default and go through itr/itr_setting
-+			 * adjustment logic below
-+			 */
-+			if ((adapter->itr > 4) &&
-+			    e1000_validate_option(&adapter->itr, &opt, adapter))
-+				adapter->itr = opt.def;
- 		} else {
- 			/*
- 			 * If no option specified, use default value and go
-@@ -399,7 +365,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 			 * Make sure a message is printed for non-special
- 			 * default values
- 			 */
--			if (adapter->itr > 40)
-+			if (adapter->itr > 4)
- 				e_info("%s set to default %d\n", opt.name,
- 				       adapter->itr);
- 		}
--- 
-1.7.7.6
+>
+>Thanks,
+>
+>Michael
+>
+>
+>
+>--=20
+>Michael Kerrisk
+>Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+>Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
