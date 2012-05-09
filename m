@@ -1,93 +1,142 @@
-From: Jonathan Nieder <jrnieder@gmail.com>
-Subject: Re: [PATCH 3.3.0] phy:icplus:fix Auto Power Saving in
- ip101a_config_init.
-Date: Wed, 9 May 2012 02:25:37 -0500
-Message-ID: <20120509072537.GA437@burratino>
-References: <1333360929-31506-1-git-send-email-srinivas.kandagatla@st.com>
- <20120403.184937.744089580257691570.davem@davemloft.net>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: [PATCH] xfrm: make xfrm_algo.c a module
+Date: Wed, 09 May 2012 08:53:51 +0100
+Message-ID: <4FAA3EAF02000078000826E4@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: srinivas.kandagatla@st.com, netdev@vger.kernel.org,
-	peppe.cavallaro@st.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:64267 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757184Ab2EIHZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 03:25:51 -0400
-Received: by yenm10 with SMTP id m10so5726821yen.19
-        for <netdev@vger.kernel.org>; Wed, 09 May 2012 00:25:51 -0700 (PDT)
+Received: from nat28.tlf.novell.com ([130.57.49.28]:56502 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754521Ab2EII52 convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:2:2>);
+	Wed, 9 May 2012 04:57:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20120403.184937.744089580257691570.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+By making this a standalone config option (selected as needed),
+selecting CRYPTO from here rather than from XFRM (which is boolean)
+allows the core crypto code to become a module again even when XFRM=y.
 
-David Miller wrote:
-> From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
 
->> This patch fixes Auto Power Saving configuration in ip101a_config_init
->> which was broken as there is no phy register write followed after
->> setting IP101A_APS_ON flag.
->>
->> This patch also fixes the return value of ip101a_config_init.
->>
->> Without this patch ip101a_config_init returns 2 which is not an error
->> accroding to IS_ERR and the mac driver will continue accessing 2 as
->> valid pointer to phy_dev resulting in memory fault.
->>
->> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
->
-> Applied and queued up for -stable, thanks.
-
-I'm guessing 3.2.y needs this, too, since it also includes
-v3.2-rc1~129^2~247 ("net/phy: add IC+ IP101A and support APS").
-
-Here's a quick backport made by adjusting the context line to
-use IP101A_APS_ON instead of IP101A_G_APS_ON.
-
-Please include it in some later stable update if appropriate.
-
-Thanks,
-Jonathan
-
--- >8 --
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-Date: Mon, 2 Apr 2012 00:02:09 +0000
-
-[ Upstream commit b3300146aa8efc5d3937fd33f3cfdc580a3843bc ]
-
-This patch fixes Auto Power Saving configuration in ip101a_config_init
-which was broken as there is no phy register write followed after
-setting IP101A_APS_ON flag.
-
-This patch also fixes the return value of ip101a_config_init.
-
-Without this patch ip101a_config_init returns 2 which is not an error
-accroding to IS_ERR and the mac driver will continue accessing 2 as
-valid pointer to phy_dev resulting in memory fault.
-
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
 ---
- drivers/net/phy/icplus.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv4/Kconfig     |    4 ++--
+ net/ipv6/Kconfig     |    4 ++--
+ net/xfrm/Kconfig     |   13 +++++++++----
+ net/xfrm/Makefile    |    3 ++-
+ net/xfrm/xfrm_algo.c |    5 ++---
+ 5 files changed, 17 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-index c81f136ae670..b14230016d9b 100644
---- a/drivers/net/phy/icplus.c
-+++ b/drivers/net/phy/icplus.c
-@@ -150,7 +150,8 @@ static int ip101a_config_init(struct phy_device *phydev)
- 	/* Enable Auto Power Saving mode */
- 	c = phy_read(phydev, IP10XX_SPEC_CTRL_STATUS);
- 	c |= IP101A_APS_ON;
--	return c;
-+
-+	return phy_write(phydev, IP10XX_SPEC_CTRL_STATUS, c);
- }
+--- 3.4-rc6/net/ipv4/Kconfig
++++ 3.4-rc6-xfrm-algo-module/net/ipv4/Kconfig
+@@ -312,7 +312,7 @@ config SYN_COOKIES
  
- static int ip175c_read_status(struct phy_device *phydev)
--- 
-1.7.10.1
+ config INET_AH
+ 	tristate "IP: AH transformation"
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_HMAC
+ 	select CRYPTO_MD5
+@@ -324,7 +324,7 @@ config INET_AH
+ 
+ config INET_ESP
+ 	tristate "IP: ESP transformation"
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_AUTHENC
+ 	select CRYPTO_HMAC
+--- 3.4-rc6/net/ipv6/Kconfig
++++ 3.4-rc6-xfrm-algo-module/net/ipv6/Kconfig
+@@ -69,7 +69,7 @@ config IPV6_OPTIMISTIC_DAD
+ 
+ config INET6_AH
+ 	tristate "IPv6: AH transformation"
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_HMAC
+ 	select CRYPTO_MD5
+@@ -81,7 +81,7 @@ config INET6_AH
+ 
+ config INET6_ESP
+ 	tristate "IPv6: ESP transformation"
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_AUTHENC
+ 	select CRYPTO_HMAC
+--- 3.4-rc6/net/xfrm/Kconfig
++++ 3.4-rc6-xfrm-algo-module/net/xfrm/Kconfig
+@@ -3,12 +3,17 @@
+ #
+ config XFRM
+        bool
+-       select CRYPTO
+        depends on NET
+ 
++config XFRM_ALGO
++	tristate
++	select XFRM
++	select CRYPTO
++
+ config XFRM_USER
+ 	tristate "Transformation user configuration interface"
+-	depends on INET && XFRM
++	depends on INET
++	select XFRM_ALGO
+ 	---help---
+ 	  Support for Transformation(XFRM) user configuration interface
+ 	  like IPsec used by native Linux tools.
+@@ -48,13 +53,13 @@ config XFRM_STATISTICS
+ 
+ config XFRM_IPCOMP
+ 	tristate
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_DEFLATE
+ 
+ config NET_KEY
+ 	tristate "PF_KEY sockets"
+-	select XFRM
++	select XFRM_ALGO
+ 	---help---
+ 	  PF_KEYv2 socket family, compatible to KAME ones.
+ 	  They are required if you are going to use IPsec tools ported
+--- 3.4-rc6/net/xfrm/Makefile
++++ 3.4-rc6-xfrm-algo-module/net/xfrm/Makefile
+@@ -3,8 +3,9 @@
+ #
+ 
+ obj-$(CONFIG_XFRM) := xfrm_policy.o xfrm_state.o xfrm_hash.o \
+-		      xfrm_input.o xfrm_output.o xfrm_algo.o \
++		      xfrm_input.o xfrm_output.o \
+ 		      xfrm_sysctl.o xfrm_replay.o
+ obj-$(CONFIG_XFRM_STATISTICS) += xfrm_proc.o
++obj-$(CONFIG_XFRM_ALGO) += xfrm_algo.o
+ obj-$(CONFIG_XFRM_USER) += xfrm_user.o
+ obj-$(CONFIG_XFRM_IPCOMP) += xfrm_ipcomp.o
+--- 3.4-rc6/net/xfrm/xfrm_algo.c
++++ 3.4-rc6-xfrm-algo-module/net/xfrm/xfrm_algo.c
+@@ -15,9 +15,6 @@
+ #include <linux/crypto.h>
+ #include <linux/scatterlist.h>
+ #include <net/xfrm.h>
+-#if defined(CONFIG_INET_AH) || defined(CONFIG_INET_AH_MODULE) || defined(CONFIG_INET6_AH) || defined(CONFIG_INET6_AH_MODULE)
+-#include <net/ah.h>
+-#endif
+ #if defined(CONFIG_INET_ESP) || defined(CONFIG_INET_ESP_MODULE) || defined(CONFIG_INET6_ESP) || defined(CONFIG_INET6_ESP_MODULE)
+ #include <net/esp.h>
+ #endif
+@@ -752,3 +749,5 @@ void *pskb_put(struct sk_buff *skb, stru
+ }
+ EXPORT_SYMBOL_GPL(pskb_put);
+ #endif
++
++MODULE_LICENSE("GPL");
