@@ -1,150 +1,493 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 05/14] batman-adv: rename last_valid to last_seen
-Date: Wed,  9 May 2012 13:12:47 +0200
-Message-ID: <1336561976-16088-6-git-send-email-ordex@autistici.org>
-References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:52734 "EHLO
-	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757545Ab2EILMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 07:12:39 -0400
-In-Reply-To: <1336561976-16088-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 2/5] netfilter: add xt_hmark target for hash-based skb marking
+Date: Wed,  9 May 2012 13:33:05 +0200
+Message-ID: <1336563188-6720-3-git-send-email-pablo@netfilter.org>
+References: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marek Lindner <lindner_marek@yahoo.de>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+The target allows you to create rules in the "raw" and "mangle" tables
+which set the skbuff mark by means of hash calculation within a given
+range. The nfmark can influence the routing method (see "Use netfilter
+MARK value as routing key") and can also be used by other subsystems to
+change their behaviour.
+
+[ Part of this patch has been refactorized and modified by Pablo Neira Ayuso ]
+
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/batman-adv/bat_iv_ogm.c |    8 ++++----
- net/batman-adv/originator.c |   16 ++++++++--------
- net/batman-adv/types.h      |    8 ++++----
- 3 files changed, 16 insertions(+), 16 deletions(-)
+ include/linux/netfilter/xt_HMARK.h |   45 +++++
+ net/netfilter/Kconfig              |   15 ++
+ net/netfilter/Makefile             |    1 +
+ net/netfilter/xt_HMARK.c           |  362 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 423 insertions(+)
+ create mode 100644 include/linux/netfilter/xt_HMARK.h
+ create mode 100644 net/netfilter/xt_HMARK.c
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index e0aaf8c..8652a75 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -651,7 +651,7 @@ static void bat_iv_ogm_orig_update(struct bat_priv *bat_priv,
- 	rcu_read_unlock();
+diff --git a/include/linux/netfilter/xt_HMARK.h b/include/linux/netfilter/xt_HMARK.h
+new file mode 100644
+index 0000000..abb1650
+--- /dev/null
++++ b/include/linux/netfilter/xt_HMARK.h
+@@ -0,0 +1,45 @@
++#ifndef XT_HMARK_H_
++#define XT_HMARK_H_
++
++#include <linux/types.h>
++
++enum {
++	XT_HMARK_SADDR_MASK,
++	XT_HMARK_DADDR_MASK,
++	XT_HMARK_SPI,
++	XT_HMARK_SPI_MASK,
++	XT_HMARK_SPORT,
++	XT_HMARK_DPORT,
++	XT_HMARK_SPORT_MASK,
++	XT_HMARK_DPORT_MASK,
++	XT_HMARK_PROTO_MASK,
++	XT_HMARK_RND,
++	XT_HMARK_MODULUS,
++	XT_HMARK_OFFSET,
++	XT_HMARK_CT,
++	XT_HMARK_METHOD_L3,
++	XT_HMARK_METHOD_L3_4,
++};
++#define XT_HMARK_FLAG(flag)	(1 << flag)
++
++union hmark_ports {
++	struct {
++		__u16	src;
++		__u16	dst;
++	} p16;
++	__u32	v32;
++};
++
++struct xt_hmark_info {
++	union nf_inet_addr	src_mask;
++	union nf_inet_addr	dst_mask;
++	union hmark_ports	port_mask;
++	union hmark_ports	port_set;
++	__u32			flags;
++	__u16			proto_mask;
++	__u32			hashrnd;
++	__u32			hmodulus;
++	__u32			hoffset;	/* Mark offset to start from */
++};
++
++#endif /* XT_HMARK_H_ */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 0c6f67e..209c1ed 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -509,6 +509,21 @@ config NETFILTER_XT_TARGET_HL
+ 	since you can easily create immortal packets that loop
+ 	forever on the network.
  
- 	orig_node->flags = batman_ogm_packet->flags;
--	neigh_node->last_valid = jiffies;
-+	neigh_node->last_seen = jiffies;
- 
- 	spin_lock_bh(&neigh_node->tq_lock);
- 	ring_buffer_set(neigh_node->tq_recv,
-@@ -772,11 +772,11 @@ static int bat_iv_ogm_calc_tq(struct orig_node *orig_node,
- 	if (!neigh_node)
- 		goto out;
- 
--	/* if orig_node is direct neighbor update neigh_node last_valid */
-+	/* if orig_node is direct neighbor update neigh_node last_seen */
- 	if (orig_node == orig_neigh_node)
--		neigh_node->last_valid = jiffies;
-+		neigh_node->last_seen = jiffies;
- 
--	orig_node->last_valid = jiffies;
-+	orig_node->last_seen = jiffies;
- 
- 	/* find packet count of corresponding one hop neighbor */
- 	spin_lock_bh(&orig_node->ogm_cnt_lock);
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index ce49698..21c1f83 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -283,7 +283,7 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
- 	hlist_for_each_entry_safe(neigh_node, node, node_tmp,
- 				  &orig_node->neigh_list, list) {
- 
--		if ((has_timed_out(neigh_node->last_valid, PURGE_TIMEOUT)) ||
-+		if ((has_timed_out(neigh_node->last_seen, PURGE_TIMEOUT)) ||
- 		    (neigh_node->if_incoming->if_status == IF_INACTIVE) ||
- 		    (neigh_node->if_incoming->if_status == IF_NOT_IN_USE) ||
- 		    (neigh_node->if_incoming->if_status == IF_TO_BE_REMOVED)) {
-@@ -300,9 +300,9 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
- 					neigh_node->if_incoming->net_dev->name);
- 			else
- 				bat_dbg(DBG_BATMAN, bat_priv,
--					"neighbor timeout: originator %pM, neighbor: %pM, last_valid: %lu\n",
-+					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %lu\n",
- 					orig_node->orig, neigh_node->addr,
--					(neigh_node->last_valid / HZ));
-+					(neigh_node->last_seen / HZ));
- 
- 			neigh_purged = true;
- 
-@@ -325,10 +325,10 @@ static bool purge_orig_node(struct bat_priv *bat_priv,
- {
- 	struct neigh_node *best_neigh_node;
- 
--	if (has_timed_out(orig_node->last_valid, 2 * PURGE_TIMEOUT)) {
-+	if (has_timed_out(orig_node->last_seen, 2 * PURGE_TIMEOUT)) {
- 		bat_dbg(DBG_BATMAN, bat_priv,
--			"Originator timeout: originator %pM, last_valid %lu\n",
--			orig_node->orig, (orig_node->last_valid / HZ));
-+			"Originator timeout: originator %pM, last_seen %lu\n",
-+			orig_node->orig, (orig_node->last_seen / HZ));
- 		return true;
- 	} else {
- 		if (purge_orig_neighbors(bat_priv, orig_node,
-@@ -446,9 +446,9 @@ int orig_seq_print_text(struct seq_file *seq, void *offset)
- 				goto next;
- 
- 			last_seen_secs = jiffies_to_msecs(jiffies -
--						orig_node->last_valid) / 1000;
-+						orig_node->last_seen) / 1000;
- 			last_seen_msecs = jiffies_to_msecs(jiffies -
--						orig_node->last_valid) % 1000;
-+						orig_node->last_seen) % 1000;
- 
- 			seq_printf(seq, "%pM %4i.%03is   (%3i) %pM [%10s]:",
- 				   orig_node->orig, last_seen_secs,
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 50e1895..9fa8b73 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -52,7 +52,7 @@ struct hard_iface {
- /**
-  *	orig_node - structure for orig_list maintaining nodes of mesh
-  *	@primary_addr: hosts primary interface address
-- *	@last_valid: when last packet from this node was received
-+ *	@last_seen: when last packet from this node was received
-  *	@bcast_seqno_reset: time when the broadcast seqno window was reset
-  *	@batman_seqno_reset: time when the batman seqno window was reset
-  *	@gw_flags: flags related to gateway class
-@@ -70,7 +70,7 @@ struct orig_node {
- 	struct neigh_node __rcu *router; /* rcu protected pointer */
- 	unsigned long *bcast_own;
- 	uint8_t *bcast_own_sum;
--	unsigned long last_valid;
-+	unsigned long last_seen;
- 	unsigned long bcast_seqno_reset;
- 	unsigned long batman_seqno_reset;
- 	uint8_t gw_flags;
-@@ -120,7 +120,7 @@ struct gw_node {
- 
- /**
-  *	neigh_node
-- *	@last_valid: when last packet via this neighbor was received
-+ *	@last_seen: when last packet via this neighbor was received
-  */
- struct neigh_node {
- 	struct hlist_node list;
-@@ -131,7 +131,7 @@ struct neigh_node {
- 	uint8_t tq_avg;
- 	uint8_t last_ttl;
- 	struct list_head bonding_list;
--	unsigned long last_valid;
-+	unsigned long last_seen;
- 	DECLARE_BITMAP(real_bits, TQ_LOCAL_WINDOW_SIZE);
- 	atomic_t refcount;
- 	struct rcu_head rcu;
++config NETFILTER_XT_TARGET_HMARK
++	tristate '"HMARK" target support'
++	depends on (IP6_NF_IPTABLES || IP6_NF_IPTABLES=n)
++	depends on NETFILTER_ADVANCED
++	---help---
++	This option adds the "HMARK" target.
++
++	The target allows you to create rules in the "raw" and "mangle" tables
++	which set the skbuff mark by means of hash calculation within a given
++	range. The nfmark can influence the routing method (see "Use netfilter
++	MARK value as routing key") and can also be used by other subsystems to
++	change their behaviour.
++
++	To compile it as a module, choose M here. If unsure, say N.
++
+ config NETFILTER_XT_TARGET_IDLETIMER
+ 	tristate  "IDLETIMER target support"
+ 	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index ca36765..4e7960c 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -59,6 +59,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_DSCP) += xt_DSCP.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_HMARK) += xt_HMARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_LED) += xt_LED.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_LOG) += xt_LOG.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NFLOG) += xt_NFLOG.o
+diff --git a/net/netfilter/xt_HMARK.c b/net/netfilter/xt_HMARK.c
+new file mode 100644
+index 0000000..32fbd73
+--- /dev/null
++++ b/net/netfilter/xt_HMARK.c
+@@ -0,0 +1,362 @@
++/*
++ * xt_HMARK - Netfilter module to set mark by means of hashing
++ *
++ * (C) 2012 by Hans Schillstrom <hans.schillstrom@ericsson.com>
++ * (C) 2012 by Pablo Neira Ayuso <pablo@netfilter.org>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published by
++ * the Free Software Foundation.
++ */
++
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/icmp.h>
++
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_HMARK.h>
++
++#include <net/ip.h>
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++#include <net/netfilter/nf_conntrack.h>
++#endif
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
++#include <net/ipv6.h>
++#include <linux/netfilter_ipv6/ip6_tables.h>
++#endif
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Hans Schillstrom <hans.schillstrom@ericsson.com>");
++MODULE_DESCRIPTION("Xtables: packet marking using hash calculation");
++MODULE_ALIAS("ipt_HMARK");
++MODULE_ALIAS("ip6t_HMARK");
++
++struct hmark_tuple {
++	u32			src;
++	u32			dst;
++	union hmark_ports	uports;
++	uint8_t			proto;
++};
++
++static inline u32 hmark_addr6_mask(const __u32 *addr32, const __u32 *mask)
++{
++	return (addr32[0] & mask[0]) ^
++	       (addr32[1] & mask[1]) ^
++	       (addr32[2] & mask[2]) ^
++	       (addr32[3] & mask[3]);
++}
++
++static inline u32
++hmark_addr_mask(int l3num, const __u32 *addr32, const __u32 *mask)
++{
++	switch (l3num) {
++	case AF_INET:
++		return *addr32 & *mask;
++	case AF_INET6:
++		return hmark_addr6_mask(addr32, mask);
++	}
++	return 0;
++}
++
++static int
++hmark_ct_set_htuple(const struct sk_buff *skb, struct hmark_tuple *t,
++		    const struct xt_hmark_info *info)
++{
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
++	struct nf_conntrack_tuple *otuple;
++	struct nf_conntrack_tuple *rtuple;
++
++	if (ct == NULL || nf_ct_is_untracked(ct))
++		return -1;
++
++	otuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
++	rtuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
++
++	t->src = hmark_addr_mask(otuple->src.l3num, otuple->src.u3.all,
++				 info->src_mask.all);
++	t->dst = hmark_addr_mask(otuple->src.l3num, rtuple->src.u3.all,
++				 info->dst_mask.all);
++
++	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
++		return 0;
++
++	t->proto = nf_ct_protonum(ct);
++	if (t->proto != IPPROTO_ICMP) {
++		t->uports.p16.src = otuple->src.u.all;
++		t->uports.p16.dst = rtuple->src.u.all;
++		t->uports.v32 = (t->uports.v32 & info->port_mask.v32) |
++				info->port_set.v32;
++		if (t->uports.p16.dst < t->uports.p16.src)
++			swap(t->uports.p16.dst, t->uports.p16.src);
++	}
++
++	return 0;
++#else
++	return -1;
++#endif
++}
++
++static inline u32
++hmark_hash(struct hmark_tuple *t, const struct xt_hmark_info *info)
++{
++	u32 hash;
++
++	if (t->dst < t->src)
++		swap(t->src, t->dst);
++
++	hash = jhash_3words(t->src, t->dst, t->uports.v32, info->hashrnd);
++	hash = hash ^ (t->proto & info->proto_mask);
++
++	return (hash % info->hmodulus) + info->hoffset;
++}
++
++static void
++hmark_set_tuple_ports(const struct sk_buff *skb, unsigned int nhoff,
++		      struct hmark_tuple *t, const struct xt_hmark_info *info)
++{
++	int protoff;
++
++	protoff = proto_ports_offset(t->proto);
++	if (protoff < 0)
++		return;
++
++	nhoff += protoff;
++	if (skb_copy_bits(skb, nhoff, &t->uports, sizeof(t->uports)) < 0)
++		return;
++
++	t->uports.v32 = (t->uports.v32 & info->port_mask.v32) |
++			info->port_set.v32;
++
++	if (t->uports.p16.dst < t->uports.p16.src)
++		swap(t->uports.p16.dst, t->uports.p16.src);
++}
++
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
++static int get_inner6_hdr(const struct sk_buff *skb, int *offset)
++{
++	struct icmp6hdr *icmp6h, _ih6;
++
++	icmp6h = skb_header_pointer(skb, *offset, sizeof(_ih6), &_ih6);
++	if (icmp6h == NULL)
++		return 0;
++
++	if (icmp6h->icmp6_type && icmp6h->icmp6_type < 128) {
++		*offset += sizeof(struct icmp6hdr);
++		return 1;
++	}
++	return 0;
++}
++
++static int
++hmark_pkt_set_htuple_ipv6(const struct sk_buff *skb, struct hmark_tuple *t,
++			  const struct xt_hmark_info *info)
++{
++	struct ipv6hdr *ip6, _ip6;
++	int flag = IP6T_FH_F_AUTH;
++	unsigned int nhoff = 0;
++	u16 fragoff = 0;
++	int nexthdr;
++
++	ip6 = (struct ipv6hdr *) (skb->data + skb_network_offset(skb));
++	nexthdr = ipv6_find_hdr(skb, &nhoff, -1, &fragoff, &flag);
++	if (nexthdr < 0)
++		return 0;
++	/* No need to check for icmp errors on fragments */
++	if ((flag & IP6T_FH_F_FRAG) || (nexthdr != IPPROTO_ICMPV6))
++		goto noicmp;
++	/* Use inner header in case of ICMP errors */
++	if (get_inner6_hdr(skb, &nhoff)) {
++		ip6 = skb_header_pointer(skb, nhoff, sizeof(_ip6), &_ip6);
++		if (ip6 == NULL)
++			return -1;
++		/* If AH present, use SPI like in ESP. */
++		flag = IP6T_FH_F_AUTH;
++		nexthdr = ipv6_find_hdr(skb, &nhoff, -1, &fragoff, &flag);
++		if (nexthdr < 0)
++			return -1;
++	}
++noicmp:
++	t->src = hmark_addr6_mask(ip6->saddr.s6_addr32, info->src_mask.all);
++	t->dst = hmark_addr6_mask(ip6->daddr.s6_addr32, info->dst_mask.all);
++
++	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
++		return 0;
++
++	t->proto = nexthdr;
++	if (t->proto == IPPROTO_ICMPV6)
++		return 0;
++
++	if (flag & IP6T_FH_F_FRAG)
++		return 0;
++
++	hmark_set_tuple_ports(skb, nhoff, t, info);
++	return 0;
++}
++
++static unsigned int
++hmark_tg_v6(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	const struct xt_hmark_info *info = par->targinfo;
++	struct hmark_tuple t;
++
++	memset(&t, 0, sizeof(struct hmark_tuple));
++
++	if (info->flags & XT_HMARK_FLAG(XT_HMARK_CT)) {
++		if (hmark_ct_set_htuple(skb, &t, info) < 0)
++			return XT_CONTINUE;
++	} else {
++		if (hmark_pkt_set_htuple_ipv6(skb, &t, info) < 0)
++			return XT_CONTINUE;
++	}
++
++	skb->mark = hmark_hash(&t, info);
++	return XT_CONTINUE;
++}
++#endif
++
++static int get_inner_hdr(const struct sk_buff *skb, int iphsz, int *nhoff)
++{
++	const struct icmphdr *icmph;
++	struct icmphdr _ih;
++
++	/* Not enough header? */
++	icmph = skb_header_pointer(skb, *nhoff + iphsz, sizeof(_ih), &_ih);
++	if (icmph == NULL && icmph->type > NR_ICMP_TYPES)
++		return 0;
++
++	/* Error message? */
++	if (icmph->type != ICMP_DEST_UNREACH &&
++	    icmph->type != ICMP_SOURCE_QUENCH &&
++	    icmph->type != ICMP_TIME_EXCEEDED &&
++	    icmph->type != ICMP_PARAMETERPROB &&
++	    icmph->type != ICMP_REDIRECT)
++		return 0;
++
++	*nhoff += iphsz + sizeof(_ih);
++	return 1;
++}
++
++static int
++hmark_pkt_set_htuple_ipv4(const struct sk_buff *skb, struct hmark_tuple *t,
++			  const struct xt_hmark_info *info)
++{
++	struct iphdr *ip, _ip;
++	int nhoff = skb_network_offset(skb);
++
++	ip = (struct iphdr *) (skb->data + nhoff);
++	if (ip->protocol == IPPROTO_ICMP) {
++		/* Use inner header in case of ICMP errors */
++		if (get_inner_hdr(skb, ip->ihl * 4, &nhoff)) {
++			ip = skb_header_pointer(skb, nhoff, sizeof(_ip), &_ip);
++			if (ip == NULL)
++				return -1;
++		}
++	}
++
++	t->src = (__force u32) ip->saddr;
++	t->dst = (__force u32) ip->daddr;
++
++	t->src &= info->src_mask.ip;
++	t->dst &= info->dst_mask.ip;
++
++	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
++		return 0;
++
++	t->proto = ip->protocol;
++
++	/* ICMP has no ports, skip */
++	if (t->proto == IPPROTO_ICMP)
++		return 0;
++
++	/* follow-up fragments don't contain ports, skip all fragments */
++	if (ip->frag_off & htons(IP_MF | IP_OFFSET))
++		return 0;
++
++	hmark_set_tuple_ports(skb, (ip->ihl * 4) + nhoff, t, info);
++
++	return 0;
++}
++
++static unsigned int
++hmark_tg_v4(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	const struct xt_hmark_info *info = par->targinfo;
++	struct hmark_tuple t;
++
++	memset(&t, 0, sizeof(struct hmark_tuple));
++
++	if (info->flags & XT_HMARK_FLAG(XT_HMARK_CT)) {
++		if (hmark_ct_set_htuple(skb, &t, info) < 0)
++			return XT_CONTINUE;
++	} else {
++		if (hmark_pkt_set_htuple_ipv4(skb, &t, info) < 0)
++			return XT_CONTINUE;
++	}
++
++	skb->mark = hmark_hash(&t, info);
++	return XT_CONTINUE;
++}
++
++static int hmark_tg_check(const struct xt_tgchk_param *par)
++{
++	const struct xt_hmark_info *info = par->targinfo;
++
++	if (!info->hmodulus) {
++		pr_info("xt_HMARK: hash modulus can't be zero\n");
++		return -EINVAL;
++	}
++	if (info->proto_mask &&
++	    (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))) {
++		pr_info("xt_HMARK: proto mask must be zero with L3 mode\n");
++		return -EINVAL;
++	}
++	if (info->flags & XT_HMARK_FLAG(XT_HMARK_SPI_MASK) &&
++	    (info->flags & (XT_HMARK_FLAG(XT_HMARK_SPORT_MASK) |
++			     XT_HMARK_FLAG(XT_HMARK_DPORT_MASK)))) {
++		pr_info("xt_HMARK: spi-mask and port-mask can't be combined\n");
++		return -EINVAL;
++	}
++	if (info->flags & XT_HMARK_FLAG(XT_HMARK_SPI) &&
++	    (info->flags & (XT_HMARK_FLAG(XT_HMARK_SPORT) |
++			     XT_HMARK_FLAG(XT_HMARK_DPORT)))) {
++		pr_info("xt_HMARK: spi-set and port-set can't be combined\n");
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static struct xt_target hmark_tg_reg[] __read_mostly = {
++	{
++		.name		= "HMARK",
++		.family		= NFPROTO_IPV4,
++		.target		= hmark_tg_v4,
++		.targetsize	= sizeof(struct xt_hmark_info),
++		.checkentry	= hmark_tg_check,
++		.me		= THIS_MODULE,
++	},
++#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
++	{
++		.name		= "HMARK",
++		.family		= NFPROTO_IPV6,
++		.target		= hmark_tg_v6,
++		.targetsize	= sizeof(struct xt_hmark_info),
++		.checkentry	= hmark_tg_check,
++		.me		= THIS_MODULE,
++	},
++#endif
++};
++
++static int __init hmark_tg_init(void)
++{
++	return xt_register_targets(hmark_tg_reg, ARRAY_SIZE(hmark_tg_reg));
++}
++
++static void __exit hmark_tg_exit(void)
++{
++	xt_unregister_targets(hmark_tg_reg, ARRAY_SIZE(hmark_tg_reg));
++}
++
++module_init(hmark_tg_init);
++module_exit(hmark_tg_exit);
 -- 
-1.7.9.4
+1.7.9.5
+
