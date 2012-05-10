@@ -1,42 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/13] net: Add and use ether_addr_equal
-Date: Wed, 09 May 2012 21:53:30 -0400 (EDT)
-Message-ID: <20120509.215330.1797609915710094377.davem@davemloft.net>
-References: <cover.1336538937.git.joe@perches.com>
-	<20120509.212110.437114897180819434.davem@davemloft.net>
-	<1336614484.1905.19.camel@joe2Laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc 2012-05-09
+Date: Thu, 10 May 2012 03:06:35 +0100
+Message-ID: <1336615595.2499.24.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: coreteam@netfilter.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr, netfilter@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: joe@perches.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1336614484.1905.19.camel@joe2Laptop>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:7521 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751547Ab2EJCGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 22:06:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 09 May 2012 18:48:04 -0700
+The following changes since commit 477206a018f902895bfcd069dd820bfe94c187b1:
 
-> Maybe just a single patch?
+  r8169: fix unsigned int wraparound with TSO (2012-05-08 19:34:10 -0400)
 
-Yes, I think high density on this one, it's extremely
-mechanical.
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.4
 
-> Also the compare_ether_addr_64bits function is
-> still used a couple dozen times.  Maybe another
-> patch for those?  ether_addr_equal_64bits?
+(commit 3132d2827d92c2ee47fdf4dbec75bba0a2f291cb)
 
-Use your best judgment.
+This fixes a regression introduced since Linux 3.3 which will result in
+a crash on load in certain configurations.
+
+Ben.
+
+Ben Hutchings (1):
+      sfc: Fix division by zero when using one RX channel and no SR-IOV
+
+ drivers/net/ethernet/sfc/efx.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
