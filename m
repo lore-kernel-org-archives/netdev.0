@@ -1,61 +1,53 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: [PATCH] ehea: fix losing of NEQ events when one event occurred early
-Date: Wed,  9 May 2012 21:10:18 -0300
-Message-ID: <1336608618-31497-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [NET_NEXT RFC PATCH 3/3] ixgbe: added reg_ops file to debugfs
+Date: Thu, 10 May 2012 01:18:10 +0100
+Message-ID: <1336609090.2499.18.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120509230814.31910.80709.stgit@localhost6.localdomain6>
+	 <20120509230950.31910.6032.stgit@localhost6.localdomain6>
+	 <20120509161449.43704ea7@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	<netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp01.br.ibm.com ([32.104.18.85]:54888 "EHLO
-	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761337Ab2EJAK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 20:10:27 -0400
-Received: from /spool/local
-	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Wed, 9 May 2012 21:10:25 -0300
-Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.13.184.25])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 23BF0352004C
-	for <netdev@vger.kernel.org>; Wed,  9 May 2012 21:10:19 -0300 (BRT)
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-	by d24relay03.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q4A09xe638732080
-	for <netdev@vger.kernel.org>; Wed, 9 May 2012 21:09:59 -0300
-Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
-	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q49MAFZv029205
-	for <netdev@vger.kernel.org>; Wed, 9 May 2012 19:10:16 -0300
+Received: from webmail.solarflare.com ([12.187.104.25]:30224 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755654Ab2EJASP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 20:18:15 -0400
+In-Reply-To: <20120509161449.43704ea7@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The NEQ interrupt is only triggered when there was no previous pending
-interrupt. If we request irq handling after an interrupt has occurred,
-we will never get an interrupt until we call H_RESET_EVENTS.
+On Wed, 2012-05-09 at 16:14 -0700, Stephen Hemminger wrote:
+> On Wed, 09 May 2012 16:09:50 -0700
+> Catherine Sullivan <catherine.sullivan@intel.com> wrote:
+> 
+> > Added the reg_ops file to debugfs with commands to read and write
+> > a register to give users the ability to read and write individual
+> > registers on the fly.
+> > 
+> > Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+> > ---
+> > 
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c |  112 ++++++++++++++++++++++
+> >  1 files changed, 112 insertions(+), 0 deletions(-)
+> > 
+> 
+> Aren't these registers already in ethtool?
 
-Events seem to be cleared when we first register the NEQ. So, when we
-requested irq handling right after registering it, a possible race with
-an interrupt was much less likely. Now, there is a chance we may lose
-this race and never get any events.
+ethtool register access is read-only and would be very heavy-weight for
+interactive debugging.  Not sure this is the best interface to
+read/write registers, but it's certainly not redundant.
 
-The fix here is to poll and acknowledge any events that might have
-happened right after registering the irq handler.
+> You are also allowing write without any security checking.
 
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ehea/ehea_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+The file permissions are set to 0600 so it's root-only.
 
-diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-index c9069a2..f088e59 100644
---- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-+++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-@@ -3335,6 +3335,9 @@ static int __devinit ehea_probe_adapter(struct platform_device *dev,
- 		goto out_shutdown_ports;
- 	}
- 
-+	/* Handle any events that might be pending. */
-+	tasklet_hi_schedule(&adapter->neq_tasklet);
-+
- 
- 	ret = 0;
- 	goto out;
+Ben.
+
 -- 
-1.7.4.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
