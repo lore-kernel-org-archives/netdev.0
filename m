@@ -1,50 +1,77 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 07/14] batman-adv: split neigh_new
- function into generic and batman iv specific parts
-Date: Thu, 10 May 2012 12:07:28 -0400 (EDT)
-Message-ID: <20120510.120728.1691568555429264215.davem@davemloft.net>
-References: <1336561976-16088-8-git-send-email-ordex@autistici.org>
-	<20120509.204111.1931607501484626500.davem@davemloft.net>
-	<9033916.UuGU18BIPo@bentobox>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/3] drivers/net: Convert compare_ether_addr to
+ ether_addr_equal
+Date: Thu, 10 May 2012 09:11:28 -0700
+Message-ID: <1336666288.22495.14.camel@joe2Laptop>
+References: <cover.1336618707.git.joe@perches.com>
+	 <7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
+	 <20120510173201.16131du3cg90nybo@www.81.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	lindner_marek-LWAfsSFWpa4@public.gmane.org
-To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <9033916.UuGU18BIPo@bentobox>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:36442 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752480Ab2EJQLa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2012 12:11:30 -0400
+In-Reply-To: <20120510173201.16131du3cg90nybo@www.81.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Date: Thu, 10 May 2012 09:34:25 +0200
+(cc's trimmed)
 
-> On Wednesday, May 09, 2012 08:41:11 PM David Miller wrote:
-> [...]
->> The namespace pollution of the batman-adv code needs to improve,
->> and I'm putting my foot down starting with this change.
->> 
->> If you have a static function which is therefore private to a
->> source file, name it whatever you want.
->> 
->> But once it gets exported out of that file, you have to give it
->> an appropriate name.  Probably with a "batman_adv_" prefix or
->> similar.
+On Thu, 2012-05-10 at 17:32 +0300, Jussi Kivilinna wrote:
+> Quoting Joe Perches <joe@perches.com>:
+> > Use the new bool function ether_addr_equal to add
+> > some clarity and reduce the likelihood for misuse
+> > of compare_ether_addr for sorting.
+[]
+> > diff --git a/drivers/net/wireless/rndis_wlan.c
+[]
+> > @@ -2139,7 +2139,7 @@ resize_buf:
+> >  	while (check_bssid_list_item(bssid, bssid_len, buf, len)) {
+> >  		if (rndis_bss_info_update(usbdev, bssid) && match_bssid &&
+> >  		    matched) {
+> > -			if (compare_ether_addr(bssid->mac, match_bssid))
+> > +			if (!ether_addr_equal(bssid->mac, match_bssid))
 > 
-> I aggree, but would like to like to have a shorter prefix batadv_. I know that 
-> you said "or similar" but there are still some developers that fear your 
-> response to a patch that only adds the prefix batadv_ instead of the longer 
-> version.
+> While reviewing this, noticed that above original code is wrong. It  
+> should be !compare_ether_addr. So do I push patch fixing this through  
+> wireless-testing althought it will later cause conflict with this patch?
+> 
+> -Jussi
+> 
+> >  				*matched = true;
+> >  		}
+> >
 
-batadv_ is fine.
+Up to John.
+
+Here's the patch I would send against net-next
+updating the test and the style a little.
+
+diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
+index dcf0e7e..29cccc5 100644
+--- a/drivers/net/wireless/rndis_wlan.c
++++ b/drivers/net/wireless/rndis_wlan.c
+@@ -2137,11 +2137,10 @@ resize_buf:
+ 	 * received 'num_items' and walking through full bssid buffer instead.
+ 	 */
+ 	while (check_bssid_list_item(bssid, bssid_len, buf, len)) {
+-		if (rndis_bss_info_update(usbdev, bssid) && match_bssid &&
+-		    matched) {
+-			if (!ether_addr_equal(bssid->mac, match_bssid))
+-				*matched = true;
+-		}
++		if (rndis_bss_info_update(usbdev, bssid) &&
++		    match_bssid && matched &&
++		    ether_addr_equal(bssid->mac, match_bssid))
++			*matched = true;
+ 
+ 		real_count++;
+ 		bssid = next_bssid_list_item(bssid, &bssid_len, buf, len);
