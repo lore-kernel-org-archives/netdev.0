@@ -1,72 +1,42 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: Re: cxgb4 mbox4 errors listening to multiple multicast addresses
-Date: Thu, 10 May 2012 15:57:49 -0500
-Message-ID: <20120510205749.GB4709@BohrerMBP.rgmadvisors.com>
-References: <20120510201408.GA4709@BohrerMBP.rgmadvisors.com>
- <4FAC2941.5080301@chelsio.com>
+From: "Sullivan, Catherine" <catherine.sullivan@intel.com>
+Subject: RE: [NET_NEXT RFC PATCH 2/3] ixgbe: added netdev_ops file to debugfs
+Date: Thu, 10 May 2012 21:14:49 +0000
+Message-ID: <F1C1314B3E1AB7499F9BF2A5F0F033EC14AA1B@FMSMSX104.amr.corp.intel.com>
+References: <20120509230945.31910.48302.stgit@localhost6.localdomain6>
+	<20120509161320.37fcb705@nehalam.linuxnetplumber.net>
+	<F1C1314B3E1AB7499F9BF2A5F0F033EC14A8F3@FMSMSX104.amr.corp.intel.com>
+ <20120510.163207.1812696843582837101.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog122.obsmtp.com ([74.125.149.147]:35519 "EHLO
-	na3sys009aog122.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757431Ab2EJVFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 17:05:03 -0400
-Received: by mail-yw0-f41.google.com with SMTP id 47so2812954yhr.14
-        for <netdev@vger.kernel.org>; Thu, 10 May 2012 14:05:02 -0700 (PDT)
-In-Reply-To: <4FAC2941.5080301@chelsio.com>
-Content-Disposition: inline
+Received: from mga03.intel.com ([143.182.124.21]:35230 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757447Ab2EJVPI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 17:15:08 -0400
+In-Reply-To: <20120510.163207.1812696843582837101.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 10, 2012 at 01:46:57PM -0700, Dimitris Michailidis wrote:
-> On 05/10/2012 01:14 PM, Shawn Bohrer wrote:
-> >Is there any translation of those cryptic mbox 4 errors?
-> 
-> The mbox messages are dumps of mailbox commands that try to register
-> MAC addresses and fail due to exhaustion of exact MAC filters.  It
-> should fall back to ALL_MULTI mode and probably shouldn't be logging
-> these as they are expected failure.  From your description it would
-> appear it didn't fall back, I'll take a closer look.  Can you send
-> me the output of ifconfig or ip link for the port in this state?
+I was aware of this, however this does not allow a call to the ndo_tx_timeout function which is what my patch does. Is there a way to do this with sysfs? I could not find this functionality. 
 
-$ ifconfig eth6
-eth6      Link encap:Ethernet  HWaddr 00:07:43:10:52:B0  
-          inet6 addr: fe80::207:43ff:fe10:52b0/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:7811818 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:9087 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:1171756876 (1.0 GiB)  TX bytes:608182 (593.9 KiB)
-          Interrupt:38 
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Thursday, May 10, 2012 1:32 PM
 
-$ ifconfig vlan824
-vlan824   Link encap:Ethernet  HWaddr 00:07:43:10:52:B0  
-          inet addr:10.8.24.40  Bcast:10.8.31.255  Mask:255.255.248.0
-          inet6 addr: fe80::207:43ff:fe10:52b0/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:7811450 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:8895 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
-          RX bytes:999858056 (953.5 MiB)  TX bytes:409410 (399.8 KiB)
+From: "Sullivan, Catherine" <catherine.sullivan@intel.com>
+Date: Thu, 10 May 2012 20:28:28 +0000
 
-$ ip link show eth6
-6: eth6: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
-    link/ether 00:07:43:10:52:b0 brd ff:ff:ff:ff:ff:ff
+> Could you point me to where this is available in sysfs please? I'm not 
+> familiar with it.
 
-$ ip link show vlan824
-11: vlan824@eth6: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
-    link/ether 00:07:43:10:52:b0 brd ff:ff:ff:ff:ff:ff
+Is the 'find' program not properly functioning on your computer?
 
-
---
-Shawn
-
--- 
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+[davem@drr net-next]$ find /sys -type f -name tx_timeout /sys/devices/virtual/net/lo/queues/tx-0/tx_timeout
+/sys/devices/virtual/net/redhat0/queues/tx-0/tx_timeout
+/sys/devices/pci0000:00/0000:00:1c.2/0000:06:00.0/net/p34p1/queues/tx-0/tx_timeout
+[davem@drr net-next]$ 
