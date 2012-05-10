@@ -1,55 +1,115 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/3] staging: delete duplicated files/functionality in
- rtl8712
-Date: Thu, 10 May 2012 09:54:51 -0700
-Message-ID: <20120510165451.GA12958@kroah.com>
-References: <1336621641-15467-1-git-send-email-paul.gortmaker@windriver.com>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
+Date: Thu, 10 May 2012 12:17:01 -0500
+Message-ID: <4FABF80D.3040803@cs.wisc.edu>
+References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org,
-	florian.c.schilhabel@googlemail.com, ali@internetdog.org,
-	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:36083 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754527Ab2EJQy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 12:54:56 -0400
-Received: by dady13 with SMTP id y13so1931519dad.19
-        for <netdev@vger.kernel.org>; Thu, 10 May 2012 09:54:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1336621641-15467-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------020903070100040605000103"
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
+        Linux-Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+        Peter Zijlstra <a.p.zijlstra@chello.nl>,
+        Eric B Munson <emunson@mgebm.net>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1336657510-24378-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 09, 2012 at 11:47:18PM -0400, Paul Gortmaker wrote:
-> A git grep happened to lead me into this dir, and once there I couldn't
-> simply leave and pretend I didn't see the stuff that I saw.
-> 
-> There were duplicated basic networking headers like if_ether.h and
-> ip.h (of course, some ancient versions, too).  And a whole whack of
-> boilerplate endian handling functionality duplicated too.
-> 
-> I forced myself to stop looking after that.
+This is a multi-part message in MIME format.
+--------------020903070100040605000103
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Yes, it's a mess, thanks for working on cleaning it up, even a little
-bit, it all helps.
+On 05/10/2012 08:44 AM, Mel Gorman wrote:
+> When a user or administrator requires swap for their application, they
+> create a swap partition and file, format it with mkswap and activate it
+> with swapon. Swap over the network is considered as an option in diskless
+> systems. The two likely scenarios are when blade servers are used as part
+> of a cluster where the form factor or maintenance costs do not allow the
+> use of disks and thin clients.
 
-> Anyway, a trivial redirection onto mainline's networking headers
-> in the proper include dir, and a deletion of any references to
-> the endian headers and the thing still happily builds on x86_64
-> and ppc even after shitcanning seven useless files.
-> 
-> These three commits are against May 8th's linux-next tree.  I've
-> used "-D" to hide the line-by-line content of the deletions.
+Thank you for working on this. I made the attached patch for software
+iscsi which has the same issue as nbd.
 
-Can you regenerate these with the full deletion content?  There have
-been some spelling fixes in these files, and your patches do not apply
-due to them.  I can hand-edit the patches if you regenerate it.
+I tested the patch here and did not notice any performance regressions
+or any other bugs.
 
-Or if you rebase on the last linux-next tree, that will pick those
-changes up and then I can apply these properly.
+--------------020903070100040605000103
+Content-Type: text/plain; charset=UTF-8;
+ name="0001-iscsi-Set-SOCK_MEMALLOC-for-access-to-PFMEMALLOC-res.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-iscsi-Set-SOCK_MEMALLOC-for-access-to-PFMEMALLOC-res.pa";
+ filename*1="tch"
 
-thanks,
+>From 917d53f16d1e26b12e90e5e15df76a7a8bee35e8 Mon Sep 17 00:00:00 2001
+From: Mike Christie <michaelc@cs.wisc.edu>
+Date: Thu, 3 May 2012 12:36:18 -0500
+Subject: [PATCH 1/1] iscsi: Set SOCK_MEMALLOC for access to PFMEMALLOC
+ reserves
 
-greg k-h
+Set SOCK_MEMALLOC on the iscsi socket to allow access to PFMEMALLOC
+reserves to prevent deadlock.
+
+Signed-off-by: Mike Christie <michaelc@cs.wisc.edu>
+---
+ drivers/scsi/iscsi_tcp.c |   18 +++++++++++++-----
+ 1 files changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/scsi/iscsi_tcp.c b/drivers/scsi/iscsi_tcp.c
+index 453a740..7360f4c 100644
+--- a/drivers/scsi/iscsi_tcp.c
++++ b/drivers/scsi/iscsi_tcp.c
+@@ -370,17 +370,24 @@ static inline int iscsi_sw_tcp_xmit_qlen(struct iscsi_conn *conn)
+ static int iscsi_sw_tcp_pdu_xmit(struct iscsi_task *task)
+ {
+ 	struct iscsi_conn *conn = task->conn;
+-	int rc;
++	unsigned long pflags = current->flags;
++	int rc = 0;
++
++	current->flags |= PF_MEMALLOC;
+ 
+ 	while (iscsi_sw_tcp_xmit_qlen(conn)) {
+ 		rc = iscsi_sw_tcp_xmit(conn);
+-		if (rc == 0)
+-			return -EAGAIN;
++		if (rc == 0) {
++			rc = -EAGAIN;
++			break;
++		}
+ 		if (rc < 0)
+-			return rc;
++			break;
++		rc = 0;
+ 	}
+ 
+-	return 0;
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
++	return rc;
+ }
+ 
+ /*
+@@ -665,6 +672,7 @@ iscsi_sw_tcp_conn_bind(struct iscsi_cls_session *cls_session,
+ 	sk->sk_reuse = 1;
+ 	sk->sk_sndtimeo = 15 * HZ; /* FIXME: make it configurable */
+ 	sk->sk_allocation = GFP_ATOMIC;
++	sk_set_memalloc(sk);
+ 
+ 	iscsi_sw_tcp_conn_set_callbacks(conn);
+ 	tcp_sw_conn->sendpage = tcp_sw_conn->sock->ops->sendpage;
+-- 
+1.7.7.6
+
+
+--------------020903070100040605000103--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
