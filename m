@@ -1,49 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [NET_NEXT RFC PATCH 3/3] ixgbe: added reg_ops file to debugfs
-Date: Wed, 9 May 2012 20:54:59 -0700
-Message-ID: <20120509205459.4939c98d@s6510.linuxnetplumber.net>
-References: <20120509230814.31910.80709.stgit@localhost6.localdomain6>
-	<20120509230950.31910.6032.stgit@localhost6.localdomain6>
-	<20120509161449.43704ea7@nehalam.linuxnetplumber.net>
-	<1336609090.2499.18.camel@bwh-desktop.uk.solarflarecom.com>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  [PATCH 0/5] netfilter updates for net-next (upcoming
+	3.5), batch 2
+Date: Thu, 10 May 2012 06:00:00 +0200 (CEST)
+Message-ID: <p9l17hj.bb22250845107efca259c380861808ee@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	<netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:32972 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755628Ab2EJDzH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 23:55:07 -0400
-In-Reply-To: <1336609090.2499.18.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:54884 "EHLO
+	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750704Ab2EJEAE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 00:00:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 May 2012 01:18:10 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-> On Wed, 2012-05-09 at 16:14 -0700, Stephen Hemminger wrote:
-> > On Wed, 09 May 2012 16:09:50 -0700
-> > Catherine Sullivan <catherine.sullivan@intel.com> wrote:
-> > 
-> > > Added the reg_ops file to debugfs with commands to read and write
-> > > a register to give users the ability to read and write individual
-> > > registers on the fly.
-> > > 
-> > > Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-> > > ---
-> > > 
-> > >  drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c |  112 ++++++++++++++++++++++
-> > >  1 files changed, 112 insertions(+), 0 deletions(-)
-> > > 
-> > 
-> > Aren't these registers already in ethtool?
-> 
-> ethtool register access is read-only and would be very heavy-weight for
-> interactive debugging.  Not sure this is the best interface to
-> read/write registers, but it's certainly not redundant.
+>
+>From: pablo@netfilter.org
+>Date: Wed,  9 May 2012 13:33:03 +0200
+>
+>> This is a second batch of netfilter updates for net-next, they contain:
+>> 
+>> * The new HMARK target from Hans Schillstrom. It took lots of spins
+>>   to get this into shape. This target provides a hash-based packet / flow
+>>   pre-classifier for iptables that can be used to distribute packets
+>>   / flows between uplinks and backend servers. It provides to modes, one
+>>   that relies on conntrack, and one that is stateless per-packet.
+>> 
+>> * Byte-based cost calculation for the hashlimit match, to detect when
+>>   a host consumes more bandwidth than expected. This patch from Florian
+>>   Westphal.
+>> 
+>> You can pull these changes from:
+>> 
+>> git://1984.lsi.us.es/net-next
+>
+>Pulled.
+>
+>Two suggested improvements:
+>
+>1) The HMARK hash is quite expensive, because it uses a modulus.
+>
+>   Consider adjusting it to use the usual trick:
+>
+>	((u64)(HASH_VAL * HASH_SIZE)) >> 32
+>
+>   so that this can be a multiply instead of a modulus.
 
-For debugging couldn't you could mmap the PCI  space? That would allow writing
-a user level debugger for the hardware.
+That's true 
+
+>2) XT_HASHLIMIT_MAX is cumbersome.
+>
+>   The canonical way to validate if the set bits are in	a
+>   valid range is to have a "_ALL" macro, and test:
+>
+>	if (val & ~XT_HASHLIMIT_ALL)
+>		goto err;
+>
+>   or similar.
+>
+
+Thanks David  
+I'll fix it
+
+Regards 
+Hans Schillstrom
