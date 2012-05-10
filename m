@@ -1,40 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 11/14] batman-adv: Adding hard_iface
- specific sysfs wrapper macros for UINT
-Date: Wed, 09 May 2012 20:43:04 -0400 (EDT)
-Message-ID: <20120509.204304.1989479180629752763.davem@davemloft.net>
-References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
-	<1336561976-16088-12-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] netlink: connector: implement cn_netlink_reply
+Date: Thu, 10 May 2012 04:45:53 +0400
+Message-ID: <20120510004553.GB8362@ioremap.net>
+References: <1336574243-12063-1-git-send-email-alban.crequy@collabora.co.uk>
+ <1336609248.2499.20.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	lindner_marek-LWAfsSFWpa4@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1336561976-16088-12-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alban Crequy <alban.crequy@collabora.co.uk>,
+	netdev@vger.kernel.org,
+	Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	Rodrigo Moya <rodrigo.moya@collabora.co.uk>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netgear.net.ru ([195.178.208.66]:60378 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1761490Ab2EJAzK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2012 20:55:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1336609248.2499.20.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Wed,  9 May 2012 13:12:53 +0200
+On Thu, May 10, 2012 at 01:20:48AM +0100, Ben Hutchings (bhutchings@solarflare.com) wrote:
+> On Wed, 2012-05-09 at 15:37 +0100, Alban Crequy wrote:
+> > In a connector callback, it was not possible to reply to a message only to a
+> > sender. This patch implements cn_netlink_reply(). It uses the connector socket
+> > to send an unicast netlink message back to the sender.
+> [...]
+> 
+> We try to avoid adding functions with no users.  You'll need to submit
+> the code that's intended to use this as well.
 
-> +		/**
-> +		* Mark the forwarded packet when it is not coming from our best
-> +		* next hop. We still need to forward the packet for our neighbor
-> +		* link quality detection to work in case the packet originated
-> +		* from a single hop neighbor. Otherwise we can simply drop the
-> +		* ogm.
-> +		*/
+I have no objection against this patch, but as correctly stated it is
+useless without users. Alban, what is the code you want this
+functionality to be used in? Do you plan to submit it? Can you submit
+this change in the patch with your code?
 
-Start comments with "/*" not "/**", and properly indent these lines.
+-- 
+	Evgeniy Polyakov
