@@ -1,52 +1,48 @@
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: Re: [PATCH] netlink: connector: implement cn_netlink_reply
-Date: Thu, 10 May 2012 11:39:08 +0100
-Message-ID: <20120510113908.5b79c5f3@chocolatine.cbg.collabora.co.uk>
-References: <1336574243-12063-1-git-send-email-alban.crequy@collabora.co.uk>
-	<1336609248.2499.20.camel@bwh-desktop.uk.solarflarecom.com>
-	<20120510004553.GB8362@ioremap.net>
+From: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 9/9] sunrpc: use SKB fragment destructors to delay
+ completion until page is released by network stack.
+Date: Thu, 10 May 2012 14:19:48 +0300
+Message-ID: <20120510111948.GA9609@redhat.com>
+References: <1336056915.20716.96.camel@zakaz.uk.xensource.com>
+ <1336056971-7839-9-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	Vincent Sanders <vincent.sanders@collabora.co.uk>,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Rodrigo Moya <rodrigo.moya@collabora.co.uk>
-To: Evgeniy Polyakov <zbr@ioremap.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.135.160]:42197 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758249Ab2EJKfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 06:35:06 -0400
-In-Reply-To: <20120510004553.GB8362@ioremap.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1336056971-7839-9-git-send-email-ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 10 May 2012 04:45:53 +0400,
-Evgeniy Polyakov <zbr@ioremap.net> wrote :
+On Thu, May 03, 2012 at 03:56:11PM +0100, Ian Campbell wrote:
+> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+> index f6d8c73..1145929 100644
+> --- a/net/sunrpc/svcsock.c
+> +++ b/net/sunrpc/svcsock.c
+> @@ -198,7 +198,8 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
+>  	while (pglen > 0) {
+>  		if (slen == size)
+>  			flags = 0;
+> -		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
+> +		result = kernel_sendpage(sock, *ppage, xdr->destructor,
+> +					 base, size, flags);
+>  		if (result > 0)
+>  			len += result;
+>  		if (result != size)
 
-> On Thu, May 10, 2012 at 01:20:48AM +0100, Ben Hutchings
-> (bhutchings@solarflare.com) wrote:
-> > On Wed, 2012-05-09 at 15:37 +0100, Alban Crequy wrote:
-> > > In a connector callback, it was not possible to reply to a
-> > > message only to a sender. This patch implements
-> > > cn_netlink_reply(). It uses the connector socket to send an
-> > > unicast netlink message back to the sender.
-> > [...]
-> > 
-> > We try to avoid adding functions with no users.  You'll need to
-> > submit the code that's intended to use this as well.
-> 
-> I have no objection against this patch, but as correctly stated it is
-> useless without users. Alban, what is the code you want this
-> functionality to be used in? Do you plan to submit it? Can you submit
-> this change in the patch with your code?
+So I tried triggering this by simply creating an nfs export on localhost
+and copying a large file out with dd, but this never seems to trigger
+this code.
 
-The code to use the feature is not yet ready for submission and we will
-add this patch to the front of that submission in due course.
+Any idea how to test?
 
-We are just being good community members and making each patch
-available early. Thanks for your feedback on this patch. Please let
-me know if I can add any reviewed-by.
-
-Alban
+-- 
+MST
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
