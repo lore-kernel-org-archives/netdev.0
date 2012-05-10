@@ -1,75 +1,91 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/3] usbnet: fix skb traversing races during unlink(v1)
-Date: Thu, 10 May 2012 07:47:47 +0800
-Message-ID: <CACVXFVNYFSSP2+MFXAqT60E0qOp8+hjU3u0SbYoWHA_a5ouaxw@mail.gmail.com>
-References: <1335775864-4873-1-git-send-email-tom.leiming@gmail.com>
-	<1335775864-4873-4-git-send-email-tom.leiming@gmail.com>
-	<20120502.201212.909292764269133334.davem@davemloft.net>
-	<20120503090450.41704527@tom-ThinkPad-T410>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: update the usage of CHECKSUM_UNNECESSARY
+Date: Thu, 10 May 2012 01:05:01 +0100
+Message-ID: <1336608301.2499.12.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120319211241.11291.53271.stgit@localhost6.localdomain6>
+	 <20120508174831.GA27406@redhat.com>
+	 <1336501258.2749.3.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120509060308.GA13522@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	oneukum-l3A5Bk7waGM@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120503090450.41704527@tom-ThinkPad-T410>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Yi Zou <yi.zou@intel.com>, <netdev@vger.kernel.org>,
+	<devel@open-fcoe.org>, <jeffrey.t.kirsher@intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:30042 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756217Ab2EJAFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 20:05:07 -0400
+In-Reply-To: <20120509060308.GA13522@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Wed, 2012-05-09 at 09:03 +0300, Michael S. Tsirkin wrote:
+> On Tue, May 08, 2012 at 07:20:58PM +0100, Ben Hutchings wrote:
+> > On Tue, 2012-05-08 at 20:48 +0300, Michael S. Tsirkin wrote:
+> > > On Mon, Mar 19, 2012 at 02:12:41PM -0700, Yi Zou wrote:
+> > > > As suggested by Ben, this adds the clarification on the usage of
+> > > > CHECKSUM_UNNECESSARY on the outgoing patch. Also add the usage
+> > > > description of NETIF_F_FCOE_CRC and CHECKSUM_UNNECESSARY
+> > > > for the kernel FCoE protocol driver.
+> > > > 
+> > > > This is a follow-up to the following:
+> > > > http://patchwork.ozlabs.org/patch/147315/
+> > > > 
+> > > > Signed-off-by: Yi Zou <yi.zou@intel.com>
+> > > > Cc: Ben Hutchings <bhutchings@solarflare.com>
+> > > > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > > Cc: www.Open-FCoE.org <devel@open-fcoe.org>
+> > > > ---
+> > > > 
+> > > >  include/linux/skbuff.h |    7 +++++++
+> > > >  1 files changed, 7 insertions(+), 0 deletions(-)
+> > > > 
+> > > > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> > > > index 8dc8257..a2b9953 100644
+> > > > --- a/include/linux/skbuff.h
+> > > > +++ b/include/linux/skbuff.h
+> > > > @@ -94,6 +94,13 @@
+> > > >   *			  about CHECKSUM_UNNECESSARY. 8)
+> > > >   *	NETIF_F_IPV6_CSUM about as dumb as the last one but does IPv6 instead.
+> > > >   *
+> > > > + *	UNNECESSARY: device will do per protocol specific csum. Protocol drivers
+> > > > + *	that do not want net to perform the checksum calculation should use
+> > > > + *	this flag in their outgoing skbs.
+> > > > + *	NETIF_F_FCOE_CRC  this indicates the device can do FCoE FC CRC
+> > > > + *			  offload. Correspondingly, the FCoE protocol driver
+> > > > + *			  stack should use CHECKSUM_UNNECESSARY.
+> > > > + *
+> > > >   *	Any questions? No questions, good. 		--ANK
+> > > >   */
+> > > >  
+> > > 
+> > > So just to make sure I understand, you never get
+> > > UNNECESSARY packets on tx unless you declared NETIF_F_FCOE_CRC?
+> > > 
+> > > Maybe the comment says this somehow but could not figure it out.
+> > 
+> > That's what should happen now.  In future CHECKSUM_UNNECESSARY could be
+> > used on output by other protocols which don't use TCP/IP-style
+> > checksums, but always dependent on the output device supporting the
+> > relevant offload feature.
+> > 
+> > Ben.
+> 
+> Isn't there another case: a device passes UNNECESSARY in on rx,
+> and the skb is forwarded to another device?
+> For example it is handled this way by tun, giving a nice
+> performance boost for VMs, see 10a8d94a95742bb15b4e617ee9884bb4381362be
 
-On Thu, May 3, 2012 at 9:04 AM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> From a87ff961f0a5d50223bd084dfac4fe5ce84f3913 Mon Sep 17 00:00:00 200=
-1
-> From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Thu, 26 Apr 2012 11:33:46 +0800
-> Subject: [PATCH] usbnet: fix skb traversing races during unlink(v2)
->
-> Commit 4231d47e6fe69f061f96c98c30eaf9fb4c14b96d(net/usbnet: avoid
-> recursive locking in usbnet_stop()) fixes the recursive locking
-> problem by releasing the skb queue lock before unlink, but may
-> cause skb traversing races:
-> =A0 =A0 =A0 =A0- after URB is unlinked and the queue lock is released=
-,
-> =A0 =A0 =A0 =A0the refered skb and skb->next may be moved to done que=
-ue,
-> =A0 =A0 =A0 =A0even be released
-> =A0 =A0 =A0 =A0- in skb_queue_walk_safe, the next skb is still obtain=
-ed
-> =A0 =A0 =A0 =A0by next pointer of the last skb
-> =A0 =A0 =A0 =A0- so maybe trigger oops or other problems
->
-> This patch extends the usage of entry->state to describe 'start_unlin=
-k'
-> state, so always holding the queue(rx/tx) lock to change the state if
-> the referd skb is in rx or tx queue because we need to know if the
-> refered urb has been started unlinking in unlink_urbs.
->
-> The other part of this patch is based on Huajun's patch:
-> always traverse from head of the tx/rx queue to get skb which is
-> to be unlinked but not been started unlinking.
->
-> Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-> Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-> ---
-> v2:
-> =A0 =A0 =A0 =A0- if the Rx URB has been marked as being unlink, just =
-not resubmit it
-> =A0 =A0 =A0 =A0in complete handler, so usb_block_urb/usb_unblock_urb =
-can be avoided,
+Hmm... I thought UNNECESSARY was supposed to be replaced by NONE on
+output, but I don't see where that would happen.  Which would mean we
+had an undocumented case here, and now we have ambiguity. :-(
 
-Considered that this one(v2) doesn't depend on usb tree any more and lo=
-oks
-no one objects it, could you apply this one on your tree?
+Ben.
 
-Thanks,
---=20
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
