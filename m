@@ -1,54 +1,46 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: Re: [PATCH 1/3] drivers/net: Convert compare_ether_addr to
- ether_addr_equal
-Date: Thu, 10 May 2012 23:15:25 +0300
-Message-ID: <20120510231525.13005nqjlevr1n48@www.81.fi>
-References: <cover.1336618707.git.joe@perches.com>
- <7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
- <20120510173201.16131du3cg90nybo@www.81.fi>
- <20120510.123024.2157290550457495698.davem@davemloft.net>
+From: "Sullivan, Catherine" <catherine.sullivan@intel.com>
+Subject: RE: [NET_NEXT RFC PATCH 2/3] ixgbe: added netdev_ops file to debugfs
+Date: Thu, 10 May 2012 20:28:28 +0000
+Message-ID: <F1C1314B3E1AB7499F9BF2A5F0F033EC14A8F3@FMSMSX104.amr.corp.intel.com>
+References: <20120509230814.31910.80709.stgit@localhost6.localdomain6>
+	<20120509230945.31910.48302.stgit@localhost6.localdomain6>
+ <20120509161320.37fcb705@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, fubar@us.ibm.com, andy@greyhouse.net,
-	benve@cisco.com, roprabhu@cisco.com, neepatel@cisco.com,
-	nistrive@cisco.com, grundler@parisc-linux.org,
-	anirban.chakraborty@qlogic.com, sony.chacko@qlogic.com,
-	linux-driver@qlogic.com, linux-net-drivers@solarflare.com,
-	bhutchings@solarflare.com, cmetcalf@tilera.com,
-	linville@tuxdriver.com, jirislaby@gmail.com, mickflemm@gmail.com,
-	mcgrof@qca.qualcomm.com, jouni@qca.qualcomm.com,
-	vthiagar@qca.qualcomm.com, senthilb@qca.qualcomm.com,
-	chunkeey@googlemail.com, stas.yakovlev@gmail.com,
-	sgruszka@redhat.com, johannes.berg@intel.com,
-	wey-yi.w.guy@intel.com, ilw@linux.intel.com,
-	buytenh@wantstofly.org, Larry.Finger@lwfinger.net,
-	chaoming_li@realsil.com.cn, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	ath5k-devel@venema.h4ckr.net, ath9k-devel@venema.h4ckr.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120510.123024.2157290550457495698.davem@davemloft.net>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:35068 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755159Ab2EJU2i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 16:28:38 -0400
+In-Reply-To: <20120509161320.37fcb705@nehalam.linuxnetplumber.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting David Miller <davem@davemloft.net>:
+Could you point me to where this is available in sysfs please? I'm not familiar with it. 
 
->
-> Never, EVER, quote an entire large patch just to make a comment
-> on one small hunk.
->
-> I very nearly missed what you had to say because when scrolling
-> through it it appeared as if you made no comments at all.
->
-> Again, NEVER, EVER, do this.  It's extremely anti-social.  Edit out
-> the irrelevant quoted content when replying to people, always.
->
+Thanks, 
+Catherine
 
-I'm sorry. I will not do this again.
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@vyatta.com] 
+Sent: Wednesday, May 09, 2012 4:13 PM
+To: Sullivan, Catherine
+Cc: netdev@vger.kernel.org
+Subject: Re: [NET_NEXT RFC PATCH 2/3] ixgbe: added netdev_ops file to debugfs
 
--Jussi
+On Wed, 09 May 2012 16:09:45 -0700
+Catherine Sullivan <catherine.sullivan@intel.com> wrote:
+
+> Added the netdev_ops file to debugfs with a command to call the 
+> ndo_tx_timeout function to give users the ability to simulate a 
+> tx_timeout call made by the kernel.
+> 
+> Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+
+What is the justification for creating a new API here?
+
+Your exposing only one thing 'tx_timeout' and that is a generic property of the device (not ixgbe specific). That value is already available via sysfs.
