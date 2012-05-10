@@ -1,91 +1,86 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: pull request: sfc-next 2012-05-09
-Date: Thu, 10 May 2012 03:26:39 +0100
-Message-ID: <1336616799.2499.32.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 1/8] sfc: Do not attempt to flush queues if DMA is
+ disabled
+Date: Thu, 10 May 2012 03:27:53 +0100
+Message-ID: <1336616873.2499.33.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1336616799.2499.32.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-KdH8yG+y/sE2Ss0+I3/d"
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:51823 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:51843 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751668Ab2EJC0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 22:26:47 -0400
+	by vger.kernel.org with ESMTP id S1751668Ab2EJC15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 22:27:57 -0400
+In-Reply-To: <1336616799.2499.32.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-KdH8yG+y/sE2Ss0+I3/d
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+efx_nic_fatal_interrupt() disables DMA before scheduling a reset.
+After this, we need not and *cannot* flush queues.
 
-The following changes since commit 2e7d21c54adbab6d10481eddc685328f89bb6389=
-:
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c |   33 +++++++++++++++++++--------------
+ 1 files changed, 19 insertions(+), 14 deletions(-)
 
-  e1000e: Fix merge conflict (net->net-next) (2012-05-09 12:06:39 -0400)
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 3cbfbff..5cc58a3 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -656,25 +656,30 @@ static void efx_stop_datapath(struct efx_nic *efx)
+ 	struct efx_channel *channel;
+ 	struct efx_tx_queue *tx_queue;
+ 	struct efx_rx_queue *rx_queue;
++	struct pci_dev *dev = efx->pci_dev;
+ 	int rc;
+ 
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+ 	BUG_ON(efx->port_enabled);
+ 
+-	rc = efx_nic_flush_queues(efx);
+-	if (rc && EFX_WORKAROUND_7803(efx)) {
+-		/* Schedule a reset to recover from the flush failure. The
+-		 * descriptor caches reference memory we're about to free,
+-		 * but falcon_reconfigure_mac_wrapper() won't reconnect
+-		 * the MACs because of the pending reset. */
+-		netif_err(efx, drv, efx->net_dev,
+-			  "Resetting to recover from flush failure\n");
+-		efx_schedule_reset(efx, RESET_TYPE_ALL);
+-	} else if (rc) {
+-		netif_err(efx, drv, efx->net_dev, "failed to flush queues\n");
+-	} else {
+-		netif_dbg(efx, drv, efx->net_dev,
+-			  "successfully flushed all queues\n");
++	/* Only perform flush if dma is enabled */
++	if (dev->is_busmaster) {
++		rc = efx_nic_flush_queues(efx);
++
++		if (rc && EFX_WORKAROUND_7803(efx)) {
++			/* Schedule a reset to recover from the flush failure. The
++			 * descriptor caches reference memory we're about to free,
++			 * but falcon_reconfigure_mac_wrapper() won't reconnect
++			 * the MACs because of the pending reset. */
++			netif_err(efx, drv, efx->net_dev,
++				  "Resetting to recover from flush failure\n");
++			efx_schedule_reset(efx, RESET_TYPE_ALL);
++		} else if (rc) {
++			netif_err(efx, drv, efx->net_dev, "failed to flush queues\n");
++		} else {
++			netif_dbg(efx, drv, efx->net_dev,
++				  "successfully flushed all queues\n");
++		}
+ 	}
+ 
+ 	efx_for_each_channel(channel, efx) {
+-- 
+1.7.7.6
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 
-(commit ba62b2a8608ca52234fc8bea27bfebbdc4f98c2e)
 
-1. A fix for recovery from some hardware failure modes, by Stuart Hodgson.
-2. Reduction of RX jitter, by David Riddoch.
-3. ethtool interface and implementation for reading plug-in modules, mostly=
- by
-   Stuart Hodgson.
-4. A minor fix to PCI device cleanup.
-
-Ben.
-
-Ben Hutchings (3):
-      sfc: Fix missing cleanup in failure path of efx_pci_probe()
-      ethtool: Split ethtool_get_eeprom() to allow for additional EEPROM ac=
-cessors
-      sfc: Implement module EEPROM access for SFE4002 and SFN4112F
-
-David Riddoch (2):
-      sfc: Fill RX rings completely full, rather than to 95% full
-      sfc: By default refill RX rings as soon as space for a batch
-
-Stuart Hodgson (3):
-      sfc: Do not attempt to flush queues if DMA is disabled
-      ethtool: Extend the ethtool API to obtain plugin module eeprom data
-      sfc: Added support for new ethtool APIs for obtaining module eeprom
-
- drivers/net/ethernet/sfc/efx.c        |   36 +++++++++------
- drivers/net/ethernet/sfc/ethtool.c    |   35 +++++++++++++++
- drivers/net/ethernet/sfc/mcdi_phy.c   |   76 +++++++++++++++++++++++++++++=
-++++
- drivers/net/ethernet/sfc/net_driver.h |    8 ++-
- drivers/net/ethernet/sfc/qt202x_phy.c |   33 ++++++++++++++
- drivers/net/ethernet/sfc/rx.c         |   31 ++++++-------
- include/linux/ethtool.h               |   33 ++++++++++++++
- net/core/ethtool.c                    |   71 +++++++++++++++++++++++++++--=
--
- 8 files changed, 282 insertions(+), 41 deletions(-)
-
---=20
+-- 
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
-
---=-KdH8yG+y/sE2Ss0+I3/d
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQEcBAABCAAGBQJPqydgAAoJEGkILBsOca60b4IIALGakR/LqDu8R/n+BtBBbQ3o
-YX3wG85SIIt1GgKcMHB9f0PByhyrdseZN0eCKxUlnxV5HLhUQS4vNLH9T2PeKYSe
-fzQrgQkfNaYDwxxHUIceKjpKEOTvSymnZ9ZXX4KIajCr25ChbobpE5xC0grhglb0
-zSjqhoPuOjrl1Z4NfpBRqMbCVqfCJtzbupgwYW2WfX0M29R6n30jFg9+4ZrYI+sb
-xiPTvMDd0aknMBp5ZilAl9hBVBuArg+TbNhIX8ylKYoz1PY4iO85NoqaZS/K/PDY
-3ygs4u0e2sQ6g2Zw6uNRNRVDRAzHKjGBmOeuOFkk0Jhq/DQIvg55UeePPjzJ5OI=
-=5fZO
------END PGP SIGNATURE-----
-
---=-KdH8yG+y/sE2Ss0+I3/d--
