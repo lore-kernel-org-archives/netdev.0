@@ -1,59 +1,40 @@
-From: =?utf-8?B?U3RldmVuIExpdSAo5YqJ5Lq66LGqKQ==?=
-	<steven.liu@mediatek.com>
-Subject: FW: PROBLEM: VLAN LRO issue
-Date: Thu, 10 May 2012 09:01:53 +0800
-Message-ID: <599E416D1C5C994980C45977191D726906AB2FE86E@MTKMBS03.mediatek.inc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/13] net: Add and use ether_addr_equal
+Date: Wed, 09 May 2012 21:21:10 -0400 (EDT)
+Message-ID: <20120509.212110.437114897180819434.davem@davemloft.net>
+References: <cover.1336538937.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:57371 "EHLO
-	mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755932Ab2EJBHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 21:07:00 -0400
-Content-Language: zh-TW
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: joe@perches.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <cover.1336538937.git.joe@perches.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-SGkgU2lyLA0KDQpJIGZvdW5kIHRoZSBpc3N1ZSBhYm91dCBWTEFOIExSTyBmZWF0dXJlIGFuZCBi
-ZWxvdyBpcyBidWcgZGVzY3JpcHRpb24gYW5kIHBhdGNoIGZvciB5b3VyIHJlZmVyZW5jZSwgdGhh
-bmtzLg0KDQpbMS5dIE9uZSBsaW5lIHN1bW1hcnkgb2YgdGhlIHByb2JsZW06IA0KVkxBTiBMUk8g
-aXNzdWUNCg0KWzIuXSBGdWxsIGRlc2NyaXB0aW9uIG9mIHRoZSBwcm9ibGVtL3JlcG9ydDoNCkxS
-TyBpbXBsZW1lbnRhdGlvbiBjYW5ub3QgaGFuZGxlIFZMQU4gdGFnZ2VkIHBhY2tldHMgY29ycmVj
-dGx5Lg0KSXQgdXNlcyBjb3JyZWN0IHBhY2tldCBsZW5ndGggd2hlbiBjcmVhdGluZyBuZXcgTFJP
-IHNlc3Npb24sIGJ1dCB1c2VzIHdyb25nIHBhY2tldCBsZW5ndGggd2hlbiBwdXR0aW5nIGZvbGxv
-d2luZyBwYWNrZXRzIGludG8gZXhpc3QgTFJPIHNlc3Npb24uDQoNClszLl0gS2V5d29yZHMgKGku
-ZS4sIG1vZHVsZXMsIG5ldHdvcmtpbmcsIGtlcm5lbCk6DQpOZXR3b3JraW5nDQoNCls0Ll0gS2Vy
-bmVsIHZlcnNpb24gKGZyb20gL3Byb2MvdmVyc2lvbik6DQpMaW51eC0zLjQtcmMzIGFuZCBiZWxv
-dw0KDQpbNS5dIE91dHB1dCBvZiBPb3BzLi4gbWVzc2FnZSAoaWYgYXBwbGljYWJsZSkgd2l0aCBz
-eW1ib2xpYyBpbmZvcm1hdGlvbg0KwqDCoMKgwqDCoHJlc29sdmVkIChzZWUgRG9jdW1lbnRhdGlv
-bi9vb3BzLXRyYWNpbmcudHh0KSBTeXN0ZW0gaXMgc3RpbGwgd29ya2luZywgYnV0IGNhbm5vdCBz
-cGVlZCB1cCBWTEFOIHRhZ2dlZCB0cmFmZmljLg0KDQpbWC5dIE90aGVyIG5vdGVzLCBwYXRjaGVz
-LCBmaXhlcywgd29ya2Fyb3VuZHM6DQpXZSBoYXZlIHRvIGFwcGx5IGJlbG93IHBhdGNoIHRvIGZp
-eCB0aGlzIGlzc3VlLg0KDQotLS0gbGludXgtMy40LXJjMy9uZXQvaXB2NC9pbmV0X2xyby5vcmln
-ICAgICAgICAyMDEyLTA1LTA4IDIwOjA5OjQ0LjgxMDM2NjA4OSArMDgwMA0KKysrIGxpbnV4LTMu
-NC1yYzMvbmV0L2lwdjQvaW5ldF9scm8uYyAgIDIwMTItMDUtMDggMjA6MDk6MzMuMzMxNjc5NDE5
-ICswODAwDQpAQCAtMzUzLDcgKzM1Myw3IEBAIHN0YXRpYyBpbnQgX19scm9fcHJvY19za2Ioc3Ry
-dWN0IG5ldF9scm8NCiAgICAgICAgaWYgKGxyb19kZXNjLT50Y3BfbmV4dF9zZXEgIT0gbnRvaGwo
-dGNwaC0+c2VxKSkNCiAgICAgICAgICAgICAgICBnb3RvIG91dDI7DQoNCi0gICAgICAgaWYgKGxy
-b190Y3BfaXBfY2hlY2soaXBoLCB0Y3BoLCBza2ItPmxlbiwgbHJvX2Rlc2MpKQ0KKyAgICAgICBp
-ZiAobHJvX3RjcF9pcF9jaGVjayhpcGgsIHRjcGgsIHNrYi0+bGVuIC0gdmxhbl9oZHJfbGVuLCBs
-cm9fZGVzYykpDQogICAgICAgICAgICAgICAgZ290byBvdXQyOw0KDQogICAgICAgIGxyb19hZGRf
-cGFja2V0KGxyb19kZXNjLCBza2IsIGlwaCwgdGNwaCk7DQoNCg0KDQpSZWdhcmRzLA0KDQpTdGV2
-ZW4NCg0KCioqKioqKioqKioqKiogRW1haWwgQ29uZmlkZW50aWFsaXR5IE5vdGljZSAqKioqKioq
-KioqKioqKioqKioqKg0KVGhlIGluZm9ybWF0aW9uIGNvbnRhaW5lZCBpbiB0aGlzIGUtbWFpbCBt
-ZXNzYWdlIChpbmNsdWRpbmcgYW55IA0KYXR0YWNobWVudHMpIG1heSBiZSBjb25maWRlbnRpYWws
-IHByb3ByaWV0YXJ5LCBwcml2aWxlZ2VkLCBvciBvdGhlcndpc2UNCmV4ZW1wdCBmcm9tIGRpc2Ns
-b3N1cmUgdW5kZXIgYXBwbGljYWJsZSBsYXdzLiBJdCBpcyBpbnRlbmRlZCB0byBiZSANCmNvbnZl
-eWVkIG9ubHkgdG8gdGhlIGRlc2lnbmF0ZWQgcmVjaXBpZW50KHMpLiBBbnkgdXNlLCBkaXNzZW1p
-bmF0aW9uLCANCmRpc3RyaWJ1dGlvbiwgcHJpbnRpbmcsIHJldGFpbmluZyBvciBjb3B5aW5nIG9m
-IHRoaXMgZS1tYWlsIChpbmNsdWRpbmcgaXRzIA0KYXR0YWNobWVudHMpIGJ5IHVuaW50ZW5kZWQg
-cmVjaXBpZW50KHMpIGlzIHN0cmljdGx5IHByb2hpYml0ZWQgYW5kIG1heSANCmJlIHVubGF3ZnVs
-LiBJZiB5b3UgYXJlIG5vdCBhbiBpbnRlbmRlZCByZWNpcGllbnQgb2YgdGhpcyBlLW1haWwsIG9y
-IGJlbGlldmUgDQp0aGF0IHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgZS1tYWlsIGluIGVycm9yLCBw
-bGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgDQppbW1lZGlhdGVseSAoYnkgcmVwbHlpbmcgdG8gdGhp
-cyBlLW1haWwpLCBkZWxldGUgYW55IGFuZCBhbGwgY29waWVzIG9mIA0KdGhpcyBlLW1haWwgKGlu
-Y2x1ZGluZyBhbnkgYXR0YWNobWVudHMpIGZyb20geW91ciBzeXN0ZW0sIGFuZCBkbyBub3QNCmRp
-c2Nsb3NlIHRoZSBjb250ZW50IG9mIHRoaXMgZS1tYWlsIHRvIGFueSBvdGhlciBwZXJzb24uIFRo
-YW5rIHlvdSE=
+From: Joe Perches <joe@perches.com>
+Date: Tue,  8 May 2012 21:56:44 -0700
+
+> Add a boolean function to test 2 ethernet addresses for equality
+> Convert compare_ether_addr uses to ether_addr_equal
+
+This series looks great, I'll apply all of it.
+
+Thanks Joe.
+
+That case you didn't convert in mac80211 is probably the
+bug Johannes was talking about which started this whole
+discussion.
