@@ -1,44 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3] tcp: Out-line tcp_try_rmem_schedule
-Date: Thu, 10 May 2012 14:00:56 +0200
-Message-ID: <1336651256.12504.151.camel@edumazet-glaptop>
-References: <4FABAB39.6090201@parallels.com>
-	 <4FABAB7C.6040306@parallels.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: take iphdr size into account for esp payload
+ size calculation
+Date: Thu, 10 May 2012 14:18:57 +0200
+Message-ID: <20120510121857.GJ1021@secunet.com>
+References: <1336602952-10479-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:59845 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756229Ab2EJMBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 08:01:01 -0400
-Received: by lbbgm6 with SMTP id gm6so991275lbb.19
-        for <netdev@vger.kernel.org>; Thu, 10 May 2012 05:01:00 -0700 (PDT)
-In-Reply-To: <4FABAB7C.6040306@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
+To: Benjamin Poirier <bpoirier@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1336602952-10479-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-05-10 at 15:50 +0400, Pavel Emelyanov wrote:
-> As proposed by Eric, make the tcp_input.o thinner.
+On Wed, May 09, 2012 at 06:35:52PM -0400, Benjamin Poirier wrote:
 > 
-> add/remove: 1/1 grow/shrink: 1/4 up/down: 868/-1329 (-461)
-> function                                     old     new   delta
-> tcp_try_rmem_schedule                          -     864    +864
-> tcp_ack                                     4811    4815      +4
-> tcp_validate_incoming                        817     815      -2
-> tcp_collapse                                 860     858      -2
-> tcp_send_rcvq                                555     353    -202
-> tcp_data_queue                              3435    3033    -402
-> tcp_prune_queue                              721       -    -721
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-> ---
->  net/ipv4/tcp_input.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+> According to what is done, mainly in esp_output(), net_header_len aka
+> sizeof(struct iphdr) must be taken into account before doing the alignment
+> calculation.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Why do you need to take the ip header into account here? Your patch breaks
+pmtu discovery, at least on tunnel mode with aes-sha1 (aes blocksize 16 bytes).
 
-Thanks !
+With your patch applied:
+
+tracepath -n 192.168.1.2
+ 1?: [LOCALHOST]     pmtu 1442
+ 1:  send failed
+ 1:  send failed
+     Resume: pmtu 1442
+
+Without your patch:
+
+tracepath -n 192.168.1.2
+ 1?: [LOCALHOST]     pmtu 1438
+ 1:  192.168.1.2       0.736ms reached
+ 1:  192.168.1.2       0.390ms reached
+     Resume: pmtu 1438 hops 1 back 64 
+
+Your patch increases the mtu by 4 bytes. Be aware that adding
+one byte of payload may increase the packet size up to 16 bytes
+in the case of aes, as we have to pad the encryption payload
+always to a multiple of the cipher blocksize.
+
+> -
+> -	switch (x->props.mode) {
+> -	case XFRM_MODE_TUNNEL:
+> -		break;
+> -	default:
+> -	case XFRM_MODE_TRANSPORT:
+> -		/* The worst case */
+> -		mtu -= blksize - 4;
+> -		mtu += min_t(u32, blksize - 4, rem);
+> -		break;
+
+Btw. why we are doing the calculation above for transport mode?
