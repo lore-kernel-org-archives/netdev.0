@@ -1,33 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/14] batman-adv: refactoring API: find generalized
- name for bat_ogm_update_mac callback
-Date: Wed, 09 May 2012 20:42:11 -0400 (EDT)
-Message-ID: <20120509.204211.1682541114536655093.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 11/14] batman-adv: Adding hard_iface
+ specific sysfs wrapper macros for UINT
+Date: Wed, 09 May 2012 20:43:04 -0400 (EDT)
+Message-ID: <20120509.204304.1989479180629752763.davem@davemloft.net>
 References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
-	<1336561976-16088-10-git-send-email-ordex@autistici.org>
+	<1336561976-16088-12-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	lindner_marek@yahoo.de
-To: ordex@autistici.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44784 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756628Ab2EJAoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 20:44:19 -0400
-In-Reply-To: <1336561976-16088-10-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	lindner_marek-LWAfsSFWpa4@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1336561976-16088-12-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Wed,  9 May 2012 13:12:51 +0200
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Wed,  9 May 2012 13:12:53 +0200
 
-> +	/* (re-)init mac addresses of the protocol information
-> +	 * belonging to this hard-interface */
+> +		/**
+> +		* Mark the forwarded packet when it is not coming from our best
+> +		* next hop. We still need to forward the packet for our neighbor
+> +		* link quality detection to work in case the packet originated
+> +		* from a single hop neighbor. Otherwise we can simply drop the
+> +		* ogm.
+> +		*/
 
-Needs to be:
-
-	/* (re-)init mac addresses of the protocol information
-	 * belonging to this hard-interface
-	 */
+Start comments with "/*" not "/**", and properly indent these lines.
