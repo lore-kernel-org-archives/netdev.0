@@ -1,40 +1,55 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: pull request: sfc 2012-05-09
-Date: Thu, 10 May 2012 03:06:35 +0100
-Message-ID: <1336615595.2499.24.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net] sfc: Fix division by zero when using one RX channel and
+ no SR-IOV
+Date: Thu, 10 May 2012 03:08:13 +0100
+Message-ID: <1336615693.2499.25.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1336615595.2499.24.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:7521 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:7537 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751547Ab2EJCGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 22:06:39 -0400
+	by vger.kernel.org with ESMTP id S1752541Ab2EJCIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 22:08:16 -0400
+In-Reply-To: <1336615595.2499.24.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 477206a018f902895bfcd069dd820bfe94c187b1:
+If RSS is disabled on the PF (efx->n_rx_channels == 1) we try to set
+up the indirection table so that VFs can use it, setting
+efx->rss_spread = efx_vf_size(efx).  But if SR-IOV was disabled at
+compile time, this evaluates to 0 and we end up dividing by zero when
+initialising the table.
 
-  r8169: fix unsigned int wraparound with TSO (2012-05-08 19:34:10 -0400)
+I considered changing the fallback definition of efx_vf_size() to
+return 1, but its value is really meaningless if we are not going to
+enable VFs.  Therefore add a condition of efx_sriov_wanted(efx) in
+efx_probe_interrupts().
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.4
-
-(commit 3132d2827d92c2ee47fdf4dbec75bba0a2f291cb)
-
-This fixes a regression introduced since Linux 3.3 which will result in
-a crash on load in certain configurations.
-
-Ben.
-
-Ben Hutchings (1):
-      sfc: Fix division by zero when using one RX channel and no SR-IOV
-
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
  drivers/net/ethernet/sfc/efx.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 3cbfbff..4a00053 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1349,7 +1349,7 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+ 	}
+ 
+ 	/* RSS might be usable on VFs even if it is disabled on the PF */
+-	efx->rss_spread = (efx->n_rx_channels > 1 ?
++	efx->rss_spread = ((efx->n_rx_channels > 1 || !efx_sriov_wanted(efx)) ?
+ 			   efx->n_rx_channels : efx_vf_size(efx));
+ 
+ 	return 0;
+-- 
+1.7.7.6
+
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
