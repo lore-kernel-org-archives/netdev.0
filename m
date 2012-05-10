@@ -1,102 +1,70 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 1/6] skbuff: support per-page destructors in
- copy_ubufs
-Date: Thu, 10 May 2012 21:42:46 +0300
-Message-ID: <20120510184246.GE14647@redhat.com>
-References: <cover.1336397823.git.mst@redhat.com>
- <8a3235fbceef37758ef23169c4c152e8d1251d3b.1336397823.git.mst@redhat.com>
- <1336671977.14220.26.camel@zakaz.uk.xensource.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] netlink: connector: implement cn_netlink_reply
+Date: Thu, 10 May 2012 20:22:25 +0100
+Message-ID: <1336677745.2874.18.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1336574243-12063-1-git-send-email-alban.crequy@collabora.co.uk>
+	 <1336609248.2499.20.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120510004553.GB8362@ioremap.net>
+	 <20120510113908.5b79c5f3@chocolatine.cbg.collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <zbr@ioremap.net>, <netdev@vger.kernel.org>,
+	Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	Rodrigo Moya <rodrigo.moya@collabora.co.uk>
+To: Alban Crequy <alban.crequy@collabora.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1190 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760751Ab2EJSmr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2012 14:42:47 -0400
-Content-Disposition: inline
-In-Reply-To: <1336671977.14220.26.camel@zakaz.uk.xensource.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:46691 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754998Ab2EJTWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 15:22:33 -0400
+In-Reply-To: <20120510113908.5b79c5f3@chocolatine.cbg.collabora.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 10, 2012 at 06:46:17PM +0100, Ian Campbell wrote:
-> On Mon, 2012-05-07 at 14:54 +0100, Michael S. Tsirkin wrote:
+On Thu, 2012-05-10 at 11:39 +0100, Alban Crequy wrote:
+> On Thu, 10 May 2012 04:45:53 +0400,
+> Evgeniy Polyakov <zbr@ioremap.net> wrote :
 > 
-> >  	/* skb frags point to kernel buffers */
-> >  	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
-> > +		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
+> > On Thu, May 10, 2012 at 01:20:48AM +0100, Ben Hutchings
+> > (bhutchings@solarflare.com) wrote:
+> > > On Wed, 2012-05-09 at 15:37 +0100, Alban Crequy wrote:
+> > > > In a connector callback, it was not possible to reply to a
+> > > > message only to a sender. This patch implements
+> > > > cn_netlink_reply(). It uses the connector socket to send an
+> > > > unicast netlink message back to the sender.
+> > > [...]
+> > > 
+> > > We try to avoid adding functions with no users.  You'll need to
+> > > submit the code that's intended to use this as well.
+> > 
+> > I have no objection against this patch, but as correctly stated it is
+> > useless without users. Alban, what is the code you want this
+> > functionality to be used in? Do you plan to submit it? Can you submit
+> > this change in the patch with your code?
 > 
-> This needs to be ....->frags[i - 1]
-
-Good catch.
-  	for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
-		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-
-would be a bit clearer though.
-
-> otherwise you put every new frag one too high and don't do anything to
-> frag 0, which leaves the old destructor pointer in place and leads to a
-> double free.
+> The code to use the feature is not yet ready for submission and we will
+> add this patch to the front of that submission in due course.
 > 
-> I think skb_frag_set_destructor and skb_copy_frag_destructor need to
-> clear and propagate respectively (or maybe just clear in both cases) the
-> destructor_arg field since it is otherwise not initialised when we set
-> SKBTX_DEV_ZEROCOPY and that can trigger wrong behaviour in this
-> function.
-> 
-> Ian.
+> We are just being good community members and making each patch
+> available early.
 
-Agree, let's just clear it.
+When you send a message with a subject beginning [PATCH] to a kernel
+mailing list, it's generally assumed to be a request to the relevant
+maintainer to apply that patch.  But kernel API functions are added only
+to support features that are exposed exernally, and tend to be removed
+when there are no in-tree users.
 
+You could of course send such patches as RFCs ([RFC][PATCH] in the
+subject), so it's clear that you don't expect them to be applied yet.
 
+Ben.
 
-> > +		if (unlikely((!uarg && !f->page.destructor)))
-> > +			continue;
-> >  		__skb_fill_page_desc(skb, i-1, head, 0,
-> >  				     skb_shinfo(skb)->frags[i - 1].size);
-> >  		head = (struct page *)head->private;
-> 
+> Thanks for your feedback on this patch. Please let
+> me know if I can add any reviewed-by.
 
-So the below on top then. I pushed these on
-top of my zerocopy branch - can you confirm pls?
-
----
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 930a50e..e52bc8d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1270,8 +1270,10 @@ static inline void skb_frag_set_destructor(struct sk_buff *skb, int i,
- {
- 	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 	frag->page.destructor = destroy;
--	if (destroy)
-+	if (destroy) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+		skb_shinfo(skb)->destructor_arg = NULL;
-+	}
- }
- 
- /**
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index b7fc47e..453f621 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -753,12 +753,11 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 		uarg->callback(uarg);
- 
- 	/* skb frags point to kernel buffers */
--	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
-+	for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
- 		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
- 		if (unlikely((!uarg && !f->page.destructor)))
- 			continue;
--		__skb_fill_page_desc(skb, i-1, head, 0,
--				     skb_shinfo(skb)->frags[i - 1].size);
-+		__skb_fill_page_desc(skb, i, head, 0, f->size);
- 		head = (struct page *)head->private;
- 	}
- 
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
