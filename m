@@ -1,37 +1,31 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] netlink: connector: implement cn_netlink_reply
-Date: Thu, 10 May 2012 01:20:48 +0100
-Message-ID: <1336609248.2499.20.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1336574243-12063-1-git-send-email-alban.crequy@collabora.co.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ehea: fix losing of NEQ events when one event occurred
+ early
+Date: Wed, 09 May 2012 20:29:13 -0400 (EDT)
+Message-ID: <20120509.202913.886545227635873372.davem@davemloft.net>
+References: <1336608618-31497-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>, <netdev@vger.kernel.org>,
-	Vincent Sanders <vincent.sanders@collabora.co.uk>,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Rodrigo Moya <rodrigo.moya@collabora.co.uk>
-To: Alban Crequy <alban.crequy@collabora.co.uk>
+Cc: netdev@vger.kernel.org
+To: cascardo@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:64391 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1761396Ab2EJAUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 20:20:53 -0400
-In-Reply-To: <1336574243-12063-1-git-send-email-alban.crequy@collabora.co.uk>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44687 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877Ab2EJA3V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 20:29:21 -0400
+In-Reply-To: <1336608618-31497-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-09 at 15:37 +0100, Alban Crequy wrote:
-> In a connector callback, it was not possible to reply to a message only to a
-> sender. This patch implements cn_netlink_reply(). It uses the connector socket
-> to send an unicast netlink message back to the sender.
-[...]
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Date: Wed,  9 May 2012 21:10:18 -0300
 
-We try to avoid adding functions with no users.  You'll need to submit
-the code that's intended to use this as well.
+> +	/* Handle any events that might be pending. */
+> +	tasklet_hi_schedule(&adapter->neq_tasklet);
+> +
+>  
+>  	ret = 0;
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+These extra empty lines are completely unnecessary, please remove
+them.
