@@ -1,51 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2 net] 6lowpan: add missing pskb_may_pull() check
-Date: Thu, 10 May 2012 15:30:59 +0200
-Message-ID: <1336656659.12504.153.camel@edumazet-glaptop>
-References: <1336656163-19382-1-git-send-email-y>
-	 <4fabc166.9208cc0a.4de8.ffff9211@mx.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:51049 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757022Ab2EJNbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 09:31:05 -0400
-Received: by eeit10 with SMTP id t10so515727eei.19
-        for <netdev@vger.kernel.org>; Thu, 10 May 2012 06:31:03 -0700 (PDT)
-In-Reply-To: <4fabc166.9208cc0a.4de8.ffff9211@mx.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 01/17] mm: Serialize access to min_free_kbytes
+Date: Thu, 10 May 2012 14:44:54 +0100
+Message-ID: <1336657510-24378-2-git-send-email-mgorman@suse.de>
+References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>, Mel Gorman <mgorman@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1336657510-24378-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-05-10 at 17:22 +0400, alex.bluesman.smirnov@gmail.com
-wrote:
-> From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-> 
-> Add pskb_may_pull() call when fetching u8 from skb.
-> 
-> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-> ---
->  net/ieee802154/6lowpan.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index 32eb417..0ab3efe 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -295,6 +295,8 @@ static u8 lowpan_fetch_skb_u8(struct sk_buff *skb)
->  {
->  	u8 ret;
->  
-> +	BUG_ON(!pskb_may_pull(skb, 1));
-> +
->  	ret = skb->data[0];
->  	skb_pull(skb, 1);
->  
+There is a race between the min_free_kbytes sysctl, memory hotplug
+and transparent hugepage support enablement.  Memory hotplug uses a
+zonelists_mutex to avoid a race when building zonelists. Reuse it to
+serialise watermark updates.
 
-No, you cant do that.
+[a.p.zijlstra@chello.nl: Older patch fixed the race with spinlock]
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+Reviewed-by: Rik van Riel <riel@redhat.com>
+Acked-by: David Rientjes <rientjes@google.com>
+---
+ mm/page_alloc.c |   23 +++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
 
-pskb_may_pull() can fail, and you crash your machine instead of graceful
-error reporting.
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index a712fb9..280eabe 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -4976,14 +4976,7 @@ static void setup_per_zone_lowmem_reserve(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
+-/**
+- * setup_per_zone_wmarks - called when min_free_kbytes changes
+- * or when memory is hot-{added|removed}
+- *
+- * Ensures that the watermark[min,low,high] values for each zone are set
+- * correctly with respect to min_free_kbytes.
+- */
+-void setup_per_zone_wmarks(void)
++static void __setup_per_zone_wmarks(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -5038,6 +5031,20 @@ void setup_per_zone_wmarks(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++/**
++ * setup_per_zone_wmarks - called when min_free_kbytes changes
++ * or when memory is hot-{added|removed}
++ *
++ * Ensures that the watermark[min,low,high] values for each zone are set
++ * correctly with respect to min_free_kbytes.
++ */
++void setup_per_zone_wmarks(void)
++{
++	mutex_lock(&zonelists_mutex);
++	__setup_per_zone_wmarks();
++	mutex_unlock(&zonelists_mutex);
++}
++
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+  * do too much work, but large enough that each inactive page has a chance
+-- 
+1.7.9.2
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
