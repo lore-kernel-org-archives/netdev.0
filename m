@@ -1,47 +1,68 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: Re: [PATCH 07/14] batman-adv: split neigh_new
-	function into generic and batman iv specific parts
-Date: Thu, 10 May 2012 14:08:07 +0800
-Message-ID: <201205101408.07750.lindner_marek@yahoo.de>
-References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
-	<1336561976-16088-8-git-send-email-ordex@autistici.org>
-	<20120509.204111.1931607501484626500.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20120509.204111.1931607501484626500.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
+Date: Wed,  9 May 2012 23:46:41 -0700
+Message-ID: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:22833 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752333Ab2EJGq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2012 02:46:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This series of patches contains updates for igb and ixgbe.
+Special note ixgbe patches contain the addition of PTP support from
+Jacob Keller.
 
-David,
+The following are changes since commit 8feedbb4a710784d2858acba5c90e903e93e36eb:
+  dsa: Convert compare_ether_addr to ether_addr_equal
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-> But once it gets exported out of that file, you have to give it
-> an appropriate name.  Probably with a "batman_adv_" prefix or
-> similar.
-> 
-> Otherwise, for one thing, if this code is statically built into
-> the tree it can conflict with symbol names elsewhere and break
-> the build.
+Alexander Duyck (3):
+  ixgbe: Exit on error case in VF message processing
+  ixgbe: Clean up priority based flow control
+  ixgbe: Set Drop_EN bit when multiple Rx queues are present w/o flow
+    control
 
-thanks for pointing this out. I wasn't aware of the potential conflict created 
-by our naming scheme. Obviously, we will change the proposed patch.
-We are going to review all other exported function names and send appropriate 
-patches later on.
+Don Skidmore (2):
+  ixgbe: cleanup the hwmon function calls
+  ixgbe: update version number
 
-Regards,
-Marek
+Greg Rose (1):
+  ixgbe: Fix bogus error message
+
+Jacob E Keller (1):
+  ixgbe: Enable timesync clock-out feature for PPS support on X540
+
+Jacob Keller (4):
+  ixgbe: Hardware Timestamping + PTP Hardware Clock (PHC)
+  ixgbe: correct disable_rx_buff timeout
+  ixgbe: add support for get_ts_info
+  ixgbe: support software timestamping
+
+Koki Sanagi (1):
+  igb: output register's information related to RX/TX queue[4-15]
+
+ drivers/net/ethernet/intel/Kconfig                 |   11 +
+ drivers/net/ethernet/intel/igb/igb_ethtool.c       |   38 +-
+ drivers/net/ethernet/intel/ixgbe/Makefile          |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   37 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |   69 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   93 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   98 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |   71 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  198 ++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |  900 ++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   13 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c     |   36 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   47 +-
+ 14 files changed, 1370 insertions(+), 245 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+
+-- 
+1.7.7.6
