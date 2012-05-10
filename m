@@ -1,38 +1,55 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] netlink: connector: implement cn_netlink_reply
-Date: Thu, 10 May 2012 20:47:44 +0400
-Message-ID: <20120510164744.GA31242@ioremap.net>
-References: <1336574243-12063-1-git-send-email-alban.crequy@collabora.co.uk>
- <1336609248.2499.20.camel@bwh-desktop.uk.solarflarecom.com>
- <20120510004553.GB8362@ioremap.net>
- <20120510113908.5b79c5f3@chocolatine.cbg.collabora.co.uk>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/3] staging: delete duplicated files/functionality in
+ rtl8712
+Date: Thu, 10 May 2012 09:54:51 -0700
+Message-ID: <20120510165451.GA12958@kroah.com>
+References: <1336621641-15467-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	Vincent Sanders <vincent.sanders@collabora.co.uk>,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Rodrigo Moya <rodrigo.moya@collabora.co.uk>
-To: Alban Crequy <alban.crequy@collabora.co.uk>
+Cc: linux-wireless@vger.kernel.org,
+	florian.c.schilhabel@googlemail.com, ali@internetdog.org,
+	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from broadrack.ru ([195.178.208.66]:56022 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752644Ab2EJQrr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2012 12:47:47 -0400
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:36083 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754527Ab2EJQy4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 12:54:56 -0400
+Received: by dady13 with SMTP id y13so1931519dad.19
+        for <netdev@vger.kernel.org>; Thu, 10 May 2012 09:54:56 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20120510113908.5b79c5f3@chocolatine.cbg.collabora.co.uk>
+In-Reply-To: <1336621641-15467-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 10, 2012 at 11:39:08AM +0100, Alban Crequy (alban.crequy@collabora.co.uk) wrote:
-> The code to use the feature is not yet ready for submission and we will
-> add this patch to the front of that submission in due course.
+On Wed, May 09, 2012 at 11:47:18PM -0400, Paul Gortmaker wrote:
+> A git grep happened to lead me into this dir, and once there I couldn't
+> simply leave and pretend I didn't see the stuff that I saw.
 > 
-> We are just being good community members and making each patch
-> available early. Thanks for your feedback on this patch. Please let
-> me know if I can add any reviewed-by.
+> There were duplicated basic networking headers like if_ether.h and
+> ip.h (of course, some ancient versions, too).  And a whole whack of
+> boilerplate endian handling functionality duplicated too.
+> 
+> I forced myself to stop looking after that.
 
-Yes, you can add review tag with your submission for connector, your
-changes look good
+Yes, it's a mess, thanks for working on cleaning it up, even a little
+bit, it all helps.
 
--- 
-	Evgeniy Polyakov
+> Anyway, a trivial redirection onto mainline's networking headers
+> in the proper include dir, and a deletion of any references to
+> the endian headers and the thing still happily builds on x86_64
+> and ppc even after shitcanning seven useless files.
+> 
+> These three commits are against May 8th's linux-next tree.  I've
+> used "-D" to hide the line-by-line content of the deletions.
+
+Can you regenerate these with the full deletion content?  There have
+been some spelling fixes in these files, and your patches do not apply
+due to them.  I can hand-edit the patches if you regenerate it.
+
+Or if you rebase on the last linux-next tree, that will pick those
+changes up and then I can apply these properly.
+
+thanks,
+
+greg k-h
