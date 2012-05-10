@@ -1,47 +1,589 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/12] ixgbe: update version number
-Date: Wed,  9 May 2012 23:46:53 -0700
-Message-ID: <1336632413-19135-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/12] ixgbe: Clean up priority based flow control
+Date: Wed,  9 May 2012 23:46:44 -0700
+Message-ID: <1336632413-19135-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:7765 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:51353 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756266Ab2EJGrH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2012 02:47:07 -0400
+	id S1756116Ab2EJGq7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2012 02:46:59 -0400
 In-Reply-To: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Update version number to better match the version of the out of tree
-driver with similar functionality.
+This change cleans up the logic in the priority based flow control
+configuration routines.  Both the 82599 and 82598 based routines perform
+similar functions however they are both arranged completely differently.
+This patch goes over both of them to clean up the code.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+In addition I am dropping the ixgbe_fc_pfc flow control mode and instead
+just replacing it with checks for if priority flow control is enabled.
+This allows us to maintain some of the link flow control information which
+allows for an easier transition between link and priority flow control.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |   69 +++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   93 +++++++++----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   95 +++++++-------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |   30 ++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   70 ++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |    3 -
+ 6 files changed, 156 insertions(+), 204 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
+index d3695ed..87592b4 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
+@@ -191,53 +191,46 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82598(struct ixgbe_hw *hw,
+  */
+ s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw, u8 pfc_en)
+ {
+-	u32 reg;
++	u32 fcrtl, reg;
+ 	u8  i;
+ 
+-	if (pfc_en) {
+-		/* Enable Transmit Priority Flow Control */
+-		reg = IXGBE_READ_REG(hw, IXGBE_RMCS);
+-		reg &= ~IXGBE_RMCS_TFCE_802_3X;
+-		/* correct the reporting of our flow control status */
+-		reg |= IXGBE_RMCS_TFCE_PRIORITY;
+-		IXGBE_WRITE_REG(hw, IXGBE_RMCS, reg);
+-
+-		/* Enable Receive Priority Flow Control */
+-		reg = IXGBE_READ_REG(hw, IXGBE_FCTRL);
+-		reg &= ~IXGBE_FCTRL_RFCE;
+-		reg |= IXGBE_FCTRL_RPFCE;
+-		IXGBE_WRITE_REG(hw, IXGBE_FCTRL, reg);
+-
+-		/* Configure pause time */
+-		for (i = 0; i < (MAX_TRAFFIC_CLASS >> 1); i++)
+-			IXGBE_WRITE_REG(hw, IXGBE_FCTTV(i), 0x68006800);
++	/* Enable Transmit Priority Flow Control */
++	reg = IXGBE_READ_REG(hw, IXGBE_RMCS);
++	reg &= ~IXGBE_RMCS_TFCE_802_3X;
++	reg |= IXGBE_RMCS_TFCE_PRIORITY;
++	IXGBE_WRITE_REG(hw, IXGBE_RMCS, reg);
+ 
+-		/* Configure flow control refresh threshold value */
+-		IXGBE_WRITE_REG(hw, IXGBE_FCRTV, 0x3400);
+-	}
++	/* Enable Receive Priority Flow Control */
++	reg = IXGBE_READ_REG(hw, IXGBE_FCTRL);
++	reg &= ~(IXGBE_FCTRL_RPFCE | IXGBE_FCTRL_RFCE);
+ 
+-	/*
+-	 * Configure flow control thresholds and enable priority flow control
+-	 * for each traffic class.
+-	 */
+-	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
+-		int enabled = pfc_en & (1 << i);
++	if (pfc_en)
++		reg |= IXGBE_FCTRL_RPFCE;
+ 
+-		reg = hw->fc.low_water << 10;
++	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, reg);
+ 
+-		if (enabled == pfc_enabled_tx ||
+-		    enabled == pfc_enabled_full)
+-			reg |= IXGBE_FCRTL_XONE;
++	fcrtl = (hw->fc.low_water << 10) | IXGBE_FCRTL_XONE;
++	/* Configure PFC Tx thresholds per TC */
++	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
++		if (!(pfc_en & (1 << i))) {
++			IXGBE_WRITE_REG(hw, IXGBE_FCRTL(i), 0);
++			IXGBE_WRITE_REG(hw, IXGBE_FCRTH(i), 0);
++			continue;
++		}
++
++		reg = (hw->fc.high_water[i] << 10) | IXGBE_FCRTH_FCEN;
++		IXGBE_WRITE_REG(hw, IXGBE_FCRTL(i), fcrtl);
++		IXGBE_WRITE_REG(hw, IXGBE_FCRTH(i), reg);
++	}
+ 
+-		IXGBE_WRITE_REG(hw, IXGBE_FCRTL(i), reg);
++	/* Configure pause time */
++	reg = hw->fc.pause_time * 0x00010001;
++	for (i = 0; i < (MAX_TRAFFIC_CLASS / 2); i++)
++		IXGBE_WRITE_REG(hw, IXGBE_FCTTV(i), reg);
+ 
+-		reg = hw->fc.high_water[i] << 10;
+-		if (enabled == pfc_enabled_tx ||
+-		    enabled == pfc_enabled_full)
+-			reg |= IXGBE_FCRTH_FCEN;
++	/* Configure flow control refresh threshold value */
++	IXGBE_WRITE_REG(hw, IXGBE_FCRTV, hw->fc.pause_time / 2);
+ 
+-		IXGBE_WRITE_REG(hw, IXGBE_FCRTH(i), reg);
+-	}
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
+index 65913c5..4eac80d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
+@@ -211,24 +211,42 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82599(struct ixgbe_hw *hw,
+  */
+ s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en, u8 *prio_tc)
+ {
+-	u32 i, j, reg;
++	u32 i, j, fcrtl, reg;
+ 	u8 max_tc = 0;
+ 
+-	for (i = 0; i < MAX_USER_PRIORITY; i++)
++	/* Enable Transmit Priority Flow Control */
++	IXGBE_WRITE_REG(hw, IXGBE_FCCFG, IXGBE_FCCFG_TFCE_PRIORITY);
++
++	/* Enable Receive Priority Flow Control */
++	reg = IXGBE_READ_REG(hw, IXGBE_MFLCN);
++	reg |= IXGBE_MFLCN_DPF;
++
++	/*
++	 * X540 supports per TC Rx priority flow control.  So
++	 * clear all TCs and only enable those that should be
++	 * enabled.
++	 */
++	reg &= ~(IXGBE_MFLCN_RPFCE_MASK | IXGBE_MFLCN_RFCE);
++
++	if (hw->mac.type == ixgbe_mac_X540)
++		reg |= pfc_en << IXGBE_MFLCN_RPFCE_SHIFT;
++
++	if (pfc_en)
++		reg |= IXGBE_MFLCN_RPFCE;
++
++	IXGBE_WRITE_REG(hw, IXGBE_MFLCN, reg);
++
++	for (i = 0; i < MAX_USER_PRIORITY; i++) {
+ 		if (prio_tc[i] > max_tc)
+ 			max_tc = prio_tc[i];
++	}
++
++	fcrtl = (hw->fc.low_water << 10) | IXGBE_FCRTL_XONE;
+ 
+ 	/* Configure PFC Tx thresholds per TC */
+-	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
++	for (i = 0; i <= max_tc; i++) {
+ 		int enabled = 0;
+ 
+-		if (i > max_tc) {
+-			reg = 0;
+-			IXGBE_WRITE_REG(hw, IXGBE_FCRTL_82599(i), reg);
+-			IXGBE_WRITE_REG(hw, IXGBE_FCRTH_82599(i), reg);
+-			continue;
+-		}
+-
+ 		for (j = 0; j < MAX_USER_PRIORITY; j++) {
+ 			if ((prio_tc[j] == i) && (pfc_en & (1 << j))) {
+ 				enabled = 1;
+@@ -236,50 +254,29 @@ s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en, u8 *prio_tc)
+ 			}
+ 		}
+ 
+-		reg = hw->fc.low_water << 10;
+-
+-		if (enabled)
+-			reg |= IXGBE_FCRTL_XONE;
+-		IXGBE_WRITE_REG(hw, IXGBE_FCRTL_82599(i), reg);
++		if (enabled) {
++			reg = (hw->fc.high_water[i] << 10) | IXGBE_FCRTH_FCEN;
++			IXGBE_WRITE_REG(hw, IXGBE_FCRTL_82599(i), fcrtl);
++		} else {
++			reg = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(i)) - 32;
++			IXGBE_WRITE_REG(hw, IXGBE_FCRTL_82599(i), 0);
++		}
+ 
+-		reg = hw->fc.high_water[i] << 10;
+-		if (enabled)
+-			reg |= IXGBE_FCRTH_FCEN;
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTH_82599(i), reg);
+ 	}
+ 
+-	if (pfc_en) {
+-		/* Configure pause time (2 TCs per register) */
+-		reg = hw->fc.pause_time | (hw->fc.pause_time << 16);
+-		for (i = 0; i < (MAX_TRAFFIC_CLASS / 2); i++)
+-			IXGBE_WRITE_REG(hw, IXGBE_FCTTV(i), reg);
+-
+-		/* Configure flow control refresh threshold value */
+-		IXGBE_WRITE_REG(hw, IXGBE_FCRTV, hw->fc.pause_time / 2);
+-
+-
+-		reg = IXGBE_FCCFG_TFCE_PRIORITY;
+-		IXGBE_WRITE_REG(hw, IXGBE_FCCFG, reg);
+-		/*
+-		 * Enable Receive PFC
+-		 * 82599 will always honor XOFF frames we receive when
+-		 * we are in PFC mode however X540 only honors enabled
+-		 * traffic classes.
+-		 */
+-		reg = IXGBE_READ_REG(hw, IXGBE_MFLCN);
+-		reg &= ~IXGBE_MFLCN_RFCE;
+-		reg |= IXGBE_MFLCN_RPFCE | IXGBE_MFLCN_DPF;
+-
+-		if (hw->mac.type == ixgbe_mac_X540) {
+-			reg &= ~IXGBE_MFLCN_RPFCE_MASK;
+-			reg |= pfc_en << IXGBE_MFLCN_RPFCE_SHIFT;
+-		}
++	for (; i < MAX_TRAFFIC_CLASS; i++) {
++		IXGBE_WRITE_REG(hw, IXGBE_FCRTL_82599(i), 0);
++		IXGBE_WRITE_REG(hw, IXGBE_FCRTH_82599(i), 0);
++	}
+ 
+-		IXGBE_WRITE_REG(hw, IXGBE_MFLCN, reg);
++	/* Configure pause time (2 TCs per register) */
++	reg = hw->fc.pause_time * 0x00010001;
++	for (i = 0; i < (MAX_TRAFFIC_CLASS / 2); i++)
++		IXGBE_WRITE_REG(hw, IXGBE_FCTTV(i), reg);
+ 
+-	} else {
+-		hw->mac.ops.fc_enable(hw);
+-	}
++	/* Configure flow control refresh threshold value */
++	IXGBE_WRITE_REG(hw, IXGBE_FCRTV, hw->fc.pause_time / 2);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+index a09d6b4..7f2fa69 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+@@ -338,6 +338,8 @@ static void ixgbe_dcbnl_devreset(struct net_device *dev)
+ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_dcb_config *dcb_cfg = &adapter->dcb_cfg;
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	int ret = DCB_NO_HW_CHG;
+ 	int i;
+ 
+@@ -350,32 +352,6 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ 	if (!adapter->dcb_set_bitmap)
+ 		return ret;
+ 
+-	if (adapter->dcb_cfg.pfc_mode_enable) {
+-		switch (adapter->hw.mac.type) {
+-		case ixgbe_mac_82599EB:
+-		case ixgbe_mac_X540:
+-			if (adapter->hw.fc.current_mode != ixgbe_fc_pfc)
+-				adapter->last_lfc_mode =
+-				                  adapter->hw.fc.current_mode;
+-			break;
+-		default:
+-			break;
+-		}
+-		adapter->hw.fc.requested_mode = ixgbe_fc_pfc;
+-	} else {
+-		switch (adapter->hw.mac.type) {
+-		case ixgbe_mac_82598EB:
+-			adapter->hw.fc.requested_mode = ixgbe_fc_none;
+-			break;
+-		case ixgbe_mac_82599EB:
+-		case ixgbe_mac_X540:
+-			adapter->hw.fc.requested_mode = adapter->last_lfc_mode;
+-			break;
+-		default:
+-			break;
+-		}
+-	}
+-
+ 	if (adapter->dcb_set_bitmap & (BIT_PG_TX|BIT_PG_RX)) {
+ 		u16 refill[MAX_TRAFFIC_CLASS], max[MAX_TRAFFIC_CLASS];
+ 		u8 bwg_id[MAX_TRAFFIC_CLASS], prio_type[MAX_TRAFFIC_CLASS];
+@@ -388,23 +364,19 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ 			max_frame = max(max_frame, IXGBE_FCOE_JUMBO_FRAME_SIZE);
+ #endif
+ 
+-		ixgbe_dcb_calculate_tc_credits(&adapter->hw, &adapter->dcb_cfg,
+-					       max_frame, DCB_TX_CONFIG);
+-		ixgbe_dcb_calculate_tc_credits(&adapter->hw, &adapter->dcb_cfg,
+-					       max_frame, DCB_RX_CONFIG);
++		ixgbe_dcb_calculate_tc_credits(hw, dcb_cfg, max_frame,
++					       DCB_TX_CONFIG);
++		ixgbe_dcb_calculate_tc_credits(hw, dcb_cfg, max_frame,
++					       DCB_RX_CONFIG);
+ 
+-		ixgbe_dcb_unpack_refill(&adapter->dcb_cfg,
+-					DCB_TX_CONFIG, refill);
+-		ixgbe_dcb_unpack_max(&adapter->dcb_cfg, max);
+-		ixgbe_dcb_unpack_bwgid(&adapter->dcb_cfg,
+-				       DCB_TX_CONFIG, bwg_id);
+-		ixgbe_dcb_unpack_prio(&adapter->dcb_cfg,
+-				      DCB_TX_CONFIG, prio_type);
+-		ixgbe_dcb_unpack_map(&adapter->dcb_cfg,
+-				     DCB_TX_CONFIG, prio_tc);
++		ixgbe_dcb_unpack_refill(dcb_cfg, DCB_TX_CONFIG, refill);
++		ixgbe_dcb_unpack_max(dcb_cfg, max);
++		ixgbe_dcb_unpack_bwgid(dcb_cfg, DCB_TX_CONFIG, bwg_id);
++		ixgbe_dcb_unpack_prio(dcb_cfg, DCB_TX_CONFIG, prio_type);
++		ixgbe_dcb_unpack_map(dcb_cfg, DCB_TX_CONFIG, prio_tc);
+ 
+-		ixgbe_dcb_hw_ets_config(&adapter->hw, refill, max,
+-					bwg_id, prio_type, prio_tc);
++		ixgbe_dcb_hw_ets_config(hw, refill, max, bwg_id,
++					prio_type, prio_tc);
+ 
+ 		for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
+ 			netdev_set_prio_tc_map(netdev, i, prio_tc[i]);
+@@ -413,20 +385,19 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ 	}
+ 
+ 	if (adapter->dcb_set_bitmap & BIT_PFC) {
+-		u8 pfc_en;
+-		u8 prio_tc[MAX_USER_PRIORITY];
+-
+-		ixgbe_dcb_unpack_map(&adapter->dcb_cfg,
+-				     DCB_TX_CONFIG, prio_tc);
+-		ixgbe_dcb_unpack_pfc(&adapter->dcb_cfg, &pfc_en);
+-		ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc_en, prio_tc);
+-		if (ret != DCB_HW_CHG_RST)
+-			ret = DCB_HW_CHG;
++		if (dcb_cfg->pfc_mode_enable) {
++			u8 pfc_en;
++			u8 prio_tc[MAX_USER_PRIORITY];
++
++			ixgbe_dcb_unpack_map(dcb_cfg, DCB_TX_CONFIG, prio_tc);
++			ixgbe_dcb_unpack_pfc(dcb_cfg, &pfc_en);
++			ixgbe_dcb_hw_pfc_config(hw, pfc_en, prio_tc);
++		} else {
++			hw->mac.ops.fc_enable(hw);
++		}
++		ret = DCB_HW_CHG;
+ 	}
+ 
+-	if (adapter->dcb_cfg.pfc_mode_enable)
+-		adapter->hw.fc.current_mode = ixgbe_fc_pfc;
+-
+ #ifdef IXGBE_FCOE
+ 	/* Reprogam FCoE hardware offloads when the traffic class
+ 	 * FCoE is using changes. This happens if the APP info
+@@ -647,7 +618,9 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
+ 				   struct ieee_pfc *pfc)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	u8 *prio_tc;
++	int err;
+ 
+ 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
+ 		return -EINVAL;
+@@ -659,16 +632,16 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
+ 			return -ENOMEM;
+ 	}
+ 
+-	if (pfc->pfc_en) {
+-		adapter->last_lfc_mode = adapter->hw.fc.current_mode;
+-		adapter->hw.fc.current_mode = ixgbe_fc_pfc;
+-	} else {
+-		adapter->hw.fc.current_mode = adapter->last_lfc_mode;
+-	}
+-
+ 	prio_tc = adapter->ixgbe_ieee_ets->prio_tc;
+ 	memcpy(adapter->ixgbe_ieee_pfc, pfc, sizeof(*adapter->ixgbe_ieee_pfc));
+-	return ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en, prio_tc);
++
++	/* Enable link flow control parameters if PFC is disabled */
++	if (pfc->pfc_en)
++		err = ixgbe_dcb_hw_pfc_config(hw, pfc->pfc_en, prio_tc);
++	else
++		err = hw->mac.ops.fc_enable(hw);
++
++	return err;
+ }
+ 
+ static int ixgbe_dcbnl_ieee_setapp(struct net_device *dev,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index cca3e9c..082446d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -391,11 +391,6 @@ static void ixgbe_get_pauseparam(struct net_device *netdev,
+ 	} else if (hw->fc.current_mode == ixgbe_fc_full) {
+ 		pause->rx_pause = 1;
+ 		pause->tx_pause = 1;
+-#ifdef CONFIG_DCB
+-	} else if (hw->fc.current_mode == ixgbe_fc_pfc) {
+-		pause->rx_pause = 0;
+-		pause->tx_pause = 0;
+-#endif
+ 	}
+ }
+ 
+@@ -404,21 +399,14 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	struct ixgbe_fc_info fc;
++	struct ixgbe_fc_info fc = hw->fc;
+ 
+-#ifdef CONFIG_DCB
+-	if (adapter->dcb_cfg.pfc_mode_enable ||
+-		((hw->mac.type == ixgbe_mac_82598EB) &&
+-		(adapter->flags & IXGBE_FLAG_DCB_ENABLED)))
++	/* 82598 does no support link flow control with DCB enabled */
++	if ((hw->mac.type == ixgbe_mac_82598EB) &&
++	    (adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+ 		return -EINVAL;
+ 
+-#endif
+-	fc = hw->fc;
+-
+-	if (pause->autoneg != AUTONEG_ENABLE)
+-		fc.disable_fc_autoneg = true;
+-	else
+-		fc.disable_fc_autoneg = false;
++	fc.disable_fc_autoneg = (pause->autoneg != AUTONEG_ENABLE);
+ 
+ 	if ((pause->rx_pause && pause->tx_pause) || pause->autoneg)
+ 		fc.requested_mode = ixgbe_fc_full;
+@@ -426,14 +414,8 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
+ 		fc.requested_mode = ixgbe_fc_rx_pause;
+ 	else if (!pause->rx_pause && pause->tx_pause)
+ 		fc.requested_mode = ixgbe_fc_tx_pause;
+-	else if (!pause->rx_pause && !pause->tx_pause)
+-		fc.requested_mode = ixgbe_fc_none;
+ 	else
+-		return -EINVAL;
+-
+-#ifdef CONFIG_DCB
+-	adapter->last_lfc_mode = fc.requested_mode;
+-#endif
++		fc.requested_mode = ixgbe_fc_none;
+ 
+ 	/* if the thing changed then we'll update and use new autoneg */
+ 	if (memcmp(&fc, &hw->fc, sizeof(struct ixgbe_fc_info))) {
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 863c9b7..bf20457 100644
+index ea3cb71..0915e77 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -63,8 +63,8 @@ static char ixgbe_default_device_descr[] =
- 			      "Intel(R) 10 Gigabit Network Connection";
- #endif
- #define MAJ 3
--#define MIN 8
--#define BUILD 21
-+#define MIN 9
-+#define BUILD 15
- #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
- 	__stringify(BUILD) "-k"
- const char ixgbe_driver_version[] = DRV_VERSION;
+@@ -610,39 +610,50 @@ void ixgbe_unmap_and_free_tx_resource(struct ixgbe_ring *ring,
+ 	/* tx_buffer must be completely set up in the transmit path */
+ }
+ 
+-static void ixgbe_update_xoff_received(struct ixgbe_adapter *adapter)
++static void ixgbe_update_xoff_rx_lfc(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct ixgbe_hw_stats *hwstats = &adapter->stats;
+-	u32 data = 0;
+-	u32 xoff[8] = {0};
+ 	int i;
++	u32 data;
+ 
+-	if ((hw->fc.current_mode == ixgbe_fc_full) ||
+-	    (hw->fc.current_mode == ixgbe_fc_rx_pause)) {
+-		switch (hw->mac.type) {
+-		case ixgbe_mac_82598EB:
+-			data = IXGBE_READ_REG(hw, IXGBE_LXOFFRXC);
+-			break;
+-		default:
+-			data = IXGBE_READ_REG(hw, IXGBE_LXOFFRXCNT);
+-		}
+-		hwstats->lxoffrxc += data;
++	if ((hw->fc.current_mode != ixgbe_fc_full) &&
++	    (hw->fc.current_mode != ixgbe_fc_rx_pause))
++		return;
+ 
+-		/* refill credits (no tx hang) if we received xoff */
+-		if (!data)
+-			return;
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++		data = IXGBE_READ_REG(hw, IXGBE_LXOFFRXC);
++		break;
++	default:
++		data = IXGBE_READ_REG(hw, IXGBE_LXOFFRXCNT);
++	}
++	hwstats->lxoffrxc += data;
+ 
+-		for (i = 0; i < adapter->num_tx_queues; i++)
+-			clear_bit(__IXGBE_HANG_CHECK_ARMED,
+-				  &adapter->tx_ring[i]->state);
++	/* refill credits (no tx hang) if we received xoff */
++	if (!data)
+ 		return;
+-	} else if (((adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE) &&
+-		    !(adapter->dcb_cfg.pfc_mode_enable)) ||
+-		   ((adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) &&
+-		    adapter->ixgbe_ieee_pfc &&
+-		    !(adapter->ixgbe_ieee_pfc->pfc_en)))
++
++	for (i = 0; i < adapter->num_tx_queues; i++)
++		clear_bit(__IXGBE_HANG_CHECK_ARMED,
++			  &adapter->tx_ring[i]->state);
++}
++
++static void ixgbe_update_xoff_received(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct ixgbe_hw_stats *hwstats = &adapter->stats;
++	u32 xoff[8] = {0};
++	int i;
++	bool pfc_en = adapter->dcb_cfg.pfc_mode_enable;
++
++	if (adapter->ixgbe_ieee_pfc)
++		pfc_en |= !!(adapter->ixgbe_ieee_pfc->pfc_en);
++
++	if (!(adapter->flags & IXGBE_FLAG_DCB_ENABLED) || !pfc_en) {
++		ixgbe_update_xoff_rx_lfc(adapter);
+ 		return;
++	}
+ 
+ 	/* update stats for each tc, only valid with PFC enabled */
+ 	for (i = 0; i < MAX_TX_PACKET_BUFFERS; i++) {
+@@ -4403,9 +4414,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	/* default flow control settings */
+ 	hw->fc.requested_mode = ixgbe_fc_full;
+ 	hw->fc.current_mode = ixgbe_fc_full;	/* init for ethtool output */
+-#ifdef CONFIG_DCB
+-	adapter->last_lfc_mode = hw->fc.current_mode;
+-#endif
+ 	ixgbe_pbthresh_setup(adapter);
+ 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
+ 	hw->fc.send_xon = true;
+@@ -6542,15 +6550,17 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+ 
+ 	if (tc) {
+ 		netdev_set_num_tc(dev, tc);
+-		adapter->last_lfc_mode = adapter->hw.fc.current_mode;
+ 		adapter->flags |= IXGBE_FLAG_DCB_ENABLED;
+ 		adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
+ 
+-		if (adapter->hw.mac.type == ixgbe_mac_82598EB)
++		if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
++			adapter->last_lfc_mode = adapter->hw.fc.requested_mode;
+ 			adapter->hw.fc.requested_mode = ixgbe_fc_none;
++		}
+ 	} else {
+ 		netdev_reset_tc(dev);
+-		adapter->hw.fc.requested_mode = adapter->last_lfc_mode;
++		if (adapter->hw.mac.type == ixgbe_mac_82598EB)
++			adapter->hw.fc.requested_mode = adapter->last_lfc_mode;
+ 
+ 		adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
+ 		adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 5e64c77..9559c03 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2573,9 +2573,6 @@ enum ixgbe_fc_mode {
+ 	ixgbe_fc_rx_pause,
+ 	ixgbe_fc_tx_pause,
+ 	ixgbe_fc_full,
+-#ifdef CONFIG_DCB
+-	ixgbe_fc_pfc,
+-#endif
+ 	ixgbe_fc_default
+ };
+ 
 -- 
 1.7.7.6
