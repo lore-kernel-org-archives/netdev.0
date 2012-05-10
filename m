@@ -1,62 +1,42 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: take iphdr size into account for esp payload
- size calculation
-Date: Thu, 10 May 2012 14:18:57 +0200
-Message-ID: <20120510121857.GJ1021@secunet.com>
-References: <1336602952-10479-1-git-send-email-bpoirier@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
-To: Benjamin Poirier <bpoirier@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1336602952-10479-1-git-send-email-bpoirier@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: alex.bluesman.smirnov@gmail.com
+Subject: [PATCH 0/2 net] 6lowpan fixes
+Date: Thu, 10 May 2012 17:22:41 +0400
+Message-ID: <4fabc165.9208cc0a.4de8.ffff920d@mx.google.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:50814 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754485Ab2EJNXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 09:23:50 -0400
+Received: by bkcji2 with SMTP id ji2so1280917bkc.19
+        for <netdev@vger.kernel.org>; Thu, 10 May 2012 06:23:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 09, 2012 at 06:35:52PM -0400, Benjamin Poirier wrote:
-> 
-> According to what is done, mainly in esp_output(), net_header_len aka
-> sizeof(struct iphdr) must be taken into account before doing the alignment
-> calculation.
+Hi David,
 
-Why do you need to take the ip header into account here? Your patch breaks
-pmtu discovery, at least on tunnel mode with aes-sha1 (aes blocksize 16 bytes).
+this patch set contains 2 fixes for the 6lowpan module. Please find detailed
+description in the patch headers.
 
-With your patch applied:
+With best regards,
+Alex
 
-tracepath -n 192.168.1.2
- 1?: [LOCALHOST]     pmtu 1442
- 1:  send failed
- 1:  send failed
-     Resume: pmtu 1442
+8<--
 
-Without your patch:
+The following changes since commit 4b31b26441fb3c5f1e61ee13832358c09f8ca12d:
 
-tracepath -n 192.168.1.2
- 1?: [LOCALHOST]     pmtu 1438
- 1:  192.168.1.2       0.736ms reached
- 1:  192.168.1.2       0.390ms reached
-     Resume: pmtu 1438 hops 1 back 64 
+  6lowpan: duplicate definition of IEEE802154_ALEN (2012-04-26 13:02:33 +0400)
 
-Your patch increases the mtu by 4 bytes. Be aware that adding
-one byte of payload may increase the packet size up to 16 bytes
-in the case of aes, as we have to pad the encryption payload
-always to a multiple of the cipher blocksize.
+are available in the git repository at:
+  http://github.com/linux-wsn/kernel.git 6lowpan_dev
 
-> -
-> -	switch (x->props.mode) {
-> -	case XFRM_MODE_TUNNEL:
-> -		break;
-> -	default:
-> -	case XFRM_MODE_TRANSPORT:
-> -		/* The worst case */
-> -		mtu -= blksize - 4;
-> -		mtu += min_t(u32, blksize - 4, rem);
-> -		break;
+Alexander Smirnov (2):
+      6lowpan: add missing pskb_may_pull() check
+      6lowpan: fix hop limit compression
 
-Btw. why we are doing the calculation above for transport mode?
+ net/ieee802154/6lowpan.c |    3 +++
+
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH 0/2 net] 6lowpan fixes
+In-Reply-To: 
