@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/13] net: Add and use ether_addr_equal
-Date: Wed, 09 May 2012 21:21:10 -0400 (EDT)
-Message-ID: <20120509.212110.437114897180819434.davem@davemloft.net>
-References: <cover.1336538937.git.joe@perches.com>
+Subject: Re: [PATCH v4 2/2] macvtap: restore vlan header on user read
+Date: Wed, 09 May 2012 21:24:54 -0400 (EDT)
+Message-ID: <20120509.212454.2064064586130481812.davem@davemloft.net>
+References: <1336121724-31902-2-git-send-email-basil.gor@gmail.com>
+	<20120508192806.GB28536@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-bluetooth@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: joe@perches.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <cover.1336538937.git.joe@perches.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: basil.gor@gmail.com, ebiederm@xmission.com, netdev@vger.kernel.org
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45006 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757981Ab2EJBZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 21:25:00 -0400
+In-Reply-To: <20120508192806.GB28536@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue,  8 May 2012 21:56:44 -0700
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 8 May 2012 22:28:06 +0300
 
-> Add a boolean function to test 2 ethernet addresses for equality
-> Convert compare_ether_addr uses to ether_addr_equal
+> On Fri, May 04, 2012 at 12:55:24PM +0400, Basil Gor wrote:
+>> Ethernet vlan header is not on the packet and kept in the skb->vlan_tci
+>> when it comes from lower dev. This patch inserts vlan header in user
+>> buffer during skb copy on user read.
+>> 
+>> Signed-off-by: Basil Gor <basil.gor@gmail.com>
+> 
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> Eric, ack?
 
-This series looks great, I'll apply all of it.
-
-Thanks Joe.
-
-That case you didn't convert in mac80211 is probably the
-bug Johannes was talking about which started this whole
-discussion.
+Eric please review these two patches.
