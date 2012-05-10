@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 06/17] mm: Only set page->pfmemalloc when ALLOC_NO_WATERMARKS was used
-Date: Thu, 10 May 2012 14:44:59 +0100
-Message-ID: <1336657510-24378-7-git-send-email-mgorman@suse.de>
+Subject: [PATCH 07/17] mm: Ignore mempolicies when using ALLOC_NO_WATERMARK
+Date: Thu, 10 May 2012 14:45:00 +0100
+Message-ID: <1336657510-24378-8-git-send-email-mgorman@suse.de>
 References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -9,94 +9,55 @@ Cc: Linux-MM <linux-mm@kvack.org>,
 	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>, Mel Gorman <mgorman@suse.de>
+	Eric B Munson <emunson@mgebm.net>,
+	Mel Gorman <mgorman@suse.de>
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:37226 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753414Ab2EJNpW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2012 09:45:22 -0400
 In-Reply-To: <1336657510-24378-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-__alloc_pages_slowpath() is called when the number of free pages is below
-the low watermark. If the caller is entitled to use ALLOC_NO_WATERMARKS
-then the page will be marked page->pfmemalloc.  This protects more pages
-than are strictly necessary as we only need to protect pages allocated
-below the min watermark (the pfmemalloc reserves).
+The reserve is proportionally distributed over all !highmem zones
+in the system. So we need to allow an emergency allocation access to
+all zones.  In order to do that we need to break out of any mempolicy
+boundaries we might have.
 
-This patch only sets page->pfmemalloc when ALLOC_NO_WATERMARKS was
-required to allocate the page.
+In my opinion that does not break mempolicies as those are user
+oriented and not system oriented. That is, system allocations are
+not guaranteed to be within mempolicy boundaries. For instance IRQs
+do not even have a mempolicy.
 
-[rientjes@google.com: David noticed the problem during review]
+So breaking out of mempolicy boundaries for 'rare' emergency
+allocations, which are always system allocations (as opposed to user)
+is ok.
+
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- mm/page_alloc.c |   27 ++++++++++++++-------------
- 1 file changed, 14 insertions(+), 13 deletions(-)
+ mm/page_alloc.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 3738596..363ca90 100644
+index 363ca90..e225a7c 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -2043,8 +2043,8 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
+@@ -2293,6 +2293,13 @@ rebalance:
  
- 		page = get_page_from_freelist(gfp_mask, nodemask,
- 				order, zonelist, high_zoneidx,
--				alloc_flags, preferred_zone,
--				migratetype);
-+				alloc_flags & ~ALLOC_NO_WATERMARKS,
-+				preferred_zone, migratetype);
- 		if (page) {
- 			preferred_zone->compact_considered = 0;
- 			preferred_zone->compact_defer_shift = 0;
-@@ -2124,8 +2124,8 @@ __alloc_pages_direct_reclaim(gfp_t gfp_mask, unsigned int order,
- retry:
- 	page = get_page_from_freelist(gfp_mask, nodemask, order,
- 					zonelist, high_zoneidx,
--					alloc_flags, preferred_zone,
--					migratetype);
-+					alloc_flags & ~ALLOC_NO_WATERMARKS,
-+					preferred_zone, migratetype);
- 
- 	/*
- 	 * If an allocation failed after direct reclaim, it could be because
-@@ -2296,8 +2296,17 @@ rebalance:
+ 	/* Allocate without watermarks if the context allows */
+ 	if (alloc_flags & ALLOC_NO_WATERMARKS) {
++		/*
++		 * Ignore mempolicies if ALLOC_NO_WATERMARKS on the grounds
++		 * the allocation is high priority and these type of
++		 * allocations are system rather than user orientated
++		 */
++		zonelist = node_zonelist(numa_node_id(), gfp_mask);
++
  		page = __alloc_pages_high_priority(gfp_mask, order,
  				zonelist, high_zoneidx, nodemask,
  				preferred_zone, migratetype);
--		if (page)
-+		if (page) {
-+			/*
-+			 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
-+			 * necessary to allocate the page. The expectation is
-+			 * that the caller is taking steps that will free more
-+			 * memory. The caller should avoid the page being used
-+			 * for !PFMEMALLOC purposes.
-+			 */
-+			page->pfmemalloc = true;
- 			goto got_pg;
-+		}
- 	}
- 
- 	/* Atomic allocations - we can't balance anything */
-@@ -2414,14 +2423,6 @@ nopage:
- 	warn_alloc_failed(gfp_mask, order, NULL);
- 	return page;
- got_pg:
--	/*
--	 * page->pfmemalloc is set when the caller had PFMEMALLOC set, is
--	 * been OOM killed or specified __GFP_MEMALLOC. The expectation is
--	 * that the caller is taking steps that will free more memory. The
--	 * caller should avoid the page being used for !PFMEMALLOC purposes.
--	 */
--	page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
--
- 	if (kmemcheck_enabled)
- 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
- 
 -- 
 1.7.9.2
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
