@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 03/17] mm: slub: Optimise the SLUB fast path to avoid pfmemalloc checks
-Date: Thu, 10 May 2012 14:44:56 +0100
-Message-ID: <1336657510-24378-4-git-send-email-mgorman@suse.de>
+Subject: [PATCH 06/17] mm: Only set page->pfmemalloc when ALLOC_NO_WATERMARKS was used
+Date: Thu, 10 May 2012 14:44:59 +0100
+Message-ID: <1336657510-24378-7-git-send-email-mgorman@suse.de>
 References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -16,66 +16,81 @@ In-Reply-To: <1336657510-24378-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Lameter <cl@linux.com>
+__alloc_pages_slowpath() is called when the number of free pages is below
+the low watermark. If the caller is entitled to use ALLOC_NO_WATERMARKS
+then the page will be marked page->pfmemalloc.  This protects more pages
+than are strictly necessary as we only need to protect pages allocated
+below the min watermark (the pfmemalloc reserves).
 
-This patch removes the check for pfmemalloc from the alloc hotpath and
-puts the logic after the election of a new per cpu slab. For a pfmemalloc
-page we do not use the fast path but force the use of the slow path which
-is also used for the debug case.
+This patch only sets page->pfmemalloc when ALLOC_NO_WATERMARKS was
+required to allocate the page.
 
-This has the side-effect of weakening pfmemalloc processing in the
-following way;
-
-1. A process that is allocating for network swap calls __slab_alloc.
-   pfmemalloc_match is true so the freelist is loaded and c->freelist is
-   now pointing to a pfmemalloc page.
-
-2. A process that is attempting normal allocations calls slab_alloc,
-   finds the pfmemalloc page on the freelist and uses it because it did
-   not check pfmemalloc_match()
-
-The patch allows non-pfmemalloc allocations to use pfmemalloc pages with
-the kmalloc slabs being the most vunerable caches on the grounds they
-are most likely to have a mix of pfmemalloc and !pfmemalloc requests. A
-later patch will still protect the system as processes will get throttled
-if the pfmemalloc reserves get depleted but performance will not degrade
-as smoothly.
-
-[mgorman@suse.de: Expanded changelog]
-Signed-off-by: Christoph Lameter <cl@linux.com>
+[rientjes@google.com: David noticed the problem during review]
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- mm/slub.c |    7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ mm/page_alloc.c |   27 ++++++++++++++-------------
+ 1 file changed, 14 insertions(+), 13 deletions(-)
 
-diff --git a/mm/slub.c b/mm/slub.c
-index f0909bf..f8cbec4 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -2298,11 +2298,11 @@ new_slab:
- 		}
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 3738596..363ca90 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -2043,8 +2043,8 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
+ 
+ 		page = get_page_from_freelist(gfp_mask, nodemask,
+ 				order, zonelist, high_zoneidx,
+-				alloc_flags, preferred_zone,
+-				migratetype);
++				alloc_flags & ~ALLOC_NO_WATERMARKS,
++				preferred_zone, migratetype);
+ 		if (page) {
+ 			preferred_zone->compact_considered = 0;
+ 			preferred_zone->compact_defer_shift = 0;
+@@ -2124,8 +2124,8 @@ __alloc_pages_direct_reclaim(gfp_t gfp_mask, unsigned int order,
+ retry:
+ 	page = get_page_from_freelist(gfp_mask, nodemask, order,
+ 					zonelist, high_zoneidx,
+-					alloc_flags, preferred_zone,
+-					migratetype);
++					alloc_flags & ~ALLOC_NO_WATERMARKS,
++					preferred_zone, migratetype);
+ 
+ 	/*
+ 	 * If an allocation failed after direct reclaim, it could be because
+@@ -2296,8 +2296,17 @@ rebalance:
+ 		page = __alloc_pages_high_priority(gfp_mask, order,
+ 				zonelist, high_zoneidx, nodemask,
+ 				preferred_zone, migratetype);
+-		if (page)
++		if (page) {
++			/*
++			 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
++			 * necessary to allocate the page. The expectation is
++			 * that the caller is taking steps that will free more
++			 * memory. The caller should avoid the page being used
++			 * for !PFMEMALLOC purposes.
++			 */
++			page->pfmemalloc = true;
+ 			goto got_pg;
++		}
  	}
  
--	if (likely(!kmem_cache_debug(s)))
-+	if (likely(!kmem_cache_debug(s) && pfmemalloc_match(c, gfpflags)))
- 		goto load_freelist;
+ 	/* Atomic allocations - we can't balance anything */
+@@ -2414,14 +2423,6 @@ nopage:
+ 	warn_alloc_failed(gfp_mask, order, NULL);
+ 	return page;
+ got_pg:
+-	/*
+-	 * page->pfmemalloc is set when the caller had PFMEMALLOC set, is
+-	 * been OOM killed or specified __GFP_MEMALLOC. The expectation is
+-	 * that the caller is taking steps that will free more memory. The
+-	 * caller should avoid the page being used for !PFMEMALLOC purposes.
+-	 */
+-	page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
+-
+ 	if (kmemcheck_enabled)
+ 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
  
- 	/* Only entered in the debug case */
--	if (!alloc_debug_processing(s, c->page, object, addr))
-+	if (kmem_cache_debug(s) && !alloc_debug_processing(s, c->page, object, addr))
- 		goto new_slab;	/* Slab failed checks. Next slab needed */
- 
- 	c->freelist = get_freepointer(s, object);
-@@ -2352,8 +2352,7 @@ redo:
- 	barrier();
- 
- 	object = c->freelist;
--	if (unlikely(!object || !node_match(c, node) ||
--					!pfmemalloc_match(c, gfpflags)))
-+	if (unlikely(!object || !node_match(c, node)))
- 		object = __slab_alloc(s, gfpflags, node, addr, c);
- 
- 	else {
 -- 
 1.7.9.2
 
