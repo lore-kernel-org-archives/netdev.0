@@ -1,143 +1,102 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [RFC] net: remove NETIF_F_FRAGLIST from xgmac, ehea, axienet and ll_temac
-Date: Thu, 10 May 2012 20:20:42 +0200
-Message-ID: <1336674042-6378-1-git-send-email-bigeasy@linutronix.de>
-Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-To: netdev@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC 1/6] skbuff: support per-page destructors in
+ copy_ubufs
+Date: Thu, 10 May 2012 21:42:46 +0300
+Message-ID: <20120510184246.GE14647@redhat.com>
+References: <cover.1336397823.git.mst@redhat.com>
+ <8a3235fbceef37758ef23169c4c152e8d1251d3b.1336397823.git.mst@redhat.com>
+ <1336671977.14220.26.camel@zakaz.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:60628 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761075Ab2EJSTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 14:19:30 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:1190 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760751Ab2EJSmr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2012 14:42:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1336671977.14220.26.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There seem to be two ways how the data payload can be attached to a
-sk_buff. That is simple kmalloc() and via "paged" fragments. The former
-is simple. The latter attaches each fragment to sh_info->frags and
-accounts total number of fragments in sh_info->nr_frags. Once
-skb->data_len is non-zero then there should be page fragments available
-and sh_info->nr_frags should not be zero anymore.
+On Thu, May 10, 2012 at 06:46:17PM +0100, Ian Campbell wrote:
+> On Mon, 2012-05-07 at 14:54 +0100, Michael S. Tsirkin wrote:
+> 
+> >  	/* skb frags point to kernel buffers */
+> >  	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
+> > +		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
+> 
+> This needs to be ....->frags[i - 1]
 
-There is also a third way how data can be added to a skb, that is via
-the sh_info->frag_list. This is a complete sk_buff (including data)
-which is attached to the former skb. This one can also have linear
-memory (kmalloc()) or not (->frags).
-If the network driver which should transmit the skb does not support
-one of this cool things, then the network core makes a linear skb which
-contains only linear kmalloc() memory. If the driver supports the frags
-(nr_frags is non zero) then it denotes this by setting the NETIF_F_SG
-flag. If the driver is also able to walk via the ->frag_list then it
-sets NETIF_F_FRAGLIST flag.
+Good catch.
+  	for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
+		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
 
-I remove the NETIF_F_FRAGLIST flag here from these drivers here because
-I did not find any evidence that they look the ->frag_list at all. It
-seems that they look only at sh_info->frags and handle only those pages.
-Other drivers which set this flag like ifb don't look at the
-->frag_list either but they pass the skb back to the network stack.
+would be a bit clearer though.
 
-The virtio_net driver is using skb_to_sgvec() which gives it a sglist
-including everything and tun is using skb_copy_datagram_const_iovec()
-which is considering the ->frag_list as well.
+> otherwise you put every new frag one too high and don't do anything to
+> frag 0, which leaves the old destructor pointer in place and leads to a
+> double free.
+> 
+> I think skb_frag_set_destructor and skb_copy_frag_destructor need to
+> clear and propagate respectively (or maybe just clear in both cases) the
+> destructor_arg field since it is otherwise not initialised when we set
+> SKBTX_DEV_ZEROCOPY and that can trigger wrong behaviour in this
+> function.
+> 
+> Ian.
 
-So I found evidence that some drivers are doing it right, but for those
-five I haven't found any.
+Agree, let's just clear it.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+
+
+> > +		if (unlikely((!uarg && !f->page.destructor)))
+> > +			continue;
+> >  		__skb_fill_page_desc(skb, i-1, head, 0,
+> >  				     skb_shinfo(skb)->frags[i - 1].size);
+> >  		head = (struct page *)head->private;
+> 
+
+So the below on top then. I pushed these on
+top of my zerocopy branch - can you confirm pls?
+
 ---
- drivers/net/ethernet/calxeda/xgmac.c              |    2 +-
- drivers/net/ethernet/ibm/ehea/ehea_main.c         |    2 +-
- drivers/net/ethernet/tehuti/tehuti.c              |    4 +---
- drivers/net/ethernet/xilinx/ll_temac_main.c       |    2 +-
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    2 +-
- drivers/scsi/cxgbi/libcxgbi.c                     |    2 +-
- 6 files changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 11f667f..11fa3a5 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -1772,7 +1772,7 @@ static int xgmac_probe(struct platform_device *pdev)
- 	if (device_can_wakeup(priv->device))
- 		priv->wolopts = WAKE_MAGIC;	/* Magic Frame as default */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 930a50e..e52bc8d 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1270,8 +1270,10 @@ static inline void skb_frag_set_destructor(struct sk_buff *skb, int i,
+ {
+ 	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 	frag->page.destructor = destroy;
+-	if (destroy)
++	if (destroy) {
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
++		skb_shinfo(skb)->destructor_arg = NULL;
++	}
+ }
  
--	ndev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
-+	ndev->hw_features = NETIF_F_SG | NETIF_F_HIGHDMA;
- 	if (readl(priv->base + XGMAC_DMA_HW_FEATURE) & DMA_HW_FEAT_TXCOESEL)
- 		ndev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 				     NETIF_F_RXCSUM;
-diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-index c9069a2..2231ad6 100644
---- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-+++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-@@ -3029,7 +3029,7 @@ static struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
+ /**
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index b7fc47e..453f621 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -753,12 +753,11 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 		uarg->callback(uarg);
  
- 	dev->hw_features = NETIF_F_SG | NETIF_F_TSO
- 		      | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX | NETIF_F_LRO;
--	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO
-+	dev->features = NETIF_F_SG | NETIF_F_TSO
- 		      | NETIF_F_HIGHDMA | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX
- 		      | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER
- 		      | NETIF_F_RXCSUM;
-diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
-index ad973ff..6c7e519 100644
---- a/drivers/net/ethernet/tehuti/tehuti.c
-+++ b/drivers/net/ethernet/tehuti/tehuti.c
-@@ -1994,9 +1994,7 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		ndev->irq = pdev->irq;
- 		ndev->features = NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO
- 		    | NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX |
--		    NETIF_F_HW_VLAN_FILTER | NETIF_F_RXCSUM
--		    /*| NETIF_F_FRAGLIST */
--		    ;
-+		    NETIF_F_HW_VLAN_FILTER | NETIF_F_RXCSUM;
- 		ndev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
- 			NETIF_F_TSO | NETIF_F_HW_VLAN_TX;
+ 	/* skb frags point to kernel buffers */
+-	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
++	for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
+ 		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
+ 		if (unlikely((!uarg && !f->page.destructor)))
+ 			continue;
+-		__skb_fill_page_desc(skb, i-1, head, 0,
+-				     skb_shinfo(skb)->frags[i - 1].size);
++		__skb_fill_page_desc(skb, i, head, 0, f->size);
+ 		head = (struct page *)head->private;
+ 	}
  
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index d21591a..e804f1f 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -1020,7 +1020,7 @@ static int __devinit temac_of_probe(struct platform_device *op)
- 	dev_set_drvdata(&op->dev, ndev);
- 	SET_NETDEV_DEV(ndev, &op->dev);
- 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
--	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
-+	ndev->features = NETIF_F_SG;
- 	ndev->netdev_ops = &temac_netdev_ops;
- 	ndev->ethtool_ops = &temac_ethtool_ops;
- #if 0
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 9c365e1..fde716d 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -1494,7 +1494,7 @@ static int __devinit axienet_of_probe(struct platform_device *op)
- 
- 	SET_NETDEV_DEV(ndev, &op->dev);
- 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
--	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
-+	ndev->features = NETIF_F_SG;
- 	ndev->netdev_ops = &axienet_netdev_ops;
- 	ndev->ethtool_ops = &axienet_ethtool_ops;
- 
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index d9253db..7968d4f 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -1968,7 +1968,7 @@ int cxgbi_conn_init_pdu(struct iscsi_task *task, unsigned int offset,
- 			}
- 			skb_put(skb, count + padlen);
- 		} else {
--			/* data fit into frag_list */
-+			/* data fit into frags */
- 			for (i = 0; i < tdata->nr_frags; i++) {
- 				__skb_fill_page_desc(skb, i,
- 						tdata->frags[i].page,
--- 
-1.7.10
