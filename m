@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 net] 6lowpan: add missing pskb_may_pull() check
-Date: Thu, 10 May 2012 12:28:06 -0400 (EDT)
-Message-ID: <20120510.122806.257965866445295921.davem@davemloft.net>
-References: <4fabc166.9208cc0a.4de8.ffff9211@mx.google.com>
-	<1336656659.12504.153.camel@edumazet-glaptop>
-	<CAJmB2rCo0CfHP992Jix=mtshSS-wn92rf+3yg-ZK1_KLkXKRGw@mail.gmail.com>
+Subject: Re: [PATCH 1/3] drivers/net: Convert compare_ether_addr to
+ ether_addr_equal
+Date: Thu, 10 May 2012 12:30:24 -0400 (EDT)
+Message-ID: <20120510.123024.2157290550457495698.davem@davemloft.net>
+References: <cover.1336618707.git.joe@perches.com>
+	<7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
+	<20120510173201.16131du3cg90nybo@www.81.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51751 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751386Ab2EJQ2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 12:28:09 -0400
-In-Reply-To: <CAJmB2rCo0CfHP992Jix=mtshSS-wn92rf+3yg-ZK1_KLkXKRGw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, fubar@us.ibm.com, andy@greyhouse.net,
+	benve@cisco.com, roprabhu@cisco.com, neepatel@cisco.com,
+	nistrive@cisco.com, grundler@parisc-linux.org,
+	anirban.chakraborty@qlogic.com, sony.chacko@qlogic.com,
+	linux-driver@qlogic.com, linux-net-drivers@solarflare.com,
+	bhutchings@solarflare.com, cmetcalf@tilera.com,
+	linville@tuxdriver.com, jirislaby@gmail.com, mickflemm@gmail.com,
+	mcgrof@qca.qualcomm.com, jouni@qca.qualcomm.com,
+	vthiagar@qca.qualcomm.com, senthilb@qca.qualcomm.com,
+	chunkeey@googlemail.com, stas.yakovlev@gmail.com,
+	sgruszka@redhat.com, johannes.berg@intel.com,
+	wey-yi.w.guy@intel.com, ilw@linux.intel.com,
+	buytenh@wantstofly.org, Larry.Finger@lwfinger.net,
+	chaoming_li@realsil.com.cn, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	ath5k-devel@venema.h4ckr.net, ath9k-devel@venema.h4ckr.net
+To: jussi.kivilinna@mbnet.fi
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120510173201.16131du3cg90nybo@www.81.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Date: Thu, 10 May 2012 18:05:46 +0400
 
-> Using BUG() macro I just want to indicate that something in the bottom
-> of the stack went terribly wrong and you must check your code for
-> bugs..
+Never, EVER, quote an entire large patch just to make a comment
+on one small hunk.
 
-Then you should do something like:
+I very nearly missed what you had to say because when scrolling
+through it it appeared as if you made no comments at all.
 
-	if (WARN_ON_ONCE(!pskb_may_pull(...))) {
-		appropriate_error_handling();
-		return;
-	}
-
-instead.
+Again, NEVER, EVER, do this.  It's extremely anti-social.  Edit out
+the irrelevant quoted content when replying to people, always.
