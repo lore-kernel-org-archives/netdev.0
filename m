@@ -1,41 +1,59 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] netlink: connector: implement cn_netlink_reply
-Date: Thu, 10 May 2012 04:45:53 +0400
-Message-ID: <20120510004553.GB8362@ioremap.net>
-References: <1336574243-12063-1-git-send-email-alban.crequy@collabora.co.uk>
- <1336609248.2499.20.camel@bwh-desktop.uk.solarflarecom.com>
+From: =?utf-8?B?U3RldmVuIExpdSAo5YqJ5Lq66LGqKQ==?=
+	<steven.liu@mediatek.com>
+Subject: FW: PROBLEM: VLAN LRO issue
+Date: Thu, 10 May 2012 09:01:53 +0800
+Message-ID: <599E416D1C5C994980C45977191D726906AB2FE86E@MTKMBS03.mediatek.inc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alban Crequy <alban.crequy@collabora.co.uk>,
-	netdev@vger.kernel.org,
-	Vincent Sanders <vincent.sanders@collabora.co.uk>,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Rodrigo Moya <rodrigo.moya@collabora.co.uk>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netgear.net.ru ([195.178.208.66]:60378 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761490Ab2EJAzK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 May 2012 20:55:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1336609248.2499.20.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:57371 "EHLO
+	mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755932Ab2EJBHA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 21:07:00 -0400
+Content-Language: zh-TW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 10, 2012 at 01:20:48AM +0100, Ben Hutchings (bhutchings@solarflare.com) wrote:
-> On Wed, 2012-05-09 at 15:37 +0100, Alban Crequy wrote:
-> > In a connector callback, it was not possible to reply to a message only to a
-> > sender. This patch implements cn_netlink_reply(). It uses the connector socket
-> > to send an unicast netlink message back to the sender.
-> [...]
-> 
-> We try to avoid adding functions with no users.  You'll need to submit
-> the code that's intended to use this as well.
-
-I have no objection against this patch, but as correctly stated it is
-useless without users. Alban, what is the code you want this
-functionality to be used in? Do you plan to submit it? Can you submit
-this change in the patch with your code?
-
--- 
-	Evgeniy Polyakov
+SGkgU2lyLA0KDQpJIGZvdW5kIHRoZSBpc3N1ZSBhYm91dCBWTEFOIExSTyBmZWF0dXJlIGFuZCBi
+ZWxvdyBpcyBidWcgZGVzY3JpcHRpb24gYW5kIHBhdGNoIGZvciB5b3VyIHJlZmVyZW5jZSwgdGhh
+bmtzLg0KDQpbMS5dIE9uZSBsaW5lIHN1bW1hcnkgb2YgdGhlIHByb2JsZW06IA0KVkxBTiBMUk8g
+aXNzdWUNCg0KWzIuXSBGdWxsIGRlc2NyaXB0aW9uIG9mIHRoZSBwcm9ibGVtL3JlcG9ydDoNCkxS
+TyBpbXBsZW1lbnRhdGlvbiBjYW5ub3QgaGFuZGxlIFZMQU4gdGFnZ2VkIHBhY2tldHMgY29ycmVj
+dGx5Lg0KSXQgdXNlcyBjb3JyZWN0IHBhY2tldCBsZW5ndGggd2hlbiBjcmVhdGluZyBuZXcgTFJP
+IHNlc3Npb24sIGJ1dCB1c2VzIHdyb25nIHBhY2tldCBsZW5ndGggd2hlbiBwdXR0aW5nIGZvbGxv
+d2luZyBwYWNrZXRzIGludG8gZXhpc3QgTFJPIHNlc3Npb24uDQoNClszLl0gS2V5d29yZHMgKGku
+ZS4sIG1vZHVsZXMsIG5ldHdvcmtpbmcsIGtlcm5lbCk6DQpOZXR3b3JraW5nDQoNCls0Ll0gS2Vy
+bmVsIHZlcnNpb24gKGZyb20gL3Byb2MvdmVyc2lvbik6DQpMaW51eC0zLjQtcmMzIGFuZCBiZWxv
+dw0KDQpbNS5dIE91dHB1dCBvZiBPb3BzLi4gbWVzc2FnZSAoaWYgYXBwbGljYWJsZSkgd2l0aCBz
+eW1ib2xpYyBpbmZvcm1hdGlvbg0KwqDCoMKgwqDCoHJlc29sdmVkIChzZWUgRG9jdW1lbnRhdGlv
+bi9vb3BzLXRyYWNpbmcudHh0KSBTeXN0ZW0gaXMgc3RpbGwgd29ya2luZywgYnV0IGNhbm5vdCBz
+cGVlZCB1cCBWTEFOIHRhZ2dlZCB0cmFmZmljLg0KDQpbWC5dIE90aGVyIG5vdGVzLCBwYXRjaGVz
+LCBmaXhlcywgd29ya2Fyb3VuZHM6DQpXZSBoYXZlIHRvIGFwcGx5IGJlbG93IHBhdGNoIHRvIGZp
+eCB0aGlzIGlzc3VlLg0KDQotLS0gbGludXgtMy40LXJjMy9uZXQvaXB2NC9pbmV0X2xyby5vcmln
+ICAgICAgICAyMDEyLTA1LTA4IDIwOjA5OjQ0LjgxMDM2NjA4OSArMDgwMA0KKysrIGxpbnV4LTMu
+NC1yYzMvbmV0L2lwdjQvaW5ldF9scm8uYyAgIDIwMTItMDUtMDggMjA6MDk6MzMuMzMxNjc5NDE5
+ICswODAwDQpAQCAtMzUzLDcgKzM1Myw3IEBAIHN0YXRpYyBpbnQgX19scm9fcHJvY19za2Ioc3Ry
+dWN0IG5ldF9scm8NCiAgICAgICAgaWYgKGxyb19kZXNjLT50Y3BfbmV4dF9zZXEgIT0gbnRvaGwo
+dGNwaC0+c2VxKSkNCiAgICAgICAgICAgICAgICBnb3RvIG91dDI7DQoNCi0gICAgICAgaWYgKGxy
+b190Y3BfaXBfY2hlY2soaXBoLCB0Y3BoLCBza2ItPmxlbiwgbHJvX2Rlc2MpKQ0KKyAgICAgICBp
+ZiAobHJvX3RjcF9pcF9jaGVjayhpcGgsIHRjcGgsIHNrYi0+bGVuIC0gdmxhbl9oZHJfbGVuLCBs
+cm9fZGVzYykpDQogICAgICAgICAgICAgICAgZ290byBvdXQyOw0KDQogICAgICAgIGxyb19hZGRf
+cGFja2V0KGxyb19kZXNjLCBza2IsIGlwaCwgdGNwaCk7DQoNCg0KDQpSZWdhcmRzLA0KDQpTdGV2
+ZW4NCg0KCioqKioqKioqKioqKiogRW1haWwgQ29uZmlkZW50aWFsaXR5IE5vdGljZSAqKioqKioq
+KioqKioqKioqKioqKg0KVGhlIGluZm9ybWF0aW9uIGNvbnRhaW5lZCBpbiB0aGlzIGUtbWFpbCBt
+ZXNzYWdlIChpbmNsdWRpbmcgYW55IA0KYXR0YWNobWVudHMpIG1heSBiZSBjb25maWRlbnRpYWws
+IHByb3ByaWV0YXJ5LCBwcml2aWxlZ2VkLCBvciBvdGhlcndpc2UNCmV4ZW1wdCBmcm9tIGRpc2Ns
+b3N1cmUgdW5kZXIgYXBwbGljYWJsZSBsYXdzLiBJdCBpcyBpbnRlbmRlZCB0byBiZSANCmNvbnZl
+eWVkIG9ubHkgdG8gdGhlIGRlc2lnbmF0ZWQgcmVjaXBpZW50KHMpLiBBbnkgdXNlLCBkaXNzZW1p
+bmF0aW9uLCANCmRpc3RyaWJ1dGlvbiwgcHJpbnRpbmcsIHJldGFpbmluZyBvciBjb3B5aW5nIG9m
+IHRoaXMgZS1tYWlsIChpbmNsdWRpbmcgaXRzIA0KYXR0YWNobWVudHMpIGJ5IHVuaW50ZW5kZWQg
+cmVjaXBpZW50KHMpIGlzIHN0cmljdGx5IHByb2hpYml0ZWQgYW5kIG1heSANCmJlIHVubGF3ZnVs
+LiBJZiB5b3UgYXJlIG5vdCBhbiBpbnRlbmRlZCByZWNpcGllbnQgb2YgdGhpcyBlLW1haWwsIG9y
+IGJlbGlldmUgDQp0aGF0IHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgZS1tYWlsIGluIGVycm9yLCBw
+bGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgDQppbW1lZGlhdGVseSAoYnkgcmVwbHlpbmcgdG8gdGhp
+cyBlLW1haWwpLCBkZWxldGUgYW55IGFuZCBhbGwgY29waWVzIG9mIA0KdGhpcyBlLW1haWwgKGlu
+Y2x1ZGluZyBhbnkgYXR0YWNobWVudHMpIGZyb20geW91ciBzeXN0ZW0sIGFuZCBkbyBub3QNCmRp
+c2Nsb3NlIHRoZSBjb250ZW50IG9mIHRoaXMgZS1tYWlsIHRvIGFueSBvdGhlciBwZXJzb24uIFRo
+YW5rIHlvdSE=
