@@ -1,42 +1,57 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 1/3] drivers/net: Convert compare_ether_addr to
  ether_addr_equal
-Date: Thu, 10 May 2012 12:30:24 -0400 (EDT)
-Message-ID: <20120510.123024.2157290550457495698.davem@davemloft.net>
-References: <cover.1336618707.git.joe@perches.com>
-	<7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
+Date: Thu, 10 May 2012 12:33:53 -0400 (EDT)
+Message-ID: <20120510.123353.1458740731067514606.davem@davemloft.net>
+References: <7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
 	<20120510173201.16131du3cg90nybo@www.81.fi>
+	<1336666288.22495.14.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, fubar@us.ibm.com, andy@greyhouse.net,
-	benve@cisco.com, roprabhu@cisco.com, neepatel@cisco.com,
-	nistrive@cisco.com, grundler@parisc-linux.org,
-	anirban.chakraborty@qlogic.com, sony.chacko@qlogic.com,
-	linux-driver@qlogic.com, linux-net-drivers@solarflare.com,
-	bhutchings@solarflare.com, cmetcalf@tilera.com,
-	linville@tuxdriver.com, jirislaby@gmail.com, mickflemm@gmail.com,
-	mcgrof@qca.qualcomm.com, jouni@qca.qualcomm.com,
-	vthiagar@qca.qualcomm.com, senthilb@qca.qualcomm.com,
-	chunkeey@googlemail.com, stas.yakovlev@gmail.com,
-	sgruszka@redhat.com, johannes.berg@intel.com,
-	wey-yi.w.guy@intel.com, ilw@linux.intel.com,
-	buytenh@wantstofly.org, Larry.Finger@lwfinger.net,
-	chaoming_li@realsil.com.cn, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	ath5k-devel@venema.h4ckr.net, ath9k-devel@venema.h4ckr.net
-To: jussi.kivilinna@mbnet.fi
+Cc: jussi.kivilinna@mbnet.fi, linville@tuxdriver.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120510173201.16131du3cg90nybo@www.81.fi>
+In-Reply-To: <1336666288.22495.14.camel@joe2Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Joe Perches <joe@perches.com>
+Date: Thu, 10 May 2012 09:11:28 -0700
 
-Never, EVER, quote an entire large patch just to make a comment
-on one small hunk.
+> (cc's trimmed)
+> 
+> On Thu, 2012-05-10 at 17:32 +0300, Jussi Kivilinna wrote:
+>> Quoting Joe Perches <joe@perches.com>:
+>> > Use the new bool function ether_addr_equal to add
+>> > some clarity and reduce the likelihood for misuse
+>> > of compare_ether_addr for sorting.
+> []
+>> > diff --git a/drivers/net/wireless/rndis_wlan.c
+> []
+>> > @@ -2139,7 +2139,7 @@ resize_buf:
+>> >  	while (check_bssid_list_item(bssid, bssid_len, buf, len)) {
+>> >  		if (rndis_bss_info_update(usbdev, bssid) && match_bssid &&
+>> >  		    matched) {
+>> > -			if (compare_ether_addr(bssid->mac, match_bssid))
+>> > +			if (!ether_addr_equal(bssid->mac, match_bssid))
+>> 
+>> While reviewing this, noticed that above original code is wrong. It  
+>> should be !compare_ether_addr. So do I push patch fixing this through  
+>> wireless-testing althought it will later cause conflict with this patch?
+>> 
+>> -Jussi
+>> 
+>> >  				*matched = true;
+>> >  		}
+>> >
+> 
+> Up to John.
+> 
+> Here's the patch I would send against net-next
+> updating the test and the style a little.
 
-I very nearly missed what you had to say because when scrolling
-through it it appeared as if you made no comments at all.
-
-Again, NEVER, EVER, do this.  It's extremely anti-social.  Edit out
-the irrelevant quoted content when replying to people, always.
+I think in this specific case it's better to push this one directly
+through net-next.  But yes, it's up to John.
