@@ -1,88 +1,97 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 4/8] sfc: By default refill RX rings as soon as
- space for a batch
-Date: Thu, 10 May 2012 03:29:27 +0100
-Message-ID: <1336616967.2499.36.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 5/8] ethtool: Split ethtool_get_eeprom() to allow
+ for additional EEPROM accessors
+Date: Thu, 10 May 2012 03:30:52 +0100
+Message-ID: <1336617052.2499.38.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1336616799.2499.32.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	Yaniv Rosner <yaniv.rosner@broadcom.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:51874 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:51893 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751759Ab2EJC3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 22:29:30 -0400
+	by vger.kernel.org with ESMTP id S1751668Ab2EJCaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 22:30:55 -0400
 In-Reply-To: <1336616799.2499.32.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Riddoch <driddoch@solarflare.com>
-
-Previously we refilled with much larger batches, which caused large latency
-spikes.  We now have many more much much smaller spikes!
+We want to support reading module (SFP+, XFP, ...) EEPROMs as well as
+NIC EEPROMs.  They will need a different command number and driver
+operation, but the structure and arguments will be the same and so we
+can share most of the code here.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/rx.c |   18 ++++++++++++------
- 1 files changed, 12 insertions(+), 6 deletions(-)
+ net/core/ethtool.c |   24 +++++++++++++++++-------
+ 1 files changed, 17 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 254fec8..243e91f 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -76,7 +76,7 @@ static int rx_alloc_method = RX_ALLOC_METHOD_AUTO;
- /* This is the percentage fill level below which new RX descriptors
-  * will be added to the RX descriptor ring.
-  */
--static unsigned int rx_refill_threshold = 90;
-+static unsigned int rx_refill_threshold;
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index beacdd9..ca7698f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -751,18 +751,17 @@ static int ethtool_get_link(struct net_device *dev, char __user *useraddr)
+ 	return 0;
+ }
  
- /*
-  * RX maximum head room required.
-@@ -363,8 +363,7 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- 	}
- 
- 	space = rx_queue->max_fill - fill_level;
--	if (space < EFX_RX_BATCH)
--		goto out;
-+	EFX_BUG_ON_PARANOID(space < EFX_RX_BATCH);
- 
- 	netif_vdbg(rx_queue->efx, rx_status, rx_queue->efx->net_dev,
- 		   "RX queue %d fast-filling descriptor ring from"
-@@ -676,7 +675,7 @@ int efx_probe_rx_queue(struct efx_rx_queue *rx_queue)
- void efx_init_rx_queue(struct efx_rx_queue *rx_queue)
+-static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
++static int ethtool_get_any_eeprom(struct net_device *dev, void __user *useraddr,
++				  int (*getter)(struct net_device *,
++						struct ethtool_eeprom *, u8 *),
++				  u32 total_len)
  {
- 	struct efx_nic *efx = rx_queue->efx;
--	unsigned int max_fill, trigger;
-+	unsigned int max_fill, trigger, max_trigger;
+ 	struct ethtool_eeprom eeprom;
+-	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 	void __user *userbuf = useraddr + sizeof(eeprom);
+ 	u32 bytes_remaining;
+ 	u8 *data;
+ 	int ret = 0;
  
- 	netif_dbg(rx_queue->efx, drv, rx_queue->efx->net_dev,
- 		  "initialising RX queue %d\n", efx_rx_queue_index(rx_queue));
-@@ -689,7 +688,14 @@ void efx_init_rx_queue(struct efx_rx_queue *rx_queue)
+-	if (!ops->get_eeprom || !ops->get_eeprom_len)
+-		return -EOPNOTSUPP;
+-
+ 	if (copy_from_user(&eeprom, useraddr, sizeof(eeprom)))
+ 		return -EFAULT;
  
- 	/* Initialise limit fields */
- 	max_fill = efx->rxq_entries - EFX_RXD_HEAD_ROOM;
--	trigger = max_fill * min(rx_refill_threshold, 100U) / 100U;
-+	max_trigger = max_fill - EFX_RX_BATCH;
-+	if (rx_refill_threshold != 0) {
-+		trigger = max_fill * min(rx_refill_threshold, 100U) / 100U;
-+		if (trigger > max_trigger)
-+			trigger = max_trigger;
-+	} else {
-+		trigger = max_trigger;
-+	}
+@@ -771,7 +770,7 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
+ 		return -EINVAL;
  
- 	rx_queue->max_fill = max_fill;
- 	rx_queue->fast_fill_trigger = trigger;
-@@ -739,5 +745,5 @@ MODULE_PARM_DESC(rx_alloc_method, "Allocation method used for RX buffers");
+ 	/* Check for exceeding total eeprom len */
+-	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
++	if (eeprom.offset + eeprom.len > total_len)
+ 		return -EINVAL;
  
- module_param(rx_refill_threshold, uint, 0444);
- MODULE_PARM_DESC(rx_refill_threshold,
--		 "RX descriptor ring fast/slow fill threshold (%)");
-+		 "RX descriptor ring refill threshold (%)");
+ 	data = kmalloc(PAGE_SIZE, GFP_USER);
+@@ -782,7 +781,7 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
+ 	while (bytes_remaining > 0) {
+ 		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
  
+-		ret = ops->get_eeprom(dev, &eeprom, data);
++		ret = getter(dev, &eeprom, data);
+ 		if (ret)
+ 			break;
+ 		if (copy_to_user(userbuf, data, eeprom.len)) {
+@@ -803,6 +802,17 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
+ 	return ret;
+ }
+ 
++static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
++{
++	const struct ethtool_ops *ops = dev->ethtool_ops;
++
++	if (!ops->get_eeprom || !ops->get_eeprom_len)
++		return -EOPNOTSUPP;
++
++	return ethtool_get_any_eeprom(dev, useraddr, ops->get_eeprom,
++				      ops->get_eeprom_len(dev));
++}
++
+ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_eeprom eeprom;
 -- 
 1.7.7.6
 
