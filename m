@@ -1,42 +1,43 @@
 From: alex.bluesman.smirnov@gmail.com
-Subject: [PATCH 0/2 net] 6lowpan fixes
-Date: Thu, 10 May 2012 17:22:41 +0400
-Message-ID: <4fabc165.9208cc0a.4de8.ffff920d@mx.google.com>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH 1/2 net] 6lowpan: add missing pskb_may_pull() check
+Date: Thu, 10 May 2012 17:22:42 +0400
+Message-ID: <4fabc166.9208cc0a.4de8.ffff9211@mx.google.com>
+References: <1336656163-19382-1-git-send-email-y>
+Cc: netdev@vger.kernel.org,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:50814 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:48355 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754485Ab2EJNXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 09:23:50 -0400
-Received: by bkcji2 with SMTP id ji2so1280917bkc.19
-        for <netdev@vger.kernel.org>; Thu, 10 May 2012 06:23:49 -0700 (PDT)
+	with ESMTP id S1755716Ab2EJNXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 09:23:51 -0400
+Received: by bkcji2 with SMTP id ji2so1280937bkc.19
+        for <netdev@vger.kernel.org>; Thu, 10 May 2012 06:23:50 -0700 (PDT)
+In-Reply-To: <1336656163-19382-1-git-send-email-y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-
-this patch set contains 2 fixes for the 6lowpan module. Please find detailed
-description in the patch headers.
-
-With best regards,
-Alex
-
-8<--
-
-The following changes since commit 4b31b26441fb3c5f1e61ee13832358c09f8ca12d:
-
-  6lowpan: duplicate definition of IEEE802154_ALEN (2012-04-26 13:02:33 +0400)
-
-are available in the git repository at:
-  http://github.com/linux-wsn/kernel.git 6lowpan_dev
-
-Alexander Smirnov (2):
-      6lowpan: add missing pskb_may_pull() check
-      6lowpan: fix hop limit compression
-
- net/ieee802154/6lowpan.c |    3 +++
-
 From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 0/2 net] 6lowpan fixes
-In-Reply-To: 
+
+Add pskb_may_pull() call when fetching u8 from skb.
+
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+---
+ net/ieee802154/6lowpan.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 32eb417..0ab3efe 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -295,6 +295,8 @@ static u8 lowpan_fetch_skb_u8(struct sk_buff *skb)
+ {
+ 	u8 ret;
+ 
++	BUG_ON(!pskb_may_pull(skb, 1));
++
+ 	ret = skb->data[0];
+ 	skb_pull(skb, 1);
+ 
+-- 
+1.7.2.3
