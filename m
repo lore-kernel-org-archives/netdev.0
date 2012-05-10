@@ -1,57 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] drivers/net: Convert compare_ether_addr to
- ether_addr_equal
-Date: Thu, 10 May 2012 12:33:53 -0400 (EDT)
-Message-ID: <20120510.123353.1458740731067514606.davem@davemloft.net>
-References: <7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
-	<20120510173201.16131du3cg90nybo@www.81.fi>
-	<1336666288.22495.14.camel@joe2Laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Netlink for kernel<->user space communication?
+Date: Thu, 10 May 2012 09:36:27 -0700
+Message-ID: <20120510093627.781ca007@nehalam.linuxnetplumber.net>
+References: <4FA817C8.9040204@xdin.com>
+	<20120507153307.551b29ed@nehalam.linuxnetplumber.net>
+	<4FAAFE76.9060508@xdin.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jussi.kivilinna@mbnet.fi, linville@tuxdriver.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1336666288.22495.14.camel@joe2Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Arvid Brodin <Arvid.Brodin@xdin.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:51065 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752081Ab2EJQgb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2012 12:36:31 -0400
+In-Reply-To: <4FAAFE76.9060508@xdin.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 10 May 2012 09:11:28 -0700
+On Wed, 9 May 2012 23:32:08 +0000
+Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
 
-> (cc's trimmed)
+> On 2012-05-08 00:33, Stephen Hemminger wrote:
+> > On Mon, 7 May 2012 18:43:23 +0000
+> > Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
+> > 
+> >> On Tue, 24 Apr 2012 16:57:55 -0700
+> >> Stephen Hemminger <shemminger@xxxxxxxxxx> wrote:
+> >>> On Tue, 24 Apr 2012 23:52:34 +0000
+> >>> Arvid Brodin <Arvid.Brodin@xxxxxxxx> wrote:
+> >>>
+> >>>> Hi.
+> >>>>
+> >>>> I'm writing a kernel driver for the HSR protocol, a standard for high availability
+> >>>> networks. I want to send messages from the kernel to user space about broken network
+> >>>> links. I also want user space to be able to ask the kernel about its view of the status of
+> >>>> nodes on the network.
+> >>>>
+> >>>> Netlink seems like a good tool for this. (Is it?)
+> >>>
+> >>> Yes.
+> >>>
+> >>>> But do I use raw netlink? (Described here: http://www.linuxjournal.com/article/7356 - but
+> >>>> this seems a bit out of date, the kernel API description differs from today's kernel
+> >>>> implementation.)
+> >>>
+> >>> No. Your driver probably looks like a device so you should be
+> >>> using rtnetlink messages.
+> >>
+> >> I'm already using rtnetlink messages to add and remove my device, which works fine (see
+> >> e.g. http://www.spinics.net/lists/netdev/msg192817.html - although I didn't think it
+> >> meaningful to include the iproute2 patch here, until the kernel part is ready).
+> >>
+> >> The protocol specifies transmission of "supervision frames" every 2 seconds, e.g. to check
+> >> link integrity. Every such frame should be received from two directions in the ring - if
+> >> only one is received, then there is a link problem.
+> > 
+> > Why not just manipulate the carrier or operational state (see Documentation/networking/operstate)
+> > and use the existing notification on link changes. If you don't get heartbeat then change
+> > the state of the device to indicate lower device is down with set_operstate(), the necessary
+> > link everts propgate back as netlink events.
 > 
-> On Thu, 2012-05-10 at 17:32 +0300, Jussi Kivilinna wrote:
->> Quoting Joe Perches <joe@perches.com>:
->> > Use the new bool function ether_addr_equal to add
->> > some clarity and reduce the likelihood for misuse
->> > of compare_ether_addr for sorting.
-> []
->> > diff --git a/drivers/net/wireless/rndis_wlan.c
-> []
->> > @@ -2139,7 +2139,7 @@ resize_buf:
->> >  	while (check_bssid_list_item(bssid, bssid_len, buf, len)) {
->> >  		if (rndis_bss_info_update(usbdev, bssid) && match_bssid &&
->> >  		    matched) {
->> > -			if (compare_ether_addr(bssid->mac, match_bssid))
->> > +			if (!ether_addr_equal(bssid->mac, match_bssid))
->> 
->> While reviewing this, noticed that above original code is wrong. It  
->> should be !compare_ether_addr. So do I push patch fixing this through  
->> wireless-testing althought it will later cause conflict with this patch?
->> 
->> -Jussi
->> 
->> >  				*matched = true;
->> >  		}
->> >
+> With HSR, all nodes in the network ring can detect a link problem anywhere in the ring. So
+> I need a way to communicate link problems that does not concern the host's devices at all,
+> but rather the state of the network as a whole. A typical message might say "Frames from
+> node 01:23:45:67:89:AB is only received over Slave Interface 1!" This indicates a problem
+> since all frames should be received over both slave interfaces. The broken link can be
+> anywhere between this node and the indicated node. If user space is aware of the network
+> topology, it can figure out exactly where the damage is by looking at which nodes' frames
+> are received over which slave interface.
 > 
-> Up to John.
-> 
-> Here's the patch I would send against net-next
-> updating the test and the style a little.
+> (Thanks for the operstates info though, I hadn't discovered IF_OPER_LOWERLAYERDOWN! I will
+> use it to indicate a local slave is down.)
 
-I think in this specific case it's better to push this one directly
-through net-next.  But yes, it's up to John.
+Sounds like a message that is specific to the protocol. Maybe just a log
+message would suffice, or having a protocol specific event channel.
+
+> >> I'd like to notify user space about every such occurence. Is there a rtnetlink message
+> >> type that fits this? The stuff in rtnetlink.h seems to be mostly concerned with specific
+> >> user space commands (there is something called RTNLGRP_NOTIFY but I couldn't find any
+> >> instances of it being used in the kernel, nor any documentation).
+> >>
+> > 
+> > I am trying to steer you to use existing API's because then existing programs and
+> > infrastructure can deal with the new device type.
+> 
+> I really appreciate that! I want to use existing API's as far as possible. That's why I
+> keep sending you all these questions. :)
+> 
+> 
