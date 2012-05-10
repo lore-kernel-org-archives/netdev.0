@@ -1,115 +1,86 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
-Date: Thu, 10 May 2012 12:17:01 -0500
-Message-ID: <4FABF80D.3040803@cs.wisc.edu>
-References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
+From: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 0/3] staging: delete duplicated files/functionality in
+ rtl8712
+Date: Thu, 10 May 2012 13:31:39 -0400
+Message-ID: <20120510173139.GA16704@windriver.com>
+References: <1336621641-15467-1-git-send-email-paul.gortmaker@windriver.com>
+ <20120510165451.GA12958@kroah.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020903070100040605000103"
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-        Linux-Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-        Peter Zijlstra <a.p.zijlstra@chello.nl>,
-        Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1336657510-24378-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<florian.c.schilhabel-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>, <ali-H4aWS73dXuqdkR0RstYxLQ@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120510165451.GA12958-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020903070100040605000103
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+[Re: [PATCH 0/3] staging: delete duplicated files/functionality in rtl8712] On 10/05/2012 (Thu 09:54) Greg Kroah-Hartman wrote:
 
-On 05/10/2012 08:44 AM, Mel Gorman wrote:
-> When a user or administrator requires swap for their application, they
-> create a swap partition and file, format it with mkswap and activate it
-> with swapon. Swap over the network is considered as an option in diskless
-> systems. The two likely scenarios are when blade servers are used as part
-> of a cluster where the form factor or maintenance costs do not allow the
-> use of disks and thin clients.
+[...]
 
-Thank you for working on this. I made the attached patch for software
-iscsi which has the same issue as nbd.
+> Can you regenerate these with the full deletion content?  There have
+> been some spelling fixes in these files, and your patches do not apply
+> due to them.  I can hand-edit the patches if you regenerate it.
+> 
+> Or if you rebase on the last linux-next tree, that will pick those
+> changes up and then I can apply these properly.
 
-I tested the patch here and did not notice any performance regressions
-or any other bugs.
+I've rebased it onto your staging-next of today, so it should be
+hopefully seamless for you now.
 
---------------020903070100040605000103
-Content-Type: text/plain; charset=UTF-8;
- name="0001-iscsi-Set-SOCK_MEMALLOC-for-access-to-PFMEMALLOC-res.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-iscsi-Set-SOCK_MEMALLOC-for-access-to-PFMEMALLOC-res.pa";
- filename*1="tch"
-
->From 917d53f16d1e26b12e90e5e15df76a7a8bee35e8 Mon Sep 17 00:00:00 2001
-From: Mike Christie <michaelc@cs.wisc.edu>
-Date: Thu, 3 May 2012 12:36:18 -0500
-Subject: [PATCH 1/1] iscsi: Set SOCK_MEMALLOC for access to PFMEMALLOC
- reserves
-
-Set SOCK_MEMALLOC on the iscsi socket to allow access to PFMEMALLOC
-reserves to prevent deadlock.
-
-Signed-off-by: Mike Christie <michaelc@cs.wisc.edu>
+Thanks,
+Paul.
 ---
- drivers/scsi/iscsi_tcp.c |   18 +++++++++++++-----
- 1 files changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/scsi/iscsi_tcp.c b/drivers/scsi/iscsi_tcp.c
-index 453a740..7360f4c 100644
---- a/drivers/scsi/iscsi_tcp.c
-+++ b/drivers/scsi/iscsi_tcp.c
-@@ -370,17 +370,24 @@ static inline int iscsi_sw_tcp_xmit_qlen(struct iscsi_conn *conn)
- static int iscsi_sw_tcp_pdu_xmit(struct iscsi_task *task)
- {
- 	struct iscsi_conn *conn = task->conn;
--	int rc;
-+	unsigned long pflags = current->flags;
-+	int rc = 0;
-+
-+	current->flags |= PF_MEMALLOC;
- 
- 	while (iscsi_sw_tcp_xmit_qlen(conn)) {
- 		rc = iscsi_sw_tcp_xmit(conn);
--		if (rc == 0)
--			return -EAGAIN;
-+		if (rc == 0) {
-+			rc = -EAGAIN;
-+			break;
-+		}
- 		if (rc < 0)
--			return rc;
-+			break;
-+		rc = 0;
- 	}
- 
--	return 0;
-+	tsk_restore_flags(current, pflags, PF_MEMALLOC);
-+	return rc;
- }
- 
- /*
-@@ -665,6 +672,7 @@ iscsi_sw_tcp_conn_bind(struct iscsi_cls_session *cls_session,
- 	sk->sk_reuse = 1;
- 	sk->sk_sndtimeo = 15 * HZ; /* FIXME: make it configurable */
- 	sk->sk_allocation = GFP_ATOMIC;
-+	sk_set_memalloc(sk);
- 
- 	iscsi_sw_tcp_conn_set_callbacks(conn);
- 	tcp_sw_conn->sendpage = tcp_sw_conn->sock->ops->sendpage;
--- 
-1.7.7.6
+The following changes since commit 0e545f6d165ad0180b0d04fe1291f6f6268047ff:
 
+  staging: rts5139: remove unused variable option.ww_enable (2012-05-10 09:57:21 -0700)
 
---------------020903070100040605000103--
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git rtl8712-staging-next
+
+for you to fetch changes up to 9a0fbbb52ab08017ac51aceef76514799837f4b0:
+
+  staging: delete all duplicated endian crap from rtl8712 driver (2012-05-10 13:10:03 -0400)
+
+----------------------------------------------------------------
+Paul Gortmaker (3):
+      staging: wean rtl8712 off of its ancient duplicate of if_ether.h
+      staging: wean rtl8712 off of its ancient duplicate of ip.h
+      staging: delete all duplicated endian crap from rtl8712 driver
+
+ drivers/staging/rtl8712/big_endian.h        |   94 --------------
+ drivers/staging/rtl8712/generic.h           |  178 ---------------------------
+ drivers/staging/rtl8712/hal_init.c          |    1 -
+ drivers/staging/rtl8712/if_ether.h          |  141 ---------------------
+ drivers/staging/rtl8712/ip.h                |  137 --------------------
+ drivers/staging/rtl8712/little_endian.h     |   94 --------------
+ drivers/staging/rtl8712/osdep_service.h     |    2 -
+ drivers/staging/rtl8712/rtl8712_cmd.c       |    1 -
+ drivers/staging/rtl8712/rtl8712_recv.c      |    5 +-
+ drivers/staging/rtl8712/rtl8712_xmit.c      |    1 -
+ drivers/staging/rtl8712/rtl871x_byteorder.h |   32 -----
+ drivers/staging/rtl8712/rtl871x_cmd.c       |    1 -
+ drivers/staging/rtl8712/rtl871x_recv.c      |    4 +-
+ drivers/staging/rtl8712/rtl871x_xmit.c      |    1 -
+ drivers/staging/rtl8712/swab.h              |  131 --------------------
+ drivers/staging/rtl8712/usb_ops.c           |    1 -
+ drivers/staging/rtl8712/wifi.h              |    1 -
+ drivers/staging/rtl8712/xmit_linux.c        |    6 +-
+ 18 files changed, 7 insertions(+), 824 deletions(-)
+ delete mode 100644 drivers/staging/rtl8712/big_endian.h
+ delete mode 100644 drivers/staging/rtl8712/generic.h
+ delete mode 100644 drivers/staging/rtl8712/if_ether.h
+ delete mode 100644 drivers/staging/rtl8712/ip.h
+ delete mode 100644 drivers/staging/rtl8712/little_endian.h
+ delete mode 100644 drivers/staging/rtl8712/rtl871x_byteorder.h
+ delete mode 100644 drivers/staging/rtl8712/swab.h
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
