@@ -1,85 +1,51 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH net-next] 6lowpan: IPv6 link local address
-Date: Thu, 10 May 2012 17:25:52 +0400
-Message-ID: <1336656352-19518-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2 net] 6lowpan: add missing pskb_may_pull() check
+Date: Thu, 10 May 2012 15:30:59 +0200
+Message-ID: <1336656659.12504.153.camel@edumazet-glaptop>
+References: <1336656163-19382-1-git-send-email-y>
+	 <4fabc166.9208cc0a.4de8.ffff9211@mx.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:50611 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758509Ab2EJN0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 09:26:23 -0400
-Received: by bkcji2 with SMTP id ji2so1283698bkc.19
-        for <netdev@vger.kernel.org>; Thu, 10 May 2012 06:26:22 -0700 (PDT)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:51049 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757022Ab2EJNbF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 09:31:05 -0400
+Received: by eeit10 with SMTP id t10so515727eei.19
+        for <netdev@vger.kernel.org>; Thu, 10 May 2012 06:31:03 -0700 (PDT)
+In-Reply-To: <4fabc166.9208cc0a.4de8.ffff9211@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to the RFC4944 (Transmission of IPv6 Packets over
-IEEE 802.15.4 Networks), chapter 7:
+On Thu, 2012-05-10 at 17:22 +0400, alex.bluesman.smirnov@gmail.com
+wrote:
+> From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> 
+> Add pskb_may_pull() call when fetching u8 from skb.
+> 
+> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> ---
+>  net/ieee802154/6lowpan.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+> index 32eb417..0ab3efe 100644
+> --- a/net/ieee802154/6lowpan.c
+> +++ b/net/ieee802154/6lowpan.c
+> @@ -295,6 +295,8 @@ static u8 lowpan_fetch_skb_u8(struct sk_buff *skb)
+>  {
+>  	u8 ret;
+>  
+> +	BUG_ON(!pskb_may_pull(skb, 1));
+> +
+>  	ret = skb->data[0];
+>  	skb_pull(skb, 1);
+>  
 
-The IPv6 link-local address [RFC4291] for an IEEE 802.15.4 interface
-is formed by appending the Interface Identifier, as defined above, to
-the prefix FE80::/64.
+No, you cant do that.
 
-  10 bits            54 bits                  64 bits
-+----------+-----------------------+----------------------------+
-|1111111010|         (zeros)       |    Interface Identifier    |
-+----------+-----------------------+----------------------------+
-
-This patch adds IPv6 address generation support for the 6lowpan
-interfaces.
-
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
----
- net/ipv6/addrconf.c |   14 +++++++++++++-
- 1 files changed, 13 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index e3b3421..8b7f100 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -66,6 +66,7 @@
- #include <net/sock.h>
- #include <net/snmp.h>
- 
-+#include <net/af_ieee802154.h>
- #include <net/ipv6.h>
- #include <net/protocol.h>
- #include <net/ndisc.h>
-@@ -1514,6 +1515,14 @@ static int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
- 	return 0;
- }
- 
-+static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
-+{
-+	if (dev->addr_len != IEEE802154_ADDR_LEN)
-+		return -1;
-+	memcpy(eui, dev->dev_addr, 8);
-+	return 0;
-+}
-+
- static int addrconf_ifid_arcnet(u8 *eui, struct net_device *dev)
- {
- 	/* XXX: inherit EUI-64 from other interface -- yoshfuji */
-@@ -1577,6 +1586,8 @@ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
- 		return addrconf_ifid_sit(eui, dev);
- 	case ARPHRD_IPGRE:
- 		return addrconf_ifid_gre(eui, dev);
-+	case ARPHRD_IEEE802154:
-+		return addrconf_ifid_eui64(eui, dev);
- 	}
- 	return -1;
- }
-@@ -2438,7 +2449,8 @@ static void addrconf_dev_config(struct net_device *dev)
- 	    (dev->type != ARPHRD_FDDI) &&
- 	    (dev->type != ARPHRD_IEEE802_TR) &&
- 	    (dev->type != ARPHRD_ARCNET) &&
--	    (dev->type != ARPHRD_INFINIBAND)) {
-+	    (dev->type != ARPHRD_INFINIBAND) &&
-+	    (dev->type != ARPHRD_IEEE802154)) {
- 		/* Alas, we support only Ethernet autoconfiguration. */
- 		return;
- 	}
--- 
-1.7.2.3
+pskb_may_pull() can fail, and you crash your machine instead of graceful
+error reporting.
