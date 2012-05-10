@@ -1,92 +1,151 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/12] ixgbe: add support for get_ts_info
-Date: Wed,  9 May 2012 23:46:50 -0700
-Message-ID: <1336632413-19135-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/12] ixgbe: Set Drop_EN bit when multiple Rx queues are present w/o flow control
+Date: Wed,  9 May 2012 23:46:45 -0700
+Message-ID: <1336632413-19135-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51353 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:22833 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756244Ab2EJGrF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2012 02:47:05 -0400
+	id S1752333Ab2EJGq7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2012 02:46:59 -0400
 In-Reply-To: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds support for the ethtool get_ts_info operation, which enables
-access of available timestamp/timesync support for that device. It can query
-which ptp clock device is associated with the particular port.
+The drop enable bit can be used to improve the performance of the adapter
+in the case of multiple queues being present.  This performance gain is due
+to the fact that some slower CPUs can cause the FIFO to backfill preventing
+faster CPUs from receiving additional work.  By setting the drop enable bit
+we prevent this and instead just drop the packets that would have been
+bound for the slower CPU.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   41 ++++++++++++++++++++++
- 1 files changed, 41 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h        |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |    5 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   59 ++++++++++++++++++++++-
+ 3 files changed, 64 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 082446d..3178f1e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2696,6 +2696,46 @@ static int ixgbe_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
- 	return ret;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 425f864..2262bf7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -652,6 +652,7 @@ extern void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
+ 						 union ixgbe_atr_input *mask);
+ extern void ixgbe_set_rx_mode(struct net_device *netdev);
+ #ifdef CONFIG_IXGBE_DCB
++extern void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter);
+ extern int ixgbe_setup_tc(struct net_device *dev, u8 tc);
+ #endif
+ extern void ixgbe_tx_ctxtdesc(struct ixgbe_ring *, u32, u32, u32, u32);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+index 7f2fa69..5164a21 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+@@ -395,6 +395,9 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ 		} else {
+ 			hw->mac.ops.fc_enable(hw);
+ 		}
++
++		ixgbe_set_rx_drop_en(adapter);
++
+ 		ret = DCB_HW_CHG;
+ 	}
+ 
+@@ -641,6 +644,8 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
+ 	else
+ 		err = hw->mac.ops.fc_enable(hw);
+ 
++	ixgbe_set_rx_drop_en(adapter);
++
+ 	return err;
  }
  
-+static int ixgbe_get_ts_info(struct net_device *dev,
-+			     struct ethtool_ts_info *info)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 0915e77..1693ec3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2771,6 +2771,61 @@ static void ixgbe_configure_tx(struct ixgbe_adapter *adapter)
+ 		ixgbe_configure_tx_ring(adapter, adapter->tx_ring[i]);
+ }
+ 
++static void ixgbe_enable_rx_drop(struct ixgbe_adapter *adapter,
++				 struct ixgbe_ring *ring)
 +{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	u8 reg_idx = ring->reg_idx;
++	u32 srrctl = IXGBE_READ_REG(hw, IXGBE_SRRCTL(reg_idx));
 +
-+	switch (adapter->hw.mac.type) {
-+#ifdef CONFIG_IXGBE_PTP
-+	case ixgbe_mac_X540:
-+	case ixgbe_mac_82599EB:
-+		info->so_timestamping =
-+			SOF_TIMESTAMPING_TX_HARDWARE |
-+			SOF_TIMESTAMPING_RX_HARDWARE |
-+			SOF_TIMESTAMPING_RAW_HARDWARE;
++	srrctl |= IXGBE_SRRCTL_DROP_EN;
 +
-+		if (adapter->ptp_clock)
-+			info->phc_index = ptp_clock_index(adapter->ptp_clock);
-+		else
-+			info->phc_index = -1;
-+
-+		info->tx_types =
-+			(1 << HWTSTAMP_TX_OFF) |
-+			(1 << HWTSTAMP_TX_ON);
-+
-+		info->rx_filters =
-+			(1 << HWTSTAMP_FILTER_NONE) |
-+			(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
-+			(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
-+			(1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
-+			(1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
-+			(1 << HWTSTAMP_FILTER_PTP_V2_EVENT) |
-+			(1 << HWTSTAMP_FILTER_SOME);
-+		break;
-+#endif /* CONFIG_IXGBE_PTP */
-+	default:
-+		return ethtool_op_get_ts_info(dev, info);
-+		break;
-+	}
-+	return 0;
++	IXGBE_WRITE_REG(hw, IXGBE_SRRCTL(reg_idx), srrctl);
 +}
 +
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -2724,6 +2764,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_coalesce           = ixgbe_set_coalesce,
- 	.get_rxnfc		= ixgbe_get_rxnfc,
- 	.set_rxnfc		= ixgbe_set_rxnfc,
-+	.get_ts_info		= ixgbe_get_ts_info,
- };
++static void ixgbe_disable_rx_drop(struct ixgbe_adapter *adapter,
++				  struct ixgbe_ring *ring)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u8 reg_idx = ring->reg_idx;
++	u32 srrctl = IXGBE_READ_REG(hw, IXGBE_SRRCTL(reg_idx));
++
++	srrctl &= ~IXGBE_SRRCTL_DROP_EN;
++
++	IXGBE_WRITE_REG(hw, IXGBE_SRRCTL(reg_idx), srrctl);
++}
++
++#ifdef CONFIG_IXGBE_DCB
++void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter)
++#else
++static void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter)
++#endif
++{
++	int i;
++	bool pfc_en = adapter->dcb_cfg.pfc_mode_enable;
++
++	if (adapter->ixgbe_ieee_pfc)
++		pfc_en |= !!(adapter->ixgbe_ieee_pfc->pfc_en);
++
++	/*
++	 * We should set the drop enable bit if:
++	 *  SR-IOV is enabled
++	 *   or
++	 *  Number of Rx queues > 1 and flow control is disabled
++	 *
++	 *  This allows us to avoid head of line blocking for security
++	 *  and performance reasons.
++	 */
++	if (adapter->num_vfs || (adapter->num_rx_queues > 1 &&
++	    !(adapter->hw.fc.current_mode & ixgbe_fc_tx_pause) && !pfc_en)) {
++		for (i = 0; i < adapter->num_rx_queues; i++)
++			ixgbe_enable_rx_drop(adapter, adapter->rx_ring[i]);
++	} else {
++		for (i = 0; i < adapter->num_rx_queues; i++)
++			ixgbe_disable_rx_drop(adapter, adapter->rx_ring[i]);
++	}
++}
++
+ #define IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT 2
  
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
+ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
+@@ -5276,8 +5331,10 @@ static void ixgbe_watchdog_update_link(struct ixgbe_adapter *adapter)
+ 	if (adapter->ixgbe_ieee_pfc)
+ 		pfc_en |= !!(adapter->ixgbe_ieee_pfc->pfc_en);
+ 
+-	if (link_up && !((adapter->flags & IXGBE_FLAG_DCB_ENABLED) && pfc_en))
++	if (link_up && !((adapter->flags & IXGBE_FLAG_DCB_ENABLED) && pfc_en)) {
+ 		hw->mac.ops.fc_enable(hw);
++		ixgbe_set_rx_drop_en(adapter);
++	}
+ 
+ 	if (link_up ||
+ 	    time_after(jiffies, (adapter->link_check_timeout +
 -- 
 1.7.7.6
