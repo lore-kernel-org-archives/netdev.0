@@ -1,96 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] net: update the usage of CHECKSUM_UNNECESSARY
-Date: Thu, 10 May 2012 09:00:18 +0300
-Message-ID: <20120510060018.GA23665@redhat.com>
-References: <20120319211241.11291.53271.stgit@localhost6.localdomain6>
- <20120508174831.GA27406@redhat.com>
- <1336501258.2749.3.camel@bwh-desktop.uk.solarflarecom.com>
- <20120509060308.GA13522@redhat.com>
- <1336608301.2499.12.camel@bwh-desktop.uk.solarflarecom.com>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: [PATCH 07/14] batman-adv: split neigh_new
+	function into generic and batman iv specific parts
+Date: Thu, 10 May 2012 14:08:07 +0800
+Message-ID: <201205101408.07750.lindner_marek@yahoo.de>
+References: <1336561976-16088-1-git-send-email-ordex@autistici.org>
+	<1336561976-16088-8-git-send-email-ordex@autistici.org>
+	<20120509.204111.1931607501484626500.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Yi Zou <yi.zou@intel.com>,
-	netdev@vger.kernel.org, devel@open-fcoe.org,
-	jeffrey.t.kirsher@intel.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42750 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752449Ab2EJGAg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2012 02:00:36 -0400
-Content-Disposition: inline
-In-Reply-To: <1336608301.2499.12.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20120509.204111.1931607501484626500.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 10, 2012 at 01:05:01AM +0100, Ben Hutchings wrote:
-> On Wed, 2012-05-09 at 09:03 +0300, Michael S. Tsirkin wrote:
-> > On Tue, May 08, 2012 at 07:20:58PM +0100, Ben Hutchings wrote:
-> > > On Tue, 2012-05-08 at 20:48 +0300, Michael S. Tsirkin wrote:
-> > > > On Mon, Mar 19, 2012 at 02:12:41PM -0700, Yi Zou wrote:
-> > > > > As suggested by Ben, this adds the clarification on the usage of
-> > > > > CHECKSUM_UNNECESSARY on the outgoing patch. Also add the usage
-> > > > > description of NETIF_F_FCOE_CRC and CHECKSUM_UNNECESSARY
-> > > > > for the kernel FCoE protocol driver.
-> > > > > 
-> > > > > This is a follow-up to the following:
-> > > > > http://patchwork.ozlabs.org/patch/147315/
-> > > > > 
-> > > > > Signed-off-by: Yi Zou <yi.zou@intel.com>
-> > > > > Cc: Ben Hutchings <bhutchings@solarflare.com>
-> > > > > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > > Cc: www.Open-FCoE.org <devel@open-fcoe.org>
-> > > > > ---
-> > > > > 
-> > > > >  include/linux/skbuff.h |    7 +++++++
-> > > > >  1 files changed, 7 insertions(+), 0 deletions(-)
-> > > > > 
-> > > > > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> > > > > index 8dc8257..a2b9953 100644
-> > > > > --- a/include/linux/skbuff.h
-> > > > > +++ b/include/linux/skbuff.h
-> > > > > @@ -94,6 +94,13 @@
-> > > > >   *			  about CHECKSUM_UNNECESSARY. 8)
-> > > > >   *	NETIF_F_IPV6_CSUM about as dumb as the last one but does IPv6 instead.
-> > > > >   *
-> > > > > + *	UNNECESSARY: device will do per protocol specific csum. Protocol drivers
-> > > > > + *	that do not want net to perform the checksum calculation should use
-> > > > > + *	this flag in their outgoing skbs.
-> > > > > + *	NETIF_F_FCOE_CRC  this indicates the device can do FCoE FC CRC
-> > > > > + *			  offload. Correspondingly, the FCoE protocol driver
-> > > > > + *			  stack should use CHECKSUM_UNNECESSARY.
-> > > > > + *
-> > > > >   *	Any questions? No questions, good. 		--ANK
-> > > > >   */
-> > > > >  
-> > > > 
-> > > > So just to make sure I understand, you never get
-> > > > UNNECESSARY packets on tx unless you declared NETIF_F_FCOE_CRC?
-> > > > 
-> > > > Maybe the comment says this somehow but could not figure it out.
-> > > 
-> > > That's what should happen now.  In future CHECKSUM_UNNECESSARY could be
-> > > used on output by other protocols which don't use TCP/IP-style
-> > > checksums, but always dependent on the output device supporting the
-> > > relevant offload feature.
-> > > 
-> > > Ben.
-> > 
-> > Isn't there another case: a device passes UNNECESSARY in on rx,
-> > and the skb is forwarded to another device?
-> > For example it is handled this way by tun, giving a nice
-> > performance boost for VMs, see 10a8d94a95742bb15b4e617ee9884bb4381362be
+
+David,
+
+> But once it gets exported out of that file, you have to give it
+> an appropriate name.  Probably with a "batman_adv_" prefix or
+> similar.
 > 
-> Hmm... I thought UNNECESSARY was supposed to be replaced by NONE on
-> output, but I don't see where that would happen.  Which would mean we
-> had an undocumented case here, and now we have ambiguity. :-(
-> 
-> Ben.
+> Otherwise, for one thing, if this code is statically built into
+> the tree it can conflict with symbol names elsewhere and break
+> the build.
 
-Ambiguity with FCoE? Why doesn't that use PARTIAL btw? Simply to
-avoid teaching net core about that protocol and NETIF_F_FCOE_CRC?
+thanks for pointing this out. I wasn't aware of the potential conflict created 
+by our naming scheme. Obviously, we will change the proposed patch.
+We are going to review all other exported function names and send appropriate 
+patches later on.
 
-> -- 
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+Regards,
+Marek
