@@ -1,91 +1,41 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/12] igb: output register's information related to RX/TX queue[4-15]
-Date: Wed,  9 May 2012 23:46:42 -0700
-Message-ID: <1336632413-19135-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51353 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754944Ab2EJGq6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2012 02:46:58 -0400
-In-Reply-To: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 00/13] net: Add and use ether_addr_equal
+Date: Thu, 10 May 2012 08:48:48 +0200
+Message-ID: <1336632528.4334.1.camel@jlt3.sipsolutions.net>
+References: <cover.1336538937.git.joe@perches.com>
+	<20120509.212110.437114897180819434.davem@davemloft.net>
+	(sfid-20120510_032248_153593_581BC374)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120509.212110.437114897180819434.davem@davemloft.net>
+	(sfid-20120510_032248_153593_581BC374)
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+On Wed, 2012-05-09 at 21:21 -0400, David Miller wrote:
 
-Current igb outputs registers related to TX/RX queues(ex. RDT, RDH, TDT, TDH).
-But it thinks the number of RX/TX queues is 4. But 82576 has 16 RX/TX queues.
-This patch modifies igb to output the rest of the registers if the device is
-82576.
+> That case you didn't convert in mac80211 is probably the
+> bug Johannes was talking about which started this whole
+> discussion.
 
-Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Acked-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_ethtool.c |   38 +++++++++++++++++++++++++-
- 1 files changed, 37 insertions(+), 1 deletions(-)
+The bug case that started it all is in net/wireless/scan.c and Emmanuel
+has since changed it back to memcmp(). Not sure if that's the one you
+were referring to or not :-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index e10821a..faadf23 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -335,7 +335,7 @@ static void igb_set_msglevel(struct net_device *netdev, u32 data)
- 
- static int igb_get_regs_len(struct net_device *netdev)
- {
--#define IGB_REGS_LEN 551
-+#define IGB_REGS_LEN 739
- 	return IGB_REGS_LEN * sizeof(u32);
- }
- 
-@@ -556,6 +556,42 @@ static void igb_get_regs(struct net_device *netdev,
- 	regs_buff[552] = adapter->stats.b2ospc;
- 	regs_buff[553] = adapter->stats.o2bspc;
- 	regs_buff[554] = adapter->stats.b2ogprc;
-+
-+	if (hw->mac.type != e1000_82576)
-+		return;
-+	for (i = 0; i < 12; i++)
-+		regs_buff[555 + i] = rd32(E1000_SRRCTL(i + 4));
-+	for (i = 0; i < 4; i++)
-+		regs_buff[567 + i] = rd32(E1000_PSRTYPE(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[571 + i] = rd32(E1000_RDBAL(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[583 + i] = rd32(E1000_RDBAH(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[595 + i] = rd32(E1000_RDLEN(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[607 + i] = rd32(E1000_RDH(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[619 + i] = rd32(E1000_RDT(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[631 + i] = rd32(E1000_RXDCTL(i + 4));
-+
-+	for (i = 0; i < 12; i++)
-+		regs_buff[643 + i] = rd32(E1000_TDBAL(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[655 + i] = rd32(E1000_TDBAH(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[667 + i] = rd32(E1000_TDLEN(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[679 + i] = rd32(E1000_TDH(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[691 + i] = rd32(E1000_TDT(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[703 + i] = rd32(E1000_TXDCTL(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[715 + i] = rd32(E1000_TDWBAL(i + 4));
-+	for (i = 0; i < 12; i++)
-+		regs_buff[727 + i] = rd32(E1000_TDWBAH(i + 4));
- }
- 
- static int igb_get_eeprom_len(struct net_device *netdev)
--- 
-1.7.7.6
+johannes
