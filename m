@@ -1,25 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/4] netxen fixes
-Date: Wed, 09 May 2012 22:53:14 -0400 (EDT)
-Message-ID: <20120509.225314.279761821425633279.davem@davemloft.net>
-References: <1336578930-25141-1-git-send-email-rajesh.borundia@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: rajesh.borundia@qlogic.com
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/3] net,drivers/net: Use ether_addr_equal and ether_addr_equal_64bits
+Date: Wed,  9 May 2012 20:04:01 -0700
+Message-ID: <cover.1336618707.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, ath5k-devel@lists.ath5k.org,
+	ath9k-devel@lists.ath9k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45511 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754519Ab2EJCxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 May 2012 22:53:19 -0400
-In-Reply-To: <1336578930-25141-1-git-send-email-rajesh.borundia@qlogic.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:43374 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754719Ab2EJDEY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 May 2012 23:04:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Date: Wed,  9 May 2012 11:55:26 -0400
+Joe Perches (3):
+  drivers/net: Convert compare_ether_addr to ether_addr_equal
+  etherdevice.h: Add ether_addr_equal_64bits
+  net,drivers/net: Convert compare_ether_addr_64bits to ether_addr_equal_64bits
 
-> Please apply it to net-next.
+ drivers/net/bonding/bond_alb.c                    |   58 ++++++++++----------
+ drivers/net/bonding/bond_main.c                   |    2 +-
+ drivers/net/ethernet/amd/depca.c                  |    3 +-
+ drivers/net/ethernet/cisco/enic/enic_main.c       |   12 ++---
+ drivers/net/ethernet/dec/ewrk3.c                  |    3 +-
+ drivers/net/ethernet/dec/tulip/de4x5.c            |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c  |    5 +-
+ drivers/net/ethernet/sfc/ethtool.c                |    2 +-
+ drivers/net/ethernet/sun/sunvnet.c                |    2 +-
+ drivers/net/ethernet/tile/tilepro.c               |    2 +-
+ drivers/net/ethernet/toshiba/ps3_gelic_wireless.c |    8 ++--
+ drivers/net/macvlan.c                             |    7 +--
+ drivers/net/tun.c                                 |    2 +-
+ drivers/net/wireless/at76c50x-usb.c               |    2 +-
+ drivers/net/wireless/ath/ath5k/base.c             |    6 +-
+ drivers/net/wireless/ath/ath9k/recv.c             |    2 +-
+ drivers/net/wireless/ath/carl9170/rx.c            |    2 +-
+ drivers/net/wireless/ipw2x00/libipw_rx.c          |   16 +++---
+ drivers/net/wireless/iwlegacy/3945.c              |    4 +-
+ drivers/net/wireless/iwlegacy/4965-mac.c          |    2 +-
+ drivers/net/wireless/iwlegacy/common.c            |   14 +++---
+ drivers/net/wireless/iwlwifi/iwl-agn-rx.c         |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-rxon.c       |    8 ++--
+ drivers/net/wireless/iwlwifi/iwl-agn-sta.c        |    6 +-
+ drivers/net/wireless/mwl8k.c                      |    2 +-
+ drivers/net/wireless/p54/txrx.c                   |    2 +-
+ drivers/net/wireless/rndis_wlan.c                 |   12 ++--
+ drivers/net/wireless/rtlwifi/base.c               |    2 +-
+ drivers/net/wireless/rtlwifi/ps.c                 |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/trx.c      |   10 ++--
+ drivers/net/wireless/rtlwifi/rtl8192cu/mac.c      |   10 ++--
+ drivers/net/wireless/rtlwifi/rtl8192de/trx.c      |   11 ++--
+ drivers/net/wireless/rtlwifi/rtl8192se/trx.c      |   11 ++--
+ include/linux/etherdevice.h                       |   20 +++++++
+ net/ethernet/eth.c                                |    5 +-
+ 35 files changed, 140 insertions(+), 121 deletions(-)
 
-All applied, thank you.
+-- 
+1.7.8.111.gad25c.dirty
