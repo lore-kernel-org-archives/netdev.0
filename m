@@ -1,59 +1,54 @@
-From: "Sullivan, Catherine" <catherine.sullivan@intel.com>
-Subject: RE: [NET_NEXT RFC PATCH 2/3] ixgbe: added netdev_ops file to debugfs
-Date: Thu, 10 May 2012 22:29:14 +0000
-Message-ID: <F1C1314B3E1AB7499F9BF2A5F0F033EC14AAA1@FMSMSX104.amr.corp.intel.com>
-References: <20120509230945.31910.48302.stgit@localhost6.localdomain6>
-	<20120509161320.37fcb705@nehalam.linuxnetplumber.net>
-	<F1C1314B3E1AB7499F9BF2A5F0F033EC14A8F3@FMSMSX104.amr.corp.intel.com>
-	<20120510.163207.1812696843582837101.davem@davemloft.net>
-	<F1C1314B3E1AB7499F9BF2A5F0F033EC14AA1B@FMSMSX104.amr.corp.intel.com>
- <20120510143539.5584e87e@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: [PATCH] ks8851: Update link status during link change interrupt
+Date: Thu, 10 May 2012 15:51:30 -0700
+Message-ID: <1336690290-21304-1-git-send-email-sboyd@codeaurora.org>
+Cc: linux-kernel@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:27000 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932118Ab2EJW3R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 18:29:17 -0400
-In-Reply-To: <20120510143539.5584e87e@nehalam.linuxnetplumber.net>
-Content-Language: en-US
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:10462 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932554Ab2EJWvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 18:51:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Thursday, May 10, 2012 2:36 PM
-> 
-> On Thu, 10 May 2012 21:14:49 +0000
-> "Sullivan, Catherine" <catherine.sullivan@intel.com> wrote:
-> 
-> > I was aware of this, however this does not allow a call to the
-> ndo_tx_timeout function which is what my patch does. Is there a way to
-> do this with sysfs? I could not find this functionality.
-> >
-> > -----Original Message-----
-> > From: David Miller [mailto:davem@davemloft.net]
-> > Sent: Thursday, May 10, 2012 1:32 PM
-> >
-> > From: "Sullivan, Catherine" <catherine.sullivan@intel.com>
-> > Date: Thu, 10 May 2012 20:28:28 +0000
-> >
-> > > Could you point me to where this is available in sysfs please? I'm
-> > > not familiar with it.
-> >
-> > Is the 'find' program not properly functioning on your computer?
-> >
-> > [davem@drr net-next]$ find /sys -type f -name tx_timeout
-> > /sys/devices/virtual/net/lo/queues/tx-0/tx_timeout
-> > /sys/devices/virtual/net/redhat0/queues/tx-0/tx_timeout
-> >
-> /sys/devices/pci0000:00/0000:00:1c.2/0000:06:00.0/net/p34p1/queues/tx-
-> > 0/tx_timeout
-> > [davem@drr net-next]$
-> 
-> Are you trying to induce timeout for some tests or code coverage?
+If a link change interrupt comes in we just clear the interrupt
+and continue along without notifying the upper networking layers
+that the link has changed. Use the mii_check_link() function to
+update the link status whenever a link change interrupt occurs.
 
-Yes, we are using this for testing and debugging purposes.
+Cc: Ben Dooks <ben-linux@fluff.org>
+Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+---
+ drivers/net/ethernet/micrel/ks8851.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index f8dda00..5e313e9 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -618,10 +618,8 @@ static void ks8851_irq_work(struct work_struct *work)
+ 	netif_dbg(ks, intr, ks->netdev,
+ 		  "%s: status 0x%04x\n", __func__, status);
+ 
+-	if (status & IRQ_LCI) {
+-		/* should do something about checking link status */
++	if (status & IRQ_LCI)
+ 		handled |= IRQ_LCI;
+-	}
+ 
+ 	if (status & IRQ_LDI) {
+ 		u16 pmecr = ks8851_rdreg16(ks, KS_PMECR);
+@@ -684,6 +682,9 @@ static void ks8851_irq_work(struct work_struct *work)
+ 
+ 	mutex_unlock(&ks->lock);
+ 
++	if (status & IRQ_LCI)
++		mii_check_link(&ks->mii);
++
+ 	if (status & IRQ_TXI)
+ 		netif_wake_queue(ks->netdev);
+ 
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
