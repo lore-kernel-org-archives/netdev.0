@@ -1,71 +1,54 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re[2]:  [PATCH 0/5] netfilter updates for net-next (upcoming
-	3.5), batch 2
-Date: Thu, 10 May 2012 06:00:00 +0200 (CEST)
-Message-ID: <p9l17hj.bb22250845107efca259c380861808ee@obelix.schillstrom.com>
+From: Nikhil Agarwal <hi2nikhil@gmail.com>
+Subject: Fwd: Memory exhaust issue with only IPsec policies configured on
+ continuous traffic
+Date: Thu, 10 May 2012 10:53:20 +0530
+Message-ID: <CAETiZ-QvamMJxfGJDK4CiKngELNevmOXnh7M=UGnkH61XrT5dw@mail.gmail.com>
+References: <F0B93D0554724543876B9A180DC988575B8867@039-SN1MPN1-001.039d.mgd.msft.net>
+ <CAETiZ-QTWN2U=hmaCS39Q8hzNysjam+eS5FSi-EYO7cXtTbGKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:54884 "EHLO
-	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750704Ab2EJEAE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 00:00:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, benjamin.thery@bull.net,
+	davem@davemloft.net, eric.dumazet@gmail.com, pstaszewski@itcare.pl
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAETiZ-QTWN2U=hmaCS39Q8hzNysjam+eS5FSi-EYO7cXtTbGKQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi All,
 
->
->From: pablo@netfilter.org
->Date: Wed,  9 May 2012 13:33:03 +0200
->
->> This is a second batch of netfilter updates for net-next, they contain:
->> 
->> * The new HMARK target from Hans Schillstrom. It took lots of spins
->>   to get this into shape. This target provides a hash-based packet / flow
->>   pre-classifier for iptables that can be used to distribute packets
->>   / flows between uplinks and backend servers. It provides to modes, one
->>   that relies on conntrack, and one that is stateless per-packet.
->> 
->> * Byte-based cost calculation for the hashlimit match, to detect when
->>   a host consumes more bandwidth than expected. This patch from Florian
->>   Westphal.
->> 
->> You can pull these changes from:
->> 
->> git://1984.lsi.us.es/net-next
->
->Pulled.
->
->Two suggested improvements:
->
->1) The HMARK hash is quite expensive, because it uses a modulus.
->
->   Consider adjusting it to use the usual trick:
->
->	((u64)(HASH_VAL * HASH_SIZE)) >> 32
->
->   so that this can be a multiply instead of a modulus.
+Can you please help on this?
 
-That's true 
+Regards
+Nikhil
 
->2) XT_HASHLIMIT_MAX is cumbersome.
->
->   The canonical way to validate if the set bits are in	a
->   valid range is to have a "_ALL" macro, and test:
->
->	if (val & ~XT_HASHLIMIT_ALL)
->		goto err;
->
->   or similar.
->
+-----Original Message-----
+=46rom: Agarwal Nikhil-B38457
+Sent: Wednesday, May 09, 2012 2:53 PM
+To: linux-kernel@vger.kernel.org; netdev@vger.kernel.org
+Subject: Memory exhaust issue with only IPsec policies configured on
+continuous traffic
 
-Thanks David  
-I'll fix it
+Hi all,
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 In a typical scenario, when =
+IPSEC policies are
+configured in the system but SA is not present or negotiation fails or
+IKE daemon is not running. =A0The current behavior of xfrm is to send
+those matching packets to blackhole route.=A0 i.e. xfrm_bundle_lookup
+returns a bundle with null route and xfrm_lookup returns a blackhole
+route.
 
-Regards 
-Hans Schillstrom
+=46or each of these packet a dst_alloc is called in
+ipv4_blackhole_route. However when these skbs get free and their dst's
+get discarded using dst_free and the garbage collector is scheduled
+using cancel_delayed_work and schedule_delayed_work.
+
+If the packets are coming continuously garbage collector may not get
+scheduled and large amount of memory is stuck to be freed causing the
+system to go into non-recoverable state.
+
+Any ideas?
+
+Regards
+Nikhil
