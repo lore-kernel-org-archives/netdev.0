@@ -1,65 +1,83 @@
-From: Eric Paris <eparis@parisplace.org>
-Subject: Re: [PATCH 02/12] selinux: tag avc cache alloc as non-critical
-Date: Thu, 10 May 2012 10:25:51 -0400
-Message-ID: <CACLa4punzEWjxQ79GF2o5h-up5A43oBuP-LEXGiA-kKQxcG1iQ@mail.gmail.com>
-References: <1336658065-24851-1-git-send-email-mgorman@suse.de>
-	<1336658065-24851-3-git-send-email-mgorman@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>, Linux-NFS <linux-nfs@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>, Neil Brown <neilb@suse.de>,
-	Christoph Hellwig <hch@infradead.org>, Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>, Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1336658065-24851-3-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+From: Sasikantha babu <sasikanth.v19@gmail.com>
+Subject: [PATCH] net: device - added support of clearing device statistics
+Date: Thu, 10 May 2012 20:46:01 +0530
+Message-ID: <1336662961-15033-1-git-send-email-sasikanth.v19@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasikantha babu <sasikanth.v19@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 10, 2012 at 9:54 AM, Mel Gorman <mgorman@suse.de> wrote:
-> Failing to allocate a cache entry will only harm performance not
-> correctness. =A0Do not consume valuable reserve pages for something
-> like that.
->
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
+This patch adds the support of clearing device statistics. Added new 
+entry ndo_clear_stats to net_device_ops for device drivers to provide
+there own method to clear stats otherwise internal statistics structure
+is cleared.
 
-Acked-by: Eric Paris <eparis@redhat.com>
+Signed-off-by: Sasikantha babu <sasikanth.v19@gmail.com>
+---
+ include/linux/netdevice.h |    3 +++
+ net/core/dev.c            |   23 +++++++++++++++++++++++
+ 2 files changed, 26 insertions(+), 0 deletions(-)
 
-> ---
-> =A0security/selinux/avc.c | =A0 =A02 +-
-> =A01 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/security/selinux/avc.c b/security/selinux/avc.c
-> index 8ee42b2..75c2977 100644
-> --- a/security/selinux/avc.c
-> +++ b/security/selinux/avc.c
-> @@ -280,7 +280,7 @@ static struct avc_node *avc_alloc_node(void)
-> =A0{
-> =A0 =A0 =A0 =A0struct avc_node *node;
->
-> - =A0 =A0 =A0 node =3D kmem_cache_zalloc(avc_node_cachep, GFP_ATOMIC);
-> + =A0 =A0 =A0 node =3D kmem_cache_zalloc(avc_node_cachep, GFP_ATOMIC|__GF=
-P_NOMEMALLOC);
-> =A0 =A0 =A0 =A0if (!node)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto out;
->
-> --
-> 1.7.9.2
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" i=
-n
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5cbaa20..3366bd6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -935,6 +935,8 @@ struct net_device_ops {
+ 						     struct rtnl_link_stats64 *storage);
+ 	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
+ 
++	void			(*ndo_clear_stats) (struct net_device *dev);
++
+ 	int			(*ndo_vlan_rx_add_vid)(struct net_device *dev,
+ 						       unsigned short vid);
+ 	int			(*ndo_vlan_rx_kill_vid)(struct net_device *dev,
+@@ -2576,6 +2578,7 @@ extern void		dev_load(struct net *net, const char *name);
+ extern void		dev_mcast_init(void);
+ extern struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+ 					       struct rtnl_link_stats64 *storage);
++extern void dev_clear_stats(struct net_device *dev);
+ extern void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+ 				    const struct net_device_stats *netdev_stats);
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 9bb8f87..fc29ea4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5870,6 +5870,29 @@ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(dev_get_stats);
+ 
++/**
++ *	dev_clear_stats	- Clear network device statistics
++ *	@dev: device to clear statistics from
++ *
++ *	Clears network statistics of device.
++ *	The device driver may provide its own method by setting
++ *	dev->netdev_ops->ndo_clear_stats;
++ *	otherwise the internal statistics structure is used.
++ */
++void dev_clear_stats(struct net_device *dev)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	if (ops->ndo_clear_stats)
++		ops->ndo_clear_stats(dev);
++	else
++		memset(&dev->stats, 0, sizeof(dev->stats));
++
++	atomic_long_set(&dev->rx_dropped, 0);
++	return;
++}
++EXPORT_SYMBOL(dev_clear_stats);
++
+ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
+ {
+ 	struct netdev_queue *queue = dev_ingress_queue(dev);
+-- 
+1.7.3.4
