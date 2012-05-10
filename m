@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 07/17] mm: Ignore mempolicies when using ALLOC_NO_WATERMARK
-Date: Thu, 10 May 2012 14:45:00 +0100
-Message-ID: <1336657510-24378-8-git-send-email-mgorman@suse.de>
+Subject: [PATCH 05/17] mm: allow PF_MEMALLOC from softirq context
+Date: Thu, 10 May 2012 14:44:58 +0100
+Message-ID: <1336657510-24378-6-git-send-email-mgorman@suse.de>
 References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -9,55 +9,109 @@ Cc: Linux-MM <linux-mm@kvack.org>,
 	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Mel Gorman <mgorman@suse.de>
+	Eric B Munson <emunson@mgebm.net>, Mel Gorman <mgorman@suse.de>
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:37226 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753414Ab2EJNpW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2012 09:45:22 -0400
+Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <1336657510-24378-1-git-send-email-mgorman@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The reserve is proportionally distributed over all !highmem zones
-in the system. So we need to allow an emergency allocation access to
-all zones.  In order to do that we need to break out of any mempolicy
-boundaries we might have.
+This is needed to allow network softirq packet processing to make
+use of PF_MEMALLOC.
 
-In my opinion that does not break mempolicies as those are user
-oriented and not system oriented. That is, system allocations are
-not guaranteed to be within mempolicy boundaries. For instance IRQs
-do not even have a mempolicy.
+Currently softirq context cannot use PF_MEMALLOC due to it not being
+associated with a task, and therefore not having task flags to fiddle
+with - thus the gfp to alloc flag mapping ignores the task flags when
+in interrupts (hard or soft) context.
 
-So breaking out of mempolicy boundaries for 'rare' emergency
-allocations, which are always system allocations (as opposed to user)
-is ok.
+Allowing softirqs to make use of PF_MEMALLOC therefore requires some
+trickery.  We basically borrow the task flags from whatever process
+happens to be preempted by the softirq.
+
+So we modify the gfp to alloc flags mapping to not exclude task flags
+in softirq context, and modify the softirq code to save, clear and
+restore the PF_MEMALLOC flag.
+
+The save and clear, ensures the preempted task's PF_MEMALLOC flag
+doesn't leak into the softirq. The restore ensures a softirq's
+PF_MEMALLOC flag cannot leak back into the preempted process.
 
 Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- mm/page_alloc.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ include/linux/sched.h |    7 +++++++
+ kernel/softirq.c      |    9 +++++++++
+ mm/page_alloc.c       |    6 +++++-
+ 3 files changed, 21 insertions(+), 1 deletion(-)
 
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 81a173c..b5efaf4 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1913,6 +1913,13 @@ static inline void rcu_copy_process(struct task_struct *p)
+ 
+ #endif
+ 
++static inline void tsk_restore_flags(struct task_struct *task,
++				unsigned long orig_flags, unsigned long flags)
++{
++	task->flags &= ~flags;
++	task->flags |= orig_flags & flags;
++}
++
+ #ifdef CONFIG_SMP
+ extern void do_set_cpus_allowed(struct task_struct *p,
+ 			       const struct cpumask *new_mask);
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 671f959..b73e681 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -210,6 +210,14 @@ asmlinkage void __do_softirq(void)
+ 	__u32 pending;
+ 	int max_restart = MAX_SOFTIRQ_RESTART;
+ 	int cpu;
++	unsigned long old_flags = current->flags;
++
++	/*
++	 * Mask out PF_MEMALLOC s current task context is borrowed for the
++	 * softirq. A softirq handled such as network RX might set PF_MEMALLOC
++	 * again if the socket is related to swap
++	 */
++	current->flags &= ~PF_MEMALLOC;
+ 
+ 	pending = local_softirq_pending();
+ 	account_system_vtime(current);
+@@ -265,6 +273,7 @@ restart:
+ 
+ 	account_system_vtime(current);
+ 	__local_bh_enable(SOFTIRQ_OFFSET);
++	tsk_restore_flags(current, old_flags, PF_MEMALLOC);
+ }
+ 
+ #ifndef __ARCH_HAS_DO_SOFTIRQ
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 363ca90..e225a7c 100644
+index 6040520..3738596 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -2293,6 +2293,13 @@ rebalance:
+@@ -2211,7 +2211,11 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
+ 	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+ 		if (gfp_mask & __GFP_MEMALLOC)
+ 			alloc_flags |= ALLOC_NO_WATERMARKS;
+-		else if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
++		else if (in_serving_softirq() && (current->flags & PF_MEMALLOC))
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++		else if (!in_interrupt() &&
++				((current->flags & PF_MEMALLOC) ||
++				 unlikely(test_thread_flag(TIF_MEMDIE))))
+ 			alloc_flags |= ALLOC_NO_WATERMARKS;
+ 	}
  
- 	/* Allocate without watermarks if the context allows */
- 	if (alloc_flags & ALLOC_NO_WATERMARKS) {
-+		/*
-+		 * Ignore mempolicies if ALLOC_NO_WATERMARKS on the grounds
-+		 * the allocation is high priority and these type of
-+		 * allocations are system rather than user orientated
-+		 */
-+		zonelist = node_zonelist(numa_node_id(), gfp_mask);
-+
- 		page = __alloc_pages_high_priority(gfp_mask, order,
- 				zonelist, high_zoneidx, nodemask,
- 				preferred_zone, migratetype);
 -- 
 1.7.9.2
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
