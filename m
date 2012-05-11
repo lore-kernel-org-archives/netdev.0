@@ -1,58 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
-Date: Fri, 11 May 2012 14:29:32 -0700
-Message-ID: <20120511142932.af7851bd.akpm@linux-foundation.org>
-References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
-	<20120511.010445.1020972261904383892.davem@davemloft.net>
-	<20120511154540.GV11435@suse.de>
-	<20120511.172339.2007927803884694483.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: of/phy: fix build error when phylib is built as a
+ module
+Date: Fri, 11 May 2012 17:24:55 -0400 (EDT)
+Message-ID: <20120511.172455.120522633866860614.davem@davemloft.net>
+References: <20120510.224352.2149006669429730060.davem@davemloft.net>
+ <1336751221-19127-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mgorman@suse.de, linux-mm@kvack.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, neilb@suse.de, a.p.zijlstra@chello.nl,
- michaelc@cs.wisc.edu, emunson@mgebm.net
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120511.172339.2007927803884694483.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: sfr@canb.auug.org.au, david.daney@cavium.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
+ rdunlap@xenotime.net, linux-next@vger.kernel.org,
+ linuxppc-dev@lists.ozlabs.org
+To: bjorn@mork.no
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1336751221-19127-1-git-send-email-bjorn@mork.no>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 May 2012 17:23:39 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+From: Bj=F8rn Mork <bjorn@mork.no>
+Date: Fri, 11 May 2012 17:47:01 +0200
 
-> From: Mel Gorman <mgorman@suse.de>
-> Date: Fri, 11 May 2012 16:45:40 +0100
-> 
-> > From my point of view, the ideal would be that all the patches go
-> > through akpm's tree or yours but that probably will cause merge
-> > difficulties.
-> > 
-> > Any recommendations?
-> 
-> I know there will be networking side conflicts very soon, it's not a
-> matter of 'if' but 'when'.
-> 
-> But the trick is that I bet the 'mm' and 'slab' folks are in a similar
-> situation.
-> 
-> In any event I'm more than happy to take it all in my tree.
+> Should be wrapped into commit 25106022 if it works, to ensure
+> bisectability.
 
-I guess either is OK.  The main thing is to get it all reviewed and
-tested, after all.
+Wrapped into?
 
-I can take all the patches once it's all lined up and everyone is
-happy.  If the net bits later take significant damage then I can squirt them
-at you once the core MM bits are merged.  That would give you a few
-days to check them over and get them into Linus.  If that's a problem,
-we can hold the net bits over for a cycle.
-
-That's all assuming that the core MM parts are mergeable without the
-net parts being merged.  I trust that's the case!
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Commits made to my net-next tree are permanent and irreversible, so we
+cannot go back and change a commit.  I never rebase my tree, too many
+people use it directly and pull it into their tree, so I'd break their
+world if I ever did that.
