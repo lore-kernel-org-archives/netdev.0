@@ -1,37 +1,46 @@
-From: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH] wlcore: wlcore should depend on MAC80211
-Date: Fri, 11 May 2012 08:06:50 +0300
-Message-ID: <1336712810.12189.146.camel@cumari.coelho.fi>
-References: <1336711194-26883-1-git-send-email-levinsasha928@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
+Date: Fri, 11 May 2012 01:10:34 -0400 (EDT)
+Message-ID: <20120511.011034.557833140906762226.davem@davemloft.net>
+References: <1336658065-24851-1-git-send-email-mgorman@suse.de>
+	<1336658065-24851-2-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1336711194-26883-1-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
+        linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Trond.Myklebust@netapp.com, neilb@suse.de, hch@infradead.org,
+        a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
+To: mgorman@suse.de
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1336658065-24851-2-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-05-11 at 06:39 +0200, Sasha Levin wrote:
-> wlcore can't be built if MAC80211 isn't set.
+From: Mel Gorman <mgorman@suse.de>
+Date: Thu, 10 May 2012 14:54:14 +0100
+
+> It could happen that all !SOCK_MEMALLOC sockets have buffered so
+> much data that we're over the global rmem limit. This will prevent
+> SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
+> from running, which is needed to reduce the buffered data.
 > 
-> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
+> Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
+> 
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
 
-Thanks for your patch, Sasha! But this change was already submitted and
-has been applied in the wl12xx.git tree.  I've sent a pull request with
-it already, but it hasn't been pulled into wireless-next and up.
+This introduces an invariant which I am not so sure is enforced.
 
-http://www.spinics.net/lists/linux-next/msg19910.html
-http://www.spinics.net/lists/linux-wireless/msg89583.html
+With this change it is absolutely required that once a socket
+becomes SOCK_MEMALLOC it must never _ever_ lose that attribute.
 
--- 
-Cheers,
-Luca.
+Otherwise we can end up liberating global rmem tokens which we never
+actually took.
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
