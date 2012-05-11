@@ -1,81 +1,88 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 4/5] net: sh_eth: add support for
- set_ringparam/get_ringparam
-Date: Fri, 11 May 2012 16:27:10 +0100
-Message-ID: <1336750030.2874.65.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4FACD005.3010800@renesas.com>
+Subject: Re: [PATCH v2 5/5] net: sh_eth: use NAPI
+Date: Fri, 11 May 2012 16:35:29 +0100
+Message-ID: <1336750529.2874.69.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4FACD007.1070308@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	SH-Linux <linux-sh@vger.kernel.org>
 To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43910 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756722Ab2EKP1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 11:27:15 -0400
-In-Reply-To: <4FACD005.3010800@renesas.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4FACD007.1070308@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Fri, 2012-05-11 at 17:38 +0900, Shimoda, Yoshihiro wrote:
-> This patch supports the ethtool's set_ringparam() and get_ringparam().
+> This patch modifies the driver to use NAPI.
 [...]
-> +static int sh_eth_set_ringparam(struct net_device *ndev,
-> +				struct ethtool_ringparam *ring)
+> +static int sh_eth_poll(struct napi_struct *napi, int budget)
 > +{
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +	int ringsize;
+> +	struct sh_eth_private *mdp = container_of(napi, struct sh_eth_private,
+> +						  napi);
+> +	struct net_device *ndev = mdp->ndev;
+> +	struct sh_eth_cpu_data *cd = mdp->cd;
+> +	int work_done = 0, txfree_num;
+> +	u32 intr_status = sh_eth_read(ndev, EESR);
 > +
-> +	if (ring->tx_pending > TX_RING_MAX ||
-> +	    ring->rx_pending > RX_RING_MAX ||
-> +	    ring->tx_pending < TX_RING_MIN ||
-> +	    ring->rx_pending < RX_RING_MIN)
-> +		return -EINVAL;
-> +	if (ring->rx_mini_pending || ring->rx_jumbo_pending)
-> +		return -EINVAL;
+> +	/* Clear interrupt flags */
+> +	sh_eth_write(ndev, intr_status, EESR);
 > +
-> +	if (netif_running(ndev)) {
-> +		/* Disable interrupts by clearing the interrupt mask. */
-> +		sh_eth_write(ndev, 0x0000, EESIPR);
-> +		/* Stop the chip's Tx and Rx processes. */
-> +		sh_eth_write(ndev, 0, EDTRR);
-> +		sh_eth_write(ndev, 0, EDRRR);
+> +	/* check txdesc */
+> +	txfree_num = sh_eth_txfree(ndev);
+> +	if (txfree_num)
+>  		netif_wake_queue(ndev);
+> -	}
+> 
+> +	/* check rxdesc */
+> +	sh_eth_rx(ndev, &work_done, budget);
+> +
+> +	/* check error flags */
+>  	if (intr_status & cd->eesr_err_check)
+>  		sh_eth_error(ndev, intr_status);
+> 
+> -other_irq:
+> -	spin_unlock(&mdp->lock);
+> +	/* get current interrupt flags */
+> +	intr_status = sh_eth_read(ndev, EESR);
+> 
+> -	return ret;
+> +	/* check whether the controller doesn't have any events */
+> +	if (!txfree_num && !(intr_status & cd->eesr_err_check) &&
+> +	    work_done < budget) {
+> +		napi_complete(napi);
 
-You'll also need to call netif_tx_disable() and synchronize_irq().
+If and only if you return a value less than the budget then you *must*
+call napi_complete().  You can't add these extra conditions.
 
+> +		/* Enable all interrupts */
+> +		sh_eth_write(ndev, cd->eesipr_value, EESIPR);
 > +	}
 > +
-> +	/* Free all the skbuffs in the Rx queue. */
-> +	sh_eth_ring_free(ndev);
-> +	/* Free DMA buffer */
-> +	ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
-> +	dma_free_coherent(NULL, ringsize, mdp->rx_ring, mdp->rx_desc_dma);
-> +	ringsize = sizeof(struct sh_eth_txdesc) * mdp->num_tx_ring;
-> +	dma_free_coherent(NULL, ringsize, mdp->tx_ring, mdp->tx_desc_dma);
+> +	return work_done;
+>  }
+> 
+>  /* PHY state control function */
+> @@ -1565,6 +1590,8 @@ static int sh_eth_open(struct net_device *ndev)
+> 
+>  	pm_runtime_get_sync(&mdp->pdev->dev);
+> 
+> +	napi_enable(&mdp->napi);
 > +
-> +	/* Set new parameters */
-> +	mdp->num_rx_ring = ring->rx_pending;
-> +	mdp->num_tx_ring = ring->tx_pending;
+>  	ret = request_irq(ndev->irq, sh_eth_interrupt,
+>  #if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
+>  	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
+> @@ -1705,6 +1732,8 @@ static int sh_eth_close(struct net_device *ndev)
+>  		phy_disconnect(mdp->phydev);
+>  	}
+> 
+> +	napi_disable(&mdp->napi);
 > +
-> +	sh_eth_ring_init(ndev);
-> +	sh_eth_dev_init(ndev);
-
-And what if either of these fails?
-
-> +	if (netif_running(ndev)) {
-> +		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
-> +		/* Setting the Rx mode will start the Rx process. */
-> +		sh_eth_write(ndev, EDRRR_R, EDRRR);
-
-You'll need to call netif_wake_queue().
-
-> +	}
-> +
-> +	return 0;
-> +}
 [...]
+
+You will also need to call napi_disable() and napi_enable() in the
+set_ringparam implementation.
 
 Ben.
 
@@ -83,3 +90,4 @@ Ben.
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
+
