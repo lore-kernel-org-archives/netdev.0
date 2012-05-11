@@ -1,54 +1,150 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 01/15] batman-adv: fix wrong dhcp option list
-	browsing
-Date: Fri, 11 May 2012 14:21:18 +0200
-Message-ID: <1336738892-7401-2-git-send-email-ordex@autistici.org>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 05/15] batman-adv: rename last_valid to last_seen
+Date: Fri, 11 May 2012 14:21:22 +0200
+Message-ID: <1336738892-7401-6-git-send-email-ordex@autistici.org>
 References: <1336738892-7401-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1336738892-7401-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from investici.nine.ch ([217.150.252.179]:58256 "EHLO
+	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757671Ab2EKMZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:25:02 -0400
+In-Reply-To: <1336738892-7401-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In is_type_dhcprequest(), while parsing a DHCP message, if the entry we found in
-the option list is neither a padding nor the dhcp-type, we have to ignore it and
-jump as many bytes as its length + 1. The "+ 1" byte is given by the subtype
-field itself that has to be jumped too.
+From: Marek Lindner <lindner_marek@yahoo.de>
 
-Reported-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/gateway_client.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/batman-adv/bat_iv_ogm.c |    8 ++++----
+ net/batman-adv/originator.c |   16 ++++++++--------
+ net/batman-adv/types.h      |    8 ++++----
+ 3 files changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 6f9b9b7..47f7186 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -558,10 +558,10 @@ static bool is_type_dhcprequest(struct sk_buff *skb, int header_len)
- 			p++;
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index e0aaf8c..8652a75 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -651,7 +651,7 @@ static void bat_iv_ogm_orig_update(struct bat_priv *bat_priv,
+ 	rcu_read_unlock();
  
- 			/* ...and then we jump over the data */
--			if (pkt_len < *p)
-+			if (pkt_len < 1 + (*p))
- 				goto out;
--			pkt_len -= *p;
--			p += (*p);
-+			pkt_len -= 1 + (*p);
-+			p += 1 + (*p);
- 		}
- 	}
- out:
+ 	orig_node->flags = batman_ogm_packet->flags;
+-	neigh_node->last_valid = jiffies;
++	neigh_node->last_seen = jiffies;
+ 
+ 	spin_lock_bh(&neigh_node->tq_lock);
+ 	ring_buffer_set(neigh_node->tq_recv,
+@@ -772,11 +772,11 @@ static int bat_iv_ogm_calc_tq(struct orig_node *orig_node,
+ 	if (!neigh_node)
+ 		goto out;
+ 
+-	/* if orig_node is direct neighbor update neigh_node last_valid */
++	/* if orig_node is direct neighbor update neigh_node last_seen */
+ 	if (orig_node == orig_neigh_node)
+-		neigh_node->last_valid = jiffies;
++		neigh_node->last_seen = jiffies;
+ 
+-	orig_node->last_valid = jiffies;
++	orig_node->last_seen = jiffies;
+ 
+ 	/* find packet count of corresponding one hop neighbor */
+ 	spin_lock_bh(&orig_node->ogm_cnt_lock);
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index ce49698..21c1f83 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -283,7 +283,7 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 	hlist_for_each_entry_safe(neigh_node, node, node_tmp,
+ 				  &orig_node->neigh_list, list) {
+ 
+-		if ((has_timed_out(neigh_node->last_valid, PURGE_TIMEOUT)) ||
++		if ((has_timed_out(neigh_node->last_seen, PURGE_TIMEOUT)) ||
+ 		    (neigh_node->if_incoming->if_status == IF_INACTIVE) ||
+ 		    (neigh_node->if_incoming->if_status == IF_NOT_IN_USE) ||
+ 		    (neigh_node->if_incoming->if_status == IF_TO_BE_REMOVED)) {
+@@ -300,9 +300,9 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 					neigh_node->if_incoming->net_dev->name);
+ 			else
+ 				bat_dbg(DBG_BATMAN, bat_priv,
+-					"neighbor timeout: originator %pM, neighbor: %pM, last_valid: %lu\n",
++					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %lu\n",
+ 					orig_node->orig, neigh_node->addr,
+-					(neigh_node->last_valid / HZ));
++					(neigh_node->last_seen / HZ));
+ 
+ 			neigh_purged = true;
+ 
+@@ -325,10 +325,10 @@ static bool purge_orig_node(struct bat_priv *bat_priv,
+ {
+ 	struct neigh_node *best_neigh_node;
+ 
+-	if (has_timed_out(orig_node->last_valid, 2 * PURGE_TIMEOUT)) {
++	if (has_timed_out(orig_node->last_seen, 2 * PURGE_TIMEOUT)) {
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+-			"Originator timeout: originator %pM, last_valid %lu\n",
+-			orig_node->orig, (orig_node->last_valid / HZ));
++			"Originator timeout: originator %pM, last_seen %lu\n",
++			orig_node->orig, (orig_node->last_seen / HZ));
+ 		return true;
+ 	} else {
+ 		if (purge_orig_neighbors(bat_priv, orig_node,
+@@ -446,9 +446,9 @@ int orig_seq_print_text(struct seq_file *seq, void *offset)
+ 				goto next;
+ 
+ 			last_seen_secs = jiffies_to_msecs(jiffies -
+-						orig_node->last_valid) / 1000;
++						orig_node->last_seen) / 1000;
+ 			last_seen_msecs = jiffies_to_msecs(jiffies -
+-						orig_node->last_valid) % 1000;
++						orig_node->last_seen) % 1000;
+ 
+ 			seq_printf(seq, "%pM %4i.%03is   (%3i) %pM [%10s]:",
+ 				   orig_node->orig, last_seen_secs,
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 50e1895..9fa8b73 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -52,7 +52,7 @@ struct hard_iface {
+ /**
+  *	orig_node - structure for orig_list maintaining nodes of mesh
+  *	@primary_addr: hosts primary interface address
+- *	@last_valid: when last packet from this node was received
++ *	@last_seen: when last packet from this node was received
+  *	@bcast_seqno_reset: time when the broadcast seqno window was reset
+  *	@batman_seqno_reset: time when the batman seqno window was reset
+  *	@gw_flags: flags related to gateway class
+@@ -70,7 +70,7 @@ struct orig_node {
+ 	struct neigh_node __rcu *router; /* rcu protected pointer */
+ 	unsigned long *bcast_own;
+ 	uint8_t *bcast_own_sum;
+-	unsigned long last_valid;
++	unsigned long last_seen;
+ 	unsigned long bcast_seqno_reset;
+ 	unsigned long batman_seqno_reset;
+ 	uint8_t gw_flags;
+@@ -120,7 +120,7 @@ struct gw_node {
+ 
+ /**
+  *	neigh_node
+- *	@last_valid: when last packet via this neighbor was received
++ *	@last_seen: when last packet via this neighbor was received
+  */
+ struct neigh_node {
+ 	struct hlist_node list;
+@@ -131,7 +131,7 @@ struct neigh_node {
+ 	uint8_t tq_avg;
+ 	uint8_t last_ttl;
+ 	struct list_head bonding_list;
+-	unsigned long last_valid;
++	unsigned long last_seen;
+ 	DECLARE_BITMAP(real_bits, TQ_LOCAL_WINDOW_SIZE);
+ 	atomic_t refcount;
+ 	struct rcu_head rcu;
 -- 
 1.7.9.4
