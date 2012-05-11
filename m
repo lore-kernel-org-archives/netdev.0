@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] drivers/net: Convert compare_ether_addr to
- ether_addr_equal
-Date: Thu, 10 May 2012 23:35:34 -0400 (EDT)
-Message-ID: <20120510.233534.836223106369679267.davem@davemloft.net>
-References: <cover.1336618707.git.joe@perches.com>
-	<7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
+Subject: Re: [PATCH net-next] net_sched: update bstats in dequeue()
+Date: Thu, 10 May 2012 23:36:04 -0400 (EDT)
+Message-ID: <20120510.233604.758236662455118985.davem@davemloft.net>
+References: <1336664194.31653.8.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
-	ath9k-devel@venema.h4ckr.net
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:56729 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932919Ab2EKDgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:36:07 -0400
+In-Reply-To: <1336664194.31653.8.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed,  9 May 2012 20:17:46 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 10 May 2012 17:36:34 +0200
 
-> Use the new bool function ether_addr_equal to add
-> some clarity and reduce the likelihood for misuse
-> of compare_ether_addr for sorting.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Done via cocci script:
- ...
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Class bytes/packets stats can be misleading because they are updated in
+> enqueue() while packet might be dropped later.
+> 
+> We already fixed all qdiscs but sch_atm.
+> 
+> This patch makes the final cleanup.
+> 
+> class rate estimators can now match qdisc ones.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
