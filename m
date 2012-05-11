@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3][resend] bonding: don't increase rx_dropped after
- processing LACPDUs
-Date: Thu, 10 May 2012 23:31:34 -0400 (EDT)
-Message-ID: <20120510.233134.1390996845692589691.davem@davemloft.net>
-References: <20120509110140.GA9817@midget.suse.cz>
+Subject: Re: [PATCH net-next] be2net: avoid disabling sriov while VFs are
+ assigned
+Date: Thu, 10 May 2012 23:35:20 -0400 (EDT)
+Message-ID: <20120510.233520.938899377509037311.davem@davemloft.net>
+References: <647fcd25-8a85-4d63-a1ef-8b867832c2c7@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: andy@greyhouse.net, netdev@vger.kernel.org, fubar@us.ibm.com
-To: jbohac@suse.cz
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56695 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56708 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932408Ab2EKDdF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:33:05 -0400
-In-Reply-To: <20120509110140.GA9817@midget.suse.cz>
+	with ESMTP id S932408Ab2EKDfY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:35:24 -0400
+In-Reply-To: <647fcd25-8a85-4d63-a1ef-8b867832c2c7@exht1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmlyaSBCb2hhYyA8amJvaGFjQHN1c2UuY3o+DQpEYXRlOiBXZWQsIDkgTWF5IDIwMTIg
-MTM6MDE6NDAgKzAyMDANCg0KPiBTaW5jZSBjb21taXQgM2FiYTg5MWQsIGJvbmRpbmcgcHJvY2Vz
-c2VzIExBQ1AgZnJhbWVzICg4MDIuM2FkDQo+IG1vZGUpIHdpdGggYm9uZF9oYW5kbGVfZnJhbWUo
-KS4gQ3VycmVudGx5IGEgY29weSBvZiB0aGUgc2tiIGlzDQo+IG1hZGUgYW5kIHRoZSBvcmlnaW5h
-bCBpcyBsZWZ0IHRvIGJlIHByb2Nlc3NlZCBieSBvdGhlcg0KPiByeF9oYW5kbGVycyBhbmQgdGhl
-IHJlc3Qgb2YgdGhlIG5ldHdvcmsgc3RhY2sgYnkgcmV0dXJuaW5nDQo+IFJYX0hBTkRMRVJfQU5P
-VEhFUi4gIEFzIHRoZXJlIGlzIG5vIHByb3RvY29sIGhhbmRsZXIgZm9yDQo+IFBLVF9UWVBFX0xB
-Q1BEVSwgdGhlIGZyYW1lIGlzIGRyb3BwZWQgYW5kIGRldi0+cnhfZHJvcHBlZA0KPiBpbmNyZWFz
-ZWQuDQo+IA0KPiBGaXggdGhpcyBieSBtYWtpbmcgYm9uZF9oYW5kbGVfZnJhbWUoKSByZXR1cm4g
-UlhfSEFORExFUl9DT05TVU1FRA0KPiBpZiBib25kaW5nIGhhcyBwcm9jZXNzZWQgdGhlIExBQ1Ag
-ZnJhbWUuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBKaXJpIEJvaGFjIDxqYm9oYWNAc3VzZS5jej4N
-Cj4gDQoNCkRvbid0IHNlbmQgbWUgZ2FyYmFnZSB5b3UgZGlkbid0IGV2ZW4gY2hlY2sgdGhlIGNv
-bXBpbGUgb2Y6DQoNCmRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmM6IEluIGZ1bmN0aW9u
-IKFib25kX2hhbmRsZV9mcmFtZaI6DQpkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jOjE0
-NjM6MTM6IHdhcm5pbmc6IGFzc2lnbm1lbnQgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBl
-IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jOiBJ
-biBmdW5jdGlvbiChYm9uZF9vcGVuojoNCmRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmM6
-MzQ0MToyMTogd2FybmluZzogYXNzaWdubWVudCBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5
-cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmM6
-MzQ0ODoyMDogd2FybmluZzogYXNzaWdubWVudCBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5
-cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCg0K
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Wed, 9 May 2012 11:11:24 +0530
+
+> Calling pci_disable_sriov() while VFs are assigned to VMs causes
+> kernel panic. This patch uses PCI_DEV_FLAGS_ASSIGNED bit state of the
+> VF's pci_dev to avoid this. Also, the unconditional function reset cmd
+> issued on a PF probe can delete the VF configuration for the
+> previously enabled VFs. A scratchpad register is now used to issue a
+> function reset only when needed (i.e., in a crash dump scenario.)
+> 
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+
+Applied.
