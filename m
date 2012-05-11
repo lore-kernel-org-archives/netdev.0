@@ -1,45 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Do not use dead fib_info entries.
-Date: Thu, 10 May 2012 22:17:15 -0400 (EDT)
-Message-ID: <20120510.221715.297338661038042732.davem@davemloft.net>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: linux-next: Tree for May 10 (net/phy)
+Date: Thu, 10 May 2012 22:36:55 -0400
+Message-ID: <CAP=VYLon7XRoh9s==wGYjUPNAYaTk8QQx7FGRnaDR97v+O-zXA@mail.gmail.com>
+References: <20120510192635.c6f3a55196bbf65f13956e44@canb.auug.org.au> <4FAC35E2.4060900@xenotime.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yevgen.pronenko@sonymobile.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56236 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758485Ab2EKCRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 22:17:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4FAC35E2.4060900@xenotime.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Thu, May 10, 2012 at 5:40 PM, Randy Dunlap <rdunlap@xenotime.net> wrote:
+> On 05/10/2012 02:26 AM, Stephen Rothwell wrote:
+>
+>> Hi all,
+>>
+>> Changes since 20120508:
+>
+>
+>
+> ERROR: "of_mdio_find_bus" [drivers/net/phy/mdio-mux.ko] undefined!
+
+Not just randconfig, but also powerpc allmodconfig:
+
+http://kisskb.ellerman.id.au/kisskb/buildresult/6291463/
+
+Adding ppc ML to cc.
+
+P.
+--
 
 
-Due to RCU lookups and RCU based release, fib_info objects can
-be found during lookup which have fi->fib_dead set.
-
-We must ignore these entries, otherwise we risk dereferencing
-the parts of the entry which are being torn down.
-
-Reported-by: Yevgen Pronenko <yevgen.pronenko@sonymobile.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/fib_trie.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index bce36f1..30b88d7 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1370,6 +1370,8 @@ static int check_leaf(struct fib_table *tb, struct trie *t, struct leaf *l,
- 
- 			if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos)
- 				continue;
-+			if (fi->fib_dead)
-+				continue;
- 			if (fa->fa_info->fib_scope < flp->flowi4_scope)
- 				continue;
- 			fib_alias_accessed(fa);
--- 
-1.7.10.1
+>
+> Full randconfig file is attached.
+>
+> --
+> ~Randy
