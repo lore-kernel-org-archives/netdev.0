@@ -1,334 +1,114 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 03/15] batman-adv: introduce packet type handler array for incoming packets
-Date: Fri, 11 May 2012 14:21:20 +0200
-Message-ID: <1336738892-7401-4-git-send-email-ordex@autistici.org>
+Subject: [PATCH 06/15] batman-adv: replace HZ calculations with jiffies_to_msecs()
+Date: Fri, 11 May 2012 14:21:23 +0200
+Message-ID: <1336738892-7401-7-git-send-email-ordex@autistici.org>
 References: <1336738892-7401-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:58229 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:58307 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758387Ab2EKMZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:25:00 -0400
+	with ESMTP id S1758403Ab2EKMZF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:25:05 -0400
 In-Reply-To: <1336738892-7401-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Marek Lindner <lindner_marek@yahoo.de>
 
-The packet handler array replaces the growing switch statement, thus
-dealing with incoming packets in a more efficient way. It also adds
-to possibility to register packet handlers on the fly.
-
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/hard-interface.c |  113 ------------------------------------
- net/batman-adv/main.c           |  121 +++++++++++++++++++++++++++++++++++++++
- net/batman-adv/main.h           |    6 ++
- 3 files changed, 127 insertions(+), 113 deletions(-)
+ net/batman-adv/bat_debugfs.c |    4 ++--
+ net/batman-adv/originator.c  |   15 ++++++++++-----
+ net/batman-adv/send.c        |    2 +-
+ 3 files changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 47c79d7..95f869c 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -32,12 +32,6 @@
+diff --git a/net/batman-adv/bat_debugfs.c b/net/batman-adv/bat_debugfs.c
+index 916380c..3b588f8 100644
+--- a/net/batman-adv/bat_debugfs.c
++++ b/net/batman-adv/bat_debugfs.c
+@@ -83,8 +83,8 @@ int debug_log(struct bat_priv *bat_priv, const char *fmt, ...)
  
- #include <linux/if_arp.h>
+ 	va_start(args, fmt);
+ 	vscnprintf(tmp_log_buf, sizeof(tmp_log_buf), fmt, args);
+-	fdebug_log(bat_priv->debug_log, "[%10lu] %s",
+-		   (jiffies / HZ), tmp_log_buf);
++	fdebug_log(bat_priv->debug_log, "[%10u] %s",
++		   jiffies_to_msecs(jiffies), tmp_log_buf);
+ 	va_end(args);
  
--
--static int batman_skb_recv(struct sk_buff *skb,
--			   struct net_device *dev,
--			   struct packet_type *ptype,
--			   struct net_device *orig_dev);
--
- void hardif_free_rcu(struct rcu_head *rcu)
- {
- 	struct hard_iface *hard_iface;
-@@ -551,113 +545,6 @@ out:
- 	return NOTIFY_DONE;
- }
- 
--/* incoming packets with the batman ethertype received on any active hard
-- * interface */
--static int batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
--			   struct packet_type *ptype,
--			   struct net_device *orig_dev)
--{
--	struct bat_priv *bat_priv;
--	struct batman_ogm_packet *batman_ogm_packet;
--	struct hard_iface *hard_iface;
--	int ret;
--
--	hard_iface = container_of(ptype, struct hard_iface, batman_adv_ptype);
--	skb = skb_share_check(skb, GFP_ATOMIC);
--
--	/* skb was released by skb_share_check() */
--	if (!skb)
--		goto err_out;
--
--	/* packet should hold at least type and version */
--	if (unlikely(!pskb_may_pull(skb, 2)))
--		goto err_free;
--
--	/* expect a valid ethernet header here. */
--	if (unlikely(skb->mac_len != ETH_HLEN || !skb_mac_header(skb)))
--		goto err_free;
--
--	if (!hard_iface->soft_iface)
--		goto err_free;
--
--	bat_priv = netdev_priv(hard_iface->soft_iface);
--
--	if (atomic_read(&bat_priv->mesh_state) != MESH_ACTIVE)
--		goto err_free;
--
--	/* discard frames on not active interfaces */
--	if (hard_iface->if_status != IF_ACTIVE)
--		goto err_free;
--
--	batman_ogm_packet = (struct batman_ogm_packet *)skb->data;
--
--	if (batman_ogm_packet->header.version != COMPAT_VERSION) {
--		bat_dbg(DBG_BATMAN, bat_priv,
--			"Drop packet: incompatible batman version (%i)\n",
--			batman_ogm_packet->header.version);
--		goto err_free;
--	}
--
--	/* all receive handlers return whether they received or reused
--	 * the supplied skb. if not, we have to free the skb. */
--
--	switch (batman_ogm_packet->header.packet_type) {
--		/* batman originator packet */
--	case BAT_IV_OGM:
--		ret = recv_bat_ogm_packet(skb, hard_iface);
--		break;
--
--		/* batman icmp packet */
--	case BAT_ICMP:
--		ret = recv_icmp_packet(skb, hard_iface);
--		break;
--
--		/* unicast packet */
--	case BAT_UNICAST:
--		ret = recv_unicast_packet(skb, hard_iface);
--		break;
--
--		/* fragmented unicast packet */
--	case BAT_UNICAST_FRAG:
--		ret = recv_ucast_frag_packet(skb, hard_iface);
--		break;
--
--		/* broadcast packet */
--	case BAT_BCAST:
--		ret = recv_bcast_packet(skb, hard_iface);
--		break;
--
--		/* vis packet */
--	case BAT_VIS:
--		ret = recv_vis_packet(skb, hard_iface);
--		break;
--		/* Translation table query (request or response) */
--	case BAT_TT_QUERY:
--		ret = recv_tt_query(skb, hard_iface);
--		break;
--		/* Roaming advertisement */
--	case BAT_ROAM_ADV:
--		ret = recv_roam_adv(skb, hard_iface);
--		break;
--	default:
--		ret = NET_RX_DROP;
--	}
--
--	if (ret == NET_RX_DROP)
--		kfree_skb(skb);
--
--	/* return NET_RX_SUCCESS in any case as we
--	 * most probably dropped the packet for
--	 * routing-logical reasons. */
--
--	return NET_RX_SUCCESS;
--
--err_free:
--	kfree_skb(skb);
--err_out:
--	return NET_RX_DROP;
--}
--
- /* This function returns true if the interface represented by ifindex is a
-  * 802.11 wireless device */
- bool is_wifi_iface(int ifindex)
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 7913272..d19b935 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -39,6 +39,7 @@
- /* List manipulations on hardif_list have to be rtnl_lock()'ed,
-  * list traversals just rcu-locked */
- struct list_head hardif_list;
-+static int (*recv_packet_handler[256])(struct sk_buff *, struct hard_iface *);
- char bat_routing_algo[20] = "BATMAN IV";
- static struct hlist_head bat_algo_list;
- 
-@@ -46,11 +47,15 @@ unsigned char broadcast_addr[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
- 
- struct workqueue_struct *bat_event_workqueue;
- 
-+static void recv_handler_init(void);
-+
- static int __init batman_init(void)
- {
- 	INIT_LIST_HEAD(&hardif_list);
- 	INIT_HLIST_HEAD(&bat_algo_list);
- 
-+	recv_handler_init();
-+
- 	bat_iv_init();
- 
- 	/* the name should not be longer than 10 chars - see
-@@ -179,6 +184,122 @@ int is_my_mac(const uint8_t *addr)
  	return 0;
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 21c1f83..962636b 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -35,7 +35,8 @@ static void purge_orig(struct work_struct *work);
+ static void start_purge_timer(struct bat_priv *bat_priv)
+ {
+ 	INIT_DELAYED_WORK(&bat_priv->orig_work, purge_orig);
+-	queue_delayed_work(bat_event_workqueue, &bat_priv->orig_work, 1 * HZ);
++	queue_delayed_work(bat_event_workqueue,
++			   &bat_priv->orig_work, msecs_to_jiffies(1000));
  }
  
-+static int recv_unhandled_packet(struct sk_buff *skb,
-+				 struct hard_iface *recv_if)
-+{
-+	return NET_RX_DROP;
-+}
+ /* returns 1 if they are the same originator */
+@@ -274,6 +275,7 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 	struct hlist_node *node, *node_tmp;
+ 	struct neigh_node *neigh_node;
+ 	bool neigh_purged = false;
++	unsigned long last_seen;
+ 
+ 	*best_neigh_node = NULL;
+ 
+@@ -288,6 +290,8 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 		    (neigh_node->if_incoming->if_status == IF_NOT_IN_USE) ||
+ 		    (neigh_node->if_incoming->if_status == IF_TO_BE_REMOVED)) {
+ 
++			last_seen = neigh_node->last_seen;
 +
-+/* incoming packets with the batman ethertype received on any active hard
-+ * interface
-+ */
-+int batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
-+		    struct packet_type *ptype, struct net_device *orig_dev)
-+{
-+	struct bat_priv *bat_priv;
-+	struct batman_ogm_packet *batman_ogm_packet;
-+	struct hard_iface *hard_iface;
-+	uint8_t idx;
-+	int ret;
-+
-+	hard_iface = container_of(ptype, struct hard_iface, batman_adv_ptype);
-+	skb = skb_share_check(skb, GFP_ATOMIC);
-+
-+	/* skb was released by skb_share_check() */
-+	if (!skb)
-+		goto err_out;
-+
-+	/* packet should hold at least type and version */
-+	if (unlikely(!pskb_may_pull(skb, 2)))
-+		goto err_free;
-+
-+	/* expect a valid ethernet header here. */
-+	if (unlikely(skb->mac_len != ETH_HLEN || !skb_mac_header(skb)))
-+		goto err_free;
-+
-+	if (!hard_iface->soft_iface)
-+		goto err_free;
-+
-+	bat_priv = netdev_priv(hard_iface->soft_iface);
-+
-+	if (atomic_read(&bat_priv->mesh_state) != MESH_ACTIVE)
-+		goto err_free;
-+
-+	/* discard frames on not active interfaces */
-+	if (hard_iface->if_status != IF_ACTIVE)
-+		goto err_free;
-+
-+	batman_ogm_packet = (struct batman_ogm_packet *)skb->data;
-+
-+	if (batman_ogm_packet->header.version != COMPAT_VERSION) {
-+		bat_dbg(DBG_BATMAN, bat_priv,
-+			"Drop packet: incompatible batman version (%i)\n",
-+			batman_ogm_packet->header.version);
-+		goto err_free;
-+	}
-+
-+	/* all receive handlers return whether they received or reused
-+	 * the supplied skb. if not, we have to free the skb.
-+	 */
-+	idx = batman_ogm_packet->header.packet_type;
-+	ret = (*recv_packet_handler[idx])(skb, hard_iface);
-+
-+	if (ret == NET_RX_DROP)
-+		kfree_skb(skb);
-+
-+	/* return NET_RX_SUCCESS in any case as we
-+	 * most probably dropped the packet for
-+	 * routing-logical reasons.
-+	 */
-+	return NET_RX_SUCCESS;
-+
-+err_free:
-+	kfree_skb(skb);
-+err_out:
-+	return NET_RX_DROP;
-+}
-+
-+static void recv_handler_init(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(recv_packet_handler); i++)
-+		recv_packet_handler[i] = recv_unhandled_packet;
-+
-+	/* batman originator packet */
-+	recv_packet_handler[BAT_IV_OGM] = recv_bat_ogm_packet;
-+	/* batman icmp packet */
-+	recv_packet_handler[BAT_ICMP] = recv_icmp_packet;
-+	/* unicast packet */
-+	recv_packet_handler[BAT_UNICAST] = recv_unicast_packet;
-+	/* fragmented unicast packet */
-+	recv_packet_handler[BAT_UNICAST_FRAG] = recv_ucast_frag_packet;
-+	/* broadcast packet */
-+	recv_packet_handler[BAT_BCAST] = recv_bcast_packet;
-+	/* vis packet */
-+	recv_packet_handler[BAT_VIS] = recv_vis_packet;
-+	/* Translation table query (request or response) */
-+	recv_packet_handler[BAT_TT_QUERY] = recv_tt_query;
-+	/* Roaming advertisement */
-+	recv_packet_handler[BAT_ROAM_ADV] = recv_roam_adv;
-+}
-+
-+int recv_handler_register(uint8_t packet_type,
-+			  int (*recv_handler)(struct sk_buff *,
-+					      struct hard_iface *))
-+{
-+	if (recv_packet_handler[packet_type] != &recv_unhandled_packet)
-+		return -EBUSY;
-+
-+	recv_packet_handler[packet_type] = recv_handler;
-+	return 0;
-+}
-+
-+void recv_handler_unregister(uint8_t packet_type)
-+{
-+	recv_packet_handler[packet_type] = recv_unhandled_packet;
-+}
-+
- static struct bat_algo_ops *bat_algo_get(char *name)
- {
- 	struct bat_algo_ops *bat_algo_ops = NULL, *bat_algo_ops_tmp;
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index d9832ac..fd83acd 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -155,6 +155,12 @@ void mesh_free(struct net_device *soft_iface);
- void inc_module_count(void);
- void dec_module_count(void);
- int is_my_mac(const uint8_t *addr);
-+int batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
-+		    struct packet_type *ptype, struct net_device *orig_dev);
-+int recv_handler_register(uint8_t packet_type,
-+			  int (*recv_handler)(struct sk_buff *,
-+					      struct hard_iface *));
-+void recv_handler_unregister(uint8_t packet_type);
- int bat_algo_register(struct bat_algo_ops *bat_algo_ops);
- int bat_algo_select(struct bat_priv *bat_priv, char *name);
- int bat_algo_seq_print_text(struct seq_file *seq, void *offset);
+ 			if ((neigh_node->if_incoming->if_status ==
+ 								IF_INACTIVE) ||
+ 			    (neigh_node->if_incoming->if_status ==
+@@ -300,9 +304,9 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
+ 					neigh_node->if_incoming->net_dev->name);
+ 			else
+ 				bat_dbg(DBG_BATMAN, bat_priv,
+-					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %lu\n",
++					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %u\n",
+ 					orig_node->orig, neigh_node->addr,
+-					(neigh_node->last_seen / HZ));
++					jiffies_to_msecs(last_seen));
+ 
+ 			neigh_purged = true;
+ 
+@@ -327,8 +331,9 @@ static bool purge_orig_node(struct bat_priv *bat_priv,
+ 
+ 	if (has_timed_out(orig_node->last_seen, 2 * PURGE_TIMEOUT)) {
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+-			"Originator timeout: originator %pM, last_seen %lu\n",
+-			orig_node->orig, (orig_node->last_seen / HZ));
++			"Originator timeout: originator %pM, last_seen %u\n",
++			orig_node->orig,
++			jiffies_to_msecs(orig_node->last_seen));
+ 		return true;
+ 	} else {
+ 		if (purge_orig_neighbors(bat_priv, orig_node,
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 7c66b61..8e74d97 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -292,7 +292,7 @@ static void send_outstanding_bcast_packet(struct work_struct *work)
+ 	/* if we still have some more bcasts to send */
+ 	if (forw_packet->num_packets < 3) {
+ 		_add_bcast_packet_to_list(bat_priv, forw_packet,
+-					  ((5 * HZ) / 1000));
++					  msecs_to_jiffies(5));
+ 		return;
+ 	}
+ 
 -- 
 1.7.9.4
