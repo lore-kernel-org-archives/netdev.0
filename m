@@ -1,46 +1,111 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 1/6] skbuff: support per-page destructors in
- copy_ubufs
-Date: Fri, 11 May 2012 19:30:58 +0300
-Message-ID: <20120511163057.GB10344@redhat.com>
-References: <cover.1336397823.git.mst@redhat.com>
- <8a3235fbceef37758ef23169c4c152e8d1251d3b.1336397823.git.mst@redhat.com>
- <1336671977.14220.26.camel@zakaz.uk.xensource.com>
- <20120510184246.GE14647@redhat.com>
- <1336726800.23818.33.camel@zakaz.uk.xensource.com>
- <1336733892.23818.69.camel@zakaz.uk.xensource.com>
- <20120511120836.GA4637@redhat.com>
+From: "Andy Cress" <andy.cress@us.kontron.com>
+Subject: pch_gbe oops with vlan
+Date: Fri, 11 May 2012 11:49:59 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44DDF9055@ka-exchange-1.kontronamerica.local>
+References: <1336744796.31653.164.camel@edumazet-glaptop> <CABa6K_Fk07CUR1+hOx06cwJ5MuNYi7vpeLYFOc_1Qwmu5ubYhQ@mail.gmail.com> <1336749810.31653.176.camel@edumazet-glaptop> <1336752516.31653.196.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21123 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932622Ab2EKSaa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2012 14:30:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20120511120836.GA4637@redhat.com>
+Received: from mail.us.kontron.com ([209.118.138.70]:29862 "EHLO
+	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932215Ab2EKTJO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 15:09:14 -0400
+Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id u0WhKqB8bwOcS5Hm for <netdev@vger.kernel.org>; Fri, 11 May 2012 11:50:04 -0700 (PDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1336752516.31653.196.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 11, 2012 at 03:08:36PM +0300, Michael S. Tsirkin wrote:
-> On Fri, May 11, 2012 at 11:58:12AM +0100, Ian Campbell wrote:
-> > On Fri, 2012-05-11 at 10:00 +0100, Ian Campbell wrote:
-> > > I'm seeing copy_ubufs called in my remote NFS test, which I don't
-> > > think I expected -- I'll investigate why this is happening today. 
-> > 
-> > It's tcp_transmit_skb which can (conditionally) call skb_clone
-> > (backtrace below)
-> 
-> Interesting. I didn't realise we clone skbs on data path:
-> tcp_write_xmit calls tcp_transmit_skb with clone_it flag.
-> Could someone comment on why we need to clone on good path
-> like this?
-
-Hmm, it's in case we need to retransmit it later.
-
-> -- 
-> MST
+Rm9sa3MsDQoNCkkgYW0gbG9va2luZyBmb3IgaGVscCBpbiBkZWJ1Z2dpbmcg
+YSBwY2hfZ2JlIGRyaXZlciBvb3BzL2Fib3J0Lg0KDQpLZXJuZWw6IHZlcnNp
+b24gMi42LjMyLTIyMC5lbDYuaTY4NiAoUkhFTDYuMikNCkRyaXZlcjogcGNo
+X2diZSB2ZXJzaW9uIDAuOTEtTkFQSSAgKHNvdXJjZSB0YXJiYWxsIHdlIHVz
+ZWQgaXMgYXQgaHR0cHM6Ly9zZW5kZmlsZS5rb250cm9uLmNvbS9tZXNzYWdl
+LzI0dGRVaTZNWGtsblV0QkxuT3N1bXEgdW50aWwgTWF5IDE2KQ0KTklDOiAw
+YjowMC4xIEV0aGVybmV0IGNvbnRyb2xsZXIgWzAyMDBdOiBJbnRlbCBDb3Jw
+b3JhdGlvbiBQbGF0Zm9ybSBDb250cm9sbGVyIEh1YiBFRzIwVCBHaWdhYml0
+IEV0aGVybmV0IENvbnRyb2xsZXIgWzgwODY6ODgwMl0gKHJldiAwMikNCg0K
+Q29uZmlndXJhdGlvbiwgd2l0aCBWTEFOOg0KIGV0aDAgKG5vdCBzdGFydGVk
+KQ0KIGV0aDAuMTAwID0gMTkyLjE2OC4xMDAuMSANCiBldGgwLjIwMCA9IDE5
+Mi4xNjguMjAwLjEgDQogZXRoMC42ICA9IDE5Mi4xNjguNi4xDQoNCldoZW4g
+c3RhcnRpbmcgdGhlIFZMQU4gY29uZmlndXJhdGlvbiwgdGhlbiBkb2luZyBh
+IHBpbmcgdGVzdCBmb3IgPj0gNSBtaW51dGVzLCBJIGdldCBhIGtlcm5lbCBv
+b3AvYWJvcnQgbWVzc2FnZSBhcyBzaG93biBiZWxvdy4gIFRoaXMgZG9lcyBu
+b3QgaGFwcGVuIHdpdGhvdXQgY29uZmlndXJpbmcgVkxBTi4NCldoZXJlIHNo
+b3VsZCBJIGxvb2sgZm9yIHBvc3NpYmxlIGNhdXNlcyBmb3IgYSB0cmFuc21p
+dCBxdWV1ZSB0aW1lb3V0IGxpa2UgdGhpcz8gIA0KDQpJIGhhdmUgY29udGFj
+dGVkIHRoZSBPS0kvTEFQSVMgZHJpdmVyIGF1dGhvcnMsIGJ1dCBubyByZXNw
+b25zZSBzbyBmYXIuICBJIHRob3VnaHQgdGhhdCB0aGlzIGdyb3VwIG1pZ2h0
+IGJlIGFibGUgdG8gY29tbWVudCBmcm9tIHNpbWlsYXIgZXhwZXJpZW5jZXMu
+DQoNCkFuZHkNCg0KTWF5IDExIDExOjA2OjA5IGtvbnRyb24ga2VybmVsOiAt
+LS0tLS0tLS0tLS1bIGN1dCBoZXJlIF0tLS0tLS0tLS0tLS0NCk1heSAxMSAx
+MTowNjowOSBrb250cm9uIGtlcm5lbDogV0FSTklORzogYXQgbmV0L3NjaGVk
+L3NjaF9nZW5lcmljLmM6MjYxIGRldl93YXRjaGRvZysweDFlYy8weDIwMCgp
+IChOb3QgdGFpbnRlZCkNCk1heSAxMSAxMTowNjowOSBrb250cm9uIGtlcm5l
+bDogSGFyZHdhcmUgbmFtZTogTi9BDQpNYXkgMTEgMTE6MDY6MDkga29udHJv
+biBrZXJuZWw6IE5FVERFViBXQVRDSERPRzogZXRoMCAocGNoX2diZSk6IHRy
+YW5zbWl0IHF1ZXVlIDAgdGltZWQgb3V0DQpNYXkgMTEgMTE6MDY6MDkga29u
+dHJvbiBrZXJuZWw6IE1vZHVsZXMgbGlua2VkIGluOiBmdXNlIGlwNnRhYmxl
+X2ZpbHRlciBpcDZfdGFibGVzIGlwdF9NQVNRVUVSQURFIGlwdGFibGVfbmF0
+IG5mX25hdCBuZl9jb25udHJhY2tfaXB2NCBuZl9kZWZyYWdfaXB2NCB4dF9z
+dGF0ZSBuZl9jb25udHJhY2sgaXB0X1JFSkVDVCB4dF9DSEVDS1NVTSBpcHRh
+YmxlX21hbmdsZSBpcHRhYmxlX2ZpbHRlciBpcF90YWJsZXMgdHVuIGJyaWRn
+ZSBhdXRvZnM0IHN1bnJwYyBjcHVmcmVxX29uZGVtYW5kIGFjcGlfY3B1ZnJl
+cSBtcGVyZiA4MDIxcSBnYXJwIHN0cCBsbGMgaXB2NiBleHQzIGpiZCB1aW5w
+dXQgcHBkZXYgcGFycG9ydF9wYyBwYXJwb3J0IHNnIG1pY3JvY29kZSBwY2hf
+Z2JlKFUpIG1paSBzZXJpb19yYXcgc25kX2hkYV9jb2RlY19yZWFsdGVrIHNu
+ZF9oZGFfaW50ZWwgc25kX2hkYV9jb2RlYyBzbmRfaHdkZXAgc25kX3NlcSBz
+bmRfc2VxX2RldmljZSBzbmRfcGNtIHNuZF90aW1lciBzbmQgc291bmRjb3Jl
+IHNuZF9wYWdlX2FsbG9jIGV4dDQgbWJjYWNoZSBqYmQyIHNkX21vZCBjcmNf
+dDEwZGlmIGFoY2kgc2RoY2lfcGNpIHNkaGNpIG1tY19jb3JlIHZpZGVvIG91
+dHB1dCBkbV9taXJyb3IgZG1fcmVnaW9uX2hhc2ggZG1fbG9nIGRtX21vZCBb
+bGFzdCB1bmxvYWRlZDogc2NzaV93YWl0X3NjYW5dDQpNYXkgMTEgMTE6MDY6
+MDkga29udHJvbiBrZXJuZWw6IFBpZDogMCwgY29tbTogc3dhcHBlciBOb3Qg
+dGFpbnRlZCAyLjYuMzItMjIwLmVsNi5pNjg2ICMxDQpNYXkgMTEgMTE6MDY6
+MDkga29udHJvbiBrZXJuZWw6IENhbGwgVHJhY2U6DQpNYXkgMTEgMTE6MDY6
+MDkga29udHJvbiBrZXJuZWw6IFs8YzA0NTRjODE+XSA/IHdhcm5fc2xvd3Bh
+dGhfY29tbW9uKzB4ODEvMHhjMA0KTWF5IDExIDExOjA2OjA5IGtvbnRyb24g
+a2VybmVsOiBbPGMwN2ExNmJjPl0gPyBkZXZfd2F0Y2hkb2crMHgxZWMvMHgy
+MDANCk1heSAxMSAxMTowNjowOSBrb250cm9uIGtlcm5lbDogWzxjMDdhMTZi
+Yz5dID8gZGV2X3dhdGNoZG9nKzB4MWVjLzB4MjAwDQpNYXkgMTEgMTE6MDY6
+MDkga29udHJvbiBrZXJuZWw6IFs8YzA0NTRkNTM+XSA/IHdhcm5fc2xvd3Bh
+dGhfZm10KzB4MzMvMHg0MA0KTWF5IDExIDExOjA2OjA5IGtvbnRyb24ga2Vy
+bmVsOiBbPGMwN2ExNmJjPl0gPyBkZXZfd2F0Y2hkb2crMHgxZWMvMHgyMDAN
+Ck1heSAxMSAxMTowNjowOSBrb250cm9uIGtlcm5lbDogWzxjMDQ3MWJmYT5d
+ID8gaW5zZXJ0X3dvcmsrMHg1YS8weGIwDQpNYXkgMTEgMTE6MDY6MDkga29u
+dHJvbiBrZXJuZWw6IFs8YzA0NjU2Zjk+XSA/IHJ1bl90aW1lcl9zb2Z0aXJx
+KzB4MTM5LzB4MmMwDQpNYXkgMTEgMTE6MDY6MDkga29udHJvbiBrZXJuZWw6
+IFs8YzA4MzEzMTU+XSA/IGFwaWNfdGltZXJfaW50ZXJydXB0KzB4MzEvMHgz
+OA0KTWF5IDExIDExOjA2OjA5IGtvbnRyb24ga2VybmVsOiBbPGMwN2ExNGQw
+Pl0gPyBkZXZfd2F0Y2hkb2crMHgwLzB4MjAwDQpNYXkgMTEgMTE6MDY6MDkg
+a29udHJvbiBrZXJuZWw6IFs8YzA0NWJlNGE+XSA/IF9fZG9fc29mdGlycSsw
+eDhhLzB4MWEwDQpNYXkgMTEgMTE6MDY6MDkga29udHJvbiBrZXJuZWw6IFs8
+YzA0NWJmOWQ+XSA/IGRvX3NvZnRpcnErMHgzZC8weDUwDQpNYXkgMTEgMTE6
+MDY6MDkga29udHJvbiBrZXJuZWw6IFs8YzA0NWMwZjU+XSA/IGlycV9leGl0
+KzB4NjUvMHg3MA0KTWF5IDExIDExOjA2OjA5IGtvbnRyb24ga2VybmVsOiBb
+PGMwNDI4NDczPl0gPyBzbXBfYXBpY190aW1lcl9pbnRlcnJ1cHQrMHg1My8w
+eDkwDQpNYXkgMTEgMTE6MDY6MDkga29udHJvbiBrZXJuZWw6IFs8YzA4MzEz
+MTU+XSA/IGFwaWNfdGltZXJfaW50ZXJydXB0KzB4MzEvMHgzOA0KTWF5IDEx
+IDExOjA2OjA5IGtvbnRyb24ga2VybmVsOiBbPGMwNDUwMDdiPl0gPyB0aHJv
+dHRsZV9jZnNfcnErMHg2Yi8weDEzMA0KTWF5IDExIDExOjA2OjA5IGtvbnRy
+b24ga2VybmVsOiBbPGMwNjQ3MzVmPl0gPyBpbnRlbF9pZGxlKzB4YWYvMHgx
+NDANCk1heSAxMSAxMTowNjowOSBrb250cm9uIGtlcm5lbDogWzxjMDc1YzI4
+Mj5dID8gY3B1aWRsZV9pZGxlX2NhbGwrMHg3Mi8weDEwMA0KTWF5IDExIDEx
+OjA2OjA5IGtvbnRyb24ga2VybmVsOiBbPGMwNDA4OTY0Pl0gPyBjcHVfaWRs
+ZSsweDk0LzB4ZDANCk1heSAxMSAxMTowNjowOSBrb250cm9uIGtlcm5lbDog
+WzxjMDgyYTY0NT5dID8gc3RhcnRfc2Vjb25kYXJ5KzB4MjBkLzB4MjUyDQpN
+YXkgMTEgMTE6MDY6MDkga29udHJvbiBrZXJuZWw6IC0tLVsgZW5kIHRyYWNl
+IDM2NzJmZjU2NTAwYWUzNDQgXS0tLQ0KTWF5IDExIDExOjA2OjA5IGtvbnRy
+b24gTmV0d29ya01hbmFnZXJbMTYwOF06IDxpbmZvPiAoZXRoMCk6IGNhcnJp
+ZXIgbm93IE9GRiAoZGV2aWNlIHN0YXRlIDMpDQpNYXkgMTEgMTE6MDY6MDkg
+a29udHJvbiBOZXR3b3JrTWFuYWdlclsxNjA4XTogPGluZm8+IChldGgwKTog
+ZGV2aWNlIHN0YXRlIGNoYW5nZTogMyAtPiAyIChyZWFzb24gNDApDQpNYXkg
+MTEgMTE6MDY6MDkga29udHJvbiBOZXR3b3JrTWFuYWdlclsxNjA4XTogPGlu
+Zm8+IChldGgwKTogZGVhY3RpdmF0aW5nIGRldmljZSAocmVhc29uOiA0MCku
+DQpNYXkgMTEgMTE6MDY6MTAga29udHJvbiBhYnJ0ZDogRGlyZWN0b3J5ICdv
+b3BzLTIwMTItMDUtMTEtMTE6MDY6MTAtMTkyNC0wJyBjcmVhdGlvbiBkZXRl
+Y3RlZA0KTWF5IDExIDExOjA2OjEwIGtvbnRyb24gYWJydC1kdW1wLW9vcHM6
+IFJlcG9ydGVkIDEga2VybmVsIG9vcHNlcyB0byBBYnJ0DQo=
