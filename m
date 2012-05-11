@@ -1,142 +1,187 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: Re: Information leakage from RDS protocol
-Date: Fri, 11 May 2012 07:57:32 -0500
-Message-ID: <4FAD0CBC.2040105@oracle.com>
-References: <20120508161048.GE14179@redhat.com> <CA+55aFwzv5vjGsiZCjVfZkK3UL3K=Ha2pk_AweemZzsC6f-E9w@mail.gmail.com> <20120508182239.GA21089@redhat.com> <4FAA8AA5.2000709@oracle.com> <20120509155709.GA29413@redhat.com> <4FABE0F8.6070806@oracle.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v5] tilegx network driver: initial support
+Date: Fri, 11 May 2012 14:54:05 +0100
+Message-ID: <1336744445.2874.57.camel@bwh-desktop.uk.solarflarecom.com>
+References: <201205011759.q41HxR21020043@farm-0012.internal.tilera.com>
+	 <20120503.014156.149171097979026872.davem@davemloft.net>
+	 <201205031936.q43Ja9Xb031644@lab-41.internal.tilera.com>
+	 <20120504.024216.1730395431103337434.davem@davemloft.net>
+	 <201205091452.q49EqcO7005975@farm-0027.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	security@kernel.org, eugene@redhat.com, pmatouse@redhat.com,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com
-To: Jay Fenlason <fenlason@redhat.com>
+Cc: David Miller <davem@davemloft.net>, <arnd@arndb.de>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Chris Metcalf <cmetcalf@tilera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:48613 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757321Ab2EKM5n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:57:43 -0400
-In-Reply-To: <4FABE0F8.6070806@oracle.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:46900 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1759847Ab2EKNyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 09:54:12 -0400
+In-Reply-To: <201205091452.q49EqcO7005975@farm-0027.internal.tilera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/10/2012 10:38 AM, Venkat Venkatsubra wrote:
-> On 5/9/2012 10:57 AM, Jay Fenlason wrote:
->> On Wed, May 09, 2012 at 10:17:57AM -0500, Venkat Venkatsubra wrote:
->>> On 5/8/2012 1:22 PM, Jay Fenlason wrote:
->>>>> On Tue, May 8, 2012 at 9:10 AM, Jay 
->>>>> Fenlason<fenlason@redhat.com>   wrote:
->>>>>> recvfrom() on an RDS socket can return the contents of random(?)
->>>>>> kernel memory to userspace if it was called with a address
->>>>>> length larger than sizeof(struct sockaddr_in). ?rds_recvmsg() also
->>>>>> fails to set the addr_len paramater properly before returning, but
->>>>>> that's just a bug.
->>>>>>
->>>>>> There are also a number of cases wher recvfrom() can return an 
->>>>>> entirely
->>>>>> bogus address. ?Anything in rds_recvmsg() that returns a
->>>>>> non-negative value but does not go through the
->>>>>> ? "sin = (struct sockaddr_in *)msg->msg_name;"
->>>>>> code path at the end of the while(1) loop will return up to 128
->>>>>> bytes of kernel memory to userspace.
->>>>>>
->>>>>> Also, on a receive race, the message that was copied to userspace 
->>>>>> but
->>>>>> received by someone else is not zeroed, meaning that if the next
->>>>>> message it receives is smaller, the tail of the raced message is
->>>>>> leaked. ?I'm not sure how serious this is, but unexpectedly 
->>>>>> scribbling
->>>>>> on userspace memory (even if it is part of a buffer that userspace
->>>>>> asked us to write to) should be avoided.
->>>>>>
->>>> On Tue, May 08, 2012 at 11:04:01AM -0700, Linus Torvalds wrote:
->>>>> Please cc David Miller too on these things, and make sure he knows
->>>>> there's no embargo or anything (he won't touch it if there is). Maybe
->>>>> you don't want public mailing lists, but in general, the more open we
->>>>> can be, the better.
->>>> Added.  Nobody has said anything about any embargo to me, either
->>>> that they want one or that there shouldn't be one.  Personally, I
->>>> don't see any reason to embargo this, but I'm not on any
->>>> security-response teams.
->>>>
->>>>> This seems unfortunate, but at least the address thing is limited to
->>>>> sizeof(sockaddr_storage) and is kernel stack - which in turn means
->>>>> that while it potentially leaks kernel addresses (bad!), it almost
->>>>> certainly won't leak anything fundamentally interesting (ie you can't
->>>>> read arbitrary kernel memory and find plaintext passwords etc).
->>>>>
->>>>> I assume the fix is a trivial
->>>>>
->>>>>    msg->msg_namelen = sizeof(*sin);
->>>>>
->>>>> in rds_recvmsg() where it sets up the address?
->>>> That fixes the case where it actually sets up the address, but won't
->>>> fix the cases where it doesn't even do that.  I don't think anyone
->>>> ever thought about what the source address should be for a message
->>>> that was generated internally by the kernel.  I think the obvious
->>>> possibilities are msg_namelen = 0 (no address) and 127.0.0.1
->>>>
->>>>> I do wonder if maybe recvmsg() should initialize msg_namelen to 0
->>>>> instead of the size of the buffer before calling the low-level 
->>>>> recvmsg
->>>>> function - so that protocols would have to explicitly set the size to
->>>>> the right value. But that would need much more validation.
->>>> That would require checking/fixing all of the low-level functions,
->>>> which will then have to know that the buffer pointed to by msg is at
->>>> most sizeof(struct sockaddr_storage) bytes.  I think it's better to
->>>> keep the size of the address buffer there, so the low-level functions
->>>> can confirm that the address data they're about to stuff in there
->>>> won't overflow the buffer.  (That way if we ever change the size of
->>>> the buffer, only one place has to change.)
->>>>
->>>> And the whole rds recieve subsystem needs a bit of a rewrite to close
->>>> the information-leaking receive race.  Keeping the semantics correct
->>>> in regards to MSG_PEEK and multiple threads reading the socket at the
->>>> same time may be tricky.
->>>>
->>>>         -- JF
->>>>
->>> How about adding the suggested "msg->msg_namelen = sizeof(*sin);"
->>> line at the top of rds_recvmsg ?
->>> And "msg->msg_namelen = 0;" in the below "break;" cases ? I am
->>> assuming the apps wouldn't need to look at msg_name in these cases.
->>>                  if (!list_empty(&rs->rs_notify_queue)) {
->>>                          ret = rds_notify_queue_get(rs, msg);
->>>                          break;
->>>                  }
->>>
->>>                  if (rs->rs_cong_notify) {
->>>                          ret = rds_notify_cong(rs, msg);
->>>                          break;
->>>                  }
->> Wouldn't it be better to set msg->msg_namelen = 0 at the top of the
->> function, and only set it to sizeof(*sin) after msg->msg_name is
->> filled in?  That'll prevent accidental disclosure of kernel memory via
->> unanticipated code paths.
->>
->>> And, shouldn't an error be returned for the case below ? Currently
->>> zero is returned.
->>>
->>>          if (msg_flags&  MSG_OOB)
->>>                  goto out;
->>> An error such as EOPNOTSUPP ?
->> I don't know.  I'm not a networking expert.  From what I've found
->> googling, EINVAL would be more correct that ENOTSUPP.
->>
->> This only leaves the datagram contents leak to userspace when multiple
->> threads race on receiving a datagram and the subsequent datagram is
->> smaller.  That one will be hard to fix, most notably because the
->> obvious fixes I've looked at involve losing a datagram if either of
->>    inc->i_conn->c_trans->inc_copy_to_user()
->> or
->>    rds_cmsg_recv()
->> fail.  I don't know how likely either of those are, but losing
->> datagrams seems like an inappropriate behavior for a reliable datagram
->> subsystem.
->>
-> Moving the discussion to netdev.
->
-> Venkat
-Forgot to include rds-devel.
+Here's another very incomplete review for you.
 
-Venkat
+On Wed, 2012-05-09 at 06:42 -0400, Chris Metcalf wrote:
+> This change adds support for the tilegx network driver based on the
+> GXIO IORPC support in the tilegx software stack, using the on-chip
+> mPIPE packet processing engine.
+[...]
+> --- /dev/null
+> +++ b/drivers/net/ethernet/tile/tilegx.c
+[...]
+> +/* Define to support GSO. */
+> +#undef TILE_NET_GSO
+
+GSO is always enabled by the networking core.
+
+> +/* Define to support TSO. */
+> +#define TILE_NET_TSO
+
+No, put NETIF_F_TSO in hw_features so it can be switched at run-time.
+
+(Currently that won't work if you don't set dev->ethtool_ops, but that's
+a bug that can be fixed.)
+
+> +/* Use 3000 to enable the Linux Traffic Control (QoS) layer, else 0. */
+> +#define TILE_NET_TX_QUEUE_LEN 0
+
+This can be changed through sysfs, so there is no need for a compile-
+time option.
+
+> +/* Define to dump packets (prints out the whole packet on tx and rx). */
+> +#undef TILE_NET_DUMP_PACKETS
+
+Should really be controlled through a 'debug' module parameter (see
+netif_msg_init(), netif_msg_pktdata(), etc.)
+
+[...]
+> +/* Total header bytes per equeue slot.  Must be big enough for 2 bytes
+> + * of NET_IP_ALIGN alignment, plus 14 bytes (?) of L2 header, plus up to
+> + * 60 bytes of actual TCP header.  We round up to align to cache lines.
+> + */
+> +#define HEADER_BYTES 128
+> +
+> +/* Maximum completions per cpu per device (must be a power of two).
+> + * ISSUE: What is the right number here?
+> + */
+> +#define TILE_NET_MAX_COMPS 64
+> +
+> +#define MAX_FRAGS (65536 / PAGE_SIZE + 2 + 1)
+
+Should be MAX_SKB_FRAGS + 1.
+
+[...]
+> +/* Help the kernel transmit a packet. */
+> +static int tile_net_tx(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	struct tile_net_priv *priv = netdev_priv(dev);
+> +
+> +	struct tile_net_info *info = &__get_cpu_var(per_cpu_info);
+> +
+> +	struct tile_net_egress *egress = &egress_for_echannel[priv->echannel];
+> +	gxio_mpipe_equeue_t *equeue = egress->equeue;
+> +
+> +	struct tile_net_comps *comps =
+> +		info->comps_for_echannel[priv->echannel];
+> +
+> +	struct skb_shared_info *sh = skb_shinfo(skb);
+> +
+> +	unsigned int len = skb->len;
+> +	unsigned char *data = skb->data;
+> +
+> +	unsigned int num_frags;
+> +	struct frag frags[MAX_FRAGS];
+> +	gxio_mpipe_edesc_t edescs[MAX_FRAGS];
+> +
+> +	unsigned int i;
+> +
+> +	int cid;
+> +
+> +	s64 slot;
+> +
+> +	unsigned long irqflags;
+
+Please, no blank lines between your declarations.
+
+[...]
+> +	/* Reserve slots, or return NETDEV_TX_BUSY if "full". */
+> +	slot = gxio_mpipe_equeue_try_reserve(equeue, num_frags);
+> +	if (slot < 0) {
+> +		local_irq_restore(irqflags);
+> +		/* ISSUE: "Virtual device xxx asks to queue packet". */
+> +		return NETDEV_TX_BUSY;
+> +	}
+
+You're supposed to stop queues when they're full.  And since that state
+appears to be per-CPU, I think this device needs to be multiqueue with
+one TX queue per CPU and ndo_select_queue defined accordingly.
+
+> +	for (i = 0; i < num_frags; i++)
+> +		gxio_mpipe_equeue_put_at(equeue, edescs[i], slot + i);
+> +
+> +	/* Wait for a free completion entry.
+> +	 * ISSUE: Is this the best logic?
+> +	 * ISSUE: Can this cause undesirable "blocking"?
+> +	 */
+> +	while (comps->comp_next - comps->comp_last >= TILE_NET_MAX_COMPS - 1)
+> +		tile_net_free_comps(equeue, comps, 32, false);
+
+I'm not convinced you should be processing completions here at all.  But
+certainly you should have stopped the queue earlier rather than having
+to wait here.
+
+> +	/* Update the completions array. */
+> +	cid = comps->comp_next % TILE_NET_MAX_COMPS;
+> +	comps->comp_queue[cid].when = slot + num_frags;
+> +	comps->comp_queue[cid].skb = skb;
+> +	comps->comp_next++;
+> +
+> +	/* HACK: Track "expanded" size for short packets (e.g. 42 < 60). */
+> +	atomic_add(1, (atomic_t *)&priv->stats.tx_packets);
+> +	atomic_add((len >= ETH_ZLEN) ? len : ETH_ZLEN,
+> +		   (atomic_t *)&priv->stats.tx_bytes);
+
+You mustn't treat random fields to atomic_t.  For one thing, atomic_t
+contains an int while stats are unsigned long...
+
+Also, you're adding cache contention between all your CPUs here.  You
+should maintain these stats per-CPU and then sum them in
+tile_net_get_stats().  Then you can just use ordinary additions.
+
+[...]
+> +/* Ioctl commands. */
+> +static int tile_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+> +{
+> +	return -EOPNOTSUPP;
+> +}
+
+So why define it at all?
+
+[...]
+> +static void tile_net_dev_init(const char *name, const uint8_t *mac)
+> +{
+[...]
+> +	/* Register the network device. */
+> +	ret = register_netdev(dev);
+> +	if (ret) {
+> +		netdev_err(dev, "register_netdev failed %d\n", ret);
+> +		free_netdev(dev);
+> +		return;
+> +	}
+> +
+> +	/* Get the MAC address and set it in the device struct; this must
+> +	 * be done before the device is opened.
+[...]
+
+So you had better do this before calling register_netdev(), as the
+device can be opened immediately after that...
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
