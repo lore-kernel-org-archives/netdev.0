@@ -1,62 +1,91 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: take iphdr size into account for esp payload
- size calculation
-Date: Fri, 11 May 2012 12:39:35 +0200
-Message-ID: <20120511103935.GA1841@secunet.com>
-References: <1336602952-10479-1-git-send-email-bpoirier@suse.de>
- <20120510121857.GJ1021@secunet.com>
- <20120511010249.GA23584@d2.synalogic.ca>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH RFC 1/6] skbuff: support per-page destructors in
+ copy_ubufs
+Date: Fri, 11 May 2012 11:58:12 +0100
+Message-ID: <1336733892.23818.69.camel@zakaz.uk.xensource.com>
+References: <cover.1336397823.git.mst@redhat.com>
+	 <8a3235fbceef37758ef23169c4c152e8d1251d3b.1336397823.git.mst@redhat.com>
+	 <1336671977.14220.26.camel@zakaz.uk.xensource.com>
+	 <20120510184246.GE14647@redhat.com>
+	 <1336726800.23818.33.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
-To: Benjamin Poirier <bpoirier@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120511010249.GA23584@d2.synalogic.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:48617 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755474Ab2EKK6V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 06:58:21 -0400
+In-Reply-To: <1336726800.23818.33.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 10, 2012 at 09:02:49PM -0400, Benjamin Poirier wrote:
-> 
-> The value returned by this function is tuned for tcp segment size:
-> 1) from tcp_mtu_to_mss()
-> mss = pmtu - tcp_hlen - net_hlen
-> 2) frame structure for transport mode
-> mtu = mss + tcp_hlen + esp_header_len(esp_payload_len) + ah_len + net_hlen
+On Fri, 2012-05-11 at 10:00 +0100, Ian Campbell wrote:
+> I'm seeing copy_ubufs called in my remote NFS test, which I don't
+> think I expected -- I'll investigate why this is happening today. 
 
-I think you can simplify the calculations here, this
-calculation should not depend on any special layer 4
-protocol.
+It's tcp_transmit_skb which can (conditionally) call skb_clone
+(backtrace below)
 
-> 
-> The "mtu" parameter of esp4_get_mtu is in fact mtu - ah_len.
-> The return value of esp4_get_mtu is put into pmtu.
-> 
-> If we put 1 and 2 together we have:
-> pmtu = mtu - ah_len - esp_header_len(esp_payload_len)
-> with esp_payload_len = mss + tcp_hlen
-> 
-> This formula expands to:
-> pmtu = mtu - ah_len - (header_len + align(align(pmtu - net_hlen + 2, blksize),
-> 	esp->padlen) - (pmtu - net_hlen) + alen)
-> 
-> and simplifies to:
-> pmtu = (mtu - ah_len - net_hlen - header_len - alen) & ~(max(blksize,
-> 	esp->padlen) - 1) + (net_hlen - 2)
-> 
-> which, in the context of esp4_get_mtu, becomes:
-> ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) - sizeof(struct
-> iphdr)) & ~(align - 1)) + (sizeof(struct iphdr) - 2)
-> 
-> This is the same formula as before, except for sizeof(struct iphdr) which was
-> missing.
-> 
+I suspect this means that the existing SKBTX_DEV_ZEROCOPY semantics are
+a superset of what we need to consider for the destructor case. I'm
+assuming here that the existing SKBTX_DEV_ZEROCOPY is copying aside
+exactly the right amount and isn't conservatively coying more often than
+necessary.
 
-Well, makes sense. I use transport mode very rarely, so I never noticed this.
-But I was sure that it worked correct in tunnel mode. 
+shinfo->tx_flags are pretty scarce -- can we afford a new one for this
+usecase?
 
-Thanks.
+Or perhaps this is actually a function of the callsite not the of
+individual skb and we want to have some concept of "deep" and "shallow"
+clones combined with SKBTX_DEV_ZEROCOPY to decide when to copy_ubufs or
+not? e.g. deep clone => always copy if SKBTX_DEV_ZEROCOPY and shallow
+clone => only copy if SKBTX_DEV_ZEROCOPY && destructor_arg!=NULL
+(neither copy if !SKBTX_DEV_ZEROCOPY).
+
+Oh, I suppose that reintroduces the copy_ubufs under a (shallow) cloned
+skb race if one of those skbs eventually finds itself in a situation
+where a skb_frag_orphan is required doesn't it. Hrm :-/
+
+Will have to have a think...
+
+Ian.
+
+[  109.680828] ------------[ cut here ]------------
+[  109.685440] WARNING: at /local/scratch/ianc/devel/kernels/linux/include/linux/skbuff.h:1732 skb_clone+0xe6/0xf0()
+[  109.695678] Hardware name:
+[  109.699162] ORPHANING
+[  109.701434] Modules linked in:
+[  109.704495] Pid: 10, comm: kworker/0:1 Tainted: G        W    3.4.0-rc4-x86_64-native+ #186
+[  109.712830] Call Trace:
+[  109.715278]  [<ffffffff8107edfa>] warn_slowpath_common+0x7a/0xb0
+[  109.721273]  [<ffffffff8107eed1>] warn_slowpath_fmt+0x41/0x50
+[  109.727007]  [<ffffffff8170feea>] ? tcp_transmit_skb+0x9a/0x8f0
+[  109.732914]  [<ffffffff8169b2d6>] skb_clone+0xe6/0xf0
+[  109.737957]  [<ffffffff8170feea>] tcp_transmit_skb+0x9a/0x8f0
+[  109.743694]  [<ffffffff81712d7a>] tcp_write_xmit+0x1ea/0x9c0
+[  109.749343]  [<ffffffff8171357b>] tcp_push_one+0x2b/0x40
+[  109.754648]  [<ffffffff81705b2b>] tcp_sendpage+0x64b/0x6d0
+[  109.760126]  [<ffffffff8172785d>] inet_sendpage+0x4d/0xf0
+[  109.765518]  [<ffffffff817afed7>] xs_sendpages+0x117/0x2a0
+[  109.770996]  [<ffffffff817ad3f0>] ? xprt_reserve+0x2d0/0x2d0
+[  109.776647]  [<ffffffff817b0178>] xs_tcp_send_request+0x58/0x110
+[  109.782644]  [<ffffffff817ad5bb>] xprt_transmit+0x6b/0x2d0
+[  109.788123]  [<ffffffff817aa9a0>] ? call_transmit_status+0xd0/0xd0
+[  109.794293]  [<ffffffff817aab70>] call_transmit+0x1d0/0x290
+[  109.799857]  [<ffffffff817aa9a0>] ? call_transmit_status+0xd0/0xd0
+[  109.806029]  [<ffffffff817b3725>] __rpc_execute+0x65/0x260
+[  109.811505]  [<ffffffff817b3920>] ? __rpc_execute+0x260/0x260
+[  109.817241]  [<ffffffff817b3930>] rpc_async_schedule+0x10/0x20
+[  109.823066]  [<ffffffff81098fff>] process_one_work+0x11f/0x460
+[  109.828895]  [<ffffffff8109b0b3>] worker_thread+0x173/0x3f0
+[  109.834459]  [<ffffffff8109af40>] ? manage_workers+0x210/0x210
+[  109.840283]  [<ffffffff8109fa26>] kthread+0x96/0xa0
+[  109.845179]  [<ffffffff81861654>] kernel_thread_helper+0x4/0x10
+[  109.851092]  [<ffffffff8109f990>] ? kthread_freezable_should_stop+0x70/0x70
+[  109.858053]  [<ffffffff81861650>] ? gs_change+0xb/0xb
+[  109.863087] ---[ end trace 3e3acdb7cc57c191 ]---
