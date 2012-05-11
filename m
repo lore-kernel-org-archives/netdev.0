@@ -1,141 +1,142 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 10/15] batman-adv: rename sysfs macros to reflect the soft-interface dependency
-Date: Fri, 11 May 2012 14:21:27 +0200
-Message-ID: <1336738892-7401-11-git-send-email-ordex@autistici.org>
-References: <1336738892-7401-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: Re: Information leakage from RDS protocol
+Date: Fri, 11 May 2012 07:57:32 -0500
+Message-ID: <4FAD0CBC.2040105@oracle.com>
+References: <20120508161048.GE14179@redhat.com> <CA+55aFwzv5vjGsiZCjVfZkK3UL3K=Ha2pk_AweemZzsC6f-E9w@mail.gmail.com> <20120508182239.GA21089@redhat.com> <4FAA8AA5.2000709@oracle.com> <20120509155709.GA29413@redhat.com> <4FABE0F8.6070806@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	security@kernel.org, eugene@redhat.com, pmatouse@redhat.com,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com
+To: Jay Fenlason <fenlason@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:58894 "EHLO
-	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758745Ab2EKMZh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:25:37 -0400
-In-Reply-To: <1336738892-7401-1-git-send-email-ordex@autistici.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:48613 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757321Ab2EKM5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:57:43 -0400
+In-Reply-To: <4FABE0F8.6070806@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek@yahoo.de>
+On 5/10/2012 10:38 AM, Venkat Venkatsubra wrote:
+> On 5/9/2012 10:57 AM, Jay Fenlason wrote:
+>> On Wed, May 09, 2012 at 10:17:57AM -0500, Venkat Venkatsubra wrote:
+>>> On 5/8/2012 1:22 PM, Jay Fenlason wrote:
+>>>>> On Tue, May 8, 2012 at 9:10 AM, Jay 
+>>>>> Fenlason<fenlason@redhat.com>   wrote:
+>>>>>> recvfrom() on an RDS socket can return the contents of random(?)
+>>>>>> kernel memory to userspace if it was called with a address
+>>>>>> length larger than sizeof(struct sockaddr_in). ?rds_recvmsg() also
+>>>>>> fails to set the addr_len paramater properly before returning, but
+>>>>>> that's just a bug.
+>>>>>>
+>>>>>> There are also a number of cases wher recvfrom() can return an 
+>>>>>> entirely
+>>>>>> bogus address. ?Anything in rds_recvmsg() that returns a
+>>>>>> non-negative value but does not go through the
+>>>>>> ? "sin = (struct sockaddr_in *)msg->msg_name;"
+>>>>>> code path at the end of the while(1) loop will return up to 128
+>>>>>> bytes of kernel memory to userspace.
+>>>>>>
+>>>>>> Also, on a receive race, the message that was copied to userspace 
+>>>>>> but
+>>>>>> received by someone else is not zeroed, meaning that if the next
+>>>>>> message it receives is smaller, the tail of the raced message is
+>>>>>> leaked. ?I'm not sure how serious this is, but unexpectedly 
+>>>>>> scribbling
+>>>>>> on userspace memory (even if it is part of a buffer that userspace
+>>>>>> asked us to write to) should be avoided.
+>>>>>>
+>>>> On Tue, May 08, 2012 at 11:04:01AM -0700, Linus Torvalds wrote:
+>>>>> Please cc David Miller too on these things, and make sure he knows
+>>>>> there's no embargo or anything (he won't touch it if there is). Maybe
+>>>>> you don't want public mailing lists, but in general, the more open we
+>>>>> can be, the better.
+>>>> Added.  Nobody has said anything about any embargo to me, either
+>>>> that they want one or that there shouldn't be one.  Personally, I
+>>>> don't see any reason to embargo this, but I'm not on any
+>>>> security-response teams.
+>>>>
+>>>>> This seems unfortunate, but at least the address thing is limited to
+>>>>> sizeof(sockaddr_storage) and is kernel stack - which in turn means
+>>>>> that while it potentially leaks kernel addresses (bad!), it almost
+>>>>> certainly won't leak anything fundamentally interesting (ie you can't
+>>>>> read arbitrary kernel memory and find plaintext passwords etc).
+>>>>>
+>>>>> I assume the fix is a trivial
+>>>>>
+>>>>>    msg->msg_namelen = sizeof(*sin);
+>>>>>
+>>>>> in rds_recvmsg() where it sets up the address?
+>>>> That fixes the case where it actually sets up the address, but won't
+>>>> fix the cases where it doesn't even do that.  I don't think anyone
+>>>> ever thought about what the source address should be for a message
+>>>> that was generated internally by the kernel.  I think the obvious
+>>>> possibilities are msg_namelen = 0 (no address) and 127.0.0.1
+>>>>
+>>>>> I do wonder if maybe recvmsg() should initialize msg_namelen to 0
+>>>>> instead of the size of the buffer before calling the low-level 
+>>>>> recvmsg
+>>>>> function - so that protocols would have to explicitly set the size to
+>>>>> the right value. But that would need much more validation.
+>>>> That would require checking/fixing all of the low-level functions,
+>>>> which will then have to know that the buffer pointed to by msg is at
+>>>> most sizeof(struct sockaddr_storage) bytes.  I think it's better to
+>>>> keep the size of the address buffer there, so the low-level functions
+>>>> can confirm that the address data they're about to stuff in there
+>>>> won't overflow the buffer.  (That way if we ever change the size of
+>>>> the buffer, only one place has to change.)
+>>>>
+>>>> And the whole rds recieve subsystem needs a bit of a rewrite to close
+>>>> the information-leaking receive race.  Keeping the semantics correct
+>>>> in regards to MSG_PEEK and multiple threads reading the socket at the
+>>>> same time may be tricky.
+>>>>
+>>>>         -- JF
+>>>>
+>>> How about adding the suggested "msg->msg_namelen = sizeof(*sin);"
+>>> line at the top of rds_recvmsg ?
+>>> And "msg->msg_namelen = 0;" in the below "break;" cases ? I am
+>>> assuming the apps wouldn't need to look at msg_name in these cases.
+>>>                  if (!list_empty(&rs->rs_notify_queue)) {
+>>>                          ret = rds_notify_queue_get(rs, msg);
+>>>                          break;
+>>>                  }
+>>>
+>>>                  if (rs->rs_cong_notify) {
+>>>                          ret = rds_notify_cong(rs, msg);
+>>>                          break;
+>>>                  }
+>> Wouldn't it be better to set msg->msg_namelen = 0 at the top of the
+>> function, and only set it to sizeof(*sin) after msg->msg_name is
+>> filled in?  That'll prevent accidental disclosure of kernel memory via
+>> unanticipated code paths.
+>>
+>>> And, shouldn't an error be returned for the case below ? Currently
+>>> zero is returned.
+>>>
+>>>          if (msg_flags&  MSG_OOB)
+>>>                  goto out;
+>>> An error such as EOPNOTSUPP ?
+>> I don't know.  I'm not a networking expert.  From what I've found
+>> googling, EINVAL would be more correct that ENOTSUPP.
+>>
+>> This only leaves the datagram contents leak to userspace when multiple
+>> threads race on receiving a datagram and the subsequent datagram is
+>> smaller.  That one will be hard to fix, most notably because the
+>> obvious fixes I've looked at involve losing a datagram if either of
+>>    inc->i_conn->c_trans->inc_copy_to_user()
+>> or
+>>    rds_cmsg_recv()
+>> fail.  I don't know how likely either of those are, but losing
+>> datagrams seems like an inappropriate behavior for a reliable datagram
+>> subsystem.
+>>
+> Moving the discussion to netdev.
+>
+> Venkat
+Forgot to include rds-devel.
 
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
----
- net/batman-adv/bat_sysfs.c |   57 ++++++++++++++++++++++----------------------
- 1 file changed, 29 insertions(+), 28 deletions(-)
-
-diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
-index 2c81688..913299d 100644
---- a/net/batman-adv/bat_sysfs.c
-+++ b/net/batman-adv/bat_sysfs.c
-@@ -63,7 +63,7 @@ struct bat_attribute bat_attr_##_name = {	\
- 	.store  = _store,			\
- };
- 
--#define BAT_ATTR_STORE_BOOL(_name, _post_func)				\
-+#define BAT_ATTR_SIF_STORE_BOOL(_name, _post_func)			\
- ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
- 		      char *buff, size_t count)				\
- {									\
-@@ -73,9 +73,9 @@ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
- 				 &bat_priv->_name, net_dev);		\
- }
- 
--#define BAT_ATTR_SHOW_BOOL(_name)					\
--ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
--			    char *buff)					\
-+#define BAT_ATTR_SIF_SHOW_BOOL(_name)					\
-+ssize_t show_##_name(struct kobject *kobj,				\
-+		     struct attribute *attr, char *buff)		\
- {									\
- 	struct bat_priv *bat_priv = kobj_to_batpriv(kobj);		\
- 	return sprintf(buff, "%s\n",					\
-@@ -83,16 +83,17 @@ ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
- 		       "disabled" : "enabled");				\
- }									\
- 
--/* Use this, if you are going to turn a [name] in bat_priv on or off */
--#define BAT_ATTR_BOOL(_name, _mode, _post_func)				\
--	static BAT_ATTR_STORE_BOOL(_name, _post_func)			\
--	static BAT_ATTR_SHOW_BOOL(_name)				\
-+/* Use this, if you are going to turn a [name] in the soft-interface
-+ * (bat_priv) on or off */
-+#define BAT_ATTR_SIF_BOOL(_name, _mode, _post_func)			\
-+	static BAT_ATTR_SIF_STORE_BOOL(_name, _post_func)		\
-+	static BAT_ATTR_SIF_SHOW_BOOL(_name)				\
- 	static BAT_ATTR(_name, _mode, show_##_name, store_##_name)
- 
- 
--#define BAT_ATTR_STORE_UINT(_name, _min, _max, _post_func)		\
-+#define BAT_ATTR_SIF_STORE_UINT(_name, _min, _max, _post_func)		\
- ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
--			     char *buff, size_t count)			\
-+		      char *buff, size_t count)				\
- {									\
- 	struct net_device *net_dev = kobj_to_netdev(kobj);		\
- 	struct bat_priv *bat_priv = netdev_priv(net_dev);		\
-@@ -100,19 +101,19 @@ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
- 				 attr, &bat_priv->_name, net_dev);	\
- }
- 
--#define BAT_ATTR_SHOW_UINT(_name)					\
--ssize_t show_##_name(struct kobject *kobj, struct attribute *attr,	\
--			    char *buff)					\
-+#define BAT_ATTR_SIF_SHOW_UINT(_name)					\
-+ssize_t show_##_name(struct kobject *kobj,				\
-+		     struct attribute *attr, char *buff)		\
- {									\
- 	struct bat_priv *bat_priv = kobj_to_batpriv(kobj);		\
- 	return sprintf(buff, "%i\n", atomic_read(&bat_priv->_name));	\
- }									\
- 
--/* Use this, if you are going to set [name] in bat_priv to unsigned integer
-- * values only */
--#define BAT_ATTR_UINT(_name, _mode, _min, _max, _post_func)		\
--	static BAT_ATTR_STORE_UINT(_name, _min, _max, _post_func)	\
--	static BAT_ATTR_SHOW_UINT(_name)				\
-+/* Use this, if you are going to set [name] in the soft-interface
-+ * (bat_priv) to an unsigned integer value */
-+#define BAT_ATTR_SIF_UINT(_name, _mode, _min, _max, _post_func)		\
-+	static BAT_ATTR_SIF_STORE_UINT(_name, _min, _max, _post_func)	\
-+	static BAT_ATTR_SIF_SHOW_UINT(_name)				\
- 	static BAT_ATTR(_name, _mode, show_##_name, store_##_name)
- 
- 
-@@ -384,24 +385,24 @@ static ssize_t store_gw_bwidth(struct kobject *kobj, struct attribute *attr,
- 	return gw_bandwidth_set(net_dev, buff, count);
- }
- 
--BAT_ATTR_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
--BAT_ATTR_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
-+BAT_ATTR_SIF_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
-+BAT_ATTR_SIF_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
- #ifdef CONFIG_BATMAN_ADV_BLA
--BAT_ATTR_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
-+BAT_ATTR_SIF_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
- #endif
--BAT_ATTR_BOOL(fragmentation, S_IRUGO | S_IWUSR, update_min_mtu);
--BAT_ATTR_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
-+BAT_ATTR_SIF_BOOL(fragmentation, S_IRUGO | S_IWUSR, update_min_mtu);
-+BAT_ATTR_SIF_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
- static BAT_ATTR(vis_mode, S_IRUGO | S_IWUSR, show_vis_mode, store_vis_mode);
- static BAT_ATTR(routing_algo, S_IRUGO, show_bat_algo, NULL);
- static BAT_ATTR(gw_mode, S_IRUGO | S_IWUSR, show_gw_mode, store_gw_mode);
--BAT_ATTR_UINT(orig_interval, S_IRUGO | S_IWUSR, 2 * JITTER, INT_MAX, NULL);
--BAT_ATTR_UINT(hop_penalty, S_IRUGO | S_IWUSR, 0, TQ_MAX_VALUE, NULL);
--BAT_ATTR_UINT(gw_sel_class, S_IRUGO | S_IWUSR, 1, TQ_MAX_VALUE,
--	      post_gw_deselect);
-+BAT_ATTR_SIF_UINT(orig_interval, S_IRUGO | S_IWUSR, 2 * JITTER, INT_MAX, NULL);
-+BAT_ATTR_SIF_UINT(hop_penalty, S_IRUGO | S_IWUSR, 0, TQ_MAX_VALUE, NULL);
-+BAT_ATTR_SIF_UINT(gw_sel_class, S_IRUGO | S_IWUSR, 1, TQ_MAX_VALUE,
-+		  post_gw_deselect);
- static BAT_ATTR(gw_bandwidth, S_IRUGO | S_IWUSR, show_gw_bwidth,
- 		store_gw_bwidth);
- #ifdef CONFIG_BATMAN_ADV_DEBUG
--BAT_ATTR_UINT(log_level, S_IRUGO | S_IWUSR, 0, 15, NULL);
-+BAT_ATTR_SIF_UINT(log_level, S_IRUGO | S_IWUSR, 0, 15, NULL);
- #endif
- 
- static struct bat_attribute *mesh_attrs[] = {
--- 
-1.7.9.4
+Venkat
