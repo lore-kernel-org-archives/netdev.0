@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: avoid disabling sriov while VFs are
- assigned
-Date: Thu, 10 May 2012 23:35:20 -0400 (EDT)
-Message-ID: <20120510.233520.938899377509037311.davem@davemloft.net>
-References: <647fcd25-8a85-4d63-a1ef-8b867832c2c7@exht1.ad.emulex.com>
+Subject: Re: [PATCH 1/3] drivers/net: Convert compare_ether_addr to
+ ether_addr_equal
+Date: Thu, 10 May 2012 23:35:34 -0400 (EDT)
+Message-ID: <20120510.233534.836223106369679267.davem@davemloft.net>
+References: <cover.1336618707.git.joe@perches.com>
+	<7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56708 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932408Ab2EKDfY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:35:24 -0400
-In-Reply-To: <647fcd25-8a85-4d63-a1ef-8b867832c2c7@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
+	ath9k-devel@venema.h4ckr.net
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7c9881a67c52c2f218480b6742155b6d6928122d.1336618708.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Wed, 9 May 2012 11:11:24 +0530
+From: Joe Perches <joe@perches.com>
+Date: Wed,  9 May 2012 20:17:46 -0700
 
-> Calling pci_disable_sriov() while VFs are assigned to VMs causes
-> kernel panic. This patch uses PCI_DEV_FLAGS_ASSIGNED bit state of the
-> VF's pci_dev to avoid this. Also, the unconditional function reset cmd
-> issued on a PF probe can delete the VF configuration for the
-> previously enabled VFs. A scratchpad register is now used to issue a
-> function reset only when needed (i.e., in a crash dump scenario.)
+> Use the new bool function ether_addr_equal to add
+> some clarity and reduce the likelihood for misuse
+> of compare_ether_addr for sorting.
 > 
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> Done via cocci script:
+ ...
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied.
