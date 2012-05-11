@@ -1,171 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/2] igb: Add function and pointers for 82580 low power state settings.
-Date: Fri, 11 May 2012 01:01:21 -0700
-Message-ID: <1336723282-3130-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1336723282-3130-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/2][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 11 May 2012 01:01:20 -0700
+Message-ID: <1336723282-3130-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:47783 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753819Ab2EKIBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2012 04:01:25 -0400
-In-Reply-To: <1336723282-3130-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753747Ab2EKIBY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2012 04:01:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+This series of patches contains updates for igb.  Most notably,
+the addition of i210 & i211 support.
 
-82580 and later parts did not have low power setting functions.  This patch
-adds the specific functions, pointers and assignments for these low
-power settings.
+The following are changes since commit 06a4c1c55dbe5d9f7a708e8f1a52fd2ac8e5874f:
+  6lowpan: IPv6 link local address
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_82575.c |   94 ++++++++++++++++++++++++++
- drivers/net/ethernet/intel/igb/e1000_phy.h   |    7 ++
- 2 files changed, 101 insertions(+), 0 deletions(-)
+Carolyn Wyborny (2):
+  igb: Add function and pointers for 82580 low power state settings.
+  igb: Add Support for new i210/i211 devices.
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 08bdc33..b945992 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -52,6 +52,8 @@ static s32  igb_write_phy_reg_82580(struct e1000_hw *, u32, u16);
- static s32  igb_reset_hw_82575(struct e1000_hw *);
- static s32  igb_reset_hw_82580(struct e1000_hw *);
- static s32  igb_set_d0_lplu_state_82575(struct e1000_hw *, bool);
-+static s32  igb_set_d0_lplu_state_82580(struct e1000_hw *, bool);
-+static s32  igb_set_d3_lplu_state_82580(struct e1000_hw *, bool);
- static s32  igb_setup_copper_link_82575(struct e1000_hw *);
- static s32  igb_setup_serdes_link_82575(struct e1000_hw *);
- static s32  igb_write_phy_reg_sgmii_82575(struct e1000_hw *, u32, u16);
-@@ -359,6 +361,8 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_82580;
- 		phy->ops.get_cable_length   = igb_get_cable_length_82580;
- 		phy->ops.get_phy_info       = igb_get_phy_info_82580;
-+		phy->ops.set_d0_lplu_state  = igb_set_d0_lplu_state_82580;
-+		phy->ops.set_d3_lplu_state  = igb_set_d3_lplu_state_82580;
- 		break;
- 	default:
- 		return -E1000_ERR_PHY;
-@@ -674,6 +678,96 @@ out:
- }
- 
- /**
-+ *  igb_set_d0_lplu_state_82580 - Set Low Power Linkup D0 state
-+ *  @hw: pointer to the HW structure
-+ *  @active: true to enable LPLU, false to disable
-+ *
-+ *  Sets the LPLU D0 state according to the active flag.  When
-+ *  activating LPLU this function also disables smart speed
-+ *  and vice versa.  LPLU will not be activated unless the
-+ *  device autonegotiation advertisement meets standards of
-+ *  either 10 or 10/100 or 10/100/1000 at all duplexes.
-+ *  This is a function pointer entry point only called by
-+ *  PHY setup routines.
-+ **/
-+static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
-+{
-+	struct e1000_phy_info *phy = &hw->phy;
-+	s32 ret_val = 0;
-+	u16 data;
-+
-+	data = rd32(E1000_82580_PHY_POWER_MGMT);
-+
-+	if (active) {
-+		data |= E1000_82580_PM_D0_LPLU;
-+
-+		/* When LPLU is enabled, we should disable SmartSpeed */
-+		data &= ~E1000_82580_PM_SPD;
-+	} else {
-+		data &= ~E1000_82580_PM_D0_LPLU;
-+
-+		/*
-+		 * LPLU and SmartSpeed are mutually exclusive.  LPLU is used
-+		 * during Dx states where the power conservation is most
-+		 * important.  During driver activity we should enable
-+		 * SmartSpeed, so performance is maintained.
-+		 */
-+		if (phy->smart_speed == e1000_smart_speed_on)
-+			data |= E1000_82580_PM_SPD;
-+		else if (phy->smart_speed == e1000_smart_speed_off)
-+			data &= ~E1000_82580_PM_SPD; }
-+
-+	wr32(E1000_82580_PHY_POWER_MGMT, data);
-+	return ret_val;
-+}
-+
-+/**
-+ *  igb_set_d3_lplu_state_82580 - Sets low power link up state for D3
-+ *  @hw: pointer to the HW structure
-+ *  @active: boolean used to enable/disable lplu
-+ *
-+ *  Success returns 0, Failure returns 1
-+ *
-+ *  The low power link up (lplu) state is set to the power management level D3
-+ *  and SmartSpeed is disabled when active is true, else clear lplu for D3
-+ *  and enable Smartspeed.  LPLU and Smartspeed are mutually exclusive.  LPLU
-+ *  is used during Dx states where the power conservation is most important.
-+ *  During driver activity, SmartSpeed should be enabled so performance is
-+ *  maintained.
-+ **/
-+s32 igb_set_d3_lplu_state_82580(struct e1000_hw *hw, bool active)
-+{
-+	struct e1000_phy_info *phy = &hw->phy;
-+	s32 ret_val = 0;
-+	u16 data;
-+
-+	data = rd32(E1000_82580_PHY_POWER_MGMT);
-+
-+	if (!active) {
-+		data &= ~E1000_82580_PM_D3_LPLU;
-+		/*
-+		 * LPLU and SmartSpeed are mutually exclusive.  LPLU is used
-+		 * during Dx states where the power conservation is most
-+		 * important.  During driver activity we should enable
-+		 * SmartSpeed, so performance is maintained.
-+		 */
-+		if (phy->smart_speed == e1000_smart_speed_on)
-+			data |= E1000_82580_PM_SPD;
-+		else if (phy->smart_speed == e1000_smart_speed_off)
-+			data &= ~E1000_82580_PM_SPD;
-+	} else if ((phy->autoneg_advertised == E1000_ALL_SPEED_DUPLEX) ||
-+		   (phy->autoneg_advertised == E1000_ALL_NOT_GIG) ||
-+		   (phy->autoneg_advertised == E1000_ALL_10_SPEED)) {
-+		data |= E1000_82580_PM_D3_LPLU;
-+		/* When LPLU is enabled, we should disable SmartSpeed */
-+		data &= ~E1000_82580_PM_SPD;
-+	}
-+
-+	wr32(E1000_82580_PHY_POWER_MGMT, data);
-+	return ret_val;
-+}
-+
-+/**
-  *  igb_acquire_nvm_82575 - Request for access to EEPROM
-  *  @hw: pointer to the HW structure
-  *
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
-index 4c32ac6..84172ea 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
-@@ -114,6 +114,13 @@ s32  igb_get_cable_length_82580(struct e1000_hw *hw);
- /* I82580 PHY Diagnostics Status */
- #define I82580_DSTATUS_CABLE_LENGTH       0x03FC
- #define I82580_DSTATUS_CABLE_LENGTH_SHIFT 2
-+
-+/* 82580 PHY Power Management */
-+#define E1000_82580_PHY_POWER_MGMT	0xE14
-+#define E1000_82580_PM_SPD		0x0001 /* Smart Power Down */
-+#define E1000_82580_PM_D0_LPLU		0x0002 /* For D0a states */
-+#define E1000_82580_PM_D3_LPLU		0x0004 /* For all other states */
-+
- /* Enable flexible speed on link-up */
- #define IGP02E1000_PM_D0_LPLU             0x0002 /* For D0a states */
- #define IGP02E1000_PM_D3_LPLU             0x0004 /* For all other states */
+ drivers/net/ethernet/intel/igb/Makefile        |    3 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.c   |  276 +++++++++--
+ drivers/net/ethernet/intel/igb/e1000_82575.h   |    3 +-
+ drivers/net/ethernet/intel/igb/e1000_defines.h |   33 ++
+ drivers/net/ethernet/intel/igb/e1000_hw.h      |   14 +
+ drivers/net/ethernet/intel/igb/e1000_i210.c    |  608 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_i210.h    |   76 +++
+ drivers/net/ethernet/intel/igb/e1000_mac.c     |    1 +
+ drivers/net/ethernet/intel/igb/e1000_nvm.c     |    1 -
+ drivers/net/ethernet/intel/igb/e1000_phy.c     |  147 ++++++-
+ drivers/net/ethernet/intel/igb/e1000_phy.h     |   22 +
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   14 +
+ drivers/net/ethernet/intel/igb/igb.h           |    9 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   |  103 +++-
+ drivers/net/ethernet/intel/igb/igb_main.c      |   81 +++-
+ drivers/net/ethernet/intel/igb/igb_ptp.c       |    4 +
+ 16 files changed, 1298 insertions(+), 97 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/igb/e1000_i210.c
+ create mode 100644 drivers/net/ethernet/intel/igb/e1000_i210.h
+
 -- 
 1.7.7.6
