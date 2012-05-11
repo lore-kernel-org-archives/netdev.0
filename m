@@ -1,10 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 13/17] netvm: Set PF_MEMALLOC as appropriate during SKB
- processing
-Date: Fri, 11 May 2012 01:03:39 -0400 (EDT)
-Message-ID: <20120511.010339.375923873885534514.davem@davemloft.net>
+Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
+Date: Fri, 11 May 2012 01:04:45 -0400 (EDT)
+Message-ID: <20120511.010445.1020972261904383892.davem@davemloft.net>
 References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
-	<1336657510-24378-14-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,33 +11,16 @@ Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
         michaelc@cs.wisc.edu, emunson@mgebm.net
 To: mgorman@suse.de
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1336657510-24378-14-git-send-email-mgorman@suse.de>
+In-Reply-To: <1336657510-24378-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Mel Gorman <mgorman@suse.de>
-Date: Thu, 10 May 2012 14:45:06 +0100
 
-> In order to make sure pfmemalloc packets receive all memory
-> needed to proceed, ensure processing of pfmemalloc SKBs happens
-> under PF_MEMALLOC. This is limited to a subset of protocols that
-> are expected to be used for writing to swap. Taps are not allowed to
-> use PF_MEMALLOC as these are expected to communicate with userspace
-> processes which could be paged out.
-> 
-> [a.p.zijlstra@chello.nl: Ideas taken from various patches]
-> [jslaby@suse.cz: Lock imbalance fix]
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
+Ok, I'm generally happy with the networking parts.
 
-This adds more code where we're modifying task->flags from software
-interrupt context.  I'm not convinced that's safe.
+If you address my feedback I'll sign off on it.
 
-Also, this starts to add new tests in the fast paths.
-
-Most of the time they are not going to trigger at all.
-
-Please use the static branch I asked you to add in a previous
-patch to mitigate this.
+The next question is whose tree this stuff goes through :-)
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
