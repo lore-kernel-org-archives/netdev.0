@@ -1,11 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Fri, 11 May 2012 17:17:38 -0400 (EDT)
-Message-ID: <20120511.171738.549587472496189783.davem@davemloft.net>
-References: <1336657510-24378-11-git-send-email-mgorman@suse.de>
-	<20120511.005740.210437168371869566.davem@davemloft.net>
-	<20120511143218.GS11435@suse.de>
+Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
+Date: Fri, 11 May 2012 17:23:39 -0400 (EDT)
+Message-ID: <20120511.172339.2007927803884694483.davem@davemloft.net>
+References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
+	<20120511.010445.1020972261904383892.davem@davemloft.net>
+	<20120511154540.GV11435@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,21 +13,26 @@ Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
         michaelc@cs.wisc.edu, emunson@mgebm.net
 To: mgorman@suse.de
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120511143218.GS11435@suse.de>
+In-Reply-To: <20120511154540.GV11435@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 From: Mel Gorman <mgorman@suse.de>
-Date: Fri, 11 May 2012 15:32:18 +0100
+Date: Fri, 11 May 2012 16:45:40 +0100
 
-> On Fri, May 11, 2012 at 12:57:40AM -0400, David Miller wrote:
->> Please change this to be a static branch.
+> From my point of view, the ideal would be that all the patches go
+> through akpm's tree or yours but that probably will cause merge
+> difficulties.
 > 
-> Will do. I renamed memalloc_socks to sk_memalloc_socks, made it a int as
-> atomics are unnecessary and I check it directly in a branch instead of a
-> static inline. It should be relatively easy for the branch predictor.
+> Any recommendations?
 
-No branch predictor can beat an unconditional branch :-)
+I know there will be networking side conflicts very soon, it's not a
+matter of 'if' but 'when'.
+
+But the trick is that I bet the 'mm' and 'slab' folks are in a similar
+situation.
+
+In any event I'm more than happy to take it all in my tree.
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
