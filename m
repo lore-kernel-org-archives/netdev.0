@@ -1,17 +1,17 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 05/15] batman-adv: rename last_valid to last_seen
-Date: Fri, 11 May 2012 14:21:22 +0200
-Message-ID: <1336738892-7401-6-git-send-email-ordex@autistici.org>
+Subject: [PATCH 07/15] batman-adv: split neigh_new function into generic and batman iv specific parts
+Date: Fri, 11 May 2012 14:21:24 +0200
+Message-ID: <1336738892-7401-8-git-send-email-ordex@autistici.org>
 References: <1336738892-7401-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:58256 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:58339 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757671Ab2EKMZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:25:02 -0400
+	with ESMTP id S1758563Ab2EKMZI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:25:08 -0400
 In-Reply-To: <1336738892-7401-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,129 +22,144 @@ Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c |    8 ++++----
- net/batman-adv/originator.c |   16 ++++++++--------
- net/batman-adv/types.h      |    8 ++++----
- 3 files changed, 16 insertions(+), 16 deletions(-)
+ net/batman-adv/bat_iv_ogm.c |   40 ++++++++++++++++++++++++++++++++++------
+ net/batman-adv/originator.c |   28 +++++++++++-----------------
+ net/batman-adv/originator.h |    7 +++----
+ 3 files changed, 48 insertions(+), 27 deletions(-)
 
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index e0aaf8c..8652a75 100644
+index 8652a75..ae0a08c 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -651,7 +651,7 @@ static void bat_iv_ogm_orig_update(struct bat_priv *bat_priv,
+@@ -30,6 +30,32 @@
+ #include "send.h"
+ #include "bat_algo.h"
+ 
++static struct neigh_node *bat_iv_ogm_neigh_new(struct hard_iface *hard_iface,
++					       const uint8_t *neigh_addr,
++					       struct orig_node *orig_node,
++					       struct orig_node *orig_neigh,
++					       uint32_t seqno)
++{
++	struct neigh_node *neigh_node;
++
++	neigh_node = batadv_neigh_node_new(hard_iface, neigh_addr, seqno);
++	if (!neigh_node)
++		goto out;
++
++	INIT_LIST_HEAD(&neigh_node->bonding_list);
++	spin_lock_init(&neigh_node->tq_lock);
++
++	neigh_node->orig_node = orig_neigh;
++	neigh_node->if_incoming = hard_iface;
++
++	spin_lock_bh(&orig_node->neigh_list_lock);
++	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
++	spin_unlock_bh(&orig_node->neigh_list_lock);
++
++out:
++	return neigh_node;
++}
++
+ static int bat_iv_ogm_iface_enable(struct hard_iface *hard_iface)
+ {
+ 	struct batman_ogm_packet *batman_ogm_packet;
+@@ -638,8 +664,9 @@ static void bat_iv_ogm_orig_update(struct bat_priv *bat_priv,
+ 		if (!orig_tmp)
+ 			goto unlock;
+ 
+-		neigh_node = create_neighbor(orig_node, orig_tmp,
+-					     ethhdr->h_source, if_incoming);
++		neigh_node = bat_iv_ogm_neigh_new(if_incoming, ethhdr->h_source,
++						  orig_node, orig_tmp,
++						  batman_ogm_packet->seqno);
+ 
+ 		orig_node_free_ref(orig_tmp);
+ 		if (!neigh_node)
+@@ -764,10 +791,11 @@ static int bat_iv_ogm_calc_tq(struct orig_node *orig_node,
  	rcu_read_unlock();
  
- 	orig_node->flags = batman_ogm_packet->flags;
--	neigh_node->last_valid = jiffies;
-+	neigh_node->last_seen = jiffies;
+ 	if (!neigh_node)
+-		neigh_node = create_neighbor(orig_neigh_node,
+-					     orig_neigh_node,
+-					     orig_neigh_node->orig,
+-					     if_incoming);
++		neigh_node = bat_iv_ogm_neigh_new(if_incoming,
++						  orig_neigh_node->orig,
++						  orig_neigh_node,
++						  orig_neigh_node,
++						  batman_ogm_packet->seqno);
  
- 	spin_lock_bh(&neigh_node->tq_lock);
- 	ring_buffer_set(neigh_node->tq_recv,
-@@ -772,11 +772,11 @@ static int bat_iv_ogm_calc_tq(struct orig_node *orig_node,
  	if (!neigh_node)
  		goto out;
- 
--	/* if orig_node is direct neighbor update neigh_node last_valid */
-+	/* if orig_node is direct neighbor update neigh_node last_seen */
- 	if (orig_node == orig_neigh_node)
--		neigh_node->last_valid = jiffies;
-+		neigh_node->last_seen = jiffies;
- 
--	orig_node->last_valid = jiffies;
-+	orig_node->last_seen = jiffies;
- 
- 	/* find packet count of corresponding one hop neighbor */
- 	spin_lock_bh(&orig_node->ogm_cnt_lock);
 diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index ce49698..21c1f83 100644
+index 962636b..f4b6201 100644
 --- a/net/batman-adv/originator.c
 +++ b/net/batman-adv/originator.c
-@@ -283,7 +283,7 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
- 	hlist_for_each_entry_safe(neigh_node, node, node_tmp,
- 				  &orig_node->neigh_list, list) {
+@@ -85,35 +85,29 @@ struct neigh_node *orig_node_get_router(struct orig_node *orig_node)
+ 	return router;
+ }
  
--		if ((has_timed_out(neigh_node->last_valid, PURGE_TIMEOUT)) ||
-+		if ((has_timed_out(neigh_node->last_seen, PURGE_TIMEOUT)) ||
- 		    (neigh_node->if_incoming->if_status == IF_INACTIVE) ||
- 		    (neigh_node->if_incoming->if_status == IF_NOT_IN_USE) ||
- 		    (neigh_node->if_incoming->if_status == IF_TO_BE_REMOVED)) {
-@@ -300,9 +300,9 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
- 					neigh_node->if_incoming->net_dev->name);
- 			else
- 				bat_dbg(DBG_BATMAN, bat_priv,
--					"neighbor timeout: originator %pM, neighbor: %pM, last_valid: %lu\n",
-+					"neighbor timeout: originator %pM, neighbor: %pM, last_seen: %lu\n",
- 					orig_node->orig, neigh_node->addr,
--					(neigh_node->last_valid / HZ));
-+					(neigh_node->last_seen / HZ));
- 
- 			neigh_purged = true;
- 
-@@ -325,10 +325,10 @@ static bool purge_orig_node(struct bat_priv *bat_priv,
+-struct neigh_node *create_neighbor(struct orig_node *orig_node,
+-				   struct orig_node *orig_neigh_node,
+-				   const uint8_t *neigh,
+-				   struct hard_iface *if_incoming)
++struct neigh_node *batadv_neigh_node_new(struct hard_iface *hard_iface,
++					 const uint8_t *neigh_addr,
++					 uint32_t seqno)
  {
- 	struct neigh_node *best_neigh_node;
+-	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
++	struct bat_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
+ 	struct neigh_node *neigh_node;
  
--	if (has_timed_out(orig_node->last_valid, 2 * PURGE_TIMEOUT)) {
-+	if (has_timed_out(orig_node->last_seen, 2 * PURGE_TIMEOUT)) {
- 		bat_dbg(DBG_BATMAN, bat_priv,
--			"Originator timeout: originator %pM, last_valid %lu\n",
--			orig_node->orig, (orig_node->last_valid / HZ));
-+			"Originator timeout: originator %pM, last_seen %lu\n",
-+			orig_node->orig, (orig_node->last_seen / HZ));
- 		return true;
- 	} else {
- 		if (purge_orig_neighbors(bat_priv, orig_node,
-@@ -446,9 +446,9 @@ int orig_seq_print_text(struct seq_file *seq, void *offset)
- 				goto next;
+-	bat_dbg(DBG_BATMAN, bat_priv,
+-		"Creating new last-hop neighbor of originator\n");
+-
+ 	neigh_node = kzalloc(sizeof(*neigh_node), GFP_ATOMIC);
+ 	if (!neigh_node)
+-		return NULL;
++		goto out;
  
- 			last_seen_secs = jiffies_to_msecs(jiffies -
--						orig_node->last_valid) / 1000;
-+						orig_node->last_seen) / 1000;
- 			last_seen_msecs = jiffies_to_msecs(jiffies -
--						orig_node->last_valid) % 1000;
-+						orig_node->last_seen) % 1000;
+ 	INIT_HLIST_NODE(&neigh_node->list);
+-	INIT_LIST_HEAD(&neigh_node->bonding_list);
+-	spin_lock_init(&neigh_node->tq_lock);
  
- 			seq_printf(seq, "%pM %4i.%03is   (%3i) %pM [%10s]:",
- 				   orig_node->orig, last_seen_secs,
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 50e1895..9fa8b73 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -52,7 +52,7 @@ struct hard_iface {
- /**
-  *	orig_node - structure for orig_list maintaining nodes of mesh
-  *	@primary_addr: hosts primary interface address
-- *	@last_valid: when last packet from this node was received
-+ *	@last_seen: when last packet from this node was received
-  *	@bcast_seqno_reset: time when the broadcast seqno window was reset
-  *	@batman_seqno_reset: time when the batman seqno window was reset
-  *	@gw_flags: flags related to gateway class
-@@ -70,7 +70,7 @@ struct orig_node {
- 	struct neigh_node __rcu *router; /* rcu protected pointer */
- 	unsigned long *bcast_own;
- 	uint8_t *bcast_own_sum;
--	unsigned long last_valid;
-+	unsigned long last_seen;
- 	unsigned long bcast_seqno_reset;
- 	unsigned long batman_seqno_reset;
- 	uint8_t gw_flags;
-@@ -120,7 +120,7 @@ struct gw_node {
+-	memcpy(neigh_node->addr, neigh, ETH_ALEN);
+-	neigh_node->orig_node = orig_neigh_node;
+-	neigh_node->if_incoming = if_incoming;
++	memcpy(neigh_node->addr, neigh_addr, ETH_ALEN);
  
- /**
-  *	neigh_node
-- *	@last_valid: when last packet via this neighbor was received
-+ *	@last_seen: when last packet via this neighbor was received
-  */
- struct neigh_node {
- 	struct hlist_node list;
-@@ -131,7 +131,7 @@ struct neigh_node {
- 	uint8_t tq_avg;
- 	uint8_t last_ttl;
- 	struct list_head bonding_list;
--	unsigned long last_valid;
-+	unsigned long last_seen;
- 	DECLARE_BITMAP(real_bits, TQ_LOCAL_WINDOW_SIZE);
- 	atomic_t refcount;
- 	struct rcu_head rcu;
+ 	/* extra reference for return */
+ 	atomic_set(&neigh_node->refcount, 2);
+ 
+-	spin_lock_bh(&orig_node->neigh_list_lock);
+-	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
+-	spin_unlock_bh(&orig_node->neigh_list_lock);
++	bat_dbg(DBG_BATMAN, bat_priv,
++		"Creating new neighbor %pM, initial seqno %d\n",
++		neigh_addr, seqno);
++
++out:
+ 	return neigh_node;
+ }
+ 
+diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
+index 3fe2eda..f74d0d6 100644
+--- a/net/batman-adv/originator.h
++++ b/net/batman-adv/originator.h
+@@ -29,10 +29,9 @@ void originator_free(struct bat_priv *bat_priv);
+ void purge_orig_ref(struct bat_priv *bat_priv);
+ void orig_node_free_ref(struct orig_node *orig_node);
+ struct orig_node *get_orig_node(struct bat_priv *bat_priv, const uint8_t *addr);
+-struct neigh_node *create_neighbor(struct orig_node *orig_node,
+-				   struct orig_node *orig_neigh_node,
+-				   const uint8_t *neigh,
+-				   struct hard_iface *if_incoming);
++struct neigh_node *batadv_neigh_node_new(struct hard_iface *hard_iface,
++					 const uint8_t *neigh_addr,
++					 uint32_t seqno);
+ void neigh_node_free_ref(struct neigh_node *neigh_node);
+ struct neigh_node *orig_node_get_router(struct orig_node *orig_node);
+ int orig_seq_print_text(struct seq_file *seq, void *offset);
 -- 
 1.7.9.4
