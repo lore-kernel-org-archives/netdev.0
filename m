@@ -1,59 +1,97 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] net: of/phy: fix build error when phylib is built as a module
-Date: Fri, 11 May 2012 17:47:01 +0200
-Message-ID: <1336751221-19127-1-git-send-email-bjorn@mork.no>
-References: <20120510.224352.2149006669429730060.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] fq_codel: Fair Queue Codel AQM
+Date: Fri, 11 May 2012 18:08:36 +0200
+Message-ID: <1336752516.31653.196.camel@edumazet-glaptop>
+References: <1336744796.31653.164.camel@edumazet-glaptop>
+	 <CABa6K_Fk07CUR1+hOx06cwJ5MuNYi7vpeLYFOc_1Qwmu5ubYhQ@mail.gmail.com>
+	 <1336749810.31653.176.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paul.gortmaker@windriver.com, rdunlap@xenotime.net,
-	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, david.daney@cavium.com,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dave Taht <dave.taht@bufferbloat.net>,
+	Kathleen Nichols <nichols@pollere.com>,
+	Van Jacobson <van@pollere.net>,
+	Tom Herbert <therbert@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:45468 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753341Ab2EKPro (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2012 11:47:44 -0400
-In-Reply-To: <20120510.224352.2149006669429730060.davem@davemloft.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:33422 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754602Ab2EKQIl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 12:08:41 -0400
+Received: by bkcji2 with SMTP id ji2so2375052bkc.19
+        for <netdev@vger.kernel.org>; Fri, 11 May 2012 09:08:40 -0700 (PDT)
+In-Reply-To: <1336749810.31653.176.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CONFIG_OF_MDIO is tristate and will be m if PHYLIB is m.  Use
-IS_ENABLED macro to prevent build error:
+On Fri, 2012-05-11 at 17:23 +0200, Eric Dumazet wrote:
 
- ERROR: "of_mdio_find_bus" [drivers/net/phy/mdio-mux.ko] undefined!
+> Its possible I missed something, because in my first coding I had 3
+> lists.
+> 
+> Anyway I'll send a V2 because I left .change method to NULL, while the
+> intent was to permit a change on fq_codel.
 
-Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-Cc: David Daney <david.daney@cavium.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
-I wonder if this could be as banal as this?  Not even build tested...
+Before sending v2, here is the diff against v1 :
 
-Should be wrapped into commit 25106022 if it works, to ensure
-bisectability.
+ net/sched/sch_fq_codel.c |   26 ++++++++++++++------------
+ 1 file changed, 14 insertions(+), 12 deletions(-)
 
-
-
-Bj=C3=B8rn
-
- drivers/net/phy/mdio_bus.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 83d5c9f..683ef1c 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -88,7 +88,7 @@ static struct class mdio_bus_class =3D {
- 	.dev_release	=3D mdiobus_release,
- };
-=20
--#ifdef CONFIG_OF_MDIO
-+#if IS_ENABLED(CONFIG_OF_MDIO)
- /* Helper function for of_mdio_find_bus */
- static int of_mdio_bus_match(struct device *dev, void *mdio_bus_np)
- {
---=20
-1.7.10
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 8675ff8..f29a967 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -231,18 +231,16 @@ static struct sk_buff *fq_codel_dequeue(struct Qdisc *sch)
+ 	struct fq_codel_sched_data *q = qdisc_priv(sch);
+ 	struct sk_buff *skb;
+ 	struct fq_codel_flow *flow;
++	struct list_head *head;
+ 
+ begin:
+-	if (!list_empty(&q->new_flows))
+-		flow = list_first_entry(&q->new_flows,
+-					struct fq_codel_flow,
+-					flowchain);
+-	else if (!list_empty(&q->old_flows))
+-		flow = list_first_entry(&q->old_flows,
+-					struct fq_codel_flow,
+-					flowchain);
+-	else
+-		return NULL;
++	head = &q->new_flows;
++	if (list_empty(head)) {
++		head = &q->old_flows;
++		if (list_empty(head))
++			return NULL;
++	}
++	flow = list_first_entry(head, struct fq_codel_flow, flowchain);
+ 
+ 	if (flow->deficit <= 0) {
+ 		flow->deficit += q->quantum;
+@@ -252,7 +250,11 @@ begin:
+ 	skb = codel_dequeue(sch, &q->cparams, &flow->cvars, &q->cstats,
+ 			    dequeue, &q->backlogs[flow - q->flows]);
+ 	if (!skb) {
+-		list_del_init(&flow->flowchain);
++		/* force a pass through old_flows to prevent starvation */
++		if ((head == &q->new_flows) && !list_empty(&q->old_flows))
++			list_move_tail(&flow->flowchain, &q->old_flows);
++		else
++			list_del_init(&flow->flowchain);
+ 		goto begin;
+ 	}
+ 	qdisc_bstats_update(sch, skb);
+@@ -573,7 +575,7 @@ static struct Qdisc_ops fq_codel_qdisc_ops __read_mostly = {
+ 	.init		=	fq_codel_init,
+ 	.reset		=	fq_codel_reset,
+ 	.destroy	=	fq_codel_destroy,
+-	.change		=	NULL,
++	.change		=	fq_codel_change,
+ 	.dump		=	fq_codel_dump,
+ 	.dump_stats =	fq_codel_dump_stats,
+ 	.owner		=	THIS_MODULE,
