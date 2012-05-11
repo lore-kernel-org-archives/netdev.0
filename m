@@ -1,40 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: of/phy: fix build error when phylib is built as a
- module
-Date: Fri, 11 May 2012 17:24:55 -0400 (EDT)
-Message-ID: <20120511.172455.120522633866860614.davem@davemloft.net>
-References: <20120510.224352.2149006669429730060.davem@davemloft.net>
- <1336751221-19127-1-git-send-email-bjorn@mork.no>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2012-05-11
+Date: Fri, 11 May 2012 18:01:44 -0400 (EDT)
+Message-ID: <20120511.180144.174337959525316777.davem@davemloft.net>
+References: <1336738892-7401-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: sfr@canb.auug.org.au, david.daney@cavium.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
- rdunlap@xenotime.net, linux-next@vger.kernel.org,
- linuxppc-dev@lists.ozlabs.org
-To: bjorn@mork.no
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1336751221-19127-1-git-send-email-bjorn@mork.no>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1336738892-7401-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Bj=F8rn Mork <bjorn@mork.no>
-Date: Fri, 11 May 2012 17:47:01 +0200
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Fri, 11 May 2012 14:21:17 +0200
 
-> Should be wrapped into commit 25106022 if it works, to ensure
-> bisectability.
+> this is a fixed version of the pull request issued on 2012-05-09.
+> 
+> Comments introduced in this patchset are not following the net-tree
+> guidelines. Another patch changing all the already existing comments will follow
+> later. 
+> 
+> New exported functions follow the new name convention we discussed so far.
+> A patch renaming all the existing exported functions will follow.
 
-Wrapped into?
+Pulled, but you have to cleanup the namespace on lots of other
+functions too.
 
-Commits made to my net-next tree are permanent and irreversible, so we
-cannot go back and change a commit.  I never rebase my tree, too many
-people use it directly and pull it into their tree, so I'd break their
-world if I ever did that.
+For example, the packet receive handle register/unregister routines
+you added in this series as well.
+
+Go through the entire batman-adv stack, and if the function or data
+object is not static, make sure it has a batadv_*() prefix.
