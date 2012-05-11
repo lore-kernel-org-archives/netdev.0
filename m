@@ -1,79 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] igb: fix rtnl race in PM resume path
-Date: Thu, 10 May 2012 18:38:37 -0700
-Message-ID: <1336700317-31929-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Benjamin Poirier <bpoirier@suse.de>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Do not use dead fib_info entries.
+Date: Thu, 10 May 2012 22:17:15 -0400 (EDT)
+Message-ID: <20120510.221715.297338661038042732.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yevgen.pronenko@sonymobile.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:53863 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754253Ab2EKBik (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 May 2012 21:38:40 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:56236 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758485Ab2EKCRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 22:17:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.de>
 
-Since the caller (PM resume code) is not the one holding rtnl, when taking the
-'else' branch rtnl may be released at any moment, thereby defeating the whole
-purpose of this code block.
+Due to RCU lookups and RCU based release, fib_info objects can
+be found during lookup which have fi->fib_dead set.
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+We must ignore these entries, otherwise we risk dereferencing
+the parts of the entry which are being torn down.
+
+Reported-by: Yevgen Pronenko <yevgen.pronenko@sonymobile.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
-This patch is also available on my net tree on kernel.org, but did not
-send a pull-request since I did not see the point in pulling a single
-patch.
+ net/ipv4/fib_trie.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-The following are changes since commit 0e0c55165b638e96c8d7097ea638aa368daa268a:
-  Merge branch 'sfc-3.4' of git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
----
- drivers/net/ethernet/intel/igb/igb_main.c |   20 ++++++--------------
- 1 files changed, 6 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index d223500..8683ca4 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1111,9 +1111,12 @@ msi_only:
- 		adapter->flags |= IGB_FLAG_HAS_MSI;
- out:
- 	/* Notify the stack of the (possibly) reduced queue counts. */
-+	rtnl_lock();
- 	netif_set_real_num_tx_queues(adapter->netdev, adapter->num_tx_queues);
--	return netif_set_real_num_rx_queues(adapter->netdev,
--					    adapter->num_rx_queues);
-+	err = netif_set_real_num_rx_queues(adapter->netdev,
-+		adapter->num_rx_queues);
-+	rtnl_unlock();
-+	return err;
- }
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index bce36f1..30b88d7 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1370,6 +1370,8 @@ static int check_leaf(struct fib_table *tb, struct trie *t, struct leaf *l,
  
- /**
-@@ -6796,18 +6799,7 @@ static int igb_resume(struct device *dev)
- 	pci_enable_wake(pdev, PCI_D3hot, 0);
- 	pci_enable_wake(pdev, PCI_D3cold, 0);
- 
--	if (!rtnl_is_locked()) {
--		/*
--		 * shut up ASSERT_RTNL() warning in
--		 * netif_set_real_num_tx/rx_queues.
--		 */
--		rtnl_lock();
--		err = igb_init_interrupt_scheme(adapter);
--		rtnl_unlock();
--	} else {
--		err = igb_init_interrupt_scheme(adapter);
--	}
--	if (err) {
-+	if (igb_init_interrupt_scheme(adapter)) {
- 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
- 		return -ENOMEM;
- 	}
+ 			if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos)
+ 				continue;
++			if (fi->fib_dead)
++				continue;
+ 			if (fa->fa_info->fib_scope < flp->flowi4_scope)
+ 				continue;
+ 			fib_alias_accessed(fa);
 -- 
-1.7.7.6
+1.7.10.1
