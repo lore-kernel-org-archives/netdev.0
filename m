@@ -1,83 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] fq_codel: Fair Queue Codel AQM
-Date: Fri, 11 May 2012 17:23:30 +0200
-Message-ID: <1336749810.31653.176.camel@edumazet-glaptop>
-References: <1336744796.31653.164.camel@edumazet-glaptop>
-	 <CABa6K_Fk07CUR1+hOx06cwJ5MuNYi7vpeLYFOc_1Qwmu5ubYhQ@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 4/5] net: sh_eth: add support for
+ set_ringparam/get_ringparam
+Date: Fri, 11 May 2012 16:27:10 +0100
+Message-ID: <1336750030.2874.65.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4FACD005.3010800@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dave Taht <dave.taht@bufferbloat.net>,
-	Kathleen Nichols <nichols@pollere.com>,
-	Van Jacobson <van@pollere.net>,
-	Tom Herbert <therbert@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	SH-Linux <linux-sh@vger.kernel.org>
+To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:32915 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756483Ab2EKPXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 11:23:35 -0400
-Received: by bkcji2 with SMTP id ji2so2338495bkc.19
-        for <netdev@vger.kernel.org>; Fri, 11 May 2012 08:23:34 -0700 (PDT)
-In-Reply-To: <CABa6K_Fk07CUR1+hOx06cwJ5MuNYi7vpeLYFOc_1Qwmu5ubYhQ@mail.gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:43910 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756722Ab2EKP1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 11:27:15 -0400
+In-Reply-To: <4FACD005.3010800@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-05-11 at 23:03 +0800, Changli Gao wrote:
-> On Fri, May 11, 2012 at 9:59 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > Fair Queue Codel implementation.
-> >
-> > Principles :
-> >
-> > - Packets are classified (internal classifier or external) on flows.
-> > - This is a Stochastic model (as we use a hash, several flows might
-> >                              be hashed on same slot)
-> > - Each flow has a CoDel managed queue.
-> > - Flows are linked onto two (Round Robin) lists,
-> >  so that new flows have priority on old ones.
-> 
-> I don't think it is a good idea, as the old ones may be starved. It isn't
-> fair. Why not use the conventional DRR?
-> 
+On Fri, 2012-05-11 at 17:38 +0900, Shimoda, Yoshihiro wrote:
+> This patch supports the ethtool's set_ringparam() and get_ringparam().
+[...]
+> +static int sh_eth_set_ringparam(struct net_device *ndev,
+> +				struct ethtool_ringparam *ring)
+> +{
+> +	struct sh_eth_private *mdp = netdev_priv(ndev);
+> +	int ringsize;
+> +
+> +	if (ring->tx_pending > TX_RING_MAX ||
+> +	    ring->rx_pending > RX_RING_MAX ||
+> +	    ring->tx_pending < TX_RING_MIN ||
+> +	    ring->rx_pending < RX_RING_MIN)
+> +		return -EINVAL;
+> +	if (ring->rx_mini_pending || ring->rx_jumbo_pending)
+> +		return -EINVAL;
+> +
+> +	if (netif_running(ndev)) {
+> +		/* Disable interrupts by clearing the interrupt mask. */
+> +		sh_eth_write(ndev, 0x0000, EESIPR);
+> +		/* Stop the chip's Tx and Rx processes. */
+> +		sh_eth_write(ndev, 0, EDTRR);
+> +		sh_eth_write(ndev, 0, EDRRR);
 
-Hey, its DRR, but with 64 bytes per flow instead of more than 256.
-One cache line per flow, that was my goal, sharing the codel_params and
-stats for all flows.
+You'll also need to call netif_tx_disable() and synchronize_irq().
 
-A 'struct fq_codel_flow' can be in three states :
+> +	}
+> +
+> +	/* Free all the skbuffs in the Rx queue. */
+> +	sh_eth_ring_free(ndev);
+> +	/* Free DMA buffer */
+> +	ringsize = sizeof(struct sh_eth_rxdesc) * mdp->num_rx_ring;
+> +	dma_free_coherent(NULL, ringsize, mdp->rx_ring, mdp->rx_desc_dma);
+> +	ringsize = sizeof(struct sh_eth_txdesc) * mdp->num_tx_ring;
+> +	dma_free_coherent(NULL, ringsize, mdp->tx_ring, mdp->tx_desc_dma);
+> +
+> +	/* Set new parameters */
+> +	mdp->num_rx_ring = ring->rx_pending;
+> +	mdp->num_tx_ring = ring->tx_pending;
+> +
+> +	sh_eth_ring_init(ndev);
+> +	sh_eth_dev_init(ndev);
 
-- Detached state
-- In new flow list
-- In old flow list
+And what if either of these fails?
 
-And its the dequeue() that can put a flow in detached state, only if
-coming from old flow list.
+> +	if (netif_running(ndev)) {
+> +		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
+> +		/* Setting the Rx mode will start the Rx process. */
+> +		sh_eth_write(ndev, EDRRR_R, EDRRR);
 
-Its possible I missed something, because in my first coding I had 3
-lists.
+You'll need to call netif_wake_queue().
 
-Anyway I'll send a V2 because I left .change method to NULL, while the
-intent was to permit a change on fq_codel.
+> +	}
+> +
+> +	return 0;
+> +}
+[...]
 
-> > +
-> > +       /* Queue is full! Find the fat flow and drop packet from it.
-> > +        * This might sound expensive, but with 1024 flows, we scan
-> > +        * 4KB of memory, and we dont need to handle a complex tree
-> > +        * in fast path (packet queue/enqueue) with many cache misses.
-> > +        */
-> 
-> How about the tricks used by SFQ?
+Ben.
 
-They are too expensive in term of cache misses and limits.
-Code is complex and difficult to maintain.
-That was a nice compromise 20 years ago when memory was expensive.
-Now, memory is cheap but still slow.
-
-Also adding the 'priority to new flows' is too difficult with SFQ.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
