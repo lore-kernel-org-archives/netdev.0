@@ -1,44 +1,63 @@
-From: "Dr. James William" <ronjohn@yahoo.com>
-Subject: CONTACT WESTERN UNION FOR YOUR PAYMENT MTCN
-Date: Fri, 11 May 2012 18:50:31 +0400
-Message-ID: <3ca3a5364fa52a3df5f8ba43dc7a5493@localhost>
-Reply-To: wu_34live@superposta.com
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
+Date: Fri, 11 May 2012 16:45:40 +0100
+Message-ID: <20120511154540.GV11435@suse.de>
+References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
+ <20120511.010445.1020972261904383892.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.fryazino.net ([62.140.253.10]:57613 "EHLO
-	smtp.fryazino.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758676Ab2EKPoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 11:44:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: akpm@linux-foundation.org, linux-mm@kvack.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, neilb@suse.de,
+	a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20120511.010445.1020972261904383892.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, May 11, 2012 at 01:04:45AM -0400, David Miller wrote:
+> 
+> Ok, I'm generally happy with the networking parts.
+> 
 
+Great!
 
---=20
-Attention.
+> If you address my feedback I'll sign off on it.
+> 
 
- I=E2=80=99ve sent you the first payment of $5.000.00 today from your w=
-inning
-funds total amount of $4.7MillionUSD,Therefore you need to contact west=
-ern
-union agent for him to give you the transfer payment information and MT=
-CN,
+I didn't get through all the feedback and respond today but I will
+during next week, get it retested and reposted. Thanks a lot.
 
-Agent: Mr.Adam Smith
-Phone: +229-9813-6203
-Email: wu_34live@superposta.com
+> The next question is whose tree this stuff goes through :-)
 
-Please try to contact him today for him to forward the payment informat=
-ion
-to you, remember to indicate the registration code of EB-2520 to him wh=
-en
-e-mailing or calling he also he will be sending you $5,000.00 daily as =
-per
-my discussion with him.
+Yep, that's going to be entertaining.  I had structured this so it could
+go through multiple trees but it's not perfect. If I switch patches 14
+(slab-related) and 15 (network related), then it becomes
 
-Do get in touch with me once you have received the transfer.
-Sincerely,
-Mr. James Williams.
+Patch 1 gets dropped after the next merge window as it'll be in mainline anyway
+Patch 2-3 goes through Pekka's sl*b tree
+Patch 4-7 goes through akpm
+Patch 8-14 goes through linux-net
+Patch 15-17 goes through akpm
+
+That sort of multiple staging is messy though and correctness would depend
+on what order linux-next pulls trees from. I think I should be able to
+move 15-17 before linux-net which might simplify things a little although
+that would be a bit odd from a bisection perspective.
+
+>From my point of view, the ideal would be that all the patches go through
+akpm's tree or yours but that probably will cause merge difficulties.
+
+Any recommendations?
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
