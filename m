@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net_sched: update bstats in dequeue()
-Date: Thu, 10 May 2012 23:36:04 -0400 (EDT)
-Message-ID: <20120510.233604.758236662455118985.davem@davemloft.net>
-References: <1336664194.31653.8.camel@edumazet-glaptop>
+Subject: Re: [PATCH 2/3] etherdevice.h: Add ether_addr_equal_64bits
+Date: Thu, 10 May 2012 23:35:41 -0400 (EDT)
+Message-ID: <20120510.233541.852199665039697310.davem@davemloft.net>
+References: <cover.1336618707.git.joe@perches.com>
+	<7535e70ceb63f7da56f73cb37d4b269cd7798583.1336618708.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56729 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932919Ab2EKDgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:36:07 -0400
-In-Reply-To: <1336664194.31653.8.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7535e70ceb63f7da56f73cb37d4b269cd7798583.1336618708.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 10 May 2012 17:36:34 +0200
+From: Joe Perches <joe@perches.com>
+Date: Wed,  9 May 2012 20:04:03 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> Add an optimized boolean function to check if
+> 2 ethernet addresses are the same.
 > 
-> Class bytes/packets stats can be misleading because they are updated in
-> enqueue() while packet might be dropped later.
+> This is to avoid any confusion about compare_ether_addr_64bits
+> returning an unsigned, and not being able to use the
+> compare_ether_addr_64bits function for sorting ala memcmp.
 > 
-> We already fixed all qdiscs but sch_atm.
-> 
-> This patch makes the final cleanup.
-> 
-> class rate estimators can now match qdisc ones.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied.
