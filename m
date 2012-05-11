@@ -1,96 +1,79 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH v2] xfrm: take iphdr size into account for esp payload size calculation
-Date: Thu, 10 May 2012 21:07:22 -0400
-Message-ID: <1336698442-25148-1-git-send-email-bpoirier@suse.de>
-References: <20120511010249.GA23584@d2.synalogic.ca>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] igb: fix rtnl race in PM resume path
+Date: Thu, 10 May 2012 18:38:37 -0700
+Message-ID: <1336700317-31929-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Benjamin Poirier <bpoirier@suse.de>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:40252 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755909Ab2EKBHi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 21:07:38 -0400
-In-Reply-To: <20120511010249.GA23584@d2.synalogic.ca>
+Received: from mga11.intel.com ([192.55.52.93]:53863 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754253Ab2EKBik (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 May 2012 21:38:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corrects the function that determines the esp payload size.
-The calculations done in esp4_get_mtu lead to overlength frames in transport
-mode for certain mtu values and suboptimal frames for others.
+From: Benjamin Poirier <bpoirier@suse.de>
 
-According to what is done, mainly in esp_output(), net_header_len aka
-sizeof(struct iphdr) must be taken into account before doing the alignment
-calculation.
+Since the caller (PM resume code) is not the one holding rtnl, when taking the
+'else' branch rtnl may be released at any moment, thereby defeating the whole
+purpose of this code block.
 
 Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
-
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-Changes since v1:
-* introduce l3_adj to preserve the same returned value as before for tunnel
-  mode
+This patch is also available on my net tree on kernel.org, but did not
+send a pull-request since I did not see the point in pulling a single
+patch.
 
-For example, with md5 AH and 3des ESP (transport mode):
-mtu = 1499 leads to FRAGFAILS
-mtu = 1500 the addition of padding in the esp header could be avoided
-
-Tested with
-* transport mode E
-* transport mode EA
-* transport mode E + ah
-* tunnel mode E
-
-Not tested with BEET, but it should be the same as transport mode
-	draft-nikander-esp-beet-mode-03.txt Section 5.2:
-	"The wire packet format is identical to the ESP transport mode"
+The following are changes since commit 0e0c55165b638e96c8d7097ea638aa368daa268a:
+  Merge branch 'sfc-3.4' of git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 ---
- net/ipv4/esp4.c |   24 +++++++++---------------
- 1 files changed, 9 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c |   20 ++++++--------------
+ 1 files changed, 6 insertions(+), 14 deletions(-)
 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 89a47b3..b2503f6 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -459,28 +459,22 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
- 	struct esp_data *esp = x->data;
- 	u32 blksize = ALIGN(crypto_aead_blocksize(esp->aead), 4);
- 	u32 align = max_t(u32, blksize, esp->padlen);
--	u32 rem;
--
--	mtu -= x->props.header_len + crypto_aead_authsize(esp->aead);
--	rem = mtu & (align - 1);
--	mtu &= ~(align - 1);
-+	unsigned int l3_adj;
- 
- 	switch (x->props.mode) {
--	case XFRM_MODE_TUNNEL:
--		break;
--	default:
- 	case XFRM_MODE_TRANSPORT:
--		/* The worst case */
--		mtu -= blksize - 4;
--		mtu += min_t(u32, blksize - 4, rem);
--		break;
- 	case XFRM_MODE_BEET:
--		/* The worst case. */
--		mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem);
-+		l3_adj = sizeof(struct iphdr);
- 		break;
-+	case XFRM_MODE_TUNNEL:
-+		l3_adj = 0;
-+		break;
-+	default:
-+		BUG();
- 	}
- 
--	return mtu - 2;
-+	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
-+			l3_adj) & ~(align - 1)) + (l3_adj - 2);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index d223500..8683ca4 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1111,9 +1111,12 @@ msi_only:
+ 		adapter->flags |= IGB_FLAG_HAS_MSI;
+ out:
+ 	/* Notify the stack of the (possibly) reduced queue counts. */
++	rtnl_lock();
+ 	netif_set_real_num_tx_queues(adapter->netdev, adapter->num_tx_queues);
+-	return netif_set_real_num_rx_queues(adapter->netdev,
+-					    adapter->num_rx_queues);
++	err = netif_set_real_num_rx_queues(adapter->netdev,
++		adapter->num_rx_queues);
++	rtnl_unlock();
++	return err;
  }
  
- static void esp4_err(struct sk_buff *skb, u32 info)
+ /**
+@@ -6796,18 +6799,7 @@ static int igb_resume(struct device *dev)
+ 	pci_enable_wake(pdev, PCI_D3hot, 0);
+ 	pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+-	if (!rtnl_is_locked()) {
+-		/*
+-		 * shut up ASSERT_RTNL() warning in
+-		 * netif_set_real_num_tx/rx_queues.
+-		 */
+-		rtnl_lock();
+-		err = igb_init_interrupt_scheme(adapter);
+-		rtnl_unlock();
+-	} else {
+-		err = igb_init_interrupt_scheme(adapter);
+-	}
+-	if (err) {
++	if (igb_init_interrupt_scheme(adapter)) {
+ 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
+ 		return -ENOMEM;
+ 	}
 -- 
-1.7.7
+1.7.7.6
