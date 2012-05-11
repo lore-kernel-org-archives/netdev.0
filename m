@@ -1,40 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] 6lowpan: IPv6 link local address
-Date: Thu, 10 May 2012 23:38:59 -0400 (EDT)
-Message-ID: <20120510.233859.964333484372213068.davem@davemloft.net>
-References: <1336656352-19518-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56778 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932408Ab2EKDjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:39:01 -0400
-In-Reply-To: <1336656352-19518-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH] wlcore: wlcore should depend on MAC80211
+Date: Fri, 11 May 2012 06:39:54 +0200
+Message-ID: <1336711194-26883-1-git-send-email-levinsasha928@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <levinsasha928@gmail.com>
+To: coelho@ti.com, linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Date: Thu, 10 May 2012 17:25:52 +0400
+wlcore can't be built if MAC80211 isn't set.
 
-> According to the RFC4944 (Transmission of IPv6 Packets over
-> IEEE 802.15.4 Networks), chapter 7:
-> 
-> The IPv6 link-local address [RFC4291] for an IEEE 802.15.4 interface
-> is formed by appending the Interface Identifier, as defined above, to
-> the prefix FE80::/64.
-> 
->   10 bits            54 bits                  64 bits
-> +----------+-----------------------+----------------------------+
-> |1111111010|         (zeros)       |    Interface Identifier    |
-> +----------+-----------------------+----------------------------+
-> 
-> This patch adds IPv6 address generation support for the 6lowpan
-> interfaces.
-> 
-> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ drivers/net/wireless/ti/wlcore/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Applied.
+diff --git a/drivers/net/wireless/ti/wlcore/Kconfig b/drivers/net/wireless/ti/wlcore/Kconfig
+index 9d04c38..54156b0 100644
+--- a/drivers/net/wireless/ti/wlcore/Kconfig
++++ b/drivers/net/wireless/ti/wlcore/Kconfig
+@@ -1,6 +1,6 @@
+ config WLCORE
+ 	tristate "TI wlcore support"
+-	depends on WL_TI && GENERIC_HARDIRQS
++	depends on WL_TI && GENERIC_HARDIRQS && MAC80211
+ 	depends on INET
+ 	select FW_LOADER
+ 	---help---
+-- 
+1.7.8.5
