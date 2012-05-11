@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v13 net-next] codel: Controlled Delay AQM
-Date: Thu, 10 May 2012 23:36:32 -0400 (EDT)
-Message-ID: <20120510.233632.1955738491150675180.davem@davemloft.net>
-References: <1336399043.3752.2318.camel@edumazet-glaptop>
-	<1336571439.12504.27.camel@edumazet-glaptop>
-	<1336672285.31653.102.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] 6lowpan: IPv6 link local address
+Date: Thu, 10 May 2012 23:38:59 -0400 (EDT)
+Message-ID: <20120510.233859.964333484372213068.davem@davemloft.net>
+References: <1336656352-19518-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dave.taht@bufferbloat.net, nichols@pollere.com, van@pollere.net,
-	codel@lists.bufferbloat.net, bloat@lists.bufferbloat.net,
-	netdev@vger.kernel.org, therbert@google.com, ycheng@google.com,
-	mattmathis@google.com, shemminger@vyatta.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56769 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56778 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932408Ab2EKDij (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:38:39 -0400
-In-Reply-To: <1336672285.31653.102.camel@edumazet-glaptop>
+	with ESMTP id S932408Ab2EKDjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:39:01 -0400
+In-Reply-To: <1336656352-19518-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 10 May 2012 19:51:25 +0200
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Thu, 10 May 2012 17:25:52 +0400
 
-> From: Eric Dumazet <edumazet@google.com>
+> According to the RFC4944 (Transmission of IPv6 Packets over
+> IEEE 802.15.4 Networks), chapter 7:
 > 
-> An implementation of CoDel AQM, from Kathleen Nichols and Van Jacobson. 
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Dave Taht <dave.taht@bufferbloat.net>
+> The IPv6 link-local address [RFC4291] for an IEEE 802.15.4 interface
+> is formed by appending the Interface Identifier, as defined above, to
+> the prefix FE80::/64.
+> 
+>   10 bits            54 bits                  64 bits
+> +----------+-----------------------+----------------------------+
+> |1111111010|         (zeros)       |    Interface Identifier    |
+> +----------+-----------------------+----------------------------+
+> 
+> This patch adds IPv6 address generation support for the 6lowpan
+> interfaces.
+> 
+> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 
-Applied, but there was a lot of trailing whitespace and a few
-comments mis-formatted which I had to fix up.
-
-Thanks.
+Applied.
