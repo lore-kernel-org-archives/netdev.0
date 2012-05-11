@@ -1,83 +1,189 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-05-11
-Date: Sat, 12 May 2012 00:10:25 +0200
-Message-ID: <1580622.xq0LFHtR2u@bentobox>
-References: <1336738892-7401-1-git-send-email-ordex@autistici.org>
-	<20120511.180144.174337959525316777.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: pch_gbe: oops with vlan (new)
+Date: Sat, 12 May 2012 00:10:54 +0200
+Message-ID: <1336774254.31653.287.camel@edumazet-glaptop>
+References: <40680C535D6FE6498883F1640FACD44DDF9105@ka-exchange-1.kontronamerica.local>
+	 <1336770777.31653.283.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart1771440.M4XkGvE5Cm";
-	micalg="pgp-sha512"; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20120511.180144.174337959525316777.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Andy Cress <andy.cress@us.kontron.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:54527 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759169Ab2EKWLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:11:00 -0400
+Received: by wibhn6 with SMTP id hn6so687000wib.1
+        for <netdev@vger.kernel.org>; Fri, 11 May 2012 15:10:58 -0700 (PDT)
+In-Reply-To: <1336770777.31653.283.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---nextPart1771440.M4XkGvE5Cm
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
-
-On Friday, May 11, 2012 06:01:44 PM David Miller wrote:
-> From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-> Date: Fri, 11 May 2012 14:21:17 +0200
-> 
-> > this is a fixed version of the pull request issued on 2012-05-09.
+On Fri, 2012-05-11 at 23:13 +0200, Eric Dumazet wrote:
+> On Fri, 2012-05-11 at 13:48 -0700, Andy Cress wrote:
+> > Folks,
 > > 
-> > Comments introduced in this patchset are not following the net-tree
-> > guidelines. Another patch changing all the already existing comments
-> > will follow later.
+> > I am looking for help in debugging a pch_gbe driver oops/abort.
 > > 
-> > New exported functions follow the new name convention we discussed so
-> > far. A patch renaming all the existing exported functions will follow.
-> Pulled, but you have to cleanup the namespace on lots of other
-> functions too.
+> > Kernel: version 2.6.32-220.el6.i686 (RHEL6.2)
+> > Driver: pch_gbe version 0.91-NAPI  (source tarball we used is at
+> > https://sendfile.kontron.com/message/24tdUi6MXklnUtBLnOsumq until May
+> > 16)
+> > NIC: 0b:00.1 Ethernet controller [0200]: Intel Corporation Platform
+> > Controller Hub EG20T Gigabit Ethernet Controller [8086:8802] (rev 02)
+> > 
+> > Configuration, with VLAN:
+> >  eth0 (not started)
+> >  eth0.100 = 192.168.100.1
+> >  eth0.200 = 192.168.200.1
+> >  eth0.6  = 192.168.6.1
+> > 
+> > When starting the VLAN configuration, then doing a ping test for >= 5
+> > minutes, I get a kernel oop/abort message as shown below.  This does not
+> > happen without configuring VLAN.
+> > Where should I look for possible causes for a transmit queue timeout
+> > like this?  
+> > 
+> > I have contacted the OKI/LAPIS driver authors, but no response so far.
+> > I thought that this group might be able to comment from similar
+> > experiences.
+> > 
+> > Andy
 > 
-> For example, the packet receive handle register/unregister routines
-> you added in this series as well.
+> typical sign of a buggy driver
 > 
-> Go through the entire batman-adv stack, and if the function or data
-> object is not static, make sure it has a batadv_*() prefix.
+> A quick look in current Linus tree show a non existent synchronization
+> between ndo_start_xmit and TX completion.
+> 
+> tx completion uses a tx_queue_lock spinlock for nothing but false sense
+> of correctness.
 
-The patches for this are posted on the batman-adv mailinglist [1]. I am 
-currently splitting this large patch for easier consumption.
+Please try the following patch : (based on current net-next tree)
 
-Thanks,
-	Sven
+Also this driver has a strange RX path : It does a copy of incoming
+frames on fixed size skbs, (2048+overhead -> kmalloc-4096 pool) instead
+of using skb of the right size...
 
-[1] https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2012-May/007062.html
---nextPart1771440.M4XkGvE5Cm
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJPrY5RAAoJEF2HCgfBJntGFgYP/RhKTOYvfvP6z9tZa0V7Qz0Z
-7SfNKpEf06TEk/lnEnh63U7oqywakQnfrJWvC7Nuarj7Wg8vZs011u4FCNr16a53
-lnpwDxgvTQKT1hxm6WejOJylUulqpxRx1Mdf1U5NFwfrjh4fuLcetYS0cI7TJhaI
-YNY61aCQ4Xru79TBQ9HYzfA4jeX3WXYJIIhGDsTSHG1jfwGHzMLn2N3FPhwUT9Bz
-55CWRsUSipXPprSr9abnTqvkSuNGj28eZ8poKU5TeOdZwhoNpLEDRSmaB9TNVPoO
-9ihu/zcW3FL5TERnTQXIY38/ySxPtzYIMTG9sK8X9Bs+AlksClkepg+IZwCo2iXA
-vOytqJ9pOmTw1FUtzd1Kt0bTiOo9LvPwV9NELlCt7hrzXeEgO9D4OkcFBbynOt+R
-cGfBWRVoWb6fAnQuH2zvcMXrVhdbhqf83js9kUNwzZ8o9t2LQMPJhKzOdrr8Y1xc
-pfxaH3EC/2G3dOBTXvCF9y+qyUKPiqnDqYttFpLnk/onb0V5i16+4OgX3xlYVyLo
-62l9gX6OzYothYrj+hxASIvr131bHO/EgWpAQ98v1hO3giDUkDiXIQ8leWx7qOn2
-YNQCXu3rUmw/0iquzVabgStXZm27DiW/B5N2iooQLYNCQyy3lKbFI1ywD9O5FS3v
-2ZxhxwS9BTy+9uM2agP5
-=KsYI
------END PGP SIGNATURE-----
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h      |    2 
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c |   25 ++++------
+ 2 files changed, 11 insertions(+), 16 deletions(-)
 
---nextPart1771440.M4XkGvE5Cm--
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+index 9f3dbc4..b07311e 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+@@ -584,7 +584,6 @@ struct pch_gbe_hw_stats {
+ /**
+  * struct pch_gbe_adapter - board specific private data structure
+  * @stats_lock:	Spinlock structure for status
+- * @tx_queue_lock:	Spinlock structure for transmit
+  * @ethtool_lock:	Spinlock structure for ethtool
+  * @irq_sem:		Semaphore for interrupt
+  * @netdev:		Pointer of network device structure
+@@ -609,7 +608,6 @@ struct pch_gbe_hw_stats {
+ 
+ struct pch_gbe_adapter {
+ 	spinlock_t stats_lock;
+-	spinlock_t tx_queue_lock;
+ 	spinlock_t ethtool_lock;
+ 	atomic_t irq_sem;
+ 	struct net_device *netdev;
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 9dc7e50..3787c64 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -645,14 +645,11 @@ static void pch_gbe_mac_set_pause_packet(struct pch_gbe_hw *hw)
+  */
+ static int pch_gbe_alloc_queues(struct pch_gbe_adapter *adapter)
+ {
+-	int size;
+-
+-	size = (int)sizeof(struct pch_gbe_tx_ring);
+-	adapter->tx_ring = kzalloc(size, GFP_KERNEL);
++	adapter->tx_ring = kzalloc(sizeof(*adapter->tx_ring), GFP_KERNEL);
+ 	if (!adapter->tx_ring)
+ 		return -ENOMEM;
+-	size = (int)sizeof(struct pch_gbe_rx_ring);
+-	adapter->rx_ring = kzalloc(size, GFP_KERNEL);
++
++	adapter->rx_ring = kzalloc(sizeof(*adapter->rx_ring), GFP_KERNEL);
+ 	if (!adapter->rx_ring) {
+ 		kfree(adapter->tx_ring);
+ 		return -ENOMEM;
+@@ -1169,7 +1166,6 @@ static void pch_gbe_tx_queue(struct pch_gbe_adapter *adapter,
+ 	struct sk_buff *tmp_skb;
+ 	unsigned int frame_ctrl;
+ 	unsigned int ring_num;
+-	unsigned long flags;
+ 
+ 	/*-- Set frame control --*/
+ 	frame_ctrl = 0;
+@@ -1216,14 +1212,14 @@ static void pch_gbe_tx_queue(struct pch_gbe_adapter *adapter,
+ 			}
+ 		}
+ 	}
+-	spin_lock_irqsave(&tx_ring->tx_lock, flags);
++
+ 	ring_num = tx_ring->next_to_use;
+ 	if (unlikely((ring_num + 1) == tx_ring->count))
+ 		tx_ring->next_to_use = 0;
+ 	else
+ 		tx_ring->next_to_use = ring_num + 1;
+ 
+-	spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
++
+ 	buffer_info = &tx_ring->buffer_info[ring_num];
+ 	tmp_skb = buffer_info->skb;
+ 
+@@ -1525,7 +1521,7 @@ pch_gbe_alloc_rx_buffers_pool(struct pch_gbe_adapter *adapter,
+ 						&rx_ring->rx_buff_pool_logic,
+ 						GFP_KERNEL);
+ 	if (!rx_ring->rx_buff_pool) {
+-		pr_err("Unable to allocate memory for the receive poll buffer\n");
++		pr_err("Unable to allocate memory for the receive pool buffer\n");
+ 		return -ENOMEM;
+ 	}
+ 	memset(rx_ring->rx_buff_pool, 0, size);
+@@ -1644,15 +1640,17 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+ 	pr_debug("called pch_gbe_unmap_and_free_tx_resource() %d count\n",
+ 		 cleaned_count);
+ 	/* Recover from running out of Tx resources in xmit_frame */
++	spin_lock(&tx_ring->tx_lock);
+ 	if (unlikely(cleaned && (netif_queue_stopped(adapter->netdev)))) {
+ 		netif_wake_queue(adapter->netdev);
+ 		adapter->stats.tx_restart_count++;
+ 		pr_debug("Tx wake queue\n");
+ 	}
+-	spin_lock(&adapter->tx_queue_lock);
++
+ 	tx_ring->next_to_clean = i;
+-	spin_unlock(&adapter->tx_queue_lock);
++
+ 	pr_debug("next_to_clean : %d\n", tx_ring->next_to_clean);
++	spin_unlock(&tx_ring->tx_lock);
+ 	return cleaned;
+ }
+ 
+@@ -2043,7 +2041,6 @@ static int pch_gbe_sw_init(struct pch_gbe_adapter *adapter)
+ 		return -ENOMEM;
+ 	}
+ 	spin_lock_init(&adapter->hw.miim_lock);
+-	spin_lock_init(&adapter->tx_queue_lock);
+ 	spin_lock_init(&adapter->stats_lock);
+ 	spin_lock_init(&adapter->ethtool_lock);
+ 	atomic_set(&adapter->irq_sem, 0);
+@@ -2148,10 +2145,10 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 			 tx_ring->next_to_use, tx_ring->next_to_clean);
+ 		return NETDEV_TX_BUSY;
+ 	}
+-	spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+ 
+ 	/* CRC,ITAG no support */
+ 	pch_gbe_tx_queue(adapter, tx_ring, skb);
++	spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+ 	return NETDEV_TX_OK;
+ }
+ 
