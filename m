@@ -1,54 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 2/2] igb: Add Support for new i210/i211 devices.
-Date: Fri, 11 May 2012 18:27:35 -0400 (EDT)
-Message-ID: <20120511.182735.63933163877487008.davem@davemloft.net>
-References: <1336723282-3130-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1336723282-3130-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_htb: report backlog information in htb classes
+Date: Sat, 12 May 2012 00:31:34 +0200
+Message-ID: <1336775494.31653.297.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: carolyn.wyborny@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37375 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932266Ab2EKW1p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:27:45 -0400
-In-Reply-To: <1336723282-3130-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:53124 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761095Ab2EKWbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:31:38 -0400
+Received: by weyu7 with SMTP id u7so678153wey.19
+        for <netdev@vger.kernel.org>; Fri, 11 May 2012 15:31:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 11 May 2012 01:01:22 -0700
+From: Eric Dumazet <edumazet@google.com>
 
-> +s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
-> +{
-> +	s32 ret_val;
-> +
-> +	ret_val = igb_acquire_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
-> +
-> +	return ret_val;
-> +}
+htb classes at level 0 can copy their qdisc child backlog to provide to
+"tc -s class" users more relevant information. (packet counter is
+correct but byte counter (backlog) is 0)
 
-Please, this is just unnecessary syntactic masterbation, simplify this
-to:
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_htb.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
-{
-	return igb_acquire_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
-}
-
-And:
-
-> +void igb_release_nvm_i210(struct e1000_hw *hw)
-> +{
-> +
-> +	igb_release_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
-> +}
-
-Please get rid of that unnecessary empty line.
-
-I can really tell when someone is extremely careless when removing
-their debugging code, and I can almost guarentee that's what has
-happened here.
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 9d75b77..0f4d534 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1073,9 +1073,10 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	spin_lock_bh(root_lock);
+ 	tcm->tcm_parent = cl->parent ? cl->parent->common.classid : TC_H_ROOT;
+ 	tcm->tcm_handle = cl->common.classid;
+-	if (!cl->level && cl->un.leaf.q)
++	if (!cl->level && cl->un.leaf.q) {
+ 		tcm->tcm_info = cl->un.leaf.q->handle;
+-
++		sch->qstats.backlog = cl->un.leaf.q->qstats.backlog;
++	}
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
