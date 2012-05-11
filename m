@@ -1,61 +1,241 @@
 From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [PATCH v3][resend] bonding: don't increase rx_dropped after
- processing LACPDUs
-Date: Fri, 11 May 2012 15:54:10 +0200
-Message-ID: <20120511135410.GA11466@midget.suse.cz>
-References: <20120509110140.GA9817@midget.suse.cz>
- <20120510.233134.1390996845692589691.davem@davemloft.net>
+Subject: [PATCH v4] bonding: don't increase rx_dropped after processing
+ LACPDUs
+Date: Fri, 11 May 2012 15:59:33 +0200
+Message-ID: <20120511135933.GB11466@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jbohac@suse.cz, andy@greyhouse.net, netdev@vger.kernel.org,
-	fubar@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: andy@greyhouse.net, netdev@vger.kernel.org, fubar@us.ibm.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:38919 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:39224 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759847Ab2EKNyU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 May 2012 09:54:20 -0400
+	id S1755477Ab2EKN7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2012 09:59:38 -0400
 Content-Disposition: inline
-In-Reply-To: <20120510.233134.1390996845692589691.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 10, 2012 at 11:31:34PM -0400, David Miller wrote:
-> > Since commit 3aba891d, bonding processes LACP frames (802.3ad
-> > mode) with bond_handle_frame(). Currently a copy of the skb is
-> > made and the original is left to be processed by other
-> > rx_handlers and the rest of the network stack by returning
-> > RX_HANDLER_ANOTHER.  As there is no protocol handler for
-> > PKT_TYPE_LACPDU, the frame is dropped and dev->rx_dropped
-> > increased.
-> >=20
-> > Fix this by making bond_handle_frame() return RX_HANDLER_CONSUMED
-> > if bonding has processed the LACP frame.
-> >=20
-> > Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-> >=20
->=20
-> Don't send me garbage you didn't even check the compile of:
->=20
-> drivers/net/bonding/bond_main.c: In function =E2=80=98bond_handle_fra=
-me=E2=80=99:
-> drivers/net/bonding/bond_main.c:1463:13: warning: assignment from inc=
-ompatible pointer type [enabled by default]
-> drivers/net/bonding/bond_main.c: In function =E2=80=98bond_open=E2=80=
-=99:
-> drivers/net/bonding/bond_main.c:3441:21: warning: assignment from inc=
-ompatible pointer type [enabled by default]
-> drivers/net/bonding/bond_main.c:3448:20: warning: assignment from inc=
-ompatible pointer type [enabled by default]
+Since commit 3aba891d, bonding processes LACP frames (802.3ad
+mode) with bond_handle_frame(). Currently a copy of the skb is
+made and the original is left to be processed by other
+rx_handlers and the rest of the network stack by returning
+RX_HANDLER_ANOTHER.  As there is no protocol handler for
+PKT_TYPE_LACPDU, the frame is dropped and dev->rx_dropped
+increased.
 
-sorry, I overlooked these warnings. The patch actually broke the
-rlb mode which I did not test.=20
+Fix this by making bond_handle_frame() return RX_HANDLER_CONSUMED
+if bonding has processed the LACP frame.
 
-I'll send a fixed patch (v4).
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
-Thanks!
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2173,9 +2173,10 @@ re_arm:
+  * received frames (loopback). Since only the payload is given to this
+  * function, it check for loopback.
+  */
+-static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
++static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u16 length)
+ {
+ 	struct port *port;
++	int ret = RX_HANDLER_ANOTHER;
+ 
+ 	if (length >= sizeof(struct lacpdu)) {
+ 
+@@ -2184,11 +2185,12 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
+ 		if (!port->slave) {
+ 			pr_warning("%s: Warning: port of slave %s is uninitialized\n",
+ 				   slave->dev->name, slave->dev->master->name);
+-			return;
++			return ret;
+ 		}
+ 
+ 		switch (lacpdu->subtype) {
+ 		case AD_TYPE_LACPDU:
++			ret = RX_HANDLER_CONSUMED;
+ 			pr_debug("Received LACPDU on port %d\n",
+ 				 port->actor_port_number);
+ 			/* Protect against concurrent state machines */
+@@ -2198,6 +2200,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
+ 			break;
+ 
+ 		case AD_TYPE_MARKER:
++			ret = RX_HANDLER_CONSUMED;
+ 			// No need to convert fields to Little Endian since we don't use the marker's fields.
+ 
+ 			switch (((struct bond_marker *)lacpdu)->tlv_type) {
+@@ -2219,6 +2222,7 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
+ 			}
+ 		}
+ 	}
++	return ret;
+ }
+ 
+ /**
+@@ -2456,18 +2460,20 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
+-void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
++int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+ 			  struct slave *slave)
+ {
++	int ret = RX_HANDLER_ANOTHER;
+ 	if (skb->protocol != PKT_TYPE_LACPDU)
+-		return;
++		return ret;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
+-		return;
++		return ret;
+ 
+ 	read_lock(&bond->lock);
+-	bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
++	ret = bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->len);
+ 	read_unlock(&bond->lock);
++	return ret;
+ }
+ 
+ /*
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
+index 235b2cc..5ee7e3c 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -274,7 +274,7 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave);
+ void bond_3ad_handle_link_change(struct slave *slave, char link);
+ int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
+ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
+-void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
++int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+ 			  struct slave *slave);
+ int bond_3ad_set_carrier(struct bonding *bond);
+ void bond_3ad_update_lacp_rate(struct bonding *bond);
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 9abfde4..2e1f806 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -342,26 +342,26 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
+ 	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+-static void rlb_arp_recv(struct sk_buff *skb, struct bonding *bond,
++static int rlb_arp_recv(struct sk_buff *skb, struct bonding *bond,
+ 			 struct slave *slave)
+ {
+ 	struct arp_pkt *arp;
+ 
+ 	if (skb->protocol != cpu_to_be16(ETH_P_ARP))
+-		return;
++		goto out;
+ 
+ 	arp = (struct arp_pkt *) skb->data;
+ 	if (!arp) {
+ 		pr_debug("Packet has no ARP data\n");
+-		return;
++		goto out;
+ 	}
+ 
+ 	if (!pskb_may_pull(skb, arp_hdr_len(bond->dev)))
+-		return;
++		goto out;
+ 
+ 	if (skb->len < sizeof(struct arp_pkt)) {
+ 		pr_debug("Packet is too small to be an ARP\n");
+-		return;
++		goto out;
+ 	}
+ 
+ 	if (arp->op_code == htons(ARPOP_REPLY)) {
+@@ -369,6 +369,8 @@ static void rlb_arp_recv(struct sk_buff *skb, struct bonding *bond,
+ 		rlb_update_entry_from_arp(bond, arp);
+ 		pr_debug("Server received an ARP Reply from client\n");
+ 	}
++out:
++	return RX_HANDLER_ANOTHER;
+ }
+ 
+ /* Caller must hold bond lock for read */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 62d2409..bc13b3d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1444,8 +1444,9 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 	struct sk_buff *skb = *pskb;
+ 	struct slave *slave;
+ 	struct bonding *bond;
+-	void (*recv_probe)(struct sk_buff *, struct bonding *,
++	int (*recv_probe)(struct sk_buff *, struct bonding *,
+ 				struct slave *);
++	int ret = RX_HANDLER_ANOTHER;
+ 
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+@@ -1464,8 +1465,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 		struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
+ 
+ 		if (likely(nskb)) {
+-			recv_probe(nskb, bond, slave);
++			ret = recv_probe(nskb, bond, slave);
+ 			dev_kfree_skb(nskb);
++			if (ret == RX_HANDLER_CONSUMED) {
++				consume_skb(skb);
++				return ret;
++			}
+ 		}
+ 	}
+ 
+@@ -1487,7 +1492,7 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 		memcpy(eth_hdr(skb)->h_dest, bond->dev->dev_addr, ETH_ALEN);
+ 	}
+ 
+-	return RX_HANDLER_ANOTHER;
++	return ret;
+ }
+ 
+ /* enslave device <slave> to bond device <master> */
+@@ -2723,7 +2728,7 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
+ 	}
+ }
+ 
+-static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
++static int bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
+ 			 struct slave *slave)
+ {
+ 	struct arphdr *arp;
+@@ -2731,7 +2736,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
+ 	__be32 sip, tip;
+ 
+ 	if (skb->protocol != __cpu_to_be16(ETH_P_ARP))
+-		return;
++		return RX_HANDLER_ANOTHER;
+ 
+ 	read_lock(&bond->lock);
+ 
+@@ -2776,6 +2781,7 @@ static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
+ 
+ out_unlock:
+ 	read_unlock(&bond->lock);
++	return RX_HANDLER_ANOTHER;
+ }
+ 
+ /*
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 9f2bae66..4581aa5 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -218,7 +218,7 @@ struct bonding {
+ 	struct   slave *primary_slave;
+ 	bool     force_primary;
+ 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+-	void     (*recv_probe)(struct sk_buff *, struct bonding *,
++	int     (*recv_probe)(struct sk_buff *, struct bonding *,
+ 			       struct slave *);
+ 	rwlock_t lock;
+ 	rwlock_t curr_slave_lock;
 
---=20
+
+-- 
 Jiri Bohac <jbohac@suse.cz>
 SUSE Labs, SUSE CZ
