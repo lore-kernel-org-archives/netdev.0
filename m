@@ -1,37 +1,49 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Linux Plumbers Conference: Networking-bufferbloat
-Date: Fri, 11 May 2012 15:12:15 -0700
-Message-ID: <CA+mtBx9py=ZMG2=YOnsYH_3QX3uVpX8UR28vjo1=NnijwKnNUQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 2/2] stmmac: add mixed burst for DMA
+Date: Fri, 11 May 2012 18:12:59 -0400 (EDT)
+Message-ID: <20120511.181259.845221725995971870.davem@davemloft.net>
+References: <1336381953-18041-1-git-send-email-peppe.cavallaro@st.com>
+	<1336381953-18041-2-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:43394 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030333Ab2EKWMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:12:15 -0400
-Received: by yhmm54 with SMTP id m54so3111115yhm.19
-        for <netdev@vger.kernel.org>; Fri, 11 May 2012 15:12:15 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:37233 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932518Ab2EKWNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:13:04 -0400
+In-Reply-To: <1336381953-18041-2-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Mon,  7 May 2012 11:12:33 +0200
 
-I proposed a micro conference for this years Linux Plumbers Conference
-for August 29-31, 2012 San Diego, California.
+> -	int (*init) (void __iomem *ioaddr, int pbl, int fb, int burst_len,
+> -			u32 dma_tx, u32 dma_rx);
+> +	int (*init) (void __iomem *ioaddr, int pbl, int fb, int mb,
+> +			int burst_len, u32 dma_tx, u32 dma_rx);
 
-I'm soliciting  ideas for presentation and conversation to fill a ~2.5
-hour mini-conference.  I think the major topics will be buffer bloat
-(can't wait to hear more about codel :-) ) , networking performance
-(including TCP enhancements), and maybe integration advanced NIC HW
-features.
+Fix the indentation of the arguments on the second line,
+the first character must line up with the first column after
+the function's openning parenthesis on the previous line.
 
-If you have ideas for discussion that you think would benefit from
-discussion at the Plumbers Conference, please add your idea to the
-wiki, and email me.
+> -static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb,
+> +static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+>  			      int burst_len, u32 dma_tx, u32 dma_rx)
 
-http://www.linuxplumbersconf.org/2012/
-http://wiki.linuxplumbersconf.org/2012:networking-bufferbloat
+While you're here fix up that issue in the existing code here as well.
 
-Thanks,
-Tom
+> -static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb,
+> +static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
+>  			     int burst_len, u32 dma_tx, u32 dma_rx)
+
+Likewise.
+
+> -	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, burst_len = 0;
+> +	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, burst_len = 0,
+> +	    mixed_burst = 0;
+
+This is gross, just make a new "int" declaration for mixed_burst.
