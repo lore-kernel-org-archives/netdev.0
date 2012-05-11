@@ -1,46 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
-Date: Fri, 11 May 2012 01:10:34 -0400 (EDT)
-Message-ID: <20120511.011034.557833140906762226.davem@davemloft.net>
-References: <1336658065-24851-1-git-send-email-mgorman@suse.de>
-	<1336658065-24851-2-git-send-email-mgorman@suse.de>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next 06/12] ixgbe: Hardware Timestamping + PTP Hardware
+ Clock (PHC)
+Date: Fri, 11 May 2012 07:15:09 +0200
+Message-ID: <20120511051509.GA2170@netboy.at.omicron.at>
+References: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1336632413-19135-7-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120510141122.GB3392@localhost.localdomain>
+ <02874ECE860811409154E81DA85FBB580779423F@ORSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
-        linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Trond.Myklebust@netapp.com, neilb@suse.de, hch@infradead.org,
-        a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
-To: mgorman@suse.de
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1336658065-24851-2-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:43109 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753820Ab2EKFPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 01:15:22 -0400
+Received: by bkcji2 with SMTP id ji2so1919379bkc.19
+        for <netdev@vger.kernel.org>; Thu, 10 May 2012 22:15:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <02874ECE860811409154E81DA85FBB580779423F@ORSMSX105.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mel Gorman <mgorman@suse.de>
-Date: Thu, 10 May 2012 14:54:14 +0100
-
-> It could happen that all !SOCK_MEMALLOC sockets have buffered so
-> much data that we're over the global rmem limit. This will prevent
-> SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
-> from running, which is needed to reduce the buffered data.
+On Thu, May 10, 2012 at 09:53:18PM +0000, Keller, Jacob E wrote:
+> > > +	/*
+> > > +	 * If this bit is set, then the RX registers contain the time stamp. No
+> > > +	 * other packet will be time stamped until we read these registers, so
+> > > +	 * read the registers to make them available again. Because only one
+> > > +	 * packet can be time stamped at a time, we know that the register
+> > > +	 * values must belong to this one here and therefore we don't need to
+> > > +	 * compare any of the additional attributes stored for it.
+> > 
+> > I suspect that this assumption is wrong. What happens if the time stamping
+> > logic locks a value but the packet is lost because the ring is full?
+> > 
+> > BTW, the IGB driver also has this defect.
+> >
 > 
-> Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
-> 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
+> Note how I read the rx registers first? So it will always clear the value.
+> That should unlock the value for the next rx stamp packet.
 
-This introduces an invariant which I am not so sure is enforced.
+1. Hw recognizes ptp event packet, locks time stamp
+2. Hw drops packet because queue is full
+3. No more time stamps are ever generated
 
-With this change it is absolutely required that once a socket
-becomes SOCK_MEMALLOC it must never _ever_ lose that attribute.
+Can this happen? The docs seems to say it can.
 
-Otherwise we can end up liberating global rmem tokens which we never
-actually took.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Richard
