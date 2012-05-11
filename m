@@ -1,93 +1,62 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH RFC 1/6] skbuff: support per-page destructors in
- copy_ubufs
-Date: Fri, 11 May 2012 10:00:00 +0100
-Message-ID: <1336726800.23818.33.camel@zakaz.uk.xensource.com>
-References: <cover.1336397823.git.mst@redhat.com>
-	 <8a3235fbceef37758ef23169c4c152e8d1251d3b.1336397823.git.mst@redhat.com>
-	 <1336671977.14220.26.camel@zakaz.uk.xensource.com>
-	 <20120510184246.GE14647@redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: take iphdr size into account for esp payload
+ size calculation
+Date: Fri, 11 May 2012 12:39:35 +0200
+Message-ID: <20120511103935.GA1841@secunet.com>
+References: <1336602952-10479-1-git-send-email-bpoirier@suse.de>
+ <20120510121857.GJ1021@secunet.com>
+ <20120511010249.GA23584@d2.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:17968 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757872Ab2EKJAE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 05:00:04 -0400
-In-Reply-To: <20120510184246.GE14647@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org
+To: Benjamin Poirier <bpoirier@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120511010249.GA23584@d2.synalogic.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-05-10 at 19:42 +0100, Michael S. Tsirkin wrote:
-> On Thu, May 10, 2012 at 06:46:17PM +0100, Ian Campbell wrote:
-> > On Mon, 2012-05-07 at 14:54 +0100, Michael S. Tsirkin wrote:
-> So the below on top then. I pushed these on
-> top of my zerocopy branch - can you confirm pls?
+On Thu, May 10, 2012 at 09:02:49PM -0400, Benjamin Poirier wrote:
+> 
+> The value returned by this function is tuned for tcp segment size:
+> 1) from tcp_mtu_to_mss()
+> mss = pmtu - tcp_hlen - net_hlen
+> 2) frame structure for transport mode
+> mtu = mss + tcp_hlen + esp_header_len(esp_payload_len) + ah_len + net_hlen
 
-I added these to my test branch:
-93772fea6cd66616912101b9e0144dfed645d8fe fix per page destructors in copy ubufs
-d72b7ab15f944c5df5f28cce7b5c9a0bca61ff6d clear destructor arg when set zerocopy 
-
-I think you also need, as part of the second one:
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index af2d10e..40ca43e 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1744,6 +1744,7 @@ static inline void skb_copy_frag_destructor(struct sk_buff *to,
- {
- 	skb_shinfo(to)->tx_flags |= skb_shinfo(from)->tx_flags &
- 		SKBTX_DEV_ZEROCOPY;
-+	skb_shinfo(to)->destructor_arg = NULL;
- }
- 
- /**
-
-I'm seeing copy_ubufs called in my remote NFS test, which I don't think
-I expected -- I'll investigate why this is happening today.
-
-Ian.
+I think you can simplify the calculations here, this
+calculation should not depend on any special layer 4
+protocol.
 
 > 
-> ---
+> The "mtu" parameter of esp4_get_mtu is in fact mtu - ah_len.
+> The return value of esp4_get_mtu is put into pmtu.
 > 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 930a50e..e52bc8d 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -1270,8 +1270,10 @@ static inline void skb_frag_set_destructor(struct sk_buff *skb, int i,
->  {
->  	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
->  	frag->page.destructor = destroy;
-> -	if (destroy)
-> +	if (destroy) {
->  		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-> +		skb_shinfo(skb)->destructor_arg = NULL;
-> +	}
->  }
->  
->  /**
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index b7fc47e..453f621 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -753,12 +753,11 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
->  		uarg->callback(uarg);
->  
->  	/* skb frags point to kernel buffers */
-> -	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
-> +	for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
->  		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
->  		if (unlikely((!uarg && !f->page.destructor)))
->  			continue;
-> -		__skb_fill_page_desc(skb, i-1, head, 0,
-> -				     skb_shinfo(skb)->frags[i - 1].size);
-> +		__skb_fill_page_desc(skb, i, head, 0, f->size);
->  		head = (struct page *)head->private;
->  	}
->  
+> If we put 1 and 2 together we have:
+> pmtu = mtu - ah_len - esp_header_len(esp_payload_len)
+> with esp_payload_len = mss + tcp_hlen
+> 
+> This formula expands to:
+> pmtu = mtu - ah_len - (header_len + align(align(pmtu - net_hlen + 2, blksize),
+> 	esp->padlen) - (pmtu - net_hlen) + alen)
+> 
+> and simplifies to:
+> pmtu = (mtu - ah_len - net_hlen - header_len - alen) & ~(max(blksize,
+> 	esp->padlen) - 1) + (net_hlen - 2)
+> 
+> which, in the context of esp4_get_mtu, becomes:
+> ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) - sizeof(struct
+> iphdr)) & ~(align - 1)) + (sizeof(struct iphdr) - 2)
+> 
+> This is the same formula as before, except for sizeof(struct iphdr) which was
+> missing.
+> 
+
+Well, makes sense. I use transport mode very rarely, so I never noticed this.
+But I was sure that it worked correct in tunnel mode. 
+
+Thanks.
