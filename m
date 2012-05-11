@@ -1,91 +1,54 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 02/15] batman-adv: introduce is_single_hop_neigh variable to increase readability
-Date: Fri, 11 May 2012 14:21:19 +0200
-Message-ID: <1336738892-7401-3-git-send-email-ordex@autistici.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: [PATCH 01/15] batman-adv: fix wrong dhcp option list
+	browsing
+Date: Fri, 11 May 2012 14:21:18 +0200
+Message-ID: <1336738892-7401-2-git-send-email-ordex@autistici.org>
 References: <1336738892-7401-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:58184 "EHLO
-	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758074Ab2EKMY4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 08:24:56 -0400
-In-Reply-To: <1336738892-7401-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1336738892-7401-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Marek Lindner <lindner_marek@yahoo.de>
+In is_type_dhcprequest(), while parsing a DHCP message, if the entry we found in
+the option list is neither a padding nor the dhcp-type, we have to ignore it and
+jump as many bytes as its length + 1. The "+ 1" byte is given by the subtype
+field itself that has to be jumped too.
 
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Acked-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Reported-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 ---
- net/batman-adv/bat_iv_ogm.c |   16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ net/batman-adv/gateway_client.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 8b2db2e..cd8f473 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -480,7 +480,8 @@ static void bat_iv_ogm_queue_add(struct bat_priv *bat_priv,
- static void bat_iv_ogm_forward(struct orig_node *orig_node,
- 			       const struct ethhdr *ethhdr,
- 			       struct batman_ogm_packet *batman_ogm_packet,
--			       int directlink, struct hard_iface *if_incoming)
-+			       bool is_single_hop_neigh,
-+			       struct hard_iface *if_incoming)
- {
- 	struct bat_priv *bat_priv = netdev_priv(if_incoming->soft_iface);
- 	struct neigh_node *router;
-@@ -533,7 +534,7 @@ static void bat_iv_ogm_forward(struct orig_node *orig_node,
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 6f9b9b7..47f7186 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -558,10 +558,10 @@ static bool is_type_dhcprequest(struct sk_buff *skb, int header_len)
+ 			p++;
  
- 	/* switch of primaries first hop flag when forwarding */
- 	batman_ogm_packet->flags &= ~PRIMARIES_FIRST_HOP;
--	if (directlink)
-+	if (is_single_hop_neigh)
- 		batman_ogm_packet->flags |= DIRECTLINK;
- 	else
- 		batman_ogm_packet->flags &= ~DIRECTLINK;
-@@ -918,7 +919,8 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 	struct neigh_node *orig_neigh_router = NULL;
- 	int has_directlink_flag;
- 	int is_my_addr = 0, is_my_orig = 0, is_my_oldorig = 0;
--	int is_broadcast = 0, is_bidirectional, is_single_hop_neigh;
-+	int is_broadcast = 0, is_bidirectional;
-+	bool is_single_hop_neigh = false;
- 	int is_duplicate;
- 	uint32_t if_incoming_seqno;
- 
-@@ -942,8 +944,8 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 
- 	has_directlink_flag = (batman_ogm_packet->flags & DIRECTLINK ? 1 : 0);
- 
--	is_single_hop_neigh = (compare_eth(ethhdr->h_source,
--					   batman_ogm_packet->orig) ? 1 : 0);
-+	if (compare_eth(ethhdr->h_source, batman_ogm_packet->orig))
-+		is_single_hop_neigh = true;
- 
- 	bat_dbg(DBG_BATMAN, bat_priv,
- 		"Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %u, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
-@@ -1114,7 +1116,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 
- 		/* mark direct link on incoming interface */
- 		bat_iv_ogm_forward(orig_node, ethhdr, batman_ogm_packet,
--				   1, if_incoming);
-+				   is_single_hop_neigh, if_incoming);
- 
- 		bat_dbg(DBG_BATMAN, bat_priv,
- 			"Forwarding packet: rebroadcast neighbor packet with direct link flag\n");
-@@ -1137,7 +1139,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 	bat_dbg(DBG_BATMAN, bat_priv,
- 		"Forwarding packet: rebroadcast originator packet\n");
- 	bat_iv_ogm_forward(orig_node, ethhdr, batman_ogm_packet,
--			   0, if_incoming);
-+			   is_single_hop_neigh, if_incoming);
- 
- out_neigh:
- 	if ((orig_neigh_node) && (!is_single_hop_neigh))
+ 			/* ...and then we jump over the data */
+-			if (pkt_len < *p)
++			if (pkt_len < 1 + (*p))
+ 				goto out;
+-			pkt_len -= *p;
+-			p += (*p);
++			pkt_len -= 1 + (*p);
++			p += 1 + (*p);
+ 		}
+ 	}
+ out:
 -- 
 1.7.9.4
