@@ -1,103 +1,348 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 08/17] net: Introduce sk_allocation() to allow addition
- of GFP flags depending on the individual socket
-Date: Fri, 11 May 2012 15:12:32 +0100
-Message-ID: <20120511141232.GR11435@suse.de>
-References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
- <1336657510-24378-9-git-send-email-mgorman@suse.de>
- <20120511.004949.655300373402132371.davem@davemloft.net>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net-next v2] be2net: Fix to allow get/set of debug levels in the firmware.
+Date: Fri, 11 May 2012 19:50:51 +0530
+Message-ID: <855025bb-c6c7-4a6a-b1a3-963e0f7dd8ae@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, neilb@suse.de,
-	a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120511.004949.655300373402132371.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Somnath Kotur <somnath.kotur@emulex.com>,
+	Suresh Reddy <suresh.reddy@emulex.com>
+To: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:54477 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755280Ab2EKOWN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 10:22:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 11, 2012 at 12:49:49AM -0400, David Miller wrote:
-> From: Mel Gorman <mgorman@suse.de>
-> Date: Thu, 10 May 2012 14:45:01 +0100
-> 
-> > Introduce sk_allocation(), this function allows to inject sock specific
-> > flags to each sock related allocation. It is only used on allocation
-> > paths that may be required for writing pages back to network storage.
-> > 
-> > Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> > Signed-off-by: Mel Gorman <mgorman@suse.de>
-> 
-> This is still a little bit more than it needs to be.
-> 
-> You are trying to propagate a single bit from sk->sk_allocation into
-> all of the annotated socket memory allocation sites.
-> 
-> But many of them use sk->sk_allocation already.  In fact all of them
-> that use a variable rather than a constant GFP_* satisfy this
-> invariant.
-> 
-> All of those annotations are therefore spurious, and probably end up
-> generating unnecessary |'s in of that special bit in at least some
-> cases.
-> 
+Incorporated review comments by Ben Hutchings.
 
-Yes, you're completely correct here.
+Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h         |    3 +
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |   56 +++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |   57 +++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   77 ++++++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_main.c    |   37 +++++++++++
+ 5 files changed, 230 insertions(+), 0 deletions(-)
 
-> What you really, therefore, care about are the GFP_FOO cases.  And in
-> fact those are all GFP_ATOMIC.  So make something that says what it
-> is that you want, a GFP_ATOMIC with some socket specified bits |'d
-> in.
-> 
-> Something like this:
-> 
-> static inline gfp_t sk_gfp_atomic(struct sock *sk)
-> {
-> 	return GFP_ATOMIC | (sk->sk_allocation & __GFP_MEMALLOC);
-> }
-> 
-
-I went with this.
-
-> You'll also have to make your networking patches conform to the
-> networking subsystem coding style.
-> 
-> For example:
-> 
-> > -	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15 + s_data_desired, 1, GFP_ATOMIC);
-> > +	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15 + s_data_desired, 1,
-> > +					sk_allocation(sk, GFP_ATOMIC));
-> 
-> The sk_allocation() argument has to line up with the first column
-> after the openning parenthesis of the function call.  You can't just
-> use all TAB characters.  And this all TABs thing looks extremely ugly
-> to boot.
-> 
-
-I was not aware of the networking subsystem coding style. I'll fix it
-up.
-
-> > -		newnp->pktoptions = skb_clone(treq->pktopts, GFP_ATOMIC);
-> > +		newnp->pktoptions = skb_clone(treq->pktopts,
-> > +						sk_allocation(sk, GFP_ATOMIC));
-> 
-> Same here.
-> 
-> What's really funny to me is that in several cases elsewhere in this
-> pach you get it right.
-
-Whether I got it right or not would be effectively random. I tried
-myself to see what pattern I was using thinking it would be "always"
-tab but nope, no pattern :)
-
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index c3ee910..9817fed 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -415,6 +415,7 @@ struct be_adapter {
+ 	bool wol;
+ 	u32 max_pmac_cnt;	/* Max secondary UC MACs programmable */
+ 	u32 uc_macs;		/* Count of secondary UC MAC programmed */
++	u32 msg_enable;
+ };
+ 
+ #define be_physfn(adapter) (!adapter->is_virtfn)
+@@ -603,4 +604,6 @@ extern void be_parse_stats(struct be_adapter *adapter);
+ extern int be_load_fw(struct be_adapter *adapter, u8 *func);
+ extern bool be_is_wol_supported(struct be_adapter *adapter);
+ extern bool be_pause_supported(struct be_adapter *adapter);
++extern u32 be_get_fw_log_level(struct be_adapter *adapter);
++
+ #endif				/* BE_H */
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 43167e8..b24623c 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -2589,4 +2589,60 @@ err:
+ 	mutex_unlock(&adapter->mbox_lock);
+ 	pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+ 	return status;
++
++}
++int be_cmd_get_ext_fat_capabilites(struct be_adapter *adapter,
++				   struct be_dma_mem *cmd)
++{
++	struct be_mcc_wrb *wrb;
++	struct be_cmd_req_get_ext_fat_caps *req;
++	int status;
++
++	if (mutex_lock_interruptible(&adapter->mbox_lock))
++		return -1;
++
++	wrb = wrb_from_mbox(adapter);
++	if (!wrb) {
++		status = -EBUSY;
++		goto err;
++	}
++
++	req = cmd->va;
++	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++			       OPCODE_COMMON_GET_EXT_FAT_CAPABILITES,
++			       cmd->size, wrb, cmd);
++	req->parameter_type = cpu_to_le32(1);
++
++	status = be_mbox_notify_wait(adapter);
++err:
++	mutex_unlock(&adapter->mbox_lock);
++	return status;
++}
++
++int be_cmd_set_ext_fat_capabilites(struct be_adapter *adapter,
++				   struct be_dma_mem *cmd,
++				   struct be_fat_conf_params *configs)
++{
++	struct be_mcc_wrb *wrb;
++	struct be_cmd_req_set_ext_fat_caps *req;
++	int status;
++
++	spin_lock_bh(&adapter->mcc_lock);
++
++	wrb = wrb_from_mccq(adapter);
++	if (!wrb) {
++		status = -EBUSY;
++		goto err;
++	}
++
++	req = cmd->va;
++	memcpy(&req->set_params, configs, sizeof(struct be_fat_conf_params));
++	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++			       OPCODE_COMMON_SET_EXT_FAT_CAPABILITES,
++			       cmd->size, wrb, cmd);
++
++	status = be_mcc_notify_wait(adapter);
++err:
++	spin_unlock_bh(&adapter->mcc_lock);
++	return status;
+ }
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 944f031..0b1029b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -189,6 +189,8 @@ struct be_mcc_mailbox {
+ #define OPCODE_COMMON_GET_PHY_DETAILS			102
+ #define OPCODE_COMMON_SET_DRIVER_FUNCTION_CAP		103
+ #define OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES	121
++#define OPCODE_COMMON_GET_EXT_FAT_CAPABILITES		125
++#define OPCODE_COMMON_SET_EXT_FAT_CAPABILITES		126
+ #define OPCODE_COMMON_GET_MAC_LIST			147
+ #define OPCODE_COMMON_SET_MAC_LIST			148
+ #define OPCODE_COMMON_GET_HSW_CONFIG			152
+@@ -1602,6 +1604,56 @@ static inline void *be_erx_stats_from_cmd(struct be_adapter *adapter)
+ 	}
+ }
+ 
++
++/************** get fat capabilites *******************/
++#define MAX_MODULES 27
++#define MAX_MODES 4
++#define MODE_UART 0
++#define FW_LOG_LEVEL_DEFAULT 48
++#define FW_LOG_LEVEL_FATAL 64
++
++struct ext_fat_mode {
++	u8 mode;
++	u8 rsvd0;
++	u16 port_mask;
++	u32 dbg_lvl;
++	u64 fun_mask;
++} __packed;
++
++struct ext_fat_modules {
++	u8 modules_str[32];
++	u32 modules_id;
++	u32 num_modes;
++	struct ext_fat_mode trace_lvl[MAX_MODES];
++} __packed;
++
++struct be_fat_conf_params {
++	u32 max_log_entries;
++	u32 log_entry_size;
++	u8 log_type;
++	u8 max_log_funs;
++	u8 max_log_ports;
++	u8 rsvd0;
++	u32 supp_modes;
++	u32 num_modules;
++	struct ext_fat_modules module[MAX_MODULES];
++} __packed;
++
++struct be_cmd_req_get_ext_fat_caps {
++	struct be_cmd_req_hdr hdr;
++	u32 parameter_type;
++};
++
++struct be_cmd_resp_get_ext_fat_caps {
++	struct be_cmd_resp_hdr hdr;
++	struct be_fat_conf_params get_params;
++};
++
++struct be_cmd_req_set_ext_fat_caps {
++	struct be_cmd_req_hdr hdr;
++	struct be_fat_conf_params set_params;
++};
++
+ extern int be_pci_fnum_get(struct be_adapter *adapter);
+ extern int be_cmd_POST(struct be_adapter *adapter);
+ extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
+@@ -1707,4 +1759,9 @@ extern int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
+ extern int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
+ 			u32 domain, u16 intf_id);
+ extern int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter);
++extern int be_cmd_get_ext_fat_capabilites(struct be_adapter *adapter,
++					  struct be_dma_mem *cmd);
++extern int be_cmd_set_ext_fat_capabilites(struct be_adapter *adapter,
++					  struct be_dma_mem *cmd,
++					  struct be_fat_conf_params *cfgs);
+ 
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 747f68f..c40147d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -878,6 +878,81 @@ be_read_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
+ 	return status;
+ }
+ 
++static u32 be_get_msg_level(struct net_device *netdev)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++
++	if (lancer_chip(adapter)) {
++		dev_err(&adapter->pdev->dev, "Operation not supported\n");
++		return -EOPNOTSUPP;
++	}
++
++	return adapter->msg_enable;
++}
++
++static void be_set_fw_log_level(struct be_adapter *adapter, u32 level)
++{
++	struct be_dma_mem extfat_cmd;
++	struct be_fat_conf_params *cfgs;
++	int status;
++	int i, j;
++
++	memset(&extfat_cmd, 0, sizeof(struct be_dma_mem));
++	extfat_cmd.size = sizeof(struct be_cmd_resp_get_ext_fat_caps);
++	extfat_cmd.va = pci_alloc_consistent(adapter->pdev, extfat_cmd.size,
++					     &extfat_cmd.dma);
++	if (!extfat_cmd.va) {
++		dev_err(&adapter->pdev->dev, "%s: Memory allocation failure\n",
++			__func__);
++		goto err;
++	}
++	status = be_cmd_get_ext_fat_capabilites(adapter, &extfat_cmd);
++	if (!status) {
++		cfgs = (struct be_fat_conf_params *)(extfat_cmd.va +
++					sizeof(struct be_cmd_resp_hdr));
++		for (i = 0; i < cfgs->num_modules; i++) {
++			for (j = 0; j < cfgs->module[i].num_modes; j++) {
++				if (cfgs->module[i].trace_lvl[j].mode ==
++								MODE_UART)
++					cfgs->module[i].trace_lvl[j].dbg_lvl =
++							cpu_to_le32(level);
++			}
++		}
++		status = be_cmd_set_ext_fat_capabilites(adapter, &extfat_cmd,
++							cfgs);
++		if (status)
++			dev_err(&adapter->pdev->dev,
++				"Message level set failed\n");
++	} else {
++		dev_err(&adapter->pdev->dev, "Message level get failed\n");
++	}
++
++	pci_free_consistent(adapter->pdev, extfat_cmd.size, extfat_cmd.va,
++			    extfat_cmd.dma);
++err:
++	return;
++}
++
++static void be_set_msg_level(struct net_device *netdev, u32 level)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++
++	if (lancer_chip(adapter)) {
++		dev_err(&adapter->pdev->dev, "Operation not supported\n");
++		return;
++	}
++
++	if (adapter->msg_enable == level)
++		return;
++
++	if (level & NETIF_MSG_HW != adapter->msg_enable & NETIF_MSG_HW) {
++		be_set_fw_log_level(adapter, level & NETIF_MSG_HW ?
++			       	    FW_LOG_LEVEL_DEFAULT : FW_LOG_LEVEL_FATAL);
++	adapter->msg_enable = level;
++
++	return;
++}
++
+ const struct ethtool_ops be_ethtool_ops = {
+ 	.get_settings = be_get_settings,
+ 	.get_drvinfo = be_get_drvinfo,
+@@ -893,6 +968,8 @@ const struct ethtool_ops be_ethtool_ops = {
+ 	.set_pauseparam = be_set_pauseparam,
+ 	.get_strings = be_get_stat_strings,
+ 	.set_phys_id = be_set_phys_id,
++	.get_msglevel = be_get_msg_level,
++	.set_msglevel = be_set_msg_level,
+ 	.get_sset_count = be_get_sset_count,
+ 	.get_ethtool_stats = be_get_ethtool_stats,
+ 	.get_regs_len = be_get_reg_len,
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 6d5d30b..c2286a2 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3367,9 +3367,43 @@ bool be_is_wol_supported(struct be_adapter *adapter)
+ 		!be_is_wol_excluded(adapter)) ? true : false;
+ }
+ 
++u32 be_get_fw_log_level(struct be_adapter *adapter)
++{
++	struct be_dma_mem extfat_cmd;
++	struct be_fat_conf_params *cfgs;
++	int status;
++	u32 level = 0;
++	int j;
++
++	memset(&extfat_cmd, 0, sizeof(struct be_dma_mem));
++	extfat_cmd.size = sizeof(struct be_cmd_resp_get_ext_fat_caps);
++	extfat_cmd.va = pci_alloc_consistent(adapter->pdev, extfat_cmd.size,
++					     &extfat_cmd.dma);
++	if (!extfat_cmd.va) {
++		dev_err(&adapter->pdev->dev, "%s: Memory allocation failure\n",
++			__func__);
++		goto err;
++	}
++
++	status = be_cmd_get_ext_fat_capabilites(adapter, &extfat_cmd);
++	if (!status) {
++		cfgs = (struct be_fat_conf_params *)(extfat_cmd.va +
++						sizeof(struct be_cmd_resp_hdr));
++		for (j = 0; j < cfgs->module[0].num_modes; j++) {
++			if (cfgs->module[0].trace_lvl[j].mode == MODE_UART)
++				level = cfgs->module[0].trace_lvl[j].dbg_lvl;
++		}
++	}
++	pci_free_consistent(adapter->pdev, extfat_cmd.size, extfat_cmd.va,
++			    extfat_cmd.dma);
++err:
++	return level;
++}
++
+ static int be_get_config(struct be_adapter *adapter)
+ {
+ 	int status;
++	u32 level;
+ 
+ 	status = be_cmd_query_fw_cfg(adapter, &adapter->port_num,
+ 			&adapter->function_mode, &adapter->function_caps);
+@@ -3407,6 +3441,9 @@ static int be_get_config(struct be_adapter *adapter)
+ 	if (be_is_wol_supported(adapter))
+ 		adapter->wol = true;
+ 
++	level = be_get_fw_log_level(adapter);
++	adapter->msg_enable = level <= FW_LOG_LEVEL_DEFAULT ? NETIF_MSG_HW : 0;
++
+ 	return 0;
+ }
+ 
 -- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.5.6.1
