@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] l2tp: fix data packet sequence number
- handling
-Date: Thu, 10 May 2012 23:27:56 -0400 (EDT)
-Message-ID: <20120510.232756.39316993733451277.davem@davemloft.net>
-References: <1336642989-4785-1-git-send-email-jchapman@katalix.com>
-	<1336642989-4785-2-git-send-email-jchapman@katalix.com>
+Subject: Re: [PATCH v3][resend] bonding: don't increase rx_dropped after
+ processing LACPDUs
+Date: Thu, 10 May 2012 23:31:34 -0400 (EDT)
+Message-ID: <20120510.233134.1390996845692589691.davem@davemloft.net>
+References: <20120509110140.GA9817@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jchapman@katalix.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: andy@greyhouse.net, netdev@vger.kernel.org, fubar@us.ibm.com
+To: jbohac@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56650 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56695 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932399Ab2EKD17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:27:59 -0400
-In-Reply-To: <1336642989-4785-2-git-send-email-jchapman@katalix.com>
+	with ESMTP id S932408Ab2EKDdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:33:05 -0400
+In-Reply-To: <20120509110140.GA9817@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Thu, 10 May 2012 10:43:09 +0100
-
-> If enabled, L2TP data packets have sequence numbers which a receiver
-> can use to drop out of sequence frames or try to reorder them. The
-> first frame has sequence number 0, but the L2TP code currently expects
-> it to be 1. This results in the first data frame being handled as out
-> of sequence.
-> 
-> This one-line patch fixes the problem.
-> 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
-
-Applied.
+RnJvbTogSmlyaSBCb2hhYyA8amJvaGFjQHN1c2UuY3o+DQpEYXRlOiBXZWQsIDkgTWF5IDIwMTIg
+MTM6MDE6NDAgKzAyMDANCg0KPiBTaW5jZSBjb21taXQgM2FiYTg5MWQsIGJvbmRpbmcgcHJvY2Vz
+c2VzIExBQ1AgZnJhbWVzICg4MDIuM2FkDQo+IG1vZGUpIHdpdGggYm9uZF9oYW5kbGVfZnJhbWUo
+KS4gQ3VycmVudGx5IGEgY29weSBvZiB0aGUgc2tiIGlzDQo+IG1hZGUgYW5kIHRoZSBvcmlnaW5h
+bCBpcyBsZWZ0IHRvIGJlIHByb2Nlc3NlZCBieSBvdGhlcg0KPiByeF9oYW5kbGVycyBhbmQgdGhl
+IHJlc3Qgb2YgdGhlIG5ldHdvcmsgc3RhY2sgYnkgcmV0dXJuaW5nDQo+IFJYX0hBTkRMRVJfQU5P
+VEhFUi4gIEFzIHRoZXJlIGlzIG5vIHByb3RvY29sIGhhbmRsZXIgZm9yDQo+IFBLVF9UWVBFX0xB
+Q1BEVSwgdGhlIGZyYW1lIGlzIGRyb3BwZWQgYW5kIGRldi0+cnhfZHJvcHBlZA0KPiBpbmNyZWFz
+ZWQuDQo+IA0KPiBGaXggdGhpcyBieSBtYWtpbmcgYm9uZF9oYW5kbGVfZnJhbWUoKSByZXR1cm4g
+UlhfSEFORExFUl9DT05TVU1FRA0KPiBpZiBib25kaW5nIGhhcyBwcm9jZXNzZWQgdGhlIExBQ1Ag
+ZnJhbWUuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBKaXJpIEJvaGFjIDxqYm9oYWNAc3VzZS5jej4N
+Cj4gDQoNCkRvbid0IHNlbmQgbWUgZ2FyYmFnZSB5b3UgZGlkbid0IGV2ZW4gY2hlY2sgdGhlIGNv
+bXBpbGUgb2Y6DQoNCmRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmM6IEluIGZ1bmN0aW9u
+IKFib25kX2hhbmRsZV9mcmFtZaI6DQpkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jOjE0
+NjM6MTM6IHdhcm5pbmc6IGFzc2lnbm1lbnQgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBl
+IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jOiBJ
+biBmdW5jdGlvbiChYm9uZF9vcGVuojoNCmRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmM6
+MzQ0MToyMTogd2FybmluZzogYXNzaWdubWVudCBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5
+cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCmRyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmM6
+MzQ0ODoyMDogd2FybmluZzogYXNzaWdubWVudCBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5
+cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCg0K
