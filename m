@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 1/2] stmmac: extend mac addr reg and fix perfect
- filering
-Date: Fri, 11 May 2012 18:11:38 -0400 (EDT)
-Message-ID: <20120511.181138.45562480899975594.davem@davemloft.net>
-References: <1336381953-18041-1-git-send-email-peppe.cavallaro@st.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Linux Plumbers Conference: Networking-bufferbloat
+Date: Fri, 11 May 2012 15:12:15 -0700
+Message-ID: <CA+mtBx9py=ZMG2=YOnsYH_3QX3uVpX8UR28vjo1=NnijwKnNUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gianni.antoniazzi-ext@st.com
-To: peppe.cavallaro@st.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37204 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932637Ab2EKWLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:11:43 -0400
-In-Reply-To: <1336381953-18041-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:43394 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030333Ab2EKWMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:12:15 -0400
+Received: by yhmm54 with SMTP id m54so3111115yhm.19
+        for <netdev@vger.kernel.org>; Fri, 11 May 2012 15:12:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon,  7 May 2012 11:12:32 +0200
+Hi all,
 
-> +	/* Extra 16 regs are available in cores newer than the 3.40. */
-> +	if (id > 34)
+I proposed a micro conference for this years Linux Plumbers Conference
+for August 29-31, 2012 San Diego, California.
 
-No magic constants, even if you describe it in the comment.  Add
-an appropriate macro and use it.
-> +	/* For MAC Addr registers se have to set the Address Enable (AE)
-> +	 * bit that has no effect on the High Reg 0 where the bit 31 (MO)
-> +	 * is RO. */
+I'm soliciting  ideas for presentation and conversation to fill a ~2.5
+hour mini-conference.  I think the major topics will be buffer bloat
+(can't wait to hear more about codel :-) ) , networking performance
+(including TCP enhancements), and maybe integration advanced NIC HW
+features.
 
-Comments should be formatted as:
+If you have ideas for discussion that you think would benefit from
+discussion at the Plumbers Conference, please add your idea to the
+wiki, and email me.
 
-	/* For MAC Addr registers se have to set the Address Enable (AE)
-	 * bit that has no effect on the High Reg 0 where the bit 31 (MO)
-	 * is RO.
-	 */
+http://www.linuxplumbersconf.org/2012/
+http://wiki.linuxplumbersconf.org/2012:networking-bufferbloat
+
+Thanks,
+Tom
