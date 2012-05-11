@@ -1,63 +1,59 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
-Date: Fri, 11 May 2012 16:45:40 +0100
-Message-ID: <20120511154540.GV11435@suse.de>
-References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
- <20120511.010445.1020972261904383892.davem@davemloft.net>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH] net: of/phy: fix build error when phylib is built as a module
+Date: Fri, 11 May 2012 17:47:01 +0200
+Message-ID: <1336751221-19127-1-git-send-email-bjorn@mork.no>
+References: <20120510.224352.2149006669429730060.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, neilb@suse.de,
-	a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paul.gortmaker@windriver.com, rdunlap@xenotime.net,
+	sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, david.daney@cavium.com,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
 To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120511.010445.1020972261904383892.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:45468 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753341Ab2EKPro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2012 11:47:44 -0400
+In-Reply-To: <20120510.224352.2149006669429730060.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 11, 2012 at 01:04:45AM -0400, David Miller wrote:
-> 
-> Ok, I'm generally happy with the networking parts.
-> 
+CONFIG_OF_MDIO is tristate and will be m if PHYLIB is m.  Use
+IS_ENABLED macro to prevent build error:
 
-Great!
+ ERROR: "of_mdio_find_bus" [drivers/net/phy/mdio-mux.ko] undefined!
 
-> If you address my feedback I'll sign off on it.
-> 
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+Cc: David Daney <david.daney@cavium.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+I wonder if this could be as banal as this?  Not even build tested...
 
-I didn't get through all the feedback and respond today but I will
-during next week, get it retested and reposted. Thanks a lot.
+Should be wrapped into commit 25106022 if it works, to ensure
+bisectability.
 
-> The next question is whose tree this stuff goes through :-)
 
-Yep, that's going to be entertaining.  I had structured this so it could
-go through multiple trees but it's not perfect. If I switch patches 14
-(slab-related) and 15 (network related), then it becomes
 
-Patch 1 gets dropped after the next merge window as it'll be in mainline anyway
-Patch 2-3 goes through Pekka's sl*b tree
-Patch 4-7 goes through akpm
-Patch 8-14 goes through linux-net
-Patch 15-17 goes through akpm
+Bj=C3=B8rn
 
-That sort of multiple staging is messy though and correctness would depend
-on what order linux-next pulls trees from. I think I should be able to
-move 15-17 before linux-net which might simplify things a little although
-that would be a bit odd from a bisection perspective.
+ drivers/net/phy/mdio_bus.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->From my point of view, the ideal would be that all the patches go through
-akpm's tree or yours but that probably will cause merge difficulties.
-
-Any recommendations?
-
--- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 83d5c9f..683ef1c 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -88,7 +88,7 @@ static struct class mdio_bus_class =3D {
+ 	.dev_release	=3D mdiobus_release,
+ };
+=20
+-#ifdef CONFIG_OF_MDIO
++#if IS_ENABLED(CONFIG_OF_MDIO)
+ /* Helper function for of_mdio_find_bus */
+ static int of_mdio_bus_match(struct device *dev, void *mdio_bus_np)
+ {
+--=20
+1.7.10
