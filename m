@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen: fix crash at module unload
-Date: Thu, 10 May 2012 23:12:20 -0400 (EDT)
-Message-ID: <20120510.231220.1940765034292337639.davem@davemloft.net>
-References: <1336591268.12504.62.camel@edumazet-glaptop>
-	<874nrpyrp1.fsf@xmission.com>
-	<1336606191.12504.97.camel@edumazet-glaptop>
+Subject: Re: [Lksctp-developers] Bug: sctp packets are dropped after IPSEC
+ rekeying (route cache issue)
+Date: Thu, 10 May 2012 23:15:31 -0400 (EDT)
+Message-ID: <20120510.231531.1651495177866040758.davem@davemloft.net>
+References: <20120504.104812.502049217620285020.davem@davemloft.net>
+	<4FA3F4C6.7070605@6wind.com>
+	<CAGCdqXFjyWst22DJgxNfakz3-JwRq0Z+WZVj-XT=qRQFY5w3rw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: nicolas.dichtel@6wind.com, babu.srinivasan@gmail.com,
+	lksctp-developers@lists.sourceforge.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	michael.kreuzer@nsn.com
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56538 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56561 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932423Ab2EKDMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:12:22 -0400
-In-Reply-To: <1336606191.12504.97.camel@edumazet-glaptop>
+	with ESMTP id S1755396Ab2EKDPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 May 2012 23:15:46 -0400
+In-Reply-To: <CAGCdqXFjyWst22DJgxNfakz3-JwRq0Z+WZVj-XT=qRQFY5w3rw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 10 May 2012 01:29:51 +0200
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Fri, 4 May 2012 14:15:05 -0400
 
-> [PATCH v2] pktgen: fix crash at module unload
-> 
-> commit 7d3d43dab4e9 (net: In unregister_netdevice_notifier unregister
-> the netdevices.) makes pktgen crashing at module unload.
-...
-> Hold the pktgen_thread_lock while splicing pktgen_threads, and test
-> pktgen_exiting in pktgen_device_event() to make unload faster.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> Acked-by: Vlad Yaseivch <vyasevich@gmail.com>
 
-Applied and queued up for -stable.
+Applied.
