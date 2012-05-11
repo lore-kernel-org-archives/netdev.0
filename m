@@ -1,49 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 2/2] stmmac: add mixed burst for DMA
-Date: Fri, 11 May 2012 18:12:59 -0400 (EDT)
-Message-ID: <20120511.181259.845221725995971870.davem@davemloft.net>
-References: <1336381953-18041-1-git-send-email-peppe.cavallaro@st.com>
-	<1336381953-18041-2-git-send-email-peppe.cavallaro@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] fq_codel: Fair Queue Codel AQM
+Date: Sat, 12 May 2012 00:16:16 +0200
+Message-ID: <1336774576.31653.289.camel@edumazet-glaptop>
+References: <1336744796.31653.164.camel@edumazet-glaptop>
+	 <CABa6K_Fk07CUR1+hOx06cwJ5MuNYi7vpeLYFOc_1Qwmu5ubYhQ@mail.gmail.com>
+	 <1336749810.31653.176.camel@edumazet-glaptop>
+	 <1336752516.31653.196.camel@edumazet-glaptop>
+	 <1336764650.31653.277.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dave Taht <dave.taht@bufferbloat.net>,
+	Kathleen Nichols <nichols@pollere.com>,
+	Van Jacobson <van@pollere.net>,
+	Tom Herbert <therbert@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37233 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932518Ab2EKWNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:13:04 -0400
-In-Reply-To: <1336381953-18041-2-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:46698 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759074Ab2EKWQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 18:16:23 -0400
+Received: by weyu7 with SMTP id u7so673303wey.19
+        for <netdev@vger.kernel.org>; Fri, 11 May 2012 15:16:22 -0700 (PDT)
+In-Reply-To: <1336764650.31653.277.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon,  7 May 2012 11:12:33 +0200
+On Fri, 2012-05-11 at 21:30 +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 
-> -	int (*init) (void __iomem *ioaddr, int pbl, int fb, int burst_len,
-> -			u32 dma_tx, u32 dma_rx);
-> +	int (*init) (void __iomem *ioaddr, int pbl, int fb, int mb,
-> +			int burst_len, u32 dma_tx, u32 dma_rx);
+...
 
-Fix the indentation of the arguments on the second line,
-the first character must line up with the first column after
-the function's openning parenthesis on the previous line.
+> +static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+> +				     struct gnet_dump *d)
+> +{
+> +	struct fq_codel_sched_data *q = qdisc_priv(sch);
+> +	u32 idx = cl - 1;
+> +	struct gnet_stats_queue qs = { 0 };
+> +	struct tc_fq_codel_xstats xstats;
+> +
+> +	WARN_ON_ONCE(1);
+> +	if (idx < q->flows_cnt) {
+> +		const struct fq_codel_flow *flow = &q->flows[idx];
+> +		const struct sk_buff *skb = flow->head;
 
-> -static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb,
-> +static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
->  			      int burst_len, u32 dma_tx, u32 dma_rx)
-
-While you're here fix up that issue in the existing code here as well.
-
-> -static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb,
-> +static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
->  			     int burst_len, u32 dma_tx, u32 dma_rx)
-
-Likewise.
-
-> -	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, burst_len = 0;
-> +	int pbl = DEFAULT_DMA_PBL, fixed_burst = 0, burst_len = 0,
-> +	    mixed_burst = 0;
-
-This is gross, just make a new "int" declaration for mixed_burst.
+Oh well, I forgot to remove this WARN_ON_ONCE(1)
