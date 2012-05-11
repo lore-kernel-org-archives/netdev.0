@@ -1,30 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
-Date: Fri, 11 May 2012 01:04:45 -0400 (EDT)
-Message-ID: <20120511.010445.1020972261904383892.davem@davemloft.net>
-References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
+From: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH] wlcore: wlcore should depend on MAC80211
+Date: Fri, 11 May 2012 08:06:50 +0300
+Message-ID: <1336712810.12189.146.camel@cumari.coelho.fi>
+References: <1336711194-26883-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, neilb@suse.de, a.p.zijlstra@chello.nl,
-        michaelc@cs.wisc.edu, emunson@mgebm.net
-To: mgorman@suse.de
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1336657510-24378-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1336711194-26883-1-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2012-05-11 at 06:39 +0200, Sasha Levin wrote:
+> wlcore can't be built if MAC80211 isn't set.
+> 
+> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
 
-Ok, I'm generally happy with the networking parts.
+Thanks for your patch, Sasha! But this change was already submitted and
+has been applied in the wl12xx.git tree.  I've sent a pull request with
+it already, but it hasn't been pulled into wireless-next and up.
 
-If you address my feedback I'll sign off on it.
+http://www.spinics.net/lists/linux-next/msg19910.html
+http://www.spinics.net/lists/linux-wireless/msg89583.html
 
-The next question is whose tree this stuff goes through :-)
+-- 
+Cheers,
+Luca.
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
