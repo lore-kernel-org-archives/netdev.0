@@ -1,68 +1,78 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: Re: [PATCH] net: of/phy: fix build error when phylib is built as
- a module
-Date: Fri, 11 May 2012 10:58:06 -0700
-Message-ID: <4FAD532E.401@gmail.com>
-References: <20120510.224352.2149006669429730060.davem@davemloft.net> <1336751221-19127-1-git-send-email-bjorn@mork.no>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [net-next 06/12] ixgbe: Hardware Timestamping + PTP Hardware
+ Clock (PHC)
+Date: Fri, 11 May 2012 18:05:55 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5807794941@ORSMSX105.amr.corp.intel.com>
+References: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1336632413-19135-7-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120510141122.GB3392@localhost.localdomain>
+ <02874ECE860811409154E81DA85FBB580779423F@ORSMSX105.amr.corp.intel.com>
+ <20120511051509.GA2170@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	"rdunlap@xenotime.net" <rdunlap@xenotime.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1336751221-19127-1-git-send-email-bjorn@mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:10605 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932096Ab2EKSF5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 14:05:57 -0400
+In-Reply-To: <20120511051509.GA2170@netboy.at.omicron.at>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/11/2012 08:47 AM, Bj=C3=B8rn Mork wrote:
-> CONFIG_OF_MDIO is tristate and will be m if PHYLIB is m.  Use
-> IS_ENABLED macro to prevent build error:
->
->   ERROR: "of_mdio_find_bus" [drivers/net/phy/mdio-mux.ko] undefined!
->
-> Reported-by: Randy Dunlap<rdunlap@xenotime.net>
-> Cc: David Daney<david.daney@cavium.com>
-> Signed-off-by: Bj=C3=B8rn Mork<bjorn@mork.no>
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Thursday, May 10, 2012 10:15 PM
+> To: Keller, Jacob E
+> Cc: Kirsher, Jeffrey T; davem@davemloft.net; netdev@vger.kernel.org;
+> gospo@redhat.com; sassmann@redhat.com
+> Subject: Re: [net-next 06/12] ixgbe: Hardware Timestamping + PTP Hardware
+> Clock (PHC)
+> 
+> On Thu, May 10, 2012 at 09:53:18PM +0000, Keller, Jacob E wrote:
+> > > > +	/*
+> > > > +	 * If this bit is set, then the RX registers contain the time
+> stamp. No
+> > > > +	 * other packet will be time stamped until we read these
+> registers, so
+> > > > +	 * read the registers to make them available again. Because only
+> one
+> > > > +	 * packet can be time stamped at a time, we know that the
+> register
+> > > > +	 * values must belong to this one here and therefore we don't
+> need to
+> > > > +	 * compare any of the additional attributes stored for it.
+> > >
+> > > I suspect that this assumption is wrong. What happens if the time
+> > > stamping logic locks a value but the packet is lost because the ring is
+> full?
+> > >
+> > > BTW, the IGB driver also has this defect.
+> > >
+> >
+> > Note how I read the rx registers first? So it will always clear the value.
+> > That should unlock the value for the next rx stamp packet.
+> 
+> 1. Hw recognizes ptp event packet, locks time stamp 2. Hw drops packet because
+> queue is full 3. No more time stamps are ever generated
+> 
+> Can this happen? The docs seems to say it can.
+> 
+> Richard
 
-I was able to reproduce the failure, and this patch both fixes it and=20
-seems correct, so...
+It might be possible. I'm curious what's the best method to solve this. I don't
+think this generation of hardware can get an interrupt when the RX timestamp is
+locked, and I don't know how easy it would be to process the sequence number within
+the driver. It might be the case that the next packet would still be marked in the
+descriptor and therefor the previous timestamp would apply to the next packet. I am
+not sure, but I know we haven't seen issues where timestamps drop completely. This
+is something I am not sure what's the best solution.
 
-Acked-by: David Daney<david.daney@cavium.com>
-
-Sorry about this failure.
-
-
-> ---
-> I wonder if this could be as banal as this?  Not even build tested...
->
-> Should be wrapped into commit 25106022 if it works, to ensure
-> bisectability.
->
->
->
-> Bj=C3=B8rn
->
->   drivers/net/phy/mdio_bus.c |    2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-> index 83d5c9f..683ef1c 100644
-> --- a/drivers/net/phy/mdio_bus.c
-> +++ b/drivers/net/phy/mdio_bus.c
-> @@ -88,7 +88,7 @@ static struct class mdio_bus_class =3D {
->   	.dev_release	=3D mdiobus_release,
->   };
->
-> -#ifdef CONFIG_OF_MDIO
-> +#if IS_ENABLED(CONFIG_OF_MDIO)
->   /* Helper function for of_mdio_find_bus */
->   static int of_mdio_bus_match(struct device *dev, void *mdio_bus_np)
->   {
+- Jake
