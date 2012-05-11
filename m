@@ -1,75 +1,39 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [net-next 2/2] igb: Add Support for new i210/i211 devices.
-Date: Fri, 11 May 2012 23:02:48 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6261884D53C@ORSMSX102.amr.corp.intel.com>
-References: <1336723282-3130-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1336723282-3130-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120511.182735.63933163877487008.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/2] Add and use vsprintf extension %pMbt for bluetooth
+ macs
+Date: Fri, 11 May 2012 16:21:26 -0700
+Message-ID: <1336778486.16292.0.camel@joe2Laptop>
+References: <cover.1291419007.git.joe@perches.com>
+	 <20120509090156.GB8473@aemeltch-MOBL1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:65041 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752911Ab2EKXCv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 19:02:51 -0400
-In-Reply-To: <20120511.182735.63933163877487008.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120509090156.GB8473@aemeltch-MOBL1>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Friday, May 11, 2012 3:28 PM
->To: Kirsher, Jeffrey T
->Cc: Wyborny, Carolyn; netdev@vger.kernel.org; gospo@redhat.com;
->sassmann@redhat.com
->Subject: Re: [net-next 2/2] igb: Add Support for new i210/i211 devices.
->
->From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->Date: Fri, 11 May 2012 01:01:22 -0700
->
->> +s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
->> +{
->> +	s32 ret_val;
->> +
->> +	ret_val = igb_acquire_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
->> +
->> +	return ret_val;
->> +}
->
->Please, this is just unnecessary syntactic masterbation, simplify this
->to:
->
->s32 igb_acquire_nvm_i210(struct e1000_hw *hw)
->{
->	return igb_acquire_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
->}
->
->And:
->
->> +void igb_release_nvm_i210(struct e1000_hw *hw)
->> +{
->> +
->> +	igb_release_swfw_sync_i210(hw, E1000_SWFW_EEP_SM);
->> +}
->
->Please get rid of that unnecessary empty line.
->
->I can really tell when someone is extremely careless when removing
->their debugging code, and I can almost guarentee that's what has
->happened here.
+On Wed, 2012-05-09 at 12:01 +0300, Andrei Emeltchenko wrote:
+> Hi Joe
+> 
+> On Fri, Dec 03, 2010 at 06:33:02PM -0800, Joe Perches wrote:
+> > Using vsprintf extensions can save text and data.
+> > Add %pMbt for the byte reversed output for bluetooth addresses.
+> > 
+> > Joe Perches (2):
+> >   vsprintf: Add %pMbt, bluetooth mac address
+> >   bluetooth: Use printf extension %pMbt
+> 
+> I think this would be the best way to solve our issues with batostr.
+> 
+> BTW: What is the status with this patch series?
 
-Yes, you're right.  Will fix ASAP.
+18 month old patches generally don't apply.
 
-Carolyn
-
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
+If you want to bring it forward or redo it,
+please do.
