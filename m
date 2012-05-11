@@ -1,112 +1,171 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: [Q/RFC] BPF use in broader scope
-Date: Fri, 11 May 2012 15:06:42 +0800
-Message-ID: <4FACBA82.1070404@gmail.com>
-References: <20120329074443.GB2098@minipsycho> <20120329.034957.655153582806618222.davem@davemloft.net> <20120329075410.GC2098@minipsycho> <1333008145.2325.275.camel@edumazet-glaptop> <20120329083149.GD2098@minipsycho> <1333010732.2325.339.camel@edumazet-glaptop> <20120329093158.GA2275@minipsycho.brq.redhat.com> <4FAC7C5B.40109@gmail.com> <20120511062257.GA1561@minipsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, shemminger@vyatta.com, matt@ozlabs.org
-To: Jiri Pirko <jpirko@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/2] igb: Add function and pointers for 82580 low power state settings.
+Date: Fri, 11 May 2012 01:01:21 -0700
+Message-ID: <1336723282-3130-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1336723282-3130-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:51758 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951Ab2EKHGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 03:06:49 -0400
-Received: by dady13 with SMTP id y13so2714821dad.19
-        for <netdev@vger.kernel.org>; Fri, 11 May 2012 00:06:48 -0700 (PDT)
-In-Reply-To: <20120511062257.GA1561@minipsycho>
+Received: from mga14.intel.com ([143.182.124.37]:47783 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753819Ab2EKIBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 May 2012 04:01:25 -0400
+In-Reply-To: <1336723282-3130-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B405=E6=9C=8811=E6=97=A5 14:22, Jiri Pirko =E5=86=99=
-=E9=81=93:
-> Fri, May 11, 2012 at 04:41:31AM CEST, raise.sail@gmail.com wrote:
->> =E4=BA=8E 2012=E5=B9=B403=E6=9C=8829=E6=97=A5 17:31, Jiri Pirko =E5=86=
-=99=E9=81=93:
->>> Thu, Mar 29, 2012 at 10:45:32AM CEST, eric.dumazet@gmail.com wrote:
->>>> On Thu, 2012-03-29 at 10:31 +0200, Jiri Pirko wrote:
->>>>> Thu, Mar 29, 2012 at 10:02:25AM CEST, eric.dumazet@gmail.com wrot=
-e:
->>>>>> On Thu, 2012-03-29 at 09:54 +0200, Jiri Pirko wrote:
->>>>>>
->>>>>>> Yep, I'm aware. I must admit that the JIT code scares me a litt=
-e :(
->>>>>>>
->>>>>>
->>>>>> If you add a new XOR instruction in interpreter only, JIT compil=
-er will
->>>>>> automatically aborts, so no risk.
->>>>>>
->>>>>> Each arch maintainer will add the support for the new instructio=
-ns as
->>>>>> separate patches.
->>>>>>
->>>>>> So you can focus on net/core/filter.c file only.
->>>>>>
->>>>>
->>>>> Ok - I can do this for 2). But for 3) JITs need to be modified. S=
-o I
->>>>> would like to kindly ask you and Matt if you can do this modifica=
-tion so
->>>>> bpf_func takes pointer to mem (scratch store) as second parameter=
-=2E I'm
->>>>> sure it's very easy for you to do.
->>>>
->>>> I am not sure why you want this.
->>>>
->>>> This adds register pressure (at least for x86) ...
->>>
->>> Well I think that there would become handy to be able to pass some =
-data
->>> to bpf_func (other than skb). But it's just an idea.
->>>
->>
->> Hi, Jiri Pirko, any progress of extended BPF? :)
->>
->> I am interesting in 3) much. For my requirements,
->> it just only need BPF has ability to handle arbitrary
->> "pre-filled memory area", but not handle both a skb and
->> such a memory area at same time, so I think that register
->> pressure should not be become the performance bottleneck
->> here.
->>
->> Otherwise, I must construct a fake sk_buff to execute filter
->> feature, it is ugly, isn't it?
->>
->> I guess that Nuno Martins's requirements also are similar.
->>
->> And, I also would like join this project, if you need.
->
-> For my needs it turned out I do not need pre-filled memory. So I drop=
-ped
-> that point.
->
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Oops, I may try to work on this, would you like send
-a copy of your sk-unattached filters patch to me ?
-I think that it is a good start.
+82580 and later parts did not have low power setting functions.  This patch
+adds the specific functions, pointers and assignments for these low
+power settings.
 
-Thanks for your time.
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/e1000_82575.c |   94 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_phy.h   |    7 ++
+ 2 files changed, 101 insertions(+), 0 deletions(-)
 
-Yu
-
->>
->> Thanks
->>
->> Yu
->>
->>>>
->>>>
->>>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" i=
-n
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
->>
->
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index 08bdc33..b945992 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -52,6 +52,8 @@ static s32  igb_write_phy_reg_82580(struct e1000_hw *, u32, u16);
+ static s32  igb_reset_hw_82575(struct e1000_hw *);
+ static s32  igb_reset_hw_82580(struct e1000_hw *);
+ static s32  igb_set_d0_lplu_state_82575(struct e1000_hw *, bool);
++static s32  igb_set_d0_lplu_state_82580(struct e1000_hw *, bool);
++static s32  igb_set_d3_lplu_state_82580(struct e1000_hw *, bool);
+ static s32  igb_setup_copper_link_82575(struct e1000_hw *);
+ static s32  igb_setup_serdes_link_82575(struct e1000_hw *);
+ static s32  igb_write_phy_reg_sgmii_82575(struct e1000_hw *, u32, u16);
+@@ -359,6 +361,8 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_82580;
+ 		phy->ops.get_cable_length   = igb_get_cable_length_82580;
+ 		phy->ops.get_phy_info       = igb_get_phy_info_82580;
++		phy->ops.set_d0_lplu_state  = igb_set_d0_lplu_state_82580;
++		phy->ops.set_d3_lplu_state  = igb_set_d3_lplu_state_82580;
+ 		break;
+ 	default:
+ 		return -E1000_ERR_PHY;
+@@ -674,6 +678,96 @@ out:
+ }
+ 
+ /**
++ *  igb_set_d0_lplu_state_82580 - Set Low Power Linkup D0 state
++ *  @hw: pointer to the HW structure
++ *  @active: true to enable LPLU, false to disable
++ *
++ *  Sets the LPLU D0 state according to the active flag.  When
++ *  activating LPLU this function also disables smart speed
++ *  and vice versa.  LPLU will not be activated unless the
++ *  device autonegotiation advertisement meets standards of
++ *  either 10 or 10/100 or 10/100/1000 at all duplexes.
++ *  This is a function pointer entry point only called by
++ *  PHY setup routines.
++ **/
++static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	s32 ret_val = 0;
++	u16 data;
++
++	data = rd32(E1000_82580_PHY_POWER_MGMT);
++
++	if (active) {
++		data |= E1000_82580_PM_D0_LPLU;
++
++		/* When LPLU is enabled, we should disable SmartSpeed */
++		data &= ~E1000_82580_PM_SPD;
++	} else {
++		data &= ~E1000_82580_PM_D0_LPLU;
++
++		/*
++		 * LPLU and SmartSpeed are mutually exclusive.  LPLU is used
++		 * during Dx states where the power conservation is most
++		 * important.  During driver activity we should enable
++		 * SmartSpeed, so performance is maintained.
++		 */
++		if (phy->smart_speed == e1000_smart_speed_on)
++			data |= E1000_82580_PM_SPD;
++		else if (phy->smart_speed == e1000_smart_speed_off)
++			data &= ~E1000_82580_PM_SPD; }
++
++	wr32(E1000_82580_PHY_POWER_MGMT, data);
++	return ret_val;
++}
++
++/**
++ *  igb_set_d3_lplu_state_82580 - Sets low power link up state for D3
++ *  @hw: pointer to the HW structure
++ *  @active: boolean used to enable/disable lplu
++ *
++ *  Success returns 0, Failure returns 1
++ *
++ *  The low power link up (lplu) state is set to the power management level D3
++ *  and SmartSpeed is disabled when active is true, else clear lplu for D3
++ *  and enable Smartspeed.  LPLU and Smartspeed are mutually exclusive.  LPLU
++ *  is used during Dx states where the power conservation is most important.
++ *  During driver activity, SmartSpeed should be enabled so performance is
++ *  maintained.
++ **/
++s32 igb_set_d3_lplu_state_82580(struct e1000_hw *hw, bool active)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	s32 ret_val = 0;
++	u16 data;
++
++	data = rd32(E1000_82580_PHY_POWER_MGMT);
++
++	if (!active) {
++		data &= ~E1000_82580_PM_D3_LPLU;
++		/*
++		 * LPLU and SmartSpeed are mutually exclusive.  LPLU is used
++		 * during Dx states where the power conservation is most
++		 * important.  During driver activity we should enable
++		 * SmartSpeed, so performance is maintained.
++		 */
++		if (phy->smart_speed == e1000_smart_speed_on)
++			data |= E1000_82580_PM_SPD;
++		else if (phy->smart_speed == e1000_smart_speed_off)
++			data &= ~E1000_82580_PM_SPD;
++	} else if ((phy->autoneg_advertised == E1000_ALL_SPEED_DUPLEX) ||
++		   (phy->autoneg_advertised == E1000_ALL_NOT_GIG) ||
++		   (phy->autoneg_advertised == E1000_ALL_10_SPEED)) {
++		data |= E1000_82580_PM_D3_LPLU;
++		/* When LPLU is enabled, we should disable SmartSpeed */
++		data &= ~E1000_82580_PM_SPD;
++	}
++
++	wr32(E1000_82580_PHY_POWER_MGMT, data);
++	return ret_val;
++}
++
++/**
+  *  igb_acquire_nvm_82575 - Request for access to EEPROM
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
+index 4c32ac6..84172ea 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.h
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
+@@ -114,6 +114,13 @@ s32  igb_get_cable_length_82580(struct e1000_hw *hw);
+ /* I82580 PHY Diagnostics Status */
+ #define I82580_DSTATUS_CABLE_LENGTH       0x03FC
+ #define I82580_DSTATUS_CABLE_LENGTH_SHIFT 2
++
++/* 82580 PHY Power Management */
++#define E1000_82580_PHY_POWER_MGMT	0xE14
++#define E1000_82580_PM_SPD		0x0001 /* Smart Power Down */
++#define E1000_82580_PM_D0_LPLU		0x0002 /* For D0a states */
++#define E1000_82580_PM_D3_LPLU		0x0004 /* For all other states */
++
+ /* Enable flexible speed on link-up */
+ #define IGP02E1000_PM_D0_LPLU             0x0002 /* For D0a states */
+ #define IGP02E1000_PM_D3_LPLU             0x0004 /* For all other states */
+-- 
+1.7.7.6
