@@ -1,53 +1,83 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Fri, 11 May 2012 16:07:47 +0100
-Message-ID: <20120511150747.GU11435@suse.de>
-References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
- <1336657510-24378-11-git-send-email-mgorman@suse.de>
- <20120511.005740.210437168371869566.davem@davemloft.net>
- <20120511143218.GS11435@suse.de>
- <1336747350.1017.22.camel@twins>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] fq_codel: Fair Queue Codel AQM
+Date: Fri, 11 May 2012 17:23:30 +0200
+Message-ID: <1336749810.31653.176.camel@edumazet-glaptop>
+References: <1336744796.31653.164.camel@edumazet-glaptop>
+	 <CABa6K_Fk07CUR1+hOx06cwJ5MuNYi7vpeLYFOc_1Qwmu5ubYhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, neilb@suse.de, michaelc@cs.wisc.edu,
-	emunson@mgebm.net
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1336747350.1017.22.camel@twins>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dave Taht <dave.taht@bufferbloat.net>,
+	Kathleen Nichols <nichols@pollere.com>,
+	Van Jacobson <van@pollere.net>,
+	Tom Herbert <therbert@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:32915 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756483Ab2EKPXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 May 2012 11:23:35 -0400
+Received: by bkcji2 with SMTP id ji2so2338495bkc.19
+        for <netdev@vger.kernel.org>; Fri, 11 May 2012 08:23:34 -0700 (PDT)
+In-Reply-To: <CABa6K_Fk07CUR1+hOx06cwJ5MuNYi7vpeLYFOc_1Qwmu5ubYhQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 11, 2012 at 04:42:30PM +0200, Peter Zijlstra wrote:
-> On Fri, 2012-05-11 at 15:32 +0100, Mel Gorman wrote:
-> > > > +extern atomic_t memalloc_socks;
-> > > > +static inline int sk_memalloc_socks(void)
-> > > > +{
-> > > > +   return atomic_read(&memalloc_socks);
-> > > > +}
-> > > 
-> > > Please change this to be a static branch.
-> > > 
-> > 
-> > Will do. I renamed memalloc_socks to sk_memalloc_socks, made it a int as
-> > atomics are unnecessary and I check it directly in a branch instead of a
-> > static inline. It should be relatively easy for the branch predictor. 
+On Fri, 2012-05-11 at 23:03 +0800, Changli Gao wrote:
+> On Fri, May 11, 2012 at 9:59 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > Fair Queue Codel implementation.
+> >
+> > Principles :
+> >
+> > - Packets are classified (internal classifier or external) on flows.
+> > - This is a Stochastic model (as we use a hash, several flows might
+> >                              be hashed on same slot)
+> > - Each flow has a CoDel managed queue.
+> > - Flows are linked onto two (Round Robin) lists,
+> >  so that new flows have priority on old ones.
 > 
-> David means you to use include/linux/jump_label.h.
+> I don't think it is a good idea, as the old ones may be starved. It isn't
+> fair. Why not use the conventional DRR?
 > 
 
-Ah, that makes a whole lot more sense. Thanks for the clarification.
+Hey, its DRR, but with 64 bytes per flow instead of more than 256.
+One cache line per flow, that was my goal, sharing the codel_params and
+stats for all flows.
 
--- 
-Mel Gorman
-SUSE Labs
+A 'struct fq_codel_flow' can be in three states :
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+- Detached state
+- In new flow list
+- In old flow list
+
+And its the dequeue() that can put a flow in detached state, only if
+coming from old flow list.
+
+Its possible I missed something, because in my first coding I had 3
+lists.
+
+Anyway I'll send a V2 because I left .change method to NULL, while the
+intent was to permit a change on fq_codel.
+
+> > +
+> > +       /* Queue is full! Find the fat flow and drop packet from it.
+> > +        * This might sound expensive, but with 1024 flows, we scan
+> > +        * 4KB of memory, and we dont need to handle a complex tree
+> > +        * in fast path (packet queue/enqueue) with many cache misses.
+> > +        */
+> 
+> How about the tricks used by SFQ?
+
+They are too expensive in term of cache misses and limits.
+Code is complex and difficult to maintain.
+That was a nice compromise 20 years ago when memory was expensive.
+Now, memory is cheap but still slow.
+
+Also adding the 'priority to new flows' is too difficult with SFQ.
