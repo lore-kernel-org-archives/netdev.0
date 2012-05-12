@@ -1,131 +1,171 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/2] net/ieee802154/6lowpan.c:
-	reuse eth_mac_addr()
-Date: Sat, 12 May 2012 12:38:01 +0400
-Message-ID: <CAJmB2rAA8rgzFNvju9XHjo5Xxo2v=Q2stGtMJ7YYer0ayM3h+g@mail.gmail.com>
-References: <1329914199-30862-1-git-send-email-danny.kukawka@bisect.de>
-	<1329914199-30862-3-git-send-email-danny.kukawka@bisect.de>
-	<92f4dc09fca1e6ec54f12ca61b8b8e55@amnesiak.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>, Danny Kukawka <dkukawka-l3A5Bk7waGM@public.gmane.org>,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Tony Cheneau <tony.cheneau+zigbeedev-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <92f4dc09fca1e6ec54f12ca61b8b8e55-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/2] igb: Add function and pointers for 82580 low power state settings.
+Date: Sat, 12 May 2012 02:11:57 -0700
+Message-ID: <1336813918-11725-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1336813918-11725-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:15548 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752592Ab2ELJMB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 May 2012 05:12:01 -0400
+In-Reply-To: <1336813918-11725-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tony,
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-2012/4/28 Tony Cheneau <tony.cheneau+zigbeedev-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>:
-> Hello,
->
-> I believe the following patch should not have been applied and should
-> now be reverted.
-> The reason is because eth_mac_addr() is not functionally equivalent to
-> lowpan_set_address() that it replaces:
-> - lowpan_set_address() copies dev->addr_len bytes, where dev->addr_len
-> is set to 8 bytes for IEEE802154 devices (this is an IEEE EUI-64
-> address). Hence, the function copies the full 8 bytes of the address.
-> - eth_mac_addr() copies ETH_ALEN bytes, where ETH_ALEN is set to 6.
-> Hence, the function copies only 6 bytes of the 8 bytes address. So, 2
-> bytes of the address are never copied.
->
-> Does this sound reasonable?
->
+82580 and later parts did not have low power setting functions.  This patch
+adds the specific functions, pointers and assignments for these low
+power settings.
 
-Yeah, you are definitely right. I don't exactly know where did this
-patch arrive from, looks like I wasn't in Cc. I'm going to create
-reverted patch.
-
-Thanks
-
-> Regards,
-> Tony
->
->
-> Le 22.02.2012 14:36, Danny Kukawka a =E9crit=A0:
->> Use eth_mac_addr() for .ndo_set_mac_address, remove
->> lowpan_set_address since it do currently the same as
->> eth_mac_addr(). Additional advantage: eth_mac_addr() already
->> checks if the given address is valid
->>
->> Signed-off-by: Danny Kukawka <danny.kukawka-2YacvwyR+KOzQB+pC5nmwQ@public.gmane.org>
->> ---
->> =A0net/ieee802154/6lowpan.c | =A0 16 ++--------------
->> =A01 files changed, 2 insertions(+), 14 deletions(-)
->>
->> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
->> index e4ecc1e..3685158 100644
->> --- a/net/ieee802154/6lowpan.c
->> +++ b/net/ieee802154/6lowpan.c
->> @@ -55,6 +55,7 @@
->> =A0#include <linux/module.h>
->> =A0#include <linux/moduleparam.h>
->> =A0#include <linux/netdevice.h>
->> +#include <linux/etherdevice.h>
->> =A0#include <net/af_ieee802154.h>
->> =A0#include <net/ieee802154.h>
->> =A0#include <net/ieee802154_netdev.h>
->> @@ -924,19 +925,6 @@ drop:
->> =A0 =A0 =A0 return -EINVAL;
->> =A0}
->>
->> -static int lowpan_set_address(struct net_device *dev, void *p)
->> -{
->> - =A0 =A0 struct sockaddr *sa =3D p;
->> -
->> - =A0 =A0 if (netif_running(dev))
->> - =A0 =A0 =A0 =A0 =A0 =A0 return -EBUSY;
->> -
->> - =A0 =A0 /* TODO: validate addr */
->> - =A0 =A0 memcpy(dev->dev_addr, sa->sa_data, dev->addr_len);
->> -
->> - =A0 =A0 return 0;
->> -}
->> -
->> =A0static int lowpan_get_mac_header_length(struct sk_buff *skb)
->> =A0{
->> =A0 =A0 =A0 /*
->> @@ -1062,7 +1050,7 @@ static struct header_ops lowpan_header_ops =3D {
->>
->> =A0static const struct net_device_ops lowpan_netdev_ops =3D {
->> =A0 =A0 =A0 .ndo_start_xmit =A0 =A0 =A0 =A0 =3D lowpan_xmit,
->> - =A0 =A0 .ndo_set_mac_address =A0 =A0=3D lowpan_set_address,
->> + =A0 =A0 .ndo_set_mac_address =A0 =A0=3D eth_mac_addr,
->> =A0};
->>
->> =A0static void lowpan_setup(struct net_device *dev)
->
->
-> -------------------------------------------------------------------------=
------
-> Live Security Virtual Conference
-> Exclusive live event will cover all the ways today's security and
-> threat landscape has changed and how IT managers can respond. Discussions
-> will include endpoint security, mobile security and the latest in malware
-> threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-> _______________________________________________
-> Linux-zigbee-devel mailing list
-> Linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-> https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
-
----------------------------------------------------------------------------=
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and =
+ drivers/net/ethernet/intel/igb/e1000_82575.c |   94 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_phy.h   |    7 ++
+ 2 files changed, 101 insertions(+), 0 deletions(-)
 
-threat landscape has changed and how IT managers can respond. Discussions =
-
-will include endpoint security, mobile security and the latest in malware =
-
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index 08bdc33..b945992 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -52,6 +52,8 @@ static s32  igb_write_phy_reg_82580(struct e1000_hw *, u32, u16);
+ static s32  igb_reset_hw_82575(struct e1000_hw *);
+ static s32  igb_reset_hw_82580(struct e1000_hw *);
+ static s32  igb_set_d0_lplu_state_82575(struct e1000_hw *, bool);
++static s32  igb_set_d0_lplu_state_82580(struct e1000_hw *, bool);
++static s32  igb_set_d3_lplu_state_82580(struct e1000_hw *, bool);
+ static s32  igb_setup_copper_link_82575(struct e1000_hw *);
+ static s32  igb_setup_serdes_link_82575(struct e1000_hw *);
+ static s32  igb_write_phy_reg_sgmii_82575(struct e1000_hw *, u32, u16);
+@@ -359,6 +361,8 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_82580;
+ 		phy->ops.get_cable_length   = igb_get_cable_length_82580;
+ 		phy->ops.get_phy_info       = igb_get_phy_info_82580;
++		phy->ops.set_d0_lplu_state  = igb_set_d0_lplu_state_82580;
++		phy->ops.set_d3_lplu_state  = igb_set_d3_lplu_state_82580;
+ 		break;
+ 	default:
+ 		return -E1000_ERR_PHY;
+@@ -674,6 +678,96 @@ out:
+ }
+ 
+ /**
++ *  igb_set_d0_lplu_state_82580 - Set Low Power Linkup D0 state
++ *  @hw: pointer to the HW structure
++ *  @active: true to enable LPLU, false to disable
++ *
++ *  Sets the LPLU D0 state according to the active flag.  When
++ *  activating LPLU this function also disables smart speed
++ *  and vice versa.  LPLU will not be activated unless the
++ *  device autonegotiation advertisement meets standards of
++ *  either 10 or 10/100 or 10/100/1000 at all duplexes.
++ *  This is a function pointer entry point only called by
++ *  PHY setup routines.
++ **/
++static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	s32 ret_val = 0;
++	u16 data;
++
++	data = rd32(E1000_82580_PHY_POWER_MGMT);
++
++	if (active) {
++		data |= E1000_82580_PM_D0_LPLU;
++
++		/* When LPLU is enabled, we should disable SmartSpeed */
++		data &= ~E1000_82580_PM_SPD;
++	} else {
++		data &= ~E1000_82580_PM_D0_LPLU;
++
++		/*
++		 * LPLU and SmartSpeed are mutually exclusive.  LPLU is used
++		 * during Dx states where the power conservation is most
++		 * important.  During driver activity we should enable
++		 * SmartSpeed, so performance is maintained.
++		 */
++		if (phy->smart_speed == e1000_smart_speed_on)
++			data |= E1000_82580_PM_SPD;
++		else if (phy->smart_speed == e1000_smart_speed_off)
++			data &= ~E1000_82580_PM_SPD; }
++
++	wr32(E1000_82580_PHY_POWER_MGMT, data);
++	return ret_val;
++}
++
++/**
++ *  igb_set_d3_lplu_state_82580 - Sets low power link up state for D3
++ *  @hw: pointer to the HW structure
++ *  @active: boolean used to enable/disable lplu
++ *
++ *  Success returns 0, Failure returns 1
++ *
++ *  The low power link up (lplu) state is set to the power management level D3
++ *  and SmartSpeed is disabled when active is true, else clear lplu for D3
++ *  and enable Smartspeed.  LPLU and Smartspeed are mutually exclusive.  LPLU
++ *  is used during Dx states where the power conservation is most important.
++ *  During driver activity, SmartSpeed should be enabled so performance is
++ *  maintained.
++ **/
++s32 igb_set_d3_lplu_state_82580(struct e1000_hw *hw, bool active)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	s32 ret_val = 0;
++	u16 data;
++
++	data = rd32(E1000_82580_PHY_POWER_MGMT);
++
++	if (!active) {
++		data &= ~E1000_82580_PM_D3_LPLU;
++		/*
++		 * LPLU and SmartSpeed are mutually exclusive.  LPLU is used
++		 * during Dx states where the power conservation is most
++		 * important.  During driver activity we should enable
++		 * SmartSpeed, so performance is maintained.
++		 */
++		if (phy->smart_speed == e1000_smart_speed_on)
++			data |= E1000_82580_PM_SPD;
++		else if (phy->smart_speed == e1000_smart_speed_off)
++			data &= ~E1000_82580_PM_SPD;
++	} else if ((phy->autoneg_advertised == E1000_ALL_SPEED_DUPLEX) ||
++		   (phy->autoneg_advertised == E1000_ALL_NOT_GIG) ||
++		   (phy->autoneg_advertised == E1000_ALL_10_SPEED)) {
++		data |= E1000_82580_PM_D3_LPLU;
++		/* When LPLU is enabled, we should disable SmartSpeed */
++		data &= ~E1000_82580_PM_SPD;
++	}
++
++	wr32(E1000_82580_PHY_POWER_MGMT, data);
++	return ret_val;
++}
++
++/**
+  *  igb_acquire_nvm_82575 - Request for access to EEPROM
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
+index 4c32ac6..84172ea 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.h
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
+@@ -114,6 +114,13 @@ s32  igb_get_cable_length_82580(struct e1000_hw *hw);
+ /* I82580 PHY Diagnostics Status */
+ #define I82580_DSTATUS_CABLE_LENGTH       0x03FC
+ #define I82580_DSTATUS_CABLE_LENGTH_SHIFT 2
++
++/* 82580 PHY Power Management */
++#define E1000_82580_PHY_POWER_MGMT	0xE14
++#define E1000_82580_PM_SPD		0x0001 /* Smart Power Down */
++#define E1000_82580_PM_D0_LPLU		0x0002 /* For D0a states */
++#define E1000_82580_PM_D3_LPLU		0x0004 /* For all other states */
++
+ /* Enable flexible speed on link-up */
+ #define IGP02E1000_PM_D0_LPLU             0x0002 /* For D0a states */
+ #define IGP02E1000_PM_D3_LPLU             0x0004 /* For all other states */
+-- 
+1.7.7.6
