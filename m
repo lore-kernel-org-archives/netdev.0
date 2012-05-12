@@ -1,200 +1,216 @@
-From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 08/17 v5] usb/net: rndis: merge media type definitions
-Date: Sat, 12 May 2012 10:16:39 +0200
-Message-ID: <1336810599-2834-1-git-send-email-linus.walleij@linaro.org>
-Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
-	Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
-	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Linus Walleij" <linus.walleij@linaro.org>
+Subject: [PATCH 07/17 v5] usb/net: rndis: group all status codes together
+Date: Sat, 12 May 2012 10:16:30 +0200
+Message-ID: <1336810590-2794-1-git-send-email-linus.walleij@linaro.org>
+Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Felipe Balbi <balbi@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.df.lth.se ([194.47.250.12]:51138 "EHLO mail.df.lth.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753792Ab2ELIQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 May 2012 04:16:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Let's have a unified table of RNDIS media. We used to have a similar
-table with NDIS_* prefix from the gadget driver, but since we're only
-using RNDIS in the kernel (IIRC NDIS, non-remote, is for the windows-
-internal network drivers so what do we care) let's prefix everything
-with RNDIS. Some of the definitions were conflicting, in one of the
-defines 0x0B is bearer "CO WAN" and in two others "BPC". Well I took
-the majority vote. Two definition of medium 0x09 calls it "wireless
-WAN" but one vote for "wireless LAN" but in this case I am sticking
-with the minority, "Wide Area Network" does not make much sense in
-this case as far as I can tell.
+Move all RNDIS status codes so they appear in rising order and
+in one place of the header file.
 
-NOTE: latin singular and plural is so screwed up in these defines
-that it makes my eyes bleed. But I will not attempt to submit a
-patch converting all use of _MEDIA_ to _MEDIUM_ while I can probably
-tell from the semantics of the code that RNDIS_MEDIA_STATE_CONNECTED
-is most probably (erroneously) referring to a singular, unless it
-can return an array of connected media. I suspect these erroneous
-plurals are used in documentation and such so I don't want to
-mess around with things for no functional change.
-
-Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
 ---
- drivers/usb/gadget/f_rndis.c |    6 ++--
- drivers/usb/gadget/rndis.c   |    8 +++---
- include/linux/rndis.h        |   60 +++++++++++++++--------------------------
- 3 files changed, 29 insertions(+), 45 deletions(-)
+ include/linux/rndis.h |  157 ++++++++++++++++++++++++-------------------------
+ 1 files changed, 76 insertions(+), 81 deletions(-)
 
-diff --git a/drivers/usb/gadget/f_rndis.c b/drivers/usb/gadget/f_rndis.c
-index 5234365..d4f823f 100644
---- a/drivers/usb/gadget/f_rndis.c
-+++ b/drivers/usb/gadget/f_rndis.c
-@@ -637,7 +637,7 @@ static void rndis_open(struct gether *geth)
- 
- 	DBG(cdev, "%s\n", __func__);
- 
--	rndis_set_param_medium(rndis->config, NDIS_MEDIUM_802_3,
-+	rndis_set_param_medium(rndis->config, RNDIS_MEDIUM_802_3,
- 				bitrate(cdev->gadget) / 100);
- 	rndis_signal_connect(rndis->config);
- }
-@@ -648,7 +648,7 @@ static void rndis_close(struct gether *geth)
- 
- 	DBG(geth->func.config->cdev, "%s\n", __func__);
- 
--	rndis_set_param_medium(rndis->config, NDIS_MEDIUM_802_3, 0);
-+	rndis_set_param_medium(rndis->config, RNDIS_MEDIUM_802_3, 0);
- 	rndis_signal_disconnect(rndis->config);
- }
- 
-@@ -765,7 +765,7 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
- 		goto fail;
- 	rndis->config = status;
- 
--	rndis_set_param_medium(rndis->config, NDIS_MEDIUM_802_3, 0);
-+	rndis_set_param_medium(rndis->config, RNDIS_MEDIUM_802_3, 0);
- 	rndis_set_host_mac(rndis->config, rndis->ethaddr);
- 
- #if 0
-diff --git a/drivers/usb/gadget/rndis.c b/drivers/usb/gadget/rndis.c
-index 79ed261..d9086ca 100644
---- a/drivers/usb/gadget/rndis.c
-+++ b/drivers/usb/gadget/rndis.c
-@@ -252,7 +252,7 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		if (rndis_debug > 1)
- 			pr_debug("%s: RNDIS_OID_GEN_LINK_SPEED\n", __func__);
- 		if (rndis_per_dev_params[configNr].media_state
--				== NDIS_MEDIA_STATE_DISCONNECTED)
-+				== RNDIS_MEDIA_STATE_DISCONNECTED)
- 			*outbuf = cpu_to_le32(0);
- 		else
- 			*outbuf = cpu_to_le32(
-@@ -758,7 +758,7 @@ static int rndis_indicate_status_msg(int configNr, u32 status)
- int rndis_signal_connect(int configNr)
- {
- 	rndis_per_dev_params[configNr].media_state
--			= NDIS_MEDIA_STATE_CONNECTED;
-+			= RNDIS_MEDIA_STATE_CONNECTED;
- 	return rndis_indicate_status_msg(configNr,
- 					  RNDIS_STATUS_MEDIA_CONNECT);
- }
-@@ -766,7 +766,7 @@ int rndis_signal_connect(int configNr)
- int rndis_signal_disconnect(int configNr)
- {
- 	rndis_per_dev_params[configNr].media_state
--			= NDIS_MEDIA_STATE_DISCONNECTED;
-+			= RNDIS_MEDIA_STATE_DISCONNECTED;
- 	return rndis_indicate_status_msg(configNr,
- 					  RNDIS_STATUS_MEDIA_DISCONNECT);
- }
-@@ -1173,7 +1173,7 @@ int rndis_init(void)
- 		rndis_per_dev_params[i].used = 0;
- 		rndis_per_dev_params[i].state = RNDIS_UNINITIALIZED;
- 		rndis_per_dev_params[i].media_state
--				= NDIS_MEDIA_STATE_DISCONNECTED;
-+				= RNDIS_MEDIA_STATE_DISCONNECTED;
- 		INIT_LIST_HEAD(&(rndis_per_dev_params[i].resp_queue));
- 	}
- 
 diff --git a/include/linux/rndis.h b/include/linux/rndis.h
-index 2e0b1bd..4857959 100644
+index 70bd80a..2e0b1bd 100644
 --- a/include/linux/rndis.h
 +++ b/include/linux/rndis.h
-@@ -112,6 +112,28 @@
- #define	RNDIS_PHYSICAL_MEDIUM_WIRELESS_WAN	0x00000008
- #define	RNDIS_PHYSICAL_MEDIUM_MAX		0x00000009
+@@ -20,15 +20,85 @@
+ #define RNDIS_MSG_KEEPALIVE	0x00000008
+ #define RNDIS_MSG_KEEPALIVE_C	(RNDIS_MSG_KEEPALIVE|RNDIS_MSG_COMPLETION)
  
-+/*  Remote NDIS medium types. */
-+#define RNDIS_MEDIUM_UNSPECIFIED		0x00000000
-+#define RNDIS_MEDIUM_802_3			0x00000000
-+#define RNDIS_MEDIUM_802_5			0x00000001
-+#define RNDIS_MEDIUM_FDDI			0x00000002
-+#define RNDIS_MEDIUM_WAN			0x00000003
-+#define RNDIS_MEDIUM_LOCAL_TALK			0x00000004
-+#define RNDIS_MEDIUM_ARCNET_RAW			0x00000006
-+#define RNDIS_MEDIUM_ARCNET_878_2		0x00000007
-+#define RNDIS_MEDIUM_ATM			0x00000008
-+#define RNDIS_MEDIUM_WIRELESS_LAN		0x00000009
-+#define RNDIS_MEDIUM_IRDA			0x0000000A
-+#define RNDIS_MEDIUM_BPC			0x0000000B
-+#define RNDIS_MEDIUM_CO_WAN			0x0000000C
-+#define RNDIS_MEDIUM_1394			0x0000000D
-+/* Not a real medium, defined as an upper-bound */
-+#define RNDIS_MEDIUM_MAX			0x0000000E
+-
+ /* codes for "status" field of completion messages */
+ #define	RNDIS_STATUS_SUCCESS			0x00000000
+-#define	RNDIS_STATUS_FAILURE			0xc0000001
+-#define	RNDIS_STATUS_INVALID_DATA		0xc0010015
+-#define	RNDIS_STATUS_NOT_SUPPORTED		0xc00000bb
+-#define	RNDIS_STATUS_MEDIA_CONNECT		0x4001000b
+-#define	RNDIS_STATUS_MEDIA_DISCONNECT		0x4001000c
++#define RNDIS_STATUS_PENDING			0x00000103
 +
-+/* Remote NDIS medium connection states. */
-+#define RNDIS_MEDIA_STATE_CONNECTED		0x00000000
-+#define RNDIS_MEDIA_STATE_DISCONNECTED		0x00000001
++/*  Status codes */
++#define RNDIS_STATUS_NOT_RECOGNIZED		0x00010001
++#define RNDIS_STATUS_NOT_COPIED			0x00010002
++#define RNDIS_STATUS_NOT_ACCEPTED		0x00010003
++#define RNDIS_STATUS_CALL_ACTIVE		0x00010007
 +
- /* packet filter bits used by RNDIS_OID_GEN_CURRENT_PACKET_FILTER */
- #define RNDIS_PACKET_TYPE_DIRECTED		0x00000001
- #define RNDIS_PACKET_TYPE_MULTICAST		0x00000002
-@@ -163,21 +185,6 @@
- #define NDIS_MINIPORT_SUPPORTS_CANCEL_SEND_PACKETS    0x00800000
- #define NDIS_MINIPORT_64BITS_DMA                      0x01000000
++#define RNDIS_STATUS_ONLINE			0x40010003
++#define RNDIS_STATUS_RESET_START		0x40010004
++#define RNDIS_STATUS_RESET_END			0x40010005
++#define RNDIS_STATUS_RING_STATUS		0x40010006
++#define RNDIS_STATUS_CLOSED			0x40010007
++#define RNDIS_STATUS_WAN_LINE_UP		0x40010008
++#define RNDIS_STATUS_WAN_LINE_DOWN		0x40010009
++#define RNDIS_STATUS_WAN_FRAGMENT		0x4001000A
++#define	RNDIS_STATUS_MEDIA_CONNECT		0x4001000B
++#define	RNDIS_STATUS_MEDIA_DISCONNECT		0x4001000C
++#define RNDIS_STATUS_HARDWARE_LINE_UP		0x4001000D
++#define RNDIS_STATUS_HARDWARE_LINE_DOWN		0x4001000E
++#define RNDIS_STATUS_INTERFACE_UP		0x4001000F
++#define RNDIS_STATUS_INTERFACE_DOWN		0x40010010
++#define RNDIS_STATUS_MEDIA_BUSY			0x40010011
+ #define	RNDIS_STATUS_MEDIA_SPECIFIC_INDICATION	0x40010012
++#define RNDIS_STATUS_WW_INDICATION		RDIA_SPECIFIC_INDICATION
++#define RNDIS_STATUS_LINK_SPEED_CHANGE		0x40010013L
++
++#define RNDIS_STATUS_NOT_RESETTABLE		0x80010001
++#define RNDIS_STATUS_SOFT_ERRORS		0x80010003
++#define RNDIS_STATUS_HARD_ERRORS		0x80010004
++#define RNDIS_STATUS_BUFFER_OVERFLOW		0x80000005
++
++#define	RNDIS_STATUS_FAILURE			0xC0000001
++#define RNDIS_STATUS_RESOURCES			0xC000009A
++#define	RNDIS_STATUS_NOT_SUPPORTED		0xc00000BB
++#define RNDIS_STATUS_CLOSING			0xC0010002
++#define RNDIS_STATUS_BAD_VERSION		0xC0010004
++#define RNDIS_STATUS_BAD_CHARACTERISTICS	0xC0010005
++#define RNDIS_STATUS_ADAPTER_NOT_FOUND		0xC0010006
++#define RNDIS_STATUS_OPEN_FAILED		0xC0010007
++#define RNDIS_STATUS_DEVICE_FAILED		0xC0010008
++#define RNDIS_STATUS_MULTICAST_FULL		0xC0010009
++#define RNDIS_STATUS_MULTICAST_EXISTS		0xC001000A
++#define RNDIS_STATUS_MULTICAST_NOT_FOUND	0xC001000B
++#define RNDIS_STATUS_REQUEST_ABORTED		0xC001000C
++#define RNDIS_STATUS_RESET_IN_PROGRESS		0xC001000D
++#define RNDIS_STATUS_CLOSING_INDICATING		0xC001000E
++#define RNDIS_STATUS_INVALID_PACKET		0xC001000F
++#define RNDIS_STATUS_OPEN_LIST_FULL		0xC0010010
++#define RNDIS_STATUS_ADAPTER_NOT_READY		0xC0010011
++#define RNDIS_STATUS_ADAPTER_NOT_OPEN		0xC0010012
++#define RNDIS_STATUS_NOT_INDICATING		0xC0010013
++#define RNDIS_STATUS_INVALID_LENGTH		0xC0010014
++#define	RNDIS_STATUS_INVALID_DATA		0xC0010015
++#define RNDIS_STATUS_BUFFER_TOO_SHORT		0xC0010016
++#define RNDIS_STATUS_INVALID_OID		0xC0010017
++#define RNDIS_STATUS_ADAPTER_REMOVED		0xC0010018
++#define RNDIS_STATUS_UNSUPPORTED_MEDIA		0xC0010019
++#define RNDIS_STATUS_GROUP_ADDRESS_IN_USE	0xC001001A
++#define RNDIS_STATUS_FILE_NOT_FOUND		0xC001001B
++#define RNDIS_STATUS_ERROR_READING_FILE		0xC001001C
++#define RNDIS_STATUS_ALREADY_MAPPED		0xC001001D
++#define RNDIS_STATUS_RESOURCE_CONFLICT		0xC001001E
++#define RNDIS_STATUS_NO_CABLE			0xC001001F
++
++#define RNDIS_STATUS_INVALID_SAP		0xC0010020
++#define RNDIS_STATUS_SAP_IN_USE			0xC0010021
++#define RNDIS_STATUS_INVALID_ADDRESS		0xC0010022
++#define RNDIS_STATUS_VC_NOT_ACTIVATED		0xC0010023
++#define RNDIS_STATUS_DEST_OUT_OF_ORDER		0xC0010024
++#define RNDIS_STATUS_VC_NOT_AVAILABLE		0xC0010025
++#define RNDIS_STATUS_CELLRATE_NOT_AVAILABLE	0xC0010026
++#define RNDIS_STATUS_INCOMPATABLE_QOS		0xC0010027
++#define RNDIS_STATUS_AAL_PARAMS_UNSUPPORTED	0xC0010028
++#define RNDIS_STATUS_NO_ROUTE_TO_DESTINATION	0xC0010029
++
++#define RNDIS_STATUS_TOKEN_RING_OPEN_ERROR	0xC0011000
  
--#define NDIS_MEDIUM_802_3		0x00000000
--#define NDIS_MEDIUM_802_5		0x00000001
--#define NDIS_MEDIUM_FDDI		0x00000002
--#define NDIS_MEDIUM_WAN			0x00000003
--#define NDIS_MEDIUM_LOCAL_TALK		0x00000004
--#define NDIS_MEDIUM_DIX			0x00000005
--#define NDIS_MEDIUM_ARCENT_RAW		0x00000006
--#define NDIS_MEDIUM_ARCENT_878_2	0x00000007
--#define NDIS_MEDIUM_ATM			0x00000008
--#define NDIS_MEDIUM_WIRELESS_LAN	0x00000009
--#define NDIS_MEDIUM_IRDA		0x0000000A
--#define NDIS_MEDIUM_BPC			0x0000000B
--#define NDIS_MEDIUM_CO_WAN		0x0000000C
--#define NDIS_MEDIUM_1394		0x0000000D
--
- #define NDIS_PACKET_TYPE_DIRECTED	0x00000001
- #define NDIS_PACKET_TYPE_MULTICAST	0x00000002
- #define NDIS_PACKET_TYPE_ALL_MULTICAST	0x00000004
-@@ -191,9 +198,6 @@
- #define NDIS_PACKET_TYPE_FUNCTIONAL	0x00000400
- #define NDIS_PACKET_TYPE_MAC_FRAME	0x00000800
+ /* codes for RNDIS_OID_GEN_PHYSICAL_MEDIUM */
+ #define	RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED	0x00000000
+@@ -139,10 +209,6 @@
+ #define RNDIS_MAJOR_VERSION		0x00000001
+ #define RNDIS_MINOR_VERSION		0x00000000
  
--#define NDIS_MEDIA_STATE_CONNECTED	0x00000000
--#define NDIS_MEDIA_STATE_DISCONNECTED	0x00000001
+-/* For all not specified status messages:
+- * RNDIS_STATUS_Xxx -> NDIS_STATUS_Xxx
+- */
 -
- #define NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA     0x00000001
- #define NDIS_MAC_OPTION_RECEIVE_SERIALIZED      0x00000002
- #define NDIS_MAC_OPTION_TRANSFERS_NOT_PEND      0x00000004
-@@ -421,23 +425,3 @@
-  * driver and remote device, if necessary.
-  */
- #define REMOTE_NDIS_BUS_MSG			0xff000001
+ /* Message Set for Connectionless (802.3) Devices */
+ #define REMOTE_NDIS_PACKET_MSG		0x00000001U
+ #define REMOTE_NDIS_INITIALIZE_MSG	0x00000002U	/* Initialize device */
+@@ -175,77 +241,6 @@
+ 
+ /* From drivers/net/hyperv/hyperv_net.h */
+ 
+-/*  Status codes */
+-#define RNDIS_STATUS_PENDING			(0x00000103L)
+-#define RNDIS_STATUS_NOT_RECOGNIZED		(0x00010001L)
+-#define RNDIS_STATUS_NOT_COPIED			(0x00010002L)
+-#define RNDIS_STATUS_NOT_ACCEPTED		(0x00010003L)
+-#define RNDIS_STATUS_CALL_ACTIVE		(0x00010007L)
 -
--/*  Remote NDIS medium types. */
--#define RNDIS_MEDIUM_802_3			0x00000000
--#define RNDIS_MEDIUM_802_5			0x00000001
--#define RNDIS_MEDIUM_FDDI				0x00000002
--#define RNDIS_MEDIUM_WAN				0x00000003
--#define RNDIS_MEDIUM_LOCAL_TALK			0x00000004
--#define RNDIS_MEDIUM_ARCNET_RAW			0x00000006
--#define RNDIS_MEDIUM_ARCNET_878_2			0x00000007
--#define RNDIS_MEDIUM_ATM				0x00000008
--#define RNDIS_MEDIUM_WIRELESS_WAN			0x00000009
--#define RNDIS_MEDIUM_IRDA				0x0000000a
--#define RNDIS_MEDIUM_CO_WAN			0x0000000b
--/* Not a real medium, defined as an upper-bound */
--#define RNDIS_MEDIUM_MAX				0x0000000d
+-#define RNDIS_STATUS_ONLINE			(0x40010003L)
+-#define RNDIS_STATUS_RESET_START		(0x40010004L)
+-#define RNDIS_STATUS_RESET_END			(0x40010005L)
+-#define RNDIS_STATUS_RING_STATUS		(0x40010006L)
+-#define RNDIS_STATUS_CLOSED			(0x40010007L)
+-#define RNDIS_STATUS_WAN_LINE_UP		(0x40010008L)
+-#define RNDIS_STATUS_WAN_LINE_DOWN		(0x40010009L)
+-#define RNDIS_STATUS_WAN_FRAGMENT		(0x4001000AL)
+-#define RNDIS_STATUS_HARDWARE_LINE_UP		(0x4001000DL)
+-#define RNDIS_STATUS_HARDWARE_LINE_DOWN		(0x4001000EL)
+-#define RNDIS_STATUS_INTERFACE_UP		(0x4001000FL)
+-#define RNDIS_STATUS_INTERFACE_DOWN		(0x40010010L)
+-#define RNDIS_STATUS_MEDIA_BUSY			(0x40010011L)
+-#define RNDIS_STATUS_WW_INDICATION		RDIA_SPECIFIC_INDICATION
+-#define RNDIS_STATUS_LINK_SPEED_CHANGE		(0x40010013L)
 -
+-#define RNDIS_STATUS_NOT_RESETTABLE		(0x80010001L)
+-#define RNDIS_STATUS_SOFT_ERRORS		(0x80010003L)
+-#define RNDIS_STATUS_HARD_ERRORS		(0x80010004L)
+-#define RNDIS_STATUS_BUFFER_OVERFLOW		(0x80000005L)
+-
+-#define RNDIS_STATUS_RESOURCES			(0xC000009AL)
+-#define RNDIS_STATUS_CLOSING			(0xC0010002L)
+-#define RNDIS_STATUS_BAD_VERSION		(0xC0010004L)
+-#define RNDIS_STATUS_BAD_CHARACTERISTICS	(0xC0010005L)
+-#define RNDIS_STATUS_ADAPTER_NOT_FOUND		(0xC0010006L)
+-#define RNDIS_STATUS_OPEN_FAILED		(0xC0010007L)
+-#define RNDIS_STATUS_DEVICE_FAILED		(0xC0010008L)
+-#define RNDIS_STATUS_MULTICAST_FULL		(0xC0010009L)
+-#define RNDIS_STATUS_MULTICAST_EXISTS		(0xC001000AL)
+-#define RNDIS_STATUS_MULTICAST_NOT_FOUND	(0xC001000BL)
+-#define RNDIS_STATUS_REQUEST_ABORTED		(0xC001000CL)
+-#define RNDIS_STATUS_RESET_IN_PROGRESS		(0xC001000DL)
+-#define RNDIS_STATUS_CLOSING_INDICATING		(0xC001000EL)
+-#define RNDIS_STATUS_INVALID_PACKET		(0xC001000FL)
+-#define RNDIS_STATUS_OPEN_LIST_FULL		(0xC0010010L)
+-#define RNDIS_STATUS_ADAPTER_NOT_READY		(0xC0010011L)
+-#define RNDIS_STATUS_ADAPTER_NOT_OPEN		(0xC0010012L)
+-#define RNDIS_STATUS_NOT_INDICATING		(0xC0010013L)
+-#define RNDIS_STATUS_INVALID_LENGTH		(0xC0010014L)
+-#define RNDIS_STATUS_BUFFER_TOO_SHORT		(0xC0010016L)
+-#define RNDIS_STATUS_INVALID_OID		(0xC0010017L)
+-#define RNDIS_STATUS_ADAPTER_REMOVED		(0xC0010018L)
+-#define RNDIS_STATUS_UNSUPPORTED_MEDIA		(0xC0010019L)
+-#define RNDIS_STATUS_GROUP_ADDRESS_IN_USE	(0xC001001AL)
+-#define RNDIS_STATUS_FILE_NOT_FOUND		(0xC001001BL)
+-#define RNDIS_STATUS_ERROR_READING_FILE		(0xC001001CL)
+-#define RNDIS_STATUS_ALREADY_MAPPED		(0xC001001DL)
+-#define RNDIS_STATUS_RESOURCE_CONFLICT		(0xC001001EL)
+-#define RNDIS_STATUS_NO_CABLE			(0xC001001FL)
+-
+-#define RNDIS_STATUS_INVALID_SAP		(0xC0010020L)
+-#define RNDIS_STATUS_SAP_IN_USE			(0xC0010021L)
+-#define RNDIS_STATUS_INVALID_ADDRESS		(0xC0010022L)
+-#define RNDIS_STATUS_VC_NOT_ACTIVATED		(0xC0010023L)
+-#define RNDIS_STATUS_DEST_OUT_OF_ORDER		(0xC0010024L)
+-#define RNDIS_STATUS_VC_NOT_AVAILABLE		(0xC0010025L)
+-#define RNDIS_STATUS_CELLRATE_NOT_AVAILABLE	(0xC0010026L)
+-#define RNDIS_STATUS_INCOMPATABLE_QOS		(0xC0010027L)
+-#define RNDIS_STATUS_AAL_PARAMS_UNSUPPORTED	(0xC0010028L)
+-#define RNDIS_STATUS_NO_ROUTE_TO_DESTINATION	(0xC0010029L)
+-
+-#define RNDIS_STATUS_TOKEN_RING_OPEN_ERROR	(0xC0011000L)
+-
+ /* Object Identifiers used by NdisRequest Query/Set Information */
+ /* General (Required) Objects */
+ #define RNDIS_OID_GEN_SUPPORTED_LIST		0x00010101
+-- 
+1.7.7.6
