@@ -1,76 +1,34 @@
-From: Gustavo Padovan <gustavo@padovan.org>
-Subject: [PATCH 2/2] Bluetooth: mgmt: Fix device_connected sending order
-Date: Sat, 12 May 2012 16:11:50 -0300
-Message-ID: <1336849910-29064-2-git-send-email-gustavo@padovan.org>
-References: <20120512190900.GA15956@joana>
- <1336849910-29064-1-git-send-email-gustavo@padovan.org>
-Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Johan Hedberg <johan.hedberg@intel.com>
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1336849910-29064-1-git-send-email-gustavo@padovan.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 00/17 v5] usb/net: rndis: first step toward
+ consolidation
+Date: Sat, 12 May 2012 15:22:17 -0400 (EDT)
+Message-ID: <20120512.152217.1750282905566934209.davem@davemloft.net>
+References: <1336810518-2514-1-git-send-email-linus.walleij@linaro.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, jussi.kivilinna-E01nCVcF24I@public.gmane.org,
+	haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
+	ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org
+To: linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1336810518-2514-1-git-send-email-linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Johan Hedberg <johan.hedberg@intel.com>
+From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Date: Sat, 12 May 2012 10:15:18 +0200
 
-The mgmt_ev_device_connected signal must be sent before any event
-indications happen for sockets associated with the connection. Otherwise
-e.g. device authorization for the sockets will fail with ENOTCONN as
-user space things that there is no baseband link.
+> A fifth iteration of the first steps of RNDIS consolidation.
+> 
+> This version mainly address byte order issues found with
+> sparse by Jussi Kivilinna, his fixes are folded into patch 1.
+> At the end I have added Jussis patches cleaning up rndis_host and
+> rndis_wlan based on top of this series.
 
-This patch fixes the issue by ensuring that the device_connected event
-if sent (if it hasn't been so already) as soon as the first ACL data
-packet arrives from the remote device.
-
-Signed-off-by: Johan Hedberg <johan.hedberg@intel.com>
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
----
- net/bluetooth/hci_core.c  |    8 ++++++++
- net/bluetooth/hci_event.c |    4 ++--
- 2 files changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index a7607e4..b5bab83 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -2785,6 +2785,14 @@ static inline void hci_acldata_packet(struct hci_dev *hdev, struct sk_buff *skb)
- 	if (conn) {
- 		hci_conn_enter_active_mode(conn, BT_POWER_FORCE_ACTIVE_OFF);
- 
-+		hci_dev_lock(hdev);
-+		if (test_bit(HCI_MGMT, &hdev->dev_flags) &&
-+		    !test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
-+			mgmt_device_connected(hdev, &conn->dst, conn->type,
-+					      conn->dst_type, 0, NULL, 0,
-+					      conn->dev_class);
-+		hci_dev_unlock(hdev);
-+
- 		/* Send to upper protocol */
- 		l2cap_recv_acldata(conn, skb, flags);
- 		return;
-diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
-index ff38cc6..7d66b8b 100644
---- a/net/bluetooth/hci_event.c
-+++ b/net/bluetooth/hci_event.c
-@@ -2110,7 +2110,7 @@ static inline void hci_remote_features_evt(struct hci_dev *hdev, struct sk_buff
- 		goto unlock;
- 	}
- 
--	if (!ev->status) {
-+	if (!ev->status && !test_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags)) {
- 		struct hci_cp_remote_name_req cp;
- 		memset(&cp, 0, sizeof(cp));
- 		bacpy(&cp.bdaddr, &conn->dst);
-@@ -2879,7 +2879,7 @@ static inline void hci_remote_ext_features_evt(struct hci_dev *hdev, struct sk_b
- 	if (conn->state != BT_CONFIG)
- 		goto unlock;
- 
--	if (!ev->status) {
-+	if (!ev->status && !test_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags)) {
- 		struct hci_cp_remote_name_req cp;
- 		memset(&cp, 0, sizeof(cp));
- 		bacpy(&cp.bdaddr, &conn->dst);
--- 
-1.7.10.1
+ALl applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
