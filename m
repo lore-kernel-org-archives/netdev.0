@@ -1,42 +1,209 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] netfilter: potential NULL dereference in get_inner_hdr()
-Date: Sat, 12 May 2012 14:00:03 +0300
-Message-ID: <20120512110003.GB19472@elgon.mountain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] codel: use Newton method instead of sqrt() and
+ divides
+Date: Sat, 12 May 2012 15:32:13 +0200
+Message-ID: <1336829533.31653.1108.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dave Taht <dave.taht@bufferbloat.net>,
+	netdev <netdev@vger.kernel.org>,
+	Kathleen Nichols <nichols@pollere.com>,
+	Van Jacobson <van@pollere.net>, codel@lists.bufferbloat.net,
+	Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:29896 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754665Ab2ELLAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 07:00:30 -0400
-Content-Disposition: inline
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:57175 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751973Ab2ELNcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 09:32:18 -0400
+Received: by wgbdr13 with SMTP id dr13so3292234wgb.1
+        for <netdev@vger.kernel.org>; Sat, 12 May 2012 06:32:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a typo in the error checking and "&&" was used instead of "||".
-If skb_header_pointer() returns NULL then it leads to a NULL
-dereference.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+As Van pointed out, interval/sqrt(count) can be implemented using
+multiplies only.
+
+http://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Iterative_methods_for_reciprocal_square_roots
+
+This patch implements the Newton method and reciprocal divide.
+
+Total cost is 15 cycles instead of 120 on my Corei5 machine (64bit
+kernel).
+
+There is a small 'error' for count values < 5, but we don't really care.
+
+I reuse a hole in struct codel_vars :
+ - pack the dropping boolean into one bit
+ - use 31bit to store the reciprocal value of sqrt(count).
+
+Suggested-by: Van Jacobson <van@pollere.net>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Dave Taht <dave.taht@bufferbloat.net>
+Cc: Kathleen Nichols <nichols@pollere.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Matt Mathis <mattmathis@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Nandita Dukkipati <nanditad@google.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
 ---
-Btw, this is new code and Sparse complains about endian bugs.
+ include/net/codel.h |   68 ++++++++++++++++++++++--------------------
+ 1 file changed, 37 insertions(+), 31 deletions(-)
 
-diff --git a/net/netfilter/xt_HMARK.c b/net/netfilter/xt_HMARK.c
-index 32fbd73..5817d03 100644
---- a/net/netfilter/xt_HMARK.c
-+++ b/net/netfilter/xt_HMARK.c
-@@ -223,7 +223,7 @@ static int get_inner_hdr(const struct sk_buff *skb, int iphsz, int *nhoff)
+diff --git a/include/net/codel.h b/include/net/codel.h
+index bce2cef..bd8747c 100644
+--- a/include/net/codel.h
++++ b/include/net/codel.h
+@@ -46,6 +46,7 @@
+ #include <linux/skbuff.h>
+ #include <net/pkt_sched.h>
+ #include <net/inet_ecn.h>
++#include <linux/reciprocal_div.h>
  
- 	/* Not enough header? */
- 	icmph = skb_header_pointer(skb, *nhoff + iphsz, sizeof(_ih), &_ih);
--	if (icmph == NULL && icmph->type > NR_ICMP_TYPES)
-+	if (icmph == NULL || icmph->type > NR_ICMP_TYPES)
- 		return 0;
+ /* Controlling Queue Delay (CoDel) algorithm
+  * =========================================
+@@ -123,6 +124,7 @@ struct codel_params {
+  *			entered dropping state
+  * @lastcount:		count at entry to dropping state
+  * @dropping:		set to true if in dropping state
++ * @rec_inv_sqrt:	reciprocal value of sqrt(count) >> 1
+  * @first_above_time:	when we went (or will go) continuously above target
+  *			for interval
+  * @drop_next:		time to drop next packet, or when we dropped last
+@@ -131,7 +133,8 @@ struct codel_params {
+ struct codel_vars {
+ 	u32		count;
+ 	u32		lastcount;
+-	bool		dropping;
++	bool		dropping:1;
++	u32		rec_inv_sqrt:31;
+ 	codel_time_t	first_above_time;
+ 	codel_time_t	drop_next;
+ 	codel_time_t	ldelay;
+@@ -158,11 +161,7 @@ static void codel_params_init(struct codel_params *params)
  
- 	/* Error message? */
+ static void codel_vars_init(struct codel_vars *vars)
+ {
+-	vars->drop_next = 0;
+-	vars->first_above_time = 0;
+-	vars->dropping = false; /* exit dropping state */
+-	vars->count = 0;
+-	vars->lastcount = 0;
++	memset(vars, 0, sizeof(*vars));
+ }
+ 
+ static void codel_stats_init(struct codel_stats *stats)
+@@ -170,38 +169,37 @@ static void codel_stats_init(struct codel_stats *stats)
+ 	stats->maxpacket = 256;
+ }
+ 
+-/* return interval/sqrt(x) with good precision
+- * relies on int_sqrt(unsigned long x) kernel implementation
++/*
++ * http://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Iterative_methods_for_reciprocal_square_roots
++ * new_invsqrt = (invsqrt / 2) * (3 - count * invsqrt^2)
++ *
++ * Here, invsqrt is a fixed point number (< 1.0), 31bit mantissa)
+  */
+-static u32 codel_inv_sqrt(u32 _interval, u32 _x)
++static void codel_Newton_step(struct codel_vars *vars)
+ {
+-	u64 interval = _interval;
+-	unsigned long x = _x;
++	u32 invsqrt = vars->rec_inv_sqrt;
++	u32 invsqrt2 = ((u64)invsqrt * invsqrt) >> 31;
++	u64 val = (3LL << 31) - ((u64)vars->count * invsqrt2);
+ 
+-	/* Scale operands for max precision */
+-
+-#if BITS_PER_LONG == 64
+-	x <<= 32; /* On 64bit arches, we can prescale x by 32bits */
+-	interval <<= 16;
+-#endif
++	val = (val * invsqrt) >> 32;
+ 
+-	while (x < (1UL << (BITS_PER_LONG - 2))) {
+-		x <<= 2;
+-		interval <<= 1;
+-	}
+-	do_div(interval, int_sqrt(x));
+-	return (u32)interval;
++	vars->rec_inv_sqrt = val;
+ }
+ 
++/*
++ * CoDel control_law is t + interval/sqrt(count)
++ * We maintain in rec_inv_sqrt the reciprocal value of sqrt(count) to avoid
++ * both sqrt() and divide operation.
++ */
+ static codel_time_t codel_control_law(codel_time_t t,
+ 				      codel_time_t interval,
+-				      u32 count)
++				      u32 rec_inv_sqrt)
+ {
+-	return t + codel_inv_sqrt(interval, count);
++	return t + reciprocal_divide(interval, rec_inv_sqrt << 1);
+ }
+ 
+ 
+-static bool codel_should_drop(struct sk_buff *skb,
++static bool codel_should_drop(const struct sk_buff *skb,
+ 			      unsigned int *backlog,
+ 			      struct codel_vars *vars,
+ 			      struct codel_params *params,
+@@ -274,14 +272,16 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
+ 			 */
+ 			while (vars->dropping &&
+ 			       codel_time_after_eq(now, vars->drop_next)) {
+-				if (++vars->count == 0) /* avoid zero divides */
+-					vars->count = ~0U;
++				vars->count++; /* dont care of possible wrap
++						* since there is no more divide
++						*/
++				codel_Newton_step(vars);
+ 				if (params->ecn && INET_ECN_set_ce(skb)) {
+ 					stats->ecn_mark++;
+ 					vars->drop_next =
+ 						codel_control_law(vars->drop_next,
+ 								  params->interval,
+-								  vars->count);
++								  vars->rec_inv_sqrt);
+ 					goto end;
+ 				}
+ 				qdisc_drop(skb, sch);
+@@ -296,7 +296,7 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
+ 					vars->drop_next =
+ 						codel_control_law(vars->drop_next,
+ 								  params->interval,
+-								  vars->count);
++								  vars->rec_inv_sqrt);
+ 				}
+ 			}
+ 		}
+@@ -319,12 +319,18 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
+ 		if (codel_time_before(now - vars->drop_next,
+ 				      16 * params->interval)) {
+ 			vars->count = (vars->count - vars->lastcount) | 1;
++			/* we dont care if rec_inv_sqrt approximation
++			 * is not very precise :
++			 * Next Newton steps will correct it quadratically.
++			 */
++			codel_Newton_step(vars);
+ 		} else {
+ 			vars->count = 1;
++			vars->rec_inv_sqrt = 0x7fffffff;
+ 		}
+ 		vars->lastcount = vars->count;
+ 		vars->drop_next = codel_control_law(now, params->interval,
+-						    vars->count);
++						    vars->rec_inv_sqrt);
+ 	}
+ end:
+ 	return skb;
