@@ -1,209 +1,140 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] codel: use Newton method instead of sqrt() and
- divides
-Date: Sat, 12 May 2012 15:32:13 +0200
-Message-ID: <1336829533.31653.1108.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Taht <dave.taht@bufferbloat.net>,
-	netdev <netdev@vger.kernel.org>,
-	Kathleen Nichols <nichols@pollere.com>,
-	Van Jacobson <van@pollere.net>, codel@lists.bufferbloat.net,
-	Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: David Miller <davem@davemloft.net>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH net-next v4 0/13] basic ieee802.15.4 mac support
+Date: Sat, 12 May 2012 17:59:12 +0400
+Message-ID: <1336831165-23944-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:57175 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751973Ab2ELNcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 09:32:18 -0400
-Received: by wgbdr13 with SMTP id dr13so3292234wgb.1
-        for <netdev@vger.kernel.org>; Sat, 12 May 2012 06:32:17 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:47024 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752730Ab2ELOAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 10:00:10 -0400
+Received: by wibhj8 with SMTP id hj8so359000wib.1
+        for <netdev@vger.kernel.org>; Sat, 12 May 2012 07:00:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi David,
 
-As Van pointed out, interval/sqrt(count) can be implemented using
-multiplies only.
+This is the 4-th version of patch series for IEEE 802.15.4 Medium Access
+Control layer support. Originally the code was provided by linux-zigbee
+sourceforge project.
 
-http://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Iterative_methods_for_reciprocal_square_roots
+There is no significant changes in the source code (just added extra headers
+to include and fix some typos).
 
-This patch implements the Newton method and reciprocal divide.
+The open question was workqueue usage in RX/TX datapaths. I suspect that at
+that time I didn't describe the logic in details, so doing it right now.
 
-Total cost is 15 cycles instead of 120 on my Corei5 machine (64bit
-kernel).
+RX data path:
+=============
 
-There is a small 'error' for count values < 5, but we don't really care.
+The IEEE 802.15.4 Linux stack contains 3 main levels:
+ - ieee802154 - 802.15.4 address family, netlink interface, datagrams etc...
+ - mac802154 - 802.15.4 MAC layer
+ - physical - device drivers
 
-I reuse a hole in struct codel_vars :
- - pack the dropping boolean into one bit
- - use 31bit to store the reciprocal value of sqrt(count).
+And the first layer registers packet_type struct and works with Linux network
+queue.
 
-Suggested-by: Van Jacobson <van@pollere.net>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Dave Taht <dave.taht@bufferbloat.net>
-Cc: Kathleen Nichols <nichols@pollere.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: Matt Mathis <mattmathis@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Nandita Dukkipati <nanditad@google.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
----
- include/net/codel.h |   68 ++++++++++++++++++++++--------------------
- 1 file changed, 37 insertions(+), 31 deletions(-)
+Regarding mac802154 layer, the IEEE 802.15.4 standard defines 4 MAC packet
+types:
+ - beacon frame
+ - MAC command frame
+ - acknowledgement frame
+ - data frame
 
-diff --git a/include/net/codel.h b/include/net/codel.h
-index bce2cef..bd8747c 100644
---- a/include/net/codel.h
-+++ b/include/net/codel.h
-@@ -46,6 +46,7 @@
- #include <linux/skbuff.h>
- #include <net/pkt_sched.h>
- #include <net/inet_ecn.h>
-+#include <linux/reciprocal_div.h>
- 
- /* Controlling Queue Delay (CoDel) algorithm
-  * =========================================
-@@ -123,6 +124,7 @@ struct codel_params {
-  *			entered dropping state
-  * @lastcount:		count at entry to dropping state
-  * @dropping:		set to true if in dropping state
-+ * @rec_inv_sqrt:	reciprocal value of sqrt(count) >> 1
-  * @first_above_time:	when we went (or will go) continuously above target
-  *			for interval
-  * @drop_next:		time to drop next packet, or when we dropped last
-@@ -131,7 +133,8 @@ struct codel_params {
- struct codel_vars {
- 	u32		count;
- 	u32		lastcount;
--	bool		dropping;
-+	bool		dropping:1;
-+	u32		rec_inv_sqrt:31;
- 	codel_time_t	first_above_time;
- 	codel_time_t	drop_next;
- 	codel_time_t	ldelay;
-@@ -158,11 +161,7 @@ static void codel_params_init(struct codel_params *params)
- 
- static void codel_vars_init(struct codel_vars *vars)
- {
--	vars->drop_next = 0;
--	vars->first_above_time = 0;
--	vars->dropping = false; /* exit dropping state */
--	vars->count = 0;
--	vars->lastcount = 0;
-+	memset(vars, 0, sizeof(*vars));
- }
- 
- static void codel_stats_init(struct codel_stats *stats)
-@@ -170,38 +169,37 @@ static void codel_stats_init(struct codel_stats *stats)
- 	stats->maxpacket = 256;
- }
- 
--/* return interval/sqrt(x) with good precision
-- * relies on int_sqrt(unsigned long x) kernel implementation
-+/*
-+ * http://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Iterative_methods_for_reciprocal_square_roots
-+ * new_invsqrt = (invsqrt / 2) * (3 - count * invsqrt^2)
-+ *
-+ * Here, invsqrt is a fixed point number (< 1.0), 31bit mantissa)
-  */
--static u32 codel_inv_sqrt(u32 _interval, u32 _x)
-+static void codel_Newton_step(struct codel_vars *vars)
- {
--	u64 interval = _interval;
--	unsigned long x = _x;
-+	u32 invsqrt = vars->rec_inv_sqrt;
-+	u32 invsqrt2 = ((u64)invsqrt * invsqrt) >> 31;
-+	u64 val = (3LL << 31) - ((u64)vars->count * invsqrt2);
- 
--	/* Scale operands for max precision */
--
--#if BITS_PER_LONG == 64
--	x <<= 32; /* On 64bit arches, we can prescale x by 32bits */
--	interval <<= 16;
--#endif
-+	val = (val * invsqrt) >> 32;
- 
--	while (x < (1UL << (BITS_PER_LONG - 2))) {
--		x <<= 2;
--		interval <<= 1;
--	}
--	do_div(interval, int_sqrt(x));
--	return (u32)interval;
-+	vars->rec_inv_sqrt = val;
- }
- 
-+/*
-+ * CoDel control_law is t + interval/sqrt(count)
-+ * We maintain in rec_inv_sqrt the reciprocal value of sqrt(count) to avoid
-+ * both sqrt() and divide operation.
-+ */
- static codel_time_t codel_control_law(codel_time_t t,
- 				      codel_time_t interval,
--				      u32 count)
-+				      u32 rec_inv_sqrt)
- {
--	return t + codel_inv_sqrt(interval, count);
-+	return t + reciprocal_divide(interval, rec_inv_sqrt << 1);
- }
- 
- 
--static bool codel_should_drop(struct sk_buff *skb,
-+static bool codel_should_drop(const struct sk_buff *skb,
- 			      unsigned int *backlog,
- 			      struct codel_vars *vars,
- 			      struct codel_params *params,
-@@ -274,14 +272,16 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
- 			 */
- 			while (vars->dropping &&
- 			       codel_time_after_eq(now, vars->drop_next)) {
--				if (++vars->count == 0) /* avoid zero divides */
--					vars->count = ~0U;
-+				vars->count++; /* dont care of possible wrap
-+						* since there is no more divide
-+						*/
-+				codel_Newton_step(vars);
- 				if (params->ecn && INET_ECN_set_ce(skb)) {
- 					stats->ecn_mark++;
- 					vars->drop_next =
- 						codel_control_law(vars->drop_next,
- 								  params->interval,
--								  vars->count);
-+								  vars->rec_inv_sqrt);
- 					goto end;
- 				}
- 				qdisc_drop(skb, sch);
-@@ -296,7 +296,7 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
- 					vars->drop_next =
- 						codel_control_law(vars->drop_next,
- 								  params->interval,
--								  vars->count);
-+								  vars->rec_inv_sqrt);
- 				}
- 			}
- 		}
-@@ -319,12 +319,18 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
- 		if (codel_time_before(now - vars->drop_next,
- 				      16 * params->interval)) {
- 			vars->count = (vars->count - vars->lastcount) | 1;
-+			/* we dont care if rec_inv_sqrt approximation
-+			 * is not very precise :
-+			 * Next Newton steps will correct it quadratically.
-+			 */
-+			codel_Newton_step(vars);
- 		} else {
- 			vars->count = 1;
-+			vars->rec_inv_sqrt = 0x7fffffff;
- 		}
- 		vars->lastcount = vars->count;
- 		vars->drop_next = codel_control_law(now, params->interval,
--						    vars->count);
-+						    vars->rec_inv_sqrt);
- 	}
- end:
- 	return skb;
+and only the data frame should be pushed to the upper layers. Others must be
+managed by MAC layer only. And only if the frame represents a data burst, MAC
+layer calls netif_rx and sends packet to the network queue (which is handled
+by the ieee802154 layer).
+
+So that's the reason why workqueue was designed as a middle "medium" between
+drivers and MAC layer - to communicate MAC-specific information. And the
+overall conception is completely based on mac80211 code in the kernel.
+
+TX data path:
+=============
+
+There are several drivers for some IEEE 802.15.4 transceivers available in
+our project. And their HW specifications describe frame transmit procedure
+in a similar way:
+ - frame buffer write access
+ - write command TX_START
+ - wait for the completion of the transaction which is indicated by IRQ
+
+So, during the xmitting a driver may sleep and workqueue is used for these
+tasks.
+
+
+With best regards,
+Alex
+
+--
+The IEEE 802.15.4 Working Group focuses on the standardization of the
+bottom two layers of ISO/OSI protocol stack: Physical (PHY) and MAC.
+The MAC layer provides access control to a shared channel and reliable
+data delivery.
+
+This series provide only basic features:
+ - interface for drivers registration
+ - RX/TX datapaths
+ - reduced mlme operations
+ - monitor device type support (used by network sniffers, e.g.
+   Wireshark)
+ - IEEE 802.15.4 loopback driver
+ - documentation update
+
+8<--
+
+Alexander Smirnov (13):
+  mac802154: basic ieee802.15.4 device structures
+  mac802154: allocation of ieee802154 device
+  mac802154: RX data path
+  mac802154: TX data path
+  mac802154: define reduced mlme operations
+  mac802154: slave interfaces definition
+  mac802154: declare reduced mlme operations
+  mac802154: basic mib support
+  ieee802154: interface type to be added
+  mac802154: slaves manipulation routine
+  mac802154: monitor device support
+  drivers/ieee802154: IEEE 802.15.4 loopback driver
+  Documentation/networking/ieee802154: update MAC chapter
+
+ Documentation/networking/ieee802154.txt |   75 ++++++--
+ drivers/ieee802154/Kconfig              |    8 +
+ drivers/ieee802154/Makefile             |    1 +
+ drivers/ieee802154/fakelb.c             |  294 +++++++++++++++++++++++++++++++
+ include/linux/if_arp.h                  |    1 +
+ include/linux/nl802154.h                |   22 +++
+ include/net/ieee802154_netdev.h         |   26 +++-
+ include/net/mac802154.h                 |  141 +++++++++++++++
+ include/net/wpan-phy.h                  |    5 +-
+ net/Kconfig                             |    1 +
+ net/Makefile                            |    1 +
+ net/ieee802154/nl-phy.c                 |    9 +-
+ net/mac802154/Kconfig                   |   16 ++
+ net/mac802154/Makefile                  |    2 +
+ net/mac802154/ieee802154_dev.c          |  291 ++++++++++++++++++++++++++++++
+ net/mac802154/mac802154.h               |  105 +++++++++++
+ net/mac802154/mac_cmd.c                 |   44 +++++
+ net/mac802154/mib.c                     |   97 ++++++++++
+ net/mac802154/monitor.c                 |  116 ++++++++++++
+ net/mac802154/rx.c                      |  110 ++++++++++++
+ net/mac802154/tx.c                      |  113 ++++++++++++
+ 21 files changed, 1456 insertions(+), 22 deletions(-)
+ create mode 100644 drivers/ieee802154/fakelb.c
+ create mode 100644 include/net/mac802154.h
+ create mode 100644 net/mac802154/Kconfig
+ create mode 100644 net/mac802154/Makefile
+ create mode 100644 net/mac802154/ieee802154_dev.c
+ create mode 100644 net/mac802154/mac802154.h
+ create mode 100644 net/mac802154/mac_cmd.c
+ create mode 100644 net/mac802154/mib.c
+ create mode 100644 net/mac802154/monitor.c
+ create mode 100644 net/mac802154/rx.c
+ create mode 100644 net/mac802154/tx.c
+
+-- 
+1.7.2.3
