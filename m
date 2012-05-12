@@ -1,772 +1,206 @@
-From: "Linus Walleij" <linus.walleij@linaro.org>
-Subject: [PATCH 05/17 v5] usb/net: rndis: merge duplicate 802_* OIDs
-Date: Sat, 12 May 2012 10:16:16 +0200
-Message-ID: <1336810576-2725-1-git-send-email-linus.walleij@linaro.org>
-Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Felipe Balbi <balbi@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.df.lth.se ([194.47.250.12]:51119 "EHLO mail.df.lth.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753415Ab2ELIQU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 May 2012 04:16:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Sat, 12 May 2012 04:20:28 -0400 (EDT)
+Message-ID: <20120512.042028.912019707767582333.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The 802_* network OIDs were duplicated, so let's merge them and
-use the RNDIS_* prefixed definitions from the hyperV driver.
 
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
----
- drivers/net/wireless/rndis_wlan.c |  224 +++++++++++++++++++++----------------
- drivers/usb/gadget/rndis.c        |   62 +++++-----
- include/linux/rndis.h             |   76 +++++--------
- 3 files changed, 188 insertions(+), 174 deletions(-)
+1) Since we do RCU lookups on ipv4 FIB entries, we have to test if the
+   entry is dead before returning it to our caller.
 
-diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
-index c774bf5..9bbef3f 100644
---- a/drivers/net/wireless/rndis_wlan.c
-+++ b/drivers/net/wireless/rndis_wlan.c
-@@ -641,36 +641,36 @@ static const char *oid_to_string(__le32 oid)
- 		OID_STR(RNDIS_OID_GEN_RCV_ERROR);
- 		OID_STR(RNDIS_OID_GEN_RCV_NO_BUFFER);
- 
--		OID_STR(OID_802_3_CURRENT_ADDRESS);
--		OID_STR(OID_802_3_MULTICAST_LIST);
--		OID_STR(OID_802_3_MAXIMUM_LIST_SIZE);
--
--		OID_STR(OID_802_11_BSSID);
--		OID_STR(OID_802_11_SSID);
--		OID_STR(OID_802_11_INFRASTRUCTURE_MODE);
--		OID_STR(OID_802_11_ADD_WEP);
--		OID_STR(OID_802_11_REMOVE_WEP);
--		OID_STR(OID_802_11_DISASSOCIATE);
--		OID_STR(OID_802_11_AUTHENTICATION_MODE);
--		OID_STR(OID_802_11_PRIVACY_FILTER);
--		OID_STR(OID_802_11_BSSID_LIST_SCAN);
--		OID_STR(OID_802_11_ENCRYPTION_STATUS);
--		OID_STR(OID_802_11_ADD_KEY);
--		OID_STR(OID_802_11_REMOVE_KEY);
--		OID_STR(OID_802_11_ASSOCIATION_INFORMATION);
--		OID_STR(OID_802_11_CAPABILITY);
--		OID_STR(OID_802_11_PMKID);
--		OID_STR(OID_802_11_NETWORK_TYPES_SUPPORTED);
--		OID_STR(OID_802_11_NETWORK_TYPE_IN_USE);
--		OID_STR(OID_802_11_TX_POWER_LEVEL);
--		OID_STR(OID_802_11_RSSI);
--		OID_STR(OID_802_11_RSSI_TRIGGER);
--		OID_STR(OID_802_11_FRAGMENTATION_THRESHOLD);
--		OID_STR(OID_802_11_RTS_THRESHOLD);
--		OID_STR(OID_802_11_SUPPORTED_RATES);
--		OID_STR(OID_802_11_CONFIGURATION);
--		OID_STR(OID_802_11_POWER_MODE);
--		OID_STR(OID_802_11_BSSID_LIST);
-+		OID_STR(RNDIS_OID_802_3_CURRENT_ADDRESS);
-+		OID_STR(RNDIS_OID_802_3_MULTICAST_LIST);
-+		OID_STR(RNDIS_OID_802_3_MAXIMUM_LIST_SIZE);
+2) openvswitch locking and packet validation fixes from Ansis Atteka,
+   Jesse Gross, and Pravin B Shelar.
+
+3) Fix PM resume locking in IGB driver, from Benjamin Poirier.
+
+4) Fix VLAN header handling in vhost-net and macvtap, from Basil Gor.
+
+5) Revert a bogus network namespace isolation change that was causing
+   regressions on S390 networking devices.
+
+6) If bonding decides to process and handle a LACPDU frame, we shouldn'=
+t
+   bump the rx_dropped counter.  From Jiri Bohac.
+
+7) Fix mis-calculation of available TX space in r8169 driver when
+   doing TSO, which can lead to crashes and/or hung device.  From
+   Julien Ducourthial.
+
+8) SCTP does not validate cached routes properly in all cases, from
+   Nicolas Dichtel.
+
+9) Link status interrupt needs to be handled in ks8851 driver, from
+   Stephen Boyd.
+
+10) Use capable(), not cap_raised(), in connector/userns netlink code.
+    From Eric W. Biederman via Andrew Morton.
+
+11) Fix pktgen OOPS on module unload, from Eric Dumazet.
+
+12) iwlwifi under-estimates SKB truesizes, also from Eric Dumazet.
+
+13) Cure division by zero in SFC driver, from Ben Hutchings.
+
+Please pull, thanks a lot!
+
+The following changes since commit 0a6ba092d1c8c75ae0c0617ef7f4e6f5043a=
+f311:
+
+  Merge tag 'mfd-for-linus-3.4-rc6' of git://git.kernel.org/pub/scm/lin=
+ux/kernel/git/sameo/mfd-2.6 (2012-05-03 17:21:05 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to 062e55e3960062fc2fb62a7274b4c253003eba73=
+:
+
+  ks8851: Update link status during link change interrupt (2012-05-11 1=
+8:23:34 -0400)
+
+----------------------------------------------------------------
+Andrei Emeltchenko (1):
+      e1000: Silence sparse warnings by correcting type
+
+Ansis Atteka (1):
+      openvswitch: Release rtnl_lock if ovs_vport_cmd_build_info() fail=
+ed.
+
+Ariel Elior (1):
+      bnx2x: bug fix when loading after SAN boot
+
+Basil Gor (2):
+      vhost-net: fix handle_rx buffer size
+      macvtap: restore vlan header on user read
+
+Ben Hutchings (1):
+      sfc: Fix division by zero when using one RX channel and no SR-IOV
+
+Benjamin Poirier (1):
+      igb: fix rtnl race in PM resume path
+
+Bj=F8rn Mork (1):
+      cdc_ether: Ignore bogus union descriptor for RNDIS devices
+
+David S. Miller (6):
+      Merge branch 'master' of git://git.kernel.org/.../jkirsher/net
+      Merge branch 'for-davem' of git://git.kernel.org/.../linville/wir=
+eless
+      Merge branch 'fixes' of git://git.kernel.org/.../jesse/openvswitc=
+h
+      Merge branch 'sfc-3.4' of git://git.kernel.org/.../bwh/sfc
+      ipv4: Do not use dead fib_info entries.
+      Revert "net: maintain namespace isolation between vlan and real d=
+evice"
+
+Don Skidmore (1):
+      ixgbe: fix race condition with shutdown
+
+Eric Dumazet (2):
+      iwlwifi: fix skb truesize underestimation
+      pktgen: fix crash at module unload
+
+Eric W. Biederman (1):
+      connector/userns: replace netlink uses of cap_raised() with capab=
+le()
+
+=46ranky Lin (1):
+      brcmfmac: fix a double spin_unlock_irqrestore issue in dpc
+
+Jesse Gross (1):
+      openvswitch: Add length check when retrieving TCP flags.
+
+Jiri Bohac (1):
+      bonding: don't increase rx_dropped after processing LACPDUs
+
+Johannes Berg (1):
+      net: compare_ether_addr[_64bits]() has no ordering
+
+John Fastabend (2):
+      ixgbe: dcb: BIT_APP_UPCHG not set by ixgbe_copy_dcb_cfg()
+      igb, ixgbe: netdev_tx_reset_queue incorrectly called from tx init=
+ path
+
+John W. Linville (1):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
+ss into for-davem
+
+Julien Ducourthial (1):
+      r8169: fix unsigned int wraparound with TSO
+
+Nicolas Dichtel (1):
+      sctp: check cached dst before using it
+
+Pravin B Shelar (1):
+      openvswitch: Validation of IPv6 set port action uses IPv4 header
+
+Rajkumar Manoharan (1):
+      Revert "ath9k_hw: Fix incorrect spur_freq_sd for AR9003"
+
+Stephen Boyd (1):
+      ks8851: Update link status during link change interrupt
+
+Thadeu Lima de Souza Cascardo (1):
+      ehea: fix losing of NEQ events when one event occurred early
+
+ drivers/block/drbd/drbd_nl.c                       |    2 +-
+ drivers/md/dm-log-userspace-transfer.c             |    2 +-
+ drivers/net/bonding/bond_3ad.c                     |   18 ++++++++++++=
+------
+ drivers/net/bonding/bond_3ad.h                     |    2 +-
+ drivers/net/bonding/bond_main.c                    |   16 +++++++++++-=
+----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   23 ++++++++++++=
+++++++++++-
+ drivers/net/ethernet/ibm/ehea/ehea_main.c          |    2 ++
+ drivers/net/ethernet/intel/e1000/e1000_main.c      |    4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c          |   24 ++++++++----=
+------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |    3 ---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   43 ++++++++++++=
+++++++++-----------------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |    2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   10 ++++++----
+ drivers/net/ethernet/micrel/ks8851.c               |    7 ++++---
+ drivers/net/ethernet/realtek/r8169.c               |   16 ++++++++++--=
+----
+ drivers/net/ethernet/sfc/efx.c                     |    2 +-
+ drivers/net/macvlan.c                              |    2 +-
+ drivers/net/macvtap.c                              |   43 ++++++++++++=
+++++++++++++++++++++++++++-----
+ drivers/net/usb/cdc_ether.c                        |   14 ++++++++++++=
+--
+ drivers/net/wireless/ath/ath9k/ar9003_phy.c        |    4 ++--
+ drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |    1 +
+ drivers/net/wireless/iwlwifi/iwl-agn-rx.c          |   21 ++++++++++++=
+++-------
+ drivers/net/wireless/iwlwifi/iwl-trans-pcie-rx.c   |    3 ++-
+ drivers/net/wireless/iwlwifi/iwl-trans.h           |    1 +
+ drivers/vhost/net.c                                |    7 ++++++-
+ drivers/video/uvesafb.c                            |    2 +-
+ include/linux/etherdevice.h                        |   11 ++++++-----
+ include/linux/netdevice.h                          |    9 ---------
+ include/net/sctp/sctp.h                            |   13 ++++++++++++=
 +
-+		OID_STR(RNDIS_OID_802_11_BSSID);
-+		OID_STR(RNDIS_OID_802_11_SSID);
-+		OID_STR(RNDIS_OID_802_11_INFRASTRUCTURE_MODE);
-+		OID_STR(RNDIS_OID_802_11_ADD_WEP);
-+		OID_STR(RNDIS_OID_802_11_REMOVE_WEP);
-+		OID_STR(RNDIS_OID_802_11_DISASSOCIATE);
-+		OID_STR(RNDIS_OID_802_11_AUTHENTICATION_MODE);
-+		OID_STR(RNDIS_OID_802_11_PRIVACY_FILTER);
-+		OID_STR(RNDIS_OID_802_11_BSSID_LIST_SCAN);
-+		OID_STR(RNDIS_OID_802_11_ENCRYPTION_STATUS);
-+		OID_STR(RNDIS_OID_802_11_ADD_KEY);
-+		OID_STR(RNDIS_OID_802_11_REMOVE_KEY);
-+		OID_STR(RNDIS_OID_802_11_ASSOCIATION_INFORMATION);
-+		OID_STR(RNDIS_OID_802_11_CAPABILITY);
-+		OID_STR(RNDIS_OID_802_11_PMKID);
-+		OID_STR(RNDIS_OID_802_11_NETWORK_TYPES_SUPPORTED);
-+		OID_STR(RNDIS_OID_802_11_NETWORK_TYPE_IN_USE);
-+		OID_STR(RNDIS_OID_802_11_TX_POWER_LEVEL);
-+		OID_STR(RNDIS_OID_802_11_RSSI);
-+		OID_STR(RNDIS_OID_802_11_RSSI_TRIGGER);
-+		OID_STR(RNDIS_OID_802_11_FRAGMENTATION_THRESHOLD);
-+		OID_STR(RNDIS_OID_802_11_RTS_THRESHOLD);
-+		OID_STR(RNDIS_OID_802_11_SUPPORTED_RATES);
-+		OID_STR(RNDIS_OID_802_11_CONFIGURATION);
-+		OID_STR(RNDIS_OID_802_11_POWER_MODE);
-+		OID_STR(RNDIS_OID_802_11_BSSID_LIST);
- #undef OID_STR
- 	}
- 
-@@ -982,9 +982,9 @@ static int rndis_start_bssid_list_scan(struct usbnet *usbdev)
- {
- 	__le32 tmp;
- 
--	/* Note: OID_802_11_BSSID_LIST_SCAN clears internal BSS list. */
-+	/* Note: RNDIS_OID_802_11_BSSID_LIST_SCAN clears internal BSS list. */
- 	tmp = cpu_to_le32(1);
--	return rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_BSSID_LIST_SCAN), &tmp,
-+	return rndis_set_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_BSSID_LIST_SCAN), &tmp,
- 							sizeof(tmp));
- }
- 
-@@ -993,7 +993,8 @@ static int set_essid(struct usbnet *usbdev, struct ndis_80211_ssid *ssid)
- 	struct rndis_wlan_private *priv = get_rndis_wlan_priv(usbdev);
- 	int ret;
- 
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_SSID), ssid, sizeof(*ssid));
-+	ret = rndis_set_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_SSID),
-+			    ssid, sizeof(*ssid));
- 	if (ret < 0) {
- 		netdev_warn(usbdev->net, "setting SSID failed (%08X)\n", ret);
- 		return ret;
-@@ -1010,7 +1011,8 @@ static int set_bssid(struct usbnet *usbdev, const u8 *bssid)
- {
- 	int ret;
- 
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_BSSID), bssid, ETH_ALEN);
-+	ret = rndis_set_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_BSSID),
-+			    bssid, ETH_ALEN);
- 	if (ret < 0) {
- 		netdev_warn(usbdev->net, "setting BSSID[%pM] failed (%08X)\n",
- 			    bssid, ret);
-@@ -1034,7 +1036,8 @@ static int get_bssid(struct usbnet *usbdev, u8 bssid[ETH_ALEN])
- 	int ret, len;
- 
- 	len = ETH_ALEN;
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_BSSID), bssid, &len);
-+	ret = rndis_query_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_BSSID),
-+			      bssid, &len);
- 
- 	if (ret != 0)
- 		memset(bssid, 0, ETH_ALEN);
-@@ -1045,8 +1048,9 @@ static int get_bssid(struct usbnet *usbdev, u8 bssid[ETH_ALEN])
- static int get_association_info(struct usbnet *usbdev,
- 			struct ndis_80211_assoc_info *info, int len)
- {
--	return rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_ASSOCIATION_INFORMATION),
--				info, &len);
-+	return rndis_query_oid(usbdev,
-+			cpu_to_le32(RNDIS_OID_802_11_ASSOCIATION_INFORMATION),
-+			info, &len);
- }
- 
- static bool is_associated(struct usbnet *usbdev)
-@@ -1070,7 +1074,9 @@ static int disassociate(struct usbnet *usbdev, bool reset_ssid)
- 	int i, ret = 0;
- 
- 	if (priv->radio_on) {
--		ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_DISASSOCIATE), NULL, 0);
-+		ret = rndis_set_oid(usbdev,
-+				cpu_to_le32(RNDIS_OID_802_11_DISASSOCIATE),
-+				NULL, 0);
- 		if (ret == 0) {
- 			priv->radio_on = false;
- 			netdev_dbg(usbdev->net, "%s(): radio_on = false\n",
-@@ -1132,8 +1138,9 @@ static int set_auth_mode(struct usbnet *usbdev, u32 wpa_version,
- 		return -ENOTSUPP;
- 
- 	tmp = cpu_to_le32(auth_mode);
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_AUTHENTICATION_MODE), &tmp,
--								sizeof(tmp));
-+	ret = rndis_set_oid(usbdev,
-+			    cpu_to_le32(RNDIS_OID_802_11_AUTHENTICATION_MODE),
-+			    &tmp, sizeof(tmp));
- 	if (ret != 0) {
- 		netdev_warn(usbdev->net, "setting auth mode failed (%08X)\n",
- 			    ret);
-@@ -1159,8 +1166,9 @@ static int set_priv_filter(struct usbnet *usbdev)
- 	else
- 		tmp = cpu_to_le32(NDIS_80211_PRIV_ACCEPT_ALL);
- 
--	return rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_PRIVACY_FILTER), &tmp,
--								sizeof(tmp));
-+	return rndis_set_oid(usbdev,
-+			     cpu_to_le32(RNDIS_OID_802_11_PRIVACY_FILTER), &tmp,
-+			     sizeof(tmp));
- }
- 
- static int set_encr_mode(struct usbnet *usbdev, int pairwise, int groupwise)
-@@ -1185,8 +1193,9 @@ static int set_encr_mode(struct usbnet *usbdev, int pairwise, int groupwise)
- 		encr_mode = NDIS_80211_ENCR_DISABLED;
- 
- 	tmp = cpu_to_le32(encr_mode);
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_ENCRYPTION_STATUS), &tmp,
--								sizeof(tmp));
-+	ret = rndis_set_oid(usbdev,
-+			cpu_to_le32(RNDIS_OID_802_11_ENCRYPTION_STATUS), &tmp,
-+			sizeof(tmp));
- 	if (ret != 0) {
- 		netdev_warn(usbdev->net, "setting encr mode failed (%08X)\n",
- 			    ret);
-@@ -1206,8 +1215,9 @@ static int set_infra_mode(struct usbnet *usbdev, int mode)
- 		   __func__, priv->infra_mode);
- 
- 	tmp = cpu_to_le32(mode);
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_INFRASTRUCTURE_MODE), &tmp,
--								sizeof(tmp));
-+	ret = rndis_set_oid(usbdev,
-+			    cpu_to_le32(RNDIS_OID_802_11_INFRASTRUCTURE_MODE),
-+			    &tmp, sizeof(tmp));
- 	if (ret != 0) {
- 		netdev_warn(usbdev->net, "setting infra mode failed (%08X)\n",
- 			    ret);
-@@ -1233,8 +1243,9 @@ static int set_rts_threshold(struct usbnet *usbdev, u32 rts_threshold)
- 		rts_threshold = 2347;
- 
- 	tmp = cpu_to_le32(rts_threshold);
--	return rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_RTS_THRESHOLD), &tmp,
--								sizeof(tmp));
-+	return rndis_set_oid(usbdev,
-+			     cpu_to_le32(RNDIS_OID_802_11_RTS_THRESHOLD),
-+			     &tmp, sizeof(tmp));
- }
- 
- static int set_frag_threshold(struct usbnet *usbdev, u32 frag_threshold)
-@@ -1247,8 +1258,9 @@ static int set_frag_threshold(struct usbnet *usbdev, u32 frag_threshold)
- 		frag_threshold = 2346;
- 
- 	tmp = cpu_to_le32(frag_threshold);
--	return rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_FRAGMENTATION_THRESHOLD), &tmp,
--								sizeof(tmp));
-+	return rndis_set_oid(usbdev,
-+			cpu_to_le32(RNDIS_OID_802_11_FRAGMENTATION_THRESHOLD),
-+			&tmp, sizeof(tmp));
- }
- 
- static void set_default_iw_params(struct usbnet *usbdev)
-@@ -1284,7 +1296,9 @@ static int set_channel(struct usbnet *usbdev, int channel)
- 	dsconfig = ieee80211_dsss_chan_to_freq(channel) * 1000;
- 
- 	len = sizeof(config);
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_CONFIGURATION), &config, &len);
-+	ret = rndis_query_oid(usbdev,
-+			cpu_to_le32(RNDIS_OID_802_11_CONFIGURATION),
-+			&config, &len);
- 	if (ret < 0) {
- 		netdev_dbg(usbdev->net, "%s(): querying configuration failed\n",
- 			   __func__);
-@@ -1292,8 +1306,9 @@ static int set_channel(struct usbnet *usbdev, int channel)
- 	}
- 
- 	config.ds_config = cpu_to_le32(dsconfig);
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_CONFIGURATION), &config,
--								sizeof(config));
-+	ret = rndis_set_oid(usbdev,
-+			cpu_to_le32(RNDIS_OID_802_11_CONFIGURATION),
-+			&config, sizeof(config));
- 
- 	netdev_dbg(usbdev->net, "%s(): %d -> %d\n", __func__, channel, ret);
- 
-@@ -1310,8 +1325,10 @@ static struct ieee80211_channel *get_current_channel(struct usbnet *usbdev,
- 
- 	/* Get channel and beacon interval */
- 	len = sizeof(config);
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_CONFIGURATION), &config, &len);
--	netdev_dbg(usbdev->net, "%s(): OID_802_11_CONFIGURATION -> %d\n",
-+	ret = rndis_query_oid(usbdev,
-+			cpu_to_le32(RNDIS_OID_802_11_CONFIGURATION),
-+			&config, &len);
-+	netdev_dbg(usbdev->net, "%s(): RNDIS_OID_802_11_CONFIGURATION -> %d\n",
- 				__func__, ret);
- 	if (ret < 0)
- 		return NULL;
-@@ -1364,8 +1381,9 @@ static int add_wep_key(struct usbnet *usbdev, const u8 *key, int key_len,
- 				    ret);
- 	}
- 
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_ADD_WEP), &ndis_key,
--							sizeof(ndis_key));
-+	ret = rndis_set_oid(usbdev,
-+			cpu_to_le32(RNDIS_OID_802_11_ADD_WEP), &ndis_key,
-+			sizeof(ndis_key));
- 	if (ret != 0) {
- 		netdev_warn(usbdev->net, "adding encryption key %d failed (%08X)\n",
- 			    index + 1, ret);
-@@ -1455,9 +1473,10 @@ static int add_wpa_key(struct usbnet *usbdev, const u8 *key, int key_len,
- 			get_bssid(usbdev, ndis_key.bssid);
- 	}
- 
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_ADD_KEY), &ndis_key,
--					le32_to_cpu(ndis_key.size));
--	netdev_dbg(usbdev->net, "%s(): OID_802_11_ADD_KEY -> %08X\n",
-+	ret = rndis_set_oid(usbdev,
-+			cpu_to_le32(RNDIS_OID_802_11_ADD_KEY), &ndis_key,
-+			le32_to_cpu(ndis_key.size));
-+	netdev_dbg(usbdev->net, "%s(): RNDIS_OID_802_11_ADD_KEY -> %08X\n",
- 		   __func__, ret);
- 	if (ret != 0)
- 		return ret;
-@@ -1545,14 +1564,16 @@ static int remove_key(struct usbnet *usbdev, u8 index, const u8 *bssid)
- 			memset(remove_key.bssid, 0xff,
- 						sizeof(remove_key.bssid));
- 
--		ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_REMOVE_KEY), &remove_key,
--							sizeof(remove_key));
-+		ret = rndis_set_oid(usbdev,
-+				cpu_to_le32(RNDIS_OID_802_11_REMOVE_KEY),
-+				&remove_key, sizeof(remove_key));
- 		if (ret != 0)
- 			return ret;
- 	} else {
- 		keyindex = cpu_to_le32(index);
--		ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_REMOVE_WEP), &keyindex,
--							sizeof(keyindex));
-+		ret = rndis_set_oid(usbdev,
-+				cpu_to_le32(RNDIS_OID_802_11_REMOVE_WEP),
-+				&keyindex, sizeof(keyindex));
- 		if (ret != 0) {
- 			netdev_warn(usbdev->net,
- 				    "removing encryption key %d failed (%08X)\n",
-@@ -1620,15 +1641,16 @@ static void set_multicast_list(struct usbnet *usbdev)
- 		goto set_filter;
- 
- 	if (mc_count) {
--		ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_3_MULTICAST_LIST), mc_addrs,
--				    mc_count * ETH_ALEN);
-+		ret = rndis_set_oid(usbdev,
-+				cpu_to_le32(RNDIS_OID_802_3_MULTICAST_LIST),
-+				mc_addrs, mc_count * ETH_ALEN);
- 		kfree(mc_addrs);
- 		if (ret == 0)
- 			filter |= cpu_to_le32(RNDIS_PACKET_TYPE_MULTICAST);
- 		else
- 			filter |= cpu_to_le32(RNDIS_PACKET_TYPE_ALL_MULTICAST);
- 
--		netdev_dbg(usbdev->net, "OID_802_3_MULTICAST_LIST(%d, max: %d) -> %d\n",
-+		netdev_dbg(usbdev->net, "RNDIS_OID_802_3_MULTICAST_LIST(%d, max: %d) -> %d\n",
- 			   mc_count, priv->multicast_size, ret);
- 	}
- 
-@@ -1699,9 +1721,10 @@ static struct ndis_80211_pmkid *get_device_pmkids(struct usbnet *usbdev)
- 	pmkids->length = cpu_to_le32(len);
- 	pmkids->bssid_info_count = cpu_to_le32(max_pmkids);
- 
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_PMKID), pmkids, &len);
-+	ret = rndis_query_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_PMKID),
-+			pmkids, &len);
- 	if (ret < 0) {
--		netdev_dbg(usbdev->net, "%s(): OID_802_11_PMKID(%d, %d)"
-+		netdev_dbg(usbdev->net, "%s(): RNDIS_OID_802_11_PMKID(%d, %d)"
- 				" -> %d\n", __func__, len, max_pmkids, ret);
- 
- 		kfree(pmkids);
-@@ -1727,10 +1750,10 @@ static int set_device_pmkids(struct usbnet *usbdev,
- 
- 	debug_print_pmkids(usbdev, pmkids, __func__);
- 
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_PMKID), pmkids,
--						le32_to_cpu(pmkids->length));
-+	ret = rndis_set_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_PMKID), pmkids,
-+			    le32_to_cpu(pmkids->length));
- 	if (ret < 0) {
--		netdev_dbg(usbdev->net, "%s(): OID_802_11_PMKID(%d, %d) -> %d"
-+		netdev_dbg(usbdev->net, "%s(): RNDIS_OID_802_11_PMKID(%d, %d) -> %d"
- 				"\n", __func__, len, num_pmkids, ret);
- 	}
- 
-@@ -2064,7 +2087,8 @@ resize_buf:
- 	 * resizing until it won't get any bigger.
- 	 */
- 	new_len = len;
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_BSSID_LIST), buf, &new_len);
-+	ret = rndis_query_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_BSSID_LIST),
-+			      buf, &new_len);
- 	if (ret != 0 || new_len < sizeof(struct ndis_80211_bssid_list_ex))
- 		goto out;
- 
-@@ -2469,7 +2493,8 @@ static void rndis_fill_station_info(struct usbnet *usbdev,
- 	}
- 
- 	len = sizeof(rssi);
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_RSSI), &rssi, &len);
-+	ret = rndis_query_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_RSSI),
-+			      &rssi, &len);
- 	if (ret == 0) {
- 		sinfo->signal = level_to_qual(le32_to_cpu(rssi));
- 		sinfo->filled |= STATION_INFO_SIGNAL;
-@@ -2575,7 +2600,8 @@ static int rndis_flush_pmksa(struct wiphy *wiphy, struct net_device *netdev)
- 	pmkid.length = cpu_to_le32(sizeof(pmkid));
- 	pmkid.bssid_info_count = cpu_to_le32(0);
- 
--	return rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_PMKID), &pmkid, sizeof(pmkid));
-+	return rndis_set_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_PMKID),
-+			     &pmkid, sizeof(pmkid));
- }
- 
- static int rndis_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
-@@ -2605,9 +2631,10 @@ static int rndis_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
- 	priv->power_mode = power_mode;
- 
- 	mode = cpu_to_le32(power_mode);
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_POWER_MODE), &mode, sizeof(mode));
-+	ret = rndis_set_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_POWER_MODE),
-+			    &mode, sizeof(mode));
- 
--	netdev_dbg(usbdev->net, "%s(): OID_802_11_POWER_MODE -> %d\n",
-+	netdev_dbg(usbdev->net, "%s(): RNDIS_OID_802_11_POWER_MODE -> %d\n",
- 				__func__, ret);
- 
- 	return ret;
-@@ -2644,10 +2671,11 @@ static void rndis_wlan_craft_connected_bss(struct usbnet *usbdev, u8 *bssid,
- 	/* Get signal quality, in case of error use rssi=0 and ignore error. */
- 	len = sizeof(rssi);
- 	rssi = 0;
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_RSSI), &rssi, &len);
-+	ret = rndis_query_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_RSSI),
-+			      &rssi, &len);
- 	signal = level_to_qual(le32_to_cpu(rssi));
- 
--	netdev_dbg(usbdev->net, "%s(): OID_802_11_RSSI -> %d, "
-+	netdev_dbg(usbdev->net, "%s(): RNDIS_OID_802_11_RSSI -> %d, "
- 		   "rssi:%d, qual: %d\n", __func__, ret, le32_to_cpu(rssi),
- 		   level_to_qual(le32_to_cpu(rssi)));
- 
-@@ -2671,8 +2699,9 @@ static void rndis_wlan_craft_connected_bss(struct usbnet *usbdev, u8 *bssid,
- 	/* Get SSID, in case of error, use zero length SSID and ignore error. */
- 	len = sizeof(ssid);
- 	memset(&ssid, 0, sizeof(ssid));
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_SSID), &ssid, &len);
--	netdev_dbg(usbdev->net, "%s(): OID_802_11_SSID -> %d, len: %d, ssid: "
-+	ret = rndis_query_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_SSID),
-+			      &ssid, &len);
-+	netdev_dbg(usbdev->net, "%s(): RNDIS_OID_802_11_SSID -> %d, len: %d, ssid: "
- 				"'%.32s'\n", __func__, ret,
- 				le32_to_cpu(ssid.length), ssid.essid);
- 
-@@ -2794,7 +2823,7 @@ static void rndis_wlan_do_link_up_work(struct usbnet *usbdev)
- 	 * NDIS spec says: "If the device is associated, but the associated
- 	 *  BSSID is not in its BSSID scan list, then the driver must add an
- 	 *  entry for the BSSID at the end of the data that it returns in
--	 *  response to query of OID_802_11_BSSID_LIST."
-+	 *  response to query of RNDIS_OID_802_11_BSSID_LIST."
- 	 *
- 	 * NOTE: Seems to be true for BCM4320b variant, but not BCM4320a.
- 	 */
-@@ -3048,13 +3077,13 @@ static void rndis_wlan_indication(struct usbnet *usbdev, void *ind, int buflen)
- 
- 	switch (msg->status) {
- 	case cpu_to_le32(RNDIS_STATUS_MEDIA_CONNECT):
--		if (priv->current_command_oid == cpu_to_le32(OID_802_11_ADD_KEY)) {
-+		if (priv->current_command_oid == cpu_to_le32(RNDIS_OID_802_11_ADD_KEY)) {
- 			/* OID_802_11_ADD_KEY causes sometimes extra
- 			 * "media connect" indications which confuses driver
- 			 * and userspace to think that device is
- 			 * roaming/reassociating when it isn't.
- 			 */
--			netdev_dbg(usbdev->net, "ignored OID_802_11_ADD_KEY triggered 'media connect'\n");
-+			netdev_dbg(usbdev->net, "ignored RNDIS_OID_802_11_ADD_KEY triggered 'media connect'\n");
- 			return;
- 		}
- 
-@@ -3099,8 +3128,9 @@ static int rndis_wlan_get_caps(struct usbnet *usbdev, struct wiphy *wiphy)
- 
- 	/* determine supported modes */
- 	len = sizeof(networks_supported);
--	retval = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_NETWORK_TYPES_SUPPORTED),
--						&networks_supported, &len);
-+	retval = rndis_query_oid(usbdev,
-+				 cpu_to_le32(RNDIS_OID_802_11_NETWORK_TYPES_SUPPORTED),
-+				 &networks_supported, &len);
- 	if (retval >= 0) {
- 		n = le32_to_cpu(networks_supported.num_items);
- 		if (n > 8)
-@@ -3124,9 +3154,11 @@ static int rndis_wlan_get_caps(struct usbnet *usbdev, struct wiphy *wiphy)
- 	/* get device 802.11 capabilities, number of PMKIDs */
- 	caps = (struct ndis_80211_capability *)caps_buf;
- 	len = sizeof(caps_buf);
--	retval = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_CAPABILITY), caps, &len);
-+	retval = rndis_query_oid(usbdev,
-+				 cpu_to_le32(RNDIS_OID_802_11_CAPABILITY),
-+				 caps, &len);
- 	if (retval >= 0) {
--		netdev_dbg(usbdev->net, "OID_802_11_CAPABILITY -> len %d, "
-+		netdev_dbg(usbdev->net, "RNDIS_OID_802_11_CAPABILITY -> len %d, "
- 				"ver %d, pmkids %d, auth-encr-pairs %d\n",
- 				le32_to_cpu(caps->length),
- 				le32_to_cpu(caps->version),
-@@ -3198,13 +3230,14 @@ static void rndis_device_poller(struct work_struct *work)
- 	}
- 
- 	len = sizeof(rssi);
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_RSSI), &rssi, &len);
-+	ret = rndis_query_oid(usbdev, cpu_to_le32(RNDIS_OID_802_11_RSSI),
-+			      &rssi, &len);
- 	if (ret == 0) {
- 		priv->last_qual = level_to_qual(le32_to_cpu(rssi));
- 		rndis_do_cqm(usbdev, le32_to_cpu(rssi));
- 	}
- 
--	netdev_dbg(usbdev->net, "dev-poller: OID_802_11_RSSI -> %d, rssi:%d, qual: %d\n",
-+	netdev_dbg(usbdev->net, "dev-poller: RNDIS_OID_802_11_RSSI -> %d, rssi:%d, qual: %d\n",
- 		   ret, le32_to_cpu(rssi), level_to_qual(le32_to_cpu(rssi)));
- 
- 	/* Workaround transfer stalls on poor quality links.
-@@ -3226,15 +3259,18 @@ static void rndis_device_poller(struct work_struct *work)
- 		 * working.
- 		 */
- 		tmp = cpu_to_le32(1);
--		rndis_set_oid(usbdev, cpu_to_le32(OID_802_11_BSSID_LIST_SCAN), &tmp,
--								sizeof(tmp));
-+		rndis_set_oid(usbdev,
-+			      cpu_to_le32(RNDIS_OID_802_11_BSSID_LIST_SCAN),
-+			      &tmp, sizeof(tmp));
- 
- 		len = CONTROL_BUFFER_SIZE;
- 		buf = kmalloc(len, GFP_KERNEL);
- 		if (!buf)
- 			goto end;
- 
--		rndis_query_oid(usbdev, cpu_to_le32(OID_802_11_BSSID_LIST), buf, &len);
-+		rndis_query_oid(usbdev,
-+				cpu_to_le32(RNDIS_OID_802_11_BSSID_LIST),
-+				buf, &len);
- 		kfree(buf);
- 	}
- 
-@@ -3423,7 +3459,7 @@ static int rndis_wlan_bind(struct usbnet *usbdev, struct usb_interface *intf)
- 
- 	len = sizeof(tmp);
- 	retval = rndis_query_oid(usbdev,
--				 cpu_to_le32(OID_802_3_MAXIMUM_LIST_SIZE),
-+				 cpu_to_le32(RNDIS_OID_802_3_MAXIMUM_LIST_SIZE),
- 				 &tmp, &len);
- 	priv->multicast_size = le32_to_cpu(tmp);
- 	if (retval < 0 || priv->multicast_size < 0)
-diff --git a/drivers/usb/gadget/rndis.c b/drivers/usb/gadget/rndis.c
-index 3ade168..79ed261 100644
---- a/drivers/usb/gadget/rndis.c
-+++ b/drivers/usb/gadget/rndis.c
-@@ -115,23 +115,23 @@ static const u32 oid_supported_list[] =
- 	/* mandatory 802.3 */
- 	/* the general stuff */
- 	RNDIS_OID_802_3_PERMANENT_ADDRESS,
--	OID_802_3_CURRENT_ADDRESS,
--	OID_802_3_MULTICAST_LIST,
--	OID_802_3_MAC_OPTIONS,
--	OID_802_3_MAXIMUM_LIST_SIZE,
-+	RNDIS_OID_802_3_CURRENT_ADDRESS,
-+	RNDIS_OID_802_3_MULTICAST_LIST,
-+	RNDIS_OID_802_3_MAC_OPTIONS,
-+	RNDIS_OID_802_3_MAXIMUM_LIST_SIZE,
- 
- 	/* the statistical stuff */
--	OID_802_3_RCV_ERROR_ALIGNMENT,
--	OID_802_3_XMIT_ONE_COLLISION,
--	OID_802_3_XMIT_MORE_COLLISIONS,
-+	RNDIS_OID_802_3_RCV_ERROR_ALIGNMENT,
-+	RNDIS_OID_802_3_XMIT_ONE_COLLISION,
-+	RNDIS_OID_802_3_XMIT_MORE_COLLISIONS,
- #ifdef	RNDIS_OPTIONAL_STATS
--	OID_802_3_XMIT_DEFERRED,
--	OID_802_3_XMIT_MAX_COLLISIONS,
--	OID_802_3_RCV_OVERRUN,
--	OID_802_3_XMIT_UNDERRUN,
--	OID_802_3_XMIT_HEARTBEAT_FAILURE,
--	OID_802_3_XMIT_TIMES_CRS_LOST,
--	OID_802_3_XMIT_LATE_COLLISIONS,
-+	RNDIS_OID_802_3_XMIT_DEFERRED,
-+	RNDIS_OID_802_3_XMIT_MAX_COLLISIONS,
-+	RNDIS_OID_802_3_RCV_OVERRUN,
-+	RNDIS_OID_802_3_XMIT_UNDERRUN,
-+	RNDIS_OID_802_3_XMIT_HEARTBEAT_FAILURE,
-+	RNDIS_OID_802_3_XMIT_TIMES_CRS_LOST,
-+	RNDIS_OID_802_3_XMIT_LATE_COLLISIONS,
- #endif	/* RNDIS_OPTIONAL_STATS */
- 
- #ifdef	RNDIS_PM
-@@ -408,7 +408,7 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 
- 	/* mandatory */
- 	case RNDIS_OID_802_3_PERMANENT_ADDRESS:
--		pr_debug("%s: OID_802_3_PERMANENT_ADDRESS\n", __func__);
-+		pr_debug("%s: RNDIS_OID_802_3_PERMANENT_ADDRESS\n", __func__);
- 		if (rndis_per_dev_params[configNr].dev) {
- 			length = ETH_ALEN;
- 			memcpy(outbuf,
-@@ -419,8 +419,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_802_3_CURRENT_ADDRESS:
--		pr_debug("%s: OID_802_3_CURRENT_ADDRESS\n", __func__);
-+	case RNDIS_OID_802_3_CURRENT_ADDRESS:
-+		pr_debug("%s: RNDIS_OID_802_3_CURRENT_ADDRESS\n", __func__);
- 		if (rndis_per_dev_params[configNr].dev) {
- 			length = ETH_ALEN;
- 			memcpy(outbuf,
-@@ -431,23 +431,23 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_802_3_MULTICAST_LIST:
--		pr_debug("%s: OID_802_3_MULTICAST_LIST\n", __func__);
-+	case RNDIS_OID_802_3_MULTICAST_LIST:
-+		pr_debug("%s: RNDIS_OID_802_3_MULTICAST_LIST\n", __func__);
- 		/* Multicast base address only */
- 		*outbuf = cpu_to_le32(0xE0000000);
- 		retval = 0;
- 		break;
- 
- 	/* mandatory */
--	case OID_802_3_MAXIMUM_LIST_SIZE:
--		pr_debug("%s: OID_802_3_MAXIMUM_LIST_SIZE\n", __func__);
-+	case RNDIS_OID_802_3_MAXIMUM_LIST_SIZE:
-+		pr_debug("%s: RNDIS_OID_802_3_MAXIMUM_LIST_SIZE\n", __func__);
- 		/* Multicast base address only */
- 		*outbuf = cpu_to_le32(1);
- 		retval = 0;
- 		break;
- 
--	case OID_802_3_MAC_OPTIONS:
--		pr_debug("%s: OID_802_3_MAC_OPTIONS\n", __func__);
-+	case RNDIS_OID_802_3_MAC_OPTIONS:
-+		pr_debug("%s: RNDIS_OID_802_3_MAC_OPTIONS\n", __func__);
- 		*outbuf = cpu_to_le32(0);
- 		retval = 0;
- 		break;
-@@ -455,8 +455,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 	/* ieee802.3 statistics OIDs (table 4-4) */
- 
- 	/* mandatory */
--	case OID_802_3_RCV_ERROR_ALIGNMENT:
--		pr_debug("%s: OID_802_3_RCV_ERROR_ALIGNMENT\n", __func__);
-+	case RNDIS_OID_802_3_RCV_ERROR_ALIGNMENT:
-+		pr_debug("%s: RNDIS_OID_802_3_RCV_ERROR_ALIGNMENT\n", __func__);
- 		if (stats) {
- 			*outbuf = cpu_to_le32(stats->rx_frame_errors);
- 			retval = 0;
-@@ -464,15 +464,15 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_802_3_XMIT_ONE_COLLISION:
--		pr_debug("%s: OID_802_3_XMIT_ONE_COLLISION\n", __func__);
-+	case RNDIS_OID_802_3_XMIT_ONE_COLLISION:
-+		pr_debug("%s: RNDIS_OID_802_3_XMIT_ONE_COLLISION\n", __func__);
- 		*outbuf = cpu_to_le32(0);
- 		retval = 0;
- 		break;
- 
- 	/* mandatory */
--	case OID_802_3_XMIT_MORE_COLLISIONS:
--		pr_debug("%s: OID_802_3_XMIT_MORE_COLLISIONS\n", __func__);
-+	case RNDIS_OID_802_3_XMIT_MORE_COLLISIONS:
-+		pr_debug("%s: RNDIS_OID_802_3_XMIT_MORE_COLLISIONS\n", __func__);
- 		*outbuf = cpu_to_le32(0);
- 		retval = 0;
- 		break;
-@@ -545,9 +545,9 @@ static int gen_ndis_set_resp(u8 configNr, u32 OID, u8 *buf, u32 buf_len,
- 		}
- 		break;
- 
--	case OID_802_3_MULTICAST_LIST:
-+	case RNDIS_OID_802_3_MULTICAST_LIST:
- 		/* I think we can ignore this */
--		pr_debug("%s: OID_802_3_MULTICAST_LIST\n", __func__);
-+		pr_debug("%s: RNDIS_OID_802_3_MULTICAST_LIST\n", __func__);
- 		retval = 0;
- 		break;
- 
-diff --git a/include/linux/rndis.h b/include/linux/rndis.h
-index ebc40b3..62aecb7 100644
---- a/include/linux/rndis.h
-+++ b/include/linux/rndis.h
-@@ -70,21 +70,6 @@
- /* IEEE 802.3 (Ethernet) OIDs */
- #define NDIS_802_3_MAC_OPTION_PRIORITY    0x00000001
- 
--#define OID_802_3_CURRENT_ADDRESS         0x01010102
--#define OID_802_3_MULTICAST_LIST          0x01010103
--#define OID_802_3_MAXIMUM_LIST_SIZE       0x01010104
--#define OID_802_3_MAC_OPTIONS             0x01010105
--#define OID_802_3_RCV_ERROR_ALIGNMENT     0x01020101
--#define OID_802_3_XMIT_ONE_COLLISION      0x01020102
--#define OID_802_3_XMIT_MORE_COLLISIONS    0x01020103
--#define OID_802_3_XMIT_DEFERRED           0x01020201
--#define OID_802_3_XMIT_MAX_COLLISIONS     0x01020202
--#define OID_802_3_RCV_OVERRUN             0x01020203
--#define OID_802_3_XMIT_UNDERRUN           0x01020204
--#define OID_802_3_XMIT_HEARTBEAT_FAILURE  0x01020205
--#define OID_802_3_XMIT_TIMES_CRS_LOST     0x01020206
--#define OID_802_3_XMIT_LATE_COLLISIONS    0x01020207
--
- /* RNDIS_OID_GEN_MINIPORT_INFO constants */
- #define NDIS_MINIPORT_BUS_MASTER                      0x00000001
- #define NDIS_MINIPORT_WDM_DRIVER                      0x00000002
-@@ -402,6 +387,33 @@
- #define RNDIS_OID_802_3_XMIT_TIMES_CRS_LOST	0x01020206
- #define RNDIS_OID_802_3_XMIT_LATE_COLLISIONS	0x01020207
- 
-+#define RNDIS_OID_802_11_BSSID				0x0d010101
-+#define RNDIS_OID_802_11_SSID				0x0d010102
-+#define RNDIS_OID_802_11_INFRASTRUCTURE_MODE		0x0d010108
-+#define RNDIS_OID_802_11_ADD_WEP			0x0d010113
-+#define RNDIS_OID_802_11_REMOVE_WEP			0x0d010114
-+#define RNDIS_OID_802_11_DISASSOCIATE			0x0d010115
-+#define RNDIS_OID_802_11_AUTHENTICATION_MODE		0x0d010118
-+#define RNDIS_OID_802_11_PRIVACY_FILTER			0x0d010119
-+#define RNDIS_OID_802_11_BSSID_LIST_SCAN		0x0d01011a
-+#define RNDIS_OID_802_11_ENCRYPTION_STATUS		0x0d01011b
-+#define RNDIS_OID_802_11_ADD_KEY			0x0d01011d
-+#define RNDIS_OID_802_11_REMOVE_KEY			0x0d01011e
-+#define RNDIS_OID_802_11_ASSOCIATION_INFORMATION	0x0d01011f
-+#define RNDIS_OID_802_11_CAPABILITY			0x0d010122
-+#define RNDIS_OID_802_11_PMKID				0x0d010123
-+#define RNDIS_OID_802_11_NETWORK_TYPES_SUPPORTED	0x0d010203
-+#define RNDIS_OID_802_11_NETWORK_TYPE_IN_USE		0x0d010204
-+#define RNDIS_OID_802_11_TX_POWER_LEVEL			0x0d010205
-+#define RNDIS_OID_802_11_RSSI				0x0d010206
-+#define RNDIS_OID_802_11_RSSI_TRIGGER			0x0d010207
-+#define RNDIS_OID_802_11_FRAGMENTATION_THRESHOLD	0x0d010209
-+#define RNDIS_OID_802_11_RTS_THRESHOLD			0x0d01020a
-+#define RNDIS_OID_802_11_SUPPORTED_RATES		0x0d01020e
-+#define RNDIS_OID_802_11_CONFIGURATION			0x0d010211
-+#define RNDIS_OID_802_11_POWER_MODE			0x0d010216
-+#define RNDIS_OID_802_11_BSSID_LIST			0x0d010217
-+
- #define REMOTE_CONDIS_MP_CREATE_VC_MSG		0x00008001
- #define REMOTE_CONDIS_MP_DELETE_VC_MSG		0x00008002
- #define REMOTE_CONDIS_MP_ACTIVATE_VC_MSG	0x00008005
-@@ -438,37 +450,3 @@
- /* Remote NDIS medium connection states. */
- #define RNDIS_MEDIA_STATE_CONNECTED		0x00000000
- #define RNDIS_MEDIA_STATE_DISCONNECTED		0x00000001
--
--/* From drivers/net/wireless/rndis_wlan.c */
--
--/* various RNDIS OID defs */
--#define OID_802_3_CURRENT_ADDRESS		0x01010102
--#define OID_802_3_MULTICAST_LIST		0x01010103
--#define OID_802_3_MAXIMUM_LIST_SIZE		0x01010104
--
--#define OID_802_11_BSSID			0x0d010101
--#define OID_802_11_SSID				0x0d010102
--#define OID_802_11_INFRASTRUCTURE_MODE		0x0d010108
--#define OID_802_11_ADD_WEP			0x0d010113
--#define OID_802_11_REMOVE_WEP			0x0d010114
--#define OID_802_11_DISASSOCIATE			0x0d010115
--#define OID_802_11_AUTHENTICATION_MODE		0x0d010118
--#define OID_802_11_PRIVACY_FILTER		0x0d010119
--#define OID_802_11_BSSID_LIST_SCAN		0x0d01011a
--#define OID_802_11_ENCRYPTION_STATUS		0x0d01011b
--#define OID_802_11_ADD_KEY			0x0d01011d
--#define OID_802_11_REMOVE_KEY			0x0d01011e
--#define OID_802_11_ASSOCIATION_INFORMATION	0x0d01011f
--#define OID_802_11_CAPABILITY			0x0d010122
--#define OID_802_11_PMKID			0x0d010123
--#define OID_802_11_NETWORK_TYPES_SUPPORTED	0x0d010203
--#define OID_802_11_NETWORK_TYPE_IN_USE		0x0d010204
--#define OID_802_11_TX_POWER_LEVEL		0x0d010205
--#define OID_802_11_RSSI				0x0d010206
--#define OID_802_11_RSSI_TRIGGER			0x0d010207
--#define OID_802_11_FRAGMENTATION_THRESHOLD	0x0d010209
--#define OID_802_11_RTS_THRESHOLD		0x0d01020a
--#define OID_802_11_SUPPORTED_RATES		0x0d01020e
--#define OID_802_11_CONFIGURATION		0x0d010211
--#define OID_802_11_POWER_MODE			0x0d010216
--#define OID_802_11_BSSID_LIST			0x0d010217
--- 
-1.7.7.6
+ net/8021q/vlan_dev.c                               |    2 +-
+ net/core/dev.c                                     |   36 +++++-------=
+------------------------
+ net/core/pktgen.c                                  |   10 ++++++++--
+ net/ipv4/fib_trie.c                                |    2 ++
+ net/openvswitch/datapath.c                         |   27 ++++++++++++=
++++++----------
+ net/openvswitch/flow.c                             |    3 ++-
+ net/sctp/output.c                                  |    4 +---
+ net/sctp/transport.c                               |   17 ------------=
+-----
+ 37 files changed, 236 insertions(+), 172 deletions(-)
