@@ -1,53 +1,67 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH RFC 1/6] skbuff: support per-page destructors in
- copy_ubufs
-Date: Sat, 12 May 2012 07:01:24 +0100
-Message-ID: <1336802484.3891.24.camel@dagon.hellion.org.uk>
-References: <cover.1336397823.git.mst@redhat.com>
-	 <8a3235fbceef37758ef23169c4c152e8d1251d3b.1336397823.git.mst@redhat.com>
-	 <1336671977.14220.26.camel@zakaz.uk.xensource.com>
-	 <20120510184246.GE14647@redhat.com>
-	 <1336726800.23818.33.camel@zakaz.uk.xensource.com>
-	 <1336733892.23818.69.camel@zakaz.uk.xensource.com>
-	 <20120511120836.GA4637@redhat.com> <20120511163057.GB10344@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:13425 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742Ab2ELGB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 02:01:26 -0400
-In-Reply-To: <20120511163057.GB10344@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 00/17 v5] usb/net: rndis: first step toward consolidation
+Date: Sat, 12 May 2012 10:15:18 +0200
+Message-ID: <1336810518-2514-1-git-send-email-linus.walleij@linaro.org>
+Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
+	Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-05-11 at 17:30 +0100, Michael S. Tsirkin wrote:
-> On Fri, May 11, 2012 at 03:08:36PM +0300, Michael S. Tsirkin wrote:
-> > On Fri, May 11, 2012 at 11:58:12AM +0100, Ian Campbell wrote:
-> > > On Fri, 2012-05-11 at 10:00 +0100, Ian Campbell wrote:
-> > > > I'm seeing copy_ubufs called in my remote NFS test, which I don't
-> > > > think I expected -- I'll investigate why this is happening today. 
-> > > 
-> > > It's tcp_transmit_skb which can (conditionally) call skb_clone
-> > > (backtrace below)
-> > 
-> > Interesting. I didn't realise we clone skbs on data path:
-> > tcp_write_xmit calls tcp_transmit_skb with clone_it flag.
-> > Could someone comment on why we need to clone on good path
-> > like this?
-> 
-> Hmm, it's in case we need to retransmit it later.
+A fifth iteration of the first steps of RNDIS consolidation.
 
-I wonder if we could avoid the copy_ubuf in this particular clone path
-and have any subsequent calls to copy_ubufs use skb->fclone to determine
-if it can safely replace the frags?
+This version mainly address byte order issues found with
+sparse by Jussi Kivilinna, his fixes are folded into patch 1.
+At the end I have added Jussis patches cleaning up rndis_host and
+rndis_wlan based on top of this series.
 
-If it cannot then could it do a full copy of the skb (including new
-shinfo, new frag pages etc) as a fallback?
+Jussi Kivilinna (4):
+  rndis_host: cleanup: byteswap data from device instead of RNDIS_*
+    defines
+  rndis_wlan: cleanup: byteswap data from device instead of RNDIS_*
+    defines
+  rndis_host: cleanup: change oid from __le32 to u32 in rndis_query()
+  rndis_wlan: cleanup: change oid from __le32 to u32 in various places
 
-Ian.
+Linus Walleij (13):
+  usb/net: rndis: inline the cpu_to_le32() macro
+  usb/net: rndis: break out <linux/rndis.h> defines
+  usb/net: rndis: remove ambigous status codes
+  usb/net: rndis: eliminate first set of duplicate OIDs
+  usb/net: rndis: merge duplicate 802_* OIDs
+  usb/net: rndis: delete surplus defines
+  usb/net: rndis: group all status codes together
+  usb/net: rndis: merge media type definitions
+  usb/net: rndis: delete duplicate packet types
+  usb/net: rndis: move and namespace PnP defines
+  usb/net: rndis: merge command codes
+  usb/net: rndis: fixup a few name prefixes
+  usb/net: rndis: move bus message definition
+
+ drivers/net/hyperv/hyperv_net.h   |  290 +---------------------------
+ drivers/net/hyperv/rndis_filter.c |   46 +++---
+ drivers/net/usb/rndis_host.c      |   83 ++++----
+ drivers/net/wireless/rndis_wlan.c |  361 +++++++++++++++++------------------
+ drivers/usb/gadget/f_rndis.c      |    6 +-
+ drivers/usb/gadget/ndis.h         |  164 ----------------
+ drivers/usb/gadget/rndis.c        |  271 +++++++++++++-------------
+ drivers/usb/gadget/rndis.h        |   48 +-----
+ include/linux/rndis.h             |  390 +++++++++++++++++++++++++++++++++++++
+ include/linux/usb/rndis_host.h    |   66 +------
+ 10 files changed, 774 insertions(+), 951 deletions(-)
+ create mode 100644 include/linux/rndis.h
+
+-- 
+1.7.7.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
