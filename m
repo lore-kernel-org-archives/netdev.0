@@ -1,43 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] fq_codel: Fair Queue Codel AQM
-Date: Sat, 12 May 2012 22:42:37 +0200
-Message-ID: <1336855357.31653.1331.camel@edumazet-glaptop>
-References: <1336752516.31653.196.camel@edumazet-glaptop>
-	 <1336764650.31653.277.camel@edumazet-glaptop>
-	 <1336774576.31653.289.camel@edumazet-glaptop>
-	 <20120512.155555.1011024268184559052.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] codel: use Newton method instead of sqrt()
+ and divides
+Date: Sat, 12 May 2012 16:45:13 -0400 (EDT)
+Message-ID: <20120512.164513.1156706853054390966.davem@davemloft.net>
+References: <1336829533.31653.1108.camel@edumazet-glaptop>
+	<20120512.155259.1178343836887150194.davem@davemloft.net>
+	<1336855256.31653.1329.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org,
-	dave.taht@bufferbloat.net, nichols@pollere.com, van@pollere.net,
-	therbert@google.com, mattmathis@google.com, ycheng@google.com,
-	shemminger@vyatta.com, maze@google.com, nanditad@google.com
-To: David Miller <davem@davemloft.net>
+Cc: dave.taht@bufferbloat.net, netdev@vger.kernel.org,
+	nichols@pollere.com, van@pollere.net, codel@lists.bufferbloat.net,
+	ycheng@google.com, mattmathis@google.com, therbert@google.com,
+	shemminger@vyatta.com, nanditad@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:36440 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756033Ab2ELUmo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 16:42:44 -0400
-Received: by wibhj8 with SMTP id hj8so522190wib.1
-        for <netdev@vger.kernel.org>; Sat, 12 May 2012 13:42:43 -0700 (PDT)
-In-Reply-To: <20120512.155555.1011024268184559052.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44447 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756033Ab2ELUrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 16:47:19 -0400
+In-Reply-To: <1336855256.31653.1329.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-05-12 at 15:55 -0400, David Miller wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 12 May 2012 22:40:56 +0200
 
-> I applied this with the WARN_ON_ONCE(1) removed but there was another
-> problem.
-> 
-> When you include ping output in your commit message that "---" string
-> told GIT that this was the end of the commit message when in fact
-> there was more content including your signoff.
-> 
-> I caught it and fixed it up, but please be more mindful of this in
-> the future.
+> 24 bit of precision for the reciprocal value is more than enough (Van
+> suggested 16 bits in fact), so we have actually room for 7 bits if
+> needed.
 
-Oops... I feel sorry and I fear this will happen again, because I use a
-lot "ping". I'll try to remember this.
+Using a u16 would also work for me.
 
-Thanks a lot David.
+> By the way, gcc on x86 generates nice "and 0xfffffffe,%eax" instruction
+> for (vars->rec_inv_sqrt << 1).
+
+Yeah but what do stores of ->rec_inv_sqrt look like?
