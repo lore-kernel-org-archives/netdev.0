@@ -1,7 +1,7 @@
 From: "Linus Walleij" <linus.walleij@linaro.org>
-Subject: [PATCH 04/17 v5] usb/net: rndis: eliminate first set of duplicate OIDs
-Date: Sat, 12 May 2012 10:16:08 +0200
-Message-ID: <1336810568-2691-1-git-send-email-linus.walleij@linaro.org>
+Subject: [PATCH 02/17 v5] usb/net: rndis: break out <linux/rndis.h> defines
+Date: Sat, 12 May 2012 10:15:50 +0200
+Message-ID: <1336810550-2587-1-git-send-email-linus.walleij@linaro.org>
 Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
 	Haiyang Zhang <haiyangz@microsoft.com>,
 	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
@@ -12,529 +12,453 @@ To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Felipe Balbi <balbi@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.df.lth.se ([194.47.250.12]:51116 "EHLO mail.df.lth.se"
+Received: from mail.df.lth.se ([194.47.250.12]:51098 "EHLO mail.df.lth.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753650Ab2ELIQM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 May 2012 04:16:12 -0400
+	id S1753613Ab2ELIP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 May 2012 04:15:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RNDIS protocol contains a vast number of Object ID:s (OIDs).
-The current definitions had multiple definitions of these ID:s,
-let's use the nicely RNDIS_*-prefixed defines from the HyperV
-implementation, rename everywhere they're used, and copy+rename
-the few that were missing from this list of objects.
+As a first step to consolidate the RNDIS implementations, break out
+a common file with all the #defines and move it to <linux/rndis.h>.
 
+This also deletes the immediate duplicated defines in the
+<linux/rndis.h> file that yields a lot of compilation warnings.
+
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
 ---
- drivers/net/usb/rndis_host.c      |    6 +-
- drivers/net/wireless/rndis_wlan.c |   34 ++++----
- drivers/usb/gadget/rndis.c        |  160 ++++++++++++++++++------------------
- include/linux/rndis.h             |  108 +++++--------------------
- 4 files changed, 123 insertions(+), 185 deletions(-)
+ChangeLog v2->v3:
+- Squashed subsequent patch removing duplicate entries into
+  this patch so it's bisectable without any compilation warnings.
+ChangeLog v3->v4:
+- Fix up commit log as pointer out by Haiyang Zhang (sorry for
+  the sloppiness).
+---
+ drivers/net/hyperv/hyperv_net.h   |  290 +-------------------
+ drivers/net/wireless/rndis_wlan.c |   49 ----
+ drivers/usb/gadget/ndis.h         |  164 -----------
+ drivers/usb/gadget/rndis.h        |   48 +---
+ include/linux/rndis.h             |  561 +++++++++++++++++++++++++++++++++++++
+ include/linux/usb/rndis_host.h    |   66 +-----
+ 6 files changed, 565 insertions(+), 613 deletions(-)
+ create mode 100644 include/linux/rndis.h
 
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index 3b7ddfd..dd342dc 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -396,7 +396,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 	phym = NULL;
- 	reply_len = sizeof *phym;
- 	retval = rndis_query(dev, intf, u.buf,
--			     cpu_to_le32(OID_GEN_PHYSICAL_MEDIUM),
-+			     cpu_to_le32(RNDIS_OID_GEN_PHYSICAL_MEDIUM),
- 			0, (void **) &phym, &reply_len);
- 	if (retval != 0 || !phym) {
- 		/* OID is optional so don't fail here. */
-@@ -421,7 +421,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 	/* Get designated host ethernet address */
- 	reply_len = ETH_ALEN;
- 	retval = rndis_query(dev, intf, u.buf,
--			     cpu_to_le32(OID_802_3_PERMANENT_ADDRESS),
-+			     cpu_to_le32(RNDIS_OID_802_3_PERMANENT_ADDRESS),
- 			48, (void **) &bp, &reply_len);
- 	if (unlikely(retval< 0)) {
- 		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
-@@ -434,7 +434,7 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 	memset(u.set, 0, sizeof *u.set);
- 	u.set->msg_type = cpu_to_le32(RNDIS_MSG_SET);
- 	u.set->msg_len = cpu_to_le32(4 + sizeof *u.set);
--	u.set->oid = cpu_to_le32(OID_GEN_CURRENT_PACKET_FILTER);
-+	u.set->oid = cpu_to_le32(RNDIS_OID_GEN_CURRENT_PACKET_FILTER);
- 	u.set->len = cpu_to_le32(4);
- 	u.set->offset = cpu_to_le32((sizeof *u.set) - 8);
- 	*(__le32 *)(u.buf + sizeof *u.set) = cpu_to_le32(RNDIS_DEFAULT_FILTER);
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index c358245..4ffcd57 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -27,6 +27,7 @@
+ 
+ #include <linux/list.h>
+ #include <linux/hyperv.h>
++#include <linux/rndis.h>
+ 
+ /* Fwd declaration */
+ struct hv_netvsc_packet;
+@@ -506,295 +507,6 @@ struct netvsc_device {
+ 	void *extension;
+ };
+ 
+-
+-/*  Status codes */
+-
+-
+-#ifndef STATUS_SUCCESS
+-#define STATUS_SUCCESS				(0x00000000L)
+-#endif
+-
+-#ifndef STATUS_UNSUCCESSFUL
+-#define STATUS_UNSUCCESSFUL			(0xC0000001L)
+-#endif
+-
+-#ifndef STATUS_PENDING
+-#define STATUS_PENDING				(0x00000103L)
+-#endif
+-
+-#ifndef STATUS_INSUFFICIENT_RESOURCES
+-#define STATUS_INSUFFICIENT_RESOURCES		(0xC000009AL)
+-#endif
+-
+-#ifndef STATUS_BUFFER_OVERFLOW
+-#define STATUS_BUFFER_OVERFLOW			(0x80000005L)
+-#endif
+-
+-#ifndef STATUS_NOT_SUPPORTED
+-#define STATUS_NOT_SUPPORTED			(0xC00000BBL)
+-#endif
+-
+-#define RNDIS_STATUS_SUCCESS			(STATUS_SUCCESS)
+-#define RNDIS_STATUS_PENDING			(STATUS_PENDING)
+-#define RNDIS_STATUS_NOT_RECOGNIZED		(0x00010001L)
+-#define RNDIS_STATUS_NOT_COPIED			(0x00010002L)
+-#define RNDIS_STATUS_NOT_ACCEPTED		(0x00010003L)
+-#define RNDIS_STATUS_CALL_ACTIVE		(0x00010007L)
+-
+-#define RNDIS_STATUS_ONLINE			(0x40010003L)
+-#define RNDIS_STATUS_RESET_START		(0x40010004L)
+-#define RNDIS_STATUS_RESET_END			(0x40010005L)
+-#define RNDIS_STATUS_RING_STATUS		(0x40010006L)
+-#define RNDIS_STATUS_CLOSED			(0x40010007L)
+-#define RNDIS_STATUS_WAN_LINE_UP		(0x40010008L)
+-#define RNDIS_STATUS_WAN_LINE_DOWN		(0x40010009L)
+-#define RNDIS_STATUS_WAN_FRAGMENT		(0x4001000AL)
+-#define RNDIS_STATUS_MEDIA_CONNECT		(0x4001000BL)
+-#define RNDIS_STATUS_MEDIA_DISCONNECT		(0x4001000CL)
+-#define RNDIS_STATUS_HARDWARE_LINE_UP		(0x4001000DL)
+-#define RNDIS_STATUS_HARDWARE_LINE_DOWN		(0x4001000EL)
+-#define RNDIS_STATUS_INTERFACE_UP		(0x4001000FL)
+-#define RNDIS_STATUS_INTERFACE_DOWN		(0x40010010L)
+-#define RNDIS_STATUS_MEDIA_BUSY			(0x40010011L)
+-#define RNDIS_STATUS_MEDIA_SPECIFIC_INDICATION	(0x40010012L)
+-#define RNDIS_STATUS_WW_INDICATION		RDIA_SPECIFIC_INDICATION
+-#define RNDIS_STATUS_LINK_SPEED_CHANGE		(0x40010013L)
+-
+-#define RNDIS_STATUS_NOT_RESETTABLE		(0x80010001L)
+-#define RNDIS_STATUS_SOFT_ERRORS		(0x80010003L)
+-#define RNDIS_STATUS_HARD_ERRORS		(0x80010004L)
+-#define RNDIS_STATUS_BUFFER_OVERFLOW		(STATUS_BUFFER_OVERFLOW)
+-
+-#define RNDIS_STATUS_FAILURE			(STATUS_UNSUCCESSFUL)
+-#define RNDIS_STATUS_RESOURCES			(STATUS_INSUFFICIENT_RESOURCES)
+-#define RNDIS_STATUS_CLOSING			(0xC0010002L)
+-#define RNDIS_STATUS_BAD_VERSION		(0xC0010004L)
+-#define RNDIS_STATUS_BAD_CHARACTERISTICS	(0xC0010005L)
+-#define RNDIS_STATUS_ADAPTER_NOT_FOUND		(0xC0010006L)
+-#define RNDIS_STATUS_OPEN_FAILED		(0xC0010007L)
+-#define RNDIS_STATUS_DEVICE_FAILED		(0xC0010008L)
+-#define RNDIS_STATUS_MULTICAST_FULL		(0xC0010009L)
+-#define RNDIS_STATUS_MULTICAST_EXISTS		(0xC001000AL)
+-#define RNDIS_STATUS_MULTICAST_NOT_FOUND	(0xC001000BL)
+-#define RNDIS_STATUS_REQUEST_ABORTED		(0xC001000CL)
+-#define RNDIS_STATUS_RESET_IN_PROGRESS		(0xC001000DL)
+-#define RNDIS_STATUS_CLOSING_INDICATING		(0xC001000EL)
+-#define RNDIS_STATUS_NOT_SUPPORTED		(STATUS_NOT_SUPPORTED)
+-#define RNDIS_STATUS_INVALID_PACKET		(0xC001000FL)
+-#define RNDIS_STATUS_OPEN_LIST_FULL		(0xC0010010L)
+-#define RNDIS_STATUS_ADAPTER_NOT_READY		(0xC0010011L)
+-#define RNDIS_STATUS_ADAPTER_NOT_OPEN		(0xC0010012L)
+-#define RNDIS_STATUS_NOT_INDICATING		(0xC0010013L)
+-#define RNDIS_STATUS_INVALID_LENGTH		(0xC0010014L)
+-#define RNDIS_STATUS_INVALID_DATA		(0xC0010015L)
+-#define RNDIS_STATUS_BUFFER_TOO_SHORT		(0xC0010016L)
+-#define RNDIS_STATUS_INVALID_OID		(0xC0010017L)
+-#define RNDIS_STATUS_ADAPTER_REMOVED		(0xC0010018L)
+-#define RNDIS_STATUS_UNSUPPORTED_MEDIA		(0xC0010019L)
+-#define RNDIS_STATUS_GROUP_ADDRESS_IN_USE	(0xC001001AL)
+-#define RNDIS_STATUS_FILE_NOT_FOUND		(0xC001001BL)
+-#define RNDIS_STATUS_ERROR_READING_FILE		(0xC001001CL)
+-#define RNDIS_STATUS_ALREADY_MAPPED		(0xC001001DL)
+-#define RNDIS_STATUS_RESOURCE_CONFLICT		(0xC001001EL)
+-#define RNDIS_STATUS_NO_CABLE			(0xC001001FL)
+-
+-#define RNDIS_STATUS_INVALID_SAP		(0xC0010020L)
+-#define RNDIS_STATUS_SAP_IN_USE			(0xC0010021L)
+-#define RNDIS_STATUS_INVALID_ADDRESS		(0xC0010022L)
+-#define RNDIS_STATUS_VC_NOT_ACTIVATED		(0xC0010023L)
+-#define RNDIS_STATUS_DEST_OUT_OF_ORDER		(0xC0010024L)
+-#define RNDIS_STATUS_VC_NOT_AVAILABLE		(0xC0010025L)
+-#define RNDIS_STATUS_CELLRATE_NOT_AVAILABLE	(0xC0010026L)
+-#define RNDIS_STATUS_INCOMPATABLE_QOS		(0xC0010027L)
+-#define RNDIS_STATUS_AAL_PARAMS_UNSUPPORTED	(0xC0010028L)
+-#define RNDIS_STATUS_NO_ROUTE_TO_DESTINATION	(0xC0010029L)
+-
+-#define RNDIS_STATUS_TOKEN_RING_OPEN_ERROR	(0xC0011000L)
+-
+-/* Object Identifiers used by NdisRequest Query/Set Information */
+-/* General Objects */
+-#define RNDIS_OID_GEN_SUPPORTED_LIST		0x00010101
+-#define RNDIS_OID_GEN_HARDWARE_STATUS		0x00010102
+-#define RNDIS_OID_GEN_MEDIA_SUPPORTED		0x00010103
+-#define RNDIS_OID_GEN_MEDIA_IN_USE		0x00010104
+-#define RNDIS_OID_GEN_MAXIMUM_LOOKAHEAD		0x00010105
+-#define RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE	0x00010106
+-#define RNDIS_OID_GEN_LINK_SPEED		0x00010107
+-#define RNDIS_OID_GEN_TRANSMIT_BUFFER_SPACE	0x00010108
+-#define RNDIS_OID_GEN_RECEIVE_BUFFER_SPACE	0x00010109
+-#define RNDIS_OID_GEN_TRANSMIT_BLOCK_SIZE	0x0001010A
+-#define RNDIS_OID_GEN_RECEIVE_BLOCK_SIZE	0x0001010B
+-#define RNDIS_OID_GEN_VENDOR_ID			0x0001010C
+-#define RNDIS_OID_GEN_VENDOR_DESCRIPTION	0x0001010D
+-#define RNDIS_OID_GEN_CURRENT_PACKET_FILTER	0x0001010E
+-#define RNDIS_OID_GEN_CURRENT_LOOKAHEAD		0x0001010F
+-#define RNDIS_OID_GEN_DRIVER_VERSION		0x00010110
+-#define RNDIS_OID_GEN_MAXIMUM_TOTAL_SIZE	0x00010111
+-#define RNDIS_OID_GEN_PROTOCOL_OPTIONS		0x00010112
+-#define RNDIS_OID_GEN_MAC_OPTIONS		0x00010113
+-#define RNDIS_OID_GEN_MEDIA_CONNECT_STATUS	0x00010114
+-#define RNDIS_OID_GEN_MAXIMUM_SEND_PACKETS	0x00010115
+-#define RNDIS_OID_GEN_VENDOR_DRIVER_VERSION	0x00010116
+-#define RNDIS_OID_GEN_NETWORK_LAYER_ADDRESSES	0x00010118
+-#define RNDIS_OID_GEN_TRANSPORT_HEADER_OFFSET	0x00010119
+-#define RNDIS_OID_GEN_MACHINE_NAME		0x0001021A
+-#define RNDIS_OID_GEN_RNDIS_CONFIG_PARAMETER	0x0001021B
+-
+-#define RNDIS_OID_GEN_XMIT_OK			0x00020101
+-#define RNDIS_OID_GEN_RCV_OK			0x00020102
+-#define RNDIS_OID_GEN_XMIT_ERROR		0x00020103
+-#define RNDIS_OID_GEN_RCV_ERROR			0x00020104
+-#define RNDIS_OID_GEN_RCV_NO_BUFFER		0x00020105
+-
+-#define RNDIS_OID_GEN_DIRECTED_BYTES_XMIT	0x00020201
+-#define RNDIS_OID_GEN_DIRECTED_FRAMES_XMIT	0x00020202
+-#define RNDIS_OID_GEN_MULTICAST_BYTES_XMIT	0x00020203
+-#define RNDIS_OID_GEN_MULTICAST_FRAMES_XMIT	0x00020204
+-#define RNDIS_OID_GEN_BROADCAST_BYTES_XMIT	0x00020205
+-#define RNDIS_OID_GEN_BROADCAST_FRAMES_XMIT	0x00020206
+-#define RNDIS_OID_GEN_DIRECTED_BYTES_RCV	0x00020207
+-#define RNDIS_OID_GEN_DIRECTED_FRAMES_RCV	0x00020208
+-#define RNDIS_OID_GEN_MULTICAST_BYTES_RCV	0x00020209
+-#define RNDIS_OID_GEN_MULTICAST_FRAMES_RCV	0x0002020A
+-#define RNDIS_OID_GEN_BROADCAST_BYTES_RCV	0x0002020B
+-#define RNDIS_OID_GEN_BROADCAST_FRAMES_RCV	0x0002020C
+-
+-#define RNDIS_OID_GEN_RCV_CRC_ERROR		0x0002020D
+-#define RNDIS_OID_GEN_TRANSMIT_QUEUE_LENGTH	0x0002020E
+-
+-#define RNDIS_OID_GEN_GET_TIME_CAPS		0x0002020F
+-#define RNDIS_OID_GEN_GET_NETCARD_TIME		0x00020210
+-
+-/* These are connection-oriented general OIDs. */
+-/* These replace the above OIDs for connection-oriented media. */
+-#define RNDIS_OID_GEN_CO_SUPPORTED_LIST		0x00010101
+-#define RNDIS_OID_GEN_CO_HARDWARE_STATUS	0x00010102
+-#define RNDIS_OID_GEN_CO_MEDIA_SUPPORTED	0x00010103
+-#define RNDIS_OID_GEN_CO_MEDIA_IN_USE		0x00010104
+-#define RNDIS_OID_GEN_CO_LINK_SPEED		0x00010105
+-#define RNDIS_OID_GEN_CO_VENDOR_ID		0x00010106
+-#define RNDIS_OID_GEN_CO_VENDOR_DESCRIPTION	0x00010107
+-#define RNDIS_OID_GEN_CO_DRIVER_VERSION		0x00010108
+-#define RNDIS_OID_GEN_CO_PROTOCOL_OPTIONS	0x00010109
+-#define RNDIS_OID_GEN_CO_MAC_OPTIONS		0x0001010A
+-#define RNDIS_OID_GEN_CO_MEDIA_CONNECT_STATUS	0x0001010B
+-#define RNDIS_OID_GEN_CO_VENDOR_DRIVER_VERSION	0x0001010C
+-#define RNDIS_OID_GEN_CO_MINIMUM_LINK_SPEED	0x0001010D
+-
+-#define RNDIS_OID_GEN_CO_GET_TIME_CAPS		0x00010201
+-#define RNDIS_OID_GEN_CO_GET_NETCARD_TIME	0x00010202
+-
+-/* These are connection-oriented statistics OIDs. */
+-#define RNDIS_OID_GEN_CO_XMIT_PDUS_OK		0x00020101
+-#define RNDIS_OID_GEN_CO_RCV_PDUS_OK		0x00020102
+-#define RNDIS_OID_GEN_CO_XMIT_PDUS_ERROR	0x00020103
+-#define RNDIS_OID_GEN_CO_RCV_PDUS_ERROR		0x00020104
+-#define RNDIS_OID_GEN_CO_RCV_PDUS_NO_BUFFER	0x00020105
+-
+-
+-#define RNDIS_OID_GEN_CO_RCV_CRC_ERROR		0x00020201
+-#define RNDIS_OID_GEN_CO_TRANSMIT_QUEUE_LENGTH	0x00020202
+-#define RNDIS_OID_GEN_CO_BYTES_XMIT		0x00020203
+-#define RNDIS_OID_GEN_CO_BYTES_RCV		0x00020204
+-#define RNDIS_OID_GEN_CO_BYTES_XMIT_OUTSTANDING	0x00020205
+-#define RNDIS_OID_GEN_CO_NETCARD_LOAD		0x00020206
+-
+-/* These are objects for Connection-oriented media call-managers. */
+-#define RNDIS_OID_CO_ADD_PVC			0xFF000001
+-#define RNDIS_OID_CO_DELETE_PVC			0xFF000002
+-#define RNDIS_OID_CO_GET_CALL_INFORMATION	0xFF000003
+-#define RNDIS_OID_CO_ADD_ADDRESS		0xFF000004
+-#define RNDIS_OID_CO_DELETE_ADDRESS		0xFF000005
+-#define RNDIS_OID_CO_GET_ADDRESSES		0xFF000006
+-#define RNDIS_OID_CO_ADDRESS_CHANGE		0xFF000007
+-#define RNDIS_OID_CO_SIGNALING_ENABLED		0xFF000008
+-#define RNDIS_OID_CO_SIGNALING_DISABLED		0xFF000009
+-
+-/* 802.3 Objects (Ethernet) */
+-#define RNDIS_OID_802_3_PERMANENT_ADDRESS	0x01010101
+-#define RNDIS_OID_802_3_CURRENT_ADDRESS		0x01010102
+-#define RNDIS_OID_802_3_MULTICAST_LIST		0x01010103
+-#define RNDIS_OID_802_3_MAXIMUM_LIST_SIZE	0x01010104
+-#define RNDIS_OID_802_3_MAC_OPTIONS		0x01010105
+-
+-#define NDIS_802_3_MAC_OPTION_PRIORITY		0x00000001
+-
+-#define RNDIS_OID_802_3_RCV_ERROR_ALIGNMENT	0x01020101
+-#define RNDIS_OID_802_3_XMIT_ONE_COLLISION	0x01020102
+-#define RNDIS_OID_802_3_XMIT_MORE_COLLISIONS	0x01020103
+-
+-#define RNDIS_OID_802_3_XMIT_DEFERRED		0x01020201
+-#define RNDIS_OID_802_3_XMIT_MAX_COLLISIONS	0x01020202
+-#define RNDIS_OID_802_3_RCV_OVERRUN		0x01020203
+-#define RNDIS_OID_802_3_XMIT_UNDERRUN		0x01020204
+-#define RNDIS_OID_802_3_XMIT_HEARTBEAT_FAILURE	0x01020205
+-#define RNDIS_OID_802_3_XMIT_TIMES_CRS_LOST	0x01020206
+-#define RNDIS_OID_802_3_XMIT_LATE_COLLISIONS	0x01020207
+-
+-/* Remote NDIS message types */
+-#define REMOTE_NDIS_PACKET_MSG			0x00000001
+-#define REMOTE_NDIS_INITIALIZE_MSG		0x00000002
+-#define REMOTE_NDIS_HALT_MSG			0x00000003
+-#define REMOTE_NDIS_QUERY_MSG			0x00000004
+-#define REMOTE_NDIS_SET_MSG			0x00000005
+-#define REMOTE_NDIS_RESET_MSG			0x00000006
+-#define REMOTE_NDIS_INDICATE_STATUS_MSG		0x00000007
+-#define REMOTE_NDIS_KEEPALIVE_MSG		0x00000008
+-
+-#define REMOTE_CONDIS_MP_CREATE_VC_MSG		0x00008001
+-#define REMOTE_CONDIS_MP_DELETE_VC_MSG		0x00008002
+-#define REMOTE_CONDIS_MP_ACTIVATE_VC_MSG	0x00008005
+-#define REMOTE_CONDIS_MP_DEACTIVATE_VC_MSG	0x00008006
+-#define REMOTE_CONDIS_INDICATE_STATUS_MSG	0x00008007
+-
+-/* Remote NDIS message completion types */
+-#define REMOTE_NDIS_INITIALIZE_CMPLT		0x80000002
+-#define REMOTE_NDIS_QUERY_CMPLT			0x80000004
+-#define REMOTE_NDIS_SET_CMPLT			0x80000005
+-#define REMOTE_NDIS_RESET_CMPLT			0x80000006
+-#define REMOTE_NDIS_KEEPALIVE_CMPLT		0x80000008
+-
+-#define REMOTE_CONDIS_MP_CREATE_VC_CMPLT	0x80008001
+-#define REMOTE_CONDIS_MP_DELETE_VC_CMPLT	0x80008002
+-#define REMOTE_CONDIS_MP_ACTIVATE_VC_CMPLT	0x80008005
+-#define REMOTE_CONDIS_MP_DEACTIVATE_VC_CMPLT	0x80008006
+-
+-/*
+- * Reserved message type for private communication between lower-layer host
+- * driver and remote device, if necessary.
+- */
+-#define REMOTE_NDIS_BUS_MSG			0xff000001
+-
+-/*  Defines for DeviceFlags in struct rndis_initialize_complete */
+-#define RNDIS_DF_CONNECTIONLESS			0x00000001
+-#define RNDIS_DF_CONNECTION_ORIENTED		0x00000002
+-#define RNDIS_DF_RAW_DATA			0x00000004
+-
+-/*  Remote NDIS medium types. */
+-#define RNDIS_MEDIUM_802_3			0x00000000
+-#define RNDIS_MEDIUM_802_5			0x00000001
+-#define RNDIS_MEDIUM_FDDI				0x00000002
+-#define RNDIS_MEDIUM_WAN				0x00000003
+-#define RNDIS_MEDIUM_LOCAL_TALK			0x00000004
+-#define RNDIS_MEDIUM_ARCNET_RAW			0x00000006
+-#define RNDIS_MEDIUM_ARCNET_878_2			0x00000007
+-#define RNDIS_MEDIUM_ATM				0x00000008
+-#define RNDIS_MEDIUM_WIRELESS_WAN			0x00000009
+-#define RNDIS_MEDIUM_IRDA				0x0000000a
+-#define RNDIS_MEDIUM_CO_WAN			0x0000000b
+-/* Not a real medium, defined as an upper-bound */
+-#define RNDIS_MEDIUM_MAX				0x0000000d
+-
+-
+-/* Remote NDIS medium connection states. */
+-#define RNDIS_MEDIA_STATE_CONNECTED		0x00000000
+-#define RNDIS_MEDIA_STATE_DISCONNECTED		0x00000001
+-
+-/*  Remote NDIS version numbers */
+-#define RNDIS_MAJOR_VERSION			0x00000001
+-#define RNDIS_MINOR_VERSION			0x00000000
+-
+-
+ /* NdisInitialize message */
+ struct rndis_initialize_request {
+ 	u32 req_id;
 diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
-index 1868851..c774bf5 100644
+index a686b5d..1868851 100644
 --- a/drivers/net/wireless/rndis_wlan.c
 +++ b/drivers/net/wireless/rndis_wlan.c
-@@ -626,20 +626,20 @@ static const char *oid_to_string(__le32 oid)
- 	switch (oid) {
- #define OID_STR(oid) case cpu_to_le32(oid): return(#oid)
- 		/* from rndis_host.h */
--		OID_STR(OID_802_3_PERMANENT_ADDRESS);
--		OID_STR(OID_GEN_MAXIMUM_FRAME_SIZE);
--		OID_STR(OID_GEN_CURRENT_PACKET_FILTER);
--		OID_STR(OID_GEN_PHYSICAL_MEDIUM);
-+		OID_STR(RNDIS_OID_802_3_PERMANENT_ADDRESS);
-+		OID_STR(RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE);
-+		OID_STR(RNDIS_OID_GEN_CURRENT_PACKET_FILTER);
-+		OID_STR(RNDIS_OID_GEN_PHYSICAL_MEDIUM);
+@@ -88,49 +88,6 @@ module_param_named(workaround_interval, modparam_workaround_interval,
+ MODULE_PARM_DESC(workaround_interval,
+ 	"set stall workaround interval in msecs (0=disabled) (default: 0)");
  
- 		/* from rndis_wlan.c */
--		OID_STR(OID_GEN_LINK_SPEED);
--		OID_STR(OID_GEN_RNDIS_CONFIG_PARAMETER);
-+		OID_STR(RNDIS_OID_GEN_LINK_SPEED);
-+		OID_STR(RNDIS_OID_GEN_RNDIS_CONFIG_PARAMETER);
- 
--		OID_STR(OID_GEN_XMIT_OK);
--		OID_STR(OID_GEN_RCV_OK);
--		OID_STR(OID_GEN_XMIT_ERROR);
--		OID_STR(OID_GEN_RCV_ERROR);
--		OID_STR(OID_GEN_RCV_NO_BUFFER);
-+		OID_STR(RNDIS_OID_GEN_XMIT_OK);
-+		OID_STR(RNDIS_OID_GEN_RCV_OK);
-+		OID_STR(RNDIS_OID_GEN_XMIT_ERROR);
-+		OID_STR(RNDIS_OID_GEN_RCV_ERROR);
-+		OID_STR(RNDIS_OID_GEN_RCV_NO_BUFFER);
- 
- 		OID_STR(OID_802_3_CURRENT_ADDRESS);
- 		OID_STR(OID_802_3_MULTICAST_LIST);
-@@ -945,7 +945,7 @@ static int rndis_set_config_parameter(struct usbnet *dev, char *param,
- 	}
- #endif
- 
--	ret = rndis_set_oid(dev, cpu_to_le32(OID_GEN_RNDIS_CONFIG_PARAMETER),
-+	ret = rndis_set_oid(dev, cpu_to_le32(RNDIS_OID_GEN_RNDIS_CONFIG_PARAMETER),
- 							infobuf, info_len);
- 	if (ret != 0)
- 		netdev_dbg(dev->net, "setting rndis config parameter failed, %d\n",
-@@ -1633,14 +1633,14 @@ static void set_multicast_list(struct usbnet *usbdev)
- 	}
- 
- set_filter:
--	ret = rndis_set_oid(usbdev, cpu_to_le32(OID_GEN_CURRENT_PACKET_FILTER), &filter,
-+	ret = rndis_set_oid(usbdev, cpu_to_le32(RNDIS_OID_GEN_CURRENT_PACKET_FILTER), &filter,
- 							sizeof(filter));
- 	if (ret < 0) {
- 		netdev_warn(usbdev->net, "couldn't set packet filter: %08x\n",
- 			    le32_to_cpu(filter));
- 	}
- 
--	netdev_dbg(usbdev->net, "OID_GEN_CURRENT_PACKET_FILTER(%08x) -> %d\n",
-+	netdev_dbg(usbdev->net, "RNDIS_OID_GEN_CURRENT_PACKET_FILTER(%08x) -> %d\n",
- 		   le32_to_cpu(filter), ret);
- }
- 
-@@ -2462,7 +2462,7 @@ static void rndis_fill_station_info(struct usbnet *usbdev,
- 	memset(sinfo, 0, sizeof(*sinfo));
- 
- 	len = sizeof(linkspeed);
--	ret = rndis_query_oid(usbdev, cpu_to_le32(OID_GEN_LINK_SPEED), &linkspeed, &len);
-+	ret = rndis_query_oid(usbdev, cpu_to_le32(RNDIS_OID_GEN_LINK_SPEED), &linkspeed, &len);
- 	if (ret == 0) {
- 		sinfo->txrate.legacy = le32_to_cpu(linkspeed) / 1000;
- 		sinfo->filled |= STATION_INFO_TX_BITRATE;
-@@ -3418,7 +3418,7 @@ static int rndis_wlan_bind(struct usbnet *usbdev, struct usb_interface *intf)
- 
- 	tmp = cpu_to_le32(RNDIS_PACKET_TYPE_DIRECTED | RNDIS_PACKET_TYPE_BROADCAST);
- 	retval = rndis_set_oid(usbdev,
--			       cpu_to_le32(OID_GEN_CURRENT_PACKET_FILTER),
-+			       cpu_to_le32(RNDIS_OID_GEN_CURRENT_PACKET_FILTER),
- 			       &tmp, sizeof(tmp));
- 
- 	len = sizeof(tmp);
-@@ -3554,7 +3554,7 @@ static int rndis_wlan_stop(struct usbnet *usbdev)
- 	/* Set current packet filter zero to block receiving data packets from
- 	   device. */
- 	filter = 0;
--	rndis_set_oid(usbdev, cpu_to_le32(OID_GEN_CURRENT_PACKET_FILTER), &filter,
-+	rndis_set_oid(usbdev, cpu_to_le32(RNDIS_OID_GEN_CURRENT_PACKET_FILTER), &filter,
- 								sizeof(filter));
- 
- 	return retval;
-diff --git a/drivers/usb/gadget/rndis.c b/drivers/usb/gadget/rndis.c
-index 73a934a..3ade168 100644
---- a/drivers/usb/gadget/rndis.c
-+++ b/drivers/usb/gadget/rndis.c
-@@ -73,48 +73,48 @@ static rndis_resp_t *rndis_add_response(int configNr, u32 length);
- static const u32 oid_supported_list[] =
- {
- 	/* the general stuff */
--	OID_GEN_SUPPORTED_LIST,
--	OID_GEN_HARDWARE_STATUS,
--	OID_GEN_MEDIA_SUPPORTED,
--	OID_GEN_MEDIA_IN_USE,
--	OID_GEN_MAXIMUM_FRAME_SIZE,
--	OID_GEN_LINK_SPEED,
--	OID_GEN_TRANSMIT_BLOCK_SIZE,
--	OID_GEN_RECEIVE_BLOCK_SIZE,
--	OID_GEN_VENDOR_ID,
--	OID_GEN_VENDOR_DESCRIPTION,
--	OID_GEN_VENDOR_DRIVER_VERSION,
--	OID_GEN_CURRENT_PACKET_FILTER,
--	OID_GEN_MAXIMUM_TOTAL_SIZE,
--	OID_GEN_MEDIA_CONNECT_STATUS,
--	OID_GEN_PHYSICAL_MEDIUM,
-+	RNDIS_OID_GEN_SUPPORTED_LIST,
-+	RNDIS_OID_GEN_HARDWARE_STATUS,
-+	RNDIS_OID_GEN_MEDIA_SUPPORTED,
-+	RNDIS_OID_GEN_MEDIA_IN_USE,
-+	RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
-+	RNDIS_OID_GEN_LINK_SPEED,
-+	RNDIS_OID_GEN_TRANSMIT_BLOCK_SIZE,
-+	RNDIS_OID_GEN_RECEIVE_BLOCK_SIZE,
-+	RNDIS_OID_GEN_VENDOR_ID,
-+	RNDIS_OID_GEN_VENDOR_DESCRIPTION,
-+	RNDIS_OID_GEN_VENDOR_DRIVER_VERSION,
-+	RNDIS_OID_GEN_CURRENT_PACKET_FILTER,
-+	RNDIS_OID_GEN_MAXIMUM_TOTAL_SIZE,
-+	RNDIS_OID_GEN_MEDIA_CONNECT_STATUS,
-+	RNDIS_OID_GEN_PHYSICAL_MEDIUM,
- 
- 	/* the statistical stuff */
--	OID_GEN_XMIT_OK,
--	OID_GEN_RCV_OK,
--	OID_GEN_XMIT_ERROR,
--	OID_GEN_RCV_ERROR,
--	OID_GEN_RCV_NO_BUFFER,
-+	RNDIS_OID_GEN_XMIT_OK,
-+	RNDIS_OID_GEN_RCV_OK,
-+	RNDIS_OID_GEN_XMIT_ERROR,
-+	RNDIS_OID_GEN_RCV_ERROR,
-+	RNDIS_OID_GEN_RCV_NO_BUFFER,
- #ifdef	RNDIS_OPTIONAL_STATS
--	OID_GEN_DIRECTED_BYTES_XMIT,
--	OID_GEN_DIRECTED_FRAMES_XMIT,
--	OID_GEN_MULTICAST_BYTES_XMIT,
--	OID_GEN_MULTICAST_FRAMES_XMIT,
--	OID_GEN_BROADCAST_BYTES_XMIT,
--	OID_GEN_BROADCAST_FRAMES_XMIT,
--	OID_GEN_DIRECTED_BYTES_RCV,
--	OID_GEN_DIRECTED_FRAMES_RCV,
--	OID_GEN_MULTICAST_BYTES_RCV,
--	OID_GEN_MULTICAST_FRAMES_RCV,
--	OID_GEN_BROADCAST_BYTES_RCV,
--	OID_GEN_BROADCAST_FRAMES_RCV,
--	OID_GEN_RCV_CRC_ERROR,
--	OID_GEN_TRANSMIT_QUEUE_LENGTH,
-+	RNDIS_OID_GEN_DIRECTED_BYTES_XMIT,
-+	RNDIS_OID_GEN_DIRECTED_FRAMES_XMIT,
-+	RNDIS_OID_GEN_MULTICAST_BYTES_XMIT,
-+	RNDIS_OID_GEN_MULTICAST_FRAMES_XMIT,
-+	RNDIS_OID_GEN_BROADCAST_BYTES_XMIT,
-+	RNDIS_OID_GEN_BROADCAST_FRAMES_XMIT,
-+	RNDIS_OID_GEN_DIRECTED_BYTES_RCV,
-+	RNDIS_OID_GEN_DIRECTED_FRAMES_RCV,
-+	RNDIS_OID_GEN_MULTICAST_BYTES_RCV,
-+	RNDIS_OID_GEN_MULTICAST_FRAMES_RCV,
-+	RNDIS_OID_GEN_BROADCAST_BYTES_RCV,
-+	RNDIS_OID_GEN_BROADCAST_FRAMES_RCV,
-+	RNDIS_OID_GEN_RCV_CRC_ERROR,
-+	RNDIS_OID_GEN_TRANSMIT_QUEUE_LENGTH,
- #endif	/* RNDIS_OPTIONAL_STATS */
- 
- 	/* mandatory 802.3 */
- 	/* the general stuff */
--	OID_802_3_PERMANENT_ADDRESS,
-+	RNDIS_OID_802_3_PERMANENT_ADDRESS,
- 	OID_802_3_CURRENT_ADDRESS,
- 	OID_802_3_MULTICAST_LIST,
- 	OID_802_3_MAC_OPTIONS,
-@@ -200,8 +200,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 	/* general oids (table 4-1) */
- 
- 	/* mandatory */
--	case OID_GEN_SUPPORTED_LIST:
--		pr_debug("%s: OID_GEN_SUPPORTED_LIST\n", __func__);
-+	case RNDIS_OID_GEN_SUPPORTED_LIST:
-+		pr_debug("%s: RNDIS_OID_GEN_SUPPORTED_LIST\n", __func__);
- 		length = sizeof(oid_supported_list);
- 		count  = length / sizeof(u32);
- 		for (i = 0; i < count; i++)
-@@ -210,8 +210,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_HARDWARE_STATUS:
--		pr_debug("%s: OID_GEN_HARDWARE_STATUS\n", __func__);
-+	case RNDIS_OID_GEN_HARDWARE_STATUS:
-+		pr_debug("%s: RNDIS_OID_GEN_HARDWARE_STATUS\n", __func__);
- 		/* Bogus question!
- 		 * Hardware must be ready to receive high level protocols.
- 		 * BTW:
-@@ -223,23 +223,23 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_MEDIA_SUPPORTED:
--		pr_debug("%s: OID_GEN_MEDIA_SUPPORTED\n", __func__);
-+	case RNDIS_OID_GEN_MEDIA_SUPPORTED:
-+		pr_debug("%s: RNDIS_OID_GEN_MEDIA_SUPPORTED\n", __func__);
- 		*outbuf = cpu_to_le32(rndis_per_dev_params[configNr].medium);
- 		retval = 0;
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_MEDIA_IN_USE:
--		pr_debug("%s: OID_GEN_MEDIA_IN_USE\n", __func__);
-+	case RNDIS_OID_GEN_MEDIA_IN_USE:
-+		pr_debug("%s: RNDIS_OID_GEN_MEDIA_IN_USE\n", __func__);
- 		/* one medium, one transport... (maybe you do it better) */
- 		*outbuf = cpu_to_le32(rndis_per_dev_params[configNr].medium);
- 		retval = 0;
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_MAXIMUM_FRAME_SIZE:
--		pr_debug("%s: OID_GEN_MAXIMUM_FRAME_SIZE\n", __func__);
-+	case RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE:
-+		pr_debug("%s: RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE\n", __func__);
- 		if (rndis_per_dev_params[configNr].dev) {
- 			*outbuf = cpu_to_le32(
- 				rndis_per_dev_params[configNr].dev->mtu);
-@@ -248,9 +248,9 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_LINK_SPEED:
-+	case RNDIS_OID_GEN_LINK_SPEED:
- 		if (rndis_debug > 1)
--			pr_debug("%s: OID_GEN_LINK_SPEED\n", __func__);
-+			pr_debug("%s: RNDIS_OID_GEN_LINK_SPEED\n", __func__);
- 		if (rndis_per_dev_params[configNr].media_state
- 				== NDIS_MEDIA_STATE_DISCONNECTED)
- 			*outbuf = cpu_to_le32(0);
-@@ -261,8 +261,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_TRANSMIT_BLOCK_SIZE:
--		pr_debug("%s: OID_GEN_TRANSMIT_BLOCK_SIZE\n", __func__);
-+	case RNDIS_OID_GEN_TRANSMIT_BLOCK_SIZE:
-+		pr_debug("%s: RNDIS_OID_GEN_TRANSMIT_BLOCK_SIZE\n", __func__);
- 		if (rndis_per_dev_params[configNr].dev) {
- 			*outbuf = cpu_to_le32(
- 				rndis_per_dev_params[configNr].dev->mtu);
-@@ -271,8 +271,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_RECEIVE_BLOCK_SIZE:
--		pr_debug("%s: OID_GEN_RECEIVE_BLOCK_SIZE\n", __func__);
-+	case RNDIS_OID_GEN_RECEIVE_BLOCK_SIZE:
-+		pr_debug("%s: RNDIS_OID_GEN_RECEIVE_BLOCK_SIZE\n", __func__);
- 		if (rndis_per_dev_params[configNr].dev) {
- 			*outbuf = cpu_to_le32(
- 				rndis_per_dev_params[configNr].dev->mtu);
-@@ -281,16 +281,16 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_VENDOR_ID:
--		pr_debug("%s: OID_GEN_VENDOR_ID\n", __func__);
-+	case RNDIS_OID_GEN_VENDOR_ID:
-+		pr_debug("%s: RNDIS_OID_GEN_VENDOR_ID\n", __func__);
- 		*outbuf = cpu_to_le32(
- 			rndis_per_dev_params[configNr].vendorID);
- 		retval = 0;
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_VENDOR_DESCRIPTION:
--		pr_debug("%s: OID_GEN_VENDOR_DESCRIPTION\n", __func__);
-+	case RNDIS_OID_GEN_VENDOR_DESCRIPTION:
-+		pr_debug("%s: RNDIS_OID_GEN_VENDOR_DESCRIPTION\n", __func__);
- 		if (rndis_per_dev_params[configNr].vendorDescr) {
- 			length = strlen(rndis_per_dev_params[configNr].
- 					vendorDescr);
-@@ -303,38 +303,38 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		retval = 0;
- 		break;
- 
--	case OID_GEN_VENDOR_DRIVER_VERSION:
--		pr_debug("%s: OID_GEN_VENDOR_DRIVER_VERSION\n", __func__);
-+	case RNDIS_OID_GEN_VENDOR_DRIVER_VERSION:
-+		pr_debug("%s: RNDIS_OID_GEN_VENDOR_DRIVER_VERSION\n", __func__);
- 		/* Created as LE */
- 		*outbuf = rndis_driver_version;
- 		retval = 0;
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_CURRENT_PACKET_FILTER:
--		pr_debug("%s: OID_GEN_CURRENT_PACKET_FILTER\n", __func__);
-+	case RNDIS_OID_GEN_CURRENT_PACKET_FILTER:
-+		pr_debug("%s: RNDIS_OID_GEN_CURRENT_PACKET_FILTER\n", __func__);
- 		*outbuf = cpu_to_le32(*rndis_per_dev_params[configNr].filter);
- 		retval = 0;
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_MAXIMUM_TOTAL_SIZE:
--		pr_debug("%s: OID_GEN_MAXIMUM_TOTAL_SIZE\n", __func__);
-+	case RNDIS_OID_GEN_MAXIMUM_TOTAL_SIZE:
-+		pr_debug("%s: RNDIS_OID_GEN_MAXIMUM_TOTAL_SIZE\n", __func__);
- 		*outbuf = cpu_to_le32(RNDIS_MAX_TOTAL_SIZE);
- 		retval = 0;
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_MEDIA_CONNECT_STATUS:
-+	case RNDIS_OID_GEN_MEDIA_CONNECT_STATUS:
- 		if (rndis_debug > 1)
--			pr_debug("%s: OID_GEN_MEDIA_CONNECT_STATUS\n", __func__);
-+			pr_debug("%s: RNDIS_OID_GEN_MEDIA_CONNECT_STATUS\n", __func__);
- 		*outbuf = cpu_to_le32(rndis_per_dev_params[configNr]
- 						.media_state);
- 		retval = 0;
- 		break;
- 
--	case OID_GEN_PHYSICAL_MEDIUM:
--		pr_debug("%s: OID_GEN_PHYSICAL_MEDIUM\n", __func__);
-+	case RNDIS_OID_GEN_PHYSICAL_MEDIUM:
-+		pr_debug("%s: RNDIS_OID_GEN_PHYSICAL_MEDIUM\n", __func__);
- 		*outbuf = cpu_to_le32(0);
- 		retval = 0;
- 		break;
-@@ -343,8 +343,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 	 * of MS-Windows expect OIDs that aren't specified there.  Other
- 	 * versions emit undefined RNDIS messages. DOCUMENT ALL THESE!
- 	 */
--	case OID_GEN_MAC_OPTIONS:		/* from WinME */
--		pr_debug("%s: OID_GEN_MAC_OPTIONS\n", __func__);
-+	case RNDIS_OID_GEN_MAC_OPTIONS:		/* from WinME */
-+		pr_debug("%s: RNDIS_OID_GEN_MAC_OPTIONS\n", __func__);
- 		*outbuf = cpu_to_le32(
- 			  NDIS_MAC_OPTION_RECEIVE_SERIALIZED
- 			| NDIS_MAC_OPTION_FULL_DUPLEX);
-@@ -354,9 +354,9 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 	/* statistics OIDs (table 4-2) */
- 
- 	/* mandatory */
--	case OID_GEN_XMIT_OK:
-+	case RNDIS_OID_GEN_XMIT_OK:
- 		if (rndis_debug > 1)
--			pr_debug("%s: OID_GEN_XMIT_OK\n", __func__);
-+			pr_debug("%s: RNDIS_OID_GEN_XMIT_OK\n", __func__);
- 		if (stats) {
- 			*outbuf = cpu_to_le32(stats->tx_packets
- 				- stats->tx_errors - stats->tx_dropped);
-@@ -365,9 +365,9 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_RCV_OK:
-+	case RNDIS_OID_GEN_RCV_OK:
- 		if (rndis_debug > 1)
--			pr_debug("%s: OID_GEN_RCV_OK\n", __func__);
-+			pr_debug("%s: RNDIS_OID_GEN_RCV_OK\n", __func__);
- 		if (stats) {
- 			*outbuf = cpu_to_le32(stats->rx_packets
- 				- stats->rx_errors - stats->rx_dropped);
-@@ -376,9 +376,9 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_XMIT_ERROR:
-+	case RNDIS_OID_GEN_XMIT_ERROR:
- 		if (rndis_debug > 1)
--			pr_debug("%s: OID_GEN_XMIT_ERROR\n", __func__);
-+			pr_debug("%s: RNDIS_OID_GEN_XMIT_ERROR\n", __func__);
- 		if (stats) {
- 			*outbuf = cpu_to_le32(stats->tx_errors);
- 			retval = 0;
-@@ -386,9 +386,9 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_RCV_ERROR:
-+	case RNDIS_OID_GEN_RCV_ERROR:
- 		if (rndis_debug > 1)
--			pr_debug("%s: OID_GEN_RCV_ERROR\n", __func__);
-+			pr_debug("%s: RNDIS_OID_GEN_RCV_ERROR\n", __func__);
- 		if (stats) {
- 			*outbuf = cpu_to_le32(stats->rx_errors);
- 			retval = 0;
-@@ -396,8 +396,8 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 		break;
- 
- 	/* mandatory */
--	case OID_GEN_RCV_NO_BUFFER:
--		pr_debug("%s: OID_GEN_RCV_NO_BUFFER\n", __func__);
-+	case RNDIS_OID_GEN_RCV_NO_BUFFER:
-+		pr_debug("%s: RNDIS_OID_GEN_RCV_NO_BUFFER\n", __func__);
- 		if (stats) {
- 			*outbuf = cpu_to_le32(stats->rx_dropped);
- 			retval = 0;
-@@ -407,7 +407,7 @@ static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
- 	/* ieee802.3 OIDs (table 4-3) */
- 
- 	/* mandatory */
--	case OID_802_3_PERMANENT_ADDRESS:
-+	case RNDIS_OID_802_3_PERMANENT_ADDRESS:
- 		pr_debug("%s: OID_802_3_PERMANENT_ADDRESS\n", __func__);
- 		if (rndis_per_dev_params[configNr].dev) {
- 			length = ETH_ALEN;
-@@ -516,7 +516,7 @@ static int gen_ndis_set_resp(u8 configNr, u32 OID, u8 *buf, u32 buf_len,
- 
- 	params = &rndis_per_dev_params[configNr];
- 	switch (OID) {
--	case OID_GEN_CURRENT_PACKET_FILTER:
-+	case RNDIS_OID_GEN_CURRENT_PACKET_FILTER:
- 
- 		/* these NDIS_PACKET_TYPE_* bitflags are shared with
- 		 * cdc_filter; it's not RNDIS-specific
-@@ -525,7 +525,7 @@ static int gen_ndis_set_resp(u8 configNr, u32 OID, u8 *buf, u32 buf_len,
- 		 *	MULTICAST, ALL_MULTICAST, BROADCAST
- 		 */
- 		*params->filter = (u16)get_unaligned_le32(buf);
--		pr_debug("%s: OID_GEN_CURRENT_PACKET_FILTER %08x\n",
-+		pr_debug("%s: RNDIS_OID_GEN_CURRENT_PACKET_FILTER %08x\n",
- 			__func__, *params->filter);
- 
- 		/* this call has a significant side effect:  it's
-diff --git a/include/linux/rndis.h b/include/linux/rndis.h
-index 61b4185..ebc40b3 100644
---- a/include/linux/rndis.h
-+++ b/include/linux/rndis.h
-@@ -30,7 +30,7 @@
- #define	RNDIS_STATUS_MEDIA_DISCONNECT		0x4001000c
- #define	RNDIS_STATUS_MEDIA_SPECIFIC_INDICATION	0x40010012
- 
--/* codes for OID_GEN_PHYSICAL_MEDIUM */
-+/* codes for RNDIS_OID_GEN_PHYSICAL_MEDIUM */
- #define	RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED	0x00000000
- #define	RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN	0x00000001
- #define	RNDIS_PHYSICAL_MEDIUM_CABLE_MODEM	0x00000002
-@@ -42,16 +42,7 @@
- #define	RNDIS_PHYSICAL_MEDIUM_WIRELESS_WAN	0x00000008
- #define	RNDIS_PHYSICAL_MEDIUM_MAX		0x00000009
- 
--/* NOTE:  about 30 OIDs are "mandatory" for peripherals to support ... and
-- * there are gobs more that may optionally be supported.  We'll avoid as much
-- * of that mess as possible.
-- */
--#define OID_802_3_PERMANENT_ADDRESS	0x01010101
--#define OID_GEN_MAXIMUM_FRAME_SIZE	0x00010106
--#define OID_GEN_CURRENT_PACKET_FILTER	0x0001010e
--#define OID_GEN_PHYSICAL_MEDIUM		0x00010202
 -
--/* packet filter bits used by OID_GEN_CURRENT_PACKET_FILTER */
-+/* packet filter bits used by RNDIS_OID_GEN_CURRENT_PACKET_FILTER */
- #define RNDIS_PACKET_TYPE_DIRECTED		0x00000001
- #define RNDIS_PACKET_TYPE_MULTICAST		0x00000002
- #define RNDIS_PACKET_TYPE_ALL_MULTICAST		0x00000004
-@@ -76,70 +67,6 @@
- #define NDIS_DEVICE_WAKE_ON_PATTERN_MATCH_ENABLE  0x00000002
- #define NDIS_DEVICE_WAKE_ON_MAGIC_PACKET_ENABLE   0x00000004
+-/* various RNDIS OID defs */
+-#define OID_GEN_LINK_SPEED			0x00010107
+-#define OID_GEN_RNDIS_CONFIG_PARAMETER		0x0001021b
+-
+-#define OID_GEN_XMIT_OK				0x00020101
+-#define OID_GEN_RCV_OK				0x00020102
+-#define OID_GEN_XMIT_ERROR			0x00020103
+-#define OID_GEN_RCV_ERROR			0x00020104
+-#define OID_GEN_RCV_NO_BUFFER			0x00020105
+-
+-#define OID_802_3_CURRENT_ADDRESS		0x01010102
+-#define OID_802_3_MULTICAST_LIST		0x01010103
+-#define OID_802_3_MAXIMUM_LIST_SIZE		0x01010104
+-
+-#define OID_802_11_BSSID			0x0d010101
+-#define OID_802_11_SSID				0x0d010102
+-#define OID_802_11_INFRASTRUCTURE_MODE		0x0d010108
+-#define OID_802_11_ADD_WEP			0x0d010113
+-#define OID_802_11_REMOVE_WEP			0x0d010114
+-#define OID_802_11_DISASSOCIATE			0x0d010115
+-#define OID_802_11_AUTHENTICATION_MODE		0x0d010118
+-#define OID_802_11_PRIVACY_FILTER		0x0d010119
+-#define OID_802_11_BSSID_LIST_SCAN		0x0d01011a
+-#define OID_802_11_ENCRYPTION_STATUS		0x0d01011b
+-#define OID_802_11_ADD_KEY			0x0d01011d
+-#define OID_802_11_REMOVE_KEY			0x0d01011e
+-#define OID_802_11_ASSOCIATION_INFORMATION	0x0d01011f
+-#define OID_802_11_CAPABILITY			0x0d010122
+-#define OID_802_11_PMKID			0x0d010123
+-#define OID_802_11_NETWORK_TYPES_SUPPORTED	0x0d010203
+-#define OID_802_11_NETWORK_TYPE_IN_USE		0x0d010204
+-#define OID_802_11_TX_POWER_LEVEL		0x0d010205
+-#define OID_802_11_RSSI				0x0d010206
+-#define OID_802_11_RSSI_TRIGGER			0x0d010207
+-#define OID_802_11_FRAGMENTATION_THRESHOLD	0x0d010209
+-#define OID_802_11_RTS_THRESHOLD		0x0d01020a
+-#define OID_802_11_SUPPORTED_RATES		0x0d01020e
+-#define OID_802_11_CONFIGURATION		0x0d010211
+-#define OID_802_11_POWER_MODE			0x0d010216
+-#define OID_802_11_BSSID_LIST			0x0d010217
+-
+-
+ /* Typical noise/maximum signal level values taken from ndiswrapper iw_ndis.h */
+ #define	WL_NOISE	-96	/* typical noise level in dBm */
+ #define	WL_SIGMAX	-32	/* typical maximum signal level in dBm */
+@@ -149,12 +106,6 @@ MODULE_PARM_DESC(workaround_interval,
+ #define BCM4320_DEFAULT_TXPOWER_DBM_50  10
+ #define BCM4320_DEFAULT_TXPOWER_DBM_25  7
  
+-
+-/* codes for "status" field of completion messages */
+-#define RNDIS_STATUS_ADAPTER_NOT_READY		0xc0010011
+-#define RNDIS_STATUS_ADAPTER_NOT_OPEN		0xc0010012
+-
+-
+ /* Known device types */
+ #define RNDIS_UNKNOWN	0
+ #define RNDIS_BCM4320A	1
+diff --git a/drivers/usb/gadget/ndis.h b/drivers/usb/gadget/ndis.h
+index b0e52fc..a19f72d 100644
+--- a/drivers/usb/gadget/ndis.h
++++ b/drivers/usb/gadget/ndis.h
+@@ -15,11 +15,6 @@
+ #ifndef _LINUX_NDIS_H
+ #define _LINUX_NDIS_H
+ 
+-
+-#define NDIS_STATUS_MULTICAST_FULL	  0xC0010009
+-#define NDIS_STATUS_MULTICAST_EXISTS      0xC001000A
+-#define NDIS_STATUS_MULTICAST_NOT_FOUND   0xC001000B
+-
+ enum NDIS_DEVICE_POWER_STATE {
+ 	NdisDeviceStateUnspecified = 0,
+ 	NdisDeviceStateD0,
+@@ -35,11 +30,6 @@ struct NDIS_PM_WAKE_UP_CAPABILITIES {
+ 	enum NDIS_DEVICE_POWER_STATE  MinLinkChangeWakeUp;
+ };
+ 
+-/* NDIS_PNP_CAPABILITIES.Flags constants */
+-#define NDIS_DEVICE_WAKE_UP_ENABLE                0x00000001
+-#define NDIS_DEVICE_WAKE_ON_PATTERN_MATCH_ENABLE  0x00000002
+-#define NDIS_DEVICE_WAKE_ON_MAGIC_PACKET_ENABLE   0x00000004
+-
+ struct NDIS_PNP_CAPABILITIES {
+ 	__le32					Flags;
+ 	struct NDIS_PM_WAKE_UP_CAPABILITIES	WakeUpCapabilities;
+@@ -54,158 +44,4 @@ struct NDIS_PM_PACKET_PATTERN {
+ 	__le32	PatternFlags;
+ };
+ 
+-
 -/* Required Object IDs (OIDs) */
 -#define OID_GEN_SUPPORTED_LIST            0x00010101
 -#define OID_GEN_HARDWARE_STATUS           0x00010102
 -#define OID_GEN_MEDIA_SUPPORTED           0x00010103
 -#define OID_GEN_MEDIA_IN_USE              0x00010104
 -#define OID_GEN_MAXIMUM_LOOKAHEAD         0x00010105
+-#define OID_GEN_MAXIMUM_FRAME_SIZE        0x00010106
 -#define OID_GEN_LINK_SPEED                0x00010107
 -#define OID_GEN_TRANSMIT_BUFFER_SPACE     0x00010108
 -#define OID_GEN_RECEIVE_BUFFER_SPACE      0x00010109
@@ -542,6 +466,7 @@ index 61b4185..ebc40b3 100644
 -#define OID_GEN_RECEIVE_BLOCK_SIZE        0x0001010B
 -#define OID_GEN_VENDOR_ID                 0x0001010C
 -#define OID_GEN_VENDOR_DESCRIPTION        0x0001010D
+-#define OID_GEN_CURRENT_PACKET_FILTER     0x0001010E
 -#define OID_GEN_CURRENT_LOOKAHEAD         0x0001010F
 -#define OID_GEN_DRIVER_VERSION            0x00010110
 -#define OID_GEN_MAXIMUM_TOTAL_SIZE        0x00010111
@@ -559,6 +484,7 @@ index 61b4185..ebc40b3 100644
 -
 -/* Optional OIDs */
 -#define OID_GEN_MEDIA_CAPABILITIES        0x00010201
+-#define OID_GEN_PHYSICAL_MEDIUM           0x00010202
 -
 -/* Required statistics OIDs */
 -#define OID_GEN_XMIT_OK                   0x00020101
@@ -593,89 +519,814 @@ index 61b4185..ebc40b3 100644
 -#define OID_GEN_MINIPORT_INFO             0x00020217
 -#define OID_GEN_RESET_VERIFY_PARAMETERS   0x00020218
 -
- /* IEEE 802.3 (Ethernet) OIDs */
- #define NDIS_802_3_MAC_OPTION_PRIORITY    0x00000001
- 
-@@ -158,7 +85,7 @@
- #define OID_802_3_XMIT_TIMES_CRS_LOST     0x01020206
- #define OID_802_3_XMIT_LATE_COLLISIONS    0x01020207
- 
+-/* IEEE 802.3 (Ethernet) OIDs */
+-#define NDIS_802_3_MAC_OPTION_PRIORITY    0x00000001
+-
+-#define OID_802_3_PERMANENT_ADDRESS       0x01010101
+-#define OID_802_3_CURRENT_ADDRESS         0x01010102
+-#define OID_802_3_MULTICAST_LIST          0x01010103
+-#define OID_802_3_MAXIMUM_LIST_SIZE       0x01010104
+-#define OID_802_3_MAC_OPTIONS             0x01010105
+-#define OID_802_3_RCV_ERROR_ALIGNMENT     0x01020101
+-#define OID_802_3_XMIT_ONE_COLLISION      0x01020102
+-#define OID_802_3_XMIT_MORE_COLLISIONS    0x01020103
+-#define OID_802_3_XMIT_DEFERRED           0x01020201
+-#define OID_802_3_XMIT_MAX_COLLISIONS     0x01020202
+-#define OID_802_3_RCV_OVERRUN             0x01020203
+-#define OID_802_3_XMIT_UNDERRUN           0x01020204
+-#define OID_802_3_XMIT_HEARTBEAT_FAILURE  0x01020205
+-#define OID_802_3_XMIT_TIMES_CRS_LOST     0x01020206
+-#define OID_802_3_XMIT_LATE_COLLISIONS    0x01020207
+-
 -/* OID_GEN_MINIPORT_INFO constants */
-+/* RNDIS_OID_GEN_MINIPORT_INFO constants */
- #define NDIS_MINIPORT_BUS_MASTER                      0x00000001
- #define NDIS_MINIPORT_WDM_DRIVER                      0x00000002
- #define NDIS_MINIPORT_SG_LIST                         0x00000004
-@@ -339,12 +266,13 @@
- #define RNDIS_STATUS_TOKEN_RING_OPEN_ERROR	(0xC0011000L)
+-#define NDIS_MINIPORT_BUS_MASTER                      0x00000001
+-#define NDIS_MINIPORT_WDM_DRIVER                      0x00000002
+-#define NDIS_MINIPORT_SG_LIST                         0x00000004
+-#define NDIS_MINIPORT_SUPPORTS_MEDIA_QUERY            0x00000008
+-#define NDIS_MINIPORT_INDICATES_PACKETS               0x00000010
+-#define NDIS_MINIPORT_IGNORE_PACKET_QUEUE             0x00000020
+-#define NDIS_MINIPORT_IGNORE_REQUEST_QUEUE            0x00000040
+-#define NDIS_MINIPORT_IGNORE_TOKEN_RING_ERRORS        0x00000080
+-#define NDIS_MINIPORT_INTERMEDIATE_DRIVER             0x00000100
+-#define NDIS_MINIPORT_IS_NDIS_5                       0x00000200
+-#define NDIS_MINIPORT_IS_CO                           0x00000400
+-#define NDIS_MINIPORT_DESERIALIZE                     0x00000800
+-#define NDIS_MINIPORT_REQUIRES_MEDIA_POLLING          0x00001000
+-#define NDIS_MINIPORT_SUPPORTS_MEDIA_SENSE            0x00002000
+-#define NDIS_MINIPORT_NETBOOT_CARD                    0x00004000
+-#define NDIS_MINIPORT_PM_SUPPORTED                    0x00008000
+-#define NDIS_MINIPORT_SUPPORTS_MAC_ADDRESS_OVERWRITE  0x00010000
+-#define NDIS_MINIPORT_USES_SAFE_BUFFER_APIS           0x00020000
+-#define NDIS_MINIPORT_HIDDEN                          0x00040000
+-#define NDIS_MINIPORT_SWENUM                          0x00080000
+-#define NDIS_MINIPORT_SURPRISE_REMOVE_OK              0x00100000
+-#define NDIS_MINIPORT_NO_HALT_ON_SUSPEND              0x00200000
+-#define NDIS_MINIPORT_HARDWARE_DEVICE                 0x00400000
+-#define NDIS_MINIPORT_SUPPORTS_CANCEL_SEND_PACKETS    0x00800000
+-#define NDIS_MINIPORT_64BITS_DMA                      0x01000000
+-
+-#define NDIS_MEDIUM_802_3		0x00000000
+-#define NDIS_MEDIUM_802_5		0x00000001
+-#define NDIS_MEDIUM_FDDI		0x00000002
+-#define NDIS_MEDIUM_WAN			0x00000003
+-#define NDIS_MEDIUM_LOCAL_TALK		0x00000004
+-#define NDIS_MEDIUM_DIX			0x00000005
+-#define NDIS_MEDIUM_ARCENT_RAW		0x00000006
+-#define NDIS_MEDIUM_ARCENT_878_2	0x00000007
+-#define NDIS_MEDIUM_ATM			0x00000008
+-#define NDIS_MEDIUM_WIRELESS_LAN	0x00000009
+-#define NDIS_MEDIUM_IRDA		0x0000000A
+-#define NDIS_MEDIUM_BPC			0x0000000B
+-#define NDIS_MEDIUM_CO_WAN		0x0000000C
+-#define NDIS_MEDIUM_1394		0x0000000D
+-
+-#define NDIS_PACKET_TYPE_DIRECTED	0x00000001
+-#define NDIS_PACKET_TYPE_MULTICAST	0x00000002
+-#define NDIS_PACKET_TYPE_ALL_MULTICAST	0x00000004
+-#define NDIS_PACKET_TYPE_BROADCAST	0x00000008
+-#define NDIS_PACKET_TYPE_SOURCE_ROUTING	0x00000010
+-#define NDIS_PACKET_TYPE_PROMISCUOUS	0x00000020
+-#define NDIS_PACKET_TYPE_SMT		0x00000040
+-#define NDIS_PACKET_TYPE_ALL_LOCAL	0x00000080
+-#define NDIS_PACKET_TYPE_GROUP		0x00000100
+-#define NDIS_PACKET_TYPE_ALL_FUNCTIONAL	0x00000200
+-#define NDIS_PACKET_TYPE_FUNCTIONAL	0x00000400
+-#define NDIS_PACKET_TYPE_MAC_FRAME	0x00000800
+-
+-#define NDIS_MEDIA_STATE_CONNECTED	0x00000000
+-#define NDIS_MEDIA_STATE_DISCONNECTED	0x00000001
+-
+-#define NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA     0x00000001
+-#define NDIS_MAC_OPTION_RECEIVE_SERIALIZED      0x00000002
+-#define NDIS_MAC_OPTION_TRANSFERS_NOT_PEND      0x00000004
+-#define NDIS_MAC_OPTION_NO_LOOPBACK             0x00000008
+-#define NDIS_MAC_OPTION_FULL_DUPLEX             0x00000010
+-#define NDIS_MAC_OPTION_EOTX_INDICATION         0x00000020
+-#define NDIS_MAC_OPTION_8021P_PRIORITY          0x00000040
+-#define NDIS_MAC_OPTION_RESERVED                0x80000000
+-
+ #endif /* _LINUX_NDIS_H */
+diff --git a/drivers/usb/gadget/rndis.h b/drivers/usb/gadget/rndis.h
+index 907c330..0647f2f 100644
+--- a/drivers/usb/gadget/rndis.h
++++ b/drivers/usb/gadget/rndis.h
+@@ -15,58 +15,12 @@
+ #ifndef _LINUX_RNDIS_H
+ #define _LINUX_RNDIS_H
  
- /* Object Identifiers used by NdisRequest Query/Set Information */
--/* General Objects */
-+/* General (Required) Objects */
- #define RNDIS_OID_GEN_SUPPORTED_LIST		0x00010101
- #define RNDIS_OID_GEN_HARDWARE_STATUS		0x00010102
- #define RNDIS_OID_GEN_MEDIA_SUPPORTED		0x00010103
- #define RNDIS_OID_GEN_MEDIA_IN_USE		0x00010104
- #define RNDIS_OID_GEN_MAXIMUM_LOOKAHEAD		0x00010105
-+#define RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE	0x00010106
- #define RNDIS_OID_GEN_LINK_SPEED		0x00010107
- #define RNDIS_OID_GEN_TRANSMIT_BUFFER_SPACE	0x00010108
- #define RNDIS_OID_GEN_RECEIVE_BUFFER_SPACE	0x00010109
-@@ -361,16 +289,25 @@
- #define RNDIS_OID_GEN_MEDIA_CONNECT_STATUS	0x00010114
- #define RNDIS_OID_GEN_MAXIMUM_SEND_PACKETS	0x00010115
- #define RNDIS_OID_GEN_VENDOR_DRIVER_VERSION	0x00010116
-+#define RNDIS_OID_GEN_SUPPORTED_GUIDS		0x00010117
- #define RNDIS_OID_GEN_NETWORK_LAYER_ADDRESSES	0x00010118
- #define RNDIS_OID_GEN_TRANSPORT_HEADER_OFFSET	0x00010119
-+#define RNDIS_OID_GEN_PHYSICAL_MEDIUM		0x00010202
- #define RNDIS_OID_GEN_MACHINE_NAME		0x0001021A
-+#define RNDIS_OID_GEN_RNDIS_CONFIG_PARAMETER	0x0001021B
-+#define RNDIS_OID_GEN_VLAN_ID			0x0001021C
++#include <linux/rndis.h>
+ #include "ndis.h"
+ 
+ #define RNDIS_MAXIMUM_FRAME_SIZE	1518
+ #define RNDIS_MAX_TOTAL_SIZE		1558
+ 
+-/* Remote NDIS Versions */
+-#define RNDIS_MAJOR_VERSION		1
+-#define RNDIS_MINOR_VERSION		0
+-
+-/* Status Values */
+-#define RNDIS_STATUS_SUCCESS		0x00000000U	/* Success           */
+-#define RNDIS_STATUS_FAILURE		0xC0000001U	/* Unspecified error */
+-#define RNDIS_STATUS_INVALID_DATA	0xC0010015U	/* Invalid data      */
+-#define RNDIS_STATUS_NOT_SUPPORTED	0xC00000BBU	/* Unsupported request */
+-#define RNDIS_STATUS_MEDIA_CONNECT	0x4001000BU	/* Device connected  */
+-#define RNDIS_STATUS_MEDIA_DISCONNECT	0x4001000CU	/* Device disconnected */
+-/* For all not specified status messages:
+- * RNDIS_STATUS_Xxx -> NDIS_STATUS_Xxx
+- */
+-
+-/* Message Set for Connectionless (802.3) Devices */
+-#define REMOTE_NDIS_PACKET_MSG		0x00000001U
+-#define REMOTE_NDIS_INITIALIZE_MSG	0x00000002U	/* Initialize device */
+-#define REMOTE_NDIS_HALT_MSG		0x00000003U
+-#define REMOTE_NDIS_QUERY_MSG		0x00000004U
+-#define REMOTE_NDIS_SET_MSG		0x00000005U
+-#define REMOTE_NDIS_RESET_MSG		0x00000006U
+-#define REMOTE_NDIS_INDICATE_STATUS_MSG	0x00000007U
+-#define REMOTE_NDIS_KEEPALIVE_MSG	0x00000008U
+-
+-/* Message completion */
+-#define REMOTE_NDIS_INITIALIZE_CMPLT	0x80000002U
+-#define REMOTE_NDIS_QUERY_CMPLT		0x80000004U
+-#define REMOTE_NDIS_SET_CMPLT		0x80000005U
+-#define REMOTE_NDIS_RESET_CMPLT		0x80000006U
+-#define REMOTE_NDIS_KEEPALIVE_CMPLT	0x80000008U
+-
+-/* Device Flags */
+-#define RNDIS_DF_CONNECTIONLESS		0x00000001U
+-#define RNDIS_DF_CONNECTION_ORIENTED	0x00000002U
+-
+-#define RNDIS_MEDIUM_802_3		0x00000000U
+-
+-/* from drivers/net/sk98lin/h/skgepnmi.h */
+-#define OID_PNP_CAPABILITIES			0xFD010100
+-#define OID_PNP_SET_POWER			0xFD010101
+-#define OID_PNP_QUERY_POWER			0xFD010102
+-#define OID_PNP_ADD_WAKE_UP_PATTERN		0xFD010103
+-#define OID_PNP_REMOVE_WAKE_UP_PATTERN		0xFD010104
+-#define OID_PNP_ENABLE_WAKE_UP			0xFD010106
+-
+-
+ typedef struct rndis_init_msg_type
+ {
+ 	__le32	MessageType;
+diff --git a/include/linux/rndis.h b/include/linux/rndis.h
+new file mode 100644
+index 0000000..430d72e
+--- /dev/null
++++ b/include/linux/rndis.h
+@@ -0,0 +1,561 @@
++/* From include/linux/usb/rndis_host.h */
++
++#define RNDIS_MSG_COMPLETION	0x80000000
++
++/* codes for "msg_type" field of rndis messages;
++ * only the data channel uses packet messages (maybe batched);
++ * everything else goes on the control channel.
++ */
++#define RNDIS_MSG_PACKET	0x00000001	/* 1-N packets */
++#define RNDIS_MSG_INIT		0x00000002
++#define RNDIS_MSG_INIT_C	(RNDIS_MSG_INIT|RNDIS_MSG_COMPLETION)
++#define RNDIS_MSG_HALT		0x00000003
++#define RNDIS_MSG_QUERY		0x00000004
++#define RNDIS_MSG_QUERY_C	(RNDIS_MSG_QUERY|RNDIS_MSG_COMPLETION)
++#define RNDIS_MSG_SET		0x00000005
++#define RNDIS_MSG_SET_C		(RNDIS_MSG_SET|RNDIS_MSG_COMPLETION)
++#define RNDIS_MSG_RESET		0x00000006
++#define RNDIS_MSG_RESET_C	(RNDIS_MSG_RESET|RNDIS_MSG_COMPLETION)
++#define RNDIS_MSG_INDICATE	0x00000007
++#define RNDIS_MSG_KEEPALIVE	0x00000008
++#define RNDIS_MSG_KEEPALIVE_C	(RNDIS_MSG_KEEPALIVE|RNDIS_MSG_COMPLETION)
++
++
++/* codes for "status" field of completion messages */
++#define	RNDIS_STATUS_SUCCESS			0x00000000
++#define	RNDIS_STATUS_FAILURE			0xc0000001
++#define	RNDIS_STATUS_INVALID_DATA		0xc0010015
++#define	RNDIS_STATUS_NOT_SUPPORTED		0xc00000bb
++#define	RNDIS_STATUS_MEDIA_CONNECT		0x4001000b
++#define	RNDIS_STATUS_MEDIA_DISCONNECT		0x4001000c
++#define	RNDIS_STATUS_MEDIA_SPECIFIC_INDICATION	0x40010012
++
++/* codes for OID_GEN_PHYSICAL_MEDIUM */
++#define	RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED	0x00000000
++#define	RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN	0x00000001
++#define	RNDIS_PHYSICAL_MEDIUM_CABLE_MODEM	0x00000002
++#define	RNDIS_PHYSICAL_MEDIUM_PHONE_LINE	0x00000003
++#define	RNDIS_PHYSICAL_MEDIUM_POWER_LINE	0x00000004
++#define	RNDIS_PHYSICAL_MEDIUM_DSL		0x00000005
++#define	RNDIS_PHYSICAL_MEDIUM_FIBRE_CHANNEL	0x00000006
++#define	RNDIS_PHYSICAL_MEDIUM_1394		0x00000007
++#define	RNDIS_PHYSICAL_MEDIUM_WIRELESS_WAN	0x00000008
++#define	RNDIS_PHYSICAL_MEDIUM_MAX		0x00000009
++
++/* NOTE:  about 30 OIDs are "mandatory" for peripherals to support ... and
++ * there are gobs more that may optionally be supported.  We'll avoid as much
++ * of that mess as possible.
++ */
++#define OID_802_3_PERMANENT_ADDRESS	0x01010101
++#define OID_GEN_MAXIMUM_FRAME_SIZE	0x00010106
++#define OID_GEN_CURRENT_PACKET_FILTER	0x0001010e
++#define OID_GEN_PHYSICAL_MEDIUM		0x00010202
++
++/* packet filter bits used by OID_GEN_CURRENT_PACKET_FILTER */
++#define RNDIS_PACKET_TYPE_DIRECTED		0x00000001
++#define RNDIS_PACKET_TYPE_MULTICAST		0x00000002
++#define RNDIS_PACKET_TYPE_ALL_MULTICAST		0x00000004
++#define RNDIS_PACKET_TYPE_BROADCAST		0x00000008
++#define RNDIS_PACKET_TYPE_SOURCE_ROUTING	0x00000010
++#define RNDIS_PACKET_TYPE_PROMISCUOUS		0x00000020
++#define RNDIS_PACKET_TYPE_SMT			0x00000040
++#define RNDIS_PACKET_TYPE_ALL_LOCAL		0x00000080
++#define RNDIS_PACKET_TYPE_GROUP			0x00001000
++#define RNDIS_PACKET_TYPE_ALL_FUNCTIONAL	0x00002000
++#define RNDIS_PACKET_TYPE_FUNCTIONAL		0x00004000
++#define RNDIS_PACKET_TYPE_MAC_FRAME		0x00008000
++
++/* From drivers/usb/gadget/ndis.h */
++
++#define NDIS_STATUS_MULTICAST_FULL	  0xC0010009
++#define NDIS_STATUS_MULTICAST_EXISTS      0xC001000A
++#define NDIS_STATUS_MULTICAST_NOT_FOUND   0xC001000B
++
++/* NDIS_PNP_CAPABILITIES.Flags constants */
++#define NDIS_DEVICE_WAKE_UP_ENABLE                0x00000001
++#define NDIS_DEVICE_WAKE_ON_PATTERN_MATCH_ENABLE  0x00000002
++#define NDIS_DEVICE_WAKE_ON_MAGIC_PACKET_ENABLE   0x00000004
++
++/* Required Object IDs (OIDs) */
++#define OID_GEN_SUPPORTED_LIST            0x00010101
++#define OID_GEN_HARDWARE_STATUS           0x00010102
++#define OID_GEN_MEDIA_SUPPORTED           0x00010103
++#define OID_GEN_MEDIA_IN_USE              0x00010104
++#define OID_GEN_MAXIMUM_LOOKAHEAD         0x00010105
++#define OID_GEN_LINK_SPEED                0x00010107
++#define OID_GEN_TRANSMIT_BUFFER_SPACE     0x00010108
++#define OID_GEN_RECEIVE_BUFFER_SPACE      0x00010109
++#define OID_GEN_TRANSMIT_BLOCK_SIZE       0x0001010A
++#define OID_GEN_RECEIVE_BLOCK_SIZE        0x0001010B
++#define OID_GEN_VENDOR_ID                 0x0001010C
++#define OID_GEN_VENDOR_DESCRIPTION        0x0001010D
++#define OID_GEN_CURRENT_LOOKAHEAD         0x0001010F
++#define OID_GEN_DRIVER_VERSION            0x00010110
++#define OID_GEN_MAXIMUM_TOTAL_SIZE        0x00010111
++#define OID_GEN_PROTOCOL_OPTIONS          0x00010112
++#define OID_GEN_MAC_OPTIONS               0x00010113
++#define OID_GEN_MEDIA_CONNECT_STATUS      0x00010114
++#define OID_GEN_MAXIMUM_SEND_PACKETS      0x00010115
++#define OID_GEN_VENDOR_DRIVER_VERSION     0x00010116
++#define OID_GEN_SUPPORTED_GUIDS           0x00010117
++#define OID_GEN_NETWORK_LAYER_ADDRESSES   0x00010118
++#define OID_GEN_TRANSPORT_HEADER_OFFSET   0x00010119
++#define OID_GEN_MACHINE_NAME              0x0001021A
++#define OID_GEN_RNDIS_CONFIG_PARAMETER    0x0001021B
++#define OID_GEN_VLAN_ID                   0x0001021C
 +
 +/* Optional OIDs */
-+#define OID_GEN_MEDIA_CAPABILITIES		0x00010201
- 
-+/* Required statistics OIDs */
- #define RNDIS_OID_GEN_XMIT_OK			0x00020101
- #define RNDIS_OID_GEN_RCV_OK			0x00020102
- #define RNDIS_OID_GEN_XMIT_ERROR		0x00020103
- #define RNDIS_OID_GEN_RCV_ERROR			0x00020104
- #define RNDIS_OID_GEN_RCV_NO_BUFFER		0x00020105
- 
-+/* Optional statistics OIDs */
- #define RNDIS_OID_GEN_DIRECTED_BYTES_XMIT	0x00020201
- #define RNDIS_OID_GEN_DIRECTED_FRAMES_XMIT	0x00020202
- #define RNDIS_OID_GEN_MULTICAST_BYTES_XMIT	0x00020203
-@@ -390,6 +327,15 @@
- #define RNDIS_OID_GEN_GET_TIME_CAPS		0x0002020F
- #define RNDIS_OID_GEN_GET_NETCARD_TIME		0x00020210
- 
-+#define RNDIS_OID_GEN_NETCARD_LOAD		0x00020211
-+#define RNDIS_OID_GEN_DEVICE_PROFILE		0x00020212
-+#define RNDIS_OID_GEN_INIT_TIME_MS		0x00020213
-+#define RNDIS_OID_GEN_RESET_COUNTS		0x00020214
-+#define RNDIS_OID_GEN_MEDIA_SENSE_COUNTS	0x00020215
-+#define RNDIS_OID_GEN_FRIENDLY_NAME		0x00020216
-+#define RNDIS_OID_GEN_MINIPORT_INFO		0x00020217
-+#define RNDIS_OID_GEN_RESET_VERIFY_PARAMETERS	0x00020218
++#define OID_GEN_MEDIA_CAPABILITIES        0x00010201
 +
- /* These are connection-oriented general OIDs. */
- /* These replace the above OIDs for connection-oriented media. */
- #define RNDIS_OID_GEN_CO_SUPPORTED_LIST		0x00010101
-@@ -496,14 +442,6 @@
- /* From drivers/net/wireless/rndis_wlan.c */
++/* Required statistics OIDs */
++#define OID_GEN_XMIT_OK                   0x00020101
++#define OID_GEN_RCV_OK                    0x00020102
++#define OID_GEN_XMIT_ERROR                0x00020103
++#define OID_GEN_RCV_ERROR                 0x00020104
++#define OID_GEN_RCV_NO_BUFFER             0x00020105
++
++/* Optional statistics OIDs */
++#define OID_GEN_DIRECTED_BYTES_XMIT       0x00020201
++#define OID_GEN_DIRECTED_FRAMES_XMIT      0x00020202
++#define OID_GEN_MULTICAST_BYTES_XMIT      0x00020203
++#define OID_GEN_MULTICAST_FRAMES_XMIT     0x00020204
++#define OID_GEN_BROADCAST_BYTES_XMIT      0x00020205
++#define OID_GEN_BROADCAST_FRAMES_XMIT     0x00020206
++#define OID_GEN_DIRECTED_BYTES_RCV        0x00020207
++#define OID_GEN_DIRECTED_FRAMES_RCV       0x00020208
++#define OID_GEN_MULTICAST_BYTES_RCV       0x00020209
++#define OID_GEN_MULTICAST_FRAMES_RCV      0x0002020A
++#define OID_GEN_BROADCAST_BYTES_RCV       0x0002020B
++#define OID_GEN_BROADCAST_FRAMES_RCV      0x0002020C
++#define OID_GEN_RCV_CRC_ERROR             0x0002020D
++#define OID_GEN_TRANSMIT_QUEUE_LENGTH     0x0002020E
++#define OID_GEN_GET_TIME_CAPS             0x0002020F
++#define OID_GEN_GET_NETCARD_TIME          0x00020210
++#define OID_GEN_NETCARD_LOAD              0x00020211
++#define OID_GEN_DEVICE_PROFILE            0x00020212
++#define OID_GEN_INIT_TIME_MS              0x00020213
++#define OID_GEN_RESET_COUNTS              0x00020214
++#define OID_GEN_MEDIA_SENSE_COUNTS        0x00020215
++#define OID_GEN_FRIENDLY_NAME             0x00020216
++#define OID_GEN_MINIPORT_INFO             0x00020217
++#define OID_GEN_RESET_VERIFY_PARAMETERS   0x00020218
++
++/* IEEE 802.3 (Ethernet) OIDs */
++#define NDIS_802_3_MAC_OPTION_PRIORITY    0x00000001
++
++#define OID_802_3_CURRENT_ADDRESS         0x01010102
++#define OID_802_3_MULTICAST_LIST          0x01010103
++#define OID_802_3_MAXIMUM_LIST_SIZE       0x01010104
++#define OID_802_3_MAC_OPTIONS             0x01010105
++#define OID_802_3_RCV_ERROR_ALIGNMENT     0x01020101
++#define OID_802_3_XMIT_ONE_COLLISION      0x01020102
++#define OID_802_3_XMIT_MORE_COLLISIONS    0x01020103
++#define OID_802_3_XMIT_DEFERRED           0x01020201
++#define OID_802_3_XMIT_MAX_COLLISIONS     0x01020202
++#define OID_802_3_RCV_OVERRUN             0x01020203
++#define OID_802_3_XMIT_UNDERRUN           0x01020204
++#define OID_802_3_XMIT_HEARTBEAT_FAILURE  0x01020205
++#define OID_802_3_XMIT_TIMES_CRS_LOST     0x01020206
++#define OID_802_3_XMIT_LATE_COLLISIONS    0x01020207
++
++/* OID_GEN_MINIPORT_INFO constants */
++#define NDIS_MINIPORT_BUS_MASTER                      0x00000001
++#define NDIS_MINIPORT_WDM_DRIVER                      0x00000002
++#define NDIS_MINIPORT_SG_LIST                         0x00000004
++#define NDIS_MINIPORT_SUPPORTS_MEDIA_QUERY            0x00000008
++#define NDIS_MINIPORT_INDICATES_PACKETS               0x00000010
++#define NDIS_MINIPORT_IGNORE_PACKET_QUEUE             0x00000020
++#define NDIS_MINIPORT_IGNORE_REQUEST_QUEUE            0x00000040
++#define NDIS_MINIPORT_IGNORE_TOKEN_RING_ERRORS        0x00000080
++#define NDIS_MINIPORT_INTERMEDIATE_DRIVER             0x00000100
++#define NDIS_MINIPORT_IS_NDIS_5                       0x00000200
++#define NDIS_MINIPORT_IS_CO                           0x00000400
++#define NDIS_MINIPORT_DESERIALIZE                     0x00000800
++#define NDIS_MINIPORT_REQUIRES_MEDIA_POLLING          0x00001000
++#define NDIS_MINIPORT_SUPPORTS_MEDIA_SENSE            0x00002000
++#define NDIS_MINIPORT_NETBOOT_CARD                    0x00004000
++#define NDIS_MINIPORT_PM_SUPPORTED                    0x00008000
++#define NDIS_MINIPORT_SUPPORTS_MAC_ADDRESS_OVERWRITE  0x00010000
++#define NDIS_MINIPORT_USES_SAFE_BUFFER_APIS           0x00020000
++#define NDIS_MINIPORT_HIDDEN                          0x00040000
++#define NDIS_MINIPORT_SWENUM                          0x00080000
++#define NDIS_MINIPORT_SURPRISE_REMOVE_OK              0x00100000
++#define NDIS_MINIPORT_NO_HALT_ON_SUSPEND              0x00200000
++#define NDIS_MINIPORT_HARDWARE_DEVICE                 0x00400000
++#define NDIS_MINIPORT_SUPPORTS_CANCEL_SEND_PACKETS    0x00800000
++#define NDIS_MINIPORT_64BITS_DMA                      0x01000000
++
++#define NDIS_MEDIUM_802_3		0x00000000
++#define NDIS_MEDIUM_802_5		0x00000001
++#define NDIS_MEDIUM_FDDI		0x00000002
++#define NDIS_MEDIUM_WAN			0x00000003
++#define NDIS_MEDIUM_LOCAL_TALK		0x00000004
++#define NDIS_MEDIUM_DIX			0x00000005
++#define NDIS_MEDIUM_ARCENT_RAW		0x00000006
++#define NDIS_MEDIUM_ARCENT_878_2	0x00000007
++#define NDIS_MEDIUM_ATM			0x00000008
++#define NDIS_MEDIUM_WIRELESS_LAN	0x00000009
++#define NDIS_MEDIUM_IRDA		0x0000000A
++#define NDIS_MEDIUM_BPC			0x0000000B
++#define NDIS_MEDIUM_CO_WAN		0x0000000C
++#define NDIS_MEDIUM_1394		0x0000000D
++
++#define NDIS_PACKET_TYPE_DIRECTED	0x00000001
++#define NDIS_PACKET_TYPE_MULTICAST	0x00000002
++#define NDIS_PACKET_TYPE_ALL_MULTICAST	0x00000004
++#define NDIS_PACKET_TYPE_BROADCAST	0x00000008
++#define NDIS_PACKET_TYPE_SOURCE_ROUTING	0x00000010
++#define NDIS_PACKET_TYPE_PROMISCUOUS	0x00000020
++#define NDIS_PACKET_TYPE_SMT		0x00000040
++#define NDIS_PACKET_TYPE_ALL_LOCAL	0x00000080
++#define NDIS_PACKET_TYPE_GROUP		0x00000100
++#define NDIS_PACKET_TYPE_ALL_FUNCTIONAL	0x00000200
++#define NDIS_PACKET_TYPE_FUNCTIONAL	0x00000400
++#define NDIS_PACKET_TYPE_MAC_FRAME	0x00000800
++
++#define NDIS_MEDIA_STATE_CONNECTED	0x00000000
++#define NDIS_MEDIA_STATE_DISCONNECTED	0x00000001
++
++#define NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA     0x00000001
++#define NDIS_MAC_OPTION_RECEIVE_SERIALIZED      0x00000002
++#define NDIS_MAC_OPTION_TRANSFERS_NOT_PEND      0x00000004
++#define NDIS_MAC_OPTION_NO_LOOPBACK             0x00000008
++#define NDIS_MAC_OPTION_FULL_DUPLEX             0x00000010
++#define NDIS_MAC_OPTION_EOTX_INDICATION         0x00000020
++#define NDIS_MAC_OPTION_8021P_PRIORITY          0x00000040
++#define NDIS_MAC_OPTION_RESERVED                0x80000000
++
++/* From drivers/usb/gadget/rndis.h */
++
++/* Remote NDIS Versions */
++#define RNDIS_MAJOR_VERSION		0x00000001
++#define RNDIS_MINOR_VERSION		0x00000000
++
++/* For all not specified status messages:
++ * RNDIS_STATUS_Xxx -> NDIS_STATUS_Xxx
++ */
++
++/* Message Set for Connectionless (802.3) Devices */
++#define REMOTE_NDIS_PACKET_MSG		0x00000001U
++#define REMOTE_NDIS_INITIALIZE_MSG	0x00000002U	/* Initialize device */
++#define REMOTE_NDIS_HALT_MSG		0x00000003U
++#define REMOTE_NDIS_QUERY_MSG		0x00000004U
++#define REMOTE_NDIS_SET_MSG		0x00000005U
++#define REMOTE_NDIS_RESET_MSG		0x00000006U
++#define REMOTE_NDIS_INDICATE_STATUS_MSG	0x00000007U
++#define REMOTE_NDIS_KEEPALIVE_MSG	0x00000008U
++
++/* Message completion */
++#define REMOTE_NDIS_INITIALIZE_CMPLT	0x80000002U
++#define REMOTE_NDIS_QUERY_CMPLT		0x80000004U
++#define REMOTE_NDIS_SET_CMPLT		0x80000005U
++#define REMOTE_NDIS_RESET_CMPLT		0x80000006U
++#define REMOTE_NDIS_KEEPALIVE_CMPLT	0x80000008U
++
++/* Device Flags */
++#define RNDIS_DF_CONNECTIONLESS		0x00000001U
++#define RNDIS_DF_CONNECTION_ORIENTED	0x00000002U
++#define RNDIS_DF_RAW_DATA		0x00000004U
++
++/* from drivers/net/sk98lin/h/skgepnmi.h */
++#define OID_PNP_CAPABILITIES			0xFD010100
++#define OID_PNP_SET_POWER			0xFD010101
++#define OID_PNP_QUERY_POWER			0xFD010102
++#define OID_PNP_ADD_WAKE_UP_PATTERN		0xFD010103
++#define OID_PNP_REMOVE_WAKE_UP_PATTERN		0xFD010104
++#define OID_PNP_ENABLE_WAKE_UP			0xFD010106
++
++/* From drivers/net/hyperv/hyperv_net.h */
++
++/*  Status codes */
++
++#ifndef STATUS_SUCCESS
++#define STATUS_SUCCESS				(0x00000000L)
++#endif
++
++#ifndef STATUS_UNSUCCESSFUL
++#define STATUS_UNSUCCESSFUL			(0xC0000001L)
++#endif
++
++#ifndef STATUS_PENDING
++#define STATUS_PENDING				(0x00000103L)
++#endif
++
++#ifndef STATUS_INSUFFICIENT_RESOURCES
++#define STATUS_INSUFFICIENT_RESOURCES		(0xC000009AL)
++#endif
++
++#ifndef STATUS_BUFFER_OVERFLOW
++#define STATUS_BUFFER_OVERFLOW			(0x80000005L)
++#endif
++
++#ifndef STATUS_NOT_SUPPORTED
++#define STATUS_NOT_SUPPORTED			(0xC00000BBL)
++#endif
++
++#define RNDIS_STATUS_PENDING			(STATUS_PENDING)
++#define RNDIS_STATUS_NOT_RECOGNIZED		(0x00010001L)
++#define RNDIS_STATUS_NOT_COPIED			(0x00010002L)
++#define RNDIS_STATUS_NOT_ACCEPTED		(0x00010003L)
++#define RNDIS_STATUS_CALL_ACTIVE		(0x00010007L)
++
++#define RNDIS_STATUS_ONLINE			(0x40010003L)
++#define RNDIS_STATUS_RESET_START		(0x40010004L)
++#define RNDIS_STATUS_RESET_END			(0x40010005L)
++#define RNDIS_STATUS_RING_STATUS		(0x40010006L)
++#define RNDIS_STATUS_CLOSED			(0x40010007L)
++#define RNDIS_STATUS_WAN_LINE_UP		(0x40010008L)
++#define RNDIS_STATUS_WAN_LINE_DOWN		(0x40010009L)
++#define RNDIS_STATUS_WAN_FRAGMENT		(0x4001000AL)
++#define RNDIS_STATUS_HARDWARE_LINE_UP		(0x4001000DL)
++#define RNDIS_STATUS_HARDWARE_LINE_DOWN		(0x4001000EL)
++#define RNDIS_STATUS_INTERFACE_UP		(0x4001000FL)
++#define RNDIS_STATUS_INTERFACE_DOWN		(0x40010010L)
++#define RNDIS_STATUS_MEDIA_BUSY			(0x40010011L)
++#define RNDIS_STATUS_WW_INDICATION		RDIA_SPECIFIC_INDICATION
++#define RNDIS_STATUS_LINK_SPEED_CHANGE		(0x40010013L)
++
++#define RNDIS_STATUS_NOT_RESETTABLE		(0x80010001L)
++#define RNDIS_STATUS_SOFT_ERRORS		(0x80010003L)
++#define RNDIS_STATUS_HARD_ERRORS		(0x80010004L)
++#define RNDIS_STATUS_BUFFER_OVERFLOW		(STATUS_BUFFER_OVERFLOW)
++
++#define RNDIS_STATUS_RESOURCES			(STATUS_INSUFFICIENT_RESOURCES)
++#define RNDIS_STATUS_CLOSING			(0xC0010002L)
++#define RNDIS_STATUS_BAD_VERSION		(0xC0010004L)
++#define RNDIS_STATUS_BAD_CHARACTERISTICS	(0xC0010005L)
++#define RNDIS_STATUS_ADAPTER_NOT_FOUND		(0xC0010006L)
++#define RNDIS_STATUS_OPEN_FAILED		(0xC0010007L)
++#define RNDIS_STATUS_DEVICE_FAILED		(0xC0010008L)
++#define RNDIS_STATUS_MULTICAST_FULL		(0xC0010009L)
++#define RNDIS_STATUS_MULTICAST_EXISTS		(0xC001000AL)
++#define RNDIS_STATUS_MULTICAST_NOT_FOUND	(0xC001000BL)
++#define RNDIS_STATUS_REQUEST_ABORTED		(0xC001000CL)
++#define RNDIS_STATUS_RESET_IN_PROGRESS		(0xC001000DL)
++#define RNDIS_STATUS_CLOSING_INDICATING		(0xC001000EL)
++#define RNDIS_STATUS_INVALID_PACKET		(0xC001000FL)
++#define RNDIS_STATUS_OPEN_LIST_FULL		(0xC0010010L)
++#define RNDIS_STATUS_ADAPTER_NOT_READY		(0xC0010011L)
++#define RNDIS_STATUS_ADAPTER_NOT_OPEN		(0xC0010012L)
++#define RNDIS_STATUS_NOT_INDICATING		(0xC0010013L)
++#define RNDIS_STATUS_INVALID_LENGTH		(0xC0010014L)
++#define RNDIS_STATUS_BUFFER_TOO_SHORT		(0xC0010016L)
++#define RNDIS_STATUS_INVALID_OID		(0xC0010017L)
++#define RNDIS_STATUS_ADAPTER_REMOVED		(0xC0010018L)
++#define RNDIS_STATUS_UNSUPPORTED_MEDIA		(0xC0010019L)
++#define RNDIS_STATUS_GROUP_ADDRESS_IN_USE	(0xC001001AL)
++#define RNDIS_STATUS_FILE_NOT_FOUND		(0xC001001BL)
++#define RNDIS_STATUS_ERROR_READING_FILE		(0xC001001CL)
++#define RNDIS_STATUS_ALREADY_MAPPED		(0xC001001DL)
++#define RNDIS_STATUS_RESOURCE_CONFLICT		(0xC001001EL)
++#define RNDIS_STATUS_NO_CABLE			(0xC001001FL)
++
++#define RNDIS_STATUS_INVALID_SAP		(0xC0010020L)
++#define RNDIS_STATUS_SAP_IN_USE			(0xC0010021L)
++#define RNDIS_STATUS_INVALID_ADDRESS		(0xC0010022L)
++#define RNDIS_STATUS_VC_NOT_ACTIVATED		(0xC0010023L)
++#define RNDIS_STATUS_DEST_OUT_OF_ORDER		(0xC0010024L)
++#define RNDIS_STATUS_VC_NOT_AVAILABLE		(0xC0010025L)
++#define RNDIS_STATUS_CELLRATE_NOT_AVAILABLE	(0xC0010026L)
++#define RNDIS_STATUS_INCOMPATABLE_QOS		(0xC0010027L)
++#define RNDIS_STATUS_AAL_PARAMS_UNSUPPORTED	(0xC0010028L)
++#define RNDIS_STATUS_NO_ROUTE_TO_DESTINATION	(0xC0010029L)
++
++#define RNDIS_STATUS_TOKEN_RING_OPEN_ERROR	(0xC0011000L)
++
++/* Object Identifiers used by NdisRequest Query/Set Information */
++/* General Objects */
++#define RNDIS_OID_GEN_SUPPORTED_LIST		0x00010101
++#define RNDIS_OID_GEN_HARDWARE_STATUS		0x00010102
++#define RNDIS_OID_GEN_MEDIA_SUPPORTED		0x00010103
++#define RNDIS_OID_GEN_MEDIA_IN_USE		0x00010104
++#define RNDIS_OID_GEN_MAXIMUM_LOOKAHEAD		0x00010105
++#define RNDIS_OID_GEN_LINK_SPEED		0x00010107
++#define RNDIS_OID_GEN_TRANSMIT_BUFFER_SPACE	0x00010108
++#define RNDIS_OID_GEN_RECEIVE_BUFFER_SPACE	0x00010109
++#define RNDIS_OID_GEN_TRANSMIT_BLOCK_SIZE	0x0001010A
++#define RNDIS_OID_GEN_RECEIVE_BLOCK_SIZE	0x0001010B
++#define RNDIS_OID_GEN_VENDOR_ID			0x0001010C
++#define RNDIS_OID_GEN_VENDOR_DESCRIPTION	0x0001010D
++#define RNDIS_OID_GEN_CURRENT_PACKET_FILTER	0x0001010E
++#define RNDIS_OID_GEN_CURRENT_LOOKAHEAD		0x0001010F
++#define RNDIS_OID_GEN_DRIVER_VERSION		0x00010110
++#define RNDIS_OID_GEN_MAXIMUM_TOTAL_SIZE	0x00010111
++#define RNDIS_OID_GEN_PROTOCOL_OPTIONS		0x00010112
++#define RNDIS_OID_GEN_MAC_OPTIONS		0x00010113
++#define RNDIS_OID_GEN_MEDIA_CONNECT_STATUS	0x00010114
++#define RNDIS_OID_GEN_MAXIMUM_SEND_PACKETS	0x00010115
++#define RNDIS_OID_GEN_VENDOR_DRIVER_VERSION	0x00010116
++#define RNDIS_OID_GEN_NETWORK_LAYER_ADDRESSES	0x00010118
++#define RNDIS_OID_GEN_TRANSPORT_HEADER_OFFSET	0x00010119
++#define RNDIS_OID_GEN_MACHINE_NAME		0x0001021A
++
++#define RNDIS_OID_GEN_XMIT_OK			0x00020101
++#define RNDIS_OID_GEN_RCV_OK			0x00020102
++#define RNDIS_OID_GEN_XMIT_ERROR		0x00020103
++#define RNDIS_OID_GEN_RCV_ERROR			0x00020104
++#define RNDIS_OID_GEN_RCV_NO_BUFFER		0x00020105
++
++#define RNDIS_OID_GEN_DIRECTED_BYTES_XMIT	0x00020201
++#define RNDIS_OID_GEN_DIRECTED_FRAMES_XMIT	0x00020202
++#define RNDIS_OID_GEN_MULTICAST_BYTES_XMIT	0x00020203
++#define RNDIS_OID_GEN_MULTICAST_FRAMES_XMIT	0x00020204
++#define RNDIS_OID_GEN_BROADCAST_BYTES_XMIT	0x00020205
++#define RNDIS_OID_GEN_BROADCAST_FRAMES_XMIT	0x00020206
++#define RNDIS_OID_GEN_DIRECTED_BYTES_RCV	0x00020207
++#define RNDIS_OID_GEN_DIRECTED_FRAMES_RCV	0x00020208
++#define RNDIS_OID_GEN_MULTICAST_BYTES_RCV	0x00020209
++#define RNDIS_OID_GEN_MULTICAST_FRAMES_RCV	0x0002020A
++#define RNDIS_OID_GEN_BROADCAST_BYTES_RCV	0x0002020B
++#define RNDIS_OID_GEN_BROADCAST_FRAMES_RCV	0x0002020C
++
++#define RNDIS_OID_GEN_RCV_CRC_ERROR		0x0002020D
++#define RNDIS_OID_GEN_TRANSMIT_QUEUE_LENGTH	0x0002020E
++
++#define RNDIS_OID_GEN_GET_TIME_CAPS		0x0002020F
++#define RNDIS_OID_GEN_GET_NETCARD_TIME		0x00020210
++
++/* These are connection-oriented general OIDs. */
++/* These replace the above OIDs for connection-oriented media. */
++#define RNDIS_OID_GEN_CO_SUPPORTED_LIST		0x00010101
++#define RNDIS_OID_GEN_CO_HARDWARE_STATUS	0x00010102
++#define RNDIS_OID_GEN_CO_MEDIA_SUPPORTED	0x00010103
++#define RNDIS_OID_GEN_CO_MEDIA_IN_USE		0x00010104
++#define RNDIS_OID_GEN_CO_LINK_SPEED		0x00010105
++#define RNDIS_OID_GEN_CO_VENDOR_ID		0x00010106
++#define RNDIS_OID_GEN_CO_VENDOR_DESCRIPTION	0x00010107
++#define RNDIS_OID_GEN_CO_DRIVER_VERSION		0x00010108
++#define RNDIS_OID_GEN_CO_PROTOCOL_OPTIONS	0x00010109
++#define RNDIS_OID_GEN_CO_MAC_OPTIONS		0x0001010A
++#define RNDIS_OID_GEN_CO_MEDIA_CONNECT_STATUS	0x0001010B
++#define RNDIS_OID_GEN_CO_VENDOR_DRIVER_VERSION	0x0001010C
++#define RNDIS_OID_GEN_CO_MINIMUM_LINK_SPEED	0x0001010D
++
++#define RNDIS_OID_GEN_CO_GET_TIME_CAPS		0x00010201
++#define RNDIS_OID_GEN_CO_GET_NETCARD_TIME	0x00010202
++
++/* These are connection-oriented statistics OIDs. */
++#define RNDIS_OID_GEN_CO_XMIT_PDUS_OK		0x00020101
++#define RNDIS_OID_GEN_CO_RCV_PDUS_OK		0x00020102
++#define RNDIS_OID_GEN_CO_XMIT_PDUS_ERROR	0x00020103
++#define RNDIS_OID_GEN_CO_RCV_PDUS_ERROR		0x00020104
++#define RNDIS_OID_GEN_CO_RCV_PDUS_NO_BUFFER	0x00020105
++
++
++#define RNDIS_OID_GEN_CO_RCV_CRC_ERROR		0x00020201
++#define RNDIS_OID_GEN_CO_TRANSMIT_QUEUE_LENGTH	0x00020202
++#define RNDIS_OID_GEN_CO_BYTES_XMIT		0x00020203
++#define RNDIS_OID_GEN_CO_BYTES_RCV		0x00020204
++#define RNDIS_OID_GEN_CO_BYTES_XMIT_OUTSTANDING	0x00020205
++#define RNDIS_OID_GEN_CO_NETCARD_LOAD		0x00020206
++
++/* These are objects for Connection-oriented media call-managers. */
++#define RNDIS_OID_CO_ADD_PVC			0xFF000001
++#define RNDIS_OID_CO_DELETE_PVC			0xFF000002
++#define RNDIS_OID_CO_GET_CALL_INFORMATION	0xFF000003
++#define RNDIS_OID_CO_ADD_ADDRESS		0xFF000004
++#define RNDIS_OID_CO_DELETE_ADDRESS		0xFF000005
++#define RNDIS_OID_CO_GET_ADDRESSES		0xFF000006
++#define RNDIS_OID_CO_ADDRESS_CHANGE		0xFF000007
++#define RNDIS_OID_CO_SIGNALING_ENABLED		0xFF000008
++#define RNDIS_OID_CO_SIGNALING_DISABLED		0xFF000009
++
++/* 802.3 Objects (Ethernet) */
++#define RNDIS_OID_802_3_PERMANENT_ADDRESS	0x01010101
++#define RNDIS_OID_802_3_CURRENT_ADDRESS		0x01010102
++#define RNDIS_OID_802_3_MULTICAST_LIST		0x01010103
++#define RNDIS_OID_802_3_MAXIMUM_LIST_SIZE	0x01010104
++#define RNDIS_OID_802_3_MAC_OPTIONS		0x01010105
++
++#define NDIS_802_3_MAC_OPTION_PRIORITY		0x00000001
++
++#define RNDIS_OID_802_3_RCV_ERROR_ALIGNMENT	0x01020101
++#define RNDIS_OID_802_3_XMIT_ONE_COLLISION	0x01020102
++#define RNDIS_OID_802_3_XMIT_MORE_COLLISIONS	0x01020103
++
++#define RNDIS_OID_802_3_XMIT_DEFERRED		0x01020201
++#define RNDIS_OID_802_3_XMIT_MAX_COLLISIONS	0x01020202
++#define RNDIS_OID_802_3_RCV_OVERRUN		0x01020203
++#define RNDIS_OID_802_3_XMIT_UNDERRUN		0x01020204
++#define RNDIS_OID_802_3_XMIT_HEARTBEAT_FAILURE	0x01020205
++#define RNDIS_OID_802_3_XMIT_TIMES_CRS_LOST	0x01020206
++#define RNDIS_OID_802_3_XMIT_LATE_COLLISIONS	0x01020207
++
++#define REMOTE_CONDIS_MP_CREATE_VC_MSG		0x00008001
++#define REMOTE_CONDIS_MP_DELETE_VC_MSG		0x00008002
++#define REMOTE_CONDIS_MP_ACTIVATE_VC_MSG	0x00008005
++#define REMOTE_CONDIS_MP_DEACTIVATE_VC_MSG	0x00008006
++#define REMOTE_CONDIS_INDICATE_STATUS_MSG	0x00008007
++
++#define REMOTE_CONDIS_MP_CREATE_VC_CMPLT	0x80008001
++#define REMOTE_CONDIS_MP_DELETE_VC_CMPLT	0x80008002
++#define REMOTE_CONDIS_MP_ACTIVATE_VC_CMPLT	0x80008005
++#define REMOTE_CONDIS_MP_DEACTIVATE_VC_CMPLT	0x80008006
++
++/*
++ * Reserved message type for private communication between lower-layer host
++ * driver and remote device, if necessary.
++ */
++#define REMOTE_NDIS_BUS_MSG			0xff000001
++
++/*  Remote NDIS medium types. */
++#define RNDIS_MEDIUM_802_3			0x00000000
++#define RNDIS_MEDIUM_802_5			0x00000001
++#define RNDIS_MEDIUM_FDDI				0x00000002
++#define RNDIS_MEDIUM_WAN				0x00000003
++#define RNDIS_MEDIUM_LOCAL_TALK			0x00000004
++#define RNDIS_MEDIUM_ARCNET_RAW			0x00000006
++#define RNDIS_MEDIUM_ARCNET_878_2			0x00000007
++#define RNDIS_MEDIUM_ATM				0x00000008
++#define RNDIS_MEDIUM_WIRELESS_WAN			0x00000009
++#define RNDIS_MEDIUM_IRDA				0x0000000a
++#define RNDIS_MEDIUM_CO_WAN			0x0000000b
++/* Not a real medium, defined as an upper-bound */
++#define RNDIS_MEDIUM_MAX				0x0000000d
++
++
++/* Remote NDIS medium connection states. */
++#define RNDIS_MEDIA_STATE_CONNECTED		0x00000000
++#define RNDIS_MEDIA_STATE_DISCONNECTED		0x00000001
++
++/* From drivers/net/wireless/rndis_wlan.c */
++
++/* various RNDIS OID defs */
++#define OID_GEN_LINK_SPEED			0x00010107
++
++#define OID_GEN_XMIT_OK				0x00020101
++#define OID_GEN_RCV_OK				0x00020102
++#define OID_GEN_XMIT_ERROR			0x00020103
++#define OID_GEN_RCV_ERROR			0x00020104
++#define OID_GEN_RCV_NO_BUFFER			0x00020105
++
++#define OID_802_3_CURRENT_ADDRESS		0x01010102
++#define OID_802_3_MULTICAST_LIST		0x01010103
++#define OID_802_3_MAXIMUM_LIST_SIZE		0x01010104
++
++#define OID_802_11_BSSID			0x0d010101
++#define OID_802_11_SSID				0x0d010102
++#define OID_802_11_INFRASTRUCTURE_MODE		0x0d010108
++#define OID_802_11_ADD_WEP			0x0d010113
++#define OID_802_11_REMOVE_WEP			0x0d010114
++#define OID_802_11_DISASSOCIATE			0x0d010115
++#define OID_802_11_AUTHENTICATION_MODE		0x0d010118
++#define OID_802_11_PRIVACY_FILTER		0x0d010119
++#define OID_802_11_BSSID_LIST_SCAN		0x0d01011a
++#define OID_802_11_ENCRYPTION_STATUS		0x0d01011b
++#define OID_802_11_ADD_KEY			0x0d01011d
++#define OID_802_11_REMOVE_KEY			0x0d01011e
++#define OID_802_11_ASSOCIATION_INFORMATION	0x0d01011f
++#define OID_802_11_CAPABILITY			0x0d010122
++#define OID_802_11_PMKID			0x0d010123
++#define OID_802_11_NETWORK_TYPES_SUPPORTED	0x0d010203
++#define OID_802_11_NETWORK_TYPE_IN_USE		0x0d010204
++#define OID_802_11_TX_POWER_LEVEL		0x0d010205
++#define OID_802_11_RSSI				0x0d010206
++#define OID_802_11_RSSI_TRIGGER			0x0d010207
++#define OID_802_11_FRAGMENTATION_THRESHOLD	0x0d010209
++#define OID_802_11_RTS_THRESHOLD		0x0d01020a
++#define OID_802_11_SUPPORTED_RATES		0x0d01020e
++#define OID_802_11_CONFIGURATION		0x0d010211
++#define OID_802_11_POWER_MODE			0x0d010216
++#define OID_802_11_BSSID_LIST			0x0d010217
+diff --git a/include/linux/usb/rndis_host.h b/include/linux/usb/rndis_host.h
+index 9a005b6..d44ef85 100644
+--- a/include/linux/usb/rndis_host.h
++++ b/include/linux/usb/rndis_host.h
+@@ -20,6 +20,8 @@
+ #ifndef	__LINUX_USB_RNDIS_HOST_H
+ #define	__LINUX_USB_RNDIS_HOST_H
  
- /* various RNDIS OID defs */
--#define OID_GEN_LINK_SPEED			0x00010107
++#include <linux/rndis.h>
++
+ /*
+  * CONTROL uses CDC "encapsulated commands" with funky notifications.
+  *  - control-out:  SEND_ENCAPSULATED
+@@ -49,47 +51,6 @@ struct rndis_msg_hdr {
+  */
+ #define	RNDIS_CONTROL_TIMEOUT_MS	(5 * 1000)
+ 
+-#define RNDIS_MSG_COMPLETION	0x80000000
 -
--#define OID_GEN_XMIT_OK				0x00020101
--#define OID_GEN_RCV_OK				0x00020102
--#define OID_GEN_XMIT_ERROR			0x00020103
--#define OID_GEN_RCV_ERROR			0x00020104
--#define OID_GEN_RCV_NO_BUFFER			0x00020105
+-/* codes for "msg_type" field of rndis messages;
+- * only the data channel uses packet messages (maybe batched);
+- * everything else goes on the control channel.
+- */
+-#define RNDIS_MSG_PACKET	0x00000001	/* 1-N packets */
+-#define RNDIS_MSG_INIT		0x00000002
+-#define RNDIS_MSG_INIT_C	(RNDIS_MSG_INIT|RNDIS_MSG_COMPLETION)
+-#define RNDIS_MSG_HALT		0x00000003
+-#define RNDIS_MSG_QUERY		0x00000004
+-#define RNDIS_MSG_QUERY_C	(RNDIS_MSG_QUERY|RNDIS_MSG_COMPLETION)
+-#define RNDIS_MSG_SET		0x00000005
+-#define RNDIS_MSG_SET_C		(RNDIS_MSG_SET|RNDIS_MSG_COMPLETION)
+-#define RNDIS_MSG_RESET		0x00000006
+-#define RNDIS_MSG_RESET_C	(RNDIS_MSG_RESET|RNDIS_MSG_COMPLETION)
+-#define RNDIS_MSG_INDICATE	0x00000007
+-#define RNDIS_MSG_KEEPALIVE	0x00000008
+-#define RNDIS_MSG_KEEPALIVE_C	(RNDIS_MSG_KEEPALIVE|RNDIS_MSG_COMPLETION)
 -
- #define OID_802_3_CURRENT_ADDRESS		0x01010102
- #define OID_802_3_MULTICAST_LIST		0x01010103
- #define OID_802_3_MAXIMUM_LIST_SIZE		0x01010104
+-/* codes for "status" field of completion messages */
+-#define	RNDIS_STATUS_SUCCESS			0x00000000
+-#define	RNDIS_STATUS_FAILURE			0xc0000001
+-#define	RNDIS_STATUS_INVALID_DATA		0xc0010015
+-#define	RNDIS_STATUS_NOT_SUPPORTED		0xc00000bb
+-#define	RNDIS_STATUS_MEDIA_CONNECT		0x4001000b
+-#define	RNDIS_STATUS_MEDIA_DISCONNECT		0x4001000c
+-#define	RNDIS_STATUS_MEDIA_SPECIFIC_INDICATION	0x40010012
+-
+-/* codes for OID_GEN_PHYSICAL_MEDIUM */
+-#define	RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED	0x00000000
+-#define	RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN	0x00000001
+-#define	RNDIS_PHYSICAL_MEDIUM_CABLE_MODEM	0x00000002
+-#define	RNDIS_PHYSICAL_MEDIUM_PHONE_LINE	0x00000003
+-#define	RNDIS_PHYSICAL_MEDIUM_POWER_LINE	0x00000004
+-#define	RNDIS_PHYSICAL_MEDIUM_DSL		0x00000005
+-#define	RNDIS_PHYSICAL_MEDIUM_FIBRE_CHANNEL	0x00000006
+-#define	RNDIS_PHYSICAL_MEDIUM_1394		0x00000007
+-#define	RNDIS_PHYSICAL_MEDIUM_WIRELESS_WAN	0x00000008
+-#define	RNDIS_PHYSICAL_MEDIUM_MAX		0x00000009
+-
+ struct rndis_data_hdr {
+ 	__le32	msg_type;		/* RNDIS_MSG_PACKET */
+ 	__le32	msg_len;		/* rndis_data_hdr + data_len + pad */
+@@ -222,29 +183,6 @@ struct rndis_keepalive_c {	/* IN (optionally OUT) */
+ 	__le32	status;
+ } __attribute__ ((packed));
+ 
+-/* NOTE:  about 30 OIDs are "mandatory" for peripherals to support ... and
+- * there are gobs more that may optionally be supported.  We'll avoid as much
+- * of that mess as possible.
+- */
+-#define OID_802_3_PERMANENT_ADDRESS	0x01010101
+-#define OID_GEN_MAXIMUM_FRAME_SIZE	0x00010106
+-#define OID_GEN_CURRENT_PACKET_FILTER	0x0001010e
+-#define OID_GEN_PHYSICAL_MEDIUM		0x00010202
+-
+-/* packet filter bits used by OID_GEN_CURRENT_PACKET_FILTER */
+-#define RNDIS_PACKET_TYPE_DIRECTED		0x00000001
+-#define RNDIS_PACKET_TYPE_MULTICAST		0x00000002
+-#define RNDIS_PACKET_TYPE_ALL_MULTICAST		0x00000004
+-#define RNDIS_PACKET_TYPE_BROADCAST		0x00000008
+-#define RNDIS_PACKET_TYPE_SOURCE_ROUTING	0x00000010
+-#define RNDIS_PACKET_TYPE_PROMISCUOUS		0x00000020
+-#define RNDIS_PACKET_TYPE_SMT			0x00000040
+-#define RNDIS_PACKET_TYPE_ALL_LOCAL		0x00000080
+-#define RNDIS_PACKET_TYPE_GROUP			0x00001000
+-#define RNDIS_PACKET_TYPE_ALL_FUNCTIONAL	0x00002000
+-#define RNDIS_PACKET_TYPE_FUNCTIONAL		0x00004000
+-#define RNDIS_PACKET_TYPE_MAC_FRAME		0x00008000
+-
+ /* default filter used with RNDIS devices */
+ #define RNDIS_DEFAULT_FILTER ( \
+ 	RNDIS_PACKET_TYPE_DIRECTED | \
 -- 
 1.7.7.6
