@@ -1,58 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] fq_codel: Fair Queue Codel AQM
-Date: Sat, 12 May 2012 15:55:55 -0400 (EDT)
-Message-ID: <20120512.155555.1011024268184559052.davem@davemloft.net>
-References: <1336752516.31653.196.camel@edumazet-glaptop>
-	<1336764650.31653.277.camel@edumazet-glaptop>
-	<1336774576.31653.289.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org,
-	dave.taht@bufferbloat.net, nichols@pollere.com, van@pollere.net,
-	therbert@google.com, mattmathis@google.com, ycheng@google.com,
-	shemminger@vyatta.com, maze@google.com, nanditad@google.com
-To: eric.dumazet@gmail.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 0/2][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 12 May 2012 13:30:35 -0700
+Message-ID: <1336854637-6708-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44140 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753337Ab2ELT5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 15:57:00 -0400
-In-Reply-To: <1336774576.31653.289.camel@edumazet-glaptop>
+Received: from mga11.intel.com ([192.55.52.93]:48469 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755453Ab2ELUal (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 May 2012 16:30:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 12 May 2012 00:16:16 +0200
+This series of patches contains updates for igb.  Most notably,
+the addition of i210 & i211 support.
 
-> On Fri, 2012-05-11 at 21:30 +0200, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
-> 
-> ...
-> 
->> +static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
->> +				     struct gnet_dump *d)
->> +{
->> +	struct fq_codel_sched_data *q = qdisc_priv(sch);
->> +	u32 idx = cl - 1;
->> +	struct gnet_stats_queue qs = { 0 };
->> +	struct tc_fq_codel_xstats xstats;
->> +
->> +	WARN_ON_ONCE(1);
->> +	if (idx < q->flows_cnt) {
->> +		const struct fq_codel_flow *flow = &q->flows[idx];
->> +		const struct sk_buff *skb = flow->head;
-> 
-> Oh well, I forgot to remove this WARN_ON_ONCE(1)
+v2: fix up patch 2 based on feedback from David Miller
+v3: fix compiler warning
 
-I applied this with the WARN_ON_ONCE(1) removed but there was another
-problem.
+The following are changes since commit 4b549a2ef4bef9965d97cbd992ba67930cd3e0fe:
+  fq_codel: Fair Queue Codel AQM
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-When you include ping output in your commit message that "---" string
-told GIT that this was the end of the commit message when in fact
-there was more content including your signoff.
+Carolyn Wyborny (2):
+  igb: Add function and pointers for 82580 low power state settings.
+  igb: Add Support for new i210/i211 devices.
 
-I caught it and fixed it up, but please be more mindful of this in
-the future.
+ drivers/net/ethernet/intel/igb/Makefile        |    3 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.c   |  276 +++++++++--
+ drivers/net/ethernet/intel/igb/e1000_82575.h   |    3 +-
+ drivers/net/ethernet/intel/igb/e1000_defines.h |   33 ++
+ drivers/net/ethernet/intel/igb/e1000_hw.h      |   14 +
+ drivers/net/ethernet/intel/igb/e1000_i210.c    |  603 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_i210.h    |   76 +++
+ drivers/net/ethernet/intel/igb/e1000_mac.c     |    1 +
+ drivers/net/ethernet/intel/igb/e1000_nvm.c     |    1 -
+ drivers/net/ethernet/intel/igb/e1000_phy.c     |  147 ++++++-
+ drivers/net/ethernet/intel/igb/e1000_phy.h     |   22 +
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   14 +
+ drivers/net/ethernet/intel/igb/igb.h           |    9 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   |  103 +++-
+ drivers/net/ethernet/intel/igb/igb_main.c      |   81 +++-
+ drivers/net/ethernet/intel/igb/igb_ptp.c       |    4 +
+ 16 files changed, 1293 insertions(+), 97 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/igb/e1000_i210.c
+ create mode 100644 drivers/net/ethernet/intel/igb/e1000_i210.h
 
-Thanks.
+-- 
+1.7.7.6
