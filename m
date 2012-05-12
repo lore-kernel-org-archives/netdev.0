@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [net-next v2 0/2][pull request] Intel Wired LAN Driver Updates
-Date: Sat, 12 May 2012 15:22:59 -0400 (EDT)
-Message-ID: <20120512.152259.129063933510245955.davem@davemloft.net>
+Date: Sat, 12 May 2012 15:27:50 -0400 (EDT)
+Message-ID: <20120512.152750.1001784663174919311.davem@davemloft.net>
 References: <1336813918-11725-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20120512.152259.129063933510245955.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43956 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:43981 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753888Ab2ELTXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 15:23:03 -0400
-In-Reply-To: <1336813918-11725-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1753689Ab2ELT1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 15:27:54 -0400
+In-Reply-To: <20120512.152259.129063933510245955.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 12 May 2012 02:11:56 -0700
-
-> This series of patches contains updates for igb.  Most notably,
-> the addition of i210 & i211 support.
-> 
-> v2: fix up patch 2 based on feedback from David Miller
-> 
-> The following are changes since commit 06a4c1c55dbe5d9f7a708e8f1a52fd2ac8e5874f:
->   6lowpan: IPv6 link local address
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Pulled, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAxMiBN
+YXkgMjAxMiAxNToyMjo1OSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IEplZmYgS2lyc2hlciA8amVm
+ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiBEYXRlOiBTYXQsIDEyIE1heSAyMDEyIDAyOjEx
+OjU2IC0wNzAwDQo+IA0KPj4gVGhpcyBzZXJpZXMgb2YgcGF0Y2hlcyBjb250YWlucyB1cGRhdGVz
+IGZvciBpZ2IuICBNb3N0IG5vdGFibHksDQo+PiB0aGUgYWRkaXRpb24gb2YgaTIxMCAmIGkyMTEg
+c3VwcG9ydC4NCj4+IA0KPj4gdjI6IGZpeCB1cCBwYXRjaCAyIGJhc2VkIG9uIGZlZWRiYWNrIGZy
+b20gRGF2aWQgTWlsbGVyDQo+PiANCj4+IFRoZSBmb2xsb3dpbmcgYXJlIGNoYW5nZXMgc2luY2Ug
+Y29tbWl0IDA2YTRjMWM1NWRiZTVkOWY3YTcwOGU4ZjFhNTJmZDJhYzhlNTg3NGY6DQo+PiAgIDZs
+b3dwYW46IElQdjYgbGluayBsb2NhbCBhZGRyZXNzDQo+PiBhbmQgYXJlIGF2YWlsYWJsZSBpbiB0
+aGUgZ2l0IHJlcG9zaXRvcnkgYXQ6DQo+PiAgIGdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20v
+bGludXgva2VybmVsL2dpdC9qa2lyc2hlci9uZXQtbmV4dCBtYXN0ZXINCj4gDQo+IFB1bGxlZCwg
+dGhhbmtzLg0KDQpBY3R1YWxseSwgSSB1bnB1bGxlZC4NCg0KVGhlc2UgY2hhbmdlcyBpbnRyb2R1
+Y2UgYSBuZXcgY29tcGlsZXIgd2FybmluZyBiZWNhdXNlIG1ycWMgaXMgbm93DQpvbmx5IHNldCBj
+b25kaXRpb25hbGx5IGFuZCB0aGUgY29kZSBpcyBzdWNoIHRoYXQgdGhlIGNvbXBpbGVyIGNhbm5v
+dA0Kc2VlIHdoZXRoZXIgb3Igbm90IG1ycWMgaXMgb25seSB1c2VkIHdoZW4gaXQgaXMgaW4gZmFj
+dCBzZXQuDQoNClBsZWFzZSByZS1hcnJhbmdlIHRoZSBjb2RlIHNvIHRoYXQgdGhpcyB3YXJuaW5n
+IHdpbGwgbm90IG9jY3VyLg0KDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21h
+aW4uYzogSW4gZnVuY3Rpb24goWlnYl9jb25maWd1cmWiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaWdiL2lnYl9tYWluLmM6MjkwMzo3OiB3YXJuaW5nOiChbXJxY6IgbWF5IGJlIHVzZWQg
+dW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uIFstV21heWJlLXVuaW5pdGlhbGl6ZWRdDQpk
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYzoyODA2OjY6IG5vdGU6IKFt
+cnFjoiB3YXMgZGVjbGFyZWQgaGVyZQ0K
