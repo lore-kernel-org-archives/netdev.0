@@ -1,75 +1,106 @@
-From: "Linus Walleij" <linus.walleij@linaro.org>
-Subject: [PATCH 16/17 v5] rndis_host: cleanup: change oid from __le32 to u32 in rndis_query()
-Date: Sat, 12 May 2012 10:17:50 +0200
-Message-ID: <1336810670-6619-1-git-send-email-linus.walleij@linaro.org>
-Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Felipe Balbi <balbi@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.df.lth.se ([194.47.250.12]:51223 "EHLO mail.df.lth.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753995Ab2ELIRx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 May 2012 04:17:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 15/17 v5] rndis_wlan: cleanup: byteswap data from device instead of RNDIS_* defines
+Date: Sat, 12 May 2012 10:17:42 +0200
+Message-ID: <1336810662-6147-1-git-send-email-linus.walleij@linaro.org>
+Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>,
+	Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+From: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
 
-Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+All other values from device provided buffer are byteswapped, so it seems more
+logical to do same for these.
+
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
+Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/usb/rndis_host.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/wireless/rndis_wlan.c |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index 74315fd..0d746b3 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -239,7 +239,7 @@ EXPORT_SYMBOL_GPL(rndis_command);
-  * ActiveSync 4.1 Windows driver.
-  */
- static int rndis_query(struct usbnet *dev, struct usb_interface *intf,
--		void *buf, __le32 oid, u32 in_len,
-+		void *buf, u32 oid, u32 in_len,
- 		void **reply, int *reply_len)
+diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
+index 9bbef3f..c7f22cd 100644
+--- a/drivers/net/wireless/rndis_wlan.c
++++ b/drivers/net/wireless/rndis_wlan.c
+@@ -623,8 +623,8 @@ static int rndis_akm_suite_to_key_mgmt(u32 akm_suite)
+ #ifdef DEBUG
+ static const char *oid_to_string(__le32 oid)
  {
- 	int retval;
-@@ -256,7 +256,7 @@ static int rndis_query(struct usbnet *dev, struct usb_interface *intf,
- 	memset(u.get, 0, sizeof *u.get + in_len);
- 	u.get->msg_type = cpu_to_le32(RNDIS_MSG_QUERY);
- 	u.get->msg_len = cpu_to_le32(sizeof *u.get + in_len);
--	u.get->oid = oid;
-+	u.get->oid = cpu_to_le32(oid);
- 	u.get->len = cpu_to_le32(in_len);
- 	u.get->offset = cpu_to_le32(20);
+-	switch (oid) {
+-#define OID_STR(oid) case cpu_to_le32(oid): return(#oid)
++	switch (le32_to_cpu(oid)) {
++#define OID_STR(oid) case oid: return(#oid)
+ 		/* from rndis_host.h */
+ 		OID_STR(RNDIS_OID_802_3_PERMANENT_ADDRESS);
+ 		OID_STR(RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE);
+@@ -687,19 +687,19 @@ static const char *oid_to_string(__le32 oid)
+ static int rndis_error_status(__le32 rndis_status)
+ {
+ 	int ret = -EINVAL;
+-	switch (rndis_status) {
+-	case cpu_to_le32(RNDIS_STATUS_SUCCESS):
++	switch (le32_to_cpu(rndis_status)) {
++	case RNDIS_STATUS_SUCCESS:
+ 		ret = 0;
+ 		break;
+-	case cpu_to_le32(RNDIS_STATUS_FAILURE):
+-	case cpu_to_le32(RNDIS_STATUS_INVALID_DATA):
++	case RNDIS_STATUS_FAILURE:
++	case RNDIS_STATUS_INVALID_DATA:
+ 		ret = -EINVAL;
+ 		break;
+-	case cpu_to_le32(RNDIS_STATUS_NOT_SUPPORTED):
++	case RNDIS_STATUS_NOT_SUPPORTED:
+ 		ret = -EOPNOTSUPP;
+ 		break;
+-	case cpu_to_le32(RNDIS_STATUS_ADAPTER_NOT_READY):
+-	case cpu_to_le32(RNDIS_STATUS_ADAPTER_NOT_OPEN):
++	case RNDIS_STATUS_ADAPTER_NOT_READY:
++	case RNDIS_STATUS_ADAPTER_NOT_OPEN:
+ 		ret = -EBUSY;
+ 		break;
+ 	}
+@@ -3075,8 +3075,8 @@ static void rndis_wlan_indication(struct usbnet *usbdev, void *ind, int buflen)
+ 	struct rndis_wlan_private *priv = get_rndis_wlan_priv(usbdev);
+ 	struct rndis_indicate *msg = ind;
  
-@@ -399,8 +399,8 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 	phym = NULL;
- 	reply_len = sizeof *phym;
- 	retval = rndis_query(dev, intf, u.buf,
--			     cpu_to_le32(RNDIS_OID_GEN_PHYSICAL_MEDIUM),
--			0, (void **) &phym, &reply_len);
-+			     RNDIS_OID_GEN_PHYSICAL_MEDIUM,
-+			     0, (void **) &phym, &reply_len);
- 	if (retval != 0 || !phym) {
- 		/* OID is optional so don't fail here. */
- 		phym_unspec = cpu_to_le32(RNDIS_PHYSICAL_MEDIUM_UNSPECIFIED);
-@@ -424,8 +424,8 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 	/* Get designated host ethernet address */
- 	reply_len = ETH_ALEN;
- 	retval = rndis_query(dev, intf, u.buf,
--			     cpu_to_le32(RNDIS_OID_802_3_PERMANENT_ADDRESS),
--			48, (void **) &bp, &reply_len);
-+			     RNDIS_OID_802_3_PERMANENT_ADDRESS,
-+			     48, (void **) &bp, &reply_len);
- 	if (unlikely(retval< 0)) {
- 		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
- 		goto halt_fail_and_release;
+-	switch (msg->status) {
+-	case cpu_to_le32(RNDIS_STATUS_MEDIA_CONNECT):
++	switch (le32_to_cpu(msg->status)) {
++	case RNDIS_STATUS_MEDIA_CONNECT:
+ 		if (priv->current_command_oid == cpu_to_le32(RNDIS_OID_802_11_ADD_KEY)) {
+ 			/* OID_802_11_ADD_KEY causes sometimes extra
+ 			 * "media connect" indications which confuses driver
+@@ -3096,7 +3096,7 @@ static void rndis_wlan_indication(struct usbnet *usbdev, void *ind, int buflen)
+ 		queue_work(priv->workqueue, &priv->work);
+ 		break;
+ 
+-	case cpu_to_le32(RNDIS_STATUS_MEDIA_DISCONNECT):
++	case RNDIS_STATUS_MEDIA_DISCONNECT:
+ 		netdev_info(usbdev->net, "media disconnect\n");
+ 
+ 		/* queue work to avoid recursive calls into rndis_command */
+@@ -3104,7 +3104,7 @@ static void rndis_wlan_indication(struct usbnet *usbdev, void *ind, int buflen)
+ 		queue_work(priv->workqueue, &priv->work);
+ 		break;
+ 
+-	case cpu_to_le32(RNDIS_STATUS_MEDIA_SPECIFIC_INDICATION):
++	case RNDIS_STATUS_MEDIA_SPECIFIC_INDICATION:
+ 		rndis_wlan_media_specific_indication(usbdev, msg, buflen);
+ 		break;
+ 
 -- 
 1.7.7.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
