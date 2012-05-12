@@ -1,7 +1,7 @@
 From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH net-next v4 07/13] mac802154: declare reduced mlme operations
-Date: Sat, 12 May 2012 17:59:19 +0400
-Message-ID: <1336831165-23944-8-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH net-next v4 12/13] drivers/ieee802154: IEEE 802.15.4 loopback driver
+Date: Sat, 12 May 2012 17:59:24 +0400
+Message-ID: <1336831165-23944-13-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1336831165-23944-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
@@ -9,53 +9,57 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-we0-f174.google.com ([74.125.82.174]:50719 "EHLO
 	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756144Ab2ELOAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 10:00:20 -0400
+	with ESMTP id S1756144Ab2ELOA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 10:00:27 -0400
 Received: by mail-we0-f174.google.com with SMTP id u7so920892wey.19
-        for <netdev@vger.kernel.org>; Sat, 12 May 2012 07:00:19 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Sat, 12 May 2012 07:00:26 -0700 (PDT)
 In-Reply-To: <1336831165-23944-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Declare set of reduced MAC-commands interface.
+Add support for IEEE 802.15.4 loopback driver - useful development
+and debugging tool.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- net/mac802154/Makefile    |    2 +-
- net/mac802154/mac802154.h |    2 ++
- net/mac802154/mac_cmd.c   |   44 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 47 insertions(+), 1 deletions(-)
- create mode 100644 net/mac802154/mac_cmd.c
+ drivers/ieee802154/Kconfig  |    8 ++
+ drivers/ieee802154/Makefile |    1 +
+ drivers/ieee802154/fakelb.c |  294 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 303 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/ieee802154/fakelb.c
 
-diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-index 490beef..4d9dd0f 100644
---- a/net/mac802154/Makefile
-+++ b/net/mac802154/Makefile
-@@ -1,2 +1,2 @@
- obj-$(CONFIG_MAC802154)	+= mac802154.o
--mac802154-objs		:= ieee802154_dev.o rx.o tx.o
-+mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 5ef4c8b..dde7300 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -86,6 +86,8 @@ struct mac802154_sub_if_data {
+diff --git a/drivers/ieee802154/Kconfig b/drivers/ieee802154/Kconfig
+index 9b9f43a..15c0640 100644
+--- a/drivers/ieee802154/Kconfig
++++ b/drivers/ieee802154/Kconfig
+@@ -19,4 +19,12 @@ config IEEE802154_FAKEHARD
  
- #define MAC802154_MAX_XMIT_ATTEMPTS	3
+           This driver can also be built as a module. To do so say M here.
+ 	  The module will be called 'fakehard'.
++config IEEE802154_FAKELB
++	depends on IEEE802154_DRIVERS && MAC802154
++	tristate "IEEE 802.15.4 loopback driver"
++	---help---
++	  Say Y here to enable the fake driver that can emulate a net
++	  of several interconnected radio devices.
  
-+extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
-+
- netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
- 			 u8 page, u8 chan);
- 
-diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
++	  This driver can also be built as a module. To do so say M here.
++	  The module will be called 'fakelb'.
+diff --git a/drivers/ieee802154/Makefile b/drivers/ieee802154/Makefile
+index 800a389..ea784ea 100644
+--- a/drivers/ieee802154/Makefile
++++ b/drivers/ieee802154/Makefile
+@@ -1 +1,2 @@
+ obj-$(CONFIG_IEEE802154_FAKEHARD) += fakehard.o
++obj-$(CONFIG_IEEE802154_FAKELB) += fakelb.o
+diff --git a/drivers/ieee802154/fakelb.c b/drivers/ieee802154/fakelb.c
 new file mode 100644
-index 0000000..a49ba4e
+index 0000000..6b9501a
 --- /dev/null
-+++ b/net/mac802154/mac_cmd.c
-@@ -0,0 +1,44 @@
++++ b/drivers/ieee802154/fakelb.c
+@@ -0,0 +1,294 @@
 +/*
-+ * MAC commands interface
++ * Loopback IEEE 802.15.4 interface
 + *
 + * Copyright 2007-2011 Siemens AG
 + *
@@ -78,25 +82,275 @@ index 0000000..a49ba4e
 + * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 + */
 +
-+#include <linux/skbuff.h>
-+#include <linux/if_arp.h>
-+#include <net/ieee802154_netdev.h>
-+#include <net/wpan-phy.h>
++#include <linux/module.h>
++#include <linux/timer.h>
++#include <linux/platform_device.h>
++#include <linux/netdevice.h>
++#include <linux/spinlock.h>
 +#include <net/mac802154.h>
++#include <net/wpan-phy.h>
 +
-+#include "mac802154.h"
++static int numlbs = 1;
 +
-+struct wpan_phy *mac802154_get_phy(const struct net_device *dev)
++struct fakelb_dev_priv {
++	struct ieee802154_dev *dev;
++
++	struct list_head list;
++	struct fakelb_priv *fake;
++
++	spinlock_t lock;
++	bool working;
++};
++
++struct fakelb_priv {
++	struct list_head list;
++	rwlock_t lock;
++};
++
++static int
++fakelb_hw_ed(struct ieee802154_dev *dev, u8 *level)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++	might_sleep();
++	BUG_ON(!level);
++	*level = 0xbe;
 +
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	return to_phy(get_device(&priv->hw->phy->dev));
++	return 0;
 +}
 +
-+struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced = {
-+	.get_phy = mac802154_get_phy,
++static int
++fakelb_hw_channel(struct ieee802154_dev *dev, int page, int channel)
++{
++	pr_debug("set channel to %d\n", channel);
++
++	might_sleep();
++	dev->phy->current_page = page;
++	dev->phy->current_channel = channel;
++
++	return 0;
++}
++
++static void
++fakelb_hw_deliver(struct fakelb_dev_priv *priv, struct sk_buff *skb)
++{
++	struct sk_buff *newskb;
++
++	spin_lock(&priv->lock);
++	if (priv->working) {
++		newskb = pskb_copy(skb, GFP_ATOMIC);
++		ieee802154_rx_irqsafe(priv->dev, newskb, 0xcc);
++	}
++	spin_unlock(&priv->lock);
++}
++
++static int
++fakelb_hw_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
++{
++	struct fakelb_dev_priv *priv = dev->priv;
++	struct fakelb_priv *fake = priv->fake;
++
++	might_sleep();
++
++	read_lock_bh(&fake->lock);
++	if (priv->list.next == priv->list.prev) {
++		/* we are the only one device */
++		fakelb_hw_deliver(priv, skb);
++	} else {
++		struct fakelb_dev_priv *dp;
++		list_for_each_entry(dp, &priv->fake->list, list) {
++			if (dp != priv &&
++			    (dp->dev->phy->current_channel ==
++			     priv->dev->phy->current_channel))
++				fakelb_hw_deliver(dp, skb);
++		}
++	}
++	read_unlock_bh(&fake->lock);
++
++	return 0;
++}
++
++static int
++fakelb_hw_start(struct ieee802154_dev *dev) {
++	struct fakelb_dev_priv *priv = dev->priv;
++	int ret = 0;
++
++	spin_lock(&priv->lock);
++	if (priv->working)
++		ret = -EBUSY;
++	else
++		priv->working = 1;
++	spin_unlock(&priv->lock);
++
++	return ret;
++}
++
++static void
++fakelb_hw_stop(struct ieee802154_dev *dev) {
++	struct fakelb_dev_priv *priv = dev->priv;
++
++	spin_lock(&priv->lock);
++	priv->working = 0;
++	spin_unlock(&priv->lock);
++}
++
++static struct ieee802154_ops fakelb_ops = {
++	.owner = THIS_MODULE,
++	.xmit = fakelb_hw_xmit,
++	.ed = fakelb_hw_ed,
++	.set_channel = fakelb_hw_channel,
++	.start = fakelb_hw_start,
++	.stop = fakelb_hw_stop,
 +};
++
++/* Number of dummy devices to be set up by this module. */
++module_param(numlbs, int, 0);
++MODULE_PARM_DESC(numlbs, " number of pseudo devices");
++
++static int fakelb_add_one(struct device *dev, struct fakelb_priv *fake)
++{
++	struct fakelb_dev_priv *priv;
++	int err;
++	struct ieee802154_dev *ieee;
++
++	ieee = ieee802154_alloc_device(sizeof(*priv), &fakelb_ops);
++	if (!ieee)
++		return -ENOMEM;
++
++	priv = ieee->priv;
++	priv->dev = ieee;
++
++	/* 868 MHz BPSK	802.15.4-2003 */
++	ieee->phy->channels_supported[0] |= 1;
++	/* 915 MHz BPSK	802.15.4-2003 */
++	ieee->phy->channels_supported[0] |= 0x7fe;
++	/* 2.4 GHz O-QPSK 802.15.4-2003 */
++	ieee->phy->channels_supported[0] |= 0x7FFF800;
++	/* 868 MHz ASK 802.15.4-2006 */
++	ieee->phy->channels_supported[1] |= 1;
++	/* 915 MHz ASK 802.15.4-2006 */
++	ieee->phy->channels_supported[1] |= 0x7fe;
++	/* 868 MHz O-QPSK 802.15.4-2006 */
++	ieee->phy->channels_supported[2] |= 1;
++	/* 915 MHz O-QPSK 802.15.4-2006 */
++	ieee->phy->channels_supported[2] |= 0x7fe;
++	/* 2.4 GHz CSS 802.15.4a-2007 */
++	ieee->phy->channels_supported[3] |= 0x3fff;
++	/* UWB Sub-gigahertz 802.15.4a-2007 */
++	ieee->phy->channels_supported[4] |= 1;
++	/* UWB Low band 802.15.4a-2007 */
++	ieee->phy->channels_supported[4] |= 0x1e;
++	/* UWB High band 802.15.4a-2007 */
++	ieee->phy->channels_supported[4] |= 0xffe0;
++	/* 750 MHz O-QPSK 802.15.4c-2009 */
++	ieee->phy->channels_supported[5] |= 0xf;
++	/* 750 MHz MPSK 802.15.4c-2009 */
++	ieee->phy->channels_supported[5] |= 0xf0;
++	/* 950 MHz BPSK 802.15.4d-2009 */
++	ieee->phy->channels_supported[6] |= 0x3ff;
++	/* 950 MHz GFSK 802.15.4d-2009 */
++	ieee->phy->channels_supported[6] |= 0x3ffc00;
++
++	INIT_LIST_HEAD(&priv->list);
++	priv->fake = fake;
++
++	spin_lock_init(&priv->lock);
++
++	ieee->parent = dev;
++
++	err = ieee802154_register_device(ieee);
++	if (err)
++		goto err_reg;
++
++	write_lock_bh(&fake->lock);
++	list_add_tail(&priv->list, &fake->list);
++	write_unlock_bh(&fake->lock);
++
++	return 0;
++
++err_reg:
++	ieee802154_free_device(priv->dev);
++	return err;
++}
++
++static void fakelb_del(struct fakelb_dev_priv *priv)
++{
++	write_lock_bh(&priv->fake->lock);
++	list_del(&priv->list);
++	write_unlock_bh(&priv->fake->lock);
++
++	ieee802154_unregister_device(priv->dev);
++	ieee802154_free_device(priv->dev);
++}
++
++static int __devinit fakelb_probe(struct platform_device *pdev)
++{
++	struct fakelb_priv *priv;
++	struct fakelb_dev_priv *dp;
++	int err = -ENOMEM, i;
++
++	priv = kzalloc(sizeof(struct fakelb_priv), GFP_KERNEL);
++	if (!priv)
++		goto err_alloc;
++
++	INIT_LIST_HEAD(&priv->list);
++	rwlock_init(&priv->lock);
++
++	for (i = 0; i < numlbs; i++) {
++		err = fakelb_add_one(&pdev->dev, priv);
++		if (err < 0)
++			goto err_slave;
++	}
++
++	platform_set_drvdata(pdev, priv);
++	dev_info(&pdev->dev, "added ieee802154 hardware\n");
++	return 0;
++
++err_slave:
++	list_for_each_entry(dp, &priv->list, list)
++		fakelb_del(dp);
++	kfree(priv);
++err_alloc:
++	return err;
++}
++
++static int __devexit fakelb_remove(struct platform_device *pdev)
++{
++	struct fakelb_priv *priv = platform_get_drvdata(pdev);
++	struct fakelb_dev_priv *dp, *temp;
++
++	list_for_each_entry_safe(dp, temp, &priv->list, list)
++		fakelb_del(dp);
++	kfree(priv);
++
++	return 0;
++}
++
++static struct platform_device *ieee802154fake_dev;
++
++static struct platform_driver ieee802154fake_driver = {
++	.probe = fakelb_probe,
++	.remove = __devexit_p(fakelb_remove),
++	.driver = {
++			.name = "ieee802154fakelb",
++			.owner = THIS_MODULE,
++	},
++};
++
++static __init int fakelb_init_module(void)
++{
++	ieee802154fake_dev = platform_device_register_simple(
++			"ieee802154fakelb", -1, NULL, 0);
++	return platform_driver_register(&ieee802154fake_driver);
++}
++
++static __exit void fake_remove_module(void)
++{
++	platform_driver_unregister(&ieee802154fake_driver);
++	platform_device_unregister(ieee802154fake_dev);
++}
++
++module_init(fakelb_init_module);
++module_exit(fake_remove_module);
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Dmitry Eremin-Solenikov, Sergey Lapin");
 -- 
 1.7.2.3
