@@ -1,125 +1,76 @@
 From: Gustavo Padovan <gustavo@padovan.org>
-Subject: [PATCH 1/2] Bluetooth: notify userspace of security level change
-Date: Sat, 12 May 2012 16:11:49 -0300
-Message-ID: <1336849910-29064-1-git-send-email-gustavo@padovan.org>
+Subject: [PATCH 2/2] Bluetooth: mgmt: Fix device_connected sending order
+Date: Sat, 12 May 2012 16:11:50 -0300
+Message-ID: <1336849910-29064-2-git-send-email-gustavo@padovan.org>
 References: <20120512190900.GA15956@joana>
+ <1336849910-29064-1-git-send-email-gustavo@padovan.org>
 Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
 	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, Johan Hedberg <johan.hedberg@intel.com>
 To: linville@tuxdriver.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120512190900.GA15956@joana>
+In-Reply-To: <1336849910-29064-1-git-send-email-gustavo@padovan.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the userspace request a security level change it needs to be notified
-of when the change is complete.
-This patch make the socket non writable while the security request is
-ongoing. If it succeeds POLL_OUT is emitted, otherwise the channel is
-disconnected.
+From: Johan Hedberg <johan.hedberg@intel.com>
 
-Signed-off-by: Gustavo Padovan <gustavo@padovan.org>
-Acked-by: Marcel Holtmann <marcel@holtmann.org>
+The mgmt_ev_device_connected signal must be sent before any event
+indications happen for sockets associated with the connection. Otherwise
+e.g. device authorization for the sockets will fail with ENOTCONN as
+user space things that there is no baseband link.
+
+This patch fixes the issue by ensuring that the device_connected event
+if sent (if it hasn't been so already) as soon as the first ACL data
+packet arrives from the remote device.
+
 Signed-off-by: Johan Hedberg <johan.hedberg@intel.com>
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/bluetooth.h |    1 +
- net/bluetooth/af_bluetooth.c      |    2 +-
- net/bluetooth/hci_event.c         |    7 +++++++
- net/bluetooth/l2cap_core.c        |    5 +++++
- net/bluetooth/l2cap_sock.c        |   15 ++++++++++-----
- 5 files changed, 24 insertions(+), 6 deletions(-)
+ net/bluetooth/hci_core.c  |    8 ++++++++
+ net/bluetooth/hci_event.c |    4 ++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
-index 262ebd1..a65910b 100644
---- a/include/net/bluetooth/bluetooth.h
-+++ b/include/net/bluetooth/bluetooth.h
-@@ -191,6 +191,7 @@ struct bt_sock {
- 	struct list_head accept_q;
- 	struct sock *parent;
- 	u32 defer_setup;
-+	bool suspended;
- };
+diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+index a7607e4..b5bab83 100644
+--- a/net/bluetooth/hci_core.c
++++ b/net/bluetooth/hci_core.c
+@@ -2785,6 +2785,14 @@ static inline void hci_acldata_packet(struct hci_dev *hdev, struct sk_buff *skb)
+ 	if (conn) {
+ 		hci_conn_enter_active_mode(conn, BT_POWER_FORCE_ACTIVE_OFF);
  
- struct bt_sock_list {
-diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
-index 72eb187..6fb68a9 100644
---- a/net/bluetooth/af_bluetooth.c
-+++ b/net/bluetooth/af_bluetooth.c
-@@ -450,7 +450,7 @@ unsigned int bt_sock_poll(struct file *file, struct socket *sock, poll_table *wa
- 			sk->sk_state == BT_CONFIG)
- 		return mask;
- 
--	if (sock_writeable(sk))
-+	if (!bt_sk(sk)->suspended && sock_writeable(sk))
- 		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
- 	else
- 		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
++		hci_dev_lock(hdev);
++		if (test_bit(HCI_MGMT, &hdev->dev_flags) &&
++		    !test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
++			mgmt_device_connected(hdev, &conn->dst, conn->type,
++					      conn->dst_type, 0, NULL, 0,
++					      conn->dev_class);
++		hci_dev_unlock(hdev);
++
+ 		/* Send to upper protocol */
+ 		l2cap_recv_acldata(conn, skb, flags);
+ 		return;
 diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
-index 7f87a70..ff38cc6 100644
+index ff38cc6..7d66b8b 100644
 --- a/net/bluetooth/hci_event.c
 +++ b/net/bluetooth/hci_event.c
-@@ -2040,6 +2040,12 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
- 
- 		clear_bit(HCI_CONN_ENCRYPT_PEND, &conn->flags);
- 
-+		if (ev->status && conn->state == BT_CONNECTED) {
-+			hci_acl_disconn(conn, 0x13);
-+			hci_conn_put(conn);
-+			goto unlock;
-+		}
-+
- 		if (conn->state == BT_CONFIG) {
- 			if (!ev->status)
- 				conn->state = BT_CONNECTED;
-@@ -2050,6 +2056,7 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
- 			hci_encrypt_cfm(conn, ev->status, ev->encrypt);
+@@ -2110,7 +2110,7 @@ static inline void hci_remote_features_evt(struct hci_dev *hdev, struct sk_buff
+ 		goto unlock;
  	}
  
-+unlock:
- 	hci_dev_unlock(hdev);
- }
+-	if (!ev->status) {
++	if (!ev->status && !test_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags)) {
+ 		struct hci_cp_remote_name_req cp;
+ 		memset(&cp, 0, sizeof(cp));
+ 		bacpy(&cp.bdaddr, &conn->dst);
+@@ -2879,7 +2879,7 @@ static inline void hci_remote_ext_features_evt(struct hci_dev *hdev, struct sk_b
+ 	if (conn->state != BT_CONFIG)
+ 		goto unlock;
  
-diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
-index 38d934a..c073533 100644
---- a/net/bluetooth/l2cap_core.c
-+++ b/net/bluetooth/l2cap_core.c
-@@ -4590,6 +4590,11 @@ int l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt)
- 
- 		if (!status && (chan->state == BT_CONNECTED ||
- 						chan->state == BT_CONFIG)) {
-+			struct sock *sk = chan->sk;
-+
-+			bt_sk(sk)->suspended = false;
-+			sk->sk_state_change(sk);
-+
- 			l2cap_check_encryption(chan, encrypt);
- 			l2cap_chan_unlock(chan);
- 			continue;
-diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-index 29122ed..4bdacf9 100644
---- a/net/bluetooth/l2cap_sock.c
-+++ b/net/bluetooth/l2cap_sock.c
-@@ -592,11 +592,16 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
- 			sk->sk_state = BT_CONFIG;
- 			chan->state = BT_CONFIG;
- 
--		/* or for ACL link, under defer_setup time */
--		} else if (sk->sk_state == BT_CONNECT2 &&
--					bt_sk(sk)->defer_setup) {
--			err = l2cap_chan_check_security(chan);
--		} else {
-+		/* or for ACL link */
-+		} else if ((sk->sk_state == BT_CONNECT2 &&
-+			   bt_sk(sk)->defer_setup) ||
-+			   sk->sk_state == BT_CONNECTED) {
-+			if (!l2cap_chan_check_security(chan))
-+				bt_sk(sk)->suspended = true;
-+			else
-+				sk->sk_state_change(sk);
-+		}
-+		else {
- 			err = -EINVAL;
- 		}
- 		break;
+-	if (!ev->status) {
++	if (!ev->status && !test_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags)) {
+ 		struct hci_cp_remote_name_req cp;
+ 		memset(&cp, 0, sizeof(cp));
+ 		bacpy(&cp.bdaddr, &conn->dst);
 -- 
 1.7.10.1
