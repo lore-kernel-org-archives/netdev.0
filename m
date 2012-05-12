@@ -1,62 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 06/12] ixgbe: Hardware Timestamping + PTP Hardware
- Clock (PHC)
-Date: Sat, 12 May 2012 07:34:59 +0200
-Message-ID: <20120512053458.GC2190@netboy.at.omicron.at>
-References: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1336632413-19135-7-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120510141122.GB3392@localhost.localdomain>
- <02874ECE860811409154E81DA85FBB580779423F@ORSMSX105.amr.corp.intel.com>
- <20120511051509.GA2170@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB58077949E8@ORSMSX105.amr.corp.intel.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH RFC 1/6] skbuff: support per-page destructors in
+ copy_ubufs
+Date: Sat, 12 May 2012 07:01:24 +0100
+Message-ID: <1336802484.3891.24.camel@dagon.hellion.org.uk>
+References: <cover.1336397823.git.mst@redhat.com>
+	 <8a3235fbceef37758ef23169c4c152e8d1251d3b.1336397823.git.mst@redhat.com>
+	 <1336671977.14220.26.camel@zakaz.uk.xensource.com>
+	 <20120510184246.GE14647@redhat.com>
+	 <1336726800.23818.33.camel@zakaz.uk.xensource.com>
+	 <1336733892.23818.69.camel@zakaz.uk.xensource.com>
+	 <20120511120836.GA4637@redhat.com> <20120511163057.GB10344@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:42656 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751614Ab2ELFfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 01:35:10 -0400
-Received: by bkcji2 with SMTP id ji2so2731280bkc.19
-        for <netdev@vger.kernel.org>; Fri, 11 May 2012 22:35:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <02874ECE860811409154E81DA85FBB58077949E8@ORSMSX105.amr.corp.intel.com>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:13425 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742Ab2ELGB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 02:01:26 -0400
+In-Reply-To: <20120511163057.GB10344@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 11, 2012 at 07:23:44PM +0000, Keller, Jacob E wrote:
+On Fri, 2012-05-11 at 17:30 +0100, Michael S. Tsirkin wrote:
+> On Fri, May 11, 2012 at 03:08:36PM +0300, Michael S. Tsirkin wrote:
+> > On Fri, May 11, 2012 at 11:58:12AM +0100, Ian Campbell wrote:
+> > > On Fri, 2012-05-11 at 10:00 +0100, Ian Campbell wrote:
+> > > > I'm seeing copy_ubufs called in my remote NFS test, which I don't
+> > > > think I expected -- I'll investigate why this is happening today. 
+> > > 
+> > > It's tcp_transmit_skb which can (conditionally) call skb_clone
+> > > (backtrace below)
+> > 
+> > Interesting. I didn't realise we clone skbs on data path:
+> > tcp_write_xmit calls tcp_transmit_skb with clone_it flag.
+> > Could someone comment on why we need to clone on good path
+> > like this?
 > 
->
-> I believe this very rare case might be possible, but I don't think
-> that checking the ptp seqid will fix anything. In normal cases,
-> hardware latches Rx packet timestamp, then the ptp packet goes into
-> the queue and we process it shortly after. Before we process that
-> packet there will never be another packet in the queue that needs a
-> timestamp. We know this because the hardware stops timestamping
-> until we unlatch the RX registers. This should mean we don't need to
-> check the sequence ID, and spending time doing it would never fix
-> the issue you are talking about.
->
-> The issue is for when a packet is timestamped and then never reaches
-> the queue. Then the rx stamp registers are locked for good, because
-> we never clear them, and hardware would never timestamp another
-> receive packet. I don't know a good solution to this, except to
-> clear the registers periodically. Do you have any suggestions?
+> Hmm, it's in case we need to retransmit it later.
 
-Well, one solution would be to check every received packet with the
-BPF in ptp_classify.h (whenever Rx time stamping is enabled).
+I wonder if we could avoid the copy_ubuf in this particular clone path
+and have any subsequent calls to copy_ubufs use skb->fclone to determine
+if it can safely replace the frags?
 
-When the driver finds an event packet in the Rx queue, and
-TSYNCRXCTL[RXTT] is set, it reads out the time stamp along with
-RXSATRL/H. If the fields match, then add the time stamp to the skb.
+If it cannot then could it do a full copy of the skb (including new
+shinfo, new frag pages etc) as a fallback?
 
-[ Or perhaps instead of using RXSATRL/H, just use the descriptor bit.
-  If *not* set, then the time stamp does not belong to this packet. ]
-
-HTH,
-Richard
+Ian.
