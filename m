@@ -1,172 +1,232 @@
 From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH net-next v4 04/13] mac802154: TX data path
-Date: Sat, 12 May 2012 17:59:16 +0400
-Message-ID: <1336831165-23944-5-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH net-next v4 10/13] mac802154: slaves manipulation routine
+Date: Sat, 12 May 2012 17:59:22 +0400
+Message-ID: <1336831165-23944-11-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1336831165-23944-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:50719 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756077Ab2ELOAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 10:00:15 -0400
-Received: by mail-we0-f174.google.com with SMTP id u7so920892wey.19
-        for <netdev@vger.kernel.org>; Sat, 12 May 2012 07:00:15 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:47024 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756180Ab2ELOAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 10:00:24 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hj8so359000wib.1
+        for <netdev@vger.kernel.org>; Sat, 12 May 2012 07:00:23 -0700 (PDT)
 In-Reply-To: <1336831165-23944-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Main TX data path implementation between upper and physical layers.
+This patch adds functionality for registration and removing slaves
+in the system.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- net/mac802154/Makefile    |    2 +-
- net/mac802154/mac802154.h |    5 ++
- net/mac802154/tx.c        |  113 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 119 insertions(+), 1 deletions(-)
- create mode 100644 net/mac802154/tx.c
+ net/mac802154/ieee802154_dev.c |  142 ++++++++++++++++++++++++++++++++++++++++
+ net/mac802154/mac802154.h      |    3 +
+ 2 files changed, 145 insertions(+), 0 deletions(-)
 
-diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-index e00fe47..490beef 100644
---- a/net/mac802154/Makefile
-+++ b/net/mac802154/Makefile
-@@ -1,2 +1,2 @@
- obj-$(CONFIG_MAC802154)	+= mac802154.o
--mac802154-objs		:= ieee802154_dev.o rx.o
-+mac802154-objs		:= ieee802154_dev.o rx.o tx.o
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+index 288a2b0..44e0317 100644
+--- a/net/mac802154/ieee802154_dev.c
++++ b/net/mac802154/ieee802154_dev.c
+@@ -19,13 +19,141 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
++#include <net/netlink.h>
+ #include <net/route.h>
+ 
++#include <linux/nl802154.h>
+ #include <net/mac802154.h>
+ #include <net/wpan-phy.h>
+ 
+ #include "mac802154.h"
+ 
++int mac802154_slave_open(struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++	struct mac802154_priv *ipriv = priv->hw;
++	int res = 0;
++
++	if (ipriv->open_count++ == 0) {
++		res = ipriv->ops->start(&ipriv->hw);
++		WARN_ON(res);
++		if (res)
++			goto err;
++	}
++
++	if (ipriv->ops->ieee_addr) {
++		res = ipriv->ops->ieee_addr(&ipriv->hw, dev->dev_addr);
++		WARN_ON(res);
++		if (res)
++			goto err;
++		mac802154_dev_set_ieee_addr(dev);
++	}
++
++	netif_start_queue(dev);
++	return 0;
++err:
++	priv->hw->open_count--;
++
++	return res;
++}
++
++int mac802154_slave_close(struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++	struct mac802154_priv *ipriv = priv->hw;
++
++	netif_stop_queue(dev);
++
++	if (!--ipriv->open_count)
++		ipriv->ops->stop(&ipriv->hw);
++
++	return 0;
++}
++
++static int
++mac802154_netdev_register(struct wpan_phy *phy, struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv;
++	struct mac802154_priv *ipriv;
++	int err;
++
++	ipriv = wpan_phy_priv(phy);
++
++	priv = netdev_priv(dev);
++	priv->dev = dev;
++	priv->hw = ipriv;
++
++	dev->needed_headroom = ipriv->hw.extra_tx_headroom;
++
++	SET_NETDEV_DEV(dev, &ipriv->phy->dev);
++
++	mutex_lock(&ipriv->slaves_mtx);
++	if (!ipriv->running) {
++		mutex_unlock(&ipriv->slaves_mtx);
++		return -ENODEV;
++	}
++	mutex_unlock(&ipriv->slaves_mtx);
++
++	err = register_netdev(dev);
++	if (err < 0)
++		return err;
++
++	rtnl_lock();
++	mutex_lock(&ipriv->slaves_mtx);
++	list_add_tail_rcu(&priv->list, &ipriv->slaves);
++	mutex_unlock(&ipriv->slaves_mtx);
++	rtnl_unlock();
++
++	return 0;
++}
++
++static void
++mac802154_del_iface(struct wpan_phy *phy, struct net_device *dev)
++{
++	struct mac802154_sub_if_data *sdata;
++	ASSERT_RTNL();
++
++	sdata = netdev_priv(dev);
++
++	BUG_ON(sdata->hw->phy != phy);
++
++	mutex_lock(&sdata->hw->slaves_mtx);
++	list_del_rcu(&sdata->list);
++	mutex_unlock(&sdata->hw->slaves_mtx);
++
++	synchronize_rcu();
++	unregister_netdevice(sdata->dev);
++}
++
++static struct net_device *
++mac802154_add_iface(struct wpan_phy *phy, const char *name, int type)
++{
++	struct net_device *dev;
++	int err = -ENOMEM;
++
++	/* No devices is currently supported */
++	switch (type) {
++	default:
++		dev = NULL;
++		err = -EINVAL;
++		break;
++	}
++	if (!dev)
++		goto err;
++
++	err = mac802154_netdev_register(phy, dev);
++	if (err)
++		goto err_free;
++
++	dev_hold(dev); /* we return a device w/ incremented refcount */
++	return dev;
++
++err_free:
++	free_netdev(dev);
++err:
++	return ERR_PTR(err);
++}
++
+ struct ieee802154_dev *
+ ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
+ {
+@@ -84,6 +212,8 @@ void ieee802154_free_device(struct ieee802154_dev *hw)
+ {
+ 	struct mac802154_priv *priv = mac802154_to_priv(hw);
+ 
++	BUG_ON(!list_empty(&priv->slaves));
++
+ 	wpan_phy_free(priv->phy);
+ 
+ 	mutex_destroy(&priv->slaves_mtx);
+@@ -102,6 +232,9 @@ int ieee802154_register_device(struct ieee802154_dev *dev)
+ 
+ 	wpan_phy_set_dev(priv->phy, priv->hw.parent);
+ 
++	priv->phy->add_iface = mac802154_add_iface;
++	priv->phy->del_iface = mac802154_del_iface;
++
+ 	rc = wpan_phy_register(priv->phy);
+ 	if (rc < 0)
+ 		goto out_wq;
+@@ -126,6 +259,7 @@ EXPORT_SYMBOL(ieee802154_register_device);
+ void ieee802154_unregister_device(struct ieee802154_dev *dev)
+ {
+ 	struct mac802154_priv *priv = mac802154_to_priv(dev);
++	struct mac802154_sub_if_data *sdata, *next;
+ 
+ 	flush_workqueue(priv->dev_workqueue);
+ 	destroy_workqueue(priv->dev_workqueue);
+@@ -136,6 +270,14 @@ void ieee802154_unregister_device(struct ieee802154_dev *dev)
+ 	priv->running = MAC802154_DEVICE_STOPPED;
+ 	mutex_unlock(&priv->slaves_mtx);
+ 
++	list_for_each_entry_safe(sdata, next, &priv->slaves, list) {
++		mutex_lock(&sdata->hw->slaves_mtx);
++		list_del(&sdata->list);
++		mutex_unlock(&sdata->hw->slaves_mtx);
++
++		unregister_netdevice(sdata->dev);
++	}
++
+ 	rtnl_unlock();
+ 
+ 	wpan_phy_unregister(priv->phy);
 diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 7a118e9..7606ba9 100644
+index 56d7a93..5c96b2d 100644
 --- a/net/mac802154/mac802154.h
 +++ b/net/mac802154/mac802154.h
-@@ -59,4 +59,9 @@ struct mac802154_priv {
+@@ -88,6 +88,9 @@ struct mac802154_sub_if_data {
  
- #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
+ extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
  
-+#define MAC802154_MAX_XMIT_ATTEMPTS	3
++int mac802154_slave_open(struct net_device *dev);
++int mac802154_slave_close(struct net_device *dev);
 +
-+netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
-+			 u8 page, u8 chan);
-+
- #endif /* MAC802154_H */
-diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
-new file mode 100644
-index 0000000..e62f915
---- /dev/null
-+++ b/net/mac802154/tx.c
-@@ -0,0 +1,113 @@
-+/*
-+ * Copyright 2007-2011 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ * Written by:
-+ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-+ * Sergey Lapin <slapin@ossfans.org>
-+ * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
-+ * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-+ */
-+
-+#include <linux/netdevice.h>
-+#include <linux/if_arp.h>
-+#include <linux/crc-ccitt.h>
-+
-+#include <net/mac802154.h>
-+#include <net/wpan-phy.h>
-+
-+#include "mac802154.h"
-+
-+struct xmit_work {
-+	struct sk_buff *skb;
-+	struct work_struct work;
-+	struct mac802154_priv *priv;
-+	u8 page;
-+	u8 chan;
-+	u8 xmit_attempts;
-+};
-+
-+static void mac802154_xmit_worker(struct work_struct *work)
-+{
-+	struct xmit_work *xw = container_of(work, struct xmit_work, work);
-+	int res;
-+
-+	mutex_lock(&xw->priv->phy->pib_lock);
-+	if (xw->priv->phy->current_channel != xw->chan ||
-+	    xw->priv->phy->current_page != xw->page) {
-+		res = xw->priv->ops->set_channel(&xw->priv->hw,
-+						  xw->page,
-+						  xw->chan);
-+		if (res) {
-+			pr_debug("set_channel failed\n");
-+			goto out;
-+		}
-+	}
-+
-+	res = xw->priv->ops->xmit(&xw->priv->hw, xw->skb);
-+
-+out:
-+	mutex_unlock(&xw->priv->phy->pib_lock);
-+
-+	if (res) {
-+		if (xw->xmit_attempts++ < MAC802154_MAX_XMIT_ATTEMPTS) {
-+			queue_work(xw->priv->dev_workqueue, &xw->work);
-+			return;
-+		} else
-+			pr_debug("transmission failed for %d times",
-+				  MAC802154_MAX_XMIT_ATTEMPTS);
-+	}
-+
-+	dev_kfree_skb(xw->skb);
-+
-+	kfree(xw);
-+}
-+
-+netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
-+			 u8 page, u8 chan)
-+{
-+	struct xmit_work *work;
-+
-+	if (!(priv->phy->channels_supported[page] & (1 << chan)))
-+		WARN_ON(1);
-+		return NETDEV_TX_OK;
-+
-+	if (!(priv->hw.flags & IEEE802154_HW_OMIT_CKSUM)) {
-+		u16 crc = crc_ccitt(0, skb->data, skb->len);
-+		u8 *data = skb_put(skb, 2);
-+		data[0] = crc & 0xff;
-+		data[1] = crc >> 8;
-+	}
-+
-+	if (skb_cow_head(skb, priv->hw.extra_tx_headroom)) {
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	work = kzalloc(sizeof(struct xmit_work), GFP_ATOMIC);
-+	if (!work)
-+		return NETDEV_TX_BUSY;
-+
-+	INIT_WORK(&work->work, mac802154_xmit_worker);
-+	work->skb = skb;
-+	work->priv = priv;
-+	work->page = page;
-+	work->chan = chan;
-+	work->xmit_attempts = 0;
-+
-+	queue_work(priv->dev_workqueue, &work->work);
-+
-+	return NETDEV_TX_OK;
-+}
+ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
+ 			 u8 page, u8 chan);
+ 
 -- 
 1.7.2.3
