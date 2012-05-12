@@ -1,34 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 00/17 v5] usb/net: rndis: first step toward
- consolidation
-Date: Sat, 12 May 2012 15:22:17 -0400 (EDT)
-Message-ID: <20120512.152217.1750282905566934209.davem@davemloft.net>
-References: <1336810518-2514-1-git-send-email-linus.walleij@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 0/2][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 12 May 2012 15:22:59 -0400 (EDT)
+Message-ID: <20120512.152259.129063933510245955.davem@davemloft.net>
+References: <1336813918-11725-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, jussi.kivilinna-E01nCVcF24I@public.gmane.org,
-	haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
-	ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org
-To: linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1336810518-2514-1-git-send-email-linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43956 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753888Ab2ELTXD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 May 2012 15:23:03 -0400
+In-Reply-To: <1336813918-11725-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Linus Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Date: Sat, 12 May 2012 10:15:18 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat, 12 May 2012 02:11:56 -0700
 
-> A fifth iteration of the first steps of RNDIS consolidation.
+> This series of patches contains updates for igb.  Most notably,
+> the addition of i210 & i211 support.
 > 
-> This version mainly address byte order issues found with
-> sparse by Jussi Kivilinna, his fixes are folded into patch 1.
-> At the end I have added Jussis patches cleaning up rndis_host and
-> rndis_wlan based on top of this series.
+> v2: fix up patch 2 based on feedback from David Miller
+> 
+> The following are changes since commit 06a4c1c55dbe5d9f7a708e8f1a52fd2ac8e5874f:
+>   6lowpan: IPv6 link local address
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-ALl applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks.
