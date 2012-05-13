@@ -1,90 +1,37 @@
-From: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH resend] sunrpc: fix kernel-doc warnings
-Date: Sun, 13 May 2012 10:35:40 -0700
-Message-ID: <4FAFF0EC.7080504@xenotime.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] openvswitch: checking wrong variable in
+ queue_userspace_packet()
+Date: Sun, 13 May 2012 21:44:18 +0300
+Message-ID: <20120513184418.GB16541@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, dev@openvswitch.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:34004 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752256Ab2EMSod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 May 2012 14:44:33 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
+"skb" is non-NULL here, for example we dereference it in skb_clone().
+The intent was to test "nskb" which was just set.
 
-Fix kernel-doc warnings in sunrpc/rpc_pipe.c and
-sunrpc/rpcb_clnt.c:
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Warning(net/sunrpc/rpcb_clnt.c:428): No description found for parameter 'net'
-Warning(net/sunrpc/rpcb_clnt.c:567): No description found for parameter 'net'
-
-Warning(net/sunrpc/rpc_pipe.c:133): No description found for parameter 'pipe'
-Warning(net/sunrpc/rpc_pipe.c:133): Excess function parameter 'inode' description in 'rpc_queue_upcall'
-Warning(net/sunrpc/rpc_pipe.c:839): No description found for parameter 'pipe'
-Warning(net/sunrpc/rpc_pipe.c:839): Excess function parameter 'ops' description in 'rpc_mkpipe_dentry'
-Warning(net/sunrpc/rpc_pipe.c:839): Excess function parameter 'flags' description in 'rpc_mkpipe_dentry'
-Warning(net/sunrpc/rpc_pipe.c:949): No description found for parameter 'dentry'
-Warning(net/sunrpc/rpc_pipe.c:949): Excess function parameter 'clnt' description in 'rpc_remove_client_dir'
-
-Signed-off-by: Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>
----
- net/sunrpc/rpc_pipe.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
---- lnx-34-rc3.orig/net/sunrpc/rpcb_clnt.c
-+++ lnx-34-rc3/net/sunrpc/rpcb_clnt.c
-@@ -394,6 +394,7 @@ static int rpcb_register_call(struct rpc
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index fe28562..2c74daa 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -321,7 +321,7 @@ static int queue_userspace_packet(int dp_ifindex, struct sk_buff *skb,
+ 			return -ENOMEM;
  
- /**
-  * rpcb_register - set or unset a port registration with the local rpcbind svc
-+ * @net: target network namespace
-  * @prog: RPC program number to bind
-  * @vers: RPC version number to bind
-  * @prot: transport protocol to register
-@@ -521,6 +522,7 @@ static int rpcb_unregister_all_protofami
+ 		nskb = __vlan_put_tag(nskb, vlan_tx_tag_get(nskb));
+-		if (!skb)
++		if (!nskb)
+ 			return -ENOMEM;
  
- /**
-  * rpcb_v4_register - set or unset a port registration with the local rpcbind
-+ * @net: target network namespace
-  * @program: RPC program number of service to (un)register
-  * @version: RPC version number of service to (un)register
-  * @address: address family, IP address, and port to (un)register
---- lnx-34-rc3.orig/net/sunrpc/rpc_pipe.c
-+++ lnx-34-rc3/net/sunrpc/rpc_pipe.c
-@@ -120,7 +120,7 @@ EXPORT_SYMBOL_GPL(rpc_pipe_generic_upcal
- 
- /**
-  * rpc_queue_upcall - queue an upcall message to userspace
-- * @inode: inode of upcall pipe on which to queue given message
-+ * @pipe: upcall pipe on which to queue given message
-  * @msg: message to queue
-  *
-  * Call with an @inode created by rpc_mkpipe() to queue an upcall.
-@@ -819,9 +819,7 @@ static int rpc_rmdir_depopulate(struct d
-  * @parent: dentry of directory to create new "pipe" in
-  * @name: name of pipe
-  * @private: private data to associate with the pipe, for the caller's use
-- * @ops: operations defining the behavior of the pipe: upcall, downcall,
-- *	release_pipe, open_pipe, and destroy_msg.
-- * @flags: rpc_pipe flags
-+ * @pipe: &rpc_pipe containing input parameters
-  *
-  * Data is made available for userspace to read by calls to
-  * rpc_queue_upcall().  The actual reads will result in calls to
-@@ -943,7 +941,7 @@ struct dentry *rpc_create_client_dir(str
- 
- /**
-  * rpc_remove_client_dir - Remove a directory created with rpc_create_client_dir()
-- * @clnt: rpc client
-+ * @dentry: dentry for the pipe
-  */
- int rpc_remove_client_dir(struct dentry *dentry)
- {
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 		nskb->vlan_tci = 0;
