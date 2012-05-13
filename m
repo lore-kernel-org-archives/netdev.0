@@ -1,73 +1,128 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: bluetooth 2012-05-04
-Date: Sun, 13 May 2012 07:31:21 +0300
-Message-ID: <20120513043121.GA22845@x220.P-661HNU-F1>
-References: <20120505001243.GC23728@joana>
- <20120508070211.GB11843@joana>
- <20120511201620.GD7620@joana>
- <20120512182227.GA30574@tuxdriver.com>
- <20120512190900.GA15956@joana>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120512190900.GA15956@joana>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH 1/2] Bluetooth: notify userspace of security level change
+Date: Sun, 13 May 2012 03:20:07 -0300
+Message-ID: <1336890007-10646-1-git-send-email-gustavo@padovan.org>
+References: <1336849910-29064-2-git-send-email-gustavo@padovan.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1336849910-29064-2-git-send-email-gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+It fixes L2CAP socket based security level elevation during a
+connection. The HID profile needs this (for keyboards) and it is the only
+way to achieve the security level elevation when using the management
+interface to talk to the kernel (hence the management enabling patch
+being the one that exposes this issue).
 
-On Sat, May 12, 2012, Gustavo Padovan wrote:
-> In my point of view there are two commits there that are really necessary:
-> 
-> Gustavo Padovan (2):
->       Bluetooth: report the right security level in getsockopt
-> 
-> Johan Hedberg (2):
->       Bluetooth: mgmt: Fix device_connected sending order
-> 
-> They fix a userspace breakage caused by:
-> 
-> Author: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-> Date:   Mon Feb 20 21:24:37 2012 +0100
-> 
->     Bluetooth: Always enable management interface
->     
->     The management interface API has reached stable version 1.0 and thus
->     it can now be always enabled. All future changes will be made backwards
->     compatible.
->     
->     Signed-off-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
->     Signed-off-by: Johan Hedberg <johan.hedberg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> 
-> 
-> This cause no crash, but it make bluetooth keyboards stop to work with Linux.
-> This a serious breakage IMO. I really would like to see at least these two
-> patches in. The other fixes can wait.
+It enables the userspace a security level change when the socket is
+already connected and create a way to notify the socket the result of the
+request. At the moment of the request the socket is made non writable, if
+the request fails the connections closes, otherwise the socket is made
+writable again, POLL_OUT is emmited.
 
-I'd just like to add some further background since I don't think it's
-that obvious how these are regression fixes:
+Signed-off-by: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Acked-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Signed-off-by: Johan Hedberg <johan.hedberg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+---
+ include/net/bluetooth/bluetooth.h |    1 +
+ net/bluetooth/af_bluetooth.c      |    2 +-
+ net/bluetooth/hci_event.c         |    7 +++++++
+ net/bluetooth/l2cap_core.c        |    5 +++++
+ net/bluetooth/l2cap_sock.c        |   12 ++++++++----
+ 5 files changed, 22 insertions(+), 5 deletions(-)
 
-The device_connected fix should be quite self-explanatory, but it's
-actually a wider issue than just for keyboards. All profiles that do
-incoming connection authorization (e.g. headsets) will break without it
-with specific hardware. The reason it wasn't caught earlier is that it
-only occurs with specific Bluetooth adapters.
-
-As for the security level patch, this fixes L2CAP socket based security
-level elevation during a connection. The HID profile needs this (for
-keyboards) and it is the only way to achieve the security level
-elevation when using the management interface to talk to the kernel
-(hence the management enabling patch being the one that exposes this
-issue).
-
-Johan
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/bluetooth/bluetooth.h b/include/net/bluetooth/bluetooth.h
+index 262ebd1..a65910b 100644
+--- a/include/net/bluetooth/bluetooth.h
++++ b/include/net/bluetooth/bluetooth.h
+@@ -191,6 +191,7 @@ struct bt_sock {
+ 	struct list_head accept_q;
+ 	struct sock *parent;
+ 	u32 defer_setup;
++	bool suspended;
+ };
+ 
+ struct bt_sock_list {
+diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+index 72eb187..6fb68a9 100644
+--- a/net/bluetooth/af_bluetooth.c
++++ b/net/bluetooth/af_bluetooth.c
+@@ -450,7 +450,7 @@ unsigned int bt_sock_poll(struct file *file, struct socket *sock, poll_table *wa
+ 			sk->sk_state == BT_CONFIG)
+ 		return mask;
+ 
+-	if (sock_writeable(sk))
++	if (!bt_sk(sk)->suspended && sock_writeable(sk))
+ 		mask |= POLLOUT | POLLWRNORM | POLLWRBAND;
+ 	else
+ 		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
+diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
+index 7f87a70..ff38cc6 100644
+--- a/net/bluetooth/hci_event.c
++++ b/net/bluetooth/hci_event.c
+@@ -2040,6 +2040,12 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
+ 
+ 		clear_bit(HCI_CONN_ENCRYPT_PEND, &conn->flags);
+ 
++		if (ev->status && conn->state == BT_CONNECTED) {
++			hci_acl_disconn(conn, 0x13);
++			hci_conn_put(conn);
++			goto unlock;
++		}
++
+ 		if (conn->state == BT_CONFIG) {
+ 			if (!ev->status)
+ 				conn->state = BT_CONNECTED;
+@@ -2050,6 +2056,7 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
+ 			hci_encrypt_cfm(conn, ev->status, ev->encrypt);
+ 	}
+ 
++unlock:
+ 	hci_dev_unlock(hdev);
+ }
+ 
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index 38d934a..c073533 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -4590,6 +4590,11 @@ int l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt)
+ 
+ 		if (!status && (chan->state == BT_CONNECTED ||
+ 						chan->state == BT_CONFIG)) {
++			struct sock *sk = chan->sk;
++
++			bt_sk(sk)->suspended = false;
++			sk->sk_state_change(sk);
++
+ 			l2cap_check_encryption(chan, encrypt);
+ 			l2cap_chan_unlock(chan);
+ 			continue;
+diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+index 29122ed..04e7c17 100644
+--- a/net/bluetooth/l2cap_sock.c
++++ b/net/bluetooth/l2cap_sock.c
+@@ -592,10 +592,14 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
+ 			sk->sk_state = BT_CONFIG;
+ 			chan->state = BT_CONFIG;
+ 
+-		/* or for ACL link, under defer_setup time */
+-		} else if (sk->sk_state == BT_CONNECT2 &&
+-					bt_sk(sk)->defer_setup) {
+-			err = l2cap_chan_check_security(chan);
++		/* or for ACL link */
++		} else if ((sk->sk_state == BT_CONNECT2 &&
++			   bt_sk(sk)->defer_setup) ||
++			   sk->sk_state == BT_CONNECTED) {
++			if (!l2cap_chan_check_security(chan))
++				bt_sk(sk)->suspended = true;
++			else
++				sk->sk_state_change(sk);
+ 		} else {
+ 			err = -EINVAL;
+ 		}
+-- 
+1.7.10.1
