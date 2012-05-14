@@ -1,57 +1,61 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 4/8] batman-adv: refactor window_protected to avoid unnecessary return statement
-Date: Mon, 14 May 2012 09:17:34 +0200
-Message-ID: <1336979858-13928-5-git-send-email-ordex@autistici.org>
+Subject: [PATCH 5/8] batman-adv: use shorter pr_warn instead of pr_warning
+Date: Mon, 14 May 2012 09:17:35 +0200
+Message-ID: <1336979858-13928-6-git-send-email-ordex@autistici.org>
 References: <1336979858-13928-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
+	Sven Eckelmann <sven@narfation.org>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:51771 "EHLO
+Received: from investici.nine.ch ([217.150.252.179]:51725 "EHLO
 	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754601Ab2ENHRL (ORCPT
+	with ESMTP id S1754668Ab2ENHRL (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 03:17:11 -0400
 In-Reply-To: <1336979858-13928-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek@yahoo.de>
+From: Sven Eckelmann <sven@narfation.org>
 
-Reported-by: David Laight <David.Laight@aculab.com>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/routing.c |   15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+ net/batman-adv/hard-interface.c |    6 +++---
+ net/batman-adv/send.c           |    4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index b1824bb..840e2c6 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -234,17 +234,14 @@ int window_protected(struct bat_priv *bat_priv, int32_t seq_num_diff,
- {
- 	if ((seq_num_diff <= -TQ_LOCAL_WINDOW_SIZE) ||
- 	    (seq_num_diff >= EXPECTED_SEQNO_RANGE)) {
--		if (has_timed_out(*last_reset, RESET_PROTECTION_MS)) {
--
--			*last_reset = jiffies;
--			bat_dbg(DBG_BATMAN, bat_priv,
--				"old packet received, start protection\n");
--
--			return 0;
--		} else {
-+		if (!has_timed_out(*last_reset, RESET_PROTECTION_MS))
- 			return 1;
--		}
-+
-+		*last_reset = jiffies;
-+		bat_dbg(DBG_BATMAN, bat_priv,
-+			"old packet received, start protection\n");
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 0b84bb1..dc334fa 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -173,9 +173,9 @@ static void check_known_mac_addr(const struct net_device *net_dev)
+ 				 net_dev->dev_addr))
+ 			continue;
+ 
+-		pr_warning("The newly added mac address (%pM) already exists on: %s\n",
+-			   net_dev->dev_addr, hard_iface->net_dev->name);
+-		pr_warning("It is strongly recommended to keep mac addresses unique to avoid problems!\n");
++		pr_warn("The newly added mac address (%pM) already exists on: %s\n",
++			net_dev->dev_addr, hard_iface->net_dev->name);
++		pr_warn("It is strongly recommended to keep mac addresses unique to avoid problems!\n");
  	}
-+
- 	return 0;
+ 	rcu_read_unlock();
  }
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 8e74d97..f47299f 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -45,8 +45,8 @@ int send_skb_packet(struct sk_buff *skb, struct hard_iface *hard_iface,
+ 		goto send_skb_err;
+ 
+ 	if (!(hard_iface->net_dev->flags & IFF_UP)) {
+-		pr_warning("Interface %s is not up - can't send packet via that interface!\n",
+-			   hard_iface->net_dev->name);
++		pr_warn("Interface %s is not up - can't send packet via that interface!\n",
++			hard_iface->net_dev->name);
+ 		goto send_skb_err;
+ 	}
  
 -- 
 1.7.9.4
