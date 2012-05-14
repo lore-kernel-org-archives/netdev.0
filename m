@@ -1,40 +1,44 @@
 From: Jan Engelhardt <jengelh@inai.de>
-Subject: RE: [PATCH 2/6] netfilter: decnet: switch hook PFs to nfproto
-Date: Mon, 14 May 2012 17:06:50 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1205141706410.11548@frira.vanv.qr>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F0A@saturn3.aculab.com>
+Subject: Re: [PATCH] [RFC] netfilter: don't assume NFPROTO_* are like PF_*
+Date: Mon, 14 May 2012 17:09:54 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1205141707490.11548@frira.vanv.qr>
+References: <1337003909-2582-1-git-send-email-alban.crequy@collabora.co.uk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alban Crequy <alban.crequy@collabora.co.uk>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>,
 	Vincent Sanders <vincent.sanders@collabora.co.uk>,
 	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+To: Alban Crequy <alban.crequy@collabora.co.uk>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F0A@saturn3.aculab.com>
+In-Reply-To: <1337003909-2582-1-git-send-email-alban.crequy@collabora.co.uk>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 2012-05-14 16:18, David Laight wrote:
 
+On Monday 2012-05-14 15:58, Alban Crequy wrote:
+>--- a/include/linux/netfilter.h
+>+++ b/include/linux/netfilter.h
+>@@ -62,11 +62,11 @@ enum nf_inet_hooks {
 > 
->> NFPROTO_* constants were usually equal to PF_* constants but it is not
->> necessary and it will waste less memory if we don't do so 
->> (see commit 7e9c6e
->> "netfilter: Introduce NFPROTO_* constants")
->...
->>  
->>  static struct nf_hook_ops dnrmg_ops __read_mostly = {
->>  	.hook		= dnrmg_hook,
->> -	.pf		= PF_DECnet,
->> +	.pf		= NFPROTO_DECNET,
->>  	.hooknum	= NF_DN_ROUTE,
->>  	.priority	= NF_DN_PRI_DNRTMSG,
->>  };
->
->Might it be worth renaming the .pf member to (say) .nfproto
->to help avoid confusion?
+> enum {
+> 	NFPROTO_UNSPEC =  0,
+>-	NFPROTO_IPV4   =  2,
+>-	NFPROTO_ARP    =  3,
+>-	NFPROTO_BRIDGE =  7,
+>-	NFPROTO_IPV6   = 10,
+>-	NFPROTO_DECNET = 12,
+>+	NFPROTO_IPV4,
+>+	NFPROTO_ARP,
+>+	NFPROTO_BRIDGE,
+>+	NFPROTO_IPV6,
+>+	NFPROTO_DECNET,
+> 	NFPROTO_NUMPROTO,
+> };
 
-Yes that seems like a sensible thing.
+This must not be changed under any circumstances. It is exported to
+and used by userspace. (Except perhaps for NFPROTO_DECNET, which
+refers to a quite dead protocol that I think no user parts have ever
+used NFPROTO_DECNET.) I would consider it acceptable to change the
+value for NFPROTO_DECNET if Pablo joins.
