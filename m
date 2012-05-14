@@ -1,37 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] tun: experimental zero copy tx support
-Date: Mon, 14 May 2012 20:04:13 +0300
-Message-ID: <20120514170412.GA17086@redhat.com>
-References: <20120513155206.GA26847@redhat.com>
- <20120514095446.3ce307d2@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ian.Campbell@citrix.com,
-	kvm@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120514095446.3ce307d2@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH] net: codel: fix build errors
+Date: Mon, 14 May 2012 19:14:47 +0200
+Message-ID: <1337015687-17693-1-git-send-email-levinsasha928@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Sasha Levin <levinsasha928@gmail.com>
+To: edumazet@google.com, dave.taht@bufferbloat.net, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:56972 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901Ab2ENRNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 13:13:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 14, 2012 at 09:54:46AM -0700, Stephen Hemminger wrote:
-> On Sun, 13 May 2012 18:52:06 +0300
-> "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> 
-> > +		/* Userspace may produce vectors with count greater than
-> > +		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
-> > +		 * to let the rest of data to be fit in the frags.
-> > +		 */
-> Rather than complex partial code, just go through slow path for
-> requests with too many frags (or for really small requests).
-> Creating mixed skb's seems too easy to get wrong.
+Fix the following build error:
 
-I don't object in principle but macvtap has same code
-so seems better to stay consistent.
+net/sched/sch_fq_codel.c: In function 'fq_codel_dump_stats':
+net/sched/sch_fq_codel.c:464:3: error: unknown field 'qdisc_stats' specified in initializer
+net/sched/sch_fq_codel.c:464:3: warning: missing braces around initializer
+net/sched/sch_fq_codel.c:464:3: warning: (near initialization for 'st.<anonymous>')
+net/sched/sch_fq_codel.c:465:3: error: unknown field 'qdisc_stats' specified in initializer
+net/sched/sch_fq_codel.c:465:3: warning: excess elements in struct initializer
+net/sched/sch_fq_codel.c:465:3: warning: (near initialization for 'st')
+net/sched/sch_fq_codel.c:466:3: error: unknown field 'qdisc_stats' specified in initializer
+net/sched/sch_fq_codel.c:466:3: warning: excess elements in struct initializer
+net/sched/sch_fq_codel.c:466:3: warning: (near initialization for 'st')
+net/sched/sch_fq_codel.c:467:3: error: unknown field 'qdisc_stats' specified in initializer
+net/sched/sch_fq_codel.c:467:3: warning: excess elements in struct initializer
+net/sched/sch_fq_codel.c:467:3: warning: (near initialization for 'st')
+make[1]: *** [net/sched/sch_fq_codel.o] Error 1
 
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ include/linux/pkt_sched.h |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 32aef0a..c304eda 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -732,7 +732,9 @@ struct tc_fq_codel_xstats {
+ 	union {
+ 		struct tc_fq_codel_qd_stats qdisc_stats;
+ 		struct tc_fq_codel_cl_stats class_stats;
+-	};
++	} u;
++#define qdisc_stats u.qdisc_stats
++#define class_stats u.class_stats
+ };
+ 
+ #endif
 -- 
-MST
+1.7.8.6
