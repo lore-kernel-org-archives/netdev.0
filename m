@@ -1,73 +1,35 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Mon, 14 May 2012 11:12:50 -0700
-Message-ID: <20120514181250.GD2366@google.com>
-References: <1336767077-25351-1-git-send-email-glommer@parallels.com>
- <1336767077-25351-3-git-send-email-glommer@parallels.com>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH] netfilter: xt_HMARK: endian bugs
+Date: Mon, 14 May 2012 20:24:53 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1205142015310.22219@frira.vanv.qr>
+References: <1337002943-16374-1-git-send-email-hans.schillstrom@ericsson.com> <201205141809.18174.hans.schillstrom@ericsson.com> <1337012674.8512.589.camel@edumazet-glaptop> <201205141951.36692.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
-	kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1336767077-25351-3-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201205141951.36692.hans.schillstrom@ericsson.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 11, 2012 at 05:11:17PM -0300, Glauber Costa wrote:
-> We call the destroy function when a cgroup starts to be removed,
-> such as by a rmdir event.
-> 
-> However, because of our reference counters, some objects are still
-> inflight. Right now, we are decrementing the static_keys at destroy()
-> time, meaning that if we get rid of the last static_key reference,
-> some objects will still have charges, but the code to properly
-> uncharge them won't be run.
-> 
-> This becomes a problem specially if it is ever enabled again, because
-> now new charges will be added to the staled charges making keeping
-> it pretty much impossible.
-> 
-> We just need to be careful with the static branch activation:
-> since there is no particular preferred order of their activation,
-> we need to make sure that we only start using it after all
-> call sites are active. This is achieved by having a per-memcg
-> flag that is only updated after static_key_slow_inc() returns.
-> At this time, we are sure all sites are active.
-> 
-> This is made per-memcg, not global, for a reason:
-> it also has the effect of making socket accounting more
-> consistent. The first memcg to be limited will trigger static_key()
-> activation, therefore, accounting. But all the others will then be
-> accounted no matter what. After this patch, only limited memcgs
-> will have its sockets accounted.
-> 
-> [v2: changed a tcp limited flag for a generic proto limited flag ]
-> [v3: update the current active flag only after the static_key update ]
-> [v4: disarm_static_keys() inside free_work ]
-> [v5: got rid of tcp_limit_mutex, now in the static_key interface ]
-> 
-> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> CC: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> CC: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> CC: Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-> CC: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
-> CC: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+On Monday 2012-05-14 19:51, Hans Schillstrom wrote:
 
-Generally looks sane to me.  Please feel free to addmy  Reviewed-by.
+>On Monday 14 May 2012 18:24:34 Eric Dumazet wrote:
+>> On Mon, 2012-05-14 at 18:09 +0200, Hans Schillstrom wrote:
+>> 
+>> > This context can contain both le & be machines,
+>> > so at least in hmark it make sense
+>> 
+>> Before jhash() and its shuffle ? What do you mean ?
+>
+>I want that a Big endian machine should produce the same
+>hash value independent of flow direction as a Little endian.
 
-> +	if (val == RESOURCE_MAX)
-> +		cg_proto->active = false;
-> +	else if (val != RESOURCE_MAX) {
-
-Minor nitpick: CodingStyle says not to omit { } if other branches need
-them.
-
-Thanks.
-
--- 
-tejun
+But one does not really need that, since the hash is only used locally.
