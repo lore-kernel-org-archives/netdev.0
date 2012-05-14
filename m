@@ -1,49 +1,53 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH] net: codel: fix build errors
-Date: Mon, 14 May 2012 19:37:50 +0200
-Message-ID: <CA+1xoqdAzeZ2gHAakT2jA359ngSA6vAs96m0rNuXSmy6C5yQ_Q@mail.gmail.com>
-References: <1337015687-17693-1-git-send-email-levinsasha928@gmail.com> <20120514103526.1f1a4399@nehalam.linuxnetplumber.net>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH 1/4] netfilter: ipset: fix timeout value overflow bug
+Date: Mon, 14 May 2012 19:45:07 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1205141943240.28291@blackhole.kfki.hu>
+References: <1336996023-20249-2-git-send-email-pablo@netfilter.org>  <AE90C24D6B3A694183C094C60CF0A2F6026B6F0B@saturn3.aculab.com>  <20120514143635.GA12992@1984> <1337006844.8512.491.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: edumazet@google.com, dave.taht@bufferbloat.net,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:42262 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756604Ab2ENRiL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 13:38:11 -0400
-In-Reply-To: <20120514103526.1f1a4399@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1337006844.8512.491.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2012 at 7:35 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> On Mon, 14 May 2012 19:14:47 +0200
-> Sasha Levin <levinsasha928@gmail.com> wrote:
->
->> Fix the following build error:
->>
->> net/sched/sch_fq_codel.c: In function 'fq_codel_dump_stats':
->> net/sched/sch_fq_codel.c:464:3: error: unknown field 'qdisc_stats' specified in initializer
->> net/sched/sch_fq_codel.c:464:3: warning: missing braces around initializer
->> net/sched/sch_fq_codel.c:464:3: warning: (near initialization for 'st.<anonymous>')
->> net/sched/sch_fq_codel.c:465:3: error: unknown field 'qdisc_stats' specified in initializer
->> net/sched/sch_fq_codel.c:465:3: warning: excess elements in struct initializer
->> net/sched/sch_fq_codel.c:465:3: warning: (near initialization for 'st')
->> net/sched/sch_fq_codel.c:466:3: error: unknown field 'qdisc_stats' specified in initializer
->> net/sched/sch_fq_codel.c:466:3: warning: excess elements in struct initializer
->> net/sched/sch_fq_codel.c:466:3: warning: (near initialization for 'st')
->> net/sched/sch_fq_codel.c:467:3: error: unknown field 'qdisc_stats' specified in initializer
->> net/sched/sch_fq_codel.c:467:3: warning: excess elements in struct initializer
->> net/sched/sch_fq_codel.c:467:3: warning: (near initialization for 'st')
->> make[1]: *** [net/sched/sch_fq_codel.o] Error 1
->>
->> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
->
-> Which Gcc version, looks like your compiler is old.
+On Mon, 14 May 2012, Eric Dumazet wrote:
 
-gcc version 4.5.3 (Gentoo 4.5.3-r2 p1.1, pie-0.4.7)
+> On Mon, 2012-05-14 at 16:36 +0200, Pablo Neira Ayuso wrote:
+> > On Mon, May 14, 2012 at 03:19:49PM +0100, David Laight wrote:
+> > >  
+> > > > --- a/include/linux/netfilter/ipset/ip_set_timeout.h
+> > > > +++ b/include/linux/netfilter/ipset/ip_set_timeout.h
+> > > > @@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
+> > > >  {
+> > > >  	unsigned int timeout = ip_set_get_h32(tb);
+> > > >  
+> > > > +	/* Normalize to fit into jiffies */
+> > > > +	if (timeout > UINT_MAX/1000)
+> > > > +		timeout = UINT_MAX/1000;
+> > > > +
+> > > 
+> > > Doesn't that rather assume that HZ is 1000 ?
+> > 
+> > Indeed. I overlooked that. Thanks David.
+> 
+> I dont think so.
+> 
+> 1000 here is really MSEC_PER_SEC
+> 
+> (All occurrences should be changed in this file)
 
-This is the latest gcc provided by gentoo.
+Yes, exactly. Pablo, shall I produce a little patch or could you change 
+1000 to MSEC_PER_SEC?
+
+Best regards, 
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
