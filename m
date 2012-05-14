@@ -1,107 +1,73 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
-Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
- Seamless Redundancy
-Date: Mon, 14 May 2012 18:11:44 +0000
-Message-ID: <4FB14ADD.3050708@xdin.com>
-References: <4F71BEAD.5080605@enea.com>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
+Date: Mon, 14 May 2012 11:12:50 -0700
+Message-ID: <20120514181250.GD2366@google.com>
+References: <1336767077-25351-1-git-send-email-glommer@parallels.com>
+ <1336767077-25351-3-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Bruno Ferreira <balferreira@googlemail.com>,
-	Arvid Brodin <Arvid.Brodin@xdin.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:51496 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757033Ab2ENSLq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 14:11:46 -0400
-In-Reply-To: <4F71BEAD.5080605@enea.com>
-Content-Language: en-US
-Content-ID: <194CD4078011CB40A3AAEA7CA61B73C3@redbull.xdin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
+	kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1336767077-25351-3-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2012-03-27 15:20, Arvid Brodin wrote:
-> Hi!
-
-*snip*
+On Fri, May 11, 2012 at 05:11:17PM -0300, Glauber Costa wrote:
+> We call the destroy function when a cgroup starts to be removed,
+> such as by a rmdir event.
 > 
-> 2) I have a locking problem that I haven't managed to figure out. This happens
->    the first time I send any packet (hsr_dev_xmit() in hsr_device.c:121, called
->    from hsr_device.c:147). It happens even if I set skb2 to NULL (i.e. only send
->    one copy):
+> However, because of our reference counters, some objects are still
+> inflight. Right now, we are decrementing the static_keys at destroy()
+> time, meaning that if we get rid of the last static_key reference,
+> some objects will still have charges, but the code to properly
+> uncharge them won't be run.
 > 
-> =============================================
-> [ INFO: possible recursive locking detected ]
-> 2.6.37 #118
-> ---------------------------------------------
-> swapper/0 is trying to acquire lock:
->  (_xmit_ETHER#2){+.-...}, at: [<901bf38e>] sch_direct_xmit+0x24/0x152
+> This becomes a problem specially if it is ever enabled again, because
+> now new charges will be added to the staled charges making keeping
+> it pretty much impossible.
 > 
-> but task is already holding lock:
->  (_xmit_ETHER#2){+.-...}, at: [<901b4d1a>] dev_queue_xmit+0x31e/0x3cc
+> We just need to be careful with the static branch activation:
+> since there is no particular preferred order of their activation,
+> we need to make sure that we only start using it after all
+> call sites are active. This is achieved by having a per-memcg
+> flag that is only updated after static_key_slow_inc() returns.
+> At this time, we are sure all sites are active.
 > 
-> other info that might help us debug this:
-> 4 locks held by swapper/0:
->  #0:  (&n->timer){+.-...}, at: [<9002bc20>] run_timer_softirq+0x98/0x184
->  #1:  (rcu_read_lock_bh){.+....}, at: [<901b49fc>] dev_queue_xmit+0x0/0x3cc
->  #2:  (_xmit_ETHER#2){+.-...}, at: [<901b4d1a>] dev_queue_xmit+0x31e/0x3cc
->  #3:  (rcu_read_lock_bh){.+....}, at: [<901b49fc>] dev_queue_xmit+0x0/0x3cc
+> This is made per-memcg, not global, for a reason:
+> it also has the effect of making socket accounting more
+> consistent. The first memcg to be limited will trigger static_key()
+> activation, therefore, accounting. But all the others will then be
+> accounted no matter what. After this patch, only limited memcgs
+> will have its sockets accounted.
 > 
-> stack backtrace:
-> Call trace:
->  [<9001c640>] dump_stack+0x18/0x20
->  [<90040eac>] validate_chain+0x40c/0x9ac
->  [<90041a58>] __lock_acquire+0x60c/0x670
->  [<90042f32>] lock_acquire+0x3a/0x48
->  [<902201a4>] _raw_spin_lock+0x20/0x44
->  [<901bf38e>] sch_direct_xmit+0x24/0x152
->  [<901b4c14>] dev_queue_xmit+0x218/0x3cc
->  [<9021c2e0>] slave_xmit+0x10/0x14
->  [<9021c540>] hsr_dev_xmit+0x88/0x8c
->  [<901b4942>] dev_hard_start_xmit+0x3c6/0x480
->  [<901b4d34>] dev_queue_xmit+0x338/0x3cc
->  [<901e3cd8>] arp_xmit+0x8/0xc
->  [<901e4436>] arp_send+0x2a/0x2c
->  [<901e4e74>] arp_solicit+0x15c/0x170
->  [<901bad0c>] neigh_timer_handler+0x1c0/0x204
->  [<9002bc8a>] run_timer_softirq+0x102/0x184
->  [<900287d8>] __do_softirq+0x64/0xe0
->  [<9002896a>] do_softirq+0x26/0x48
->  [<90028a66>] irq_exit+0x2e/0x64
->  [<90019f16>] do_IRQ+0x46/0x5c
->  [<90018428>] irq_level0+0x18/0x60
->  [<9021cc16>] rest_init+0x72/0x98
->  [<9000063c>] start_kernel+0x21c/0x258
->  [<00000000>] 0x0
+> [v2: changed a tcp limited flag for a generic proto limited flag ]
+> [v3: update the current active flag only after the static_key update ]
+> [v4: disarm_static_keys() inside free_work ]
+> [v5: got rid of tcp_limit_mutex, now in the static_key interface ]
 > 
->    Any idea why this happens? I need help!
+> Signed-off-by: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> CC: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> CC: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> CC: Kamezawa Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+> CC: Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
+> CC: Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
 
+Generally looks sane to me.  Please feel free to addmy  Reviewed-by.
 
-I've spent a few days digging into this and the key apparently is NETIF_F_LLTX.
+> +	if (val == RESOURCE_MAX)
+> +		cg_proto->active = false;
+> +	else if (val != RESOURCE_MAX) {
 
-The problem seems to be that HARD_TX_LOCK is called more than once, first for my virtual
-hsr device and then, recursively, for each of the slaves in turn. (At least that's where
-lockdep complains - at __netif_tx_lock(), that is.)
+Minor nitpick: CodingStyle says not to omit { } if other branches need
+them.
 
-At first I just could not understand why both the VLAN and the bonding code got away with
-recursive calls to dev_queue_xmit() but I didn't. After some gooling (a lot, actually) I
-found some references to the NETIF_F_LLTX flag (here's one:
-http://lwn.net/Articles/121566/). I realised both VLAN and bonding code set this flag. And
-sure enough, if I set it for my hsr device lockdep does not complain any more.
-
-But NETIF_F_LLTX is described as deprecated in both netdevice.h and in
-Documentation/networking/netdevices.txt. Is there an alternative solution that I should
-use instead?
-
-(To recap, a hsr device is a virtual device which uses two Ethernet devices as slaves.
-This gives redundancy with instant failover, and since nodes are connected in a ring
-topology, uses less cabling than duplication.)
+Thanks.
 
 -- 
-Arvid Brodin | Consultant (Linux)
-XDIN AB | Jan Stenbecks Torg 17 | SE-164 40 Kista | Sweden | xdin.com
+tejun
