@@ -1,48 +1,58 @@
-From: Stuart Hodgson <smhodgson@solarflare.com>
-Subject: Re: [PATCH ethtool] Add command to dump module EEPROM
-Date: Mon, 14 May 2012 16:36:30 +0100
-Message-ID: <4FB1267E.2090006@solarflare.com>
-References: <1337008431-6304-1-git-send-email-yanivr@broadcom.com> <1337005139.2550.6.camel@bwh-desktop.uk.solarflarecom.com>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: Re: [PATCH] [RFC] netfilter: don't assume NFPROTO_* are like PF_*
+Date: Mon, 14 May 2012 16:42:30 +0100
+Message-ID: <20120514164230.6b9078bd@rainbow.cbg.collabora.co.uk>
+References: <1337003909-2582-1-git-send-email-alban.crequy@collabora.co.uk>
+	<alpine.LNX.2.01.1205141707490.11548@frira.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yaniv Rosner <yanivr@broadcom.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56609 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756983Ab2ENPlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 11:41:55 -0400
-In-Reply-To: <1337005139.2550.6.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from bhuna.collabora.co.uk ([93.93.135.160]:48907 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756965Ab2ENPm3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 11:42:29 -0400
+In-Reply-To: <alpine.LNX.2.01.1205141707490.11548@frira.vanv.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/05/12 15:18, Ben Hutchings wrote:
-> On Mon, 2012-05-14 at 18:13 +0300, Yaniv Rosner wrote:
->> Hi Ben,
->> This patch adds a new option to dump (SFP+, XFP, ...) module EEPROM following
->> recent support to kernel side. Below some examples:
->>
->> bash-3.00# ethtool -m eth1 offset 0x14 length 32 raw on
->> JDSU            PLRXPLSCS432
->>
->> bash-3.00# ethtool -m eth1 offset 0x14 length 32
->> Offset          Values
->> ------          ------
->> 0x0014          4a 44 53 55 20 20 20 20 20 20 20 20 20 20 20 20
->> 0x0024          00 00 01 9c 50 4c 52 58 50 4c 53 43 53 34 33 32
->>
->> Please consider applying to ethtool.
-> 
-> I agree there should be ASCII-hex and binary dump modes, but we should
-> also support decoding of recognised EEPROM types (as Stuart proposed
-> earlier).
+Le Mon, 14 May 2012 17:09:54 +0200 (CEST),
+Jan Engelhardt <jengelh@inai.de> a =C3=A9crit :
 
-I have a patch to do this as well, but also parse the SFP+ EEPROM.
-I need to fix it up after some of the changes to the patches that added
-kernel support but can submit in the next day or so if this would be of
-use.
+>=20
+> On Monday 2012-05-14 15:58, Alban Crequy wrote:
+> >--- a/include/linux/netfilter.h
+> >+++ b/include/linux/netfilter.h
+> >@@ -62,11 +62,11 @@ enum nf_inet_hooks {
+> >=20
+> > enum {
+> > 	NFPROTO_UNSPEC =3D  0,
+> >-	NFPROTO_IPV4   =3D  2,
+> >-	NFPROTO_ARP    =3D  3,
+> >-	NFPROTO_BRIDGE =3D  7,
+> >-	NFPROTO_IPV6   =3D 10,
+> >-	NFPROTO_DECNET =3D 12,
+> >+	NFPROTO_IPV4,
+> >+	NFPROTO_ARP,
+> >+	NFPROTO_BRIDGE,
+> >+	NFPROTO_IPV6,
+> >+	NFPROTO_DECNET,
+> > 	NFPROTO_NUMPROTO,
+> > };
+>=20
+> This must not be changed under any circumstances. It is exported to
+> and used by userspace. (Except perhaps for NFPROTO_DECNET, which
+> refers to a quite dead protocol that I think no user parts have ever
+> used NFPROTO_DECNET.) I would consider it acceptable to change the
+> value for NFPROTO_DECNET if Pablo joins.
 
-Stu
+Thanks for the review. I didn't realize it was exported to and used by
+userspace. I would drop this patch then.
+
+Alban
