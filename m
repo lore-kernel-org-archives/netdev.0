@@ -1,63 +1,54 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH 1/4] netfilter: ipset: fix timeout value overflow bug
-Date: Mon, 14 May 2012 23:45:14 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1205142344470.29179@blackhole.kfki.hu>
-References: <1336996023-20249-2-git-send-email-pablo@netfilter.org> <AE90C24D6B3A694183C094C60CF0A2F6026B6F0B@saturn3.aculab.com> <20120514143635.GA12992@1984> <1337006844.8512.491.camel@edumazet-glaptop> <alpine.DEB.2.00.1205141943240.28291@blackhole.kfki.hu>
- <20120514201043.GA15485@1984>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: codel: fix build errors
+Date: Mon, 14 May 2012 23:49:12 +0200
+Message-ID: <1337032152.8512.638.camel@edumazet-glaptop>
+References: <1337015687-17693-1-git-send-email-levinsasha928@gmail.com>
+	 <1337029683.8512.626.camel@edumazet-glaptop>
+	 <CA+1xoqfWR+BA4xqqG+8SzVGYSH1z6nu_=iEFX7XoZzMhv_GvqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, dave.taht@bufferbloat.net,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120514201043.GA15485@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:55033 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932234Ab2ENVtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 17:49:17 -0400
+In-Reply-To: <CA+1xoqfWR+BA4xqqG+8SzVGYSH1z6nu_=iEFX7XoZzMhv_GvqA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 May 2012, Pablo Neira Ayuso wrote:
-
-> On Mon, May 14, 2012 at 07:45:07PM +0200, Jozsef Kadlecsik wrote:
-> > On Mon, 14 May 2012, Eric Dumazet wrote:
-> > 
-> > > On Mon, 2012-05-14 at 16:36 +0200, Pablo Neira Ayuso wrote:
-> > > > On Mon, May 14, 2012 at 03:19:49PM +0100, David Laight wrote:
-> > > > >  
-> > > > > > --- a/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > > > > +++ b/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > > > > @@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
-> > > > > >  {
-> > > > > >  	unsigned int timeout = ip_set_get_h32(tb);
-> > > > > >  
-> > > > > > +	/* Normalize to fit into jiffies */
-> > > > > > +	if (timeout > UINT_MAX/1000)
-> > > > > > +		timeout = UINT_MAX/1000;
-> > > > > > +
-> > > > > 
-> > > > > Doesn't that rather assume that HZ is 1000 ?
-> > > > 
-> > > > Indeed. I overlooked that. Thanks David.
-> > > 
-> > > I dont think so.
-> > > 
-> > > 1000 here is really MSEC_PER_SEC
-> > > 
-> > > (All occurrences should be changed in this file)
-> > 
-> > Yes, exactly. Pablo, shall I produce a little patch or could you change 
-> > 1000 to MSEC_PER_SEC?
+On Mon, 2012-05-14 at 23:39 +0200, Sasha Levin wrote:
+> On Mon, May 14, 2012 at 11:08 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Anonymous unions are fine, we use them a lot in kernel.
 > 
-> New patch attached.
+> While we use them a lot, we don't try initializing them that often.
 > 
-> I have rebase my tree again.
+> > Please fix the initializers instead in fq_codel_dump_stats(), because
+> > these two #define are not very nice.
+> 
+> The only method I know of fixing that up is getting braces around them
+> in the initializer, which is hacky and will break every time a new
+> member is added to the struct before the anonymous union. Is there a
+> different solution?
 
-Thanks Pablo, indeed!
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+instead of 
+
+	struct foo x = {
+		.field = value;
+		.sub.f2 = xxx;
+		...
+	};
+
+use :
+
+	struct foo x = {
+		.field = value;
+	};
+
+	x.sub.f2 = xxx;
+	...
