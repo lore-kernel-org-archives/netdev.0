@@ -1,57 +1,54 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/4] netfilter: ipset: fix timeout value overflow bug
-Date: Mon, 14 May 2012 21:00:15 +0200
-Message-ID: <20120514190015.GB14897@1984>
-References: <1336996023-20249-2-git-send-email-pablo@netfilter.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B6F0B@saturn3.aculab.com>
- <20120514143635.GA12992@1984>
- <1337006844.8512.491.camel@edumazet-glaptop>
- <alpine.DEB.2.00.1205141943240.28291@blackhole.kfki.hu>
+Subject: Re: [PATCH] netfilter: xt_HMARK: endian bugs
+Date: Mon, 14 May 2012 21:02:11 +0200
+Message-ID: <20120514190211.GC14897@1984>
+References: <1337002943-16374-1-git-send-email-hans.schillstrom@ericsson.com>
+ <201205141809.18174.hans.schillstrom@ericsson.com>
+ <1337012674.8512.589.camel@edumazet-glaptop>
+ <201205141951.36692.hans.schillstrom@ericsson.com>
+ <alpine.DEB.2.00.1205142032570.28548@blackhole.kfki.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jan Engelhardt <jengelh@inai.de>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
 To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43414 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757426Ab2ENTAS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2012 15:00:18 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1205141943240.28291@blackhole.kfki.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1205142032570.28548@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2012 at 07:45:07PM +0200, Jozsef Kadlecsik wrote:
-> On Mon, 14 May 2012, Eric Dumazet wrote:
+On Mon, May 14, 2012 at 08:35:26PM +0200, Jozsef Kadlecsik wrote:
+> On Mon, 14 May 2012, Hans Schillstrom wrote:
 > 
-> > On Mon, 2012-05-14 at 16:36 +0200, Pablo Neira Ayuso wrote:
-> > > On Mon, May 14, 2012 at 03:19:49PM +0100, David Laight wrote:
-> > > >  
-> > > > > --- a/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > > > +++ b/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > > > @@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
-> > > > >  {
-> > > > >  	unsigned int timeout = ip_set_get_h32(tb);
-> > > > >  
-> > > > > +	/* Normalize to fit into jiffies */
-> > > > > +	if (timeout > UINT_MAX/1000)
-> > > > > +		timeout = UINT_MAX/1000;
-> > > > > +
-> > > > 
-> > > > Doesn't that rather assume that HZ is 1000 ?
+> > On Monday 14 May 2012 18:24:34 Eric Dumazet wrote:
+> > > On Mon, 2012-05-14 at 18:09 +0200, Hans Schillstrom wrote:
 > > > 
-> > > Indeed. I overlooked that. Thanks David.
+> > > > This context can contain both le & be machines,
+> > > > so at least in hmark it make sense
+> > > 
+> > > Before jhash() and its shuffle ? What do you mean ?
 > > 
-> > I dont think so.
+> > I want that a Big endian machine should produce the same
+> > hash value independent of flow direction as a Little endian.
 > > 
-> > 1000 here is really MSEC_PER_SEC
+> > OK, I missed ntohl() before calling jhash_3words()
 > > 
-> > (All occurrences should be changed in this file)
+> > Correct me if I'm wrong here (have no big endian machine available for test)
+> > jhash_3words() and __jhash_final() seems to be "endian" safe.
 > 
-> Yes, exactly. Pablo, shall I produce a little patch or could you change 
-> 1000 to MSEC_PER_SEC?
+> No, but as Eric wrote: what is the point in forcing the same hash value 
+> for the same input on big endian and little endian machines? Are you going 
+> to transfer the hash value between machines?
 
-I'll mangle this myself. No need to send a new patch.
+IIRC, Hans wants that, in case you have a cluster composed of system
+with different endianess, the hash mark calculated will be the same
+in both systems. To ensure that the distribution is consistent with
+independency of the endianess.
