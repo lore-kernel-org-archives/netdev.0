@@ -1,566 +1,492 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH ethtool] Add command to dump module EEPROM
-Date: Mon, 14 May 2012 18:13:51 +0300
-Message-ID: <1337008431-6304-1-git-send-email-yanivr@broadcom.com>
+From: Massimo Cetra <ctrix+debianbugs@navynet.it>
+Subject: Kernel consistently panicing on br_parse_ip_options
+Date: Mon, 14 May 2012 14:37:22 +0200
+Message-ID: <4FB0FC82.70003@navynet.it>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/mixed;
+ boundary="------------040508070103010409070306"
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------040508070103010409070306
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Yaniv Rosner" <yanivr@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3146 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754499Ab2ENMPA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2012 08:15:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Hi Ben,
-This patch adds a new option to dump (SFP+, XFP, ...) module EEPROM following
-recent support to kernel side. Below some examples:
+Hello,
 
-bash-3.00# ethtool -m eth1 offset 0x14 length 32 raw on
-JDSU            PLRXPLSCS432
+I had already filed similar panics a month ago.
+Today i upgraded to 3.2.16 and nothing seems to be changed (and i don't 
+see anything related in .17).
 
-bash-3.00# ethtool -m eth1 offset 0x14 length 32
-Offset          Values
-------          ------
-0x0014          4a 44 53 55 20 20 20 20 20 20 20 20 20 20 20 20
-0x0024          00 00 01 9c 50 4c 52 58 50 4c 53 43 53 34 33 32
+The server (a Dell R410 with a couple of bnx2 ethernet cards) has two 
+bridges onboard.
 
-Please consider applying to ethtool.
-Thanks,
-Yaniv
+Each bridge is connected to a different switch and has 2 uses:
+- one bridge is connecting an internal network and the KVM hosts that 
+run on the same machine
+- one bridge connects the server to the public network along with 
+another bunch of kvm servers whose interfaces bridges
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
----
- ethtool-copy.h |  312 +++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- ethtool.8.in   |   23 ++++-
- ethtool.c      |   63 +++++++++++
- 3 files changed, 393 insertions(+), 5 deletions(-)
+The bug can be easily triggered adding or removing (with heartbeat) a 
+virtual address (br0:1, for example) .
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index d904c1a..604dbef 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -13,6 +13,9 @@
- #ifndef _LINUX_ETHTOOL_H
- #define _LINUX_ETHTOOL_H
- 
-+#ifdef __KERNEL__
-+#include <linux/compat.h>
-+#endif
- #include <linux/types.h>
- #include <linux/if_ether.h>
- 
-@@ -27,10 +30,15 @@ struct ethtool_cmd {
- 				 * access it */
- 	__u8	duplex;		/* Duplex, half or full */
- 	__u8	port;		/* Which connector port */
--	__u8	phy_address;
-+	__u8	phy_address;	/* MDIO PHY address (PRTAD for clause 45).
-+				 * May be read-only or read-write
-+				 * depending on the driver.
-+				 */
- 	__u8	transceiver;	/* Which transceiver to use */
- 	__u8	autoneg;	/* Enable or disable autonegotiation */
--	__u8	mdio_support;
-+	__u8	mdio_support;	/* MDIO protocols supported.  Read-only.
-+				 * Not set by all drivers.
-+				 */
- 	__u32	maxtxpkt;	/* Tx pkts before generating tx int */
- 	__u32	maxrxpkt;	/* Rx pkts before generating rx int */
- 	__u16	speed_hi;       /* The forced speed (upper
-@@ -43,7 +51,7 @@ struct ethtool_cmd {
- 	__u32	reserved[2];
- };
- 
--static __inline__ void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
-+static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
- 					 __u32 speed)
- {
- 
-@@ -51,11 +59,25 @@ static __inline__ void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
- 	ep->speed_hi = (__u16)(speed >> 16);
- }
- 
--static __inline__ __u32 ethtool_cmd_speed(const struct ethtool_cmd *ep)
-+static inline __u32 ethtool_cmd_speed(const struct ethtool_cmd *ep)
- {
- 	return (ep->speed_hi << 16) | ep->speed;
- }
- 
-+/* Device supports clause 22 register access to PHY or peripherals
-+ * using the interface defined in <linux/mii.h>.  This should not be
-+ * set if there are known to be no such peripherals present or if
-+ * the driver only emulates clause 22 registers for compatibility.
-+ */
-+#define ETH_MDIO_SUPPORTS_C22	1
-+
-+/* Device supports clause 45 register access to PHY or peripherals
-+ * using the interface defined in <linux/mii.h> and <linux/mdio.h>.
-+ * This should not be set if there are known to be no such peripherals
-+ * present.
-+ */
-+#define ETH_MDIO_SUPPORTS_C45	2
-+
- #define ETHTOOL_FWVERS_LEN	32
- #define ETHTOOL_BUSINFO_LEN	32
- /* these strings are set to whatever the driver author decides... */
-@@ -115,6 +137,23 @@ struct ethtool_eeprom {
- };
- 
- /**
-+ * struct ethtool_modinfo - plugin module eeprom information
-+ * @cmd: %ETHTOOL_GMODULEINFO
-+ * @type: Standard the module information conforms to %ETH_MODULE_SFF_xxxx
-+ * @eeprom_len: Length of the eeprom
-+ *
-+ * This structure is used to return the information to
-+ * properly size memory for a subsequent call to %ETHTOOL_GMODULEEEPROM.
-+ * The type code indicates the eeprom data format
-+ */
-+struct ethtool_modinfo {
-+	__u32   cmd;
-+	__u32   type;
-+	__u32   eeprom_len;
-+	__u32   reserved[8];
-+};
-+
-+/**
-  * struct ethtool_coalesce - coalescing parameters for IRQs and stats updates
-  * @cmd: ETHTOOL_{G,S}COALESCE
-  * @rx_coalesce_usecs: How many usecs to delay an RX interrupt after
-@@ -528,6 +567,30 @@ struct ethtool_rxnfc {
- 	__u32				rule_locs[0];
- };
- 
-+#ifdef __KERNEL__
-+#ifdef CONFIG_COMPAT
-+
-+struct compat_ethtool_rx_flow_spec {
-+	u32		flow_type;
-+	union ethtool_flow_union h_u;
-+	struct ethtool_flow_ext h_ext;
-+	union ethtool_flow_union m_u;
-+	struct ethtool_flow_ext m_ext;
-+	compat_u64	ring_cookie;
-+	u32		location;
-+};
-+
-+struct compat_ethtool_rxnfc {
-+	u32				cmd;
-+	u32				flow_type;
-+	compat_u64			data;
-+	struct compat_ethtool_rx_flow_spec fs;
-+	u32				rule_cnt;
-+	u32				rule_locs[0];
-+};
-+
-+#endif /* CONFIG_COMPAT */
-+#endif /* __KERNEL__ */
- 
- /**
-  * struct ethtool_rxfh_indir - command to get or set RX flow hash indirection
-@@ -680,6 +743,29 @@ struct ethtool_sfeatures {
- 	struct ethtool_set_features_block features[0];
- };
- 
-+/**
-+ * struct ethtool_ts_info - holds a device's timestamping and PHC association
-+ * @cmd: command number = %ETHTOOL_GET_TS_INFO
-+ * @so_timestamping: bit mask of the sum of the supported SO_TIMESTAMPING flags
-+ * @phc_index: device index of the associated PHC, or -1 if there is none
-+ * @tx_types: bit mask of the supported hwtstamp_tx_types enumeration values
-+ * @rx_filters: bit mask of the supported hwtstamp_rx_filters enumeration values
-+ *
-+ * The bits in the 'tx_types' and 'rx_filters' fields correspond to
-+ * the 'hwtstamp_tx_types' and 'hwtstamp_rx_filters' enumeration values,
-+ * respectively.  For example, if the device supports HWTSTAMP_TX_ON,
-+ * then (1 << HWTSTAMP_TX_ON) in 'tx_types' will be set.
-+ */
-+struct ethtool_ts_info {
-+	__u32	cmd;
-+	__u32	so_timestamping;
-+	__s32	phc_index;
-+	__u32	tx_types;
-+	__u32	tx_reserved[3];
-+	__u32	rx_filters;
-+	__u32	rx_reserved[3];
-+};
-+
- /*
-  * %ETHTOOL_SFEATURES changes features present in features[].valid to the
-  * values of corresponding bits in features[].requested. Bits in .requested
-@@ -715,6 +801,215 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
- #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
- 
-+#ifdef __KERNEL__
-+
-+#include <linux/rculist.h>
-+
-+extern int __ethtool_get_settings(struct net_device *dev,
-+				  struct ethtool_cmd *cmd);
-+
-+/**
-+ * enum ethtool_phys_id_state - indicator state for physical identification
-+ * @ETHTOOL_ID_INACTIVE: Physical ID indicator should be deactivated
-+ * @ETHTOOL_ID_ACTIVE: Physical ID indicator should be activated
-+ * @ETHTOOL_ID_ON: LED should be turned on (used iff %ETHTOOL_ID_ACTIVE
-+ *	is not supported)
-+ * @ETHTOOL_ID_OFF: LED should be turned off (used iff %ETHTOOL_ID_ACTIVE
-+ *	is not supported)
-+ */
-+enum ethtool_phys_id_state {
-+	ETHTOOL_ID_INACTIVE,
-+	ETHTOOL_ID_ACTIVE,
-+	ETHTOOL_ID_ON,
-+	ETHTOOL_ID_OFF
-+};
-+
-+struct net_device;
-+
-+/* Some generic methods drivers may use in their ethtool_ops */
-+u32 ethtool_op_get_link(struct net_device *dev);
-+int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *eti);
-+
-+/**
-+ * ethtool_rxfh_indir_default - get default value for RX flow hash indirection
-+ * @index: Index in RX flow hash indirection table
-+ * @n_rx_rings: Number of RX rings to use
-+ *
-+ * This function provides the default policy for RX flow hash indirection.
-+ */
-+static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
-+{
-+	return index % n_rx_rings;
-+}
-+
-+/**
-+ * struct ethtool_ops - optional netdev operations
-+ * @get_settings: Get various device settings including Ethernet link
-+ *	settings. The @cmd parameter is expected to have been cleared
-+ *	before get_settings is called. Returns a negative error code or
-+ *	zero.
-+ * @set_settings: Set various device settings including Ethernet link
-+ *	settings.  Returns a negative error code or zero.
-+ * @get_drvinfo: Report driver/device information.  Should only set the
-+ *	@driver, @version, @fw_version and @bus_info fields.  If not
-+ *	implemented, the @driver and @bus_info fields will be filled in
-+ *	according to the netdev's parent device.
-+ * @get_regs_len: Get buffer length required for @get_regs
-+ * @get_regs: Get device registers
-+ * @get_wol: Report whether Wake-on-Lan is enabled
-+ * @set_wol: Turn Wake-on-Lan on or off.  Returns a negative error code
-+ *	or zero.
-+ * @get_msglevel: Report driver message level.  This should be the value
-+ *	of the @msg_enable field used by netif logging functions.
-+ * @set_msglevel: Set driver message level
-+ * @nway_reset: Restart autonegotiation.  Returns a negative error code
-+ *	or zero.
-+ * @get_link: Report whether physical link is up.  Will only be called if
-+ *	the netdev is up.  Should usually be set to ethtool_op_get_link(),
-+ *	which uses netif_carrier_ok().
-+ * @get_eeprom: Read data from the device EEPROM.
-+ *	Should fill in the magic field.  Don't need to check len for zero
-+ *	or wraparound.  Fill in the data argument with the eeprom values
-+ *	from offset to offset + len.  Update len to the amount read.
-+ *	Returns an error or zero.
-+ * @set_eeprom: Write data to the device EEPROM.
-+ *	Should validate the magic field.  Don't need to check len for zero
-+ *	or wraparound.  Update len to the amount written.  Returns an error
-+ *	or zero.
-+ * @get_coalesce: Get interrupt coalescing parameters.  Returns a negative
-+ *	error code or zero.
-+ * @set_coalesce: Set interrupt coalescing parameters.  Returns a negative
-+ *	error code or zero.
-+ * @get_ringparam: Report ring sizes
-+ * @set_ringparam: Set ring sizes.  Returns a negative error code or zero.
-+ * @get_pauseparam: Report pause parameters
-+ * @set_pauseparam: Set pause parameters.  Returns a negative error code
-+ *	or zero.
-+ * @self_test: Run specified self-tests
-+ * @get_strings: Return a set of strings that describe the requested objects
-+ * @set_phys_id: Identify the physical devices, e.g. by flashing an LED
-+ *	attached to it.  The implementation may update the indicator
-+ *	asynchronously or synchronously, but in either case it must return
-+ *	quickly.  It is initially called with the argument %ETHTOOL_ID_ACTIVE,
-+ *	and must either activate asynchronous updates and return zero, return
-+ *	a negative error or return a positive frequency for synchronous
-+ *	indication (e.g. 1 for one on/off cycle per second).  If it returns
-+ *	a frequency then it will be called again at intervals with the
-+ *	argument %ETHTOOL_ID_ON or %ETHTOOL_ID_OFF and should set the state of
-+ *	the indicator accordingly.  Finally, it is called with the argument
-+ *	%ETHTOOL_ID_INACTIVE and must deactivate the indicator.  Returns a
-+ *	negative error code or zero.
-+ * @get_ethtool_stats: Return extended statistics about the device.
-+ *	This is only useful if the device maintains statistics not
-+ *	included in &struct rtnl_link_stats64.
-+ * @begin: Function to be called before any other operation.  Returns a
-+ *	negative error code or zero.
-+ * @complete: Function to be called after any other operation except
-+ *	@begin.  Will be called even if the other operation failed.
-+ * @get_priv_flags: Report driver-specific feature flags.
-+ * @set_priv_flags: Set driver-specific feature flags.  Returns a negative
-+ *	error code or zero.
-+ * @get_sset_count: Get number of strings that @get_strings will write.
-+ * @get_rxnfc: Get RX flow classification rules.  Returns a negative
-+ *	error code or zero.
-+ * @set_rxnfc: Set RX flow classification rules.  Returns a negative
-+ *	error code or zero.
-+ * @flash_device: Write a firmware image to device's flash memory.
-+ *	Returns a negative error code or zero.
-+ * @reset: Reset (part of) the device, as specified by a bitmask of
-+ *	flags from &enum ethtool_reset_flags.  Returns a negative
-+ *	error code or zero.
-+ * @get_rxfh_indir_size: Get the size of the RX flow hash indirection table.
-+ *	Returns zero if not supported for this specific device.
-+ * @get_rxfh_indir: Get the contents of the RX flow hash indirection table.
-+ *	Will not be called if @get_rxfh_indir_size returns zero.
-+ *	Returns a negative error code or zero.
-+ * @set_rxfh_indir: Set the contents of the RX flow hash indirection table.
-+ *	Will not be called if @get_rxfh_indir_size returns zero.
-+ *	Returns a negative error code or zero.
-+ * @get_channels: Get number of channels.
-+ * @set_channels: Set number of channels.  Returns a negative error code or
-+ *	zero.
-+ * @get_dump_flag: Get dump flag indicating current dump length, version,
-+ *	and flag of the device.
-+ * @get_dump_data: Get dump data.
-+ * @set_dump: Set dump specific flags to the device.
-+ * @get_ts_info: Get the time stamping and PTP hardware clock capabilities.
-+ *	Drivers supporting transmit time stamps in software should set this to
-+ *	ethtool_op_get_ts_info().
-+ * @get_module_info: Get the size and type of the eeprom contained within
-+ *	a plug-in module.
-+ * @get_module_eeprom: Get the eeprom information from the plug-in module
-+ *
-+ * All operations are optional (i.e. the function pointer may be set
-+ * to %NULL) and callers must take this into account.  Callers must
-+ * hold the RTNL lock.
-+ *
-+ * See the structures used by these operations for further documentation.
-+ *
-+ * See &struct net_device and &struct net_device_ops for documentation
-+ * of the generic netdev features interface.
-+ */
-+struct ethtool_ops {
-+	int	(*get_settings)(struct net_device *, struct ethtool_cmd *);
-+	int	(*set_settings)(struct net_device *, struct ethtool_cmd *);
-+	void	(*get_drvinfo)(struct net_device *, struct ethtool_drvinfo *);
-+	int	(*get_regs_len)(struct net_device *);
-+	void	(*get_regs)(struct net_device *, struct ethtool_regs *, void *);
-+	void	(*get_wol)(struct net_device *, struct ethtool_wolinfo *);
-+	int	(*set_wol)(struct net_device *, struct ethtool_wolinfo *);
-+	u32	(*get_msglevel)(struct net_device *);
-+	void	(*set_msglevel)(struct net_device *, u32);
-+	int	(*nway_reset)(struct net_device *);
-+	u32	(*get_link)(struct net_device *);
-+	int	(*get_eeprom_len)(struct net_device *);
-+	int	(*get_eeprom)(struct net_device *,
-+			      struct ethtool_eeprom *, u8 *);
-+	int	(*set_eeprom)(struct net_device *,
-+			      struct ethtool_eeprom *, u8 *);
-+	int	(*get_coalesce)(struct net_device *, struct ethtool_coalesce *);
-+	int	(*set_coalesce)(struct net_device *, struct ethtool_coalesce *);
-+	void	(*get_ringparam)(struct net_device *,
-+				 struct ethtool_ringparam *);
-+	int	(*set_ringparam)(struct net_device *,
-+				 struct ethtool_ringparam *);
-+	void	(*get_pauseparam)(struct net_device *,
-+				  struct ethtool_pauseparam*);
-+	int	(*set_pauseparam)(struct net_device *,
-+				  struct ethtool_pauseparam*);
-+	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
-+	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
-+	int	(*set_phys_id)(struct net_device *, enum ethtool_phys_id_state);
-+	void	(*get_ethtool_stats)(struct net_device *,
-+				     struct ethtool_stats *, u64 *);
-+	int	(*begin)(struct net_device *);
-+	void	(*complete)(struct net_device *);
-+	u32	(*get_priv_flags)(struct net_device *);
-+	int	(*set_priv_flags)(struct net_device *, u32);
-+	int	(*get_sset_count)(struct net_device *, int);
-+	int	(*get_rxnfc)(struct net_device *,
-+			     struct ethtool_rxnfc *, u32 *rule_locs);
-+	int	(*set_rxnfc)(struct net_device *, struct ethtool_rxnfc *);
-+	int	(*flash_device)(struct net_device *, struct ethtool_flash *);
-+	int	(*reset)(struct net_device *, u32 *);
-+	u32	(*get_rxfh_indir_size)(struct net_device *);
-+	int	(*get_rxfh_indir)(struct net_device *, u32 *);
-+	int	(*set_rxfh_indir)(struct net_device *, const u32 *);
-+	void	(*get_channels)(struct net_device *, struct ethtool_channels *);
-+	int	(*set_channels)(struct net_device *, struct ethtool_channels *);
-+	int	(*get_dump_flag)(struct net_device *, struct ethtool_dump *);
-+	int	(*get_dump_data)(struct net_device *,
-+				 struct ethtool_dump *, void *);
-+	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
-+	int	(*get_ts_info)(struct net_device *, struct ethtool_ts_info *);
-+	int     (*get_module_info)(struct net_device *,
-+				   struct ethtool_modinfo *);
-+	int     (*get_module_eeprom)(struct net_device *,
-+				     struct ethtool_eeprom *, u8 *);
-+
-+
-+};
-+#endif /* __KERNEL__ */
- 
- /* CMDs currently supported */
- #define ETHTOOL_GSET		0x00000001 /* Get settings. */
-@@ -786,6 +1081,9 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
- #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
- #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
-+#define ETHTOOL_GET_TS_INFO	0x00000041 /* Get time stamping and PHC info */
-+#define ETHTOOL_GMODULEINFO	0x00000042 /* Get plug-in module information */
-+#define ETHTOOL_GMODULEEEPROM	0x00000043 /* Get plug-in module eeprom */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-@@ -935,6 +1233,12 @@ enum ethtool_sfeatures_retval_bits {
- #define RX_CLS_LOC_FIRST	0xfffffffe
- #define RX_CLS_LOC_LAST		0xfffffffd
- 
-+/* EEPROM Standards for plug in modules */
-+#define ETH_MODULE_SFF_8079		0x1
-+#define ETH_MODULE_SFF_8079_LEN		256
-+#define ETH_MODULE_SFF_8472		0x2
-+#define ETH_MODULE_SFF_8472_LEN		512
-+
- /* Reset flags */
- /* The reset() operation must clear the flags for the components which
-  * were actually reset.  On successful return, the flags indicate the
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 63d5d48..470fd8d 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -325,6 +325,13 @@ ethtool \- query or control network driver and hardware settings
- .I devname flag
- .A1 on off
- .RB ...
-+.HP
-+.B ethtool \-m|\-\-mod\-eeprom\-dump
-+.I devname
-+.B2 raw on off
-+.BN offset
-+.BN length
-+.HP
- .
- .\" Adjust lines (i.e. full justification) and hyphenate.
- .ad
-@@ -800,6 +807,19 @@ Sets the device's private flags as specified.
- .I flag
- .A1 on off
- Sets the state of the named private flag.
-+.TP
-+.B \-m \-\-mod\-eeprom\-dump
-+Retrieves and prints module (SFP+, XFP, ...) EEPROMs dump for the specified network device.
-+Default is to dump the entire EEPROM.
-+.TP
-+.BI raw \ on|off
-+Dumps the raw EEPROM data to stdout.
-+.TP
-+.BI offset \ N
-+Start address of module EEPROM dump.
-+.TP
-+.BI length \ N
-+Length of module EEPROM dump.
- .SH BUGS
- Not supported (in part or whole) on all network drivers.
- .SH AUTHOR
-@@ -815,7 +835,8 @@ Eli Kupermann,
- Scott Feldman,
- Andi Kleen,
- Alexander Duyck,
--Sucheta Chakraborty.
-+Sucheta Chakraborty,
-+Yaniv Rosner.
- .SH AVAILABILITY
- .B ethtool
- is available from
-diff --git a/ethtool.c b/ethtool.c
-index e80b38b..6d022c3 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -2214,6 +2214,64 @@ static int do_nway_rst(struct cmd_context *ctx)
- 	return err;
- }
- 
-+static int do_gmoduleeeprom(struct cmd_context *ctx)
-+{
-+	int geeprom_changed = 0;
-+	int geeprom_dump_raw = 0;
-+	u32 geeprom_offset = 0;
-+	u32 geeprom_length = -1;
-+	struct cmdline_info cmdline_geeprom[] = {
-+		{ "offset", CMDL_U32, &geeprom_offset, NULL },
-+		{ "length", CMDL_U32, &geeprom_length, NULL },
-+		{ "raw", CMDL_BOOL, &geeprom_dump_raw, NULL },
-+	};
-+	int err;
-+	struct ethtool_modinfo modinfo;
-+	struct ethtool_eeprom *eeprom;
-+	struct ethtool_drvinfo drvinfo;
-+
-+	parse_generic_cmdline(ctx, &geeprom_changed,
-+			      cmdline_geeprom, ARRAY_SIZE(cmdline_geeprom));
-+
-+	drvinfo.cmd = ETHTOOL_GDRVINFO;
-+	err = send_ioctl(ctx, &drvinfo);
-+	if (err < 0) {
-+		perror("Cannot get driver information");
-+		return 74;
-+	}
-+
-+	modinfo.cmd = ETHTOOL_GMODULEINFO;
-+	err = send_ioctl(ctx, &modinfo);
-+	if (err < 0) {
-+		perror("Cannot get driver information");
-+		return 74;
-+	}
-+
-+	if (geeprom_length == -1)
-+		geeprom_length = modinfo.eeprom_len;
-+
-+	if (modinfo.eeprom_len < geeprom_offset + geeprom_length)
-+		geeprom_length = modinfo.eeprom_len - geeprom_offset;
-+	eeprom = calloc(1, sizeof(*eeprom)+geeprom_length);
-+	if (!eeprom) {
-+		perror("Cannot allocate memory for EEPROM data");
-+		return 75;
-+	}
-+	eeprom->cmd = ETHTOOL_GMODULEEEPROM;
-+	eeprom->len = geeprom_length;
-+	eeprom->offset = geeprom_offset;
-+	err = send_ioctl(ctx, eeprom);
-+	if (err < 0) {
-+		perror("Cannot get EEPROM data");
-+		free(eeprom);
-+		return 74;
-+	}
-+	err = dump_eeprom(geeprom_dump_raw, &drvinfo, eeprom);
-+	free(eeprom);
-+
-+	return err;
-+}
-+
- static int do_geeprom(struct cmd_context *ctx)
- {
- 	int geeprom_changed = 0;
-@@ -3231,6 +3289,11 @@ static const struct option {
- 	{ "--show-priv-flags" , 1, do_gprivflags, "Query private flags" },
- 	{ "--set-priv-flags", 1, do_sprivflags, "Set private flags",
- 	  "		FLAG on|off ...\n" },
-+	{ "-m|--mod-eeprom-dump", 1, do_gmoduleeeprom,
-+	  "Dumps SFP+ module EEPROM",
-+	  "		[ raw on|off ]\n"
-+	  "		[ offset N ]\n"
-+	  "		[ length N ]\n" },
- 	{ "-h|--help", 0, show_usage, "Show this help" },
- 	{ "--version", 0, do_version, "Show version number" },
- 	{}
--- 
-1.7.7.1
+Is there any known fix or patch ?
+
+Thanks
+Massimo
+
+
+--------------040508070103010409070306
+Content-Type: text/plain;
+ name="panic1.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="panic1.txt"
+
+TWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuMzE4Njk4XSBCVUc6IHVuYWJsZSB0
+byBoYW5kbGUga2VybmVsIApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQyNi4zMzQ0
+ODRdIElQOgpNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQyNi4zNDg2NTNdIFBHRCAw
+IApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiAKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4x
+LjIgWyA0MjYuMzUyNzUzXSBPb3BzOiAwMDAwIFsjMV0gCk1heSAxNCAxNDoxNDoyOCAxNzIu
+MzAuMS4yIFNNUApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiAKTWF5IDE0IDE0OjE0OjI4
+IDE3Mi4zMC4xLjIgWyA0MjYuMzU5MzM1XSBDUFUgMCAKTWF5IDE0IDE0OjE0OjI4IDE3Mi4z
+MC4xLjIgCk1heSAxNCAxNDoxNDoyOCAxNzIuMzAuMS4yIFsgNDI2LjM2MzAzM10gTW9kdWxl
+cyBsaW5rZWQgaW46Ck1heSAxNCAxNDoxNDoyOCAxNzIuMzAuMS4yIApNYXkgMTQgMTQ6MTQ6
+MjggMTcyLjMwLjEuMiBbIDQyNi41MDU0MDFdIApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEu
+MiBbIDQyNi41MDg0MDZdIFBpZDogMzgzMSwgY29tbToga3ZtIE5vdCB0YWludGVkIDMuMi4w
+LTItYW1kNjQgIzEKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgLzBOMDUxRgpNYXkgMTQg
+MTQ6MTQ6MjggMTcyLjMwLjEuMiAKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYu
+NTI1NjIwXSBSSVA6IDAwMTA6WzxmZmZmZmZmZmEwMjQ4MzM2Pl0gCk1heSAxNCAxNDoxNDoy
+OCAxNzIuMzAuMS4yIFsgNDI2LjU0NDYzOV0gUlNQOiAwMDE4OmZmZmY4ODA0MmZjMDNiMTgg
+IEVGTEFHUzogMDAwMTAyOTMKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuNTU1
+Mjg4XSBSQVg6IDAwMDAwMDAwMDAwMDAwMDAgUkJYOiBmZmZmODgwNDI1MTdlZDgwIFJDWDog
+MDAwMDAwMDEwMDAwN2I1OQpNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQyNi41Njk1
+NzldIFJEWDogZmZmZmZmZmZhMDI0ODMwOCBSU0k6IDAwMDAwMDAwMDAwMDAyODIgUkRJOiBm
+ZmZmODgwNDI1MTdlZDgwCk1heSAxNCAxNDoxNDoyOCAxNzIuMzAuMS4yIFsgNDI2LjU4Mzg3
+Ml0gUkJQOiBmZmZmODgwNDI2M2NhMDAwIFIwODogMDAwMDAwMDAwMDAwMDAwMCBSMDk6IGZm
+ZmY4ODA0MmZjMDNhZDAKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuNTk4MTYy
+XSBSMTA6IGZmZmZmZmZmODE2NWFhYzAgUjExOiBmZmZmZmZmZjgxNjVhYWMwIFIxMjogMDAw
+MDAwMDAwMDAwMDAwMApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQyNi42MTI0NTNd
+IFIxMzogZmZmZjg4MDQyNTBhODAwMiBSMTQ6IGZmZmY4ODAzZDZmMmY2MDAgUjE1OiBmZmZm
+ODgwNDI1MGE4MDAwCk1heSAxNCAxNDoxNDoyOCAxNzIuMzAuMS4yIFsgNDI2LjYyNjc0N10g
+RlM6ICAwMDAwN2Y4NzY4OGU2OTAwKDAwMDApIEdTOmZmZmY4ODA0MmZjMDAwMDAoMDAwMCkg
+a25sR1M6MDAwMDAwMDAwMDAwMDAwMApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQy
+Ni42NDI5NjFdIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAw
+NTAwMzMKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuNjU0NDc3XSBDUjI6IDAw
+MDAwMDAwMDAwMDAwMTggQ1IzOiAwMDAwMDAwNDIzMWU2MDAwIENSNDogMDAwMDAwMDAwMDAw
+MjZlMApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQyNi42Njg3NzBdIERSMDogMDAw
+MDAwMDAwMDAwMDAwMCBEUjE6IDAwMDAwMDAwMDAwMDAwMDAgRFIyOiAwMDAwMDAwMDAwMDAw
+MDAwCk1heSAxNCAxNDoxNDoyOCAxNzIuMzAuMS4yIFsgNDI2LjY4MzA2M10gRFIzOiAwMDAw
+MDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBmZmZmMGZmMCBEUjc6IDAwMDAwMDAwMDAwMDA0
+MDAKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuNjk3MzU2XSBQcm9jZXNzIGt2
+bSAocGlkOiAzODMxLCB0aHJlYWRpbmZvIGZmZmY4ODA0MjMyYWUwMDAsIHRhc2sgZmZmZjg4
+MDQyNjFiYzhmMCkKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuNzEzMzk2XSBT
+dGFjazoKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuNzE3NDU3XSAgZmZmZmZm
+ZmY4MDAwMDAwMApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiAKTWF5IDE0IDE0OjE0OjI4
+IDE3Mi4zMC4xLjIgWyA0MjYuNzMyNTA0XSAgZmZmZjg4MDIyN2E2MDAwMApNYXkgMTQgMTQ6
+MTQ6MjggMTcyLjMwLjEuMiAKTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuNzQ3
+NTUwXSAgZmZmZjg4MDQyNTE3ZWQ4MApNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiAKTWF5
+IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYuNzYyNTk1XSBDYWxsIFRyYWNlOgpNYXkg
+MTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQyNi43Njc1MjFdICA8SVJRPiAKTWF5IDE0IDE0
+OjE0OjI4IDE3Mi4zMC4xLjIgCk1heSAxNCAxNDoxNDoyOCAxNzIuMzAuMS4yIFsgNDI2Ljc3
+MTgxMl0gIFs8ZmZmZmZmZmZhMDI0ODZkYj5dID8gYnJfcGFyc2VfaXBfb3B0aW9ucysweDNk
+LzB4MTlhIFticmlkZ2VdCk1heSAxNCAxNDoxNDoyOCAxNzIuMzAuMS4yIFsgNDI2Ljc4NTc2
+Ml0gIFs8ZmZmZmZmZmZhMDI0OGE2Nz5dID8gYnJfbmZfZm9yd2FyZF9pcCsweDFjMC8weDFk
+NCBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQyNi43OTkzNjVdICBb
+PGZmZmZmZmZmODEyYWMwMzk+XSA/IG5mX2l0ZXJhdGUrMHg0MS8weDc3Ck1heSAxNCAxNDox
+NDoyOCAxNzIuMzAuMS4yIFsgNDI2LjgxMDAxOF0gIFs8ZmZmZmZmZmZhMDI0MzkxOD5dID8g
+X19icl9kZWxpdmVyKzB4YTAvMHhhMCBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MjggMTcyLjMw
+LjEuMiBbIDQyNi44MjI1NzhdICBbPGZmZmZmZmZmYTAyNDM5MTg+XSA/IF9fYnJfZGVsaXZl
+cisweGEwLzB4YTAgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjI4IDE3Mi4zMC4xLjIgWyA0MjYu
+ODM1MTM5XSAgWzxmZmZmZmZmZjgxMmFjMGQ3Pl0gPyBuZl9ob29rX3Nsb3crMHg2OC8weDEw
+MQpNYXkgMTQgMTQ6MTQ6MjggMTcyLjMwLjEuMiBbIDQyNi44NDYzMTNdICBbPGZmZmZmZmZm
+YTAyNDM5MTg+XSA/IF9fYnJfZGVsaXZlcisweGEwLzB4YTAgW2JyaWRnZV0KTWF5IDE0IDE0
+OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjYuODU4ODczXSAgWzxmZmZmZmZmZmEwMjQ0MzdhPl0g
+PyBORl9IT09LLmNvbnN0cHJvcC40KzB4NTYvMHg1NiBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6
+MjkgMTcyLjMwLjEuMiBbIDQyNi44NzI2NDddICBbPGZmZmZmZmZmYTAyNDM5MTg+XSA/IF9f
+YnJfZGVsaXZlcisweGEwLzB4YTAgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4x
+LjIgWyA0MjYuODg1MjA2XSAgWzxmZmZmZmZmZmEwMjQzODVlPl0gPyBORl9IT09LLmNvbnN0
+cHJvcC44KzB4M2MvMHg1NiBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBb
+IDQyNi44OTg5ODBdICBbPGZmZmZmZmZmYTAyNDM5ZjI+XSA/IGJyX2ZvcndhcmQrMHgxNi8w
+eDVhIFticmlkZ2VdCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI2LjkxMTE5NV0g
+IFs8ZmZmZmZmZmZhMDI0NDUxYj5dID8gYnJfaGFuZGxlX2ZyYW1lX2ZpbmlzaCsweDFhMS8w
+eDIwZiBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNi45MjU4NTFd
+ICBbPGZmZmZmZmZmYTAyNDg1ZmY+XSA/IGJyX25mX3ByZV9yb3V0aW5nX2ZpbmlzaCsweDFk
+MC8weDFkZCBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNi45NDA4
+NTZdICBbPGZmZmZmZmZmYTAyNDdmZjA+XSA/IE5GX0hPT0tfVEhSRVNIKzB4M2IvMHg1NSBb
+YnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNi45NTM3NjNdICBbPGZm
+ZmZmZmZmYTAyNDhmNTg+XSA/IGJyX25mX3ByZV9yb3V0aW5nKzB4M2U4LzB4M2Y1IFticmlk
+Z2VdCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI2Ljk2NzUzNl0gIFs8ZmZmZmZm
+ZmY4MTJhYzAzOT5dID8gbmZfaXRlcmF0ZSsweDQxLzB4NzcKTWF5IDE0IDE0OjE0OjI5IDE3
+Mi4zMC4xLjIgWyA0MjYuOTc4MTkxXSAgWzxmZmZmZmZmZjgxMjhhZDFkPl0gPyBuZXRpZl9y
+ZWNlaXZlX3NrYisweDYzLzB4NjkKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjYu
+OTkwMDU2XSAgWzxmZmZmZmZmZjgxMjhiMWVmPl0gPyBuYXBpX2dyb19yZWNlaXZlKzB4MWQv
+MHgyYgpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy4wMDE3NTFdICBbPGZmZmZm
+ZmZmYTAyNDQzN2E+XSA/IE5GX0hPT0suY29uc3Rwcm9wLjQrMHg1Ni8weDU2IFticmlkZ2Vd
+Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI3LjAxNTUyNV0gIFs8ZmZmZmZmZmY4
+MTJhYzBkNz5dID8gbmZfaG9va19zbG93KzB4NjgvMHgxMDEKTWF5IDE0IDE0OjE0OjI5IDE3
+Mi4zMC4xLjIgWyA0MjcuMDI2Njk5XSAgWzxmZmZmZmZmZmEwMjQ0MzdhPl0gPyBORl9IT09L
+LmNvbnN0cHJvcC40KzB4NTYvMHg1NiBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMw
+LjEuMiBbIDQyNy4wNDA0NzRdICBbPGZmZmZmZmZmYTAyNDQzN2E+XSA/IE5GX0hPT0suY29u
+c3Rwcm9wLjQrMHg1Ni8weDU2IFticmlkZ2VdCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4y
+IFsgNDI3LjA1NDI0OV0gIFs8ZmZmZmZmZmZhMDI0NDM2MD5dID8gTkZfSE9PSy5jb25zdHBy
+b3AuNCsweDNjLzB4NTYgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0
+MjcuMDY4MDI1XSAgWzxmZmZmZmZmZjgxMDEzNWFkPl0gPyBwYXJhdmlydF9yZWFkX3RzYysw
+eDUvMHg4Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI3LjA3OTU0Ml0gIFs8ZmZm
+ZmZmZmY4MTAxMzYyMj5dID8gcmVhZF90c2MrMHg1LzB4MTQKTWF5IDE0IDE0OjE0OjI5IDE3
+Mi4zMC4xLjIgWyA0MjcuMDg5Njc0XSAgWzxmZmZmZmZmZmEwMjQ0NzNjPl0gPyBicl9oYW5k
+bGVfZnJhbWUrMHgxYjMvMHgxY2IgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4x
+LjIgWyA0MjcuMTAzMTAzXSAgWzxmZmZmZmZmZmEwMjQ0NTg5Pl0gPyBicl9oYW5kbGVfZnJh
+bWVfZmluaXNoKzB4MjBmLzB4MjBmIFticmlkZ2VdCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAu
+MS4yIFsgNDI3LjExNzc1OV0gIFs8ZmZmZmZmZmY4MTI4OTJjMD5dID8gX19uZXRpZl9yZWNl
+aXZlX3NrYisweDMyNC8weDQxZgpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy4x
+MzAzMTldICBbPGZmZmZmZmZmODEyODk0Mjc+XSA/IHByb2Nlc3NfYmFja2xvZysweDZjLzB4
+MTIzCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI3LjE0MjAxMl0gIFs8ZmZmZmZm
+ZmY4MTI4YjMwZD5dID8gbmV0X3J4X2FjdGlvbisweGExLzB4MWFmCk1heSAxNCAxNDoxNDoy
+OSAxNzIuMzAuMS4yIFsgNDI3LjE1MzM2MF0gIFs8ZmZmZmZmZmY4MTAzNmZhYj5dID8gdGVz
+dF90c2tfbmVlZF9yZXNjaGVkKzB4YS8weDEzCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4y
+IFsgNDI3LjE2NTc0OF0gIFs8ZmZmZmZmZmY4MTA0YmUzMD5dID8gX19kb19zb2Z0aXJxKzB4
+YjkvMHgxNzcKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuMTc2OTI0XSAgWzxm
+ZmZmZmZmZjgxMzUwNDZjPl0gPyBjYWxsX3NvZnRpcnErMHgxYy8weDMwCk1heSAxNCAxNDox
+NDoyOSAxNzIuMzAuMS4yIFsgNDI3LjE4NzkyMF0gIDxFT0k+IApNYXkgMTQgMTQ6MTQ6Mjkg
+MTcyLjMwLjEuMiAKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuMTkyMjEwXSAg
+WzxmZmZmZmZmZjgxMDBmOGU1Pl0gPyBkb19zb2Z0aXJxKzB4M2MvMHg3YgpNYXkgMTQgMTQ6
+MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy4yMDI4NjJdICBbPGZmZmZmZmZmODEyOGI1ZmQ+XSA/
+IG5ldGlmX3J4X25pKzB4MWUvMHgyNwpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQy
+Ny4yMTM2ODhdICBbPGZmZmZmZmZmYTAyYTc3MjE+XSA/IHR1bl9nZXRfdXNlcisweDM5YS8w
+eDNjMiBbdHVuXQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy4yMjYwNzRdICBb
+PGZmZmZmZmZmYTAyYTdhNjY+XSA/IHR1bl9jaHJfcG9sbCsweGNkLzB4Y2QgW3R1bl0KTWF5
+IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuMjM4MTE0XSAgWzxmZmZmZmZmZmEwMmE3
+YWM0Pl0gPyB0dW5fY2hyX2Fpb193cml0ZSsweDVlLzB4NzkgW3R1bl0KTWF5IDE0IDE0OjE0
+OjI5IDE3Mi4zMC4xLjIgWyA0MjcuMjUxMDI0XSAgWzxmZmZmZmZmZjgxMGY5NTk0Pl0gPyBk
+b19zeW5jX3JlYWR2X3dyaXRldisweDlhLzB4ZDcKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4x
+LjIgWyA0MjcuMjYzNDA4XSAgWzxmZmZmZmZmZjgxMDM2M2M3Pl0gPyBzaG91bGRfcmVzY2hl
+ZCsweDUvMHgyMwpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy4yNzQ1ODBdICBb
+PGZmZmZmZmZmODEwZjhjMTY+XSA/IGRvX3N5bmNfcmVhZCsweGFiLzB4ZTMKTWF5IDE0IDE0
+OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuMjg1NTc4XSAgWzxmZmZmZmZmZjgxMDM2M2M3Pl0g
+PyBzaG91bGRfcmVzY2hlZCsweDUvMHgyMwpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBb
+IDQyNy4yOTY3NTRdICBbPGZmZmZmZmZmODExNjI2YTE+XSA/IHNlY3VyaXR5X2ZpbGVfcGVy
+bWlzc2lvbisweDE2LzB4MmQKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuMzA5
+ODMzXSAgWzxmZmZmZmZmZjgxMGY5N2Y4Pl0gPyBkb19yZWFkdl93cml0ZXYrMHhhZi8weDEx
+YwpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy4zMjE1MjddICBbPGZmZmZmZmZm
+ODExMmFiN2U+XSA/IGV2ZW50ZmRfY3R4X3JlYWQrMHgxNjIvMHgxNzQKTWF5IDE0IDE0OjE0
+OjI5IDE3Mi4zMC4xLjIgWyA0MjcuMzMzNTcwXSAgWzxmZmZmZmZmZjgxMDNmM2ZmPl0gPyB0
+cnlfdG9fd2FrZV91cCsweDE5Ny8weDE5NwpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBb
+IDQyNy4zNDUyNjFdICBbPGZmZmZmZmZmODEwZjk5Y2Q+XSA/IHN5c193cml0ZXYrMHg0NS8w
+eDkwCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI3LjM1NTkxNF0gIFs8ZmZmZmZm
+ZmY4MTM0ZTIxMj5dID8gc3lzdGVtX2NhbGxfZmFzdHBhdGgrMHgxNi8weDFiCk1heSAxNCAx
+NDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI3LjM2ODI5N10gQ29kZTogCk1heSAxNCAxNDoxNDoy
+OSAxNzIuMzAuMS4yIDUzCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDQ4Ck1heSAxNCAx
+NDoxNDoyOSAxNzIuMzAuMS4yIDg5Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIGZiCk1h
+eSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDQ4Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4y
+IDgzCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIGVjCk1heSAxNCAxNDoxNDoyOSAxNzIu
+MzAuMS4yIDEwCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDY2Ck1heSAxNCAxNDoxNDoy
+OSAxNzIuMzAuMS4yIDgxCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDdmCk1heSAxNCAx
+NDoxNDoyOSAxNzIuMzAuMS4yIDdlCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDA4Ck1h
+eSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDA2Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4y
+IDRjCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDhiCk1heSAxNCAxNDoxNDoyOSAxNzIu
+MzAuMS4yIGE3Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDk4Ck1heSAxNCAxNDoxNDoy
+OSAxNzIuMzAuMS4yIDAwCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDAwCk1heSAxNCAx
+NDoxNDoyOSAxNzIuMzAuMS4yIDAwCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDc0Ck1h
+eSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDNkCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4y
+IGU4Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDA3Ck1heSAxNCAxNDoxNDoyOSAxNzIu
+MzAuMS4yIGZlCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIGZmCk1heSAxNCAxNDoxNDoy
+OSAxNzIuMzAuMS4yIGZmCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDY2Ck1heSAxNCAx
+NDoxNDoyOSAxNzIuMzAuMS4yIDNkCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDA4Ck1h
+eSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDA2Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4y
+IDc1Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDA5Ck1heSAxNCAxNDoxNDoyOSAxNzIu
+MzAuMS4yIDgzCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDNkCk1heSAxNCAxNDoxNDoy
+OSAxNzIuMzAuMS4yIDk4Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDZhCk1heSAxNCAx
+NDoxNDoyOSAxNzIuMzAuMS4yIDAwCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDAwCk1h
+eSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDAwCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4y
+IDc1Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIDI5Ck1heSAxNCAxNDoxNDoyOSAxNzIu
+MzAuMS4yIApNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBmNgpNYXkgMTQgMTQ6MTQ6Mjkg
+MTcyLjMwLjEuMiA0NApNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiAyNApNYXkgMTQgMTQ6
+MTQ6MjkgMTcyLjMwLjEuMiAxOApNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiAwMQpNYXkg
+MTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiA0OQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiA4
+YgpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiA2YwpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMw
+LjEuMiAyNApNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiAwOApNYXkgMTQgMTQ6MTQ6Mjkg
+MTcyLjMwLjEuMiA3NApNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiAKTWF5IDE0IDE0OjE0
+OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDAzOTkyXSAtLS0tLS0tLS0tLS1bIGN1dCBoZXJlIF0t
+LS0tLS0tLS0tLS0KTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDAzOTk1XSBX
+QVJOSU5HOiBhdCAvYnVpbGQvYnVpbGRkLWxpbnV4LTIuNl8zLjIuMTYtMS1hbWQ2NC1BWk5m
+a28vbGludXgtMi42LTMuMi4xNi9kZWJpYW4vYnVpbGQvc291cmNlX2FtZDY0X25vbmUva2Vy
+bmVsL3NvZnRpcnEuYzoxNTkgX2xvY2FsX2JoX2VuYWJsZV9pcC5pc3JhLjExKzB4M2QvMHg4
+OCgpCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI3LjQwMzk5OF0gSGFyZHdhcmUg
+bmFtZTogUG93ZXJFZGdlIFI0MTAKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0Mjcu
+NDAzOTk5XSBNb2R1bGVzIGxpbmtlZCBpbjogaXB0X01BU1FVRVJBREUgaXB0YWJsZV9uYXQg
+bmZfbmF0IG5mX2Nvbm50cmFja19pcHY0IG5mX2RlZnJhZ19pcHY0IGlwNnRhYmxlX2ZpbHRl
+ciBpcDZfdGFibGVzIGlwdGFibGVfZmlsdGVyIGlwX3RhYmxlcyB4X3RhYmxlcyBpcF92c19y
+ciBpcF92cyBuZl9jb25udHJhY2sgY3JjMzJjIGxpYmNyYzMyYyBkcmJkIGxydV9jYWNoZSBj
+biB0dW4gYnJpZGdlIHN0cCB2aXJ0aW9fbmV0IHZpcnRpb19ibGsgdmlydGlvX3JuZyBybmdf
+Y29yZSB2aXJ0aW9fcGNpIHZpcnRpb19yaW5nIHZpcnRpbyBrdm1faW50ZWwga3ZtIGlwbWlf
+ZGV2aW50ZiBpcG1pX3Bvd2Vyb2ZmIGlwbWlfc2kgaXBtaV93YXRjaGRvZyBpcG1pX21zZ2hh
+bmRsZXIgbmV0Y29uc29sZSBjb25maWdmcyBsb29wIHNuZF9wY20gc25kX3BhZ2VfYWxsb2Mg
+c25kX3RpbWVyIHNuZCBpN2NvcmVfZWRhYyBlZGFjX2NvcmUgcHNtb3VzZSBzb3VuZGNvcmUg
+cHJvY2Vzc29yIGpveWRldiBpVENPX3dkdCBpVENPX3ZlbmRvcl9zdXBwb3J0IGJ1dHRvbiBz
+ZXJpb19yYXcgdGhlcm1hbF9zeXMgZGNkYmFzIGV2ZGV2IHBjc3BrciBleHQzIG1iY2FjaGUg
+amJkIGRtX21vZCBzcl9tb2QgY2Ryb20gc2RfbW9kIHNlcyB1c2JoaWQgaGlkIGVuY2xvc3Vy
+ZSBjcmNfdDEwZGlmIGF0YV9nZW5lcmljIHVoY2lfaGNkIGF0YV9waWl4IGVoY2lfaGNkIGxp
+YmF0YSBtZWdhcmFpZF9zYXMgdXNiY29yZSBibngyIHNjc2lfbW9kIHVzYl9jb21tb24gW2xh
+c3QgdW5sb2FkZWQ6IHNjc2lfd2FpdF9zY2FuXQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEu
+MiBbIDQyNy40MDQwMzRdIFBpZDogMzgzMSwgY29tbToga3ZtIE5vdCB0YWludGVkIDMuMi4w
+LTItYW1kNjQgIzEKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDA0MDM1XSBD
+YWxsIFRyYWNlOgpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy40MDQwMzZdICA8
+SVJRPiAgWzxmZmZmZmZmZjgxMDQ2ODExPl0gPyB3YXJuX3Nsb3dwYXRoX2NvbW1vbisweDc4
+LzB4OGMKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDA0MDQzXSAgWzxmZmZm
+ZmZmZjgxMDRiZDIyPl0gPyBfbG9jYWxfYmhfZW5hYmxlX2lwLmlzcmEuMTErMHgzZC8weDg4
+Ck1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI3LjQwNDA0OV0gIFs8ZmZmZmZmZmZh
+MDAwMDc0OD5dID8gYm54Ml9yZWdfcmRfaW5kKzB4MzEvMHgzOCBbYm54Ml0KTWF5IDE0IDE0
+OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDA0MDU1XSAgWzxmZmZmZmZmZmEwMDA5N2Q3Pl0g
+PyBibngyX3BvbGwrMHgxYjcvMHgxYzQgW2JueDJdCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAu
+MS4yIFsgNDI3LjQwNDA2MV0gIFs8ZmZmZmZmZmY4MTI5YjE1NT5dID8gbmV0cG9sbF9wb2xs
+X2Rldi5wYXJ0LjE2KzB4OWIvMHg0OTkKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0
+MjcuNDA0MDY1XSAgWzxmZmZmZmZmZjgxMjliNjZkPl0gPyBuZXRwb2xsX3NlbmRfc2tiX29u
+X2RldisweDExYS8weDIwMQpNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy40MDQw
+NzBdICBbPGZmZmZmZmZmYTAyNDIzMWE+XSA/IGJyX2Rldl94bWl0KzB4MTJlLzB4MTQyIFti
+cmlkZ2VdCk1heSAxNCAxNDoxNDoyOSAxNzIuMzAuMS4yIFsgNDI3LjQwNDA3M10gIFs8ZmZm
+ZmZmZmY4MTI5YjYxZT5dID8gbmV0cG9sbF9zZW5kX3NrYl9vbl9kZXYrMHhjYi8weDIwMQpN
+YXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy40MDQwNzddICBbPGZmZmZmZmZmYTAx
+MjIyNWM+XSA/IHdyaXRlX21zZysweDk4LzB4ZjMgW25ldGNvbnNvbGVdCk1heSAxNCAxNDox
+NDoyOSAxNzIuMzAuMS4yIFsgNDI3LjQwNDA4MF0gIFs8ZmZmZmZmZmY4MTA0Njk1YT5dID8g
+X19jYWxsX2NvbnNvbGVfZHJpdmVycysweDcyLzB4ODMKTWF5IDE0IDE0OjE0OjI5IDE3Mi4z
+MC4xLjIgWyA0MjcuNDA0MDgzXSAgWzxmZmZmZmZmZjgxMDQ3MDI2Pl0gPyBjb25zb2xlX3Vu
+bG9jaysweDE0NC8weDFlOApNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy40MDQw
+ODZdICBbPGZmZmZmZmZmODEwNDc1NDk+XSA/IHZwcmludGsrMHgzOTYvMHgzZDkKTWF5IDE0
+IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDA0MDkyXSAgWzxmZmZmZmZmZmEwMjQ4MzQy
+Pl0gPyBicl9uZl9mb3J3YXJkX2ZpbmlzaCsweDNhLzB4OTUgW2JyaWRnZV0KTWF5IDE0IDE0
+OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDA0MDk3XSAgWzxmZmZmZmZmZmEwMjQ4MzBiPl0g
+PyBicl9uZl9mb3J3YXJkX2ZpbmlzaCsweDMvMHg5NSBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6
+MjkgMTcyLjMwLjEuMiBbIDQyNy40MDQxMDNdICBbPGZmZmZmZmZmODEzNDJjOGU+XSA/IHBy
+aW50aysweDQzLzB4NDgKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDA0MTA2
+XSAgWzxmZmZmZmZmZjgxMDBmZTZhPl0gPyBzaG93X3JlZ2lzdGVycysweDFkZS8weDIwYQpN
+YXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBbIDQyNy40MDQxMTJdICBbPGZmZmZmZmZmODEz
+NGExMWU+XSA/IF9fZGllKzB4OGIvMHhjOApNYXkgMTQgMTQ6MTQ6MjkgMTcyLjMwLjEuMiBb
+IDQyNy40MDQxMTVdICBbPGZmZmZmZmZmODEzNDI0NWU+XSA/IG5vX2NvbnRleHQrMHgxZDYv
+MHgyMGUKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0MjcuNDA0MTE4XSAgWzxmZmZm
+ZmZmZjgxMDUyMjYyPl0gPyBfX21vZF90aW1lcisweDEzOS8weDE0YgpNYXkgMTQgMTQ6MTQ6
+MjkgMTcyLjMwLjEuMiBbIDQyNy40MDQxMjFdICBbPGZmZmZmZmZmODEzNGMwOTk+XSA/IGRv
+X3BhZ2VfZmF1bHQrMHgxYTgvMHgzMzcKTWF5IDE0IDE0OjE0OjI5IDE3Mi4zMC4xLjIgWyA0
+MjcuNDA0MTI2XSAgWzxmZmZmZmZmZmEwM2UwZjA2Pl0gPyBpcF92c19jb25uX3B1dCsweDI4
+LzB4MzIgW2lwX3ZzXQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyNy40MDQxMzFd
+ICBbPGZmZmZmZmZmYTAzZTMwZTA+XSA/IGlwX3ZzX291dCsweDJiZC8weDQzMiBbaXBfdnNd
+Ck1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDEzNF0gIFs8ZmZmZmZmZmY4
+MTI4YzBlMj5dID8gZGV2X2hhcmRfc3RhcnRfeG1pdCsweDNmYy8weDU0MwpNYXkgMTQgMTQ6
+MTQ6MzAgMTcyLjMwLjEuMiBbIDQyNy40MDQxMzddICBbPGZmZmZmZmZmODEzNDk3ZjU+XSA/
+IHBhZ2VfZmF1bHQrMHgyNS8weDMwCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3
+LjQwNDE0M10gIFs8ZmZmZmZmZmZhMDI0ODMwOD5dID8gbmZfYnJpZGdlX3VwZGF0ZV9wcm90
+b2NvbCsweDIwLzB4MjAgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0
+MjcuNDA0MTQ4XSAgWzxmZmZmZmZmZmEwMjQ4MzM2Pl0gPyBicl9uZl9mb3J3YXJkX2Zpbmlz
+aCsweDJlLzB4OTUgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0Mjcu
+NDA0MTUzXSAgWzxmZmZmZmZmZmEwMjQ4MzI3Pl0gPyBicl9uZl9mb3J3YXJkX2ZpbmlzaCsw
+eDFmLzB4OTUgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0
+MTU4XSAgWzxmZmZmZmZmZmEwMjQ4NmRiPl0gPyBicl9wYXJzZV9pcF9vcHRpb25zKzB4M2Qv
+MHgxOWEgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MTY0
+XSAgWzxmZmZmZmZmZmEwMjQ4YTY3Pl0gPyBicl9uZl9mb3J3YXJkX2lwKzB4MWMwLzB4MWQ0
+IFticmlkZ2VdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDE2N10gIFs8
+ZmZmZmZmZmY4MTJhYzAzOT5dID8gbmZfaXRlcmF0ZSsweDQxLzB4NzcKTWF5IDE0IDE0OjE0
+OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MTcxXSAgWzxmZmZmZmZmZmEwMjQzOTE4Pl0gPyBf
+X2JyX2RlbGl2ZXIrMHhhMC8weGEwIFticmlkZ2VdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAu
+MS4yIFsgNDI3LjQwNDE3Nl0gIFs8ZmZmZmZmZmZhMDI0MzkxOD5dID8gX19icl9kZWxpdmVy
+KzB4YTAvMHhhMCBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyNy40
+MDQxNzhdICBbPGZmZmZmZmZmODEyYWMwZDc+XSA/IG5mX2hvb2tfc2xvdysweDY4LzB4MTAx
+Ck1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDE4M10gIFs8ZmZmZmZmZmZh
+MDI0MzkxOD5dID8gX19icl9kZWxpdmVyKzB4YTAvMHhhMCBbYnJpZGdlXQpNYXkgMTQgMTQ6
+MTQ6MzAgMTcyLjMwLjEuMiBbIDQyNy40MDQxODddICBbPGZmZmZmZmZmYTAyNDQzN2E+XSA/
+IE5GX0hPT0suY29uc3Rwcm9wLjQrMHg1Ni8weDU2IFticmlkZ2VdCk1heSAxNCAxNDoxNDoz
+MCAxNzIuMzAuMS4yIFsgNDI3LjQwNDE5Ml0gIFs8ZmZmZmZmZmZhMDI0MzkxOD5dID8gX19i
+cl9kZWxpdmVyKzB4YTAvMHhhMCBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEu
+MiBbIDQyNy40MDQxOTZdICBbPGZmZmZmZmZmYTAyNDM4NWU+XSA/IE5GX0hPT0suY29uc3Rw
+cm9wLjgrMHgzYy8weDU2IFticmlkZ2VdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsg
+NDI3LjQwNDIwMF0gIFs8ZmZmZmZmZmZhMDI0MzlmMj5dID8gYnJfZm9yd2FyZCsweDE2LzB4
+NWEgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MjA1XSAg
+WzxmZmZmZmZmZmEwMjQ0NTFiPl0gPyBicl9oYW5kbGVfZnJhbWVfZmluaXNoKzB4MWExLzB4
+MjBmIFticmlkZ2VdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDIxMF0g
+IFs8ZmZmZmZmZmZhMDI0ODVmZj5dID8gYnJfbmZfcHJlX3JvdXRpbmdfZmluaXNoKzB4MWQw
+LzB4MWRkIFticmlkZ2VdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDIx
+NV0gIFs8ZmZmZmZmZmZhMDI0N2ZmMD5dID8gTkZfSE9PS19USFJFU0grMHgzYi8weDU1IFti
+cmlkZ2VdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDIyMV0gIFs8ZmZm
+ZmZmZmZhMDI0OGY1OD5dID8gYnJfbmZfcHJlX3JvdXRpbmcrMHgzZTgvMHgzZjUgW2JyaWRn
+ZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MjIzXSAgWzxmZmZmZmZm
+ZjgxMmFjMDM5Pl0gPyBuZl9pdGVyYXRlKzB4NDEvMHg3NwpNYXkgMTQgMTQ6MTQ6MzAgMTcy
+LjMwLjEuMiBbIDQyNy40MDQyMjZdICBbPGZmZmZmZmZmODEyOGFkMWQ+XSA/IG5ldGlmX3Jl
+Y2VpdmVfc2tiKzB4NjMvMHg2OQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyNy40
+MDQyMjldICBbPGZmZmZmZmZmODEyOGIxZWY+XSA/IG5hcGlfZ3JvX3JlY2VpdmUrMHgxZC8w
+eDJiCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDIzNF0gIFs8ZmZmZmZm
+ZmZhMDI0NDM3YT5dID8gTkZfSE9PSy5jb25zdHByb3AuNCsweDU2LzB4NTYgW2JyaWRnZV0K
+TWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MjM3XSAgWzxmZmZmZmZmZjgx
+MmFjMGQ3Pl0gPyBuZl9ob29rX3Nsb3crMHg2OC8weDEwMQpNYXkgMTQgMTQ6MTQ6MzAgMTcy
+LjMwLjEuMiBbIDQyNy40MDQyNDFdICBbPGZmZmZmZmZmYTAyNDQzN2E+XSA/IE5GX0hPT0su
+Y29uc3Rwcm9wLjQrMHg1Ni8weDU2IFticmlkZ2VdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAu
+MS4yIFsgNDI3LjQwNDI0Nl0gIFs8ZmZmZmZmZmZhMDI0NDM3YT5dID8gTkZfSE9PSy5jb25z
+dHByb3AuNCsweDU2LzB4NTYgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIg
+WyA0MjcuNDA0MjUxXSAgWzxmZmZmZmZmZmEwMjQ0MzYwPl0gPyBORl9IT09LLmNvbnN0cHJv
+cC40KzB4M2MvMHg1NiBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQy
+Ny40MDQyNTRdICBbPGZmZmZmZmZmODEwMTM1YWQ+XSA/IHBhcmF2aXJ0X3JlYWRfdHNjKzB4
+NS8weDgKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MjU2XSAgWzxmZmZm
+ZmZmZjgxMDEzNjIyPl0gPyByZWFkX3RzYysweDUvMHgxNApNYXkgMTQgMTQ6MTQ6MzAgMTcy
+LjMwLjEuMiBbIDQyNy40MDQyNjFdICBbPGZmZmZmZmZmYTAyNDQ3M2M+XSA/IGJyX2hhbmRs
+ZV9mcmFtZSsweDFiMy8weDFjYiBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEu
+MiBbIDQyNy40MDQyNjVdICBbPGZmZmZmZmZmYTAyNDQ1ODk+XSA/IGJyX2hhbmRsZV9mcmFt
+ZV9maW5pc2grMHgyMGYvMHgyMGYgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4x
+LjIgWyA0MjcuNDA0MjY5XSAgWzxmZmZmZmZmZjgxMjg5MmMwPl0gPyBfX25ldGlmX3JlY2Vp
+dmVfc2tiKzB4MzI0LzB4NDFmCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQw
+NDI3Ml0gIFs8ZmZmZmZmZmY4MTI4OTQyNz5dID8gcHJvY2Vzc19iYWNrbG9nKzB4NmMvMHgx
+MjMKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0Mjc1XSAgWzxmZmZmZmZm
+ZjgxMjhiMzBkPl0gPyBuZXRfcnhfYWN0aW9uKzB4YTEvMHgxYWYKTWF5IDE0IDE0OjE0OjMw
+IDE3Mi4zMC4xLjIgWyA0MjcuNDA0Mjc3XSAgWzxmZmZmZmZmZjgxMDM2ZmFiPl0gPyB0ZXN0
+X3Rza19uZWVkX3Jlc2NoZWQrMHhhLzB4MTMKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIg
+WyA0MjcuNDA0MjgwXSAgWzxmZmZmZmZmZjgxMDRiZTMwPl0gPyBfX2RvX3NvZnRpcnErMHhi
+OS8weDE3NwpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyNy40MDQyODNdICBbPGZm
+ZmZmZmZmODEzNTA0NmM+XSA/IGNhbGxfc29mdGlycSsweDFjLzB4MzAKTWF5IDE0IDE0OjE0
+OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0Mjg1XSAgPEVPST4gIFs8ZmZmZmZmZmY4MTAwZjhl
+NT5dID8gZG9fc29mdGlycSsweDNjLzB4N2IKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIg
+WyA0MjcuNDA0Mjg5XSAgWzxmZmZmZmZmZjgxMjhiNWZkPl0gPyBuZXRpZl9yeF9uaSsweDFl
+LzB4MjcKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MjkyXSAgWzxmZmZm
+ZmZmZmEwMmE3NzIxPl0gPyB0dW5fZ2V0X3VzZXIrMHgzOWEvMHgzYzIgW3R1bl0KTWF5IDE0
+IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0Mjk2XSAgWzxmZmZmZmZmZmEwMmE3YTY2
+Pl0gPyB0dW5fY2hyX3BvbGwrMHhjZC8weGNkIFt0dW5dCk1heSAxNCAxNDoxNDozMCAxNzIu
+MzAuMS4yIFsgNDI3LjQwNDI5OV0gIFs8ZmZmZmZmZmZhMDJhN2FjND5dID8gdHVuX2Nocl9h
+aW9fd3JpdGUrMHg1ZS8weDc5IFt0dW5dCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsg
+NDI3LjQwNDMwMl0gIFs8ZmZmZmZmZmY4MTBmOTU5ND5dID8gZG9fc3luY19yZWFkdl93cml0
+ZXYrMHg5YS8weGQ3Ck1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDMwNV0g
+IFs8ZmZmZmZmZmY4MTAzNjNjNz5dID8gc2hvdWxkX3Jlc2NoZWQrMHg1LzB4MjMKTWF5IDE0
+IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MzA3XSAgWzxmZmZmZmZmZjgxMGY4YzE2
+Pl0gPyBkb19zeW5jX3JlYWQrMHhhYi8weGUzCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4y
+IFsgNDI3LjQwNDMxMF0gIFs8ZmZmZmZmZmY4MTAzNjNjNz5dID8gc2hvdWxkX3Jlc2NoZWQr
+MHg1LzB4MjMKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MzEzXSAgWzxm
+ZmZmZmZmZjgxMTYyNmExPl0gPyBzZWN1cml0eV9maWxlX3Blcm1pc3Npb24rMHgxNi8weDJk
+Ck1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI3LjQwNDMxNl0gIFs8ZmZmZmZmZmY4
+MTBmOTdmOD5dID8gZG9fcmVhZHZfd3JpdGV2KzB4YWYvMHgxMWMKTWF5IDE0IDE0OjE0OjMw
+IDE3Mi4zMC4xLjIgWyA0MjcuNDA0MzE5XSAgWzxmZmZmZmZmZjgxMTJhYjdlPl0gPyBldmVu
+dGZkX2N0eF9yZWFkKzB4MTYyLzB4MTc0Ck1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsg
+NDI3LjQwNDMyMl0gIFs8ZmZmZmZmZmY4MTAzZjNmZj5dID8gdHJ5X3RvX3dha2VfdXArMHgx
+OTcvMHgxOTcKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjcuNDA0MzI1XSAgWzxm
+ZmZmZmZmZjgxMGY5OWNkPl0gPyBzeXNfd3JpdGV2KzB4NDUvMHg5MApNYXkgMTQgMTQ6MTQ6
+MzAgMTcyLjMwLjEuMiBbIDQyNy40MDQzMjddICBbPGZmZmZmZmZmODEzNGUyMTI+XSA/IHN5
+c3RlbV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYgpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEu
+MiBbIDQyNy40MDQzMjldIC0tLVsgZW5kIHRyYWNlIDQzODMzOGQ0MmMzNGRkYTEgXS0tLQpN
+YXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyOC41NDYxODJdIDEyIApNYXkgMTQgMTQ6
+MTQ6MzAgMTcyLjMwLjEuMiA4YQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiA0MwpNYXkg
+MTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiA3ZApNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiA4
+MwpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBlMApNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMw
+LjEuMiBmOApNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiA4MwpNYXkgMTQgMTQ6MTQ6MzAg
+MTcyLjMwLjEuMiBjOApNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiAKTWF5IDE0IDE0OjE0
+OjMwIDE3Mi4zMC4xLjIgWyA0MjguNTU0Mzc3XSBSSVAgCk1heSAxNCAxNDoxNDozMCAxNzIu
+MzAuMS4yIFsgNDI4LjU2ODcyOF0gIFJTUCA8ZmZmZjg4MDQyZmMwM2IxOD4KTWF5IDE0IDE0
+OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjguNTc1NzM2XSBDUjI6IDAwMDAwMDAwMDAwMDAwMTgK
+TWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjguNTgyODgyXSAtLS1bIGVuZCB0cmFj
+ZSA0MzgzMzhkNDJjMzRkZGEyIF0tLS0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0
+MjguNTk3NjcxXSBLZXJuZWwgcGFuaWMgLSBub3Qgc3luY2luZzogRmF0YWwgZXhjZXB0aW9u
+IGluIGludGVycnVwdApNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyOC42MTA3NTZd
+IFBpZDogMzgzMSwgY29tbToga3ZtIFRhaW50ZWQ6IEcgICAgICBEIFcgICAgMy4yLjAtMi1h
+bWQ2NCAjMQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyOC42MjQ1MTVdIENhbGwg
+VHJhY2U6Ck1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI4LjYyOTgyNF0gIDxJUlE+
+IApNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyOC42NDE2MTJdICBbPGZmZmZmZmZm
+ODEzNGEwODY+XSA/IG9vcHNfZW5kKzB4YTkvMHhiNgpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMw
+LjEuMiBbIDQyOC42NTIxOTFdICBbPGZmZmZmZmZmODEzNDI0ODc+XSA/IG5vX2NvbnRleHQr
+MHgxZmYvMHgyMGUKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjguNjYzNDUwXSAg
+WzxmZmZmZmZmZjgxMDUyMjYyPl0gPyBfX21vZF90aW1lcisweDEzOS8weDE0YgpNYXkgMTQg
+MTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyOC42NzQ5MDBdICBbPGZmZmZmZmZmODEzNGMwOTk+
+XSA/IGRvX3BhZ2VfZmF1bHQrMHgxYTgvMHgzMzcKTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4x
+LjIgWyA0MjguNjg2NzAwXSAgWzxmZmZmZmZmZmEwM2UwZjA2Pl0gPyBpcF92c19jb25uX3B1
+dCsweDI4LzB4MzIgW2lwX3ZzXQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyOC42
+OTk3NjNdICBbPGZmZmZmZmZmYTAzZTMwZTA+XSA/IGlwX3ZzX291dCsweDJiZC8weDQzMiBb
+aXBfdnNdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI4LjcxMjI1MV0gIFs8ZmZm
+ZmZmZmY4MTI4YzBlMj5dID8gZGV2X2hhcmRfc3RhcnRfeG1pdCsweDNmYy8weDU0MwpNYXkg
+MTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBbIDQyOC43MjUxNTVdICBbPGZmZmZmZmZmODEzNDk3
+ZjU+XSA/IHBhZ2VfZmF1bHQrMHgyNS8weDMwCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4y
+IFsgNDI4LjczNjEwMV0gIFs8ZmZmZmZmZmZhMDI0ODMwOD5dID8gbmZfYnJpZGdlX3VwZGF0
+ZV9wcm90b2NvbCsweDIwLzB4MjAgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4x
+LjIgWyA0MjguNzUxNDAzXSAgWzxmZmZmZmZmZmEwMjQ4MzM2Pl0gPyBicl9uZl9mb3J3YXJk
+X2ZpbmlzaCsweDJlLzB4OTUgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIg
+WyA0MjguNzY1NzE0XSAgWzxmZmZmZmZmZmEwMjQ4MzI3Pl0gPyBicl9uZl9mb3J3YXJkX2Zp
+bmlzaCsweDFmLzB4OTUgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0
+MjguNzc5OTQzXSAgWzxmZmZmZmZmZmEwMjQ4NmRiPl0gPyBicl9wYXJzZV9pcF9vcHRpb25z
+KzB4M2QvMHgxOWEgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0Mjgu
+Nzk0MzgxXSAgWzxmZmZmZmZmZmEwMjQ4YTY3Pl0gPyBicl9uZl9mb3J3YXJkX2lwKzB4MWMw
+LzB4MWQ0IFticmlkZ2VdCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI4LjgwODM3
+OF0gIFs8ZmZmZmZmZmY4MTJhYzAzOT5dID8gbmZfaXRlcmF0ZSsweDQxLzB4NzcKTWF5IDE0
+IDE0OjE0OjMwIDE3Mi4zMC4xLjIgWyA0MjguODE5MzEzXSAgWzxmZmZmZmZmZmEwMjQzOTE4
+Pl0gPyBfX2JyX2RlbGl2ZXIrMHhhMC8weGEwIFticmlkZ2VdCk1heSAxNCAxNDoxNDozMCAx
+NzIuMzAuMS4yIFsgNDI4LjgzMjE1MV0gIFs8ZmZmZmZmZmZhMDI0MzkxOD5dID8gX19icl9k
+ZWxpdmVyKzB4YTAvMHhhMCBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MzAgMTcyLjMwLjEuMiBb
+IDQyOC44NDUwNzZdICBbPGZmZmZmZmZmODEyYWMwZDc+XSA/IG5mX2hvb2tfc2xvdysweDY4
+LzB4MTAxCk1heSAxNCAxNDoxNDozMCAxNzIuMzAuMS4yIFsgNDI4Ljg1NjUyNl0gIFs8ZmZm
+ZmZmZmZhMDI0MzkxOD5dID8gX19icl9kZWxpdmVyKzB4YTAvMHhhMCBbYnJpZGdlXQpNYXkg
+MTQgMTQ6MTQ6MzEgMTcyLjMwLjEuMiBbIDQyOC44NjkzNjVdICBbPGZmZmZmZmZmYTAyNDQz
+N2E+XSA/IE5GX0hPT0suY29uc3Rwcm9wLjQrMHg1Ni8weDU2IFticmlkZ2VdCk1heSAxNCAx
+NDoxNDozMSAxNzIuMzAuMS4yIFsgNDI4Ljg4MzQxMV0gIFs8ZmZmZmZmZmZhMDI0MzkxOD5d
+ID8gX19icl9kZWxpdmVyKzB4YTAvMHhhMCBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MzEgMTcy
+LjMwLjEuMiBbIDQyOC44OTYyNTFdICBbPGZmZmZmZmZmYTAyNDM4NWU+XSA/IE5GX0hPT0su
+Y29uc3Rwcm9wLjgrMHgzYy8weDU2IFticmlkZ2VdCk1heSAxNCAxNDoxNDozMSAxNzIuMzAu
+MS4yIFsgNDI4LjkxMDQwMF0gIFs8ZmZmZmZmZmZhMDI0MzlmMj5dID8gYnJfZm9yd2FyZCsw
+eDE2LzB4NWEgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMxIDE3Mi4zMC4xLjIgWyA0MjguOTIy
+ODk4XSAgWzxmZmZmZmZmZmEwMjQ0NTFiPl0gPyBicl9oYW5kbGVfZnJhbWVfZmluaXNoKzB4
+MWExLzB4MjBmIFticmlkZ2VdCk1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsgNDI4Ljkz
+Nzg3MF0gIFs8ZmZmZmZmZmZhMDI0ODVmZj5dID8gYnJfbmZfcHJlX3JvdXRpbmdfZmluaXNo
+KzB4MWQwLzB4MWRkIFticmlkZ2VdCk1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsgNDI4
+Ljk1MzM0MV0gIFs8ZmZmZmZmZmZhMDI0N2ZmMD5dID8gTkZfSE9PS19USFJFU0grMHgzYi8w
+eDU1IFticmlkZ2VdCk1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsgNDI4Ljk2NjUyNF0g
+IFs8ZmZmZmZmZmZhMDI0OGY1OD5dID8gYnJfbmZfcHJlX3JvdXRpbmcrMHgzZTgvMHgzZjUg
+W2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMxIDE3Mi4zMC4xLjIgWyA0MjguOTgwODI3XSAgWzxm
+ZmZmZmZmZjgxMmFjMDM5Pl0gPyBuZl9pdGVyYXRlKzB4NDEvMHg3NwpNYXkgMTQgMTQ6MTQ6
+MzEgMTcyLjMwLjEuMiBbIDQyOC45OTE3OTVdICBbPGZmZmZmZmZmODEyOGFkMWQ+XSA/IG5l
+dGlmX3JlY2VpdmVfc2tiKzB4NjMvMHg2OQpNYXkgMTQgMTQ6MTQ6MzEgMTcyLjMwLjEuMiBb
+IDQyOS4wMDM5ODRdICBbPGZmZmZmZmZmODEyOGIxZWY+XSA/IG5hcGlfZ3JvX3JlY2VpdmUr
+MHgxZC8weDJiCk1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsgNDI5LjAxNjEwNV0gIFs8
+ZmZmZmZmZmZhMDI0NDM3YT5dID8gTkZfSE9PSy5jb25zdHByb3AuNCsweDU2LzB4NTYgW2Jy
+aWRnZV0KTWF5IDE0IDE0OjE0OjMxIDE3Mi4zMC4xLjIgWyA0MjkuMDMwMTUxXSAgWzxmZmZm
+ZmZmZjgxMmFjMGQ3Pl0gPyBuZl9ob29rX3Nsb3crMHg2OC8weDEwMQpNYXkgMTQgMTQ6MTQ6
+MzEgMTcyLjMwLjEuMiBbIDQyOS4wNDE2NTFdICBbPGZmZmZmZmZmYTAyNDQzN2E+XSA/IE5G
+X0hPT0suY29uc3Rwcm9wLjQrMHg1Ni8weDU2IFticmlkZ2VdCk1heSAxNCAxNDoxNDozMSAx
+NzIuMzAuMS4yIFsgNDI5LjA1NTc2Ml0gIFs8ZmZmZmZmZmZhMDI0NDM3YT5dID8gTkZfSE9P
+Sy5jb25zdHByb3AuNCsweDU2LzB4NTYgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMxIDE3Mi4z
+MC4xLjIgWyA0MjkuMDY5ODkzXSAgWzxmZmZmZmZmZmEwMjQ0MzYwPl0gPyBORl9IT09LLmNv
+bnN0cHJvcC40KzB4M2MvMHg1NiBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MzEgMTcyLjMwLjEu
+MiBbIDQyOS4wODQwNjRdICBbPGZmZmZmZmZmODEwMTM1YWQ+XSA/IHBhcmF2aXJ0X3JlYWRf
+dHNjKzB4NS8weDgKTWF5IDE0IDE0OjE0OjMxIDE3Mi4zMC4xLjIgWyA0MjkuMDk1OTkxXSAg
+WzxmZmZmZmZmZjgxMDEzNjIyPl0gPyByZWFkX3RzYysweDUvMHgxNApNYXkgMTQgMTQ6MTQ6
+MzEgMTcyLjMwLjEuMiBbIDQyOS4xMDY0OTldICBbPGZmZmZmZmZmYTAyNDQ3M2M+XSA/IGJy
+X2hhbmRsZV9mcmFtZSsweDFiMy8weDFjYiBbYnJpZGdlXQpNYXkgMTQgMTQ6MTQ6MzEgMTcy
+LjMwLjEuMiBbIDQyOS4xMjAyOThdICBbPGZmZmZmZmZmYTAyNDQ1ODk+XSA/IGJyX2hhbmRs
+ZV9mcmFtZV9maW5pc2grMHgyMGYvMHgyMGYgW2JyaWRnZV0KTWF5IDE0IDE0OjE0OjMxIDE3
+Mi4zMC4xLjIgWyA0MjkuMTM1MzI1XSAgWzxmZmZmZmZmZjgxMjg5MmMwPl0gPyBfX25ldGlm
+X3JlY2VpdmVfc2tiKzB4MzI0LzB4NDFmCk1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsg
+NDI5LjE0ODE2N10gIFs8ZmZmZmZmZmY4MTI4OTQyNz5dID8gcHJvY2Vzc19iYWNrbG9nKzB4
+NmMvMHgxMjMKTWF5IDE0IDE0OjE0OjMxIDE3Mi4zMC4xLjIgWyA0MjkuMTYwMTI5XSAgWzxm
+ZmZmZmZmZjgxMjhiMzBkPl0gPyBuZXRfcnhfYWN0aW9uKzB4YTEvMHgxYWYKTWF5IDE0IDE0
+OjE0OjMxIDE3Mi4zMC4xLjIgWyA0MjkuMTcxODQwXSAgWzxmZmZmZmZmZjgxMDM2ZmFiPl0g
+PyB0ZXN0X3Rza19uZWVkX3Jlc2NoZWQrMHhhLzB4MTMKTWF5IDE0IDE0OjE0OjMxIDE3Mi4z
+MC4xLjIgWyA0MjkuMTg0NDk1XSAgWzxmZmZmZmZmZjgxMDRiZTMwPl0gPyBfX2RvX3NvZnRp
+cnErMHhiOS8weDE3NwpNYXkgMTQgMTQ6MTQ6MzEgMTcyLjMwLjEuMiBbIDQyOS4xOTU5NDVd
+ICBbPGZmZmZmZmZmODEzNTA0NmM+XSA/IGNhbGxfc29mdGlycSsweDFjLzB4MzAKTWF5IDE0
+IDE0OjE0OjMxIDE3Mi4zMC4xLjIgWyA0MjkuMjA3MzM3XSAgPEVPST4gCk1heSAxNCAxNDox
+NDozMSAxNzIuMzAuMS4yIFsgNDI5LjIxOTkxOF0gIFs8ZmZmZmZmZmY4MTI4YjVmZD5dID8g
+bmV0aWZfcnhfbmkrMHgxZS8weDI3Ck1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsgNDI5
+LjIzMTExNV0gIFs8ZmZmZmZmZmZhMDJhNzcyMT5dID8gdHVuX2dldF91c2VyKzB4MzlhLzB4
+M2MyIFt0dW5dCk1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsgNDI5LjI0Mzc3M10gIFs8
+ZmZmZmZmZmZhMDJhN2E2Nj5dID8gdHVuX2Nocl9wb2xsKzB4Y2QvMHhjZCBbdHVuXQpNYXkg
+MTQgMTQ6MTQ6MzEgMTcyLjMwLjEuMiBbIDQyOS4yNTYxMzBdICBbPGZmZmZmZmZmYTAyYTdh
+YzQ+XSA/IHR1bl9jaHJfYWlvX3dyaXRlKzB4NWUvMHg3OSBbdHVuXQpNYXkgMTQgMTQ6MTQ6
+MzEgMTcyLjMwLjEuMiBbIDQyOS4yNjkzNjhdICBbPGZmZmZmZmZmODEwZjk1OTQ+XSA/IGRv
+X3N5bmNfcmVhZHZfd3JpdGV2KzB4OWEvMHhkNwpNYXkgMTQgMTQ6MTQ6MzEgMTcyLjMwLjEu
+MiBbIDQyOS4yODIwMjddICBbPGZmZmZmZmZmODEwMzYzYzc+XSA/IHNob3VsZF9yZXNjaGVk
+KzB4NS8weDIzCk1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsgNDI5LjI5MzQ3NV0gIFs8
+ZmZmZmZmZmY4MTBmOGMxNj5dID8gZG9fc3luY19yZWFkKzB4YWIvMHhlMwpNYXkgMTQgMTQ6
+MTQ6MzEgMTcyLjMwLjEuMiBbIDQyOS4zMDQ3NDVdICBbPGZmZmZmZmZmODEwMzYzYzc+XSA/
+IHNob3VsZF9yZXNjaGVkKzB4NS8weDIzCk1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsg
+NDI5LjMxNjE5MF0gIFs8ZmZmZmZmZmY4MTE2MjZhMT5dID8gc2VjdXJpdHlfZmlsZV9wZXJt
+aXNzaW9uKzB4MTYvMHgyZApNYXkgMTQgMTQ6MTQ6MzEgMTcyLjMwLjEuMiBbIDQyOS4zMjk1
+NDVdICBbPGZmZmZmZmZmODEwZjk3Zjg+XSA/IGRvX3JlYWR2X3dyaXRldisweGFmLzB4MTFj
+Ck1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsgNDI5LjM0MTU2Ml0gIFs8ZmZmZmZmZmY4
+MTEyYWI3ZT5dID8gZXZlbnRmZF9jdHhfcmVhZCsweDE2Mi8weDE3NApNYXkgMTQgMTQ6MTQ6
+MzEgMTcyLjMwLjEuMiBbIDQyOS4zNTM5NzZdICBbPGZmZmZmZmZmODEwM2YzZmY+XSA/IHRy
+eV90b193YWtlX3VwKzB4MTk3LzB4MTk3Ck1heSAxNCAxNDoxNDozMSAxNzIuMzAuMS4yIFsg
+NDI5LjM2NTk4NF0gIFs8ZmZmZmZmZmY4MTBmOTljZD5dID8gc3lzX3dyaXRldisweDQ1LzB4
+OTAKTWF5IDE0IDE0OjE0OjMxIDE3Mi4zMC4xLjIgWyA0MjkuMzc3MDgwXSAgWzxmZmZmZmZm
+ZjgxMzRlMjEyPl0gPyBzeXN0ZW1fY2FsbF9mYXN0cGF0aCsweDE2LzB4MWIK
+--------------040508070103010409070306--
