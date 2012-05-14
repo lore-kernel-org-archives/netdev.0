@@ -1,9 +1,10 @@
 From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: Re: [PATCH] [RFC] netfilter: don't assume NFPROTO_* are like PF_*
-Date: Mon, 14 May 2012 16:42:30 +0100
-Message-ID: <20120514164230.6b9078bd@rainbow.cbg.collabora.co.uk>
-References: <1337003909-2582-1-git-send-email-alban.crequy@collabora.co.uk>
-	<alpine.LNX.2.01.1205141707490.11548@frira.vanv.qr>
+Subject: [PATCH v2 1/6] netfilter: sanity checks on NFPROTO_NUMPROTO
+Date: Mon, 14 May 2012 17:04:10 +0100
+Message-ID: <20120514170410.6c2f1c5b@rainbow.cbg.collabora.co.uk>
+References: <1337003799-2517-1-git-send-email-alban.crequy@collabora.co.uk>
+	<20120514144235.GE12992@1984>
+	<20120514163949.37e614f4@rainbow.cbg.collabora.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,47 +13,91 @@ Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	Vincent Sanders <vincent.sanders@collabora.co.uk>,
 	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.135.160]:48907 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756965Ab2ENPm3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 11:42:29 -0400
-In-Reply-To: <alpine.LNX.2.01.1205141707490.11548@frira.vanv.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Alban Crequy <alban.crequy@collabora.co.uk>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120514163949.37e614f4@rainbow.cbg.collabora.co.uk>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le Mon, 14 May 2012 17:09:54 +0200 (CEST),
-Jan Engelhardt <jengelh@inai.de> a =C3=A9crit :
+Le Mon, 14 May 2012 16:39:49 +0100,
+Alban Crequy <alban.crequy@collabora.co.uk> a =C3=A9crit :
 
+> Le Mon, 14 May 2012 16:42:35 +0200,
+> Pablo Neira Ayuso <pablo@netfilter.org> a =C3=A9crit :
 >=20
-> On Monday 2012-05-14 15:58, Alban Crequy wrote:
-> >--- a/include/linux/netfilter.h
-> >+++ b/include/linux/netfilter.h
-> >@@ -62,11 +62,11 @@ enum nf_inet_hooks {
+> > On Mon, May 14, 2012 at 02:56:34PM +0100, Alban Crequy wrote:
+> > > With the NFPROTO_* constants introduced by commit 7e9c6e
+> > > ("netfilter: Introduce NFPROTO_* constants"), it is too easy to
+> > > confuse PF_* and NFPROTO_* constants in new protocols.
+> > >=20
+> > > Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+> > > Reviewed-by: Javier Martinez Canillas
+> > > <javier.martinez@collabora.co.uk> Reviewed-by: Vincent Sanders
+> > > <vincent.sanders@collabora.co.uk> ---
+> > >  net/netfilter/core.c |    5 +++++
+> > >  1 files changed, 5 insertions(+), 0 deletions(-)
+> > >=20
+> > > diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+> > > index e1b7e05..4f16552 100644
+> > > --- a/net/netfilter/core.c
+> > > +++ b/net/netfilter/core.c
+> > > @@ -67,6 +67,11 @@ int nf_register_hook(struct nf_hook_ops *reg)
+> > >  	struct nf_hook_ops *elem;
+> > >  	int err;
+> > > =20
+> > > +	if (reg->pf >=3D NFPROTO_NUMPROTO || reg->hooknum >=3D
+> > > NF_MAX_HOOKS) {
+> > > +		BUG();
+> > > +		return 1;
 > >=20
-> > enum {
-> > 	NFPROTO_UNSPEC =3D  0,
-> >-	NFPROTO_IPV4   =3D  2,
-> >-	NFPROTO_ARP    =3D  3,
-> >-	NFPROTO_BRIDGE =3D  7,
-> >-	NFPROTO_IPV6   =3D 10,
-> >-	NFPROTO_DECNET =3D 12,
-> >+	NFPROTO_IPV4,
-> >+	NFPROTO_ARP,
-> >+	NFPROTO_BRIDGE,
-> >+	NFPROTO_IPV6,
-> >+	NFPROTO_DECNET,
-> > 	NFPROTO_NUMPROTO,
-> > };
+> > nf_register_hook returns a negative value on error. -EINVAL can be
+> > fine.
 >=20
-> This must not be changed under any circumstances. It is exported to
-> and used by userspace. (Except perhaps for NFPROTO_DECNET, which
-> refers to a quite dead protocol that I think no user parts have ever
-> used NFPROTO_DECNET.) I would consider it acceptable to change the
-> value for NFPROTO_DECNET if Pablo joins.
+> Is it the patch you mean? Do you want me to do a series repost?
 
-Thanks for the review. I didn't realize it was exported to and used by
-userspace. I would drop this patch then.
+Please disregard the previous patch, this is the correct one.
 
-Alban
+
+=46rom: Alban Crequy <alban.crequy@collabora.co.uk>
+
+netfilter: sanity checks on NFPROTO_NUMPROTO
+
+With the NFPROTO_* constants introduced by commit 7e9c6e ("netfilter: I=
+ntroduce
+NFPROTO_* constants"), it is too easy to confuse PF_* and NFPROTO_* con=
+stants
+in new protocols.
+
+Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+---
+ net/netfilter/core.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e1b7e05..7422989 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -67,6 +67,14 @@ int nf_register_hook(struct nf_hook_ops *reg)
+ 	struct nf_hook_ops *elem;
+ 	int err;
+=20
++	if (reg->pf >=3D NFPROTO_NUMPROTO || reg->hooknum >=3D NF_MAX_HOOKS) =
+{
++		WARN(reg->pf >=3D NFPROTO_NUMPROTO,
++		     "netfilter: Invalid nfproto %d\n", reg->pf);
++		WARN(reg->hooknum >=3D NF_MAX_HOOKS,
++		     "netfilter: Invalid hooknum %d\n", reg->hooknum);
++		return -EINVAL;
++	}
++
+ 	err =3D mutex_lock_interruptible(&nf_hook_mutex);
+ 	if (err < 0)
+ 		return err;
+--=20
+1.7.2.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
