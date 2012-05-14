@@ -1,66 +1,94 @@
-From: Mike Galbraith <mgalbraith@suse.de>
-Subject: Re: [patch] Re: qlge driver corrupting kernel memory
-Date: Mon, 14 May 2012 17:33:17 +0200
-Message-ID: <1337009597.17437.1.camel@marge.simpson.net>
-References: <1336474818.21924.94.camel@marge.simpson.net>
-	 <20120508120748.GA3504@oc1711230544.ibm.com>
-	 <1336736301.7361.144.camel@marge.simpson.net>
-	 <1336903839.7390.13.camel@marge.simpson.net>
-	 <1336904179.7390.16.camel@marge.simpson.net>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: Re: [PATCH 1/6] netfilter: sanity checks on NFPROTO_NUMPROTO
+Date: Mon, 14 May 2012 16:39:49 +0100
+Message-ID: <20120514163949.37e614f4@rainbow.cbg.collabora.co.uk>
+References: <1337003799-2517-1-git-send-email-alban.crequy@collabora.co.uk>
+	<20120514144235.GE12992@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:41159 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756935Ab2ENPdW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2012 11:33:22 -0400
-In-Reply-To: <1336904179.7390.16.camel@marge.simpson.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120514144235.GE12992@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(add CC)
+Le Mon, 14 May 2012 16:42:35 +0200,
+Pablo Neira Ayuso <pablo@netfilter.org> a =C3=A9crit :
 
-On Sun, 2012-05-13 at 12:16 +0200, Mike Galbraith wrote: 
-> Erm, with a quilt refresh you get the compiling version :)
-> 
-> glge: Fix double pci_free_consistent() upon tx_ring->q allocation failure
-> 
-> Let ql_free_tx_resources() do it's job.  You are not helping.
-> 
-> Signed-off-by: Mike Galbraith <mgalbraith@suse.de>
-> ---
->  drivers/net/qlge/qlge_main.c |   10 +++-------
->  1 file changed, 3 insertions(+), 7 deletions(-)
-> 
-> --- a/drivers/net/qlge/qlge_main.c
-> +++ b/drivers/net/qlge/qlge_main.c
-> @@ -2664,11 +2664,8 @@ static int ql_alloc_tx_resources(struct
->  	    pci_alloc_consistent(qdev->pdev, tx_ring->wq_size,
->  				 &tx_ring->wq_base_dma);
->  
-> -	if ((tx_ring->wq_base == NULL) ||
-> -	    tx_ring->wq_base_dma & WQ_ADDR_ALIGN) {
-> -		QPRINTK(qdev, IFUP, ERR, "tx_ring alloc failed.\n");
-> -		return -ENOMEM;
-> -	}
-> +	if ((tx_ring->wq_base == NULL) || tx_ring->wq_base_dma & WQ_ADDR_ALIGN)
-> +		goto err;
->  	tx_ring->q =
->  	    kmalloc(tx_ring->wq_len * sizeof(struct tx_ring_desc), GFP_KERNEL);
->  	if (tx_ring->q == NULL)
-> @@ -2676,8 +2673,7 @@ static int ql_alloc_tx_resources(struct
->  
->  	return 0;
->  err:
-> -	pci_free_consistent(qdev->pdev, tx_ring->wq_size,
-> -			    tx_ring->wq_base, tx_ring->wq_base_dma);
-> +	QPRINTK(qdev, IFUP, ERR, "tx_ring alloc failed.\n");
->  	return -ENOMEM;
->  }
->  
-> 
-> 
+> On Mon, May 14, 2012 at 02:56:34PM +0100, Alban Crequy wrote:
+> > With the NFPROTO_* constants introduced by commit 7e9c6e
+> > ("netfilter: Introduce NFPROTO_* constants"), it is too easy to
+> > confuse PF_* and NFPROTO_* constants in new protocols.
+> >=20
+> > Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+> > Reviewed-by: Javier Martinez Canillas
+> > <javier.martinez@collabora.co.uk> Reviewed-by: Vincent Sanders
+> > <vincent.sanders@collabora.co.uk> ---
+> >  net/netfilter/core.c |    5 +++++
+> >  1 files changed, 5 insertions(+), 0 deletions(-)
+> >=20
+> > diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+> > index e1b7e05..4f16552 100644
+> > --- a/net/netfilter/core.c
+> > +++ b/net/netfilter/core.c
+> > @@ -67,6 +67,11 @@ int nf_register_hook(struct nf_hook_ops *reg)
+> >  	struct nf_hook_ops *elem;
+> >  	int err;
+> > =20
+> > +	if (reg->pf >=3D NFPROTO_NUMPROTO || reg->hooknum >=3D
+> > NF_MAX_HOOKS) {
+> > +		BUG();
+> > +		return 1;
+>=20
+> nf_register_hook returns a negative value on error. -EINVAL can be
+> fine.
+
+Is it the patch you mean? Do you want me to do a series repost?
+
+
+=46rom: Alban Crequy <alban.crequy@collabora.co.uk>
+
+netfilter: sanity checks on NFPROTO_NUMPROTO
+
+With the NFPROTO_* constants introduced by commit 7e9c6e ("netfilter: I=
+ntroduce
+NFPROTO_* constants"), it is too easy to confuse PF_* and NFPROTO_* con=
+stants
+in new protocols.
+
+Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+Reviewed-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Reviewed-by: Vincent Sanders <vincent.sanders@collabora.co.uk>
+---
+ net/netfilter/core.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e1b7e05..ac56c5b 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -67,6 +67,11 @@ int nf_register_hook(struct nf_hook_ops *reg)
+ 	struct nf_hook_ops *elem;
+ 	int err;
+=20
++	if (reg->pf >=3D NFPROTO_NUMPROTO || reg->hooknum >=3D NF_MAX_HOOKS) =
+{
++		WARN();
++		return -EINVAL;
++	}
++
+ 	err =3D mutex_lock_interruptible(&nf_hook_mutex);
+ 	if (err < 0)
+ 		return err;
+--=20
+1.7.2.5
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
