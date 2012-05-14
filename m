@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
-Date: Mon, 14 May 2012 18:41:32 -0400 (EDT)
-Message-ID: <20120514.184132.1506982467448756718.davem@davemloft.net>
-References: <20120215104021.GC31660@secunet.com>
-	<1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<20120514130528.GA24733@secunet.com>
+Subject: Re: [PATCH v2] xfrm: take iphdr size into account for esp payload
+ size calculation
+Date: Mon, 14 May 2012 18:39:52 -0400 (EDT)
+Message-ID: <20120514.183952.1459413342269893446.davem@davemloft.net>
+References: <20120511010249.GA23584@d2.synalogic.ca>
+	<1336698442-25148-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org, lw@cn.fujitsu.com
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60254 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756759Ab2ENWlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 18:41:55 -0400
-In-Reply-To: <20120514130528.GA24733@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org
+To: bpoirier@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1336698442-25148-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Mon, 14 May 2012 15:05:28 +0200
+From: Benjamin Poirier <bpoirier@suse.de>
+Date: Thu, 10 May 2012 21:07:22 -0400
 
-> There might be other opinions, but I don't like to see this IPsec mode
-> dependent stuff hacked into the generic ipv6 output path.
+> -	return mtu - 2;
+> +	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
+> +			l3_adj) & ~(align - 1)) + (l3_adj - 2);
+>  }
 
-Completely agreed.
+The formatting of this expression is completely wrong, you need
+to make the "l3_adj" in the second line be aligned with the openning
+parenthesis on the previous line at a depth determined based upon
+how deeply in the openning parenthesis context this expression sits.
+
+Just using TABS is ugly, and not allowed.
+
+Use something like emacs's "C mode" with Linux coding style enabled
+to assist you if you can't figure it out yourself.
