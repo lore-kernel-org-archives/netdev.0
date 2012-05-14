@@ -1,46 +1,45 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re[2]:  [PATCH] netfilter: xt_HMARK: endian bugs
-Date: Mon, 14 May 2012 21:32:35 +0200 (CEST)
-Message-ID: <dri38gk.79a7b56a47f5dacef2458a1ca42c6deb@obelix.schillstrom.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH -next] net/codel: Add missing #include <linux/prefetch.h>
+Date: Mon, 14 May 2012 21:47:05 +0200
+Message-ID: <1337024825-20130-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "Pablo Neira Ayuso" <pablo@netfilter.org>,
-	"Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>,
-	"Hans Schillstrom" <hans.schillstrom@ericsson.com>,
-	"Jan Engelhardt" <jengelh@inai.de>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Eric Dumazet <edumazet@google.com>,
+	Dave Taht <dave.taht@bufferbloat.net>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+m68k allmodconfig:
 
+net/sched/sch_codel.c: In function =E2=80=98dequeue=E2=80=99:
+net/sched/sch_codel.c:70: error: implicit declaration of function =E2=80=
+=98prefetch=E2=80=99
+make[1]: *** [net/sched/sch_codel.o] Error 1
 
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+http://kisskb.ellerman.id.au/kisskb/buildresult/6320394/
 
->---- Original Message ----
->From: Eric Dumazet <eric.dumazet@gmail.com>
->To: "Pablo Neira Ayuso" <pablo@netfilter.org>
->Cc: "Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>, "Hans Schillstrom" <hans.schillstrom@ericsson.com>, "Jan Engelhardt" <jengelh@inai.de>, "kaber@trash.net" <kaber@trash.net>, "jengelh@medozas.de" <jengelh@medozas.de>, "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>, "hans@schillstrom.com" <hans@schillstrom.com>
->Sent: Mon, May 14, 2012, 9:14 PM
->Subject: Re: [PATCH] netfilter: xt_HMARK: endian bugs
->
->On Mon, 2012-05-14 at 21:02 +0200, Pablo Neira Ayuso wrote:
->
->> IIRC, Hans wants that, in case you have a cluster composed of system
->> with different endianess, the hash mark calculated will be the same
->> in both systems. To ensure that the distribution is consistent with
->> independency of the endianess.
->
->Then jhash() must be audited to make sure its output is OK with this
->requirement.
+ net/sched/sch_codel.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-I'm preparing test on mips & ppc right now to verify that as a first step.
-
- 
-
+diff --git a/net/sched/sch_codel.c b/net/sched/sch_codel.c
+index b4a1a81..213ef60 100644
+--- a/net/sched/sch_codel.c
++++ b/net/sched/sch_codel.c
+@@ -46,6 +46,7 @@
+ #include <linux/kernel.h>
+ #include <linux/errno.h>
+ #include <linux/skbuff.h>
++#include <linux/prefetch.h>
+ #include <net/pkt_sched.h>
+ #include <net/codel.h>
+=20
+--=20
+1.7.0.4
