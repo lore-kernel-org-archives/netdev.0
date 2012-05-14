@@ -1,109 +1,68 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [RFC net-next 0/2] net: Use net_<level>_ratelimit
-Date: Mon, 14 May 2012 00:56:24 -0700
-Message-ID: <cover.1336981915.git.joe@perches.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-decnet-user-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [RFC net-next 1/2] net: Add net_ratelimited_function and net_<level>_ratelimited macros
+Date: Mon, 14 May 2012 00:56:25 -0700
+Message-ID: <96871aa331061e890357662c22633926dd42ffa9.1336981915.git.joe@perches.com>
+References: <cover.1336981915.git.joe@perches.com>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1336981915.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-net_ratelimit() like __ratelimit() is too easy to misuse.
+__ratelimit() can be considered an inverted bool test because
+it returns true when not ratelimited.  Several tests in the
+kernel tree use this __ratelimit() function incorrectly.
 
-Add simplifying macros similar to pr_<level>_ratelimited
-that combines the test of net_ratelimit and logging.
+No net_ratelimit uses are incorrect currently though.
 
-Joe Perches (2):
-  net: Add net_ratelimited_function and net_<level>_ratelimited macros
-  net: Convert net_ratelimit uses to net_<level>_ratelimited
+Most uses of net_ratelimit are to log something via printk or
+pr_<level>.
 
- include/linux/net.h                            |   23 +++++++++++
- net/atm/ioctl.c                                |    8 +--
- net/caif/caif_socket.c                         |   10 ++---
- net/core/dev.c                                 |   30 ++++++--------
- net/core/pktgen.c                              |    7 +--
- net/core/rtnetlink.c                           |    8 +--
- net/core/skbuff.c                              |   11 ++---
- net/decnet/dn_fib.c                            |    5 +-
- net/decnet/dn_neigh.c                          |   22 ++++-------
- net/decnet/dn_nsp_in.c                         |   11 +++--
- net/decnet/dn_nsp_out.c                        |    5 +-
- net/decnet/dn_route.c                          |   15 ++-----
- net/decnet/dn_table.c                          |    4 +-
- net/decnet/netfilter/dn_rtmsg.c                |    3 +-
- net/ipv4/icmp.c                                |   20 ++++-----
- net/ipv4/ip_fragment.c                         |    3 +-
- net/ipv4/ip_input.c                            |   13 +++---
- net/ipv4/ip_options.c                          |    6 ++-
- net/ipv4/ip_output.c                           |    4 +-
- net/ipv4/ipconfig.c                            |   11 ++---
- net/ipv4/ipmr.c                                |    3 +-
- net/ipv4/netfilter/arp_tables.c                |    5 +-
- net/ipv4/netfilter/ip_tables.c                 |    3 +-
- net/ipv4/netfilter/ipt_CLUSTERIP.c             |    3 +-
- net/ipv4/netfilter/nf_nat_h323.c               |   26 ++++--------
- net/ipv4/netfilter/nf_nat_snmp_basic.c         |    8 +--
- net/ipv4/route.c                               |   40 ++++++++-----------
- net/ipv4/tcp.c                                 |   14 +++---
- net/ipv4/tcp_input.c                           |    7 +--
- net/ipv4/tcp_ipv4.c                            |   11 ++---
- net/ipv4/tcp_output.c                          |    3 +-
- net/ipv6/addrconf.c                            |   17 +++-----
- net/ipv6/ah6.c                                 |    4 +-
- net/ipv6/ip6_output.c                          |    3 +-
- net/ipv6/ip6_tunnel.c                          |   33 +++++----------
- net/ipv6/ip6mr.c                               |    3 +-
- net/ipv6/netfilter/ip6_tables.c                |    3 +-
- net/ipv6/netfilter/ip6t_REJECT.c               |    6 +--
- net/ipv6/netfilter/ip6table_mangle.c           |    3 +-
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    3 +-
- net/ipv6/netfilter/nf_conntrack_reasm.c        |    7 +--
- net/ipv6/reassembly.c                          |    6 +--
- net/ipv6/route.c                               |   12 +----
- net/ipv6/sit.c                                 |    6 +--
- net/ipv6/tcp_ipv6.c                            |   10 ++---
- net/llc/af_llc.c                               |    7 +--
- net/mac80211/agg-rx.c                          |   13 ++----
- net/mac80211/ht.c                              |    8 ++--
- net/mac80211/ibss.c                            |   10 ++---
- net/mac80211/mlme.c                            |   12 ++---
- net/mac80211/rx.c                              |   11 ++---
- net/mac80211/tx.c                              |   17 +++-----
- net/netfilter/nf_conntrack_amanda.c            |    3 +-
- net/netfilter/nf_conntrack_core.c              |    5 +--
- net/netfilter/nf_conntrack_expect.c            |    4 +-
- net/netfilter/nf_conntrack_h323_main.c         |    9 +---
- net/netfilter/nf_conntrack_irc.c               |    8 +--
- net/netfilter/nfnetlink_queue.c                |    9 +---
- net/netfilter/xt_TCPMSS.c                      |   10 ++---
- net/netfilter/xt_hashlimit.c                   |    3 +-
- net/openvswitch/vport-netdev.c                 |    6 +-
- net/sched/act_ipt.c                            |    7 +--
- net/sched/act_mirred.c                         |    5 +-
- net/sched/cls_u32.c                            |    3 +-
- net/sched/ematch.c                             |    4 +-
- net/sched/sch_api.c                            |   10 ++---
- net/sched/sch_generic.c                        |   11 ++---
- net/sched/sch_gred.c                           |   12 ++----
- net/sctp/sm_sideeffect.c                       |    5 +-
- net/sctp/sm_statefuns.c                        |   18 ++++-----
- net/sctp/socket.c                              |    6 +--
- net/socket.c                                   |    3 +-
- net/sunrpc/svc.c                               |   18 ++++-----
- net/sunrpc/svc_xprt.c                          |   13 ++----
- net/sunrpc/svcsock.c                           |   28 +++++--------
- net/wireless/lib80211_crypt_ccmp.c             |   33 +++++----------
- net/wireless/lib80211_crypt_tkip.c             |   50 ++++++++----------------
- 77 files changed, 329 insertions(+), 490 deletions(-)
+In order to minimize the uses of net_ratelimit, and to start
+standardizing the code style used for __ratelimit() and net_ratelimit(),
+add a net_ratelimited_function() macro and net_<level>_ratelimited()
+logging macros similar to pr_<level>_ratelimited that use the global
+net_ratelimit instead of a static per call site "struct ratelimit_state".
 
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/linux/net.h |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+index be60c7f..2d7510f 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -250,6 +250,29 @@ extern struct socket *sockfd_lookup(int fd, int *err);
+ #define		     sockfd_put(sock) fput(sock->file)
+ extern int	     net_ratelimit(void);
+ 
++#define net_ratelimited_function(function, ...)			\
++do {								\
++	if (net_ratelimit())					\
++		function(__VA_ARGS__);				\
++} while (0)
++
++#define net_emerg_ratelimited(fmt, ...)				\
++	net_ratelimited_function(pr_emerg, fmt, ##__VA_ARGS__)
++#define net_alert_ratelimited(fmt, ...)				\
++	net_ratelimited_function(pr_alert, fmt, ##__VA_ARGS__)
++#define net_crit_ratelimited(fmt, ...)				\
++	net_ratelimited_function(pr_crit, fmt, ##__VA_ARGS__)
++#define net_err_ratelimited(fmt, ...)				\
++	net_ratelimited_function(pr_err, fmt, ##__VA_ARGS__)
++#define net_notice_ratelimited(fmt, ...)			\
++	net_ratelimited_function(pr_notice, fmt, ##__VA_ARGS__)
++#define net_warn_ratelimited(fmt, ...)				\
++	net_ratelimited_function(pr_warn, fmt, ##__VA_ARGS__)
++#define net_info_ratelimited(fmt, ...)				\
++	net_ratelimited_function(pr_info, fmt, ##__VA_ARGS__)
++#define net_dbg_ratelimited(fmt, ...)				\
++	net_ratelimited_function(pr_debug, fmt, ##__VA_ARGS__)
++
+ #define net_random()		random32()
+ #define net_srandom(seed)	srandom32((__force u32)seed)
+ 
 -- 
 1.7.8.111.gad25c.dirty
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
