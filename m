@@ -1,22 +1,56 @@
-From: nn6eumtr <nn6eumtr@gmail.com>
-Subject: PACKET_LOSS socket option for packet_mmap
-Date: Mon, 14 May 2012 00:10:58 -0400
-Message-ID: <4FB085D2.3010308@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: eric@cloudluca.com
+Subject: Dedicated server rental
+Date: Mon, 14 May 2012 12:14:05 +0800 (HKT)
+Message-ID: <irr@gcn.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:43851 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab2ENEKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 00:10:48 -0400
-Received: by qcro28 with SMTP id o28so3057314qcr.19
-        for <netdev@vger.kernel.org>; Sun, 13 May 2012 21:10:48 -0700 (PDT)
+Received: from 124-248-200-94.sunnyvision.com ([124.248.200.94]:43757 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752284Ab2ENEuF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 00:50:05 -0400
+Received: from teamb01.edmhongkong.com (unknown [124.248.200.39])
+	by teamb04.edmhongkong.com (Postfix) with ESMTP id 84331514EB
+	for <netdev@vger.kernel.org>; Mon, 14 May 2012 12:14:06 +0800 (HKT)
+Received: from TeamB3-WS (unknown [124.248.200.14])
+	by teamb01.edmhongkong.com (Postfix) with SMTP id D24CE4FB0A
+	for <netdev@vger.kernel.org>; Mon, 14 May 2012 12:14:05 +0800 (HKT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-What does the PACKET_LOSS socket option for packet_mmap do?
+Dear Sir/Madam,
 
-I've seen some sample code setting the option, but couldn't find an 
-explanation of what it does.
+Please see below our Server Rental Package,
+
+HKD1980/month + one-time setup fee HKD2000
+
+Dell=3F PowerEdge=3F Enterprise Rack Mount Server
+-          Intel(R) Xeon(R) E3-1220 Processor (3.10GHz, 8M Cache, Turbo, 4C/4T, 80W)
+-          4GB RAM, 1x4GB, 1333MHz, DDR-3, Single Ranked UDIMMs
+-          500GB, 3.5", SATA II x 1 Enterprise Hard Disk
+-          Remote KVM (iDRAC6 Enterprise)
+-          8x SATA slim DVD-ROM Drive 
+-          Dell OpenManage
+-          Broadcom 5716 dual-port Gigabit Ethernet without TOE enabled
+-          Dell BMC Info Mod
+
+Software Specification
+-     CentOS 5/6 Linux Operating System
+
+
+Data Center Facilities
+-          1Gbps Share Internet Connectivity with 10/BASE-T
+-          One IP Addresses Allocation
+-          Un-interruptible Power Supply (UPS) backed up by private diesel generator
+-          FM200 gas=A1Vbased fire suppression system
+-          24x7 CRAC Air Conditioning and Humidity Control
+-          24x7 Security Control
+
+Should you have any query, please feel free to contact me. Thanks.
+
+Best,
+Eric Chan
+Senior Sales Executive
+
+If you do not wish to further receive this event message, meail subscriber@dedicatedserver.com.hk to unsubscribe this message.
