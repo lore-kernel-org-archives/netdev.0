@@ -1,36 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] xfrm: take iphdr size into account for esp payload
- size calculation
-Date: Mon, 14 May 2012 18:39:52 -0400 (EDT)
-Message-ID: <20120514.183952.1459413342269893446.davem@davemloft.net>
-References: <20120511010249.GA23584@d2.synalogic.ca>
-	<1336698442-25148-1-git-send-email-bpoirier@suse.de>
+Subject: Re: [PATCH v3 6/6] net: sh_eth: use NAPI
+Date: Mon, 14 May 2012 18:50:34 -0400 (EDT)
+Message-ID: <20120514.185034.399229364191924851.davem@davemloft.net>
+References: <4FB0AA7C.1000603@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org
-To: bpoirier@suse.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1336698442-25148-1-git-send-email-bpoirier@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: yoshihiro.shimoda.uh@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4FB0AA7C.1000603@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin Poirier <bpoirier@suse.de>
-Date: Thu, 10 May 2012 21:07:22 -0400
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Date: Mon, 14 May 2012 15:47:24 +0900
 
-> -	return mtu - 2;
-> +	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
-> +			l3_adj) & ~(align - 1)) + (l3_adj - 2);
->  }
+> This patch modifies the driver to use NAPI.
+> 
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 
-The formatting of this expression is completely wrong, you need
-to make the "l3_adj" in the second line be aligned with the openning
-parenthesis on the previous line at a depth determined based upon
-how deeply in the openning parenthesis context this expression sits.
+I think your TX path is still extremely racey.
 
-Just using TABS is ugly, and not allowed.
+No locks are held here, so you tell me what happens if we execute:
 
-Use something like emacs's "C mode" with Linux coding style enabled
-to assist you if you can't figure it out yourself.
+> +	/* check txdesc */
+> +	txfree_num = sh_eth_txfree(ndev);
+> +	if (txfree_num)
+
+and at this exact moment the queue was in fact already awake and
+another thread of control transmits packets, and this action fills up
+the TX queue and stops the queue.
+
+>  		netif_wake_queue(ndev);
+
+This will erroneously wake the queue and trigger the debugging
+message in your TX function.
+
+You need strict synchronization between your TX queueing and TX
+liberation flows.  So that queue stop and wake are only performed
+at the correct moment.
+
+In fact, looking at how the mdp->lock is used in your TX routine, it
+seems to protect absolutely against nothing.
+
+Please read the TX flow of drivers/net/ethernet/broadcom/tg3.c to see
+how to do this correctly, and lock free, in a NAPI driver.
