@@ -1,349 +1,171 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net-next v4] be2net: Fix to allow get/set of debug levels in the firmware.
-Date: Mon, 14 May 2012 21:59:28 +0530
-Message-ID: <23cb36ad-2827-44bd-a91a-c6d8b01db70e@exht1.ad.emulex.com>
+From: "Andy Cress" <andy.cress@us.kontron.com>
+Subject: RE: pch_gbe: oops with vlan (resolved)
+Date: Mon, 14 May 2012 09:40:26 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44DDF93F1@ka-exchange-1.kontronamerica.local>
+References: <40680C535D6FE6498883F1640FACD44DDF9105@ka-exchange-1.kontronamerica.local> <1336770777.31653.283.camel@edumazet-glaptop> <1336774254.31653.287.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Somnath Kotur <somnath.kotur@emulex.com>,
-	Suresh Reddy <suresh.reddy@emulex.com>
-To: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:46503 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755355Ab2ENQaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 12:30:52 -0400
+Received: from mail.us.kontron.com ([209.118.138.70]:50222 "EHLO
+	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754822Ab2ENQlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 12:41:23 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1336774254.31653.287.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixed missing paranthesis warning
-Incorporated review comments by Ben Hutchings.
-
-Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h         |    3 +
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   56 +++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h    |   57 +++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   77 ++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_main.c    |   37 +++++++++++
- 5 files changed, 230 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index c3ee910..9817fed 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -415,6 +415,7 @@ struct be_adapter {
- 	bool wol;
- 	u32 max_pmac_cnt;	/* Max secondary UC MACs programmable */
- 	u32 uc_macs;		/* Count of secondary UC MAC programmed */
-+	u32 msg_enable;
- };
- 
- #define be_physfn(adapter) (!adapter->is_virtfn)
-@@ -603,4 +604,6 @@ extern void be_parse_stats(struct be_adapter *adapter);
- extern int be_load_fw(struct be_adapter *adapter, u8 *func);
- extern bool be_is_wol_supported(struct be_adapter *adapter);
- extern bool be_pause_supported(struct be_adapter *adapter);
-+extern u32 be_get_fw_log_level(struct be_adapter *adapter);
-+
- #endif				/* BE_H */
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 43167e8..b24623c 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2589,4 +2589,60 @@ err:
- 	mutex_unlock(&adapter->mbox_lock);
- 	pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
- 	return status;
-+
-+}
-+int be_cmd_get_ext_fat_capabilites(struct be_adapter *adapter,
-+				   struct be_dma_mem *cmd)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_get_ext_fat_caps *req;
-+	int status;
-+
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
-+
-+	wrb = wrb_from_mbox(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = cmd->va;
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_GET_EXT_FAT_CAPABILITES,
-+			       cmd->size, wrb, cmd);
-+	req->parameter_type = cpu_to_le32(1);
-+
-+	status = be_mbox_notify_wait(adapter);
-+err:
-+	mutex_unlock(&adapter->mbox_lock);
-+	return status;
-+}
-+
-+int be_cmd_set_ext_fat_capabilites(struct be_adapter *adapter,
-+				   struct be_dma_mem *cmd,
-+				   struct be_fat_conf_params *configs)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_set_ext_fat_caps *req;
-+	int status;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = cmd->va;
-+	memcpy(&req->set_params, configs, sizeof(struct be_fat_conf_params));
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_SET_EXT_FAT_CAPABILITES,
-+			       cmd->size, wrb, cmd);
-+
-+	status = be_mcc_notify_wait(adapter);
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
- }
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 944f031..0b1029b 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -189,6 +189,8 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_PHY_DETAILS			102
- #define OPCODE_COMMON_SET_DRIVER_FUNCTION_CAP		103
- #define OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES	121
-+#define OPCODE_COMMON_GET_EXT_FAT_CAPABILITES		125
-+#define OPCODE_COMMON_SET_EXT_FAT_CAPABILITES		126
- #define OPCODE_COMMON_GET_MAC_LIST			147
- #define OPCODE_COMMON_SET_MAC_LIST			148
- #define OPCODE_COMMON_GET_HSW_CONFIG			152
-@@ -1602,6 +1604,56 @@ static inline void *be_erx_stats_from_cmd(struct be_adapter *adapter)
- 	}
- }
- 
-+
-+/************** get fat capabilites *******************/
-+#define MAX_MODULES 27
-+#define MAX_MODES 4
-+#define MODE_UART 0
-+#define FW_LOG_LEVEL_DEFAULT 48
-+#define FW_LOG_LEVEL_FATAL 64
-+
-+struct ext_fat_mode {
-+	u8 mode;
-+	u8 rsvd0;
-+	u16 port_mask;
-+	u32 dbg_lvl;
-+	u64 fun_mask;
-+} __packed;
-+
-+struct ext_fat_modules {
-+	u8 modules_str[32];
-+	u32 modules_id;
-+	u32 num_modes;
-+	struct ext_fat_mode trace_lvl[MAX_MODES];
-+} __packed;
-+
-+struct be_fat_conf_params {
-+	u32 max_log_entries;
-+	u32 log_entry_size;
-+	u8 log_type;
-+	u8 max_log_funs;
-+	u8 max_log_ports;
-+	u8 rsvd0;
-+	u32 supp_modes;
-+	u32 num_modules;
-+	struct ext_fat_modules module[MAX_MODULES];
-+} __packed;
-+
-+struct be_cmd_req_get_ext_fat_caps {
-+	struct be_cmd_req_hdr hdr;
-+	u32 parameter_type;
-+};
-+
-+struct be_cmd_resp_get_ext_fat_caps {
-+	struct be_cmd_resp_hdr hdr;
-+	struct be_fat_conf_params get_params;
-+};
-+
-+struct be_cmd_req_set_ext_fat_caps {
-+	struct be_cmd_req_hdr hdr;
-+	struct be_fat_conf_params set_params;
-+};
-+
- extern int be_pci_fnum_get(struct be_adapter *adapter);
- extern int be_cmd_POST(struct be_adapter *adapter);
- extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
-@@ -1707,4 +1759,9 @@ extern int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
- extern int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
- 			u32 domain, u16 intf_id);
- extern int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter);
-+extern int be_cmd_get_ext_fat_capabilites(struct be_adapter *adapter,
-+					  struct be_dma_mem *cmd);
-+extern int be_cmd_set_ext_fat_capabilites(struct be_adapter *adapter,
-+					  struct be_dma_mem *cmd,
-+					  struct be_fat_conf_params *cfgs);
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index 747f68f..88f1107 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -878,6 +878,81 @@ be_read_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
- 	return status;
- }
- 
-+static u32 be_get_msg_level(struct net_device *netdev)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+
-+	if (lancer_chip(adapter)) {
-+		dev_err(&adapter->pdev->dev, "Operation not supported\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return adapter->msg_enable;
-+}
-+
-+static void be_set_fw_log_level(struct be_adapter *adapter, u32 level)
-+{
-+	struct be_dma_mem extfat_cmd;
-+	struct be_fat_conf_params *cfgs;
-+	int status;
-+	int i, j;
-+
-+	memset(&extfat_cmd, 0, sizeof(struct be_dma_mem));
-+	extfat_cmd.size = sizeof(struct be_cmd_resp_get_ext_fat_caps);
-+	extfat_cmd.va = pci_alloc_consistent(adapter->pdev, extfat_cmd.size,
-+					     &extfat_cmd.dma);
-+	if (!extfat_cmd.va) {
-+		dev_err(&adapter->pdev->dev, "%s: Memory allocation failure\n",
-+			__func__);
-+		goto err;
-+	}
-+	status = be_cmd_get_ext_fat_capabilites(adapter, &extfat_cmd);
-+	if (!status) {
-+		cfgs = (struct be_fat_conf_params *)(extfat_cmd.va +
-+					sizeof(struct be_cmd_resp_hdr));
-+		for (i = 0; i < cfgs->num_modules; i++) {
-+			for (j = 0; j < cfgs->module[i].num_modes; j++) {
-+				if (cfgs->module[i].trace_lvl[j].mode ==
-+								MODE_UART)
-+					cfgs->module[i].trace_lvl[j].dbg_lvl =
-+							cpu_to_le32(level);
-+			}
-+		}
-+		status = be_cmd_set_ext_fat_capabilites(adapter, &extfat_cmd,
-+							cfgs);
-+		if (status)
-+			dev_err(&adapter->pdev->dev,
-+				"Message level set failed\n");
-+	} else {
-+		dev_err(&adapter->pdev->dev, "Message level get failed\n");
-+	}
-+
-+	pci_free_consistent(adapter->pdev, extfat_cmd.size, extfat_cmd.va,
-+			    extfat_cmd.dma);
-+err:
-+	return;
-+}
-+
-+static void be_set_msg_level(struct net_device *netdev, u32 level)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+
-+	if (lancer_chip(adapter)) {
-+		dev_err(&adapter->pdev->dev, "Operation not supported\n");
-+		return;
-+	}
-+
-+	if (adapter->msg_enable == level)
-+		return;
-+
-+	if ((level & NETIF_MSG_HW) != (adapter->msg_enable & NETIF_MSG_HW))
-+		be_set_fw_log_level(adapter, level & NETIF_MSG_HW ?
-+			       	    FW_LOG_LEVEL_DEFAULT : FW_LOG_LEVEL_FATAL);
-+	adapter->msg_enable = level;
-+
-+	return;
-+}
-+
- const struct ethtool_ops be_ethtool_ops = {
- 	.get_settings = be_get_settings,
- 	.get_drvinfo = be_get_drvinfo,
-@@ -893,6 +968,8 @@ const struct ethtool_ops be_ethtool_ops = {
- 	.set_pauseparam = be_set_pauseparam,
- 	.get_strings = be_get_stat_strings,
- 	.set_phys_id = be_set_phys_id,
-+	.get_msglevel = be_get_msg_level,
-+	.set_msglevel = be_set_msg_level,
- 	.get_sset_count = be_get_sset_count,
- 	.get_ethtool_stats = be_get_ethtool_stats,
- 	.get_regs_len = be_get_reg_len,
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 6d5d30b..c2286a2 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3367,9 +3367,43 @@ bool be_is_wol_supported(struct be_adapter *adapter)
- 		!be_is_wol_excluded(adapter)) ? true : false;
- }
- 
-+u32 be_get_fw_log_level(struct be_adapter *adapter)
-+{
-+	struct be_dma_mem extfat_cmd;
-+	struct be_fat_conf_params *cfgs;
-+	int status;
-+	u32 level = 0;
-+	int j;
-+
-+	memset(&extfat_cmd, 0, sizeof(struct be_dma_mem));
-+	extfat_cmd.size = sizeof(struct be_cmd_resp_get_ext_fat_caps);
-+	extfat_cmd.va = pci_alloc_consistent(adapter->pdev, extfat_cmd.size,
-+					     &extfat_cmd.dma);
-+	if (!extfat_cmd.va) {
-+		dev_err(&adapter->pdev->dev, "%s: Memory allocation failure\n",
-+			__func__);
-+		goto err;
-+	}
-+
-+	status = be_cmd_get_ext_fat_capabilites(adapter, &extfat_cmd);
-+	if (!status) {
-+		cfgs = (struct be_fat_conf_params *)(extfat_cmd.va +
-+						sizeof(struct be_cmd_resp_hdr));
-+		for (j = 0; j < cfgs->module[0].num_modes; j++) {
-+			if (cfgs->module[0].trace_lvl[j].mode == MODE_UART)
-+				level = cfgs->module[0].trace_lvl[j].dbg_lvl;
-+		}
-+	}
-+	pci_free_consistent(adapter->pdev, extfat_cmd.size, extfat_cmd.va,
-+			    extfat_cmd.dma);
-+err:
-+	return level;
-+}
-+
- static int be_get_config(struct be_adapter *adapter)
- {
- 	int status;
-+	u32 level;
- 
- 	status = be_cmd_query_fw_cfg(adapter, &adapter->port_num,
- 			&adapter->function_mode, &adapter->function_caps);
-@@ -3407,6 +3441,9 @@ static int be_get_config(struct be_adapter *adapter)
- 	if (be_is_wol_supported(adapter))
- 		adapter->wol = true;
- 
-+	level = be_get_fw_log_level(adapter);
-+	adapter->msg_enable = level <= FW_LOG_LEVEL_DEFAULT ? NETIF_MSG_HW : 0;
-+
- 	return 0;
- }
- 
--- 
-1.5.6.1
+RXJpYywNCg0KVGhpcyBwYXRjaCByZXNvbHZlZCB0aGUgZHJpdmVyIG9vcHMg
+KHRyYW5zbWl0IHF1ZXVlIHRpbWVvdXQpIHdpdGggdmxhbi4gIEl0IG1ha2Vz
+IGEgbG90IG9mIHNlbnNlIHRoYXQgdGhlIHdyb25nIHNwaW5fbG9ja3MgY2F1
+c2VkIHRoaXMuICANClRoYW5rcyBhIGxvdC4NCg0KQW5keQ0KDQotLS0tLU9y
+aWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIu
+a2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5v
+cmddIE9uIEJlaGFsZiBPZiBFcmljIER1bWF6ZXQNClNlbnQ6IEZyaWRheSwg
+TWF5IDExLCAyMDEyIDY6MTEgUE0NClRvOiBBbmR5IENyZXNzDQpDYzogbmV0
+ZGV2DQpTdWJqZWN0OiBSZTogcGNoX2diZTogb29wcyB3aXRoIHZsYW4gKG5l
+dykNCg0KT24gRnJpLCAyMDEyLTA1LTExIGF0IDIzOjEzICswMjAwLCBFcmlj
+IER1bWF6ZXQgd3JvdGU6DQo+IE9uIEZyaSwgMjAxMi0wNS0xMSBhdCAxMzo0
+OCAtMDcwMCwgQW5keSBDcmVzcyB3cm90ZToNCj4gPiBGb2xrcywNCj4gPiAN
+Cj4gPiBJIGFtIGxvb2tpbmcgZm9yIGhlbHAgaW4gZGVidWdnaW5nIGEgcGNo
+X2diZSBkcml2ZXIgb29wcy9hYm9ydC4NCj4gPiANCj4gPiBLZXJuZWw6IHZl
+cnNpb24gMi42LjMyLTIyMC5lbDYuaTY4NiAoUkhFTDYuMikNCj4gPiBEcml2
+ZXI6IHBjaF9nYmUgdmVyc2lvbiAwLjkxLU5BUEkgIChzb3VyY2UgdGFyYmFs
+bCB3ZSB1c2VkIGlzIGF0DQo+ID4gaHR0cHM6Ly9zZW5kZmlsZS5rb250cm9u
+LmNvbS9tZXNzYWdlLzI0dGRVaTZNWGtsblV0QkxuT3N1bXEgdW50aWwgTWF5
+DQo+ID4gMTYpDQo+ID4gTklDOiAwYjowMC4xIEV0aGVybmV0IGNvbnRyb2xs
+ZXIgWzAyMDBdOiBJbnRlbCBDb3Jwb3JhdGlvbiBQbGF0Zm9ybQ0KPiA+IENv
+bnRyb2xsZXIgSHViIEVHMjBUIEdpZ2FiaXQgRXRoZXJuZXQgQ29udHJvbGxl
+ciBbODA4Njo4ODAyXSAocmV2IDAyKQ0KPiA+IA0KPiA+IENvbmZpZ3VyYXRp
+b24sIHdpdGggVkxBTjoNCj4gPiAgZXRoMCAobm90IHN0YXJ0ZWQpDQo+ID4g
+IGV0aDAuMTAwID0gMTkyLjE2OC4xMDAuMQ0KPiA+ICBldGgwLjIwMCA9IDE5
+Mi4xNjguMjAwLjENCj4gPiAgZXRoMC42ICA9IDE5Mi4xNjguNi4xDQo+ID4g
+DQo+ID4gV2hlbiBzdGFydGluZyB0aGUgVkxBTiBjb25maWd1cmF0aW9uLCB0
+aGVuIGRvaW5nIGEgcGluZyB0ZXN0IGZvciA+PSA1DQo+ID4gbWludXRlcywg
+SSBnZXQgYSBrZXJuZWwgb29wL2Fib3J0IG1lc3NhZ2UgYXMgc2hvd24gYmVs
+b3cuICBUaGlzIGRvZXMgbm90DQo+ID4gaGFwcGVuIHdpdGhvdXQgY29uZmln
+dXJpbmcgVkxBTi4NCj4gPiBXaGVyZSBzaG91bGQgSSBsb29rIGZvciBwb3Nz
+aWJsZSBjYXVzZXMgZm9yIGEgdHJhbnNtaXQgcXVldWUgdGltZW91dA0KPiA+
+IGxpa2UgdGhpcz8gIA0KPiA+IA0KPiA+IEkgaGF2ZSBjb250YWN0ZWQgdGhl
+IE9LSS9MQVBJUyBkcml2ZXIgYXV0aG9ycywgYnV0IG5vIHJlc3BvbnNlIHNv
+IGZhci4NCj4gPiBJIHRob3VnaHQgdGhhdCB0aGlzIGdyb3VwIG1pZ2h0IGJl
+IGFibGUgdG8gY29tbWVudCBmcm9tIHNpbWlsYXINCj4gPiBleHBlcmllbmNl
+cy4NCj4gPiANCj4gPiBBbmR5DQo+IA0KPiB0eXBpY2FsIHNpZ24gb2YgYSBi
+dWdneSBkcml2ZXINCj4gDQo+IEEgcXVpY2sgbG9vayBpbiBjdXJyZW50IExp
+bnVzIHRyZWUgc2hvdyBhIG5vbiBleGlzdGVudCBzeW5jaHJvbml6YXRpb24N
+Cj4gYmV0d2VlbiBuZG9fc3RhcnRfeG1pdCBhbmQgVFggY29tcGxldGlvbi4N
+Cj4gDQo+IHR4IGNvbXBsZXRpb24gdXNlcyBhIHR4X3F1ZXVlX2xvY2sgc3Bp
+bmxvY2sgZm9yIG5vdGhpbmcgYnV0IGZhbHNlIHNlbnNlDQo+IG9mIGNvcnJl
+Y3RuZXNzLg0KDQpQbGVhc2UgdHJ5IHRoZSBmb2xsb3dpbmcgcGF0Y2ggOiAo
+YmFzZWQgb24gY3VycmVudCBuZXQtbmV4dCB0cmVlKQ0KDQpBbHNvIHRoaXMg
+ZHJpdmVyIGhhcyBhIHN0cmFuZ2UgUlggcGF0aCA6IEl0IGRvZXMgYSBjb3B5
+IG9mIGluY29taW5nDQpmcmFtZXMgb24gZml4ZWQgc2l6ZSBza2JzLCAoMjA0
+OCtvdmVyaGVhZCAtPiBrbWFsbG9jLTQwOTYgcG9vbCkgaW5zdGVhZA0Kb2Yg
+dXNpbmcgc2tiIG9mIHRoZSByaWdodCBzaXplLi4uDQoNCg0KDQogZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlLmggICAg
+ICB8ICAgIDIgDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNo
+X2diZS9wY2hfZ2JlX21haW4uYyB8ICAgMjUgKysrKy0tLS0tLQ0KIDIgZmls
+ZXMgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMTYgZGVsZXRpb25zKC0p
+DQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9va2ktc2Vt
+aS9wY2hfZ2JlL3BjaF9nYmUuaCBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L29r
+aS1zZW1pL3BjaF9nYmUvcGNoX2diZS5oDQppbmRleCA5ZjNkYmM0Li5iMDcz
+MTFlIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNl
+bWkvcGNoX2diZS9wY2hfZ2JlLmgNCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L29raS1zZW1pL3BjaF9nYmUvcGNoX2diZS5oDQpAQCAtNTg0LDcgKzU4
+NCw2IEBAIHN0cnVjdCBwY2hfZ2JlX2h3X3N0YXRzIHsNCiAvKioNCiAgKiBz
+dHJ1Y3QgcGNoX2diZV9hZGFwdGVyIC0gYm9hcmQgc3BlY2lmaWMgcHJpdmF0
+ZSBkYXRhIHN0cnVjdHVyZQ0KICAqIEBzdGF0c19sb2NrOglTcGlubG9jayBz
+dHJ1Y3R1cmUgZm9yIHN0YXR1cw0KLSAqIEB0eF9xdWV1ZV9sb2NrOglTcGlu
+bG9jayBzdHJ1Y3R1cmUgZm9yIHRyYW5zbWl0DQogICogQGV0aHRvb2xfbG9j
+azoJU3BpbmxvY2sgc3RydWN0dXJlIGZvciBldGh0b29sDQogICogQGlycV9z
+ZW06CQlTZW1hcGhvcmUgZm9yIGludGVycnVwdA0KICAqIEBuZXRkZXY6CQlQ
+b2ludGVyIG9mIG5ldHdvcmsgZGV2aWNlIHN0cnVjdHVyZQ0KQEAgLTYwOSw3
+ICs2MDgsNiBAQCBzdHJ1Y3QgcGNoX2diZV9od19zdGF0cyB7DQogDQogc3Ry
+dWN0IHBjaF9nYmVfYWRhcHRlciB7DQogCXNwaW5sb2NrX3Qgc3RhdHNfbG9j
+azsNCi0Jc3BpbmxvY2tfdCB0eF9xdWV1ZV9sb2NrOw0KIAlzcGlubG9ja190
+IGV0aHRvb2xfbG9jazsNCiAJYXRvbWljX3QgaXJxX3NlbTsNCiAJc3RydWN0
+IG5ldF9kZXZpY2UgKm5ldGRldjsNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9va2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVfbWFpbi5jIGIv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2Jl
+X21haW4uYw0KaW5kZXggOWRjN2U1MC4uMzc4N2M2NCAxMDA2NDQNCi0tLSBh
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3BjaF9nYmUvcGNoX2di
+ZV9tYWluLmMNCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1p
+L3BjaF9nYmUvcGNoX2diZV9tYWluLmMNCkBAIC02NDUsMTQgKzY0NSwxMSBA
+QCBzdGF0aWMgdm9pZCBwY2hfZ2JlX21hY19zZXRfcGF1c2VfcGFja2V0KHN0
+cnVjdCBwY2hfZ2JlX2h3ICpodykNCiAgKi8NCiBzdGF0aWMgaW50IHBjaF9n
+YmVfYWxsb2NfcXVldWVzKHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIgKmFkYXB0
+ZXIpDQogew0KLQlpbnQgc2l6ZTsNCi0NCi0Jc2l6ZSA9IChpbnQpc2l6ZW9m
+KHN0cnVjdCBwY2hfZ2JlX3R4X3JpbmcpOw0KLQlhZGFwdGVyLT50eF9yaW5n
+ID0ga3phbGxvYyhzaXplLCBHRlBfS0VSTkVMKTsNCisJYWRhcHRlci0+dHhf
+cmluZyA9IGt6YWxsb2Moc2l6ZW9mKCphZGFwdGVyLT50eF9yaW5nKSwgR0ZQ
+X0tFUk5FTCk7DQogCWlmICghYWRhcHRlci0+dHhfcmluZykNCiAJCXJldHVy
+biAtRU5PTUVNOw0KLQlzaXplID0gKGludClzaXplb2Yoc3RydWN0IHBjaF9n
+YmVfcnhfcmluZyk7DQotCWFkYXB0ZXItPnJ4X3JpbmcgPSBremFsbG9jKHNp
+emUsIEdGUF9LRVJORUwpOw0KKw0KKwlhZGFwdGVyLT5yeF9yaW5nID0ga3ph
+bGxvYyhzaXplb2YoKmFkYXB0ZXItPnJ4X3JpbmcpLCBHRlBfS0VSTkVMKTsN
+CiAJaWYgKCFhZGFwdGVyLT5yeF9yaW5nKSB7DQogCQlrZnJlZShhZGFwdGVy
+LT50eF9yaW5nKTsNCiAJCXJldHVybiAtRU5PTUVNOw0KQEAgLTExNjksNyAr
+MTE2Niw2IEBAIHN0YXRpYyB2b2lkIHBjaF9nYmVfdHhfcXVldWUoc3RydWN0
+IHBjaF9nYmVfYWRhcHRlciAqYWRhcHRlciwNCiAJc3RydWN0IHNrX2J1ZmYg
+KnRtcF9za2I7DQogCXVuc2lnbmVkIGludCBmcmFtZV9jdHJsOw0KIAl1bnNp
+Z25lZCBpbnQgcmluZ19udW07DQotCXVuc2lnbmVkIGxvbmcgZmxhZ3M7DQog
+DQogCS8qLS0gU2V0IGZyYW1lIGNvbnRyb2wgLS0qLw0KIAlmcmFtZV9jdHJs
+ID0gMDsNCkBAIC0xMjE2LDE0ICsxMjEyLDE0IEBAIHN0YXRpYyB2b2lkIHBj
+aF9nYmVfdHhfcXVldWUoc3RydWN0IHBjaF9nYmVfYWRhcHRlciAqYWRhcHRl
+ciwNCiAJCQl9DQogCQl9DQogCX0NCi0Jc3Bpbl9sb2NrX2lycXNhdmUoJnR4
+X3JpbmctPnR4X2xvY2ssIGZsYWdzKTsNCisNCiAJcmluZ19udW0gPSB0eF9y
+aW5nLT5uZXh0X3RvX3VzZTsNCiAJaWYgKHVubGlrZWx5KChyaW5nX251bSAr
+IDEpID09IHR4X3JpbmctPmNvdW50KSkNCiAJCXR4X3JpbmctPm5leHRfdG9f
+dXNlID0gMDsNCiAJZWxzZQ0KIAkJdHhfcmluZy0+bmV4dF90b191c2UgPSBy
+aW5nX251bSArIDE7DQogDQotCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJnR4
+X3JpbmctPnR4X2xvY2ssIGZsYWdzKTsNCisNCiAJYnVmZmVyX2luZm8gPSAm
+dHhfcmluZy0+YnVmZmVyX2luZm9bcmluZ19udW1dOw0KIAl0bXBfc2tiID0g
+YnVmZmVyX2luZm8tPnNrYjsNCiANCkBAIC0xNTI1LDcgKzE1MjEsNyBAQCBw
+Y2hfZ2JlX2FsbG9jX3J4X2J1ZmZlcnNfcG9vbChzdHJ1Y3QgcGNoX2diZV9h
+ZGFwdGVyICphZGFwdGVyLA0KIAkJCQkJCSZyeF9yaW5nLT5yeF9idWZmX3Bv
+b2xfbG9naWMsDQogCQkJCQkJR0ZQX0tFUk5FTCk7DQogCWlmICghcnhfcmlu
+Zy0+cnhfYnVmZl9wb29sKSB7DQotCQlwcl9lcnIoIlVuYWJsZSB0byBhbGxv
+Y2F0ZSBtZW1vcnkgZm9yIHRoZSByZWNlaXZlIHBvbGwgYnVmZmVyXG4iKTsN
+CisJCXByX2VycigiVW5hYmxlIHRvIGFsbG9jYXRlIG1lbW9yeSBmb3IgdGhl
+IHJlY2VpdmUgcG9vbCBidWZmZXJcbiIpOw0KIAkJcmV0dXJuIC1FTk9NRU07
+DQogCX0NCiAJbWVtc2V0KHJ4X3JpbmctPnJ4X2J1ZmZfcG9vbCwgMCwgc2l6
+ZSk7DQpAQCAtMTY0NCwxNSArMTY0MCwxNyBAQCBwY2hfZ2JlX2NsZWFuX3R4
+KHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIgKmFkYXB0ZXIsDQogCXByX2RlYnVn
+KCJjYWxsZWQgcGNoX2diZV91bm1hcF9hbmRfZnJlZV90eF9yZXNvdXJjZSgp
+ICVkIGNvdW50XG4iLA0KIAkJIGNsZWFuZWRfY291bnQpOw0KIAkvKiBSZWNv
+dmVyIGZyb20gcnVubmluZyBvdXQgb2YgVHggcmVzb3VyY2VzIGluIHhtaXRf
+ZnJhbWUgKi8NCisJc3Bpbl9sb2NrKCZ0eF9yaW5nLT50eF9sb2NrKTsNCiAJ
+aWYgKHVubGlrZWx5KGNsZWFuZWQgJiYgKG5ldGlmX3F1ZXVlX3N0b3BwZWQo
+YWRhcHRlci0+bmV0ZGV2KSkpKSB7DQogCQluZXRpZl93YWtlX3F1ZXVlKGFk
+YXB0ZXItPm5ldGRldik7DQogCQlhZGFwdGVyLT5zdGF0cy50eF9yZXN0YXJ0
+X2NvdW50Kys7DQogCQlwcl9kZWJ1ZygiVHggd2FrZSBxdWV1ZVxuIik7DQog
+CX0NCi0Jc3Bpbl9sb2NrKCZhZGFwdGVyLT50eF9xdWV1ZV9sb2NrKTsNCisN
+CiAJdHhfcmluZy0+bmV4dF90b19jbGVhbiA9IGk7DQotCXNwaW5fdW5sb2Nr
+KCZhZGFwdGVyLT50eF9xdWV1ZV9sb2NrKTsNCisNCiAJcHJfZGVidWcoIm5l
+eHRfdG9fY2xlYW4gOiAlZFxuIiwgdHhfcmluZy0+bmV4dF90b19jbGVhbik7
+DQorCXNwaW5fdW5sb2NrKCZ0eF9yaW5nLT50eF9sb2NrKTsNCiAJcmV0dXJu
+IGNsZWFuZWQ7DQogfQ0KIA0KQEAgLTIwNDMsNyArMjA0MSw2IEBAIHN0YXRp
+YyBpbnQgcGNoX2diZV9zd19pbml0KHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIg
+KmFkYXB0ZXIpDQogCQlyZXR1cm4gLUVOT01FTTsNCiAJfQ0KIAlzcGluX2xv
+Y2tfaW5pdCgmYWRhcHRlci0+aHcubWlpbV9sb2NrKTsNCi0Jc3Bpbl9sb2Nr
+X2luaXQoJmFkYXB0ZXItPnR4X3F1ZXVlX2xvY2spOw0KIAlzcGluX2xvY2tf
+aW5pdCgmYWRhcHRlci0+c3RhdHNfbG9jayk7DQogCXNwaW5fbG9ja19pbml0
+KCZhZGFwdGVyLT5ldGh0b29sX2xvY2spOw0KIAlhdG9taWNfc2V0KCZhZGFw
+dGVyLT5pcnFfc2VtLCAwKTsNCkBAIC0yMTQ4LDEwICsyMTQ1LDEwIEBAIHN0
+YXRpYyBpbnQgcGNoX2diZV94bWl0X2ZyYW1lKHN0cnVjdCBza19idWZmICpz
+a2IsIHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpDQogCQkJIHR4X3Jpbmct
+Pm5leHRfdG9fdXNlLCB0eF9yaW5nLT5uZXh0X3RvX2NsZWFuKTsNCiAJCXJl
+dHVybiBORVRERVZfVFhfQlVTWTsNCiAJfQ0KLQlzcGluX3VubG9ja19pcnFy
+ZXN0b3JlKCZ0eF9yaW5nLT50eF9sb2NrLCBmbGFncyk7DQogDQogCS8qIENS
+QyxJVEFHIG5vIHN1cHBvcnQgKi8NCiAJcGNoX2diZV90eF9xdWV1ZShhZGFw
+dGVyLCB0eF9yaW5nLCBza2IpOw0KKwlzcGluX3VubG9ja19pcnFyZXN0b3Jl
+KCZ0eF9yaW5nLT50eF9sb2NrLCBmbGFncyk7DQogCXJldHVybiBORVRERVZf
+VFhfT0s7DQogfQ0KIA0KDQoNCi0tDQpUbyB1bnN1YnNjcmliZSBmcm9tIHRo
+aXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBp
+bg0KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtl
+cm5lbC5vcmcNCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2Vy
+Lmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
