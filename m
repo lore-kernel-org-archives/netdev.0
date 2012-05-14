@@ -1,53 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter: xt_HMARK: endian bugs
-Date: Mon, 14 May 2012 17:24:39 +0200
-Message-ID: <1337009079.8512.535.camel@edumazet-glaptop>
-References: <1337002943-16374-1-git-send-email-hans.schillstrom@ericsson.com>
-	 <20120514144052.GD12992@1984>
-	 <alpine.LNX.2.01.1205141702110.11548@frira.vanv.qr>
+From: Mike Galbraith <mgalbraith@suse.de>
+Subject: Re: [patch] Re: qlge driver corrupting kernel memory
+Date: Mon, 14 May 2012 17:33:17 +0200
+Message-ID: <1337009597.17437.1.camel@marge.simpson.net>
+References: <1336474818.21924.94.camel@marge.simpson.net>
+	 <20120508120748.GA3504@oc1711230544.ibm.com>
+	 <1336736301.7361.144.camel@marge.simpson.net>
+	 <1336903839.7390.13.camel@marge.simpson.net>
+	 <1336904179.7390.16.camel@marge.simpson.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	kaber@trash.net, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	dan.carpenter@oracle.com, hans@schillstrom.com
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1205141702110.11548@frira.vanv.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:41159 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756935Ab2ENPdW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2012 11:33:22 -0400
+In-Reply-To: <1336904179.7390.16.camel@marge.simpson.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-05-14 at 17:05 +0200, Jan Engelhardt wrote:
-> On Monday 2012-05-14 16:40, Pablo Neira Ayuso wrote:
+(add CC)
+
+On Sun, 2012-05-13 at 12:16 +0200, Mike Galbraith wrote: 
+> Erm, with a quilt refresh you get the compiling version :)
 > 
-> >> -		if (t->uports.p16.dst < t->uports.p16.src)
-> >> +		if (ntohs(t->uports.p16.dst) < ntohs(t->uports.p16.src))
-> >
-> >Do we really need this to make sparse happy?
+> glge: Fix double pci_free_consistent() upon tx_ring->q allocation failure
 > 
-> You need it to make *maths* happy.
+> Let ql_free_tx_resources() do it's job.  You are not helping.
 > 
-> Consider
+> Signed-off-by: Mike Galbraith <mgalbraith@suse.de>
+> ---
+>  drivers/net/qlge/qlge_main.c |   10 +++-------
+>  1 file changed, 3 insertions(+), 7 deletions(-)
 > 
-> 	384 < 65407
+> --- a/drivers/net/qlge/qlge_main.c
+> +++ b/drivers/net/qlge/qlge_main.c
+> @@ -2664,11 +2664,8 @@ static int ql_alloc_tx_resources(struct
+>  	    pci_alloc_consistent(qdev->pdev, tx_ring->wq_size,
+>  				 &tx_ring->wq_base_dma);
+>  
+> -	if ((tx_ring->wq_base == NULL) ||
+> -	    tx_ring->wq_base_dma & WQ_ADDR_ALIGN) {
+> -		QPRINTK(qdev, IFUP, ERR, "tx_ring alloc failed.\n");
+> -		return -ENOMEM;
+> -	}
+> +	if ((tx_ring->wq_base == NULL) || tx_ring->wq_base_dma & WQ_ADDR_ALIGN)
+> +		goto err;
+>  	tx_ring->q =
+>  	    kmalloc(tx_ring->wq_len * sizeof(struct tx_ring_desc), GFP_KERNEL);
+>  	if (tx_ring->q == NULL)
+> @@ -2676,8 +2673,7 @@ static int ql_alloc_tx_resources(struct
+>  
+>  	return 0;
+>  err:
+> -	pci_free_consistent(qdev->pdev, tx_ring->wq_size,
+> -			    tx_ring->wq_base, tx_ring->wq_base_dma);
+> +	QPRINTK(qdev, IFUP, ERR, "tx_ring alloc failed.\n");
+>  	return -ENOMEM;
+>  }
+>  
 > 
-> but
 > 
-> 	    ntohs(384) > ntohs(65407)
-> 	<=> 32769 > 32767
-> --
-
-Doesnt matter at all in this context.
-
-Take a look at 
-
-void __skb_get_rxhash(struct sk_buff *skb)
-
-if ((__force u16)keys.port16[1] < (__force u16)keys.port16[0])
-	swap(...)
-
-
-
-
