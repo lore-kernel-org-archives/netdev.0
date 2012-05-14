@@ -1,62 +1,28 @@
-From: Jacob Keller <jacob.e.keller@intel.com>
-Subject: Re: [net-next 06/12] ixgbe: Hardware Timestamping + PTP Hardware
- Clock (PHC)
-Date: Mon, 14 May 2012 15:42:03 -0700
-Message-ID: <4FB18A3B.8030308@intel.com>
-References: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com> <1336632413-19135-7-git-send-email-jeffrey.t.kirsher@intel.com> <20120510141122.GB3392@localhost.localdomain> <02874ECE860811409154E81DA85FBB580779423F@ORSMSX105.amr.corp.intel.com> <20120511051509.GA2170@netboy.at.omicron.at> <02874ECE860811409154E81DA85FBB58077949E8@ORSMSX105.amr.corp.intel.com> <20120512053458.GC2190@netboy.at.omicron.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
+Date: Mon, 14 May 2012 18:41:32 -0400 (EDT)
+Message-ID: <20120514.184132.1506982467448756718.davem@davemloft.net>
+References: <20120215104021.GC31660@secunet.com>
+	<1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<20120514130528.GA24733@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org, lw@cn.fujitsu.com
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:58304 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932305Ab2ENWkv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2012 18:40:51 -0400
-In-Reply-To: <20120512053458.GC2190@netboy.at.omicron.at>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60254 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756759Ab2ENWlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 18:41:55 -0400
+In-Reply-To: <20120514130528.GA24733@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/11/2012 10:34 PM, Richard Cochran wrote:
-> On Fri, May 11, 2012 at 07:23:44PM +0000, Keller, Jacob E wrote:
->>
->>
->> I believe this very rare case might be possible, but I don't think
->> that checking the ptp seqid will fix anything. In normal cases,
->> hardware latches Rx packet timestamp, then the ptp packet goes into
->> the queue and we process it shortly after. Before we process that
->> packet there will never be another packet in the queue that needs a
->> timestamp. We know this because the hardware stops timestamping
->> until we unlatch the RX registers. This should mean we don't need to
->> check the sequence ID, and spending time doing it would never fix
->> the issue you are talking about.
->>
->> The issue is for when a packet is timestamped and then never reaches
->> the queue. Then the rx stamp registers are locked for good, because
->> we never clear them, and hardware would never timestamp another
->> receive packet. I don't know a good solution to this, except to
->> clear the registers periodically. Do you have any suggestions?
->
-> Well, one solution would be to check every received packet with the
-> BPF in ptp_classify.h (whenever Rx time stamping is enabled).
->
-> When the driver finds an event packet in the Rx queue, and
-> TSYNCRXCTL[RXTT] is set, it reads out the time stamp along with
-> RXSATRL/H. If the fields match, then add the time stamp to the skb.
->
-> [ Or perhaps instead of using RXSATRL/H, just use the descriptor bit.
->    If *not* set, then the time stamp does not belong to this packet. ]
->
-> HTH,
-> Richard
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 14 May 2012 15:05:28 +0200
 
-sk_run_filter is always returning PTP_CLASS_NONE (0), instead of the 
-correct type. Do you know what I am doing wrong? I can send you the 
-patch I am working with...
+> There might be other opinions, but I don't like to see this IPsec mode
+> dependent stuff hacked into the generic ipv6 output path.
 
-- Jake
+Completely agreed.
