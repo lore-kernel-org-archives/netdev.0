@@ -1,56 +1,66 @@
-From: eric@cloudluca.com
-Subject: Dedicated server rental
-Date: Mon, 14 May 2012 12:14:05 +0800 (HKT)
-Message-ID: <irr@gcn.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-94.sunnyvision.com ([124.248.200.94]:43757 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752284Ab2ENEuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 00:50:05 -0400
-Received: from teamb01.edmhongkong.com (unknown [124.248.200.39])
-	by teamb04.edmhongkong.com (Postfix) with ESMTP id 84331514EB
-	for <netdev@vger.kernel.org>; Mon, 14 May 2012 12:14:06 +0800 (HKT)
-Received: from TeamB3-WS (unknown [124.248.200.14])
-	by teamb01.edmhongkong.com (Postfix) with SMTP id D24CE4FB0A
-	for <netdev@vger.kernel.org>; Mon, 14 May 2012 12:14:05 +0800 (HKT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: Re: [PATCH v2 4/5] net: sh_eth: add support for
+ set_ringparam/get_ringparam
+Date: Mon, 14 May 2012 15:13:50 +0900
+Message-ID: <4FB0A29E.1070709@renesas.com>
+References: <4FACD005.3010800@renesas.com>
+ <1336750030.2874.65.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	SH-Linux <linux-sh@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-reply-to: <1336750030.2874.65.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Sir/Madam,
+2012/05/12 0:27, Ben Hutchings wrote:
+> On Fri, 2012-05-11 at 17:38 +0900, Shimoda, Yoshihiro wrote:
+>> This patch supports the ethtool's set_ringparam() and get_ringparam().
+> [...]
+>> +static int sh_eth_set_ringparam(struct net_device *ndev,
+>> +				struct ethtool_ringparam *ring)
+>> +{
+< snip >
+>> +	if (netif_running(ndev)) {
+>> +		/* Disable interrupts by clearing the interrupt mask. */
+>> +		sh_eth_write(ndev, 0x0000, EESIPR);
+>> +		/* Stop the chip's Tx and Rx processes. */
+>> +		sh_eth_write(ndev, 0, EDTRR);
+>> +		sh_eth_write(ndev, 0, EDRRR);
+> 
+> You'll also need to call netif_tx_disable() and synchronize_irq().
 
-Please see below our Server Rental Package,
+Thank you for the point. I will fix it.
 
-HKD1980/month + one-time setup fee HKD2000
+>> +	sh_eth_ring_init(ndev);
+>> +	sh_eth_dev_init(ndev);
+> 
+> And what if either of these fails?
 
-Dell=3F PowerEdge=3F Enterprise Rack Mount Server
--          Intel(R) Xeon(R) E3-1220 Processor (3.10GHz, 8M Cache, Turbo, 4C/4T, 80W)
--          4GB RAM, 1x4GB, 1333MHz, DDR-3, Single Ranked UDIMMs
--          500GB, 3.5", SATA II x 1 Enterprise Hard Disk
--          Remote KVM (iDRAC6 Enterprise)
--          8x SATA slim DVD-ROM Drive 
--          Dell OpenManage
--          Broadcom 5716 dual-port Gigabit Ethernet without TOE enabled
--          Dell BMC Info Mod
+Oh, I should have added error handling.
+I checked this driver, and I found that the driver should change
+the value of the pointer to NULL. So, I will submit such a patch first.
 
-Software Specification
--     CentOS 5/6 Linux Operating System
+>> +	if (netif_running(ndev)) {
+>> +		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
+>> +		/* Setting the Rx mode will start the Rx process. */
+>> +		sh_eth_write(ndev, EDRRR_R, EDRRR);
+> 
+> You'll need to call netif_wake_queue().
 
+I will fix it.
 
-Data Center Facilities
--          1Gbps Share Internet Connectivity with 10/BASE-T
--          One IP Addresses Allocation
--          Un-interruptible Power Supply (UPS) backed up by private diesel generator
--          FM200 gas=A1Vbased fire suppression system
--          24x7 CRAC Air Conditioning and Humidity Control
--          24x7 Security Control
+>> +	}
+>> +
+>> +	return 0;
+>> +}
+> [...]
+> 
+> Ben.
+> 
 
-Should you have any query, please feel free to contact me. Thanks.
-
-Best,
-Eric Chan
-Senior Sales Executive
-
-If you do not wish to further receive this event message, meail subscriber@dedicatedserver.com.hk to unsubscribe this message.
+Best regards,
+Yoshihiro Shimoda
