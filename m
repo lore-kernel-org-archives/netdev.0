@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 3/3] stmmac: fix suspend/resume locking
-Date: Mon, 14 May 2012 18:54:08 -0400 (EDT)
-Message-ID: <20120514.185408.879679325124225805.davem@davemloft.net>
-References: <1336983523-4075-1-git-send-email-peppe.cavallaro@st.com>
-	<1336983523-4075-3-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH 0/4] netfilter fixes for 3.4-rc7
+Date: Mon, 14 May 2012 18:56:07 -0400 (EDT)
+Message-ID: <20120514.185607.1967456974676336550.davem@davemloft.net>
+References: <1336996023-20249-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60355 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758162Ab2ENWyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 18:54:13 -0400
-In-Reply-To: <1336983523-4075-3-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1336996023-20249-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon, 14 May 2012 10:18:43 +0200
+From: pablo@netfilter.org
+Date: Mon, 14 May 2012 13:46:59 +0200
 
-> Upon resume from standby, there is a possible interrupt
-> unsafe locking scenario raised when configure the Kernel
-> with CONFIG_PROVE_LOCKING. So this patch fixes that in
-> PM driver stuff by calling lock/unlock_irqsave/restore.
+> * One fix for possible timeout overflow for ipset, from Jozsef
+>   Kadlecsik.
 > 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> * One fix to ensure that hash size is correct, again for ipset
+>   from Jozsef Kadlecsik.
+> 
+> * Removal of redundant include in xt_CT from Eldad Zack.
+> 
+> * Fix for wrong usage of MODULE_ALIAS_NFCT_HELPER in nf_ct_h323
+>   helper from myself.
 
-Applied.
+I don't consider any of these appropriate this late in the -RC
+series.
+
+They don't fix major regressions seen by many users.
+
+And the duplicate header include is extremely out-of-scope and
+inappropriate.
+
+Sorry.
