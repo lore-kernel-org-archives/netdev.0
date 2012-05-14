@@ -1,44 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/4] netfilter: ipset: fix timeout value overflow bug
-Date: Mon, 14 May 2012 16:47:24 +0200
-Message-ID: <1337006844.8512.491.camel@edumazet-glaptop>
-References: <1336996023-20249-2-git-send-email-pablo@netfilter.org>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B6F0B@saturn3.aculab.com>
-	 <20120514143635.GA12992@1984>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH 1/6] netfilter: sanity checks on NFPROTO_NUMPROTO
+Date: Mon, 14 May 2012 17:00:48 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1205141659410.11548@frira.vanv.qr>
+References: <1337003799-2517-1-git-send-email-alban.crequy@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120514143635.GA12992@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Alban Crequy <alban.crequy@collabora.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from seven.medozas.de ([188.40.89.202]:47337 "EHLO seven.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755667Ab2ENPAu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2012 11:00:50 -0400
+In-Reply-To: <1337003799-2517-1-git-send-email-alban.crequy@collabora.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-05-14 at 16:36 +0200, Pablo Neira Ayuso wrote:
-> On Mon, May 14, 2012 at 03:19:49PM +0100, David Laight wrote:
-> >  
-> > > --- a/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > +++ b/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > @@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
-> > >  {
-> > >  	unsigned int timeout = ip_set_get_h32(tb);
-> > >  
-> > > +	/* Normalize to fit into jiffies */
-> > > +	if (timeout > UINT_MAX/1000)
-> > > +		timeout = UINT_MAX/1000;
-> > > +
-> > 
-> > Doesn't that rather assume that HZ is 1000 ?
+
+On Monday 2012-05-14 15:56, Alban Crequy wrote:
+
+>With the NFPROTO_* constants introduced by commit 7e9c6e ("netfilter: Introduce
+>NFPROTO_* constants"), it is too easy to confuse PF_* and NFPROTO_* constants
+>in new protocols.
+
+>index e1b7e05..4f16552 100644
+>--- a/net/netfilter/core.c
+>+++ b/net/netfilter/core.c
+>@@ -67,6 +67,11 @@ int nf_register_hook(struct nf_hook_ops *reg)
+> 	struct nf_hook_ops *elem;
+> 	int err;
 > 
-> Indeed. I overlooked that. Thanks David.
+>+	if (reg->pf >= NFPROTO_NUMPROTO || reg->hooknum >= NF_MAX_HOOKS) {
+>+		BUG();
+>+		return 1;
+>+	}
 
-I dont think so.
-
-1000 here is really MSEC_PER_SEC
-
-(All occurrences should be changed in this file)
-
-
+Like always, I'd prefer a WARN() instead, here paired with return -EINVAL.
+Especially when the error path is (seems) simple, halting the entire machine
+does not look very nice.
