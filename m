@@ -1,54 +1,43 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: xt_HMARK: endian bugs
-Date: Mon, 14 May 2012 21:02:11 +0200
-Message-ID: <20120514190211.GC14897@1984>
-References: <1337002943-16374-1-git-send-email-hans.schillstrom@ericsson.com>
- <201205141809.18174.hans.schillstrom@ericsson.com>
- <1337012674.8512.589.camel@edumazet-glaptop>
- <201205141951.36692.hans.schillstrom@ericsson.com>
- <alpine.DEB.2.00.1205142032570.28548@blackhole.kfki.hu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC] tun: experimental zero copy tx support
+Date: Mon, 14 May 2012 21:02:26 +0200
+Message-ID: <1337022146.8512.606.camel@edumazet-glaptop>
+References: <20120513155206.GA26847@redhat.com>
+	 <20120514095446.3ce307d2@nehalam.linuxnetplumber.net>
+	 <20120514170412.GA17086@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jan Engelhardt <jengelh@inai.de>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1205142032570.28548@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Joe Perches <joe@perches.com>,
+	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ian.Campbell@citrix.com,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120514170412.GA17086@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2012 at 08:35:26PM +0200, Jozsef Kadlecsik wrote:
-> On Mon, 14 May 2012, Hans Schillstrom wrote:
+On Mon, 2012-05-14 at 20:04 +0300, Michael S. Tsirkin wrote:
+> On Mon, May 14, 2012 at 09:54:46AM -0700, Stephen Hemminger wrote:
+> > On Sun, 13 May 2012 18:52:06 +0300
+> > "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > 
+> > > +		/* Userspace may produce vectors with count greater than
+> > > +		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
+> > > +		 * to let the rest of data to be fit in the frags.
+> > > +		 */
+> > Rather than complex partial code, just go through slow path for
+> > requests with too many frags (or for really small requests).
+> > Creating mixed skb's seems too easy to get wrong.
 > 
-> > On Monday 14 May 2012 18:24:34 Eric Dumazet wrote:
-> > > On Mon, 2012-05-14 at 18:09 +0200, Hans Schillstrom wrote:
-> > > 
-> > > > This context can contain both le & be machines,
-> > > > so at least in hmark it make sense
-> > > 
-> > > Before jhash() and its shuffle ? What do you mean ?
-> > 
-> > I want that a Big endian machine should produce the same
-> > hash value independent of flow direction as a Little endian.
-> > 
-> > OK, I missed ntohl() before calling jhash_3words()
-> > 
-> > Correct me if I'm wrong here (have no big endian machine available for test)
-> > jhash_3words() and __jhash_final() seems to be "endian" safe.
+> I don't object in principle but macvtap has same code
+> so seems better to stay consistent.
 > 
-> No, but as Eric wrote: what is the point in forcing the same hash value 
-> for the same input on big endian and little endian machines? Are you going 
-> to transfer the hash value between machines?
 
-IIRC, Hans wants that, in case you have a cluster composed of system
-with different endianess, the hash mark calculated will be the same
-in both systems. To ensure that the distribution is consistent with
-independency of the endianess.
+If I remember well, code in vtap was buggy and still is.
+
+Jason Wang fixes are not yet in, so maybe wait a bit, so that we dont
+add a pile of new bugs ?
