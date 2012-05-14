@@ -1,47 +1,59 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [PATCH] dummy: documentation is stale
-Date: Mon, 14 May 2012 14:57:31 +0100
-Message-ID: <20120514135724.23177.91808.stgit@bluebook>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: [PATCH] [RFC] netfilter: don't assume NFPROTO_* are like PF_*
+Date: Mon, 14 May 2012 14:58:29 +0100
+Message-ID: <1337003909-2582-1-git-send-email-alban.crequy@collabora.co.uk>
+Cc: Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Alban Crequy <alban.crequy@collabora.co.uk>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:43134 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755466Ab2ENN61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 09:58:27 -0400
-Received: from [194.168.151.100] (earthlight.etchedpixels.co.uk [81.2.110.250])
-	by lxorguk.ukuu.org.uk (8.14.5/8.14.1) with ESMTP id q4EESO2T018207
-	for <netdev@vger.kernel.org>; Mon, 14 May 2012 15:28:30 +0100
+Received: from bhuna.collabora.co.uk ([93.93.135.160]:48731 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755663Ab2ENN7Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 09:59:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@linux.intel.com>
+With this patch, NFPROTO_* constants don't have the same values as PF_*
+constants.
 
-dummy0/1/2 names are always used and there are options to set multiple
-dummy devices. Remove the obsolete text
+Benefit: it makes NFPROTO_NUMPROTO smaller and saves space as arrays are
+smaller.
 
-Resolves-bug: https://bugzilla.kernel.org/show_bug.cgi?id=42865
-Signed-off-by: Alan Cox <alan@linux.intel.com>
+Issues: might have missed a conversion. I grepped NF_HOOK, nf_register_hook,
+nf_register_hooks, and xt_hook_link. So it is probably fine.
+
+NFPROTO_* constants were introduced by commit 7e9c6e.
+
+Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+Reviewed-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Reviewed-by: Vincent Sanders <vincent.sanders@collabora.co.uk>
 ---
+ include/linux/netfilter.h |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
- drivers/net/Kconfig |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index b982854..78a6259 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -66,10 +66,7 @@ config DUMMY
- 	  <http://www.tldp.org/docs.html#guide>.
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 29734be..89afadb 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -62,11 +62,11 @@ enum nf_inet_hooks {
  
- 	  To compile this driver as a module, choose M here: the module
--	  will be called dummy.  If you want to use more than one dummy
--	  device at a time, you need to compile this driver as a module.
--	  Instead of 'dummy', the devices will then be called 'dummy0',
--	  'dummy1' etc.
-+	  will be called dummy.
+ enum {
+ 	NFPROTO_UNSPEC =  0,
+-	NFPROTO_IPV4   =  2,
+-	NFPROTO_ARP    =  3,
+-	NFPROTO_BRIDGE =  7,
+-	NFPROTO_IPV6   = 10,
+-	NFPROTO_DECNET = 12,
++	NFPROTO_IPV4,
++	NFPROTO_ARP,
++	NFPROTO_BRIDGE,
++	NFPROTO_IPV6,
++	NFPROTO_DECNET,
+ 	NFPROTO_NUMPROTO,
+ };
  
- config EQUALIZER
- 	tristate "EQL (serial line load balancing) support"
+-- 
+1.7.2.5
