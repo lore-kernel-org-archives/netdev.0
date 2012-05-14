@@ -1,64 +1,48 @@
 From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: [PATCH v2 4/5] net: sh_eth: add support for
- set_ringparam/get_ringparam
-Date: Mon, 14 May 2012 15:13:50 +0900
-Message-ID: <4FB0A29E.1070709@renesas.com>
-References: <4FACD005.3010800@renesas.com>
- <1336750030.2874.65.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH v2 5/5] net: sh_eth: use NAPI
+Date: Mon, 14 May 2012 15:13:57 +0900
+Message-ID: <4FB0A2A5.3060001@renesas.com>
+References: <4FACD007.1070308@renesas.com>
+ <1336750529.2874.69.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	SH-Linux <linux-sh@vger.kernel.org>
 To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-reply-to: <1336750030.2874.65.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor3.renesas.com ([210.160.252.173]:49140 "EHLO
+	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753721Ab2ENGOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 02:14:23 -0400
+In-reply-to: <1336750529.2874.69.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2012/05/12 0:27, Ben Hutchings wrote:
+2012/05/12 0:35, Ben Hutchings wrote:
 > On Fri, 2012-05-11 at 17:38 +0900, Shimoda, Yoshihiro wrote:
->> This patch supports the ethtool's set_ringparam() and get_ringparam().
+>> This patch modifies the driver to use NAPI.
 > [...]
->> +static int sh_eth_set_ringparam(struct net_device *ndev,
->> +				struct ethtool_ringparam *ring)
+>> +static int sh_eth_poll(struct napi_struct *napi, int budget)
 >> +{
 < snip >
->> +	if (netif_running(ndev)) {
->> +		/* Disable interrupts by clearing the interrupt mask. */
->> +		sh_eth_write(ndev, 0x0000, EESIPR);
->> +		/* Stop the chip's Tx and Rx processes. */
->> +		sh_eth_write(ndev, 0, EDTRR);
->> +		sh_eth_write(ndev, 0, EDRRR);
+>> +	/* check whether the controller doesn't have any events */
+>> +	if (!txfree_num && !(intr_status & cd->eesr_err_check) &&
+>> +	    work_done < budget) {
+>> +		napi_complete(napi);
 > 
-> You'll also need to call netif_tx_disable() and synchronize_irq().
+> If and only if you return a value less than the budget then you *must*
+> call napi_complete().  You can't add these extra conditions.
 
 Thank you for the point. I will fix it.
 
->> +	sh_eth_ring_init(ndev);
->> +	sh_eth_dev_init(ndev);
+< snip >
 > 
-> And what if either of these fails?
+> You will also need to call napi_disable() and napi_enable() in the
+> set_ringparam implementation.
 
-Oh, I should have added error handling.
-I checked this driver, and I found that the driver should change
-the value of the pointer to NULL. So, I will submit such a patch first.
+I will add the code in sh_eth_set_ringparam().
 
->> +	if (netif_running(ndev)) {
->> +		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
->> +		/* Setting the Rx mode will start the Rx process. */
->> +		sh_eth_write(ndev, EDRRR_R, EDRRR);
-> 
-> You'll need to call netif_wake_queue().
-
-I will fix it.
-
->> +	}
->> +
->> +	return 0;
->> +}
-> [...]
-> 
 > Ben.
 > 
 
