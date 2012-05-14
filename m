@@ -1,95 +1,42 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 0/5] netfilter updates for net-next (upcoming 3.5),
- batch 2
-Date: Mon, 14 May 2012 10:21:31 +0200
-Message-ID: <20120514082131.GA9524@1984>
-References: <1336563188-6720-1-git-send-email-pablo@netfilter.org>
- <20120509.181119.549113304045405166.davem@davemloft.net>
+Subject: Re: [patch] netfilter: potential NULL dereference in
+ get_inner_hdr()
+Date: Mon, 14 May 2012 10:22:50 +0200
+Message-ID: <20120514082250.GB9524@1984>
+References: <20120512110003.GB19472@elgon.mountain>
+ <20120514.033853.1089019132135043947.davem@davemloft.net>
+ <1336981995.8512.56.camel@edumazet-glaptop>
+ <201205141000.12140.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="+HP7ph2BbKc20aGI"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	"coreteam@netfilter.org" <coreteam@netfilter.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20120509.181119.549113304045405166.davem@davemloft.net>
+In-Reply-To: <201205141000.12140.hans.schillstrom@ericsson.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---+HP7ph2BbKc20aGI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Wed, May 09, 2012 at 06:11:19PM -0400, David Miller wrote:
-> From: pablo@netfilter.org
-> Date: Wed,  9 May 2012 13:33:03 +0200
-> 
-> > This is a second batch of netfilter updates for net-next, they contain:
+On Mon, May 14, 2012 at 10:00:00AM +0200, Hans Schillstrom wrote:
 > > 
-> > * The new HMARK target from Hans Schillstrom. It took lots of spins
-> >   to get this into shape. This target provides a hash-based packet / flow
-> >   pre-classifier for iptables that can be used to distribute packets
-> >   / flows between uplinks and backend servers. It provides to modes, one
-> >   that relies on conntrack, and one that is stateless per-packet.
+> > http://lwn.net/Articles/205624/
 > > 
-> > * Byte-based cost calculation for the hashlimit match, to detect when
-> >   a host consumes more bandwidth than expected. This patch from Florian
-> >   Westphal.
-> > 
-> > You can pull these changes from:
-> > 
-> > git://1984.lsi.us.es/net-next
+> > make C=2 CF=-D__CHECK_ENDIAN__ net/netfilter/xt_HMARK.o
+> >   CHECK   net/netfilter/xt_HMARK.c
+> > net/netfilter/xt_HMARK.c:87:21: warning: incorrect type in assignment (different base types)
+> > net/netfilter/xt_HMARK.c:87:21:    expected unsigned short [unsigned] [usertype] src
+> > net/netfilter/xt_HMARK.c:87:21:    got restricted __be16 [usertype] all
+[...]
 > 
-> Pulled.
-> 
-> Two suggested improvements:
-> 
-> 1) The HMARK hash is quite expensive, because it uses a modulus.
-> 
->    Consider adjusting it to use the usual trick:
-> 
-> 	((u64)(HASH_VAL * HASH_SIZE)) >> 32
-> 
->    so that this can be a multiply instead of a modulus.
+> Thanks 
+> I'll try to fix the warnings
 
-I'll enqueue the patch attached for this. Thanks for spotting this.
-
---+HP7ph2BbKc20aGI
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0001-netfilter-xt_HMARK-modulus-is-expensive-for-hash-cal.patch"
-
->From 3b81af711d639cdcf820836bad6b4ac0f5a761fa Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 14 May 2012 02:01:46 +0200
-Subject: [PATCH] netfilter: xt_HMARK: modulus is expensive for hash
- calculation
-
-Use:
-
-((u64)(HASH_VAL * HASH_SIZE)) >> 32
-
-as suggested by David S. Miller.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_HMARK.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/xt_HMARK.c b/net/netfilter/xt_HMARK.c
-index 5817d03..0a96a43 100644
---- a/net/netfilter/xt_HMARK.c
-+++ b/net/netfilter/xt_HMARK.c
-@@ -109,7 +109,7 @@ hmark_hash(struct hmark_tuple *t, const struct xt_hmark_info *info)
- 	hash = jhash_3words(t->src, t->dst, t->uports.v32, info->hashrnd);
- 	hash = hash ^ (t->proto & info->proto_mask);
- 
--	return (hash % info->hmodulus) + info->hoffset;
-+	return (((u64)hash * info->hmodulus) >> 32) + info->hoffset;
- }
- 
- static void
--- 
-1.7.10
-
-
---+HP7ph2BbKc20aGI--
+Ok, wait for that patch, thanks.
