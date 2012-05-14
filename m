@@ -1,65 +1,76 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] netfilter: potential NULL dereference in get_inner_hdr()
-Date: Mon, 14 May 2012 11:39:12 +0300
-Message-ID: <20120514083912.GB16999@mwanda>
-References: <20120512110003.GB19472@elgon.mountain>
- <201205140936.56960.hans.schillstrom@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
-	"coreteam@netfilter.org" <coreteam@netfilter.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH v3 00/17] netfilter: add namespace support for netfilter protos
+Date: Mon, 14 May 2012 16:52:10 +0800
+Message-ID: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
+To: pablo@netfilter.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201205140936.56960.hans.schillstrom@ericsson.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2012 at 09:36:55AM +0200, Hans Schillstrom wrote:
-> On Saturday 12 May 2012 13:00:03 Dan Carpenter wrote:
-> > There is a typo in the error checking and "&&" was used instead of "||".
-> > If skb_header_pointer() returns NULL then it leads to a NULL
-> > dereference.
-> > 
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Ack-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
->  
-> > ---
-> > Btw, this is new code and Sparse complains about endian bugs.
-> 
-> Can you give me some hints here, arch , compiler version etc.
-> I guess it was input to hmark_addr_mask() that complains ?
-> 
+Currently the sysctl of netfilter proto is not isolated, so when
+changing proto's sysctl in container will cause the host's sysctl
+be changed too. it's not expected.
 
-Yes.  That was one of the warnings.
+This patch set adds the namespace support for netfilter protos.
 
-http://lwn.net/Articles/205624/
+impletement four pernet_operations to register sysctl and initial
+pernet data for proto.
 
-net/netfilter/xt_HMARK.c:87:35: warning: incorrect type in assignment (different base types)
-net/netfilter/xt_HMARK.c:87:35:    expected unsigned short [unsigned] [usertype] src
-net/netfilter/xt_HMARK.c:87:35:    got restricted __be16 [usertype] all
-net/netfilter/xt_HMARK.c:88:35: warning: incorrect type in assignment (different base types)
-net/netfilter/xt_HMARK.c:88:35:    expected unsigned short [unsigned] [usertype] dst
-net/netfilter/xt_HMARK.c:88:35:    got restricted __be16 [usertype] all
-net/netfilter/xt_HMARK.c:181:35: warning: incorrect type in argument 1 (different base types)
-net/netfilter/xt_HMARK.c:181:35:    expected unsigned int const [usertype] *addr32
-net/netfilter/xt_HMARK.c:181:35:    got restricted __be32 *<noident>
-net/netfilter/xt_HMARK.c:182:35: warning: incorrect type in argument 1 (different base types)
-net/netfilter/xt_HMARK.c:182:35:    expected unsigned int const [usertype] *addr32
-net/netfilter/xt_HMARK.c:182:35:    got restricted __be32 *<noident>
-net/netfilter/xt_HMARK.c:261:16: warning: invalid assignment: &=
-net/netfilter/xt_HMARK.c:261:16:    left side has type unsigned int
-net/netfilter/xt_HMARK.c:261:16:    right side has type restricted __be32
-net/netfilter/xt_HMARK.c:262:16: warning: invalid assignment: &=
-net/netfilter/xt_HMARK.c:262:16:    left side has type unsigned int
-net/netfilter/xt_HMARK.c:262:16:    right side has type restricted __be32
+-ipv4_net_ops is used to register tcp4(compat),
+ udp4(compat),icmp(compat),ipv4(compat).
+-ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
+-sctp_net_ops is used to register sctp4(compat) and sctp6.
+-udplite_net_ops is used to register udplite4 and udplite6
 
-regards,
-dan carpenter
+extern l[3,4]proto (sysctl) register functions to make them support
+namespace.
+
+finailly add namespace support for cttimeout.
+
+Changes from v2:
+	re-split patchset to make compilation success.
+
+Gao feng (17):
+  netfilter: add struct nf_proto_net for register l4proto sysctl
+  netfilter: add namespace support for l4proto
+  netfilter: add namespace support for l3proto
+  netfilter: add namespace support for l4proto_generic
+  netfilter: add namespace support for l4proto_tcp
+  netfilter: add namespace support for l4proto_udp
+  netfilter: add namespace support for l4proto_icmp
+  netfilter: add namespace support for l4proto_icmpv6
+  netfilter: add namespace support for l3proto_ipv4
+  netfilter: add namespace support for l3proto_ipv6
+  netfilter: add namespace support for l4proto_sctp
+  netfilter: add namespace support for l4proto_udplite
+  netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
+  netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
+  netfilter: cleanup sysctl for l4proto and l3proto
+  netfilter: add namespace support for cttimeout
+  netfilter: cttimeout use pernet data of l4proto
+
+ include/net/netfilter/nf_conntrack_l3proto.h   |   11 +-
+ include/net/netfilter/nf_conntrack_l4proto.h   |   32 ++-
+ include/net/netns/conntrack.h                  |   55 ++++
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  123 +++++---
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   53 +++-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   88 ++++--
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   37 ++-
+ net/netfilter/nf_conntrack_core.c              |    8 +-
+ net/netfilter/nf_conntrack_proto.c             |  385 ++++++++++++++---------
+ net/netfilter/nf_conntrack_proto_dccp.c        |  140 +++++-----
+ net/netfilter/nf_conntrack_proto_generic.c     |   69 ++++-
+ net/netfilter/nf_conntrack_proto_gre.c         |   64 +++--
+ net/netfilter/nf_conntrack_proto_sctp.c        |  156 +++++++---
+ net/netfilter/nf_conntrack_proto_tcp.c         |  135 ++++++---
+ net/netfilter/nf_conntrack_proto_udp.c         |   88 ++++--
+ net/netfilter/nf_conntrack_proto_udplite.c     |  123 ++++++--
+ net/netfilter/nfnetlink_cttimeout.c            |   13 +-
+ 17 files changed, 1056 insertions(+), 524 deletions(-)
+
+-- 
+1.7.7.6
 
