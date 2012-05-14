@@ -1,76 +1,99 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH v3 00/17] netfilter: add namespace support for netfilter protos
-Date: Mon, 14 May 2012 16:52:10 +0800
-Message-ID: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 01/17] netfilter: add struct nf_proto_net for register l4proto sysctl
+Date: Mon, 14 May 2012 16:52:11 +0800
+Message-ID: <1336985547-31960-2-git-send-email-gaofeng@cn.fujitsu.com>
+References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	serge.hallyn@canonical.com, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
+	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitus.com>
 To: pablo@netfilter.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently the sysctl of netfilter proto is not isolated, so when
-changing proto's sysctl in container will cause the host's sysctl
-be changed too. it's not expected.
+From: Gao feng <gaofeng@cn.fujitus.com>
 
-This patch set adds the namespace support for netfilter protos.
+the struct nf_proto_net stroes proto's ctl_table_header and ctl_table,
+nf_ct_l4proto_(un)register_sysctl use it to register sysctl.
 
-impletement four pernet_operations to register sysctl and initial
-pernet data for proto.
+there are some changes for struct nf_conntrack_l4proto:
+- add field compat to identify if this proto should do compat.
+- the net_id field is used to store the pernet_operations id
+  that belones to l4proto.
+- init_net will be used to initial the proto's pernet data
 
--ipv4_net_ops is used to register tcp4(compat),
- udp4(compat),icmp(compat),ipv4(compat).
--ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
--sctp_net_ops is used to register sctp4(compat) and sctp6.
--udplite_net_ops is used to register udplite4 and udplite6
+and add init_net for struct nf_conntrack_l3proto too.
 
-extern l[3,4]proto (sysctl) register functions to make them support
-namespace.
+Acked-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Gao feng <gaofeng@cn.fujitus.com>
+---
+ include/net/netfilter/nf_conntrack_l3proto.h |    3 +++
+ include/net/netfilter/nf_conntrack_l4proto.h |    6 ++++++
+ include/net/netns/conntrack.h                |   12 ++++++++++++
+ 3 files changed, 21 insertions(+), 0 deletions(-)
 
-finailly add namespace support for cttimeout.
-
-Changes from v2:
-	re-split patchset to make compilation success.
-
-Gao feng (17):
-  netfilter: add struct nf_proto_net for register l4proto sysctl
-  netfilter: add namespace support for l4proto
-  netfilter: add namespace support for l3proto
-  netfilter: add namespace support for l4proto_generic
-  netfilter: add namespace support for l4proto_tcp
-  netfilter: add namespace support for l4proto_udp
-  netfilter: add namespace support for l4proto_icmp
-  netfilter: add namespace support for l4proto_icmpv6
-  netfilter: add namespace support for l3proto_ipv4
-  netfilter: add namespace support for l3proto_ipv6
-  netfilter: add namespace support for l4proto_sctp
-  netfilter: add namespace support for l4proto_udplite
-  netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
-  netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
-  netfilter: cleanup sysctl for l4proto and l3proto
-  netfilter: add namespace support for cttimeout
-  netfilter: cttimeout use pernet data of l4proto
-
- include/net/netfilter/nf_conntrack_l3proto.h   |   11 +-
- include/net/netfilter/nf_conntrack_l4proto.h   |   32 ++-
- include/net/netns/conntrack.h                  |   55 ++++
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  123 +++++---
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   53 +++-
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   88 ++++--
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   37 ++-
- net/netfilter/nf_conntrack_core.c              |    8 +-
- net/netfilter/nf_conntrack_proto.c             |  385 ++++++++++++++---------
- net/netfilter/nf_conntrack_proto_dccp.c        |  140 +++++-----
- net/netfilter/nf_conntrack_proto_generic.c     |   69 ++++-
- net/netfilter/nf_conntrack_proto_gre.c         |   64 +++--
- net/netfilter/nf_conntrack_proto_sctp.c        |  156 +++++++---
- net/netfilter/nf_conntrack_proto_tcp.c         |  135 ++++++---
- net/netfilter/nf_conntrack_proto_udp.c         |   88 ++++--
- net/netfilter/nf_conntrack_proto_udplite.c     |  123 ++++++--
- net/netfilter/nfnetlink_cttimeout.c            |   13 +-
- 17 files changed, 1056 insertions(+), 524 deletions(-)
-
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index 9699c02..9766005 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -69,6 +69,9 @@ struct nf_conntrack_l3proto {
+ 	struct ctl_table	*ctl_table;
+ #endif /* CONFIG_SYSCTL */
+ 
++	/* Init l3proto pernet data */
++	int (*init_net)(struct net *net);
++
+ 	/* Module (if any) which this is connected to. */
+ 	struct module *me;
+ };
+diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+index 3b572bb..a90eab5 100644
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -22,6 +22,8 @@ struct nf_conntrack_l4proto {
+ 	/* L4 Protocol number. */
+ 	u_int8_t l4proto;
+ 
++	u_int8_t compat;
++
+ 	/* Try to fill in the third arg: dataoff is offset past network protocol
+            hdr.  Return true if possible. */
+ 	bool (*pkt_to_tuple)(const struct sk_buff *skb, unsigned int dataoff,
+@@ -103,6 +105,10 @@ struct nf_conntrack_l4proto {
+ 	struct ctl_table	*ctl_compat_table;
+ #endif
+ #endif
++	int	*net_id;
++	/* Init l4proto pernet data */
++	int (*init_net)(struct net *net, u_int8_t compat);
++
+ 	/* Protocol name */
+ 	const char *name;
+ 
+diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
+index a053a19..1f53038 100644
+--- a/include/net/netns/conntrack.h
++++ b/include/net/netns/conntrack.h
+@@ -8,6 +8,18 @@
+ struct ctl_table_header;
+ struct nf_conntrack_ecache;
+ 
++struct nf_proto_net {
++#ifdef CONFIG_SYSCTL
++	struct ctl_table_header *ctl_table_header;
++	struct ctl_table        *ctl_table;
++#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++	struct ctl_table_header *ctl_compat_header;
++	struct ctl_table        *ctl_compat_table;
++#endif
++#endif
++	unsigned int		users;
++};
++
+ struct netns_ct {
+ 	atomic_t		count;
+ 	unsigned int		expect_count;
 -- 
 1.7.7.6
 
