@@ -1,53 +1,225 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH 1/4] netfilter: ipset: fix timeout value overflow bug
-Date: Mon, 14 May 2012 19:45:07 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1205141943240.28291@blackhole.kfki.hu>
-References: <1336996023-20249-2-git-send-email-pablo@netfilter.org>  <AE90C24D6B3A694183C094C60CF0A2F6026B6F0B@saturn3.aculab.com>  <20120514143635.GA12992@1984> <1337006844.8512.491.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1337006844.8512.491.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Crispin <blogic@openwrt.org>
+Subject: [RESEND PATCH V2 12/17] NET: MIPS: lantiq: implement OF support inside the etop driver
+Date: Mon, 14 May 2012 19:42:38 +0200
+Message-ID: <1337017363-14424-12-git-send-email-blogic@openwrt.org>
+References: <1337017363-14424-1-git-send-email-blogic@openwrt.org>
+Cc: linux-mips@linux-mips.org, John Crispin <blogic@openwrt.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:45896 "EHLO nbd.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754991Ab2ENRvI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2012 13:51:08 -0400
+In-Reply-To: <1337017363-14424-1-git-send-email-blogic@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 May 2012, Eric Dumazet wrote:
+This patch makes it possible to load the driver for the ETOP ethernet on
+Lantiq SoC from a devicetree.
 
-> On Mon, 2012-05-14 at 16:36 +0200, Pablo Neira Ayuso wrote:
-> > On Mon, May 14, 2012 at 03:19:49PM +0100, David Laight wrote:
-> > >  
-> > > > --- a/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > > +++ b/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > > @@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
-> > > >  {
-> > > >  	unsigned int timeout = ip_set_get_h32(tb);
-> > > >  
-> > > > +	/* Normalize to fit into jiffies */
-> > > > +	if (timeout > UINT_MAX/1000)
-> > > > +		timeout = UINT_MAX/1000;
-> > > > +
-> > > 
-> > > Doesn't that rather assume that HZ is 1000 ?
-> > 
-> > Indeed. I overlooked that. Thanks David.
-> 
-> I dont think so.
-> 
-> 1000 here is really MSEC_PER_SEC
-> 
-> (All occurrences should be changed in this file)
+Additionally we convert the driver to using the new clkdev clock in favour of
+the old ltq_pmu_*() api.
 
-Yes, exactly. Pablo, shall I produce a little patch or could you change 
-1000 to MSEC_PER_SEC?
+Signed-off-by: John Crispin <blogic@openwrt.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+This patch is part of a series moving the mips/lantiq target to OF and clkdev
+support. The patch, once Acked, should go upstream via Ralf's MIPS tree.
 
-Best regards, 
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+Changes in V2
+* rebase on Ralf's next tree
+
+ drivers/net/ethernet/lantiq_etop.c |   63 +++++++++++++++++++++++++++++------
+ 1 files changed, 52 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
+index 5dc9cbd..c0443d4 100644
+--- a/drivers/net/ethernet/lantiq_etop.c
++++ b/drivers/net/ethernet/lantiq_etop.c
+@@ -29,19 +29,22 @@
+ #include <linux/tcp.h>
+ #include <linux/skbuff.h>
+ #include <linux/mm.h>
+-#include <linux/platform_device.h>
+ #include <linux/ethtool.h>
+ #include <linux/init.h>
+ #include <linux/delay.h>
+ #include <linux/io.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/module.h>
++#include <linux/of_platform.h>
++#include <linux/of_net.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_gpio.h>
+ 
+ #include <asm/checksum.h>
+ 
+ #include <lantiq_soc.h>
+ #include <xway_dma.h>
+-#include <lantiq_platform.h>
+ 
+ #define LTQ_ETOP_MDIO		0x11804
+ #define MDIO_REQUEST		0x80000000
+@@ -73,6 +76,7 @@
+ #define ETOP_CGEN		0x800
+ 
+ /* use 2 static channels for TX/RX */
++#define LTQ_DMA_CH0_INT		INT_NUM_IM2_IRL0
+ #define LTQ_ETOP_TX_CHANNEL	1
+ #define LTQ_ETOP_RX_CHANNEL	6
+ #define IS_TX(x)		(x == LTQ_ETOP_TX_CHANNEL)
+@@ -99,12 +103,17 @@ struct ltq_etop_chan {
+ struct ltq_etop_priv {
+ 	struct net_device *netdev;
+ 	struct platform_device *pdev;
+-	struct ltq_eth_data *pldata;
+ 	struct resource *res;
+ 
+ 	struct mii_bus *mii_bus;
+ 	struct phy_device *phydev;
+ 
++	struct clk *clk;
++	const void *mac;
++	int mii_mode;
++	int tx_irq;
++	int rx_irq;
++
+ 	struct ltq_etop_chan ch[MAX_DMA_CHAN];
+ 	int tx_free[MAX_DMA_CHAN >> 1];
+ 
+@@ -239,7 +248,7 @@ ltq_etop_hw_exit(struct net_device *dev)
+ 	struct ltq_etop_priv *priv = netdev_priv(dev);
+ 	int i;
+ 
+-	ltq_pmu_disable(PMU_PPE);
++	clk_disable(priv->clk);
+ 	for (i = 0; i < MAX_DMA_CHAN; i++)
+ 		if (IS_TX(i) || IS_RX(i))
+ 			ltq_etop_free_channel(dev, &priv->ch[i]);
+@@ -251,9 +260,9 @@ ltq_etop_hw_init(struct net_device *dev)
+ 	struct ltq_etop_priv *priv = netdev_priv(dev);
+ 	int i;
+ 
+-	ltq_pmu_enable(PMU_PPE);
++	clk_enable(priv->clk);
+ 
+-	switch (priv->pldata->mii_mode) {
++	switch (priv->mii_mode) {
+ 	case PHY_INTERFACE_MODE_RMII:
+ 		ltq_etop_w32_mask(ETOP_MII_MASK,
+ 			ETOP_MII_REVERSE, LTQ_ETOP_CFG);
+@@ -266,7 +275,7 @@ ltq_etop_hw_init(struct net_device *dev)
+ 
+ 	default:
+ 		netdev_err(dev, "unknown mii mode %d\n",
+-			priv->pldata->mii_mode);
++			priv->mii_mode);
+ 		return -ENOTSUPP;
+ 	}
+ 
+@@ -395,7 +404,7 @@ ltq_etop_mdio_probe(struct net_device *dev)
+ 	}
+ 
+ 	phydev = phy_connect(dev, dev_name(&phydev->dev), &ltq_etop_mdio_link,
+-			0, priv->pldata->mii_mode);
++			0, priv->mii_mode);
+ 
+ 	if (IS_ERR(phydev)) {
+ 		netdev_err(dev, "Could not attach to PHY\n");
+@@ -643,7 +652,7 @@ ltq_etop_init(struct net_device *dev)
+ 		goto err_hw;
+ 	ltq_etop_change_mtu(dev, 1500);
+ 
+-	memcpy(&mac, &priv->pldata->mac, sizeof(struct sockaddr));
++	memcpy(&mac.sa_data, &priv->mac, ETH_ALEN);
+ 	if (!is_valid_ether_addr(mac.sa_data)) {
+ 		pr_warn("etop: invalid MAC, using random\n");
+ 		random_ether_addr(mac.sa_data);
+@@ -707,9 +716,12 @@ static const struct net_device_ops ltq_eth_netdev_ops = {
+ static int __init
+ ltq_etop_probe(struct platform_device *pdev)
+ {
++	struct device_node *node = pdev->dev.of_node;
+ 	struct net_device *dev;
+ 	struct ltq_etop_priv *priv;
+ 	struct resource *res;
++	struct clk *clk;
++	struct resource irqres[2];
+ 	int err;
+ 	int i;
+ 
+@@ -737,6 +749,20 @@ ltq_etop_probe(struct platform_device *pdev)
+ 		goto err_out;
+ 	}
+ 
++	err = of_irq_to_resource_table(node, irqres, 2);
++	if (err != 2) {
++		dev_err(&pdev->dev, "not enough irqs defined\n");
++		err = -EINVAL;
++		goto err_out;
++	}
++
++	clk = clk_get(&pdev->dev, NULL);
++	if (IS_ERR(clk)) {
++		dev_err(&pdev->dev, "Failed to get clock\n");
++		err = PTR_ERR(clk);
++		goto err_out;
++	}
++
+ 	dev = alloc_etherdev_mq(sizeof(struct ltq_etop_priv), 4);
+ 	if (!dev) {
+ 		err = -ENOMEM;
+@@ -748,9 +774,15 @@ ltq_etop_probe(struct platform_device *pdev)
+ 	priv = netdev_priv(dev);
+ 	priv->res = res;
+ 	priv->pdev = pdev;
+-	priv->pldata = dev_get_platdata(&pdev->dev);
+ 	priv->netdev = dev;
+ 	spin_lock_init(&priv->lock);
++	priv->tx_irq = irqres[0].start;
++	priv->rx_irq = irqres[1].start;
++	priv->mii_mode = of_get_phy_mode(node);
++	priv->mac = of_get_mac_address(node);
++	priv->clk = clk;
++	if (priv->mii_mode < 0)
++		priv->mii_mode = PHY_INTERFACE_MODE_MII;
+ 
+ 	for (i = 0; i < MAX_DMA_CHAN; i++) {
+ 		if (IS_TX(i))
+@@ -779,21 +811,30 @@ static int __devexit
+ ltq_etop_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *dev = platform_get_drvdata(pdev);
++	struct ltq_etop_priv *priv = netdev_priv(dev);
+ 
+ 	if (dev) {
+ 		netif_tx_stop_all_queues(dev);
+ 		ltq_etop_hw_exit(dev);
+ 		ltq_etop_mdio_cleanup(dev);
++		clk_put(priv->clk);
+ 		unregister_netdev(dev);
+ 	}
+ 	return 0;
+ }
+ 
++static const struct of_device_id ltq_etop_match[] = {
++	{ .compatible = "lantiq,etop-xway" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, ltq_etop_match);
++
+ static struct platform_driver ltq_mii_driver = {
+ 	.remove = __devexit_p(ltq_etop_remove),
+ 	.driver = {
+-		.name = "ltq_etop",
++		.name = "etop-xway",
+ 		.owner = THIS_MODULE,
++		.of_match_table = ltq_etop_match,
+ 	},
+ };
+ 
+-- 
+1.7.9.1
