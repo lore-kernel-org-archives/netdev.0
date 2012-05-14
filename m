@@ -1,86 +1,192 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 3/3] stmmac: fix suspend/resume locking
-Date: Mon, 14 May 2012 10:18:43 +0200
-Message-ID: <1336983523-4075-3-git-send-email-peppe.cavallaro@st.com>
-References: <1336983523-4075-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [net-next 1/3 (v2)] stmmac: extend mac addr reg and fix perfect filering
+Date: Mon, 14 May 2012 10:18:41 +0200
+Message-ID: <1336983523-4075-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	Gianni Antoniazzi <gianni.antoniazzi-ext@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:40660 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754448Ab2ENITE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 04:19:04 -0400
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:56296 "EHLO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754376Ab2ENIS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 04:18:57 -0400
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C7ED6169
-	for <netdev@vger.kernel.org>; Mon, 14 May 2012 08:19:00 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C646B11B
+	for <netdev@vger.kernel.org>; Mon, 14 May 2012 08:18:51 +0000 (GMT)
 Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6320E21BD
-	for <netdev@vger.kernel.org>; Mon, 14 May 2012 08:19:00 +0000 (GMT)
-In-Reply-To: <1336983523-4075-1-git-send-email-peppe.cavallaro@st.com>
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 7D8CD21B7
+	for <netdev@vger.kernel.org>; Mon, 14 May 2012 08:18:51 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Upon resume from standby, there is a possible interrupt
-unsafe locking scenario raised when configure the Kernel
-with CONFIG_PROVE_LOCKING. So this patch fixes that in
-PM driver stuff by calling lock/unlock_irqsave/restore.
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 
+This patch is to extend the number of MAC address registers
+for 16 to 32. In fact, other new 16 registers are available in new
+chips and this can help on perfect filter mode for unicast.
+
+This patch also fixes the perfect filtering mode by setting the
+bit 31 in the MAC address registers.
+
+v2: fixed Coding Style.
+
+Signed-off-by: Gianni Antoniazzi <gianni.antoniazzi-ext@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |   11 ++++++++---
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   11 +++++++++--
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |    8 +++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    4 ++--
+ 7 files changed, 29 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index d1d0840..d07bc6d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1989,6 +1989,7 @@ int stmmac_suspend(struct net_device *ndev)
- {
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	int dis_ic = 0;
-+	unsigned long flags;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index f5dedcb..7164509 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -280,7 +280,7 @@ struct stmmac_ops {
+ 	/* Handle extra events on specific interrupts hw dependent */
+ 	void (*host_irq_status) (void __iomem *ioaddr);
+ 	/* Multicast filter setting */
+-	void (*set_filter) (struct net_device *dev);
++	void (*set_filter) (struct net_device *dev, int id);
+ 	/* Flow control setting */
+ 	void (*flow_ctrl) (void __iomem *ioaddr, unsigned int duplex,
+ 			   unsigned int fc, unsigned int pause_time);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+index 54339a7..1527f4e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+@@ -61,9 +61,11 @@ enum power_event {
+ };
  
- 	if (!ndev || !netif_running(ndev))
- 		return 0;
-@@ -1996,7 +1997,7 @@ int stmmac_suspend(struct net_device *ndev)
- 	if (priv->phydev)
- 		phy_stop(priv->phydev);
+ /* GMAC HW ADDR regs */
+-#define GMAC_ADDR_HIGH(reg)		(0x00000040+(reg * 8))
+-#define GMAC_ADDR_LOW(reg)		(0x00000044+(reg * 8))
+-#define GMAC_MAX_UNICAST_ADDRESSES	16
++#define GMAC_ADDR_HIGH(reg)	(((reg > 15) ? 0x00000800 : 0x00000040) + \
++				(reg * 8))
++#define GMAC_ADDR_LOW(reg)	(((reg > 15) ? 0x00000804 : 0x00000044) + \
++				(reg * 8))
++#define GMAC_MAX_PERFECT_ADDRESSES	32
  
--	spin_lock(&priv->lock);
-+	spin_lock_irqsave(&priv->lock, flags);
+ #define GMAC_AN_CTRL	0x000000c0	/* AN control */
+ #define GMAC_AN_STATUS	0x000000c4	/* AN status */
+@@ -205,4 +207,7 @@ enum rtc_control {
+ #define GMAC_MMC_TX_INTR   0x108
+ #define GMAC_MMC_RX_CSUM_OFFLOAD   0x208
  
- 	netif_device_detach(ndev);
- 	netif_stop_queue(ndev);
-@@ -2024,18 +2025,19 @@ int stmmac_suspend(struct net_device *ndev)
- 		/* Disable clock in case of PWM is off */
- 		stmmac_clk_disable(priv);
- 	}
--	spin_unlock(&priv->lock);
-+	spin_unlock_irqrestore(&priv->lock, flags);
- 	return 0;
++/* Synopsys Core versions */
++#define	DWMAC_CORE_3_40	34
++
+ extern const struct stmmac_dma_ops dwmac1000_dma_ops;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index e7cbcd9..b5e4d02 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -84,10 +84,11 @@ static void dwmac1000_get_umac_addr(void __iomem *ioaddr, unsigned char *addr,
+ 				GMAC_ADDR_LOW(reg_n));
  }
  
- int stmmac_resume(struct net_device *ndev)
+-static void dwmac1000_set_filter(struct net_device *dev)
++static void dwmac1000_set_filter(struct net_device *dev, int id)
  {
- 	struct stmmac_priv *priv = netdev_priv(ndev);
-+	unsigned long flags;
+ 	void __iomem *ioaddr = (void __iomem *) dev->base_addr;
+ 	unsigned int value = 0;
++	unsigned int perfect_addr_number;
  
- 	if (!netif_running(ndev))
- 		return 0;
+ 	CHIP_DBG(KERN_INFO "%s: # mcasts %d, # unicast %d\n",
+ 		 __func__, netdev_mc_count(dev), netdev_uc_count(dev));
+@@ -121,8 +122,14 @@ static void dwmac1000_set_filter(struct net_device *dev)
+ 		writel(mc_filter[1], ioaddr + GMAC_HASH_HIGH);
+ 	}
  
--	spin_lock(&priv->lock);
-+	spin_lock_irqsave(&priv->lock, flags);
++	/* Extra 16 regs are available in cores newer than the 3.40. */
++	if (id > DWMAC_CORE_3_40)
++		perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES;
++	else
++		perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES / 2;
++
+ 	/* Handle multiple unicast addresses (perfect filtering)*/
+-	if (netdev_uc_count(dev) > GMAC_MAX_UNICAST_ADDRESSES)
++	if (netdev_uc_count(dev) > perfect_addr_number)
+ 		/* Switch to promiscuous mode is more than 16 addrs
+ 		   are required */
+ 		value |= GMAC_FRAME_FILTER_PR;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+index efde50f..19e0f4e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+@@ -89,7 +89,7 @@ static void dwmac100_get_umac_addr(void __iomem *ioaddr, unsigned char *addr,
+ 	stmmac_get_mac_addr(ioaddr, addr, MAC_ADDR_HIGH, MAC_ADDR_LOW);
+ }
  
- 	/* Power Down bit, into the PM register, is cleared
- 	 * automatically as soon as a magic packet or a Wake-up frame
-@@ -2063,7 +2065,7 @@ int stmmac_resume(struct net_device *ndev)
+-static void dwmac100_set_filter(struct net_device *dev)
++static void dwmac100_set_filter(struct net_device *dev, int id)
+ {
+ 	void __iomem *ioaddr = (void __iomem *) dev->base_addr;
+ 	u32 value = readl(ioaddr + MAC_CONTROL);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+index f20aa12..4e0e18a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+@@ -31,6 +31,8 @@
+ #define DWMAC_LIB_DBG(fmt, args...)  do { } while (0)
+ #endif
  
- 	netif_start_queue(ndev);
++#define GMAC_HI_REG_AE		0x80000000
++
+ /* CSR1 enables the transmit DMA to check for new descriptor */
+ void dwmac_enable_dma_transmission(void __iomem *ioaddr)
+ {
+@@ -233,7 +235,11 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
+ 	unsigned long data;
  
--	spin_unlock(&priv->lock);
-+	spin_unlock_irqrestore(&priv->lock, flags);
+ 	data = (addr[5] << 8) | addr[4];
+-	writel(data, ioaddr + high);
++	/* For MAC Addr registers se have to set the Address Enable (AE)
++	 * bit that has no effect on the High Reg 0 where the bit 31 (MO)
++	 * is RO.
++	 */
++	writel(data | GMAC_HI_REG_AE, ioaddr + high);
+ 	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
+ 	writel(data, ioaddr + low);
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index db2de9a..6b5d060 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -85,6 +85,7 @@ struct stmmac_priv {
+ 	struct clk *stmmac_clk;
+ #endif
+ 	int clk_csr;
++	int synopsys_id;
+ };
  
- 	if (priv->phydev)
- 		phy_start(priv->phydev);
+ extern int phyaddr;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 1a4cf81..a9699ae 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1465,7 +1465,7 @@ static void stmmac_set_rx_mode(struct net_device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 
+ 	spin_lock(&priv->lock);
+-	priv->hw->mac->set_filter(dev);
++	priv->hw->mac->set_filter(dev, priv->synopsys_id);
+ 	spin_unlock(&priv->lock);
+ }
+ 
+@@ -1806,7 +1806,7 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 	priv->hw->ring = &ring_mode_ops;
+ 
+ 	/* Get and dump the chip ID */
+-	stmmac_get_synopsys_id(priv);
++	priv->synopsys_id = stmmac_get_synopsys_id(priv);
+ 
+ 	/* Get the HW capability (new GMAC newer than 3.50a) */
+ 	priv->hw_cap_support = stmmac_get_hw_features(priv);
 -- 
 1.7.4.4
