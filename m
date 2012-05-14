@@ -1,77 +1,61 @@
-From: Hiroshi DOYU <hdoyu-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/2] driver core: Add dev_*_ratelimited() family
-Date: Mon, 14 May 2012 10:47:57 +0300
-Message-ID: <1336981680-15297-1-git-send-email-hdoyu@nvidia.com>
-References: <20120514.104512.775373956832728793.hdoyu@nvidia.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch] netfilter: potential NULL dereference in
+ get_inner_hdr()
+Date: Mon, 14 May 2012 09:53:15 +0200
+Message-ID: <1336981995.8512.56.camel@edumazet-glaptop>
+References: <20120512110003.GB19472@elgon.mountain>
+	 <201205140936.56960.hans.schillstrom@ericsson.com>
+	 <20120514.033853.1089019132135043947.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
-	Randy Dunlap <rdunlap-/UHa2rfvQTnk1uMJSBkQmQ@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <hdoyu-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120514.104512.775373956832728793.hdoyu-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: hans.schillstrom@ericsson.com, dan.carpenter@oracle.com,
+	pablo@netfilter.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <20120514.033853.1089019132135043947.davem@davemloft.net>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add dev_*_ratelimited() family, dev_* version of pr_*_ratelimited().
+On Mon, 2012-05-14 at 03:38 -0400, David Miller wrote:
 
-Using Joe Perches's proposal/implementation.
+> He said what he's using, "sparse", the semantic parser, which
+> is largely arch agnostic.
+> 
+> I guarantee you will see the warnings if you run it on your
+> system on this code.
 
-Signed-off-by: Hiroshi DOYU <hdoyu-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
----
- include/linux/device.h |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+Some more info :
 
-diff --git a/include/linux/device.h b/include/linux/device.h
-index 8b9d03a..d3aafdb 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -23,6 +23,7 @@
- #include <linux/mutex.h>
- #include <linux/pm.h>
- #include <linux/atomic.h>
-+#include <linux/ratelimit.h>
- #include <asm/device.h>
- 
- struct device;
-@@ -937,6 +938,32 @@ int _dev_info(const struct device *dev, const char *fmt, ...)
- 
- #endif
- 
-+#define dev_level_ratelimited(dev_level, dev, fmt, ...)			\
-+do {									\
-+	static DEFINE_RATELIMIT_STATE(_rs,				\
-+				      DEFAULT_RATELIMIT_INTERVAL,	\
-+				      DEFAULT_RATELIMIT_BURST);		\
-+	if (__ratelimit(&_rs))						\
-+		dev_level(dev, fmt, ##__VA_ARGS__);			\
-+} while (0)
-+
-+#define dev_emerg_ratelimited(dev, fmt, ...)				\
-+	dev_level_ratelimited(dev_emerg, dev, fmt, ##__VA_ARGS__)
-+#define dev_alert_ratelimited(dev, fmt, ...)				\
-+	dev_level_ratelimited(dev_alert, dev, fmt, ##__VA_ARGS__)
-+#define dev_crit_ratelimited(dev, fmt, ...)				\
-+	dev_level_ratelimited(dev_crit, dev, fmt, ##__VA_ARGS__)
-+#define dev_err_ratelimited(dev, fmt, ...)				\
-+	dev_level_ratelimited(dev_err, dev, fmt, ##__VA_ARGS__)
-+#define dev_warn_ratelimited(dev, fmt, ...)				\
-+	dev_level_ratelimited(dev_warn, dev, fmt, ##__VA_ARGS__)
-+#define dev_notice_ratelimited(dev, fmt, ...)				\
-+	dev_level_ratelimited(dev_notice, dev, fmt, ##__VA_ARGS__)
-+#define dev_info_ratelimited(dev, fmt, ...)				\
-+	dev_level_ratelimited(dev_info, dev, fmt, ##__VA_ARGS__)
-+#define dev_dbg_ratelimited(dev, fmt, ...)				\
-+	dev_level_ratelimited(dev_dbg, dev, fmt, ##__VA_ARGS__)
-+
- /*
-  * Stupid hackaround for existing uses of non-printk uses dev_info
-  *
--- 
-1.7.5.4
+http://lwn.net/Articles/205624/
+
+make C=2 CF=-D__CHECK_ENDIAN__ net/netfilter/xt_HMARK.o
+  CHECK   net/netfilter/xt_HMARK.c
+net/netfilter/xt_HMARK.c:87:21: warning: incorrect type in assignment (different base types)
+net/netfilter/xt_HMARK.c:87:21:    expected unsigned short [unsigned] [usertype] src
+net/netfilter/xt_HMARK.c:87:21:    got restricted __be16 [usertype] all
+net/netfilter/xt_HMARK.c:88:21: warning: incorrect type in assignment (different base types)
+net/netfilter/xt_HMARK.c:88:21:    expected unsigned short [unsigned] [usertype] dst
+net/netfilter/xt_HMARK.c:88:21:    got restricted __be16 [usertype] all
+net/netfilter/xt_HMARK.c:170:27: warning: incorrect type in argument 2 (different signedness)
+net/netfilter/xt_HMARK.c:170:27:    expected int *offset
+net/netfilter/xt_HMARK.c:170:27:    got unsigned int *<noident>
+net/netfilter/xt_HMARK.c:181:28: warning: incorrect type in argument 1 (different base types)
+net/netfilter/xt_HMARK.c:181:28:    expected unsigned int const [usertype] *addr32
+net/netfilter/xt_HMARK.c:181:28:    got restricted __be32 *<noident>
+net/netfilter/xt_HMARK.c:182:28: warning: incorrect type in argument 1 (different base types)
+net/netfilter/xt_HMARK.c:182:28:    expected unsigned int const [usertype] *addr32
+net/netfilter/xt_HMARK.c:182:28:    got restricted __be32 *<noident>
+net/netfilter/xt_HMARK.c:261:9: warning: invalid assignment: &=
+net/netfilter/xt_HMARK.c:261:9:    left side has type unsigned int
+net/netfilter/xt_HMARK.c:261:9:    right side has type restricted __be32
+net/netfilter/xt_HMARK.c:262:9: warning: invalid assignment: &=
+net/netfilter/xt_HMARK.c:262:9:    left side has type unsigned int
+net/netfilter/xt_HMARK.c:262:9:    right side has type restricted __be32
+
+
+
+
