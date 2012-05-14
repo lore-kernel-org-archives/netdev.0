@@ -1,58 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
-Date: Mon, 14 May 2012 16:26:34 -0400 (EDT)
-Message-ID: <20120514.162634.1094732813264319951.davem@davemloft.net>
-References: <1336658065-24851-2-git-send-email-mgorman@suse.de>
-	<20120511.011034.557833140906762226.davem@davemloft.net>
-	<20120514105604.GB29102@suse.de>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: inconsistent null checking in ipx_ioctl()
+Date: Mon, 14 May 2012 23:56:18 +0300
+Message-ID: <20120514205618.GB20836@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
-        linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Trond.Myklebust@netapp.com, neilb@suse.de, hch@infradead.org,
-        a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
-To: mgorman@suse.de
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120514105604.GB29102@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:47515 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757334Ab2ENU40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 16:56:26 -0400
+Received: from ucsinet21.oracle.com (ucsinet21.oracle.com [156.151.31.93])
+	by rcsinet15.oracle.com (Sentrion-MTA-4.2.2/Sentrion-MTA-4.2.2) with ESMTP id q4EKuODg031692
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 14 May 2012 20:56:25 GMT
+Received: from acsmt357.oracle.com (acsmt357.oracle.com [141.146.40.157])
+	by ucsinet21.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id q4EKuOuW016867
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 14 May 2012 20:56:24 GMT
+Received: from abhmt113.oracle.com (abhmt113.oracle.com [141.146.116.65])
+	by acsmt357.oracle.com (8.12.11.20060308/8.12.11) with ESMTP id q4EKuNOU016017
+	for <netdev@vger.kernel.org>; Mon, 14 May 2012 15:56:23 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mel Gorman <mgorman@suse.de>
-Date: Mon, 14 May 2012 11:56:04 +0100
+Hi, I'm working on some new Smatch stuff and going through some warnings
+in old code.
 
-> On Fri, May 11, 2012 at 01:10:34AM -0400, David Miller wrote:
->> From: Mel Gorman <mgorman@suse.de>
->> Date: Thu, 10 May 2012 14:54:14 +0100
->> 
->> > It could happen that all !SOCK_MEMALLOC sockets have buffered so
->> > much data that we're over the global rmem limit. This will prevent
->> > SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
->> > from running, which is needed to reduce the buffered data.
->> > 
->> > Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
->> > 
->> > Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
->> > Signed-off-by: Mel Gorman <mgorman@suse.de>
->> 
->> This introduces an invariant which I am not so sure is enforced.
->> 
->> With this change it is absolutely required that once a socket
->> becomes SOCK_MEMALLOC it must never _ever_ lose that attribute.
->> 
-> 
-> This is effectively true. In the NFS case, the flag is cleared on
-> swapoff after all the entries have been paged in. In the NBD case,
-> SOCK_MEMALLOC is left set until the socket is destroyed. I'll update the
-> changelog.
+----
+This is a semi-automatic email about new static checker warnings.
 
-Bugs happen, you need to find a way to assert that nobody every does
-this.  Because if a bug is introduced which makes this happen, it will
-otherwise be very difficult to debug.
+The patch b0d0d915d1d1: "ipx: remove the BKL" from Jan 25, 2011, 
+leads to the following Smatch complaint:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+net/ipx/af_ipx.c:1928 ipx_ioctl()
+	 error: we previously assumed 'sk' could be null (see line 1913)
+
+net/ipx/af_ipx.c
+  1912			rc = -EINVAL;
+  1913			if (sk)
+                           ^^^^
+Check.
+
+  1914				rc = sock_get_timestamp(sk, argp);
+  1915			break;
+  1916		case SIOCGIFDSTADDR:
+  1917		case SIOCSIFDSTADDR:
+  1918		case SIOCGIFBRDADDR:
+  1919		case SIOCSIFBRDADDR:
+  1920		case SIOCGIFNETMASK:
+  1921		case SIOCSIFNETMASK:
+  1922			rc = -EINVAL;
+  1923			break;
+  1924		default:
+  1925			rc = -ENOIOCTLCMD;
+  1926			break;
+  1927		}
+  1928		release_sock(sk);
+                ^^^^^^^^^^^^^^^^^
+The lock and release functions dereference "sk".  Probably the check
+can be removed.  The rest of the function dereferences "sk" without
+checking.  A lot of this code goes back to 2.6.12.
+
+  1929	
+  1930		return rc;
+
+regards,
+dan carpenter
