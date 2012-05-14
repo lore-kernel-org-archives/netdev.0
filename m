@@ -1,54 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: codel: fix build errors
-Date: Mon, 14 May 2012 23:49:12 +0200
-Message-ID: <1337032152.8512.638.camel@edumazet-glaptop>
-References: <1337015687-17693-1-git-send-email-levinsasha928@gmail.com>
-	 <1337029683.8512.626.camel@edumazet-glaptop>
-	 <CA+1xoqfWR+BA4xqqG+8SzVGYSH1z6nu_=iEFX7XoZzMhv_GvqA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, dave.taht@bufferbloat.net,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:55033 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932234Ab2ENVtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 17:49:17 -0400
-In-Reply-To: <CA+1xoqfWR+BA4xqqG+8SzVGYSH1z6nu_=iEFX7XoZzMhv_GvqA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH v2] net: codel: fix build errors
+Date: Mon, 14 May 2012 23:57:06 +0200
+Message-ID: <1337032626-7104-1-git-send-email-levinsasha928@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Sasha Levin <levinsasha928@gmail.com>
+To: edumazet@google.com, dave.taht@bufferbloat.net, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-05-14 at 23:39 +0200, Sasha Levin wrote:
-> On Mon, May 14, 2012 at 11:08 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Anonymous unions are fine, we use them a lot in kernel.
-> 
-> While we use them a lot, we don't try initializing them that often.
-> 
-> > Please fix the initializers instead in fq_codel_dump_stats(), because
-> > these two #define are not very nice.
-> 
-> The only method I know of fixing that up is getting braces around them
-> in the initializer, which is hacky and will break every time a new
-> member is added to the struct before the anonymous union. Is there a
-> different solution?
+Fix the following build error:
 
+net/sched/sch_fq_codel.c: In function 'fq_codel_dump_stats':
+net/sched/sch_fq_codel.c:464:3: error: unknown field 'qdisc_stats' specified in initializer
+net/sched/sch_fq_codel.c:464:3: warning: missing braces around initializer
+net/sched/sch_fq_codel.c:464:3: warning: (near initialization for 'st.<anonymous>')
+net/sched/sch_fq_codel.c:465:3: error: unknown field 'qdisc_stats' specified in initializer
+net/sched/sch_fq_codel.c:465:3: warning: excess elements in struct initializer
+net/sched/sch_fq_codel.c:465:3: warning: (near initialization for 'st')
+net/sched/sch_fq_codel.c:466:3: error: unknown field 'qdisc_stats' specified in initializer
+net/sched/sch_fq_codel.c:466:3: warning: excess elements in struct initializer
+net/sched/sch_fq_codel.c:466:3: warning: (near initialization for 'st')
+net/sched/sch_fq_codel.c:467:3: error: unknown field 'qdisc_stats' specified in initializer
+net/sched/sch_fq_codel.c:467:3: warning: excess elements in struct initializer
+net/sched/sch_fq_codel.c:467:3: warning: (near initialization for 'st')
+make[1]: *** [net/sched/sch_fq_codel.o] Error 1
 
-instead of 
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ net/sched/sch_fq_codel.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-	struct foo x = {
-		.field = value;
-		.sub.f2 = xxx;
-		...
-	};
-
-use :
-
-	struct foo x = {
-		.field = value;
-	};
-
-	x.sub.f2 = xxx;
-	...
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index a7b3754..337ff20 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -461,13 +461,14 @@ static int fq_codel_dump_stats(struct Qdisc *sch, struct gnet_dump *d)
+ 	struct fq_codel_sched_data *q = qdisc_priv(sch);
+ 	struct tc_fq_codel_xstats st = {
+ 		.type				= TCA_FQ_CODEL_XSTATS_QDISC,
+-		.qdisc_stats.maxpacket		= q->cstats.maxpacket,
+-		.qdisc_stats.drop_overlimit	= q->drop_overlimit,
+-		.qdisc_stats.ecn_mark		= q->cstats.ecn_mark,
+-		.qdisc_stats.new_flow_count	= q->new_flow_count,
+ 	};
+ 	struct list_head *pos;
+ 
++	st.qdisc_stats.maxpacket = q->cstats.maxpacket;
++	st.qdisc_stats.drop_overlimit = q->drop_overlimit;
++	st.qdisc_stats.ecn_mark = q->cstats.ecn_mark;
++	st.qdisc_stats.new_flow_count = q->new_flow_count;
++
+ 	list_for_each(pos, &q->new_flows)
+ 		st.qdisc_stats.new_flows_len++;
+ 
+-- 
+1.7.8.6
