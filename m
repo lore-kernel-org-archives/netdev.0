@@ -1,145 +1,140 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 6/8] net/mlx4_core: Fix potential kernel Oops in res tracker during Dom0 driver unload
-Date: Mon, 14 May 2012 23:04:11 +0300
-Message-ID: <1337025853-26685-7-git-send-email-ogerlitz@mellanox.com>
-References: <1337025853-26685-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:55319 "HELO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757738Ab2ENUEZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 16:04:25 -0400
-In-Reply-To: <1337025853-26685-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/4] netfilter: ipset: fix timeout value overflow bug
+Date: Mon, 14 May 2012 22:10:43 +0200
+Message-ID: <20120514201043.GA15485@1984>
+References: <1336996023-20249-2-git-send-email-pablo@netfilter.org>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6F0B@saturn3.aculab.com>
+ <20120514143635.GA12992@1984>
+ <1337006844.8512.491.camel@edumazet-glaptop>
+ <alpine.DEB.2.00.1205141943240.28291@blackhole.kfki.hu>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="lrZ03NoBR/3+SXJZ"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1205141943240.28291@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Currently the slave and master resources are deleted after master freed
-all bitmaps. If any resources were not properly cleaned up during the
-shutdown process, an Oops would result.
+--lrZ03NoBR/3+SXJZ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Fix so that delete slave (only) resources during cleanup. Master resources
-are cleaned up during unload process, and need not separately be cleaned.
+On Mon, May 14, 2012 at 07:45:07PM +0200, Jozsef Kadlecsik wrote:
+> On Mon, 14 May 2012, Eric Dumazet wrote:
+> 
+> > On Mon, 2012-05-14 at 16:36 +0200, Pablo Neira Ayuso wrote:
+> > > On Mon, May 14, 2012 at 03:19:49PM +0100, David Laight wrote:
+> > > >  
+> > > > > --- a/include/linux/netfilter/ipset/ip_set_timeout.h
+> > > > > +++ b/include/linux/netfilter/ipset/ip_set_timeout.h
+> > > > > @@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
+> > > > >  {
+> > > > >  	unsigned int timeout = ip_set_get_h32(tb);
+> > > > >  
+> > > > > +	/* Normalize to fit into jiffies */
+> > > > > +	if (timeout > UINT_MAX/1000)
+> > > > > +		timeout = UINT_MAX/1000;
+> > > > > +
+> > > > 
+> > > > Doesn't that rather assume that HZ is 1000 ?
+> > > 
+> > > Indeed. I overlooked that. Thanks David.
+> > 
+> > I dont think so.
+> > 
+> > 1000 here is really MSEC_PER_SEC
+> > 
+> > (All occurrences should be changed in this file)
+> 
+> Yes, exactly. Pablo, shall I produce a little patch or could you change 
+> 1000 to MSEC_PER_SEC?
 
-Note that during cleanup, we need to split the resource-tracker freeing
-functionality.
+New patch attached.
 
-Before removing all the bitmaps, we free any leftover slave resources.
-However, we can only remove the resource tracker linked list after
-all bitmap frees, since some of the freeing functions (e.g.,
-mlx4_cleanup_eq_table) use paravirtualized FW commands which expect
-the resource tracker linked list to be present.
+I have rebase my tree again.
 
-Found-by: Aviad Yehezkel <aviadye@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+--lrZ03NoBR/3+SXJZ
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-netfilter-ipset-fix-timeout-value-overflow-bug.patch"
+
+>From 9fdc90b2d00ecf98797c147d58cfe324fc92c9ed Mon Sep 17 00:00:00 2001
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Date: Mon, 7 May 2012 02:35:44 +0000
+Subject: [PATCH] netfilter: ipset: fix timeout value overflow bug
+
+Large timeout parameters could result wrong timeout values due to
+an overflow at msec to jiffies conversion (reported by Andreas Herz)
+
+[ This patch was mangled by Pablo Neira Ayuso since David Laight and
+  Eric Dumazet noticed that we were using hardcoded 1000 instead of
+  MSEC_PER_SEC to calculate the timeout ]
+
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |    2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |    7 ++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    8 +++++++-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   17 ++++++++++++-----
- 4 files changed, 26 insertions(+), 8 deletions(-)
+ include/linux/netfilter/ipset/ip_set_timeout.h |    4 ++++
+ net/netfilter/xt_set.c                         |   15 +++++++++++++--
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 53b738b..1bcead1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1554,7 +1554,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 	return 0;
- 
- err_resource:
--	mlx4_free_resource_tracker(dev);
-+	mlx4_free_resource_tracker(dev, RES_TR_FREE_ALL);
- err_thread:
- 	flush_workqueue(priv->mfunc.master.comm_wq);
- 	destroy_workqueue(priv->mfunc.master.comm_wq);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 8eed1f2..2e94f76 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2069,6 +2069,10 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 			mlx4_CLOSE_PORT(dev, p);
- 		}
- 
-+		if (mlx4_is_master(dev))
-+			mlx4_free_resource_tracker(dev,
-+						   RES_TR_FREE_SLAVES_ONLY);
-+
- 		mlx4_cleanup_counters_table(dev);
- 		mlx4_cleanup_mcg_table(dev);
- 		mlx4_cleanup_qp_table(dev);
-@@ -2081,7 +2085,8 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 		mlx4_cleanup_pd_table(dev);
- 
- 		if (mlx4_is_master(dev))
--			mlx4_free_resource_tracker(dev);
-+			mlx4_free_resource_tracker(dev,
-+						   RES_TR_FREE_STRUCTS_ONLY);
- 
- 		iounmap(priv->kar);
- 		mlx4_uar_free(dev, &priv->driver_uar);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index cd56f1a..8767fbf 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -146,6 +146,11 @@ enum mlx4_alloc_mode {
- 	RES_OP_MAP_ICM,
- };
- 
-+enum mlx4_res_tracker_free_type {
-+	RES_TR_FREE_ALL,
-+	RES_TR_FREE_SLAVES_ONLY,
-+	RES_TR_FREE_STRUCTS_ONLY,
-+};
- 
- /*
-  *Virtual HCR structures.
-@@ -1027,7 +1032,8 @@ int mlx4_get_slave_from_resource_id(struct mlx4_dev *dev,
- void mlx4_delete_all_resources_for_slave(struct mlx4_dev *dev, int slave_id);
- int mlx4_init_resource_tracker(struct mlx4_dev *dev);
- 
--void mlx4_free_resource_tracker(struct mlx4_dev *dev);
-+void mlx4_free_resource_tracker(struct mlx4_dev *dev,
-+				enum mlx4_res_tracker_free_type type);
- 
- int mlx4_SET_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 			  struct mlx4_vhcr *vhcr,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 66df9e1..e17d759 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -224,16 +224,23 @@ int mlx4_init_resource_tracker(struct mlx4_dev *dev)
- 	return 0 ;
- }
- 
--void mlx4_free_resource_tracker(struct mlx4_dev *dev)
-+void mlx4_free_resource_tracker(struct mlx4_dev *dev,
-+				enum mlx4_res_tracker_free_type type)
+diff --git a/include/linux/netfilter/ipset/ip_set_timeout.h b/include/linux/netfilter/ipset/ip_set_timeout.h
+index 4792320..41d9cfa 100644
+--- a/include/linux/netfilter/ipset/ip_set_timeout.h
++++ b/include/linux/netfilter/ipset/ip_set_timeout.h
+@@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
  {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	int i;
+ 	unsigned int timeout = ip_set_get_h32(tb);
  
- 	if (priv->mfunc.master.res_tracker.slave_list) {
--		for (i = 0 ; i < dev->num_slaves; i++)
--			mlx4_delete_all_resources_for_slave(dev, i);
--
--		kfree(priv->mfunc.master.res_tracker.slave_list);
-+		if (type != RES_TR_FREE_STRUCTS_ONLY)
-+			for (i = 0 ; i < dev->num_slaves; i++)
-+				if (type == RES_TR_FREE_ALL ||
-+				    dev->caps.function != i)
-+					mlx4_delete_all_resources_for_slave(dev, i);
++	/* Normalize to fit into jiffies */
++	if (timeout > UINT_MAX/MSEC_PER_SEC)
++		timeout = UINT_MAX/MSEC_PER_SEC;
 +
-+		if (type != RES_TR_FREE_SLAVES_ONLY) {
-+			kfree(priv->mfunc.master.res_tracker.slave_list);
-+			priv->mfunc.master.res_tracker.slave_list = NULL;
-+		}
- 	}
+ 	/* Userspace supplied TIMEOUT parameter: adjust crazy size */
+ 	return timeout == IPSET_NO_TIMEOUT ? IPSET_NO_TIMEOUT - 1 : timeout;
  }
+diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
+index 0ec8138..035960e 100644
+--- a/net/netfilter/xt_set.c
++++ b/net/netfilter/xt_set.c
+@@ -44,6 +44,14 @@ const struct ip_set_adt_opt n = {	\
+ 	.cmdflags = cfs,		\
+ 	.timeout = t,			\
+ }
++#define ADT_MOPT(n, f, d, fs, cfs, t)	\
++struct ip_set_adt_opt n = {		\
++	.family	= f,			\
++	.dim = d,			\
++	.flags = fs,			\
++	.cmdflags = cfs,		\
++	.timeout = t,			\
++}
  
+ /* Revision 0 interface: backward compatible with netfilter/iptables */
+ 
+@@ -296,11 +304,14 @@ static unsigned int
+ set_target_v2(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+ 	const struct xt_set_info_target_v2 *info = par->targinfo;
+-	ADT_OPT(add_opt, par->family, info->add_set.dim,
+-		info->add_set.flags, info->flags, info->timeout);
++	ADT_MOPT(add_opt, par->family, info->add_set.dim,
++		 info->add_set.flags, info->flags, info->timeout);
+ 	ADT_OPT(del_opt, par->family, info->del_set.dim,
+ 		info->del_set.flags, 0, UINT_MAX);
+ 
++	/* Normalize to fit into jiffies */
++	if (add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
++		add_opt.timeout = UINT_MAX/MSEC_PER_SEC;
+ 	if (info->add_set.index != IPSET_INVALID_ID)
+ 		ip_set_add(info->add_set.index, skb, par, &add_opt);
+ 	if (info->del_set.index != IPSET_INVALID_ID)
 -- 
-1.7.1
+1.7.10
+
+
+--lrZ03NoBR/3+SXJZ--
