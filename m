@@ -1,41 +1,68 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-05-14
-Date: Mon, 14 May 2012 18:17:13 -0400 (EDT)
-Message-ID: <20120514.181713.510999624398430623.davem@davemloft.net>
-References: <1336979858-13928-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 02/13] mac802154: allocation of ieee802154
+ device
+Date: Mon, 14 May 2012 18:28:24 -0400 (EDT)
+Message-ID: <20120514.182824.2287894454156614132.davem@davemloft.net>
+References: <1336831165-23944-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	<1336831165-23944-3-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1336979858-13928-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60113 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932528Ab2ENW21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 18:28:27 -0400
+In-Reply-To: <1336831165-23944-3-git-send-email-alex.bluesman.smirnov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Mon, 14 May 2012 09:17:30 +0200
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Sat, 12 May 2012 17:59:14 +0400
 
-> Hello David,
+> Add interface for device drivers to allocate and register ieee802154
+> compatible device.
 > 
-> here is our last set of changes intended for net-next/linux-3.5.
-> In this patchset there are:
+> This code is based on net/mac80211/main.c file
 > 
-> 1) several minor cleanups and fixes
-> 2) an optimisation that avoid to linearise the whole packet when not needed
-> 3) an optimisation for client traffic rerouting after a roaming event.
-> 
-> Patches that modify the whole naming schema will be sent later for merging
-> with linux-3.6.
+> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 
-Pulled, thanks.
+Sorry, this needs to be fixed up.
+
+I can almost understand using a comment formatting style I
+disagree with, if you do so consistently.
+
+But formatting them in THREE completely different ways?  Give me a
+break:
+
+> +	/* As in mac80211 slaves list is modified:
+> +	 * 1) under the RTNL
+> +	 * 2) protected by slaves_mtx;
+> +	 * 3) in an RCU manner
+> +	 *
+> +	 * So atomic readers can use any of this protection methods
+> +	 */
+ ...
+> +	/* This one is used for scanning and other
+> +	 * jobs not to be interfered with serial driver */
+ ...
+> +	/*
+> +	 * The following flag is also modified under slaves_mtx and RTNL,
+> +	 * so you can read them using any of protection methods.
+> +	 */
+> +	/*
+> +	 * SoftMAC device is registered and running. One can add
+> +	 * subinterfaces.
+> +	 */
+
+That's just beyond silly, and the last two comments are right next to
+eachother just combine them to one.
+
+Go over your entire patch set and make sure that all of your comments
+are of the form:
+
+	/* Like
+	 * this.
+	 */
