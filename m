@@ -1,48 +1,60 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
-Date: Mon, 14 May 2012 11:56:04 +0100
-Message-ID: <20120514105604.GB29102@suse.de>
-References: <1336658065-24851-1-git-send-email-mgorman@suse.de>
- <1336658065-24851-2-git-send-email-mgorman@suse.de>
- <20120511.011034.557833140906762226.davem@davemloft.net>
+Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V10
+Date: Mon, 14 May 2012 12:10:58 +0100
+Message-ID: <20120514111058.GC29102@suse.de>
+References: <1336657510-24378-1-git-send-email-mgorman@suse.de>
+ <20120511.010445.1020972261904383892.davem@davemloft.net>
+ <20120511154540.GV11435@suse.de>
+ <20120511.172339.2007927803884694483.davem@davemloft.net>
+ <20120511142932.af7851bd.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-nfs@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Trond.Myklebust@netapp.com,
-	neilb@suse.de, hch@infradead.org, a.p.zijlstra@chello.nl,
-	michaelc@cs.wisc.edu, emunson@mgebm.net
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, linux-mm@kvack.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, neilb@suse.de,
+	a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20120511.011034.557833140906762226.davem@davemloft.net>
+In-Reply-To: <20120511142932.af7851bd.akpm@linux-foundation.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 11, 2012 at 01:10:34AM -0400, David Miller wrote:
-> From: Mel Gorman <mgorman@suse.de>
-> Date: Thu, 10 May 2012 14:54:14 +0100
+On Fri, May 11, 2012 at 02:29:32PM -0700, Andrew Morton wrote:
+> On Fri, 11 May 2012 17:23:39 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> > It could happen that all !SOCK_MEMALLOC sockets have buffered so
-> > much data that we're over the global rmem limit. This will prevent
-> > SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
-> > from running, which is needed to reduce the buffered data.
+> > From: Mel Gorman <mgorman@suse.de>
+> > Date: Fri, 11 May 2012 16:45:40 +0100
 > > 
-> > Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
+> > > From my point of view, the ideal would be that all the patches go
+> > > through akpm's tree or yours but that probably will cause merge
+> > > difficulties.
+> > > 
+> > > Any recommendations?
 > > 
-> > Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> > Signed-off-by: Mel Gorman <mgorman@suse.de>
+> > I know there will be networking side conflicts very soon, it's not a
+> > matter of 'if' but 'when'.
+> > 
+> > But the trick is that I bet the 'mm' and 'slab' folks are in a similar
+> > situation.
+> > 
+> > In any event I'm more than happy to take it all in my tree.
 > 
-> This introduces an invariant which I am not so sure is enforced.
+> I guess either is OK.  The main thing is to get it all reviewed and
+> tested, after all.
 > 
-> With this change it is absolutely required that once a socket
-> becomes SOCK_MEMALLOC it must never _ever_ lose that attribute.
+> I can take all the patches once it's all lined up and everyone is
+> happy.  If the net bits later take significant damage then I can squirt them
+> at you once the core MM bits are merged.  That would give you a few
+> days to check them over and get them into Linus.  If that's a problem,
+> we can hold the net bits over for a cycle.
 > 
+> That's all assuming that the core MM parts are mergeable without the
+> net parts being merged.  I trust that's the case!
 
-This is effectively true. In the NFS case, the flag is cleared on
-swapoff after all the entries have been paged in. In the NBD case,
-SOCK_MEMALLOC is left set until the socket is destroyed. I'll update the
-changelog.
+I expect it to be the case as the series is (or at least should be)
+bisect safe. If there is a conflict of some sort, just cut off at that
+point and it should be fine until it gets fixed up.
 
 -- 
 Mel Gorman
