@@ -1,43 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] tun: experimental zero copy tx support
-Date: Mon, 14 May 2012 22:31:35 +0300
-Message-ID: <20120514193134.GA18366@redhat.com>
-References: <20120513155206.GA26847@redhat.com>
- <20120514095446.3ce307d2@nehalam.linuxnetplumber.net>
- <20120514170412.GA17086@redhat.com>
- <1337022146.8512.606.camel@edumazet-glaptop>
- <20120514191456.GC17086@redhat.com>
- <1337023307.8512.617.camel@edumazet-glaptop>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  [PATCH] netfilter: xt_HMARK: endian bugs
+Date: Mon, 14 May 2012 21:32:35 +0200 (CEST)
+Message-ID: <dri38gk.79a7b56a47f5dacef2458a1ca42c6deb@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ian.Campbell@citrix.com,
-	kvm@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2486 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757613Ab2ENTbk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2012 15:31:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1337023307.8512.617.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Pablo Neira Ayuso" <pablo@netfilter.org>,
+	"Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>,
+	"Hans Schillstrom" <hans.schillstrom@ericsson.com>,
+	"Jan Engelhardt" <jengelh@inai.de>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2012 at 09:21:47PM +0200, Eric Dumazet wrote:
-> On Mon, 2012-05-14 at 22:14 +0300, Michael S. Tsirkin wrote:
-> 
-> > They seem to be in net-next, or did I miss something?
-> 
-> Yes, you re-introduce in this patch some bugs already fixed in macvtap
 
-Could explain why I see some problems in testing :)
-Maybe common code should go into net/core?
-I couldn't decide whether the increase in kernel
-size is worth it.
 
--- 
-MST
+
+>---- Original Message ----
+>From: Eric Dumazet <eric.dumazet@gmail.com>
+>To: "Pablo Neira Ayuso" <pablo@netfilter.org>
+>Cc: "Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>, "Hans Schillstrom" <hans.schillstrom@ericsson.com>, "Jan Engelhardt" <jengelh@inai.de>, "kaber@trash.net" <kaber@trash.net>, "jengelh@medozas.de" <jengelh@medozas.de>, "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>, "hans@schillstrom.com" <hans@schillstrom.com>
+>Sent: Mon, May 14, 2012, 9:14 PM
+>Subject: Re: [PATCH] netfilter: xt_HMARK: endian bugs
+>
+>On Mon, 2012-05-14 at 21:02 +0200, Pablo Neira Ayuso wrote:
+>
+>> IIRC, Hans wants that, in case you have a cluster composed of system
+>> with different endianess, the hash mark calculated will be the same
+>> in both systems. To ensure that the distribution is consistent with
+>> independency of the endianess.
+>
+>Then jhash() must be audited to make sure its output is OK with this
+>requirement.
+
+I'm preparing test on mips & ppc right now to verify that as a first step.
+
+ 
+
