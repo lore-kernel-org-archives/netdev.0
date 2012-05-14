@@ -1,51 +1,39 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v2] net: codel: fix build errors
-Date: Mon, 14 May 2012 17:59:21 -0400 (EDT)
-Message-ID: <20120514.175921.1196526858340183817.davem@davemloft.net>
+Date: Tue, 15 May 2012 00:00:38 +0200
+Message-ID: <1337032838.8512.642.camel@edumazet-glaptop>
 References: <1337032626-7104-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: edumazet@google.com, dave.taht@bufferbloat.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: levinsasha928@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59806 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757935Ab2ENWAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 18:00:25 -0400
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1337032626-7104-1-git-send-email-levinsasha928@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sasha Levin <levinsasha928@gmail.com>
-Date: Mon, 14 May 2012 23:57:06 +0200
-
+On Mon, 2012-05-14 at 23:57 +0200, Sasha Levin wrote:
 > Fix the following build error:
-  ...
+> 
+> net/sched/sch_fq_codel.c: In function 'fq_codel_dump_stats':
+> net/sched/sch_fq_codel.c:464:3: error: unknown field 'qdisc_stats' specified in initializer
+> net/sched/sch_fq_codel.c:464:3: warning: missing braces around initializer
+> net/sched/sch_fq_codel.c:464:3: warning: (near initialization for 'st.<anonymous>')
+> net/sched/sch_fq_codel.c:465:3: error: unknown field 'qdisc_stats' specified in initializer
+> net/sched/sch_fq_codel.c:465:3: warning: excess elements in struct initializer
+> net/sched/sch_fq_codel.c:465:3: warning: (near initialization for 'st')
+> net/sched/sch_fq_codel.c:466:3: error: unknown field 'qdisc_stats' specified in initializer
+> net/sched/sch_fq_codel.c:466:3: warning: excess elements in struct initializer
+> net/sched/sch_fq_codel.c:466:3: warning: (near initialization for 'st')
+> net/sched/sch_fq_codel.c:467:3: error: unknown field 'qdisc_stats' specified in initializer
+> net/sched/sch_fq_codel.c:467:3: warning: excess elements in struct initializer
+> net/sched/sch_fq_codel.c:467:3: warning: (near initialization for 'st')
+> make[1]: *** [net/sched/sch_fq_codel.o] Error 1
+> 
 > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> ---
 
-Applied, but:
-
->  	struct tc_fq_codel_xstats st = {
->  		.type				= TCA_FQ_CODEL_XSTATS_QDISC,
-> -		.qdisc_stats.maxpacket		= q->cstats.maxpacket,
-> -		.qdisc_stats.drop_overlimit	= q->drop_overlimit,
-> -		.qdisc_stats.ecn_mark		= q->cstats.ecn_mark,
-> -		.qdisc_stats.new_flow_count	= q->new_flow_count,
->  	};
->  	struct list_head *pos;
->  
-> +	st.qdisc_stats.maxpacket = q->cstats.maxpacket;
-> +	st.qdisc_stats.drop_overlimit = q->drop_overlimit;
-> +	st.qdisc_stats.ecn_mark = q->cstats.ecn_mark;
-> +	st.qdisc_stats.new_flow_count = q->new_flow_count;
-> +
-
-This is now a very inefficient initialization of this structure.
-
-GCC is going to fill all the non-explictly-initialized fields with
-zero, then we'll write to the same fields again in the st.qdisc*
-assignments.
-
-Eric please resolve this, I hate knowing we have code like this :-)
+Acked-by: Eric Dumazet <edumazet@google.com>
