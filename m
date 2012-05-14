@@ -1,168 +1,233 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 14/17] netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
-Date: Mon, 14 May 2012 16:52:24 +0800
-Message-ID: <1336985547-31960-15-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 16/17] netfilter: add namespace support for cttimeout
+Date: Mon, 14 May 2012 16:52:26 +0800
+Message-ID: <1336985547-31960-17-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	serge.hallyn@canonical.com, ebiederm@xmission.com,
 	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:27016 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:5805 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755432Ab2ENIxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 May 2012 04:53:09 -0400
+	id S1755443Ab2ENIxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2012 04:53:11 -0400
 In-Reply-To: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-move the nf_conntrack_l4proto_register from module_init to
-proto_gre_net_ops.init.
+add struct net as a param of ctnl_timeout.nlattr_to_obj,
 
-and use gre_pernet to replace net_generic.
-
-because gre proto has no sysctl,so only need to initial pernet data
-for gre proto.
+modify ctnl_timeout_parse_policy and cttimeout_new_timeout
+to transmit struct net to nlattr_to_obj.
 
 Acked-by: Eric W. Biederman <ebiederm@xmission.com>
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/netfilter/nf_conntrack_proto_gre.c |   56 ++++++++++++++++++++------------
- 1 files changed, 35 insertions(+), 21 deletions(-)
+ include/net/netfilter/nf_conntrack_l4proto.h   |    3 ++-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    3 ++-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    3 ++-
+ net/netfilter/nf_conntrack_proto_dccp.c        |    3 ++-
+ net/netfilter/nf_conntrack_proto_generic.c     |    3 ++-
+ net/netfilter/nf_conntrack_proto_gre.c         |    3 ++-
+ net/netfilter/nf_conntrack_proto_sctp.c        |    3 ++-
+ net/netfilter/nf_conntrack_proto_tcp.c         |    3 ++-
+ net/netfilter/nf_conntrack_proto_udp.c         |    3 ++-
+ net/netfilter/nf_conntrack_proto_udplite.c     |    3 ++-
+ net/netfilter/nfnetlink_cttimeout.c            |   13 ++++++++-----
+ 11 files changed, 28 insertions(+), 15 deletions(-)
 
+diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+index 4881df34..d8457c4 100644
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -88,7 +88,8 @@ struct nf_conntrack_l4proto {
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
+ 	struct {
+ 		size_t obj_size;
+-		int (*nlattr_to_obj)(struct nlattr *tb[], void *data);
++		int (*nlattr_to_obj)(struct nlattr *tb[],
++				     struct net *net, void *data);
+ 		int (*obj_to_nlattr)(struct sk_buff *skb, const void *data);
+ 
+ 		unsigned int nlattr_max;
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+index 90da247..c80b73c 100644
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -279,7 +279,8 @@ static int icmp_nlattr_tuple_size(void)
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
+ 
+-static int icmp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int icmp_timeout_nlattr_to_obj(struct nlattr *tb[],
++				      struct net *net, void *data)
+ {
+ 	unsigned int *timeout = data;
+ 
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index 12ca315..0ea5ba9 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -286,7 +286,8 @@ static int icmpv6_nlattr_tuple_size(void)
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
+ 
+-static int icmpv6_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int icmpv6_timeout_nlattr_to_obj(struct nlattr *tb[],
++					struct net *net, void *data)
+ {
+ 	unsigned int *timeout = data;
+ 
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index 034f8ea..b301fb0 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -712,7 +712,8 @@ static int dccp_nlattr_size(void)
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
+ 
+-static int dccp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int dccp_timeout_nlattr_to_obj(struct nlattr *tb[],
++				      struct net *net, void *data)
+ {
+ 	struct dccp_net *dn = dccp_pernet(&init_net);
+ 	unsigned int *timeouts = data;
+diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
+index 0f87a77..de326f4 100644
+--- a/net/netfilter/nf_conntrack_proto_generic.c
++++ b/net/netfilter/nf_conntrack_proto_generic.c
+@@ -75,7 +75,8 @@ static bool generic_new(struct nf_conn *ct, const struct sk_buff *skb,
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
+ 
+-static int generic_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int generic_timeout_nlattr_to_obj(struct nlattr *tb[],
++					 struct net *net, void *data)
+ {
+ 	unsigned int *timeout = data;
+ 
 diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index 132f0d2..8d70452 100644
+index 8d70452..e4cc5e4 100644
 --- a/net/netfilter/nf_conntrack_proto_gre.c
 +++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -54,13 +54,20 @@ static unsigned int gre_timeouts[GRE_CT_MAX] = {
+@@ -304,7 +304,8 @@ static void gre_destroy(struct nf_conn *ct)
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
  
- static int proto_gre_net_id __read_mostly;
- struct netns_proto_gre {
-+	struct nf_proto_net	nf;
- 	rwlock_t		keymap_lock;
- 	struct list_head	keymap_list;
-+	unsigned int		gre_timeouts[GRE_CT_MAX];
- };
- 
-+static inline struct netns_proto_gre *gre_pernet(struct net *net)
-+{
-+	return net_generic(net, proto_gre_net_id);
-+}
-+
- void nf_ct_gre_keymap_flush(struct net *net)
+-static int gre_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int gre_timeout_nlattr_to_obj(struct nlattr *tb[],
++				     struct net *net, void *data)
  {
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_ct_gre_keymap *km, *tmp;
+ 	unsigned int *timeouts = data;
  
- 	write_lock_bh(&net_gre->keymap_lock);
-@@ -85,7 +92,7 @@ static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
- /* look up the source key for a given tuple */
- static __be16 gre_keymap_lookup(struct net *net, struct nf_conntrack_tuple *t)
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+index 291cef4..a28f3c4 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -562,7 +562,8 @@ static int sctp_nlattr_size(void)
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
+ 
+-static int sctp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int sctp_timeout_nlattr_to_obj(struct nlattr *tb[],
++				      struct net *net, void *data)
  {
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_ct_gre_keymap *km;
- 	__be16 key = 0;
+ 	unsigned int *timeouts = data;
+ 	int i;
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 4d16b8a..c0c0010 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -1259,7 +1259,8 @@ static int tcp_nlattr_tuple_size(void)
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
  
-@@ -109,7 +116,7 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
- 			 struct nf_conntrack_tuple *t)
+-static int tcp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int tcp_timeout_nlattr_to_obj(struct nlattr *tb[],
++				     struct net *net, void *data)
  {
- 	struct net *net = nf_ct_net(ct);
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_conn_help *help = nfct_help(ct);
- 	struct nf_ct_gre_keymap **kmp, *km;
+ 	unsigned int *timeouts = data;
+ 	int i;
+diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+index c38ab58..14444a9 100644
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -156,7 +156,8 @@ static int udp_error(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
  
-@@ -150,7 +157,7 @@ EXPORT_SYMBOL_GPL(nf_ct_gre_keymap_add);
- void nf_ct_gre_keymap_destroy(struct nf_conn *ct)
+-static int udp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int udp_timeout_nlattr_to_obj(struct nlattr *tb[],
++				     struct net *net, void *data)
  {
- 	struct net *net = nf_ct_net(ct);
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_conn_help *help = nfct_help(ct);
- 	enum ip_conntrack_dir dir;
+ 	unsigned int *timeouts = data;
  
-@@ -237,7 +244,7 @@ static int gre_print_conntrack(struct seq_file *s, struct nf_conn *ct)
+diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
+index cb3dc81..34bd65f 100644
+--- a/net/netfilter/nf_conntrack_proto_udplite.c
++++ b/net/netfilter/nf_conntrack_proto_udplite.c
+@@ -172,7 +172,8 @@ static int udplite_error(struct net *net, struct nf_conn *tmpl,
+ #include <linux/netfilter/nfnetlink.h>
+ #include <linux/netfilter/nfnetlink_cttimeout.h>
  
- static unsigned int *gre_get_timeouts(struct net *net)
+-static int udplite_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
++static int udplite_timeout_nlattr_to_obj(struct nlattr *tb[],
++					 struct net *net, void *data)
  {
--	return gre_timeouts;
-+	return gre_pernet(net)->gre_timeouts;
+ 	unsigned int *timeouts = data;
+ 
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 3e65528..cdecbc8 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -49,8 +49,9 @@ static const struct nla_policy cttimeout_nla_policy[CTA_TIMEOUT_MAX+1] = {
+ 
+ static int
+ ctnl_timeout_parse_policy(struct ctnl_timeout *timeout,
+-			       struct nf_conntrack_l4proto *l4proto,
+-			       const struct nlattr *attr)
++			  struct nf_conntrack_l4proto *l4proto,
++			  struct net *net,
++			  const struct nlattr *attr)
+ {
+ 	int ret = 0;
+ 
+@@ -60,7 +61,8 @@ ctnl_timeout_parse_policy(struct ctnl_timeout *timeout,
+ 		nla_parse_nested(tb, l4proto->ctnl_timeout.nlattr_max,
+ 				 attr, l4proto->ctnl_timeout.nla_policy);
+ 
+-		ret = l4proto->ctnl_timeout.nlattr_to_obj(tb, &timeout->data);
++		ret = l4proto->ctnl_timeout.nlattr_to_obj(tb, net,
++							  &timeout->data);
+ 	}
+ 	return ret;
  }
+@@ -74,6 +76,7 @@ cttimeout_new_timeout(struct sock *ctnl, struct sk_buff *skb,
+ 	__u8 l4num;
+ 	struct nf_conntrack_l4proto *l4proto;
+ 	struct ctnl_timeout *timeout, *matching = NULL;
++	struct net *net = sock_net(skb->sk);
+ 	char *name;
+ 	int ret;
  
- /* Returns verdict for packet, and may modify conntrack */
-@@ -339,6 +346,18 @@ gre_timeout_nla_policy[CTA_TIMEOUT_GRE_MAX+1] = {
- };
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+@@ -117,7 +120,7 @@ cttimeout_new_timeout(struct sock *ctnl, struct sk_buff *skb,
+ 				goto err_proto_put;
+ 			}
  
-+static int gre_init_net(struct net *net, u_int8_t compat)
-+{
-+	int i;
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
-+
-+	rwlock_init(&net_gre->keymap_lock);
-+	INIT_LIST_HEAD(&net_gre->keymap_list);
-+	for (i = 0; i < GRE_CT_MAX; i++)
-+		net_gre->gre_timeouts[i] = gre_timeouts[i];
-+	return 0;
-+}
-+
- /* protocol helper struct */
- static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
- 	.l3proto	 = AF_INET,
-@@ -368,20 +387,24 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
- 		.nla_policy	= gre_timeout_nla_policy,
- 	},
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
-+	.net_id		= &proto_gre_net_id,
-+	.init_net	= gre_init_net,
- };
+-			ret = ctnl_timeout_parse_policy(matching, l4proto,
++			ret = ctnl_timeout_parse_policy(matching, l4proto, net,
+ 							cda[CTA_TIMEOUT_DATA]);
+ 			return ret;
+ 		}
+@@ -132,7 +135,7 @@ cttimeout_new_timeout(struct sock *ctnl, struct sk_buff *skb,
+ 		goto err_proto_put;
+ 	}
  
- static int proto_gre_net_init(struct net *net)
- {
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
--
--	rwlock_init(&net_gre->keymap_lock);
--	INIT_LIST_HEAD(&net_gre->keymap_list);
--
--	return 0;
-+	int ret = 0;
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_gre4);
-+	if (ret < 0)
-+		pr_err("nf_conntrack_l4proto_gre4 :protocol register failed.\n");
-+	return ret;
- }
- 
- static void proto_gre_net_exit(struct net *net)
- {
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_gre4);
- 	nf_ct_gre_keymap_flush(net);
- }
- 
-@@ -394,20 +417,11 @@ static struct pernet_operations proto_gre_net_ops = {
- 
- static int __init nf_ct_proto_gre_init(void)
- {
--	int rv;
--
--	rv = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_gre4);
--	if (rv < 0)
--		return rv;
--	rv = register_pernet_subsys(&proto_gre_net_ops);
--	if (rv < 0)
--		nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_gre4);
--	return rv;
-+	return register_pernet_subsys(&proto_gre_net_ops);
- }
- 
- static void __exit nf_ct_proto_gre_fini(void)
- {
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_gre4);
- 	unregister_pernet_subsys(&proto_gre_net_ops);
- }
- 
+-	ret = ctnl_timeout_parse_policy(timeout, l4proto,
++	ret = ctnl_timeout_parse_policy(timeout, l4proto, net,
+ 					cda[CTA_TIMEOUT_DATA]);
+ 	if (ret < 0)
+ 		goto err;
 -- 
 1.7.7.6
