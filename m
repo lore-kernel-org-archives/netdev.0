@@ -1,148 +1,160 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [PATCH] netfilter: xt_HMARK: endian bugs
-Date: Mon, 14 May 2012 15:42:23 +0200
-Message-ID: <1337002943-16374-1-git-send-email-hans.schillstrom@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <pablo@netfilter.org>, <kaber@trash.net>, <jengelh@medozas.de>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<dan.carpenter@oracle.com>
+From: Jiang Liu <liuj97@gmail.com>
+Subject: [RFC PATCH v2 4/7] dmaengine: enhance network subsystem to support DMA device hotplug
+Date: Mon, 14 May 2012 21:47:06 +0800
+Message-ID: <1337003229-9158-5-git-send-email-jiang.liu@huawei.com>
+References: <1337003229-9158-1-git-send-email-jiang.liu@huawei.com>
+Cc: Jiang Liu <jiang.liu@huawei.com>,
+	Keping Chen <chenkeping@huawei.com>,
+	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Jiang Liu <liuj97@gmail.com>
+To: Dan Williams <dan.j.williams@intel.com>,
+	Maciej Sosnowski <maciej.sosnowski@intel.com>,
+	Vinod Koul <vinod.koul@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw2.ericsson.se ([193.180.251.37]:64238 "EHLO
-	mailgw2.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753858Ab2ENNm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 09:42:26 -0400
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:61835 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755210Ab2ENNuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 09:50:32 -0400
+In-Reply-To: <1337003229-9158-1-git-send-email-jiang.liu@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A mix of u32 and __be32 causes endian warning.
-Switch to __be32 and __be16 for addresses and ports.
-Added (__force u32) at some places.
+From: Jiang Liu <jiang.liu@huawei.com>
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Enhance network subsystem to correctly update DMA channel reference counts,
+so it won't break DMA device hotplug logic.
+
+Signed-off-by: Jiang Liu <liuj97@gmail.com>
 ---
- include/linux/netfilter/xt_HMARK.h |    4 ++--
- net/netfilter/xt_HMARK.c           |   35 ++++++++++++++++++-----------------
- 2 files changed, 20 insertions(+), 19 deletions(-)
+ include/net/netdma.h |   26 ++++++++++++++++++++++++++
+ net/ipv4/tcp.c       |   10 +++-------
+ net/ipv4/tcp_input.c |    5 +----
+ net/ipv4/tcp_ipv4.c  |    4 +---
+ net/ipv6/tcp_ipv6.c  |    4 +---
+ 5 files changed, 32 insertions(+), 17 deletions(-)
 
-diff --git a/include/linux/netfilter/xt_HMARK.h b/include/linux/netfilter/xt_HMARK.h
-index abb1650..e2af67e 100644
---- a/include/linux/netfilter/xt_HMARK.h
-+++ b/include/linux/netfilter/xt_HMARK.h
-@@ -24,8 +24,8 @@ enum {
+diff --git a/include/net/netdma.h b/include/net/netdma.h
+index 8ba8ce2..6d71724 100644
+--- a/include/net/netdma.h
++++ b/include/net/netdma.h
+@@ -24,6 +24,32 @@
+ #include <linux/dmaengine.h>
+ #include <linux/skbuff.h>
  
- union hmark_ports {
- 	struct {
--		__u16	src;
--		__u16	dst;
-+		__be16	src;
-+		__be16	dst;
- 	} p16;
- 	__u32	v32;
- };
-diff --git a/net/netfilter/xt_HMARK.c b/net/netfilter/xt_HMARK.c
-index 32fbd73..38ed442 100644
---- a/net/netfilter/xt_HMARK.c
-+++ b/net/netfilter/xt_HMARK.c
-@@ -32,13 +32,13 @@ MODULE_ALIAS("ipt_HMARK");
- MODULE_ALIAS("ip6t_HMARK");
++static inline bool
++net_dma_capable(void)
++{
++	struct dma_chan *chan = net_dma_find_channel();
++	dma_put_channel(chan);
++
++	return !!chan;
++}
++
++static inline struct dma_chan *
++net_dma_get_channel(struct tcp_sock *tp)
++{
++	if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
++		tp->ucopy.dma_chan = net_dma_find_channel();
++	return tp->ucopy.dma_chan;
++}
++
++static inline void
++net_dma_put_channel(struct tcp_sock *tp)
++{
++	if (tp->ucopy.dma_chan) {
++		dma_put_channel(tp->ucopy.dma_chan);
++		tp->ucopy.dma_chan = NULL;
++	}
++}
++
+ int dma_skb_copy_datagram_iovec(struct dma_chan* chan,
+ 		struct sk_buff *skb, int offset, struct iovec *to,
+ 		size_t len, struct dma_pinned_list *pinned_list);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 8bb6ade..aea4032 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1451,8 +1451,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			available = TCP_SKB_CB(skb)->seq + skb->len - (*seq);
+ 		if ((available < target) &&
+ 		    (len > sysctl_tcp_dma_copybreak) && !(flags & MSG_PEEK) &&
+-		    !sysctl_tcp_low_latency &&
+-		    net_dma_find_channel()) {
++		    !sysctl_tcp_low_latency && net_dma_capable()) {
+ 			preempt_enable_no_resched();
+ 			tp->ucopy.pinned_list =
+ 					dma_pin_iovec_pages(msg->msg_iov, len);
+@@ -1666,10 +1665,7 @@ do_prequeue:
  
- struct hmark_tuple {
--	u32			src;
--	u32			dst;
-+	__be32			src;
-+	__be32			dst;
- 	union hmark_ports	uports;
- 	uint8_t			proto;
- };
+ 		if (!(flags & MSG_TRUNC)) {
+ #ifdef CONFIG_NET_DMA
+-			if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
+-				tp->ucopy.dma_chan = net_dma_find_channel();
+-
+-			if (tp->ucopy.dma_chan) {
++			if (net_dma_get_channel(tp)) {
+ 				tp->ucopy.dma_cookie = dma_skb_copy_datagram_iovec(
+ 					tp->ucopy.dma_chan, skb, offset,
+ 					msg->msg_iov, used,
+@@ -1758,7 +1754,7 @@ skip_copy:
  
--static inline u32 hmark_addr6_mask(const __u32 *addr32, const __u32 *mask)
-+static inline __be32 hmark_addr6_mask(const __be32 *addr32, const __be32 *mask)
- {
- 	return (addr32[0] & mask[0]) ^
- 	       (addr32[1] & mask[1]) ^
-@@ -46,8 +46,8 @@ static inline u32 hmark_addr6_mask(const __u32 *addr32, const __u32 *mask)
- 	       (addr32[3] & mask[3]);
- }
+ #ifdef CONFIG_NET_DMA
+ 	tcp_service_net_dma(sk, true);  /* Wait for queue to drain */
+-	tp->ucopy.dma_chan = NULL;
++	net_dma_put_channel(tp);
  
--static inline u32
--hmark_addr_mask(int l3num, const __u32 *addr32, const __u32 *mask)
-+static inline __be32
-+hmark_addr_mask(int l3num, const __be32 *addr32, const __be32 *mask)
- {
- 	switch (l3num) {
- 	case AF_INET:
-@@ -74,10 +74,10 @@ hmark_ct_set_htuple(const struct sk_buff *skb, struct hmark_tuple *t,
- 	otuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
- 	rtuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
- 
--	t->src = hmark_addr_mask(otuple->src.l3num, otuple->src.u3.all,
--				 info->src_mask.all);
--	t->dst = hmark_addr_mask(otuple->src.l3num, rtuple->src.u3.all,
--				 info->dst_mask.all);
-+	t->src = hmark_addr_mask(otuple->src.l3num, otuple->src.u3.ip6,
-+				 info->src_mask.ip6);
-+	t->dst = hmark_addr_mask(otuple->src.l3num, rtuple->src.u3.ip6,
-+				 info->dst_mask.ip6);
- 
- 	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
+ 	if (tp->ucopy.pinned_list) {
+ 		dma_unpin_iovec_pages(tp->ucopy.pinned_list);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9944c1d..3878916 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5227,10 +5227,7 @@ static int tcp_dma_try_early_copy(struct sock *sk, struct sk_buff *skb,
+ 	if (tp->ucopy.wakeup)
  		return 0;
-@@ -88,7 +88,7 @@ hmark_ct_set_htuple(const struct sk_buff *skb, struct hmark_tuple *t,
- 		t->uports.p16.dst = rtuple->src.u.all;
- 		t->uports.v32 = (t->uports.v32 & info->port_mask.v32) |
- 				info->port_set.v32;
--		if (t->uports.p16.dst < t->uports.p16.src)
-+		if (ntohs(t->uports.p16.dst) < ntohs(t->uports.p16.src))
- 			swap(t->uports.p16.dst, t->uports.p16.src);
- 	}
  
-@@ -103,10 +103,11 @@ hmark_hash(struct hmark_tuple *t, const struct xt_hmark_info *info)
- {
- 	u32 hash;
+-	if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
+-		tp->ucopy.dma_chan = net_dma_find_channel();
+-
+-	if (tp->ucopy.dma_chan && skb_csum_unnecessary(skb)) {
++	if (net_dma_get_channel(tp) && skb_csum_unnecessary(skb)) {
  
--	if (t->dst < t->src)
-+	if (ntohl(t->dst) < ntohl(t->src))
- 		swap(t->src, t->dst);
- 
--	hash = jhash_3words(t->src, t->dst, t->uports.v32, info->hashrnd);
-+	hash = jhash_3words((__force u32) t->src, (__force u32) t->dst,
-+			    t->uports.v32, info->hashrnd);
- 	hash = hash ^ (t->proto & info->proto_mask);
- 
- 	return (hash % info->hmodulus) + info->hoffset;
-@@ -129,7 +130,7 @@ hmark_set_tuple_ports(const struct sk_buff *skb, unsigned int nhoff,
- 	t->uports.v32 = (t->uports.v32 & info->port_mask.v32) |
- 			info->port_set.v32;
- 
--	if (t->uports.p16.dst < t->uports.p16.src)
-+	if (ntohs(t->uports.p16.dst) < ntohs(t->uports.p16.src))
- 		swap(t->uports.p16.dst, t->uports.p16.src);
- }
- 
-@@ -178,8 +179,8 @@ hmark_pkt_set_htuple_ipv6(const struct sk_buff *skb, struct hmark_tuple *t,
- 			return -1;
- 	}
- noicmp:
--	t->src = hmark_addr6_mask(ip6->saddr.s6_addr32, info->src_mask.all);
--	t->dst = hmark_addr6_mask(ip6->daddr.s6_addr32, info->dst_mask.all);
-+	t->src = hmark_addr6_mask(ip6->saddr.s6_addr32, info->src_mask.ip6);
-+	t->dst = hmark_addr6_mask(ip6->daddr.s6_addr32, info->dst_mask.ip6);
- 
- 	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
- 		return 0;
-@@ -255,8 +256,8 @@ hmark_pkt_set_htuple_ipv4(const struct sk_buff *skb, struct hmark_tuple *t,
- 		}
- 	}
- 
--	t->src = (__force u32) ip->saddr;
--	t->dst = (__force u32) ip->daddr;
-+	t->src = ip->saddr;
-+	t->dst = ip->daddr;
- 
- 	t->src &= info->src_mask.ip;
- 	t->dst &= info->dst_mask.ip;
+ 		dma_cookie = dma_skb_copy_datagram_iovec(tp->ucopy.dma_chan,
+ 							 skb, hlen,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0cb86ce..90ea1c0 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1729,9 +1729,7 @@ process:
+ 	if (!sock_owned_by_user(sk)) {
+ #ifdef CONFIG_NET_DMA
+ 		struct tcp_sock *tp = tcp_sk(sk);
+-		if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
+-			tp->ucopy.dma_chan = net_dma_find_channel();
+-		if (tp->ucopy.dma_chan)
++		if (net_dma_get_channel(tp))
+ 			ret = tcp_v4_do_rcv(sk, skb);
+ 		else
+ #endif
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 86cfe60..fb81bbd 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1644,9 +1644,7 @@ process:
+ 	if (!sock_owned_by_user(sk)) {
+ #ifdef CONFIG_NET_DMA
+ 		struct tcp_sock *tp = tcp_sk(sk);
+-		if (!tp->ucopy.dma_chan && tp->ucopy.pinned_list)
+-			tp->ucopy.dma_chan = net_dma_find_channel();
+-		if (tp->ucopy.dma_chan)
++		if (net_dma_get_channel(tp))
+ 			ret = tcp_v6_do_rcv(sk, skb);
+ 		else
+ #endif
 -- 
-1.7.2.3
+1.7.9.5
