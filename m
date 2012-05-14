@@ -1,68 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 02/13] mac802154: allocation of ieee802154
- device
-Date: Mon, 14 May 2012 18:28:24 -0400 (EDT)
-Message-ID: <20120514.182824.2287894454156614132.davem@davemloft.net>
-References: <1336831165-23944-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	<1336831165-23944-3-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 3/3] usbnet: fix skb traversing races during unlink(v1)
+Date: Mon, 14 May 2012 18:34:13 -0400 (EDT)
+Message-ID: <20120514.183413.1917543957565059489.davem@davemloft.net>
+References: <20120502.201212.909292764269133334.davem@davemloft.net>
+	<20120503090450.41704527@tom-ThinkPad-T410>
+	<CACVXFVNYFSSP2+MFXAqT60E0qOp8+hjU3u0SbYoWHA_a5ouaxw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60113 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932528Ab2ENW21 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 18:28:27 -0400
-In-Reply-To: <1336831165-23944-3-git-send-email-alex.bluesman.smirnov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	oneukum-l3A5Bk7waGM@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVNYFSSP2+MFXAqT60E0qOp8+hjU3u0SbYoWHA_a5ouaxw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Date: Sat, 12 May 2012 17:59:14 +0400
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 10 May 2012 07:47:47 +0800
 
-> Add interface for device drivers to allocate and register ieee802154
-> compatible device.
-> 
-> This code is based on net/mac80211/main.c file
-> 
-> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> Considered that this one(v2) doesn't depend on usb tree any more and looks
+> no one objects it, could you apply this one on your tree?
 
-Sorry, this needs to be fixed up.
-
-I can almost understand using a comment formatting style I
-disagree with, if you do so consistently.
-
-But formatting them in THREE completely different ways?  Give me a
-break:
-
-> +	/* As in mac80211 slaves list is modified:
-> +	 * 1) under the RTNL
-> +	 * 2) protected by slaves_mtx;
-> +	 * 3) in an RCU manner
-> +	 *
-> +	 * So atomic readers can use any of this protection methods
-> +	 */
- ...
-> +	/* This one is used for scanning and other
-> +	 * jobs not to be interfered with serial driver */
- ...
-> +	/*
-> +	 * The following flag is also modified under slaves_mtx and RTNL,
-> +	 * so you can read them using any of protection methods.
-> +	 */
-> +	/*
-> +	 * SoftMAC device is registered and running. One can add
-> +	 * subinterfaces.
-> +	 */
-
-That's just beyond silly, and the last two comments are right next to
-eachother just combine them to one.
-
-Go over your entire patch set and make sure that all of your comments
-are of the form:
-
-	/* Like
-	 * this.
-	 */
+I will, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
