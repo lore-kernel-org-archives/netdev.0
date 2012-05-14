@@ -1,15 +1,12 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Subject: Re: [PATCH] netfilter: xt_HMARK: endian bugs
-Date: Mon, 14 May 2012 20:28:52 +0200
-Message-ID: <1337020132.8512.598.camel@edumazet-glaptop>
-References: <1337002943-16374-1-git-send-email-hans.schillstrom@ericsson.com>
-	 <201205141809.18174.hans.schillstrom@ericsson.com>
-	 <1337012674.8512.589.camel@edumazet-glaptop>
-	 <201205141951.36692.hans.schillstrom@ericsson.com>
+Date: Mon, 14 May 2012 20:35:26 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1205142032570.28548@blackhole.kfki.hu>
+References: <1337002943-16374-1-git-send-email-hans.schillstrom@ericsson.com> <201205141809.18174.hans.schillstrom@ericsson.com> <1337012674.8512.589.camel@edumazet-glaptop> <201205141951.36692.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@inai.de>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jan Engelhardt <jengelh@inai.de>,
 	Pablo Neira Ayuso <pablo@netfilter.org>,
 	"kaber@trash.net" <kaber@trash.net>,
 	"jengelh@medozas.de" <jengelh@medozas.de>,
@@ -18,12 +15,17 @@ Cc: Jan Engelhardt <jengelh@inai.de>,
 	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
 	"hans@schillstrom.com" <hans@schillstrom.com>
 To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-in.kfki.hu ([148.6.0.26]:54452 "EHLO smtp1.kfki.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753503Ab2ENSf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 May 2012 14:35:29 -0400
 In-Reply-To: <201205141951.36692.hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-05-14 at 19:51 +0200, Hans Schillstrom wrote:
+On Mon, 14 May 2012, Hans Schillstrom wrote:
+
 > On Monday 14 May 2012 18:24:34 Eric Dumazet wrote:
 > > On Mon, 2012-05-14 at 18:09 +0200, Hans Schillstrom wrote:
 > > 
@@ -35,30 +37,19 @@ On Mon, 2012-05-14 at 19:51 +0200, Hans Schillstrom wrote:
 > I want that a Big endian machine should produce the same
 > hash value independent of flow direction as a Little endian.
 > 
-
-So one machine can be both le and be ? at the same time ?
-
 > OK, I missed ntohl() before calling jhash_3words()
 > 
 > Correct me if I'm wrong here (have no big endian machine available for test)
 > jhash_3words() and __jhash_final() seems to be "endian" safe.
-> 
-> So by doing the expensive ntohl on addresses and ports into jhash_3words()
-> it will produce the same value on both be and le.
-> 
 
-And what is the purpose of the jhash output ? Is is sent to other
-machines on the network, or only localy used ?
+No, but as Eric wrote: what is the point in forcing the same hash value 
+for the same input on big endian and little endian machines? Are you going 
+to transfer the hash value between machines?
 
-> That's why I want to have the ntohs() / ntohl() when comparing.
-
-If xt_HMARK depends on a particular bit ordering to jhash() input, then
-something is really wrong. I mean it.
-
-jhash() primary purpose it to shuffle input.
-
-We use (__force u32) everywhere in network tree to avoid sparse
-warnings. Please grep for them.
-
-
-
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
