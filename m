@@ -1,10 +1,10 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: [RFC net-next 0/2] net: Use net_<level>_ratelimit
-Date: Tue, 15 May 2012 14:13:48 -0400 (EDT)
-Message-ID: <20120515.141348.892964316296815698.davem@davemloft.net>
-References: <20120515.134531.530903973750646107.davem@davemloft.net>
+Date: Tue, 15 May 2012 14:14:23 -0400 (EDT)
+Message-ID: <20120515.141423.885518974251878746.davem@davemloft.net>
+References: <cover.1336981915.git.joe@perches.com>
+	<20120515.134531.530903973750646107.davem@davemloft.net>
 	<1337104765.7050.24.camel@joe2Laptop>
-	<1337105028.15553.3.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,10 +12,10 @@ Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHX
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-decnet-user-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
 	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1337105028.15553.3.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+In-Reply-To: <1337104765.7050.24.camel@joe2Laptop>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -27,13 +27,13 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 15 May 2012 20:03:48 +0200
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Tue, 15 May 2012 10:59:25 -0700
 
-> Oops. Yes, please do that, mac80211 doesn't have DEBUG yet
+> I could produce a net_printk_ratelimited that would keep
+> the original behavior if necessary.
+> 
+> 	net_printk_ratelimited(KERN_DEBUG etc...)
 
-If you want debugging messages you would turn on dynamic_debug
-via sysctl or whatever, not define DEBUG in your sources.
-
-I don't think we should add yet another interface just to get
-KERN_DEBUG in there.
+I don't think it's worth the hassle, we'd rather get people
+into the habit of using dynamic_debug.
