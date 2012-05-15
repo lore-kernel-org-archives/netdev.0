@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] ethtool changes
-Date: Tue, 15 May 2012 13:14:22 -0400 (EDT)
-Message-ID: <20120515.131422.365350247267805142.davem@davemloft.net>
-References: <1337080419-31786-1-git-send-email-manish.chopra@qlogic.com>
+Subject: Re: [PATCH, v2] xfrm: make xfrm_algo.c a module
+Date: Tue, 15 May 2012 13:14:36 -0400 (EDT)
+Message-ID: <20120515.131436.1766404788147122977.davem@davemloft.net>
+References: <4FB260D80200007800083C91@nat28.tlf.novell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	Dept_NX_Linux_NIC_Driver@qlogic.com, anirban.chakraborty@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40273 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964815Ab2EOROb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 13:14:31 -0400
-In-Reply-To: <1337080419-31786-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: JBeulich@suse.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FB260D80200007800083C91@nat28.tlf.novell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Tue, 15 May 2012 07:13:37 -0400
+From: "Jan Beulich" <JBeulich@suse.com>
+Date: Tue, 15 May 2012 12:57:44 +0100
 
-> Please apply it to net-next.
+> By making this a standalone config option (auto-selected as needed),
+> selecting CRYPTO from here rather than from XFRM (which is boolean)
+> allows the core crypto code to become a module again even when XFRM=y.
+> 
+> Signed-off-by: Jan Beulich <jbeulich@suse.com>
 
-All applied, thanks.
+Applied.
