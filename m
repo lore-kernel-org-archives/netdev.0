@@ -1,53 +1,53 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 0/8] batch of mlx4 driver fixes
-Date: Tue, 15 May 2012 10:24:42 +0300
-Message-ID: <1337066690-2248-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 8/8] net/mlx4_core: Fixed error flow in rem_slave_eqs
+Date: Tue, 15 May 2012 10:24:50 +0300
+Message-ID: <1337066690-2248-9-git-send-email-ogerlitz@mellanox.com>
+References: <1337066690-2248-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:48227 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757223Ab2EOHZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 03:25:10 -0400
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:50831 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757122Ab2EOHZB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 03:25:01 -0400
+In-Reply-To: <1337066690-2248-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a batch of relatively small fixes for the mlx4_core driver, except for 
-one cleanup patch from myself, all the patches are from Jack Morgenstein, who 
-leads our SRIOV development efforts and do relate to the SRIOV functionality.
-With Yevgeny being mostly out this week and as both of us run the internal 
-reviews for upstream patches, he delegated this submission to be carried 
-out by me, hope this is fine by you.
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-changes from V0:
- - fixed identation issues in patch 1/8 following feedback from Dave
-   I didn't find any issues of this such to fix in the other patches
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
 
-Or.
-
-Jack Morgenstein (7):
-  net/mlx4_core: Fix init_port mask state for slaves
-  net/mlx4_core: Change SYNC_TPT to be native (not wrapped)
-  net/mlx4_core: Remove unused *_str functions from the resource tracker
-  net/mlx4_core: Do not reset module-parameter num_vfs when fail to enable sriov
-  net/mlx4_core: Fix potential kernel Oops in res tracker during Dom0 driver unload
-  net/mlx4_core: Add XRC domains and counters to resource tracker
-  net/mlx4_core: Fixed error flow in rem_slave_eqs
-
-Or Gerlitz (1):
-  net/mlx4: Address build warnings on set but not used variables
-
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |    7 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |    3 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |   47 +++-
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |    2 -
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   12 +-
- drivers/net/ethernet/mellanox/mlx4/mr.c            |    5 +-
- drivers/net/ethernet/mellanox/mlx4/pd.c            |   39 +++-
- drivers/net/ethernet/mellanox/mlx4/port.c          |    7 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  271 ++++++++++++++++----
- 9 files changed, 319 insertions(+), 74 deletions(-)
-
-Cc: Jack Morgenstein <jackm@dev.mellanox.co.il>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 6fc810e..c0291c0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -3152,14 +3152,13 @@ static void rem_slave_eqs(struct mlx4_dev *dev, int slave)
+ 							   MLX4_CMD_HW2SW_EQ,
+ 							   MLX4_CMD_TIME_CLASS_A,
+ 							   MLX4_CMD_NATIVE);
+-					mlx4_dbg(dev, "rem_slave_eqs: failed"
+-						 " to move slave %d eqs %d to"
+-						 " SW ownership\n", slave, eqn);
++					if (err)
++						mlx4_dbg(dev, "rem_slave_eqs: failed"
++							 " to move slave %d eqs %d to"
++							 " SW ownership\n", slave, eqn);
+ 					mlx4_free_cmd_mailbox(dev, mailbox);
+-					if (!err) {
+-						atomic_dec(&eq->mtt->ref_count);
+-						state = RES_EQ_RESERVED;
+-					}
++					atomic_dec(&eq->mtt->ref_count);
++					state = RES_EQ_RESERVED;
+ 					break;
+ 
+ 				default:
+-- 
+1.7.1
