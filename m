@@ -1,37 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v3 6/6] net: sh_eth: use NAPI
-Date: Tue, 15 May 2012 15:43:07 +0200
-Message-ID: <20120515134307.GA31377@electric-eye.fr.zoreil.com>
-References: <4FB0AA7C.1000603@renesas.com> <20120514.185034.399229364191924851.davem@davemloft.net> <4FB1DFF0.4040709@renesas.com> <20120515.010753.2012331320750491448.davem@davemloft.net> <4FB225F1.20407@renesas.com>
+From: Omar Alhassane <oalhassane@gmail.com>
+Subject: PROBLEM: Fragmentation issue with 1521 bytes ip packets
+Date: Tue, 15 May 2012 10:00:52 -0400
+Message-ID: <CAPFXtPexGpVyGGuKdjpuH+cxOaxa7KeBfmFrs39=NW7LsZ6-bw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46604 "EHLO violet"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758898Ab2EONuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 May 2012 09:50:14 -0400
-Content-Disposition: inline
-In-Reply-To: <4FB225F1.20407@renesas.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:57912 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753304Ab2EOOAx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 10:00:53 -0400
+Received: by yhmm54 with SMTP id m54so5303857yhm.19
+        for <netdev@vger.kernel.org>; Tue, 15 May 2012 07:00:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shimoda, Yoshihiro <yoshihiro.shimoda.uh@renesas.com> :
-[...]
-> I will modify the code as the following. Is it correct?
+Hello Folks,
 
-No.
+I think i may have found a problem with the linux networking stack.
+Below is a description of the problem.
 
-Please take a look at tg3, especially the ...mb() calls and rework the
-queue disabling part in the xmit handler. Btw sh_eth_txfree has no
-business being called from the xmit and poll handlers at the same time.
+[1.] One line summary of the problem:
+No response to pings of certain sizes.
 
-There is no memory barrier in the xmit handler. It it not clear if the
-poll thread always sees tx ring status and cur_tx updates in the same
-order or not. If not, the driver may unmap before the device actually
-accesses skb buffer.
+[2.] Full description of the problem/report:
+Using hping3, when i ping a linux machine with 1521 bytes ip packets i
+get only one response.
+But when i use 1482 bytes, everything works fine. I've tried this with
+both tcp and udp. The MTU of my interface is 1500.
+[3.] Keywords (i.e., modules, networking, kernel):
+ip, udp, tcp, networking, fragmentation
+[4.] Kernel version (from /proc/version):
+3.3.1
+[5.] Output of Oops.. message (if applicable) with symbolic information
+[6.] A small shell script or example program which triggers the
+problem (if possible)
+The following commands works only if the target has tcp port 22 open
 
--- 
-Ueimor
+hping3 -d 1481 -S -P 22 10.0.30.225 (only one response)
+hping3 -d 1482 -S -P 22 10.0.30.225 (works fine)
+
+Can somebody confirm if this is a problem?
+
+Thanks
