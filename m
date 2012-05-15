@@ -1,35 +1,134 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
-Date: Tue, 15 May 2012 13:48:40 +0200
-Message-ID: <20120515114840.GC24733@secunet.com>
-References: <20120215104021.GC31660@secunet.com>
- <1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com>
- <20120514130528.GA24733@secunet.com>
- <4FB1D11A.4040206@cn.fujitsu.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: [PATCH, v2] xfrm: make xfrm_algo.c a module
+Date: Tue, 15 May 2012 12:57:44 +0100
+Message-ID: <4FB260D80200007800083C91@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, lw@cn.fujitsu.com
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:52338 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757851Ab2EOLsp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 May 2012 07:48:45 -0400
+Received: from nat28.tlf.novell.com ([130.57.49.28]:54409 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757851Ab2EOL5Q convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:2:2>);
+	Tue, 15 May 2012 07:57:16 -0400
 Content-Disposition: inline
-In-Reply-To: <4FB1D11A.4040206@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 15, 2012 at 11:44:26AM +0800, Gao feng wrote:
-> 
-> how about add a function pointer append_data to the struct rt6_info?
-> so we can just call rt->append_data in ip6_append_data without conside
-> witch mode it is.
-> 
+By making this a standalone config option (auto-selected as needed),
+selecting CRYPTO from here rather than from XFRM (which is boolean)
+allows the core crypto code to become a module again even when XFRM=y.
 
-If you want to use a function pointer, it should go to stuct xfrm_mode.
-That's where the IPsec mode dependent functions reside.
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
 
-A side note, I'll be off for three weeks starting from tomorrow.
-I'll have no E-mail access most of the time, so I'll probaply not
-respond for the next three weeks.
+---
+v2: Drop an unrelated change.
+---
+ net/ipv4/Kconfig     |    4 ++--
+ net/ipv6/Kconfig     |    4 ++--
+ net/xfrm/Kconfig     |   13 +++++++++----
+ net/xfrm/Makefile    |    3 ++-
+ net/xfrm/xfrm_algo.c |    2 ++
+ 5 files changed, 17 insertions(+), 9 deletions(-)
+
+--- 3.4-rc7/net/ipv4/Kconfig
++++ 3.4-rc7-xfrm-algo-module/net/ipv4/Kconfig
+@@ -312,7 +312,7 @@ config SYN_COOKIES
+ 
+ config INET_AH
+ 	tristate "IP: AH transformation"
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_HMAC
+ 	select CRYPTO_MD5
+@@ -324,7 +324,7 @@ config INET_AH
+ 
+ config INET_ESP
+ 	tristate "IP: ESP transformation"
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_AUTHENC
+ 	select CRYPTO_HMAC
+--- 3.4-rc7/net/ipv6/Kconfig
++++ 3.4-rc7-xfrm-algo-module/net/ipv6/Kconfig
+@@ -69,7 +69,7 @@ config IPV6_OPTIMISTIC_DAD
+ 
+ config INET6_AH
+ 	tristate "IPv6: AH transformation"
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_HMAC
+ 	select CRYPTO_MD5
+@@ -81,7 +81,7 @@ config INET6_AH
+ 
+ config INET6_ESP
+ 	tristate "IPv6: ESP transformation"
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_AUTHENC
+ 	select CRYPTO_HMAC
+--- 3.4-rc7/net/xfrm/Kconfig
++++ 3.4-rc7-xfrm-algo-module/net/xfrm/Kconfig
+@@ -3,12 +3,17 @@
+ #
+ config XFRM
+        bool
+-       select CRYPTO
+        depends on NET
+ 
++config XFRM_ALGO
++	tristate
++	select XFRM
++	select CRYPTO
++
+ config XFRM_USER
+ 	tristate "Transformation user configuration interface"
+-	depends on INET && XFRM
++	depends on INET
++	select XFRM_ALGO
+ 	---help---
+ 	  Support for Transformation(XFRM) user configuration interface
+ 	  like IPsec used by native Linux tools.
+@@ -48,13 +53,13 @@ config XFRM_STATISTICS
+ 
+ config XFRM_IPCOMP
+ 	tristate
+-	select XFRM
++	select XFRM_ALGO
+ 	select CRYPTO
+ 	select CRYPTO_DEFLATE
+ 
+ config NET_KEY
+ 	tristate "PF_KEY sockets"
+-	select XFRM
++	select XFRM_ALGO
+ 	---help---
+ 	  PF_KEYv2 socket family, compatible to KAME ones.
+ 	  They are required if you are going to use IPsec tools ported
+--- 3.4-rc7/net/xfrm/Makefile
++++ 3.4-rc7-xfrm-algo-module/net/xfrm/Makefile
+@@ -3,8 +3,9 @@
+ #
+ 
+ obj-$(CONFIG_XFRM) := xfrm_policy.o xfrm_state.o xfrm_hash.o \
+-		      xfrm_input.o xfrm_output.o xfrm_algo.o \
++		      xfrm_input.o xfrm_output.o \
+ 		      xfrm_sysctl.o xfrm_replay.o
+ obj-$(CONFIG_XFRM_STATISTICS) += xfrm_proc.o
++obj-$(CONFIG_XFRM_ALGO) += xfrm_algo.o
+ obj-$(CONFIG_XFRM_USER) += xfrm_user.o
+ obj-$(CONFIG_XFRM_IPCOMP) += xfrm_ipcomp.o
+--- 3.4-rc7/net/xfrm/xfrm_algo.c
++++ 3.4-rc7-xfrm-algo-module/net/xfrm/xfrm_algo.c
+@@ -752,3 +752,5 @@ void *pskb_put(struct sk_buff *skb, stru
+ }
+ EXPORT_SYMBOL_GPL(pskb_put);
+ #endif
++
++MODULE_LICENSE("GPL");
