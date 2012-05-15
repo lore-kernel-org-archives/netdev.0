@@ -1,40 +1,55 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: [PATCH] xfrm_algo: drop an unnecessary inclusion
-Date: Tue, 15 May 2012 13:00:44 +0100
-Message-ID: <4FB2618C0200007800083C99@nat28.tlf.novell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat28.tlf.novell.com ([130.57.49.28]:56241 "EHLO
-	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757851Ab2EOMAS convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:2:2>);
-	Tue, 15 May 2012 08:00:18 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: [PATCH v3 1/6] netfilter: sanity checks on NFPROTO_NUMPROTO
+Date: Tue, 15 May 2012 13:32:51 +0100
+Message-ID: <1337085171-1907-1-git-send-email-alban.crequy@collabora.co.uk>
+References: <20120514190416.GD14897@1984>
+Cc: Alban Crequy <alban.crequy@collabora.co.uk>,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120514190416.GD14897@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For several releases, this has not been needed anymore, as no helper
-functions declared in net/ah.h get implemented by xfrm_algo.c anymore.
+With the NFPROTO_* constants introduced by commit 7e9c6e ("netfilter: Introduce
+NFPROTO_* constants"), it is too easy to confuse PF_* and NFPROTO_* constants
+in new protocols.
 
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
-
+Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
 ---
- net/xfrm/xfrm_algo.c |    3 ---
- 1 file changed, 3 deletions(-)
+v2:
+ - use WARN
+ - return -EINVAL
+v3:
+ - two checkings
 
---- 3.4-rc7/net/xfrm/xfrm_algo.c
-+++ 3.4-rc7-xfrm-algo-module/net/xfrm/xfrm_algo.c
-@@ -15,9 +15,6 @@
- #include <linux/crypto.h>
- #include <linux/scatterlist.h>
- #include <net/xfrm.h>
--#if defined(CONFIG_INET_AH) || defined(CONFIG_INET_AH_MODULE) || defined(CONFIG_INET6_AH) || defined(CONFIG_INET6_AH_MODULE)
--#include <net/ah.h>
--#endif
- #if defined(CONFIG_INET_ESP) || defined(CONFIG_INET_ESP_MODULE) || defined(CONFIG_INET6_ESP) || defined(CONFIG_INET6_ESP_MODULE)
- #include <net/esp.h>
- #endif
+ net/netfilter/core.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e1b7e05..448b531 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -67,6 +67,16 @@ int nf_register_hook(struct nf_hook_ops *reg)
+ 	struct nf_hook_ops *elem;
+ 	int err;
+ 
++	if (reg->pf >= NFPROTO_NUMPROTO) {
++		WARN(1, "netfilter: Invalid nfproto %d\n", reg->pf);
++		return -EINVAL;
++	}
++
++	if (reg->hooknum >= NF_MAX_HOOKS) {
++		WARN(1, "netfilter: Invalid hooknum %d\n", reg->hooknum);
++		return -EINVAL;
++	}
++
+ 	err = mutex_lock_interruptible(&nf_hook_mutex);
+ 	if (err < 0)
+ 		return err;
+-- 
+1.7.2.5
+
