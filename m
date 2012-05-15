@@ -1,10 +1,10 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Subject: Re: [RFC net-next 0/2] net: Use net_<level>_ratelimit
-Date: Tue, 15 May 2012 14:29:22 -0400 (EDT)
-Message-ID: <20120515.142922.1434224550630736456.davem@davemloft.net>
-References: <20120515.134531.530903973750646107.davem@davemloft.net>
-	<1337104765.7050.24.camel@joe2Laptop>
-	<1337106430.15553.6.camel@jlt3.sipsolutions.net>
+Date: Tue, 15 May 2012 14:30:09 -0400 (EDT)
+Message-ID: <20120515.143009.2103212327515966852.davem@davemloft.net>
+References: <1337106094.15553.5.camel@jlt3.sipsolutions.net>
+	<20120515.142405.633851408201128056.davem@davemloft.net>
+	<1337106548.15553.8.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -15,7 +15,7 @@ Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHX
 	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
 To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1337106430.15553.6.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+In-Reply-To: <1337106548.15553.8.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -28,30 +28,25 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 15 May 2012 20:27:10 +0200
+Date: Tue, 15 May 2012 20:29:08 +0200
 
-> On Tue, 2012-05-15 at 10:59 -0700, Joe Perches wrote:
+> On Tue, 2012-05-15 at 14:24 -0400, David Miller wrote:
 > 
->> OK, but fyi, there's a possible issue with !CONFIG_DEBUG
->> builds because these patches converted some uses of
->> 	if (net_ratelimit())
->> 		printk(KERN_DEBUG ...
->> to
->> 	net_dbg_ratelimited()
+>> > But don't you have to do something in the sources to actually get
+>> > dynamic_debug enabled? I'm concerned this will make mac80211 debugging
+>> > inconsistent - the normal bits are just printk() still, and the
+>> > rate-limited bits need some special enabling? That seems odd.
 >> 
->> These messages are no longer emitted when DEBUG isn't defined
->> and not using dynamic_debug.  I'm not sure that's a real
->> problem, but it's a difference.
+>> You can turn them all off or on with a simple flip of a boolean switch
+>> at run-time.  Or, alternatively, you can turn them on or off in a
+>> finer grained manner with other run-time facilities.
 >> 
->> I could produce a net_printk_ratelimited that would keep
->> the original behavior if necessary.
->> 
->> 	net_printk_ratelimited(KERN_DEBUG etc...)
+>> There should be a transition away from explicit KERN_DEBUG.
 > 
-> Btw, what would the difference be to just plain printk_ratelimited()?
+> I support that, but I think it's confusing to have things mixed. Also,
+> we seem to have printk_ratelimit(), so I'd prefer to have that used in
+> mac80211 instead until everything there moves over to newer facilities.
 
-printk_ratelimited() drops a local ratelimit cookie into each call-site,
-whereas we have a global one for the networking which these new interfaces
-use.
-
-Joe explained this completely in his 0/2 patch posting.
+No, you don't want that, it's different from the networking ratelimit
+mechanism.  Joe explained this, and I just explaing it to you once
+again in another reply.
