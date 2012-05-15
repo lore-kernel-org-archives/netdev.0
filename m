@@ -1,60 +1,50 @@
-From: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
-Date: Tue, 15 May 2012 11:08:29 +0100
-Message-ID: <20120515100829.GH29102@suse.de>
-References: <1336658065-24851-2-git-send-email-mgorman@suse.de>
- <20120511.011034.557833140906762226.davem@davemloft.net>
- <20120514105604.GB29102@suse.de>
- <20120514.162634.1094732813264319951.davem@davemloft.net>
- <20120515091402.GG29102@suse.de>
- <1337075234.27694.9.camel@twins>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [PATCH] xfrm: make xfrm_algo.c a module
+Date: Tue, 15 May 2012 12:28:48 +0100
+Message-ID: <4FB25A100200007800083C70@nat28.tlf.novell.com>
+References: <4FAA3EAF02000078000826E4@nat28.tlf.novell.com>
+ <20120514.183721.1989442389245940694.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org, emunson-CVBTeua0HjReoWH0uzbU5w@public.gmane.org
-To: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:56462 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757153Ab2EOL2U convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:2:2>);
+	Tue, 15 May 2012 07:28:20 -0400
+In-Reply-To: <20120514.183721.1989442389245940694.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <1337075234.27694.9.camel@twins>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 15, 2012 at 11:47:14AM +0200, Peter Zijlstra wrote:
-> On Tue, 2012-05-15 at 10:14 +0100, Mel Gorman wrote:
-> > @@ -289,6 +289,18 @@ void sk_clear_memalloc(struct sock *sk)
-> >         sock_reset_flag(sk, SOCK_MEMALLOC);
-> >         sk->sk_allocation &= ~__GFP_MEMALLOC;
-> >         static_key_slow_dec(&memalloc_socks);
-> > +
-> > +       /*
-> > +        * SOCK_MEMALLOC is allowed to ignore rmem limits to ensure forward
-> > +        * progress of swapping. However, if SOCK_MEMALLOC is cleared while
-> > +        * it has rmem allocations there is a risk that the user of the
-> > +        * socket cannot make forward progress due to exceeding the rmem
-> > +        * limits. By rights, sk_clear_memalloc() should only be called
-> > +        * on sockets being torn down but warn and reset the accounting if
-> > +        * that assumption breaks.
-> > +        */
-> > +       if (WARN_ON(sk->sk_forward_alloc))
+>>> On 15.05.12 at 00:37, David Miller <davem@davemloft.net> wrote:
+> From: "Jan Beulich" <JBeulich@suse.com>
+> Date: Wed, 09 May 2012 08:53:51 +0100
 > 
-> WARN_ON_ONCE() perhaps?
+>> By making this a standalone config option (selected as needed),
+>> selecting CRYPTO from here rather than from XFRM (which is boolean)
+>> allows the core crypto code to become a module again even when XFRM=y.
+>> 
+>> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+>  ...
+>> @@ -15,9 +15,6 @@
+>>  #include <linux/crypto.h>
+>>  #include <linux/scatterlist.h>
+>>  #include <net/xfrm.h>
+>> -#if defined(CONFIG_INET_AH) || defined(CONFIG_INET_AH_MODULE) || 
+> defined(CONFIG_INET6_AH) || defined(CONFIG_INET6_AH_MODULE)
+>> -#include <net/ah.h>
+>> -#endif
 > 
+> This is completely unrelated to the change you are trying to make in
+> this patch.
+> 
+> It belongs in a separate change.
 
-I do not expect SOCK_MEMALLOC to be cleared frequently at all with the
-possible exception of swapon/swapoff stress tests. If the flag is being
-cleared regularly with rmem tokens then that is interesting in itself
-but a WARN_ON_ONCE would miss it.
+I apologize for that, I meant to split this out and then forgot. I'll
+re-submit the two things separately.
 
-> > +               sk_mem_reclaim(sk);
-> >  } 
-
--- 
-Mel Gorman
-SUSE Labs
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jan
