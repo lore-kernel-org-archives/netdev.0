@@ -1,46 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 06/12] ixgbe: Hardware Timestamping + PTP Hardware
- Clock (PHC)
-Date: Tue, 15 May 2012 07:32:17 +0200
-Message-ID: <20120515053216.GA2708@netboy.at.omicron.at>
-References: <1336632413-19135-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1336632413-19135-7-git-send-email-jeffrey.t.kirsher@intel.com>
- <20120510141122.GB3392@localhost.localdomain>
- <02874ECE860811409154E81DA85FBB580779423F@ORSMSX105.amr.corp.intel.com>
- <20120511051509.GA2170@netboy.at.omicron.at>
- <02874ECE860811409154E81DA85FBB58077949E8@ORSMSX105.amr.corp.intel.com>
- <20120512053458.GC2190@netboy.at.omicron.at>
- <4FB18A3B.8030308@intel.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 1/8] net/mlx4: Address build warnings on set
+ but not used variables
+Date: Tue, 15 May 2012 08:52:06 +0300
+Message-ID: <4FB1EF06.6070909@mellanox.com>
+References: <1337025853-26685-1-git-send-email-ogerlitz@mellanox.com> <1337025853-26685-2-git-send-email-ogerlitz@mellanox.com> <20120515.000754.1011080018257342361.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Jacob Keller <jacob.e.keller@intel.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <roland@kernel.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:50525 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416Ab2EOFc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 01:32:27 -0400
-Received: by wibhn6 with SMTP id hn6so3170207wib.1
-        for <netdev@vger.kernel.org>; Mon, 14 May 2012 22:32:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4FB18A3B.8030308@intel.com>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:39259 "HELO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751912Ab2EOFwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 01:52:13 -0400
+In-Reply-To: <20120515.000754.1011080018257342361.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 14, 2012 at 03:42:03PM -0700, Jacob Keller wrote:
-> 
-> sk_run_filter is always returning PTP_CLASS_NONE (0), instead of the
-> correct type. Do you know what I am doing wrong? I can send you the
-> patch I am working with...
+On 5/15/2012 7:07 AM, David Miller wrote:
+>
+>> -		err = mlx4_qp_detach_common(dev,&qp, rgid->gid, rgid->prot,
+>> +		(void) mlx4_qp_detach_common(dev,&qp, rgid->gid, rgid->prot,
+>>   					    rgid->steer);
+>
+> You must update the indentation of all the lines comprising of the function call when you change the indentation of it's initial line.
 
-The filter need to run with a pointer to the DST MAC. Perhaps you are
-passing it the address of padding or Layer 3?
+Just want to make sure I understood right what has to be done here, e.g 
+in this case its needs to be
+like this?
 
-I will take a look at the patch...
+> @@ -2604,13 +2604,12 @@ static void detach_qp(struct mlx4_dev *dev, 
+> int slave, struct res_qp *rqp)
+>  {
+>         struct res_gid *rgid;
+>         struct res_gid *tmp;
+> -       int err;
+>         struct mlx4_qp qp; /* dummy for calling attach/detach */
+>
+>         list_for_each_entry_safe(rgid, tmp, &rqp->mcg_list, list) {
+>                 qp.qpn = rqp->local_qpn;
+> -               err = mlx4_qp_detach_common(dev, &qp, rgid->gid, 
+> rgid->prot,
+> -                                           rgid->steer);
+> +               (void) mlx4_qp_detach_common(dev, &qp, rgid->gid, 
+> rgid->prot,
+> +                                                   rgid->steer);
+>                 list_del(&rgid->list);
+>                 kfree(rgid);
+>         }
 
-Thanks,
-Richard
+Or.
