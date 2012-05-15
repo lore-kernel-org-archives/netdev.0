@@ -1,69 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Tue, 15 May 2012 19:01:20 +0200
-Message-ID: <1337101280.8512.1108.camel@edumazet-glaptop>
-References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
-	 <1337093776.8512.1089.camel@edumazet-glaptop>
-	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
-	 <1337099641.8512.1102.camel@edumazet-glaptop>
-	 <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
+From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
+Subject: ibmveth bug?
+Date: Tue, 15 May 2012 10:01:41 -0700
+Message-ID: <20120515170141.GA14272@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Kieran Mansley <kmansley@solarflare.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:59990 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757304Ab2EORB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 13:01:26 -0400
-Received: by bkcji2 with SMTP id ji2so5014513bkc.19
-        for <netdev@vger.kernel.org>; Tue, 15 May 2012 10:01:25 -0700 (PDT)
-In-Reply-To: <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: anton@samba.org, benh@kernel.crashing.org, paulus@samba.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: santil@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-05-15 at 17:47 +0100, Ben Hutchings wrote:
-> On Tue, 2012-05-15 at 18:34 +0200, Eric Dumazet wrote:
-> > On Tue, 2012-05-15 at 17:29 +0100, Kieran Mansley wrote:
-> > > On Tue, 2012-05-15 at 16:56 +0200, Eric Dumazet wrote:
-> > > > 
-> > > > Please try latest kernels, this is probably 'fixed'
-> > > 
-> > > I've just tried with 3.4.0-rc7 and the problem is still reproducible.
-> > > It's perhaps harder to reproduce than on 3.3.6 but still there.
-> > > 
-> > > > What network driver are you using ? 
-> > > 
-> > > The receiver is using the sfc driver that is included in the kernel
-> > > build, together with an SFC 9020 NIC. 
-> > > 
-> > > Kieran
-> > > 
-> > 
-> > MTU ?
-> 
-> 1500
-> 
-> > What is typical skb->truesize of skb given to stack in RX path ?
-> >
-> > If drivers use PAGE_SIZE fragments, then you are more likely to hit
-> > limit.
-> 
-> We're passing page fragments into GRO.
+Hi Santiago,
 
+Are you still working on ibmveth?
 
-Yes, I can see drivers/net/ethernet/sfc/rx.c is even lying about
-truesize. Thats explain why you trigger the backlogdrop even on 2.6
-kernels.
+I've found a very sporadic bug with ibmveth in some testing. PAPR
+requires that:
 
-skb->len = rx_buf->len;
-skb->data_len = rx_buf->len;
-skb->truesize += rx_buf->len; // instead of real frag size
+"Validate the Buffer Descriptor of the receive queue buffer (I/O
+addresses for entire buffer length starting at the spec- ified I/O
+address are translated by the RTCE table, length is a multiple of 16
+bytes, and alignment is on a 16 byte boundary) else H_Parameter."
 
-So skb->truesize are rather small.
+but from what I can tell ibmveth.c is not enforcing this last condition:
 
-napi_get_frags() could probably updated in net-next to use the first
-frag as skb->head to save 512 bytes per skb.
+	adapter->rx_queue.queue_addr =
+		kmalloc(adapter->rx_queue.queue_len, GFP_KERNEL);
 
-You could try setting tcp_adv_win_scale to -2
+	...
+
+	adapter->rx_queue.queue_dma = dma_map_single(dev,
+		adapter->rx_queue.queue_addr, adapter->rx_queue.queue_len,
+		DMA_BIDIRECTIONAL);
+
+	...
+
+	rxq_desc.fields.address = adapter->rx_queue.queue_dma;
+
+	...
+	
+
+	lpar_rc = ibmveth_register_logical_lan(adapter, rxq_desc,
+		mac_address);
+	netdev_err(netdev, "buffer TCE:0x%llx filter TCE:0x%llx rxq "
+	 	"desc:0x%llx MAC:0x%llx\n", adapter->buffer_list_dma,
+	 	adapter->filter_list_dma, rxq_desc.desc, mac_address);
+
+And I got on one install attempt:
+
+[ 39.978430] ibmveth 30000004: eth0: h_register_logical_lan failed with -4
+[ 39.978449] ibmveth 30000004: eth0: buffer TCE:0x1000 filter TCE:0x10000 rxq desc:0x80006010000200a8 MAC:0x56754de8e904
+
+rxq desc, as you can see is not 16byte aligned. kmalloc() only
+guarantees 8-byte alignment (as does gcc, I think). Initially, I thought
+we could just overallocate the queue_addr and ALIGN() down, but then we
+would need to save the original kmalloc pointer in a new struct member
+per rx_queue.
+
+So a couple of questions:
+
+1) Is my analysis accurate? :)
+
+2) How gross would it be to save an extra pointer for every rx_queue?
+
+3) Based upon 2), is it better to just go ahead and create our own
+kmem_cache (which gets an alignment specified)?
+
+For 3), I started coding this, but couldn't find a clean place to
+allocate the kmem_cache itself, as the size of each object depends on
+the run-time characteristics (afaict), but needs to be specified at
+cache creation time. Any insight you could provide would be great!
+
+Thanks,
+Nish
+ 
+-- 
+Nishanth Aravamudan <nacc@us.ibm.com>
+IBM Linux Technology Center
