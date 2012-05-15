@@ -1,90 +1,48 @@
-From: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
-Date: Tue, 15 May 2012 10:14:02 +0100
-Message-ID: <20120515091402.GG29102@suse.de>
-References: <1336658065-24851-2-git-send-email-mgorman@suse.de>
- <20120511.011034.557833140906762226.davem@davemloft.net>
- <20120514105604.GB29102@suse.de>
- <20120514.162634.1094732813264319951.davem@davemloft.net>
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: Re: [PATCH v3 6/6] net: sh_eth: use NAPI
+Date: Tue, 15 May 2012 18:46:25 +0900
+Message-ID: <4FB225F1.20407@renesas.com>
+References: <4FB0AA7C.1000603@renesas.com>
+ <20120514.185034.399229364191924851.davem@davemloft.net>
+ <4FB1DFF0.4040709@renesas.com>
+ <20120515.010753.2012331320750491448.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	neilb-l3A5Bk7waGM@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
-	michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org, emunson-CVBTeua0HjReoWH0uzbU5w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120514.162634.1094732813264319951.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-reply-to: <20120515.010753.2012331320750491448.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2012 at 04:26:34PM -0400, David Miller wrote:
-> From: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
-> Date: Mon, 14 May 2012 11:56:04 +0100
+2012/05/15 14:07, David Miller wrote:
+> From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+> Date: Tue, 15 May 2012 13:47:44 +0900
 > 
-> > On Fri, May 11, 2012 at 01:10:34AM -0400, David Miller wrote:
-> >> From: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
-> >> Date: Thu, 10 May 2012 14:54:14 +0100
-> >> 
-> >> > It could happen that all !SOCK_MEMALLOC sockets have buffered so
-> >> > much data that we're over the global rmem limit. This will prevent
-> >> > SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
-> >> > from running, which is needed to reduce the buffered data.
-> >> > 
-> >> > Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
-> >> > 
-> >> > Signed-off-by: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
-> >> > Signed-off-by: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
-> >> 
-> >> This introduces an invariant which I am not so sure is enforced.
-> >> 
-> >> With this change it is absolutely required that once a socket
-> >> becomes SOCK_MEMALLOC it must never _ever_ lose that attribute.
-> >> 
-> > 
-> > This is effectively true. In the NFS case, the flag is cleared on
-> > swapoff after all the entries have been paged in. In the NBD case,
-> > SOCK_MEMALLOC is left set until the socket is destroyed. I'll update the
-> > changelog.
+>> 2012/05/15 7:50, David Miller wrote:
+>>> You need strict synchronization between your TX queueing and TX
+>>> liberation flows.  So that queue stop and wake are only performed
+>>> at the correct moment.
+>>
+>> I will add netif_queue_stopped() in the sh_eth_poll().
 > 
-> Bugs happen, you need to find a way to assert that nobody every does
-> this.  Because if a bug is introduced which makes this happen, it will
-> otherwise be very difficult to debug.
+> That doesn't fix the bug.  What if someone transmits a packet and
+> fills the TX queue between the netif_queue_stopped() test and the
+> call to netif_wake_queue()?
+> 
+> Adding another test doesn't create the necessary synchronization.
+> 
 
-Ok, fair point. I looked at how we could ensure it could never happen but
-that would require failing sk_clear_memalloc() and it's less clear how
-that should be properly recovered from. Instead, it can be detected that
-there are rmem tokens allocations, warn about it and fix it up albeit it
-in a fairly heavy-handed fashion. How about this on top of the existing
-patch?
+Thank you for the reply again.
+I will modify the code as the following. Is it correct?
 
----8<---
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 22ff2ea..e3dea27 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -289,6 +289,18 @@ void sk_clear_memalloc(struct sock *sk)
- 	sock_reset_flag(sk, SOCK_MEMALLOC);
- 	sk->sk_allocation &= ~__GFP_MEMALLOC;
- 	static_key_slow_dec(&memalloc_socks);
-+
-+	/*
-+	 * SOCK_MEMALLOC is allowed to ignore rmem limits to ensure forward
-+	 * progress of swapping. However, if SOCK_MEMALLOC is cleared while
-+	 * it has rmem allocations there is a risk that the user of the
-+	 * socket cannot make forward progress due to exceeding the rmem
-+	 * limits. By rights, sk_clear_memalloc() should only be called
-+	 * on sockets being torn down but warn and reset the accounting if
-+	 * that assumption breaks.
-+	 */
-+	if (WARN_ON(sk->sk_forward_alloc))
-+		sk_mem_reclaim(sk);
- }
- EXPORT_SYMBOL_GPL(sk_clear_memalloc);
- 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	if (txfree_num) {
+		netif_tx_lock(ndev);
+		if (netif_queue_stopped(ndev))
+			netif_wake_queue(ndev);
+		netif_tx_unlock(ndev);
+	}
+
+Best regards,
+Yoshihiro Shimoda
