@@ -1,83 +1,142 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH] netdev/phy: Make get_phy_id() static and quit EXPORTing
- it.
-Date: Tue, 15 May 2012 17:32:08 -0400
-Message-ID: <20120515213208.GD17760@windriver.com>
-References: <1337114812-3912-1-git-send-email-ddaney.cavm@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH V2] CS89x0 : Use ioread16/iowrite16 on all platforms
+Date: Wed, 16 May 2012 00:37:11 +0200
+Message-ID: <20120515223711.GA12674@electric-eye.fr.zoreil.com>
+References: <1337112906-31033-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	David Daney <david.daney@cavium.com>
-To: David Daney <ddaney.cavm@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: arnd@arndb.de, s.hauer@pengutronix.de, gfm@funxed.com,
+	davem@davemloft.net, festevam@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:55774 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966231Ab2EOVcU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 17:32:20 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48187 "EHLO violet"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S966377Ab2EOWoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2012 18:44:34 -0400
 Content-Disposition: inline
-In-Reply-To: <1337114812-3912-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1337112906-31033-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[[PATCH] netdev/phy: Make get_phy_id() static and quit EXPORTing it.] On 15/05/2012 (Tue 13:46) David Daney wrote:
+Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com> :
+[...]
+> diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+> index b9406cb..8081ad5 100644
+> --- a/drivers/net/ethernet/cirrus/cs89x0.c
+> +++ b/drivers/net/ethernet/cirrus/cs89x0.c
+[...]
+> -static int cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular);
+> +static int cs89x0_probe1(struct net_device *dev,
+> +			 void __iomem *ioaddr,
+> +			 int modular);
+> +static int cs89x0_probe1(struct net_device *dev, void __iomem *ioaddr,
+> +			 int modular);
 
-> From: David Daney <david.daney@cavium.com>
-> 
-> This function is only referenced from within phy_device.c, so there is
-> no reason to export it.  In fact, we can make it static.
+s/int/bool/ maybe.
 
-I did a bit of data mining to remind myself why it was exported.  Back
-in a01b3d766c (v2.6.26) gianfar_mii was using it.  That then got merged
-into fsl_pq_mdio.c and gianfar_mii was deleted.  Then finally in commit
-28d8ea2d568 (v3.2) the one instance of code that was using it got
-removed.  So, I think this should be OK (but for net-next, though).
+You may skip the name of the parameters.
 
-Acked-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+[...]
+> +static int __init
+> +cs89x0_ioport_probe(struct net_device *dev, unsigned long ioport, int modular)
+> +{
+> +	struct net_local *lp = netdev_priv(dev);
+> +	int ret;
+> +	void __iomem *io_mem;
+> +
+> +	if (!lp)
+> +		return -ENOMEM;
+> +
+> +	dev->base_addr = ioport;
 
-Paul.
---
+(your changes should reduce the use of netdev.base_addr, nice)
 
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> ---
->  drivers/net/phy/phy_device.c |    3 +--
->  include/linux/phy.h          |    1 -
->  2 files changed, 1 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index e8c42d6..de86a55 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -207,7 +207,7 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
->   * Description: Reads the ID registers of the PHY at @addr on the
->   *   @bus, stores it in @phy_id and returns zero on success.
->   */
-> -int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
-> +static int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
->  {
->  	int phy_reg;
+[...]
+> +	if (ioport & 1) {
+> +		if (net_debug > 1)
+> +			printk(KERN_INFO "%s: odd ioaddr 0x%lx\n",
+> +			       dev->name,
+> +			       ioport);
+> +		if ((ioport & 2) != 2)
+		if ((ioport & 2) != 2) {
+
+> +			if ((ioread16(io_mem + ADD_PORT) & ADD_MASK) !=
+> +			    ADD_SIG) {
+> +				printk(KERN_ERR "%s: bad signature 0x%x\n",
+> +					dev->name,
+> +					ioread16(io_mem + ADD_PORT));
+
+			u16 blah = ioread16(io_mem + ADD_PORT);
+
+			if ((blah & ADD_MASK) != ADD_SIG) {
+				printk(KERN_ERR "%s: bad signature 0x%x\n",
+					dev->name, blah);
+
+[...]
+>  static void
+> -readwords(unsigned long base_addr, int portno, void *buf, int length)
+> +readwords(void __iomem *base_addr, int portno, void *buf, int length)
+
+You may try the shorter and (arguably) type safer :
+
+static void readwords(struct net_local *lp, int portno, void *buf, int length)
+
+> -writewords(unsigned long base_addr, int portno, void *buf, int length)
+> +writewords(void __iomem *base_addr, int portno, void *buf, int length)
+
+Same thing.
+
+[...]
+> -	/* Grab the region so we can find another board if autoIRQ fails. */
+> -	/* WTF is going on here? */
+> -	if (!request_region(ioaddr & ~3, NETCARD_IO_EXTENT, DRV_NAME)) {
+> -		printk(KERN_ERR "%s: request_region(0x%lx, 0x%x) failed\n",
+> -				DRV_NAME, ioaddr, NETCARD_IO_EXTENT);
+> -		retval = -EBUSY;
+> -		goto out1;
+> -	}
+> +	printk(KERN_DEBUG "PP_addr at %p[%x]: 0x%x\n",
+> +			ioaddr, ADD_PORT, ioread16(ioaddr + ADD_PORT));
+
+Please use spaces after tabs so that ioaddr lines up nicely with KERN_DEBUG.
+
+[...]
+> @@ -1114,7 +1137,10 @@ send_test_pkt(struct net_device *dev)
+>  		return 0;	/* this shouldn't happen */
 >  
-> @@ -230,7 +230,6 @@ int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
+>  	/* Write the contents of the packet */
+> -	writewords(dev->base_addr, TX_FRAME_PORT,test_packet,(ETH_ZLEN+1) >>1);
+> +	writewords(lp->virt_addr,
+> +		   TX_FRAME_PORT,
+> +		   test_packet,
+> +		   (ETH_ZLEN+1) >> 1);
+
+	writewords(lp, TX_FRAME_PORT, test_packet, (ETH_ZLEN + 1) >> 1);
+
+[...]
+> @@ -1631,9 +1656,12 @@ net_rx(struct net_device *dev)
+>  	}
+>  	skb_reserve(skb, 2);	/* longword align L3 header */
 >  
->  	return 0;
->  }
-> -EXPORT_SYMBOL(get_phy_id);
+> -	readwords(ioaddr, RX_FRAME_PORT, skb_put(skb, length), length >> 1);
+> +	readwords(lp->virt_addr,
+> +		  RX_FRAME_PORT,
+> +		  skb_put(skb, length),
+> +		  length >> 1);
+
+	readwords(lp, RX_FRAME_PORT, skb_put(skb, length), length >> 1);
+
+[...]
+> @@ -1928,22 +1960,22 @@ static int __init cs89x0_platform_probe(struct platform_device *pdev)
+>  		goto free;
+>  	}
 >  
->  /**
->   * get_phy_device - reads the specified PHY device and returns its @phy_device struct
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 6fe0a37..9039009 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -477,7 +477,6 @@ static inline int phy_write(struct phy_device *phydev, u32 regnum, u16 val)
->  	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
->  }
->  
-> -int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id);
->  struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
->  int phy_device_register(struct phy_device *phy);
->  int phy_init_hw(struct phy_device *phydev);
-> -- 
-> 1.7.2.3
-> 
+> -	lp->phys_addr = mem_res->start;
+> +	dev->base_addr = mem_res->start;
+
+You may work directly with mem_res->start in this function at the price
+of an extra platform_get_resource() in cs89x0_platform_remove().
+
+-- 
+Ueimor
