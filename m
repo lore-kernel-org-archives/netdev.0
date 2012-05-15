@@ -1,42 +1,103 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 0/4] netfilter fixes for 3.4-rc7
-Date: Tue, 15 May 2012 01:25:14 +0200
-Message-ID: <20120514232514.GA16660@1984>
-References: <1336996023-20249-1-git-send-email-pablo@netfilter.org>
- <20120514.185607.1967456974676336550.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120514.185607.1967456974676336550.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+Subject: [PATCH 6/7] pch_gbe: Do not abort probe on bad MAC
+Date: Tue, 15 May 2012 11:11:30 +0900
+Message-ID: <1337047891-2973-6-git-send-email-tomoya.rohm@gmail.com>
+References: <1337047891-2973-1-git-send-email-tomoya.rohm@gmail.com>
+Cc: Tomoya MORINAGA <tomoya.rohm@gmail.com>,
+	Darren Hart <dvhart@linux.intel.com>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Joe Perches <joe@perches.com>
+To: stable@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:63739 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932599Ab2EOBMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 21:12:05 -0400
+In-Reply-To: <1337047891-2973-1-git-send-email-tomoya.rohm@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 14, 2012 at 06:56:07PM -0400, David Miller wrote:
-> From: pablo@netfilter.org
-> Date: Mon, 14 May 2012 13:46:59 +0200
-> 
-> > * One fix for possible timeout overflow for ipset, from Jozsef
-> >   Kadlecsik.
-> > 
-> > * One fix to ensure that hash size is correct, again for ipset
-> >   from Jozsef Kadlecsik.
-> > 
-> > * Removal of redundant include in xt_CT from Eldad Zack.
-> > 
-> > * Fix for wrong usage of MODULE_ALIAS_NFCT_HELPER in nf_ct_h323
-> >   helper from myself.
-> 
-> I don't consider any of these appropriate this late in the -RC
-> series.
-> 
-> They don't fix major regressions seen by many users.
-> 
-> And the duplicate header include is extremely out-of-scope and
-> inappropriate.
-> 
-> Sorry.
+If the MAC is invalid or not implemented, do not abort the probe. Issue
+a warning and prevent bringing the interface up until a MAC is set manually
+(via ifconfig $IFACE hw ether $MAC).
 
-No problem, I'll schedule those for net-next.
+Tested on two platforms, one with a valid MAC, the other without a MAC. The real
+MAC is used if present, the interface fails to come up until the MAC is set on
+the other. They successfully get an IP over DHCP and pass a simple ping and
+login over ssh test.
+
+This is meant to allow the Inforce SYS940X development board:
+http://www.inforcecomputing.com/SYS940X_ECX.html
+(and others suffering from a missing MAC) to work with the mainline kernel.
+Without this patch, the probe will fail and the interface will not be created,
+preventing the user from configuring the MAC manually.
+
+This does not make any attempt to address a missing or invalid MAC for the
+pch_phub driver.
+
+commit 2b53d07891630dead46d65c8f896955fd3ae0302
+Kernel 3.0
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Darren Hart <dvhart@linux.intel.com>
+CC: Arjan van de Ven <arjan@linux.intel.com>
+CC: Alan Cox <alan@linux.intel.com>
+CC: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Paul Gortmaker <paul.gortmaker@windriver.com>
+CC: Jon Mason <jdmason@kudzu.us>
+CC: netdev@vger.kernel.org
+CC: Mark Brown <broonie@opensource.wolfsonmicro.com>
+CC: David Laight <David.Laight@ACULAB.COM>
+CC: Joe Perches <joe@perches.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Tomoya MORINAGA <tomoya.rohm@gmail.com>
+---
+ drivers/net/pch_gbe/pch_gbe_main.c |   17 ++++++++++++++---
+ 1 files changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
+index b8b4ba2..d506e28 100644
+--- a/drivers/net/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/pch_gbe/pch_gbe_main.c
+@@ -1745,6 +1745,12 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
+ 	struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
+ 	int err;
+ 
++	/* Ensure we have a valid MAC */
++	if (!is_valid_ether_addr(adapter->hw.mac.addr)) {
++		pr_err("Error: Invalid MAC address\n");
++		return -EINVAL;
++	}
++
+ 	/* hardware has been reset, we need to reload some things */
+ 	pch_gbe_set_multi(netdev);
+ 
+@@ -2467,9 +2473,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 
+ 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+-		dev_err(&pdev->dev, "Invalid MAC Address\n");
+-		ret = -EIO;
+-		goto err_free_adapter;
++		/*
++		 * If the MAC is invalid (or just missing), display a warning
++		 * but do not abort setting up the device. pch_gbe_up will
++		 * prevent the interface from being brought up until a valid MAC
++		 * is set.
++		 */
++		dev_err(&pdev->dev, "Invalid MAC address, "
++		                    "interface disabled.\n");
+ 	}
+ 	setup_timer(&adapter->watchdog_timer, pch_gbe_watchdog,
+ 		    (unsigned long)adapter);
+-- 
+1.7.7.6
