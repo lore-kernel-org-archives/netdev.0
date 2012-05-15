@@ -1,48 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/8] net/mlx4: Address build warnings on set
- but not used variables
-Date: Tue, 15 May 2012 01:59:16 -0400 (EDT)
-Message-ID: <20120515.015916.1228365475475285173.davem@davemloft.net>
-References: <1337025853-26685-2-git-send-email-ogerlitz@mellanox.com>
-	<20120515.000754.1011080018257342361.davem@davemloft.net>
-	<4FB1EF06.6070909@mellanox.com>
+From: =?iso-8859-1?Q?Hans_Schillstr=F6m?= <hans.schillstrom@ericsson.com>
+Subject: RE: [PATCH] netfilter: xt_HMARK: endian bugs
+Date: Tue, 15 May 2012 07:57:22 +0200
+Message-ID: <C8A6796DE7C66C4ABCBC18106CB6C1CC164B83BE11@ESESSCMS0356.eemea.ericsson.se>
+References: <1337002943-16374-1-git-send-email-hans.schillstrom@ericsson.com>
+	 <201205141809.18174.hans.schillstrom@ericsson.com>
+	 <1337012674.8512.589.camel@edumazet-glaptop>
+	 <201205141951.36692.hans.schillstrom@ericsson.com>
+	 <alpine.DEB.2.00.1205142032570.28548@blackhole.kfki.hu>
+	 <20120514190211.GC14897@1984>,<1337022835.8512.610.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: roland@kernel.org, netdev@vger.kernel.org
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35137 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751912Ab2EOF7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 01:59:25 -0400
-In-Reply-To: <4FB1EF06.6070909@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Jan Engelhardt <jengelh@inai.de>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1337022835.8512.610.camel@edumazet-glaptop>
+Content-Language: en-US
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 15 May 2012 08:52:06 +0300
 
-> On 5/15/2012 7:07 AM, David Miller wrote:
->>
->>> -		err = mlx4_qp_detach_common(dev,&qp, rgid->gid, rgid->prot,
->>> + (void) mlx4_qp_detach_common(dev,&qp, rgid->gid, rgid->prot,
->>>   					    rgid->steer);
->>
->> You must update the indentation of all the lines comprising of the
->> function call when you change the indentation of it's initial line.
-> 
-> Just want to make sure I understood right what has to be done here,
-> e.g in this case its needs to be
-> like this?
- ...
->> -                                           rgid->steer);
->> + (void) mlx4_qp_detach_common(dev, &qp, rgid->gid, rgid->prot,
->> +                                                   rgid->steer);
+>On Mon, 2012-05-14 at 21:02 +0200, Pablo Neira Ayuso wrote:
+>
+>> IIRC, Hans wants that, in case you have a cluster composed of system
+>> with different endianess, the hash mark calculated will be the same
+>> in both systems. To ensure that the distribution is consistent with
+>> independency of the endianess.
+>
+>Then jhash() must be audited to make sure its output is OK with this
+>requirement.
 
-I can't tell if it's right, becuase it got all reformatted by your
-mail client.
+Have done that, and made tests on a mips 32 running debian
+It was as expected jhash3_words is endian safe, while jhash() is not
 
-You simply need to make sure the arguments on the second and
-further lines line up with the column after the openning
-parenthesis on the first line.
+
+
+
+
