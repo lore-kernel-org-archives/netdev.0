@@ -1,70 +1,58 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 5/8] net/mlx4_core: Do not reset module-parameter num_vfs when fail to enable sriov
-Date: Tue, 15 May 2012 23:35:01 +0300
-Message-ID: <1337114104-26094-6-git-send-email-ogerlitz@mellanox.com>
-References: <1337114104-26094-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:55336 "HELO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933344Ab2EOUfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 16:35:15 -0400
-In-Reply-To: <1337114104-26094-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH] netdev/phy: Make get_phy_id() static and quit EXPORTing it.
+Date: Tue, 15 May 2012 13:46:52 -0700
+Message-ID: <1337114812-3912-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-kernel@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Daney <david.daney@cavium.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+From: David Daney <david.daney@cavium.com>
 
-Consider the following scenario: 2 HCAs, where only one of which can run SRIOV.
+This function is only referenced from within phy_device.c, so there is
+no reason to export it.  In fact, we can make it static.
 
-If we reset the module parameter, all the VFs of the SRIOV HCA will be
-claimed by the PPF host (-- the code relies on num_vfs being non-zero
-to avoid this claiming, and num_vfs was reset when pci_enable_sriov failed
-for the non-SRIOV HCA).
-
-The solution is not to touch the num_vfs parameter.
-
-Also, eliminate the unneeded check of num_vfs when disabling sriov
-(the dev flag bit is sufficient).
-
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/phy/phy_device.c |    3 +--
+ include/linux/phy.h          |    1 -
+ 2 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 8bb05b4..8eed1f2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1865,7 +1865,6 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- 				mlx4_err(dev, "Failed to enable sriov,"
- 					 "continuing without sriov enabled"
- 					 " (err = %d).\n", err);
--				num_vfs = 0;
- 				err = 0;
- 			} else {
- 				mlx4_warn(dev, "Running in master mode\n");
-@@ -2022,7 +2021,7 @@ err_cmd:
- 	mlx4_cmd_cleanup(dev);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index e8c42d6..de86a55 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -207,7 +207,7 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
+  * Description: Reads the ID registers of the PHY at @addr on the
+  *   @bus, stores it in @phy_id and returns zero on success.
+  */
+-int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
++static int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
+ {
+ 	int phy_reg;
  
- err_sriov:
--	if (num_vfs && (dev->flags & MLX4_FLAG_SRIOV))
-+	if (dev->flags & MLX4_FLAG_SRIOV)
- 		pci_disable_sriov(pdev);
+@@ -230,7 +230,6 @@ int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
  
- err_rel_own:
-@@ -2099,7 +2098,7 @@ static void mlx4_remove_one(struct pci_dev *pdev)
+ 	return 0;
+ }
+-EXPORT_SYMBOL(get_phy_id);
  
- 		if (dev->flags & MLX4_FLAG_MSI_X)
- 			pci_disable_msix(pdev);
--		if (num_vfs && (dev->flags & MLX4_FLAG_SRIOV)) {
-+		if (dev->flags & MLX4_FLAG_SRIOV) {
- 			mlx4_warn(dev, "Disabling sriov\n");
- 			pci_disable_sriov(pdev);
- 		}
+ /**
+  * get_phy_device - reads the specified PHY device and returns its @phy_device struct
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 6fe0a37..9039009 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -477,7 +477,6 @@ static inline int phy_write(struct phy_device *phydev, u32 regnum, u16 val)
+ 	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
+ }
+ 
+-int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id);
+ struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
+ int phy_device_register(struct phy_device *phy);
+ int phy_init_hw(struct phy_device *phydev);
 -- 
-1.7.1
+1.7.2.3
