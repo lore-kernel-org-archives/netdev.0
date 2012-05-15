@@ -1,15 +1,15 @@
 From: boris@dedicatedserver.com.hk
 Subject: Streaming Service
 Date: Wed, 16 May 2012 03:35:20 +0800 (HKT)
-Message-ID: <5IJSOI4yoNXcOYV__16398.0470890694$1337112050$gmane$org@ara.seed.net.tw>
+Message-ID: <lAdFbHg__15238.8055147187$1337112106$gmane$org@iris.seed.net.tw>
 Content-Type: text/plain;
 Content-Transfer-Encoding: Quoted-Printable
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-93.sunnyvision.com ([124.248.200.93]:60746 "EHLO
+Received: from 124-248-200-93.sunnyvision.com ([124.248.200.93]:32855 "EHLO
 	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S966093Ab2EOUA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 16:00:28 -0400
+	by vger.kernel.org with ESMTP id S966670Ab2EOUAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 16:00:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
