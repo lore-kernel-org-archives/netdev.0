@@ -1,36 +1,25 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next V1 1/8] net/mlx4: Address build warnings on set
- but not used variables
-Date: Tue, 15 May 2012 22:49:40 +0300
-Message-ID: <CAJZOPZ+doj09gns9yu-VTGpriuGfrEjBJviJs8Ci7M_GzHndiw@mail.gmail.com>
-References: <1337066690-2248-1-git-send-email-ogerlitz@mellanox.com>
-	<1337066690-2248-2-git-send-email-ogerlitz@mellanox.com>
-	<20120515.133808.1788429614608005541.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roland@kernel.org, netdev@vger.kernel.org, yevgenyp@mellanox.com
-To: David Miller <davem@davemloft.net>
+From: boris@dedicatedserver.com.hk
+Subject: Streaming Service
+Date: Wed, 16 May 2012 03:35:20 +0800 (HKT)
+Message-ID: <5IJSOI4yoNXcOYV__16398.0470890694$1337112050$gmane$org@ara.seed.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:59311 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965990Ab2EOTtl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 May 2012 15:49:41 -0400
-Received: by lahd3 with SMTP id d3so4436670lah.19
-        for <netdev@vger.kernel.org>; Tue, 15 May 2012 12:49:40 -0700 (PDT)
-In-Reply-To: <20120515.133808.1788429614608005541.davem@davemloft.net>
+Received: from 124-248-200-93.sunnyvision.com ([124.248.200.93]:60746 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S966093Ab2EOUA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 16:00:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 15, 2012 at 8:38 PM, David Miller <davem@davemloft.net> wro=
-te:
-> Instead you use TAB and SPACE characters, as needed, to line it up
-> properly, like so:
->
-> =A0 =A0 =A0 =A0func(arg1, arg2,
-> =A0 =A0 =A0 =A0 =A0 =A0 arg3, arg4);
+Our Streaming Server is powerful and optimized server for live and on-demand audio/ video streaming content delivery. 
+Our Streaming Server features with high performance streaming throughput, network & storage I/O and optimized configurations for its high scalability and reliability.
+Our server supports latest Windows Media Technologies such as Fast Streaming, Fast Cache, Fast Start, Wireless Streaming as well as feature-rich add-on modules such as sophisticated content management, monitoring, logging reports, billing, authentications, load-balancing & clustering for all needs. 
 
-Got it, thanks, will send V2 with this fixed
+Pls send us email for further information.Thanks,
 
-Or.
+Boris 
+boris@dedicatedserver.com.hk
+
+If you do not wish to further receive this event message, email "borislamsv2@gmail.com" to unsubscribe this message or remove your email from the list.
