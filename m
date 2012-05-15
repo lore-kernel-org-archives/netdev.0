@@ -1,57 +1,70 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 0/8] batch of mlx4 driver fixes
-Date: Tue, 15 May 2012 23:34:56 +0300
-Message-ID: <1337114104-26094-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 5/8] net/mlx4_core: Do not reset module-parameter num_vfs when fail to enable sriov
+Date: Tue, 15 May 2012 23:35:01 +0300
+Message-ID: <1337114104-26094-6-git-send-email-ogerlitz@mellanox.com>
+References: <1337114104-26094-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:42473 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932277Ab2EOUfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 16:35:14 -0400
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:55336 "HELO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933344Ab2EOUfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 16:35:15 -0400
+In-Reply-To: <1337114104-26094-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a batch of relatively small fixes for the mlx4_core driver, except for 
-one cleanup patch from myself, all the patches are from Jack Morgenstein, who 
-leads our SRIOV development efforts and do relate to the SRIOV functionality.
-With Yevgeny being mostly out this week and as both of us run the internal 
-reviews for upstream patches, he delegated this submission to be carried 
-out by me, hope this is fine by you.
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-changes from V0:
- - fixed identation issues in patch 1/8 following feedback from Dave
-   I didn't find any issues of this such to fix in the other patches
+Consider the following scenario: 2 HCAs, where only one of which can run SRIOV.
 
-changes from V1: 
- -  fixed identation again, such that the first character lines up with the 
-    column right after the openning parenthesis on the first line.
+If we reset the module parameter, all the VFs of the SRIOV HCA will be
+claimed by the PPF host (-- the code relies on num_vfs being non-zero
+to avoid this claiming, and num_vfs was reset when pci_enable_sriov failed
+for the non-SRIOV HCA).
 
-Or.
+The solution is not to touch the num_vfs parameter.
 
-Jack Morgenstein (7):
-  net/mlx4_core: Fix init_port mask state for slaves
-  net/mlx4_core: Change SYNC_TPT to be native (not wrapped)
-  net/mlx4_core: Remove unused *_str functions from the resource tracker
-  net/mlx4_core: Do not reset module-parameter num_vfs when fail to enable sriov
-  net/mlx4_core: Fix potential kernel Oops in res tracker during Dom0 driver unload
-  net/mlx4_core: Add XRC domains and counters to resource tracker
-  net/mlx4_core: Fixed error flow in rem_slave_eqs
+Also, eliminate the unneeded check of num_vfs when disabling sriov
+(the dev flag bit is sufficient).
 
-Or Gerlitz (1):
-  net/mlx4: Address build warnings on set but not used variables
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |    7 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |    3 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |   47 +++-
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |    2 -
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   12 +-
- drivers/net/ethernet/mellanox/mlx4/mr.c            |    5 +-
- drivers/net/ethernet/mellanox/mlx4/pd.c            |   39 +++-
- drivers/net/ethernet/mellanox/mlx4/port.c          |    7 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  271 ++++++++++++++++----
- 9 files changed, 319 insertions(+), 74 deletions(-)
-
-Cc: Jack Morgenstein <jackm@dev.mellanox.co.il>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 8bb05b4..8eed1f2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1865,7 +1865,6 @@ static int __mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 				mlx4_err(dev, "Failed to enable sriov,"
+ 					 "continuing without sriov enabled"
+ 					 " (err = %d).\n", err);
+-				num_vfs = 0;
+ 				err = 0;
+ 			} else {
+ 				mlx4_warn(dev, "Running in master mode\n");
+@@ -2022,7 +2021,7 @@ err_cmd:
+ 	mlx4_cmd_cleanup(dev);
+ 
+ err_sriov:
+-	if (num_vfs && (dev->flags & MLX4_FLAG_SRIOV))
++	if (dev->flags & MLX4_FLAG_SRIOV)
+ 		pci_disable_sriov(pdev);
+ 
+ err_rel_own:
+@@ -2099,7 +2098,7 @@ static void mlx4_remove_one(struct pci_dev *pdev)
+ 
+ 		if (dev->flags & MLX4_FLAG_MSI_X)
+ 			pci_disable_msix(pdev);
+-		if (num_vfs && (dev->flags & MLX4_FLAG_SRIOV)) {
++		if (dev->flags & MLX4_FLAG_SRIOV) {
+ 			mlx4_warn(dev, "Disabling sriov\n");
+ 			pci_disable_sriov(pdev);
+ 		}
+-- 
+1.7.1
