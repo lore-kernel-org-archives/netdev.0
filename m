@@ -1,56 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Tue, 15 May 2012 17:47:34 +0100
-Message-ID: <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
-	 <1337093776.8512.1089.camel@edumazet-glaptop>
-	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
-	 <1337099641.8512.1102.camel@edumazet-glaptop>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
+Date: Tue, 15 May 2012 09:50:30 -0700
+Message-ID: <1337100630.8220.4.camel@oc3660625478.ibm.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kieran Mansley <kmansley@solarflare.com>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:16594 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757470Ab2EOQri (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 12:47:38 -0400
-In-Reply-To: <1337099641.8512.1102.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
+	davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-05-15 at 18:34 +0200, Eric Dumazet wrote:
-> On Tue, 2012-05-15 at 17:29 +0100, Kieran Mansley wrote:
-> > On Tue, 2012-05-15 at 16:56 +0200, Eric Dumazet wrote:
-> > > 
-> > > Please try latest kernels, this is probably 'fixed'
-> > 
-> > I've just tried with 3.4.0-rc7 and the problem is still reproducible.
-> > It's perhaps harder to reproduce than on 3.3.6 but still there.
-> > 
-> > > What network driver are you using ? 
-> > 
-> > The receiver is using the sfc driver that is included in the kernel
-> > build, together with an SFC 9020 NIC. 
-> > 
-> > Kieran
-> > 
+On Wed, 2012-05-02 at 11:42 +0800, Jason Wang wrote:
+> We add used and signal guest in worker thread but did not poll the
+> virtqueue
+> during the zero copy callback. This may lead the missing of adding and
+> signalling during zerocopy. Solve this by polling the virtqueue and
+> let it
+> wakeup the worker during callback.
 > 
-> MTU ?
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/vhost.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 947f00d..7b75fdf 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
+>         struct vhost_ubuf_ref *ubufs = ubuf->arg;
+>         struct vhost_virtqueue *vq = ubufs->vq;
+> 
+> +       vhost_poll_queue(&vq->poll);
+>         /* set len = 1 to mark this desc buffers done DMA */
+>         vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
+>         kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
 
-1500
+Doing so, we might have redundant vhost_poll_queue(). Do you know in
+which scenario there might be missing of adding and signaling during
+zerocopy?
 
-> What is typical skb->truesize of skb given to stack in RX path ?
->
-> If drivers use PAGE_SIZE fragments, then you are more likely to hit
-> limit.
-
-We're passing page fragments into GRO.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks
+Shirley
