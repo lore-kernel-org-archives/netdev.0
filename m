@@ -1,36 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] cdc_ether: add Novatel USB551L device IDs for
- FLAG_WWAN
-Date: Tue, 15 May 2012 13:42:40 -0400 (EDT)
-Message-ID: <20120515.134240.876286884006063987.davem@davemloft.net>
-References: <1336400691.2385.10.camel@dcbw.foobar.com>
-	<201205071623.56396.oliver@neukum.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pch_gbe: fix transmit races
+Date: Tue, 15 May 2012 13:43:00 -0400 (EDT)
+Message-ID: <20120515.134300.588180020194758538.davem@davemloft.net>
+References: <1336774254.31653.287.camel@edumazet-glaptop>
+	<40680C535D6FE6498883F1640FACD44DDF93F1@ka-exchange-1.kontronamerica.local>
+	<1337023566.8512.622.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201205071623.56396.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: andy.cress@us.kontron.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:40527 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966138Ab2EORnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 13:43:05 -0400
+In-Reply-To: <1337023566.8512.622.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Date: Mon, 7 May 2012 16:23:56 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 14 May 2012 21:26:06 +0200
 
-> Am Montag, 7. Mai 2012, 16:24:51 schrieb Dan Williams:
->> Needs to be tagged with FLAG_WWAN, which since it has generic
->> descriptors, won't happen if we don't override the generic
->> driver info.
->> 
->> Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
->> Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Acked-by: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Andy reported pch_gbe triggered "NETDEV WATCHDOG" errors.
+> 
+> May 11 11:06:09 kontron kernel: WARNING: at net/sched/sch_generic.c:261
+> dev_watchdog+0x1ec/0x200() (Not tainted)
+> May 11 11:06:09 kontron kernel: Hardware name: N/A
+> May 11 11:06:09 kontron kernel: NETDEV WATCHDOG: eth0 (pch_gbe):
+> transmit queue 0 timed out
+> 
+> It seems pch_gbe has a racy tx path (races with TX completion path)
+> 
+> Remove tx_queue_lock lock since it has no purpose, we must use tx_lock
+> instead.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andy Cress <andy.cress@us.kontron.com>
+> Tested-by: Andy Cress <andy.cress@us.kontron.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
