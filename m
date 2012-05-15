@@ -1,52 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC net-next 0/2] net: Use net_<level>_ratelimit
-Date: Tue, 15 May 2012 14:30:09 -0400 (EDT)
-Message-ID: <20120515.143009.2103212327515966852.davem@davemloft.net>
-References: <1337106094.15553.5.camel@jlt3.sipsolutions.net>
-	<20120515.142405.633851408201128056.davem@davemloft.net>
-	<1337106548.15553.8.camel@jlt3.sipsolutions.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v3 6/6] net: sh_eth: use NAPI
+Date: Tue, 15 May 2012 20:29:19 +0200
+Message-ID: <20120515182919.GA7157@electric-eye.fr.zoreil.com>
+References: <4FB1DFF0.4040709@renesas.com> <20120515.010753.2012331320750491448.davem@davemloft.net> <4FB225F1.20407@renesas.com> <20120515.130552.119728053706080493.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-decnet-user-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1337106548.15553.8.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: yoshihiro.shimoda.uh@renesas.com, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120515.130552.119728053706080493.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Tue, 15 May 2012 20:29:08 +0200
-
-> On Tue, 2012-05-15 at 14:24 -0400, David Miller wrote:
+David Miller <davem@davemloft.net> :
+> From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+[...]
+> > I will modify the code as the following. Is it correct?
+> > 
+> > 	if (txfree_num) {
+> > 		netif_tx_lock(ndev);
+> > 		if (netif_queue_stopped(ndev))
+> > 			netif_wake_queue(ndev);
+> > 		netif_tx_unlock(ndev);
+> > 	}
 > 
->> > But don't you have to do something in the sources to actually get
->> > dynamic_debug enabled? I'm concerned this will make mac80211 debugging
->> > inconsistent - the normal bits are just printk() still, and the
->> > rate-limited bits need some special enabling? That seems odd.
->> 
->> You can turn them all off or on with a simple flip of a boolean switch
->> at run-time.  Or, alternatively, you can turn them on or off in a
->> finer grained manner with other run-time facilities.
->> 
->> There should be a transition away from explicit KERN_DEBUG.
-> 
-> I support that, but I think it's confusing to have things mixed. Also,
-> we seem to have printk_ratelimit(), so I'd prefer to have that used in
-> mac80211 instead until everything there moves over to newer facilities.
+> Yes, and then you don't need that private lock in the start_xmit()
+> method at all, since that method runs with the tx_lock held.
 
-No, you don't want that, it's different from the networking ratelimit
-mechanism.  Joe explained this, and I just explaing it to you once
-again in another reply.
+I agree that the lock should go but:
+1. something must be done to prevent sh_eth_txfree() being called
+   at the same time from the xmit and poll handlers
+2. while netif_tx locking above provides an implicit memory barrier,
+   there won't be one in sh_eth_start_xmit once the lock is removed.
+   mdp->dirty_tx changes may thus go unnoticed in sh_eth_start_xmit
+
+-- 
+Ueimor
