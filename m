@@ -1,45 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Tue, 15 May 2012 18:34:01 +0200
-Message-ID: <1337099641.8512.1102.camel@edumazet-glaptop>
-References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
-	 <1337093776.8512.1089.camel@edumazet-glaptop>
-	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 0/2] extend sch_mqprio to distribute traffic
+ not only by ETS TC
+Date: Tue, 15 May 2012 09:44:42 -0700
+Message-ID: <4FB287FA.2060507@intel.com>
+References: <1336287910-12010-1-git-send-email-amirv@mellanox.com> <4FA86EB8.2050006@intel.com> <4FA92606.6070401@mellanox.com> <4FAA0D2C.6040306@intel.com> <4FB15BEC.8040000@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kieran Mansley <kmansley@solarflare.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Oren Duer <oren@mellanox.com>,
+	Liran Liss <liranl@mellanox.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Diego Crupnicoff <Diego@Mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:37012 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965807Ab2EOQeG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 12:34:06 -0400
-Received: by bkcji2 with SMTP id ji2so4989747bkc.19
-        for <netdev@vger.kernel.org>; Tue, 15 May 2012 09:34:05 -0700 (PDT)
-In-Reply-To: <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
+Received: from mga09.intel.com ([134.134.136.24]:41156 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933073Ab2EOQoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2012 12:44:46 -0400
+In-Reply-To: <4FB15BEC.8040000@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-15 at 17:29 +0100, Kieran Mansley wrote:
-> On Tue, 2012-05-15 at 16:56 +0200, Eric Dumazet wrote:
-> > 
-> > Please try latest kernels, this is probably 'fixed'
+On 5/14/2012 12:24 PM, Amir Vadai wrote:
+>>>> On 5/6/2012 12:05 AM, Amir Vadai wrote:
+>>>>> This series comes to revive the discussion initiated on the thread "net:
+>>>>> support tx_ring per UP in HW based QoS mechanism" (see
+>>>>> http://marc.info/?t=133165957200004&r=1&w=2) with the major issue to be address
+>>>>> is - how should sk_prio<=>    TC be done, for both, tagged and untagged traffic.
+>>>>> Following is a staged description addressing the background, problem
+>>>>> description, current situation, suggestion for the change and implementation of
+>>>>> it.
+
+[...]
+
+> John Hi,
 > 
-> I've just tried with 3.4.0-rc7 and the problem is still reproducible.
-> It's perhaps harder to reproduce than on 3.3.6 but still there.
-> 
-> > What network driver are you using ? 
-> 
-> The receiver is using the sfc driver that is included in the kernel
-> build, together with an SFC 9020 NIC. 
-> 
-> Kieran
+> After some internal discussions, it was agreed to line up with your
+> approach, to leave mqprio an abstract skb->priority <=> queue set
+> mapping and to ignore egress_map if mqprio is enabled.
 > 
 
-MTU ?
+OK sounds good.
 
-What is typical skb->truesize of skb given to stack in RX path ?
+> It would be very nice, if the term 'tc' in kernel code would be
+> replaced to queue set, since it is very misleading.
+> 
 
-If drivers use PAGE_SIZE fragments, then you are more likely to hit
-limit.
+Go ahead and write up a patch. Just be careful not to break existing
+user visible API. I agree it is confusing.
+
+> There still might be some small issues with skb_tx_hash for tagged
+> traffic, which I will work on tomorrow, and hopefully will send a new
+> patch set with the solution.
+> 
+
+What are the issues? Lets see a patch.
+
+Thanks,
+John
