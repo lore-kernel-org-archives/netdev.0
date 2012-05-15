@@ -1,317 +1,94 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Strange latency spikes/TX network stalls on Sun Fire X4150(x86) and
- e1000e
-Date: Tue, 15 May 2012 17:15:15 +0300
-Message-ID: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+From: Kieran Mansley <kmansley@solarflare.com>
+Subject: TCPBacklogDrops during aggressive bursts of traffic
+Date: Tue, 15 May 2012 15:38:34 +0100
+Message-ID: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>,
-	<jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:34257 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752908Ab2EOOPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 10:15:31 -0400
+Received: from webmail.solarflare.com ([12.187.104.25]:32714 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932846Ab2EOOij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 10:38:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+I've been investigating an issue with TCPBacklogDrops being reported
+(and relatively poor performance as a result).  The problem is most
+easily observed on slightly older kernels (e.g 3.0.13) but is still
+present in 3.3.6, although harder to reproduce.  I've also seen it in
+2.6 series kernels, so it's not a recent issue.
 
-I have two identical servers, Sun Fire X4150, both has different 
-flavors of Linux, x86_64 and i386.
-04:00.0 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit 
-Ethernet Controller (Copper) (rev 01)
-04:00.1 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit 
-Ethernet Controller (Copper) (rev 01)
-0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
-Controller (rev 06)
-0b:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
-Controller (rev 06)
-I am using now interface:
-#ethtool -i eth0
-driver: e1000e
-version: 1.9.5-k
-firmware-version: 2.1-11
-bus-info: 0000:04:00.0
-There is 2 CPU , Intel(R) Xeon(R) CPU           E5440  @ 2.83GHz .
+The problem occurs at the receiver when a TCP sender with a large
+congestion window is sending at a high rate and the receiving
+application has blocked in a recv() or similar call.  During the stream
+ACKs are being returned to the sender keeping the receive window open
+and so allowing it to carry on sending.  The local socket receive buffer
+gets dynamically increased, and the advertised receive window increases
+similarly.
 
-i386 was acting as NAT and shaper, and as soon as i removed shaper from 
-it, i started to experience strange lockups, e.g. traffic is normal for 
-5-30 seconds, then short lockup for 500-3000ms (usually around 1000ms) 
-with dropped packets counter increasing. I was suspecting it is due 
-load, but it seems was wrong.
-Recently, on another server, x86_64 i am using as development, i 
-upgrade kernel (it was old, from 2.6 series) and on completely idle 
-machine started to experience same latency spikes, while i am just 
-running mc and for example typing in text editor - i notice "stalls". 
-After i investigate it a little more, i notice also small amount of 
-drops on interface. No tcpdump running. Also this machine is idle, and 
-the only traffic there - some small broadcasts from network, my ssh, and 
-ping.
+[As an aside, it appears as though the total bytes that the receiver
+commits to receiving - i.e. the point at which it stops advertising new
+sequence space - is around double the receive socket buffer.  I'm
+guessing it is committing to receiving the current socket buffer
+(perhaps as there is a pending recv() it knows it will be able to
+immediately empty this) and the next one, but I've not looked into this
+in detail]
 
-Dropped packets in ifconfig
-           RX packets:3752868 errors:0 dropped:5350 overruns:0 frame:0
-Counter is increasing sometimes, when this stall happening.
+As the socket buffer is approaching full the kernel decides to satisfy
+the recv() call and wake the application.  It will have to copy the data
+to application address space etc.  At this point there is a switch in
+tcp_v4_rcv():
 
-ethtool -S is clean, there is no dropped packets.
+http://lxr.linux.no/#linux+v3.3.6/net/ipv4/tcp_ipv4.c#L1726
 
-I did tried to check load (mpstat and perf), there is nothing 
-suspicious, latencytop also doesn't show anything suspicious.
-dropwatch report a lot of drops, but mostly because there is some 
-broadcasts and etc. tcpdump at the moment of such drops doesn't show 
-anything suspicious.
-Changed qdisc from default fifo_fast to bfifo, without any result.
-Tried:  ethtool -K eth0 tso off gso off gro off sg off , no result
-Problem occured at 3.3.6 - 3.4.0-rc7, most probably 3.3.0 also, but i 
-don't remember for sure. I thik on some kernels like 3.1 probably it 
-doesn't occur, i will check it soon, because it is not always reliable 
-to reproduce it. All tests i did on 3.4.0-rc7.
+Before this point, the "if (!sock_owned_by_user(sk)) " will evaluate to
+true, but once it has decided to wake the application I think it will
+evaluate to false and it will drop through to:
 
-I did run also in background tcpdump, additionally iptables with 
-timestamps, and at time when stall occured, seems i am still receiving 
-packets properly, also on iperf udp  (from some host to this SunFire) at 
-this moments no packets missing. But i am sure RX interface errors are 
-increasing.
-If i do iperf from SunFire to test host - there is packetloss at 
-moments when stall occured.
+1739        else if (unlikely(sk_add_backlog(sk, skb))) {
+1740                bh_unlock_sock(sk);
+1741                NET_INC_STATS_BH(net, LINUX_MIB_TCPBACKLOGDROP);
+1742                goto discard_and_relse;
+1743        }
 
-I suspect that by some reason network card stop to transmit, but unable 
-to pinpoint issue. All other hosts in this network are fine and don't 
-have such problems.
-Can you help me with that please? Maybe i can provide more debug 
-information, compile with patches and etc. Also i will try to fallback 
-to 3.1 and 3.0 kernels.
+In sk_add_backlog() there is a test to see if the socket's receive
+buffer is full, and if there is the kernel drops the packets, reporting
+them through netstat as TCPBacklogDrop.  This is despite there being
+potentially megabytes of unused advertised receive window space at this
+point.
 
-Here it is how it occurs and i am reproducing it:
-I'm just opening file, and start to scroll it in mc, then in another 
-console i run ping
-[1337089061.844167] 1480 bytes from 194.146.153.20: icmp_req=162 ttl=64 
-time=0.485 ms
-[1337089061.944138] 1480 bytes from 194.146.153.20: icmp_req=163 ttl=64 
-time=0.470 ms
-[1337089062.467759] 1480 bytes from 194.146.153.20: icmp_req=164 ttl=64 
-time=424 ms
-[1337089062.467899] 1480 bytes from 194.146.153.20: icmp_req=165 ttl=64 
-time=324 ms
-[1337089062.468058] 1480 bytes from 194.146.153.20: icmp_req=166 ttl=64 
-time=214 ms
-[1337089062.468161] 1480 bytes from 194.146.153.20: icmp_req=167 ttl=64 
-time=104 ms
-[1337089062.468958] 1480 bytes from 194.146.153.20: icmp_req=168 ttl=64 
-time=1.15 ms
-[1337089062.568604] 1480 bytes from 194.146.153.20: icmp_req=169 ttl=64 
-time=0.477 ms
-[1337089062.668909] 1480 bytes from 194.146.153.20: icmp_req=170 ttl=64 
-time=0.667 ms
+Very shortly afterwards the socket buffer will be empty again (as its
+contents will have been transferred to the user) so this is essentially
+a race and depends on a fast sender to demonstrate it.  It shows up as a
+acute period of drops that are quickly retransmitted and then
+accepted.  
 
-Remote host tcpdump:
-1337089061.934737 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 163, length 1480
-1337089062.458360 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 164, length 1480
-1337089062.458380 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 164, length 1480
-1337089062.458481 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 165, length 1480
-1337089062.458502 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 165, length 1480
-1337089062.458606 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 166, length 1480
-1337089062.458623 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 166, length 1480
-1337089062.458729 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 167, length 1480
-1337089062.458745 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 167, length 1480
-1337089062.459537 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 168, length 1480
-1337089062.459545 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 168, length 1480
+There are two ways of thinking about this problem: either the receiver
+should be more conservative about the receive window it advertises
+(limiting it to the available receive socket buffer size); or the
+receiver should be more generous with what it will accept on to the
+backlog (matching it to the advertised receive window).  It is the
+discrepancy between advertised receive window and what can be put on the
+backlog that is the root of the problem.  I would be tempted by the
+latter and say that as the backlog is likely to soon make it into the
+receive buffer, it should be allowed to contain a full receive buffer of
+bytes on top of what is currently being removed from the receive buffer
+into the application.
 
-Local host(SunFire) tcpdump:
-1337089061.844140 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 162, length 1480
-1337089061.943661 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 163, length 1480
-1337089061.944124 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 163, length 1480
-1337089062.465622 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 164, length 1480
-1337089062.465630 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 165, length 1480
-1337089062.465632 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 166, length 1480
-1337089062.465634 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 167, length 1480
-1337089062.467730 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 164, length 1480
-1337089062.467785 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 168, length 1480
-1337089062.467884 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 165, length 1480
-1337089062.468035 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 166, length 1480
-1337089062.468129 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 167, length 1480
-1337089062.468928 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 168, length 1480
-1337089062.568112 IP 194.146.153.22 > 194.146.153.20: ICMP echo 
-request, id 3486, seq 169, length 1480
-1337089062.568578 IP 194.146.153.20 > 194.146.153.22: ICMP echo reply, 
-id 3486, seq 169, length 1480
+It is harder to reproduce on recent kernels because the pending recv()
+call gets satisfied very close to the start of a burst, and at this time
+the receive buffer will be mostly empty and so it is less likely that
+any packets in flight will overflow the backlog.  On earlier kernels it
+is easier to reproduce because the pending recv() call didn't return
+until the socket's receive buffer was nearly full, and so it would only
+take a few extra packets to overflow the backlog.
 
-lspci -t
-centaur src # lspci -t
--[0000:00]-+-00.0
-            +-02.0-[01-05]--+-00.0-[02-04]--+-00.0-[03]--
-            |               |               \-02.0-[04]--+-00.0
-            |               |                            \-00.1
-            |               \-00.3-[05]--
-            +-03.0-[06]--
-            +-04.0-[07]----00.0
-            +-05.0-[08]--
-            +-06.0-[09]--
-            +-07.0-[0a]--
-            +-08.0
-            +-10.0
-            +-10.1
-            +-10.2
-            +-11.0
-            +-13.0
-            +-15.0
-            +-16.0
-            +-1c.0-[0b]--+-00.0
-            |            \-00.1
-            +-1d.0
-            +-1d.1
-            +-1d.2
-            +-1d.3
-            +-1d.7
-            +-1e.0-[0c]----05.0
-            +-1f.0
-            +-1f.1
-            +-1f.2
-            \-1f.3
-lspci
-00:00.0 Host bridge: Intel Corporation 5000P Chipset Memory Controller 
-Hub (rev b1)
-00:02.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express 
-x4 Port 2 (rev b1)
-00:03.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express 
-x4 Port 3 (rev b1)
-00:04.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express 
-x8 Port 4-5 (rev b1)
-00:05.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express 
-x4 Port 5 (rev b1)
-00:06.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express 
-x8 Port 6-7 (rev b1)
-00:07.0 PCI bridge: Intel Corporation 5000 Series Chipset PCI Express 
-x4 Port 7 (rev b1)
-00:08.0 System peripheral: Intel Corporation 5000 Series Chipset DMA 
-Engine (rev b1)
-00:10.0 Host bridge: Intel Corporation 5000 Series Chipset FSB 
-Registers (rev b1)
-00:10.1 Host bridge: Intel Corporation 5000 Series Chipset FSB 
-Registers (rev b1)
-00:10.2 Host bridge: Intel Corporation 5000 Series Chipset FSB 
-Registers (rev b1)
-00:11.0 Host bridge: Intel Corporation 5000 Series Chipset Reserved 
-Registers (rev b1)
-00:13.0 Host bridge: Intel Corporation 5000 Series Chipset Reserved 
-Registers (rev b1)
-00:15.0 Host bridge: Intel Corporation 5000 Series Chipset FBD 
-Registers (rev b1)
-00:16.0 Host bridge: Intel Corporation 5000 Series Chipset FBD 
-Registers (rev b1)
-00:1c.0 PCI bridge: Intel Corporation 631xESB/632xESB/3100 Chipset PCI 
-Express Root Port 1 (rev 09)
-00:1d.0 USB controller: Intel Corporation 631xESB/632xESB/3100 Chipset 
-UHCI USB Controller #1 (rev 09)
-00:1d.1 USB controller: Intel Corporation 631xESB/632xESB/3100 Chipset 
-UHCI USB Controller #2 (rev 09)
-00:1d.2 USB controller: Intel Corporation 631xESB/632xESB/3100 Chipset 
-UHCI USB Controller #3 (rev 09)
-00:1d.3 USB controller: Intel Corporation 631xESB/632xESB/3100 Chipset 
-UHCI USB Controller #4 (rev 09)
-00:1d.7 USB controller: Intel Corporation 631xESB/632xESB/3100 Chipset 
-EHCI USB2 Controller (rev 09)
-00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev d9)
-00:1f.0 ISA bridge: Intel Corporation 631xESB/632xESB/3100 Chipset LPC 
-Interface Controller (rev 09)
-00:1f.1 IDE interface: Intel Corporation 631xESB/632xESB IDE Controller 
-(rev 09)
-00:1f.2 SATA controller: Intel Corporation 631xESB/632xESB SATA AHCI 
-Controller (rev 09)
-00:1f.3 SMBus: Intel Corporation 631xESB/632xESB/3100 Chipset SMBus 
-Controller (rev 09)
-01:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express 
-Upstream Port (rev 01)
-01:00.3 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express to 
-PCI-X Bridge (rev 01)
-02:00.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express 
-Downstream Port E1 (rev 01)
-02:02.0 PCI bridge: Intel Corporation 6311ESB/6321ESB PCI Express 
-Downstream Port E3 (rev 01)
-04:00.0 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit 
-Ethernet Controller (Copper) (rev 01)
-04:00.1 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit 
-Ethernet Controller (Copper) (rev 01)
-07:00.0 RAID bus controller: Adaptec AAC-RAID (rev 09)
-0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
-Controller (rev 06)
-0b:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
-Controller (rev 06)
-0c:05.0 VGA compatible controller: ASPEED Technology, Inc. ASPEED 
-Graphics Family
+I have a packet capture to illustrate the problem (taken on 3.0.13) if
+that would be of help.  As I can easily reproduce it I'm also happy to
+make changes and test to see if they improve matters.
 
+Thanks
 
-dmesg:
-[    4.936885] e1000: Intel(R) PRO/1000 Network Driver - version 
-7.3.21-k8-NAPI
-[    4.936887] e1000: Copyright (c) 1999-2006 Intel Corporation.
-[    4.936966] e1000e: Intel(R) PRO/1000 Network Driver - 1.9.5-k
-[    4.936967] e1000e: Copyright(c) 1999 - 2012 Intel Corporation.
-[    4.938529] e1000e 0000:04:00.0: (unregistered net_device): 
-Interrupt Throttling Rate (ints/sec) set to dynamic conservative mode
-[    4.939598] e1000e 0000:04:00.0: irq 65 for MSI/MSI-X
-[    4.992246] e1000e 0000:04:00.0: eth0: (PCI Express:2.5GT/s:Width 
-x4) 00:1e:68:04:99:f8
-[    4.992657] e1000e 0000:04:00.0: eth0: Intel(R) PRO/1000 Network 
-Connection
-[    4.992964] e1000e 0000:04:00.0: eth0: MAC: 5, PHY: 5, PBA No: 
-FFFFFF-0FF
-[    4.994745] e1000e 0000:04:00.1: (unregistered net_device): 
-Interrupt Throttling Rate (ints/sec) set to dynamic conservative mode
-[    4.996233] e1000e 0000:04:00.1: irq 66 for MSI/MSI-X
-[    5.050901] e1000e 0000:04:00.1: eth1: (PCI Express:2.5GT/s:Width 
-x4) 00:1e:68:04:99:f9
-[    5.051317] e1000e 0000:04:00.1: eth1: Intel(R) PRO/1000 Network 
-Connection
-[    5.051623] e1000e 0000:04:00.1: eth1: MAC: 5, PHY: 5, PBA No: 
-FFFFFF-0FF
-[    5.051857] e1000e 0000:0b:00.0: Disabling ASPM  L1
-[    5.052168] e1000e 0000:0b:00.0: (unregistered net_device): 
-Interrupt Throttling Rate (ints/sec) set to dynamic conservative mode
-[    5.052611] e1000e 0000:0b:00.0: irq 67 for MSI/MSI-X
-[    5.223454] e1000e 0000:0b:00.0: eth2: (PCI Express:2.5GT/s:Width 
-x4) 00:1e:68:04:99:fa
-[    5.223864] e1000e 0000:0b:00.0: eth2: Intel(R) PRO/1000 Network 
-Connection
-[    5.224178] e1000e 0000:0b:00.0: eth2: MAC: 0, PHY: 4, PBA No: 
-C83246-002
-[    5.224412] e1000e 0000:0b:00.1: Disabling ASPM  L1
-[    5.224709] e1000e 0000:0b:00.1: (unregistered net_device): 
-Interrupt Throttling Rate (ints/sec) set to dynamic conservative mode
-[    5.225168] e1000e 0000:0b:00.1: irq 68 for MSI/MSI-X
-[    5.397603] e1000e 0000:0b:00.1: eth3: (PCI Express:2.5GT/s:Width 
-x4) 00:1e:68:04:99:fb
-[    5.398021] e1000e 0000:0b:00.1: eth3: Intel(R) PRO/1000 Network 
-Connection
-[    5.398336] e1000e 0000:0b:00.1: eth3: MAC: 0, PHY: 4, PBA No: 
-C83246-002
-[   13.859817] e1000e 0000:04:00.0: irq 65 for MSI/MSI-X
-[   13.962309] e1000e 0000:04:00.0: irq 65 for MSI/MSI-X
-[   17.150392] e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow 
-Control: None
+Kieran
