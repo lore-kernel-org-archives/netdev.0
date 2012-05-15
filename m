@@ -1,67 +1,90 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/4] netfilter: ipset: fix timeout value overflow bug
-Date: Tue, 15 May 2012 09:21:04 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F0C@saturn3.aculab.com>
-References: <1337006844.8512.491.camel@edumazet-glaptop>
+From: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
+Date: Tue, 15 May 2012 10:14:02 +0100
+Message-ID: <20120515091402.GG29102@suse.de>
+References: <1336658065-24851-2-git-send-email-mgorman@suse.de>
+ <20120511.011034.557833140906762226.davem@davemloft.net>
+ <20120514105604.GB29102@suse.de>
+ <20120514.162634.1094732813264319951.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netfilter-devel@vger.kernel.org>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>,
-	"Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Pablo Neira Ayuso" <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1337006844.8512.491.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	neilb-l3A5Bk7waGM@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
+	michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org, emunson-CVBTeua0HjReoWH0uzbU5w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120514.162634.1094732813264319951.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
- 
-
-> -----Original Message-----
-> From: Eric Dumazet [mailto:eric.dumazet@gmail.com] 
-> Sent: 14 May 2012 15:47
-> To: Pablo Neira Ayuso
-> Cc: David Laight; netfilter-devel@vger.kernel.org; 
-> davem@davemloft.net; netdev@vger.kernel.org; Jozsef Kadlecsik
-> Subject: Re: [PATCH 1/4] netfilter: ipset: fix timeout value 
-> overflow bug
+On Mon, May 14, 2012 at 04:26:34PM -0400, David Miller wrote:
+> From: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
+> Date: Mon, 14 May 2012 11:56:04 +0100
 > 
-> On Mon, 2012-05-14 at 16:36 +0200, Pablo Neira Ayuso wrote:
-> > On Mon, May 14, 2012 at 03:19:49PM +0100, David Laight wrote:
-> > >  
-> > > > --- a/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > > +++ b/include/linux/netfilter/ipset/ip_set_timeout.h
-> > > > @@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
-> > > >  {
-> > > >  	unsigned int timeout = ip_set_get_h32(tb);
-> > > >  
-> > > > +	/* Normalize to fit into jiffies */
-> > > > +	if (timeout > UINT_MAX/1000)
-> > > > +		timeout = UINT_MAX/1000;
-> > > > +
-> > > 
-> > > Doesn't that rather assume that HZ is 1000 ?
+> > On Fri, May 11, 2012 at 01:10:34AM -0400, David Miller wrote:
+> >> From: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
+> >> Date: Thu, 10 May 2012 14:54:14 +0100
+> >> 
+> >> > It could happen that all !SOCK_MEMALLOC sockets have buffered so
+> >> > much data that we're over the global rmem limit. This will prevent
+> >> > SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
+> >> > from running, which is needed to reduce the buffered data.
+> >> > 
+> >> > Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
+> >> > 
+> >> > Signed-off-by: Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>
+> >> > Signed-off-by: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
+> >> 
+> >> This introduces an invariant which I am not so sure is enforced.
+> >> 
+> >> With this change it is absolutely required that once a socket
+> >> becomes SOCK_MEMALLOC it must never _ever_ lose that attribute.
+> >> 
 > > 
-> > Indeed. I overlooked that. Thanks David.
+> > This is effectively true. In the NFS case, the flag is cleared on
+> > swapoff after all the entries have been paged in. In the NBD case,
+> > SOCK_MEMALLOC is left set until the socket is destroyed. I'll update the
+> > changelog.
 > 
-> I dont think so.
-> 
-> 1000 here is really MSEC_PER_SEC
+> Bugs happen, you need to find a way to assert that nobody every does
+> this.  Because if a bug is introduced which makes this happen, it will
+> otherwise be very difficult to debug.
 
-I was just reading the comment above - which seemed to imply
-the purpose of the code was to ensure the timeout wouldn't
-exceeded 2^32 jiffies.
+Ok, fair point. I looked at how we could ensure it could never happen but
+that would require failing sk_clear_memalloc() and it's less clear how
+that should be properly recovered from. Instead, it can be detected that
+there are rmem tokens allocations, warn about it and fix it up albeit it
+in a fairly heavy-handed fashion. How about this on top of the existing
+patch?
 
-I tend to use variable names for timeouts/timestamps that
-include the units - can make it more obvious when a divisor
-is absent - and makes it more obvious what the literal
-constants are converying beween.
-After all, the number of milliseconds in a second isn't
-subject to change :-)
-
-	David
-
-
+---8<---
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 22ff2ea..e3dea27 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -289,6 +289,18 @@ void sk_clear_memalloc(struct sock *sk)
+ 	sock_reset_flag(sk, SOCK_MEMALLOC);
+ 	sk->sk_allocation &= ~__GFP_MEMALLOC;
+ 	static_key_slow_dec(&memalloc_socks);
++
++	/*
++	 * SOCK_MEMALLOC is allowed to ignore rmem limits to ensure forward
++	 * progress of swapping. However, if SOCK_MEMALLOC is cleared while
++	 * it has rmem allocations there is a risk that the user of the
++	 * socket cannot make forward progress due to exceeding the rmem
++	 * limits. By rights, sk_clear_memalloc() should only be called
++	 * on sockets being torn down but warn and reset the accounting if
++	 * that assumption breaks.
++	 */
++	if (WARN_ON(sk->sk_forward_alloc))
++		sk_mem_reclaim(sk);
+ }
+ EXPORT_SYMBOL_GPL(sk_clear_memalloc);
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
