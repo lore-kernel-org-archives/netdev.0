@@ -1,38 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Tue, 15 May 2012 19:23:59 +0200
-Message-ID: <1337102639.8512.1117.camel@edumazet-glaptop>
-References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
-	 <1337093776.8512.1089.camel@edumazet-glaptop>
-	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
-	 <1337099641.8512.1102.camel@edumazet-glaptop>
-	 <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1337101280.8512.1108.camel@edumazet-glaptop>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [V2 PATCH 1/9] macvtap: zerocopy: fix offset calculation when
+ building skb
+Date: Tue, 15 May 2012 10:17:46 -0700
+Message-ID: <1337102266.8220.6.camel@oc3660625478.ibm.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <20120502034130.11782.25906.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kieran Mansley <kmansley@solarflare.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:47696 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966003Ab2EORYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 13:24:05 -0400
-Received: by bkcji2 with SMTP id ji2so5034899bkc.19
-        for <netdev@vger.kernel.org>; Tue, 15 May 2012 10:24:04 -0700 (PDT)
-In-Reply-To: <1337101280.8512.1108.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
+	davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120502034130.11782.25906.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-05-15 at 19:01 +0200, Eric Dumazet wrote:
-
+On Wed, 2012-05-02 at 11:41 +0800, Jason Wang wrote:
+> This patch fixes the offset calculation when building skb:
 > 
-> napi_get_frags() could probably updated in net-next to use the first
-> frag as skb->head to save 512 bytes per skb.
+> - offset1 were used as skb data offset not vector offset
+> - reset offset to zero only when we advance to next vector
 
-By the way GRO_MAX_HEAD definition is way too big, napi_get_frags()
-allocates fat skbs (1280 bytes of overhead instead of 768 bytes)
+I tested the original code in all scenario, it worked well.
 
-This should be enough :
+However this patch makes the code more clear.
 
-#define GRO_MAX_HEAD 128
+Thanks
+Shirley
