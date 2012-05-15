@@ -1,103 +1,113 @@
-From: Tomoya MORINAGA <tomoya.rohm@gmail.com>
-Subject: [PATCH 6/7] pch_gbe: Do not abort probe on bad MAC
-Date: Tue, 15 May 2012 11:11:30 +0900
-Message-ID: <1337047891-2973-6-git-send-email-tomoya.rohm@gmail.com>
-References: <1337047891-2973-1-git-send-email-tomoya.rohm@gmail.com>
-Cc: Tomoya MORINAGA <tomoya.rohm@gmail.com>,
-	Darren Hart <dvhart@linux.intel.com>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	Alan Cox <alan@linux.intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Joe Perches <joe@perches.com>
-To: stable@vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
+Date: Tue, 15 May 2012 11:44:26 +0800
+Message-ID: <4FB1D11A.4040206@cn.fujitsu.com>
+References: <20120215104021.GC31660@secunet.com> <1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com> <20120514130528.GA24733@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, lw@cn.fujitsu.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:63739 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932599Ab2EOBMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 21:12:05 -0400
-In-Reply-To: <1337047891-2973-1-git-send-email-tomoya.rohm@gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:37885 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1757772Ab2EODoB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 May 2012 23:44:01 -0400
+In-Reply-To: <20120514130528.GA24733@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the MAC is invalid or not implemented, do not abort the probe. Issue
-a warning and prevent bringing the interface up until a MAC is set manually
-(via ifconfig $IFACE hw ether $MAC).
+Hi steffen:
 
-Tested on two platforms, one with a valid MAC, the other without a MAC. The real
-MAC is used if present, the interface fails to come up until the MAC is set on
-the other. They successfully get an IP over DHCP and pass a simple ping and
-login over ssh test.
+=E4=BA=8E 2012=E5=B9=B405=E6=9C=8814=E6=97=A5 21:05, Steffen Klassert =E5=
+=86=99=E9=81=93:
+> On Mon, May 14, 2012 at 11:21:00AM +0800, Gao feng wrote:
+>> Since commit 299b0767(ipv6: Fix IPsec slowpath fragmentation problem=
+)
+>> the fragment of ipsec transport mode packets is incorrect.
+>> because tunnel mode needs IPsec headers and trailer for all fragment=
+s,
+>> while on transport mode it is sufficient to add the headers to the
+>> first fragment and the trailer to the last.
+>=20
+> I mentioned this in an other thread some time ago,
+> this is due to commit ad0081e43a
+> "ipv6: Fragment locally generated tunnel-mode IPSec6 packets as neede=
+d"
+> changed tunnel mode to do fragmentation before the transformation
+> while transport mode still does fragmentation after transformation.
+> Now, tunnel mode needs IPsec headers and trailer for all fragments,
+> while on transport mode it is sufficient to add the headers to the
+> first fragment and the trailer to the last.
+>=20
+>>
+>> so modify mtu and maxfraglen base on ipsec mode and if fragment is f=
+irst
+>> or last.
+>=20
+> There might be other opinions, but I don't like to see this IPsec mod=
+e
+> dependent stuff hacked into the generic ipv6 output path.
+>=20
+> Basically we have two cases. One where we have to add rt->dst.header_=
+len
+> to the first fragment and rt->dst.trailer_len to the last fragment,
+> and the other where we have to add both to all fragments. So perhaps =
+we
+> could isolate this code and create two functions, one for each case.
+>=20
 
-This is meant to allow the Inforce SYS940X development board:
-http://www.inforcecomputing.com/SYS940X_ECX.html
-(and others suffering from a missing MAC) to work with the mainline kernel.
-Without this patch, the probe will fail and the interface will not be created,
-preventing the user from configuring the MAC manually.
+how about add a function pointer append_data to the struct rt6_info?
+so we can just call rt->append_data in ip6_append_data without conside
+witch mode it is.
 
-This does not make any attempt to address a missing or invalid MAC for the
-pch_phub driver.
+of course, we will set rt->append_data appropriatly in xfrm_lookup.
 
-commit 2b53d07891630dead46d65c8f896955fd3ae0302
-Kernel 3.0
+But the only problem is this will bloats up rt6_info,I don't konw if
+it's worth doing it in this way.
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Darren Hart <dvhart@linux.intel.com>
-CC: Arjan van de Ven <arjan@linux.intel.com>
-CC: Alan Cox <alan@linux.intel.com>
-CC: Tomoya MORINAGA <tomoya.rohm@gmail.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Paul Gortmaker <paul.gortmaker@windriver.com>
-CC: Jon Mason <jdmason@kudzu.us>
-CC: netdev@vger.kernel.org
-CC: Mark Brown <broonie@opensource.wolfsonmicro.com>
-CC: David Laight <David.Laight@ACULAB.COM>
-CC: Joe Perches <joe@perches.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Tomoya MORINAGA <tomoya.rohm@gmail.com>
----
- drivers/net/pch_gbe/pch_gbe_main.c |   17 ++++++++++++++---
- 1 files changed, 14 insertions(+), 3 deletions(-)
+>=20
+>>
+>> with my test,it work well and does not trigger slow fragment path.
+>>
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>> ---
+>>  net/ipv6/ip6_output.c |   80 +++++++++++++++++++++++++++++++++++++-=
+----------
+>>  1 files changed, 61 insertions(+), 19 deletions(-)
+>>
+>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+>> index b7ca461..9416887 100644
+>> --- a/net/ipv6/ip6_output.c
+>> +++ b/net/ipv6/ip6_output.c
+>> @@ -1191,19 +1191,23 @@ int ip6_append_data(struct sock *sk, int get=
+frag(void *from, char *to,
+>>  	struct ipv6_pinfo *np =3D inet6_sk(sk);
+>>  	struct inet_cork *cork;
+>>  	struct sk_buff *skb;
+>> -	unsigned int maxfraglen, fragheaderlen;
+>> +	unsigned int maxfraglen, maxfraglen_prev, fragheaderlen;
+>>  	int exthdrlen;
+>>  	int dst_exthdrlen;
+>>  	int hh_len;
+>> -	int mtu;
+>> +	int mtu, mtu_prev;
+>>  	int copy;
+>>  	int err;
+>>  	int offset =3D 0;
+>>  	int csummode =3D CHECKSUM_NONE;
+>>  	__u8 tx_flags =3D 0;
+>> -
+>> +	bool transport_mode =3D false;
+>> +	struct xfrm_state *x =3D rt->dst.xfrm;
+>>  	if (flags&MSG_PROBE)
+>>  		return 0;
+>> +	if (x && x->props.mode =3D=3D XFRM_MODE_TRANSPORT)
+>> +		transport_mode =3D true;
+>> +
+>=20
+> Btw. beet mode should behave like transport mode here, just tunnel
+> mode was changed to do fragmentation before the transformation.
+>=20
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
-index b8b4ba2..d506e28 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -1745,6 +1745,12 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
- 	struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
- 	int err;
- 
-+	/* Ensure we have a valid MAC */
-+	if (!is_valid_ether_addr(adapter->hw.mac.addr)) {
-+		pr_err("Error: Invalid MAC address\n");
-+		return -EINVAL;
-+	}
-+
- 	/* hardware has been reset, we need to reload some things */
- 	pch_gbe_set_multi(netdev);
- 
-@@ -2467,9 +2473,14 @@ static int pch_gbe_probe(struct pci_dev *pdev,
- 
- 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
- 	if (!is_valid_ether_addr(netdev->dev_addr)) {
--		dev_err(&pdev->dev, "Invalid MAC Address\n");
--		ret = -EIO;
--		goto err_free_adapter;
-+		/*
-+		 * If the MAC is invalid (or just missing), display a warning
-+		 * but do not abort setting up the device. pch_gbe_up will
-+		 * prevent the interface from being brought up until a valid MAC
-+		 * is set.
-+		 */
-+		dev_err(&pdev->dev, "Invalid MAC address, "
-+		                    "interface disabled.\n");
- 	}
- 	setup_timer(&adapter->watchdog_timer, pch_gbe_watchdog,
- 		    (unsigned long)adapter);
--- 
-1.7.7.6
+thanks steffen,I miss it and CONFIG_XFRM...
