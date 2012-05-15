@@ -1,50 +1,55 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [PATCH] xfrm: make xfrm_algo.c a module
-Date: Tue, 15 May 2012 12:28:48 +0100
-Message-ID: <4FB25A100200007800083C70@nat28.tlf.novell.com>
-References: <4FAA3EAF02000078000826E4@nat28.tlf.novell.com>
- <20120514.183721.1989442389245940694.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH NEXT 1/2] linux/ethtool: Added macro ETH_FW_DUMP_DISABLE
+Date: Tue, 15 May 2012 07:13:38 -0400
+Message-ID: <1337080419-31786-2-git-send-email-manish.chopra@qlogic.com>
+References: <1337080419-31786-1-git-send-email-manish.chopra@qlogic.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Dept_NX_Linux_NIC_Driver@qlogic.com,
+	anirban.chakraborty@qlogic.com,
+	Manish chopra <manish.chopra@qlogic.com>
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat28.tlf.novell.com ([130.57.49.28]:56462 "EHLO
-	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757153Ab2EOL2U convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:2:2>);
-	Tue, 15 May 2012 07:28:20 -0400
-In-Reply-To: <20120514.183721.1989442389245940694.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mvnat01.qlogic.com ([198.186.3.73]:53457 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1757825Ab2EOLh2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2012 07:37:28 -0400
+In-Reply-To: <1337080419-31786-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> On 15.05.12 at 00:37, David Miller <davem@davemloft.net> wrote:
-> From: "Jan Beulich" <JBeulich@suse.com>
-> Date: Wed, 09 May 2012 08:53:51 +0100
-> 
->> By making this a standalone config option (selected as needed),
->> selecting CRYPTO from here rather than from XFRM (which is boolean)
->> allows the core crypto code to become a module again even when XFRM=y.
->> 
->> Signed-off-by: Jan Beulich <jbeulich@suse.com>
->  ...
->> @@ -15,9 +15,6 @@
->>  #include <linux/crypto.h>
->>  #include <linux/scatterlist.h>
->>  #include <net/xfrm.h>
->> -#if defined(CONFIG_INET_AH) || defined(CONFIG_INET_AH_MODULE) || 
-> defined(CONFIG_INET6_AH) || defined(CONFIG_INET6_AH_MODULE)
->> -#include <net/ah.h>
->> -#endif
-> 
-> This is completely unrelated to the change you are trying to make in
-> this patch.
-> 
-> It belongs in a separate change.
+From: Manish chopra <manish.chopra@qlogic.com>
 
-I apologize for that, I meant to split this out and then forgot. I'll
-re-submit the two things separately.
+o flag field of ethtool_dump structure must be initialized by this macro
+value that is zero, if the firmware dump is disabled.
+by this we can get the firmware dump capability [enable/disable] via ethtool
 
-Jan
+Signed-off-by: Manish chopra <manish.chopra@qlogic.com>
+---
+ include/linux/ethtool.h |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 89d68d8..fea2ac0 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -661,12 +661,17 @@ struct ethtool_flash {
+  * 	%ETHTOOL_SET_DUMP
+  * @version: FW version of the dump, filled in by driver
+  * @flag: driver dependent flag for dump setting, filled in by driver during
+- * 	  get and filled in by ethtool for set operation
++ *        get and filled in by ethtool for set operation.
++ *        flag must be initialized by macro ETH_FW_DUMP_DISABLE value when
++ *        firmware dump is disabled.
+  * @len: length of dump data, used as the length of the user buffer on entry to
+  * 	 %ETHTOOL_GET_DUMP_DATA and this is returned as dump length by driver
+  * 	 for %ETHTOOL_GET_DUMP_FLAG command
+  * @data: data collected for get dump data operation
+  */
++
++#define ETH_FW_DUMP_DISABLE 0
++
+ struct ethtool_dump {
+ 	__u32	cmd;
+ 	__u32	version;
+-- 
+1.7.1
