@@ -1,65 +1,50 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Wed, 16 May 2012 14:13:42 -0700
-Message-ID: <20120516141342.911931e7.akpm@linux-foundation.org>
-References: <1336767077-25351-1-git-send-email-glommer@parallels.com>
-	<1336767077-25351-3-git-send-email-glommer@parallels.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv2-RFC 0/6] tun zerocopy support
+Date: Thu, 17 May 2012 00:15:49 +0300
+Message-ID: <cover.1337202879.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <cgroups@vger.kernel.org>, <linux-mm@kvack.org>, <devel@openvz.org>,
- <kamezawa.hiroyu@jp.fujitsu.com>, <netdev@vger.kernel.org>, Tejun Heo
- <tj@kernel.org>, Li Zefan <lizefan@huawei.com>, Johannes Weiner
- <hannes@cmpxchg.org>, Michal Hocko <mhocko@suse.cz>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1336767077-25351-3-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 May 2012 17:11:17 -0300
-Glauber Costa <glommer@parallels.com> wrote:
+So this still triggers some failures under stress
+but I thought it might be helpful to post here
+since people expressed interest.
 
-> We call the destroy function when a cgroup starts to be removed,
-> such as by a rmdir event.
-> 
-> However, because of our reference counters, some objects are still
-> inflight. Right now, we are decrementing the static_keys at destroy()
-> time, meaning that if we get rid of the last static_key reference,
-> some objects will still have charges, but the code to properly
-> uncharge them won't be run.
-> 
-> This becomes a problem specially if it is ever enabled again, because
-> now new charges will be added to the staled charges making keeping
-> it pretty much impossible.
-> 
-> We just need to be careful with the static branch activation:
-> since there is no particular preferred order of their activation,
-> we need to make sure that we only start using it after all
-> call sites are active. This is achieved by having a per-memcg
-> flag that is only updated after static_key_slow_inc() returns.
-> At this time, we are sure all sites are active.
-> 
-> This is made per-memcg, not global, for a reason:
-> it also has the effect of making socket accounting more
-> consistent. The first memcg to be limited will trigger static_key()
-> activation, therefore, accounting. But all the others will then be
-> accounted no matter what. After this patch, only limited memcgs
-> will have its sockets accounted.
+This uses some patches from Ian's patchset
+to support zerocopy with tun.
+We are still trying to figure out how to make
+everything work properly with tcp but tun seems
+easier, and it's helpful since not everyone can
+use macvtap.
 
-So I'm scratching my head over what the actual bug is, and how
-important it is.  AFAICT it will cause charging stats to exhibit some
-inaccuracy when memcg's are being torn down?
+There's some code duplication between tun and macvtap
+now: common code could move to net/core/datagram.c,
+this patch does not do this yet.
 
-I don't know how serious this in in the real world and so can't decide
-which kernel version(s) we should fix.
+-- 
+MST
 
-When fixing bugs, please always fully describe the bug's end-user
-impact, so that I and others can make these sorts of decisions.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Michael S. Tsirkin (6):
+  skbuff: add an api to orphan frags
+  skbuff: convert to skb_orphan_frags
+  skbuff: export skb_copy_ubufs
+  tun: orphan frags on xmit
+  net: orphan frags on receive
+  tun: experimental zero copy tx support
+
+ drivers/net/tun.c      |  134 ++++++++++++++++++++++++++++++++++++++++++++++--
+ include/linux/skbuff.h |   16 ++++++
+ net/core/dev.c         |    2 +
+ net/core/skbuff.c      |   24 +++-----
+ 4 files changed, 156 insertions(+), 20 deletions(-)
+
+-- 
+MST
