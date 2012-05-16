@@ -1,11 +1,10 @@
 From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [V2 PATCH 2/9] macvtap: zerocopy: fix truesize underestimation
-Date: Wed, 16 May 2012 08:03:05 -0700
-Message-ID: <1337180585.10741.6.camel@oc3660625478.ibm.com>
+Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
+Date: Wed, 16 May 2012 08:10:27 -0700
+Message-ID: <1337181027.10741.13.camel@oc3660625478.ibm.com>
 References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <20120502034144.11782.88947.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <1337102809.8220.10.camel@oc3660625478.ibm.com>
-	 <4FB3192E.4030803@redhat.com>
+	 <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <1337100630.8220.4.camel@oc3660625478.ibm.com>  <4FB317C8.90002@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,50 +12,43 @@ Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
 	davem@davemloft.net
 To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:50678 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220Ab2EPPES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 11:04:18 -0400
-Received: from /spool/local
-	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <mashirle@us.ibm.com>;
-	Wed, 16 May 2012 09:04:17 -0600
-In-Reply-To: <4FB3192E.4030803@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FB317C8.90002@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-05-16 at 11:04 +0800, Jason Wang wrote:
-> >> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> >> index bd4a70d..7cb2684 100644
-> >> --- a/drivers/net/macvtap.c
-> >> +++ b/drivers/net/macvtap.c
-> >> @@ -519,6 +519,7 @@ static int zerocopy_sg_from_iovec(struct
-> sk_buff
-> >> *skb, const struct iovec *from,
-> >>                  struct page *page[MAX_SKB_FRAGS];
-> >>                  int num_pages;
-> >>                  unsigned long base;
-> >> +               unsigned long truesize;
+On Wed, 2012-05-16 at 10:58 +0800, Jason Wang wrote:
+> >>   drivers/vhost/vhost.c |    1 +
+> >>   1 files changed, 1 insertions(+), 0 deletions(-)
 > >>
-> >>                  len = from->iov_len - offset;
-> >>                  if (!len) {
-> >> @@ -533,10 +534,11 @@ static int zerocopy_sg_from_iovec(struct
-> sk_buff
-> >> *skb, const struct iovec *from,
-> >>                      (num_pages>  MAX_SKB_FRAGS -
-> >> skb_shinfo(skb)->nr_frags))
-> >>                          /* put_page is in skb free */
-> >>                          return -EFAULT;
-> >> +               truesize = size * PAGE_SIZE;
-> > Here should be truesize = size * PAGE_SIZE - offset, right?
-> >
+> >> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> >> index 947f00d..7b75fdf 100644
+> >> --- a/drivers/vhost/vhost.c
+> >> +++ b/drivers/vhost/vhost.c
+> >> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
+> >>          struct vhost_ubuf_ref *ubufs = ubuf->arg;
+> >>          struct vhost_virtqueue *vq = ubufs->vq;
+> >>
+> >> +       vhost_poll_queue(&vq->poll);
+> >>          /* set len = 1 to mark this desc buffers done DMA */
+> >>          vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
+> >>          kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
+> > Doing so, we might have redundant vhost_poll_queue(). Do you know in
+> > which scenario there might be missing of adding and signaling during
+> > zerocopy?
 > 
-> We get the whole user page, so need to account them all. Also this is 
-> aligned with skb_copy_ubufs(). 
+> Yes, as we only do signaling and adding during tx work, if there's no
+> tx 
+> work when the skb were sent, we may lose the opportunity to let guest 
+> know about the completion. It's easy to be reproduced with netperf
+> test. 
 
-Then this would double count the size of "first" offset left from
-previous copy, both skb->len and truesize.
+The reason which host signals guest is to free guest tx buffers, if
+there is no tx work, then it's not necessary to signal the guest unless
+guest runs out of memory. The pending buffers will be released
+virtio_net device gone.
+
+What's the behavior of netperf test when you hit this situation?
 
 Thanks
 Shirley
