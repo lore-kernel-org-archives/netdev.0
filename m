@@ -1,45 +1,41 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V2] CS89x0 : Use ioread16/iowrite16 on all platforms
-Date: Tue, 15 May 2012 16:08:34 -0700
-Message-ID: <1337123314.7050.26.camel@joe2Laptop>
-References: <1337112906-31033-1-git-send-email-jaccon.bastiaansen@gmail.com>
-	 <20120515223711.GA12674@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>, arnd@arndb.de,
-	s.hauer@pengutronix.de, gfm@funxed.com, davem@davemloft.net,
-	festevam@gmail.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:35922 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S966714Ab2EOXIg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 May 2012 19:08:36 -0400
-In-Reply-To: <20120515223711.GA12674@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH net-next 0/2] net/ipv4 and net/ipv6 logging cleanups
+Date: Tue, 15 May 2012 17:11:52 -0700
+Message-ID: <cover.1337126962.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-05-16 at 00:37 +0200, Francois Romieu wrote:
-> Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com> :
-> [...]
-> > diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-> > index b9406cb..8081ad5 100644
-> > --- a/drivers/net/ethernet/cirrus/cs89x0.c
-> > +++ b/drivers/net/ethernet/cirrus/cs89x0.c
-> [...]
-> > -static int cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular);
-> > +static int cs89x0_probe1(struct net_device *dev,
-> > +			 void __iomem *ioaddr,
-> > +			 int modular);
-> > +static int cs89x0_probe1(struct net_device *dev, void __iomem *ioaddr,
-> > +			 int modular);
-> 
-> s/int/bool/ maybe.
-> 
-> You may skip the name of the parameters.
+Joe Perches (2):
+  net: ipv6: Standardize prefixes for message logging
+  net: ipv4 and ipv6: Convert printk(KERN_DEBUG to pr_debug
 
-Better would be to not duplicate the prototype
-and better still would be to reorder the code to
-avoid the prototype altogether.
+ net/ipv4/ah4.c                |    4 +-
+ net/ipv4/arp.c                |    9 +++--
+ net/ipv4/devinet.c            |    5 +--
+ net/ipv4/inet_timewait_sock.c |    4 +-
+ net/ipv4/route.c              |    9 ++---
+ net/ipv4/tcp_input.c          |   48 ++++++++++++++--------------
+ net/ipv4/tcp_output.c         |    4 ++-
+ net/ipv6/addrconf.c           |   68 ++++++++++++++++++-----------------------
+ net/ipv6/addrlabel.c          |    2 +-
+ net/ipv6/af_inet6.c           |   14 +++-----
+ net/ipv6/ah6.c                |   16 +++++----
+ net/ipv6/esp6.c               |   14 +++++---
+ net/ipv6/icmp.c               |    8 ++--
+ net/ipv6/ip6_fib.c            |   25 ++++++++-------
+ net/ipv6/ip6_tunnel.c         |   23 ++++++-------
+ net/ipv6/ip6mr.c              |    2 +-
+ net/ipv6/ipcomp6.c            |   15 +++++---
+ net/ipv6/mcast.c              |    3 +-
+ net/ipv6/mip6.c               |   30 +++++++++---------
+ net/ipv6/ndisc.c              |   22 +++++--------
+ net/ipv6/route.c              |    8 +++--
+ net/ipv6/sit.c                |    6 ++-
+ net/ipv6/tunnel6.c            |   10 +++--
+ 23 files changed, 173 insertions(+), 176 deletions(-)
+
+-- 
+1.7.8.111.gad25c.dirty
