@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 0/8] batch of mlx4 driver fixes
-Date: Wed, 16 May 2012 00:57:18 -0400 (EDT)
-Message-ID: <20120516.005718.951123394208745597.davem@davemloft.net>
-References: <1337114104-26094-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH] netdev/phy: Make get_phy_id() static and quit
+ EXPORTing it.
+Date: Wed, 16 May 2012 00:59:57 -0400 (EDT)
+Message-ID: <20120516.005957.867101981297584239.davem@davemloft.net>
+References: <1337114812-3912-1-git-send-email-ddaney.cavm@gmail.com>
+	<20120515213208.GD17760@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roland@kernel.org, netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	jackm@dev.mellanox.co.il
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45301 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752656Ab2EPE5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 00:57:31 -0400
-In-Reply-To: <1337114104-26094-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ddaney.cavm@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, david.daney@cavium.com
+To: paul.gortmaker@windriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120515213208.GD17760@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 15 May 2012 23:34:56 +0300
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Tue, 15 May 2012 17:32:08 -0400
 
-> This is a batch of relatively small fixes for the mlx4_core driver, except for 
-> one cleanup patch from myself, all the patches are from Jack Morgenstein, who 
-> leads our SRIOV development efforts and do relate to the SRIOV functionality.
-> With Yevgeny being mostly out this week and as both of us run the internal 
-> reviews for upstream patches, he delegated this submission to be carried 
-> out by me, hope this is fine by you.
+> [[PATCH] netdev/phy: Make get_phy_id() static and quit EXPORTing it.] On 15/05/2012 (Tue 13:46) David Daney wrote:
+> 
+>> From: David Daney <david.daney@cavium.com>
+>> 
+>> This function is only referenced from within phy_device.c, so there is
+>> no reason to export it.  In fact, we can make it static.
+> 
+> I did a bit of data mining to remind myself why it was exported.  Back
+> in a01b3d766c (v2.6.26) gianfar_mii was using it.  That then got merged
+> into fsl_pq_mdio.c and gianfar_mii was deleted.  Then finally in commit
+> 28d8ea2d568 (v3.2) the one instance of code that was using it got
+> removed.  So, I think this should be OK (but for net-next, though).
+> 
+> Acked-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Series applied, thanks.
+Applied.
