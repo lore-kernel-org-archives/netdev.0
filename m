@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/8] mISDN: Fixes and enhancements for the data
- channels
-Date: Wed, 16 May 2012 15:28:17 -0400 (EDT)
-Message-ID: <20120516.152817.1929889255651072708.davem@davemloft.net>
-References: <1337161868-19399-1-git-send-email-kkeil@linux-pingi.de>
+Subject: Re: [PATCH net-next] net: sock_flag() cleanup
+Date: Wed, 16 May 2012 15:30:45 -0400 (EDT)
+Message-ID: <20120516.153045.1736149384308994898.davem@davemloft.net>
+References: <1337183827.8512.1215.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: kkeil@linux-pingi.de
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52649 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:52675 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932210Ab2EPT2X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 15:28:23 -0400
-In-Reply-To: <1337161868-19399-1-git-send-email-kkeil@linux-pingi.de>
+	with ESMTP id S1755770Ab2EPTas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 15:30:48 -0400
+In-Reply-To: <1337183827.8512.1215.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <kkeil@linux-pingi.de>
-Date: Wed, 16 May 2012 11:51:00 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 16 May 2012 17:57:07 +0200
 
-> v2: All fixes from Dave Millers review
->    - comment format
->    - use bool type for boolean parameter
->    - use (var == CONSTANT)
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This series improve the stability of streaming raw voice data when the
-> system is under high load. With the fixes in place you can send and
-> receive multiple faximilies (using SPANDSP) in parallel
-> while compiling a kernel without a getting a transfer aborted.
+> - sock_flag() accepts a const pointer
 > 
-> for net-next
+> - sock_flag() returns a boolean
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-All applied to net-next.
+Applied.
