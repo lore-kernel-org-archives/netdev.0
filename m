@@ -1,24 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [trivial] isdn: Fix typo in hfcmulti.c
-Date: Wed, 16 May 2012 01:14:41 -0400 (EDT)
-Message-ID: <20120516.011441.481985388132376603.davem@davemloft.net>
-References: <1337108799-14899-1-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH 3/8] mISDN: avmfritz use the bigger fifo of chip
+ version 2
+Date: Wed, 16 May 2012 01:16:15 -0400 (EDT)
+Message-ID: <20120516.011615.2055798345695085276.davem@davemloft.net>
+References: <1337142174-8304-1-git-send-email-kkeil@linux-pingi.de>
+	<1337142174-8304-4-git-send-email-kkeil@linux-pingi.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-To: standby24x7@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337108799-14899-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: kkeil@linux-pingi.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45463 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965132Ab2EPFQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 01:16:19 -0400
+In-Reply-To: <1337142174-8304-4-git-send-email-kkeil@linux-pingi.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Wed, 16 May 2012 04:06:39 +0900
+From: Karsten Keil <kkeil@linux-pingi.de>
+Date: Wed, 16 May 2012 06:22:49 +0200
 
-> Correcting spelling "extenal" to "external" in hfcmulti.c
-> 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+> +	mode = (AVM_FRITZ_PCIV2 == fc->type) ? HDLC_FIFO_SIZE_128 : 0;
 
-Applied, thanks.
+Please don't do this "CONSTANT == variable" type testing order, it's
+completely unnatural and not something we commonly do elsewhere in the
+networking code.
+
+I know some coders bible somewhere says that this is how you avoid
+accidental assignments, but it's too ugly to live.
