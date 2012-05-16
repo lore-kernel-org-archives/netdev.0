@@ -1,54 +1,59 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: [PATCH v3 6/6] net: sh_eth: use NAPI
-Date: Wed, 16 May 2012 11:24:59 +0900
-Message-ID: <4FB30FFB.6090708@renesas.com>
-References: <4FB1DFF0.4040709@renesas.com>
- <20120515.010753.2012331320750491448.davem@davemloft.net>
- <4FB225F1.20407@renesas.com>
- <20120515.130552.119728053706080493.davem@davemloft.net>
- <20120515182919.GA7157@electric-eye.fr.zoreil.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
+Date: Wed, 16 May 2012 10:58:16 +0800
+Message-ID: <4FB317C8.90002@redhat.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com> <1337100630.8220.4.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-reply-to: <20120515182919.GA7157@electric-eye.fr.zoreil.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
+	davem@davemloft.net
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35433 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753062Ab2EPC61 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2012 22:58:27 -0400
+In-Reply-To: <1337100630.8220.4.camel@oc3660625478.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2012/05/16 3:29, Francois Romieu wrote:
-> David Miller <davem@davemloft.net> :
->> From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-> [...]
->>> I will modify the code as the following. Is it correct?
->>>
->>> 	if (txfree_num) {
->>> 		netif_tx_lock(ndev);
->>> 		if (netif_queue_stopped(ndev))
->>> 			netif_wake_queue(ndev);
->>> 		netif_tx_unlock(ndev);
->>> 	}
+On 05/16/2012 12:50 AM, Shirley Ma wrote:
+> On Wed, 2012-05-02 at 11:42 +0800, Jason Wang wrote:
+>> We add used and signal guest in worker thread but did not poll the
+>> virtqueue
+>> during the zero copy callback. This may lead the missing of adding and
+>> signalling during zerocopy. Solve this by polling the virtqueue and
+>> let it
+>> wakeup the worker during callback.
 >>
->> Yes, and then you don't need that private lock in the start_xmit()
->> method at all, since that method runs with the tx_lock held.
-> 
-> I agree that the lock should go but:
-> 1. something must be done to prevent sh_eth_txfree() being called
->    at the same time from the xmit and poll handlers
-> 2. while netif_tx locking above provides an implicit memory barrier,
->    there won't be one in sh_eth_start_xmit once the lock is removed.
->    mdp->dirty_tx changes may thus go unnoticed in sh_eth_start_xmit
-> 
+>> Signed-off-by: Jason Wang<jasowang@redhat.com>
+>> ---
+>>   drivers/vhost/vhost.c |    1 +
+>>   1 files changed, 1 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>> index 947f00d..7b75fdf 100644
+>> --- a/drivers/vhost/vhost.c
+>> +++ b/drivers/vhost/vhost.c
+>> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
+>>          struct vhost_ubuf_ref *ubufs = ubuf->arg;
+>>          struct vhost_virtqueue *vq = ubufs->vq;
+>>
+>> +       vhost_poll_queue(&vq->poll);
+>>          /* set len = 1 to mark this desc buffers done DMA */
+>>          vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
+>>          kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
+> Doing so, we might have redundant vhost_poll_queue(). Do you know in
+> which scenario there might be missing of adding and signaling during
+> zerocopy?
 
-Thank you for the review.
+Yes, as we only do signaling and adding during tx work, if there's no tx 
+work when the skb were sent, we may lose the opportunity to let guest 
+know about the completion. It's easy to be reproduced with netperf test.
 
-I checked tg3.c, and I found a patch to fix the race condition:
-commit ID 1b2a72050 : [TG3]: Fix tx race condition
-
-I will check the patch, and I will write such a patch for the sh_eth
-driver later.
-
-Best regards,
-Yoshihiro Shimoda
+Thanks
+> Thanks
+> Shirley
+>
