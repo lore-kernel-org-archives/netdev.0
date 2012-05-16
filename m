@@ -1,58 +1,32 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH V2] CS89x0 : Use ioread16/iowrite16 on all platforms
-Date: Wed, 16 May 2012 07:20:42 +0000
-Message-ID: <201205160720.42995.arnd@arndb.de>
-References: <1337112906-31033-1-git-send-email-jaccon.bastiaansen@gmail.com> <20120515223711.GA12674@electric-eye.fr.zoreil.com> <1337123314.7050.26.camel@joe2Laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>,
-	s.hauer@pengutronix.de, gfm@funxed.com, davem@davemloft.net,
-	festevam@gmail.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH net-next v2 0/2] 6lowpan: code updates
+Date: Wed, 16 May 2012 11:27:26 +0400
+Message-ID: <1337153248-5779-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:60434 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759223Ab2EPHU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 03:20:56 -0400
-In-Reply-To: <1337123314.7050.26.camel@joe2Laptop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:59306 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759381Ab2EPH2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 03:28:20 -0400
+Received: by weyu7 with SMTP id u7so241520wey.19
+        for <netdev@vger.kernel.org>; Wed, 16 May 2012 00:28:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 15 May 2012, Joe Perches wrote:
-> On Wed, 2012-05-16 at 00:37 +0200, Francois Romieu wrote:
-> > Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com> :
-> > [...]
-> > > diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-> > > index b9406cb..8081ad5 100644
-> > > --- a/drivers/net/ethernet/cirrus/cs89x0.c
-> > > +++ b/drivers/net/ethernet/cirrus/cs89x0.c
-> > [...]
-> > > -static int cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular);
-> > > +static int cs89x0_probe1(struct net_device *dev,
-> > > +                    void __iomem *ioaddr,
-> > > +                    int modular);
-> > > +static int cs89x0_probe1(struct net_device *dev, void __iomem *ioaddr,
-> > > +                    int modular);
-> > 
-> > s/int/bool/ maybe.
-> > 
-> > You may skip the name of the parameters.
-> 
-> Better would be to not duplicate the prototype
-> and better still would be to reorder the code to
-> avoid the prototype altogether.
+Hi David,
 
-I agree that would be best, but let's do one thing at a time. This prototype
-is the first of 16 in a row in that driver. It would be good to remove all
-of them, but that change is totally unrelated to the much more important
-one that Jaccon is doing here.
+I've resent patches with net-next tag.
 
-I'd say leave the prototype as it is for now, just change the type of the ioaddr
-argument in this patch. Patches to fix the numerous other style issues with this
-driver are of course welcome as well.
+Thanks,
+Alex
 
-	Arnd
+Alexander Smirnov (2):
+  6lowpan: rework data fetching from skb
+  6lowpan: fix hop limit compression
+
+ net/ieee802154/6lowpan.c |   76 ++++++++++++++++++++++++++-------------------
+ 1 files changed, 44 insertions(+), 32 deletions(-)
+
+--
+1.7.2.3
