@@ -1,48 +1,107 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/3] net: mac80211: Neaten debugging
-Date: Wed, 16 May 2012 17:56:41 +0200
-Message-ID: <1337183801.18519.7.camel@jlt3.sipsolutions.net>
-References: <1337106548.15553.8.camel@jlt3.sipsolutions.net>
-	 <cover.1337116578.git.joe@perches.com>
-	 <20120516.012319.1903390658912592000.davem@davemloft.net>
-	 <1337155171.4367.2.camel@jlt3.sipsolutions.net>
-	 <1337181771.4818.0.camel@joe2Laptop>
-	 <1337182220.18519.5.camel@jlt3.sipsolutions.net>
-	 <1337183004.4818.2.camel@joe2Laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: sock_flag() cleanup
+Date: Wed, 16 May 2012 17:57:07 +0200
+Message-ID: <1337183827.8512.1215.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337183004.4818.2.camel@joe2Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:45581 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756001Ab2EPP5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 11:57:12 -0400
+Received: by bkcji2 with SMTP id ji2so765477bkc.19
+        for <netdev@vger.kernel.org>; Wed, 16 May 2012 08:57:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-16 at 08:43 -0700, Joe Perches wrote:
-> On Wed, 2012-05-16 at 17:30 +0200, Johannes Berg wrote:
-> > On Wed, 2012-05-16 at 08:22 -0700, Joe Perches wrote:
-> > > On Wed, 2012-05-16 at 09:59 +0200, Johannes Berg wrote:
-> > > > I wonder if it makes sense to leave these under
-> > > > #ifdef though? Why #ifdef something if it's going to be invisible most
-> > > > of the time anyway?
-> > > 
-> > > I don't understand your point.
-> > > #ifdef removal is a good thing.
-> > 
-> > Yeah, but you left a lot of them under ifdef, and I'm wondering why you
-> > didn't remove them, or if you should, or ...
-> 
-> Those mostly use other different
-> #ifdef CONFIG_SOME_OTHER_CONTROL elements.
-> 
-> There are I think 3 that I left because they do
-> not use printk/pr_level but use wiphy_<level> or
-> netdev_<level>.
+From: Eric Dumazet <edumazet@google.com>
 
-Hmm, ok. I guess I need to just look at them and decide what should be
-what. Thanks for the preparation work though :)
+- sock_flag() accepts a const pointer
 
-johannes
+- sock_flag() returns a boolean
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/sock.h |    2 +-
+ net/core/sock.c    |   14 +++++++-------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index e613704..036f506 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -650,7 +650,7 @@ static inline void sock_reset_flag(struct sock *sk, enum sock_flags flag)
+ 	__clear_bit(flag, &sk->sk_flags);
+ }
+ 
+-static inline int sock_flag(struct sock *sk, enum sock_flags flag)
++static inline bool sock_flag(const struct sock *sk, enum sock_flags flag)
+ {
+ 	return test_bit(flag, &sk->sk_flags);
+ }
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 26ed27f..9d144ee 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -849,7 +849,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 
+ 	case SO_BROADCAST:
+-		v.val = !!sock_flag(sk, SOCK_BROADCAST);
++		v.val = sock_flag(sk, SOCK_BROADCAST);
+ 		break;
+ 
+ 	case SO_SNDBUF:
+@@ -865,7 +865,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 
+ 	case SO_KEEPALIVE:
+-		v.val = !!sock_flag(sk, SOCK_KEEPOPEN);
++		v.val = sock_flag(sk, SOCK_KEEPOPEN);
+ 		break;
+ 
+ 	case SO_TYPE:
+@@ -887,7 +887,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 
+ 	case SO_OOBINLINE:
+-		v.val = !!sock_flag(sk, SOCK_URGINLINE);
++		v.val = sock_flag(sk, SOCK_URGINLINE);
+ 		break;
+ 
+ 	case SO_NO_CHECK:
+@@ -900,7 +900,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 	case SO_LINGER:
+ 		lv		= sizeof(v.ling);
+-		v.ling.l_onoff	= !!sock_flag(sk, SOCK_LINGER);
++		v.ling.l_onoff	= sock_flag(sk, SOCK_LINGER);
+ 		v.ling.l_linger	= sk->sk_lingertime / HZ;
+ 		break;
+ 
+@@ -1012,11 +1012,11 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 
+ 	case SO_RXQ_OVFL:
+-		v.val = !!sock_flag(sk, SOCK_RXQ_OVFL);
++		v.val = sock_flag(sk, SOCK_RXQ_OVFL);
+ 		break;
+ 
+ 	case SO_WIFI_STATUS:
+-		v.val = !!sock_flag(sk, SOCK_WIFI_STATUS);
++		v.val = sock_flag(sk, SOCK_WIFI_STATUS);
+ 		break;
+ 
+ 	case SO_PEEK_OFF:
+@@ -1026,7 +1026,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sk->sk_peek_off;
+ 		break;
+ 	case SO_NOFCS:
+-		v.val = !!sock_flag(sk, SOCK_NOFCS);
++		v.val = sock_flag(sk, SOCK_NOFCS);
+ 		break;
+ 	default:
+ 		return -ENOPROTOOPT;
