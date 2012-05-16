@@ -1,48 +1,27 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH RFC] tun: experimental zero copy tx support
-Date: Wed, 16 May 2012 08:16:55 -0700
-Message-ID: <1337181415.10741.18.camel@oc3660625478.ibm.com>
-References: <20120513155206.GA26847@redhat.com>
-	 <1337016890.3851.20.camel@oc3660625478.ibm.com>
-	 <20120514183929.GB17086@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/3] net: mac80211: Neaten debugging
+Date: Wed, 16 May 2012 08:22:51 -0700
+Message-ID: <1337181771.4818.0.camel@joe2Laptop>
+References: <1337106548.15553.8.camel@jlt3.sipsolutions.net>
+	 <cover.1337116578.git.joe@perches.com>
+	 <20120516.012319.1903390658912592000.davem@davemloft.net>
+	 <1337155171.4367.2.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Joe Perches <joe@perches.com>,
-	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ian.Campbell@citrix.com,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120514183929.GB17086@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1337155171.4367.2.camel@jlt3.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-05-14 at 21:39 +0300, Michael S. Tsirkin wrote:
-> > Hello Mike,
-> > 
-> > Have you tested this patch? I think the difference between macvtap
-> and
-> > tap is tap forwarding the packet to bridge. The zerocopy is disabled
-> in
-> > this case.
-> > 
-> > Shirley
-> 
-> Testing in progress, but the patchset I pointed to enables
-> zerocopy with bridge. 
+On Wed, 2012-05-16 at 09:59 +0200, Johannes Berg wrote:
+> I wonder if it makes sense to leave these under
+> #ifdef though? Why #ifdef something if it's going to be invisible most
+> of the time anyway?
 
-Hello Mike,
-
-You meant this patch or another patchset for enabling bridge zerocopy?
-
-I remembered we disabled forward skb zerocopy since the user space
-program might hold the buffers too long or forever.
-
-In tap/bridge case, when the tx buffers will be released?
-
-Thanks
-Shirley
-
+I don't understand your point.
+#ifdef removal is a good thing.
