@@ -1,76 +1,45 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] virtio_net: invoke softirqs after __napi_schedule
-Date: Wed, 16 May 2012 10:57:13 +0300
-Message-ID: <20120516075712.GA2921@redhat.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 0/3] net: mac80211: Neaten debugging
+Date: Wed, 16 May 2012 09:59:31 +0200
+Message-ID: <1337155171.4367.2.camel@jlt3.sipsolutions.net>
+References: <1337106548.15553.8.camel@jlt3.sipsolutions.net>
+	 <cover.1337116578.git.joe@perches.com>
+	 <20120516.012319.1903390658912592000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+Cc: joe@perches.com, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120516.012319.1903390658912592000.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-__napi_schedule might raise softirq but nothing
-causes do_softirq to trigger, so it does not in fact
-run. As a result,
-the error message "NOHZ: local_softirq_pending 08"
-sometimes occurs during boot of a KVM guest when the network service is
-started and we are oom:
+On Wed, 2012-05-16 at 01:23 -0400, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 15 May 2012 14:20:29 -0700
+> 
+> > Always use pr_debug variants instead of printk(KERN_DEBUG...)
+> > 
+> > Joe Perches (3):
+> >   net: mac80211: Convert printk(KERN_DEBUG to pr_debug
+> >   net: mac80211: Add and use ht_vdbg debugging macro
+> >   net: mac80211: Add and use ibss_vdbg debugging macro
+> 
+> I really think this is the right thing to do and I hope the wireless
+> folks integrate this.
+> 
+> I am well aware that you guys intend for some of these messages to be
+> indications and notifications the user is intended to SEE, but in the
+> cases where that is true KERN_DEBUG is absolutely not appropriate.
+> 
+> You should be using KERN_INFO or KERN_WARN in those situations
+> instead.
 
-  ...
-  Bringing up loopback interface:  [  OK  ]
-  Bringing up interface eth0:
-  Determining IP information for eth0...NOHZ: local_softirq_pending 08
-   done.
-  [  OK  ]
-  ...
+Yeah, makes sense. I wonder if it makes sense to leave these under
+#ifdef though? Why #ifdef something if it's going to be invisible most
+of the time anyway?
 
-Further, receive queue processing might get delayed
-indefinitely until some interrupt triggers:
-virtio_net expected napi to be run immediately.
-
-One way to cause do_softirq to be executed is by
-invoking local_bh_enable(). As __napi_schedule is
-normally called from bh or irq context, this
-seems to make sense: disable bh before __napi_schedule
-and enable afterwards.
-
-Reported-by: Ulrich Obergfell <uobergfe@redhat.com>
-Tested-by: Ulrich Obergfell <uobergfe@redhat.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
-
-To test, one can hack try_fill_recv to always report oom.
-I'm not sure it's not too late for 3.4, but we can try.
-Rusty, could you review ASAP pls?
-
- drivers/net/virtio_net.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index af8acc8..cbefe67 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -492,7 +492,9 @@ static void virtnet_napi_enable(struct virtnet_info *vi)
- 	 * We synchronize against interrupts via NAPI_STATE_SCHED */
- 	if (napi_schedule_prep(&vi->napi)) {
- 		virtqueue_disable_cb(vi->rvq);
-+		local_bh_disable();
- 		__napi_schedule(&vi->napi);
-+		local_bh_enable();
- 	}
- }
- 
--- 
-MST
+johannes
