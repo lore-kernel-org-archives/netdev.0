@@ -1,56 +1,31 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH 0/4] netfilter fixes for 3.4-rc7
-Date: Wed, 16 May 2012 20:41:51 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1205162037110.2742@blackhole.kfki.hu>
-References: <1336996023-20249-1-git-send-email-pablo@netfilter.org> <20120514.185607.1967456974676336550.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ptp_pch: Add missing #include <linux/slab.h>
+Date: Wed, 16 May 2012 14:58:58 -0400 (EDT)
+Message-ID: <20120516.145858.1919303793301011436.davem@davemloft.net>
+References: <1337169017-15835-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120514.185607.1967456974676336550.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tshimizu818@gmail.com, richardcochran@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:52449 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754118Ab2EPTAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 15:00:10 -0400
+In-Reply-To: <1337169017-15835-1-git-send-email-geert@linux-m68k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Wed, 16 May 2012 13:50:17 +0200
 
-On Mon, 14 May 2012, David Miller wrote:
-
-> From: pablo@netfilter.org
-> Date: Mon, 14 May 2012 13:46:59 +0200
+> drivers/ptp/ptp_pch.c: In function 'pch_remove':
+> drivers/ptp/ptp_pch.c:576:2: error: implicit declaration of function 'kfree' [-Werror=implicit-function-declaration]
+> drivers/ptp/ptp_pch.c: In function 'pch_probe':
+> drivers/ptp/ptp_pch.c:587:2: error: implicit declaration of function 'kzalloc' [-Werror=implicit-function-declaration]
 > 
-> > * One fix for possible timeout overflow for ipset, from Jozsef
-> >   Kadlecsik.
-> > 
-> > * One fix to ensure that hash size is correct, again for ipset
-> >   from Jozsef Kadlecsik.
-> > 
-> > * Removal of redundant include in xt_CT from Eldad Zack.
-> > 
-> > * Fix for wrong usage of MODULE_ALIAS_NFCT_HELPER in nf_ct_h323
-> >   helper from myself.
-> 
-> I don't consider any of these appropriate this late in the -RC
-> series.
-> 
-> They don't fix major regressions seen by many users.
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Could at least the patch with the subject
-
-   netfilter: ipset: fix hash size checking in kernel
-
-   The hash size must fit both into u32 (jhash) and the max value of
-   size_t. The missing checking could lead to kernel crash, bug reported
-   by Seblu.
-
-be submitted into 3.4-rc7? Any non most-recent ipset package compiled with 
-gcc-4.7 or above can trigger the bug.
-
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+Applied.
