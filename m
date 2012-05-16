@@ -1,63 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Wed, 16 May 2012 18:14:44 +0300
-Message-ID: <20120516151444.GC9934@redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
- <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
- <1337100630.8220.4.camel@oc3660625478.ibm.com>
- <4FB317C8.90002@redhat.com>
- <1337181027.10741.13.camel@oc3660625478.ibm.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] drop_monitor: convert to modular building
+Date: Wed, 16 May 2012 11:16:15 -0400
+Message-ID: <20120516151615.GA30195@hmsreliant.think-freely.org>
+References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
+ <1337179681.8512.1212.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48647 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754224Ab2EPPQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 11:16:22 -0400
 Content-Disposition: inline
-In-Reply-To: <1337181027.10741.13.camel@oc3660625478.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1337179681.8512.1212.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 16, 2012 at 08:10:27AM -0700, Shirley Ma wrote:
-> On Wed, 2012-05-16 at 10:58 +0800, Jason Wang wrote:
-> > >>   drivers/vhost/vhost.c |    1 +
-> > >>   1 files changed, 1 insertions(+), 0 deletions(-)
-> > >>
-> > >> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > >> index 947f00d..7b75fdf 100644
-> > >> --- a/drivers/vhost/vhost.c
-> > >> +++ b/drivers/vhost/vhost.c
-> > >> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
-> > >>          struct vhost_ubuf_ref *ubufs = ubuf->arg;
-> > >>          struct vhost_virtqueue *vq = ubufs->vq;
-> > >>
-> > >> +       vhost_poll_queue(&vq->poll);
-> > >>          /* set len = 1 to mark this desc buffers done DMA */
-> > >>          vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
-> > >>          kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
-> > > Doing so, we might have redundant vhost_poll_queue(). Do you know in
-> > > which scenario there might be missing of adding and signaling during
-> > > zerocopy?
-> > 
-> > Yes, as we only do signaling and adding during tx work, if there's no
-> > tx 
-> > work when the skb were sent, we may lose the opportunity to let guest 
-> > know about the completion. It's easy to be reproduced with netperf
-> > test. 
+On Wed, May 16, 2012 at 04:48:01PM +0200, Eric Dumazet wrote:
+> On Wed, 2012-05-16 at 10:27 -0400, Neil Horman wrote:
+> > When I first wrote drop monitor I wrote it to just build monolithically.  There
+> > is no reason it can't be built modularly as well, so lets give it that
+> > flexibiity.
 > 
-> The reason which host signals guest is to free guest tx buffers, if
-> there is no tx work, then it's not necessary to signal the guest unless
-> guest runs out of memory. The pending buffers will be released
-> virtio_net device gone.
+> > +	for_each_present_cpu(cpu) {
+> > +		data = &per_cpu(dm_cpu_data, cpu);
+> > +		del_timer(&data->send_timer);
+> > +		cancel_work_sync(&data->dm_alert_work);
+> > +		/*
+> > +		 * At this point, we should have exclusive access
+> > +		 * to this struct and can free the skb inside it
+> > +		 */
+> > +		kfree_skb(data->skb);
+> > +	}
+> > +
 > 
-> What's the behavior of netperf test when you hit this situation?
+> I dont think for_each_present_cpu(cpu) is right 
 > 
-> Thanks
-> Shirley
+> (I realize drop_monitor already uses this, but its a bug)
+> 
+> To use it, you must have a notifier to react to cpu HOTPLUG events.
+> 
+> -> for_each_possible_cpu() is more correct.
+> 
+Ok, i can do that.
+> Also, please dont add new printk(KERN_WARNING ...), use pr_warn(...)
+> instead
+> 
+Ack, I'll add a patch to this series to convert the existing printks to their
+corresponding pr_* macros
+Neil
 
-IIRC guest networking seems to be lost.
-
-
--- 
-MST
+> 
+> 
+> 
