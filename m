@@ -1,123 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 16 May 2012 16:09:19 -0400 (EDT)
-Message-ID: <20120516.160919.903281511407092115.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
+Date: Wed, 16 May 2012 13:57:55 -0700
+Message-ID: <20120516135755.cdcdf9ba.akpm@linux-foundation.org>
+References: <1336767077-25351-1-git-send-email-glommer@parallels.com>
+	<1336767077-25351-3-git-send-email-glommer@parallels.com>
+	<4FB0621C.3010604@huawei.com>
+	<4FB35153.3080309@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Li Zefan <lizefan@huawei.com>, <cgroups@vger.kernel.org>,
+ <linux-mm@kvack.org>, <devel@openvz.org>, <kamezawa.hiroyu@jp.fujitsu.com>,
+ <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>, Johannes Weiner
+ <hannes@cmpxchg.org>, Michal Hocko <mhocko@suse.cz>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4FB35153.3080309@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 16 May 2012 11:03:47 +0400
+Glauber Costa <glommer@parallels.com> wrote:
 
-1) ptp_pch driver build broke during this merge window due to missing
-   slab.h header, fix from Geery Uytterhoeven.
+> On 05/14/2012 05:38 AM, Li Zefan wrote:
+> >> +static void disarm_static_keys(struct mem_cgroup *memcg)
+> > 
+> >> +{
+> >> +#ifdef CONFIG_INET
+> >> +	if (memcg->tcp_mem.cg_proto.activated)
+> >> +		static_key_slow_dec(&memcg_socket_limit_enabled);
+> >> +#endif
+> >> +}
+> > 
+> > 
+> > Move this inside the ifdef/endif below ?
+> > 
+> > Otherwise I think you'll get compile error if !CONFIG_INET...
+> 
+> I don't fully get it.
+> 
+> We are supposed to provide a version of it for
+> CONFIG_CGROUP_MEM_RES_CTLR_KMEM and an empty version for
+> !CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> 
+> Inside the first, we take an action for CONFIG_INET, and no action for
+> !CONFIG_INET.
+> 
+> Bear in mind that the slab patches will add another test to that place,
+> and that's why I am doing it this way from the beginning.
+> 
+> Well, that said, I not only can be wrong, I very frequently am.
+> 
+> But I just compiled this one with and without CONFIG_INET, and it seems
+> to be going alright.
+> 
 
-2) If ipset passes in a bogus hash table size we crash because the
-   size is not validated properly.  Compounding this, gcc-4.7 can
-   miscompile ipset such that even when the user specifies legitimate
-   parameters the tool passes in an out-of-range size to the kernel.
+Yes, the ifdeffings in that area are rather nasty.
 
-   Fix from Jozsef Kadlecsik.
+I wonder if it would be simpler to do away with the ifdef nesting. 
+At the top-level, just do
 
-3) Users have reported that the netdev watchdog can trigger with pch_gbe
-   devices, and it turns out this is happening because of races in the TX
-   path of the driver leading to the transmitter hanging.  Fix from
-   Eric Dumazet, reported and tested by Andy Cress.
+#if defined(CONFIG_CGROUP_MEM_RES_CTLR_KMEM) && defined(CONFIG_INET)
+static void disarm_static_keys(struct mem_cgroup *memcg)
+{
+	if (memcg->tcp_mem.cg_proto.activated)
+		static_key_slow_dec(&memcg_socket_limit_enabled);
+}
+#else
+static inline void disarm_static_keys(struct mem_cgroup *memcg)
+{
+}
+#endif
 
-4) Novatel USB551L devices match the generic class entries for the
-   cdc ethernet USB driver, but they don't work because they have
-   generic descriptors and thus need FLAG_WWAN to function properly.
 
-   Add the necessary ID table entry to fix this, from Dan Williams.
+The tcp_proto_cgroup() definition could go inside that ifdef as well.
 
-5) A recursive locking fix in the USBNET driver added a new problem,
-   in that packet list traversal is now racy and we can thus access
-   unlinked SKBs and crash.
-
-   Avoid this situation by adding some extra state tracking, from
-   Ming Lei.
-
-6) The rtlwifi conversion to asynchronous firmware loading is racy,
-   fix by reordering the probe procedure.  From Larry Finger.
-
-   Fixes: https://bugzilla.kernel.org/show_bug.cgi?id=43187
-
-7) Fix regressions with bluetooth keyboards by notifying userland
-   properly when the security level changes, from Gustavo Padovan.
-
-8) Bluetooth needs to make sure device connected events are emitted
-   before other kinds of events, otherwise userspace will think there
-   is no baseband link yet and therefore abort the sockets associated
-   with that connection.
-
-   From Johan Hedberg.
-
-There is more verbiage about the rtlwifi and 2 bluetooth fixes in
-the wireless merge commit.
-
-Please pull, thanks a lot.
-
-The following changes since commit 568b44559d7ca269d367e694c74eb4436e7e3ccf:
-
-  mn10300/CPU hotplug: Add missing call to notify_cpu_starting() (2012-05-15 18:16:57 -0700)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-Dan Williams (1):
-      cdc_ether: add Novatel USB551L device IDs for FLAG_WWAN
-
-David S. Miller (1):
-      Merge branch 'for-davem' of git://git.kernel.org/.../linville/wireless
-
-Eric Dumazet (1):
-      pch_gbe: fix transmit races
-
-Geert Uytterhoeven (1):
-      ptp_pch: Add missing #include <linux/slab.h>
-
-Gustavo Padovan (1):
-      Bluetooth: notify userspace of security level change
-
-Johan Hedberg (1):
-      Bluetooth: mgmt: Fix device_connected sending order
-
-John W. Linville (1):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
-
-Jozsef Kadlecsik (1):
-      netfilter: ipset: fix hash size checking in kernel
-
-Larry Finger (1):
-      rtlwifi: fix for race condition when firmware is cached
-
-Ming Lei (1):
-      usbnet: fix skb traversing races during unlink(v2)
-
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |    2 -
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   25 ++++-----
- drivers/net/usb/cdc_ether.c                        |   16 ++++++
- drivers/net/usb/usbnet.c                           |   54 ++++++++++++++------
- drivers/net/wireless/rtlwifi/pci.c                 |   16 +++---
- drivers/net/wireless/rtlwifi/usb.c                 |   10 ++--
- drivers/ptp/ptp_pch.c                              |    1 +
- include/linux/netfilter/ipset/ip_set_ahash.h       |   16 ++++++
- include/linux/usb/usbnet.h                         |    3 +-
- include/net/bluetooth/bluetooth.h                  |    1 +
- net/bluetooth/af_bluetooth.c                       |    2 +-
- net/bluetooth/hci_core.c                           |    8 +++
- net/bluetooth/hci_event.c                          |   11 +++-
- net/bluetooth/l2cap_core.c                         |    5 ++
- net/bluetooth/l2cap_sock.c                         |   12 +++--
- net/netfilter/ipset/ip_set_hash_ip.c               |   10 +++-
- net/netfilter/ipset/ip_set_hash_ipport.c           |   10 +++-
- net/netfilter/ipset/ip_set_hash_ipportip.c         |   10 +++-
- net/netfilter/ipset/ip_set_hash_ipportnet.c        |   10 +++-
- net/netfilter/ipset/ip_set_hash_net.c              |   10 +++-
- net/netfilter/ipset/ip_set_hash_netiface.c         |   10 +++-
- net/netfilter/ipset/ip_set_hash_netport.c          |   10 +++-
- 22 files changed, 178 insertions(+), 74 deletions(-)
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
