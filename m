@@ -1,81 +1,343 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Wed, 16 May 2012 10:03:08 +0400
-Message-ID: <4FB3431C.3050402@parallels.com>
-References: <1336767077-25351-1-git-send-email-glommer@parallels.com> <1336767077-25351-3-git-send-email-glommer@parallels.com> <4FB058D8.6060707@jp.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4FB058D8.6060707-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH net-next v5 02/13] mac802154: allocation of ieee802154 device
+Date: Wed, 16 May 2012 10:50:20 +0400
+Message-ID: <1337151031-5178-3-git-send-email-alex.bluesman.smirnov@gmail.com>
+References: <1337151031-5178-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:39855 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759359Ab2EPGvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 02:51:35 -0400
+Received: by weyu7 with SMTP id u7so224313wey.19
+        for <netdev@vger.kernel.org>; Tue, 15 May 2012 23:51:34 -0700 (PDT)
+In-Reply-To: <1337151031-5178-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/14/2012 04:59 AM, KAMEZAWA Hiroyuki wrote:
-> (2012/05/12 5:11), Glauber Costa wrote:
-> 
->> We call the destroy function when a cgroup starts to be removed,
->> such as by a rmdir event.
->>
->> However, because of our reference counters, some objects are still
->> inflight. Right now, we are decrementing the static_keys at destroy()
->> time, meaning that if we get rid of the last static_key reference,
->> some objects will still have charges, but the code to properly
->> uncharge them won't be run.
->>
->> This becomes a problem specially if it is ever enabled again, because
->> now new charges will be added to the staled charges making keeping
->> it pretty much impossible.
->>
->> We just need to be careful with the static branch activation:
->> since there is no particular preferred order of their activation,
->> we need to make sure that we only start using it after all
->> call sites are active. This is achieved by having a per-memcg
->> flag that is only updated after static_key_slow_inc() returns.
->> At this time, we are sure all sites are active.
->>
->> This is made per-memcg, not global, for a reason:
->> it also has the effect of making socket accounting more
->> consistent. The first memcg to be limited will trigger static_key()
->> activation, therefore, accounting. But all the others will then be
->> accounted no matter what. After this patch, only limited memcgs
->> will have its sockets accounted.
->>
->> [v2: changed a tcp limited flag for a generic proto limited flag ]
->> [v3: update the current active flag only after the static_key update ]
->> [v4: disarm_static_keys() inside free_work ]
->> [v5: got rid of tcp_limit_mutex, now in the static_key interface ]
->>
->> Signed-off-by: Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
->> CC: Tejun Heo<tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->> CC: Li Zefan<lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
->> CC: Kamezawa Hiroyuki<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
->> CC: Johannes Weiner<hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>
->> CC: Michal Hocko<mhocko-AlSwsSmVLrQ@public.gmane.org>
-> 
-> 
-> Thank you for your patient works.
-> 
-> Acked-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-> 
-> BTW, what is the relationship between 1/2 and 2/2  ?
+An interface to allocate and register ieee802154 compatible device.
+The allocated device has the following representation in memory:
 
-Can't do jump label patching inside an interrupt handler. They need to
-happen when we free the structure, and I was about to add a worker
-myself when I found out we already have one: just we don't always use it.
+	+-----------------------+
+	| struct wpan_phy       |
+	+-----------------------+
+	| struct mac802154_priv |
+	+-----------------------+
+	| driver's private data |
+	+-----------------------+
 
-Before we merge it, let me just make sure the issue with config Li
-pointed out don't exist. I did test it, but since I've reposted this
-many times with multiple tiny changes - the type that will usually get
-us killed, I'd be more comfortable with an extra round of testing if
-someone spotted a possibility.
+Used by device drivers to register new instance in the stack.
 
-Who is merging this fix, btw ?
-I find it to be entirely memcg related, even though it touches a file in
-net (but a file with only memcg code in it)
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+---
+ include/net/mac802154.h        |    7 ++
+ net/Kconfig                    |    1 +
+ net/Makefile                   |    1 +
+ net/mac802154/Kconfig          |   16 ++++
+ net/mac802154/Makefile         |    2 +
+ net/mac802154/ieee802154_dev.c |  149 ++++++++++++++++++++++++++++++++++++++++
+ net/mac802154/mac802154.h      |   63 +++++++++++++++++
+ 7 files changed, 239 insertions(+), 0 deletions(-)
+ create mode 100644 net/mac802154/Kconfig
+ create mode 100644 net/mac802154/Makefile
+ create mode 100644 net/mac802154/ieee802154_dev.c
+ create mode 100644 net/mac802154/mac802154.h
+
+diff --git a/include/net/mac802154.h b/include/net/mac802154.h
+index 941c4e1..3973075 100644
+--- a/include/net/mac802154.h
++++ b/include/net/mac802154.h
+@@ -123,4 +123,11 @@ struct ieee802154_ops {
+ 				     u8 addr[IEEE802154_ADDR_LEN]);
+ };
+ 
++/* Basic interface to register ieee802154 device */
++struct ieee802154_dev *
++ieee802154_alloc_device(size_t priv_data_lex, struct ieee802154_ops *ops);
++void ieee802154_free_device(struct ieee802154_dev *dev);
++int ieee802154_register_device(struct ieee802154_dev *dev);
++void ieee802154_unregister_device(struct ieee802154_dev *dev);
++
+ #endif /* NET_MAC802154_H */
+diff --git a/net/Kconfig b/net/Kconfig
+index e07272d..4c06c7c 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -211,6 +211,7 @@ source "net/econet/Kconfig"
+ source "net/wanrouter/Kconfig"
+ source "net/phonet/Kconfig"
+ source "net/ieee802154/Kconfig"
++source "net/mac802154/Kconfig"
+ source "net/sched/Kconfig"
+ source "net/dcb/Kconfig"
+ source "net/dns_resolver/Kconfig"
+diff --git a/net/Makefile b/net/Makefile
+index ad432fa..2a97cde 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -60,6 +60,7 @@ ifneq ($(CONFIG_DCB),)
+ obj-y				+= dcb/
+ endif
+ obj-$(CONFIG_IEEE802154)	+= ieee802154/
++obj-$(CONFIG_MAC802154)		+= mac802154/
+ 
+ ifeq ($(CONFIG_NET),y)
+ obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
+diff --git a/net/mac802154/Kconfig b/net/mac802154/Kconfig
+new file mode 100644
+index 0000000..a967dda
+--- /dev/null
++++ b/net/mac802154/Kconfig
+@@ -0,0 +1,16 @@
++config MAC802154
++	tristate "Generic IEEE 802.15.4 Soft Networking Stack (mac802154)"
++	depends on IEEE802154 && EXPERIMENTAL
++	select CRC_CCITT
++	---help---
++	  This option enables the hardware independent IEEE 802.15.4
++	  networking stack for SoftMAC devices (the ones implementing
++	  only PHY level of IEEE 802.15.4 standard).
++
++	  Note: this implementation is neither certified, nor feature
++	  complete! Compatibility with other implementations hasn't
++	  been tested yet!
++
++	  If you plan to use HardMAC IEEE 802.15.4 devices, you can
++	  say N here. Alternatievly you can say M to compile it as
++	  module.
+diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
+new file mode 100644
+index 0000000..cda9393
+--- /dev/null
++++ b/net/mac802154/Makefile
+@@ -0,0 +1,2 @@
++obj-$(CONFIG_MAC802154)	+= mac802154.o
++mac802154-objs		:= ieee802154_dev.o
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+new file mode 100644
+index 0000000..eb1e597
+--- /dev/null
++++ b/net/mac802154/ieee802154_dev.c
+@@ -0,0 +1,149 @@
++/*
++ * Copyright (C) 2007-2012 Siemens AG
++ *
++ * Written by:
++ * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
++ * 
++ * Based on the code from 'linux-zigbee.sourceforge.net' project.
++ * 
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++
++#include <net/mac802154.h>
++#include <net/route.h>
++#include <net/wpan-phy.h>
++
++#include "mac802154.h"
++
++struct ieee802154_dev *
++ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
++{
++	struct wpan_phy *phy;
++	struct mac802154_priv *priv;
++	size_t priv_size;
++
++	if (!ops || !ops->xmit || !ops->ed || !ops->start ||
++	    !ops->stop || !ops->set_channel) {
++		printk(KERN_ERR
++		       "undefined IEEE802.15.4 device operations\n");
++		return NULL;
++	}
++
++	/* Ensure 32-byte alignment of our private data and hw private data.
++	 * We use the wpan_phy priv data for both our mac802154_priv and for
++	 * the driver's private data
++	 *
++	 * in memory it'll be like this:
++	 *
++	 * +-----------------------+
++	 * | struct wpan_phy       |
++	 * +-----------------------+
++	 * | struct mac802154_priv |
++	 * +-----------------------+
++	 * | driver's private data |
++	 * +-----------------------+
++	 *
++	 * Due to ieee802154 layer isn't aware of driver and MAC structures,
++	 * so lets allign them here.
++	 */
++
++	priv_size = ALIGN(sizeof(*priv), NETDEV_ALIGN) + priv_data_len;
++
++	phy = wpan_phy_alloc(priv_size);
++	if (!phy) {
++		printk(KERN_ERR
++		       "failure to allocate master IEEE802.15.4 device\n");
++		return NULL;
++	}
++
++	priv = wpan_phy_priv(phy);
++	priv->hw.phy = priv->phy = phy;
++	priv->hw.priv = (char *)priv + ALIGN(sizeof(*priv), NETDEV_ALIGN);
++	priv->ops = ops;
++
++	INIT_LIST_HEAD(&priv->slaves);
++	mutex_init(&priv->slaves_mtx);
++
++	return &priv->hw;
++}
++EXPORT_SYMBOL(ieee802154_alloc_device);
++
++void ieee802154_free_device(struct ieee802154_dev *hw)
++{
++	struct mac802154_priv *priv = mac802154_to_priv(hw);
++
++	wpan_phy_free(priv->phy);
++
++	mutex_destroy(&priv->slaves_mtx);
++}
++EXPORT_SYMBOL(ieee802154_free_device);
++
++int ieee802154_register_device(struct ieee802154_dev *dev)
++{
++	struct mac802154_priv *priv = mac802154_to_priv(dev);
++	int rc = -ENOMEM;
++
++	priv->dev_workqueue =
++		create_singlethread_workqueue(wpan_phy_name(priv->phy));
++	if (!priv->dev_workqueue)
++		goto out;
++
++	wpan_phy_set_dev(priv->phy, priv->hw.parent);
++
++	rc = wpan_phy_register(priv->phy);
++	if (rc < 0)
++		goto out_wq;
++
++	rtnl_lock();
++
++	mutex_lock(&priv->slaves_mtx);
++	priv->running = MAC802154_DEVICE_RUN;
++	mutex_unlock(&priv->slaves_mtx);
++
++	rtnl_unlock();
++
++	return 0;
++
++out_wq:
++	destroy_workqueue(priv->dev_workqueue);
++out:
++	return rc;
++}
++EXPORT_SYMBOL(ieee802154_register_device);
++
++void ieee802154_unregister_device(struct ieee802154_dev *dev)
++{
++	struct mac802154_priv *priv = mac802154_to_priv(dev);
++
++	flush_workqueue(priv->dev_workqueue);
++	destroy_workqueue(priv->dev_workqueue);
++
++	rtnl_lock();
++
++	mutex_lock(&priv->slaves_mtx);
++	priv->running = MAC802154_DEVICE_STOPPED;
++	mutex_unlock(&priv->slaves_mtx);
++
++	rtnl_unlock();
++
++	wpan_phy_unregister(priv->phy);
++}
++EXPORT_SYMBOL(ieee802154_unregister_device);
++
++MODULE_DESCRIPTION("IEEE 802.15.4 implementation");
++MODULE_LICENSE("GPL v2");
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+new file mode 100644
+index 0000000..980d0a2
+--- /dev/null
++++ b/net/mac802154/mac802154.h
+@@ -0,0 +1,63 @@
++/*
++ * Copyright (C) 2007-2012 Siemens AG
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Written by:
++ * Pavel Smolenskiy <pavel.smolenskiy@gmail.com>
++ * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
++ * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
++ * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
++ */
++#ifndef MAC802154_H
++#define MAC802154_H
++
++/* mac802154 device private data */
++struct mac802154_priv {
++	struct ieee802154_dev hw;
++	struct ieee802154_ops *ops;
++
++	/* ieee802154 phy */
++	struct wpan_phy *phy;
++
++	int open_count;
++
++	/* As in mac80211 slaves list is modified:
++	 * 1) under the RTNL
++	 * 2) protected by slaves_mtx;
++	 * 3) in an RCU manner
++	 *
++	 * So atomic readers can use any of this protection methods.
++	 */
++	struct list_head	slaves;
++	struct mutex		slaves_mtx;
++
++	/* This one is used for scanning and other jobs not to be interfered
++	 * with serial driver.
++	 */
++	struct workqueue_struct	*dev_workqueue;
++
++	/* SoftMAC device is registered and running. One can add subinterfaces.
++	 * This flag should be modified under slaves_mtx and RTNL, so you can
++	 * read them using any of protection methods.
++	 */
++	bool running;
++};
++
++#define	MAC802154_DEVICE_STOPPED	0x00
++#define MAC802154_DEVICE_RUN		0x01
++
++#define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
++
++#endif /* MAC802154_H */
+-- 
+1.7.2.3
