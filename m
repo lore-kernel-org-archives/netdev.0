@@ -1,188 +1,128 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [PATCH] netfilter: xt_HMARK: fix endian bugs and warnings
-Date: Wed, 16 May 2012 17:00:42 +0200
-Message-ID: <1337180442-32581-1-git-send-email-hans.schillstrom@ericsson.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] drop_monitor: convert to modular building
+Date: Wed, 16 May 2012 16:01:45 +0100
+Message-ID: <1337180505.2568.10.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <pablo@netfilter.org>, <kaber@trash.net>, <jengelh@medozas.de>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<dan.carpenter@oracle.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:21003 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753220Ab2EPPBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 11:01:53 -0400
+In-Reply-To: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A mix of u32 and __be32 causes endian warning.
-The hash value produced is now the same for big and little endian machines.
-i.e. a mix of Big and Little endian in a cluster is now possible.
+On Wed, 2012-05-16 at 10:27 -0400, Neil Horman wrote:
+> When I first wrote drop monitor I wrote it to just build monolithically.  There
+> is no reason it can't be built modularly as well, so lets give it that
+> flexibiity.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
----
- include/linux/netfilter/xt_HMARK.h |    5 ++-
- net/netfilter/xt_HMARK.c           |   68 ++++++++++++++++++++---------------
- 2 files changed, 42 insertions(+), 31 deletions(-)
+Yes, please.
 
-diff --git a/include/linux/netfilter/xt_HMARK.h b/include/linux/netfilter/xt_HMARK.h
-index abb1650..8b6307a 100644
---- a/include/linux/netfilter/xt_HMARK.h
-+++ b/include/linux/netfilter/xt_HMARK.h
-@@ -24,10 +24,11 @@ enum {
- 
- union hmark_ports {
- 	struct {
--		__u16	src;
--		__u16	dst;
-+		__be16	src;
-+		__be16	dst;
- 	} p16;
- 	__u32	v32;
-+	__be32	b32;
- };
- 
- struct xt_hmark_info {
-diff --git a/net/netfilter/xt_HMARK.c b/net/netfilter/xt_HMARK.c
-index 32fbd73..7bb7b5e 100644
---- a/net/netfilter/xt_HMARK.c
-+++ b/net/netfilter/xt_HMARK.c
-@@ -32,13 +32,13 @@ MODULE_ALIAS("ipt_HMARK");
- MODULE_ALIAS("ip6t_HMARK");
- 
- struct hmark_tuple {
--	u32			src;
--	u32			dst;
-+	__be32			src;
-+	__be32			dst;
- 	union hmark_ports	uports;
- 	uint8_t			proto;
- };
- 
--static inline u32 hmark_addr6_mask(const __u32 *addr32, const __u32 *mask)
-+static inline __be32 hmark_addr6_mask(const __be32 *addr32, const __be32 *mask)
- {
- 	return (addr32[0] & mask[0]) ^
- 	       (addr32[1] & mask[1]) ^
-@@ -46,8 +46,8 @@ static inline u32 hmark_addr6_mask(const __u32 *addr32, const __u32 *mask)
- 	       (addr32[3] & mask[3]);
- }
- 
--static inline u32
--hmark_addr_mask(int l3num, const __u32 *addr32, const __u32 *mask)
-+static inline __be32
-+hmark_addr_mask(int l3num, const __be32 *addr32, const __be32 *mask)
- {
- 	switch (l3num) {
- 	case AF_INET:
-@@ -58,6 +58,25 @@ hmark_addr_mask(int l3num, const __u32 *addr32, const __u32 *mask)
- 	return 0;
- }
- 
-+static inline void hmark_port_order(union hmark_ports *uports,
-+				    const struct xt_hmark_info *info)
-+{
-+	union hmark_ports hp;
-+
-+	hp.b32 = (uports->b32 & info->port_mask.b32) | info->port_set.b32;
-+	hp.v32 = ntohl(hp.b32);
-+	/* Make it endian safe into jhash() */
-+#if defined(__LITTLE_ENDIAN)
-+	if ((__force u16) uports->p16.dst >
-+	    (__force u16) uports->p16.src)
-+#else
-+	if ((__force u16) uports->p16.src >
-+	    (__force u16) uports->p16.dst)
-+#endif
-+		swap(hp.p16.src, hp.p16.dst);
-+	uports->v32 = hp.v32;
-+}
-+
- static int
- hmark_ct_set_htuple(const struct sk_buff *skb, struct hmark_tuple *t,
- 		    const struct xt_hmark_info *info)
-@@ -74,10 +93,10 @@ hmark_ct_set_htuple(const struct sk_buff *skb, struct hmark_tuple *t,
- 	otuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
- 	rtuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
- 
--	t->src = hmark_addr_mask(otuple->src.l3num, otuple->src.u3.all,
--				 info->src_mask.all);
--	t->dst = hmark_addr_mask(otuple->src.l3num, rtuple->src.u3.all,
--				 info->dst_mask.all);
-+	t->src = hmark_addr_mask(otuple->src.l3num, otuple->src.u3.ip6,
-+				 info->src_mask.ip6);
-+	t->dst = hmark_addr_mask(otuple->src.l3num, rtuple->src.u3.ip6,
-+				 info->dst_mask.ip6);
- 
- 	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
- 		return 0;
-@@ -86,10 +105,7 @@ hmark_ct_set_htuple(const struct sk_buff *skb, struct hmark_tuple *t,
- 	if (t->proto != IPPROTO_ICMP) {
- 		t->uports.p16.src = otuple->src.u.all;
- 		t->uports.p16.dst = rtuple->src.u.all;
--		t->uports.v32 = (t->uports.v32 & info->port_mask.v32) |
--				info->port_set.v32;
--		if (t->uports.p16.dst < t->uports.p16.src)
--			swap(t->uports.p16.dst, t->uports.p16.src);
-+		hmark_port_order(&t->uports, info);
- 	}
- 
- 	return 0;
-@@ -102,11 +118,13 @@ static inline u32
- hmark_hash(struct hmark_tuple *t, const struct xt_hmark_info *info)
- {
- 	u32 hash;
-+	u32 src = ntohl(t->src);
-+	u32 dst = ntohl(t->dst);
- 
--	if (t->dst < t->src)
--		swap(t->src, t->dst);
-+	if (dst < src)
-+		swap(src, dst);
- 
--	hash = jhash_3words(t->src, t->dst, t->uports.v32, info->hashrnd);
-+	hash = jhash_3words(src, dst, t->uports.v32, info->hashrnd);
- 	hash = hash ^ (t->proto & info->proto_mask);
- 
- 	return (((u64)hash * info->hmodulus) >> 32) + info->hoffset;
-@@ -125,12 +143,7 @@ hmark_set_tuple_ports(const struct sk_buff *skb, unsigned int nhoff,
- 	nhoff += protoff;
- 	if (skb_copy_bits(skb, nhoff, &t->uports, sizeof(t->uports)) < 0)
- 		return;
--
--	t->uports.v32 = (t->uports.v32 & info->port_mask.v32) |
--			info->port_set.v32;
--
--	if (t->uports.p16.dst < t->uports.p16.src)
--		swap(t->uports.p16.dst, t->uports.p16.src);
-+	hmark_port_order(&t->uports, info);
- }
- 
- #if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
-@@ -178,8 +191,8 @@ hmark_pkt_set_htuple_ipv6(const struct sk_buff *skb, struct hmark_tuple *t,
- 			return -1;
- 	}
- noicmp:
--	t->src = hmark_addr6_mask(ip6->saddr.s6_addr32, info->src_mask.all);
--	t->dst = hmark_addr6_mask(ip6->daddr.s6_addr32, info->dst_mask.all);
-+	t->src = hmark_addr6_mask(ip6->saddr.s6_addr32, info->src_mask.ip6);
-+	t->dst = hmark_addr6_mask(ip6->daddr.s6_addr32, info->dst_mask.ip6);
- 
- 	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
- 		return 0;
-@@ -255,11 +268,8 @@ hmark_pkt_set_htuple_ipv4(const struct sk_buff *skb, struct hmark_tuple *t,
- 		}
- 	}
- 
--	t->src = (__force u32) ip->saddr;
--	t->dst = (__force u32) ip->daddr;
--
--	t->src &= info->src_mask.ip;
--	t->dst &= info->dst_mask.ip;
-+	t->src = ip->saddr & info->src_mask.ip;
-+	t->dst = ip->daddr & info->dst_mask.ip;
- 
- 	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
- 		return 0;
+[...]
+> --- a/net/core/drop_monitor.c
+> +++ b/net/core/drop_monitor.c
+> @@ -22,6 +22,7 @@
+>  #include <linux/timer.h>
+>  #include <linux/bitops.h>
+>  #include <linux/slab.h>
+> +#include <linux/module.h>
+>  #include <net/genetlink.h>
+>  #include <net/netevent.h>
+>  
+> @@ -223,9 +224,15 @@ static int set_all_monitor_traces(int state)
+>  
+>  	switch (state) {
+>  	case TRACE_ON:
+> +		if (!try_module_get(THIS_MODULE)) {
+> +			rc = -EINVAL;
+
+Minor issue, but this isn't the right error code - there is nothing
+invalid about the request, it just came at the wrong time.  Perhaps
+ENODEV or ECANCELED?
+
+> +			break;
+> +		}
+> +
+>  		rc |= register_trace_kfree_skb(trace_kfree_skb_hit, NULL);
+>  		rc |= register_trace_napi_poll(trace_napi_poll_hit, NULL);
+>  		break;
+> +
+>  	case TRACE_OFF:
+>  		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit, NULL);
+>  		rc |= unregister_trace_napi_poll(trace_napi_poll_hit, NULL);
+> @@ -241,6 +248,9 @@ static int set_all_monitor_traces(int state)
+>  				kfree_rcu(new_stat, rcu);
+>  			}
+>  		}
+> +
+> +		module_put(THIS_MODULE);
+> +
+>  		break;
+>  	default:
+>  		rc = 1;
+> @@ -383,4 +393,38 @@ out:
+>  	return rc;
+>  }
+>  
+> -late_initcall(init_net_drop_monitor);
+> +static void exit_net_drop_monitor(void)
+> +{
+> +	struct per_cpu_dm_data *data;
+> +	int cpu;
+> +
+> +	if (unregister_netdevice_notifier(&dropmon_net_notifier))
+> +		printk(KERN_WARNING "Unable to unregiser dropmon notifer\n");
+
+Currently this will only fail if you didn't actually register the
+notifier, which would be a bug.  If there is ever any other reason this
+could fail, continuing with the notifier still registered would be
+disastrous.  Therefore I think this should be:
+
+	rc = unregister_netdevice_notifier(&dropmon_net_notifier);
+	BUG_ON(rc);
+
+> +	/*
+> +	 * Because of the module_get/put we do in the trace state change path
+> +	 * we are guarnateed not to have any current users when we get here
+> +	 * all we need to do is make sure that we don't have any running timers
+> +	 * or pending schedule calls
+> +	 */
+
+Surely you need to call set_all_monitor_traces(TRACE_OFF) first...
+
+> +	for_each_present_cpu(cpu) {
+> +		data = &per_cpu(dm_cpu_data, cpu);
+> +		del_timer(&data->send_timer);
+> +		cancel_work_sync(&data->dm_alert_work);
+> +		/*
+> +		 * At this point, we should have exclusive access
+> +		 * to this struct and can free the skb inside it
+> +		 */
+> +		kfree_skb(data->skb);
+> +	}
+> +
+> +	if (genl_unregister_family(&net_drop_monitor_family))
+> +		printk(KERN_WARNING "Unable to unregister drop monitor socket family\n");
+
+Same issue as with unregister_netdevice_notifier().
+
+Ben.
+
+> +}
+> +
+> +module_init(init_net_drop_monitor);
+> +module_exit(exit_net_drop_monitor);
+> +
+> +MODULE_LICENSE("GPL v2");
+> +MODULE_AUTHOR("Neil Horman <nhorman@tuxdriver.com>");
+
 -- 
-1.7.2.3
-
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
