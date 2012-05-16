@@ -1,293 +1,489 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 2/4] atm: remove the coupling to token ring support
-Date: Tue, 15 May 2012 20:35:42 -0400
-Message-ID: <1337128544-18680-3-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 3/4] net: delete all instances of special processing for token ring
+Date: Tue, 15 May 2012 20:35:43 -0400
+Message-ID: <1337128544-18680-4-git-send-email-paul.gortmaker@windriver.com>
 References: <1337128544-18680-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:44435 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:44439 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967098Ab2EPAgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 20:36:25 -0400
+	with ESMTP id S967099Ab2EPAgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 20:36:31 -0400
 In-Reply-To: <1337128544-18680-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The token ring support is going away, so decouple
-the atm support from it in advance.
+We are going to delete the Token ring support.  This removes any
+special processing in the core networking for token ring, (aside
+from net/tr.c itself), leaving the drivers and remaining tokenring
+support present but inert.
+
+The mass removal of the drivers and net/tr.c will be in a separate
+commit, so that the history of these files that we still care
+about won't have the giant deletion tied into their history.
 
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- include/linux/atmlec.h |    7 ---
- net/atm/lec.c          |  138 +++---------------------------------------------
- net/atm/lec.h          |    1 -
- 3 files changed, 8 insertions(+), 138 deletions(-)
+ include/linux/if_arp.h |    2 +-
+ include/linux/ipx.h    |    2 +-
+ include/net/if_inet6.h |   54 ------------------------------------------------
+ include/net/ip.h       |   17 ---------------
+ include/net/llc_pdu.h  |    7 ------
+ net/802/p8022.c        |    3 +-
+ net/802/tr.c           |    1 -
+ net/core/dev.c         |   14 +++++-------
+ net/ipv4/Kconfig       |    4 +-
+ net/ipv4/arp.c         |   13 +----------
+ net/ipv4/ipconfig.c    |    2 -
+ net/ipv6/addrconf.c    |    2 -
+ net/ipv6/ndisc.c       |   17 ---------------
+ net/ipx/af_ipx.c       |   10 +--------
+ net/llc/af_llc.c       |    3 +-
+ net/llc/llc_output.c   |    3 --
+ net/llc/llc_sap.c      |    4 ---
+ net/sysctl_net.c       |    4 ---
+ 18 files changed, 14 insertions(+), 148 deletions(-)
 
-diff --git a/include/linux/atmlec.h b/include/linux/atmlec.h
-index 39c917f..302791e 100644
---- a/include/linux/atmlec.h
-+++ b/include/linux/atmlec.h
-@@ -21,13 +21,6 @@
- /* Maximum number of LEC interfaces (tweakable) */
- #define MAX_LEC_ITF 48
+diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
+index 6d722f4..3718acf 100644
+--- a/include/linux/if_arp.h
++++ b/include/linux/if_arp.h
+@@ -82,7 +82,7 @@
+ #define ARPHRD_FCPL	786		/* Fibrechannel public loop	*/
+ #define ARPHRD_FCFABRIC	787		/* Fibrechannel fabric		*/
+ 	/* 787->799 reserved for fibrechannel media types */
+-#define ARPHRD_IEEE802_TR 800		/* Magic type ident for TR	*/
++/* 800 used to be used for token ring */
+ #define ARPHRD_IEEE80211 801		/* IEEE 802.11			*/
+ #define ARPHRD_IEEE80211_PRISM 802	/* IEEE 802.11 + Prism2 header  */
+ #define ARPHRD_IEEE80211_RADIOTAP 803	/* IEEE 802.11 + radiotap header */
+diff --git a/include/linux/ipx.h b/include/linux/ipx.h
+index 3d48014..8f02439 100644
+--- a/include/linux/ipx.h
++++ b/include/linux/ipx.h
+@@ -38,7 +38,7 @@ struct ipx_interface_definition {
+ #define IPX_FRAME_8022		2
+ #define IPX_FRAME_ETHERII	3
+ #define IPX_FRAME_8023		4
+-#define IPX_FRAME_TR_8022       5 /* obsolete */
++/* obsolete token ring was	5 */
+ 	unsigned char ipx_special;
+ #define IPX_SPECIAL_NONE	0
+ #define IPX_PRIMARY		1
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index 50f325f..9356322 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -209,60 +209,6 @@ static inline void ipv6_eth_mc_map(const struct in6_addr *addr, char *buf)
+ 	memcpy(buf + 2, &addr->s6_addr32[3], sizeof(__u32));
+ }
  
--/*
-- * From the total of MAX_LEC_ITF, last NUM_TR_DEVS are reserved for Token Ring.
-- * E.g. if MAX_LEC_ITF = 48 and NUM_TR_DEVS = 8, then lec0-lec39 are for
-- * Ethernet ELANs and lec40-lec47 are for Token Ring ELANS.
-- */
--#define NUM_TR_DEVS 8
--
- typedef enum {
- 	l_set_mac_addr,
- 	l_del_mac_addr,
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index bb35cb7..a7d1721 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -26,11 +26,6 @@
- #include <linux/spinlock.h>
- #include <linux/seq_file.h>
- 
--/* TokenRing if needed */
--#ifdef CONFIG_TR
--#include <linux/trdevice.h>
--#endif
--
- /* And atm device */
- #include <linux/atmdev.h>
- #include <linux/atmlec.h>
-@@ -163,50 +158,6 @@ static void lec_handle_bridge(struct sk_buff *skb, struct net_device *dev)
- #endif /* defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE) */
- 
- /*
-- * Modelled after tr_type_trans
-- * All multicast and ARE or STE frames go to BUS.
-- * Non source routed frames go by destination address.
-- * Last hop source routed frames go by destination address.
-- * Not last hop source routed frames go by _next_ route descriptor.
-- * Returns pointer to destination MAC address or fills in rdesc
-- * and returns NULL.
-- */
--#ifdef CONFIG_TR
--static unsigned char *get_tr_dst(unsigned char *packet, unsigned char *rdesc)
+-static inline void ipv6_tr_mc_map(const struct in6_addr *addr, char *buf)
 -{
--	struct trh_hdr *trh;
--	unsigned int riflen, num_rdsc;
+-	/* All nodes FF01::1, FF02::1, FF02::1:FFxx:xxxx */
 -
--	trh = (struct trh_hdr *)packet;
--	if (trh->daddr[0] & (uint8_t) 0x80)
--		return bus_mac;	/* multicast */
--
--	if (trh->saddr[0] & TR_RII) {
--		riflen = (ntohs(trh->rcf) & TR_RCF_LEN_MASK) >> 8;
--		if ((ntohs(trh->rcf) >> 13) != 0)
--			return bus_mac;	/* ARE or STE */
--	} else
--		return trh->daddr;	/* not source routed */
--
--	if (riflen < 6)
--		return trh->daddr;	/* last hop, source routed */
--
--	/* riflen is 6 or more, packet has more than one route descriptor */
--	num_rdsc = (riflen / 2) - 1;
--	memset(rdesc, 0, ETH_ALEN);
--	/* offset 4 comes from LAN destination field in LE control frames */
--	if (trh->rcf & htons((uint16_t) TR_RCF_DIR_BIT))
--		memcpy(&rdesc[4], &trh->rseg[num_rdsc - 2], sizeof(__be16));
--	else {
--		memcpy(&rdesc[4], &trh->rseg[1], sizeof(__be16));
--		rdesc[5] = ((ntohs(trh->rseg[0]) & 0x000f) | (rdesc[5] & 0xf0));
+-	if (((addr->s6_addr[0] == 0xFF) &&
+-	    ((addr->s6_addr[1] == 0x01) || (addr->s6_addr[1] == 0x02)) &&
+-	     (addr->s6_addr16[1] == 0) &&
+-	     (addr->s6_addr32[1] == 0) &&
+-	     (addr->s6_addr32[2] == 0) &&
+-	     (addr->s6_addr16[6] == 0) &&
+-	     (addr->s6_addr[15] == 1)) ||
+-	    ((addr->s6_addr[0] == 0xFF) &&
+-	     (addr->s6_addr[1] == 0x02) &&
+-	     (addr->s6_addr16[1] == 0) &&
+-	     (addr->s6_addr32[1] == 0) &&
+-	     (addr->s6_addr16[4] == 0) &&
+-	     (addr->s6_addr[10] == 0) &&
+-	     (addr->s6_addr[11] == 1) &&
+-	     (addr->s6_addr[12] == 0xff)))
+-	{
+-		buf[0]=0xC0;
+-		buf[1]=0x00;
+-		buf[2]=0x01;
+-		buf[3]=0x00;
+-		buf[4]=0x00;
+-		buf[5]=0x00;
+-	/* All routers FF0x::2 */
+-	} else if ((addr->s6_addr[0] ==0xff) &&
+-		((addr->s6_addr[1] & 0xF0) == 0) &&
+-		(addr->s6_addr16[1] == 0) &&
+-		(addr->s6_addr32[1] == 0) &&
+-		(addr->s6_addr32[2] == 0) &&
+-		(addr->s6_addr16[6] == 0) &&
+-		(addr->s6_addr[15] == 2))
+-	{
+-		buf[0]=0xC0;
+-		buf[1]=0x00;
+-		buf[2]=0x02;
+-		buf[3]=0x00;
+-		buf[4]=0x00;
+-		buf[5]=0x00;
+-	} else {
+-		unsigned char i ; 
+-		
+-		i = addr->s6_addr[15] & 7 ; 
+-		buf[0]=0xC0;
+-		buf[1]=0x00;
+-		buf[2]=0x00;
+-		buf[3]=0x01 << i ; 
+-		buf[4]=0x00;
+-		buf[5]=0x00;
 -	}
--
--	return NULL;
 -}
--#endif /* CONFIG_TR */
 -
+ static inline void ipv6_arcnet_mc_map(const struct in6_addr *addr, char *buf)
+ {
+ 	buf[0] = 0x00;
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 94ddb69c..83e0619 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -141,23 +141,6 @@ static inline struct sk_buff *ip_finish_skb(struct sock *sk, struct flowi4 *fl4)
+ extern int		ip4_datagram_connect(struct sock *sk, 
+ 					     struct sockaddr *uaddr, int addr_len);
+ 
 -/*
-  * Open/initialize the netdevice. This is called (in the current kernel)
-  * sometime after booting when the 'ifconfig' program is run.
-  *
-@@ -257,9 +208,6 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
- 	struct lec_arp_table *entry;
- 	unsigned char *dst;
- 	int min_frame_size;
--#ifdef CONFIG_TR
--	unsigned char rdesc[ETH_ALEN];	/* Token Ring route descriptor */
--#endif
- 	int is_rdesc;
+- *	Map a multicast IP onto multicast MAC for type Token Ring.
+- *      This conforms to RFC1469 Option 2 Multicasting i.e.
+- *      using a functional address to transmit / receive 
+- *      multicast packets.
+- */
+-
+-static inline void ip_tr_mc_map(__be32 addr, char *buf)
+-{
+-	buf[0]=0xC0;
+-	buf[1]=0x00;
+-	buf[2]=0x00;
+-	buf[3]=0x04;
+-	buf[4]=0x00;
+-	buf[5]=0x00;
+-}
+-
+ struct ip_reply_arg {
+ 	struct kvec iov[1];   
+ 	int	    flags;
+diff --git a/include/net/llc_pdu.h b/include/net/llc_pdu.h
+index f57e7d4..5a93d13 100644
+--- a/include/net/llc_pdu.h
++++ b/include/net/llc_pdu.h
+@@ -13,7 +13,6 @@
+  */
  
- 	pr_debug("called\n");
-@@ -290,24 +238,10 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
+ #include <linux/if_ether.h>
+-#include <linux/if_tr.h>
+ 
+ /* Lengths of frame formats */
+ #define LLC_PDU_LEN_I	4       /* header and 2 control bytes */
+@@ -253,10 +252,6 @@ static inline void llc_pdu_decode_sa(struct sk_buff *skb, u8 *sa)
+ {
+ 	if (skb->protocol == htons(ETH_P_802_2))
+ 		memcpy(sa, eth_hdr(skb)->h_source, ETH_ALEN);
+-	else if (skb->protocol == htons(ETH_P_TR_802_2)) {
+-		memcpy(sa, tr_hdr(skb)->saddr, ETH_ALEN);
+-		*sa &= 0x7F;
+-	}
+ }
+ 
+ /**
+@@ -270,8 +265,6 @@ static inline void llc_pdu_decode_da(struct sk_buff *skb, u8 *da)
+ {
+ 	if (skb->protocol == htons(ETH_P_802_2))
+ 		memcpy(da, eth_hdr(skb)->h_dest, ETH_ALEN);
+-	else if (skb->protocol == htons(ETH_P_TR_802_2))
+-		memcpy(da, tr_hdr(skb)->daddr, ETH_ALEN);
+ }
+ 
+ /**
+diff --git a/net/802/p8022.c b/net/802/p8022.c
+index 7f353c4..0bda8de 100644
+--- a/net/802/p8022.c
++++ b/net/802/p8022.c
+@@ -1,6 +1,5 @@
+ /*
+- *	NET3:	Support for 802.2 demultiplexing off Ethernet (Token ring
+- *		is kept separate see p8022tr.c)
++ *	NET3:	Support for 802.2 demultiplexing off Ethernet
+  *		This program is free software; you can redistribute it and/or
+  *		modify it under the terms of the GNU General Public License
+  *		as published by the Free Software Foundation; either version
+diff --git a/net/802/tr.c b/net/802/tr.c
+index 30a352e..175243b 100644
+--- a/net/802/tr.c
++++ b/net/802/tr.c
+@@ -604,7 +604,6 @@ static void tr_setup(struct net_device *dev)
+ 
+ 	dev->header_ops	= &tr_header_ops;
+ 
+-	dev->type		= ARPHRD_IEEE802_TR;
+ 	dev->hard_header_len	= TR_HLEN;
+ 	dev->mtu		= 2000;
+ 	dev->addr_len		= TR_ALEN;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3dd8539..66cae6e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -300,10 +300,9 @@ static const unsigned short netdev_lock_type[] =
+ 	 ARPHRD_BIF, ARPHRD_SIT, ARPHRD_IPDDP, ARPHRD_IPGRE,
+ 	 ARPHRD_PIMREG, ARPHRD_HIPPI, ARPHRD_ASH, ARPHRD_ECONET,
+ 	 ARPHRD_IRDA, ARPHRD_FCPP, ARPHRD_FCAL, ARPHRD_FCPL,
+-	 ARPHRD_FCFABRIC, ARPHRD_IEEE802_TR, ARPHRD_IEEE80211,
+-	 ARPHRD_IEEE80211_PRISM, ARPHRD_IEEE80211_RADIOTAP, ARPHRD_PHONET,
+-	 ARPHRD_PHONET_PIPE, ARPHRD_IEEE802154,
+-	 ARPHRD_VOID, ARPHRD_NONE};
++	 ARPHRD_FCFABRIC, ARPHRD_IEEE80211, ARPHRD_IEEE80211_PRISM,
++	 ARPHRD_IEEE80211_RADIOTAP, ARPHRD_PHONET, ARPHRD_PHONET_PIPE,
++	 ARPHRD_IEEE802154, ARPHRD_VOID, ARPHRD_NONE};
+ 
+ static const char *const netdev_lock_name[] =
+ 	{"_xmit_NETROM", "_xmit_ETHER", "_xmit_EETHER", "_xmit_AX25",
+@@ -318,10 +317,9 @@ static const char *const netdev_lock_name[] =
+ 	 "_xmit_BIF", "_xmit_SIT", "_xmit_IPDDP", "_xmit_IPGRE",
+ 	 "_xmit_PIMREG", "_xmit_HIPPI", "_xmit_ASH", "_xmit_ECONET",
+ 	 "_xmit_IRDA", "_xmit_FCPP", "_xmit_FCAL", "_xmit_FCPL",
+-	 "_xmit_FCFABRIC", "_xmit_IEEE802_TR", "_xmit_IEEE80211",
+-	 "_xmit_IEEE80211_PRISM", "_xmit_IEEE80211_RADIOTAP", "_xmit_PHONET",
+-	 "_xmit_PHONET_PIPE", "_xmit_IEEE802154",
+-	 "_xmit_VOID", "_xmit_NONE"};
++	 "_xmit_FCFABRIC", "_xmit_IEEE80211", "_xmit_IEEE80211_PRISM",
++	 "_xmit_IEEE80211_RADIOTAP", "_xmit_PHONET", "_xmit_PHONET_PIPE",
++	 "_xmit_IEEE802154", "_xmit_VOID", "_xmit_NONE"};
+ 
+ static struct lock_class_key netdev_xmit_lock_key[ARRAY_SIZE(netdev_lock_type)];
+ static struct lock_class_key netdev_addr_lock_key[ARRAY_SIZE(netdev_lock_type)];
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 2c8febd..20f1cb5 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -262,8 +262,8 @@ config ARPD
+ 	bool "IP: ARP daemon support"
+ 	---help---
+ 	  The kernel maintains an internal cache which maps IP addresses to
+-	  hardware addresses on the local network, so that Ethernet/Token Ring/
+-	  etc. frames are sent to the proper address on the physical networking
++	  hardware addresses on the local network, so that Ethernet
++	  frames are sent to the proper address on the physical networking
+ 	  layer. Normally, kernel uses the ARP protocol to resolve these
+ 	  mappings.
+ 
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 373b56b..5097571 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -89,7 +89,6 @@
+ #include <linux/etherdevice.h>
+ #include <linux/fddidevice.h>
+ #include <linux/if_arp.h>
+-#include <linux/trdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+@@ -193,9 +192,6 @@ int arp_mc_map(__be32 addr, u8 *haddr, struct net_device *dev, int dir)
+ 	case ARPHRD_IEEE802:
+ 		ip_eth_mc_map(addr, haddr);
+ 		return 0;
+-	case ARPHRD_IEEE802_TR:
+-		ip_tr_mc_map(addr, haddr);
+-		return 0;
+ 	case ARPHRD_INFINIBAND:
+ 		ip_ib_mc_map(addr, dev->broadcast, haddr);
+ 		return 0;
+@@ -648,12 +644,6 @@ struct sk_buff *arp_create(int type, int ptype, __be32 dest_ip,
+ 		arp->ar_pro = htons(ETH_P_IP);
+ 		break;
+ #endif
+-#if IS_ENABLED(CONFIG_TR)
+-	case ARPHRD_IEEE802_TR:
+-		arp->ar_hrd = htons(ARPHRD_IEEE802);
+-		arp->ar_pro = htons(ETH_P_IP);
+-		break;
+-#endif
  	}
- 	skb_push(skb, 2);
  
--	/* Put le header to place, works for TokenRing too */
-+	/* Put le header to place */
- 	lec_h = (struct lecdatahdr_8023 *)skb->data;
- 	lec_h->le_header = htons(priv->lecid);
- 
--#ifdef CONFIG_TR
--	/*
--	 * Ugly. Use this to realign Token Ring packets for
--	 * e.g. PCA-200E driver.
--	 */
--	if (priv->is_trdev) {
--		skb2 = skb_realloc_headroom(skb, LEC_HEADER_LEN);
--		kfree_skb(skb);
--		if (skb2 == NULL)
--			return NETDEV_TX_OK;
--		skb = skb2;
--	}
--#endif
--
- #if DUMP_PACKETS >= 2
- #define MAX_DUMP_SKB 99
- #elif DUMP_PACKETS >= 1
-@@ -321,12 +255,7 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
- #endif /* DUMP_PACKETS >= 1 */
- 
- 	/* Minimum ethernet-frame size */
--#ifdef CONFIG_TR
--	if (priv->is_trdev)
--		min_frame_size = LEC_MINIMUM_8025_SIZE;
--	else
--#endif
--		min_frame_size = LEC_MINIMUM_8023_SIZE;
-+	min_frame_size = LEC_MINIMUM_8023_SIZE;
- 	if (skb->len < min_frame_size) {
- 		if ((skb->len + skb_tailroom(skb)) < min_frame_size) {
- 			skb2 = skb_copy_expand(skb, 0,
-@@ -345,15 +274,6 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
- 	/* Send to right vcc */
- 	is_rdesc = 0;
- 	dst = lec_h->h_dest;
--#ifdef CONFIG_TR
--	if (priv->is_trdev) {
--		dst = get_tr_dst(skb->data + 2, rdesc);
--		if (dst == NULL) {
--			dst = rdesc;
--			is_rdesc = 1;
--		}
--	}
--#endif
- 	entry = NULL;
- 	vcc = lec_arp_resolve(priv, dst, is_rdesc, &entry);
- 	pr_debug("%s:vcc:%p vcc_flags:%lx, entry:%p\n",
-@@ -710,12 +630,7 @@ static void lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
- 			dev_kfree_skb(skb);
- 			return;
- 		}
--#ifdef CONFIG_TR
--		if (priv->is_trdev)
--			dst = ((struct lecdatahdr_8025 *)skb->data)->h_dest;
--		else
--#endif
--			dst = ((struct lecdatahdr_8023 *)skb->data)->h_dest;
-+		dst = ((struct lecdatahdr_8023 *)skb->data)->h_dest;
- 
+ 	arp->ar_hln = dev->addr_len;
+@@ -751,11 +741,10 @@ static int arp_process(struct sk_buff *skb)
+ 			goto out;
+ 		break;
+ 	case ARPHRD_ETHER:
+-	case ARPHRD_IEEE802_TR:
+ 	case ARPHRD_FDDI:
+ 	case ARPHRD_IEEE802:
  		/*
- 		 * If this is a Data Direct VCC, and the VCC does not match
-@@ -723,16 +638,7 @@ static void lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
- 		 */
- 		spin_lock_irqsave(&priv->lec_arp_lock, flags);
- 		if (lec_is_data_direct(vcc)) {
--#ifdef CONFIG_TR
--			if (priv->is_trdev)
--				src =
--				    ((struct lecdatahdr_8025 *)skb->data)->
--				    h_source;
--			else
--#endif
--				src =
--				    ((struct lecdatahdr_8023 *)skb->data)->
--				    h_source;
-+			src = ((struct lecdatahdr_8023 *)skb->data)->h_source;
- 			entry = lec_arp_find(priv, src);
- 			if (entry && entry->vcc != vcc) {
- 				lec_arp_remove(priv, entry);
-@@ -750,12 +656,7 @@ static void lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
- 		if (!hlist_empty(&priv->lec_arp_empty_ones))
- 			lec_arp_check_empties(priv, vcc, skb);
- 		skb_pull(skb, 2);	/* skip lec_id */
--#ifdef CONFIG_TR
--		if (priv->is_trdev)
--			skb->protocol = tr_type_trans(skb, dev);
--		else
--#endif
--			skb->protocol = eth_type_trans(skb, dev);
-+		skb->protocol = eth_type_trans(skb, dev);
- 		dev->stats.rx_packets++;
- 		dev->stats.rx_bytes += skb->len;
- 		memset(ATM_SKB(skb), 0, sizeof(struct atm_skb_data));
-@@ -827,27 +728,13 @@ static int lecd_attach(struct atm_vcc *vcc, int arg)
- 		i = 0;
- 	else
- 		i = arg;
--#ifdef CONFIG_TR
- 	if (arg >= MAX_LEC_ITF)
- 		return -EINVAL;
--#else				/* Reserve the top NUM_TR_DEVS for TR */
--	if (arg >= (MAX_LEC_ITF - NUM_TR_DEVS))
--		return -EINVAL;
--#endif
- 	if (!dev_lec[i]) {
--		int is_trdev, size;
+-		 * ETHERNET, Token Ring and Fibre Channel (which are IEEE 802
++		 * ETHERNET, and Fibre Channel (which are IEEE 802
+ 		 * devices, according to RFC 2625) devices will accept ARP
+ 		 * hardware types of either 1 (Ethernet) or 6 (IEEE 802.2).
+ 		 * This is the case also of FDDI, where the RFC 1390 says that
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 24a3df9..4300150 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -808,8 +808,6 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
+ 	b->op = BOOTP_REQUEST;
+ 	if (dev->type < 256) /* check for false types */
+ 		b->htype = dev->type;
+-	else if (dev->type == ARPHRD_IEEE802_TR) /* fix for token ring */
+-		b->htype = ARPHRD_IEEE802;
+ 	else if (dev->type == ARPHRD_FDDI)
+ 		b->htype = ARPHRD_ETHER;
+ 	else {
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 4d1d51a..f6b5b8a 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1575,7 +1575,6 @@ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
+ 	switch (dev->type) {
+ 	case ARPHRD_ETHER:
+ 	case ARPHRD_FDDI:
+-	case ARPHRD_IEEE802_TR:
+ 		return addrconf_ifid_eui48(eui, dev);
+ 	case ARPHRD_ARCNET:
+ 		return addrconf_ifid_arcnet(eui, dev);
+@@ -2444,7 +2443,6 @@ static void addrconf_dev_config(struct net_device *dev)
+ 
+ 	if ((dev->type != ARPHRD_ETHER) &&
+ 	    (dev->type != ARPHRD_FDDI) &&
+-	    (dev->type != ARPHRD_IEEE802_TR) &&
+ 	    (dev->type != ARPHRD_ARCNET) &&
+ 	    (dev->type != ARPHRD_INFINIBAND) &&
+ 	    (dev->type != ARPHRD_IEEE802154)) {
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 35615c6..56963f1 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -327,9 +327,6 @@ int ndisc_mc_map(const struct in6_addr *addr, char *buf, struct net_device *dev,
+ 	case ARPHRD_FDDI:
+ 		ipv6_eth_mc_map(addr, buf);
+ 		return 0;
+-	case ARPHRD_IEEE802_TR:
+-		ipv6_tr_mc_map(addr,buf);
+-		return 0;
+ 	case ARPHRD_ARCNET:
+ 		ipv6_arcnet_mc_map(addr, buf);
+ 		return 0;
+@@ -795,20 +792,6 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+ 
+ 		if (ifp->flags & (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
+ 			if (dad) {
+-				if (dev->type == ARPHRD_IEEE802_TR) {
+-					const unsigned char *sadr;
+-					sadr = skb_mac_header(skb);
+-					if (((sadr[8] ^ dev->dev_addr[0]) & 0x7f) == 0 &&
+-					    sadr[9] == dev->dev_addr[1] &&
+-					    sadr[10] == dev->dev_addr[2] &&
+-					    sadr[11] == dev->dev_addr[3] &&
+-					    sadr[12] == dev->dev_addr[4] &&
+-					    sadr[13] == dev->dev_addr[5]) {
+-						/* looped-back to us */
+-						goto out;
+-					}
+-				}
 -
--		is_trdev = 0;
--		if (i >= (MAX_LEC_ITF - NUM_TR_DEVS))
--			is_trdev = 1;
-+		int size;
+ 				/*
+ 				 * We are colliding with another node
+ 				 * who is doing DAD
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index 9680226..824d4a3 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -983,10 +983,6 @@ static int ipxitf_create(struct ipx_interface_definition *idef)
+ 		goto out;
  
- 		size = sizeof(struct lec_priv);
--#ifdef CONFIG_TR
--		if (is_trdev)
--			dev_lec[i] = alloc_trdev(size);
--		else
+ 	switch (idef->ipx_dlink_type) {
+-	case IPX_FRAME_TR_8022:
+-		printk(KERN_WARNING "IPX frame type 802.2TR is "
+-			"obsolete Use 802.2 instead.\n");
+-		/* fall through */
+ 	case IPX_FRAME_8022:
+ 		dlink_type 	= htons(ETH_P_802_2);
+ 		datalink 	= p8022_datalink;
+@@ -996,10 +992,7 @@ static int ipxitf_create(struct ipx_interface_definition *idef)
+ 			dlink_type 	= htons(ETH_P_IPX);
+ 			datalink 	= pEII_datalink;
+ 			break;
+-		} else
+-			printk(KERN_WARNING "IPX frame type EtherII over "
+-					"token-ring is obsolete. Use SNAP "
+-					"instead.\n");
++		}
+ 		/* fall through */
+ 	case IPX_FRAME_SNAP:
+ 		dlink_type 	= htons(ETH_P_SNAP);
+@@ -1275,7 +1268,6 @@ const char *ipx_frame_name(__be16 frame)
+ 	case ETH_P_802_2:	rc = "802.2";	break;
+ 	case ETH_P_SNAP:	rc = "SNAP";	break;
+ 	case ETH_P_802_3:	rc = "802.3";	break;
+-	case ETH_P_TR_802_2:	rc = "802.2TR";	break;
+ 	}
+ 
+ 	return rc;
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index 78424f4..e944075 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -71,8 +71,7 @@ static inline u16 llc_ui_next_link_no(int sap)
+  */
+ static inline __be16 llc_proto_type(u16 arphrd)
+ {
+-	return arphrd == ARPHRD_IEEE802_TR ?
+-			 htons(ETH_P_TR_802_2) : htons(ETH_P_802_2);
++	return htons(ETH_P_802_2);
+ }
+ 
+ /**
+diff --git a/net/llc/llc_output.c b/net/llc/llc_output.c
+index b658cba..2dae8a5 100644
+--- a/net/llc/llc_output.c
++++ b/net/llc/llc_output.c
+@@ -14,9 +14,7 @@
+  */
+ 
+ #include <linux/if_arp.h>
+-#include <linux/if_tr.h>
+ #include <linux/netdevice.h>
+-#include <linux/trdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/export.h>
+ #include <net/llc.h>
+@@ -37,7 +35,6 @@ int llc_mac_hdr_init(struct sk_buff *skb,
+ 	int rc = -EINVAL;
+ 
+ 	switch (skb->dev->type) {
+-	case ARPHRD_IEEE802_TR:
+ 	case ARPHRD_ETHER:
+ 	case ARPHRD_LOOPBACK:
+ 		rc = dev_hard_header(skb, skb->dev, ETH_P_802_2, da, sa,
+diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
+index 94e7fca..7c5073b 100644
+--- a/net/llc/llc_sap.c
++++ b/net/llc/llc_sap.c
+@@ -31,10 +31,6 @@ static int llc_mac_header_len(unsigned short devtype)
+ 	case ARPHRD_ETHER:
+ 	case ARPHRD_LOOPBACK:
+ 		return sizeof(struct ethhdr);
+-#if defined(CONFIG_TR) || defined(CONFIG_TR_MODULE)
+-	case ARPHRD_IEEE802_TR:
+-		return sizeof(struct trh_hdr);
 -#endif
--			dev_lec[i] = alloc_etherdev(size);
-+		dev_lec[i] = alloc_etherdev(size);
- 		if (!dev_lec[i])
- 			return -ENOMEM;
- 		dev_lec[i]->netdev_ops = &lec_netdev_ops;
-@@ -858,7 +745,6 @@ static int lecd_attach(struct atm_vcc *vcc, int arg)
- 		}
+ 	}
+ 	return 0;
+ }
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index f3e813a..e3a6e37 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -26,10 +26,6 @@
+ #include <linux/if_ether.h>
+ #endif
  
- 		priv = netdev_priv(dev_lec[i]);
--		priv->is_trdev = is_trdev;
- 	} else {
- 		priv = netdev_priv(dev_lec[i]);
- 		if (priv->lecd)
-@@ -2372,15 +2258,7 @@ lec_arp_check_empties(struct lec_priv *priv,
- 	struct hlist_node *node, *next;
- 	struct lec_arp_table *entry, *tmp;
- 	struct lecdatahdr_8023 *hdr = (struct lecdatahdr_8023 *)skb->data;
--	unsigned char *src;
 -#ifdef CONFIG_TR
--	struct lecdatahdr_8025 *tr_hdr = (struct lecdatahdr_8025 *)skb->data;
+-#include <linux/if_tr.h>
+-#endif
 -
--	if (priv->is_trdev)
--		src = tr_hdr->h_source;
--	else
--#endif
--		src = hdr->h_source;
-+	unsigned char *src = hdr->h_source;
- 
- 	spin_lock_irqsave(&priv->lec_arp_lock, flags);
- 	hlist_for_each_entry_safe(entry, node, next,
-diff --git a/net/atm/lec.h b/net/atm/lec.h
-index dfc0719..c730e57 100644
---- a/net/atm/lec.h
-+++ b/net/atm/lec.h
-@@ -142,7 +142,6 @@ struct lec_priv {
- 	int itfnum;				/* e.g. 2 for lec2, 5 for lec5 */
- 	struct lane2_ops *lane2_ops;		/* can be NULL for LANE v1 */
- 	int is_proxy;				/* bridge between ATM and Ethernet */
--	int is_trdev;				/* Device type, 0 = Ethernet, 1 = TokenRing */
- };
- 
- struct lec_vcc_priv {
+ static struct ctl_table_set *
+ net_ctl_header_lookup(struct ctl_table_root *root, struct nsproxy *namespaces)
+ {
 -- 
 1.7.9.1
