@@ -1,66 +1,98 @@
-From: Omar Alhassane <oalhassane@gmail.com>
-Subject: Re: PROBLEM: Fragmentation issue with 1521 bytes ip packets
-Date: Wed, 16 May 2012 15:36:42 -0400
-Message-ID: <CAPFXtPeMqznLajfdG6Cnubh6yfBieujhozV3xyjb+ZU71CUUNw@mail.gmail.com>
-References: <CAPFXtPexGpVyGGuKdjpuH+cxOaxa7KeBfmFrs39=NW7LsZ6-bw@mail.gmail.com>
-	<1337094259.8512.1100.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: [PATCH v3] xfrm: take iphdr size into account for esp payload size calculation
+Date: Wed, 16 May 2012 15:35:25 -0400
+Message-ID: <1337196925-4919-1-git-send-email-bpoirier@suse.de>
+References: <20120514.183952.1459413342269893446.davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:55852 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760517Ab2EPTgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 15:36:42 -0400
-Received: by yhmm54 with SMTP id m54so1127674yhm.19
-        for <netdev@vger.kernel.org>; Wed, 16 May 2012 12:36:42 -0700 (PDT)
-In-Reply-To: <1337094259.8512.1100.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120514.183952.1459413342269893446.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thank you for explaining.
+Corrects the function that determines the esp payload size.
+The calculations done in esp4_get_mtu lead to overlength frames in transport
+mode for certain mtu values and suboptimal frames for others.
 
-Omar
+According to what is done, mainly in esp_output(), net_header_len aka
+sizeof(struct iphdr) must be taken into account before doing the alignment
+calculation.
 
-On Tue, May 15, 2012 at 11:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> On Tue, 2012-05-15 at 10:00 -0400, Omar Alhassane wrote:
-> > Hello Folks,
-> >
-> > I think i may have found a problem with the linux networking stack.
-> > Below is a description of the problem.
-> >
-> > [1.] One line summary of the problem:
-> > No response to pings of certain sizes.
-> >
-> > [2.] Full description of the problem/report:
-> > Using hping3, when i ping a linux machine with 1521 bytes ip packets i
-> > get only one response.
-> > But when i use 1482 bytes, everything works fine. I've tried this with
-> > both tcp and udp. The MTU of my interface is 1500.
-> > [3.] Keywords (i.e., modules, networking, kernel):
-> > ip, udp, tcp, networking, fragmentation
-> > [4.] Kernel version (from /proc/version):
-> > 3.3.1
-> > [5.] Output of Oops.. message (if applicable) with symbolic information
-> > [6.] A small shell script or example program which triggers the
-> > problem (if possible)
-> > The following commands works only if the target has tcp port 22 open
-> >
-> > hping3 -d 1481 -S -P 22 10.0.30.225 (only one response)
-> > hping3 -d 1482 -S -P 22 10.0.30.225 (works fine)
-> >
-> > Can somebody confirm if this is a problem?
->
-> hping3 bug : All the fragments it sends have the same ID field.
->
-> First 2 frags are reassembled by remote. Remote sends a SYNACK.
->
->
-> Following frags are 'ignored' because they have same ID than previous
-> packet.
->
->
->
->
->
+Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+
+---
+Changes since v2:
+* rename l3_adj to net_adj
+* fix indentation
+
+Changes since v1:
+* introduce l3_adj to preserve the same returned value as before for tunnel
+  mode
+
+For example, with md5 AH and 3des ESP (transport mode):
+mtu = 1499 leads to FRAGFAILS
+mtu = 1500 the addition of padding in the esp header could be avoided
+
+Tested with
+* transport mode E
+* transport mode EA
+* transport mode E + ah
+* tunnel mode E
+
+Not tested with BEET, but it should be the same as transport mode
+	draft-nikander-esp-beet-mode-03.txt Section 5.2:
+	"The wire packet format is identical to the ESP transport mode"
+---
+ net/ipv4/esp4.c |   24 +++++++++---------------
+ 1 files changed, 9 insertions(+), 15 deletions(-)
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 89a47b3..cb982a6 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -459,28 +459,22 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
+ 	struct esp_data *esp = x->data;
+ 	u32 blksize = ALIGN(crypto_aead_blocksize(esp->aead), 4);
+ 	u32 align = max_t(u32, blksize, esp->padlen);
+-	u32 rem;
+-
+-	mtu -= x->props.header_len + crypto_aead_authsize(esp->aead);
+-	rem = mtu & (align - 1);
+-	mtu &= ~(align - 1);
++	unsigned int net_adj;
+ 
+ 	switch (x->props.mode) {
+-	case XFRM_MODE_TUNNEL:
+-		break;
+-	default:
+ 	case XFRM_MODE_TRANSPORT:
+-		/* The worst case */
+-		mtu -= blksize - 4;
+-		mtu += min_t(u32, blksize - 4, rem);
+-		break;
+ 	case XFRM_MODE_BEET:
+-		/* The worst case. */
+-		mtu += min_t(u32, IPV4_BEET_PHMAXLEN, rem);
++		net_adj = sizeof(struct iphdr);
+ 		break;
++	case XFRM_MODE_TUNNEL:
++		net_adj = 0;
++		break;
++	default:
++		BUG();
+ 	}
+ 
+-	return mtu - 2;
++	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
++		 net_adj) & ~(align - 1)) + (net_adj - 2);
+ }
+ 
+ static void esp4_err(struct sk_buff *skb, u32 info)
+-- 
+1.7.7
