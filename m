@@ -1,47 +1,63 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
-Date: Wed, 16 May 2012 10:59:46 +0800
-Message-ID: <4FB31822.9060602@cn.fujitsu.com>
-References: <20120215104021.GC31660@secunet.com> <1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com> <20120514130528.GA24733@secunet.com> <4FB1D11A.4040206@cn.fujitsu.com> <20120515114840.GC24733@secunet.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [V2 PATCH 2/9] macvtap: zerocopy: fix truesize underestimation
+Date: Wed, 16 May 2012 11:04:14 +0800
+Message-ID: <4FB3192E.4030803@redhat.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034144.11782.88947.stgit@amd-6168-8-1.englab.nay.redhat.com> <1337102809.8220.10.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, lw@cn.fujitsu.com
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:20730 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S966510Ab2EPC7T convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 22:59:19 -0400
-In-Reply-To: <20120515114840.GC24733@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
+	davem@davemloft.net
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1337102809.8220.10.camel@oc3660625478.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2012=E5=B9=B405=E6=9C=8815=E6=97=A5 19:48, Steffen Klassert =E5=
-=86=99=E9=81=93:
-> On Tue, May 15, 2012 at 11:44:26AM +0800, Gao feng wrote:
+On 05/16/2012 01:26 AM, Shirley Ma wrote:
+> On Wed, 2012-05-02 at 11:41 +0800, Jason Wang wrote:
+>> As the skb fragment were pinned/built from user pages, we should
+>> account the page instead of length for truesize.
 >>
->> how about add a function pointer append_data to the struct rt6_info?
->> so we can just call rt->append_data in ip6_append_data without consi=
-de
->> witch mode it is.
+>> Signed-off-by: Jason Wang<jasowang@redhat.com>
+>> ---
+>>   drivers/net/macvtap.c |    6 ++++--
+>>   1 files changed, 4 insertions(+), 2 deletions(-)
 >>
->=20
-> If you want to use a function pointer, it should go to stuct xfrm_mod=
-e.
-> That's where the IPsec mode dependent functions reside.
->=20
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index bd4a70d..7cb2684 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -519,6 +519,7 @@ static int zerocopy_sg_from_iovec(struct sk_buff
+>> *skb, const struct iovec *from,
+>>                  struct page *page[MAX_SKB_FRAGS];
+>>                  int num_pages;
+>>                  unsigned long base;
+>> +               unsigned long truesize;
+>>
+>>                  len = from->iov_len - offset;
+>>                  if (!len) {
+>> @@ -533,10 +534,11 @@ static int zerocopy_sg_from_iovec(struct sk_buff
+>> *skb, const struct iovec *from,
+>>                      (num_pages>  MAX_SKB_FRAGS -
+>> skb_shinfo(skb)->nr_frags))
+>>                          /* put_page is in skb free */
+>>                          return -EFAULT;
+>> +               truesize = size * PAGE_SIZE;
+> Here should be truesize = size * PAGE_SIZE - offset, right?
+>
 
-Yes,I will do it.
-
-> A side note, I'll be off for three weeks starting from tomorrow.
-> I'll have no E-mail access most of the time, so I'll probaply not
-> respond for the next three weeks.
-
-thanks for your response.
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+We get the whole user page, so need to account them all. Also this is 
+aligned with skb_copy_ubufs().
+>>                  skb->data_len += len;
+>>                  skb->len += len;
+>> -               skb->truesize += len;
+>> -               atomic_add(len,&skb->sk->sk_wmem_alloc);
+>> +               skb->truesize += truesize;
+>> +               atomic_add(truesize,&skb->sk->sk_wmem_alloc);
+>>                  while (len) {
+>>                          int off = base&  ~PAGE_MASK;
+>>                          int size = min_t(int, len, PAGE_SIZE - off);
+>>
+>>
