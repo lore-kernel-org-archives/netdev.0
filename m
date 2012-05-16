@@ -1,54 +1,40 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Wed, 16 May 2012 12:37:32 +0400
-Message-ID: <4FB3674C.2030604@parallels.com>
-References: <1336767077-25351-1-git-send-email-glommer@parallels.com> <1336767077-25351-3-git-send-email-glommer@parallels.com> <4FB058D8.6060707@jp.fujitsu.com> <4FB3431C.3050402@parallels.com> <4FB3518B.3090205@parallels.com> <4FB3652D.2040909@jp.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4FB3652D.2040909-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] ptp_pch: Add missing #include <linux/slab.h>
+Date: Wed, 16 May 2012 10:43:30 +0200
+Message-ID: <1337157810-13494-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Takahiro Shimizu <tshimizu818@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/16/2012 12:28 PM, KAMEZAWA Hiroyuki wrote:
-> (2012/05/16 16:04), Glauber Costa wrote:
-> 
->> On 05/16/2012 10:03 AM, Glauber Costa wrote:
->>>> BTW, what is the relationship between 1/2 and 2/2  ?
->>> Can't do jump label patching inside an interrupt handler. They need to
->>> happen when we free the structure, and I was about to add a worker
->>> myself when I found out we already have one: just we don't always use it.
->>>
->>> Before we merge it, let me just make sure the issue with config Li
->>> pointed out don't exist. I did test it, but since I've reposted this
->>> many times with multiple tiny changes - the type that will usually get
->>> us killed, I'd be more comfortable with an extra round of testing if
->>> someone spotted a possibility.
->>>
->>> Who is merging this fix, btw ?
->>> I find it to be entirely memcg related, even though it touches a file in
->>> net (but a file with only memcg code in it)
->>>
->>
->> For the record, I compiled test it many times, and the problem that Li
->> wondered about seems not to exist.
->>
-> 
-> Ah...Hmm.....I guess dependency problem will be found in -mm if any rather than
-> netdev...
-> 
-> David, can this bug-fix patch goes via -mm tree ? Or will you pick up ?
-> 
+drivers/ptp/ptp_pch.c: In function 'pch_eth_enable_set':
+drivers/ptp/ptp_pch.c:152:2: error: implicit declaration of function 'ioread32' [-Werror=implicit-function-declaration]
+drivers/ptp/ptp_pch.c:153:2: error: implicit declaration of function 'iowrite32' [-Werror=implicit-function-declaration]
 
-Another thing: Patch 2 in this series is of course dependent on patch 1
-- which lives 100 % in memcg core. Without that, lockdep will scream
-while disabling the static key.
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+Not even compile-tested, as it fails on parisc/xtensa only.
+http://kisskb.ellerman.id.au/kisskb/buildresult/6312813/
+http://kisskb.ellerman.id.au/kisskb/buildresult/6313050/
+
+ drivers/ptp/ptp_pch.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+index 375eb04..6fff680 100644
+--- a/drivers/ptp/ptp_pch.c
++++ b/drivers/ptp/ptp_pch.c
+@@ -30,6 +30,7 @@
+ #include <linux/module.h>
+ #include <linux/pci.h>
+ #include <linux/ptp_clock_kernel.h>
++#include <linux/slab.h>
+ 
+ #define STATION_ADDR_LEN	20
+ #define PCI_DEVICE_ID_PCH_1588	0x8819
+-- 
+1.7.0.4
