@@ -1,82 +1,56 @@
-From: pablo@netfilter.org
-Subject: [PATCH 5/7] netfilter: ipset: fix timeout value overflow bug
-Date: Thu, 17 May 2012 01:06:42 +0200
-Message-ID: <1337209604-3412-6-git-send-email-pablo@netfilter.org>
-References: <1337209604-3412-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1337209604-3412-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for comms devices.
+Date: Wed, 16 May 2012 16:20:19 -0700
+Message-ID: <20120516232019.GA960@kroah.com>
+References: <cover.1337203535.git.sarah.a.sharp@linux.intel.com>
+ <20120516224528.GA25936@xanatos>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gigaset307x-common-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
+	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120516224528.GA25936@xanatos>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+On Wed, May 16, 2012 at 03:45:28PM -0700, Sarah Sharp wrote:
+> [Resending with a smaller Cc list]
+> 
+> Hub-initiated LPM is not good for USB communications devices.  Comms
+> devices should be able to tell when their link can go into a lower power
+> state, because they know when an incoming transmission is finished.
+> Ideally, these devices would slam their links into a lower power state,
+> using the device-initiated LPM, after finishing the last packet of their
+> data transfer.
+> 
+> If we enable the idle timeouts for the parent hubs to enable
+> hub-initiated LPM, we will get a lot of useless LPM packets on the bus
+> as the devices reject LPM transitions when they're in the middle of
+> receiving data.  Worse, some devices might blindly accept the
+> hub-initiated LPM and power down their radios while they're in the
+> middle of receiving a transmission.
+> 
+> The Intel Windows folks are disabling hub-initiated LPM for all USB
+> communications devices under a xHCI USB 3.0 host.  In order to keep
+> the Linux behavior as close as possible to Windows, we need to do the
+> same in Linux.
 
-Large timeout parameters could result wrong timeout values due to
-an overflow at msec to jiffies conversion (reported by Andreas Herz)
+How is the USB core on Windows determining that LPM should be turned off
+for these devices?  Surely they aren't modifying each individual driver
+like this is, right?  Any way we also can do this in the core?
 
-[ This patch was mangled by Pablo Neira Ayuso since David Laight and
-  Eric Dumazet noticed that we were using hardcoded 1000 instead of
-  MSEC_PER_SEC to calculate the timeout ]
+Or, turn it around the other way, and only enable it if we know it's
+safe to do so, in each driver, but I guess that would be even messier.
 
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/linux/netfilter/ipset/ip_set_timeout.h |    4 ++++
- net/netfilter/xt_set.c                         |   15 +++++++++++++--
- 2 files changed, 17 insertions(+), 2 deletions(-)
+thanks,
 
-diff --git a/include/linux/netfilter/ipset/ip_set_timeout.h b/include/linux/netfilter/ipset/ip_set_timeout.h
-index 4792320..41d9cfa 100644
---- a/include/linux/netfilter/ipset/ip_set_timeout.h
-+++ b/include/linux/netfilter/ipset/ip_set_timeout.h
-@@ -30,6 +30,10 @@ ip_set_timeout_uget(struct nlattr *tb)
- {
- 	unsigned int timeout = ip_set_get_h32(tb);
- 
-+	/* Normalize to fit into jiffies */
-+	if (timeout > UINT_MAX/MSEC_PER_SEC)
-+		timeout = UINT_MAX/MSEC_PER_SEC;
-+
- 	/* Userspace supplied TIMEOUT parameter: adjust crazy size */
- 	return timeout == IPSET_NO_TIMEOUT ? IPSET_NO_TIMEOUT - 1 : timeout;
- }
-diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
-index 0ec8138..035960e 100644
---- a/net/netfilter/xt_set.c
-+++ b/net/netfilter/xt_set.c
-@@ -44,6 +44,14 @@ const struct ip_set_adt_opt n = {	\
- 	.cmdflags = cfs,		\
- 	.timeout = t,			\
- }
-+#define ADT_MOPT(n, f, d, fs, cfs, t)	\
-+struct ip_set_adt_opt n = {		\
-+	.family	= f,			\
-+	.dim = d,			\
-+	.flags = fs,			\
-+	.cmdflags = cfs,		\
-+	.timeout = t,			\
-+}
- 
- /* Revision 0 interface: backward compatible with netfilter/iptables */
- 
-@@ -296,11 +304,14 @@ static unsigned int
- set_target_v2(struct sk_buff *skb, const struct xt_action_param *par)
- {
- 	const struct xt_set_info_target_v2 *info = par->targinfo;
--	ADT_OPT(add_opt, par->family, info->add_set.dim,
--		info->add_set.flags, info->flags, info->timeout);
-+	ADT_MOPT(add_opt, par->family, info->add_set.dim,
-+		 info->add_set.flags, info->flags, info->timeout);
- 	ADT_OPT(del_opt, par->family, info->del_set.dim,
- 		info->del_set.flags, 0, UINT_MAX);
- 
-+	/* Normalize to fit into jiffies */
-+	if (add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
-+		add_opt.timeout = UINT_MAX/MSEC_PER_SEC;
- 	if (info->add_set.index != IPSET_INVALID_ID)
- 		ip_set_add(info->add_set.index, skb, par, &add_opt);
- 	if (info->del_set.index != IPSET_INVALID_ID)
--- 
-1.7.10
-
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
