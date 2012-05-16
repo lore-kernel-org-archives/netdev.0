@@ -1,643 +1,728 @@
 From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCH v2 5/8] mISDN: Reduce RX buffer allocation for transparent data
-Date: Wed, 16 May 2012 11:51:05 +0200
-Message-ID: <1337161868-19399-6-git-send-email-kkeil@linux-pingi.de>
+Subject: [PATCH v2 6/8] mISDN: Allow to set a minimum length for transparent data
+Date: Wed, 16 May 2012 11:51:06 +0200
+Message-ID: <1337161868-19399-7-git-send-email-kkeil@linux-pingi.de>
 References: <1337161868-19399-1-git-send-email-kkeil@linux-pingi.de>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:59298 "EHLO
+Received: from moutng.kundenserver.de ([212.227.17.9]:65028 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966865Ab2EPKA3 (ORCPT
+	with ESMTP id S966858Ab2EPKA3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 06:00:29 -0400
 In-Reply-To: <1337161868-19399-1-git-send-email-kkeil@linux-pingi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We did allways allocate maxsize buffers, but for transparent data we know
-the actual size.
-Use a common function to calculate size and detect overflows.
+If the FIFO of the card is small, many short messages are queued up to
+the upper layers and the userspace. This change allows the applications
+to set a minimum datalen they want from the drivers.
+Create a common control function to avoid code duplication in each
+driver.
 
 Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
 ---
- drivers/isdn/hardware/mISDN/avmfritz.c  |   18 ++-----
- drivers/isdn/hardware/mISDN/hfcmulti.c  |   61 ++++++++++--------------
- drivers/isdn/hardware/mISDN/hfcpci.c    |   11 ++--
- drivers/isdn/hardware/mISDN/hfcsusb.c   |   52 +++++++++-----------
- drivers/isdn/hardware/mISDN/mISDNipac.c |   20 +++-----
- drivers/isdn/hardware/mISDN/mISDNisar.c |   37 +++++----------
- drivers/isdn/hardware/mISDN/netjet.c    |   79 +++++++++++++-----------------
- drivers/isdn/hardware/mISDN/w6692.c     |   20 +++-----
- drivers/isdn/mISDN/hwchannel.c          |   75 ++++++++++++++++++++++++-----
- include/linux/mISDNhw.h                 |    1 +
- 10 files changed, 186 insertions(+), 188 deletions(-)
+ drivers/isdn/hardware/mISDN/avmfritz.c  |   35 ++++++----------
+ drivers/isdn/hardware/mISDN/hfcmulti.c  |   17 ++++----
+ drivers/isdn/hardware/mISDN/hfcpci.c    |   12 +++---
+ drivers/isdn/hardware/mISDN/hfcsusb.c   |   14 +++---
+ drivers/isdn/hardware/mISDN/mISDNipac.c |   27 +++----------
+ drivers/isdn/hardware/mISDN/mISDNisar.c |   25 +++---------
+ drivers/isdn/hardware/mISDN/netjet.c    |   23 ++--------
+ drivers/isdn/hardware/mISDN/w6692.c     |   25 +++---------
+ drivers/isdn/mISDN/hwchannel.c          |   65 ++++++++++++++++++++++++++++---
+ drivers/isdn/mISDN/l1oip_core.c         |    2 +-
+ include/linux/mISDNhw.h                 |   13 +++++-
+ include/linux/mISDNif.h                 |    9 ++++-
+ 12 files changed, 135 insertions(+), 132 deletions(-)
 
 diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
-index cc78264..8081367 100644
+index 8081367..7cd3a96 100644
 --- a/drivers/isdn/hardware/mISDN/avmfritz.c
 +++ b/drivers/isdn/hardware/mISDN/avmfritz.c
-@@ -404,21 +404,14 @@ hdlc_empty_fifo(struct bchannel *bch, int count)
- 	u32 *ptr;
- 	u8 *p;
- 	u32  val, addr;
--	int cnt = 0;
-+	int cnt;
- 	struct fritzcard *fc = bch->hw;
- 
- 	pr_debug("%s: %s %d\n", fc->name, __func__, count);
--	if (!bch->rx_skb) {
--		bch->rx_skb = mI_alloc_skb(bch->maxlen, GFP_ATOMIC);
--		if (!bch->rx_skb) {
--			pr_info("%s: B receive out of memory\n",
--				fc->name);
--			return;
--		}
+@@ -536,12 +536,12 @@ HDLC_irq(struct bchannel *bch, u32 stat)
+ 			hdlc_empty_fifo(bch, len);
+ 			if (!bch->rx_skb)
+ 				goto handle_tx;
+-			if (test_bit(FLG_TRANSPARENT, &bch->Flags) ||
+-			    (stat & HDLC_STAT_RME)) {
+-				if (((stat & HDLC_STAT_CRCVFRRAB) ==
+-				     HDLC_STAT_CRCVFR) ||
+-				    test_bit(FLG_TRANSPARENT, &bch->Flags)) {
+-					recv_Bchannel(bch, 0);
++			if (test_bit(FLG_TRANSPARENT, &bch->Flags)) {
++				recv_Bchannel(bch, 0, false);
++			} else if (stat & HDLC_STAT_RME) {
++				if ((stat & HDLC_STAT_CRCVFRRAB) ==
++				    HDLC_STAT_CRCVFR) {
++					recv_Bchannel(bch, 0, false);
+ 				} else {
+ 					pr_warning("%s: got invalid frame\n",
+ 						   fc->name);
+@@ -809,21 +809,7 @@ init_card(struct fritzcard *fc)
+ static int
+ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
+ {
+-	int ret = 0;
+-	struct fritzcard *fc = bch->hw;
+-
+-	switch (cq->op) {
+-	case MISDN_CTRL_GETOP:
+-		cq->op = 0;
+-		break;
+-		/* Nothing implemented yet */
+-	case MISDN_CTRL_FILL_EMPTY:
+-	default:
+-		pr_info("%s: %s unknown Op %x\n", fc->name, __func__, cq->op);
+-		ret = -EINVAL;
+-		break;
 -	}
--	if ((bch->rx_skb->len + count) > bch->maxlen) {
--		pr_debug("%s: overrun %d\n", fc->name,
--			 bch->rx_skb->len + count);
-+	cnt = bchannel_get_rxbuf(bch, count);
-+	if (cnt < 0) {
-+		pr_warning("%s.B%d: No bufferspace for %d bytes\n",
-+			   fc->name, bch->nr, count);
- 		return;
- 	}
- 	p = skb_put(bch->rx_skb, count);
-@@ -430,6 +423,7 @@ hdlc_empty_fifo(struct bchannel *bch, int count)
- 		addr = fc->addr + CHIP_WINDOW;
- 		outl(bch->nr == 2 ? AVM_HDLC_2 : AVM_HDLC_1, fc->addr);
- 	}
-+	cnt = 0;
- 	while (cnt < count) {
- 		val = le32_to_cpu(inl(addr));
- 		put_unaligned(val, ptr);
+-	return ret;
++	return mISDN_ctrl_bchannel(bch, cq);
+ }
+ 
+ static int
+@@ -1019,6 +1005,7 @@ static int __devinit
+ setup_instance(struct fritzcard *card)
+ {
+ 	int i, err;
++	unsigned short minsize;
+ 	u_long flags;
+ 
+ 	snprintf(card->name, MISDN_MAX_IDLEN - 1, "AVM.%d", AVM_cnt + 1);
+@@ -1038,7 +1025,11 @@ setup_instance(struct fritzcard *card)
+ 	for (i = 0; i < 2; i++) {
+ 		card->bch[i].nr = i + 1;
+ 		set_channelmap(i + 1, card->isac.dch.dev.channelmap);
+-		mISDN_initbchannel(&card->bch[i], MAX_DATA_MEM);
++		if (AVM_FRITZ_PCIV2 == card->type)
++			minsize = HDLC_FIFO_SIZE_V2;
++		else
++			minsize = HDLC_FIFO_SIZE_V1;
++		mISDN_initbchannel(&card->bch[i], MAX_DATA_MEM, minsize);
+ 		card->bch[i].hw = card;
+ 		card->bch[i].ch.send = avm_l2l1B;
+ 		card->bch[i].ch.ctrl = avm_bctrl;
 diff --git a/drivers/isdn/hardware/mISDN/hfcmulti.c b/drivers/isdn/hardware/mISDN/hfcmulti.c
-index bcb2b8e..16bef01 100644
+index 16bef01..246d087 100644
 --- a/drivers/isdn/hardware/mISDN/hfcmulti.c
 +++ b/drivers/isdn/hardware/mISDN/hfcmulti.c
-@@ -2196,24 +2196,20 @@ hfcmulti_rx(struct hfc_multi *hc, int ch)
- 	int f1 = 0, f2 = 0; /* = 0, to make GCC happy */
- 	int again = 0;
- 	struct	bchannel *bch;
--	struct  dchannel *dch;
-+	struct  dchannel *dch = NULL;
- 	struct sk_buff	*skb, **sp = NULL;
- 	int	maxlen;
- 
- 	bch = hc->chan[ch].bch;
--	dch = hc->chan[ch].dch;
--	if ((!dch) && (!bch))
--		return;
--	if (dch) {
-+	if (bch) {
-+		if (!test_bit(FLG_ACTIVE, &bch->Flags))
-+			return;
-+	} else if (hc->chan[ch].dch) {
-+		dch = hc->chan[ch].dch;
- 		if (!test_bit(FLG_ACTIVE, &dch->Flags))
- 			return;
--		sp = &dch->rx_skb;
--		maxlen = dch->maxlen;
- 	} else {
--		if (!test_bit(FLG_ACTIVE, &bch->Flags))
--			return;
--		sp = &bch->rx_skb;
--		maxlen = bch->maxlen;
-+		return;
- 	}
- next_frame:
- 	/* on first AND before getting next valid frame, R_FIFO must be written
-@@ -2260,13 +2256,26 @@ next_frame:
- 	if (Zsize <= 0)
- 		return;
- 
--	if (*sp == NULL) {
--		*sp = mI_alloc_skb(maxlen + 3, GFP_ATOMIC);
--		if (*sp == NULL) {
--			printk(KERN_DEBUG "%s: No mem for rx_skb\n",
--			       __func__);
-+	if (bch) {
-+		maxlen = bchannel_get_rxbuf(bch, Zsize);
-+		if (maxlen < 0) {
-+			pr_warning("card%d.B%d: No bufferspace for %d bytes\n",
-+				   hc->id + 1, bch->nr, Zsize);
- 			return;
- 		}
-+		sp = &bch->rx_skb;
-+		maxlen = bch->maxlen;
-+	} else { /* Dchannel */
-+		sp = &dch->rx_skb;
-+		maxlen = dch->maxlen + 3;
-+		if (*sp == NULL) {
-+			*sp = mI_alloc_skb(maxlen, GFP_ATOMIC);
-+			if (*sp == NULL) {
-+				pr_warning("card%d: No mem for dch rx_skb\n",
-+					   hc->id + 1);
-+				return;
-+			}
-+		}
- 	}
- 	/* show activity */
- 	if (dch)
-@@ -2281,7 +2290,7 @@ next_frame:
- 			       Zsize, z1, z2, (f1 == f2) ? "fragment" : "COMPLETE",
- 			       f1, f2, Zsize + (*sp)->len, again);
- 		/* HDLC */
--		if ((Zsize + (*sp)->len) > (maxlen + 3)) {
-+		if ((Zsize + (*sp)->len) > maxlen) {
- 			if (debug & DEBUG_HFCMULTI_FIFO)
- 				printk(KERN_DEBUG
- 				       "%s(card %d): hdlc-frame too large.\n",
-@@ -2351,24 +2360,7 @@ next_frame:
- 		/* there is an incomplete frame */
- 	} else {
- 		/* transparent */
--		if (Zsize > skb_tailroom(*sp))
--			Zsize = skb_tailroom(*sp);
- 		hc->read_fifo(hc, skb_put(*sp, Zsize), Zsize);
--		if (((*sp)->len) < MISDN_COPY_SIZE) {
--			skb = *sp;
--			*sp = mI_alloc_skb(skb->len, GFP_ATOMIC);
--			if (*sp) {
--				memcpy(skb_put(*sp, skb->len),
--				       skb->data, skb->len);
--				skb_trim(skb, 0);
--			} else {
--				printk(KERN_DEBUG "%s: No mem\n", __func__);
--				*sp = skb;
--				skb = NULL;
--			}
--		} else {
--			skb = NULL;
--		}
- 		if (debug & DEBUG_HFCMULTI_FIFO)
- 			printk(KERN_DEBUG
- 			       "%s(card %d): fifo(%d) reading %d bytes "
-@@ -2376,7 +2368,6 @@ next_frame:
+@@ -2352,7 +2352,7 @@ next_frame:
+ 			if (dch)
+ 				recv_Dchannel(dch);
+ 			else
+-				recv_Bchannel(bch, MISDN_ID_ANY);
++				recv_Bchannel(bch, MISDN_ID_ANY, false);
+ 			*sp = skb;
+ 			again++;
+ 			goto next_frame;
+@@ -2367,7 +2367,7 @@ next_frame:
+ 			       "(z1=%04x, z2=%04x) TRANS\n",
  			       __func__, hc->id + 1, ch, Zsize, z1, z2);
  		/* only bch is transparent */
- 		recv_Bchannel(bch, hc->chan[ch].Zfill);
--		*sp = skb;
+-		recv_Bchannel(bch, hc->chan[ch].Zfill);
++		recv_Bchannel(bch, hc->chan[ch].Zfill, false);
  	}
  }
  
+@@ -3574,8 +3574,9 @@ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
+ 
+ 	switch (cq->op) {
+ 	case MISDN_CTRL_GETOP:
+-		cq->op = MISDN_CTRL_HFC_OP | MISDN_CTRL_HW_FEATURES_OP
+-			| MISDN_CTRL_RX_OFF | MISDN_CTRL_FILL_EMPTY;
++		ret = mISDN_ctrl_bchannel(bch, cq);
++		cq->op |= MISDN_CTRL_HFC_OP | MISDN_CTRL_HW_FEATURES_OP |
++			  MISDN_CTRL_RX_OFF | MISDN_CTRL_FILL_EMPTY;
+ 		break;
+ 	case MISDN_CTRL_RX_OFF: /* turn off / on rx stream */
+ 		hc->chan[bch->slot].rx_off = !!cq->p1;
+@@ -3683,9 +3684,7 @@ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
+ 			ret = -EINVAL;
+ 		break;
+ 	default:
+-		printk(KERN_WARNING "%s: unknown Op %x\n",
+-		       __func__, cq->op);
+-		ret = -EINVAL;
++		ret = mISDN_ctrl_bchannel(bch, cq);
+ 		break;
+ 	}
+ 	return ret;
+@@ -4855,7 +4854,7 @@ init_e1_port(struct hfc_multi *hc, struct hm_map *m, int pt)
+ 		bch->nr = ch;
+ 		bch->slot = ch;
+ 		bch->debug = debug;
+-		mISDN_initbchannel(bch, MAX_DATA_MEM);
++		mISDN_initbchannel(bch, MAX_DATA_MEM, poll >> 1);
+ 		bch->hw = hc;
+ 		bch->ch.send = handle_bmsg;
+ 		bch->ch.ctrl = hfcm_bctrl;
+@@ -4928,7 +4927,7 @@ init_multi_port(struct hfc_multi *hc, int pt)
+ 		bch->nr = ch + 1;
+ 		bch->slot = i + ch;
+ 		bch->debug = debug;
+-		mISDN_initbchannel(bch, MAX_DATA_MEM);
++		mISDN_initbchannel(bch, MAX_DATA_MEM, poll >> 1);
+ 		bch->hw = hc;
+ 		bch->ch.send = handle_bmsg;
+ 		bch->ch.ctrl = hfcm_bctrl;
 diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
-index 123e8e5..0622e05 100644
+index 0622e05..2774375 100644
 --- a/drivers/isdn/hardware/mISDN/hfcpci.c
 +++ b/drivers/isdn/hardware/mISDN/hfcpci.c
-@@ -577,8 +577,11 @@ hfcpci_empty_fifo_trans(struct bchannel *bch, struct bzfifo *rxbz,
- 	fcnt_tx = B_FIFO_SIZE - fcnt_tx;
- 	/* remaining bytes to send (bytes in tx-fifo) */
+@@ -453,7 +453,7 @@ hfcpci_empty_bfifo(struct bchannel *bch, struct bzfifo *bz,
+ 		}
+ 		bz->za[new_f2].z2 = cpu_to_le16(new_z2);
+ 		bz->f2 = new_f2;	/* next buffer */
+-		recv_Bchannel(bch, MISDN_ID_ANY);
++		recv_Bchannel(bch, MISDN_ID_ANY, false);
+ 	}
+ }
  
--	bch->rx_skb = mI_alloc_skb(fcnt_rx, GFP_ATOMIC);
--	if (bch->rx_skb) {
-+	maxlen = bchannel_get_rxbuf(bch, fcnt_rx);
-+	if (maxlen < 0) {
-+		pr_warning("B%d: No bufferspace for %d bytes\n",
-+			   bch->nr, fcnt_rx);
-+	} else {
- 		ptr = skb_put(bch->rx_skb, fcnt_rx);
- 		if (le16_to_cpu(*z2r) + fcnt_rx <= B_FIFO_SIZE + B_SUB_VAL)
- 			maxlen = fcnt_rx;	/* complete transfer */
-@@ -597,9 +600,7 @@ hfcpci_empty_fifo_trans(struct bchannel *bch, struct bzfifo *rxbz,
+@@ -599,7 +599,7 @@ hfcpci_empty_fifo_trans(struct bchannel *bch, struct bzfifo *rxbz,
+ 			ptr1 = bdata;	/* start of buffer */
  			memcpy(ptr, ptr1, fcnt_rx);	/* rest */
  		}
- 		recv_Bchannel(bch, fcnt_tx); /* bch, id */
--	} else
--		printk(KERN_WARNING "HFCPCI: receive out of memory\n");
--
-+	}
+-		recv_Bchannel(bch, fcnt_tx); /* bch, id */
++		recv_Bchannel(bch, fcnt_tx, false); /* bch, id, !force */
+ 	}
  	*z2r = cpu_to_le16(new_z2);		/* new position */
  }
+@@ -1535,7 +1535,8 @@ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
  
+ 	switch (cq->op) {
+ 	case MISDN_CTRL_GETOP:
+-		cq->op = MISDN_CTRL_FILL_EMPTY;
++		ret = mISDN_ctrl_bchannel(bch, cq);
++		cq->op |= MISDN_CTRL_FILL_EMPTY;
+ 		break;
+ 	case MISDN_CTRL_FILL_EMPTY: /* fill fifo, if empty */
+ 		test_and_set_bit(FLG_FILLEMPTY, &bch->Flags);
+@@ -1544,8 +1545,7 @@ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
+ 			       "off=%d)\n", __func__, bch->nr, !!cq->p1);
+ 		break;
+ 	default:
+-		printk(KERN_WARNING "%s: unknown Op %x\n", __func__, cq->op);
+-		ret = -EINVAL;
++		ret = mISDN_ctrl_bchannel(bch, cq);
+ 		break;
+ 	}
+ 	return ret;
+@@ -2116,7 +2116,7 @@ setup_card(struct hfc_pci *card)
+ 		card->bch[i].nr = i + 1;
+ 		set_channelmap(i + 1, card->dch.dev.channelmap);
+ 		card->bch[i].debug = debug;
+-		mISDN_initbchannel(&card->bch[i], MAX_DATA_MEM);
++		mISDN_initbchannel(&card->bch[i], MAX_DATA_MEM, poll >> 1);
+ 		card->bch[i].hw = card;
+ 		card->bch[i].ch.send = hfcpci_l2l1B;
+ 		card->bch[i].ch.ctrl = hfc_bctrl;
 diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
-index 919eccc..6bb689b 100644
+index 6bb689b..9c17473 100644
 --- a/drivers/isdn/hardware/mISDN/hfcsusb.c
 +++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
-@@ -860,7 +860,16 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
- 		hdlc = 1;
- 	}
- 	if (fifo->bch) {
-+		maxlen = bchannel_get_rxbuf(fifo->bch, len);
- 		rx_skb = fifo->bch->rx_skb;
-+		if (maxlen < 0) {
-+			if (rx_skb)
-+				skb_trim(rx_skb, 0);
-+			pr_warning("%s.B%d: No bufferspace for %d bytes\n",
-+				   hw->name, fifo->bch->nr, len);
-+			spin_unlock(&hw->lock);
-+			return;
-+		}
- 		maxlen = fifo->bch->maxlen;
- 		hdlc = test_bit(FLG_HDLC, &fifo->bch->Flags);
- 	}
-@@ -870,25 +879,22 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
- 		hdlc = 1;
- 	}
+@@ -810,7 +810,8 @@ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
  
--	if (!rx_skb) {
--		rx_skb = mI_alloc_skb(maxlen, GFP_ATOMIC);
--		if (rx_skb) {
--			if (fifo->dch)
--				fifo->dch->rx_skb = rx_skb;
--			if (fifo->bch)
--				fifo->bch->rx_skb = rx_skb;
--			if (fifo->ech)
--				fifo->ech->rx_skb = rx_skb;
--			skb_trim(rx_skb, 0);
--		} else {
--			printk(KERN_DEBUG "%s: %s: No mem for rx_skb\n",
--			       hw->name, __func__);
--			spin_unlock(&hw->lock);
--			return;
--		}
--	}
--
- 	if (fifo->dch || fifo->ech) {
-+		if (!rx_skb) {
-+			rx_skb = mI_alloc_skb(maxlen, GFP_ATOMIC);
-+			if (rx_skb) {
-+				if (fifo->dch)
-+					fifo->dch->rx_skb = rx_skb;
-+				if (fifo->ech)
-+					fifo->ech->rx_skb = rx_skb;
-+				skb_trim(rx_skb, 0);
-+			} else {
-+				printk(KERN_DEBUG "%s: %s: No mem for rx_skb\n",
-+				       hw->name, __func__);
-+				spin_unlock(&hw->lock);
-+				return;
-+			}
-+		}
- 		/* D/E-Channel SKB range check */
- 		if ((rx_skb->len + len) >= MAX_DFRAME_LEN_L1) {
- 			printk(KERN_DEBUG "%s: %s: sbk mem exceeded "
-@@ -898,16 +904,6 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
- 			spin_unlock(&hw->lock);
- 			return;
+ 	switch (cq->op) {
+ 	case MISDN_CTRL_GETOP:
+-		cq->op = MISDN_CTRL_FILL_EMPTY;
++		ret = mISDN_ctrl_bchannel(bch, cq);
++		cq->op |= MISDN_CTRL_FILL_EMPTY;
+ 		break;
+ 	case MISDN_CTRL_FILL_EMPTY: /* fill fifo, if empty */
+ 		test_and_set_bit(FLG_FILLEMPTY, &bch->Flags);
+@@ -819,8 +820,7 @@ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
+ 			       "off=%d)\n", __func__, bch->nr, !!cq->p1);
+ 		break;
+ 	default:
+-		printk(KERN_WARNING "%s: unknown Op %x\n", __func__, cq->op);
+-		ret = -EINVAL;
++		ret = mISDN_ctrl_bchannel(bch, cq);
+ 		break;
+ 	}
+ 	return ret;
+@@ -931,7 +931,8 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
+ 				if (fifo->dch)
+ 					recv_Dchannel(fifo->dch);
+ 				if (fifo->bch)
+-					recv_Bchannel(fifo->bch, MISDN_ID_ANY);
++					recv_Bchannel(fifo->bch, MISDN_ID_ANY,
++						      0);
+ 				if (fifo->ech)
+ 					recv_Echannel(fifo->ech,
+ 						      &hw->dch);
+@@ -952,8 +953,7 @@ hfcsusb_rx_frame(struct usb_fifo *fifo, __u8 *data, unsigned int len,
  		}
--	} else if (fifo->bch) {
--		/* B-Channel SKB range check */
--		if ((rx_skb->len + len) >= (MAX_BCH_SIZE + 3)) {
--			printk(KERN_DEBUG "%s: %s: sbk mem exceeded "
--			       "for fifo(%d) HFCUSB_B_RX\n",
--			       hw->name, __func__, fifon);
--			skb_trim(rx_skb, 0);
--			spin_unlock(&hw->lock);
--			return;
--		}
+ 	} else {
+ 		/* deliver transparent data to layer2 */
+-		if (rx_skb->len >= poll)
+-			recv_Bchannel(fifo->bch, MISDN_ID_ANY);
++		recv_Bchannel(fifo->bch, MISDN_ID_ANY, false);
  	}
- 
- 	memcpy(skb_put(rx_skb, len), data, len);
+ 	spin_unlock(&hw->lock);
+ }
+@@ -1861,7 +1861,7 @@ setup_instance(struct hfcsusb *hw, struct device *parent)
+ 		hw->bch[i].nr = i + 1;
+ 		set_channelmap(i + 1, hw->dch.dev.channelmap);
+ 		hw->bch[i].debug = debug;
+-		mISDN_initbchannel(&hw->bch[i], MAX_DATA_MEM);
++		mISDN_initbchannel(&hw->bch[i], MAX_DATA_MEM, poll >> 1);
+ 		hw->bch[i].hw = hw;
+ 		hw->bch[i].ch.send = hfcusb_l2l1B;
+ 		hw->bch[i].ch.ctrl = hfc_bctrl;
 diff --git a/drivers/isdn/hardware/mISDN/mISDNipac.c b/drivers/isdn/hardware/mISDN/mISDNipac.c
-index e4b6d8d..7d109ed 100644
+index 7d109ed..3e71a5e 100644
 --- a/drivers/isdn/hardware/mISDN/mISDNipac.c
 +++ b/drivers/isdn/hardware/mISDN/mISDNipac.c
-@@ -933,22 +933,16 @@ static void
- hscx_empty_fifo(struct hscx_hw *hscx, u8 count)
- {
- 	u8 *p;
-+	int maxlen;
- 
- 	pr_debug("%s: B%1d %d\n", hscx->ip->name, hscx->bch.nr, count);
--	if (!hscx->bch.rx_skb) {
--		hscx->bch.rx_skb = mI_alloc_skb(hscx->bch.maxlen, GFP_ATOMIC);
--		if (!hscx->bch.rx_skb) {
--			pr_info("%s: B receive out of memory\n",
--				hscx->ip->name);
--			hscx_cmdr(hscx, 0x80); /* RMC */
--			return;
--		}
--	}
--	if ((hscx->bch.rx_skb->len + count) > hscx->bch.maxlen) {
--		pr_debug("%s: overrun %d\n", hscx->ip->name,
--			 hscx->bch.rx_skb->len + count);
--		skb_trim(hscx->bch.rx_skb, 0);
-+	maxlen = bchannel_get_rxbuf(&hscx->bch, count);
-+	if (maxlen < 0) {
- 		hscx_cmdr(hscx, 0x80); /* RMC */
-+		if (hscx->bch.rx_skb)
-+			skb_trim(hscx->bch.rx_skb, 0);
-+		pr_warning("%s.B%d: No bufferspace for %d bytes\n",
-+			   hscx->ip->name, hscx->bch.nr, count);
- 		return;
- 	}
- 	p = skb_put(hscx->bch.rx_skb, count);
-diff --git a/drivers/isdn/hardware/mISDN/mISDNisar.c b/drivers/isdn/hardware/mISDN/mISDNisar.c
-index 9deea88..4169bb2 100644
---- a/drivers/isdn/hardware/mISDN/mISDNisar.c
-+++ b/drivers/isdn/hardware/mISDN/mISDNisar.c
-@@ -421,7 +421,8 @@ deliver_status(struct isar_ch *ch, int status)
- static inline void
- isar_rcv_frame(struct isar_ch *ch)
- {
--	u8		*ptr;
-+	u8	*ptr;
-+	int	maxlen;
- 
- 	if (!ch->is->clsb) {
- 		pr_debug("%s; ISAR zero len frame\n", ch->is->name);
-@@ -437,36 +438,22 @@ isar_rcv_frame(struct isar_ch *ch)
- 	case ISDN_P_B_RAW:
- 	case ISDN_P_B_L2DTMF:
- 	case ISDN_P_B_MODEM_ASYNC:
--		if (!ch->bch.rx_skb) {
--			ch->bch.rx_skb = mI_alloc_skb(ch->bch.maxlen,
--						      GFP_ATOMIC);
--			if (unlikely(!ch->bch.rx_skb)) {
--				pr_info("%s: B receive out of memory\n",
--					ch->is->name);
--				ch->is->write_reg(ch->is->hw, ISAR_IIA, 0);
--				break;
--			}
-+		maxlen = bchannel_get_rxbuf(&ch->bch, ch->is->clsb);
-+		if (maxlen < 0) {
-+			pr_warning("%s.B%d: No bufferspace for %d bytes\n",
-+				   ch->is->name, ch->bch.nr, ch->is->clsb);
-+			ch->is->write_reg(ch->is->hw, ISAR_IIA, 0);
-+			break;
- 		}
- 		rcv_mbox(ch->is, skb_put(ch->bch.rx_skb, ch->is->clsb));
- 		recv_Bchannel(&ch->bch, 0);
- 		break;
- 	case ISDN_P_B_HDLC:
--		if (!ch->bch.rx_skb) {
--			ch->bch.rx_skb = mI_alloc_skb(ch->bch.maxlen,
--						      GFP_ATOMIC);
--			if (unlikely(!ch->bch.rx_skb)) {
--				pr_info("%s: B receive out of memory\n",
--					ch->is->name);
--				ch->is->write_reg(ch->is->hw, ISAR_IIA, 0);
--				break;
--			}
--		}
--		if ((ch->bch.rx_skb->len + ch->is->clsb) >
--		    (ch->bch.maxlen + 2)) {
--			pr_debug("%s: incoming packet too large\n",
--				 ch->is->name);
-+		maxlen = bchannel_get_rxbuf(&ch->bch, ch->is->clsb);
-+		if (maxlen < 0) {
-+			pr_warning("%s.B%d: No bufferspace for %d bytes\n",
-+				   ch->is->name, ch->bch.nr, ch->is->clsb);
- 			ch->is->write_reg(ch->is->hw, ISAR_IIA, 0);
--			skb_trim(ch->bch.rx_skb, 0);
- 			break;
- 		}
- 		if (ch->is->cmsb & HDLC_ERROR) {
-diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
-index da13b07..3f28057 100644
---- a/drivers/isdn/hardware/mISDN/netjet.c
-+++ b/drivers/isdn/hardware/mISDN/netjet.c
-@@ -386,24 +386,16 @@ read_dma(struct tiger_ch *bc, u32 idx, int cnt)
- 			bc->bch.nr, idx);
- 	}
- 	bc->lastrx = idx;
--	if (!bc->bch.rx_skb) {
--		bc->bch.rx_skb = mI_alloc_skb(bc->bch.maxlen, GFP_ATOMIC);
--		if (!bc->bch.rx_skb) {
--			pr_info("%s: B%1d receive out of memory\n",
--				card->name, bc->bch.nr);
--			return;
--		}
-+	stat = bchannel_get_rxbuf(&bc->bch, cnt);
-+	/* only transparent use the count here, HDLC overun is detected later */
-+	if (stat == ENOMEM) {
-+		pr_warning("%s.B%d: No memory for %d bytes\n",
-+			   card->name, bc->bch.nr, cnt);
-+		return;
- 	}
--
--	if (test_bit(FLG_TRANSPARENT, &bc->bch.Flags)) {
--		if ((bc->bch.rx_skb->len + cnt) > bc->bch.maxlen) {
--			pr_debug("%s: B%1d overrun %d\n", card->name,
--				 bc->bch.nr, bc->bch.rx_skb->len + cnt);
--			skb_trim(bc->bch.rx_skb, 0);
--			return;
--		}
-+	if (test_bit(FLG_TRANSPARENT, &bc->bch.Flags))
- 		p = skb_put(bc->bch.rx_skb, cnt);
--	} else
-+	else
- 		p = bc->hrbuf;
- 
- 	for (i = 0; i < cnt; i++) {
-@@ -414,48 +406,45 @@ read_dma(struct tiger_ch *bc, u32 idx, int cnt)
- 			idx = 0;
- 		p[i] = val & 0xff;
- 	}
-+
-+	if (test_bit(FLG_TRANSPARENT, &bc->bch.Flags)) {
-+		recv_Bchannel(&bc->bch, 0);
-+		return;
-+	}
-+
- 	pn = bc->hrbuf;
--next_frame:
--	if (test_bit(FLG_HDLC, &bc->bch.Flags)) {
-+	while (cnt > 0) {
- 		stat = isdnhdlc_decode(&bc->hrecv, pn, cnt, &i,
- 				       bc->bch.rx_skb->data, bc->bch.maxlen);
--		if (stat > 0) /* valid frame received */
-+		if (stat > 0) { /* valid frame received */
- 			p = skb_put(bc->bch.rx_skb, stat);
--		else if (stat == -HDLC_CRC_ERROR)
-+			if (debug & DEBUG_HW_BFIFO) {
-+				snprintf(card->log, LOG_SIZE,
-+					 "B%1d-recv %s %d ", bc->bch.nr,
-+					 card->name, stat);
-+				print_hex_dump_bytes(card->log,
-+						     DUMP_PREFIX_OFFSET, p,
-+						     stat);
-+			}
-+			recv_Bchannel(&bc->bch, 0);
-+			stat = bchannel_get_rxbuf(&bc->bch, bc->bch.maxlen);
-+			if (stat < 0) {
-+				pr_warning("%s.B%d: No memory for %d bytes\n",
-+					   card->name, bc->bch.nr, cnt);
-+				return;
-+			}
-+		} else if (stat == -HDLC_CRC_ERROR) {
- 			pr_info("%s: B%1d receive frame CRC error\n",
- 				card->name, bc->bch.nr);
--		else if (stat == -HDLC_FRAMING_ERROR)
-+		} else if (stat == -HDLC_FRAMING_ERROR) {
- 			pr_info("%s: B%1d receive framing error\n",
- 				card->name, bc->bch.nr);
--		else if (stat == -HDLC_LENGTH_ERROR)
-+		} else if (stat == -HDLC_LENGTH_ERROR) {
- 			pr_info("%s: B%1d receive frame too long (> %d)\n",
- 				card->name, bc->bch.nr, bc->bch.maxlen);
--	} else
--		stat = cnt;
--
--	if (stat > 0) {
--		if (debug & DEBUG_HW_BFIFO) {
--			snprintf(card->log, LOG_SIZE, "B%1d-recv %s %d ",
--				 bc->bch.nr, card->name, stat);
--			print_hex_dump_bytes(card->log, DUMP_PREFIX_OFFSET,
--					     p, stat);
- 		}
--		recv_Bchannel(&bc->bch, 0);
--	}
--	if (test_bit(FLG_HDLC, &bc->bch.Flags)) {
- 		pn += i;
- 		cnt -= i;
--		if (!bc->bch.rx_skb) {
--			bc->bch.rx_skb = mI_alloc_skb(bc->bch.maxlen,
--						      GFP_ATOMIC);
--			if (!bc->bch.rx_skb) {
--				pr_info("%s: B%1d receive out of memory\n",
--					card->name, bc->bch.nr);
--				return;
--			}
--		}
--		if (cnt > 0)
--			goto next_frame;
+@@ -1063,7 +1063,7 @@ ipac_rme(struct hscx_hw *hx)
+ 		skb_trim(hx->bch.rx_skb, 0);
+ 	} else {
+ 		skb_trim(hx->bch.rx_skb, hx->bch.rx_skb->len - 1);
+-		recv_Bchannel(&hx->bch, 0);
++		recv_Bchannel(&hx->bch, 0, false);
  	}
  }
  
+@@ -1114,11 +1114,8 @@ ipac_irq(struct hscx_hw *hx, u8 ista)
+ 
+ 	if (istab & IPACX_B_RPF) {
+ 		hscx_empty_fifo(hx, hx->fifo_size);
+-		if (test_bit(FLG_TRANSPARENT, &hx->bch.Flags)) {
+-			/* receive transparent audio data */
+-			if (hx->bch.rx_skb)
+-				recv_Bchannel(&hx->bch, 0);
+-		}
++		if (test_bit(FLG_TRANSPARENT, &hx->bch.Flags))
++			recv_Bchannel(&hx->bch, 0, false);
+ 	}
+ 
+ 	if (istab & IPACX_B_RFO) {
+@@ -1377,20 +1374,7 @@ hscx_l2l1(struct mISDNchannel *ch, struct sk_buff *skb)
+ static int
+ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
+ {
+-	int	ret = 0;
+-
+-	switch (cq->op) {
+-	case MISDN_CTRL_GETOP:
+-		cq->op = 0;
+-		break;
+-		/* Nothing implemented yet */
+-	case MISDN_CTRL_FILL_EMPTY:
+-	default:
+-		pr_info("%s: unknown Op %x\n", __func__, cq->op);
+-		ret = -EINVAL;
+-		break;
+-	}
+-	return ret;
++	return mISDN_ctrl_bchannel(bch, cq);
+ }
+ 
+ static int
+@@ -1608,7 +1592,8 @@ mISDNipac_init(struct ipac_hw *ipac, void *hw)
+ 		set_channelmap(i + 1, ipac->isac.dch.dev.channelmap);
+ 		list_add(&ipac->hscx[i].bch.ch.list,
+ 			 &ipac->isac.dch.dev.bchannels);
+-		mISDN_initbchannel(&ipac->hscx[i].bch, MAX_DATA_MEM);
++		mISDN_initbchannel(&ipac->hscx[i].bch, MAX_DATA_MEM,
++				   ipac->hscx[i].fifo_size);
+ 		ipac->hscx[i].bch.ch.nr = i + 1;
+ 		ipac->hscx[i].bch.ch.send = &hscx_l2l1;
+ 		ipac->hscx[i].bch.ch.ctrl = hscx_bctrl;
+diff --git a/drivers/isdn/hardware/mISDN/mISDNisar.c b/drivers/isdn/hardware/mISDN/mISDNisar.c
+index 4169bb2..e74ad38 100644
+--- a/drivers/isdn/hardware/mISDN/mISDNisar.c
++++ b/drivers/isdn/hardware/mISDN/mISDNisar.c
+@@ -446,7 +446,7 @@ isar_rcv_frame(struct isar_ch *ch)
+ 			break;
+ 		}
+ 		rcv_mbox(ch->is, skb_put(ch->bch.rx_skb, ch->is->clsb));
+-		recv_Bchannel(&ch->bch, 0);
++		recv_Bchannel(&ch->bch, 0, false);
+ 		break;
+ 	case ISDN_P_B_HDLC:
+ 		maxlen = bchannel_get_rxbuf(&ch->bch, ch->is->clsb);
+@@ -481,7 +481,7 @@ isar_rcv_frame(struct isar_ch *ch)
+ 				break;
+ 			}
+ 			skb_trim(ch->bch.rx_skb, ch->bch.rx_skb->len - 2);
+-			recv_Bchannel(&ch->bch, 0);
++			recv_Bchannel(&ch->bch, 0, false);
+ 		}
+ 		break;
+ 	case ISDN_P_B_T30_FAX:
+@@ -517,7 +517,7 @@ isar_rcv_frame(struct isar_ch *ch)
+ 				ch->state = STFAX_ESCAPE;
+ 				/* set_skb_flag(skb, DF_NOMOREDATA); */
+ 			}
+-			recv_Bchannel(&ch->bch, 0);
++			recv_Bchannel(&ch->bch, 0, false);
+ 			if (ch->is->cmsb & SART_NMD)
+ 				deliver_status(ch, HW_MOD_NOCARR);
+ 			break;
+@@ -557,7 +557,7 @@ isar_rcv_frame(struct isar_ch *ch)
+ 				break;
+ 			}
+ 			skb_trim(ch->bch.rx_skb, ch->bch.rx_skb->len - 2);
+-			recv_Bchannel(&ch->bch, 0);
++			recv_Bchannel(&ch->bch, 0, false);
+ 		}
+ 		if (ch->is->cmsb & SART_NMD) { /* ABORT */
+ 			pr_debug("%s: isar_rcv_frame: no more data\n",
+@@ -1554,20 +1554,7 @@ isar_l2l1(struct mISDNchannel *ch, struct sk_buff *skb)
+ static int
+ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
+ {
+-	int	ret = 0;
+-
+-	switch (cq->op) {
+-	case MISDN_CTRL_GETOP:
+-		cq->op = 0;
+-		break;
+-		/* Nothing implemented yet */
+-	case MISDN_CTRL_FILL_EMPTY:
+-	default:
+-		pr_info("%s: unknown Op %x\n", __func__, cq->op);
+-		ret = -EINVAL;
+-		break;
+-	}
+-	return ret;
++	return mISDN_ctrl_bchannel(bch, cq);
+ }
+ 
+ static int
+@@ -1665,7 +1652,7 @@ mISDNisar_init(struct isar_hw *isar, void *hw)
+ 	isar->hw = hw;
+ 	for (i = 0; i < 2; i++) {
+ 		isar->ch[i].bch.nr = i + 1;
+-		mISDN_initbchannel(&isar->ch[i].bch, MAX_DATA_MEM);
++		mISDN_initbchannel(&isar->ch[i].bch, MAX_DATA_MEM, 32);
+ 		isar->ch[i].bch.ch.nr = i + 1;
+ 		isar->ch[i].bch.ch.send = &isar_l2l1;
+ 		isar->ch[i].bch.ch.ctrl = isar_bctrl;
+diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
+index 3f28057..47d3074 100644
+--- a/drivers/isdn/hardware/mISDN/netjet.c
++++ b/drivers/isdn/hardware/mISDN/netjet.c
+@@ -408,7 +408,7 @@ read_dma(struct tiger_ch *bc, u32 idx, int cnt)
+ 	}
+ 
+ 	if (test_bit(FLG_TRANSPARENT, &bc->bch.Flags)) {
+-		recv_Bchannel(&bc->bch, 0);
++		recv_Bchannel(&bc->bch, 0, false);
+ 		return;
+ 	}
+ 
+@@ -426,7 +426,7 @@ read_dma(struct tiger_ch *bc, u32 idx, int cnt)
+ 						     DUMP_PREFIX_OFFSET, p,
+ 						     stat);
+ 			}
+-			recv_Bchannel(&bc->bch, 0);
++			recv_Bchannel(&bc->bch, 0, false);
+ 			stat = bchannel_get_rxbuf(&bc->bch, bc->bch.maxlen);
+ 			if (stat < 0) {
+ 				pr_warning("%s.B%d: No memory for %d bytes\n",
+@@ -758,21 +758,7 @@ nj_l2l1B(struct mISDNchannel *ch, struct sk_buff *skb)
+ static int
+ channel_bctrl(struct tiger_ch *bc, struct mISDN_ctrl_req *cq)
+ {
+-	int ret = 0;
+-	struct tiger_hw *card  = bc->bch.hw;
+-
+-	switch (cq->op) {
+-	case MISDN_CTRL_GETOP:
+-		cq->op = 0;
+-		break;
+-		/* Nothing implemented yet */
+-	case MISDN_CTRL_FILL_EMPTY:
+-	default:
+-		pr_info("%s: %s unknown Op %x\n", card->name, __func__, cq->op);
+-		ret = -EINVAL;
+-		break;
+-	}
+-	return ret;
++	return mISDN_ctrl_bchannel(&bc->bch, cq);
+ }
+ 
+ static int
+@@ -1006,7 +992,8 @@ setup_instance(struct tiger_hw *card)
+ 	for (i = 0; i < 2; i++) {
+ 		card->bc[i].bch.nr = i + 1;
+ 		set_channelmap(i + 1, card->isac.dch.dev.channelmap);
+-		mISDN_initbchannel(&card->bc[i].bch, MAX_DATA_MEM);
++		mISDN_initbchannel(&card->bc[i].bch, MAX_DATA_MEM,
++				   NJ_DMA_RXSIZE >> 1);
+ 		card->bc[i].bch.hw = card;
+ 		card->bc[i].bch.ch.send = nj_l2l1B;
+ 		card->bc[i].bch.ch.ctrl = nj_bctrl;
 diff --git a/drivers/isdn/hardware/mISDN/w6692.c b/drivers/isdn/hardware/mISDN/w6692.c
-index f1c0bf1..8324b20 100644
+index 8324b20..03fb4a3 100644
 --- a/drivers/isdn/hardware/mISDN/w6692.c
 +++ b/drivers/isdn/hardware/mISDN/w6692.c
-@@ -465,6 +465,7 @@ W6692_empty_Bfifo(struct w6692_ch *wch, int count)
+@@ -688,7 +688,7 @@ W6692B_interrupt(struct w6692_hw *card, int ch)
+ 			if (count == 0)
+ 				count = W_B_FIFO_THRESH;
+ 			W6692_empty_Bfifo(wch, count);
+-			recv_Bchannel(&wch->bch, 0);
++			recv_Bchannel(&wch->bch, 0, false);
+ 		}
+ 	}
+ 	if (stat & W_B_EXI_RMR) {
+@@ -704,9 +704,8 @@ W6692B_interrupt(struct w6692_hw *card, int ch)
+ 				    W_B_CMDR_RRST | W_B_CMDR_RACT);
+ 		} else {
+ 			W6692_empty_Bfifo(wch, W_B_FIFO_THRESH);
+-			if (test_bit(FLG_TRANSPARENT, &wch->bch.Flags) &&
+-			    wch->bch.rx_skb && (wch->bch.rx_skb->len > 0))
+-				recv_Bchannel(&wch->bch, 0);
++			if (test_bit(FLG_TRANSPARENT, &wch->bch.Flags))
++				recv_Bchannel(&wch->bch, 0, false);
+ 		}
+ 	}
+ 	if (stat & W_B_EXI_RDOV) {
+@@ -979,20 +978,7 @@ w6692_l2l1B(struct mISDNchannel *ch, struct sk_buff *skb)
+ static int
+ channel_bctrl(struct bchannel *bch, struct mISDN_ctrl_req *cq)
  {
- 	struct w6692_hw *card = wch->bch.hw;
- 	u8 *ptr;
-+	int maxlen;
- 
- 	pr_debug("%s: empty_Bfifo %d\n", card->name, count);
- 	if (unlikely(wch->bch.state == ISDN_P_NONE)) {
-@@ -474,20 +475,13 @@ W6692_empty_Bfifo(struct w6692_ch *wch, int count)
- 			skb_trim(wch->bch.rx_skb, 0);
- 		return;
- 	}
--	if (!wch->bch.rx_skb) {
--		wch->bch.rx_skb = mI_alloc_skb(wch->bch.maxlen, GFP_ATOMIC);
--		if (unlikely(!wch->bch.rx_skb)) {
--			pr_info("%s: B receive out of memory\n", card->name);
--			WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK |
--				    W_B_CMDR_RACT);
--			return;
--		}
+-	int	ret = 0;
+-
+-	switch (cq->op) {
+-	case MISDN_CTRL_GETOP:
+-		cq->op = 0;
+-		break;
+-		/* Nothing implemented yet */
+-	case MISDN_CTRL_FILL_EMPTY:
+-	default:
+-		pr_info("%s: unknown Op %x\n", __func__, cq->op);
+-		ret = -EINVAL;
+-		break;
 -	}
--	if (wch->bch.rx_skb->len + count > wch->bch.maxlen) {
--		pr_debug("%s: empty_Bfifo incoming packet too large\n",
--			 card->name);
-+	maxlen = bchannel_get_rxbuf(&wch->bch, count);
-+	if (maxlen < 0) {
- 		WriteW6692B(wch, W_B_CMDR, W_B_CMDR_RACK | W_B_CMDR_RACT);
--		skb_trim(wch->bch.rx_skb, 0);
-+		if (wch->bch.rx_skb)
-+			skb_trim(wch->bch.rx_skb, 0);
-+		pr_warning("%s.B%d: No bufferspace for %d bytes\n",
-+			   card->name, wch->bch.nr, count);
- 		return;
- 	}
- 	ptr = skb_put(wch->bch.rx_skb, count);
+-	return ret;
++	return mISDN_ctrl_bchannel(bch, cq);
+ }
+ 
+ static int
+@@ -1303,7 +1289,8 @@ setup_instance(struct w6692_hw *card)
+ 	card->dch.hw = card;
+ 	card->dch.dev.nrbchan = 2;
+ 	for (i = 0; i < 2; i++) {
+-		mISDN_initbchannel(&card->bc[i].bch, MAX_DATA_MEM);
++		mISDN_initbchannel(&card->bc[i].bch, MAX_DATA_MEM,
++				   W_B_FIFO_THRESH);
+ 		card->bc[i].bch.hw = card;
+ 		card->bc[i].bch.nr = i + 1;
+ 		card->bc[i].bch.ch.nr = i + 1;
 diff --git a/drivers/isdn/mISDN/hwchannel.c b/drivers/isdn/mISDN/hwchannel.c
-index 5c5ab47..3c2145d 100644
+index 3c2145d..d42ad0e 100644
 --- a/drivers/isdn/mISDN/hwchannel.c
 +++ b/drivers/isdn/mISDN/hwchannel.c
-@@ -201,20 +201,30 @@ recv_Bchannel(struct bchannel *bch, unsigned int id)
+@@ -81,10 +81,16 @@ mISDN_initdchannel(struct dchannel *ch, int maxlen, void *phf)
+ EXPORT_SYMBOL(mISDN_initdchannel);
+ 
+ int
+-mISDN_initbchannel(struct bchannel *ch, int maxlen)
++mISDN_initbchannel(struct bchannel *ch, unsigned short maxlen,
++		   unsigned short minlen)
+ {
+ 	ch->Flags = 0;
++	ch->minlen = minlen;
++	ch->next_minlen = minlen;
++	ch->init_minlen = minlen;
+ 	ch->maxlen = maxlen;
++	ch->next_maxlen = maxlen;
++	ch->init_maxlen = maxlen;
+ 	ch->hw = NULL;
+ 	ch->rx_skb = NULL;
+ 	ch->tx_skb = NULL;
+@@ -134,6 +140,10 @@ mISDN_clear_bchannel(struct bchannel *ch)
+ 	test_and_clear_bit(FLG_TX_BUSY, &ch->Flags);
+ 	test_and_clear_bit(FLG_TX_NEXT, &ch->Flags);
+ 	test_and_clear_bit(FLG_ACTIVE, &ch->Flags);
++	ch->minlen = ch->init_minlen;
++	ch->next_minlen = ch->init_minlen;
++	ch->maxlen = ch->init_maxlen;
++	ch->next_maxlen = ch->init_maxlen;
+ }
+ EXPORT_SYMBOL(mISDN_clear_bchannel);
+ 
+@@ -148,6 +158,33 @@ mISDN_freebchannel(struct bchannel *ch)
+ }
+ EXPORT_SYMBOL(mISDN_freebchannel);
+ 
++int
++mISDN_ctrl_bchannel(struct bchannel *bch, struct mISDN_ctrl_req *cq)
++{
++	int ret = 0;
++
++	switch (cq->op) {
++	case MISDN_CTRL_GETOP:
++		cq->op = MISDN_CTRL_RX_BUFFER;
++		break;
++	case MISDN_CTRL_RX_BUFFER:
++		if (cq->p2 > MISDN_CTRL_RX_SIZE_IGNORE)
++			bch->next_maxlen = cq->p2;
++		if (cq->p1 > MISDN_CTRL_RX_SIZE_IGNORE)
++			bch->next_minlen = cq->p1;
++		/* we return the old values */
++		cq->p1 = bch->minlen;
++		cq->p2 = bch->maxlen;
++		break;
++	default:
++		pr_info("mISDN unhandled control %x operation\n", cq->op);
++		ret = -EINVAL;
++		break;
++	}
++	return ret;
++}
++EXPORT_SYMBOL(mISDN_ctrl_bchannel);
++
+ static inline u_int
+ get_sapi_tei(u_char *p)
+ {
+@@ -197,7 +234,7 @@ recv_Echannel(struct dchannel *ech, struct dchannel *dch)
+ EXPORT_SYMBOL(recv_Echannel);
+ 
+ void
+-recv_Bchannel(struct bchannel *bch, unsigned int id)
++recv_Bchannel(struct bchannel *bch, unsigned int id, bool force)
  {
  	struct mISDNhead *hh;
  
--	hh = mISDN_HEAD_P(bch->rx_skb);
--	hh->prim = PH_DATA_IND;
--	hh->id = id;
--	if (bch->rcount >= 64) {
--		printk(KERN_WARNING "B-channel %p receive queue overflow, "
--		       "flushing!\n", bch);
--		skb_queue_purge(&bch->rqueue);
--		bch->rcount = 0;
-+	/* if allocation did fail upper functions still may call us */
-+	if (unlikely(!bch->rx_skb))
- 		return;
-+	if (unlikely(!bch->rx_skb->len)) {
-+		/* we have no data to send - this may happen after recovery
-+		 * from overflow or too small allocation.
-+		 * We need to free the buffer here */
-+		dev_kfree_skb(bch->rx_skb);
-+		bch->rx_skb = NULL;
-+	} else {
-+		hh = mISDN_HEAD_P(bch->rx_skb);
-+		hh->prim = PH_DATA_IND;
-+		hh->id = id;
-+		if (bch->rcount >= 64) {
-+			printk(KERN_WARNING
-+			       "B%d receive queue overflow - flushing!\n",
-+			       bch->nr);
-+			skb_queue_purge(&bch->rqueue);
-+		}
-+		bch->rcount++;
-+		skb_queue_tail(&bch->rqueue, bch->rx_skb);
-+		bch->rx_skb = NULL;
-+		schedule_event(bch, FLG_RECVQUEUE);
+@@ -211,6 +248,9 @@ recv_Bchannel(struct bchannel *bch, unsigned int id)
+ 		dev_kfree_skb(bch->rx_skb);
+ 		bch->rx_skb = NULL;
+ 	} else {
++		if (test_bit(FLG_TRANSPARENT, &bch->Flags) &&
++		    (bch->rx_skb->len < bch->minlen) && !force)
++				return;
+ 		hh = mISDN_HEAD_P(bch->rx_skb);
+ 		hh->prim = PH_DATA_IND;
+ 		hh->id = id;
+@@ -426,7 +466,7 @@ bchannel_get_rxbuf(struct bchannel *bch, int reqlen)
+ 				   bch->nr, reqlen, len);
+ 			if (test_bit(FLG_TRANSPARENT, &bch->Flags)) {
+ 				/* send what we have now and try a new buffer */
+-				recv_Bchannel(bch, 0);
++				recv_Bchannel(bch, 0, true);
+ 			} else {
+ 				/* on HDLC we have to drop too big frames */
+ 				return -EMSGSIZE;
+@@ -435,12 +475,25 @@ bchannel_get_rxbuf(struct bchannel *bch, int reqlen)
+ 			return len;
+ 		}
  	}
--	bch->rcount++;
--	skb_queue_tail(&bch->rqueue, bch->rx_skb);
--	bch->rx_skb = NULL;
--	schedule_event(bch, FLG_RECVQUEUE);
- }
- EXPORT_SYMBOL(recv_Bchannel);
- 
-@@ -399,3 +409,44 @@ bchannel_senddata(struct bchannel *ch, struct sk_buff *skb)
- 	}
- }
- EXPORT_SYMBOL(bchannel_senddata);
-+
-+/* The function allocates a new receive skb on demand with a size for the
-+ * requirements of the current protocol. It returns the tailroom of the
-+ * receive skb or an error.
-+ */
-+int
-+bchannel_get_rxbuf(struct bchannel *bch, int reqlen)
-+{
-+	int len;
-+
-+	if (bch->rx_skb) {
-+		len = skb_tailroom(bch->rx_skb);
-+		if (len < reqlen) {
-+			pr_warning("B%d no space for %d (only %d) bytes\n",
-+				   bch->nr, reqlen, len);
-+			if (test_bit(FLG_TRANSPARENT, &bch->Flags)) {
-+				/* send what we have now and try a new buffer */
-+				recv_Bchannel(bch, 0);
-+			} else {
-+				/* on HDLC we have to drop too big frames */
-+				return -EMSGSIZE;
-+			}
++	/* update current min/max length first */
++	if (unlikely(bch->maxlen != bch->next_maxlen))
++		bch->maxlen = bch->next_maxlen;
++	if (unlikely(bch->minlen != bch->next_minlen))
++		bch->minlen = bch->next_minlen;
+ 	if (unlikely(reqlen > bch->maxlen))
+ 		return -EMSGSIZE;
+-	if (test_bit(FLG_TRANSPARENT, &bch->Flags))
+-		len = reqlen;
+-	else /* with HDLC we do not know the length yet */
++	if (test_bit(FLG_TRANSPARENT, &bch->Flags)) {
++		if (reqlen >= bch->minlen) {
++			len = reqlen;
 +		} else {
-+			return len;
++			len = 2 * bch->minlen;
++			if (len > bch->maxlen)
++				len = bch->maxlen;
 +		}
++	} else {
++		/* with HDLC we do not know the length yet */
+ 		len = bch->maxlen;
 +	}
-+	if (unlikely(reqlen > bch->maxlen))
-+		return -EMSGSIZE;
-+	if (test_bit(FLG_TRANSPARENT, &bch->Flags))
-+		len = reqlen;
-+	else /* with HDLC we do not know the length yet */
-+		len = bch->maxlen;
-+	bch->rx_skb = mI_alloc_skb(len, GFP_ATOMIC);
-+	if (!bch->rx_skb) {
-+		pr_warning("B%d receive no memory for %d bytes\n",
-+			   bch->nr, len);
-+		len = -ENOMEM;
-+	}
-+	return len;
-+}
-+EXPORT_SYMBOL(bchannel_get_rxbuf);
+ 	bch->rx_skb = mI_alloc_skb(len, GFP_ATOMIC);
+ 	if (!bch->rx_skb) {
+ 		pr_warning("B%d receive no memory for %d bytes\n",
+diff --git a/drivers/isdn/mISDN/l1oip_core.c b/drivers/isdn/mISDN/l1oip_core.c
+index 0f88acf..db50f78 100644
+--- a/drivers/isdn/mISDN/l1oip_core.c
++++ b/drivers/isdn/mISDN/l1oip_core.c
+@@ -1420,7 +1420,7 @@ init_card(struct l1oip *hc, int pri, int bundle)
+ 		bch->nr = i + ch;
+ 		bch->slot = i + ch;
+ 		bch->debug = debug;
+-		mISDN_initbchannel(bch, MAX_DATA_MEM);
++		mISDN_initbchannel(bch, MAX_DATA_MEM, 0);
+ 		bch->hw = hc;
+ 		bch->ch.send = handle_bmsg;
+ 		bch->ch.ctrl = l1oip_bctrl;
 diff --git a/include/linux/mISDNhw.h b/include/linux/mISDNhw.h
-index 491afd6..a86d86b 100644
+index a86d86b..226886c 100644
 --- a/include/linux/mISDNhw.h
 +++ b/include/linux/mISDNhw.h
-@@ -177,6 +177,7 @@ extern void	queue_ch_frame(struct mISDNchannel *, u_int,
+@@ -154,7 +154,12 @@ struct bchannel {
+ 	struct timer_list	timer;
+ 	/* receive data */
+ 	struct sk_buff		*rx_skb;
+-	int			maxlen;
++	unsigned short		maxlen;
++	unsigned short		init_maxlen; /* initial value */
++	unsigned short		next_maxlen; /* pending value */
++	unsigned short		minlen; /* for transparent data */
++	unsigned short		init_minlen; /* initial value */
++	unsigned short		next_minlen; /* pending value */
+ 	/* send data */
+ 	struct sk_buff		*next_skb;
+ 	struct sk_buff		*tx_skb;
+@@ -169,10 +174,12 @@ struct bchannel {
+ };
+ 
+ extern int	mISDN_initdchannel(struct dchannel *, int, void *);
+-extern int	mISDN_initbchannel(struct bchannel *, int);
++extern int	mISDN_initbchannel(struct bchannel *, unsigned short,
++				   unsigned short);
+ extern int	mISDN_freedchannel(struct dchannel *);
+ extern void	mISDN_clear_bchannel(struct bchannel *);
+ extern int	mISDN_freebchannel(struct bchannel *);
++extern int	mISDN_ctrl_bchannel(struct bchannel *, struct mISDN_ctrl_req *);
+ extern void	queue_ch_frame(struct mISDNchannel *, u_int,
  			int, struct sk_buff *);
  extern int	dchannel_senddata(struct dchannel *, struct sk_buff *);
- extern int	bchannel_senddata(struct bchannel *, struct sk_buff *);
-+extern int      bchannel_get_rxbuf(struct bchannel *, int);
+@@ -180,7 +187,7 @@ extern int	bchannel_senddata(struct bchannel *, struct sk_buff *);
+ extern int      bchannel_get_rxbuf(struct bchannel *, int);
  extern void	recv_Dchannel(struct dchannel *);
  extern void	recv_Echannel(struct dchannel *, struct dchannel *);
- extern void	recv_Bchannel(struct bchannel *, unsigned int id);
+-extern void	recv_Bchannel(struct bchannel *, unsigned int id);
++extern void	recv_Bchannel(struct bchannel *, unsigned int, bool);
+ extern void	recv_Dchannel_skb(struct dchannel *, struct sk_buff *);
+ extern void	recv_Bchannel_skb(struct bchannel *, struct sk_buff *);
+ extern int	get_next_bframe(struct bchannel *);
+diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
+index ce6e613..246a352 100644
+--- a/include/linux/mISDNif.h
++++ b/include/linux/mISDNif.h
+@@ -37,7 +37,7 @@
+  */
+ #define	MISDN_MAJOR_VERSION	1
+ #define	MISDN_MINOR_VERSION	1
+-#define MISDN_RELEASE		28
++#define MISDN_RELEASE		29
+ 
+ /* primitives for information exchange
+  * generell format
+@@ -365,6 +365,7 @@ clear_channelmap(u_int nr, u_char *map)
+ #define MISDN_CTRL_LOOP			0x0001
+ #define MISDN_CTRL_CONNECT		0x0002
+ #define MISDN_CTRL_DISCONNECT		0x0004
++#define MISDN_CTRL_RX_BUFFER		0x0008
+ #define MISDN_CTRL_PCMCONNECT		0x0010
+ #define MISDN_CTRL_PCMDISCONNECT	0x0020
+ #define MISDN_CTRL_SETPEER		0x0040
+@@ -387,6 +388,12 @@ clear_channelmap(u_int nr, u_char *map)
+ #define MISDN_CTRL_HFC_WD_INIT		0x4009
+ #define MISDN_CTRL_HFC_WD_RESET		0x400A
+ 
++/* special RX buffer value for MISDN_CTRL_RX_BUFFER request.p1 is the minimum
++ * buffer size request.p2 the maximum. Using  MISDN_CTRL_RX_SIZE_IGNORE will
++ * not change the value, but still read back the actual stetting.
++ */
++#define MISDN_CTRL_RX_SIZE_IGNORE	-1
++
+ /* socket options */
+ #define MISDN_TIME_STAMP		0x0001
+ 
 -- 
 1.7.3.4
