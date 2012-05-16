@@ -1,38 +1,45 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Wed, 16 May 2012 11:04:43 +0400
-Message-ID: <4FB3518B.3090205@parallels.com>
-References: <1336767077-25351-1-git-send-email-glommer@parallels.com> <1336767077-25351-3-git-send-email-glommer@parallels.com> <4FB058D8.6060707@jp.fujitsu.com> <4FB3431C.3050402@parallels.com>
+From: <jgq516-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/1] smsc95xx: add FLAG_POINTTOPOINT flag for driver_info
+Date: Wed, 16 May 2012 16:01:42 +0800
+Message-ID: <1337155302-26244-1-git-send-email-jgq516@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4FB3431C.3050402-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jgq516-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: <steve.glendinning-sdUf+H5yV5I@public.gmane.org>, <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 05/16/2012 10:03 AM, Glauber Costa wrote:
->> BTW, what is the relationship between 1/2 and 2/2  ?
-> Can't do jump label patching inside an interrupt handler. They need to
-> happen when we free the structure, and I was about to add a worker
-> myself when I found out we already have one: just we don't always use it.
-> 
-> Before we merge it, let me just make sure the issue with config Li
-> pointed out don't exist. I did test it, but since I've reposted this
-> many times with multiple tiny changes - the type that will usually get
-> us killed, I'd be more comfortable with an extra round of testing if
-> someone spotted a possibility.
-> 
-> Who is merging this fix, btw ?
-> I find it to be entirely memcg related, even though it touches a file in
-> net (but a file with only memcg code in it)
-> 
+From: Xiao Jiang <jgq516-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-For the record, I compiled test it many times, and the problem that Li
-wondered about seems not to exist.
+commit c26134 introduced FLAG_POINTTOPOINT flag for USB ethernet devices
+which possibly use "usb%d" names, add this flag to make sure pandaboard
+can mount nfs with smsc95xx NIC.
+
+Signed-off-by: Xiao Jiang <jgq516-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/usb/smsc95xx.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 94ae669..e158288 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1192,7 +1192,8 @@ static const struct driver_info smsc95xx_info = {
+ 	.rx_fixup	= smsc95xx_rx_fixup,
+ 	.tx_fixup	= smsc95xx_tx_fixup,
+ 	.status		= smsc95xx_status,
+-	.flags		= FLAG_ETHER | FLAG_SEND_ZLP | FLAG_LINK_INTR,
++	.flags		= FLAG_ETHER | FLAG_POINTTOPOINT | FLAG_SEND_ZLP |
++			  FLAG_LINK_INTR,
+ };
+ 
+ static const struct usb_device_id products[] = {
+-- 
+1.7.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
