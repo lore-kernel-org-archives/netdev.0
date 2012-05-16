@@ -1,59 +1,34 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: [PATCH] bonding: only send arp monitor packets if no other traffic
-Date: Wed, 16 May 2012 12:48:28 -0600
-Message-ID: <4FB3F67C.6000401@genband.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/2] 6lowpan: code updates
+Date: Wed, 16 May 2012 15:28:01 -0400 (EDT)
+Message-ID: <20120516.152801.915753046212672140.davem@davemloft.net>
+References: <1337153248-5779-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og123.obsmtp.com ([64.18.2.24]:60257 "EHLO
-	exprod7og123.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932429Ab2EPTZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 15:25:46 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:52638 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932429Ab2EPT2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 15:28:05 -0400
+In-Reply-To: <1337153248-5779-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to minimize network traffic, when using load balancing modes
-only send out arp monitor packets if it's been more than delta_in_ticks
-jiffies since we either received or transmitted packets.  The rationale
-behind this is that if there is a lot of other traffic going on we don't
-need the arp monitor packets to determine whether or not the link is
-working.
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Wed, 16 May 2012 11:27:26 +0400
 
-This makes the most difference if you have a lot of hosts all arping
-the same target at high frequency.
+>   6lowpan: rework data fetching from skb
 
-Signed-off-by: Chris Friesen <chris.friesen@genand.com>
----
- drivers/net/bonding/bond_main.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+This is not what we told you to do.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index bc13b3d..4c8459a 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2885,8 +2885,12 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 		 * do - all replies will be rx'ed on same link causing slaves
- 		 * to be unstable during low/no traffic periods
- 		 */
--		if (IS_UP(slave->dev))
--			bond_arp_send_all(bond, slave);
-+		if (IS_UP(slave->dev)) {
-+			if (time_after_eq(jiffies, dev_trans_start(slave->dev) + delta_in_ticks) ||
-+			    time_after_eq(jiffies, slave->dev->last_rx + delta_in_ticks)) {
-+				bond_arp_send_all(bond, slave);
-+			}
-+		}
- 	}
- 
- 	if (do_failover) {
+We told you that IF you were going to emit a warning message
+for the pskb_may_pull() failure condition, you should use
+WARN_ON_ONCE() so that it doesn't potentially flood the
+logs.
 
--- 
-
-Chris Friesen
-Software Designer
-3500 Carling Avenue
-Ottawa, Ontario K2H 8E9
-www.genband.com
+But you must always, in every case, handle the error in some
+reasonable way, not just when WARN_ON_ONCE() does that initial
+one-and-only trigger.
