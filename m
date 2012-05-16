@@ -1,247 +1,211 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH v4 6/6] net: sh_eth: use NAPI
-Date: Wed, 16 May 2012 13:29:11 +0900
-Message-ID: <4FB32D17.30404@renesas.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: SH-Linux <linux-sh@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: [PATCH 3/8] mISDN: avmfritz use the bigger fifo of chip version 2
+Date: Wed, 16 May 2012 06:22:49 +0200
+Message-ID: <1337142174-8304-4-git-send-email-kkeil@linux-pingi.de>
+References: <1337142174-8304-1-git-send-email-kkeil@linux-pingi.de>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:65278 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879Ab2EPEcJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 00:32:09 -0400
+In-Reply-To: <1337142174-8304-1-git-send-email-kkeil@linux-pingi.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch modifies the driver to use NAPI.
+If we detect the latest hardware revision we should use the bigger fifo
+to avoid TX underruns and have less interrupts.
+TX underruns should be logged as warning.
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
 ---
- about v4:
-  - modify sh_eth_poll() for strict synchronization of the xmit
-  - remove private spin_lock/unlock in the sh_eth_start_xmit()
+ drivers/isdn/hardware/mISDN/avmfritz.c |   62 +++++++++++++++++++------------
+ 1 files changed, 38 insertions(+), 24 deletions(-)
 
- drivers/net/ethernet/renesas/sh_eth.c |   93 ++++++++++++++++++++++-----------
- drivers/net/ethernet/renesas/sh_eth.h |    3 +
- 2 files changed, 66 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index c64a31c..edc7dfe 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1035,7 +1035,7 @@ static int sh_eth_txfree(struct net_device *ndev)
- }
-
- /* Packet receive function */
--static int sh_eth_rx(struct net_device *ndev)
-+static int sh_eth_rx(struct net_device *ndev, int *work, int budget)
+diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
+index 788b9a7..465cf5a 100644
+--- a/drivers/isdn/hardware/mISDN/avmfritz.c
++++ b/drivers/isdn/hardware/mISDN/avmfritz.c
+@@ -30,7 +30,7 @@
+ #include "ipac.h"
+ 
+ 
+-#define AVMFRITZ_REV	"2.1"
++#define AVMFRITZ_REV	"2.2"
+ 
+ static int AVM_cnt;
+ static int debug;
+@@ -69,6 +69,7 @@ enum {
+ #define HDLC_MODE_TRANS		0x02
+ #define HDLC_MODE_CCR_7		0x04
+ #define HDLC_MODE_CCR_16	0x08
++#define HDLC_FIFO_SIZE_128	0x20
+ #define HDLC_MODE_TESTLOOP	0x80
+ 
+ #define HDLC_INT_XPR		0x80
+@@ -80,13 +81,16 @@ enum {
+ #define HDLC_STAT_RDO		0x10
+ #define HDLC_STAT_CRCVFRRAB	0x0E
+ #define HDLC_STAT_CRCVFR	0x06
+-#define HDLC_STAT_RML_MASK	0x3f00
++#define HDLC_STAT_RML_MASK_V1	0x3f00
++#define HDLC_STAT_RML_MASK_V2	0x7f00
+ 
+ #define HDLC_CMD_XRS		0x80
+ #define HDLC_CMD_XME		0x01
+ #define HDLC_CMD_RRS		0x20
+ #define HDLC_CMD_XML_MASK	0x3f00
+-#define HDLC_FIFO_SIZE		32
++
++#define HDLC_FIFO_SIZE_V1	32
++#define HDLC_FIFO_SIZE_V2	128
+ 
+ /* Fritz PCI v2.0 */
+ 
+@@ -346,11 +350,14 @@ modehdlc(struct bchannel *bch, int protocol)
  {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	struct sh_eth_rxdesc *rxdesc;
-@@ -1047,7 +1047,8 @@ static int sh_eth_rx(struct net_device *ndev)
- 	u32 desc_status;
-
- 	rxdesc = &mdp->rx_ring[entry];
--	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
-+	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT)) &&
-+	       *work < budget) {
- 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
- 		pkt_len = rxdesc->frame_length;
-
-@@ -1087,13 +1088,17 @@ static int sh_eth_rx(struct net_device *ndev)
- 				skb_reserve(skb, NET_IP_ALIGN);
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, ndev);
--			netif_rx(skb);
--			ndev->stats.rx_packets++;
--			ndev->stats.rx_bytes += pkt_len;
-+			if (netif_receive_skb(skb) == NET_RX_DROP) {
-+				ndev->stats.rx_dropped++;
-+			} else {
-+				ndev->stats.rx_packets++;
-+				ndev->stats.rx_bytes += pkt_len;
-+			}
- 		}
- 		rxdesc->status |= cpu_to_edmac(mdp, RD_RACT);
- 		entry = (++mdp->cur_rx) % mdp->num_rx_ring;
- 		rxdesc = &mdp->rx_ring[entry];
-+		(*work)++;
- 	}
-
- 	/* Refill the Rx ring buffers. */
-@@ -1125,7 +1130,7 @@ static int sh_eth_rx(struct net_device *ndev)
-
- 	/* Restart Rx engine if stopped. */
- 	/* If we don't need to check status, don't. -KDU */
--	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
-+	if (*work < budget && !(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
- 		/* fix the values for the next receiving */
- 		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
- 					       sh_eth_read(ndev, RDLAR)) >> 4;
-@@ -1281,38 +1286,61 @@ static irqreturn_t sh_eth_interrupt(int irq, void *netdev)
-
- 	/* Get interrpt stat */
- 	intr_status = sh_eth_read(ndev, EESR);
--	/* Clear interrupt */
- 	if (intr_status & (EESR_FRC | EESR_RMAF | EESR_RRF |
- 			EESR_RTLF | EESR_RTSF | EESR_PRE | EESR_CERF |
- 			cd->tx_check | cd->eesr_err_check)) {
--		sh_eth_write(ndev, intr_status, EESR);
-+		if (napi_schedule_prep(&mdp->napi)) {
-+			/* Disable interrupts of the channel */
-+			sh_eth_write(ndev, 0, EESIPR);
-+			__napi_schedule(&mdp->napi);
-+		}
- 		ret = IRQ_HANDLED;
--	} else
--		goto other_irq;
--
--	if (intr_status & (EESR_FRC | /* Frame recv*/
--			EESR_RMAF | /* Multi cast address recv*/
--			EESR_RRF  | /* Bit frame recv */
--			EESR_RTLF | /* Long frame recv*/
--			EESR_RTSF | /* short frame recv */
--			EESR_PRE  | /* PHY-LSI recv error */
--			EESR_CERF)){ /* recv frame CRC error */
--		sh_eth_rx(ndev);
- 	}
-
--	/* Tx Check */
--	if (intr_status & cd->tx_check) {
--		sh_eth_txfree(ndev);
--		netif_wake_queue(ndev);
-+	spin_unlock(&mdp->lock);
+ 	struct fritzcard *fc = bch->hw;
+ 	struct hdlc_hw *hdlc;
++	u8 mode;
+ 
+ 	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
+ 	pr_debug("%s: hdlc %c protocol %x-->%x ch %d\n", fc->name,
+ 		 '@' + bch->nr, bch->state, protocol, bch->nr);
+ 	hdlc->ctrl.ctrl = 0;
++	mode = (AVM_FRITZ_PCIV2 == fc->type) ? HDLC_FIFO_SIZE_128 : 0;
 +
-+	return ret;
-+}
-+
-+static int sh_eth_poll(struct napi_struct *napi, int budget)
-+{
-+	struct sh_eth_private *mdp = container_of(napi, struct sh_eth_private,
-+						  napi);
-+	struct net_device *ndev = mdp->ndev;
-+	struct sh_eth_cpu_data *cd = mdp->cd;
-+	int work_done = 0, txfree_num;
-+	u32 intr_status = sh_eth_read(ndev, EESR);
-+
-+	/* Clear interrupt flags */
-+	sh_eth_write(ndev, intr_status, EESR);
-+
-+	/* check txdesc */
-+	txfree_num = sh_eth_txfree(ndev);
-+	if (txfree_num) {
-+		netif_tx_lock(ndev);
-+		if (netif_queue_stopped(ndev))
-+			netif_wake_queue(ndev);
-+		netif_tx_unlock(ndev);
- 	}
-
-+	/* check rxdesc */
-+	sh_eth_rx(ndev, &work_done, budget);
-+
-+	/* check error flags */
- 	if (intr_status & cd->eesr_err_check)
- 		sh_eth_error(ndev, intr_status);
-
--other_irq:
--	spin_unlock(&mdp->lock);
-+	/* get current interrupt flags */
-+	intr_status = sh_eth_read(ndev, EESR);
-
--	return ret;
-+	/* check whether this driver should call napi_complete() */
-+	if (work_done < budget) {
-+		napi_complete(napi);
-+		/* Enable all interrupts */
-+		sh_eth_write(ndev, cd->eesipr_value, EESIPR);
+ 	switch (protocol) {
+ 	case -1: /* used for init */
+ 		bch->state = -1;
+@@ -358,7 +365,7 @@ modehdlc(struct bchannel *bch, int protocol)
+ 		if (bch->state == ISDN_P_NONE)
+ 			break;
+ 		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
+-		hdlc->ctrl.sr.mode = HDLC_MODE_TRANS;
++		hdlc->ctrl.sr.mode = mode | HDLC_MODE_TRANS;
+ 		write_ctrl(bch, 5);
+ 		bch->state = ISDN_P_NONE;
+ 		test_and_clear_bit(FLG_HDLC, &bch->Flags);
+@@ -367,7 +374,7 @@ modehdlc(struct bchannel *bch, int protocol)
+ 	case ISDN_P_B_RAW:
+ 		bch->state = protocol;
+ 		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
+-		hdlc->ctrl.sr.mode = HDLC_MODE_TRANS;
++		hdlc->ctrl.sr.mode = mode | HDLC_MODE_TRANS;
+ 		write_ctrl(bch, 5);
+ 		hdlc->ctrl.sr.cmd = HDLC_CMD_XRS;
+ 		write_ctrl(bch, 1);
+@@ -377,7 +384,7 @@ modehdlc(struct bchannel *bch, int protocol)
+ 	case ISDN_P_B_HDLC:
+ 		bch->state = protocol;
+ 		hdlc->ctrl.sr.cmd  = HDLC_CMD_XRS | HDLC_CMD_RRS;
+-		hdlc->ctrl.sr.mode = HDLC_MODE_ITF_FLG;
++		hdlc->ctrl.sr.mode = mode | HDLC_MODE_ITF_FLG;
+ 		write_ctrl(bch, 5);
+ 		hdlc->ctrl.sr.cmd = HDLC_CMD_XRS;
+ 		write_ctrl(bch, 1);
+@@ -441,7 +448,7 @@ hdlc_fill_fifo(struct bchannel *bch)
+ {
+ 	struct fritzcard *fc = bch->hw;
+ 	struct hdlc_hw *hdlc;
+-	int count, cnt = 0;
++	int count, fs, cnt = 0;
+ 	u8 *p;
+ 	u32 *ptr, val, addr;
+ 
+@@ -451,10 +458,12 @@ hdlc_fill_fifo(struct bchannel *bch)
+ 	count = bch->tx_skb->len - bch->tx_idx;
+ 	if (count <= 0)
+ 		return;
++	fs = (fc->type == AVM_FRITZ_PCIV2) ?
++		HDLC_FIFO_SIZE_V2 : HDLC_FIFO_SIZE_V1;
+ 	p = bch->tx_skb->data + bch->tx_idx;
+ 	hdlc->ctrl.sr.cmd &= ~HDLC_CMD_XME;
+-	if (count > HDLC_FIFO_SIZE) {
+-		count = HDLC_FIFO_SIZE;
++	if (count > fs) {
++		count = fs;
+ 	} else {
+ 		if (test_bit(FLG_HDLC, &bch->Flags))
+ 			hdlc->ctrl.sr.cmd |= HDLC_CMD_XME;
+@@ -463,7 +472,7 @@ hdlc_fill_fifo(struct bchannel *bch)
+ 		 bch->tx_idx, bch->tx_skb->len);
+ 	ptr = (u32 *)p;
+ 	bch->tx_idx += count;
+-	hdlc->ctrl.sr.xml = ((count == HDLC_FIFO_SIZE) ? 0 : count);
++	hdlc->ctrl.sr.xml = ((count == fs) ? 0 : count);
+ 	if (AVM_FRITZ_PCIV2 == fc->type) {
+ 		__write_ctrl_pciv2(fc, hdlc, bch->nr);
+ 		addr = fc->addr + (bch->nr == 2 ?
+@@ -502,13 +511,23 @@ static void
+ HDLC_irq(struct bchannel *bch, u32 stat)
+ {
+ 	struct fritzcard *fc = bch->hw;
+-	int		len;
++	int		len, fs;
++	u32		rmlMask;
+ 	struct hdlc_hw	*hdlc;
+ 
+ 	hdlc = &fc->hdlc[(bch->nr - 1) & 1];
+ 	pr_debug("%s: ch%d stat %#x\n", fc->name, bch->nr, stat);
++	if (fc->type == AVM_FRITZ_PCIV2) {
++		rmlMask = HDLC_STAT_RML_MASK_V2;
++		fs = HDLC_FIFO_SIZE_V2;
++	} else {
++		rmlMask = HDLC_STAT_RML_MASK_V1;
++		fs = HDLC_FIFO_SIZE_V1;
 +	}
-+
-+	return work_done;
- }
-
- /* PHY state control function */
-@@ -1545,6 +1573,7 @@ static int sh_eth_set_ringparam(struct net_device *ndev,
- 		/* Stop the chip's Tx and Rx processes. */
- 		sh_eth_write(ndev, 0, EDTRR);
- 		sh_eth_write(ndev, 0, EDRRR);
-+		napi_disable(&mdp->napi);
- 		synchronize_irq(ndev->irq);
- 	}
-
-@@ -1569,6 +1598,7 @@ static int sh_eth_set_ringparam(struct net_device *ndev,
- 	}
-
- 	if (netif_running(ndev)) {
-+		napi_enable(&mdp->napi);
- 		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
- 		/* Setting the Rx mode will start the Rx process. */
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
-@@ -1600,6 +1630,8 @@ static int sh_eth_open(struct net_device *ndev)
-
- 	pm_runtime_get_sync(&mdp->pdev->dev);
-
-+	napi_enable(&mdp->napi);
-+
- 	ret = request_irq(ndev->irq, sh_eth_interrupt,
- #if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
- 	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
-@@ -1678,19 +1710,15 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	struct sh_eth_txdesc *txdesc;
- 	u32 entry;
--	unsigned long flags;
-
--	spin_lock_irqsave(&mdp->lock, flags);
- 	if ((mdp->cur_tx - mdp->dirty_tx) >= (mdp->num_tx_ring - 4)) {
- 		if (!sh_eth_txfree(ndev)) {
- 			if (netif_msg_tx_queued(mdp))
- 				dev_warn(&ndev->dev, "TxFD exhausted.\n");
- 			netif_stop_queue(ndev);
--			spin_unlock_irqrestore(&mdp->lock, flags);
- 			return NETDEV_TX_BUSY;
- 		}
- 	}
--	spin_unlock_irqrestore(&mdp->lock, flags);
-
- 	entry = mdp->cur_tx % mdp->num_tx_ring;
- 	mdp->tx_skbuff[entry] = skb;
-@@ -1739,6 +1767,8 @@ static int sh_eth_close(struct net_device *ndev)
- 		phy_disconnect(mdp->phydev);
- 	}
-
-+	napi_disable(&mdp->napi);
-+
- 	free_irq(ndev->irq, ndev);
-
- 	/* Free all the skbuffs in the Rx queue. */
-@@ -2368,6 +2398,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- #endif
- 	sh_eth_set_default_cpu_data(mdp->cd);
-
-+	mdp->ndev = ndev;
-+	netif_napi_add(ndev, &mdp->napi, sh_eth_poll, SH_ETH_NAPI_WEIGHT);
-+
- 	/* set function */
- 	ndev->netdev_ops = &sh_eth_netdev_ops;
- 	SET_ETHTOOL_OPS(ndev, &sh_eth_ethtool_ops);
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index f1dbc27..93dad7b 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -35,6 +35,7 @@
- #define PKT_BUF_SZ		1538
- #define SH_ETH_TSU_TIMEOUT_MS	500
- #define SH_ETH_TSU_CAM_ENTRIES	32
-+#define SH_ETH_NAPI_WEIGHT	32
-
- enum {
- 	/* E-DMAC registers */
-@@ -728,6 +729,8 @@ struct sh_eth_private {
- 	int duplex;
- 	int port;		/* for TSU */
- 	int vlan_num_ids;	/* for VLAN tag filter */
-+	struct napi_struct napi;
-+	struct net_device *ndev;
-
- 	unsigned no_ether_link:1;
- 	unsigned ether_link_active_low:1;
+ 	if (stat & HDLC_INT_RPR) {
+ 		if (stat & HDLC_STAT_RDO) {
++			pr_warning("%s: ch%d stat %x RDO\n",
++				   fc->name, bch->nr, stat);
+ 			hdlc->ctrl.sr.xml = 0;
+ 			hdlc->ctrl.sr.cmd |= HDLC_CMD_RRS;
+ 			write_ctrl(bch, 1);
+@@ -517,21 +536,21 @@ HDLC_irq(struct bchannel *bch, u32 stat)
+ 			if (bch->rx_skb)
+ 				skb_trim(bch->rx_skb, 0);
+ 		} else {
+-			len = (stat & HDLC_STAT_RML_MASK) >> 8;
++			len = (stat & rmlMask) >> 8;
+ 			if (!len)
+-				len = 32;
++				len = fs;
+ 			hdlc_empty_fifo(bch, len);
+ 			if (!bch->rx_skb)
+ 				goto handle_tx;
+-			if ((stat & HDLC_STAT_RME) || test_bit(FLG_TRANSPARENT,
+-							       &bch->Flags)) {
++			if (test_bit(FLG_TRANSPARENT, &bch->Flags) ||
++			    (stat & HDLC_STAT_RME)) {
+ 				if (((stat & HDLC_STAT_CRCVFRRAB) ==
+ 				     HDLC_STAT_CRCVFR) ||
+ 				    test_bit(FLG_TRANSPARENT, &bch->Flags)) {
+ 					recv_Bchannel(bch, 0);
+ 				} else {
+-					pr_debug("%s: got invalid frame\n",
+-						 fc->name);
++					pr_warning("%s: got invalid frame\n",
++						   fc->name);
+ 					skb_trim(bch->rx_skb, 0);
+ 				}
+ 			}
+@@ -543,13 +562,8 @@ handle_tx:
+ 		 * restart transmitting the whole frame on HDLC
+ 		 * in transparent mode we send the next data
+ 		 */
+-		if (bch->tx_skb)
+-			pr_debug("%s: ch%d XDU len(%d) idx(%d) Flags(%lx)\n",
+-				 fc->name, bch->nr, bch->tx_skb->len,
+-				 bch->tx_idx, bch->Flags);
+-		else
+-			pr_debug("%s: ch%d XDU no tx_skb Flags(%lx)\n",
+-				 fc->name, bch->nr, bch->Flags);
++		pr_warning("%s: ch%d stat %x XDU %s\n", fc->name, bch->nr,
++			   stat, bch->tx_skb ? "tx_skb" : "no tx_skb");
+ 		if (bch->tx_skb && bch->tx_skb->len) {
+ 			if (!test_bit(FLG_TRANSPARENT, &bch->Flags))
+ 				bch->tx_idx = 0;
 -- 
-1.7.1
+1.7.3.4
