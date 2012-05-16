@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2-RFC 3/6] skbuff: export skb_copy_ubufs
-Date: Thu, 17 May 2012 00:16:05 +0300
-Message-ID: <8643d6f149bdb78c1edb9b78881b380221b87583.1337202879.git.mst@redhat.com>
+Subject: [PATCHv2-RFC 5/6] net: orphan frags on receive
+Date: Thu, 17 May 2012 00:16:16 +0300
+Message-ID: <d0ef01eeb9030a329da44df2cf642898f2f6a3ac.1337202879.git.mst@redhat.com>
 References: <cover.1337202879.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,35 +9,35 @@ Cc: Jason Wang <jasowang@redhat.com>, eric.dumazet@gmail.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	ebiederm@xmission.com, davem@davemloft.net
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12060 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758903Ab2EPWIo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2012 18:08:44 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <cover.1337202879.git.mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Export skb_copy_ubufs so that modules can orphan frags.
+zero copy packets are normally sent to the outside
+network, but bridging, tun etc might loop them
+back to host networking stack. If this happens
+destructors will never be called, so orphan
+the frags immediately on receive.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- net/core/skbuff.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/core/dev.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 596e392..f6dda83 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -741,7 +741,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
- 	return 0;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 66cae6e..cd7d421 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1628,6 +1628,8 @@ static inline int deliver_skb(struct sk_buff *skb,
+ 			      struct packet_type *pt_prev,
+ 			      struct net_device *orig_dev)
+ {
++	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++		return -ENOMEM;
+ 	atomic_inc(&skb->users);
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
  }
--
-+EXPORT_SYMBOL_GPL(skb_copy_ubufs);
- 
- /**
-  *	skb_clone	-	duplicate an sk_buff
 -- 
 MST
