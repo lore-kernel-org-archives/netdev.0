@@ -1,231 +1,142 @@
 From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH net-next v5 10/13] mac802154: slaves management support
-Date: Wed, 16 May 2012 10:50:28 +0400
-Message-ID: <1337151031-5178-11-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH net-next v5 13/13] Documentation/networking/ieee802154: update MAC chapter
+Date: Wed, 16 May 2012 10:50:31 +0400
+Message-ID: <1337151031-5178-14-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1337151031-5178-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:55912 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759397Ab2EPGvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 02:51:49 -0400
-Received: by wgbdr13 with SMTP id dr13so374673wgb.1
-        for <netdev@vger.kernel.org>; Tue, 15 May 2012 23:51:48 -0700 (PDT)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:43839 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759410Ab2EPGvz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 02:51:55 -0400
+Received: by wibhj8 with SMTP id hj8so3601432wib.1
+        for <netdev@vger.kernel.org>; Tue, 15 May 2012 23:51:53 -0700 (PDT)
 In-Reply-To: <1337151031-5178-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds functionality for registration and removing slaves
-in the stack.
+Update the documentation according to latest changes.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- net/mac802154/ieee802154_dev.c |  142 ++++++++++++++++++++++++++++++++++++++++
- net/mac802154/mac802154.h      |    3 +
- 2 files changed, 145 insertions(+), 0 deletions(-)
+ Documentation/networking/ieee802154.txt |   75 ++++++++++++++++++++++++-------
+ 1 files changed, 59 insertions(+), 16 deletions(-)
 
-diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index eb1e597..302a45f 100644
---- a/net/mac802154/ieee802154_dev.c
-+++ b/net/mac802154/ieee802154_dev.c
-@@ -24,12 +24,140 @@
- #include <linux/module.h>
- #include <linux/netdevice.h>
+diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
+index 1dc1c24..703cf43 100644
+--- a/Documentation/networking/ieee802154.txt
++++ b/Documentation/networking/ieee802154.txt
+@@ -4,15 +4,22 @@
  
-+#include <net/netlink.h>
-+#include <linux/nl802154.h>
- #include <net/mac802154.h>
- #include <net/route.h>
- #include <net/wpan-phy.h>
+ Introduction
+ ============
++The IEEE 802.15.4 working group focuses on standartization of bottom
++two layers: Medium Accsess Control (MAC) and Physical (PHY). And there
++are mainly two options available for upper layers:
++ - ZigBee - proprietary protocol from ZigBee Alliance
++ - 6LowPAN - IPv6 networking over low rate personal area networks
  
- #include "mac802154.h"
+ The Linux-ZigBee project goal is to provide complete implementation
+-of IEEE 802.15.4 / ZigBee / 6LoWPAN protocols. IEEE 802.15.4 is a stack
++of IEEE 802.15.4 and 6LoWPAN protocols. IEEE 802.15.4 is a stack
+ of protocols for organizing Low-Rate Wireless Personal Area Networks.
  
-+int mac802154_slave_open(struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	struct mac802154_priv *ipriv = priv->hw;
-+	int res = 0;
-+
-+	if (ipriv->open_count++ == 0) {
-+		res = ipriv->ops->start(&ipriv->hw);
-+		WARN_ON(res);
-+		if (res)
-+			goto err;
-+	}
-+
-+	if (ipriv->ops->ieee_addr) {
-+		res = ipriv->ops->ieee_addr(&ipriv->hw, dev->dev_addr);
-+		WARN_ON(res);
-+		if (res)
-+			goto err;
-+		mac802154_dev_set_ieee_addr(dev);
-+	}
-+
-+	netif_start_queue(dev);
-+	return 0;
-+err:
-+	priv->hw->open_count--;
-+
-+	return res;
-+}
-+
-+int mac802154_slave_close(struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	struct mac802154_priv *ipriv = priv->hw;
-+
-+	netif_stop_queue(dev);
-+
-+	if (!--ipriv->open_count)
-+		ipriv->ops->stop(&ipriv->hw);
-+
-+	return 0;
-+}
-+
-+static int
-+mac802154_netdev_register(struct wpan_phy *phy, struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *priv;
-+	struct mac802154_priv *ipriv;
-+	int err;
-+
-+	ipriv = wpan_phy_priv(phy);
-+
-+	priv = netdev_priv(dev);
-+	priv->dev = dev;
-+	priv->hw = ipriv;
-+
-+	dev->needed_headroom = ipriv->hw.extra_tx_headroom;
-+
-+	SET_NETDEV_DEV(dev, &ipriv->phy->dev);
-+
-+	mutex_lock(&ipriv->slaves_mtx);
-+	if (!ipriv->running) {
-+		mutex_unlock(&ipriv->slaves_mtx);
-+		return -ENODEV;
-+	}
-+	mutex_unlock(&ipriv->slaves_mtx);
-+
-+	err = register_netdev(dev);
-+	if (err < 0)
-+		return err;
-+
-+	rtnl_lock();
-+	mutex_lock(&ipriv->slaves_mtx);
-+	list_add_tail_rcu(&priv->list, &ipriv->slaves);
-+	mutex_unlock(&ipriv->slaves_mtx);
-+	rtnl_unlock();
-+
-+	return 0;
-+}
-+
-+static void
-+mac802154_del_iface(struct wpan_phy *phy, struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *sdata;
-+	ASSERT_RTNL();
-+
-+	sdata = netdev_priv(dev);
-+
-+	BUG_ON(sdata->hw->phy != phy);
-+
-+	mutex_lock(&sdata->hw->slaves_mtx);
-+	list_del_rcu(&sdata->list);
-+	mutex_unlock(&sdata->hw->slaves_mtx);
-+
-+	synchronize_rcu();
-+	unregister_netdevice(sdata->dev);
-+}
-+
-+static struct net_device *
-+mac802154_add_iface(struct wpan_phy *phy, const char *name, int type)
-+{
-+	struct net_device *dev;
-+	int err = -ENOMEM;
-+
-+	/* No devices is currently added */
-+	switch (type) {
-+	default:
-+		dev = NULL;
-+		err = -EINVAL;
-+		break;
-+	}
-+	if (!dev)
-+		goto err;
-+
-+	err = mac802154_netdev_register(phy, dev);
-+	if (err)
-+		goto err_free;
-+
-+	dev_hold(dev); /* we return an incremented device refcount */
-+	return dev;
-+
-+err_free:
-+	free_netdev(dev);
-+err:
-+	return ERR_PTR(err);
-+}
-+
- struct ieee802154_dev *
- ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
- {
-@@ -87,6 +215,8 @@ void ieee802154_free_device(struct ieee802154_dev *hw)
- {
- 	struct mac802154_priv *priv = mac802154_to_priv(hw);
+-Currently only IEEE 802.15.4 layer is implemented. We have chosen
+-to use plain Berkeley socket API, the generic Linux networking stack
+-to transfer IEEE 802.15.4 messages and a special protocol over genetlink
+-for configuration/management
++The stack is composed of three main parts:
++ - IEEE 802.15.4 layer;  We have chosen to use plain Berkeley socket API,
++   the generic Linux networking stack to transfer IEEE 802.15.4 messages
++   and a special protocol over genetlink for configuration/management
++ - MAC - provides access to shared channel and reliable data delivery
++ - PHY - represents device drivers
  
-+	BUG_ON(!list_empty(&priv->slaves));
+ 
+ Socket API
+@@ -29,15 +36,6 @@ or git tree at git://linux-zigbee.git.sourceforge.net/gitroot/linux-zigbee).
+ One can use SOCK_RAW for passing raw data towards device xmit function. YMMV.
+ 
+ 
+-MLME - MAC Level Management
+-============================
+-
+-Most of IEEE 802.15.4 MLME interfaces are directly mapped on netlink commands.
+-See the include/net/nl802154.h header. Our userspace tools package
+-(see above) provides CLI configuration utility for radio interfaces and simple
+-coordinator for IEEE 802.15.4 networks as an example users of MLME protocol.
+-
+-
+ Kernel side
+ =============
+ 
+@@ -51,6 +49,15 @@ Like with WiFi, there are several types of devices implementing IEEE 802.15.4.
+ Those types of devices require different approach to be hooked into Linux kernel.
+ 
+ 
++MLME - MAC Level Management
++============================
 +
- 	wpan_phy_free(priv->phy);
- 
- 	mutex_destroy(&priv->slaves_mtx);
-@@ -105,6 +235,9 @@ int ieee802154_register_device(struct ieee802154_dev *dev)
- 
- 	wpan_phy_set_dev(priv->phy, priv->hw.parent);
- 
-+	priv->phy->add_iface = mac802154_add_iface;
-+	priv->phy->del_iface = mac802154_del_iface;
++Most of IEEE 802.15.4 MLME interfaces are directly mapped on netlink commands.
++See the include/net/nl802154.h header. Our userspace tools package
++(see above) provides CLI configuration utility for radio interfaces and simple
++coordinator for IEEE 802.15.4 networks as an example users of MLME protocol.
 +
- 	rc = wpan_phy_register(priv->phy);
- 	if (rc < 0)
- 		goto out_wq;
-@@ -129,6 +262,7 @@ EXPORT_SYMBOL(ieee802154_register_device);
- void ieee802154_unregister_device(struct ieee802154_dev *dev)
- {
- 	struct mac802154_priv *priv = mac802154_to_priv(dev);
-+	struct mac802154_sub_if_data *sdata, *next;
- 
- 	flush_workqueue(priv->dev_workqueue);
- 	destroy_workqueue(priv->dev_workqueue);
-@@ -139,6 +273,14 @@ void ieee802154_unregister_device(struct ieee802154_dev *dev)
- 	priv->running = MAC802154_DEVICE_STOPPED;
- 	mutex_unlock(&priv->slaves_mtx);
- 
-+	list_for_each_entry_safe(sdata, next, &priv->slaves, list) {
-+		mutex_lock(&sdata->hw->slaves_mtx);
-+		list_del(&sdata->list);
-+		mutex_unlock(&sdata->hw->slaves_mtx);
 +
-+		unregister_netdevice(sdata->dev);
-+	}
+ HardMAC
+ =======
+ 
+@@ -73,11 +80,47 @@ We provide an example of simple HardMAC driver at drivers/ieee802154/fakehard.c
+ SoftMAC
+ =======
+ 
+-We are going to provide intermediate layer implementing IEEE 802.15.4 MAC
+-in software. This is currently WIP.
++The MAC is the middle layer in the IEEE 802.15.4 Linux stack. This moment it
++provides interface for drivers registration and management of slave interfaces.
 +
- 	rtnl_unlock();
- 
- 	wpan_phy_unregister(priv->phy);
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 7d9a0d4..6227526 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -92,6 +92,9 @@ struct mac802154_sub_if_data {
- 
- extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
- 
-+int mac802154_slave_open(struct net_device *dev);
-+int mac802154_slave_close(struct net_device *dev);
++NOTE: Currently the only monitor device type is supported - it's IEEE 802.15.4
++stack interface for network sniffers (e.g. WireShark).
 +
- netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
- 			 u8 page, u8 chan);
++This layer is going to be extended soon.
+ 
+ See header include/net/mac802154.h and several drivers in drivers/ieee802154/.
+ 
++
++Device drivers API
++==================
++
++The include/net/mac802154.h defines following functions:
++ - struct ieee802154_dev *ieee802154_alloc_device
++   (size_t priv_size, struct ieee802154_ops *ops):
++   allocation of IEEE 802.15.4 compatible device
++
++ - void ieee802154_free_device(struct ieee802154_dev *dev):
++   freeing allocated device
++
++ - int ieee802154_register_device(struct ieee802154_dev *dev):
++   register PHY in the system
++
++ - void ieee802154_unregister_device(struct ieee802154_dev *dev):
++   freeing registered PHY
++
++Moreover IEEE 802.15.4 device operations structure should be filled.
++
++Fake drivers
++============
++
++In addition there are two drivers available which simulate real devices with
++HardMAC (fakehard) and SoftMAC (fakelb - IEEE 802.15.4 loopback driver)
++interfaces. This option provides possibility to test and debug stack without
++usage of real hardware.
++
++See sources in drivers/ieee802154 folder for more details.
++
++
+ 6LoWPAN Linux implementation
+ ============================
  
 -- 
 1.7.2.3
