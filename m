@@ -1,71 +1,38 @@
 From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Wed, 16 May 2012 11:03:47 +0400
-Message-ID: <4FB35153.3080309@parallels.com>
-References: <1336767077-25351-1-git-send-email-glommer@parallels.com> <1336767077-25351-3-git-send-email-glommer@parallels.com> <4FB0621C.3010604@huawei.com>
+Date: Wed, 16 May 2012 11:04:43 +0400
+Message-ID: <4FB3518B.3090205@parallels.com>
+References: <1336767077-25351-1-git-send-email-glommer@parallels.com> <1336767077-25351-3-git-send-email-glommer@parallels.com> <4FB058D8.6060707@jp.fujitsu.com> <4FB3431C.3050402@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
 Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
 	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
 	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-To: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4FB0621C.3010604-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <4FB3431C.3050402-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 05/14/2012 05:38 AM, Li Zefan wrote:
->> +static void disarm_static_keys(struct mem_cgroup *memcg)
+On 05/16/2012 10:03 AM, Glauber Costa wrote:
+>> BTW, what is the relationship between 1/2 and 2/2  ?
+> Can't do jump label patching inside an interrupt handler. They need to
+> happen when we free the structure, and I was about to add a worker
+> myself when I found out we already have one: just we don't always use it.
 > 
->> +{
->> +#ifdef CONFIG_INET
->> +	if (memcg->tcp_mem.cg_proto.activated)
->> +		static_key_slow_dec(&memcg_socket_limit_enabled);
->> +#endif
->> +}
+> Before we merge it, let me just make sure the issue with config Li
+> pointed out don't exist. I did test it, but since I've reposted this
+> many times with multiple tiny changes - the type that will usually get
+> us killed, I'd be more comfortable with an extra round of testing if
+> someone spotted a possibility.
 > 
+> Who is merging this fix, btw ?
+> I find it to be entirely memcg related, even though it touches a file in
+> net (but a file with only memcg code in it)
 > 
-> Move this inside the ifdef/endif below ?
-> 
-> Otherwise I think you'll get compile error if !CONFIG_INET...
 
-I don't fully get it.
-
-We are supposed to provide a version of it for
-CONFIG_CGROUP_MEM_RES_CTLR_KMEM and an empty version for
-!CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-
-Inside the first, we take an action for CONFIG_INET, and no action for
-!CONFIG_INET.
-
-Bear in mind that the slab patches will add another test to that place,
-and that's why I am doing it this way from the beginning.
-
-Well, that said, I not only can be wrong, I very frequently am.
-
-But I just compiled this one with and without CONFIG_INET, and it seems
-to be going alright.
-
-
->> +
->>   #ifdef CONFIG_INET
->>   struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
->>   {
->> @@ -452,6 +462,11 @@ struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg)
->>   }
->>   EXPORT_SYMBOL(tcp_proto_cgroup);
->>   #endif /* CONFIG_INET */
->> +#else
->> +static inline void disarm_static_keys(struct mem_cgroup *memcg)
->> +{
->> +}
->> +
->>   #endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe cgroups" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For the record, I compiled test it many times, and the problem that Li
+wondered about seems not to exist.
