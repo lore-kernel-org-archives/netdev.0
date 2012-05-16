@@ -1,40 +1,42 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] ptp_pch: Add missing #include <linux/slab.h>
-Date: Wed, 16 May 2012 10:43:30 +0200
-Message-ID: <1337157810-13494-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Takahiro Shimizu <tshimizu818@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [PATCH 3/8] mISDN: avmfritz use the bigger fifo of chip version
+ 2
+Date: Wed, 16 May 2012 09:00:11 +0200
+Message-ID: <4FB3507B.10808@linux-pingi.de>
+References: <1337142174-8304-1-git-send-email-kkeil@linux-pingi.de> <1337142174-8304-4-git-send-email-kkeil@linux-pingi.de> <20120516.011615.2055798345695085276.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:58266 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966280Ab2EPJAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 05:00:03 -0400
+In-Reply-To: <20120516.011615.2055798345695085276.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-drivers/ptp/ptp_pch.c: In function 'pch_eth_enable_set':
-drivers/ptp/ptp_pch.c:152:2: error: implicit declaration of function 'ioread32' [-Werror=implicit-function-declaration]
-drivers/ptp/ptp_pch.c:153:2: error: implicit declaration of function 'iowrite32' [-Werror=implicit-function-declaration]
+Am 16.05.2012 07:16, schrieb David Miller:
+> From: Karsten Keil<kkeil@linux-pingi.de>
+> Date: Wed, 16 May 2012 06:22:49 +0200
+>
+>> +	mode = (AVM_FRITZ_PCIV2 == fc->type) ? HDLC_FIFO_SIZE_128 : 0;
+>
+> Please don't do this "CONSTANT == variable" type testing order, it's
+> completely unnatural and not something we commonly do elsewhere in the
+> networking code.
+>
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
-Not even compile-tested, as it fails on parisc/xtensa only.
-http://kisskb.ellerman.id.au/kisskb/buildresult/6312813/
-http://kisskb.ellerman.id.au/kisskb/buildresult/6313050/
+I fully agree, looks much better.
 
- drivers/ptp/ptp_pch.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> I know some coders bible somewhere says that this is how you avoid
+> accidental assignments, but it's too ugly to live.
 
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index 375eb04..6fff680 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -30,6 +30,7 @@
- #include <linux/module.h>
- #include <linux/pci.h>
- #include <linux/ptp_clock_kernel.h>
-+#include <linux/slab.h>
- 
- #define STATION_ADDR_LEN	20
- #define PCI_DEVICE_ID_PCH_1588	0x8819
--- 
-1.7.0.4
+With todays compilers as long you do not disable/ignore warnings it 
+should be safe as well.
+
+Will send version 2 of the patchset soon (with all other issues fixed too)
+
+Karsten
