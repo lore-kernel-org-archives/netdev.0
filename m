@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/8] mISDN: Reduce RX buffer allocation for transparent
- data
-Date: Wed, 16 May 2012 01:21:35 -0400 (EDT)
-Message-ID: <20120516.012135.1833689708803796590.davem@davemloft.net>
-References: <1337142174-8304-1-git-send-email-kkeil@linux-pingi.de>
-	<1337142174-8304-6-git-send-email-kkeil@linux-pingi.de>
+Subject: Re: [PATCH 0/3] net: mac80211: Neaten debugging
+Date: Wed, 16 May 2012 01:23:19 -0400 (EDT)
+Message-ID: <20120516.012319.1903390658912592000.davem@davemloft.net>
+References: <1337106548.15553.8.camel@jlt3.sipsolutions.net>
+	<cover.1337116578.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kkeil@linux-pingi.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45499 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965132Ab2EPFVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 01:21:40 -0400
-In-Reply-To: <1337142174-8304-6-git-send-email-kkeil@linux-pingi.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: johannes@sipsolutions.net, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1337116578.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Karsten Keil <kkeil@linux-pingi.de>
-Date: Wed, 16 May 2012 06:22:51 +0200
+From: Joe Perches <joe@perches.com>
+Date: Tue, 15 May 2012 14:20:29 -0700
 
->  EXPORT_SYMBOL(bchannel_senddata);
-> +
-> +/*
-> + * The function allocates a new receive skb on demand with a size for the
-> + * requirements of the current protocol. It returns the tailroom of the
-> + * receive skb or an error.
-> + */
+> Always use pr_debug variants instead of printk(KERN_DEBUG...)
+> 
+> Joe Perches (3):
+>   net: mac80211: Convert printk(KERN_DEBUG to pr_debug
+>   net: mac80211: Add and use ht_vdbg debugging macro
+>   net: mac80211: Add and use ibss_vdbg debugging macro
 
-Please format this comment:
+I really think this is the right thing to do and I hope the wireless
+folks integrate this.
 
-	/* Like this,
-	 * please.
-	 */
+I am well aware that you guys intend for some of these messages to be
+indications and notifications the user is intended to SEE, but in the
+cases where that is true KERN_DEBUG is absolutely not appropriate.
 
-Thank you.
+You should be using KERN_INFO or KERN_WARN in those situations
+instead.
+
+Thanks.
