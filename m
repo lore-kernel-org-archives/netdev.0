@@ -1,7 +1,7 @@
 From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Wed, 16 May 2012 12:30:25 +0400
-Message-ID: <4FB365A1.6040101@parallels.com>
+Date: Wed, 16 May 2012 12:37:32 +0400
+Message-ID: <4FB3674C.2030604@parallels.com>
 References: <1336767077-25351-1-git-send-email-glommer@parallels.com> <1336767077-25351-3-git-send-email-glommer@parallels.com> <4FB058D8.6060707@jp.fujitsu.com> <4FB3431C.3050402@parallels.com> <4FB3518B.3090205@parallels.com> <4FB3652D.2040909@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-2022-JP"
@@ -20,20 +20,35 @@ Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On 05/16/2012 12:28 PM, KAMEZAWA Hiroyuki wrote:
+> (2012/05/16 16:04), Glauber Costa wrote:
+> 
+>> On 05/16/2012 10:03 AM, Glauber Costa wrote:
+>>>> BTW, what is the relationship between 1/2 and 2/2  ?
+>>> Can't do jump label patching inside an interrupt handler. They need to
+>>> happen when we free the structure, and I was about to add a worker
+>>> myself when I found out we already have one: just we don't always use it.
+>>>
+>>> Before we merge it, let me just make sure the issue with config Li
+>>> pointed out don't exist. I did test it, but since I've reposted this
+>>> many times with multiple tiny changes - the type that will usually get
+>>> us killed, I'd be more comfortable with an extra round of testing if
+>>> someone spotted a possibility.
+>>>
+>>> Who is merging this fix, btw ?
+>>> I find it to be entirely memcg related, even though it touches a file in
+>>> net (but a file with only memcg code in it)
+>>>
+>>
 >> For the record, I compiled test it many times, and the problem that Li
->> >  wondered about seems not to exist.
->> >  
+>> wondered about seems not to exist.
+>>
+> 
 > Ah...Hmm.....I guess dependency problem will be found in -mm if any rather than
 > netdev...
-
-Yes. As I said, this only touches stuff in core memcg and the memcg
-specific file. Any conflicts should come from other memcg fixes that may
-have got into the tree...
+> 
 > David, can this bug-fix patch goes via -mm tree ? Or will you pick up ?
 > 
-> CC'ed David Miller and Andrew Morton.
-> 
-> Thanks,
-> -Kame
-> 
-> 
+
+Another thing: Patch 2 in this series is of course dependent on patch 1
+- which lives 100 % in memcg core. Without that, lockdep will scream
+while disabling the static key.
