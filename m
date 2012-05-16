@@ -1,52 +1,70 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] ptp_pch: Add missing #include <linux/slab.h>
-Date: Wed, 16 May 2012 19:19:49 +0200
-Message-ID: <20120516171949.GB3587@netboy.at.omicron.at>
-References: <1337169017-15835-1-git-send-email-geert@linux-m68k.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
+Date: Wed, 16 May 2012 10:32:05 -0700
+Message-ID: <1337189525.10741.24.camel@oc3660625478.ibm.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>
+	 <1337181027.10741.13.camel@oc3660625478.ibm.com>
+	 <20120516151444.GC9934@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Takahiro Shimizu <tshimizu818@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Wang <jasowang@redhat.com>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1337169017-15835-1-git-send-email-geert@linux-m68k.org>
+In-Reply-To: <20120516151444.GC9934@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 16, 2012 at 01:50:17PM +0200, Geert Uytterhoeven wrote:
-> drivers/ptp/ptp_pch.c: In function 'pch_remove':
-> drivers/ptp/ptp_pch.c:576:2: error: implicit declaration of function 'kfree' [-Werror=implicit-function-declaration]
-> drivers/ptp/ptp_pch.c: In function 'pch_probe':
-> drivers/ptp/ptp_pch.c:587:2: error: implicit declaration of function 'kzalloc' [-Werror=implicit-function-declaration]
+On Wed, 2012-05-16 at 18:14 +0300, Michael S. Tsirkin wrote:
+> On Wed, May 16, 2012 at 08:10:27AM -0700, Shirley Ma wrote:
+> > On Wed, 2012-05-16 at 10:58 +0800, Jason Wang wrote:
+> > > >>   drivers/vhost/vhost.c |    1 +
+> > > >>   1 files changed, 1 insertions(+), 0 deletions(-)
+> > > >>
+> > > >> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> > > >> index 947f00d..7b75fdf 100644
+> > > >> --- a/drivers/vhost/vhost.c
+> > > >> +++ b/drivers/vhost/vhost.c
+> > > >> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
+> > > >>          struct vhost_ubuf_ref *ubufs = ubuf->arg;
+> > > >>          struct vhost_virtqueue *vq = ubufs->vq;
+> > > >>
+> > > >> +       vhost_poll_queue(&vq->poll);
+> > > >>          /* set len = 1 to mark this desc buffers done DMA */
+> > > >>          vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
+> > > >>          kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
+> > > > Doing so, we might have redundant vhost_poll_queue(). Do you
+> know in
+> > > > which scenario there might be missing of adding and signaling
+> during
+> > > > zerocopy?
+> > > 
+> > > Yes, as we only do signaling and adding during tx work, if there's
+> no
+> > > tx 
+> > > work when the skb were sent, we may lose the opportunity to let
+> guest 
+> > > know about the completion. It's easy to be reproduced with netperf
+> > > test. 
+> > 
+> > The reason which host signals guest is to free guest tx buffers, if
+> > there is no tx work, then it's not necessary to signal the guest
+> unless
+> > guest runs out of memory. The pending buffers will be released
+> > virtio_net device gone.
+> > 
+> > What's the behavior of netperf test when you hit this situation?
+> > 
+> > Thanks
+> > Shirley
 > 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> IIRC guest networking seems to be lost. 
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+It seems vhost_enable_notify is missing in somewhere else?
 
-Thanks,
-Richard
-
-> ---
-> Not even compile-tested, as it fails on parisc only.
-> http://kisskb.ellerman.id.au/kisskb/buildresult/6312813/
-> 
->  drivers/ptp/ptp_pch.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-> index 375eb04..6fff680 100644
-> --- a/drivers/ptp/ptp_pch.c
-> +++ b/drivers/ptp/ptp_pch.c
-> @@ -30,6 +30,7 @@
->  #include <linux/module.h>
->  #include <linux/pci.h>
->  #include <linux/ptp_clock_kernel.h>
-> +#include <linux/slab.h>
->  
->  #define STATION_ADDR_LEN	20
->  #define PCI_DEVICE_ID_PCH_1588	0x8819
-> -- 
-> 1.7.0.4
-> 
+Thanks
+Shirley
