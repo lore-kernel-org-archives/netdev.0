@@ -1,45 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/3] net: mac80211: Neaten debugging
-Date: Wed, 16 May 2012 09:59:31 +0200
-Message-ID: <1337155171.4367.2.camel@jlt3.sipsolutions.net>
-References: <1337106548.15553.8.camel@jlt3.sipsolutions.net>
-	 <cover.1337116578.git.joe@perches.com>
-	 <20120516.012319.1903390658912592000.davem@davemloft.net>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
+Date: Wed, 16 May 2012 17:28:29 +0900
+Message-ID: <4FB3652D.2040909@jp.fujitsu.com>
+References: <1336767077-25351-1-git-send-email-glommer@parallels.com> <1336767077-25351-3-git-send-email-glommer@parallels.com> <4FB058D8.6060707@jp.fujitsu.com> <4FB3431C.3050402@parallels.com> <4FB3518B.3090205@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120516.012319.1903390658912592000.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4FB3518B.3090205-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-05-16 at 01:23 -0400, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 15 May 2012 14:20:29 -0700
-> 
-> > Always use pr_debug variants instead of printk(KERN_DEBUG...)
-> > 
-> > Joe Perches (3):
-> >   net: mac80211: Convert printk(KERN_DEBUG to pr_debug
-> >   net: mac80211: Add and use ht_vdbg debugging macro
-> >   net: mac80211: Add and use ibss_vdbg debugging macro
-> 
-> I really think this is the right thing to do and I hope the wireless
-> folks integrate this.
-> 
-> I am well aware that you guys intend for some of these messages to be
-> indications and notifications the user is intended to SEE, but in the
-> cases where that is true KERN_DEBUG is absolutely not appropriate.
-> 
-> You should be using KERN_INFO or KERN_WARN in those situations
-> instead.
+(2012/05/16 16:04), Glauber Costa wrote:
 
-Yeah, makes sense. I wonder if it makes sense to leave these under
-#ifdef though? Why #ifdef something if it's going to be invisible most
-of the time anyway?
+> On 05/16/2012 10:03 AM, Glauber Costa wrote:
+>>> BTW, what is the relationship between 1/2 and 2/2  ?
+>> Can't do jump label patching inside an interrupt handler. They need to
+>> happen when we free the structure, and I was about to add a worker
+>> myself when I found out we already have one: just we don't always use it.
+>>
+>> Before we merge it, let me just make sure the issue with config Li
+>> pointed out don't exist. I did test it, but since I've reposted this
+>> many times with multiple tiny changes - the type that will usually get
+>> us killed, I'd be more comfortable with an extra round of testing if
+>> someone spotted a possibility.
+>>
+>> Who is merging this fix, btw ?
+>> I find it to be entirely memcg related, even though it touches a file in
+>> net (but a file with only memcg code in it)
+>>
+> 
+> For the record, I compiled test it many times, and the problem that Li
+> wondered about seems not to exist.
+> 
 
-johannes
+Ah...Hmm.....I guess dependency problem will be found in -mm if any rather than
+netdev...
+
+David, can this bug-fix patch goes via -mm tree ? Or will you pick up ?
+
+CC'ed David Miller and Andrew Morton.
+
+Thanks,
+-Kame
