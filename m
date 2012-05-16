@@ -1,26 +1,24 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Wed, 16 May 2012 14:06:37 -0700
-Message-ID: <20120516140637.17741df6.akpm@linux-foundation.org>
+Date: Wed, 16 May 2012 14:13:42 -0700
+Message-ID: <20120516141342.911931e7.akpm@linux-foundation.org>
 References: <1336767077-25351-1-git-send-email-glommer@parallels.com>
 	<1336767077-25351-3-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1336767077-25351-3-git-send-email-glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <cgroups@vger.kernel.org>, <linux-mm@kvack.org>, <devel@openvz.org>,
+ <kamezawa.hiroyu@jp.fujitsu.com>, <netdev@vger.kernel.org>, Tejun Heo
+ <tj@kernel.org>, Li Zefan <lizefan@huawei.com>, Johannes Weiner
+ <hannes@cmpxchg.org>, Michal Hocko <mhocko@suse.cz>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1336767077-25351-3-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 On Fri, 11 May 2012 17:11:17 -0300
-Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
+Glauber Costa <glommer@parallels.com> wrote:
 
 > We call the destroy function when a cgroup starts to be removed,
 > such as by a rmdir event.
@@ -48,55 +46,20 @@ Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
 > activation, therefore, accounting. But all the others will then be
 > accounted no matter what. After this patch, only limited memcgs
 > will have its sockets accounted.
-> 
-> ...
->
-> @@ -107,10 +104,31 @@ static int tcp_update_limit(struct mem_cgroup *memcg, u64 val)
->  		tcp->tcp_prot_mem[i] = min_t(long, val >> PAGE_SHIFT,
->  					     net->ipv4.sysctl_tcp_mem[i]);
->  
-> -	if (val == RESOURCE_MAX && old_lim != RESOURCE_MAX)
-> -		static_key_slow_dec(&memcg_socket_limit_enabled);
-> -	else if (old_lim == RESOURCE_MAX && val != RESOURCE_MAX)
-> -		static_key_slow_inc(&memcg_socket_limit_enabled);
-> +	if (val == RESOURCE_MAX)
-> +		cg_proto->active = false;
-> +	else if (val != RESOURCE_MAX) {
-> +		/*
-> +		 * ->activated needs to be written after the static_key update.
-> +		 *  This is what guarantees that the socket activation function
-> +		 *  is the last one to run. See sock_update_memcg() for details,
-> +		 *  and note that we don't mark any socket as belonging to this
-> +		 *  memcg until that flag is up.
-> +		 *
-> +		 *  We need to do this, because static_keys will span multiple
-> +		 *  sites, but we can't control their order. If we mark a socket
-> +		 *  as accounted, but the accounting functions are not patched in
-> +		 *  yet, we'll lose accounting.
-> +		 *
-> +		 *  We never race with the readers in sock_update_memcg(), because
-> +		 *  when this value change, the code to process it is not patched in
-> +		 *  yet.
-> +		 */
-> +		if (!cg_proto->activated) {
-> +			static_key_slow_inc(&memcg_socket_limit_enabled);
-> +			cg_proto->activated = true;
-> +		}
 
-If two threads run this code concurrently, they can both see
-cg_proto->activated==false and they will both run
-static_key_slow_inc().
+So I'm scratching my head over what the actual bug is, and how
+important it is.  AFAICT it will cause charging stats to exhibit some
+inaccuracy when memcg's are being torn down?
 
-Hopefully there's some locking somewhere which prevents this, but it is
-unobvious.  We should comment this, probably at the cg_proto.activated
-definition site.  Or we should fix the bug ;)
+I don't know how serious this in in the real world and so can't decide
+which kernel version(s) we should fix.
 
+When fixing bugs, please always fully describe the bug's end-user
+impact, so that I and others can make these sorts of decisions.
 
-> +		cg_proto->active = true;
-> +	}
->  
->  	return 0;
->  }
->
-> ...
->
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
