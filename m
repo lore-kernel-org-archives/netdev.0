@@ -1,53 +1,50 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH/RFC net-next 0/4] Delete token ring support.
-Date: Tue, 15 May 2012 21:38:49 -0400
-Message-ID: <20120516013849.GA26701@windriver.com>
-References: <1337128544-18680-1-git-send-email-paul.gortmaker@windriver.com>
- <m2k40dkl2o.fsf@firstfloor.org>
- <20120515.210020.1631343759962418692.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/2] net: ipv4 and ipv6: Convert
+ printk(KERN_DEBUG to pr_debug
+Date: Tue, 15 May 2012 18:49:47 -0700
+Message-ID: <1337132987.7050.29.camel@joe2Laptop>
+References: <cover.1337126962.git.joe@perches.com>
+	 <1fd8285e798ec9b3817c790a67b2bb655ffc931b.1337126963.git.joe@perches.com>
+	 <20120515183536.2cac1e29@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <andi@firstfloor.org>, <netdev@vger.kernel.org>,
-	<schwidefsky@de.ibm.com>, <heiko.carstens@de.ibm.com>,
-	<linux390@de.ibm.com>, <linux-s390@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:36586 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932115Ab2EPBjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 21:39:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20120515.210020.1631343759962418692.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:38243 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752128Ab2EPBtt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 May 2012 21:49:49 -0400
+In-Reply-To: <20120515183536.2cac1e29@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Re: [PATCH/RFC net-next 0/4] Delete token ring support.] On 15/05/2012 (Tue 21:00) David Miller wrote:
-
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Tue, 15 May 2012 17:48:15 -0700
+On Tue, 2012-05-15 at 18:35 -0700, Stephen Hemminger wrote:
+> On Tue, 15 May 2012 17:11:54 -0700
+> Joe Perches <joe@perches.com> wrote:
 > 
-> > Paul Gortmaker <paul.gortmaker@windriver.com> writes:
-> >>
-> >> What I mean by (2) is the implicit absence of anyone fixing _runtime_
-> >> bugs, going all the way back to 2.6.12 in 2005.  If the code was being
-> >> _used_, we'd see runtime regressions reported and their associated
-> >> fixes.
+> > Use the current debugging style and enable dynamic_debug.
 > > 
-> > Removal sounds good to me. In fact I would argue to remove any other driver
-> > which did not get a real change since 2005 too.
-
-3c501.c is on my radar.  The 8bit ISA hardware with discrete TTL
-components everywhere was crap back in the early 1990s, and it sure as
-hell has not got better with age.
-
+> > Signed-off-by: Joe Perches <joe@perches.com>
 > 
-> I also support removing the token ring stuff, and in fact I'm more
-> than happy to add your patch set to the net-next tree right now.
+> This changes the action of the system. By default:
+>   printk(KERN_DEBUG "foo\n");
+> is enabled all the time and prints to log with debug level.
+> 
+> But your version
+>   pr_debug("foo\n");
+> defaults to being dropped until the system is built with dynamic
+> debug, and that particular debug instance is enabled.
+> 
+> Since these are all useful, but low priority messages, not I
+> don't think disabling them by default is such a great idea now.
 
-Great -- that was the kind of response I was hoping for, but not
-expecting to get.  Let me run one last allyesconfig/allmodconfig
-and I'll send a pull request.  I've already run the defconfig
-build on s390 to make sure I didn't break them.
+Just had that discussion with David Miller.
 
-Thanks,
-Paul.
+http://marc.info/?l=linux-sctp&m=133710673230503&w=2
