@@ -1,229 +1,135 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2-RFC 6/6] tun: experimental zero copy tx support
-Date: Thu, 17 May 2012 00:16:21 +0300
-Message-ID: <3374cde17280031d7e7832918a35a7d6901e9071.1337202879.git.mst@redhat.com>
-References: <cover.1337202879.git.mst@redhat.com>
+From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: [RFC 05/13] USB: Allow drivers to disable
+	hub-initiated LPM.
+Date: Wed, 16 May 2012 14:55:01 -0700
+Message-ID: <e6cc5a26201f90f696a328c651dab61547f03068.1337203535.git.sarah.a.sharp@linux.intel.com>
+References: <cover.1337203535.git.sarah.a.sharp@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61031 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759795Ab2EPWIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 May 2012 18:08:47 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org,
+	Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>, Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
+	Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>, Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
+	Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Roland Vossen <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	"Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>, Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	gigaset307x-common@li
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <cover.1337202879.git.mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <cover.1337203535.git.sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com>
+List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
+List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
+Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+Sender: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Let vhost-net utilize zero copy tx when used with tun.
+USB 3.0 Link Power Management (LPM) is designed to allow individual
+links in the bus to go into lower power states.  There are two ways a
+link can enter a lower power state:
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+1. Device-initiated LPM.  When a USB device decides it can go into a
+lower power link state, it sends a message to the parent hub, telling it
+to go into either U1 or U2.  Device-initiated LPM is good for devices
+that send data to the host, like communications devices.
+
+2. Hub-initiated LPM.  After the link has been idle for a specific
+amount of time, the parent hub will request that the child go into a
+lower power state.  The child can refuse that request.  For example, a
+USB modem may want to refuse the LPM request if it is in the middle of
+receiving a text message.  Hub-initiated LPM is good for devices where
+only the host initiates the data transfer, like USB printers or USB mass
+storage devices.
+
+Links will be automatically placed into higher power states by the USB
+hubs and roothubs whenever the host starts a USB transmission.
+
+Introduce a new usb_driver flag, disable_hub_initiated_lpm, that allows
+drivers to disable hub-initiated LPM.
+
+Signed-off-by: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>
+Cc: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
+Cc: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>
+Cc: Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>
+Cc: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+Cc: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Cc: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Cc: Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Cc: "Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Cc: Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Cc: Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Cc: Senthil Balasubramanian <senthilb-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Cc: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Cc: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: Roland Vossen <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: "Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: Kan Yan <kanyan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
+Cc: Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Cc: Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Cc: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: gigaset307x-common-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org
+Cc: libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
 ---
- drivers/net/tun.c |  132 +++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 files changed, 127 insertions(+), 5 deletions(-)
+ include/linux/usb.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index fe5cd2f3..c4459e0 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -100,6 +100,8 @@ do {								\
- } while (0)
- #endif
- 
-+#define GOODCOPY_LEN 128
-+
- #define FLT_EXACT_COUNT 8
- struct tap_filter {
- 	unsigned int    count;    /* Number of addrs. Zero means disabled */
-@@ -602,8 +604,86 @@ static struct sk_buff *tun_alloc_skb(struct tun_struct *tun,
- 	return skb;
- }
- 
-+/* set skb frags from iovec, this can move to core network code for reuse */
-+static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
-+				  int offset, size_t count)
-+{
-+	int len = iov_length(from, count) - offset;
-+	int copy = skb_headlen(skb);
-+	int size, offset1 = 0;
-+	int i = 0;
-+
-+	/* Skip over from offset */
-+	while (count && (offset >= from->iov_len)) {
-+		offset -= from->iov_len;
-+		++from;
-+		--count;
-+	}
-+
-+	/* copy up to skb headlen */
-+	while (count && (copy > 0)) {
-+		size = min_t(unsigned int, copy, from->iov_len - offset);
-+		if (copy_from_user(skb->data + offset1, from->iov_base + offset,
-+				   size))
-+			return -EFAULT;
-+		if (copy > size) {
-+			++from;
-+			--count;
-+			offset = 0;
-+		} else
-+			offset += size;
-+		copy -= size;
-+		offset1 += size;
-+	}
-+
-+	if (len == offset1)
-+		return 0;
-+
-+	while (count--) {
-+		struct page *page[MAX_SKB_FRAGS];
-+		int num_pages;
-+		unsigned long base;
-+		unsigned long truesize;
-+
-+		len = from->iov_len - offset;
-+		if (!len) {
-+			offset = 0;
-+			++from;
-+			continue;
-+		}
-+		base = (unsigned long)from->iov_base + offset;
-+		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+		if (i + size > MAX_SKB_FRAGS)
-+			return -EMSGSIZE;
-+		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
-+		if (num_pages != size) {
-+			for (i = 0; i < num_pages; i++)
-+				put_page(page[i]);
-+			return -EFAULT;
-+		}
-+		truesize = size * PAGE_SIZE;
-+		skb->data_len += len;
-+		skb->len += len;
-+		skb->truesize += truesize;
-+		atomic_add(truesize, &skb->sk->sk_wmem_alloc);
-+		while (len) {
-+			int off = base & ~PAGE_MASK;
-+			int size = min_t(int, len, PAGE_SIZE - off);
-+			__skb_fill_page_desc(skb, i, page[i], off, size);
-+			skb_shinfo(skb)->nr_frags++;
-+			/* increase sk_wmem_alloc */
-+			base += size;
-+			len -= size;
-+			i++;
-+		}
-+		offset = 0;
-+		++from;
-+	}
-+	return 0;
-+}
-+
- /* Get packet from user space buffer */
--static ssize_t tun_get_user(struct tun_struct *tun,
-+static ssize_t tun_get_user(struct tun_struct *tun, void *msg_control,
- 			    const struct iovec *iv, size_t count,
- 			    int noblock)
- {
-@@ -612,6 +692,9 @@ static ssize_t tun_get_user(struct tun_struct *tun,
- 	size_t len = count, align = NET_SKB_PAD;
- 	struct virtio_net_hdr gso = { 0 };
- 	int offset = 0;
-+	int copylen;
-+	bool zerocopy = false;
-+	int err;
- 
- 	if (!(tun->flags & TUN_NO_PI)) {
- 		if ((len -= sizeof(pi)) > count)
-@@ -645,14 +728,46 @@ static ssize_t tun_get_user(struct tun_struct *tun,
- 			return -EINVAL;
- 	}
- 
--	skb = tun_alloc_skb(tun, align, len, gso.hdr_len, noblock);
-+	if (msg_control)
-+		zerocopy = true;
-+
-+	if (zerocopy) {
-+		/* Userspace may produce vectors with count greater than
-+		 * MAX_SKB_FRAGS, so we need to linearize parts of the skb
-+		 * to let the rest of data to be fit in the frags.
-+		 */
-+		if (count > MAX_SKB_FRAGS) {
-+			copylen = iov_length(iv, count - MAX_SKB_FRAGS);
-+			if (copylen < offset)
-+				copylen = 0;
-+			else
-+				copylen -= offset;
-+		} else
-+				copylen = 0;
-+		/* There are 256 bytes to be copied in skb, so there is enough
-+		 * room for skb expand head in case it is used.
-+		 * The rest of the buffer is mapped from userspace.
-+		 */
-+		if (copylen < gso.hdr_len)
-+			copylen = gso.hdr_len;
-+		if (!copylen)
-+			copylen = GOODCOPY_LEN;
-+	} else
-+		copylen = len;
-+
-+	skb = tun_alloc_skb(tun, align, copylen, gso.hdr_len, noblock);
- 	if (IS_ERR(skb)) {
- 		if (PTR_ERR(skb) != -EAGAIN)
- 			tun->dev->stats.rx_dropped++;
- 		return PTR_ERR(skb);
- 	}
- 
--	if (skb_copy_datagram_from_iovec(skb, 0, iv, offset, len)) {
-+	if (zerocopy)
-+		err = zerocopy_sg_from_iovec(skb, iv, offset, count);
-+	else
-+		err = skb_copy_datagram_from_iovec(skb, 0, iv, offset, len);
-+
-+	if (err) {
- 		tun->dev->stats.rx_dropped++;
- 		kfree_skb(skb);
- 		return -EFAULT;
-@@ -726,6 +841,12 @@ static ssize_t tun_get_user(struct tun_struct *tun,
- 		skb_shinfo(skb)->gso_segs = 0;
- 	}
- 
-+	/* copy skb_ubuf_info for callback when skb has no error */
-+	if (zerocopy) {
-+		skb_shinfo(skb)->destructor_arg = msg_control;
-+		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+	}
-+
- 	netif_rx_ni(skb);
- 
- 	tun->dev->stats.rx_packets++;
-@@ -746,7 +867,7 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
- 
- 	tun_debug(KERN_INFO, tun, "tun_chr_write %ld\n", count);
- 
--	result = tun_get_user(tun, iv, iov_length(iv, count),
-+	result = tun_get_user(tun, NULL, iv, iov_length(iv, count),
- 			      file->f_flags & O_NONBLOCK);
- 
- 	tun_put(tun);
-@@ -960,7 +1081,7 @@ static int tun_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		       struct msghdr *m, size_t total_len)
- {
- 	struct tun_struct *tun = container_of(sock, struct tun_struct, socket);
--	return tun_get_user(tun, m->msg_iov, total_len,
-+	return tun_get_user(tun, m->msg_control, m->msg_iov, total_len,
- 			    m->msg_flags & MSG_DONTWAIT);
- }
- 
-@@ -1130,6 +1251,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		sock_init_data(&tun->socket, sk);
- 		sk->sk_write_space = tun_sock_write_space;
- 		sk->sk_sndbuf = INT_MAX;
-+		sock_set_flag(sk, SOCK_ZEROCOPY);
- 
- 		tun_sk(sk)->tun = tun;
- 
+diff --git a/include/linux/usb.h b/include/linux/usb.h
+index eb46077..998c276 100644
+--- a/include/linux/usb.h
++++ b/include/linux/usb.h
+@@ -875,6 +875,9 @@ struct usbdrv_wrap {
+  *	for interfaces bound to this driver.
+  * @soft_unbind: if set to 1, the USB core will not kill URBs and disable
+  *	endpoints before calling the driver's disconnect method.
++ * @disable_hub_initiated_lpm: if set to 0, the USB core will not allow hubs
++ *	to initiate lower power link state transitions when an idle timeout
++ *	occurs.  Device-initiated USB 3.0 link PM will still be allowed.
+  *
+  * USB interface drivers must provide a name, probe() and disconnect()
+  * methods, and an id_table.  Other driver fields are optional.
+@@ -915,6 +918,7 @@ struct usb_driver {
+ 	struct usbdrv_wrap drvwrap;
+ 	unsigned int no_dynamic_id:1;
+ 	unsigned int supports_autosuspend:1;
++	unsigned int disable_hub_initiated_lpm:1;
+ 	unsigned int soft_unbind:1;
+ };
+ #define	to_usb_driver(d) container_of(d, struct usb_driver, drvwrap.driver)
 -- 
-MST
+1.7.9
