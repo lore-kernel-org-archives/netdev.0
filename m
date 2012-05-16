@@ -1,23 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net/ipv4 and net/ipv6 logging cleanups
-Date: Wed, 16 May 2012 01:01:54 -0400 (EDT)
-Message-ID: <20120516.010154.2023377176093007977.davem@davemloft.net>
-References: <cover.1337126962.git.joe@perches.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: linux-next: manual merge of the net-next tree with the
+	sparc-next tree
+Date: Wed, 16 May 2012 07:02:45 +0200
+Message-ID: <20120516050245.GA407@merkur.ravnborg.org>
+References: <20120516143944.57a648287aa5cd1a5930254e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1337126962.git.joe@perches.com>
+Content-Disposition: inline
+In-Reply-To: <20120516143944.57a648287aa5cd1a5930254e@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 15 May 2012 17:11:52 -0700
+On Wed, May 16, 2012 at 02:39:44PM +1000, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net-next tree got a conflict in
+> arch/sparc/Makefile between commit e1d7de8377e6 ("sparc: introduce
+> arch/sparc/Kbuild") from the sparc-next tree and commit 2809a2087cc4
+> ("net: filter: Just In Time compiler for sparc") from the net-next tree.
+> 
+> I suspect that the core-y net bit below should be changed to be a obj-y
+> bit of arch/sparc/Kbuild ...
 
-> Joe Perches (2):
->   net: ipv6: Standardize prefixes for message logging
->   net: ipv4 and ipv6: Convert printk(KERN_DEBUG to pr_debug
+Correct - like this:
 
-Both applied, thanks Joe.
+arch/sparc/Kbuild:
+
+obj-y += net/
+
+	Sam
