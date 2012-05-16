@@ -1,45 +1,58 @@
-From: <jgq516-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/1] smsc95xx: add FLAG_POINTTOPOINT flag for driver_info
-Date: Wed, 16 May 2012 16:01:42 +0800
-Message-ID: <1337155302-26244-1-git-send-email-jgq516@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH V2] CS89x0 : Use ioread16/iowrite16 on all platforms
+Date: Wed, 16 May 2012 07:20:42 +0000
+Message-ID: <201205160720.42995.arnd@arndb.de>
+References: <1337112906-31033-1-git-send-email-jaccon.bastiaansen@gmail.com> <20120515223711.GA12674@electric-eye.fr.zoreil.com> <1337123314.7050.26.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jgq516-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: <steve.glendinning-sdUf+H5yV5I@public.gmane.org>, <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>,
+	s.hauer@pengutronix.de, gfm@funxed.com, davem@davemloft.net,
+	festevam@gmail.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:60434 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759223Ab2EPHU4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 03:20:56 -0400
+In-Reply-To: <1337123314.7050.26.camel@joe2Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xiao Jiang <jgq516-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Tuesday 15 May 2012, Joe Perches wrote:
+> On Wed, 2012-05-16 at 00:37 +0200, Francois Romieu wrote:
+> > Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com> :
+> > [...]
+> > > diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+> > > index b9406cb..8081ad5 100644
+> > > --- a/drivers/net/ethernet/cirrus/cs89x0.c
+> > > +++ b/drivers/net/ethernet/cirrus/cs89x0.c
+> > [...]
+> > > -static int cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular);
+> > > +static int cs89x0_probe1(struct net_device *dev,
+> > > +                    void __iomem *ioaddr,
+> > > +                    int modular);
+> > > +static int cs89x0_probe1(struct net_device *dev, void __iomem *ioaddr,
+> > > +                    int modular);
+> > 
+> > s/int/bool/ maybe.
+> > 
+> > You may skip the name of the parameters.
+> 
+> Better would be to not duplicate the prototype
+> and better still would be to reorder the code to
+> avoid the prototype altogether.
 
-commit c26134 introduced FLAG_POINTTOPOINT flag for USB ethernet devices
-which possibly use "usb%d" names, add this flag to make sure pandaboard
-can mount nfs with smsc95xx NIC.
+I agree that would be best, but let's do one thing at a time. This prototype
+is the first of 16 in a row in that driver. It would be good to remove all
+of them, but that change is totally unrelated to the much more important
+one that Jaccon is doing here.
 
-Signed-off-by: Xiao Jiang <jgq516-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/usb/smsc95xx.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+I'd say leave the prototype as it is for now, just change the type of the ioaddr
+argument in this patch. Patches to fix the numerous other style issues with this
+driver are of course welcome as well.
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 94ae669..e158288 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1192,7 +1192,8 @@ static const struct driver_info smsc95xx_info = {
- 	.rx_fixup	= smsc95xx_rx_fixup,
- 	.tx_fixup	= smsc95xx_tx_fixup,
- 	.status		= smsc95xx_status,
--	.flags		= FLAG_ETHER | FLAG_SEND_ZLP | FLAG_LINK_INTR,
-+	.flags		= FLAG_ETHER | FLAG_POINTTOPOINT | FLAG_SEND_ZLP |
-+			  FLAG_LINK_INTR,
- };
- 
- static const struct usb_device_id products[] = {
--- 
-1.7.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Arnd
