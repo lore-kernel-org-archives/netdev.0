@@ -1,36 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netfilter fixes for 3.4-rc7
-Date: Wed, 16 May 2012 15:18:36 -0400 (EDT)
-Message-ID: <20120516.151836.786389543745557157.davem@davemloft.net>
-References: <1336996023-20249-1-git-send-email-pablo@netfilter.org>
-	<20120514.185607.1967456974676336550.davem@davemloft.net>
-	<alpine.DEB.2.00.1205162037110.2742@blackhole.kfki.hu>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: [PATCH] bonding: only send arp monitor packets if no other traffic
+Date: Wed, 16 May 2012 12:48:28 -0600
+Message-ID: <4FB3F67C.6000401@genband.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: kadlec@blackhole.kfki.hu
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1205162037110.2742@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og123.obsmtp.com ([64.18.2.24]:60257 "EHLO
+	exprod7og123.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932429Ab2EPTZq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 15:25:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Date: Wed, 16 May 2012 20:41:51 +0200 (CEST)
+In order to minimize network traffic, when using load balancing modes
+only send out arp monitor packets if it's been more than delta_in_ticks
+jiffies since we either received or transmitted packets.  The rationale
+behind this is that if there is a lot of other traffic going on we don't
+need the arp monitor packets to determine whether or not the link is
+working.
 
-> Could at least the patch with the subject
-> 
->    netfilter: ipset: fix hash size checking in kernel
-> 
->    The hash size must fit both into u32 (jhash) and the max value of
->    size_t. The missing checking could lead to kernel crash, bug reported
->    by Seblu.
-> 
-> be submitted into 3.4-rc7? Any non most-recent ipset package compiled with 
-> gcc-4.7 or above can trigger the bug.
+This makes the most difference if you have a lot of hosts all arping
+the same target at high frequency.
 
-And only root can trigger it if he gives bogus parameters right?
+Signed-off-by: Chris Friesen <chris.friesen@genand.com>
+---
+ drivers/net/bonding/bond_main.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-If that's the case, the exposure is to privileged users committing an
-operator error, so I don't see it as so important.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index bc13b3d..4c8459a 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2885,8 +2885,12 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 		 * do - all replies will be rx'ed on same link causing slaves
+ 		 * to be unstable during low/no traffic periods
+ 		 */
+-		if (IS_UP(slave->dev))
+-			bond_arp_send_all(bond, slave);
++		if (IS_UP(slave->dev)) {
++			if (time_after_eq(jiffies, dev_trans_start(slave->dev) + delta_in_ticks) ||
++			    time_after_eq(jiffies, slave->dev->last_rx + delta_in_ticks)) {
++				bond_arp_send_all(bond, slave);
++			}
++		}
+ 	}
+ 
+ 	if (do_failover) {
+
+-- 
+
+Chris Friesen
+Software Designer
+3500 Carling Avenue
+Ottawa, Ontario K2H 8E9
+www.genband.com
