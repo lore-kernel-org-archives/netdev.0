@@ -1,122 +1,155 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] drop_monitor: convert to modular building
-Date: Wed, 16 May 2012 10:27:06 -0400
-Message-ID: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] fq_codel: should use qdisc backlog as threshold
+Date: Wed, 16 May 2012 16:39:09 +0200
+Message-ID: <1337179149.8512.1208.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Kathleen Nichols <nichols@pollere.com>,
+	Dave Taht <dave.taht@bufferbloat.net>,
+	Van Jacobson <van@pollere.net>, codel@lists.bufferbloat.net,
+	bloat@lists.bufferbloat.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47968 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752089Ab2EPO1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 10:27:31 -0400
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:51467 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753020Ab2EPOjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 10:39:15 -0400
+Received: by bkcji2 with SMTP id ji2so683570bkc.19
+        for <netdev@vger.kernel.org>; Wed, 16 May 2012 07:39:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When I first wrote drop monitor I wrote it to just build monolithically.  There
-is no reason it can't be built modularly as well, so lets give it that
-flexibiity.
+From: Eric Dumazet <edumazet@google.com>
 
-I've tested this by building it as both a module and monolithically, and it
-seems to work quite well
+codel_should_drop() logic allows a packet being not dropped if queue
+size is under max packet size.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
+In fq_codel, we have two possible backlogs : The qdisc global one, and
+the flow local one.
+
+The meaningful one for codel_should_drop() should be the global backlog,
+not the per flow one, so that thin flows can have a non zero drop/mark
+probability.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Dave Taht <dave.taht@bufferbloat.net>
+Cc: Kathleen Nichols <nichols@pollere.com>
+Cc: Van Jacobson <van@pollere.net>
 ---
- net/Kconfig             |    2 +-
- net/core/drop_monitor.c |   46 +++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 46 insertions(+), 2 deletions(-)
+ include/net/codel.h      |   15 +++++++--------
+ net/sched/sch_codel.c    |    4 ++--
+ net/sched/sch_fq_codel.c |    5 +++--
+ 3 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/net/Kconfig b/net/Kconfig
-index e07272d..76ad6fa 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -295,7 +295,7 @@ config NET_TCPPROBE
- 	module will be called tcp_probe.
+diff --git a/include/net/codel.h b/include/net/codel.h
+index 7546517..550debf 100644
+--- a/include/net/codel.h
++++ b/include/net/codel.h
+@@ -205,7 +205,7 @@ static codel_time_t codel_control_law(codel_time_t t,
  
- config NET_DROP_MONITOR
--	boolean "Network packet drop alerting service"
-+	tristate "Network packet drop alerting service"
- 	depends on INET && EXPERIMENTAL && TRACEPOINTS
- 	---help---
- 	This feature provides an alerting service to userspace in the
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index 5c3c81a..145f399 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -22,6 +22,7 @@
- #include <linux/timer.h>
- #include <linux/bitops.h>
- #include <linux/slab.h>
-+#include <linux/module.h>
- #include <net/genetlink.h>
- #include <net/netevent.h>
  
-@@ -223,9 +224,15 @@ static int set_all_monitor_traces(int state)
+ static bool codel_should_drop(const struct sk_buff *skb,
+-			      unsigned int *backlog,
++			      struct Qdisc *sch,
+ 			      struct codel_vars *vars,
+ 			      struct codel_params *params,
+ 			      struct codel_stats *stats,
+@@ -219,13 +219,13 @@ static bool codel_should_drop(const struct sk_buff *skb,
+ 	}
  
- 	switch (state) {
- 	case TRACE_ON:
-+		if (!try_module_get(THIS_MODULE)) {
-+			rc = -EINVAL;
-+			break;
-+		}
-+
- 		rc |= register_trace_kfree_skb(trace_kfree_skb_hit, NULL);
- 		rc |= register_trace_napi_poll(trace_napi_poll_hit, NULL);
- 		break;
-+
- 	case TRACE_OFF:
- 		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit, NULL);
- 		rc |= unregister_trace_napi_poll(trace_napi_poll_hit, NULL);
-@@ -241,6 +248,9 @@ static int set_all_monitor_traces(int state)
- 				kfree_rcu(new_stat, rcu);
- 			}
+ 	vars->ldelay = now - codel_get_enqueue_time(skb);
+-	*backlog -= qdisc_pkt_len(skb);
++	sch->qstats.backlog -= qdisc_pkt_len(skb);
+ 
+ 	if (unlikely(qdisc_pkt_len(skb) > stats->maxpacket))
+ 		stats->maxpacket = qdisc_pkt_len(skb);
+ 
+ 	if (codel_time_before(vars->ldelay, params->target) ||
+-	    *backlog <= stats->maxpacket) {
++	    sch->qstats.backlog <= stats->maxpacket) {
+ 		/* went below - stay below for at least interval */
+ 		vars->first_above_time = 0;
+ 		return false;
+@@ -249,8 +249,7 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
+ 				     struct codel_params *params,
+ 				     struct codel_vars *vars,
+ 				     struct codel_stats *stats,
+-				     codel_skb_dequeue_t dequeue_func,
+-				     u32 *backlog)
++				     codel_skb_dequeue_t dequeue_func)
+ {
+ 	struct sk_buff *skb = dequeue_func(vars, sch);
+ 	codel_time_t now;
+@@ -261,7 +260,7 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
+ 		return skb;
+ 	}
+ 	now = codel_get_time();
+-	drop = codel_should_drop(skb, backlog, vars, params, stats, now);
++	drop = codel_should_drop(skb, sch, vars, params, stats, now);
+ 	if (vars->dropping) {
+ 		if (!drop) {
+ 			/* sojourn time below target - leave dropping state */
+@@ -292,7 +291,7 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
+ 				qdisc_drop(skb, sch);
+ 				stats->drop_count++;
+ 				skb = dequeue_func(vars, sch);
+-				if (!codel_should_drop(skb, backlog,
++				if (!codel_should_drop(skb, sch,
+ 						       vars, params, stats, now)) {
+ 					/* leave dropping state */
+ 					vars->dropping = false;
+@@ -313,7 +312,7 @@ static struct sk_buff *codel_dequeue(struct Qdisc *sch,
+ 			stats->drop_count++;
+ 
+ 			skb = dequeue_func(vars, sch);
+-			drop = codel_should_drop(skb, backlog, vars, params,
++			drop = codel_should_drop(skb, sch, vars, params,
+ 						 stats, now);
  		}
-+
-+		module_put(THIS_MODULE);
-+
- 		break;
- 	default:
- 		rc = 1;
-@@ -383,4 +393,38 @@ out:
- 	return rc;
- }
+ 		vars->dropping = true;
+diff --git a/net/sched/sch_codel.c b/net/sched/sch_codel.c
+index 213ef60..2f9ab17 100644
+--- a/net/sched/sch_codel.c
++++ b/net/sched/sch_codel.c
+@@ -77,8 +77,8 @@ static struct sk_buff *codel_qdisc_dequeue(struct Qdisc *sch)
+ 	struct codel_sched_data *q = qdisc_priv(sch);
+ 	struct sk_buff *skb;
  
--late_initcall(init_net_drop_monitor);
-+static void exit_net_drop_monitor(void)
-+{
-+	struct per_cpu_dm_data *data;
-+	int cpu;
+-	skb = codel_dequeue(sch, &q->params, &q->vars, &q->stats,
+-			    dequeue, &sch->qstats.backlog);
++	skb = codel_dequeue(sch, &q->params, &q->vars, &q->stats, dequeue);
 +
-+	if (unregister_netdevice_notifier(&dropmon_net_notifier))
-+		printk(KERN_WARNING "Unable to unregiser dropmon notifer\n");
-+
-+	/*
-+	 * Because of the module_get/put we do in the trace state change path
-+	 * we are guarnateed not to have any current users when we get here
-+	 * all we need to do is make sure that we don't have any running timers
-+	 * or pending schedule calls
-+	 */
-+
-+	for_each_present_cpu(cpu) {
-+		data = &per_cpu(dm_cpu_data, cpu);
-+		del_timer(&data->send_timer);
-+		cancel_work_sync(&data->dm_alert_work);
-+		/*
-+		 * At this point, we should have exclusive access
-+		 * to this struct and can free the skb inside it
-+		 */
-+		kfree_skb(data->skb);
-+	}
-+
-+	if (genl_unregister_family(&net_drop_monitor_family))
-+		printk(KERN_WARNING "Unable to unregister drop monitor socket family\n");
-+}
-+
-+module_init(init_net_drop_monitor);
-+module_exit(exit_net_drop_monitor);
-+
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Neil Horman <nhorman@tuxdriver.com>");
--- 
-1.7.7.6
+ 	/* We cant call qdisc_tree_decrease_qlen() if our qlen is 0,
+ 	 * or HTB crashes. Defer it for next round.
+ 	 */
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 337ff20..9fc1c62 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -217,13 +217,14 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+  */
+ static struct sk_buff *dequeue(struct codel_vars *vars, struct Qdisc *sch)
+ {
++	struct fq_codel_sched_data *q = qdisc_priv(sch);
+ 	struct fq_codel_flow *flow;
+ 	struct sk_buff *skb = NULL;
+ 
+ 	flow = container_of(vars, struct fq_codel_flow, cvars);
+ 	if (flow->head) {
+ 		skb = dequeue_head(flow);
+-		sch->qstats.backlog -= qdisc_pkt_len(skb);
++		q->backlogs[flow - q->flows] -= qdisc_pkt_len(skb);
+ 		sch->q.qlen--;
+ 	}
+ 	return skb;
+@@ -256,7 +257,7 @@ begin:
+ 	prev_ecn_mark = q->cstats.ecn_mark;
+ 
+ 	skb = codel_dequeue(sch, &q->cparams, &flow->cvars, &q->cstats,
+-			    dequeue, &q->backlogs[flow - q->flows]);
++			    dequeue);
+ 
+ 	flow->dropped += q->cstats.drop_count - prev_drop_count;
+ 	flow->dropped += q->cstats.ecn_mark - prev_ecn_mark;
