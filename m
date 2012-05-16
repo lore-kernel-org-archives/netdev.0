@@ -1,76 +1,56 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Wed, 16 May 2012 21:36:30 +0300
-Message-ID: <20120516183629.GJ10769@redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
- <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
- <1337100630.8220.4.camel@oc3660625478.ibm.com>
- <4FB317C8.90002@redhat.com>
- <1337181027.10741.13.camel@oc3660625478.ibm.com>
- <20120516151444.GC9934@redhat.com>
- <1337189525.10741.24.camel@oc3660625478.ibm.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH 0/4] netfilter fixes for 3.4-rc7
+Date: Wed, 16 May 2012 20:41:51 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1205162037110.2742@blackhole.kfki.hu>
+References: <1336996023-20249-1-git-send-email-pablo@netfilter.org> <20120514.185607.1967456974676336550.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1337189525.10741.24.camel@oc3660625478.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120514.185607.1967456974676336550.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 16, 2012 at 10:32:05AM -0700, Shirley Ma wrote:
-> On Wed, 2012-05-16 at 18:14 +0300, Michael S. Tsirkin wrote:
-> > On Wed, May 16, 2012 at 08:10:27AM -0700, Shirley Ma wrote:
-> > > On Wed, 2012-05-16 at 10:58 +0800, Jason Wang wrote:
-> > > > >>   drivers/vhost/vhost.c |    1 +
-> > > > >>   1 files changed, 1 insertions(+), 0 deletions(-)
-> > > > >>
-> > > > >> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > > > >> index 947f00d..7b75fdf 100644
-> > > > >> --- a/drivers/vhost/vhost.c
-> > > > >> +++ b/drivers/vhost/vhost.c
-> > > > >> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
-> > > > >>          struct vhost_ubuf_ref *ubufs = ubuf->arg;
-> > > > >>          struct vhost_virtqueue *vq = ubufs->vq;
-> > > > >>
-> > > > >> +       vhost_poll_queue(&vq->poll);
-> > > > >>          /* set len = 1 to mark this desc buffers done DMA */
-> > > > >>          vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
-> > > > >>          kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
-> > > > > Doing so, we might have redundant vhost_poll_queue(). Do you
-> > know in
-> > > > > which scenario there might be missing of adding and signaling
-> > during
-> > > > > zerocopy?
-> > > > 
-> > > > Yes, as we only do signaling and adding during tx work, if there's
-> > no
-> > > > tx 
-> > > > work when the skb were sent, we may lose the opportunity to let
-> > guest 
-> > > > know about the completion. It's easy to be reproduced with netperf
-> > > > test. 
-> > > 
-> > > The reason which host signals guest is to free guest tx buffers, if
-> > > there is no tx work, then it's not necessary to signal the guest
-> > unless
-> > > guest runs out of memory. The pending buffers will be released
-> > > virtio_net device gone.
-> > > 
-> > > What's the behavior of netperf test when you hit this situation?
-> > > 
-> > > Thanks
-> > > Shirley
-> > 
-> > IIRC guest networking seems to be lost. 
-> 
-> It seems vhost_enable_notify is missing in somewhere else?
-> 
-> Thanks
-> Shirley
+Hi Dave,
 
-Donnu. I see virtio sending packets but they do not get
-to tun on host. debugging.
+On Mon, 14 May 2012, David Miller wrote:
+
+> From: pablo@netfilter.org
+> Date: Mon, 14 May 2012 13:46:59 +0200
+> 
+> > * One fix for possible timeout overflow for ipset, from Jozsef
+> >   Kadlecsik.
+> > 
+> > * One fix to ensure that hash size is correct, again for ipset
+> >   from Jozsef Kadlecsik.
+> > 
+> > * Removal of redundant include in xt_CT from Eldad Zack.
+> > 
+> > * Fix for wrong usage of MODULE_ALIAS_NFCT_HELPER in nf_ct_h323
+> >   helper from myself.
+> 
+> I don't consider any of these appropriate this late in the -RC
+> series.
+> 
+> They don't fix major regressions seen by many users.
+
+Could at least the patch with the subject
+
+   netfilter: ipset: fix hash size checking in kernel
+
+   The hash size must fit both into u32 (jhash) and the max value of
+   size_t. The missing checking could lead to kernel crash, bug reported
+   by Seblu.
+
+be submitted into 3.4-rc7? Any non most-recent ipset package compiled with 
+gcc-4.7 or above can trigger the bug.
+
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
