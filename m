@@ -1,82 +1,172 @@
 From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH net-next v5 05/13] mac802154: declare reduced mlme operations
-Date: Wed, 16 May 2012 10:50:23 +0400
-Message-ID: <1337151031-5178-6-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH net-next v5 01/13] mac802154: basic ieee802.15.4 device structures
+Date: Wed, 16 May 2012 10:50:19 +0400
+Message-ID: <1337151031-5178-2-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1337151031-5178-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:61280 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759359Ab2EPGvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 02:51:39 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hn6so372487wib.1
-        for <netdev@vger.kernel.org>; Tue, 15 May 2012 23:51:39 -0700 (PDT)
+Received: from mail-we0-f174.google.com ([74.125.82.174]:51812 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759356Ab2EPGve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 02:51:34 -0400
+Received: by weyu7 with SMTP id u7so224285wey.19
+        for <netdev@vger.kernel.org>; Tue, 15 May 2012 23:51:33 -0700 (PDT)
 In-Reply-To: <1337151031-5178-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According IEEE 802.15.4 standard each node can be either full functionality
-device (FFD) or reduce functionality device (RFD). So 2 sets of operations
-are needed. This patch declare RFD operations structure.
+The IEEE 802.15.4 Working Group focuses on the standardization of the
+bottom two layers of ISO/OSI protocol stack: Physical (PHY) and MAC.
+The MAC layer provides access control to a shared channel and reliable
+data delivery. The main functions performed by the MAC sublayer are:
+association and disassociation, security control, optional star
+network topology functions, such as beacon generation and Guaranteed
+Time Slots (GTSs) management, generation of ACK frames (if used), and,
+finally, application support for the two possible network topologies
+described in the standard.
+
+This is an initial commit which describes main data structures needed
+for ieee802.15.4 compatible devices representation in the MAC layer.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- include/net/ieee802154_netdev.h |   25 ++++++++++++++++++++-----
- 1 files changed, 20 insertions(+), 5 deletions(-)
+ include/net/mac802154.h |  126 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 126 insertions(+), 0 deletions(-)
+ create mode 100644 include/net/mac802154.h
 
-diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index 12a7ee4..d104c88 100644
---- a/include/net/ieee802154_netdev.h
-+++ b/include/net/ieee802154_netdev.h
-@@ -1,7 +1,7 @@
- /*
-  * An interface between IEEE802.15.4 device and rest of the kernel.
-  *
-- * Copyright (C) 2007, 2008, 2009 Siemens AG
-+ * Copyright (C) 2007-2012 Siemens AG
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2
-@@ -21,6 +21,7 @@
-  * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
-  * Maxim Osipov <maxim.osipov@siemens.com>
-  * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-+ * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-  */
- 
- #ifndef IEEE802154_NETDEVICE_H
-@@ -112,12 +113,26 @@ struct ieee802154_mlme_ops {
- 	u8 (*get_bsn)(const struct net_device *dev);
- };
- 
--static inline struct ieee802154_mlme_ops *ieee802154_mlme_ops(
--		const struct net_device *dev)
-+/* The IEEE 802.15.4 standard defines 2 type of the devices:
-+ * - FFD - full functionality device
-+ * - RFD - reduce functionality device
+diff --git a/include/net/mac802154.h b/include/net/mac802154.h
+new file mode 100644
+index 0000000..941c4e1
+--- /dev/null
++++ b/include/net/mac802154.h
+@@ -0,0 +1,126 @@
++/*
++ * IEEE802.15.4-2003 specification
 + *
-+ * So 2 sets of mlme operations are needed
++ * Copyright (C) 2007-2012 Siemens AG
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + */
-+struct ieee802154_reduced_mlme_ops {
-+	struct wpan_phy *(*get_phy)(const struct net_device *dev);
++#ifndef NET_MAC802154_H
++#define NET_MAC802154_H
++
++#include <net/af_ieee802154.h>
++
++/* The following flags are used to indicate changed address settings from
++ * the stack to the hardware.
++ */
++
++/* indicates that the Short Address changed */
++#define IEEE802515_AFILT_SADDR_CHANGED		0x00000001
++/* indicates that the IEEE Address changed */
++#define IEEE802515_AFILT_IEEEADDR_CHANGED	0x00000002
++/* indicates that the PAN ID changed */
++#define IEEE802515_AFILT_PANID_CHANGED		0x00000004
++/* indicates that PAN Coordinator status changed */
++#define	IEEE802515_AFILT_PANC_CHANGED		0x00000008
++
++struct ieee802154_hw_addr_filt {
++	__le16	pan_id;		/* Each independent PAN selects a unique
++				 * identifier. This PAN id allows communication
++				 * between devices within a network using short
++				 * addresses and enables transmissions between
++				 * devices across independent networks.
++				 */
++	__le16	short_addr;
++	u8	ieee_addr[IEEE802154_ADDR_LEN];
++	u8	pan_coord;
 +};
 +
-+static inline struct ieee802154_mlme_ops *
-+ieee802154_mlme_ops(const struct net_device *dev)
- {
- 	return dev->ml_priv;
- }
- 
--#endif
--
-+static inline struct ieee802154_reduced_mlme_ops *
-+ieee802154_reduced_mlme_ops(const struct net_device *dev)
-+{
-+	return dev->ml_priv;
-+}
- 
-+#endif
++struct ieee802154_dev {
++	/* filled by the driver */
++	int	extra_tx_headroom;
++	u32	flags;
++	struct	device *parent;
++
++	/* filled by mac802154 core */
++	struct	ieee802154_hw_addr_filt hw_filt;
++	void	*priv;
++	struct	wpan_phy *phy;
++};
++
++/* Checksum is in hardware and is omitted from a packet
++ *
++ * These following flags are used to indicate hardware capabilities to
++ * the stack. Generally, flags here should have their meaning
++ * done in a way that the simplest hardware doesn't need setting
++ * any particular flags. There are some exceptions to this rule,
++ * however, so you are advised to review these flags carefully.
++ */
++
++/* Indicates that receiver omits FCS and xmitter will add FCS on it's own. */
++#define	IEEE802154_HW_OMIT_CKSUM	0x00000001
++/* Indicates that receiver will autorespond with ACK frames. */
++#define	IEEE802154_HW_AACK		0x00000002
++
++/* struct ieee802154_ops - callbacks from mac802154 to the driver
++ *
++ * This structure contains various callbacks that the driver may
++ * handle or, in some cases, must handle, for example to transmit
++ * a frame.
++ *
++ * start: Handler that 802.15.4 module calls for device initialization.
++ *	  This function is called before the first interface is attached.
++ *
++ * stop:  Handler that 802.15.4 module calls for device cleanup.
++ *	  This function is called after the last interface is removed.
++ *
++ * xmit:  Handler that 802.15.4 module calls for each transmitted frame.
++ *	  skb cntains the buffer starting from the IEEE 802.15.4 header.
++ *	  The low-level driver should send the frame based on available
++ *	  configuration.
++ *	  This function should return zero or negative errno. Called with
++ *	  pib_lock held.
++ *
++ * ed:    Handler that 802.15.4 module calls for Energy Detection.
++ *	  This function should place the value for detected energy
++ *	  (usually device-dependant) in the level pointer and return
++ *	  either zero or negative errno. Called with pib_lock held.
++ *
++ * set_channel:
++ * 	  Set radio for listening on specific channel.
++ *	  Set the device for listening on specified channel.
++ *	  Returns either zero, or negative errno. Called with pib_lock held.
++ *
++ * set_hw_addr_filt:
++ *	  Set radio for listening on specific address.
++ *	  Set the device for listening on specified address.
++ *	  Returns either zero, or negative errno.
++ */
++struct ieee802154_ops {
++	struct module	*owner;
++	int		(*start)(struct ieee802154_dev *dev);
++	void		(*stop)(struct ieee802154_dev *dev);
++	int		(*xmit)(struct ieee802154_dev *dev,
++				struct sk_buff *skb);
++	int		(*ed)(struct ieee802154_dev *dev, u8 *level);
++	int		(*set_channel)(struct ieee802154_dev *dev,
++				       int page,
++				       int channel);
++	int		(*set_hw_addr_filt)(struct ieee802154_dev *dev,
++					  struct ieee802154_hw_addr_filt *filt,
++					    unsigned long changed);
++	int		(*ieee_addr)(struct ieee802154_dev *dev,
++				     u8 addr[IEEE802154_ADDR_LEN]);
++};
++
++#endif /* NET_MAC802154_H */
 -- 
 1.7.2.3
