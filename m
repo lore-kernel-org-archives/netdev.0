@@ -1,111 +1,116 @@
-From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [RFC 13/13] USB: Disable hub-initiated LPM for comms
-	devices.
-Date: Wed, 16 May 2012 14:55:07 -0700
-Message-ID: <3c634afbbe15598cdcbf77bb9393d22ad4bfa373.1337203535.git.sarah.a.sharp@linux.intel.com>
-References: <cover.1337203535.git.sarah.a.sharp@linux.intel.com>
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: [RFC 00/13] USB 3.0 Link Power Management (LPM) support
+Date: Wed, 16 May 2012 15:45:23 -0700
+Message-ID: <20120516224523.GA25769@xanatos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org,
-	Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>, Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
-	Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>, Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
-	Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Roland Vossen <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	"Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>, Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	gigaset307x-common@li
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb@vger.kernel.org, Alan Stern <stern@rowland.harvard.edu>,
+	linux-bluetooth@vger.kernel.org,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	libertas-dev@lists.infradead.org, users@rt2x00.serialmonkey.com
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:49449 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759576Ab2EPWpk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 May 2012 18:45:40 -0400
 Content-Disposition: inline
-In-Reply-To: <cover.1337203535.git.sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
-	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com>
-List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
-List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
-	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
-Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
-Sender: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hub-initiated LPM is not good for USB communications devices.  Comms
-devices should be able to tell when their link can go into a lower power
-state, because they know when an incoming transmission is finished.
-Ideally, these devices would slam their links into a lower power state,
-using the device-initiated LPM, after finishing the last packet of their
-data transfer.
+[Resending with a smaller Cc list]
 
-If we enable the idle timeouts for the parent hubs to enable
-hub-initiated LPM, we will get a lot of useless LPM packets on the bus
-as the devices reject LPM transitions when they're in the middle of
-receiving data.  Worse, some devices might blindly accept the
-hub-initiated LPM and power down their radios while they're in the
-middle of receiving a transmission.
+The USB 3.0 bus specification added a new (optional) low power mechanism
+called Link Power Management (LPM).  This mechanism takes advantage of
+the fact that USB 3.0 packets are routed, not broadcast across the bus.
+It does not help *at all* with USB 2.0 devices.
 
-The Intel Windows folks are disabling hub-initiated LPM for all USB
-communications devices under a xHCI USB 3.0 host.  In order to keep
-the Linux behavior as close as possible to Windows, we need to do the
-same in Linux.
+The idea is that when links between a parent hub and a child hub/device
+become idle, they should be put into a lower power state.  When a USB
+device goes into this lower power state, it may shut down PLLs or other
+circuitry, since it knows it won't receive any transfers until its link
+is driven into the active link state (U0).  Isochronous time stamp
+packets are also not routed to links in a lower power state.  This
+should (theoretically) save power.
 
-Set the disable_hub_initiated_lpm flag for for all USB communications
-drivers.  I know there aren't currently any USB 3.0 devices that
-implement these class specifications, but we should be ready if they do.
+There are two lower power link states, U1 and U2.  Each USB device
+advertises the amount of time that it will take to power up and come
+back to U0, in the U1/U2 Device Exit Latency values in the SuperSpeed
+BOS descriptor.  Hubs may also incur an exit latency to bring a
+downstream link into U0.  U2 is supposed to provide the deepest power
+savings, but it will also have the highest exit latency.
 
-Signed-off-by: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>
-Cc: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Cc: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>
-Cc: Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>
-Cc: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
-Cc: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-Cc: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Cc: Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Cc: "Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Cc: Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Cc: Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Cc: Senthil Balasubramanian <senthilb-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Cc: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Cc: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Cc: Roland Vossen <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Cc: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Cc: "Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Cc: Kan Yan <kanyan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Cc: Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>
-Cc: Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Cc: Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Cc: Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Cc: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: gigaset307x-common-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org
-Cc: libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Cc: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
----
+Either a USB device or a parent hub can request that the link go into U1
+or U2.  Hubs will only initiate U1 or U2 after the link has been idle
+for a software-programmed timeout.
+
+It may not make sense to enable hub-initiated LPM for communications
+devices.  These types of devices often exist to send data to the host,
+and the device usually knows when a transfer is likely to occur.  So
+these devices should know when to enable device-initiated LPM.  On the
+other hand, we don't want to introduce any latency for these devices, so
+enabling hub-initiated LPM may not make sense.
+
+Introduce a new usb_driver flag to disable hub-initiated USB 3.0 LPM,
+and set it for all communications USB drivers.  Let me know if I've
+missed any ones.
+
+The policy for how to set the hub-initiated U1/U2 idle timeouts is very
+host specific.  It depends on many factors, including endpoint types,
+how many hub tiers are between the device and host, and some obscure
+knowledge of the hardware's internal bus schedule policy.  Introduce
+some new xHCI infrastructure, so that xHCI host vendors can add
+functions to implement their own timeout policies.
+
+The only U1/U2 timeout policy I know of is for the Intel xHCI host
+controller.  I've tried to make the patchset as host-agnostic as
+possible, and there's only about 100 lines of Intel-specific code in the
+second to last patch.
+
+This patchset still needs a bit of polish, but the code is stable.  I
+need to retest it since refactoring the code a bit, but I think it's
+ready for review.
+
+I have verified with a USB 3.0 bus analyzer that the TI USB 3.0 hub
+prototype I have does go into U1 and U2 at the request of the xHCI host
+after the U1/U2 timeouts expire.  I see the host (or device, it's hard
+to tell which on the Lecroy I have) send an LGO_U1 and the partner
+respond with an LAU (link accept).
+
+Unfortunately, there aren't very many other devices that do go into U1
+or U2.  They don't break, in any obvious way, but when they are sent an
+LGO_U1 or LGO_U2, they always refuse by sending an LXU (link reject).
+
+
+The following changes since commit 87f0194060c191f4149193833636f4fec52cdfd1:
+
+  xhci: Reset reserved command ring TRBs on cleanup. (2012-05-10 10:13:37 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/sarah/xhci.git lpm-usb3-v7
+
+for you to fetch changes up to 3c634afbbe15598cdcbf77bb9393d22ad4bfa373:
+
+  USB: Disable hub-initiated LPM for comms devices. (2012-05-16 14:23:40 -0700)
+
+----------------------------------------------------------------
+Sarah Sharp (13):
+      xhci: Add roothub code to set U1/U2 timeouts.
+      USB: Make sure to fetch the BOS desc for roothubs.
+      USB: Refactor code to set LPM support flag.
+      USB: Calculate USB 3.0 exit latencies for LPM.
+      USB: Allow drivers to disable hub-initiated LPM.
+      USB: Add support to enable/disable USB3 link states.
+      USB: Disable USB 3.0 LPM in critical sections.
+      xhci: Some Evaluate Context commands must succeed.
+      xhci: Reserve one command for USB3 LPM disable.
+      USB: Add macros for interrupt endpoint types.
+      xhci: Add infrastructure for host-specific LPM policies.
+      xhci: Add Intel U1/U2 timeout policy.
+      USB: Disable hub-initiated LPM for comms devices.
+
  drivers/bluetooth/ath3k.c                     |    1 +
  drivers/bluetooth/bcm203x.c                   |    1 +
  drivers/bluetooth/bfusb.c                     |    1 +
@@ -129,7 +134,7 @@ Cc: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
  drivers/net/usb/hso.c                         |    1 +
  drivers/net/usb/int51x1.c                     |    1 +
  drivers/net/usb/ipheth.c                      |    1 +
- drivers/net/usb/kalmia.c                      |    3 ++-
+ drivers/net/usb/kalmia.c                      |    3 +-
  drivers/net/usb/kaweth.c                      |    1 +
  drivers/net/usb/lg-vl600.c                    |    1 +
  drivers/net/usb/mcs7830.c                     |    1 +
@@ -138,7 +143,7 @@ Cc: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
  drivers/net/usb/plusb.c                       |    1 +
  drivers/net/usb/qmi_wwan.c                    |    1 +
  drivers/net/usb/rndis_host.c                  |    1 +
- drivers/net/usb/rtl8150.c                     |    3 ++-
+ drivers/net/usb/rtl8150.c                     |    3 +-
  drivers/net/usb/sierra_net.c                  |    1 +
  drivers/net/usb/smsc75xx.c                    |    1 +
  drivers/net/usb/smsc95xx.c                    |    1 +
@@ -162,683 +167,18 @@ Cc: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
  drivers/net/wireless/zd1211rw/zd_usb.c        |    1 +
  drivers/usb/class/cdc-acm.c                   |    1 +
  drivers/usb/class/cdc-wdm.c                   |    1 +
- 56 files changed, 58 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/bluetooth/ath3k.c b/drivers/bluetooth/ath3k.c
-index 57fd867..2812b15 100644
---- a/drivers/bluetooth/ath3k.c
-+++ b/drivers/bluetooth/ath3k.c
-@@ -439,6 +439,7 @@ static struct usb_driver ath3k_driver = {
- 	.probe		= ath3k_probe,
- 	.disconnect	= ath3k_disconnect,
- 	.id_table	= ath3k_table,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(ath3k_driver);
-diff --git a/drivers/bluetooth/bcm203x.c b/drivers/bluetooth/bcm203x.c
-index 1e742a5..37ae175 100644
---- a/drivers/bluetooth/bcm203x.c
-+++ b/drivers/bluetooth/bcm203x.c
-@@ -279,6 +279,7 @@ static struct usb_driver bcm203x_driver = {
- 	.probe		= bcm203x_probe,
- 	.disconnect	= bcm203x_disconnect,
- 	.id_table	= bcm203x_table,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(bcm203x_driver);
-diff --git a/drivers/bluetooth/bfusb.c b/drivers/bluetooth/bfusb.c
-index b8ac1c5..32e8251 100644
---- a/drivers/bluetooth/bfusb.c
-+++ b/drivers/bluetooth/bfusb.c
-@@ -749,6 +749,7 @@ static struct usb_driver bfusb_driver = {
- 	.probe		= bfusb_probe,
- 	.disconnect	= bfusb_disconnect,
- 	.id_table	= bfusb_table,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(bfusb_driver);
-diff --git a/drivers/bluetooth/bpa10x.c b/drivers/bluetooth/bpa10x.c
-index d894340..609861a 100644
---- a/drivers/bluetooth/bpa10x.c
-+++ b/drivers/bluetooth/bpa10x.c
-@@ -508,6 +508,7 @@ static struct usb_driver bpa10x_driver = {
- 	.probe		= bpa10x_probe,
- 	.disconnect	= bpa10x_disconnect,
- 	.id_table	= bpa10x_table,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(bpa10x_driver);
-diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index 9217121..461c68b 100644
---- a/drivers/bluetooth/btusb.c
-+++ b/drivers/bluetooth/btusb.c
-@@ -1218,6 +1218,7 @@ static struct usb_driver btusb_driver = {
- #endif
- 	.id_table	= btusb_table,
- 	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(btusb_driver);
-diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
-index afa0802..17ea017 100644
---- a/drivers/isdn/gigaset/bas-gigaset.c
-+++ b/drivers/isdn/gigaset/bas-gigaset.c
-@@ -148,6 +148,7 @@ static struct usb_driver gigaset_usb_driver = {
- 	.reset_resume =	gigaset_post_reset,
- 	.pre_reset =	gigaset_pre_reset,
- 	.post_reset =	gigaset_post_reset,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- /* get message text for usb_submit_urb return code
-diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
-index 049da67..78f81e8 100644
---- a/drivers/isdn/gigaset/usb-gigaset.c
-+++ b/drivers/isdn/gigaset/usb-gigaset.c
-@@ -124,6 +124,7 @@ static struct usb_driver gigaset_usb_driver = {
- 	.reset_resume =	gigaset_resume,
- 	.pre_reset =	gigaset_pre_reset,
- 	.post_reset =	gigaset_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- struct usb_cardstate {
-diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
-index 8cde2a0..cddb769 100644
---- a/drivers/isdn/hardware/mISDN/hfcsusb.c
-+++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
-@@ -2151,6 +2151,7 @@ static struct usb_driver hfcsusb_drv = {
- 	.id_table = hfcsusb_idtab,
- 	.probe = hfcsusb_probe,
- 	.disconnect = hfcsusb_disconnect,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(hfcsusb_drv);
-diff --git a/drivers/isdn/hisax/hfc_usb.c b/drivers/isdn/hisax/hfc_usb.c
-index 62c65bd..84f9c81 100644
---- a/drivers/isdn/hisax/hfc_usb.c
-+++ b/drivers/isdn/hisax/hfc_usb.c
-@@ -1568,6 +1568,7 @@ static struct usb_driver hfc_drv = {
- 	.id_table = hfcusb_idtab,
- 	.probe = hfc_usb_probe,
- 	.disconnect = hfc_usb_disconnect,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- static void __exit
-diff --git a/drivers/isdn/hisax/st5481_init.c b/drivers/isdn/hisax/st5481_init.c
-index 100296e..54ef9e4 100644
---- a/drivers/isdn/hisax/st5481_init.c
-+++ b/drivers/isdn/hisax/st5481_init.c
-@@ -182,6 +182,7 @@ static struct usb_driver st5481_usb_driver = {
- 	.probe =	probe_st5481,
- 	.disconnect =	disconnect_st5481,
- 	.id_table =	st5481_ids,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- static int __init st5481_usb_init(void)
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index 42b5151..71e2b05 100644
---- a/drivers/net/usb/asix.c
-+++ b/drivers/net/usb/asix.c
-@@ -1647,6 +1647,7 @@ static struct usb_driver asix_driver = {
- 	.resume =	usbnet_resume,
- 	.disconnect =	usbnet_disconnect,
- 	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(asix_driver);
-diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
-index 5a73730..26c5beb 100644
---- a/drivers/net/usb/catc.c
-+++ b/drivers/net/usb/catc.c
-@@ -952,6 +952,7 @@ static struct usb_driver catc_driver = {
- 	.probe =	catc_probe,
- 	.disconnect =	catc_disconnect,
- 	.id_table =	catc_id_table,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(catc_driver);
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
-index 3e41b00..d848d4d 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -457,6 +457,7 @@ static struct usb_driver usbpn_driver = {
- 	.probe =	usbpn_probe,
- 	.disconnect =	usbpn_disconnect,
- 	.id_table =	usbpn_ids,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(usbpn_driver);
-diff --git a/drivers/net/usb/cdc_eem.c b/drivers/net/usb/cdc_eem.c
-index 685a4e2..434d5af 100644
---- a/drivers/net/usb/cdc_eem.c
-+++ b/drivers/net/usb/cdc_eem.c
-@@ -368,6 +368,7 @@ static struct usb_driver eem_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(eem_driver);
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 90a3002..7dc470c 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -623,6 +623,7 @@ static struct usb_driver cdc_driver = {
- 	.resume =	usbnet_resume,
- 	.reset_resume =	usbnet_resume,
- 	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(cdc_driver);
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 7adc9f6..4b9513f 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1212,6 +1212,7 @@ static struct usb_driver cdc_ncm_driver = {
- 	.resume = usbnet_resume,
- 	.reset_resume =	usbnet_resume,
- 	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- static const struct ethtool_ops cdc_ncm_ethtool_ops = {
-diff --git a/drivers/net/usb/cdc_subset.c b/drivers/net/usb/cdc_subset.c
-index b403d93..0d1fe89 100644
---- a/drivers/net/usb/cdc_subset.c
-+++ b/drivers/net/usb/cdc_subset.c
-@@ -336,6 +336,7 @@ static struct usb_driver cdc_subset_driver = {
- 	.resume =	usbnet_resume,
- 	.disconnect =	usbnet_disconnect,
- 	.id_table =	products,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(cdc_subset_driver);
-diff --git a/drivers/net/usb/cx82310_eth.c b/drivers/net/usb/cx82310_eth.c
-index 0e05313..49ab45e 100644
---- a/drivers/net/usb/cx82310_eth.c
-+++ b/drivers/net/usb/cx82310_eth.c
-@@ -327,6 +327,7 @@ static struct usb_driver cx82310_driver = {
- 	.disconnect	= usbnet_disconnect,
- 	.suspend	= usbnet_suspend,
- 	.resume		= usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(cx82310_driver);
-diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-index b972263..e0433ce 100644
---- a/drivers/net/usb/dm9601.c
-+++ b/drivers/net/usb/dm9601.c
-@@ -670,6 +670,7 @@ static struct usb_driver dm9601_driver = {
- 	.disconnect = usbnet_disconnect,
- 	.suspend = usbnet_suspend,
- 	.resume = usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(dm9601_driver);
-diff --git a/drivers/net/usb/gl620a.c b/drivers/net/usb/gl620a.c
-index 38266bd..db3c802 100644
---- a/drivers/net/usb/gl620a.c
-+++ b/drivers/net/usb/gl620a.c
-@@ -225,6 +225,7 @@ static struct usb_driver gl620a_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(gl620a_driver);
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 2d2a688..042c1a9 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -3291,6 +3291,7 @@ static struct usb_driver hso_driver = {
- 	.resume = hso_resume,
- 	.reset_resume = hso_resume,
- 	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- static int __init hso_init(void)
-diff --git a/drivers/net/usb/int51x1.c b/drivers/net/usb/int51x1.c
-index 12a22a4..8de6417 100644
---- a/drivers/net/usb/int51x1.c
-+++ b/drivers/net/usb/int51x1.c
-@@ -236,6 +236,7 @@ static struct usb_driver int51x1_driver = {
- 	.disconnect = usbnet_disconnect,
- 	.suspend    = usbnet_suspend,
- 	.resume     = usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(int51x1_driver);
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index 32519e5..964031e 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -554,6 +554,7 @@ static struct usb_driver ipheth_driver = {
- 	.probe =	ipheth_probe,
- 	.disconnect =	ipheth_disconnect,
- 	.id_table =	ipheth_table,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(ipheth_driver);
-diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
-index 7562649..92c49e0 100644
---- a/drivers/net/usb/kalmia.c
-+++ b/drivers/net/usb/kalmia.c
-@@ -372,7 +372,8 @@ static struct usb_driver kalmia_driver = {
- 	.probe = usbnet_probe,
- 	.disconnect = usbnet_disconnect,
- 	.suspend = usbnet_suspend,
--	.resume = usbnet_resume
-+	.resume = usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(kalmia_driver);
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index b8baf08..d8ad552 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -179,6 +179,7 @@ static struct usb_driver kaweth_driver = {
- 	.resume =	kaweth_resume,
- 	.id_table =     usb_klsi_table,
- 	.supports_autosuspend =	1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- typedef __u8 eth_addr_t[6];
-diff --git a/drivers/net/usb/lg-vl600.c b/drivers/net/usb/lg-vl600.c
-index 45a981f..808d650 100644
---- a/drivers/net/usb/lg-vl600.c
-+++ b/drivers/net/usb/lg-vl600.c
-@@ -344,6 +344,7 @@ static struct usb_driver lg_vl600_driver = {
- 	.disconnect	= usbnet_disconnect,
- 	.suspend	= usbnet_suspend,
- 	.resume		= usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(lg_vl600_driver);
-diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
-index c434b6b..add1064 100644
---- a/drivers/net/usb/mcs7830.c
-+++ b/drivers/net/usb/mcs7830.c
-@@ -690,6 +690,7 @@ static struct usb_driver mcs7830_driver = {
- 	.suspend = usbnet_suspend,
- 	.resume = usbnet_resume,
- 	.reset_resume = mcs7830_reset_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(mcs7830_driver);
-diff --git a/drivers/net/usb/net1080.c b/drivers/net/usb/net1080.c
-index 83f965c..28c4d51 100644
---- a/drivers/net/usb/net1080.c
-+++ b/drivers/net/usb/net1080.c
-@@ -587,6 +587,7 @@ static struct usb_driver net1080_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(net1080_driver);
-diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-index 7523930..7023220 100644
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -1489,6 +1489,7 @@ static struct usb_driver pegasus_driver = {
- 	.id_table = pegasus_ids,
- 	.suspend = pegasus_suspend,
- 	.resume = pegasus_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- static void __init parse_id(char *id)
-diff --git a/drivers/net/usb/plusb.c b/drivers/net/usb/plusb.c
-index b2b035e..4584b9a 100644
---- a/drivers/net/usb/plusb.c
-+++ b/drivers/net/usb/plusb.c
-@@ -152,6 +152,7 @@ static struct usb_driver plusb_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(plusb_driver);
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index d316503b..9048efe 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -525,6 +525,7 @@ static struct usb_driver qmi_wwan_driver = {
- 	.resume		      =	qmi_wwan_resume,
- 	.reset_resume         = qmi_wwan_resume,
- 	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- static int __init qmi_wwan_init(void)
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index c8f1b5b..446d074 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -633,6 +633,7 @@ static struct usb_driver rndis_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(rndis_driver);
-diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index 65854cd..0e2c92e 100644
---- a/drivers/net/usb/rtl8150.c
-+++ b/drivers/net/usb/rtl8150.c
-@@ -948,7 +948,8 @@ static struct usb_driver rtl8150_driver = {
- 	.disconnect	= rtl8150_disconnect,
- 	.id_table	= rtl8150_table,
- 	.suspend	= rtl8150_suspend,
--	.resume		= rtl8150_resume
-+	.resume		= rtl8150_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(rtl8150_driver);
-diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
-index b59cf20..3faef56 100644
---- a/drivers/net/usb/sierra_net.c
-+++ b/drivers/net/usb/sierra_net.c
-@@ -982,6 +982,7 @@ static struct usb_driver sierra_net_driver = {
- 	.suspend = usbnet_suspend,
- 	.resume = usbnet_resume,
- 	.no_dynamic_id = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(sierra_net_driver);
-diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
-index 00103a8..1fb4ddb 100644
---- a/drivers/net/usb/smsc75xx.c
-+++ b/drivers/net/usb/smsc75xx.c
-@@ -1250,6 +1250,7 @@ static struct usb_driver smsc75xx_driver = {
- 	.suspend	= usbnet_suspend,
- 	.resume		= usbnet_resume,
- 	.disconnect	= usbnet_disconnect,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(smsc75xx_driver);
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 94ae669..b1112e7 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1297,6 +1297,7 @@ static struct usb_driver smsc95xx_driver = {
- 	.suspend	= usbnet_suspend,
- 	.resume		= usbnet_resume,
- 	.disconnect	= usbnet_disconnect,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(smsc95xx_driver);
-diff --git a/drivers/net/usb/zaurus.c b/drivers/net/usb/zaurus.c
-index 34db195..35c9030 100644
---- a/drivers/net/usb/zaurus.c
-+++ b/drivers/net/usb/zaurus.c
-@@ -377,6 +377,7 @@ static struct usb_driver zaurus_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(zaurus_driver);
-diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
-index cc741b3..9dcd49c 100644
---- a/drivers/net/wireless/at76c50x-usb.c
-+++ b/drivers/net/wireless/at76c50x-usb.c
-@@ -2486,6 +2486,7 @@ static struct usb_driver at76_driver = {
- 	.probe = at76_probe,
- 	.disconnect = at76_disconnect,
- 	.id_table = dev_table,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- static int __init at76_mod_init(void)
-diff --git a/drivers/net/wireless/ath/ath6kl/usb.c b/drivers/net/wireless/ath/ath6kl/usb.c
-index 325b122..f8a27db 100644
---- a/drivers/net/wireless/ath/ath6kl/usb.c
-+++ b/drivers/net/wireless/ath/ath6kl/usb.c
-@@ -405,6 +405,7 @@ static struct usb_driver ath6kl_usb_driver = {
- 	.probe = ath6kl_usb_probe,
- 	.disconnect = ath6kl_usb_remove,
- 	.id_table = ath6kl_usb_ids,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- static int ath6kl_usb_init(void)
-diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
-index 424aabb..dea53de 100644
---- a/drivers/net/wireless/ath/ath9k/hif_usb.c
-+++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-@@ -1356,6 +1356,7 @@ static struct usb_driver ath9k_hif_usb_driver = {
- #endif
- 	.id_table = ath9k_hif_usb_ids,
- 	.soft_unbind = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- int ath9k_hif_usb_init(void)
-diff --git a/drivers/net/wireless/ath/carl9170/usb.c b/drivers/net/wireless/ath/carl9170/usb.c
-index 89821e4..888152c 100644
---- a/drivers/net/wireless/ath/carl9170/usb.c
-+++ b/drivers/net/wireless/ath/carl9170/usb.c
-@@ -1159,6 +1159,7 @@ static struct usb_driver carl9170_driver = {
- 	.resume = carl9170_usb_resume,
- 	.reset_resume = carl9170_usb_resume,
- #endif /* CONFIG_PM */
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(carl9170_driver);
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-index 8236422..8852d23 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
-@@ -1605,6 +1605,7 @@ static struct usb_driver brcmf_usbdrvr = {
- 	.suspend = brcmf_usb_suspend,
- 	.resume = brcmf_usb_resume,
- 	.supports_autosuspend = 1
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- void brcmf_usb_exit(void)
-diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
-index 74da5f1..76ea66d 100644
---- a/drivers/net/wireless/libertas/if_usb.c
-+++ b/drivers/net/wireless/libertas/if_usb.c
-@@ -1180,6 +1180,7 @@ static struct usb_driver if_usb_driver = {
- 	.suspend = if_usb_suspend,
- 	.resume = if_usb_resume,
- 	.reset_resume = if_usb_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(if_usb_driver);
-diff --git a/drivers/net/wireless/libertas_tf/if_usb.c b/drivers/net/wireless/libertas_tf/if_usb.c
-index 7ced130..19a5a92 100644
---- a/drivers/net/wireless/libertas_tf/if_usb.c
-+++ b/drivers/net/wireless/libertas_tf/if_usb.c
-@@ -920,6 +920,7 @@ static struct usb_driver if_usb_driver = {
- 	.id_table = if_usb_table,
- 	.suspend = if_usb_suspend,
- 	.resume = if_usb_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(if_usb_driver);
-diff --git a/drivers/net/wireless/orinoco/orinoco_usb.c b/drivers/net/wireless/orinoco/orinoco_usb.c
-index f634d45..7f53cea2 100644
---- a/drivers/net/wireless/orinoco/orinoco_usb.c
-+++ b/drivers/net/wireless/orinoco/orinoco_usb.c
-@@ -1752,6 +1752,7 @@ static struct usb_driver orinoco_driver = {
- 	.probe = ezusb_probe,
- 	.disconnect = ezusb_disconnect,
- 	.id_table = ezusb_table,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(orinoco_driver);
-diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
-index f4d28c3..d14dc81 100644
---- a/drivers/net/wireless/p54/p54usb.c
-+++ b/drivers/net/wireless/p54/p54usb.c
-@@ -1081,6 +1081,7 @@ static struct usb_driver p54u_driver = {
- 	.reset_resume = p54u_resume,
- #endif /* CONFIG_PM */
- 	.soft_unbind = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(p54u_driver);
-diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
-index d66e298..748a89d 100644
---- a/drivers/net/wireless/rndis_wlan.c
-+++ b/drivers/net/wireless/rndis_wlan.c
-@@ -3776,6 +3776,7 @@ static struct usb_driver rndis_wlan_driver = {
- 	.disconnect =	usbnet_disconnect,
- 	.suspend =	usbnet_suspend,
- 	.resume =	usbnet_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(rndis_wlan_driver);
-diff --git a/drivers/net/wireless/rt2x00/rt2500usb.c b/drivers/net/wireless/rt2x00/rt2500usb.c
-index 1de9c75..d432e49 100644
---- a/drivers/net/wireless/rt2x00/rt2500usb.c
-+++ b/drivers/net/wireless/rt2x00/rt2500usb.c
-@@ -1980,6 +1980,7 @@ static struct usb_driver rt2500usb_driver = {
- 	.disconnect	= rt2x00usb_disconnect,
- 	.suspend	= rt2x00usb_suspend,
- 	.resume		= rt2x00usb_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(rt2500usb_driver);
-diff --git a/drivers/net/wireless/rt2x00/rt2800usb.c b/drivers/net/wireless/rt2x00/rt2800usb.c
-index 001735f..d60d4e2 100644
---- a/drivers/net/wireless/rt2x00/rt2800usb.c
-+++ b/drivers/net/wireless/rt2x00/rt2800usb.c
-@@ -1293,6 +1293,7 @@ static struct usb_driver rt2800usb_driver = {
- 	.disconnect	= rt2x00usb_disconnect,
- 	.suspend	= rt2x00usb_suspend,
- 	.resume		= rt2x00usb_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(rt2800usb_driver);
-diff --git a/drivers/net/wireless/rt2x00/rt73usb.c b/drivers/net/wireless/rt2x00/rt73usb.c
-index e477a96..f813de6 100644
---- a/drivers/net/wireless/rt2x00/rt73usb.c
-+++ b/drivers/net/wireless/rt2x00/rt73usb.c
-@@ -2526,6 +2526,7 @@ static struct usb_driver rt73usb_driver = {
- 	.disconnect	= rt2x00usb_disconnect,
- 	.suspend	= rt2x00usb_suspend,
- 	.resume		= rt2x00usb_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(rt73usb_driver);
-diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/wireless/rtl818x/rtl8187/dev.c
-index cf53ac9..c2d2a21 100644
---- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
-+++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
-@@ -1662,6 +1662,7 @@ static struct usb_driver rtl8187_driver = {
- 	.id_table	= rtl8187_table,
- 	.probe		= rtl8187_probe,
- 	.disconnect	= __devexit_p(rtl8187_disconnect),
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(rtl8187_driver);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-index 82c85286..0face8b 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-@@ -372,6 +372,7 @@ static struct usb_driver rtl8192cu_driver = {
- #ifdef CONFIG_AUTOSUSPEND
- 	.supports_autosuspend = 1,
- #endif
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(rtl8192cu_driver);
-diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
-index a66b93b..48273dd 100644
---- a/drivers/net/wireless/zd1201.c
-+++ b/drivers/net/wireless/zd1201.c
-@@ -1905,6 +1905,7 @@ static struct usb_driver zd1201_usb = {
- 	.id_table = zd1201_table,
- 	.suspend = zd1201_suspend,
- 	.resume = zd1201_resume,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(zd1201_usb);
-diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
-index f766b3e..af83c43 100644
---- a/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -1542,6 +1542,7 @@ static struct usb_driver driver = {
- 	.disconnect	= disconnect,
- 	.pre_reset	= pre_reset,
- 	.post_reset	= post_reset,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- struct workqueue_struct *zd_workqueue;
-diff --git a/drivers/usb/class/cdc-acm.c b/drivers/usb/class/cdc-acm.c
-index b32ccb4..f2a120e 100644
---- a/drivers/usb/class/cdc-acm.c
-+++ b/drivers/usb/class/cdc-acm.c
-@@ -1664,6 +1664,7 @@ static struct usb_driver acm_driver = {
- #ifdef CONFIG_PM
- 	.supports_autosuspend = 1,
- #endif
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- /*
-diff --git a/drivers/usb/class/cdc-wdm.c b/drivers/usb/class/cdc-wdm.c
-index 5d15165..205b1f8 100644
---- a/drivers/usb/class/cdc-wdm.c
-+++ b/drivers/usb/class/cdc-wdm.c
-@@ -1025,6 +1025,7 @@ static struct usb_driver wdm_driver = {
- 	.post_reset =	wdm_post_reset,
- 	.id_table =	wdm_ids,
- 	.supports_autosuspend = 1,
-+	.disable_hub_initiated_lpm = 1,
- };
- 
- module_usb_driver(wdm_driver);
--- 
-1.7.9
+ drivers/usb/core/driver.c                     |   71 +++
+ drivers/usb/core/hcd.c                        |    9 +
+ drivers/usb/core/hub.c                        |  629 ++++++++++++++++++++++++-
+ drivers/usb/core/message.c                    |   47 ++
+ drivers/usb/host/xhci-hub.c                   |   19 +
+ drivers/usb/host/xhci-mem.c                   |   12 +
+ drivers/usb/host/xhci-pci.c                   |   13 +
+ drivers/usb/host/xhci-ring.c                  |    4 +-
+ drivers/usb/host/xhci.c                       |  454 ++++++++++++++++++-
+ drivers/usb/host/xhci.h                       |   14 +-
+ include/linux/usb.h                           |   50 ++
+ include/linux/usb/ch11.h                      |    2 +
+ include/linux/usb/ch9.h                       |   56 +++
+ include/linux/usb/hcd.h                       |    9 +
+ 70 files changed, 1440 insertions(+), 9 deletions(-)
