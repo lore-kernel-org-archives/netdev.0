@@ -1,53 +1,65 @@
 From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCH 0/8] mISDN: Fixes and enhancements for the data channels
-Date: Wed, 16 May 2012 06:22:46 +0200
-Message-ID: <1337142174-8304-1-git-send-email-kkeil@linux-pingi.de>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH 4/8] mISDN: Bugfix hfcsusb: usb endpoint activation/deactivation
+Date: Wed, 16 May 2012 06:22:50 +0200
+Message-ID: <1337142174-8304-5-git-send-email-kkeil@linux-pingi.de>
+References: <1337142174-8304-1-git-send-email-kkeil@linux-pingi.de>
+Cc: netdev@vger.kernel.org, Martin Bachem <info@colognechip.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:50099 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.187]:63388 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750863Ab2EPEcJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 00:32:09 -0400
+	with ESMTP id S1751366Ab2EPEcK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 00:32:10 -0400
+In-Reply-To: <1337142174-8304-1-git-send-email-kkeil@linux-pingi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Martin Bachem <info@colognechip.com>
 
-This series improve the stability of streaming raw voice data when the
-system is under high load. With the fixes in place you can send and
-receive multiple faximilies (using SPANDSP) in parallel
-while compiling a kernel without a getting a transfer aborted.
+Here was a off by one in the activation/deactivation.
+The additional activation in open_bchannel() did hide
+it, but only if you do not try to use B2.
 
-for net-next
+Signed-off-by: Martin Bachem <info@colognechip.com>
+Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
+---
+ drivers/isdn/hardware/mISDN/hfcsusb.c |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
 
-
-Karsten Keil (7):
-  mISDN: Cleanup channel also if it already was deactivated
-  mISDN: Early confirm for transparent data
-  mISDN: avmfritz use the bigger fifo of chip version 2
-  mISDN: Reduce RX buffer allocation for transparent data
-  mISDN: Allow to set a minimum length for transparent data
-  mISDN: Implement MISDN_CTRL_FILL_EMPTY for more drivers
-  mISDN: Implement MISDN_CTRL_RX_OFF for more drivers
-
-Martin Bachem (1):
-  mISDN: Bugfix hfcsusb: usb endpoint activation/deactivation
-
- drivers/isdn/hardware/mISDN/avmfritz.c  |  217 +++++++++++++++++--------------
- drivers/isdn/hardware/mISDN/hfcmulti.c  |  117 +++++++----------
- drivers/isdn/hardware/mISDN/hfcpci.c    |   98 ++++++---------
- drivers/isdn/hardware/mISDN/hfcsusb.c   |  137 ++++++++------------
- drivers/isdn/hardware/mISDN/mISDNipac.c |  128 ++++++++-----------
- drivers/isdn/hardware/mISDN/mISDNisar.c |  131 ++++++++-----------
- drivers/isdn/hardware/mISDN/netjet.c    |  213 +++++++++++++++---------------
- drivers/isdn/hardware/mISDN/w6692.c     |  135 +++++++++-----------
- drivers/isdn/mISDN/dsp_core.c           |    1 +
- drivers/isdn/mISDN/hwchannel.c          |  163 +++++++++++++++++++++---
- drivers/isdn/mISDN/l1oip_core.c         |    2 +-
- include/linux/mISDNhw.h                 |   22 +++-
- include/linux/mISDNif.h                 |    9 +-
- 13 files changed, 709 insertions(+), 664 deletions(-)
-
+diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
+index a4c5b24..919eccc 100644
+--- a/drivers/isdn/hardware/mISDN/hfcsusb.c
++++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
+@@ -231,7 +231,7 @@ hfcusb_l2l1B(struct mISDNchannel *ch, struct sk_buff *skb)
+ 		return ret;
+ 	case PH_ACTIVATE_REQ:
+ 		if (!test_and_set_bit(FLG_ACTIVE, &bch->Flags)) {
+-			hfcsusb_start_endpoint(hw, bch->nr);
++			hfcsusb_start_endpoint(hw, bch->nr - 1);
+ 			ret = hfcsusb_setup_bch(bch, ch->protocol);
+ 		} else
+ 			ret = 0;
+@@ -495,12 +495,6 @@ open_bchannel(struct hfcsusb *hw, struct channel_req *rq)
+ 	bch->ch.protocol = rq->protocol;
+ 	rq->ch = &bch->ch;
+ 
+-	/* start USB endpoint for bchannel */
+-	if (rq->adr.channel  == 1)
+-		hfcsusb_start_endpoint(hw, HFC_CHAN_B1);
+-	else
+-		hfcsusb_start_endpoint(hw, HFC_CHAN_B2);
+-
+ 	if (!try_module_get(THIS_MODULE))
+ 		printk(KERN_WARNING "%s: %s:cannot get module\n",
+ 		       hw->name, __func__);
+@@ -1801,7 +1795,7 @@ deactivate_bchannel(struct bchannel *bch)
+ 	mISDN_clear_bchannel(bch);
+ 	spin_unlock_irqrestore(&hw->lock, flags);
+ 	hfcsusb_setup_bch(bch, ISDN_P_NONE);
+-	hfcsusb_stop_endpoint(hw, bch->nr);
++	hfcsusb_stop_endpoint(hw, bch->nr - 1);
+ }
+ 
+ /*
 -- 
 1.7.3.4
