@@ -1,70 +1,52 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Wed, 16 May 2012 10:32:05 -0700
-Message-ID: <1337189525.10741.24.camel@oc3660625478.ibm.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>
-	 <1337181027.10741.13.camel@oc3660625478.ibm.com>
-	 <20120516151444.GC9934@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC] tun: experimental zero copy tx support
+Date: Wed, 16 May 2012 19:51:32 +0300
+Message-ID: <20120516165131.GB10769@redhat.com>
+References: <20120513155206.GA26847@redhat.com>
+ <1337016890.3851.20.camel@oc3660625478.ibm.com>
+ <20120514183929.GB17086@redhat.com>
+ <1337181415.10741.18.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Joe Perches <joe@perches.com>,
+	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ian.Campbell@citrix.com,
+	kvm@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120516151444.GC9934@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1337181415.10741.18.camel@oc3660625478.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-05-16 at 18:14 +0300, Michael S. Tsirkin wrote:
-> On Wed, May 16, 2012 at 08:10:27AM -0700, Shirley Ma wrote:
-> > On Wed, 2012-05-16 at 10:58 +0800, Jason Wang wrote:
-> > > >>   drivers/vhost/vhost.c |    1 +
-> > > >>   1 files changed, 1 insertions(+), 0 deletions(-)
-> > > >>
-> > > >> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > > >> index 947f00d..7b75fdf 100644
-> > > >> --- a/drivers/vhost/vhost.c
-> > > >> +++ b/drivers/vhost/vhost.c
-> > > >> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
-> > > >>          struct vhost_ubuf_ref *ubufs = ubuf->arg;
-> > > >>          struct vhost_virtqueue *vq = ubufs->vq;
-> > > >>
-> > > >> +       vhost_poll_queue(&vq->poll);
-> > > >>          /* set len = 1 to mark this desc buffers done DMA */
-> > > >>          vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
-> > > >>          kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
-> > > > Doing so, we might have redundant vhost_poll_queue(). Do you
-> know in
-> > > > which scenario there might be missing of adding and signaling
-> during
-> > > > zerocopy?
+On Wed, May 16, 2012 at 08:16:55AM -0700, Shirley Ma wrote:
+> On Mon, 2012-05-14 at 21:39 +0300, Michael S. Tsirkin wrote:
+> > > Hello Mike,
 > > > 
-> > > Yes, as we only do signaling and adding during tx work, if there's
-> no
-> > > tx 
-> > > work when the skb were sent, we may lose the opportunity to let
-> guest 
-> > > know about the completion. It's easy to be reproduced with netperf
-> > > test. 
+> > > Have you tested this patch? I think the difference between macvtap
+> > and
+> > > tap is tap forwarding the packet to bridge. The zerocopy is disabled
+> > in
+> > > this case.
+> > > 
+> > > Shirley
 > > 
-> > The reason which host signals guest is to free guest tx buffers, if
-> > there is no tx work, then it's not necessary to signal the guest
-> unless
-> > guest runs out of memory. The pending buffers will be released
-> > virtio_net device gone.
-> > 
-> > What's the behavior of netperf test when you hit this situation?
-> > 
-> > Thanks
-> > Shirley
+> > Testing in progress, but the patchset I pointed to enables
+> > zerocopy with bridge. 
 > 
-> IIRC guest networking seems to be lost. 
+> Hello Mike,
+> 
+> You meant this patch or another patchset for enabling bridge zerocopy?
+> 
+> I remembered we disabled forward skb zerocopy since the user space
+> program might hold the buffers too long or forever.
+> 
+> In tap/bridge case, when the tx buffers will be released?
+> 
+> Thanks
+> Shirley
 
-It seems vhost_enable_notify is missing in somewhere else?
-
-Thanks
-Shirley
+It still fails some tests for me but maybe I'll post the whole
+patchset so you can see how it works.
