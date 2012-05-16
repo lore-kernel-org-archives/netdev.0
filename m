@@ -1,199 +1,293 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH/RFC net-next 0/4] Delete token ring support.
-Date: Tue, 15 May 2012 20:35:40 -0400
-Message-ID: <1337128544-18680-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 2/4] atm: remove the coupling to token ring support
+Date: Tue, 15 May 2012 20:35:42 -0400
+Message-ID: <1337128544-18680-3-git-send-email-paul.gortmaker@windriver.com>
+References: <1337128544-18680-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	linux390@de.ibm.com, linux-s390@vger.kernel.org
+	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:44420 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:44435 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933377Ab2EPAgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 20:36:14 -0400
+	with ESMTP id S967098Ab2EPAgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 May 2012 20:36:25 -0400
+In-Reply-To: <1337128544-18680-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This may not be for 35-next, but for addition to feature-removal.txt
-and application at a later date.  But what I would like to get is
-consensus that this is something that we want to proceed with before I
-spend any more time on it.  If folks are OK with the idea, then I am
-open to suggestions as to the best time for it to happen.
+The token ring support is going away, so decouple
+the atm support from it in advance.
 
-So, why you might ask?  It is in tree already, it is "free" to leave it
-there, right?  Well, no.
-
-What led me here was the creation of a patch to remove CONFIG_MCA.  In
-doing so, I found I was deleting most of the token ring drivers, and 
-altering the remaining few ISA/MCA ones to be just ISA only.
-
-But it really didn't make sense to me, to just leave the skeletal
-remains of token ring there -- vs removing TR 1st, and then the MCA
-removal will be a lot smaller and cleaner commit.
-
-Removal: does it make sense?
-
-The biggest data point I can suggest to folks is to run:
-
-	git whatchanged --follow drivers/net/tokenring
-
-and when you are quickly paging over the changes, note two things.
-(1) the amount of time spent by folks cleaning and maintaining the
-code, and (2) - most important -- is that essentially all the commits
-are of the tree-wide cleanup nature, or API change nature.
-
-What I mean by (2) is the implicit absence of anyone fixing _runtime_
-bugs, going all the way back to 2.6.12 in 2005.  If the code was being
-_used_, we'd see runtime regressions reported and their associated fixes.
-
-A search on the internet for users tends to show that even the die hard
-enthusiasts who cared to poke at MCA/TR just for hobby sake have pretty
-much all given up somewhere in the 2003-2005 "pre-git" timeframe, and
-never really moved off their 2.4.x kernels.
-
-This is no surprise, since on x86, MCA (and hence most tokenring
-users) was limited to the lowly 386sx-16 PS/2 with typically 4MB RAM.
-Some "high end" 486 machines existed, and in theory could be fitted
-with max 64MB RAM (default 16MB).  I don't think anyone will debate
-that such hardware with such limited memory is ever going to be useful
-in a 3.x kernel use case.
-
-The one thing I wasn't aware of, until actually creating the commits
-to remove tokenring, was that s390 also had support for it.  I'm
-guessing that it is just as unused there as it is on x86, but the s390
-folks are CC'd for their input.
-
-I've created separate commits for the removal of the core networking
-support (i.e. net/*) vs. the drivers removal (i.e. drivers/net).  This
-is a somewhat artifical separation, since one is useless without the
-other, but it makes for easier review, and is still fully bisectable.
-These can easily be squished into one commit if folks have a
-preference one way or the other.
-
-I still want to double check a few things, but it is at a point where
-people can clearly see what will be removed, so I think checking for
-input now as an RFC makes sense.  Since it is an RFC, I've told git to
-omit showing the full line-by-line deletion of whole files.  The
-baseline used is net-next from today.
-
-Thanks,
-Paul.
-
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: linux390@de.ibm.com
-Cc: linux-s390@vger.kernel.org
+ include/linux/atmlec.h |    7 ---
+ net/atm/lec.c          |  138 +++---------------------------------------------
+ net/atm/lec.h          |    1 -
+ 3 files changed, 8 insertions(+), 138 deletions(-)
 
-
-Paul Gortmaker (4):
-  s390: delete any traces of token ring support
-  atm: remove the coupling to token ring support
-  net: delete all instances of special processing for token ring
-  tokenring: delete all remaining driver support
-
- Documentation/filesystems/proc.txt    |    1 -
- Documentation/networking/00-INDEX     |    8 -
- Documentation/networking/3c359.txt    |   58 -
- Documentation/networking/olympic.txt  |   79 -
- Documentation/networking/smctr.txt    |   66 -
- Documentation/networking/tms380tr.txt |  147 -
- arch/mips/configs/mtx1_defconfig      |    4 -
- arch/xtensa/configs/common_defconfig  |    5 -
- drivers/message/fusion/mptlan.h       |    1 -
- drivers/net/Kconfig                   |    2 -
- drivers/net/Makefile                  |    1 -
- drivers/net/Space.c                   |   46 -
- drivers/net/tokenring/3c359.c         | 1831 -----------
- drivers/net/tokenring/3c359.h         |  291 --
- drivers/net/tokenring/Kconfig         |  199 --
- drivers/net/tokenring/Makefile        |   16 -
- drivers/net/tokenring/abyss.c         |  468 ---
- drivers/net/tokenring/abyss.h         |   58 -
- drivers/net/tokenring/ibmtr.c         | 1964 -----------
- drivers/net/tokenring/ibmtr_cs.c      |  370 ---
- drivers/net/tokenring/lanstreamer.c   | 1909 -----------
- drivers/net/tokenring/lanstreamer.h   |  343 --
- drivers/net/tokenring/madgemc.c       |  761 -----
- drivers/net/tokenring/madgemc.h       |   70 -
- drivers/net/tokenring/olympic.c       | 1737 ----------
- drivers/net/tokenring/olympic.h       |  321 --
- drivers/net/tokenring/proteon.c       |  422 ---
- drivers/net/tokenring/skisa.c         |  432 ---
- drivers/net/tokenring/smctr.c         | 5717 ---------------------------------
- drivers/net/tokenring/smctr.h         | 1585 ---------
- drivers/net/tokenring/tms380tr.c      | 2306 -------------
- drivers/net/tokenring/tms380tr.h      | 1141 -------
- drivers/net/tokenring/tmspci.c        |  236 --
- drivers/s390/net/Kconfig              |    5 +-
- drivers/s390/net/lcs.c                |   21 +-
- drivers/s390/net/qeth_core.h          |    2 -
- drivers/s390/net/qeth_core_main.c     |    6 +-
- drivers/s390/net/qeth_l3_main.c       |   35 +-
- firmware/3com/3C359.bin.ihex          | 1573 ---------
- firmware/Makefile                     |    2 -
- firmware/WHENCE                       |   38 -
- firmware/tr_smctr.bin.ihex            |  477 ---
- include/linux/Kbuild                  |    1 -
- include/linux/atmlec.h                |    7 -
- include/linux/ibmtr.h                 |  373 ---
- include/linux/if_arp.h                |    2 +-
- include/linux/if_tr.h                 |  103 -
- include/linux/ipx.h                   |    2 +-
- include/linux/trdevice.h              |   37 -
- include/net/if_inet6.h                |   54 -
- include/net/ip.h                      |   17 -
- include/net/llc_pdu.h                 |    7 -
- net/802/Makefile                      |    1 -
- net/802/p8022.c                       |    3 +-
- net/802/tr.c                          |  670 ----
- net/atm/lec.c                         |  138 +-
- net/atm/lec.h                         |    1 -
- net/core/dev.c                        |   14 +-
- net/ipv4/Kconfig                      |    4 +-
- net/ipv4/arp.c                        |   13 +-
- net/ipv4/ipconfig.c                   |    2 -
- net/ipv6/addrconf.c                   |    2 -
- net/ipv6/ndisc.c                      |   17 -
- net/ipx/af_ipx.c                      |   10 +-
- net/llc/af_llc.c                      |    3 +-
- net/llc/llc_output.c                  |    3 -
- net/llc/llc_sap.c                     |    4 -
- net/sysctl_net.c                      |    4 -
- 68 files changed, 33 insertions(+), 26213 deletions(-)
- delete mode 100644 Documentation/networking/3c359.txt
- delete mode 100644 Documentation/networking/olympic.txt
- delete mode 100644 Documentation/networking/smctr.txt
- delete mode 100644 Documentation/networking/tms380tr.txt
- delete mode 100644 drivers/net/tokenring/3c359.c
- delete mode 100644 drivers/net/tokenring/3c359.h
- delete mode 100644 drivers/net/tokenring/Kconfig
- delete mode 100644 drivers/net/tokenring/Makefile
- delete mode 100644 drivers/net/tokenring/abyss.c
- delete mode 100644 drivers/net/tokenring/abyss.h
- delete mode 100644 drivers/net/tokenring/ibmtr.c
- delete mode 100644 drivers/net/tokenring/ibmtr_cs.c
- delete mode 100644 drivers/net/tokenring/lanstreamer.c
- delete mode 100644 drivers/net/tokenring/lanstreamer.h
- delete mode 100644 drivers/net/tokenring/madgemc.c
- delete mode 100644 drivers/net/tokenring/madgemc.h
- delete mode 100644 drivers/net/tokenring/olympic.c
- delete mode 100644 drivers/net/tokenring/olympic.h
- delete mode 100644 drivers/net/tokenring/proteon.c
- delete mode 100644 drivers/net/tokenring/skisa.c
- delete mode 100644 drivers/net/tokenring/smctr.c
- delete mode 100644 drivers/net/tokenring/smctr.h
- delete mode 100644 drivers/net/tokenring/tms380tr.c
- delete mode 100644 drivers/net/tokenring/tms380tr.h
- delete mode 100644 drivers/net/tokenring/tmspci.c
- delete mode 100644 firmware/3com/3C359.bin.ihex
- delete mode 100644 firmware/tr_smctr.bin.ihex
- delete mode 100644 include/linux/ibmtr.h
- delete mode 100644 include/linux/if_tr.h
- delete mode 100644 include/linux/trdevice.h
- delete mode 100644 net/802/tr.c
-
+diff --git a/include/linux/atmlec.h b/include/linux/atmlec.h
+index 39c917f..302791e 100644
+--- a/include/linux/atmlec.h
++++ b/include/linux/atmlec.h
+@@ -21,13 +21,6 @@
+ /* Maximum number of LEC interfaces (tweakable) */
+ #define MAX_LEC_ITF 48
+ 
+-/*
+- * From the total of MAX_LEC_ITF, last NUM_TR_DEVS are reserved for Token Ring.
+- * E.g. if MAX_LEC_ITF = 48 and NUM_TR_DEVS = 8, then lec0-lec39 are for
+- * Ethernet ELANs and lec40-lec47 are for Token Ring ELANS.
+- */
+-#define NUM_TR_DEVS 8
+-
+ typedef enum {
+ 	l_set_mac_addr,
+ 	l_del_mac_addr,
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index bb35cb7..a7d1721 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -26,11 +26,6 @@
+ #include <linux/spinlock.h>
+ #include <linux/seq_file.h>
+ 
+-/* TokenRing if needed */
+-#ifdef CONFIG_TR
+-#include <linux/trdevice.h>
+-#endif
+-
+ /* And atm device */
+ #include <linux/atmdev.h>
+ #include <linux/atmlec.h>
+@@ -163,50 +158,6 @@ static void lec_handle_bridge(struct sk_buff *skb, struct net_device *dev)
+ #endif /* defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE) */
+ 
+ /*
+- * Modelled after tr_type_trans
+- * All multicast and ARE or STE frames go to BUS.
+- * Non source routed frames go by destination address.
+- * Last hop source routed frames go by destination address.
+- * Not last hop source routed frames go by _next_ route descriptor.
+- * Returns pointer to destination MAC address or fills in rdesc
+- * and returns NULL.
+- */
+-#ifdef CONFIG_TR
+-static unsigned char *get_tr_dst(unsigned char *packet, unsigned char *rdesc)
+-{
+-	struct trh_hdr *trh;
+-	unsigned int riflen, num_rdsc;
+-
+-	trh = (struct trh_hdr *)packet;
+-	if (trh->daddr[0] & (uint8_t) 0x80)
+-		return bus_mac;	/* multicast */
+-
+-	if (trh->saddr[0] & TR_RII) {
+-		riflen = (ntohs(trh->rcf) & TR_RCF_LEN_MASK) >> 8;
+-		if ((ntohs(trh->rcf) >> 13) != 0)
+-			return bus_mac;	/* ARE or STE */
+-	} else
+-		return trh->daddr;	/* not source routed */
+-
+-	if (riflen < 6)
+-		return trh->daddr;	/* last hop, source routed */
+-
+-	/* riflen is 6 or more, packet has more than one route descriptor */
+-	num_rdsc = (riflen / 2) - 1;
+-	memset(rdesc, 0, ETH_ALEN);
+-	/* offset 4 comes from LAN destination field in LE control frames */
+-	if (trh->rcf & htons((uint16_t) TR_RCF_DIR_BIT))
+-		memcpy(&rdesc[4], &trh->rseg[num_rdsc - 2], sizeof(__be16));
+-	else {
+-		memcpy(&rdesc[4], &trh->rseg[1], sizeof(__be16));
+-		rdesc[5] = ((ntohs(trh->rseg[0]) & 0x000f) | (rdesc[5] & 0xf0));
+-	}
+-
+-	return NULL;
+-}
+-#endif /* CONFIG_TR */
+-
+-/*
+  * Open/initialize the netdevice. This is called (in the current kernel)
+  * sometime after booting when the 'ifconfig' program is run.
+  *
+@@ -257,9 +208,6 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
+ 	struct lec_arp_table *entry;
+ 	unsigned char *dst;
+ 	int min_frame_size;
+-#ifdef CONFIG_TR
+-	unsigned char rdesc[ETH_ALEN];	/* Token Ring route descriptor */
+-#endif
+ 	int is_rdesc;
+ 
+ 	pr_debug("called\n");
+@@ -290,24 +238,10 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
+ 	}
+ 	skb_push(skb, 2);
+ 
+-	/* Put le header to place, works for TokenRing too */
++	/* Put le header to place */
+ 	lec_h = (struct lecdatahdr_8023 *)skb->data;
+ 	lec_h->le_header = htons(priv->lecid);
+ 
+-#ifdef CONFIG_TR
+-	/*
+-	 * Ugly. Use this to realign Token Ring packets for
+-	 * e.g. PCA-200E driver.
+-	 */
+-	if (priv->is_trdev) {
+-		skb2 = skb_realloc_headroom(skb, LEC_HEADER_LEN);
+-		kfree_skb(skb);
+-		if (skb2 == NULL)
+-			return NETDEV_TX_OK;
+-		skb = skb2;
+-	}
+-#endif
+-
+ #if DUMP_PACKETS >= 2
+ #define MAX_DUMP_SKB 99
+ #elif DUMP_PACKETS >= 1
+@@ -321,12 +255,7 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
+ #endif /* DUMP_PACKETS >= 1 */
+ 
+ 	/* Minimum ethernet-frame size */
+-#ifdef CONFIG_TR
+-	if (priv->is_trdev)
+-		min_frame_size = LEC_MINIMUM_8025_SIZE;
+-	else
+-#endif
+-		min_frame_size = LEC_MINIMUM_8023_SIZE;
++	min_frame_size = LEC_MINIMUM_8023_SIZE;
+ 	if (skb->len < min_frame_size) {
+ 		if ((skb->len + skb_tailroom(skb)) < min_frame_size) {
+ 			skb2 = skb_copy_expand(skb, 0,
+@@ -345,15 +274,6 @@ static netdev_tx_t lec_start_xmit(struct sk_buff *skb,
+ 	/* Send to right vcc */
+ 	is_rdesc = 0;
+ 	dst = lec_h->h_dest;
+-#ifdef CONFIG_TR
+-	if (priv->is_trdev) {
+-		dst = get_tr_dst(skb->data + 2, rdesc);
+-		if (dst == NULL) {
+-			dst = rdesc;
+-			is_rdesc = 1;
+-		}
+-	}
+-#endif
+ 	entry = NULL;
+ 	vcc = lec_arp_resolve(priv, dst, is_rdesc, &entry);
+ 	pr_debug("%s:vcc:%p vcc_flags:%lx, entry:%p\n",
+@@ -710,12 +630,7 @@ static void lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
+ 			dev_kfree_skb(skb);
+ 			return;
+ 		}
+-#ifdef CONFIG_TR
+-		if (priv->is_trdev)
+-			dst = ((struct lecdatahdr_8025 *)skb->data)->h_dest;
+-		else
+-#endif
+-			dst = ((struct lecdatahdr_8023 *)skb->data)->h_dest;
++		dst = ((struct lecdatahdr_8023 *)skb->data)->h_dest;
+ 
+ 		/*
+ 		 * If this is a Data Direct VCC, and the VCC does not match
+@@ -723,16 +638,7 @@ static void lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
+ 		 */
+ 		spin_lock_irqsave(&priv->lec_arp_lock, flags);
+ 		if (lec_is_data_direct(vcc)) {
+-#ifdef CONFIG_TR
+-			if (priv->is_trdev)
+-				src =
+-				    ((struct lecdatahdr_8025 *)skb->data)->
+-				    h_source;
+-			else
+-#endif
+-				src =
+-				    ((struct lecdatahdr_8023 *)skb->data)->
+-				    h_source;
++			src = ((struct lecdatahdr_8023 *)skb->data)->h_source;
+ 			entry = lec_arp_find(priv, src);
+ 			if (entry && entry->vcc != vcc) {
+ 				lec_arp_remove(priv, entry);
+@@ -750,12 +656,7 @@ static void lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
+ 		if (!hlist_empty(&priv->lec_arp_empty_ones))
+ 			lec_arp_check_empties(priv, vcc, skb);
+ 		skb_pull(skb, 2);	/* skip lec_id */
+-#ifdef CONFIG_TR
+-		if (priv->is_trdev)
+-			skb->protocol = tr_type_trans(skb, dev);
+-		else
+-#endif
+-			skb->protocol = eth_type_trans(skb, dev);
++		skb->protocol = eth_type_trans(skb, dev);
+ 		dev->stats.rx_packets++;
+ 		dev->stats.rx_bytes += skb->len;
+ 		memset(ATM_SKB(skb), 0, sizeof(struct atm_skb_data));
+@@ -827,27 +728,13 @@ static int lecd_attach(struct atm_vcc *vcc, int arg)
+ 		i = 0;
+ 	else
+ 		i = arg;
+-#ifdef CONFIG_TR
+ 	if (arg >= MAX_LEC_ITF)
+ 		return -EINVAL;
+-#else				/* Reserve the top NUM_TR_DEVS for TR */
+-	if (arg >= (MAX_LEC_ITF - NUM_TR_DEVS))
+-		return -EINVAL;
+-#endif
+ 	if (!dev_lec[i]) {
+-		int is_trdev, size;
+-
+-		is_trdev = 0;
+-		if (i >= (MAX_LEC_ITF - NUM_TR_DEVS))
+-			is_trdev = 1;
++		int size;
+ 
+ 		size = sizeof(struct lec_priv);
+-#ifdef CONFIG_TR
+-		if (is_trdev)
+-			dev_lec[i] = alloc_trdev(size);
+-		else
+-#endif
+-			dev_lec[i] = alloc_etherdev(size);
++		dev_lec[i] = alloc_etherdev(size);
+ 		if (!dev_lec[i])
+ 			return -ENOMEM;
+ 		dev_lec[i]->netdev_ops = &lec_netdev_ops;
+@@ -858,7 +745,6 @@ static int lecd_attach(struct atm_vcc *vcc, int arg)
+ 		}
+ 
+ 		priv = netdev_priv(dev_lec[i]);
+-		priv->is_trdev = is_trdev;
+ 	} else {
+ 		priv = netdev_priv(dev_lec[i]);
+ 		if (priv->lecd)
+@@ -2372,15 +2258,7 @@ lec_arp_check_empties(struct lec_priv *priv,
+ 	struct hlist_node *node, *next;
+ 	struct lec_arp_table *entry, *tmp;
+ 	struct lecdatahdr_8023 *hdr = (struct lecdatahdr_8023 *)skb->data;
+-	unsigned char *src;
+-#ifdef CONFIG_TR
+-	struct lecdatahdr_8025 *tr_hdr = (struct lecdatahdr_8025 *)skb->data;
+-
+-	if (priv->is_trdev)
+-		src = tr_hdr->h_source;
+-	else
+-#endif
+-		src = hdr->h_source;
++	unsigned char *src = hdr->h_source;
+ 
+ 	spin_lock_irqsave(&priv->lec_arp_lock, flags);
+ 	hlist_for_each_entry_safe(entry, node, next,
+diff --git a/net/atm/lec.h b/net/atm/lec.h
+index dfc0719..c730e57 100644
+--- a/net/atm/lec.h
++++ b/net/atm/lec.h
+@@ -142,7 +142,6 @@ struct lec_priv {
+ 	int itfnum;				/* e.g. 2 for lec2, 5 for lec5 */
+ 	struct lane2_ops *lane2_ops;		/* can be NULL for LANE v1 */
+ 	int is_proxy;				/* bridge between ATM and Ethernet */
+-	int is_trdev;				/* Device type, 0 = Ethernet, 1 = TokenRing */
+ };
+ 
+ struct lec_vcc_priv {
 -- 
 1.7.9.1
