@@ -1,303 +1,313 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] net: core: Use pr_<level>
-Date: Wed, 16 May 2012 22:58:40 -0700
-Message-ID: <1337234320.17726.26.camel@joe2Laptop>
+From: Heiko Schocher <hs@denx.de>
+Subject: Re: [PATCH v3 4/7] ARM: davinci: net: davinci_emac: add OF support
+Date: Thu, 17 May 2012 08:32:27 +0200
+Message-ID: <4FB49B7B.60506@denx.de>
+References: <1330945804-3379-1-git-send-email-hs@denx.de>
+ <1330945804-3379-5-git-send-email-hs@denx.de>
+ <DF0F476B391FA8409C78302C7BA518B63EA14401@DBDE01.ent.ti.com>
+Reply-To: hs@denx.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: "davinci-linux-open-source@linux.davincidsp.com"
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Wolfgang Denk <wd@denx.de>, Anatoly Sivov <mm05@mail.ru>
+To: "Nori, Sekhar" <nsekhar@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:48240 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756597Ab2EQF6m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 01:58:42 -0400
+Received: from b.relay.invitel.net ([62.77.203.4]:58516 "EHLO
+	b.relay.invitel.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757932Ab2EQGcf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 02:32:35 -0400
+In-reply-to: <DF0F476B391FA8409C78302C7BA518B63EA14401@DBDE01.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the current logging style.
+Hello Nori,
 
-This enables use of dynamic debugging as well.
+thanks for the review!
 
-Convert printk(KERN_<LEVEL> to pr_<level>.
-Add pr_fmt. Remove embedded prefixes, use
-%s, __func__ instead.
+Nori, Sekhar wrote:
+> Hi Heiko,
+> 
+> On Mon, Mar 05, 2012 at 16:40:01, Heiko Schocher wrote:
+>> add of support for the davinci_emac driver.
+>>
+>> Signed-off-by: Heiko Schocher <hs@denx.de>
+>> Cc: davinci-linux-open-source@linux.davincidsp.com
+>> Cc: linux-arm-kernel@lists.infradead.org
+>> Cc: devicetree-discuss@lists.ozlabs.org
+>> Cc: netdev@vger.kernel.org
+>> Cc: Grant Likely <grant.likely@secretlab.ca>
+>> Cc: Sekhar Nori <nsekhar@ti.com>
+>> Cc: Wolfgang Denk <wd@denx.de>
+>> Cc: Anatoly Sivov <mm05@mail.ru>
+>>
+>> ---
+>> - changes for v2:
+>>   - add comment from Anatoly Sivov
+>>     - fix typo in davinci_emac.txt
+>>   - add comment from Grant Likely:
+>>     - add prefix "ti,davinci-" to davinci specific property names
+>>     - remove version property
+>>     - use compatible name "ti,davinci-dm6460-emac"
+>>     - use devm_kzalloc()
+>>     - use of_match_ptr()
+>>     - document all new properties
+>>     - remove of_address_to_resource() and do not overwrite
+>>       resource table
+>>     - whitespace fixes
+>>     - remove hw_ram_addr as it is not used in current
+>>       board code
+>> - no changes for v3
+>>
+>>  .../bindings/arm/davinci/davinci_emac.txt          |   43 +++++++++
+>>  drivers/net/ethernet/ti/davinci_emac.c             |   94 +++++++++++++++++++-
+>>  2 files changed, 136 insertions(+), 1 deletions(-)
+>>  create mode 100644 Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
+>>
+>> diff --git a/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt b/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
+>> new file mode 100644
+>> index 0000000..a7b0911
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/arm/davinci/davinci_emac.txt
+> 
+> Since DaVinci EMAC driver may be used on platforms other than DaVinci (c6x,
+> OMAP), can we place the bindings documentation in bindings/net/?
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/core/drop_monitor.c   |   10 ++++++----
- net/core/neighbour.c      |   13 +++++++------
- net/core/net_namespace.c  |    6 ++++--
- net/core/netprio_cgroup.c |    6 ++++--
- net/core/skbuff.c         |   20 ++++++++++----------
- net/core/sock.c           |   25 +++++++++++++------------
- 6 files changed, 44 insertions(+), 36 deletions(-)
+Done.
 
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index a7cad74..eca00a9 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -4,6 +4,8 @@
-  * Copyright (C) 2009 Neil Horman <nhorman@tuxdriver.com>
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/string.h>
-@@ -381,10 +383,10 @@ static int __init init_net_drop_monitor(void)
- 	struct per_cpu_dm_data *data;
- 	int cpu, rc;
- 
--	printk(KERN_INFO "Initializing network drop monitor service\n");
-+	pr_info("Initializing network drop monitor service\n");
- 
- 	if (sizeof(void *) > 8) {
--		printk(KERN_ERR "Unable to store program counters on this arch, Drop monitor failed\n");
-+		pr_err("Unable to store program counters on this arch, Drop monitor failed\n");
- 		return -ENOSPC;
- 	}
- 
-@@ -392,13 +394,13 @@ static int __init init_net_drop_monitor(void)
- 					   dropmon_ops,
- 					   ARRAY_SIZE(dropmon_ops));
- 	if (rc) {
--		printk(KERN_ERR "Could not create drop monitor netlink family\n");
-+		pr_err("Could not create drop monitor netlink family\n");
- 		return rc;
- 	}
- 
- 	rc = register_netdevice_notifier(&dropmon_net_notifier);
- 	if (rc < 0) {
--		printk(KERN_CRIT "Failed to register netdevice notifier\n");
-+		pr_crit("Failed to register netdevice notifier\n");
- 		goto out_unreg;
- 	}
- 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index fadaa81..eb09f8b 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -15,6 +15,8 @@
-  *	Harald Welte		Add neighbour cache statistics like rtstat
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/slab.h>
- #include <linux/types.h>
- #include <linux/kernel.h>
-@@ -712,14 +714,13 @@ void neigh_destroy(struct neighbour *neigh)
- 	NEIGH_CACHE_STAT_INC(neigh->tbl, destroys);
- 
- 	if (!neigh->dead) {
--		printk(KERN_WARNING
--		       "Destroying alive neighbour %p\n", neigh);
-+		pr_warn("Destroying alive neighbour %p\n", neigh);
- 		dump_stack();
- 		return;
- 	}
- 
- 	if (neigh_del_timer(neigh))
--		printk(KERN_WARNING "Impossible event.\n");
-+		pr_warn("Impossible event\n");
- 
- 	skb_queue_purge(&neigh->arp_queue);
- 	neigh->arp_queue_len_bytes = 0;
-@@ -1554,8 +1555,8 @@ void neigh_table_init(struct neigh_table *tbl)
- 	write_unlock(&neigh_tbl_lock);
- 
- 	if (unlikely(tmp)) {
--		printk(KERN_ERR "NEIGH: Registering multiple tables for "
--		       "family %d\n", tbl->family);
-+		pr_err("Registering multiple tables for family %d\n",
-+		       tbl->family);
- 		dump_stack();
- 	}
- }
-@@ -1571,7 +1572,7 @@ int neigh_table_clear(struct neigh_table *tbl)
- 	pneigh_queue_purge(&tbl->proxy_queue);
- 	neigh_ifdown(tbl, NULL);
- 	if (atomic_read(&tbl->entries))
--		printk(KERN_CRIT "neighbour leakage\n");
-+		pr_crit("neighbour leakage\n");
- 	write_lock(&neigh_tbl_lock);
- 	for (tp = &neigh_tables; *tp; tp = &(*tp)->next) {
- 		if (*tp == tbl) {
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 31a5ae5..dddbacb 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -1,3 +1,5 @@
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/workqueue.h>
- #include <linux/rtnetlink.h>
- #include <linux/cache.h>
-@@ -212,8 +214,8 @@ static void net_free(struct net *net)
- {
- #ifdef NETNS_REFCNT_DEBUG
- 	if (unlikely(atomic_read(&net->use_count) != 0)) {
--		printk(KERN_EMERG "network namespace not free! Usage: %d\n",
--			atomic_read(&net->use_count));
-+		pr_emerg("network namespace not free! Usage: %d\n",
-+			 atomic_read(&net->use_count));
- 		return;
- 	}
- #endif
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index ba6900f..09eda68 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -9,6 +9,8 @@
-  * Authors:	Neil Horman <nhorman@tuxdriver.com>
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/slab.h>
- #include <linux/types.h>
-@@ -88,7 +90,7 @@ static void extend_netdev_table(struct net_device *dev, u32 new_len)
- 	old_priomap  = rtnl_dereference(dev->priomap);
- 
- 	if (!new_priomap) {
--		printk(KERN_WARNING "Unable to alloc new priomap!\n");
-+		pr_warn("Unable to alloc new priomap!\n");
- 		return;
- 	}
- 
-@@ -136,7 +138,7 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
- 
- 	ret = get_prioidx(&cs->prioidx);
- 	if (ret != 0) {
--		printk(KERN_WARNING "No space in priority index array\n");
-+		pr_warn("No space in priority index array\n");
- 		kfree(cs);
- 		return ERR_PTR(ret);
- 	}
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 2a18719..7a10f08 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -36,6 +36,8 @@
-  *	The functions in this file will not compile correctly with gcc 2.4.x
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/types.h>
- #include <linux/kernel.h>
-@@ -118,11 +120,10 @@ static const struct pipe_buf_operations sock_pipe_buf_ops = {
-  */
- static void skb_over_panic(struct sk_buff *skb, int sz, void *here)
- {
--	printk(KERN_EMERG "skb_over_panic: text:%p len:%d put:%d head:%p "
--			  "data:%p tail:%#lx end:%#lx dev:%s\n",
--	       here, skb->len, sz, skb->head, skb->data,
--	       (unsigned long)skb->tail, (unsigned long)skb->end,
--	       skb->dev ? skb->dev->name : "<NULL>");
-+	pr_emerg("%s: text:%p len:%d put:%d head:%p data:%p tail:%#lx end:%#lx dev:%s\n",
-+		 __func__, here, skb->len, sz, skb->head, skb->data,
-+		 (unsigned long)skb->tail, (unsigned long)skb->end,
-+		 skb->dev ? skb->dev->name : "<NULL>");
- 	BUG();
- }
- 
-@@ -137,11 +138,10 @@ static void skb_over_panic(struct sk_buff *skb, int sz, void *here)
- 
- static void skb_under_panic(struct sk_buff *skb, int sz, void *here)
- {
--	printk(KERN_EMERG "skb_under_panic: text:%p len:%d put:%d head:%p "
--			  "data:%p tail:%#lx end:%#lx dev:%s\n",
--	       here, skb->len, sz, skb->head, skb->data,
--	       (unsigned long)skb->tail, (unsigned long)skb->end,
--	       skb->dev ? skb->dev->name : "<NULL>");
-+	pr_emerg("%s: text:%p len:%d put:%d head:%p data:%p tail:%#lx end:%#lx dev:%s\n",
-+		 __func__, here, skb->len, sz, skb->head, skb->data,
-+		 (unsigned long)skb->tail, (unsigned long)skb->end,
-+		 skb->dev ? skb->dev->name : "<NULL>");
- 	BUG();
- }
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 9d144ee..5efcd63 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -89,6 +89,8 @@
-  *		2 of the License, or (at your option) any later version.
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/capability.h>
- #include <linux/errno.h>
- #include <linux/types.h>
-@@ -297,9 +299,8 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
- 		*timeo_p = 0;
- 		if (warned < 10 && net_ratelimit()) {
- 			warned++;
--			printk(KERN_INFO "sock_set_timeout: `%s' (pid %d) "
--			       "tries to set negative timeout\n",
--				current->comm, task_pid_nr(current));
-+			pr_info("%s: `%s' (pid %d) tries to set negative timeout\n",
-+				__func__, current->comm, task_pid_nr(current));
- 		}
- 		return 0;
- 	}
-@@ -317,8 +318,8 @@ static void sock_warn_obsolete_bsdism(const char *name)
- 	static char warncomm[TASK_COMM_LEN];
- 	if (strcmp(warncomm, current->comm) && warned < 5) {
- 		strcpy(warncomm,  current->comm);
--		printk(KERN_WARNING "process `%s' is using obsolete "
--		       "%s SO_BSDCOMPAT\n", warncomm, name);
-+		pr_warn("process `%s' is using obsolete %s SO_BSDCOMPAT\n",
-+			warncomm, name);
- 		warned++;
- 	}
- }
-@@ -1238,8 +1239,8 @@ static void __sk_free(struct sock *sk)
- 	sock_disable_timestamp(sk, SK_FLAGS_TIMESTAMP);
- 
- 	if (atomic_read(&sk->sk_omem_alloc))
--		printk(KERN_DEBUG "%s: optmem leakage (%d bytes) detected.\n",
--		       __func__, atomic_read(&sk->sk_omem_alloc));
-+		pr_debug("%s: optmem leakage (%d bytes) detected\n",
-+			 __func__, atomic_read(&sk->sk_omem_alloc));
- 
- 	if (sk->sk_peer_cred)
- 		put_cred(sk->sk_peer_cred);
-@@ -2424,7 +2425,7 @@ static void assign_proto_idx(struct proto *prot)
- 	prot->inuse_idx = find_first_zero_bit(proto_inuse_idx, PROTO_INUSE_NR);
- 
- 	if (unlikely(prot->inuse_idx == PROTO_INUSE_NR - 1)) {
--		printk(KERN_ERR "PROTO_INUSE_NR exhausted\n");
-+		pr_err("PROTO_INUSE_NR exhausted\n");
- 		return;
- 	}
- 
-@@ -2454,8 +2455,8 @@ int proto_register(struct proto *prot, int alloc_slab)
- 					NULL);
- 
- 		if (prot->slab == NULL) {
--			printk(KERN_CRIT "%s: Can't create sock SLAB cache!\n",
--			       prot->name);
-+			pr_crit("%s: Can't create sock SLAB cache!\n",
-+				prot->name);
- 			goto out;
- 		}
- 
-@@ -2469,8 +2470,8 @@ int proto_register(struct proto *prot, int alloc_slab)
- 								 SLAB_HWCACHE_ALIGN, NULL);
- 
- 			if (prot->rsk_prot->slab == NULL) {
--				printk(KERN_CRIT "%s: Can't create request sock SLAB cache!\n",
--				       prot->name);
-+				pr_crit("%s: Can't create request sock SLAB cache!\n",
-+					prot->name);
- 				goto out_free_request_sock_slab_name;
- 			}
- 		}
+>> @@ -0,0 +1,43 @@
+>> +* Texas Instruments Davinci EMAC
+>> +
+>> +This file provides information, what the device node
+>> +for the davinci_emac interface contain.
+> 
+> s/contain/contains
+
+fixed.
+
+>> +
+>> +Required properties:
+>> +- compatible: "ti,davinci-dm6460-emac";
+> 
+> There is no device called dm6460. If you intend to only support
+> "version 2" of the EMAC IP at this time, you can use dm6467
+> (http://www.ti.com/product/tms320dm6467)
+
+renamed to "ti,davinci-dm6467-emac"
+
+>> +- reg: Offset and length of the register set for the device
+>> +- ti,davinci-ctrl-reg-offset: offset to control register
+>> +- ti,davinci-ctrl-mod-reg-offset: offset to control module register
+>> +- ti,davinci-ctrl-ram-offset: offset to control module ram
+>> +- ti,davinci-ctrl-ram-size: size of control module ram
+>> +- ti,davinci-rmii-en: use RMII
+>> +- ti,davinci-no-bd-ram: has the emac controller BD RAM
+>> +- phy-handle: Contains a phandle to an Ethernet PHY.
+>> +              if not, davinci_emac driver defaults to 100/FULL
+>> +- interrupts: interrupt mapping for the davinci emac interrupts sources:
+>> +              4 sources: <Receive Threshold Interrupt
+>> +			  Receive Interrupt
+>> +			  Transmit Interrupt
+>> +			  Miscellaneous Interrupt>
+>> +- pinmux-handle: Contains a handle to configure the pinmux settings.
+
+removed.
+
+>> +
+>> +Optional properties:
+>> +- local-mac-address : 6 bytes, mac address
+>> +
+>> +Example (enbw_cmc board):
+>> +	eth0: emac@1e20000 {
+>> +		compatible = "ti,davinci-dm6460-emac";
+>> +		reg = <0x220000 0x4000>;
+>> +		ti,davinci-ctrl-reg-offset = <0x3000>;
+>> +		ti,davinci-ctrl-mod-reg-offset = <0x2000>;
+>> +		ti,davinci-ctrl-ram-offset = <0>;
+>> +		ti,davinci-ctrl-ram-size = <0x2000>;
+>> +		local-mac-address = [ 00 00 00 00 00 00 ];
+>> +		interrupts = <33
+>> +				34
+>> +				35
+>> +				36
+>> +				>;
+>> +		interrupt-parent = <&intc>;
+>> +		pinmux-handle = <&emac_pins>;
+
+removed.
+
+>> +	};
+>> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+>> index 4fa0bcb..56e1c35 100644
+>> --- a/drivers/net/ethernet/ti/davinci_emac.c
+>> +++ b/drivers/net/ethernet/ti/davinci_emac.c
+>> @@ -58,6 +58,12 @@
+>>  #include <linux/io.h>
+>>  #include <linux/uaccess.h>
+>>  #include <linux/davinci_emac.h>
+>> +#include <linux/of.h>
+>> +#include <linux/of_address.h>
+>> +#include <linux/of_irq.h>
+>> +#include <linux/of_net.h>
+>> +
+>> +#include <mach/mux.h>
+>>  
+>>  #include <asm/irq.h>
+>>  #include <asm/page.h>
+>> @@ -339,6 +345,9 @@ struct emac_priv {
+>>  	u32 rx_addr_type;
+>>  	atomic_t cur_tx;
+>>  	const char *phy_id;
+>> +#ifdef CONFIG_OF
+>> +	struct device_node *phy_node;
+>> +#endif
+>>  	struct phy_device *phydev;
+>>  	spinlock_t lock;
+>>  	/*platform specific members*/
+>> @@ -1760,6 +1769,82 @@ static const struct net_device_ops emac_netdev_ops = {
+>>  #endif
+>>  };
+>>  
+>> +#ifdef CONFIG_OF
+>> +static struct emac_platform_data
+>> +	*davinci_emac_of_get_pdata(struct platform_device *pdev,
+>> +	struct emac_priv *priv)
+>> +{
+>> +	struct device_node *np;
+>> +	struct device_node *pinmux_np;
+>> +	struct emac_platform_data *pdata = NULL;
+>> +	const u8 *mac_addr;
+>> +	u32 data;
+>> +	int ret;
+>> +	int version;
+>> +
+>> +	np = pdev->dev.of_node;
+>> +	if (!np)
+>> +		goto nodata;
+>> +	else
+>> +		version = EMAC_VERSION_2;
+> 
+> You could set pdata->version directly here. 
+
+done.
+
+>> +
+>> +	pdata = pdev->dev.platform_data;
+>> +	if (!pdata) {
+>> +		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+>> +		if (!pdata)
+>> +			goto nodata;
+>> +	}
+>> +	pdata->version = version;
+>> +
+>> +	mac_addr = of_get_mac_address(np);
+>> +	if (mac_addr)
+>> +		memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
+>> +
+>> +	ret = of_property_read_u32(np, "ti,davinci-ctrl-reg-offset", &data);
+>> +	if (!ret)
+>> +		pdata->ctrl_reg_offset = data;
+>> +
+>> +	ret = of_property_read_u32(np, "ti,davinci-ctrl-mod-reg-offset",
+>> +		&data);
+>> +	if (!ret)
+>> +		pdata->ctrl_mod_reg_offset = data;
+>> +
+>> +	ret = of_property_read_u32(np, "ti,davinci-ctrl-ram-offset", &data);
+>> +	if (!ret)
+>> +		pdata->ctrl_ram_offset = data;
+>> +
+>> +	ret = of_property_read_u32(np, "ti,davinci-ctrl-ram-size", &data);
+>> +	if (!ret)
+>> +		pdata->ctrl_ram_size = data;
+>> +
+>> +	ret = of_property_read_u32(np, "ti,davinci-rmii-en", &data);
+>> +	if (!ret)
+>> +		pdata->rmii_en = data;
+>> +
+>> +	ret = of_property_read_u32(np, "ti,davinci-no-bd-ram", &data);
+>> +	if (!ret)
+>> +		pdata->no_bd_ram = data;
+>> +
+>> +	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
+>> +	if (!priv->phy_node)
+>> +		pdata->phy_id = "";
+>> +
+>> +	pinmux_np = of_parse_phandle(np, "pinmux-handle", 0);
+>> +	if (pinmux_np)
+>> +		davinci_cfg_reg_of(pinmux_np);
+> 
+> This is a DaVinci specific pinmux function and this
+> driver can be used in non-DaVinci platforms like C6x
+> and OMAP. So, it will not be correct to call a DaVinci
+> specific function here.
+
+Ah, right!
+
+> Can you drop the pinmux from this patch for now? On DaVinci,
+
+Done ... Hmm.. so I think, I should drop this for all patches
+from my patchset, right?
+
+> for pinmux, we need to migrate to drivers/pinctrl/ as well.
+
+Ah, I see ... take a look at it, maybe I find time to do here
+something ... or do you know about work in progress here?
+
+> Doing this will also make this patch independent of the rest
+> of this series can even be merged separately. Can you please
+> make these changes and resend just this patch?
+
+Yep, I do some test with the changes you requested and resend
+this patch ... do you prefer some tree, which I should use as
+base?
+
+>> +
+>> +	pdev->dev.platform_data = pdata;
+>> +nodata:
+>> +	return  pdata;
+>> +}
+>> +#else
+>> +static struct emac_platform_data
+>> +	*davinci_emac_of_get_pdata(struct platform_device *pdev,
+>> +	struct emac_priv *priv)
+>> +{
+>> +	return  pdev->dev.platform_data;
+>> +}
+>> +#endif
+>>  /**
+>>   * davinci_emac_probe: EMAC device probe
+>>   * @pdev: The DaVinci EMAC device that we are removing
+>> @@ -1803,7 +1888,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+>>  
+>>  	spin_lock_init(&priv->lock);
+>>  
+>> -	pdata = pdev->dev.platform_data;
+>> +	pdata = davinci_emac_of_get_pdata(pdev, priv);
+>>  	if (!pdata) {
+>>  		dev_err(&pdev->dev, "no platform data\n");
+>>  		rc = -ENODEV;
+>> @@ -2013,6 +2098,12 @@ static const struct dev_pm_ops davinci_emac_pm_ops = {
+>>  	.resume		= davinci_emac_resume,
+>>  };
+>>  
+>> +static const struct of_device_id davinci_emac_of_match[] = {
+>> +	{.compatible = "ti,davinci-dm6460-emac", },
+> 
+> This needs to be ti,davinci-dm6467-emac as well.
+
+Yep, fixed.
+
+bye,
+Heiko
+-- 
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
