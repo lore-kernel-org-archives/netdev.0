@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: correct the ipv6 option name - Pad0 to
-	Pad1
-Date: Thu, 17 May 2012 15:50:22 -0400 (EDT)
-Message-ID: <20120517.155022.919927868768770215.davem@davemloft.net>
-References: <1337270425-21873-1-git-send-email-eldad@fogrefinery.com>
+Subject: Re: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
+Date: Thu, 17 May 2012 15:53:18 -0400 (EDT)
+Message-ID: <20120517.155318.1557653193070030300.davem@davemloft.net>
+References: <20120517164016.GL14498@1wt.eu>
+	<1337273387.3403.24.camel@edumazet-glaptop>
+	<1337276056.3403.37.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, hadi@cyberus.ca,
-	jmorris@namei.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, shemminger@vyatta.com
-To: eldad@fogrefinery.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1337270425-21873-1-git-send-email-eldad@fogrefinery.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: w@1wt.eu, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34378 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932832Ab2EQTxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 15:53:44 -0400
+In-Reply-To: <1337276056.3403.37.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eldad Zack <eldad@fogrefinery.com>
-Date: Thu, 17 May 2012 18:00:25 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 17 May 2012 19:34:16 +0200
 
-> The padding destination or hop-by-hop option is called Pad1 and not Pad0.
+> [PATCH net-next] net: netdev_alloc_skb() use build_skb()
 > 
-> See RFC2460 (4.2) or the IANA ipv6-parameters registry:
-> http://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xml
+> netdev_alloc_skb() is used by networks driver in their RX path to
+> allocate an skb to receive an incoming frame.
 > 
-> Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
+> With recent skb->head_frag infrastructure, it makes sense to change
+> netdev_alloc_skb() to use build_skb() and a frag allocator.
+> 
+> This permits a zero copy splice(socket->pipe), and better GRO or TCP
+> coalescing.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied to net-next.
+Applied, we can sort out any fallout very easily before 3.5 is released.
+
+Awesome work Eric.
