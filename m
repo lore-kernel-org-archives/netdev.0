@@ -1,57 +1,82 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] pppoe: remove unused return value from two methods.
-Date: Thu, 17 May 2012 18:04:50 +0300
-Message-ID: <CAHLOa7RiNcZBLE7z7JTY-7WJGOL_DTYq33hmwyTdM0HWqn_WgA@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] etherdevice: fix comments
+Date: Thu, 17 May 2012 08:17:28 -0700
+Message-ID: <20120517081728.54719129@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7b15a12feb18f504c03cc14b
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:51675 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933033Ab2EQPEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 11:04:51 -0400
-Received: by pbbrp8 with SMTP id rp8so2639541pbb.19
-        for <netdev@vger.kernel.org>; Thu, 17 May 2012 08:04:50 -0700 (PDT)
+Received: from mail.vyatta.com ([76.74.103.46]:53529 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752204Ab2EQPRb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2012 11:17:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---047d7b15a12feb18f504c03cc14b
-Content-Type: text/plain; charset=ISO-8859-1
+Fix some minor problems in comments of etherdevice.h
+ * Warning is out dated, file hasn't moved or disappeared in many years and
+    is unlikely to do so soon.
+ * Capitalize Ethernet consistently since it is a proper name
+ * Fix descriptive comment of padding
+ * Spelling and grammar fix for alignment comment
 
-Hi,
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+ 
 
- The patch removes unused return value from __delete_item() and
- delete_item() methods in drivers/net/ppp/pppoe.c.
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---047d7b15a12feb18f504c03cc14b
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h2by9p5v0
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcC9wcHBvZS5jIGIvZHJpdmVycy9uZXQvcHBwL3Bw
-cG9lLmMKaW5kZXggMmZhMWE5Yi4uZGQxNWI4ZiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvcHBw
-L3BwcG9lLmMKKysrIGIvZHJpdmVycy9uZXQvcHBwL3BwcG9lLmMKQEAgLTIwMSw3ICsyMDEsNyBA
-QCBzdGF0aWMgaW50IF9fc2V0X2l0ZW0oc3RydWN0IHBwcG9lX25ldCAqcG4sIHN0cnVjdCBwcHBv
-eF9zb2NrICpwbykKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIHN0cnVjdCBwcHBveF9zb2NrICpf
-X2RlbGV0ZV9pdGVtKHN0cnVjdCBwcHBvZV9uZXQgKnBuLCBfX2JlMTYgc2lkLAorc3RhdGljIHZv
-aWQgX19kZWxldGVfaXRlbShzdHJ1Y3QgcHBwb2VfbmV0ICpwbiwgX19iZTE2IHNpZCwKIAkJCQkJ
-Y2hhciAqYWRkciwgaW50IGlmaW5kZXgpCiB7CiAJaW50IGhhc2ggPSBoYXNoX2l0ZW0oc2lkLCBh
-ZGRyKTsKQEAgLTIyMCw4ICsyMjAsNiBAQCBzdGF0aWMgc3RydWN0IHBwcG94X3NvY2sgKl9fZGVs
-ZXRlX2l0ZW0oc3RydWN0IHBwcG9lX25ldCAqcG4sIF9fYmUxNiBzaWQsCiAJCXNyYyA9ICZyZXQt
-Pm5leHQ7CiAJCXJldCA9IHJldC0+bmV4dDsKIAl9Ci0KLQlyZXR1cm4gcmV0OwogfQogCiAvKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKgpAQCAtMjY0LDE2ICsyNjIsMTIgQEAgc3RhdGljIGlubGluZSBzdHJ1Y3QgcHBw
-b3hfc29jayAqZ2V0X2l0ZW1fYnlfYWRkcihzdHJ1Y3QgbmV0ICpuZXQsCiAJcmV0dXJuIHBwcG94
-X3NvY2s7CiB9CiAKLXN0YXRpYyBpbmxpbmUgc3RydWN0IHBwcG94X3NvY2sgKmRlbGV0ZV9pdGVt
-KHN0cnVjdCBwcHBvZV9uZXQgKnBuLCBfX2JlMTYgc2lkLAorc3RhdGljIGlubGluZSB2b2lkIGRl
-bGV0ZV9pdGVtKHN0cnVjdCBwcHBvZV9uZXQgKnBuLCBfX2JlMTYgc2lkLAogCQkJCQljaGFyICph
-ZGRyLCBpbnQgaWZpbmRleCkKIHsKLQlzdHJ1Y3QgcHBwb3hfc29jayAqcmV0OwotCiAJd3JpdGVf
-bG9ja19iaCgmcG4tPmhhc2hfbG9jayk7Ci0JcmV0ID0gX19kZWxldGVfaXRlbShwbiwgc2lkLCBh
-ZGRyLCBpZmluZGV4KTsKKwlfX2RlbGV0ZV9pdGVtKHBuLCBzaWQsIGFkZHIsIGlmaW5kZXgpOwog
-CXdyaXRlX3VubG9ja19iaCgmcG4tPmhhc2hfbG9jayk7Ci0KLQlyZXR1cm4gcmV0OwogfQogCiAv
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqCg==
---047d7b15a12feb18f504c03cc14b--
+--- a/include/linux/etherdevice.h	2012-05-17 07:28:39.911045825 -0700
++++ b/include/linux/etherdevice.h	2012-05-17 08:15:26.448550013 -0700
+@@ -18,8 +18,6 @@
+  *		as published by the Free Software Foundation; either version
+  *		2 of the License, or (at your option) any later version.
+  *
+- *	WARNING: This move may well be temporary. This file will get merged with others RSN.
+- *
+  */
+ #ifndef _LINUX_ETHERDEVICE_H
+ #define _LINUX_ETHERDEVICE_H
+@@ -159,7 +157,7 @@ static inline void eth_hw_addr_random(st
+  * @addr1: Pointer to a six-byte array containing the Ethernet address
+  * @addr2: Pointer other six-byte array containing the Ethernet address
+  *
+- * Compare two ethernet addresses, returns 0 if equal, non-zero otherwise.
++ * Compare two Ethernet addresses, returns 0 if equal, non-zero otherwise.
+  * Unlike memcmp(), it doesn't return a value suitable for sorting.
+  */
+ static inline unsigned compare_ether_addr(const u8 *addr1, const u8 *addr2)
+@@ -176,7 +174,7 @@ static inline unsigned compare_ether_add
+  * @addr1: Pointer to a six-byte array containing the Ethernet address
+  * @addr2: Pointer other six-byte array containing the Ethernet address
+  *
+- * Compare two ethernet addresses, returns true if equal
++ * Compare two Ethernet addresses, returns true if equal
+  */
+ static inline bool ether_addr_equal(const u8 *addr1, const u8 *addr2)
+ {
+@@ -197,13 +195,13 @@ static inline unsigned long zap_last_2by
+  * @addr1: Pointer to an array of 8 bytes
+  * @addr2: Pointer to an other array of 8 bytes
+  *
+- * Compare two ethernet addresses, returns true if equal, false otherwise.
++ * Compare two Ethernet addresses, returns true if equal, false otherwise.
+  *
+  * The function doesn't need any conditional branches and possibly uses
+  * word memory accesses on CPU allowing cheap unaligned memory reads.
+- * arrays = { byte1, byte2, byte3, byte4, byte6, byte7, pad1, pad2}
++ * arrays = { byte1, byte2, byte3, byte4, byte5, byte6, pad1, pad2 }
+  *
+- * Please note that alignment of addr1 & addr2 is only guaranted to be 16 bits.
++ * Please note that alignment of addr1 & addr2 are only guaranteed to be 16 bits.
+  */
+ 
+ static inline bool ether_addr_equal_64bits(const u8 addr1[6+2],
+@@ -257,7 +255,7 @@ static inline bool is_etherdev_addr(cons
+  * @a: Pointer to Ethernet header
+  * @b: Pointer to Ethernet header
+  *
+- * Compare two ethernet headers, returns 0 if equal.
++ * Compare two Ethernet headers, returns 0 if equal.
+  * This assumes that the network header (i.e., IP header) is 4-byte
+  * aligned OR the platform can handle unaligned access.  This is the
+  * case for all packets coming into netif_receive_skb or similar
