@@ -1,78 +1,73 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 17 May 2012 04:51:18 -0700
-Message-ID: <1337255478.2714.50.camel@jtkirshe-mobl>
-References: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: [PATCH 06/15] batman-adv: Distributed ARP Table
+	- add snooping functions for ARP messages
+Date: Thu, 17 May 2012 19:53:54 +0800
+Message-ID: <201205171953.54891.lindner_marek@yahoo.de>
+References: <1335689867-8017-7-git-send-email-ordex@autistici.org>
+	<20120430.205904.288157818941040253.davem@davemloft.net>
+	<201205121626.38520.lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-qcI0xhrZRK9z6kVNtBy+"
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:64121 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761630Ab2EQLvU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 07:51:20 -0400
-In-Reply-To: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-qcI0xhrZRK9z6kVNtBy+
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2012-05-17 at 04:27 -0700, Jeff Kirsher wrote:
-> This series of patches contains updates for e1000, e1000e and igb.
->=20
-> The following are changes since commit dc6b9b78234fecdc6d2ca5e16291857182=
-02bcf5:
->   net: include/net/sock.h cleanup
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
->=20
-> Bruce Allan (1):
->   e1000e: fix typo in definition of E1000_CTRL_EXT_FORCE_SMBUS
->=20
-> Matthew Vick (1):
->   igb: Disable the BMC-to-OS Watchdog Enable bit for DMAC.
->=20
-> Sebastian Andrzej Siewior (2):
->   e1000: remove workaround for Errata 23 from jumbo alloc
->   e1000: look in the page and not in skb->data for the last byte
->=20
->  drivers/net/ethernet/intel/e1000/e1000_main.c  |   30 ++++--------------=
-------
->  drivers/net/ethernet/intel/e1000e/defines.h    |    2 +-
->  drivers/net/ethernet/intel/igb/e1000_defines.h |    2 +
->  drivers/net/ethernet/intel/igb/igb_main.c      |    3 ++
->  4 files changed, 11 insertions(+), 26 deletions(-)
->=20
-
-v2 of the series will be coming.
-
---=-qcI0xhrZRK9z6kVNtBy+
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <201205121626.38520.lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJPtOY2AAoJEOVv75VaS+3OgHsP/3iTfdN3CFTCC17NtD8bS/j1
-y+isvNDtyKEMUTQweNbhr9R/fM9tnA678i/zChMt+Bkt05VGMQS+EWbpr+oEpuCR
-Xpfwy3nZQVHM+IkbLHgd3UDTug21X4Q8b9j0pG0+rD0aJx/GyA/QcFTMMb4EVmlH
-jIeadTK0Wq3AXdCVDMUfZzGcyYb55HHlpear6Y0CmUHPUkOxoE/Ze/kcAKri54nN
-pdtQuWjhtZ4QAWL373l2qptc6cmFI6dhvf6t33Wly8ATRs/FMVtby9Tra1xwVhh/
-6cnEtZafGVGSk/Ar4BPTQWtn/MxcrqPrK6wIyg4oqjWGsQLEF2s/ZjIX1Pm7LQqA
-+ZEKHbKbPWH32n5yMVvWbrSvwlHiOPmIKdtreir2khtQdknfpE/4myMP9iO1+G1L
-CfVl57A2SmKUbzznW4HBLIKWPVd1usQTh2zr86RgL/uoGAOFS2DncZNb8NJFHgUI
-LLHzYIqUaKvfF+64UlQrYVx1Zv1qBWhkOX11G0ZpnGbXy3k6GnzqJ9iVq1M6cK7Y
-KYZctJlhxgYJY5zjpxNsv7IW+TWQYMJ0lYkcradhdfsL5qgB45TRsObhZOtHfBoQ
-QTV/anrxFJa14fwqQIlOJVpJsDpFHVlEjfHliwIXfIl6S+6fBdMWil47ESUtmQqE
-Vz8Cr4f7lI4bKTuelkLL
-=JGC9
------END PGP SIGNATURE-----
+David,
 
---=-qcI0xhrZRK9z6kVNtBy+--
+> On Tuesday, May 01, 2012 08:59:04 David Miller wrote:
+> > From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+> > Date: Tue, 1 May 2012 00:22:30 +0200
+> > 
+> > > However this patch also contains a procedure which queries the neigh
+> > > table in order to understand whether a given host is known or not.
+> > > Would it be possible to do that in another way (Without manually
+> > > touching the table)?
+> > > 
+> > > Instead, in the next patch (patch 06/15) batman-adv manually increase
+> > > the neigh timeouts. Do you think we should avoid doing that as well?
+> > > If we are allowed to do that, how can we perform the same operation in
+> > > a cleaner way?
+> > > 
+> > > Last question: why can't other modules use exported functions? Are you
+> > > going to change them as well?
+> > 
+> > I really don't have time to discuss your neigh issues right now as I'm
+> > busy speaking at conferences and dealing with the backlog of other
+> > patches.
+> > 
+> > You'll need to find someone else to discuss it with you, sorry.
+> 
+> I hope now is a good moment to bring the questions back onto the table. We
+> still are not sure how to proceed because we have no clear picture of what
+> is going to come and how the exported functions are supposed to be used.
+> 
+> David, if you don't have the time to discuss the ARP handling with us could
+> you name someone who knows your plans and the code equally well ? So far,
+> nobody has stepped up.
+
+let me add another piece of information: The distributed ARP table does not 
+really depend on the kernel's ARP table. We can easily write our own backend 
+to be totally independent of the kernel's ARP table. Initially, we thought it 
+might be considered a smart move if the code made use of existing kernel 
+infrastructure instead of writing our own storage / user space API / etc, 
+hence duplicating what is already there. But if you feel this is the better 
+way forward we certainly will make the necessary changes.
+
+Regards,
+Marek
