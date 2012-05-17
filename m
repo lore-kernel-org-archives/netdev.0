@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
-Date: Thu, 17 May 2012 15:53:18 -0400 (EDT)
-Message-ID: <20120517.155318.1557653193070030300.davem@davemloft.net>
-References: <20120517164016.GL14498@1wt.eu>
-	<1337273387.3403.24.camel@edumazet-glaptop>
-	<1337276056.3403.37.camel@edumazet-glaptop>
+Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
+ packets'
+Date: Thu, 17 May 2012 15:55:03 -0400 (EDT)
+Message-ID: <20120517.155503.2294382162578627387.davem@davemloft.net>
+References: <20120517121800.GA18052@1wt.eu>
+	<20120517150157.GA19274@1wt.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34378 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34391 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932832Ab2EQTxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 15:53:44 -0400
-In-Reply-To: <1337276056.3403.37.camel@edumazet-glaptop>
+	with ESMTP id S932120Ab2EQTz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 15:55:26 -0400
+In-Reply-To: <20120517150157.GA19274@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 17 May 2012 19:34:16 +0200
+From: Willy Tarreau <w@1wt.eu>
+Date: Thu, 17 May 2012 17:01:57 +0200
 
-> [PATCH net-next] net: netdev_alloc_skb() use build_skb()
+>>From 6da6a21798d0156e647a993c31782eec739fa5df Mon Sep 17 00:00:00 2001
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Thu, 17 May 2012 16:48:56 +0200
+> Subject: [PATCH] tcp: force push data out when buffers are missing
 > 
-> netdev_alloc_skb() is used by networks driver in their RX path to
-> allocate an skb to receive an incoming frame.
+> Commit 2f533844242 (tcp: allow splice() to build full TSO packets)
+> significantly improved splice() performance for some workloads but
+> caused stalls when pipe buffers were larger than socket buffers.
 > 
-> With recent skb->head_frag infrastructure, it makes sense to change
-> netdev_alloc_skb() to use build_skb() and a frag allocator.
+> The issue seems to happen when no data can be copied at all due to
+> lack of buffers, which results in pending data never being pushed.
 > 
-> This permits a zero copy splice(socket->pipe), and better GRO or TCP
-> coalescing.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> This change checks if all pending data has been pushed or not and
+> pushes them when waiting for send buffers.
 
-Applied, we can sort out any fallout very easily before 3.5 is released.
+Eric, please indicate whether we need Willy's patch here.
 
-Awesome work Eric.
+I want to propagate this fix as fast as possible if so.
