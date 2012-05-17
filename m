@@ -1,81 +1,57 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO packets'
-Date: Thu, 17 May 2012 17:01:57 +0200
-Message-ID: <20120517150157.GA19274@1wt.eu>
-References: <20120517121800.GA18052@1wt.eu>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next-2.6] pppoe: remove unused return value from two methods.
+Date: Thu, 17 May 2012 18:04:50 +0300
+Message-ID: <CAHLOa7RiNcZBLE7z7JTY-7WJGOL_DTYq33hmwyTdM0HWqn_WgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed; boundary=047d7b15a12feb18f504c03cc14b
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2322 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966907Ab2EQPCA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 11:02:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20120517121800.GA18052@1wt.eu>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:51675 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933033Ab2EQPEv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 11:04:51 -0400
+Received: by pbbrp8 with SMTP id rp8so2639541pbb.19
+        for <netdev@vger.kernel.org>; Thu, 17 May 2012 08:04:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+--047d7b15a12feb18f504c03cc14b
+Content-Type: text/plain; charset=ISO-8859-1
 
-On Thu, May 17, 2012 at 02:18:00PM +0200, Willy Tarreau wrote:
-> Hi Eric,
-> 
-> I'm facing a regression in stable 3.2.17 and 3.0.31 which is
-> exhibited by your patch 'tcp: allow splice() to build full TSO
-> packets' which unfortunately I am very interested in !
-> 
-> What I'm observing is that TCP transmits using splice() stall
-> quite quickly if I'm using pipes larger than 64kB (even 65537
-> is enough to reliably observe the stall).
-(...)
+Hi,
 
-I managed to fix the issue and I really think that the fix makes sense.
-I'm appending the patch, please could you review it and if approved,
-push it for inclusion ?
+ The patch removes unused return value from __delete_item() and
+ delete_item() methods in drivers/net/ppp/pppoe.c.
 
-BTW, your patch significantly improves performance here. On this
-machine I was reaching max 515 Mbps of proxied traffic, and with
-the patch I reach 665 Mbps with the same test ! I think you managed
-to fix what caused splice() to always be slightly slower than
-recv/send() for a long time in my tests with a number of NICs !
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Thanks,
-Willy
+--047d7b15a12feb18f504c03cc14b
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_h2by9p5v0
 
--------
-
->From 6da6a21798d0156e647a993c31782eec739fa5df Mon Sep 17 00:00:00 2001
-From: Willy Tarreau <w@1wt.eu>
-Date: Thu, 17 May 2012 16:48:56 +0200
-Subject: [PATCH] tcp: force push data out when buffers are missing
-
-Commit 2f533844242 (tcp: allow splice() to build full TSO packets)
-significantly improved splice() performance for some workloads but
-caused stalls when pipe buffers were larger than socket buffers.
-
-The issue seems to happen when no data can be copied at all due to
-lack of buffers, which results in pending data never being pushed.
-
-This change checks if all pending data has been pushed or not and
-pushes them when waiting for send buffers.
----
- net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 80b988f..f6d9e5f 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -850,7 +850,7 @@ new_segment:
- wait_for_sndbuf:
- 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- wait_for_memory:
--		if (copied)
-+		if (tcp_sk(sk)->pushed_seq != tcp_sk(sk)->write_seq)
- 			tcp_push(sk, flags & ~MSG_MORE, mss_now, TCP_NAGLE_PUSH);
- 
- 		if ((err = sk_stream_wait_memory(sk, &timeo)) != 0)
--- 
-1.7.2.1.45.g54fbc
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcC9wcHBvZS5jIGIvZHJpdmVycy9uZXQvcHBwL3Bw
+cG9lLmMKaW5kZXggMmZhMWE5Yi4uZGQxNWI4ZiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvcHBw
+L3BwcG9lLmMKKysrIGIvZHJpdmVycy9uZXQvcHBwL3BwcG9lLmMKQEAgLTIwMSw3ICsyMDEsNyBA
+QCBzdGF0aWMgaW50IF9fc2V0X2l0ZW0oc3RydWN0IHBwcG9lX25ldCAqcG4sIHN0cnVjdCBwcHBv
+eF9zb2NrICpwbykKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIHN0cnVjdCBwcHBveF9zb2NrICpf
+X2RlbGV0ZV9pdGVtKHN0cnVjdCBwcHBvZV9uZXQgKnBuLCBfX2JlMTYgc2lkLAorc3RhdGljIHZv
+aWQgX19kZWxldGVfaXRlbShzdHJ1Y3QgcHBwb2VfbmV0ICpwbiwgX19iZTE2IHNpZCwKIAkJCQkJ
+Y2hhciAqYWRkciwgaW50IGlmaW5kZXgpCiB7CiAJaW50IGhhc2ggPSBoYXNoX2l0ZW0oc2lkLCBh
+ZGRyKTsKQEAgLTIyMCw4ICsyMjAsNiBAQCBzdGF0aWMgc3RydWN0IHBwcG94X3NvY2sgKl9fZGVs
+ZXRlX2l0ZW0oc3RydWN0IHBwcG9lX25ldCAqcG4sIF9fYmUxNiBzaWQsCiAJCXNyYyA9ICZyZXQt
+Pm5leHQ7CiAJCXJldCA9IHJldC0+bmV4dDsKIAl9Ci0KLQlyZXR1cm4gcmV0OwogfQogCiAvKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKgpAQCAtMjY0LDE2ICsyNjIsMTIgQEAgc3RhdGljIGlubGluZSBzdHJ1Y3QgcHBw
+b3hfc29jayAqZ2V0X2l0ZW1fYnlfYWRkcihzdHJ1Y3QgbmV0ICpuZXQsCiAJcmV0dXJuIHBwcG94
+X3NvY2s7CiB9CiAKLXN0YXRpYyBpbmxpbmUgc3RydWN0IHBwcG94X3NvY2sgKmRlbGV0ZV9pdGVt
+KHN0cnVjdCBwcHBvZV9uZXQgKnBuLCBfX2JlMTYgc2lkLAorc3RhdGljIGlubGluZSB2b2lkIGRl
+bGV0ZV9pdGVtKHN0cnVjdCBwcHBvZV9uZXQgKnBuLCBfX2JlMTYgc2lkLAogCQkJCQljaGFyICph
+ZGRyLCBpbnQgaWZpbmRleCkKIHsKLQlzdHJ1Y3QgcHBwb3hfc29jayAqcmV0OwotCiAJd3JpdGVf
+bG9ja19iaCgmcG4tPmhhc2hfbG9jayk7Ci0JcmV0ID0gX19kZWxldGVfaXRlbShwbiwgc2lkLCBh
+ZGRyLCBpZmluZGV4KTsKKwlfX2RlbGV0ZV9pdGVtKHBuLCBzaWQsIGFkZHIsIGlmaW5kZXgpOwog
+CXdyaXRlX3VubG9ja19iaCgmcG4tPmhhc2hfbG9jayk7Ci0KLQlyZXR1cm4gcmV0OwogfQogCiAv
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqCg==
+--047d7b15a12feb18f504c03cc14b--
