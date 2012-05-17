@@ -1,63 +1,73 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/4] igb: Disable the BMC-to-OS Watchdog Enable bit for DMAC.
-Date: Thu, 17 May 2012 05:31:52 -0700
-Message-ID: <1337257912-8487-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/4] e1000: remove workaround for Errata 23 from jumbo alloc
+Date: Thu, 17 May 2012 05:31:50 -0700
+Message-ID: <1337257912-8487-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1337257912-8487-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:56414 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760765Ab2EQMb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 08:31:57 -0400
+	id S1760624Ab2EQMb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2012 08:31:56 -0400
 In-Reply-To: <1337257912-8487-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Under certain scenarios, it's possible that bursty manageability traffic
-over the BMC-to-OS path may overrun the internal manageability receive
-buffer causing dropped manageability packets. Clearing this bit prevents
-this situation by interrupting coalescing to allow manageability traffic
-through.
+According to the comment, errata 23 says that the memory we allocate
+can't cross a 64KiB boundary. In case of jumbo frames we allocate
+complete pages which can never cross the 64KiB boundary because
+PAGE_SIZE should be a multiple of 64KiB so we stop either before the
+boundary or start after it but never cross it. Furthermore the check
+seems bogus because it looks at skb->data which is not seen by the HW
+at all because we only pass the DMA address of the page we allocated. So
+I *think* the workaround is not required here.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h |    2 ++
- drivers/net/ethernet/intel/igb/igb_main.c      |    3 +++
- 2 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c |   24 ------------------------
+ 1 files changed, 0 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 6409f85..ec7e4fe 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -301,6 +301,8 @@
- 							* transactions */
- #define E1000_DMACR_DMAC_LX_SHIFT       28
- #define E1000_DMACR_DMAC_EN             0x80000000 /* Enable DMA Coalescing */
-+/* DMA Coalescing BMC-to-OS Watchdog Enable */
-+#define E1000_DMACR_DC_BMC2OSW_EN	0x00008000
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index f1aef68..fefbf4d 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -4391,30 +4391,6 @@ e1000_alloc_jumbo_rx_buffers(struct e1000_adapter *adapter,
+ 			break;
+ 		}
  
- #define E1000_DMCTXTH_DMCTTHR_MASK      0x00000FFF /* DMA Coalescing Transmit
- 							* Threshold */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 9bbf1a2..dd3bfe8 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -7147,6 +7147,9 @@ static void igb_init_dmac(struct igb_adapter *adapter, u32 pba)
- 
- 			/* watchdog timer= +-1000 usec in 32usec intervals */
- 			reg |= (1000 >> 5);
-+
-+			/* Disable BMC-to-OS Watchdog Enable */
-+			reg &= ~E1000_DMACR_DC_BMC2OSW_EN;
- 			wr32(E1000_DMACR, reg);
- 
- 			/*
+-		/* Fix for errata 23, can't cross 64kB boundary */
+-		if (!e1000_check_64k_bound(adapter, skb->data, bufsz)) {
+-			struct sk_buff *oldskb = skb;
+-			e_err(rx_err, "skb align check failed: %u bytes at "
+-			      "%p\n", bufsz, skb->data);
+-			/* Try again, without freeing the previous */
+-			skb = netdev_alloc_skb_ip_align(netdev, bufsz);
+-			/* Failed allocation, critical failure */
+-			if (!skb) {
+-				dev_kfree_skb(oldskb);
+-				adapter->alloc_rx_buff_failed++;
+-				break;
+-			}
+-
+-			if (!e1000_check_64k_bound(adapter, skb->data, bufsz)) {
+-				/* give up */
+-				dev_kfree_skb(skb);
+-				dev_kfree_skb(oldskb);
+-				break; /* while (cleaned_count--) */
+-			}
+-
+-			/* Use new allocation */
+-			dev_kfree_skb(oldskb);
+-		}
+ 		buffer_info->skb = skb;
+ 		buffer_info->length = adapter->rx_buffer_len;
+ check_page:
 -- 
 1.7.7.6
