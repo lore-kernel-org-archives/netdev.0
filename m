@@ -1,60 +1,70 @@
-From: Joe Perches <joe@perches.com>
-Subject: [RFC PATCH net-next] hp100: delete VG/AnyLAN hp100
-Date: Thu, 17 May 2012 15:09:07 -0700
-Message-ID: <1337292547.8872.20.camel@joe2Laptop>
-References: <1337272841-25931-1-git-send-email-paul.gortmaker@windriver.com>
-	 <1337272841-25931-3-git-send-email-paul.gortmaker@windriver.com>
-	 <4FB52C99.6010303@windriver.com> <20120517212039.GC27789@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
+ packets'
+Date: Fri, 18 May 2012 00:10:58 +0200
+Message-ID: <1337292658.3403.62.camel@edumazet-glaptop>
+References: <20120517121800.GA18052@1wt.eu>
+	 <1337287279.3403.44.camel@edumazet-glaptop> <20120517211414.GP14498@1wt.eu>
+	 <1337290822.3403.47.camel@edumazet-glaptop>
+	 <1337291410.3403.52.camel@edumazet-glaptop>
+	 <1337292119.3403.60.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, JBottomley@parallels.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120517212039.GC27789@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:63042 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965954Ab2EQWLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 18:11:04 -0400
+Received: by weyu7 with SMTP id u7so1447313wey.19
+        for <netdev@vger.kernel.org>; Thu, 17 May 2012 15:11:03 -0700 (PDT)
+In-Reply-To: <1337292119.3403.60.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-17 at 17:20 -0400, Paul Gortmaker wrote:
-> [Re: [PATCH 2/5] drivers/net: delete all code/drivers depending on CONFIG_MCA
+On Fri, 2012-05-18 at 00:02 +0200, Eric Dumazet wrote:
+> On Thu, 2012-05-17 at 23:50 +0200, Eric Dumazet wrote:
+> > On Thu, 2012-05-17 at 23:40 +0200, Eric Dumazet wrote:
+> > 
+> > > I dont understand why we should tcp_push() if we sent 0 bytes in this
+> > > splice() call.
+> > > 
+> > > The push() should have be done already by prior splice() call, dont you
+> > > think ?
+> > > 
+> > > out:
+> > > 	if (copied && !(flags & MSG_SENDPAGE_NOTLAST))
+> > > 		tcp_push(sk, flags, mss_now, tp->nonagle);
+> > > 
+> > 
+> > I think I now understand
+> > 
+> > One splice() syscall actually calls do_tcp_sendpages() several times
+> > (N).
+> > 
+> > Problem is N-1 calls are done with MSG_SENDPAGE_NOTLAST set
+> > 
+> > And last one with MSG_SENDPAGE_NOTLAST unset
+> > 
+> > So maybe we should replace this test by :
+> > 
+> > 	if (!(flags & MSG_SENDPAGE_NOTLAST))
+> > 		tcp_push(...);
+> > 
+> > 
+> 
+> Its more tricky than that.
+> 
+> If we return 0 from do_tcp_sendpages(), __splice_from_pipe() wont call
+> us again, but we need to flush().  (This bug is indeed very old)
+> 
+> So maybe use :
+> 
+> if ((copied && !(flags & MSG_SENDPAGE_NOTLAST)) ||
+>     !copied)
+> 	tcp_push(...);
 
-If we're removing really old and unused stuff,
-how about the VG/AnyLAN driver too?
----
- drivers/net/ethernet/Kconfig     |    1 -
- drivers/net/ethernet/Makefile    |    1 -
- drivers/net/ethernet/hp/Kconfig  |   32 -
- drivers/net/ethernet/hp/Makefile |    5 -
- drivers/net/ethernet/hp/hp100.c  | 3066 --------------------------------------
- drivers/net/ethernet/hp/hp100.h  |  615 --------
- 6 files changed, 0 insertions(+), 3720 deletions(-)
- delete mode 100644 drivers/net/ethernet/hp/Kconfig
- delete mode 100644 drivers/net/ethernet/hp/Makefile
- delete mode 100644 drivers/net/ethernet/hp/hp100.c
- delete mode 100644 drivers/net/ethernet/hp/hp100.h
 
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index a11af5c..0896c8f 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -52,7 +52,6 @@ source "drivers/net/ethernet/neterion/Kconfig"
- source "drivers/net/ethernet/faraday/Kconfig"
- source "drivers/net/ethernet/freescale/Kconfig"
- source "drivers/net/ethernet/fujitsu/Kconfig"
--source "drivers/net/ethernet/hp/Kconfig"
- source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 878ad32..756ebd3 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -27,7 +27,6 @@ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
- obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
- obj-$(CONFIG_NET_VENDOR_FREESCALE) += freescale/
- obj-$(CONFIG_NET_VENDOR_FUJITSU) += fujitsu/
--obj-$(CONFIG_NET_VENDOR_HP) += hp/
- obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+But then your patch is equivalentm so I'm going to Ack it ;)
