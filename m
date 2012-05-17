@@ -1,31 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
- packets'
-Date: Thu, 17 May 2012 16:07:12 -0400 (EDT)
-Message-ID: <20120517.160712.1286811473287581500.davem@davemloft.net>
-References: <20120517150157.GA19274@1wt.eu>
-	<20120517.155503.2294382162578627387.davem@davemloft.net>
-	<20120517200404.GO14498@1wt.eu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3] drop_monitor: convert to modular building
+Date: Thu, 17 May 2012 21:08:18 +0100
+Message-ID: <1337285298.2496.24.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
+	 <1337285040-20848-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: w@1wt.eu
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34542 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932556Ab2EQUHg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 16:07:36 -0400
-In-Reply-To: <20120517200404.GO14498@1wt.eu>
+Received: from webmail.solarflare.com ([12.187.104.25]:61193 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965880Ab2EQUIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 16:08:22 -0400
+In-Reply-To: <1337285040-20848-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Thu, 17 May 2012 22:04:04 +0200
+On Thu, 2012-05-17 at 16:04 -0400, Neil Horman wrote:
+> When I first wrote drop monitor I wrote it to just build monolithically.  There
+> is no reason it can't be built modularly as well, so lets give it that
+> flexibiity.
+> 
+> I've tested this by building it as both a module and monolithically, and it
+> seems to work quite well
+> 
+> Change notes:
+> 
+> v2)
+> * fixed for_each_present_cpu loops to be more correct as per Eric D.
+> * Converted exit path failures to BUG_ON as per Ben H.
+> 
+> v3)
+> * Converted del_timer to del_timer_sync to close race noted by Ben H.
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Ben Hutchings <bhutchings@solarflare.com>
+[...]
 
-> I'm having the same stall issue again since I applied Eric's build_skb
-> patch, but not for all data sizes. So if the same issue is still there,
-> it's possible that we're playing hide-and-seek with it. That's rather
-> strange.
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Ok, a Heisenbug :-)  Let me know when you guys resolve this.
+Thanks,
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
