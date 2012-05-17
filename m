@@ -1,97 +1,74 @@
-From: Xiao Jiang <jgq516@gmail.com>
-Subject: Re: [PATCH 1/1] smsc95xx: add FLAG_POINTTOPOINT flag for driver_info
-Date: Thu, 17 May 2012 10:23:55 +0800
-Message-ID: <4FB4613B.3020603@gmail.com>
-References: <1337155302-26244-1-git-send-email-jgq516@gmail.com> <CACVXFVNzmq74BKYZN1SpXYULneV2ASmniMhs4LhevPm-XgSJpg@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
+Date: Thu, 17 May 2012 10:50:34 +0800
+Message-ID: <4FB4677A.8020402@redhat.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>  <1337181027.10741.13.camel@oc3660625478.ibm.com>  <20120516151444.GC9934@redhat.com> <1337189525.10741.24.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:65532 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760463Ab2EQBde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 May 2012 21:33:34 -0400
-In-Reply-To: <CACVXFVNzmq74BKYZN1SpXYULneV2ASmniMhs4LhevPm-XgSJpg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, davem@davemloft.net
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1337189525.10741.24.camel@oc3660625478.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ming Lei wrote:
-> On Wed, May 16, 2012 at 4:01 PM,  <jgq516@gmail.com> wrote:
->   
->> From: Xiao Jiang <jgq516@gmail.com>
->>
->> commit c26134 introduced FLAG_POINTTOPOINT flag for USB ethernet devices
->> which possibly use "usb%d" names, add this flag to make sure pandaboard
->> can mount nfs with smsc95xx NIC.
->>     
+On 05/17/2012 01:32 AM, Shirley Ma wrote:
+> On Wed, 2012-05-16 at 18:14 +0300, Michael S. Tsirkin wrote:
+>> On Wed, May 16, 2012 at 08:10:27AM -0700, Shirley Ma wrote:
+>>> On Wed, 2012-05-16 at 10:58 +0800, Jason Wang wrote:
+>>>>>>    drivers/vhost/vhost.c |    1 +
+>>>>>>    1 files changed, 1 insertions(+), 0 deletions(-)
+>>>>>>
+>>>>>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>>>>>> index 947f00d..7b75fdf 100644
+>>>>>> --- a/drivers/vhost/vhost.c
+>>>>>> +++ b/drivers/vhost/vhost.c
+>>>>>> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
+>>>>>>           struct vhost_ubuf_ref *ubufs = ubuf->arg;
+>>>>>>           struct vhost_virtqueue *vq = ubufs->vq;
+>>>>>>
+>>>>>> +       vhost_poll_queue(&vq->poll);
+>>>>>>           /* set len = 1 to mark this desc buffers done DMA */
+>>>>>>           vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
+>>>>>>           kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
+>>>>> Doing so, we might have redundant vhost_poll_queue(). Do you
+>> know in
+>>>>> which scenario there might be missing of adding and signaling
+>> during
+>>>>> zerocopy?
+>>>> Yes, as we only do signaling and adding during tx work, if there's
+>> no
+>>>> tx
+>>>> work when the skb were sent, we may lose the opportunity to let
+>> guest
+>>>> know about the completion. It's easy to be reproduced with netperf
+>>>> test.
+>>> The reason which host signals guest is to free guest tx buffers, if
+>>> there is no tx work, then it's not necessary to signal the guest
+>> unless
+>>> guest runs out of memory. The pending buffers will be released
+>>> virtio_net device gone.
+
+Looks like we only free the skbs in .ndo_start_xmit().
+>>>
+>>> What's the behavior of netperf test when you hit this situation?
+>>>
+>>> Thanks
+>>> Shirley
+>> IIRC guest networking seems to be lost.
+> It seems vhost_enable_notify is missing in somewhere else?
 >
-> Without the flag, I also can mount nfs successfully on my Pandaboard...
+> Thanks
+> Shirley
 >
->   
-I have pulled latest tree 
-(git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
-commit 0e93b4b304ae052ba1bc73f6d34a68556fe93429), and enable related 
-options (USB_NET_SMSC95XX,
-USB_EHCI_HCD and USB_EHCI_HCD_OMAP) with omap2plus_config, However the 
-kernel still can't mount
-nfs, pls see below infos.
 
-[    3.114105] smsc95xx v1.0.4
-[    4.533752] smsc95xx 1-1.1:1.0: *eth0*: register 'smsc95xx' at 
-usb-ehci-omap.0-1.1, smsc95xx USB 2.0 Ethernet, fe:b9:1b:07:8e:d1
-[  108.854217] VFS: Unable to mount root fs via NFS, trying floppy.
-[  108.861114] VFS: Cannot open root device "nfs" or unknown-block(2,0): 
-error -6
-[  108.868713] Please append a correct "root=" boot option; here are the 
-available partitions:
-[  108.877655] b300         7761920 mmcblk0  driver: mmcblk
-[  108.883239]   b301           40131 mmcblk0p1 
-00000000-0000-0000-0000-000000000mmcblk0p1
-[  108.891662]   b302         7719232 mmcblk0p2 
-00000000-0000-0000-0000-000000000mmcblk0p2
-[  108.900146] Kernel panic - not syncing: VFS: Unable to mount root fs 
-on unknown-block(2,0)
+The problem is we may stop the tx queue when there no enough capacity to 
+place packets, at this moment  we depends on the tx interrupt to 
+re-enable the tx queue. So if we didn't poll the vhost during callback, 
+guest may lose the tx interrupt to re-enable the tx queue which could 
+stall the whole tx queue.
 
-BTW: I tested it with OMAP4430 ES2.2 pandaboard, the issue can be solved 
-with apply the patch.
-
-Is there something which I missed? thanks.
-
-Regards,
-Xiao
->> Signed-off-by: Xiao Jiang <jgq516@gmail.com>
->> ---
->>  drivers/net/usb/smsc95xx.c |    3 ++-
->>  1 files changed, 2 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
->> index 94ae669..e158288 100644
->> --- a/drivers/net/usb/smsc95xx.c
->> +++ b/drivers/net/usb/smsc95xx.c
->> @@ -1192,7 +1192,8 @@ static const struct driver_info smsc95xx_info = {
->>        .rx_fixup       = smsc95xx_rx_fixup,
->>        .tx_fixup       = smsc95xx_tx_fixup,
->>        .status         = smsc95xx_status,
->> -       .flags          = FLAG_ETHER | FLAG_SEND_ZLP | FLAG_LINK_INTR,
->> +       .flags          = FLAG_ETHER | FLAG_POINTTOPOINT | FLAG_SEND_ZLP |
->> +                         FLAG_LINK_INTR,
->>  };
->>
->>  static const struct usb_device_id products[] = {
->> --
->> 1.7.3
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
->>     
->
->
-> Thanks,
->   
+Thanks
