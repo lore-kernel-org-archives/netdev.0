@@ -1,73 +1,81 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/4] e1000: remove workaround for Errata 23 from jumbo alloc
-Date: Thu, 17 May 2012 05:31:50 -0700
-Message-ID: <1337257912-8487-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1337257912-8487-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] tcp: bool conversions
+Date: Thu, 17 May 2012 13:46:36 +0100
+Message-ID: <1337258796.2496.6.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1337246134.4740.5.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:56414 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760624Ab2EQMb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 08:31:56 -0400
-In-Reply-To: <1337257912-8487-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:51851 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754564Ab2EQMqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 08:46:43 -0400
+In-Reply-To: <1337246134.4740.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+On Thu, 2012-05-17 at 11:15 +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> bool conversions where possible.
 
-According to the comment, errata 23 says that the memory we allocate
-can't cross a 64KiB boundary. In case of jumbo frames we allocate
-complete pages which can never cross the 64KiB boundary because
-PAGE_SIZE should be a multiple of 64KiB so we stop either before the
-boundary or start after it but never cross it. Furthermore the check
-seems bogus because it looks at skb->data which is not seen by the HW
-at all because we only pass the DMA address of the page we allocated. So
-I *think* the workaround is not required here.
+There's a bit more than bool conversions here:
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c |   24 ------------------------
- 1 files changed, 0 insertions(+), 24 deletions(-)
+[...]
+> --- a/net/ipv4/tcp_hybla.c
+> +++ b/net/ipv4/tcp_hybla.c
+[...]
+> @@ -24,8 +24,7 @@ struct hybla {
+>  	u32   minrtt;	      /* Minimum smoothed round trip time value seen */
+>  };
+>  
+> -/* Hybla reference round trip time (default= 1/40 sec = 25 ms),
+> -   expressed in jiffies */
+> +/* Hybla reference round trip time (default= 1/40 sec = 25 ms), in ms */
+>  static int rtt0 = 25;
+>  module_param(rtt0, int, 0644);
+>  MODULE_PARM_DESC(rtt0, "reference rout trip time (ms)");
+> @@ -39,7 +38,7 @@ static inline void hybla_recalc_param (struct sock *sk)
+>  	ca->rho_3ls = max_t(u32, tcp_sk(sk)->srtt / msecs_to_jiffies(rtt0), 8);
+>  	ca->rho = ca->rho_3ls >> 3;
+>  	ca->rho2_7ls = (ca->rho_3ls * ca->rho_3ls) << 1;
+> -	ca->rho2 = ca->rho2_7ls >>7;
+> +	ca->rho2 = ca->rho2_7ls >> 7;
+>  }
+>  
+>  static void hybla_init(struct sock *sk)
+[...] 
+> @@ -67,6 +66,7 @@ static void hybla_init(struct sock *sk)
+>  static void hybla_state(struct sock *sk, u8 ca_state)
+>  {
+>  	struct hybla *ca = inet_csk_ca(sk);
+> +
+>  	ca->hybla_en = (ca_state == TCP_CA_Open);
+>  }
+>  
+[...]
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+[...]
+> -static __inline__ int tcp_in_window(u32 seq, u32 end_seq, u32 s_win, u32 e_win)
+> +static bool tcp_in_window(u32 seq, u32 end_seq, u32 s_win, u32 e_win)
+>  { 
+[...]
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+[...]
+>  /* Does at least the first segment of SKB fit into the send window? */
+> -static inline int tcp_snd_wnd_test(const struct tcp_sock *tp, const struct sk_buff *skb,
+> -				   unsigned int cur_mss)
+> +static bool tcp_snd_wnd_test(const struct tcp_sock *tp,
+> +			     const struct sk_buff *skb,
+> +			     unsigned int cur_mss)
+[...]
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index f1aef68..fefbf4d 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -4391,30 +4391,6 @@ e1000_alloc_jumbo_rx_buffers(struct e1000_adapter *adapter,
- 			break;
- 		}
- 
--		/* Fix for errata 23, can't cross 64kB boundary */
--		if (!e1000_check_64k_bound(adapter, skb->data, bufsz)) {
--			struct sk_buff *oldskb = skb;
--			e_err(rx_err, "skb align check failed: %u bytes at "
--			      "%p\n", bufsz, skb->data);
--			/* Try again, without freeing the previous */
--			skb = netdev_alloc_skb_ip_align(netdev, bufsz);
--			/* Failed allocation, critical failure */
--			if (!skb) {
--				dev_kfree_skb(oldskb);
--				adapter->alloc_rx_buff_failed++;
--				break;
--			}
--
--			if (!e1000_check_64k_bound(adapter, skb->data, bufsz)) {
--				/* give up */
--				dev_kfree_skb(skb);
--				dev_kfree_skb(oldskb);
--				break; /* while (cleaned_count--) */
--			}
--
--			/* Use new allocation */
--			dev_kfree_skb(oldskb);
--		}
- 		buffer_info->skb = skb;
- 		buffer_info->length = adapter->rx_buffer_len;
- check_page:
 -- 
-1.7.7.6
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
