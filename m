@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 07/12] mm: Add support for direct_IO to highmem pages
-Date: Thu, 17 May 2012 15:51:20 +0100
-Message-ID: <1337266285-8102-8-git-send-email-mgorman@suse.de>
+Subject: [PATCH 11/12] nfs: Prevent page allocator recursions with swap over NFS.
+Date: Thu, 17 May 2012 15:51:24 +0100
+Message-ID: <1337266285-8102-12-git-send-email-mgorman@suse.de>
 References: <1337266285-8102-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -21,102 +21,64 @@ In-Reply-To: <1337266285-8102-1-git-send-email-mgorman@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The patch "mm: Add support for a filesystem to activate swap files and
-use direct_IO for writing swap pages" added support for using direct_IO
-to write swap pages but it is insufficient for highmem pages.
+GFP_NOFS is _more_ permissive than GFP_NOIO in that it will initiate
+IO, just not of any filesystem data.
 
-To support highmem pages, this patch kmaps() the page before calling the
-direct_IO() handler. As direct_IO deals with virtual addresses an
-additional helper is necessary for get_kernel_pages() to lookup the
-struct page for a kmap virtual address.
+The problem is that previously NOFS was correct because that avoids
+recursion into the NFS code. With swap-over-NFS, it is no longer
+correct as swap IO can lead to this recursion.
 
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- include/linux/highmem.h |    7 +++++++
- mm/highmem.c            |   12 ++++++++++++
- mm/memory.c             |    3 +--
- mm/page_io.c            |    3 ++-
- 4 files changed, 22 insertions(+), 3 deletions(-)
+ fs/nfs/pagelist.c |    2 +-
+ fs/nfs/write.c    |    7 ++++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index d3999b4..e186e3c 100644
---- a/include/linux/highmem.h
-+++ b/include/linux/highmem.h
-@@ -39,10 +39,17 @@ extern unsigned long totalhigh_pages;
- 
- void kmap_flush_unused(void);
- 
-+struct page *kmap_to_page(void *addr);
-+
- #else /* CONFIG_HIGHMEM */
- 
- static inline unsigned int nr_free_highpages(void) { return 0; }
- 
-+static inline struct page *kmap_to_page(void *addr)
-+{
-+	return virt_to_page(addr);
-+}
-+
- #define totalhigh_pages 0UL
- 
- #ifndef ARCH_HAS_KMAP
-diff --git a/mm/highmem.c b/mm/highmem.c
-index 57d82c6..d517cd1 100644
---- a/mm/highmem.c
-+++ b/mm/highmem.c
-@@ -94,6 +94,18 @@ static DECLARE_WAIT_QUEUE_HEAD(pkmap_map_wait);
- 		do { spin_unlock(&kmap_lock); (void)(flags); } while (0)
- #endif
- 
-+struct page *kmap_to_page(void *vaddr)
-+{
-+	unsigned long addr = (unsigned long)vaddr;
-+
-+	if (addr >= PKMAP_ADDR(0) && addr <= PKMAP_ADDR(LAST_PKMAP)) {
-+		int i = (addr - PKMAP_ADDR(0)) >> PAGE_SHIFT;
-+		return pte_page(pkmap_page_table[i]);
-+	}
-+
-+	return virt_to_page(addr);
-+}
-+
- static void flush_all_zero_pkmaps(void)
+diff --git a/fs/nfs/pagelist.c b/fs/nfs/pagelist.c
+index 77aa83e..8e80d71 100644
+--- a/fs/nfs/pagelist.c
++++ b/fs/nfs/pagelist.c
+@@ -29,7 +29,7 @@ static struct kmem_cache *nfs_page_cachep;
+ static inline struct nfs_page *
+ nfs_page_alloc(void)
  {
- 	int i;
-diff --git a/mm/memory.c b/mm/memory.c
-index 0bc990e7..fd32a1a 100644
---- a/mm/memory.c
-+++ b/mm/memory.c
-@@ -1858,8 +1858,7 @@ int get_kernel_pages(const struct kvec *kiov, int nr_segs, int write,
- 		if (WARN_ON(kiov[seg].iov_len != PAGE_SIZE))
- 			return seg;
+-	struct nfs_page	*p = kmem_cache_zalloc(nfs_page_cachep, GFP_KERNEL);
++	struct nfs_page	*p = kmem_cache_zalloc(nfs_page_cachep, GFP_NOIO);
+ 	if (p)
+ 		INIT_LIST_HEAD(&p->wb_list);
+ 	return p;
+diff --git a/fs/nfs/write.c b/fs/nfs/write.c
+index 21cfe71..abdbe61 100644
+--- a/fs/nfs/write.c
++++ b/fs/nfs/write.c
+@@ -52,7 +52,7 @@ static mempool_t *nfs_commit_mempool;
  
--		/* virt_to_page sanity checks the PFN */
--		pages[seg] = virt_to_page(kiov[seg].iov_base);
-+		pages[seg] = kmap_to_page(kiov[seg].iov_base);
- 		page_cache_get(pages[seg]);
- 	}
+ struct nfs_write_data *nfs_commitdata_alloc(void)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOFS);
++	struct nfs_write_data *p = mempool_alloc(nfs_commit_mempool, GFP_NOIO);
  
-diff --git a/mm/page_io.c b/mm/page_io.c
-index f363261..1e39e88 100644
---- a/mm/page_io.c
-+++ b/mm/page_io.c
-@@ -198,7 +198,7 @@ int swap_writepage(struct page *page, struct writeback_control *wbc)
- 		struct file *swap_file = sis->swap_file;
- 		struct address_space *mapping = swap_file->f_mapping;
- 		struct iovec iov = {
--			.iov_base = page_address(page),
-+			.iov_base = kmap(page),
- 			.iov_len  = PAGE_SIZE,
- 		};
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -72,7 +72,7 @@ EXPORT_SYMBOL_GPL(nfs_commit_free);
  
-@@ -211,6 +211,7 @@ int swap_writepage(struct page *page, struct writeback_control *wbc)
- 		ret = mapping->a_ops->direct_IO(KERNEL_WRITE,
- 						&kiocb, &iov,
- 						kiocb.ki_pos, 1);
-+		kunmap(page);
- 		if (ret == PAGE_SIZE) {
- 			count_vm_event(PSWPOUT);
- 			ret = 0;
+ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ {
+-	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOFS);
++	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, GFP_NOIO);
+ 
+ 	if (p) {
+ 		memset(p, 0, sizeof(*p));
+@@ -81,7 +81,8 @@ struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
+ 		if (pagecount <= ARRAY_SIZE(p->page_array))
+ 			p->pagevec = p->page_array;
+ 		else {
+-			p->pagevec = kcalloc(pagecount, sizeof(struct page *), GFP_NOFS);
++			p->pagevec = kcalloc(pagecount, sizeof(struct page *),
++					GFP_NOIO);
+ 			if (!p->pagevec) {
+ 				mempool_free(p, nfs_wdata_mempool);
+ 				p = NULL;
 -- 
 1.7.9.2
