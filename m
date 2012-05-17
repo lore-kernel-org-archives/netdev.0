@@ -1,668 +1,823 @@
 From: Liu Ping Fan <kernelfans@gmail.com>
-Subject: [PATCH 2/2] [kvm/vhost-net]: make vhost net own NUMA
-	attribute
-Date: Thu, 17 May 2012 17:20:54 +0800
-Message-ID: <1337246456-30909-3-git-send-email-kernelfans@gmail.com>
+Subject: [PATCH 2/2] [net/virtio_net]: make virtio_net support NUMA info
+Date: Thu, 17 May 2012 17:20:56 +0800
+Message-ID: <1337246456-30909-5-git-send-email-kernelfans@gmail.com>
 References: <1337246456-30909-1-git-send-email-kernelfans@gmail.com>
-Cc: Krishna Kumar <krkumar2@in.ibm.com>, Shirley Ma <xma@us.ibm.com>,
-	Tom Lendacky <toml@us.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, qemu-devel@nongnu.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
+Cc: linux-kernel@vger.kernel.org, qemu-devel@nongnu.org,
+	Avi Kivity <avi@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
 	Srivatsa Vaddagiri <vatsa@linux.vnet.ibm.com>,
-	linux-kernel@vger.kernel.org, Ryan Harper <ryanh@us.ibm.com>,
-	Avi Kivity <avi@redhat.com>, Anthony Liguori <anthony@codemonkey.ws>
-To: kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Anthony Liguori <anthony@codemonkey.ws>,
+	Ryan Harper <ryanh@us.ibm.com>, Shirley Ma <xma@us.ibm.com>,
+	Krishna Kumar <krkumar2@in.ibm.com>,
+	Tom Lendacky <toml@us.ibm.com>
+To: kvm@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <1337246456-30909-1-git-send-email-kernelfans@gmail.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Liu Ping Fan <pingfank@linux.vnet.ibm.com>
 
-Make vhost net support to spread on host node according the command.
-And consider the whole vhost_net componsed of lots of logic net units.
-for each node, there is a unit, which includes a vhost_worker thread,
-rx/tx vhost_virtqueue.
+Vhost net uses separate transfer logic unit in different node.
+Virtio net must determine which logic unit it will talk with,
+so we can improve the performance.
 
 Signed-off-by: Liu Ping Fan <pingfank@linux.vnet.ibm.com>
 ---
- drivers/vhost/net.c |  388 ++++++++++++++++++++++++++++++++++-----------------
- 1 files changed, 258 insertions(+), 130 deletions(-)
+ drivers/net/virtio_net.c |  425 ++++++++++++++++++++++++++++++++++------------
+ 1 files changed, 314 insertions(+), 111 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 1f21d2a..770933e 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -55,8 +55,19 @@ enum vhost_net_poll_state {
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index af8acc8..31abafa 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -50,16 +50,32 @@ struct virtnet_stats {
+ 	u64 rx_packets;
+ };
  
- struct vhost_net {
- 	struct vhost_dev dev;
--	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
-+	int numa_init;
-+	int vqcnt;
-+	struct vhost_virtqueue **vqs;
-+	/* one for tx, one for rx */
- 	struct vhost_poll poll[VHOST_NET_VQ_MAX];
-+	int token[VHOST_NET_VQ_MAX];
-+	/* fix me, Although tun.socket.sock can be parrell, but _maybe_, we need to record
-+	 * wmem_alloc independly for each subdev.
-+	 */
-+	struct mutex mutex;
-+	struct socket __rcu *tx_sock;
-+	struct socket __rcu *rx_sock;
++struct napi_info {
++	struct napi_struct napi;
++	struct work_struct enable_napi;
++};
 +
- 	/* Tells us whether we are polling a socket for TX.
- 	 * We only do this when socket buffer fills up.
- 	 * Protected by tx vq lock. */
-@@ -112,7 +123,9 @@ static void tx_poll_stop(struct vhost_net *net)
- {
- 	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
- 		return;
++struct vnet_virtio_node {
++	struct virtio_node vnode;
++	int demo_cpu;
++	struct napi_info info;
++	struct delayed_work refill;
++	struct virtnet_info *owner;
++};
 +
- 	vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
+ struct virtnet_info {
+ 	struct virtio_device *vdev;
+-	struct virtqueue *rvq, *svq, *cvq;
++	/* we want to scatter in different host nodes */
++	struct virtqueue **vqs, **rvqs, **svqs;
++	struct virtqueue *cvq;
++	/* we want to scatter in different host nodes */
++	struct vnet_virtio_node **vnet_nodes;
+ 	struct net_device *dev;
+-	struct napi_struct napi;
 +
- 	net->tx_poll_state = VHOST_NET_POLL_STOPPED;
- }
+ 	unsigned int status;
  
-@@ -121,15 +134,15 @@ static void tx_poll_start(struct vhost_net *net, struct socket *sock)
- {
- 	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
- 		return;
-+
- 	vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
- 	net->tx_poll_state = VHOST_NET_POLL_STARTED;
- }
- 
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
--static void handle_tx(struct vhost_net *net)
-+static void handle_tx(struct vhost_net *net, struct vhost_virtqueue *vq)
- {
--	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
- 	unsigned out, in, s;
- 	int head;
- 	struct msghdr msg = {
-@@ -148,15 +161,15 @@ static void handle_tx(struct vhost_net *net)
- 	bool zcopy;
- 
- 	/* TODO: check that we are running from vhost_worker? */
--	sock = rcu_dereference_check(vq->private_data, 1);
-+	sock = rcu_dereference_check(net->tx_sock, 1);
- 	if (!sock)
- 		return;
- 
- 	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
- 	if (wmem >= sock->sk->sk_sndbuf) {
--		mutex_lock(&vq->mutex);
-+		mutex_lock(&net->mutex);
- 		tx_poll_start(net, sock);
--		mutex_unlock(&vq->mutex);
-+		mutex_unlock(&net->mutex);
- 		return;
- 	}
- 
-@@ -165,6 +178,7 @@ static void handle_tx(struct vhost_net *net)
- 
- 	if (wmem < sock->sk->sk_sndbuf / 2)
- 		tx_poll_stop(net);
-+
- 	hdr_size = vq->vhost_hlen;
- 	zcopy = vhost_sock_zcopy(sock);
- 
-@@ -186,8 +200,10 @@ static void handle_tx(struct vhost_net *net)
- 
- 			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
- 			if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
-+				mutex_lock(&net->mutex);
- 				tx_poll_start(net, sock);
- 				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
-+				mutex_unlock(&net->mutex);
- 				break;
- 			}
- 			/* If more outstanding DMAs, queue the work.
-@@ -197,8 +213,10 @@ static void handle_tx(struct vhost_net *net)
- 				    (vq->upend_idx - vq->done_idx) :
- 				    (vq->upend_idx + UIO_MAXIOV - vq->done_idx);
- 			if (unlikely(num_pends > VHOST_MAX_PEND)) {
-+				mutex_lock(&net->mutex);
- 				tx_poll_start(net, sock);
- 				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
-+				mutex_unlock(&net->mutex);
- 				break;
- 			}
- 			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
-@@ -353,9 +371,8 @@ err:
- 
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
--static void handle_rx(struct vhost_net *net)
-+static void handle_rx(struct vhost_net *net, struct vhost_virtqueue *vq)
- {
--	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
- 	unsigned uninitialized_var(in), log;
- 	struct vhost_log *vq_log;
- 	struct msghdr msg = {
-@@ -375,11 +392,10 @@ static void handle_rx(struct vhost_net *net)
- 	size_t vhost_hlen, sock_hlen;
- 	size_t vhost_len, sock_len;
- 	/* TODO: check that we are running from vhost_worker? */
--	struct socket *sock = rcu_dereference_check(vq->private_data, 1);
-+	struct socket *sock = rcu_dereference_check(net->tx_sock, 1);
- 
- 	if (!sock)
- 		return;
+ 	/* Number of input buffers, and max we've ever had. */
+ 	unsigned int num, max;
 -
- 	mutex_lock(&vq->mutex);
- 	vhost_disable_notify(&net->dev, vq);
- 	vhost_hlen = vq->vhost_hlen;
-@@ -465,8 +481,7 @@ static void handle_tx_kick(struct vhost_work *work)
- 	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
- 						  poll.work);
- 	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
+ 	/* I like... big packets and I cannot lie! */
+ 	bool big_packets;
+ 
+@@ -69,9 +85,6 @@ struct virtnet_info {
+ 	/* Active statistics */
+ 	struct virtnet_stats __percpu *stats;
+ 
+-	/* Work struct for refilling if we run low on memory. */
+-	struct delayed_work refill;
 -
--	handle_tx(net);
-+	handle_tx(net, vq);
+ 	/* Chain pages by the private ptr. */
+ 	struct page *pages;
+ 
+@@ -136,7 +149,6 @@ static void skb_xmit_done(struct virtqueue *svq)
+ 
+ 	/* Suppress further interrupts. */
+ 	virtqueue_disable_cb(svq);
+-
+ 	/* We were probably waiting for more output buffers. */
+ 	netif_wake_queue(vi->dev);
+ }
+@@ -220,7 +232,8 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 	return skb;
  }
  
- static void handle_rx_kick(struct vhost_work *work)
-@@ -475,103 +490,115 @@ static void handle_rx_kick(struct vhost_work *work)
- 						  poll.work);
- 	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
- 
--	handle_rx(net);
-+	handle_rx(net, vq);
- }
- 
--static void handle_tx_net(struct vhost_work *work)
-+/* Get sock->file event, then pick up a vhost_worker to wake up.
-+ * Currently ,we are round robin, maybe in future, we know which
-+ * numa-node the skb from tap want to go.
-+ */
-+static int deliver_worker(struct vhost_net *net, int rx)
+-static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb)
++static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb,
++	struct virtqueue *rvq)
  {
--	struct vhost_net *net = container_of(work, struct vhost_net,
--					     poll[VHOST_NET_VQ_TX].work);
--	handle_tx(net);
-+	int i = rx ? VHOST_NET_VQ_RX : VHOST_NET_VQ_TX;
-+	int idx = ((net->token[i]++<<1)+i)%net->vqcnt;
-+	vhost_poll_queue(&net->vqs[idx]->poll);
-+	return 0;
+ 	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
+ 	struct page *page;
+@@ -234,7 +247,7 @@ static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb)
+ 			skb->dev->stats.rx_length_errors++;
+ 			return -EINVAL;
+ 		}
+-		page = virtqueue_get_buf(vi->rvq, &len);
++		page = virtqueue_get_buf(rvq, &len);
+ 		if (!page) {
+ 			pr_debug("%s: rx error: %d buffers missing\n",
+ 				 skb->dev->name, hdr->mhdr.num_buffers);
+@@ -252,7 +265,8 @@ static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb)
+ 	return 0;
  }
  
--static void handle_rx_net(struct vhost_work *work)
-+static int net_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
-+			     void *key)
+-static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
++static void receive_buf(struct net_device *dev, void *buf, unsigned int len,
++	struct virtqueue *rvq)
  {
--	struct vhost_net *net = container_of(work, struct vhost_net,
--					     poll[VHOST_NET_VQ_RX].work);
--	handle_rx(net);
-+	struct vhost_poll *poll = container_of(wait, struct vhost_poll, wait);
-+	struct vhost_poll *head = (poll->mask == POLLIN) ? poll : poll-1;
-+	struct vhost_net *net = container_of(head, struct vhost_net, poll[0]);
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+@@ -283,7 +297,7 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
+ 			return;
+ 		}
+ 		if (vi->mergeable_rx_bufs)
+-			if (receive_mergeable(vi, skb)) {
++			if (receive_mergeable(vi, skb, rvq)) {
+ 				dev_kfree_skb(skb);
+ 				return;
+ 			}
+@@ -353,7 +367,67 @@ frame_err:
+ 	dev_kfree_skb(skb);
+ }
+ 
+-static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
++/* todo, this will be redesign, and as a part of exporting host numa info to
++  * guest scheduler  */
++/* fix me, host numa node id directly exposed to guest? */
 +
-+	if (!((unsigned long)key & poll->mask))
-+		return 0;
++/* fill in by host */
++static s16 __vapicid_to_vnode[MAX_LOCAL_APIC];
++/* fix me, HOST_NUMNODES is defined by host */
++#define  HOST_NUMNODES  128
++static struct cpumask vnode_to_vcpumask_map[HOST_NUMNODES];
++DECLARE_PER_CPU(int, vcpu_to_vnode_map);
 +
-+	if (poll->mask == POLLIN)
-+		deliver_worker(net, 1);
-+	else
-+		deliver_worker(net, 0);
-+	return 0;
++void init_vnode_map(void)
++{
++	int cpu, apicid, vnode;
++	for_each_possible_cpu(cpu) {
++		apicid = cpu_physical_id(cpu);
++		vnode = __vapicid_to_vnode[apicid];
++		per_cpu(vcpu_to_vnode_map, cpu) = vnode;
++	}
 +}
 +
-+static void net_poll_init(struct vhost_poll *poll, unsigned long mask)
++struct cpumask *vnode_to_vcpumask(int virtio_node)
 +{
-+	init_waitqueue_func_entry(&poll->wait, net_poll_wakeup);
-+	init_poll_funcptr(&poll->table, vhost_poll_func);
-+	poll->mask = mask;
-+	poll->subdev = NULL;
- }
- 
- static int vhost_net_open(struct inode *inode, struct file *f)
- {
- 	struct vhost_net *n = kmalloc(sizeof *n, GFP_KERNEL);
--	struct vhost_dev *dev;
--	int r;
--
- 	if (!n)
- 		return -ENOMEM;
--
--	dev = &n->dev;
--	n->vqs[VHOST_NET_VQ_TX].handle_kick = handle_tx_kick;
--	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
--	r = vhost_dev_init(dev, n->vqs, VHOST_NET_VQ_MAX);
--	if (r < 0) {
--		kfree(n);
--		return r;
--	}
--
--	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
--	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
--	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
--
- 	f->private_data = n;
--
- 	return 0;
- }
- 
--static void vhost_net_disable_vq(struct vhost_net *n,
--				 struct vhost_virtqueue *vq)
-+static void vhost_net_disable_xmit(struct vhost_net *n, int rx)
- {
--	if (!vq->private_data)
--		return;
--	if (vq == n->vqs + VHOST_NET_VQ_TX) {
-+	if (rx  == 0) {
- 		tx_poll_stop(n);
- 		n->tx_poll_state = VHOST_NET_POLL_DISABLED;
- 	} else
--		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
-+		vhost_poll_stop(n->poll+VHOST_NET_VQ_RX);
- }
- 
--static void vhost_net_enable_vq(struct vhost_net *n,
--				struct vhost_virtqueue *vq)
-+static void vhost_net_enable_xmit(struct vhost_net *n, int rx)
- {
- 	struct socket *sock;
- 
--	sock = rcu_dereference_protected(vq->private_data,
--					 lockdep_is_held(&vq->mutex));
--	if (!sock)
--		return;
--	if (vq == n->vqs + VHOST_NET_VQ_TX) {
-+	if (rx == 0) {
-+		sock = rcu_dereference_protected(n->tx_sock,
-+					 lockdep_is_held(&n->mutex));
-+		if (!sock)
-+			return;
- 		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
- 		tx_poll_start(n, sock);
--	} else
-+	} else {
-+		sock = rcu_dereference_protected(n->rx_sock,
-+					 lockdep_is_held(&n->mutex));
-+		if (!sock)
-+			return;
- 		vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-+	}
- }
- 
--static struct socket *vhost_net_stop_vq(struct vhost_net *n,
--					struct vhost_virtqueue *vq)
-+static int vhost_net_stop_xmit(struct vhost_net *n, int rx)
- {
--	struct socket *sock;
--
--	mutex_lock(&vq->mutex);
--	sock = rcu_dereference_protected(vq->private_data,
--					 lockdep_is_held(&vq->mutex));
--	vhost_net_disable_vq(n, vq);
--	rcu_assign_pointer(vq->private_data, NULL);
--	mutex_unlock(&vq->mutex);
--	return sock;
-+	mutex_lock(&n->mutex);
-+	vhost_net_disable_xmit(n, rx);
-+	mutex_unlock(&n->mutex);
-+	return 0;
- }
- 
--static void vhost_net_stop(struct vhost_net *n, struct socket **tx_sock,
--			   struct socket **rx_sock)
-+static void vhost_net_stop(struct vhost_net *n)
- {
--	*tx_sock = vhost_net_stop_vq(n, n->vqs + VHOST_NET_VQ_TX);
--	*rx_sock = vhost_net_stop_vq(n, n->vqs + VHOST_NET_VQ_RX);
-+	vhost_net_stop_xmit(n, 0);
-+	vhost_net_stop_xmit(n, 1);
- }
- 
--static void vhost_net_flush_vq(struct vhost_net *n, int index)
-+/* We wait for vhost_work on all vqs to finish gp. And n->poll[] 
-+ * are not vhost_work any longer
-+ */
-+static void vhost_net_flush_vq(struct vhost_net *n, int rx)
- {
--	vhost_poll_flush(n->poll + index);
--	vhost_poll_flush(&n->dev.vqs[index].poll);
-+	int i, idx;
-+	if (rx == 0) {
-+		for (i = 0; i < n->dev.node_cnt; i++) {
-+			idx = (i<<1) + VHOST_NET_VQ_TX;
-+			vhost_poll_flush(&n->dev.vqs[idx]->poll);
-+		}
-+	} else {
-+		for (i = 0; i < n->dev.node_cnt; i++) {
-+			idx = (i<<1) + VHOST_NET_VQ_RX;
-+			vhost_poll_flush(&n->dev.vqs[idx]->poll);
-+		}
-+	}
- }
- 
- static void vhost_net_flush(struct vhost_net *n)
-@@ -583,16 +610,16 @@ static void vhost_net_flush(struct vhost_net *n)
- static int vhost_net_release(struct inode *inode, struct file *f)
- {
- 	struct vhost_net *n = f->private_data;
--	struct socket *tx_sock;
--	struct socket *rx_sock;
- 
--	vhost_net_stop(n, &tx_sock, &rx_sock);
-+	vhost_net_stop(n);
- 	vhost_net_flush(n);
- 	vhost_dev_cleanup(&n->dev, false);
--	if (tx_sock)
--		fput(tx_sock->file);
--	if (rx_sock)
--		fput(rx_sock->file);
++	struct cpumask *msk = &vnode_to_vcpumask_map[virtio_node];
++	return msk;
++}
 +
-+	if (n->tx_sock)
-+		fput(n->tx_sock->file);
-+	if (n->rx_sock)
-+		fput(n->rx_sock->file);
++static int first_vcpu_on_virtio_node(int virtio_node)
++{
++	 struct cpumask *msk = vnode_to_vcpumask(virtio_node);
++	 return cpumask_first(msk);
++}
 +
- 	/* We do an extra flush before freeing memory,
- 	 * since jobs can re-queue themselves. */
- 	vhost_net_flush(n);
-@@ -665,30 +692,27 @@ static struct socket *get_socket(int fd)
- 	return ERR_PTR(-ENOTSOCK);
- }
- 
--static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
-+static long vhost_net_set_backend(struct vhost_net *n, unsigned rx, int fd)
- {
- 	struct socket *sock, *oldsock;
- 	struct vhost_virtqueue *vq;
--	struct vhost_ubuf_ref *ubufs, *oldubufs = NULL;
--	int r;
-+	struct vhost_ubuf_ref *ubufs, *old, **oldubufs = NULL;
-+	int r, i;
-+	struct vhost_poll *poll;
-+	struct socket **target;
- 
-+	oldubufs = kmalloc(sizeof(void *)*n->dev.node_cnt, GFP_KERNEL);
-+	if (oldubufs == NULL)
-+		return -ENOMEM;
- 	mutex_lock(&n->dev.mutex);
- 	r = vhost_dev_check_owner(&n->dev);
- 	if (r)
- 		goto err;
-+	if (rx)
-+		target = &n->rx_sock;
-+	else
-+		target = &n->tx_sock;
- 
--	if (index >= VHOST_NET_VQ_MAX) {
--		r = -ENOBUFS;
--		goto err;
--	}
--	vq = n->vqs + index;
--	mutex_lock(&vq->mutex);
--
--	/* Verify that ring has been setup correctly. */
--	if (!vhost_vq_access_ok(vq)) {
--		r = -EFAULT;
--		goto err_vq;
--	}
- 	sock = get_socket(fd);
- 	if (IS_ERR(sock)) {
- 		r = PTR_ERR(sock);
-@@ -696,70 +720,106 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 	}
- 
- 	/* start polling new socket */
--	oldsock = rcu_dereference_protected(vq->private_data,
--					    lockdep_is_held(&vq->mutex));
-+	if (rx == 1)
-+		/* todo, consider about protection, hold net->mutex? */
-+		oldsock = rcu_dereference_protected(n->rx_sock, 1);
-+	else
-+		oldsock = rcu_dereference_protected(n->tx_sock, 1);
++static int vcpu_to_virtio_node(void)
++{
++	int vnode = __get_cpu_var(vcpu_to_vnode_map);
++	return vnode;
++}
++/* end of todo */
 +
- 	if (sock != oldsock) {
--		ubufs = vhost_ubuf_alloc(vq, sock && vhost_sock_zcopy(sock));
--		if (IS_ERR(ubufs)) {
--			r = PTR_ERR(ubufs);
--			goto err_ubufs;
-+		if (rx == 1)
-+			poll = &n->poll[0];
-+		else
-+			poll = &n->poll[1];
-+
-+		/* todo, consider about protection, hold net->mutex? */
-+		vhost_poll_stop(poll);
-+
-+		for (i = 0; i < n->dev.node_cnt; i++) {
++static int virtqueue_pickup(struct virtnet_info *vi, struct virtqueue **vq, int rx)
++{
++	int node;
++	int i;
++	struct vnet_virtio_node *vnnode;
++	node = vcpu_to_virtio_node();
++	for (i = 0; i < vi->vdev->node_cnt; i++) {
++		vnnode = vi->vnet_nodes[i];
++		if (vnnode->vnode.node_id == node) {
 +			if (rx == 0)
-+				vq = n->vqs[(i<<1)+VHOST_NET_VQ_TX];
++				*vq = vnnode->vnode.svq;
 +			else
-+				vq = n->vqs[(i<<1)+VHOST_NET_VQ_RX];
-+
-+			mutex_lock(&vq->mutex);
-+			ubufs = vhost_ubuf_alloc(vq, sock && vhost_sock_zcopy(sock));
-+			if (IS_ERR(ubufs)) {
-+				r = PTR_ERR(ubufs);
-+				mutex_unlock(&vq->mutex);
-+				goto err_ubufs;
-+			}
-+			oldubufs[i] = vq->ubufs;
-+			vq->ubufs = ubufs;
-+			r = vhost_init_used(vq);
-+			mutex_unlock(&vq->mutex);
-+			if (r)
-+				goto err_vq;
- 		}
--		oldubufs = vq->ubufs;
--		vq->ubufs = ubufs;
--		vhost_net_disable_vq(n, vq);
--		rcu_assign_pointer(vq->private_data, sock);
--		vhost_net_enable_vq(n, vq);
--
--		r = vhost_init_used(vq);
--		if (r)
--			goto err_vq;
-+
-+		mutex_lock(&n->mutex);
-+		vhost_net_disable_xmit(n, rx);
-+		if (rx == 1)
-+			rcu_assign_pointer(n->rx_sock, sock);
-+		else
-+			rcu_assign_pointer(n->tx_sock, sock);
-+		vhost_net_enable_xmit(n, rx);
-+		mutex_unlock(&n->mutex);
-+
-+		/* todo, consider about protection, hold net->mutex? */
-+		vhost_poll_start(poll, sock->file);
- 	}
- 
--	mutex_unlock(&vq->mutex);
-+	for (i = 0; i < n->dev.node_cnt; i++) {
-+		old = oldubufs[i];
-+		if (rx == 0)
-+			vq = n->vqs[(i<<1)+VHOST_NET_VQ_TX];
-+		else
-+			vq = n->vqs[(i<<1)+VHOST_NET_VQ_RX];
- 
--	if (oldubufs) {
--		vhost_ubuf_put_and_wait(oldubufs);
--		mutex_lock(&vq->mutex);
--		vhost_zerocopy_signal_used(vq);
--		mutex_unlock(&vq->mutex);
-+		if (old) {
-+			vhost_ubuf_put_and_wait(old);
-+			mutex_lock(&vq->mutex);
-+			vhost_zerocopy_signal_used(vq);
-+			mutex_unlock(&vq->mutex);
++				*vq = vnnode->vnode.rvq;
++			return 0;
 +		}
- 	}
- 
- 	if (oldsock) {
--		vhost_net_flush_vq(n, index);
-+		vhost_net_flush_vq(n, rx);
- 		fput(oldsock->file);
- 	}
- 
- 	mutex_unlock(&n->dev.mutex);
-+	kfree(oldubufs);
- 	return 0;
- 
- err_ubufs:
- 	fput(sock->file);
- err_vq:
--	mutex_unlock(&vq->mutex);
-+	mutex_unlock(&n->mutex);
- err:
- 	mutex_unlock(&n->dev.mutex);
-+	kfree(oldubufs);
- 	return r;
- }
- 
- static long vhost_net_reset_owner(struct vhost_net *n)
++	}
++	*vq = NULL;
++	return -1;
++}
++
++static int add_recvbuf_small(struct virtnet_info *vi, struct virtqueue *vq, gfp_t gfp)
  {
--	struct socket *tx_sock = NULL;
--	struct socket *rx_sock = NULL;
- 	long err;
+ 	struct sk_buff *skb;
+ 	struct skb_vnet_hdr *hdr;
+@@ -369,15 +443,14 @@ static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
+ 	sg_set_buf(vi->rx_sg, &hdr->hdr, sizeof hdr->hdr);
  
- 	mutex_lock(&n->dev.mutex);
- 	err = vhost_dev_check_owner(&n->dev);
- 	if (err)
- 		goto done;
--	vhost_net_stop(n, &tx_sock, &rx_sock);
-+	vhost_net_stop(n);
- 	vhost_net_flush(n);
- 	err = vhost_dev_reset_owner(&n->dev);
- done:
- 	mutex_unlock(&n->dev.mutex);
--	if (tx_sock)
--		fput(tx_sock->file);
--	if (rx_sock)
--		fput(rx_sock->file);
-+	if (n->tx_sock)
-+		fput(n->tx_sock->file);
-+	if (n->rx_sock)
-+		fput(n->rx_sock->file);
+ 	skb_to_sgvec(skb, vi->rx_sg + 1, 0, skb->len);
+-
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, 2, skb, gfp);
++	err = virtqueue_add_buf(vq, vi->rx_sg, 0, 2, skb, gfp);
+ 	if (err < 0)
+ 		dev_kfree_skb(skb);
+ 
  	return err;
  }
  
-@@ -788,17 +848,72 @@ static int vhost_net_set_features(struct vhost_net *n, u64 features)
+-static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
++static int add_recvbuf_big(struct virtnet_info *vi, struct virtqueue *vq, gfp_t gfp)
+ {
+ 	struct page *first, *list = NULL;
+ 	char *p;
+@@ -415,7 +488,8 @@ static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
+ 
+ 	/* chain first in list head */
+ 	first->private = (unsigned long)list;
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, MAX_SKB_FRAGS + 2,
++
++	err = virtqueue_add_buf(vq, vi->rx_sg, 0, MAX_SKB_FRAGS + 2,
+ 				first, gfp);
+ 	if (err < 0)
+ 		give_pages(vi, first);
+@@ -423,7 +497,7 @@ static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
+ 	return err;
+ }
+ 
+-static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
++static int add_recvbuf_mergeable(struct virtnet_info *vi, struct virtqueue *vq, gfp_t gfp)
+ {
+ 	struct page *page;
+ 	int err;
+@@ -433,8 +507,7 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
+ 		return -ENOMEM;
+ 
+ 	sg_init_one(vi->rx_sg, page_address(page), PAGE_SIZE);
+-
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, 1, page, gfp);
++	err = virtqueue_add_buf(vq, vi->rx_sg, 0, 1, page, gfp);
+ 	if (err < 0)
+ 		give_pages(vi, page);
+ 
+@@ -448,18 +521,17 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
+  * before we're receiving packets, or from refill_work which is
+  * careful to disable receiving (using napi_disable).
+  */
+-static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
++static bool try_fill_recv(struct virtnet_info *vi, struct virtqueue *rvq, gfp_t gfp)
+ {
+ 	int err;
+ 	bool oom;
+-
+ 	do {
+ 		if (vi->mergeable_rx_bufs)
+-			err = add_recvbuf_mergeable(vi, gfp);
++			err = add_recvbuf_mergeable(vi, rvq, gfp);
+ 		else if (vi->big_packets)
+-			err = add_recvbuf_big(vi, gfp);
++			err = add_recvbuf_big(vi, rvq, gfp);
+ 		else
+-			err = add_recvbuf_small(vi, gfp);
++			err = add_recvbuf_small(vi, rvq, gfp);
+ 
+ 		oom = err == -ENOMEM;
+ 		if (err < 0)
+@@ -468,31 +540,79 @@ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+ 	} while (err > 0);
+ 	if (unlikely(vi->num > vi->max))
+ 		vi->max = vi->num;
+-	virtqueue_kick(vi->rvq);
++
++	virtqueue_kick(rvq);
+ 	return !oom;
+ }
+ 
++static void try_fill_all_recv(struct virtnet_info *vi, gfp_t gfp)
++{
++	int i, cpu, err;
++	struct vnet_virtio_node *vnnode;
++	for (i = 0; i < vi->vdev->node_cnt; i++) {
++		vnnode = vi->vnet_nodes[i];
++		err = try_fill_recv(vi, vnnode->vnode.rvq, gfp);
++		if (err) {
++			cpu = first_vcpu_on_virtio_node(vnnode->vnode.node_id);
++			queue_delayed_work_on(cpu, system_nrt_wq, &vnnode->refill, 0);
++		}
++	}
++	return;
++}
++
+ static void skb_recv_done(struct virtqueue *rvq)
+ {
+-	struct virtnet_info *vi = rvq->vdev->priv;
++	struct vnet_virtio_node *vnet_node = container_of(rvq->node, struct vnet_virtio_node, vnode);
++	struct napi_struct *napi = &vnet_node->info.napi;
++
+ 	/* Schedule NAPI, Suppress further interrupts if successful. */
+-	if (napi_schedule_prep(&vi->napi)) {
++	if (napi_schedule_prep(napi)) {
+ 		virtqueue_disable_cb(rvq);
+-		__napi_schedule(&vi->napi);
++		__napi_schedule(napi);
  	}
- 	n->dev.acked_features = features;
- 	smp_wmb();
--	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
--		mutex_lock(&n->vqs[i].mutex);
--		n->vqs[i].vhost_hlen = vhost_hlen;
--		n->vqs[i].sock_hlen = sock_hlen;
--		mutex_unlock(&n->vqs[i].mutex);
-+	for (i = 0; i < n->vqcnt; ++i) {
-+		mutex_lock(&n->vqs[i]->mutex);
-+		n->vqs[i]->vhost_hlen = vhost_hlen;
-+		n->vqs[i]->sock_hlen = sock_hlen;
-+		mutex_unlock(&n->vqs[i]->mutex);
+ }
+ 
+-static void virtnet_napi_enable(struct virtnet_info *vi)
++static void virtnet_napi_enable(struct napi_struct *napi, struct virtqueue *rvq)
+ {
+-	napi_enable(&vi->napi);
++	napi_enable(napi);
+ 
+ 	/* If all buffers were filled by other side before we napi_enabled, we
+ 	 * won't get another interrupt, so process any outstanding packets
+ 	 * now.  virtnet_poll wants re-enable the queue, so we disable here.
+ 	 * We synchronize against interrupts via NAPI_STATE_SCHED */
+-	if (napi_schedule_prep(&vi->napi)) {
+-		virtqueue_disable_cb(vi->rvq);
+-		__napi_schedule(&vi->napi);
++	if (napi_schedule_prep(napi)) {
++		virtqueue_disable_cb(rvq);
++		__napi_schedule(napi);
++	}
++}
++
++static void virtnet_napis_disable(struct virtnet_info *vi)
++{
++	int i;
++	struct vnet_virtio_node *vnnode;
++	for (i = 0; i < vi->vdev->node_cnt; i++) {
++		vnnode = vi->vnet_nodes[i];
++		napi_disable(&vnnode->info.napi);
++	}
++}
++
++static void napi_enable_worker(struct work_struct *work)
++{
++	struct vnet_virtio_node *vnnode = container_of(work,
++		struct vnet_virtio_node, refill.work);
++	struct virtqueue *rvq = vnnode->vnode.rvq;
++	virtnet_napi_enable(&vnnode->info.napi, rvq);
++}
++
++static void virtnet_napis_enable(struct virtnet_info *vi)
++{
++	int i;
++	struct work_struct *work;
++	struct vnet_virtio_node *vnnode;
++	for (i = 0; i < vi->vdev->node_cnt; i++) {
++		vnnode = vi->vnet_nodes[i];
++		work = &vnnode->info.enable_napi;
++		queue_work_on(vnnode->demo_cpu, system_wq, work);
  	}
- 	vhost_net_flush(n);
- 	mutex_unlock(&n->dev.mutex);
+ }
+ 
+@@ -500,43 +620,52 @@ static void refill_work(struct work_struct *work)
+ {
+ 	struct virtnet_info *vi;
+ 	bool still_empty;
++	struct napi_struct *napi;
++	struct virtqueue *rvq;
++	struct vnet_virtio_node *vnnode = container_of(work,
++		struct vnet_virtio_node, refill.work);
+ 
+-	vi = container_of(work, struct virtnet_info, refill.work);
+-	napi_disable(&vi->napi);
+-	still_empty = !try_fill_recv(vi, GFP_KERNEL);
+-	virtnet_napi_enable(vi);
++	vi = vnnode->owner;
++	napi = &vnnode->info.napi;
++	rvq = vnnode->vnode.rvq;
++	napi_disable(napi);
++
++	still_empty = !try_fill_recv(vi, rvq, GFP_KERNEL);
++	virtnet_napi_enable(napi, rvq);
+ 
+ 	/* In theory, this can happen: if we don't get any buffers in
+ 	 * we will *never* try to fill again. */
+ 	if (still_empty)
+-		queue_delayed_work(system_nrt_wq, &vi->refill, HZ/2);
++		queue_delayed_work_on(vnnode->demo_cpu, system_nrt_wq, &vnnode->refill, HZ/2);
+ }
+ 
+ static int virtnet_poll(struct napi_struct *napi, int budget)
+ {
+-	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
++	struct virtnet_info *vi;
+ 	void *buf;
+ 	unsigned int len, received = 0;
+-
++	struct vnet_virtio_node *vnnode = container_of(napi, struct vnet_virtio_node, info.napi);
++	struct virtqueue *rvq = vnnode->vnode.rvq;
++	vi = vnnode->owner;
+ again:
+ 	while (received < budget &&
+-	       (buf = virtqueue_get_buf(vi->rvq, &len)) != NULL) {
+-		receive_buf(vi->dev, buf, len);
++	       (buf = virtqueue_get_buf(rvq, &len)) != NULL) {
++		receive_buf(vi->dev, buf, len, rvq);
+ 		--vi->num;
+ 		received++;
+ 	}
+ 
+ 	if (vi->num < vi->max / 2) {
+-		if (!try_fill_recv(vi, GFP_ATOMIC))
+-			queue_delayed_work(system_nrt_wq, &vi->refill, 0);
++		if (!try_fill_recv(vi, rvq, GFP_ATOMIC))
++			queue_delayed_work(system_nrt_wq, &vnnode->refill, 0);
+ 	}
+ 
+ 	/* Out of packets? */
+ 	if (received < budget) {
+ 		napi_complete(napi);
+-		if (unlikely(!virtqueue_enable_cb(vi->rvq)) &&
++		if (unlikely(!virtqueue_enable_cb(rvq)) &&
+ 		    napi_schedule_prep(napi)) {
+-			virtqueue_disable_cb(vi->rvq);
++			virtqueue_disable_cb(rvq);
+ 			__napi_schedule(napi);
+ 			goto again;
+ 		}
+@@ -545,13 +674,13 @@ again:
+ 	return received;
+ }
+ 
+-static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
++static unsigned int free_old_xmit_skbs(struct virtnet_info *vi, struct virtqueue *svq)
+ {
+ 	struct sk_buff *skb;
+ 	unsigned int len, tot_sgs = 0;
+ 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+ 
+-	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
++	while ((skb = virtqueue_get_buf(svq, &len)) != NULL) {
+ 		pr_debug("Sent skb %p\n", skb);
+ 
+ 		u64_stats_update_begin(&stats->syncp);
+@@ -565,7 +694,7 @@ static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
+ 	return tot_sgs;
+ }
+ 
+-static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
++static int xmit_skb(struct virtnet_info *vi, struct virtqueue *svq, struct sk_buff *skb)
+ {
+ 	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
+ 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
+@@ -608,7 +737,8 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+ 		sg_set_buf(vi->tx_sg, &hdr->hdr, sizeof hdr->hdr);
+ 
+ 	hdr->num_sg = skb_to_sgvec(skb, vi->tx_sg + 1, 0, skb->len) + 1;
+-	return virtqueue_add_buf(vi->svq, vi->tx_sg, hdr->num_sg,
++
++	return virtqueue_add_buf(svq, vi->tx_sg, hdr->num_sg,
+ 				 0, skb, GFP_ATOMIC);
+ }
+ 
+@@ -616,12 +746,14 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	int capacity;
++	struct virtqueue *svq;
++	virtqueue_pickup(vi, &svq, 0);
+ 
+ 	/* Free up any pending old buffers before queueing new ones. */
+-	free_old_xmit_skbs(vi);
++	free_old_xmit_skbs(vi, svq);
+ 
+ 	/* Try to transmit */
+-	capacity = xmit_skb(vi, skb);
++	capacity = xmit_skb(vi, svq, skb);
+ 
+ 	/* This can happen with OOM and indirect buffers. */
+ 	if (unlikely(capacity < 0)) {
+@@ -640,7 +772,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+-	virtqueue_kick(vi->svq);
++	virtqueue_kick(svq);
+ 
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	skb_orphan(skb);
+@@ -650,12 +782,12 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * before it gets out of hand.  Naturally, this wastes entries. */
+ 	if (capacity < 2+MAX_SKB_FRAGS) {
+ 		netif_stop_queue(dev);
+-		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
++		if (unlikely(!virtqueue_enable_cb_delayed(svq))) {
+ 			/* More just got used, free them then recheck. */
+-			capacity += free_old_xmit_skbs(vi);
++			capacity += free_old_xmit_skbs(vi, svq);
+ 			if (capacity >= 2+MAX_SKB_FRAGS) {
+ 				netif_start_queue(dev);
+-				virtqueue_disable_cb(vi->svq);
++				virtqueue_disable_cb(svq);
+ 			}
+ 		}
+ 	}
+@@ -718,20 +850,15 @@ static struct rtnl_link_stats64 *virtnet_stats(struct net_device *dev,
+ static void virtnet_netpoll(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+-
+-	napi_schedule(&vi->napi);
++	virtnet_napis_enable(vi);
+ }
+ #endif
+ 
+ static int virtnet_open(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+-
+-	/* Make sure we have some buffers: if oom use wq. */
+-	if (!try_fill_recv(vi, GFP_KERNEL))
+-		queue_delayed_work(system_nrt_wq, &vi->refill, 0);
+-
+-	virtnet_napi_enable(vi);
++	try_fill_all_recv(vi, GFP_KERNEL);
++	virtnet_napis_enable(vi);
  	return 0;
  }
  
-+static int vhost_netdev_init(struct vhost_net *n)
-+{
-+	struct vhost_dev *dev;
-+	vhost_work_fn_t *handle_kicks;
-+	int r, i;
-+	int cur, prev = 0;
-+	int sz = 64;
-+	int vqcnt;
-+	int *vqs_map;
-+	dev = &n->dev;
-+	vqcnt = dev->node_cnt * 2;
-+	n->vqs =  kmalloc(vqcnt*sizeof(void *), GFP_KERNEL);
-+	handle_kicks = kmalloc(vqcnt*sizeof(void *), GFP_KERNEL);
-+	vqs_map = kmalloc(vqcnt*sizeof(int), GFP_KERNEL);
-+	for (i = 0; i < vqcnt;) {
-+		cur = find_next_bit(&n->dev.allow_map, sz, prev);
-+		prev = cur;
-+		handle_kicks[i++] = handle_rx_kick;
-+		vqs_map[i] = cur;
-+		handle_kicks[i++] = handle_tx_kick;
-+		vqs_map[i] = cur;
-+
-+	}
-+
-+	r = vhost_dev_alloc_subdevs(dev, &n->dev.allow_map, sz);
-+	if (r < 0) {
-+		/* todo, err handling */
-+		return r;
-+	}
-+	r = vhost_dev_alloc_vqs(dev, n->vqs, vqcnt, vqs_map, vqcnt, handle_kicks);
-+	if (r < 0) {
-+		/* todo, err handling */
-+		return r;
-+	}
-+	r = vhost_dev_init(dev, n->vqs, vqcnt);
-+	if (r < 0)
-+		goto exit;
-+	if (experimental_zcopytx)
-+		vhost_enable_zcopy(dev, 0);
-+
-+	net_poll_init(n->poll+VHOST_NET_VQ_TX, POLLOUT);
-+	net_poll_init(n->poll+VHOST_NET_VQ_RX, POLLIN);
-+	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
-+	n->numa_init = 1;
-+	r = 0;
-+exit:
-+	kfree(handle_kicks);
-+	kfree(vqs_map);
-+	if (r == 0)
-+		return 0;
-+	kfree(n->vqs);
-+	kfree(n);
-+	return r;
-+}
-+
- static long vhost_net_ioctl(struct file *f, unsigned int ioctl,
- 			    unsigned long arg)
+@@ -783,11 +910,10 @@ static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+ static int virtnet_close(struct net_device *dev)
  {
-@@ -808,8 +923,23 @@ static long vhost_net_ioctl(struct file *f, unsigned int ioctl,
- 	struct vhost_vring_file backend;
- 	u64 features;
- 	int r;
-+	/* todo, dynamic allocated */
-+	unsigned long bmp, sz = 64;
-+
-+	if (!n->numa_init && ioctl != VHOST_NET_SET_NUMA)
-+		return -EOPNOTSUPP;
- 
- 	switch (ioctl) {
-+	case VHOST_NET_SET_NUMA:
-+		/* 4 must be extended. */
-+		if (copy_from_user(&bmp, argp, 4))
-+			return -EFAULT;
-+		r = check_numa_bmp(&bmp, sz);
-+		if (r < 0)
-+			return -EINVAL;
-+		n->dev.allow_map = bmp;
-+		r = vhost_netdev_init(n);
-+		return r;
- 	case VHOST_NET_SET_BACKEND:
- 		if (copy_from_user(&backend, argp, sizeof backend))
- 			return -EFAULT;
-@@ -863,8 +993,6 @@ static struct miscdevice vhost_net_misc = {
- 
- static int vhost_net_init(void)
- {
--	if (experimental_zcopytx)
--		vhost_enable_zcopy(VHOST_NET_VQ_TX);
- 	return misc_register(&vhost_net_misc);
+ 	struct virtnet_info *vi = netdev_priv(dev);
+-
+-	/* Make sure refill_work doesn't re-enable napi! */
+-	cancel_delayed_work_sync(&vi->refill);
+-	napi_disable(&vi->napi);
+-
++	int i;
++	for (i = 0; i < vi->vdev->node_cnt; i++)
++		cancel_delayed_work_sync(&vi->vnet_nodes[i]->refill);
++	virtnet_napis_disable(vi);
+ 	return 0;
  }
- module_init(vhost_net_init);
+ 
+@@ -897,9 +1023,10 @@ static void virtnet_get_ringparam(struct net_device *dev,
+ 				struct ethtool_ringparam *ring)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
++	struct vnet_virtio_node *vnnode =  vi->vnet_nodes[0];
+ 
+-	ring->rx_max_pending = virtqueue_get_vring_size(vi->rvq);
+-	ring->tx_max_pending = virtqueue_get_vring_size(vi->svq);
++	ring->rx_max_pending = virtqueue_get_vring_size(vnnode->vnode.rvq);
++	ring->tx_max_pending = virtqueue_get_vring_size(vnnode->vnode.svq);
+ 	ring->rx_pending = ring->rx_max_pending;
+ 	ring->tx_pending = ring->tx_max_pending;
+ 
+@@ -986,29 +1113,61 @@ static void virtnet_config_changed(struct virtio_device *vdev)
+ 
+ static int init_vqs(struct virtnet_info *vi)
+ {
+-	struct virtqueue *vqs[3];
+-	vq_callback_t *callbacks[] = { skb_recv_done, skb_xmit_done, NULL};
++	struct virtqueue **vqs;
+ 	const char *names[] = { "input", "output", "control" };
+-	int nvqs, err;
+-
++	const char **name_array;
++	vq_callback_t **callbacks;
++	int node_cnt, nvqs, err =  -ENOMEM;
++	int i;
+ 	/* We expect two virtqueues, receive then send,
+ 	 * and optionally control. */
+-	nvqs = virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ) ? 3 : 2;
++	node_cnt = vi->vdev->node_cnt;
++	nvqs = virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)? node_cnt*2+1 :
++		node_cnt*2;
++	callbacks = kzalloc(sizeof(void *)*nvqs, GFP_KERNEL);
++	for (i = 0; i < node_cnt; i++)
++		callbacks[i] = skb_recv_done;
++	for (; i < node_cnt*2; i++)
++		callbacks[i] = skb_xmit_done;
++
++	name_array = kmalloc(sizeof(void *)*nvqs, GFP_KERNEL);
++	if ( name_array == NULL)
++		goto free_callbacks;
++
++	for (i = 0; i < node_cnt; i++)
++		name_array[i] = names[0];
++	for (; i <  node_cnt*2; i++)
++		name_array[i] = names[1];
++	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ))
++		name_array[i] = names[2];
++
++	vqs = kmalloc(sizeof(void *)*nvqs, GFP_KERNEL);
++	if (vqs == NULL)
++		goto free_name;
+ 
+ 	err = vi->vdev->config->find_vqs(vi->vdev, nvqs, vqs, callbacks, names);
+ 	if (err)
+-		return err;
++		goto free_vqs;
+ 
+-	vi->rvq = vqs[0];
+-	vi->svq = vqs[1];
++	vi->vqs = vqs;
++	vi->rvqs = vi->vqs;
++	vi->svqs = vi->vqs + vi->vdev->node_cnt;
+ 
+ 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
+-		vi->cvq = vqs[2];
++		vi->cvq = vi->vqs[vi->vdev->node_cnt*2];
+ 
+ 		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
+ 			vi->dev->features |= NETIF_F_HW_VLAN_FILTER;
+ 	}
+-	return 0;
++	err = 0;
++free_vqs:
++	if (err)
++		kfree(vqs);
++free_name:
++	kfree(name_array);
++free_callbacks:
++	kfree(callbacks);
++	return err;
+ }
+ 
+ static int virtnet_probe(struct virtio_device *vdev)
+@@ -1016,6 +1175,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	int err;
+ 	struct net_device *dev;
+ 	struct virtnet_info *vi;
++	int i, size, cur, prev = 0;
++	struct vnet_virtio_node *vnnode;
+ 
+ 	/* Allocate ourselves a network device with room for our info */
+ 	dev = alloc_etherdev(sizeof(struct virtnet_info));
+@@ -1064,7 +1225,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 
+ 	/* Set up our device-specific information */
+ 	vi = netdev_priv(dev);
+-	netif_napi_add(dev, &vi->napi, virtnet_poll, napi_weight);
++
+ 	vi->dev = dev;
+ 	vi->vdev = vdev;
+ 	vdev->priv = vi;
+@@ -1074,7 +1235,6 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (vi->stats == NULL)
+ 		goto free;
+ 
+-	INIT_DELAYED_WORK(&vi->refill, refill_work);
+ 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
+ 	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
+ 
+@@ -1086,19 +1246,46 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+ 		vi->mergeable_rx_bufs = true;
+-
+ 	err = init_vqs(vi);
+ 	if (err)
+ 		goto free_stats;
+ 
++	/* Which host node napi_struct will be on, determined by page fault handled by KVM.
++	  * So allocate them seperately!
++	 */
++	vi->vnet_nodes = kmalloc(sizeof(void *) * vi->vdev->node_cnt, GFP_KERNEL);
++	size = PAGE_ALIGN(sizeof(struct vnet_virtio_node));
++	for (i = 0; i < vi->vdev->node_cnt; i++) {
++		vnnode = kmalloc(size, GFP_KERNEL);
++		if (vnnode == NULL) {
++			err = -ENOMEM;
++			goto free_napi;
++		}
++		cur = find_next_bit(&vi->vdev->allow_map, 64, prev);
++		prev = cur;
++		vnnode->vnode.node_id = cur;
++		vnnode->owner = vi;
++		vnnode->vnode.rvq = vi->rvqs[i];
++		vnnode->vnode.svq = vi->svqs[i];
++		vnnode->demo_cpu = first_vcpu_on_virtio_node(cur);
++
++		vi->rvqs[i]->node = &vnnode->vnode;
++		vi->svqs[i]->node = &vnnode->vnode;
++
++		INIT_WORK(&vnnode->info.enable_napi, napi_enable_worker);
++		netif_napi_add(dev, &vnnode->info.napi, virtnet_poll, napi_weight);
++		INIT_DELAYED_WORK(&vnnode->refill, refill_work);
++		vi->vnet_nodes[i] = vnnode;
++	}
++
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		pr_debug("virtio_net: registering device failed\n");
+ 		goto free_vqs;
+ 	}
+ 
+-	/* Last of all, set up some receive buffers. */
+-	try_fill_recv(vi, GFP_KERNEL);
++	try_fill_all_recv(vi, GFP_KERNEL);
++
+ 
+ 	/* If we didn't even get one input buffer, we're useless. */
+ 	if (vi->num == 0) {
+@@ -1121,6 +1308,12 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 
+ unregister:
+ 	unregister_netdev(dev);
++free_napi:
++	for (; i  >  0; --i) {
++		vnnode = vi->vnet_nodes[i];
++		netif_napi_del(&vnnode->info.napi);
++		kfree(vnnode);
++	}
+ free_vqs:
+ 	vdev->config->del_vqs(vdev);
+ free_stats:
+@@ -1133,32 +1326,39 @@ free:
+ static void free_unused_bufs(struct virtnet_info *vi)
+ {
+ 	void *buf;
+-	while (1) {
+-		buf = virtqueue_detach_unused_buf(vi->svq);
+-		if (!buf)
+-			break;
+-		dev_kfree_skb(buf);
+-	}
+-	while (1) {
+-		buf = virtqueue_detach_unused_buf(vi->rvq);
+-		if (!buf)
+-			break;
+-		if (vi->mergeable_rx_bufs || vi->big_packets)
+-			give_pages(vi, buf);
+-		else
++	int i;
++	struct virtqueue *svq, *rvq;
++	for (i = 0; i < vi->vdev->node_cnt; i++) {
++		svq = vi->svqs[i];
++		rvq = vi->rvqs[i];
++
++		while (1) {
++			buf = virtqueue_detach_unused_buf(svq);
++			if (!buf)
++				break;
+ 			dev_kfree_skb(buf);
+-		--vi->num;
++		}
++		while (1) {
++			buf = virtqueue_detach_unused_buf(rvq);
++			if (!buf)
++				break;
++			if (vi->mergeable_rx_bufs || vi->big_packets)
++				give_pages(vi, buf);
++			else
++				dev_kfree_skb(buf);
++			--vi->num;
++		}
+ 	}
+ 	BUG_ON(vi->num != 0);
+ }
+ 
++
+ static void remove_vq_common(struct virtnet_info *vi)
+ {
+ 	vi->vdev->config->reset(vi->vdev);
+ 
+ 	/* Free unused buffers in both send and recv, if any. */
+ 	free_unused_bufs(vi);
+-
+ 	vi->vdev->config->del_vqs(vi->vdev);
+ 
+ 	while (vi->pages)
+@@ -1172,7 +1372,8 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
+ 	unregister_netdev(vi->dev);
+ 
+ 	remove_vq_common(vi);
+-
++	kfree(vi->vqs);
++	kfree(vi->vnet_nodes);
+ 	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+ }
+@@ -1181,17 +1382,22 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
+ static int virtnet_freeze(struct virtio_device *vdev)
+ {
+ 	struct virtnet_info *vi = vdev->priv;
++	int i;
+ 
+-	virtqueue_disable_cb(vi->rvq);
+-	virtqueue_disable_cb(vi->svq);
++	for (i = 0; i < vdev->node_cnt; i++) {
++		virtqueue_disable_cb(vi->rvqs[i]);
++		virtqueue_disable_cb(vi->svqs[i]);
++	}
+ 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ))
+ 		virtqueue_disable_cb(vi->cvq);
+ 
+ 	netif_device_detach(vi->dev);
+-	cancel_delayed_work_sync(&vi->refill);
++
++	for (i = 0; i < vdev->node_cnt; i++)
++		cancel_delayed_work_sync(&vi->vnet_nodes[i]->refill);
+ 
+ 	if (netif_running(vi->dev))
+-		napi_disable(&vi->napi);
++		virtnet_napis_disable(vi);
+ 
+ 	remove_vq_common(vi);
+ 
+@@ -1208,13 +1414,10 @@ static int virtnet_restore(struct virtio_device *vdev)
+ 		return err;
+ 
+ 	if (netif_running(vi->dev))
+-		virtnet_napi_enable(vi);
++		virtnet_napis_enable(vi);
+ 
+ 	netif_device_attach(vi->dev);
+-
+-	if (!try_fill_recv(vi, GFP_KERNEL))
+-		queue_delayed_work(system_nrt_wq, &vi->refill, 0);
+-
++	try_fill_all_recv(vi, GFP_KERNEL);
+ 	return 0;
+ }
+ #endif
 -- 
 1.7.4.4
+
