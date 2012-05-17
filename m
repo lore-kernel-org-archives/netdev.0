@@ -1,64 +1,97 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/7] netfilter: xt_HMARK: modulus is expensive for hash calculation
-Date: Thu, 17 May 2012 09:16:11 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F10@saturn3.aculab.com>
-References: <1337209604-3412-4-git-send-email-pablo@netfilter.org>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH 1/1] smsc95xx: add FLAG_POINTTOPOINT flag for driver_info
+Date: Thu, 17 May 2012 16:20:47 +0800
+Message-ID: <CACVXFVPLf9+8qQKgkikexq3ao=b9fM4jOCasMWVJrbZEVSj_Tg@mail.gmail.com>
+References: <1337155302-26244-1-git-send-email-jgq516@gmail.com>
+	<CACVXFVNzmq74BKYZN1SpXYULneV2ASmniMhs4LhevPm-XgSJpg@mail.gmail.com>
+	<4FB4613B.3020603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <pablo@netfilter.org>, <netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1337209604-3412-4-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: steve.glendinning@smsc.com, gregkh@linuxfoundation.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Xiao Jiang <jgq516@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:45585 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753698Ab2EQIUs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 04:20:48 -0400
+In-Reply-To: <4FB4613B.3020603@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- 
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> Use:
-> 
-> ((u64)(HASH_VAL * HASH_SIZE)) >> 32
-> 
-> as suggested by David S. Miller.
+On Thu, May 17, 2012 at 10:23 AM, Xiao Jiang <jgq516@gmail.com> wrote:
+> Ming Lei wrote:
+>>
+>> On Wed, May 16, 2012 at 4:01 PM, =A0<jgq516@gmail.com> wrote:
+>>
+>>>
+>>> From: Xiao Jiang <jgq516@gmail.com>
+>>>
+>>> commit c26134 introduced FLAG_POINTTOPOINT flag for USB ethernet de=
+vices
+>>> which possibly use "usb%d" names, add this flag to make sure pandab=
+oard
+>>> can mount nfs with smsc95xx NIC.
+>>>
+>>
+>>
+>> Without the flag, I also can mount nfs successfully on my Pandaboard=
+=2E..
 
-That (u64) cast is very unlikely to have any effect.
-If you want a 64 bit result from the product of two
-32 bit values, you have to cast one of the 32 bit values
-prior to the multiply - as in the patch below.
+I always mount nfs in console, and not tried to mount nfs as root fs.
 
-	David
+>>
+>>
+>
+> I have pulled latest tree
+> (git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+> commit 0e93b4b304ae052ba1bc73f6d34a68556fe93429), and enable related =
+options
+> (USB_NET_SMSC95XX,
+> USB_EHCI_HCD and USB_EHCI_HCD_OMAP) with omap2plus_config, However th=
+e
+> kernel still can't mount
+> nfs, pls see below infos.
+>
+> [ =A0 =A03.114105] smsc95xx v1.0.4
+> [ =A0 =A04.533752] smsc95xx 1-1.1:1.0: *eth0*: register 'smsc95xx' at
+> usb-ehci-omap.0-1.1, smsc95xx USB 2.0 Ethernet, fe:b9:1b:07:8e:d1
+> [ =A0108.854217] VFS: Unable to mount root fs via NFS, trying floppy.
+> [ =A0108.861114] VFS: Cannot open root device "nfs" or unknown-block(=
+2,0):
+> error -6
+> [ =A0108.868713] Please append a correct "root=3D" boot option; here =
+are the
+> available partitions:
+> [ =A0108.877655] b300 =A0 =A0 =A0 =A0 7761920 mmcblk0 =A0driver: mmcb=
+lk
+> [ =A0108.883239] =A0 b301 =A0 =A0 =A0 =A0 =A0 40131 mmcblk0p1
+> 00000000-0000-0000-0000-000000000mmcblk0p1
+> [ =A0108.891662] =A0 b302 =A0 =A0 =A0 =A0 7719232 mmcblk0p2
+> 00000000-0000-0000-0000-000000000mmcblk0p2
+> [ =A0108.900146] Kernel panic - not syncing: VFS: Unable to mount roo=
+t fs on
+> unknown-block(2,0)
+>
+> BTW: I tested it with OMAP4430 ES2.2 pandaboard, the issue can be sol=
+ved
+> with apply the patch.
+>
+> Is there something which I missed? thanks.
 
-> 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->  net/netfilter/xt_HMARK.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/xt_HMARK.c b/net/netfilter/xt_HMARK.c
-> index 5817d03..0a96a43 100644
-> --- a/net/netfilter/xt_HMARK.c
-> +++ b/net/netfilter/xt_HMARK.c
-> @@ -109,7 +109,7 @@ hmark_hash(struct hmark_tuple *t, const 
-> struct xt_hmark_info *info)
->  	hash = jhash_3words(t->src, t->dst, t->uports.v32, 
-> info->hashrnd);
->  	hash = hash ^ (t->proto & info->proto_mask);
->  
-> -	return (hash % info->hmodulus) + info->hoffset;
-> +	return (((u64)hash * info->hmodulus) >> 32) + info->hoffset;
->  }
->  
->  static void
-> -- 
-> 1.7.10
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+What is your kernel parameter? Maybe you use 'usb%d' in kernel paramete=
+r for
+mounting nfs as root fs. If so, could you try 'eth%d' in kernel cmd?
+
+In fact, smsc95xx is a real LAN interface, and 'eth%d' should be prefer=
+ed name
+as described in changelog of commit
+c261344d3ce3edac781f9d3c7eabe2e96d8e8fe8(usbnet:use eth%d name for
+known ethernet devices)
 
 
+Thanks,
+--=20
+Ming Lei
