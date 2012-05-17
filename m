@@ -1,74 +1,60 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Thu, 17 May 2012 10:50:34 +0800
-Message-ID: <4FB4677A.8020402@redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>  <1337181027.10741.13.camel@oc3660625478.ibm.com>  <20120516151444.GC9934@redhat.com> <1337189525.10741.24.camel@oc3660625478.ibm.com>
+Subject: Re: [V2 PATCH 2/9] macvtap: zerocopy: fix truesize underestimation
+Date: Thu, 17 May 2012 10:59:45 +0800
+Message-ID: <4FB469A1.3040507@redhat.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034144.11782.88947.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337102809.8220.10.camel@oc3660625478.ibm.com>  <4FB3192E.4030803@redhat.com> <1337180585.10741.6.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
+Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
+	davem@davemloft.net
 To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337189525.10741.24.camel@oc3660625478.ibm.com>
+In-Reply-To: <1337180585.10741.6.camel@oc3660625478.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/17/2012 01:32 AM, Shirley Ma wrote:
-> On Wed, 2012-05-16 at 18:14 +0300, Michael S. Tsirkin wrote:
->> On Wed, May 16, 2012 at 08:10:27AM -0700, Shirley Ma wrote:
->>> On Wed, 2012-05-16 at 10:58 +0800, Jason Wang wrote:
->>>>>>    drivers/vhost/vhost.c |    1 +
->>>>>>    1 files changed, 1 insertions(+), 0 deletions(-)
->>>>>>
->>>>>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
->>>>>> index 947f00d..7b75fdf 100644
->>>>>> --- a/drivers/vhost/vhost.c
->>>>>> +++ b/drivers/vhost/vhost.c
->>>>>> @@ -1604,6 +1604,7 @@ void vhost_zerocopy_callback(void *arg)
->>>>>>           struct vhost_ubuf_ref *ubufs = ubuf->arg;
->>>>>>           struct vhost_virtqueue *vq = ubufs->vq;
->>>>>>
->>>>>> +       vhost_poll_queue(&vq->poll);
->>>>>>           /* set len = 1 to mark this desc buffers done DMA */
->>>>>>           vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
->>>>>>           kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
->>>>> Doing so, we might have redundant vhost_poll_queue(). Do you
->> know in
->>>>> which scenario there might be missing of adding and signaling
->> during
->>>>> zerocopy?
->>>> Yes, as we only do signaling and adding during tx work, if there's
->> no
->>>> tx
->>>> work when the skb were sent, we may lose the opportunity to let
->> guest
->>>> know about the completion. It's easy to be reproduced with netperf
->>>> test.
->>> The reason which host signals guest is to free guest tx buffers, if
->>> there is no tx work, then it's not necessary to signal the guest
->> unless
->>> guest runs out of memory. The pending buffers will be released
->>> virtio_net device gone.
-
-Looks like we only free the skbs in .ndo_start_xmit().
+On 05/16/2012 11:03 PM, Shirley Ma wrote:
+> On Wed, 2012-05-16 at 11:04 +0800, Jason Wang wrote:
+>>>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>>>> index bd4a70d..7cb2684 100644
+>>>> --- a/drivers/net/macvtap.c
+>>>> +++ b/drivers/net/macvtap.c
+>>>> @@ -519,6 +519,7 @@ static int zerocopy_sg_from_iovec(struct
+>> sk_buff
+>>>> *skb, const struct iovec *from,
+>>>>                   struct page *page[MAX_SKB_FRAGS];
+>>>>                   int num_pages;
+>>>>                   unsigned long base;
+>>>> +               unsigned long truesize;
+>>>>
+>>>>                   len = from->iov_len - offset;
+>>>>                   if (!len) {
+>>>> @@ -533,10 +534,11 @@ static int zerocopy_sg_from_iovec(struct
+>> sk_buff
+>>>> *skb, const struct iovec *from,
+>>>>                       (num_pages>   MAX_SKB_FRAGS -
+>>>> skb_shinfo(skb)->nr_frags))
+>>>>                           /* put_page is in skb free */
+>>>>                           return -EFAULT;
+>>>> +               truesize = size * PAGE_SIZE;
+>>> Here should be truesize = size * PAGE_SIZE - offset, right?
 >>>
->>> What's the behavior of netperf test when you hit this situation?
->>>
->>> Thanks
->>> Shirley
->> IIRC guest networking seems to be lost.
-> It seems vhost_enable_notify is missing in somewhere else?
+>> We get the whole user page, so need to account them all. Also this is
+>> aligned with skb_copy_ubufs().
+> Then this would double count the size of "first" offset left from
+> previous copy, both skb->len and truesize.
 >
 > Thanks
 > Shirley
 >
 
-The problem is we may stop the tx queue when there no enough capacity to 
-place packets, at this moment  we depends on the tx interrupt to 
-re-enable the tx queue. So if we didn't poll the vhost during callback, 
-guest may lose the tx interrupt to re-enable the tx queue which could 
-stall the whole tx queue.
+Didn't see how this affact skb->len. And for truesize, I think they are 
+different, when the offset were not zero, the data in this vector were 
+divided into two parts. First part is copied into skb directly, and the 
+second were pinned from a whole userspace page by get_user_pages_fast(), 
+so we need count the whole page to the socket limit to prevent evil 
+application.
 
 Thanks
