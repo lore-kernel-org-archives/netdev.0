@@ -1,180 +1,78 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] pktgen: Use pr_debug
-Date: Wed, 16 May 2012 20:50:41 -0700
-Message-ID: <1337226641.17726.8.camel@joe2Laptop>
+From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for
+	comms devices.
+Date: Wed, 16 May 2012 21:52:20 -0700
+Message-ID: <20120517045220.GA4772@xanatos>
+References: <cover.1337203535.git.sarah.a.sharp@linux.intel.com>
+	<20120516224528.GA25936@xanatos> <20120516232019.GA960@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: gigaset307x-common-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120516232019.GA960-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com>
+List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
+List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
+Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+Sender: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Convert printk(KERN_DEBUG to pr_debug which can
-enable dynamic debugging.
+On Wed, May 16, 2012 at 04:20:19PM -0700, Greg Kroah-Hartman wrote:
+> On Wed, May 16, 2012 at 03:45:28PM -0700, Sarah Sharp wrote:
+> > [Resending with a smaller Cc list]
+> > 
+> > Hub-initiated LPM is not good for USB communications devices.  Comms
+> > devices should be able to tell when their link can go into a lower power
+> > state, because they know when an incoming transmission is finished.
+> > Ideally, these devices would slam their links into a lower power state,
+> > using the device-initiated LPM, after finishing the last packet of their
+> > data transfer.
+> > 
+> > If we enable the idle timeouts for the parent hubs to enable
+> > hub-initiated LPM, we will get a lot of useless LPM packets on the bus
+> > as the devices reject LPM transitions when they're in the middle of
+> > receiving data.  Worse, some devices might blindly accept the
+> > hub-initiated LPM and power down their radios while they're in the
+> > middle of receiving a transmission.
+> > 
+> > The Intel Windows folks are disabling hub-initiated LPM for all USB
+> > communications devices under a xHCI USB 3.0 host.  In order to keep
+> > the Linux behavior as close as possible to Windows, we need to do the
+> > same in Linux.
+> 
+> How is the USB core on Windows determining that LPM should be turned off
+> for these devices?  Surely they aren't modifying each individual driver
+> like this is, right?  Any way we also can do this in the core?
 
-Remove embedded prefixes from the conversions as
-pr_fmt adds them.
+No, I don't think they're modifying individual drivers.  Maybe they
+placed a shim/filter driver below other drivers?
 
-Align arguments.
+Basically, I don't know the exact details of what the Windows folks are
+doing.  The recommendation from the Intel Windows team was simply to
+turn hub-initiated LPM off for "all communications devices".  Perhaps
+the Windows USB core is looking for specific USB class codes?  Or maybe
+it has some older API that lets the core know it's a communications
+device?
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/core/pktgen.c |   41 ++++++++++++++++++-----------------------
- 1 files changed, 18 insertions(+), 23 deletions(-)
+I'm not really sure we can do it in the USB core with out basically
+duplicating all the class/PID/VID matching in the communications driver.
+I think just adding a flag might be the best way.  I'm open to
+suggestions though.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 3391257..d22509b 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -891,8 +891,8 @@ static ssize_t pktgen_if_write(struct file *file,
- 		if (copy_from_user(tb, user_buffer, copy))
- 			return -EFAULT;
- 		tb[copy] = 0;
--		printk(KERN_DEBUG "pktgen: %s,%lu  buffer -:%s:-\n", name,
--		       (unsigned long)count, tb);
-+		pr_debug("%s,%lu  buffer -:%s:-\n",
-+			 name, (unsigned long)count, tb);
- 	}
- 
- 	if (!strcmp(name, "min_pkt_size")) {
-@@ -1261,8 +1261,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->cur_daddr = pkt_dev->daddr_min;
- 		}
- 		if (debug)
--			printk(KERN_DEBUG "pktgen: dst_min set to: %s\n",
--			       pkt_dev->dst_min);
-+			pr_debug("dst_min set to: %s\n", pkt_dev->dst_min);
- 		i += len;
- 		sprintf(pg_result, "OK: dst_min=%s", pkt_dev->dst_min);
- 		return count;
-@@ -1284,8 +1283,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->cur_daddr = pkt_dev->daddr_max;
- 		}
- 		if (debug)
--			printk(KERN_DEBUG "pktgen: dst_max set to: %s\n",
--			       pkt_dev->dst_max);
-+			pr_debug("dst_max set to: %s\n", pkt_dev->dst_max);
- 		i += len;
- 		sprintf(pg_result, "OK: dst_max=%s", pkt_dev->dst_max);
- 		return count;
-@@ -1307,7 +1305,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 		pkt_dev->cur_in6_daddr = pkt_dev->in6_daddr;
- 
- 		if (debug)
--			printk(KERN_DEBUG "pktgen: dst6 set to: %s\n", buf);
-+			pr_debug("dst6 set to: %s\n", buf);
- 
- 		i += len;
- 		sprintf(pg_result, "OK: dst6=%s", buf);
-@@ -1329,7 +1327,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 
- 		pkt_dev->cur_in6_daddr = pkt_dev->min_in6_daddr;
- 		if (debug)
--			printk(KERN_DEBUG "pktgen: dst6_min set to: %s\n", buf);
-+			pr_debug("dst6_min set to: %s\n", buf);
- 
- 		i += len;
- 		sprintf(pg_result, "OK: dst6_min=%s", buf);
-@@ -1350,7 +1348,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 		snprintf(buf, sizeof(buf), "%pI6c", &pkt_dev->max_in6_daddr);
- 
- 		if (debug)
--			printk(KERN_DEBUG "pktgen: dst6_max set to: %s\n", buf);
-+			pr_debug("dst6_max set to: %s\n", buf);
- 
- 		i += len;
- 		sprintf(pg_result, "OK: dst6_max=%s", buf);
-@@ -1373,7 +1371,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 		pkt_dev->cur_in6_saddr = pkt_dev->in6_saddr;
- 
- 		if (debug)
--			printk(KERN_DEBUG "pktgen: src6 set to: %s\n", buf);
-+			pr_debug("src6 set to: %s\n", buf);
- 
- 		i += len;
- 		sprintf(pg_result, "OK: src6=%s", buf);
-@@ -1394,8 +1392,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->cur_saddr = pkt_dev->saddr_min;
- 		}
- 		if (debug)
--			printk(KERN_DEBUG "pktgen: src_min set to: %s\n",
--			       pkt_dev->src_min);
-+			pr_debug("src_min set to: %s\n", pkt_dev->src_min);
- 		i += len;
- 		sprintf(pg_result, "OK: src_min=%s", pkt_dev->src_min);
- 		return count;
-@@ -1415,8 +1412,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->cur_saddr = pkt_dev->saddr_max;
- 		}
- 		if (debug)
--			printk(KERN_DEBUG "pktgen: src_max set to: %s\n",
--			       pkt_dev->src_max);
-+			pr_debug("src_max set to: %s\n", pkt_dev->src_max);
- 		i += len;
- 		sprintf(pg_result, "OK: src_max=%s", pkt_dev->src_max);
- 		return count;
-@@ -1527,7 +1523,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->svlan_id = 0xffff;
- 
- 			if (debug)
--				printk(KERN_DEBUG "pktgen: VLAN/SVLAN auto turned off\n");
-+				pr_debug("VLAN/SVLAN auto turned off\n");
- 		}
- 		return count;
- 	}
-@@ -1542,10 +1538,10 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->vlan_id = value;  /* turn on VLAN */
- 
- 			if (debug)
--				printk(KERN_DEBUG "pktgen: VLAN turned on\n");
-+				pr_debug("VLAN turned on\n");
- 
- 			if (debug && pkt_dev->nr_labels)
--				printk(KERN_DEBUG "pktgen: MPLS auto turned off\n");
-+				pr_debug("MPLS auto turned off\n");
- 
- 			pkt_dev->nr_labels = 0;    /* turn off MPLS */
- 			sprintf(pg_result, "OK: vlan_id=%u", pkt_dev->vlan_id);
-@@ -1554,7 +1550,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->svlan_id = 0xffff;
- 
- 			if (debug)
--				printk(KERN_DEBUG "pktgen: VLAN/SVLAN turned off\n");
-+				pr_debug("VLAN/SVLAN turned off\n");
- 		}
- 		return count;
- 	}
-@@ -1599,10 +1595,10 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->svlan_id = value;  /* turn on SVLAN */
- 
- 			if (debug)
--				printk(KERN_DEBUG "pktgen: SVLAN turned on\n");
-+				pr_debug("SVLAN turned on\n");
- 
- 			if (debug && pkt_dev->nr_labels)
--				printk(KERN_DEBUG "pktgen: MPLS auto turned off\n");
-+				pr_debug("MPLS auto turned off\n");
- 
- 			pkt_dev->nr_labels = 0;    /* turn off MPLS */
- 			sprintf(pg_result, "OK: svlan_id=%u", pkt_dev->svlan_id);
-@@ -1611,7 +1607,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			pkt_dev->svlan_id = 0xffff;
- 
- 			if (debug)
--				printk(KERN_DEBUG "pktgen: VLAN/SVLAN turned off\n");
-+				pr_debug("VLAN/SVLAN turned off\n");
- 		}
- 		return count;
- 	}
-@@ -1779,8 +1775,7 @@ static ssize_t pktgen_thread_write(struct file *file,
- 	i += len;
- 
- 	if (debug)
--		printk(KERN_DEBUG "pktgen: t=%s, count=%lu\n",
--		       name, (unsigned long)count);
-+		pr_debug("t=%s, count=%lu\n", name, (unsigned long)count);
- 
- 	if (!t) {
- 		pr_err("ERROR: No thread\n");
+> Or, turn it around the other way, and only enable it if we know it's
+> safe to do so, in each driver, but I guess that would be even messier.
+
+Yeah, I think it would be messier.
+
+Sarah Sharp
