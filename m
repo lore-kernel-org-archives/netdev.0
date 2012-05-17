@@ -1,45 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
-Date: Thu, 17 May 2012 16:14:09 -0400 (EDT)
-Message-ID: <20120517.161409.1978274725713298734.davem@davemloft.net>
-References: <1337266285-8102-1-git-send-email-mgorman@suse.de>
-	<1337266285-8102-2-git-send-email-mgorman@suse.de>
+Subject: Re: [PATCH net-next] net/mlx4_en: num cores tx rings for every UP
+Date: Thu, 17 May 2012 16:19:03 -0400 (EDT)
+Message-ID: <20120517.161903.1659292198324734622.davem@davemloft.net>
+References: <1337252290-20444-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
-        linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Trond.Myklebust@netapp.com, neilb@suse.de, hch@infradead.org,
-        a.p.zijlstra@chello.nl, michaelc@cs.wisc.edu, emunson@mgebm.net
-To: mgorman@suse.de
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1337266285-8102-2-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, oren@mellanox.com,
+	john.r.fastabend@intel.com, liranl@mellanox.com
+To: amirv@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34728 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757656Ab2EQUTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 16:19:14 -0400
+In-Reply-To: <1337252290-20444-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mel Gorman <mgorman@suse.de>
-Date: Thu, 17 May 2012 15:51:14 +0100
+From: Amir Vadai <amirv@mellanox.com>
+Date: Thu, 17 May 2012 13:58:10 +0300
 
-> It could happen that all !SOCK_MEMALLOC sockets have buffered so
-> much data that we're over the global rmem limit. This will prevent
-> SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
-> from running, which is needed to reduce the buffered data.
+> Change the TX ring scheme such that the number of rings for untagged packets
+> and for tagged packets (per each of the vlan priorities) is the same, unlike
+> the current situation where for tagged traffic there's one ring per priority
+> and for untagged rings as the number of core.
 > 
-> Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
-> Once this change it applied, it is important that sockets that set
-> SOCK_MEMALLOC do not clear the flag until the socket is being torn down.
-> If this happens, a warning is generated and the tokens reclaimed to
-> avoid accounting errors until the bug is fixed.
+> Queue selection is done as follows:
 > 
-> [davem@davemloft.net: Warning about clearing SOCK_MEMALLOC]
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
+> If the mqprio qdisc is operates on the interface, such that the core networking
+> code invoked the device setup_tc ndo callback, a mapping of skb->priority =>
+> queue set is forced - for both, tagged and untagged traffic.
+> 
+> Else, the egress map skb->priority =>  User priority is used for tagged traffic, and
+> all untagged traffic is sent through tx rings of UP 0.
+> 
+> The patch follows the convergence of discussing that issue with John Fastabend
+> over this thread http://comments.gmane.org/gmane.linux.network/229877
+> 
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Liran Liss <liranl@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-Acked-by: David S. Miller <davem@davemloft.net>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, thanks.
