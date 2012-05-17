@@ -1,30 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFC PATCH net-next] hp100: delete VG/AnyLAN hp100
-Date: Fri, 18 May 2012 00:28:43 +0200
-Message-ID: <20120517222843.GA30680@electric-eye.fr.zoreil.com>
-References: <1337272841-25931-1-git-send-email-paul.gortmaker@windriver.com> <1337272841-25931-3-git-send-email-paul.gortmaker@windriver.com> <4FB52C99.6010303@windriver.com> <20120517212039.GC27789@windriver.com> <1337292547.8872.20.camel@joe2Laptop>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Thu, 17 May 2012 18:44:30 -0400 (EDT)
+Message-ID: <20120517.184430.2079213200908401641.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	linux-kernel@vger.kernel.org, JBottomley@parallels.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Joel Soete <soete.joel@scarlet.be>
-To: Joe Perches <joe@perches.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1337292547.8872.20.camel@joe2Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches <joe@perches.com> :
-> On Thu, 2012-05-17 at 17:20 -0400, Paul Gortmaker wrote:
-> > [Re: [PATCH 2/5] drivers/net: delete all code/drivers depending on CONFIG_MCA
-> 
-> If we're removing really old and unused stuff,
-> how about the VG/AnyLAN driver too?
 
-Joel Soete appeared to actively use a PCI one with recent kernels back
-in 2007.
+1) Thanks to Willy Tarreau and Eric Dumazet, we've unlocked a bug that's
+   been present in do_tcp_sendpages() since that function was written in
+   2002.
 
--- 
-Ueimor
+   When we block to wait for memory we have to unconditionally try and
+   push out pending TCP data, otherwise we can block for an
+   unreasonably long amount of time.
+
+2) Fix deadlock in e1000, fixes kernel bugzilla 43132
+
+   From Tushar Dave.
+
+Please pull, thanks a lot!
+
+The following changes since commit 1be5f0b7575e090fd100a98b303860879b5800de:
+
+  Merge branch 'fixes' of git://git.infradead.org/users/vkoul/slave-dma (2012-05-17 09:57:13 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net master
+
+for you to fetch changes up to 8ce6909f77ba1b7bcdea65cc2388fd1742b6d669:
+
+  e1000: Prevent reset task killing itself. (2012-05-17 18:32:41 -0400)
+
+----------------------------------------------------------------
+Tushar Dave (1):
+      e1000: Prevent reset task killing itself.
+
+Willy Tarreau (1):
+      tcp: do_tcp_sendpages() must try to push data out on oom conditions
+
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    6 +++++-
+ net/ipv4/tcp.c                                |    3 +--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
