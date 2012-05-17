@@ -1,23 +1,29 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO packets'
-Date: Thu, 17 May 2012 23:57:59 +0200
-Message-ID: <20120517215759.GR14498@1wt.eu>
-References: <20120517121800.GA18052@1wt.eu> <1337287279.3403.44.camel@edumazet-glaptop> <20120517211414.GP14498@1wt.eu> <1337290822.3403.47.camel@edumazet-glaptop> <1337291410.3403.52.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
+ packets'
+Date: Fri, 18 May 2012 00:01:59 +0200
+Message-ID: <1337292119.3403.60.camel@edumazet-glaptop>
+References: <20120517121800.GA18052@1wt.eu>
+	 <1337287279.3403.44.camel@edumazet-glaptop> <20120517211414.GP14498@1wt.eu>
+	 <1337290822.3403.47.camel@edumazet-glaptop>
+	 <1337291410.3403.52.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2350 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965954Ab2EQV6C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 17:58:02 -0400
-Content-Disposition: inline
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:49104 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965954Ab2EQWCD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 18:02:03 -0400
+Received: by wgbdr13 with SMTP id dr13so2166065wgb.1
+        for <netdev@vger.kernel.org>; Thu, 17 May 2012 15:02:02 -0700 (PDT)
 In-Reply-To: <1337291410.3403.52.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 17, 2012 at 11:50:10PM +0200, Eric Dumazet wrote:
+On Thu, 2012-05-17 at 23:50 +0200, Eric Dumazet wrote:
 > On Thu, 2012-05-17 at 23:40 +0200, Eric Dumazet wrote:
 > 
 > > I dont understand why we should tcp_push() if we sent 0 bytes in this
@@ -44,8 +50,16 @@ On Thu, May 17, 2012 at 11:50:10PM +0200, Eric Dumazet wrote:
 > 
 > 	if (!(flags & MSG_SENDPAGE_NOTLAST))
 > 		tcp_push(...);
+> 
+> 
 
-Just tested, and it unfortunately does not fix the issue :-(
+Its more tricky than that.
 
-I'll see if I can log errors from lower layers.
-Willy
+If we return 0 from do_tcp_sendpages(), __splice_from_pipe() wont call
+us again, but we need to flush().  (This bug is indeed very old)
+
+So maybe use :
+
+if ((copied && !(flags & MSG_SENDPAGE_NOTLAST)) ||
+    !copied)
+	tcp_push(...);
