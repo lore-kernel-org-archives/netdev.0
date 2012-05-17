@@ -1,80 +1,37 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2] drop_monitor: convert to modular building
-Date: Thu, 17 May 2012 19:14:05 +0100
-Message-ID: <1337278445.2496.17.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
-	 <1337276940-5025-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
+ packets'
+Date: Thu, 17 May 2012 19:38:25 +0100
+Message-ID: <1337279905.2496.23.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120517121800.GA18052@1wt.eu> <20120517150157.GA19274@1wt.eu>
+	 <1337269380.3403.10.camel@edumazet-glaptop> <20120517155621.GK14498@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:10731 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:30687 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754980Ab2EQSOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 14:14:10 -0400
-In-Reply-To: <1337276940-5025-1-git-send-email-nhorman@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1762310Ab2EQSic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 14:38:32 -0400
+In-Reply-To: <20120517155621.GK14498@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-17 at 13:49 -0400, Neil Horman wrote:
-> When I first wrote drop monitor I wrote it to just build monolithically.  There
-> is no reason it can't be built modularly as well, so lets give it that
-> flexibiity.
-> 
-> I've tested this by building it as both a module and monolithically, and it
-> seems to work quite well
-> 
-> Change notes:
-> 
-> v2)
-> * fixed for_each_present_cpu loops to be more correct as per Eric D.
-> * Converted exit path failures to BUG_ON as per Ben H.
-
-Sorry I didn't pick up on this the first time:
-
+On Thu, 2012-05-17 at 17:56 +0200, Willy Tarreau wrote:
 [...]
-> -late_initcall(init_net_drop_monitor);
-> +static void exit_net_drop_monitor(void)
-> +{
-> +	struct per_cpu_dm_data *data;
-> +	int cpu;
-> +
-> +	BUG_ON(unregister_netdevice_notifier(&dropmon_net_notifier));
-> +
-> +	/*
-> +	 * Because of the module_get/put we do in the trace state change path
-> +	 * we are guarnateed not to have any current users when we get here
-> +	 * all we need to do is make sure that we don't have any running timers
-> +	 * or pending schedule calls
-> +	 */
-> +
-> +	for_each_possible_cpu(cpu) {
-> +		data = &per_cpu(dm_cpu_data, cpu);
-> +		del_timer(&data->send_timer);
+> The NIC does not support TSO but I've seen an alternate driver for this
+> NIC which pretends to do TSO and in fact builds header frags so that the
+> NIC is able to send all frames at once. I think it's already what GSO is
+> doing but I'm wondering whether it would be possible to get more speed
+> by doing this than by relying on GSO to (possibly) split the frags earlier.
+[...]
 
-Doesn't this need to be del_timer_sync()?
+Yes, GSO has some overhead for skb allocation and additional function
+calls that you can avoid by doing 'TSO' in the driver.
 
 Ben.
-
-> +		cancel_work_sync(&data->dm_alert_work);
-> +		/*
-> +		 * At this point, we should have exclusive access
-> +		 * to this struct and can free the skb inside it
-> +		 */
-> +		kfree_skb(data->skb);
-> +	}
-> +
-> +	BUG_ON(genl_unregister_family(&net_drop_monitor_family));
-> +}
-> +
-> +module_init(init_net_drop_monitor);
-> +module_exit(exit_net_drop_monitor);
-> +
-> +MODULE_LICENSE("GPL v2");
-> +MODULE_AUTHOR("Neil Horman <nhorman@tuxdriver.com>");
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
