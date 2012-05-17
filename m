@@ -1,70 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 3/4] e1000: look in the page and not in skb->data for
- the last byte
-Date: Thu, 17 May 2012 04:50:17 -0700
-Message-ID: <1337255417.2714.49.camel@jtkirshe-mobl>
+Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 17 May 2012 04:51:18 -0700
+Message-ID: <1337255478.2714.50.camel@jtkirshe-mobl>
 References: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1337254070-32500-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <4FB4E34F.2050004@linutronix.de>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-LJfKNAu6IVVgjZclgdXV"
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+	protocol="application/pgp-signature"; boundary="=-qcI0xhrZRK9z6kVNtBy+"
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:46491 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:64121 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761468Ab2EQLuT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 07:50:19 -0400
-In-Reply-To: <4FB4E34F.2050004@linutronix.de>
+	id S1761630Ab2EQLvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2012 07:51:20 -0400
+In-Reply-To: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-LJfKNAu6IVVgjZclgdXV
+--=-qcI0xhrZRK9z6kVNtBy+
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2012-05-17 at 13:38 +0200, Sebastian Andrzej Siewior wrote:
-> On 05/17/2012 01:27 PM, Jeff Kirsher wrote:
-> > diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/ne=
-t/ethernet/intel/e1000/e1000_main.c
-> > index fefbf4d..6ac80c8 100644
-> > --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-> > +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> > @@ -4066,7 +4066,11 @@ static bool e1000_clean_jumbo_rx_irq(struct e100=
-0_adapter *adapter,
-> >   		/* errors is only valid for DD + EOP descriptors */
-> >   		if (unlikely((status&  E1000_RXD_STAT_EOP)&&
-> >   		(rx_desc->errors&  E1000_RXD_ERR_FRAME_ERR_MASK))) {
-> > -			u8 last_byte =3D *(skb->data + length - 1);
-> > +			u8 *mapped;
-> > +			u8 last_byte;
-> > +
-> > +			mapped =3D kmap_atomic(buffer_info->page);
-> > +			last_byte =3D *(mapped + length - 1);
-> >   			if (TBI_ACCEPT(hw, status, rx_desc->errors, length,
-> >   				       last_byte)) {
-> >   				spin_lock_irqsave(&adapter->stats_lock,
+On Thu, 2012-05-17 at 04:27 -0700, Jeff Kirsher wrote:
+> This series of patches contains updates for e1000, e1000e and igb.
 >=20
-> This is not what I've sent. My original patch [0] hat a unmap as well.=
-=20
-> One comment was, that kmap_atomic() is too much overhead because the=20
-> page can never be highmem. So I changed it to page_address() [1].
+> The following are changes since commit dc6b9b78234fecdc6d2ca5e16291857182=
+02bcf5:
+>   net: include/net/sock.h cleanup
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 >=20
-> [0] http://permalink.gmane.org/gmane.linux.drivers.e1000.devel/10008
-> [1] http://permalink.gmane.org/gmane.linux.drivers.e1000.devel/10012
+> Bruce Allan (1):
+>   e1000e: fix typo in definition of E1000_CTRL_EXT_FORCE_SMBUS
 >=20
-> Sebastian
+> Matthew Vick (1):
+>   igb: Disable the BMC-to-OS Watchdog Enable bit for DMAC.
+>=20
+> Sebastian Andrzej Siewior (2):
+>   e1000: remove workaround for Errata 23 from jumbo alloc
+>   e1000: look in the page and not in skb->data for the last byte
+>=20
+>  drivers/net/ethernet/intel/e1000/e1000_main.c  |   30 ++++--------------=
+------
+>  drivers/net/ethernet/intel/e1000e/defines.h    |    2 +-
+>  drivers/net/ethernet/intel/igb/e1000_defines.h |    2 +
+>  drivers/net/ethernet/intel/igb/igb_main.c      |    3 ++
+>  4 files changed, 11 insertions(+), 26 deletions(-)
+>=20
 
-Your correct, I apologize.  This was my fault, I applied your v1 of the
-patch and then realized there was a v2.
+v2 of the series will be coming.
 
-I will re-send the series with the correct patch.
-
---=-LJfKNAu6IVVgjZclgdXV
+--=-qcI0xhrZRK9z6kVNtBy+
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -72,19 +60,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJPtOX5AAoJEOVv75VaS+3OADcP/ir2P85z3qFbLHpVkcZltXXN
-gV2O5D2Zk4eXmAMqMa8MLIZZoho/1nSQDM1vIeUIxDUYTiicwp40YfrKzYlVdPMp
-YKBQV8zbcXvT5+9mxIllU79zUeeSZZicGc4YHj/0n3zBm3IpBqNfxqaZJBoU03VM
-7f1+d7K+D8Tf1lFtih5deetipJwl1zb10wvKVQYHW6vGhXGWtzBVDSaSjwBbPa+f
-8qPbjpN2CMATk4owQOuSbd8GCwOjX5fuJqQDgL5+p5NMwdhQmbl78kLPNjTiiSbm
-2wHmc5vPQl0EAJDjsQYwGVW21FjRcjg0/wUbPzd8H/vD2veTDWr7dsmsr0RiNcJk
-5FyPqpsp9eJkjP9tjNlcJhEhOyuFVXHHH95EBv3VXyRg9Z0Bhu745Wyb41x3I9Ji
-+gwOtPCSxualWYVXIroU9vaH48vhJsmwxgPHc+7vYAWsOAF3Y/tBVH/yWE56sriw
-IdFkcTdzwg7AC8+JiJMkQL3ICOG1SkgYOTxEFLS+mVOUFXLsT9CCUxEhzewChGeD
-bGib4FNLGp4BMR3qGH0eUnEaNom7Kb2haC90OBU+diW9+RUVF7eC7AIP3uE3Az5L
-J7Vh4hunP7otPRGn/qYk6O+ujD2XNvm/9NbK78AycGFRRg7QjUuRucZyakZ9zcvI
-PrY0VSw/cnx8dnF3kDfg
-=ITem
+iQIcBAABCgAGBQJPtOY2AAoJEOVv75VaS+3OgHsP/3iTfdN3CFTCC17NtD8bS/j1
+y+isvNDtyKEMUTQweNbhr9R/fM9tnA678i/zChMt+Bkt05VGMQS+EWbpr+oEpuCR
+Xpfwy3nZQVHM+IkbLHgd3UDTug21X4Q8b9j0pG0+rD0aJx/GyA/QcFTMMb4EVmlH
+jIeadTK0Wq3AXdCVDMUfZzGcyYb55HHlpear6Y0CmUHPUkOxoE/Ze/kcAKri54nN
+pdtQuWjhtZ4QAWL373l2qptc6cmFI6dhvf6t33Wly8ATRs/FMVtby9Tra1xwVhh/
+6cnEtZafGVGSk/Ar4BPTQWtn/MxcrqPrK6wIyg4oqjWGsQLEF2s/ZjIX1Pm7LQqA
++ZEKHbKbPWH32n5yMVvWbrSvwlHiOPmIKdtreir2khtQdknfpE/4myMP9iO1+G1L
+CfVl57A2SmKUbzznW4HBLIKWPVd1usQTh2zr86RgL/uoGAOFS2DncZNb8NJFHgUI
+LLHzYIqUaKvfF+64UlQrYVx1Zv1qBWhkOX11G0ZpnGbXy3k6GnzqJ9iVq1M6cK7Y
+KYZctJlhxgYJY5zjpxNsv7IW+TWQYMJ0lYkcradhdfsL5qgB45TRsObhZOtHfBoQ
+QTV/anrxFJa14fwqQIlOJVpJsDpFHVlEjfHliwIXfIl6S+6fBdMWil47ESUtmQqE
+Vz8Cr4f7lI4bKTuelkLL
+=JGC9
 -----END PGP SIGNATURE-----
 
---=-LJfKNAu6IVVgjZclgdXV--
+--=-qcI0xhrZRK9z6kVNtBy+--
