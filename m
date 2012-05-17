@@ -1,135 +1,222 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 00/12] Swap-over-NFS without deadlocking V5
-Date: Thu, 17 May 2012 15:51:13 +0100
-Message-ID: <1337266285-8102-1-git-send-email-mgorman@suse.de>
+Subject: [PATCH 13/17] netvm: Set PF_MEMALLOC as appropriate during SKB processing
+Date: Thu, 17 May 2012 15:50:27 +0100
+Message-ID: <1337266231-8031-14-git-send-email-mgorman@suse.de>
+References: <1337266231-8031-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
-	Linux-NFS <linux-nfs@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Neil Brown <neilb@suse.de>,
-	Christoph Hellwig <hch@infradead.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Mel Gorman <mgorman@suse.de>
+	Eric B Munson <emunson@mgebm.net>, Mel Gorman <mgorman@suse.de>
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1337266231-8031-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Changelog since V4
-  o Catch if SOCK_MEMALLOC flag is cleared with rmem tokens	(davem)
+In order to make sure pfmemalloc packets receive all memory
+needed to proceed, ensure processing of pfmemalloc SKBs happens
+under PF_MEMALLOC. This is limited to a subset of protocols that
+are expected to be used for writing to swap. Taps are not allowed to
+use PF_MEMALLOC as these are expected to communicate with userspace
+processes which could be paged out.
 
-Changelog since V3
-  o Rebase to 3.4-rc5
-  o kmap pages for writing to swap				(akpm)
-  o Move forward declaration to reduce chance of duplication	(akpm)
+[a.p.zijlstra@chello.nl: Ideas taken from various patches]
+[jslaby@suse.cz: Lock imbalance fix]
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ include/net/sock.h |    5 +++++
+ net/core/dev.c     |   53 ++++++++++++++++++++++++++++++++++++++++++++++------
+ net/core/sock.c    |   16 ++++++++++++++++
+ 3 files changed, 68 insertions(+), 6 deletions(-)
 
-Changelog since V2
-  o Nothing significant, just rebases. A radix tree lookup is replaced with
-    a linear search would be the biggest rebase artifact
-
-This patch series is based on top of "Swap-over-NBD without deadlocking v11"
-as it depends on the same reservation of PF_MEMALLOC reserves logic.
-
-When a user or administrator requires swap for their application, they
-create a swap partition and file, format it with mkswap and activate it with
-swapon. In diskless systems this is not an option so if swap if required
-then swapping over the network is considered.  The two likely scenarios
-are when blade servers are used as part of a cluster where the form factor
-or maintenance costs do not allow the use of disks and thin clients.
-
-The Linux Terminal Server Project recommends the use of the Network
-Block Device (NBD) for swap but this is not always an option.  There is
-no guarantee that the network attached storage (NAS) device is running
-Linux or supports NBD. However, it is likely that it supports NFS so there
-are users that want support for swapping over NFS despite any performance
-concern. Some distributions currently carry patches that support swapping
-over NFS but it would be preferable to support it in the mainline kernel.
-
-Patch 1 avoids a stream-specific deadlock that potentially affects TCP.
-
-Patch 2 is a small modification to SELinux to avoid using PFMEMALLOC
-	reserves.
-
-Patch 3 adds three helpers for filesystems to handle swap cache pages.
-	For example, page_file_mapping() returns page->mapping for
-	file-backed pages and the address_space of the underlying
-	swap file for swap cache pages.
-
-Patch 4 adds two address_space_operations to allow a filesystem
-	to pin all metadata relevant to a swapfile in memory. Upon
-	successful activation, the swapfile is marked SWP_FILE and
-	the address space operation ->direct_IO is used for writing
-	and ->readpage for reading in swap pages.
-
-Patch 5 notes that patch 3 is bolting
-	filesystem-specific-swapfile-support onto the side and that
-	the default handlers have different information to what
-	is available to the filesystem. This patch refactors the
-	code so that there are generic handlers for each of the new
-	address_space operations.
-
-Patch 6 adds an API to allow a vector of kernel addresses to be
-	translated to struct pages and pinned for IO.
-
-Patch 7 adds support for using highmem pages for swap by kmapping
-	the pages before calling the direct_IO handler.
-
-Patch 8 updates NFS to use the helpers from patch 3 where necessary.
-
-Patch 9 avoids setting PF_private on PG_swapcache pages within NFS.
-
-Patch 10 implements the new swapfile-related address_space operations
-	for NFS and teaches the direct IO handler how to manage
-	kernel addresses.
-
-Patch 11 prevents page allocator recursions in NFS by using GFP_NOIO
-	where appropriate.
-
-Patch 12 fixes a NULL pointer dereference that occurs when using
-	swap-over-NFS.
-
-With the patches applied, it is possible to mount a swapfile that is on an
-NFS filesystem. Swap performance is not great with a swap stress test taking
-roughly twice as long to complete than if the swap device was backed by NBD.
-
- Documentation/filesystems/Locking |   13 ++++
- Documentation/filesystems/vfs.txt |   12 +++
- fs/nfs/Kconfig                    |    8 ++
- fs/nfs/direct.c                   |   94 ++++++++++++++++--------
- fs/nfs/file.c                     |   28 +++++--
- fs/nfs/inode.c                    |    6 ++
- fs/nfs/internal.h                 |    7 +-
- fs/nfs/pagelist.c                 |    6 +-
- fs/nfs/read.c                     |    6 +-
- fs/nfs/write.c                    |   96 +++++++++++++++---------
- include/linux/blk_types.h         |    2 +
- include/linux/fs.h                |    8 ++
- include/linux/highmem.h           |    7 ++
- include/linux/mm.h                |   29 ++++++++
- include/linux/nfs_fs.h            |    4 +-
- include/linux/pagemap.h           |    5 ++
- include/linux/sunrpc/xprt.h       |    3 +
- include/linux/swap.h              |    8 ++
- include/net/sock.h                |    7 +-
- mm/highmem.c                      |   12 +++
- mm/memory.c                       |   52 +++++++++++++
- mm/page_io.c                      |  145 +++++++++++++++++++++++++++++++++++++
- mm/swap_state.c                   |    2 +-
- mm/swapfile.c                     |  141 ++++++++++++++----------------------
- net/caif/caif_socket.c            |    2 +-
- net/core/sock.c                   |   14 +++-
- net/ipv4/tcp_input.c              |   12 +--
- net/sctp/ulpevent.c               |    2 +-
- net/sunrpc/Kconfig                |    5 ++
- net/sunrpc/clnt.c                 |    2 +
- net/sunrpc/sched.c                |    7 +-
- net/sunrpc/xprtsock.c             |   53 ++++++++++++++
- security/selinux/avc.c            |    2 +-
- 33 files changed, 613 insertions(+), 187 deletions(-)
-
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 371c6ec..7cb714c 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -729,8 +729,13 @@ static inline __must_check int sk_add_backlog(struct sock *sk, struct sk_buff *s
+ 	return 0;
+ }
+ 
++extern int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb);
++
+ static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ {
++	if (sk_memalloc_socks() && skb_pfmemalloc(skb))
++		return __sk_backlog_rcv(sk, skb);
++
+ 	return sk->sk_backlog_rcv(sk, skb);
+ }
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 99e1d75..bb93e7d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3147,6 +3147,23 @@ void netdev_rx_handler_unregister(struct net_device *dev)
+ }
+ EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
+ 
++/*
++ * Limit the use of PFMEMALLOC reserves to those protocols that implement
++ * the special handling of PFMEMALLOC skbs.
++ */
++static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
++{
++	switch (skb->protocol) {
++	case __constant_htons(ETH_P_ARP):
++	case __constant_htons(ETH_P_IP):
++	case __constant_htons(ETH_P_IPV6):
++	case __constant_htons(ETH_P_8021Q):
++		return true;
++	default:
++		return false;
++	}
++}
++
+ static int __netif_receive_skb(struct sk_buff *skb)
+ {
+ 	struct packet_type *ptype, *pt_prev;
+@@ -3156,14 +3173,27 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	bool deliver_exact = false;
+ 	int ret = NET_RX_DROP;
+ 	__be16 type;
++	unsigned long pflags = current->flags;
+ 
+ 	net_timestamp_check(!netdev_tstamp_prequeue, skb);
+ 
+ 	trace_netif_receive_skb(skb);
+ 
++	/*
++	 * PFMEMALLOC skbs are special, they should
++	 * - be delivered to SOCK_MEMALLOC sockets only
++	 * - stay away from userspace
++	 * - have bounded memory usage
++	 *
++	 * Use PF_MEMALLOC as this saves us from propagating the allocation
++	 * context down to all allocation sites.
++	 */
++	if (sk_memalloc_socks() && skb_pfmemalloc(skb))
++		current->flags |= PF_MEMALLOC;
++
+ 	/* if we've gotten here through NAPI, check netpoll */
+ 	if (netpoll_receive_skb(skb))
+-		return NET_RX_DROP;
++		goto out;
+ 
+ 	if (!skb->skb_iif)
+ 		skb->skb_iif = skb->dev->ifindex;
+@@ -3184,7 +3214,7 @@ another_round:
+ 	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
+ 		skb = vlan_untag(skb);
+ 		if (unlikely(!skb))
+-			goto out;
++			goto unlock;
+ 	}
+ 
+ #ifdef CONFIG_NET_CLS_ACT
+@@ -3194,6 +3224,9 @@ another_round:
+ 	}
+ #endif
+ 
++	if (sk_memalloc_socks() && skb_pfmemalloc(skb))
++		goto skip_taps;
++
+ 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+ 		if (!ptype->dev || ptype->dev == skb->dev) {
+ 			if (pt_prev)
+@@ -3202,13 +3235,18 @@ another_round:
+ 		}
+ 	}
+ 
++skip_taps:
+ #ifdef CONFIG_NET_CLS_ACT
+ 	skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
+ 	if (!skb)
+-		goto out;
++		goto unlock;
+ ncls:
+ #endif
+ 
++	if (sk_memalloc_socks() && skb_pfmemalloc(skb)
++				&& !skb_pfmemalloc_protocol(skb))
++		goto drop;
++
+ 	rx_handler = rcu_dereference(skb->dev->rx_handler);
+ 	if (vlan_tx_tag_present(skb)) {
+ 		if (pt_prev) {
+@@ -3218,7 +3256,7 @@ ncls:
+ 		if (vlan_do_receive(&skb, !rx_handler))
+ 			goto another_round;
+ 		else if (unlikely(!skb))
+-			goto out;
++			goto unlock;
+ 	}
+ 
+ 	if (rx_handler) {
+@@ -3228,7 +3266,7 @@ ncls:
+ 		}
+ 		switch (rx_handler(&skb)) {
+ 		case RX_HANDLER_CONSUMED:
+-			goto out;
++			goto unlock;
+ 		case RX_HANDLER_ANOTHER:
+ 			goto another_round;
+ 		case RX_HANDLER_EXACT:
+@@ -3258,6 +3296,7 @@ ncls:
+ 	if (pt_prev) {
+ 		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ 	} else {
++drop:
+ 		atomic_long_inc(&skb->dev->rx_dropped);
+ 		kfree_skb(skb);
+ 		/* Jamal, now you will not able to escape explaining
+@@ -3266,8 +3305,10 @@ ncls:
+ 		ret = NET_RX_DROP;
+ 	}
+ 
+-out:
++unlock:
+ 	rcu_read_unlock();
++out:
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ 	return ret;
+ }
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 943dd6d..906f6f4 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -292,6 +292,22 @@ void sk_clear_memalloc(struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(sk_clear_memalloc);
+ 
++int __sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	int ret;
++	unsigned long pflags = current->flags;
++
++	/* these should have been dropped before queueing */
++	BUG_ON(!sock_flag(sk, SOCK_MEMALLOC));
++
++	current->flags |= PF_MEMALLOC;
++	ret = sk->sk_backlog_rcv(sk, skb);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
++
++	return ret;
++}
++EXPORT_SYMBOL(__sk_backlog_rcv);
++
+ #if defined(CONFIG_CGROUPS)
+ #if !defined(CONFIG_NET_CLS_CGROUP)
+ int net_cls_subsys_id = -1;
 -- 
 1.7.9.2
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
