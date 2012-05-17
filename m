@@ -1,40 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH net-next] hp100: delete VG/AnyLAN hp100
-Date: Thu, 17 May 2012 15:50:24 -0700
-Message-ID: <1337295024.8872.33.camel@joe2Laptop>
-References: <1337272841-25931-1-git-send-email-paul.gortmaker@windriver.com>
-	 <1337272841-25931-3-git-send-email-paul.gortmaker@windriver.com>
-	 <4FB52C99.6010303@windriver.com> <20120517212039.GC27789@windriver.com>
-	 <1337292547.8872.20.camel@joe2Laptop>
-	 <20120517222843.GA30680@electric-eye.fr.zoreil.com>
+From: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Subject: [PATCH] e1000: Reset rx ring index on receive overrun
+Date: Fri, 18 May 2012 01:01:40 +0200
+Message-ID: <20120517230140.GZ683@type.famille.thibault.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	linux-kernel@vger.kernel.org, JBottomley@parallels.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Joel Soete <soete.joel@scarlet.be>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Joel Soete <soete.joel@scarlet.be>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Dean Nelson <dnelson@redhat.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120517222843.GA30680@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-05-18 at 00:28 +0200, Francois Romieu wrote:
-> Joe Perches <joe@perches.com> :
-> > On Thu, 2012-05-17 at 17:20 -0400, Paul Gortmaker wrote:
-> > > [Re: [PATCH 2/5] drivers/net: delete all code/drivers depending on CONFIG_MCA
-> > 
-> > If we're removing really old and unused stuff,
-> > how about the VG/AnyLAN driver too?
-> 
-> Joel Soete appeared to actively use a PCI one with recent kernels back
-> in 2007.
+At high traffic rate, the rx ring may get completely filled before we
+manage to consume it.  After it is filled, the kernel and device indexes
+are not synchronized any more, so we have to reset them, otherwise the
+kernel will be stuck waiting for the wrong slot to be filled.
 
-I saw people using TR adapters with Linux as of 2008/9.
+Signed-off-by: Samuel Thibault <samuel.thibault@ens-lyon.org>
 
-That doesn't mean it's common or make it desirable to
-keep TR in the current kernel tree though.
+---
+This is just a patch suggestion, I'm not an expert in network drivers, I
+leave to actual driver authors to bake a better version.
 
-Is VG/AnyLAN different?
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 37caa88..77c8dbc 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -3759,6 +3759,21 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 	if (unlikely(test_bit(__E1000_DOWN, &adapter->flags)))
+ 		return IRQ_HANDLED;
+ 
++	if (unlikely(icr & E1000_ICR_RXO)) {
++		/* Receive Overrun */
++		u32 rctl;
++		int i;
++		rctl = er32(RCTL);
++		ew32(RCTL, rctl & ~E1000_RCTL_EN);
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			memset(adapter->rx_ring[i].desc, 0, adapter->rx_ring[i].size);
++			adapter->rx_ring[i].next_to_clean = 0;
++		}
++		ew32(RDH, 0);
++		ew32(RCTL, rctl);
++		adapter->netdev->stats.rx_fifo_errors++;
++	}
++
+ 	if (unlikely(icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC))) {
+ 		hw->get_link_status = 1;
+ 		/* guard against interrupt when we're going down */
