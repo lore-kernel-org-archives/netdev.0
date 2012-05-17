@@ -1,38 +1,27 @@
-From: Xiao Jiang <jgq516@gmail.com>
-Subject: Re: [PATCH 1/1] smsc95xx: add FLAG_POINTTOPOINT flag for driver_info
-Date: Thu, 17 May 2012 16:06:34 +0800
-Message-ID: <4FB4B18A.8020803@gmail.com>
-References: <1337155302-26244-1-git-send-email-jgq516@gmail.com> <4FB3A74E.4060303@mvista.com>
+From: David Miller <davem@davemloft.net>
+Subject: all networking trees merged
+Date: Thu, 17 May 2012 03:18:10 -0400 (EDT)
+Message-ID: <20120517.031810.1619387798879745337.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@smsc.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sshtylyov@mvista.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FB3A74E.4060303@mvista.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:56953 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760723Ab2EQHSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 03:18:14 -0400
+Received: from localhost (cpe-66-108-118-54.nyc.res.rr.com [66.108.118.54])
+	(authenticated bits=0)
+	by shards.monkeyblade.net (8.14.4/8.14.4) with ESMTP id q4H7IBCb022132
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 17 May 2012 00:18:13 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sergei Shtylyov wrote:
-> Hello.
->
-> On 16-05-2012 12:01, jgq516@gmail.com wrote:
->
->> From: Xiao Jiang<jgq516@gmail.com>
->
->> commit c26134 introduced FLAG_POINTTOPOINT flag for USB ethernet devices
->
->    Please also specify that commit's summary in parens.
-Thanks, will add the summary if this patch does make sense.
 
-Regards,
-Xiao
->
->> which possibly use "usb%d" names, add this flag to make sure pandaboard
->> can mount nfs with smsc95xx NIC.
->
->> Signed-off-by: Xiao Jiang<jgq516@gmail.com>
->
-> WBR, Sergei
+Earlier this evening I merged:
+
+	Linus's tree --> net --> net-next
+
+Just FYI...
