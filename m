@@ -1,38 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
- packets'
-Date: Thu, 17 May 2012 18:49:47 +0200
-Message-ID: <1337273387.3403.24.camel@edumazet-glaptop>
-References: <20120517121800.GA18052@1wt.eu> <20120517150157.GA19274@1wt.eu>
-	 <1337269380.3403.10.camel@edumazet-glaptop> <20120517155621.GK14498@1wt.eu>
-	 <1337272404.3403.18.camel@edumazet-glaptop> <20120517164016.GL14498@1wt.eu>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH 2/5] drivers/net: delete all code/drivers depending on
+ CONFIG_MCA
+Date: Thu, 17 May 2012 12:51:37 -0400
+Message-ID: <4FB52C99.6010303@windriver.com>
+References: <1337272841-25931-1-git-send-email-paul.gortmaker@windriver.com> <1337272841-25931-3-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Cc: <linux-kernel@vger.kernel.org>, <JBottomley@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:39158 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965410Ab2EQQtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 12:49:52 -0400
-Received: by eeit10 with SMTP id t10so594384eei.19
-        for <netdev@vger.kernel.org>; Thu, 17 May 2012 09:49:51 -0700 (PDT)
-In-Reply-To: <20120517164016.GL14498@1wt.eu>
+Received: from mail1.windriver.com ([147.11.146.13]:60939 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758969Ab2EQQvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 12:51:41 -0400
+In-Reply-To: <1337272841-25931-3-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-17 at 18:40 +0200, Willy Tarreau wrote:
->  try to port your patch (8d4057 tg3: provide frags as skb head) to
-> mv643xx_eth as an exercise. If I succeed and notice an improvement, I'll
-> send a patch :-)
+On 12-05-17 12:40 PM, Paul Gortmaker wrote:
 
+[..]
 
-tg3 uses build_skb(), thats an API that allocates the skb after frame is
-filled by the device, to have less cache misses in RX path.
+>  18 files changed, 18 insertions(+), 5288 deletions(-)
+>  delete mode 100644 drivers/net/ethernet/8390/ne2.c
+>  delete mode 100644 drivers/net/ethernet/8390/smc-mca.c
+>  delete mode 100644 drivers/net/ethernet/i825xx/3c523.c
+>  delete mode 100644 drivers/net/ethernet/i825xx/3c523.h
+>  delete mode 100644 drivers/net/ethernet/i825xx/3c527.c
 
-But for most devices, netdev_alloc_skb() would be more than enough.
+I can also obviously delete 3c527.h too.  Not sure why I didn't
+notice that until just now...  :(
 
-I'll send a patch once tested.
-
-Thanks
+Paul.
+---
