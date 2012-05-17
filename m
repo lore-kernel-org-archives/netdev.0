@@ -1,45 +1,67 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: Re: [PATCH net-next v2 0/2] 6lowpan: code updates
-Date: Thu, 17 May 2012 11:31:34 +0400
-Message-ID: <CAJmB2rAVwSNmkjFWuZBgDVMLKa=T3H5TwoEYHxfMnDecSgGsmA@mail.gmail.com>
-References: <1337153248-5779-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	<20120516.152801.915753046212672140.davem@davemloft.net>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
+Date: Thu, 17 May 2012 15:42:00 +0800
+Message-ID: <4FB4ABC8.5000506@cn.fujitsu.com>
+References: <20120215104021.GC31660@secunet.com> <1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com> <20120514130528.GA24733@secunet.com> <20120514.184132.1506982467448756718.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	lw@cn.fujitsu.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:34811 "EHLO
-	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759523Ab2EQHbf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 03:31:35 -0400
-Received: by lahd3 with SMTP id d3so1095984lah.19
-        for <netdev@vger.kernel.org>; Thu, 17 May 2012 00:31:34 -0700 (PDT)
-In-Reply-To: <20120516.152801.915753046212672140.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:30453 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1760008Ab2EQHlj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 03:41:39 -0400
+In-Reply-To: <20120514.184132.1506982467448756718.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Got it!
+=E4=BA=8E 2012=E5=B9=B405=E6=9C=8815=E6=97=A5 06:41, David Miller =E5=86=
+=99=E9=81=93:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Mon, 14 May 2012 15:05:28 +0200
+>=20
+>> There might be other opinions, but I don't like to see this IPsec mo=
+de
+>> dependent stuff hacked into the generic ipv6 output path.
+>=20
+> Completely agreed.
 
-Damn, my fault, sorry for that.
+Hi David
 
-Alex
+how do you think about adding function pointer to struct xfrm_mode?
+when prefering xfrm_mode,there must be some ipsec codes in the generic =
+ipv6 output
+path,just like below.it looks ugly.
 
-2012/5/16 David Miller <davem@davemloft.net>:
-> From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-> Date: Wed, 16 May 2012 11:27:26 +0400
->
->> =A0 6lowpan: rework data fetching from skb
->
-> This is not what we told you to do.
->
-> We told you that IF you were going to emit a warning message
-> for the pskb_may_pull() failure condition, you should use
-> WARN_ON_ONCE() so that it doesn't potentially flood the
-> logs.
->
-> But you must always, in every case, handle the error in some
-> reasonable way, not just when WARN_ON_ONCE() does that initial
-> one-and-only trigger.
+int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+        int offset, int len, int odd, struct sk_buff *skb),
+        void *from, int length, int transhdrlen,
+        int hlimit, int tclass, struct ipv6_txoptions *opt, struct flow=
+i6 *fl6,
+        struct rt6_info *rt, unsigned int flags, int dontfrag)
+{
+#ifdef CONFIG_XFRM
+        struct xfrm_state *x =3D rt->dst.xfrm;
+        if (x && x->outer_mode && x->outer_mode->append_data) {
+                x->outer_mode->append_data(...);
+        } else
+#endif
+                __ip6_append_data(...);
+}
+
+I want to use one bit of rt6_info->rt6i_flags to identify the actions w=
+e should
+do in ip6_append_data. BUT it seems not what the rt6i_flags should do.t=
+his may
+make rt6i_flags in chaos.
+
+What's your comment?
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
