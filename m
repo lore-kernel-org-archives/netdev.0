@@ -1,50 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
- packets'
-Date: Thu, 17 May 2012 23:50:10 +0200
-Message-ID: <1337291410.3403.52.camel@edumazet-glaptop>
-References: <20120517121800.GA18052@1wt.eu>
-	 <1337287279.3403.44.camel@edumazet-glaptop> <20120517211414.GP14498@1wt.eu>
-	 <1337290822.3403.47.camel@edumazet-glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [IPROUTE2 0/2] Add ECN support to tc-netem
+Date: Thu, 17 May 2012 14:54:31 -0700
+Message-ID: <20120517145431.6d3bb685@nehalam.linuxnetplumber.net>
+References: <1337212318-2100-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:48950 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761163Ab2EQVuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 17:50:14 -0400
-Received: by wibhn6 with SMTP id hn6so2273152wib.1
-        for <netdev@vger.kernel.org>; Thu, 17 May 2012 14:50:13 -0700 (PDT)
-In-Reply-To: <1337290822.3403.47.camel@edumazet-glaptop>
+Received: from mail.vyatta.com ([76.74.103.46]:39526 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762291Ab2EQVyl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2012 17:54:41 -0400
+In-Reply-To: <1337212318-2100-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-17 at 23:40 +0200, Eric Dumazet wrote:
+On Wed, 16 May 2012 16:51:56 -0700
+Vijay Subramanian <subramanian.vijay@gmail.com> wrote:
 
-> I dont understand why we should tcp_push() if we sent 0 bytes in this
-> splice() call.
+> Recent patch to net-next kernel from Eric Dumazet (e4ae004b84b netem: add ECN
+> capability) made it possible for netem to mark packets with ECN instead of
+> dropping them. These two patches add support to iproute2/tc and update the
+> manpage.
 > 
-> The push() should have be done already by prior splice() call, dont you
-> think ?
+> Vijay Subramanian (2):
+>   Update tc-netem manpage to add ecn capability
+>   tc-netem: Add support for ECN packet marking
 > 
-> out:
-> 	if (copied && !(flags & MSG_SENDPAGE_NOTLAST))
-> 		tcp_push(sk, flags, mss_now, tp->nonagle);
+>  include/linux/pkt_sched.h |    1 +
+>  man/man8/tc-netem.8       |    8 ++++++--
+>  tc/q_netem.c              |   25 +++++++++++++++++++++++++
+>  3 files changed, 32 insertions(+), 2 deletions(-)
 > 
 
-I think I now understand
 
-One splice() syscall actually calls do_tcp_sendpages() several times
-(N).
-
-Problem is N-1 calls are done with MSG_SENDPAGE_NOTLAST set
-
-And last one with MSG_SENDPAGE_NOTLAST unset
-
-So maybe we should replace this test by :
-
-	if (!(flags & MSG_SENDPAGE_NOTLAST))
-		tcp_push(...);
+I am holding these until 3.5 merge window, since they depend
+on the feature still in net-next
