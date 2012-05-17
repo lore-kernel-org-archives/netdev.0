@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] isdn: remove duplicate NULL check
-Date: Thu, 17 May 2012 04:48:37 -0400 (EDT)
-Message-ID: <20120517.044837.2251136486222452174.davem@davemloft.net>
-References: <20120517065102.GC14660@elgon.mountain>
+Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
+Date: Thu, 17 May 2012 04:48:30 -0400 (EDT)
+Message-ID: <20120517.044830.481268225064574326.davem@davemloft.net>
+References: <20120514130528.GA24733@secunet.com>
+	<20120514.184132.1506982467448756718.davem@davemloft.net>
+	<4FB4ABC8.5000506@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, dhowells@redhat.com,
-	ext-phil.2.carmody@nokia.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	lw@cn.fujitsu.com
+To: gaofeng@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57557 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:57562 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349Ab2EQIss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 04:48:48 -0400
-In-Reply-To: <20120517065102.GC14660@elgon.mountain>
+	with ESMTP id S1752349Ab2EQItR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 04:49:17 -0400
+In-Reply-To: <4FB4ABC8.5000506@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 17 May 2012 09:51:02 +0300
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Thu, 17 May 2012 15:42:00 +0800
 
-> We test both "!skb_out" and "skb_out" here which is duplicative and
-> causes a static checker warning.  I considered that the intent might
-> have been to test "skb_in" but that's a valid pointer here.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> What's your comment?
 
-Applied, thanks.
+I don't have any, you will need to work this out yourself.
