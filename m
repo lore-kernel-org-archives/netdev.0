@@ -1,69 +1,66 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Thu, 17 May 2012 07:09:29 +0400
-Message-ID: <4FB46BE9.6080503@parallels.com>
-References: <1336767077-25351-1-git-send-email-glommer@parallels.com> <1336767077-25351-3-git-send-email-glommer@parallels.com> <20120516141342.911931e7.akpm@linux-foundation.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio_net: invoke softirqs after __napi_schedule
+Date: Thu, 17 May 2012 13:02:53 +0930
+Message-ID: <87vcjvzdlm.fsf@rustcorp.com.au>
+References: <20120516075712.GA2921@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120516141342.911931e7.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>, David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120516075712.GA2921@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 05/17/2012 01:13 AM, Andrew Morton wrote:
-> On Fri, 11 May 2012 17:11:17 -0300
-> Glauber Costa<glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  wrote:
->
->> We call the destroy function when a cgroup starts to be removed,
->> such as by a rmdir event.
->>
->> However, because of our reference counters, some objects are still
->> inflight. Right now, we are decrementing the static_keys at destroy()
->> time, meaning that if we get rid of the last static_key reference,
->> some objects will still have charges, but the code to properly
->> uncharge them won't be run.
->>
->> This becomes a problem specially if it is ever enabled again, because
->> now new charges will be added to the staled charges making keeping
->> it pretty much impossible.
->>
->> We just need to be careful with the static branch activation:
->> since there is no particular preferred order of their activation,
->> we need to make sure that we only start using it after all
->> call sites are active. This is achieved by having a per-memcg
->> flag that is only updated after static_key_slow_inc() returns.
->> At this time, we are sure all sites are active.
->>
->> This is made per-memcg, not global, for a reason:
->> it also has the effect of making socket accounting more
->> consistent. The first memcg to be limited will trigger static_key()
->> activation, therefore, accounting. But all the others will then be
->> accounted no matter what. After this patch, only limited memcgs
->> will have its sockets accounted.
->
-> So I'm scratching my head over what the actual bug is, and how
-> important it is.  AFAICT it will cause charging stats to exhibit some
-> inaccuracy when memcg's are being torn down?
->
-> I don't know how serious this in in the real world and so can't decide
-> which kernel version(s) we should fix.
->
-> When fixing bugs, please always fully describe the bug's end-user
-> impact, so that I and others can make these sorts of decisions.
+On Wed, 16 May 2012 10:57:13 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> __napi_schedule might raise softirq but nothing
+> causes do_softirq to trigger, so it does not in fact
+> run. As a result,
+> the error message "NOHZ: local_softirq_pending 08"
+> sometimes occurs during boot of a KVM guest when the network service is
+> started and we are oom:
+> 
+>   ...
+>   Bringing up loopback interface:  [  OK  ]
+>   Bringing up interface eth0:
+>   Determining IP information for eth0...NOHZ: local_softirq_pending 08
+>    done.
+>   [  OK  ]
+>   ...
+> 
+> Further, receive queue processing might get delayed
+> indefinitely until some interrupt triggers:
+> virtio_net expected napi to be run immediately.
+> 
+> One way to cause do_softirq to be executed is by
+> invoking local_bh_enable(). As __napi_schedule is
+> normally called from bh or irq context, this
+> seems to make sense: disable bh before __napi_schedule
+> and enable afterwards.
+> 
+> Reported-by: Ulrich Obergfell <uobergfe@redhat.com>
+> Tested-by: Ulrich Obergfell <uobergfe@redhat.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> To test, one can hack try_fill_recv to always report oom.
+> I'm not sure it's not too late for 3.4, but we can try.
+> Rusty, could you review ASAP pls?
 
-Hi Andrew.
+It's missing a big comment: it's a very complicated way of calling
+do_softirq().
 
-I believe that was described in patch 0/2 ?
-In any case, this is something we need fixed, but it is not -stable 
-material or anything.
+Indeed, this function is only used when we are not in interrupt
+context.  It's not hot at all, in any ideal scenario.
 
-The bug leads to misaccounting when we quickly enable and disable limit 
-in a loop. We have a synthetic script to demonstrate that.
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
