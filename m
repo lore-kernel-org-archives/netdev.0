@@ -1,117 +1,126 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] API to modify /proc/sys/net/ipv4/ip_local_reserved_ports
-Date: Thu, 17 May 2012 14:22:04 -0700
-Message-ID: <20120517142204.70c3ae6e@nehalam.linuxnetplumber.net>
-References: <4F5BE563.9050506@gmx.de>
-	<4F5FAF28.5030205@gmx.de>
-	<4F611835.4080904@gmx.de>
-	<4F7CADE8.3060205@gmx.de>
-	<1333960981.414.24.camel@cr0>
-	<4F84A06F.3090808@gmx.de>
-	<m18vi3w7zd.fsf@fess.ebiederm.org>
-	<4FB56B1A.6010208@gmx.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
+ packets'
+Date: Thu, 17 May 2012 23:40:22 +0200
+Message-ID: <1337290822.3403.47.camel@edumazet-glaptop>
+References: <20120517121800.GA18052@1wt.eu>
+	 <1337287279.3403.44.camel@edumazet-glaptop> <20120517211414.GP14498@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <amwang@redhat.com>,
-	Octavian Purdila <octavian.purdila@intel.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frank Danapfel <fdanapfe@redhat.com>,
-	Laszlo Ersek <lersek@redhat.com>
-To: Helge Deller <deller@gmx.de>
+Cc: netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57888 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932405Ab2EQVWJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 17:22:09 -0400
-In-Reply-To: <4FB56B1A.6010208@gmx.de>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:40437 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759093Ab2EQVk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 17:40:27 -0400
+Received: by weyu7 with SMTP id u7so1435376wey.19
+        for <netdev@vger.kernel.org>; Thu, 17 May 2012 14:40:25 -0700 (PDT)
+In-Reply-To: <20120517211414.GP14498@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 May 2012 23:18:18 +0200
-Helge Deller <deller@gmx.de> wrote:
+On Thu, 2012-05-17 at 23:14 +0200, Willy Tarreau wrote:
 
-> On 04/11/2012 12:13 AM, Eric W. Biederman wrote:
-> > Helge Deller <deller@gmx.de> writes:
-> > 
-> >> On 04/09/2012 10:43 AM, Cong Wang wrote:
-> >>> On Wed, 2012-04-04 at 22:24 +0200, Helge Deller wrote:
-> >>>> I would like to follow up on my last patch series to be able to modify
-> >>>> the contents of the /proc/sys/net/ipv4/ip_local_reserved_ports port list
-> >>>> from userspace.
-> >>>>
-> >>>> My last patch (https://lkml.org/lkml/2012/3/10/187) was based on
-> >>>> modifications to the proc interface, which - based on the feedback here
-> >>>> on the list - seemed to not be the right way to go (although I personally
-> >>>> still like the idea very much :-)).
-> >>>>
-> >>>> Anyway, with this RFC I would like to get feedback about a new proposed
-> >>>> API and attached kernel patch.
-> >>>>
-> >>>> The idea is to introduce a new<optname>  value for get/setsockopt()
-> >>>> named SO_RESERVED_PORTS to get/set the ip_local_reserved_ports
-> >>>> bitmap via standard get/setsockopt() syscalls.
-> >>>> As far as I understand this seems to be similiar to how iptables works.
-> >>>>
-> >>>> An untested kernel patch for review and feedback is attached below.
-> >>>>
-> >>>> In userspace it then would be possible to write a new tool or to extend
-> >>>> for example the "ip" tool to accept commands like:
-> >>>> $>  ip reserved_ports add 100-2000
-> >>>> $>  ip reserved_ports remove 50-60
-> >>>> $>  ip reserved_ports list     (to show current reserved port list)
-> >>>>
-> >>>> This userspace tool could then read the port bitmap from kernel via
-> >>>> a) socket(PF_INET, SOCK_RAW, IPPROTO_RAW)
-> >>>> b) getsockopt(3, SOL_SOCKET, SO_RESERVED_PORTS,<bitmaplist>)
-> >>>> and write back the results after modification via
-> >>>> c) setsockopt(3, SOL_SOCKET, SO_RESERVED_PORTS,<bitmaplist>)
-> >>>>
-> >>>> Would that be an acceptable solution?
-> >>> Hmm, it is indeed that bitmap fits for syscall rather than /proc file.
-> >>>
-> >>> But it seems that using getsockopt()/setsockopt() makes it like it is a
-> >>> per-socket setting, actually it is a system-wide setting.
-> >> Yes, that's the reason why I used SOL_SOCKET which configures at least
-> >> a few system-wide settings too.
-> >>
-> >>> So I am
-> >>> wondering if exporting a binary /proc file for this is a better
-> >>> solution.
-> >> Yeah - that's another solution, but (65536 ports)/(8 bits per byte) = 8 KByte,
-> >> so we
-> >> may again hit the 4k limit of /proc (unless you do binary reads which should
-> >> be done with a binary /proc-entry anyway).
-> >>
-> >> Again, I'm open to develop any kind of solution which would get an OK
-> >> here.
-> > 
-> > Just looking at proc_do_large_bitmap, it does appear that there is a
-> > very local 4k limit on writes.
-> > 
-> > Can you please just modify proc_do_large_bitmap so that there is not a
-> > 4k limit on writes.  Ideally the code would just read another 4k from
-> > userspace when it is getting close to the end of it's 4k buffer, or
-> > perhaps we just read everything directly from userspace and run slowly.
+> I understand and that could be possible indeed. Still, this precise code
+> has been used for a few years now in prod at 10+ Gbps, so while that does
+> not mean it's exempt from any race condition or bug, we have not observed
+> this behaviour earlier. In fact, what I've not tested much was the small
+> ARM based machine which is just a convenient development system to try to
+> optimize network performance. Among the differences I see with usual
+> deployments is that the NIC doesn't support TSO, while I've been used to
+> enable splicing only where TSO was supported, because before your recent
+> optimizations, it was less performant than recv/send.
 > 
-> Hi Eric,
+> > You drain bytes from fd 0xe to pipe buffers, but I dont see you check
+> > write ability on destination socket prior the splice(pipe -> socket)
 > 
-> sorry for the very late reply.
-> Yes, you are right- this is only a local 4K limit. Increasing it allowed me 
-> to write more ports at once.
+> I don't, I only rely on EAGAIN to re-enable polling for write (otherwise
+> it becomes a real mess of epoll_ctl which sensibly hurts performance). I
+> only re-enable polling if FDs can't move anymore.
 > 
-> With your tips I was now able to build a simple solution which fits my needs.
-> Based on standard tools like echo and dd (with the seek option) I can
-> block all ports which I need.
+> Before doing a splice(read), if any data are left pending in the pipe, I
+> first try a splice(write) to try to flush the pipe, then I perform the
+> splice(read) then try to flush the pipe again using a splice(write).
+> Then polling is enabled if we block on EAGAIN.
 > 
-> Nevertheless, the current kernel interface is not very flexible.
-> So, my proposal for a new interface (with tools) still stands. I just need
-> and advise what would be acceptable. Without any advise I will just leave
-> everything as is (since I'm now fine with it).
+> I could fix the issue here by reworking my first patch. I think I was
+> too much conservative, because if we leave do_tcp_sendpages() on OOM
+> with copied == 0, in my opinion we never push. My first attempt tried
+> to call tcp_push() only once but it seems like this is a wrong idea
+> because it doesn't allow new attempts if for example tcp_write_xmit()
+> cannot send upon first attempt.
 > 
-> Helge
+> After calling tcp_push() inconditionnally on OOM, I cannot reproduce
+> the issue at all, and the traffic reaches a steady 950 Mbps in each
+> direction.
+> 
+> I'm appending the patch, you'll know better than me if it's correct or
+> not.
+> 
+> Best regards,
+> Willy
+> 
+> ---
+> 
+> From 39c3f73176118a274ec9dea9c22c83d97a7fbfe0 Mon Sep 17 00:00:00 2001
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Thu, 17 May 2012 22:43:20 +0200
+> Subject: [PATCH] tcp: do_tcp_sendpages() must try to push data out on oom conditions
+> 
+> Since recent changes on TCP splicing (starting with commits 2f533844
+> and 35f9c09f), I started seeing massive stalls when forwarding traffic
+> between two sockets using splice() when pipe buffers were larger than
+> socket buffers.
+> 
+> Latest changes (net: netdev_alloc_skb() use build_skb()) made the
+> problem even more apparent.
+> 
+> The reason seems to be that if do_tcp_sendpages() fails on out of memory
+> condition without being able to send at least one byte, tcp_push() is not
+> called and the buffers cannot be flushed.
+> 
+> After applying the attached patch, I cannot reproduce the stalls at all
+> and the data rate it perfectly stable and steady under any condition
+> which previously caused the problem to be permanent.
+> 
+> The issue seems to have been there since before the kernel migrated to
+> git, which makes me think that the stalls I occasionally experienced
+> with tux during stress-tests years ago were probably related to the
+> same issue.
+> 
+> This issue was first encountered on 3.0.31 and 3.2.17, so please backport
+> to -stable.
+> 
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
+> Cc: <stable@vger.kernel.org>
+> ---
+>  net/ipv4/tcp.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 63ddaee..231fe53 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -917,8 +917,7 @@ new_segment:
+>  wait_for_sndbuf:
+>  		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+>  wait_for_memory:
+> -		if (copied)
+> -			tcp_push(sk, flags & ~MSG_MORE, mss_now, TCP_NAGLE_PUSH);
+> +		tcp_push(sk, flags & ~MSG_MORE, mss_now, TCP_NAGLE_PUSH);
+>  
+>  		if ((err = sk_stream_wait_memory(sk, &timeo)) != 0)
+>  			goto do_error;
 
-Sounds like an ideal case for providing an mmap interface to the
-bitmap?
+
+I dont understand why we should tcp_push() if we sent 0 bytes in this
+splice() call.
+
+The push() should have be done already by prior splice() call, dont you
+think ?
+
+out:
+	if (copied && !(flags & MSG_SENDPAGE_NOTLAST))
+		tcp_push(sk, flags, mss_now, tp->nonagle);
