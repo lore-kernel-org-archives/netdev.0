@@ -1,40 +1,45 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: [Bridge] [PATCH] net/bridge/netfilter: Fix the randconfig warning
-Date: Thu, 17 May 2012 09:21:41 +0200
-Message-ID: <4FB4A705.6040906@pandora.be>
-References: <1337023817-26132-1-git-send-email-devendra.aaru@gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: Re: [PATCH net-next v2 0/2] 6lowpan: code updates
+Date: Thu, 17 May 2012 11:31:34 +0400
+Message-ID: <CAJmB2rAVwSNmkjFWuZBgDVMLKa=T3H5TwoEYHxfMnDecSgGsmA@mail.gmail.com>
+References: <1337153248-5779-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	<20120516.152801.915753046212672140.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: Devendra Naga <devendra.aaru@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from juliette.telenet-ops.be ([195.130.137.74]:54094 "EHLO
-	juliette.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761188Ab2EQHVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 03:21:48 -0400
-In-Reply-To: <1337023817-26132-1-git-send-email-devendra.aaru@gmail.com>
+Received: from mail-lpp01m010-f46.google.com ([209.85.215.46]:34811 "EHLO
+	mail-lpp01m010-f46.google.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759523Ab2EQHbf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2012 03:31:35 -0400
+Received: by lahd3 with SMTP id d3so1095984lah.19
+        for <netdev@vger.kernel.org>; Thu, 17 May 2012 00:31:34 -0700 (PDT)
+In-Reply-To: <20120516.152801.915753046212672140.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Op 14/05/2012 21:30, Devendra Naga schreef:
-> when ran with make randconfig got
+Got it!
+
+Damn, my fault, sorry for that.
+
+Alex
+
+2012/5/16 David Miller <davem@davemloft.net>:
+> From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> Date: Wed, 16 May 2012 11:27:26 +0400
 >
-> warning: (BRIDGE_NF_EBTABLES) selects NETFILTER_XTABLES which has unmet direct dependencies (NET&&  INET&&  NETFILTER)
+>> =A0 6lowpan: rework data fetching from skb
 >
-> added NET&&  INET&&  NETFILTER dependency to the BRIDGE_NF_EBTABLES
-
-I really don't see why ebtables should depend on INET. To me the issue 
-lies in the fact that xtables depends on INET.
-
-Bart
-
--- 
-Bart De Schuymer
-www.artinalgorithms.be
+> This is not what we told you to do.
+>
+> We told you that IF you were going to emit a warning message
+> for the pskb_may_pull() failure condition, you should use
+> WARN_ON_ONCE() so that it doesn't potentially flood the
+> logs.
+>
+> But you must always, in every case, handle the error in some
+> reasonable way, not just when WARN_ON_ONCE() does that initial
+> one-and-only trigger.
