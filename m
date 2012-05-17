@@ -1,53 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] e1000: Prevent reset task killing itself.
-Date: Thu, 17 May 2012 04:04:50 -0700
-Message-ID: <1337252690-29687-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
+Subject: [net-next 1/4] e1000e: fix typo in definition of E1000_CTRL_EXT_FORCE_SMBUS
+Date: Thu, 17 May 2012 04:27:47 -0700
+Message-ID: <1337254070-32500-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:21948 "EHLO mga03.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:40139 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761607Ab2EQLEx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 May 2012 07:04:53 -0400
+	id S1761607Ab2EQL1y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 May 2012 07:27:54 -0400
+In-Reply-To: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tushar Dave <tushar.n.dave@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Killing reset task while adapter is resetting causes deadlock.
-Only kill reset task if adapter is not resetting.
-Ref bug #43132 on bugzilla.kernel.org
+This define is needed by i217.
 
-CC: stable@vger.kernel.org
-Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
+Reported-by: Bjorn Mork <bjorn@mork.no>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
+ drivers/net/ethernet/intel/e1000e/defines.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-@stable - this patch is applicable back to 3.1 kernels
-
----
- drivers/net/ethernet/intel/e1000/e1000_main.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 37caa88..8d8908d 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -493,7 +493,11 @@ out:
- static void e1000_down_and_stop(struct e1000_adapter *adapter)
- {
- 	set_bit(__E1000_DOWN, &adapter->flags);
--	cancel_work_sync(&adapter->reset_task);
-+
-+	/* Only kill reset task if adapter is not resetting */
-+	if (!test_bit(__E1000_RESETTING, &adapter->flags))
-+		cancel_work_sync(&adapter->reset_task);
-+
- 	cancel_delayed_work_sync(&adapter->watchdog_task);
- 	cancel_delayed_work_sync(&adapter->phy_info_task);
- 	cancel_delayed_work_sync(&adapter->fifo_stall_task);
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 11c4666..351a409 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -76,7 +76,7 @@
+ /* Extended Device Control */
+ #define E1000_CTRL_EXT_LPCD  0x00000004     /* LCD Power Cycle Done */
+ #define E1000_CTRL_EXT_SDP3_DATA 0x00000080 /* Value of SW Definable Pin 3 */
+-#define E1000_CTRL_EXT_FORCE_SMBUS 0x00000004 /* Force SMBus mode*/
++#define E1000_CTRL_EXT_FORCE_SMBUS 0x00000800 /* Force SMBus mode */
+ #define E1000_CTRL_EXT_EE_RST    0x00002000 /* Reinitialize from EEPROM */
+ #define E1000_CTRL_EXT_SPD_BYPS  0x00008000 /* Speed Select Bypass */
+ #define E1000_CTRL_EXT_RO_DIS    0x00020000 /* Relaxed Ordering disable */
 -- 
 1.7.7.6
