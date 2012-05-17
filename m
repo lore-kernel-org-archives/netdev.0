@@ -1,36 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: l2tp: Standardize logging styles
-Date: Thu, 17 May 2012 04:34:17 -0400 (EDT)
-Message-ID: <20120517.043417.1244517151794670965.davem@davemloft.net>
-References: <1337198156.10019.8.camel@joe2Laptop>
-	<4FB4ACD1.10509@katalix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH 3/7] netfilter: xt_HMARK: modulus is expensive for hash
+ calculation
+Date: Thu, 17 May 2012 10:39:28 +0200
+Message-ID: <1337243968.3403.3.camel@edumazet-glaptop>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F10@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jchapman@katalix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FB4ACD1.10509@katalix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:61164 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754305Ab2EQIjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 04:39:35 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F10@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: James Chapman <jchapman@katalix.com>
-Date: Thu, 17 May 2012 08:46:25 +0100
-
-> This is a good improvement. Thanks!
+On Thu, 2012-05-17 at 09:16 +0100, David Laight wrote:
+> > From: Pablo Neira Ayuso <pablo@netfilter.org>
+> > 
+> > Use:
+> > 
+> > ((u64)(HASH_VAL * HASH_SIZE)) >> 32
+> > 
+> > as suggested by David S. Miller.
 > 
-> Signed-off-by: James Chapman <jchapman@katalix.com>
+> That (u64) cast is very unlikely to have any effect.
+> If you want a 64 bit result from the product of two
+> 32 bit values, you have to cast one of the 32 bit values
+> prior to the multiply - as in the patch below.
 
-James, please don't quote an entire patch when ACK'ing a patch like.
-Do you realize that this makes the whole patch have to be processed by
-every recipient subscribed to these mailing lists as well as sites
-that monitor discussions on patches such as patchwork?
+Hey, Changelog is a bit wrong (for several reasons) but code is correct.
 
-Even if you want to comment on some portions of the patch, you should
-only quote the very specific hunks you wish to comment upon.
-
-It is absolutely never appropriate to quote an entire patch in an
-email response, really.
-
-Anyways I'll apply this patch, thanks everyone.
+return (((u64)hash * info->hmodulus) >> 32) + info->hoffset;
