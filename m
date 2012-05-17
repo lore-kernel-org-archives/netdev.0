@@ -1,60 +1,102 @@
-From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for comms devices.
-Date: Thu, 17 May 2012 10:31:50 -0700
-Message-ID: <20120517173150.GE4967@xanatos>
-References: <cover.1337203535.git.sarah.a.sharp@linux.intel.com>
- <3c634afbbe15598cdcbf77bb9393d22ad4bfa373.1337203535.git.sarah.a.sharp@linux.intel.com>
- <4FB53054.9070309@imap.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
+Date: Thu, 17 May 2012 19:34:16 +0200
+Message-ID: <1337276056.3403.37.camel@edumazet-glaptop>
+References: <20120517121800.GA18052@1wt.eu> <20120517150157.GA19274@1wt.eu>
+	 <1337269380.3403.10.camel@edumazet-glaptop> <20120517155621.GK14498@1wt.eu>
+	 <1337272404.3403.18.camel@edumazet-glaptop> <20120517164016.GL14498@1wt.eu>
+	 <1337273387.3403.24.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gigaset307x-common-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
-To: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4FB53054.9070309-ZTO5kqT2PaM@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:46325 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760274Ab2EQReX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 13:34:23 -0400
+Received: by eeit10 with SMTP id t10so605967eei.19
+        for <netdev@vger.kernel.org>; Thu, 17 May 2012 10:34:22 -0700 (PDT)
+In-Reply-To: <1337273387.3403.24.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 17, 2012 at 07:07:32PM +0200, Tilman Schmidt wrote:
-> Am 16.05.2012 23:55, schrieb Sarah Sharp:
-> > Set the disable_hub_initiated_lpm flag for for all USB communications
-> > drivers.  I know there aren't currently any USB 3.0 devices that
-> > implement these class specifications, but we should be ready if they do.
-> 
-> I follow the argument for class drivers. But this patch also
-> modifies drivers for specific existing USB 2.0 only devices
-> which are unlikely to ever grow USB 3.0 support, such as the
-> Gigaset ISDN driver:
-> 
-> >  drivers/isdn/gigaset/bas-gigaset.c            |    1 +
-> >  drivers/isdn/gigaset/usb-gigaset.c            |    1 +
+From: Eric Dumazet <edumazet@google.com>
 
-Is there a particular reason why you think that driver is unlikely to
-ever get USB 3.0 support?  I pretty much grabbed any USB driver that
-looked like a communications driver without looking too closely at the
-code.
+Please note I havent tested yet this patch, lacking hardware for this.
 
-> What is the interest of setting the disable_hub_initiated_lpm
-> flag for these?
+(tg3/bnx2/bnx2x use build_skb, r8169 does a copy of incoming frames,
+ixgbe uses fragments...)
 
-It's partially to lay the foundation for anyone who wants to make a USB
-3.0 communications driver in the future.  They're likely to start from
-some USB 2.0 class driver, and copy a lot of code.  If they notice that
-flag is set in all the USB communications class drivers, they're likely
-to set it as well.
+Any volunteer ?
 
-I'm not quite sure where the best place to provide documentation on the
-flag is.  I've added the kernel doc comments to the structure, but maybe
-it needs to be documented somewhere in Documentation/usb/?
+Thanks
 
-Sarah Sharp
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[PATCH net-next] net: netdev_alloc_skb() use build_skb()
+
+netdev_alloc_skb() is used by networks driver in their RX path to
+allocate an skb to receive an incoming frame.
+
+With recent skb->head_frag infrastructure, it makes sense to change
+netdev_alloc_skb() to use build_skb() and a frag allocator.
+
+This permits a zero copy splice(socket->pipe), and better GRO or TCP
+coalescing.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/skbuff.c |   32 +++++++++++++++++++++++++++++++-
+ 1 file changed, 31 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 2a18719..c02a8ec 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -293,6 +293,12 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
+ }
+ EXPORT_SYMBOL(build_skb);
+ 
++struct netdev_alloc_cache {
++	struct page *page;
++	unsigned int offset;
++};
++static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
++
+ /**
+  *	__netdev_alloc_skb - allocate an skbuff for rx on a specific device
+  *	@dev: network device to receive on
+@@ -310,8 +316,32 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ 		unsigned int length, gfp_t gfp_mask)
+ {
+ 	struct sk_buff *skb;
++	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
++			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 
+-	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, NUMA_NO_NODE);
++	if (fragsz <= PAGE_SIZE && !(gfp_mask & __GFP_WAIT)) {
++		struct netdev_alloc_cache *nc;
++		void *data = NULL;
++
++		nc = &get_cpu_var(netdev_alloc_cache);
++		if (!nc->page) {
++refill:			nc->page = alloc_page(gfp_mask);
++			nc->offset = 0;
++		}
++		if (likely(nc->page)) {
++			if (nc->offset + fragsz > PAGE_SIZE) {
++				put_page(nc->page);
++				goto refill;
++			}
++			data = page_address(nc->page) + nc->offset;
++			nc->offset += fragsz;
++			get_page(nc->page);
++		}
++		put_cpu_var(netdev_alloc_cache);
++		skb = data ? build_skb(data, fragsz) : NULL;
++	} else {
++		skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, NUMA_NO_NODE);
++	}
+ 	if (likely(skb)) {
+ 		skb_reserve(skb, NET_SKB_PAD);
+ 		skb->dev = dev;
