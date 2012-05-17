@@ -1,43 +1,41 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v5 2/2] decrement static keys on real destroy time
-Date: Thu, 17 May 2012 08:19:47 -0700
-Message-ID: <20120517151947.GI21275@google.com>
-References: <1336767077-25351-1-git-send-email-glommer@parallels.com>
- <1336767077-25351-3-git-send-email-glommer@parallels.com>
- <20120516140637.17741df6.akpm@linux-foundation.org>
- <4FB46B4C.3000307@parallels.com>
- <20120516223715.5d1b4385.akpm@linux-foundation.org>
- <4FB4CA4D.50608@parallels.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [V2 PATCH 2/9] macvtap: zerocopy: fix truesize underestimation
+Date: Thu, 17 May 2012 08:28:32 -0700
+Message-ID: <1337268512.10741.53.camel@oc3660625478.ibm.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <20120502034144.11782.88947.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <1337102809.8220.10.camel@oc3660625478.ibm.com>
+	 <4FB3192E.4030803@redhat.com>
+	 <1337180585.10741.6.camel@oc3660625478.ibm.com>
+	 <4FB469A1.3040507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, cgroups@vger.kernel.org,
-	linux-mm@kvack.org, devel@openvz.org,
-	kamezawa.hiroyu@jp.fujitsu.com, netdev@vger.kernel.org,
-	Li Zefan <lizefan@huawei.com>, Johannes Weiner <hannes@cmpxchg.org>,
-	Michal Hocko <mhocko@suse.cz>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <4FB4CA4D.50608@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
+	davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FB469A1.3040507@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 17, 2012 at 01:52:13PM +0400, Glauber Costa wrote:
-> Andrew is right. It seems we will need that mutex after all. Just
-> this is not a race, and neither something that should belong in the
-> static_branch interface.
+On Thu, 2012-05-17 at 10:59 +0800, Jason Wang wrote:
+> Didn't see how this affact skb->len. And for truesize, I think they
+> are 
+> different, when the offset were not zero, the data in this vector
+> were 
+> divided into two parts. First part is copied into skb directly, and
+> the 
+> second were pinned from a whole userspace page by
+> get_user_pages_fast(), 
+> so we need count the whole page to the socket limit to prevent evil 
+> application. 
 
-Yeah, with a completely different comment.  It just needs to wrap
-->activated alteration and static key inc/dec, right?
+What I meant that the code for skb->truesize has double added the first
+offset if any left from that vector (partically copied into skb
+directly, and then count pagesize which includes the offset (truesize +=
+PAGE_SIZE)).
 
-Thanks.
-
--- 
-tejun
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks
+Shirley
