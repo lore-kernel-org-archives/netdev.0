@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] drop_monitor: convert to modular building
-Date: Thu, 17 May 2012 16:09:37 -0400 (EDT)
-Message-ID: <20120517.160937.586334759945738635.davem@davemloft.net>
-References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
-	<1337285040-20848-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH 08/17] net: Introduce sk_gfp_atomic() to allow addition
+ of GFP flags depending on the individual socket
+Date: Thu, 17 May 2012 16:10:40 -0400 (EDT)
+Message-ID: <20120517.161040.1412806690395517745.davem@davemloft.net>
+References: <1337266231-8031-1-git-send-email-mgorman@suse.de>
+	<1337266231-8031-9-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34574 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966008Ab2EQUKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 16:10:45 -0400
-In-Reply-To: <1337285040-20848-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, neilb@suse.de, a.p.zijlstra@chello.nl,
+        michaelc@cs.wisc.edu, emunson@mgebm.net
+To: mgorman@suse.de
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1337266231-8031-9-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 17 May 2012 16:04:00 -0400
+From: Mel Gorman <mgorman@suse.de>
+Date: Thu, 17 May 2012 15:50:22 +0100
 
-> When I first wrote drop monitor I wrote it to just build monolithically.  There
-> is no reason it can't be built modularly as well, so lets give it that
-> flexibiity.
+> Introduce sk_gfp_atomic(), this function allows to inject sock specific
+> flags to each sock related allocation. It is only used on allocation
+> paths that may be required for writing pages back to network storage.
 > 
-> I've tested this by building it as both a module and monolithically, and it
-> seems to work quite well
-> 
-> Change notes:
-> 
-> v2)
-> * fixed for_each_present_cpu loops to be more correct as per Eric D.
-> * Converted exit path failures to BUG_ON as per Ben H.
-> 
-> v3)
-> * Converted del_timer to del_timer_sync to close race noted by Ben H.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> [davem@davemloft.net: Use sk_gfp_atomic only when necessary]
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
 
-Applied, althrough it didn't apply cleanly to net-next.
+Acked-by: David S. Miller <davem@davemloft.net>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
