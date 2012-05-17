@@ -1,62 +1,42 @@
-From: Samuel Thibault <samuel.thibault@ens-lyon.org>
-Subject: [PATCH] e1000: Reset rx ring index on receive overrun
-Date: Fri, 18 May 2012 01:01:40 +0200
-Message-ID: <20120517230140.GZ683@type.famille.thibault.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3] CS89x0 : Use ioread16/iowrite16 on all platforms
+Date: Thu, 17 May 2012 19:03:46 -0400 (EDT)
+Message-ID: <20120517.190346.175685939436302276.davem@davemloft.net>
+References: <1337274702-19536-1-git-send-email-jaccon.bastiaansen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Dean Nelson <dnelson@redhat.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, netdev@vger.kernel.org, s.hauer@pengutronix.de,
+ romieu@fr.zoreil.com, joe@perches.com, gfm@funxed.com, festevam@gmail.com,
+ linux-arm-kernel@lists.infradead.org
+To: jaccon.bastiaansen@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1337274702-19536-1-git-send-email-jaccon.bastiaansen@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-At high traffic rate, the rx ring may get completely filled before we
-manage to consume it.  After it is filled, the kernel and device indexes
-are not synchronized any more, so we have to reset them, otherwise the
-kernel will be stuck waiting for the wrong slot to be filled.
+From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+Date: Thu, 17 May 2012 19:11:42 +0200
 
-Signed-off-by: Samuel Thibault <samuel.thibault@ens-lyon.org>
+> The use of the inw/outw functions by the cs89x0 platform driver
+> results in NULL pointer references on ARM platforms and
+> platforms that do not provide ISA-style programmed I/O accessors.
+> 
+> Using inw/outw also accesses the wrong address space on platforms
+> that have a PCI I/O space that is not identity-mapped into the
+> physical address space.
+> 
+> Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
 
----
-This is just a patch suggestion, I'm not an expert in network drivers, I
-leave to actual driver authors to bake a better version.
+I could nit-pick more on this patch, but it's such a significant
+improvement I'm just going to apply this V3 as-is to net-next.
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 37caa88..77c8dbc 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3759,6 +3759,21 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 	if (unlikely(test_bit(__E1000_DOWN, &adapter->flags)))
- 		return IRQ_HANDLED;
- 
-+	if (unlikely(icr & E1000_ICR_RXO)) {
-+		/* Receive Overrun */
-+		u32 rctl;
-+		int i;
-+		rctl = er32(RCTL);
-+		ew32(RCTL, rctl & ~E1000_RCTL_EN);
-+		for (i = 0; i < adapter->num_rx_queues; i++) {
-+			memset(adapter->rx_ring[i].desc, 0, adapter->rx_ring[i].size);
-+			adapter->rx_ring[i].next_to_clean = 0;
-+		}
-+		ew32(RDH, 0);
-+		ew32(RCTL, rctl);
-+		adapter->netdev->stats.rx_fifo_errors++;
-+	}
-+
- 	if (unlikely(icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC))) {
- 		hw->get_link_status = 1;
- 		/* guard against interrupt when we're going down */
+Thanks.
