@@ -1,63 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/4] igb: Disable the BMC-to-OS Watchdog Enable bit for DMAC.
-Date: Thu, 17 May 2012 04:27:50 -0700
-Message-ID: <1337254070-32500-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/4] e1000: look in the page and not in skb->data for the last byte
+Date: Thu, 17 May 2012 04:27:49 -0700
+Message-ID: <1337254070-32500-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:48755 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:46898 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932284Ab2EQL1y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761648Ab2EQL1y (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 17 May 2012 07:27:54 -0400
 In-Reply-To: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Under certain scenarios, it's possible that bursty manageability traffic
-over the BMC-to-OS path may overrun the internal manageability receive
-buffer causing dropped manageability packets. Clearing this bit prevents
-this situation by interrupting coalescing to allow manageability traffic
-through.
+The code seems to want to look at the last byte where the HW puts some
+information. Since the skb->data area is never seen by the HW I guess it
+does not work as expected. We pass the page address to the HW so I
+*think* in order to get to the last byte where the information might be
+one should use the page buffer and take a look.
+This is of course not more than just compile tested.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h |    2 ++
- drivers/net/ethernet/intel/igb/igb_main.c      |    3 +++
- 2 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 6409f85..ec7e4fe 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -301,6 +301,8 @@
- 							* transactions */
- #define E1000_DMACR_DMAC_LX_SHIFT       28
- #define E1000_DMACR_DMAC_EN             0x80000000 /* Enable DMA Coalescing */
-+/* DMA Coalescing BMC-to-OS Watchdog Enable */
-+#define E1000_DMACR_DC_BMC2OSW_EN	0x00008000
- 
- #define E1000_DMCTXTH_DMCTTHR_MASK      0x00000FFF /* DMA Coalescing Transmit
- 							* Threshold */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 9bbf1a2..dd3bfe8 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -7147,6 +7147,9 @@ static void igb_init_dmac(struct igb_adapter *adapter, u32 pba)
- 
- 			/* watchdog timer= +-1000 usec in 32usec intervals */
- 			reg |= (1000 >> 5);
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index fefbf4d..6ac80c8 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -4066,7 +4066,11 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
+ 		/* errors is only valid for DD + EOP descriptors */
+ 		if (unlikely((status & E1000_RXD_STAT_EOP) &&
+ 		    (rx_desc->errors & E1000_RXD_ERR_FRAME_ERR_MASK))) {
+-			u8 last_byte = *(skb->data + length - 1);
++			u8 *mapped;
++			u8 last_byte;
 +
-+			/* Disable BMC-to-OS Watchdog Enable */
-+			reg &= ~E1000_DMACR_DC_BMC2OSW_EN;
- 			wr32(E1000_DMACR, reg);
- 
- 			/*
++			mapped = kmap_atomic(buffer_info->page);
++			last_byte = *(mapped + length - 1);
+ 			if (TBI_ACCEPT(hw, status, rx_desc->errors, length,
+ 				       last_byte)) {
+ 				spin_lock_irqsave(&adapter->stats_lock,
 -- 
 1.7.7.6
