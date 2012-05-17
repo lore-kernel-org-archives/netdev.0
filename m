@@ -1,144 +1,203 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v3] drop_monitor: convert to modular building
-Date: Thu, 17 May 2012 16:04:00 -0400
-Message-ID: <1337285040-20848-1-git-send-email-nhorman@tuxdriver.com>
-References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: netdev@vger.kernel.org
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: [PATCH] netfilter: xt_recent: Add optional mask option for xt_recent
+Date: Thu, 17 May 2012 23:07:18 +0300
+Message-ID: <1337285238-13589-1-git-send-email-denys@visp.net.lb>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Denys Fedoryshchenko <denys@visp.net.lb>
+To: Linux netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39097 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932347Ab2EQUEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 16:04:11 -0400
-In-Reply-To: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
+Received: from relay2.globalproof.net ([194.146.153.25]:47042 "EHLO
+	relay2.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932556Ab2EQUHX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 16:07:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When I first wrote drop monitor I wrote it to just build monolithically.  There
-is no reason it can't be built modularly as well, so lets give it that
-flexibiity.
+Use case for this feature:
+1)In some occasions if you need to allow,block,match specific subnet.
+2)I can use recent as a trigger when netfilter rule matches, with mask 0.0.0.0
 
-I've tested this by building it as both a module and monolithically, and it
-seems to work quite well
+Tested for backward compatibility:
+)old (userspace) iptables, new kernel
+)old kernel, new iptables
+)new kernel, new iptables
 
-Change notes:
+For v2:
+ As Pablo Neira Ayuso suggested, moved nf_inet_addr_mask to xt_recent.h
+ and made info_v1 as a stack variable.
 
-v2)
-* fixed for_each_present_cpu loops to be more correct as per Eric D.
-* Converted exit path failures to BUG_ON as per Ben H.
-
-v3)
-* Converted del_timer to del_timer_sync to close race noted by Ben H.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Denys Fedoryshchenko <denys@visp.net.lb>
+CC: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/Kconfig             |    2 +-
- net/core/drop_monitor.c |   46 ++++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 45 insertions(+), 3 deletions(-)
+ include/linux/netfilter/xt_recent.h |   20 +++++++++++
+ net/netfilter/xt_recent.c           |   62 ++++++++++++++++++++++++++++++----
+ 2 files changed, 74 insertions(+), 8 deletions(-)
 
-diff --git a/net/Kconfig b/net/Kconfig
-index e07272d..76ad6fa 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -295,7 +295,7 @@ config NET_TCPPROBE
- 	module will be called tcp_probe.
+diff --git a/include/linux/netfilter/xt_recent.h b/include/linux/netfilter/xt_recent.h
+index 83318e0..5f69ebc 100644
+--- a/include/linux/netfilter/xt_recent.h
++++ b/include/linux/netfilter/xt_recent.h
+@@ -32,4 +32,24 @@ struct xt_recent_mtinfo {
+ 	__u8 side;
+ };
  
- config NET_DROP_MONITOR
--	boolean "Network packet drop alerting service"
-+	tristate "Network packet drop alerting service"
- 	depends on INET && EXPERIMENTAL && TRACEPOINTS
- 	---help---
- 	This feature provides an alerting service to userspace in the
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index cfeeef8..f93f985 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -24,6 +24,7 @@
- #include <linux/timer.h>
- #include <linux/bitops.h>
- #include <linux/slab.h>
-+#include <linux/module.h>
- #include <net/genetlink.h>
- #include <net/netevent.h>
- 
-@@ -225,9 +226,15 @@ static int set_all_monitor_traces(int state)
- 
- 	switch (state) {
- 	case TRACE_ON:
-+		if (!try_module_get(THIS_MODULE)) {
-+			rc = -ENODEV;
-+			break;
-+		}
++struct xt_recent_mtinfo_v1 {
++	__u32 seconds;
++	__u32 hit_count;
++	__u8 check_set;
++	__u8 invert;
++	char name[XT_RECENT_NAME_LEN];
++	__u8 side;
++	union nf_inet_addr mask;
++};
 +
- 		rc |= register_trace_kfree_skb(trace_kfree_skb_hit, NULL);
- 		rc |= register_trace_napi_poll(trace_napi_poll_hit, NULL);
- 		break;
-+
- 	case TRACE_OFF:
- 		rc |= unregister_trace_kfree_skb(trace_kfree_skb_hit, NULL);
- 		rc |= unregister_trace_napi_poll(trace_napi_poll_hit, NULL);
-@@ -243,6 +250,9 @@ static int set_all_monitor_traces(int state)
- 				kfree_rcu(new_stat, rcu);
- 			}
- 		}
-+
-+		module_put(THIS_MODULE);
-+
- 		break;
- 	default:
- 		rc = 1;
-@@ -368,7 +378,7 @@ static int __init init_net_drop_monitor(void)
- 
- 	rc = 0;
- 
--	for_each_present_cpu(cpu) {
-+	for_each_possible_cpu(cpu) {
- 		data = &per_cpu(dm_cpu_data, cpu);
- 		reset_per_cpu_data(data);
- 		INIT_WORK(&data->dm_alert_work, send_dm_alert);
-@@ -385,4 +395,36 @@ out:
- 	return rc;
- }
- 
--late_initcall(init_net_drop_monitor);
-+static void exit_net_drop_monitor(void)
++static inline void nf_inet_addr_mask(const union nf_inet_addr *a1,
++				    union nf_inet_addr *result,
++				    const union nf_inet_addr *mask)
 +{
-+	struct per_cpu_dm_data *data;
-+	int cpu;
-+
-+	BUG_ON(unregister_netdevice_notifier(&dropmon_net_notifier));
-+
-+	/*
-+	 * Because of the module_get/put we do in the trace state change path
-+	 * we are guarnateed not to have any current users when we get here
-+	 * all we need to do is make sure that we don't have any running timers
-+	 * or pending schedule calls
-+	 */
-+
-+	for_each_possible_cpu(cpu) {
-+		data = &per_cpu(dm_cpu_data, cpu);
-+		del_timer_sync(&data->send_timer);
-+		cancel_work_sync(&data->dm_alert_work);
-+		/*
-+		 * At this point, we should have exclusive access
-+		 * to this struct and can free the skb inside it
-+		 */
-+		kfree_skb(data->skb);
-+	}
-+
-+	BUG_ON(genl_unregister_family(&net_drop_monitor_family));
++	result->all[0] = a1->all[0] & mask->all[0];
++	result->all[1] = a1->all[1] & mask->all[1];
++	result->all[2] = a1->all[2] & mask->all[2];
++	result->all[3] = a1->all[3] & mask->all[3];
 +}
 +
-+module_init(init_net_drop_monitor);
-+module_exit(exit_net_drop_monitor);
+ #endif /* _LINUX_NETFILTER_XT_RECENT_H */
+diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
+index fc0d6db..ca4375c 100644
+--- a/net/netfilter/xt_recent.c
++++ b/net/netfilter/xt_recent.c
+@@ -75,6 +75,7 @@ struct recent_entry {
+ struct recent_table {
+ 	struct list_head	list;
+ 	char			name[XT_RECENT_NAME_LEN];
++	union nf_inet_addr	mask;
+ 	unsigned int		refcnt;
+ 	unsigned int		entries;
+ 	struct list_head	lru_list;
+@@ -228,10 +229,11 @@ recent_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	struct net *net = dev_net(par->in ? par->in : par->out);
+ 	struct recent_net *recent_net = recent_pernet(net);
+-	const struct xt_recent_mtinfo *info = par->matchinfo;
++	const struct xt_recent_mtinfo_v1 *info = par->matchinfo;
+ 	struct recent_table *t;
+ 	struct recent_entry *e;
+ 	union nf_inet_addr addr = {};
++	union nf_inet_addr addr_masked;
+ 	u_int8_t ttl;
+ 	bool ret = info->invert;
+ 
+@@ -261,12 +263,15 @@ recent_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 
+ 	spin_lock_bh(&recent_lock);
+ 	t = recent_table_lookup(recent_net, info->name);
+-	e = recent_entry_lookup(t, &addr, par->family,
 +
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Neil Horman <nhorman@tuxdriver.com>");
++	nf_inet_addr_mask(&addr, &addr_masked, &t->mask);
++
++	e = recent_entry_lookup(t, &addr_masked, par->family,
+ 				(info->check_set & XT_RECENT_TTL) ? ttl : 0);
+ 	if (e == NULL) {
+ 		if (!(info->check_set & XT_RECENT_SET))
+ 			goto out;
+-		e = recent_entry_init(t, &addr, par->family, ttl);
++		e = recent_entry_init(t, &addr_masked, par->family, ttl);
+ 		if (e == NULL)
+ 			par->hotdrop = true;
+ 		ret = !ret;
+@@ -306,10 +311,10 @@ out:
+ 	return ret;
+ }
+ 
+-static int recent_mt_check(const struct xt_mtchk_param *par)
++static int recent_mt_check(const struct xt_mtchk_param *par,
++	const struct xt_recent_mtinfo_v1 *info)
+ {
+ 	struct recent_net *recent_net = recent_pernet(par->net);
+-	const struct xt_recent_mtinfo *info = par->matchinfo;
+ 	struct recent_table *t;
+ #ifdef CONFIG_PROC_FS
+ 	struct proc_dir_entry *pde;
+@@ -361,6 +366,8 @@ static int recent_mt_check(const struct xt_mtchk_param *par)
+ 		goto out;
+ 	}
+ 	t->refcnt = 1;
++
++	memcpy(&t->mask, &info->mask, sizeof(t->mask));
+ 	strcpy(t->name, info->name);
+ 	INIT_LIST_HEAD(&t->lru_list);
+ 	for (i = 0; i < ip_list_hash_size; i++)
+@@ -385,10 +392,29 @@ out:
+ 	return ret;
+ }
+ 
++static int recent_mt_check_v0(const struct xt_mtchk_param *par)
++{
++	const struct xt_recent_mtinfo_v0 *info_v0 = par->matchinfo;
++	struct xt_recent_mtinfo_v1 info_v1;
++	int ret;
++
++	/* Copy old data */
++	memcpy(&info_v1, info_v0, sizeof(struct xt_recent_mtinfo));
++	/* Default mask will make same behavior as old recent */
++	memset(info_v1.mask.all, 0xFF, sizeof(info_v1.mask.all));
++	ret = recent_mt_check(par, &info_v1);
++	return ret;
++}
++
++static int recent_mt_check_v1(const struct xt_mtchk_param *par)
++{
++	return recent_mt_check(par, par->matchinfo);
++}
++
+ static void recent_mt_destroy(const struct xt_mtdtor_param *par)
+ {
+ 	struct recent_net *recent_net = recent_pernet(par->net);
+-	const struct xt_recent_mtinfo *info = par->matchinfo;
++	const struct xt_recent_mtinfo_v1 *info = par->matchinfo;
+ 	struct recent_table *t;
+ 
+ 	mutex_lock(&recent_mutex);
+@@ -625,7 +651,7 @@ static struct xt_match recent_mt_reg[] __read_mostly = {
+ 		.family     = NFPROTO_IPV4,
+ 		.match      = recent_mt,
+ 		.matchsize  = sizeof(struct xt_recent_mtinfo),
+-		.checkentry = recent_mt_check,
++		.checkentry = recent_mt_check_v0,
+ 		.destroy    = recent_mt_destroy,
+ 		.me         = THIS_MODULE,
+ 	},
+@@ -635,10 +661,30 @@ static struct xt_match recent_mt_reg[] __read_mostly = {
+ 		.family     = NFPROTO_IPV6,
+ 		.match      = recent_mt,
+ 		.matchsize  = sizeof(struct xt_recent_mtinfo),
+-		.checkentry = recent_mt_check,
++		.checkentry = recent_mt_check_v0,
++		.destroy    = recent_mt_destroy,
++		.me         = THIS_MODULE,
++	},
++	{
++		.name       = "recent",
++		.revision   = 1,
++		.family     = NFPROTO_IPV4,
++		.match      = recent_mt,
++		.matchsize  = sizeof(struct xt_recent_mtinfo_v1),
++		.checkentry = recent_mt_check_v1,
+ 		.destroy    = recent_mt_destroy,
+ 		.me         = THIS_MODULE,
+ 	},
++	{
++		.name       = "recent",
++		.revision   = 1,
++		.family     = NFPROTO_IPV6,
++		.match      = recent_mt,
++		.matchsize  = sizeof(struct xt_recent_mtinfo_v1),
++		.checkentry = recent_mt_check_v1,
++		.destroy    = recent_mt_destroy,
++		.me         = THIS_MODULE,
++	}
+ };
+ 
+ static int __init recent_mt_init(void)
 -- 
-1.7.7.6
+1.7.3.4
