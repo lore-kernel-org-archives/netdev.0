@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 08/17] net: Introduce sk_gfp_atomic() to allow addition of GFP flags depending on the individual socket
-Date: Thu, 17 May 2012 15:50:22 +0100
-Message-ID: <1337266231-8031-9-git-send-email-mgorman@suse.de>
+Subject: [PATCH 15/17] nbd: Set SOCK_MEMALLOC for access to PFMEMALLOC reserves
+Date: Thu, 17 May 2012 15:50:29 +0100
+Message-ID: <1337266231-8031-16-git-send-email-mgorman@suse.de>
 References: <1337266231-8031-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -9,122 +9,64 @@ Cc: Linux-MM <linux-mm@kvack.org>,
 	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>, Mel Gorman <mgorman@suse.de>
+	Eric B Munson <emunson@mgebm.net>,
+	Mel Gorman <mgorman@suse.de>
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1337266231-8031-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce sk_gfp_atomic(), this function allows to inject sock specific
-flags to each sock related allocation. It is only used on allocation
-paths that may be required for writing pages back to network storage.
+Set SOCK_MEMALLOC on the NBD socket to allow access to PFMEMALLOC
+reserves so pages backed by NBD, particularly if swap related, can
+be cleaned to prevent the machine being deadlocked. It is still
+possible that the PFMEMALLOC reserves get depleted resulting in
+deadlock but this can be resolved by the administrator by increasing
+min_free_kbytes.
 
-[davem@davemloft.net: Use sk_gfp_atomic only when necessary]
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- include/net/sock.h    |    5 +++++
- net/ipv4/tcp_output.c |    9 +++++----
- net/ipv6/tcp_ipv6.c   |    8 +++++---
- 3 files changed, 15 insertions(+), 7 deletions(-)
+ drivers/block/nbd.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 5a0a58a..d0ab047 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -644,6 +644,11 @@ static inline int sock_flag(struct sock *sk, enum sock_flags flag)
- 	return test_bit(flag, &sk->sk_flags);
+diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+index 061427a75d..76bc96f 100644
+--- a/drivers/block/nbd.c
++++ b/drivers/block/nbd.c
+@@ -154,6 +154,7 @@ static int sock_xmit(struct nbd_device *nbd, int send, void *buf, int size,
+ 	struct msghdr msg;
+ 	struct kvec iov;
+ 	sigset_t blocked, oldset;
++	unsigned long pflags = current->flags;
+ 
+ 	if (unlikely(!sock)) {
+ 		dev_err(disk_to_dev(nbd->disk),
+@@ -167,8 +168,9 @@ static int sock_xmit(struct nbd_device *nbd, int send, void *buf, int size,
+ 	siginitsetinv(&blocked, sigmask(SIGKILL));
+ 	sigprocmask(SIG_SETMASK, &blocked, &oldset);
+ 
++	current->flags |= PF_MEMALLOC;
+ 	do {
+-		sock->sk->sk_allocation = GFP_NOIO;
++		sock->sk->sk_allocation = GFP_NOIO | __GFP_MEMALLOC;
+ 		iov.iov_base = buf;
+ 		iov.iov_len = size;
+ 		msg.msg_name = NULL;
+@@ -214,6 +216,7 @@ static int sock_xmit(struct nbd_device *nbd, int send, void *buf, int size,
+ 	} while (size > 0);
+ 
+ 	sigprocmask(SIG_SETMASK, &oldset, NULL);
++	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+ 
+ 	return result;
  }
+@@ -405,6 +408,7 @@ static int nbd_do_it(struct nbd_device *nbd)
  
-+static inline gfp_t sk_gfp_atomic(struct sock *sk, gfp_t gfp_mask)
-+{
-+	return GFP_ATOMIC;
-+}
-+
- static inline void sk_acceptq_removed(struct sock *sk)
- {
- 	sk->sk_ack_backlog--;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 7ac6423..884c78d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2445,7 +2445,8 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	BUG_ON(nbd->magic != NBD_MAGIC);
  
- 	if (cvp != NULL && cvp->s_data_constant && cvp->s_data_desired)
- 		s_data_desired = cvp->s_data_desired;
--	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15 + s_data_desired, 1, GFP_ATOMIC);
-+	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15 + s_data_desired, 1,
-+			   sk_gfp_atomic(sk, GFP_ATOMIC));
- 	if (skb == NULL)
- 		return NULL;
- 
-@@ -2741,7 +2742,7 @@ void tcp_send_ack(struct sock *sk)
- 	 * tcp_transmit_skb() will set the ownership to this
- 	 * sock.
- 	 */
--	buff = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
-+	buff = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
- 	if (buff == NULL) {
- 		inet_csk_schedule_ack(sk);
- 		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
-@@ -2756,7 +2757,7 @@ void tcp_send_ack(struct sock *sk)
- 
- 	/* Send it off, this clears delayed acks for us. */
- 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
--	tcp_transmit_skb(sk, buff, 0, GFP_ATOMIC);
-+	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC));
- }
- 
- /* This routine sends a packet with an out of date sequence
-@@ -2776,7 +2777,7 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent)
- 	struct sk_buff *skb;
- 
- 	/* We don't queue it, tcp_transmit_skb() sets ownership. */
--	skb = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
-+	skb = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
- 	if (skb == NULL)
- 		return -1;
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 98256cf..ffa75a0 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1352,7 +1352,8 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	/* Clone pktoptions received with SYN */
- 	newnp->pktoptions = NULL;
- 	if (treq->pktopts != NULL) {
--		newnp->pktoptions = skb_clone(treq->pktopts, GFP_ATOMIC);
-+		newnp->pktoptions = skb_clone(treq->pktopts,
-+					      sk_gfp_atomic(sk, GFP_ATOMIC));
- 		kfree_skb(treq->pktopts);
- 		treq->pktopts = NULL;
- 		if (newnp->pktoptions)
-@@ -1405,7 +1406,8 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		 * across. Shucks.
- 		 */
- 		tcp_md5_do_add(newsk, (union tcp_md5_addr *)&newnp->daddr,
--			       AF_INET6, key->key, key->keylen, GFP_ATOMIC);
-+			       AF_INET6, key->key, key->keylen,
-+			       sk_gfp_atomic(sk, GFP_ATOMIC));
- 	}
- #endif
- 
-@@ -1500,7 +1502,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 					       --ANK (980728)
- 	 */
- 	if (np->rxopt.all)
--		opt_skb = skb_clone(skb, GFP_ATOMIC);
-+		opt_skb = skb_clone(skb, sk_gfp_atomic(sk, GFP_ATOMIC));
- 
- 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
- 		sock_rps_save_rxhash(sk, skb);
++	sk_set_memalloc(nbd->sock->sk);
+ 	nbd->pid = task_pid_nr(current);
+ 	ret = device_create_file(disk_to_dev(nbd->disk), &pid_attr);
+ 	if (ret) {
 -- 
 1.7.9.2
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
