@@ -1,59 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tcp timestamp issues with google servers
-Date: Thu, 17 May 2012 20:12:43 +0200
-Message-ID: <1337278363.3403.39.camel@edumazet-glaptop>
-References: <87r4ujno34.fsf@tucsk.pomaz.szeredi.hu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2] drop_monitor: convert to modular building
+Date: Thu, 17 May 2012 19:14:05 +0100
+Message-ID: <1337278445.2496.17.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
+	 <1337276940-5025-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Miklos Szeredi <miklos@szeredi.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87r4ujno34.fsf@tucsk.pomaz.szeredi.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:10731 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754980Ab2EQSOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 14:14:10 -0400
+In-Reply-To: <1337276940-5025-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-17 at 11:39 +0200, Miklos Szeredi wrote:
-> Sometimes connection to google.com, gmail.com and other google servers
-> doesn't work or takes ages to connect.  When this hits it hits all
-> google servers at the same time and it's persistent.  It never happens
-> to anything other than google.  Rebooting helps.  Rarely it goes away
-> spontaneously.
+On Thu, 2012-05-17 at 13:49 -0400, Neil Horman wrote:
+> When I first wrote drop monitor I wrote it to just build monolithically.  There
+> is no reason it can't be built modularly as well, so lets give it that
+> flexibiity.
 > 
-> Apparently google is sometimes replying with an invalid TSecr timestamp
-> value (smaller than the one sent in the last packet) and this confuses
-> the Linux TCP stack which either discards the packet or sends a Reset.
+> I've tested this by building it as both a module and monolithically, and it
+> seems to work quite well
 > 
-> Network dump attached.
+> Change notes:
 > 
-> I found only a couple of references to this issue:
-> 
-> http://gotchas.livejournal.com/3028.html
-> 
-> http://groups.google.com/group/comp.os.linux.networking/browse_thread/thread/29f56feded11b42a
-> 
-> Turning tcp timestamps fixes the issue:
-> 
->   sysctl -w net.ipv4.tcp_timestamps=0
-> 
-> Not sure why this happens only to me and a very few others.
-> 
-> It appears to be an issue with google TCP stack (is it a modified
-> stack?) but I thought about issues in my network switch (restarting it
-> doesn't help) or something in the ISP, but those look unlikely.
-> 
-> Any ideas?
-> 
-> Thanks,
-> Miklos
-> 
-> 
-> 
->   1   0.000000 192.168.28.100 -> 74.125.232.226 TCP 51303 > http [SYN] Seq=0 Win=14600 Len=0 MSS=1460 SACK_PERM=1 TSV=35355050 TSER=0 WS=5
->   2   0.002730 74.125.232.226 -> 192.168.28.100 TCP http > 51303 [SYN, ACK] Seq=0 Ack=1 Win=14180 Len=0 MSS=1430 SACK_PERM=1 TSV=1184565067 TSER=35325344 WS=6
+> v2)
+> * fixed for_each_present_cpu loops to be more correct as per Eric D.
+> * Converted exit path failures to BUG_ON as per Ben H.
 
+Sorry I didn't pick up on this the first time:
 
-Do you really have 2730 usec RTT between you and this (Google ?)
-server ?
+[...]
+> -late_initcall(init_net_drop_monitor);
+> +static void exit_net_drop_monitor(void)
+> +{
+> +	struct per_cpu_dm_data *data;
+> +	int cpu;
+> +
+> +	BUG_ON(unregister_netdevice_notifier(&dropmon_net_notifier));
+> +
+> +	/*
+> +	 * Because of the module_get/put we do in the trace state change path
+> +	 * we are guarnateed not to have any current users when we get here
+> +	 * all we need to do is make sure that we don't have any running timers
+> +	 * or pending schedule calls
+> +	 */
+> +
+> +	for_each_possible_cpu(cpu) {
+> +		data = &per_cpu(dm_cpu_data, cpu);
+> +		del_timer(&data->send_timer);
 
-Are you sure this is not a broken middle box ?
+Doesn't this need to be del_timer_sync()?
+
+Ben.
+
+> +		cancel_work_sync(&data->dm_alert_work);
+> +		/*
+> +		 * At this point, we should have exclusive access
+> +		 * to this struct and can free the skb inside it
+> +		 */
+> +		kfree_skb(data->skb);
+> +	}
+> +
+> +	BUG_ON(genl_unregister_family(&net_drop_monitor_family));
+> +}
+> +
+> +module_init(init_net_drop_monitor);
+> +module_exit(exit_net_drop_monitor);
+> +
+> +MODULE_LICENSE("GPL v2");
+> +MODULE_AUTHOR("Neil Horman <nhorman@tuxdriver.com>");
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
