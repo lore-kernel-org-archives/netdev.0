@@ -1,40 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 17 May 2012 04:27:46 -0700
-Message-ID: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 4/4] igb: Disable the BMC-to-OS Watchdog Enable bit for DMAC.
+Date: Thu, 17 May 2012 04:27:50 -0700
+Message-ID: <1337254070-32500-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:48755 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761630Ab2EQL1y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932284Ab2EQL1y (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 17 May 2012 07:27:54 -0400
+In-Reply-To: <1337254070-32500-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of patches contains updates for e1000, e1000e and igb.
+From: Matthew Vick <matthew.vick@intel.com>
 
-The following are changes since commit dc6b9b78234fecdc6d2ca5e1629185718202bcf5:
-  net: include/net/sock.h cleanup
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Under certain scenarios, it's possible that bursty manageability traffic
+over the BMC-to-OS path may overrun the internal manageability receive
+buffer causing dropped manageability packets. Clearing this bit prevents
+this situation by interrupting coalescing to allow manageability traffic
+through.
 
-Bruce Allan (1):
-  e1000e: fix typo in definition of E1000_CTRL_EXT_FORCE_SMBUS
+Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/e1000_defines.h |    2 ++
+ drivers/net/ethernet/intel/igb/igb_main.c      |    3 +++
+ 2 files changed, 5 insertions(+), 0 deletions(-)
 
-Matthew Vick (1):
-  igb: Disable the BMC-to-OS Watchdog Enable bit for DMAC.
-
-Sebastian Andrzej Siewior (2):
-  e1000: remove workaround for Errata 23 from jumbo alloc
-  e1000: look in the page and not in skb->data for the last byte
-
- drivers/net/ethernet/intel/e1000/e1000_main.c  |   30 ++++--------------------
- drivers/net/ethernet/intel/e1000e/defines.h    |    2 +-
- drivers/net/ethernet/intel/igb/e1000_defines.h |    2 +
- drivers/net/ethernet/intel/igb/igb_main.c      |    3 ++
- 4 files changed, 11 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index 6409f85..ec7e4fe 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -301,6 +301,8 @@
+ 							* transactions */
+ #define E1000_DMACR_DMAC_LX_SHIFT       28
+ #define E1000_DMACR_DMAC_EN             0x80000000 /* Enable DMA Coalescing */
++/* DMA Coalescing BMC-to-OS Watchdog Enable */
++#define E1000_DMACR_DC_BMC2OSW_EN	0x00008000
+ 
+ #define E1000_DMCTXTH_DMCTTHR_MASK      0x00000FFF /* DMA Coalescing Transmit
+ 							* Threshold */
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 9bbf1a2..dd3bfe8 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -7147,6 +7147,9 @@ static void igb_init_dmac(struct igb_adapter *adapter, u32 pba)
+ 
+ 			/* watchdog timer= +-1000 usec in 32usec intervals */
+ 			reg |= (1000 >> 5);
++
++			/* Disable BMC-to-OS Watchdog Enable */
++			reg &= ~E1000_DMACR_DC_BMC2OSW_EN;
+ 			wr32(E1000_DMACR, reg);
+ 
+ 			/*
 -- 
 1.7.7.6
