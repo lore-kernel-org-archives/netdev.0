@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 08/17] net: Introduce sk_gfp_atomic() to allow addition
- of GFP flags depending on the individual socket
-Date: Thu, 17 May 2012 16:10:40 -0400 (EDT)
-Message-ID: <20120517.161040.1412806690395517745.davem@davemloft.net>
+Subject: Re: [PATCH 09/17] netvm: Allow the use of __GFP_MEMALLOC by
+ specific sockets
+Date: Thu, 17 May 2012 16:11:09 -0400 (EDT)
+Message-ID: <20120517.161109.1822721470409742316.davem@davemloft.net>
 References: <1337266231-8031-1-git-send-email-mgorman@suse.de>
-	<1337266231-8031-9-git-send-email-mgorman@suse.de>
+	<1337266231-8031-10-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,19 +13,24 @@ Cc: akpm@linux-foundation.org, linux-mm@kvack.org, netdev@vger.kernel.org,
         michaelc@cs.wisc.edu, emunson@mgebm.net
 To: mgorman@suse.de
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1337266231-8031-9-git-send-email-mgorman@suse.de>
+In-Reply-To: <1337266231-8031-10-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 From: Mel Gorman <mgorman@suse.de>
-Date: Thu, 17 May 2012 15:50:22 +0100
+Date: Thu, 17 May 2012 15:50:23 +0100
 
-> Introduce sk_gfp_atomic(), this function allows to inject sock specific
-> flags to each sock related allocation. It is only used on allocation
-> paths that may be required for writing pages back to network storage.
+> Allow specific sockets to be tagged SOCK_MEMALLOC and use
+> __GFP_MEMALLOC for their allocations. These sockets will be able to go
+> below watermarks and allocate from the emergency reserve. Such sockets
+> are to be used to service the VM (iow. to swap over). They must be
+> handled kernel side, exposing such a socket to user-space is a bug.
 > 
-> [davem@davemloft.net: Use sk_gfp_atomic only when necessary]
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> There is a risk that the reserves be depleted so for now, the
+> administrator is responsible for increasing min_free_kbytes as
+> necessary to prevent deadlock for their workloads.
+> 
+> [a.p.zijlstra@chello.nl: Original patches]
 > Signed-off-by: Mel Gorman <mgorman@suse.de>
 
 Acked-by: David S. Miller <davem@davemloft.net>
