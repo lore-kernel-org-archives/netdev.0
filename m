@@ -1,69 +1,644 @@
-From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for comms devices.
-Date: Thu, 17 May 2012 19:07:32 +0200
-Message-ID: <4FB53054.9070309@imap.cc>
-References: <cover.1337203535.git.sarah.a.sharp@linux.intel.com> <3c634afbbe15598cdcbf77bb9393d22ad4bfa373.1337203535.git.sarah.a.sharp@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigB1133729D4FC7A3C4EB0E715"
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gigaset307x-common-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
-To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <3c634afbbe15598cdcbf77bb9393d22ad4bfa373.1337203535.git.sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+Subject: [PATCH V3] CS89x0 : Use ioread16/iowrite16 on all platforms
+Date: Thu, 17 May 2012 19:11:42 +0200
+Message-ID: <1337274702-19536-1-git-send-email-jaccon.bastiaansen@gmail.com>
+Cc: joe@perches.com, romieu@fr.zoreil.com, s.hauer@pengutronix.de,
+	gfm@funxed.com, davem@davemloft.net, festevam@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:47074 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030350Ab2EQRMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 13:12:16 -0400
+Received: by eaak11 with SMTP id k11so586024eaa.19
+        for <netdev@vger.kernel.org>; Thu, 17 May 2012 10:12:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigB1133729D4FC7A3C4EB0E715
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+The use of the inw/outw functions by the cs89x0 platform driver
+results in NULL pointer references on ARM platforms and
+platforms that do not provide ISA-style programmed I/O accessors.
 
-Am 16.05.2012 23:55, schrieb Sarah Sharp:
-> Set the disable_hub_initiated_lpm flag for for all USB communications
-> drivers.  I know there aren't currently any USB 3.0 devices that
-> implement these class specifications, but we should be ready if they do=
-=2E
+Using inw/outw also accesses the wrong address space on platforms
+that have a PCI I/O space that is not identity-mapped into the
+physical address space.
 
-I follow the argument for class drivers. But this patch also
-modifies drivers for specific existing USB 2.0 only devices
-which are unlikely to ever grow USB 3.0 support, such as the
-Gigaset ISDN driver:
+Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+---
+ drivers/net/ethernet/cirrus/cs89x0.c |  341 ++++++++++++++++++----------------
+ 1 files changed, 183 insertions(+), 158 deletions(-)
 
->  drivers/isdn/gigaset/bas-gigaset.c            |    1 +
->  drivers/isdn/gigaset/usb-gigaset.c            |    1 +
-
-What is the interest of setting the disable_hub_initiated_lpm
-flag for these?
-
-Thanks,
-Tilman
-
---=20
-Tilman Schmidt                    E-Mail: tilman-ZTO5kqT2PaM@public.gmane.org
-Bonn, Germany
-In theory there is no difference between theory and practice.
-In practice there is. (Yogi Berra)
-
-
---------------enigB1133729D4FC7A3C4EB0E715
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.16 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk+1MFQACgkQQ3+did9BuFtEjQCghpEKnCJ4LI0vjWtFhiOSuLxp
-6h0AnjwiirhAQDf2qjydFRszMK1aywSt
-=nhOe
------END PGP SIGNATURE-----
-
---------------enigB1133729D4FC7A3C4EB0E715--
+diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+index b9406cb..1d59030 100644
+--- a/drivers/net/ethernet/cirrus/cs89x0.c
++++ b/drivers/net/ethernet/cirrus/cs89x0.c
+@@ -222,6 +222,8 @@ struct net_local {
+ 	int send_underrun;	/* keep track of how many underruns in a row we get */
+ 	int force;		/* force various values; see FORCE* above. */
+ 	spinlock_t lock;
++	void __iomem *virt_addr;/* CS89x0 virtual address. */
++	unsigned long size;	/* Length of CS89x0 memory region. */
+ #if ALLOW_DMA
+ 	int use_dma;		/* Flag: we're using dma */
+ 	int dma;		/* DMA channel */
+@@ -230,16 +232,9 @@ struct net_local {
+ 	unsigned char *end_dma_buff;	/* points to the end of the buffer */
+ 	unsigned char *rx_dma_ptr;	/* points to the next packet  */
+ #endif
+-#ifdef CONFIG_CS89x0_PLATFORM
+-	void __iomem *virt_addr;/* Virtual address for accessing the CS89x0. */
+-	unsigned long phys_addr;/* Physical address for accessing the CS89x0. */
+-	unsigned long size;	/* Length of CS89x0 memory region. */
+-#endif
+ };
+ 
+ /* Index to functions, as function prototypes. */
+-
+-static int cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular);
+ static int net_open(struct net_device *dev);
+ static netdev_tx_t net_send_packet(struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t net_interrupt(int irq, void *dev_id);
+@@ -267,7 +262,8 @@ static void release_dma_buff(struct net_local *lp);
+ /*
+  * Permit 'cs89x0_dma=N' in the kernel boot environment
+  */
+-#if !defined(MODULE) && (ALLOW_DMA != 0)
++#if !defined(MODULE)
++#if ALLOW_DMA
+ static int g_cs89x0_dma;
+ 
+ static int __init dma_fn(char *str)
+@@ -277,9 +273,8 @@ static int __init dma_fn(char *str)
+ }
+ 
+ __setup("cs89x0_dma=", dma_fn);
+-#endif	/* !defined(MODULE) && (ALLOW_DMA != 0) */
++#endif	/* ALLOW_DMA */
+ 
+-#ifndef MODULE
+ static int g_cs89x0_media__force;
+ 
+ static int __init media_fn(char *str)
+@@ -291,58 +286,6 @@ static int __init media_fn(char *str)
+ }
+ 
+ __setup("cs89x0_media=", media_fn);
+-
+-
+-#ifndef CONFIG_CS89x0_PLATFORM
+-/* Check for a network adaptor of this type, and return '0' iff one exists.
+-   If dev->base_addr == 0, probe all likely locations.
+-   If dev->base_addr == 1, always return failure.
+-   If dev->base_addr == 2, allocate space for the device and return success
+-   (detachable devices only).
+-   Return 0 on success.
+-   */
+-
+-struct net_device * __init cs89x0_probe(int unit)
+-{
+-	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
+-	unsigned *port;
+-	int err = 0;
+-	int irq;
+-	int io;
+-
+-	if (!dev)
+-		return ERR_PTR(-ENODEV);
+-
+-	sprintf(dev->name, "eth%d", unit);
+-	netdev_boot_setup_check(dev);
+-	io = dev->base_addr;
+-	irq = dev->irq;
+-
+-	if (net_debug)
+-		printk("cs89x0:cs89x0_probe(0x%x)\n", io);
+-
+-	if (io > 0x1ff)	{	/* Check a single specified location. */
+-		err = cs89x0_probe1(dev, io, 0);
+-	} else if (io != 0) {	/* Don't probe at all. */
+-		err = -ENXIO;
+-	} else {
+-		for (port = netcard_portlist; *port; port++) {
+-			if (cs89x0_probe1(dev, *port, 0) == 0)
+-				break;
+-			dev->irq = irq;
+-		}
+-		if (!*port)
+-			err = -ENODEV;
+-	}
+-	if (err)
+-		goto out;
+-	return dev;
+-out:
+-	free_netdev(dev);
+-	printk(KERN_WARNING "cs89x0: no cs8900 or cs8920 detected.  Be sure to disable PnP with SETUP\n");
+-	return ERR_PTR(err);
+-}
+-#endif
+ #endif
+ 
+ #if defined(CONFIG_MACH_IXDP2351)
+@@ -369,36 +312,22 @@ writeword(unsigned long base_addr, int portno, u16 value)
+ {
+ 	__raw_writel(value, base_addr + (portno << 1));
+ }
+-#else
+-static u16
+-readword(unsigned long base_addr, int portno)
+-{
+-	return inw(base_addr + portno);
+-}
+-
+-static void
+-writeword(unsigned long base_addr, int portno, u16 value)
+-{
+-	outw(value, base_addr + portno);
+-}
+ #endif
+ 
+-static void
+-readwords(unsigned long base_addr, int portno, void *buf, int length)
++static void readwords(struct net_local *lp, int portno, void *buf, int length)
+ {
+ 	u8 *buf8 = (u8 *)buf;
+ 
+ 	do {
+ 		u16 tmp16;
+ 
+-		tmp16 = readword(base_addr, portno);
++		tmp16 = ioread16(lp->virt_addr + portno);
+ 		*buf8++ = (u8)tmp16;
+ 		*buf8++ = (u8)(tmp16 >> 8);
+ 	} while (--length);
+ }
+ 
+-static void
+-writewords(unsigned long base_addr, int portno, void *buf, int length)
++static void writewords(struct net_local *lp, int portno, void *buf, int length)
+ {
+ 	u8 *buf8 = (u8 *)buf;
+ 
+@@ -407,22 +336,26 @@ writewords(unsigned long base_addr, int portno, void *buf, int length)
+ 
+ 		tmp16 = *buf8++;
+ 		tmp16 |= (*buf8++) << 8;
+-		writeword(base_addr, portno, tmp16);
++		iowrite16(tmp16, lp->virt_addr + portno);
+ 	} while (--length);
+ }
+ 
+ static u16
+ readreg(struct net_device *dev, u16 regno)
+ {
+-	writeword(dev->base_addr, ADD_PORT, regno);
+-	return readword(dev->base_addr, DATA_PORT);
++	struct net_local *lp = netdev_priv(dev);
++
++	iowrite16(regno, lp->virt_addr + ADD_PORT);
++	return ioread16(lp->virt_addr + DATA_PORT);
+ }
+ 
+ static void
+ writereg(struct net_device *dev, u16 regno, u16 value)
+ {
+-	writeword(dev->base_addr, ADD_PORT, regno);
+-	writeword(dev->base_addr, DATA_PORT, value);
++	struct net_local *lp = netdev_priv(dev);
++
++	iowrite16(regno, lp->virt_addr + ADD_PORT);
++	iowrite16(value, lp->virt_addr + DATA_PORT);
+ }
+ 
+ static int __init
+@@ -505,7 +438,7 @@ static const struct net_device_ops net_ops = {
+  */
+ 
+ static int __init
+-cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular)
++cs89x0_probe1(struct net_device *dev, void __iomem *ioaddr, int modular)
+ {
+ 	struct net_local *lp = netdev_priv(dev);
+ 	static unsigned version_printed;
+@@ -529,50 +462,22 @@ cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular)
+ #endif
+ 		lp->force = g_cs89x0_media__force;
+ #endif
+-
+         }
+ 
+-	/* Grab the region so we can find another board if autoIRQ fails. */
+-	/* WTF is going on here? */
+-	if (!request_region(ioaddr & ~3, NETCARD_IO_EXTENT, DRV_NAME)) {
+-		printk(KERN_ERR "%s: request_region(0x%lx, 0x%x) failed\n",
+-				DRV_NAME, ioaddr, NETCARD_IO_EXTENT);
+-		retval = -EBUSY;
+-		goto out1;
+-	}
++	printk(KERN_DEBUG "PP_addr at %p[%x]: 0x%x\n",
++	       ioaddr, ADD_PORT, ioread16(ioaddr + ADD_PORT));
++	iowrite16(PP_ChipID, ioaddr + ADD_PORT);
+ 
+-	/* if they give us an odd I/O address, then do ONE write to
+-           the address port, to get it back to address zero, where we
+-           expect to find the EISA signature word. An IO with a base of 0x3
+-	   will skip the test for the ADD_PORT. */
+-	if (ioaddr & 1) {
+-		if (net_debug > 1)
+-			printk(KERN_INFO "%s: odd ioaddr 0x%lx\n", dev->name, ioaddr);
+-	        if ((ioaddr & 2) != 2)
+-	        	if ((readword(ioaddr & ~3, ADD_PORT) & ADD_MASK) != ADD_SIG) {
+-				printk(KERN_ERR "%s: bad signature 0x%x\n",
+-					dev->name, readword(ioaddr & ~3, ADD_PORT));
+-		        	retval = -ENODEV;
+-				goto out2;
+-			}
+-	}
+-
+-	ioaddr &= ~3;
+-	printk(KERN_DEBUG "PP_addr at %lx[%x]: 0x%x\n",
+-			ioaddr, ADD_PORT, readword(ioaddr, ADD_PORT));
+-	writeword(ioaddr, ADD_PORT, PP_ChipID);
+-
+-	tmp = readword(ioaddr, DATA_PORT);
++	tmp = ioread16(ioaddr + DATA_PORT);
+ 	if (tmp != CHIP_EISA_ID_SIG) {
+-		printk(KERN_DEBUG "%s: incorrect signature at %lx[%x]: 0x%x!="
++		printk(KERN_DEBUG "%s: incorrect signature at %p[%x]: 0x%x!="
+ 			CHIP_EISA_ID_SIG_STR "\n",
+ 			dev->name, ioaddr, DATA_PORT, tmp);
+   		retval = -ENODEV;
+-  		goto out2;
++		goto out1;
+ 	}
+ 
+-	/* Fill in the 'dev' fields. */
+-	dev->base_addr = ioaddr;
++	lp->virt_addr = ioaddr;
+ 
+ 	/* get the chip type */
+ 	rev_type = readreg(dev, PRODUCT_ID_ADD);
+@@ -590,12 +495,12 @@ cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular)
+ 	if (net_debug  &&  version_printed++ == 0)
+ 		printk(version);
+ 
+-	printk(KERN_INFO "%s: cs89%c0%s rev %c found at %#3lx ",
++	printk(KERN_INFO "%s: cs89%c0%s rev %c found at %p ",
+ 	       dev->name,
+ 	       lp->chip_type==CS8900?'0':'2',
+ 	       lp->chip_type==CS8920M?"M":"",
+ 	       lp->chip_revision,
+-	       dev->base_addr);
++	       lp->virt_addr);
+ 
+ 	reset_chip(dev);
+ 
+@@ -787,16 +692,125 @@ cs89x0_probe1(struct net_device *dev, unsigned long ioaddr, int modular)
+ 
+ 	retval = register_netdev(dev);
+ 	if (retval)
+-		goto out3;
++		goto out2;
+ 	return 0;
+-out3:
+-	writeword(dev->base_addr, ADD_PORT, PP_ChipID);
+ out2:
+-	release_region(ioaddr & ~3, NETCARD_IO_EXTENT);
++	iowrite16(PP_ChipID, lp->virt_addr + ADD_PORT);
+ out1:
+ 	return retval;
+ }
+ 
++#ifndef CONFIG_CS89x0_PLATFORM
++/*
++ * This function converts the I/O port addres used by the cs89x0_probe() and
++ * init_module() functions to the I/O memory address used by the
++ * cs89x0_probe1() function.
++ */
++static int __init
++cs89x0_ioport_probe(struct net_device *dev, unsigned long ioport, int modular)
++{
++	struct net_local *lp = netdev_priv(dev);
++	int ret;
++	void __iomem *io_mem;
++
++	if (!lp)
++		return -ENOMEM;
++
++	dev->base_addr = ioport;
++
++	if (!request_region(ioport, NETCARD_IO_EXTENT, DRV_NAME)) {
++		ret = -EBUSY;
++		goto out;
++	}
++
++	io_mem = ioport_map(ioport & ~3, NETCARD_IO_EXTENT);
++	if (!io_mem) {
++		ret = -ENOMEM;
++		goto release;
++	}
++
++	/* if they give us an odd I/O address, then do ONE write to
++	   the address port, to get it back to address zero, where we
++	   expect to find the EISA signature word. An IO with a base of 0x3
++	   will skip the test for the ADD_PORT. */
++	if (ioport & 1) {
++		if (net_debug > 1)
++			printk(KERN_INFO "%s: odd ioaddr 0x%lx\n",
++			       dev->name,
++			       ioport);
++		if ((ioport & 2) != 2)
++			if ((ioread16(io_mem + ADD_PORT) & ADD_MASK) !=
++			    ADD_SIG) {
++				printk(KERN_ERR "%s: bad signature 0x%x\n",
++					dev->name,
++					ioread16(io_mem + ADD_PORT));
++				ret = -ENODEV;
++				goto unmap;
++			}
++	}
++
++	ret = cs89x0_probe1(dev, io_mem, modular);
++	if (!ret)
++		goto out;
++unmap:
++	ioport_unmap(io_mem);
++release:
++	release_region(ioport, NETCARD_IO_EXTENT);
++out:
++	return ret;
++}
++
++#ifndef MODULE
++/* Check for a network adaptor of this type, and return '0' iff one exists.
++   If dev->base_addr == 0, probe all likely locations.
++   If dev->base_addr == 1, always return failure.
++   If dev->base_addr == 2, allocate space for the device and return success
++   (detachable devices only).
++   Return 0 on success.
++   */
++
++struct net_device * __init cs89x0_probe(int unit)
++{
++	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
++	unsigned *port;
++	int err = 0;
++	int irq;
++	int io;
++
++	if (!dev)
++		return ERR_PTR(-ENODEV);
++
++	sprintf(dev->name, "eth%d", unit);
++	netdev_boot_setup_check(dev);
++	io = dev->base_addr;
++	irq = dev->irq;
++
++	if (net_debug)
++		printk(KERN_INFO "cs89x0:cs89x0_probe(0x%x)\n", io);
++
++	if (io > 0x1ff)	{	/* Check a single specified location. */
++		err = cs89x0_ioport_probe(dev, io, 0);
++	} else if (io != 0) {	/* Don't probe at all. */
++		err = -ENXIO;
++	} else {
++		for (port = netcard_portlist; *port; port++) {
++			if (cs89x0_ioport_probe(dev, *port, 0) == 0)
++				break;
++			dev->irq = irq;
++		}
++		if (!*port)
++			err = -ENODEV;
++	}
++	if (err)
++		goto out;
++	return dev;
++out:
++	free_netdev(dev);
++	printk(KERN_WARNING "cs89x0: no cs8900 or cs8920 detected.  Be sure to disable PnP with SETUP\n");
++	return ERR_PTR(err);
++}
++#endif
++#endif
+ 
+ /*********************************
+  * This page contains DMA routines
+@@ -956,7 +970,6 @@ static void __init reset_chip(struct net_device *dev)
+ #if !defined(CONFIG_MACH_MX31ADS)
+ #if !defined(CS89x0_NONISA_IRQ)
+ 	struct net_local *lp = netdev_priv(dev);
+-	int ioaddr = dev->base_addr;
+ #endif /* CS89x0_NONISA_IRQ */
+ 	int reset_start_time;
+ 
+@@ -968,13 +981,15 @@ static void __init reset_chip(struct net_device *dev)
+ #if !defined(CS89x0_NONISA_IRQ)
+ 	if (lp->chip_type != CS8900) {
+ 		/* Hardware problem requires PNP registers to be reconfigured after a reset */
+-		writeword(ioaddr, ADD_PORT, PP_CS8920_ISAINT);
+-		outb(dev->irq, ioaddr + DATA_PORT);
+-		outb(0,      ioaddr + DATA_PORT + 1);
+-
+-		writeword(ioaddr, ADD_PORT, PP_CS8920_ISAMemB);
+-		outb((dev->mem_start >> 16) & 0xff, ioaddr + DATA_PORT);
+-		outb((dev->mem_start >> 8) & 0xff,   ioaddr + DATA_PORT + 1);
++		iowrite16(PP_CS8920_ISAINT, lp->virt_addr + ADD_PORT);
++		iowrite8(dev->irq, lp->virt_addr + DATA_PORT);
++		iowrite8(0, lp->virt_addr + DATA_PORT + 1);
++
++		iowrite16(PP_CS8920_ISAMemB, lp->virt_addr + ADD_PORT);
++		iowrite8((dev->mem_start >> 16) & 0xff,
++			 lp->virt_addr + DATA_PORT);
++		iowrite8((dev->mem_start >> 8) & 0xff,
++			 lp->virt_addr + DATA_PORT + 1);
+ 	}
+ #endif /* CS89x0_NONISA_IRQ */
+ 
+@@ -1092,6 +1107,7 @@ detect_tp(struct net_device *dev)
+ static int
+ send_test_pkt(struct net_device *dev)
+ {
++	struct net_local *lp = netdev_priv(dev);
+ 	char test_packet[] = { 0,0,0,0,0,0, 0,0,0,0,0,0,
+ 				 0, 46, /* A 46 in network order */
+ 				 0, 0, /* DSAP=0 & SSAP=0 fields */
+@@ -1103,8 +1119,8 @@ send_test_pkt(struct net_device *dev)
+ 	memcpy(test_packet,          dev->dev_addr, ETH_ALEN);
+ 	memcpy(test_packet+ETH_ALEN, dev->dev_addr, ETH_ALEN);
+ 
+-        writeword(dev->base_addr, TX_CMD_PORT, TX_AFTER_ALL);
+-        writeword(dev->base_addr, TX_LEN_PORT, ETH_ZLEN);
++	iowrite16(TX_AFTER_ALL, lp->virt_addr + TX_CMD_PORT);
++	iowrite16(ETH_ZLEN, lp->virt_addr + TX_LEN_PORT);
+ 
+ 	/* Test to see if the chip has allocated memory for the packet */
+ 	while (jiffies - timenow < 5)
+@@ -1114,7 +1130,7 @@ send_test_pkt(struct net_device *dev)
+ 		return 0;	/* this shouldn't happen */
+ 
+ 	/* Write the contents of the packet */
+-	writewords(dev->base_addr, TX_FRAME_PORT,test_packet,(ETH_ZLEN+1) >>1);
++	writewords(lp, TX_FRAME_PORT, test_packet, (ETH_ZLEN+1) >> 1);
+ 
+ 	if (net_debug > 1) printk("Sending test packet ");
+ 	/* wait a couple of jiffies for packet to be received */
+@@ -1458,8 +1474,8 @@ static netdev_tx_t net_send_packet(struct sk_buff *skb,struct net_device *dev)
+ 	netif_stop_queue(dev);
+ 
+ 	/* initiate a transmit sequence */
+-	writeword(dev->base_addr, TX_CMD_PORT, lp->send_cmd);
+-	writeword(dev->base_addr, TX_LEN_PORT, skb->len);
++	iowrite16(lp->send_cmd, lp->virt_addr + TX_CMD_PORT);
++	iowrite16(skb->len, lp->virt_addr + TX_LEN_PORT);
+ 
+ 	/* Test to see if the chip has allocated memory for the packet */
+ 	if ((readreg(dev, PP_BusST) & READY_FOR_TX_NOW) == 0) {
+@@ -1473,7 +1489,7 @@ static netdev_tx_t net_send_packet(struct sk_buff *skb,struct net_device *dev)
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 	/* Write the contents of the packet */
+-	writewords(dev->base_addr, TX_FRAME_PORT,skb->data,(skb->len+1) >>1);
++	writewords(lp, TX_FRAME_PORT, skb->data, (skb->len+1) >> 1);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 	dev->stats.tx_bytes += skb->len;
+ 	dev_kfree_skb (skb);
+@@ -1499,10 +1515,9 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
+ {
+ 	struct net_device *dev = dev_id;
+ 	struct net_local *lp;
+-	int ioaddr, status;
++	int status;
+  	int handled = 0;
+ 
+-	ioaddr = dev->base_addr;
+ 	lp = netdev_priv(dev);
+ 
+ 	/* we MUST read all the events out of the ISQ, otherwise we'll never
+@@ -1512,7 +1527,7 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
+            course, if you're on a slow machine, and packets are arriving
+            faster than you can read them off, you're screwed.  Hasta la
+            vista, baby!  */
+-	while ((status = readword(dev->base_addr, ISQ_PORT))) {
++	while ((status = ioread16(lp->virt_addr + ISQ_PORT))) {
+ 		if (net_debug > 4)printk("%s: event=%04x\n", dev->name, status);
+ 		handled = 1;
+ 		switch(status & ISQ_EVENT_MASK) {
+@@ -1608,12 +1623,12 @@ count_rx_errors(int status, struct net_device *dev)
+ static void
+ net_rx(struct net_device *dev)
+ {
++	struct net_local *lp = netdev_priv(dev);
+ 	struct sk_buff *skb;
+ 	int status, length;
+ 
+-	int ioaddr = dev->base_addr;
+-	status = readword(ioaddr, RX_FRAME_PORT);
+-	length = readword(ioaddr, RX_FRAME_PORT);
++	status = ioread16(lp->virt_addr + RX_FRAME_PORT);
++	length = ioread16(lp->virt_addr + RX_FRAME_PORT);
+ 
+ 	if ((status & RX_OK) == 0) {
+ 		count_rx_errors(status, dev);
+@@ -1631,9 +1646,9 @@ net_rx(struct net_device *dev)
+ 	}
+ 	skb_reserve(skb, 2);	/* longword align L3 header */
+ 
+-	readwords(ioaddr, RX_FRAME_PORT, skb_put(skb, length), length >> 1);
++	readwords(lp, RX_FRAME_PORT, skb_put(skb, length), length >> 1);
+ 	if (length & 1)
+-		skb->data[length-1] = readword(ioaddr, RX_FRAME_PORT);
++		skb->data[length-1] = ioread16(lp->virt_addr + RX_FRAME_PORT);
+ 
+ 	if (net_debug > 3) {
+ 		printk(	"%s: received %d byte packet of type %x\n",
+@@ -1886,7 +1901,7 @@ int __init init_module(void)
+ 		goto out;
+ 	}
+ #endif
+-	ret = cs89x0_probe1(dev, io, 1);
++	ret = cs89x0_ioport_probe(dev, io, 1);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -1900,8 +1915,11 @@ out:
+ void __exit
+ cleanup_module(void)
+ {
++	struct net_local *lp = netdev_priv(dev_cs89x0);
++
+ 	unregister_netdev(dev_cs89x0);
+-	writeword(dev_cs89x0->base_addr, ADD_PORT, PP_ChipID);
++	iowrite16(PP_ChipID, lp->virt_addr + ADD_PORT);
++	ioport_unmap(lp->virt_addr);
+ 	release_region(dev_cs89x0->base_addr, NETCARD_IO_EXTENT);
+ 	free_netdev(dev_cs89x0);
+ }
+@@ -1913,6 +1931,7 @@ static int __init cs89x0_platform_probe(struct platform_device *pdev)
+ 	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
+ 	struct net_local *lp;
+ 	struct resource *mem_res;
++	void __iomem *virt_addr;
+ 	int err;
+ 
+ 	if (!dev)
+@@ -1928,22 +1947,21 @@ static int __init cs89x0_platform_probe(struct platform_device *pdev)
+ 		goto free;
+ 	}
+ 
+-	lp->phys_addr = mem_res->start;
+ 	lp->size = resource_size(mem_res);
+-	if (!request_mem_region(lp->phys_addr, lp->size, DRV_NAME)) {
++	if (!request_mem_region(mem_res->start, lp->size, DRV_NAME)) {
+ 		dev_warn(&dev->dev, "request_mem_region() failed.\n");
+ 		err = -EBUSY;
+ 		goto free;
+ 	}
+ 
+-	lp->virt_addr = ioremap(lp->phys_addr, lp->size);
+-	if (!lp->virt_addr) {
++	virt_addr = ioremap(mem_res->start, lp->size);
++	if (!virt_addr) {
+ 		dev_warn(&dev->dev, "ioremap() failed.\n");
+ 		err = -ENOMEM;
+ 		goto release;
+ 	}
+ 
+-	err = cs89x0_probe1(dev, (unsigned long)lp->virt_addr, 0);
++	err = cs89x0_probe1(dev, virt_addr, 0);
+ 	if (err) {
+ 		dev_warn(&dev->dev, "no cs8900 or cs8920 detected.\n");
+ 		goto unmap;
+@@ -1953,9 +1971,9 @@ static int __init cs89x0_platform_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ unmap:
+-	iounmap(lp->virt_addr);
++	iounmap(virt_addr);
+ release:
+-	release_mem_region(lp->phys_addr, lp->size);
++	release_mem_region(mem_res->start, lp->size);
+ free:
+ 	free_netdev(dev);
+ 	return err;
+@@ -1965,10 +1983,17 @@ static int cs89x0_platform_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *dev = platform_get_drvdata(pdev);
+ 	struct net_local *lp = netdev_priv(dev);
++	struct resource *mem_res;
+ 
++	/*
++	 * This platform_get_resource() call will not return NULL, because
++	 * the same call in cs89x0_platform_probe() has returned a non NULL
++	 * value.
++	 */
++	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	unregister_netdev(dev);
+ 	iounmap(lp->virt_addr);
+-	release_mem_region(lp->phys_addr, lp->size);
++	release_mem_region(mem_res->start, lp->size);
+ 	free_netdev(dev);
+ 	return 0;
+ }
+-- 
+1.7.1
