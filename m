@@ -1,117 +1,155 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Stable regression with 'tcp: allow splice() to build full TSO
- packets'
-Date: Thu, 17 May 2012 22:41:19 +0200
-Message-ID: <1337287279.3403.44.camel@edumazet-glaptop>
-References: <20120517121800.GA18052@1wt.eu>
+From: Andre Bella <scancool@yahoo.com>
+Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for
+	comms devices.
+Date: Thu, 17 May 2012 10:50:31 -0700 (PDT)
+Message-ID: <1337277031.3460.YahooMailClassic@web160704.mail.bf1.yahoo.com>
+References: <20120517173150.GE4967@xanatos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/mixed; boundary="===============0065834560=="
+Cc: gigaset307x-common@lists.sourceforge.net, libertas-dev@lists.infradead.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+	users@rt2x00.serialmonkey.com, linux-bluetooth@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, Alan Stern <stern@rowland.harvard.edu>,
+	Hansjoerg Lipp <hjlipp@web.de>, netdev@vger.kernel.org
+To: Tilman Schmidt <tilman@imap.cc>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Return-path: <ath9k-devel-bounces@lists.ath9k.org>
+In-Reply-To: <20120517173150.GE4967@xanatos>
+List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
+List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
+List-Post: <mailto:ath9k-devel@lists.ath9k.org>
+List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
+List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
+Mime-version: 1.0
+Sender: ath9k-devel-bounces@lists.ath9k.org
+Errors-To: ath9k-devel-bounces@lists.ath9k.org
+List-Id: netdev.vger.kernel.org
+
+--===============0065834560==
+Content-Type: multipart/alternative; boundary="-672873354-1662837441-1337277031=:3460"
+
+---672873354-1662837441-1337277031=:3460
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+I dont know, sorry,
+
+--- On Thu, 5/17/12, Sarah Sharp <sarah.a.sharp@linux.intel.com> wrote:
+
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for comms devices.
+To: "Tilman Schmidt" <tilman@imap.cc>
+Cc: gigaset307x-common@lists.sourceforge.net, libertas-dev@lists.infradead.=
+org, "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>, linux-usb@vger.kern=
+el.org, linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com, linu=
+x-bluetooth@vger.kernel.org, ath9k-devel@lists.ath9k.org, "Alan Stern" <ste=
+rn@rowland.harvard.edu>, "Hansjoerg Lipp" <hjlipp@web.de>, netdev@vger.kern=
+el.org
+Date: Thursday, May 17, 2012, 1:31 PM
+
+On Thu, May 17, 2012 at 07:07:32PM +0200, Tilman Schmidt wrote:
+> Am 16.05.2012 23:55, schrieb Sarah Sharp:
+> > Set the disable_hub_initiated_lpm flag for for all USB communications
+> > drivers.=A0 I know there aren't currently any USB 3.0 devices that
+> > implement these class specifications, but we should be ready if they do=
+.
+>=20
+> I follow the argument for class drivers. But this patch also
+> modifies drivers for specific existing USB 2.0 only devices
+> which are unlikely to ever grow USB 3.0 support, such as the
+> Gigaset ISDN driver:
+>=20
+> >=A0 drivers/isdn/gigaset/bas-gigaset.c=A0 =A0 =A0 =A0 =A0 =A0 |=A0 =A0 1=
+ +
+> >=A0 drivers/isdn/gigaset/usb-gigaset.c=A0 =A0 =A0 =A0 =A0 =A0 |=A0 =A0 1=
+ +
+
+Is there a particular reason why you think that driver is unlikely to
+ever get USB 3.0 support?=A0 I pretty much grabbed any USB driver that
+looked like a communications driver without looking too closely at the
+code.
+
+> What is the interest of setting the disable_hub_initiated_lpm
+> flag for these?
+
+It's partially to lay the foundation for anyone who wants to make a USB
+3.0 communications driver in the future.=A0 They're likely to start from
+some USB 2.0 class driver, and copy a lot of code.=A0 If they notice that
+flag is set in all the USB communications class drivers, they're likely
+to set it as well.
+
+I'm not quite sure where the best place to provide documentation on the
+flag is.=A0 I've added the kernel doc comments to the structure, but maybe
+it needs to be documented somewhere in Documentation/usb/?
+
+Sarah Sharp
+
+_______________________________________________
+libertas-dev mailing list
+libertas-dev@lists.infradead.org
+http://lists.infradead.org/mailman/listinfo/libertas-dev
+
+---672873354-1662837441-1337277031=:3460
+Content-Type: text/html; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<table cellspacing=3D"0" cellpadding=3D"0" border=3D"0" ><tr><td valign=3D"=
+top" style=3D"font: inherit;">I dont know, sorry,<br><br>--- On <b>Thu, 5/1=
+7/12, Sarah Sharp <i>&lt;sarah.a.sharp@linux.intel.com&gt;</i></b> wrote:<b=
+r><blockquote style=3D"border-left: 2px solid rgb(16, 16, 255); margin-left=
+: 5px; padding-left: 5px;"><br>From: Sarah Sharp &lt;sarah.a.sharp@linux.in=
+tel.com&gt;<br>Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for =
+comms devices.<br>To: "Tilman Schmidt" &lt;tilman@imap.cc&gt;<br>Cc: gigase=
+t307x-common@lists.sourceforge.net, libertas-dev@lists.infradead.org, "Greg=
+ Kroah-Hartman" &lt;gregkh@linuxfoundation.org&gt;, linux-usb@vger.kernel.o=
+rg, linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com, linux-bl=
+uetooth@vger.kernel.org, ath9k-devel@lists.ath9k.org, "Alan Stern" &lt;ster=
+n@rowland.harvard.edu&gt;, "Hansjoerg Lipp" &lt;hjlipp@web.de&gt;, netdev@v=
+ger.kernel.org<br>Date: Thursday, May 17, 2012, 1:31 PM<br><br><div
+ class=3D"plainMail">On Thu, May 17, 2012 at 07:07:32PM +0200, Tilman Schmi=
+dt wrote:<br>&gt; Am 16.05.2012 23:55, schrieb Sarah Sharp:<br>&gt; &gt; Se=
+t the disable_hub_initiated_lpm flag for for all USB communications<br>&gt;=
+ &gt; drivers.&nbsp; I know there aren't currently any USB 3.0 devices that=
+<br>&gt; &gt; implement these class specifications, but we should be ready =
+if they do.<br>&gt; <br>&gt; I follow the argument for class drivers. But t=
+his patch also<br>&gt; modifies drivers for specific existing USB 2.0 only =
+devices<br>&gt; which are unlikely to ever grow USB 3.0 support, such as th=
+e<br>&gt; Gigaset ISDN driver:<br>&gt; <br>&gt; &gt;&nbsp; drivers/isdn/gig=
+aset/bas-gigaset.c&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; |&nbsp; &nbsp; =
+1 +<br>&gt; &gt;&nbsp; drivers/isdn/gigaset/usb-gigaset.c&nbsp; &nbsp; &nbs=
+p; &nbsp; &nbsp; &nbsp; |&nbsp; &nbsp; 1 +<br><br>Is there a particular rea=
+son why you think that driver is unlikely to<br>ever get USB 3.0
+ support?&nbsp; I pretty much grabbed any USB driver that<br>looked like a =
+communications driver without looking too closely at the<br>code.<br><br>&g=
+t; What is the interest of setting the disable_hub_initiated_lpm<br>&gt; fl=
+ag for these?<br><br>It's partially to lay the foundation for anyone who wa=
+nts to make a USB<br>3.0 communications driver in the future.&nbsp; They're=
+ likely to start from<br>some USB 2.0 class driver, and copy a lot of code.=
+&nbsp; If they notice that<br>flag is set in all the USB communications cla=
+ss drivers, they're likely<br>to set it as well.<br><br>I'm not quite sure =
+where the best place to provide documentation on the<br>flag is.&nbsp; I've=
+ added the kernel doc comments to the structure, but maybe<br>it needs to b=
+e documented somewhere in Documentation/usb/?<br><br>Sarah Sharp<br><br>___=
+____________________________________________<br>libertas-dev mailing list<b=
+r><a ymailto=3D"mailto:libertas-dev@lists.infradead.org"
+ href=3D"/mc/compose?to=3Dlibertas-dev@lists.infradead.org">libertas-dev@li=
+sts.infradead.org</a><br><a href=3D"http://lists.infradead.org/mailman/list=
+info/libertas-dev" target=3D"_blank">http://lists.infradead.org/mailman/lis=
+tinfo/libertas-dev</a><br></div></blockquote></td></tr></table>
+---672873354-1662837441-1337277031=:3460--
+
+--===============0065834560==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:52324 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752500Ab2EQUlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 16:41:24 -0400
-Received: by wgbdr13 with SMTP id dr13so2116602wgb.1
-        for <netdev@vger.kernel.org>; Thu, 17 May 2012 13:41:23 -0700 (PDT)
-In-Reply-To: <20120517121800.GA18052@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-On Thu, 2012-05-17 at 14:18 +0200, Willy Tarreau wrote:
-> Hi Eric,
-> 
-> I'm facing a regression in stable 3.2.17 and 3.0.31 which is
-> exhibited by your patch 'tcp: allow splice() to build full TSO
-> packets' which unfortunately I am very interested in !
-> 
-> What I'm observing is that TCP transmits using splice() stall
-> quite quickly if I'm using pipes larger than 64kB (even 65537
-> is enough to reliably observe the stall).
-> 
-> I'm seeing this on haproxy running on a small ARM machine (a
-> dockstar), which exchanges data through a gig switch with my
-> development PC. The NIC (mv643xx) doesn't support TSO but has
-> GSO enabled. If I disable GSO, the problem remains. I can however
-> make the problem disappear by disabling SG or Tx checksumming.
-> BTW, using recv/send() instead of splice() also gets rid of the
-> problem.
-> 
-> I can also reduce the risk of seeing the problem by increasing
-> the default TCP buffer sizes in tcp_wmem. By default I'm running
-> at 16kB, but if I increase the output buffer size above the pipe
-> size, the problem *seems* to disappear though I can't be certain,
-> since larger buffers generally means the problem takes longer to
-> appear, probably due to the fact that the buffers don't need to
-> be filled. Still I'm certain that with 64k TCP buffers and 128k
-> pipes I'm still seeing it.
-> 
-> With strace, I'm seeing data fill up the pipe with the splice()
-> call responsible for pushing the data to the output socket returing
-> -1 EAGAIN. During this time, the client receives no data.
-> 
-> Something bugs me, I have tested with a dummy server of mine,
-> httpterm, which uses tee+splice() to push data outside, and it
-> has no problem filling the gig pipe, and correctly recoverers
-> from the EAGAIN :
-> 
->   send(13, "HTTP/1.1 200\r\nConnection: close\r"..., 160, MSG_DONTWAIT|MSG_NOSIGNAL) = 160
->   tee(0x3, 0x6, 0x10000, 0x2)             = 42552
->   splice(0x5, 0, 0xd, 0, 0xa00000, 0x2)   = 14440
->   tee(0x3, 0x6, 0x10000, 0x2)             = 13880
->   splice(0x5, 0, 0xd, 0, 0x9fc798, 0x2)   = -1 EAGAIN (Resource temporarily unavailable)
->   ...
->   tee(0x3, 0x6, 0x10000, 0x2)             = 13880
->   splice(0x5, 0, 0xd, 0, 0x9fc798, 0x2)   = 51100
->   tee(0x3, 0x6, 0x10000, 0x2)             = 50744
->   splice(0x5, 0, 0xd, 0, 0x9efffc, 0x2)   = 32120
->   tee(0x3, 0x6, 0x10000, 0x2)             = 30264
->   splice(0x5, 0, 0xd, 0, 0x9e8284, 0x2)   = -1 EAGAIN (Resource temporarily unavailable)
-> 
-> etc...
-> 
-> It's only with haproxy which uses splice() to copy data between
-> two sockets that I'm getting the issue (data forwarded from fd 0xe
-> to fd 0x6) :
-> 
->   16:03:17.797144 pipe([36, 37])          = 0
->   16:03:17.797318 fcntl64(36, 0x407 /* F_??? */, 0x20000) = 131072 ## note: fcntl(F_SETPIPE_SZ, 128k)
->   16:03:17.797473 splice(0xe, 0, 0x25, 0, 0x9f2234, 0x3) = 10220
->   16:03:17.797706 splice(0x24, 0, 0x6, 0, 0x27ec, 0x3) = 10220
->   16:03:17.802036 gettimeofday({1324652597, 802093}, NULL) = 0
->   16:03:17.802200 epoll_wait(0x3, 0x99250, 0x16, 0x3e8) = 7
->   16:03:17.802363 gettimeofday({1324652597, 802419}, NULL) = 0
->   16:03:17.802530 splice(0xe, 0, 0x25, 0, 0x9efa48, 0x3) = 16060
->   16:03:17.802789 splice(0x24, 0, 0x6, 0, 0x3ebc, 0x3) = 16060
->   16:03:17.806593 gettimeofday({1324652597, 806651}, NULL) = 0
->   16:03:17.806759 epoll_wait(0x3, 0x99250, 0x16, 0x3e8) = 4
->   16:03:17.806919 gettimeofday({1324652597, 806974}, NULL) = 0
->   16:03:17.807087 splice(0xe, 0, 0x25, 0, 0x9ebb8c, 0x3) = 17520
->   16:03:17.807356 splice(0x24, 0, 0x6, 0, 0x4470, 0x3) = 17520
->   16:03:17.809565 gettimeofday({1324652597, 809620}, NULL) = 0
->   16:03:17.809726 epoll_wait(0x3, 0x99250, 0x16, 0x3e8) = 1
->   16:03:17.809883 gettimeofday({1324652597, 809937}, NULL) = 0
->   16:03:17.810047 splice(0xe, 0, 0x25, 0, 0x9e771c, 0x3) = 36500
->   16:03:17.810399 splice(0x24, 0, 0x6, 0, 0x8e94, 0x3) = 23360
->   16:03:17.810629 epoll_ctl(0x3, 0x1, 0x6, 0x85378) = 0       ## note: epoll_ctl(ADD, fd=6, dir=OUT).
->   16:03:17.810792 gettimeofday({1324652597, 810848}, NULL) = 0
->   16:03:17.810954 epoll_wait(0x3, 0x99250, 0x16, 0x3e8) = 1
->   16:03:17.811188 gettimeofday({1324652597, 811246}, NULL) = 0
->   16:03:17.811356 splice(0xe, 0, 0x25, 0, 0x9de888, 0x3) = 21900
->   16:03:17.811651 splice(0x24, 0, 0x6, 0, 0x88e0, 0x3) = -1 EAGAIN (Resource temporarily unavailable)
-> 
+_______________________________________________
+ath9k-devel mailing list
+ath9k-devel@lists.ath9k.org
+https://lists.ath9k.org/mailman/listinfo/ath9k-devel
 
-Willy you say output to fd 6 hangs, but splice() returns EAGAIN here ?
-(because socket buffer is full)
-
-> So output fd 6 hangs here and will not appear anymore until
-> here where I pressed Ctrl-C to stop the test :
-> 
-
-I just want to make sure its not a userland error that triggers now much
-faster than with prior kernels.
-
-You drain bytes from fd 0xe to pipe buffers, but I dont see you check
-write ability on destination socket prior the splice(pipe -> socket)
+--===============0065834560==--
