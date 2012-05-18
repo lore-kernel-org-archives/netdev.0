@@ -1,46 +1,101 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [V2 PATCH 2/9] macvtap: zerocopy: fix truesize underestimation
-Date: Fri, 18 May 2012 18:10:17 +0800
-Message-ID: <4FB62009.2050900@redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034144.11782.88947.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337102809.8220.10.camel@oc3660625478.ibm.com>  <4FB3192E.4030803@redhat.com>  <1337180585.10741.6.camel@oc3660625478.ibm.com>  <4FB469A1.3040507@redhat.com> <1337268512.10741.53.camel@oc3660625478.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ebiederm@xmission.com,
-	davem@davemloft.net
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337268512.10741.53.camel@oc3660625478.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 06/10] RDMA/cxgb4: disable interrupts in c4iw_ev_dispatch().
+Date: Fri, 18 May 2012 15:29:29 +0530
+Message-ID: <1337335173-3226-7-git-send-email-vipul@chelsio.com>
+References: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
+Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
+	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1337335173-3226-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 05/17/2012 11:28 PM, Shirley Ma wrote:
-> On Thu, 2012-05-17 at 10:59 +0800, Jason Wang wrote:
->> Didn't see how this affact skb->len. And for truesize, I think they
->> are
->> different, when the offset were not zero, the data in this vector
->> were
->> divided into two parts. First part is copied into skb directly, and
->> the
->> second were pinned from a whole userspace page by
->> get_user_pages_fast(),
->> so we need count the whole page to the socket limit to prevent evil
->> application.
-> What I meant that the code for skb->truesize has double added the first
-> offset if any left from that vector (partically copied into skb
-> directly, and then count pagesize which includes the offset (truesize +=
-> PAGE_SIZE)).
+Use GFP_ATOMIC in _insert_handle() if ints are disabled.
 
-Yes, I get you mean. There's no difference between first frag and 
-others: it's also possible for other frags that didn't occupy the whole 
-page. Since we pin the whole user page, better to count the whole page 
-size to prevent evil application.
-> Thanks
-> Shirley
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Don't panic if we get an abort with no endpoint found. Just log a
+warning.
+
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+---
+ drivers/infiniband/hw/cxgb4/cm.c       |    5 ++++-
+ drivers/infiniband/hw/cxgb4/ev.c       |    8 ++++----
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    2 +-
+ 3 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 4c7c62f..6ce401a 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -1362,7 +1362,10 @@ static int abort_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+ 
+ 	ep = lookup_tid(t, tid);
+ 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
+-	BUG_ON(!ep);
++	if (!ep) {
++		printk(KERN_WARNING MOD "Abort rpl to freed endpoint\n");
++		return 0;
++	}
+ 	mutex_lock(&ep->com.mutex);
+ 	switch (ep->com.state) {
+ 	case ABORTING:
+diff --git a/drivers/infiniband/hw/cxgb4/ev.c b/drivers/infiniband/hw/cxgb4/ev.c
+index 397cb36..cf2f6b4 100644
+--- a/drivers/infiniband/hw/cxgb4/ev.c
++++ b/drivers/infiniband/hw/cxgb4/ev.c
+@@ -84,7 +84,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
+ 	struct c4iw_qp *qhp;
+ 	u32 cqid;
+ 
+-	spin_lock(&dev->lock);
++	spin_lock_irq(&dev->lock);
+ 	qhp = get_qhp(dev, CQE_QPID(err_cqe));
+ 	if (!qhp) {
+ 		printk(KERN_ERR MOD "BAD AE qpid 0x%x opcode %d "
+@@ -93,7 +93,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
+ 		       CQE_OPCODE(err_cqe), CQE_STATUS(err_cqe),
+ 		       CQE_TYPE(err_cqe), CQE_WRID_HI(err_cqe),
+ 		       CQE_WRID_LOW(err_cqe));
+-		spin_unlock(&dev->lock);
++		spin_unlock_irq(&dev->lock);
+ 		goto out;
+ 	}
+ 
+@@ -109,13 +109,13 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
+ 		       CQE_OPCODE(err_cqe), CQE_STATUS(err_cqe),
+ 		       CQE_TYPE(err_cqe), CQE_WRID_HI(err_cqe),
+ 		       CQE_WRID_LOW(err_cqe));
+-		spin_unlock(&dev->lock);
++		spin_unlock_irq(&dev->lock);
+ 		goto out;
+ 	}
+ 
+ 	c4iw_qp_add_ref(&qhp->ibqp);
+ 	atomic_inc(&chp->refcnt);
+-	spin_unlock(&dev->lock);
++	spin_unlock_irq(&dev->lock);
+ 
+ 	/* Bad incoming write */
+ 	if (RQ_TYPE(err_cqe) &&
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index a11ed5c..e8b88a0 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -246,7 +246,7 @@ static inline int _insert_handle(struct c4iw_dev *rhp, struct idr *idr,
+ 	int newid;
+ 
+ 	do {
+-		if (!idr_pre_get(idr, GFP_KERNEL))
++		if (!idr_pre_get(idr, lock ? GFP_KERNEL : GFP_ATOMIC))
+ 			return -ENOMEM;
+ 		if (lock)
+ 			spin_lock_irq(&rhp->lock);
+-- 
+1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
