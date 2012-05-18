@@ -1,64 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: ip6_fragment() should check CHECKSUM_PARTIAL
-Date: Fri, 18 May 2012 23:02:15 +0200
-Message-ID: <1337374935.7029.60.camel@edumazet-glaptop>
+From: Tabi Timur-B04825 <B04825@freescale.com>
+Subject: Re: [PATCH v6 0/3] netdev/of/phy: MDIO bus multiplexer support.
+Date: Fri, 18 May 2012 21:42:34 +0000
+Message-ID: <CAOZdJXWVCu+aNxcQRkcSSDsWWxnn8B9X5Y6=8oVgFwJ9SZTTGQ@mail.gmail.com>
+References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tore Anderson <tore@fud.no>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: David Daney <ddaney.cavm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:35332 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967372Ab2ERVCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 17:02:19 -0400
-Received: by weyu7 with SMTP id u7so2054950wey.19
-        for <netdev@vger.kernel.org>; Fri, 18 May 2012 14:02:17 -0700 (PDT)
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:23696
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753489Ab2ERVmh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 May 2012 17:42:37 -0400
+In-Reply-To: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com>
+Content-Language: en-US
+Content-ID: <426B810870A0D0478A3EFD67A7394FD3@mgd.freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, May 2, 2012 at 8:16 PM, David Daney <ddaney.cavm@gmail.com> wrote:
+> From: David Daney <david.daney@cavium.com>
+>
+> This code has been working well for about six months on a couple of
+> different configurations (boards), so I thought it would be a good
+> time to send it out again, and I hope get it on the path towards
+> merging.
 
-Quoting Tore Anderson from :
+David,
 
-If the allfrag feature has been set on a host route (due to an ICMPv6
-Packet Too Big received indicating a MTU of less than 1280),
-TCP SYN/ACK packets to that destination appears to get an incorrect
-TCP checksum. This in turn means they are thrown away as invalid.
+I'm trying to implement this feature on our boards, which don't use
+GPIOs but rather a memory-mapped FPGA.  I control the mux by setting
+some bits in one of the FPGA registers.
 
-In the case of an IPv4 client behind a link with a MTU of less than
-1260, accessing an IPv6 server through a stateless translator,
-this means that the client can only download a single large file
-from the server, because once it is in the server's routing cache
-with the allfrag feature set, new TCP connections can no longer
-be established.
+Do you have a real device tree I can use as an example?
 
-</endquote>
+I'm not sure what the "parent" MDIO bus node is supposed to represent.
+ Is that that device that actually controls the muxing hardware, which
+in our case would be the FPGA?
 
-It appears ip6_fragment() doesn't handle CHECKSUM_PARTIAL properly.
-
-As network drivers are not prepared to fetch correct transport header, a
-safe fix is to call skb_checksum_help() before fragmenting packet.
-
-Reported-by: Tore Anderson <tore@fud.no>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Tested-by: Tore Anderson <tore@fud.no>
----
- net/ipv6/ip6_output.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index a254e4b..3dc633f 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -788,6 +788,10 @@ slow_path_clean:
- 	}
- 
- slow_path:
-+	if ((skb->ip_summed == CHECKSUM_PARTIAL) &&
-+	    skb_checksum_help(skb))
-+		goto fail;
-+
- 	left = skb->len - hlen;		/* Space per frame */
- 	ptr = hlen;			/* Where to start from */
- 
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
