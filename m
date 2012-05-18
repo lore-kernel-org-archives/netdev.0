@@ -1,60 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] pktgen: fix module unload for good
-Date: Fri, 18 May 2012 11:52:26 +0200
-Message-ID: <1337334746.3403.114.camel@edumazet-glaptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
+Date: Fri, 18 May 2012 17:58:47 +0800
+Message-ID: <4FB61D57.4030103@redhat.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>  <1337181027.10741.13.camel@oc3660625478.ibm.com>  <20120516151444.GC9934@redhat.com>  <1337189525.10741.24.camel@oc3660625478.ibm.com>  <4FB4677A.8020402@redhat.com> <1337268862.10741.58.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:32901 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762250Ab2ERJwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 05:52:31 -0400
-Received: by eaak11 with SMTP id k11so746470eaa.19
-        for <netdev@vger.kernel.org>; Fri, 18 May 2012 02:52:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, davem@davemloft.net
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1337268862.10741.58.camel@oc3660625478.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 05/17/2012 11:34 PM, Shirley Ma wrote:
+> On Thu, 2012-05-17 at 10:50 +0800, Jason Wang wrote:
+>> The problem is we may stop the tx queue when there no enough capacity
+>> to
+>> place packets, at this moment  we depends on the tx interrupt to
+>> re-enable the tx queue. So if we didn't poll the vhost during
+>> callback,
+>> guest may lose the tx interrupt to re-enable the tx queue which could
+>> stall the whole tx queue.
+> VHOST_MAX_PEND should handle the capacity.
+>
+> Hasn't the above situation been handled in handle_tx() code?:
+> ...
+>                          if (unlikely(num_pends>  VHOST_MAX_PEND)) {
+>                                  tx_poll_start(net, sock);
+>                                  set_bit(SOCK_ASYNC_NOSPACE,&sock->flags);
+>                                  break;
+>                          }
+> ...
+>
+> Thanks
+> Shirley
 
-commit c57b5468406 (pktgen: fix crash at module unload) did a very poor
-job with list primitives.
+It may not help in because:
 
-1) list_splice() arguments were in the wrong order 
+- tx polling depends on skb_orphan() which is often called by device 
+driver when it place the packet into the queue of the devices instead 
+of  when the packets were sent. So it was too early for vhost to be 
+notified.
 
-2) list_splice(list, head) has undefined behavior if head is not
-initialized.
+- it only works when the pending DMAs exceeds VHOST_MAX_PEND, it's 
+highly possible that guest needs to be notified when the pending packets 
+isn't so much.
 
-3) We should use the list_splice_init() variant to clear pktgen_threads
-list.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-Sorry for the mess, I really dont understand how my machine did not
-crash with c57b5468406 commit...
-
- net/core/pktgen.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 77a5998..b81369b 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3755,13 +3755,13 @@ static void __exit pg_cleanup(void)
- {
- 	struct pktgen_thread *t;
- 	struct list_head *q, *n;
--	struct list_head list;
-+	LIST_HEAD(list);
- 
- 	/* Stop all interfaces & threads */
- 	pktgen_exiting = true;
- 
- 	mutex_lock(&pktgen_thread_lock);
--	list_splice(&list, &pktgen_threads);
-+	list_splice_init(&pktgen_threads, &list);
- 	mutex_unlock(&pktgen_thread_lock);
- 
- 	list_for_each_safe(q, n, &list) {
+So this piece of code may not help and could be removed and we need to 
+poll the virt-queue during zerocopy callback ( through it could be 
+further optimized but may not be easy).
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
