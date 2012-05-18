@@ -1,48 +1,34 @@
-From: Tabi Timur-B04825 <B04825@freescale.com>
-Subject: Re: [PATCH v6 0/3] netdev/of/phy: MDIO bus multiplexer support.
-Date: Fri, 18 May 2012 21:42:34 +0000
-Message-ID: <CAOZdJXWVCu+aNxcQRkcSSDsWWxnn8B9X5Y6=8oVgFwJ9SZTTGQ@mail.gmail.com>
-References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: David Daney <ddaney.cavm@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:23696
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753489Ab2ERVmh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 May 2012 17:42:37 -0400
-In-Reply-To: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com>
-Content-Language: en-US
-Content-ID: <426B810870A0D0478A3EFD67A7394FD3@mgd.freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeffrin Jose <ahiliation@yahoo.co.in>
+Subject: [PATCH 1/1]net:ethernet:fixed a coding style issue relating space.
+Date: Sat, 19 May 2012 03:15:37 +0530
+Message-ID: <1337377537-4636-1-git-send-email-ahiliation@yahoo.co.in>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ahiliation@yahoo.co.in
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 2, 2012 at 8:16 PM, David Daney <ddaney.cavm@gmail.com> wrote:
-> From: David Daney <david.daney@cavium.com>
->
-> This code has been working well for about six months on a couple of
-> different configurations (boards), so I thought it would be a good
-> time to send it out again, and I hope get it on the path towards
-> merging.
+Fixed a coding style issue relating to  space found
+by checkpatch.pl tool in net/ethernet/eth.c
 
-David,
+Signed-off-by: Jeffrin Jose <ahiliation@yahoo.co.in>
+---
+ net/ethernet/eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I'm trying to implement this feature on our boards, which don't use
-GPIOs but rather a memory-mapped FPGA.  I control the mux by setting
-some bits in one of the FPGA registers.
-
-Do you have a real device tree I can use as an example?
-
-I'm not sure what the "parent" MDIO bus node is supposed to represent.
- Is that that device that actually controls the muxing hardware, which
-in our case would be the FPGA?
-
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 36e5880..c847aa6 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -178,7 +178,7 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 	 *      seems to set IFF_PROMISC.
+ 	 */
+ 
+-	else if (1 /*dev->flags&IFF_PROMISC */ ) {
++	else if (1 /*dev->flags&IFF_PROMISC */) {
+ 		if (unlikely(!ether_addr_equal_64bits(eth->h_dest,
+ 						      dev->dev_addr)))
+ 			skb->pkt_type = PACKET_OTHERHOST;
 -- 
-Timur Tabi
-Linux kernel developer at Freescale
+1.7.10
