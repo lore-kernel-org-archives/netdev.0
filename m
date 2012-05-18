@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH 07/10] RDMA/cxgb4: DB Drop Recovery for RDMA and LLD queues.
-Date: Fri, 18 May 2012 15:29:30 +0530
-Message-ID: <1337335173-3226-8-git-send-email-vipul@chelsio.com>
+Subject: [PATCH 04/10] RDMA/cxgb4: Add debugfs rdma memory stats
+Date: Fri, 18 May 2012 15:29:27 +0530
+Message-ID: <1337335173-3226-5-git-send-email-vipul@chelsio.com>
 References: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
 Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
 	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
@@ -10,457 +10,346 @@ To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stargate.chelsio.com ([67.207.112.58]:7678 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161125Ab2ERK1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 06:27:39 -0400
+	with ESMTP id S1161080Ab2ERK1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 06:27:38 -0400
 In-Reply-To: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-add module option db_fc_threshold which is the count of active QPs
-that trigger automatic db flow control mode.
-
-automatically transition to/from flow control mode when the active qp
-count crosses db_fc_theshold.
-
-add more db debugfs stats
-
-on DB DROP event from the LLD, recover all the iwarp queues.
-
 Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/device.c   |  176 ++++++++++++++++++++++++++++++-
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h |   24 ++++-
- drivers/infiniband/hw/cxgb4/qp.c       |   47 ++++++++-
- drivers/infiniband/hw/cxgb4/t4.h       |   24 +++++
- 4 files changed, 259 insertions(+), 12 deletions(-)
+ drivers/infiniband/hw/cxgb4/device.c   |   78 +++++++++++++++++++++++++++++++-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |   17 +++++++
+ drivers/infiniband/hw/cxgb4/mem.c      |   11 ++++-
+ drivers/infiniband/hw/cxgb4/provider.c |    8 +++
+ drivers/infiniband/hw/cxgb4/resource.c |   44 ++++++++++++++++++
+ 5 files changed, 155 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
-index 9062ed9..bdb398f 100644
+index 6d0df6e..8483111 100644
 --- a/drivers/infiniband/hw/cxgb4/device.c
 +++ b/drivers/infiniband/hw/cxgb4/device.c
-@@ -246,6 +246,8 @@ static const struct file_operations stag_debugfs_fops = {
+@@ -240,6 +240,62 @@ static const struct file_operations stag_debugfs_fops = {
  	.llseek  = default_llseek,
  };
  
-+static char *db_state_str[] = {"NORMAL", "FLOW_CONTROL", "RECOVERY"};
++static int stats_show(struct seq_file *seq, void *v)
++{
++	struct c4iw_dev *dev = seq->private;
 +
- static int stats_show(struct seq_file *seq, void *v)
- {
- 	struct c4iw_dev *dev = seq->private;
-@@ -272,6 +274,9 @@ static int stats_show(struct seq_file *seq, void *v)
- 	seq_printf(seq, "  DB FULL: %10llu\n", dev->rdev.stats.db_full);
- 	seq_printf(seq, " DB EMPTY: %10llu\n", dev->rdev.stats.db_empty);
- 	seq_printf(seq, "  DB DROP: %10llu\n", dev->rdev.stats.db_drop);
-+	seq_printf(seq, " DB State: %s Transitions %llu\n",
-+		   db_state_str[dev->db_state],
-+		   dev->rdev.stats.db_state_transitions);
- 	return 0;
- }
- 
-@@ -295,6 +300,7 @@ static ssize_t stats_clear(struct file *file, const char __user *buf,
- 	dev->rdev.stats.db_full = 0;
- 	dev->rdev.stats.db_empty = 0;
- 	dev->rdev.stats.db_drop = 0;
-+	dev->rdev.stats.db_state_transitions = 0;
- 	mutex_unlock(&dev->rdev.stats.lock);
- 	return count;
- }
-@@ -677,8 +683,11 @@ static int disable_qp_db(int id, void *p, void *data)
- static void stop_queues(struct uld_ctx *ctx)
- {
- 	spin_lock_irq(&ctx->dev->lock);
--	ctx->dev->db_state = FLOW_CONTROL;
--	idr_for_each(&ctx->dev->qpidr, disable_qp_db, NULL);
-+	if (ctx->dev->db_state == NORMAL) {
-+		ctx->dev->rdev.stats.db_state_transitions++;
-+		ctx->dev->db_state = FLOW_CONTROL;
-+		idr_for_each(&ctx->dev->qpidr, disable_qp_db, NULL);
-+	}
- 	spin_unlock_irq(&ctx->dev->lock);
- }
- 
-@@ -693,9 +702,165 @@ static int enable_qp_db(int id, void *p, void *data)
- static void resume_queues(struct uld_ctx *ctx)
- {
- 	spin_lock_irq(&ctx->dev->lock);
--	ctx->dev->db_state = NORMAL;
--	idr_for_each(&ctx->dev->qpidr, enable_qp_db, NULL);
-+	if (ctx->dev->qpcnt <= db_fc_threshold &&
-+	    ctx->dev->db_state == FLOW_CONTROL) {
-+		ctx->dev->db_state = NORMAL;
-+		ctx->dev->rdev.stats.db_state_transitions++;
-+		idr_for_each(&ctx->dev->qpidr, enable_qp_db, NULL);
-+	}
-+	spin_unlock_irq(&ctx->dev->lock);
++	seq_printf(seq, " Object: %10s %10s %10s\n", "Total", "Current", "Max");
++	seq_printf(seq, "     PDID: %10llu %10llu %10llu\n",
++			dev->rdev.stats.pd.total, dev->rdev.stats.pd.cur,
++			dev->rdev.stats.pd.max);
++	seq_printf(seq, "      QID: %10llu %10llu %10llu\n",
++			dev->rdev.stats.qid.total, dev->rdev.stats.qid.cur,
++			dev->rdev.stats.qid.max);
++	seq_printf(seq, "   TPTMEM: %10llu %10llu %10llu\n",
++			dev->rdev.stats.stag.total, dev->rdev.stats.stag.cur,
++			dev->rdev.stats.stag.max);
++	seq_printf(seq, "   PBLMEM: %10llu %10llu %10llu\n",
++			dev->rdev.stats.pbl.total, dev->rdev.stats.pbl.cur,
++			dev->rdev.stats.pbl.max);
++	seq_printf(seq, "   RQTMEM: %10llu %10llu %10llu\n",
++			dev->rdev.stats.rqt.total, dev->rdev.stats.rqt.cur,
++			dev->rdev.stats.rqt.max);
++	seq_printf(seq, "  OCQPMEM: %10llu %10llu %10llu\n",
++			dev->rdev.stats.ocqp.total, dev->rdev.stats.ocqp.cur,
++			dev->rdev.stats.ocqp.max);
++	return 0;
 +}
 +
-+struct qp_list {
-+	unsigned idx;
-+	struct c4iw_qp **qps;
++static int stats_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, stats_show, inode->i_private);
++}
++
++static ssize_t stats_clear(struct file *file, const char __user *buf,
++		size_t count, loff_t *pos)
++{
++	struct c4iw_dev *dev = ((struct seq_file *)file->private_data)->private;
++
++	mutex_lock(&dev->rdev.stats.lock);
++	dev->rdev.stats.pd.max = 0;
++	dev->rdev.stats.qid.max = 0;
++	dev->rdev.stats.stag.max = 0;
++	dev->rdev.stats.pbl.max = 0;
++	dev->rdev.stats.rqt.max = 0;
++	dev->rdev.stats.ocqp.max = 0;
++	mutex_unlock(&dev->rdev.stats.lock);
++	return count;
++}
++
++static const struct file_operations stats_debugfs_fops = {
++	.owner   = THIS_MODULE,
++	.open    = stats_open,
++	.release = single_release,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.write   = stats_clear,
 +};
 +
-+static int add_and_ref_qp(int id, void *p, void *data)
-+{
-+	struct qp_list *qp_listp = data;
-+	struct c4iw_qp *qp = p;
+ static int setup_debugfs(struct c4iw_dev *devp)
+ {
+ 	struct dentry *de;
+@@ -256,6 +312,12 @@ static int setup_debugfs(struct c4iw_dev *devp)
+ 				 (void *)devp, &stag_debugfs_fops);
+ 	if (de && de->d_inode)
+ 		de->d_inode->i_size = 4096;
 +
-+	c4iw_qp_add_ref(&qp->ibqp);
-+	qp_listp->qps[qp_listp->idx++] = qp;
-+	return 0;
-+}
++	de = debugfs_create_file("stats", S_IWUSR, devp->debugfs_root,
++			(void *)devp, &stats_debugfs_fops);
++	if (de && de->d_inode)
++		de->d_inode->i_size = 4096;
 +
-+static int count_qps(int id, void *p, void *data)
-+{
-+	unsigned *countp = data;
-+	(*countp)++;
-+	return 0;
-+}
-+
-+static void deref_qps(struct qp_list qp_list)
-+{
-+	int idx;
-+
-+	for (idx = 0; idx < qp_list.idx; idx++)
-+		c4iw_qp_rem_ref(&qp_list.qps[idx]->ibqp);
-+}
-+
-+static void recover_lost_dbs(struct uld_ctx *ctx, struct qp_list *qp_list)
-+{
-+	int idx;
-+	int ret;
-+
-+	for (idx = 0; idx < qp_list->idx; idx++) {
-+		struct c4iw_qp *qp = qp_list->qps[idx];
-+
-+		ret = cxgb4_sync_txq_pidx(qp->rhp->rdev.lldi.ports[0],
-+					  qp->wq.sq.qid,
-+					  t4_sq_host_wq_pidx(&qp->wq),
-+					  t4_sq_wq_size(&qp->wq));
-+		if (ret) {
-+			printk(KERN_ERR MOD "%s: Fatal error - "
-+			       "DB overflow recovery failed - "
-+			       "error syncing SQ qid %u\n",
-+			       pci_name(ctx->lldi.pdev), qp->wq.sq.qid);
-+			return;
-+		}
-+
-+		ret = cxgb4_sync_txq_pidx(qp->rhp->rdev.lldi.ports[0],
-+					  qp->wq.rq.qid,
-+					  t4_rq_host_wq_pidx(&qp->wq),
-+					  t4_rq_wq_size(&qp->wq));
-+
-+		if (ret) {
-+			printk(KERN_ERR MOD "%s: Fatal error - "
-+			       "DB overflow recovery failed - "
-+			       "error syncing RQ qid %u\n",
-+			       pci_name(ctx->lldi.pdev), qp->wq.rq.qid);
-+			return;
-+		}
-+
-+		/* Wait for the dbfifo to drain */
-+		while (cxgb4_dbfifo_count(qp->rhp->rdev.lldi.ports[0], 1) > 0) {
-+			set_current_state(TASK_UNINTERRUPTIBLE);
-+			schedule_timeout(usecs_to_jiffies(10));
-+		}
-+	}
-+}
-+
-+static void recover_queues(struct uld_ctx *ctx)
-+{
-+	int count = 0;
-+	struct qp_list qp_list;
-+	int ret;
-+
-+	/* lock out kernel db ringers */
-+	mutex_lock(&ctx->dev->db_mutex);
-+
-+	/* put all queues in to recovery mode */
-+	spin_lock_irq(&ctx->dev->lock);
-+	ctx->dev->db_state = RECOVERY;
-+	ctx->dev->rdev.stats.db_state_transitions++;
-+	idr_for_each(&ctx->dev->qpidr, disable_qp_db, NULL);
-+	spin_unlock_irq(&ctx->dev->lock);
-+
-+	/* slow everybody down */
-+	set_current_state(TASK_UNINTERRUPTIBLE);
-+	schedule_timeout(usecs_to_jiffies(1000));
-+
-+	/* Wait for the dbfifo to completely drain. */
-+	while (cxgb4_dbfifo_count(ctx->dev->rdev.lldi.ports[0], 1) > 0) {
-+		set_current_state(TASK_UNINTERRUPTIBLE);
-+		schedule_timeout(usecs_to_jiffies(10));
-+	}
-+
-+	/* flush the SGE contexts */
-+	ret = cxgb4_flush_eq_cache(ctx->dev->rdev.lldi.ports[0]);
-+	if (ret) {
-+		printk(KERN_ERR MOD "%s: Fatal error - DB overflow recovery failed\n",
-+		       pci_name(ctx->lldi.pdev));
-+		goto out;
-+	}
-+
-+	/* Count active queues so we can build a list of queues to recover */
-+	spin_lock_irq(&ctx->dev->lock);
-+	idr_for_each(&ctx->dev->qpidr, count_qps, &count);
-+
-+	qp_list.qps = kzalloc(count * sizeof *qp_list.qps, GFP_ATOMIC);
-+	if (!qp_list.qps) {
-+		printk(KERN_ERR MOD "%s: Fatal error - DB overflow recovery failed\n",
-+		       pci_name(ctx->lldi.pdev));
-+		spin_unlock_irq(&ctx->dev->lock);
-+		goto out;
-+	}
-+	qp_list.idx = 0;
-+
-+	/* add and ref each qp so it doesn't get freed */
-+	idr_for_each(&ctx->dev->qpidr, add_and_ref_qp, &qp_list);
-+
- 	spin_unlock_irq(&ctx->dev->lock);
-+
-+	/* now traverse the list in a safe context to recover the db state*/
-+	recover_lost_dbs(ctx, &qp_list);
-+
-+	/* we're almost done!  deref the qps and clean up */
-+	deref_qps(qp_list);
-+	kfree(qp_list.qps);
-+
-+	/* Wait for the dbfifo to completely drain again */
-+	while (cxgb4_dbfifo_count(ctx->dev->rdev.lldi.ports[0], 1) > 0) {
-+		set_current_state(TASK_UNINTERRUPTIBLE);
-+		schedule_timeout(usecs_to_jiffies(10));
-+	}
-+
-+	/* resume the queues */
-+	spin_lock_irq(&ctx->dev->lock);
-+	if (ctx->dev->qpcnt > db_fc_threshold)
-+		ctx->dev->db_state = FLOW_CONTROL;
-+	else {
-+		ctx->dev->db_state = NORMAL;
-+		idr_for_each(&ctx->dev->qpidr, enable_qp_db, NULL);
-+	}
-+	ctx->dev->rdev.stats.db_state_transitions++;
-+	spin_unlock_irq(&ctx->dev->lock);
-+
-+out:
-+	/* start up kernel db ringers again */
-+	mutex_unlock(&ctx->dev->db_mutex);
+ 	return 0;
  }
  
- static int c4iw_uld_control(void *handle, enum cxgb4_control control, ...)
-@@ -716,8 +881,7 @@ static int c4iw_uld_control(void *handle, enum cxgb4_control control, ...)
- 		mutex_unlock(&ctx->dev->rdev.stats.lock);
- 		break;
- 	case CXGB4_CONTROL_DB_DROP:
--		printk(KERN_WARNING MOD "%s: Fatal DB DROP\n",
--		       pci_name(ctx->lldi.pdev));
-+		recover_queues(ctx);
- 		mutex_lock(&ctx->dev->rdev.stats.lock);
- 		ctx->dev->rdev.stats.db_drop++;
- 		mutex_unlock(&ctx->dev->rdev.stats.lock);
+@@ -269,9 +331,13 @@ void c4iw_release_dev_ucontext(struct c4iw_rdev *rdev,
+ 	list_for_each_safe(pos, nxt, &uctx->qpids) {
+ 		entry = list_entry(pos, struct c4iw_qid_list, entry);
+ 		list_del_init(&entry->entry);
+-		if (!(entry->qid & rdev->qpmask))
++		if (!(entry->qid & rdev->qpmask)) {
+ 			c4iw_put_resource(&rdev->resource.qid_fifo, entry->qid,
+-					  &rdev->resource.qid_fifo_lock);
++					&rdev->resource.qid_fifo_lock);
++			mutex_lock(&rdev->stats.lock);
++			rdev->stats.qid.cur -= rdev->qpmask + 1;
++			mutex_unlock(&rdev->stats.lock);
++		}
+ 		kfree(entry);
+ 	}
+ 
+@@ -332,6 +398,13 @@ static int c4iw_rdev_open(struct c4iw_rdev *rdev)
+ 		goto err1;
+ 	}
+ 
++	rdev->stats.pd.total = T4_MAX_NUM_PD;
++	rdev->stats.stag.total = rdev->lldi.vr->stag.size;
++	rdev->stats.pbl.total = rdev->lldi.vr->pbl.size;
++	rdev->stats.rqt.total = rdev->lldi.vr->rq.size;
++	rdev->stats.ocqp.total = rdev->lldi.vr->ocq.size;
++	rdev->stats.qid.total = rdev->lldi.vr->qp.size;
++
+ 	err = c4iw_init_resource(rdev, c4iw_num_stags(rdev), T4_MAX_NUM_PD);
+ 	if (err) {
+ 		printk(KERN_ERR MOD "error %d initializing resources\n", err);
+@@ -440,6 +513,7 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
+ 	idr_init(&devp->qpidr);
+ 	idr_init(&devp->mmidr);
+ 	spin_lock_init(&devp->lock);
++	mutex_init(&devp->rdev.stats.lock);
+ 
+ 	if (c4iw_debugfs_root) {
+ 		devp->debugfs_root = debugfs_create_dir(
 diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index e8b88a0..6818659 100644
+index 1357c5b..a849074 100644
 --- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
 +++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -120,6 +120,7 @@ struct c4iw_stats {
- 	u64  db_full;
- 	u64  db_empty;
- 	u64  db_drop;
-+	u64  db_state_transitions;
+@@ -103,6 +103,22 @@ enum c4iw_rdev_flags {
+ 	T4_FATAL_ERROR = (1<<0),
  };
  
++struct c4iw_stat {
++	u64 total;
++	u64 cur;
++	u64 max;
++};
++
++struct c4iw_stats {
++	struct mutex lock;
++	struct c4iw_stat qid;
++	struct c4iw_stat pd;
++	struct c4iw_stat stag;
++	struct c4iw_stat pbl;
++	struct c4iw_stat rqt;
++	struct c4iw_stat ocqp;
++};
++
  struct c4iw_rdev {
-@@ -212,6 +213,7 @@ struct c4iw_dev {
- 	struct mutex db_mutex;
- 	struct dentry *debugfs_root;
- 	enum db_state db_state;
-+	int qpcnt;
+ 	struct c4iw_resource resource;
+ 	unsigned long qpshift;
+@@ -117,6 +133,7 @@ struct c4iw_rdev {
+ 	struct cxgb4_lld_info lldi;
+ 	unsigned long oc_mw_pa;
+ 	void __iomem *oc_mw_kva;
++	struct c4iw_stats stats;
  };
  
- static inline struct c4iw_dev *to_c4iw_dev(struct ib_device *ibdev)
-@@ -271,11 +273,25 @@ static inline int insert_handle_nolock(struct c4iw_dev *rhp, struct idr *idr,
- 	return _insert_handle(rhp, idr, handle, id, 0);
+ static inline int c4iw_fatal_error(struct c4iw_rdev *rdev)
+diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+index 40c8353..2a87379 100644
+--- a/drivers/infiniband/hw/cxgb4/mem.c
++++ b/drivers/infiniband/hw/cxgb4/mem.c
+@@ -135,6 +135,11 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
+ 					     &rdev->resource.tpt_fifo_lock);
+ 		if (!stag_idx)
+ 			return -ENOMEM;
++		mutex_lock(&rdev->stats.lock);
++		rdev->stats.stag.cur += 32;
++		if (rdev->stats.stag.cur > rdev->stats.stag.max)
++			rdev->stats.stag.max = rdev->stats.stag.cur;
++		mutex_unlock(&rdev->stats.lock);
+ 		*stag = (stag_idx << 8) | (atomic_inc_return(&key) & 0xff);
+ 	}
+ 	PDBG("%s stag_state 0x%0x type 0x%0x pdid 0x%0x, stag_idx 0x%x\n",
+@@ -165,9 +170,13 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
+ 				(rdev->lldi.vr->stag.start >> 5),
+ 				sizeof(tpt), &tpt);
+ 
+-	if (reset_tpt_entry)
++	if (reset_tpt_entry) {
+ 		c4iw_put_resource(&rdev->resource.tpt_fifo, stag_idx,
+ 				  &rdev->resource.tpt_fifo_lock);
++		mutex_lock(&rdev->stats.lock);
++		rdev->stats.stag.cur -= 32;
++		mutex_unlock(&rdev->stats.lock);
++	}
+ 	return err;
  }
  
--static inline void remove_handle(struct c4iw_dev *rhp, struct idr *idr, u32 id)
-+static inline void _remove_handle(struct c4iw_dev *rhp, struct idr *idr,
-+				   u32 id, int lock)
- {
--	spin_lock_irq(&rhp->lock);
-+	if (lock)
-+		spin_lock_irq(&rhp->lock);
- 	idr_remove(idr, id);
--	spin_unlock_irq(&rhp->lock);
-+	if (lock)
-+		spin_unlock_irq(&rhp->lock);
-+}
-+
-+static inline void remove_handle(struct c4iw_dev *rhp, struct idr *idr, u32 id)
-+{
-+	_remove_handle(rhp, idr, id, 1);
-+}
-+
-+static inline void remove_handle_nolock(struct c4iw_dev *rhp,
-+					 struct idr *idr, u32 id)
-+{
-+	_remove_handle(rhp, idr, id, 0);
+diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
+index be1c18f..8d58736 100644
+--- a/drivers/infiniband/hw/cxgb4/provider.c
++++ b/drivers/infiniband/hw/cxgb4/provider.c
+@@ -190,6 +190,9 @@ static int c4iw_deallocate_pd(struct ib_pd *pd)
+ 	PDBG("%s ibpd %p pdid 0x%x\n", __func__, pd, php->pdid);
+ 	c4iw_put_resource(&rhp->rdev.resource.pdid_fifo, php->pdid,
+ 			  &rhp->rdev.resource.pdid_fifo_lock);
++	mutex_lock(&rhp->rdev.stats.lock);
++	rhp->rdev.stats.pd.cur--;
++	mutex_unlock(&rhp->rdev.stats.lock);
+ 	kfree(php);
+ 	return 0;
  }
- 
- struct c4iw_pd {
-@@ -843,5 +859,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe);
- extern struct cxgb4_client t4c_client;
- extern c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS];
- extern int c4iw_max_read_depth;
-+extern int db_fc_threshold;
-+
- 
- #endif
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index beec667..ba1343e 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -42,6 +42,11 @@ static int ocqp_support = 1;
- module_param(ocqp_support, int, 0644);
- MODULE_PARM_DESC(ocqp_support, "Support on-chip SQs (default=1)");
- 
-+int db_fc_threshold = 2000;
-+module_param(db_fc_threshold, int, 0644);
-+MODULE_PARM_DESC(db_fc_threshold, "QP count/threshold that triggers automatic "
-+		 "db flow control mode (default = 2000)");
-+
- static void set_state(struct c4iw_qp *qhp, enum c4iw_qp_state state)
- {
- 	unsigned long flag;
-@@ -1143,13 +1148,19 @@ static int ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 inc)
- 
- 	mutex_lock(&qhp->rhp->db_mutex);
- 	do {
--		if (cxgb4_dbfifo_count(qhp->rhp->rdev.lldi.ports[0], 1) < 768) {
-+
-+		/*
-+		 * The interrupt threshold is dbfifo_int_thresh << 6. So
-+		 * make sure we don't cross that and generate an interrupt.
-+		 */
-+		if (cxgb4_dbfifo_count(qhp->rhp->rdev.lldi.ports[0], 1) <
-+		    (qhp->rhp->rdev.lldi.dbfifo_int_thresh << 5)) {
- 			writel(V_QID(qid) | V_PIDX(inc), qhp->wq.db);
- 			break;
+@@ -222,6 +225,11 @@ static struct ib_pd *c4iw_allocate_pd(struct ib_device *ibdev,
+ 			return ERR_PTR(-EFAULT);
  		}
- 		set_current_state(TASK_UNINTERRUPTIBLE);
- 		schedule_timeout(usecs_to_jiffies(delay));
--		delay = min(delay << 1, 200000);
-+		delay = min(delay << 1, 2000);
- 	} while (1);
- 	mutex_unlock(&qhp->rhp->db_mutex);
- 	return 0;
-@@ -1388,6 +1399,14 @@ out:
- 	return ret;
+ 	}
++	mutex_lock(&rhp->rdev.stats.lock);
++	rhp->rdev.stats.pd.cur++;
++	if (rhp->rdev.stats.pd.cur > rhp->rdev.stats.pd.max)
++		rhp->rdev.stats.pd.max = rhp->rdev.stats.pd.cur;
++	mutex_unlock(&rhp->rdev.stats.lock);
+ 	PDBG("%s pdid 0x%0x ptr 0x%p\n", __func__, pdid, php);
+ 	return &php->ibpd;
+ }
+diff --git a/drivers/infiniband/hw/cxgb4/resource.c b/drivers/infiniband/hw/cxgb4/resource.c
+index 407ff39..1b948d1 100644
+--- a/drivers/infiniband/hw/cxgb4/resource.c
++++ b/drivers/infiniband/hw/cxgb4/resource.c
+@@ -185,6 +185,9 @@ u32 c4iw_get_cqid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+ 					&rdev->resource.qid_fifo_lock);
+ 		if (!qid)
+ 			goto out;
++		mutex_lock(&rdev->stats.lock);
++		rdev->stats.qid.cur += rdev->qpmask + 1;
++		mutex_unlock(&rdev->stats.lock);
+ 		for (i = qid+1; i & rdev->qpmask; i++) {
+ 			entry = kmalloc(sizeof *entry, GFP_KERNEL);
+ 			if (!entry)
+@@ -213,6 +216,10 @@ u32 c4iw_get_cqid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+ out:
+ 	mutex_unlock(&uctx->lock);
+ 	PDBG("%s qid 0x%x\n", __func__, qid);
++	mutex_lock(&rdev->stats.lock);
++	if (rdev->stats.qid.cur > rdev->stats.qid.max)
++		rdev->stats.qid.max = rdev->stats.qid.cur;
++	mutex_unlock(&rdev->stats.lock);
+ 	return qid;
  }
  
-+static int enable_qp_db(int id, void *p, void *data)
-+{
-+	struct c4iw_qp *qp = p;
-+
-+	t4_enable_wq_db(&qp->wq);
-+	return 0;
-+}
-+
- int c4iw_destroy_qp(struct ib_qp *ib_qp)
- {
- 	struct c4iw_dev *rhp;
-@@ -1405,7 +1424,16 @@ int c4iw_destroy_qp(struct ib_qp *ib_qp)
- 		c4iw_modify_qp(rhp, qhp, C4IW_QP_ATTR_NEXT_STATE, &attrs, 0);
- 	wait_event(qhp->wait, !qhp->ep);
+@@ -249,6 +256,9 @@ u32 c4iw_get_qpid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+ 					&rdev->resource.qid_fifo_lock);
+ 		if (!qid)
+ 			goto out;
++		mutex_lock(&rdev->stats.lock);
++		rdev->stats.qid.cur += rdev->qpmask + 1;
++		mutex_unlock(&rdev->stats.lock);
+ 		for (i = qid+1; i & rdev->qpmask; i++) {
+ 			entry = kmalloc(sizeof *entry, GFP_KERNEL);
+ 			if (!entry)
+@@ -277,6 +287,10 @@ u32 c4iw_get_qpid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+ out:
+ 	mutex_unlock(&uctx->lock);
+ 	PDBG("%s qid 0x%x\n", __func__, qid);
++	mutex_lock(&rdev->stats.lock);
++	if (rdev->stats.qid.cur > rdev->stats.qid.max)
++		rdev->stats.qid.max = rdev->stats.qid.cur;
++	mutex_unlock(&rdev->stats.lock);
+ 	return qid;
+ }
  
--	remove_handle(rhp, &rhp->qpidr, qhp->wq.sq.qid);
-+	spin_lock_irq(&rhp->lock);
-+	remove_handle_nolock(rhp, &rhp->qpidr, qhp->wq.sq.qid);
-+	rhp->qpcnt--;
-+	BUG_ON(rhp->qpcnt < 0);
-+	if (rhp->qpcnt <= db_fc_threshold && rhp->db_state == FLOW_CONTROL) {
-+		rhp->rdev.stats.db_state_transitions++;
-+		rhp->db_state = NORMAL;
-+		idr_for_each(&rhp->qpidr, enable_qp_db, NULL);
+@@ -315,12 +329,22 @@ u32 c4iw_pblpool_alloc(struct c4iw_rdev *rdev, int size)
+ 	if (!addr)
+ 		printk_ratelimited(KERN_WARNING MOD "%s: Out of PBL memory\n",
+ 		       pci_name(rdev->lldi.pdev));
++	if (addr) {
++		mutex_lock(&rdev->stats.lock);
++		rdev->stats.pbl.cur += roundup(size, 1 << MIN_PBL_SHIFT);
++		if (rdev->stats.pbl.cur > rdev->stats.pbl.max)
++			rdev->stats.pbl.max = rdev->stats.pbl.cur;
++		mutex_unlock(&rdev->stats.lock);
 +	}
-+	spin_unlock_irq(&rhp->lock);
- 	atomic_dec(&qhp->refcnt);
- 	wait_event(qhp->wait, !atomic_read(&qhp->refcnt));
- 
-@@ -1419,6 +1447,14 @@ int c4iw_destroy_qp(struct ib_qp *ib_qp)
- 	return 0;
+ 	return (u32)addr;
  }
  
-+static int disable_qp_db(int id, void *p, void *data)
-+{
-+	struct c4iw_qp *qp = p;
-+
-+	t4_disable_wq_db(&qp->wq);
-+	return 0;
-+}
-+
- struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 			     struct ib_udata *udata)
+ void c4iw_pblpool_free(struct c4iw_rdev *rdev, u32 addr, int size)
  {
-@@ -1508,6 +1544,11 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 	spin_lock_irq(&rhp->lock);
- 	if (rhp->db_state != NORMAL)
- 		t4_disable_wq_db(&qhp->wq);
-+	if (++rhp->qpcnt > db_fc_threshold && rhp->db_state == NORMAL) {
-+		rhp->rdev.stats.db_state_transitions++;
-+		rhp->db_state = FLOW_CONTROL;
-+		idr_for_each(&rhp->qpidr, disable_qp_db, NULL);
+ 	PDBG("%s addr 0x%x size %d\n", __func__, addr, size);
++	mutex_lock(&rdev->stats.lock);
++	rdev->stats.pbl.cur -= roundup(size, 1 << MIN_PBL_SHIFT);
++	mutex_unlock(&rdev->stats.lock);
+ 	gen_pool_free(rdev->pbl_pool, (unsigned long)addr, size);
+ }
+ 
+@@ -377,12 +401,22 @@ u32 c4iw_rqtpool_alloc(struct c4iw_rdev *rdev, int size)
+ 	if (!addr)
+ 		printk_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
+ 		       pci_name(rdev->lldi.pdev));
++	if (addr) {
++		mutex_lock(&rdev->stats.lock);
++		rdev->stats.rqt.cur += roundup(size << 6, 1 << MIN_RQT_SHIFT);
++		if (rdev->stats.rqt.cur > rdev->stats.rqt.max)
++			rdev->stats.rqt.max = rdev->stats.rqt.cur;
++		mutex_unlock(&rdev->stats.lock);
 +	}
- 	ret = insert_handle_nolock(rhp, &rhp->qpidr, qhp, qhp->wq.sq.qid);
- 	spin_unlock_irq(&rhp->lock);
- 	if (ret)
-diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
-index c0221ee..16f26ab 100644
---- a/drivers/infiniband/hw/cxgb4/t4.h
-+++ b/drivers/infiniband/hw/cxgb4/t4.h
-@@ -62,6 +62,10 @@ struct t4_status_page {
- 	__be16 pidx;
- 	u8 qp_err;	/* flit 1 - sw owns */
- 	u8 db_off;
-+	u8 pad;
-+	u16 host_wq_pidx;
-+	u16 host_cidx;
-+	u16 host_pidx;
- };
- 
- #define T4_EQ_ENTRY_SIZE 64
-@@ -375,6 +379,16 @@ static inline void t4_rq_consume(struct t4_wq *wq)
- 		wq->rq.cidx = 0;
+ 	return (u32)addr;
  }
  
-+static inline u16 t4_rq_host_wq_pidx(struct t4_wq *wq)
-+{
-+	return wq->rq.queue[wq->rq.size].status.host_wq_pidx;
-+}
-+
-+static inline u16 t4_rq_wq_size(struct t4_wq *wq)
-+{
-+		return wq->rq.size * T4_RQ_NUM_SLOTS;
-+}
-+
- static inline int t4_sq_onchip(struct t4_sq *sq)
+ void c4iw_rqtpool_free(struct c4iw_rdev *rdev, u32 addr, int size)
  {
- 	return sq->flags & T4_SQ_ONCHIP;
-@@ -412,6 +426,16 @@ static inline void t4_sq_consume(struct t4_wq *wq)
- 		wq->sq.cidx = 0;
+ 	PDBG("%s addr 0x%x size %d\n", __func__, addr, size << 6);
++	mutex_lock(&rdev->stats.lock);
++	rdev->stats.rqt.cur -= roundup(size << 6, 1 << MIN_RQT_SHIFT);
++	mutex_unlock(&rdev->stats.lock);
+ 	gen_pool_free(rdev->rqt_pool, (unsigned long)addr, size << 6);
  }
  
-+static inline u16 t4_sq_host_wq_pidx(struct t4_wq *wq)
-+{
-+	return wq->sq.queue[wq->sq.size].status.host_wq_pidx;
-+}
-+
-+static inline u16 t4_sq_wq_size(struct t4_wq *wq)
-+{
-+		return wq->sq.size * T4_SQ_NUM_SLOTS;
-+}
-+
- static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc)
+@@ -433,12 +467,22 @@ u32 c4iw_ocqp_pool_alloc(struct c4iw_rdev *rdev, int size)
  {
- 	wmb();
+ 	unsigned long addr = gen_pool_alloc(rdev->ocqp_pool, size);
+ 	PDBG("%s addr 0x%x size %d\n", __func__, (u32)addr, size);
++	if (addr) {
++		mutex_lock(&rdev->stats.lock);
++		rdev->stats.ocqp.cur += roundup(size, 1 << MIN_OCQP_SHIFT);
++		if (rdev->stats.ocqp.cur > rdev->stats.ocqp.max)
++			rdev->stats.ocqp.max = rdev->stats.ocqp.cur;
++		mutex_unlock(&rdev->stats.lock);
++	}
+ 	return (u32)addr;
+ }
+ 
+ void c4iw_ocqp_pool_free(struct c4iw_rdev *rdev, u32 addr, int size)
+ {
+ 	PDBG("%s addr 0x%x size %d\n", __func__, addr, size);
++	mutex_lock(&rdev->stats.lock);
++	rdev->stats.ocqp.cur -= roundup(size, 1 << MIN_OCQP_SHIFT);
++	mutex_unlock(&rdev->stats.lock);
+ 	gen_pool_free(rdev->ocqp_pool, (unsigned long)addr, size);
+ }
+ 
 -- 
 1.7.1
