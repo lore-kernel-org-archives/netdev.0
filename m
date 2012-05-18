@@ -1,101 +1,382 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 06/10] RDMA/cxgb4: disable interrupts in c4iw_ev_dispatch().
-Date: Fri, 18 May 2012 15:29:29 +0530
-Message-ID: <1337335173-3226-7-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH 05/10] RDMA/cxgb4: Add DB Overflow Avoidance.
+Date: Fri, 18 May 2012 15:29:28 +0530
+Message-ID: <1337335173-3226-6-git-send-email-vipul@chelsio.com>
 References: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
-Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
-	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1337335173-3226-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
+	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
+	Vipul Pandya <vipul@chelsio.com>
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:7678 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161082Ab2ERK1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 06:27:36 -0400
+In-Reply-To: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use GFP_ATOMIC in _insert_handle() if ints are disabled.
+get FULL/EMPTY/DROP events from LLD
 
-Don't panic if we get an abort with no endpoint found. Just log a
-warning.
+on FULL event, disable normal user mode DB rings.
 
-Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+add modify_qp semantics to allow user processes to call into
+the kernel to ring doobells without overflowing.
+
+Add DB Full/Empty/Drop stats.
+
+Mark queues when created indicating the doorbell state.
+
+If we're in the middle of db overflow avoidance, then newly created
+queues should start out in this mode.
+
+Bump the C4IW_UVERBS_ABI_VERSION to 2 so the user mode library can
+know if the driver supports the kernel mode db ringing.
+
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c       |    5 ++++-
- drivers/infiniband/hw/cxgb4/ev.c       |    8 ++++----
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    2 +-
- 3 files changed, 9 insertions(+), 6 deletions(-)
+ drivers/infiniband/hw/cxgb4/device.c   |   84 +++++++++++++++++++++++++++++--
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |   37 ++++++++++++--
+ drivers/infiniband/hw/cxgb4/qp.c       |   51 +++++++++++++++++++-
+ drivers/infiniband/hw/cxgb4/user.h     |    2 +-
+ 4 files changed, 162 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 4c7c62f..6ce401a 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -1362,7 +1362,10 @@ static int abort_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index 8483111..9062ed9 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -44,6 +44,12 @@ MODULE_DESCRIPTION("Chelsio T4 RDMA Driver");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_VERSION(DRV_VERSION);
  
- 	ep = lookup_tid(t, tid);
- 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
--	BUG_ON(!ep);
-+	if (!ep) {
-+		printk(KERN_WARNING MOD "Abort rpl to freed endpoint\n");
-+		return 0;
++struct uld_ctx {
++	struct list_head entry;
++	struct cxgb4_lld_info lldi;
++	struct c4iw_dev *dev;
++};
++
+ static LIST_HEAD(uld_ctx_list);
+ static DEFINE_MUTEX(dev_mutex);
+ 
+@@ -263,6 +269,9 @@ static int stats_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq, "  OCQPMEM: %10llu %10llu %10llu\n",
+ 			dev->rdev.stats.ocqp.total, dev->rdev.stats.ocqp.cur,
+ 			dev->rdev.stats.ocqp.max);
++	seq_printf(seq, "  DB FULL: %10llu\n", dev->rdev.stats.db_full);
++	seq_printf(seq, " DB EMPTY: %10llu\n", dev->rdev.stats.db_empty);
++	seq_printf(seq, "  DB DROP: %10llu\n", dev->rdev.stats.db_drop);
+ 	return 0;
+ }
+ 
+@@ -283,6 +292,9 @@ static ssize_t stats_clear(struct file *file, const char __user *buf,
+ 	dev->rdev.stats.pbl.max = 0;
+ 	dev->rdev.stats.rqt.max = 0;
+ 	dev->rdev.stats.ocqp.max = 0;
++	dev->rdev.stats.db_full = 0;
++	dev->rdev.stats.db_empty = 0;
++	dev->rdev.stats.db_drop = 0;
+ 	mutex_unlock(&dev->rdev.stats.lock);
+ 	return count;
+ }
+@@ -443,12 +455,6 @@ static void c4iw_rdev_close(struct c4iw_rdev *rdev)
+ 	c4iw_destroy_resource(&rdev->resource);
+ }
+ 
+-struct uld_ctx {
+-	struct list_head entry;
+-	struct cxgb4_lld_info lldi;
+-	struct c4iw_dev *dev;
+-};
+-
+ static void c4iw_dealloc(struct uld_ctx *ctx)
+ {
+ 	c4iw_rdev_close(&ctx->dev->rdev);
+@@ -514,6 +520,7 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
+ 	idr_init(&devp->mmidr);
+ 	spin_lock_init(&devp->lock);
+ 	mutex_init(&devp->rdev.stats.lock);
++	mutex_init(&devp->db_mutex);
+ 
+ 	if (c4iw_debugfs_root) {
+ 		devp->debugfs_root = debugfs_create_dir(
+@@ -659,11 +666,76 @@ static int c4iw_uld_state_change(void *handle, enum cxgb4_state new_state)
+ 	return 0;
+ }
+ 
++static int disable_qp_db(int id, void *p, void *data)
++{
++	struct c4iw_qp *qp = p;
++
++	t4_disable_wq_db(&qp->wq);
++	return 0;
++}
++
++static void stop_queues(struct uld_ctx *ctx)
++{
++	spin_lock_irq(&ctx->dev->lock);
++	ctx->dev->db_state = FLOW_CONTROL;
++	idr_for_each(&ctx->dev->qpidr, disable_qp_db, NULL);
++	spin_unlock_irq(&ctx->dev->lock);
++}
++
++static int enable_qp_db(int id, void *p, void *data)
++{
++	struct c4iw_qp *qp = p;
++
++	t4_enable_wq_db(&qp->wq);
++	return 0;
++}
++
++static void resume_queues(struct uld_ctx *ctx)
++{
++	spin_lock_irq(&ctx->dev->lock);
++	ctx->dev->db_state = NORMAL;
++	idr_for_each(&ctx->dev->qpidr, enable_qp_db, NULL);
++	spin_unlock_irq(&ctx->dev->lock);
++}
++
++static int c4iw_uld_control(void *handle, enum cxgb4_control control, ...)
++{
++	struct uld_ctx *ctx = handle;
++
++	switch (control) {
++	case CXGB4_CONTROL_DB_FULL:
++		stop_queues(ctx);
++		mutex_lock(&ctx->dev->rdev.stats.lock);
++		ctx->dev->rdev.stats.db_full++;
++		mutex_unlock(&ctx->dev->rdev.stats.lock);
++		break;
++	case CXGB4_CONTROL_DB_EMPTY:
++		resume_queues(ctx);
++		mutex_lock(&ctx->dev->rdev.stats.lock);
++		ctx->dev->rdev.stats.db_empty++;
++		mutex_unlock(&ctx->dev->rdev.stats.lock);
++		break;
++	case CXGB4_CONTROL_DB_DROP:
++		printk(KERN_WARNING MOD "%s: Fatal DB DROP\n",
++		       pci_name(ctx->lldi.pdev));
++		mutex_lock(&ctx->dev->rdev.stats.lock);
++		ctx->dev->rdev.stats.db_drop++;
++		mutex_unlock(&ctx->dev->rdev.stats.lock);
++		break;
++	default:
++		printk(KERN_WARNING MOD "%s: unknown control cmd %u\n",
++		       pci_name(ctx->lldi.pdev), control);
++		break;
 +	}
- 	mutex_lock(&ep->com.mutex);
- 	switch (ep->com.state) {
- 	case ABORTING:
-diff --git a/drivers/infiniband/hw/cxgb4/ev.c b/drivers/infiniband/hw/cxgb4/ev.c
-index 397cb36..cf2f6b4 100644
---- a/drivers/infiniband/hw/cxgb4/ev.c
-+++ b/drivers/infiniband/hw/cxgb4/ev.c
-@@ -84,7 +84,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
- 	struct c4iw_qp *qhp;
- 	u32 cqid;
++	return 0;
++}
++
+ static struct cxgb4_uld_info c4iw_uld_info = {
+ 	.name = DRV_NAME,
+ 	.add = c4iw_uld_add,
+ 	.rx_handler = c4iw_uld_rx_handler,
+ 	.state_change = c4iw_uld_state_change,
++	.control = c4iw_uld_control,
+ };
  
--	spin_lock(&dev->lock);
-+	spin_lock_irq(&dev->lock);
- 	qhp = get_qhp(dev, CQE_QPID(err_cqe));
- 	if (!qhp) {
- 		printk(KERN_ERR MOD "BAD AE qpid 0x%x opcode %d "
-@@ -93,7 +93,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
- 		       CQE_OPCODE(err_cqe), CQE_STATUS(err_cqe),
- 		       CQE_TYPE(err_cqe), CQE_WRID_HI(err_cqe),
- 		       CQE_WRID_LOW(err_cqe));
--		spin_unlock(&dev->lock);
-+		spin_unlock_irq(&dev->lock);
- 		goto out;
- 	}
- 
-@@ -109,13 +109,13 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
- 		       CQE_OPCODE(err_cqe), CQE_STATUS(err_cqe),
- 		       CQE_TYPE(err_cqe), CQE_WRID_HI(err_cqe),
- 		       CQE_WRID_LOW(err_cqe));
--		spin_unlock(&dev->lock);
-+		spin_unlock_irq(&dev->lock);
- 		goto out;
- 	}
- 
- 	c4iw_qp_add_ref(&qhp->ibqp);
- 	atomic_inc(&chp->refcnt);
--	spin_unlock(&dev->lock);
-+	spin_unlock_irq(&dev->lock);
- 
- 	/* Bad incoming write */
- 	if (RQ_TYPE(err_cqe) &&
+ static int __init c4iw_init_module(void)
 diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index a11ed5c..e8b88a0 100644
+index a849074..a11ed5c 100644
 --- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
 +++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -246,7 +246,7 @@ static inline int _insert_handle(struct c4iw_dev *rhp, struct idr *idr,
- 	int newid;
+@@ -117,6 +117,9 @@ struct c4iw_stats {
+ 	struct c4iw_stat pbl;
+ 	struct c4iw_stat rqt;
+ 	struct c4iw_stat ocqp;
++	u64  db_full;
++	u64  db_empty;
++	u64  db_drop;
+ };
  
+ struct c4iw_rdev {
+@@ -192,6 +195,12 @@ static inline int c4iw_wait_for_reply(struct c4iw_rdev *rdev,
+ 	return wr_waitp->ret;
+ }
+ 
++enum db_state {
++	NORMAL = 0,
++	FLOW_CONTROL = 1,
++	RECOVERY = 2
++};
++
+ struct c4iw_dev {
+ 	struct ib_device ibdev;
+ 	struct c4iw_rdev rdev;
+@@ -200,7 +209,9 @@ struct c4iw_dev {
+ 	struct idr qpidr;
+ 	struct idr mmidr;
+ 	spinlock_t lock;
++	struct mutex db_mutex;
+ 	struct dentry *debugfs_root;
++	enum db_state db_state;
+ };
+ 
+ static inline struct c4iw_dev *to_c4iw_dev(struct ib_device *ibdev)
+@@ -228,8 +239,8 @@ static inline struct c4iw_mr *get_mhp(struct c4iw_dev *rhp, u32 mmid)
+ 	return idr_find(&rhp->mmidr, mmid);
+ }
+ 
+-static inline int insert_handle(struct c4iw_dev *rhp, struct idr *idr,
+-				void *handle, u32 id)
++static inline int _insert_handle(struct c4iw_dev *rhp, struct idr *idr,
++				 void *handle, u32 id, int lock)
+ {
+ 	int ret;
+ 	int newid;
+@@ -237,15 +248,29 @@ static inline int insert_handle(struct c4iw_dev *rhp, struct idr *idr,
  	do {
--		if (!idr_pre_get(idr, GFP_KERNEL))
-+		if (!idr_pre_get(idr, lock ? GFP_KERNEL : GFP_ATOMIC))
+ 		if (!idr_pre_get(idr, GFP_KERNEL))
  			return -ENOMEM;
- 		if (lock)
- 			spin_lock_irq(&rhp->lock);
+-		spin_lock_irq(&rhp->lock);
++		if (lock)
++			spin_lock_irq(&rhp->lock);
+ 		ret = idr_get_new_above(idr, handle, id, &newid);
+ 		BUG_ON(newid != id);
+-		spin_unlock_irq(&rhp->lock);
++		if (lock)
++			spin_unlock_irq(&rhp->lock);
+ 	} while (ret == -EAGAIN);
+ 
+ 	return ret;
+ }
+ 
++static inline int insert_handle(struct c4iw_dev *rhp, struct idr *idr,
++				void *handle, u32 id)
++{
++	return _insert_handle(rhp, idr, handle, id, 1);
++}
++
++static inline int insert_handle_nolock(struct c4iw_dev *rhp, struct idr *idr,
++				       void *handle, u32 id)
++{
++	return _insert_handle(rhp, idr, handle, id, 0);
++}
++
+ static inline void remove_handle(struct c4iw_dev *rhp, struct idr *idr, u32 id)
+ {
+ 	spin_lock_irq(&rhp->lock);
+@@ -370,6 +395,8 @@ struct c4iw_qp_attributes {
+ 	struct c4iw_ep *llp_stream_handle;
+ 	u8 layer_etype;
+ 	u8 ecode;
++	u16 sq_db_inc;
++	u16 rq_db_inc;
+ };
+ 
+ struct c4iw_qp {
+@@ -444,6 +471,8 @@ static inline void insert_mmap(struct c4iw_ucontext *ucontext,
+ 
+ enum c4iw_qp_attr_mask {
+ 	C4IW_QP_ATTR_NEXT_STATE = 1 << 0,
++	C4IW_QP_ATTR_SQ_DB = 1<<1,
++	C4IW_QP_ATTR_RQ_DB = 1<<2,
+ 	C4IW_QP_ATTR_ENABLE_RDMA_READ = 1 << 7,
+ 	C4IW_QP_ATTR_ENABLE_RDMA_WRITE = 1 << 8,
+ 	C4IW_QP_ATTR_ENABLE_RDMA_BIND = 1 << 9,
+diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
+index 5f940ae..beec667 100644
+--- a/drivers/infiniband/hw/cxgb4/qp.c
++++ b/drivers/infiniband/hw/cxgb4/qp.c
+@@ -34,6 +34,10 @@
+ 
+ #include "iw_cxgb4.h"
+ 
++static int db_delay_usecs = 1;
++module_param(db_delay_usecs, int, 0644);
++MODULE_PARM_DESC(db_delay_usecs, "Usecs to delay awaiting db fifo to drain");
++
+ static int ocqp_support = 1;
+ module_param(ocqp_support, int, 0644);
+ MODULE_PARM_DESC(ocqp_support, "Support on-chip SQs (default=1)");
+@@ -1128,6 +1132,29 @@ out:
+ 	return ret;
+ }
+ 
++/*
++ * Called by the library when the qp has user dbs disabled due to
++ * a DB_FULL condition.  This function will single-thread all user
++ * DB rings to avoid overflowing the hw db-fifo.
++ */
++static int ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 inc)
++{
++	int delay = db_delay_usecs;
++
++	mutex_lock(&qhp->rhp->db_mutex);
++	do {
++		if (cxgb4_dbfifo_count(qhp->rhp->rdev.lldi.ports[0], 1) < 768) {
++			writel(V_QID(qid) | V_PIDX(inc), qhp->wq.db);
++			break;
++		}
++		set_current_state(TASK_UNINTERRUPTIBLE);
++		schedule_timeout(usecs_to_jiffies(delay));
++		delay = min(delay << 1, 200000);
++	} while (1);
++	mutex_unlock(&qhp->rhp->db_mutex);
++	return 0;
++}
++
+ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
+ 		   enum c4iw_qp_attr_mask mask,
+ 		   struct c4iw_qp_attributes *attrs,
+@@ -1176,6 +1203,15 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
+ 		qhp->attr = newattr;
+ 	}
+ 
++	if (mask & C4IW_QP_ATTR_SQ_DB) {
++		ret = ring_kernel_db(qhp, qhp->wq.sq.qid, attrs->sq_db_inc);
++		goto out;
++	}
++	if (mask & C4IW_QP_ATTR_RQ_DB) {
++		ret = ring_kernel_db(qhp, qhp->wq.rq.qid, attrs->rq_db_inc);
++		goto out;
++	}
++
+ 	if (!(mask & C4IW_QP_ATTR_NEXT_STATE))
+ 		goto out;
+ 	if (qhp->attr.state == attrs->next_state)
+@@ -1469,7 +1505,11 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
+ 	init_waitqueue_head(&qhp->wait);
+ 	atomic_set(&qhp->refcnt, 1);
+ 
+-	ret = insert_handle(rhp, &rhp->qpidr, qhp, qhp->wq.sq.qid);
++	spin_lock_irq(&rhp->lock);
++	if (rhp->db_state != NORMAL)
++		t4_disable_wq_db(&qhp->wq);
++	ret = insert_handle_nolock(rhp, &rhp->qpidr, qhp, qhp->wq.sq.qid);
++	spin_unlock_irq(&rhp->lock);
+ 	if (ret)
+ 		goto err2;
+ 
+@@ -1613,6 +1653,15 @@ int c4iw_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
+ 			 C4IW_QP_ATTR_ENABLE_RDMA_WRITE |
+ 			 C4IW_QP_ATTR_ENABLE_RDMA_BIND) : 0;
+ 
++	/*
++	 * Use SQ_PSN and RQ_PSN to pass in IDX_INC values for
++	 * ringing the queue db when we're in DB_FULL mode.
++	 */
++	attrs.sq_db_inc = attr->sq_psn;
++	attrs.rq_db_inc = attr->rq_psn;
++	mask |= (attr_mask & IB_QP_SQ_PSN) ? C4IW_QP_ATTR_SQ_DB : 0;
++	mask |= (attr_mask & IB_QP_RQ_PSN) ? C4IW_QP_ATTR_RQ_DB : 0;
++
+ 	return c4iw_modify_qp(rhp, qhp, mask, &attrs, 0);
+ }
+ 
+diff --git a/drivers/infiniband/hw/cxgb4/user.h b/drivers/infiniband/hw/cxgb4/user.h
+index e6669d5..32b754c 100644
+--- a/drivers/infiniband/hw/cxgb4/user.h
++++ b/drivers/infiniband/hw/cxgb4/user.h
+@@ -32,7 +32,7 @@
+ #ifndef __C4IW_USER_H__
+ #define __C4IW_USER_H__
+ 
+-#define C4IW_UVERBS_ABI_VERSION	1
++#define C4IW_UVERBS_ABI_VERSION	2
+ 
+ /*
+  * Make sure that all structs defined in this file remain laid out so
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
