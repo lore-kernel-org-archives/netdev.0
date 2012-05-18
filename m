@@ -1,7 +1,8 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH 00/10] Doorbell drop recovery for Chelsio T4 iWARP
-Date: Fri, 18 May 2012 15:29:23 +0530
-Message-ID: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
+Subject: [PATCH 10/10] RDMA/cxgb4: Add query_qp support in driver to query the qp state before flushing.
+Date: Fri, 18 May 2012 15:29:33 +0530
+Message-ID: <1337335173-3226-11-git-send-email-vipul@chelsio.com>
+References: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
 Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
 	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
 	Vipul Pandya <vipul@chelsio.com>
@@ -9,68 +10,95 @@ To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from stargate.chelsio.com ([67.207.112.58]:7678 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161083Ab2ERK1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 06:27:32 -0400
+	with ESMTP id S1161101Ab2ERK1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 06:27:33 -0400
+In-Reply-To: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch-series implements doorbell drop recovery for Chelsio T4 iWARP driver.
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+---
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |   19 +++++++++++++++++++
+ drivers/infiniband/hw/cxgb4/provider.c |    2 ++
+ drivers/infiniband/hw/cxgb4/qp.c       |   11 +++++++++++
+ 3 files changed, 32 insertions(+), 0 deletions(-)
 
-In the event where DBs are dropped application can get stalled for one or more
-reasons. So, we recover RDMA and LLD queues in such an event.
-We also take care for handling DB overflow events.
-
-The patch-series also has some bug fixes, adds RDMA debugfs stats and removes
-kfifo usage for ID mangement.
-
-The patch-series is based on Roland's infiniband tree (for-next branch), 
-and involves changes on drivers/net/ethernet/chelsio/cxgb4 and
-drivers/infiniband/hw/cxgb4.
-
-The changes on drivers/infiniband/hw/cxgb4 are dependent on the changes of
-drivers/net/ethernet/chelsio/cxgb4 for the T4-iWARP driver to build correctly.
-So, we request to merge the entire patch-series through Roland's tree.
-
-Both linux-rdma and netdev are included in this post for review.
-
-The earlier posting of this series was reviewed and can be found at below link.
-http://www.mail-archive.com/linux-rdma@vger.kernel.org/msg09606.html
-
-Below is a link where Roland advised to re-post the series.
-http://www.spinics.net/lists/netdev/msg187997.html
-
-Vipul Pandya (10):
-  cxgb4: Detect DB FULL events and notify RDMA ULD.
-  cxgb4: Common platform specific changes for DB Drop Recovery
-  cxgb4: DB Drop Recovery for RDMA and LLD queues.
-  RDMA/cxgb4: Add debugfs rdma memory stats
-  RDMA/cxgb4: Add DB Overflow Avoidance.
-  RDMA/cxgb4: disable interrupts in c4iw_ev_dispatch().
-  RDMA/cxgb4: DB Drop Recovery for RDMA and LLD queues.
-  RDMA/cxgb4: Use vmalloc for debugfs qp dump. Allows dumping thousands
-    of qps.
-  RDMA/cxgb4: remove kfifo usage
-  RDMA/cxgb4: Add query_qp support in driver to query the qp state
-    before flushing.
-
- drivers/infiniband/hw/cxgb4/Makefile            |    2 +-
- drivers/infiniband/hw/cxgb4/cm.c                |   23 ++-
- drivers/infiniband/hw/cxgb4/device.c            |  339 ++++++++++++++++++++++-
- drivers/infiniband/hw/cxgb4/ev.c                |    8 +-
- drivers/infiniband/hw/cxgb4/id_table.c          |  112 ++++++++
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |  134 ++++++++--
- drivers/infiniband/hw/cxgb4/mem.c               |   21 +-
- drivers/infiniband/hw/cxgb4/provider.c          |   19 +-
- drivers/infiniband/hw/cxgb4/qp.c                |  105 +++++++-
- drivers/infiniband/hw/cxgb4/resource.c          |  180 +++++-------
- drivers/infiniband/hw/cxgb4/t4.h                |   24 ++
- drivers/infiniband/hw/cxgb4/user.h              |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   23 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  235 +++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   11 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   22 ++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   62 ++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   53 ++++
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   15 +
- 19 files changed, 1218 insertions(+), 172 deletions(-)
- create mode 100644 drivers/infiniband/hw/cxgb4/id_table.c
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index 2d5b06b..9beb3a9 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -551,6 +551,23 @@ static inline int c4iw_convert_state(enum ib_qp_state ib_state)
+ 	}
+ }
+ 
++static inline int to_ib_qp_state(int c4iw_qp_state)
++{
++	switch (c4iw_qp_state) {
++	case C4IW_QP_STATE_IDLE:
++		return IB_QPS_INIT;
++	case C4IW_QP_STATE_RTS:
++		return IB_QPS_RTS;
++	case C4IW_QP_STATE_CLOSING:
++		return IB_QPS_SQD;
++	case C4IW_QP_STATE_TERMINATE:
++		return IB_QPS_SQE;
++	case C4IW_QP_STATE_ERROR:
++		return IB_QPS_ERR;
++	}
++	return IB_QPS_ERR;
++}
++
+ static inline u32 c4iw_ib_to_tpt_access(int a)
+ {
+ 	return (a & IB_ACCESS_REMOTE_WRITE ? FW_RI_MEM_ACCESS_REM_WRITE : 0) |
+@@ -846,6 +863,8 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd,
+ 			     struct ib_udata *udata);
+ int c4iw_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
+ 				 int attr_mask, struct ib_udata *udata);
++int c4iw_ib_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
++		     int attr_mask, struct ib_qp_init_attr *init_attr);
+ struct ib_qp *c4iw_get_qp(struct ib_device *dev, int qpn);
+ u32 c4iw_rqtpool_alloc(struct c4iw_rdev *rdev, int size);
+ void c4iw_rqtpool_free(struct c4iw_rdev *rdev, u32 addr, int size);
+diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
+index fe98a0a..e084fdc 100644
+--- a/drivers/infiniband/hw/cxgb4/provider.c
++++ b/drivers/infiniband/hw/cxgb4/provider.c
+@@ -443,6 +443,7 @@ int c4iw_register_device(struct c4iw_dev *dev)
+ 	    (1ull << IB_USER_VERBS_CMD_REQ_NOTIFY_CQ) |
+ 	    (1ull << IB_USER_VERBS_CMD_CREATE_QP) |
+ 	    (1ull << IB_USER_VERBS_CMD_MODIFY_QP) |
++	    (1ull << IB_USER_VERBS_CMD_QUERY_QP) |
+ 	    (1ull << IB_USER_VERBS_CMD_POLL_CQ) |
+ 	    (1ull << IB_USER_VERBS_CMD_DESTROY_QP) |
+ 	    (1ull << IB_USER_VERBS_CMD_POST_SEND) |
+@@ -465,6 +466,7 @@ int c4iw_register_device(struct c4iw_dev *dev)
+ 	dev->ibdev.destroy_ah = c4iw_ah_destroy;
+ 	dev->ibdev.create_qp = c4iw_create_qp;
+ 	dev->ibdev.modify_qp = c4iw_ib_modify_qp;
++	dev->ibdev.query_qp = c4iw_ib_query_qp;
+ 	dev->ibdev.destroy_qp = c4iw_destroy_qp;
+ 	dev->ibdev.create_cq = c4iw_create_cq;
+ 	dev->ibdev.destroy_cq = c4iw_destroy_cq;
+diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
+index ba1343e..45aedf1 100644
+--- a/drivers/infiniband/hw/cxgb4/qp.c
++++ b/drivers/infiniband/hw/cxgb4/qp.c
+@@ -1711,3 +1711,14 @@ struct ib_qp *c4iw_get_qp(struct ib_device *dev, int qpn)
+ 	PDBG("%s ib_dev %p qpn 0x%x\n", __func__, dev, qpn);
+ 	return (struct ib_qp *)get_qhp(to_c4iw_dev(dev), qpn);
+ }
++
++int c4iw_ib_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
++		     int attr_mask, struct ib_qp_init_attr *init_attr)
++{
++	struct c4iw_qp *qhp = to_c4iw_qp(ibqp);
++
++	memset(attr, 0, sizeof *attr);
++	memset(init_attr, 0, sizeof *init_attr);
++	attr->qp_state = to_ib_qp_state(qhp->attr.state);
++	return 0;
++}
+-- 
+1.7.1
