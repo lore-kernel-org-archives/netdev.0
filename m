@@ -1,28 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 00/10] Doorbell drop recovery for Chelsio T4 iWARP
-Date: Fri, 18 May 2012 13:32:46 -0400 (EDT)
-Message-ID: <20120518.133246.2299040648312366919.davem@davemloft.net>
-References: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5] be2net: Fix to allow get/set of debug
+ levels in the firmware.
+Date: Fri, 18 May 2012 13:33:41 -0400 (EDT)
+Message-ID: <20120518.133341.2212647755593057015.davem@davemloft.net>
+References: <66e444e7-aef9-4ce5-a695-10a70fe3b31e@exht1.ad.emulex.com>
+	<1337354667.2696.3.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org
-To: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1337335173-3226-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: somnath.kotur@emulex.com, netdev@vger.kernel.org,
+	suresh.reddy@emulex.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43048 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965409Ab2ERRdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 13:33:47 -0400
+In-Reply-To: <1337354667.2696.3.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Fri, 18 May 2012 15:29:23 +0530
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 18 May 2012 16:24:27 +0100
 
-> Below is a link where Roland advised to re-post the series.
-> http://www.spinics.net/lists/netdev/msg187997.html
+> On Fri, 2012-05-18 at 14:29 +0530, Somnath Kotur wrote:
+>> Patch re-spin.
+>> Incorporated review comments by Ben Hutchings.
+>> 
+>> Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
+>> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> 
+> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Roland, who takes this, you or me?
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
