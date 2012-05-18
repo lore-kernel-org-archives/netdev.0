@@ -1,40 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 00/10] Doorbell drop recovery for Chelsio T4 iWARP
-Date: Fri, 18 May 2012 14:53:46 -0400 (EDT)
-Message-ID: <20120518.145346.19783236170990999.davem@davemloft.net>
-References: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
-	<20120518.133246.2299040648312366919.davem@davemloft.net>
-	<CAL1RGDXjekRWkGvZrPF4-B2+kutWRAm-c694vw_D-CqUJXZNMA@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC PATCH net-next] hp100: delete VG/AnyLAN hp100
+Date: Fri, 18 May 2012 21:28:08 +0200
+Message-ID: <20120518192808.GA19446@electric-eye.fr.zoreil.com>
+References: <1337272841-25931-1-git-send-email-paul.gortmaker@windriver.com> <1337272841-25931-3-git-send-email-paul.gortmaker@windriver.com> <4FB52C99.6010303@windriver.com> <20120517212039.GC27789@windriver.com> <1337292547.8872.20.camel@joe2Laptop> <20120517222843.GA30680@electric-eye.fr.zoreil.com> <1337295024.8872.33.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org
-To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDXjekRWkGvZrPF4-B2+kutWRAm-c694vw_D-CqUJXZNMA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Joel Soete <soete.joel@scarlet.be>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	linux-kernel@vger.kernel.org, JBottomley@parallels.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1337295024.8872.33.camel@joe2Laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Date: Fri, 18 May 2012 10:58:55 -0700
-
-> On Fri, May 18, 2012 at 10:32 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
->> From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
->> Date: Fri, 18 May 2012 15:29:23 +0530
->>
->>> Below is a link where Roland advised to re-post the series.
->>> http://www.spinics.net/lists/netdev/msg187997.html
->>
->> Roland, who takes this, you or me?
+Joe Perches <joe@perches.com> :
+[...]
+> I saw people using TR adapters with Linux as of 2008/9.
 > 
-> I already have a few cxgb4 patches in my tree, I'm happy to grab this today.
+> That doesn't mean it's common or make it desirable to
+> keep TR in the current kernel tree though.
 
-Great, please do.
+I'll leave token ring PCI drivers where they are for now.
 
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Is VG/AnyLAN different?
+
+Your own word: "unused". I see nothing wrong asking users if they
+still care. If no one cares about the hp100, fine.
+
+-- 
+Ueimor
