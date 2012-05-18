@@ -1,83 +1,57 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Fri, 18 May 2012 08:29:34 -0700
-Message-ID: <1337354974.12999.12.camel@oc3660625478.ibm.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>
-	 <1337181027.10741.13.camel@oc3660625478.ibm.com>
-	 <20120516151444.GC9934@redhat.com>
-	 <1337189525.10741.24.camel@oc3660625478.ibm.com>
-	 <4FB4677A.8020402@redhat.com>
-	 <1337268862.10741.58.camel@oc3660625478.ibm.com>
-	 <4FB61D57.4030103@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv6: remove csummode in ip6_append_data()
+Date: Fri, 18 May 2012 17:37:56 +0200
+Message-ID: <1337355476.7029.46.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:42020 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754844Ab2ERP3n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 May 2012 11:29:43 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <mashirle@us.ibm.com>;
-	Fri, 18 May 2012 11:29:42 -0400
-In-Reply-To: <4FB61D57.4030103@redhat.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:42944 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755456Ab2ERPiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 11:38:05 -0400
+Received: by bkcji2 with SMTP id ji2so2459014bkc.19
+        for <netdev@vger.kernel.org>; Fri, 18 May 2012 08:38:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-05-18 at 17:58 +0800, Jason Wang wrote:
-> On 05/17/2012 11:34 PM, Shirley Ma wrote:
-> > On Thu, 2012-05-17 at 10:50 +0800, Jason Wang wrote:
-> >> The problem is we may stop the tx queue when there no enough
-> capacity
-> >> to
-> >> place packets, at this moment  we depends on the tx interrupt to
-> >> re-enable the tx queue. So if we didn't poll the vhost during
-> >> callback,
-> >> guest may lose the tx interrupt to re-enable the tx queue which
-> could
-> >> stall the whole tx queue.
-> > VHOST_MAX_PEND should handle the capacity.
-> >
-> > Hasn't the above situation been handled in handle_tx() code?:
-> > ...
-> >                          if (unlikely(num_pends>  VHOST_MAX_PEND)) {
-> >                                  tx_poll_start(net, sock);
-> >
-> set_bit(SOCK_ASYNC_NOSPACE,&sock->flags);
-> >                                  break;
-> >                          }
-> > ...
-> >
-> > Thanks
-> > Shirley
-> 
-> It may not help in because:
-> 
-> - tx polling depends on skb_orphan() which is often called by device 
-> driver when it place the packet into the queue of the devices instead 
-> of  when the packets were sent. So it was too early for vhost to be 
-> notified.
-Then do you think it's better to replace with vhost_poll_queue here
-instead?
+From: Eric Dumazet <edumazet@google.com>
 
-> - it only works when the pending DMAs exceeds VHOST_MAX_PEND, it's 
-> highly possible that guest needs to be notified when the pending
-> packets 
-> isn't so much.
-In which situation the guest needs to be notified when there is no TX
-besides buffers run out?
+csummode variable is always CHECKSUM_NONE in ip6_append_data()
 
-> So this piece of code may not help and could be removed and we need
-> to 
-> poll the virt-queue during zerocopy callback ( through it could be 
-> further optimized but may not be easy). 
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv6/ip6_output.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Thanks
-Shirley
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index be2264e..a254e4b 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1198,7 +1198,6 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 	int copy;
+ 	int err;
+ 	int offset = 0;
+-	int csummode = CHECKSUM_NONE;
+ 	__u8 tx_flags = 0;
+ 
+ 	if (flags&MSG_PROBE)
+@@ -1411,7 +1410,7 @@ alloc_new_skb:
+ 			/*
+ 			 *	Fill in the control structures
+ 			 */
+-			skb->ip_summed = csummode;
++			skb->ip_summed = CHECKSUM_NONE;
+ 			skb->csum = 0;
+ 			/* reserve for fragmentation and ipsec header */
+ 			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
+@@ -1454,7 +1453,6 @@ alloc_new_skb:
+ 			transhdrlen = 0;
+ 			exthdrlen = 0;
+ 			dst_exthdrlen = 0;
+-			csummode = CHECKSUM_NONE;
+ 
+ 			/*
+ 			 * Put the packet on the pending queue
