@@ -1,81 +1,49 @@
-From: Eric B Munson <emunson@mgebm.net>
-Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V11
-Date: Thu, 17 May 2012 21:11:17 -0400
-Message-ID: <20120518011117.GA5894@mgebm.net>
-References: <1337266231-8031-1-git-send-email-mgorman@suse.de>
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: Re: [PATCH v4 6/6] net: sh_eth: use NAPI
+Date: Fri, 18 May 2012 10:44:43 +0900
+Message-ID: <4FB5A98B.501@renesas.com>
+References: <4FB32D17.30404@renesas.com>
+ <20120517103308.GA15830@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="3V7upXqbjpZ4EhLz"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1337266231-8031-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	SH-Linux <linux-sh@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-reply-to: <20120517103308.GA15830@electric-eye.fr.zoreil.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+2012/05/17 19:33, Francois Romieu wrote:
+> Shimoda, Yoshihiro <yoshihiro.shimoda.uh@renesas.com> :
+> [...]
+>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+>> index c64a31c..edc7dfe 100644
+>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> [...]
+< snip >
+>> @@ -1678,19 +1710,15 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>>  	struct sh_eth_private *mdp = netdev_priv(ndev);
+>>  	struct sh_eth_txdesc *txdesc;
+>>  	u32 entry;
+>> -	unsigned long flags;
+>>
+>> -	spin_lock_irqsave(&mdp->lock, flags);
+>>  	if ((mdp->cur_tx - mdp->dirty_tx) >= (mdp->num_tx_ring - 4)) {
+>>  		if (!sh_eth_txfree(ndev)) {
+> 
+> There are now two racing sh_eth_txfree and there is no [PATCH v4 7/6].
+> 
+> If I may suggest a slightly different approach, I would apply the patch
+> below before anything NAPI related:
 
---3V7upXqbjpZ4EhLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Thank you very much for the suggestion. I will modify the NAPI patch to fix
+the racing using your suggestion.
+(Because the original driver (before NAPI) was already locked by mdp->lock
+ in sh_eth_interrupt(), I think that the original driver doesn't have the
+ racing issue.)
 
-On Thu, 17 May 2012, Mel Gorman wrote:
-
-> Mostly addressing feedback from David Miller.
->=20
-> Changeloc since V10
->   o Rebase to 3.4-rc5
->   o Coding style fixups						      (davem)
->   o API consistency						      (davem)
->   o Rename sk_allocation to sk_gfp_atomic and use only when necessary (da=
-vem)
->   o Use static branches for sk_memalloc_socks			      (davem)
->   o Use static branch checks in fast paths			      (davem)
->   o Document concerns about PF_MEMALLOC leaking flags		      (davem)
->   o Locking fix in slab						      (mel)
-
-<snip>
-
-I am attempting to test these, but when they are applied on top of mainline
-head my laptop hangs about 60-90 seconds after boot.  I am trying mainline
-without these sets now and will post results.
-
-Eric
-
---3V7upXqbjpZ4EhLz
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJPtaG1AAoJEKhG9nGc1bpJ8JYP/2tRKWs9oCsl3RWzGHDrDHlr
-xgyhfmWo66HnIHS4MGikWeHEk23sYzXdkms7wbty2mdO67sJifI4YHqrKObhNc4/
-ud/Idi2VYEEemd6IIEYeB63UmgqEjw8NcTjHTR3av3f7USs5eI8SkKW1kAW5w8Qk
-qv/omY+bISVTDUpG/NNuC8xVxE9JIUQgLYt/6ZzDDqq4gyl+HJ4rjxgeBWbptswL
-6/VihOCKZwDVNlRhTr1PC2fsYEBZvObpCZD39/GQlSqvRRk2kmdQ/jIuZoaFsFBG
-ylDpnl76kil1I4pLSuPGF4SFlQksU2jANXd9GtC2hSn5KXfvkGoBYcVIv7rXBHgH
-ZTnzdnla603MpqWTwR0U8lbQj0KRUjNuOIsD5lN5vL89nJb0Xs1FKXzI2uDwgVhx
-KEB/KtFOrcgUZwd8FayMWSDFMOS8Td0WOqdfJiaWlVFUCgnESfHeYTkFDBqLnJJv
-EatxiRrMwsoq5vUEURpP4/9wjMp/s0SEGa0hgujIfGtvXnEanBH4BE/a5WsPU2Zc
-rMG80KGmGh8UYaGVNidjcF0xK9DHdEet52TQxSMLvlrGHU1U3e5RMudpi0bXGl3J
-+gp49EYGdETVUBBZBCFvCWYstOo7FVlEE/xe6ueoEdvJLo4rZzkVUPrnh+VOnyOK
-d2NeRVRU1GXkvImB2Yvm
-=KJjb
------END PGP SIGNATURE-----
-
---3V7upXqbjpZ4EhLz--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Best regards,
+Yoshihiro Shimoda
