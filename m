@@ -1,35 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: only send arp monitor packets if no other
- traffic
-Date: Thu, 17 May 2012 20:08:42 -0400 (EDT)
-Message-ID: <20120517.200842.2215723188229945074.davem@davemloft.net>
-References: <4FB3F67C.6000401@genband.com>
+From: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Subject: Re: [PATCH] e1000: Reset rx ring index on receive
+	overrun
+Date: Fri, 18 May 2012 02:12:02 +0200
+Message-ID: <20120518001202.GN683@type.famille.thibault.fr>
+References: <20120517230140.GZ683@type.famille.thibault.fr>
+	<061C8A8601E8EE4CA8D8FD6990CEA891188439E0@ORSMSX102.amr.corp.intel.com>
+	<20120517232821.GJ683@type.famille.thibault.fr>
+	<20120517233124.GK683@type.famille.thibault.fr>
+	<alpine.WNT.2.00.1205171702590.7900@jbrandeb-mobl2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org
-To: chris.friesen@genband.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36355 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932585Ab2ERAIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 20:08:48 -0400
-In-Reply-To: <4FB3F67C.6000401@genband.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	Dean Nelson <dnelson@redhat.com>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, "Ronciak,
+	John" <john.ronciak@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <alpine.WNT.2.00.1205171702590.7900@jbrandeb-mobl2.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Chris Friesen <chris.friesen@genband.com>
-Date: Wed, 16 May 2012 12:48:28 -0600
+Brandeburg, Jesse, le Thu 17 May 2012 17:04:04 -0700, a =E9crit :
+> On Thu, 17 May 2012, Samuel Thibault wrote:
+> =
 
-> +		if (IS_UP(slave->dev)) {
-> +			if (time_after_eq(jiffies, dev_trans_start(slave->dev) + delta_in_ticks) ||
-> +			    time_after_eq(jiffies, slave->dev->last_rx + delta_in_ticks)) {
-> +				bond_arp_send_all(bond, slave);
-> +			}
+> > Samuel Thibault, le Fri 18 May 2012 01:28:21 +0200, a =E9crit :
+> > > Dave, Tushar N, le Thu 17 May 2012 23:22:31 +0000, a =E9crit :
+> > > > I am interested in to see if you have actual test case and more =
 
-These lines are very long, and instead of just reformatting them I'd suggest
-that you simply make the test a static helper function.
+> > > > importantly test data that shows that kernel and device indexes are =
 
-Also, you should not use braces to enclose a single line of code.
+> > > > not synchronized any more.
+> > > =
 
-Thanks.
+> > > Well, it's not with an actual physical device, but with the kvm
+> > > emulation.
+> > =
+
+> > BTW, it also happens easily when request_irq takes some time to
+> > complete: since we enable E1000_TCTL_EN before that, the card can have
+> > time to fill the ring before irqs are processed.
+> =
+
+> I think there may well be a bug in the implementation in kvm.  The =
+
+> hardware doesn't have this bug.
+
+How does it avoid filling the ring?  What is the purpose of the RXO flag
+if it does avoid them?
+
+Samuel
+
+---------------------------------------------------------------------------=
+---
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and =
+
+threat landscape has changed and how IT managers can respond. Discussions =
+
+will include endpoint security, mobile security and the latest in malware =
+
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
+m/community/wired
