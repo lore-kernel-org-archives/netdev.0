@@ -1,47 +1,37 @@
-From: "Robin H. Johnson" <robbat2@gentoo.org>
-Subject: Docs bug or argument handling error in iproute2 xt action
-Date: Fri, 18 May 2012 18:16:58 +0000
-Message-ID: <robbat2-20120518T180852-646570714Z@orbis-terrarum.net>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH net-next] drivers/net: delete old 8bit ISA 3c501 driver.
+Date: Fri, 18 May 2012 20:16:46 +0200
+Message-ID: <201205182016.51489.linux@rainbow-software.org>
+References: <1337362769-4676-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, shemminger@vyatta.com
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Alan Cox <alan@linux.intel.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:57304 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932754Ab2ERSRA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 May 2012 14:17:00 -0400
-Received: from grubbs.orbis-terrarum.net (localhost [127.0.0.1])
-	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtp.gentoo.org (Postfix) with ESMTPS id 5E12B1B400B
-	for <netdev@vger.kernel.org>; Fri, 18 May 2012 18:16:59 +0000 (UTC)
+Received: from mail-1-out2.atlantis.sk ([80.94.52.71]:51161 "EHLO
+	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753495Ab2ERSYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 14:24:17 -0400
+In-Reply-To: <1337362769-4676-1-git-send-email-paul.gortmaker@windriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Please CC, not subscribed to netdev)
+On Friday 18 May 2012 19:39:29 Paul Gortmaker wrote:
+> It was amusing that linux was able to make use of this 1980's
+> technology on machines long past its intended lifespan, but
+> it probably should go now -- it is causing issues in some
+> distros[1], and while that might be fixable, it is just not
+> worth it.
+>
+> [1]
+> http://www.linuxquestions.org/questions/linux-networking-3/3com-3c501-card-
+>not-detecting-934344/
 
->From doc/actions/ifb-README in the iproute2 repo:
-===================
-# redirect all IP packets arriving in eth0 to ifb0
-# use mark 1 --> puts them onto class 1:1
-$TC filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
-match u32 0 0 flowid 1:1 \
-action ipt -j MARK --set-mark 1 \
-action mirred egress redirect dev ifb0
-===================
-
-Other documentation says 'ipt' has been replaced by 'xt',
-but the passing of arguments other than the jump target doesn't seem to work at all with xt.
-
-Running the above with s/ipt/xt/ gets me:
-====
-xt: unrecognized option '--set-mark'
-Killed
-====
+That looks like a bug elsewhere and removing this driver will not fix it.
 
 -- 
-Robin Hugh Johnson
-Gentoo Linux: Developer, Trustee & Infrastructure Lead
-E-Mail     : robbat2@gentoo.org
-GnuPG FP   : 11ACBA4F 4778E3F6 E4EDF38E B27B944E 34884E85
+Ondrej Zary
