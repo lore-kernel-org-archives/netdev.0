@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 03/10] cxgb4: DB Drop Recovery for RDMA and LLD queues.
-Date: Fri, 18 May 2012 15:29:26 +0530
-Message-ID: <1337335173-3226-4-git-send-email-vipul@chelsio.com>
+Subject: [PATCH 09/10] RDMA/cxgb4: remove kfifo usage
+Date: Fri, 18 May 2012 15:29:32 +0530
+Message-ID: <1337335173-3226-10-git-send-email-vipul@chelsio.com>
 References: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
 Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
 	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
@@ -12,572 +12,629 @@ In-Reply-To: <1337335173-3226-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@publ
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-recover LLD EQs for DB drop interrupts.  This includes adding a new
-db_lock, a spin lock disabling BH too, used by the recovery thread and
-the ring_tx_db() paths to allow db drop recovery.
+Using kfifos for ID management was limiting the number of QPs and
+preventing NP384 MPI jobs.  So replace it with a simple bitmap
+allocator.
 
-cleaned up initial db avoidance code.
-
-add read_eq_indices() - allows the LLD to use the pcie mw to efficiently
-read hw eq contexts.
-
-add cxgb4_sync_txq_pidx() - called by iw_cxgb4 to sync up the sw/hw pidx
-value.
-
-add flush_eq_cache() and cxgb4_flush_eq_cache().  This allows iw_cxgb4
-to flush the sge eq context cache before beginning db drop recovery.
-
-add module parameter, dbfoifo_int_thresh, to allow tuning the db
-interrupt threshold value.
-
-add dbfifo_int_thresh to cxgb4_lld_info so iw_cxgb4 knows the threshold.
-
-add module parameter, dbfoifo_drain_delay, to allow tuning the amount
-of time delay between DB FULL and EMPTY upcalls to iw_cxgb4.
+Remove IDs from the IDR tables before deallocating them. This bug was
+causing the BUG_ON() in insert_handle() to fire because the ID was
+getting reused before being removed from the IDR table.
 
 Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   16 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  214 +++++++++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    4 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   20 ++-
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   53 ++++++
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   15 ++
- 6 files changed, 280 insertions(+), 42 deletions(-)
+ drivers/infiniband/hw/cxgb4/Makefile   |    2 +-
+ drivers/infiniband/hw/cxgb4/device.c   |   37 +++++---
+ drivers/infiniband/hw/cxgb4/id_table.c |  112 ++++++++++++++++++++++++
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |   35 ++++++--
+ drivers/infiniband/hw/cxgb4/mem.c      |   10 +--
+ drivers/infiniband/hw/cxgb4/provider.c |    9 +--
+ drivers/infiniband/hw/cxgb4/resource.c |  148 ++++++++------------------------
+ 7 files changed, 203 insertions(+), 150 deletions(-)
+ create mode 100644 drivers/infiniband/hw/cxgb4/id_table.c
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 5f3c0a7..ec2dafe 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -51,6 +51,8 @@
- #define FW_VERSION_MINOR 1
- #define FW_VERSION_MICRO 0
+diff --git a/drivers/infiniband/hw/cxgb4/Makefile b/drivers/infiniband/hw/cxgb4/Makefile
+index 46b878c..e11cf72 100644
+--- a/drivers/infiniband/hw/cxgb4/Makefile
++++ b/drivers/infiniband/hw/cxgb4/Makefile
+@@ -2,4 +2,4 @@ ccflags-y := -Idrivers/net/ethernet/chelsio/cxgb4
  
-+#define CH_WARN(adap, fmt, ...) dev_warn(adap->pdev_dev, fmt, ## __VA_ARGS__)
+ obj-$(CONFIG_INFINIBAND_CXGB4) += iw_cxgb4.o
+ 
+-iw_cxgb4-y :=  device.o cm.o provider.o mem.o cq.o qp.o resource.o ev.o
++iw_cxgb4-y :=  device.o cm.o provider.o mem.o cq.o qp.o resource.o ev.o id_table.o
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index 8545629..c8fd1d8 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -252,25 +252,26 @@ static int stats_show(struct seq_file *seq, void *v)
+ {
+ 	struct c4iw_dev *dev = seq->private;
+ 
+-	seq_printf(seq, " Object: %10s %10s %10s\n", "Total", "Current", "Max");
+-	seq_printf(seq, "     PDID: %10llu %10llu %10llu\n",
++	seq_printf(seq, "   Object: %10s %10s %10s %10s\n", "Total", "Current",
++		   "Max", "Fail");
++	seq_printf(seq, "     PDID: %10llu %10llu %10llu %10llu\n",
+ 			dev->rdev.stats.pd.total, dev->rdev.stats.pd.cur,
+-			dev->rdev.stats.pd.max);
+-	seq_printf(seq, "      QID: %10llu %10llu %10llu\n",
++			dev->rdev.stats.pd.max, dev->rdev.stats.pd.fail);
++	seq_printf(seq, "      QID: %10llu %10llu %10llu %10llu\n",
+ 			dev->rdev.stats.qid.total, dev->rdev.stats.qid.cur,
+-			dev->rdev.stats.qid.max);
+-	seq_printf(seq, "   TPTMEM: %10llu %10llu %10llu\n",
++			dev->rdev.stats.qid.max, dev->rdev.stats.qid.fail);
++	seq_printf(seq, "   TPTMEM: %10llu %10llu %10llu %10llu\n",
+ 			dev->rdev.stats.stag.total, dev->rdev.stats.stag.cur,
+-			dev->rdev.stats.stag.max);
+-	seq_printf(seq, "   PBLMEM: %10llu %10llu %10llu\n",
++			dev->rdev.stats.stag.max, dev->rdev.stats.stag.fail);
++	seq_printf(seq, "   PBLMEM: %10llu %10llu %10llu %10llu\n",
+ 			dev->rdev.stats.pbl.total, dev->rdev.stats.pbl.cur,
+-			dev->rdev.stats.pbl.max);
+-	seq_printf(seq, "   RQTMEM: %10llu %10llu %10llu\n",
++			dev->rdev.stats.pbl.max, dev->rdev.stats.pbl.fail);
++	seq_printf(seq, "   RQTMEM: %10llu %10llu %10llu %10llu\n",
+ 			dev->rdev.stats.rqt.total, dev->rdev.stats.rqt.cur,
+-			dev->rdev.stats.rqt.max);
+-	seq_printf(seq, "  OCQPMEM: %10llu %10llu %10llu\n",
++			dev->rdev.stats.rqt.max, dev->rdev.stats.rqt.fail);
++	seq_printf(seq, "  OCQPMEM: %10llu %10llu %10llu %10llu\n",
+ 			dev->rdev.stats.ocqp.total, dev->rdev.stats.ocqp.cur,
+-			dev->rdev.stats.ocqp.max);
++			dev->rdev.stats.ocqp.max, dev->rdev.stats.ocqp.fail);
+ 	seq_printf(seq, "  DB FULL: %10llu\n", dev->rdev.stats.db_full);
+ 	seq_printf(seq, " DB EMPTY: %10llu\n", dev->rdev.stats.db_empty);
+ 	seq_printf(seq, "  DB DROP: %10llu\n", dev->rdev.stats.db_drop);
+@@ -292,11 +293,17 @@ static ssize_t stats_clear(struct file *file, const char __user *buf,
+ 
+ 	mutex_lock(&dev->rdev.stats.lock);
+ 	dev->rdev.stats.pd.max = 0;
++	dev->rdev.stats.pd.fail = 0;
+ 	dev->rdev.stats.qid.max = 0;
++	dev->rdev.stats.qid.fail = 0;
+ 	dev->rdev.stats.stag.max = 0;
++	dev->rdev.stats.stag.fail = 0;
+ 	dev->rdev.stats.pbl.max = 0;
++	dev->rdev.stats.pbl.fail = 0;
+ 	dev->rdev.stats.rqt.max = 0;
++	dev->rdev.stats.rqt.fail = 0;
+ 	dev->rdev.stats.ocqp.max = 0;
++	dev->rdev.stats.ocqp.fail = 0;
+ 	dev->rdev.stats.db_full = 0;
+ 	dev->rdev.stats.db_empty = 0;
+ 	dev->rdev.stats.db_drop = 0;
+@@ -350,8 +357,8 @@ void c4iw_release_dev_ucontext(struct c4iw_rdev *rdev,
+ 		entry = list_entry(pos, struct c4iw_qid_list, entry);
+ 		list_del_init(&entry->entry);
+ 		if (!(entry->qid & rdev->qpmask)) {
+-			c4iw_put_resource(&rdev->resource.qid_fifo, entry->qid,
+-					&rdev->resource.qid_fifo_lock);
++			c4iw_put_resource(&rdev->resource.qid_table,
++					  entry->qid);
+ 			mutex_lock(&rdev->stats.lock);
+ 			rdev->stats.qid.cur -= rdev->qpmask + 1;
+ 			mutex_unlock(&rdev->stats.lock);
+diff --git a/drivers/infiniband/hw/cxgb4/id_table.c b/drivers/infiniband/hw/cxgb4/id_table.c
+new file mode 100644
+index 0000000..f95e5df
+--- /dev/null
++++ b/drivers/infiniband/hw/cxgb4/id_table.c
+@@ -0,0 +1,112 @@
++/*
++ * Copyright (c) 2011 Chelsio Communications.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#include <linux/kernel.h>
++#include <linux/random.h>
++#include "iw_cxgb4.h"
 +
- enum {
- 	MAX_NPORTS = 4,     /* max # of ports */
- 	SERNUM_LEN = 24,    /* Serial # length */
-@@ -64,6 +66,15 @@ enum {
- 	MEM_MC
- };
- 
-+enum {
-+	MEMWIN0_APERTURE = 65536,
-+	MEMWIN0_BASE     = 0x30000,
-+	MEMWIN1_APERTURE = 32768,
-+	MEMWIN1_BASE     = 0x28000,
-+	MEMWIN2_APERTURE = 2048,
-+	MEMWIN2_BASE     = 0x1b800,
-+};
++#define RANDOM_SKIP 16
 +
- enum dev_master {
- 	MASTER_CANT,
- 	MASTER_MAY,
-@@ -403,6 +414,9 @@ struct sge_txq {
- 	struct tx_sw_desc *sdesc;   /* address of SW Tx descriptor ring */
- 	struct sge_qstat *stat;     /* queue status entry */
- 	dma_addr_t    phys_addr;    /* physical address of the ring */
-+	spinlock_t db_lock;
-+	int db_disabled;
-+	unsigned short db_pidx;
- };
- 
- struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
-@@ -475,6 +489,7 @@ struct adapter {
- 	void __iomem *regs;
- 	struct pci_dev *pdev;
- 	struct device *pdev_dev;
-+	unsigned int mbox;
- 	unsigned int fn;
- 	unsigned int flags;
- 
-@@ -607,6 +622,7 @@ irqreturn_t t4_sge_intr_msix(int irq, void *cookie);
- void t4_sge_init(struct adapter *adap);
- void t4_sge_start(struct adapter *adap);
- void t4_sge_stop(struct adapter *adap);
-+extern int dbfifo_int_thresh;
- 
- #define for_each_port(adapter, iter) \
- 	for (iter = 0; iter < (adapter)->params.nports; ++iter)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index c243f93..e1f96fb 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -149,15 +149,6 @@ static unsigned int pfvfres_pmask(struct adapter *adapter,
- #endif
- 
- enum {
--	MEMWIN0_APERTURE = 65536,
--	MEMWIN0_BASE     = 0x30000,
--	MEMWIN1_APERTURE = 32768,
--	MEMWIN1_BASE     = 0x28000,
--	MEMWIN2_APERTURE = 2048,
--	MEMWIN2_BASE     = 0x1b800,
--};
--
--enum {
- 	MAX_TXQ_ENTRIES      = 16384,
- 	MAX_CTRL_TXQ_ENTRIES = 1024,
- 	MAX_RSPQ_ENTRIES     = 16384,
-@@ -371,6 +362,15 @@ static int set_addr_filters(const struct net_device *dev, bool sleep)
- 				uhash | mhash, sleep);
- }
- 
-+int dbfifo_int_thresh = 10; /* 10 == 640 entry threshold */
-+module_param(dbfifo_int_thresh, int, 0644);
-+MODULE_PARM_DESC(dbfifo_int_thresh, "doorbell fifo interrupt threshold");
-+
-+int dbfifo_drain_delay = 1000; /* usecs to sleep while draining the dbfifo */
-+module_param(dbfifo_drain_delay, int, 0644);
-+MODULE_PARM_DESC(dbfifo_drain_delay,
-+		 "usecs to sleep while draining the dbfifo");
-+
- /*
-  * Set Rx properties of a port, such as promiscruity, address filters, and MTU.
-  * If @mtu is -1 it is left unchanged.
-@@ -389,6 +389,8 @@ static int set_rxmode(struct net_device *dev, int mtu, bool sleep_ok)
- 	return ret;
- }
- 
-+static struct workqueue_struct *workq;
-+
- /**
-  *	link_start - enable a port
-  *	@dev: the port to enable
-@@ -2196,7 +2198,7 @@ static void cxgb4_queue_tid_release(struct tid_info *t, unsigned int chan,
- 	adap->tid_release_head = (void **)((uintptr_t)p | chan);
- 	if (!adap->tid_release_task_busy) {
- 		adap->tid_release_task_busy = true;
--		schedule_work(&adap->tid_release_task);
-+		queue_work(workq, &adap->tid_release_task);
- 	}
- 	spin_unlock_bh(&adap->tid_release_lock);
- }
-@@ -2423,6 +2425,59 @@ void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
- }
- EXPORT_SYMBOL(cxgb4_iscsi_init);
- 
-+int cxgb4_flush_eq_cache(struct net_device *dev)
++/*
++ * Trivial bitmap-based allocator. If the random flag is set, the
++ * allocator is designed to:
++ * - pseudo-randomize the id returned such that it is not trivially predictable.
++ * - avoid reuse of recently used id (at the expense of predictability)
++ */
++u32 c4iw_id_alloc(struct c4iw_id_table *alloc)
 +{
-+	struct adapter *adap = netdev2adap(dev);
-+	int ret;
++	unsigned long flags;
++	u32 obj;
 +
-+	ret = t4_fwaddrspace_write(adap, adap->mbox,
-+				   0xe1000000 + A_SGE_CTXT_CMD, 0x20000000);
-+	return ret;
-+}
-+EXPORT_SYMBOL(cxgb4_flush_eq_cache);
++	spin_lock_irqsave(&alloc->lock, flags);
 +
-+static int read_eq_indices(struct adapter *adap, u16 qid, u16 *pidx, u16 *cidx)
-+{
-+	u32 addr = t4_read_reg(adap, A_SGE_DBQ_CTXT_BADDR) + 24 * qid + 8;
-+	__be64 indices;
-+	int ret;
++	obj = find_next_zero_bit(alloc->table, alloc->max, alloc->last);
++	if (obj >= alloc->max)
++		obj = find_first_zero_bit(alloc->table, alloc->max);
 +
-+	ret = t4_mem_win_read_len(adap, addr, (__be32 *)&indices, 8);
-+	if (!ret) {
-+		indices = be64_to_cpu(indices);
-+		*cidx = (indices >> 25) & 0xffff;
-+		*pidx = (indices >> 9) & 0xffff;
-+	}
-+	return ret;
-+}
-+
-+int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx,
-+			u16 size)
-+{
-+	struct adapter *adap = netdev2adap(dev);
-+	u16 hw_pidx, hw_cidx;
-+	int ret;
-+
-+	ret = read_eq_indices(adap, qid, &hw_pidx, &hw_cidx);
-+	if (ret)
-+		goto out;
-+
-+	if (pidx != hw_pidx) {
-+		u16 delta;
-+
-+		if (pidx >= hw_pidx)
-+			delta = pidx - hw_pidx;
++	if (obj < alloc->max) {
++		if (alloc->flags & C4IW_ID_TABLE_F_RANDOM)
++			alloc->last += random32() % RANDOM_SKIP;
 +		else
-+			delta = size - hw_pidx + pidx;
-+		wmb();
-+		t4_write_reg(adap, MYPF_REG(A_SGE_PF_KDOORBELL),
-+			     V_QID(qid) | V_PIDX(delta));
-+	}
-+out:
-+	return ret;
-+}
-+EXPORT_SYMBOL(cxgb4_sync_txq_pidx);
++			alloc->last = obj + 1;
++		if (alloc->last >= alloc->max)
++			alloc->last = 0;
++		set_bit(obj, alloc->table);
++		obj += alloc->start;
++	} else
++		obj = -1;
 +
- static struct pci_driver cxgb4_driver;
- 
- static void check_neigh_update(struct neighbour *neigh)
-@@ -2456,6 +2511,95 @@ static struct notifier_block cxgb4_netevent_nb = {
- 	.notifier_call = netevent_cb
- };
- 
-+static void drain_db_fifo(struct adapter *adap, int usecs)
++	spin_unlock_irqrestore(&alloc->lock, flags);
++	return obj;
++}
++
++void c4iw_id_free(struct c4iw_id_table *alloc, u32 obj)
 +{
-+	u32 v;
++	unsigned long flags;
 +
-+	do {
-+		set_current_state(TASK_UNINTERRUPTIBLE);
-+		schedule_timeout(usecs_to_jiffies(usecs));
-+		v = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
-+		if (G_LP_COUNT(v) == 0 && G_HP_COUNT(v) == 0)
-+			break;
-+	} while (1);
++	obj -= alloc->start;
++	BUG_ON((int)obj < 0);
++
++	spin_lock_irqsave(&alloc->lock, flags);
++	clear_bit(obj, alloc->table);
++	spin_unlock_irqrestore(&alloc->lock, flags);
 +}
 +
-+static void disable_txq_db(struct sge_txq *q)
-+{
-+	spin_lock_irq(&q->db_lock);
-+	q->db_disabled = 1;
-+	spin_unlock_irq(&q->db_lock);
-+}
-+
-+static void enable_txq_db(struct sge_txq *q)
-+{
-+	spin_lock_irq(&q->db_lock);
-+	q->db_disabled = 0;
-+	spin_unlock_irq(&q->db_lock);
-+}
-+
-+static void disable_dbs(struct adapter *adap)
++int c4iw_id_table_alloc(struct c4iw_id_table *alloc, u32 start, u32 num,
++			u32 reserved, u32 flags)
 +{
 +	int i;
 +
-+	for_each_ethrxq(&adap->sge, i)
-+		disable_txq_db(&adap->sge.ethtxq[i].q);
-+	for_each_ofldrxq(&adap->sge, i)
-+		disable_txq_db(&adap->sge.ofldtxq[i].q);
-+	for_each_port(adap, i)
-+		disable_txq_db(&adap->sge.ctrlq[i].q);
-+}
-+
-+static void enable_dbs(struct adapter *adap)
-+{
-+	int i;
-+
-+	for_each_ethrxq(&adap->sge, i)
-+		enable_txq_db(&adap->sge.ethtxq[i].q);
-+	for_each_ofldrxq(&adap->sge, i)
-+		enable_txq_db(&adap->sge.ofldtxq[i].q);
-+	for_each_port(adap, i)
-+		enable_txq_db(&adap->sge.ctrlq[i].q);
-+}
-+
-+static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
-+{
-+	u16 hw_pidx, hw_cidx;
-+	int ret;
-+
-+	spin_lock_bh(&q->db_lock);
-+	ret = read_eq_indices(adap, (u16)q->cntxt_id, &hw_pidx, &hw_cidx);
-+	if (ret)
-+		goto out;
-+	if (q->db_pidx != hw_pidx) {
-+		u16 delta;
-+
-+		if (q->db_pidx >= hw_pidx)
-+			delta = q->db_pidx - hw_pidx;
-+		else
-+			delta = q->size - hw_pidx + q->db_pidx;
-+		wmb();
-+		t4_write_reg(adap, MYPF_REG(A_SGE_PF_KDOORBELL),
-+				V_QID(q->cntxt_id) | V_PIDX(delta));
-+	}
-+out:
-+	q->db_disabled = 0;
-+	spin_unlock_bh(&q->db_lock);
-+	if (ret)
-+		CH_WARN(adap, "DB drop recovery failed.\n");
-+}
-+static void recover_all_queues(struct adapter *adap)
-+{
-+	int i;
-+
-+	for_each_ethrxq(&adap->sge, i)
-+		sync_txq_pidx(adap, &adap->sge.ethtxq[i].q);
-+	for_each_ofldrxq(&adap->sge, i)
-+		sync_txq_pidx(adap, &adap->sge.ofldtxq[i].q);
-+	for_each_port(adap, i)
-+		sync_txq_pidx(adap, &adap->sge.ctrlq[i].q);
-+}
-+
- static void notify_rdma_uld(struct adapter *adap, enum cxgb4_control cmd)
- {
- 	mutex_lock(&uld_mutex);
-@@ -2468,55 +2612,41 @@ static void notify_rdma_uld(struct adapter *adap, enum cxgb4_control cmd)
- static void process_db_full(struct work_struct *work)
- {
- 	struct adapter *adap;
--	static int delay = 1000;
--	u32 v;
- 
- 	adap = container_of(work, struct adapter, db_full_task);
- 
--
--	/* stop LLD queues */
--
- 	notify_rdma_uld(adap, CXGB4_CONTROL_DB_FULL);
--	do {
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(usecs_to_jiffies(delay));
--		v = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
--		if (G_LP_COUNT(v) == 0 && G_HP_COUNT(v) == 0)
--			break;
--	} while (1);
-+	drain_db_fifo(adap, dbfifo_drain_delay);
-+	t4_set_reg_field(adap, A_SGE_INT_ENABLE3,
-+			F_DBFIFO_HP_INT | F_DBFIFO_LP_INT,
-+			F_DBFIFO_HP_INT | F_DBFIFO_LP_INT);
- 	notify_rdma_uld(adap, CXGB4_CONTROL_DB_EMPTY);
--
--
--	/*
--	 * The more we get db full interrupts, the more we'll delay
--	 * in re-enabling db rings on queues, capped off at 200ms.
--	 */
--	delay = min(delay << 1, 200000);
--
--	/* resume LLD queues */
- }
- 
- static void process_db_drop(struct work_struct *work)
- {
- 	struct adapter *adap;
--	adap = container_of(work, struct adapter, db_drop_task);
- 
-+	adap = container_of(work, struct adapter, db_drop_task);
- 
--	/*
--	 * sync the PIDX values in HW and SW for LLD queues.
--	 */
--
-+	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_DROPPED_DB, 0);
-+	disable_dbs(adap);
- 	notify_rdma_uld(adap, CXGB4_CONTROL_DB_DROP);
-+	drain_db_fifo(adap, 1);
-+	recover_all_queues(adap);
-+	enable_dbs(adap);
- }
- 
- void t4_db_full(struct adapter *adap)
- {
--	schedule_work(&adap->db_full_task);
-+	t4_set_reg_field(adap, A_SGE_INT_ENABLE3,
-+			F_DBFIFO_HP_INT | F_DBFIFO_LP_INT, 0);
-+	queue_work(workq, &adap->db_full_task);
- }
- 
- void t4_db_dropped(struct adapter *adap)
- {
--	schedule_work(&adap->db_drop_task);
-+	queue_work(workq, &adap->db_drop_task);
- }
- 
- static void uld_attach(struct adapter *adap, unsigned int uld)
-@@ -2552,6 +2682,7 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- 	lli.gts_reg = adap->regs + MYPF_REG(SGE_PF_GTS);
- 	lli.db_reg = adap->regs + MYPF_REG(SGE_PF_KDOORBELL);
- 	lli.fw_vers = adap->params.fw_vers;
-+	lli.dbfifo_int_thresh = dbfifo_int_thresh;
- 
- 	handle = ulds[uld].add(&lli);
- 	if (IS_ERR(handle)) {
-@@ -3668,6 +3799,7 @@ static int __devinit init_one(struct pci_dev *pdev,
- 
- 	adapter->pdev = pdev;
- 	adapter->pdev_dev = &pdev->dev;
-+	adapter->mbox = func;
- 	adapter->fn = func;
- 	adapter->msg_enable = dflt_msg_enable;
- 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
-@@ -3865,6 +3997,10 @@ static int __init cxgb4_init_module(void)
- {
- 	int ret;
- 
-+	workq = create_singlethread_workqueue("cxgb4");
-+	if (!workq)
++	alloc->start = start;
++	alloc->flags = flags;
++	if (flags & C4IW_ID_TABLE_F_RANDOM)
++		alloc->last = random32() % RANDOM_SKIP;
++	else
++		alloc->last = 0;
++	alloc->max  = num;
++	spin_lock_init(&alloc->lock);
++	alloc->table = kmalloc(BITS_TO_LONGS(num) * sizeof(long),
++				GFP_KERNEL);
++	if (!alloc->table)
 +		return -ENOMEM;
 +
- 	/* Debugfs support is optional, just warn if this fails */
- 	cxgb4_debugfs_root = debugfs_create_dir(KBUILD_MODNAME, NULL);
- 	if (!cxgb4_debugfs_root)
-@@ -3880,6 +4016,8 @@ static void __exit cxgb4_cleanup_module(void)
- {
- 	pci_unregister_driver(&cxgb4_driver);
- 	debugfs_remove(cxgb4_debugfs_root);  /* NULL ok */
-+	flush_workqueue(workq);
-+	destroy_workqueue(workq);
++	bitmap_zero(alloc->table, num);
++	if (!(alloc->flags & C4IW_ID_TABLE_F_EMPTY))
++		for (i = 0; i < reserved; ++i)
++			set_bit(i, alloc->table);
++
++	return 0;
++}
++
++void c4iw_id_table_free(struct c4iw_id_table *alloc)
++{
++	kfree(alloc->table);
++}
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index 6818659..2d5b06b 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -45,7 +45,6 @@
+ #include <linux/kref.h>
+ #include <linux/timer.h>
+ #include <linux/io.h>
+-#include <linux/kfifo.h>
+ 
+ #include <asm/byteorder.h>
+ 
+@@ -79,13 +78,22 @@ static inline void *cplhdr(struct sk_buff *skb)
+ 	return skb->data;
  }
  
- module_init(cxgb4_init_module);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 5cc2f27..d79980c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -218,6 +218,7 @@ struct cxgb4_lld_info {
- 	unsigned short ucq_density;          /* # of user CQs/page */
- 	void __iomem *gts_reg;               /* address of GTS register */
- 	void __iomem *db_reg;                /* address of kernel doorbell */
-+	int dbfifo_int_thresh;		     /* doorbell fifo int threshold */
++#define C4IW_ID_TABLE_F_RANDOM 1       /* Pseudo-randomize the id's returned */
++#define C4IW_ID_TABLE_F_EMPTY  2       /* Table is initially empty */
++
++struct c4iw_id_table {
++	u32 flags;
++	u32 start;              /* logical minimal id */
++	u32 last;               /* hint for find */
++	u32 max;
++	spinlock_t lock;
++	unsigned long *table;
++};
++
+ struct c4iw_resource {
+-	struct kfifo tpt_fifo;
+-	spinlock_t tpt_fifo_lock;
+-	struct kfifo qid_fifo;
+-	spinlock_t qid_fifo_lock;
+-	struct kfifo pdid_fifo;
+-	spinlock_t pdid_fifo_lock;
++	struct c4iw_id_table tpt_table;
++	struct c4iw_id_table qid_table;
++	struct c4iw_id_table pdid_table;
  };
  
- struct cxgb4_uld_info {
-@@ -226,6 +227,7 @@ struct cxgb4_uld_info {
- 	int (*rx_handler)(void *handle, const __be64 *rsp,
- 			  const struct pkt_gl *gl);
- 	int (*state_change)(void *handle, enum cxgb4_state new_state);
-+	int (*control)(void *handle, enum cxgb4_control control, ...);
+ struct c4iw_qid_list {
+@@ -107,6 +115,7 @@ struct c4iw_stat {
+ 	u64 total;
+ 	u64 cur;
+ 	u64 max;
++	u64 fail;
  };
  
- int cxgb4_register_uld(enum cxgb4_uld type, const struct cxgb4_uld_info *p);
-@@ -243,4 +245,6 @@ void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
- 		      const unsigned int *pgsz_order);
- struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
- 				   unsigned int skb_len, unsigned int pull_len);
-+int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx, u16 size);
-+int cxgb4_flush_eq_cache(struct net_device *dev);
- #endif  /* !__CXGB4_OFLD_H */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 234c157..e111d97 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -767,8 +767,13 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
- static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ struct c4iw_stats {
+@@ -253,7 +262,7 @@ static inline int _insert_handle(struct c4iw_dev *rhp, struct idr *idr,
+ 		if (lock)
+ 			spin_lock_irq(&rhp->lock);
+ 		ret = idr_get_new_above(idr, handle, id, &newid);
+-		BUG_ON(newid != id);
++		BUG_ON(!ret && newid != id);
+ 		if (lock)
+ 			spin_unlock_irq(&rhp->lock);
+ 	} while (ret == -EAGAIN);
+@@ -755,14 +764,20 @@ static inline int compute_wscale(int win)
+ 	return wscale;
+ }
+ 
++u32 c4iw_id_alloc(struct c4iw_id_table *alloc);
++void c4iw_id_free(struct c4iw_id_table *alloc, u32 obj);
++int c4iw_id_table_alloc(struct c4iw_id_table *alloc, u32 start, u32 num,
++			u32 reserved, u32 flags);
++void c4iw_id_table_free(struct c4iw_id_table *alloc);
++
+ typedef int (*c4iw_handler_func)(struct c4iw_dev *dev, struct sk_buff *skb);
+ 
+ int c4iw_ep_redirect(void *ctx, struct dst_entry *old, struct dst_entry *new,
+ 		     struct l2t_entry *l2t);
+ void c4iw_put_qpid(struct c4iw_rdev *rdev, u32 qpid,
+ 		   struct c4iw_dev_ucontext *uctx);
+-u32 c4iw_get_resource(struct kfifo *fifo, spinlock_t *lock);
+-void c4iw_put_resource(struct kfifo *fifo, u32 entry, spinlock_t *lock);
++u32 c4iw_get_resource(struct c4iw_id_table *id_table);
++void c4iw_put_resource(struct c4iw_id_table *id_table, u32 entry);
+ int c4iw_init_resource(struct c4iw_rdev *rdev, u32 nr_tpt, u32 nr_pdid);
+ int c4iw_init_ctrl_qp(struct c4iw_rdev *rdev);
+ int c4iw_pblpool_create(struct c4iw_rdev *rdev);
+diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+index 2a87379..57e07c6 100644
+--- a/drivers/infiniband/hw/cxgb4/mem.c
++++ b/drivers/infiniband/hw/cxgb4/mem.c
+@@ -131,8 +131,7 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
+ 	stag_idx = (*stag) >> 8;
+ 
+ 	if ((!reset_tpt_entry) && (*stag == T4_STAG_UNSET)) {
+-		stag_idx = c4iw_get_resource(&rdev->resource.tpt_fifo,
+-					     &rdev->resource.tpt_fifo_lock);
++		stag_idx = c4iw_get_resource(&rdev->resource.tpt_table);
+ 		if (!stag_idx)
+ 			return -ENOMEM;
+ 		mutex_lock(&rdev->stats.lock);
+@@ -171,8 +170,7 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
+ 				sizeof(tpt), &tpt);
+ 
+ 	if (reset_tpt_entry) {
+-		c4iw_put_resource(&rdev->resource.tpt_fifo, stag_idx,
+-				  &rdev->resource.tpt_fifo_lock);
++		c4iw_put_resource(&rdev->resource.tpt_table, stag_idx);
+ 		mutex_lock(&rdev->stats.lock);
+ 		rdev->stats.stag.cur -= 32;
+ 		mutex_unlock(&rdev->stats.lock);
+@@ -695,8 +693,8 @@ int c4iw_dealloc_mw(struct ib_mw *mw)
+ 	mhp = to_c4iw_mw(mw);
+ 	rhp = mhp->rhp;
+ 	mmid = (mw->rkey) >> 8;
+-	deallocate_window(&rhp->rdev, mhp->attr.stag);
+ 	remove_handle(rhp, &rhp->mmidr, mmid);
++	deallocate_window(&rhp->rdev, mhp->attr.stag);
+ 	kfree(mhp);
+ 	PDBG("%s ib_mw %p mmid 0x%x ptr %p\n", __func__, mw, mmid, mhp);
+ 	return 0;
+@@ -798,12 +796,12 @@ int c4iw_dereg_mr(struct ib_mr *ib_mr)
+ 	mhp = to_c4iw_mr(ib_mr);
+ 	rhp = mhp->rhp;
+ 	mmid = mhp->attr.stag >> 8;
++	remove_handle(rhp, &rhp->mmidr, mmid);
+ 	dereg_mem(&rhp->rdev, mhp->attr.stag, mhp->attr.pbl_size,
+ 		       mhp->attr.pbl_addr);
+ 	if (mhp->attr.pbl_size)
+ 		c4iw_pblpool_free(&mhp->rhp->rdev, mhp->attr.pbl_addr,
+ 				  mhp->attr.pbl_size << 3);
+-	remove_handle(rhp, &rhp->mmidr, mmid);
+ 	if (mhp->kva)
+ 		kfree((void *) (unsigned long) mhp->kva);
+ 	if (mhp->umem)
+diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
+index 8d58736..fe98a0a 100644
+--- a/drivers/infiniband/hw/cxgb4/provider.c
++++ b/drivers/infiniband/hw/cxgb4/provider.c
+@@ -188,8 +188,7 @@ static int c4iw_deallocate_pd(struct ib_pd *pd)
+ 	php = to_c4iw_pd(pd);
+ 	rhp = php->rhp;
+ 	PDBG("%s ibpd %p pdid 0x%x\n", __func__, pd, php->pdid);
+-	c4iw_put_resource(&rhp->rdev.resource.pdid_fifo, php->pdid,
+-			  &rhp->rdev.resource.pdid_fifo_lock);
++	c4iw_put_resource(&rhp->rdev.resource.pdid_table, php->pdid);
+ 	mutex_lock(&rhp->rdev.stats.lock);
+ 	rhp->rdev.stats.pd.cur--;
+ 	mutex_unlock(&rhp->rdev.stats.lock);
+@@ -207,14 +206,12 @@ static struct ib_pd *c4iw_allocate_pd(struct ib_device *ibdev,
+ 
+ 	PDBG("%s ibdev %p\n", __func__, ibdev);
+ 	rhp = (struct c4iw_dev *) ibdev;
+-	pdid =  c4iw_get_resource(&rhp->rdev.resource.pdid_fifo,
+-				  &rhp->rdev.resource.pdid_fifo_lock);
++	pdid =  c4iw_get_resource(&rhp->rdev.resource.pdid_table);
+ 	if (!pdid)
+ 		return ERR_PTR(-EINVAL);
+ 	php = kzalloc(sizeof(*php), GFP_KERNEL);
+ 	if (!php) {
+-		c4iw_put_resource(&rhp->rdev.resource.pdid_fifo, pdid,
+-				  &rhp->rdev.resource.pdid_fifo_lock);
++		c4iw_put_resource(&rhp->rdev.resource.pdid_table, pdid);
+ 		return ERR_PTR(-ENOMEM);
+ 	}
+ 	php->pdid = pdid;
+diff --git a/drivers/infiniband/hw/cxgb4/resource.c b/drivers/infiniband/hw/cxgb4/resource.c
+index 1b948d1..cdef4d7 100644
+--- a/drivers/infiniband/hw/cxgb4/resource.c
++++ b/drivers/infiniband/hw/cxgb4/resource.c
+@@ -30,96 +30,25 @@
+  * SOFTWARE.
+  */
+ /* Crude resource management */
+-#include <linux/kernel.h>
+-#include <linux/random.h>
+-#include <linux/slab.h>
+-#include <linux/kfifo.h>
+ #include <linux/spinlock.h>
+-#include <linux/errno.h>
+ #include <linux/genalloc.h>
+ #include <linux/ratelimit.h>
+ #include "iw_cxgb4.h"
+ 
+-#define RANDOM_SIZE 16
+-
+-static int __c4iw_init_resource_fifo(struct kfifo *fifo,
+-				   spinlock_t *fifo_lock,
+-				   u32 nr, u32 skip_low,
+-				   u32 skip_high,
+-				   int random)
+-{
+-	u32 i, j, entry = 0, idx;
+-	u32 random_bytes;
+-	u32 rarray[16];
+-	spin_lock_init(fifo_lock);
+-
+-	if (kfifo_alloc(fifo, nr * sizeof(u32), GFP_KERNEL))
+-		return -ENOMEM;
+-
+-	for (i = 0; i < skip_low + skip_high; i++)
+-		kfifo_in(fifo, (unsigned char *) &entry, sizeof(u32));
+-	if (random) {
+-		j = 0;
+-		random_bytes = random32();
+-		for (i = 0; i < RANDOM_SIZE; i++)
+-			rarray[i] = i + skip_low;
+-		for (i = skip_low + RANDOM_SIZE; i < nr - skip_high; i++) {
+-			if (j >= RANDOM_SIZE) {
+-				j = 0;
+-				random_bytes = random32();
+-			}
+-			idx = (random_bytes >> (j * 2)) & 0xF;
+-			kfifo_in(fifo,
+-				(unsigned char *) &rarray[idx],
+-				sizeof(u32));
+-			rarray[idx] = i;
+-			j++;
+-		}
+-		for (i = 0; i < RANDOM_SIZE; i++)
+-			kfifo_in(fifo,
+-				(unsigned char *) &rarray[i],
+-				sizeof(u32));
+-	} else
+-		for (i = skip_low; i < nr - skip_high; i++)
+-			kfifo_in(fifo, (unsigned char *) &i, sizeof(u32));
+-
+-	for (i = 0; i < skip_low + skip_high; i++)
+-		if (kfifo_out_locked(fifo, (unsigned char *) &entry,
+-				     sizeof(u32), fifo_lock))
+-			break;
+-	return 0;
+-}
+-
+-static int c4iw_init_resource_fifo(struct kfifo *fifo, spinlock_t * fifo_lock,
+-				   u32 nr, u32 skip_low, u32 skip_high)
+-{
+-	return __c4iw_init_resource_fifo(fifo, fifo_lock, nr, skip_low,
+-					  skip_high, 0);
+-}
+-
+-static int c4iw_init_resource_fifo_random(struct kfifo *fifo,
+-				   spinlock_t *fifo_lock,
+-				   u32 nr, u32 skip_low, u32 skip_high)
+-{
+-	return __c4iw_init_resource_fifo(fifo, fifo_lock, nr, skip_low,
+-					  skip_high, 1);
+-}
+-
+-static int c4iw_init_qid_fifo(struct c4iw_rdev *rdev)
++static int c4iw_init_qid_table(struct c4iw_rdev *rdev)
  {
- 	wmb();            /* write descriptors before telling HW */
--	t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
--		     QID(q->cntxt_id) | PIDX(n));
-+	spin_lock(&q->db_lock);
-+	if (!q->db_disabled) {
-+		t4_write_reg(adap, MYPF_REG(A_SGE_PF_KDOORBELL),
-+			     V_QID(q->cntxt_id) | V_PIDX(n));
-+	}
-+	q->db_pidx = q->pidx;
-+	spin_unlock(&q->db_lock);
+ 	u32 i;
+ 
+-	spin_lock_init(&rdev->resource.qid_fifo_lock);
+-
+-	if (kfifo_alloc(&rdev->resource.qid_fifo, rdev->lldi.vr->qp.size *
+-			sizeof(u32), GFP_KERNEL))
++	if (c4iw_id_table_alloc(&rdev->resource.qid_table,
++				rdev->lldi.vr->qp.start,
++				rdev->lldi.vr->qp.size,
++				rdev->lldi.vr->qp.size, 0))
+ 		return -ENOMEM;
+ 
+ 	for (i = rdev->lldi.vr->qp.start;
+-	     i < rdev->lldi.vr->qp.start + rdev->lldi.vr->qp.size; i++)
++		i < rdev->lldi.vr->qp.start + rdev->lldi.vr->qp.size; i++)
+ 		if (!(i & rdev->qpmask))
+-			kfifo_in(&rdev->resource.qid_fifo,
+-				    (unsigned char *) &i, sizeof(u32));
++			c4iw_id_free(&rdev->resource.qid_table, i);
+ 	return 0;
  }
  
- /**
-@@ -2081,6 +2086,7 @@ static void init_txq(struct adapter *adap, struct sge_txq *q, unsigned int id)
- 	q->stops = q->restarts = 0;
- 	q->stat = (void *)&q->desc[q->size];
- 	q->cntxt_id = id;
-+	spin_lock_init(&q->db_lock);
- 	adap->sge.egr_map[id - adap->sge.egr_start] = q;
+@@ -127,44 +56,42 @@ static int c4iw_init_qid_fifo(struct c4iw_rdev *rdev)
+ int c4iw_init_resource(struct c4iw_rdev *rdev, u32 nr_tpt, u32 nr_pdid)
+ {
+ 	int err = 0;
+-	err = c4iw_init_resource_fifo_random(&rdev->resource.tpt_fifo,
+-					     &rdev->resource.tpt_fifo_lock,
+-					     nr_tpt, 1, 0);
++	err = c4iw_id_table_alloc(&rdev->resource.tpt_table, 0, nr_tpt, 1,
++					C4IW_ID_TABLE_F_RANDOM);
+ 	if (err)
+ 		goto tpt_err;
+-	err = c4iw_init_qid_fifo(rdev);
++	err = c4iw_init_qid_table(rdev);
+ 	if (err)
+ 		goto qid_err;
+-	err = c4iw_init_resource_fifo(&rdev->resource.pdid_fifo,
+-				      &rdev->resource.pdid_fifo_lock,
+-				      nr_pdid, 1, 0);
++	err = c4iw_id_table_alloc(&rdev->resource.pdid_table, 0,
++					nr_pdid, 1, 0);
+ 	if (err)
+ 		goto pdid_err;
+ 	return 0;
+-pdid_err:
+-	kfifo_free(&rdev->resource.qid_fifo);
+-qid_err:
+-	kfifo_free(&rdev->resource.tpt_fifo);
+-tpt_err:
++ pdid_err:
++	c4iw_id_table_free(&rdev->resource.qid_table);
++ qid_err:
++	c4iw_id_table_free(&rdev->resource.tpt_table);
++ tpt_err:
+ 	return -ENOMEM;
  }
  
-@@ -2415,9 +2421,15 @@ void t4_sge_init(struct adapter *adap)
- 			 RXPKTCPLMODE |
- 			 (STAT_LEN == 128 ? EGRSTATUSPAGESIZE : 0));
+ /*
+  * returns 0 if no resource available
+  */
+-u32 c4iw_get_resource(struct kfifo *fifo, spinlock_t *lock)
++u32 c4iw_get_resource(struct c4iw_id_table *id_table)
+ {
+ 	u32 entry;
+-	if (kfifo_out_locked(fifo, (unsigned char *) &entry, sizeof(u32), lock))
+-		return entry;
+-	else
++	entry = c4iw_id_alloc(id_table);
++	if (entry == (u32)(-1))
+ 		return 0;
++	return entry;
+ }
  
-+	/*
-+	 * Set up to drop DOORBELL writes when the DOORBELL FIFO overflows
-+	 * and generate an interrupt when this occurs so we can recover.
-+	 */
- 	t4_set_reg_field(adap, A_SGE_DBFIFO_STATUS,
--			V_HP_INT_THRESH(5) | V_LP_INT_THRESH(5),
--			V_HP_INT_THRESH(5) | V_LP_INT_THRESH(5));
-+			V_HP_INT_THRESH(M_HP_INT_THRESH) |
-+			V_LP_INT_THRESH(M_LP_INT_THRESH),
-+			V_HP_INT_THRESH(dbfifo_int_thresh) |
-+			V_LP_INT_THRESH(dbfifo_int_thresh));
- 	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_ENABLE_DROP,
- 			F_ENABLE_DROP);
+-void c4iw_put_resource(struct kfifo *fifo, u32 entry, spinlock_t *lock)
++void c4iw_put_resource(struct c4iw_id_table *id_table, u32 entry)
+ {
+ 	PDBG("%s entry 0x%x\n", __func__, entry);
+-	kfifo_in_locked(fifo, (unsigned char *) &entry, sizeof(u32), lock);
++	c4iw_id_free(id_table, entry);
+ }
  
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 0adc5bc..111fc32 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -190,6 +190,59 @@
- #define SGE_DEBUG_DATA_LOW 0x10d4
- #define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
+ u32 c4iw_get_cqid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+@@ -181,8 +108,7 @@ u32 c4iw_get_cqid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+ 		qid = entry->qid;
+ 		kfree(entry);
+ 	} else {
+-		qid = c4iw_get_resource(&rdev->resource.qid_fifo,
+-					&rdev->resource.qid_fifo_lock);
++		qid = c4iw_get_resource(&rdev->resource.qid_table);
+ 		if (!qid)
+ 			goto out;
+ 		mutex_lock(&rdev->stats.lock);
+@@ -252,8 +178,7 @@ u32 c4iw_get_qpid(struct c4iw_rdev *rdev, struct c4iw_dev_ucontext *uctx)
+ 		qid = entry->qid;
+ 		kfree(entry);
+ 	} else {
+-		qid = c4iw_get_resource(&rdev->resource.qid_fifo,
+-					&rdev->resource.qid_fifo_lock);
++		qid = c4iw_get_resource(&rdev->resource.qid_table);
+ 		if (!qid)
+ 			goto out;
+ 		mutex_lock(&rdev->stats.lock);
+@@ -311,9 +236,9 @@ void c4iw_put_qpid(struct c4iw_rdev *rdev, u32 qid,
  
-+#define S_LP_INT_THRESH    12
-+#define V_LP_INT_THRESH(x) ((x) << S_LP_INT_THRESH)
-+#define S_HP_INT_THRESH    28
-+#define V_HP_INT_THRESH(x) ((x) << S_HP_INT_THRESH)
-+#define A_SGE_DBFIFO_STATUS 0x10a4
-+
-+#define S_ENABLE_DROP    13
-+#define V_ENABLE_DROP(x) ((x) << S_ENABLE_DROP)
-+#define F_ENABLE_DROP    V_ENABLE_DROP(1U)
-+#define A_SGE_DOORBELL_CONTROL 0x10a8
-+
-+#define A_SGE_CTXT_CMD 0x11fc
-+#define A_SGE_DBQ_CTXT_BADDR 0x1084
-+
-+#define A_SGE_PF_KDOORBELL 0x0
-+
-+#define S_QID 15
-+#define V_QID(x) ((x) << S_QID)
-+
-+#define S_PIDX 0
-+#define V_PIDX(x) ((x) << S_PIDX)
-+
-+#define M_LP_COUNT 0x7ffU
-+#define S_LP_COUNT 0
-+#define G_LP_COUNT(x) (((x) >> S_LP_COUNT) & M_LP_COUNT)
-+
-+#define M_HP_COUNT 0x7ffU
-+#define S_HP_COUNT 16
-+#define G_HP_COUNT(x) (((x) >> S_HP_COUNT) & M_HP_COUNT)
-+
-+#define A_SGE_INT_ENABLE3 0x1040
-+
-+#define S_DBFIFO_HP_INT 8
-+#define V_DBFIFO_HP_INT(x) ((x) << S_DBFIFO_HP_INT)
-+#define F_DBFIFO_HP_INT V_DBFIFO_HP_INT(1U)
-+
-+#define S_DBFIFO_LP_INT 7
-+#define V_DBFIFO_LP_INT(x) ((x) << S_DBFIFO_LP_INT)
-+#define F_DBFIFO_LP_INT V_DBFIFO_LP_INT(1U)
-+
-+#define S_DROPPED_DB 0
-+#define V_DROPPED_DB(x) ((x) << S_DROPPED_DB)
-+#define F_DROPPED_DB V_DROPPED_DB(1U)
-+
-+#define S_ERR_DROPPED_DB 18
-+#define V_ERR_DROPPED_DB(x) ((x) << S_ERR_DROPPED_DB)
-+#define F_ERR_DROPPED_DB V_ERR_DROPPED_DB(1U)
-+
-+#define A_PCIE_MEM_ACCESS_OFFSET 0x306c
-+
-+#define M_HP_INT_THRESH 0xfU
-+#define M_LP_INT_THRESH 0xfU
-+
- #define PCIE_PF_CLI 0x44
- #define PCIE_INT_CAUSE 0x3004
- #define  UNXSPLCPLERR  0x20000000U
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index edcfd7e..ad53f79 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -1620,4 +1620,19 @@ struct fw_hdr {
- #define FW_HDR_FW_VER_MINOR_GET(x) (((x) >> 16) & 0xff)
- #define FW_HDR_FW_VER_MICRO_GET(x) (((x) >> 8) & 0xff)
- #define FW_HDR_FW_VER_BUILD_GET(x) (((x) >> 0) & 0xff)
-+
-+#define S_FW_CMD_OP 24
-+#define V_FW_CMD_OP(x) ((x) << S_FW_CMD_OP)
-+
-+#define S_FW_CMD_REQUEST 23
-+#define V_FW_CMD_REQUEST(x) ((x) << S_FW_CMD_REQUEST)
-+#define F_FW_CMD_REQUEST V_FW_CMD_REQUEST(1U)
-+
-+#define S_FW_CMD_WRITE 21
-+#define V_FW_CMD_WRITE(x) ((x) << S_FW_CMD_WRITE)
-+#define F_FW_CMD_WRITE V_FW_CMD_WRITE(1U)
-+
-+#define S_FW_LDST_CMD_ADDRSPACE 0
-+#define V_FW_LDST_CMD_ADDRSPACE(x) ((x) << S_FW_LDST_CMD_ADDRSPACE)
-+
- #endif /* _T4FW_INTERFACE_H_ */
+ void c4iw_destroy_resource(struct c4iw_resource *rscp)
+ {
+-	kfifo_free(&rscp->tpt_fifo);
+-	kfifo_free(&rscp->qid_fifo);
+-	kfifo_free(&rscp->pdid_fifo);
++	c4iw_id_table_free(&rscp->tpt_table);
++	c4iw_id_table_free(&rscp->qid_table);
++	c4iw_id_table_free(&rscp->pdid_table);
+ }
+ 
+ /*
+@@ -326,16 +251,14 @@ u32 c4iw_pblpool_alloc(struct c4iw_rdev *rdev, int size)
+ {
+ 	unsigned long addr = gen_pool_alloc(rdev->pbl_pool, size);
+ 	PDBG("%s addr 0x%x size %d\n", __func__, (u32)addr, size);
+-	if (!addr)
+-		printk_ratelimited(KERN_WARNING MOD "%s: Out of PBL memory\n",
+-		       pci_name(rdev->lldi.pdev));
++	mutex_lock(&rdev->stats.lock);
+ 	if (addr) {
+-		mutex_lock(&rdev->stats.lock);
+ 		rdev->stats.pbl.cur += roundup(size, 1 << MIN_PBL_SHIFT);
+ 		if (rdev->stats.pbl.cur > rdev->stats.pbl.max)
+ 			rdev->stats.pbl.max = rdev->stats.pbl.cur;
+-		mutex_unlock(&rdev->stats.lock);
+-	}
++	} else
++		rdev->stats.pbl.fail++;
++	mutex_unlock(&rdev->stats.lock);
+ 	return (u32)addr;
+ }
+ 
+@@ -401,13 +324,14 @@ u32 c4iw_rqtpool_alloc(struct c4iw_rdev *rdev, int size)
+ 	if (!addr)
+ 		printk_ratelimited(KERN_WARNING MOD "%s: Out of RQT memory\n",
+ 		       pci_name(rdev->lldi.pdev));
++	mutex_lock(&rdev->stats.lock);
+ 	if (addr) {
+-		mutex_lock(&rdev->stats.lock);
+ 		rdev->stats.rqt.cur += roundup(size << 6, 1 << MIN_RQT_SHIFT);
+ 		if (rdev->stats.rqt.cur > rdev->stats.rqt.max)
+ 			rdev->stats.rqt.max = rdev->stats.rqt.cur;
+-		mutex_unlock(&rdev->stats.lock);
+-	}
++	} else
++		rdev->stats.rqt.fail++;
++	mutex_unlock(&rdev->stats.lock);
+ 	return (u32)addr;
+ }
+ 
 -- 
 1.7.1
 
