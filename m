@@ -1,49 +1,36 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next] drivers/net: delete old 8bit ISA 3c501 driver.
-Date: Fri, 18 May 2012 18:03:06 -0400
-Message-ID: <20120518220305.GC15256@windriver.com>
-References: <1337362769-4676-1-git-send-email-paul.gortmaker@windriver.com>
- <201205182016.51489.linux@rainbow-software.org>
+From: Timur Tabi <b04825@freescale.com>
+Subject: Re: [PATCH v6 0/3] netdev/of/phy: MDIO bus multiplexer support.
+Date: Fri, 18 May 2012 17:09:10 -0500
+Message-ID: <4FB6C886.3050105@freescale.com>
+References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com> <CAOZdJXWVCu+aNxcQRkcSSDsWWxnn8B9X5Y6=8oVgFwJ9SZTTGQ@mail.gmail.com> <4FB6C728.3090507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Alan Cox <alan@linux.intel.com>
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: David Daney <ddaney.cavm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34374 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966112Ab2ERWDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 18:03:35 -0400
-Content-Disposition: inline
-In-Reply-To: <201205182016.51489.linux@rainbow-software.org>
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:58829
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S967321Ab2ERWJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 18:09:33 -0400
+In-Reply-To: <4FB6C728.3090507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Re: [PATCH net-next] drivers/net: delete old 8bit ISA 3c501 driver.] On 18/05/2012 (Fri 20:16) Ondrej Zary wrote:
+David Daney wrote:
+>> > I'm not sure what the "parent" MDIO bus node is supposed to represent.
+>> >   Is that that device that actually controls the muxing hardware
 
-> On Friday 18 May 2012 19:39:29 Paul Gortmaker wrote:
-> > It was amusing that linux was able to make use of this 1980's
-> > technology on machines long past its intended lifespan, but
-> > it probably should go now -- it is causing issues in some
-> > distros[1], and while that might be fixable, it is just not
-> > worth it.
-> >
-> > [1]
-> > http://www.linuxquestions.org/questions/linux-networking-3/3com-3c501-card-
-> >not-detecting-934344/
-> 
-> That looks like a bug elsewhere and removing this driver will not fix it.
+> No.  It is the device that implements the master 802.3 clause {22,45} 
+> MDIO Station Management (STA) protocol.
 
-You miss the point.  We've got someone with a modern i7 machine who is
-getting confused by seeing messages from some ancient 3c501 driver, but
-he doesn't have the context to know it is ancient and the message is a
-red herring.  Will it fix a distro's broken init that tries to modprobe
-everything?  No.  Will it help by not muddying the waters with
-meaningless printk from 3c501 that confuse users?  Yes.
+Ah, I think I get it.  It is *the* MDIO node that would normally exist if
+muxing we're necessary on the board.  From the looks of it, that node
+would look exactly the same if you didn't need muxing?
 
-Thanks,
-Paul.
-
-> 
-> -- 
-> Ondrej Zary
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
