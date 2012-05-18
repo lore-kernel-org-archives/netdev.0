@@ -1,83 +1,41 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH] e1000: Reset rx ring index on receive
-	overrun
-Date: Thu, 17 May 2012 17:04:04 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.1205171702590.7900@jbrandeb-mobl2.amr.corp.intel.com>
-References: <20120517230140.GZ683@type.famille.thibault.fr>
-	<061C8A8601E8EE4CA8D8FD6990CEA891188439E0@ORSMSX102.amr.corp.intel.com>
-	<20120517232821.GJ683@type.famille.thibault.fr>
-	<20120517233124.GK683@type.famille.thibault.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] xfrm: take iphdr size into account for esp payload
+ size calculation
+Date: Thu, 17 May 2012 20:05:09 -0400 (EDT)
+Message-ID: <20120517.200509.2290282427866555176.davem@davemloft.net>
+References: <20120514.183952.1459413342269893446.davem@davemloft.net>
+	<1337196925-4919-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="98638-26239-1337299446=:7900"
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	Dean Nelson <dnelson@redhat.com>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, "Ronciak,
-	John" <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Samuel Thibault <samuel.thibault@ens-lyon.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20120517233124.GK683@type.famille.thibault.fr>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org, steffen.klassert@secunet.com
+To: bpoirier@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1337196925-4919-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: Benjamin Poirier <bpoirier@suse.de>
+Date: Wed, 16 May 2012 15:35:25 -0400
 
---98638-26239-1337299446=:7900
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-
-
-On Thu, 17 May 2012, Samuel Thibault wrote:
-
-> Samuel Thibault, le Fri 18 May 2012 01:28:21 +0200, a écrit :
-> > Dave, Tushar N, le Thu 17 May 2012 23:22:31 +0000, a écrit :
-> > > I am interested in to see if you have actual test case and more 
-> > > importantly test data that shows that kernel and device indexes are 
-> > > not synchronized any more.
-> > 
-> > Well, it's not with an actual physical device, but with the kvm
-> > emulation.
+> Corrects the function that determines the esp payload size.
+> The calculations done in esp4_get_mtu lead to overlength frames in transport
+> mode for certain mtu values and suboptimal frames for others.
 > 
-> BTW, it also happens easily when request_irq takes some time to
-> complete: since we enable E1000_TCTL_EN before that, the card can have
-> time to fill the ring before irqs are processed.
+> According to what is done, mainly in esp_output(), net_header_len aka
+> sizeof(struct iphdr) must be taken into account before doing the alignment
+> calculation.
+> 
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
 
-I think there may well be a bug in the implementation in kvm.  The 
-hardware doesn't have this bug.
---98638-26239-1337299446=:7900
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+This looks great.
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
---98638-26239-1337299446=:7900
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Could you please fix net/ipv6/esp6.c too, it seems to have the same
+exact bug.
 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Once you respin this patch with both ipv4 and ipv6 fixed, I'll apply
+it.
 
---98638-26239-1337299446=:7900--
+Thank you.
