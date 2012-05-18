@@ -1,52 +1,106 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: Re: [PATCH v6 0/3] netdev/of/phy: MDIO bus multiplexer support.
-Date: Fri, 18 May 2012 15:23:45 -0700
-Message-ID: <4FB6CBF1.40300@gmail.com>
-References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com> <CAOZdJXWVCu+aNxcQRkcSSDsWWxnn8B9X5Y6=8oVgFwJ9SZTTGQ@mail.gmail.com> <4FB6C728.3090507@gmail.com> <4FB6C886.3050105@freescale.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for comms devices.
+Date: Sat, 19 May 2012 00:38:41 +0200
+Message-ID: <4FB6CF71.7080307@imap.cc>
+References: <cover.1337203535.git.sarah.a.sharp@linux.intel.com> <3c634afbbe15598cdcbf77bb9393d22ad4bfa373.1337203535.git.sarah.a.sharp@linux.intel.com> <4FB53054.9070309@imap.cc> <20120517173150.GE4967@xanatos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Timur Tabi <b04825@freescale.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig64FD94716F5B226BF768211C"
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, Alan Stern <stern@rowland.harvard.edu>,
+	Hansjoerg Lipp <hjlipp@web.de>,
+	linux-bluetooth@vger.kernel.org,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	libertas-dev@lists.infradead.org, users@rt2x00.serialmonkey.com
+To: Sarah Sharp <sarah.a.sharp@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:51630 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752833Ab2ERWXr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 18:23:47 -0400
-Received: by pbbrp8 with SMTP id rp8so4494220pbb.19
-        for <netdev@vger.kernel.org>; Fri, 18 May 2012 15:23:47 -0700 (PDT)
-In-Reply-To: <4FB6C886.3050105@freescale.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:51204 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755125Ab2ERWiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 18:38:46 -0400
+In-Reply-To: <20120517173150.GE4967@xanatos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2012 03:09 PM, Timur Tabi wrote:
-> David Daney wrote:
->>>> I'm not sure what the "parent" MDIO bus node is supposed to represent.
->>>>    Is that that device that actually controls the muxing hardware
->
->> No.  It is the device that implements the master 802.3 clause {22,45}
->> MDIO Station Management (STA) protocol.
->
-> Ah, I think I get it.  It is *the* MDIO node that would normally exist if
-> muxing we're necessary on the board.  From the looks of it, that node
-> would look exactly the same if you didn't need muxing?
->
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig64FD94716F5B226BF768211C
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Yes.  You may note in the DTS file I attached in the parent (sorry for 
-the fubar mime types), that there are two, almost identical, MDIO 
-masters.  smi0 has two directly attached PHYs.  smi1 goes to the mux, 
-and each child of the mux has four attached PHYs.
+Am 17.05.2012 19:31, schrieb Sarah Sharp:
+> On Thu, May 17, 2012 at 07:07:32PM +0200, Tilman Schmidt wrote:
+>>
+>> I follow the argument for class drivers. But this patch also
+>> modifies drivers for specific existing USB 2.0 only devices
+>> which are unlikely to ever grow USB 3.0 support, such as the
+>> Gigaset ISDN driver:
+>>
+>>>  drivers/isdn/gigaset/bas-gigaset.c            |    1 +
+>>>  drivers/isdn/gigaset/usb-gigaset.c            |    1 +
+>=20
+> Is there a particular reason why you think that driver is unlikely to
+> ever get USB 3.0 support?
 
-This is a fairly complex configuration as the GPIOs controlling the MDIO 
-mux are on I2C GPIO expanders which are themselves behind an I2C mux...
+Actually, there is. :-)
+- The USB devices driven by this driver aren't built anymore.
+- Their USB interface design is quite, um, idiosyncratic, and it's
+  pretty unlikely that anyone will reuse it. (At least I truly hope
+  no one will.)
+- Their successor models have completely different and incompatible
+  USB interfaces which this driver is unable to handle.
 
-The nice thing about this is that the Linux I2C and MDIO infrastructure 
-is all configured dynamically from the device tree and everything works 
-well together with no locking issues.  The addition of the deferred 
-driver probe mechanism was the last part of the puzzle (I think... 
-actually I don't know if all my I2C things are merged yet...).
+>> What is the interest of setting the disable_hub_initiated_lpm
+>> flag for these?
+>=20
+> It's partially to lay the foundation for anyone who wants to make a USB=
 
-David Daney
+> 3.0 communications driver in the future.  They're likely to start from
+> some USB 2.0 class driver, and copy a lot of code.  If they notice that=
+
+> flag is set in all the USB communications class drivers, they're likely=
+
+> to set it as well.
+
+You've got a point there.
+
+> I'm not quite sure where the best place to provide documentation on the=
+
+> flag is.  I've added the kernel doc comments to the structure, but mayb=
+e
+> it needs to be documented somewhere in Documentation/usb/?
+
+Documentation/usb/power-management.txt would seem like a natural
+place. Although it appears to limit itself to "suspending" in its
+first paragraph, it does have a section "xHCI hardware link PM"
+at the end already, added by Andiry Xu on 2011-09-23.
+
+Hmmm, that section seems to suggest that LPM exists for USB2, too.
+Perhaps I should reconsider my attitude towards your patch.
+
+Thanks,
+Tilman
+
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+
+
+--------------enig64FD94716F5B226BF768211C
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.16 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk+2z3IACgkQQ3+did9BuFs/RgCfdQ3ASobaleTQ6niqoTvKtb/g
+1x8AnRvNqVATSpi6N3gcSrgLEfrQUtrn
+=QHD+
+-----END PGP SIGNATURE-----
+
+--------------enig64FD94716F5B226BF768211C--
