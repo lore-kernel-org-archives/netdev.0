@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 01/10] cxgb4: Detect DB FULL events and notify RDMA ULD.
-Date: Fri, 18 May 2012 15:29:24 +0530
-Message-ID: <1337335173-3226-2-git-send-email-vipul@chelsio.com>
+Subject: [PATCH 03/10] cxgb4: DB Drop Recovery for RDMA and LLD queues.
+Date: Fri, 18 May 2012 15:29:26 +0530
+Message-ID: <1337335173-3226-4-git-send-email-vipul@chelsio.com>
 References: <1337335173-3226-1-git-send-email-vipul@chelsio.com>
 Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
 	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
@@ -12,221 +12,572 @@ In-Reply-To: <1337335173-3226-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@publ
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+recover LLD EQs for DB drop interrupts.  This includes adding a new
+db_lock, a spin lock disabling BH too, used by the recovery thread and
+the ring_tx_db() paths to allow db drop recovery.
+
+cleaned up initial db avoidance code.
+
+add read_eq_indices() - allows the LLD to use the pcie mw to efficiently
+read hw eq contexts.
+
+add cxgb4_sync_txq_pidx() - called by iw_cxgb4 to sync up the sw/hw pidx
+value.
+
+add flush_eq_cache() and cxgb4_flush_eq_cache().  This allows iw_cxgb4
+to flush the sge eq context cache before beginning db drop recovery.
+
+add module parameter, dbfoifo_int_thresh, to allow tuning the db
+interrupt threshold value.
+
+add dbfifo_int_thresh to cxgb4_lld_info so iw_cxgb4 knows the threshold.
+
+add module parameter, dbfoifo_drain_delay, to allow tuning the amount
+of time delay between DB FULL and EMPTY upcalls to iw_cxgb4.
+
 Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    4 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   77 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    7 ++
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |    6 ++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |    9 +++
- 5 files changed, 103 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   16 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  214 +++++++++++++++++++----
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    4 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   20 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   53 ++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   15 ++
+ 6 files changed, 280 insertions(+), 42 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 0fe1885..f91b259 100644
+index 5f3c0a7..ec2dafe 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -504,6 +504,8 @@ struct adapter {
- 	void **tid_release_head;
- 	spinlock_t tid_release_lock;
- 	struct work_struct tid_release_task;
-+	struct work_struct db_full_task;
-+	struct work_struct db_drop_task;
- 	bool tid_release_task_busy;
+@@ -51,6 +51,8 @@
+ #define FW_VERSION_MINOR 1
+ #define FW_VERSION_MICRO 0
  
- 	struct dentry *debugfs_root;
-@@ -719,4 +721,6 @@ int t4_ctrl_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
- int t4_ofld_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
- 		    unsigned int vf, unsigned int eqid);
- int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl);
-+void t4_db_full(struct adapter *adapter);
-+void t4_db_dropped(struct adapter *adapter);
- #endif /* __CXGB4_H__ */
++#define CH_WARN(adap, fmt, ...) dev_warn(adap->pdev_dev, fmt, ## __VA_ARGS__)
++
+ enum {
+ 	MAX_NPORTS = 4,     /* max # of ports */
+ 	SERNUM_LEN = 24,    /* Serial # length */
+@@ -64,6 +66,15 @@ enum {
+ 	MEM_MC
+ };
+ 
++enum {
++	MEMWIN0_APERTURE = 65536,
++	MEMWIN0_BASE     = 0x30000,
++	MEMWIN1_APERTURE = 32768,
++	MEMWIN1_BASE     = 0x28000,
++	MEMWIN2_APERTURE = 2048,
++	MEMWIN2_BASE     = 0x1b800,
++};
++
+ enum dev_master {
+ 	MASTER_CANT,
+ 	MASTER_MAY,
+@@ -403,6 +414,9 @@ struct sge_txq {
+ 	struct tx_sw_desc *sdesc;   /* address of SW Tx descriptor ring */
+ 	struct sge_qstat *stat;     /* queue status entry */
+ 	dma_addr_t    phys_addr;    /* physical address of the ring */
++	spinlock_t db_lock;
++	int db_disabled;
++	unsigned short db_pidx;
+ };
+ 
+ struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
+@@ -475,6 +489,7 @@ struct adapter {
+ 	void __iomem *regs;
+ 	struct pci_dev *pdev;
+ 	struct device *pdev_dev;
++	unsigned int mbox;
+ 	unsigned int fn;
+ 	unsigned int flags;
+ 
+@@ -607,6 +622,7 @@ irqreturn_t t4_sge_intr_msix(int irq, void *cookie);
+ void t4_sge_init(struct adapter *adap);
+ void t4_sge_start(struct adapter *adap);
+ void t4_sge_stop(struct adapter *adap);
++extern int dbfifo_int_thresh;
+ 
+ #define for_each_port(adapter, iter) \
+ 	for (iter = 0; iter < (adapter)->params.nports; ++iter)
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index b126b98..c243f93 100644
+index c243f93..e1f96fb 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2366,6 +2366,16 @@ unsigned int cxgb4_port_chan(const struct net_device *dev)
- }
- EXPORT_SYMBOL(cxgb4_port_chan);
+@@ -149,15 +149,6 @@ static unsigned int pfvfres_pmask(struct adapter *adapter,
+ #endif
  
-+unsigned int cxgb4_dbfifo_count(const struct net_device *dev, int lpfifo)
-+{
-+	struct adapter *adap = netdev2adap(dev);
-+	u32 v;
+ enum {
+-	MEMWIN0_APERTURE = 65536,
+-	MEMWIN0_BASE     = 0x30000,
+-	MEMWIN1_APERTURE = 32768,
+-	MEMWIN1_BASE     = 0x28000,
+-	MEMWIN2_APERTURE = 2048,
+-	MEMWIN2_BASE     = 0x1b800,
+-};
+-
+-enum {
+ 	MAX_TXQ_ENTRIES      = 16384,
+ 	MAX_CTRL_TXQ_ENTRIES = 1024,
+ 	MAX_RSPQ_ENTRIES     = 16384,
+@@ -371,6 +362,15 @@ static int set_addr_filters(const struct net_device *dev, bool sleep)
+ 				uhash | mhash, sleep);
+ }
+ 
++int dbfifo_int_thresh = 10; /* 10 == 640 entry threshold */
++module_param(dbfifo_int_thresh, int, 0644);
++MODULE_PARM_DESC(dbfifo_int_thresh, "doorbell fifo interrupt threshold");
 +
-+	v = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
-+	return lpfifo ? G_LP_COUNT(v) : G_HP_COUNT(v);
-+}
-+EXPORT_SYMBOL(cxgb4_dbfifo_count);
++int dbfifo_drain_delay = 1000; /* usecs to sleep while draining the dbfifo */
++module_param(dbfifo_drain_delay, int, 0644);
++MODULE_PARM_DESC(dbfifo_drain_delay,
++		 "usecs to sleep while draining the dbfifo");
++
+ /*
+  * Set Rx properties of a port, such as promiscruity, address filters, and MTU.
+  * If @mtu is -1 it is left unchanged.
+@@ -389,6 +389,8 @@ static int set_rxmode(struct net_device *dev, int mtu, bool sleep_ok)
+ 	return ret;
+ }
+ 
++static struct workqueue_struct *workq;
 +
  /**
-  *	cxgb4_port_viid - get the VI id of a port
-  *	@dev: the net device for the port
-@@ -2446,6 +2456,69 @@ static struct notifier_block cxgb4_netevent_nb = {
+  *	link_start - enable a port
+  *	@dev: the port to enable
+@@ -2196,7 +2198,7 @@ static void cxgb4_queue_tid_release(struct tid_info *t, unsigned int chan,
+ 	adap->tid_release_head = (void **)((uintptr_t)p | chan);
+ 	if (!adap->tid_release_task_busy) {
+ 		adap->tid_release_task_busy = true;
+-		schedule_work(&adap->tid_release_task);
++		queue_work(workq, &adap->tid_release_task);
+ 	}
+ 	spin_unlock_bh(&adap->tid_release_lock);
+ }
+@@ -2423,6 +2425,59 @@ void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
+ }
+ EXPORT_SYMBOL(cxgb4_iscsi_init);
+ 
++int cxgb4_flush_eq_cache(struct net_device *dev)
++{
++	struct adapter *adap = netdev2adap(dev);
++	int ret;
++
++	ret = t4_fwaddrspace_write(adap, adap->mbox,
++				   0xe1000000 + A_SGE_CTXT_CMD, 0x20000000);
++	return ret;
++}
++EXPORT_SYMBOL(cxgb4_flush_eq_cache);
++
++static int read_eq_indices(struct adapter *adap, u16 qid, u16 *pidx, u16 *cidx)
++{
++	u32 addr = t4_read_reg(adap, A_SGE_DBQ_CTXT_BADDR) + 24 * qid + 8;
++	__be64 indices;
++	int ret;
++
++	ret = t4_mem_win_read_len(adap, addr, (__be32 *)&indices, 8);
++	if (!ret) {
++		indices = be64_to_cpu(indices);
++		*cidx = (indices >> 25) & 0xffff;
++		*pidx = (indices >> 9) & 0xffff;
++	}
++	return ret;
++}
++
++int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx,
++			u16 size)
++{
++	struct adapter *adap = netdev2adap(dev);
++	u16 hw_pidx, hw_cidx;
++	int ret;
++
++	ret = read_eq_indices(adap, qid, &hw_pidx, &hw_cidx);
++	if (ret)
++		goto out;
++
++	if (pidx != hw_pidx) {
++		u16 delta;
++
++		if (pidx >= hw_pidx)
++			delta = pidx - hw_pidx;
++		else
++			delta = size - hw_pidx + pidx;
++		wmb();
++		t4_write_reg(adap, MYPF_REG(A_SGE_PF_KDOORBELL),
++			     V_QID(qid) | V_PIDX(delta));
++	}
++out:
++	return ret;
++}
++EXPORT_SYMBOL(cxgb4_sync_txq_pidx);
++
+ static struct pci_driver cxgb4_driver;
+ 
+ static void check_neigh_update(struct neighbour *neigh)
+@@ -2456,6 +2511,95 @@ static struct notifier_block cxgb4_netevent_nb = {
  	.notifier_call = netevent_cb
  };
  
-+static void notify_rdma_uld(struct adapter *adap, enum cxgb4_control cmd)
++static void drain_db_fifo(struct adapter *adap, int usecs)
 +{
-+	mutex_lock(&uld_mutex);
-+	if (adap->uld_handle[CXGB4_ULD_RDMA])
-+		ulds[CXGB4_ULD_RDMA].control(adap->uld_handle[CXGB4_ULD_RDMA],
-+				cmd);
-+	mutex_unlock(&uld_mutex);
-+}
-+
-+static void process_db_full(struct work_struct *work)
-+{
-+	struct adapter *adap;
-+	static int delay = 1000;
 +	u32 v;
 +
-+	adap = container_of(work, struct adapter, db_full_task);
-+
-+
-+	/* stop LLD queues */
-+
-+	notify_rdma_uld(adap, CXGB4_CONTROL_DB_FULL);
 +	do {
 +		set_current_state(TASK_UNINTERRUPTIBLE);
-+		schedule_timeout(usecs_to_jiffies(delay));
++		schedule_timeout(usecs_to_jiffies(usecs));
 +		v = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
 +		if (G_LP_COUNT(v) == 0 && G_HP_COUNT(v) == 0)
 +			break;
 +	} while (1);
-+	notify_rdma_uld(adap, CXGB4_CONTROL_DB_EMPTY);
-+
-+
-+	/*
-+	 * The more we get db full interrupts, the more we'll delay
-+	 * in re-enabling db rings on queues, capped off at 200ms.
-+	 */
-+	delay = min(delay << 1, 200000);
-+
-+	/* resume LLD queues */
 +}
 +
-+static void process_db_drop(struct work_struct *work)
++static void disable_txq_db(struct sge_txq *q)
 +{
-+	struct adapter *adap;
++	spin_lock_irq(&q->db_lock);
++	q->db_disabled = 1;
++	spin_unlock_irq(&q->db_lock);
++}
++
++static void enable_txq_db(struct sge_txq *q)
++{
++	spin_lock_irq(&q->db_lock);
++	q->db_disabled = 0;
++	spin_unlock_irq(&q->db_lock);
++}
++
++static void disable_dbs(struct adapter *adap)
++{
++	int i;
++
++	for_each_ethrxq(&adap->sge, i)
++		disable_txq_db(&adap->sge.ethtxq[i].q);
++	for_each_ofldrxq(&adap->sge, i)
++		disable_txq_db(&adap->sge.ofldtxq[i].q);
++	for_each_port(adap, i)
++		disable_txq_db(&adap->sge.ctrlq[i].q);
++}
++
++static void enable_dbs(struct adapter *adap)
++{
++	int i;
++
++	for_each_ethrxq(&adap->sge, i)
++		enable_txq_db(&adap->sge.ethtxq[i].q);
++	for_each_ofldrxq(&adap->sge, i)
++		enable_txq_db(&adap->sge.ofldtxq[i].q);
++	for_each_port(adap, i)
++		enable_txq_db(&adap->sge.ctrlq[i].q);
++}
++
++static void sync_txq_pidx(struct adapter *adap, struct sge_txq *q)
++{
++	u16 hw_pidx, hw_cidx;
++	int ret;
++
++	spin_lock_bh(&q->db_lock);
++	ret = read_eq_indices(adap, (u16)q->cntxt_id, &hw_pidx, &hw_cidx);
++	if (ret)
++		goto out;
++	if (q->db_pidx != hw_pidx) {
++		u16 delta;
++
++		if (q->db_pidx >= hw_pidx)
++			delta = q->db_pidx - hw_pidx;
++		else
++			delta = q->size - hw_pidx + q->db_pidx;
++		wmb();
++		t4_write_reg(adap, MYPF_REG(A_SGE_PF_KDOORBELL),
++				V_QID(q->cntxt_id) | V_PIDX(delta));
++	}
++out:
++	q->db_disabled = 0;
++	spin_unlock_bh(&q->db_lock);
++	if (ret)
++		CH_WARN(adap, "DB drop recovery failed.\n");
++}
++static void recover_all_queues(struct adapter *adap)
++{
++	int i;
++
++	for_each_ethrxq(&adap->sge, i)
++		sync_txq_pidx(adap, &adap->sge.ethtxq[i].q);
++	for_each_ofldrxq(&adap->sge, i)
++		sync_txq_pidx(adap, &adap->sge.ofldtxq[i].q);
++	for_each_port(adap, i)
++		sync_txq_pidx(adap, &adap->sge.ctrlq[i].q);
++}
++
+ static void notify_rdma_uld(struct adapter *adap, enum cxgb4_control cmd)
+ {
+ 	mutex_lock(&uld_mutex);
+@@ -2468,55 +2612,41 @@ static void notify_rdma_uld(struct adapter *adap, enum cxgb4_control cmd)
+ static void process_db_full(struct work_struct *work)
+ {
+ 	struct adapter *adap;
+-	static int delay = 1000;
+-	u32 v;
+ 
+ 	adap = container_of(work, struct adapter, db_full_task);
+ 
+-
+-	/* stop LLD queues */
+-
+ 	notify_rdma_uld(adap, CXGB4_CONTROL_DB_FULL);
+-	do {
+-		set_current_state(TASK_UNINTERRUPTIBLE);
+-		schedule_timeout(usecs_to_jiffies(delay));
+-		v = t4_read_reg(adap, A_SGE_DBFIFO_STATUS);
+-		if (G_LP_COUNT(v) == 0 && G_HP_COUNT(v) == 0)
+-			break;
+-	} while (1);
++	drain_db_fifo(adap, dbfifo_drain_delay);
++	t4_set_reg_field(adap, A_SGE_INT_ENABLE3,
++			F_DBFIFO_HP_INT | F_DBFIFO_LP_INT,
++			F_DBFIFO_HP_INT | F_DBFIFO_LP_INT);
+ 	notify_rdma_uld(adap, CXGB4_CONTROL_DB_EMPTY);
+-
+-
+-	/*
+-	 * The more we get db full interrupts, the more we'll delay
+-	 * in re-enabling db rings on queues, capped off at 200ms.
+-	 */
+-	delay = min(delay << 1, 200000);
+-
+-	/* resume LLD queues */
+ }
+ 
+ static void process_db_drop(struct work_struct *work)
+ {
+ 	struct adapter *adap;
+-	adap = container_of(work, struct adapter, db_drop_task);
+ 
 +	adap = container_of(work, struct adapter, db_drop_task);
-+
-+
-+	/*
-+	 * sync the PIDX values in HW and SW for LLD queues.
-+	 */
-+
-+	notify_rdma_uld(adap, CXGB4_CONTROL_DB_DROP);
-+}
-+
-+void t4_db_full(struct adapter *adap)
-+{
-+	schedule_work(&adap->db_full_task);
-+}
-+
-+void t4_db_dropped(struct adapter *adap)
-+{
-+	schedule_work(&adap->db_drop_task);
-+}
-+
+ 
+-	/*
+-	 * sync the PIDX values in HW and SW for LLD queues.
+-	 */
+-
++	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_DROPPED_DB, 0);
++	disable_dbs(adap);
+ 	notify_rdma_uld(adap, CXGB4_CONTROL_DB_DROP);
++	drain_db_fifo(adap, 1);
++	recover_all_queues(adap);
++	enable_dbs(adap);
+ }
+ 
+ void t4_db_full(struct adapter *adap)
+ {
+-	schedule_work(&adap->db_full_task);
++	t4_set_reg_field(adap, A_SGE_INT_ENABLE3,
++			F_DBFIFO_HP_INT | F_DBFIFO_LP_INT, 0);
++	queue_work(workq, &adap->db_full_task);
+ }
+ 
+ void t4_db_dropped(struct adapter *adap)
+ {
+-	schedule_work(&adap->db_drop_task);
++	queue_work(workq, &adap->db_drop_task);
+ }
+ 
  static void uld_attach(struct adapter *adap, unsigned int uld)
+@@ -2552,6 +2682,7 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
+ 	lli.gts_reg = adap->regs + MYPF_REG(SGE_PF_GTS);
+ 	lli.db_reg = adap->regs + MYPF_REG(SGE_PF_KDOORBELL);
+ 	lli.fw_vers = adap->params.fw_vers;
++	lli.dbfifo_int_thresh = dbfifo_int_thresh;
+ 
+ 	handle = ulds[uld].add(&lli);
+ 	if (IS_ERR(handle)) {
+@@ -3668,6 +3799,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 
+ 	adapter->pdev = pdev;
+ 	adapter->pdev_dev = &pdev->dev;
++	adapter->mbox = func;
+ 	adapter->fn = func;
+ 	adapter->msg_enable = dflt_msg_enable;
+ 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
+@@ -3865,6 +3997,10 @@ static int __init cxgb4_init_module(void)
  {
- 	void *handle;
-@@ -2649,6 +2722,8 @@ static void cxgb_down(struct adapter *adapter)
+ 	int ret;
+ 
++	workq = create_singlethread_workqueue("cxgb4");
++	if (!workq)
++		return -ENOMEM;
++
+ 	/* Debugfs support is optional, just warn if this fails */
+ 	cxgb4_debugfs_root = debugfs_create_dir(KBUILD_MODNAME, NULL);
+ 	if (!cxgb4_debugfs_root)
+@@ -3880,6 +4016,8 @@ static void __exit cxgb4_cleanup_module(void)
  {
- 	t4_intr_disable(adapter);
- 	cancel_work_sync(&adapter->tid_release_task);
-+	cancel_work_sync(&adapter->db_full_task);
-+	cancel_work_sync(&adapter->db_drop_task);
- 	adapter->tid_release_task_busy = false;
- 	adapter->tid_release_head = NULL;
+ 	pci_unregister_driver(&cxgb4_driver);
+ 	debugfs_remove(cxgb4_debugfs_root);  /* NULL ok */
++	flush_workqueue(workq);
++	destroy_workqueue(workq);
+ }
  
-@@ -3601,6 +3676,8 @@ static int __devinit init_one(struct pci_dev *pdev,
- 	spin_lock_init(&adapter->tid_release_lock);
- 
- 	INIT_WORK(&adapter->tid_release_task, process_tid_release_list);
-+	INIT_WORK(&adapter->db_full_task, process_db_full);
-+	INIT_WORK(&adapter->db_drop_task, process_db_drop);
- 
- 	err = t4_prep_adapter(adapter);
- 	if (err)
+ module_init(cxgb4_init_module);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index b1d39b8..5cc2f27 100644
+index 5cc2f27..d79980c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -163,6 +163,12 @@ enum cxgb4_state {
- 	CXGB4_STATE_DETACH
+@@ -218,6 +218,7 @@ struct cxgb4_lld_info {
+ 	unsigned short ucq_density;          /* # of user CQs/page */
+ 	void __iomem *gts_reg;               /* address of GTS register */
+ 	void __iomem *db_reg;                /* address of kernel doorbell */
++	int dbfifo_int_thresh;		     /* doorbell fifo int threshold */
  };
  
-+enum cxgb4_control {
-+	CXGB4_CONTROL_DB_FULL,
-+	CXGB4_CONTROL_DB_EMPTY,
-+	CXGB4_CONTROL_DB_DROP,
-+};
-+
- struct pci_dev;
- struct l2t_data;
- struct net_device;
-@@ -225,6 +231,7 @@ struct cxgb4_uld_info {
+ struct cxgb4_uld_info {
+@@ -226,6 +227,7 @@ struct cxgb4_uld_info {
+ 	int (*rx_handler)(void *handle, const __be64 *rsp,
+ 			  const struct pkt_gl *gl);
+ 	int (*state_change)(void *handle, enum cxgb4_state new_state);
++	int (*control)(void *handle, enum cxgb4_control control, ...);
+ };
+ 
  int cxgb4_register_uld(enum cxgb4_uld type, const struct cxgb4_uld_info *p);
- int cxgb4_unregister_uld(enum cxgb4_uld type);
- int cxgb4_ofld_send(struct net_device *dev, struct sk_buff *skb);
-+unsigned int cxgb4_dbfifo_count(const struct net_device *dev, int lpfifo);
- unsigned int cxgb4_port_chan(const struct net_device *dev);
- unsigned int cxgb4_port_viid(const struct net_device *dev);
- unsigned int cxgb4_port_idx(const struct net_device *dev);
+@@ -243,4 +245,6 @@ void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
+ 		      const unsigned int *pgsz_order);
+ struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
+ 				   unsigned int skb_len, unsigned int pull_len);
++int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx, u16 size);
++int cxgb4_flush_eq_cache(struct net_device *dev);
+ #endif  /* !__CXGB4_OFLD_H */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 2dae795..234c157 100644
+index 234c157..e111d97 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2415,6 +2415,12 @@ void t4_sge_init(struct adapter *adap)
+@@ -767,8 +767,13 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
+ static inline void ring_tx_db(struct adapter *adap, struct sge_txq *q, int n)
+ {
+ 	wmb();            /* write descriptors before telling HW */
+-	t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL),
+-		     QID(q->cntxt_id) | PIDX(n));
++	spin_lock(&q->db_lock);
++	if (!q->db_disabled) {
++		t4_write_reg(adap, MYPF_REG(A_SGE_PF_KDOORBELL),
++			     V_QID(q->cntxt_id) | V_PIDX(n));
++	}
++	q->db_pidx = q->pidx;
++	spin_unlock(&q->db_lock);
+ }
+ 
+ /**
+@@ -2081,6 +2086,7 @@ static void init_txq(struct adapter *adap, struct sge_txq *q, unsigned int id)
+ 	q->stops = q->restarts = 0;
+ 	q->stat = (void *)&q->desc[q->size];
+ 	q->cntxt_id = id;
++	spin_lock_init(&q->db_lock);
+ 	adap->sge.egr_map[id - adap->sge.egr_start] = q;
+ }
+ 
+@@ -2415,9 +2421,15 @@ void t4_sge_init(struct adapter *adap)
  			 RXPKTCPLMODE |
  			 (STAT_LEN == 128 ? EGRSTATUSPAGESIZE : 0));
  
-+	t4_set_reg_field(adap, A_SGE_DBFIFO_STATUS,
-+			V_HP_INT_THRESH(5) | V_LP_INT_THRESH(5),
-+			V_HP_INT_THRESH(5) | V_LP_INT_THRESH(5));
-+	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_ENABLE_DROP,
-+			F_ENABLE_DROP);
-+
- 	for (i = v = 0; i < 32; i += 4)
- 		v |= (PAGE_SHIFT - 10) << i;
- 	t4_write_reg(adap, SGE_HOST_PAGE_SIZE, v);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index d1ec111..13609bf 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -1013,6 +1013,8 @@ static void sge_intr_handler(struct adapter *adapter)
- 		{ ERR_INVALID_CIDX_INC,
- 		  "SGE GTS CIDX increment too large", -1, 0 },
- 		{ ERR_CPL_OPCODE_0, "SGE received 0-length CPL", -1, 0 },
-+		{ F_DBFIFO_LP_INT, NULL, -1, 0 },
-+		{ F_DBFIFO_HP_INT, NULL, -1, 0 },
- 		{ ERR_DROPPED_DB, "SGE doorbell dropped", -1, 0 },
- 		{ ERR_DATA_CPL_ON_HIGH_QID1 | ERR_DATA_CPL_ON_HIGH_QID0,
- 		  "SGE IQID > 1023 received CPL for FL", -1, 0 },
-@@ -1042,6 +1044,12 @@ static void sge_intr_handler(struct adapter *adapter)
- 		t4_write_reg(adapter, SGE_INT_CAUSE2, v >> 32);
- 	}
++	/*
++	 * Set up to drop DOORBELL writes when the DOORBELL FIFO overflows
++	 * and generate an interrupt when this occurs so we can recover.
++	 */
+ 	t4_set_reg_field(adap, A_SGE_DBFIFO_STATUS,
+-			V_HP_INT_THRESH(5) | V_LP_INT_THRESH(5),
+-			V_HP_INT_THRESH(5) | V_LP_INT_THRESH(5));
++			V_HP_INT_THRESH(M_HP_INT_THRESH) |
++			V_LP_INT_THRESH(M_LP_INT_THRESH),
++			V_HP_INT_THRESH(dbfifo_int_thresh) |
++			V_LP_INT_THRESH(dbfifo_int_thresh));
+ 	t4_set_reg_field(adap, A_SGE_DOORBELL_CONTROL, F_ENABLE_DROP,
+ 			F_ENABLE_DROP);
  
-+	err = t4_read_reg(adapter, A_SGE_INT_CAUSE3);
-+	if (err & (F_DBFIFO_HP_INT|F_DBFIFO_LP_INT))
-+		t4_db_full(adapter);
-+	if (err & F_ERR_DROPPED_DB)
-+		t4_db_dropped(adapter);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 0adc5bc..111fc32 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -190,6 +190,59 @@
+ #define SGE_DEBUG_DATA_LOW 0x10d4
+ #define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
+ 
++#define S_LP_INT_THRESH    12
++#define V_LP_INT_THRESH(x) ((x) << S_LP_INT_THRESH)
++#define S_HP_INT_THRESH    28
++#define V_HP_INT_THRESH(x) ((x) << S_HP_INT_THRESH)
++#define A_SGE_DBFIFO_STATUS 0x10a4
 +
- 	if (t4_handle_intr_status(adapter, SGE_INT_CAUSE3, sge_intr_info) ||
- 	    v != 0)
- 		t4_fatal_err(adapter);
-@@ -1513,6 +1521,7 @@ void t4_intr_enable(struct adapter *adapter)
- 		     ERR_BAD_DB_PIDX2 | ERR_BAD_DB_PIDX1 |
- 		     ERR_BAD_DB_PIDX0 | ERR_ING_CTXT_PRIO |
- 		     ERR_EGR_CTXT_PRIO | INGRESS_SIZE_ERR |
-+		     F_DBFIFO_HP_INT | F_DBFIFO_LP_INT |
- 		     EGRESS_SIZE_ERR);
- 	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE), PF_INTR_MASK);
- 	t4_set_reg_field(adapter, PL_INT_MAP0, 0, 1 << pf);
++#define S_ENABLE_DROP    13
++#define V_ENABLE_DROP(x) ((x) << S_ENABLE_DROP)
++#define F_ENABLE_DROP    V_ENABLE_DROP(1U)
++#define A_SGE_DOORBELL_CONTROL 0x10a8
++
++#define A_SGE_CTXT_CMD 0x11fc
++#define A_SGE_DBQ_CTXT_BADDR 0x1084
++
++#define A_SGE_PF_KDOORBELL 0x0
++
++#define S_QID 15
++#define V_QID(x) ((x) << S_QID)
++
++#define S_PIDX 0
++#define V_PIDX(x) ((x) << S_PIDX)
++
++#define M_LP_COUNT 0x7ffU
++#define S_LP_COUNT 0
++#define G_LP_COUNT(x) (((x) >> S_LP_COUNT) & M_LP_COUNT)
++
++#define M_HP_COUNT 0x7ffU
++#define S_HP_COUNT 16
++#define G_HP_COUNT(x) (((x) >> S_HP_COUNT) & M_HP_COUNT)
++
++#define A_SGE_INT_ENABLE3 0x1040
++
++#define S_DBFIFO_HP_INT 8
++#define V_DBFIFO_HP_INT(x) ((x) << S_DBFIFO_HP_INT)
++#define F_DBFIFO_HP_INT V_DBFIFO_HP_INT(1U)
++
++#define S_DBFIFO_LP_INT 7
++#define V_DBFIFO_LP_INT(x) ((x) << S_DBFIFO_LP_INT)
++#define F_DBFIFO_LP_INT V_DBFIFO_LP_INT(1U)
++
++#define S_DROPPED_DB 0
++#define V_DROPPED_DB(x) ((x) << S_DROPPED_DB)
++#define F_DROPPED_DB V_DROPPED_DB(1U)
++
++#define S_ERR_DROPPED_DB 18
++#define V_ERR_DROPPED_DB(x) ((x) << S_ERR_DROPPED_DB)
++#define F_ERR_DROPPED_DB V_ERR_DROPPED_DB(1U)
++
++#define A_PCIE_MEM_ACCESS_OFFSET 0x306c
++
++#define M_HP_INT_THRESH 0xfU
++#define M_LP_INT_THRESH 0xfU
++
+ #define PCIE_PF_CLI 0x44
+ #define PCIE_INT_CAUSE 0x3004
+ #define  UNXSPLCPLERR  0x20000000U
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index edcfd7e..ad53f79 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -1620,4 +1620,19 @@ struct fw_hdr {
+ #define FW_HDR_FW_VER_MINOR_GET(x) (((x) >> 16) & 0xff)
+ #define FW_HDR_FW_VER_MICRO_GET(x) (((x) >> 8) & 0xff)
+ #define FW_HDR_FW_VER_BUILD_GET(x) (((x) >> 0) & 0xff)
++
++#define S_FW_CMD_OP 24
++#define V_FW_CMD_OP(x) ((x) << S_FW_CMD_OP)
++
++#define S_FW_CMD_REQUEST 23
++#define V_FW_CMD_REQUEST(x) ((x) << S_FW_CMD_REQUEST)
++#define F_FW_CMD_REQUEST V_FW_CMD_REQUEST(1U)
++
++#define S_FW_CMD_WRITE 21
++#define V_FW_CMD_WRITE(x) ((x) << S_FW_CMD_WRITE)
++#define F_FW_CMD_WRITE V_FW_CMD_WRITE(1U)
++
++#define S_FW_LDST_CMD_ADDRSPACE 0
++#define V_FW_LDST_CMD_ADDRSPACE(x) ((x) << S_FW_LDST_CMD_ADDRSPACE)
++
+ #endif /* _T4FW_INTERFACE_H_ */
 -- 
 1.7.1
 
