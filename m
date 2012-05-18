@@ -1,81 +1,41 @@
-From: Eric B Munson <emunson@mgebm.net>
-Subject: Re: [PATCH 00/17] Swap-over-NBD without deadlocking V11
-Date: Thu, 17 May 2012 21:46:27 -0400
-Message-ID: <20120518014627.GA2177@mgebm.net>
-References: <1337266231-8031-1-git-send-email-mgorman@suse.de>
+From: <Somnath.Kotur@Emulex.Com>
+Subject: RE: [PATCH net-next v4] be2net: Fix to allow get/set of debug
+ levels in the firmware.
+Date: Thu, 17 May 2012 18:47:50 -0700
+Message-ID: <80fb6a42-aa9a-4288-aa96-c6aa5972bc03@exht1.ad.emulex.com>
+References: <23cb36ad-2827-44bd-a91a-c6d8b01db70e@exht1.ad.emulex.com>
+ <20120517.162116.881586126577077171.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MGYHOYXEY6WxJCY8"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1337266231-8031-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+	<Suresh.Reddy@emulex.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:49195 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1762182Ab2ERBsQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 21:48:16 -0400
+In-Reply-To: <20120517.162116.881586126577077171.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi David,
 
---MGYHOYXEY6WxJCY8
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> 
+> This doesn't apply cleanly to net-next, please respin.
+>
+OK, need to figure out how did that happen and will respin
 
-On Thu, 17 May 2012, Mel Gorman wrote:
+> Also, you should convert your driver now to use ->msg_enable to gate all of
+> your driver's kernel message logging, not just this firmware stuff.
 
-> Mostly addressing feedback from David Miller.
->=20
-> Changeloc since V10
->   o Rebase to 3.4-rc5
->   o Coding style fixups						      (davem)
->   o API consistency						      (davem)
->   o Rename sk_allocation to sk_gfp_atomic and use only when necessary (da=
-vem)
->   o Use static branches for sk_memalloc_socks			      (davem)
->   o Use static branch checks in fast paths			      (davem)
->   o Document concerns about PF_MEMALLOC leaking flags		      (davem)
->   o Locking fix in slab						      (mel)
+At the moment our driver does not have any extensive logging facility, but yes
+going forward we will use this infrastructure to gate all our driver's logging and will send
+separate patch(es) for that in future.
 
-The hang happens without these sets.  Unfortunately because my beagle board=
- is
-busy and will be through the weekend, I won't be able to test these sets un=
-til
-the hang is fixed.
+Does that sound good for now?  A respin for this current patch 
 
-Eric
-
---MGYHOYXEY6WxJCY8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBAgAGBQJPtanzAAoJEKhG9nGc1bpJrjoP/02xs7wuoKrc+q6dUXhEhe8g
-MvHGqb2fp0o1FxNB8GllGo82DLA8mLX2AzqJ4pziPT2SoCjGqRIkA5E1GC4+o4Yt
-JCvH+QdVZqSCk87FxHFLM7TIM9cFQsdT+JWNXyDjgo7YVq1nHTEoxjCocF0RFXqe
-zzK7epwlDWm1VtbAIQ0Q4AXezEoVRus1ISZ6jpRtjwSJVv1yE9A3MQQEMWVEKXzo
-y32RVGk3xUfaGYYNjK2mnGzGWzwtBEdYTHf5QxEZMKPcAXR+nueNEw8k5oEGdYHI
-FIwlAS89DcLfLliQfcphMJ+1ZEmk6s3dMVAXBAr/c1YL0sRftJNWV7Wghgotu4uW
-nGpd5LAl4MzCmbupwx/AY9Ie8+Dh8A7zHZL62MpkgM7Y+e5CQGMt9vfAtEvEUfBf
-GPTx7B6Hbn/Dp2XCEb45gSisPT5XvYgsWQ3PA8F8ogscqfjxgALtTw7PQZh4cDtO
-HV9CxK7ow6aR/R86rgoiNeu/+5g7na7gAoouz/OPzBwSYlhxcQWmUmTYVBRS8p6Y
-9Tl+KXOAqeBj+Uei15hx8EXSRtqkuW/usmJTTHsDkWp5rrIehH2B1dAMwPyOza5E
-nlkT/WWgcGHP2YY0v2N1SzTltI3rrdM6j/PvafFUQM8rUWQ8Jy7bg0lu/G+1mrwj
-f53sXMFKT+DOupRX4FAE
-=+nKx
------END PGP SIGNATURE-----
-
---MGYHOYXEY6WxJCY8--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks
+Som
