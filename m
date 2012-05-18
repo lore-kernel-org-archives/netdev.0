@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] xfrm: take iphdr size into account for esp payload
- size calculation
-Date: Thu, 17 May 2012 20:05:09 -0400 (EDT)
-Message-ID: <20120517.200509.2290282427866555176.davem@davemloft.net>
-References: <20120514.183952.1459413342269893446.davem@davemloft.net>
-	<1337196925-4919-1-git-send-email-bpoirier@suse.de>
+Subject: Re: [PATCH] bonding: only send arp monitor packets if no other
+ traffic
+Date: Thu, 17 May 2012 20:08:42 -0400 (EDT)
+Message-ID: <20120517.200842.2215723188229945074.davem@davemloft.net>
+References: <4FB3F67C.6000401@genband.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org, steffen.klassert@secunet.com
-To: bpoirier@suse.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337196925-4919-1-git-send-email-bpoirier@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org
+To: chris.friesen@genband.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36355 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932585Ab2ERAIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 May 2012 20:08:48 -0400
+In-Reply-To: <4FB3F67C.6000401@genband.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.de>
-Date: Wed, 16 May 2012 15:35:25 -0400
+From: Chris Friesen <chris.friesen@genband.com>
+Date: Wed, 16 May 2012 12:48:28 -0600
 
-> Corrects the function that determines the esp payload size.
-> The calculations done in esp4_get_mtu lead to overlength frames in transport
-> mode for certain mtu values and suboptimal frames for others.
-> 
-> According to what is done, mainly in esp_output(), net_header_len aka
-> sizeof(struct iphdr) must be taken into account before doing the alignment
-> calculation.
-> 
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> +		if (IS_UP(slave->dev)) {
+> +			if (time_after_eq(jiffies, dev_trans_start(slave->dev) + delta_in_ticks) ||
+> +			    time_after_eq(jiffies, slave->dev->last_rx + delta_in_ticks)) {
+> +				bond_arp_send_all(bond, slave);
+> +			}
 
-This looks great.
+These lines are very long, and instead of just reformatting them I'd suggest
+that you simply make the test a static helper function.
 
-Could you please fix net/ipv6/esp6.c too, it seems to have the same
-exact bug.
+Also, you should not use braces to enclose a single line of code.
 
-Once you respin this patch with both ipv4 and ipv6 fixed, I'll apply
-it.
-
-Thank you.
+Thanks.
