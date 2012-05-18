@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ip_frag: struct inet_frags match() method
- returns a bool
-Date: Fri, 18 May 2012 01:40:41 -0400 (EDT)
-Message-ID: <20120518.014041.1469329207243118782.davem@davemloft.net>
-References: <1337313433.3403.73.camel@edumazet-glaptop>
+Subject: Re: [RFC] econet: remove ancient bug ridden protocol
+Date: Fri, 18 May 2012 01:41:48 -0400 (EDT)
+Message-ID: <20120518.014148.360953579106644334.davem@davemloft.net>
+References: <20120517205951.462d336f@nehalam.linuxnetplumber.net>
+	<201205180831.47820.remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: remi@remlab.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38283 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38315 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755054Ab2ERFkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 01:40:43 -0400
-In-Reply-To: <1337313433.3403.73.camel@edumazet-glaptop>
+	with ESMTP id S1755375Ab2ERFmw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 01:42:52 -0400
+In-Reply-To: <201205180831.47820.remi@remlab.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 18 May 2012 05:57:13 +0200
+=46rom: "R=E9mi Denis-Courmont" <remi@remlab.net>
+Date: Fri, 18 May 2012 08:31:47 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> - match() method returns a boolean
-> - return (A && B && C && D) -> return A && B && C && D
-> - fix indentation
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Shouldn't this patch remove ec_ptr from struct net_device?
 
-Applied, thanks Eric.
+I took care of it with a follow-on patch.
