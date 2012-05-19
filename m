@@ -1,88 +1,90 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH] iproute2: man page and /bin/ip disagree on del vs delete
-Date: Sat, 19 May 2012 16:08:21 +0200
-Message-ID: <20120519140821.GA5400@amd64.fatal.se>
-References: <20120518012928.26883.11644.reportbug@linear.rut.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Henney <robh@rut.org>, 673355@bugs.debian.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b11.telenor.se ([62.127.194.20]:51707 "EHLO
-	smtprelay-b11.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757156Ab2ESOFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 10:05:50 -0400
-Received: from ipb5.telenor.se (ipb5.telenor.se [195.54.127.168])
-	by smtprelay-b11.telenor.se (Postfix) with ESMTP id 39133CEC6
-	for <netdev@vger.kernel.org>; Sat, 19 May 2012 16:05:47 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20120518012928.26883.11644.reportbug@linear.rut.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Resend PATCH 1/2] netfilter: remove include/linux/netfilter_ipv4/ipt_addrtype.h
+Date: Sat, 19 May 2012 22:39:00 +0800
+Message-ID: <1337438341-29732-1-git-send-email-amwang@redhat.com>
+Cc: netdev@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 17, 2012 at 09:29:28PM -0400, Robert Henney wrote:
-> the 'ip' man page does not mention the command "del" at all but does
-> claim, "As a rule, it is possible to add, delete and show (or list ) objects".  
-> however, 'ip' does not always recognize "delete" as a commend.
-> 
-> robh@debian:~$ ip tunnel delete
-> Command "delete" is unknown, try "ip tunnel help".
+From: Cong Wang <xiyou.wangcong@gmail.com>
 
-Lets use "delete" in all calls to matches() for consistency. This will
-make both "del" and "delete" work everywhere.
+It was scheduled to be removed.
 
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ Documentation/feature-removal-schedule.txt  |    8 --------
+ include/linux/netfilter_ipv4/Kbuild         |    1 -
+ include/linux/netfilter_ipv4/ipt_addrtype.h |   27 ---------------------------
+ 3 files changed, 0 insertions(+), 36 deletions(-)
+ delete mode 100644 include/linux/netfilter_ipv4/ipt_addrtype.h
 
-diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
-index d5bee36..c9720eb 100644
---- a/ip/ip6tunnel.c
-+++ b/ip/ip6tunnel.c
-@@ -408,7 +408,7 @@ int do_ip6tunnel(int argc, char **argv)
- 			return do_add(SIOCADDTUNNEL, argc - 1, argv + 1);
- 		if (matches(*argv, "change") == 0)
- 			return do_add(SIOCCHGTUNNEL, argc - 1, argv + 1);
--		if (matches(*argv, "del") == 0)
-+		if (matches(*argv, "delete") == 0)
- 			return do_del(argc - 1, argv + 1);
- 		if (matches(*argv, "show") == 0 ||
- 		    matches(*argv, "lst") == 0 ||
-diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
-index c5683f5..3a5f94b 100644
---- a/ip/ipl2tp.c
-+++ b/ip/ipl2tp.c
-@@ -795,7 +795,7 @@ int do_ipl2tp(int argc, char **argv)
+diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+index e4b5775..366d158 100644
+--- a/Documentation/feature-removal-schedule.txt
++++ b/Documentation/feature-removal-schedule.txt
+@@ -414,14 +414,6 @@ Files:	net/netfilter/xt_connlimit.c
  
- 	if (matches(*argv, "add") == 0)
- 		return do_add(argc-1, argv+1);
--	if (matches(*argv, "del") == 0)
-+	if (matches(*argv, "delete") == 0)
- 		return do_del(argc-1, argv+1);
- 	if (matches(*argv, "show") == 0 ||
- 	    matches(*argv, "lst") == 0 ||
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index 3d41a27..38ccd87 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -620,7 +620,7 @@ int do_iptunnel(int argc, char **argv)
- 			return do_add(SIOCADDTUNNEL, argc-1, argv+1);
- 		if (matches(*argv, "change") == 0)
- 			return do_add(SIOCCHGTUNNEL, argc-1, argv+1);
--		if (matches(*argv, "del") == 0)
-+		if (matches(*argv, "delete") == 0)
- 			return do_del(argc-1, argv+1);
- 		if (matches(*argv, "show") == 0 ||
- 		    matches(*argv, "lst") == 0 ||
-diff --git a/ip/iptuntap.c b/ip/iptuntap.c
-index 29f2777..20914e1 100644
---- a/ip/iptuntap.c
-+++ b/ip/iptuntap.c
-@@ -307,7 +307,7 @@ int do_iptuntap(int argc, char **argv)
- 	if (argc > 0) {
- 		if (matches(*argv, "add") == 0)
- 			return do_add(argc-1, argv+1);
--		if (matches(*argv, "del") == 0)
-+		if (matches(*argv, "delete") == 0)
- 			return do_del(argc-1, argv+1);
- 		if (matches(*argv, "show") == 0 ||
-                     matches(*argv, "lst") == 0 ||
+ ----------------------------
+ 
+-What:	ipt_addrtype match include file
+-When:	2012
+-Why:	superseded by xt_addrtype
+-Who:	Florian Westphal <fw@strlen.de>
+-Files:	include/linux/netfilter_ipv4/ipt_addrtype.h
+-
+-----------------------------
+-
+ What:	i2c_driver.attach_adapter
+ 	i2c_driver.detach_adapter
+ When:	September 2011
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+index c61b8fb..8ba0c5b 100644
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -5,7 +5,6 @@ header-y += ipt_LOG.h
+ header-y += ipt_REJECT.h
+ header-y += ipt_TTL.h
+ header-y += ipt_ULOG.h
+-header-y += ipt_addrtype.h
+ header-y += ipt_ah.h
+ header-y += ipt_ecn.h
+ header-y += ipt_ttl.h
+diff --git a/include/linux/netfilter_ipv4/ipt_addrtype.h b/include/linux/netfilter_ipv4/ipt_addrtype.h
+deleted file mode 100644
+index 0da4223..0000000
+--- a/include/linux/netfilter_ipv4/ipt_addrtype.h
++++ /dev/null
+@@ -1,27 +0,0 @@
+-#ifndef _IPT_ADDRTYPE_H
+-#define _IPT_ADDRTYPE_H
+-
+-#include <linux/types.h>
+-
+-enum {
+-	IPT_ADDRTYPE_INVERT_SOURCE	= 0x0001,
+-	IPT_ADDRTYPE_INVERT_DEST	= 0x0002,
+-	IPT_ADDRTYPE_LIMIT_IFACE_IN	= 0x0004,
+-	IPT_ADDRTYPE_LIMIT_IFACE_OUT	= 0x0008,
+-};
+-
+-struct ipt_addrtype_info_v1 {
+-	__u16	source;		/* source-type mask */
+-	__u16	dest;		/* dest-type mask */
+-	__u32	flags;
+-};
+-
+-/* revision 0 */
+-struct ipt_addrtype_info {
+-	__u16	source;		/* source-type mask */
+-	__u16	dest;		/* dest-type mask */
+-	__u32	invert_source;
+-	__u32	invert_dest;
+-};
+-
+-#endif
+-- 
+1.7.7.6
+
