@@ -1,135 +1,103 @@
-From: Sam Portolla <samPortolla@yahoo.com>
-Subject: GNU Linux 2.6.23: NULL ptr dereference in =?utf-8?b?ZHJvcF9idWZmZXJz?=
-Date: Sat, 19 May 2012 00:09:30 +0000 (UTC)
-Message-ID: <loom.20120519T014349-916@post.gmane.org>
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
+Date: Fri, 18 May 2012 18:07:43 -0700
+Message-ID: <20120519010743.GA21427@hostway.ca>
+References: <20120404220525.GD21505@hostway.ca>
+ <1333593664.18626.577.camel@edumazet-glaptop>
+ <20120417020852.GA18875@hostway.ca>
+ <4F8D5FAD.10304@parallels.com>
+ <20120417183528.GA32726@hostway.ca>
+ <4F8EA64B.2050208@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:46528 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755519Ab2ESAPG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 May 2012 20:15:06 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1SVXK3-0003Ac-Pw
-	for netdev@vger.kernel.org; Sat, 19 May 2012 02:15:04 +0200
-Received: from sjce-dmz-wsa-5.cisco.com ([173.36.196.10])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 19 May 2012 02:15:03 +0200
-Received: from samPortolla by sjce-dmz-wsa-5.cisco.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 19 May 2012 02:15:03 +0200
+Received: from peace.netnation.com ([204.174.223.2]:40519 "EHLO
+	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932764Ab2ESBHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 21:07:45 -0400
+Content-Disposition: inline
+In-Reply-To: <4F8EA64B.2050208@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Apr 18, 2012 at 03:32:27PM +0400, Stanislav Kinsbursky wrote:
 
+> 17.04.2012 22:35, Simon Kirby ??????????:
+> >On Tue, Apr 17, 2012 at 04:18:53PM +0400, Stanislav Kinsbursky wrote:
+> >>
+> >>Hi, Simon.
+> >>Could you please try to apply the patch below on top of your the
+> >>tree (with 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d applied) and
+> >>check does it fix the problem:
+> >>
+> >>diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> >>index bb8c72c..1fc4622 100644
+> >>--- a/drivers/net/tun.c
+> >>+++ b/drivers/net/tun.c
+> >>@@ -1540,13 +1540,10 @@ static int tun_chr_close(struct inode
+> >>*inode, struct file *file)
+> >>  			if (dev->reg_state == NETREG_REGISTERED)
+> >>  				unregister_netdevice(dev);
+> >>  			rtnl_unlock();
+> >>-		}
+> >>+		} else
+> >>+			sock_put(tun->socket.sk);
+> >>  	}
+> >>
+> >>-	tun = tfile->tun;
+> >>-	if (tun)
+> >>-		sock_put(tun->socket.sk);
+> >>-
+> >>  	put_net(tfile->net);
+> >>  	kfree(tfile);
+> >
+> >(Whitespace-damaged patch, applied manually)
+> >
+> >Yes, I no longer see crashes with this applied. I haven't tried with
+> >kmemleak or similar, but it seems to work.
+> >
+> >Thanks,
+> >
+> 
+> This bug looks like double free, but I can't understand how does this can happen...
+> Simon, would be really great, if you'll describe in details some
+> simple way, how to reproduce the bug.
 
-Have seen one instance of this issue on above kernel version. 
-Have not been able to reproduce. There is a discussion on this 
-same issue here:
-http://fixunix.com/kernel/395849-bug-2-6-26-rc1-git8-null-reference-drop_buffers.html
+Oh, sorry, I did not see this until now. I just noticed it was still
+floating in my tree with no upstream changes yet, then found your email.
+I still have not seen any issues since applying your patch.
 
-but there is no solution given above. Can someone please provide 
-a root cause and diffs to fix this?
+I was definitely seeing the issue on 3.4-rc3. I can try and see if it
+still occurs with your patch removed, if that would help.
 
-Logs showing the issue followed by some analysis:
+Do you have a box on which you can set up an SSH tunnel? In my case, I
+can reproduce it easily with three boxes. From home, I run ssh to my work
+box to establish the layer 2 tunnel. This goes through a ProxyCommand to
+jump through an entry box, but I don't think that should matter. I use a
+cheap tunnel start script similar to this:
 
-Unable to handle kernel NULL pointer dereference at 
-0000000000000000 RIP: 
- [<ffffffff802b3e69>] drop_buffers+0x29/0x120
+work_net=10.0.0.0/8
+work_tun_ip=10.x.x.x
+home_tun_ip=10.x.x.x
+echo 1 > /proc/sys/net/ipv4/conf/eth0/proxy_arp
+ssh -w any:any <work box> "ifconfig tun0 $work_tun_ip pointopoint
+$home_tun_ip; echo 'ifconfig tun0 $home_tun_ip pointopoint $work_tun_ip
+&& ip route add $work_net via $work_tun_ip'; sleep 1d" | sh -v
 
-RIP: 0010:[<ffffffff802b3e69>]  
-[<ffffffff802b3e69>] drop_buffers+0x29/0x120
-RSP: 0000:ffff81026033bb00  EFLAGS: 00010207
-RAX: 0000000000000000 RBX: 0000000000000000 RCX: ffff81025c48c7d8
-RDX: 0000000000000000 RSI: ffff81026033bb40 RDI: ffff81026fb7c238
-RBP: ffff81026033bb30 R08: 00000000ffffffff R09: 0000000000000001
-R10: 0000000000000000 R11: 0000000000000003 R12: ffff81024ecc4000
-R13: ffff81025c48c7d8 R14: ffff81026fb7c238 R15: ffff81026033bb40
-FS:  0000000000000000(0000) GS:ffff810267703400(0000) 
-knlGS:0000000000000000
-CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
-CR2: 0000000000000000 CR3: 000000002b8a4000 CR4: 00000000000006e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process kswapd0 (pid: 322, threadinfo ffff810260338000, 
-task ffff810262108000)
-Stack:  ffff81026f9ac638 ffff81026fb7c238 ffff81025c48c7d8
- ffff81025c48c7d8
- ffff81026033bd90 0000000000000001 ffff81026033bb60 
-ffffffff802b41c6
- 0000000000000000 ffff81026fb7c238 ffff81026033be80 
-ffff81025c48c7d8
-Call Trace:
- [<ffffffff802b41c6>] try_to_free_buffers+0x46/0xb0
- [<ffffffff80264c8e>] try_to_release_page+0x2e/0x50
- [<ffffffff8026bf73>] shrink_page_list+0x533/0x6f0
- [<ffffffff8026aa09>] release_pages+0x189/0x1c0
- [<ffffffff8026c273>] isolate_lru_pages+0xd3/0x1e0
- [<ffffffff8026c523>] shrink_inactive_list+0x163/0x410
- [<ffffffff8026cde5>] shrink_zone+0xf5/0x140
- [<ffffffff8026d507>] kswapd+0x387/0x540
- [<ffffffff802475e0>] autoremove_wake_function+0x0/0x40
- [<ffffffff8026d180>] kswapd+0x0/0x540
- [<ffffffff80246ef8>] kthread+0x68/0xa0
- [<ffffffff80229e24>] schedule_tail+0x54/0xc0
- [<ffffffff8020d058>] child_rip+0xa/0x12
- [<ffffffff80246e90>] kthread+0x0/0xa0
- [<ffffffff8020d04e>] child_rip+0x0/0x12
+...there's probably a better way, but it works. To reproduce, I log in
+to a third box over this tunnel, and start a "vmstat 1", so that packets
+keep coming back to the tunnel host. ^C on the SSH session will then
+produce an Oops within a second.
 
-#### from GDB, the bh pointer in the 1st do/while loop in the 
-drop_buffers() is NULL.
+With CONFIG_SLUB_DEBUG=y and booting with slub_debug=FZPU, I got the
+Redzone overwritten notice. Without it, the box usually Oopses and
+hangs immediately. Sometimes, I might have to reconnect the tunnel and
+^C it once more. If I don't have that vmstat session open, it usually
+doesn't crash.
 
+Does this work for you?
 
-struct buffer_head *head(%r12)
-This the 1st do/while loop:
-
-0xffffffff802b3e69 <drop_buffers+41>:   mov    (%rbx),%eax
-
-0xffffffff802b3e8d <drop_buffers+77>:  
- mov    0x8(%rbx),%rbx
-0xffffffff802b3e91 <drop_buffers+81>:   cmp    %r12,%rbx
-0xffffffff802b3e94 <drop_buffers+84>:  
- jne    0xffffffff802b3e69 <drop_buffers+41>
-
-RBX: 0000000000000000
-
-
-2825                    bh = bh->b_this_page;
-2826            } while (bh != head);
-
-In above do/while loop, the bh is NULL as %rbx. 
-Function listing below:
-
-static int
-drop_buffers(struct page *page, 
-struct buffer_head **buffers_to_free)
-{
-	struct buffer_head *head = page_buffers(page);
-	struct buffer_head *bh;
-
-	bh = head;
-	do {
-		if (buffer_write_io_error(bh) && page->mapping)
-			set_bit(AS_EIO, &page->mapping->flags);
-		if (buffer_busy(bh))
-			goto failed;
-		bh = bh->b_this_page;
-	} while (bh != head);
-
-	do {
-		struct buffer_head *next = bh->b_this_page;
-
-		if (!list_empty(&bh->b_assoc_buffers))
-			__remove_assoc_queue(bh);
-		bh = next;
-	} while (bh != head);
-	*buffers_to_free = head;
-	__clear_page_buffers(page);
-	return 1;
-failed:
-	return 0;
-}
+Simon-
