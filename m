@@ -1,96 +1,50 @@
-From: Andrew Bird <ajb@spheresystems.co.uk>
-Subject: [PATCH] USB CDC-Ether - Add ZTE WWAN matches before generic Ethernet
-Date: Sat, 19 May 2012 14:56:07 +0100
-Message-ID: <1337435767-9544-1-git-send-email-ajb@spheresystems.co.uk>
-Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Bird <ajb@spheresystems.co.uk>
-To: oliver@neukum.name
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gupta Rajan-B15745 <B15745@freescale.com>
+Subject: RE: [PATCH] net : fix for dst_gc_task not getting scheduled if
+ __dst_free() is called consistently
+Date: Sat, 19 May 2012 14:48:28 +0000
+Message-ID: <58F5C0DF84CA6640ACA52069A44842A017D236@039-SN2MPN1-021.039d.mgd.msft.net>
+References: <1337420654-28200-1-git-send-email-b15745@freescale.com>
+ <1337421863.7029.96.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:8600
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754777Ab2ESOsc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 10:48:32 -0400
+In-Reply-To: <1337421863.7029.96.camel@edumazet-glaptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some ZTE WWAN devices have generic CDC Ether descriptors. Add those
-into the whitelist so that we get FLAG_WWAN on the interface
-
-Signed-off-by: Andrew Bird <ajb@spheresystems.co.uk>
----
- drivers/net/usb/cdc_ether.c |   56 +++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 56 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 425e201..fffee6a 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -486,6 +486,7 @@ static const struct driver_info wwan_info = {
- 
- #define HUAWEI_VENDOR_ID	0x12D1
- #define NOVATEL_VENDOR_ID	0x1410
-+#define ZTE_VENDOR_ID		0x19D2
- 
- static const struct usb_device_id	products [] = {
- /*
-@@ -618,6 +619,61 @@ static const struct usb_device_id	products [] = {
- 	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
- 	.driver_info = (unsigned long)&wwan_info,
- }, {
-+	/* ZTE (Vodafone) K3805-Z */
-+	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
-+		 | USB_DEVICE_ID_MATCH_PRODUCT
-+		 | USB_DEVICE_ID_MATCH_INT_INFO,
-+	.idVendor               = ZTE_VENDOR_ID,
-+	.idProduct		= 0x1003,
-+	.bInterfaceClass	= USB_CLASS_COMM,
-+	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
-+	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
-+	.driver_info = (unsigned long)&wwan_info,
-+}, {
-+	/* ZTE (Vodafone) K3806-Z */
-+	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
-+		 | USB_DEVICE_ID_MATCH_PRODUCT
-+		 | USB_DEVICE_ID_MATCH_INT_INFO,
-+	.idVendor               = ZTE_VENDOR_ID,
-+	.idProduct		= 0x1015,
-+	.bInterfaceClass	= USB_CLASS_COMM,
-+	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
-+	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
-+	.driver_info = (unsigned long)&wwan_info,
-+}, {
-+	/* ZTE (Vodafone) K4510-Z */
-+	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
-+		 | USB_DEVICE_ID_MATCH_PRODUCT
-+		 | USB_DEVICE_ID_MATCH_INT_INFO,
-+	.idVendor               = ZTE_VENDOR_ID,
-+	.idProduct		= 0x1173,
-+	.bInterfaceClass	= USB_CLASS_COMM,
-+	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
-+	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
-+	.driver_info = (unsigned long)&wwan_info,
-+}, {
-+	/* ZTE (Vodafone) K3770-Z */
-+	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
-+		 | USB_DEVICE_ID_MATCH_PRODUCT
-+		 | USB_DEVICE_ID_MATCH_INT_INFO,
-+	.idVendor               = ZTE_VENDOR_ID,
-+	.idProduct		= 0x1177,
-+	.bInterfaceClass	= USB_CLASS_COMM,
-+	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
-+	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
-+	.driver_info = (unsigned long)&wwan_info,
-+}, {
-+	/* ZTE (Vodafone) K3772-Z */
-+	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
-+		 | USB_DEVICE_ID_MATCH_PRODUCT
-+		 | USB_DEVICE_ID_MATCH_INT_INFO,
-+	.idVendor               = ZTE_VENDOR_ID,
-+	.idProduct		= 0x1181,
-+	.bInterfaceClass	= USB_CLASS_COMM,
-+	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
-+	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
-+	.driver_info = (unsigned long)&wwan_info,
-+}, {
- 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
- 			USB_CDC_PROTO_NONE),
- 	.driver_info = (unsigned long) &cdc_info,
--- 
-1.7.6.5
+SWdub3JlIHRoZSBwYXRjaC4gSXNzdWUgaXMgZHN0X2djX3Rhc2sgaXMgbm90IGdldHRpbmcNCnNj
+aGVkdWxlZCBiZWNhdXNlIG9mIHNjaGVkdWxpbmcgaXNzdWUgYXQgMTAwJSBjcHUgdXRpbGl6YXRp
+b24uDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0
+IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIE1heSAx
+OSwgMjAxMiAzOjM0IFBNDQo+IFRvOiBHdXB0YSBSYWphbi1CMTU3NDUNCj4gQ2M6IG5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0IDogZml4IGZvciBkc3Rf
+Z2NfdGFzayBub3QgZ2V0dGluZyBzY2hlZHVsZWQgaWYNCj4gX19kc3RfZnJlZSgpIGlzIGNhbGxl
+ZCBjb25zaXN0ZW50bHkNCj4gDQo+IE9uIFNhdCwgMjAxMi0wNS0xOSBhdCAwNDo0NCAtMDUwMCwg
+YjE1NzQ1QGZyZWVzY2FsZS5jb20gd3JvdGU6DQo+ID4gRnJvbTogUmFqYW4gR3VwdGEgPGIxNTc0
+NUBmcmVlc2NhbGUuY29tPg0KPiA+DQo+ID4gZHN0X2djX3dvcmsgaXMgY2FuY2VsbGVkIGFuZCBh
+Z2FpbiByZXNjaGVkdWxlZCBpbiBfX2RzX2ZyZWUoKS4gSW4gY2FzZQ0KPiA+IF9fZHNmX2ZyZWUo
+KSBpcyBjb25zaXN0ZW50bHkgY2FsbGVkIGRzdF9nY193b3JrIHdpbGwgbmV2ZXIgZ2V0IGNhbGxl
+ZA0KPiA+IHJlc3VsdGluZyBpbiBtZW1vcnkgbm90IGdldHRpbmcgZnJlZWQgYXQgYWxsIHVudGls
+IG9uZSBzdG9wcyBjYWxsaW5nDQo+ID4gX19kc3RfZnJlZQ0KPiA+IFNpZ25lZC1vZmYtYnk6IFJh
+amFuIEd1cHRhIDxiMTU3NDVAZnJlZXNjYWxlLmNvbT4NCj4gPiAtLS0NCj4gPiAgbmV0L2NvcmUv
+ZHN0LmMgfCAgICAxIC0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDEgZGVsZXRpb24oLSkNCj4gPg0K
+PiA+IGRpZmYgLS1naXQgYS9uZXQvY29yZS9kc3QuYyBiL25ldC9jb3JlL2RzdC5jIGluZGV4IDgy
+NDZkNDcuLjY4MjAyMDYNCj4gPiAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvY29yZS9kc3QuYw0KPiA+
+ICsrKyBiL25ldC9jb3JlL2RzdC5jDQo+ID4gQEAgLTIxNSw3ICsyMTUsNiBAQCB2b2lkIF9fZHN0
+X2ZyZWUoc3RydWN0IGRzdF9lbnRyeSAqZHN0KQ0KPiA+ICAJaWYgKGRzdF9nYXJiYWdlLnRpbWVy
+X2luYyA+IERTVF9HQ19JTkMpIHsNCj4gPiAgCQlkc3RfZ2FyYmFnZS50aW1lcl9pbmMgPSBEU1Rf
+R0NfSU5DOw0KPiA+ICAJCWRzdF9nYXJiYWdlLnRpbWVyX2V4cGlyZXMgPSBEU1RfR0NfTUlOOw0K
+PiA+IC0JCWNhbmNlbF9kZWxheWVkX3dvcmsoJmRzdF9nY193b3JrKTsNCj4gPiAgCQlzY2hlZHVs
+ZV9kZWxheWVkX3dvcmsoJmRzdF9nY193b3JrLCBkc3RfZ2FyYmFnZS50aW1lcl9leHBpcmVzKTsN
+Cj4gPiAgCX0NCj4gPiAgCXNwaW5fdW5sb2NrX2JoKCZkc3RfZ2FyYmFnZS5sb2NrKTsNCj4gDQo+
+IFN0cmFuZ2UsIEkgbmV2ZXIgbWV0IHRoaXMuLi4uDQo+IA0KPiBTaW5jZSAiaWYgKGRzdF9nYXJi
+YWdlLnRpbWVyX2luYyA+IERTVF9HQ19JTkMpIiB3aWxsIGJlIGZhbHNlIGlmIHRpbWVyX2luYw0K
+PiBpcyBEU1RfR0NfSU5DLg0KPiANCj4gDQo+IA0KDQo=
