@@ -1,51 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers/net: delete old 8bit ISA 3c501 driver.
-Date: Fri, 18 May 2012 23:54:20 -0400 (EDT)
-Message-ID: <20120518.235420.1669350688913610319.davem@davemloft.net>
-References: <1337362769-4676-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next] ipv6: ip6_fragment() should check
+ CHECKSUM_PARTIAL
+Date: Fri, 18 May 2012 23:54:09 -0400 (EDT)
+Message-ID: <20120518.235409.1621981320285066566.davem@davemloft.net>
+References: <1337374935.7029.60.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alan@linux.intel.com
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org, tore@fud.no
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46976 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46985 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966886Ab2ESDyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 23:54:22 -0400
-In-Reply-To: <1337362769-4676-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S932954Ab2ESDzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 May 2012 23:55:18 -0400
+In-Reply-To: <1337374935.7029.60.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri, 18 May 2012 13:39:29 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 18 May 2012 23:02:15 +0200
 
-> It was amusing that linux was able to make use of this 1980's
-> technology on machines long past its intended lifespan, but
-> it probably should go now -- it is causing issues in some
-> distros[1], and while that might be fixable, it is just not
-> worth it.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> To set the context, the 3c501 was designed in the 1980's to be
-> used on 8088 PC-XT 8bit ISA machines.  It was built using
-> discrete TTL components and truly looks like a relic of the past.
+> Quoting Tore Anderson from :
 > 
-> But from a functional point of view, the real issue, as stated
-> in the (also obsolete) Ethernet-HowTo, is that "...the 3c501 can
-> only do one thing at a time -- while you are removing one packet
-> from the single-packet buffer it cannot receive another packet,
-> nor can it receive a packet while loading a transmit packet."
+> If the allfrag feature has been set on a host route (due to an ICMPv6
+> Packet Too Big received indicating a MTU of less than 1280),
+> TCP SYN/ACK packets to that destination appears to get an incorrect
+> TCP checksum. This in turn means they are thrown away as invalid.
 > 
-> You know things are not good when the Kconfig help text suggests
-> you make a cron job doing a ping every minute.
+> In the case of an IPv4 client behind a link with a MTU of less than
+> 1260, accessing an IPv6 server through a stateless translator,
+> this means that the client can only download a single large file
+> from the server, because once it is in the server's routing cache
+> with the allfrag feature set, new TCP connections can no longer
+> be established.
 > 
-> Hardware that old and crippled is simply not going to be used by
-> anyone in a time where 10 year old 100Mbit PCI cards (that are
-> still functional) are largely give-away items.
+> </endquote>
 > 
-> [1] http://www.linuxquestions.org/questions/linux-networking-3/3com-3c501-card-not-detecting-934344/
+> It appears ip6_fragment() doesn't handle CHECKSUM_PARTIAL properly.
 > 
-> Cc: Alan Cox <alan@linux.intel.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> As network drivers are not prepared to fetch correct transport header, a
+> safe fix is to call skb_checksum_help() before fragmenting packet.
+> 
+> Reported-by: Tore Anderson <tore@fud.no>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Tested-by: Tore Anderson <tore@fud.no>
 
-Alan, any objections?
+Applied, thanks.
