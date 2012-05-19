@@ -1,93 +1,135 @@
-From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [RFC 13/13] USB: Disable hub-initiated LPM for
-	comms devices.
-Date: Fri, 18 May 2012 16:09:55 -0700
-Message-ID: <20120518230955.GA4686@xanatos>
-References: <cover.1337203535.git.sarah.a.sharp@linux.intel.com>
-	<3c634afbbe15598cdcbf77bb9393d22ad4bfa373.1337203535.git.sarah.a.sharp@linux.intel.com>
-	<4FB53054.9070309@imap.cc> <20120517173150.GE4967@xanatos>
-	<4FB6CF71.7080307@imap.cc>
+From: Sam Portolla <samPortolla@yahoo.com>
+Subject: GNU Linux 2.6.23: NULL ptr dereference in =?utf-8?b?ZHJvcF9idWZmZXJz?=
+Date: Sat, 19 May 2012 00:09:30 +0000 (UTC)
+Message-ID: <loom.20120519T014349-916@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gigaset307x-common-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4FB6CF71.7080307-ZTO5kqT2PaM@public.gmane.org>
-List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
-	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com>
-List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
-List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
-	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
-Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
-Sender: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:46528 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755519Ab2ESAPG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 May 2012 20:15:06 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1SVXK3-0003Ac-Pw
+	for netdev@vger.kernel.org; Sat, 19 May 2012 02:15:04 +0200
+Received: from sjce-dmz-wsa-5.cisco.com ([173.36.196.10])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 19 May 2012 02:15:03 +0200
+Received: from samPortolla by sjce-dmz-wsa-5.cisco.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 19 May 2012 02:15:03 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 19, 2012 at 12:38:41AM +0200, Tilman Schmidt wrote:
-> Am 17.05.2012 19:31, schrieb Sarah Sharp:
-> > On Thu, May 17, 2012 at 07:07:32PM +0200, Tilman Schmidt wrote:
-> >>
-> >> I follow the argument for class drivers. But this patch also
-> >> modifies drivers for specific existing USB 2.0 only devices
-> >> which are unlikely to ever grow USB 3.0 support, such as the
-> >> Gigaset ISDN driver:
-> >>
-> >>>  drivers/isdn/gigaset/bas-gigaset.c            |    1 +
-> >>>  drivers/isdn/gigaset/usb-gigaset.c            |    1 +
-> > 
-> > Is there a particular reason why you think that driver is unlikely to
-> > ever get USB 3.0 support?
-> 
-> Actually, there is. :-)
-> - The USB devices driven by this driver aren't built anymore.
-> - Their USB interface design is quite, um, idiosyncratic, and it's
->   pretty unlikely that anyone will reuse it. (At least I truly hope
->   no one will.)
-> - Their successor models have completely different and incompatible
->   USB interfaces which this driver is unable to handle.
 
-I see!
 
-> >> What is the interest of setting the disable_hub_initiated_lpm
-> >> flag for these?
-> > 
-> > It's partially to lay the foundation for anyone who wants to make a USB
-> > 3.0 communications driver in the future.  They're likely to start from
-> > some USB 2.0 class driver, and copy a lot of code.  If they notice that
-> > flag is set in all the USB communications class drivers, they're likely
-> > to set it as well.
-> 
-> You've got a point there.
-> 
-> > I'm not quite sure where the best place to provide documentation on the
-> > flag is.  I've added the kernel doc comments to the structure, but maybe
-> > it needs to be documented somewhere in Documentation/usb/?
-> 
-> Documentation/usb/power-management.txt would seem like a natural
-> place. Although it appears to limit itself to "suspending" in its
-> first paragraph, it does have a section "xHCI hardware link PM"
-> at the end already, added by Andiry Xu on 2011-09-23.
+Have seen one instance of this issue on above kernel version. 
+Have not been able to reproduce. There is a discussion on this 
+same issue here:
+http://fixunix.com/kernel/395849-bug-2-6-26-rc1-git8-null-reference-drop_buffers.html
 
-Ok, I'll send a separate patch to add documentation here, after the 3.5
-merge window.  (I just sent the pull request for the USB 3.0 LPM patches
-off to Greg.)
+but there is no solution given above. Can someone please provide 
+a root cause and diffs to fix this?
 
-> Hmmm, that section seems to suggest that LPM exists for USB2, too.
-> Perhaps I should reconsider my attitude towards your patch.
+Logs showing the issue followed by some analysis:
 
-The patchset doesn't change the USB 2.0 LPM behavior at all.  USB 2.0
-doesn't have hub initiated LPM, because that would mean changing
-existing USB 2.0 hub IP.  Only devices attached directly to the roothub
-will be able to do USB 2.0 LPM.  Also, devices have to specifically say
-they implement the USB 2.1 LPM extensions, so it's unlikely devices
-supported by your driver implement USB 2.0 LPM.
+Unable to handle kernel NULL pointer dereference at 
+0000000000000000 RIP: 
+ [<ffffffff802b3e69>] drop_buffers+0x29/0x120
 
-Sarah Sharp
+RIP: 0010:[<ffffffff802b3e69>]  
+[<ffffffff802b3e69>] drop_buffers+0x29/0x120
+RSP: 0000:ffff81026033bb00  EFLAGS: 00010207
+RAX: 0000000000000000 RBX: 0000000000000000 RCX: ffff81025c48c7d8
+RDX: 0000000000000000 RSI: ffff81026033bb40 RDI: ffff81026fb7c238
+RBP: ffff81026033bb30 R08: 00000000ffffffff R09: 0000000000000001
+R10: 0000000000000000 R11: 0000000000000003 R12: ffff81024ecc4000
+R13: ffff81025c48c7d8 R14: ffff81026fb7c238 R15: ffff81026033bb40
+FS:  0000000000000000(0000) GS:ffff810267703400(0000) 
+knlGS:0000000000000000
+CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
+CR2: 0000000000000000 CR3: 000000002b8a4000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process kswapd0 (pid: 322, threadinfo ffff810260338000, 
+task ffff810262108000)
+Stack:  ffff81026f9ac638 ffff81026fb7c238 ffff81025c48c7d8
+ ffff81025c48c7d8
+ ffff81026033bd90 0000000000000001 ffff81026033bb60 
+ffffffff802b41c6
+ 0000000000000000 ffff81026fb7c238 ffff81026033be80 
+ffff81025c48c7d8
+Call Trace:
+ [<ffffffff802b41c6>] try_to_free_buffers+0x46/0xb0
+ [<ffffffff80264c8e>] try_to_release_page+0x2e/0x50
+ [<ffffffff8026bf73>] shrink_page_list+0x533/0x6f0
+ [<ffffffff8026aa09>] release_pages+0x189/0x1c0
+ [<ffffffff8026c273>] isolate_lru_pages+0xd3/0x1e0
+ [<ffffffff8026c523>] shrink_inactive_list+0x163/0x410
+ [<ffffffff8026cde5>] shrink_zone+0xf5/0x140
+ [<ffffffff8026d507>] kswapd+0x387/0x540
+ [<ffffffff802475e0>] autoremove_wake_function+0x0/0x40
+ [<ffffffff8026d180>] kswapd+0x0/0x540
+ [<ffffffff80246ef8>] kthread+0x68/0xa0
+ [<ffffffff80229e24>] schedule_tail+0x54/0xc0
+ [<ffffffff8020d058>] child_rip+0xa/0x12
+ [<ffffffff80246e90>] kthread+0x0/0xa0
+ [<ffffffff8020d04e>] child_rip+0x0/0x12
+
+#### from GDB, the bh pointer in the 1st do/while loop in the 
+drop_buffers() is NULL.
+
+
+struct buffer_head *head(%r12)
+This the 1st do/while loop:
+
+0xffffffff802b3e69 <drop_buffers+41>:   mov    (%rbx),%eax
+
+0xffffffff802b3e8d <drop_buffers+77>:  
+ mov    0x8(%rbx),%rbx
+0xffffffff802b3e91 <drop_buffers+81>:   cmp    %r12,%rbx
+0xffffffff802b3e94 <drop_buffers+84>:  
+ jne    0xffffffff802b3e69 <drop_buffers+41>
+
+RBX: 0000000000000000
+
+
+2825                    bh = bh->b_this_page;
+2826            } while (bh != head);
+
+In above do/while loop, the bh is NULL as %rbx. 
+Function listing below:
+
+static int
+drop_buffers(struct page *page, 
+struct buffer_head **buffers_to_free)
+{
+	struct buffer_head *head = page_buffers(page);
+	struct buffer_head *bh;
+
+	bh = head;
+	do {
+		if (buffer_write_io_error(bh) && page->mapping)
+			set_bit(AS_EIO, &page->mapping->flags);
+		if (buffer_busy(bh))
+			goto failed;
+		bh = bh->b_this_page;
+	} while (bh != head);
+
+	do {
+		struct buffer_head *next = bh->b_this_page;
+
+		if (!list_empty(&bh->b_assoc_buffers))
+			__remove_assoc_queue(bh);
+		bh = next;
+	} while (bh != head);
+	*buffers_to_free = head;
+	__clear_page_buffers(page);
+	return 1;
+failed:
+	return 0;
+}
