@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB CDC-Ether - Add ZTE WWAN matches before generic
- Ethernet
-Date: Sat, 19 May 2012 18:48:12 -0400 (EDT)
-Message-ID: <20120519.184812.2116650800791553287.davem@davemloft.net>
-References: <1337435767-9544-1-git-send-email-ajb@spheresystems.co.uk>
+Subject: Re: [PATCH] net: qmi_wwan: Add Vodafone/Huawei K5005 support
+Date: Sat, 19 May 2012 18:48:18 -0400 (EDT)
+Message-ID: <20120519.184818.1256718881058292674.davem@davemloft.net>
+References: <1337448031-16897-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.name, gregkh@linuxfoundation.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ajb@spheresystems.co.uk
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	tschaefer@t-online.de
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53160 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53169 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab2ESWsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 18:48:24 -0400
-In-Reply-To: <1337435767-9544-1-git-send-email-ajb@spheresystems.co.uk>
+	with ESMTP id S1754872Ab2ESWt2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 18:49:28 -0400
+In-Reply-To: <1337448031-16897-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Bird <ajb@spheresystems.co.uk>
-Date: Sat, 19 May 2012 14:56:07 +0100
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Sat, 19 May 2012 19:20:31 +0200
 
-> Some ZTE WWAN devices have generic CDC Ether descriptors. Add those
-> into the whitelist so that we get FLAG_WWAN on the interface
-> 
-> Signed-off-by: Andrew Bird <ajb@spheresystems.co.uk>
+> Tested-by: Thomas Sch=E4fer <tschaefer@t-online.de>
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
 Applied.
-
-But I changed the Subject line to have a more appropriate prefix,
-namely "net: cdc_ether: "
