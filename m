@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net:ipv6:fixed a trailing white space issue.
-Date: Sat, 19 May 2012 18:35:33 -0400 (EDT)
-Message-ID: <20120519.183533.1444663806784179921.davem@davemloft.net>
-References: <1337427921-2848-1-git-send-email-ahiliation@yahoo.co.in>
+Subject: Re: [PATCH] USB CDC-Ether - Add ZTE WWAN matches before generic
+ Ethernet
+Date: Sat, 19 May 2012 18:48:12 -0400 (EDT)
+Message-ID: <20120519.184812.2116650800791553287.davem@davemloft.net>
+References: <1337435767-9544-1-git-send-email-ajb@spheresystems.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
+Cc: oliver@neukum.name, gregkh@linuxfoundation.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: ahiliation@yahoo.co.in
+To: ajb@spheresystems.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53105 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53160 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757908Ab2ESWiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 18:38:21 -0400
-In-Reply-To: <1337427921-2848-1-git-send-email-ahiliation@yahoo.co.in>
+	with ESMTP id S1754872Ab2ESWsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 18:48:24 -0400
+In-Reply-To: <1337435767-9544-1-git-send-email-ajb@spheresystems.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeffrin Jose <ahiliation@yahoo.co.in>
-Date: Sat, 19 May 2012 17:15:21 +0530
+From: Andrew Bird <ajb@spheresystems.co.uk>
+Date: Sat, 19 May 2012 14:56:07 +0100
 
-> Fixed a trailing white space issue found by
-> checkpatch.pl tool in net/ipv6/udp.c
+> Some ZTE WWAN devices have generic CDC Ether descriptors. Add those
+> into the whitelist so that we get FLAG_WWAN on the interface
 > 
-> Signed-off-by: Jeffrin Jose <ahiliation@yahoo.co.in>
+> Signed-off-by: Andrew Bird <ajb@spheresystems.co.uk>
 
 Applied.
+
+But I changed the Subject line to have a more appropriate prefix,
+namely "net: cdc_ether: "
