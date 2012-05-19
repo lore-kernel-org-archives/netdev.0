@@ -1,49 +1,66 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ppp/l2tp doing oversized allocations ?
-Date: Sat, 19 May 2012 00:46:52 -0400 (EDT)
-Message-ID: <20120519.004652.2261671316587735315.davem@davemloft.net>
-References: <20120514162923.GA4439@redhat.com>
+Subject: Re: inconsistent null checking in ipx_ioctl()
+Date: Sat, 19 May 2012 00:51:37 -0400 (EDT)
+Message-ID: <20120519.005137.1933841560668190190.davem@davemloft.net>
+References: <20120514205618.GB20836@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fedoraproject.org,
-	edumazet@google.com
-To: davej@redhat.com
+Cc: netdev@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47269 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:47297 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806Ab2ESEq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 00:46:56 -0400
-In-Reply-To: <20120514162923.GA4439@redhat.com>
+	with ESMTP id S1751817Ab2ESEvk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 00:51:40 -0400
+In-Reply-To: <20120514205618.GB20836@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@redhat.com>
-Date: Mon, 14 May 2012 12:29:23 -0400
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 14 May 2012 23:56:18 +0300
 
-> We just got this trace from reported by a Fedora user running 3.3.4
+> Hi, I'm working on some new Smatch stuff and going through some warnings
+> in old code.
 > 
-> :WARNING: at mm/page_alloc.c:2204 __alloc_pages_nodemask+0x231/0x8f0()
-> :Call Trace:
-> : [<ffffffff81057abf>] warn_slowpath_common+0x7f/0xc0
-> : [<ffffffff81057b1a>] warn_slowpath_null+0x1a/0x20
-> : [<ffffffff81129671>] __alloc_pages_nodemask+0x231/0x8f0
-> : [<ffffffff814e84db>] ? dev_queue_xmit+0x1db/0x640
-> : [<ffffffff8151f210>] ? ip_forward_options+0x1f0/0x1f0
-> : [<ffffffff814ef7a1>] ? neigh_direct_output+0x11/0x20
-> : [<ffffffff81520dee>] ? ip_finish_output+0x17e/0x2f0
-> : [<ffffffff8151f210>] ? ip_forward_options+0x1f0/0x1f0
-> : [<ffffffff811608d3>] alloc_pages_current+0xa3/0x110
-> : [<ffffffff811254b4>] __get_free_pages+0x14/0x50
-> : [<ffffffff8116b99f>] kmalloc_order_trace+0x3f/0xd0
-> : [<ffffffff8156d137>] ? xfrm4_output_finish+0x27/0x40
-> : [<ffffffff8116c8c7>] __kmalloc+0x177/0x1a0
-> : [<ffffffff81521196>] ? ip_queue_xmit+0x156/0x400
-> : [<ffffffff814dab07>] pskb_expand_head+0x87/0x310
-> : [<ffffffff8113dbf9>] ? __mod_zone_page_state+0x49/0x50
-> : [<ffffffffa05e84dd>] pppol2tp_xmit+0x1ed/0x220 [l2tp_ppp]
+> ----
+> This is a semi-automatic email about new static checker warnings.
+> 
+> The patch b0d0d915d1d1: "ipx: remove the BKL" from Jan 25, 2011, 
+> leads to the following Smatch complaint:
+> 
+> net/ipx/af_ipx.c:1928 ipx_ioctl()
+> 	 error: we previously assumed 'sk' could be null (see line 1913)
 
-So it's ESP encapsulated IPSEC over L2tp.
+Thanks Dan, I've commited the following:
 
-Eric, I wonder if session->hdr_len can take on undesirable values and
-thus trip up the skb COW'ing calculations you added?
+--------------------
+ipx: Remove spurious NULL checking in ipx_ioctl().
+
+We already unconditionally dereference 'sk' via lock_sock(sk) earlier
+in this function, and our caller (sock_do_ioctl()) makes takes similar
+liberties.
+
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipx/af_ipx.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index 824d4a3..dfd6faa 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -1901,9 +1901,7 @@ static int ipx_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 			      (const unsigned short __user *)argp);
+ 		break;
+ 	case SIOCGSTAMP:
+-		rc = -EINVAL;
+-		if (sk)
+-			rc = sock_get_timestamp(sk, argp);
++		rc = sock_get_timestamp(sk, argp);
+ 		break;
+ 	case SIOCGIFDSTADDR:
+ 	case SIOCSIFDSTADDR:
+-- 
+1.7.10.1
