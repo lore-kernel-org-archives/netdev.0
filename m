@@ -1,37 +1,25 @@
-From: Joel Soete <soete.joel@scarlet.be>
-Subject: Re: [RFC PATCH net-next] hp100: delete VG/AnyLAN hp100
-Date: Sat, 19 May 2012 21:28:47 +0200
-Message-ID: <4FB7F46F.9000708@scarlet.be>
-References: <1337272841-25931-1-git-send-email-paul.gortmaker@windriver.com> <1337272841-25931-3-git-send-email-paul.gortmaker@windriver.com> <4FB52C99.6010303@windriver.com> <20120517212039.GC27789@windriver.com> <1337292547.8872.20.camel@joe2Laptop> <20120517222843.GA30680@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1]net:ethernet:fixed a coding style issue relating
+ space.
+Date: Sat, 19 May 2012 14:36:08 -0400 (EDT)
+Message-ID: <20120519.143608.2217025686579966031.davem@davemloft.net>
+References: <1337377537-4636-1-git-send-email-ahiliation@yahoo.co.in>
+	<1337421732.6524.YahooMailNeo@web192306.mail.sg3.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	linux-kernel@vger.kernel.org, JBottomley@parallels.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ahiliation@yahoo.co.in
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120517222843.GA30680@electric-eye.fr.zoreil.com>
+In-Reply-To: <1337421732.6524.YahooMailNeo@web192306.mail.sg3.yahoo.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Joe, et al,
+From: Jeffrin Jose <ahiliation@yahoo.co.in>
+Date: Sat, 19 May 2012 18:02:12 +0800 (SGT)
 
-Effectively, I was using a hp100 but this system is retired since 2 years now (but I keep it just in case of major failure 
-of the new box).
+>>> Rather than put lips on a pig, why not remove the bogus if?
+> is there anything i should work on this patch or should i move on
 
-Cheers,
-	J.
-
-On 05/18/2012 12:28 AM, Francois Romieu wrote:
-> Joe Perches<joe@perches.com>  :
->> On Thu, 2012-05-17 at 17:20 -0400, Paul Gortmaker wrote:
->>> [Re: [PATCH 2/5] drivers/net: delete all code/drivers depending on CONFIG_MCA
->>
->> If we're removing really old and unused stuff,
->> how about the VG/AnyLAN driver too?
->
-> Joel Soete appeared to actively use a PCI one with recent kernels back
-> in 2007.
->
+He's telling you to remove the code rather then try to fix
+it's coding style.
