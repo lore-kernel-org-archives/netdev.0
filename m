@@ -1,7 +1,7 @@
 From: Jeffrin Jose <ahiliation@yahoo.co.in>
-Subject: [PATCH 1/1] net:ipv6:fixed a trailing white space issue.
-Date: Sat, 19 May 2012 17:15:21 +0530
-Message-ID: <1337427921-2848-1-git-send-email-ahiliation@yahoo.co.in>
+Subject: [PATCH 1/1] net:ipv6:fixed space issues relating to operators.
+Date: Sat, 19 May 2012 17:29:04 +0530
+Message-ID: <1337428744-2935-1-git-send-email-ahiliation@yahoo.co.in>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	ahiliation@yahoo.co.in
 To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -10,26 +10,35 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixed a trailing white space issue found by
+Fixed space issues relating to operators found by
 checkpatch.pl tool in net/ipv6/udp.c
 
 Signed-off-by: Jeffrin Jose <ahiliation@yahoo.co.in>
 ---
- net/ipv6/udp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv6/udp.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index c1d91a7..847253c 100644
+index 847253c..f05099f 100644
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
-@@ -103,7 +103,7 @@ int udp_v6_get_port(struct sock *sk, unsigned short snum)
- {
- 	unsigned int hash2_nulladdr =
- 		udp6_portaddr_hash(sock_net(sk), &in6addr_any, snum);
--	unsigned int hash2_partial = 
-+	unsigned int hash2_partial =
- 		udp6_portaddr_hash(sock_net(sk), &inet6_sk(sk)->rcv_saddr, 0);
+@@ -349,7 +349,7 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	bool slow;
  
- 	/* precompute partial secondary hash */
+ 	if (addr_len)
+-		*addr_len=sizeof(struct sockaddr_in6);
++		*addr_len = sizeof(struct sockaddr_in6);
+ 
+ 	if (flags & MSG_ERRQUEUE)
+ 		return ipv6_recv_error(sk, msg, len);
+@@ -1379,7 +1379,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 	 * do checksum of UDP packets sent as multiple IP fragments.
+ 	 */
+ 	offset = skb_checksum_start_offset(skb);
+-	csum = skb_checksum(skb, offset, skb->len- offset, 0);
++	csum = skb_checksum(skb, offset, skb->len - offset, 0);
+ 	offset += skb->csum_offset;
+ 	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
+ 	skb->ip_summed = CHECKSUM_NONE;
 -- 
 1.7.10
