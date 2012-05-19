@@ -1,52 +1,47 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: [PATCH net-next] drivers/net: delete old 8bit ISA 3c501 driver.
-Date: Sat, 19 May 2012 10:58:41 +0200
-Message-ID: <201205191058.45328.linux@rainbow-software.org>
-References: <1337362769-4676-1-git-send-email-paul.gortmaker@windriver.com> <201205182016.51489.linux@rainbow-software.org> <20120518220305.GC15256@windriver.com>
+From: <rajan.gupta@freescale.com>
+Subject: [PATCH] net : fix for dst_gc_task not getting scheduled if __dst_free() is called consistently
+Date: Sat, 19 May 2012 04:39:54 -0500
+Message-ID: <1337420394-28115-1-git-send-email-rajan.gupta@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Alan Cox <alan@linux.intel.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain
+Cc: Rajan Gupta <rajan.gupta@freescale.com>
+To: <"netdev@vger.kernel.org.kuznet"@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-1-out2.atlantis.sk ([80.94.52.71]:52263 "EHLO
-	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755478Ab2ESI7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 04:59:13 -0400
-In-Reply-To: <20120518220305.GC15256@windriver.com>
-Content-Disposition: inline
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:46380
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752847Ab2ESJkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 05:40:16 -0400
+Received: from mail103-ch1 (localhost [127.0.0.1])	by
+ mail103-ch1-R.bigfish.com (Postfix) with ESMTP id 9328F4C015D	for
+ <netdev@vger.kernel.org>; Sat, 19 May 2012 09:40:04 +0000 (UTC)
+Received: from CH1EHSMHS002.bigfish.com (snatpool2.int.messaging.microsoft.com
+ [10.43.68.235])	by mail103-ch1.bigfish.com (Postfix) with ESMTP id
+ A055A14006C	for <netdev@vger.kernel.org>; Sat, 19 May 2012 09:40:02 +0000
+ (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 19 May 2012 00:03:06 Paul Gortmaker wrote:
-> [Re: [PATCH net-next] drivers/net: delete old 8bit ISA 3c501 driver.] On 
-18/05/2012 (Fri 20:16) Ondrej Zary wrote:
-> > On Friday 18 May 2012 19:39:29 Paul Gortmaker wrote:
-> > > It was amusing that linux was able to make use of this 1980's
-> > > technology on machines long past its intended lifespan, but
-> > > it probably should go now -- it is causing issues in some
-> > > distros[1], and while that might be fixable, it is just not
-> > > worth it.
-> > >
-> > > [1]
-> > > http://www.linuxquestions.org/questions/linux-networking-3/3com-3c501-c
-> > >ard- not-detecting-934344/
-> >
-> > That looks like a bug elsewhere and removing this driver will not fix it.
->
-> You miss the point.  We've got someone with a modern i7 machine who is
-> getting confused by seeing messages from some ancient 3c501 driver, but
-> he doesn't have the context to know it is ancient and the message is a
-> red herring.  Will it fix a distro's broken init that tries to modprobe
-> everything?  No.  Will it help by not muddying the waters with
-> meaningless printk from 3c501 that confuse users?  Yes.
+From: Rajan Gupta <rajan.gupta@freescale.com>
 
-Are you going to remove all drivers that complain that the HW is not present 
-because some broken script is trying to modprobe them all? Or only the first 
-one? 3c501 is probably the first in alphabet. You remove that and the script 
-will modprobe 3c503 then...
+dst_gc_work is cancelled and again rescheduled in __ds_free(). In case
+__dsf_free() is consistently called dst_gc_work will never get called resulting in
+memory not getting freed at all until one stops calling __dst_free
+Signed-off-by: Rajan Gupta <rajan.gupta@freescale.com>
+---
+ net/core/dst.c |    1 -
+ 1 file changed, 1 deletion(-)
 
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 8246d47..6820206 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -215,7 +215,6 @@ void __dst_free(struct dst_entry *dst)
+ 	if (dst_garbage.timer_inc > DST_GC_INC) {
+ 		dst_garbage.timer_inc = DST_GC_INC;
+ 		dst_garbage.timer_expires = DST_GC_MIN;
+-		cancel_delayed_work(&dst_gc_work);
+ 		schedule_delayed_work(&dst_gc_work, dst_garbage.timer_expires);
+ 	}
+ 	spin_unlock_bh(&dst_garbage.lock);
 -- 
-Ondrej Zary
+1.7.9.5
