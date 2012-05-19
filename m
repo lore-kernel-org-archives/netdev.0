@@ -1,50 +1,50 @@
-From: Gupta Rajan-B15745 <B15745@freescale.com>
-Subject: RE: [PATCH] net : fix for dst_gc_task not getting scheduled if
- __dst_free() is called consistently
-Date: Sat, 19 May 2012 14:48:28 +0000
-Message-ID: <58F5C0DF84CA6640ACA52069A44842A017D236@039-SN2MPN1-021.039d.mgd.msft.net>
-References: <1337420654-28200-1-git-send-email-b15745@freescale.com>
- <1337421863.7029.96.camel@edumazet-glaptop>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH] net: qmi_wwan: Add Vodafone/Huawei K5005 support
+Date: Sat, 19 May 2012 19:20:31 +0200
+Message-ID: <1337448031-16897-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:8600
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754777Ab2ESOsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 10:48:32 -0400
-In-Reply-To: <1337421863.7029.96.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-SWdub3JlIHRoZSBwYXRjaC4gSXNzdWUgaXMgZHN0X2djX3Rhc2sgaXMgbm90IGdldHRpbmcNCnNj
-aGVkdWxlZCBiZWNhdXNlIG9mIHNjaGVkdWxpbmcgaXNzdWUgYXQgMTAwJSBjcHUgdXRpbGl6YXRp
-b24uDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0
-IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIE1heSAx
-OSwgMjAxMiAzOjM0IFBNDQo+IFRvOiBHdXB0YSBSYWphbi1CMTU3NDUNCj4gQ2M6IG5ldGRldkB2
-Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0IDogZml4IGZvciBkc3Rf
-Z2NfdGFzayBub3QgZ2V0dGluZyBzY2hlZHVsZWQgaWYNCj4gX19kc3RfZnJlZSgpIGlzIGNhbGxl
-ZCBjb25zaXN0ZW50bHkNCj4gDQo+IE9uIFNhdCwgMjAxMi0wNS0xOSBhdCAwNDo0NCAtMDUwMCwg
-YjE1NzQ1QGZyZWVzY2FsZS5jb20gd3JvdGU6DQo+ID4gRnJvbTogUmFqYW4gR3VwdGEgPGIxNTc0
-NUBmcmVlc2NhbGUuY29tPg0KPiA+DQo+ID4gZHN0X2djX3dvcmsgaXMgY2FuY2VsbGVkIGFuZCBh
-Z2FpbiByZXNjaGVkdWxlZCBpbiBfX2RzX2ZyZWUoKS4gSW4gY2FzZQ0KPiA+IF9fZHNmX2ZyZWUo
-KSBpcyBjb25zaXN0ZW50bHkgY2FsbGVkIGRzdF9nY193b3JrIHdpbGwgbmV2ZXIgZ2V0IGNhbGxl
-ZA0KPiA+IHJlc3VsdGluZyBpbiBtZW1vcnkgbm90IGdldHRpbmcgZnJlZWQgYXQgYWxsIHVudGls
-IG9uZSBzdG9wcyBjYWxsaW5nDQo+ID4gX19kc3RfZnJlZQ0KPiA+IFNpZ25lZC1vZmYtYnk6IFJh
-amFuIEd1cHRhIDxiMTU3NDVAZnJlZXNjYWxlLmNvbT4NCj4gPiAtLS0NCj4gPiAgbmV0L2NvcmUv
-ZHN0LmMgfCAgICAxIC0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDEgZGVsZXRpb24oLSkNCj4gPg0K
-PiA+IGRpZmYgLS1naXQgYS9uZXQvY29yZS9kc3QuYyBiL25ldC9jb3JlL2RzdC5jIGluZGV4IDgy
-NDZkNDcuLjY4MjAyMDYNCj4gPiAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvY29yZS9kc3QuYw0KPiA+
-ICsrKyBiL25ldC9jb3JlL2RzdC5jDQo+ID4gQEAgLTIxNSw3ICsyMTUsNiBAQCB2b2lkIF9fZHN0
-X2ZyZWUoc3RydWN0IGRzdF9lbnRyeSAqZHN0KQ0KPiA+ICAJaWYgKGRzdF9nYXJiYWdlLnRpbWVy
-X2luYyA+IERTVF9HQ19JTkMpIHsNCj4gPiAgCQlkc3RfZ2FyYmFnZS50aW1lcl9pbmMgPSBEU1Rf
-R0NfSU5DOw0KPiA+ICAJCWRzdF9nYXJiYWdlLnRpbWVyX2V4cGlyZXMgPSBEU1RfR0NfTUlOOw0K
-PiA+IC0JCWNhbmNlbF9kZWxheWVkX3dvcmsoJmRzdF9nY193b3JrKTsNCj4gPiAgCQlzY2hlZHVs
-ZV9kZWxheWVkX3dvcmsoJmRzdF9nY193b3JrLCBkc3RfZ2FyYmFnZS50aW1lcl9leHBpcmVzKTsN
-Cj4gPiAgCX0NCj4gPiAgCXNwaW5fdW5sb2NrX2JoKCZkc3RfZ2FyYmFnZS5sb2NrKTsNCj4gDQo+
-IFN0cmFuZ2UsIEkgbmV2ZXIgbWV0IHRoaXMuLi4uDQo+IA0KPiBTaW5jZSAiaWYgKGRzdF9nYXJi
-YWdlLnRpbWVyX2luYyA+IERTVF9HQ19JTkMpIiB3aWxsIGJlIGZhbHNlIGlmIHRpbWVyX2luYw0K
-PiBpcyBEU1RfR0NfSU5DLg0KPiANCj4gDQo+IA0KDQo=
+Tested-by: Thomas Sch=C3=A4fer <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/qmi_wwan.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 9048efe..346d4a6 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -401,6 +401,14 @@ static const struct usb_device_id products[] =3D {
+ 		.bInterfaceProtocol =3D 8, /* NOTE: This is the *slave* interface of=
+ the CDC Union! */
+ 		.driver_info        =3D (unsigned long)&qmi_wwan_info,
+ 	},
++	{	/* Vodafone/Huawei K5005 (12d1:14c8) and similar modems */
++		.match_flags        =3D USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_M=
+ATCH_INT_INFO,
++		.idVendor           =3D HUAWEI_VENDOR_ID,
++		.bInterfaceClass    =3D USB_CLASS_VENDOR_SPEC,
++		.bInterfaceSubClass =3D 1,
++		.bInterfaceProtocol =3D 56, /* NOTE: This is the *slave* interface o=
+f the CDC Union! */
++		.driver_info        =3D (unsigned long)&qmi_wwan_info,
++	},
+ 	{	/* Huawei E392, E398 and possibly others in "Windows mode"
+ 		 * using a combined control and data interface without any CDC
+ 		 * functional descriptors
+--=20
+1.7.10
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
