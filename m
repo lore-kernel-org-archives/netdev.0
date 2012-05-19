@@ -1,23 +1,16 @@
 From: <rajan.gupta@freescale.com>
 Subject: [PATCH] net : fix for dst_gc_task not getting scheduled if __dst_free() is called consistently
-Date: Sat, 19 May 2012 04:39:54 -0500
-Message-ID: <1337420394-28115-1-git-send-email-rajan.gupta@freescale.com>
+Date: Sat, 19 May 2012 04:41:12 -0500
+Message-ID: <1337420472-28159-1-git-send-email-rajan.gupta@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Rajan Gupta <rajan.gupta@freescale.com>
-To: <"netdev@vger.kernel.org.kuznet"@ms2.inr.ac.ru>
+To: <netdev@vger.kernel.org>, <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:46380
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752847Ab2ESJkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 05:40:16 -0400
-Received: from mail103-ch1 (localhost [127.0.0.1])	by
- mail103-ch1-R.bigfish.com (Postfix) with ESMTP id 9328F4C015D	for
- <netdev@vger.kernel.org>; Sat, 19 May 2012 09:40:04 +0000 (UTC)
-Received: from CH1EHSMHS002.bigfish.com (snatpool2.int.messaging.microsoft.com
- [10.43.68.235])	by mail103-ch1.bigfish.com (Postfix) with ESMTP id
- A055A14006C	for <netdev@vger.kernel.org>; Sat, 19 May 2012 09:40:02 +0000
- (UTC)
+Received: from db3ehsobe005.messaging.microsoft.com ([213.199.154.143]:49231
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752133Ab2ESJlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 05:41:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
