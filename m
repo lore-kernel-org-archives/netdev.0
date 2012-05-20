@@ -1,70 +1,42 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Strange latency spikes/TX network stalls on Sun
- Fire X4150(x86) and e1000e
-Date: Sun, 20 May 2012 22:18:41 +0300
-Message-ID: <ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
-	<88c43001441945e1431609db252b69e7@visp.net.lb>
-	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
-	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
-	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
-	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
-	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
-	<4775d023592b876909aceb152f94aa01@visp.net.lb>
-	<1337540825.3361.0.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v6] tilegx network driver: initial support
+Date: Sun, 20 May 2012 16:55:46 -0400 (EDT)
+Message-ID: <20120520.165546.1211013675964130504.davem@davemloft.net>
+References: <201205091452.q49EqcO7005975@farm-0027.internal.tilera.com>
+	<1336744445.2874.57.camel@bwh-desktop.uk.solarflarecom.com>
+	<201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, davem@davemloft.net,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1337540825.3361.0.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: bhutchings@solarflare.com, arnd@arndb.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: cmetcalf@tilera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2012-05-20 22:07, Eric Dumazet wrote:
->
-> You could try latencytop, I am not sure if some obvious things will
-> popup.
-For sure i did. Nothing unusual here, max 5ms latency
-Cause                                                Maximum     
-Percentage
-[__skb_recv_datagram]                               4.1 msec         
-45.4 %
-Waiting for event (select)                          3.9 msec         
-54.6 %
-Page fault                                          0.7 msec          
-0.0 %
-Waiting for a process to die                        0.3 msec          
-0.0 %
-Writing data to TTY                                 0.1 msec          
-0.0 %
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Sun, 20 May 2012 00:42:03 -0400
 
-I will try also to find SMI interrupts detector (if i will find 
-source), but i don't think it is an issue.
+> +static int tile_net_tx_tso(struct sk_buff *skb, struct net_device *dev)
 
+This function has 80 lines of local variable declarations,
+that's absolutely rediculous.
 
+A comment and an empty line interspacing many of these local
+variable declarations, also rediculous, and part of why it
+is 80 lines long.
 
----
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+This function is completely unreadable, if I have to scan
+multiple pages before I get to real code, the function is
+broken.
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+You either need to compartmentalize these variable declarations
+and/or write helper functions to spread it out.
+
+This is some of the most unpleasant code I've had to review in quite
+some time.  Look at other networking drivers in the tree, such as
+drivers/net/ethernet/broadcom/tg3.c, and try to mimick their style and
+layout.  Anything in your driver that is different is likely to get
+you into trouble and make your driver hard to review.
