@@ -1,8 +1,8 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
 Subject: Re: Strange latency spikes/TX network stalls on Sun
  Fire X4150(x86) and e1000e
-Date: Sun, 20 May 2012 21:07:05 +0200
-Message-ID: <1337540825.3361.0.camel@edumazet-glaptop>
+Date: Sun, 20 May 2012 22:18:41 +0300
+Message-ID: <ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
 References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
 	<88c43001441945e1431609db252b69e7@visp.net.lb>
 	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
@@ -11,15 +11,16 @@ References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
 	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
 	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
 	<4775d023592b876909aceb152f94aa01@visp.net.lb>
+	<1337540825.3361.0.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	jesse.brandeburg@intel.com, davem@davemloft.net,
 	Tom Herbert <therbert@google.com>
-To: Denys Fedoryshchenko <denys@visp.net.lb>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <4775d023592b876909aceb152f94aa01@visp.net.lb>
+In-Reply-To: <1337540825.3361.0.camel@edumazet-glaptop>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -30,24 +31,31 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-05-20 at 21:53 +0300, Denys Fedoryshchenko wrote:
-> >
+On 2012-05-20 22:07, Eric Dumazet wrote:
+>
+> You could try latencytop, I am not sure if some obvious things will
+> popup.
+For sure i did. Nothing unusual here, max 5ms latency
+Cause                                                Maximum     
+Percentage
+[__skb_recv_datagram]                               4.1 msec         
+45.4 %
+Waiting for event (select)                          3.9 msec         
+54.6 %
+Page fault                                          0.7 msec          
+0.0 %
+Waiting for a process to die                        0.3 msec          
+0.0 %
+Writing data to TTY                                 0.1 msec          
+0.0 %
 
-> My kernel config http://www.nuclearcat.com/config_stall.txt
-> 
-> It is completely idle machine. I didn't notice any anomalies with 
-> interrutps to
-> compare with other servers (not Sun Fire). If there is anomalies with 
-> interrupts
-> (for example SMI), probably i should notice that even without BQL, but 
-> this machine
-> works very well and i didn't notice any latency without BQL.
-
-You could try latencytop, I am not sure if some obvious things will
-popup.
+I will try also to find SMI interrupts detector (if i will find 
+source), but i don't think it is an issue.
 
 
 
+---
+Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
 
 ------------------------------------------------------------------------------
 Live Security Virtual Conference
