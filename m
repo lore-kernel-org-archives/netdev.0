@@ -1,27 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qmi_wwan: Add Vodafone/Huawei K5005 support
-Date: Sat, 19 May 2012 18:48:18 -0400 (EDT)
-Message-ID: <20120519.184818.1256718881058292674.davem@davemloft.net>
-References: <1337448031-16897-1-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	tschaefer@t-online.de
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53169 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab2ESWt2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 May 2012 18:49:28 -0400
-In-Reply-To: <1337448031-16897-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eldad Zack <eldad@fogrefinery.com>
+Subject: [PATCH] net/ipv4/ipconfig: neaten __setup placement
+Date: Sun, 20 May 2012 02:04:39 +0200
+Message-ID: <1337472279-18615-1-git-send-email-eldad@fogrefinery.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eldad Zack <eldad@fogrefinery.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Sat, 19 May 2012 19:20:31 +0200
+The __setup macro should follow the corresponding setup handler.
 
-> Tested-by: Thomas Sch=E4fer <tschaefer@t-online.de>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
+---
+ net/ipv4/ipconfig.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Applied.
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 92ac7e7..1d8076a 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -1626,11 +1626,13 @@ static int __init ip_auto_config_setup(char *addrs)
+ 
+ 	return 1;
+ }
++__setup("ip=", ip_auto_config_setup);
+ 
+ static int __init nfsaddrs_config_setup(char *addrs)
+ {
+ 	return ip_auto_config_setup(addrs);
+ }
++__setup("nfsaddrs=", nfsaddrs_config_setup);
+ 
+ static int __init vendor_class_identifier_setup(char *addrs)
+ {
+@@ -1641,7 +1643,4 @@ static int __init vendor_class_identifier_setup(char *addrs)
+ 			vendor_class_identifier);
+ 	return 1;
+ }
+-
+-__setup("ip=", ip_auto_config_setup);
+-__setup("nfsaddrs=", nfsaddrs_config_setup);
+ __setup("dhcpclass=", vendor_class_identifier_setup);
+-- 
+1.7.10
