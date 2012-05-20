@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 2/3] USB: qmi_wwan: Add ZTE (Vodafone) K3765-Z
-Date: Sun, 20 May 2012 16:59:23 -0400 (EDT)
-Message-ID: <20120520.165923.337410899962787130.davem@davemloft.net>
+Date: Sun, 20 May 2012 16:59:36 -0400 (EDT)
+Message-ID: <20120520.165936.1796496403682068067.davem@davemloft.net>
 References: <1337502518-1444-1-git-send-email-ajb@spheresystems.co.uk>
 	<1337502518-1444-2-git-send-email-ajb@spheresystems.co.uk>
 Mime-Version: 1.0
@@ -11,10 +11,14 @@ Cc: bjorn@mork.no, gregkh@linuxfoundation.org,
 	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: ajb@spheresystems.co.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60299 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756306Ab2ETVAv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 May 2012 17:00:51 -0400
 In-Reply-To: <1337502518-1444-2-git-send-email-ajb@spheresystems.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Andrew Bird <ajb@spheresystems.co.uk>
 Date: Sun, 20 May 2012 09:28:37 +0100
