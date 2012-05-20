@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] tilegx network driver: initial support
-Date: Sun, 20 May 2012 16:55:46 -0400 (EDT)
-Message-ID: <20120520.165546.1211013675964130504.davem@davemloft.net>
-References: <201205091452.q49EqcO7005975@farm-0027.internal.tilera.com>
-	<1336744445.2874.57.camel@bwh-desktop.uk.solarflarecom.com>
-	<201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>
+Subject: Re: [PATCH 1/3] USB: qmi_wwan: Make forced int 4 whitelist generic
+Date: Sun, 20 May 2012 16:59:14 -0400 (EDT)
+Message-ID: <20120520.165914.334514690365378881.davem@davemloft.net>
+References: <1337502518-1444-1-git-send-email-ajb@spheresystems.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, arnd@arndb.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: cmetcalf@tilera.com
+Cc: bjorn@mork.no, gregkh@linuxfoundation.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ajb@spheresystems.co.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>
+In-Reply-To: <1337502518-1444-1-git-send-email-ajb@spheresystems.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Sun, 20 May 2012 00:42:03 -0400
+From: Andrew Bird <ajb@spheresystems.co.uk>
+Date: Sun, 20 May 2012 09:28:36 +0100
 
-> +static int tile_net_tx_tso(struct sk_buff *skb, struct net_device *dev)
+> Change the forced interface 4 whitelist to use the generic shared
+> binder instead of the Gobi specific one. Certain ZTE devices
+> (K3520-Z & K3765-Z) don't work with the Gobi version, but function
+> quite happily with the generic. This has been tested with the following
+> devices:
+> K3520-Z
+> K3565-Z
+> K3765-Z
+> K4505-Z
+> It hasn't been tested with the ZTE MF820D, which is the only other
+> device that uses this whitelist at present. Although Bjorn doesn't
+> expect any problems, any testing with that device would be appreciated.
+> 
+> Signed-off-by: Andrew Bird <ajb@spheresystems.co.uk>
 
-This function has 80 lines of local variable declarations,
-that's absolutely rediculous.
-
-A comment and an empty line interspacing many of these local
-variable declarations, also rediculous, and part of why it
-is 80 lines long.
-
-This function is completely unreadable, if I have to scan
-multiple pages before I get to real code, the function is
-broken.
-
-You either need to compartmentalize these variable declarations
-and/or write helper functions to spread it out.
-
-This is some of the most unpleasant code I've had to review in quite
-some time.  Look at other networking drivers in the tree, such as
-drivers/net/ethernet/broadcom/tg3.c, and try to mimick their style and
-layout.  Anything in your driver that is different is likely to get
-you into trouble and make your driver hard to review.
+Applied to net-next.
