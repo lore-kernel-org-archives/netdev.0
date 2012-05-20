@@ -1,38 +1,22 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6/exthdrs: strict Pad1 and PadN check
-Date: Sun, 20 May 2012 16:59:52 -0400 (EDT)
-Message-ID: <20120520.165952.949615878777060190.davem@davemloft.net>
-References: <1337515173-23648-1-git-send-email-eldad@fogrefinery.com>
+From: "Mr. Peter Wong" <info@pw.org>
+Subject: Re:
+Date: Mon, 21 May 2012 00:27:19 +0200
+Message-ID: <20120521002719.wzx9g1yezzpk4g00@webmail.dommel.be>
+Reply-To: peterwong_agency@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eldad@fogrefinery.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337515173-23648-1-git-send-email-eldad@fogrefinery.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bente.schedom-europe.net ([193.109.184.68]:43065 "EHLO
+	bente.schedom-europe.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756889Ab2ETWeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 May 2012 18:34:14 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eldad Zack <eldad@fogrefinery.com>
-Date: Sun, 20 May 2012 13:59:33 +0200
+Good-Day Friend,
 
-> The following tightens the padding check from commit
-> c1412fce7eccae62b4de22494f6ab3ff8a90c0c6 :
-> 
-> * Take into account combinations of consecutive Pad1 and PadN.
-> 
-> * Catch the corner case of when only padding is present in the
->   header, when the extention header length is 0 (i.e., 8 bytes).
->   In this case, the header would have exactly 6 bytes of padding:
-> 
-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> :  Next Header  : Hdr Ext Len=0 :                               :
-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
-> :                        Padding (Pad1 or PadN)                 :
-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> 
-> Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
-
-Applied to net-next, thanks a lot.
+I Mr. Peter Wong, I Need Your Assistance
