@@ -1,36 +1,64 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2012-05-22
-Date: Tue, 22 May 2012 16:17:43 -0400 (EDT)
-Message-ID: <20120522.161743.2065623626389647777.davem@davemloft.net>
-References: <20120522195347.GF11866@tuxdriver.com>
+From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Subject: [PATCH RESENT] xen: do not disable netfront in dom0
+Date: Sun, 20 May 2012 13:45:10 +0200
+Message-ID: <20120522204742.29E8A626@duch.mimuw.edu.pl>
+References: <20120522194319.GA2691@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120522195347.GF11866-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>, Ian.Campbell@citrix.com,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, netdev@vger.kernel.org,
+	Marek Marczykowski <marmarek@invisiblethingslab.com>,
+	xen-devel@lists.xen.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120522194319.GA2691@phenom.dumpdata.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 22 May 2012 15:53:48 -0400
+Netfront driver can be also useful in dom0, eg when all NICs are assigned to
+some domU (aka driver domain). Then using netback in domU and netfront in dom0
+is the only way to get network access in dom0.
 
-> I apologize for not having sent this sooner.  FWIW, I was in a car
-> somewhere between Illinois and North Carolina for most of the day
-> Sunday and Monday... :-)
-> 
-> This is (obviously) the last non-fix pull request for wireless bits
-> intended for 3.5.  It includes AP support for mwifiex, a variety of HCI
-> and other updates for NFC, some brcmfmac and brcmsmac refactoring,
-> a large batch of ssb and bcma updates, a batch of ath6kl updates,
-> some cfg80211 and mac80211 updates/refactoring from Johannes Berg,
-> a rather large collection of Bluetooth updates by way of Gustavo,
-> and a variety of other bits here and there.
+Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
+Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+---
+ drivers/net/xen-netfront.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 0ebbb19..2027afe 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1962,9 +1962,6 @@ static int __init netif_init(void)
+ 	if (!xen_domain())
+ 		return -ENODEV;
+ 
+-	if (xen_initial_domain())
+-		return 0;
+-
+ 	if (xen_hvm_domain() && !xen_platform_pci_unplug)
+ 		return -ENODEV;
+ 
+@@ -1977,9 +1974,6 @@ module_init(netif_init);
+ 
+ static void __exit netif_exit(void)
+ {
+-	if (xen_initial_domain())
+-		return;
+-
+ 	xenbus_unregister_driver(&netfront_driver);
+ }
+ module_exit(netif_exit);
+-- 
+1.7.4.4
