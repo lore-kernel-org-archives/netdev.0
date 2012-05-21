@@ -1,120 +1,77 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
-Date: Mon, 21 May 2012 18:51:32 +0400
-Message-ID: <4FBA5674.9050508@parallels.com>
-References: <20120404220525.GD21505@hostway.ca> <1333593664.18626.577.camel@edumazet-glaptop> <20120417020852.GA18875@hostway.ca> <4F8D5FAD.10304@parallels.com> <20120417183528.GA32726@hostway.ca> <4F8EA64B.2050208@parallels.com> <20120519010743.GA21427@hostway.ca>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
+Date: Mon, 21 May 2012 08:42:52 -0700
+Message-ID: <1337614972.12999.56.camel@oc3660625478.ibm.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>
+	 <1337181027.10741.13.camel@oc3660625478.ibm.com>
+	 <20120516151444.GC9934@redhat.com>
+	 <1337189525.10741.24.camel@oc3660625478.ibm.com>
+	 <4FB4677A.8020402@redhat.com>
+	 <1337268862.10741.58.camel@oc3660625478.ibm.com>
+	 <4FB61D57.4030103@redhat.com>
+	 <1337354974.12999.12.camel@oc3660625478.ibm.com>
+	 <4FB9DB24.2040408@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Simon Kirby <sim@hostway.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:39995 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753539Ab2EUOvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2012 10:51:39 -0400
-In-Reply-To: <20120519010743.GA21427@hostway.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FB9DB24.2040408@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 19.05.2012 05:07, Simon Kirby wrote:
-> On Wed, Apr 18, 2012 at 03:32:27PM +0400, Stanislav Kinsbursky wrote:
->
->> 17.04.2012 22:35, Simon Kirby ??????????:
->>> On Tue, Apr 17, 2012 at 04:18:53PM +0400, Stanislav Kinsbursky wrote:
->>>>
->>>> Hi, Simon.
->>>> Could you please try to apply the patch below on top of your the
->>>> tree (with 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d applied) and
->>>> check does it fix the problem:
->>>>
->>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->>>> index bb8c72c..1fc4622 100644
->>>> --- a/drivers/net/tun.c
->>>> +++ b/drivers/net/tun.c
->>>> @@ -1540,13 +1540,10 @@ static int tun_chr_close(struct inode
->>>> *inode, struct file *file)
->>>>   			if (dev->reg_state == NETREG_REGISTERED)
->>>>   				unregister_netdevice(dev);
->>>>   			rtnl_unlock();
->>>> -		}
->>>> +		} else
->>>> +			sock_put(tun->socket.sk);
->>>>   	}
->>>>
->>>> -	tun = tfile->tun;
->>>> -	if (tun)
->>>> -		sock_put(tun->socket.sk);
->>>> -
->>>>   	put_net(tfile->net);
->>>>   	kfree(tfile);
->>>
->>> (Whitespace-damaged patch, applied manually)
->>>
->>> Yes, I no longer see crashes with this applied. I haven't tried with
->>> kmemleak or similar, but it seems to work.
->>>
->>> Thanks,
->>>
->>
->> This bug looks like double free, but I can't understand how does this can happen...
->> Simon, would be really great, if you'll describe in details some
->> simple way, how to reproduce the bug.
->
-> Oh, sorry, I did not see this until now. I just noticed it was still
-> floating in my tree with no upstream changes yet, then found your email.
-> I still have not seen any issues since applying your patch.
->
-> I was definitely seeing the issue on 3.4-rc3. I can try and see if it
-> still occurs with your patch removed, if that would help.
->
-> Do you have a box on which you can set up an SSH tunnel? In my case, I
-> can reproduce it easily with three boxes. From home, I run ssh to my work
-> box to establish the layer 2 tunnel. This goes through a ProxyCommand to
-> jump through an entry box, but I don't think that should matter. I use a
-> cheap tunnel start script similar to this:
->
-> work_net=10.0.0.0/8
-> work_tun_ip=10.x.x.x
-> home_tun_ip=10.x.x.x
-> echo 1>  /proc/sys/net/ipv4/conf/eth0/proxy_arp
-> ssh -w any:any<work box>  "ifconfig tun0 $work_tun_ip pointopoint
-> $home_tun_ip; echo 'ifconfig tun0 $home_tun_ip pointopoint $work_tun_ip
-> &&  ip route add $work_net via $work_tun_ip'; sleep 1d" | sh -v
->
-> ...there's probably a better way, but it works. To reproduce, I log in
-> to a third box over this tunnel, and start a "vmstat 1", so that packets
-> keep coming back to the tunnel host. ^C on the SSH session will then
-> produce an Oops within a second.
->
-> With CONFIG_SLUB_DEBUG=y and booting with slub_debug=FZPU, I got the
-> Redzone overwritten notice. Without it, the box usually Oopses and
-> hangs immediately. Sometimes, I might have to reconnect the tunnel and
-> ^C it once more. If I don't have that vmstat session open, it usually
-> doesn't crash.
->
-> Does this work for you?
->
+On Mon, 2012-05-21 at 14:05 +0800, Jason Wang wrote:
+> >> - tx polling depends on skb_orphan() which is often called by
+> device
+> >> driver when it place the packet into the queue of the devices
+> instead
+> >> of  when the packets were sent. So it was too early for vhost to be
+> >> notified.
+> > Then do you think it's better to replace with vhost_poll_queue here
+> > instead?
+> 
+> Just like what does this patch do - calling vhost_poll_queue() in 
+> vhost_zerocopy_callback().
+> >> - it only works when the pending DMAs exceeds VHOST_MAX_PEND, it's
+> >> highly possible that guest needs to be notified when the pending
+> >> packets
+> >> isn't so much.
+> > In which situation the guest needs to be notified when there is no
+> TX
+> > besides buffers run out?
+> 
+> Consider guest call virtqueue_enable_cb_delayed() which means it only 
+> need to be notified when 3/4 of pending buffers ( about 178 buffers 
+> (256-MAX_SKB_FRAGS-2)*3/4 ) were sent by host. So vhost_net would
+> notify 
+> guest when about 60 buffers were pending. Since tx polling is only 
+> enabled when pending packets exceeds VHOST_MAX_PEND 128, so tx work 
+> would not be notified to run and guest would never get the interrupt
+> it 
+> expected to re-enable the queue.
 
-Hello, Simon.
-Thanks for details.
-I still can't reproduce the issue.
-Here is my configuration:
-1) three nodes: A, B and C.
-2) A and B connected with a tunnel (your script - slightly modified).
-3) Packets to C from A are routed through the tunnel.
-4) Node B has 3.4.0-rc2 based kernel. A and C - rhel6 kernel.
+So it seems we still need vhost_enable_notify() in handle_tx when there
+is no tx in zerocopy case.
 
-So, I login to C from A by ssh, run "vmstat 1" and then cut off (^C) the tunnel 
-between A and B. Connection hanged. No panic or oops occurred.
+Do you know which one is more expensive: the cost of vhost_poll_queue()
+in each zerocopy callback or calling vhost_enable_notify()?
 
-Is it the same you've done when panic occurred?
-Or I'm doing something wrong?
+Have you compared the results by removing below code in handle_tx()?
 
-> Simon-
+-                       if (unlikely(num_pends > VHOST_MAX_PEND)) {
+-                                tx_poll_start(net, sock);
+-                                set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
+-                                break;
+-                        }
 
+> 
+> And just like what we've discussed, tx polling based adding and 
+> signaling is too early for vhost. 
 
--- 
-Best regards,
-Stanislav Kinsbursky
+Thanks
+Shirley
