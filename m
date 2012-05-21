@@ -1,81 +1,120 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH v2] iproute2: trivial fix of ip link syntax in manpage
-Date: Mon, 21 May 2012 15:48:06 +0200
-Message-ID: <20120521134806.GA29418@amd64.fatal.se>
-References: <20120521115850.GA19151@amd64.fatal.se>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: 3.3.0, 3.4-rc1 reproducible tun Oops
+Date: Mon, 21 May 2012 18:51:32 +0400
+Message-ID: <4FBA5674.9050508@parallels.com>
+References: <20120404220525.GD21505@hostway.ca> <1333593664.18626.577.camel@edumazet-glaptop> <20120417020852.GA18875@hostway.ca> <4F8D5FAD.10304@parallels.com> <20120417183528.GA32726@hostway.ca> <4F8EA64B.2050208@parallels.com> <20120519010743.GA21427@hostway.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 673171@bugs.debian.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Simon Kirby <sim@hostway.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b22.telenor.se ([195.54.99.213]:35999 "EHLO
-	smtprelay-b22.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755614Ab2EUNpZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2012 09:45:25 -0400
-Received: from ipb4.telenor.se (ipb4.telenor.se [195.54.127.167])
-	by smtprelay-b22.telenor.se (Postfix) with ESMTP id 269DAEAD80
-	for <netdev@vger.kernel.org>; Mon, 21 May 2012 15:45:23 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20120521115850.GA19151@amd64.fatal.se>
+Received: from relay.parallels.com ([195.214.232.42]:39995 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539Ab2EUOvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2012 10:51:39 -0400
+In-Reply-To: <20120519010743.GA21427@hostway.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Argh.... template files and generated files also shipped.
-Make sure to edit them both to avoid losing the change.
+On 19.05.2012 05:07, Simon Kirby wrote:
+> On Wed, Apr 18, 2012 at 03:32:27PM +0400, Stanislav Kinsbursky wrote:
+>
+>> 17.04.2012 22:35, Simon Kirby ??????????:
+>>> On Tue, Apr 17, 2012 at 04:18:53PM +0400, Stanislav Kinsbursky wrote:
+>>>>
+>>>> Hi, Simon.
+>>>> Could you please try to apply the patch below on top of your the
+>>>> tree (with 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d applied) and
+>>>> check does it fix the problem:
+>>>>
+>>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>>>> index bb8c72c..1fc4622 100644
+>>>> --- a/drivers/net/tun.c
+>>>> +++ b/drivers/net/tun.c
+>>>> @@ -1540,13 +1540,10 @@ static int tun_chr_close(struct inode
+>>>> *inode, struct file *file)
+>>>>   			if (dev->reg_state == NETREG_REGISTERED)
+>>>>   				unregister_netdevice(dev);
+>>>>   			rtnl_unlock();
+>>>> -		}
+>>>> +		} else
+>>>> +			sock_put(tun->socket.sk);
+>>>>   	}
+>>>>
+>>>> -	tun = tfile->tun;
+>>>> -	if (tun)
+>>>> -		sock_put(tun->socket.sk);
+>>>> -
+>>>>   	put_net(tfile->net);
+>>>>   	kfree(tfile);
+>>>
+>>> (Whitespace-damaged patch, applied manually)
+>>>
+>>> Yes, I no longer see crashes with this applied. I haven't tried with
+>>> kmemleak or similar, but it seems to work.
+>>>
+>>> Thanks,
+>>>
+>>
+>> This bug looks like double free, but I can't understand how does this can happen...
+>> Simon, would be really great, if you'll describe in details some
+>> simple way, how to reproduce the bug.
+>
+> Oh, sorry, I did not see this until now. I just noticed it was still
+> floating in my tree with no upstream changes yet, then found your email.
+> I still have not seen any issues since applying your patch.
+>
+> I was definitely seeing the issue on 3.4-rc3. I can try and see if it
+> still occurs with your patch removed, if that would help.
+>
+> Do you have a box on which you can set up an SSH tunnel? In my case, I
+> can reproduce it easily with three boxes. From home, I run ssh to my work
+> box to establish the layer 2 tunnel. This goes through a ProxyCommand to
+> jump through an entry box, but I don't think that should matter. I use a
+> cheap tunnel start script similar to this:
+>
+> work_net=10.0.0.0/8
+> work_tun_ip=10.x.x.x
+> home_tun_ip=10.x.x.x
+> echo 1>  /proc/sys/net/ipv4/conf/eth0/proxy_arp
+> ssh -w any:any<work box>  "ifconfig tun0 $work_tun_ip pointopoint
+> $home_tun_ip; echo 'ifconfig tun0 $home_tun_ip pointopoint $work_tun_ip
+> &&  ip route add $work_net via $work_tun_ip'; sleep 1d" | sh -v
+>
+> ...there's probably a better way, but it works. To reproduce, I log in
+> to a third box over this tunnel, and start a "vmstat 1", so that packets
+> keep coming back to the tunnel host. ^C on the SSH session will then
+> produce an Oops within a second.
+>
+> With CONFIG_SLUB_DEBUG=y and booting with slub_debug=FZPU, I got the
+> Redzone overwritten notice. Without it, the box usually Oopses and
+> hangs immediately. Sometimes, I might have to reconnect the tunnel and
+> ^C it once more. If I don't have that vmstat session open, it usually
+> doesn't crash.
+>
+> Does this work for you?
+>
 
-On Mon, May 21, 2012 at 01:58:50PM +0200, Andreas Henriksson wrote:
-> Ivan Vilata i Balaguer <ivan@selidor.net> wrote:
-> > Hi, I found that the description of the `ip link add` command in the manpage
-> > is outdated regarding the compulsory `link DEVICE` option.  For instance, `ip
-> > link help` says:
-> >
-> >     Usage: ip link add [link DEV] [ name ] NAME
-> >     ...
-> >
-> > But the manpage still says:
-> >
-> >     ip link add link DEVICE [ name ] NAME
-> >
-> > (Trying to provide a `link` option e.g. under an LXC container can frustrate
-> > the creation of dummy devices which don't need an actual device.)
-> 
-> The syntax of the "ip link help" output was fixed in commit
-> "iproute2: Fix usage and man page for 'ip link'" (a22e92951d).
-> This updates the manpage to mark "link DEVICE" as an optional
-> argument there as well.
-> 
-> http://bugs.debian.org/673171
-> 
+Hello, Simon.
+Thanks for details.
+I still can't reproduce the issue.
+Here is my configuration:
+1) three nodes: A, B and C.
+2) A and B connected with a tunnel (your script - slightly modified).
+3) Packets to C from A are routed through the tunnel.
+4) Node B has 3.4.0-rc2 based kernel. A and C - rhel6 kernel.
 
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+So, I login to C from A by ssh, run "vmstat 1" and then cut off (^C) the tunnel 
+between A and B. Connection hanged. No panic or oops occurred.
 
-diff --git a/man/man8/ip-link.8 b/man/man8/ip-link.8
-index 72f4cfd..24d2ec7 100644
---- a/man/man8/ip-link.8
-+++ b/man/man8/ip-link.8
-@@ -23,7 +23,9 @@ ip-link \- network device configuration
- \fB\-o\fR[\fIneline\fR] }
- 
- .ti -8
--.BI "ip link add link " DEVICE
-+.BI "ip link add"
-+.RB "[ " link
-+.IR DEVICE " ]"
- .RB "[ " name " ]"
- .I NAME
- .br
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index c4fa8c1..9386cc6 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -23,7 +23,9 @@ ip-link \- network device configuration
- \fB\-o\fR[\fIneline\fR] }
- 
- .ti -8
--.BI "ip link add link " DEVICE
-+.BI "ip link add"
-+.RB "[ " link
-+.IR DEVICE " ]"
- .RB "[ " name " ]"
- .I NAME
- .br
+Is it the same you've done when panic occurred?
+Or I'm doing something wrong?
+
+> Simon-
+
+
+-- 
+Best regards,
+Stanislav Kinsbursky
