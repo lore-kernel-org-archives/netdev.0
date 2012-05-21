@@ -1,37 +1,383 @@
-From: Gustavo Padovan <gustavo@padovan.org>
-Subject: Re: [RFC/PATCH] Bluetooth: prevent double l2cap_chan_destroy
-Date: Mon, 21 May 2012 13:21:37 -0300
-Message-ID: <20120521162137.GE16942@joana>
-References: <4FB992C8.8090105@samsung.com>
+From: Horia Geanta <horia.geanta@freescale.com>
+Subject: [RFC/PATCH] crypto: talitos - replace the tasklet implementation with NAPI
+Date: Mon, 21 May 2012 19:53:35 +0300
+Message-ID: <1337619215-23064-1-git-send-email-horia.geanta@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
 	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Minho Ban <mhban@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:40186 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628Ab2EUQVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2012 12:21:45 -0400
-Content-Disposition: inline
-In-Reply-To: <4FB992C8.8090105@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Kim Phillips <kim.phillips@freescale.com>,
+	Sandeep Malik <Sandeep.Malik@freescale.com>
+To: <linux-crypto@vger.kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Minho,
+Hi,
 
-* Minho Ban <mhban@samsung.com> [2012-05-21 09:56:40 +0900]:
+During performance measurements & optimization phase, we found out that we get
+better numbers (in the range of 9-10%) by using the NAPI approach for the
+crypto engine interrupt mechanism instead of tasklet.
+We found out that for the tasklet-based interrupt mechanism, we were facing
+imbalanced processing - NET RX softirq was running more frequently than the
+crypto tasklet.
 
-> l2cap_sock_kill can be called in l2cap_sock_release and l2cap_sock_close_cb
-> either. This lead l2cap_chan_destroy to be called twice for same channel.
-> To prevent double list_del and double chan_put, chan_destroy should be protected
-> with chan->refcnt and chan_list_lock so that reentrance could be forbidden.
+The patch replaces the tasklet-based implementation with NAPI. It is based on
+latest crypto-2.6 tree.
 
-Even if l2cap_sock_kill() is called twice it will call l2cap_chan_destroy()
-only once. If this is not happening we just have a broken piece of code
-somewhere else and not here.
+I am aware of the fact that using NAPI for anything else than net devices might
+be frowned upon, that's why I am adding the netdev folks to comment, advise.
 
-	Gustavo
+Thanks,
+Horia
+
+
+>From 30f6247fa5ada7e53523492ca4e70b61e3f5aeeb Mon Sep 17 00:00:00 2001
+From: Horia Geanta <horia.geanta@freescale.com>
+Date: Wed, 2 May 2012 18:40:03 +0300
+Subject: [RFC/PATCH] crypto: talitos - replace the tasklet implementation with NAPI
+
+This patch updates the current tasklet implement to NAPI so as
+the system is more balanced in the terms that the packet submission
+and the packet forwarding after being processed can be done at
+the same priority.
+
+Signed-off-by: Sandeep Malik <Sandeep.Malik@freescale.com>
+Signed-off-by: Horia Geanta <horia.geanta@freescale.com>
+---
+ drivers/crypto/Kconfig   |    2 +-
+ drivers/crypto/talitos.c |  148 +++++++++++++++++++++++++++++++++-------------
+ drivers/crypto/talitos.h |    4 +-
+ 3 files changed, 110 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/crypto/Kconfig b/drivers/crypto/Kconfig
+index ab9abb4..934fa57 100644
+--- a/drivers/crypto/Kconfig
++++ b/drivers/crypto/Kconfig
+@@ -209,7 +209,7 @@ config CRYPTO_DEV_TALITOS
+ 	select CRYPTO_ALGAPI
+ 	select CRYPTO_AUTHENC
+ 	select HW_RANDOM
+-	depends on FSL_SOC
++	depends on FSL_SOC && NET
+ 	help
+ 	  Say 'Y' here to use the Freescale Security Engine (SEC)
+ 	  to offload cryptographic algorithm computation.
+diff --git a/drivers/crypto/talitos.c b/drivers/crypto/talitos.c
+index 921039e..817f74c 100644
+--- a/drivers/crypto/talitos.c
++++ b/drivers/crypto/talitos.c
+@@ -1,7 +1,7 @@
+ /*
+  * talitos - Freescale Integrated Security Engine (SEC) device driver
+  *
+- * Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
++ * Copyright (c) 2008-2012 Freescale Semiconductor, Inc.
+  *
+  * Scatterlist Crypto API glue code copied from files with the following:
+  * Copyright (c) 2006-2007 Herbert Xu <herbert@gondor.apana.org.au>
+@@ -37,6 +37,7 @@
+ #include <linux/io.h>
+ #include <linux/spinlock.h>
+ #include <linux/rtnetlink.h>
++#include <linux/netdevice.h>
+ #include <linux/slab.h>
+ 
+ #include <crypto/algapi.h>
+@@ -121,6 +122,7 @@ struct talitos_channel {
+ struct talitos_private {
+ 	struct device *dev;
+ 	struct platform_device *ofdev;
++	struct net_device __percpu *netdev;
+ 	void __iomem *reg;
+ 	int irq[2];
+ 
+@@ -148,8 +150,8 @@ struct talitos_private {
+ 	/* next channel to be assigned next incoming descriptor */
+ 	atomic_t last_chan ____cacheline_aligned;
+ 
+-	/* request callback tasklet */
+-	struct tasklet_struct done_task[2];
++	/* request callback napi */
++	struct napi_struct __percpu *done_task[2];
+ 
+ 	/* list of registered algorithms */
+ 	struct list_head alg_list;
+@@ -352,17 +354,18 @@ static int talitos_submit(struct device *dev, int ch, struct talitos_desc *desc,
+ /*
+  * process what was done, notify callback of error if not
+  */
+-static void flush_channel(struct device *dev, int ch, int error, int reset_ch)
++static int flush_channel(struct device *dev, int ch, int error, int reset_ch,
++			 int weight)
+ {
+ 	struct talitos_private *priv = dev_get_drvdata(dev);
+ 	struct talitos_request *request, saved_req;
+ 	unsigned long flags;
+-	int tail, status;
++	int tail, status, count = 0;
+ 
+ 	spin_lock_irqsave(&priv->chan[ch].tail_lock, flags);
+ 
+ 	tail = priv->chan[ch].tail;
+-	while (priv->chan[ch].fifo[tail].desc) {
++	while (priv->chan[ch].fifo[tail].desc && (count < weight)) {
+ 		request = &priv->chan[ch].fifo[tail];
+ 
+ 		/* descriptors with their done bits set don't get the error */
+@@ -399,46 +402,57 @@ static void flush_channel(struct device *dev, int ch, int error, int reset_ch)
+ 				   status);
+ 		/* channel may resume processing in single desc error case */
+ 		if (error && !reset_ch && status == error)
+-			return;
++			return 0;
++		count++;
+ 		spin_lock_irqsave(&priv->chan[ch].tail_lock, flags);
+ 		tail = priv->chan[ch].tail;
+ 	}
+ 
+ 	spin_unlock_irqrestore(&priv->chan[ch].tail_lock, flags);
++
++	return count;
+ }
+ 
+ /*
+  * process completed requests for channels that have done status
+  */
+-#define DEF_TALITOS_DONE(name, ch_done_mask)				\
+-static void talitos_done_##name(unsigned long data)			\
++#define DEF_TALITOS_DONE(name, ch_done_mask, num_ch)			\
++static int talitos_done_##name(struct napi_struct *napi, int budget)	\
+ {									\
+-	struct device *dev = (struct device *)data;			\
++	struct device *dev = &napi->dev->dev;				\
+ 	struct talitos_private *priv = dev_get_drvdata(dev);		\
++	int budget_per_ch = budget / num_ch, work_done = 0;		\
+ 	unsigned long flags;						\
+ 									\
+ 	if (ch_done_mask & 1)						\
+-		flush_channel(dev, 0, 0, 0);				\
++		work_done += flush_channel(dev, 0, 0, 0, budget_per_ch);\
+ 	if (priv->num_channels == 1)					\
+ 		goto out;						\
+ 	if (ch_done_mask & (1 << 2))					\
+-		flush_channel(dev, 1, 0, 0);				\
++		work_done += flush_channel(dev, 1, 0, 0, budget_per_ch);\
+ 	if (ch_done_mask & (1 << 4))					\
+-		flush_channel(dev, 2, 0, 0);				\
++		work_done += flush_channel(dev, 2, 0, 0, budget_per_ch);\
+ 	if (ch_done_mask & (1 << 6))					\
+-		flush_channel(dev, 3, 0, 0);				\
++		work_done += flush_channel(dev, 3, 0, 0, budget_per_ch);\
+ 									\
+ out:									\
+-	/* At this point, all completed channels have been processed */	\
+-	/* Unmask done interrupts for channels completed later on. */	\
+-	spin_lock_irqsave(&priv->reg_lock, flags);			\
+-	setbits32(priv->reg + TALITOS_IMR, ch_done_mask);		\
+-	setbits32(priv->reg + TALITOS_IMR_LO, TALITOS_IMR_LO_INIT);	\
+-	spin_unlock_irqrestore(&priv->reg_lock, flags);			\
++	if (work_done < budget) {					\
++		napi_complete(napi);					\
++		/* At this point, all completed channels have been */	\
++		/* processed. Unmask done interrupts for channels */	\
++		/* completed later on. */				\
++		spin_lock_irqsave(&priv->reg_lock, flags);		\
++		setbits32(priv->reg + TALITOS_IMR, ch_done_mask);	\
++		setbits32(priv->reg + TALITOS_IMR_LO,			\
++			  TALITOS_IMR_LO_INIT);				\
++		spin_unlock_irqrestore(&priv->reg_lock, flags);		\
++	}								\
++									\
++	return work_done;						\
+ }
+-DEF_TALITOS_DONE(4ch, TALITOS_ISR_4CHDONE)
+-DEF_TALITOS_DONE(ch0_2, TALITOS_ISR_CH_0_2_DONE)
+-DEF_TALITOS_DONE(ch1_3, TALITOS_ISR_CH_1_3_DONE)
++DEF_TALITOS_DONE(4ch, TALITOS_ISR_4CHDONE, 4)
++DEF_TALITOS_DONE(ch0_2, TALITOS_ISR_CH_0_2_DONE, 2)
++DEF_TALITOS_DONE(ch1_3, TALITOS_ISR_CH_1_3_DONE, 2)
+ 
+ /*
+  * locate current (offending) descriptor
+@@ -588,7 +602,7 @@ static void talitos_error(struct device *dev, u32 isr, u32 isr_lo)
+ 		if (v_lo & TALITOS_CCPSR_LO_SRL)
+ 			dev_err(dev, "scatter return/length error\n");
+ 
+-		flush_channel(dev, ch, error, reset_ch);
++		flush_channel(dev, ch, error, reset_ch, priv->fifo_len);
+ 
+ 		if (reset_ch) {
+ 			reset_channel(dev, ch);
+@@ -612,14 +626,14 @@ static void talitos_error(struct device *dev, u32 isr, u32 isr_lo)
+ 
+ 		/* purge request queues */
+ 		for (ch = 0; ch < priv->num_channels; ch++)
+-			flush_channel(dev, ch, -EIO, 1);
++			flush_channel(dev, ch, -EIO, 1, priv->fifo_len);
+ 
+ 		/* reset and reinitialize the device */
+ 		init_device(dev);
+ 	}
+ }
+ 
+-#define DEF_TALITOS_INTERRUPT(name, ch_done_mask, ch_err_mask, tlet)	       \
++#define DEF_TALITOS_INTERRUPT(name, ch_done_mask, ch_err_mask, sirq)	       \
+ static irqreturn_t talitos_interrupt_##name(int irq, void *data)	       \
+ {									       \
+ 	struct device *dev = data;					       \
+@@ -643,7 +657,8 @@ static irqreturn_t talitos_interrupt_##name(int irq, void *data)	       \
+ 			/* mask further done interrupts. */		       \
+ 			clrbits32(priv->reg + TALITOS_IMR, ch_done_mask);      \
+ 			/* done_task will unmask done interrupts at exit */    \
+-			tasklet_schedule(&priv->done_task[tlet]);	       \
++			napi_schedule(per_cpu_ptr(priv->done_task[sirq],       \
++						  smp_processor_id()));	       \
+ 		}							       \
+ 		spin_unlock_irqrestore(&priv->reg_lock, flags);		       \
+ 	}								       \
+@@ -2567,7 +2582,7 @@ static int talitos_remove(struct platform_device *ofdev)
+ 	struct device *dev = &ofdev->dev;
+ 	struct talitos_private *priv = dev_get_drvdata(dev);
+ 	struct talitos_crypto_alg *t_alg, *n;
+-	int i;
++	int i, j;
+ 
+ 	list_for_each_entry_safe(t_alg, n, &priv->alg_list, entry) {
+ 		switch (t_alg->algt.type) {
+@@ -2586,25 +2601,32 @@ static int talitos_remove(struct platform_device *ofdev)
+ 	if (hw_supports(dev, DESC_HDR_SEL0_RNG))
+ 		talitos_unregister_rng(dev);
+ 
+-	for (i = 0; i < priv->num_channels; i++)
+-		kfree(priv->chan[i].fifo);
+-
+-	kfree(priv->chan);
+-
+ 	for (i = 0; i < 2; i++)
+ 		if (priv->irq[i]) {
+ 			free_irq(priv->irq[i], dev);
+ 			irq_dispose_mapping(priv->irq[i]);
++
++			for_each_possible_cpu(j) {
++				napi_disable(per_cpu_ptr(priv->done_task[i],
++							 j));
++				netif_napi_del(per_cpu_ptr(priv->done_task[i],
++							   j));
++			}
++
++			free_percpu(priv->done_task[i]);
+ 		}
+ 
+-	tasklet_kill(&priv->done_task[0]);
+-	if (priv->irq[1])
+-		tasklet_kill(&priv->done_task[1]);
++	for (i = 0; i < priv->num_channels; i++)
++		kfree(priv->chan[i].fifo);
++
++	kfree(priv->chan);
+ 
+ 	iounmap(priv->reg);
+ 
+ 	dev_set_drvdata(dev, NULL);
+ 
++	free_percpu(priv->netdev);
++
+ 	kfree(priv);
+ 
+ 	return 0;
+@@ -2730,21 +2752,63 @@ static int talitos_probe(struct platform_device *ofdev)
+ 	dev_set_drvdata(dev, priv);
+ 
+ 	priv->ofdev = ofdev;
++	priv->dev = dev;
+ 
+ 	spin_lock_init(&priv->reg_lock);
+ 
++	priv->netdev = alloc_percpu(struct net_device);
++	if (!priv->netdev) {
++		dev_err(dev, "failed to allocate netdevice\n");
++		err = -ENOMEM;
++		goto err_out;
++	}
++
++	for_each_possible_cpu(i) {
++		err = init_dummy_netdev(per_cpu_ptr(priv->netdev, i));
++		if (err) {
++			dev_err(dev, "failed to initialize dummy netdevice\n");
++			goto err_out;
++		}
++		(per_cpu_ptr(priv->netdev, i))->dev = *dev;
++	}
++
+ 	err = talitos_probe_irq(ofdev);
+ 	if (err)
+ 		goto err_out;
+ 
++	priv->done_task[0] = alloc_percpu(struct napi_struct);
++	if (!priv->done_task[0]) {
++		dev_err(dev, "failed to allocate napi for 1st irq\n");
++		err = -ENOMEM;
++		goto err_out;
++	}
++
+ 	if (!priv->irq[1]) {
+-		tasklet_init(&priv->done_task[0], talitos_done_4ch,
+-			     (unsigned long)dev);
++		for_each_possible_cpu(i) {
++			netif_napi_add(per_cpu_ptr(priv->netdev, i),
++				       per_cpu_ptr(priv->done_task[0], i),
++					talitos_done_4ch, TALITOS_NAPI_WEIGHT);
++			napi_enable(per_cpu_ptr(priv->done_task[0], i));
++		}
+ 	} else {
+-		tasklet_init(&priv->done_task[0], talitos_done_ch0_2,
+-			     (unsigned long)dev);
+-		tasklet_init(&priv->done_task[1], talitos_done_ch1_3,
+-			     (unsigned long)dev);
++		priv->done_task[1] = alloc_percpu(struct napi_struct);
++		if (!priv->done_task[1]) {
++			dev_err(dev, "failed to allocate napi for 2nd irq\n");
++			err = -ENOMEM;
++			goto err_out;
++		}
++
++		for_each_possible_cpu(i) {
++			netif_napi_add(per_cpu_ptr(priv->netdev, i),
++				       per_cpu_ptr(priv->done_task[0], i),
++				       talitos_done_ch0_2, TALITOS_NAPI_WEIGHT);
++			napi_enable(per_cpu_ptr(priv->done_task[0], i));
++
++			netif_napi_add(per_cpu_ptr(priv->netdev, i),
++				       per_cpu_ptr(priv->done_task[1], i),
++				       talitos_done_ch1_3, TALITOS_NAPI_WEIGHT);
++			napi_enable(per_cpu_ptr(priv->done_task[1], i));
++		}
+ 	}
+ 
+ 	INIT_LIST_HEAD(&priv->alg_list);
+diff --git a/drivers/crypto/talitos.h b/drivers/crypto/talitos.h
+index 3c17395..3fe0e36 100644
+--- a/drivers/crypto/talitos.h
++++ b/drivers/crypto/talitos.h
+@@ -1,7 +1,7 @@
+ /*
+  * Freescale SEC (talitos) device register and descriptor header defines
+  *
+- * Copyright (c) 2006-2011 Freescale Semiconductor, Inc.
++ * Copyright (c) 2006-2012 Freescale Semiconductor, Inc.
+  *
+  * Redistribution and use in source and binary forms, with or without
+  * modification, are permitted provided that the following conditions
+@@ -28,6 +28,8 @@
+  *
+  */
+ 
++#define TALITOS_NAPI_WEIGHT	22
++
+ /*
+  * TALITOS_xxx_LO addresses point to the low data bits (32-63) of the register
+  */
+-- 
+1.7.3.4
