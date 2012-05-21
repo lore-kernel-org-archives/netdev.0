@@ -1,77 +1,118 @@
-From: Minho Ban <mhban@samsung.com>
-Subject: [PATCH] Bluetooth: Fix null pointer dereference in l2cap_chan_send
-Date: Mon, 21 May 2012 09:58:19 +0900
-Message-ID: <4FB9932B.9070101@samsung.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the  tree
+Date: Mon, 21 May 2012 12:27:38 +1000
+Message-ID: <20120521122738.6efeece76ae43e7948a12d04@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Gustavo Padovan <gustavo@padovan.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:63511 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753460Ab2EUA6V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 May 2012 20:58:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__21_May_2012_12_27_38_+1000_Rb256l.qXR3KiJys"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Parav Pandit <parav.pandit@emulex.com>,
+	Roland Dreier <roland@kernel.org>, linux-rdma@vger.kernel.org,
+	Somnath Kotur <somnath.kotur@emulex.com>,
+	Somnath Kotur <somnath.kotur@emulex.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If l2cap_chan_send is called will null conn it will cause kernel Oops.
-This patch checks if conn is valid before entering l2cap_chan_send.
+--Signature=_Mon__21_May_2012_12_27_38_+1000_Rb256l.qXR3KiJys
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-2871 [  177.271861] Unable to handle kernel NULL pointer dereference at virtual address 00000010
-2872 [  177.271867] pgd = eadc0000
-2873 [  177.271870] [00000010] *pgd=6ad03831, *pte=00000000, *ppte=00000000
-2874 [  177.271884] Internal error: Oops: 17 [#1] PREEMPT SMP
-2875 [  177.271891] Modules linked in:
-2876 [  177.271900] CPU: 3    Not tainted  (3.0.15-00019-g097836e #36)
-2877 [  177.271925] PC is at l2cap_chan_send+0x8c/0x6f8
-2878 [  177.271933] LR is at 0xc089d59c
-2879 [  177.271940] pc : [<c0531514>]    lr : [<c089d59c>]    psr: 80000013
-2880 [  177.271943] sp : ddda1d50  ip : 0000035c  fp : ddda1dac
-2881 [  177.271948] r10: 0000035c  r9 : 00000000  r8 : ddda1f3c
-2882 [  177.271954] r7 : ed67ec00  r6 : 00000006  r5 : ed67ec00  r4 : 00000003
-2883 [  177.271959] r3 : ddda1d7c  r2 : 0000035c  r1 : 00000000  r0 : ed67ec00
-2884 [  177.271967] Flags: Nzcv  IRQs on  FIQs on  Mode SVC_32 ISA ARM  Segment user
-2885 [  177.271973] Control: 10c5387d  Table: 6adc004a  DAC: 00000015
-~~~ snip ~~~~~
-3000 [  177.272989] Backtrace:
-3001 [  177.273001] [<c0531488>] (l2cap_chan_send+0x0/0x6f8) from [<c053700c>] (l2cap_sock_sendmsg+0xc0/0x15c)
-3002 [  177.273023] [<c0536f4c>] (l2cap_sock_sendmsg+0x0/0x15c) from [<c0458afc>] (sock_sendmsg+0xcc/0xd4)
-3003 [  177.273035] [<c0458a30>] (sock_sendmsg+0x0/0xd4) from [<c0459558>] (sys_sendto+0xb8/0xdc)
-3004 [  177.273041]  r9:ddda0000 r8:00004040 r7:00000000 r6:ebdf9d40 r5:0004fb00
-3005 [  177.273050] r4:0000035c
-3006 [  177.273059] [<c04594a0>] (sys_sendto+0x0/0xdc) from [<c045959c>] (sys_send+0x20/0x28)
-3007 [  177.273077] [<c045957c>] (sys_send+0x0/0x28) from [<c00431c0>] (ret_fast_syscall+0x0/0x30)
-3008 [  177.273087] Code: e5901004 e24b3030 e51ba050 e590e21c (e5914010)
-3009 [  177.273096] ---[ end trace 29a418305c9cffba ]---
+Hi all,
 
-Signed-off-by: Minho Ban <mhban@samsung.com>
----
- net/bluetooth/l2cap_sock.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/emulex/benet/be.h between commit c72adfd767af
+("be2net: Add functionality to support RoCE driver") from the infiniband
+tree and commit 941a77d582c8 ("be2net: Fix to allow get/set of debug
+levels in the firmware") from the net-next tree.
 
-diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-index 3bb1611..98d4541 100644
---- a/net/bluetooth/l2cap_sock.c
-+++ b/net/bluetooth/l2cap_sock.c
-@@ -727,10 +727,12 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb, struct socket *sock, struct ms
- 	if (msg->msg_flags & MSG_OOB)
- 		return -EOPNOTSUPP;
- 
--	if (sk->sk_state != BT_CONNECTED)
-+	l2cap_chan_lock(chan);
-+	if (sk->sk_state != BT_CONNECTED || !chan->conn) {
-+		l2cap_chan_unlock(chan);
- 		return -ENOTCONN;
-+	}
- 
--	l2cap_chan_lock(chan);
- 	err = l2cap_chan_send(chan, msg, len, sk->sk_priority);
- 	l2cap_chan_unlock(chan);
- 
--- 
-1.7.5.4
+Just context changes.  I fixed it up (see below) and carry the fix as
+necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/ethernet/emulex/benet/be.h
+index 7bb2e97,ff4eb8f..0000000
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@@ -32,9 -32,8 +32,9 @@@
+  #include <linux/u64_stats_sync.h>
+ =20
+  #include "be_hw.h"
+ +#include "be_roce.h"
+ =20
+- #define DRV_VER			"4.2.116u"
++ #define DRV_VER			"4.2.220u"
+  #define DRV_NAME		"be2net"
+  #define BE_NAME			"ServerEngines BladeEngine2 10Gbps NIC"
+  #define BE3_NAME		"ServerEngines BladeEngine3 10Gbps NIC"
+@@@ -379,22 -404,7 +406,18 @@@ struct be_adapter=20
+  	u32 rx_fc;		/* Rx flow control */
+  	u32 tx_fc;		/* Tx flow control */
+  	bool stats_cmd_sent;
+- 	int link_speed;
+- 	u8 port_type;
+- 	u8 transceiver;
+- 	u8 autoneg;
+  	u8 generation;		/* BladeEngine ASIC generation */
+ +	u32 if_type;
+ +	struct {
+ +		u8 __iomem *base;	/* Door Bell */
+ +		u32 size;
+ +		u32 total_size;
+ +		u64 io_addr;
+ +	} roce_db;
+ +	u32 num_msix_roce_vec;
+ +	struct ocrdma_dev *ocrdma_dev;
+ +	struct list_head entry;
+ +
+  	u32 flash_status;
+  	struct completion flash_compl;
+ =20
+@@@ -606,17 -603,7 +626,19 @@@ extern void be_link_status_update(struc
+  extern void be_parse_stats(struct be_adapter *adapter);
+  extern int be_load_fw(struct be_adapter *adapter, u8 *func);
+  extern bool be_is_wol_supported(struct be_adapter *adapter);
++ extern bool be_pause_supported(struct be_adapter *adapter);
++ extern u32 be_get_fw_log_level(struct be_adapter *adapter);
+ =20
+ +/*
+ + * internal function to initialize-cleanup roce device.
+ + */
+ +extern void be_roce_dev_add(struct be_adapter *);
+ +extern void be_roce_dev_remove(struct be_adapter *);
+ +
+ +/*
+ + * internal function to open-close roce device during ifup-ifdown.
+ + */
+ +extern void be_roce_dev_open(struct be_adapter *);
+ +extern void be_roce_dev_close(struct be_adapter *);
+ +
+  #endif				/* BE_H */
+
+--Signature=_Mon__21_May_2012_12_27_38_+1000_Rb256l.qXR3KiJys
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJPuagaAAoJEECxmPOUX5FEKz0P/0Uxpxw019qrDslPLhaACCMq
+kVaH34tV1DtEPVEna3TzYmqqcVC1aIAshWWDDVDoeTDVolrKtDTzUTGdevZabSCs
+l5UpE01ddktmGfQEikbRLE7327t3sloi6wOI4ESgD6lHlxEpQ9o22Ef7ZxvM3jxf
+G3vBMXIZX/4pKvqlKnWJixInclyLdS6GnPtECUBA3CCClXPl7cxaEUhnU4ITCNGT
+qlWlA3Ffnb2WinFTPDnXW+9CUl9iOxU5YfVV1HZcGZPr6GwIfdYSEqnDAoq1ibnp
+E883+DCNPOfE2AF7+QcvgyxkhFviFUBB1XyUJyiMEviQ4Hc+fxD7uZSKlLn/imN/
+/zK0omFiAMwyHVpCDb771XEpH+ICb9FG1+LyCiyyWDyHW9YJuS0zkI2HThU1P+7Z
+TMBsx6OOY6eHEkupsM0O8YRBp9ExAF6cvSwOUS6k/y+dSK/liikYg7RV5bYwbrMM
+EeIIzkNrozmVC6wud9i3oSib9u4qzSgtE9ywjMrwVUytfZLKxi5eLzTtzawBVfl2
+DkEy+NYPxKiEuCJ1w4ZAmJyQRPH8PYfJ1nqNE0cbQAC1yFb3uaL3k32M1OLK/21h
+l1JfNmhf/yEahdHRzHWuHKVj6lf3g5e9aSrSQsTDxHxVzEayS/GmE5n9OR0lfiuZ
+6wy3QlAMA9/EaU8qhCXd
+=nvHC
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__21_May_2012_12_27_38_+1000_Rb256l.qXR3KiJys--
