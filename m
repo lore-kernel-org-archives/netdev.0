@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: drop NET dependency from HAVE_BPF_JIT
-Date: Mon, 21 May 2012 15:48:52 -0400 (EDT)
-Message-ID: <20120521.154852.2281965083131461050.davem@davemloft.net>
-References: <CA+55aFy4He9X6wQjATaJukzH1FkyhGqnmC4kb+azKuMmjPGbmg@mail.gmail.com>
-	<20120521185202.GA6486@merkur.ravnborg.org>
-	<CA+55aFwo6XusR8pNY+dp_5uFNqCxZjeWWL6h+V=PFqT884Qc_A@mail.gmail.com>
+Subject: [README] net-next has been merged
+Date: Mon, 21 May 2012 17:09:39 -0400 (EDT)
+Message-ID: <20120521.170939.1673415470771353481.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sam@ravnborg.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, sparclinux@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40604 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757069Ab2EUTs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2012 15:48:58 -0400
-In-Reply-To: <CA+55aFwo6XusR8pNY+dp_5uFNqCxZjeWWL6h+V=PFqT884Qc_A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 21 May 2012 11:54:00 -0700
 
-> On Mon, May 21, 2012 at 11:52 AM, Sam Ravnborg <sam@ravnborg.org> wrote:
->>
->> Fix up all users to drop the dependency on NET now that
->> it is not required to supress warnings for non-NET builds.
-> 
-> Do you want me to take this directly, or will it go through the net
-> tree? I can live with it either way.
+Linus has pulled in all of the net-next changes, and I have
+subsequently fast-forwarded both 'net' and 'net-next' to
+Linus's tree.
 
-Linus, please take it directly, Sam's change looks great.
+All work at this time should be bug fixes and should be arranged
+against 'net'.  'net-next' will be frozen and untouched until
+some time after the merge window closes, and no development should
+occur against it.
+
+I am rejecting all patches in patchwork which implement new features,
+perform cleanups, or otherwise are inappropriate at this time.  You
+must resubmit them when the net-next tree opens back up.
+
+There is one exception waiting in the wings, there is one netfilter
+pull remaining from Pedro for the merge window and I told him that
+this is OK.
