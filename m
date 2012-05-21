@@ -1,71 +1,59 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
- and e1000e
-Date: Mon, 21 May 2012 12:22:46 +0300
-Message-ID: <81216fc1308752d75c739c87e88d626f@visp.net.lb>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
- <88c43001441945e1431609db252b69e7@visp.net.lb>
- <df211722d18136698aeeda2f17b876e2@visp.net.lb>
- <d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
- <CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
- <79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
- <CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
- <4775d023592b876909aceb152f94aa01@visp.net.lb>
- <1337540825.3361.0.camel@edumazet-glaptop>
- <ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
- <1337572583.3361.8.camel@edumazet-glaptop>
- <6d7500e1c3b4b191c0b5a11003b161d6@visp.net.lb>
- <1337589005.3361.19.camel@edumazet-glaptop>
- <1337589620.3361.23.camel@edumazet-glaptop>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: Bug#673171: [PATCH] iproute2: trivial fix of ip link syntax in
+	manpage
+Date: Mon, 21 May 2012 13:58:50 +0200
+Message-ID: <20120521115850.GA19151@amd64.fatal.se>
+Reply-To: Andreas Henriksson <andreas@fatal.se>, 673171@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, <netdev@vger.kernel.org>,
-	<e1000-devel@lists.sourceforge.net>, <jeffrey.t.kirsher@intel.com>,
-	<jesse.brandeburg@intel.com>, <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:51316 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932225Ab2EUJW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2012 05:22:58 -0400
-In-Reply-To: <1337589620.3361.23.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: 673171@bugs.debian.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.673171.B673171.133760139124143@bugs.debian.org>
+Content-Disposition: inline
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+List-Id: netdev.vger.kernel.org
 
-On 2012-05-21 11:40, Eric Dumazet wrote:
-> On Mon, 2012-05-21 at 10:30 +0200, Eric Dumazet wrote:
->> On Mon, 2012-05-21 at 11:06 +0300, Denys Fedoryshchenko wrote:
->>
->> > Not sure it is a lot of time, after all it is 2 x core quad 
->> machine,
->> > should be enough fast for pings.
->> > It will cause stalls on small packets even more seems.
->> >
->> > Tested latest git, net-next, still the same, stalls.
->> > hardware latency detector are silent by the way, so there is no
->> > significant SMI.
->> >
->>
->> I am trying to reproduce your problem here with no luck yet.
->>
->> I wonder of softirq are correctly scheduled on your machine
->>
+Ivan Vilata i Balaguer <ivan@selidor.net> wrote:
+> Hi, I found that the description of the `ip link add` command in the manpage
+> is outdated regarding the compulsory `link DEVICE` option.  For instance, `ip
+> link help` says:
 >
-> By the way, fact you have 8 cpus is irrelevant.
+>     Usage: ip link add [link DEV] [ name ] NAME
+>     ...
 >
-> Only one cpu has queued the NET_TX_SOFTIRQ softirq (serviced by
-> net_tx_action())
+> But the manpage still says:
 >
+>     ip link add link DEVICE [ name ] NAME
 >
-> If this cpu is busy servicing other stuff, no other cpu will help.
->
-I'm installing now fresh and clean gentoo and tools, and will provide 
-ssh to this host.
-Probably it will help to troubleshoot the problems.
+> (Trying to provide a `link` option e.g. under an LXC container can frustrate
+> the creation of dummy devices which don't need an actual device.)
+
+The syntax of the "ip link help" output was fixed in commit
+"iproute2: Fix usage and man page for 'ip link'" (a22e92951d).
+This updates the manpage to mark "link DEVICE" as an optional
+argument there as well.
+
+http://bugs.debian.org/673171
+
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
 
 
-
----
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+diff --git a/man/man8/ip-link.8 b/man/man8/ip-link.8
+index 72f4cfd..24d2ec7 100644
+--- a/man/man8/ip-link.8
++++ b/man/man8/ip-link.8
+@@ -23,7 +23,9 @@ ip-link \- network device configuration
+ \fB\-o\fR[\fIneline\fR] }
+ 
+ .ti -8
+-.BI "ip link add link " DEVICE
++.BI "ip link add"
++.RB "[ " link
++.IR DEVICE " ]"
+ .RB "[ " name " ]"
+ .I NAME
+ .br
