@@ -1,83 +1,43 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Mon, 21 May 2012 14:05:24 +0800
-Message-ID: <4FB9DB24.2040408@redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>  <1337181027.10741.13.camel@oc3660625478.ibm.com>  <20120516151444.GC9934@redhat.com>  <1337189525.10741.24.camel@oc3660625478.ibm.com>  <4FB4677A.8020402@redhat.com>  <1337268862.10741.58.camel@oc3660625478.ibm.com>  <4FB61D57.4030103@redhat.com> <1337354974.12999.12.camel@oc3660625478.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337354974.12999.12.camel@oc3660625478.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH 1/3] TIPC: Removing EXPERIMENTAL label
+Date: Mon, 21 May 2012 01:59:12 -0400
+Message-ID: <1337579954-17161-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	ying.xue@windriver.com, erik.hugne@ericsson.com,
+	allan.stephens@windriver.com, maloy@donjonn.com,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm15.access.bullet.mail.mud.yahoo.com ([66.94.237.216]:28758
+	"HELO nm15.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751546Ab2EUGGE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2012 02:06:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2012 11:29 PM, Shirley Ma wrote:
-> On Fri, 2012-05-18 at 17:58 +0800, Jason Wang wrote:
->> On 05/17/2012 11:34 PM, Shirley Ma wrote:
->>> On Thu, 2012-05-17 at 10:50 +0800, Jason Wang wrote:
->>>> The problem is we may stop the tx queue when there no enough
->> capacity
->>>> to
->>>> place packets, at this moment  we depends on the tx interrupt to
->>>> re-enable the tx queue. So if we didn't poll the vhost during
->>>> callback,
->>>> guest may lose the tx interrupt to re-enable the tx queue which
->> could
->>>> stall the whole tx queue.
->>> VHOST_MAX_PEND should handle the capacity.
->>>
->>> Hasn't the above situation been handled in handle_tx() code?:
->>> ...
->>>                           if (unlikely(num_pends>   VHOST_MAX_PEND)) {
->>>                                   tx_poll_start(net, sock);
->>>
->> set_bit(SOCK_ASYNC_NOSPACE,&sock->flags);
->>>                                   break;
->>>                           }
->>> ...
->>>
->>> Thanks
->>> Shirley
->> It may not help in because:
->>
->> - tx polling depends on skb_orphan() which is often called by device
->> driver when it place the packet into the queue of the devices instead
->> of  when the packets were sent. So it was too early for vhost to be
->> notified.
-> Then do you think it's better to replace with vhost_poll_queue here
-> instead?
+With the latest series of patches from Paul Gortmaker and Allan
+Stephens TIPC is now functionally mature and stable enough to
+justify removal of the EXPERIMENTAL label.
 
-Just like what does this patch do - calling vhost_poll_queue() in 
-vhost_zerocopy_callback().
->> - it only works when the pending DMAs exceeds VHOST_MAX_PEND, it's
->> highly possible that guest needs to be notified when the pending
->> packets
->> isn't so much.
-> In which situation the guest needs to be notified when there is no TX
-> besides buffers run out?
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/Kconfig |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Consider guest call virtqueue_enable_cb_delayed() which means it only 
-need to be notified when 3/4 of pending buffers ( about 178 buffers 
-(256-MAX_SKB_FRAGS-2)*3/4 ) were sent by host. So vhost_net would notify 
-guest when about 60 buffers were pending. Since tx polling is only 
-enabled when pending packets exceeds VHOST_MAX_PEND 128, so tx work 
-would not be notified to run and guest would never get the interrupt it 
-expected to re-enable the queue.
-
-And just like what we've discussed, tx polling based adding and 
-signaling is too early for vhost.
->> So this piece of code may not help and could be removed and we need
->> to
->> poll the virt-queue during zerocopy callback ( through it could be
->> further optimized but may not be easy).
-> Thanks
-> Shirley
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
+index 2c5954b..fdc1625 100644
+--- a/net/tipc/Kconfig
++++ b/net/tipc/Kconfig
+@@ -3,8 +3,8 @@
+ #
+ 
+ menuconfig TIPC
+-	tristate "The TIPC Protocol (EXPERIMENTAL)"
+-	depends on INET && EXPERIMENTAL
++	tristate "The TIPC Protocol"
++	depends on INET
+ 	---help---
+ 	  The Transparent Inter Process Communication (TIPC) protocol is
+ 	  specially designed for intra cluster communication. This protocol
+-- 
+1.7.9.5
