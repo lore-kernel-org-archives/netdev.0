@@ -1,73 +1,40 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: [PATCH] xen/netback: calculate correctly the SKB slots.
-Date: Mon, 21 May 2012 13:36:33 -0400
-Message-ID: <1337621793-12486-1-git-send-email-konrad.wilk@oracle.com>
+From: Alan Cox <alan@linux.intel.com>
+Subject: Re: [PATCH net-next] drivers/net: delete old 8bit ISA 3c501 driver.
+Date: Mon, 21 May 2012 19:46:59 +0100
+Message-ID: <20120521194659.04461096@bob.linux.org.uk>
+References: <20120520164114.GD21177@windriver.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6F13@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Adnan Misherfi <adnan.misherfi@oracle.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-To: xen-devel@lists.xensource.com, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, davem@davemloft.net, linux-kernel@vger.kernel.org
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Cc: "Paul Gortmaker" <paul.gortmaker@windriver.com>,
+	"Ondrej Zary" <linux@rainbow-software.org>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: "David Laight" <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:14786 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750728Ab2EUSbr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 May 2012 14:31:47 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F13@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Adnan Misherfi <adnan.misherfi@oracle.com>
+> Probing for non-pnp ISA cards is definitely unreliable.
+> Maybe some of these drivers should need to be explicitly
+> enabled in the kernel config.
 
-A programming error cause the calculation of receive SKB slots to be
-wrong, which caused the RX ring to be erroneously declared full,
-and the receive queue to be stopped. The problem shows up when two
-guest running on the same server tries to communicates using large
-MTUs. Each guest is connected to a bridge with VLAN over bond
-interface, so traffic from one guest leaves the server on one bridge
-and comes back to the second guest on the second bridge. This can be
-reproduces using ping, and one guest as follow:
+The config is set by the distributions, not always cluefully. Non PnP
+ISA drivers won't autoload either as they have nothing to key off.
 
-- Create active-back bond (bond0)
-- Set up VLAN 5 on bond0 (bond0.5)
-- Create a bridge (br1)
-- Add bond0.5 to a bridge (br1)
-- Start a guest and connect it to br1
-- Set MTU of 9000 across the link
+> I hadn't realised how bad some of the 3cxxx cards were!
 
-Ping the guest from an external host using packet sizes of 3991, and
-4054; ping -s 3991 -c 128 "Guest-IP-Address"
+The 3c500/01 were the first PC ethernet card ever so very very old.
 
-At the beginning ping works fine, but after a while ping packets do
-not reach the guest because the RX ring becomes full, and the queue
-get stopped. Once the problem accrued, the only way to get out of it
-is to reboot the guest, or use xm network-detach/network-attach.
+> I thought the 'parallel tasking' was all about starting
+> to tx a frame while the host was still copting it to the
+> tx fifo (and rx copies before end of frame), not that
 
-ping works for packets sizes 3990,3992, and many other sizes including
-4000,5000,9000, and 1500 ..etc. MTU size of 3991,4054 are the sizes
-that quickly reproduce this problem.
+It was.
 
-Signed-off-by: Adnan Misherfi <adnan.misherfi@oracle.com>
-Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
----
- drivers/net/xen-netback/netback.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 957cf9d..e382e5b 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -212,7 +212,7 @@ unsigned int xenvif_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
- 	int i, copy_off;
- 
- 	count = DIV_ROUND_UP(
--			offset_in_page(skb->data)+skb_headlen(skb), PAGE_SIZE);
-+			offset_in_page(skb->data + skb_headlen(skb)), PAGE_SIZE);
- 
- 	copy_off = skb_headlen(skb) % PAGE_SIZE;
- 
--- 
-1.7.7.5
+Alan
