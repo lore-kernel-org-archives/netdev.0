@@ -1,55 +1,71 @@
-From: Kieran Mansley <kmansley@solarflare.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Tue, 22 May 2012 16:09:36 +0100
-Message-ID: <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>
-References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
-	 <1337093776.8512.1089.camel@edumazet-glaptop>
-	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
-	 <1337099641.8512.1102.camel@edumazet-glaptop>
-	 <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1337101280.8512.1108.camel@edumazet-glaptop>
-	 <1337272292.1681.16.camel@kjm-desktop.uk.level5networks.com>
-	 <1337272654.3403.20.camel@edumazet-glaptop>
-	 <1337674831.1698.7.camel@kjm-desktop.uk.level5networks.com>
-	 <1337678759.3361.147.camel@edumazet-glaptop>
-	 <1337679045.3361.154.camel@edumazet-glaptop>
+From: Miklos Szeredi <miklos@szeredi.hu>
+Subject: Re: tcp timestamp issues with google servers
+Date: Tue, 22 May 2012 17:25:37 +0200
+Message-ID: <87zk90s0em.fsf@tucsk.pomaz.szeredi.hu>
+References: <87r4ujno34.fsf@tucsk.pomaz.szeredi.hu>
+	<1337278363.3403.39.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:57470 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753420Ab2EVPJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 11:09:41 -0400
-In-Reply-To: <1337679045.3361.154.camel@edumazet-glaptop>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:54214 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759347Ab2EVPZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 11:25:06 -0400
+Received: by wibhj8 with SMTP id hj8so3593425wib.1
+        for <netdev@vger.kernel.org>; Tue, 22 May 2012 08:25:05 -0700 (PDT)
+In-Reply-To: <1337278363.3403.39.camel@edumazet-glaptop> (Eric Dumazet's
+	message of "Thu, 17 May 2012 20:12:43 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-22 at 11:30 +0200, Eric Dumazet wrote:
-> Also can you post a pcap capture of problematic flow ?
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-I'll email this to you directly. The capture is generated with netserver
-on the system under test, and NetPerf sending from a similar server.
-I've only included the first 1000 frames to keep the capture size down.
-There are 7 retransmissions in that capture, and the TCPBacklogDrops
-counter incremented by 7 during the test, so I'm happy to say they are
-the cause of the drops.
+> On Thu, 2012-05-17 at 11:39 +0200, Miklos Szeredi wrote:
+>> Sometimes connection to google.com, gmail.com and other google servers
+>> doesn't work or takes ages to connect.  When this hits it hits all
+>> google servers at the same time and it's persistent.  It never happens
+>> to anything other than google.  Rebooting helps.  Rarely it goes away
+>> spontaneously.
+>> 
+>> Apparently google is sometimes replying with an invalid TSecr timestamp
+>> value (smaller than the one sent in the last packet) and this confuses
+>> the Linux TCP stack which either discards the packet or sends a Reset.
+>> 
+>> Network dump attached.
+>> 
+>> I found only a couple of references to this issue:
+>> 
+>> http://gotchas.livejournal.com/3028.html
+>> 
+>> http://groups.google.com/group/comp.os.linux.networking/browse_thread/thread/29f56feded11b42a
+>> 
+>> Turning tcp timestamps fixes the issue:
+>> 
+>>   sysctl -w net.ipv4.tcp_timestamps=0
+>> 
+>> Not sure why this happens only to me and a very few others.
+>> 
+>> It appears to be an issue with google TCP stack (is it a modified
+>> stack?) but I thought about issues in my network switch (restarting it
+>> doesn't help) or something in the ISP, but those look unlikely.
+>> 
+>> Any ideas?
+>> 
+>> Thanks,
+>> Miklos
+>> 
+>> 
+>> 
+>>   1   0.000000 192.168.28.100 -> 74.125.232.226 TCP 51303 > http [SYN] Seq=0 Win=14600 Len=0 MSS=1460 SACK_PERM=1 TSV=35355050 TSER=0 WS=5
+>>   2   0.002730 74.125.232.226 -> 192.168.28.100 TCP http > 51303 [SYN, ACK] Seq=0 Ack=1 Win=14180 Len=0 MSS=1430 SACK_PERM=1 TSV=1184565067 TSER=35325344 WS=6
+>
+>
+> Do you really have 2730 usec RTT between you and this (Google ?)
+> server ?
 
-The system under test was running net-next.
+So it appears.  The IP address is certainly registered to Google.
 
-I've not tried with another NIC (e.g. tg3) but will see if I can find
-one to test.
-
-I've got a feeling that the drops might be easier to reproduce if I
-taskset the netserver process to a different package than the one that
-is handling the network interrupt for that NIC.  This fits with my
-earlier theory in that it is likely to increase the overhead of waking
-the user-level process to satisfy the read and so increase the time
-during which received packets could overflow the backlog.  Having a
-relatively aggressive sending TCP also helps, e.g. one that is
-configured to open its congestion window quickly, as this will produce
-more intensive bursts.
-
-Kieran
+Thanks,
+Miklos
