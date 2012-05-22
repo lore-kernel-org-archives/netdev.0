@@ -1,110 +1,56 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [RFC] net: skb_head_is_locked() should use skb_header_cloned()
-Date: Tue, 22 May 2012 10:23:42 -0700
-Message-ID: <4FBBCB9E.8020409@intel.com>
-References: <1337432555.7029.196.camel@edumazet-glaptop>  <20120519.183556.1085711138074171029.davem@davemloft.net>  <1337578663.3361.10.camel@edumazet-glaptop> <1337666034.3361.50.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Strange latency spikes/TX network stalls on Sun Fire
+ X4150(x86) and e1000e
+Date: Tue, 22 May 2012 19:24:57 +0200
+Message-ID: <1337707497.3361.233.camel@edumazet-glaptop>
+References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+	 <88c43001441945e1431609db252b69e7@visp.net.lb>
+	 <df211722d18136698aeeda2f17b876e2@visp.net.lb>
+	 <d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
+	 <CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
+	 <79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
+	 <CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
+	 <4775d023592b876909aceb152f94aa01@visp.net.lb>
+	 <1337540825.3361.0.camel@edumazet-glaptop>
+	 <ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
+	 <1337572583.3361.8.camel@edumazet-glaptop>
+	 <6d7500e1c3b4b191c0b5a11003b161d6@visp.net.lb>
+	 <1337589005.3361.19.camel@edumazet-glaptop>
+	 <1337589620.3361.23.camel@edumazet-glaptop>
+	 <eb8cdd693530010d6736baede0cfebd8@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:13622 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751747Ab2EVRXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 May 2012 13:23:43 -0400
-In-Reply-To: <1337666034.3361.50.camel@edumazet-glaptop>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:44853 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753979Ab2EVRZB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 13:25:01 -0400
+Received: by eeit10 with SMTP id t10so1795744eei.19
+        for <netdev@vger.kernel.org>; Tue, 22 May 2012 10:25:00 -0700 (PDT)
+In-Reply-To: <eb8cdd693530010d6736baede0cfebd8@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/21/2012 10:53 PM, Eric Dumazet wrote:
-> Hi David and Alexander
->
-> There is no hurry since net-next is closed, but I hit the following
-> problem :
->
-> When IPv6 conntracking is enabled, code from
-> net/ipv6/netfilter/nf_conntrack_reasm.c does a cloning of all skbs to
-> build a shadow.
->
-> Then we run : (skb here is the head of the 'shadow skb' )
->
-> void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
->                         struct net_device *in, struct net_device *out,
->                         int (*okfn)(struct sk_buff *))
-> {
->         struct sk_buff *s, *s2;
->
->         for (s = NFCT_FRAG6_CB(skb)->orig; s;) {
->                 nf_conntrack_put_reasm(s->nfct_reasm);
->                 nf_conntrack_get_reasm(skb);
->                 s->nfct_reasm = skb;
->
->                 s2 = s->next;
->                 s->next = NULL;
->
->                 NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, s, in, out, okfn,
->                                NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
->                 s = s2;
->         }
->         nf_conntrack_put_reasm(skb);
-> }
->
-> So when all original skbs are fed to real IPv6 reassembly code, their
-> clones are still alive and we hit the condition in skb_try_coalesce() :
->
-> if (skb_head_is_locked(from))
-> 	return false;
->
-> I was wondering if skb_head_is_locked() should be changed to :
->
-> if (!skb->head_frag || skb_header_cloned(skb))
-> 	return false;
->
-> Then we could add skb_header_release() calls on the clones of course in
-> net/ipv6/netfilter/nf_conntrack_reasm.c 
->
-> Not-Yet-Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  include/linux/skbuff.h |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 0e50171..6509ee1 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2587,7 +2587,7 @@ static inline bool skb_is_recycleable(const struct sk_buff *skb, int skb_size)
->   */
->  static inline bool skb_head_is_locked(const struct sk_buff *skb)
->  {
-> -	return !skb->head_frag || skb_cloned(skb);
-> +	return !skb->head_frag || skb_header_cloned(skb);
->  }
->  #endif	/* __KERNEL__ */
->  #endif	/* _LINUX_SKBUFF_H */
->
->
-The problem is that the whole reason for checking skb_cloned was to
-avoid reference count issues between the skb and the page.  We should
-only be using the reference count in one or the other and not both. 
-Otherwise we open up the possibility of a data corruption if someone
-misinterprets a skb_shinfo()->dataref == 1, or skb_header_cloned
-returning false when we have the buffer shared between both the sk_buff
-and a page.
+On Tue, 2012-05-22 at 20:11 +0300, Denys Fedoryshchenko wrote:
 
-The skb_header_cloned check only verifies that the portion between
-skb->head and skb->data is currently being unused by the other clones. 
-It doesn't guarantee that skb->head is not being used by any other
-sk_buff.  As such we run the same risk of messing up the dataref
-counting if we were to use it.
+> By the way, if BQL limit is going lower than MTU, is it considered as a 
+> bug?
+> If yes, i can try to upload 3.4 to some servers and add condition to 
+> WARN_ON if limit < 1500.
 
-The way I see it there are 2 solutions.  The first would be to just
-split the reference counts and make it so that calls like skb_cloned
-have to check both dataref and page count if skb->head_frag is set.  The
-second option would be to look at something like pskb_expand_head where
-we could generate a new head fragment and then memcpy the data over to
-that frag in order to "unlock" the head.
+There is no problem with BQL limit going lower than the max packet size.
 
-Thanks,
+(With TSO it can be 64K)
 
-Alex
+Remember BQL allows one packet to be sent to device, regardless of its
+size.
+
+Next packet might be blocked/stay in Qdisc
+
+If your workload is mostly idle, but sending bursts of 3 packets, then
+only one is immediately sent.
+
+Next packets shall wait the TX completion of first packet.
