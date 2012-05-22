@@ -1,71 +1,46 @@
-From: Minho Ban <mhban@samsung.com>
-Subject: Re: [RFC/PATCH] Bluetooth: prevent double l2cap_chan_destroy
-Date: Tue, 22 May 2012 11:50:29 +0900
-Message-ID: <4FBAFEF5.2000207@samsung.com>
-References: <4FB992C8.8090105@samsung.com> <20120521162137.GE16942@joana>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Network kernel panics with wireless-testing 3.4-rc7
+Date: Mon, 21 May 2012 22:39:10 -0500
+Message-ID: <4FBB0A5E.4010007@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Gustavo Padovan <gustavo@padovan.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <20120521162137.GE16942@joana>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:56206 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759467Ab2EVDjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 May 2012 23:39:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2012 01:21 AM, Gustavo Padovan wrote:
-> Hi Minho,
-> 
-> * Minho Ban <mhban@samsung.com> [2012-05-21 09:56:40 +0900]:
-> 
->> l2cap_sock_kill can be called in l2cap_sock_release and l2cap_sock_close_cb
->> either. This lead l2cap_chan_destroy to be called twice for same channel.
->> To prevent double list_del and double chan_put, chan_destroy should be protected
->> with chan->refcnt and chan_list_lock so that reentrance could be forbidden.
-> 
-> Even if l2cap_sock_kill() is called twice it will call l2cap_chan_destroy()
-> only once. If this is not happening we just have a broken piece of code
-> somewhere else and not here.
-> 
-> 	Gustavo
-> 
+I am getting kernel panics on one of my boxes from the b43legacy driver due to a 
+"Fatal exception in interrupt".
 
-Thanks for comment but I could not found any suitable code in l2cap_sock_kill that 
-can make l2cap_chan_destroy to be called just once. sock flag test is not enough to 
-do it.
+This particular one happened 50K seconds after bootup, but it has happened 
+nearly as soon as the network connection was completed. The hand-transcribed 
+traceback is as follows:
 
-I agree this path should not be the fix. Testing chan->refcnt is nonsense because 
-chan might have been freed already. So I looked for another point,
+__nefif_schedule+0x13/0xa0
+ieee80211_propagate_queue_wake+0x166/0x1c0
+__ieee80211_wake_queue+0x13b/0x2d0
+? __ieee80211_wake_queue++0xc0/0x2d0
+ieee80211_wake_queue_by_reason+0x45/0x70
+ieee80211_wake_queue+0xb/0x10
+b43legacy_dma_handle_txstatus+0x3f9/0x4b0
+? _raw_spin_unlock+0x26/0x40
+b43legacy_handle_txstatus+0x64/0x90
+b43legacy_handle_hwtxstatus+0x66/0x70
+b43legacy_dma_rx+0x354/0x610
 
-@@ -1343,10 +1343,10 @@ static void l2cap_conn_del(struct hci_conn *hcon, int err)
-                l2cap_chan_lock(chan);
- 
-                l2cap_chan_del(chan, err);
-+               chan->ops->close(chan->data);
- 
-                l2cap_chan_unlock(chan);
- 
--               chan->ops->close(chan->data);
-                l2cap_chan_put(chan);
-        }
+The offsets are for an x86_64 architecture.
 
-close callback must locate within chan_lock unless it can be scheduled to other thread 
-which may wait for chan_lock in l2cap_sock_shutdown and this lead to duplicate sock_kill.
+These crashes never happen when I use a USB device running the rtl8187 driver, 
+thus it appears to arise in b43legacy. Any suggestions on what might cause the 
+problem would be helpful. Sorry I don't have the register dumps, etc.
 
- static void l2cap_sock_kill(struct sock *sk)
- {
--       if (!sock_flag(sk, SOCK_ZAPPED) || sk->sk_socket)
-+       if (!sock_flag(sk, SOCK_ZAPPED) || sock_flag(sk, SOCK_DEAD) ||
-+                       sk->sk_socket)
-                return;
- 
-        BT_DBG("sk %p state %s", sk, state_to_string(sk->sk_state));
+The code dump at the point of the crash is as follows:
+ec 10 4c 89 65 f8 48 89 5d f0 49 89 fc <3c> 0f ba af 80 00 00 00 00
 
-Duplicate sock_kill may happen anyway, need test SOCK_DEAD if chan_destroy is already called.
-
-Regards,
-Minho Ban
+Larry
