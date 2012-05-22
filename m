@@ -1,99 +1,85 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Tue, 22 May 2012 08:55:45 -0700
-Message-ID: <1337702145.11592.3.camel@oc3660625478.ibm.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>
-	 <1337181027.10741.13.camel@oc3660625478.ibm.com>
-	 <20120516151444.GC9934@redhat.com>
-	 <1337189525.10741.24.camel@oc3660625478.ibm.com>
-	 <4FB4677A.8020402@redhat.com>
-	 <1337268862.10741.58.camel@oc3660625478.ibm.com>
-	 <4FB61D57.4030103@redhat.com>
-	 <1337354974.12999.12.camel@oc3660625478.ibm.com>
-	 <4FB9DB24.2040408@redhat.com>
-	 <1337614972.12999.56.camel@oc3660625478.ibm.com>
-	 <4FBB64F7.5090801@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
+Date: Tue, 22 May 2012 18:12:50 +0200
+Message-ID: <1337703170.3361.217.camel@edumazet-glaptop>
+References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
+	 <1337093776.8512.1089.camel@edumazet-glaptop>
+	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
+	 <1337099641.8512.1102.camel@edumazet-glaptop>
+	 <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1337101280.8512.1108.camel@edumazet-glaptop>
+	 <1337272292.1681.16.camel@kjm-desktop.uk.level5networks.com>
+	 <1337272654.3403.20.camel@edumazet-glaptop>
+	 <1337674831.1698.7.camel@kjm-desktop.uk.level5networks.com>
+	 <1337678759.3361.147.camel@edumazet-glaptop>
+	 <1337679045.3361.154.camel@edumazet-glaptop>
+	 <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FBB64F7.5090801@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Kieran Mansley <kmansley@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:58554 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754575Ab2EVQMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 12:12:55 -0400
+Received: by eeit10 with SMTP id t10so1773669eei.19
+        for <netdev@vger.kernel.org>; Tue, 22 May 2012 09:12:54 -0700 (PDT)
+In-Reply-To: <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-22 at 18:05 +0800, Jason Wang wrote:
-> On 05/21/2012 11:42 PM, Shirley Ma wrote:
-> > On Mon, 2012-05-21 at 14:05 +0800, Jason Wang wrote:
-> >>>> - tx polling depends on skb_orphan() which is often called by
-> >> device
-> >>>> driver when it place the packet into the queue of the devices
-> >> instead
-> >>>> of  when the packets were sent. So it was too early for vhost to
-> be
-> >>>> notified.
-> >>> Then do you think it's better to replace with vhost_poll_queue
-> here
-> >>> instead?
-> >> Just like what does this patch do - calling vhost_poll_queue() in
-> >> vhost_zerocopy_callback().
-> >>>> - it only works when the pending DMAs exceeds VHOST_MAX_PEND,
-> it's
-> >>>> highly possible that guest needs to be notified when the pending
-> >>>> packets
-> >>>> isn't so much.
-> >>> In which situation the guest needs to be notified when there is no
-> >> TX
-> >>> besides buffers run out?
-> >> Consider guest call virtqueue_enable_cb_delayed() which means it
-> only
-> >> need to be notified when 3/4 of pending buffers ( about 178 buffers
-> >> (256-MAX_SKB_FRAGS-2)*3/4 ) were sent by host. So vhost_net would
-> >> notify
-> >> guest when about 60 buffers were pending. Since tx polling is only
-> >> enabled when pending packets exceeds VHOST_MAX_PEND 128, so tx work
-> >> would not be notified to run and guest would never get the
-> interrupt
-> >> it
-> >> expected to re-enable the queue.
-> > So it seems we still need vhost_enable_notify() in handle_tx when
-> there
-> > is no tx in zerocopy case.
-> >
-> > Do you know which one is more expensive: the cost of
-> vhost_poll_queue()
-> > in each zerocopy callback or calling vhost_enable_notify()?
+On Tue, 2012-05-22 at 16:09 +0100, Kieran Mansley wrote:
+> On Tue, 2012-05-22 at 11:30 +0200, Eric Dumazet wrote:
+> > Also can you post a pcap capture of problematic flow ?
 > 
-> Didn't follow here, do you mean vhost_signal() here? 
+> I'll email this to you directly. The capture is generated with netserver
+> on the system under test, and NetPerf sending from a similar server.
+> I've only included the first 1000 frames to keep the capture size down.
+> There are 7 retransmissions in that capture, and the TCPBacklogDrops
+> counter incremented by 7 during the test, so I'm happy to say they are
+> the cause of the drops.
+> 
+> The system under test was running net-next.
+> 
+> I've not tried with another NIC (e.g. tg3) but will see if I can find
+> one to test.
 
-I meant removing the code in handle_tx for zerocopy as below:
+Or you could change sfc to allow its frames being coalesced.
 
-+	if (zcopy) {
-                        /* If more outstanding DMAs, queue the work.
-                         * Handle upend_idx wrap around
-                         */
-                        num_pends = likely(vq->upend_idx >= vq->done_idx) ?
-                                    (vq->upend_idx - vq->done_idx) :
-                                    (vq->upend_idx + UIO_MAXIOV - vq->done_idx);
-+			/* zerocopy vhost_enable_notify is under zerocopy callback
-+			 * since it could be too early to notify here */
-+			break;
-+	}
--                       if (unlikely(num_pends > VHOST_MAX_PEND)) {
--                                tx_poll_start(net, sock);
--                                set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
--                                break;
--                        }
-                        if (unlikely(vhost_enable_notify(&net->dev, vq))) {
-                                vhost_disable_notify(&net->dev, vq);
-                                continue;
-                        }
-                        break;
+> 
+> I've got a feeling that the drops might be easier to reproduce if I
+> taskset the netserver process to a different package than the one that
+> is handling the network interrupt for that NIC.  This fits with my
+> earlier theory in that it is likely to increase the overhead of waking
+> the user-level process to satisfy the read and so increase the time
+> during which received packets could overflow the backlog.  Having a
+> relatively aggressive sending TCP also helps, e.g. one that is
+> configured to open its congestion window quickly, as this will produce
+> more intensive bursts.
 
-Thanks
-Shirley
+__tcp_select_window() ( more precisely tcp_space() takes into account
+memory used in receive/ofo queue, but not frames in backlog queue)
+
+So if you send bursts, it might explain TCP stack continues to advertise
+a too big window, instead of anticipate the problem.
+
+Please try the following patch :
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index e79aa48..82382cb 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1042,8 +1042,9 @@ static inline int tcp_win_from_space(int space)
+ /* Note: caller must be prepared to deal with negative returns */ 
+ static inline int tcp_space(const struct sock *sk)
+ {
+-	return tcp_win_from_space(sk->sk_rcvbuf -
+-				  atomic_read(&sk->sk_rmem_alloc));
++	int used = atomic_read(&sk->sk_rmem_alloc) + sk->sk_backlog.len;
++
++	return tcp_win_from_space(sk->sk_rcvbuf - used);
+ } 
+ 
+ static inline int tcp_full_space(const struct sock *sk)
