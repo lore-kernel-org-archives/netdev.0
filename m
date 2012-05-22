@@ -1,61 +1,40 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 2/3] drivers: net: ethernet: stmmac: fix failure in module
- test
-Date: Tue, 22 May 2012 14:51:09 +0200
-Message-ID: <4FBB8BBD.8010208@st.com>
-References: <1337672336-7378-1-git-send-email-lliubbo@gmail.com> <1337672336-7378-2-git-send-email-lliubbo@gmail.com>
+From: Rob Janssen <rob.janssen76@gmail.com>
+Subject: Re: arcnet: protocol is buggy messages in 3.0 kernel, not in 2.33 kernel
+Date: Tue, 22 May 2012 15:01:22 +0200
+Message-ID: <CAJDhSdf++-CA8=+NNDu0Ah-y2quYCjSSzgbSuy+pF5xG19xDmg@mail.gmail.com>
+References: <CAJDhSdc5J1xzvxYhvru6kjqAbq1NAtvWQCu-tXbi4aE_NXGXrg@mail.gmail.com>
+	<20120503232352.GA3850@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, francesco.virlinzi@st.com,
-	rayagond@vayavyalabs.com, sr@denx.de, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: Bob Liu <lliubbo@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:41579 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754200Ab2EVMvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 08:51:54 -0400
-In-Reply-To: <1337672336-7378-2-git-send-email-lliubbo@gmail.com>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:61784 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751752Ab2EVNBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 09:01:22 -0400
+Received: by gglu4 with SMTP id u4so5318152ggl.19
+        for <netdev@vger.kernel.org>; Tue, 22 May 2012 06:01:22 -0700 (PDT)
+In-Reply-To: <20120503232352.GA3850@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/22/2012 9:38 AM, Bob Liu wrote:
-> Module can't be compiled and installed in current Makefile.
+On Fri, May 4, 2012 at 1:23 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Rob Janssen <rob.janssen76@gmail.com> :
+> [...]
+>> Does anyone have what causes this message in the 3.0 kernel and/or how
+>> to fix this ?
+>
+> Wild guess: hard_header_len is sizeof(struct archdr). archdr embeds a huge
+> ethhdr but the header build helper only accounts for ARC_HDR_SIZE +
+> RFC1201_HDR_SIZE.
+>
+> --
+> Ueimor
 
-I've just seen that I can generate the stmmac.ko on ARM and also on x86
-with my configuration.
+I solved the problem:
+The socket was opened with the wrong protocol: ETH_P_ALL instead of
+ETH_P_ARCNET.
+This causes arcnet messages to be sent to all network devices.
+I don't know why older kernel versions didn't complain..
 
-Can you post here you build failure?
-
-In the meantime I'll test the module on ARM soon.
-
-peppe
-
-> 
-> Signed-off-by: Bob Liu <lliubbo@gmail.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/Makefile |   12 ++++++------
->  1 files changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-> index bc965ac..4b50922 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-> @@ -1,10 +1,10 @@
->  obj-$(CONFIG_STMMAC_ETH) += stmmac.o
-> -stmmac-$(CONFIG_STMMAC_TIMER) += stmmac_timer.o
-> -stmmac-$(CONFIG_STMMAC_RING) += ring_mode.o
-> -stmmac-$(CONFIG_STMMAC_CHAINED) += chain_mode.o
-> -stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
-> -stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
-> +stmmac-$(CONFIG_STMMAC_TIMER:m=y) += stmmac_timer.o
-> +stmmac-$(CONFIG_STMMAC_RING:m=y) += ring_mode.o
-> +stmmac-$(CONFIG_STMMAC_CHAINED:m=y) += chain_mode.o
-> +stmmac-$(CONFIG_STMMAC_PLATFORM:m=y) += stmmac_platform.o
-> +stmmac-$(CONFIG_STMMAC_PCI:m=y) += stmmac_pci.o
->  stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o	\
->  	      dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o	\
->  	      dwmac100_core.o dwmac100_dma.o enh_desc.o  norm_desc.o \
-> -	      mmc_core.o $(stmmac-y)
-> +	      mmc_core.o
+Rob
