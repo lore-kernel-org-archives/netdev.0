@@ -1,74 +1,90 @@
-From: David Daney <david.daney@cavium.com>
-Subject: Re: [PATCH 4/5] netdev/phy: Add driver for Broadcom BCM87XX 10G Ethernet
- PHYs
-Date: Tue, 22 May 2012 11:26:56 -0700
-Message-ID: <4FBBDA70.8020307@cavium.com>
-References: <1337709592-23347-1-git-send-email-ddaney.cavm@gmail.com>	 <1337709592-23347-5-git-send-email-ddaney.cavm@gmail.com> <1337710660.3432.8.camel@joe2Laptop>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [Bug 43277] New: net/e1000e set mtu larger than 1500 fails
+Date: Tue, 22 May 2012 18:28:12 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A184188DB12A@ORSMSX102.amr.corp.intel.com>
+References: <20120522111950.4548747c@nehalam.linuxnetplumber.net>
+ <20120522112518.70294c0e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Daney <ddaney.cavm@gmail.com>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-	Fleming Andy-AFLEMING <afleming@freescale.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337710660.3432.8.camel@joe2Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	"che@chrekh.se" <che@chrekh.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:58954 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759947Ab2EVS2O convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 14:28:14 -0400
+In-Reply-To: <20120522112518.70294c0e@nehalam.linuxnetplumber.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2012 11:17 AM, Joe Perches wrote:
-> On Tue, 2012-05-22 at 10:59 -0700, David Daney wrote:
->> From: David Daney<david.daney@cavium.com>
->
-> trivia:
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Stephen Hemminger
+> Sent: Tuesday, May 22, 2012 11:25 AM
+> To: che@chrekh.se
+> Cc: netdev@vger.kernel.org; e1000-devel@lists.sf.net
+> Subject: Re: [Bug 43277] New: net/e1000e set mtu larger than 1500
+> fails
+> 
+> On Tue, 22 May 2012 11:19:50 -0700
+> Stephen Hemminger <shemminger@vyatta.com> wrote:
+> 
+> >
+> >
+> > Begin forwarded message:
+> >
+> > Date: Tue, 22 May 2012 18:13:21 +0000 (UTC)
+> > From: bugzilla-daemon@bugzilla.kernel.org
+> > To: shemminger@linux-foundation.org
+> > Subject: [Bug 43277] New: net/e1000e set mtu larger than 1500 fails
+> >
+> >
+> > https://bugzilla.kernel.org/show_bug.cgi?id=43277
+> >
+> >            Summary: net/e1000e set mtu larger than 1500 fails
+> >            Product: Networking
+> >            Version: 2.5
+> >     Kernel Version: 3.4
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: IPV4
+> >         AssignedTo: shemminger@linux-foundation.org
+> >         ReportedBy: che@chrekh.se
+> >         Regression: Yes
+> >
+> >
+> > In kernel 3.4 I can no longer use jumbo-frames with my e1000e
+> network
+> > interface.
+> >
+> >  $ sudo ip link set eth1 mtu 9000
+> >  RTNETLINK answers: Invalid argument
+> 
+> I believe the problem is detected here. Check system console log
+> (dmesg).
+> The hardware does not allow receive hashing and checksum offload
+> together
+> in Jumbo mode.
+> 
+> 	/*
+> 	 * IP payload checksum (enabled with jumbos/packet-split when
+> 	 * Rx checksum is enabled) and generation of RSS hash is
+> 	 * mutually exclusive in the hardware.
+> 	 */
+> 	if ((netdev->features & NETIF_F_RXCSUM) &&
+> 	    (netdev->features & NETIF_F_RXHASH)) {
+> 		e_err("Jumbo frames cannot be enabled when both receive
+> checksum offload and receive hashing are enabled.  Disable one of the
+> receive offload features before enabling jumbos.\n");
+> 		return -EINVAL;
+> 	}
 
-As long as we are splitting hairs...
-
->
->> diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
-> []
->> @@ -0,0 +1,237 @@
->
->> +static int bcm87xx_of_reg_init(struct phy_device *phydev)
->> +{
->> +	const __be32 *paddr;
->> +	int len, i, ret;
->> +
->> +	if (!phydev->dev.of_node)
->> +		return 0;
->> +
->> +	paddr = of_get_property(phydev->dev.of_node,
->> +				"broadcom,c45-reg-init",&len);
->> +	if (!paddr || len<  (4 * sizeof(*paddr)))
->> +		return 0;
->> +
->> +	ret = 0;
->> +	len /= sizeof(*paddr);
->> +	for (i = 0; i<  len - 3; i += 4) {
->> +		u16 devid = be32_to_cpup(paddr + i);
->> +		u16 reg = be32_to_cpup(paddr + i + 1);
->> +		u16 mask = be32_to_cpup(paddr + i + 2);
->> +		u16 val_bits = be32_to_cpup(paddr + i + 3);
->> +		int val;
->
-> These might read better as
->
-> 	len /= 4;
-
-Where did the magic value of 4 come from?
-
-> 	for (i = 0; i<  len; i++) {
-> 		u16 devid	= be32_to_cpu(*paddr++);
-> 		u16 reg		= be32_to_cpu(*paddr++);
-> 		u16 mask	= be32_to_cpu(*paddr++);
-> 		u16 val_bits	= be32_to_cpu(*paddr++);
-
-Is the main problem that they didn't align, or that the index was 
-explicit instead of implicit?
+That is correct.
