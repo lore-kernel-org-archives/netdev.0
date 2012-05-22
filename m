@@ -1,49 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tcp timestamp issues with google servers
-Date: Tue, 22 May 2012 19:53:43 +0200
-Message-ID: <1337709223.3361.281.camel@edumazet-glaptop>
-References: <87r4ujno34.fsf@tucsk.pomaz.szeredi.hu>
-	 <1337278363.3403.39.camel@edumazet-glaptop>
-	 <87zk90s0em.fsf@tucsk.pomaz.szeredi.hu>
-	 <1337701259.3361.208.camel@edumazet-glaptop>
-	 <87mx50rz34.fsf@tucsk.pomaz.szeredi.hu>
-	 <CAGK4HS9cGnOcoLAL1pggWvMG1B40rWyqc3BHsddUvnii4EvTcQ@mail.gmail.com>
-	 <1337705285.3361.229.camel@edumazet-glaptop>
-	 <CAGK4HS8b2GSub02ShhofCrYQ1XnOT7Rrjm3KcOhCFFkUF1QqBA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Miklos Szeredi <miklos@szeredi.hu>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:63215 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754038Ab2EVRxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 13:53:49 -0400
-In-Reply-To: <CAGK4HS8b2GSub02ShhofCrYQ1XnOT7Rrjm3KcOhCFFkUF1QqBA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH 2/5] netdev/phy/of: Handle IEEE802.3 clause 45 Ethernet PHYs in of_mdiobus_register()
+Date: Tue, 22 May 2012 10:59:49 -0700
+Message-ID: <1337709592-23347-3-git-send-email-ddaney.cavm@gmail.com>
+References: <1337709592-23347-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+	Andy Fleming <afleming@freescale.com>,
+	David Daney <david.daney@cavium.com>
+To: devicetree-discuss@lists.ozlabs.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1337709592-23347-1-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-05-22 at 10:38 -0700, Vijay Subramanian wrote:
-> >> Maybe tcptraceroute[1] can help you figure this out.
-> >>
-> >> [1] http://michael.toren.net/code/tcptraceroute/
-> >
-> >
-> > The transparent proxy can intercept TCP connections to port 80/443, and
-> > let ICMP being NATed by the box.
-> 
-> Just to be clear..tcptraceroute uses TCP SYN packets to trace the
-> route instead of using ICMP packets used by vanilla traceroute
-> precisely because
-> of the issue you raised.
-> The idea is that if the connection is getting terminated at a
-> middlebox, the trace will end there. Otherwise, the trace route will
-> end
-> at destination (google in this case). This avoids the problems of ICMP
-> and TCP flows being treated differently by the middlebox.
-> Is this approach workable?
+From: David Daney <david.daney@cavium.com>
 
-Yes probably, thanks for detailed description (I indeed thought it was
-traceroute)
+Define two new "compatible" values for Ethernet
+PHYs. "ethernet-phy-ieee802.3-c22" and "ethernet-phy-ieee802.3-c45"
+are used to indicate a PHY uses the corresponding protocol.
+
+If a PHY is "compatible" with "ethernet-phy-ieee802.3-c45", we
+indicate this so that get_phy_device() can properly probe the device.
+
+If get_phy_device() fails, it was probably due to failing the probe of
+the PHY identifier registers.  Since we have the device tree telling
+us the PHY exists, go ahead and add it anyhow with a phy_id of zero.
+There may be a driver match based on the "compatible" property.
+
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ Documentation/devicetree/bindings/net/phy.txt |   12 +++++++++++-
+ drivers/of/of_mdio.c                          |   14 +++++++++++---
+ 2 files changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index bb8c742..7cd18fb 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -14,10 +14,20 @@ Required properties:
+  - linux,phandle :  phandle for this node; likely referenced by an
+    ethernet controller node.
+ 
++Optional Properties:
++
++- compatible: Compatible list, may contain
++  "ethernet-phy-ieee802.3-c22" or "ethernet-phy-ieee802.3-c45" for
++  PHYs that implement IEEE802.3 clause 22 or IEEE802.3 clause 45
++  specifications. If neither of these are specified, the default is to
++  assume clause 22. The compatible list may also contain other
++  elements.
++
+ Example:
+ 
+ ethernet-phy@0 {
+-	linux,phandle = <2452000>
++	compatible = "ethernet-phy-ieee802.3-c22";
++	linux,phandle = <2452000>;
+ 	interrupt-parent = <40000>;
+ 	interrupts = <35 1>;
+ 	reg = <0>;
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 2574abd..0f08aaf 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -79,11 +79,19 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 				mdio->irq[addr] = PHY_POLL;
+ 		}
+ 
++		if (of_device_is_compatible(child,
++					    "ethernet-phy-ieee802.3-c45"))
++			addr |= MII_ADDR_C45;
++
+ 		phy = get_phy_device(mdio, addr);
+ 		if (!phy || IS_ERR(phy)) {
+-			dev_err(&mdio->dev, "error probing PHY at address %i\n",
+-				addr);
+-			continue;
++			phy = phy_device_create(mdio, addr, 0, NULL);
++			if (!phy || IS_ERR(phy)) {
++				dev_err(&mdio->dev,
++					"error creating PHY at address %i\n",
++					addr);
++				continue;
++			}
+ 		}
+ 
+ 		/* Associate the OF node with the device structure so it
+-- 
+1.7.2.3
