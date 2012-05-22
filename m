@@ -1,68 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 4/5] netdev/phy: Add driver for Broadcom BCM87XX 10G
- Ethernet PHYs
-Date: Tue, 22 May 2012 11:17:40 -0700
-Message-ID: <1337710660.3432.8.camel@joe2Laptop>
-References: <1337709592-23347-1-git-send-email-ddaney.cavm@gmail.com>
-	 <1337709592-23347-5-git-send-email-ddaney.cavm@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Fw: [Bug 43277] New: net/e1000e set mtu larger than 1500 fails
+Date: Tue, 22 May 2012 11:19:50 -0700
+Message-ID: <20120522111950.4548747c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-discuss@lists.ozlabs.org,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-	Andy Fleming <afleming@freescale.com>,
-	David Daney <david.daney@cavium.com>
-To: David Daney <ddaney.cavm@gmail.com>
+Cc: e1000-devel@lists.sf.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41760 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751928Ab2EVSRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 May 2012 14:17:44 -0400
-In-Reply-To: <1337709592-23347-5-git-send-email-ddaney.cavm@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:42061 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759437Ab2EVST4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2012 14:19:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-22 at 10:59 -0700, David Daney wrote:
-> From: David Daney <david.daney@cavium.com>
 
-trivia:
 
-> diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
-[]
-> @@ -0,0 +1,237 @@
+Begin forwarded message:
 
-> +static int bcm87xx_of_reg_init(struct phy_device *phydev)
-> +{
-> +	const __be32 *paddr;
-> +	int len, i, ret;
-> +
-> +	if (!phydev->dev.of_node)
-> +		return 0;
-> +
-> +	paddr = of_get_property(phydev->dev.of_node,
-> +				"broadcom,c45-reg-init", &len);
-> +	if (!paddr || len < (4 * sizeof(*paddr)))
-> +		return 0;
-> +
-> +	ret = 0;
-> +	len /= sizeof(*paddr);
-> +	for (i = 0; i < len - 3; i += 4) {
-> +		u16 devid = be32_to_cpup(paddr + i);
-> +		u16 reg = be32_to_cpup(paddr + i + 1);
-> +		u16 mask = be32_to_cpup(paddr + i + 2);
-> +		u16 val_bits = be32_to_cpup(paddr + i + 3);
-> +		int val;
+Date: Tue, 22 May 2012 18:13:21 +0000 (UTC)
+From: bugzilla-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 43277] New: net/e1000e set mtu larger than 1500 fails
 
-These might read better as
 
-	len /= 4;
-	for (i = 0; i < len; i++) {
-		u16 devid	= be32_to_cpu(*paddr++);
-		u16 reg		= be32_to_cpu(*paddr++);
-		u16 mask	= be32_to_cpu(*paddr++);
-		u16 val_bits	= be32_to_cpu(*paddr++);
-		...
-	}
+https://bugzilla.kernel.org/show_bug.cgi?id=43277
+
+           Summary: net/e1000e set mtu larger than 1500 fails
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.4
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: che@chrekh.se
+        Regression: Yes
+
+
+In kernel 3.4 I can no longer use jumbo-frames with my e1000e network
+interface.
+
+ $ sudo ip link set eth1 mtu 9000
+ RTNETLINK answers: Invalid argument
+
+Card-info (from kernel-log)
+
+ e1000e 0000:05:00.1: eth1: (PCI Express:2.5GT/s:Width x4) 00:1b:78:59:84:25
+ e1000e 0000:05:00.1: eth1: Intel(R) PRO/1000 Network Connection
+ e1000e 0000:05:00.1: eth1: MAC: 0, PHY: 4, PBA No: D51930-003
+
+I have bisected and found:
+
+ 70495a500d787c0c90a136acf454cb7d0eecd82e is the first bad commit
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
