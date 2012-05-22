@@ -1,33 +1,44 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Tue, 22 May 2012 18:13:26 +0800
-Message-ID: <4FBB66C6.2020701@redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>  <1337181027.10741.13.camel@oc3660625478.ibm.com>  <20120516151444.GC9934@redhat.com>  <1337189525.10741.24.camel@oc3660625478.ibm.com>  <4FB4677A.8020402@redhat.com>  <1337268862.10741.58.camel@oc3660625478.ibm.com>  <4FB61D57.4030103@redhat.com>  <1337354974.12999.12.camel@oc3660625478.ibm.com>  <4FB9DB24.2040408@redhat.com>  <1337614972.12999.56.camel@oc3660625478.ibm.com> <1337616766.12999.81.camel@oc3660625478.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337616766.12999.81.camel@oc3660625478.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH v6 0/2] fix static_key disabling problem in memcg
+Date: Tue, 22 May 2012 14:25:37 +0400
+Message-ID: <1337682339-21282-1-git-send-email-glommer@parallels.com>
+Cc: <linux-mm@kvack.org>, <cgroups@vger.kernel.org>,
+	<devel@openvz.org>, <kamezawa.hiroyu@jp.fujitsu.com>,
+	<netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
+	Li Zefan <lizefan@huawei.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:14156 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757792Ab2EVK1q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2012 06:27:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2012 12:12 AM, Shirley Ma wrote:
-> Then it could be too early for vhost to notify guest anywhere in
-> handle_tx for zerocopy. Then we might need to remove any notification in
-> handle_tx for zerocopy to vhost zerocopy callback instead.
->
-> Adding vhost_poll_queue in vhost zerocopy callback unconditionally would
-> consume unnecessary cpu.
->
-> We need to think about a better solution here.
+Andrew,
 
-A possible idea is only call vhost_poll_queue only when the packet of 
-used_event were sent: if there's no out-of-order completion vhost could 
-signal the guest; if there is, let the pending packets before used_event 
-call vhost_poll_queue.
-> Thanks
-> Shirley
+This is a respin of the last fixes I sent for sock memcg problems with
+the static_keys enablement. The first patch is still unchanged, and for
+the second, I am using a flags field as for your suggestion.
+Indeed, I found a flags field to be more elegant, while still
+maintaining a fast path for the readers.
+
+Kame, will you please take a look and see if this would work okay? 
+
+Tejun, are you happy with the current state of the comments explaining
+the scenario?
+
+Thank you very much for your time
+
+Glauber Costa (2):
+  Always free struct memcg through schedule_work()
+  decrement static keys on real destroy time
+
+ include/linux/memcontrol.h |    5 ++++
+ include/net/sock.h         |   11 +++++++++
+ mm/memcontrol.c            |   53 +++++++++++++++++++++++++++++++++----------
+ net/ipv4/tcp_memcontrol.c  |   34 ++++++++++++++++++++++-----
+ 4 files changed, 83 insertions(+), 20 deletions(-)
+
+-- 
+1.7.7.6
