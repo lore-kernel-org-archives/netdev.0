@@ -1,24 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Miklos Szeredi <miklos@szeredi.hu>
 Subject: Re: tcp timestamp issues with google servers
-Date: Tue, 22 May 2012 17:40:59 +0200
-Message-ID: <1337701259.3361.208.camel@edumazet-glaptop>
+Date: Tue, 22 May 2012 17:54:07 +0200
+Message-ID: <87mx50rz34.fsf@tucsk.pomaz.szeredi.hu>
 References: <87r4ujno34.fsf@tucsk.pomaz.szeredi.hu>
-	 <1337278363.3403.39.camel@edumazet-glaptop>
-	 <87zk90s0em.fsf@tucsk.pomaz.szeredi.hu>
+	<1337278363.3403.39.camel@edumazet-glaptop>
+	<87zk90s0em.fsf@tucsk.pomaz.szeredi.hu>
+	<1337701259.3361.208.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Miklos Szeredi <miklos@szeredi.hu>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87zk90s0em.fsf@tucsk.pomaz.szeredi.hu>
+In-Reply-To: <1337701259.3361.208.camel@edumazet-glaptop> (Eric Dumazet's
+	message of "Tue, 22 May 2012 17:40:59 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-05-22 at 17:25 +0200, Miklos Szeredi wrote:
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-> So it appears.  The IP address is certainly registered to Google.
+> On Tue, 2012-05-22 at 17:25 +0200, Miklos Szeredi wrote:
+>
+>> So it appears.  The IP address is certainly registered to Google.
+>
+> Good, but you could have a middlebox doing transparent proxying.
+>
+> The SYNACK could be send by this box.
 
-Good, but you could have a middlebox doing transparent proxying.
+Okay.  Is there a way to find out whether there is a middlebox or not?
 
-The SYNACK could be send by this box.
+Thanks,
+Miklos
