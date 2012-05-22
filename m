@@ -1,41 +1,51 @@
-From: Karsten Keil <keil@b1-systems.de>
-Subject: [PATCH] mISDN: Add X-Tensions USB ISDN TA XC-525
-Date: Tue, 22 May 2012 09:14:14 +0200
-Message-ID: <1337670854-7008-1-git-send-email-keil@b1-systems.de>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Bob Liu <lliubbo@gmail.com>
+Subject: [PATCH 3/3] drivers: net: ethernet: stmmac: fix resume function
+Date: Tue, 22 May 2012 15:38:56 +0800
+Message-ID: <1337672336-7378-3-git-send-email-lliubbo@gmail.com>
+References: <1337672336-7378-1-git-send-email-lliubbo@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <peppe.cavallaro@st.com>, <francesco.virlinzi@st.com>,
+	<rayagond@vayavyalabs.com>, <sr@denx.de>, <netdev@vger.kernel.org>,
+	<uclinux-dist-devel@blackfin.uclinux.org>,
+	Bob Liu <lliubbo@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:49598 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751647Ab2EVHZV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 03:25:21 -0400
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:6895
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755307Ab2EVHig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 03:38:36 -0400
+In-Reply-To: <1337672336-7378-1-git-send-email-lliubbo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to http://www.ip-phone-forum.de/showthread.php?t=225313 this
-HW works. Thanks to Lars Immisch for pointing to this thread.
+After wake up from mem, ping fails to work.
+This patch fix the resume function in stmmac driver.
 
-Signed-off-by: Karsten Keil <keil@b1-systems.de>
+Signed-off-by: Bob Liu <lliubbo@gmail.com>
 ---
- drivers/isdn/hardware/mISDN/hfcsusb.h |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.h b/drivers/isdn/hardware/mISDN/hfcsusb.h
-index cb1231b..4157311 100644
---- a/drivers/isdn/hardware/mISDN/hfcsusb.h
-+++ b/drivers/isdn/hardware/mISDN/hfcsusb.h
-@@ -410,6 +410,12 @@ static struct usb_device_id hfcsusb_idtab[] = {
- 			{LED_SCHEME1, {0x88, -64, -32, -16},
- 					"ZyXEL OMNI.NET USB II"}),
- 	},
-+	{
-+		USB_DEVICE(0x1ae7, 0x0525),
-+		.driver_info = (unsigned long) &((struct hfcsusb_vdata)
-+			{LED_SCHEME1, {0x88, -64, -32, -16},
-+					"X-Tensions USB ISDN TA XC-525"}),
-+	},
- 	{ }
- };
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 714faa2..22243a5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1952,6 +1952,15 @@ int stmmac_resume(struct net_device *ndev)
+ 		priv->hw->mac->pmt(priv->ioaddr, 0);
  
+ 	netif_device_attach(ndev);
++	priv->dirty_tx = 0;
++	priv->cur_tx = 0;
++	priv->cur_rx = 0;
++	priv->dirty_rx = 0;
++
++	/* DMA initialization and SW reset */
++	priv->hw->dma->init(priv->ioaddr, priv->plat->pbl,
++			priv->dma_tx_phy, priv->dma_rx_phy);
++	priv->hw->mac->core_init(priv->ioaddr);
+ 
+ 	/* Enable the MAC and DMA */
+ 	stmmac_set_mac(priv->ioaddr, true);
 -- 
-1.7.3.4
+1.7.0.4
