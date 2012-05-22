@@ -1,80 +1,68 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH] xen/netback: calculate correctly the SKB slots.
-Date: Tue, 22 May 2012 14:09:01 -0400
-Message-ID: <20120522180901.GC22488@phenom.dumpdata.com>
-References: <1337621793-12486-1-git-send-email-konrad.wilk@oracle.com>
- <1337627640.2979.33.camel@bwh-desktop.uk.solarflarecom.com>
- <1337678512.10118.40.camel@zakaz.uk.xensource.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 4/5] netdev/phy: Add driver for Broadcom BCM87XX 10G
+ Ethernet PHYs
+Date: Tue, 22 May 2012 11:17:40 -0700
+Message-ID: <1337710660.3432.8.camel@joe2Laptop>
+References: <1337709592-23347-1-git-send-email-ddaney.cavm@gmail.com>
+	 <1337709592-23347-5-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Adnan Misherfi <adnan.misherfi@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-discuss@lists.ozlabs.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+	Andy Fleming <afleming@freescale.com>,
+	David Daney <david.daney@cavium.com>
+To: David Daney <ddaney.cavm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:23485 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752125Ab2EVSPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 14:15:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1337678512.10118.40.camel@zakaz.uk.xensource.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:41760 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751928Ab2EVSRo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2012 14:17:44 -0400
+In-Reply-To: <1337709592-23347-5-git-send-email-ddaney.cavm@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > > wrong, which caused the RX ring to be erroneously declared full,
-> > > and the receive queue to be stopped. The problem shows up when two
-> > > guest running on the same server tries to communicates using large
-.. snip..
-> > The function name is xen_netbk_count_skb_slots() in net-next.  This
-> > appears to depend on the series in
-> > <http://lists.xen.org/archives/html/xen-devel/2012-01/msg00982.html>.
-> 
-> Yes, I don't think that patchset was intended for prime time just yet.
-> Can this issue be reproduced without it?
+On Tue, 2012-05-22 at 10:59 -0700, David Daney wrote:
+> From: David Daney <david.daney@cavium.com>
 
-It was based on 3.4, but the bug and work to fix this was  done on top of
-a 3.4 version of netback backported in a 3.0 kernel. Let me double check
-whether there were some missing patches.
+trivia:
 
-> 
-> > >  	int i, copy_off;
-> > >  
-> > >  	count = DIV_ROUND_UP(
-> > > -			offset_in_page(skb->data)+skb_headlen(skb), PAGE_SIZE);
-> > > +			offset_in_page(skb->data + skb_headlen(skb)), PAGE_SIZE);
-> > 
-> > The new version would be equivalent to:
-> > 	count = offset_in_page(skb->data + skb_headlen(skb)) != 0;
-> > which is not right, as netbk_gop_skb() will use one slot per page.
-> 
-> Just outside the context of this patch we separately count the frag
-> pages.
-> 
-> However I think you are right if skb->data covers > 1 page, since the
-> new version can only ever return 0 or 1. I expect this patch papers over
-> the underlying issue by not stopping often enough, rather than actually
-> fixing the underlying issue.
+> diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
+[]
+> @@ -0,0 +1,237 @@
 
-Ah, any thoughts? Have you guys seen this behavior as well?
-> 
-> > The real problem is likely that you're not using the same condition to
-> > stop and wake the queue.
-> 
-> Agreed, it would be useful to see the argument for this patch presented
-> in that light. In particular the relationship between
-> xenvif_rx_schedulable() (used to wake queue) and
-> xen_netbk_must_stop_queue() (used to stop queue).
+> +static int bcm87xx_of_reg_init(struct phy_device *phydev)
+> +{
+> +	const __be32 *paddr;
+> +	int len, i, ret;
+> +
+> +	if (!phydev->dev.of_node)
+> +		return 0;
+> +
+> +	paddr = of_get_property(phydev->dev.of_node,
+> +				"broadcom,c45-reg-init", &len);
+> +	if (!paddr || len < (4 * sizeof(*paddr)))
+> +		return 0;
+> +
+> +	ret = 0;
+> +	len /= sizeof(*paddr);
+> +	for (i = 0; i < len - 3; i += 4) {
+> +		u16 devid = be32_to_cpup(paddr + i);
+> +		u16 reg = be32_to_cpup(paddr + i + 1);
+> +		u16 mask = be32_to_cpup(paddr + i + 2);
+> +		u16 val_bits = be32_to_cpup(paddr + i + 3);
+> +		int val;
 
-Do you have any debug patches to ... do open-heart surgery on the
-rings of netback as its hitting the issues Adnan has found?
+These might read better as
 
-> 
-> As it stands the description describes a setup which can repro the
-> problem but doesn't really analyse what actually happens, nor justify
-> the correctness of the fix.
-
-Hm, Adnan - you dug in to this and you got tons of notes. Could you
-describe what you saw that caused this?
+	len /= 4;
+	for (i = 0; i < len; i++) {
+		u16 devid	= be32_to_cpu(*paddr++);
+		u16 reg		= be32_to_cpu(*paddr++);
+		u16 mask	= be32_to_cpu(*paddr++);
+		u16 val_bits	= be32_to_cpu(*paddr++);
+		...
+	}
