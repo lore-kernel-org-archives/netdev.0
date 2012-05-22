@@ -1,63 +1,65 @@
-From: Sergio Correia <lists@uece.net>
-Subject: Re: WARNING: at net/ipv4/tcp.c:1301 tcp_cleanup_rbuf+0x4f/0x110()
-Date: Tue, 22 May 2012 10:57:08 -0300
-Message-ID: <CAJyhjX1VKQpAbqkxnWFNrRSVBuSRYaNQSUXYWqYfoE0GnmVokQ@mail.gmail.com>
-References: <CAJyhjX22Vna=TwuhD-FqyoXEd9D8wq_VdHbAAWwmqO1hZ34FRA@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v3] drop_monitor: convert to modular building
+Date: Tue, 22 May 2012 09:57:39 -0400
+Message-ID: <20120522135739.GA5481@hmsreliant.think-freely.org>
+References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
+ <1337285040-20848-1-git-send-email-nhorman@tuxdriver.com>
+ <20120517.160937.586334759945738635.davem@davemloft.net>
+ <20120517202152.GB19321@hmsreliant.think-freely.org>
+ <1337691919.3361.189.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:48302 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752960Ab2EVN53 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 09:57:29 -0400
-Received: by pbbrp8 with SMTP id rp8so8424524pbb.19
-        for <netdev@vger.kernel.org>; Tue, 22 May 2012 06:57:29 -0700 (PDT)
-In-Reply-To: <CAJyhjX22Vna=TwuhD-FqyoXEd9D8wq_VdHbAAWwmqO1hZ34FRA@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36744 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751964Ab2EVN5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 09:57:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1337691919.3361.189.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 22, 2012 at 2:43 AM, Sergio Correia <lists@uece.net> wrote:
-> So far it has happened only once.
-> Last commit is 471368557a734c6c486ee757952c902b36e7fd01.
->
->
-> [ 3726.624387] ------------[ cut here ]------------
-> [ 3726.624398] WARNING: at net/ipv4/tcp.c:1301 tcp_cleanup_rbuf+0x4f/=
-0x110()
-> [ 3726.624400] Hardware name: N53SV
-> [ 3726.624402] cleanup rbuf bug: copied A4D1F126 seq A4D1F126 rcvnxt =
-A4D1F126
-> [ 3726.624404] Modules linked in:
-> [ 3726.624407] Pid: 1416, comm: transmission-gt Not tainted 3.4.0-git=
-+ #52
-> [ 3726.624409] Call Trace:
-> [ 3726.624415] =A0[<ffffffff81035eba>] warn_slowpath_common+0x7a/0xb0
-> [ 3726.624419] =A0[<ffffffff81035f91>] warn_slowpath_fmt+0x41/0x50
-> [ 3726.624507] =A0[<ffffffff81aa57a5>] ? sub_preempt_count+0x65/0xc0
-> [ 3726.624510] =A0[<ffffffff819101cf>] tcp_cleanup_rbuf+0x4f/0x110
-> [ 3726.624514] =A0[<ffffffff819112b7>] tcp_recvmsg+0x637/0xa60
-> [ 3726.624518] =A0[<ffffffff81849310>] ? release_sock+0xe0/0x110
-> [ 3726.624522] =A0[<ffffffff81934a34>] inet_recvmsg+0x94/0xc0
-> [ 3726.624534] =A0[<ffffffff81844792>] sock_aio_read.part.8+0x142/0x1=
-70
-> [ 3726.624537] =A0[<ffffffff818447c0>] ? sock_aio_read.part.8+0x170/0=
-x170
-> [ 3726.624540] =A0[<ffffffff818447e1>] sock_aio_read+0x21/0x30
-> [ 3726.624544] =A0[<ffffffff81124b0a>] do_sync_readv_writev+0xca/0x11=
-0
-> [ 3726.624548] =A0[<ffffffff8140f582>] ? security_file_permission+0x9=
-2/0xb0
-> [ 3726.624552] =A0[<ffffffff8112425c>] ? rw_verify_area+0x5c/0xe0
-> [ 3726.624555] =A0[<ffffffff81124de6>] do_readv_writev+0xd6/0x1e0
-> [ 3726.624558] =A0[<ffffffff8184336b>] ? sock_do_ioctl+0x2b/0x70
-> [ 3726.624562] =A0[<ffffffff81135abf>] ? do_vfs_ioctl+0x8f/0x530
-> [ 3726.624566] =A0[<ffffffff8141278f>] ? file_has_perm+0x8f/0xa0
-> [ 3726.624569] =A0[<ffffffff81124f7d>] vfs_readv+0x2d/0x50
-> [ 3726.624572] =A0[<ffffffff81124fe5>] sys_readv+0x45/0xb0
-> [ 3726.624575] =A0[<ffffffff81aa9062>] system_call_fastpath+0x16/0x1b
-> [ 3726.624578] ---[ end trace 6dc5d813929e5e6f ]---
+On Tue, May 22, 2012 at 03:05:19PM +0200, Eric Dumazet wrote:
+> On Thu, 2012-05-17 at 16:21 -0400, Neil Horman wrote:
+> > On Thu, May 17, 2012 at 04:09:37PM -0400, David Miller wrote:
+> 
+> > > 
+> > > Applied, althrough it didn't apply cleanly to net-next.
+> > > 
+> > 
+> > Apologies Dave, should have told you that I was carrying Joe P.'s cleanup patch
+> > in my net-next tree as well:
+> > http://marc.info/?l=linux-netdev&m=133727344816140&w=2
+> > 
+> > Since you noted that you had applied it, I applied it myself here.
+> > Neil
+> > 
+> 
+> Any plan to autoload drop_monitor module from dropwatch,
+> or issuing some advice ?
+> 
+> # dropwatch -l kas
+> Unable to find NET_DM family, dropwatch can't work
+> Cleanuing up on socket creation error
+> 
+> Thanks
+> 
+I'm looking into that currently, although I was starting to wonder if its
+possible to do with a generic netlink socket.  I can't seem to find any
+examples, and I can't use the net-pf-* module alias mechanism that formal
+protocols implement, since I don't have a defined address family.  I suppose I
+could augment that format to support a net-pf-16-<name> alias, where name is the
+name of the genl family that gets registered by the module you're looking for.
 
-Checked this morning, and my dmesg now is basically composed of this
-warning over and over and over.
+Does that seem like a reasonable idea?
+Neil
+
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
