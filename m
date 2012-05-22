@@ -1,68 +1,52 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
- and e1000e
-Date: Tue, 22 May 2012 20:11:43 +0300
-Message-ID: <eb8cdd693530010d6736baede0cfebd8@visp.net.lb>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
- <88c43001441945e1431609db252b69e7@visp.net.lb>
- <df211722d18136698aeeda2f17b876e2@visp.net.lb>
- <d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
- <CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
- <79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
- <CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
- <4775d023592b876909aceb152f94aa01@visp.net.lb>
- <1337540825.3361.0.camel@edumazet-glaptop>
- <ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
- <1337572583.3361.8.camel@edumazet-glaptop>
- <6d7500e1c3b4b191c0b5a11003b161d6@visp.net.lb>
- <1337589005.3361.19.camel@edumazet-glaptop>
- <1337589620.3361.23.camel@edumazet-glaptop>
+From: =?UTF-8?B?U3JlxIdrbyBKdXJpxIctS2F2ZWxq?=
+	<srecko.juric-kavelj@fer.hr>
+Subject: Using jiffies for tcp_time_stamp?
+Date: Tue, 22 May 2012 19:21:34 +0200
+Message-ID: <CAACrLC2CXU-DNeonWQGJTfX53ssm_asK7WQrFuWRBB77cg-YdA@mail.gmail.com>
+References: <CAACrLC39Xdm3vTKUsjz43ZPyEq_vHxR-_Uf56SjSm+kUqxOqZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:33635 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751278Ab2EVRLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 13:11:53 -0400
-In-Reply-To: <1337589620.3361.23.camel@edumazet-glaptop>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:49718 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753817Ab2EVRVf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 13:21:35 -0400
+Received: by yhmm54 with SMTP id m54so5673987yhm.19
+        for <netdev@vger.kernel.org>; Tue, 22 May 2012 10:21:34 -0700 (PDT)
+In-Reply-To: <CAACrLC39Xdm3vTKUsjz43ZPyEq_vHxR-_Uf56SjSm+kUqxOqZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2012-05-21 11:40, Eric Dumazet wrote:
-> On Mon, 2012-05-21 at 10:30 +0200, Eric Dumazet wrote:
->> On Mon, 2012-05-21 at 11:06 +0300, Denys Fedoryshchenko wrote:
->>
->> > Not sure it is a lot of time, after all it is 2 x core quad 
->> machine,
->> > should be enough fast for pings.
->> > It will cause stalls on small packets even more seems.
->> >
->> > Tested latest git, net-next, still the same, stalls.
->> > hardware latency detector are silent by the way, so there is no
->> > significant SMI.
->> >
->>
->> I am trying to reproduce your problem here with no luck yet.
->>
->> I wonder of softirq are correctly scheduled on your machine
->>
->
-> By the way, fact you have 8 cpus is irrelevant.
->
-> Only one cpu has queued the NET_TX_SOFTIRQ softirq (serviced by
-> net_tx_action())
->
->
-> If this cpu is busy servicing other stuff, no other cpu will help.
->
-By the way, if BQL limit is going lower than MTU, is it considered as a 
-bug?
-If yes, i can try to upload 3.4 to some servers and add condition to 
-WARN_ON if limit < 1500.
+Hi,
 
----
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+Recently I tackled round trip time estimation of a TCP connection.
+After implementing a straight-forward approach (time stamping sending
+and receiving of data using clock_gettime) I found this article:
+http://linuxgazette.net/136/pfeiffer.html (using getsockopt() to get
+struct tcp_info). The tcp_info structure conveniently has a rtt field.
+
+Using the first method I get 1-3 ms RTT, and by using the second I get
+>=3D10 ms RTT.
+
+By looking at the code it's clear that the time stamping is done with
+jiffies, and my kernel has CONFIG_HZ=3D100.
+
+I understand that this is for performance reasons (and the RTT
+smoothing filter is implemented with bit shifting operations), but
+would using a more precise time stamp have significant impact on
+performance? Since RTT is used to compute RTO, wouldn't there be any
+benefits of having more accurate estimate of this value?
+
+Best regards,
+
+Sre=C4=87ko Juri=C4=87-Kavelj, dipl.ing. (Ms.E.E)
+Research and Teaching Assistant at University of Zagreb
+(Faculty of Electrical Engineering and Computing, Department of
+Control and Computer Engineering)
+
+E-mail: srecko.juric-kavelj@fer.hr
+URL: http://www.fer.hr/srecko.juric-kavelj
+
+Sanctus Hieronymus: "Parce mihi, Domine, quia dalmata sum!"
