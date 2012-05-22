@@ -1,51 +1,36 @@
-From: Simon Graham <simon.graham@citrix.com>
-Subject: RE: [PATCH] xen/netback: calculate correctly the SKB slots.
-Date: Tue, 22 May 2012 16:03:22 -0400
-Message-ID: <F02ED76F3FCF8C468AD22A7618C05BBBB18DBFFEA4@FTLPMAILBOX01.citrite.net>
-References: <1337621793-12486-1-git-send-email-konrad.wilk@oracle.com>
-	 <1337627640.2979.33.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1337678512.10118.40.camel@zakaz.uk.xensource.com>
-	 <20120522180901.GC22488@phenom.dumpdata.com>
-	 <F02ED76F3FCF8C468AD22A7618C05BBBB18DBFFE61@FTLPMAILBOX01.citrite.net>
- <1337714930.3991.1.camel@dagon.hellion.org.uk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless 2012-05-22
+Date: Tue, 22 May 2012 16:17:43 -0400 (EDT)
+Message-ID: <20120522.161743.2065623626389647777.davem@davemloft.net>
+References: <20120522195347.GF11866@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Adnan Misherfi <adnan.misherfi@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337714930.3991.1.camel@dagon.hellion.org.uk>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120522195347.GF11866-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> 
-> That sounds very plausible indeed!
-> 
-> Please can format this as a commit message and resend with a
-> Signed-off-by.
-> 
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 22 May 2012 15:53:48 -0400
 
-Will do
-Simon
+> I apologize for not having sent this sooner.  FWIW, I was in a car
+> somewhere between Illinois and North Carolina for most of the day
+> Sunday and Monday... :-)
+> 
+> This is (obviously) the last non-fix pull request for wireless bits
+> intended for 3.5.  It includes AP support for mwifiex, a variety of HCI
+> and other updates for NFC, some brcmfmac and brcmsmac refactoring,
+> a large batch of ssb and bcma updates, a batch of ath6kl updates,
+> some cfg80211 and mac80211 updates/refactoring from Johannes Berg,
+> a rather large collection of Bluetooth updates by way of Gustavo,
+> and a variety of other bits here and there.
 
-> many thanks,
-> Ian.
-> 
-> >
-> > We found this running with a VIF bridged to a USB 3G Modem where
-> > skb->data started near the end of a page so the header would always
-> > span the page boundary.
-> >
-> > It was very easy to get the VIF to stop processing frames with the old
-> > code and we have not seen any problems since applying this patch.
-> >
-> > Simon
-> >
-> 
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
