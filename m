@@ -1,47 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Tue, 22 May 2012 11:30:45 +0200
-Message-ID: <1337679045.3361.154.camel@edumazet-glaptop>
-References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
-	 <1337093776.8512.1089.camel@edumazet-glaptop>
-	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
-	 <1337099641.8512.1102.camel@edumazet-glaptop>
-	 <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1337101280.8512.1108.camel@edumazet-glaptop>
-	 <1337272292.1681.16.camel@kjm-desktop.uk.level5networks.com>
-	 <1337272654.3403.20.camel@edumazet-glaptop>
-	 <1337674831.1698.7.camel@kjm-desktop.uk.level5networks.com>
-	 <1337678759.3361.147.camel@edumazet-glaptop>
+From: "kun.jiang" <kunx.jiang@intel.com>
+Subject: [PATCH] ipv4: fix the rcu race between free_fib_info and ip_route_output_slow
+Date: Tue, 22 May 2012 17:48:53 +0800
+Message-ID: <4FBB6105.2060808@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Kieran Mansley <kmansley@solarflare.com>
+Cc: davem@davemloft.net, yanmin_zhang@linux.intel.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:60457 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757066Ab2EVJav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 05:30:51 -0400
-Received: by bkcji2 with SMTP id ji2so4753635bkc.19
-        for <netdev@vger.kernel.org>; Tue, 22 May 2012 02:30:50 -0700 (PDT)
-In-Reply-To: <1337678759.3361.147.camel@edumazet-glaptop>
+Received: from mga02.intel.com ([134.134.136.20]:48937 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751247Ab2EVJuf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2012 05:50:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-22 at 11:26 +0200, Eric Dumazet wrote:
-> On Tue, 2012-05-22 at 09:20 +0100, Kieran Mansley wrote:
-> > On Thu, 2012-05-17 at 18:37 +0200, Eric Dumazet wrote:
-> > > 
-> > > With net-next and tcp coalescing, I no longer have TCPBacklogDrops /
-> > > collapses, but I dont have sfc card/driver.
-> > 
-> > I can still reproduce them on net-next.
-> > 
-> > Kieran
-> 
-> Can you reproduce this with tg3 NIC for example ?
-> 
+From: Yanmin Zhang <yanmin_zhang@linux.intel.com>
 
-Also can you post a pcap capture of problematic flow ?
+We hit a kernel OOPS.
 
-(maybe a link to pcap if too big, or private mail)
+<3>[23898.789643] BUG: sleeping function called from invalid context at
+/data/buildbot/workdir/ics/hardware/intel/linux-2.6/arch/x86/mm/fault.c:1103
+<3>[23898.862215] in_atomic(): 0, irqs_disabled(): 0, pid: 10526, name:
+Thread-6683
+<4>[23898.967805] HSU serial 0000:00:05.1: 0000:00:05.2:HSU serial prevented me
+to suspend...
+<4>[23899.258526] Pid: 10526, comm: Thread-6683 Tainted: G        W
+3.0.8-137685-ge7742f9 #1
+<4>[23899.357404] HSU serial 0000:00:05.1: 0000:00:05.2:HSU serial prevented me
+to suspend...
+<4>[23899.904225] Call Trace:
+<4>[23899.989209]  [<c1227f50>] ? pgtable_bad+0x130/0x130
+<4>[23900.000416]  [<c1238c2a>] __might_sleep+0x10a/0x110
+<4>[23900.007357]  [<c1228021>] do_page_fault+0xd1/0x3c0
+<4>[23900.013764]  [<c18e9ba9>] ? restore_all+0xf/0xf
+<4>[23900.024024]  [<c17c007b>] ? napi_complete+0x8b/0x690
+<4>[23900.029297]  [<c1227f50>] ? pgtable_bad+0x130/0x130
+<4>[23900.123739]  [<c1227f50>] ? pgtable_bad+0x130/0x130
+<4>[23900.128955]  [<c18ea0c3>] error_code+0x5f/0x64
+<4>[23900.133466]  [<c1227f50>] ? pgtable_bad+0x130/0x130
+<4>[23900.138450]  [<c17f6298>] ? __ip_route_output_key+0x698/0x7c0
+<4>[23900.144312]  [<c17f5f8d>] ? __ip_route_output_key+0x38d/0x7c0
+<4>[23900.150730]  [<c17f63df>] ip_route_output_flow+0x1f/0x60
+<4>[23900.156261]  [<c181de58>] ip4_datagram_connect+0x188/0x2b0
+<4>[23900.161960]  [<c18e981f>] ? _raw_spin_unlock_bh+0x1f/0x30
+<4>[23900.167834]  [<c18298d6>] inet_dgram_connect+0x36/0x80
+<4>[23900.173224]  [<c14f9e88>] ? _copy_from_user+0x48/0x140
+<4>[23900.178817]  [<c17ab9da>] sys_connect+0x9a/0xd0
+<4>[23900.183538]  [<c132e93c>] ? alloc_file+0xdc/0x240
+<4>[23900.189111]  [<c123925d>] ? sub_preempt_count+0x3d/0x50
+
+In function free_fib_info, we don't reset nexthop_nh->nh_dev to NULL before releasing
+nh_dev. kfree_rcu(fi, rcu) would release the whole area.
+
+Signed-off-by: Yanmin Zhang <yanmin_zhang@linux.intel.com>
+Signed-off-by: Kun Jiang <kunx.jiang@intel.com>
+---
+ net/ipv4/fib_semantics.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 5063fa3..68ea013 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -159,7 +159,6 @@ void free_fib_info(struct fib_info *fi)
+ 	change_nexthops(fi) {
+ 		if (nexthop_nh->nh_dev)
+ 			dev_put(nexthop_nh->nh_dev);
+-		nexthop_nh->nh_dev = NULL;
+ 	} endfor_nexthops(fi);
+ 	fib_info_cnt--;
+ 	release_net(fi->fib_net);
+-- 
+1.7.1
