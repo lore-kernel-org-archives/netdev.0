@@ -1,51 +1,34 @@
-From: Bob Liu <lliubbo@gmail.com>
-Subject: [PATCH 2/3] drivers: net: ethernet: stmmac: fix failure in module test
-Date: Tue, 22 May 2012 15:38:55 +0800
-Message-ID: <1337672336-7378-2-git-send-email-lliubbo@gmail.com>
-References: <1337672336-7378-1-git-send-email-lliubbo@gmail.com>
+From: Kieran Mansley <kmansley@solarflare.com>
+Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
+Date: Tue, 22 May 2012 09:20:28 +0100
+Message-ID: <1337674831.1698.7.camel@kjm-desktop.uk.level5networks.com>
+References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
+	 <1337093776.8512.1089.camel@edumazet-glaptop>
+	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
+	 <1337099641.8512.1102.camel@edumazet-glaptop>
+	 <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1337101280.8512.1108.camel@edumazet-glaptop>
+	 <1337272292.1681.16.camel@kjm-desktop.uk.level5networks.com>
+	 <1337272654.3403.20.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <peppe.cavallaro@st.com>, <francesco.virlinzi@st.com>,
-	<rayagond@vayavyalabs.com>, <sr@denx.de>, <netdev@vger.kernel.org>,
-	<uclinux-dist-devel@blackfin.uclinux.org>,
-	Bob Liu <lliubbo@gmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:7338 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755371Ab2EVHih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 03:38:37 -0400
-In-Reply-To: <1337672336-7378-1-git-send-email-lliubbo@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:57520 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755928Ab2EVIUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 04:20:44 -0400
+In-Reply-To: <1337272654.3403.20.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Module can't be compiled and installed in current Makefile.
+On Thu, 2012-05-17 at 18:37 +0200, Eric Dumazet wrote:
+> 
+> With net-next and tcp coalescing, I no longer have TCPBacklogDrops /
+> collapses, but I dont have sfc card/driver.
 
-Signed-off-by: Bob Liu <lliubbo@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/Makefile |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+I can still reproduce them on net-next.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index bc965ac..4b50922 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -1,10 +1,10 @@
- obj-$(CONFIG_STMMAC_ETH) += stmmac.o
--stmmac-$(CONFIG_STMMAC_TIMER) += stmmac_timer.o
--stmmac-$(CONFIG_STMMAC_RING) += ring_mode.o
--stmmac-$(CONFIG_STMMAC_CHAINED) += chain_mode.o
--stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
--stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
-+stmmac-$(CONFIG_STMMAC_TIMER:m=y) += stmmac_timer.o
-+stmmac-$(CONFIG_STMMAC_RING:m=y) += ring_mode.o
-+stmmac-$(CONFIG_STMMAC_CHAINED:m=y) += chain_mode.o
-+stmmac-$(CONFIG_STMMAC_PLATFORM:m=y) += stmmac_platform.o
-+stmmac-$(CONFIG_STMMAC_PCI:m=y) += stmmac_pci.o
- stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o	\
- 	      dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o	\
- 	      dwmac100_core.o dwmac100_dma.o enh_desc.o  norm_desc.o \
--	      mmc_core.o $(stmmac-y)
-+	      mmc_core.o
--- 
-1.7.0.4
+Kieran
