@@ -1,77 +1,109 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH v6 2/2] decrement static keys on real destroy time
-Date: Tue, 22 May 2012 16:11:07 -0700
-Message-ID: <20120522161107.4ab99a68.akpm@linux-foundation.org>
-References: <1337682339-21282-1-git-send-email-glommer@parallels.com>
-	<1337682339-21282-3-git-send-email-glommer@parallels.com>
-	<20120522154610.f2f9b78e.akpm@linux-foundation.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/3] ethtool: Split out printing of hex data
+Date: Wed, 23 May 2012 00:58:23 +0100
+Message-ID: <1337731103.2953.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4FB66390.2010704@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>,
-	<cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	<kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120522154610.f2f9b78e.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, Yaniv Rosner <yanivr@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Stuart Hodgson <smhodgson@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:46018 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933017Ab2EVX6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 19:58:31 -0400
+In-Reply-To: <4FB66390.2010704@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 May 2012 15:46:10 -0700
-Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
-
-> > +static inline bool memcg_proto_active(struct cg_proto *cg_proto)
-> > +{
-> > +	return cg_proto->flags & (1 << MEMCG_SOCK_ACTIVE);
-> > +}
-> > +
-> > +static inline bool memcg_proto_activated(struct cg_proto *cg_proto)
-> > +{
-> > +	return cg_proto->flags & (1 << MEMCG_SOCK_ACTIVATED);
-> > +}
+On Fri, 2012-05-18 at 15:58 +0100, Stuart Hodgson wrote:
+> Split out printing of hex data to common function from
+> dump_regs and dump_eeprom. Ready for use by module
+> eeprom dumping.
 > 
-> Here, we're open-coding kinda-test_bit().  Why do that?  These flags are
-> modified with set_bit() and friends, so we should read them with the
-> matching test_bit()?
+> Signed-off-by: Stuart Hodgson <smhodgson@solarflare.com>
+> ---
+>  ethtool.c |   35 ++++++++++++++++++-----------------
+>  1 files changed, 18 insertions(+), 17 deletions(-)
 > 
-> Also, these bool-returning functions will return values other than 0
-> and 1.  That probably works OK and I don't know what the C standards
-> and implementations do about this.  But it seems unclean and slightly
-> risky to have a "bool" value of 32!  Converting these functions to use
-> test_bit() fixes this - test_bit() returns only 0 or 1.
-> 
-> test_bit() is slightly more expensive than the above.  If this is
-> considered to be an issue then I guess we could continue to use this
-> approach.  But I do think a code comment is needed, explaining and
-> justifying the unusual decision to bypass the bitops API.  Also these
-> functions should tell the truth and return an "int" type.
+> diff --git a/ethtool.c b/ethtool.c
+> index e80b38b..fdc21de 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -787,6 +787,20 @@ static const struct {
+>  	{ "st_gmac", st_gmac_dump_regs },
+>  };
+>  
+> +static void dump_hex(__u8 *data, int len, int offset)
+> +{
+> +	int i;
+> +
+> +	fprintf(stdout, "Offset\tValues\n");
+> +	fprintf(stdout, "--------\t-----");
+> +	for (i = 0; i < len; i++) {
+> +		if (i%16 == 0)
+> +			fprintf(stdout, "\n0x%04x:\t", i + offset);
+> +		fprintf(stdout, " %02x", data[i]);
+> +	}
 
-Joe corrected (and informed) me:
+The problem with this (inherited from dump_regs()) is that the columns
+don't line up.  So I've applied this but changed dump_hex() to look more
+like the code removed from dump_eeprom().
 
-: 6.3.1.2p1:
-: 
-: "When any scalar value is converted to _Bool, the result is 0
-: if the value compares equal to 0; otherwise, the result is 1."
+Ben.
 
-So the above functions will be given compiler-generated scalar-to-boolean
-conversion.
+> +	fprintf(stdout, "\n\n");
+> +}
+> +
+>  static int dump_regs(int gregs_dump_raw, int gregs_dump_hex,
+>  		     const char *gregs_dump_file,
+>  		     struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+> @@ -820,22 +834,14 @@ static int dump_regs(int gregs_dump_raw, int gregs_dump_hex,
+>  				     ETHTOOL_BUSINFO_LEN))
+>  				return driver_list[i].func(info, regs);
+>  
+> -	fprintf(stdout, "Offset\tValues\n");
+> -	fprintf(stdout, "--------\t-----");
+> -	for (i = 0; i < regs->len; i++) {
+> -		if (i%16 == 0)
+> -			fprintf(stdout, "\n%03x:\t", i);
+> -		fprintf(stdout, " %02x", regs->data[i]);
+> -	}
+> -	fprintf(stdout, "\n\n");
+> +	dump_hex(regs->data, regs->len, 0);
+> +
+>  	return 0;
+>  }
+>  
+>  static int dump_eeprom(int geeprom_dump_raw, struct ethtool_drvinfo *info,
+>  		       struct ethtool_eeprom *ee)
+>  {
+> -	int i;
+> -
+>  	if (geeprom_dump_raw) {
+>  		fwrite(ee->data, 1, ee->len, stdout);
+>  		return 0;
+> @@ -847,13 +853,8 @@ static int dump_eeprom(int geeprom_dump_raw, struct ethtool_drvinfo *info,
+>  		return tg3_dump_eeprom(info, ee);
+>  	}
+>  
+> -	fprintf(stdout, "Offset\t\tValues\n");
+> -	fprintf(stdout, "------\t\t------");
+> -	for (i = 0; i < ee->len; i++) {
+> -		if(!(i%16)) fprintf(stdout, "\n0x%04x\t\t", i + ee->offset);
+> -		fprintf(stdout, "%02x ", ee->data[i]);
+> -	}
+> -	fprintf(stdout, "\n");
+> +	dump_hex(ee->data, ee->len, ee->offset);
+> +
+>  	return 0;
+>  }
+>  
 
-test_bit() already does internal scalar-to-boolean conversion.  The
-compiler doesn't know that, so if we convert the above functions to use
-test_bit(), we'll end up performing scalar-to-boolean-to-boolean
-conversion, which is dumb.
-
-I assume that a way of fixing this is to change test_bit() to return
-bool type.  That's a bit scary.
-
-A less scary way would be to add a new
-
-	bool test_bit_bool(int nr, const unsigned long *addr);
-
-which internally calls test_bit() but somehow avoids the
-compiler-generated conversion of the test_bit() return value into a
-bool.  I haven't actually thought of a way of doing this ;)
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
