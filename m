@@ -1,63 +1,66 @@
-From: Christer Ekholm <che@chrekh.se>
-Subject: Re: [Bug 43277] New: net/e1000e set mtu larger than 1500 fails
-Date: Tue, 22 May 2012 20:39:49 +0200
-Message-ID: <20411.56693.728125.121309@ender.chrekh.se>
-References: <20120522111950.4548747c@nehalam.linuxnetplumber.net>
-	<20120522112518.70294c0e@nehalam.linuxnetplumber.net>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH] xen: do not disable netfront in dom0
+Date: Tue, 22 May 2012 14:34:33 -0400
+Message-ID: <20120522183433.GB24107@phenom.dumpdata.com>
+References: <20120522130558.D828E6C7@duch.mimuw.edu.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Allan\, Bruce W" <bruce.w.allan@intel.com>,
-	e1000-devel@lists.sf.net
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b12.telenor.se ([62.127.194.21]:33650 "EHLO
-	smtprelay-b12.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752607Ab2EVSjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 14:39:53 -0400
-Received: from ipb3.telenor.se (ipb3.telenor.se [195.54.127.166])
-	by smtprelay-b12.telenor.se (Postfix) with ESMTP id D48E7C1AE
-	for <netdev@vger.kernel.org>; Tue, 22 May 2012 20:39:50 +0200 (CEST)
-In-Reply-To: <20120522112518.70294c0e@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Jeremy Fitzhardinge <jeremy@goop.org>,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xen.org
+To: Marek Marczykowski <marmarek@invisiblethingslab.com>, davem@davemloft.net
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20120522130558.D828E6C7@duch.mimuw.edu.pl>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger writes:
- > On Tue, 22 May 2012 11:19:50 -0700
- > Stephen Hemminger <shemminger@vyatta.com> wrote:
- > 
- > 
- > I believe the problem is detected here. Check system console log (dmesg).
- > The hardware does not allow receive hashing and checksum offload together
- > in Jumbo mode.
- > 
- > 	/*
- > 	 * IP payload checksum (enabled with jumbos/packet-split when
- > 	 * Rx checksum is enabled) and generation of RSS hash is
- > 	 * mutually exclusive in the hardware.
- > 	 */
- > 	if ((netdev->features & NETIF_F_RXCSUM) &&
- > 	    (netdev->features & NETIF_F_RXHASH)) {
- > 		e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
- > 		return -EINVAL;
- > 	}
+On Sun, May 20, 2012 at 01:45:10PM +0200, Marek Marczykowski wrote:
+> Netfront driver can be also useful in dom0, eg when all NICs are assigned to
+> some domU (aka driver domain). Then using netback in domU and netfront in dom0
+> is the only way to get network access in dom0.
+> 
+> Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
 
-Yes you are right.
-
- e1000e 0000:05:00.1: eth1: Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.
-
-How stupid of me to not see that. 
-
-After turning rxhash of, setting of mtu to 9000 is possible again.
-
-$ sudo ethtool -K eth1 rxhash off
-
-$ sudo ip link set eth1 mtu 9000
+Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 
 
-Sorry to have wasted your time.
-
- 
--- 
- Christer
+> ---
+>  drivers/net/xen-netfront.c |    6 ------
+>  1 files changed, 0 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 698b905..e31ebff 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1953,9 +1953,6 @@ static int __init netif_init(void)
+>  	if (!xen_domain())
+>  		return -ENODEV;
+>  
+> -	if (xen_initial_domain())
+> -		return 0;
+> -
+>  	printk(KERN_INFO "Initialising Xen virtual ethernet driver.\n");
+>  
+>  	return xenbus_register_frontend(&netfront_driver);
+> @@ -1965,9 +1962,6 @@ module_init(netif_init);
+>  
+>  static void __exit netif_exit(void)
+>  {
+> -	if (xen_initial_domain())
+> -		return;
+> -
+>  	xenbus_unregister_driver(&netfront_driver);
+>  }
+>  module_exit(netif_exit);
+> -- 
+> 1.7.4.4
