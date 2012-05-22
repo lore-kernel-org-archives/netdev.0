@@ -1,7 +1,7 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Kieran Mansley <kmansley@solarflare.com>
 Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Tue, 22 May 2012 18:12:50 +0200
-Message-ID: <1337703170.3361.217.camel@edumazet-glaptop>
+Date: Tue, 22 May 2012 17:32:59 +0100
+Message-ID: <1337704382.1698.53.camel@kjm-desktop.uk.level5networks.com>
 References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
 	 <1337093776.8512.1089.camel@edumazet-glaptop>
 	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
@@ -14,72 +14,74 @@ References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
 	 <1337678759.3361.147.camel@edumazet-glaptop>
 	 <1337679045.3361.154.camel@edumazet-glaptop>
 	 <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>
+	 <1337703170.3361.217.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Kieran Mansley <kmansley@solarflare.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:58554 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754575Ab2EVQMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 12:12:55 -0400
-Received: by eeit10 with SMTP id t10so1773669eei.19
-        for <netdev@vger.kernel.org>; Tue, 22 May 2012 09:12:54 -0700 (PDT)
-In-Reply-To: <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:42045 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750826Ab2EVQdD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 12:33:03 -0400
+In-Reply-To: <1337703170.3361.217.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-22 at 16:09 +0100, Kieran Mansley wrote:
-> On Tue, 2012-05-22 at 11:30 +0200, Eric Dumazet wrote:
-> > Also can you post a pcap capture of problematic flow ?
+On Tue, 2012-05-22 at 18:12 +0200, Eric Dumazet wrote:
 > 
-> I'll email this to you directly. The capture is generated with netserver
-> on the system under test, and NetPerf sending from a similar server.
-> I've only included the first 1000 frames to keep the capture size down.
-> There are 7 retransmissions in that capture, and the TCPBacklogDrops
-> counter incremented by 7 during the test, so I'm happy to say they are
-> the cause of the drops.
+> __tcp_select_window() ( more precisely tcp_space() takes into account
+> memory used in receive/ofo queue, but not frames in backlog queue)
 > 
-> The system under test was running net-next.
+> So if you send bursts, it might explain TCP stack continues to
+> advertise
+> a too big window, instead of anticipate the problem.
 > 
-> I've not tried with another NIC (e.g. tg3) but will see if I can find
-> one to test.
-
-Or you could change sfc to allow its frames being coalesced.
-
+> Please try the following patch :
 > 
-> I've got a feeling that the drops might be easier to reproduce if I
-> taskset the netserver process to a different package than the one that
-> is handling the network interrupt for that NIC.  This fits with my
-> earlier theory in that it is likely to increase the overhead of waking
-> the user-level process to satisfy the read and so increase the time
-> during which received packets could overflow the backlog.  Having a
-> relatively aggressive sending TCP also helps, e.g. one that is
-> configured to open its congestion window quickly, as this will produce
-> more intensive bursts.
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index e79aa48..82382cb 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -1042,8 +1042,9 @@ static inline int tcp_win_from_space(int space)
+>  /* Note: caller must be prepared to deal with negative returns */ 
+>  static inline int tcp_space(const struct sock *sk)
+>  {
+> -       return tcp_win_from_space(sk->sk_rcvbuf -
+> -                                 atomic_read(&sk->sk_rmem_alloc));
+> +       int used = atomic_read(&sk->sk_rmem_alloc) +
+> sk->sk_backlog.len;
+> +
+> +       return tcp_win_from_space(sk->sk_rcvbuf - used);
+>  } 
+>  
+>  static inline int tcp_full_space(const struct sock *sk)
 
-__tcp_select_window() ( more precisely tcp_space() takes into account
-memory used in receive/ofo queue, but not frames in backlog queue)
 
-So if you send bursts, it might explain TCP stack continues to advertise
-a too big window, instead of anticipate the problem.
+I can give this a try (not sure when - probably later this week) but I
+think this it is back to front.  The patch above will reduce the
+advertised window by sk_backlog.len, but at the time that the window was
+advertised that allowed the dropped packets to be sent the backlog was
+empty.  It is later, when the kernel is waking the application and takes
+the socket lock that the backlog starts to be used and the drop happens.
+But reducing the window advertised at this point is futile - the packets
+that will be dropped are already in flight.
 
-Please try the following patch :
+The problem exists because the backlog has a tighter limit on it than
+the receive window does; I think the backlog should be able to accept
+sk_rcvbuf bytes in addition to what is already in the receive buffer (or
+up to the advertised receive window if that's smaller).  At the moment
+it will only accept sk_rcvbuf bytes including what is already in the
+receive buffer.  The logic being that in this case we're using the
+backlog because it's in the process of emptying the receive buffer into
+the application, and so the receive buffer will very soon be empty, and
+so we will very soon be able to accept sk_rcvbuf bytes.  This is evident
+from the packet capture as the kernel stack is quite happy to accept the
+significant quantity of data that arrives as part of the same burst
+immediately after it has dropped a couple of packets.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index e79aa48..82382cb 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1042,8 +1042,9 @@ static inline int tcp_win_from_space(int space)
- /* Note: caller must be prepared to deal with negative returns */ 
- static inline int tcp_space(const struct sock *sk)
- {
--	return tcp_win_from_space(sk->sk_rcvbuf -
--				  atomic_read(&sk->sk_rmem_alloc));
-+	int used = atomic_read(&sk->sk_rmem_alloc) + sk->sk_backlog.len;
-+
-+	return tcp_win_from_space(sk->sk_rcvbuf - used);
- } 
- 
- static inline int tcp_full_space(const struct sock *sk)
+Perhaps it would be easier for me to write a patch to show this
+suggested solution?
+
+Kieran
