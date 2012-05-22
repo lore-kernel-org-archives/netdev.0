@@ -1,77 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Bug 43277] New: net/e1000e set mtu larger than 1500 fails
-Date: Tue, 22 May 2012 19:59:16 +0100
-Message-ID: <1337713156.2922.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120522111950.4548747c@nehalam.linuxnetplumber.net>
-	 <20120522112518.70294c0e@nehalam.linuxnetplumber.net>
-	 <20411.56693.728125.121309@ender.chrekh.se>
+From: Simon Graham <simon.graham@citrix.com>
+Subject: RE: [PATCH] xen/netback: calculate correctly the SKB slots.
+Date: Tue, 22 May 2012 15:01:55 -0400
+Message-ID: <F02ED76F3FCF8C468AD22A7618C05BBBB18DBFFE61@FTLPMAILBOX01.citrite.net>
+References: <1337621793-12486-1-git-send-email-konrad.wilk@oracle.com>
+ <1337627640.2979.33.camel@bwh-desktop.uk.solarflarecom.com>
+ <1337678512.10118.40.camel@zakaz.uk.xensource.com>
+ <20120522180901.GC22488@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	<netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	<e1000-devel@lists.sf.net>
-To: Christer Ekholm <che@chrekh.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8007 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754140Ab2EVS7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 14:59:21 -0400
-In-Reply-To: <20411.56693.728125.121309@ender.chrekh.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Adnan Misherfi <adnan.misherfi@oracle.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120522180901.GC22488@phenom.dumpdata.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-05-22 at 20:39 +0200, Christer Ekholm wrote:
-> Stephen Hemminger writes:
->  > On Tue, 22 May 2012 11:19:50 -0700
->  > Stephen Hemminger <shemminger@vyatta.com> wrote:
->  > 
->  > 
->  > I believe the problem is detected here. Check system console log (dmesg).
->  > The hardware does not allow receive hashing and checksum offload together
->  > in Jumbo mode.
->  > 
->  > 	/*
->  > 	 * IP payload checksum (enabled with jumbos/packet-split when
->  > 	 * Rx checksum is enabled) and generation of RSS hash is
->  > 	 * mutually exclusive in the hardware.
->  > 	 */
->  > 	if ((netdev->features & NETIF_F_RXCSUM) &&
->  > 	    (netdev->features & NETIF_F_RXHASH)) {
->  > 		e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
->  > 		return -EINVAL;
->  > 	}
+> >
+> > > >  	int i, copy_off;
+> > > >
+> > > >  	count = DIV_ROUND_UP(
+> > > > -			offset_in_page(skb->data)+skb_headlen(skb),
+> PAGE_SIZE);
+> > > > +			offset_in_page(skb->data + skb_headlen(skb)),
+> PAGE_SIZE);
+> > >
+> > > The new version would be equivalent to:
+> > > 	count = offset_in_page(skb->data + skb_headlen(skb)) != 0;
+> > > which is not right, as netbk_gop_skb() will use one slot per page.
+> >
+> > Just outside the context of this patch we separately count the frag
+> > pages.
+> >
+> > However I think you are right if skb->data covers > 1 page, since the
+> > new version can only ever return 0 or 1. I expect this patch papers
+> over
+> > the underlying issue by not stopping often enough, rather than
+> actually
+> > fixing the underlying issue.
 > 
-> Yes you are right.
-> 
->  e1000e 0000:05:00.1: eth1: Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.
-> 
-> How stupid of me to not see that. 
-> 
-> After turning rxhash of, setting of mtu to 9000 is possible again.
-> 
-> $ sudo ethtool -K eth1 rxhash off
-> 
-> $ sudo ip link set eth1 mtu 9000
-> 
-> 
-> Sorry to have wasted your time.
+> Ah, any thoughts? Have you guys seen this behavior as well?
 
-It's not a waste of time.
+We ran into this same problem and the fix we've been running with for a while now (been meaning to submit it!) is:
 
-I think this behaviour is broken: NETIF_F_RXHASH is turned on by default
-and user and distribution scripts that set MTU will now be broken until
-they know that they need to work around this hardware limitation.  And
-why should they ever need to know that?
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index c2669b8..7925bd3 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -312,8 +312,7 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
+        unsigned int count;
+        int i, copy_off;
 
-I think the proper thing to do is to automatically turn off
-NETIF_F_RXHASH when the MTU is too high for it to work.  The netdev
-still keeps track of whether it is 'wanted'.
+-       count = DIV_ROUND_UP(
+-                       offset_in_page(skb->data)+skb_headlen(skb), PAGE_SIZE);
++       count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
 
-Ben.
+        copy_off = skb_headlen(skb) % PAGE_SIZE;
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The rationale for this is that if the header spanned a page boundary, you would calculate that it needs 2 slots for the header BUT netback_gop_skb copies the header into the start of the page so only needs one slot (and only decrements the count of inuse entries by 1).
+
+We found this running with a VIF bridged to a USB 3G Modem where skb->data started near the end of a page so the header would always span the page boundary.
+
+It was very easy to get the VIF to stop processing frames with the old code and we have not seen any problems since applying this patch.
+
+Simon
