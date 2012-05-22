@@ -1,38 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/3] drivers: net: ethernet: stmmac: fix failure in
- module test
-Date: Tue, 22 May 2012 12:56:05 +0100
-Message-ID: <1337687765.11796.11.camel@deadeye>
-References: <1337672336-7378-1-git-send-email-lliubbo@gmail.com>
-	 <1337672336-7378-2-git-send-email-lliubbo@gmail.com>
+From: Chanyeol Park <chanyeol.park@samsung.com>
+Subject: Re: [RFC/PATCH] Bluetooth: prevent double l2cap_chan_destroy
+Date: Tue, 22 May 2012 21:23:32 +0900
+Message-ID: <4FBB8544.3040408@samsung.com>
+References: <4FB992C8.8090105@samsung.com> <20120521162137.GE16942@joana>
+ <4FBAFEF5.2000207@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <peppe.cavallaro@st.com>,
-	<francesco.virlinzi@st.com>, <rayagond@vayavyalabs.com>,
-	<sr@denx.de>, <netdev@vger.kernel.org>,
-	<uclinux-dist-devel@blackfin.uclinux.org>
-To: Bob Liu <lliubbo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:27840 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750974Ab2EVL4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 07:56:16 -0400
-In-Reply-To: <1337672336-7378-2-git-send-email-lliubbo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gustavo Padovan <gustavo@padovan.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Minho Ban <mhban@samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <4FBAFEF5.2000207@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-05-22 at 15:38 +0800, Bob Liu wrote:
-> Module can't be compiled and installed in current Makefile.
-[...]
+Hi
 
-That's because CONFIG_STMMAC_PLATFORM and CONFIG_STMMAC_PCI are wrongly
-declared as tristate in Kconfig.  Change them to bool and it should work
-again.
+On 2012=EB=85=84 05=EC=9B=94 22=EC=9D=BC 11:50, Minho Ban wrote:
+> @@ -1343,10 +1343,10 @@ static void l2cap_conn_del(struct hci_conn *h=
+con, int err)
+>                  l2cap_chan_lock(chan);
+>
+>                  l2cap_chan_del(chan, err);
+> +               chan->ops->close(chan->data);
+>
+>                  l2cap_chan_unlock(chan);
+>
+> -               chan->ops->close(chan->data);
+>                  l2cap_chan_put(chan);
+>          }
+I think this patch does not make sense Because inside chan->ops->close(=
+)=20
+"chan" could be freed in the l2cap_chan_destroy().
 
-Ben.
+> close callback must locate within chan_lock unless it can be schedule=
+d to other thread
+> which may wait for chan_lock in l2cap_sock_shutdown and this lead to =
+duplicate sock_kill.
+>
+>   static void l2cap_sock_kill(struct sock *sk)
+>   {
+> -       if (!sock_flag(sk, SOCK_ZAPPED) || sk->sk_socket)
+> +       if (!sock_flag(sk, SOCK_ZAPPED) || sock_flag(sk, SOCK_DEAD) |=
+|
+> +                       sk->sk_socket)
+>                  return;
+>
+>          BT_DBG("sk %p state %s", sk, state_to_string(sk->sk_state));
+>
+> Duplicate sock_kill may happen anyway, need test SOCK_DEAD if chan_de=
+stroy is already called.
+Even l2cap_sock_kill() is called twice, " if (!sock_flag(sk,=20
+SOCK_ZAPPED) || sk->sk_socket)" can't filter it.
+I tested Mr.ban case. it works fine with me.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+BR
+Chanyeol Park.
