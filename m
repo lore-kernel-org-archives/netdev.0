@@ -1,7 +1,7 @@
 From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
 Subject: tc filter u32 match
-Date: Tue, 22 May 2012 15:45:16 +0200
-Message-ID: <ec046bafa5a20aa74cf6b1823909e4f9@justnet.pl>
+Date: Tue, 22 May 2012 15:42:58 +0200
+Message-ID: <32a6182e71dd565206cf39d4cad3f984@justnet.pl>
 Reply-To: <adam.niescierowicz@justnet.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
@@ -9,15 +9,15 @@ Content-Type: text/plain; charset=UTF-8;
 Content-Transfer-Encoding: 7bit
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:46469 "EHLO
+Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:46463 "EHLO
 	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1758257Ab2EVO2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 10:28:31 -0400
+	with ESMTP id S1757122Ab2EVO23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 10:28:29 -0400
 Received: from [91.230.163.37] (helo=mail.justnet.pl)
 	by service with esmtpa (Exim 4.72)
 	(envelope-from <adam.niescierowicz@justnet.pl>)
-	id 1SWpOm-0005o4-5U
-	for netdev@vger.kernel.org; Tue, 22 May 2012 15:45:16 +0200
+	id 1SWpMY-0005fq-Sp
+	for netdev@vger.kernel.org; Tue, 22 May 2012 15:42:58 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
