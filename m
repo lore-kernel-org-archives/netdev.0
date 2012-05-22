@@ -1,36 +1,39 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] if: restore token ring ARP type to header
-Date: Tue, 22 May 2012 14:01:05 -0700
-Message-ID: <20120522140105.284c28cd@nehalam.linuxnetplumber.net>
+Subject: Re: [IPROUTE2 2/2] tc-netem: Add support for ECN packet marking
+Date: Tue, 22 May 2012 14:12:34 -0700
+Message-ID: <20120522141234.36c6c6b9@nehalam.linuxnetplumber.net>
+References: <1337212318-2100-1-git-send-email-subramanian.vijay@gmail.com>
+	<1337212318-2100-3-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50432 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:48218 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754933Ab2EVVBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 May 2012 17:01:09 -0400
+	id S1752494Ab2EVVMi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 May 2012 17:12:38 -0400
+In-Reply-To: <1337212318-2100-3-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent removal of Token Ring breaks the build of iproute2.
+On Wed, 16 May 2012 16:51:58 -0700
+Vijay Subramanian <subramanian.vijay@gmail.com> wrote:
 
-Even though Token Ring support is gone from the kernel, it is worth
-keeping the the definition of the TR ARP type to avoid breaking
-userspace programs that use this file.
+> This patch provides support for marking packets with ECN instead of
+> dropping them with netem. This makes it possible to make use of the
+> netem ECN marking feature that was added recently to the kernel.
+> 
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> ---
+>  include/linux/pkt_sched.h |    1 +
+>  tc/q_netem.c              |   26 ++++++++++++++++++++++++++
+>  2 files changed, 27 insertions(+), 0 deletions(-)
+> 
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Applied.
 
---- a/include/linux/if_arp.h	2012-05-22 08:24:26.816834997 -0700
-+++ b/include/linux/if_arp.h	2012-05-22 13:57:24.037399528 -0700
-@@ -82,7 +82,7 @@
- #define ARPHRD_FCPL	786		/* Fibrechannel public loop	*/
- #define ARPHRD_FCFABRIC	787		/* Fibrechannel fabric		*/
- 	/* 787->799 reserved for fibrechannel media types */
--/* 800 used to be used for token ring */
-+#define ARPHRD_IEEE802_TR 800		/* Magic type ident for TR	*/
- #define ARPHRD_IEEE80211 801		/* IEEE 802.11			*/
- #define ARPHRD_IEEE80211_PRISM 802	/* IEEE 802.11 + Prism2 header  */
- #define ARPHRD_IEEE80211_RADIOTAP 803	/* IEEE 802.11 + radiotap header */
+Note: I update kernel headers first (before applying changes), then
+prune off the header changes from the patches. This is to make sure
+that sanitized kernel headers are correct.
