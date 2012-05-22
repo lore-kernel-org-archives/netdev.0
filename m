@@ -1,19 +1,21 @@
-From: David Miller <davem@davemloft.net>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Subject: Re: [Xen-devel] [PATCH] xen: do not disable netfront in dom0
-Date: Tue, 22 May 2012 15:38:47 -0400 (EDT)
-Message-ID: <20120522.153847.2107186222464601466.davem@davemloft.net>
+Date: Tue, 22 May 2012 15:43:19 -0400
+Message-ID: <20120522194319.GA2691@phenom.dumpdata.com>
 References: <20120522130558.D828E6C7@duch.mimuw.edu.pl>
 	<20120522.151354.2131168749992255398.davem@davemloft.net>
 	<1337715028.3991.2.camel@dagon.hellion.org.uk>
+	<20120522.153847.2107186222464601466.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jeremy@goop.org, konrad.wilk@oracle.com, netdev@vger.kernel.org,
+Cc: jeremy@goop.org, Ian.Campbell@citrix.com, netdev@vger.kernel.org,
 	marmarek@invisiblethingslab.com, virtualization@lists.linux-foundation.org,
 	xen-devel@lists.xen.org, linux-kernel@vger.kernel.org
-To: Ian.Campbell@citrix.com
+To: David Miller <davem@davemloft.net>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1337715028.3991.2.camel@dagon.hellion.org.uk>
+Content-Disposition: inline
+In-Reply-To: <20120522.153847.2107186222464601466.davem@davemloft.net>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -25,25 +27,28 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Tue, 22 May 2012 20:30:28 +0100
-
-> On Tue, 2012-05-22 at 20:13 +0100, David Miller wrote:
->> From: Marek Marczykowski <marmarek@invisiblethingslab.com>
->> Date: Sun, 20 May 2012 13:45:10 +0200
->> 
->> > Netfront driver can be also useful in dom0, eg when all NICs are assigned to
->> > some domU (aka driver domain). Then using netback in domU and netfront in dom0
->> > is the only way to get network access in dom0.
->> > 
->> > Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
->> 
->> Someone please review this and I can merge it in via the 'net' tree if
->> it looks OK to XEN folks.
+On Tue, May 22, 2012 at 03:38:47PM -0400, David Miller wrote:
+> From: Ian Campbell <Ian.Campbell@citrix.com>
+> Date: Tue, 22 May 2012 20:30:28 +0100
 > 
-> Konrad is "Xen folks" and has acked it already but FWIW:
+> > On Tue, 2012-05-22 at 20:13 +0100, David Miller wrote:
+> >> From: Marek Marczykowski <marmarek@invisiblethingslab.com>
+> >> Date: Sun, 20 May 2012 13:45:10 +0200
+> >> 
+> >> > Netfront driver can be also useful in dom0, eg when all NICs are assigned to
+> >> > some domU (aka driver domain). Then using netback in domU and netfront in dom0
+> >> > is the only way to get network access in dom0.
+> >> > 
+> >> > Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
+> >> 
+> >> Someone please review this and I can merge it in via the 'net' tree if
+> >> it looks OK to XEN folks.
+> > 
+> > Konrad is "Xen folks" and has acked it already but FWIW:
+> > 
+> > Acked-by: Ian Campbell <ian.campbell@citrix.com>
 > 
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> Ok, but this patch doesn't appply cleanly at all to Linus's
+> current tree nor my 'net' tree (which are equal right now).
 
-Ok, but this patch doesn't appply cleanly at all to Linus's
-current tree nor my 'net' tree (which are equal right now).
+Oh no! Marek, can you repin it please (along with all the Ack's on it).
