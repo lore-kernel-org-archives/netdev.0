@@ -1,75 +1,68 @@
-From: "kun.jiang" <kunx.jiang@intel.com>
-Subject: [PATCH] ipv4: fix the rcu race between free_fib_info and ip_route_output_slow
-Date: Tue, 22 May 2012 17:48:53 +0800
-Message-ID: <4FBB6105.2060808@intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
+Date: Tue, 22 May 2012 18:05:43 +0800
+Message-ID: <4FBB64F7.5090801@redhat.com>
+References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>  <1337181027.10741.13.camel@oc3660625478.ibm.com>  <20120516151444.GC9934@redhat.com>  <1337189525.10741.24.camel@oc3660625478.ibm.com>  <4FB4677A.8020402@redhat.com>  <1337268862.10741.58.camel@oc3660625478.ibm.com>  <4FB61D57.4030103@redhat.com>  <1337354974.12999.12.camel@oc3660625478.ibm.com>  <4FB9DB24.2040408@redhat.com> <1337614972.12999.56.camel@oc3660625478.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yanmin_zhang@linux.intel.com
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48937 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751247Ab2EVJuf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 May 2012 05:50:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, davem@davemloft.net
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1337614972.12999.56.camel@oc3660625478.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yanmin Zhang <yanmin_zhang@linux.intel.com>
+On 05/21/2012 11:42 PM, Shirley Ma wrote:
+> On Mon, 2012-05-21 at 14:05 +0800, Jason Wang wrote:
+>>>> - tx polling depends on skb_orphan() which is often called by
+>> device
+>>>> driver when it place the packet into the queue of the devices
+>> instead
+>>>> of  when the packets were sent. So it was too early for vhost to be
+>>>> notified.
+>>> Then do you think it's better to replace with vhost_poll_queue here
+>>> instead?
+>> Just like what does this patch do - calling vhost_poll_queue() in
+>> vhost_zerocopy_callback().
+>>>> - it only works when the pending DMAs exceeds VHOST_MAX_PEND, it's
+>>>> highly possible that guest needs to be notified when the pending
+>>>> packets
+>>>> isn't so much.
+>>> In which situation the guest needs to be notified when there is no
+>> TX
+>>> besides buffers run out?
+>> Consider guest call virtqueue_enable_cb_delayed() which means it only
+>> need to be notified when 3/4 of pending buffers ( about 178 buffers
+>> (256-MAX_SKB_FRAGS-2)*3/4 ) were sent by host. So vhost_net would
+>> notify
+>> guest when about 60 buffers were pending. Since tx polling is only
+>> enabled when pending packets exceeds VHOST_MAX_PEND 128, so tx work
+>> would not be notified to run and guest would never get the interrupt
+>> it
+>> expected to re-enable the queue.
+> So it seems we still need vhost_enable_notify() in handle_tx when there
+> is no tx in zerocopy case.
+>
+> Do you know which one is more expensive: the cost of vhost_poll_queue()
+> in each zerocopy callback or calling vhost_enable_notify()?
 
-We hit a kernel OOPS.
+Didn't follow here, do you mean vhost_signal() here?
+>
+> Have you compared the results by removing below code in handle_tx()?
+>
+> -                       if (unlikely(num_pends>  VHOST_MAX_PEND)) {
+> -                                tx_poll_start(net, sock);
+> -                                set_bit(SOCK_ASYNC_NOSPACE,&sock->flags);
+> -                                break;
+> -                        }
 
-<3>[23898.789643] BUG: sleeping function called from invalid context at
-/data/buildbot/workdir/ics/hardware/intel/linux-2.6/arch/x86/mm/fault.c:1103
-<3>[23898.862215] in_atomic(): 0, irqs_disabled(): 0, pid: 10526, name:
-Thread-6683
-<4>[23898.967805] HSU serial 0000:00:05.1: 0000:00:05.2:HSU serial prevented me
-to suspend...
-<4>[23899.258526] Pid: 10526, comm: Thread-6683 Tainted: G        W
-3.0.8-137685-ge7742f9 #1
-<4>[23899.357404] HSU serial 0000:00:05.1: 0000:00:05.2:HSU serial prevented me
-to suspend...
-<4>[23899.904225] Call Trace:
-<4>[23899.989209]  [<c1227f50>] ? pgtable_bad+0x130/0x130
-<4>[23900.000416]  [<c1238c2a>] __might_sleep+0x10a/0x110
-<4>[23900.007357]  [<c1228021>] do_page_fault+0xd1/0x3c0
-<4>[23900.013764]  [<c18e9ba9>] ? restore_all+0xf/0xf
-<4>[23900.024024]  [<c17c007b>] ? napi_complete+0x8b/0x690
-<4>[23900.029297]  [<c1227f50>] ? pgtable_bad+0x130/0x130
-<4>[23900.123739]  [<c1227f50>] ? pgtable_bad+0x130/0x130
-<4>[23900.128955]  [<c18ea0c3>] error_code+0x5f/0x64
-<4>[23900.133466]  [<c1227f50>] ? pgtable_bad+0x130/0x130
-<4>[23900.138450]  [<c17f6298>] ? __ip_route_output_key+0x698/0x7c0
-<4>[23900.144312]  [<c17f5f8d>] ? __ip_route_output_key+0x38d/0x7c0
-<4>[23900.150730]  [<c17f63df>] ip_route_output_flow+0x1f/0x60
-<4>[23900.156261]  [<c181de58>] ip4_datagram_connect+0x188/0x2b0
-<4>[23900.161960]  [<c18e981f>] ? _raw_spin_unlock_bh+0x1f/0x30
-<4>[23900.167834]  [<c18298d6>] inet_dgram_connect+0x36/0x80
-<4>[23900.173224]  [<c14f9e88>] ? _copy_from_user+0x48/0x140
-<4>[23900.178817]  [<c17ab9da>] sys_connect+0x9a/0xd0
-<4>[23900.183538]  [<c132e93c>] ? alloc_file+0xdc/0x240
-<4>[23900.189111]  [<c123925d>] ? sub_preempt_count+0x3d/0x50
-
-In function free_fib_info, we don't reset nexthop_nh->nh_dev to NULL before releasing
-nh_dev. kfree_rcu(fi, rcu) would release the whole area.
-
-Signed-off-by: Yanmin Zhang <yanmin_zhang@linux.intel.com>
-Signed-off-by: Kun Jiang <kunx.jiang@intel.com>
----
- net/ipv4/fib_semantics.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 5063fa3..68ea013 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -159,7 +159,6 @@ void free_fib_info(struct fib_info *fi)
- 	change_nexthops(fi) {
- 		if (nexthop_nh->nh_dev)
- 			dev_put(nexthop_nh->nh_dev);
--		nexthop_nh->nh_dev = NULL;
- 	} endfor_nexthops(fi);
- 	fib_info_cnt--;
- 	release_net(fi->fib_net);
--- 
-1.7.1
+I remember I've done some basic test when I send this patch, there's no 
+much increasing of cpu utilization. Would double check this again.
+>> And just like what we've discussed, tx polling based adding and
+>> signaling is too early for vhost.
+> Thanks
+> Shirley
+>
