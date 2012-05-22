@@ -1,66 +1,58 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH] xen: do not disable netfront in dom0
-Date: Tue, 22 May 2012 14:34:33 -0400
-Message-ID: <20120522183433.GB24107@phenom.dumpdata.com>
-References: <20120522130558.D828E6C7@duch.mimuw.edu.pl>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] rfkill: Add handling when rfkill's type is
+ RFKILL_TYPE_ALL.
+Date: Tue, 22 May 2012 20:46:39 +0200
+Message-ID: <1337712399.4470.5.camel@jlt3.sipsolutions.net>
+References: <1337589439-14605-1-git-send-email-alex.hung@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeremy Fitzhardinge <jeremy@goop.org>,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xen.org
-To: Marek Marczykowski <marmarek@invisiblethingslab.com>, davem@davemloft.net
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20120522130558.D828E6C7@duch.mimuw.edu.pl>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alex Hung <alex.hung-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1337589439-14605-1-git-send-email-alex.hung-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, May 20, 2012 at 01:45:10PM +0200, Marek Marczykowski wrote:
-> Netfront driver can be also useful in dom0, eg when all NICs are assigned to
-> some domU (aka driver domain). Then using netback in domU and netfront in dom0
-> is the only way to get network access in dom0.
+On Mon, 2012-05-21 at 16:37 +0800, Alex Hung wrote:
+> This rfkill type is supposed to be able to toggles the status of all wireless
+> devices; however, no wireless devices will register itself with type 
+> RFKILL_TYPE_ALL and thus it was previously ignored in __rfkill_switch_all.
 > 
-> Signed-off-by: Marek Marczykowski <marmarek@invisiblethingslab.com>
-
-Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-
-
+> Signed-off-by: Alex Hung <alex.hung-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > ---
->  drivers/net/xen-netfront.c |    6 ------
->  1 files changed, 0 insertions(+), 6 deletions(-)
+>  net/rfkill/core.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 698b905..e31ebff 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -1953,9 +1953,6 @@ static int __init netif_init(void)
->  	if (!xen_domain())
->  		return -ENODEV;
+> diff --git a/net/rfkill/core.c b/net/rfkill/core.c
+> index 5be1957..84dd71a 100644
+> --- a/net/rfkill/core.c
+> +++ b/net/rfkill/core.c
+> @@ -324,7 +324,7 @@ static void __rfkill_switch_all(const enum rfkill_type type, bool blocked)
 >  
-> -	if (xen_initial_domain())
-> -		return 0;
-> -
->  	printk(KERN_INFO "Initialising Xen virtual ethernet driver.\n");
->  
->  	return xenbus_register_frontend(&netfront_driver);
-> @@ -1965,9 +1962,6 @@ module_init(netif_init);
->  
->  static void __exit netif_exit(void)
->  {
-> -	if (xen_initial_domain())
-> -		return;
-> -
->  	xenbus_unregister_driver(&netfront_driver);
->  }
->  module_exit(netif_exit);
-> -- 
-> 1.7.4.4
+>  	rfkill_global_states[type].cur = blocked;
+>  	list_for_each_entry(rfkill, &rfkill_list, node) {
+> -		if (rfkill->type != type)
+> +		if (rfkill->type != type && type != RFKILL_TYPE_ALL)
+>  			continue;
+
+Sorry, I accidentally replied to this in private and then Alex replied
+but it all got lost.
+
+He said he was going to change the eeepc use KEY_RFKILL instead of
+KEY_WLAN to switch all types...
+
+So I guess what this change really does is make __rfkill_switch_all() be
+able to not only switch all devices of a given type, but also be able to
+switch all devices of all types.
+
+Alex, can you please rewrite the commit log to make that clearer?
+
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
