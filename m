@@ -1,87 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] net: skb_head_is_locked() should use skb_header_cloned()
-Date: Tue, 22 May 2012 07:53:54 +0200
-Message-ID: <1337666034.3361.50.camel@edumazet-glaptop>
-References: <1337432555.7029.196.camel@edumazet-glaptop>
-	 <20120519.183556.1085711138074171029.davem@davemloft.net>
-	 <1337578663.3361.10.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+From: Karsten Keil <keil@b1-systems.de>
+Subject: [PATCH] mISDN: Add X-Tensions USB ISDN TA XC-525
+Date: Tue, 22 May 2012 09:14:14 +0200
+Message-ID: <1337670854-7008-1-git-send-email-keil@b1-systems.de>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:50457 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014Ab2EVFyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 01:54:01 -0400
-Received: by wgbds11 with SMTP id ds11so3331155wgb.1
-        for <netdev@vger.kernel.org>; Mon, 21 May 2012 22:53:57 -0700 (PDT)
-In-Reply-To: <1337578663.3361.10.camel@edumazet-glaptop>
+Received: from moutng.kundenserver.de ([212.227.126.186]:49598 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751647Ab2EVHZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 03:25:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David and Alexander
+According to http://www.ip-phone-forum.de/showthread.php?t=225313 this
+HW works. Thanks to Lars Immisch for pointing to this thread.
 
-There is no hurry since net-next is closed, but I hit the following
-problem :
-
-When IPv6 conntracking is enabled, code from
-net/ipv6/netfilter/nf_conntrack_reasm.c does a cloning of all skbs to
-build a shadow.
-
-Then we run : (skb here is the head of the 'shadow skb' )
-
-void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
-                        struct net_device *in, struct net_device *out,
-                        int (*okfn)(struct sk_buff *))
-{
-        struct sk_buff *s, *s2;
-
-        for (s = NFCT_FRAG6_CB(skb)->orig; s;) {
-                nf_conntrack_put_reasm(s->nfct_reasm);
-                nf_conntrack_get_reasm(skb);
-                s->nfct_reasm = skb;
-
-                s2 = s->next;
-                s->next = NULL;
-
-                NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, s, in, out, okfn,
-                               NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
-                s = s2;
-        }
-        nf_conntrack_put_reasm(skb);
-}
-
-So when all original skbs are fed to real IPv6 reassembly code, their
-clones are still alive and we hit the condition in skb_try_coalesce() :
-
-if (skb_head_is_locked(from))
-	return false;
-
-I was wondering if skb_head_is_locked() should be changed to :
-
-if (!skb->head_frag || skb_header_cloned(skb))
-	return false;
-
-Then we could add skb_header_release() calls on the clones of course in
-net/ipv6/netfilter/nf_conntrack_reasm.c 
-
-Not-Yet-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Karsten Keil <keil@b1-systems.de>
 ---
- include/linux/skbuff.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/isdn/hardware/mISDN/hfcsusb.h |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0e50171..6509ee1 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2587,7 +2587,7 @@ static inline bool skb_is_recycleable(const struct sk_buff *skb, int skb_size)
-  */
- static inline bool skb_head_is_locked(const struct sk_buff *skb)
- {
--	return !skb->head_frag || skb_cloned(skb);
-+	return !skb->head_frag || skb_header_cloned(skb);
- }
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
+diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.h b/drivers/isdn/hardware/mISDN/hfcsusb.h
+index cb1231b..4157311 100644
+--- a/drivers/isdn/hardware/mISDN/hfcsusb.h
++++ b/drivers/isdn/hardware/mISDN/hfcsusb.h
+@@ -410,6 +410,12 @@ static struct usb_device_id hfcsusb_idtab[] = {
+ 			{LED_SCHEME1, {0x88, -64, -32, -16},
+ 					"ZyXEL OMNI.NET USB II"}),
+ 	},
++	{
++		USB_DEVICE(0x1ae7, 0x0525),
++		.driver_info = (unsigned long) &((struct hfcsusb_vdata)
++			{LED_SCHEME1, {0x88, -64, -32, -16},
++					"X-Tensions USB ISDN TA XC-525"}),
++	},
+ 	{ }
+ };
+ 
+-- 
+1.7.3.4
