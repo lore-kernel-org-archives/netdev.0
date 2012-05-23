@@ -1,151 +1,212 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Wed, 23 May 2012 15:03:06 -0700
-Message-ID: <4FBD5E9A.80005@intel.com>
-References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>  <1337101280.8512.1108.camel@edumazet-glaptop>  <1337272292.1681.16.camel@kjm-desktop.uk.level5networks.com>  <1337272654.3403.20.camel@edumazet-glaptop>  <1337674831.1698.7.camel@kjm-desktop.uk.level5networks.com>  <1337678759.3361.147.camel@edumazet-glaptop>  <1337679045.3361.154.camel@edumazet-glaptop>  <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>  <1337703170.3361.217.camel@edumazet-glaptop>  <1337704382.1698.53.camel@kjm-desktop.uk.level5networks.com>  <1337705135.3361.226.camel@edumazet-glaptop>  <1337720076.3361.667.camel@edumazet-glaptop>  <1337766246.3361.2447.camel@edumazet-glaptop>  <1337774978.3361.2744.camel@edumazet-glaptop> <4FBD0A85.4040407@intel.com>  <1337789530.3361.2992.camel@edumaz
- et-glaptop>  <1337791189.3361.3029.camel@edumazet-glaptop> <4FBD1A0C.4070606@intel.com>  <4FBD546A.1030504@intel.com> <1337809034.3361.3487.camel@edumazet-glaptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: NETDEV WATCHDOG: %s (%s): transmit queue %u timed out
+Date: Thu, 24 May 2012 00:32:10 +0200
+Message-ID: <20120523223210.GA20536@electric-eye.fr.zoreil.com>
+References: <20120523012640.GB15255@redhat.com> <20120523015312.14731.qmail@science.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Kieran Mansley <kmansley@solarflare.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
+Content-Type: multipart/mixed; boundary="opJtzjQTFsWo+cga"
+Cc: davej@redhat.com, kernel-team@fedoraproject.org,
 	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: George Spelvin <linux@horizon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62135 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752044Ab2EWWDY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 May 2012 18:03:24 -0400
-In-Reply-To: <1337809034.3361.3487.camel@edumazet-glaptop>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39249 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752020Ab2EWWkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 18:40:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20120523015312.14731.qmail@science.horizon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2012 02:37 PM, Eric Dumazet wrote:
-> On Wed, 2012-05-23 at 14:19 -0700, Alexander Duyck wrote:
->> On 05/23/2012 10:10 AM, Alexander Duyck wrote:
->>> On 05/23/2012 09:39 AM, Eric Dumazet wrote:
->>>> On Wed, 2012-05-23 at 18:12 +0200, Eric Dumazet wrote:
->>>>
->>>>> With current driver, a MTU=1500 frame uses :
->>>>>
->>>>> sk_buff (256 bytes)
->>>>> skb->head : 1024 bytes  (or more exaclty now : 512 + 384)
->>>> By the way, NET_SKB_PAD adds 64 bytes so its 64 + 512 + 384 = 960
->>> Actually pahole seems to be indicating to me the size of skb_shared_info
->>> is 320, unless something has changed in the last few days.
->>>
->>> When I get a chance I will try to remember to reduce the ixgbe header
->>> size to 256 which should also help.  The only reason it is set to 512
->>> was to deal with the fact that the old alloc_skb code wasn't aligning
->>> the shared info with the end of whatever size was allocated and so the
->>> 512 was an approximation to make better use of the 1K slab allocation
->>> back when we still were using hardware packet split.  That should help
->>> to improve the page utilization for the headers since that would
->>> increase the uses of a page from 4 to 6 for the skb head frag, and it
->>> would drop truesize by another 256 bytes.
->>>
->>> Thanks,
->>>
->>> Alex
->> Here is the patch for review.  I have submitted the official patch to Jeff 
->> so that it can go through his tree for testing, validation, and submission 
->> once Dave's tree opens back up.
->>
->> ---
->>
->> The recent changes to netdev_alloc_skb actually make it so that the size of
->> the buffer now actually has a more direct input on the truesize.  So in
->> order to make best use of the piece of a page we are allocated I am
->> reducing the IXGBE_RX_HDR_SIZE to 256 so that our truesize will be reduced
->> by 256 bytes as well.
->>
->> This should result in performance improvements since the number of uses per
->> page should increase from 4 to 6 in the case of a 4K page.  In addition we
->> should see socket performance improvements due to the truesize dropping
->> to less than 1K for buffers less than 256 bytes.
->>
->> Not-Yet-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> ---
->>
->>  drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   15 ++++++++-------
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
->>  2 files changed, 10 insertions(+), 9 deletions(-)
->>
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->> index 402dd66..468e4ab 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
->> @@ -77,17 +77,18 @@
->>  #define IXGBE_MAX_FCPAUSE		 0xFFFF
->>  
->>  /* Supported Rx Buffer Sizes */
->> -#define IXGBE_RXBUFFER_512   512    /* Used for packet split */
->> +#define IXGBE_RXBUFFER_256    256  /* Used for skb receive header */
->>  #define IXGBE_MAX_RXBUFFER  16384  /* largest size for a single descriptor */
->>  
->>  /*
->> - * NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN mans we
->> - * reserve 2 more, and skb_shared_info adds an additional 384 bytes more,
->> - * this adds up to 512 bytes of extra data meaning the smallest allocation
->> - * we could have is 1K.
->> - * i.e. RXBUFFER_512 --> size-1024 slab
->> + * NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
->> + * reserve 64 more, and skb_shared_info adds an additional 320 bytes more,
->> + * this adds up to 448 bytes of extra data.
->> + *
->> + * Since netdev_alloc_skb now allocates a page fragment we can use a value
->> + * of 256 and the resultant skb will have a truesize of 960 or less.
->>   */
->> -#define IXGBE_RX_HDR_SIZE IXGBE_RXBUFFER_512
->> +#define IXGBE_RX_HDR_SIZE IXGBE_RXBUFFER_256
->>  
->>  #define MAXIMUM_ETHERNET_VLAN_SIZE (ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
->>  
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index 7f92e40..f92b31a 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -1520,8 +1520,8 @@ static bool ixgbe_cleanup_headers(struct ixgbe_ring *rx_ring,
->>  	 * 60 bytes if the skb->len is less than 60 for skb_pad.
->>  	 */
->>  	pull_len = skb_frag_size(frag);
->> -	if (pull_len > 256)
->> -		pull_len = ixgbe_get_headlen(va, pull_len);
->> +	if (pull_len > IXGBE_RX_HDR_SIZE)
->> +		pull_len = ixgbe_get_headlen(va, IXGBE_RX_HDR_SIZE);
->>  
->>  	/* align pull length to size of long to optimize memcpy performance */
->>  	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
->>
->
-> By the way you should reword the comment about NET_IP_ALIGN
->
-> On x86 NET_IP_ALIGN is 0, so we dont 'reserve 64 bytes more'
-On x86 yes, on other platforms that don't clear the value it will add 2
-more bytes, and after cache alignment it will likely add another 64.  I
-am really just stating the worst case scenario here.  This is why I end
-the comment with "960 or less".
 
-> -> 896 bytes
-.. or 832 bytes if you really tweak settings and get the sk_buff down to
-192 bytes.  :-)
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> Also, are you sure :
->
-> srrctl |= (IXGBE_RX_HDR_SIZE << IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT) &  
-> 	IXGBE_SRRCTL_BSIZEHDR_MASK; 
->
->
-> is still needed in ixgbe_configure_srrctl() , since it uses
-> IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF (non packet split)
-That bit is needed for RSC.  Basically we have to specify the maximum
-size of a header, even if we are not using packet split.  The value has
-to be at least 128 or more.  Since we are using the value of
-IXGBE_RX_HDR_SIZE to limit how much header we pull anyway I figure it is
-probably a good idea just to leave this here.
+George Spelvin <linux@horizon.com> :
+[...]
+> Unfortunately, the last reboot was on Feb. 26, and the kernel logs don't
+> go back that far, so I'm not sure if 3.3-rc5 reported this priblem or not.
 
-Thanks,
+You may try the attached patches on top of current -git. A complete dmesg
+will be welcome. So will an 'ethtool -d eth0' if the device stops working.
 
-Alex
+You did not label the problem as a serious one. Does it means that the
+driver automatically recovers ?
+
+I'll add some ring and registers debug stuff tomorrow.
+
+-- 
+Ueimor
+
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="0001-r8169-avoid-clearing-the-end-of-Tx-descriptor-ring-m.patch"
+
+>From 4fafb314defc9e0cc5da1b58e84bba87686ea2ba Mon Sep 17 00:00:00 2001
+Message-Id: <4fafb314defc9e0cc5da1b58e84bba87686ea2ba.1337810811.git.romieu@fr.zoreil.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 23 May 2012 22:18:35 +0200
+Subject: [PATCH 1/2] r8169: avoid clearing the end of Tx descriptor ring
+ marker bit.
+X-Organisation: Land of Sunshine Inc.
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/ethernet/realtek/r8169.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 00b4f56..01f3367 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5345,7 +5345,7 @@ static void rtl8169_unmap_tx_skb(struct device *d, struct ring_info *tx_skb,
+ 
+ 	dma_unmap_single(d, le64_to_cpu(desc->addr), len, DMA_TO_DEVICE);
+ 
+-	desc->opts1 = 0x00;
++	desc->opts1 &= cpu_to_le32(RingEnd);
+ 	desc->opts2 = 0x00;
+ 	desc->addr = 0x00;
+ 	tx_skb->len = 0;
+-- 
+1.7.7.6
+
+
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="0002-r8169-TxPoll-hack-rework.patch"
+
+>From 4cadfce6ba362b5d8d5c193c4896443be575b2b4 Mon Sep 17 00:00:00 2001
+Message-Id: <4cadfce6ba362b5d8d5c193c4896443be575b2b4.1337810811.git.romieu@fr.zoreil.com>
+In-Reply-To: <4fafb314defc9e0cc5da1b58e84bba87686ea2ba.1337810811.git.romieu@fr.zoreil.com>
+References: <4fafb314defc9e0cc5da1b58e84bba87686ea2ba.1337810811.git.romieu@fr.zoreil.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 23 May 2012 23:21:13 +0200
+Subject: [PATCH 2/2] r8169: TxPoll hack rework.
+X-Organisation: Land of Sunshine Inc.
+
+I don't want to try and convince myself that it is completely safe to
+issue a TxPoll request from the NAPI handler right in the middle of
+a start_xmit, whence the tx_lock.
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/ethernet/realtek/r8169.c |   59 +++++++++++++++++++--------------
+ 1 files changed, 34 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 01f3367..655b293 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5544,19 +5544,20 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 	status = opts[0] | len | (RingEnd * !((entry + 1) % NUM_TX_DESC));
+ 	txd->opts1 = cpu_to_le32(status);
+ 
++	smp_wmb();
++
+ 	tp->cur_tx += frags + 1;
+ 
+-	wmb();
++	smp_wmb();
+ 
+ 	RTL_W8(TxPoll, NPQ);
+ 
+ 	mmiowb();
+ 
+ 	if (!TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
+-		/* Avoid wrongly optimistic queue wake-up: rtl_tx thread must
+-		 * not miss a ring update when it notices a stopped queue.
+-		 */
+-		smp_wmb();
++		/* rtl_tx thread must not miss a ring update when it notices
++		 * a stopped queue. The TxPoll hack requires the smp_wmb
++		 * above so we can go ahead. */
+ 		netif_stop_queue(dev);
+ 		/* Sync with rtl_tx:
+ 		 * - publish queue status and cur_tx ring index (write barrier)
+@@ -5640,22 +5641,36 @@ struct rtl_txc {
+ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ {
+ 	struct rtl8169_stats *tx_stats = &tp->tx_stats;
+-	unsigned int dirty_tx, tx_left;
++	unsigned int dirty_tx, cur_tx;
+ 	struct rtl_txc txc = { 0, 0 };
+ 
+ 	dirty_tx = tp->dirty_tx;
+-	smp_rmb();
+-	tx_left = tp->cur_tx - dirty_tx;
+-
+-	while (tx_left > 0) {
++xmit_race:
++	for (cur_tx = tp->cur_tx; dirty_tx != cur_tx; dirty_tx++) {
+ 		unsigned int entry = dirty_tx % NUM_TX_DESC;
+ 		struct ring_info *tx_skb = tp->tx_skb + entry;
+ 		u32 status;
+ 
+-		rmb();
+ 		status = le32_to_cpu(tp->TxDescArray[entry].opts1);
+-		if (status & DescOwn)
++
++		/* 8168 (only ?) hack: TxPoll requests are lost when the Tx
++		 * packets are too close. Let's kick an extra TxPoll request
++		 * when a burst of start_xmit activity is detected (if it is
++		 * not detected, it is slow enough).
++		 * The NPQ bit is cleared automatically by the chipset.
++		 * The code assumes that the chipset is sane enough to clear
++		 * it at a sensible time.*/
++		if (unlikely(status & DescOwn)) {
++			void __iomem *ioaddr = tp->mmio_addr;
++
++			if (!(RTL_R8(TxPoll) & NPQ)) {
++				netif_tx_lock(dev);
++				RTL_W8(TxPoll, NPQ);
++				netif_tx_unlock(dev);
++				goto done;
++			}
+ 			break;
++		}
+ 
+ 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
+ 				     tp->TxDescArray + entry);
+@@ -5667,10 +5682,15 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ 			dev_kfree_skb(skb);
+ 			tx_skb->skb = NULL;
+ 		}
+-		dirty_tx++;
+-		tx_left--;
+ 	}
+ 
++	/* Rationale: if chipset stopped DMAing, enforce TxPoll write either
++	 * here or in start_xmit. If chipset is still DMAing, this code
++	 * will be run later anyway. */
++	smp_mb();
++	if (cur_tx != tp->cur_tx)
++		goto xmit_race;
++done:
+ 	u64_stats_update_begin(&tx_stats->syncp);
+ 	tx_stats->packets += txc.packets;
+ 	tx_stats->bytes += txc.bytes;
+@@ -5692,17 +5712,6 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ 		    TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
+ 			netif_wake_queue(dev);
+ 		}
+-		/*
+-		 * 8168 hack: TxPoll requests are lost when the Tx packets are
+-		 * too close. Let's kick an extra TxPoll request when a burst
+-		 * of start_xmit activity is detected (if it is not detected,
+-		 * it is slow enough). -- FR
+-		 */
+-		if (tp->cur_tx != dirty_tx) {
+-			void __iomem *ioaddr = tp->mmio_addr;
+-
+-			RTL_W8(TxPoll, NPQ);
+-		}
+ 	}
+ }
+ 
+-- 
+1.7.7.6
+
+
+--opJtzjQTFsWo+cga--
