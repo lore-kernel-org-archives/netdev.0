@@ -1,37 +1,46 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: NETDEV WATCHDOG: %s (%s): transmit queue %u timed out
-Date: Tue, 22 May 2012 21:26:40 -0400
-Message-ID: <20120523012640.GB15255@redhat.com>
-References: <20120523010334.5778.qmail@science.horizon.com>
+From: Minho Ban <mhban@samsung.com>
+Subject: Re: [RFC/PATCH] Bluetooth: prevent double l2cap_chan_destroy
+Date: Wed, 23 May 2012 10:39:34 +0900
+Message-ID: <4FBC3FD6.6050704@samsung.com>
+References: <4FB992C8.8090105@samsung.com> <20120521162137.GE16942@joana>
+ <4FBAFEF5.2000207@samsung.com> <4FBB8544.3040408@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: George Spelvin <linux@horizon.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gustavo Padovan <gustavo@padovan.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chanyeol Park <chanyeol.park@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58187 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758705Ab2EWB0p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 May 2012 21:26:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20120523010334.5778.qmail@science.horizon.com>
+Received: from mailout1.samsung.com ([203.254.224.24]:63494 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760399Ab2EWBjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 May 2012 21:39:36 -0400
+In-reply-to: <4FBB8544.3040408@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 22, 2012 at 09:03:34PM -0400, George Spelvin wrote:
- > After installing a 3.4 kernel, I got the following:
- > 
- > ------------[ cut here ]------------
- > WARNING: at net/sched/sch_generic.c:256 dev_watchdog+0xe9/0x15c()
- > Hardware name: MS-7376
- > NETDEV WATCHDOG: inside (r8169): transmit queue 0 timed out
- > Pid: 0, comm: swapper/3 Not tainted 3.4.0-00017-g3df9c78 #152
- > ..
- > It doesn't seem to be causing serious problems, but I presume the warning is there because
- > someone would like to know about it.
+On 05/22/2012 09:23 PM, Chanyeol Park wrote:
+> Hi
+>=20
+> On 2012=EB=85=84 05=EC=9B=94 22=EC=9D=BC 11:50, Minho Ban wrote:
+>> @@ -1343,10 +1343,10 @@ static void l2cap_conn_del(struct hci_conn *=
+hcon, int err)
+>>                  l2cap_chan_lock(chan);
+>>
+>>                  l2cap_chan_del(chan, err);
+>> +               chan->ops->close(chan->data);
+>>
+>>                  l2cap_chan_unlock(chan);
+>>
+>> -               chan->ops->close(chan->data);
+>>                  l2cap_chan_put(chan);
+>>          }
+> I think this patch does not make sense Because inside chan->ops->clos=
+e() "chan" could be freed in the l2cap_chan_destroy().
+>=20
 
-We seem to be seeing more and more of these (across a range of different NICs)
-https://bugzilla.redhat.com/showdependencytree.cgi?id=702723&hide_resolved=1
-has a bunch of duplicated bugs sorted into per-nic reports.
-
-	Dave
+I agree, thanks for pointing out.
