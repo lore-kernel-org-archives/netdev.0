@@ -1,60 +1,142 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Wed, 23 May 2012 11:44:06 +0200
-Message-ID: <1337766246.3361.2447.camel@edumazet-glaptop>
-References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
-	 <1337093776.8512.1089.camel@edumazet-glaptop>
-	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
-	 <1337099641.8512.1102.camel@edumazet-glaptop>
-	 <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1337101280.8512.1108.camel@edumazet-glaptop>
-	 <1337272292.1681.16.camel@kjm-desktop.uk.level5networks.com>
-	 <1337272654.3403.20.camel@edumazet-glaptop>
-	 <1337674831.1698.7.camel@kjm-desktop.uk.level5networks.com>
-	 <1337678759.3361.147.camel@edumazet-glaptop>
-	 <1337679045.3361.154.camel@edumazet-glaptop>
-	 <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>
-	 <1337703170.3361.217.camel@edumazet-glaptop>
-	 <1337704382.1698.53.camel@kjm-desktop.uk.level5networks.com>
-	 <1337705135.3361.226.camel@edumazet-glaptop>
-	 <1337720076.3361.667.camel@edumazet-glaptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 01/17] netfilter: add struct nf_proto_net for register
+ l4proto sysctl
+Date: Wed, 23 May 2012 12:12:00 +0200
+Message-ID: <20120523101200.GA2836@1984>
+References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1336985547-31960-2-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Kieran Mansley <kmansley@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:49865 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755538Ab2EWJoO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 05:44:14 -0400
-Received: by mail-ey0-f174.google.com with SMTP id k11so1952398eaa.19
-        for <netdev@vger.kernel.org>; Wed, 23 May 2012 02:44:13 -0700 (PDT)
-In-Reply-To: <1337720076.3361.667.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitus.com>
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1336985547-31960-2-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Update :
+On Mon, May 14, 2012 at 04:52:11PM +0800, Gao feng wrote:
+> From: Gao feng <gaofeng@cn.fujitus.com>
+> 
+> the struct nf_proto_net stroes proto's ctl_table_header and ctl_table,
+> nf_ct_l4proto_(un)register_sysctl use it to register sysctl.
+> 
+> there are some changes for struct nf_conntrack_l4proto:
+> - add field compat to identify if this proto should do compat.
+> - the net_id field is used to store the pernet_operations id
+>   that belones to l4proto.
+> - init_net will be used to initial the proto's pernet data
+> 
+> and add init_net for struct nf_conntrack_l3proto too.
 
-My tests show that sk_backlog.len can reach 1.5MB easily on a netperf,
-even with a fast machine, receiving a 10Gb flow (ixgbe adapter), if
-LRO/GRO are off.
+This patchset looks bette but there are still things that we have to
+resolve.
 
-424 backlogdrop for 193.182.546 incoming packets (with my tcp_space()
-patch applied)
+The first one (regarding this patch 1/17) changes in:
+* include/net/netfilter/nf_conntrack_l4proto.h
+* include/net/netns/conntrack.h
 
-I believe that as soon as ixgbe can use build_skb() and avoid the 1024
-bytes overhead per skb, it should go away.
+should be included in:
+[PATCH] netfilter: add namespace support for l4proto
 
-Of course, another way to solve the problem would be to change
-tcp_recvmsg() to use lock_sock_fast(), so that no frame is backlogged at
-all.
+And changes in:
+* include/net/netfilter/nf_conntrack_l3proto.h
 
-Locking the socket for the whole operation (including copyout to user)
-is not very good. It was good enough years ago with small receive
-window.
+should be included in:
+[PATCH] netfilter: add namespace support for l3proto
 
-With a potentially huge backlog, it means user process has to process
-it, regardless of its latency constraints. CPU caches are also
-completely destroyed because of huge amount of data included in thousand
-of skbs.
+I already told you. A patch that adds a structure without using it,
+is not good. The structure has to go together with the code uses it.
+
+More comments below.
+
+> Acked-by: Eric W. Biederman <ebiederm@xmission.com>
+> Signed-off-by: Gao feng <gaofeng@cn.fujitus.com>
+> ---
+>  include/net/netfilter/nf_conntrack_l3proto.h |    3 +++
+>  include/net/netfilter/nf_conntrack_l4proto.h |    6 ++++++
+>  include/net/netns/conntrack.h                |   12 ++++++++++++
+>  3 files changed, 21 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+> index 9699c02..9766005 100644
+> --- a/include/net/netfilter/nf_conntrack_l3proto.h
+> +++ b/include/net/netfilter/nf_conntrack_l3proto.h
+> @@ -69,6 +69,9 @@ struct nf_conntrack_l3proto {
+>  	struct ctl_table	*ctl_table;
+>  #endif /* CONFIG_SYSCTL */
+>  
+> +	/* Init l3proto pernet data */
+> +	int (*init_net)(struct net *net);
+> +
+>  	/* Module (if any) which this is connected to. */
+>  	struct module *me;
+>  };
+> diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+> index 3b572bb..a90eab5 100644
+> --- a/include/net/netfilter/nf_conntrack_l4proto.h
+> +++ b/include/net/netfilter/nf_conntrack_l4proto.h
+> @@ -22,6 +22,8 @@ struct nf_conntrack_l4proto {
+>  	/* L4 Protocol number. */
+>  	u_int8_t l4proto;
+>  
+> +	u_int8_t compat;
+
+I don't see why we need this new field.
+
+It seems to be set to 1 in each structure that has set:
+
+.ctl_compat_table
+
+to non-NULL. So, it's redundant.
+
+Moreover, you already know from the protocol tracker itself if you
+have to allocate the compat ctl table or not.
+
+In other words: You set compat to 1 for nf_conntrack_l4proto_generic.
+Then, you pass that compat value to generic_init_net via ->inet_net
+again, but this information (that determines if the compat has to be
+done or not) is already in the scope of the protocol tracker.
+
+You have to fix this.
+
+> +
+>  	/* Try to fill in the third arg: dataoff is offset past network protocol
+>             hdr.  Return true if possible. */
+>  	bool (*pkt_to_tuple)(const struct sk_buff *skb, unsigned int dataoff,
+> @@ -103,6 +105,10 @@ struct nf_conntrack_l4proto {
+>  	struct ctl_table	*ctl_compat_table;
+>  #endif
+>  #endif
+> +	int	*net_id;
+> +	/* Init l4proto pernet data */
+> +	int (*init_net)(struct net *net, u_int8_t compat);
+> +
+>  	/* Protocol name */
+>  	const char *name;
+>  
+> diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
+> index a053a19..1f53038 100644
+> --- a/include/net/netns/conntrack.h
+> +++ b/include/net/netns/conntrack.h
+> @@ -8,6 +8,18 @@
+>  struct ctl_table_header;
+>  struct nf_conntrack_ecache;
+>  
+> +struct nf_proto_net {
+> +#ifdef CONFIG_SYSCTL
+> +	struct ctl_table_header *ctl_table_header;
+> +	struct ctl_table        *ctl_table;
+> +#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+> +	struct ctl_table_header *ctl_compat_header;
+> +	struct ctl_table        *ctl_compat_table;
+> +#endif
+> +#endif
+> +	unsigned int		users;
+> +};
+> +
+>  struct netns_ct {
+>  	atomic_t		count;
+>  	unsigned int		expect_count;
