@@ -1,59 +1,38 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 1/4] stmmac: modify and improve the bus_setup platform
- callback
-Date: Wed, 23 May 2012 08:19:02 +0200
-Message-ID: <4FBC8156.6010101@st.com>
-References: <1337751619-21941-1-git-send-email-peppe.cavallaro@st.com> <20120523.014359.1912436981409831773.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: fix the rcu race between free_fib_info and
+ ip_route_output_slow
+Date: Wed, 23 May 2012 08:27:39 +0200
+Message-ID: <1337754459.3361.1850.camel@edumazet-glaptop>
+References: <4FBB6105.2060808@intel.com>
+	 <20120522.151554.106838106733194160.davem@davemloft.net>
+	 <1337742123.14538.175.camel@ymzhang.sh.intel.com>
+	 <20120522.232310.911242148705021745.davem@davemloft.net>
+	 <1337747829.3361.1599.camel@edumazet-glaptop>
+	 <1337748897.14538.184.camel@ymzhang.sh.intel.com>
+	 <1337749339.3361.1655.camel@edumazet-glaptop>
+	 <1337753757.14538.190.camel@ymzhang.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, kunx.jiang@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Yanmin Zhang <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:54127 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932910Ab2EWGTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 02:19:10 -0400
-In-Reply-To: <20120523.014359.1912436981409831773.davem@davemloft.net>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:34224 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205Ab2EWG1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 02:27:46 -0400
+In-Reply-To: <1337753757.14538.190.camel@ymzhang.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David
+On Wed, 2012-05-23 at 14:15 +0800, Yanmin Zhang wrote:
 
-On 5/23/2012 7:43 AM, David Miller wrote:
 > 
-> As I stated the other day, the net-next tree is closed, therefore only
-> bug fixes are appropriate at this time.
+> Besides fi->fib_dev here, we need check fi->fib_hash, fi->fib_lhash,
+> and nexthop_nh->nh_hash.
 
-Ok, so only these patches shouldbe considered:
+No, its not needed.
 
-  stmmac: update driver's doc
-  stmmac: remove two useless initialisation
-  stmmac: remove two useless initialisation
-
-and
-
-  stmmac: fix driver Kconfig when built as module
-     This is attached to another thread and under review.
-
-
-> If there are bug fixes you want integrated in this series, you need
-> to seperate them out and submit them only at this time.
-
-Thanks, I'm resending them again for net.git.
-
-> When net-next opens back up you can submit the rest.
-
-I'll only resend the following patch (that should be stay in next repo)
-later:
-     stmmac: modify and improve the bus_setup platform callback
-
-Regards
-Peppe
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+I am sending a patch, because I feel this area is too complex for non
+netdev guys.
