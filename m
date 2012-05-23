@@ -1,129 +1,151 @@
-From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
-Subject: Re: [PATCH 06/15] batman-adv: Distributed ARP Table
- - add snooping functions for ARP messages
-Date: Wed, 23 May 2012 23:48:02 +0200
-Message-ID: <20120523214802.GA12222@pandem0nium>
-References: <1335689867-8017-7-git-send-email-ordex@autistici.org>
-	<20120430.205904.288157818941040253.davem@davemloft.net>
-	<201205121626.38520.lindner_marek@yahoo.de>
-	<201205171953.54891.lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
+Date: Wed, 23 May 2012 15:03:06 -0700
+Message-ID: <4FBD5E9A.80005@intel.com>
+References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>  <1337101280.8512.1108.camel@edumazet-glaptop>  <1337272292.1681.16.camel@kjm-desktop.uk.level5networks.com>  <1337272654.3403.20.camel@edumazet-glaptop>  <1337674831.1698.7.camel@kjm-desktop.uk.level5networks.com>  <1337678759.3361.147.camel@edumazet-glaptop>  <1337679045.3361.154.camel@edumazet-glaptop>  <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>  <1337703170.3361.217.camel@edumazet-glaptop>  <1337704382.1698.53.camel@kjm-desktop.uk.level5networks.com>  <1337705135.3361.226.camel@edumazet-glaptop>  <1337720076.3361.667.camel@edumazet-glaptop>  <1337766246.3361.2447.camel@edumazet-glaptop>  <1337774978.3361.2744.camel@edumazet-glaptop> <4FBD0A85.4040407@intel.com>  <1337789530.3361.2992.camel@edumaz
+ et-glaptop>  <1337791189.3361.3029.camel@edumazet-glaptop> <4FBD1A0C.4070606@intel.com>  <4FBD546A.1030504@intel.com> <1337809034.3361.3487.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="3MwIy2ne0vdjdPXF"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <201205171953.54891.lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Kieran Mansley <kmansley@solarflare.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:62135 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752044Ab2EWWDY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 May 2012 18:03:24 -0400
+In-Reply-To: <1337809034.3361.3487.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 05/23/2012 02:37 PM, Eric Dumazet wrote:
+> On Wed, 2012-05-23 at 14:19 -0700, Alexander Duyck wrote:
+>> On 05/23/2012 10:10 AM, Alexander Duyck wrote:
+>>> On 05/23/2012 09:39 AM, Eric Dumazet wrote:
+>>>> On Wed, 2012-05-23 at 18:12 +0200, Eric Dumazet wrote:
+>>>>
+>>>>> With current driver, a MTU=1500 frame uses :
+>>>>>
+>>>>> sk_buff (256 bytes)
+>>>>> skb->head : 1024 bytes  (or more exaclty now : 512 + 384)
+>>>> By the way, NET_SKB_PAD adds 64 bytes so its 64 + 512 + 384 = 960
+>>> Actually pahole seems to be indicating to me the size of skb_shared_info
+>>> is 320, unless something has changed in the last few days.
+>>>
+>>> When I get a chance I will try to remember to reduce the ixgbe header
+>>> size to 256 which should also help.  The only reason it is set to 512
+>>> was to deal with the fact that the old alloc_skb code wasn't aligning
+>>> the shared info with the end of whatever size was allocated and so the
+>>> 512 was an approximation to make better use of the 1K slab allocation
+>>> back when we still were using hardware packet split.  That should help
+>>> to improve the page utilization for the headers since that would
+>>> increase the uses of a page from 4 to 6 for the skb head frag, and it
+>>> would drop truesize by another 256 bytes.
+>>>
+>>> Thanks,
+>>>
+>>> Alex
+>> Here is the patch for review.  I have submitted the official patch to Jeff 
+>> so that it can go through his tree for testing, validation, and submission 
+>> once Dave's tree opens back up.
+>>
+>> ---
+>>
+>> The recent changes to netdev_alloc_skb actually make it so that the size of
+>> the buffer now actually has a more direct input on the truesize.  So in
+>> order to make best use of the piece of a page we are allocated I am
+>> reducing the IXGBE_RX_HDR_SIZE to 256 so that our truesize will be reduced
+>> by 256 bytes as well.
+>>
+>> This should result in performance improvements since the number of uses per
+>> page should increase from 4 to 6 in the case of a 4K page.  In addition we
+>> should see socket performance improvements due to the truesize dropping
+>> to less than 1K for buffers less than 256 bytes.
+>>
+>> Not-Yet-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> ---
+>>
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   15 ++++++++-------
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+>>  2 files changed, 10 insertions(+), 9 deletions(-)
+>>
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+>> index 402dd66..468e4ab 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+>> @@ -77,17 +77,18 @@
+>>  #define IXGBE_MAX_FCPAUSE		 0xFFFF
+>>  
+>>  /* Supported Rx Buffer Sizes */
+>> -#define IXGBE_RXBUFFER_512   512    /* Used for packet split */
+>> +#define IXGBE_RXBUFFER_256    256  /* Used for skb receive header */
+>>  #define IXGBE_MAX_RXBUFFER  16384  /* largest size for a single descriptor */
+>>  
+>>  /*
+>> - * NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN mans we
+>> - * reserve 2 more, and skb_shared_info adds an additional 384 bytes more,
+>> - * this adds up to 512 bytes of extra data meaning the smallest allocation
+>> - * we could have is 1K.
+>> - * i.e. RXBUFFER_512 --> size-1024 slab
+>> + * NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
+>> + * reserve 64 more, and skb_shared_info adds an additional 320 bytes more,
+>> + * this adds up to 448 bytes of extra data.
+>> + *
+>> + * Since netdev_alloc_skb now allocates a page fragment we can use a value
+>> + * of 256 and the resultant skb will have a truesize of 960 or less.
+>>   */
+>> -#define IXGBE_RX_HDR_SIZE IXGBE_RXBUFFER_512
+>> +#define IXGBE_RX_HDR_SIZE IXGBE_RXBUFFER_256
+>>  
+>>  #define MAXIMUM_ETHERNET_VLAN_SIZE (ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
+>>  
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> index 7f92e40..f92b31a 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> @@ -1520,8 +1520,8 @@ static bool ixgbe_cleanup_headers(struct ixgbe_ring *rx_ring,
+>>  	 * 60 bytes if the skb->len is less than 60 for skb_pad.
+>>  	 */
+>>  	pull_len = skb_frag_size(frag);
+>> -	if (pull_len > 256)
+>> -		pull_len = ixgbe_get_headlen(va, pull_len);
+>> +	if (pull_len > IXGBE_RX_HDR_SIZE)
+>> +		pull_len = ixgbe_get_headlen(va, IXGBE_RX_HDR_SIZE);
+>>  
+>>  	/* align pull length to size of long to optimize memcpy performance */
+>>  	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
+>>
+>
+> By the way you should reword the comment about NET_IP_ALIGN
+>
+> On x86 NET_IP_ALIGN is 0, so we dont 'reserve 64 bytes more'
+On x86 yes, on other platforms that don't clear the value it will add 2
+more bytes, and after cache alignment it will likely add another 64.  I
+am really just stating the worst case scenario here.  This is why I end
+the comment with "960 or less".
 
---3MwIy2ne0vdjdPXF
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> -> 896 bytes
+.. or 832 bytes if you really tweak settings and get the sk_buff down to
+192 bytes.  :-)
 
-Hello David,=20
+> Also, are you sure :
+>
+> srrctl |= (IXGBE_RX_HDR_SIZE << IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT) &  
+> 	IXGBE_SRRCTL_BSIZEHDR_MASK; 
+>
+>
+> is still needed in ixgbe_configure_srrctl() , since it uses
+> IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF (non packet split)
+That bit is needed for RSC.  Basically we have to specify the maximum
+size of a header, even if we are not using packet split.  The value has
+to be at least 128 or more.  Since we are using the value of
+IXGBE_RX_HDR_SIZE to limit how much header we pull anyway I figure it is
+probably a good idea just to leave this here.
 
-we are a little bit in a pinch here - the DAT feature sent with this
-patchset was developed for a long time, and we need your decision to move on
-as more and more patches depend on it:
+Thanks,
 
- * should we rewrite DAT to use our own ARP table/backend or
- * can we use the ARP neighbor table in another way, maybe after your chang=
-es?
-
-We thought that re-using existing infrastructure would be smarter, but if
-you disagree, please tell us so - we would like to get this feature finally
-upstream and need your input to make the neccesary changes.
-
-Thanks
-	Simon
-
-
-On Thu, May 17, 2012 at 07:53:54PM +0800, Marek Lindner wrote:
->=20
-> David,
->=20
-> > On Tuesday, May 01, 2012 08:59:04 David Miller wrote:
-> > > From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-> > > Date: Tue, 1 May 2012 00:22:30 +0200
-> > >=20
-> > > > However this patch also contains a procedure which queries the neigh
-> > > > table in order to understand whether a given host is known or not.
-> > > > Would it be possible to do that in another way (Without manually
-> > > > touching the table)?
-> > > >=20
-> > > > Instead, in the next patch (patch 06/15) batman-adv manually increa=
-se
-> > > > the neigh timeouts. Do you think we should avoid doing that as well?
-> > > > If we are allowed to do that, how can we perform the same operation=
- in
-> > > > a cleaner way?
-> > > >=20
-> > > > Last question: why can't other modules use exported functions? Are =
-you
-> > > > going to change them as well?
-> > >=20
-> > > I really don't have time to discuss your neigh issues right now as I'm
-> > > busy speaking at conferences and dealing with the backlog of other
-> > > patches.
-> > >=20
-> > > You'll need to find someone else to discuss it with you, sorry.
-> >=20
-> > I hope now is a good moment to bring the questions back onto the table.=
- We
-> > still are not sure how to proceed because we have no clear picture of w=
-hat
-> > is going to come and how the exported functions are supposed to be used.
-> >=20
-> > David, if you don't have the time to discuss the ARP handling with us c=
-ould
-> > you name someone who knows your plans and the code equally well ? So fa=
-r,
-> > nobody has stepped up.
->=20
-> let me add another piece of information: The distributed ARP table does n=
-ot=20
-> really depend on the kernel's ARP table. We can easily write our own back=
-end=20
-> to be totally independent of the kernel's ARP table. Initially, we though=
-t it=20
-> might be considered a smart move if the code made use of existing kernel=
-=20
-> infrastructure instead of writing our own storage / user space API / etc,=
-=20
-> hence duplicating what is already there. But if you feel this is the bett=
-er=20
-> way forward we certainly will make the necessary changes.
->=20
-> Regards,
-> Marek
->=20
-
---3MwIy2ne0vdjdPXF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAk+9WxIACgkQrzg/fFk7axb+zQCfQncmbfbL4WHBJpfB3EUZ9p56
-yeIAoKRuR0Q3de8smjoM3C7ECQju1C8h
-=Tzda
------END PGP SIGNATURE-----
-
---3MwIy2ne0vdjdPXF--
+Alex
