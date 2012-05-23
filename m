@@ -1,41 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipx: restore token ring define to
- include/linux/ipx.h
-Date: Wed, 23 May 2012 13:49:49 -0400 (EDT)
-Message-ID: <20120523.134949.161940875949806704.davem@davemloft.net>
-References: <1337784225-30641-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
+Date: Wed, 23 May 2012 13:57:27 -0400 (EDT)
+Message-ID: <20120523.135727.414815976542132549.davem@davemloft.net>
+References: <1337766246.3361.2447.camel@edumazet-glaptop>
+	<20120523.133401.915684077769386834.davem@davemloft.net>
+	<1337795210.3361.3118.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: paul.gortmaker@windriver.com
+Cc: kmansley@solarflare.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60498 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:60555 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760655Ab2EWRtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 13:49:52 -0400
-In-Reply-To: <1337784225-30641-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S933782Ab2EWR5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 13:57:33 -0400
+In-Reply-To: <1337795210.3361.3118.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Wed, 23 May 2012 10:43:45 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 23 May 2012 19:46:50 +0200
 
-> Commit 211ed865108e24697b44bee5daac502ee6bdd4a4
+> But TCP already backs off if user process is not blocked on socket
+> input.
 > 
->     "net: delete all instances of special processing for token ring"
+> Modern applications uses select()/poll()/epoll() on many sockets in //.
 > 
-> removed the define for IPX_FRAME_TR_8022.
-> 
-> While it is unlikely, we can't be 100% sure that there aren't
-> random userspace consumers of this value, so restore it.
-> 
-> The only instance I could find was in ncpfs-2.2.6, and it was
-> safe as-is, since it used #ifdef IPX_FRAME_TR_8022 around the
-> two use cases it had, but there may be other userspace packages
-> without similar ifdefs.
-> 
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Only old ones stil block on recv().
 
-Applied, thanks Paul.
+These arguments seem circular.
+
+Those modern applications still trigger enough TCP work during their
+recv() calls that it's significant enough for scheduling purposes, and
+to me being able to account that TCP work as process time is still
+extremely beneficial.
