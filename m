@@ -1,134 +1,149 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 1/3] drivers: net: stmmac: add blackfin support
-Date: Wed, 23 May 2012 10:27:05 +0200
-Message-ID: <4FBC9F59.906@st.com>
-References: <1337672336-7378-1-git-send-email-lliubbo@gmail.com> <4FBB8852.7060403@st.com> <CAA_GA1dWh=8rh9TQ4D81X22v-Cy1ZRUbBcZnVegqfFnKn_hVSw@mail.gmail.com> <4FBC9E09.6010300@st.com>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH v6 2/2] decrement static keys on real destroy time
+Date: Wed, 23 May 2012 13:16:36 +0400
+Message-ID: <4FBCAAF4.4030803@parallels.com>
+References: <1337682339-21282-1-git-send-email-glommer@parallels.com> <1337682339-21282-3-git-send-email-glommer@parallels.com> <20120522154610.f2f9b78e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bob Liu <lliubbo@gmail.com>, davem@davemloft.net,
-	francesco.virlinzi@st.com, rayagond@vayavyalabs.com, sr@denx.de,
-	netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:40836 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757421Ab2EWI1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 04:27:20 -0400
-In-Reply-To: <4FBC9E09.6010300@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120522154610.f2f9b78e.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 5/23/2012 10:21 AM, Giuseppe CAVALLARO wrote:
-> Hello Bob Liu
-> 
-> On 5/23/2012 9:58 AM, Bob Liu wrote:
->> Hi Peppe,
->>
->> On 5/22/12, Giuseppe CAVALLARO <peppe.cavallaro@st.com> wrote:
->>> Hello Bob Liu
->>>
->>> On 5/22/2012 9:38 AM, Bob Liu wrote:
->>>> Blackfin arch use stmmac on its reference board bf609-ezkit, the stmmac
->>>> ip
->>>> version is 3.61a.
->>>>
->>>> But the spec seems a little different, some register addr and define are
->>>> not
->>>> the same with current code.
->>>>
->>>> This patch add the support for blackfin arch following the spec.
->>>
->>> The 3.61a is supported and you have to point to the dw1000.h header file.
->>>
->>> To support this GMAC generation you only need to pass from the platform
->>> the field has_gmac (see stmmac.txt).
->>> Also the 3.61a has the HW cap registers so many internal fields (e.g. rx
->>> coe, enhanced descr ...) will be fixed at run-time (although you can
->>> pass them from the platform).
->>>
->>> Your patch adds the GMAC SPEC in the old MAC 10/100.
->>>
->>> Also I am reluctant to have specific ifdef <ARCH> within the code.
->>> I do think the driver already has all the platform fields to run on your
->>> board. If you need extra conf pls feel free to enhance the
->>> plat_stmmacenet_data.
->>>
->>
->> Thank you for your reply.
->> I tried to use driver dwmac1000 by setting .has_gmac = 1 today.
->> Ping can finish with no error but when rcp a file or telnet it will hang.
-> 
-> Hmm this should be debugged ... maybe you can verify the tx / rx
-> checksum. I mean if your IP has these modules or if, for somereason, the
-> HW cap register is not present and there are not properly fixed
-> 
->>
->> Using below patch without setting .has_gmac, everything works fine.
-> 
-> With your patch (that added the dwmac1000 into the dwmac100) you are
-> indeed using the MAC100 setting where by default there is no HW
-> checksumming ;-)
+On 05/23/2012 02:46 AM, Andrew Morton wrote:
+> Here, we're open-coding kinda-test_bit().  Why do that?  These flags are
+> modified with set_bit() and friends, so we should read them with the
+> matching test_bit()?
 
- platform fields to use are: tx_coe and rx_coe.
+My reasoning was to be as cheap as possible, as you noted yourself two
+paragraphs below.
 
-Peppe
+> Also, these bool-returning functions will return values other than 0
+> and 1.  That probably works OK and I don't know what the C standards
+> and implementations do about this.  But it seems unclean and slightly
+> risky to have a "bool" value of 32!  Converting these functions to use
+> test_bit() fixes this - test_bit() returns only 0 or 1.
+>
+> test_bit() is slightly more expensive than the above.  If this is
+> considered to be an issue then I guess we could continue to use this
+> approach.  But I do think a code comment is needed, explaining and
+> justifying the unusual decision to bypass the bitops API.  Also these
+> functions should tell the truth and return an "int" type.
+>
+>> >
+>> >  +static void disarm_static_keys(struct mem_cgroup *memcg)
+>> >  +{
+>> >  +	disarm_sock_keys(memcg);
+>> >  +}
+> Why does this function exist?  Its single caller could call
+> disarm_sock_keys() directly.
 
->> Any ideas?  Thank you.
-> 
-> you are welcome
-> 
-> Peppe
-> 
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
->> b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
->> index 7c6d857..00499b8 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
->> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
->> @@ -29,6 +29,18 @@
->>   *                             MAC BLOCK defines
->>   *---------------------------------------------------------------------------*/
->>  /* MAC CSR offset */
->> +#if defined(CONFIG_BLACKFIN)
->> +#define MAC_CONTROL    0x00000000      /* MAC Control */
->> +#define MAC_FRAME_FILTER       0x0000004       /* Frame filter */
->> +#define MAC_HASH_HIGH  0x00000008      /* Multicast Hash Table High */
->> +#define MAC_HASH_LOW   0x0000000c      /* Multicast Hash Table Low */
->> +#define MAC_MII_ADDR   0x00000010      /* MII Address */
->> +#define MAC_MII_DATA   0x00000014      /* MII Data */
->> +#define MAC_FLOW_CTRL  0x00000018      /* Flow Control */
->> +#define MAC_VLAN1      0x0000001c      /* VLAN1 Tag */
->> +#define MAC_ADDR_HIGH  0x00000040      /* MAC Address High */
->> +#define MAC_ADDR_LOW   0x00000044      /* MAC Address Low */
->> +#else
->>  #define MAC_CONTROL    0x00000000      /* MAC Control */
->>  #define MAC_ADDR_HIGH  0x00000004      /* MAC Address High */
->>  #define MAC_ADDR_LOW   0x00000008      /* MAC Address Low */
->> @@ -39,6 +51,7 @@
->>  #define MAC_FLOW_CTRL  0x0000001c      /* Flow Control */
->>  #define MAC_VLAN1      0x00000020      /* VLAN1 Tag */
->>  #define MAC_VLAN2      0x00000024      /* VLAN2 Tag */
->> +#endif
->>
->>  /* MAC CTRL defines */
->>  #define MAC_CONTROL_RA 0x80000000      /* Receive All Mode */
->> @@ -67,7 +80,11 @@
->>  #define MAC_CONTROL_TE         0x00000008      /* Transmitter Enable */
->>  #define MAC_CONTROL_RE         0x00000004      /* Receiver Enable */
->>
->> +#ifdef CONFIG_BLACKFIN
->> +#define MAC_CORE_INIT ((1 << 14) | MAC_CONTROL_DBF)
->> +#else
->>  #define MAC_CORE_INIT (MAC_CONTROL_HBD | MAC_CONTROL_ASTP)
->> +#endif
->>
->>  /* MAC FLOW CTRL defines */
->>  #define MAC_FLOW_CTRL_PT_MASK  0xffff0000      /* Pause Time Mask */
->>
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+It exists to make it clear that this is the point in which static keys
+should be disabled. I already have a patchset that introduces other 
+static keys, that should, of course, also be disabled here.
+
+I am totally fine with calling directly disarm_sock_keys(), and then in 
+that series wrap it in disarm_static_keys, IOW, defer its introduction,
+if that's how you prefer.
+
+
+>
+>> >    static void drain_all_stock_async(struct mem_cgroup *memcg);
+>> >
+>> >    static struct mem_cgroup_per_zone *
+>> >  @@ -4836,6 +4854,13 @@ static void free_work(struct work_struct *work)
+>> >    	int size = sizeof(struct mem_cgroup);
+>> >
+>> >    	memcg = container_of(work, struct mem_cgroup, work_freeing);
+>> >  +	/*
+>> >  +	 * We need to make sure that (at least for now), the jump label
+>> >  +	 * destruction code runs outside of the cgroup lock.
+> This is a poor comment - it failed to tell the reader*why*  that code
+> must run outside the cgroup lock.
+
+Ok, will update.
+
+>> >							schedule_work()
+>> >  +	 * will guarantee this happens. Be careful if you need to move this
+>> >  +	 * disarm_static_keys around
+> It's a bit difficult for the reader to be careful when he isn't told
+> what the risks are.
+
+Ok, will update.
+
+>> >  +	 */
+>> >  +	disarm_static_keys(memcg);
+>> >    	if (size<  PAGE_SIZE)
+>> >    		kfree(memcg);
+>> >    	else
+>> >  diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
+>> >  index 1517037..3b8fa25 100644
+>> >  --- a/net/ipv4/tcp_memcontrol.c
+>> >  +++ b/net/ipv4/tcp_memcontrol.c
+>> >  @@ -74,9 +74,6 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
+>> >    	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
+>> >
+>> >    	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_LIMIT);
+>> >  -
+>> >  -	if (val != RESOURCE_MAX)
+>> >  -		static_key_slow_dec(&memcg_socket_limit_enabled);
+>> >    }
+>> >    EXPORT_SYMBOL(tcp_destroy_cgroup);
+>> >
+>> >  @@ -107,10 +104,33 @@ static int tcp_update_limit(struct mem_cgroup *memcg, u64 val)
+>> >    		tcp->tcp_prot_mem[i] = min_t(long, val>>  PAGE_SHIFT,
+>> >    					net->ipv4.sysctl_tcp_mem[i]);
+>> >
+>> >  -	if (val == RESOURCE_MAX&&  old_lim != RESOURCE_MAX)
+>> >  -		static_key_slow_dec(&memcg_socket_limit_enabled);
+>> >  -	else if (old_lim == RESOURCE_MAX&&  val != RESOURCE_MAX)
+>> >  -		static_key_slow_inc(&memcg_socket_limit_enabled);
+>> >  +	if (val == RESOURCE_MAX)
+>> >  +		clear_bit(MEMCG_SOCK_ACTIVE,&cg_proto->flags);
+>> >  +	else if (val != RESOURCE_MAX) {
+>> >  +		/*
+>> >  +		 *  The active bit needs to be written after the static_key update.
+>> >  +		 *  This is what guarantees that the socket activation function
+>> >  +		 *  is the last one to run. See sock_update_memcg() for details,
+>> >  +		 *  and note that we don't mark any socket as belonging to this
+>> >  +		 *  memcg until that flag is up.
+>> >  +		 *
+>> >  +		 *  We need to do this, because static_keys will span multiple
+>> >  +		 *  sites, but we can't control their order. If we mark a socket
+>> >  +		 *  as accounted, but the accounting functions are not patched in
+>> >  +		 *  yet, we'll lose accounting.
+>> >  +		 *
+>> >  +		 *  We never race with the readers in sock_update_memcg(), because
+>> >  +		 *  when this value change, the code to process it is not patched in
+>> >  +		 *  yet.
+>> >  +		 *
+>> >  +		 *  The activated bit is used to guarantee that no two writers will
+>> >  +		 *  do the update in the same memcg. Without that, we can't properly
+>> >  +		 *  shutdown the static key.
+>> >  +		 */
+> This comment needlessly overflows 80 cols and has a pointless and
+> unconventional double-space indenting.  I already provided a patch
+> which fixes this and a few other things, but that was ignored when you
+> did the v6.
+
+Sorry, I missed it.
+>
+>> >  +		if (!test_and_set_bit(MEMCG_SOCK_ACTIVATED,&cg_proto->flags))
+>> >  +			static_key_slow_inc(&memcg_socket_limit_enabled);
+>> >  +		set_bit(MEMCG_SOCK_ACTIVE,&cg_proto->flags);
+>> >  +	}
+> So here are suggested changes from*some*  of the above discussion.
+> Please consider, incorporate, retest and send us a v7?
+
+How do you want me to do it? Should I add your patch ontop of mine,
+and then another one that tweaks whatever else is left, or should I just
+merge those changes into the patches I have?
