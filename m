@@ -1,91 +1,110 @@
-From: Yanmin Zhang <yanmin_zhang@linux.intel.com>
-Subject: Re: [PATCH] ipv4: fix the rcu race between free_fib_info and
- ip_route_output_slow
-Date: Wed, 23 May 2012 15:47:59 +0800
-Message-ID: <1337759279.14538.201.camel@ymzhang.sh.intel.com>
-References: <4FBB6105.2060808@intel.com>
-	 <20120522.151554.106838106733194160.davem@davemloft.net>
-	 <1337742123.14538.175.camel@ymzhang.sh.intel.com>
-	 <20120522.232310.911242148705021745.davem@davemloft.net>
-	 <1337747829.3361.1599.camel@edumazet-glaptop>
-	 <1337748897.14538.184.camel@ymzhang.sh.intel.com>
-	 <1337749339.3361.1655.camel@edumazet-glaptop>
-	 <1337753757.14538.190.camel@ymzhang.sh.intel.com>
-	 <1337754459.3361.1850.camel@edumazet-glaptop>
-	 <1337755623.14538.194.camel@ymzhang.sh.intel.com>
-	 <1337756138.3361.1922.camel@edumazet-glaptop>
-	 <1337757238.3361.1965.camel@edumazet-glaptop>
-	 <1337757862.14538.199.camel@ymzhang.sh.intel.com>
-	 <1337758775.3361.2056.camel@edumazet-glaptop>
+From: Bob Liu <lliubbo@gmail.com>
+Subject: Re: [PATCH 1/3] drivers: net: stmmac: add blackfin support
+Date: Wed, 23 May 2012 15:58:13 +0800
+Message-ID: <CAA_GA1dWh=8rh9TQ4D81X22v-Cy1ZRUbBcZnVegqfFnKn_hVSw@mail.gmail.com>
+References: <1337672336-7378-1-git-send-email-lliubbo@gmail.com>
+	<4FBB8852.7060403@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kunx.jiang@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337758775.3361.2056.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, francesco.virlinzi@st.com,
+	rayagond@vayavyalabs.com, sr@denx.de, netdev@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:47719 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755407Ab2EWH6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 03:58:14 -0400
+Received: by wgbdr13 with SMTP id dr13so6865961wgb.1
+        for <netdev@vger.kernel.org>; Wed, 23 May 2012 00:58:13 -0700 (PDT)
+In-Reply-To: <4FBB8852.7060403@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-23 at 09:39 +0200, Eric Dumazet wrote:
-> On Wed, 2012-05-23 at 15:24 +0800, Yanmin Zhang wrote:
-> > On Wed, 2012-05-23 at 09:13 +0200, Eric Dumazet wrote:
-> > > On Wed, 2012-05-23 at 08:55 +0200, Eric Dumazet wrote:
-> > > 
-> > > > Please hold on, I'll send a v2
-> > > 
-> > > I believe your patch should be fine, if you move back the
-> > > fib_info_cnt--;
-> > > 
-> > > So only do the dev_put() in free_fib_info_rcu().
-> > We would do so in a new patch.
-> > 
-> > > 
-> > > No need to clear nh_dev to NULL since we are freeing fi at the end of
-> > > function.
-> > David suggests to reset it to NULL to detect other potential
-> > race conditions.
-> > 
-> 
-> Yes but no.
-> 
-> Users are in a RCU read lock and we should not change nh_dev to NULL
-> while they are running.
-> 
-> Thats what I tried to do (David message gave me this wrong hint) but it
-> came to a dead issue.
-> 
-> Only after a grace period we can :
-> 	dev_put() all involved net_devices
-> 	kfree(fi)
-> 
-> > Besides above suggestions, how do you think about:
-> > 
-> > fib_create_info=>fib_find_info, but fib_find_info is not protected by
-> > fib_info_lock. See the codes:
-> > 
-> > fib_create_info()
-> > {
-> > 	...
-> > link_it:
-> >         ofi = fib_find_info(fi);
-> >         if (ofi) {
-> >                 fi->fib_dead = 1;
-> >                 free_fib_info(fi);
-> >                 ofi->fib_treeref++;
-> >                 return ofi;
-> >         }
-> >         fi->fib_treeref++;
-> >         atomic_inc(&fi->fib_clntref);
-> >         spin_lock_bh(&fib_info_lock);
-> > 
-> > 	...
-> > }
-> > 
-> > I plan to change it to hold fib_info_lock before calling fib_find_info. Is
-> > it ok for you?
-> 
-> Its not needed we hold RTNL mutex.
-Thanks. We would work out a new patch and post it here after running MTBF
-testing.
+Hi Peppe,
+
+On 5/22/12, Giuseppe CAVALLARO <peppe.cavallaro@st.com> wrote:
+> Hello Bob Liu
+>
+> On 5/22/2012 9:38 AM, Bob Liu wrote:
+>> Blackfin arch use stmmac on its reference board bf609-ezkit, the stmmac
+>> ip
+>> version is 3.61a.
+>>
+>> But the spec seems a little different, some register addr and define are
+>> not
+>> the same with current code.
+>>
+>> This patch add the support for blackfin arch following the spec.
+>
+> The 3.61a is supported and you have to point to the dw1000.h header file.
+>
+> To support this GMAC generation you only need to pass from the platform
+> the field has_gmac (see stmmac.txt).
+> Also the 3.61a has the HW cap registers so many internal fields (e.g. rx
+> coe, enhanced descr ...) will be fixed at run-time (although you can
+> pass them from the platform).
+>
+> Your patch adds the GMAC SPEC in the old MAC 10/100.
+>
+> Also I am reluctant to have specific ifdef <ARCH> within the code.
+> I do think the driver already has all the platform fields to run on your
+> board. If you need extra conf pls feel free to enhance the
+> plat_stmmacenet_data.
+>
+
+Thank you for your reply.
+I tried to use driver dwmac1000 by setting .has_gmac = 1 today.
+Ping can finish with no error but when rcp a file or telnet it will hang.
+
+Using below patch without setting .has_gmac, everything works fine.
+Any ideas?  Thank you.
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
+b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
+index 7c6d857..00499b8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100.h
+@@ -29,6 +29,18 @@
+  *                             MAC BLOCK defines
+  *---------------------------------------------------------------------------*/
+ /* MAC CSR offset */
++#if defined(CONFIG_BLACKFIN)
++#define MAC_CONTROL    0x00000000      /* MAC Control */
++#define MAC_FRAME_FILTER       0x0000004       /* Frame filter */
++#define MAC_HASH_HIGH  0x00000008      /* Multicast Hash Table High */
++#define MAC_HASH_LOW   0x0000000c      /* Multicast Hash Table Low */
++#define MAC_MII_ADDR   0x00000010      /* MII Address */
++#define MAC_MII_DATA   0x00000014      /* MII Data */
++#define MAC_FLOW_CTRL  0x00000018      /* Flow Control */
++#define MAC_VLAN1      0x0000001c      /* VLAN1 Tag */
++#define MAC_ADDR_HIGH  0x00000040      /* MAC Address High */
++#define MAC_ADDR_LOW   0x00000044      /* MAC Address Low */
++#else
+ #define MAC_CONTROL    0x00000000      /* MAC Control */
+ #define MAC_ADDR_HIGH  0x00000004      /* MAC Address High */
+ #define MAC_ADDR_LOW   0x00000008      /* MAC Address Low */
+@@ -39,6 +51,7 @@
+ #define MAC_FLOW_CTRL  0x0000001c      /* Flow Control */
+ #define MAC_VLAN1      0x00000020      /* VLAN1 Tag */
+ #define MAC_VLAN2      0x00000024      /* VLAN2 Tag */
++#endif
+
+ /* MAC CTRL defines */
+ #define MAC_CONTROL_RA 0x80000000      /* Receive All Mode */
+@@ -67,7 +80,11 @@
+ #define MAC_CONTROL_TE         0x00000008      /* Transmitter Enable */
+ #define MAC_CONTROL_RE         0x00000004      /* Receiver Enable */
+
++#ifdef CONFIG_BLACKFIN
++#define MAC_CORE_INIT ((1 << 14) | MAC_CONTROL_DBF)
++#else
+ #define MAC_CORE_INIT (MAC_CONTROL_HBD | MAC_CONTROL_ASTP)
++#endif
+
+ /* MAC FLOW CTRL defines */
+ #define MAC_FLOW_CTRL_PT_MASK  0xffff0000      /* Pause Time Mask */
+
+-- 
+Regards,
+--Bob
