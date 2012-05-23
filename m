@@ -1,149 +1,60 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v6 2/2] decrement static keys on real destroy time
-Date: Wed, 23 May 2012 13:16:36 +0400
-Message-ID: <4FBCAAF4.4030803@parallels.com>
-References: <1337682339-21282-1-git-send-email-glommer@parallels.com> <1337682339-21282-3-git-send-email-glommer@parallels.com> <20120522154610.f2f9b78e.akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
+Date: Wed, 23 May 2012 11:44:06 +0200
+Message-ID: <1337766246.3361.2447.camel@edumazet-glaptop>
+References: <1337092718.1689.45.camel@kjm-desktop.uk.level5networks.com>
+	 <1337093776.8512.1089.camel@edumazet-glaptop>
+	 <1337099368.1689.47.camel@kjm-desktop.uk.level5networks.com>
+	 <1337099641.8512.1102.camel@edumazet-glaptop>
+	 <1337100454.2544.25.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1337101280.8512.1108.camel@edumazet-glaptop>
+	 <1337272292.1681.16.camel@kjm-desktop.uk.level5networks.com>
+	 <1337272654.3403.20.camel@edumazet-glaptop>
+	 <1337674831.1698.7.camel@kjm-desktop.uk.level5networks.com>
+	 <1337678759.3361.147.camel@edumazet-glaptop>
+	 <1337679045.3361.154.camel@edumazet-glaptop>
+	 <1337699379.1698.30.camel@kjm-desktop.uk.level5networks.com>
+	 <1337703170.3361.217.camel@edumazet-glaptop>
+	 <1337704382.1698.53.camel@kjm-desktop.uk.level5networks.com>
+	 <1337705135.3361.226.camel@edumazet-glaptop>
+	 <1337720076.3361.667.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>, <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>, <kamezawa.hiroyu-+CUm20s59erQFUHtdCDX3A@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Michal Hocko <mhocko-AlSwsSmVLrQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120522154610.f2f9b78e.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Kieran Mansley <kmansley@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:49865 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755538Ab2EWJoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 05:44:14 -0400
+Received: by mail-ey0-f174.google.com with SMTP id k11so1952398eaa.19
+        for <netdev@vger.kernel.org>; Wed, 23 May 2012 02:44:13 -0700 (PDT)
+In-Reply-To: <1337720076.3361.667.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2012 02:46 AM, Andrew Morton wrote:
-> Here, we're open-coding kinda-test_bit().  Why do that?  These flags are
-> modified with set_bit() and friends, so we should read them with the
-> matching test_bit()?
+Update :
 
-My reasoning was to be as cheap as possible, as you noted yourself two
-paragraphs below.
+My tests show that sk_backlog.len can reach 1.5MB easily on a netperf,
+even with a fast machine, receiving a 10Gb flow (ixgbe adapter), if
+LRO/GRO are off.
 
-> Also, these bool-returning functions will return values other than 0
-> and 1.  That probably works OK and I don't know what the C standards
-> and implementations do about this.  But it seems unclean and slightly
-> risky to have a "bool" value of 32!  Converting these functions to use
-> test_bit() fixes this - test_bit() returns only 0 or 1.
->
-> test_bit() is slightly more expensive than the above.  If this is
-> considered to be an issue then I guess we could continue to use this
-> approach.  But I do think a code comment is needed, explaining and
-> justifying the unusual decision to bypass the bitops API.  Also these
-> functions should tell the truth and return an "int" type.
->
->> >
->> >  +static void disarm_static_keys(struct mem_cgroup *memcg)
->> >  +{
->> >  +	disarm_sock_keys(memcg);
->> >  +}
-> Why does this function exist?  Its single caller could call
-> disarm_sock_keys() directly.
+424 backlogdrop for 193.182.546 incoming packets (with my tcp_space()
+patch applied)
 
-It exists to make it clear that this is the point in which static keys
-should be disabled. I already have a patchset that introduces other 
-static keys, that should, of course, also be disabled here.
+I believe that as soon as ixgbe can use build_skb() and avoid the 1024
+bytes overhead per skb, it should go away.
 
-I am totally fine with calling directly disarm_sock_keys(), and then in 
-that series wrap it in disarm_static_keys, IOW, defer its introduction,
-if that's how you prefer.
+Of course, another way to solve the problem would be to change
+tcp_recvmsg() to use lock_sock_fast(), so that no frame is backlogged at
+all.
 
+Locking the socket for the whole operation (including copyout to user)
+is not very good. It was good enough years ago with small receive
+window.
 
->
->> >    static void drain_all_stock_async(struct mem_cgroup *memcg);
->> >
->> >    static struct mem_cgroup_per_zone *
->> >  @@ -4836,6 +4854,13 @@ static void free_work(struct work_struct *work)
->> >    	int size = sizeof(struct mem_cgroup);
->> >
->> >    	memcg = container_of(work, struct mem_cgroup, work_freeing);
->> >  +	/*
->> >  +	 * We need to make sure that (at least for now), the jump label
->> >  +	 * destruction code runs outside of the cgroup lock.
-> This is a poor comment - it failed to tell the reader*why*  that code
-> must run outside the cgroup lock.
-
-Ok, will update.
-
->> >							schedule_work()
->> >  +	 * will guarantee this happens. Be careful if you need to move this
->> >  +	 * disarm_static_keys around
-> It's a bit difficult for the reader to be careful when he isn't told
-> what the risks are.
-
-Ok, will update.
-
->> >  +	 */
->> >  +	disarm_static_keys(memcg);
->> >    	if (size<  PAGE_SIZE)
->> >    		kfree(memcg);
->> >    	else
->> >  diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
->> >  index 1517037..3b8fa25 100644
->> >  --- a/net/ipv4/tcp_memcontrol.c
->> >  +++ b/net/ipv4/tcp_memcontrol.c
->> >  @@ -74,9 +74,6 @@ void tcp_destroy_cgroup(struct mem_cgroup *memcg)
->> >    	percpu_counter_destroy(&tcp->tcp_sockets_allocated);
->> >
->> >    	val = res_counter_read_u64(&tcp->tcp_memory_allocated, RES_LIMIT);
->> >  -
->> >  -	if (val != RESOURCE_MAX)
->> >  -		static_key_slow_dec(&memcg_socket_limit_enabled);
->> >    }
->> >    EXPORT_SYMBOL(tcp_destroy_cgroup);
->> >
->> >  @@ -107,10 +104,33 @@ static int tcp_update_limit(struct mem_cgroup *memcg, u64 val)
->> >    		tcp->tcp_prot_mem[i] = min_t(long, val>>  PAGE_SHIFT,
->> >    					net->ipv4.sysctl_tcp_mem[i]);
->> >
->> >  -	if (val == RESOURCE_MAX&&  old_lim != RESOURCE_MAX)
->> >  -		static_key_slow_dec(&memcg_socket_limit_enabled);
->> >  -	else if (old_lim == RESOURCE_MAX&&  val != RESOURCE_MAX)
->> >  -		static_key_slow_inc(&memcg_socket_limit_enabled);
->> >  +	if (val == RESOURCE_MAX)
->> >  +		clear_bit(MEMCG_SOCK_ACTIVE,&cg_proto->flags);
->> >  +	else if (val != RESOURCE_MAX) {
->> >  +		/*
->> >  +		 *  The active bit needs to be written after the static_key update.
->> >  +		 *  This is what guarantees that the socket activation function
->> >  +		 *  is the last one to run. See sock_update_memcg() for details,
->> >  +		 *  and note that we don't mark any socket as belonging to this
->> >  +		 *  memcg until that flag is up.
->> >  +		 *
->> >  +		 *  We need to do this, because static_keys will span multiple
->> >  +		 *  sites, but we can't control their order. If we mark a socket
->> >  +		 *  as accounted, but the accounting functions are not patched in
->> >  +		 *  yet, we'll lose accounting.
->> >  +		 *
->> >  +		 *  We never race with the readers in sock_update_memcg(), because
->> >  +		 *  when this value change, the code to process it is not patched in
->> >  +		 *  yet.
->> >  +		 *
->> >  +		 *  The activated bit is used to guarantee that no two writers will
->> >  +		 *  do the update in the same memcg. Without that, we can't properly
->> >  +		 *  shutdown the static key.
->> >  +		 */
-> This comment needlessly overflows 80 cols and has a pointless and
-> unconventional double-space indenting.  I already provided a patch
-> which fixes this and a few other things, but that was ignored when you
-> did the v6.
-
-Sorry, I missed it.
->
->> >  +		if (!test_and_set_bit(MEMCG_SOCK_ACTIVATED,&cg_proto->flags))
->> >  +			static_key_slow_inc(&memcg_socket_limit_enabled);
->> >  +		set_bit(MEMCG_SOCK_ACTIVE,&cg_proto->flags);
->> >  +	}
-> So here are suggested changes from*some*  of the above discussion.
-> Please consider, incorporate, retest and send us a v7?
-
-How do you want me to do it? Should I add your patch ontop of mine,
-and then another one that tweaks whatever else is left, or should I just
-merge those changes into the patches I have?
+With a potentially huge backlog, it means user process has to process
+it, regardless of its latency constraints. CPU caches are also
+completely destroyed because of huge amount of data included in thousand
+of skbs.
