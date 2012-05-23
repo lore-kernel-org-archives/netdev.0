@@ -1,41 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
-Date: Wed, 23 May 2012 19:46:50 +0200
-Message-ID: <1337795210.3361.3118.camel@edumazet-glaptop>
-References: <1337705135.3361.226.camel@edumazet-glaptop>
-	 <1337720076.3361.667.camel@edumazet-glaptop>
-	 <1337766246.3361.2447.camel@edumazet-glaptop>
-	 <20120523.133401.915684077769386834.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipx: restore token ring define to
+ include/linux/ipx.h
+Date: Wed, 23 May 2012 13:49:49 -0400 (EDT)
+Message-ID: <20120523.134949.161940875949806704.davem@davemloft.net>
+References: <1337784225-30641-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kmansley@solarflare.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:54106 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760641Ab2EWRqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 13:46:55 -0400
-Received: by eaak11 with SMTP id k11so2161352eaa.19
-        for <netdev@vger.kernel.org>; Wed, 23 May 2012 10:46:54 -0700 (PDT)
-In-Reply-To: <20120523.133401.915684077769386834.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60498 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760655Ab2EWRtw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 13:49:52 -0400
+In-Reply-To: <1337784225-30641-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-23 at 13:34 -0400, David Miller wrote:
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Wed, 23 May 2012 10:43:45 -0400
 
-> But it is the only way we can have TCP processing scheduled and
-> accounted to user processes.  That does have value when you have lots
-> of flows active.
+> Commit 211ed865108e24697b44bee5daac502ee6bdd4a4
 > 
-> The scheduler's ability to give the process cpu time influences
-> TCP's behavier, and under load if the process can't get enough
-> cpu time then TCP will back off.  We want that.
+>     "net: delete all instances of special processing for token ring"
+> 
+> removed the define for IPX_FRAME_TR_8022.
+> 
+> While it is unlikely, we can't be 100% sure that there aren't
+> random userspace consumers of this value, so restore it.
+> 
+> The only instance I could find was in ncpfs-2.2.6, and it was
+> safe as-is, since it used #ifdef IPX_FRAME_TR_8022 around the
+> two use cases it had, but there may be other userspace packages
+> without similar ifdefs.
+> 
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-But TCP already backs off if user process is not blocked on socket
-input.
-
-Modern applications uses select()/poll()/epoll() on many sockets in //.
-
-Only old ones stil block on recv().
+Applied, thanks Paul.
