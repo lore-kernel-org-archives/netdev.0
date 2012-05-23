@@ -1,48 +1,54 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net] ipx: restore token ring define to include/linux/ipx.h
-Date: Wed, 23 May 2012 10:43:45 -0400
-Message-ID: <1337784225-30641-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: davem@davemloft.net
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Kernel doesn't propagate DNSSL to userspace (e.g.
+ NetworkManager)
+Date: Wed, 23 May 2012 09:46:33 -0500
+Message-ID: <1337784393.25721.5.camel@dcbw.foobar.com>
+References: <fb24ca84-9976-42ab-b81a-73955b753731@zmail19.collab.prod.int.phx2.redhat.com>
+	 <1337783065.25721.1.camel@dcbw.foobar.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dan Williams <danwilli@redhat.com>,
+	danw@gnome.org
+To: Pavel Simerda <psimerda@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:48792 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754119Ab2EWOoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 10:44:17 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:59219 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752042Ab2EWOps (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 May 2012 10:45:48 -0400
+In-Reply-To: <1337783065.25721.1.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 211ed865108e24697b44bee5daac502ee6bdd4a4
+On Wed, 2012-05-23 at 09:24 -0500, Dan Williams wrote:
+> On Wed, 2012-05-23 at 04:16 -0400, Pavel Simerda wrote:
+> > Hi,
+> > 
+> > I filed a bugreport to about lack of DNSSL support in kernel:
+> > 
+> > https://bugzilla.redhat.com/show_bug.cgi?id=824121
+> > 
+> > While NetworkManager recieves RDNSS neighbor discovery user option from kernel, it doesn't recieve DNSSL at all. This can be debugged with NetworkManager
+> > (or hopefully some better testing tool) and radvdump (to check if DNSSL is present).
+> > 
+> > radvdump reports DNSSL is there, NetworkManager gets no netlink message from kernel.
+> > 
+> > kernel-3.3.4-4.fc17.x86_64
+> > NetworkManager-0.9.4.0-7.git20120403.fc17.x86_64
+> > 
+> > Dave Jones asked me to contact this ML directly. I'm offlist.
+> 
+> So Pierre Ossman sent some RFC patches for DNSSL back in December 2010,
+> but Dave Miller wanted actual formal submissions which Pierre never got
+> around to doing.  I'll resubmit Pierre's second patch, which exports all
+> options the kernel doesn't care about to userspace.
+> 
+> Sun, 12 Dec 2010:
+> "[RFC][PATCH] Export all RA options that we don't handle to userspace"
 
-    "net: delete all instances of special processing for token ring"
+Well, it appears that e35f30c1 from 2012-04-06 (should be in the 3.4
+kernel?) actually adds support for passing DNSSL to userspace, basically
+what Pierre's first patch from 2010 did.  So thanks Alexey :)  I think
+we should be good now for DNSSL?
 
-removed the define for IPX_FRAME_TR_8022.
-
-While it is unlikely, we can't be 100% sure that there aren't
-random userspace consumers of this value, so restore it.
-
-The only instance I could find was in ncpfs-2.2.6, and it was
-safe as-is, since it used #ifdef IPX_FRAME_TR_8022 around the
-two use cases it had, but there may be other userspace packages
-without similar ifdefs.
-
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-
-diff --git a/include/linux/ipx.h b/include/linux/ipx.h
-index 8f02439..3d48014 100644
---- a/include/linux/ipx.h
-+++ b/include/linux/ipx.h
-@@ -38,7 +38,7 @@ struct ipx_interface_definition {
- #define IPX_FRAME_8022		2
- #define IPX_FRAME_ETHERII	3
- #define IPX_FRAME_8023		4
--/* obsolete token ring was	5 */
-+#define IPX_FRAME_TR_8022       5 /* obsolete */
- 	unsigned char ipx_special;
- #define IPX_SPECIAL_NONE	0
- #define IPX_PRIMARY		1
--- 
-1.7.9.1
+Dan
