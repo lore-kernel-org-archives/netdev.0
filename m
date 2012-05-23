@@ -1,83 +1,123 @@
-From: Bob Liu <lliubbo@gmail.com>
-Subject: Re: [PATCH 2/3] drivers: net: ethernet: stmmac: fix failure in module test
-Date: Wed, 23 May 2012 13:09:11 +0800
-Message-ID: <CAA_GA1fNJCT=qfuHDkNrBdeZd8wiR30MPBdtUVuAv+ZY+zMH_g@mail.gmail.com>
-References: <1337672336-7378-1-git-send-email-lliubbo@gmail.com>
-	<1337672336-7378-2-git-send-email-lliubbo@gmail.com>
-	<4FBB8BBD.8010208@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, francesco.virlinzi@st.com,
-	rayagond@vayavyalabs.com, sr@denx.de, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 1/4] stmmac: modify and improve the bus_setup platform callback
+Date: Wed, 23 May 2012 07:40:16 +0200
+Message-ID: <1337751619-21941-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:50642 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752659Ab2EWFJM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 01:09:12 -0400
-Received: by mail-ey0-f174.google.com with SMTP id k11so1881071eaa.19
-        for <netdev@vger.kernel.org>; Tue, 22 May 2012 22:09:11 -0700 (PDT)
-In-Reply-To: <4FBB8BBD.8010208@st.com>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:46708 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751132Ab2EWFka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 01:40:30 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id B5D30A3
+	for <netdev@vger.kernel.org>; Wed, 23 May 2012 05:40:25 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 256F11B4E
+	for <netdev@vger.kernel.org>; Wed, 23 May 2012 05:40:25 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Peppe,
+This patch modifies and improves the bus_setup callback now
+by passing extra parameters that can help on more complex
+platforms that require more custom settings.
+The patch also updates the documentation.
 
-On Tue, May 22, 2012 at 8:51 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> On 5/22/2012 9:38 AM, Bob Liu wrote:
->> Module can't be compiled and installed in current Makefile.
->
-> I've just seen that I can generate the stmmac.ko on ARM and also on x=
-86
-> with my configuration.
->
-> Can you post here you build failure?
->
-> In the meantime I'll test the module on ARM soon.
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ Documentation/networking/stmmac.txt               |    3 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   19 +++++++++++++++----
+ include/linux/stmmac.h                            |    3 ++-
+ 3 files changed, 19 insertions(+), 6 deletions(-)
 
-Yes, stmmac.ko can be generated, but  stmmac_platform.c won't be built.
-which cause net device can't be probed.
-
->
-> peppe
->
->>
->> Signed-off-by: Bob Liu <lliubbo@gmail.com>
->> ---
->> =C2=A0drivers/net/ethernet/stmicro/stmmac/Makefile | =C2=A0 12 +++++=
-+------
->> =C2=A01 files changed, 6 insertions(+), 6 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/=
-net/ethernet/stmicro/stmmac/Makefile
->> index bc965ac..4b50922 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
->> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
->> @@ -1,10 +1,10 @@
->> =C2=A0obj-$(CONFIG_STMMAC_ETH) +=3D stmmac.o
->> -stmmac-$(CONFIG_STMMAC_TIMER) +=3D stmmac_timer.o
->> -stmmac-$(CONFIG_STMMAC_RING) +=3D ring_mode.o
->> -stmmac-$(CONFIG_STMMAC_CHAINED) +=3D chain_mode.o
->> -stmmac-$(CONFIG_STMMAC_PLATFORM) +=3D stmmac_platform.o
->> -stmmac-$(CONFIG_STMMAC_PCI) +=3D stmmac_pci.o
->> +stmmac-$(CONFIG_STMMAC_TIMER:m=3Dy) +=3D stmmac_timer.o
->> +stmmac-$(CONFIG_STMMAC_RING:m=3Dy) +=3D ring_mode.o
->> +stmmac-$(CONFIG_STMMAC_CHAINED:m=3Dy) +=3D chain_mode.o
->> +stmmac-$(CONFIG_STMMAC_PLATFORM:m=3Dy) +=3D stmmac_platform.o
->> +stmmac-$(CONFIG_STMMAC_PCI:m=3Dy) +=3D stmmac_pci.o
->> =C2=A0stmmac-objs:=3D stmmac_main.o stmmac_ethtool.o stmmac_mdio.o =C2=
-=A0 \
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dwmac_lib.o dwmac1000_core=
-=2Eo =C2=A0dwmac1000_dma.o =C2=A0 =C2=A0 \
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dwmac100_core.o dwmac100_d=
-ma.o enh_desc.o =C2=A0norm_desc.o \
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 mmc_core.o $(stmmac-y)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 mmc_core.o
->
-
---=20
-Thanks,
---Bob
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index ab1e8d7..20c01bf 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -121,7 +121,7 @@ and detailed below as well:
+ 	int pmt;
+ 	int force_sf_dma_mode;
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+-	void (*bus_setup)(void __iomem *ioaddr);
++	void *(*bus_setup)(void __iomem *ioaddr, struct device *dev, void *d);
+ 	int (*init)(struct platform_device *pdev);
+ 	void (*exit)(struct platform_device *pdev);
+ 	void *bsp_priv;
+@@ -156,6 +156,7 @@ Where:
+  o bus_setup: perform HW setup of the bus. For example, on some ST platforms
+ 	     this field is used to configure the AMBA  bridge to generate more
+ 	     efficient STBus traffic.
++ o bus_data: saved custom data for custom bus setting.
+  o init/exit: callbacks used for calling a custom initialisation;
+ 	     this is sometime necessary on some platforms (e.g. ST boxes)
+ 	     where the HW needs to have set some PIO lines or system cfg
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 7096633..2fc5462 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -999,10 +999,6 @@ static int stmmac_open(struct net_device *dev)
+ 	/* Copy the MAC addr into the HW  */
+ 	priv->hw->mac->set_umac_addr(priv->ioaddr, dev->dev_addr, 0);
+ 
+-	/* If required, perform hw setup of the bus. */
+-	if (priv->plat->bus_setup)
+-		priv->plat->bus_setup(priv->ioaddr);
+-
+ 	/* Initialize the MAC Core */
+ 	priv->hw->mac->core_init(priv->ioaddr);
+ 
+@@ -1949,6 +1945,15 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+ 		goto error;
+ 	}
+ 
++	/* On some platforms, is is possible to perform some hw setup of the bus
++	 * and this is done by calling the bus_setup (when implemented).
++	 * Data from bus_setup can be saved in the patform structure to be
++	 * restored when resume for example form standby.
++	 */
++	if (priv->plat->bus_setup)
++		priv->plat->bus_data =
++			priv->plat->bus_setup(priv->ioaddr, priv->device,
++					      priv->plat->bus_data);
+ 	return priv;
+ 
+ error:
+@@ -2057,6 +2062,8 @@ int stmmac_resume(struct net_device *ndev)
+ 	priv->hw->dma->start_tx(priv->ioaddr);
+ 	priv->hw->dma->start_rx(priv->ioaddr);
+ 
++	priv->plat->bus_data = priv->plat->bus_setup(priv->ioaddr, priv->device,
++						     priv->plat->bus_data);
+ #ifdef CONFIG_STMMAC_TIMER
+ 	if (likely(priv->tm->enable))
+ 		priv->tm->timer_start(tmrate);
+@@ -2083,9 +2090,13 @@ int stmmac_freeze(struct net_device *ndev)
+ 
+ int stmmac_restore(struct net_device *ndev)
+ {
++	struct stmmac_priv *priv = netdev_priv(ndev);
++
+ 	if (!ndev || !netif_running(ndev))
+ 		return 0;
+ 
++	priv->plat->bus_data = priv->plat->bus_setup(priv->ioaddr, priv->device,
++						     priv->plat->bus_data);
+ 	return stmmac_open(ndev);
+ }
+ #endif /* CONFIG_PM */
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index b69bdb1..cf03968 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -106,7 +106,8 @@ struct plat_stmmacenet_data {
+ 	int pmt;
+ 	int force_sf_dma_mode;
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+-	void (*bus_setup)(void __iomem *ioaddr);
++	void *(*bus_setup)(void __iomem *ioaddr, struct device *dev, void *d);
++	void *bus_data;
+ 	int (*init)(struct platform_device *pdev);
+ 	void (*exit)(struct platform_device *pdev);
+ 	void *custom_cfg;
+-- 
+1.7.4.4
