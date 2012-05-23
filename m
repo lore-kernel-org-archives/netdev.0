@@ -1,99 +1,253 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [V2 PATCH 9/9] vhost: zerocopy: poll vq in zerocopy callback
-Date: Wed, 23 May 2012 18:31:36 +0800
-Message-ID: <4FBCBC88.70707@redhat.com>
-References: <20120502033901.11782.13157.stgit@amd-6168-8-1.englab.nay.redhat.com>  <20120502034254.11782.27314.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1337100630.8220.4.camel@oc3660625478.ibm.com> <4FB317C8.90002@redhat.com>  <1337181027.10741.13.camel@oc3660625478.ibm.com>  <20120516151444.GC9934@redhat.com>  <1337189525.10741.24.camel@oc3660625478.ibm.com>  <4FB4677A.8020402@redhat.com>  <1337268862.10741.58.camel@oc3660625478.ibm.com>  <4FB61D57.4030103@redhat.com>  <1337354974.12999.12.camel@oc3660625478.ibm.com>  <4FB9DB24.2040408@redhat.com>  <1337614972.12999.56.camel@oc3660625478.ibm.com>  <4FBB64F7.5090801@redhat.com> <1337702145.11592.3.camel@oc3660625478.ibm.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 04/17] netfilter: add namespace support for
+ l4proto_generic
+Date: Wed, 23 May 2012 12:32:32 +0200
+Message-ID: <20120523103232.GD2836@1984>
+References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1336985547-31960-5-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, davem@davemloft.net
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57338 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750747Ab2EWKaO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 May 2012 06:30:14 -0400
-In-Reply-To: <1337702145.11592.3.camel@oc3660625478.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1336985547-31960-5-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/22/2012 11:55 PM, Shirley Ma wrote:
-> On Tue, 2012-05-22 at 18:05 +0800, Jason Wang wrote:
->> On 05/21/2012 11:42 PM, Shirley Ma wrote:
->>> On Mon, 2012-05-21 at 14:05 +0800, Jason Wang wrote:
->>>>>> - tx polling depends on skb_orphan() which is often called by
->>>> device
->>>>>> driver when it place the packet into the queue of the devices
->>>> instead
->>>>>> of  when the packets were sent. So it was too early for vhost to
->> be
->>>>>> notified.
->>>>> Then do you think it's better to replace with vhost_poll_queue
->> here
->>>>> instead?
->>>> Just like what does this patch do - calling vhost_poll_queue() in
->>>> vhost_zerocopy_callback().
->>>>>> - it only works when the pending DMAs exceeds VHOST_MAX_PEND,
->> it's
->>>>>> highly possible that guest needs to be notified when the pending
->>>>>> packets
->>>>>> isn't so much.
->>>>> In which situation the guest needs to be notified when there is no
->>>> TX
->>>>> besides buffers run out?
->>>> Consider guest call virtqueue_enable_cb_delayed() which means it
->> only
->>>> need to be notified when 3/4 of pending buffers ( about 178 buffers
->>>> (256-MAX_SKB_FRAGS-2)*3/4 ) were sent by host. So vhost_net would
->>>> notify
->>>> guest when about 60 buffers were pending. Since tx polling is only
->>>> enabled when pending packets exceeds VHOST_MAX_PEND 128, so tx work
->>>> would not be notified to run and guest would never get the
->> interrupt
->>>> it
->>>> expected to re-enable the queue.
->>> So it seems we still need vhost_enable_notify() in handle_tx when
->> there
->>> is no tx in zerocopy case.
->>>
->>> Do you know which one is more expensive: the cost of
->> vhost_poll_queue()
->>> in each zerocopy callback or calling vhost_enable_notify()?
->> Didn't follow here, do you mean vhost_signal() here?
-> I meant removing the code in handle_tx for zerocopy as below:
->
-> +	if (zcopy) {
->                          /* If more outstanding DMAs, queue the work.
->                           * Handle upend_idx wrap around
->                           */
->                          num_pends = likely(vq->upend_idx>= vq->done_idx) ?
->                                      (vq->upend_idx - vq->done_idx) :
->                                      (vq->upend_idx + UIO_MAXIOV - vq->done_idx);
-> +			/* zerocopy vhost_enable_notify is under zerocopy callback
-> +			 * since it could be too early to notify here */
-> +			break;
+On Mon, May 14, 2012 at 04:52:14PM +0800, Gao feng wrote:
+> implement and export nf_conntrack_proto_generic_[init,fini],
+> nf_conntrack_[init,cleanup]_net call them to register or unregister
+> the sysctl of generic proto.
+> 
+> implement generic_net_init,it's used to initial the pernet
+> data for generic proto.
+> 
+> and use nf_generic_net.timeout to replace nf_ct_generic_timeout in
+> get_timeouts function.
+> 
+> Acked-by: Eric W. Biederman <ebiederm@xmission.com>
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  include/net/netfilter/nf_conntrack_l4proto.h |    2 +
+>  include/net/netns/conntrack.h                |    6 +++
+>  net/netfilter/nf_conntrack_core.c            |    8 +++-
+>  net/netfilter/nf_conntrack_proto.c           |   21 +++++-----
+>  net/netfilter/nf_conntrack_proto_generic.c   |   55 ++++++++++++++++++++++++-
+>  5 files changed, 76 insertions(+), 16 deletions(-)
+> 
+> diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+> index a93dcd5..0d329b9 100644
+> --- a/include/net/netfilter/nf_conntrack_l4proto.h
+> +++ b/include/net/netfilter/nf_conntrack_l4proto.h
+> @@ -118,6 +118,8 @@ struct nf_conntrack_l4proto {
+>  
+>  /* Existing built-in generic protocol */
+>  extern struct nf_conntrack_l4proto nf_conntrack_l4proto_generic;
+> +extern int nf_conntrack_proto_generic_init(struct net *net);
+> +extern void nf_conntrack_proto_generic_fini(struct net *net);
+>  
+>  #define MAX_NF_CT_PROTO 256
+>  
+> diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
+> index 94992e9..3381b80 100644
+> --- a/include/net/netns/conntrack.h
+> +++ b/include/net/netns/conntrack.h
+> @@ -20,7 +20,13 @@ struct nf_proto_net {
+>  	unsigned int		users;
+>  };
+>  
+> +struct nf_generic_net {
+> +	struct nf_proto_net pn;
+> +	unsigned int timeout;
+> +};
+> +
+>  struct nf_ip_net {
+> +	struct nf_generic_net   generic;
+>  #if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
+>  	struct ctl_table_header *ctl_table_header;
+>  	struct ctl_table	*ctl_table;
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 32c5909..fd33e91 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1353,6 +1353,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
+>  	}
+>  
+>  	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
+> +	nf_conntrack_proto_generic_fini(net);
+>  	nf_conntrack_helper_fini(net);
+>  	nf_conntrack_timeout_fini(net);
+>  	nf_conntrack_ecache_fini(net);
+> @@ -1586,9 +1587,12 @@ static int nf_conntrack_init_net(struct net *net)
+>  	ret = nf_conntrack_helper_init(net);
+>  	if (ret < 0)
+>  		goto err_helper;
+> -
+> +	ret = nf_conntrack_proto_generic_init(net);
+> +	if (ret < 0)
+> +		goto err_generic;
+>  	return 0;
+> -
+> +err_generic:
+> +	nf_conntrack_helper_fini(net);
+>  err_helper:
+>  	nf_conntrack_timeout_fini(net);
+>  err_timeout:
+> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+> index 7ee6653..9b4bf6d 100644
+> --- a/net/netfilter/nf_conntrack_proto.c
+> +++ b/net/netfilter/nf_conntrack_proto.c
+> @@ -287,10 +287,16 @@ EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_unregister);
+>  static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
+>  					      struct nf_conntrack_l4proto *l4proto)
+>  {
+> -	if (l4proto->net_id)
+> -		return net_generic(net, *l4proto->net_id);
+> -	else
+> -		return NULL;
+> +	switch (l4proto->l4proto) {
+> +	case 255: /* l4proto_generic */
+> +		return (struct nf_proto_net *)&net->ct.proto.generic;
+> +	default:
+> +		if (l4proto->net_id)
+> +			return net_generic(net, *l4proto->net_id);
+> +		else
+> +			return NULL;
 > +	}
-> -                       if (unlikely(num_pends>  VHOST_MAX_PEND)) {
-> -                                tx_poll_start(net, sock);
-> -                                set_bit(SOCK_ASYNC_NOSPACE,&sock->flags);
-> -                                break;
-> -                        }
->                          if (unlikely(vhost_enable_notify(&net->dev, vq))) {
->                                  vhost_disable_notify(&net->dev, vq);
->                                  continue;
->                          }
->                          break;
+> +	return NULL;
+>  }
+>  
+>  int nf_ct_l4proto_register_sysctl(struct net *net,
+> @@ -457,11 +463,6 @@ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_unregister);
+>  int nf_conntrack_proto_init(void)
+>  {
+>  	unsigned int i;
+> -	int err;
+> -
+> -	err = nf_ct_l4proto_register_sysctl(&init_net, &nf_conntrack_l4proto_generic);
+> -	if (err < 0)
+> -		return err;
 
-Didn't think this can work well as the notification from guest were 
-disabled forever.
+I like that all protocols sysctl are registered by
+nf_conntrack_proto_init. Can you keep using that?
 
->
-> Thanks
-> Shirley
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  	for (i = 0; i < AF_MAX; i++)
+>  		rcu_assign_pointer(nf_ct_l3protos[i],
+> @@ -473,8 +474,6 @@ void nf_conntrack_proto_fini(void)
+>  {
+>  	unsigned int i;
+>  
+> -	nf_ct_l4proto_unregister_sysctl(&init_net, &nf_conntrack_l4proto_generic);
+> -
+>  	/* free l3proto protocol tables */
+>  	for (i = 0; i < PF_MAX; i++)
+>  		kfree(nf_ct_protos[i]);
+> diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
+> index d8923d5..7976a64 100644
+> --- a/net/netfilter/nf_conntrack_proto_generic.c
+> +++ b/net/netfilter/nf_conntrack_proto_generic.c
+> @@ -14,6 +14,11 @@
+>  
+>  static unsigned int nf_ct_generic_timeout __read_mostly = 600*HZ;
+>  
+> +static inline struct nf_generic_net *generic_pernet(struct net *net)
+> +{
+> +	return &net->ct.proto.generic;
+> +}
+> +
+>  static bool generic_pkt_to_tuple(const struct sk_buff *skb,
+>  				 unsigned int dataoff,
+>  				 struct nf_conntrack_tuple *tuple)
+> @@ -42,7 +47,7 @@ static int generic_print_tuple(struct seq_file *s,
+>  
+>  static unsigned int *generic_get_timeouts(struct net *net)
+>  {
+> -	return &nf_ct_generic_timeout;
+> +	return &(generic_pernet(net)->timeout);
+>  }
+>  
+>  /* Returns verdict for packet, or -1 for invalid. */
+> @@ -110,7 +115,6 @@ static struct ctl_table_header *generic_sysctl_header;
+>  static struct ctl_table generic_sysctl_table[] = {
+>  	{
+>  		.procname	= "nf_conntrack_generic_timeout",
+> -		.data		= &nf_ct_generic_timeout,
+>  		.maxlen		= sizeof(unsigned int),
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec_jiffies,
+> @@ -121,7 +125,6 @@ static struct ctl_table generic_sysctl_table[] = {
+>  static struct ctl_table generic_compat_sysctl_table[] = {
+>  	{
+>  		.procname	= "ip_conntrack_generic_timeout",
+> -		.data		= &nf_ct_generic_timeout,
+>  		.maxlen		= sizeof(unsigned int),
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec_jiffies,
+> @@ -131,10 +134,39 @@ static struct ctl_table generic_compat_sysctl_table[] = {
+>  #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+>  #endif /* CONFIG_SYSCTL */
+>  
+> +static int generic_init_net(struct net *net, u_int8_t compat)
+> +{
+> +	struct nf_generic_net *gn = generic_pernet(net);
+> +	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
+> +	gn->timeout = nf_ct_generic_timeout;
+> +#ifdef CONFIG_SYSCTL
+> +	pn->ctl_table = kmemdup(generic_sysctl_table,
+> +				sizeof(generic_sysctl_table),
+> +				GFP_KERNEL);
+> +	if (!pn->ctl_table)
+> +		return -ENOMEM;
+> +	pn->ctl_table[0].data = &gn->timeout;
+> +
+> +#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+> +	pn->ctl_compat_table = kmemdup(generic_compat_sysctl_table,
+> +				       sizeof(generic_compat_sysctl_table),
+> +				       GFP_KERNEL);
+> +	if (!pn->ctl_compat_table) {
+> +		kfree(pn->ctl_table);
+> +		pn->ctl_table = NULL;
+> +		return -ENOMEM;
+> +	}
+> +	pn->ctl_compat_table[0].data = &gn->timeout;
+> +#endif
+> +#endif
+> +	return 0;
+> +}
+> +
+>  struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
+>  {
+>  	.l3proto		= PF_UNSPEC,
+>  	.l4proto		= 255,
+> +	.compat			= 1,
+>  	.name			= "unknown",
+>  	.pkt_to_tuple		= generic_pkt_to_tuple,
+>  	.invert_tuple		= generic_invert_tuple,
+> @@ -158,4 +190,21 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
+>  	.ctl_compat_table	= generic_compat_sysctl_table,
+>  #endif
+>  #endif
+> +	.init_net		= generic_init_net,
+>  };
+> +
+> +int nf_conntrack_proto_generic_init(struct net *net)
+> +{
+> +	int ret = 0;
+> +	ret = generic_init_net(net, nf_conntrack_l4proto_generic.compat);
+> +	if (ret < 0)
+> +		return ret;
+> +	return nf_ct_l4proto_register_sysctl(net,
+> +					     &nf_conntrack_l4proto_generic);
+> +}
+> +
+> +void nf_conntrack_proto_generic_fini(struct net *net)
+> +{
+> +	nf_ct_l4proto_unregister_sysctl(net,
+> +					&nf_conntrack_l4proto_generic);
+> +}
+> -- 
+> 1.7.7.6
+> 
