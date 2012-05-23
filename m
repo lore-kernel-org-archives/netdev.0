@@ -1,42 +1,34 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 16/17] netfilter: add namespace support for cttimeout
-Date: Wed, 23 May 2012 12:41:10 +0200
-Message-ID: <20120523104110.GF2836@1984>
-References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1336985547-31960-17-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [README] Two merges pending...
+Date: Wed, 23 May 2012 12:45:47 +0200
+Message-ID: <20120523104547.GA3312@1984>
+References: <20120522.152840.815291543305899477.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	serge.hallyn@canonical.com, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, linville@tuxdriver.com,
+	netfilter-devel@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1336985547-31960-17-git-send-email-gaofeng@cn.fujitsu.com>
+In-Reply-To: <20120522.152840.815291543305899477.davem@davemloft.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 14, 2012 at 04:52:26PM +0800, Gao feng wrote:
-> add struct net as a param of ctnl_timeout.nlattr_to_obj,
-> 
-> modify ctnl_timeout_parse_policy and cttimeout_new_timeout
-> to transmit struct net to nlattr_to_obj.
+Hi David,
 
-Please, merge your patch 16 and 17 into one single patch.
+On Tue, May 22, 2012 at 03:28:40PM -0400, David Miller wrote:
+[...]
+> Pablo also has a prearranged netfilter merge pending.
 
->  	unsigned int *timeouts = data;
->  
-> diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-> index 291cef4..a28f3c4 100644
-> --- a/net/netfilter/nf_conntrack_proto_sctp.c
-> +++ b/net/netfilter/nf_conntrack_proto_sctp.c
-> @@ -562,7 +562,8 @@ static int sctp_nlattr_size(void)
->  #include <linux/netfilter/nfnetlink.h>
->  #include <linux/netfilter/nfnetlink_cttimeout.h>
->  
-> -static int sctp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-> +static int sctp_timeout_nlattr_to_obj(struct nlattr *tb[],
-> +				      struct net *net, void *data)
+I give up on that merge that I requested.
 
-The interface modification and the use of the new *net parameter
-should go together, ie. merge patch 16 and 17 :-).
+I thought that some namespace changes for conntrack that have been
+lying on the table for one week could be merged. But they are not ready
+yet, they require another spin.
+
+That means they'll have to wait until window opens again, they need
+some extra time.
+
+I'll stick to one pull request for bugfixes then.
+
+Thanks!
