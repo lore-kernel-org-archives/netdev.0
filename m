@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: add dev_loopback_xmit() to avoid duplicate
- code
-Date: Wed, 23 May 2012 13:41:34 -0400 (EDT)
-Message-ID: <20120523.134134.1083024931902332575.davem@davemloft.net>
-References: <1337782819.2779.20.camel@Thor>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCPBacklogDrops during aggressive bursts of traffic
+Date: Wed, 23 May 2012 19:46:50 +0200
+Message-ID: <1337795210.3361.3118.camel@edumazet-glaptop>
+References: <1337705135.3361.226.camel@edumazet-glaptop>
+	 <1337720076.3361.667.camel@edumazet-glaptop>
+	 <1337766246.3361.2447.camel@edumazet-glaptop>
+	 <20120523.133401.915684077769386834.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, edumazet@google.com, jpirko@redhat.com,
-	mirq-linux@rere.qmqm.pl, bhutchings@solarflare.com
-To: michel@digirati.com.br
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1337782819.2779.20.camel@Thor>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kmansley@solarflare.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:54106 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760641Ab2EWRqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 13:46:55 -0400
+Received: by eaak11 with SMTP id k11so2161352eaa.19
+        for <netdev@vger.kernel.org>; Wed, 23 May 2012 10:46:54 -0700 (PDT)
+In-Reply-To: <20120523.133401.915684077769386834.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2012-05-23 at 13:34 -0400, David Miller wrote:
 
-I'm getting really tired of saying this.
+> But it is the only way we can have TCP processing scheduled and
+> accounted to user processes.  That does have value when you have lots
+> of flows active.
+> 
+> The scheduler's ability to give the process cpu time influences
+> TCP's behavier, and under load if the process can't get enough
+> cpu time then TCP will back off.  We want that.
 
-As I announced several days ago, it is absolutely not appropriate
-to submit patches other than bug fixes at this time because we are
-in the merge window and the net-next tree is frozen.
+But TCP already backs off if user process is not blocked on socket
+input.
 
-And even once I do announce here that the net-next tree is open
-once more, and patches like this one are appropriate, you must
-indicate in the subject line which of the 'net' or 'net-next'
-tree you are targetting your patch at.
+Modern applications uses select()/poll()/epoll() on many sockets in //.
 
-Please pay attention to what's going on, and what state the networking
-development trees are in, before submitting changes.
+Only old ones stil block on recv().
