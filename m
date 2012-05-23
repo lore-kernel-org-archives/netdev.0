@@ -1,78 +1,75 @@
-From: Yanmin Zhang <yanmin_zhang@linux.intel.com>
-Subject: Re: [PATCH] ipv4: fix the rcu race between free_fib_info and
- ip_route_output_slow
-Date: Wed, 23 May 2012 15:24:22 +0800
-Message-ID: <1337757862.14538.199.camel@ymzhang.sh.intel.com>
-References: <4FBB6105.2060808@intel.com>
-	 <20120522.151554.106838106733194160.davem@davemloft.net>
-	 <1337742123.14538.175.camel@ymzhang.sh.intel.com>
-	 <20120522.232310.911242148705021745.davem@davemloft.net>
-	 <1337747829.3361.1599.camel@edumazet-glaptop>
-	 <1337748897.14538.184.camel@ymzhang.sh.intel.com>
-	 <1337749339.3361.1655.camel@edumazet-glaptop>
-	 <1337753757.14538.190.camel@ymzhang.sh.intel.com>
-	 <1337754459.3361.1850.camel@edumazet-glaptop>
-	 <1337755623.14538.194.camel@ymzhang.sh.intel.com>
-	 <1337756138.3361.1922.camel@edumazet-glaptop>
-	 <1337757238.3361.1965.camel@edumazet-glaptop>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 1/4] stmmac: remove two useless initialisation
+Date: Wed, 23 May 2012 09:38:02 +0200
+Message-ID: <4FBC93DA.5010206@st.com>
+References: <1337754964-21754-1-git-send-email-peppe.cavallaro@st.com> <20120523.024211.816676351593259308.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kunx.jiang@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:17599 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753723Ab2EWHXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 May 2012 03:23:31 -0400
-In-Reply-To: <1337757238.3361.1965.camel@edumazet-glaptop>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:54844 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755320Ab2EWHiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 May 2012 03:38:08 -0400
+In-Reply-To: <20120523.024211.816676351593259308.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-23 at 09:13 +0200, Eric Dumazet wrote:
-> On Wed, 2012-05-23 at 08:55 +0200, Eric Dumazet wrote:
+On 5/23/2012 8:42 AM, David Miller wrote:
 > 
-> > Please hold on, I'll send a v2
+> You really need to post your patches properly.
 > 
-> I believe your patch should be fine, if you move back the
-> fib_info_cnt--;
+> In particular, you need to indicate, either in an initial "[PATCH 0/N]"
+> posting, or in the subject lines of that patch, exactly what tree
+> you are targetting.
 > 
-> So only do the dev_put() in free_fib_info_rcu().
-We would do so in a new patch.
-
+> And if this is meant for net-next, I told you specifically that net-next
+> is not open right now and you need to submit this later when I make
+> the announcement here that it is open.
 > 
-> No need to clear nh_dev to NULL since we are freeing fi at the end of
-> function.
-David suggests to reset it to NULL to detect other potential
-race conditions.
+> We are in the middle of the merge window, and therefore you should only
+> be submitting bug fixes against the 'net' tree.
 
-Besides above suggestions, how do you think about:
+Previous ones were for net-next and in fact in the subject I indeed used:
 
-fib_create_info=>fib_find_info, but fib_find_info is not protected by
-fib_info_lock. See the codes:
+  [net-next X/N] stmmac: ....
 
-fib_create_info()
-{
-	...
-link_it:
-        ofi = fib_find_info(fi);
-        if (ofi) {
-                fi->fib_dead = 1;
-                free_fib_info(fi);
-                ofi->fib_treeref++;
-                return ofi;
-        }
-        fi->fib_treeref++;
-        atomic_inc(&fi->fib_clntref);
-        spin_lock_bh(&fib_info_lock);
+After your comment I re-sent them for net.git (pls see my previous email
+where I clarified that).
 
-	...
-}
+I have always posted all my patches for net-next adding its suffix in
+the subject.
 
-I plan to change it to hold fib_info_lock before calling fib_find_info. Is
-it ok for you?
+For all the patches for net.git I've never added the suffix but I'll do
+that.
 
-Thanks for the direct speaking.
+I agree with you that the suffix should be added and I had understood
+(and always used and fixed in my subjectprefix) that these were the
+format of the patches in this mailing list
 
-Yanmin
+[PATCH] ...        =>>> for net.git
+[PATCH net-next]   =>>> for net-next.git
+
+So I'll use starting from now:
+
+[PATCH (net.git)]    =>>> for net.git
+[PATCH (net-next)]   =>>> for net-next.git
+
+> It is extremely irritating that, when I go out of my way to make
+> announcements here on this list, multiple times, about what kind of
+> patches are appropriate and what kinds are not, and yet people still
+> do not listen and they still submit any old crap they feel like
+> submitting.
+> 
+> People need to stop this, now.
+> 
+> Pay attention to the development state, and follow the rules,
+> otherwise you'll royally piss me off and I'll ignore your patches
+> completely.
+> 
+> Thanks.
+> 
+> 
+> 
