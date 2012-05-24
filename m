@@ -1,78 +1,114 @@
-From: David Daney <ddaney.cavm@gmail.com>
+From: Timur Tabi <b04825@freescale.com>
 Subject: Re: [PATCH v6 0/3] netdev/of/phy: MDIO bus multiplexer support.
-Date: Thu, 24 May 2012 11:50:26 -0700
-Message-ID: <4FBE82F2.6080100@gmail.com>
-References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com> <CAOZdJXWVCu+aNxcQRkcSSDsWWxnn8B9X5Y6=8oVgFwJ9SZTTGQ@mail.gmail.com> <4FB6C728.3090507@gmail.com> <4FB6C886.3050105@freescale.com> <4FB6CBF1.40300@gmail.com> <4FBE7DD8.509@freescale.com>
+Date: Thu, 24 May 2012 14:03:33 -0500
+Message-ID: <4FBE8605.2020507@freescale.com>
+References: <1336007799-31016-1-git-send-email-ddaney.cavm@gmail.com> <CAOZdJXWVCu+aNxcQRkcSSDsWWxnn8B9X5Y6=8oVgFwJ9SZTTGQ@mail.gmail.com> <4FB6C728.3090507@gmail.com> <4FB6C886.3050105@freescale.com> <4FB6CBF1.40300@gmail.com> <4FBE7DD8.509@freescale.com> <4FBE82F2.6080100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: "devicetree-discuss@lists.ozlabs.org"
 	<devicetree-discuss@lists.ozlabs.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Timur Tabi <b04825@freescale.com>
+To: David Daney <ddaney.cavm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:47384 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932464Ab2EXSu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 14:50:29 -0400
-Received: by dady13 with SMTP id y13so128321dad.19
-        for <netdev@vger.kernel.org>; Thu, 24 May 2012 11:50:29 -0700 (PDT)
-In-Reply-To: <4FBE7DD8.509@freescale.com>
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:15340
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751961Ab2EXTDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 15:03:43 -0400
+In-Reply-To: <4FBE82F2.6080100@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/24/2012 11:28 AM, Timur Tabi wrote:
-> David Daney wrote:
->> Yes.  You may note in the DTS file I attached in the parent (sorry for
->> the fubar mime types), that there are two, almost identical, MDIO
->> masters.  smi0 has two directly attached PHYs.  smi1 goes to the mux,
->> and each child of the mux has four attached PHYs.
->
-> I'm till have trouble understanding all this.  I'm just hacking things up
-> in order to help me understand it, but it's a slow and painful process.
->
-> This call in mdio_mux_init() is failing:
->
-> 	parent_bus = of_mdio_find_bus(parent_bus_node);
->
+David Daney wrote:
 
-Well, the MDIO bus must have an associated device tree node.
+> Well, the MDIO bus must have an associated device tree node.
+> 
+> For my OCTEON code, the MDIO bus device is created as a result of the 
+> call to of_platform_bus_probe(), which takes care of filling in all the 
+> device tree nodes of the devices it finds and creates.
 
-For my OCTEON code, the MDIO bus device is created as a result of the 
-call to of_platform_bus_probe(), which takes care of filling in all the 
-device tree nodes of the devices it finds and creates.
+Ok, let me give you some background.  We actually already have MDIO muxing
+code in-house, but it's different from yours.  So now I'm rewriting it to
+use your design instead.
 
-> It returns NULL.  Here is my MDIO node:
->
-> 		fman0: fman@400000 {
-> 			enet0: ethernet@e0000 {
-> 				tbi-handle =<&tbi0>;
-> 				phy-handle =<&phy0>;
-> 				phy-connection-type = "sgmii";
-> 			};
->
-> 			mdio0: mdio@e1120 {
-> 				gpios =<&gpio0 0 0
-> 					&gpio0 1 0>;
->
-> 				tbi0: tbi-phy@8 {
-> 					reg =<0x8>;
-> 					device_type = "tbi-phy";
-> 				};
->
-> 				phy0: ethernet-phy@1c {
-> 					reg =<0x1c>;
-> 				};
-> 			};
-> 		};
->
-> What am I missing?
+So our current code looks for "virtual MDIO nodes", and we call
+mdiobus_alloc() and then of_mdiobus_register().  I think this is what I'm
+missing now.
 
-For starters, I do not see any compatible properties that would allow 
-the proper drivers to be bound to anything.
+I just don't know what to do next.  Part of the problem is that I don't
+have much experience with MDIO drivers.
 
-Also I see no MDIO mux node there, so it is unclear why you are even 
-asking these questions.
+>> It returns NULL.  Here is my MDIO node:
+>>
+>> 		fman0: fman@400000 {
+>> 			enet0: ethernet@e0000 {
+>> 				tbi-handle =<&tbi0>;
+>> 				phy-handle =<&phy0>;
+>> 				phy-connection-type = "sgmii";
+>> 			};
+>>
+>> 			mdio0: mdio@e1120 {
+>> 				gpios =<&gpio0 0 0
+>> 					&gpio0 1 0>;
+>>
+>> 				tbi0: tbi-phy@8 {
+>> 					reg =<0x8>;
+>> 					device_type = "tbi-phy";
+>> 				};
+>>
+>> 				phy0: ethernet-phy@1c {
+>> 					reg =<0x1c>;
+>> 				};
+>> 			};
+>> 		};
+>>
+>> What am I missing?
+> 
+> For starters, I do not see any compatible properties that would allow 
+> the proper drivers to be bound to anything.
 
-David Daney
+Ok, that makes sense.
+
+> Also I see no MDIO mux node there, so it is unclear why you are even 
+> asking these questions.
+
+I only gave you part of the device tree.  Here's my mdio mux node:
+
+	mdio-mux {
+		compatible = "mdio-mux-gpio";
+		gpios = <&gpio0 0 0>, <&gpio0 1 0>;
+		mdio-parent-bus = <&mdio0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mdio@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy21: ethernet-phy@1 {
+				reg = <1>;
+//				compatible = "marvell,88e1149r", "ethernet-phy-ieee802.3-c22";
+				marvell,reg-init = <3 0x10 0 0x5777>,
+					<3 0x11 0 0x00aa>,
+					<3 0x12 0 0x4105>,
+					<3 0x13 0 0x0a60>;
+				interrupt-parent = <&gpio0>;
+//				interrupts = <10 8>; /* Pin 10, active low */
+			};
+		};
+	};
+};
+
+
+
+
+> 
+> David Daney
+> 
+
+
+-- 
+Timur Tabi
+Linux kernel developer at Freescale
