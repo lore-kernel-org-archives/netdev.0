@@ -1,50 +1,30 @@
-From: "Andy Cress" <andy.cress@us.kontron.com>
-Subject: pch_gbe:  backport fails to start sending
-Date: Thu, 24 May 2012 13:05:05 -0700
-Message-ID: <40680C535D6FE6498883F1640FACD44DEA6714@ka-exchange-1.kontronamerica.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] qlcnic: Bug fixes
+Date: Thu, 24 May 2012 16:06:59 -0400 (EDT)
+Message-ID: <20120524.160659.834400122540802357.davem@davemloft.net>
+References: <1337882816-2097-1-git-send-email-anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: anirban.chakraborty@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.kontron.com ([209.118.138.70]:9284 "EHLO
-	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758193Ab2EXUFH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 16:05:07 -0400
-Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id 8uThdbuasnU8agFG for <netdev@vger.kernel.org>; Thu, 24 May 2012 13:05:06 -0700 (PDT)
-Content-class: urn:content-classes:message
+Received: from shards.monkeyblade.net ([198.137.202.13]:42534 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757397Ab2EXUHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 16:07:05 -0400
+In-Reply-To: <1337882816-2097-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Folks,
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Date: Thu, 24 May 2012 14:06:54 -0400
 
-I now have a different case where the pch_gbe driver needs help.
-I have backported the pch_gbe git head (v1.00) to kernel 2.6.32
-(RHEL6.2) and when it loads, after the open completes and the link is
-up, it fails to start sending and receiving.  
-I also took the pch_gbe source which runs fine on 2.6.38 (Fedora 15) and
-backported it, and get the same results. 
-The much bulkier pch_gbe 0.91-NAPI driver does run on 2.6.32 (RHEL6.2)
-but is not maintained.
-I also tried backporting the mii.c from the 2.6.38 kernel, but that
-didn't help, got the same symptoms.
+> Please apply to net-next.
 
-After adding -DDEBUG to the 1.00 driver, I can see that it seems to get
-just DMA Complete interrupts when it should be getting Transmit
-complete, etc.   I'm not sure why it gets stuck there.  
-Any ideas/input is welcome.  
+As I've stated at least 10 times this week, net-next is not open
+and therefore submitting patches for net-next is not appropriate.
 
-Andy  
-
-https://sendfile.kontron.com/message/KJKmrf171EhsuvbyhjnXpe 
-Attached at this link are two files:  
- pch_gbe-100a.tar.gz = the backported pch_gbe 1.00 head source, includes
-patches that were applied.  
- dmesg.tar.gz  =  Some dmesg output from test cases with debug:
-   dmesg-pch10a-kern2632-bad.txt = backported 1.00 from git head on
-kernel 2.6.32, fails
-   dmesg-pch10-kern2632-bad.txt  = backported 1.00 from Fedora 15 on
-kernel 2.6.32, fails
-   dmesg-pch10-kern2638-good.txt = same 1.00 source from Fedora 15 on
-kernel 2.6.38, works
+If people are not going to even read my announcements and
+notifications of the states of the various GIT trees, I might as well
+not make them at all.
