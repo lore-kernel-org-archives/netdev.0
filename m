@@ -1,154 +1,42 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH 1/2] qlcnic: Fix estimation of recv MSS in case of LRO
-Date: Thu, 24 May 2012 14:06:55 -0400
-Message-ID: <1337882816-2097-2-git-send-email-anirban.chakraborty@qlogic.com>
-References: <1337882816-2097-1-git-send-email-anirban.chakraborty@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: davem@davemloft.net
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH IPROUTE2] tc-codel: Update usage text
+Date: Thu, 24 May 2012 11:48:07 -0700
+Message-ID: <1337885287-31354-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:63945 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754487Ab2EXSd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2012 14:33:58 -0400
-In-Reply-To: <1337882816-2097-1-git-send-email-anirban.chakraborty@qlogic.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:34775 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933940Ab2EXSqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 14:46:02 -0400
+Received: by pbbrp8 with SMTP id rp8so630745pbb.19
+        for <netdev@vger.kernel.org>; Thu, 24 May 2012 11:46:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+codel can take 'noecn' as an option. This also makes it consistent with the
+manpage.
 
-o Linux stack estimates MSS from skb->len or skb_shinfo(skb)->gso_size.
-In case of LRO skb->len is aggregate of len of number of packets hence MSS
-obtained using skb->len would be incorrect. Incorrect estimation of recv MSS
-would lead to delayed acks in some traffic patterns (which sends two or three
-packets and wait for ack and only then send remaining packets). This leads to
-drop in performance. Hence we need to set gso_size to MSS obtained from firmware.
-
-o This is fixed recently in firmware hence the MSS is obtained based on
-capability. If fw is capable of sending the MSS then only driver sets the gso_size.
-
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    7 +++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c  |    3 +++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h  |    1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c |    3 +++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    9 +++++++++
- 5 files changed, 23 insertions(+), 0 deletions(-)
+ tc/q_codel.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 8680a5d..520ff03 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -258,6 +258,8 @@ struct rcv_desc {
- 	(((sts_data) >> 52) & 0x1)
- #define qlcnic_get_lro_sts_seq_number(sts_data)		\
- 	((sts_data) & 0x0FFFFFFFF)
-+#define qlcnic_get_lro_sts_mss(sts_data1)		\
-+	((sts_data1 >> 32) & 0x0FFFF)
- 
- 
- struct status_desc {
-@@ -623,6 +625,7 @@ struct qlcnic_recv_context {
- #define QLCNIC_CAP0_JUMBO_CONTIGUOUS	(1 << 7)
- #define QLCNIC_CAP0_LRO_CONTIGUOUS	(1 << 8)
- #define QLCNIC_CAP0_VALIDOFF		(1 << 11)
-+#define QLCNIC_CAP0_LRO_MSS		(1 << 21)
- 
- /*
-  * Context state
-@@ -829,6 +832,9 @@ struct qlcnic_mac_list_s {
- #define QLCNIC_FW_CAPABILITY_FVLANTX		BIT_9
- #define QLCNIC_FW_CAPABILITY_HW_LRO		BIT_10
- #define QLCNIC_FW_CAPABILITY_MULTI_LOOPBACK	BIT_27
-+#define QLCNIC_FW_CAPABILITY_MORE_CAPS		BIT_31
-+
-+#define QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG	BIT_2
- 
- /* module types */
- #define LINKEVENT_MODULE_NOT_PRESENT			1
-@@ -918,6 +924,7 @@ struct qlcnic_ipaddr {
- #define QLCNIC_NEED_FLR			0x1000
- #define QLCNIC_FW_RESET_OWNER		0x2000
- #define QLCNIC_FW_HANG			0x4000
-+#define QLCNIC_FW_LRO_MSS_CAP		0x8000
- #define QLCNIC_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-index 8db8524..cfa174d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-@@ -237,6 +237,9 @@ qlcnic_fw_cmd_create_rx_ctx(struct qlcnic_adapter *adapter)
- 						| QLCNIC_CAP0_VALIDOFF);
- 	cap |= (QLCNIC_CAP0_JUMBO_CONTIGUOUS | QLCNIC_CAP0_LRO_CONTIGUOUS);
- 
-+	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
-+		cap |= QLCNIC_CAP0_LRO_MSS;
-+
- 	prq->valid_field_offset = offsetof(struct qlcnic_hostrq_rx_ctx,
- 							 msix_handler);
- 	prq->txrx_sds_binding = nsds_rings - 1;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-index 6ced319..28a6b28 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-@@ -588,6 +588,7 @@ enum {
- #define CRB_DRIVER_VERSION		(QLCNIC_REG(0x2a0))
- 
- #define CRB_FW_CAPABILITIES_1		(QLCNIC_CAM_RAM(0x128))
-+#define CRB_FW_CAPABILITIES_2		(QLCNIC_CAM_RAM(0x12c))
- #define CRB_MAC_BLOCK_START		(QLCNIC_CAM_RAM(0x1c0))
- 
- /*
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-index d32cf0d..f5a0ddc 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-@@ -1654,6 +1654,9 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
- 
- 	length = skb->len;
- 
-+	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
-+		skb_shinfo(skb)->gso_size = qlcnic_get_lro_sts_mss(sts_data1);
-+
- 	if (vid != 0xffff)
- 		__vlan_hwaccel_put_tag(skb, vid);
- 	netif_receive_skb(skb);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 46e77a2..707b5ca 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1136,6 +1136,8 @@ static int
- __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
+diff --git a/tc/q_codel.c b/tc/q_codel.c
+index 826285a..dc4b3f6 100644
+--- a/tc/q_codel.c
++++ b/tc/q_codel.c
+@@ -54,7 +54,7 @@
+ static void explain(void)
  {
- 	int ring;
-+	u32 capab2;
-+
- 	struct qlcnic_host_rds_ring *rds_ring;
+ 	fprintf(stderr, "Usage: ... codel [ limit PACKETS ] [ target TIME]\n");
+-	fprintf(stderr, "                 [ interval TIME ] [ ecn ]\n");
++	fprintf(stderr, "                 [ interval TIME ] [ ecn | noecn ]\n");
+ }
  
- 	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
-@@ -1146,6 +1148,12 @@ __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
- 	if (qlcnic_set_eswitch_port_config(adapter))
- 		return -EIO;
- 
-+	if (adapter->capabilities & QLCNIC_FW_CAPABILITY_MORE_CAPS) {
-+		capab2 = QLCRD32(adapter, CRB_FW_CAPABILITIES_2);
-+		if (capab2 & QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG)
-+			adapter->flags |= QLCNIC_FW_LRO_MSS_CAP;
-+	}
-+
- 	if (qlcnic_fw_create_ctx(adapter))
- 		return -EIO;
- 
-@@ -1215,6 +1223,7 @@ __qlcnic_down(struct qlcnic_adapter *adapter, struct net_device *netdev)
- 	qlcnic_napi_disable(adapter);
- 
- 	qlcnic_fw_destroy_ctx(adapter);
-+	adapter->flags &= ~QLCNIC_FW_LRO_MSS_CAP;
- 
- 	qlcnic_reset_rx_buffers_list(adapter);
- 	qlcnic_release_tx_buffers(adapter);
+ static int codel_parse_opt(struct qdisc_util *qu, int argc, char **argv,
 -- 
-1.7.1
+1.7.0.4
