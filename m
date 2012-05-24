@@ -1,57 +1,59 @@
-From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 03/21] odp-util: Add tun_key to
- parse_odp_key_attr()
-Date: Thu, 24 May 2012 09:29:11 -0700
-Message-ID: <20120524162911.GD26173@nicira.com>
-References: <1337850554-10339-1-git-send-email-horms@verge.net.au>
-	<1337850554-10339-4-git-send-email-horms@verge.net.au>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: net/wanrouter?
+Date: Thu, 24 May 2012 09:32:43 -0700
+Message-ID: <4FBE62AB.6000900@candelatech.com>
+References: <1337708034.3432.0.camel@joe2Laptop>  <4FBE3CFC.6070103@computer.org>  <20120524091310.1c01577e@nehalam.linuxnetplumber.net> <1337876577.5070.7.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1337850554-10339-4-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Jan Ceuleers <jan.ceuleers@computer.org>,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:50465 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755926Ab2EXQcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 12:32:54 -0400
+In-Reply-To: <1337876577.5070.7.camel@joe2Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 24, 2012 at 06:08:56PM +0900, Simon Horman wrote:
-> Cc: Kyle Mestery <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+On 05/24/2012 09:22 AM, Joe Perches wrote:
+> On Thu, 2012-05-24 at 09:13 -0700, Stephen Hemminger wrote:
+>> On Thu, 24 May 2012 15:51:56 +0200
+>> Jan Ceuleers<jan.ceuleers@computer.org>  wrote:
+>>
+>>> On 05/22/2012 07:33 PM, Joe Perches wrote:
+>>>> Does anyone still use this?
+>>>
+>>> I have the hardware (a Sangoma ADSL PCI card) but am no longer using it.
+>>> Also, as I remember, Sangoma stopped contributing to the upstream driver
+>>> many years ago while still actively developing the out-of-tree version.
+>>
+>> The wanrouter code hasn't supported Sangoma hardware for a long time,
+>> it got removed early in 2.6.
+>>
+>> There are a bunch of old T1 and T3 cards there but I doubt any of them
+>> are still for sale. But somebody is probably still using them.
+>
+> I'm sure people are still using token ring
+> too, just not with recent kernels.
+>
+> I think wanrouter is old and dusty and can
+> be removed just like TR.
 
-But I don't see him CCed?
+I think you should mark it deprecated for a release or
+two first, just in case.  Unless it is obviously very
+broken or holding up other important work.
 
-> +        ovs_be32 ipv4_src;
-> +        ovs_be32 ipv4_dst;
-> +        unsigned long long tun_flags;
-> +        int ipv4_tos;
-> +        int ipv4_ttl;
-> +        int n = -1;
-> +
-> +        if (sscanf(s, "ipv4_tunnel(tun_id=%31[x0123456789abcdefABCDEF]"
-> +                   ",flags=%llx,src="IP_SCAN_FMT",dst="IP_SCAN_FMT
-> +                   ",tos=%i,ttl=%i)%n",
-> +                   tun_id_s, &tun_flags,
-> +                   IP_SCAN_ARGS(&ipv4_src), IP_SCAN_ARGS(&ipv4_dst),
-> +                   &ipv4_tos, &ipv4_ttl, &n) > 0
-> +            && n > 0) {
+Lots of people that might be using this do not follow
+the netdev mailing list...
 
-Does this compile?  I don't see a declaration of tun_id_s.
+Thanks,
+Ben
 
-In the ODP printer and parser, we usually require fields that are
-hexadecimal to be written with an explicit "0x" on output (using
-something like "0x%x" or "%#x" on output), and then use "%i" on input,
-so that it is always unambiguous at a glance whether a number is
-decimal or hexadecimal.  I'd appreciate it if we could maintain that
-here (I didn't look over at the printer code to see if it writes 0x,
-but I'd like it to).
 
-Otherwise, this looks good, thank you.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
