@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qmi_wwan: Add Sierra Wireless device IDs
-Date: Thu, 24 May 2012 16:21:30 -0400 (EDT)
-Message-ID: <20120524.162130.1141463583760348056.davem@davemloft.net>
-References: <1337851172-28549-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH] solos-pci: Fix DMA support
+Date: Thu, 24 May 2012 16:21:10 -0400 (EDT)
+Message-ID: <20120524.162110.1171594268360411622.davem@davemloft.net>
+References: <1337871507.26314.132.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nathan@traverse.com.au
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42643 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42658 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181Ab2EXUWi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 16:22:38 -0400
-In-Reply-To: <1337851172-28549-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1751181Ab2EXUYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 16:24:30 -0400
+In-Reply-To: <1337871507.26314.132.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu, 24 May 2012 11:19:32 +0200
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Thu, 24 May 2012 15:58:27 +0100
 
-> Some additional Gobi3K IDs found in the BSD/GPL licensed
-> out-of-tree GobiNet driver from Sierra Wireless.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> DMA support has finally made its way to the top of the TODO list, having
+> realised that a Geode using MMIO can't keep up with two ADSL2+ lines
+> each running at 21Mb/s.
+> 
+> This patch fixes a couple of bugs in the DMA support in the driver, so
+> once the corresponding FPGA update is complete and tested everything
+> should work properly.
+> 
+> We weren't storing the currently-transmitting skb, so we were never
+> unmapping it and never freeing/popping it when the TX was done.
+> And the addition of pci_set_master() is fairly self-explanatory.
+> 
+> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
 Applied.
