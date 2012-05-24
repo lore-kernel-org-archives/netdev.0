@@ -1,30 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7] tilegx network driver: initial support
-Date: Thu, 24 May 2012 00:31:48 -0400 (EDT)
-Message-ID: <20120524.003148.700603156196416506.davem@davemloft.net>
-References: <201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>
-	<20120520.165546.1211013675964130504.davem@davemloft.net>
-	<201205240115.q4O1FwqG006336@lab-41.internal.tilera.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH IPROUTE2] tc-codel: Add manpage
+Date: Thu, 24 May 2012 06:53:59 +0200
+Message-ID: <1337835239.3361.3954.camel@edumazet-glaptop>
+References: <1337834034-27803-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, arnd@arndb.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: cmetcalf@tilera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201205240115.q4O1FwqG006336@lab-41.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:45880 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944Ab2EXEyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 00:54:03 -0400
+Received: by eeit10 with SMTP id t10so2297317eei.19
+        for <netdev@vger.kernel.org>; Wed, 23 May 2012 21:54:01 -0700 (PDT)
+In-Reply-To: <1337834034-27803-1-git-send-email-subramanian.vijay@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Wed, 23 May 2012 16:42:03 -0400
+On Wed, 2012-05-23 at 21:33 -0700, Vijay Subramanian wrote:
+> This patch adds the manpage for the CoDel (Controlled-Delay) AQM.
+> 
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> ---
 
-> + * FIXME (bug 11489): add support for IPv6.
- ...
-> +	 * FIXME (bug# 11479): We should stop queues when they're full.
- ...
+Thanks !
 
-Mentioning bug numbers in the driver source is not appropriate.
+> +.SS target
+> +is the acceptable minimum standing/persistent queue delay. This minimum delay
+> +is identified by tracking the local minimum queue delay that packets experience.
+> +Default and recommended value is 5ms.
 
-This second problem looks extremely serious, rather than some minor
-issue to look into at some time in the future.
+Although I can tell I prefer lower values on hosts.
+
+On 10Gbe links, I used 500us target
+
+> +
+> +.SS interval
+> +is used to ensure that the measured minimum delay does not become too stale. The
+> +minimum delay must be experienced in the last epoch of length
+> +.B interval.
+> +It should be set on the order of the worst-case RTT through the bottleneck to
+> +give endpoints sufficient time to react.  Default value is 100ms.
+
+Same here. In a datacenter, you might reduce this to 20ms or so...
