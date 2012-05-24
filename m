@@ -1,112 +1,136 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] xen/netback: calculate correctly the SKB slots.
-Date: Thu, 24 May 2012 12:12:58 +0100
-Message-ID: <1337857978.7229.27.camel@zakaz.uk.xensource.com>
-References: <1337621793-12486-1-git-send-email-konrad.wilk@oracle.com>
-	 <1337627640.2979.33.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1337678512.10118.40.camel@zakaz.uk.xensource.com>
-	 <20120522180901.GC22488@phenom.dumpdata.com> <4FBBE7D2.9040105@oracle.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 01/17] netfilter: add struct nf_proto_net for register
+ l4proto sysctl
+Date: Thu, 24 May 2012 18:54:42 +0800
+Message-ID: <4FBE1372.60206@cn.fujitsu.com>
+References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com> <1336985547-31960-2-git-send-email-gaofeng@cn.fujitsu.com> <20120523101200.GA2836@1984> <4FBD9076.6060309@cn.fujitsu.com> <20120524095859.GC13091@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Adnan Misherfi <adnan.misherfi@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FBBE7D2.9040105@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitus.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:39273 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1756481Ab2EXLhV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 07:37:21 -0400
+In-Reply-To: <20120524095859.GC13091@1984>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-22 at 20:24 +0100, Adnan Misherfi wrote:
-> 
-> Konrad Rzeszutek Wilk wrote:
-> >>>> wrong, which caused the RX ring to be erroneously declared full,
-> >>>> and the receive queue to be stopped. The problem shows up when two
-> >>>> guest running on the same server tries to communicates using large
-> >>>>         
-> > .. snip..
-> >   
-> >>> The function name is xen_netbk_count_skb_slots() in net-next.  This
-> >>> appears to depend on the series in
-> >>> <http://lists.xen.org/archives/html/xen-devel/2012-01/msg00982.html>.
-> >>>       
-> >> Yes, I don't think that patchset was intended for prime time just yet.
-> >> Can this issue be reproduced without it?
-> >>     
-> >
-> > It was based on 3.4, but the bug and work to fix this was  done on top of
-> > a 3.4 version of netback backported in a 3.0 kernel. Let me double check
-> > whether there were some missing patches.
-> >
-> >   
-> >>>>  	int i, copy_off;
-> >>>>  
-> >>>>  	count = DIV_ROUND_UP(
-> >>>> -			offset_in_page(skb->data)+skb_headlen(skb), PAGE_SIZE);
-> >>>> +			offset_in_page(skb->data + skb_headlen(skb)), PAGE_SIZE);
-> >>>>         
-> >>> The new version would be equivalent to:
-> >>> 	count = offset_in_page(skb->data + skb_headlen(skb)) != 0;
-> >>> which is not right, as netbk_gop_skb() will use one slot per page.
-> >>>       
-> >> Just outside the context of this patch we separately count the frag
-> >> pages.
-> >>
-> >> However I think you are right if skb->data covers > 1 page, since the
-> >> new version can only ever return 0 or 1. I expect this patch papers over
-> >> the underlying issue by not stopping often enough, rather than actually
-> >> fixing the underlying issue.
-> >>     
-> >
-> > Ah, any thoughts? Have you guys seen this behavior as well?
-> >   
-> >>> The real problem is likely that you're not using the same condition to
-> >>> stop and wake the queue.
-> >>>       
-> >> Agreed, it would be useful to see the argument for this patch presented
-> >> in that light. In particular the relationship between
-> >> xenvif_rx_schedulable() (used to wake queue) and
-> >> xen_netbk_must_stop_queue() (used to stop queue).
-> >>     
-> >
-> > Do you have any debug patches to ... do open-heart surgery on the
-> > rings of netback as its hitting the issues Adnan has found?
-> >
-> >   
-> >> As it stands the description describes a setup which can repro the
-> >> problem but doesn't really analyse what actually happens, nor justify
-> >> the correctness of the fix.
-> >>     
-> >
-> > Hm, Adnan - you dug in to this and you got tons of notes. Could you
-> > describe what you saw that caused this?
-> >   
-> The problem is that the function xen_netbk_count_skb_slots() returns two 
-> different counts for same type packets of same size (ICMP,3991). At the 
-> start of the test
-> the count is one, later on the count changes to two, soon after the 
-> counts becomes two, the condition ring full becomes true, and queue get 
-> stopped, and never gets
-> started again.There are few point to make here:
-> 1- It takes less that 128 ping packets to reproduce this
-> 2- What is interesting here is that it works correct for many packet 
-> sizes including 1500,400,500 9000, (3990, but not 3991)
-> 3- The inconsistent count for the same packet size and type
-> 4- I do not believe the ring was actually full when it was declared 
-> full, I think the consumer pointer was wrong. (vif->rx_req_cons_peek in 
-> function xenvif_start_xmit())
-> 5- After changing the code the count returned from 
-> xen_netbk_count_skb_slots() was always consistent, and worked just fine, 
-> I let it runs for at least 12 hours.
+=E4=BA=8E 2012=E5=B9=B405=E6=9C=8824=E6=97=A5 17:58, Pablo Neira Ayuso =
+=E5=86=99=E9=81=93:
+> On Thu, May 24, 2012 at 09:35:50AM +0800, Gao feng wrote:
+>> Hi pablo:
+>>
+>> =E4=BA=8E 2012=E5=B9=B405=E6=9C=8823=E6=97=A5 18:12, Pablo Neira Ayu=
+so =E5=86=99=E9=81=93:
+>>> On Mon, May 14, 2012 at 04:52:11PM +0800, Gao feng wrote:
+>>>> From: Gao feng <gaofeng@cn.fujitus.com>
+>>>>
+>>>> the struct nf_proto_net stroes proto's ctl_table_header and ctl_ta=
+ble,
+>>>> nf_ct_l4proto_(un)register_sysctl use it to register sysctl.
+>>>>
+>>>> there are some changes for struct nf_conntrack_l4proto:
+>>>> - add field compat to identify if this proto should do compat.
+>>>> - the net_id field is used to store the pernet_operations id
+>>>>   that belones to l4proto.
+>>>> - init_net will be used to initial the proto's pernet data
+>>>>
+>>>> and add init_net for struct nf_conntrack_l3proto too.
+>>>
+>>> This patchset looks bette but there are still things that we have t=
+o
+>>> resolve.
+>>>
+>>> The first one (regarding this patch 1/17) changes in:
+>>> * include/net/netfilter/nf_conntrack_l4proto.h
+>>> * include/net/netns/conntrack.h
+>>>
+>>> should be included in:
+>>> [PATCH] netfilter: add namespace support for l4proto
+>>>
+>>> And changes in:
+>>> * include/net/netfilter/nf_conntrack_l3proto.h
+>>>
+>>> should be included in:
+>>> [PATCH] netfilter: add namespace support for l3proto
+>>>
+>>> I already told you. A patch that adds a structure without using it,
+>>> is not good. The structure has to go together with the code uses it=
+=2E
+>>>
+>>
+>> It seams this patch should be merged to "netfilter: add namespace su=
+pport for l4proto"
+>> the struct nf_proto_net is first used there.
+>>
+>>> More comments below.
+>>>
+>>>> Acked-by: Eric W. Biederman <ebiederm@xmission.com>
+>>>> Signed-off-by: Gao feng <gaofeng@cn.fujitus.com>
+>>>> ---
+>>>>  include/net/netfilter/nf_conntrack_l3proto.h |    3 +++
+>>>>  include/net/netfilter/nf_conntrack_l4proto.h |    6 ++++++
+>>>>  include/net/netns/conntrack.h                |   12 ++++++++++++
+>>>>  3 files changed, 21 insertions(+), 0 deletions(-)
+>>>>
+>>>> diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/includ=
+e/net/netfilter/nf_conntrack_l3proto.h
+>>>> index 9699c02..9766005 100644
+>>>> --- a/include/net/netfilter/nf_conntrack_l3proto.h
+>>>> +++ b/include/net/netfilter/nf_conntrack_l3proto.h
+>>>> @@ -69,6 +69,9 @@ struct nf_conntrack_l3proto {
+>>>>  	struct ctl_table	*ctl_table;
+>>>>  #endif /* CONFIG_SYSCTL */
+>>>> =20
+>>>> +	/* Init l3proto pernet data */
+>>>> +	int (*init_net)(struct net *net);
+>>>> +
+>>>>  	/* Module (if any) which this is connected to. */
+>>>>  	struct module *me;
+>>>>  };
+>>>> diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/includ=
+e/net/netfilter/nf_conntrack_l4proto.h
+>>>> index 3b572bb..a90eab5 100644
+>>>> --- a/include/net/netfilter/nf_conntrack_l4proto.h
+>>>> +++ b/include/net/netfilter/nf_conntrack_l4proto.h
+>>>> @@ -22,6 +22,8 @@ struct nf_conntrack_l4proto {
+>>>>  	/* L4 Protocol number. */
+>>>>  	u_int8_t l4proto;
+>>>> =20
+>>>> +	u_int8_t compat;
+>>>
+>>> I don't see why we need this new field.
+>>>
+>>> It seems to be set to 1 in each structure that has set:
+>>>
+>>> .ctl_compat_table
+>>>
+>>> to non-NULL. So, it's redundant.
+>>>
+>>> Moreover, you already know from the protocol tracker itself if you
+>>> have to allocate the compat ctl table or not.
+>>>
+>>> In other words: You set compat to 1 for nf_conntrack_l4proto_generi=
+c.
+>>> Then, you pass that compat value to generic_init_net via ->inet_net
+>>> again, but this information (that determines if the compat has to b=
+e
+>>> done or not) is already in the scope of the protocol tracker.
+>>>
+>>
+>> because some protocols such l4proto_tcp6 and l4proto_tcp use the sam=
+e init_net
+>> function. the l4proto_tcp6 doesn't need compat sysctl, so we should =
+use this new
+>> field to identify if we should kmemdup compat_sysctl_table.
+>=20
+> Then, could you use two init_net functions? one for TCP for IPv4 and =
+another
+> for TCP for IPv6?
 
-That doesn't really explain why you think your fix is correct though,
-which is what I was asking for.
-
-In any case, does Simon's patch also fix things for you? As far as I can
-tell that is the right fix.
-
-Ian.
+Of cause, if you prefer to impletment it in this way.
