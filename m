@@ -1,54 +1,57 @@
-From: Simon Graham <simon.graham@citrix.com>
-Subject: [PATCH] xen/netback: Calculate the number of SKB slots required
- correctly
-Date: Thu, 24 May 2012 12:26:07 -0400
-Message-ID: <1337876767-16041-1-git-send-email-simon.graham@citrix.com>
+From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 03/21] odp-util: Add tun_key to
+ parse_odp_key_attr()
+Date: Thu, 24 May 2012 09:29:11 -0700
+Message-ID: <20120524162911.GD26173@nicira.com>
+References: <1337850554-10339-1-git-send-email-horms@verge.net.au>
+	<1337850554-10339-4-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"adnan.misherfi@oracle.com" <adnan.misherfi@oracle.com>,
-	Simon Graham <simon.graham@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:53881 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933453Ab2EXQ07 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 12:26:59 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1337850554-10339-4-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When calculating the number of slots required for a packet header, the code
-was reserving too many slots if the header crossed a page boundary. Since
-netbk_gop_skb copies the header to the start of the page, the count of
-slots required for the header should be based solely on the header size.
+On Thu, May 24, 2012 at 06:08:56PM +0900, Simon Horman wrote:
+> Cc: Kyle Mestery <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 
-This problem is easy to reproduce if a VIF is bridged to a USB 3G modem
-device as the skb->data value always starts near the end of the first page.
+But I don't see him CCed?
 
-Signed-off-by: Simon Graham <simon.graham@citrix.com>
----
- drivers/net/xen-netback/netback.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+> +        ovs_be32 ipv4_src;
+> +        ovs_be32 ipv4_dst;
+> +        unsigned long long tun_flags;
+> +        int ipv4_tos;
+> +        int ipv4_ttl;
+> +        int n = -1;
+> +
+> +        if (sscanf(s, "ipv4_tunnel(tun_id=%31[x0123456789abcdefABCDEF]"
+> +                   ",flags=%llx,src="IP_SCAN_FMT",dst="IP_SCAN_FMT
+> +                   ",tos=%i,ttl=%i)%n",
+> +                   tun_id_s, &tun_flags,
+> +                   IP_SCAN_ARGS(&ipv4_src), IP_SCAN_ARGS(&ipv4_dst),
+> +                   &ipv4_tos, &ipv4_ttl, &n) > 0
+> +            && n > 0) {
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 2596401..f4a6fca 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -325,8 +325,7 @@ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb)
- 	unsigned int count;
- 	int i, copy_off;
- 
--	count = DIV_ROUND_UP(
--			offset_in_page(skb->data)+skb_headlen(skb), PAGE_SIZE);
-+	count = DIV_ROUND_UP(skb_headlen(skb), PAGE_SIZE);
- 
- 	copy_off = skb_headlen(skb) % PAGE_SIZE;
- 
--- 
-1.7.9.1
+Does this compile?  I don't see a declaration of tun_id_s.
+
+In the ODP printer and parser, we usually require fields that are
+hexadecimal to be written with an explicit "0x" on output (using
+something like "0x%x" or "%#x" on output), and then use "%i" on input,
+so that it is always unambiguous at a glance whether a number is
+decimal or hexadecimal.  I'd appreciate it if we could maintain that
+here (I didn't look over at the printer code to see if it writes 0x,
+but I'd like it to).
+
+Otherwise, this looks good, thank you.
