@@ -1,30 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] qlcnic: Bug fixes
-Date: Thu, 24 May 2012 16:06:59 -0400 (EDT)
-Message-ID: <20120524.160659.834400122540802357.davem@davemloft.net>
-References: <1337882816-2097-1-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: Re: [PATCH 1/3] TIPC: Removing EXPERIMENTAL label
+Date: Thu, 24 May 2012 16:12:31 -0400 (EDT)
+Message-ID: <20120524.161231.1058511318935925082.davem@davemloft.net>
+References: <1337579954-17161-1-git-send-email-jon.maloy@ericsson.com>
+	<20120521.023926.548567931208958037.davem@davemloft.net>
+	<20120524195816.GA6487@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: anirban.chakraborty@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42534 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757397Ab2EXUHF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 16:07:05 -0400
-In-Reply-To: <1337882816-2097-1-git-send-email-anirban.chakraborty@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net,
+	allan.stephens@windriver.com, maloy@donjonn.com
+To: paul.gortmaker@windriver.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20120524195816.GA6487@windriver.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Date: Thu, 24 May 2012 14:06:54 -0400
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Thu, 24 May 2012 15:58:16 -0400
 
-> Please apply to net-next.
+> But for new TIPC development features, future direction, and things like
+> that -- making the right call requires intimate understanding of TIPC
+> and its users, which is something that a maintainer should have but
+> something I know I don't have.  (A man has to know his limitations.)
+> 
+> In this context, I'm not talking about these three trivial patches; but
+> more complicated stuff that I imagine will be floated in the future.
+> 
+> To that end, I can still review and call out issues in a crap patch when
+> I see them.  But I'd like to see new stuff sent to netdev, so that folks
+> smarter than me have a chance to catch when a patch appears generally OK
+> but is architecturally the wrong direction etc.
 
-As I've stated at least 10 times this week, net-next is not open
-and therefore submitting patches for net-next is not appropriate.
+For maintainership, taste is more important than deep knowledge of the
+specific technology.  Worst case you ask the submitter to explain the
+background of their change more thoroughly and that information is an
+absolutely requirement in the commit message and code comments
+anyways.
 
-If people are not going to even read my announcements and
-notifications of the states of the various GIT trees, I might as well
-not make them at all.
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
