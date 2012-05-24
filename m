@@ -1,54 +1,84 @@
-From: Minho Ban <mhban@samsung.com>
-Subject: Re: [PATCH] Bluetooth: Fix null pointer dereference in l2cap_chan_send
-Date: Thu, 24 May 2012 15:32:41 +0900
-Message-ID: <4FBDD609.8060702@samsung.com>
-References: <4FB9932B.9070101@samsung.com> <4FBB8828.303@samsung.com>
+From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
+Subject: Re: [PATCH 06/15] batman-adv: Distributed ARP Table
+ - add snooping functions for ARP messages
+Date: Thu, 24 May 2012 10:09:55 +0200
+Message-ID: <20120524080955.GA14941@pandem0nium>
+References: <20120523214802.GA12222@pandem0nium>
+	<20120523.190158.2172815395820691292.davem@davemloft.net>
+	<3476925.EJY4MZoOgZ@sven-desktop.home.narfation.org>
+	<20120524.015457.1543147002306809286.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Gustavo Padovan <gustavo@padovan.org>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chanyeol Park <chanyeol.park@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <4FBB8828.303@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="uAKRQypu60I7Lcqm"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	lindner_marek-LWAfsSFWpa4@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120524.015457.1543147002306809286.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 05/22/2012 09:35 PM, Chanyeol Park wrote:
-> Hi
-> On 2012=EB=85=84 05=EC=9B=94 21=EC=9D=BC 09:58, Minho Ban wrote:
->> diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
->> index 3bb1611..98d4541 100644
->> --- a/net/bluetooth/l2cap_sock.c
->> +++ b/net/bluetooth/l2cap_sock.c
->> @@ -727,10 +727,12 @@ static int l2cap_sock_sendmsg(struct kiocb *io=
-cb, struct socket *sock, struct ms
->>       if (msg->msg_flags&  MSG_OOB)
->>           return -EOPNOTSUPP;
->>
->> -    if (sk->sk_state !=3D BT_CONNECTED)
->> +    l2cap_chan_lock(chan);
->> +    if (sk->sk_state !=3D BT_CONNECTED || !chan->conn) {
->> +        l2cap_chan_unlock(chan);
->>           return -ENOTCONN;
->> +    }
->>
->> -    l2cap_chan_lock(chan);
->>       err =3D l2cap_chan_send(chan, msg, len, sk->sk_priority);
->>       l2cap_chan_unlock(chan);
->>  =20
-> Beside !chan->conn condition,I think it makes sense that sk_state che=
-ck should be moved after l2cap_chan_lock()
-> because sk_state could be changed due to l2cap_conn_del().
+
+--uAKRQypu60I7Lcqm
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hey David,
+
+thanks for your answer,
+
+On Thu, May 24, 2012 at 01:54:57AM -0400, David Miller wrote:
+> From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+> Date: Thu, 24 May 2012 07:34:12 +0200
 >=20
+> > _You_ were the person that declined the pull request because _you_ want=
+ed to=20
+> > rewrite the ARP handling. So _you_ are the person that has the insight =
+in=20
+> > _your_ plans. Either _you_ tell us what is _your_ problem with it or _y=
+ou_=20
+> > will have to point us to a person that knows _you_.
+>=20
+> If I say that you must not use ARP nor neighbour layer internals, it
+> doesn't mean that I have to come up with the alternative
+> implementation for you.
 
-Thanks, chan->conn condition is not necessary, move sk->sk_state !=3D B=
-T_CONNECTED behind chan_lock is enough.
-I'll amend this patch.
+well, thats pretty much answers it. If we must not use ARP or neighbour
+internals, even after your rewrite (?), we have to come up with an alternat=
+ive
+in any case (write our own backened).
 
-Regards
-Minho Ban
+We don't expect you to come up with an alternative implementation, but
+as you are the one accepting the patches (or not) we need to know why
+you decline something and what the problem is so we ca n work around
+or improve.
+
+Thanks
+	Simon
+
+--uAKRQypu60I7Lcqm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAk+97NMACgkQrzg/fFk7axa4NgCgzysVur931TOmd4kHsjUaSG2J
+elIAn2yOn2AGcBPI8+iP6AOxLCnxe4VE
+=27P2
+-----END PGP SIGNATURE-----
+
+--uAKRQypu60I7Lcqm--
