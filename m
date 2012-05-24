@@ -1,7 +1,8 @@
 From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH 07/21] vswitchd: Configure tunnel interfaces.
-Date: Thu, 24 May 2012 18:09:00 +0900
-Message-ID: <1337850554-10339-8-git-send-email-horms@verge.net.au>
+Subject: [PATCH 15/21] datapath: Remove mlink element from
+	tnl_mutable_config
+Date: Thu, 24 May 2012 18:09:08 +0900
+Message-ID: <1337850554-10339-16-git-send-email-horms@verge.net.au>
 References: <1337850554-10339-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,126 +22,96 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-For tunnel realdevs this sets the remote IP and type,
-and optionally source IP, ttl and tos. The remote IP
-must non-zero.
-
-For tunnel tundevs only the type is configured.
-The remote IP must be zero.
+Multicast may be handled in user-space (but isn't yet).
 
 Cc: Kyle Mestery <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 ---
- vswitchd/bridge.c | 69 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 69 insertions(+)
+ datapath/tunnel.c | 22 ----------------------
+ datapath/tunnel.h |  3 ---
+ 2 files changed, 25 deletions(-)
 
-diff --git a/vswitchd/bridge.c b/vswitchd/bridge.c
-index 3d187f0..a67f391 100644
---- a/vswitchd/bridge.c
-+++ b/vswitchd/bridge.c
-@@ -242,6 +242,7 @@ static void iface_set_ofport(const struct ovsrec_interface *, int64_t ofport);
- static void iface_clear_db_record(const struct ovsrec_interface *if_cfg);
- static void iface_configure_qos(struct iface *, const struct ovsrec_qos *);
- static void iface_configure_cfm(struct iface *);
-+static void iface_configure_tunnel(struct iface *);
- static void iface_refresh_cfm_stats(struct iface *);
- static void iface_refresh_stats(struct iface *);
- static void iface_refresh_status(struct iface *);
-@@ -535,6 +536,7 @@ bridge_reconfigure_continue(const struct ovsrec_open_vswitch *ovs_cfg)
-             LIST_FOR_EACH (iface, port_elem, &port->ifaces) {
-                 iface_configure_cfm(iface);
-                 iface_configure_qos(iface, port->cfg->qos);
-+                iface_configure_tunnel(iface);
-                 iface_set_mac(iface);
-             }
-         }
-@@ -627,6 +629,21 @@ bridge_update_ofprotos(void)
-     }
+diff --git a/datapath/tunnel.c b/datapath/tunnel.c
+index f07ec69..cdcb0a7 100644
+--- a/datapath/tunnel.c
++++ b/datapath/tunnel.c
+@@ -162,21 +162,6 @@ static void free_cache_rcu(struct rcu_head *rcu)
+ 	free_cache(c);
  }
  
-+is_tunnel_tundev(const char *type)
-+{
-+    return !strcmp(type, "gre-tundev") || !strcmp(type, "capwap-tundev");
-+}
-+
-+static uint8_t
-+tunnel_tundev_type_from_str(const char *type)
-+{
-+    if (!strcmp(type, "gre-tundev"))
-+        return TNL_T_PROTO_GRE;
-+    if (!strcmp(type, "gre-tundev"))
-+        return TNL_T_PROTO_CAPWAP;
-+    NOT_REACHED();
-+}
-+
- static bool
- is_tunnel_realdev(const char *type)
+-/* Frees the portion of 'mutable' that requires RTNL and thus can't happen
+- * within an RCU callback.  Fortunately this part doesn't require waiting for
+- * an RCU grace period.
+- */
+-static void free_mutable_rtnl(struct tnl_mutable_config *mutable)
+-{
+-	ASSERT_RTNL();
+-	if (ipv4_is_multicast(mutable->key.daddr) && mutable->mlink) {
+-		struct in_device *in_dev;
+-		in_dev = inetdev_by_index(port_key_get_net(&mutable->key), mutable->mlink);
+-		if (in_dev)
+-			ip_mc_dec_group(in_dev, mutable->key.daddr);
+-	}
+-}
+-
+ static void assign_config_rcu(struct vport *vport,
+ 			      struct tnl_mutable_config *new_config)
  {
-@@ -648,6 +665,15 @@ port_configure(struct port *port)
-         return;
-     }
+@@ -186,7 +171,6 @@ static void assign_config_rcu(struct vport *vport,
+ 	old_config = rtnl_dereference(tnl_vport->mutable);
+ 	rcu_assign_pointer(tnl_vport->mutable, new_config);
  
-+    if (list_is_singleton(&port->ifaces)) {
-+        iface = CONTAINER_OF(list_front(&port->ifaces),
-+                             struct iface, port_elem);
-+        if (is_tunnel_tundev(iface->type)) {
-+            ofproto_bundle_unregister(port->bridge->ofproto, port);
-+            return;
-+        }
-+    }
-+
-     /* Get name. */
-     s.name = port->name;
- 
-@@ -3686,6 +3712,49 @@ iface_configure_cfm(struct iface *iface)
-     ofproto_port_set_cfm(iface->port->bridge->ofproto, iface->ofp_port, &s);
+-	free_mutable_rtnl(old_config);
+ 	call_rcu(&old_config->rcu, free_config_rcu);
  }
  
-+static void
-+iface_configure_tunnel_tundev(struct iface *iface)
-+{
-+    const char *type = iface_get_type(iface->cfg, iface->port->bridge->cfg);
-+    struct tunnel_settings s = { .type = tunnel_tundev_type_from_str(type) };
-+
-+    ofproto_port_set_tunnel(iface->port->bridge->ofproto, 0,
-+                            iface->ofp_port, &s);
-+}
-+
-+static void
-+iface_configure_tunnel_realdev(struct iface *iface)
-+{
-+    struct tunnel_settings s = { .tos = 0 };
-+    const char *type = iface_get_type(iface->cfg, iface->port->bridge->cfg);
-+    struct iface *tundev;
-+
-+    /* This will not fail as it has already been called
-+     * to check for errors */
-+    iface_parse_tunnel(iface->cfg, type, &s);
-+
-+    tundev = iface_lookup(iface->port->bridge, type);
-+    assert(tundev);
-+
-+    ofproto_port_set_tunnel(iface->port->bridge->ofproto, tundev->ofp_port,
-+                            iface->ofp_port, &s);
-+}
-+
-+static void
-+iface_configure_tunnel(struct iface *iface)
-+{
-+    const char *type = iface_get_type(iface->cfg, iface->port->bridge->cfg);
-+
-+    if (is_tunnel_realdev(type)) {
-+        return iface_configure_tunnel_realdev(iface);
-+    } else if (is_tunnel_tundev(type)) {
-+        return iface_configure_tunnel_tundev(iface);
-+    }
-+
-+    /* Nothing to do */
-+    return;
-+}
-+
- /* Returns true if 'iface' is synthetic, that is, if we constructed it locally
-  * instead of obtaining it from the database. */
- static bool
+@@ -1391,8 +1375,6 @@ static int tnl_set_config(struct net *net,
+ 	if (old_vport && old_vport != cur_vport)
+ 		return -EEXIST;
+ 
+-	mutable->mlink = 0;
+-
+ 	return 0;
+ }
+ 
+@@ -1445,7 +1427,6 @@ struct vport *ovs_tnl_create(const struct vport_parms *parms,
+ 	return vport;
+ 
+ error_free_mutable:
+-	free_mutable_rtnl(mutable);
+ 	kfree(mutable);
+ error_free_vport:
+ 	ovs_vport_free(vport);
+@@ -1470,7 +1451,6 @@ void ovs_tnl_destroy(struct vport *vport)
+ 
+ 	mutable = rtnl_dereference(tnl_vport->mutable);
+ 	port_table_remove_port(vport);
+-	free_mutable_rtnl(mutable);
+ 	call_rcu(&tnl_vport->rcu, free_port_rcu);
+ }
+ 
+@@ -1484,8 +1464,6 @@ int ovs_tnl_set_addr(struct vport *vport, const unsigned char *addr)
+ 	if (!mutable)
+ 		return -ENOMEM;
+ 
+-	old_mutable->mlink = 0;
+-
+ 	memcpy(mutable->eth_addr, addr, ETH_ALEN);
+ 	assign_config_rcu(vport, mutable);
+ 
+diff --git a/datapath/tunnel.h b/datapath/tunnel.h
+index 7d78297..0af27ac 100644
+--- a/datapath/tunnel.h
++++ b/datapath/tunnel.h
+@@ -117,9 +117,6 @@ struct tnl_mutable_config {
+ 	u32	flags;
+ 	u8	tos;
+ 	u8	ttl;
+-
+-	/* Multicast configuration. */
+-	int	mlink;
+ };
+ 
+ struct tnl_ops {
 -- 
 1.7.10.2.484.gcd07cc5
