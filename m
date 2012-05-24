@@ -1,125 +1,109 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] net/hsr: Add support for IEC 62439-3 High-availability
- Seamless Redundancy
-Date: Thu, 24 May 2012 10:16:23 -0700
-Message-ID: <20120524101623.16f09fea@nehalam.linuxnetplumber.net>
-References: <4F71BEAD.5080605@enea.com>
-	<4FB14ADD.3050708@xdin.com>
-	<20120514112821.526b12be@nehalam.linuxnetplumber.net>
-	<4FBE6B5E.3060403@xdin.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH] tcp: Fast/early SYN handling to mitigate SYN floods
+Date: Thu, 24 May 2012 19:21:05 +0200
+Message-ID: <1337880065.2388.15.camel@localhost>
+References: <1337864467.13491.15.camel@localhost>
+	 <4FBE3709.6070806@uclouvain.be> <1337871077.3140.12.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Bruno Ferreira <balferreira@googlemail.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Arvid Brodin <Arvid.Brodin@xdin.com>
+Cc: christoph.paasch@uclouvain.be, David Miller <davem@davemloft.net>,
+	Martin Topholm <mph@hoth.dk>, netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59673 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49994 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754966Ab2EXRQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2012 13:16:27 -0400
-In-Reply-To: <4FBE6B5E.3060403@xdin.com>
+	id S933988Ab2EXRVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 May 2012 13:21:20 -0400
+In-Reply-To: <1337871077.3140.12.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 May 2012 17:09:53 +0000
-Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
+On Thu, 2012-05-24 at 16:51 +0200, Eric Dumazet wrote:
+> On Thu, 2012-05-24 at 15:26 +0200, Christoph Paasch wrote:
+> > Hello,
+> > 
+> > On 05/24/2012 03:01 PM, Jesper Dangaard Brouer wrote:
+> > > I have been doing some TCP performance measurements with SYN flooding,
+> > > and have found that, we don't handle this case well.
+> > > 
+> > > I have made a patch for fast/early SYN handling in tcp_v4_rcv() in
+> > > net/ipv4/tcp_ipv4.c.  This increases SYN performance from 130 kpps to
+> > > 750 kpps (max of the generator), with idle CPU cycles.
+> > > 
+> > > Current locking:
+> > >  During a SYN flood (against a single port) all CPUs are spinning on
+> > > the same spinlock, namely bh_lock_sock_nested(sk), in tcp_ipv4.c.  The
+> > > lock dates back to a commit by DaveM in May 1999, see historic
+> > > commit[1].  It seem that TCP runs fully locked, per sock.
+> > > 
+> > > I need some help with locking, as the patch seems to work fine, with
+> > > NO-PREEMPT, but with PREEMPT enabled I start to see warnings (in
+> > > reqsk_queue_destroy) and oopses (in inet_csk_reqsk_queue_prune).
+> > > 
+> > > What am I missing?
+> > 
+> > For each retransmission of a SYN you will add a request-sock to the
+> > syn_table, because you do not pass by tcp_v4_hnd_req(), which checks
+> > this by calling inet_csk_search_req().
 
-> On 2012-05-14 20:28, Stephen Hemminger wrote:
-> > On Mon, 14 May 2012 18:11:44 +0000
-> > Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
-> > 
-> >> On 2012-03-27 15:20, Arvid Brodin wrote:
-> >>> Hi!
-> >>
-> >> *snip*
-> >>>
-> >>> 2) I have a locking problem that I haven't managed to figure out. This happens
-> >>>    the first time I send any packet (hsr_dev_xmit() in hsr_device.c:121, called
-> >>>    from hsr_device.c:147). It happens even if I set skb2 to NULL (i.e. only send
-> >>>    one copy):
-> >>>
-> >>> =============================================
-> >>> [ INFO: possible recursive locking detected ]
-> >>> 2.6.37 #118
-> >>> ---------------------------------------------
-> >>> swapper/0 is trying to acquire lock:
-> >>>  (_xmit_ETHER#2){+.-...}, at: [<901bf38e>] sch_direct_xmit+0x24/0x152
-> >>>
-> >>> but task is already holding lock:
-> >>>  (_xmit_ETHER#2){+.-...}, at: [<901b4d1a>] dev_queue_xmit+0x31e/0x3cc
-> >>>
-> >>> other info that might help us debug this:
-> >>> 4 locks held by swapper/0:
-> >>>  #0:  (&n->timer){+.-...}, at: [<9002bc20>] run_timer_softirq+0x98/0x184
-> >>>  #1:  (rcu_read_lock_bh){.+....}, at: [<901b49fc>] dev_queue_xmit+0x0/0x3cc
-> >>>  #2:  (_xmit_ETHER#2){+.-...}, at: [<901b4d1a>] dev_queue_xmit+0x31e/0x3cc
-> >>>  #3:  (rcu_read_lock_bh){.+....}, at: [<901b49fc>] dev_queue_xmit+0x0/0x3cc
-> >>>
-> >>> stack backtrace:
-> >>> Call trace:
-> >>>  [<9001c640>] dump_stack+0x18/0x20
-> >>>  [<90040eac>] validate_chain+0x40c/0x9ac
-> >>>  [<90041a58>] __lock_acquire+0x60c/0x670
-> >>>  [<90042f32>] lock_acquire+0x3a/0x48
-> >>>  [<902201a4>] _raw_spin_lock+0x20/0x44
-> >>>  [<901bf38e>] sch_direct_xmit+0x24/0x152
-> >>>  [<901b4c14>] dev_queue_xmit+0x218/0x3cc
-> >>>  [<9021c2e0>] slave_xmit+0x10/0x14
-> >>>  [<9021c540>] hsr_dev_xmit+0x88/0x8c
-> >>>  [<901b4942>] dev_hard_start_xmit+0x3c6/0x480
-> >>>  [<901b4d34>] dev_queue_xmit+0x338/0x3cc
-> >>>  [<901e3cd8>] arp_xmit+0x8/0xc
-> >>>  [<901e4436>] arp_send+0x2a/0x2c
-> >>>  [<901e4e74>] arp_solicit+0x15c/0x170
-> >>>  [<901bad0c>] neigh_timer_handler+0x1c0/0x204
-> >>>  [<9002bc8a>] run_timer_softirq+0x102/0x184
-> >>>  [<900287d8>] __do_softirq+0x64/0xe0
-> >>>  [<9002896a>] do_softirq+0x26/0x48
-> >>>  [<90028a66>] irq_exit+0x2e/0x64
-> >>>  [<90019f16>] do_IRQ+0x46/0x5c
-> >>>  [<90018428>] irq_level0+0x18/0x60
-> >>>  [<9021cc16>] rest_init+0x72/0x98
-> >>>  [<9000063c>] start_kernel+0x21c/0x258
-> >>>  [<00000000>] 0x0
-> >>>
-> >>>    Any idea why this happens? I need help!
-> >>
-> >>
-> >> I've spent a few days digging into this and the key apparently is NETIF_F_LLTX.
-> >>
-> >> The problem seems to be that HARD_TX_LOCK is called more than once, first for my virtual
-> >> hsr device and then, recursively, for each of the slaves in turn. (At least that's where
-> >> lockdep complains - at __netif_tx_lock(), that is.)
-> >>
-> >> At first I just could not understand why both the VLAN and the bonding code got away with
-> >> recursive calls to dev_queue_xmit() but I didn't. After some gooling (a lot, actually) I
-> >> found some references to the NETIF_F_LLTX flag (here's one:
-> >> http://lwn.net/Articles/121566/). I realised both VLAN and bonding code set this flag. And
-> >> sure enough, if I set it for my hsr device lockdep does not complain any more.
-> >>
-> >> But NETIF_F_LLTX is described as deprecated in both netdevice.h and in
-> >> Documentation/networking/netdevices.txt. Is there an alternative solution that I should
-> >> use instead?
-> >>
-> >> (To recap, a hsr device is a virtual device which uses two Ethernet devices as slaves.
-> >> This gives redundancy with instant failover, and since nodes are connected in a ring
-> >> topology, uses less cabling than duplication.)
-> >>
-> > 
-> > LLTX is deprecated (ie should not be used) for physical devices.
-> > 
-> > Also, for virtual devices, there should be non transmit queue, this
-> > causes mulit-queue lockless semantics to be preserved as the call passes
-> > through the virtual device.
-> 
-> (First: apologies for my late reply; your emails doesn't get through to me for some reason.)
-> 
-> So does this mean that it is OK to use LLTX for virtual devices? My virtual device has
-> zero queue length (no transmit queue), but since it calls dev_queue_xmit for its slaves, I
-> still get recursive locking if I don't set LLTX (just like vlan and bonding does).
+Thanks that's good hint.  I was suspecting that tcp_v4_hnd_req() was
+somehow needed (as noted in the comment in the patch)
 
-Yes LLTX is fine for virtual devices.
+> > And your warning in reqsk_queue_destroy is because the access to the the
+> > request_sock_queue is no more protected by a lock.
+
+Yes, I was suspecting that.
+
+> > The request_sock_queue is a shared resource, which must be protect by a
+> > lock. As you allow "parallel" SYN-processing, the queue will get corrupted.
+> > 
+> 
+> Hi guys, that's a very interesting subject.
+> 
+> I began work on fully converting this stuff to RCU some weeks ago but
+> got distracted by codel / fq_codel and other cool stuff (TCP coalescing
+> and skb->frag_head)
+> 
+> I dont know if you remember the SO_REUSEPORT patch(s) posted by Tom
+> Herbert in the past. The remaining issue was about adding/removing a new
+> listener to a pool of listeners to same port, and hash function was
+> changed so we could lost some connexions in SYN_RECV state at this
+> stage.
+
+Sorry, don't remember.
+
+> So I was working having a shared table, and not anymore using a central
+> spinlock, but an array of spinlock, as done elsewhere
+> (ESTABLISHED/TIMEWAIT hash tables)
+> 
+> My work is probably a ~500 LOC target, allowing concurrent processing by
+> all cpus of the host.
+
+Sounds really promising, especially coming from the network-ninja :-)
+
+
+> Jesper, my goals are probably different than yours, unless I
+> misunderstood your intention.
+> 
+> I feel you want to have an emergency mode, when listener is overflowed
+> to immediately send a SYNCOOKIE ?
+
+Yes, this is more an emergency mode.
+
+I was thinking of only handling the SYN cookie case in parallel.
+That should be easier locking wise, right.
+
+I'm also considering writing a netfilter/iptables syn-cookie module, as
+this would allow people to use it in combination with IPset, to e.g
+create a whitelist feature of known-good-hosts (which have completed the
+TCP handshake). But it would be nicer if the base kernel was just fast
+enough to handle these SYN floods.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
