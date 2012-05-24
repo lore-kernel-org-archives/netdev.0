@@ -1,61 +1,43 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH] tcp: Fast/early SYN handling to mitigate SYN floods
-Date: Thu, 24 May 2012 19:32:09 +0200
-Message-ID: <1337880729.2388.23.camel@localhost>
-References: <1337864467.13491.15.camel@localhost>
-	 <201205241529.37684.hans.schillstrom@ericsson.com>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Re: [PATCH] gianfar:don't add FCB length to hard_header_len
+Date: Thu, 24 May 2012 20:03:13 +0200
+Message-ID: <4FBE77E1.4010103@computer.org>
+References: <1337677248-27792-1-git-send-email-b06378@freescale.com>  <20120522.151830.2018953337014839778.davem@davemloft.net>  <4FBE4E02.1070306@computer.org> <1337876210.5070.4.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Martin Topholm <mph@hoth.dk>, netdev <netdev@vger.kernel.org>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Cc: David Miller <davem@davemloft.net>, b06378@freescale.com,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4775 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751170Ab2EXRcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2012 13:32:18 -0400
-In-Reply-To: <201205241529.37684.hans.schillstrom@ericsson.com>
+Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:51082 "EHLO
+	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964839Ab2EXSHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 14:07:51 -0400
+In-Reply-To: <1337876210.5070.4.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-24 at 15:20 +0200, Hans Schillstrom wrote:
-> Hi Jesper
-> We are also working with this issue right now,
+On 05/24/2012 06:16 PM, Joe Perches wrote:
+> On Thu, 2012-05-24 at 17:04 +0200, Jan Ceuleers wrote:
+>> On 05/22/2012 09:18 PM, David Miller wrote:
+>>> Someone needs to go through this driver when net-next opens up
+>>> and fix all of the indentation in this driver.
+>>
+>> May I give that a go?
 > 
-[..] 
-> > [RFC PATCH] tcp: Fast/early SYN handling to mitigate SYN floods
-> > 
-> > TCP SYN handling is on the slow path via tcp_v4_rcv(), and is
-> > performed while holding spinlock bh_lock_sock().
-> > 
-> > Real-life and testlab experiments show, that the kernel choks
-> > when reaching 130Kpps SYN floods (powerful Nehalem 16 cores).
-> > Measuring with perf reveals, that its caused by
-> > bh_lock_sock_nested() call in tcp_v4_rcv().
+> I have scripts that automate most of this.
+> I don't have the card though.
 > 
-> I can confirm this too, and it doesn't scale with more cores
-> 
-> > 
-> > With this patch, the machine can handle 750Kpps (max of the SYN
-> > flood generator) with cycles to spare.
->
-> This looks great.
+> Maybe this is a starting point?
+> It doesn't fix most 80 column warnings.
 
-Yes, its definitely shows that there is huge performance gain hidden
-here! But we still have to handle locking (which will affect perf).
+Thanks Joe.
 
-> I'm also working with a solution that not trash conntack
-> i.e. have conntrack working during a heavy SYN attack
+I also don't have the card; the kinds of changes I was proposing to make
+are code-neutral, whose correctness I was intending to prove by a binary
+compare of the before-and-after .o.
 
-Sounds interesting, but that's a separate problem.  In this case I have
-disabled conntracking (I even disabled flow-control and drop the syn-ack
-responses on the generator).
+Still happy to do that taking your contribution as a starting point.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks, Jan
