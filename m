@@ -1,43 +1,42 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [PATCH] gianfar:don't add FCB length to hard_header_len
-Date: Thu, 24 May 2012 20:03:13 +0200
-Message-ID: <4FBE77E1.4010103@computer.org>
-References: <1337677248-27792-1-git-send-email-b06378@freescale.com>  <20120522.151830.2018953337014839778.davem@davemloft.net>  <4FBE4E02.1070306@computer.org> <1337876210.5070.4.camel@joe2Laptop>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH IPROUTE2] tc-codel: Add manpage
+Date: Thu, 24 May 2012 11:19:59 -0700
+Message-ID: <CAGK4HS8_O94rQZmvxeNjeYtbT3_a2C1FsZ9O=b9_n0vV2putdA@mail.gmail.com>
+References: <1337834034-27803-1-git-send-email-subramanian.vijay@gmail.com>
+	<1337835239.3361.3954.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, b06378@freescale.com,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:51082 "EHLO
-	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964839Ab2EXSHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 14:07:51 -0400
-In-Reply-To: <1337876210.5070.4.camel@joe2Laptop>
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:43674 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757797Ab2EXSUA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 14:20:00 -0400
+Received: by ghrr11 with SMTP id r11so48570ghr.19
+        for <netdev@vger.kernel.org>; Thu, 24 May 2012 11:19:59 -0700 (PDT)
+In-Reply-To: <1337835239.3361.3954.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/24/2012 06:16 PM, Joe Perches wrote:
-> On Thu, 2012-05-24 at 17:04 +0200, Jan Ceuleers wrote:
->> On 05/22/2012 09:18 PM, David Miller wrote:
->>> Someone needs to go through this driver when net-next opens up
->>> and fix all of the indentation in this driver.
->>
->> May I give that a go?
-> 
-> I have scripts that automate most of this.
-> I don't have the card though.
-> 
-> Maybe this is a starting point?
-> It doesn't fix most 80 column warnings.
+>> +.SS target
+>> +Default and recommended value is 5ms.
+>
+> Although I can tell I prefer lower values on hosts.
+>
+> On 10Gbe links, I used 500us target
+>
+>> +.SS interval
+>> +give endpoints sufficient time to react. =A0Default value is 100ms.
+>
+> Same here. In a datacenter, you might reduce this to 20ms or so...
+>
 
-Thanks Joe.
+Thanks for the insight. The paper does claim that codel can be run
+with the same setting, regardless of link rate.
+I guess reality is different.
 
-I also don't have the card; the kinds of changes I was proposing to make
-are code-neutral, whose correctness I was intending to prove by a binary
-compare of the before-and-after .o.
-
-Still happy to do that taking your contribution as a starting point.
-
-Thanks, Jan
+Thanks,
+Vijay
