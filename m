@@ -1,59 +1,58 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: net/wanrouter?
-Date: Thu, 24 May 2012 09:37:13 -0700
-Message-ID: <20120524093713.59e3e497@nehalam.linuxnetplumber.net>
-References: <1337708034.3432.0.camel@joe2Laptop>
-	<4FBE3CFC.6070103@computer.org>
-	<20120524091310.1c01577e@nehalam.linuxnetplumber.net>
-	<1337876577.5070.7.camel@joe2Laptop>
-	<4FBE62AB.6000900@candelatech.com>
+From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 04/21] vswitchd: Add iface_parse_tunnel
+Date: Thu, 24 May 2012 09:47:38 -0700
+Message-ID: <20120524164738.GE26173@nicira.com>
+References: <1337850554-10339-1-git-send-email-horms@verge.net.au>
+	<1337850554-10339-5-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	Jan Ceuleers <jan.ceuleers@computer.org>,
-	netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48515 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753943Ab2EXQhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2012 12:37:16 -0400
-In-Reply-To: <4FBE62AB.6000900@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1337850554-10339-5-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 24 May 2012 09:32:43 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+The concept seems OK to me here.  I have only a few minor comments.
 
-> On 05/24/2012 09:22 AM, Joe Perches wrote:
-> > On Thu, 2012-05-24 at 09:13 -0700, Stephen Hemminger wrote:
-> >> On Thu, 24 May 2012 15:51:56 +0200
-> >> Jan Ceuleers<jan.ceuleers@computer.org>  wrote:
-> >>
-> >>> On 05/22/2012 07:33 PM, Joe Perches wrote:
-> >>>> Does anyone still use this?
-> >>>
-> >>> I have the hardware (a Sangoma ADSL PCI card) but am no longer using it.
-> >>> Also, as I remember, Sangoma stopped contributing to the upstream driver
-> >>> many years ago while still actively developing the out-of-tree version.
-> >>
-> >> The wanrouter code hasn't supported Sangoma hardware for a long time,
-> >> it got removed early in 2.6.
-> >>
-> >> There are a bunch of old T1 and T3 cards there but I doubt any of them
-> >> are still for sale. But somebody is probably still using them.
-> >
-> > I'm sure people are still using token ring
-> > too, just not with recent kernels.
-> >
-> > I think wanrouter is old and dusty and can
-> > be removed just like TR.
-> 
-> I think you should mark it deprecated for a release or
-> two first, just in case.  Unless it is obviously very
-> broken or holding up other important work.
-> 
+On Thu, May 24, 2012 at 06:08:57PM +0900, Simon Horman wrote:
+> +#define TNL_F_CSUM          (1 << 0) /* Checksum packets. */
+> +#define TNL_F_TOS_INHERIT	(1 << 1) /* Inherit ToS from inner packet. */
+> +#define TNL_F_TTL_INHERIT	(1 << 2) /* Inherit TTL from inner packet. */
+> +#define TNL_F_DF_INHERIT	(1 << 3) /* Inherit DF bit from inner packet. */
+> +#define TNL_F_DF_DEFAULT	(1 << 4) /* Set DF bit if inherit off or
+> +                                      * not IP. */
+> +#define TNL_F_PMTUD		    (1 << 5) /* Enable path MTU discovery. */
+> +#define TNL_F_HDR_CACHE		(1 << 6) /* Enable tunnel header caching. */
+> +#define TNL_F_IPSEC		    (1 << 7) /* Traffic is IPsec encrypted. */
+> +#define TNL_F_IN_KEY	    (1 << 8) /* Tunnel port has input key. */
+> +#define TNL_F_OUT_KEY	    (1 << 9) /* Tunnel port has output key. */
 
-And add to Documentation/features-removal. Probably need a year of
-warning period.
+Some of the above definitions use all spaces, others use tabs.  It's
+OVS userspace code so it's better to use all spaces, I think.
+
+> +    if (is_ipsec) {
+> +        char *file_name = xasprintf("%s/%s", ovs_rundir(),
+> +                "ovs-monitor-ipsec.pid");
+> +        pid_t pid = read_pidfile(file_name);
+> +        free(file_name);
+> +        if (pid < 0) {
+> +            VLOG_ERR("%s: IPsec requires the ovs-monitor-ipsec daemon",
+> +                     iface_cfg->name);
+> +            goto err;
+> +        }
+
+I just noticed that we re-read this pidfile every time we parse an
+IPsec tunnel.  I guess that would be a big waste of time if we have a
+lot of IPsec tunnels.  I'll make a note to consider fixing this
+separately (it's not your problem).
