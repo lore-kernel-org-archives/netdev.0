@@ -1,29 +1,53 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: net/wanrouter?
-Date: Thu, 24 May 2012 15:51:56 +0200
-Message-ID: <4FBE3CFC.6070103@computer.org>
-References: <1337708034.3432.0.camel@joe2Laptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 01/17] netfilter: add struct nf_proto_net for register
+ l4proto sysctl
+Date: Thu, 24 May 2012 16:38:54 +0200
+Message-ID: <20120524143854.GA15898@1984>
+References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1336985547-31960-2-git-send-email-gaofeng@cn.fujitsu.com>
+ <20120523101200.GA2836@1984>
+ <4FBD9076.6060309@cn.fujitsu.com>
+ <20120524095859.GC13091@1984>
+ <4FBE1372.60206@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:21578 "EHLO
-	mailrelay012.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752481Ab2EXNxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 09:53:15 -0400
-In-Reply-To: <1337708034.3432.0.camel@joe2Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitus.com>
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4FBE1372.60206@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/22/2012 07:33 PM, Joe Perches wrote:
-> Does anyone still use this?
+On Thu, May 24, 2012 at 06:54:42PM +0800, Gao feng wrote:
+[...]
+> >>> I don't see why we need this new field.
+> >>>
+> >>> It seems to be set to 1 in each structure that has set:
+> >>>
+> >>> .ctl_compat_table
+> >>>
+> >>> to non-NULL. So, it's redundant.
+> >>>
+> >>> Moreover, you already know from the protocol tracker itself if you
+> >>> have to allocate the compat ctl table or not.
+> >>>
+> >>> In other words: You set compat to 1 for nf_conntrack_l4proto_generic.
+> >>> Then, you pass that compat value to generic_init_net via ->inet_net
+> >>> again, but this information (that determines if the compat has to be
+> >>> done or not) is already in the scope of the protocol tracker.
+> >>>
+> >>
+> >> because some protocols such l4proto_tcp6 and l4proto_tcp use the same init_net
+> >> function. the l4proto_tcp6 doesn't need compat sysctl, so we should use this new
+> >> field to identify if we should kmemdup compat_sysctl_table.
+> > 
+> > Then, could you use two init_net functions? one for TCP for IPv4 and another
+> > for TCP for IPv6?
+> 
+> Of cause, if you prefer to impletment it in this way.
 
-I have the hardware (a Sangoma ADSL PCI card) but am no longer using it.
-Also, as I remember, Sangoma stopped contributing to the upstream driver
-many years ago while still actively developing the out-of-tree version.
-
-Don't keep it on my account.
-
-Thanks, Jan
+If this removes the .compat field that you added, then use two
+init_net functions, yes.
