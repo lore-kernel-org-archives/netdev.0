@@ -1,127 +1,88 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 17/21] datapath: Always use tun_key addresses for route lookup
-Date: Thu, 24 May 2012 18:09:10 +0900
-Message-ID: <1337850554-10339-18-git-send-email-horms@verge.net.au>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH 14/21] ofproto: Set flow tun_key in
+	compose_output_action()
+Date: Thu, 24 May 2012 18:09:07 +0900
+Message-ID: <1337850554-10339-15-git-send-email-horms@verge.net.au>
 References: <1337850554-10339-1-git-send-email-horms@verge.net.au>
-Cc: netdev@vger.kernel.org, Kyle Mestery <kmestery@cisco.com>,
-	Simon Horman <horms@verge.net.au>
-To: dev@openvswitch.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46661 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754561Ab2EXJJ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 05:09:29 -0400
-In-Reply-To: <1337850554-10339-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1337850554-10339-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The tun_key should always be present and correct.
-Mutable no longer stores correct address information
-and the saddr and daddr fields will be removed.
+In essence this attached the tun_key, if any,
+to the output processing of a packet. This allows
+it the packet to be transmitted using flow-based
+tunneling as necessary.
 
-Cc: Kyle Mestery <kmestery@cisco.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Cc: Kyle Mestery <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+
 ---
- datapath/tunnel.c | 42 +++++++++++++++++-------------------------
- 1 file changed, 17 insertions(+), 25 deletions(-)
 
-diff --git a/datapath/tunnel.c b/datapath/tunnel.c
-index b997cb8..ba18055 100644
---- a/datapath/tunnel.c
-+++ b/datapath/tunnel.c
-@@ -690,46 +690,44 @@ static inline int rt_genid(struct net *net)
- }
- #endif
+v4
+* Set tun_flags field of flow.tun_key
+* Remove debugging message
+
+v3
+* Initial release
+
+datapath: Add flags to ovs_key_ipv4_tunnel
+
+Add flags to ovs_key_ipv4_tunnel and set from
+the tunnel's realdev flags. This allows the datapath
+to have access to flags on transmit which can be
+used to effect the transmission - e.g. add a tunnel id.
+
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+---
+ ofproto/ofproto-dpif.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/ofproto/ofproto-dpif.c b/ofproto/ofproto-dpif.c
+index 2a52f37..b1354a2 100644
+--- a/ofproto/ofproto-dpif.c
++++ b/ofproto/ofproto-dpif.c
+@@ -4919,8 +4919,17 @@ compose_output_action__(struct action_xlate_ctx *ctx, uint16_t ofp_port,
+     }
  
--static struct rtable *__find_route(const struct tnl_mutable_config *mutable,
--				   u8 ipproto, __be32 daddr, __be32 saddr,
--				   u8 tos)
-+static struct rtable *__find_route(struct net *net, u8 ipproto,
-+				   struct ovs_key_ipv4_tunnel *tun_key, u8 tos)
- {
- 	/* Tunnel configuration keeps DSCP part of TOS bits, But Linux
- 	 * router expect RT_TOS bits only. */
- 
- #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
- 	struct flowi fl = { .nl_u = { .ip4_u = {
--					.daddr = daddr,
--					.saddr = saddr,
-+					.daddr = tun_key->ipv4_dst,
-+					.saddr = tun_key->ipv4_src,
- 					.tos   = RT_TOS(tos) } },
- 					.proto = ipproto };
- 	struct rtable *rt;
- 
--	if (unlikely(ip_route_output_key(port_key_get_net(&mutable->key), &rt, &fl)))
-+	if (unlikely(ip_route_output_key(net, &rt, &fl)))
- 		return ERR_PTR(-EADDRNOTAVAIL);
- 
- 	return rt;
- #else
--	struct flowi4 fl = { .daddr = daddr,
--			     .saddr = saddr,
-+	struct flowi4 fl = { .daddr = tun_key->ipv4_dst,
-+			     .saddr = tun_key->ipv4_src,
- 			     .flowi4_tos = RT_TOS(tos),
- 			     .flowi4_proto = ipproto };
- 
--	return ip_route_output_key(port_key_get_net(&mutable->key), &fl);
-+	return ip_route_output_key(net, &fl);
- #endif
- }
- 
--static struct rtable *find_route(struct vport *vport,
--				 const struct tnl_mutable_config *mutable,
--				 u8 tos, __be32 daddr, __be32 saddr)
-+static struct rtable *find_route(struct vport *vport, struct net *net,
-+				 struct ovs_key_ipv4_tunnel *tun_key, u8 tos)
- {
- 	struct tnl_vport *tnl_vport = tnl_vport_priv(vport);
- 	struct rtable *rt;
- 
- 	tos = RT_TOS(tos);
- 
--	rt = __find_route(mutable, tnl_vport->tnl_ops->ipproto,
--			  daddr, saddr, tos);
-+	rt = __find_route(net, tnl_vport->tnl_ops->ipproto,
-+			  tun_key, tos);
- 	if (IS_ERR(rt))
- 		return NULL;
- 
-@@ -860,12 +858,13 @@ int ovs_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	struct dst_entry *unattached_dst = NULL;
- 	int sent_len = 0;
- 	__be16 frag_off = 0;
--	__be32 daddr;
--	__be32 saddr;
- 	u8 ttl;
- 	u8 inner_tos;
- 	u8 tos;
- 
-+	if (!OVS_CB(skb)->tun_key)
-+		goto error_free;
-+
- 	/* Validate the protocol headers before we try to use them. */
- 	if (skb->protocol == htons(ETH_P_8021Q) &&
- 	    !vlan_tx_tag_present(skb)) {
-@@ -906,16 +905,9 @@ int ovs_tnl_send(struct vport *vport, struct sk_buff *skb)
- 	else
- 		tos = mutable->tos;
- 
--	if (OVS_CB(skb)->tun_key) {
--		daddr = OVS_CB(skb)->tun_key->ipv4_dst;
--		saddr = OVS_CB(skb)->tun_key->ipv4_src;
--	} else {
--		daddr = mutable->key.daddr;
--		saddr = mutable->key.saddr;
--	}
--
- 	/* Route lookup */
--	rt = find_route(vport, mutable, tos, daddr, saddr);
-+	rt = find_route(vport, port_key_get_net(&mutable->key),
-+			OVS_CB(skb)->tun_key, tos);
- 	if (unlikely(!rt))
- 		goto error_free;
- 	unattached_dst = &rt_dst(rt);
+     out_port = realdev_to_txdev(ctx->ofproto, ofport, ctx->flow.vlan_tci);
+-    if (out_port != odp_port && !ofport->tun) {
+-        ctx->flow.vlan_tci = htons(0);
++    if (out_port != odp_port) {
++        if (ofport->tun) {
++            ctx->flow.tun_key.tun_id = ofport->tun->s.out_key;
++            ctx->flow.tun_key.tun_flags = ofport->tun->s.flags;
++            ctx->flow.tun_key.ipv4_src = ofport->tun->s.saddr;
++            ctx->flow.tun_key.ipv4_dst = ofport->tun->s.daddr;
++            ctx->flow.tun_key.ipv4_tos = ofport->tun->s.tos;
++            ctx->flow.tun_key.ipv4_ttl = ofport->tun->s.ttl;
++        } else {
++            ctx->flow.vlan_tci = htons(0);
++        }
+     }
+     commit_odp_actions(&ctx->flow, &ctx->base_flow, ctx->odp_actions);
+     nl_msg_put_u32(ctx->odp_actions, OVS_ACTION_ATTR_OUTPUT, out_port);
+@@ -5576,7 +5585,7 @@ action_xlate_ctx_init(struct action_xlate_ctx *ctx,
+     ctx->ofproto = ofproto;
+     ctx->flow = *flow;
+     ctx->base_flow = ctx->flow;
+-    ctx->base_flow.tun_key.ipv4_src = 0;
++    ctx->base_flow.tun_key.ipv4_src = htonl(0);
+     ctx->base_flow.vlan_tci = initial_tci;
+     ctx->rule = rule;
+     ctx->packet = packet;
 -- 
 1.7.10.2.484.gcd07cc5
