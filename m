@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS
-Date: Thu, 24 May 2012 16:21:01 -0400 (EDT)
-Message-ID: <20120524.162101.1179054343819877013.davem@davemloft.net>
-References: <1337863502.3513.15.camel@mojatatu>
+Subject: Re: [PATCH] xen/netback: Calculate the number of SKB slots
+ required correctly
+Date: Thu, 24 May 2012 16:21:17 -0400 (EDT)
+Message-ID: <20120524.162117.2167559109226305167.davem@davemloft.net>
+References: <1337876767-16041-1-git-send-email-simon.graham@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jhs@mojatatu.com, hadi@cyberus.ca
+Cc: Ian.Campbell@citrix.com, konrad.wilk@oracle.com,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, adnan.misherfi@oracle.com
+To: simon.graham@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42615 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42629 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752489Ab2EXUVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 16:21:07 -0400
-In-Reply-To: <1337863502.3513.15.camel@mojatatu>
+	with ESMTP id S1752489Ab2EXUVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 16:21:30 -0400
+In-Reply-To: <1337876767-16041-1-git-send-email-simon.graham@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 24 May 2012 08:45:02 -0400
+From: Simon Graham <simon.graham@citrix.com>
+Date: Thu, 24 May 2012 12:26:07 -0400
 
-> After about two decades, I am giving up on cyberus.
-> Nabwaga Manyanga.
+> When calculating the number of slots required for a packet header, the code
+> was reserving too many slots if the header crossed a page boundary. Since
+> netbk_gop_skb copies the header to the start of the page, the count of
+> slots required for the header should be based solely on the header size.
 > 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> This problem is easy to reproduce if a VIF is bridged to a USB 3G modem
+> device as the skb->data value always starts near the end of the first page.
+> 
+> Signed-off-by: Simon Graham <simon.graham@citrix.com>
 
 Applied.
