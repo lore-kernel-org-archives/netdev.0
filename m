@@ -1,8 +1,7 @@
 From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH 15/21] datapath: Remove mlink element from
-	tnl_mutable_config
-Date: Thu, 24 May 2012 18:09:08 +0900
-Message-ID: <1337850554-10339-16-git-send-email-horms@verge.net.au>
+Subject: [PATCH 09/21] ofproto: Add tundev_to_realdev()
+Date: Thu, 24 May 2012 18:09:02 +0900
+Message-ID: <1337850554-10339-10-git-send-email-horms@verge.net.au>
 References: <1337850554-10339-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,96 +21,321 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Multicast may be handled in user-space (but isn't yet).
+In essence this is a duplication of ovs_tnl_find_port(),
+copying code from the datapath to vswitchd. It is planned
+that the datapath version will be removed.
+
+It is used to map from the tundev interface that a
+packet is recieved by in the datapath to the tunnel realdev
+interface used in user-sapce. It is the tunnel realdev
+that has the tunnel configuration attached.
 
 Cc: Kyle Mestery <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 ---
- datapath/tunnel.c | 22 ----------------------
- datapath/tunnel.h |  3 ---
- 2 files changed, 25 deletions(-)
+ ofproto/ofproto-dpif.c | 194 ++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 174 insertions(+), 20 deletions(-)
 
-diff --git a/datapath/tunnel.c b/datapath/tunnel.c
-index f07ec69..cdcb0a7 100644
---- a/datapath/tunnel.c
-+++ b/datapath/tunnel.c
-@@ -162,21 +162,6 @@ static void free_cache_rcu(struct rcu_head *rcu)
- 	free_cache(c);
- }
+diff --git a/ofproto/ofproto-dpif.c b/ofproto/ofproto-dpif.c
+index c7ea391..03a86bc 100644
+--- a/ofproto/ofproto-dpif.c
++++ b/ofproto/ofproto-dpif.c
+@@ -183,7 +183,7 @@ static void bundle_del_port(struct ofport_dpif *);
+ static void bundle_run(struct ofbundle *);
+ static void bundle_wait(struct ofbundle *);
+ static struct ofbundle *lookup_input_bundle(const struct ofproto_dpif *,
+-                                            uint16_t in_port, bool warn,
++                                            const struct flow *, bool warn,
+                                             struct ofport_dpif **in_ofportp);
  
--/* Frees the portion of 'mutable' that requires RTNL and thus can't happen
-- * within an RCU callback.  Fortunately this part doesn't require waiting for
-- * an RCU grace period.
-- */
--static void free_mutable_rtnl(struct tnl_mutable_config *mutable)
--{
--	ASSERT_RTNL();
--	if (ipv4_is_multicast(mutable->key.daddr) && mutable->mlink) {
--		struct in_device *in_dev;
--		in_dev = inetdev_by_index(port_key_get_net(&mutable->key), mutable->mlink);
--		if (in_dev)
--			ip_mc_dec_group(in_dev, mutable->key.daddr);
--	}
--}
--
- static void assign_config_rcu(struct vport *vport,
- 			      struct tnl_mutable_config *new_config)
+ /* A controller may use OFPP_NONE as the ingress port to indicate that
+@@ -550,8 +550,12 @@ static unsigned remote_ports;
+ static unsigned key_multicast_ports;
+ static unsigned multicast_ports;
+ 
++static bool tunnel_adjust_flow(const struct ofproto_dpif *ofproto,
++                               struct flow *flow);
+ static int set_tunnelling(struct ofport *ofport_, uint16_t realdev_ofp_port,
+                           const struct tunnel_settings *s);
++static struct ofport_dpif *tundev_to_realdev(const struct ofproto_dpif *ofproto,
++                                             const struct flow *flow);
+ 
+ static uint32_t
+ realdev_to_txdev(const struct ofproto_dpif *ofproto,
+@@ -2998,6 +3002,7 @@ ofproto_dpif_extract_flow_key(const struct ofproto_dpif *ofproto,
+                               struct ofpbuf *packet)
  {
-@@ -186,7 +171,6 @@ static void assign_config_rcu(struct vport *vport,
- 	old_config = rtnl_dereference(tnl_vport->mutable);
- 	rcu_assign_pointer(tnl_vport->mutable, new_config);
+     enum odp_key_fitness fitness;
++    bool adjusted = false;
  
--	free_mutable_rtnl(old_config);
- 	call_rcu(&old_config->rcu, free_config_rcu);
+     fitness = odp_flow_key_to_flow(key, key_len, flow);
+     if (fitness == ODP_FIT_ERROR) {
+@@ -3005,7 +3010,9 @@ ofproto_dpif_extract_flow_key(const struct ofproto_dpif *ofproto,
+     }
+     *initial_tci = flow->vlan_tci;
+ 
+-    if (vsp_adjust_flow(ofproto, flow)) {
++    if (tunnel_adjust_flow(ofproto, flow)) {
++        adjusted = true;
++    } else if (vsp_adjust_flow(ofproto, flow)) {
+         if (packet) {
+             /* Make the packet resemble the flow, so that it gets sent to an
+              * OpenFlow controller properly, so that it looks correct for
+@@ -3023,11 +3030,12 @@ ofproto_dpif_extract_flow_key(const struct ofproto_dpif *ofproto,
+              * since we don't need that header anymore. */
+             eth_push_vlan(packet, flow->vlan_tci);
+         }
++        adjusted = true;
++    }
+ 
+-        /* Let the caller know that we can't reproduce 'key' from 'flow'. */
+-        if (fitness == ODP_FIT_PERFECT) {
+-            fitness = ODP_FIT_TOO_MUCH;
+-        }
++    /* Let the caller know that we can't reproduce 'key' from 'flow'. */
++    if (adjusted && fitness == ODP_FIT_PERFECT) {
++        fitness = ODP_FIT_TOO_MUCH;
+     }
+ 
+     return fitness;
+@@ -5934,7 +5942,7 @@ add_mirror_actions(struct action_xlate_ctx *ctx, const struct flow *orig_flow)
+     const struct nlattr *a;
+     size_t left;
+ 
+-    in_bundle = lookup_input_bundle(ctx->ofproto, orig_flow->in_port,
++    in_bundle = lookup_input_bundle(ctx->ofproto, orig_flow,
+                                     ctx->packet != NULL, NULL);
+     if (!in_bundle) {
+         return;
+@@ -6095,13 +6103,17 @@ update_learning_table(struct ofproto_dpif *ofproto,
  }
  
-@@ -1391,8 +1375,6 @@ static int tnl_set_config(struct net *net,
- 	if (old_vport && old_vport != cur_vport)
- 		return -EEXIST;
+ static struct ofbundle *
+-lookup_input_bundle(const struct ofproto_dpif *ofproto, uint16_t in_port,
+-                    bool warn, struct ofport_dpif **in_ofportp)
++lookup_input_bundle(const struct ofproto_dpif *ofproto,
++                    const struct flow *flow, bool warn,
++                    struct ofport_dpif **in_ofportp)
+ {
+     struct ofport_dpif *ofport;
  
--	mutable->mlink = 0;
--
- 	return 0;
+     /* Find the port and bundle for the received packet. */
+-    ofport = get_ofp_port(ofproto, in_port);
++    ofport = tundev_to_realdev(ofproto, flow);
++    if (!ofport) {
++        ofport = get_ofp_port(ofproto, flow->in_port);
++    }
+     if (in_ofportp) {
+         *in_ofportp = ofport;
+     }
+@@ -6111,7 +6123,7 @@ lookup_input_bundle(const struct ofproto_dpif *ofproto, uint16_t in_port,
+ 
+     /* Special-case OFPP_NONE, which a controller may use as the ingress
+      * port for traffic that it is sourcing. */
+-    if (in_port == OFPP_NONE) {
++    if (flow->in_port == OFPP_NONE) {
+         return &ofpp_none_bundle;
+     }
+ 
+@@ -6129,7 +6141,7 @@ lookup_input_bundle(const struct ofproto_dpif *ofproto, uint16_t in_port,
+         static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
+ 
+         VLOG_WARN_RL(&rl, "bridge %s: received packet on unknown "
+-                     "port %"PRIu16, ofproto->up.name, in_port);
++                     "port %"PRIu16, ofproto->up.name, flow->in_port);
+     }
+     return NULL;
+ }
+@@ -6196,7 +6208,7 @@ xlate_normal(struct action_xlate_ctx *ctx)
+ 
+     ctx->has_normal = true;
+ 
+-    in_bundle = lookup_input_bundle(ctx->ofproto, ctx->flow.in_port,
++    in_bundle = lookup_input_bundle(ctx->ofproto, &ctx->flow,
+                                     ctx->packet != NULL, &in_port);
+     if (!in_bundle) {
+         return;
+@@ -7166,16 +7178,19 @@ tun_remove(struct ofport_dpif *ofport)
  }
  
-@@ -1445,7 +1427,6 @@ struct vport *ovs_tnl_create(const struct vport_parms *parms,
- 	return vport;
+ static void
+-tun_add(struct ofport_dpif *ofport, uint16_t tundev_ofp_port,
+-        const struct tunnel_settings *s)
++tun_add(struct ofport_dpif *ofport)
+ {
+     struct ofproto_dpif *ofproto = ofproto_dpif_cast(ofport->up.ofproto);
  
- error_free_mutable:
--	free_mutable_rtnl(mutable);
- 	kfree(mutable);
- error_free_vport:
- 	ovs_vport_free(vport);
-@@ -1470,7 +1451,6 @@ void ovs_tnl_destroy(struct vport *vport)
- 
- 	mutable = rtnl_dereference(tnl_vport->mutable);
- 	port_table_remove_port(vport);
--	free_mutable_rtnl(mutable);
- 	call_rcu(&tnl_vport->rcu, free_port_rcu);
+-    ofport->tun->tundev_ofp_port = tundev_ofp_port;
+-    ofport->tun->s = *s;
++    /* Only add if the saddr is non-zero, in which case ofport is a
++     * realdev. Otherwise it is a tundev */
++    if (ofport->tun->s.daddr == htonl(0)) {
++        return;
++    }
++
+     (*tun_port_pool(&ofport->tun->s))++;
+     hmap_insert(&ofproto->tundev_map, &ofport->tun->tundev_node,
+-                hash_int(tundev_ofp_port, 0));
++                hash_int(ofport->tun->tundev_ofp_port, 0));
  }
  
-@@ -1484,8 +1464,6 @@ int ovs_tnl_set_addr(struct vport *vport, const unsigned char *addr)
- 	if (!mutable)
- 		return -ENOMEM;
+ static int
+@@ -7203,15 +7218,154 @@ set_tunnelling(struct ofport *ofport_, uint16_t tundev_ofp_port,
+         if (ofport->tun->tundev_ofp_port == tundev_ofp_port &&
+             tunnel_settings_equal(&ofport->tun->s, s)) {
+             return 0;
+-        }
++       }
+         tun_remove(ofport);
+     }
  
--	old_mutable->mlink = 0;
--
- 	memcpy(mutable->eth_addr, addr, ETH_ALEN);
- 	assign_config_rcu(vport, mutable);
+-    tun_add(ofport, tundev_ofp_port, s);
++    ofport->tun->s = *s;
++    ofport->tun->tundev_ofp_port = tundev_ofp_port;
++    tun_add(ofport);
  
-diff --git a/datapath/tunnel.h b/datapath/tunnel.h
-index 7d78297..0af27ac 100644
---- a/datapath/tunnel.h
-+++ b/datapath/tunnel.h
-@@ -117,9 +117,6 @@ struct tnl_mutable_config {
- 	u32	flags;
- 	u8	tos;
- 	u8	ttl;
--
--	/* Multicast configuration. */
--	int	mlink;
- };
+     return 0;
+ }
  
- struct tnl_ops {
++struct tunnel_lookup_key {
++    ovs_be64 tun_id;
++    ovs_be32 ipv4_src;
++    ovs_be32 ipv4_dst;
++    uint8_t tun_type;
++};
++
++static struct ofport_dpif *
++tundev_find(const struct ofproto_dpif *ofproto, uint16_t tundev_ofp_port,
++            const struct tunnel_lookup_key *tun_key)
++{
++    struct ofport_dpif_tun *tun;
++
++    HMAP_FOR_EACH_WITH_HASH (tun, tundev_node, hash_int(tundev_ofp_port, 0),
++                             &ofproto->tundev_map) {
++        if (tun_key->tun_type == tun->s.type &&
++            tun_key->ipv4_dst == tun->s.daddr &&
++            tun_key->tun_id == tun->s.in_key &&
++            tun_key->ipv4_src == tun->s.saddr) {
++	    return tun->ofport;
++        }
++    }
++
++    return NULL;
++}
++
++/* Returns the OpenFlow port number of the "real" device underlying the Linux
++ * tunnel device matching tun_key.
++ *
++ * Returns 0 if no match is found */
++static struct ofport_dpif *
++tundev_to_realdev(const struct ofproto_dpif *ofproto, const struct flow *flow)
++{
++    bool is_multicast = ipv4_is_multicast(flow->tun_key.ipv4_dst);
++    struct ofport_dpif *tundev_ofport;
++    struct ofport_dpif *realdev_ofport;
++    struct tunnel_lookup_key lookup;
++
++    /* Nothing to do if the packet wasn't unencapsulated on receive */
++    if (!flow->tun_key.ipv4_dst) {
++        return NULL;
++    }
++
++    /* Nothing to do if there are no tunnel devices configured */
++    if (hmap_is_empty(&ofproto->tundev_map)) {
++        return NULL;
++    }
++
++    /* Give up if the tunnel device can't be found
++     * or isn't a tunnel tundev */
++    tundev_ofport = get_ofp_port(ofproto, flow->in_port);
++    if (!tundev_ofport || !tundev_ofport->tun || tundev_ofport->tun->s.daddr) {
++        return NULL;
++    }
++
++    lookup.tun_id = flow->tun_key.tun_id;
++    lookup.ipv4_src = flow->tun_key.ipv4_dst;
++    lookup.ipv4_dst = flow->tun_key.ipv4_src;
++
++    /* First try for an exact match on the tun_id */
++    lookup.tun_id = flow->tun_key.tun_id;
++    lookup.tun_type = tundev_ofport->tun->s.type | TNL_T_KEY_EXACT;
++    if (!is_multicast && key_local_remote_ports) {
++        realdev_ofport = tundev_find(ofproto, flow->in_port, &lookup);
++        if (realdev_ofport)
++            return realdev_ofport;
++    }
++    if (key_remote_ports) {
++        lookup.ipv4_src = htonl(0);
++        realdev_ofport = tundev_find(ofproto, flow->in_port, &lookup);
++        if (realdev_ofport)
++            return realdev_ofport;
++        lookup.ipv4_src = flow->tun_key.ipv4_dst;
++    }
++
++    /* Then try matches that wildcard the tun_id. */
++    lookup.tun_id = htonll(0);
++    lookup.tun_type = tundev_ofport->tun->s.type | TNL_T_KEY_MATCH;
++    if (!is_multicast && local_remote_ports) {
++        realdev_ofport = tundev_find(ofproto, flow->in_port, &lookup);
++        if (realdev_ofport)
++            return realdev_ofport;
++    }
++    if (remote_ports) {
++        lookup.ipv4_src = htonl(0);
++        realdev_ofport = tundev_find(ofproto, flow->in_port, &lookup);
++        if (realdev_ofport)
++            return realdev_ofport;
++    }
++
++    if (is_multicast) {
++        lookup.ipv4_src = htonl(0);
++        lookup.ipv4_dst = flow->tun_key.ipv4_dst;
++        if (key_multicast_ports) {
++            lookup.tun_id = flow->tun_key.tun_id;
++            lookup.tun_type = tundev_ofport->tun->s.type | TNL_T_KEY_EXACT;
++            realdev_ofport = tundev_find(ofproto, flow->in_port, &lookup);
++            if (realdev_ofport)
++                return realdev_ofport;
++        }
++        if (multicast_ports) {
++            lookup.tun_id = 0;
++            lookup.tun_type = tundev_ofport->tun->s.type | TNL_T_KEY_MATCH;
++            realdev_ofport = tundev_find(ofproto, flow->in_port, &lookup);
++            if (realdev_ofport)
++                return realdev_ofport;
++        }
++    }
++
++    return NULL;
++}
++
++/* Given 'flow', a flow representing a packet received on 'ofproto', checks
++ * whether 'flow->in_port' represents a Linux tunnel device.  If so, changes
++ * 'flow->in_port' to the "real" device backing the tunnel device, sets
++ * 'flow->key' to using the real device's tunnel settings, and returns true.
++ * Otherwise (which is always the case unless tunneling enabled), returns
++ * false without making any changes. */
++static bool
++tunnel_adjust_flow(const struct ofproto_dpif *ofproto, struct flow *flow)
++{
++    const struct ofport_dpif *realdev_ofport = tundev_to_realdev(ofproto, flow);
++    if (!realdev_ofport) {
++        return false;
++    }
++
++    /* Cause the flow to be processed as if it came in on the real device with
++     * the tunnel's key. */
++    flow->in_port = ofp_port_to_odp_port(realdev_ofport->up.ofp_port);
++    flow->tun_key.tun_id = realdev_ofport->tun->s.out_key;
++    flow->tun_key.ipv4_src = realdev_ofport->tun->s.saddr;
++    flow->tun_key.ipv4_dst = realdev_ofport->tun->s.daddr;
++    flow->tun_key.ipv4_tos = realdev_ofport->tun->s.tos;
++    flow->tun_key.ipv4_ttl = realdev_ofport->tun->s.ttl;
++    return true;
++}
++
+ /* Maps a port to the port that it should be transmitted on.
+  * If tunneling is enabled then the associated tunnel port is returned.
+  * If VLAN splintering is enabled then the ofp_port of the vlandev is
 -- 
 1.7.10.2.484.gcd07cc5
