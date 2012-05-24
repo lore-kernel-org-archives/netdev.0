@@ -1,72 +1,70 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 03/17] netfilter: add namespace support for l3proto
-Date: Thu, 24 May 2012 12:04:12 +0200
-Message-ID: <20120524100412.GE13091@1984>
-References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1336985547-31960-4-git-send-email-gaofeng@cn.fujitsu.com>
- <20120523102910.GC2836@1984>
- <4FBD95AA.8070301@cn.fujitsu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: tc filter u32 match
+Date: Thu, 24 May 2012 06:04:38 -0400
+Message-ID: <1337853878.3513.11.camel@mojatatu>
+References: <32a6182e71dd565206cf39d4cad3f984@justnet.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	serge.hallyn@canonical.com, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org
+To: adam.niescierowicz@justnet.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50004 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753788Ab2EXKEQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 May 2012 06:04:16 -0400
-Content-Disposition: inline
-In-Reply-To: <4FBD95AA.8070301@cn.fujitsu.com>
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:46996 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754760Ab2EXKEm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 May 2012 06:04:42 -0400
+Received: by ghrr11 with SMTP id r11so1740047ghr.19
+        for <netdev@vger.kernel.org>; Thu, 24 May 2012 03:04:41 -0700 (PDT)
+In-Reply-To: <32a6182e71dd565206cf39d4cad3f984@justnet.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 24, 2012 at 09:58:02AM +0800, Gao feng wrote:
-> =E4=BA=8E 2012=E5=B9=B405=E6=9C=8823=E6=97=A5 18:29, Pablo Neira Ayus=
-o =E5=86=99=E9=81=93:
-> > On Mon, May 14, 2012 at 04:52:13PM +0800, Gao feng wrote:
-[...]
-> >> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf=
-_conntrack_proto.c
-> >> index 6d68727..7ee6653 100644
-> >> --- a/net/netfilter/nf_conntrack_proto.c
-> >> +++ b/net/netfilter/nf_conntrack_proto.c
-> >> @@ -170,85 +170,116 @@ static int kill_l4proto(struct nf_conn *i, =
-void *data)
-> >>  	       nf_ct_l3num(i) =3D=3D l4proto->l3proto;
-> >>  }
-> >> =20
-> >> -static int nf_ct_l3proto_register_sysctl(struct nf_conntrack_l3pr=
-oto *l3proto)
-> >> +static struct nf_ip_net *nf_ct_l3proto_net(struct net *net,
-> >> +					   struct nf_conntrack_l3proto *l3proto)
-> >> +{
-> >> +	if (l3proto->l3proto =3D=3D PF_INET)
-> >> +		return &net->ct.proto;
-> >> +	else
-> >> +		return NULL;
-> >> +}
-> >> +
-> >> +static int nf_ct_l3proto_register_sysctl(struct net *net,
-> >> +					 struct nf_conntrack_l3proto *l3proto)
-> >>  {
-> >>  	int err =3D 0;
-> >> +	struct nf_ip_net *in =3D nf_ct_l3proto_net(net, l3proto);
-> >> =20
-> >> -#ifdef CONFIG_SYSCTL
-> >> -	if (l3proto->ctl_table !=3D NULL) {
-> >> -		err =3D nf_ct_register_sysctl(&init_net,
-> >> -					    &l3proto->ctl_table_header,
-> >> +	if (in =3D=3D NULL)
-> >> +		return 0;
-> >=20
-> > Under what circunstances that in be NULL?
+On Tue, 2012-05-22 at 15:42 +0200, Nie=C5=9Bcierowicz Adam wrote:
+> Hello,
 >=20
-> Because l3proto_ipv6 doesn't need sysctl,so l3proto_ipv6's nf_ip_net =
-is NULL,
-> please see function nf_ct_l3proto_net above.
+> I'm in the process of building a new shaper, when adding support for=20
+> 802.1q
+> vlan noticed that u32 can catch network traffic without giving 4 byte=
+s
+> offset. How is this possible?
+>=20
 
-Then, please add a comment there to explain that some per-net protocol
-information may missing since no sysctl is supported.
+Because we look at where the network header starts?
+Why do you expect 4 bytes to be counted?=20
+
+> My environment:
+>=20
+> eth2 - network card
+> eth2.200 - vlan
+>=20
+> /sbin/tc filter add dev eth2 parent 1:0 prio 5 handle 35: protocol ip=
+=20
+> u32 divisor 256
+> /sbin/tc filter add dev eth2 protocol ip parent 1:0 prio 5 u32 ht 800=
+::=20
+> match ip dst 31.41.208.32/27 hashkey mask 0x000000ff at 16 link 35:
+> /sbin/tc filter add dev eth2 protocol ip parent 1: prio 1 u32 ht 35:2=
+4:=20
+> match ip dst 31.41.208.36 flowid 1:2e5
+>=20
+> Here you can see the hits in the rule
+> filter parent 1: protocol ip pref 5 u32 fh 35:24:800 order 2048 key h=
+t=20
+> 35 bkt 24 flowid 1:2e5  (rule hit 44037 success 44037)
+>    match 1f29d024/ffffffff at 16 (success 44037 )
+
+I dont see an issue. This looks correct.
+
+>=20
+> I found a similar question here=20
+> http://serverfault.com/questions/370795/tc-u32-how-to-match-l2-protoc=
+ols-in-recent-kernels
+>=20
+
+There may have been bugs in the past that someone missed or didnt
+report here (likely around the time there was a lot of changes
+happening with vlan offloading). Try the latest kernel and=20
+if it behaves badly, send a report and a reproducible test case.
+
+cheers,
+jamal
