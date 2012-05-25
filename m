@@ -1,70 +1,85 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
- and e1000e
-Date: Thu, 24 May 2012 23:01:07 -0700
-Message-ID: <CA+mtBx-gOcfOE91LnUpdq4PqM5KQusTn5WKcq0t2xvU7XM80Pg@mail.gmail.com>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
-	<88c43001441945e1431609db252b69e7@visp.net.lb>
-	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
-	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
-	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
-	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
-	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
-	<4775d023592b876909aceb152f94aa01@visp.net.lb>
-	<1337540825.3361.0.camel@edumazet-glaptop>
-	<ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
-	<1337572583.3361.8.camel@edumazet-glaptop>
-	<6d7500e1c3b4b191c0b5a11003b161d6@visp.net.lb>
-	<1337589005.3361.19.camel@edumazet-glaptop>
-	<1337589620.3361.23.camel@edumazet-glaptop>
-	<eb8cdd693530010d6736baede0cfebd8@visp.net.lb>
-	<1337707497.3361.233.camel@edumazet-glaptop>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 01/17] netfilter: add struct nf_proto_net for register
+ l4proto sysctl
+Date: Fri, 25 May 2012 14:02:37 +0800
+Message-ID: <4FBF207D.80809@cn.fujitsu.com>
+References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com> <1336985547-31960-2-git-send-email-gaofeng@cn.fujitsu.com> <20120523101200.GA2836@1984> <4FBD9076.6060309@cn.fujitsu.com> <20120524095859.GC13091@1984> <4FBE1372.60206@cn.fujitsu.com> <20120524143854.GA15898@1984> <4FBEDADE.8040905@cn.fujitsu.com> <20120525025451.GA21076@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:44293 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab2EYGBJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 02:01:09 -0400
-Received: by yhmm54 with SMTP id m54so339955yhm.19
-        for <netdev@vger.kernel.org>; Thu, 24 May 2012 23:01:08 -0700 (PDT)
-In-Reply-To: <1337707497.3361.233.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitus.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120525025451.GA21076@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I think there is a potential problem in that netdev_tx_completed could
-be called multiple times for the same interrupt, for example if napi
-poll routine completes it's budget and is scheduled again and some new
-packets are completed.  We're looking at a solution to this.
+=E4=BA=8E 2012=E5=B9=B405=E6=9C=8825=E6=97=A5 10:54, Pablo Neira Ayuso =
+=E5=86=99=E9=81=93:
+> On Fri, May 25, 2012 at 09:05:34AM +0800, Gao feng wrote:
+>> =E4=BA=8E 2012=E5=B9=B405=E6=9C=8824=E6=97=A5 22:38, Pablo Neira Ayu=
+so =E5=86=99=E9=81=93:
+>>> On Thu, May 24, 2012 at 06:54:42PM +0800, Gao feng wrote:
+>>> [...]
+>>>>>>> I don't see why we need this new field.
+>>>>>>>
+>>>>>>> It seems to be set to 1 in each structure that has set:
+>>>>>>>
+>>>>>>> .ctl_compat_table
+>>>>>>>
+>>>>>>> to non-NULL. So, it's redundant.
+>>>>>>>
+>>>>>>> Moreover, you already know from the protocol tracker itself if =
+you
+>>>>>>> have to allocate the compat ctl table or not.
+>>>>>>>
+>>>>>>> In other words: You set compat to 1 for nf_conntrack_l4proto_ge=
+neric.
+>>>>>>> Then, you pass that compat value to generic_init_net via ->inet=
+_net
+>>>>>>> again, but this information (that determines if the compat has =
+to be
+>>>>>>> done or not) is already in the scope of the protocol tracker.
+>>>>>>>
+>>>>>>
+>>>>>> because some protocols such l4proto_tcp6 and l4proto_tcp use the=
+ same init_net
+>>>>>> function. the l4proto_tcp6 doesn't need compat sysctl, so we sho=
+uld use this new
+>>>>>> field to identify if we should kmemdup compat_sysctl_table.
+>>>>>
+>>>>> Then, could you use two init_net functions? one for TCP for IPv4 =
+and another
+>>>>> for TCP for IPv6?
+>>>>
+>>>> Of cause, if you prefer to impletment it in this way.
+>>>
+>>> If this removes the .compat field that you added, then use two
+>>> init_net functions, yes.
+>>
+>> Sorry I miss something.
+>>
+>> nf_ct_l4proto_unregister_sysctl also uses .compat to identify if we
+>> can unregister the compat sysctl.
+>>
+>> if we register l4proto_tcp and l4proto_tcp6 both. without .compat,
+>> when unregister l4proto_tcp6, the compat sysctl will be unregister t=
+oo.
+>>
+>> So maybe we have to use .compat.
+>=20
+> Could you resolve this by checking pn->ctl_compat_header !=3D NULL ?
 
-Denys, can you try to increase the netdev budget to see if that has an effect?
+pn->ctl_table_header and ctl_compat_header is shared by l4proto_tcp and=
+ l4proto_tcp6.
+if we both register l4proto_tcp and l4proto_tcp6, when unregister l4pro=
+to_tcp6
+pn->ctl_compat_header must not be NULL.
 
-Thanks,
-Tom
-
-On Tue, May 22, 2012 at 10:24 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2012-05-22 at 20:11 +0300, Denys Fedoryshchenko wrote:
->
->> By the way, if BQL limit is going lower than MTU, is it considered as a
->> bug?
->> If yes, i can try to upload 3.4 to some servers and add condition to
->> WARN_ON if limit < 1500.
->
-> There is no problem with BQL limit going lower than the max packet size.
->
-> (With TSO it can be 64K)
->
-> Remember BQL allows one packet to be sent to device, regardless of its
-> size.
->
-> Next packet might be blocked/stay in Qdisc
->
-> If your workload is mostly idle, but sending bursts of 3 packets, then
-> only one is immediately sent.
->
-> Next packets shall wait the TX completion of first packet.
->
->
->
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
