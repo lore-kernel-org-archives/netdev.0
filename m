@@ -1,82 +1,70 @@
-From: Qasim Javed <qasimj-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [RFC] mac80211: Use correct originator sequence number in a Path Reply
-Date: Fri, 25 May 2012 03:21:11 -0500
-Message-ID: <1337934071-29342-1-git-send-email-qasimj@gmail.com>
-Reply-To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
+ and e1000e
+Date: Thu, 24 May 2012 23:01:07 -0700
+Message-ID: <CA+mtBx-gOcfOE91LnUpdq4PqM5KQusTn5WKcq0t2xvU7XM80Pg@mail.gmail.com>
+References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+	<88c43001441945e1431609db252b69e7@visp.net.lb>
+	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
+	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
+	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
+	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
+	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
+	<4775d023592b876909aceb152f94aa01@visp.net.lb>
+	<1337540825.3361.0.camel@edumazet-glaptop>
+	<ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
+	<1337572583.3361.8.camel@edumazet-glaptop>
+	<6d7500e1c3b4b191c0b5a11003b161d6@visp.net.lb>
+	<1337589005.3361.19.camel@edumazet-glaptop>
+	<1337589620.3361.23.camel@edumazet-glaptop>
+	<eb8cdd693530010d6736baede0cfebd8@visp.net.lb>
+	<1337707497.3361.233.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ravip-DNmUmOh1Rg72fBVCVOL8/A@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
-Return-path: <devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://lists.open80211s.org/cgi-bin/mailman/options/devel>,
-	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open80211s.org/pipermail/devel>
-List-Post: <mailto:devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.open80211s.org/cgi-bin/mailman/listinfo/devel>,
-	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
-Errors-To: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:44293 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803Ab2EYGBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 02:01:09 -0400
+Received: by yhmm54 with SMTP id m54so339955yhm.19
+        for <netdev@vger.kernel.org>; Thu, 24 May 2012 23:01:08 -0700 (PDT)
+In-Reply-To: <1337707497.3361.233.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry for the duplicate email. As suggested by Julian I have marked this as RFC (was PATCH previously), so that people can comment on it.
+I think there is a potential problem in that netdev_tx_completed could
+be called multiple times for the same interrupt, for example if napi
+poll routine completes it's budget and is scheduled again and some new
+packets are completed.  We're looking at a solution to this.
 
-I have been doing some experiments using the 802.11s functionality in the mac80211 stack. Today I stumbled across something which I believe is a critical bug in the usage of originator sequence number for a Path Reply message upon the reception of a Path Request message.
+Denys, can you try to increase the netdev budget to see if that has an effect?
 
-Consider the following topology:
+Thanks,
+Tom
 
-                    +---+
-                    | S |
-                    +---+
-                  /      \
-                 /        \
-            +---+          +---+
-            | A |          | B |
-            +---+          +---+
-                 \         /
-                  \       /
-                    +---+
-                    | D |
-                    +---+
-
-Node S is the source node and D the destination. Clearly there are two possible paths from S to D namely S->A->D and S->B->D. When S wants to communicate with D, it will broadcast a Path Request (PREQ) where the originator will be S and target will be D. On receiving the PREQ, both A and B will broadcast it further to D. Let us assume that aggregate value of the metric for path D->B->S denoted by cost(DBS) is greater than cost(DAS). Notice that according to HWMP operation, when the PREQ is propagating from S to D, the cost on the "reverse" path is aggregated, that is why I used cost(DB) + cost(BS) for cost(DBS) and did not consider cost(SBD). Suppose also that smaller the metric the better it is which is the case for the default airtime link metric used by the 802.11s stack.
-
-Let us suppose that the PREQ which passes through B arrives first at D and as mentioned earlier has a larger (worse) value than the soon to be received PREQ through the intermediate hop A. When D receives a PREQ from B, since it has not received any other PREQ, it generates a Path Reply (PREP). More specifically, the function hwmp_preq_frame_process generates the PREP. The PREQ contains originator and target sequence numbers which are used to avoid loops and ascertain the freshness of route information. On receiving a PREQ at D, the above mentioned function checks whether dot11MeshHWMPnetDiameterTraversalTime has elapsed since the last sequence number update (stored in ifmsh->last_sn_update). So suppose this is true when the first PREQ via B is received at D. So, in this case the originato
- r sequence number in PREP is incremented (that is becomes one more than the target sequence number in the PREQ).
-
-Let us look at an example at this point. Suppose, the the originator sequence number in the PREQ is 1 and the target sequence number is 2. When this PREQ is received at D via B, and considering that dot11MeshHWMPnetDiameterTraversalTime have passed since the last sequence number update, we will increment the target sequence number which now becomes 3. Now for the PREP, the originator sequence number of PREQ, 1 in this case, becomes the target sequence number of PREP and the target sequence number of the PREQ (which has been updated and its value is 3) becomes the originator sequence number of the PREP.
-
-As this PREQ which was received at D via B has a larger metric, we know that when the PREQ from S is received via A, it will have a lower (better) metric, hence we will also generate a PREP for that PREQ. Suppose the second PREQ via A is received at D within dot11MeshHWMPnetDiameterTraversalTime (currently 50ms). This is a reasonable assumption since the PREQ is broadcast by S and further broadcast by A and B in some order. There is very less likelihood that the time difference between the PREQ from A and B would be greater than 50ms since this is a lot of time in 802.11 speak where the nodes are contending for the channel on the order of hundreds of microseconds (typically). In short, it is very likely (confirmed through experiments) that this difference is less than 50ms.
-
-So, when the PREQ from S arrives a D via A, since most likely this event happens within 50ms if the PREQ via B, the target sequence number will not be updated. Therefore, the originator sequence number stays at 1 and the target sequence number remains 2. It is very important to note that the code in hwmp_preq_frame_process just "swaps" the originator and target sequence numbers for use in the PREP. More specifically as mentioned earlier, the second PREP will have an originator sequence number of 2 and a target sequence number of 1.
-
-At this point, we have two PREPs in flight, one via B and one via A.
-
-PREP via B: originator sequence number = 3, target sequence number = 1
-PREP via A: originator sequence number = 2, target sequence number = 1
-
-The net effect is that when these PREPs reach S, irrespective of the order in which they arrive, the PREP via A will be ignored! This is very wrong since the reason we sent the PREP via A in the first place was that it had a better metric (albeit on the reverse path).
-
-I have not tested the patch yet. This is more of a heads up email to let everyone know.
-
-Signed-off-by: Qasim Javed <qasimj-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/mac80211/mesh_hwmp.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/mac80211/mesh_hwmp.c b/net/mac80211/mesh_hwmp.c
-index 70ac7d1..a13b593 100644
---- a/net/mac80211/mesh_hwmp.c
-+++ b/net/mac80211/mesh_hwmp.c
-@@ -543,6 +543,8 @@ static void hwmp_preq_frame_process(struct ieee80211_sub_if_data *sdata,
- 		    time_before(jiffies, ifmsh->last_sn_update)) {
- 			target_sn = ++ifmsh->sn;
- 			ifmsh->last_sn_update = jiffies;
-+		} else {
-+			target_sn = ifmsh->sn;
- 		}
- 	} else {
- 		rcu_read_lock();
--- 
-1.7.1
+On Tue, May 22, 2012 at 10:24 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2012-05-22 at 20:11 +0300, Denys Fedoryshchenko wrote:
+>
+>> By the way, if BQL limit is going lower than MTU, is it considered as a
+>> bug?
+>> If yes, i can try to upload 3.4 to some servers and add condition to
+>> WARN_ON if limit < 1500.
+>
+> There is no problem with BQL limit going lower than the max packet size.
+>
+> (With TSO it can be 64K)
+>
+> Remember BQL allows one packet to be sent to device, regardless of its
+> size.
+>
+> Next packet might be blocked/stay in Qdisc
+>
+> If your workload is mostly idle, but sending bursts of 3 packets, then
+> only one is immediately sent.
+>
+> Next packets shall wait the TX completion of first packet.
+>
+>
+>
