@@ -1,27 +1,23 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at net/ipv4/tcp.c:1610 tcp_recvmsg+0xb1b/0xc70()
-Date: Fri, 25 May 2012 22:45:25 +0200
-Message-ID: <1337978725.10135.0.camel@edumazet-glaptop>
-References: <4FBFEACC.8040601@fastmail.fm>
+Subject: Re: [PATCH] net: compute a more reasonable default ip6_rt_max_size
+Date: Fri, 25 May 2012 22:47:00 +0200
+Message-ID: <1337978820.10135.1.camel@edumazet-glaptop>
+References: <1337976934-18065-1-git-send-email-asharma@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Jack Stone <jwjstone@fastmail.fm>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Arun Sharma <asharma@fb.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FBFEACC.8040601@fastmail.fm>
+In-Reply-To: <1337976934-18065-1-git-send-email-asharma@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-05-25 at 21:25 +0100, Jack Stone wrote:
-> Hi All,
+On Fri, 2012-05-25 at 13:15 -0700, Arun Sharma wrote:
+> The algorithm is based on ipv4 and alloc_large_system_hash().
 > 
-> The following warning keeps hitting me. I couldn't get the first one - it had already left dmesg hence the W taint.
-> The C taint is from r8712u from staging.
-> 
-> I've seen it with 3.4.0-076444-g07acfc2 (recent Linus tree) and 3.4.0-rc3-00089-gc6f5c93.
-> 
-> I am going to attempt to bisect it now.
 
-No need, update your tree.
+Why is it needed at all ?
+
+IPv4 has a route cache with potentially millions of entries, not IPv6.
