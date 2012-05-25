@@ -1,32 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: compute a more reasonable default ip6_rt_max_size
-Date: Fri, 25 May 2012 16:26:42 -0400 (EDT)
-Message-ID: <20120525.162642.1462528409650391977.davem@davemloft.net>
-References: <1337976934-18065-1-git-send-email-asharma@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at net/ipv4/tcp.c:1610 tcp_recvmsg+0xb1b/0xc70()
+Date: Fri, 25 May 2012 22:45:25 +0200
+Message-ID: <1337978725.10135.0.camel@edumazet-glaptop>
+References: <4FBFEACC.8040601@fastmail.fm>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: asharma@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52579 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933230Ab2EYU0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 16:26:46 -0400
-In-Reply-To: <1337976934-18065-1-git-send-email-asharma@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Jack Stone <jwjstone@fastmail.fm>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FBFEACC.8040601@fastmail.fm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arun Sharma <asharma@fb.com>
-Date: Fri, 25 May 2012 13:15:34 -0700
+On Fri, 2012-05-25 at 21:25 +0100, Jack Stone wrote:
+> Hi All,
+> 
+> The following warning keeps hitting me. I couldn't get the first one - it had already left dmesg hence the W taint.
+> The C taint is from r8712u from staging.
+> 
+> I've seen it with 3.4.0-076444-g07acfc2 (recent Linus tree) and 3.4.0-rc3-00089-gc6f5c93.
+> 
+> I am going to attempt to bisect it now.
 
-> +	/* Compute a reasonable default based on what we do for ipv4
-> +	 * total size = 1/16th of total RAM
-> +	 * No more than 512k entries unless overridden on kernel cmdline */
-
-Please format this comment correctly:
-
-	/* Compute a reasonable default based on what we do for ipv4
-	 * total size = 1/16th of total RAM
-	 * No more than 512k entries unless overridden on kernel cmdline
-	 */
+No need, update your tree.
