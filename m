@@ -1,70 +1,61 @@
-From: Peter Schiffer <pschiffe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] ip.7: Improve explanation about calling listen or connect
-Date: Fri, 25 May 2012 13:02:48 +0200
-Message-ID: <4FBF66D8.7060007@redhat.com>
-References: <1336566636-14713-1-git-send-email-fbl@redhat.com>
+From: =?UTF-8?q?Stephen=20R=C3=B6ttger?=
+	<stephen.roettger@zero-entropy.de>
+Subject: [PATCH] ieee802154: pass source address in dgram_recvmsg
+Date: Fri, 25 May 2012 14:14:33 +0200
+Message-ID: <1337948073-5280-1-git-send-email-stephen.roettger@zero-entropy.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1336566636-14713-1-git-send-email-fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Stephen=20R=C3=B6ttger?=
+	<stephen.roettger@zero-entropy.de>
+To: dbaryshkov@gmail.com, slapin@ossfans.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Michael,
+This patch lets dgram_recvmsg fill in the sockaddr struct in
+msg->msg_name with the source address of the packet.
+This is used by the userland functions recvmsg and recvfrom to get the
+senders address.
+The patch is based on the devel branch of
+git://linux-zigbee.git.sourceforge.net/gitroot/linux-zigbee/kernel
 
-do you have any comments for this update? Or do you need some supporting 
-info?
+Signed-off-by: Stephen R=C3=B6ttger <stephen.roettger@zero-entropy.de>
+---
+ net/ieee802154/dgram.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-peter
-
-On 05/09/2012 02:30 PM, Flavio Leitner wrote:
-> Signed-off-by: Flavio Leitner<fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
->   man7/ip.7 |   15 +++++++++------
->   1 files changed, 9 insertions(+), 6 deletions(-)
->
-> diff --git a/man7/ip.7 b/man7/ip.7
-> index 9f560df..84fe32d 100644
-> --- a/man7/ip.7
-> +++ b/man7/ip.7
-> @@ -69,12 +69,11 @@ For
->   you may specify a valid IANA IP protocol defined in
->   RFC\ 1700 assigned numbers.
->   .PP
-> -.\" FIXME ip current does an autobind in listen, but I'm not sure
-> -.\" if that should be documented.
->   When a process wants to receive new incoming packets or connections, it
->   should bind a socket to a local interface address using
->   .BR bind (2).
-> -Only one IP socket may be bound to any given local (address, port) pair.
-> +In this case, only one IP socket may be bound to any given local
-> +(address, port) pair.
->   When
->   .B INADDR_ANY
->   is specified in the bind call, the socket will be bound to
-> @@ -82,10 +81,14 @@ is specified in the bind call, the socket will be bound to
->   local interfaces.
->   When
->   .BR listen (2)
-> -or
-> +is called on an unbound socket, the socket is automatically bound
-> +to a random free port with the local address set to
-> +.BR INADDR_ANY .
-> +When
->   .BR connect (2)
-> -are called on an unbound socket, it is automatically bound to a
-> -random free port with the local address set to
-> +is called on an unbound socket, the socket is automatically bound
-> +to a random free port or an usable shared port with the local address
-> +set to
->   .BR INADDR_ANY .
->
->   A TCP local socket address that has been bound is unavailable for
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
+index 7883fa6..d0a6ebc 100644
+--- a/net/ieee802154/dgram.c
++++ b/net/ieee802154/dgram.c
+@@ -290,6 +290,9 @@ static int dgram_recvmsg(struct kiocb *iocb, struct=
+ sock *sk,
+ 	size_t copied =3D 0;
+ 	int err =3D -EOPNOTSUPP;
+ 	struct sk_buff *skb;
++	struct sockaddr_ieee802154 *saddr;
++
++	saddr =3D (struct sockaddr_ieee802154 *)msg->msg_name;
+=20
+ 	skb =3D skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+@@ -308,6 +311,13 @@ static int dgram_recvmsg(struct kiocb *iocb, struc=
+t sock *sk,
+=20
+ 	sock_recv_ts_and_drops(msg, sk, skb);
+=20
++	if (saddr) {
++		saddr->family =3D AF_IEEE802154;
++		saddr->addr =3D mac_cb(skb)->sa;
++	}
++	if (addr_len)
++		*addr_len =3D sizeof(*saddr);
++
+ 	if (flags & MSG_TRUNC)
+ 		copied =3D skb->len;
+ done:
+--=20
+1.7.8
