@@ -1,137 +1,65 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH 05/17] netfilter: add namespace support for l4proto_tcp
-Date: Fri, 25 May 2012 14:05:40 +0800
-Message-ID: <4FBF2134.1020903@cn.fujitsu.com>
-References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com> <1336985547-31960-6-git-send-email-gaofeng@cn.fujitsu.com> <20120525030015.GB21076@1984>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Strange latency spikes/TX network stalls on Sun Fire
+ X4150(x86) and e1000e
+Date: Fri, 25 May 2012 08:22:18 +0200
+Message-ID: <1337926938.7753.8.camel@edumazet-glaptop>
+References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+	 <88c43001441945e1431609db252b69e7@visp.net.lb>
+	 <df211722d18136698aeeda2f17b876e2@visp.net.lb>
+	 <d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
+	 <CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
+	 <79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
+	 <CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
+	 <4775d023592b876909aceb152f94aa01@visp.net.lb>
+	 <1337540825.3361.0.camel@edumazet-glaptop>
+	 <ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
+	 <1337572583.3361.8.camel@edumazet-glaptop>
+	 <6d7500e1c3b4b191c0b5a11003b161d6@visp.net.lb>
+	 <1337589005.3361.19.camel@edumazet-glaptop>
+	 <1337589620.3361.23.camel@edumazet-glaptop>
+	 <eb8cdd693530010d6736baede0cfebd8@visp.net.lb>
+	 <1337707497.3361.233.camel@edumazet-glaptop>
+	 <CA+mtBx-gOcfOE91LnUpdq4PqM5KQusTn5WKcq0t2xvU7XM80Pg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	serge.hallyn@canonical.com, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120525030015.GB21076@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:59074 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751898Ab2EYGWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 02:22:23 -0400
+Received: by eaak11 with SMTP id k11so110432eaa.19
+        for <netdev@vger.kernel.org>; Thu, 24 May 2012 23:22:22 -0700 (PDT)
+In-Reply-To: <CA+mtBx-gOcfOE91LnUpdq4PqM5KQusTn5WKcq0t2xvU7XM80Pg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B405=E6=9C=8825=E6=97=A5 11:00, Pablo Neira Ayuso =
-=E5=86=99=E9=81=93:
-> Hi Gao,
->=20
-> While having a look at this again, I have two new requests:
->=20
-> On Mon, May 14, 2012 at 04:52:15PM +0800, Gao feng wrote:
-> [...]
->> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/=
-nf_conntrack_proto_tcp.c
->> index 4dfbfa8..dd19350 100644
->> --- a/net/netfilter/nf_conntrack_proto_tcp.c
->> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
-> [...]
->> @@ -1549,10 +1532,80 @@ static struct ctl_table tcp_compat_sysctl_ta=
-ble[] =3D {
->>  #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
->>  #endif /* CONFIG_SYSCTL */
->>
->> +static int tcp_init_net(struct net *net, u_int8_t compat)
->> +{
->> +	int i;
->> +	struct nf_tcp_net *tn =3D tcp_pernet(net);
->> +	struct nf_proto_net *pn =3D (struct nf_proto_net *)tn;
->> +#ifdef CONFIG_SYSCTL
->> +#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
->> +	if (compat) {
->> +		pn->ctl_compat_table =3D kmemdup(tcp_compat_sysctl_table,
->> +					       sizeof(tcp_compat_sysctl_table),
->> +					       GFP_KERNEL);
->> +		if (!pn->ctl_compat_table)
->> +			return -ENOMEM;
->> +
->> +		pn->ctl_compat_table[0].data =3D &tn->timeouts[TCP_CONNTRACK_SYN_=
-SENT];
->> +		pn->ctl_compat_table[1].data =3D &tn->timeouts[TCP_CONNTRACK_SYN_=
-SENT2];
->> +		pn->ctl_compat_table[2].data =3D &tn->timeouts[TCP_CONNTRACK_SYN_=
-RECV];
->> +		pn->ctl_compat_table[3].data =3D &tn->timeouts[TCP_CONNTRACK_ESTA=
-BLISHED];
->> +		pn->ctl_compat_table[4].data =3D &tn->timeouts[TCP_CONNTRACK_FIN_=
-WAIT];
->> +		pn->ctl_compat_table[5].data =3D &tn->timeouts[TCP_CONNTRACK_CLOS=
-E_WAIT];
->> +		pn->ctl_compat_table[6].data =3D &tn->timeouts[TCP_CONNTRACK_LAST=
-_ACK];
->> +		pn->ctl_compat_table[7].data =3D &tn->timeouts[TCP_CONNTRACK_TIME=
-_WAIT];
->> +		pn->ctl_compat_table[8].data =3D &tn->timeouts[TCP_CONNTRACK_CLOS=
-E];
->> +		pn->ctl_compat_table[9].data =3D &tn->timeouts[TCP_CONNTRACK_RETR=
-ANS];
->> +		pn->ctl_compat_table[10].data =3D &tn->tcp_loose;
->> +		pn->ctl_compat_table[11].data =3D &tn->tcp_be_liberal;
->> +		pn->ctl_compat_table[12].data =3D &tn->tcp_max_retrans;
->=20
-> You can make a generic function to set the ctl_data that you can
-> reuse for this code above and the one below.
->=20
+On Thu, 2012-05-24 at 23:01 -0700, Tom Herbert wrote:
+> I think there is a potential problem in that netdev_tx_completed could
+> be called multiple times for the same interrupt, for example if napi
+> poll routine completes it's budget and is scheduled again and some new
+> packets are completed.  We're looking at a solution to this.
+> 
+> Denys, can you try to increase the netdev budget to see if that has an effect?
 
-Actually I want reuse this code too,
-But Unfortunately the ctl_data has different order or different size.
-ctl_compat_table[1].data =3D &tn->timeouts[TCP_CONNTRACK_SYN_SENT2]
-but
-ctl_table[1].data =3D &tn->timeouts[TCP_CONNTRACK_SYN_RECV];
+TX completion has no budget, I am not sure what you mean.
 
+e1000e driver indeed has a limit : It cannot clean more than
+tx_ring->count frames per e1000_clean_tx_irq() invocation.
 
->> +	}
->> +#endif
->> +	if (!pn->ctl_table) {
->> +#else
->> +	if (!pn->user++) {
->> +#endif
->> +		for (i =3D 0; i < TCP_CONNTRACK_TIMEOUT_MAX; i++)
->> +			tn->timeouts[i] =3D tcp_timeouts[i];
->> +		tn->tcp_loose =3D nf_ct_tcp_loose;
->> +		tn->tcp_be_liberal =3D nf_ct_tcp_be_liberal;
->> +		tn->tcp_max_retrans =3D nf_ct_tcp_max_retrans;
->> +#ifdef CONFIG_SYSCTL
->> +		pn->ctl_table =3D kmemdup(tcp_sysctl_table,
->> +					sizeof(tcp_sysctl_table),
->> +					GFP_KERNEL);
->> +		if (!pn->ctl_table) {
->> +#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
->> +			if (compat) {
->> +				kfree(pn->ctl_compat_table);
->> +				pn->ctl_compat_table =3D NULL;
->> +			}
->> +#endif
->> +			return -ENOMEM;
->> +		}
->> +		pn->ctl_table[0].data =3D &tn->timeouts[TCP_CONNTRACK_SYN_SENT];
->> +		pn->ctl_table[1].data =3D &tn->timeouts[TCP_CONNTRACK_SYN_RECV];
->> +		pn->ctl_table[2].data =3D &tn->timeouts[TCP_CONNTRACK_ESTABLISHED=
-];
->> +		pn->ctl_table[3].data =3D &tn->timeouts[TCP_CONNTRACK_FIN_WAIT];
->> +		pn->ctl_table[4].data =3D &tn->timeouts[TCP_CONNTRACK_CLOSE_WAIT]=
-;
->> +		pn->ctl_table[5].data =3D &tn->timeouts[TCP_CONNTRACK_LAST_ACK];
->> +		pn->ctl_table[6].data =3D &tn->timeouts[TCP_CONNTRACK_TIME_WAIT];
->> +		pn->ctl_table[7].data =3D &tn->timeouts[TCP_CONNTRACK_CLOSE];
->> +		pn->ctl_table[8].data =3D &tn->timeouts[TCP_CONNTRACK_RETRANS];
->> +		pn->ctl_table[9].data =3D &tn->timeouts[TCP_CONNTRACK_UNACK];
->> +		pn->ctl_table[10].data =3D &tn->tcp_loose;
->> +		pn->ctl_table[11].data =3D &tn->tcp_be_liberal;
->> +		pn->ctl_table[12].data =3D &tn->tcp_max_retrans;
->> +#endif
->=20
-> I have bad experience with code that has lots of #ifdef's.
->=20
-> Please, split all *_init_net into smaller functions.
+But with BQL, this should not happen ?
 
-It did look ugly,I will try my best to make code clear. ;)
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+# ethtool -g eth0
+Ring parameters for eth0:
+Pre-set maximums:
+RX:		4096
+RX Mini:	0
+RX Jumbo:	0
+TX:		4096
+Current hardware settings:
+RX:		256
+RX Mini:	0
+RX Jumbo:	0
+TX:		256
