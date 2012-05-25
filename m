@@ -1,271 +1,82 @@
-From: Liu ping fan <kernelfans@gmail.com>
-Subject: Re: [RFC:kvm] export host NUMA info to guest & make emulated device
- NUMA attr
-Date: Fri, 25 May 2012 12:05:02 +0800
-Message-ID: <CAFgQCTsA_7-DJJfSuftzrCXa3D4gs_5oF3NtfJAuRuO+RSuJsg@mail.gmail.com>
-References: <1337246456-30909-1-git-send-email-kernelfans@gmail.com>
-	<1337357675.12999.31.camel@oc3660625478.ibm.com>
-	<CAFgQCTsdXqitVGKm5jQjtC--yvZy6x04zRduJ+_tXqUnkncdog@mail.gmail.com>
-	<4FBCF99F.4070409@linux.vnet.ibm.com>
+From: Qasim Javed <qasimj-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [RFC] mac80211: Use correct originator sequence number in a Path Reply
+Date: Fri, 25 May 2012 03:21:11 -0500
+Message-ID: <1337934071-29342-1-git-send-email-qasimj@gmail.com>
+Reply-To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shirley Ma <mashirle@us.ibm.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qemu-devel@nongnu.org, Avi Kivity <avi@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Srivatsa Vaddagiri <vatsa@linux.vnet.ibm.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Anthony Liguori <anthony@codemonkey.ws>,
-	Ryan Harper <ryanh@us.ibm.com>, Shirley Ma <xma@us.ibm.com>,
-	Krishna Kumar <krkumar2@in.ibm.com>,
-	Tom Lendacky <toml@us.ibm.com>
-To: Andrew Theurer <habanero@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:55908 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765Ab2EYEFD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 00:05:03 -0400
-In-Reply-To: <4FBCF99F.4070409@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ravip-DNmUmOh1Rg72fBVCVOL8/A@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+Return-path: <devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://lists.open80211s.org/cgi-bin/mailman/options/devel>,
+	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open80211s.org/pipermail/devel>
+List-Post: <mailto:devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.open80211s.org/cgi-bin/mailman/listinfo/devel>,
+	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+Errors-To: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 23, 2012 at 10:52 PM, Andrew Theurer
-<habanero@linux.vnet.ibm.com> wrote:
-> On 05/22/2012 04:28 AM, Liu ping fan wrote:
->>
->> On Sat, May 19, 2012 at 12:14 AM, Shirley Ma<mashirle@us.ibm.com> =C2=
-=A0wrote:
->>>
->>> On Thu, 2012-05-17 at 17:20 +0800, Liu Ping Fan wrote:
->>>>
->>>> Currently, the guest can not know the NUMA info of the vcpu, which
->>>> will
->>>> result in performance drawback.
->>>>
->>>> This is the discovered and experiment by
->>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 Shirley Ma<xma@us.ibm.com>
->>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 Krishna Kumar<krkumar2@in.ibm.com>
->>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 Tom Lendacky<toml@us.ibm.com>
->>>> Refer to -
->>>> http://www.mail-archive.com/kvm@vger.kernel.org/msg69868.html
->>>> we can see the big perfermance gap between NUMA aware and unaware.
->>>>
->>>> Enlightened by their discovery, I think, we can do more work -- th=
-at
->>>> is to
->>>> export NUMA info of host to guest.
->>>
->>>
->>> There three problems we've found:
->>>
->>> 1. KVM doesn't support NUMA load balancer. Even there are no other
->>> workloads in the system, and the number of vcpus on the guest is sm=
-aller
->>> than the number of cpus per node, the vcpus could be scheduled on
->>> different nodes.
->>>
->>> Someone is working on in-kernel solution. Andrew Theurer has a work=
-ing
->>> user-space NUMA aware VM balancer, it requires libvirt and cgroups
->>> (which is default for RHEL6 systems).
->>>
->> Interesting, and I found that "sched/numa: Introduce
->> sys_numa_{t,m}bind()" committed by Peter and Ingo may help.
->> But I think from the guest view, it can not tell whether the two vcp=
-us
->> are on the same host node. For example,
->> vcpu-a in node-A is not vcpu-b in node-B, the guest lb will be more
->> expensive if it pull_task from vcpu-a and
->> choose vcpu-b to push. =C2=A0And my idea is to export such info to g=
-uest,
->> still working on it.
->
->
-> The long term solution is to two-fold:
-> 1) Guests that are quite large (in that they cannot fit in a host NUM=
-A node)
-> must have static mulit-node NUMA topology implemented by Qemu. That i=
-s here
-> today, but we do not do it automatically, which is probably going to =
-be a VM
-> management responsibility.
-> 2) Host scheduler and NUMA code must be enhanced to get better placem=
-ent of
-> Qemu memory and threads. =C2=A0For single-node vNUMA guests, this is =
-easy, put it
-> all in one node. =C2=A0For mulit-node vNUMA guests, the host must und=
-erstand that
-> some Qemu memory belongs with certain vCPU threads (which make up one=
- of the
-> guests vNUMA nodes), and then place that memory/threads in a specific=
- host
-> node (and continue for other memory/threads for each Qemu vNUMA node)=
-=2E
->
-> Note that even if a guest's memory/threads for a vNUMA node are reloc=
-ated to
-> another host node (which will be necessary) the NUMA characteristics =
-of
-> guest are still maintained (as all those vCPUs and memory are still "=
-close"
-> to each other).
->
-Yeah, I see Peter's work on tip/sched/numa
-> The problem with exposing the host's NUMA info directly to the guest =
-is that
-> (1) vCPUs will get relocated, so their topology info in the guest wil=
-l have
-> to change over time. IMO that is a bad idea. =C2=A0We have a hard eno=
-ugh time
-> getting applications to work with a static NUMA info. =C2=A0To get ap=
-plications
+Sorry for the duplicate email. As suggested by Julian I have marked this as RFC (was PATCH previously), so that people can comment on it.
 
-I original think that vCPUS get relocated only on user demand. And
-this can happen on hotplug, not happen frequently, otherwise user will
-deserve the drawback.
-But forget it, Peter has said no to dynamic-NUMA.
-> to react to changing NUMA topology is not going to turn out well. (2)=
- Every
-> single guest would have to have the same number of NUMA nodes defined=
- as the
-> host. =C2=A0That is overkill, especially for small guests.
->
-Thanks for your comment
-pingfan
->>
->>
->>> 2. The host scheduler is not aware the relationship between guest v=
-CPUs
->>> and vhost. So it's possible for host scheduler to schedule per-devi=
-ce
->>> vhost thread on the same cpu on which the vCPU kick a TX packet, or
->>> schecule vhost thread on different node than the vCPU for; For RX p=
-acket
->>> it's possible for vhost delivers RX packet on the vCPU running on
->>> different node too.
->>>
->> Yes. I notice this point in your original patch.
->>
->>> 3. per-device vhost thread is not scaled.
->>>
->> What about the scale-ability of per-vm * host_NUMA_NODE? When we mak=
-e
->> advantage of multi-core, =C2=A0we produce mulit vcpu threads for one=
- VM.
->> So what about the emulated device? Is it acceptable to scale to take
->> advantage of host NUMA attr. =C2=A0After all, how many nodes on whic=
-h the
->> VM
->> can be run on are the user's control. =C2=A0It is a balance of
->> scale-ability and performance.
->>
->>> So the problems are in host scheduling and vhost thread scalability=
-=2E I
->>> am not sure how much help from exposing NUMA info from host to gues=
-t.
->>>
->>> Have you tested these patched? How much performance gain here?
->>>
->> Sorry, not yet. =C2=A0As you have mentioned, the vhost thread scalab=
-ility
->> is a big problem. So I want to see others' opinion before going on.
->>
->> Thanks and regards,
->> pingfan
->>
->>
->>> Thanks
->>> Shirley
->>>
->>>> So here comes the idea:
->>>> 1. export host numa info through guest's sched domain to its sched=
-uler
->>>> =C2=A0 Export vcpu's NUMA info to guest scheduler(I think mem NUMA=
- problem
->>>> =C2=A0 has been handled by host). =C2=A0So the guest's lb will con=
-sider the
->>>> cost.
->>>> =C2=A0 I am still working on this, and my original idea is to expo=
-rt these
->>>> info
->>>> =C2=A0 through "static struct sched_domain_topology_level
->>>> *sched_domain_topology"
->>>> =C2=A0 to guest.
->>>>
->>>> 2. Do a better emulation of virt mach exported to guest.
->>>> =C2=A0 In real world, the devices are limited by kinds of reasons =
-to own
->>>> the NUMA
->>>> =C2=A0 property. But as to Qemu, the device is emulated by thread,=
- which
->>>> inherit
->>>> =C2=A0 the NUMA attr in nature. =C2=A0We can implement the device =
-as components
->>>> of many
->>>> =C2=A0 logic units, each of the unit is backed by a thread in diff=
-erent
->>>> host node.
->>>> =C2=A0 Currently, I want to start the work on vhost. But I think, =
-maybe in
->>>> =C2=A0 future, the iothread in Qemu can also has such attr.
->>>>
->>>>
->>>> Forgive me, for the limited time, I can not have more better
->>>> understand of
->>>> vhost/virtio_net drivers. These patches are just draft, _FAR_, _FA=
-R_
->>>> from work.
->>>> I will do more detail work for them in future.
->>>>
->>>> To easy the review, the following is the sum up of the 2nd point o=
-f
->>>> the idea.
->>>> As for the 1st point of the idea, it is not reflected in the patch=
-es.
->>>>
->>>> --spread/shrink the vhost_workers over the host nodes as demanded =
-from
->>>> Qemu.
->>>> =C2=A0 And we can consider each vhost_worker as an independent net=
- logic
->>>> device
->>>> =C2=A0 embeded in physical device "vhost_net". =C2=A0At the meanwh=
-ile, we spread
->>>> vcpu
->>>> =C2=A0 threads over the host node.
->>>> =C2=A0 The vrings on guest are allocated PAGE_SIZE align separatel=
-y, so
->>>> they can
->>>> =C2=A0 will only be mapped into different host node, so vhost_work=
-er in the
->>>> same
->>>> =C2=A0 node can access it with the least cost. So does the vq on g=
-uest.
->>>>
->>>> --virtio_net driver will changes and talk with the logic device. A=
-nd
->>>> which
->>>> =C2=A0 logic device it will talk to is determined by on which vcpu=
- it is
->>>> scheduled.
->>>>
->>>> --the binding of vcpus and vhost_worker is implemented by:
->>>> =C2=A0 for call direction, vq-a in the node-A will have a dedicate=
-d irq-a.
->>>> And
->>>> =C2=A0 we set the irq-a's affinity to vcpus in node-A.
->>>> =C2=A0 for kick direction, kick register-b trigger different event=
-fd-b
->>>> which wake up
->>>> =C2=A0 vhost_worker-b.
->>>>
-> -Andrew Theurer
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
-ml
-> Please read the FAQ at =C2=A0http://www.tux.org/lkml/
+I have been doing some experiments using the 802.11s functionality in the mac80211 stack. Today I stumbled across something which I believe is a critical bug in the usage of originator sequence number for a Path Reply message upon the reception of a Path Request message.
+
+Consider the following topology:
+
+                    +---+
+                    | S |
+                    +---+
+                  /      \
+                 /        \
+            +---+          +---+
+            | A |          | B |
+            +---+          +---+
+                 \         /
+                  \       /
+                    +---+
+                    | D |
+                    +---+
+
+Node S is the source node and D the destination. Clearly there are two possible paths from S to D namely S->A->D and S->B->D. When S wants to communicate with D, it will broadcast a Path Request (PREQ) where the originator will be S and target will be D. On receiving the PREQ, both A and B will broadcast it further to D. Let us assume that aggregate value of the metric for path D->B->S denoted by cost(DBS) is greater than cost(DAS). Notice that according to HWMP operation, when the PREQ is propagating from S to D, the cost on the "reverse" path is aggregated, that is why I used cost(DB) + cost(BS) for cost(DBS) and did not consider cost(SBD). Suppose also that smaller the metric the better it is which is the case for the default airtime link metric used by the 802.11s stack.
+
+Let us suppose that the PREQ which passes through B arrives first at D and as mentioned earlier has a larger (worse) value than the soon to be received PREQ through the intermediate hop A. When D receives a PREQ from B, since it has not received any other PREQ, it generates a Path Reply (PREP). More specifically, the function hwmp_preq_frame_process generates the PREP. The PREQ contains originator and target sequence numbers which are used to avoid loops and ascertain the freshness of route information. On receiving a PREQ at D, the above mentioned function checks whether dot11MeshHWMPnetDiameterTraversalTime has elapsed since the last sequence number update (stored in ifmsh->last_sn_update). So suppose this is true when the first PREQ via B is received at D. So, in this case the originato
+ r sequence number in PREP is incremented (that is becomes one more than the target sequence number in the PREQ).
+
+Let us look at an example at this point. Suppose, the the originator sequence number in the PREQ is 1 and the target sequence number is 2. When this PREQ is received at D via B, and considering that dot11MeshHWMPnetDiameterTraversalTime have passed since the last sequence number update, we will increment the target sequence number which now becomes 3. Now for the PREP, the originator sequence number of PREQ, 1 in this case, becomes the target sequence number of PREP and the target sequence number of the PREQ (which has been updated and its value is 3) becomes the originator sequence number of the PREP.
+
+As this PREQ which was received at D via B has a larger metric, we know that when the PREQ from S is received via A, it will have a lower (better) metric, hence we will also generate a PREP for that PREQ. Suppose the second PREQ via A is received at D within dot11MeshHWMPnetDiameterTraversalTime (currently 50ms). This is a reasonable assumption since the PREQ is broadcast by S and further broadcast by A and B in some order. There is very less likelihood that the time difference between the PREQ from A and B would be greater than 50ms since this is a lot of time in 802.11 speak where the nodes are contending for the channel on the order of hundreds of microseconds (typically). In short, it is very likely (confirmed through experiments) that this difference is less than 50ms.
+
+So, when the PREQ from S arrives a D via A, since most likely this event happens within 50ms if the PREQ via B, the target sequence number will not be updated. Therefore, the originator sequence number stays at 1 and the target sequence number remains 2. It is very important to note that the code in hwmp_preq_frame_process just "swaps" the originator and target sequence numbers for use in the PREP. More specifically as mentioned earlier, the second PREP will have an originator sequence number of 2 and a target sequence number of 1.
+
+At this point, we have two PREPs in flight, one via B and one via A.
+
+PREP via B: originator sequence number = 3, target sequence number = 1
+PREP via A: originator sequence number = 2, target sequence number = 1
+
+The net effect is that when these PREPs reach S, irrespective of the order in which they arrive, the PREP via A will be ignored! This is very wrong since the reason we sent the PREP via A in the first place was that it had a better metric (albeit on the reverse path).
+
+I have not tested the patch yet. This is more of a heads up email to let everyone know.
+
+Signed-off-by: Qasim Javed <qasimj-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/mac80211/mesh_hwmp.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/mac80211/mesh_hwmp.c b/net/mac80211/mesh_hwmp.c
+index 70ac7d1..a13b593 100644
+--- a/net/mac80211/mesh_hwmp.c
++++ b/net/mac80211/mesh_hwmp.c
+@@ -543,6 +543,8 @@ static void hwmp_preq_frame_process(struct ieee80211_sub_if_data *sdata,
+ 		    time_before(jiffies, ifmsh->last_sn_update)) {
+ 			target_sn = ++ifmsh->sn;
+ 			ifmsh->last_sn_update = jiffies;
++		} else {
++			target_sn = ifmsh->sn;
+ 		}
+ 	} else {
+ 		rcu_read_lock();
+-- 
+1.7.1
