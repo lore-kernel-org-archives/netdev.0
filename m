@@ -1,64 +1,72 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH 03/21] odp-util: Add tun_key to
- parse_odp_key_attr()
-Date: Fri, 25 May 2012 09:01:19 +0900
-Message-ID: <20120525000118.GB7090@verge.net.au>
-References: <1337850554-10339-1-git-send-email-horms@verge.net.au>
-	<1337850554-10339-4-git-send-email-horms@verge.net.au>
-	<20120524162911.GD26173@nicira.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 01/17] netfilter: add struct nf_proto_net for register
+ l4proto sysctl
+Date: Fri, 25 May 2012 09:05:34 +0800
+Message-ID: <4FBEDADE.8040905@cn.fujitsu.com>
+References: <1336985547-31960-1-git-send-email-gaofeng@cn.fujitsu.com> <1336985547-31960-2-git-send-email-gaofeng@cn.fujitsu.com> <20120523101200.GA2836@1984> <4FBD9076.6060309@cn.fujitsu.com> <20120524095859.GC13091@1984> <4FBE1372.60206@cn.fujitsu.com> <20120524143854.GA15898@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120524162911.GD26173-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitus.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120524143854.GA15898@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 24, 2012 at 09:29:11AM -0700, Ben Pfaff wrote:
-> On Thu, May 24, 2012 at 06:08:56PM +0900, Simon Horman wrote:
-> > Cc: Kyle Mestery <kmestery-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-> 
-> But I don't see him CCed?
+=E4=BA=8E 2012=E5=B9=B405=E6=9C=8824=E6=97=A5 22:38, Pablo Neira Ayuso =
+=E5=86=99=E9=81=93:
+> On Thu, May 24, 2012 at 06:54:42PM +0800, Gao feng wrote:
+> [...]
+>>>>> I don't see why we need this new field.
+>>>>>
+>>>>> It seems to be set to 1 in each structure that has set:
+>>>>>
+>>>>> .ctl_compat_table
+>>>>>
+>>>>> to non-NULL. So, it's redundant.
+>>>>>
+>>>>> Moreover, you already know from the protocol tracker itself if yo=
+u
+>>>>> have to allocate the compat ctl table or not.
+>>>>>
+>>>>> In other words: You set compat to 1 for nf_conntrack_l4proto_gene=
+ric.
+>>>>> Then, you pass that compat value to generic_init_net via ->inet_n=
+et
+>>>>> again, but this information (that determines if the compat has to=
+ be
+>>>>> done or not) is already in the scope of the protocol tracker.
+>>>>>
+>>>>
+>>>> because some protocols such l4proto_tcp6 and l4proto_tcp use the s=
+ame init_net
+>>>> function. the l4proto_tcp6 doesn't need compat sysctl, so we shoul=
+d use this new
+>>>> field to identify if we should kmemdup compat_sysctl_table.
+>>>
+>>> Then, could you use two init_net functions? one for TCP for IPv4 an=
+d another
+>>> for TCP for IPv6?
+>>
+>> Of cause, if you prefer to impletment it in this way.
+>=20
+> If this removes the .compat field that you added, then use two
+> init_net functions, yes.
 
-Strange. I asked git send-mail to CC him explicitly.
+Sorry I miss something.
 
-> > +        ovs_be32 ipv4_src;
-> > +        ovs_be32 ipv4_dst;
-> > +        unsigned long long tun_flags;
-> > +        int ipv4_tos;
-> > +        int ipv4_ttl;
-> > +        int n = -1;
-> > +
-> > +        if (sscanf(s, "ipv4_tunnel(tun_id=%31[x0123456789abcdefABCDEF]"
-> > +                   ",flags=%llx,src="IP_SCAN_FMT",dst="IP_SCAN_FMT
-> > +                   ",tos=%i,ttl=%i)%n",
-> > +                   tun_id_s, &tun_flags,
-> > +                   IP_SCAN_ARGS(&ipv4_src), IP_SCAN_ARGS(&ipv4_dst),
-> > +                   &ipv4_tos, &ipv4_ttl, &n) > 0
-> > +            && n > 0) {
-> 
-> Does this compile?  I don't see a declaration of tun_id_s.
-> 
-> In the ODP printer and parser, we usually require fields that are
-> hexadecimal to be written with an explicit "0x" on output (using
-> something like "0x%x" or "%#x" on output), and then use "%i" on input,
-> so that it is always unambiguous at a glance whether a number is
-> decimal or hexadecimal.  I'd appreciate it if we could maintain that
-> here (I didn't look over at the printer code to see if it writes 0x,
-> but I'd like it to).
-> 
-> Otherwise, this looks good, thank you.
+nf_ct_l4proto_unregister_sysctl also uses .compat to identify if we
+can unregister the compat sysctl.
 
-Sorry, perhaps this is not the latest revision, somehow.
-I did have it compiling, and I'll update the patch accordingly.
+if we register l4proto_tcp and l4proto_tcp6 both. without .compat,
+when unregister l4proto_tcp6, the compat sysctl will be unregister too.
+
+So maybe we have to use .compat.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
