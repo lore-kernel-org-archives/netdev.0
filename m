@@ -1,90 +1,46 @@
-From: Arun Sharma <asharma@fb.com>
-Subject: [PATCH] net: compute a more reasonable default ip6_rt_max_size
-Date: Fri, 25 May 2012 13:15:34 -0700
-Message-ID: <1337976934-18065-1-git-send-email-asharma@fb.com>
-Cc: Arun Sharma <asharma@fb.com>, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] TIPC: Removing EXPERIMENTAL label
+Date: Fri, 25 May 2012 16:24:45 -0400 (EDT)
+Message-ID: <20120525.162445.1446193191065858422.davem@davemloft.net>
+References: <20120524195816.GA6487@windriver.com>
+	<20120524.161231.1058511318935925082.davem@davemloft.net>
+	<20120525190506.GB25102@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net,
+	allan.stephens@windriver.com, maloy@donjonn.com
+To: paul.gortmaker@windriver.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20120525190506.GB25102@windriver.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The algorithm is based on ipv4 and alloc_large_system_hash().
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Fri, 25 May 2012 15:05:06 -0400
 
-The following data is from a x86_64 box I tested:
+> OK, what I'm hearing is that you'd prefer I continue to collect up TIPC
+> patches and issue pull requests for a while longer.  I can do that.  Any
+> specifics of how you'd like things done? -- e.g. if the reviews of new
+> TIPC development patches takes place here on netdev before I stage them,
+> will that create extra work for you dealing with them in patchworks?
 
-128MB
-$ cat /proc/sys/net/ipv{4,6}/route/max_size
-16384
-22444
+When you want the TIPC patches reviewed here you can simply post the
+set, and since you're informing me how this will work I'll know that
+you'll send me a pull request later, and therefore I can mark the
+patches as "Awaiting Upstream" or similar in patchwork.
 
-512MB
-$ cat /proc/sys/net/ipv{4,6}/route/max_size
-65536
-99856
-
-1GB
-$ cat /proc/sys/net/ipv{4,6}/route/max_size
-524288
-203068
-
-2GB
-$ cat /proc/sys/net/ipv{4,6}/route/max_size
-1048576
-524288
-
-4GB
-$ cat /proc/sys/net/ipv{4,6}/route/max_size
-2097152
-524288
-
-Signed-off-by: Arun Sharma <asharma@fb.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: David Miller <davem@davemloft.net>
----
- net/ipv6/route.c |   21 ++++++++++++++++++++-
- 1 files changed, 20 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 49d6ce1..c89ebbb 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2827,6 +2827,16 @@ struct ctl_table * __net_init ipv6_route_sysctl_init(struct net *net)
- }
- #endif
- 
-+static __initdata unsigned long ip6_rt_entries;
-+static int __init set_rt_entries(char *str)
-+{
-+	if (!str)
-+		return 0;
-+	ip6_rt_entries = simple_strtoul(str, &str, 0);
-+	return 1;
-+}
-+__setup("ip6_rt_entries=", set_rt_entries);
-+
- static int __net_init ip6_route_net_init(struct net *net)
- {
- 	int ret = -ENOMEM;
-@@ -2872,8 +2882,17 @@ static int __net_init ip6_route_net_init(struct net *net)
- 			 ip6_template_metrics, true);
- #endif
- 
-+	/* Compute a reasonable default based on what we do for ipv4
-+	 * total size = 1/16th of total RAM
-+	 * No more than 512k entries unless overridden on kernel cmdline */
-+        if (ip6_rt_entries == 0) {
-+		ip6_rt_entries = (totalram_pages << PAGE_SHIFT) >> 4;
-+		ip6_rt_entries /= sizeof(struct rt6_info);
-+		ip6_rt_entries = min(512 * 1024UL, ip6_rt_entries);
-+        }
-+
- 	net->ipv6.sysctl.flush_delay = 0;
--	net->ipv6.sysctl.ip6_rt_max_size = 4096;
-+	net->ipv6.sysctl.ip6_rt_max_size = ip6_rt_entries;
- 	net->ipv6.sysctl.ip6_rt_gc_min_interval = HZ / 2;
- 	net->ipv6.sysctl.ip6_rt_gc_timeout = 60*HZ;
- 	net->ipv6.sysctl.ip6_rt_gc_interval = 30*HZ;
--- 
-1.7.8.4
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
