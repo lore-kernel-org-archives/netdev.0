@@ -1,115 +1,90 @@
-From: Qasim Javed <qasimj-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC] mac80211: Use correct originator sequence number in a Path
-	Reply
-Date: Fri, 25 May 2012 10:50:56 -0500
-Message-ID: <CAJivULpmLp9JK+PQZ9RkrvvYHNk=uA33=A-ffftroigivy1_NQ@mail.gmail.com>
-References: <1337934071-29342-1-git-send-email-qasimj@gmail.com>
-	<CAEFj985HxSrOwOoevDjG1jxPxobLda-X_LZUtj6LgwXZwozBog@mail.gmail.com>
-Reply-To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] gianfar:don't add FCB length to hard_header_len
+Date: Fri, 25 May 2012 11:58:20 -0400
+Message-ID: <20120525155820.GA25102@windriver.com>
+References: <1337677248-27792-1-git-send-email-b06378@freescale.com>
+ <20120522.151830.2018953337014839778.davem@davemloft.net>
+ <4FBE4E02.1070306@computer.org>
+ <1337876210.5070.4.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ravip-DNmUmOh1Rg72fBVCVOL8/A@public.gmane.org
-To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
-Return-path: <devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <CAEFj985HxSrOwOoevDjG1jxPxobLda-X_LZUtj6LgwXZwozBog-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://lists.open80211s.org/cgi-bin/mailman/options/devel>,
-	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open80211s.org/pipermail/devel>
-List-Post: <mailto:devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.open80211s.org/cgi-bin/mailman/listinfo/devel>,
-	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
-Errors-To: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Jan Ceuleers <jan.ceuleers@computer.org>,
+	David Miller <davem@davemloft.net>, <b06378@freescale.com>,
+	<netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:50244 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753985Ab2EYP6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 11:58:41 -0400
+Content-Disposition: inline
+In-Reply-To: <1337876210.5070.4.camel@joe2Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please see my comments below.
+[Re: [PATCH] gianfar:don't add FCB length to hard_header_len] On 24/05/2012 (Thu 09:16) Joe Perches wrote:
 
-On Fri, May 25, 2012 at 10:30 AM, Yeoh Chun-Yeow <yeohchunyeow-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> w=
-rote:
-> Hi, Qasim Javed
->
-> I think that you are referring to the target HWMP sequence number in
-> PREP element.
+> On Thu, 2012-05-24 at 17:04 +0200, Jan Ceuleers wrote:
+> > On 05/22/2012 09:18 PM, David Miller wrote:
+> > > From: Jiajun Wu <b06378@freescale.com>
+> > > Date: Tue, 22 May 2012 17:00:48 +0800
+> > > 
+> > >> FCB(Frame Control Block) isn't the part of netdev hard header.
+> > >> Add FCB to hard_header_len will make GRO fail at MAC comparision stage.
+> > >>
+> > >> Signed-off-by: Jiajun Wu <b06378@freescale.com>
+> > > 
+> > > Applied, thanks.
+> > > 
+> > > Someone needs to go through this driver when net-next opens up
+> > > and fix all of the indentation in this driver.
+> > 
+> > May I give that a go?
+> 
+> I have scripts that automate most of this.
+> I don't have the card though.
 
-No. I am referring to the originator sequence number in PREP because
-when the PREP reaches the originator of the PREQ, the originator
-sequence number in the PREP and the value of the metric is used to
-determine which PREP will be accepted. If the originator sequence
-numbers in the PREPs are different, then the PREP with the higher
-sequence number will be accepted irrespective of the value of the
-metric. Only if the originator sequence numbers in the PREP are equal
-will the metric values in the PREPs be examined.
+There is no card.  The gianfar is a SOC for freescale 83xx, 85xx, 86xx
+CPUs.  If need be, I can test just as I did for your name overrun fix
+in commit 0015e551e.
 
->
-> Based on the 802.11s standard, it has specified that
-> dot11MeshHWMPnetDiameterTraversalTime is only applied to original HWMP
-> sequence number for PREQ as mentioned in the "Contents of a PREQ
-> element" in section 11C.
->
-> For PREP element, it should be based on the description in section 11C.9.=
-8.3:
-> "If it is a target mesh STA, it shall update its own HWMP sequence
-> number to maximum (current HWMP sequence number, target HWMP sequence
-> number in the PREQ) + 1 immediately before it generates a PREP in
-> response to a PREQ. The target HWMP sequence number of the PREQ is
-> relevant when a link was broken along the path and the stored sequence
-> number was increased at an intermediate mesh STA."
->
-> So the target HWMP sequence number should be modified as follow:
->
-> diff --git a/net/mac80211/mesh_hwmp.c b/net/mac80211/mesh_hwmp.c
-> index 70ac7d1..5988e82 100644
-> --- a/net/mac80211/mesh_hwmp.c
-> +++ b/net/mac80211/mesh_hwmp.c
-> @@ -538,12 +538,10 @@ static void hwmp_preq_frame_process(struct
-> ieee80211_sub_if_data *sdata,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0forward =3D false;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0reply =3D true;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0metric =3D 0;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (time_after(jiffies, ifmsh->last_sn_upda=
-te +
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 net_traversal_jiffies(sdata)) ||
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 time_before(jiffies, ifmsh->last_sn=
-_update)) {
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 target_sn =3D ++ifmsh->sn;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ifmsh->last_sn_update =3D j=
-iffies;
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (SN_LT(ifmsh->sn, target_sn))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ifmsh->sn =3D target_sn;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 target_sn =3D ++ifmsh->sn;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ifmsh->last_sn_update =3D jiffies;
->
-> Comments.
+But you really shouldn't need the hardware to validate this kind of
+patch anyways -- aside from your code flow change in the irq routine of
+gianfar_ptp, you should have been simply able to check for object file
+equivalence before and after your change.
 
-I agree with the description in the standard but you seem to be
-misinterpreting it. Please note that the function being considered
-here is hwmp_preq_frame_process, which evidently processes a PREQ.
-However, because a PREP is generated in response to a PREQ, this
-function also checks whether a PREP needs to be generated and then
-calls mesh_path_sel_frame_tx with frame type being MPATH_PREP. This
-function is also passed the originator and target sequence numbers.
+Paul.
 
-What I am saying is that, in the scenario described in my original
-email, the wrong originator sequence number is being used for the
-PREP.
+> 
+> Maybe this is a starting point?
+> It doesn't fix most 80 column warnings.
+> 
+>  drivers/net/ethernet/freescale/gianfar.c         |  299 +++++++++++-----------
+>  drivers/net/ethernet/freescale/gianfar_ethtool.c |  131 +++++-----
+>  drivers/net/ethernet/freescale/gianfar_ptp.c     |    8 +-
+>  drivers/net/ethernet/freescale/gianfar_sysfs.c   |    2 +-
+>  4 files changed, 225 insertions(+), 215 deletions(-)
+> 
 
-Please notice that in hwmp_preq_frame_process, target_sn ends up being
-used as orig_sn for the PREP. This is probably what is causing the
-confusion in your case.
+[...]
 
-Your patch is definitely not what I was pointing out, in fact it
-diverts from the standard functionality since it removes the check for
-HWMPNetDiameterTraversalTime.
-
->
-> Regards,
-> Chun-Yeow
-> _______________________________________________
-> Devel mailing list
-> Devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
-> http://lists.open80211s.org/cgi-bin/mailman/listinfo/devel
+> diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+> index c08e5d4..3f7b81d 100644
+> --- a/drivers/net/ethernet/freescale/gianfar_ptp.c
+> +++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+> @@ -268,11 +268,11 @@ static irqreturn_t isr(int irq, void *priv)
+>  		ptp_clock_event(etsects->clock, &event);
+>  	}
+>  
+> -	if (ack) {
+> -		gfar_write(&etsects->regs->tmr_tevent, ack);
+> -		return IRQ_HANDLED;
+> -	} else
+> +	if (!ack)
+>  		return IRQ_NONE;
+> +
+> +	gfar_write(&etsects->regs->tmr_tevent, ack);
+> +	return IRQ_HANDLED;
+>  }
+>  
+>  /*
