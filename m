@@ -1,41 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Using jiffies for tcp_time_stamp?
-Date: Fri, 25 May 2012 21:00:32 +0200
-Message-ID: <1337972432.3347.70.camel@edumazet-glaptop>
-References: <CAACrLC39Xdm3vTKUsjz43ZPyEq_vHxR-_Uf56SjSm+kUqxOqZg@mail.gmail.com>
-	 <CAACrLC2CXU-DNeonWQGJTfX53ssm_asK7WQrFuWRBB77cg-YdA@mail.gmail.com>
-	 <4FBFAC30.8050508@genband.com>
-	 <CAA93jw7MU8PjFk-UX864STSBp2SjjjivmfpRiPhaQ2kxZLu2sA@mail.gmail.com>
-	 <CAACrLC0b5dyjJM=DGf-9nUOwar3O9EVTTR0tvynQj285EDpfwA@mail.gmail.com>
-	 <1337964880.3347.52.camel@edumazet-glaptop>
-	 <CAACrLC0eVZJdu802Ff4BWRBKuabS=Z-T3WvZCxyqBTem8-n8ug@mail.gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH 1/3] TIPC: Removing EXPERIMENTAL label
+Date: Fri, 25 May 2012 15:05:06 -0400
+Message-ID: <20120525190506.GB25102@windriver.com>
+References: <1337579954-17161-1-git-send-email-jon.maloy@ericsson.com>
+ <20120521.023926.548567931208958037.davem@davemloft.net>
+ <20120524195816.GA6487@windriver.com>
+ <20120524.161231.1058511318935925082.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Taht <dave.taht@gmail.com>,
-	Chris Friesen <chris.friesen@genband.com>,
-	netdev@vger.kernel.org
-To: =?UTF-8?Q?Sre=C4=87ko_Juri=C4=87-Kavelj?=
-	<srecko.juric-kavelj@fer.hr>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <jon.maloy@ericsson.com>, <netdev@vger.kernel.org>,
+	<tipc-discussion@lists.sourceforge.net>, <ying.xue@windriver.com>,
+	<erik.hugne@ericsson.com>, <allan.stephens@windriver.com>,
+	<maloy@donjonn.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:49183 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755467Ab2EYTAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 15:00:37 -0400
-Received: by eaak11 with SMTP id k11so319760eaa.19
-        for <netdev@vger.kernel.org>; Fri, 25 May 2012 12:00:36 -0700 (PDT)
-In-Reply-To: <CAACrLC0eVZJdu802Ff4BWRBKuabS=Z-T3WvZCxyqBTem8-n8ug@mail.gmail.com>
+Received: from mail1.windriver.com ([147.11.146.13]:53239 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755467Ab2EYTFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 15:05:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20120524.161231.1058511318935925082.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-05-25 at 20:35 +0200, Sre=C4=87ko Juri=C4=87-Kavelj wrote:
+[Re: [PATCH 1/3] TIPC: Removing EXPERIMENTAL label] On 24/05/2012 (Thu 16:12) David Miller wrote:
 
-> From what I've seen in the code, NO_HZ doesn't make jiffies go away,
-> it simply doesn't use regular CONFIG_HZ interrupt to update, but
-> updates them when has an opportunity?
+> From: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Date: Thu, 24 May 2012 15:58:16 -0400
+> 
+> > But for new TIPC development features, future direction, and things like
+> > that -- making the right call requires intimate understanding of TIPC
+> > and its users, which is something that a maintainer should have but
+> > something I know I don't have.  (A man has to know his limitations.)
+> > 
+> > In this context, I'm not talking about these three trivial patches; but
+> > more complicated stuff that I imagine will be floated in the future.
+> > 
+> > To that end, I can still review and call out issues in a crap patch when
+> > I see them.  But I'd like to see new stuff sent to netdev, so that folks
+> > smarter than me have a chance to catch when a patch appears generally OK
+> > but is architecturally the wrong direction etc.
+> 
+> For maintainership, taste is more important than deep knowledge of the
+> specific technology.  Worst case you ask the submitter to explain the
+> background of their change more thoroughly and that information is an
+> absolutely requirement in the commit message and code comments
+> anyways.
 
-HZ=3D1000 makes jiffies 10 times more precise, and with NO_HZ, generate=
-s
-no extra timer interrupts.
+OK, what I'm hearing is that you'd prefer I continue to collect up TIPC
+patches and issue pull requests for a while longer.  I can do that.  Any
+specifics of how you'd like things done? -- e.g. if the reviews of new
+TIPC development patches takes place here on netdev before I stage them,
+will that create extra work for you dealing with them in patchworks?
 
-This also makes timers workload smoothed, instead of spikes.
+Paul.
