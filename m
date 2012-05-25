@@ -1,317 +1,128 @@
 From: Rostislav Lisovy <lisovy@gmail.com>
-Subject: [PATCH iproute2 2/3] CAN Filter/Classifier -- Source code
-Date: Fri, 25 May 2012 11:11:45 +0200
-Message-ID: <1337937106-7640-3-git-send-email-lisovy@gmail.com>
+Subject: [PATCH iproute2 3/3] CAN Filter/Classifier -- Documentation
+Date: Fri, 25 May 2012 11:11:46 +0200
+Message-ID: <1337937106-7640-4-git-send-email-lisovy@gmail.com>
 References: <1337937106-7640-1-git-send-email-lisovy@gmail.com>
 Cc: linux-can@vger.kernel.org, pisa@cmp.felk.cvut.cz,
 	sojkam1@fel.cvut.cz, oliver@hartkopp.net,
 	Rostislav Lisovy <lisovy@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:48955 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074Ab2EYJL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 05:11:59 -0400
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1337937106-7640-1-git-send-email-lisovy@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The CAN classifier may be used with any available qdisc on Controller
-Area Network (CAN) frames passed through AF_CAN networking subsystem.
-The classifier classifies CAN frames according to their identifiers.
-It can be used on CAN frames with both SFF or EFF identifiers.
-
-The filtering rules for EFF frames are stored in an array, which
-is traversed during classification. A bitmap is used to store SFF
-rules -- one bit for each ID.
-
-More info about the project:
-http://rtime.felk.cvut.cz/can/socketcan-qdisc-final.pdf
+Added manpage describing usage of CAN Filter.
 
 Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
 ---
- include/linux/pkt_cls.h |   10 ++
- tc/Makefile             |    1 +
- tc/f_can.c              |  238 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 249 insertions(+)
- create mode 100644 tc/f_can.c
+ man/man8/tc-can.8 |   97 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 97 insertions(+)
+ create mode 100644 man/man8/tc-can.8
 
-diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
-index defbde2..83f9241 100644
---- a/include/linux/pkt_cls.h
-+++ b/include/linux/pkt_cls.h
-@@ -375,6 +375,16 @@ enum {
- 
- #define TCA_BASIC_MAX (__TCA_BASIC_MAX - 1)
- 
-+/* CAN filter */
-+
-+enum {
-+	TCA_CANFLTR_UNSPEC,
-+	TCA_CANFLTR_CLASSID,
-+	TCA_CANFLTR_RULES,
-+	__TCA_CANFLTR_MAX
-+};
-+
-+#define TCA_CANFLTR_MAX (__TCA_CANFLTR_MAX - 1)
- 
- /* Cgroup classifier */
- 
-diff --git a/tc/Makefile b/tc/Makefile
-index 64d93ad..1281568 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -22,6 +22,7 @@ TCMODULES += f_u32.o
- TCMODULES += f_route.o
- TCMODULES += f_fw.o
- TCMODULES += f_basic.o
-+TCMODULES += f_can.o
- TCMODULES += f_flow.o
- TCMODULES += f_cgroup.o
- TCMODULES += q_dsmark.o
-diff --git a/tc/f_can.c b/tc/f_can.c
+diff --git a/man/man8/tc-can.8 b/man/man8/tc-can.8
 new file mode 100644
-index 0000000..208625f
+index 0000000..54ee96a
 --- /dev/null
-+++ b/tc/f_can.c
-@@ -0,0 +1,238 @@
-+/*
-+ * f_can.c  Filter for CAN packets
-+ *
-+ *		This program is free software; you can distribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Idea:       Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-+ * Copyright:  (c) 2011 Czech Technical University in Prague
-+ *             (c) 2011 Volkswagen Group Research
-+ * Authors:    Michal Sojka <sojkam1@fel.cvut.cz>
-+ *             Pavel Pisa <pisa@cmp.felk.cvut.cz>
-+ *             Rostislav Lisovy <lisovy@gmail.cz>
-+ * Funded by:  Volkswagen Group Research
-+ */
++++ b/man/man8/tc-can.8
+@@ -0,0 +1,97 @@
++.TH CAN 8 "8 May 2012" "iproute2" "Linux"
++.SH NAME
++CAN \- Controller Area Network classifier
++.SH SYNOPSIS
++.B tc filter ... dev
++DEV
++.B parent
++CLASSID
++.B [ prio
++PRIORITY
++.B ] [ protocol can ] [ handle 
++HANDLE
++.B ] can [ 
++MATCHSPEC
++.B ] [ flowid 
++FLOWID
++.B ]
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
-+#include <linux/if.h>
-+#include <limits.h>
-+#include <inttypes.h>
-+#include "utils.h"
-+#include "tc_util.h"
-+#include "linux/can.h"
++.B CLASSID := major:minor
++.br
++.B FLOWID := major:minor
++.br
++.B MATCHSPEC := { sffid 
++FILTERID
++.B | effid 
++FILTERID
++.B | MATCHSPEC ... }
++.br
++.B FILTERID := canid[:mask]
 +
-+#define RULES_SIZE		128 /* Maximum number of rules sent via the
-+				netlink message during creation/configuration */
-+
-+
-+static void canfltr_explain(void)
-+{
-+	fprintf(stderr, "Usage: ... can [ MATCHSPEC ] [ flowid FLOWID ]\n"
-+			"\n"
-+			"Where: MATCHSPEC := { sffid FILTERID | effid FILTERID |\n"
-+			"                   MATCHSPEC ... }\n"
-+			"       FILTERID := CANID[:MASK]\n"
-+			"\n"
-+			"NOTE: CLASSID, CANID, MASK is parsed as hexadecimal input.\n");
-+}
-+
-+static int canfltr_parse_opt(struct filter_util *qu, char *handle,
-+			 int argc, char **argv, struct nlmsghdr *n)
-+{
-+	struct tcmsg *t = NLMSG_DATA(n);
-+	struct rtattr *tail;
-+	struct can_filter canfltr_rules[RULES_SIZE];
-+	int rules_count = 0;
-+	long h = 0;
-+	canid_t can_id;
-+	canid_t can_mask;
-+
-+	if (!argc)
-+		return 0;
-+
-+	if (handle) {
-+		h = strtol(handle, NULL, 0);
-+		if (h == LONG_MIN || h == LONG_MAX) {
-+			fprintf(stderr, "Illegal handle \"%s\", must be numeric.\n",
-+				handle);
-+			return -1;
-+		}
-+	}
-+
-+	t->tcm_handle = h;
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "sffid") == 0) {
-+			/* parse SFF CAN ID optionally with mask */
-+			if (rules_count >= RULES_SIZE) {
-+				fprintf(stderr, "Too much rules on input. "
-+					"Maximum number of rules is: %d\n",
-+					RULES_SIZE);
-+				return -1;
-+			}
-+
-+			NEXT_ARG();
-+
-+			if (sscanf(*argv, "%"SCNx32 ":" "%"SCNx32,
-+				&can_id, &can_mask) != 2) {
-+				if (sscanf(*argv, "%"SCNx32, &can_id) != 1) {
-+					fprintf(stderr, "Improperly formed CAN "
-+						"ID & mask '%s'\n", *argv);
-+					return -1;
-+				} else
-+					can_mask = CAN_SFF_MASK;
-+			}
-+
-+			/* we do not support extra handling for RTR frames
-+			due to the bitmap approach */
-+			if (can_id & ~CAN_SFF_MASK) {
-+				fprintf(stderr, "ID 0x%lx exceeded standard CAN ID range.\n",
-+					(unsigned long)can_id);
-+				return -1;
-+			}
-+
-+			canfltr_rules[rules_count].can_id = can_id;
-+			canfltr_rules[rules_count].can_mask =
-+				(can_mask & CAN_SFF_MASK);
-+			rules_count++;
-+
-+		} else if (matches(*argv, "effid") == 0) {
-+			/* parse EFF CAN ID optionally with mask */
-+			if (rules_count >= RULES_SIZE) {
-+				fprintf(stderr, "Too much rules on input. "
-+					"Maximum number of rules is: %d\n",
-+					RULES_SIZE);
-+				return -1;
-+			}
-+
-+			NEXT_ARG();
-+
-+			if (sscanf(*argv, "%"SCNx32 ":" "%"SCNx32, &can_id, &can_mask) != 2) {
-+				if (sscanf(*argv, "%"SCNx32, &can_id) != 1) {
-+					fprintf(stderr, "Improperly formed CAN ID & mask '%s'\n", *argv);
-+					return -1;
-+				} else
-+					can_mask = CAN_EFF_MASK;
-+			}
-+
-+			if (can_id & ~CAN_EFF_MASK) {
-+				fprintf(stderr, "ID 0x%lx exceeded extended CAN ID range.",
-+					(unsigned long)can_id);
-+				return -1;
-+			}
-+
-+			canfltr_rules[rules_count].can_id =
-+				can_id | CAN_EFF_FLAG;
-+			canfltr_rules[rules_count].can_mask =
-+				(can_mask & CAN_EFF_MASK) | CAN_EFF_FLAG;
-+			rules_count++;
-+
-+		} else if (matches(*argv, "classid") == 0 || strcmp(*argv, "flowid") == 0) {
-+			unsigned handle;
-+			NEXT_ARG();
-+			if (get_tc_classid(&handle, *argv)) {
-+				fprintf(stderr, "Illegal \"classid\"\n");
-+				return -1;
-+			}
-+			addattr_l(n, MAX_MSG, TCA_CANFLTR_CLASSID, &handle, 4);
-+
-+		} else if (strcmp(*argv, "help") == 0) {
-+			canfltr_explain();
-+			return -1;
-+
-+		} else {
-+			fprintf(stderr, "What is \"%s\"?\n", *argv);
-+			canfltr_explain();
-+			return -1;
-+		}
-+		argc--; argv++;
-+	}
-+
-+	addattr_l(n, MAX_MSG, TCA_CANFLTR_RULES, &canfltr_rules,
-+		sizeof(struct can_filter) * rules_count);
-+
-+	tail->rta_len = (void *)NLMSG_TAIL(n) - (void *)tail;
-+	return 0;
-+}
-+
-+/* When "tc filter show dev XY" is executed, function canfltr_walk() (in
-+ * kernel) is called (which calls canfltr_dump() for each instance of a
-+ * filter) which sends information about each instance of a filter to
-+ * userspace -- to this function which parses the message and prints it.
-+ */
-+static int canfltr_print_opt(struct filter_util *qu, FILE *f,
-+			struct rtattr *opt, __u32 handle)
-+{
-+	struct rtattr *tb[TCA_CANFLTR_MAX+1];
-+	struct can_filter *canfltr_rules = NULL;
-+	int rules_count = 0;
-+	int i;
-+
-+	if (opt == NULL)
-+		return 0;
-+
-+	parse_rtattr_nested(tb, TCA_CANFLTR_MAX, opt);
-+
-+	if (handle)
-+		fprintf(f, "handle 0x%x ", handle);
++.BR CLASSID ,
++.BR FLOWID ,
++.BR canid
++and
++.B mask
++are parsed as hexadecimal input.
 +
 +
-+	if (tb[TCA_BASIC_CLASSID]) {
-+		SPRINT_BUF(b1); /* allocates buffer b1 */
-+		fprintf(f, "flowid %s ",
-+			sprint_tc_classid(*(__u32 *)RTA_DATA(tb[TCA_BASIC_CLASSID]), b1));
-+	}
++.SH DESCRIPTION
++The CAN classifier may be used with any available
++.B qdisc
++on Controller Area Network (CAN) frames passed through AF_CAN
++networking subsystem. The classifier classifies CAN frames according
++to their identifiers. It can be used on CAN frames with both SFF or
++EFF identifiers.
 +
-+	if (tb[TCA_CANFLTR_RULES]) {
-+		if (RTA_PAYLOAD(tb[TCA_CANFLTR_RULES]) < sizeof(struct can_filter))
-+			return -1;
++It is possible to add CAN classifier to any qdisc configured on any networking
++device, however it will ignore non-CAN packets.
 +
-+		canfltr_rules = RTA_DATA(tb[TCA_CANFLTR_RULES]);
-+		rules_count = (RTA_PAYLOAD(tb[TCA_CANFLTR_RULES]) /
-+			sizeof(struct can_filter));
 +
-+		for (i = 0; i < rules_count; i++) {
-+			struct can_filter *pcfltr = &canfltr_rules[i];
++.SH CLASSIFICATION
++The filtering rules for EFF frames are stored in an array, which is traversed
++during classification. This means that the worst-case time needed for
++classification of EFF frames increases with the number of configured rules.
 +
-+			if (pcfltr->can_id & CAN_EFF_FLAG) {
-+				if (pcfltr->can_mask == (CAN_EFF_FLAG|CAN_EFF_MASK))
-+					fprintf(f, "effid 0x%"PRIX32" ",
-+						pcfltr->can_id & CAN_EFF_MASK);
-+				else
-+					fprintf(f, "effid 0x%"PRIX32":0x%"PRIX32" ",
-+						pcfltr->can_id & CAN_EFF_MASK,
-+						pcfltr->can_mask & CAN_EFF_MASK);
-+			} else {
-+				if (pcfltr->can_mask == CAN_SFF_MASK)
-+					fprintf(f, "sffid 0x%"PRIX32" ",
-+						pcfltr->can_id);
-+				else
-+					fprintf(f, "sffid 0x%"PRIX32":0x%"PRIX32" ",
-+						pcfltr->can_id,
-+						pcfltr->can_mask);
-+			}
-+		}
-+	}
++The filter implements an optimization for matching SFF frames using a bitmap
++with one bit for every ID. With this optimization, the classification time
++for SFF frames is nearly constant independently of the number of rules.
 +
-+	return 0;
-+}
++.SH EXAMPLE
++This example shows how to set
++.B prio qdisc
++with
++.B CAN
++classifier.
 +
-+struct filter_util can_filter_util = {
-+	.id = "can",
-+	.parse_fopt = canfltr_parse_opt,
-+	.print_fopt = canfltr_print_opt,
-+};
++.nf
++tc qdisc add dev can0 root handle 1: prio
++
++tc filter add dev can0 parent 1:0 prio 1 handle 0xa \\
++    can sffid 0x7ff:0xf flowid 1:1
++tc filter add dev can0 parent 1:0 prio 2 handle 0xb \\
++    can sffid 0xC0:0x7ff effid 0x80:0x7ff flowid 1:2
++tc filter add dev can0 parent 1:0 prio 3 \\
++    can sffid 0x80:0x7ff flowid 1:2
++tc filter add dev can0 parent 1:0 prio 4 \\
++    can sffid 0x0:0x0 effid 0x0:0x0 flowid 1:3
++.fi
++
++
++.SH BUGS
++The maximum number or rules passed from
++.BR tc(8)
++utility to CAN classifier is fixed. The limit is set at compilation time
++(default is 128).
++
++
++.SH SEE ALSO
++.BR tc(8)
++
++
++.SH AUTHORS
++Michal Sojka <sojkam1@fel.cvut.cz>, Pavel Pisa <pisa@cmp.felk.cvut.cz>,
++Rostislav Lisovy <lisovy@gmail.cz>.
++
++This manpage maintained by Rostislav Lisovy <lisovy@gmail.com>
 +
 -- 
 1.7.9.5
+
