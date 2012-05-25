@@ -1,42 +1,70 @@
-From: lejeczek <peljasz@yahoo.co.uk>
-Subject: on the the two IPs unreachable if second interface is up
-Date: Fri, 25 May 2012 16:12:50 +0100
-Message-ID: <4FBFA172.2060604@yahoo.co.uk>
+From: Yeoh Chun-Yeow <yeohchunyeow-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC] mac80211: Use correct originator sequence number in a Path
+	Reply
+Date: Fri, 25 May 2012 23:30:36 +0800
+Message-ID: <CAEFj985HxSrOwOoevDjG1jxPxobLda-X_LZUtj6LgwXZwozBog@mail.gmail.com>
+References: <1337934071-29342-1-git-send-email-qasimj@gmail.com>
+Reply-To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm16-vm0.bullet.mail.ukl.yahoo.com ([217.146.183.254]:37750
-	"HELO nm16-vm0.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751305Ab2EYPMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 11:12:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ravip-DNmUmOh1Rg72fBVCVOL8/A@public.gmane.org
+To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+Return-path: <devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <1337934071-29342-1-git-send-email-qasimj-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://lists.open80211s.org/cgi-bin/mailman/options/devel>,
+	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open80211s.org/pipermail/devel>
+List-Post: <mailto:devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.open80211s.org/cgi-bin/mailman/listinfo/devel>,
+	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+Errors-To: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-hello everybody
+Hi, Qasim Javed
 
-apologies if this may feel off the topic, I was hoping some 
-net experts could shed some lights on some peculiar symptoms 
-I experience with one linux box
+I think that you are referring to the target HWMP sequence number in
+PREP element.
 
-a BOX has two net interfaces, a public and private one
-public IP is reachable from/via the Internet just fine
-public IP is not reachable from the same private network the 
-BOX's second interface is on
-public IP becomes reachable to private subnet immediately 
-after second(private) interface was turned down
-BOX's firewall whether on or off makes no difference
+Based on the 802.11s standard, it has specified that
+dot11MeshHWMPnetDiameterTraversalTime is only applied to original HWMP
+sequence number for PREQ as mentioned in the "Contents of a PREQ
+element" in section 11C.
 
-this is the most peculiar problem of this nature I've ever 
-experienced
+For PREP element, it should be based on the description in section 11C.9.8.3:
+"If it is a target mesh STA, it shall update its own HWMP sequence
+number to maximum (current HWMP sequence number, target HWMP sequence
+number in the PREQ) + 1 immediately before it generates a PREP in
+response to a PREQ. The target HWMP sequence number of the PREQ is
+relevant when a link was broken along the path and the stored sequence
+number was increased at an intermediate mesh STA."
 
-the goal is simple, have other systems on the same private 
-subnet as the BOX's second interface to be able to talk to 
-the BOX's public IP
-default gateway for the private subnet is a separate another 
-system.
+So the target HWMP sequence number should be modified as follow:
 
-any suggestions as to how to troubleshoot it I would very! 
-much appreciate
-many thanks!
+diff --git a/net/mac80211/mesh_hwmp.c b/net/mac80211/mesh_hwmp.c
+index 70ac7d1..5988e82 100644
+--- a/net/mac80211/mesh_hwmp.c
++++ b/net/mac80211/mesh_hwmp.c
+@@ -538,12 +538,10 @@ static void hwmp_preq_frame_process(struct
+ieee80211_sub_if_data *sdata,
+                forward = false;
+                reply = true;
+                metric = 0;
+-               if (time_after(jiffies, ifmsh->last_sn_update +
+-                                       net_traversal_jiffies(sdata)) ||
+-                   time_before(jiffies, ifmsh->last_sn_update)) {
+-                       target_sn = ++ifmsh->sn;
+-                       ifmsh->last_sn_update = jiffies;
+-               }
++               if (SN_LT(ifmsh->sn, target_sn))
++                       ifmsh->sn = target_sn;
++               target_sn = ++ifmsh->sn;
++               ifmsh->last_sn_update = jiffies;
+
+Comments.
+
+Regards,
+Chun-Yeow
