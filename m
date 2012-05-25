@@ -1,27 +1,51 @@
-From: Yeoh Chun-Yeow <yeohchunyeow@gmail.com>
-Subject: Re: [RFC] mac80211: Use correct originator sequence number in a Path Reply
-Date: Sat, 26 May 2012 00:31:57 +0800
-Message-ID: <CAEFj987dNMyMcS9rySzVpfY0Fo5t0LtL9FZg770ohKi+bDO9ZA@mail.gmail.com>
-References: <1337934071-29342-1-git-send-email-qasimj@gmail.com>
-	<CAEFj985HxSrOwOoevDjG1jxPxobLda-X_LZUtj6LgwXZwozBog@mail.gmail.com>
-	<CAJivULpmLp9JK+PQZ9RkrvvYHNk=uA33=A-ffftroigivy1_NQ@mail.gmail.com>
-	<CAEFj984efuO12nSPsZ2A0Q0nwPLesYJ8gDHwgh=0e1VO3_UtGw@mail.gmail.com>
+From: "United Nation Program" <info@mail.com>
+Subject: Attention: Email Owner
+Date: Fri, 25 May 2012 00:30:28 -0500
+Message-ID: <715b0fb66b2c054673f0308ecb77bb9b.squirrel@mail.voyageur.coop>
+Reply-To: ungrants@ymail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ravip@utdallas.edu
-To: devel@lists.open80211s.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEFj984efuO12nSPsZ2A0Q0nwPLesYJ8gDHwgh=0e1VO3_UtGw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.voyageur.coop ([72.2.10.4]:55919 "EHLO vcc.coop"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751781Ab2EYQvq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 May 2012 12:51:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I think that the PREQ element has originator sequence number at the
-> end but the PREQ element has the target sequence number at the end.
-> This is what mesh_path_sel_frame_tx is doing.
 
-PREP element has originator sequence number at the end but the PREQ
-element has the target sequence number at the end.
+
+
+Attention: Email Owner,
+
+You have been selected by the UN for a
+Humanitarian Development Cash Grant program
+to enhance and develop the standard of
+living geared towards poverty eradication as
+targeted by the year 2020.You have been
+granted the sum of 800,000.00 Pounds your
+grant pin #UNF/FBF-816-1119 G-900-94.
+
+Contact payment department for your funds.
+Payment Officer: Mrs.Shannon Maris
+Email:ungrants@ymail.com
+
+You are to provide her your information
+
+below for claims.
+
+1 Full Names:
+2 Full Address:
+3 Nationality:
+4 Age:
+5 Gender:
+6 Occupation:
+7 Cell Phone:
+8 Present Country:
+9 Alternate Email Address:
 
 Regards,
-Chun-Yeow
+Mrs. Carlton Joan.
+Chairman UNDP Grant Programme.
