@@ -1,47 +1,81 @@
-From: =?UTF-8?B?U3JlxIdrbyBKdXJpxIctS2F2ZWxq?=
-	<srecko.juric-kavelj@fer.hr>
-Subject: Re: Using jiffies for tcp_time_stamp?
-Date: Fri, 25 May 2012 18:23:40 +0200
-Message-ID: <CAACrLC0b5dyjJM=DGf-9nUOwar3O9EVTTR0tvynQj285EDpfwA@mail.gmail.com>
-References: <CAACrLC39Xdm3vTKUsjz43ZPyEq_vHxR-_Uf56SjSm+kUqxOqZg@mail.gmail.com>
-	<CAACrLC2CXU-DNeonWQGJTfX53ssm_asK7WQrFuWRBB77cg-YdA@mail.gmail.com>
-	<4FBFAC30.8050508@genband.com>
-	<CAA93jw7MU8PjFk-UX864STSBp2SjjjivmfpRiPhaQ2kxZLu2sA@mail.gmail.com>
+From: Yeoh Chun-Yeow <yeohchunyeow-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC] mac80211: Use correct originator sequence number in a Path
+	Reply
+Date: Sat, 26 May 2012 00:29:46 +0800
+Message-ID: <CAEFj984efuO12nSPsZ2A0Q0nwPLesYJ8gDHwgh=0e1VO3_UtGw@mail.gmail.com>
+References: <1337934071-29342-1-git-send-email-qasimj@gmail.com>
+	<CAEFj985HxSrOwOoevDjG1jxPxobLda-X_LZUtj6LgwXZwozBog@mail.gmail.com>
+	<CAJivULpmLp9JK+PQZ9RkrvvYHNk=uA33=A-ffftroigivy1_NQ@mail.gmail.com>
+Reply-To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chris Friesen <chris.friesen@genband.com>, netdev@vger.kernel.org
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:39050 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756114Ab2EYQXl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 12:23:41 -0400
-Received: by yenm10 with SMTP id m10so488033yen.19
-        for <netdev@vger.kernel.org>; Fri, 25 May 2012 09:23:41 -0700 (PDT)
-In-Reply-To: <CAA93jw7MU8PjFk-UX864STSBp2SjjjivmfpRiPhaQ2kxZLu2sA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ravip-DNmUmOh1Rg72fBVCVOL8/A@public.gmane.org
+To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+Return-path: <devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <CAJivULpmLp9JK+PQZ9RkrvvYHNk=uA33=A-ffftroigivy1_NQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://lists.open80211s.org/cgi-bin/mailman/options/devel>,
+	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open80211s.org/pipermail/devel>
+List-Post: <mailto:devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.open80211s.org/cgi-bin/mailman/listinfo/devel>,
+	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+Errors-To: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 25, 2012 at 6:17 PM, Dave Taht <dave.taht@gmail.com> wrote:
-> On Fri, May 25, 2012 at 4:58 PM, Chris Friesen
-> <chris.friesen@genband.com> wrote:
->> I don't know if it would make any difference to the tcp algorithms, but
->> certainly on some architectures you can get a fast and accurate hardware
->> timestamp.
->
-> I would be interested in someone doing that experiment in light of the
-> codel work.
+> No. I am referring to the originator sequence number in PREP because
+> when the PREP reaches the originator of the PREQ, the originator
+> sequence number in the PREP and the value of the metric is used to
+> determine which PREP will be accepted. If the originator sequence
+> numbers in the PREPs are different, then the PREP with the higher
+> sequence number will be accepted irrespective of the value of the
+> metric. Only if the originator sequence numbers in the PREP are equal
+> will the metric values in the PREPs be examined.
 
-I've looked this up in other implementations, e.g. FreeBSD uses 1ms
-granularity no matter what HZ says, NetBSD has 500ms ticks, ...
+Based on the "Table 11C-17=97Contents of a PREP element in Case A", the
+originator HWMP sequence number is the HWMP sequence number of the
+originator mesh STA. So this value (orig_sn in
+hwmp_preq_frame_process) is unchanged in the generated PREP element
+upon receiving the PREQ element.
 
-I guess that granularity also depends on the retransmit timers used. I
-didn't make out what's the precision of the timers that Linux uses in
-TCP, but I guess it uses high resolution timers? At least on x86?
+The target HWMP sequence number is the HWMP sequence number of the
+target mesh STA or target proxy mesh gate after it has been updated
+according to 11C.9.8.3. So this value is changed based on target_sn in
+hwmp_preq_frame_process.
 
-I've done a simple experiment by repeatedly calling clock_gettime
-(from userspace, but I guess it ends up as a vsyscall). I get >17
-million calls per second on a Q6600.
+I think that the confusion is in the hwmp_route_info_get,
 
---
-JKS
+case MPATH_PREP:
+                /* Originator here refers to the MP that was the target in =
+the
+                 * Path Request. We divert from the nomenclature in the dra=
+ft
+                 * so that we can easily use a single function to gather pa=
+th
+                 * information from both PREQ and PREP frames.
+                 */
+                orig_sn =3D PREP_IE_TARGET_SN(hwmp_ie);
+
+orig_sn here is actually the target HWMP sequence number of PREP
+element generated by hwmp_preq_frame_process.
+
+> Please notice that in hwmp_preq_frame_process, target_sn ends up being
+> used as orig_sn for the PREP. This is probably what is causing the
+> confusion in your case.
+
+I think that the PREQ element has originator sequence number at the
+end but the PREQ element has the target sequence number at the end.
+This is what mesh_path_sel_frame_tx is doing.
+
+> Your patch is definitely not what I was pointing out, in fact it
+> diverts from the standard functionality since it removes the check for
+> HWMPNetDiameterTraversalTime.
+
+I thought that this is only for originator sequence number which is
+done by mesh_path_start_discovery.
+
+Regards,
+Chun-Yeow
