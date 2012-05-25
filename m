@@ -1,70 +1,50 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
- and e1000e
-Date: Fri, 25 May 2012 09:59:37 -0700
-Message-ID: <CA+mtBx8fpS_w7X2iq+tOEFuFhhgJ-4V_1ubBsd8-MvvmCef45w@mail.gmail.com>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
-	<88c43001441945e1431609db252b69e7@visp.net.lb>
-	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
-	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
-	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
-	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
-	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
-	<4775d023592b876909aceb152f94aa01@visp.net.lb>
-	<1337540825.3361.0.camel@edumazet-glaptop>
-	<ef780bd0e0b9b9e60e37fa74101f0f66@visp.net.lb>
-	<1337572583.3361.8.camel@edumazet-glaptop>
-	<6d7500e1c3b4b191c0b5a11003b161d6@visp.net.lb>
-	<1337589005.3361.19.camel@edumazet-glaptop>
-	<1337589620.3361.23.camel@edumazet-glaptop>
-	<eb8cdd693530010d6736baede0cfebd8@visp.net.lb>
-	<1337707497.3361.233.camel@edumazet-glaptop>
-	<CA+mtBx-gOcfOE91LnUpdq4PqM5KQusTn5WKcq0t2xvU7XM80Pg@mail.gmail.com>
-	<1337926938.7753.8.camel@edumazet-glaptop>
+From: Qasim Javed <qasimj-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC] mac80211: Use correct originator sequence number in a Path
+	Reply
+Date: Fri, 25 May 2012 12:17:34 -0500
+Message-ID: <CAJivULpT=XTG2tKm=hQk9mHwJ2K5eo_siHRAWfL0y3vPfrRLiA@mail.gmail.com>
+References: <1337934071-29342-1-git-send-email-qasimj@gmail.com>
+	<CAEFj985HxSrOwOoevDjG1jxPxobLda-X_LZUtj6LgwXZwozBog@mail.gmail.com>
+	<CAJivULpmLp9JK+PQZ9RkrvvYHNk=uA33=A-ffftroigivy1_NQ@mail.gmail.com>
+	<CAEFj984efuO12nSPsZ2A0Q0nwPLesYJ8gDHwgh=0e1VO3_UtGw@mail.gmail.com>
+	<CAEFj987dNMyMcS9rySzVpfY0Fo5t0LtL9FZg770ohKi+bDO9ZA@mail.gmail.com>
+Reply-To: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f174.google.com ([209.85.160.174]:58073 "EHLO
-	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753598Ab2EYQ7j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 May 2012 12:59:39 -0400
-Received: by ghrr11 with SMTP id r11so582852ghr.19
-        for <netdev@vger.kernel.org>; Fri, 25 May 2012 09:59:38 -0700 (PDT)
-In-Reply-To: <1337926938.7753.8.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ravip-DNmUmOh1Rg72fBVCVOL8/A@public.gmane.org
+To: Javier Cardona <javier-W/OLz77bvjtBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <CAEFj987dNMyMcS9rySzVpfY0Fo5t0LtL9FZg770ohKi+bDO9ZA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://lists.open80211s.org/cgi-bin/mailman/options/devel>,
+	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open80211s.org/pipermail/devel>
+List-Post: <mailto:devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.open80211s.org/cgi-bin/mailman/listinfo/devel>,
+	<mailto:devel-request-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+Errors-To: devel-bounces-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> TX completion has no budget, I am not sure what you mean.
->
-Right, it's the budget on RX that can be a factor.  TX completion is
-done from the NAPI poll routine, so if RX does not complete the NAPI
-is rescheduled and TX completion is done again for the same HW
-interrupt.
+Forgot to add Javier. Could you please comment on this?
 
-We need to remove the constraint that netdev_completed can only be
-called once per interrupt...
+Thanks,
+-Qasim
 
-Tom
-
-> e1000e driver indeed has a limit : It cannot clean more than
-> tx_ring->count frames per e1000_clean_tx_irq() invocation.
+On Fri, May 25, 2012 at 11:31 AM, Yeoh Chun-Yeow <yeohchunyeow-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> I think that the PREQ element has originator sequence number at the
+>> end but the PREQ element has the target sequence number at the end.
+>> This is what mesh_path_sel_frame_tx is doing.
 >
-> But with BQL, this should not happen ?
+> PREP element has originator sequence number at the end but the PREQ
+> element has the target sequence number at the end.
 >
-> # ethtool -g eth0
-> Ring parameters for eth0:
-> Pre-set maximums:
-> RX: =A0 =A0 =A0 =A0 =A0 =A0 4096
-> RX Mini: =A0 =A0 =A0 =A00
-> RX Jumbo: =A0 =A0 =A0 0
-> TX: =A0 =A0 =A0 =A0 =A0 =A0 4096
-> Current hardware settings:
-> RX: =A0 =A0 =A0 =A0 =A0 =A0 256
-> RX Mini: =A0 =A0 =A0 =A00
-> RX Jumbo: =A0 =A0 =A0 0
-> TX: =A0 =A0 =A0 =A0 =A0 =A0 256
->
->
+> Regards,
+> Chun-Yeow
+> _______________________________________________
+> Devel mailing list
+> Devel-ZwoEplunGu1xMJw8dq7oimD2FQJk+8+b@public.gmane.org
+> http://lists.open80211s.org/cgi-bin/mailman/listinfo/devel
