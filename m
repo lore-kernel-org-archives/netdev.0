@@ -1,44 +1,76 @@
-From: Federico Vaga <federico.vaga@gmail.com>
-Subject: Re: [PATCH] STA2X11 CAN: CAN driver for the STA2X11 board
-Date: Sat, 26 May 2012 10:36:10 +0200
-Message-ID: <CAH5GJ0rFB4xaR7o-wVR3ze_UogeDW84dehh0rx5z+300ghB4uA@mail.gmail.com>
-References: <1337288364-17572-1-git-send-email-federico.vaga@gmail.com> <4FB5E581.1090209@grandegger.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
+Date: Sat, 26 May 2012 17:00:10 +0800
+Message-ID: <4FC09B9A.6090806@cn.fujitsu.com>
+References: <20120215104021.GC31660@secunet.com> <1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com> <20120514130528.GA24733@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Giancarlo Asnaghi <giancarlo.asnaghi@st.com>,
-	Alan Cox <alan@linux.intel.com>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FB5E581.1090209@grandegger.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, lw@cn.fujitsu.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:36156 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750732Ab2EZI7j convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2012 04:59:39 -0400
+In-Reply-To: <20120514130528.GA24733@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Thanks for your contribution. At a first glance, this driver looks
-> similar to the pch_can and the c_can driver. It seems that a C_CAN ba=
-sed
-> controller is used on that board as well. If that's true, it should b=
+Hi Steffen
+
+=E4=BA=8E 2012=E5=B9=B405=E6=9C=8814=E6=97=A5 21:05, Steffen Klassert =E5=
+=86=99=E9=81=93:
+> On Mon, May 14, 2012 at 11:21:00AM +0800, Gao feng wrote:
+>> Since commit 299b0767(ipv6: Fix IPsec slowpath fragmentation problem=
+)
+>> the fragment of ipsec transport mode packets is incorrect.
+>> because tunnel mode needs IPsec headers and trailer for all fragment=
+s,
+>> while on transport mode it is sufficient to add the headers to the
+>> first fragment and the trailer to the last.
+>=20
+> I mentioned this in an other thread some time ago,
+> this is due to commit ad0081e43a
+> "ipv6: Fragment locally generated tunnel-mode IPSec6 packets as neede=
+d"
+> changed tunnel mode to do fragmentation before the transformation
+> while transport mode still does fragmentation after transformation.
+> Now, tunnel mode needs IPsec headers and trailer for all fragments,
+> while on transport mode it is sufficient to add the headers to the
+> first fragment and the trailer to the last.
+>=20
+>>
+>> so modify mtu and maxfraglen base on ipsec mode and if fragment is f=
+irst
+>> or last.
+>=20
+> There might be other opinions, but I don't like to see this IPsec mod=
 e
-> handled by the C_CAN driver. To get ride of the obsolete pch_can driv=
-er,
-> I sent some time ago the patch "[RFC/PATCH] c_can: add driver for the
-> PCH CAN controller":
->
-> =C2=A0http://marc.info/?t=3D132991563600003&r=3D1&w=3D4
->
-> I could serve as base of a generic c_can_pci driver.
+> dependent stuff hacked into the generic ipv6 output path.
+>=20
+> Basically we have two cases. One where we have to add rt->dst.header_=
+len
+> to the first fragment and rt->dst.trailer_len to the last fragment,
+> and the other where we have to add both to all fragments. So perhaps =
+we
+> could isolate this code and create two functions, one for each case.
+>=20
+>=20
 
-You are right, this is a C-CAN but it isn't specified on the board manu=
-al.
-I compared the board manual with the Bosch C-CAN manual, and it is the =
-same.
-I'm working on a PCI module for this board, when it is ready we can thi=
-nk for
-a generic c_can_pci
+I thought this problem carefully,I think the important and troubled thi=
+ng is
+how to deal with transport mode.
 
-Thank you
+we have to use different mtu and maxfraglen for checking if the prev_sk=
+b has
+extra data or has free room. so mtu_prev and maxfraglen_prev have to be=
+ used.
 
---=20
-=46ederico Vaga
+And I also think it's not very well to create two function for the two =
+cases,
+it will create a lot of redundant codes.
+
+I will add a dst_entry flag DST_XFRM_TUNNEL to avoid ipsec mode depende=
+nt stuff
+hacked into the generic ipv6_output path, and send patch v2.
