@@ -1,23 +1,19 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] conntrack-tools 1.2.0 release
-Date: Sat, 26 May 2012 20:06:54 +0200
-Message-ID: <20120526180654.GB31938@1984>
+Subject: [ANNOUNCE] iptables 1.4.14 release
+Date: Sat, 26 May 2012 20:15:22 +0200
+Message-ID: <20120526181522.GA32109@1984>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="GRPZ8SYKNexpdSJ7"
+Content-Type: multipart/mixed; boundary="DocE+STaALJfprDB"
 Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
 	netfilter-announce@lists.netfilter.org, lwn@lwn.net
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59808 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754136Ab2EZSG5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 May 2012 14:06:57 -0400
+Return-path: <netfilter-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---GRPZ8SYKNexpdSJ7
+--DocE+STaALJfprDB
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -25,11 +21,27 @@ Hi!
 
 The Netfilter project proudly presents:
 
-        conntrack-tools 1.2.0
+        iptables 1.4.14
 
-This release is a major milestone that includes support for
-expectation synchronization and the new nfct utility that, by now,
-only supports the new cttimeout infrastructure.
+This release several bugfixes and support for the new cttimeout
+infrastructure. This allows you to attach specific timeout policies to
+flow via iptables CT target.
+
+The following example shows the usage of this new infrastructure in a
+couple of steps:
+
+1) Create a timeout policy with name `custom-tcp-policy1':
+
+ nfct timeout add custom-tcp-policy1 inet tcp established 200
+
+2) Attach it to traffic going from 1.1.1.1 to 2.2.2.2
+
+iptables -I PREROUTING -t raw -s 1.1.1.1 -d 2.2.2.2 -p tcp \
+        -j CT --timeout custom-tcp-policy1
+
+The new nfct resides in the conntrack-tools tree. By now, this new
+utility only supports the cttimeout. In the long run, the plan is to
+replace the conntrack utility with it.
 
 See ChangeLog that comes attached to this email for more details.
 
@@ -40,51 +52,22 @@ ftp://ftp.netfilter.org/pub/conntrack-tools/
 
 Have fun!
 
---GRPZ8SYKNexpdSJ7
+--DocE+STaALJfprDB
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-conntrack-tools-1.2.0.txt"
+Content-Disposition: attachment; filename="changes-iptables-1.4.14.txt"
 
-Adrian Bridgett (1):
-      src: manpage and help display improvements
+Florian Westphal (3):
+      ip(6)tables-restore: make sure argv is NULL terminated
+      extensions: libxt_rateest: output all options in save hook
+      tests: add rateest match rules
 
-Florian Westphal (1):
-      conntrack: flush stdout for each expectation event, too
+Miguel GAIO (1):
+      libiptc: fix retry path in TC_INIT
 
-Pablo Neira Ayuso (34):
-      conntrackd: generalize caching infrastructure
-      conntrackd: generalize external handlers to prepare expectation support
-      conntrackd: generalize/cleanup network message building/parsing
-      conntrackd: generalize local handler actions
-      conntrackd: simplify cache_get_extra function
-      conntrackd: remove cache_data_get_object and replace by direct pointer
-      conntrackd: constify ct parameter of ct_filter_* functions
-      conntrackd: relax checkings in ct_filter_sanity_check
-      conntrackd: minor cleanup for commit
-      conntrackd: support for expectation synchronization
-      doc: update conntrack-tools manual to detail expectation support
-      conntrackd: fix expectation filtering if ExpectationSync On is used
-      conntrack: add expectation support for `-o' option
-      conntrackd: support `-i exp -x' and `-e exp -x' options
-      conntrack: fix setting fixed-timeout status flag
-      conntrackd: add support expectation class synchronization
-      conntrackd: add NAT expectation support
-      conntrackd: add support to synchronize helper name
-      conntrackd: support expectfn synchronization for expectations
-      conntrackd: fix parsing of expectation class, helper name and NAT
-      conntrack: allow to filter by mark from kernel-space
-      conntrackd: allow using lower/upper case in ExpectationSync
-      doc: add ras, q.931 and h.245 to examples configuration file
-      doc: fix example on how to filter events via iptables CT target
-      icmp[v6]: --icmp[v6]-[type|code] are optional for updates and deletes
-      src: integrate nfct into the conntrack-tools tree
-      tests: add nfct tests for cttimeout
-      build: bump version to 1.2.0
-      nfct: fix compilation warning in cttimeout support
-      build: update dependencies with libnetfilter_conntrack (>= 1.0.1)
-      move qa directory to tests/conntrack/
-      tests: conntrack: add run-test.sh script
-      add nfct(8) manpage
-      add README.nfct
+Pablo Neira Ayuso (3):
+      libxt_CT: add --timeout option
+      libipt_ULOG: fix --ulog-cprange
+      Bump version to 1.4.14
 
 
---GRPZ8SYKNexpdSJ7--
+--DocE+STaALJfprDB--
