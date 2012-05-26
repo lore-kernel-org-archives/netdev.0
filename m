@@ -1,188 +1,73 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH v2] ipv6: fix incorrect ipsec fragment
-Date: Sat, 26 May 2012 19:30:53 +0800
-Message-ID: <1338031853-24938-1-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: steffen.klassert@secunet.com, lw@cn.fujitsu.com,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH] ipv6: fix incorrect ipsec transport mode fragment
+Date: Sat, 26 May 2012 19:29:07 +0800
+Message-ID: <4FC0BE83.8090607@cn.fujitsu.com>
+References: <20120215104021.GC31660@secunet.com> <1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com> <20120514130528.GA24733@secunet.com> <4FC09B9A.6090806@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, lw@cn.fujitsu.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cn.fujitsu.com ([222.73.24.84]:14594 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750975Ab2EZLhZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 May 2012 07:37:25 -0400
-In-Reply-To: <1336965660-14201-1-git-send-email-gaofeng@cn.fujitsu.com>
+	id S1751200Ab2EZLh1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 May 2012 07:37:27 -0400
+In-Reply-To: <4FC09B9A.6090806@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit ad0081e43a
-"ipv6: Fragment locally generated tunnel-mode IPSec6 packets as needed"
-the fragment of packets is incorrect.
-because tunnel mode needs IPsec headers and trailer for all fragments,
-while on transport mode it is sufficient to add the headers to the
-first fragment and the trailer to the last.
+=E4=BA=8E 2012=E5=B9=B405=E6=9C=8826=E6=97=A5 17:00, Gao feng =E5=86=99=
+=E9=81=93:
+> Hi Steffen
+>=20
+> =E4=BA=8E 2012=E5=B9=B405=E6=9C=8814=E6=97=A5 21:05, Steffen Klassert=
+ =E5=86=99=E9=81=93:
+>> On Mon, May 14, 2012 at 11:21:00AM +0800, Gao feng wrote:
+>>> Since commit 299b0767(ipv6: Fix IPsec slowpath fragmentation proble=
+m)
+>>> the fragment of ipsec transport mode packets is incorrect.
+>>> because tunnel mode needs IPsec headers and trailer for all fragmen=
+ts,
+>>> while on transport mode it is sufficient to add the headers to the
+>>> first fragment and the trailer to the last.
+>>
+>> I mentioned this in an other thread some time ago,
+>> this is due to commit ad0081e43a
+>> "ipv6: Fragment locally generated tunnel-mode IPSec6 packets as need=
+ed"
+>> changed tunnel mode to do fragmentation before the transformation
+>> while transport mode still does fragmentation after transformation.
+>> Now, tunnel mode needs IPsec headers and trailer for all fragments,
+>> while on transport mode it is sufficient to add the headers to the
+>> first fragment and the trailer to the last.
+>>
+>>>
+>>> so modify mtu and maxfraglen base on ipsec mode and if fragment is =
+first
+>>> or last.
+>>
+>> There might be other opinions, but I don't like to see this IPsec mo=
+de
+>> dependent stuff hacked into the generic ipv6 output path.
+>>
+>> Basically we have two cases. One where we have to add rt->dst.header=
+_len
+>> to the first fragment and rt->dst.trailer_len to the last fragment,
+>> and the other where we have to add both to all fragments. So perhaps=
+ we
+>> could isolate this code and create two functions, one for each case.
+>>
+>>
+>=20
+> I thought this problem carefully,I think the important and troubled t=
+hing is
+> how to deal with transport mode.
+>=20
+> we have to use different mtu and maxfraglen for checking if the prev_=
+skb has
+> extra data or has free room. so mtu_prev and maxfraglen_prev have to =
+be used.
+>=20
 
-so modify mtu and maxfraglen base on ipsec mode and if fragment is first
-or last.
-
-with my test,it work well(every fragment's size is the mtu)
-and does not trigger slow fragment path.
-
-Changes from v1:
-	though optimization, mtu_prev and maxfraglen_prev can be delete.
-	replace xfrm mode codes with dst_entry's new frag DST_XFRM_TUNNEL.
-	add fuction ip6_append_data_mtu to make codes clearer.
-
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- include/net/dst.h      |    1 +
- net/ipv6/ip6_output.c  |   68 +++++++++++++++++++++++++++++++++++------------
- net/xfrm/xfrm_policy.c |    3 ++
- 3 files changed, 54 insertions(+), 18 deletions(-)
-
-diff --git a/include/net/dst.h b/include/net/dst.h
-index bed833d..8197ead 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -60,6 +60,7 @@ struct dst_entry {
- #define DST_NOCOUNT		0x0020
- #define DST_NOPEER		0x0040
- #define DST_FAKE_RTABLE		0x0080
-+#define DST_XFRM_TUNNEL		0x0100
- 
- 	short			error;
- 	short			obsolete;
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d99fdc6..1d34f86 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1187,6 +1187,29 @@ static inline struct ipv6_rt_hdr *ip6_rthdr_dup(struct ipv6_rt_hdr *src,
- 	return src ? kmemdup(src, (src->hdrlen + 1) * 8, gfp) : NULL;
- }
- 
-+static void ip6_append_data_mtu(int *mtu,
-+				int *maxfraglen,
-+				unsigned int fragheaderlen,
-+				struct sk_buff *skb,
-+				struct rt6_info *rt)
-+{
-+	if (!(rt->dst.flags & DST_XFRM_TUNNEL)) {
-+		if (skb == NULL) {
-+			/* first fragment, reserve header_len */
-+			*mtu = *mtu - rt->dst.header_len;
-+
-+		} else {
-+			/*
-+			 * this fragment is not first, the headers
-+			 * space is regarded as data space.
-+			 */
-+			*mtu = dst_mtu(rt->dst.path);
-+		}
-+		*maxfraglen = ((*mtu - fragheaderlen) & ~7)
-+			      + fragheaderlen - sizeof(struct frag_hdr);
-+	}
-+}
-+
- int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	int offset, int len, int odd, struct sk_buff *skb),
- 	void *from, int length, int transhdrlen,
-@@ -1196,7 +1219,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct inet_cork *cork;
--	struct sk_buff *skb;
-+	struct sk_buff *skb, *skb_prev = NULL;
- 	unsigned int maxfraglen, fragheaderlen;
- 	int exthdrlen;
- 	int dst_exthdrlen;
-@@ -1253,8 +1276,12 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 		inet->cork.fl.u.ip6 = *fl6;
- 		np->cork.hop_limit = hlimit;
- 		np->cork.tclass = tclass;
--		mtu = np->pmtudisc == IPV6_PMTUDISC_PROBE ?
--		      rt->dst.dev->mtu : dst_mtu(&rt->dst);
-+		if (rt->dst.flags & DST_XFRM_TUNNEL)
-+			mtu = np->pmtudisc == IPV6_PMTUDISC_PROBE ?
-+			      rt->dst.dev->mtu : dst_mtu(&rt->dst);
-+		else
-+			mtu = np->pmtudisc == IPV6_PMTUDISC_PROBE ?
-+			      rt->dst.dev->mtu : dst_mtu(rt->dst.path);
- 		if (np->frag_size < mtu) {
- 			if (np->frag_size)
- 				mtu = np->frag_size;
-@@ -1350,25 +1377,27 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 			unsigned int fraglen;
- 			unsigned int fraggap;
- 			unsigned int alloclen;
--			struct sk_buff *skb_prev;
- alloc_new_skb:
--			skb_prev = skb;
--
- 			/* There's no room in the current skb */
--			if (skb_prev)
--				fraggap = skb_prev->len - maxfraglen;
-+			if (skb)
-+				fraggap = skb->len - maxfraglen;
- 			else
- 				fraggap = 0;
-+			/* update mtu and maxfraglen if necessary */
-+			if (skb == NULL || skb_prev == NULL)
-+				ip6_append_data_mtu(&mtu, &maxfraglen,
-+						    fragheaderlen, skb, rt);
-+
-+			skb_prev = skb;
- 
- 			/*
- 			 * If remaining data exceeds the mtu,
- 			 * we know we need more fragment(s).
- 			 */
- 			datalen = length + fraggap;
--			if (datalen > (cork->length <= mtu && !(cork->flags & IPCORK_ALLFRAG) ? mtu : maxfraglen) - fragheaderlen)
--				datalen = maxfraglen - fragheaderlen;
- 
--			fraglen = datalen + fragheaderlen;
-+			if (datalen > (cork->length <= mtu && !(cork->flags & IPCORK_ALLFRAG) ? mtu : maxfraglen) - fragheaderlen)
-+				datalen = maxfraglen - fragheaderlen - rt->dst.trailer_len;
- 			if ((flags & MSG_MORE) &&
- 			    !(rt->dst.dev->features&NETIF_F_SG))
- 				alloclen = mtu;
-@@ -1377,13 +1406,16 @@ alloc_new_skb:
- 
- 			alloclen += dst_exthdrlen;
- 
--			/*
--			 * The last fragment gets additional space at tail.
--			 * Note: we overallocate on fragments with MSG_MODE
--			 * because we have no idea if we're the last one.
--			 */
--			if (datalen == length + fraggap)
--				alloclen += rt->dst.trailer_len;
-+			if (datalen != length + fraggap) {
-+				/*
-+				 * this is not the last fragment, the trailer
-+				 * space is regarded as data space.
-+				 */
-+				datalen += rt->dst.trailer_len;
-+			}
-+
-+			alloclen += rt->dst.trailer_len;
-+			fraglen = datalen + fragheaderlen;
- 
- 			/*
- 			 * We just reserve space for fragment header.
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index c53e8f4..7379eef 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1921,6 +1921,9 @@ no_transform:
- 	}
- ok:
- 	xfrm_pols_put(pols, drop_pols);
-+	if (dst && dst->xfrm &&
-+	    dst->xfrm->props.mode == XFRM_MODE_TUNNEL)
-+		dst->flags |= DST_XFRM_TUNNEL;
- 	return dst;
- 
- nopol:
--- 
-1.7.7.6
+I found we can delete the mtu_prev and maxfraglen prev ;)
