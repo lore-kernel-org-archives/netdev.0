@@ -1,37 +1,33 @@
-From: Arun Sharma <asharma@fb.com>
-Subject: Re: [PATCH] net: compute a more reasonable default ip6_rt_max_size
-Date: Sat, 26 May 2012 20:54:34 -0700
-Message-ID: <4FC1A57A.7080807@fb.com>
-References: <4FC0063E.8080209@fb.com>  <20120525.185131.2017517041016424794.davem@davemloft.net>  <4FC01F1B.1080009@fb.com>  <20120525.201150.1782581593120395710.davem@davemloft.net>  <4FC02777.5070003@fb.com> <1338003580.10135.6.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v7 2/2] decrement static keys on real destroy time
+Date: Sun, 27 May 2012 01:10:49 -0400 (EDT)
+Message-ID: <20120527.011049.1301327046347523212.davem@davemloft.net>
+References: <1337938328-11537-1-git-send-email-glommer@parallels.com>
+	<1337938328-11537-3-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1338003580.10135.6.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: akpm@linux-foundation.org, linux-mm@kvack.org, cgroups@vger.kernel.org,
+        devel@openvz.org, kamezawa.hiroyu@jp.fujitsu.com,
+        netdev@vger.kernel.org, tj@kernel.org, lizefan@huawei.com,
+        hannes@cmpxchg.org, mhocko@suse.cz
+To: glommer@parallels.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1337938328-11537-3-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 5/25/12 8:39 PM, Eric Dumazet wrote:
->
-> But your patch is not a  "modest increase", so whats the deal ?
->
-> A modest increase would be 8192 instead of 4096, regardless of RAM size.
->
+From: Glauber Costa <glommer@parallels.com>
+Date: Fri, 25 May 2012 13:32:08 +0400
 
-Yes - 8192 solves our immediate problem, but I was worrying that the 
-problem might resurface as ipv6 adoption becomes more widespread.
+ ...
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
 
-We were testing a pre-3.0 kernel that didn't have Dave's DST_NOCOUNT 
-patch. Will retest with that patch applied.
+Acked-by: David S. Miller <davem@davemloft.net>
 
- > More over, a boot parameter to tweak it is absolutely not needed
-
-Agreed. Will remove that part.
-
-Still not sure why you'd like to go for one size regardless of 
-totalram_pages.
-
-  -Arun
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
