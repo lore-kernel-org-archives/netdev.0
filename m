@@ -1,167 +1,65 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] Bluetooth: Really fix registering hci with duplicate
- name
-Date: Sun, 27 May 2012 09:10:30 +0200
-Message-ID: <1338102630.15105.112.camel@aeonflux>
-References: <1338060231-31108-1-git-send-email-levinsasha928@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: compute a more reasonable default ip6_rt_max_size
+Date: Sun, 27 May 2012 15:18:28 +0200
+Message-ID: <1338124708.3670.11.camel@edumazet-glaptop>
+References: <4FC0063E.8080209@fb.com>
+	 <20120525.185131.2017517041016424794.davem@davemloft.net>
+	 <4FC01F1B.1080009@fb.com>
+	 <20120525.201150.1782581593120395710.davem@davemloft.net>
+	 <4FC02777.5070003@fb.com> <1338003580.10135.6.camel@edumazet-glaptop>
+	 <4FC1A57A.7080807@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1338060231-31108-1-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arun Sharma <asharma@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:32888 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750975Ab2E0NSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2012 09:18:33 -0400
+In-Reply-To: <4FC1A57A.7080807@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sasha,
-
-> Commit fc50744 ("Bluetooth: Fix registering hci with duplicate name") didn't
-> fully fix the duplicate naming issue with devices, and duplicate device names
-> could still be created:
+On Sat, 2012-05-26 at 20:54 -0700, Arun Sharma wrote:
+> On 5/25/12 8:39 PM, Eric Dumazet wrote:
+> >
+> > But your patch is not a  "modest increase", so whats the deal ?
+> >
+> > A modest increase would be 8192 instead of 4096, regardless of RAM size.
+> >
 > 
-> [  142.484097] device: 'hci1': device_add
-> [...]
-> [  150.545263] device: 'hci1': device_add
-> [  150.550128] kobject: 'hci1' (ffff880014cc4e58): kobject_add_internal: parent: 'bluetooth', set: 'devices'
-> [  150.558979] ------------[ cut here ]------------
-> [  150.561438] WARNING: at fs/sysfs/dir.c:529 sysfs_add_one+0xb0/0xd0()
-> [  150.572974] Hardware name: Bochs
-> [  150.580502] sysfs: cannot create duplicate filename '/devices/virtual/bluetooth/hci1'
-> [  150.584444] Pid: 7563, comm: trinity-child1 Tainted: G        W    3.4.0-next-20120524-sasha #296
-> [...]
+> Yes - 8192 solves our immediate problem, but I was worrying that the 
+> problem might resurface as ipv6 adoption becomes more widespread.
 > 
-> Instead of the weird logic and the attempt at keeping the device list sorted,
-> just use an IDA.
+
+Going from 4096 to 8192 is modest increase. If you put 65536, it should
+be enough for the next years.
+
+Your patch was increasing 4096 to 524288 (for 2GB of ram), which sounds
+not modest at all.
+
+> We were testing a pre-3.0 kernel that didn't have Dave's DST_NOCOUNT 
+> patch. Will retest with that patch applied.
+
+Good
+
 > 
-> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  net/bluetooth/hci_core.c |   30 ++++++++++++++++--------------
->  1 files changed, 16 insertions(+), 14 deletions(-)
+>  > More over, a boot parameter to tweak it is absolutely not needed
 > 
-> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-> index 9c586fb..eca6dd1 100644
-> --- a/net/bluetooth/hci_core.c
-> +++ b/net/bluetooth/hci_core.c
-> @@ -26,6 +26,7 @@
->  /* Bluetooth HCI core. */
->  
->  #include <linux/export.h>
-> +#include <linux/idr.h>
->  
->  #include <linux/rfkill.h>
->  
-> @@ -46,6 +47,9 @@ DEFINE_RWLOCK(hci_dev_list_lock);
->  LIST_HEAD(hci_cb_list);
->  DEFINE_RWLOCK(hci_cb_list_lock);
->  
-> +/* HCI ID Numbering */
-> +static DEFINE_IDA(hci_index_ida);
-> +
->  /* ---- HCI notifications ---- */
->  
->  static void hci_notify(struct hci_dev *hdev, int event)
-> @@ -1689,7 +1693,6 @@ EXPORT_SYMBOL(hci_free_dev);
->  /* Register HCI device */
->  int hci_register_dev(struct hci_dev *hdev)
->  {
-> -	struct list_head *head, *p;
->  	int id, error;
->  
->  	if (!hdev->open || !hdev->close)
-> @@ -1701,25 +1704,19 @@ int hci_register_dev(struct hci_dev *hdev)
->  	 * so the index can be used as the AMP controller ID.
->  	 */
->  	id = (hdev->dev_type == HCI_BREDR) ? 0 : 1;
-> -	head = &hci_dev_list;
->  
-> -	/* Find first available device id */
-> -	list_for_each(p, &hci_dev_list) {
-> -		int nid = list_entry(p, struct hci_dev, list)->id;
-> -		if (nid > id)
-> -			break;
-> -		if (nid == id)
-> -			id++;
-> -		head = p;
-> -	}
-> +	error = ida_simple_get(&hci_index_ida, id, 0, GFP_KERNEL);
-> +	if (error < 0)
-> +		return error;
->  
-> +	id = error;
+> Agreed. Will remove that part.
+> 
+> Still not sure why you'd like to go for one size regardless of 
+> totalram_pages.
 
-I do not really like this "error" thing here.
+Because size of IPv6 route table is not depending on RAM size, but on
+number or IPv6 routes.
 
-Why not something simple like this:
+A router runs a piece of software complex enough to be able to adjust
+the limit when needed, don't you think so ?
 
-	switch (hdev->dev_type) {
-	case HCI_BREDR:
-		id = ida_simple_get(&hci_index_ida, 0, 0, GFP_KERNEL);
-		break;
-	case HCI_AMP:
-		id = ida_simple_get(&hci_index_idx, 1, 0, GFP_KERNEL);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (id < 0)
-		return id;
-
-It would have the side effect to also check for valid dev_type at the
-same time.
-
-Or just just an extra variable start_id to avoid the "error" naming for
-what is expected to be a positive result in almost all cases.
-
->  	sprintf(hdev->name, "hci%d", id);
->  	hdev->id = id;
->  
->  	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
->  
-> -	list_add(&hdev->list, head);
-> -
-> +	write_lock(&hci_dev_list_lock);
-> +	list_add(&hdev->list, &hci_dev_list);
->  	write_unlock(&hci_dev_list_lock);
->  
->  	hdev->workqueue = alloc_workqueue(hdev->name, WQ_HIGHPRI | WQ_UNBOUND |
-> @@ -1755,6 +1752,7 @@ int hci_register_dev(struct hci_dev *hdev)
->  err_wqueue:
->  	destroy_workqueue(hdev->workqueue);
->  err:
-> +	ida_simple_remove(&hci_index_ida, hdev->id);
->  	write_lock(&hci_dev_list_lock);
->  	list_del(&hdev->list);
->  	write_unlock(&hci_dev_list_lock);
-> @@ -1766,12 +1764,14 @@ EXPORT_SYMBOL(hci_register_dev);
->  /* Unregister HCI device */
->  void hci_unregister_dev(struct hci_dev *hdev)
->  {
-> -	int i;
-> +	int i, id;
->  
->  	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
->  
->  	set_bit(HCI_UNREGISTER, &hdev->dev_flags);
->  
-> +	id = hdev->id;
-> +
->  	write_lock(&hci_dev_list_lock);
->  	list_del(&hdev->list);
->  	write_unlock(&hci_dev_list_lock);
-> @@ -1812,6 +1812,8 @@ void hci_unregister_dev(struct hci_dev *hdev)
->  	hci_dev_unlock(hdev);
->  
->  	hci_dev_put(hdev);
-> +
-> +	ida_simple_remove(&hci_index_ida, id);
->  }
->  EXPORT_SYMBOL(hci_unregister_dev);
->  
-
-Regards
-
-Marcel
+Your patch basically removes the whole idea of having a limit in the
+first place. Why do we have a limit if you set it to four order of
+magnitudes bigger than necessary ?
