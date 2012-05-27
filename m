@@ -1,65 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: compute a more reasonable default ip6_rt_max_size
-Date: Sun, 27 May 2012 15:18:28 +0200
-Message-ID: <1338124708.3670.11.camel@edumazet-glaptop>
-References: <4FC0063E.8080209@fb.com>
-	 <20120525.185131.2017517041016424794.davem@davemloft.net>
-	 <4FC01F1B.1080009@fb.com>
-	 <20120525.201150.1782581593120395710.davem@davemloft.net>
-	 <4FC02777.5070003@fb.com> <1338003580.10135.6.camel@edumazet-glaptop>
-	 <4FC1A57A.7080807@fb.com>
+Subject: Re: WARNING: at net/ipv4/tcp.c:1610 tcp_recvmsg+0xb1b/0xc70()
+Date: Sun, 27 May 2012 15:59:44 +0200
+Message-ID: <1338127184.3670.50.camel@edumazet-glaptop>
+References: <4FBFEACC.8040601@fastmail.fm>
+	 <1337978725.10135.0.camel@edumazet-glaptop>
+	 <1337979331.10135.2.camel@edumazet-glaptop>  <4FC0BCE1.6070601@fastmail.fm>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arun Sharma <asharma@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:32888 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750975Ab2E0NSd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2012 09:18:33 -0400
-In-Reply-To: <4FC1A57A.7080807@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Jack Stone <jwjstone@fastmail.fm>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FC0BCE1.6070601@fastmail.fm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-05-26 at 20:54 -0700, Arun Sharma wrote:
-> On 5/25/12 8:39 PM, Eric Dumazet wrote:
-> >
-> > But your patch is not a  "modest increase", so whats the deal ?
-> >
-> > A modest increase would be 8192 instead of 4096, regardless of RAM size.
-> >
+On Sat, 2012-05-26 at 12:22 +0100, Jack Stone wrote:
+
+> I'm still getting this with da89fb1 which includes the above
 > 
-> Yes - 8192 solves our immediate problem, but I was worrying that the 
-> problem might resurface as ipv6 adoption becomes more widespread.
-> 
+> Linux hover1 3.4.0-07797-gda89fb1 #4 SMP Fri May 25 22:23:14 BST 2012 x86_64 x86_64 x86_64 GNU/Linux
 
-Going from 4096 to 8192 is modest increase. If you put 65536, it should
-be enough for the next years.
+Thanks
 
-Your patch was increasing 4096 to 524288 (for 2GB of ram), which sounds
-not modest at all.
+Could you add following debugging patch ?
 
-> We were testing a pre-3.0 kernel that didn't have Dave's DST_NOCOUNT 
-> patch. Will retest with that patch applied.
-
-Good
-
-> 
->  > More over, a boot parameter to tweak it is absolutely not needed
-> 
-> Agreed. Will remove that part.
-> 
-> Still not sure why you'd like to go for one size regardless of 
-> totalram_pages.
-
-Because size of IPv6 route table is not depending on RAM size, but on
-number or IPv6 routes.
-
-A router runs a piece of software complex enough to be able to adjust
-the limit when needed, don't you think so ?
-
-Your patch basically removes the whole idea of having a limit in the
-first place. Why do we have a limit if you set it to four order of
-magnitudes bigger than necessary ?
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 3ba605f..b56c63c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1606,8 +1606,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			if (tcp_hdr(skb)->fin)
+ 				goto found_fin_ok;
+ 			WARN(!(flags & MSG_PEEK),
+-			     "recvmsg bug 2: copied %X seq %X rcvnxt %X fl %X\n",
+-			     *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt, flags);
++			     "recvmsg bug 2: copied %X seq %X end_seq %X rcvnxt %X fl %X offset %u len %u syn %d\n",
++			     *seq, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq,
++			     tp->rcv_nxt, flags, offset, skb->len, tcp_hdr(skb)->syn);
+ 		}
+ 
+ 		/* Well, if we have backlog, try to process it now yet. */
