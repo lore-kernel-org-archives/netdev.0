@@ -1,44 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at net/ipv4/tcp.c:1610 tcp_recvmsg+0xb1b/0xc70()
-Date: Sun, 27 May 2012 15:59:44 +0200
-Message-ID: <1338127184.3670.50.camel@edumazet-glaptop>
-References: <4FBFEACC.8040601@fastmail.fm>
-	 <1337978725.10135.0.camel@edumazet-glaptop>
-	 <1337979331.10135.2.camel@edumazet-glaptop>  <4FC0BCE1.6070601@fastmail.fm>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Jack Stone <jwjstone@fastmail.fm>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FC0BCE1.6070601@fastmail.fm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: [RFC] skb: avoid unnecessary reallocations in __skb_cow
+Date: Sun, 27 May 2012 17:26:10 +0200
+Message-ID: <1338132370-88299-1-git-send-email-nbd@openwrt.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:33211 "EHLO nbd.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750926Ab2E0P0Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 May 2012 11:26:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-05-26 at 12:22 +0100, Jack Stone wrote:
+At the beginning of __skb_cow, headroom gets set to a minimum of
+NET_SKB_PAD. This causes unnecessary reallocations if the buffer was not
+cloned and the headroom is just below NET_SKB_PAD, but still more than the
+amount requested by the caller.
+This was showing up frequently in my tests on VLAN tx, where
+vlan_insert_tag calls skb_cow_head(skb, VLAN_HLEN).
 
-> I'm still getting this with da89fb1 which includes the above
-> 
-> Linux hover1 3.4.0-07797-gda89fb1 #4 SMP Fri May 25 22:23:14 BST 2012 x86_64 x86_64 x86_64 GNU/Linux
+Fix this by only setting the headroom delta if either there is less
+headroom than specified by the caller, or if reallocation has to be done
+anyway because the skb was cloned.
 
-Thanks
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+---
+ include/linux/skbuff.h |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-Could you add following debugging patch ?
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 3ba605f..b56c63c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1606,8 +1606,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 			if (tcp_hdr(skb)->fin)
- 				goto found_fin_ok;
- 			WARN(!(flags & MSG_PEEK),
--			     "recvmsg bug 2: copied %X seq %X rcvnxt %X fl %X\n",
--			     *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt, flags);
-+			     "recvmsg bug 2: copied %X seq %X end_seq %X rcvnxt %X fl %X offset %u len %u syn %d\n",
-+			     *seq, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq,
-+			     tp->rcv_nxt, flags, offset, skb->len, tcp_hdr(skb)->syn);
- 		}
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 0e50171..1898471 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1894,12 +1894,15 @@ static inline int skb_clone_writable(const struct sk_buff *skb, unsigned int len
+ static inline int __skb_cow(struct sk_buff *skb, unsigned int headroom,
+ 			    int cloned)
+ {
++	unsigned int alloc_headroom = headroom;
+ 	int delta = 0;
  
- 		/* Well, if we have backlog, try to process it now yet. */
+ 	if (headroom < NET_SKB_PAD)
+-		headroom = NET_SKB_PAD;
+-	if (headroom > skb_headroom(skb))
+-		delta = headroom - skb_headroom(skb);
++		alloc_headroom = NET_SKB_PAD;
++	if (headroom > skb_headroom(skb) ||
++	    (cloned && alloc_headroom > skb_headroom(skb))) {
++		delta = alloc_headroom - skb_headroom(skb);
++	}
+ 
+ 	if (delta || cloned)
+ 		return pskb_expand_head(skb, ALIGN(delta, NET_SKB_PAD), 0,
+-- 
+1.7.3.2
