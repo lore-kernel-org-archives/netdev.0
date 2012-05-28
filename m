@@ -1,150 +1,36 @@
-From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2] Bluetooth: Really fix registering hci with duplicate name
-Date: Sun, 27 May 2012 22:36:56 +0200
-Message-ID: <1338151016-13494-1-git-send-email-levinsasha928@gmail.com>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING: at net/ipv4/tcp.c:1610 tcp_recvmsg+0xb1b/0xc70()
+Date: Mon, 28 May 2012 02:25:27 +0200
+Message-ID: <1338164727.2240.14.camel@edumazet-glaptop>
+References: <4FBFEACC.8040601@fastmail.fm>
+	 <1337978725.10135.0.camel@edumazet-glaptop>
+	 <1337979331.10135.2.camel@edumazet-glaptop> <4FC0BCE1.6070601@fastmail.fm>
+	 <1338127184.3670.50.camel@edumazet-glaptop> <4FC24987.4090708@fastmail.fm>
+	 <1338140156.3786.10.camel@edumazet-glaptop>  <4FC27CE7.20604@fastmail.fm>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Jack Stone <jwjstone@fastmail.fm>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:64654 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191Ab2E1AZd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2012 20:25:33 -0400
+In-Reply-To: <4FC27CE7.20604@fastmail.fm>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit fc50744 ("Bluetooth: Fix registering hci with duplicate name") didn't
-fully fix the duplicate naming issue with devices, and duplicate device names
-could still be created:
+On Sun, 2012-05-27 at 20:13 +0100, Jack Stone wrote:
 
-[  142.484097] device: 'hci1': device_add
-[...]
-[  150.545263] device: 'hci1': device_add
-[  150.550128] kobject: 'hci1' (ffff880014cc4e58): kobject_add_internal: parent: 'bluetooth', set: 'devices'
-[  150.558979] ------------[ cut here ]------------
-[  150.561438] WARNING: at fs/sysfs/dir.c:529 sysfs_add_one+0xb0/0xd0()
-[  150.572974] Hardware name: Bochs
-[  150.580502] sysfs: cannot create duplicate filename '/devices/virtual/bluetooth/hci1'
-[  150.584444] Pid: 7563, comm: trinity-child1 Tainted: G        W    3.4.0-next-20120524-sasha #296
-[...]
+> Could it be something to do with my staging network driver?
 
-Instead of the weird logic and the attempt at keeping the device list sorted,
-just use an IDA.
+drivers/staging/rtl8712/rtl8712_recv.c
 
-Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
+line 1096
 
-Changes from v1:
+precvframe->u.hdr.pkt = skb_clone(pskb, GFP_ATOMIC);
 
- - Address comments by Marcel.
- - Remove errornous mutex lock.
-
- net/bluetooth/hci_core.c |   41 ++++++++++++++++++++++++-----------------
- 1 files changed, 24 insertions(+), 17 deletions(-)
-
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 9c586fb..440329b 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -26,6 +26,7 @@
- /* Bluetooth HCI core. */
- 
- #include <linux/export.h>
-+#include <linux/idr.h>
- 
- #include <linux/rfkill.h>
- 
-@@ -46,6 +47,9 @@ DEFINE_RWLOCK(hci_dev_list_lock);
- LIST_HEAD(hci_cb_list);
- DEFINE_RWLOCK(hci_cb_list_lock);
- 
-+/* HCI ID Numbering */
-+static DEFINE_IDA(hci_index_ida);
-+
- /* ---- HCI notifications ---- */
- 
- static void hci_notify(struct hci_dev *hdev, int event)
-@@ -1689,37 +1693,35 @@ EXPORT_SYMBOL(hci_free_dev);
- /* Register HCI device */
- int hci_register_dev(struct hci_dev *hdev)
- {
--	struct list_head *head, *p;
- 	int id, error;
- 
- 	if (!hdev->open || !hdev->close)
- 		return -EINVAL;
- 
--	write_lock(&hci_dev_list_lock);
--
- 	/* Do not allow HCI_AMP devices to register at index 0,
- 	 * so the index can be used as the AMP controller ID.
- 	 */
--	id = (hdev->dev_type == HCI_BREDR) ? 0 : 1;
--	head = &hci_dev_list;
--
--	/* Find first available device id */
--	list_for_each(p, &hci_dev_list) {
--		int nid = list_entry(p, struct hci_dev, list)->id;
--		if (nid > id)
--			break;
--		if (nid == id)
--			id++;
--		head = p;
-+	switch (hdev->dev_type) {
-+	case HCI_BREDR:
-+		id = ida_simple_get(&hci_index_ida, 0, 0, GFP_KERNEL);
-+		break;
-+	case HCI_AMP:
-+		id = ida_simple_get(&hci_index_ida, 1, 0, GFP_KERNEL);
-+		break;
-+	default:
-+		return -EINVAL;
- 	}
- 
-+	if (id < 0)
-+		return id;
-+
- 	sprintf(hdev->name, "hci%d", id);
- 	hdev->id = id;
- 
- 	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
- 
--	list_add(&hdev->list, head);
--
-+	write_lock(&hci_dev_list_lock);
-+	list_add(&hdev->list, &hci_dev_list);
- 	write_unlock(&hci_dev_list_lock);
- 
- 	hdev->workqueue = alloc_workqueue(hdev->name, WQ_HIGHPRI | WQ_UNBOUND |
-@@ -1755,6 +1757,7 @@ int hci_register_dev(struct hci_dev *hdev)
- err_wqueue:
- 	destroy_workqueue(hdev->workqueue);
- err:
-+	ida_simple_remove(&hci_index_ida, hdev->id);
- 	write_lock(&hci_dev_list_lock);
- 	list_del(&hdev->list);
- 	write_unlock(&hci_dev_list_lock);
-@@ -1766,12 +1769,14 @@ EXPORT_SYMBOL(hci_register_dev);
- /* Unregister HCI device */
- void hci_unregister_dev(struct hci_dev *hdev)
- {
--	int i;
-+	int i, id;
- 
- 	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
- 
- 	set_bit(HCI_UNREGISTER, &hdev->dev_flags);
- 
-+	id = hdev->id;
-+
- 	write_lock(&hci_dev_list_lock);
- 	list_del(&hdev->list);
- 	write_unlock(&hci_dev_list_lock);
-@@ -1812,6 +1817,8 @@ void hci_unregister_dev(struct hci_dev *hdev)
- 	hci_dev_unlock(hdev);
- 
- 	hci_dev_put(hdev);
-+
-+	ida_simple_remove(&hci_index_ida, id);
- }
- EXPORT_SYMBOL(hci_unregister_dev);
- 
--- 
-1.7.8.6
+This looks very wrong.
+Make sure you never _never_ hit this path.
