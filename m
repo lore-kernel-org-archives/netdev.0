@@ -1,67 +1,71 @@
-From: Boaz Harrosh <bharrosh-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 4/5] NFS: remove RPC PipeFS mount point reference from
- blocklayout routines
-Date: Mon, 28 May 2012 14:43:53 +0300
-Message-ID: <4FC364F9.4090308@panasas.com>
-References: <20111129090754.20730.64567.stgit@localhost6.localdomain6> <20111129091037.20730.59391.stgit@localhost6.localdomain6> <F19688880B763E40B28B2B462677FBF805E3A4AFF2@MX09A.corp.emc.com> <4ED4CDCE.9080804@parallels.com> <F19688880B763E40B28B2B462677FBF805E3A4AFFD@MX09A.corp.emc.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430C3CBC23@SACMVEXC2-PRD.hq.netapp.com> <CA+a=Yy5GKMu8rbh8y3fOtK6pmqygPNBr=a+p7LfcmTqtXFH3iA@mail.gmail.com> <1322579906.3619.1.camel@lade.trondhjem.org> <CA+a=Yy6kJe0NemSiRwM+t8gz5-UF5fOdwdS2so+q=nSYjBx--w@mail.gmail.com> <1322584830.4174.16.camel@lade.trondhjem.org> <20111129164252.GA19528@fieldses.org> <1322587165.4174.20.camel@lade.trondhjem.org> <CA+a=Yy4bEKaeUihjYLRzXVbjA3fc2EuZ3ToAkf0w-oL3PnZJKQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, <tao.peng-mb1K0bWo544@public.gmane.org>,
-	<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <neilb-l3A5Bk7waGM@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	Steve Dickson <steved-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Peng Tao <bergwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+a=Yy4bEKaeUihjYLRzXVbjA3fc2EuZ3ToAkf0w-oL3PnZJKQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Devendra Naga <devendra.aaru@gmail.com>
+Subject: [PATCH] r6040: disable pci device if the subsequent calls (after pci_enable_device) fails
+Date: Mon, 28 May 2012 17:27:03 +0530
+Message-ID: <1338206223-26781-1-git-send-email-devendra.aaru@gmail.com>
+Cc: Devendra Naga <devendra.aaru@gmail.com>
+To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:53052 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752392Ab2E1L5K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2012 07:57:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2011 07:30 PM, Peng Tao wrote:
+the calls after the pci_enable_device may fail, and will error out with out
+disabling it. disable the device at error paths.
 
-> On Wed, Nov 30, 2011 at 1:19 AM, Trond Myklebust
-> <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org> wrote:
->> On Tue, 2011-11-29 at 11:42 -0500, J. Bruce Fields wrote:
->>> On Tue, Nov 29, 2011 at 11:40:30AM -0500, Trond Myklebust wrote:
->>>> I mean that I'm perfectly entitled to do
->>>>
->>>> 'modprobe -r blocklayoutdriver'
->>>>
->>>> and when I do that, then I expect blkmapd to close the rpc pipe and wait
->>>> for a new one to be created just like rpc.idmapd and rpc.gssd do when I
->>>> remove the nfs and sunrpc modules.
->>>
->>> The rpc pipefs mount doesn't hold a reference on the sunrpc module?
->>
->> I stand corrected: the mount does hold a reference to the sunrpc
->> module.
->> However nothing holds a reference to the blocklayoutdriver module, so
->> the main point that the "blocklayout" pipe can disappear from underneath
->> the blkmapd stands.
-> Thanks for the explanation and I agree it can cause problem if user
-> reload blocklayout module. I will look into a fix to blkmapd.
-> 
+Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
+---
+ drivers/net/ethernet/rdc/r6040.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-
-You might want to consider converting to call_usermodehelper()
-
-I know that it greatly simplified our code both in Kernel and
-in user-mode. And it made nfs-utils maintainer much happier
-as well.
-
-The speed is not Cardinal here I think. Like in objects it's
-done once per new device_id
-
-> Best,
-> Tao
-
-
-Just my $0.017
-Boaz
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 4de7364..8f5079a 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1096,20 +1096,20 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	if (err) {
+ 		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
+ 				"not supported by the card\n");
+-		goto err_out;
++		goto err_out_disable_dev;
+ 	}
+ 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (err) {
+ 		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
+ 				"not supported by the card\n");
+-		goto err_out;
++		goto err_out_disable_dev;
+ 	}
+ 
+ 	/* IO Size check */
+ 	if (pci_resource_len(pdev, bar) < io_size) {
+ 		dev_err(&pdev->dev, "Insufficient PCI resources, aborting\n");
+ 		err = -EIO;
+-		goto err_out;
++		goto err_out_disable_dev;
+ 	}
+ 
+ 	pci_set_master(pdev);
+@@ -1117,7 +1117,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	dev = alloc_etherdev(sizeof(struct r6040_private));
+ 	if (!dev) {
+ 		err = -ENOMEM;
+-		goto err_out;
++		goto err_out_disable_dev;
+ 	}
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	lp = netdev_priv(dev);
+@@ -1238,6 +1238,8 @@ err_out_free_res:
+ 	pci_release_regions(pdev);
+ err_out_free_dev:
+ 	free_netdev(dev);
++err_out_disable_dev:
++	pci_disable_device(dev);
+ err_out:
+ 	return err;
+ }
+-- 
+1.7.9.5
