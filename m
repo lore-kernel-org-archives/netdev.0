@@ -1,45 +1,54 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] xen/netback: Calculate the number of SKB slots required
- correctly
-Date: Mon, 28 May 2012 09:42:08 +0100
-Message-ID: <1338194528.14158.26.camel@zakaz.uk.xensource.com>
-References: <1337876767-16041-1-git-send-email-simon.graham@citrix.com>
-	 <20120524.162117.2167559109226305167.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 01/17] netfilter: add struct nf_proto_net for register
+ l4proto sysctl
+Date: Mon, 28 May 2012 11:53:02 +0200
+Message-ID: <20120528095302.GA10379@1984>
+References: <1336985547-31960-2-git-send-email-gaofeng@cn.fujitsu.com>
+ <20120523101200.GA2836@1984>
+ <4FBD9076.6060309@cn.fujitsu.com>
+ <20120524095859.GC13091@1984>
+ <4FBE1372.60206@cn.fujitsu.com>
+ <20120524143854.GA15898@1984>
+ <4FBEDADE.8040905@cn.fujitsu.com>
+ <20120525025451.GA21076@1984>
+ <4FBF207D.80809@cn.fujitsu.com>
+ <4FC03FD1.2050408@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Simon Graham <simon.graham@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"adnan.misherfi@oracle.com" <adnan.misherfi@oracle.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:8389 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264Ab2E1ImL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2012 04:42:11 -0400
-In-Reply-To: <20120524.162117.2167559109226305167.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	serge.hallyn@canonical.com, ebiederm@xmission.com,
+	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitus.com>
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4FC03FD1.2050408@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-05-24 at 21:21 +0100, David Miller wrote:
-> From: Simon Graham <simon.graham@citrix.com>
-> Date: Thu, 24 May 2012 12:26:07 -0400
-> 
-> > When calculating the number of slots required for a packet header, the code
-> > was reserving too many slots if the header crossed a page boundary. Since
-> > netbk_gop_skb copies the header to the start of the page, the count of
-> > slots required for the header should be based solely on the header size.
-> > 
-> > This problem is easy to reproduce if a VIF is bridged to a USB 3G modem
-> > device as the skb->data value always starts near the end of the first page.
-> > 
-> > Signed-off-by: Simon Graham <simon.graham@citrix.com>
-> 
-> Applied.
+On Sat, May 26, 2012 at 10:28:33AM +0800, Gao feng wrote:
+> =E4=BA=8E 2012=E5=B9=B405=E6=9C=8825=E6=97=A5 14:02, Gao feng =E5=86=99=
+=E9=81=93:
+> > =E4=BA=8E 2012=E5=B9=B405=E6=9C=8825=E6=97=A5 10:54, Pablo Neira Ay=
+uso =E5=86=99=E9=81=93:
+[...]
+> >> Could you resolve this by checking pn->ctl_compat_header !=3D NULL=
+ ?
+> >=20
+> > pn->ctl_table_header and ctl_compat_header is shared by l4proto_tcp=
+ and l4proto_tcp6.
+> > if we both register l4proto_tcp and l4proto_tcp6, when unregister l=
+4proto_tcp6
+> > pn->ctl_compat_header must not be NULL.
+> >=20
+>=20
+> Maybe we can resolve this by  nf_conntrack_l4proto.l3proto =3D=3D AF_=
+INET &&  pn->ctl_compat_header !=3D NULL
+> Because compat sysctl is registered by AF_INET's proto only.
 
-Thanks both!
-
-Ian.
+OK, as soon as it can remove the compat field, I prefer it.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
