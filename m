@@ -1,71 +1,75 @@
-From: Devendra Naga <devendra.aaru@gmail.com>
-Subject: [PATCH] r6040: disable pci device if the subsequent calls (after pci_enable_device) fails
-Date: Mon, 28 May 2012 17:27:03 +0530
-Message-ID: <1338206223-26781-1-git-send-email-devendra.aaru@gmail.com>
-Cc: Devendra Naga <devendra.aaru@gmail.com>
-To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: [RFC PATCH 2/2] tcp: Early SYN limit and SYN cookie handling to
+	mitigate SYN floods
+Date: Mon, 28 May 2012 13:52:26 +0200
+Message-ID: <20120528115226.12068.31850.stgit@localhost.localdomain>
+References: <20120528115102.12068.79994.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, opurdila@ixiacom.com,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	Christoph Paasch <christoph.paasch@uclouvain.be>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Martin Topholm <mph@hoth.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:53052 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752392Ab2E1L5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2012 07:57:10 -0400
+Received: from 0304ds2-fs.1.fullrate.dk ([89.150.128.48]:14371 "EHLO
+	firesoul.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753125Ab2E1L7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2012 07:59:12 -0400
+In-Reply-To: <20120528115102.12068.79994.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the calls after the pci_enable_device may fail, and will error out with out
-disabling it. disable the device at error paths.
+TCP SYN handling is on the slow path via tcp_v4_rcv(), and is
+performed while holding spinlock bh_lock_sock().
 
-Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
+Real-life and testlab experiments show, that the kernel choks
+when reaching 130Kpps SYN floods (powerful Nehalem 16 cores).
+Measuring with perf reveals, that its caused by
+bh_lock_sock_nested() call in tcp_v4_rcv().
+
+With this patch, the machine can handle 750Kpps (max of the SYN
+flood generator) with cycles to spare, CPU load on the big machine
+dropped to 1%, from 100%.
+
+Notice we only handle syn cookie early on, normal SYN packets
+are still processed under the bh_lock_sock().
+
+Signed-off-by: Martin Topholm <mph@hoth.dk>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- drivers/net/ethernet/rdc/r6040.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
-index 4de7364..8f5079a 100644
---- a/drivers/net/ethernet/rdc/r6040.c
-+++ b/drivers/net/ethernet/rdc/r6040.c
-@@ -1096,20 +1096,20 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	if (err) {
- 		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
- 				"not supported by the card\n");
--		goto err_out;
-+		goto err_out_disable_dev;
- 	}
- 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
- 	if (err) {
- 		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
- 				"not supported by the card\n");
--		goto err_out;
-+		goto err_out_disable_dev;
- 	}
+ net/ipv4/tcp_ipv4.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 15958b2..7480fc2 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1386,8 +1386,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		goto drop;
  
- 	/* IO Size check */
- 	if (pci_resource_len(pdev, bar) < io_size) {
- 		dev_err(&pdev->dev, "Insufficient PCI resources, aborting\n");
- 		err = -EIO;
--		goto err_out;
-+		goto err_out_disable_dev;
- 	}
+ 	/* SYN cookie handling */
+-	if (tcp_v4_syn_conn_limit(sk, skb))
+-		goto drop;
++//	if (tcp_v4_syn_conn_limit(sk, skb))
++//		goto drop;
  
- 	pci_set_master(pdev);
-@@ -1117,7 +1117,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	dev = alloc_etherdev(sizeof(struct r6040_private));
- 	if (!dev) {
- 		err = -ENOMEM;
--		goto err_out;
-+		goto err_out_disable_dev;
- 	}
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	lp = netdev_priv(dev);
-@@ -1238,6 +1238,8 @@ err_out_free_res:
- 	pci_release_regions(pdev);
- err_out_free_dev:
- 	free_netdev(dev);
-+err_out_disable_dev:
-+	pci_disable_device(dev);
- err_out:
- 	return err;
- }
--- 
-1.7.9.5
+ 	req = inet_reqsk_alloc(&tcp_request_sock_ops);
+ 	if (!req)
+@@ -1795,6 +1795,12 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	if (!sk)
+ 		goto no_tcp_socket;
+ 
++	/* Early and parallel SYN limit check, that sends syncookies */
++	if (sk->sk_state == TCP_LISTEN && th->syn && !th->ack && !th->fin) {
++		if (tcp_v4_syn_conn_limit(sk, skb))
++			goto discard_and_relse;
++	}
++
+ process:
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+ 		goto do_time_wait;
