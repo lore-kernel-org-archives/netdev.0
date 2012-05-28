@@ -1,36 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING: at net/ipv4/tcp.c:1610 tcp_recvmsg+0xb1b/0xc70()
-Date: Mon, 28 May 2012 02:25:27 +0200
-Message-ID: <1338164727.2240.14.camel@edumazet-glaptop>
-References: <4FBFEACC.8040601@fastmail.fm>
-	 <1337978725.10135.0.camel@edumazet-glaptop>
-	 <1337979331.10135.2.camel@edumazet-glaptop> <4FC0BCE1.6070601@fastmail.fm>
-	 <1338127184.3670.50.camel@edumazet-glaptop> <4FC24987.4090708@fastmail.fm>
-	 <1338140156.3786.10.camel@edumazet-glaptop>  <4FC27CE7.20604@fastmail.fm>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH v2] Bluetooth: Really fix registering hci with duplicate
+ name
+Date: Mon, 28 May 2012 05:47:48 +0200
+Message-ID: <1338176868.15105.113.camel@aeonflux>
+References: <1338151016-13494-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Jack Stone <jwjstone@fastmail.fm>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:64654 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191Ab2E1AZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 May 2012 20:25:33 -0400
-In-Reply-To: <4FC27CE7.20604@fastmail.fm>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gustavo@padovan.org, johan.hedberg@gmail.com, davem@davemloft.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1338151016-13494-1-git-send-email-levinsasha928@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-05-27 at 20:13 +0100, Jack Stone wrote:
+Hi Sasha,
 
-> Could it be something to do with my staging network driver?
+> Commit fc50744 ("Bluetooth: Fix registering hci with duplicate name") didn't
+> fully fix the duplicate naming issue with devices, and duplicate device names
+> could still be created:
+> 
+> [  142.484097] device: 'hci1': device_add
+> [...]
+> [  150.545263] device: 'hci1': device_add
+> [  150.550128] kobject: 'hci1' (ffff880014cc4e58): kobject_add_internal: parent: 'bluetooth', set: 'devices'
+> [  150.558979] ------------[ cut here ]------------
+> [  150.561438] WARNING: at fs/sysfs/dir.c:529 sysfs_add_one+0xb0/0xd0()
+> [  150.572974] Hardware name: Bochs
+> [  150.580502] sysfs: cannot create duplicate filename '/devices/virtual/bluetooth/hci1'
+> [  150.584444] Pid: 7563, comm: trinity-child1 Tainted: G        W    3.4.0-next-20120524-sasha #296
+> [...]
+> 
+> Instead of the weird logic and the attempt at keeping the device list sorted,
+> just use an IDA.
+> 
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> ---
+> 
+> Changes from v1:
+> 
+>  - Address comments by Marcel.
+>  - Remove errornous mutex lock.
+> 
+>  net/bluetooth/hci_core.c |   41 ++++++++++++++++++++++++-----------------
+>  1 files changed, 24 insertions(+), 17 deletions(-)
 
-drivers/staging/rtl8712/rtl8712_recv.c
+thanks for addressing this. Patch has been applied to bluetooth-next
+tree.
 
-line 1096
+Regards
 
-precvframe->u.hdr.pkt = skb_clone(pskb, GFP_ATOMIC);
-
-This looks very wrong.
-Make sure you never _never_ hit this path.
+Marcel
