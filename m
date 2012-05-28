@@ -1,55 +1,55 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH v2] Bluetooth: Really fix registering hci with duplicate
- name
-Date: Mon, 28 May 2012 05:47:48 +0200
-Message-ID: <1338176868.15105.113.camel@aeonflux>
-References: <1338151016-13494-1-git-send-email-levinsasha928@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net] stmmac: fix driver Kconfig when built as module
+Date: Mon, 28 May 2012 07:44:40 +0200
+Message-ID: <4FC310C8.3000300@st.com>
+References: <1337672336-7378-2-git-send-email-lliubbo@gmail.com> <1337753142-13762-1-git-send-email-peppe.cavallaro@st.com> <20120523.140139.197296963542601285.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: gustavo@padovan.org, johan.hedberg@gmail.com, davem@davemloft.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1338151016-13494-1-git-send-email-levinsasha928@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	lliubbo@gmail.com, rayagond@vayavyalabs.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:57376 "EHLO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752210Ab2E1FpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 May 2012 01:45:11 -0400
+In-Reply-To: <20120523.140139.197296963542601285.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sasha,
+On 5/23/2012 8:01 PM, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Wed, 23 May 2012 08:05:42 +0200
+> 
+>> This patches fixes the driver when built as dyn module.
+>> In fact the platform part cannot be built and the probe fails
+>> (thanks to Bob Liu that reported this bug).
+>> The patch also makes the selection of Platform and PCI parts
+>> mutually exclusive.
+>>
+>> Reported-by: Bob Liu <lliubbo@gmail.com>
+>> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+> 
+> We have drivers which support both OF (which is implemented as
+> platform bus) and PCI at the same time.  For example,
+> drivers/net/ethernet/sun/niu.c
+> 
+> I do not see why stmmac cannot support both at the same time as well.
+> 
+> I absolutely do not want such segregation unless it is absolutely
+> necessary.  Because it means that no matter what is choosen, a piece
+> of code is disabled and therefore not getting build and/or runtime
+> validation.
 
-> Commit fc50744 ("Bluetooth: Fix registering hci with duplicate name") didn't
-> fully fix the duplicate naming issue with devices, and duplicate device names
-> could still be created:
-> 
-> [  142.484097] device: 'hci1': device_add
-> [...]
-> [  150.545263] device: 'hci1': device_add
-> [  150.550128] kobject: 'hci1' (ffff880014cc4e58): kobject_add_internal: parent: 'bluetooth', set: 'devices'
-> [  150.558979] ------------[ cut here ]------------
-> [  150.561438] WARNING: at fs/sysfs/dir.c:529 sysfs_add_one+0xb0/0xd0()
-> [  150.572974] Hardware name: Bochs
-> [  150.580502] sysfs: cannot create duplicate filename '/devices/virtual/bluetooth/hci1'
-> [  150.584444] Pid: 7563, comm: trinity-child1 Tainted: G        W    3.4.0-next-20120524-sasha #296
-> [...]
-> 
-> Instead of the weird logic and the attempt at keeping the device list sorted,
-> just use an IDA.
-> 
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> ---
-> 
-> Changes from v1:
-> 
->  - Address comments by Marcel.
->  - Remove errornous mutex lock.
-> 
->  net/bluetooth/hci_core.c |   41 ++++++++++++++++++++++++-----------------
->  1 files changed, 24 insertions(+), 17 deletions(-)
-
-thanks for addressing this. Patch has been applied to bluetooth-next
-tree.
+Ok, I'll review it and resend all the patches asap.
 
 Regards
+Peppe
 
-Marcel
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
