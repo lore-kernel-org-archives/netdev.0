@@ -1,118 +1,168 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 07/15] netfilter: add namespace support for l4proto_icmpv6
-Date: Tue, 29 May 2012 15:04:15 +0800
-Message-ID: <1338275063-11711-8-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 13/15] netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
+Date: Tue, 29 May 2012 15:04:21 +0800
+Message-ID: <1338275063-11711-14-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	serge.hallyn@canonical.com, ebiederm@xmission.com,
 	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:42128 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753146Ab2E2HiB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 May 2012 03:38:01 -0400
 In-Reply-To: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-implement icmpv6_init_net is to initial the pernet data for
-icmpv6 proto.
+move the nf_conntrack_l4proto_register from module_init to
+proto_gre_net_ops.init.
 
-because nf_icmp_net is a field of netns_ct,so when proto is icmpv6,
-return net->ct.proto.icmpv6 in function nf_ct_l4proto_net.
+and use gre_pernet to replace net_generic.
+
+because gre proto has no sysctl,so only need to initial pernet data
+for gre proto.
 
 Acked-by: Eric W. Biederman <ebiederm@xmission.com>
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- include/net/netns/conntrack.h                  |    1 +
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   25 ++++++++++++++++++++++-
- net/netfilter/nf_conntrack_proto.c             |    2 +
- 3 files changed, 26 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_proto_gre.c |   56 ++++++++++++++++++++------------
+ 1 files changed, 35 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index 3d8e9e3..3aecdc7 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -55,6 +55,7 @@ struct nf_ip_net {
- 	struct nf_tcp_net	tcp;
- 	struct nf_udp_net	udp;
- 	struct nf_icmp_net	icmp;
-+	struct nf_icmp_net	icmpv6;
- #if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
- 	struct ctl_table_header *ctl_table_header;
- 	struct ctl_table	*ctl_table;
-diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-index 3e81904..f606355 100644
---- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-@@ -29,6 +29,11 @@
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index 132f0d2..d72d3ff 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -54,13 +54,20 @@ static unsigned int gre_timeouts[GRE_CT_MAX] = {
  
- static unsigned int nf_ct_icmpv6_timeout __read_mostly = 30*HZ;
+ static int proto_gre_net_id __read_mostly;
+ struct netns_proto_gre {
++	struct nf_proto_net	nf;
+ 	rwlock_t		keymap_lock;
+ 	struct list_head	keymap_list;
++	unsigned int		gre_timeouts[GRE_CT_MAX];
+ };
  
-+static inline struct nf_icmp_net *icmpv6_pernet(struct net *net)
++static inline struct netns_proto_gre *gre_pernet(struct net *net)
 +{
-+	return &net->ct.nf_ct_proto.icmpv6;
++	return net_generic(net, proto_gre_net_id);
 +}
 +
- static bool icmpv6_pkt_to_tuple(const struct sk_buff *skb,
- 				unsigned int dataoff,
- 				struct nf_conntrack_tuple *tuple)
-@@ -90,7 +95,7 @@ static int icmpv6_print_tuple(struct seq_file *s,
- 
- static unsigned int *icmpv6_get_timeouts(struct net *net)
+ void nf_ct_gre_keymap_flush(struct net *net)
  {
--	return &nf_ct_icmpv6_timeout;
-+	return &icmpv6_pernet(net)->timeout;
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_ct_gre_keymap *km, *tmp;
+ 
+ 	write_lock_bh(&net_gre->keymap_lock);
+@@ -85,7 +92,7 @@ static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
+ /* look up the source key for a given tuple */
+ static __be16 gre_keymap_lookup(struct net *net, struct nf_conntrack_tuple *t)
+ {
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_ct_gre_keymap *km;
+ 	__be16 key = 0;
+ 
+@@ -109,7 +116,7 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
+ 			 struct nf_conntrack_tuple *t)
+ {
+ 	struct net *net = nf_ct_net(ct);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_conn_help *help = nfct_help(ct);
+ 	struct nf_ct_gre_keymap **kmp, *km;
+ 
+@@ -150,7 +157,7 @@ EXPORT_SYMBOL_GPL(nf_ct_gre_keymap_add);
+ void nf_ct_gre_keymap_destroy(struct nf_conn *ct)
+ {
+ 	struct net *net = nf_ct_net(ct);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_conn_help *help = nfct_help(ct);
+ 	enum ip_conntrack_dir dir;
+ 
+@@ -237,7 +244,7 @@ static int gre_print_conntrack(struct seq_file *s, struct nf_conn *ct)
+ 
+ static unsigned int *gre_get_timeouts(struct net *net)
+ {
+-	return gre_timeouts;
++	return gre_pernet(net)->gre_timeouts;
  }
  
- /* Returns verdict for packet, or -1 for invalid. */
-@@ -319,7 +324,6 @@ static struct ctl_table_header *icmpv6_sysctl_header;
- static struct ctl_table icmpv6_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_icmpv6_timeout",
--		.data		= &nf_ct_icmpv6_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -328,6 +332,22 @@ static struct ctl_table icmpv6_sysctl_table[] = {
+ /* Returns verdict for packet, and may modify conntrack */
+@@ -339,6 +346,18 @@ gre_timeout_nla_policy[CTA_TIMEOUT_GRE_MAX+1] = {
  };
- #endif /* CONFIG_SYSCTL */
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
  
-+static int icmpv6_init_net(struct net *net)
++static int gre_init_net(struct net *net)
 +{
-+	struct nf_icmp_net *in = icmpv6_pernet(net);
-+	struct nf_proto_net *pn = (struct nf_proto_net *)in;
-+	in->timeout = nf_ct_icmpv6_timeout;
-+#ifdef CONFIG_SYSCTL
-+	pn->ctl_table = kmemdup(icmpv6_sysctl_table,
-+				sizeof(icmpv6_sysctl_table),
-+				GFP_KERNEL);
-+	if (!pn->ctl_table)
-+		return -ENOMEM;
-+	pn->ctl_table[0].data = &in->timeout;
-+#endif
++	int i;
++	struct netns_proto_gre *net_gre = gre_pernet(net);
++
++	rwlock_init(&net_gre->keymap_lock);
++	INIT_LIST_HEAD(&net_gre->keymap_list);
++	for (i = 0; i < GRE_CT_MAX; i++)
++		net_gre->gre_timeouts[i] = gre_timeouts[i];
 +	return 0;
 +}
 +
- struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6 __read_mostly =
- {
- 	.l3proto		= PF_INET6,
-@@ -359,4 +379,5 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6 __read_mostly =
- 	.ctl_table_header	= &icmpv6_sysctl_header,
- 	.ctl_table		= icmpv6_sysctl_table,
- #endif
-+	.init_net		= icmpv6_init_net,
+ /* protocol helper struct */
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
+ 	.l3proto	 = AF_INET,
+@@ -368,20 +387,24 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
+ 		.nla_policy	= gre_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
++	.net_id		= &proto_gre_net_id,
++	.init_net	= gre_init_net,
  };
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 1bea0ed..8a18e2e 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -308,6 +308,8 @@ static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
- 		return (struct nf_proto_net *)&net->ct.nf_ct_proto.udp;
- 	case IPPROTO_ICMP:
- 		return (struct nf_proto_net *)&net->ct.nf_ct_proto.icmp;
-+	case IPPROTO_ICMPV6:
-+		return (struct nf_proto_net *)&net->ct.nf_ct_proto.icmpv6;
- 	case 255: /* l4proto_generic */
- 		return (struct nf_proto_net *)&net->ct.nf_ct_proto.generic;
- 	default:
+ 
+ static int proto_gre_net_init(struct net *net)
+ {
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
+-
+-	rwlock_init(&net_gre->keymap_lock);
+-	INIT_LIST_HEAD(&net_gre->keymap_list);
+-
+-	return 0;
++	int ret = 0;
++	ret = nf_conntrack_l4proto_register(net,
++					    &nf_conntrack_l4proto_gre4);
++	if (ret < 0)
++		pr_err("nf_conntrack_l4proto_gre4 :protocol register failed.\n");
++	return ret;
+ }
+ 
+ static void proto_gre_net_exit(struct net *net)
+ {
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_gre4);
+ 	nf_ct_gre_keymap_flush(net);
+ }
+ 
+@@ -394,20 +417,11 @@ static struct pernet_operations proto_gre_net_ops = {
+ 
+ static int __init nf_ct_proto_gre_init(void)
+ {
+-	int rv;
+-
+-	rv = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_gre4);
+-	if (rv < 0)
+-		return rv;
+-	rv = register_pernet_subsys(&proto_gre_net_ops);
+-	if (rv < 0)
+-		nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_gre4);
+-	return rv;
++	return register_pernet_subsys(&proto_gre_net_ops);
+ }
+ 
+ static void __exit nf_ct_proto_gre_fini(void)
+ {
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_gre4);
+ 	unregister_pernet_subsys(&proto_gre_net_ops);
+ }
+ 
 -- 
 1.7.7.6
-
