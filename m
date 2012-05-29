@@ -1,32 +1,52 @@
 From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: [PATCH v5 1/6] net: sh_eth: remove unnecessary function
-Date: Tue, 29 May 2012 17:47:05 +0900
-Message-ID: <4FC48D09.3010705@renesas.com>
-References: <4FC48570.8040204@renesas.com>
- <20120529.041711.866739766279184452.davem@davemloft.net>
+Subject: [PATCH] net: sh_eth: fix the rxdesc pointer when rx descriptor empty
+ happens
+Date: Tue, 29 May 2012 18:07:55 +0900
+Message-ID: <4FC491EB.4040002@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: SH-Linux <linux-sh@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <linux-sh-owner@vger.kernel.org>
-In-reply-to: <20120529.041711.866739766279184452.davem@davemloft.net>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2012/05/29 17:17, David Miller wrote:
-> 
-> It is not appropriate to submit cleanups and feature additions for the
-> 'net-next' tree at this time.  That is only valid when I open the
-> net-next tree back up which will be shortly after the merge window
-> closes.
-> 
-> If you have bug fixes to submit for the 'net' tree, you must split
-> them off from these cleanups and submit them seperately.
+When Receive Descriptor Empty happens, rxdesc pointer of the driver
+and actual next descriptor of the controller may be mismatch.
+This patch fixes it.
 
-I understood it. The "PATCH 3/6" is a bug fix. So, I will submit it
-first for the "net" tree.
-After the merge window closes I will submit other patches.
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+---
+ drivers/net/ethernet/renesas/sh_eth.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-Best regards,
-Yoshihiro Shimoda
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index be3c221..667169b 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1101,8 +1101,12 @@ static int sh_eth_rx(struct net_device *ndev)
+
+ 	/* Restart Rx engine if stopped. */
+ 	/* If we don't need to check status, don't. -KDU */
+-	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R))
++	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
++		/* fix the values for the next receiving */
++		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
++					       sh_eth_read(ndev, RDLAR)) >> 4;
+ 		sh_eth_write(ndev, EDRRR_R, EDRRR);
++	}
+
+ 	return 0;
+ }
+@@ -1199,8 +1203,6 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
+ 		/* Receive Descriptor Empty int */
+ 		ndev->stats.rx_over_errors++;
+
+-		if (sh_eth_read(ndev, EDRRR) ^ EDRRR_R)
+-			sh_eth_write(ndev, EDRRR_R, EDRRR);
+ 		if (netif_msg_rx_err(mdp))
+ 			dev_err(&ndev->dev, "Receive Descriptor Empty\n");
+ 	}
+-- 
+1.7.1
