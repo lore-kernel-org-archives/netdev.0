@@ -1,40 +1,68 @@
-From: "devendra.aaru" <devendra.aaru@gmail.com>
-Subject: Re: [PATCH] r6040: disable pci device if the subsequent calls (after
- pci_enable_device) fails
-Date: Wed, 30 May 2012 05:04:57 +0530
-Message-ID: <CAHdPZaOsMKHzT_JGnHtJE11ibtzb-hbHVp=tmuv_nL6Dnamwyw@mail.gmail.com>
-References: <1338333250-11974-1-git-send-email-devendra.aaru@gmail.com>
-	<20120529.191810.2141710455829509698.davem@davemloft.net>
-	<CAHdPZaMfSKRzT4MN-5g3c1bOah4CB80aWyVhGKu1Z5AXTj2uTw@mail.gmail.com>
-	<20120529.192438.1186076504142998357.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: florian@openwrt.org, netdev@vger.kernel.org,
+From: Devendra Naga <devendra.aaru@gmail.com>
+Subject: [PATCH V2 1/2] r6040: disable pci device if the subsequent calls (after pci_enable_device) fails
+Date: Wed, 30 May 2012 05:08:42 +0530
+Message-ID: <1338334722-14730-1-git-send-email-devendra.aaru@gmail.com>
+Cc: Devendra Naga <devendra.aaru@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120529.192438.1186076504142998357.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+the calls after the pci_enable_device may fail, and will error out with out
+disabling it. disable the device at error paths.
 
-On Wed, May 30, 2012 at 4:54 AM, David Miller <davem@davemloft.net> wrote:
-> From: "devendra.aaru" <devendra.aaru@gmail.com>
-> Date: Wed, 30 May 2012 04:52:08 +0530
->
->> Hello David,
->>
->>
->> OK, so may i put these two changes into one and send it? or you want
->> it to be two patches?
->
-> It's up to you.
+Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
+---
+ drivers/net/ethernet/rdc/r6040.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-OK, i will be sending two patches shortly(with sequence numbers (git
-format-patch -s -n)).
-
-This time i have done compile testing and got no warnings.
-
-Thanks,
-Devendra.
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 4de7364..f5e6f1f 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1096,20 +1096,20 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	if (err) {
+ 		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
+ 				"not supported by the card\n");
+-		goto err_out;
++		goto err_out_disable_dev;
+ 	}
+ 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (err) {
+ 		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
+ 				"not supported by the card\n");
+-		goto err_out;
++		goto err_out_disable_dev;
+ 	}
+ 
+ 	/* IO Size check */
+ 	if (pci_resource_len(pdev, bar) < io_size) {
+ 		dev_err(&pdev->dev, "Insufficient PCI resources, aborting\n");
+ 		err = -EIO;
+-		goto err_out;
++		goto err_out_disable_dev;
+ 	}
+ 
+ 	pci_set_master(pdev);
+@@ -1117,7 +1117,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	dev = alloc_etherdev(sizeof(struct r6040_private));
+ 	if (!dev) {
+ 		err = -ENOMEM;
+-		goto err_out;
++		goto err_out_disable_dev;
+ 	}
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	lp = netdev_priv(dev);
+@@ -1238,6 +1238,8 @@ err_out_free_res:
+ 	pci_release_regions(pdev);
+ err_out_free_dev:
+ 	free_netdev(dev);
++err_out_disable_dev:
++	pci_disable_device(pdev);
+ err_out:
+ 	return err;
+ }
+-- 
+1.7.9.5
