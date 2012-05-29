@@ -1,177 +1,219 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: Difficulties to get 1Gbps on be2net ethernet card
-Date: Tue, 29 May 2012 16:46:17 +0200
-Message-ID: <CAL8zT=hHAc5-wGMKgumV=K9jG6tDxzej9Dffe9UYQ24gdWQRtw@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
+ and e1000e
+Date: Tue, 29 May 2012 07:54:22 -0700
+Message-ID: <CA+mtBx_uYy9XcRvpD2E46FuMBFu38iQvCiwFHWqbhPBmY=JfOg@mail.gmail.com>
+References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+	<88c43001441945e1431609db252b69e7@visp.net.lb>
+	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
+	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
+	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
+	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
+	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
+	<20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, eric.dumazet@gmail.com,
+	davem@davemloft.net
+To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:49574 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752577Ab2E2Oqk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2012 10:46:40 -0400
-Received: by weyu7 with SMTP id u7so2633739wey.19
-        for <netdev@vger.kernel.org>; Tue, 29 May 2012 07:46:39 -0700 (PDT)
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:33964 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752347Ab2E2OyX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2012 10:54:23 -0400
+Received: by yenm10 with SMTP id m10so2101897yen.19
+        for <netdev@vger.kernel.org>; Tue, 29 May 2012 07:54:23 -0700 (PDT)
+In-Reply-To: <20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi list,
+Thanks Hiroaki for this description, it looks promising.  Denys, can
+you test with his patch.
 
-I am using a NC553i ethernet card connected on a=C2=A0HP 10GbE Flex-10.
-I am sending UDP multicast packets from one blade to another (HP
-ProLiant BL460c G7) which has stricly the same HW.
+Tom
 
-I have lots of packet loss from Tx to Rx, and I can't understand why.
-I suspected TX coalescing but since 3.4 I can't set this parameter
-(and adaptive-tx is on by default).
-I have tried the same test with a debian lenny (2.6.26 kernel and HP
-drivers) and it works very well (adaptive-tx is off).
-
-Here is the netstat (from Tx point of view) :
-
-$> netstat -s eth1 > before ; sleep 10 ; netstat -s eth1 > after
-$> beforeafter before after
-Ip:
-    280769 total packets received
-    4 with invalid addresses
-    0 forwarded
-    0 incoming packets discarded
-    275063 incoming packets delivered
-    305430 requests sent out
-    0 dropped because of missing route
-Icmp:
-    0 ICMP messages received
-    0 input ICMP message failed.
-    ICMP input histogram:
-        destination unreachable: 0
-        echo requests: 0
-    0 ICMP messages sent
-    0 ICMP messages failed
-    ICMP output histogram:
-        destination unreachable: 0
-        echo replies: 0
-IcmpMsg:
-        InType3: 0
-        InType8: 0
-        OutType0: 0
-        OutType3: 0
-Tcp:
-    18 active connections openings
-    18 passive connection openings
-    0 failed connection attempts
-    0 connection resets received
-    0 connections established
-    3681 segments received
-    3650 segments send out
-    0 segments retransmited
-    0 bad segments received.
-    0 resets sent
-Udp:
-    12626 packets received
-    0 packets to unknown port received.
-    0 packet receive errors
-    259025 packets sent
-UdpLite:
-TcpExt:
-    0 invalid SYN cookies received
-    0 packets pruned from receive queue because of socket buffer overru=
+On Tue, May 29, 2012 at 7:25 AM, Hiroaki SHIMODA
+<shimoda.hiroaki@gmail.com> wrote:
+> On Sun, 20 May 2012 10:40:41 -0700
+> Tom Herbert <therbert@google.com> wrote:
+>
+>> Tried to reproduce:
+>>
+>> May 20 10:08:30 test kernel: [ =A0 =A06.168240] e1000e 0000:06:00.0:
+>> (unregistered net_device): Interrupt Throttling Rate (ints/sec) set =
+to
+>> dynamic conservative mode
+>> May 20 10:08:30 test kernel: [ =A0 =A06.221591] e1000e 0000:06:00.1:
+>> (unregistered net_device): Interrupt Throttling Rate (ints/sec) set =
+to
+>> dynamic conservative mode
+>>
+>> 06:00.0 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit
+>> Ethernet Controller (Copper) (rev 01)
+>> 06:00.1 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit
+>> Ethernet Controller (Copper) (rev 01)
+>>
+>> Following above instructions to repro gives:
+>>
+>> 1480 bytes from test2 (192.168.2.49): icmp_req=3D5875 ttl=3D64 time=3D=
+0.358 ms
+>> 1480 bytes from test2 (192.168.2.49): icmp_req=3D5876 ttl=3D64 time=3D=
+0.330 ms
+>> 1480 bytes from test2 (192.168.2.49): icmp_req=3D5877 ttl=3D64 time=3D=
+0.337 ms
+>> 1480 bytes from test2 (192.168.2.49): icmp_req=3D5878 ttl=3D64 time=3D=
+0.375 ms
+>> 1480 bytes from test2 (192.168.2.49): icmp_req=3D5879 ttl=3D64 time=3D=
+0.359 ms
+>> 1480 bytes from lpb49.prod.google.com (192.168.2.49): icmp_req=3D588=
+0
+>> ttl=3D64 time=3D0.380 ms
+>>
+>> And I didn't see the stalls. This was on an Intel machine. =A0The li=
+mit
+>> was stable, went up to around 28K when opened large file and tended =
+to
+>> stay between 15-28K.
+>>
+>> The describe problem seems to have characteristics that transmit
+>> interrupts are not at all periodic, and it would seem that some are
+>> taking hundreds of milliseconds to pop. =A0I don't see anything that
+>> would cause that in the NIC, is it possible there is some activity o=
 n
-    14 TCP sockets finished time wait in fast timer
-    0 packets rejects in established connections because of timestamp
-    61 delayed acks sent
-    0 delayed acks further delayed because of locked socket
-    Quick ack mode was activated 0 times
-    2924 packets directly queued to recvmsg prequeue.
-    32 bytes directly in process context from backlog
-    48684 bytes directly received in process context from prequeue
-    232 packet headers predicted
-    1991 packets header predicted and directly queued to user
-    132 acknowledgments not containing data payload received
-    2230 predicted acknowledgments
-    0 times recovered from packet loss by selective acknowledgements
-    0 congestion windows recovered without slow start after partial ack
-    0 TCP data loss events
-    0 timeouts after SACK recovery
-    0 fast retransmits
-    0 forward retransmits
-    0 retransmits in slow start
-    0 other TCP timeouts
-    1 times receiver scheduled too late for direct processing
-    0 packets collapsed in receive queue due to low socket buffer
-    0 DSACKs sent for old packets
-    0 DSACKs received
-    0 connections reset due to unexpected data
-    0 connections reset due to early user close
-    0 connections aborted due to timeout
-    0 times unabled to send RST due to no memory
-    TCPSackShifted: 0
-    TCPSackMerged: 0
-    TCPSackShiftFallback: 0
-    TCPBacklogDrop: 0
-    TCPDeferAcceptDrop: 0
-IpExt:
-    InMcastPkts: -652745397
-    OutMcastPkts: 301498
-    InBcastPkts: 13
-    InOctets: -2004227752
-    OutOctets: -2096666083
-    InMcastOctets: 1058181285
-    OutMcastOctets: -1510963815
-    InBcastOctets: 1014
-
-And ethtool diff :
-$> ethtool -S eth1 > before ; sleep 10 ; ethtool -S eth1 > after
-$> beforeafter before after
-NIC statistics:
-     rx_crc_errors: 0
-     rx_alignment_symbol_errors: 0
-     rx_pause_frames: 0
-     rx_control_frames: 0
-     rx_in_range_errors: 0
-     rx_out_range_errors: 0
-     rx_frame_too_long: 0
-     rx_address_mismatch_drops: 6
-     rx_dropped_too_small: 0
-     rx_dropped_too_short: 0
-     rx_dropped_header_too_small: 0
-     rx_dropped_tcp_length: 0
-     rx_dropped_runt: 0
-     rxpp_fifo_overflow_drop: 0
-     rx_input_fifo_overflow_drop: 0
-     rx_ip_checksum_errs: 0
-     rx_tcp_checksum_errs: 0
-     rx_udp_checksum_errs: 0
-     tx_pauseframes: 0
-     tx_controlframes: 0
-     rx_priority_pause_frames: 0
-     pmem_fifo_overflow_drop: 0
-     jabber_events: 0
-     rx_drops_no_pbuf: 0
-     rx_drops_no_erx_descr: 0
-     rx_drops_no_tpre_descr: 0
-     rx_drops_too_many_frags: 0
-     forwarded_packets: 0
-     rx_drops_mtu: 0
-     eth_red_drops: 0
-     be_on_die_temperature: 0
-     rxq0: rx_bytes: 0
-     rxq0: rx_pkts: 0
-     rxq0: rx_compl: 0
-     rxq0: rx_mcast_pkts: 0
-     rxq0: rx_post_fail: 0
-     rxq0: rx_drops_no_skbs: 0
-     rxq0: rx_drops_no_frags: 0
-     txq0: tx_compl: 257113
-     txq0: tx_bytes: 1038623935
-     txq0: tx_pkts: 257113
-     txq0: tx_reqs: 257113
-     txq0: tx_wrbs: 514226
-     txq0: tx_stops: 10
-
-As you can see, there is 10 tx_stops in 10 seconds (it varies, can be 3=
- to 15).
-Any thoughts ?
-
-Regards,
-JM
+>> the machines periodically and often holding down interrupts for =A0l=
+ong
+>> periods of time. =A0Are there any peculiarities on Sun Fire in inter=
+rupt
+>> handling?
+>>
+>> Can you also provide an 'ethtool -c eth0'
+>>
+>> Thanks,
+>> Tom
+>
+> I also observed the similar behaviour on the following environment.
+>
+> 03:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network=
+ Connection
+>
+> [ =A0 =A02.962119] e1000e: Intel(R) PRO/1000 Network Driver - 2.0.0-k
+> [ =A0 =A02.968095] e1000e: Copyright(c) 1999 - 2012 Intel Corporation=
+=2E
+> [ =A0 =A02.974251] e1000e 0000:03:00.0: Disabling ASPM L0s L1
+> [ =A0 =A02.979653] e1000e 0000:03:00.0: (unregistered net_device): In=
+terrupt Throttling Rate (ints/sec) set to dynamic conservative mode
+> [ =A0 =A02.991599] e1000e 0000:03:00.0: irq 72 for MSI/MSI-X
+> [ =A0 =A02.991606] e1000e 0000:03:00.0: irq 73 for MSI/MSI-X
+> [ =A0 =A02.991611] e1000e 0000:03:00.0: irq 74 for MSI/MSI-X
+> [ =A0 =A03.092768] e1000e 0000:03:00.0: eth0: (PCI Express:2.5GT/s:Wi=
+dth x1) 48:5b:39:75:91:bd
+> [ 3.100992] e1000e 0000:03:00.0: eth0: Intel(R) PRO/1000 Network Conn=
+ection
+> [ 3.108173] e1000e 0000:03:00.0: eth0: MAC: 3, PHY: 8, PBA No: FFFFFF=
+-0FF
+>
+> I tried some coalesce options by 'ethtool -C eth0', but
+> anything didn't help.
+>
+> If I understand the code and spec correctly, TX interrupts are
+> generated when TXDCTL.WTHRESH descriptors have been accumulated
+> and write backed.
+>
+> I tentatively changed the TXDCTL.WTHRESH to 1, then it seems
+> that latency spikes are disappear.
+>
+> drivers/net/ethernet/intel/e1000e/e1000.h
+> @@ -181,7 +181,7 @@ struct e1000_info;
+> =A0#define E1000_TXDCTL_DMA_BURST_ENABLE =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0\
+> =A0 =A0 =A0 =A0(E1000_TXDCTL_GRAN | /* set descriptor granularity */ =
+=A0\
+> =A0 =A0 =A0 =A0 E1000_TXDCTL_COUNT_DESC | =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
+> - =A0 =A0 =A0 =A0(5 << 16) | /* wthresh must be +1 more than desired =
+*/\
+> + =A0 =A0 =A0 =A0(1 << 16) | /* wthresh must be +1 more than desired =
+*/\
+> =A0 =A0 =A0 =A0 (1 << 8) =A0| /* hthresh */ =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 \
+> =A0 =A0 =A0 =A0 0x1f) =A0 =A0 =A0 /* pthresh */
+>
+> (before) $ ping -i0.2 192.168.11.2
+> PING 192.168.11.2 (192.168.11.2) 56(84) bytes of data.
+> 64 bytes from 192.168.11.2: icmp_req=3D1 ttl=3D64 time=3D0.191 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D2 ttl=3D64 time=3D0.179 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D3 ttl=3D64 time=3D0.199 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D4 ttl=3D64 time=3D0.143 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D5 ttl=3D64 time=3D0.193 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D6 ttl=3D64 time=3D0.150 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D7 ttl=3D64 time=3D0.186 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D8 ttl=3D64 time=3D0.198 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D9 ttl=3D64 time=3D0.195 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D10 ttl=3D64 time=3D0.194 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D11 ttl=3D64 time=3D0.196 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D12 ttl=3D64 time=3D0.200 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D13 ttl=3D64 time=3D651 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D14 ttl=3D64 time=3D451 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D15 ttl=3D64 time=3D241 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D16 ttl=3D64 time=3D31.3 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D17 ttl=3D64 time=3D0.184 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D18 ttl=3D64 time=3D0.199 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D19 ttl=3D64 time=3D0.197 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D20 ttl=3D64 time=3D0.196 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D21 ttl=3D64 time=3D0.192 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D22 ttl=3D64 time=3D0.205 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D23 ttl=3D64 time=3D629 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D24 ttl=3D64 time=3D419 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D25 ttl=3D64 time=3D209 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D26 ttl=3D64 time=3D0.280 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D27 ttl=3D64 time=3D0.193 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D28 ttl=3D64 time=3D0.194 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D29 ttl=3D64 time=3D0.143 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D30 ttl=3D64 time=3D0.191 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D31 ttl=3D64 time=3D0.144 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D32 ttl=3D64 time=3D0.192 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D33 ttl=3D64 time=3D0.199 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D34 ttl=3D64 time=3D0.193 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D35 ttl=3D64 time=3D0.196 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D36 ttl=3D64 time=3D0.196 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D37 ttl=3D64 time=3D0.196 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D38 ttl=3D64 time=3D1600 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D39 ttl=3D64 time=3D1390 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D40 ttl=3D64 time=3D1180 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D41 ttl=3D64 time=3D980 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D42 ttl=3D64 time=3D780 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D43 ttl=3D64 time=3D570 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D44 ttl=3D64 time=3D0.151 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D45 ttl=3D64 time=3D0.189 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D46 ttl=3D64 time=3D0.203 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D47 ttl=3D64 time=3D0.185 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D48 ttl=3D64 time=3D0.189 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D49 ttl=3D64 time=3D0.204 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D50 ttl=3D64 time=3D0.198 ms
+>
+> I think 1000 ms - 2000 ms delay is come from e1000_watchdog_task().
+>
+> (after) $ ping -i0.2 192.168.11.2
+> 64 bytes from 192.168.11.2: icmp_req=3D1 ttl=3D64 time=3D0.175 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D2 ttl=3D64 time=3D0.203 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D3 ttl=3D64 time=3D0.196 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D4 ttl=3D64 time=3D0.197 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D5 ttl=3D64 time=3D0.186 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D6 ttl=3D64 time=3D0.197 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D7 ttl=3D64 time=3D0.189 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D8 ttl=3D64 time=3D0.146 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D9 ttl=3D64 time=3D0.193 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D10 ttl=3D64 time=3D0.194 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D11 ttl=3D64 time=3D0.195 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D12 ttl=3D64 time=3D0.190 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D13 ttl=3D64 time=3D0.204 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D14 ttl=3D64 time=3D0.201 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D15 ttl=3D64 time=3D0.189 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D16 ttl=3D64 time=3D0.193 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D17 ttl=3D64 time=3D0.190 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D18 ttl=3D64 time=3D0.143 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D19 ttl=3D64 time=3D0.191 ms
+> 64 bytes from 192.168.11.2: icmp_req=3D20 ttl=3D64 time=3D0.190 ms
