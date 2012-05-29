@@ -1,7 +1,7 @@
 From: Devendra Naga <devendra.aaru@gmail.com>
-Subject: [PATCH V2 1/2] r6040: disable pci device if the subsequent calls (after pci_enable_device) fails
-Date: Wed, 30 May 2012 05:08:42 +0530
-Message-ID: <1338334722-14730-1-git-send-email-devendra.aaru@gmail.com>
+Subject: [PATCH V2 2/2] r6040: Do a Proper deinit at errorpath and also when driver unloads (calling r6040_remove_one)
+Date: Wed, 30 May 2012 05:13:34 +0530
+Message-ID: <1338335014-14877-1-git-send-email-devendra.aaru@gmail.com>
 Cc: Devendra Naga <devendra.aaru@gmail.com>
 To: David Miller <davem@davemloft.net>,
 	Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
@@ -10,59 +10,39 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-the calls after the pci_enable_device may fail, and will error out with out
-disabling it. disable the device at error paths.
+so if mdiobus_alloc fails, the errorpath doesnt do a netif_napi_del and also
+doesn't set the priv data of the driver to NULL.
+
+at the driver unload stage the driver doesn't remove the NAPI context, and
+doesnt' set the priv data to NULL, and also doesn't call the pci_iounmap.
 
 Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
 ---
- drivers/net/ethernet/rdc/r6040.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/rdc/r6040.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
 diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
-index 4de7364..f5e6f1f 100644
+index f5e6f1f..d1827e8 100644
 --- a/drivers/net/ethernet/rdc/r6040.c
 +++ b/drivers/net/ethernet/rdc/r6040.c
-@@ -1096,20 +1096,20 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	if (err) {
- 		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
- 				"not supported by the card\n");
--		goto err_out;
-+		goto err_out_disable_dev;
- 	}
- 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
- 	if (err) {
- 		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
- 				"not supported by the card\n");
--		goto err_out;
-+		goto err_out_disable_dev;
- 	}
- 
- 	/* IO Size check */
- 	if (pci_resource_len(pdev, bar) < io_size) {
- 		dev_err(&pdev->dev, "Insufficient PCI resources, aborting\n");
- 		err = -EIO;
--		goto err_out;
-+		goto err_out_disable_dev;
- 	}
- 
- 	pci_set_master(pdev);
-@@ -1117,7 +1117,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	dev = alloc_etherdev(sizeof(struct r6040_private));
- 	if (!dev) {
- 		err = -ENOMEM;
--		goto err_out;
-+		goto err_out_disable_dev;
- 	}
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	lp = netdev_priv(dev);
-@@ -1238,6 +1238,8 @@ err_out_free_res:
+@@ -1233,6 +1233,8 @@ err_out_mdio_irq:
+ err_out_mdio:
+ 	mdiobus_free(lp->mii_bus);
+ err_out_unmap:
++	netif_napi_del(&lp->napi);
++	pci_set_drvdata(pdev, NULL);
+ 	pci_iounmap(pdev, ioaddr);
+ err_out_free_res:
  	pci_release_regions(pdev);
- err_out_free_dev:
+@@ -1253,6 +1255,9 @@ static void __devexit r6040_remove_one(struct pci_dev *pdev)
+ 	mdiobus_unregister(lp->mii_bus);
+ 	kfree(lp->mii_bus->irq);
+ 	mdiobus_free(lp->mii_bus);
++	netif_napi_del(&lp->napi);
++	pci_set_drvdata(pdev, NULL);
++	pci_iounmap(pdev, lp->base);
+ 	pci_release_regions(pdev);
  	free_netdev(dev);
-+err_out_disable_dev:
-+	pci_disable_device(pdev);
- err_out:
- 	return err;
- }
+ 	pci_disable_device(pdev);
 -- 
 1.7.9.5
