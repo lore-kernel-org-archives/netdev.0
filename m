@@ -1,52 +1,82 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH] net: sh_eth: fix the rxdesc pointer when rx descriptor empty
- happens
-Date: Tue, 29 May 2012 18:07:55 +0900
-Message-ID: <4FC491EB.4040002@renesas.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] r6040: disable pci device if the subsequent calls (after pci_enable_device) fails
+Date: Tue, 29 May 2012 11:20:50 +0200
+Message-ID: <1659482.3g1Zl6FDuM@flexo>
+References: <1338206223-26781-1-git-send-email-devendra.aaru@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: SH-Linux <linux-sh@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Devendra Naga <devendra.aaru@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1338206223-26781-1-git-send-email-devendra.aaru@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When Receive Descriptor Empty happens, rxdesc pointer of the driver
-and actual next descriptor of the controller may be mismatch.
-This patch fixes it.
+On Monday 28 May 2012 17:27:03 Devendra Naga wrote:
+> the calls after the pci_enable_device may fail, and will error out with out
+> disabling it. disable the device at error paths.
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- drivers/net/ethernet/renesas/sh_eth.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+Looks good, thanks Devendra!
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index be3c221..667169b 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1101,8 +1101,12 @@ static int sh_eth_rx(struct net_device *ndev)
+> 
+> Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
 
- 	/* Restart Rx engine if stopped. */
- 	/* If we don't need to check status, don't. -KDU */
--	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R))
-+	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
-+		/* fix the values for the next receiving */
-+		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
-+					       sh_eth_read(ndev, RDLAR)) >> 4;
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
-+	}
+Acked-by: Florian Fainelli <florian@openwrt.org>
 
- 	return 0;
- }
-@@ -1199,8 +1203,6 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
- 		/* Receive Descriptor Empty int */
- 		ndev->stats.rx_over_errors++;
-
--		if (sh_eth_read(ndev, EDRRR) ^ EDRRR_R)
--			sh_eth_write(ndev, EDRRR_R, EDRRR);
- 		if (netif_msg_rx_err(mdp))
- 			dev_err(&ndev->dev, "Receive Descriptor Empty\n");
- 	}
--- 
-1.7.1
+> ---
+>  drivers/net/ethernet/rdc/r6040.c |   10 ++++++----
+>  1 file changed, 6 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/rdc/r6040.c 
+b/drivers/net/ethernet/rdc/r6040.c
+> index 4de7364..8f5079a 100644
+> --- a/drivers/net/ethernet/rdc/r6040.c
+> +++ b/drivers/net/ethernet/rdc/r6040.c
+> @@ -1096,20 +1096,20 @@ static int __devinit r6040_init_one(struct pci_dev 
+*pdev,
+>  	if (err) {
+>  		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
+>  				"not supported by the card\n");
+> -		goto err_out;
+> +		goto err_out_disable_dev;
+>  	}
+>  	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+>  	if (err) {
+>  		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
+>  				"not supported by the card\n");
+> -		goto err_out;
+> +		goto err_out_disable_dev;
+>  	}
+>  
+>  	/* IO Size check */
+>  	if (pci_resource_len(pdev, bar) < io_size) {
+>  		dev_err(&pdev->dev, "Insufficient PCI resources, aborting\n");
+>  		err = -EIO;
+> -		goto err_out;
+> +		goto err_out_disable_dev;
+>  	}
+>  
+>  	pci_set_master(pdev);
+> @@ -1117,7 +1117,7 @@ static int __devinit r6040_init_one(struct pci_dev 
+*pdev,
+>  	dev = alloc_etherdev(sizeof(struct r6040_private));
+>  	if (!dev) {
+>  		err = -ENOMEM;
+> -		goto err_out;
+> +		goto err_out_disable_dev;
+>  	}
+>  	SET_NETDEV_DEV(dev, &pdev->dev);
+>  	lp = netdev_priv(dev);
+> @@ -1238,6 +1238,8 @@ err_out_free_res:
+>  	pci_release_regions(pdev);
+>  err_out_free_dev:
+>  	free_netdev(dev);
+> +err_out_disable_dev:
+> +	pci_disable_device(dev);
+>  err_out:
+>  	return err;
+>  }
+> -- 
+> 1.7.9.5
+> 
