@@ -1,7 +1,7 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 03/15] netfilter: add namespace support for l4proto_generic
-Date: Tue, 29 May 2012 15:04:11 +0800
-Message-ID: <1338275063-11711-4-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 14/15] netfilter: cleanup sysctl for l4proto and l3proto
+Date: Tue, 29 May 2012 15:04:22 +0800
+Message-ID: <1338275063-11711-15-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	serge.hallyn@canonical.com, ebiederm@xmission.com,
@@ -12,286 +12,302 @@ In-Reply-To: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-modify nf_conntrack_proto_init(fini) to register l4proto_generic's
-sysctl pernet, move nf_conntrack_proto_init from nf_conntrack_init_init_net
-to nf_conntrack_init. and move nf_conntrack_proto_fini from
-nf_conntrack_cleanup_init_net to nf_conntrack_cleanup.
+because the sysctl data of l[3,4]proto is moved to struct
+nf_proto_net, so those fields in struct nf_contrack_l[3,4]proto
+are useless.
 
-implement generic_net_init,it's used to initial the pernet
-data for generic proto.
-
-and use nf_generic_net.timeout to replace nf_ct_generic_timeout in
-get_timeouts function.
+this patch does some cleanup.
 
 Acked-by: Eric W. Biederman <ebiederm@xmission.com>
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- include/net/netfilter/nf_conntrack_core.h  |    4 +-
- include/net/netns/conntrack.h              |    6 ++++
- net/netfilter/nf_conntrack_core.c          |   17 ++++-------
- net/netfilter/nf_conntrack_proto.c         |   46 +++++++++++++++++----------
- net/netfilter/nf_conntrack_proto_generic.c |   38 +++++++++++++++++++++--
- 5 files changed, 78 insertions(+), 33 deletions(-)
+ include/net/netfilter/nf_conntrack_l3proto.h   |    2 --
+ include/net/netfilter/nf_conntrack_l4proto.h   |   10 ----------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    1 -
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    8 --------
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    5 -----
+ net/netfilter/nf_conntrack_proto_generic.c     |    8 --------
+ net/netfilter/nf_conntrack_proto_sctp.c        |   15 ---------------
+ net/netfilter/nf_conntrack_proto_tcp.c         |   15 ---------------
+ net/netfilter/nf_conntrack_proto_udp.c         |   15 ---------------
+ net/netfilter/nf_conntrack_proto_udplite.c     |   12 ------------
+ 10 files changed, 0 insertions(+), 91 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index aced085..d8f5b9f 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -28,8 +28,8 @@ extern unsigned int nf_conntrack_in(struct net *net,
- extern int nf_conntrack_init(struct net *net);
- extern void nf_conntrack_cleanup(struct net *net);
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index d6df8c7..6f7c13f 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -64,9 +64,7 @@ struct nf_conntrack_l3proto {
+ 	size_t nla_size;
  
--extern int nf_conntrack_proto_init(void);
--extern void nf_conntrack_proto_fini(void);
-+extern int nf_conntrack_proto_init(struct net *net);
-+extern void nf_conntrack_proto_fini(struct net *net);
+ #ifdef CONFIG_SYSCTL
+-	struct ctl_table_header	*ctl_table_header;
+ 	const char		*ctl_table_path;
+-	struct ctl_table	*ctl_table;
+ #endif /* CONFIG_SYSCTL */
  
- extern bool
- nf_ct_get_tuple(const struct sk_buff *skb,
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index b2dbcc5..0ef8592 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -20,7 +20,13 @@ struct nf_proto_net {
- 	unsigned int		users;
- };
- 
-+struct nf_generic_net {
-+	struct nf_proto_net pn;
-+	unsigned int timeout;
-+};
-+
- struct nf_ip_net {
-+	struct nf_generic_net   generic;
+ 	/* Init l3proto pernet data */
+diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+index d621c91..cfa2f89 100644
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -94,16 +94,6 @@ struct nf_conntrack_l4proto {
+ 		const struct nla_policy *nla_policy;
+ 	} ctnl_timeout;
+ #endif
+-
+-#ifdef CONFIG_SYSCTL
+-	struct ctl_table_header	**ctl_table_header;
+-	struct ctl_table	*ctl_table;
+-	unsigned int		*ctl_table_users;
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	struct ctl_table_header	*ctl_compat_table_header;
+-	struct ctl_table	*ctl_compat_table;
+-#endif
+-#endif
+ 	int	*net_id;
+ 	/* Init l4proto pernet data */
+ 	int (*init_net)(struct net *net);
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 5ae54f0..027acd6 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -379,7 +379,6 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
+ #endif
  #if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
- 	struct ctl_table_header *ctl_table_header;
- 	struct ctl_table	*ctl_table;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index ac3af97..068f2e0 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1333,7 +1333,6 @@ static void nf_conntrack_cleanup_init_net(void)
- 	while (untrack_refs() > 0)
- 		schedule();
- 
--	nf_conntrack_proto_fini();
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	nf_ct_extend_unregister(&nf_ct_zone_extend);
+ 	.ctl_table_path  = "net/ipv4/netfilter",
+-	.ctl_table	 = ip_ct_sysctl_table,
  #endif
-@@ -1372,7 +1371,7 @@ void nf_conntrack_cleanup(struct net *net)
- 	   netfilter framework.  Roll on, two-stage module
- 	   delete... */
- 	synchronize_net();
--
-+	nf_conntrack_proto_fini(net);
- 	nf_conntrack_cleanup_net(net);
+ 	.init_net	= ipv4_init_net,
+ 	.me		 = THIS_MODULE,
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+index a0eabeb..2bca7a5 100644
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -313,7 +313,6 @@ icmp_timeout_nla_policy[CTA_TIMEOUT_ICMP_MAX+1] = {
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
  
- 	if (net_eq(net, &init_net)) {
-@@ -1496,11 +1495,6 @@ static int nf_conntrack_init_init_net(void)
- 	printk(KERN_INFO "nf_conntrack version %s (%u buckets, %d max)\n",
- 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,
- 	       nf_conntrack_max);
--
--	ret = nf_conntrack_proto_init();
--	if (ret < 0)
--		goto err_proto;
--
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	ret = nf_ct_extend_register(&nf_ct_zone_extend);
- 	if (ret < 0)
-@@ -1518,9 +1512,7 @@ static int nf_conntrack_init_init_net(void)
+ #ifdef CONFIG_SYSCTL
+-static struct ctl_table_header *icmp_sysctl_header;
+ static struct ctl_table icmp_sysctl_table[] = {
+ 	{
+ 		.procname	= "nf_conntrack_icmp_timeout",
+@@ -393,12 +392,5 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp __read_mostly =
+ 		.nla_policy	= icmp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_header	= &icmp_sysctl_header,
+-	.ctl_table		= icmp_sysctl_table,
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	.ctl_compat_table	= icmp_compat_sysctl_table,
+-#endif
+-#endif
+ 	.init_net		= icmp_init_net,
+ };
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index f606355..1b7818f 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -320,7 +320,6 @@ icmpv6_timeout_nla_policy[CTA_TIMEOUT_ICMPV6_MAX+1] = {
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
  
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- err_extend:
--	nf_conntrack_proto_fini();
- #endif
--err_proto:
- 	return ret;
- }
- 
-@@ -1583,9 +1575,7 @@ static int nf_conntrack_init_net(struct net *net)
- 	ret = nf_conntrack_helper_init(net);
- 	if (ret < 0)
- 		goto err_helper;
--
- 	return 0;
--
- err_helper:
- 	nf_conntrack_timeout_fini(net);
- err_timeout:
-@@ -1622,6 +1612,9 @@ int nf_conntrack_init(struct net *net)
- 		if (ret < 0)
- 			goto out_init_net;
- 	}
-+	ret = nf_conntrack_proto_init(net);
-+	if (ret < 0)
-+		goto out_proto;
- 	ret = nf_conntrack_init_net(net);
- 	if (ret < 0)
- 		goto out_net;
-@@ -1637,6 +1630,8 @@ int nf_conntrack_init(struct net *net)
- 	return 0;
- 
- out_net:
-+	nf_conntrack_proto_fini(net);
-+out_proto:
- 	if (net_eq(net, &init_net))
- 		nf_conntrack_cleanup_init_net();
- out_init_net:
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index a1a8008..3f9c7f0 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -301,10 +301,16 @@ EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_unregister);
- static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
- 					      struct nf_conntrack_l4proto *l4proto)
- {
--	if (l4proto->net_id)
--		return net_generic(net, *l4proto->net_id);
--	else
--		return NULL;
-+	switch (l4proto->l4proto) {
-+	case 255: /* l4proto_generic */
-+		return (struct nf_proto_net *)&net->ct.nf_ct_proto.generic;
-+	default:
-+		if (l4proto->net_id)
-+			return net_generic(net, *l4proto->net_id);
-+		else
-+			return NULL;
-+	}
-+	return NULL;
- }
- 
- static
-@@ -486,28 +492,34 @@ void nf_conntrack_l4proto_unregister(struct net *net,
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_unregister);
- 
--int nf_conntrack_proto_init(void)
-+int nf_conntrack_proto_init(struct net *net)
- {
- 	unsigned int i;
- 	int err;
--
--	err = nf_ct_l4proto_register_sysctl(&init_net, &nf_conntrack_l4proto_generic);
-+	err = nf_conntrack_l4proto_generic.init_net(net);
- 	if (err < 0)
- 		return err;
-+	err = nf_ct_l4proto_register_sysctl(net,
-+					    &nf_conntrack_l4proto_generic);
-+	if (err < 0)
-+		return err;
- 
--	for (i = 0; i < AF_MAX; i++)
--		rcu_assign_pointer(nf_ct_l3protos[i],
--				   &nf_conntrack_l3proto_generic);
-+	if (net == &init_net) {
-+		for (i = 0; i < AF_MAX; i++)
-+			rcu_assign_pointer(nf_ct_l3protos[i],
-+					   &nf_conntrack_l3proto_generic);
-+	}
- 	return 0;
- }
- 
--void nf_conntrack_proto_fini(void)
-+void nf_conntrack_proto_fini(struct net *net)
- {
- 	unsigned int i;
--
--	nf_ct_l4proto_unregister_sysctl(&init_net, &nf_conntrack_l4proto_generic);
--
--	/* free l3proto protocol tables */
--	for (i = 0; i < PF_MAX; i++)
--		kfree(nf_ct_protos[i]);
-+	nf_ct_l4proto_unregister_sysctl(net,
-+					&nf_conntrack_l4proto_generic);
-+	if (net == &init_net) {
-+		/* free l3proto protocol tables */
-+		for (i = 0; i < PF_MAX; i++)
-+			kfree(nf_ct_protos[i]);
-+	}
- }
+ #ifdef CONFIG_SYSCTL
+-static struct ctl_table_header *icmpv6_sysctl_header;
+ static struct ctl_table icmpv6_sysctl_table[] = {
+ 	{
+ 		.procname	= "nf_conntrack_icmpv6_timeout",
+@@ -375,9 +374,5 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6 __read_mostly =
+ 		.nla_policy	= icmpv6_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_header	= &icmpv6_sysctl_header,
+-	.ctl_table		= icmpv6_sysctl_table,
+-#endif
+ 	.init_net		= icmpv6_init_net,
+ };
 diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
-index d8923d5..19bc880 100644
+index 19bc880..e4e2d2a 100644
 --- a/net/netfilter/nf_conntrack_proto_generic.c
 +++ b/net/netfilter/nf_conntrack_proto_generic.c
-@@ -14,6 +14,11 @@
+@@ -111,7 +111,6 @@ generic_timeout_nla_policy[CTA_TIMEOUT_GENERIC_MAX+1] = {
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
  
- static unsigned int nf_ct_generic_timeout __read_mostly = 600*HZ;
- 
-+static inline struct nf_generic_net *generic_pernet(struct net *net)
-+{
-+	return &net->ct.nf_ct_proto.generic;
-+}
-+
- static bool generic_pkt_to_tuple(const struct sk_buff *skb,
- 				 unsigned int dataoff,
- 				 struct nf_conntrack_tuple *tuple)
-@@ -42,7 +47,7 @@ static int generic_print_tuple(struct seq_file *s,
- 
- static unsigned int *generic_get_timeouts(struct net *net)
- {
--	return &nf_ct_generic_timeout;
-+	return &(generic_pernet(net)->timeout);
- }
- 
- /* Returns verdict for packet, or -1 for invalid. */
-@@ -110,7 +115,6 @@ static struct ctl_table_header *generic_sysctl_header;
+ #ifdef CONFIG_SYSCTL
+-static struct ctl_table_header *generic_sysctl_header;
  static struct ctl_table generic_sysctl_table[] = {
  	{
  		.procname	= "nf_conntrack_generic_timeout",
--		.data		= &nf_ct_generic_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -121,7 +125,6 @@ static struct ctl_table generic_sysctl_table[] = {
- static struct ctl_table generic_compat_sysctl_table[] = {
- 	{
- 		.procname	= "ip_conntrack_generic_timeout",
--		.data		= &nf_ct_generic_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -131,6 +134,34 @@ static struct ctl_table generic_compat_sysctl_table[] = {
- #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
- #endif /* CONFIG_SYSCTL */
+@@ -182,12 +181,5 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
+ 		.nla_policy	= generic_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_header	= &generic_sysctl_header,
+-	.ctl_table		= generic_sysctl_table,
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	.ctl_compat_table	= generic_compat_sysctl_table,
+-#endif
+-#endif
+ 	.init_net		= generic_init_net,
+ };
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+index 7eeaebc..3104a9d 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -610,8 +610,6 @@ sctp_timeout_nla_policy[CTA_TIMEOUT_SCTP_MAX+1] = {
  
-+static int generic_init_net(struct net *net)
-+{
-+	struct nf_generic_net *gn = generic_pernet(net);
-+	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
-+	gn->timeout = nf_ct_generic_timeout;
-+#ifdef CONFIG_SYSCTL
-+	pn->ctl_table = kmemdup(generic_sysctl_table,
-+				sizeof(generic_sysctl_table),
-+				GFP_KERNEL);
-+	if (!pn->ctl_table)
-+		return -ENOMEM;
-+	pn->ctl_table[0].data = &gn->timeout;
-+
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	pn->ctl_compat_table = kmemdup(generic_compat_sysctl_table,
-+				       sizeof(generic_compat_sysctl_table),
-+				       GFP_KERNEL);
-+	if (!pn->ctl_compat_table) {
-+		kfree(pn->ctl_table);
-+		pn->ctl_table = NULL;
-+		return -ENOMEM;
-+	}
-+	pn->ctl_compat_table[0].data = &gn->timeout;
-+#endif
-+#endif
-+	return 0;
-+}
-+
- struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
- {
- 	.l3proto		= PF_UNSPEC,
-@@ -158,4 +189,5 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
- 	.ctl_compat_table	= generic_compat_sysctl_table,
+ 
+ #ifdef CONFIG_SYSCTL
+-static unsigned int sctp_sysctl_table_users;
+-static struct ctl_table_header *sctp_sysctl_header;
+ static struct ctl_table sctp_sysctl_table[] = {
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_closed",
+@@ -831,14 +829,6 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
+ 		.nla_policy	= sctp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &sctp_sysctl_table_users,
+-	.ctl_table_header	= &sctp_sysctl_header,
+-	.ctl_table		= sctp_sysctl_table,
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	.ctl_compat_table	= sctp_compat_sysctl_table,
+-#endif
+-#endif
+ 	.net_id			= &sctp_net_id,
+ 	.init_net		= sctpv4_init_net,
+ };
+@@ -873,11 +863,6 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
  #endif
- #endif
-+	.init_net		= generic_init_net,
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &sctp_sysctl_table_users,
+-	.ctl_table_header	= &sctp_sysctl_header,
+-	.ctl_table		= sctp_sysctl_table,
+-#endif
+ 	.net_id			= &sctp_net_id,
+ 	.init_net		= sctpv6_init_net,
+ };
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 6bd8949..2eaf721 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -1364,8 +1364,6 @@ static const struct nla_policy tcp_timeout_nla_policy[CTA_TIMEOUT_TCP_MAX+1] = {
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+ 
+ #ifdef CONFIG_SYSCTL
+-static unsigned int tcp_sysctl_table_users;
+-static struct ctl_table_header *tcp_sysctl_header;
+ static struct ctl_table tcp_sysctl_table[] = {
+ 	{
+ 		.procname	= "nf_conntrack_tcp_timeout_syn_sent",
+@@ -1682,14 +1680,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 __read_mostly =
+ 		.nla_policy	= tcp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &tcp_sysctl_table_users,
+-	.ctl_table_header	= &tcp_sysctl_header,
+-	.ctl_table		= tcp_sysctl_table,
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	.ctl_compat_table	= tcp_compat_sysctl_table,
+-#endif
+-#endif
+ 	.init_net		= tcpv4_init_net,
+ };
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_tcp4);
+@@ -1726,11 +1716,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp6 __read_mostly =
+ 		.nla_policy	= tcp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &tcp_sysctl_table_users,
+-	.ctl_table_header	= &tcp_sysctl_header,
+-	.ctl_table		= tcp_sysctl_table,
+-#endif
+ 	.init_net		= tcpv6_init_net,
+ };
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_tcp6);
+diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+index d2001dc..11642d2 100644
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -199,8 +199,6 @@ udp_timeout_nla_policy[CTA_TIMEOUT_UDP_MAX+1] = {
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+ 
+ #ifdef CONFIG_SYSCTL
+-static unsigned int udp_sysctl_table_users;
+-static struct ctl_table_header *udp_sysctl_header;
+ static struct ctl_table udp_sysctl_table[] = {
+ 	{
+ 		.procname	= "nf_conntrack_udp_timeout",
+@@ -343,14 +341,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 __read_mostly =
+ 		.nla_policy	= udp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &udp_sysctl_table_users,
+-	.ctl_table_header	= &udp_sysctl_header,
+-	.ctl_table		= udp_sysctl_table,
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	.ctl_compat_table	= udp_compat_sysctl_table,
+-#endif
+-#endif
+ 	.init_net		= udpv4_init_net,
+ };
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp4);
+@@ -382,11 +372,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
+ 		.nla_policy	= udp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &udp_sysctl_table_users,
+-	.ctl_table_header	= &udp_sysctl_header,
+-	.ctl_table		= udp_sysctl_table,
+-#endif
+ 	.init_net		= udpv6_init_net,
+ };
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp6);
+diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
+index ee8c168..bc84831 100644
+--- a/net/netfilter/nf_conntrack_proto_udplite.c
++++ b/net/netfilter/nf_conntrack_proto_udplite.c
+@@ -215,8 +215,6 @@ udplite_timeout_nla_policy[CTA_TIMEOUT_UDPLITE_MAX+1] = {
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+ 
+ #ifdef CONFIG_SYSCTL
+-static unsigned int udplite_sysctl_table_users;
+-static struct ctl_table_header *udplite_sysctl_header;
+ static struct ctl_table udplite_sysctl_table[] = {
+ 	{
+ 		.procname	= "nf_conntrack_udplite_timeout",
+@@ -287,11 +285,6 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4 __read_mostly =
+ 		.nla_policy	= udplite_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &udplite_sysctl_table_users,
+-	.ctl_table_header	= &udplite_sysctl_header,
+-	.ctl_table		= udplite_sysctl_table,
+-#endif
+ 	.net_id			= &udplite_net_id,
+ 	.init_net		= udplite_init_net,
+ };
+@@ -324,11 +317,6 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite6 __read_mostly =
+ 		.nla_policy	= udplite_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-#ifdef CONFIG_SYSCTL
+-	.ctl_table_users	= &udplite_sysctl_table_users,
+-	.ctl_table_header	= &udplite_sysctl_header,
+-	.ctl_table		= udplite_sysctl_table,
+-#endif
+ 	.net_id			= &udplite_net_id,
+ 	.init_net		= udplite_init_net,
  };
 -- 
 1.7.7.6
