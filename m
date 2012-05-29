@@ -1,65 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Fwd: Ethtool not displaying ntuple/nfc rule settings
-Date: Tue, 29 May 2012 18:55:20 +0100
-Message-ID: <1338314120.2645.14.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CAFZv140-yrrDmD_H3ySEfJOL7Yp3syGt-VCNXaOi64nzucp5xA@mail.gmail.com>
-	 <CAFZv1415XPt+7v3xo6BR86cRKPju7QV7NQMAzS-O21TqvGBgBA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: TJ Johnson <tjjohnson10200@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH 3/3] drop_monitor: Add module alias to enable automatic module loading
+Date: Tue, 29 May 2012 15:30:42 -0400
+Message-ID: <1338319842-18395-4-git-send-email-nhorman@tuxdriver.com>
+References: <1338319842-18395-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43060 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754517Ab2E2Rz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2012 13:55:27 -0400
-In-Reply-To: <CAFZv1415XPt+7v3xo6BR86cRKPju7QV7NQMAzS-O21TqvGBgBA@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36067 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755390Ab2E2TbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2012 15:31:14 -0400
+In-Reply-To: <1338319842-18395-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-29 at 10:55 -0600, TJ Johnson wrote:
-> Sorry for the double send. Had to convert to plain text as I received
-> failure messages.
-> 
-> ---------- Forwarded message ----------
-> From: TJ Johnson <tjjohnson10200@gmail.com>
-> Date: Tue, May 29, 2012 at 10:36 AM
-> Subject: Ethtool not displaying ntuple/nfc rule settings
-> To: netdev@vger.kernel.org, bhutchings@solarflare.com
-> 
-> 
-> Hi,
-> 
-> Not sure if this is even the right place to ask this, so feel free to push
-> me somewhere else if necessary. I am using ethtool's -U option to set up
-> rules for an ixgbe device. That part seems to work great. However I am
-> unable to check the currently configured rules once they are in place.
-> 
-> ethtool -u DEVNAME produces this:
-> Cannot get RX rings: Operation not supported
-> rxclass: Cannot get RX class rule count: Operation not supported
-> RX classification rule retrieval failed
-> 
-> ethtool -n DEVNAME rx-flow-hash udp4 produces this:
-> Cannot get RX network flow hashing options: Operation not supported
-[...]
-> The OS is SUSE Linux Enterprise Server 11 using a custom 2.6.36 kernel.
-> 
-> Any Ideas as to what the problem might be? Or how I can solve the issue?
+Now that we have module alias macros for generic netlink families, lets use
+those to mark modules with the appropriate family names for loading
 
-This version of the ixgbe driver implemented the n-tuple interface,
-which has since been removed in favour of the NFC rules interface.  It
-was switched to the new interface in Linux 3.1.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: David Miller <davem@davemloft.net>
+---
+ net/core/drop_monitor.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-ethtool supports setting rules through either interface (automatically)
-but can only read them back through the NFC rules interface.  The
-n-tuple interface did support reading rules but the information returned
-was unreliable: it would not necessarily match the hardware state.
-
-Ben.
-
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index 3252e7e..ea5fb9f 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -468,3 +468,4 @@ module_exit(exit_net_drop_monitor);
+ 
+ MODULE_LICENSE("GPL v2");
+ MODULE_AUTHOR("Neil Horman <nhorman@tuxdriver.com>");
++MODULE_ALIAS_GENL_FAMILY("NET_DM");
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.7.6
