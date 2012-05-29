@@ -1,216 +1,100 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 12/15] netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
-Date: Tue, 29 May 2012 15:04:20 +0800
-Message-ID: <1338275063-11711-13-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	serge.hallyn@canonical.com, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH v5 1/6] net: sh_eth: remove unnecessary function
+Date: Tue, 29 May 2012 17:14:40 +0900
+Message-ID: <4FC48570.8040204@renesas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: SH-Linux <linux-sh@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-move the nf_conntrack_l4proto_register from module_init to
-dccp_net_ops.init,and change the struct dccp_net to adjust
-to the nf_conntrack_l4proto_register.
+The sh_eth_timer() called mod_timer() for itself.
+So, this patch removes the function.
 
-Acked-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
- net/netfilter/nf_conntrack_proto_dccp.c |  133 ++++++++++++++++---------------
- 1 files changed, 67 insertions(+), 66 deletions(-)
+ about v5:
+  - this patch is the same as v3
 
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index 5a8e037..0623d48 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -387,12 +387,9 @@ dccp_state_table[CT_DCCP_ROLE_MAX + 1][DCCP_PKT_SYNCACK + 1][CT_DCCP_MAX + 1] =
- /* this module per-net specifics */
- static int dccp_net_id __read_mostly;
- struct dccp_net {
-+	struct nf_proto_net np;
- 	int dccp_loose;
- 	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
--#ifdef CONFIG_SYSCTL
--	struct ctl_table_header *sysctl_header;
--	struct ctl_table *sysctl_table;
--#endif
- };
- 
- static inline struct dccp_net *dccp_pernet(struct net *net)
-@@ -817,6 +814,46 @@ static struct ctl_table dccp_sysctl_table[] = {
- };
- #endif /* CONFIG_SYSCTL */
- 
-+static int dccp_init_net(struct net *net)
-+{
-+
-+	struct dccp_net *dn = dccp_pernet(net);
-+	struct nf_proto_net *pn = (struct nf_proto_net *)dn;
-+
-+#ifdef CONFIG_SYSCTL
-+	if (!pn->ctl_table) {
-+#else
-+	if (!pn->users++) {
-+#endif
-+		/* default values */
-+		dn->dccp_loose = 1;
-+		dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
-+		dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
-+		dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
-+		dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
-+		dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
-+		dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
-+		dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
-+#ifdef CONFIG_SYSCTL
-+		pn->ctl_table = kmemdup(dccp_sysctl_table,
-+					sizeof(dccp_sysctl_table),
-+					GFP_KERNEL);
-+		if (!pn->ctl_table)
-+			return -ENOMEM;
-+
-+		pn->ctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
-+		pn->ctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
-+		pn->ctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
-+		pn->ctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
-+		pn->ctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
-+		pn->ctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
-+		pn->ctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
-+		pn->ctl_table[7].data = &dn->dccp_loose;
-+#endif
-+	}
-+	return 0;
-+}
-+
- static struct nf_conntrack_l4proto dccp_proto4 __read_mostly = {
- 	.l3proto		= AF_INET,
- 	.l4proto		= IPPROTO_DCCP,
-@@ -847,6 +884,8 @@ static struct nf_conntrack_l4proto dccp_proto4 __read_mostly = {
- 		.nla_policy	= dccp_timeout_nla_policy,
- 	},
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
-+	.net_id			= &dccp_net_id,
-+	.init_net		= dccp_init_net,
- };
- 
- static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
-@@ -879,55 +918,39 @@ static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
- 		.nla_policy	= dccp_timeout_nla_policy,
- 	},
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
-+	.net_id			= &dccp_net_id,
-+	.init_net		= dccp_init_net,
- };
- 
- static __net_init int dccp_net_init(struct net *net)
- {
--	struct dccp_net *dn = dccp_pernet(net);
--
--	/* default values */
--	dn->dccp_loose = 1;
--	dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
--	dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
--	dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
--	dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
--	dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
--	dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
--	dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
--
--#ifdef CONFIG_SYSCTL
--	dn->sysctl_table = kmemdup(dccp_sysctl_table,
--			sizeof(dccp_sysctl_table), GFP_KERNEL);
--	if (!dn->sysctl_table)
--		return -ENOMEM;
--
--	dn->sysctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
--	dn->sysctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
--	dn->sysctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
--	dn->sysctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
--	dn->sysctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
--	dn->sysctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
--	dn->sysctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
--	dn->sysctl_table[7].data = &dn->dccp_loose;
--
--	dn->sysctl_header = register_net_sysctl(net, "net/netfilter",
--						dn->sysctl_table);
--	if (!dn->sysctl_header) {
--		kfree(dn->sysctl_table);
--		return -ENOMEM;
-+	int ret = 0;
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &dccp_proto4);
-+	if (ret < 0) {
-+		pr_err("nf_conntrack_l4proto_dccp4 :protocol register failed.\n");
-+		goto out;
-+	}
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &dccp_proto6);
-+	if (ret < 0) {
-+		pr_err("nf_conntrack_l4proto_dccp6 :protocol register failed.\n");
-+		goto cleanup_dccp4;
- 	}
--#endif
--
- 	return 0;
-+cleanup_dccp4:
-+	nf_conntrack_l4proto_unregister(net,
-+					&dccp_proto4);
-+out:
-+	return ret;
+ drivers/net/ethernet/renesas/sh_eth.c |   22 ----------------------
+ drivers/net/ethernet/renesas/sh_eth.h |    1 -
+ 2 files changed, 0 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index be3c221..c35084a 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1289,14 +1289,6 @@ other_irq:
+ 	return ret;
  }
- 
- static __net_exit void dccp_net_exit(struct net *net)
+
+-static void sh_eth_timer(unsigned long data)
+-{
+-	struct net_device *ndev = (struct net_device *)data;
+-	struct sh_eth_private *mdp = netdev_priv(ndev);
+-
+-	mod_timer(&mdp->timer, jiffies + (10 * HZ));
+-}
+-
+ /* PHY state control function */
+ static void sh_eth_adjust_link(struct net_device *ndev)
  {
--	struct dccp_net *dn = dccp_pernet(net);
--#ifdef CONFIG_SYSCTL
--	unregister_net_sysctl_table(dn->sysctl_header);
--	kfree(dn->sysctl_table);
--#endif
-+	nf_conntrack_l4proto_unregister(net,
-+					&dccp_proto6);
-+	nf_conntrack_l4proto_unregister(net,
-+					&dccp_proto4);
+@@ -1544,11 +1536,6 @@ static int sh_eth_open(struct net_device *ndev)
+ 	if (ret)
+ 		goto out_free_irq;
+
+-	/* Set the timer to check for link beat. */
+-	init_timer(&mdp->timer);
+-	mdp->timer.expires = (jiffies + (24 * HZ)) / 10;/* 2.4 sec. */
+-	setup_timer(&mdp->timer, sh_eth_timer, (unsigned long)ndev);
+-
+ 	return ret;
+
+ out_free_irq:
+@@ -1573,9 +1560,6 @@ static void sh_eth_tx_timeout(struct net_device *ndev)
+ 	/* tx_errors count up */
+ 	ndev->stats.tx_errors++;
+
+-	/* timer off */
+-	del_timer_sync(&mdp->timer);
+-
+ 	/* Free all the skbuffs in the Rx queue. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+ 		rxdesc = &mdp->rx_ring[i];
+@@ -1593,10 +1577,6 @@ static void sh_eth_tx_timeout(struct net_device *ndev)
+
+ 	/* device init */
+ 	sh_eth_dev_init(ndev);
+-
+-	/* timer on */
+-	mdp->timer.expires = (jiffies + (24 * HZ)) / 10;/* 2.4 sec. */
+-	add_timer(&mdp->timer);
  }
- 
- static struct pernet_operations dccp_net_ops = {
-@@ -939,34 +962,12 @@ static struct pernet_operations dccp_net_ops = {
- 
- static int __init nf_conntrack_proto_dccp_init(void)
- {
--	int err;
+
+ /* Packet transmit function */
+@@ -1669,8 +1649,6 @@ static int sh_eth_close(struct net_device *ndev)
+
+ 	free_irq(ndev->irq, ndev);
+
+-	del_timer_sync(&mdp->timer);
 -
--	err = register_pernet_subsys(&dccp_net_ops);
--	if (err < 0)
--		goto err1;
--
--	err = nf_conntrack_l4proto_register(&init_net, &dccp_proto4);
--	if (err < 0)
--		goto err2;
--
--	err = nf_conntrack_l4proto_register(&init_net, &dccp_proto6);
--	if (err < 0)
--		goto err3;
--	return 0;
--
--err3:
--	nf_conntrack_l4proto_unregister(&init_net, &dccp_proto4);
--err2:
--	unregister_pernet_subsys(&dccp_net_ops);
--err1:
--	return err;
-+	return register_pernet_subsys(&dccp_net_ops);
- }
- 
- static void __exit nf_conntrack_proto_dccp_fini(void)
- {
- 	unregister_pernet_subsys(&dccp_net_ops);
--	nf_conntrack_l4proto_unregister(&init_net, &dccp_proto6);
--	nf_conntrack_l4proto_unregister(&init_net, &dccp_proto4);
- }
- 
- module_init(nf_conntrack_proto_dccp_init);
+ 	/* Free all the skbuffs in the Rx queue. */
+ 	sh_eth_ring_free(ndev);
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index 57b8e1f..9e8e4d5 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -771,7 +771,6 @@ struct sh_eth_private {
+ 	struct sh_eth_txdesc *tx_ring;
+ 	struct sk_buff **rx_skbuff;
+ 	struct sk_buff **tx_skbuff;
+-	struct timer_list timer;
+ 	spinlock_t lock;
+ 	u32 cur_rx, dirty_rx;	/* Producer/consumer ring indices */
+ 	u32 cur_tx, dirty_tx;
 -- 
-1.7.7.6
-
+1.7.1
