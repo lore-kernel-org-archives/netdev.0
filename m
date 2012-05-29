@@ -1,50 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r6040: disable pci device if the subsequent calls
- (after pci_enable_device) fails
-Date: Tue, 29 May 2012 17:28:43 -0400 (EDT)
-Message-ID: <20120529.172843.1775456038320356018.davem@davemloft.net>
-References: <1338206223-26781-1-git-send-email-devendra.aaru@gmail.com>
-	<1659482.3g1Zl6FDuM@flexo>
-	<20120529.172229.277102319861990758.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: devendra.aaru@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: florian@openwrt.org
+From: Eldad Zack <eldad@fogrefinery.com>
+Subject: [PATCH] 8021q/vlan: process NETDEV_GOING_DOWN
+Date: Wed, 30 May 2012 00:30:35 +0200
+Message-ID: <1338330635-27259-1-git-send-email-eldad@fogrefinery.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eldad Zack <eldad@fogrefinery.com>
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120529.172229.277102319861990758.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 29 May 2012 17:22:29 -0400 (EDT)
+In the current flow, when you take down a physical device that has
+VLANs configured on it, the NETDEV_GOING_DOWN notification will be
+sent too late, i.e., no data can be sent to the wire anymore.
 
-> From: Florian Fainelli <florian@openwrt.org>
-> Date: Tue, 29 May 2012 11:20:50 +0200
-> 
->> On Monday 28 May 2012 17:27:03 Devendra Naga wrote:
->>> the calls after the pci_enable_device may fail, and will error out with out
->>> disabling it. disable the device at error paths.
->> 
->> Looks good, thanks Devendra!
->> 
->>> 
->>> Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
->> 
->> Acked-by: Florian Fainelli <florian@openwrt.org>
-> 
-> Applied.
+static int __dev_close_many(struct list_head *head)
+{
+...
+	list_for_each_entry(dev, head, unreg_list) {
+		call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
+...
+	}
+...
+	list_for_each_entry(dev, head, unreg_list) {
+		if (ops->ndo_stop)
+			ops->ndo_stop(dev);
+	}
+...
+}
 
-Actually, reverted, you didn't test this patch at all.
+static int dev_close_many(struct list_head *head)
+{
+	...
+	__dev_close_many(head);
 
-You didn't even look at the warnings emitted by the compiler
-with your changes installed.
+	list_for_each_entry(dev, head, unreg_list) {
+		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
+		call_netdevice_notifiers(NETDEV_DOWN, dev);
+	}
+}
 
-You're passing a network device pointer into the PCI device
-disable routine, which takes a PCI device pointer.
+In a setup like this: eth0 with VLANs 2, 3 the flow would be:
 
-I can't express to you how extremely irritating it is when
-people submit patches like this.
+eth0 - NETDEV_GOING_DOWN
+ndo_stop is called on the device
+eth0.2 - NETDEV_GOING_DOWN
+eth0.2 - NETDEV_DOWN
+eth0.3 - NETDEV_GOING_DOWN
+eth0.3 - NETDEV_DOWN
+eth0 - NETDEV_DOWN
 
-The bug in question is 1,000 times less harmful than your fix.
+If instead NETDEV_GOING_DOWN is processed, the flow would be:
+eth0.2 - NETDEV_GOING_DOWN
+eth0.2 - NETDEV_DOWN
+eth0.3 - NETDEV_GOING_DOWN
+eth0.3 - NETDEV_DOWN
+eth0 - NETDEV_GOING_DOWN
+eth0 - NETDEV_DOWN
+ndo_stop is called on the device
+
+Signed-off-by: Eldad Zack <eldad@fogrefinery.com>
+---
+ net/8021q/vlan.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 6089f0c..fd87ecc 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -402,6 +402,12 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 
+ 		break;
+ 
++	case NETDEV_GOING_DOWN: /* NETDEV_DOWN */
++	/* If the parent device is going down it will call ndo_stop after
++	 * it sends out NETDEV_GOING_DOWN but before sending out NETDEV_DOWN,
++	 * The effect of which is, that no data can be sent anymore
++	 * by the time the VLAN device sends out its NETDEV_GOING_DOWN.
++	 */
+ 	case NETDEV_DOWN:
+ 		/* Put all VLANs for this dev in the down state too.  */
+ 		for (i = 0; i < VLAN_N_VID; i++) {
+-- 
+1.7.10
