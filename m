@@ -1,95 +1,345 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 00/15] netfilter: add namespace support for netfilter proto
-Date: Tue, 29 May 2012 15:04:08 +0800
-Message-ID: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 10/15] netfilter: add namespace support for l4proto_sctp
+Date: Tue, 29 May 2012 15:04:18 +0800
+Message-ID: <1338275063-11711-11-git-send-email-gaofeng@cn.fujitsu.com>
+References: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	serge.hallyn@canonical.com, ebiederm@xmission.com,
 	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:18604 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753079Ab2E2Hh6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 May 2012 03:37:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently the sysctl of netfilter proto is not isolated, so when
-changing proto's sysctl in container will cause the host's sysctl
-be changed too. it's not expected.
+add pernet_operations sctp_net_ops and register it when
+module nf_conntrack_proto_sctp is loaded.
+move the l4proto_register from module_init function to
+sctp_net_ops.init.
 
-This patch set adds the namespace support for netfilter protos.
+and implement sctpv[4,6]_init_net to initial the pernet sysctl
+data for sctp[4,6] protos.
 
-impletement four pernet_operations to register sysctl and initial
-pernet data for proto.
+Acked-by: Eric W. Biederman <ebiederm@xmission.com>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/netfilter/nf_conntrack_proto_sctp.c |  174 +++++++++++++++++++++++++-----
+ 1 files changed, 145 insertions(+), 29 deletions(-)
 
--ipv4_net_ops is used to register tcp4(compat),
- udp4(compat),icmp(compat),ipv4(compat).
--ipv6_net_ops is used to register tcp6,udp6 and icmpv6.
--sctp_net_ops is used to register sctp4(compat) and sctp6.
--udplite_net_ops is used to register udplite4 and udplite6
-
-extern l[3,4]proto (sysctl) register functions to make them support
-namespace.
-
-finailly add namespace support for cttimeout.
-
-Changes from v3:
-	delete l4proto.compat field, use l4proto.l3proto and init_net
-	to identify if this l4proto need do compat.
-
-	re-split patchset,make the structure go together with the code uses it
-	fix some code style problem.
-	
-	add functions nf_conntrack_l[3,4]proto_(un)register_net to make
-	code more clearer.
-	
-	delete unrequired export of couple of symbols	.
-
-	change nf_conntrack_proto_init to register nf_conntrack_proto_generic,
-	and delete nf_conntrack_proto_generic_init,fini.
-
-	add functions *_kmemdup_(compat_)sysctl_table to make code more clearer.
-
-Changes from v2:
-	re-split patchset to make compilation success.
-
-Gao feng (15):
-  netfilter: add namespace support for l4proto
-  netfilter: add namespace support for l3proto
-  netfilter: add namespace support for l4proto_generic
-  netfilter: add namespace support for l4proto_tcp
-  netfilter: add namespace support for l4proto_udp
-  netfilter: add namespace support for l4proto_icmp
-  netfilter: add namespace support for l4proto_icmpv6
-  netfilter: add namespace support for l3proto_ipv4
-  netfilter: add namespace support for l3proto_ipv6
-  netfilter: add namespace support for l4proto_sctp
-  netfilter: add namespace support for l4proto_udplite
-  netfilter: adjust l4proto_dccp to the nf_conntrack_l4proto_register
-  netfilter: adjust l4proto_gre4 to the nf_conntrack_l4proto_register
-  netfilter: cleanup sysctl for l4proto and l3proto
-  netfilter: add namespace support for cttimeout
-
- include/net/netfilter/nf_conntrack_core.h      |    4 +-
- include/net/netfilter/nf_conntrack_l3proto.h   |   11 +-
- include/net/netfilter/nf_conntrack_l4proto.h   |   22 +-
- include/net/netns/conntrack.h                  |   55 +++++
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  123 ++++++++----
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   52 ++++--
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   88 +++++---
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   36 +++-
- net/netfilter/nf_conntrack_core.c              |   17 +-
- net/netfilter/nf_conntrack_proto.c             |  272 +++++++++++++++++-------
- net/netfilter/nf_conntrack_proto_dccp.c        |  138 ++++++------
- net/netfilter/nf_conntrack_proto_generic.c     |   52 ++++--
- net/netfilter/nf_conntrack_proto_gre.c         |   64 ++++--
- net/netfilter/nf_conntrack_proto_sctp.c        |  195 +++++++++++++----
- net/netfilter/nf_conntrack_proto_tcp.c         |  181 ++++++++++++----
- net/netfilter/nf_conntrack_proto_udp.c         |  123 ++++++++---
- net/netfilter/nf_conntrack_proto_udplite.c     |  121 ++++++++---
- net/netfilter/nfnetlink_cttimeout.c            |   13 +-
- 18 files changed, 1112 insertions(+), 455 deletions(-)
-
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+index 97bbc20..7eeaebc 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -127,6 +127,17 @@ static const u8 sctp_conntracks[2][9][SCTP_CONNTRACK_MAX] = {
+ 	}
+ };
+ 
++static int sctp_net_id	__read_mostly;
++struct sctp_net {
++	struct nf_proto_net pn;
++	unsigned int timeouts[SCTP_CONNTRACK_MAX];
++};
++
++static inline struct sctp_net *sctp_pernet(struct net *net)
++{
++	return net_generic(net, sctp_net_id);
++}
++
+ static bool sctp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
+ 			      struct nf_conntrack_tuple *tuple)
+ {
+@@ -281,7 +292,7 @@ static int sctp_new_state(enum ip_conntrack_dir dir,
+ 
+ static unsigned int *sctp_get_timeouts(struct net *net)
+ {
+-	return sctp_timeouts;
++	return sctp_pernet(net)->timeouts;
+ }
+ 
+ /* Returns verdict for packet, or -NF_ACCEPT for invalid. */
+@@ -604,49 +615,42 @@ static struct ctl_table_header *sctp_sysctl_header;
+ static struct ctl_table sctp_sysctl_table[] = {
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_closed",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_CLOSED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_cookie_wait",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_cookie_echoed",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_established",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_shutdown_sent",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_shutdown_recd",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "nf_conntrack_sctp_timeout_shutdown_ack_sent",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -658,49 +662,42 @@ static struct ctl_table sctp_sysctl_table[] = {
+ static struct ctl_table sctp_compat_sysctl_table[] = {
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_closed",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_CLOSED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_cookie_wait",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_WAIT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_cookie_echoed",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_COOKIE_ECHOED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_established",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_ESTABLISHED],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_shutdown_sent",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_shutdown_recd",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_sctp_timeout_shutdown_ack_sent",
+-		.data		= &sctp_timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT],
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -710,6 +707,100 @@ static struct ctl_table sctp_compat_sysctl_table[] = {
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif
+ 
++static void sctp_init_net_data(struct sctp_net *sn)
++{
++	int i;
++#ifdef CONFIG_SYSCTL
++	if (!sn->pn.ctl_table) {
++#else
++	if (!sn->pn.users++) {
++#endif
++		for (i = 0; i < SCTP_CONNTRACK_MAX; i++)
++			sn->timeouts[i] = sctp_timeouts[i];
++	}
++}
++
++static int sctp_kmemdup_sysctl_table(struct nf_proto_net *pn)
++{
++#ifdef CONFIG_SYSCTL
++	struct sctp_net *sn = (struct sctp_net *)pn;
++	if (pn->ctl_table)
++		return 0;
++	pn->ctl_table = kmemdup(sctp_sysctl_table,
++				sizeof(sctp_sysctl_table),
++				GFP_KERNEL);
++	if (!pn->ctl_table)
++		return -ENOMEM;
++
++	pn->ctl_table[0].data = &sn->timeouts[SCTP_CONNTRACK_CLOSED];
++	pn->ctl_table[1].data = &sn->timeouts[SCTP_CONNTRACK_COOKIE_WAIT];
++	pn->ctl_table[2].data = &sn->timeouts[SCTP_CONNTRACK_COOKIE_ECHOED];
++	pn->ctl_table[3].data = &sn->timeouts[SCTP_CONNTRACK_ESTABLISHED];
++	pn->ctl_table[4].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT];
++	pn->ctl_table[5].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD];
++	pn->ctl_table[6].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT];
++#endif
++	return 0;
++}
++
++static int sctp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
++{
++#ifdef CONFIG_SYSCTL
++#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++	struct sctp_net *sn = (struct sctp_net *)pn;
++	pn->ctl_compat_table = kmemdup(sctp_compat_sysctl_table,
++				       sizeof(sctp_compat_sysctl_table),
++				       GFP_KERNEL);
++	if (!pn->ctl_compat_table)
++		return -ENOMEM;
++
++	pn->ctl_compat_table[0].data = &sn->timeouts[SCTP_CONNTRACK_CLOSED];
++	pn->ctl_compat_table[1].data = &sn->timeouts[SCTP_CONNTRACK_COOKIE_WAIT];
++	pn->ctl_compat_table[2].data = &sn->timeouts[SCTP_CONNTRACK_COOKIE_ECHOED];
++	pn->ctl_compat_table[3].data = &sn->timeouts[SCTP_CONNTRACK_ESTABLISHED];
++	pn->ctl_compat_table[4].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_SENT];
++	pn->ctl_compat_table[5].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_RECD];
++	pn->ctl_compat_table[6].data = &sn->timeouts[SCTP_CONNTRACK_SHUTDOWN_ACK_SENT];
++#endif
++#endif
++	return 0;
++}
++
++static int sctpv4_init_net(struct net *net)
++{
++	int ret;
++	struct sctp_net *sn = sctp_pernet(net);
++	struct nf_proto_net *pn = (struct nf_proto_net *)sn;
++
++	sctp_init_net_data(sn);
++
++	ret = sctp_kmemdup_compat_sysctl_table(pn);
++	if (ret < 0)
++		return ret;
++
++	ret = sctp_kmemdup_sysctl_table(pn);
++
++#ifdef CONFIG_SYSCTL
++#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++	if (ret < 0) {
++
++		kfree(pn->ctl_compat_table);
++		pn->ctl_compat_table = NULL;
++	}
++#endif
++#endif
++	return ret;
++}
++
++static int sctpv6_init_net(struct net *net)
++{
++	struct sctp_net *sn = sctp_pernet(net);
++	struct nf_proto_net *pn = (struct nf_proto_net *)sn;
++
++	sctp_init_net_data(sn);
++	return sctp_kmemdup_sysctl_table(pn);
++}
++
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
+ 	.l3proto		= PF_INET,
+ 	.l4proto 		= IPPROTO_SCTP,
+@@ -748,6 +839,8 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
+ 	.ctl_compat_table	= sctp_compat_sysctl_table,
+ #endif
+ #endif
++	.net_id			= &sctp_net_id,
++	.init_net		= sctpv4_init_net,
+ };
+ 
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
+@@ -785,35 +878,58 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
+ 	.ctl_table_header	= &sctp_sysctl_header,
+ 	.ctl_table		= sctp_sysctl_table,
+ #endif
++	.net_id			= &sctp_net_id,
++	.init_net		= sctpv6_init_net,
+ };
+ 
+-static int __init nf_conntrack_proto_sctp_init(void)
++static int sctp_net_init(struct net *net)
+ {
+-	int ret;
++	int ret = 0;
+ 
+-	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_sctp4);
+-	if (ret) {
+-		pr_err("nf_conntrack_l4proto_sctp4: protocol register failed\n");
++	ret = nf_conntrack_l4proto_register(net,
++					    &nf_conntrack_l4proto_sctp4);
++	if (ret < 0) {
++		pr_err("nf_conntrack_l4proto_sctp4 :protocol register failed.\n");
+ 		goto out;
+ 	}
+-	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_sctp6);
+-	if (ret) {
+-		pr_err("nf_conntrack_l4proto_sctp6: protocol register failed\n");
++	ret = nf_conntrack_l4proto_register(net,
++					    &nf_conntrack_l4proto_sctp6);
++	if (ret < 0) {
++		pr_err("nf_conntrack_l4proto_sctp6 :protocol register failed.\n");
+ 		goto cleanup_sctp4;
+ 	}
++	return 0;
+ 
++cleanup_sctp4:
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_sctp4);
++out:
+ 	return ret;
++}
+ 
+- cleanup_sctp4:
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_sctp4);
+- out:
+-	return ret;
++static void sctp_net_exit(struct net *net)
++{
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_sctp6);
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_sctp4);
++}
++
++static struct pernet_operations sctp_net_ops = {
++	.init = sctp_net_init,
++	.exit = sctp_net_exit,
++	.id   = &sctp_net_id,
++	.size = sizeof(struct sctp_net),
++};
++
++static int __init nf_conntrack_proto_sctp_init(void)
++{
++	return register_pernet_subsys(&sctp_net_ops);
+ }
+ 
+ static void __exit nf_conntrack_proto_sctp_fini(void)
+ {
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_sctp6);
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_sctp4);
++	unregister_pernet_subsys(&sctp_net_ops);
+ }
+ 
+ module_init(nf_conntrack_proto_sctp_init);
 -- 
 1.7.7.6
+
