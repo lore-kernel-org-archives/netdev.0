@@ -1,158 +1,109 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 09/15] netfilter: add namespace support for l3proto_ipv6
-Date: Tue, 29 May 2012 15:04:17 +0800
-Message-ID: <1338275063-11711-10-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	serge.hallyn@canonical.com, ebiederm@xmission.com,
-	dlezcano@fr.ibm.com, Gao feng <gaofeng@cn.fujitsu.com>
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:42425 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753079Ab2E2HiB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 May 2012 03:38:01 -0400
-In-Reply-To: <1338275063-11711-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrei Emeltchenko <andrei.emeltchenko.news-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2] Bluetooth: Really fix registering hci with duplicate
+ name
+Date: Tue, 29 May 2012 10:48:31 +0300
+Message-ID: <20120529074829.GB15895@aemeltch-MOBL1>
+References: <1338151016-13494-1-git-send-email-levinsasha928@gmail.com>
+ <1338176868.15105.113.camel@aeonflux>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org,
+	johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1338176868.15105.113.camel@aeonflux>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-add pernet_operations ipv6_net_ops and register it when
-module nf_conntrack_ipv6 is loaded.
+Hi,
 
-move the l4proto_register and l3proto_register from module_init
-function to ipv6_net_ops.init.
+On Mon, May 28, 2012 at 05:47:48AM +0200, Marcel Holtmann wrote:
+> Hi Sasha,
+> 
+> > Commit fc50744 ("Bluetooth: Fix registering hci with duplicate name") didn't
+> > fully fix the duplicate naming issue with devices, and duplicate device names
+> > could still be created:
+> > 
+> > [  142.484097] device: 'hci1': device_add
+> > [...]
+> > [  150.545263] device: 'hci1': device_add
+> > [  150.550128] kobject: 'hci1' (ffff880014cc4e58): kobject_add_internal: parent: 'bluetooth', set: 'devices'
+> > [  150.558979] ------------[ cut here ]------------
+> > [  150.561438] WARNING: at fs/sysfs/dir.c:529 sysfs_add_one+0xb0/0xd0()
+> > [  150.572974] Hardware name: Bochs
+> > [  150.580502] sysfs: cannot create duplicate filename '/devices/virtual/bluetooth/hci1'
+> > [  150.584444] Pid: 7563, comm: trinity-child1 Tainted: G        W    3.4.0-next-20120524-sasha #296
+> > [...]
+> > 
+> > Instead of the weird logic and the attempt at keeping the device list sorted,
+> > just use an IDA.
+> > 
+> > Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > ---
+> > 
+> > Changes from v1:
+> > 
+> >  - Address comments by Marcel.
+> >  - Remove errornous mutex lock.
+> > 
+> >  net/bluetooth/hci_core.c |   41 ++++++++++++++++++++++++-----------------
+> >  1 files changed, 24 insertions(+), 17 deletions(-)
+> 
+> thanks for addressing this. Patch has been applied to bluetooth-next
+> tree.
 
-Acked-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   88 ++++++++++++++++--------
- 1 files changed, 59 insertions(+), 29 deletions(-)
+The patch looks OK but I start to notice kmemleak messages like
+shown below:
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 7334cbf..fca10da 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -333,37 +333,75 @@ MODULE_ALIAS("nf_conntrack-" __stringify(AF_INET6));
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Yasuyuki KOZAKAI @USAGI <yasuyuki.kozakai@toshiba.co.jp>");
- 
--static int __init nf_conntrack_l3proto_ipv6_init(void)
-+static int ipv6_net_init(struct net *net)
- {
- 	int ret = 0;
- 
--	need_conntrack();
--	nf_defrag_ipv6_enable();
--
--	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_tcp6);
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_tcp6);
- 	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't register tcp.\n");
--		return ret;
-+		printk(KERN_ERR "nf_conntrack_l4proto_tcp6: protocol register failed\n");
-+		goto out;
- 	}
--
--	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_udp6);
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_udp6);
- 	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't register udp.\n");
--		goto cleanup_tcp;
-+		printk(KERN_ERR "nf_conntrack_l4proto_udp6: protocol register failed\n");
-+		goto cleanup_tcp6;
- 	}
--
--	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_icmpv6);
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_icmpv6);
- 	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't register icmpv6.\n");
--		goto cleanup_udp;
-+		printk(KERN_ERR "nf_conntrack_l4proto_icmp6: protocol register failed\n");
-+		goto cleanup_udp6;
- 	}
--
--	ret = nf_conntrack_l3proto_register(&init_net, &nf_conntrack_l3proto_ipv6);
-+	ret = nf_conntrack_l3proto_register(net,
-+					    &nf_conntrack_l3proto_ipv6);
- 	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't register ipv6\n");
-+		printk(KERN_ERR "nf_conntrack_l3proto_ipv6: protocol register failed\n");
- 		goto cleanup_icmpv6;
- 	}
-+	return 0;
-+ cleanup_icmpv6:
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_icmpv6);
-+ cleanup_udp6:
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_udp6);
-+ cleanup_tcp6:
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_tcp6);
-+ out:
-+	return ret;
-+}
- 
-+static void ipv6_net_exit(struct net *net)
-+{
-+	nf_conntrack_l3proto_unregister(net,
-+					&nf_conntrack_l3proto_ipv6);
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_icmpv6);
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_udp6);
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_tcp6);
-+}
-+
-+static struct pernet_operations ipv6_net_ops = {
-+	.init = ipv6_net_init,
-+	.exit = ipv6_net_exit,
-+};
-+
-+static int __init nf_conntrack_l3proto_ipv6_init(void)
-+{
-+	int ret = 0;
-+
-+	need_conntrack();
-+	nf_defrag_ipv6_enable();
-+
-+	ret = register_pernet_subsys(&ipv6_net_ops);
-+	if (ret < 0)
-+		goto cleanup_pernet;
- 	ret = nf_register_hooks(ipv6_conntrack_ops,
- 				ARRAY_SIZE(ipv6_conntrack_ops));
- 	if (ret < 0) {
-@@ -374,13 +412,8 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- 	return ret;
- 
-  cleanup_ipv6:
--	nf_conntrack_l3proto_unregister(&init_net, &nf_conntrack_l3proto_ipv6);
-- cleanup_icmpv6:
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_icmpv6);
-- cleanup_udp:
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_udp6);
-- cleanup_tcp:
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_tcp6);
-+	unregister_pernet_subsys(&ipv6_net_ops);
-+ cleanup_pernet:
- 	return ret;
- }
- 
-@@ -388,10 +421,7 @@ static void __exit nf_conntrack_l3proto_ipv6_fini(void)
- {
- 	synchronize_net();
- 	nf_unregister_hooks(ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
--	nf_conntrack_l3proto_unregister(&init_net, &nf_conntrack_l3proto_ipv6);
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_icmpv6);
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_udp6);
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_tcp6);
-+	unregister_pernet_subsys(&ipv6_net_ops);
- }
- 
- module_init(nf_conntrack_l3proto_ipv6_init);
--- 
-1.7.7.6
+...
+unreferenced object 0xf46e4ed8 (size 148):
+  comm "modprobe", pid 656, jiffies 4294900233 (age 4661.940s)
+  hex dump (first 32 bytes):
+    00 00 00 00 40 4e 6e f4 00 00 00 00 00 00 00 00  ....@Nn.........
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<c154dfcc>] kmemleak_alloc+0x3c/0xa0
+    [<c1132c7a>] kmem_cache_alloc+0x14a/0x190
+    [<c12af2dd>] idr_pre_get+0x5d/0x80
+    [<c12af3e5>] ida_pre_get+0x15/0x90
+    [<c12af497>] ida_simple_get+0x37/0xe0
+    [<f8369b79>] 0xf8369b79
+    [<f81be63e>] 0xf81be63e
+    [<c13f2a5e>] usb_probe_interface+0xce/0x210
+    [<c13733cb>] driver_probe_device+0x8b/0x370
+    [<c1373749>] __driver_attach+0x99/0xa0
+    [<c1371902>] bus_for_each_dev+0x42/0x70
+    [<c1372ea1>] driver_attach+0x21/0x30
+    [<c1372a47>] bus_add_driver+0x1c7/0x2e0
+    [<c1373bf6>] driver_register+0x66/0x110
+    [<c13f1acb>] usb_register_driver+0x7b/0x140
+    [<f8005017>] 0xf8005017
+unreferenced object 0xf454c260 (size 148):
+  comm "modprobe", pid 656, jiffies 4294900233 (age 4661.940s)
+  hex dump (first 32 bytes):
+    00 00 00 00 d8 4e 6e f4 00 00 00 00 00 00 00 00  .....Nn.........
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<c154dfcc>] kmemleak_alloc+0x3c/0xa0
+    [<c1132c7a>] kmem_cache_alloc+0x14a/0x190
+    [<c12af2dd>] idr_pre_get+0x5d/0x80
+    [<c12af3e5>] ida_pre_get+0x15/0x90
+    [<c12af497>] ida_simple_get+0x37/0xe0
+    [<f8369b79>] 0xf8369b79
+    [<f81be63e>] 0xf81be63e
+    [<c13f2a5e>] usb_probe_interface+0xce/0x210
+    [<c13733cb>] driver_probe_device+0x8b/0x370
+    [<c1373749>] __driver_attach+0x99/0xa0
+    [<c1371902>] bus_for_each_dev+0x42/0x70
+    [<c1372ea1>] driver_attach+0x21/0x30
+    [<c1372a47>] bus_add_driver+0x1c7/0x2e0
+    [<c1373bf6>] driver_register+0x66/0x110
+    [<c13f1acb>] usb_register_driver+0x7b/0x140
+    [<f8005017>] 0xf8005017
+...
+
+Best regards 
+Andrei Emeltchenko 
