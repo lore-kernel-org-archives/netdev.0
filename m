@@ -1,46 +1,70 @@
-From: Eldad Zack <eldad@fogrefinery.com>
-Subject: Re: [PATCH] 8021q/vlan: process NETDEV_GOING_DOWN
-Date: Wed, 30 May 2012 21:11:02 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1205302055140.1587@debianer>
-References: <1338330635-27259-1-git-send-email-eldad@fogrefinery.com> <20120529.204040.644013889059321702.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120529.204040.644013889059321702.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: [PATCH net 3/6] net/mlx4_en: Fix improper use of "port" parameter in mlx4_en_event
+Date: Wed, 30 May 2012 22:14:52 +0300
+Message-ID: <1338405295-15427-4-git-send-email-yevgenyp@mellanox.com>
+References: <1338405295-15427-1-git-send-email-yevgenyp@mellanox.com>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:57580 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751184Ab2E3TPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 15:15:03 -0400
+In-Reply-To: <1338405295-15427-1-git-send-email-yevgenyp@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-On Tue, 29 May 2012, David Miller wrote:
-> From: Eldad Zack <eldad@fogrefinery.com>
-> Date: Wed, 30 May 2012 00:30:35 +0200
-> 
-> > In the current flow, when you take down a physical device that has
-> > VLANs configured on it, the NETDEV_GOING_DOWN notification will be
-> > sent too late, i.e., no data can be sent to the wire anymore.
-> 
-> Why do you need to send data?  Any queued up data should be purged not
-> sent.
+Port is used as an array index before we know if that is proper.
 
-In case a certain protocol needs to send a "dying gasp" packet, when you 
-administrativly shutdown the port (which is also what happens when you 
-restart the machine).
+For example, in the catas event case, port is zero; however,
+the port index should lie in the range (1..2).
 
-I'm working on an implementation of such protocol (LLDP) on my free 
-time. The specification says that it should send a (compact) shutdown 
-message, with the TTL field set to zero, so that other stations are informed
-of the shutdown - and it works fine with the main interface, but not with 
-VLANs, since the notifier is called too late.
-With that small change it works as well.
+Fix this by using 'port' only in the events where it is of interest.
 
-Another use for it would be the Ethernet CFM, which has a similar 
-requirement.
+Test for port out of range in the default (unhandled event) case,
+and do not output a message if it is not an ethernet port.
 
-On the other hand, I might've missed something. Is there a better way to 
-be informed of a shutdown than listening for the GOING_DOWN 
-event, so the frame can be sent to the wire when it's appropriate?
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_main.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
 
-Eldad
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+index 988b242..69ba572 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+@@ -136,13 +136,12 @@ static void mlx4_en_event(struct mlx4_dev *dev, void *endev_ptr,
+ 	struct mlx4_en_dev *mdev = (struct mlx4_en_dev *) endev_ptr;
+ 	struct mlx4_en_priv *priv;
+ 
+-	if (!mdev->pndev[port])
+-		return;
+-
+-	priv = netdev_priv(mdev->pndev[port]);
+ 	switch (event) {
+ 	case MLX4_DEV_EVENT_PORT_UP:
+ 	case MLX4_DEV_EVENT_PORT_DOWN:
++		if (!mdev->pndev[port])
++			return;
++		priv = netdev_priv(mdev->pndev[port]);
+ 		/* To prevent races, we poll the link state in a separate
+ 		  task rather than changing it here */
+ 		priv->link_state = event;
+@@ -154,7 +153,10 @@ static void mlx4_en_event(struct mlx4_dev *dev, void *endev_ptr,
+ 		break;
+ 
+ 	default:
+-		mlx4_warn(mdev, "Unhandled event: %d\n", event);
++		if (port < 1 || port > dev->caps.num_ports ||
++		    !mdev->pndev[port])
++			return;
++		mlx4_warn(mdev, "Unhandled event %d for port %d\n", event, port);
+ 	}
+ }
+ 
+-- 
+1.7.1
