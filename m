@@ -1,7 +1,7 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC PATCH v1 1/3] net: create generic bridge ops
-Date: Tue, 29 May 2012 20:07:00 -0700
-Message-ID: <20120530030700.7443.81546.stgit@jf-dev1-dcblab>
+Subject: [RFC PATCH v1 2/3] net: add VEPA, VEB bridge mode
+Date: Tue, 29 May 2012 20:07:06 -0700
+Message-ID: <20120530030705.7443.22155.stgit@jf-dev1-dcblab>
 References: <20120530030531.7443.72024.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,299 +14,220 @@ To: krkumar2@in.ibm.com, hadi@cyberus.ca, shemminger@vyatta.com,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:6104 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932261Ab2E3DVL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 May 2012 23:21:11 -0400
+	id S932261Ab2E3DVR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 May 2012 23:21:17 -0400
 In-Reply-To: <20120530030531.7443.72024.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PF_BRIDGE:RTM_{GET|SET}LINK nlmsg family and type are
-currently embedded in the ./net/bridge module. This prohibits
-them from being used by other bridging devices. One example
-of this being hardware that has embedded bridging components.
+Hardware switches may support enabling and disabling the
+loopback switch which puts the device in a VEPA mode defined
+in the IEEE 802.1Qbg specification. In this mode frames are
+not switched in the hardware but sent directly to the switch.
+SR-IOV capabable NICs will likely support this mode I am
+aware of at least two such devices.
 
-In order to use these nlmsg types more generically this patch
-adds two net_device_ops hooks. One to set link bridge attributes
-and another to dump the current bride attributes.
+This patch adds an additional IFLA_BRIDGE_MODE attribute
+that can be set and dumped via the PF_BRIDGE:{SET|GET}LINK
+operations. Also anticipating bridge attributes that may
+be common for both embedded bridges and software bridges
+this adds a flags attribute IFLA_BRIDGE_FLAGS currently
+used to determine if the IFLA_BRIDGE command or event is
+being generated to/from an embedded bridge or software
+bridge. Finally, the event generation is pulled out of
+the bridge module and into rtnetlink proper.
 
-	ndo_bridge_setlink()
-	ndo_bridge_getlink()
+For example using the macvlan driver in VEPA mode on top of
+an embedded switch requires putting the embedded switch into
+a VEPA mode to get the expected results.
 
-This avoids adding many ndo_ops to the net_device but does
-require drivers do more nlmsg handling.
+	--------  --------
+        | VEPA |  | VEPA |       <-- macvlan vepa edge relays
+        --------  --------
+           |        |
+           |        |
+        ------------------
+        |      VEPA      |       <-- embedded switch in NIC
+        ------------------
+                |
+                |
+        -------------------
+        | external switch |      <-- shiny new physical
+	-------------------          switch with VEPA support
+
+A packet sent from the macvlan VEPA at the top could be
+loopbacked on the embedded switch and never seen by the
+external switch. So in order for this to work the embedded
+switch needs to be set in the VEPA state via the above
+described commands.
 
 CC: Lennert Buytenhek <buytenh@wantstofly.org>
 CC: Stephen Hemminger <shemminger@vyatta.com>
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/linux/netdevice.h |   10 ++++++
- net/bridge/br_device.c    |    2 +
- net/bridge/br_netlink.c   |   73 ++++++++----------------------------------
- net/bridge/br_private.h   |    3 ++
- net/core/rtnetlink.c      |   78 +++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 106 insertions(+), 60 deletions(-)
+ include/linux/if_link.h |   16 ++++++++++
+ net/bridge/br_netlink.c |    2 -
+ net/core/rtnetlink.c    |   73 ++++++++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 82 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e7fd468..a307d77 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -916,6 +916,10 @@ struct netdev_fcoe_hbainfo {
-  *		       struct net_device *dev, int idx)
-  *	Used to add FDB entries to dump requests. Implementers should add
-  *	entries to skb and update idx with the number of entries.
-+ *
-+ * int (*ndo_bridge_setlink)(struct net_device *dev, struct nlmsghdr *nlh)
-+ * int (*ndo_bridge_getlink)(struct sk_buff *skb, u32 pid, u32 seq,
-+ *			     struct net_device *dev)
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1025,6 +1029,12 @@ struct net_device_ops {
- 						struct netlink_callback *cb,
- 						struct net_device *dev,
- 						int idx);
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index f715750..30489e5 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -139,6 +139,7 @@ enum {
+ 	IFLA_NET_NS_FD,
+ 	IFLA_EXT_MASK,		/* Extended info mask, VFs, etc */
+ 	IFLA_PROMISCUITY,	/* Promiscuity count: > 0 means acts PROMISC */
++	IFLA_BRIDGE,		/* Bridge attributes */
+ #define IFLA_PROMISCUITY IFLA_PROMISCUITY
+ 	__IFLA_MAX
+ };
+@@ -396,4 +397,19 @@ struct ifla_port_vsi {
+ 	__u8 pad[3];
+ };
+ 
++/* Bridge Flags */
++#define BRIDGE_FLAGS_MASTER	0	/* Bridge command to/from master */
++#define BRIDGE_FLAGS_SELF	1	/* Bridge command to/from lowerdev */
 +
-+	int			(*ndo_bridge_setlink)(struct net_device *dev,
-+						      struct nlmsghdr *nlh);
-+	int			(*ndo_bridge_getlink)(struct sk_buff *skb,
-+						      u32 pid, u32 seq,
-+						      struct net_device *dev);
- };
- 
- /*
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 929e48aed..e942180 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -320,6 +320,8 @@ static const struct net_device_ops br_netdev_ops = {
- 	.ndo_fdb_add		 = br_fdb_add,
- 	.ndo_fdb_del		 = br_fdb_delete,
- 	.ndo_fdb_dump		 = br_fdb_dump,
-+	.ndo_bridge_getlink	 = br_getlink,
-+	.ndo_bridge_setlink	 = br_setlink,
- };
- 
- static void br_dev_free(struct net_device *dev)
++#define BRIDGE_MODE_VEB		0	/* Default loopback mode */
++#define BRIDGE_MODE_VEPA	1	/* 802.1Qbg defined VEPA mode */
++
++/* Bridge management nested attributes */
++enum {
++	IFLA_BRIDGE_FLAGS,
++	IFLA_BRIDGE_MODE,
++	__IFLA_BRIDGE_MAX,
++};
++#define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
++
+ #endif /* _LINUX_IF_LINK_H */
 diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 2080485..f207234 100644
+index f207234..8edbe0d 100644
 --- a/net/bridge/br_netlink.c
 +++ b/net/bridge/br_netlink.c
-@@ -111,54 +111,33 @@ errout:
- /*
-  * Dump information about all ports, in response to GETLINK
-  */
--static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
-+int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+	       struct net_device *dev)
- {
--	struct net *net = sock_net(skb->sk);
--	struct net_device *dev;
--	int idx;
--
--	idx = 0;
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
--		struct net_bridge_port *port = br_port_get_rcu(dev);
--
--		/* not a bridge port */
--		if (!port || idx < cb->args[0])
--			goto skip;
--
--		if (br_fill_ifinfo(skb, port,
--				   NETLINK_CB(cb->skb).pid,
--				   cb->nlh->nlmsg_seq, RTM_NEWLINK,
--				   NLM_F_MULTI) < 0)
--			break;
--skip:
--		++idx;
--	}
--	rcu_read_unlock();
--	cb->args[0] = idx;
-+	int err = 0;
-+	struct net_bridge_port *port = br_port_get_rcu(dev);
-+
-+	/* not a bridge port */
-+	if (!port)
-+		goto out;
+@@ -166,8 +166,6 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
+ 	br_port_state_selection(p->br);
+ 	spin_unlock_bh(&p->br->lock);
  
--	return skb->len;
-+	err = br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI);
-+out:
-+	return err;
+-	br_ifinfo_notify(RTM_NEWLINK, p);
+-
+ 	return 0;
  }
  
- /*
-  * Change state of port (ie from forwarding to blocking etc)
-  * Used by spanning tree in user space.
-  */
--static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
-+int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
- {
--	struct net *net = sock_net(skb->sk);
- 	struct ifinfomsg *ifm;
- 	struct nlattr *protinfo;
--	struct net_device *dev;
- 	struct net_bridge_port *p;
- 	u8 new_state;
- 
--	if (nlmsg_len(nlh) < sizeof(*ifm))
--		return -EINVAL;
--
- 	ifm = nlmsg_data(nlh);
--	if (ifm->ifi_family != AF_BRIDGE)
--		return -EPFNOSUPPORT;
- 
- 	protinfo = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_PROTINFO);
- 	if (!protinfo || nla_len(protinfo) < sizeof(u8))
-@@ -168,10 +147,6 @@ static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
- 	if (new_state > BR_STATE_BLOCKING)
- 		return -EINVAL;
- 
--	dev = __dev_get_by_index(net, ifm->ifi_index);
--	if (!dev)
--		return -ENODEV;
--
- 	p = br_port_get_rtnl(dev);
- 	if (!p)
- 		return -EINVAL;
-@@ -218,29 +193,7 @@ static struct rtnl_link_ops br_link_ops __read_mostly = {
- 
- int __init br_netlink_init(void)
- {
--	int err;
--
--	err = rtnl_link_register(&br_link_ops);
--	if (err < 0)
--		goto err1;
--
--	err = __rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL,
--			      br_dump_ifinfo, NULL);
--	if (err)
--		goto err2;
--	err = __rtnl_register(PF_BRIDGE, RTM_SETLINK,
--			      br_rtm_setlink, NULL, NULL);
--	if (err)
--		goto err3;
--
--	return 0;
--
--err3:
--	rtnl_unregister_all(PF_BRIDGE);
--err2:
--	rtnl_link_unregister(&br_link_ops);
--err1:
--	return err;
-+	return rtnl_link_register(&br_link_ops);
- }
- 
- void __exit br_netlink_fini(void)
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 1a8ad4f..659907c 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -552,6 +552,9 @@ extern int (*br_fdb_test_addr_hook)(struct net_device *dev, unsigned char *addr)
- extern int br_netlink_init(void);
- extern void br_netlink_fini(void);
- extern void br_ifinfo_notify(int event, struct net_bridge_port *port);
-+extern int br_setlink(struct net_device *dev, struct nlmsghdr *nlmsg);
-+extern int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+		      struct net_device *dev);
- 
- #ifdef CONFIG_SYSFS
- /* br_sysfs_if.c */
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 21318d1..de6c371 100644
+index de6c371..9cd50ab 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -2239,6 +2239,81 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+@@ -1121,6 +1121,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
+ 	[IFLA_EXT_MASK]		= { .type = NLA_U32 },
+ 	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
++	[IFLA_BRIDGE]		= { .type = NLA_NESTED },
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
+@@ -1158,6 +1159,11 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+ 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
+ };
+ 
++static const struct nla_policy bridge_policy[IFLA_BRIDGE_MAX + 1] = {
++	[IFLA_BRIDGE_FLAGS]	= { .type = NLA_U16 },
++	[IFLA_BRIDGE_MODE]	= { .type = NLA_U16 },
++};
++
+ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
+ {
+ 	struct net *net;
+@@ -2280,13 +2286,60 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
  	return skb->len;
  }
  
-+static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
++static inline size_t bridge_nlmsg_size(void)
 +{
-+	struct net *net = sock_net(skb->sk);
-+	struct net_device *dev;
-+	int idx = 0;
-+	u32 pid = NETLINK_CB(cb->skb).pid;
-+	u32 seq = cb->nlh->nlmsg_seq;
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev) {
-+		const struct net_device_ops *ops = dev->netdev_ops;
-+		struct net_device *master = dev->master;
-+
-+		if (idx < cb->args[0])
-+			continue;
-+
-+		if (master && master->netdev_ops->ndo_bridge_getlink) {
-+			const struct net_device_ops *bops = master->netdev_ops;
-+			int err = bops->ndo_bridge_getlink(skb, pid, seq, dev);
-+
-+			if (err < 0)
-+				break;
-+			else
-+				idx++;
-+		}
-+
-+		if (ops->ndo_bridge_getlink) {
-+			int err = ops->ndo_bridge_getlink(skb, pid, seq, dev);
-+
-+			if (err < 0)
-+				break;
-+			else
-+				idx++;
-+		}
-+	}
-+	rcu_read_unlock();
-+	cb->args[0] = idx;
-+
-+	return skb->len;
++	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
++		+ nla_total_size(IFNAMSIZ)	/* IFLA_IFNAME */
++		+ nla_total_size(MAX_ADDR_LEN)	/* IFLA_ADDRESS */
++		+ nla_total_size(sizeof(u32))	/* IFLA_MASTER */
++		+ nla_total_size(sizeof(u32))	/* IFLA_MTU */
++		+ nla_total_size(sizeof(u32))	/* IFLA_LINK */
++		+ nla_total_size(sizeof(u32))	/* IFLA_OPERSTATE */
++		+ nla_total_size(sizeof(u8))	/* IFLA_PROTINFO */
++		+ nla_total_size(sizeof(struct nlattr))	/* IFLA_BRIDGE */
++		+ nla_total_size(sizeof(u16))	/* IFLA_BRIDGE_FLAGS */
++		+ nla_total_size(sizeof(u16));	/* IFLA_BRIDGE_MODE */
 +}
 +
-+static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
-+			       void *arg)
++static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
 +{
-+	struct net *net = sock_net(skb->sk);
-+	struct ifinfomsg *ifm;
-+	struct net_device *dev;
-+	int err = -EINVAL;
++	struct net *net = dev_net(dev);
++	struct net_device *master = dev->master;
++	struct sk_buff *skb;
++	int err = -EOPNOTSUPP;
 +
-+	if (nlmsg_len(nlh) < sizeof(*ifm))
-+		return -EINVAL;
-+
-+	ifm = nlmsg_data(nlh);
-+	if (ifm->ifi_family != AF_BRIDGE)
-+		return -EPFNOSUPPORT;
-+
-+	dev = __dev_get_by_index(net, ifm->ifi_index);
-+	if (!dev) {
-+		pr_info("PF_BRIDGE: RTM_SETLINK with unknown ifindex\n");
-+		return -ENODEV;
++	skb = nlmsg_new(bridge_nlmsg_size(), GFP_ATOMIC);
++	if (!skb) {
++		err = -ENOMEM;
++		goto errout;
 +	}
 +
-+	if (dev->master && dev->master->netdev_ops->ndo_bridge_setlink) {
-+		err = dev->master->netdev_ops->ndo_bridge_setlink(dev, nlh);
-+		if (err)
-+			goto out;
-+	}
++	if (!flags && master && master->netdev_ops->ndo_bridge_getlink)
++		err = master->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
++	else if (dev->netdev_ops->ndo_bridge_getlink)
++		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
 +
-+	if (dev->netdev_ops->ndo_bridge_setlink)
-+		err = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
++	if (err < 0)
++		goto errout;
 +
-+out:
++	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
++	return 0;
++errout:
++	WARN_ON(err == -EMSGSIZE);
++	kfree_skb(skb);
++	rtnl_set_sk_err(net, RTNLGRP_LINK, err);
 +	return err;
 +}
 +
- /* Protected by RTNL sempahore.  */
- static struct rtattr **rta_buf;
- static int rtattr_max;
-@@ -2415,5 +2490,8 @@ void __init rtnetlink_init(void)
- 	rtnl_register(PF_BRIDGE, RTM_NEWNEIGH, rtnl_fdb_add, NULL, NULL);
- 	rtnl_register(PF_BRIDGE, RTM_DELNEIGH, rtnl_fdb_del, NULL, NULL);
- 	rtnl_register(PF_BRIDGE, RTM_GETNEIGH, NULL, rtnl_fdb_dump, NULL);
-+
-+	rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL, rtnl_bridge_getlink, NULL);
-+	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL, NULL);
+ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			       void *arg)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ifinfomsg *ifm;
+ 	struct net_device *dev;
+-	int err = -EINVAL;
++	struct nlattr *bridge, *attr;
++	int rem, err = -EOPNOTSUPP;
++	u16 flags = 0;
+ 
+ 	if (nlmsg_len(nlh) < sizeof(*ifm))
+ 		return -EINVAL;
+@@ -2301,16 +2354,22 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		return -ENODEV;
+ 	}
+ 
+-	if (dev->master && dev->master->netdev_ops->ndo_bridge_setlink) {
+-		err = dev->master->netdev_ops->ndo_bridge_setlink(dev, nlh);
+-		if (err)
+-			goto out;
++	bridge = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_BRIDGE);
++	nla_for_each_nested(attr, bridge, rem) {
++		if (nla_type(attr) == IFLA_BRIDGE_FLAGS)
++			flags = nla_get_u16(attr);
+ 	}
+ 
+-	if (dev->netdev_ops->ndo_bridge_setlink)
++	if (!flags && dev->master &&
++	    dev->master->netdev_ops->ndo_bridge_setlink)
++		err = dev->master->netdev_ops->ndo_bridge_setlink(dev, nlh);
++	else if ((flags & BRIDGE_FLAGS_SELF) &&
++		   dev->netdev_ops->ndo_bridge_setlink)
+ 		err = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
+ 
+-out:
++	/* Generate event to notify upper layer of bridge change */
++	if (!err)
++		err = rtnl_bridge_notify(dev, flags);
+ 	return err;
  }
  
