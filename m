@@ -1,41 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 19/22] net/smsc911x: Repair broken failure paths
-Date: Wed, 30 May 2012 17:52:41 -0400 (EDT)
-Message-ID: <20120530.175241.2087666784890215382.davem@davemloft.net>
-References: <1338353260-10097-1-git-send-email-lee.jones@linaro.org>
-	<1338353260-10097-20-git-send-email-lee.jones@linaro.org>
-	<CACRpkdY=2j4gRGO4P4RfQDKo+sgV4akAQ6dpP4RbL+XywNCC5A@mail.gmail.com>
+From: Eldad Zack <eldad@fogrefinery.com>
+Subject: Re: [PATCH] 8021q/vlan: process NETDEV_GOING_DOWN
+Date: Thu, 31 May 2012 00:02:26 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1205302356250.8571@debianer>
+References: <alpine.DEB.2.02.1205302055140.1587@debianer> <20120530.162751.80640634568619332.davem@davemloft.net> <alpine.DEB.2.02.1205302344200.8234@debianer> <20120530.175020.1714406888633137662.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lee.jones@linaro.org, linux-arm-kernel@lists.infradead.org,
-	arnd@arndb.de, linus.walleij@stericsson.com,
-	grant.likely@secretlab.ca, cjb@laptop.org,
-	broonie@opensource.wolfsonmicro.com, sameo@linux.intel.com,
-	netdev@vger.kernel.org
-To: linus.walleij@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42220 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757055Ab2E3Vz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 17:55:27 -0400
-In-Reply-To: <CACRpkdY=2j4gRGO4P4RfQDKo+sgV4akAQ6dpP4RbL+XywNCC5A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120530.175020.1714406888633137662.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Walleij <linus.walleij@linaro.org>
-Date: Wed, 30 May 2012 15:16:39 +0800
 
-> On Wed, May 30, 2012 at 12:47 PM, Lee Jones <lee.jones@linaro.org> wrote:
+On Wed, 30 May 2012, David Miller wrote:
+> From: Eldad Zack <eldad@fogrefinery.com>
+> Date: Wed, 30 May 2012 23:47:32 +0200 (CEST)
+> It's not an issue that matters upstream, so I simply do not care.
 > 
->> Current failure paths attempt to free resources which we failed to request
->> and disable resources which we failed to enable ones. This leads to kernel
->> oops/panic. This patch does some simple re-ordering to prevent this from
->> happening.
->>
->> Cc: netdev@vger.kernel.org
->> Signed-off-by: Lee Jones <lee.jones@linaro.org>
+> When you, or someone else, submits code that needs this facility
+> then we can talk about it.
 > 
-> Acked-by: Linus Walleij <linus.walleij@linaro.org>
+> Otherwise it's just a waste of our time.
 
-Applied, thanks.
+I understand that. I thought it was better to send unrelated 
+patches earlier.
+Thanks for the review!
+
+Eldad
