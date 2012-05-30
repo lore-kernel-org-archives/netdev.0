@@ -1,130 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 4/4] inet: use second hash in inet_csk_get_port
-Date: Wed, 30 May 2012 19:20:56 +0200
-Message-ID: <1338398456.2760.338.camel@edumazet-glaptop>
-References: <1338363410-6562-1-git-send-email-alex.mihai.c@gmail.com>
-	 <1338363410-6562-5-git-send-email-alex.mihai.c@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] netdevice: Update netif_dbg for CONFIG_DYNAMIC_DEBUG
+Date: Wed, 30 May 2012 10:43:34 -0700
+Message-ID: <1338399814.3715.6.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, Daniel Baluta <dbaluta@ixiacom.com>,
-	Lucian Grijincu <lucian.grijincu@gmail.com>
-To: Alexandru Copot <alex.mihai.c@gmail.com>
+Cc: Jim Cromie <jim.cromie@gmail.com>, Jason Baron <jbaron@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:55522 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170Ab2E3RVD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 13:21:03 -0400
-Received: by bkcji2 with SMTP id ji2so49767bkc.19
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 10:21:01 -0700 (PDT)
-In-Reply-To: <1338363410-6562-5-git-send-email-alex.mihai.c@gmail.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:51796 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752306Ab2E3Rno (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2012 13:43:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-30 at 10:36 +0300, Alexandru Copot wrote:
+Make netif_dbg use dynamic debugging whenever
+CONFIG_DYNAMIC_DEBUG is enabled.
 
-> +struct inet_bind_bucket *
-> +inet4_find_bind_buckets(struct sock *sk,
-> +			unsigned short port,
-> +			struct inet_bind_hashbucket **p_bhead,
-> +			struct inet_bind_hashbucket **p_portaddr_bhead)
-> +{
-> +	struct net *net = sock_net(sk);
-> +	struct inet_hashinfo *hinfo = sk->sk_prot->h.hashinfo;
-> +	struct inet_bind_bucket *tb = NULL;
-> +	struct hlist_node *node;
-> +
-> +	struct inet_bind_hashbucket *bhead, *portaddr_bhead, *portaddrany_bhead;
-> +	bhead = &hinfo->bhash[inet_bhashfn(net, port, hinfo->bhash_size)];
-> +	portaddr_bhead = inet4_portaddr_hashbucket(hinfo, net,
-> +				sk_rcv_saddr(sk), port);
-> +	portaddrany_bhead = inet4_portaddr_hashbucket(hinfo, net,
-> +						INADDR_ANY, port);
-> +
-> +	*p_portaddr_bhead = portaddr_bhead;
-> +	*p_bhead = bhead;
-> +
-> +	/*
-> +	 * prevent dead locks by always taking locks in a fixed order:
-> +	 * - always take the port-only lock first. This is done because in some
-> +	 *   other places this is the lock taken, being folllowed in only some
-> +	 *   cases by the portaddr lock.
-> +	 * - between portaddr and portaddrany always choose the one with the
-> +	 *   lower address. Unlock ordering is not important, as long as the
-> +	 *   locking order is consistent.
-> +	 * - make sure to not take the same lock twice
-> +	 */
-> +	spin_lock(&bhead->lock);
-> +	if (portaddr_bhead > portaddrany_bhead) {
-> +		spin_lock(&portaddrany_bhead->lock);
-> +		spin_lock(&portaddr_bhead->lock);
-> +	} else if (portaddr_bhead < portaddrany_bhead) {
-> +		spin_lock(&portaddr_bhead->lock);
-> +		spin_lock(&portaddrany_bhead->lock);
-> +	} else {
-> +		spin_lock(&portaddr_bhead->lock);
-> +	}
-> +
-> +	if (sk_rcv_saddr(sk) != INADDR_ANY) {
-> +		struct inet_bind_hashbucket *_head;
-> +
-> +		_head = portaddr_bhead;
-> +		if (bhead->count < portaddr_bhead->count) {
-> +			_head = bhead;
-> +			inet_bind_bucket_for_each(tb, node, &_head->chain)
-> +				if ((net_eq(ib_net(tb), net)) &&
-> +				    (tb->port == port) &&
-> +				    (tb->ib_addr_ipv4 == sk_rcv_saddr(sk)))
-> +					goto found;
-> +		} else {
-> +			inet_portaddr_bind_bucket_for_each(tb, node, &_head->chain)
-> +				if ((net_eq(ib_net(tb), net)) &&
-> +				    (tb->port == port) &&
-> +				    (tb->ib_addr_ipv4 == sk_rcv_saddr(sk)))
-> +					goto found;
-> +		}
-> +		_head = portaddrany_bhead;
-> +		if (bhead->count < portaddrany_bhead->count) {
-> +			_head = bhead;
-> +			inet_bind_bucket_for_each(tb, node, &_head->chain)
-> +				if ((ib_net(tb) == net) &&
-> +				    (tb->port == port) &&
-> +				    (tb->ib_addr_ipv4 == INADDR_ANY))
-> +					goto found;
-> +		} else {
-> +			inet_portaddr_bind_bucket_for_each(tb, node, &_head->chain)
-> +				if ((ib_net(tb) == net) &&
-> +				    (tb->port == port) &&
-> +				    (tb->ib_addr_ipv4 == INADDR_ANY))
-> +					goto found;
-> +		}
-> +	} else {
-> +		inet_bind_bucket_for_each(tb, node, &bhead->chain)
-> +			if ((ib_net(tb) == net) && (tb->port == port))
-> +				goto found;
-> +	}
-> +
-> +	tb = NULL;
-> +found:
-> +	if (portaddr_bhead != portaddrany_bhead)
-> +		spin_unlock(&portaddrany_bhead->lock);
-> +
-> +	/* the other locks remain taken, as the caller
-> +	 * may want to change the hash tabels */
-> +	return tb;
-> +}
-> +
-> +
+commit b558c96ffa53
+("dynamic_debug: make dynamic-debug supersede DEBUG ccflag")
+missed updating the netif_dbg variant.
 
-How this is going to work with IPv6 sockets in the middle of the
-chains ?
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/linux/netdevice.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-Also, comments are not properly formatted, they should all look like :
-
-	/* the other locks remain taken, as the caller
-	 * may want to change the hash tables
-	 */
-
-And finally, make sure LOCKDEP is happy with your locking code.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e7fd468..d94cb14 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2795,15 +2795,15 @@ do {								\
+ #define netif_info(priv, type, dev, fmt, args...)		\
+ 	netif_level(info, priv, type, dev, fmt, ##args)
+ 
+-#if defined(DEBUG)
+-#define netif_dbg(priv, type, dev, format, args...)		\
+-	netif_printk(priv, type, KERN_DEBUG, dev, format, ##args)
+-#elif defined(CONFIG_DYNAMIC_DEBUG)
++#if defined(CONFIG_DYNAMIC_DEBUG)
+ #define netif_dbg(priv, type, netdev, format, args...)		\
+ do {								\
+ 	if (netif_msg_##type(priv))				\
+ 		dynamic_netdev_dbg(netdev, format, ##args);	\
+ } while (0)
++#elif defined(DEBUG)
++#define netif_dbg(priv, type, dev, format, args...)		\
++	netif_printk(priv, type, KERN_DEBUG, dev, format, ##args)
+ #else
+ #define netif_dbg(priv, type, dev, format, args...)			\
+ ({									\
