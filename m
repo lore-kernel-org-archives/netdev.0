@@ -1,46 +1,43 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 2/2] tcp: Early SYN limit and SYN cookie handling
- to mitigate SYN floods
-Date: Wed, 30 May 2012 11:46:05 +0200
-Message-ID: <1338371165.2760.133.camel@edumazet-glaptop>
-References: <20120528115102.12068.79994.stgit@localhost.localdomain>
-	 <20120528115226.12068.31850.stgit@localhost.localdomain>
-	 <m2bol6lqxo.fsf@firstfloor.org> <1338360073.2760.81.camel@edumazet-glaptop>
-	 <1338363926.7747.55.camel@localhost>
-	 <1338365702.2760.112.camel@edumazet-glaptop>
-	 <1338369863.7747.96.camel@localhost>
+Subject: Re: Difficulties to get 1Gbps on be2net ethernet card
+Date: Wed, 30 May 2012 11:56:14 +0200
+Message-ID: <1338371774.2760.134.camel@edumazet-glaptop>
+References: <CAL8zT=hHAc5-wGMKgumV=K9jG6tDxzej9Dffe9UYQ24gdWQRtw@mail.gmail.com>
+	 <CAL8zT=jKhRjVCdYRCerMzimxPAhP5Gi+JBBfuKjG-rfg-LMoVw@mail.gmail.com>
+	 <1338360536.2760.85.camel@edumazet-glaptop>
+	 <CAL8zT=h2hoTWDMpTe8P-xfm-USXD6spx8fFVmm1UXyOfuuqhZw@mail.gmail.com>
+	 <1338361587.2760.94.camel@edumazet-glaptop>
+	 <CAL8zT=jHWhDdv-DyXL8XnL8qRc7o-jZfA7ADU-qt54hB5aLyCw@mail.gmail.com>
+	 <CAL8zT=gJT1Frn_44SU0CrpZjPxwC_VuHFE4k9jvOGNmFomzhHA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	Christoph Paasch <christoph.paasch@uclouvain.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Martin Topholm <mph@hoth.dk>, Florian Westphal <fw@strlen.de>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Jean-Michel Hautbois <jhautbois@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:47563 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:39082 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751138Ab2E3JqM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 05:46:12 -0400
-Received: by bkcji2 with SMTP id ji2so3914456bkc.19
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 02:46:10 -0700 (PDT)
-In-Reply-To: <1338369863.7747.96.camel@localhost>
+	with ESMTP id S1750955Ab2E3J4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 05:56:18 -0400
+Received: by bkcji2 with SMTP id ji2so3922093bkc.19
+        for <netdev@vger.kernel.org>; Wed, 30 May 2012 02:56:17 -0700 (PDT)
+In-Reply-To: <CAL8zT=gJT1Frn_44SU0CrpZjPxwC_VuHFE4k9jvOGNmFomzhHA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-30 at 11:24 +0200, Jesper Dangaard Brouer wrote:
+On Wed, 2012-05-30 at 11:40 +0200, Jean-Michel Hautbois wrote:
 
-> I don't dare to go into that battle with the network ninja, I surrender.
-> DaveM, Eric's patches take precedence over mine...
+> I used vmstat in order to see the differences between the two kernels.
+> The main difference is the number of interrupts per second.
+> I have an average of 87500 on 3.2 and 7500 on 2.6, 10 times lower !
+> I suspect the be2net driver to be the main cause, and I checkes the
+> /proc/interrupts file in order to be sure.
 > 
-> /me Crawing back into my cave, and switching to boring bugzilla cases of
-> backporting kernel patches instead...
+> I have for eth1-tx on 2.6.26 about 2200 interrupts per second and 23000 on 3.2.
+> BTW, it is named eth1-q0 on 3.2 (and tx and rx are the same IRQ)
+> whereas there is eth1-rx0 and eth1-tx on 2.6.26.
 > 
 
-Hey, I only wanted to say that we were working on the same area and that
-we should expect conflicts.
+Might be different coalescing params :
 
-In the long term, we want a scalable listener solution, but I can
-understand if some customers want an immediate solution (SYN flood
-mitigation)
+ethtool -c eth1
