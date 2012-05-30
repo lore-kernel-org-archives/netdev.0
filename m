@@ -1,43 +1,49 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] net: sock: validate data_len before allocating skb in
- sock_alloc_send_pskb()
-Date: Thu, 31 May 2012 14:43:18 +0800
-Message-ID: <4FC71306.50806@redhat.com>
-References: <20120530054702.6146.8503.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1338360383.2760.84.camel@edumazet-glaptop>  <20120530.030205.1337682162603770949.davem@davemloft.net>  <4FC708EE.2020908@redhat.com> <20120531060201.GA13158@redhat.com>  <4FC70BA8.5060200@redhat.com> <1338445232.2760.1171.camel@edumazet-glaptop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH RFC] virtio-net: remove useless disable on freeze
+Date: Wed, 30 May 2012 19:41:47 +0930
+Message-ID: <87r4u2dllo.fsf@rustcorp.com.au>
+References: <20120404091954.GA3776@redhat.com>
+	<20120528125325.GA22576@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1338445232.2760.1171.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Amit Shah <amit.shah@redhat.com>, linux-kernel@vger.kernel.org,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120528125325.GA22576@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 05/31/2012 02:20 PM, Eric Dumazet wrote:
-> On Thu, 2012-05-31 at 14:11 +0800, Jason Wang wrote:
->
->> Not affected, only code duplication. It's no harm the check the data_len
->> again for packet sockets, so better to unify the code and fix the issue
->> in one place?
-> As a matter of fact, we currently allocate order-0 pages, but it could
-> be nice trying to use order-1 or order-2 pages, on arches where
-> PAGE_SIZE is so small (4096 bytes)
->
-> So lets do this test in sock_alloc_send_pskb() to allow future changes.
->
-> af_unix is kind of special, because it tries to lower risk of high order
-> linear allocation failures. And for small sizes, it wants linear skbs to
-> have no performance regression (prior kernels were allocating linear
-> skbs)
->
+On Mon, 28 May 2012 15:53:25 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> On Wed, Apr 04, 2012 at 12:19:54PM +0300, Michael S. Tsirkin wrote:
+> > disable_cb is just an optimization: it
+> > can not guarantee that there are no callbacks.
+> > 
+> > I didn't yet figure out whether a callback
+> > in freeze will trigger a bug, but disable_cb
+> > won't address it in any case. So let's remove
+> > the useless calls as a first step.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> Looks like this isn't in the 3.5 pull request -
+> just lost in the shuffle?
+> disable_cb is advisory so can't be relied upon.
 
-Thanks for the clarification, would post V2.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+I always (try to?) reply as I accept patches.
+
+This one did slip by, but it's harmless so no need to push AFAICT.
+
+Applied.
+
+Thanks!
+Rusty.
