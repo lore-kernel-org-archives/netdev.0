@@ -1,54 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Difficulties to get 1Gbps on be2net ethernet card
-Date: Wed, 30 May 2012 09:06:27 +0200
-Message-ID: <1338361587.2760.94.camel@edumazet-glaptop>
-References: <CAL8zT=hHAc5-wGMKgumV=K9jG6tDxzej9Dffe9UYQ24gdWQRtw@mail.gmail.com>
-	 <CAL8zT=jKhRjVCdYRCerMzimxPAhP5Gi+JBBfuKjG-rfg-LMoVw@mail.gmail.com>
-	 <1338360536.2760.85.camel@edumazet-glaptop>
-	 <CAL8zT=h2hoTWDMpTe8P-xfm-USXD6spx8fFVmm1UXyOfuuqhZw@mail.gmail.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] iwlwifi: fix typo 'IWL_WATCHHDOG_DISABLED'
+Date: Wed, 30 May 2012 09:08:29 +0200
+Message-ID: <1338361709.1780.3.camel@x61.thuisdomein>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Jean-Michel Hautbois <jhautbois@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:38986 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753743Ab2E3HGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 03:06:32 -0400
-Received: by bkcji2 with SMTP id ji2so3792934bkc.19
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 00:06:31 -0700 (PDT)
-In-Reply-To: <CAL8zT=h2hoTWDMpTe8P-xfm-USXD6spx8fFVmm1UXyOfuuqhZw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes.berg@intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-05-30 at 08:51 +0200, Jean-Michel Hautbois wrote:
-> 2012/5/30 Eric Dumazet <eric.dumazet@gmail.com>:
-> > On Wed, 2012-05-30 at 08:28 +0200, Jean-Michel Hautbois wrote:
-> >
-> >> If this can help, setting tx queue length to 5000 seems to make the
-> >> problem disappear.
-> >
-> > Then you should have drops at Qdisc layer (before your change to 5000)
-> >
-> > tc -s -d qdisc
-> >
-> >> I didn't specified it : MTU is 4096, UDP packets are 4000 bytes.
-> >
-> 
-> Yes :
-> qdisc mq 0: dev eth1 root
->  Sent 5710049154383 bytes 1413544639 pkt (dropped 73078, overlimits 0
-> requeues 281540)
->  backlog 0b 0p requeues 281540
-> 
-> Why ? With a 2.6.26 kernel it works well with a tx queue length of 1000.
+Commit 7c5ba4a830cbb730770129b0004e2a06e47dbac5 ("iwlwifi: move queue
+watchdog into transport") introduced the named constant
+'IWL_WATCHHDOG_DISABLED'. Rename it to 'IWL_WATCHDOG_DISABLED'.
 
-If you send big bursts of packets, then you need a large enough queue.
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+Just something I noticed while researching another issue. Compile tested
+(by compiling iwl-1000.0, iwl-5000.o and iwl-agn.o).
 
-Maybe your kernel is now faster than before and queue fills faster, or
-TX ring is smaller ?
+ drivers/net/wireless/iwlwifi/iwl-1000.c   |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-5000.c   |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn.c    |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-config.h |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-ethtool -g eth0
-
-Note that everybody try to reduce dumb queue sizes because of latencies.
+diff --git a/drivers/net/wireless/iwlwifi/iwl-1000.c b/drivers/net/wireless/iwlwifi/iwl-1000.c
+index 2629a66..2b7f615 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-1000.c
++++ b/drivers/net/wireless/iwlwifi/iwl-1000.c
+@@ -64,7 +64,7 @@ static const struct iwl_base_params iwl1000_base_params = {
+ 	.support_ct_kill_exit = true,
+ 	.plcp_delta_threshold = IWL_MAX_PLCP_ERR_EXT_LONG_THRESHOLD_DEF,
+ 	.chain_noise_scale = 1000,
+-	.wd_timeout = IWL_WATCHHDOG_DISABLED,
++	.wd_timeout = IWL_WATCHDOG_DISABLED,
+ 	.max_event_log_size = 128,
+ };
+ 
+diff --git a/drivers/net/wireless/iwlwifi/iwl-5000.c b/drivers/net/wireless/iwlwifi/iwl-5000.c
+index 8e26bc8..a355ade 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-5000.c
++++ b/drivers/net/wireless/iwlwifi/iwl-5000.c
+@@ -62,7 +62,7 @@ static const struct iwl_base_params iwl5000_base_params = {
+ 	.led_compensation = 51,
+ 	.plcp_delta_threshold = IWL_MAX_PLCP_ERR_LONG_THRESHOLD_DEF,
+ 	.chain_noise_scale = 1000,
+-	.wd_timeout = IWL_WATCHHDOG_DISABLED,
++	.wd_timeout = IWL_WATCHDOG_DISABLED,
+ 	.max_event_log_size = 512,
+ 	.no_idle_support = true,
+ };
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
+index ec36e2b..7eaa979 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
+@@ -1539,7 +1539,7 @@ static struct iwl_op_mode *iwl_op_mode_dvm_start(struct iwl_trans *trans,
+ 		trans_cfg.queue_watchdog_timeout =
+ 			priv->cfg->base_params->wd_timeout;
+ 	else
+-		trans_cfg.queue_watchdog_timeout = IWL_WATCHHDOG_DISABLED;
++		trans_cfg.queue_watchdog_timeout = IWL_WATCHDOG_DISABLED;
+ 	trans_cfg.command_names = iwl_dvm_cmd_strings;
+ 
+ 	ucode_flags = fw->ucode_capa.flags;
+diff --git a/drivers/net/wireless/iwlwifi/iwl-config.h b/drivers/net/wireless/iwlwifi/iwl-config.h
+index 67b28aa..5f54742 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-config.h
++++ b/drivers/net/wireless/iwlwifi/iwl-config.h
+@@ -113,7 +113,7 @@ enum iwl_led_mode {
+ #define IWL_MAX_PLCP_ERR_THRESHOLD_DISABLE	0
+ 
+ /* TX queue watchdog timeouts in mSecs */
+-#define IWL_WATCHHDOG_DISABLED	0
++#define IWL_WATCHDOG_DISABLED	0
+ #define IWL_DEF_WD_TIMEOUT	2000
+ #define IWL_LONG_WD_TIMEOUT	10000
+ #define IWL_MAX_WD_TIMEOUT	120000
+-- 
+1.7.7.6
