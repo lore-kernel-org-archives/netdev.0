@@ -1,100 +1,134 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Difficulties to get 1Gbps on be2net ethernet card
-Date: Wed, 30 May 2012 12:30:57 +0200
-Message-ID: <1338373857.2760.150.camel@edumazet-glaptop>
-References: <CAL8zT=hHAc5-wGMKgumV=K9jG6tDxzej9Dffe9UYQ24gdWQRtw@mail.gmail.com>
-	 <CAL8zT=jKhRjVCdYRCerMzimxPAhP5Gi+JBBfuKjG-rfg-LMoVw@mail.gmail.com>
-	 <1338360536.2760.85.camel@edumazet-glaptop>
-	 <CAL8zT=h2hoTWDMpTe8P-xfm-USXD6spx8fFVmm1UXyOfuuqhZw@mail.gmail.com>
-	 <1338361587.2760.94.camel@edumazet-glaptop>
-	 <CAL8zT=jHWhDdv-DyXL8XnL8qRc7o-jZfA7ADU-qt54hB5aLyCw@mail.gmail.com>
-	 <CAL8zT=gJT1Frn_44SU0CrpZjPxwC_VuHFE4k9jvOGNmFomzhHA@mail.gmail.com>
-	 <3367B80B08154D42A3B2BC708B5D41F647C678B73F@EXMAIL.ad.emulex.com>
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
+ and e1000e
+Date: Wed, 30 May 2012 19:43:55 +0900
+Message-ID: <20120530194355.92bf5d51.shimoda.hiroaki@gmail.com>
+References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+	<88c43001441945e1431609db252b69e7@visp.net.lb>
+	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
+	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
+	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
+	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
+	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
+	<20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
+	<CA+mtBx_uYy9XcRvpD2E46FuMBFu38iQvCiwFHWqbhPBmY=JfOg@mail.gmail.com>
+	<20120530090602.6204d857.shimoda.hiroaki@gmail.com>
+	<1338367231.2760.125.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jhautbois@gmail.com, netdev@vger.kernel.org
-To: Sathya.Perla@Emulex.Com
+Cc: Tom Herbert <therbert@google.com>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:42364 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752098Ab2E3KbC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 06:31:02 -0400
-Received: by bkcji2 with SMTP id ji2so3950228bkc.19
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 03:31:00 -0700 (PDT)
-In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F647C678B73F@EXMAIL.ad.emulex.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:48455 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752389Ab2E3KoF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 06:44:05 -0400
+Received: by pbbrp8 with SMTP id rp8so7288445pbb.19
+        for <netdev@vger.kernel.org>; Wed, 30 May 2012 03:44:05 -0700 (PDT)
+In-Reply-To: <1338367231.2760.125.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-30 at 03:04 -0700, Sathya.Perla@Emulex.Com wrote:
-> >-----Original Message-----
-> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> >Behalf Of Jean-Michel Hautbois
-> >
-> >2012/5/30 Jean-Michel Hautbois <jhautbois@gmail.com>:
-> >
-> >I used vmstat in order to see the differences between the two kernels.
-> >The main difference is the number of interrupts per second.
-> >I have an average of 87500 on 3.2 and 7500 on 2.6, 10 times lower !
-> >I suspect the be2net driver to be the main cause, and I checkes the
-> >/proc/interrupts file in order to be sure.
-> >
-> >I have for eth1-tx on 2.6.26 about 2200 interrupts per second and 23000 on 3.2.
-> >BTW, it is named eth1-q0 on 3.2 (and tx and rx are the same IRQ)
-> >whereas there is eth1-rx0 and eth1-tx on 2.6.26.
+On Wed, 30 May 2012 10:40:31 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Wed, 2012-05-30 at 09:06 +0900, Hiroaki SHIMODA wrote:
+> > While reading the bql code, I have some questions.
+> > 
+> > 1) dql_completed() and dql_queued() can be called concurrently,
+> >    so dql->num_queued could change while processing
+> >    dql_completed().
+> >    Is it intentional to refer num_queued from "dql->" each time ?
+> > 
 > 
-> Yes, there is an issue with be2net interrupt mitigation in the recent code with
-> RX and TX on the same Evt-Q (commit 10ef9ab4). The high interrupt rate happens when a TX blast is
-> done while RX is relatively silent on a queue pair. Interrupt rate due to TX completions is not being
-> mitigated.
+> not sure it can have problems, but doing the read once is indeed a good
+> plan.
 > 
-> I have a fix and will send it out soon..
+> > 2) From the comment in the code
+> >    *   - The queue was over-limit in the previous interval and
+> >    *     when enqueuing it was possible that all queued data
+> >    *     had been consumed.
+> > 
+> >    and
+> > 
+> >    * Queue was not starved, check if the limit can be decreased.
+> >    * A decrease is only considered if the queue has been busy in
+> >    * the whole interval (the check above). 
+> > 
+> >    the calculation of all_prev_completed should take into account
+> >    completed == dql->prev_num_queued case ?
+> >    On current implementation, limit shrinks easily and some NIC
+> >    hit TX stalls.
+> >    To mitigate TX stalls, should we fix all_prev_completed rather
+> >    than individual driver ?
+> > 
+> 
+> Not sure what you mean
 
-I also have a benet fix for non GRO :
+While examining ping problem, below pattern is often observed.
 
-Pulling 64 bytes in skb head is too much for TCP IPv4 with no
-timestamps, as this makes splice() or TCP coalescing less effective.
+                                               TIME
+       dql_queued()         dql_completed()     |
+      a) initial state                          |
+                                                |
+      b) X bytes queued                         V
 
-(Having tcp payload in linear part of the skb disables various optims)
+      c) Y bytes queued
+                           d) X bytes completed
+      e) Z bytes queued
+                           f) Y bytes completed
 
-Could you please test it ?
+a) dql->limit has already some value and there is no in-flight packet.
+b) X bytes queued.
+c) Y bytes queued and excess limit.
+d) X bytes completed and dql->prev_ovlimit is set and also
+   dql->prev_num_queued is set Y.
+e) Z bytes queued.
+f) Y bytes completed. inprogress and prev_inprogress are true.
 
-Thanks
+At f), if I read the comment correctly, all_prev_completed becomes
+true and limit should be increased. But POSDIFF() ignores
+(A == B) case, so limit is decreased.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 08efd30..f446b11 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1202,15 +1202,19 @@ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
- 	/* Copy data in the first descriptor of this completion */
- 	curr_frag_len = min(rxcp->pkt_size, rx_frag_size);
- 
--	/* Copy the header portion into skb_data */
--	hdr_len = min(BE_HDR_LEN, curr_frag_len);
-+	/* If frame is small enough to fit in skb->head, pull it completely.
-+	 * If not, only pull ethernet header so that splice() or TCP coalesce
-+	 * are more efficient.
-+	 */
-+	hdr_len = (curr_frag_len <= skb_tailroom(skb)) ?
-+			curr_frag_len : ETH_HLEN;
-+
- 	memcpy(skb->data, start, hdr_len);
- 	skb->len = curr_frag_len;
--	if (curr_frag_len <= BE_HDR_LEN) { /* tiny packet */
-+	skb->tail += hdr_len;
-+	if (hdr_len == curr_frag_len) { /* tiny packet */
- 		/* Complete packet has now been moved to data */
- 		put_page(page_info->page);
--		skb->data_len = 0;
--		skb->tail += curr_frag_len;
- 	} else {
- 		skb_shinfo(skb)->nr_frags = 1;
- 		skb_frag_set_page(skb, 0, page_info->page);
-@@ -1219,7 +1223,6 @@ static void skb_fill_rx_data(struct be_rx_obj *rxo, struct sk_buff *skb,
- 		skb_frag_size_set(&skb_shinfo(skb)->frags[0], curr_frag_len - hdr_len);
- 		skb->data_len = curr_frag_len - hdr_len;
- 		skb->truesize += rx_frag_size;
--		skb->tail += hdr_len;
- 	}
- 	page_info->page = NULL;
- 
+I thought excess limit decrement induces the TX stalls.
+
+> 
+> > 3) limit calculation fails to consider integer wrap around in
+> >    one place ?
+> > 
+> 
+> Yes
+> 
+> > Here is the patch what I meant.
+> > 
+> > diff --git a/lib/dynamic_queue_limits.c b/lib/dynamic_queue_limits.c
+> > @@ -11,22 +11,27 @@
+> >  #include <linux/dynamic_queue_limits.h>
+> >  
+> >  #define POSDIFF(A, B) ((A) > (B) ? (A) - (B) : 0)
+> > +#define POSDIFFI(A, B) ((int)((A) - (B)) > 0 ? (A) - (B) : 0)
+> > +#define AFTER_EQ(A, B) ((int)((A) - (B)) >= 0)
+> >  
+> >  /* Records completed count and recalculates the queue limit */
+> >  void dql_completed(struct dql *dql, unsigned int count)
+> >  {
+> >  	unsigned int inprogress, prev_inprogress, limit;
+> > -	unsigned int ovlimit, all_prev_completed, completed;
+> > +	unsigned int ovlimit, completed, num_queued;
+> > +	bool all_prev_completed;
+> > +
+> > +	num_queued = dql->num_queued;
+> 
+> 
+> I suggest :
+> 
+> 	num_queued = ACCESS_ONCE(dql->num_queued);
+> 	
+> Or else compiler is free to do whatever he wants.
+
+Thank you for your suggestion.
