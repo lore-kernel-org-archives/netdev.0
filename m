@@ -1,47 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH repost] virtio-net: remove useless disable on freeze
-Date: Wed, 30 May 2012 16:36:05 -0400 (EDT)
-Message-ID: <20120530.163605.43003785250138845.davem@davemloft.net>
-References: <20120530142128.GA31299@redhat.com>
+Subject: Re: [PATCH net 0/6] batch of mlx4 fixes, mostly to SRIOV
+Date: Wed, 30 May 2012 16:37:00 -0400 (EDT)
+Message-ID: <20120530.163700.720524088985729456.davem@davemloft.net>
+References: <1338405295-15427-1-git-send-email-yevgenyp@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120530142128.GA31299@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.co.il, jackm@dev.mellanox.co.il
+To: yevgenyp@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41649 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754627Ab2E3UhV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 16:37:21 -0400
+In-Reply-To: <1338405295-15427-1-git-send-email-yevgenyp@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 30 May 2012 17:21:29 +0300
 
-> disable_cb is just an optimization: it
-> can not guarantee that there are no callbacks.
-> In particular it doesn't have any effect when
-> event index is on.
-> 
-> Instead, detach, napi disable and reset on freeze ensure we don't run
-> concurrently with a callback.
-> 
-> Remove the useless calls so we get same behaviour
-> with and without event index.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
-> 
-> Reposting a patch that seems to have fallen through cracks.
+Why did you send multiple copies of some of these patches to
+the list?
 
-It seems to not make it to the lists and get properly picked up
-by patchwork.
-
-In any event, I've applied this, thanks.
+Patches #1, #2, and #5 showed up twice.
