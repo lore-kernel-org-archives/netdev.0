@@ -1,63 +1,40 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: [PATCH 19/22] net/smsc911x: Repair broken failure paths
-Date: Wed, 30 May 2012 12:47:37 +0800
-Message-ID: <1338353260-10097-20-git-send-email-lee.jones@linaro.org>
-References: <1338353260-10097-1-git-send-email-lee.jones@linaro.org>
-Cc: Lee Jones <lee.jones@linaro.org>, netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org, arnd@arndb.de,
-	linus.walleij@stericsson.com, grant.likely@secretlab.ca,
-	cjb@laptop.org, broonie@opensource.wolfsonmicro.com,
-	sameo@linux.intel.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] drop_monitor: convert to modular building
+Date: Wed, 30 May 2012 07:29:20 +0200
+Message-ID: <1338355760.2760.8.camel@edumazet-glaptop>
+References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
+	 <1337285040-20848-1-git-send-email-nhorman@tuxdriver.com>
+	 <20120517.160937.586334759945738635.davem@davemloft.net>
+	 <20120517202152.GB19321@hmsreliant.think-freely.org>
+	 <1337691919.3361.189.camel@edumazet-glaptop>
+	 <20120529193348.GB9258@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:61499 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314Ab2E3Es5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 00:48:57 -0400
-Received: by pbbrp8 with SMTP id rp8so6916834pbb.19
-        for <netdev@vger.kernel.org>; Tue, 29 May 2012 21:48:57 -0700 (PDT)
-In-Reply-To: <1338353260-10097-1-git-send-email-lee.jones@linaro.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:43700 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753289Ab2E3F3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 01:29:25 -0400
+Received: by weyu7 with SMTP id u7so3094755wey.19
+        for <netdev@vger.kernel.org>; Tue, 29 May 2012 22:29:24 -0700 (PDT)
+In-Reply-To: <20120529193348.GB9258@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current failure paths attempt to free resources which we failed to request
-and disable resources which we failed to enable ones. This leads to kernel
-oops/panic. This patch does some simple re-ordering to prevent this from
-happening.
+On Tue, 2012-05-29 at 15:33 -0400, Neil Horman wrote:
 
-Cc: netdev@vger.kernel.org
-Signed-off-by: Lee Jones <lee.jones@linaro.org>
----
- drivers/net/ethernet/smsc/smsc911x.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+> Eric,
+> 	Just FYI, I sent a series upstream to implement autoloading of generic
+> netlink families.  Please be awarem, that I've tested these with a hacked
+> version of dropwatch, and it works great, but with the normal version of
+> dropwatch, the drop_monitor module still doesn't autoload.  This is due to libnl
+> not explicitly requesting a family when genl_ctrl_family_resolve is called.
+> Instead of trying to load the module, it dumps the existing registered families
+> via a NLM_F_DUMP message.  I'm working on updating libnl to correct this
+> currently and will cc you on the patch.
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index dab9c6f..1466e5d 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -2390,11 +2390,11 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
- 
- 	retval = smsc911x_request_resources(pdev);
- 	if (retval)
--		goto out_return_resources;
-+		goto out_request_resources_fail;
- 
- 	retval = smsc911x_enable_resources(pdev);
- 	if (retval)
--		goto out_disable_resources;
-+		goto out_enable_resources_fail;
- 
- 	if (pdata->ioaddr == NULL) {
- 		SMSC_WARN(pdata, probe, "Error smsc911x base address invalid");
-@@ -2501,8 +2501,9 @@ out_free_irq:
- 	free_irq(dev->irq, dev);
- out_disable_resources:
- 	(void)smsc911x_disable_resources(pdev);
--out_return_resources:
-+out_enable_resources_fail:
- 	smsc911x_free_resources(pdev);
-+out_request_resources_fail:
- 	platform_set_drvdata(pdev, NULL);
- 	iounmap(pdata->ioaddr);
- 	free_netdev(dev);
--- 
-1.7.9.5
+Excellent, thanks Neil
