@@ -1,61 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Strange latency spikes/TX network stalls on Sun
- Fire X4150(x86) and e1000e
-Date: Wed, 30 May 2012 04:20:17 -0700
-Message-ID: <1338376817.32113.5.camel@joe2Laptop>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
-	<88c43001441945e1431609db252b69e7@visp.net.lb>
-	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
-	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
-	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
-	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
-	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
-	<20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
-	<CA+mtBx_uYy9XcRvpD2E46FuMBFu38iQvCiwFHWqbhPBmY=JfOg@mail.gmail.com>
-	<20120530090602.6204d857.shimoda.hiroaki@gmail.com>
-	<1338367231.2760.125.camel@edumazet-glaptop>
-	<20120530194355.92bf5d51.shimoda.hiroaki@gmail.com>
-	<1338376107.2760.156.camel@edumazet-glaptop>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [RFC PATCH 2/2] tcp: Early SYN limit and SYN cookie handling to mitigate SYN floods
+Date: Wed, 30 May 2012 13:14:32 +0200
+Message-ID: <201205301324.01548.hans.schillstrom@ericsson.com>
+References: <20120528115102.12068.79994.stgit@localhost.localdomain> <201205301013.10797.hans.schillstrom@ericsson.com> <1338366288.2760.115.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	davem@davemloft.net, Tom Herbert <therbert@google.com>
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Jesper Dangaard Brouer <jbrouer@redhat.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Christoph Paasch <christoph.paasch@uclouvain.be>,
+	"David S. Miller" <davem@davemloft.net>,
+	Martin Topholm <mph@hoth.dk>, Florian Westphal <fw@strlen.de>,
+	Tom Herbert <therbert@google.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1338376107.2760.156.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw1.ericsson.se ([193.180.251.45]:43676 "EHLO
+	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752797Ab2E3LYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 07:24:07 -0400
+In-Reply-To: <1338366288.2760.115.camel@edumazet-glaptop>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-30 at 13:08 +0200, Eric Dumazet wrote:
-> Maybe we should change all POSDIFF(), not selected ones.
-> #define POSDIFF(A, B) ((int)((A) - (B)) > 0 ? (A) - (B) : 0)
+On Wednesday 30 May 2012 10:24:48 Eric Dumazet wrote:
+> On Wed, 2012-05-30 at 10:03 +0200, Hans Schillstrom wrote:
+> 
+> > We have this option running right now, and it gave slightly higher values.
+> > The upside is only one core is running at 100% load.
+> > 
+> > To be able to process more SYN an attempt was made to spread them with RPS to 
+> > 2 other cores gave 60% more SYN:s per sec
+> > i.e. syn filter in NIC sending all irq:s to one core gave ~ 52k syn. pkts/sec
+> > adding RPS and sending syn to two other core:s gave ~80k  syn. pkts/sec
+> > Adding more cores than two didn't help that much.
+> 
+> When you say 52.000 pkt/s, is that for fully established sockets, or
+> SYNFLOOD ?
 
-maybe use an eval once statement expression macro
-({
-	typeof (A) _a = (A);
-	typeof (B) _b = (B);
-	((int)(_a - _b) > 0 ? _a - _b : 0;
-})
+SYN Flood with hping3  random source ip, dest port 5060
+and there is a listener on that port.
+(kernel 3.0.13)
 
+> 19.23 us to handle _one_ SYN message seems pretty wrong to me, if there
+> is no contention on listener socket.
+> 
 
+BTW. 
+I also see a strange behavior during SYN flood.
+The client starts data sending directly in the ack, 
+and that first packet is more or less always retransmitted once.
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+I'll dig into that later, or do anyone have an idea of the reason ?
