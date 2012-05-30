@@ -1,54 +1,62 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [RFC PATCH 0/2] Faster/parallel SYN handling to mitigate SYN
- floods
-Date: Wed, 30 May 2012 10:53:08 +0200
-Message-ID: <4FC5DFF4.1020604@uclouvain.be>
-References: <20120528115102.12068.79994.stgit@localhost.localdomain> <4FC3A465.4030203@uclouvain.be> <1338322661.7747.17.camel@localhost> <4FC53353.2050801@uclouvain.be> <1338367497.7747.72.camel@localhost>
-Reply-To: christoph.paasch@uclouvain.be
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH] l2tp: fix oops in L2TP IP sockets for connect() AF_UNSPEC
+ case
+Date: Wed, 30 May 2012 09:53:54 +0100
+Message-ID: <4FC5E022.6020609@katalix.com>
+References: <1338298242-22261-1-git-send-email-jchapman@katalix.com> <20120529.172008.875375243438479060.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Martin Topholm <mph@hoth.dk>, Florian Westphal <fw@strlen.de>,
-	opurdila@ixiacom.com,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Andi Kleen <andi@firstfloor.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, levinsasha928@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:48596 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932368Ab2E3IxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 04:53:14 -0400
-In-Reply-To: <1338367497.7747.72.camel@localhost>
+Received: from katalix.com ([82.103.140.233]:35858 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932272Ab2E3Ix6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2012 04:53:58 -0400
+In-Reply-To: <20120529.172008.875375243438479060.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2012 10:44 AM, Jesper Dangaard Brouer wrote:
->> >=20
->> > Then the receiver will receive two SYN/ACK's for the same SYN with
->> > different sequence-numbers. As the "SYN cookie SYN-ACK" will arriv=
-e
->> > second, it will be discarded and seq-numbers from the first one wi=
-ll be
->> > taken on the client-side.
-> I thought that the retransmitted SYN packet, were caused by the SYN-A=
-CK
-> didn't reach the client?
+On 29/05/12 22:20, David Miller wrote:
+> From: James Chapman <jchapman@katalix.com>
+> Date: Tue, 29 May 2012 14:30:42 +0100
+> 
+>> An application may call connect() to disconnect a socket using an
+>> address with family AF_UNSPEC. The L2TP IP sockets were not handling
+>> this case when the socket is not bound and an attempt to connect()
+>> using AF_UNSPEC in such cases would result in an oops. This patch
+>> addresses the problem by protecting the sk_prot->disconnect() call
+>> against trying to unhash the socket before it is bound.
+>>
+>> The L2TP IPv4 and IPv6 sockets have the same problem. Both are fixed
+>> by this patch.
+>>
+>> The patch also adds more checks that the sockaddr supplied to bind()
+>> and connect() calls is valid.
+>>
+>>  RIP: 0010:[<ffffffff82e133b0>]  [<ffffffff82e133b0>] inet_unhash+0x50/0xd0
+>>  RSP: 0018:ffff88001989be28  EFLAGS: 00010293
+>>  Stack:
+>>   ffff8800407a8000 0000000000000000 ffff88001989be78 ffffffff82e3a249
+>>   ffffffff82e3a050 ffff88001989bec8 ffff88001989be88 ffff8800407a8000
+>>   0000000000000010 ffff88001989bec8 ffff88001989bea8 ffffffff82e42639
+>>  Call Trace:
+>>  [<ffffffff82e3a249>] udp_disconnect+0x1f9/0x290
+>>  [<ffffffff82e42639>] inet_dgram_connect+0x29/0x80
+>>  [<ffffffff82d012fc>] sys_connect+0x9c/0x100
+>>
+>> Reported-by: Sasha Levin <levinsasha928@gmail.com>
+>> Signed-off-by: James Chapman <jchapman@katalix.com>
+> 
+> Applied and queued up for -stable, thanks James.
 
-Or, if the SYN/ACK got somehow delayed in the network and the
-SYN-retransmission timer on the client-side fires before the SYN/ACK
-reaches the client.
+The patch doesn't apply to stable due to recent l2tp_ip changes (IPv6
+support) already merged. I'll spin a version for -stable.
 
 
-Christoph
-
-
---=20
-Christoph Paasch
-PhD Student
-
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
-Universit=C3=A9 Catholique de Louvain
---=20
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
