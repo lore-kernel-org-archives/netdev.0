@@ -1,27 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 8021q/vlan: process NETDEV_GOING_DOWN
-Date: Wed, 30 May 2012 16:27:51 -0400 (EDT)
-Message-ID: <20120530.162751.80640634568619332.davem@davemloft.net>
-References: <1338330635-27259-1-git-send-email-eldad@fogrefinery.com>
-	<20120529.204040.644013889059321702.davem@davemloft.net>
-	<alpine.DEB.2.02.1205302055140.1587@debianer>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 1/4] mac80211: Fix likely misuse of | for &
+Date: Wed, 30 May 2012 13:29:42 -0700
+Message-ID: <4FC68336.3000806@candelatech.com>
+References: <cover.1338408931.git.joe@perches.com> <aa9c55edda55d38111660c0b250d12d79f6e1755.1338408931.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: eldad@fogrefinery.com
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1205302055140.1587@debianer>
+In-Reply-To: <aa9c55edda55d38111660c0b250d12d79f6e1755.1338408931.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eldad Zack <eldad@fogrefinery.com>
-Date: Wed, 30 May 2012 21:11:02 +0200 (CEST)
+On 05/30/2012 01:25 PM, Joe Perches wrote:
+> Using | with a constant is always true.
+> Likely this should have be&.
 
-> In case a certain protocol needs to send a "dying gasp" packet, when you 
-> administrativly shutdown the port (which is also what happens when you 
-> restart the machine).
+Yes, I think your change is correct.  Looks like something
+a compiler or static analysis tool could catch and warn about...
 
-No in tree users have this requirement, therefore your patch is
-inappropriate.
+Sorry for the bug!
+
+Ben
+
+>
+> cc: Ben Greear<greearb@candelatech.com>
+> Signed-off-by: Joe Perches<joe@perches.com>
+> ---
+>   net/mac80211/cfg.c |    6 +++---
+>   1 files changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+> index 495831e..e9cecca 100644
+> --- a/net/mac80211/cfg.c
+> +++ b/net/mac80211/cfg.c
+> @@ -533,16 +533,16 @@ static void ieee80211_get_et_stats(struct wiphy *wiphy,
+>   		sinfo.filled = 0;
+>   		sta_set_sinfo(sta,&sinfo);
+>
+> -		if (sinfo.filled | STATION_INFO_TX_BITRATE)
+> +		if (sinfo.filled&  STATION_INFO_TX_BITRATE)
+>   			data[i] = 100000 *
+>   				cfg80211_calculate_bitrate(&sinfo.txrate);
+>   		i++;
+> -		if (sinfo.filled | STATION_INFO_RX_BITRATE)
+> +		if (sinfo.filled&  STATION_INFO_RX_BITRATE)
+>   			data[i] = 100000 *
+>   				cfg80211_calculate_bitrate(&sinfo.rxrate);
+>   		i++;
+>
+> -		if (sinfo.filled | STATION_INFO_SIGNAL_AVG)
+> +		if (sinfo.filled&  STATION_INFO_SIGNAL_AVG)
+>   			data[i] = (u8)sinfo.signal_avg;
+>   		i++;
+>   	} else {
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
