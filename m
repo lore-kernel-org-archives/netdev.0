@@ -1,28 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2012-05-30
-Date: Wed, 30 May 2012 16:19:28 -0400 (EDT)
-Message-ID: <20120530.161928.326808762133272210.davem@davemloft.net>
-References: <20120530171300.GA2674@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/4] treewide: Fix likely misuses of | for &
+Date: Wed, 30 May 2012 13:25:53 -0700
+Message-ID: <cover.1338408931.git.joe@perches.com>
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41456 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753964Ab2E3UUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 16:20:38 -0400
-In-Reply-To: <20120530171300.GA2674@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 30 May 2012 13:13:00 -0400
+| with a non-zero constant is always true.
+Likely these should have been &.
 
-> Here is a batch of fixes intended for 3.5.  They have spent a little
-> time in linux-next, and for the most part they are reasonably small
-> and obvious.
+Joe Perches (4):
+  mac80211: Fix likely misuse of | for &
+  can: cc770: Fix likely misuse of | for &
+  brcmfmac: Fix likely misuse of | for &
+  usb: gadget: pch_udc: Fix likely misuse of | for &
 
-Pulled, thanks John.
+ drivers/net/can/cc770/cc770_platform.c           |    2 +-
+ drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |    4 ++--
+ drivers/usb/gadget/pch_udc.c                     |    2 +-
+ net/mac80211/cfg.c                               |    6 +++---
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+-- 
+1.7.8.111.gad25c.dirty
+
