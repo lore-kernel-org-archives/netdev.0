@@ -1,61 +1,67 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH repost] virtio-net: remove useless disable on freeze
-Date: Wed, 30 May 2012 17:21:29 +0300
-Message-ID: <20120530142128.GA31299@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Strange latency spikes/TX network stalls on Sun
+ Fire X4150(x86) and e1000e
+Date: Wed, 30 May 2012 16:42:54 +0200
+Message-ID: <1338388974.2760.193.camel@edumazet-glaptop>
+References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+	<88c43001441945e1431609db252b69e7@visp.net.lb>
+	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
+	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
+	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
+	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
+	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
+	<20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
+	<CA+mtBx_uYy9XcRvpD2E46FuMBFu38iQvCiwFHWqbhPBmY=JfOg@mail.gmail.com>
+	<20120530090602.6204d857.shimoda.hiroaki@gmail.com>
+	<1338367231.2760.125.camel@edumazet-glaptop>
+	<20120530194355.92bf5d51.shimoda.hiroaki@gmail.com>
+	<1338376107.2760.156.camel@edumazet-glaptop>
+	<1338376817.32113.5.camel@joe2Laptop>
+	<1338379151.2760.166.camel@edumazet-glaptop>
+	<1338386973.32113.23.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	davem@davemloft.net, Tom Herbert <therbert@google.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1338386973.32113.23.camel@joe2Laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-disable_cb is just an optimization: it
-can not guarantee that there are no callbacks.
-In particular it doesn't have any effect when
-event index is on.
+On Wed, 2012-05-30 at 07:09 -0700, Joe Perches wrote:
 
-Instead, detach, napi disable and reset on freeze ensure we don't run
-concurrently with a callback.
+> Whatever evals A and B once would be better.
 
-Remove the useless calls so we get same behaviour
-with and without event index.
+Why do you believe they could be evaluated several time ?
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+#define POSDIFF(A, B) max_t(int, (A) - (B), 0)
 
-Reposting a patch that seems to have fallen through cracks.
+(A) - (B) is done once, or its a huge max_t() bug.
 
- drivers/net/virtio_net.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+By the way, we handle 32bit values here. No way BQL can overflow a 4GB
+limit.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 9ce6995..5214b1e 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1231,11 +1231,6 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 	vi->config_enable = false;
- 	mutex_unlock(&vi->config_lock);
- 
--	virtqueue_disable_cb(vi->rvq);
--	virtqueue_disable_cb(vi->svq);
--	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ))
--		virtqueue_disable_cb(vi->cvq);
--
- 	netif_device_detach(vi->dev);
- 	cancel_delayed_work_sync(&vi->refill);
- 
--- 
-MST
+
+
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
