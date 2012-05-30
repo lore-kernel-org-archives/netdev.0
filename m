@@ -1,56 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 0/2] Faster/parallel SYN handling to mitigate SYN
- floods
-Date: Wed, 30 May 2012 06:45:37 +0200
-Message-ID: <1338353137.2760.7.camel@edumazet-glaptop>
-References: <20120528115102.12068.79994.stgit@localhost.localdomain>
-	 <4FC3A465.4030203@uclouvain.be>  <1338322661.7747.17.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Martin Topholm <mph@hoth.dk>, Florian Westphal <fw@strlen.de>,
-	opurdila@ixiacom.com,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Andi Kleen <andi@firstfloor.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: [PATCH 19/22] net/smsc911x: Repair broken failure paths
+Date: Wed, 30 May 2012 12:47:37 +0800
+Message-ID: <1338353260-10097-20-git-send-email-lee.jones@linaro.org>
+References: <1338353260-10097-1-git-send-email-lee.jones@linaro.org>
+Cc: Lee Jones <lee.jones@linaro.org>, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org, arnd@arndb.de,
+	linus.walleij@stericsson.com, grant.likely@secretlab.ca,
+	cjb@laptop.org, broonie@opensource.wolfsonmicro.com,
+	sameo@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:56243 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751224Ab2E3Epm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 00:45:42 -0400
-Received: by wgbdr13 with SMTP id dr13so4601491wgb.1
-        for <netdev@vger.kernel.org>; Tue, 29 May 2012 21:45:41 -0700 (PDT)
-In-Reply-To: <1338322661.7747.17.camel@localhost>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:61499 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314Ab2E3Es5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 00:48:57 -0400
+Received: by pbbrp8 with SMTP id rp8so6916834pbb.19
+        for <netdev@vger.kernel.org>; Tue, 29 May 2012 21:48:57 -0700 (PDT)
+In-Reply-To: <1338353260-10097-1-git-send-email-lee.jones@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-29 at 22:17 +0200, Jesper Dangaard Brouer wrote:
-> On Mon, 2012-05-28 at 18:14 +0200, Christoph Paasch wrote:
-> 
+Current failure paths attempt to free resources which we failed to request
+and disable resources which we failed to enable ones. This leads to kernel
+oops/panic. This patch does some simple re-ordering to prevent this from
+happening.
 
-> > Concerning (1):
-> > I think, there are places where you may have troube because you don't
-> > hold the lock.
-> > E.g., in tcp_make_synack (called by tcp_v4_send_synack from your
-> > tcp_v4_syn_conn_limit) there is:
-> > 
-> > if (sk->sk_userlocks & SOCK_RCVBUF_LOCK &&
-> > 	(req->window_clamp > tcp_full_space(sk) ||
-> > 	 req->window_clamp == 0))
-> > 	req->window_clamp = tcp_full_space(sk);
-> > 
-> > Thus, tcp_full_space(sk) may have different values between the check and
-> > setting req->window_clamp.
-> 
-> This should be simply solved by using a local stack variable, for
-> storing the result from tcp_full_space(sk).  Its likely that GCC already
-> does this behind our back.
-> 
+Cc: netdev@vger.kernel.org
+Signed-off-by: Lee Jones <lee.jones@linaro.org>
+---
+ drivers/net/ethernet/smsc/smsc911x.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Thats not the proper way to handle that situation.
-
-A local stack variable makes no such guarantee. You need ACCESS_ONCE().
-
-This is exactly the kind of things that RCU takes care of.
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index dab9c6f..1466e5d 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -2390,11 +2390,11 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 
+ 	retval = smsc911x_request_resources(pdev);
+ 	if (retval)
+-		goto out_return_resources;
++		goto out_request_resources_fail;
+ 
+ 	retval = smsc911x_enable_resources(pdev);
+ 	if (retval)
+-		goto out_disable_resources;
++		goto out_enable_resources_fail;
+ 
+ 	if (pdata->ioaddr == NULL) {
+ 		SMSC_WARN(pdata, probe, "Error smsc911x base address invalid");
+@@ -2501,8 +2501,9 @@ out_free_irq:
+ 	free_irq(dev->irq, dev);
+ out_disable_resources:
+ 	(void)smsc911x_disable_resources(pdev);
+-out_return_resources:
++out_enable_resources_fail:
+ 	smsc911x_free_resources(pdev);
++out_request_resources_fail:
+ 	platform_set_drvdata(pdev, NULL);
+ 	iounmap(pdata->ioaddr);
+ 	free_netdev(dev);
+-- 
+1.7.9.5
