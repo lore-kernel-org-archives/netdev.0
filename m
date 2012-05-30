@@ -1,38 +1,29 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 19/22] net/smsc911x: Repair broken failure paths
-Date: Wed, 30 May 2012 15:16:39 +0800
-Message-ID: <CACRpkdY=2j4gRGO4P4RfQDKo+sgV4akAQ6dpP4RbL+XywNCC5A@mail.gmail.com>
-References: <1338353260-10097-1-git-send-email-lee.jones@linaro.org>
-	<1338353260-10097-20-git-send-email-lee.jones@linaro.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] iwlwifi: fix typo 'IWL_WATCHHDOG_DISABLED'
+Date: Wed, 30 May 2012 09:18:08 +0200
+Message-ID: <1338362288.4511.7.camel@jlt3.sipsolutions.net>
+References: <1338361709.1780.3.camel@x61.thuisdomein>
+	 (sfid-20120530_091345_630175_CC635231)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-arm-kernel@lists.infradead.org, arnd@arndb.de,
-	linus.walleij@stericsson.com, grant.likely@secretlab.ca,
-	cjb@laptop.org, broonie@opensource.wolfsonmicro.com,
-	sameo@linux.intel.com, netdev@vger.kernel.org
-To: Lee Jones <lee.jones@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:50490 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756883Ab2E3HQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 03:16:40 -0400
-Received: by qabj40 with SMTP id j40so2894602qab.1
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 00:16:40 -0700 (PDT)
-In-Reply-To: <1338353260-10097-20-git-send-email-lee.jones@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1338361709.1780.3.camel@x61.thuisdomein> (sfid-20120530_091345_630175_CC635231)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 30, 2012 at 12:47 PM, Lee Jones <lee.jones@linaro.org> wrote:
+On Wed, 2012-05-30 at 09:08 +0200, Paul Bolle wrote:
+> Commit 7c5ba4a830cbb730770129b0004e2a06e47dbac5 ("iwlwifi: move queue
+> watchdog into transport") introduced the named constant
+> 'IWL_WATCHHDOG_DISABLED'. Rename it to 'IWL_WATCHDOG_DISABLED'.
 
-> Current failure paths attempt to free resources which we failed to request
-> and disable resources which we failed to enable ones. This leads to kernel
-> oops/panic. This patch does some simple re-ordering to prevent this from
-> happening.
->
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Lee Jones <lee.jones@linaro.org>
+Thanks, I've picked this up. Since we're in the merge window John isn't
+taking new patches right now so it'll be a while until it shows up.
 
-Acked-by: Linus Walleij <linus.walleij@linaro.org>
-
-Thanks,
-Linus Walleij
+johannes
