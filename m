@@ -1,47 +1,131 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 0/2] Faster/parallel SYN handling to mitigate SYN
- floods
-Date: Thu, 31 May 2012 00:40:30 +0200
-Message-ID: <1338417630.7747.156.camel@localhost>
-References: <20120528115102.12068.79994.stgit@localhost.localdomain>
-	 <4FC3A465.4030203@uclouvain.be> <1338322661.7747.17.camel@localhost>
-	 <4FC53353.2050801@uclouvain.be> <1338367497.7747.72.camel@localhost>
-	 <4FC5DFF4.1020604@uclouvain.be>
+From: "Lubashev, Igor" <ilubashe@akamai.com>
+Subject: Re: [PATCH] net: compute a more reasonable default ip6_rt_max_size
+Date: Wed, 30 May 2012 19:50:15 -0400
+Message-ID: <83CE6FF8F6C9B2468A618FC2C51267260F303CD88B@USMBX1.msg.corp.akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Martin Topholm <mph@hoth.dk>, Florian Westphal <fw@strlen.de>,
-	opurdila@ixiacom.com,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Andi Kleen <andi@firstfloor.org>
-To: christoph.paasch@uclouvain.be
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16696 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757053Ab2E3Wkz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2012 18:40:55 -0400
-In-Reply-To: <4FC5DFF4.1020604@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, Arun Sharma <asharma@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-05-30 at 10:53 +0200, Christoph Paasch wrote:
-> On 05/30/2012 10:44 AM, Jesper Dangaard Brouer wrote:
-> >> > 
-> >> > Then the receiver will receive two SYN/ACK's for the same SYN with
-> >> > different sequence-numbers. As the "SYN cookie SYN-ACK" will arrive
-> >> > second, it will be discarded and seq-numbers from the first one will be
-> >> > taken on the client-side.
-> > I thought that the retransmitted SYN packet, were caused by the SYN-ACK
-> > didn't reach the client?
-> 
-> Or, if the SYN/ACK got somehow delayed in the network and the
-> SYN-retransmission timer on the client-side fires before the SYN/ACK
-> reaches the client.
+>It's possible that there is a bug somewhere - we didn't get a chance to 
+>dig deeper. What we observed is that as we got close to the 4096 limit, 
+>some hosts were becoming unreachable. A modest increase in the routing 
+>table size made things better.
 
-That seems like a very unlikely situation, which we perhaps should
-neglect as we are under SYN attack.
+First of all, we have observed the same thing.
 
-I will test the attack vector, if we instead of dropping the reqsk, fall
-back into the slow locked path.
+While I am not an expert in this area of the routing code, the function fib6_age in net/ipv6/ip6_fib.c puzzles me.
+
+
+In kernel version 2.7.2.0.3, we have net/ipv6/ip6_fib.c:
+static int fib6_age(struct rt6_info *rt, void *arg)
+{
+	unsigned long now = jiffies;
+
+	if (rt->rt6i_flags&RTF_EXPIRES && rt->rt6i_expires) {
+		if (time_after(now, rt->rt6i_expires)) {
+			RT6_TRACE("expiring %p\n", rt);
+			return -1;
+		}
+		gc_args.more++;
+	} else if (rt->rt6i_flags & RTF_CACHE) {
+		if (atomic_read(&rt->dst.__refcnt) == 0 &&
+		    time_after_eq(now, rt->dst.lastuse + gc_args.timeout)) {
+			RT6_TRACE("aging clone %p\n", rt);
+			return -1;
+		} else if ((rt->rt6i_flags & RTF_GATEWAY) &&
+			   (!(rt->rt6i_nexthop->flags & NTF_ROUTER))) {
+			RT6_TRACE("purging route %p via non-router but gateway\n",
+				  rt);
+			return -1;
+		}
+		gc_args.more++;
+	}
+
+	return 0;
+}
+
+
+In kernel 3.0.32, we have net/ipv6/ip6_fib.c:
+static int fib6_age(struct rt6_info *rt, void *arg)
+{
+	unsigned long now = jiffies;
+
+	if (rt->rt6i_flags&RTF_EXPIRES && rt->rt6i_expires) {
+		if (time_after(now, rt->rt6i_expires)) {
+			RT6_TRACE("expiring %p\n", rt);
+			return -1;
+		}
+		gc_args.more++;
+	} else if (rt->rt6i_flags & RTF_CACHE) {
+		if (atomic_read(&rt->dst.__refcnt) == 0 &&
+		    time_after_eq(now, rt->dst.lastuse + gc_args.timeout)) {
+			RT6_TRACE("aging clone %p\n", rt);
+			return -1;
+		} else if ((rt->rt6i_flags & RTF_GATEWAY) &&
+			   (!(dst_get_neighbour_raw(&rt->dst)->flags & NTF_ROUTER))) {
+			RT6_TRACE("purging route %p via non-router but gateway\n",
+				  rt);
+			return -1;
+		}
+		gc_args.more++;
+	}
+
+	return 0;
+}
+
+
+In kernel 3.4, we have net/ipv6/ip6_fib.c:
+static int fib6_age(struct rt6_info *rt, void *arg)
+{
+	unsigned long now = jiffies;
+
+	if (rt->rt6i_flags & RTF_EXPIRES && rt->dst.expires) {
+		if (time_after(now, rt->dst.expires)) {
+			RT6_TRACE("expiring %p\n", rt);
+			return -1;
+		}
+		gc_args.more++;
+	} else if (rt->rt6i_flags & RTF_CACHE) {
+		if (atomic_read(&rt->dst.__refcnt) == 0 &&
+		    time_after_eq(now, rt->dst.lastuse + gc_args.timeout)) {
+			RT6_TRACE("aging clone %p\n", rt);
+			return -1;
+		} else if (rt->rt6i_flags & RTF_GATEWAY) {
+			struct neighbour *neigh;
+			__u8 neigh_flags = 0;
+
+			neigh = dst_neigh_lookup(&rt->dst, &rt->rt6i_gateway);
+			if (neigh) {
+				neigh_flags = neigh->flags;
+				neigh_release(neigh);
+			}
+			if (neigh_flags & NTF_ROUTER) {
+				RT6_TRACE("purging route %p via non-router but gateway\n",
+					  rt);
+				return -1;
+			}
+		}
+		gc_args.more++;
+	}
+
+	return 0;
+}
+
+
+Do we have the meaning of the NTF_ROUTER flag reversed in kernel 3.4?  Or is the opposite use of that flag a fix for the bug in the previous releases? Or is this a bug in kernel 3.4?
+
+Also, could this remove a Gateway entry, if there is no neighbor entry for it (in any of the version of the code)?  Could this try to deference a null pointer in 3.0.32 version of the code (and any version prior to 3.4)?  In general, is this the right place to remove a gateway route that has __refcnt > 0?
+
+I wish I had more expertise in this area of the code to answer questions and not only to pose them.
+
+Thank you,
+
+- Igor
