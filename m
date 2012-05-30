@@ -1,15 +1,17 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.com>
 Subject: [PATCH net 5/6] net/mlx4_core: Check port out-of-range before using in mlx4_slave_cap
-Date: Wed, 30 May 2012 22:36:30 +0300
-Message-ID: <1338406590-17916-1-git-send-email-yevgenyp@mellanox.com>
+Date: Wed, 30 May 2012 22:14:54 +0300
+Message-ID: <1338405295-15427-6-git-send-email-yevgenyp@mellanox.com>
+References: <1338405295-15427-1-git-send-email-yevgenyp@mellanox.com>
 Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
 	Jack Morgenstein <jackm@dev.mellanox.co.il>
-To: davem@davemloft.net
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:46257 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751471Ab2E3Tgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 15:36:42 -0400
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:42020 "HELO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752504Ab2E3UDC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 16:03:02 -0400
+In-Reply-To: <1338405295-15427-1-git-send-email-yevgenyp@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
