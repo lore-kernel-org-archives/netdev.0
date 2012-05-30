@@ -1,7 +1,7 @@
 From: Alexandru Copot <alex.mihai.c@gmail.com>
-Subject: [RFC PATCH 2/4] inet: add a second bind hash
-Date: Wed, 30 May 2012 10:36:48 +0300
-Message-ID: <1338363410-6562-3-git-send-email-alex.mihai.c@gmail.com>
+Subject: [RFC PATCH 1/4] inet: add counter to inet_bind_hashbucket
+Date: Wed, 30 May 2012 10:36:47 +0300
+Message-ID: <1338363410-6562-2-git-send-email-alex.mihai.c@gmail.com>
 References: <1338363410-6562-1-git-send-email-alex.mihai.c@gmail.com>
 Cc: gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
@@ -10,165 +10,173 @@ Cc: gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	Lucian Grijincu <lucian.grijincu@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:47208 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031Ab2E3Hi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 03:38:58 -0400
-Received: by wibhj8 with SMTP id hj8so3534716wib.1
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 00:38:56 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:60430 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751491Ab2E3Hiz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 03:38:55 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so4725525wgb.1
+        for <netdev@vger.kernel.org>; Wed, 30 May 2012 00:38:54 -0700 (PDT)
 In-Reply-To: <1338363410-6562-1-git-send-email-alex.mihai.c@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a second bind hash table which hashes by bound port and address.
+The counter will be used by the upcoming INET lookup algorithm to
+choose the shortest chain after secondary hash is added.
 
 Signed-off-by: Alexandru Copot <alex.mihai.c@gmail.com>
 Cc: Daniel Baluta <dbaluta@ixiacom.com>
 Cc: Lucian Grijincu <lucian.grijincu@gmail.com>
 ---
- include/net/inet_hashtables.h |   13 ++++++++++---
- net/dccp/proto.c              |   36 ++++++++++++++++++++++++++++++++++--
- net/ipv4/tcp.c                |   16 ++++++++++++++++
- 3 files changed, 60 insertions(+), 5 deletions(-)
+ include/net/inet_hashtables.h    |    4 +++-
+ include/net/inet_timewait_sock.h |    4 +++-
+ net/dccp/proto.c                 |    1 +
+ net/ipv4/inet_hashtables.c       |    9 ++++++---
+ net/ipv4/inet_timewait_sock.c    |    7 ++++---
+ net/ipv4/tcp.c                   |    1 +
+ 6 files changed, 18 insertions(+), 8 deletions(-)
 
 diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 8c6addc..a6d0db2 100644
+index 808fc5f..8c6addc 100644
 --- a/include/net/inet_hashtables.h
 +++ b/include/net/inet_hashtables.h
-@@ -84,6 +84,7 @@ struct inet_bind_bucket {
- 	signed short		fastreuse;
- 	int			num_owners;
- 	struct hlist_node	node;
-+	struct hlist_node	portaddr_node;
- 	struct hlist_head	owners;
- };
- 
-@@ -94,6 +95,8 @@ static inline struct net *ib_net(struct inet_bind_bucket *ib)
- 
- #define inet_bind_bucket_for_each(tb, pos, head) \
- 	hlist_for_each_entry(tb, pos, head, node)
-+#define inet_portaddr_bind_bucket_for_each(tb, pos, head) \
-+	hlist_for_each_entry(tb, pos, head, portaddr_node)
- 
+@@ -98,6 +98,7 @@ static inline struct net *ib_net(struct inet_bind_bucket *ib)
  struct inet_bind_hashbucket {
  	spinlock_t		lock;
-@@ -129,13 +132,17 @@ struct inet_hashinfo {
- 	unsigned int			ehash_mask;
- 	unsigned int			ehash_locks_mask;
+ 	struct hlist_head	chain;
++	unsigned int		count;
+ };
  
--	/* Ok, let's try this, I give up, we do need a local binding
--	 * TCP hash as well as the others for fast bind/connect.
-+	/*
-+	 * bhash:		hashes the buckets by port.
-+	 * portaddr_bhash:	hashes bind buckets by bound port and address.
-+	 *			When bhash gets too large, we try to lookup on
-+	 *			portaddr_bhash.
- 	 */
- 	struct inet_bind_hashbucket	*bhash;
-+	struct inet_bind_hashbucket	*portaddr_bhash;
+ /*
+@@ -222,7 +223,8 @@ extern struct inet_bind_bucket *
+ 					    struct inet_bind_hashbucket *head,
+ 					    const unsigned short snum);
+ extern void inet_bind_bucket_destroy(struct kmem_cache *cachep,
+-				     struct inet_bind_bucket *tb);
++				     struct inet_bind_bucket *tb,
++				     struct inet_bind_hashbucket *head);
  
- 	unsigned int			bhash_size;
--	/* 4 bytes hole on 64 bit */
-+	unsigned int			portaddr_bhash_size;
+ static inline int inet_bhashfn(struct net *net,
+ 		const __u16 lport, const int bhash_size)
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
+index ba52c83..725e903 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -30,6 +30,7 @@
+ #include <linux/atomic.h>
  
- 	struct kmem_cache		*bind_bucket_cachep;
+ struct inet_hashinfo;
++struct inet_bind_hashbucket;
  
+ #define INET_TWDR_RECYCLE_SLOTS_LOG	5
+ #define INET_TWDR_RECYCLE_SLOTS		(1 << INET_TWDR_RECYCLE_SLOTS_LOG)
+@@ -197,7 +198,8 @@ extern void inet_twsk_put(struct inet_timewait_sock *tw);
+ extern int inet_twsk_unhash(struct inet_timewait_sock *tw);
+ 
+ extern int inet_twsk_bind_unhash(struct inet_timewait_sock *tw,
+-				 struct inet_hashinfo *hashinfo);
++				 struct inet_hashinfo *hashinfo,
++				 struct inet_bind_hashbucket *head);
+ 
+ extern struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
+ 						  const int state);
 diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index e777beb..298f5c1 100644
+index 6c7c78b..e777beb 100644
 --- a/net/dccp/proto.c
 +++ b/net/dccp/proto.c
-@@ -1109,7 +1109,7 @@ EXPORT_SYMBOL_GPL(dccp_debug);
- static int __init dccp_init(void)
- {
- 	unsigned long goal;
--	int ehash_order, bhash_order, i;
-+	int ehash_order, bhash_order, portaddr_bhash_order, i;
- 	int rc;
+@@ -1184,6 +1184,7 @@ static int __init dccp_init(void)
+ 	}
  
- 	BUILD_BUG_ON(sizeof(struct dccp_skb_cb) >
-@@ -1189,9 +1189,34 @@ static int __init dccp_init(void)
+ 	for (i = 0; i < dccp_hashinfo.bhash_size; i++) {
++		dccp_hashinfo.bhash[i].count = 0;
+ 		spin_lock_init(&dccp_hashinfo.bhash[i].lock);
  		INIT_HLIST_HEAD(&dccp_hashinfo.bhash[i].chain);
  	}
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 7880af9..c1f6f28 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -42,6 +42,7 @@ struct inet_bind_bucket *inet_bind_bucket_create(struct kmem_cache *cachep,
+ 		tb->num_owners = 0;
+ 		INIT_HLIST_HEAD(&tb->owners);
+ 		hlist_add_head(&tb->node, &head->chain);
++		head->count++;
+ 	}
+ 	return tb;
+ }
+@@ -49,9 +50,11 @@ struct inet_bind_bucket *inet_bind_bucket_create(struct kmem_cache *cachep,
+ /*
+  * Caller must hold hashbucket lock for this tb with local BH disabled
+  */
+-void inet_bind_bucket_destroy(struct kmem_cache *cachep, struct inet_bind_bucket *tb)
++void inet_bind_bucket_destroy(struct kmem_cache *cachep, struct inet_bind_bucket *tb,
++			      struct inet_bind_hashbucket *head)
+ {
+ 	if (hlist_empty(&tb->owners)) {
++		head->count--;
+ 		__hlist_del(&tb->node);
+ 		release_net(ib_net(tb));
+ 		kmem_cache_free(cachep, tb);
+@@ -90,7 +93,7 @@ static void __inet_put_port(struct sock *sk)
+ 	tb->num_owners--;
+ 	inet_csk(sk)->icsk_bind_hash = NULL;
+ 	inet_sk(sk)->inet_num = 0;
+-	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
++	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb, head);
+ 	spin_unlock(&head->lock);
+ }
  
-+	portaddr_bhash_order = bhash_order;
-+
-+	do {
-+		dccp_hashinfo.portaddr_bhash_size =
-+			(1UL << portaddr_bhash_order) *
-+			PAGE_SIZE / sizeof(struct inet_bind_hashbucket);
-+		if ((dccp_hashinfo.portaddr_bhash_size > (64 * 1024)) &&
-+				portaddr_bhash_order > 0)
-+			continue;
-+		dccp_hashinfo.portaddr_bhash = (struct inet_bind_hashbucket *)
-+			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN,
-+					 portaddr_bhash_order);
-+	} while (!dccp_hashinfo.portaddr_bhash && --portaddr_bhash_order >= 0);
-+
-+	if (!dccp_hashinfi.portaddr_bhash) {
-+		DCCP_CRIT("Failed to allocate DCCP portaddr bind hash table");
-+		goto out_free_dccp_hash;
-+	}
-+
-+	for (i = 0; i < dccp_hashinfo.portaddr_bhash_size; i++) {
-+		dccp_hashinfo.portaddr_bhash[i].count = 0;
-+		spin_lock_init(&dccp_hashinfo.portaddr_bhash[i].lock);
-+		INIT_HLIST_HEAD(&dccp_hashinfo.portaddr_bhash[i].chain);
-+	}
-+
- 	rc = dccp_mib_init();
- 	if (rc)
--		goto out_free_dccp_bhash;
-+		goto out_free_dccp_portaddr_bhash;
+@@ -527,7 +530,7 @@ ok:
+ 			twrefcnt += hash(sk, tw);
+ 		}
+ 		if (tw)
+-			twrefcnt += inet_twsk_bind_unhash(tw, hinfo);
++			twrefcnt += inet_twsk_bind_unhash(tw, hinfo, head);
+ 		spin_unlock(&head->lock);
  
- 	rc = dccp_ackvec_init();
- 	if (rc)
-@@ -1215,6 +1240,10 @@ out_ackvec_exit:
- 	dccp_ackvec_exit();
- out_free_dccp_mib:
- 	dccp_mib_exit();
-+out_free_dccp_portaddr_bhash:
-+	free_pages((unsigned long)dccp_hashinfo.portaddr_bhash,
-+		   portaddr_bhash_order);
-+	dccp_hashinfo.portaddr_bhash = NULL;
- out_free_dccp_bhash:
- 	free_pages((unsigned long)dccp_hashinfo.bhash, bhash_order);
- out_free_dccp_locks:
-@@ -1239,6 +1268,9 @@ static void __exit dccp_fini(void)
- 	free_pages((unsigned long)dccp_hashinfo.bhash,
- 		   get_order(dccp_hashinfo.bhash_size *
- 			     sizeof(struct inet_bind_hashbucket)));
-+	free_pages((unsigned long)dccp_hashinfo.portaddr_bhash,
-+		   get_order(dccp_hashinfo.portaddr_bhash_size *
-+			     sizeof(struct inet_bind_hashbucket)));
- 	free_pages((unsigned long)dccp_hashinfo.ehash,
- 		   get_order((dccp_hashinfo.ehash_mask + 1) *
- 			     sizeof(struct inet_ehash_bucket)));
+ 		if (tw) {
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index 2784db3..5b7bcd0 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -49,7 +49,8 @@ int inet_twsk_unhash(struct inet_timewait_sock *tw)
+  *	Returns 1 if caller should call inet_twsk_put() after lock release.
+  */
+ int inet_twsk_bind_unhash(struct inet_timewait_sock *tw,
+-			  struct inet_hashinfo *hashinfo)
++			  struct inet_hashinfo *hashinfo,
++			  struct inet_bind_hashbucket *head)
+ {
+ 	struct inet_bind_bucket *tb = tw->tw_tb;
+ 
+@@ -58,7 +59,7 @@ int inet_twsk_bind_unhash(struct inet_timewait_sock *tw,
+ 
+ 	__hlist_del(&tw->tw_bind_node);
+ 	tw->tw_tb = NULL;
+-	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
++	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb, head);
+ 	/*
+ 	 * We cannot call inet_twsk_put() ourself under lock,
+ 	 * caller must call it for us.
+@@ -84,7 +85,7 @@ static void __inet_twsk_kill(struct inet_timewait_sock *tw,
+ 			hashinfo->bhash_size)];
+ 
+ 	spin_lock(&bhead->lock);
+-	refcnt += inet_twsk_bind_unhash(tw, hashinfo);
++	refcnt += inet_twsk_bind_unhash(tw, hashinfo, bhead);
+ 	spin_unlock(&bhead->lock);
+ 
+ #ifdef SOCK_REFCNT_DEBUG
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 52cdf67..7dd3e19 100644
+index bb485fc..52cdf67 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -3538,6 +3538,22 @@ void __init tcp_init(void)
+@@ -3533,6 +3533,7 @@ void __init tcp_init(void)
+ 					64 * 1024);
+ 	tcp_hashinfo.bhash_size = 1U << tcp_hashinfo.bhash_size;
+ 	for (i = 0; i < tcp_hashinfo.bhash_size; i++) {
++		tcp_hashinfo.bhash[i].count = 0;
+ 		spin_lock_init(&tcp_hashinfo.bhash[i].lock);
  		INIT_HLIST_HEAD(&tcp_hashinfo.bhash[i].chain);
  	}
- 
-+	tcp_hashinfo.portaddr_bhash =
-+		alloc_large_system_hash("TCP portaddr_bind",
-+					sizeof(struct inet_bind_hashbucket),
-+					tcp_hashinfo.bhash_size,
-+					(totalram_pages >= 128 * 1024) ?
-+					13 : 15,
-+					0,
-+					&tcp_hashinfo.portaddr_bhash_size,
-+					NULL,
-+					64 * 1024);
-+	tcp_hashinfo.portaddr_bhash_size = 1U << tcp_hashinfo.portaddr_bhash_size;
-+	for (i = 0; i < tcp_hashinfo.portaddr_bhash_size; i++) {
-+		tcp_hashinfo.portaddr_bhash[i].count = 0;
-+		spin_lock_init(&tcp_hashinfo.portaddr_bhash[i].lock);
-+		INIT_HLIST_HEAD(&tcp_hashinfo.portaddr_bhash[i].chain);
-+	}
- 
- 	cnt = tcp_hashinfo.ehash_mask + 1;
- 
 -- 
 1.7.10.2
