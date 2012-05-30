@@ -1,109 +1,68 @@
-From: dave taht <dave.taht@gmail.com>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
- and e1000e
-Date: Wed, 30 May 2012 08:00:57 -0700
-Message-ID: <4FC63629.7090404@gmail.com>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>  <88c43001441945e1431609db252b69e7@visp.net.lb>  <df211722d18136698aeeda2f17b876e2@visp.net.lb>  <d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>  <CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>  <79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>  <CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>  <20120529232518.e5b41759.shimoda.hiroaki@gmail.com>  <CA+mtBx_uYy9XcRvpD2E46FuMBFu38iQvCiwFHWqbhPBmY=JfOg@mail.gmail.com>  <20120530090602.6204d857.shimoda.hiroaki@gmail.com>  <1338367231.2760.125.camel@edumazet-glaptop>  <20120530194355.92bf5d51.shimoda.hiroaki@gmail.com>  <1338376107.2760.156.camel@edumazet-glaptop>  <20120530202917.b2642929.shimoda.hiroaki@gmail.com> <1338389342.2760.195.camel@edumazet
- -glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: bug in ip -s xfrm state list
+Date: Wed, 30 May 2012 08:13:38 -0700
+Message-ID: <20120530081338.1904c604@nehalam.linuxnetplumber.net>
+References: <1938601.tRGYljKHkq@notebook>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Jaroslav =?utf-8?B?xaBhZmth?= <jaroslav.safka@siemens.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:55128 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752171Ab2E3PBC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 11:01:02 -0400
-Received: by pbbrp8 with SMTP id rp8so67502pbb.19
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 08:01:01 -0700 (PDT)
-In-Reply-To: <1338389342.2760.195.camel@edumazet-glaptop>
+Received: from mail.vyatta.com ([76.74.103.46]:45015 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752671Ab2E3PNl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 11:13:41 -0400
+In-Reply-To: <1938601.tRGYljKHkq@notebook>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2012 07:49 AM, Eric Dumazet wrote:
-> On Wed, 2012-05-30 at 20:29 +0900, Hiroaki SHIMODA wrote:
->> On Wed, 30 May 2012 13:08:27 +0200
->> Eric Dumazet<eric.dumazet@gmail.com>  wrote:
->>
->>> On Wed, 2012-05-30 at 19:43 +0900, Hiroaki SHIMODA wrote:
->>>
->>>> While examining ping problem, below pattern is often observed.
->>>>
->>>>                                                 TIME
->>>>         dql_queued()         dql_completed()     |
->>>>        a) initial state                          |
->>>>                                                  |
->>>>        b) X bytes queued                         V
->>>>
->>>>        c) Y bytes queued
->>>>                             d) X bytes completed
->>>>        e) Z bytes queued
->>>>                             f) Y bytes completed
->>>>
->>>> a) dql->limit has already some value and there is no in-flight packet.
->>>> b) X bytes queued.
->>>> c) Y bytes queued and excess limit.
->>>> d) X bytes completed and dql->prev_ovlimit is set and also
->>>>     dql->prev_num_queued is set Y.
->>>> e) Z bytes queued.
->>>> f) Y bytes completed. inprogress and prev_inprogress are true.
->>>>
->>>> At f), if I read the comment correctly, all_prev_completed becomes
->>>> true and limit should be increased. But POSDIFF() ignores
->>>> (A == B) case, so limit is decreased.
->>> Which POSDIFF(), because there are many ;)
->> I mean,
->> 	all_prev_completed = POSDIFF(completed, dql->prev_num_queued);
->>
->>> By the way, given complexity of this I suggest you split your ideas in
->>> independent patches.
->> In this case, here is the patch what I thinking.
->>
->> diff --git a/lib/dynamic_queue_limits.c b/lib/dynamic_queue_limits.c
->> @@ -11,12 +11,14 @@
->>   #include<linux/dynamic_queue_limits.h>
->>
->>   #define POSDIFF(A, B) ((A)>  (B) ? (A) - (B) : 0)
->> +#define #define AFTER_EQ(A, B) ((int)((A) - (B))>= 0)
->>
->>   /* Records completed count and recalculates the queue limit */
->>   void dql_completed(struct dql *dql, unsigned int count)
->>   {
->>   	unsigned int inprogress, prev_inprogress, limit;
->> -	unsigned int ovlimit, all_prev_completed, completed;
->> +	unsigned int ovlimit, completed;
->> +	bool all_prev_completed;
->>
->>   	/* Can't complete more than what's in queue */
->>   	BUG_ON(count>  dql->num_queued - dql->num_completed);
->> @@ -26,7 +28,7 @@ void dql_completed(struct dql *dql, unsigned int count)
->>   	ovlimit = POSDIFF(dql->num_queued - dql->num_completed, limit);
->>   	inprogress = dql->num_queued - completed;
->>   	prev_inprogress = dql->prev_num_queued - dql->num_completed;
->> -	all_prev_completed = POSDIFF(completed, dql->prev_num_queued);
->> +	all_prev_completed = AFTER_EQ(completed, dql->prev_num_queued);
->>
->>   	if ((ovlimit&&  !inprogress) ||
->>   	    (dql->prev_ovlimit&&  all_prev_completed)) {
-> I am fine with this one.
->
-> Can you send official patches please ?
+On Wed, 30 May 2012 15:00:05 +0200
+Jaroslav =C5=A0afka <jaroslav.safka@siemens.com> wrote:
 
-While this looks encouraging, BQL presently overbuffers by about a 
-factor of 2 in low (sub 100Mbit) scenarios
-on the hardware I have available to me.
+> Hello guys,
+> I found small problem in printing "seq" number.
+> I think the problem is visible in diff below ;-)
+>=20
+> Best regards
+> Jarek
+>=20
+> diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
+> index c7b3420..67fe838 100644
+> --- a/ip/ipxfrm.c
+> +++ b/ip/ipxfrm.c
+> @@ -843,7 +843,7 @@ void xfrm_state_info_print(struct xfrm_usersa_inf=
+o=20
+> *xsinfo,
+>         fputs(buf, fp);
+>         fprintf(fp, "replay-window %u ", xsinfo->replay_window);
+>         if (show_stats > 0)
+> -               fprintf(fp, "seq 0x%08u ", xsinfo->seq);
+> +               fprintf(fp, "seq %08u ", ntohl(xsinfo->seq));
+>         if (show_stats > 0 || xsinfo->flags) {
+>                 __u8 flags =3D xsinfo->flags;
+> =20
+>=20
+>=20
 
-I look forward to re-running benchmarks with this patch however.
+Moving to netdev list for more feedback.
+Your change has two components:
+  1. printing sequence number in decimal notation with 0x prefix.
+  2. doing ntohl().
 
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The first is an obvious bug in the original code. Not sure about
+the second. It looks like sequence numbers generated by the kernel
+come from xfrm_get_acqseq() which generates sequence numbers in host
+byte order. But sequence numbers entered from user space (vi xfrm_seq_p=
+arse)
+are encoded in network byte order. This looks like a flaw in the origin=
+al design.
+
+The kernel networking code tries to be careful about documenting networ=
+k
+verus host byte order via the typedef __be32 vs __u32.  Given that the =
+kernel
+is using __u32 for sequence number in xfrm fairly consistently; my opni=
+non
+is that iproute2 should change and go with the kernel practice and
+use host byte order.
