@@ -1,15 +1,14 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
 Subject: Re: [RFC PATCH 0/2] Faster/parallel SYN handling to mitigate SYN
  floods
-Date: Wed, 30 May 2012 10:50:24 +0200
-Message-ID: <1338367824.2760.128.camel@edumazet-glaptop>
-References: <20120528115102.12068.79994.stgit@localhost.localdomain>
-	 <4FC3A465.4030203@uclouvain.be> <1338322661.7747.17.camel@localhost>
-	 <4FC53353.2050801@uclouvain.be>  <1338367497.7747.72.camel@localhost>
+Date: Wed, 30 May 2012 10:53:08 +0200
+Message-ID: <4FC5DFF4.1020604@uclouvain.be>
+References: <20120528115102.12068.79994.stgit@localhost.localdomain> <4FC3A465.4030203@uclouvain.be> <1338322661.7747.17.camel@localhost> <4FC53353.2050801@uclouvain.be> <1338367497.7747.72.camel@localhost>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Martin Topholm <mph@hoth.dk>, Florian Westphal <fw@strlen.de>,
 	opurdila@ixiacom.com,
@@ -17,28 +16,39 @@ Cc: christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
 	Andi Kleen <andi@firstfloor.org>
 To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:58375 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932264Ab2E3Iu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 04:50:29 -0400
-Received: by bkcji2 with SMTP id ji2so3868764bkc.19
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 01:50:28 -0700 (PDT)
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:48596 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932368Ab2E3IxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 04:53:14 -0400
 In-Reply-To: <1338367497.7747.72.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-30 at 10:44 +0200, Jesper Dangaard Brouer wrote:
+On 05/30/2012 10:44 AM, Jesper Dangaard Brouer wrote:
+>> >=20
+>> > Then the receiver will receive two SYN/ACK's for the same SYN with
+>> > different sequence-numbers. As the "SYN cookie SYN-ACK" will arriv=
+e
+>> > second, it will be discarded and seq-numbers from the first one wi=
+ll be
+>> > taken on the client-side.
+> I thought that the retransmitted SYN packet, were caused by the SYN-A=
+CK
+> didn't reach the client?
 
-> Choosing that code path, should be easy by simply returning 0 (no_limit)
-> from my function tcp_v4_syn_conn_limit(), to indicate that the normal
-> slow code path should be chosen.
-> 
-> I guess this will not pose a big attack angle, as the entries in
-> reqsk_queue will be fairly small.
+Or, if the SYN/ACK got somehow delayed in the network and the
+SYN-retransmission timer on the client-side fires before the SYN/ACK
+reaches the client.
 
-Not sure what you mean.
 
-I know some people have 64K entries in it.
+Christoph
 
-(sk_ack_backlog / sk_max_ack_backlog being 16bits, 
-listen(fd, 65536 + 1) can give unexpected results)
+
+--=20
+Christoph Paasch
+PhD Student
+
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
+Universit=C3=A9 Catholique de Louvain
+--=20
