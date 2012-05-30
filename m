@@ -1,39 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] net: implement auto-loading of generic netlink
- modules
-Date: Tue, 29 May 2012 22:34:34 -0400 (EDT)
-Message-ID: <20120529.223434.508811240180990047.davem@davemloft.net>
-References: <1338319842-18395-1-git-send-email-nhorman@tuxdriver.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [RFC PATCH v1 0/3] Expose switching attributes via PF_BRIDGE
+Date: Tue, 29 May 2012 20:06:54 -0700
+Message-ID: <20120530030531.7443.72024.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	jchapman@katalix.com
-To: nhorman@tuxdriver.com
+Cc: sri@us.ibm.com, gregory.v.rose@intel.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com,
+	eric.w.multanen@intel.com
+To: krkumar2@in.ibm.com, hadi@cyberus.ca, shemminger@vyatta.com,
+	mst@redhat.com, buytenh@wantstofly.org, eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33579 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756279Ab2E3Cfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 May 2012 22:35:48 -0400
-In-Reply-To: <1338319842-18395-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mga03.intel.com ([143.182.124.21]:29217 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932261Ab2E3DVH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 May 2012 23:21:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 29 May 2012 15:30:39 -0400
+This series decouples the remaining netlink PF_BRIDGE messages
+from the bridging module and moves them into rtnetlink proper.
+By doing this we can use these netlink messages to handle any
+type of bridge and extend the attributes as needed.
 
-> 
-> Eric D. recently noted that the drop_monitor module didn't autoload when the
-> dropwatch user space utility started.  Looking into this I noted that theres no
-> formal macro set to define module aliases that can be used by a request module
-> call in the generic netlink family lookup path.  Currenlty the
-> net-pf-*-proto-*-type-<n> format is used, but the macros which form this expect
-> <n> to be a well defined integer, which generic netlink doesn't use for family
-> definitions.  So this series creates a new macro that create a
-> net-pf-*-proto-*-name format where name can be any arbitrary string, allowing us
-> to apend family-<x> where x is a generic netlink family name.  With these
-> macros, we can easily autoload modules that register generic netlink families
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+I hope this resolves some of the concerns with the DSA patch
+below and expect the attached series can be extended to
+support the DSA infrastructure as needed:
 
-Looks great, all applied, thanks Neil.
+http://patchwork.ozlabs.org/patch/16578/
+
+Also this should resolve a patch here that tried to expose
+the switching modes but did so using a device specific hook:
+
+http://lists.openwall.net/netdev/2012/04/16/10
+
+I've used a hacked version of the 'bridge' tool Stephen
+Hemminger submitted as an RFC some months back to test this
+the output looks like this:
+
+[root@jf-dev1-dcblab iproute2]# ./br/br bridge show
+eth2: bridge mode: VEB		embedded
+eth3: bridge mode: VEB		embedded
+[root@jf-dev1-dcblab iproute2]# ./br/br bridge mode dev eth2 mode vepa
+[root@jf-dev1-dcblab iproute2]# ./br/br bridge show
+eth2: bridge mode: VEPA		embedded
+eth3: bridge mode: VEB		embedded
+
+I could have just added a ndo op and IFLA_XXX message to
+set the switching mode but IMHO this is not going to scale
+as more bridging functionality becomes offloaded. The DSA
+example is a case where we already have a fully offloaded
+switch. Any solution we come up with should support both
+embedded switches and SW switches.
+
+Any comments would be appreciated Thanks!
+
+---
+
+John Fastabend (3):
+      ixgbe: add setlink, getlink support to ixgbe and ixgbevf
+      net: add VEPA, VEB bridge mode
+      net: create generic bridge ops
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  100 +++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |    3 
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   10 ++
+ include/linux/if_link.h                           |   16 ++
+ include/linux/netdevice.h                         |   10 ++
+ net/bridge/br_device.c                            |    2 
+ net/bridge/br_netlink.c                           |   75 ++---------
+ net/bridge/br_private.h                           |    3 
+ net/core/rtnetlink.c                              |  137 +++++++++++++++++++++
+ 9 files changed, 291 insertions(+), 65 deletions(-)
+
+-- 
+Signature
