@@ -1,40 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] drop_monitor: convert to modular building
-Date: Wed, 30 May 2012 07:29:20 +0200
-Message-ID: <1338355760.2760.8.camel@edumazet-glaptop>
-References: <1337178426-2470-1-git-send-email-nhorman@tuxdriver.com>
-	 <1337285040-20848-1-git-send-email-nhorman@tuxdriver.com>
-	 <20120517.160937.586334759945738635.davem@davemloft.net>
-	 <20120517202152.GB19321@hmsreliant.think-freely.org>
-	 <1337691919.3361.189.camel@edumazet-glaptop>
-	 <20120529193348.GB9258@hmsreliant.think-freely.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH] net: sock: validate data_len before allocating skb in
+ sock_alloc_send_pskb()
+Date: Wed, 30 May 2012 13:47:02 +0800
+Message-ID: <20120530054702.6146.8503.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: stable@vger.kernel.org, mst@redhat.com
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:43700 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289Ab2E3F3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 01:29:25 -0400
-Received: by weyu7 with SMTP id u7so3094755wey.19
-        for <netdev@vger.kernel.org>; Tue, 29 May 2012 22:29:24 -0700 (PDT)
-In-Reply-To: <20120529193348.GB9258@hmsreliant.think-freely.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51682 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754718Ab2E3Fwm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 May 2012 01:52:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-29 at 15:33 -0400, Neil Horman wrote:
+We need to validate the number of pages consumed by data_len, otherwise frags
+array could be overflowed by userspace. So this patch validate data_len and
+return -EMSGSIZE when data_len may occupies more frags than MAX_SKB_FRAGS.
 
-> Eric,
-> 	Just FYI, I sent a series upstream to implement autoloading of generic
-> netlink families.  Please be awarem, that I've tested these with a hacked
-> version of dropwatch, and it works great, but with the normal version of
-> dropwatch, the drop_monitor module still doesn't autoload.  This is due to libnl
-> not explicitly requesting a family when genl_ctrl_family_resolve is called.
-> Instead of trying to load the module, it dumps the existing registered families
-> via a NLM_F_DUMP message.  I'm working on updating libnl to correct this
-> currently and will cc you on the patch.
+Cc: stable@vger.kernel.org [2.6.27+]
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ net/core/sock.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-Excellent, thanks Neil
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 653f8c0..4ad5fa5 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1599,6 +1599,7 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 
+ 	timeo = sock_sndtimeo(sk, noblock);
+ 	while (1) {
++		int npages;
+ 		err = sock_error(sk);
+ 		if (err != 0)
+ 			goto failure;
+@@ -1607,17 +1608,20 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 		if (sk->sk_shutdown & SEND_SHUTDOWN)
+ 			goto failure;
+ 
++		err = -EMSGSIZE;
++		npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
++		if (npages > MAX_SKB_FRAGS)
++			goto failure;
++
+ 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
+ 			skb = alloc_skb(header_len, gfp_mask);
+ 			if (skb) {
+-				int npages;
+ 				int i;
+ 
+ 				/* No pages, we're done... */
+ 				if (!data_len)
+ 					break;
+ 
+-				npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
+ 				skb->truesize += data_len;
+ 				skb_shinfo(skb)->nr_frags = npages;
+ 				for (i = 0; i < npages; i++) {
