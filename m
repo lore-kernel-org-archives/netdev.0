@@ -1,84 +1,59 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [RFC PATCH 2/2] tcp: Early SYN limit and SYN cookie handling to
- mitigate SYN floods
-Date: Wed, 30 May 2012 09:45:26 +0200
-Message-ID: <1338363926.7747.55.camel@localhost>
-References: <20120528115102.12068.79994.stgit@localhost.localdomain>
-	 <20120528115226.12068.31850.stgit@localhost.localdomain>
-	 <m2bol6lqxo.fsf@firstfloor.org> <1338360073.2760.81.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 0/4] inet: add second hash table
+Date: Wed, 30 May 2012 09:57:20 +0200
+Message-ID: <1338364640.2760.96.camel@edumazet-glaptop>
+References: <1338363410-6562-1-git-send-email-alex.mihai.c@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
-	Christoph Paasch <christoph.paasch@uclouvain.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Martin Topholm <mph@hoth.dk>, Florian Westphal <fw@strlen.de>,
-	opurdila@ixiacom.com,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, Daniel Baluta <dbaluta@ixiacom.com>,
+	Lucian Grijincu <lucian.grijincu@gmail.com>
+To: Alexandru Copot <alex.mihai.c@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44346 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755961Ab2E3Hp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 May 2012 03:45:58 -0400
-In-Reply-To: <1338360073.2760.81.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:43724 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751334Ab2E3H50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 03:57:26 -0400
+Received: by bkcji2 with SMTP id ji2so3828299bkc.19
+        for <netdev@vger.kernel.org>; Wed, 30 May 2012 00:57:24 -0700 (PDT)
+In-Reply-To: <1338363410-6562-1-git-send-email-alex.mihai.c@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-30 at 08:41 +0200, Eric Dumazet wrote:
-> On Tue, 2012-05-29 at 12:37 -0700, Andi Kleen wrote:
+On Wed, 2012-05-30 at 10:36 +0300, Alexandru Copot wrote:
+> This patchset implements all the operations needed to use a second
+> (port,address) bind hash table for inet. It uses a similar approach
+> as the UDP implementation.
 > 
-> > So basically handling syncookie lockless? 
-> > 
-> > Makes sense. Syncookies is a bit obsolete these days of course, due
-> > to the lack of options. But may be still useful for this.
-> > 
-> > Obviously you'll need to clean up the patch and support IPv6,
-> > but the basic idea looks good to me.
+> The performance improvements for port allocation are very good and
+> detailed in the last message.
 > 
-> Also TCP Fast Open should be a good way to make the SYN flood no more
-> effective.
-
-Sounds interesting, but TCP Fast Open is primarily concerned with
-enabling data exchange during SYN establishment.  I don't see any
-indication that they have implemented parallel SYN handling.
-
-Implementing parallel SYN handling, should also benefit their work.
-After studying this code path, I also see great performance benefit in
-also optimizing the normal 3WHS on sock's in sk_state == LISTEN.
-Perhaps we should split up the code path for LISTEN vs. ESTABLISHED, as
-they are very entangled at the moment AFAIKS.
-
-> Yuchung Cheng and Jerry Chu should upstream this code in a very near
-> future.
-
-Looking forward to see the code, and the fallout discussions, on
-transferring data on SYN packets.
-
-
-> Another way to mitigate SYN scalability issues before the full RCU
-> solution I was cooking is to either :
+> This is based on a series of patches written by Lucian Grijincu at Ixia.
 > 
-> 1) Use a hardware filter (like on Intel NICS) to force all SYN packets
-> going to one queue (so that they are all serviced on one CPU)
+> Signed-off-by: Alexandru Copot <alex.mihai.c@gmail.com>
+> Cc: Daniel Baluta <dbaluta@ixiacom.com>
+> Cc: Lucian Grijincu <lucian.grijincu@gmail.com>
+> ---
+> Alexandru Copot (4):
+>       inet: add counter to inet_bind_hashbucket
+>       inet: add a second bind hash
+>       inet: add/remove inet buckets in the second bind hash
+>       inet: use second hash in inet_csk_get_port
 > 
-> 2) Tweak RPS (__skb_get_rxhash()) so that SYN packets rxhash is not
-> dependent on src port/address, to get same effect (All SYN packets
-> processed by one cpu). Note this only address the SYN flood problem, not
-> the general 3WHS scalability one, since if real connection is
-> established, the third packet (ACK from client) will have the 'real'
-> rxhash and will be processed by another cpu.
+>  include/net/inet_hashtables.h    |  140 +++++++++++++++++++++++++++++++--
+>  include/net/inet_timewait_sock.h |    5 +-
+>  net/dccp/proto.c                 |   37 ++++++++-
+>  net/ipv4/inet_connection_sock.c  |   66 ++++++++--------
+>  net/ipv4/inet_hashtables.c       |  158 ++++++++++++++++++++++++++++++++++++--
+>  net/ipv4/inet_timewait_sock.c    |   16 ++--
+>  net/ipv4/tcp.c                   |   17 ++++
+>  net/ipv6/inet6_hashtables.c      |   95 +++++++++++++++++++++++
+>  8 files changed, 477 insertions(+), 57 deletions(-)
 
-I don't like the idea of overloading one CPU with SYN packets. As the
-attacker can still cause a DoS on new connections.
 
-My "unlocked" parallel SYN cookie approach, should favor established
-connections, as they are allowed to run under a BH lock, and thus don't
-let new SYN packets in (on this CPU), until the establish conn packet is
-finished.  Unless I have misunderstood something... I think I have,
-established connections have their own/seperate struck sock, and thus
-this is another slock spinlock, right?. (Well let Eric bash me for
-this ;-))
+Its a huge change (with many details to look at), for a yet to be
+understood need.
 
-[...cut...]
+What sensible workload needs this at all ?
