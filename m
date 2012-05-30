@@ -1,57 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire
- X4150(x86) and e1000e
-Date: Wed, 30 May 2012 13:59:11 +0200
-Message-ID: <1338379151.2760.166.camel@edumazet-glaptop>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
-	 <88c43001441945e1431609db252b69e7@visp.net.lb>
-	 <df211722d18136698aeeda2f17b876e2@visp.net.lb>
-	 <d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
-	 <CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
-	 <79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
-	 <CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
-	 <20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
-	 <CA+mtBx_uYy9XcRvpD2E46FuMBFu38iQvCiwFHWqbhPBmY=JfOg@mail.gmail.com>
-	 <20120530090602.6204d857.shimoda.hiroaki@gmail.com>
-	 <1338367231.2760.125.camel@edumazet-glaptop>
-	 <20120530194355.92bf5d51.shimoda.hiroaki@gmail.com>
-	 <1338376107.2760.156.camel@edumazet-glaptop>
-	 <1338376817.32113.5.camel@joe2Laptop>
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: Re: [RFC PATCH 0/4] inet: add second hash table
+Date: Wed, 30 May 2012 15:32:44 +0300
+Message-ID: <CAEnQRZD3o_+fRnnbd74VeFuNvjAVVyq-rE241J96iRXWFDAEPQ@mail.gmail.com>
+References: <1338363410-6562-1-git-send-email-alex.mihai.c@gmail.com>
+	<1338364640.2760.96.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	davem@davemloft.net
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexandru Copot <alex.mihai.c@gmail.com>, davem@davemloft.net,
+	gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	Lucian Grijincu <lucian.grijincu@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:34551 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752959Ab2E3L7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 07:59:17 -0400
-Received: by bkcji2 with SMTP id ji2so4021435bkc.19
-        for <netdev@vger.kernel.org>; Wed, 30 May 2012 04:59:15 -0700 (PDT)
-In-Reply-To: <1338376817.32113.5.camel@joe2Laptop>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:63931 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753314Ab2E3Mcp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 May 2012 08:32:45 -0400
+Received: by vbbff1 with SMTP id ff1so3205614vbb.19
+        for <netdev@vger.kernel.org>; Wed, 30 May 2012 05:32:45 -0700 (PDT)
+In-Reply-To: <1338364640.2760.96.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-05-30 at 04:20 -0700, Joe Perches wrote:
-> On Wed, 2012-05-30 at 13:08 +0200, Eric Dumazet wrote:
-> > Maybe we should change all POSDIFF(), not selected ones.
-> > #define POSDIFF(A, B) ((int)((A) - (B)) > 0 ? (A) - (B) : 0)
-> 
-> maybe use an eval once statement expression macro
-> ({
-> 	typeof (A) _a = (A);
-> 	typeof (B) _b = (B);
-> 	((int)(_a - _b) > 0 ? _a - _b : 0;
-> })
-> 
-> 
+On Wed, May 30, 2012 at 10:57 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> On Wed, 2012-05-30 at 10:36 +0300, Alexandru Copot wrote:
+>> This patchset implements all the operations needed to use a second
+>> (port,address) bind hash table for inet. It uses a similar approach
+>> as the UDP implementation.
+>>
+>> The performance improvements for port allocation are very good and
+>> detailed in the last message.
+>>
+>> This is based on a series of patches written by Lucian Grijincu at I=
+xia.
+>>
+>> Signed-off-by: Alexandru Copot <alex.mihai.c@gmail.com>
+>> Cc: Daniel Baluta <dbaluta@ixiacom.com>
+>> Cc: Lucian Grijincu <lucian.grijincu@gmail.com>
+>> ---
+>> Alexandru Copot (4):
+>> =A0 =A0 =A0 inet: add counter to inet_bind_hashbucket
+>> =A0 =A0 =A0 inet: add a second bind hash
+>> =A0 =A0 =A0 inet: add/remove inet buckets in the second bind hash
+>> =A0 =A0 =A0 inet: use second hash in inet_csk_get_port
+>>
+>> =A0include/net/inet_hashtables.h =A0 =A0| =A0140 +++++++++++++++++++=
+++++++++++++--
+>> =A0include/net/inet_timewait_sock.h | =A0 =A05 +-
+>> =A0net/dccp/proto.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 37 +++++++=
++-
+>> =A0net/ipv4/inet_connection_sock.c =A0| =A0 66 ++++++++--------
+>> =A0net/ipv4/inet_hashtables.c =A0 =A0 =A0 | =A0158 +++++++++++++++++=
++++++++++++++++++++--
+>> =A0net/ipv4/inet_timewait_sock.c =A0 =A0| =A0 16 ++--
+>> =A0net/ipv4/tcp.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 17 ++++
+>> =A0net/ipv6/inet6_hashtables.c =A0 =A0 =A0| =A0 95 +++++++++++++++++=
+++++++
+>> =A08 files changed, 477 insertions(+), 57 deletions(-)
+>
+>
+> Its a huge change (with many details to look at), for a yet to be
+> understood need.
+>
+> What sensible workload needs this at all ?
 
-Well, many choices are possible, including
+Hi Eric,
 
-#define POSDIFF(A, B) max_t(int, (A) - (B), 0);
+Usually our tests use a huge number of virtual interfaces.
+Using this patch we get a massive improvement when there are many socke=
+ts
+bound to the same port, but different addresses for both bind() and
+listen() system calls (both call inet_csk_get_port).
+=09
+We provided some data points in the fourth patch:
+
+=46or 16.000 interfaces each with a distinct IPv4 address, doing bind
+and then listen we get:
+
+* Without patch and without SO_REUSEADDR:
+   * bind:   1.543 s
+   * listen: 3.050 s
+
+* Without patch and with SO_REUSEADDR set:
+   * bind:   0.066 s
+   * listen: 3.050 s
+
+* With patch and SO_REUSEADDR set / without SO_REUSEADDR:
+   * bind:   0.066 s
+   * listen: 0.095 s
+
+The source code for tests can be found here [1].
+Just run:
+* ./prepare_test2.sh
+* ./avg_tcp.sh
+
+If I understood it correctly, a similar patch was introduced
+for UDP some time ago. [2]
+
+thanks,
+Daniel.
+
+[1] http://ixlabs.cs.pub.ro/gitweb/?p=3Dport-allocation.git;a=3Dtree;f=3D=
+testbind;h=3D687e4452101e13cb5995b43c1351d76786d98fdd;hb=3DHEAD
+[2] http://www.spinics.net/lists/netdev/msg112056.html
