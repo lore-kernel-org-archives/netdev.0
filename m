@@ -1,131 +1,54 @@
-From: "Lubashev, Igor" <ilubashe@akamai.com>
-Subject: Re: [PATCH] net: compute a more reasonable default ip6_rt_max_size
-Date: Wed, 30 May 2012 19:50:15 -0400
-Message-ID: <83CE6FF8F6C9B2468A618FC2C51267260F303CD88B@USMBX1.msg.corp.akamai.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the vhost tree with the net tree
+Date: Thu, 31 May 2012 13:13:19 +1000
+Message-ID: <20120531131319.a1a7f5a47fd5db7c85cebc0e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, Arun Sharma <asharma@fb.com>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__31_May_2012_13_13_19_+1000_8IvLCpoXiOEN5Tt4"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->It's possible that there is a bug somewhere - we didn't get a chance to 
->dig deeper. What we observed is that as we got close to the 4096 limit, 
->some hosts were becoming unreachable. A modest increase in the routing 
->table size made things better.
+--Signature=_Thu__31_May_2012_13_13_19_+1000_8IvLCpoXiOEN5Tt4
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-First of all, we have observed the same thing.
+Hi Michael,
 
-While I am not an expert in this area of the routing code, the function fib6_age in net/ipv6/ip6_fib.c puzzles me.
+Today's linux-next merge of the vhost tree got a conflict in
+drivers/net/virtio_net.c between commit 3bbf372c6c60 ("virtio-net: remove
+useless disable on freeze") from the net tree and commit 53ffd226507a
+("virtio-net: remove useless disable on freeze") from the vhost tree.
 
+I just used the version from the net tree.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-In kernel version 2.7.2.0.3, we have net/ipv6/ip6_fib.c:
-static int fib6_age(struct rt6_info *rt, void *arg)
-{
-	unsigned long now = jiffies;
+--Signature=_Thu__31_May_2012_13_13_19_+1000_8IvLCpoXiOEN5Tt4
+Content-Type: application/pgp-signature
 
-	if (rt->rt6i_flags&RTF_EXPIRES && rt->rt6i_expires) {
-		if (time_after(now, rt->rt6i_expires)) {
-			RT6_TRACE("expiring %p\n", rt);
-			return -1;
-		}
-		gc_args.more++;
-	} else if (rt->rt6i_flags & RTF_CACHE) {
-		if (atomic_read(&rt->dst.__refcnt) == 0 &&
-		    time_after_eq(now, rt->dst.lastuse + gc_args.timeout)) {
-			RT6_TRACE("aging clone %p\n", rt);
-			return -1;
-		} else if ((rt->rt6i_flags & RTF_GATEWAY) &&
-			   (!(rt->rt6i_nexthop->flags & NTF_ROUTER))) {
-			RT6_TRACE("purging route %p via non-router but gateway\n",
-				  rt);
-			return -1;
-		}
-		gc_args.more++;
-	}
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-	return 0;
-}
+iQIcBAEBCAAGBQJPxuHPAAoJEECxmPOUX5FEOg8P/2lUYyCO90mb1MFNwRM5Xens
+KhWeZ7HaoU+2fVCamLPDJFFvicKTqKaXN2xdNh0Me1hjQSTNa5lY/CdMxZTJlIul
+j5EFfOIVKH8Fon+jWUA4ZbqGZcy44RHs7GYz0WHEmfPSeZw0SMiZ9t4VxXu+e01W
+sDpWXFfQpv+3Zll7+A+sWh4ljqRHtidWPfaxGq/Ikzv58WtTKaJzu8yj0W6sLJZ+
+a4uXvenUszN+gA8aGXomf0y5A+PcCaPxs3JUSmkfL+zuJWwcUqWcNqbAJ3zp/ui7
+DNeT28vcOb7E2/c49Hu2FQ6Y2SD7yo3PjHHBiNkC11p0PiGgQTD2J+8F1QeBSCAu
+7cKIqW3URfB5vW/tV3nw6sJKawufDI0gJFrUvMajd2tDaXqYrjqX1cR/keG/5qts
+xx0W8yFOU7o26V9MxvK7cAc0lCOQ5E9U8k3NqUYS9y8rqOHk2gOJUMGoZ6oJ8h/c
+k4rULofaCqTlddpRjKerUwEH+EsQnTSWNIwzFjnkCErdl6HnY3rknt2ZJMh3xDqB
+St6+5qSDCVTUHqSZzELaW1iCUSCLadxaIV74pt4xaR8yy0y6ybKMLyjeCguE76p4
+VPJ9oO/zp+fNc1FDXBG8/FMf2LhGE3nC+Ngv7vDDZ3A6v3MXRPgUQ3VrGjQ+YB4T
+x/KE6iH6SCVqYm+MvfI0
+=wpRX
+-----END PGP SIGNATURE-----
 
-
-In kernel 3.0.32, we have net/ipv6/ip6_fib.c:
-static int fib6_age(struct rt6_info *rt, void *arg)
-{
-	unsigned long now = jiffies;
-
-	if (rt->rt6i_flags&RTF_EXPIRES && rt->rt6i_expires) {
-		if (time_after(now, rt->rt6i_expires)) {
-			RT6_TRACE("expiring %p\n", rt);
-			return -1;
-		}
-		gc_args.more++;
-	} else if (rt->rt6i_flags & RTF_CACHE) {
-		if (atomic_read(&rt->dst.__refcnt) == 0 &&
-		    time_after_eq(now, rt->dst.lastuse + gc_args.timeout)) {
-			RT6_TRACE("aging clone %p\n", rt);
-			return -1;
-		} else if ((rt->rt6i_flags & RTF_GATEWAY) &&
-			   (!(dst_get_neighbour_raw(&rt->dst)->flags & NTF_ROUTER))) {
-			RT6_TRACE("purging route %p via non-router but gateway\n",
-				  rt);
-			return -1;
-		}
-		gc_args.more++;
-	}
-
-	return 0;
-}
-
-
-In kernel 3.4, we have net/ipv6/ip6_fib.c:
-static int fib6_age(struct rt6_info *rt, void *arg)
-{
-	unsigned long now = jiffies;
-
-	if (rt->rt6i_flags & RTF_EXPIRES && rt->dst.expires) {
-		if (time_after(now, rt->dst.expires)) {
-			RT6_TRACE("expiring %p\n", rt);
-			return -1;
-		}
-		gc_args.more++;
-	} else if (rt->rt6i_flags & RTF_CACHE) {
-		if (atomic_read(&rt->dst.__refcnt) == 0 &&
-		    time_after_eq(now, rt->dst.lastuse + gc_args.timeout)) {
-			RT6_TRACE("aging clone %p\n", rt);
-			return -1;
-		} else if (rt->rt6i_flags & RTF_GATEWAY) {
-			struct neighbour *neigh;
-			__u8 neigh_flags = 0;
-
-			neigh = dst_neigh_lookup(&rt->dst, &rt->rt6i_gateway);
-			if (neigh) {
-				neigh_flags = neigh->flags;
-				neigh_release(neigh);
-			}
-			if (neigh_flags & NTF_ROUTER) {
-				RT6_TRACE("purging route %p via non-router but gateway\n",
-					  rt);
-				return -1;
-			}
-		}
-		gc_args.more++;
-	}
-
-	return 0;
-}
-
-
-Do we have the meaning of the NTF_ROUTER flag reversed in kernel 3.4?  Or is the opposite use of that flag a fix for the bug in the previous releases? Or is this a bug in kernel 3.4?
-
-Also, could this remove a Gateway entry, if there is no neighbor entry for it (in any of the version of the code)?  Could this try to deference a null pointer in 3.0.32 version of the code (and any version prior to 3.4)?  In general, is this the right place to remove a gateway route that has __refcnt > 0?
-
-I wish I had more expertise in this area of the code to answer questions and not only to pose them.
-
-Thank you,
-
-- Igor
+--Signature=_Thu__31_May_2012_13_13_19_+1000_8IvLCpoXiOEN5Tt4--
