@@ -1,38 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sock: validate data_len before allocating skb in
- sock_alloc_send_pskb()
-Date: Thu, 31 May 2012 08:20:32 +0200
-Message-ID: <1338445232.2760.1171.camel@edumazet-glaptop>
-References: <20120530054702.6146.8503.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <1338360383.2760.84.camel@edumazet-glaptop>
-	 <20120530.030205.1337682162603770949.davem@davemloft.net>
-	 <4FC708EE.2020908@redhat.com> <20120531060201.GA13158@redhat.com>
-	 <4FC70BA8.5060200@redhat.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [PATCH net 0/6] batch of mlx4 fixes, mostly to SRIOV
+Date: Thu, 31 May 2012 06:37:20 +0000
+Message-ID: <953B660C027164448AE903364AC447D2865CCADF@MTLDAG01.mtl.com>
+References: <1338405295-15427-1-git-send-email-yevgenyp@mellanox.com>
+ <20120530.163700.720524088985729456.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FC70BA8.5060200@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"jackm@dev.mellanox.co.il" <jackm@dev.mellanox.co.il>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:46794 "HELO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750955Ab2EaGh1 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 May 2012 02:37:27 -0400
+In-Reply-To: <20120530.163700.720524088985729456.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-05-31 at 14:11 +0800, Jason Wang wrote:
+> 
+> Why did you send multiple copies of some of these patches to the list?
+> 
+> Patches #1, #2, and #5 showed up twice.
 
-> Not affected, only code duplication. It's no harm the check the data_len 
-> again for packet sockets, so better to unify the code and fix the issue 
-> in one place?
+Hi Dave,
+Sorry for this, I had some problem with mail client and thought that those 3 weren't sent at the first time.
 
-As a matter of fact, we currently allocate order-0 pages, but it could
-be nice trying to use order-1 or order-2 pages, on arches where
-PAGE_SIZE is so small (4096 bytes)
-
-So lets do this test in sock_alloc_send_pskb() to allow future changes.
-
-af_unix is kind of special, because it tries to lower risk of high order
-linear allocation failures. And for small sizes, it wants linear skbs to
-have no performance regression (prior kernels were allocating linear
-skbs)
+Yevgeny 
