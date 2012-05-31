@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 3/3] bql: Avoid possible inconsistent calculation.
-Date: Thu, 31 May 2012 18:20:08 -0400 (EDT)
-Message-ID: <20120531.182008.717292659289989881.davem@davemloft.net>
-References: <20120531072537.920f0cb0.shimoda.hiroaki@gmail.com>
+Subject: Re: [V2 PATCH] net: sock: validate data_len before allocating skb
+ in sock_alloc_send_pskb()
+Date: Thu, 31 May 2012 18:21:45 -0400 (EDT)
+Message-ID: <20120531.182145.119572313886189417.davem@davemloft.net>
+References: <20120531071809.6392.26677.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, eric.dumazet@gmail.com, denys@visp.net.lb,
-	netdev@vger.kernel.org
-To: shimoda.hiroaki@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52320 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757647Ab2EaWUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2012 18:20:12 -0400
-In-Reply-To: <20120531072537.920f0cb0.shimoda.hiroaki@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, edumazet@google.com, mst@redhat.com,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120531071809.6392.26677.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Date: Thu, 31 May 2012 07:25:37 +0900
+From: Jason Wang <jasowang@redhat.com>
+Date: Thu, 31 May 2012 15:18:10 +0800
 
-> dql->num_queued could change while processing dql_completed().
-> To provide consistent calculation, added an on stack variable.
+> We need to validate the number of pages consumed by data_len, otherwise frags
+> array could be overflowed by userspace. So this patch validate data_len and
+> return -EMSGSIZE when data_len may occupies more frags than MAX_SKB_FRAGS.
 > 
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
 Applied and queued up for -stable.
+
+Please do not add explicit stable CC:'s to networking patches, I queue
+appropriate changes up myself, and submit them only when I feel that
+the change has had sufficient exposure and testing in Linus's tree.
