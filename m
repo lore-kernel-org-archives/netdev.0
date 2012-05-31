@@ -1,49 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cipso: handle CIPSO options correctly when NetLabel is
- disabled
-Date: Thu, 31 May 2012 19:07:05 -0400 (EDT)
-Message-ID: <20120531.190705.3612500429295140.davem@davemloft.net>
-References: <20120531200922.6265.81763.stgit@sifl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 vpd r/w failed
+Date: Fri, 1 Jun 2012 01:49:55 +0200
+Message-ID: <20120531234955.GA4007@electric-eye.fr.zoreil.com>
+References: <20120531174126.GA4189@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	stable@kernel.org
-To: pmoore@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20120531200922.6265.81763.stgit@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57289 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932509Ab2EaX6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2012 19:58:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20120531174126.GA4189@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Thu, 31 May 2012 16:09:23 -0400
-
-> When NetLabel is not enabled, e.g. CONFIG_NETLABEL=n, and the system
-> receives a CIPSO tagged packet it is dropped (cipso_v4_validate()
-> returns non-zero).  In most cases this is the correct and desired
-> behavior, however, in the case where we are simply forwarding the
-> traffic, e.g. acting as a network bridge, this becomes a problem.
+Dave Jones <davej@redhat.com> :
+[...]
+>  We occasionally see reports from r8169 where it seems to hang
+> reading vpd data from the NIC. The printk in drivers/pci/
+> suggests it's likely a firmware bug on the device, and recommends the user
+> contact the vendor for an update (does Realtek even do firmware updates?)
 > 
-> This patch fixes the forwarding problem by providing the basic CIPSO
-> validation code directly in ip_options_compile() without the need for
-> the NetLabel or CIPSO code.  The new validation code can not perform
-> any of the CIPSO option label/value verification that
-> cipso_v4_validate() does, but it can verify the basic CIPSO option
-> format.
-> 
-> The behavior when NetLabel is enabled is unchanged.
-> 
-> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> Is this as the message suggests a firmware bug, or should r8169 be
+> avoiding trying to read vpd ?
 
-I don't like this at all.
+I have not practiced vpd with the 816x a lot but I have experienced an
+unlimited read behavior with the 8168 while trying to access the vpd back
+in march. The output exhibited a periodic pattern, so I got rid of
+it with something similar to drivers/pci/quirks.c::quirk_brcm_570x_limit_vpd.
 
-The only conclusion I can come to is that cipso_v4_validate() is doing
-the wrong thing when NETLABEL is disabled.
+I can resurrect it but I'd rather give the pending softirq stuff a try
+first and I must test davandra netif_napi_del patch as well. Btw I have
+just upgraded my workstation to F17 and it's time for some sleep.
 
-There is never a good reason to crap all over a function with ifdefs.
-This is especially true when it's being done to paper over a function
-with poor semantics.
+> https://bugzilla.redhat.com/show_bug.cgi?id=827137 is one example.
 
-The whole idea is to abstract and put all of this kind of logic into
-cipso_v4_validate().
+(990FX)
 
+Adding a RTL_GIGA_MAC_VER_34 case similar to RTL_GIGA_MAC_VER_24 in
+rtl_init_rxcfg may temporarily help if netdev watchdog triggers (see
+the mess known as https://bugzilla.kernel.org/show_bug.cgi?id=42899).
+
+-- 
+Ueimor
