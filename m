@@ -1,70 +1,78 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH] cipso: handle CIPSO options correctly when NetLabel is
- disabled
-Date: Thu, 31 May 2012 16:09:23 -0400
-Message-ID: <20120531200922.6265.81763.stgit@sifl>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 2/4] can: cc770: Fix likely misuse of | for &
+Date: Thu, 31 May 2012 22:54:43 +0200
+Message-ID: <4FC7DA93.1080905@pengutronix.de>
+References: <cover.1338408931.git.joe@perches.com> <6c251b03dc626215cf696e894ac1cdda530f38d9.1338408931.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org, stable@kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig63DDF846AE003BF88EFAFA75"
+Cc: linux-kernel@vger.kernel.org,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <6c251b03dc626215cf696e894ac1cdda530f38d9.1338408931.git.joe@perches.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When NetLabel is not enabled, e.g. CONFIG_NETLABEL=n, and the system
-receives a CIPSO tagged packet it is dropped (cipso_v4_validate()
-returns non-zero).  In most cases this is the correct and desired
-behavior, however, in the case where we are simply forwarding the
-traffic, e.g. acting as a network bridge, this becomes a problem.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig63DDF846AE003BF88EFAFA75
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-This patch fixes the forwarding problem by providing the basic CIPSO
-validation code directly in ip_options_compile() without the need for
-the NetLabel or CIPSO code.  The new validation code can not perform
-any of the CIPSO option label/value verification that
-cipso_v4_validate() does, but it can verify the basic CIPSO option
-format.
+On 05/30/2012 10:25 PM, Joe Perches wrote:
+> Using | with a constant is always true.
+> Likely this should have be &.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-The behavior when NetLabel is enabled is unchanged.
+Sounds reasonable. And there are no in tree users of the platform driver
+that this fix could break.
 
-Signed-off-by: Paul Moore <pmoore@redhat.com>
----
- net/ipv4/ip_options.c |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+), 0 deletions(-)
+commited to linux-can,
+Marc
 
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 708b994..ca2c919 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -439,10 +439,30 @@ int ip_options_compile(struct net *net,
- 				goto error;
- 			}
- 			opt->cipso = optptr - iph;
-+#ifndef CONFIG_NETLABEL
-+			if (optlen < 8) {
-+				pp_ptr = optptr + 1;
-+				goto error;
-+			}
-+			if (get_unaligned_be32(&optptr[2]) != 0) {
-+				unsigned int iter;
-+				for (iter = 6; iter < optlen;) {
-+					if (optptr[iter+1] > (optlen - iter)) {
-+						pp_ptr = optptr + iter;
-+						goto error;
-+					}
-+					iter += optptr[iter + 1];
-+				}
-+			} else {
-+				pp_ptr = optptr + 2;
-+				goto error;
-+			}
-+#else
- 			if (cipso_v4_validate(skb, &optptr)) {
- 				pp_ptr = optptr;
- 				goto error;
- 			}
-+#endif /* CONFIG_NETLABEL */
- 			break;
- 		      case IPOPT_SEC:
- 		      case IPOPT_SID:
+> ---
+>  drivers/net/can/cc770/cc770_platform.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/can/cc770/cc770_platform.c b/drivers/net/can/c=
+c770/cc770_platform.c
+> index 53115ee..688371c 100644
+> --- a/drivers/net/can/cc770/cc770_platform.c
+> +++ b/drivers/net/can/cc770/cc770_platform.c
+> @@ -154,7 +154,7 @@ static int __devinit cc770_get_platform_data(struct=
+ platform_device *pdev,
+>  	struct cc770_platform_data *pdata =3D pdev->dev.platform_data;
+> =20
+>  	priv->can.clock.freq =3D pdata->osc_freq;
+> -	if (priv->cpu_interface | CPUIF_DSC)
+> +	if (priv->cpu_interface & CPUIF_DSC)
+>  		priv->can.clock.freq /=3D 2;
+>  	priv->clkout =3D pdata->cor;
+>  	priv->bus_config =3D pdata->bcr;
 
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig63DDF846AE003BF88EFAFA75
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk/H2pgACgkQjTAFq1RaXHNAqwCeIgt27xgLy0AE5WyKEfeNK/EY
+HSEAnRX1XvklF/b1VuIeKLJ0dithQs8H
+=G9+R
+-----END PGP SIGNATURE-----
+
+--------------enig63DDF846AE003BF88EFAFA75--
