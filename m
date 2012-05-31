@@ -1,30 +1,48 @@
-From: How to Heal a Broken Heart <mike@rx4heartache.com>
-Subject: [News] Help for Heartache - May, 2012
-Date: Wed, 30 May 2012 23:46:31 -0700
-Message-ID: <Rp3oWS2G0dx0wHvSUy9ffqDgC8dDKYnSiLn3yNPU5TuN@rx4heartache.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 1/3] bql: Fix POSDIFF() to integer overflow aware.
+Date: Thu, 31 May 2012 09:58:38 +0200
+Message-ID: <1338451118.2760.1273.camel@edumazet-glaptop>
+References: <20120531072439.6c634a0b.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, therbert@google.com, denys@visp.net.lb,
+	netdev@vger.kernel.org
+To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bosmailout07.eigbox.net ([66.96.185.7]:52922 "EHLO
-	bosmailout07.eigbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753982Ab2EaH1J convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2012 03:27:09 -0400
-Received: from bosmailscan18.eigbox.net ([10.20.15.18])
-	by bosmailout07.eigbox.net with esmtp (Exim)
-	id 1SZz9c-0003gr-VM
-	for netdev@vger.kernel.org; Thu, 31 May 2012 02:46:41 -0400
-Received: from bosimpout02.eigbox.net ([10.20.55.2])
-	by bosmailscan18.eigbox.net with esmtp (Exim)
-	id 1SZz9c-0001oN-CX
-	for netdev@vger.kernel.org; Thu, 31 May 2012 02:46:40 -0400
-Received: from ip70-176-177-243.ph.ph.cox.net ([70.176.177.243] helo=[192.168.1.102])
-	by bosauthsmtp06.eigbox.net with esmtpa (Exim)
-	id 1SZz9Y-0004uK-3Z
-	for netdev@vger.kernel.org; Thu, 31 May 2012 02:46:36 -0400
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:44702 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757764Ab2EaH6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2012 03:58:43 -0400
+Received: by bkcji2 with SMTP id ji2so546907bkc.19
+        for <netdev@vger.kernel.org>; Thu, 31 May 2012 00:58:42 -0700 (PDT)
+In-Reply-To: <20120531072439.6c634a0b.shimoda.hiroaki@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If you or any of your associates, clients or prospects are suffering from the pain of losing a loved one, they may be relieved by the companionship and counsel they can find on a new website: http://rx4heartache.com. Please feel free to pass on the good news that relief can be found there. It's a place where they can exchange heartache for hopefulness. Thanks to you in advance for sharing this good news with anyone who suffers a broken heart from the loss of someone they once loved.
+On Thu, 2012-05-31 at 07:24 +0900, Hiroaki SHIMODA wrote:
+> POSDIFF() fails to take into account integer overflow case.
+> 
+> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> Cc: Tom Herbert <therbert@google.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Denys Fedoryshchenko <denys@visp.net.lb>
+> ---
+>  lib/dynamic_queue_limits.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/lib/dynamic_queue_limits.c b/lib/dynamic_queue_limits.c
+> index 6ab4587..c87eb76 100644
+> --- a/lib/dynamic_queue_limits.c
+> +++ b/lib/dynamic_queue_limits.c
+> @@ -10,7 +10,7 @@
+>  #include <linux/jiffies.h>
+>  #include <linux/dynamic_queue_limits.h>
+>  
+> -#define POSDIFF(A, B) ((A) > (B) ? (A) - (B) : 0)
+> +#define POSDIFF(A, B) ((int)((A) - (B)) > 0 ? (A) - (B) : 0)
+>  
+>  /* Records completed count and recalculates the queue limit */
+>  void dql_completed(struct dql *dql, unsigned int count)
+
+Acked-by: Eric Dumazet <edumazet@google.com>
