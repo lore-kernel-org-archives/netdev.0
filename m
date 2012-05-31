@@ -1,56 +1,75 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [V2 PATCH] net: sock: validate data_len before allocating skb in
- sock_alloc_send_pskb()
-Date: Thu, 31 May 2012 15:18:10 +0800
-Message-ID: <20120531071809.6392.26677.stgit@amd-6168-8-1.englab.nay.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 2/2] tcp: Early SYN limit and SYN cookie handling
+ to mitigate SYN floods
+Date: Thu, 31 May 2012 10:28:37 +0200
+Message-ID: <1338452917.2760.1309.camel@edumazet-glaptop>
+References: <20120528115102.12068.79994.stgit@localhost.localdomain>
+	 <m2bol6lqxo.fsf@firstfloor.org> <1338360073.2760.81.camel@edumazet-glaptop>
+	 <201205301013.10797.hans.schillstrom@ericsson.com>
+	 <1338366288.2760.115.camel@edumazet-glaptop>  <4FC68F21.1040402@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org
-To: netdev@vger.kernel.org, edumazet@google.com, mst@redhat.com,
-	davem@davemloft.net, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Jesper Dangaard Brouer <jbrouer@redhat.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Christoph Paasch <christoph.paasch@uclouvain.be>,
+	"David S. Miller" <davem@davemloft.net>,
+	Martin Topholm <mph@hoth.dk>, Florian Westphal <fw@strlen.de>,
+	Tom Herbert <therbert@google.com>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:65365 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758028Ab2EaI2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2012 04:28:45 -0400
+Received: by bkcji2 with SMTP id ji2so569003bkc.19
+        for <netdev@vger.kernel.org>; Thu, 31 May 2012 01:28:41 -0700 (PDT)
+In-Reply-To: <4FC68F21.1040402@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We need to validate the number of pages consumed by data_len, otherwise frags
-array could be overflowed by userspace. So this patch validate data_len and
-return -EMSGSIZE when data_len may occupies more frags than MAX_SKB_FRAGS.
+On Wed, 2012-05-30 at 14:20 -0700, Rick Jones wrote:
 
-Cc: stable@vger.kernel.org [2.6.27+]
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- net/core/sock.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+> It may still be high, but a very quick netperf TCP_CC test over loopback 
+> on a W3550 system running a 2.6.38 kernel shows:
+> 
+> raj@tardy:~/netperf2_trunk/src$ ./netperf -t TCP_CC -l 60 -c -C
+> TCP Connect/Close TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+> localhost.localdomain () port 0 AF_INET
+> Local /Remote
+> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> bytes  bytes  bytes   bytes  secs.   per sec  %      %      us/Tr   us/Tr
+> 
+> 16384  87380  1       1      60.00   21515.29   30.68  30.96  57.042  57.557
+> 16384  87380
+> 
+> 57 microseconds per "transaction" which in this case is establishing and 
+> tearing-down the connection, with nothing else (no data packets) makes 
+> 19 microseconds for a SYN seem perhaps not all that beyond the realm of 
+> possibility?
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 653f8c0..9e5b71f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1592,6 +1592,11 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
- 	gfp_t gfp_mask;
- 	long timeo;
- 	int err;
-+	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
-+
-+	err = -EMSGSIZE;
-+	if (npages > MAX_SKB_FRAGS)
-+		goto failure;
- 
- 	gfp_mask = sk->sk_allocation;
- 	if (gfp_mask & __GFP_WAIT)
-@@ -1610,14 +1615,12 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
- 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
- 			skb = alloc_skb(header_len, gfp_mask);
- 			if (skb) {
--				int npages;
- 				int i;
- 
- 				/* No pages, we're done... */
- 				if (!data_len)
- 					break;
- 
--				npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
- 				skb->truesize += data_len;
- 				skb_shinfo(skb)->nr_frags = npages;
- 				for (i = 0; i < npages; i++) {
+Thats a different story, on loopback device (without stressing IP route
+cache by the way)
+
+Your netperf test is a full userspace transactions, and 5 frames per
+transaction. Two sockets creation/destruction, process scheduler
+activations, and not enter syncookie mode.
+
+In case of synflood/(syncookies on), we receive a packet and send one
+from softirq.
+
+One expensive thing might be the md5 to compute the SYNACK sequence.
+
+I suspect other things :
+
+1) Of course we have to take into account the timer responsible for
+SYNACK retransmits of previously queued requests. Its cost depends on
+the listen backlog. When this timer runs, listen socket is locked.
+
+2) IP route cache overflows.
+   In case of SYNFLOOD, we should not store dst(s) in route cache but
+destroy them immediately.
