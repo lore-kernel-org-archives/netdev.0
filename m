@@ -1,8 +1,9 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [RFC v2 PATCH 0/3] tcp: Parallel SYN brownies patch series to
-	mitigate SYN floods
-Date: Thu, 31 May 2012 15:39:53 +0200
-Message-ID: <20120531133807.10311.79711.stgit@localhost.localdomain>
+Subject: [RFC v2 PATCH 1/3] tcp: extract syncookie part of
+	tcp_v4_conn_request()
+Date: Thu, 31 May 2012 15:39:58 +0200
+Message-ID: <20120531133958.10311.49170.stgit@localhost.localdomain>
+References: <20120531133807.10311.79711.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -14,41 +15,225 @@ To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Martin Topholm <mph@hoth.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 0304ds2-fs.1.fullrate.dk ([89.150.128.48]:11005 "EHLO
+Received: from 0304ds2-fs.1.fullrate.dk ([89.150.128.48]:10254 "EHLO
 	firesoul.localdomain" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758032Ab2EaNhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2012 09:37:34 -0400
+	with ESMTP id S1758032Ab2EaNhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2012 09:37:38 -0400
+In-Reply-To: <20120531133807.10311.79711.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series is dubbed SYN brownies.  The purpose is mitigate
-the effect of SYN flood DDoS attacks.  This is done by making the SYN
-cookies stage parallel.  In normal (non-overload) situations SYN
-packets are still processed under the bh_lock_sock().
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
 
-This SYN brownies patch series will not be merged right away, as Eric
-Dumazet is working on a fully parallel SYN stage.  Until that emerges
-and gets integrated, I recommend people with SYN flood issues, to use
-these patches to fix your immediate overload situations.
+Place SYN cookie handling, from tcp_v4_conn_request() into seperate
+function, named tcp_v4_syn_conn_limit(). The semantics should be
+almost the same.
 
-Thus, these patches can only be merged at Eric Dumazet's will/ACK, if
-he determines they don't conflict with his work.
+Besides code cleanup, this patch is preparing for handling SYN cookie
+in an ealier step, to avoid a spinlock and achive parallel processing.
 
-Only IPv4 TCP is handled here. The IPv6 TCP code also need to be
-updated, but I'll deal with that part after, Eric Dumazet, have
-settled on a fully parallel SYN processing stage.
-
-This is patch set have been tested on top Linus'es tree of
-commit v3.4-9209-gd590f9a.
-
+Signed-off-by: Martin Topholm <mph@hoth.dk>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
-Jesper Dangaard Brouer (3):
-      tcp: SYN retransmits, fallback to slow-locked/no-cookie path
-      tcp: Early SYN limit and SYN cookie handling to mitigate SYN floods
-      tcp: extract syncookie part of tcp_v4_conn_request()
+ net/ipv4/tcp_ipv4.c |  122 +++++++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 98 insertions(+), 24 deletions(-)
 
-
- net/ipv4/tcp_ipv4.c   |  154 +++++++++++++++++++++++++++++++++++++++++--------
- net/ipv4/tcp_output.c |   20 ++++--
- 2 files changed, 144 insertions(+), 30 deletions(-)
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index a43b87d..ed9d35a 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1268,6 +1268,95 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops = {
+ };
+ #endif
+ 
++/* Check SYN connect limit and send SYN-ACK cookies
++ * - Return 0 = No limitation needed, continue processing
++ * - Return 1 = Stop processing, free SKB, SYN cookie send (if enabled)
++ */
++int tcp_v4_syn_conn_limit(struct sock *sk, struct sk_buff *skb)
++{
++	struct request_sock *req;
++	struct inet_request_sock *ireq;
++	struct tcp_options_received tmp_opt;
++	__be32 saddr = ip_hdr(skb)->saddr;
++	__be32 daddr = ip_hdr(skb)->daddr;
++	__u32 isn = TCP_SKB_CB(skb)->when;
++	const u8 *hash_location; /* No really used */
++
++	/* Never answer to SYNs send to broadcast or multicast */
++	if (skb_rtable(skb)->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
++		goto drop;
++
++	/* If "isn" is not zero, this request hit alive timewait bucket */
++	if (isn)
++		goto no_limit;
++
++	/* Start sending SYN cookies when request sock queue is full*/
++	if (!inet_csk_reqsk_queue_is_full(sk))
++		goto no_limit;
++
++	/* Check if SYN cookies are enabled
++	 * - Side effect: NET_INC_STATS_BH counters + printk logging
++	 */
++	if (!tcp_syn_flood_action(sk, skb, "TCP"))
++		goto drop; /* Not enabled, indicate drop, due to queue full */
++
++	/* Allocate a request_sock */
++	req = inet_reqsk_alloc(&tcp_request_sock_ops);
++	if (!req) {
++		net_warn_ratelimited ("%s: Could not alloc request_sock"
++				      ", drop conn from %pI4",
++				      __func__, &saddr);
++		goto drop;
++	}
++
++#ifdef CONFIG_TCP_MD5SIG
++	tcp_rsk(req)->af_specific = &tcp_request_sock_ipv4_ops;
++#endif
++
++	tcp_clear_options(&tmp_opt);
++	tmp_opt.mss_clamp = TCP_MSS_DEFAULT;
++	tmp_opt.user_mss  = tcp_sk(sk)->rx_opt.user_mss;
++	tcp_parse_options(skb, &tmp_opt, &hash_location, 0);
++
++	if (!tmp_opt.saw_tstamp)
++		tcp_clear_options(&tmp_opt);
++
++	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
++	tcp_openreq_init(req, &tmp_opt, skb);
++
++	/* Update req as an inet_request_sock (typecast trick)*/
++	ireq = inet_rsk(req);
++	ireq->loc_addr = daddr;
++	ireq->rmt_addr = saddr;
++	ireq->no_srccheck = inet_sk(sk)->transparent;
++	ireq->opt = tcp_v4_save_options(sk, skb);
++
++	if (security_inet_conn_request(sk, skb, req))
++		goto drop_and_free;
++
++	/* Cookie support for ECN if TCP timestamp option avail */
++	if (tmp_opt.tstamp_ok)
++		TCP_ECN_create_request(req, skb);
++
++	/* Encode cookie in InitialSeqNum of SYN-ACK packet */
++	isn = cookie_v4_init_sequence(sk, skb, &req->mss);
++	req->cookie_ts = tmp_opt.tstamp_ok;
++
++	tcp_rsk(req)->snt_isn = isn;
++	tcp_rsk(req)->snt_synack = tcp_time_stamp;
++
++	/* Send SYN-ACK containing cookie */
++	tcp_v4_send_synack(sk, NULL, req, NULL);
++
++drop_and_free:
++	reqsk_free(req);
++drop:
++	return 1;
++no_limit:
++	return 0;
++}
++
++/* Handle SYN request */
+ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcp_extend_values tmp_ext;
+@@ -1280,22 +1369,11 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	__be32 saddr = ip_hdr(skb)->saddr;
+ 	__be32 daddr = ip_hdr(skb)->daddr;
+ 	__u32 isn = TCP_SKB_CB(skb)->when;
+-	bool want_cookie = false;
+ 
+ 	/* Never answer to SYNs send to broadcast or multicast */
+ 	if (skb_rtable(skb)->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
+ 		goto drop;
+ 
+-	/* TW buckets are converted to open requests without
+-	 * limitations, they conserve resources and peer is
+-	 * evidently real one.
+-	 */
+-	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
+-		want_cookie = tcp_syn_flood_action(sk, skb, "TCP");
+-		if (!want_cookie)
+-			goto drop;
+-	}
+-
+ 	/* Accept backlog is full. If we have already queued enough
+ 	 * of warm entries in syn queue, drop request. It is better than
+ 	 * clogging syn queue with openreqs with exponentially increasing
+@@ -1304,6 +1382,10 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
+ 		goto drop;
+ 
++	/* SYN cookie handling */
++	if (tcp_v4_syn_conn_limit(sk, skb))
++		goto drop;
++
+ 	req = inet_reqsk_alloc(&tcp_request_sock_ops);
+ 	if (!req)
+ 		goto drop;
+@@ -1317,6 +1399,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	tmp_opt.user_mss  = tp->rx_opt.user_mss;
+ 	tcp_parse_options(skb, &tmp_opt, &hash_location, 0);
+ 
++	/* Handle RFC6013 - TCP Cookie Transactions (TCPCT) options */
+ 	if (tmp_opt.cookie_plus > 0 &&
+ 	    tmp_opt.saw_tstamp &&
+ 	    !tp->rx_opt.cookie_out_never &&
+@@ -1339,7 +1422,6 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		while (l-- > 0)
+ 			*c++ ^= *hash_location++;
+ 
+-		want_cookie = false;	/* not our kind of cookie */
+ 		tmp_ext.cookie_out_never = 0; /* false */
+ 		tmp_ext.cookie_plus = tmp_opt.cookie_plus;
+ 	} else if (!tp->rx_opt.cookie_in_always) {
+@@ -1351,12 +1433,10 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	}
+ 	tmp_ext.cookie_in_always = tp->rx_opt.cookie_in_always;
+ 
+-	if (want_cookie && !tmp_opt.saw_tstamp)
+-		tcp_clear_options(&tmp_opt);
+-
+ 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
+ 	tcp_openreq_init(req, &tmp_opt, skb);
+ 
++	/* Update req as an inet_request_sock (typecast trick)*/
+ 	ireq = inet_rsk(req);
+ 	ireq->loc_addr = daddr;
+ 	ireq->rmt_addr = saddr;
+@@ -1366,13 +1446,9 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (security_inet_conn_request(sk, skb, req))
+ 		goto drop_and_free;
+ 
+-	if (!want_cookie || tmp_opt.tstamp_ok)
+-		TCP_ECN_create_request(req, skb);
++	TCP_ECN_create_request(req, skb);
+ 
+-	if (want_cookie) {
+-		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
+-		req->cookie_ts = tmp_opt.tstamp_ok;
+-	} else if (!isn) {
++	if (!isn) {
+ 		struct inet_peer *peer = NULL;
+ 		struct flowi4 fl4;
+ 
+@@ -1422,8 +1498,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	tcp_rsk(req)->snt_synack = tcp_time_stamp;
+ 
+ 	if (tcp_v4_send_synack(sk, dst, req,
+-			       (struct request_values *)&tmp_ext) ||
+-	    want_cookie)
++			       (struct request_values *)&tmp_ext))
+ 		goto drop_and_free;
+ 
+ 	inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
+@@ -1438,7 +1513,6 @@ drop:
+ }
+ EXPORT_SYMBOL(tcp_v4_conn_request);
+ 
+-
+ /*
+  * The three way handshake has completed - we got a valid synack -
+  * now create the new socket.
