@@ -1,54 +1,52 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the vhost tree with the net tree
-Date: Thu, 31 May 2012 13:13:19 +1000
-Message-ID: <20120531131319.a1a7f5a47fd5db7c85cebc0e@canb.auug.org.au>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] net: sock: validate data_len before allocating skb in
+ sock_alloc_send_pskb()
+Date: Thu, 31 May 2012 14:00:14 +0800
+Message-ID: <4FC708EE.2020908@redhat.com>
+References: <20120530054702.6146.8503.stgit@amd-6168-8-1.englab.nay.redhat.com> <1338360383.2760.84.camel@edumazet-glaptop> <20120530.030205.1337682162603770949.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Thu__31_May_2012_13_13_19_+1000_8IvLCpoXiOEN5Tt4"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	mst@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120530.030205.1337682162603770949.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Thu__31_May_2012_13_13_19_+1000_8IvLCpoXiOEN5Tt4
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 05/30/2012 03:02 PM, David Miller wrote:
+> From: Eric Dumazet<eric.dumazet@gmail.com>
+> Date: Wed, 30 May 2012 08:46:23 +0200
+>
+>> Why doing this test in the while (1) block, it should be done before the
+>> loop...
+>>
+>> Or even in the caller, note net/unix/af_unix.c does this right.
+>>
+>>          if (len>  SKB_MAX_ALLOC)
+>>                  data_len = min_t(size_t,
+>>                                   len - SKB_MAX_ALLOC,
+>>                                   MAX_SKB_FRAGS * PAGE_SIZE);
+>>
+>>          skb = sock_alloc_send_pskb(sk, len - data_len, data_len,
+>>                                     msg->msg_flags&  MSG_DONTWAIT,&err);
+> My impression is that the callers should be fixed to.  It makes no sense
+> to penalize the call sites that get this right.
+>
+> And yes, if we do check it in sock_alloc_send_pskb() it should be done
+> at function entry, not inside the loop.
 
-Hi Michael,
+Sure, so is it ok for me to send a V2 that just do the fixing in 
+sock_alloc_sned_pskb() as it's simple and easy to be accepted by stable 
+version?
 
-Today's linux-next merge of the vhost tree got a conflict in
-drivers/net/virtio_net.c between commit 3bbf372c6c60 ("virtio-net: remove
-useless disable on freeze") from the net tree and commit 53ffd226507a
-("virtio-net: remove useless disable on freeze") from the vhost tree.
-
-I just used the version from the net tree.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Thu__31_May_2012_13_13_19_+1000_8IvLCpoXiOEN5Tt4
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJPxuHPAAoJEECxmPOUX5FEOg8P/2lUYyCO90mb1MFNwRM5Xens
-KhWeZ7HaoU+2fVCamLPDJFFvicKTqKaXN2xdNh0Me1hjQSTNa5lY/CdMxZTJlIul
-j5EFfOIVKH8Fon+jWUA4ZbqGZcy44RHs7GYz0WHEmfPSeZw0SMiZ9t4VxXu+e01W
-sDpWXFfQpv+3Zll7+A+sWh4ljqRHtidWPfaxGq/Ikzv58WtTKaJzu8yj0W6sLJZ+
-a4uXvenUszN+gA8aGXomf0y5A+PcCaPxs3JUSmkfL+zuJWwcUqWcNqbAJ3zp/ui7
-DNeT28vcOb7E2/c49Hu2FQ6Y2SD7yo3PjHHBiNkC11p0PiGgQTD2J+8F1QeBSCAu
-7cKIqW3URfB5vW/tV3nw6sJKawufDI0gJFrUvMajd2tDaXqYrjqX1cR/keG/5qts
-xx0W8yFOU7o26V9MxvK7cAc0lCOQ5E9U8k3NqUYS9y8rqOHk2gOJUMGoZ6oJ8h/c
-k4rULofaCqTlddpRjKerUwEH+EsQnTSWNIwzFjnkCErdl6HnY3rknt2ZJMh3xDqB
-St6+5qSDCVTUHqSZzELaW1iCUSCLadxaIV74pt4xaR8yy0y6ybKMLyjeCguE76p4
-VPJ9oO/zp+fNc1FDXBG8/FMf2LhGE3nC+Ngv7vDDZ3A6v3MXRPgUQ3VrGjQ+YB4T
-x/KE6iH6SCVqYm+MvfI0
-=wpRX
------END PGP SIGNATURE-----
-
---Signature=_Thu__31_May_2012_13_13_19_+1000_8IvLCpoXiOEN5Tt4--
+For the fix of callers, I want to post fixes on top as I find there's 
+some code duplication of {tun|macvtap|packet}_alloc_skb() and I want to 
+unify them to a common helper in sock.c. Then I can fix this issue in 
+the new helper.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
