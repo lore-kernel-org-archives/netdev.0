@@ -1,79 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 3/3] bql: Avoid possible inconsistent calculation.
-Date: Thu, 31 May 2012 10:01:46 +0200
-Message-ID: <1338451306.2760.1282.camel@edumazet-glaptop>
-References: <20120531072537.920f0cb0.shimoda.hiroaki@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [V2 PATCH] net: sock: validate data_len before allocating skb in
+ sock_alloc_send_pskb()
+Date: Thu, 31 May 2012 15:18:10 +0800
+Message-ID: <20120531071809.6392.26677.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, therbert@google.com, denys@visp.net.lb,
-	netdev@vger.kernel.org
-To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:44920 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757941Ab2EaIBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 May 2012 04:01:53 -0400
-Received: by bkcji2 with SMTP id ji2so549255bkc.19
-        for <netdev@vger.kernel.org>; Thu, 31 May 2012 01:01:52 -0700 (PDT)
-In-Reply-To: <20120531072537.920f0cb0.shimoda.hiroaki@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stable@vger.kernel.org
+To: netdev@vger.kernel.org, edumazet@google.com, mst@redhat.com,
+	davem@davemloft.net, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-05-31 at 07:25 +0900, Hiroaki SHIMODA wrote:
-> dql->num_queued could change while processing dql_completed().
-> To provide consistent calculation, added an on stack variable.
-> 
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> Cc: Tom Herbert <therbert@google.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Denys Fedoryshchenko <denys@visp.net.lb>
-> ---
->  lib/dynamic_queue_limits.c |   12 +++++++-----
->  1 files changed, 7 insertions(+), 5 deletions(-)
-> 
-> diff --git a/lib/dynamic_queue_limits.c b/lib/dynamic_queue_limits.c
-> index 0fafa77..0777c5a 100644
-> --- a/lib/dynamic_queue_limits.c
-> +++ b/lib/dynamic_queue_limits.c
-> @@ -17,16 +17,18 @@
->  void dql_completed(struct dql *dql, unsigned int count)
->  {
->  	unsigned int inprogress, prev_inprogress, limit;
-> -	unsigned int ovlimit, completed;
-> +	unsigned int ovlimit, completed, num_queued;
->  	bool all_prev_completed;
->  
-> +	num_queued = ACCESS_ONCE(dql->num_queued);
-> +
->  	/* Can't complete more than what's in queue */
-> -	BUG_ON(count > dql->num_queued - dql->num_completed);
-> +	BUG_ON(count > num_queued - dql->num_completed);
->  
->  	completed = dql->num_completed + count;
->  	limit = dql->limit;
-> -	ovlimit = POSDIFF(dql->num_queued - dql->num_completed, limit);
-> -	inprogress = dql->num_queued - completed;
-> +	ovlimit = POSDIFF(num_queued - dql->num_completed, limit);
-> +	inprogress = num_queued - completed;
->  	prev_inprogress = dql->prev_num_queued - dql->num_completed;
->  	all_prev_completed = AFTER_EQ(completed, dql->prev_num_queued);
->  
-> @@ -106,7 +108,7 @@ void dql_completed(struct dql *dql, unsigned int count)
->  	dql->prev_ovlimit = ovlimit;
->  	dql->prev_last_obj_cnt = dql->last_obj_cnt;
->  	dql->num_completed = completed;
-> -	dql->prev_num_queued = dql->num_queued;
-> +	dql->prev_num_queued = num_queued;
->  }
->  EXPORT_SYMBOL(dql_completed);
->  
+We need to validate the number of pages consumed by data_len, otherwise frags
+array could be overflowed by userspace. So this patch validate data_len and
+return -EMSGSIZE when data_len may occupies more frags than MAX_SKB_FRAGS.
 
+Cc: stable@vger.kernel.org [2.6.27+]
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ net/core/sock.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Thanks !
-
-(I am wondering if using a sequence would be safer, so that we can
-restart the computation in case a concurrent writer changes
-'num_queued')
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 653f8c0..9e5b71f 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1592,6 +1592,11 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 	gfp_t gfp_mask;
+ 	long timeo;
+ 	int err;
++	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
++
++	err = -EMSGSIZE;
++	if (npages > MAX_SKB_FRAGS)
++		goto failure;
+ 
+ 	gfp_mask = sk->sk_allocation;
+ 	if (gfp_mask & __GFP_WAIT)
+@@ -1610,14 +1615,12 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+ 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
+ 			skb = alloc_skb(header_len, gfp_mask);
+ 			if (skb) {
+-				int npages;
+ 				int i;
+ 
+ 				/* No pages, we're done... */
+ 				if (!data_len)
+ 					break;
+ 
+-				npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
+ 				skb->truesize += data_len;
+ 				skb_shinfo(skb)->nr_frags = npages;
+ 				for (i = 0; i < npages; i++) {
