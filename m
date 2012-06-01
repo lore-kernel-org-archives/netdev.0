@@ -1,50 +1,55 @@
-From: "Phil Hord (hordp)" <hordp@cisco.com>
-Subject: RE: [BUG/PATCH] ppp_mppe discards 50% of packets from some servers
-Date: Fri, 1 Jun 2012 15:09:10 -0500
-Message-ID: <86212E265A665C4E9744E3BB9A6E44D0050A1DD8@XMB-RCD-212.cisco.com>
-References: <4FA45809.2020003@cisco.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169: IO_PAGE_FAULT & netdev watchdog
+Date: Fri, 1 Jun 2012 22:13:57 +0200
+Message-ID: <20120601201357.GA22597@electric-eye.fr.zoreil.com>
+References: <201205312331.06623.plr.vincent@gmail.com> <20120601125949.GA11973@electric-eye.fr.zoreil.com> <201206012120.43235.plr.vincent@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Vincent Pelletier <plr.vincent@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcdn-iport-8.cisco.com ([173.37.86.79]:24979 "EHLO
-	rcdn-iport-8.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751804Ab2FAUJM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 16:09:12 -0400
-Received: from xbh-rcd-301.cisco.com (xbh-rcd-301.cisco.com [72.163.63.8])
-	by rcdn-core-6.cisco.com (8.14.5/8.14.5) with ESMTP id q51K9Bux001281
-	for <netdev@vger.kernel.org>; Fri, 1 Jun 2012 20:09:11 GMT
-Content-class: urn:content-classes:message
-In-Reply-To: <4FA45809.2020003@cisco.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:59620 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759247Ab2FAUW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 16:22:27 -0400
+Content-Disposition: inline
+In-Reply-To: <201206012120.43235.plr.vincent@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Having received no replies on this issue, should I assume this is the
-wrong place to report it, that I reported it in the wrong format, that
-the patch is too hacky for consideration, or no one has time to care
-(yet)?
+Vincent Pelletier <plr.vincent@gmail.com> :
+[...]
+> If it's bogus, could it be a mis-interpretation of its state when the error 
+> occurs (I don't know how CPU knows a fault happened, I guess some IRQ + some 
+> register contain error status, address of error, some process/context 
+> identifier) ?
 
-Phil
+See "AMD I/O Virtualization Technology (IOMMU) Specification".
 
-Please pardon my top-posting...  This MUA sucks.
+> Or hardware bug ? Or MMU misconfiguration for some reason ?
 
------Original Message-----
-From: Phil Hord (hordp) 
-Sent: Friday, May 04, 2012 6:28 PM
-To: netdev@vger.kernel.org
-Subject: [BUG/PATCH] ppp_mppe discards 50% of packets from some servers
+I don't have time to poke deeply enough into the iommu code.
 
-[BUG] ppp_mppe discards 50% of packets from some servers
+[...]
+> If it's not bogus, would it be the sign of firmware bug (accessing some 
+> unpredictable memory upon certain conditions) ?
 
-[2.] Full description of the problem/report:
+That's what I thought first. Or I should have added something to the r8169
+driver. However it's quite reproducible, the failing address is one of the
+mapped Rx or Tx descriptor ring address - don't remember which one, see
+the PR at korg - and it does not fit the timing pattern.
 
-When I connect to a server using MPPE, I receive about every other
-packet with the FLUSHED bit turned off. These packets are dropped by
-ppp_mppe.c just like the SPEC says they should be. I am not able to
-maintain tcp connections through the VPN with these packets being
-discarded.
+[...]
+> I'll try either and both. Given the poor result I got from 
+> reset/remove/rescan, I guess I should reboot between attempts, right ?
 
-I found a patch discussed here:
-http://ubuntuforums.org/showthread.php?t=1095189
+Yes. The inlined patch could help avoiding the problem but it is not
+supposed to help a failed network adapter recovering.
+
+> Should I prevent original module auto-loading at boot ? Maybe more than just 
+> r8169 ?
+
+It should not be required. YMMV.
+
+-- 
+Ueimor
