@@ -1,39 +1,29 @@
-From: Julien Vehent <julien@linuxwall.info>
-Subject: Re: [Announce] LARTC wiki available
-Date: Fri, 01 Jun 2012 15:12:45 -0400
-Message-ID: <8063b8e35d17fd072cbdc9908cf12519@njm.linuxwall.info>
-References: <4EFB3B2B.7060200@linuxsystems.it>
- <4FC8F0E4.6060102@linuxsystems.it>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: call netif_napi_del at errpaths and at driver unload
+Date: Fri, 1 Jun 2012 21:29:44 +0200
+Message-ID: <20120601192944.GA21881@electric-eye.fr.zoreil.com>
+References: <1338465080-22720-1-git-send-email-devendra.aaru@gmail.com> <20120601.142531.544977894901194434.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <lartc@vger.kernel.org>, <netfilter@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: =?UTF-8?Q?Niccol=C3=B2_Belli?= <darkbasic@linuxsystems.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sachiel.linuxwall.info ([88.191.125.180]:42062 "EHLO
-	sachiel.linuxwall.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759203Ab2FATVS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 15:21:18 -0400
-In-Reply-To: <4FC8F0E4.6060102@linuxsystems.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: devendra.aaru@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120601.142531.544977894901194434.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2012-06-01 12:42, Niccol=C3=B2 Belli wrote:
-> http://lartc.org is alive and kicking and there is no need for
-> another
-> wiki anymore. I'd like to thank both Bert and Carl-Daniel.
->
-> Niccol=C3=B2
->
+David Miller <davem@davemloft.net> :
+[...]
+> Francois, I'm assuming you will merge this to me after you've
+> done some testing.
 
-Very cool !
-I'll try to find some time and move over some of the content I have her=
-e:=20
-http://wiki.linuxwall.info/doku.php/en:ressources:dossiers:networking:t=
-raffic_control
+You can apply it directly.
 
---=20
-Julien Vehent - http://1nw.eu/!j
+I have done several loops both with a forced error patch and the normal
+removal of the module without problem. No trivial crash. Four 816x network
+adapters. Reference one still comes up.
+
+-- 
+Ueimor
