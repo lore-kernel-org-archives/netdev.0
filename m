@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] 8139cp: set ring address before enabling receiver
-Date: Fri, 01 Jun 2012 14:23:11 -0400 (EDT)
-Message-ID: <20120601.142311.630705811475752099.davem@davemloft.net>
-References: <20120601041939.4311.55827.stgit@dhcp-8-146.nay.redhat.com>
+Subject: Re: [PATCH v2] tcp: reflect SYN queue_mapping into SYNACK packets
+Date: Fri, 01 Jun 2012 14:23:25 -0400 (EDT)
+Message-ID: <20120601.142325.1372147261206298305.davem@davemloft.net>
+References: <1338551270.2760.1505.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120601041939.4311.55827.stgit@dhcp-8-146.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hans.schillstrom@ericsson.com, netdev@vger.kernel.org,
+	ncardwell@google.com, brouer@redhat.com, therbert@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43042 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932813Ab2FASX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 14:23:27 -0400
+In-Reply-To: <1338551270.2760.1505.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Fri, 01 Jun 2012 12:19:39 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 01 Jun 2012 13:47:50 +0200
 
-> Currently, we enable the receiver before setting the ring address which could
-> lead the card DMA into unexpected areas. Solving this by set the ring address
-> before enabling the receiver.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> btw. I find and test this in qemu as I didn't have a 8139cp card in hand. please
-> review it carefully.
+> While testing how linux behaves on SYNFLOOD attack on multiqueue device
+> (ixgbe), I found that SYNACK messages were dropped at Qdisc level
+> because we send them all on a single queue.
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Obvious choice is to reflect incoming SYN packet @queue_mapping to
+> SYNACK packet.
+> 
+> Under stress, my machine could only send 25.000 SYNACK per second (for
+> 200.000 incoming SYN per second). NIC : ixgbe with 16 rx/tx queues.
+> 
+> After patch, not a single SYNACK is dropped.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-I hate bugs like this, the other common issue is enabling interrupts
-before the chip is fully programmed.
-
-Applied, thanks.
+Applied.
