@@ -1,40 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tcp: reflect SYN queue_mapping into SYNACK packets
-Date: Fri, 01 Jun 2012 14:23:25 -0400 (EDT)
-Message-ID: <20120601.142325.1372147261206298305.davem@davemloft.net>
-References: <1338551270.2760.1505.camel@edumazet-glaptop>
+Subject: Re: [PATCH] tcp: do not create inetpeer on SYNACK message
+Date: Fri, 01 Jun 2012 14:24:12 -0400 (EDT)
+Message-ID: <20120601.142412.1490248352687260207.davem@davemloft.net>
+References: <1338501397.2760.1395.camel@edumazet-glaptop>
+	<1338534026.2760.1451.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: hans.schillstrom@ericsson.com, netdev@vger.kernel.org,
-	ncardwell@google.com, brouer@redhat.com, therbert@google.com
+	brouer@redhat.com, ncardwell@google.com, therbert@google.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43042 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43058 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932813Ab2FASX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 14:23:27 -0400
-In-Reply-To: <1338551270.2760.1505.camel@edumazet-glaptop>
+	with ESMTP id S932690Ab2FASYO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 14:24:14 -0400
+In-Reply-To: <1338534026.2760.1451.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 01 Jun 2012 13:47:50 +0200
+Date: Fri, 01 Jun 2012 09:00:26 +0200
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> While testing how linux behaves on SYNFLOOD attack on multiqueue device
-> (ixgbe), I found that SYNACK messages were dropped at Qdisc level
-> because we send them all on a single queue.
+> Another problem on SYNFLOOD/DDOS attack is the inetpeer cache getting
+> larger and larger, using lots of memory and cpu time.
 > 
-> Obvious choice is to reflect incoming SYN packet @queue_mapping to
-> SYNACK packet.
+> tcp_v4_send_synack()
+> ->inet_csk_route_req()
+>  ->ip_route_output_flow()
+>   ->rt_set_nexthop()
+>    ->rt_init_metrics()
+>     ->inet_getpeer( create = true)
 > 
-> Under stress, my machine could only send 25.000 SYNACK per second (for
-> 200.000 incoming SYN per second). NIC : ixgbe with 16 rx/tx queues.
+> This is a side effect of commit a4daad6b09230 (net: Pre-COW metrics for
+> TCP) added in 2.6.39
 > 
-> After patch, not a single SYNACK is dropped.
+> Possible solution : 
 > 
+> Instruct inet_csk_route_req() to remove FLOWI_FLAG_PRECOW_METRICS 
+ ...
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+This is definitely the right thing to do.
+
+Applied, thanks Eric.
