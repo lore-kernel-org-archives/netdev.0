@@ -1,93 +1,58 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH v2] cipso: handle CIPSO options correctly when NetLabel is
- disabled
-Date: Fri, 01 Jun 2012 11:54:56 -0400
-Message-ID: <20120601155456.5114.68007.stgit@sifl>
+From: =?ISO-8859-15?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
+Subject: Re: [Announce] LARTC wiki available
+Date: Fri, 01 Jun 2012 18:42:12 +0200
+Message-ID: <4FC8F0E4.6060102@linuxsystems.it>
+References: <4EFB3B2B.7060200@linuxsystems.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: lartc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23563 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964952Ab2FAPzE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jun 2012 11:55:04 -0400
+Received: from mail.linuxsystems.it ([2.119.245.41]:44875 "EHLO
+	mail.linuxsystems.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965469Ab2FAQmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 12:42:04 -0400
+In-Reply-To: <4EFB3B2B.7060200@linuxsystems.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When NetLabel is not enabled, e.g. CONFIG_NETLABEL=n, and the system
-receives a CIPSO tagged packet it is dropped (cipso_v4_validate()
-returns non-zero).  In most cases this is the correct and desired
-behavior, however, in the case where we are simply forwarding the
-traffic, e.g. acting as a network bridge, this becomes a problem.
+Since I keep receiving lots of visits to lartc.linuxsystems.it from=20
+spinics archives & co, I'd like to point out I closed the wiki when the=
+=20
+original domain changed maintainer:=20
+http://www.spinics.net/lists/lartc/msg22400.html
 
-This patch fixes the forwarding problem by providing the basic CIPSO
-validation code directly in ip_options_compile() without the need for
-the NetLabel or CIPSO code.  The new validation code can not perform
-any of the CIPSO option label/value verification that
-cipso_v4_validate() does, but it can verify the basic CIPSO option
-format.
+http://lartc.org is alive and kicking and there is no need for another=20
+wiki anymore. I'd like to thank both Bert and Carl-Daniel.
 
-The behavior when NetLabel is enabled is unchanged.
+Niccol=F2
 
-CC: stable@vger.kernel.org
-Signed-off-by: Paul Moore <pmoore@redhat.com>
-
---
-ChangeLog
--v2
- * Moved the CONFIG_NETLABEL=n code into cipso_ipv4.h
--v1
- * Initial version
----
- include/net/cipso_ipv4.h |   29 ++++++++++++++++++++++++++++-
- 1 files changed, 28 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
-index 9808877..a7a683e 100644
---- a/include/net/cipso_ipv4.h
-+++ b/include/net/cipso_ipv4.h
-@@ -42,6 +42,7 @@
- #include <net/netlabel.h>
- #include <net/request_sock.h>
- #include <linux/atomic.h>
-+#include <asm/unaligned.h>
- 
- /* known doi values */
- #define CIPSO_V4_DOI_UNKNOWN          0x00000000
-@@ -285,7 +286,33 @@ static inline int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
- static inline int cipso_v4_validate(const struct sk_buff *skb,
- 				    unsigned char **option)
- {
--	return -ENOSYS;
-+	unsigned char *opt = *option;
-+	unsigned char err_offset = 0;
-+	u8 opt_len = opt[1];
-+	u8 opt_iter;
-+
-+	if (opt_len < 8) {
-+		err_offset = 1;
-+		goto out;
-+	}
-+
-+	if (get_unaligned_be32(&opt[2]) == 0) {
-+		err_offset = 2;
-+		goto out;
-+	}
-+
-+	for (opt_iter = 6; opt_iter < opt_len;) {
-+		if (opt[opt_iter + 1] > (opt_len - opt_iter)) {
-+			err_offset = opt_iter + 1;
-+			goto out;
-+		}
-+		opt_iter += opt[opt_iter + 1];
-+	}
-+
-+out:
-+	*option = opt + err_offset;
-+	return err_offset;
-+
- }
- #endif /* CONFIG_NETLABEL */
- 
+Il 28/12/2011 16:52, Niccol=F2 Belli ha scritto:
+> Hi,
+> I still didn't find a viable solution for the LARTC wiki, so I decide=
+d
+> to start hosting it on my own server. Later we can easily switch
+> somewhere else if we keep using the same wiki engine (and maybe even
+> with another wiki engine).
+> I decided to use wikimedia because it's the only one I know of, so if
+> someone knows a better alternative please let me know, we are still i=
+n
+> time for a change.
+> Since I never used a wiki seriously I will probably need someone else
+> who can help me maintaining it, please let me know if you are
+> experienced and willing to help.
+>
+> Here is the wiki: http://lartc.linuxsystems.it/
+> And here is the new mailing list for those who still don't know:
+> http://vger.kernel.org/vger-lists.html#lartc
+>
+> I just copy-pasted the Linux Advanced Routing & Traffic Control HOWTO
+> atm, it still needs to be wikified and we still need to choose how to
+> organize the contents.
+>
+> Cheers,
+> Niccol=F2
