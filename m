@@ -1,29 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: avoid tx starvation by SYNACK packets
-Date: Fri, 01 Jun 2012 13:46:59 -0400 (EDT)
-Message-ID: <20120601.134659.621228924477728327.davem@davemloft.net>
-References: <1338501397.2760.1395.camel@edumazet-glaptop>
-	<20120531.190345.1754322784813248328.davem@davemloft.net>
-	<1338526137.2760.1425.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2] cipso: handle CIPSO options correctly when NetLabel
+ is disabled
+Date: Fri, 01 Jun 2012 14:18:10 -0400 (EDT)
+Message-ID: <20120601.141810.1973076676004541876.davem@davemloft.net>
+References: <20120601155456.5114.68007.stgit@sifl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hans.schillstrom@ericsson.com, netdev@vger.kernel.org,
-	ncardwell@google.com, therbert@google.com, brouer@redhat.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: pmoore@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42753 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42984 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759848Ab2FARyz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 13:54:55 -0400
-In-Reply-To: <1338526137.2760.1425.camel@edumazet-glaptop>
+	with ESMTP id S932410Ab2FASSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 14:18:12 -0400
+In-Reply-To: <20120601155456.5114.68007.stgit@sifl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 01 Jun 2012 06:48:57 +0200
+From: Paul Moore <pmoore@redhat.com>
+Date: Fri, 01 Jun 2012 11:54:56 -0400
 
-> RFC is like 'I throw a patch, I am not even 50% confident of it, please
-> comment and fix my bugs'. Most busy people just ignore it.
+> When NetLabel is not enabled, e.g. CONFIG_NETLABEL=n, and the system
+> receives a CIPSO tagged packet it is dropped (cipso_v4_validate()
+> returns non-zero).  In most cases this is the correct and desired
+> behavior, however, in the case where we are simply forwarding the
+> traffic, e.g. acting as a network bridge, this becomes a problem.
+> 
+> This patch fixes the forwarding problem by providing the basic CIPSO
+> validation code directly in ip_options_compile() without the need for
+> the NetLabel or CIPSO code.  The new validation code can not perform
+> any of the CIPSO option label/value verification that
+> cipso_v4_validate() does, but it can verify the basic CIPSO option
+> format.
+> 
+> The behavior when NetLabel is enabled is unchanged.
+> 
+> CC: stable@vger.kernel.org
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> 
 
-And I will ignore it too if you put RFC in the subject line :)
+I like this a lot better, applied, thanks Paul.
