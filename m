@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] cipso: handle CIPSO options correctly when NetLabel
- is disabled
-Date: Fri, 01 Jun 2012 14:18:10 -0400 (EDT)
-Message-ID: <20120601.141810.1973076676004541876.davem@davemloft.net>
-References: <20120601155456.5114.68007.stgit@sifl>
+Subject: Re: [PATCH 2/2] 8139cp/8139too: terminate the eeprom access with
+ the right opmode
+Date: Fri, 01 Jun 2012 14:23:17 -0400 (EDT)
+Message-ID: <20120601.142317.1843610571282799477.davem@davemloft.net>
+References: <20120601041939.4311.55827.stgit@dhcp-8-146.nay.redhat.com>
+	<20120601041948.4311.42372.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: pmoore@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42984 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932410Ab2FASSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 14:18:12 -0400
-In-Reply-To: <20120601155456.5114.68007.stgit@sifl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120601041948.4311.42372.stgit@dhcp-8-146.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Fri, 01 Jun 2012 11:54:56 -0400
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 01 Jun 2012 12:19:48 +0800
 
-> When NetLabel is not enabled, e.g. CONFIG_NETLABEL=n, and the system
-> receives a CIPSO tagged packet it is dropped (cipso_v4_validate()
-> returns non-zero).  In most cases this is the correct and desired
-> behavior, however, in the case where we are simply forwarding the
-> traffic, e.g. acting as a network bridge, this becomes a problem.
+> Currently, we terminate the eeprom access through clearing the CS by:
 > 
-> This patch fixes the forwarding problem by providing the basic CIPSO
-> validation code directly in ip_options_compile() without the need for
-> the NetLabel or CIPSO code.  The new validation code can not perform
-> any of the CIPSO option label/value verification that
-> cipso_v4_validate() does, but it can verify the basic CIPSO option
-> format.
+> RTL_W8 (Cfg9346, ~EE_CS); or writeb (~EE_CS, ee_addr);
 > 
-> The behavior when NetLabel is enabled is unchanged.
+> This would left the eeprom into "Config. Register Write Enable:"
+> state which is not expcted as the highest two bits were set to
+> 0x11 ( expected is the "Normal" mode (0x00)). Solving this by write
+> 0x0 instead of ~EE_CS when terminating the eeprom access.
 > 
-> CC: stable@vger.kernel.org
-> Signed-off-by: Paul Moore <pmoore@redhat.com>
-> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-I like this a lot better, applied, thanks Paul.
+Applied.
