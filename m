@@ -1,29 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: call netif_napi_del at errpaths and at driver unload
-Date: Fri, 1 Jun 2012 21:29:44 +0200
-Message-ID: <20120601192944.GA21881@electric-eye.fr.zoreil.com>
-References: <1338465080-22720-1-git-send-email-devendra.aaru@gmail.com> <20120601.142531.544977894901194434.davem@davemloft.net>
+From: "Phil Hord (hordp)" <hordp@cisco.com>
+Subject: RE: [BUG/PATCH] ppp_mppe discards 50% of packets from some servers
+Date: Fri, 1 Jun 2012 15:09:10 -0500
+Message-ID: <86212E265A665C4E9744E3BB9A6E44D0050A1DD8@XMB-RCD-212.cisco.com>
+References: <4FA45809.2020003@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devendra.aaru@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120601.142531.544977894901194434.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcdn-iport-8.cisco.com ([173.37.86.79]:24979 "EHLO
+	rcdn-iport-8.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751804Ab2FAUJM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 16:09:12 -0400
+Received: from xbh-rcd-301.cisco.com (xbh-rcd-301.cisco.com [72.163.63.8])
+	by rcdn-core-6.cisco.com (8.14.5/8.14.5) with ESMTP id q51K9Bux001281
+	for <netdev@vger.kernel.org>; Fri, 1 Jun 2012 20:09:11 GMT
+Content-class: urn:content-classes:message
+In-Reply-To: <4FA45809.2020003@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> :
-[...]
-> Francois, I'm assuming you will merge this to me after you've
-> done some testing.
+Having received no replies on this issue, should I assume this is the
+wrong place to report it, that I reported it in the wrong format, that
+the patch is too hacky for consideration, or no one has time to care
+(yet)?
 
-You can apply it directly.
+Phil
 
-I have done several loops both with a forced error patch and the normal
-removal of the module without problem. No trivial crash. Four 816x network
-adapters. Reference one still comes up.
+Please pardon my top-posting...  This MUA sucks.
 
--- 
-Ueimor
+-----Original Message-----
+From: Phil Hord (hordp) 
+Sent: Friday, May 04, 2012 6:28 PM
+To: netdev@vger.kernel.org
+Subject: [BUG/PATCH] ppp_mppe discards 50% of packets from some servers
+
+[BUG] ppp_mppe discards 50% of packets from some servers
+
+[2.] Full description of the problem/report:
+
+When I connect to a server using MPPE, I receive about every other
+packet with the FLUSHED bit turned off. These packets are dropped by
+ppp_mppe.c just like the SPEC says they should be. I am not able to
+maintain tcp connections through the VPN with these packets being
+discarded.
+
+I found a patch discussed here:
+http://ubuntuforums.org/showthread.php?t=1095189
