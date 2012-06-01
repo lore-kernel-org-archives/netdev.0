@@ -1,58 +1,49 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 2/2] 8139cp/8139too: terminate the eeprom access with the
-	right opmode
-Date: Fri, 01 Jun 2012 12:19:48 +0800
-Message-ID: <20120601041948.4311.42372.stgit@dhcp-8-146.nay.redhat.com>
-References: <20120601041939.4311.55827.stgit@dhcp-8-146.nay.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: avoid tx starvation by SYNACK packets
+Date: Fri, 01 Jun 2012 06:48:57 +0200
+Message-ID: <1338526137.2760.1425.camel@edumazet-glaptop>
+References: <1338501397.2760.1395.camel@edumazet-glaptop>
+	 <20120531.190345.1754322784813248328.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120601041939.4311.55827.stgit@dhcp-8-146.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hans.schillstrom@ericsson.com, netdev@vger.kernel.org,
+	ncardwell@google.com, therbert@google.com, brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:43437 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755121Ab2FAEtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 00:49:03 -0400
+Received: by wibhn6 with SMTP id hn6so243472wib.1
+        for <netdev@vger.kernel.org>; Thu, 31 May 2012 21:49:01 -0700 (PDT)
+In-Reply-To: <20120531.190345.1754322784813248328.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, we terminate the eeprom access through clearing the CS by:
+On Thu, 2012-05-31 at 19:03 -0400, David Miller wrote:
+> Is the net-next tree open yet?
 
-RTL_W8 (Cfg9346, ~EE_CS); or writeb (~EE_CS, ee_addr);
+David
 
-This would left the eeprom into "Config. Register Write Enable:"
-state which is not expcted as the highest two bits were set to
-0x11 ( expected is the "Normal" mode (0x00)). Solving this by write
-0x0 instead of ~EE_CS when terminating the eeprom access.
+Hans asked me to send a patch for testing, I sent it, and made clear it
+was not a fix for current net tree.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/ethernet/realtek/8139cp.c  |    2 +-
- drivers/net/ethernet/realtek/8139too.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+RFC is like 'I throw a patch, I am not even 50% confident of it, please
+comment and fix my bugs'. Most busy people just ignore it.
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 7f08779..995d0cf 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -1636,7 +1636,7 @@ static void eeprom_cmd(void __iomem *ee_addr, int cmd, int cmd_len)
- 
- static void eeprom_cmd_end(void __iomem *ee_addr)
- {
--	writeb (~EE_CS, ee_addr);
-+	writeb(0, ee_addr);
- 	eeprom_delay ();
- }
- 
-diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
-index 03df076..1d83565 100644
---- a/drivers/net/ethernet/realtek/8139too.c
-+++ b/drivers/net/ethernet/realtek/8139too.c
-@@ -1173,7 +1173,7 @@ static int __devinit read_eeprom (void __iomem *ioaddr, int location, int addr_l
- 	}
- 
- 	/* Terminate the EEPROM access. */
--	RTL_W8 (Cfg9346, ~EE_CS);
-+	RTL_W8(Cfg9346, 0);
- 	eeprom_delay ();
- 
- 	return retval;
+In this case, I know it really fixes a problem, but since its a day-0
+one, its not meant for net tree (linux-3.5)
+
+I don't know what's wrong with ignoring patches and consider them later
+when net-next is open and various Acked-by or Tested-by signatures were
+added, as done by other maintainers.
+
+Just make clear that if a patch is not anymore listed on
+http://patchwork.ozlabs.org/project/netdev/list/ , the author is
+responsible for resending it with all added signatures ?
+
+We need to exchange ideas (aka patches), even in the merge window, or if
+the subtree maintainer is busy doing its own job.
+
+Thanks
