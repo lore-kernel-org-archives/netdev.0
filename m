@@ -1,38 +1,66 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [V2 PATCH] net: sock: validate data_len before allocating skb
- in sock_alloc_send_pskb()
-Date: Fri, 01 Jun 2012 11:09:43 +0800
-Message-ID: <4FC83277.2090301@redhat.com>
-References: <20120531071809.6392.26677.stgit@amd-6168-8-1.englab.nay.redhat.com> <20120531.182145.119572313886189417.davem@davemloft.net>
+Subject: [PATCH 1/2] 8139cp: set ring address before enabling receiver
+Date: Fri, 01 Jun 2012 12:19:39 +0800
+Message-ID: <20120601041939.4311.55827.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, mst@redhat.com,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: mst@redhat.com
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120531.182145.119572313886189417.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/01/2012 06:21 AM, David Miller wrote:
-> From: Jason Wang<jasowang@redhat.com>
-> Date: Thu, 31 May 2012 15:18:10 +0800
->
->> We need to validate the number of pages consumed by data_len, otherwise frags
->> array could be overflowed by userspace. So this patch validate data_len and
->> return -EMSGSIZE when data_len may occupies more frags than MAX_SKB_FRAGS.
->>
->> Signed-off-by: Jason Wang<jasowang@redhat.com>
-> Applied and queued up for -stable.
->
-> Please do not add explicit stable CC:'s to networking patches, I queue
-> appropriate changes up myself, and submit them only when I feel that
-> the change has had sufficient exposure and testing in Linus's tree.
+Currently, we enable the receiver before setting the ring address which could
+lead the card DMA into unexpected areas. Solving this by set the ring address
+before enabling the receiver.
 
-Sure, would pay attention next time.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+btw. I find and test this in qemu as I didn't have a 8139cp card in hand. please
+review it carefully.
+
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/ethernet/realtek/8139cp.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index 5eef290..7f08779 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -979,6 +979,17 @@ static void cp_init_hw (struct cp_private *cp)
+ 	cpw32_f (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
+ 	cpw32_f (MAC0 + 4, le32_to_cpu (*(__le32 *) (dev->dev_addr + 4)));
+ 
++	cpw32_f(HiTxRingAddr, 0);
++	cpw32_f(HiTxRingAddr + 4, 0);
++
++	ring_dma = cp->ring_dma;
++	cpw32_f(RxRingAddr, ring_dma & 0xffffffff);
++	cpw32_f(RxRingAddr + 4, (ring_dma >> 16) >> 16);
++
++	ring_dma += sizeof(struct cp_desc) * CP_RX_RING_SIZE;
++	cpw32_f(TxRingAddr, ring_dma & 0xffffffff);
++	cpw32_f(TxRingAddr + 4, (ring_dma >> 16) >> 16);
++
+ 	cp_start_hw(cp);
+ 	cpw8(TxThresh, 0x06); /* XXX convert magic num to a constant */
+ 
+@@ -992,17 +1003,6 @@ static void cp_init_hw (struct cp_private *cp)
+ 
+ 	cpw8(Config5, cpr8(Config5) & PMEStatus);
+ 
+-	cpw32_f(HiTxRingAddr, 0);
+-	cpw32_f(HiTxRingAddr + 4, 0);
+-
+-	ring_dma = cp->ring_dma;
+-	cpw32_f(RxRingAddr, ring_dma & 0xffffffff);
+-	cpw32_f(RxRingAddr + 4, (ring_dma >> 16) >> 16);
+-
+-	ring_dma += sizeof(struct cp_desc) * CP_RX_RING_SIZE;
+-	cpw32_f(TxRingAddr, ring_dma & 0xffffffff);
+-	cpw32_f(TxRingAddr + 4, (ring_dma >> 16) >> 16);
+-
+ 	cpw16(MultiIntr, 0);
+ 
+ 	cpw8_f(Cfg9346, Cfg9346_Lock);
