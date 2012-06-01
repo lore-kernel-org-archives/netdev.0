@@ -1,74 +1,80 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH] mcs7830: Implement link state detection
-Date: Fri, 1 Jun 2012 22:29:08 +0200
-Message-ID: <201206012229.11530.linux@rainbow-software.org>
+From: Chris Boot <bootc@bootc.net>
+Subject: Re: [PATCH 1/2] e1000e: Disable ASPM L1 on 82574
+Date: Fri, 01 Jun 2012 22:17:08 +0100
+Message-ID: <4FC93154.1060906@bootc.net>
+References: <1335216578-21542-1-git-send-email-bootc@bootc.net>
+	<1335216578-21542-2-git-send-email-bootc@bootc.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Andreas Mohr <andi@lisas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-1-out2.atlantis.sk ([80.94.52.71]:45616 "EHLO
-	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759259Ab2FAU3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 16:29:36 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org, nix@esperi.org.uk
+To: Chris Boot <bootc@bootc.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1335216578-21542-2-git-send-email-bootc@bootc.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Add .status callback that detects link state changes.
-Tested with MCS7832CV-AA chip (9710:7830, identified as rev.C by the driver).
-Fixes https://bugzilla.kernel.org/show_bug.cgi?id=28532
+On 23/04/2012 22:29, Chris Boot wrote:
+> ASPM on the 82574 causes trouble. Currently the driver disables L0s for
+> this NIC but only disables L1 if the MTU is >1500. This patch simply
+> causes L1 to be disabled regardless of the MTU setting.
+>
+> Signed-off-by: Chris Boot <bootc@bootc.net>
+> Cc: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+> Cc: Nix <nix@esperi.org.uk>
+> Link: https://lkml.org/lkml/2012/3/19/362
+> ---
+>  drivers/net/ethernet/intel/e1000e/82571.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+> index b3fdc69..c6d95f2 100644
+> --- a/drivers/net/ethernet/intel/e1000e/82571.c
+> +++ b/drivers/net/ethernet/intel/e1000e/82571.c
+> @@ -2061,8 +2061,9 @@ const struct e1000_info e1000_82574_info = {
+>  				  | FLAG_HAS_SMART_POWER_DOWN
+>  				  | FLAG_HAS_AMT
+>  				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+> -	.flags2			  = FLAG2_CHECK_PHY_HANG
+> +	.flags2			= FLAG2_CHECK_PHY_HANG
+>  				  | FLAG2_DISABLE_ASPM_L0S
+> +				  | FLAG2_DISABLE_ASPM_L1
+>  				  | FLAG2_NO_DISABLE_RX,
+>  	.pba			= 32,
+>  	.max_hw_frame_size	= DEFAULT_JUMBO,
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+Now that this patch is in master (d4a4206e) and has presumably been
+widely tested, what's the possibility of it making it into stable? I
+really should have included a CC to stable when I sent it...
 
---- a/drivers/net/usb/mcs7830.c
-+++ b/drivers/net/usb/mcs7830.c
-@@ -629,11 +629,31 @@ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 	return skb->len > 0;
- }
- 
-+static void mcs7830_status(struct usbnet *dev, struct urb *urb)
-+{
-+	u8 *buf = urb->transfer_buffer;
-+	bool link;
-+
-+	if (urb->actual_length < 16)
-+		return;
-+
-+	link = !(buf[1] & 0x20);
-+	if (netif_carrier_ok(dev->net) != link) {
-+		if (link) {
-+			netif_carrier_on(dev->net);
-+			usbnet_defer_kevent(dev, EVENT_LINK_RESET);
-+		} else
-+			netif_carrier_off(dev->net);
-+		netdev_dbg(dev->net, "Link Status is: %d\n", link);
-+	}
-+}
-+
- static const struct driver_info moschip_info = {
- 	.description	= "MOSCHIP 7830/7832/7730 usb-NET adapter",
- 	.bind		= mcs7830_bind,
- 	.rx_fixup	= mcs7830_rx_fixup,
--	.flags		= FLAG_ETHER,
-+	.flags		= FLAG_ETHER | FLAG_LINK_INTR,
-+	.status		= mcs7830_status,
- 	.in		= 1,
- 	.out		= 2,
- };
-@@ -642,7 +662,8 @@ static const struct driver_info sitecom_info = {
- 	.description    = "Sitecom LN-30 usb-NET adapter",
- 	.bind		= mcs7830_bind,
- 	.rx_fixup	= mcs7830_rx_fixup,
--	.flags		= FLAG_ETHER,
-+	.flags		= FLAG_ETHER | FLAG_LINK_INTR,
-+	.status		= mcs7830_status,
- 	.in		= 1,
- 	.out		= 2,
- };
+This patch should probably also be accompanied with 59aed952 (e1000e:
+Remove special case for 82573/82574 ASPM L1 disablement) on top, to
+remove a special case that's no longer required once this is applied.
+
+Thanks,
+Chris
 
 -- 
-Ondrej Zary
+Chris Boot
+bootc@bootc.net
+
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
