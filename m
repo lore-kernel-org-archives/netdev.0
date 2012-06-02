@@ -1,40 +1,23 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Network hangs on current git kernel
-Date: Sat, 02 Jun 2012 11:50:10 +0200
-Message-ID: <1338630610.2760.1695.camel@edumazet-glaptop>
-References: <20120602082503.GC329@x4>
+From: "Western Union" <info@westernunion.com>
+Subject: Hello...
+Date: Sat, 02 Jun 2012 10:56:57 +0100
+Message-ID: <201206020957.q529ta2X027662@mail.ucla.edu>
+Reply-To: w-union@rogers.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <info@westernunion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36726 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933858Ab2FBJuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 05:50:15 -0400
-Received: by bkcji2 with SMTP id ji2so2490818bkc.19
-        for <netdev@vger.kernel.org>; Sat, 02 Jun 2012 02:50:14 -0700 (PDT)
-In-Reply-To: <20120602082503.GC329@x4>
+Received: from out-52.smtp.ucla.edu ([169.232.46.170]:59508 "EHLO
+	out-52.smtp.ucla.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933879Ab2FBJ6J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 05:58:09 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-06-02 at 10:25 +0200, Markus Trippelsdorf wrote:
-> I'm running the latest git kernel 3.4.0-09820-g86c47b7 and see periodic
-> network "hangs" on my machine.
-> 
-> These hangs mostly occur when I read nntp news articles. Every once in a
-> while the nntp client seems to take forever to fetch an article. During
-> these hangs I see packet losses:
+We wish to inform you that We have sent $5000.00 USD already ,that was given to you by the European Union, as we are mandated to send you the total sum of 1000,000,00 USD through Western Union.send name,address, phone number.Processing your first payment of 5,000 USD.
 
-> --- heise.de ping statistics ---
-> 46 packets transmitted, 32 received, 30% packet loss, time 45101ms
-> rtt min/avg/max/mdev = 21.613/23.021/32.210/1.924 ms
-> 
-> Sorry, if this all sounds somewhat vague. I will try to record a sysrq-w dump
-> in the future.
-> 
-
-For sure... its a bit vague.
-
-Maybe tell us what NIC it is, that sort of things...
+Sign,
+Rev. Clayton Bowie (Payment Officer)
+Phone Number: Tel +(44) 7778 650 179
