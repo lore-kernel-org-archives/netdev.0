@@ -1,70 +1,36 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: Network hangs on current git kernel
-Date: Sat, 2 Jun 2012 19:16:58 +0200
-Message-ID: <20120602171658.GA336@x4>
-References: <20120602082503.GC329@x4>
- <1338630610.2760.1695.camel@edumazet-glaptop>
- <20120602105747.GB28769@electric-eye.fr.zoreil.com>
- <1338635703.2760.1696.camel@edumazet-glaptop>
- <20120602112334.GA10145@x4>
- <1338652120.2760.1705.camel@edumazet-glaptop>
- <20120602163437.GA16598@x4>
+From: Andy Furniss <andyqos@ukfsn.org>
+Subject: Re: [Announce] LARTC wiki available
+Date: Sat, 02 Jun 2012 17:58:54 +0100
+Message-ID: <4FCA464E.5030002@ukfsn.org>
+References: <4EFB3B2B.7060200@linuxsystems.it>  <4FC8F0E4.6060102@linuxsystems.it>  <8063b8e35d17fd072cbdc9908cf12519@njm.linuxwall.info>  <4FCA2545.60702@ukfsn.org> <1338652231.2760.1706.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Julien Vehent <julien@linuxwall.info>,
+	=?UTF-8?B?TmljY29sw7IgQmVsbGk=?= <darkbasic@linuxsystems.it>,
+	lartc@vger.kernel.org, netfilter@vger.kernel.org,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ud10.udmedia.de ([194.117.254.50]:59636 "EHLO
-	mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932981Ab2FBRRB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 13:17:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20120602163437.GA16598@x4>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <1338652231.2760.1706.camel@edumazet-glaptop>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2012.06.02 at 18:34 +0200, Markus Trippelsdorf wrote:
-> On 2012.06.02 at 17:48 +0200, Eric Dumazet wrote:
-> > On Sat, 2012-06-02 at 13:23 +0200, Markus Trippelsdorf wrote:
-> > > On 2012.06.02 at 13:15 +0200, Eric Dumazet wrote:
-> > > > On Sat, 2012-06-02 at 12:57 +0200, Francois Romieu wrote:
-> > > > > Eric Dumazet <eric.dumazet@gmail.com> :
-> > > > > > On Sat, 2012-06-02 at 10:25 +0200, Markus Trippelsdorf wrote:
-> > > > > [hang]
-> > > > > > Maybe tell us what NIC it is, that sort of things...
-> > > > > 
-> > > > > As well as 'ip -s link' and complete dmesg from boot.
-> > > > > Kernel .config may be.
-> > > > 
-> > > > yes, and "netstat -s" is always useful
-> > > 
-> > > It's an ATL1E NIC. The kernel config is attached.
-> > 
-> > Driver tx completion is buggy, but it should hang forever...
-> > 
-> > If you ping your local gateway, you also have 'hangs' ?
-> 
-> Will keep an eye on that.
-> After all this could well be just a buggy router, that broke in the last
-> few days by coincidence...
+Eric Dumazet wrote:
+> On Sat, 2012-06-02 at 15:37 +0100, Andy Furniss wrote:
+>
+>>
+>> Anyway it seems that early this year SFQ got some love and now has
+>> several more options (red, headdrop, limit>127, depth as param) - so as
+>> long as your iproute/kernel is current have a look at man tc-sfq for
+>> details.
+>
+> Yes, but fq_codel is really better than SFQ.
 
-And indeed it must be a buggy router:
+Ooh, that does look interesting. I hadn't seen that, thanks.
+I should really start checking netdev again.
 
-(all pings were collected in parallel)
-
---- heise.de ping statistics ---
-128 packets transmitted, 110 received, 14% packet loss, time 127232ms
-rtt min/avg/max/mdev = 21.684/23.611/49.691/3.211 ms
-
---- 192.168.1.1 (local router) ping statistics ---
-126 packets transmitted, 126 received, 0% packet loss, time 125004ms
-rtt min/avg/max/mdev = 0.095/0.222/0.336/0.060 ms
-
---- localhost ping statistics ---
-127 packets transmitted, 127 received, 0% packet loss, time 126001ms
-rtt min/avg/max/mdev = 0.009/0.029/0.065/0.011 ms
-
-Sorry for the noise!
-
--- 
-Markus
+Just pulled iproute git, and see there is a man for codel, but not 
+fq_codel (yet?).
+It would be handy if it/them were added to man tc's "SEE ALSO" section.
