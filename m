@@ -1,49 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH ethtool 0/7] Generic netdev features support
-Date: Sat, 2 Jun 2012 02:31:36 +0100
-Message-ID: <1338600696.2770.27.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1338597227.2770.13.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20120601174517.100bf98f@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: avoid tx starvation by SYNACK packets
+Date: Sat, 02 Jun 2012 07:46:32 +0200
+Message-ID: <1338615992.2760.1665.camel@edumazet-glaptop>
+References: <1338501397.2760.1395.camel@edumazet-glaptop>
+	 <CAA93jw755V9kJ=P1gFsG2oafddhsebzfT3DuY5NX59GPpheOZg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Mahesh Bandewar <maheshb@google.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Dave Taht <dave.taht@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:57902 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S966163Ab2FBBbk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 21:31:40 -0400
-In-Reply-To: <20120601174517.100bf98f@nehalam.linuxnetplumber.net>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:63074 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933187Ab2FBFqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 01:46:37 -0400
+Received: by wgbdr13 with SMTP id dr13so2509975wgb.1
+        for <netdev@vger.kernel.org>; Fri, 01 Jun 2012 22:46:36 -0700 (PDT)
+In-Reply-To: <CAA93jw755V9kJ=P1gFsG2oafddhsebzfT3DuY5NX59GPpheOZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-06-01 at 17:45 -0700, Stephen Hemminger wrote:
-> On Sat, 2 Jun 2012 01:33:47 +0100
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Fri, 2012-06-01 at 18:28 -0700, Dave Taht wrote:
+> On Thu, May 31, 2012 at 2:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > pfifo_fast being the default Qdisc, its pretty easy to fill it with
+> > SYNACK (small) packets while host is under SYNFLOOD attack.
+> >
+> > Packets of established TCP sessions are dropped and host appears almost
+> > dead.
+> >
+> > Avoid this problem assigning TC_PRIO_FILLER priority to SYNACK
+> > generated in SYNCOOKIE mode, so that these packets are enqueued into
+> > pfifo_fast band 2.
+> >
+> > Other packets, queued to band 0 or 1 are dequeued before any SYNACK
+> > packets waiting in band 2.
 > 
-> > This series adds support for the not-so-new generic netdev features
-> > ethtool API, along with some test infrastructure and test cases to check
-> > that it works with old and new kernel versions.  I'm still not convinced
-> > that there are enough test cases, but I've held this back for too damn
-> > long already.
-> > 
-> > I'd like to include these changes in an ethtool 3.4 release by the end
-> > of next week, so let me know if there's anything wrong with them.
-> > 
-> > Ben.
-> 
-> Slightly off-topic, is anyone working on doing ethtool setting over netlink?
+> I am curious as to how well fq_codel survives an attack like this, without aid.
 
-I'm not.  I seem to remember you brought this up at netconf 2010 but I
-don't remember what your motivation was.  Were you thinking about being
-able to monitor for changes, for example?
+codel or fq_codel are not doing priority classification.
 
-Ben.
+SYNACK will spread in all hash buckets and global queue limit can be
+hit.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+fq_codel wont protect you by itself, unless you use a hierarchy with one
+"prio" and two or three "fq_codel".
