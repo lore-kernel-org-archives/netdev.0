@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 3/7] test: Add test_ioctl() function to support a
- mock send_ioctl()
-Date: Sat, 2 Jun 2012 01:37:13 +0100
-Message-ID: <1338597433.2770.16.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH ethtool 4/7] Add unit tests for setting offload features
+ (old API)
+Date: Sat, 2 Jun 2012 01:37:45 +0100
+Message-ID: <1338597465.2770.17.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1338597227.2770.13.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -11,171 +11,212 @@ Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
 	Mahesh Bandewar <maheshb@google.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:35819 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:35827 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1760249Ab2FBAhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 20:37:16 -0400
+	by vger.kernel.org with ESMTP id S965612Ab2FBAhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jun 2012 20:37:48 -0400
 In-Reply-To: <1338597227.2770.13.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-test_ioctl() verifies an ethtool ioctl structure and either returns a
-canned response (if it was as expected) or aborts the test.
-
-Adjust the file redirection in test_cmdline() so that test_ioctl() can
-always print error messages.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- internal.h    |   10 ++++++++
- test-common.c |   70 +++++++++++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 68 insertions(+), 12 deletions(-)
+ .gitignore      |    1 +
+ Makefile.am     |    6 ++-
+ test-features.c |  153 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 158 insertions(+), 2 deletions(-)
+ create mode 100644 test-features.c
 
-diff --git a/internal.h b/internal.h
-index b013783..0fff2a5 100644
---- a/internal.h
-+++ b/internal.h
-@@ -103,6 +103,16 @@ struct cmd_context {
- #ifdef TEST_ETHTOOL
- int test_cmdline(const char *args);
+diff --git a/.gitignore b/.gitignore
+index 62bf520..45c9501 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -13,6 +13,7 @@ ethtool.spec
+ ethtool.8
+ ethtool
+ test-cmdline
++test-features
+ stamp-h1
+ config.*
+ aclocal.m4
+diff --git a/Makefile.am b/Makefile.am
+index d1aec43..1b96b98 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -11,10 +11,12 @@ ethtool_SOURCES = ethtool.c ethtool-copy.h internal.h net_tstamp-copy.h \
+ 		  smsc911x.c at76c50x-usb.c sfc.c stmmac.c	\
+ 		  rxclass.c sfpid.c
  
-+struct cmd_expect {
-+	const void *cmd;	/* expected command; NULL at end of list */
-+	size_t cmd_len;		/* length to match (might be < sizeof struct) */
-+	int rc;			/* kernel return code */
-+	const void *resp;	/* response to write back; may be NULL */
-+	size_t resp_len;	/* length to write back */
+-TESTS = test-cmdline
+-check_PROGRAMS = test-cmdline
++TESTS = test-cmdline test-features
++check_PROGRAMS = test-cmdline test-features
+ test_cmdline_SOURCES = test-cmdline.c test-common.c $(ethtool_SOURCES) 
+ test_cmdline_CFLAGS = -DTEST_ETHTOOL
++test_features_SOURCES = test-features.c test-common.c $(ethtool_SOURCES) 
++test_features_CFLAGS = -DTEST_ETHTOOL
+ 
+ dist-hook:
+ 	cp $(top_srcdir)/ethtool.spec $(distdir)
+diff --git a/test-features.c b/test-features.c
+new file mode 100644
+index 0000000..4d8680a
+--- /dev/null
++++ b/test-features.c
+@@ -0,0 +1,153 @@
++/****************************************************************************
++ * Test cases for ethtool features
++ * Copyright 2012 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#define TEST_NO_WRAPPERS
++#include "internal.h"
++
++static const struct ethtool_value
++cmd_grxcsum_off = { ETHTOOL_GRXCSUM, 0 },
++cmd_grxcsum_on = { ETHTOOL_GRXCSUM, 1 },
++cmd_srxcsum_off = { ETHTOOL_SRXCSUM, 0 },
++cmd_srxcsum_on = { ETHTOOL_SRXCSUM, 1 },
++cmd_gtxcsum_off = { ETHTOOL_GTXCSUM, 0 },
++cmd_gtxcsum_on = { ETHTOOL_GTXCSUM, 1 },
++cmd_stxcsum_off = { ETHTOOL_STXCSUM, 0 },
++cmd_stxcsum_on = { ETHTOOL_STXCSUM, 1 },
++cmd_gsg_off = { ETHTOOL_GSG, 0 },
++cmd_gsg_on = { ETHTOOL_GSG, 1 },
++cmd_ssg_off = { ETHTOOL_SSG, 0 },
++cmd_ssg_on = { ETHTOOL_SSG, 1 },
++cmd_gtso_off = { ETHTOOL_GTSO, 0 },
++cmd_gtso_on = { ETHTOOL_GTSO, 1 },
++cmd_stso_off = { ETHTOOL_STSO, 0 },
++cmd_stso_on = { ETHTOOL_STSO, 1 },
++cmd_gufo_off = { ETHTOOL_GUFO, 0 },
++cmd_gufo_on = { ETHTOOL_GUFO, 1 },
++cmd_sufo_off = { ETHTOOL_SUFO, 0 },
++cmd_sufo_on = { ETHTOOL_SUFO, 1 },
++cmd_ggso_off = { ETHTOOL_GGSO, 0 },
++cmd_ggso_on = { ETHTOOL_GGSO, 1 },
++cmd_sgso_off = { ETHTOOL_SGSO, 0 },
++cmd_sgso_on = { ETHTOOL_SGSO, 1 },
++cmd_ggro_off = { ETHTOOL_GGRO, 0 },
++cmd_ggro_on = { ETHTOOL_GGRO, 1 },
++cmd_sgro_off = { ETHTOOL_SGRO, 0 },
++cmd_sgro_on = { ETHTOOL_SGRO, 1 },
++cmd_gflags_off = { ETHTOOL_GFLAGS, 0 },
++cmd_gflags_on = { ETHTOOL_GFLAGS,
++		  ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN |
++		  ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH },
++cmd_sflags_off = { ETHTOOL_SFLAGS, 0 },
++cmd_sflags_ntuple = { ETHTOOL_GFLAGS, ETH_FLAG_NTUPLE },
++cmd_sflags_on = { ETHTOOL_SFLAGS,
++		  ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN |
++		  ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH },
++cmd_sflags_not_rxhash = { ETHTOOL_SFLAGS,
++			  ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN |
++			  ETH_FLAG_NTUPLE };
++
++static const struct cmd_expect cmd_expect_get_features_off[] = {
++	{ &cmd_grxcsum_off, 4, 0, &cmd_grxcsum_off, sizeof(cmd_grxcsum_off) },
++	{ &cmd_gtxcsum_off, 4, 0, &cmd_gtxcsum_off, sizeof(cmd_gtxcsum_off) },
++	{ &cmd_gsg_off, 4, 0, &cmd_gsg_off, sizeof(cmd_gsg_off) },
++	{ &cmd_gtso_off, 4, 0, &cmd_gtso_off, sizeof(cmd_gtso_off) },
++	{ &cmd_gufo_off, 4, 0, &cmd_gufo_off, sizeof(cmd_gufo_off) },
++	{ &cmd_ggso_off, 4, 0, &cmd_ggso_off, sizeof(cmd_ggso_off) },
++	{ &cmd_gflags_off, 4, 0, &cmd_gflags_off, sizeof(cmd_gflags_off) },
++	{ &cmd_ggro_off, 4,0, &cmd_ggro_off, sizeof(cmd_ggro_off) },
++	{ 0, 0, 0, 0, 0 }
 +};
-+int test_ioctl(const struct cmd_expect *expect, void *cmd);
-+#define TEST_IOCTL_MISMATCH (-2)
 +
- #ifndef TEST_NO_WRAPPERS
- int test_main(int argc, char **argp);
- #define main(...) test_main(__VA_ARGS__)
-diff --git a/test-common.c b/test-common.c
-index 69853aa..adc3cd4 100644
---- a/test-common.c
-+++ b/test-common.c
-@@ -10,6 +10,7 @@
-  */
- 
- #include <assert.h>
-+#include <errno.h>
- #include <setjmp.h>
- #include <stdarg.h>
- #include <stdlib.h>
-@@ -251,19 +252,52 @@ static void test_close_all(void)
- /* Wrap test main function */
- 
- static jmp_buf test_return;
-+static FILE *orig_stderr;
- 
- void test_exit(int rc)
- {
- 	longjmp(test_return, rc + 1);
- }
- 
-+int test_ioctl(const struct cmd_expect *expect, void *cmd)
-+{
++static const struct cmd_expect cmd_expect_set_features_off[] = {
++	{ &cmd_srxcsum_off, sizeof(cmd_srxcsum_off), 0, 0, 0 },
++	{ &cmd_stxcsum_off, sizeof(cmd_stxcsum_off), 0, 0, 0 },
++	{ &cmd_ssg_off, sizeof(cmd_ssg_off), 0, 0, 0 },
++	{ &cmd_stso_off, sizeof(cmd_stso_off), 0, 0, 0 },
++	{ &cmd_sufo_off, sizeof(cmd_sufo_off), 0, 0, 0 },
++	{ &cmd_sgso_off, sizeof(cmd_sgso_off), 0, 0, 0 },
++	{ &cmd_gflags_on, 4, 0, &cmd_gflags_on, sizeof(cmd_sflags_on) },
++	{ &cmd_sflags_off, sizeof(cmd_sflags_off), 0, 0, 0 },
++	{ &cmd_sgro_off, sizeof(cmd_sgro_off), 0, 0, 0 },
++	{ 0, 0, 0, 0, 0 }
++};
++
++static const struct cmd_expect cmd_expect_set_features_on[] = {
++	{ &cmd_srxcsum_on, sizeof(cmd_srxcsum_on), 0, 0, 0 },
++	{ &cmd_stxcsum_on, sizeof(cmd_stxcsum_on), 0, 0, 0 },
++	{ &cmd_ssg_on, sizeof(cmd_ssg_on), 0, 0, 0 },
++	{ &cmd_stso_on, sizeof(cmd_stso_on), 0, 0, 0 },
++	{ &cmd_sufo_on, sizeof(cmd_sufo_on), 0, 0, 0 },
++	{ &cmd_sgso_on, sizeof(cmd_sgso_on), 0, 0, 0 },
++	{ &cmd_gflags_off, 4, 0, &cmd_gflags_on, sizeof(cmd_sflags_off) },
++	{ &cmd_sflags_on, sizeof(cmd_sflags_on), 0, 0, 0 },
++	{ &cmd_sgro_on, sizeof(cmd_sgro_on), 0, 0, 0 },
++	{ 0, 0, 0, 0, 0 }
++};
++
++static struct test_case {
 +	int rc;
++	const char *args;
++	const struct cmd_expect *expect;
++} const test_cases[] = {
++	{ 0, "-k devname", cmd_expect_get_features_off },
++	{ 0, "-K devname rx off tx off sg off tso off ufo off gso off lro off rxvlan off txvlan off ntuple off rxhash off gro off",
++	  cmd_expect_set_features_off },
++	{ 0, "-K devname rx on tx on sg on tso on ufo on gso on lro on rxvlan on txvlan on ntuple on rxhash on gro on",
++	  cmd_expect_set_features_on },
++};
 +
-+	if (!expect->cmd || *(u32 *)cmd != *(const u32 *)expect->cmd) {
-+		/* We have no idea how long this command structure is */
-+		fprintf(orig_stderr, "Unexpected ioctl: cmd=%#10x\n",
-+			*(u32 *)cmd);
-+		return TEST_IOCTL_MISMATCH;
++static int expect_matched;
++static const struct cmd_expect *expect_next;
++
++int send_ioctl(struct cmd_context *ctx, void *cmd)
++{
++	int rc = test_ioctl(expect_next, cmd);
++
++	if (rc == TEST_IOCTL_MISMATCH) {
++		expect_matched = 0;
++		test_exit(0);
 +	}
-+
-+	if (memcmp(cmd, expect->cmd, expect->cmd_len)) {
-+		fprintf(orig_stderr, "Expected ioctl structure:\n");
-+		dump_hex(orig_stderr, expect->cmd, expect->cmd_len, 0);
-+		fprintf(orig_stderr, "Actual ioctl structure:\n");
-+		dump_hex(orig_stderr, cmd, expect->cmd_len, 0);
-+		return TEST_IOCTL_MISMATCH;
-+	}
-+
-+	if (expect->resp)
-+		memcpy(cmd, expect->resp, expect->resp_len);
-+	rc = expect->rc;
-+
-+	/* Convert kernel return code according to libc convention */
-+	if (rc >= 0) {
-+		return rc;
-+	} else {
-+		errno = -rc;
-+		return -1;
-+	}
++	expect_next++;
++	return rc;
 +}
 +
- int test_cmdline(const char *args)
- {
- 	int argc, i;
- 	char **argv;
- 	const char *arg;
- 	size_t len;
--	int dev_null = -1, old_stdout = -1, old_stderr = -1;
-+	int dev_null = -1, orig_stdout_fd = -1, orig_stderr_fd = -1;
- 	int rc;
- 
- 	/* Convert line to argv */
-@@ -298,20 +332,28 @@ int test_cmdline(const char *args)
- 
- 	fflush(NULL);
- 	dup2(dev_null, STDIN_FILENO);
--	if (!getenv("TEST_TEST_VERBOSE")) {
--		old_stdout = dup(STDOUT_FILENO);
--		if (old_stdout < 0) {
-+	if (getenv("TEST_TEST_VERBOSE")) {
-+		orig_stderr = stderr;
-+	} else {
-+		orig_stdout_fd = dup(STDOUT_FILENO);
-+		if (orig_stdout_fd < 0) {
- 			perror("dup stdout");
- 			rc = -1;
- 			goto out;
- 		}
- 		dup2(dev_null, STDOUT_FILENO);
--		old_stderr = dup(STDERR_FILENO);
--		if (old_stderr < 0) {
-+		orig_stderr_fd = dup(STDERR_FILENO);
-+		if (orig_stderr_fd < 0) {
- 			perror("dup stderr");
- 			rc = -1;
- 			goto out;
- 		}
-+		orig_stderr = fdopen(orig_stderr_fd, "w");
-+		if (orig_stderr == NULL) {
-+			perror("fdopen orig_stderr_fd");
-+			rc = -1;
-+			goto out;
++int main(void)
++{
++	const struct test_case *tc;
++	int test_rc;
++	int rc = 0;
++
++	for (tc = test_cases; tc < test_cases + ARRAY_SIZE(test_cases); tc++) {
++		if (getenv("ETHTOOL_TEST_VERBOSE"))
++			printf("I: Test command line: ethtool %s\n", tc->args);
++		expect_matched = 1;
++		expect_next = tc->expect;
++		test_rc = test_cmdline(tc->args);
++
++		/* If we found a mismatch, or there is still another
++		 * expected ioctl to match, the test failed.
++		 */
++		if (!expect_matched || expect_next->cmd) {
++			fprintf(stderr,
++				"E: ethtool %s deviated from the expected "
++				"ioctl sequence after %zu calls\n",
++				tc->args, expect_next - tc->expect);
++			rc = 1;
++		} else if (test_rc != tc->rc) {
++			fprintf(stderr, "E: ethtool %s returns %d\n",
++				tc->args, test_rc);
++			rc = 1;
 +		}
- 		dup2(dev_null, STDERR_FILENO);
- 	}
- 
-@@ -320,13 +362,17 @@ int test_cmdline(const char *args)
- 
- out:
- 	fflush(NULL);
--	if (old_stderr >= 0) {
--		dup2(old_stderr, STDERR_FILENO);
--		close(old_stderr);
-+	if (orig_stderr_fd >= 0) {
-+		dup2(orig_stderr_fd, STDERR_FILENO);
-+		if (orig_stderr)
-+			fclose(orig_stderr);
-+		else
-+			close(orig_stderr_fd);
- 	}
--	if (old_stdout >= 0) {
--		dup2(old_stdout, STDOUT_FILENO);
--		close(old_stdout);
-+	orig_stderr = NULL;
-+	if (orig_stdout_fd >= 0) {
-+		dup2(orig_stdout_fd, STDOUT_FILENO);
-+		close(orig_stdout_fd);
- 	}
- 	if (dev_null >= 0)
- 		close(dev_null);
++	}
++
++	return rc;
++}
 -- 
 1.7.7.6
 
