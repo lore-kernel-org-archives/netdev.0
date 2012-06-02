@@ -1,45 +1,101 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/2] e1000: look into the page instead of skb->data for e1000_tbi_adjust_stats()
-Date: Sat,  2 Jun 2012 00:16:55 -0700
-Message-ID: <1338621416-22425-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/2] e1000e: fix Rapid Start Technology support for i217
+Date: Sat,  2 Jun 2012 00:16:56 -0700
+Message-ID: <1338621416-22425-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1338621416-22425-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:20916 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966256Ab2FBHRB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Jun 2012 03:17:01 -0400
+	id S966240Ab2FBHRC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Jun 2012 03:17:02 -0400
 In-Reply-To: <1338621416-22425-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-This is another fixup where the data is not transfered into buffer
-addressed by skb->data but into a page.
+The definition of I217_PROXY_CTRL must use the BM_PHY_REG() macro instead
+of the PHY_REG() macro for PHY page 800 register 70 since it is for a PHY
+register greater than the maximum allowed by the latter macro, and fix a
+typo setting the I217_MEMPWR register in e1000_suspend_workarounds_ich8lan.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Also for clarity, rename a few defines as bit definitions instead of masks.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 95731c8..7483ca0 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -4080,7 +4080,7 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 				spin_lock_irqsave(&adapter->stats_lock,
- 				                  irq_flags);
- 				e1000_tbi_adjust_stats(hw, &adapter->stats,
--				                       length, skb->data);
-+						       length, mapped);
- 				spin_unlock_irqrestore(&adapter->stats_lock,
- 				                       irq_flags);
- 				length--;
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index bbf70ba..238ab2f 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -165,14 +165,14 @@
+ #define I217_EEE_100_SUPPORTED  (1 << 1)	/* 100BaseTx EEE supported */
+ 
+ /* Intel Rapid Start Technology Support */
+-#define I217_PROXY_CTRL                 PHY_REG(BM_WUC_PAGE, 70)
++#define I217_PROXY_CTRL                 BM_PHY_REG(BM_WUC_PAGE, 70)
+ #define I217_PROXY_CTRL_AUTO_DISABLE    0x0080
+ #define I217_SxCTRL                     PHY_REG(BM_PORT_CTRL_PAGE, 28)
+-#define I217_SxCTRL_MASK                0x1000
++#define I217_SxCTRL_ENABLE_LPI_RESET    0x1000
+ #define I217_CGFREG                     PHY_REG(772, 29)
+-#define I217_CGFREG_MASK                0x0002
++#define I217_CGFREG_ENABLE_MTA_RESET    0x0002
+ #define I217_MEMPWR                     PHY_REG(772, 26)
+-#define I217_MEMPWR_MASK                0x0010
++#define I217_MEMPWR_DISABLE_SMB_RELEASE 0x0010
+ 
+ /* Strapping Option Register - RO */
+ #define E1000_STRAP                     0x0000C
+@@ -4089,12 +4089,12 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
+ 			 * power good.
+ 			 */
+ 			e1e_rphy_locked(hw, I217_SxCTRL, &phy_reg);
+-			phy_reg |= I217_SxCTRL_MASK;
++			phy_reg |= I217_SxCTRL_ENABLE_LPI_RESET;
+ 			e1e_wphy_locked(hw, I217_SxCTRL, phy_reg);
+ 
+ 			/* Disable the SMB release on LCD reset. */
+ 			e1e_rphy_locked(hw, I217_MEMPWR, &phy_reg);
+-			phy_reg &= ~I217_MEMPWR;
++			phy_reg &= ~I217_MEMPWR_DISABLE_SMB_RELEASE;
+ 			e1e_wphy_locked(hw, I217_MEMPWR, phy_reg);
+ 		}
+ 
+@@ -4103,7 +4103,7 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
+ 		 * Support
+ 		 */
+ 		e1e_rphy_locked(hw, I217_CGFREG, &phy_reg);
+-		phy_reg |= I217_CGFREG_MASK;
++		phy_reg |= I217_CGFREG_ENABLE_MTA_RESET;
+ 		e1e_wphy_locked(hw, I217_CGFREG, phy_reg);
+ 
+ release:
+@@ -4176,7 +4176,7 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+ 			ret_val = e1e_rphy_locked(hw, I217_MEMPWR, &phy_reg);
+ 			if (ret_val)
+ 				goto release;
+-			phy_reg |= I217_MEMPWR_MASK;
++			phy_reg |= I217_MEMPWR_DISABLE_SMB_RELEASE;
+ 			e1e_wphy_locked(hw, I217_MEMPWR, phy_reg);
+ 
+ 			/* Disable Proxy */
+@@ -4186,7 +4186,7 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+ 		ret_val = e1e_rphy_locked(hw, I217_CGFREG, &phy_reg);
+ 		if (ret_val)
+ 			goto release;
+-		phy_reg &= ~I217_CGFREG_MASK;
++		phy_reg &= ~I217_CGFREG_ENABLE_MTA_RESET;
+ 		e1e_wphy_locked(hw, I217_CGFREG, phy_reg);
+ release:
+ 		if (ret_val)
 -- 
 1.7.10.2
