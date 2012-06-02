@@ -1,101 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/2] e1000e: fix Rapid Start Technology support for i217
-Date: Sat,  2 Jun 2012 00:16:56 -0700
-Message-ID: <1338621416-22425-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1338621416-22425-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: Network hangs on current git kernel
+Date: Sat, 2 Jun 2012 10:25:03 +0200
+Message-ID: <20120602082503.GC329@x4>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:20916 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966240Ab2FBHRC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Jun 2012 03:17:02 -0400
-In-Reply-To: <1338621416-22425-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from ud10.udmedia.de ([194.117.254.50]:43270 "EHLO
+	mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966541Ab2FBIbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 04:31:46 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+I'm running the latest git kernel 3.4.0-09820-g86c47b7 and see periodic
+network "hangs" on my machine.
 
-The definition of I217_PROXY_CTRL must use the BM_PHY_REG() macro instead
-of the PHY_REG() macro for PHY page 800 register 70 since it is for a PHY
-register greater than the maximum allowed by the latter macro, and fix a
-typo setting the I217_MEMPWR register in e1000_suspend_workarounds_ich8lan.
+These hangs mostly occur when I read nntp news articles. Every once in a
+while the nntp client seems to take forever to fetch an article. During
+these hangs I see packet losses:
 
-Also for clarity, rename a few defines as bit definitions instead of masks.
+ % ping heise.de
+PING heise.de (193.99.144.80) 56(84) bytes of data.
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=2 ttl=246 time=22.2 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=4 ttl=246 time=22.3 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=8 ttl=246 time=21.9 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=12 ttl=246 time=23.4 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=15 ttl=246 time=22.5 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=19 ttl=246 time=22.9 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=21 ttl=246 time=21.6 ms <== Hang stops here
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=22 ttl=246 time=23.2 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=23 ttl=246 time=23.4 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=24 ttl=246 time=22.9 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=25 ttl=246 time=22.9 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=26 ttl=246 time=22.5 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=27 ttl=246 time=22.4 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=28 ttl=246 time=22.4 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=29 ttl=246 time=22.0 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=30 ttl=246 time=22.4 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=31 ttl=246 time=22.0 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=32 ttl=246 time=22.0 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=33 ttl=246 time=22.0 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=34 ttl=246 time=21.8 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=35 ttl=246 time=23.1 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=36 ttl=246 time=22.4 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=37 ttl=246 time=23.2 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=38 ttl=246 time=22.3 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=39 ttl=246 time=32.2 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=40 ttl=246 time=22.5 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=41 ttl=246 time=22.6 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=42 ttl=246 time=23.7 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=43 ttl=246 time=22.7 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=44 ttl=246 time=27.4 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=45 ttl=246 time=22.2 ms
+64 bytes from redirector.heise.de (193.99.144.80): icmp_req=46 ttl=246 time=22.5 ms
+^C
+--- heise.de ping statistics ---
+46 packets transmitted, 32 received, 30% packet loss, time 45101ms
+rtt min/avg/max/mdev = 21.613/23.021/32.210/1.924 ms
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/ich8lan.c |   18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+Sorry, if this all sounds somewhat vague. I will try to record a sysrq-w dump
+in the future.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index bbf70ba..238ab2f 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -165,14 +165,14 @@
- #define I217_EEE_100_SUPPORTED  (1 << 1)	/* 100BaseTx EEE supported */
- 
- /* Intel Rapid Start Technology Support */
--#define I217_PROXY_CTRL                 PHY_REG(BM_WUC_PAGE, 70)
-+#define I217_PROXY_CTRL                 BM_PHY_REG(BM_WUC_PAGE, 70)
- #define I217_PROXY_CTRL_AUTO_DISABLE    0x0080
- #define I217_SxCTRL                     PHY_REG(BM_PORT_CTRL_PAGE, 28)
--#define I217_SxCTRL_MASK                0x1000
-+#define I217_SxCTRL_ENABLE_LPI_RESET    0x1000
- #define I217_CGFREG                     PHY_REG(772, 29)
--#define I217_CGFREG_MASK                0x0002
-+#define I217_CGFREG_ENABLE_MTA_RESET    0x0002
- #define I217_MEMPWR                     PHY_REG(772, 26)
--#define I217_MEMPWR_MASK                0x0010
-+#define I217_MEMPWR_DISABLE_SMB_RELEASE 0x0010
- 
- /* Strapping Option Register - RO */
- #define E1000_STRAP                     0x0000C
-@@ -4089,12 +4089,12 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
- 			 * power good.
- 			 */
- 			e1e_rphy_locked(hw, I217_SxCTRL, &phy_reg);
--			phy_reg |= I217_SxCTRL_MASK;
-+			phy_reg |= I217_SxCTRL_ENABLE_LPI_RESET;
- 			e1e_wphy_locked(hw, I217_SxCTRL, phy_reg);
- 
- 			/* Disable the SMB release on LCD reset. */
- 			e1e_rphy_locked(hw, I217_MEMPWR, &phy_reg);
--			phy_reg &= ~I217_MEMPWR;
-+			phy_reg &= ~I217_MEMPWR_DISABLE_SMB_RELEASE;
- 			e1e_wphy_locked(hw, I217_MEMPWR, phy_reg);
- 		}
- 
-@@ -4103,7 +4103,7 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
- 		 * Support
- 		 */
- 		e1e_rphy_locked(hw, I217_CGFREG, &phy_reg);
--		phy_reg |= I217_CGFREG_MASK;
-+		phy_reg |= I217_CGFREG_ENABLE_MTA_RESET;
- 		e1e_wphy_locked(hw, I217_CGFREG, phy_reg);
- 
- release:
-@@ -4176,7 +4176,7 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
- 			ret_val = e1e_rphy_locked(hw, I217_MEMPWR, &phy_reg);
- 			if (ret_val)
- 				goto release;
--			phy_reg |= I217_MEMPWR_MASK;
-+			phy_reg |= I217_MEMPWR_DISABLE_SMB_RELEASE;
- 			e1e_wphy_locked(hw, I217_MEMPWR, phy_reg);
- 
- 			/* Disable Proxy */
-@@ -4186,7 +4186,7 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
- 		ret_val = e1e_rphy_locked(hw, I217_CGFREG, &phy_reg);
- 		if (ret_val)
- 			goto release;
--		phy_reg &= ~I217_CGFREG_MASK;
-+		phy_reg &= ~I217_CGFREG_ENABLE_MTA_RESET;
- 		e1e_wphy_locked(hw, I217_CGFREG, phy_reg);
- release:
- 		if (ret_val)
 -- 
-1.7.10.2
+Markus
