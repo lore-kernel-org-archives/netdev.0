@@ -1,129 +1,182 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Sat, 02 Jun 2012 17:31:59 -0400 (EDT)
-Message-ID: <20120602.173159.675662966124767026.davem@davemloft.net>
+From: Vilius Palme <palme3000@gmail.com>
+Subject: Bug report: RT2800USB driver. txpower stuck at 0
+Date: Sat, 2 Jun 2012 23:59:59 +0200
+Message-ID: <CAOUAToY-uDxGLk475RvMY2uu9GwQ4dnPfFx0aCz4eO25L=6nDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50826 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965826Ab2FBVcA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 17:32:00 -0400
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:63271 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933645Ab2FBV77 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 17:59:59 -0400
+Received: by ghrr11 with SMTP id r11so2780110ghr.19
+        for <netdev@vger.kernel.org>; Sat, 02 Jun 2012 14:59:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
-1) Make syn floods consume significantly less resources by
+Is this the place to report net driver bugs?
 
-   a) Not pre-COW'ing routing metrics for SYN/ACKs
-   b) Mirroring the device queue mapping of the SYN for the SYN/ACK
-      reply.
+Just tried to make a switch from 3.3.5 to 3.4.0 kernel and it seems
+that something is wrong with RT2800USB driver. iwlwifi driver seems to
+work pretty fine, so I assume that this is RT driver problem.
 
-   Both from Eric Dumazet.
+Here's some info:
 
-2) Fix calculation errors in Byte Queue Limiting, from Hiroaki SHIMODA.
+[root@R1 iw]# uname -a
+Linux R1 3.4.0 #4 SMP PREEMPT Sat Jun 2 21:22:40 CEST 2012 x86_64 GNU/Linux
 
-3) Validate the length requested when building a paged SKB for a
-   socket, so we don't overrun the page vector accidently.  From Jason
-   Wang.
+[root@R1 iw]# ifconfig wlan0 up
+[root@R1 iw]# iwconfig wlan0
+wlan0     IEEE 802.11bgn  ESSID:off/any
+          Mode:Managed  Access Point: Not-Associated   Tx-Power=0 dBm
+          Retry  long limit:7   RTS thr:off   Fragment thr:off
+          Encryption key:off
+          Power Management:off
 
-4) When netlabel is disabled, we abort all IP option processing when
-   we see a CIPSO option.  This isn't the right thing to do, we should
-   simply skip over it and continue processing the remaining options
-   (if any).  Fix from Paul Moore.
-
-5) SRIOV fixes for the mellanox driver from Jack orgenstein and Marcel
-   Apfelbaum.
-
-6) 8139cp enables the receiver before the ring address is properly
-   programmed, which potentially lets the device crap over random
-   memory.  Fix from Jason Wang.
-
-7) e1000/e1000e fixes for i217 RST handling, and an improper buffer
-   address reference in jumbo RX frame processing from Bruce Allan
-   and Sebastian Andrzej Siewior, respectively.
-
-Please pull, thanks a lot!
-
-The following changes since commit 76f901eb4659779ecacd0e4eba49f55442daef53:
-
-  Merge tag 'for-v3.5' of git://git.infradead.org/battery-2.6 (2012-05-31 12:10:15 -0700)
-
-are available in the git repository at:
+[root@R1 iw]# iwconfig wlan0 txpower 20
+Error for wireless request "Set Tx Power" (8B26) :
+    SET failed on device wlan0 ; Invalid argument.
+[root@R1 iw]# iwconfig wlan0 txpower 1
+Error for wireless request "Set Tx Power" (8B26) :
+    SET failed on device wlan0 ; Invalid argument.
+[root@R1 iw]# iwconfig wlan0 txpower 0
+[root@R1 iw]#
 
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+[root@R1 iw]# rfkill list
+0: tpacpi_bluetooth_sw: Bluetooth
+	Soft blocked: no
+	Hard blocked: no
+27: phy26: Wireless LAN
+	Soft blocked: no
+	Hard blocked: no
+[root@R1 iw]#
 
-for you to fetch changes up to 9ca3cc6f3026946ba655e863ca2096339e667639:
+lsusb -vv output:
 
-  fec_mpc52xx: fix timestamp filtering (2012-06-02 17:09:08 -0400)
+Bus 002 Device 020: ID 1737:0078 Linksys WUSB100 v2 RangePlus Wireless
+Network Adapter [Ralink RT3070]
+Device Descriptor:
+  bLength                18
+  bDescriptorType         1
+  bcdUSB               2.00
+  bDeviceClass            0 (Defined at Interface level)
+  bDeviceSubClass         0
+  bDeviceProtocol         0
+  bMaxPacketSize0        64
+  idVendor           0x1737 Linksys
+  idProduct          0x0078 WUSB100 v2 RangePlus Wireless Network
+Adapter [Ralink RT3070]
+  bcdDevice            1.01
+  iManufacturer           1 Cisco-Linksys LLC
+  iProduct                2 Linksys RangePlus Wireless Network USB Adapter
+  iSerial                 3
+  bNumConfigurations      1
+  Configuration Descriptor:
+    bLength                 9
+    bDescriptorType         2
+    wTotalLength           67
+    bNumInterfaces          1
+    bConfigurationValue     1
+    iConfiguration          0
+    bmAttributes         0x80
+      (Bus Powered)
+    MaxPower              450mA
+    Interface Descriptor:
+      bLength                 9
+      bDescriptorType         4
+      bInterfaceNumber        0
+      bAlternateSetting       0
+      bNumEndpoints           7
+      bInterfaceClass       255 Vendor Specific Class
+      bInterfaceSubClass    255 Vendor Specific Subclass
+      bInterfaceProtocol    255 Vendor Specific Protocol
+      iInterface              5
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x81  EP 1 IN
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x01  EP 1 OUT
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x02  EP 2 OUT
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x03  EP 3 OUT
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x04  EP 4 OUT
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x05  EP 5 OUT
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x06  EP 6 OUT
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+Device Qualifier (for other device speed):
+  bLength                10
+  bDescriptorType         6
+  bcdUSB               2.00
+  bDeviceClass            0 (Defined at Interface level)
+  bDeviceSubClass         0
+  bDeviceProtocol         0
+  bMaxPacketSize0        64
+  bNumConfigurations      1
+Device Status:     0x0000
+  (Bus Powered)
 
-----------------------------------------------------------------
-Bruce Allan (1):
-      e1000e: fix Rapid Start Technology support for i217
+Lemme know if I should add some /dev/random or anything else.
 
-Devendra Naga (1):
-      r8169: call netif_napi_del at errpaths and at driver unload
-
-Eric Dumazet (2):
-      tcp: do not create inetpeer on SYNACK message
-      tcp: reflect SYN queue_mapping into SYNACK packets
-
-Hiroaki SHIMODA (3):
-      bql: Fix POSDIFF() to integer overflow aware.
-      bql: Avoid unneeded limit decrement.
-      bql: Avoid possible inconsistent calculation.
-
-Jack Morgenstein (5):
-      net/mlx4_core: Fix the slave_id out-of-range test in mlx4_eq_int
-      net/mlx4_en: Fix improper use of "port" parameter in mlx4_en_event
-      net/mlx4_core: Fixes for VF / Guest startup flow
-      net/mlx4_core: Check port out-of-range before using in mlx4_slave_cap
-      net/mlx4_core: Fix obscure mlx4_cmd_box parameter in QUERY_DEV_CAP
-
-Jason Wang (3):
-      net: sock: validate data_len before allocating skb in sock_alloc_send_pskb()
-      8139cp: set ring address before enabling receiver
-      8139cp/8139too: terminate the eeprom access with the right opmode
-
-Marcel Apfelbaum (1):
-      net/mlx4_core: Fix number of EQs used in ICM initialisation
-
-Ondrej Zary (1):
-      mcs7830: Implement link state detection
-
-Paul Moore (1):
-      cipso: handle CIPSO options correctly when NetLabel is disabled
-
-Sebastian Andrzej Siewior (1):
-      e1000: look into the page instead of skb->data for e1000_tbi_adjust_stats()
-
-Stephan Gatzka (1):
-      fec_mpc52xx: fix timestamp filtering
-
- drivers/net/ethernet/freescale/fec_mpc52xx.c  |    2 +-
- drivers/net/ethernet/intel/e1000/e1000_main.c |    2 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c   |   18 +++++++++---------
- drivers/net/ethernet/mellanox/mlx4/cmd.c      |    4 ++--
- drivers/net/ethernet/mellanox/mlx4/en_main.c  |   12 +++++++-----
- drivers/net/ethernet/mellanox/mlx4/eq.c       |    2 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c       |   51 +++++++++++++++++++++++++++++++++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx4/main.c     |   40 +++++++++++++--------------------------
- drivers/net/ethernet/mellanox/mlx4/mlx4.h     |   10 ++++++++++
- drivers/net/ethernet/mellanox/mlx4/profile.c  |    9 ++++++---
- drivers/net/ethernet/realtek/8139cp.c         |   24 ++++++++++++------------
- drivers/net/ethernet/realtek/8139too.c        |    2 +-
- drivers/net/ethernet/realtek/r8169.c          |    3 +++
- drivers/net/usb/mcs7830.c                     |   25 +++++++++++++++++++++++--
- include/linux/mlx4/device.h                   |    6 ++++++
- include/net/cipso_ipv4.h                      |   29 +++++++++++++++++++++++++++-
- lib/dynamic_queue_limits.c                    |   18 +++++++++++-------
- net/core/sock.c                               |    7 +++++--
- net/ipv4/inet_connection_sock.c               |    3 ++-
- net/ipv4/tcp_ipv4.c                           |    9 ++++++---
- net/ipv6/tcp_ipv6.c                           |    9 ++++++---
- 21 files changed, 201 insertions(+), 84 deletions(-)
+Vilius
