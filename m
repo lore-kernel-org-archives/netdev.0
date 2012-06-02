@@ -1,57 +1,41 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [PATCH v5 6/6 resend] net: sh_eth: use NAPI
-Date: Sat, 02 Jun 2012 12:05:32 +0200
-Message-ID: <4FC9E56C.4000707@computer.org>
-References: <4FC48589.6060009@renesas.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169: IO_PAGE_FAULT & netdev watchdog
+Date: Sat, 2 Jun 2012 12:56:45 +0200
+Message-ID: <20120602105645.GA28769@electric-eye.fr.zoreil.com>
+References: <201205312331.06623.plr.vincent@gmail.com> <20120601125949.GA11973@electric-eye.fr.zoreil.com> <201206021108.53551.plr.vincent@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	SH-Linux <linux-sh@vger.kernel.org>
-To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Vincent Pelletier <plr.vincent@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay010.isp.belgacom.be ([195.238.6.177]:19510 "EHLO
-	mailrelay010.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933439Ab2FBKJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 06:09:56 -0400
-In-Reply-To: <4FC48589.6060009@renesas.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:60344 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966282Ab2FBLFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jun 2012 07:05:18 -0400
+Content-Disposition: inline
+In-Reply-To: <201206021108.53551.plr.vincent@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/29/2012 10:15 AM, Shimoda, Yoshihiro wrote:
-> @@ -1087,13 +1088,17 @@ static int sh_eth_rx(struct net_device *ndev)
->  				skb_reserve(skb, NET_IP_ALIGN);
->  			skb_put(skb, pkt_len);
->  			skb->protocol = eth_type_trans(skb, ndev);
-> -			netif_rx(skb);
-> -			ndev->stats.rx_packets++;
-> -			ndev->stats.rx_bytes += pkt_len;
-> +			if (netif_receive_skb(skb) == NET_RX_DROP) {
-> +				ndev->stats.rx_dropped++;
-> +			} else {
-> +				ndev->stats.rx_packets++;
-> +				ndev->stats.rx_bytes += pkt_len;
-> +			}
->  		}
->  		rxdesc->status |= cpu_to_edmac(mdp, RD_RACT);
->  		entry = (++mdp->cur_rx) % mdp->num_rx_ring;
->  		rxdesc = &mdp->rx_ring[entry];
-> +		(*work)++;
->  	}
-> 
->  	/* Refill the Rx ring buffers. */
+Vincent Pelletier <plr.vincent@gmail.com> :
+[...]
+> So I went with 3.3.7, and patch failed to apply, at least partly because
+> 3.3.7 lacks "r8169: fix early queue wake-up."[1].
 
-Please forgive a newbie's question/comment; feel free to ignore if I'm
-wasting your time. Particularly because it's about an aspect of the
-driver that you're not changing in this patch. (And yes, I know that
-you've been asked to sit on this patch series until net-next opens up
-again).
+And partly because the patch I sent included its content in the commit
+message as well. :o/
 
-I see that most users of netif_receive_skb() ignore its return value.
-Some drivers (including this-one) do check it and use it to determine
-whether counters should be updated. But looking at netif_receive_skb()
-itself I see that there's counter infrastructure there already.
+> I solved the conflicts manually, but I'm not sure of the result. Could you
+> confirm attached patch might give expected result ?
 
-So why this in-driver set of counters, I wonder?
+Yes.
 
-Thanks, Jan
+> Or should I stick to 3.4 and only test inlined patch ?
+
+If the inlined patch makes a difference, you should see it with 3.4.
+
+My life is a bit easier when you work somewhere in the main branch
+(or in davem's -next but it is not relevant for regression fixes).
+
+-- 
+Ueimor
