@@ -1,38 +1,57 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: Generic user-space routing library -- need collaborator
-Date: Sun, 03 Jun 2012 13:39:24 -0600
-Message-ID: <4FCBBD6C.8020904@redfish-solutions.com>
+From: Philip Prindeville <philipp@redfish-solutions.com>
+Subject: Re: [Announce] LARTC wiki available
+Date: Sun, 03 Jun 2012 14:05:20 -0600
+Message-ID: <4FCBC380.8050704@redfish-solutions.com>
+References: <4EFB3B2B.7060200@linuxsystems.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:39914 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754569Ab2FCTxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jun 2012 15:53:24 -0400
-Received: from macbook.redfish-solutions.com ([192.168.1.17])
-	(authenticated bits=0)
-	by mail.redfish-solutions.com (8.14.5/8.14.5) with ESMTP id q53JdPYf013079
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sun, 3 Jun 2012 13:39:25 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lartc@vger.kernel.org,
+	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Niccol=F2_Belli?= <darkbasic@linuxsystems.it>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <4EFB3B2B.7060200@linuxsystems.it>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi.
+On 12/28/11 8:52 AM, Niccol=F2 Belli wrote:
+> Hi,
+> I still didn't find a viable solution for the LARTC wiki, so I decide=
+d=20
+> to start hosting it on my own server. Later we can easily switch=20
+> somewhere else if we keep using the same wiki engine (and maybe even=20
+> with another wiki engine).
+> I decided to use wikimedia because it's the only one I know of, so if=
+=20
+> someone knows a better alternative please let me know, we are still i=
+n=20
+> time for a change.
+> Since I never used a wiki seriously I will probably need someone else=
+=20
+> who can help me maintaining it, please let me know if you are=20
+> experienced and willing to help.
+>=20
+> Here is the wiki: http://lartc.linuxsystems.it/
+> And here is the new mailing list for those who still don't know:=20
+> http://vger.kernel.org/vger-lists.html#lartc
+>=20
+> I just copy-pasted the Linux Advanced Routing & Traffic Control HOWTO=
+=20
+> atm, it still needs to be wikified and we still need to choose how to=
+=20
+> organize the contents.
+>=20
+> Cheers,
+> Niccol=F2
 
-I'm working on adding a few more portability classes to Poco (a multi-platform C++ toolkit) and wanted to add a Net::Routing class for examining and manipulating the routing tables.
+Between command-line stuff for users/administrators and the kernel hack=
+ing bits on linux-net, etc. I'd like to see a middle ground: i.e. bette=
+r documentation about the C API to userspace from the kernel routing me=
+chanisms.
 
-The C++ would just be convenience wrappers around a core C library that handles the netlink semantics. I've looked at libmnl and it's handy, but I need a higher level of abstraction (for instance, parsing an RTA_NETMASK for IPv6 is anything but well-documented).
-
-I'm running into the limits of my linux-specific knowledge, though. I can get a specific route, but not the non-specific (default) route. Unless I'm doing something wrong (and I may be), the only way to get the default route seems to be to either get a route to a host you know will never be in your routing table, or else to dump the entire table and grep it out.
-
-Not sure if that's a shortcoming in the rtnetlink API or my being an idiot.
-
-Maybe both.
-
-Anyway, if anyone can walk me through parsing some of the more esoteric routing permutations (like 6to4 tunnels, etc) I'd appreciate their contacting me out-of-band.
-
-Thanks,
+Better documentation about rtnetlink would be appreciated, and maybe th=
+e low-level libraries that run atop that as well, such as libmnl.
 
 -Philip
