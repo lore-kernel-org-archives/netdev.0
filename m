@@ -1,67 +1,53 @@
-From: Federico Vaga <federico.vaga@gmail.com>
-Subject: Re: [PATCH RFC] c_can_pci: generic module for c_can on PCI
-Date: Mon, 04 Jun 2012 18:45:44 +0200
-Message-ID: <1677842.Pq7naXsvrI@harkonnen>
-References: <4FC135C6.5030206@grandegger.com> <1338816766-7089-2-git-send-email-federico.vaga@gmail.com> <20120604165619.15ba43bf@pyramind.ukuu.org.uk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH (net.git) 3/3] stmmac: fix driver Kconfig when built as
+ module
+Date: Mon, 4 Jun 2012 17:45:28 +0100
+Message-ID: <1338828328.3979.208.camel@deadeye>
+References: <1338827531-10376-1-git-send-email-peppe.cavallaro@st.com>
+	 <1338827531-10376-4-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Giancarlo Asnaghi <giancarlo.asnaghi@st.com>,
-	Alan Cox <alan@linux.intel.com>,
-	Alessandro Rubini <rubini@gnudd.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20120604165619.15ba43bf@pyramind.ukuu.org.uk>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	Rayagond Kokatanur <rayagond@vayavyalabs.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:27760 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751989Ab2FDQpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 12:45:34 -0400
+In-Reply-To: <1338827531-10376-4-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > +static u16 c_can_pci_read_reg_aligned_to_16bit(struct c_can_priv
-> > *priv, +						void *reg)
+On Mon, 2012-06-04 at 18:32 +0200, Giuseppe CAVALLARO wrote:
+> This patches fixes the driver when built as dyn module.
+> In fact the platform part cannot be built and the probe fails
+> (thanks to Bob Liu that reported this bug).
 > 
-> I'm a bit worried this function name might be too short ;)
-
-I know :) I was inspired by the same function in c_can_platform.c
-
-
-About these function I suggest to move them into c_can.c because they 
-are the same for c_can_platform.c and c_can_pci.c Then add a new field 
-c_can_priv->offset which can be used to shift the register offset 
-coherently with the memory alignment. Finally, remove c_can_priv-
->read_reg and c_can_priv->write_reg and use internal c_can.c function to 
-read and write registers.
-
-static u16 c_can_read_reg(struct c_can_priv *priv, enum reg index)
-{
-	return readw(priv->base + (priv->regs[index] << priv->offset));
-}
-static void c_can_write_reg(struct c_can_priv *priv, enum reg index,
-						u16 val)
-{
-	writew(val, priv->base + (priv->regs[index] << priv->offset));
-}
-
-
-If it's ok, I can made a patch for this in the next days.
-
-> > +	 * do not call pci_disable_device on sta2x11 because it
-> > +	 * break all other Bus masters on this EP
-> > +	 */
-> > +	if(pdev->vendor == PCI_VENDOR_ID_STMICRO &&
-> > +	   pdev->device == PCI_DEVICE_ID_STMICRO_CAN)
-> > +		goto out;
+> v2: as D. Miller suggested, it is not necessary to make the
+> pci and the platform code mutually exclusive.
+> Having both could also help, at built time ,to verify that
+> all the code is validated and compiles fine.
 > 
-> Is that the disabling or the dropping it into D3. We have a PCI quirk
-> flag for the latter. See "quirk_no_ata_d3". That will also avoid any
-> accidents elsewhere. Right now the quirk has "ata" in the name but the
-> ata is just historically because we had to quirk various disk
-> controllers.
+> Reported-by: Bob Liu <lliubbo@gmail.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+[...]
 
-We are investigating if this is still necessary on the current version 
-of the board.
+What I said in <1337687765.11796.11.camel@deadeye> was:
+
+That's because CONFIG_STMMAC_PLATFORM and CONFIG_STMMAC_PCI are wrongly
+declared as tristate in Kconfig.  Change them to bool and it should work
+again.
+
+You can't add a 'Reviewed-by' line on the basis of this; you can only
+add it if a reviewer writes that line themselves (and if you don't make
+further changes).
+
+Ben.
 
 -- 
-Federico Vaga
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
