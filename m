@@ -1,31 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git)] net: icplus: fix interrupt mask
-Date: Mon, 04 Jun 2012 12:03:05 -0400 (EDT)
-Message-ID: <20120604.120305.1097852314226540702.davem@davemloft.net>
-References: <1338825078-31856-1-git-send-email-peppe.cavallaro@st.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: Remove casts to same type
+Date: Mon, 4 Jun 2012 17:04:41 +0100
+Message-ID: <1338825881.3979.203.camel@deadeye>
+References: <4b3738493b23bc386d3372012faa8cd3672a138d.1338780551.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40648 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754607Ab2FDQDh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 12:03:37 -0400
-In-Reply-To: <1338825078-31856-1-git-send-email-peppe.cavallaro@st.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:30800 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1760781Ab2FDQEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 12:04:47 -0400
+In-Reply-To: <4b3738493b23bc386d3372012faa8cd3672a138d.1338780551.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon,  4 Jun 2012 17:51:18 +0200
-
-> This patch fixes the interrupt mask for IC101 A/G devices
-> and now enables the link/speed/duplex interrupts.
-> This is done by setting the "INTR pin used" bit and cleaning
-> all the other bits in the Register 17.
+On Sun, 2012-06-03 at 20:41 -0700, Joe Perches wrote:
+> Adding casts of objects to the same type is unnecessary
+> and confusing for a human reader.
 > 
-> Reported-by: Stuart Menefy <stuart.menefy@st.com>
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> For example, this cast:
+> 
+> 	int y;
+> 	int *p = (int *)&y;
+> 
+> I used the coccinelle script below to find and remove these
+> unnecessary casts.  I manually removed the conversions this
+> script produces of casts with __force and __user.
+[...]
+> diff --git a/net/9p/client.c b/net/9p/client.c
+> index a170893..5cbea90 100644
+> --- a/net/9p/client.c
+> +++ b/net/9p/client.c
+> @@ -1548,7 +1548,7 @@ p9_client_read(struct p9_fid *fid, char *data, char __user *udata, u64 offset,
+>  			kernel_buf = 1;
+>  			indata = data;
+>  		} else
+> -			indata = (char *)udata;
+> +			indata = udata;
+>  		/*
+>  		 * response header len is 11
+>  		 * PDU Header(7) + IO Size (4)
+[...]
 
-Applied.
+This one is casting char __user * to char *.  We need a cast to let
+sparse know this is deliberate, though presumably we need __force as
+well.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
