@@ -1,192 +1,60 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 4/4 (v2)] stmmac: fix driver Kconfig when built as module
-Date: Mon,  4 Jun 2012 17:37:50 +0200
-Message-ID: <1338824270-9222-5-git-send-email-peppe.cavallaro@st.com>
-References: <1338824270-9222-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Rayagond Kokatanur <rayagond@vayavyalabs.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] drop_monitor: dont sleep in atomic context
+Date: Mon, 04 Jun 2012 11:42:22 -0400 (EDT)
+Message-ID: <20120604.114222.1218482424480520614.davem@davemloft.net>
+References: <1338805099.2760.1798.camel@edumazet-glaptop>
+	<20120604104937.GC20232@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:50665 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760819Ab2FDPiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 11:38:20 -0400
-In-Reply-To: <1338824270-9222-1-git-send-email-peppe.cavallaro@st.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40376 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752176Ab2FDPmY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 11:42:24 -0400
+In-Reply-To: <20120604104937.GC20232@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patches fixes the driver when built as dyn module.
-In fact the platform part cannot be built and the probe fails
-(thanks to Bob Liu that reported this bug).
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 4 Jun 2012 06:49:37 -0400
 
-v2: as D. Miller suggested, it is not necessary to make the
-pci and the platform code mutually exclusive.
-Having both could also help, at built time ,to verify that
-all the code is validated and compiles fine.
+> On Mon, Jun 04, 2012 at 12:18:19PM +0200, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>> 
+>> drop_monitor calls several sleeping functions while in atomic context.
+>> 
+>>  BUG: sleeping function called from invalid context at mm/slub.c:943
+>>  in_atomic(): 1, irqs_disabled(): 0, pid: 2103, name: kworker/0:2
+>>  Pid: 2103, comm: kworker/0:2 Not tainted 3.5.0-rc1+ #55
+>>  Call Trace:
+>>   [<ffffffff810697ca>] __might_sleep+0xca/0xf0
+>>   [<ffffffff811345a3>] kmem_cache_alloc_node+0x1b3/0x1c0
+>>   [<ffffffff8105578c>] ? queue_delayed_work_on+0x11c/0x130
+>>   [<ffffffff815343fb>] __alloc_skb+0x4b/0x230
+>>   [<ffffffffa00b0360>] ? reset_per_cpu_data+0x160/0x160 [drop_monitor]
+>>   [<ffffffffa00b022f>] reset_per_cpu_data+0x2f/0x160 [drop_monitor]
+>>   [<ffffffffa00b03ab>] send_dm_alert+0x4b/0xb0 [drop_monitor]
+>>   [<ffffffff810568e0>] process_one_work+0x130/0x4c0
+>>   [<ffffffff81058249>] worker_thread+0x159/0x360
+>>   [<ffffffff810580f0>] ? manage_workers.isra.27+0x240/0x240
+>>   [<ffffffff8105d403>] kthread+0x93/0xa0
+>>   [<ffffffff816be6d4>] kernel_thread_helper+0x4/0x10
+>>   [<ffffffff8105d370>] ? kthread_freezable_should_stop+0x80/0x80
+>>   [<ffffffff816be6d0>] ? gs_change+0xb/0xb
+>> 
+>> Rework the logic to call the sleeping functions in right context.
+>> 
+>> Use standard timer/workqueue api to let system chose any cpu to perform
+>> the allocation and netlink send.
+>> 
+>> Also avoid a loop if reset_per_cpu_data() cannot allocate memory :
+>> use mod_timer() to wait 1/10 second before next try.
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Reviewed-by: Neil Horman <nhorman@tuxdriver.com>
 
-Reported-by: Bob Liu <lliubbo@gmail.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
-Reviewed-by: David S. Miller <davem@davemloft.net>
-cc: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |    5 +--
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    3 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   25 +++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |   29 +-------------------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    4 +--
- 5 files changed, 31 insertions(+), 35 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 0364283..0076f77 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -13,9 +13,8 @@ config STMMAC_ETH
- if STMMAC_ETH
- 
- config STMMAC_PLATFORM
--	tristate "STMMAC platform bus support"
-+	bool "STMMAC Platform bus support"
- 	depends on STMMAC_ETH
--	default y
- 	---help---
- 	  This selects the platform specific bus support for
- 	  the stmmac device driver. This is the driver used
-@@ -26,7 +25,7 @@ config STMMAC_PLATFORM
- 	  If unsure, say N.
- 
- config STMMAC_PCI
--	tristate "STMMAC support on PCI bus (EXPERIMENTAL)"
-+	bool "STMMAC PCI bus support (EXPERIMENTAL)"
- 	depends on STMMAC_ETH && PCI && EXPERIMENTAL
- 	---help---
- 	  This is to select the Synopsys DWMAC available on PCI devices,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 6b5d060..6d07ba2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -95,7 +95,8 @@ extern int stmmac_mdio_register(struct net_device *ndev);
- extern void stmmac_set_ethtool_ops(struct net_device *netdev);
- extern const struct stmmac_desc_ops enh_desc_ops;
- extern const struct stmmac_desc_ops ndesc_ops;
--
-+extern struct pci_driver stmmac_pci_driver;
-+extern struct platform_driver stmmac_pltfr_driver;
- int stmmac_freeze(struct net_device *ndev);
- int stmmac_restore(struct net_device *ndev);
- int stmmac_resume(struct net_device *ndev);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 18ed878..8899e10 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -42,6 +42,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/slab.h>
- #include <linux/prefetch.h>
-+#include <linux/pci.h>
- #ifdef CONFIG_STMMAC_DEBUG_FS
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
-@@ -2092,6 +2093,30 @@ int stmmac_restore(struct net_device *ndev)
- }
- #endif /* CONFIG_PM */
- 
-+static int __init stmmac_init(void)
-+{
-+	int err = 0;
-+
-+	err = platform_driver_register(&stmmac_pltfr_driver);
-+
-+	if (!err) {
-+		err = pci_register_driver(&stmmac_pci_driver);
-+		if (err)
-+			platform_driver_unregister(&stmmac_pltfr_driver);
-+	}
-+
-+	return err;
-+}
-+
-+static void __exit stmmac_exit(void)
-+{
-+	pci_unregister_driver(&stmmac_pci_driver);
-+	platform_driver_unregister(&stmmac_pltfr_driver);
-+}
-+
-+module_init(stmmac_init);
-+module_exit(stmmac_exit);
-+
- #ifndef MODULE
- static int __init stmmac_cmdline_opt(char *str)
- {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index 58fab53..cf826e6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -179,7 +179,7 @@ static DEFINE_PCI_DEVICE_TABLE(stmmac_id_table) = {
- 
- MODULE_DEVICE_TABLE(pci, stmmac_id_table);
- 
--static struct pci_driver stmmac_driver = {
-+struct pci_driver stmmac_pci_driver = {
- 	.name = STMMAC_RESOURCE_NAME,
- 	.id_table = stmmac_id_table,
- 	.probe = stmmac_pci_probe,
-@@ -190,33 +190,6 @@ static struct pci_driver stmmac_driver = {
- #endif
- };
- 
--/**
-- * stmmac_init_module - Entry point for the driver
-- * Description: This function is the entry point for the driver.
-- */
--static int __init stmmac_init_module(void)
--{
--	int ret;
--
--	ret = pci_register_driver(&stmmac_driver);
--	if (ret < 0)
--		pr_err("%s: ERROR: driver registration failed\n", __func__);
--
--	return ret;
--}
--
--/**
-- * stmmac_cleanup_module - Cleanup routine for the driver
-- * Description: This function is the cleanup routine for the driver.
-- */
--static void __exit stmmac_cleanup_module(void)
--{
--	pci_unregister_driver(&stmmac_driver);
--}
--
--module_init(stmmac_init_module);
--module_exit(stmmac_cleanup_module);
--
- MODULE_DESCRIPTION("STMMAC 10/100/1000 Ethernet PCI driver");
- MODULE_AUTHOR("Rayagond Kokatanur <rayagond.kokatanur@vayavyalabs.com>");
- MODULE_AUTHOR("Giuseppe Cavallaro <peppe.cavallaro@st.com>");
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 3dd8f08..680d2b8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -255,7 +255,7 @@ static const struct of_device_id stmmac_dt_ids[] = {
- };
- MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
- 
--static struct platform_driver stmmac_driver = {
-+struct platform_driver stmmac_pltfr_driver = {
- 	.probe = stmmac_pltfr_probe,
- 	.remove = stmmac_pltfr_remove,
- 	.driver = {
-@@ -266,8 +266,6 @@ static struct platform_driver stmmac_driver = {
- 		   },
- };
- 
--module_platform_driver(stmmac_driver);
--
- MODULE_DESCRIPTION("STMMAC 10/100/1000 Ethernet PLATFORM driver");
- MODULE_AUTHOR("Giuseppe Cavallaro <peppe.cavallaro@st.com>");
- MODULE_LICENSE("GPL");
--- 
-1.7.4.4
+Applied and queued up for -stable, thanks.
