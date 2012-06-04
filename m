@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/hyperv: Use wait_event on outstanding sends during
- device removal
-Date: Mon, 04 Jun 2012 14:11:46 -0400 (EDT)
-Message-ID: <20120604.141146.798909958558510549.davem@davemloft.net>
-References: <1338828158-3133-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [net-next.git (v2)] stmmac: remove two useless initialisations
+Date: Mon, 04 Jun 2012 14:12:01 -0400 (EDT)
+Message-ID: <20120604.141201.1031950564719192962.davem@davemloft.net>
+References: <1338827782-11877-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1338828158-3133-1-git-send-email-haiyangz@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43205 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755455Ab2FDSMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 14:12:02 -0400
+In-Reply-To: <1338827782-11877-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Mon,  4 Jun 2012 09:42:38 -0700
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Mon,  4 Jun 2012 18:36:22 +0200
 
-> Change the busy-waiting/udelay to wait_event on outstanding sends.
+> This patch removes two useless initialisations in the
+> stmmac_rx and stmmac_tx functions.
+> In the former, the count variable was reset twice and in
+> the stmmac_tx we only need to increment the dirty pointer
+> w/o setting the entry variable.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> v2: review the subject and comment that was not clear in my
+> first version.
+> 
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
 Applied.
