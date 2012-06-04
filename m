@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 1/7] netfilter: nf_ct_helper: allocate 16 bytes for the helper and policy names
-Date: Mon,  4 Jun 2012 14:21:19 +0200
-Message-ID: <1338812485-4232-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/7] netfilter: nfnl_queue: support NAT TCP sequence adjustment if packet mangled
+Date: Mon,  4 Jun 2012 14:21:23 +0200
+Message-ID: <1338812485-4232-6-git-send-email-pablo@netfilter.org>
 References: <1338812485-4232-1-git-send-email-pablo@netfilter.org>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,225 +12,160 @@ List-Id: netdev.vger.kernel.org
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-This patch modifies the struct nf_conntrack_helper to allocate
-the room for the helper name. The maximum length is 16 bytes
-(this was already introduced in 2.6.24).
+User-space programs that receive traffic via NFQUEUE may mangle packets.
+If NAT is enabled, this usually puzzles sequence tracking, leading to
+traffic disruptions.
 
-For the maximum length for expectation policy names, I have
-also selected 16 bytes.
+With this patch, nfnl_queue will make the corresponding NAT TCP sequence
+adjustment if:
 
-This patch is required by the follow-up patch to support
-user-space connection tracking helpers.
+1) The packet has been mangled,
+2) the NFQNL_F_CONNTRACK flag has been set, and
+3) NAT is detected.
+
+This is required by the new user-space cthelper infrastructure.
+By now, we only support TCP since we have no helpers for DCCP
+or SCTP. Better to add this if we do ever need it.
+
+You can still use this without the cthelper infrastructure. There
+are several post on the Internet complaning about this (mostly
+people using NFQUEUE for IDS).
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_expect.h |    4 +++-
- include/net/netfilter/nf_conntrack_helper.h |    2 +-
- net/netfilter/nf_conntrack_ftp.c            |    8 ++------
- net/netfilter/nf_conntrack_irc.c            |    8 ++------
- net/netfilter/nf_conntrack_sane.c           |    8 ++------
- net/netfilter/nf_conntrack_sip.c            |    7 ++-----
- net/netfilter/nf_conntrack_tftp.c           |    8 ++------
- 7 files changed, 14 insertions(+), 31 deletions(-)
+ include/net/netfilter/nf_nat_helper.h |    7 ++++++
+ net/ipv4/netfilter/nf_nat_helper.c    |   13 ++++++++++
+ net/netfilter/nfnetlink_queue.c       |   42 ++++++++++++++++++++++-----------
+ 3 files changed, 48 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
-index 4619caa..983f002 100644
---- a/include/net/netfilter/nf_conntrack_expect.h
-+++ b/include/net/netfilter/nf_conntrack_expect.h
-@@ -59,10 +59,12 @@ static inline struct net *nf_ct_exp_net(struct nf_conntrack_expect *exp)
- 	return nf_ct_net(exp->master);
- }
+diff --git a/include/net/netfilter/nf_nat_helper.h b/include/net/netfilter/nf_nat_helper.h
+index 02bb6c2..ee92a0c 100644
+--- a/include/net/netfilter/nf_nat_helper.h
++++ b/include/net/netfilter/nf_nat_helper.h
+@@ -46,6 +46,13 @@ extern int (*nf_nat_seq_adjust_hook)(struct sk_buff *skb,
+ 				     struct nf_conn *ct,
+ 				     enum ip_conntrack_info ctinfo);
  
-+#define NF_CT_EXP_POLICY_NAME_LEN	16
++extern void nf_nat_tcp_seq_adjust(struct sk_buff *skb,
++				  struct nf_conn *ct,
++				  enum ip_conntrack_info ctinfo,
++				  int off);
 +
- struct nf_conntrack_expect_policy {
- 	unsigned int	max_expected;
- 	unsigned int	timeout;
--	const char	*name;
-+	char		name[NF_CT_EXP_POLICY_NAME_LEN];
- };
++struct nf_conntrack_expect;
++
+ /* Setup NAT on this expected conntrack so it follows master, but goes
+  * to port ct->master->saved_proto. */
+ extern void nf_nat_follow_master(struct nf_conn *ct,
+diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
+index af65958..7c7b5b8 100644
+--- a/net/ipv4/netfilter/nf_nat_helper.c
++++ b/net/ipv4/netfilter/nf_nat_helper.c
+@@ -153,6 +153,19 @@ void nf_nat_set_seq_adjust(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ }
+ EXPORT_SYMBOL_GPL(nf_nat_set_seq_adjust);
  
- #define NF_CT_EXPECT_CLASS_DEFAULT	0
-diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
-index 1d18894..5f5a4d9 100644
---- a/include/net/netfilter/nf_conntrack_helper.h
-+++ b/include/net/netfilter/nf_conntrack_helper.h
-@@ -19,7 +19,7 @@ struct module;
- struct nf_conntrack_helper {
- 	struct hlist_node hnode;	/* Internal use. */
++void nf_nat_tcp_seq_adjust(struct sk_buff *skb, struct nf_conn *ct,
++			   enum ip_conntrack_info ctinfo, int off)
++{
++	const struct tcphdr *th;
++
++	if (nf_ct_protonum(ct) != IPPROTO_TCP)
++		return;
++
++	th = (struct tcphdr *)(skb_network_header(skb)+ ip_hdrlen(skb));
++	nf_nat_set_seq_adjust(ct, ctinfo, th->seq, off);
++}
++EXPORT_SYMBOL_GPL(nf_nat_tcp_seq_adjust);
++
+ static void nf_nat_csum(struct sk_buff *skb, const struct iphdr *iph, void *data,
+ 			int datalen, __sum16 *check, int oldlen)
+ {
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index b007779..b18a367 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -38,6 +38,10 @@
+ #include "../bridge/br_private.h"
+ #endif
  
--	const char *name;		/* name of the module */
-+	char name[NF_CT_HELPER_NAME_LEN]; /* name of the module */
- 	struct module *me;		/* pointer to self */
- 	const struct nf_conntrack_expect_policy *expect_policy;
++#ifdef CONFIG_NF_NAT_NEEDED
++#include <net/netfilter/nf_nat_helper.h>
++#endif
++
+ #define NFQNL_QMAX_DEFAULT 1024
  
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index 8c5c95c..44e47c9 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -512,7 +512,6 @@ out_update_nl:
+ struct nfqnl_instance {
+@@ -497,12 +501,10 @@ err_out:
  }
  
- static struct nf_conntrack_helper ftp[MAX_PORTS][2] __read_mostly;
--static char ftp_names[MAX_PORTS][2][sizeof("ftp-65535")] __read_mostly;
- 
- static const struct nf_conntrack_expect_policy ftp_exp_policy = {
- 	.max_expected	= 1,
-@@ -541,7 +540,6 @@ static void nf_conntrack_ftp_fini(void)
- static int __init nf_conntrack_ftp_init(void)
+ static int
+-nfqnl_mangle(void *data, int data_len, struct nf_queue_entry *e)
++nfqnl_mangle(void *data, int data_len, struct nf_queue_entry *e, int diff)
  {
- 	int i, j = -1, ret = 0;
--	char *tmpname;
+ 	struct sk_buff *nskb;
+-	int diff;
  
- 	ftp_buffer = kmalloc(65536, GFP_KERNEL);
- 	if (!ftp_buffer)
-@@ -561,12 +559,10 @@ static int __init nf_conntrack_ftp_init(void)
- 			ftp[i][j].expect_policy = &ftp_exp_policy;
- 			ftp[i][j].me = THIS_MODULE;
- 			ftp[i][j].help = help;
--			tmpname = &ftp_names[i][j][0];
- 			if (ports[i] == FTP_PORT)
--				sprintf(tmpname, "ftp");
-+				sprintf(ftp[i][j].name, "ftp");
- 			else
--				sprintf(tmpname, "ftp-%d", ports[i]);
--			ftp[i][j].name = tmpname;
-+				sprintf(ftp[i][j].name, "ftp-%d", ports[i]);
+-	diff = data_len - e->skb->len;
+ 	if (diff < 0) {
+ 		if (pskb_trim(e->skb, data_len))
+ 			return -ENOMEM;
+@@ -761,6 +763,8 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
+ 	unsigned int verdict;
+ 	struct nf_queue_entry *entry;
+ 	struct nfq_ct_hook *nfq_ct;
++	enum ip_conntrack_info uninitialized_var(ctinfo);
++	struct nf_conn *ct = NULL;
  
- 			pr_debug("nf_ct_ftp: registering helper for pf: %d "
- 				 "port: %d\n",
-diff --git a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
-index 4f9390b..f6342dd 100644
---- a/net/netfilter/nf_conntrack_irc.c
-+++ b/net/netfilter/nf_conntrack_irc.c
-@@ -223,7 +223,6 @@ static int help(struct sk_buff *skb, unsigned int protoff,
- }
+ 	queue = instance_lookup(queue_num);
+ 	if (!queue)
+@@ -779,26 +783,36 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
+ 	if (entry == NULL)
+ 		return -ENOENT;
  
- static struct nf_conntrack_helper irc[MAX_PORTS] __read_mostly;
--static char irc_names[MAX_PORTS][sizeof("irc-65535")] __read_mostly;
- static struct nf_conntrack_expect_policy irc_exp_policy;
++	rcu_read_lock();
++	nfq_ct = rcu_dereference(nfq_ct_hook);
++	if (nfq_ct != NULL && (queue->flags & NFQNL_F_CONNTRACK) &&
++	    nfqa[NFQA_CT]) {
++		ct = nf_ct_get(entry->skb, &ctinfo);
++		if (ct && nf_ct_is_untracked(ct))
++			ct = NULL;
++	}
++
+ 	if (nfqa[NFQA_PAYLOAD]) {
++		u16 payload_len = nla_len(nfqa[NFQA_PAYLOAD]);
++		int diff = payload_len - entry->skb->len;
++
+ 		if (nfqnl_mangle(nla_data(nfqa[NFQA_PAYLOAD]),
+-				 nla_len(nfqa[NFQA_PAYLOAD]), entry) < 0)
++				 payload_len, entry, diff) < 0)
+ 			verdict = NF_DROP;
++
++#ifdef CONFIG_NF_NAT_NEEDED
++		/* Adjust sequence numbers to avoid puzzling conntrack */
++		if (ct && (ct->status & IPS_NAT_MASK) && diff)
++			nf_nat_tcp_seq_adjust(skb, ct, ctinfo, diff);
++#endif
+ 	}
  
- static void nf_conntrack_irc_fini(void);
-@@ -231,7 +230,6 @@ static void nf_conntrack_irc_fini(void);
- static int __init nf_conntrack_irc_init(void)
- {
- 	int i, ret;
--	char *tmpname;
+ 	if (nfqa[NFQA_MARK])
+ 		entry->skb->mark = ntohl(nla_get_be32(nfqa[NFQA_MARK]));
  
- 	if (max_dcc_channels < 1) {
- 		printk(KERN_ERR "nf_ct_irc: max_dcc_channels must not be zero\n");
-@@ -257,12 +255,10 @@ static int __init nf_conntrack_irc_init(void)
- 		irc[i].me = THIS_MODULE;
- 		irc[i].help = help;
+-	rcu_read_lock();
+-	nfq_ct = rcu_dereference(nfq_ct_hook);
+-	if (nfq_ct != NULL &&
+-	    (queue->flags & NFQNL_F_CONNTRACK) && nfqa[NFQA_CT]) {
+-		enum ip_conntrack_info ctinfo;
+-		struct nf_conn *ct;
++	if (ct)
++		nfq_ct->parse(nfqa[NFQA_CT], ct);
  
--		tmpname = &irc_names[i][0];
- 		if (ports[i] == IRC_PORT)
--			sprintf(tmpname, "irc");
-+			sprintf(irc[i].name, "irc");
- 		else
--			sprintf(tmpname, "irc-%u", i);
--		irc[i].name = tmpname;
-+			sprintf(irc[i].name, "irc-%u", i);
+-		ct = nf_ct_get(entry->skb, &ctinfo);
+-		if (ct && !nf_ct_is_untracked(ct))
+-			nfq_ct->parse(nfqa[NFQA_CT], ct);
+-	}
+ 	rcu_read_unlock();
  
- 		ret = nf_conntrack_helper_register(&irc[i]);
- 		if (ret) {
-diff --git a/net/netfilter/nf_conntrack_sane.c b/net/netfilter/nf_conntrack_sane.c
-index 8501823..ec3fc18 100644
---- a/net/netfilter/nf_conntrack_sane.c
-+++ b/net/netfilter/nf_conntrack_sane.c
-@@ -163,7 +163,6 @@ out:
- }
- 
- static struct nf_conntrack_helper sane[MAX_PORTS][2] __read_mostly;
--static char sane_names[MAX_PORTS][2][sizeof("sane-65535")] __read_mostly;
- 
- static const struct nf_conntrack_expect_policy sane_exp_policy = {
- 	.max_expected	= 1,
-@@ -190,7 +189,6 @@ static void nf_conntrack_sane_fini(void)
- static int __init nf_conntrack_sane_init(void)
- {
- 	int i, j = -1, ret = 0;
--	char *tmpname;
- 
- 	sane_buffer = kmalloc(65536, GFP_KERNEL);
- 	if (!sane_buffer)
-@@ -210,12 +208,10 @@ static int __init nf_conntrack_sane_init(void)
- 			sane[i][j].expect_policy = &sane_exp_policy;
- 			sane[i][j].me = THIS_MODULE;
- 			sane[i][j].help = help;
--			tmpname = &sane_names[i][j][0];
- 			if (ports[i] == SANE_PORT)
--				sprintf(tmpname, "sane");
-+				sprintf(sane[i][j].name, "sane");
- 			else
--				sprintf(tmpname, "sane-%d", ports[i]);
--			sane[i][j].name = tmpname;
-+				sprintf(sane[i][j].name, "sane-%d", ports[i]);
- 
- 			pr_debug("nf_ct_sane: registering helper for pf: %d "
- 				 "port: %d\n",
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 6a9c9aa..c2daabe 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1573,7 +1573,6 @@ static void nf_conntrack_sip_fini(void)
- static int __init nf_conntrack_sip_init(void)
- {
- 	int i, j, ret;
--	char *tmpname;
- 
- 	if (ports_c == 0)
- 		ports[ports_c++] = SIP_PORT;
-@@ -1601,12 +1600,10 @@ static int __init nf_conntrack_sip_init(void)
- 			sip[i][j].expect_class_max = SIP_EXPECT_MAX;
- 			sip[i][j].me = THIS_MODULE;
- 
--			tmpname = &sip_names[i][j][0];
- 			if (ports[i] == SIP_PORT)
--				sprintf(tmpname, "sip");
-+				sprintf(sip_names[i][j], "sip");
- 			else
--				sprintf(tmpname, "sip-%u", i);
--			sip[i][j].name = tmpname;
-+				sprintf(sip_names[i][j], "sip-%u", i);
- 
- 			pr_debug("port #%u: %u\n", i, ports[i]);
- 
-diff --git a/net/netfilter/nf_conntrack_tftp.c b/net/netfilter/nf_conntrack_tftp.c
-index 75466fd..81fc61c 100644
---- a/net/netfilter/nf_conntrack_tftp.c
-+++ b/net/netfilter/nf_conntrack_tftp.c
-@@ -92,7 +92,6 @@ static int tftp_help(struct sk_buff *skb,
- }
- 
- static struct nf_conntrack_helper tftp[MAX_PORTS][2] __read_mostly;
--static char tftp_names[MAX_PORTS][2][sizeof("tftp-65535")] __read_mostly;
- 
- static const struct nf_conntrack_expect_policy tftp_exp_policy = {
- 	.max_expected	= 1,
-@@ -112,7 +111,6 @@ static void nf_conntrack_tftp_fini(void)
- static int __init nf_conntrack_tftp_init(void)
- {
- 	int i, j, ret;
--	char *tmpname;
- 
- 	if (ports_c == 0)
- 		ports[ports_c++] = TFTP_PORT;
-@@ -129,12 +127,10 @@ static int __init nf_conntrack_tftp_init(void)
- 			tftp[i][j].me = THIS_MODULE;
- 			tftp[i][j].help = tftp_help;
- 
--			tmpname = &tftp_names[i][j][0];
- 			if (ports[i] == TFTP_PORT)
--				sprintf(tmpname, "tftp");
-+				sprintf(tftp[i][j].name, "tftp");
- 			else
--				sprintf(tmpname, "tftp-%u", i);
--			tftp[i][j].name = tmpname;
-+				sprintf(tftp[i][j].name, "tftp-%u", i);
- 
- 			ret = nf_conntrack_helper_register(&tftp[i][j]);
- 			if (ret) {
+ 	nf_reinject(entry, verdict);
 -- 
 1.7.10
 
