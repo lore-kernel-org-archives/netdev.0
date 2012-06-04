@@ -1,15 +1,15 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 1/3] ethernet: Remove casts to same type
-Date: Mon,  4 Jun 2012 15:44:16 -0700
-Message-ID: <82c92922869273da4df9b738cc784aac482d88a1.1338849366.git.joe@perches.com>
+Subject: [PATCH net-next 3/3] drivers: net: Remove casts to same type
+Date: Mon,  4 Jun 2012 15:44:18 -0700
+Message-ID: <9e705459c04cd37fc9bcdcde3b9993c491d292cb.1338849367.git.joe@perches.com>
 References: <cover.1338849364.git.joe@perches.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:39140 "EHLO
+Received: from perches-mx.perches.com ([206.117.179.246]:47365 "EHLO
 	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756253Ab2FDWoa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2012 18:44:30 -0400
+	id S1761092Ab2FDWoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2012 18:44:46 -0400
 In-Reply-To: <cover.1338849364.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -34,897 +34,273 @@ T *p;
 -       (T *)p
 +       p
 
-A function in atl1e_main.c was passed a const pointer
-when it actually modified elements of the structure.
-
-Change the argument to a non-const pointer.
-
-A function in stmmac needed a __force to avoid a sparse
-warning.  Added it.
-
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/8390/apne.c                   |    2 +-
- drivers/net/ethernet/aeroflex/greth.c              |    8 ++--
- drivers/net/ethernet/amd/declance.c                |    4 +-
- drivers/net/ethernet/apple/macmace.c               |    2 +-
- drivers/net/ethernet/atheros/atl1c/atl1c_hw.c      |    6 ++--
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |    9 ++---
- drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c |    2 +-
- drivers/net/ethernet/atheros/atl1e/atl1e_main.c    |   35 ++++++++-----------
- drivers/net/ethernet/atheros/atlx/atl1.c           |    2 +-
- drivers/net/ethernet/broadcom/bnx2.c               |    3 +-
- drivers/net/ethernet/broadcom/cnic.c               |   12 +++---
- drivers/net/ethernet/brocade/bna/cna_fwimg.c       |    4 +-
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/sge.c           |    2 +-
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    2 +-
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |    5 +--
- drivers/net/ethernet/dec/tulip/de4x5.c             |    2 +-
- drivers/net/ethernet/freescale/ucc_geth.c          |    2 +-
- drivers/net/ethernet/hp/hp100.c                    |    6 ++--
- drivers/net/ethernet/i825xx/lp486e.c               |    8 ++--
- drivers/net/ethernet/i825xx/sun3_82586.c           |    4 +-
- drivers/net/ethernet/marvell/mv643xx_eth.c         |    4 +-
- drivers/net/ethernet/marvell/pxa168_eth.c          |    4 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    4 +-
- drivers/net/ethernet/neterion/s2io.c               |   14 ++++----
- drivers/net/ethernet/neterion/vxge/vxge-config.c   |    8 ++--
- drivers/net/ethernet/neterion/vxge/vxge-config.h   |    2 +-
- drivers/net/ethernet/neterion/vxge/vxge-main.c     |    8 ++--
- drivers/net/ethernet/neterion/vxge/vxge-traffic.c  |    5 +--
- drivers/net/ethernet/sgi/ioc3-eth.c                |    4 +-
- drivers/net/ethernet/smsc/smsc9420.c               |    3 +-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 +-
- drivers/net/ethernet/sun/sunqe.c                   |    2 +-
- drivers/net/ethernet/via/via-velocity.c            |    2 +-
- 34 files changed, 87 insertions(+), 97 deletions(-)
+ drivers/net/appletalk/cops.c      |    2 +-
+ drivers/net/can/bfin_can.c        |    2 +-
+ drivers/net/can/mcp251x.c         |    3 +--
+ drivers/net/fddi/defxx.c          |    4 ++--
+ drivers/net/fddi/skfp/pmf.c       |    8 ++++----
+ drivers/net/hamradio/mkiss.c      |    8 ++++----
+ drivers/net/hyperv/netvsc.c       |    2 +-
+ drivers/net/irda/ali-ircc.c       |    6 +++---
+ drivers/net/irda/au1k_ir.c        |    2 +-
+ drivers/net/slip/slip.c           |    4 ++--
+ drivers/net/vmxnet3/vmxnet3_drv.c |    2 +-
+ drivers/net/wan/x25_asy.c         |    2 +-
+ drivers/net/wimax/i2400m/fw.c     |    2 +-
+ 13 files changed, 23 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/8390/apne.c b/drivers/net/ethernet/8390/apne.c
-index 9239592..912ed7a 100644
---- a/drivers/net/ethernet/8390/apne.c
-+++ b/drivers/net/ethernet/8390/apne.c
-@@ -454,7 +454,7 @@ apne_block_input(struct net_device *dev, int count, struct sk_buff *skb, int rin
- 	buf[count-1] = inb(NE_BASE + NE_DATAPORT);
-       }
-     } else {
--      ptrc = (char*)buf;
-+      ptrc = buf;
-       for (cnt = 0; cnt < count; cnt++)
-         *ptrc++ = inb(NE_BASE + NE_DATAPORT);
-     }
-diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
-index 3485011..9c77c73 100644
---- a/drivers/net/ethernet/aeroflex/greth.c
-+++ b/drivers/net/ethernet/aeroflex/greth.c
-@@ -1014,7 +1014,7 @@ static int greth_set_mac_add(struct net_device *dev, void *p)
- 	struct greth_regs *regs;
- 
- 	greth = netdev_priv(dev);
--	regs = (struct greth_regs *) greth->regs;
-+	regs = greth->regs;
- 
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
-@@ -1036,7 +1036,7 @@ static void greth_set_hash_filter(struct net_device *dev)
+diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
+index dd5e048..545c09e 100644
+--- a/drivers/net/appletalk/cops.c
++++ b/drivers/net/appletalk/cops.c
+@@ -936,7 +936,7 @@ static int cops_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  {
- 	struct netdev_hw_addr *ha;
- 	struct greth_private *greth = netdev_priv(dev);
--	struct greth_regs *regs = (struct greth_regs *) greth->regs;
-+	struct greth_regs *regs = greth->regs;
- 	u32 mc_filter[2];
- 	unsigned int bitnr;
+         struct cops_local *lp = netdev_priv(dev);
+         struct sockaddr_at *sa = (struct sockaddr_at *)&ifr->ifr_addr;
+-        struct atalk_addr *aa = (struct atalk_addr *)&lp->node_addr;
++        struct atalk_addr *aa = &lp->node_addr;
  
-@@ -1055,7 +1055,7 @@ static void greth_set_multicast_list(struct net_device *dev)
- {
- 	int cfg;
- 	struct greth_private *greth = netdev_priv(dev);
--	struct greth_regs *regs = (struct greth_regs *) greth->regs;
-+	struct greth_regs *regs = greth->regs;
+         switch(cmd)
+         {
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index 3f88473..ea31438 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -597,7 +597,7 @@ static int __devinit bfin_can_probe(struct platform_device *pdev)
+ 	dev_info(&pdev->dev,
+ 		"%s device registered"
+ 		"(&reg_base=%p, rx_irq=%d, tx_irq=%d, err_irq=%d, sclk=%d)\n",
+-		DRV_NAME, (void *)priv->membase, priv->rx_irq,
++		DRV_NAME, priv->membase, priv->rx_irq,
+ 		priv->tx_irq, priv->err_irq, priv->can.clock.freq);
+ 	return 0;
  
- 	cfg = GRETH_REGLOAD(regs->control);
- 	if (dev->flags & IFF_PROMISC)
-@@ -1414,7 +1414,7 @@ static int __devinit greth_of_probe(struct platform_device *ofdev)
- 		goto error1;
- 	}
+diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+index 346785c..9120a36 100644
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -1020,8 +1020,7 @@ static int __devinit mcp251x_can_probe(struct spi_device *spi)
+ 						      GFP_DMA);
  
--	regs = (struct greth_regs *) greth->regs;
-+	regs = greth->regs;
- 	greth->irq = ofdev->archdata.irqs[0];
- 
- 	dev_set_drvdata(greth->dev, dev);
-diff --git a/drivers/net/ethernet/amd/declance.c b/drivers/net/ethernet/amd/declance.c
-index 75299f5..7203b52 100644
---- a/drivers/net/ethernet/amd/declance.c
-+++ b/drivers/net/ethernet/amd/declance.c
-@@ -623,7 +623,7 @@ static int lance_rx(struct net_device *dev)
- 			skb_put(skb, len);	/* make room */
- 
- 			cp_from_buf(lp->type, skb->data,
--				    (char *)lp->rx_buf_ptr_cpu[entry], len);
-+				    lp->rx_buf_ptr_cpu[entry], len);
- 
- 			skb->protocol = eth_type_trans(skb, dev);
- 			netif_rx(skb);
-@@ -919,7 +919,7 @@ static int lance_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	*lib_ptr(ib, btx_ring[entry].length, lp->type) = (-len);
- 	*lib_ptr(ib, btx_ring[entry].misc, lp->type) = 0;
- 
--	cp_to_buf(lp->type, (char *)lp->tx_buf_ptr_cpu[entry], skb->data, len);
-+	cp_to_buf(lp->type, lp->tx_buf_ptr_cpu[entry], skb->data, len);
- 
- 	/* Now, give the packet to the lance */
- 	*lib_ptr(ib, btx_ring[entry].tmd1, lp->type) =
-diff --git a/drivers/net/ethernet/apple/macmace.c b/drivers/net/ethernet/apple/macmace.c
-index ab7ff86..a92ddee7 100644
---- a/drivers/net/ethernet/apple/macmace.c
-+++ b/drivers/net/ethernet/apple/macmace.c
-@@ -228,7 +228,7 @@ static int __devinit mace_probe(struct platform_device *pdev)
- 	 * bits are reversed.
- 	 */
- 
--	addr = (void *)MACE_PROM;
-+	addr = MACE_PROM;
- 
- 	for (j = 0; j < 6; ++j) {
- 		u8 v = bitrev8(addr[j<<4]);
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-index ff9c738..801f012 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.c
-@@ -602,7 +602,7 @@ int atl1c_phy_reset(struct atl1c_hw *hw)
- 
- int atl1c_phy_init(struct atl1c_hw *hw)
- {
--	struct atl1c_adapter *adapter = (struct atl1c_adapter *)hw->adapter;
-+	struct atl1c_adapter *adapter = hw->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
- 	int ret_val;
- 	u16 mii_bmcr_data = BMCR_RESET;
-@@ -696,7 +696,7 @@ int atl1c_get_speed_and_duplex(struct atl1c_hw *hw, u16 *speed, u16 *duplex)
- /* select one link mode to get lower power consumption */
- int atl1c_phy_to_ps_link(struct atl1c_hw *hw)
- {
--	struct atl1c_adapter *adapter = (struct atl1c_adapter *)hw->adapter;
-+	struct atl1c_adapter *adapter = hw->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
- 	int ret = 0;
- 	u16 autoneg_advertised = ADVERTISED_10baseT_Half;
-@@ -768,7 +768,7 @@ int atl1c_restart_autoneg(struct atl1c_hw *hw)
- 
- int atl1c_power_saving(struct atl1c_hw *hw, u32 wufc)
- {
--	struct atl1c_adapter *adapter = (struct atl1c_adapter *)hw->adapter;
-+	struct atl1c_adapter *adapter = hw->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u32 master_ctrl, mac_ctrl, phy_ctrl;
- 	u32 wol_ctrl, speed;
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 9cc1570..85717cb 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -989,12 +989,12 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
- 	}
- 	for (i = 0; i < AT_MAX_TRANSMIT_QUEUE; i++) {
- 		tpd_ring[i].buffer_info =
--			(struct atl1c_buffer *) (tpd_ring->buffer_info + count);
-+			(tpd_ring->buffer_info + count);
- 		count += tpd_ring[i].count;
- 	}
- 
- 	rfd_ring->buffer_info =
--		(struct atl1c_buffer *) (tpd_ring->buffer_info + count);
-+		(tpd_ring->buffer_info + count);
- 	count += rfd_ring->count;
- 	rx_desc_count += rfd_ring->count;
- 
-@@ -1227,7 +1227,7 @@ static void atl1c_start_mac(struct atl1c_adapter *adapter)
-  */
- static int atl1c_reset_mac(struct atl1c_hw *hw)
- {
--	struct atl1c_adapter *adapter = (struct atl1c_adapter *)hw->adapter;
-+	struct atl1c_adapter *adapter = hw->adapter;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u32 ctrl_data = 0;
- 
-@@ -1531,8 +1531,7 @@ static inline void atl1c_clear_phy_int(struct atl1c_adapter *adapter)
- static bool atl1c_clean_tx_irq(struct atl1c_adapter *adapter,
- 				enum atl1c_trans_queue type)
- {
--	struct atl1c_tpd_ring *tpd_ring = (struct atl1c_tpd_ring *)
--				&adapter->tpd_ring[type];
-+	struct atl1c_tpd_ring *tpd_ring = &adapter->tpd_ring[type];
- 	struct atl1c_buffer *buffer_info;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u16 next_to_clean = atomic_read(&tpd_ring->next_to_clean);
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-index 6e61f9f..82b2386 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-@@ -268,7 +268,7 @@ static int atl1e_set_eeprom(struct net_device *netdev,
- 	if (eeprom_buff == NULL)
- 		return -ENOMEM;
- 
--	ptr = (u32 *)eeprom_buff;
-+	ptr = eeprom_buff;
- 
- 	if (eeprom->offset & 3) {
- 		/* need read/modify/write of first changed EEPROM word */
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-index 1220e51..0aed82e 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-@@ -641,8 +641,7 @@ static int __devinit atl1e_sw_init(struct atl1e_adapter *adapter)
-  */
- static void atl1e_clean_tx_ring(struct atl1e_adapter *adapter)
- {
--	struct atl1e_tx_ring *tx_ring = (struct atl1e_tx_ring *)
--				&adapter->tx_ring;
-+	struct atl1e_tx_ring *tx_ring = &adapter->tx_ring;
- 	struct atl1e_tx_buffer *tx_buffer = NULL;
- 	struct pci_dev *pdev = adapter->pdev;
- 	u16 index, ring_count;
-@@ -686,7 +685,7 @@ static void atl1e_clean_tx_ring(struct atl1e_adapter *adapter)
- static void atl1e_clean_rx_ring(struct atl1e_adapter *adapter)
- {
- 	struct atl1e_rx_ring *rx_ring =
--		(struct atl1e_rx_ring *)&adapter->rx_ring;
-+		&adapter->rx_ring;
- 	struct atl1e_rx_page_desc *rx_page_desc = rx_ring->rx_page_desc;
- 	u16 i, j;
- 
-@@ -884,14 +883,12 @@ failed:
- 	return err;
- }
- 
--static inline void atl1e_configure_des_ring(const struct atl1e_adapter *adapter)
-+static inline void atl1e_configure_des_ring(struct atl1e_adapter *adapter)
- {
- 
--	struct atl1e_hw *hw = (struct atl1e_hw *)&adapter->hw;
--	struct atl1e_rx_ring *rx_ring =
--			(struct atl1e_rx_ring *)&adapter->rx_ring;
--	struct atl1e_tx_ring *tx_ring =
--			(struct atl1e_tx_ring *)&adapter->tx_ring;
-+	struct atl1e_hw *hw = &adapter->hw;
-+	struct atl1e_rx_ring *rx_ring = &adapter->rx_ring;
-+	struct atl1e_tx_ring *tx_ring = &adapter->tx_ring;
- 	struct atl1e_rx_page_desc *rx_page_desc = NULL;
- 	int i, j;
- 
-@@ -932,7 +929,7 @@ static inline void atl1e_configure_des_ring(const struct atl1e_adapter *adapter)
- 
- static inline void atl1e_configure_tx(struct atl1e_adapter *adapter)
- {
--	struct atl1e_hw *hw = (struct atl1e_hw *)&adapter->hw;
-+	struct atl1e_hw *hw = &adapter->hw;
- 	u32 dev_ctrl_data = 0;
- 	u32 max_pay_load = 0;
- 	u32 jumbo_thresh = 0;
-@@ -975,7 +972,7 @@ static inline void atl1e_configure_tx(struct atl1e_adapter *adapter)
- 
- static inline void atl1e_configure_rx(struct atl1e_adapter *adapter)
- {
--	struct atl1e_hw *hw = (struct atl1e_hw *)&adapter->hw;
-+	struct atl1e_hw *hw = &adapter->hw;
- 	u32 rxf_len  = 0;
- 	u32 rxf_low  = 0;
- 	u32 rxf_high = 0;
-@@ -1224,8 +1221,7 @@ static inline void atl1e_clear_phy_int(struct atl1e_adapter *adapter)
- 
- static bool atl1e_clean_tx_irq(struct atl1e_adapter *adapter)
- {
--	struct atl1e_tx_ring *tx_ring = (struct atl1e_tx_ring *)
--					&adapter->tx_ring;
-+	struct atl1e_tx_ring *tx_ring = &adapter->tx_ring;
- 	struct atl1e_tx_buffer *tx_buffer = NULL;
- 	u16 hw_next_to_clean = AT_READ_REGW(&adapter->hw, REG_TPD_CONS_IDX);
- 	u16 next_to_clean = atomic_read(&tx_ring->next_to_clean);
-@@ -1384,15 +1380,14 @@ static struct atl1e_rx_page *atl1e_get_rx_page(struct atl1e_adapter *adapter,
- 		(struct atl1e_rx_page_desc *) adapter->rx_ring.rx_page_desc;
- 	u8 rx_using = rx_page_desc[que].rx_using;
- 
--	return (struct atl1e_rx_page *)&(rx_page_desc[que].rx_page[rx_using]);
-+	return &(rx_page_desc[que].rx_page[rx_using]);
- }
- 
- static void atl1e_clean_rx_irq(struct atl1e_adapter *adapter, u8 que,
- 		   int *work_done, int work_to_do)
- {
- 	struct net_device *netdev  = adapter->netdev;
--	struct atl1e_rx_ring *rx_ring = (struct atl1e_rx_ring *)
--					 &adapter->rx_ring;
-+	struct atl1e_rx_ring *rx_ring = &adapter->rx_ring;
- 	struct atl1e_rx_page_desc *rx_page_desc =
- 		(struct atl1e_rx_page_desc *) rx_ring->rx_page_desc;
- 	struct sk_buff *skb = NULL;
-@@ -1576,7 +1571,7 @@ static struct atl1e_tpd_desc *atl1e_get_tpd(struct atl1e_adapter *adapter)
- 		tx_ring->next_to_use = 0;
- 
- 	memset(&tx_ring->desc[next_to_use], 0, sizeof(struct atl1e_tpd_desc));
--	return (struct atl1e_tpd_desc *)&tx_ring->desc[next_to_use];
-+	return &tx_ring->desc[next_to_use];
- }
- 
- static struct atl1e_tx_buffer *
-@@ -2061,8 +2056,8 @@ static int atl1e_suspend(struct pci_dev *pdev, pm_message_t state)
- 
- 	if (wufc) {
- 		/* get link status */
--		atl1e_read_phy_reg(hw, MII_BMSR, (u16 *)&mii_bmsr_data);
--		atl1e_read_phy_reg(hw, MII_BMSR, (u16 *)&mii_bmsr_data);
-+		atl1e_read_phy_reg(hw, MII_BMSR, &mii_bmsr_data);
-+		atl1e_read_phy_reg(hw, MII_BMSR, &mii_bmsr_data);
- 
- 		mii_advertise_data = ADVERTISE_10HALF;
- 
-@@ -2086,7 +2081,7 @@ static int atl1e_suspend(struct pci_dev *pdev, pm_message_t state)
- 				for (i = 0; i < AT_SUSPEND_LINK_TIMEOUT; i++) {
- 					msleep(100);
- 					atl1e_read_phy_reg(hw, MII_BMSR,
--							(u16 *)&mii_bmsr_data);
-+							&mii_bmsr_data);
- 					if (mii_bmsr_data & BMSR_LSTATUS)
- 						break;
- 				}
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 5d10884..149a294 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -1061,7 +1061,7 @@ static s32 atl1_setup_ring_resources(struct atl1_adapter *adapter)
- 		goto err_nomem;
- 	}
- 	rfd_ring->buffer_info =
--		(struct atl1_buffer *)(tpd_ring->buffer_info + tpd_ring->count);
-+		(tpd_ring->buffer_info + tpd_ring->count);
- 
- 	/*
- 	 * real ring DMA buffer
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index ac7b744..ff5d3c1 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -872,8 +872,7 @@ bnx2_alloc_mem(struct bnx2 *bp)
- 
- 			bnapi = &bp->bnx2_napi[i];
- 
--			sblk = (void *) (status_blk +
--					 BNX2_SBLK_MSIX_ALIGN_SIZE * i);
-+			sblk = (status_blk + BNX2_SBLK_MSIX_ALIGN_SIZE * i);
- 			bnapi->status_blk.msix = sblk;
- 			bnapi->hw_tx_cons_ptr =
- 				&sblk->status_tx_quick_consumer_index;
-diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index c95e7b5..65e66ca 100644
---- a/drivers/net/ethernet/broadcom/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -2585,7 +2585,7 @@ static void cnic_bnx2x_kwqe_err(struct cnic_dev *dev, struct kwqe *kwqe)
- 		return;
- 	}
- 
--	cqes[0] = (struct kcqe *) &kcqe;
-+	cqes[0] = &kcqe;
- 	cnic_reply_bnx2x_kcqes(dev, ulp_type, cqes, 1);
- }
- 
-@@ -4665,9 +4665,9 @@ static int cnic_start_bnx2_hw(struct cnic_dev *dev)
- 
- 	cp->kcq1.sw_prod_idx = 0;
- 	cp->kcq1.hw_prod_idx_ptr =
--		(u16 *) &sblk->status_completion_producer_index;
-+		&sblk->status_completion_producer_index;
- 
--	cp->kcq1.status_idx_ptr = (u16 *) &sblk->status_idx;
-+	cp->kcq1.status_idx_ptr = &sblk->status_idx;
- 
- 	/* Initialize the kernel complete queue context. */
- 	val = KRNLQ_TYPE_TYPE_KRNLQ | KRNLQ_SIZE_TYPE_SIZE |
-@@ -4693,9 +4693,9 @@ static int cnic_start_bnx2_hw(struct cnic_dev *dev)
- 		u32 sb = BNX2_L2CTX_L5_STATUSB_NUM(sb_id);
- 
- 		cp->kcq1.hw_prod_idx_ptr =
--			(u16 *) &msblk->status_completion_producer_index;
--		cp->kcq1.status_idx_ptr = (u16 *) &msblk->status_idx;
--		cp->kwq_con_idx_ptr = (u16 *) &msblk->status_cmd_consumer_index;
-+			&msblk->status_completion_producer_index;
-+		cp->kcq1.status_idx_ptr = &msblk->status_idx;
-+		cp->kwq_con_idx_ptr = &msblk->status_cmd_consumer_index;
- 		cp->int_num = sb_id << BNX2_PCICFG_INT_ACK_CMD_INT_NUM_SHIFT;
- 		cnic_ctx_wr(dev, kwq_cid_addr, L5_KRNLQ_HOST_QIDX, sb);
- 		cnic_ctx_wr(dev, kcq_cid_addr, L5_KRNLQ_HOST_QIDX, sb);
-diff --git a/drivers/net/ethernet/brocade/bna/cna_fwimg.c b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-index cfc22a6..6a68e8d 100644
---- a/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-+++ b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-@@ -67,10 +67,10 @@ bfa_cb_image_get_chunk(enum bfi_asic_gen asic_gen, u32 off)
- {
- 	switch (asic_gen) {
- 	case BFI_ASIC_GEN_CT:
--		return (u32 *)(bfi_image_ct_cna + off);
-+		return (bfi_image_ct_cna + off);
- 		break;
- 	case BFI_ASIC_GEN_CT2:
--		return (u32 *)(bfi_image_ct2_cna + off);
-+		return (bfi_image_ct2_cna + off);
- 		break;
- 	default:
- 		return NULL;
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-index 65e4b28..55cf72a 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-@@ -575,7 +575,7 @@ static void t3_process_tid_release_list(struct work_struct *work)
- 		if (!skb) {
- 			spin_lock_bh(&td->tid_release_lock);
- 			p->ctx = (void *)td->tid_release_list;
--			td->tid_release_list = (struct t3c_tid_entry *)p;
-+			td->tid_release_list = p;
- 			break;
- 		}
- 		mk_tid_release(skb, p - td->tid_maps.tid_tab);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index e111d97..8596aca 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -753,7 +753,7 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *q,
- 		end = (void *)q->desc + part1;
- 	}
- 	if ((uintptr_t)end & 8)           /* 0-pad to multiple of 16 */
--		*(u64 *)end = 0;
-+		*end = 0;
- }
- 
- /**
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 25e3308..9dad561 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -418,7 +418,7 @@ static int fwevtq_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 		 * restart a TX Ethernet Queue which was stopped for lack of
- 		 * free TX Queue Descriptors ...
- 		 */
--		const struct cpl_sge_egr_update *p = (void *)cpl;
-+		const struct cpl_sge_egr_update *p = cpl;
- 		unsigned int qid = EGR_QID(be32_to_cpu(p->opcode_qid));
- 		struct sge *s = &adapter->sge;
- 		struct sge_txq *tq;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 0bd585b..f2d1ecd 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -934,7 +934,7 @@ static void write_sgl(const struct sk_buff *skb, struct sge_txq *tq,
- 		end = (void *)tq->desc + part1;
- 	}
- 	if ((uintptr_t)end & 8)           /* 0-pad to multiple of 16 */
--		*(u64 *)end = 0;
-+		*end = 0;
- }
- 
- /**
-@@ -1323,8 +1323,7 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct net_device *dev)
- 		 */
- 		if (unlikely((void *)sgl == (void *)tq->stat)) {
- 			sgl = (void *)tq->desc;
--			end = (void *)((void *)tq->desc +
--				       ((void *)end - (void *)tq->stat));
-+			end = ((void *)tq->desc + ((void *)end - (void *)tq->stat));
- 		}
- 
- 		write_sgl(skb, tq, sgl, end, 0, addr);
-diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
-index d3cd489..f879e92 100644
---- a/drivers/net/ethernet/dec/tulip/de4x5.c
-+++ b/drivers/net/ethernet/dec/tulip/de4x5.c
-@@ -3973,7 +3973,7 @@ DevicePresent(struct net_device *dev, u_long aprom_addr)
- 	    tmp = srom_rd(aprom_addr, i);
- 	    *p++ = cpu_to_le16(tmp);
- 	}
--	de4x5_dbg_srom((struct de4x5_srom *)&lp->srom);
-+	de4x5_dbg_srom(&lp->srom);
-     }
- }
- 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 9ac14f8..21c6574 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -185,7 +185,7 @@ static void mem_disp(u8 *addr, int size)
- 	for (; (u32) i < (u32) addr + size4Aling; i += 4)
- 		printk("%08x ", *((u32 *) (i)));
- 	for (; (u32) i < (u32) addr + size; i++)
--		printk("%02x", *((u8 *) (i)));
-+		printk("%02x", *((i)));
- 	if (notAlign == 1)
- 		printk("\r\n");
- }
-diff --git a/drivers/net/ethernet/hp/hp100.c b/drivers/net/ethernet/hp/hp100.c
-index d496673..3f4391b 100644
---- a/drivers/net/ethernet/hp/hp100.c
-+++ b/drivers/net/ethernet/hp/hp100.c
-@@ -1217,7 +1217,7 @@ static int hp100_init_rxpdl(struct net_device *dev,
- 
- 	ringptr->pdl = pdlptr + 1;
- 	ringptr->pdl_paddr = virt_to_whatever(dev, pdlptr + 1);
--	ringptr->skb = (void *) NULL;
-+	ringptr->skb = NULL;
- 
- 	/*
- 	 * Write address and length of first PDL Fragment (which is used for
-@@ -1243,7 +1243,7 @@ static int hp100_init_txpdl(struct net_device *dev,
- 
- 	ringptr->pdl = pdlptr;	/* +1; */
- 	ringptr->pdl_paddr = virt_to_whatever(dev, pdlptr);	/* +1 */
--	ringptr->skb = (void *) NULL;
-+	ringptr->skb = NULL;
- 
- 	return roundup(MAX_TX_FRAG * 2 + 2, 4);
- }
-@@ -1628,7 +1628,7 @@ static void hp100_clean_txring(struct net_device *dev)
- 		/* Conversion to new PCI API : NOP */
- 		pci_unmap_single(lp->pci_dev, (dma_addr_t) lp->txrhead->pdl[1], lp->txrhead->pdl[2], PCI_DMA_TODEVICE);
- 		dev_kfree_skb_any(lp->txrhead->skb);
--		lp->txrhead->skb = (void *) NULL;
-+		lp->txrhead->skb = NULL;
- 		lp->txrhead = lp->txrhead->next;
- 		lp->txrcommit--;
- 	}
-diff --git a/drivers/net/ethernet/i825xx/lp486e.c b/drivers/net/ethernet/i825xx/lp486e.c
-index 6c2952c..3735bfa 100644
---- a/drivers/net/ethernet/i825xx/lp486e.c
-+++ b/drivers/net/ethernet/i825xx/lp486e.c
-@@ -629,10 +629,10 @@ init_i596(struct net_device *dev) {
- 
- 	memcpy ((void *)lp->eth_addr, dev->dev_addr, 6);
- 	lp->set_add.command = CmdIASetup;
--	i596_add_cmd(dev, (struct i596_cmd *)&lp->set_add);
-+	i596_add_cmd(dev, &lp->set_add);
- 
- 	lp->tdr.command = CmdTDR;
--	i596_add_cmd(dev, (struct i596_cmd *)&lp->tdr);
-+	i596_add_cmd(dev, &lp->tdr);
- 
- 	if (lp->scb.command && i596_timeout(dev, "i82596 init", 200))
- 		return 1;
-@@ -737,7 +737,7 @@ i596_cleanup_cmd(struct net_device *dev) {
- 
- 	lp = netdev_priv(dev);
- 	while (lp->cmd_head) {
--		cmd = (struct i596_cmd *)lp->cmd_head;
-+		cmd = lp->cmd_head;
- 
- 		lp->cmd_head = pa_to_va(lp->cmd_head->pa_next);
- 		lp->cmd_backlog--;
-@@ -1281,7 +1281,7 @@ static void set_multicast_list(struct net_device *dev) {
- 			lp->i596_config[8] |= 0x01;
- 		}
- 
--		i596_add_cmd(dev, (struct i596_cmd *) &lp->set_conf);
-+		i596_add_cmd(dev, &lp->set_conf);
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/i825xx/sun3_82586.c b/drivers/net/ethernet/i825xx/sun3_82586.c
-index cae17f4..353f57f6 100644
---- a/drivers/net/ethernet/i825xx/sun3_82586.c
-+++ b/drivers/net/ethernet/i825xx/sun3_82586.c
-@@ -571,7 +571,7 @@ static int init586(struct net_device *dev)
- 	}
+ 		if (priv->spi_tx_buf) {
+-			priv->spi_rx_buf = (u8 *)(priv->spi_tx_buf +
+-						  (PAGE_SIZE / 2));
++			priv->spi_rx_buf = (priv->spi_tx_buf + (PAGE_SIZE / 2));
+ 			priv->spi_rx_dma = (dma_addr_t)(priv->spi_tx_dma +
+ 							(PAGE_SIZE / 2));
+ 		} else {
+diff --git a/drivers/net/fddi/defxx.c b/drivers/net/fddi/defxx.c
+index 4ad80f7..6695a1d 100644
+--- a/drivers/net/fddi/defxx.c
++++ b/drivers/net/fddi/defxx.c
+@@ -2962,7 +2962,7 @@ static int dfx_rcv_init(DFX_board_t *bp, int get_buffers)
+ 			bp->descr_block_virt->rcv_data[i+j].long_0 = (u32) (PI_RCV_DESCR_M_SOP |
+ 				((PI_RCV_DATA_K_SIZE_MAX / PI_ALIGN_K_RCV_DATA_BUFF) << PI_RCV_DESCR_V_SEG_LEN));
+ 			bp->descr_block_virt->rcv_data[i+j].long_1 = (u32) (bp->rcv_block_phys + (i * PI_RCV_DATA_K_SIZE_MAX));
+-			bp->p_rcv_buff_va[i+j] = (char *) (bp->rcv_block_virt + (i * PI_RCV_DATA_K_SIZE_MAX));
++			bp->p_rcv_buff_va[i+j] = (bp->rcv_block_virt + (i * PI_RCV_DATA_K_SIZE_MAX));
+ 			}
  #endif
- 
--	ptr = alloc_rfa(dev,(void *)ptr); /* init receive-frame-area */
-+	ptr = alloc_rfa(dev,ptr); /* init receive-frame-area */
- 
- 	/*
- 	 * alloc xmit-buffs / init xmit_cmds
-@@ -584,7 +584,7 @@ static int init586(struct net_device *dev)
- 		ptr = (char *) ptr + XMIT_BUFF_SIZE;
- 		p->xmit_buffs[i] = (struct tbd_struct *)ptr; /* TBD */
- 		ptr = (char *) ptr + sizeof(struct tbd_struct);
--		if((void *)ptr > (void *)dev->mem_end)
-+		if(ptr > (void *)dev->mem_end)
- 		{
- 			printk("%s: not enough shared-mem for your configuration!\n",dev->name);
- 			return 1;
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 04d901d..ec85bf1 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1894,7 +1894,7 @@ static int rxq_init(struct mv643xx_eth_private *mp, int index)
- 		goto out_free;
  	}
+@@ -3030,7 +3030,7 @@ static void dfx_rcv_queue_process(
+ #ifdef DYNAMIC_BUFFERS
+ 		p_buff = (char *) (((struct sk_buff *)bp->p_rcv_buff_va[entry])->data);
+ #else
+-		p_buff = (char *) bp->p_rcv_buff_va[entry];
++		p_buff = bp->p_rcv_buff_va[entry];
+ #endif
+ 		memcpy(&descr, p_buff + RCV_BUFF_K_DESCR, sizeof(u32));
  
--	rx_desc = (struct rx_desc *)rxq->rx_desc_area;
-+	rx_desc = rxq->rx_desc_area;
- 	for (i = 0; i < rxq->rx_ring_size; i++) {
- 		int nexti;
+diff --git a/drivers/net/fddi/skfp/pmf.c b/drivers/net/fddi/skfp/pmf.c
+index 9ac4665..24d8566 100644
+--- a/drivers/net/fddi/skfp/pmf.c
++++ b/drivers/net/fddi/skfp/pmf.c
+@@ -1242,7 +1242,7 @@ static int smt_set_para(struct s_smc *smc, struct smt_para *pa, int index,
+ 			if (len < 8)
+ 				goto len_error ;
+ 			if (set)
+-				memcpy((char *) to,(char *) from+2,6) ;
++				memcpy(to,from+2,6) ;
+ 			to += 8 ;
+ 			from += 8 ;
+ 			len -= 8 ;
+@@ -1251,7 +1251,7 @@ static int smt_set_para(struct s_smc *smc, struct smt_para *pa, int index,
+ 			if (len < 4)
+ 				goto len_error ;
+ 			if (set)
+-				memcpy((char *) to,(char *) from,4) ;
++				memcpy(to,from,4) ;
+ 			to += 4 ;
+ 			from += 4 ;
+ 			len -= 4 ;
+@@ -1260,7 +1260,7 @@ static int smt_set_para(struct s_smc *smc, struct smt_para *pa, int index,
+ 			if (len < 8)
+ 				goto len_error ;
+ 			if (set)
+-				memcpy((char *) to,(char *) from,8) ;
++				memcpy(to,from,8) ;
+ 			to += 8 ;
+ 			from += 8 ;
+ 			len -= 8 ;
+@@ -1269,7 +1269,7 @@ static int smt_set_para(struct s_smc *smc, struct smt_para *pa, int index,
+ 			if (len < 32)
+ 				goto len_error ;
+ 			if (set)
+-				memcpy((char *) to,(char *) from,32) ;
++				memcpy(to,from,32) ;
+ 			to += 32 ;
+ 			from += 32 ;
+ 			len -= 32 ;
+diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
+index aed1a61..2c0894a 100644
+--- a/drivers/net/hamradio/mkiss.c
++++ b/drivers/net/hamradio/mkiss.c
+@@ -485,7 +485,7 @@ static void ax_encaps(struct net_device *dev, unsigned char *icp, int len)
  
-@@ -1999,7 +1999,7 @@ static int txq_init(struct mv643xx_eth_private *mp, int index)
- 
- 	txq->tx_desc_area_size = size;
- 
--	tx_desc = (struct tx_desc *)txq->tx_desc_area;
-+	tx_desc = txq->tx_desc_area;
- 	for (i = 0; i < txq->tx_ring_size; i++) {
- 		struct tx_desc *txd = tx_desc + i;
- 		int nexti;
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index 1db023b..5948972 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -1032,7 +1032,7 @@ static int rxq_init(struct net_device *dev)
- 	}
- 	memset((void *)pep->p_rx_desc_area, 0, size);
- 	/* initialize the next_desc_ptr links in the Rx descriptors ring */
--	p_rx_desc = (struct rx_desc *)pep->p_rx_desc_area;
-+	p_rx_desc = pep->p_rx_desc_area;
- 	for (i = 0; i < rx_desc_num; i++) {
- 		p_rx_desc[i].next_desc_ptr = pep->rx_desc_dma +
- 		    ((i + 1) % rx_desc_num) * sizeof(struct rx_desc);
-@@ -1095,7 +1095,7 @@ static int txq_init(struct net_device *dev)
- 	}
- 	memset((void *)pep->p_tx_desc_area, 0, pep->tx_desc_area_size);
- 	/* Initialize the next_desc_ptr links in the Tx descriptors ring */
--	p_tx_desc = (struct tx_desc *)pep->p_tx_desc_area;
-+	p_tx_desc = pep->p_tx_desc_area;
- 	for (i = 0; i < tx_desc_num; i++) {
- 		p_tx_desc[i].next_desc_ptr = pep->tx_desc_dma +
- 		    ((i + 1) % tx_desc_num) * sizeof(struct tx_desc);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index b45d0e7..766b8c5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -779,7 +779,7 @@ static int qp_res_start_move_to(struct mlx4_dev *dev, int slave, int qpn,
- 			r->com.to_state = state;
- 			r->com.state = RES_QP_BUSY;
- 			if (qp)
--				*qp = (struct res_qp *)r;
-+				*qp = r;
+ 			return;
+ 		default:
+-			count = kiss_esc(p, (unsigned char *)ax->xbuff, len);
++			count = kiss_esc(p, ax->xbuff, len);
  		}
- 	}
- 
-@@ -832,7 +832,7 @@ static int mr_res_start_move_to(struct mlx4_dev *dev, int slave, int index,
- 			r->com.to_state = state;
- 			r->com.state = RES_MPT_BUSY;
- 			if (mpt)
--				*mpt = (struct res_mpt *)r;
-+				*mpt = r;
- 		}
- 	}
- 
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
-index bb36758..e7cd587 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -6946,9 +6946,9 @@ static  int rxd_owner_bit_reset(struct s2io_nic *sp)
- 				if (sp->rxd_mode == RXD_MODE_3B)
- 					ba = &ring->ba[j][k];
- 				if (set_rxd_buffer_pointer(sp, rxdp, ba, &skb,
--							   (u64 *)&temp0_64,
--							   (u64 *)&temp1_64,
--							   (u64 *)&temp2_64,
-+							   &temp0_64,
-+							   &temp1_64,
-+							   &temp2_64,
- 							   size) == -ENOMEM) {
- 					return 0;
- 				}
-@@ -7149,7 +7149,7 @@ static int s2io_card_up(struct s2io_nic *sp)
- 	int i, ret = 0;
- 	struct config_param *config;
- 	struct mac_info *mac_control;
--	struct net_device *dev = (struct net_device *)sp->dev;
-+	struct net_device *dev = sp->dev;
- 	u16 interruptible;
- 
- 	/* Initialize the H/W I/O registers */
-@@ -7325,7 +7325,7 @@ static void s2io_tx_watchdog(struct net_device *dev)
- static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp)
- {
- 	struct s2io_nic *sp = ring_data->nic;
--	struct net_device *dev = (struct net_device *)ring_data->dev;
-+	struct net_device *dev = ring_data->dev;
- 	struct sk_buff *skb = (struct sk_buff *)
- 		((unsigned long)rxdp->Host_Control);
- 	int ring_no = ring_data->ring_no;
-@@ -7508,7 +7508,7 @@ aggregate:
- 
- static void s2io_link(struct s2io_nic *sp, int link)
- {
--	struct net_device *dev = (struct net_device *)sp->dev;
-+	struct net_device *dev = sp->dev;
- 	struct swStat *swstats = &sp->mac_control.stats_info->sw_stat;
- 
- 	if (link != sp->last_link_state) {
-@@ -8280,7 +8280,7 @@ static int check_L2_lro_capable(u8 *buffer, struct iphdr **ip,
- 		return -1;
- 	}
- 
--	*ip = (struct iphdr *)((u8 *)buffer + ip_off);
-+	*ip = (struct iphdr *)(buffer + ip_off);
- 	ip_len = (u8)((*ip)->ihl);
- 	ip_len <<= 2;
- 	*tcp = (struct tcphdr *)((unsigned long)*ip + ip_len);
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-config.c b/drivers/net/ethernet/neterion/vxge/vxge-config.c
-index 98e2c10..32d0682 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-config.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-config.c
-@@ -2346,7 +2346,7 @@ void __vxge_hw_blockpool_blocks_add(struct __vxge_hw_blockpool *blockpool)
- 
- 	for (i = 0; i < nreq; i++)
- 		vxge_os_dma_malloc_async(
--			((struct __vxge_hw_device *)blockpool->hldev)->pdev,
-+			(blockpool->hldev)->pdev,
- 			blockpool->hldev, VXGE_HW_BLOCK_SIZE);
- }
- 
-@@ -2428,13 +2428,13 @@ __vxge_hw_blockpool_blocks_remove(struct __vxge_hw_blockpool *blockpool)
+ 	} else {
+ 		unsigned short crc;
+@@ -497,7 +497,7 @@ static void ax_encaps(struct net_device *dev, unsigned char *icp, int len)
+ 		case CRC_MODE_SMACK:
+ 			*p |= 0x80;
+ 			crc = swab16(crc16(0, p, len));
+-			count = kiss_esc_crc(p, (unsigned char *)ax->xbuff, crc, len+2);
++			count = kiss_esc_crc(p, ax->xbuff, crc, len+2);
+ 			break;
+ 		case CRC_MODE_FLEX_TEST:
+ 			ax->crcmode = CRC_MODE_NONE;
+@@ -506,11 +506,11 @@ static void ax_encaps(struct net_device *dev, unsigned char *icp, int len)
+ 		case CRC_MODE_FLEX:
+ 			*p |= 0x20;
+ 			crc = calc_crc_flex(p, len);
+-			count = kiss_esc_crc(p, (unsigned char *)ax->xbuff, crc, len+2);
++			count = kiss_esc_crc(p, ax->xbuff, crc, len+2);
  			break;
  
- 		pci_unmap_single(
--			((struct __vxge_hw_device *)blockpool->hldev)->pdev,
-+			(blockpool->hldev)->pdev,
- 			((struct __vxge_hw_blockpool_entry *)p)->dma_addr,
- 			((struct __vxge_hw_blockpool_entry *)p)->length,
- 			PCI_DMA_BIDIRECTIONAL);
+ 		default:
+-			count = kiss_esc(p, (unsigned char *)ax->xbuff, len);
++			count = kiss_esc(p, ax->xbuff, len);
+ 		}
+   	}
+ 	spin_unlock_bh(&ax->buflock);
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 8b91947..4363c76 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -614,7 +614,7 @@ retry_send_cmplt:
+ static void netvsc_receive_completion(void *context)
+ {
+ 	struct hv_netvsc_packet *packet = context;
+-	struct hv_device *device = (struct hv_device *)packet->device;
++	struct hv_device *device = packet->device;
+ 	struct netvsc_device *net_device;
+ 	u64 transaction_id = 0;
+ 	bool fsend_receive_comp = false;
+diff --git a/drivers/net/irda/ali-ircc.c b/drivers/net/irda/ali-ircc.c
+index dcc80d6..8487204 100644
+--- a/drivers/net/irda/ali-ircc.c
++++ b/drivers/net/irda/ali-ircc.c
+@@ -1017,7 +1017,7 @@ static void ali_ircc_fir_change_speed(struct ali_ircc_cb *priv, __u32 baud)
+ {
+ 		
+ 	int iobase; 
+-	struct ali_ircc_cb *self = (struct ali_ircc_cb *) priv;
++	struct ali_ircc_cb *self = priv;
+ 	struct net_device *dev;
  
- 		vxge_os_dma_free(
--			((struct __vxge_hw_device *)blockpool->hldev)->pdev,
-+			(blockpool->hldev)->pdev,
- 			((struct __vxge_hw_blockpool_entry *)p)->memblock,
- 			&((struct __vxge_hw_blockpool_entry *)p)->acc_handle);
+ 	IRDA_DEBUG(1, "%s(), ---------------- Start ----------------\n", __func__ );
+@@ -1052,7 +1052,7 @@ static void ali_ircc_fir_change_speed(struct ali_ircc_cb *priv, __u32 baud)
+  */
+ static void ali_ircc_sir_change_speed(struct ali_ircc_cb *priv, __u32 speed)
+ {
+-	struct ali_ircc_cb *self = (struct ali_ircc_cb *) priv;
++	struct ali_ircc_cb *self = priv;
+ 	unsigned long flags;
+ 	int iobase; 
+ 	int fcr;    /* FIFO control reg */
+@@ -1121,7 +1121,7 @@ static void ali_ircc_sir_change_speed(struct ali_ircc_cb *priv, __u32 speed)
+ static void ali_ircc_change_dongle_speed(struct ali_ircc_cb *priv, int speed)
+ {
+ 	
+-	struct ali_ircc_cb *self = (struct ali_ircc_cb *) priv;
++	struct ali_ircc_cb *self = priv;
+ 	int iobase,dongle_id;
+ 	int tmp = 0;
+ 			
+diff --git a/drivers/net/irda/au1k_ir.c b/drivers/net/irda/au1k_ir.c
+index fc503aa..e09417d 100644
+--- a/drivers/net/irda/au1k_ir.c
++++ b/drivers/net/irda/au1k_ir.c
+@@ -794,7 +794,7 @@ static int __devinit au1k_irda_net_init(struct net_device *dev)
  
-@@ -4059,7 +4059,7 @@ __vxge_hw_vpath_sw_reset(struct __vxge_hw_device *hldev, u32 vp_id)
- 	enum vxge_hw_status status = VXGE_HW_OK;
- 	struct __vxge_hw_virtualpath *vpath;
+ 	/* allocate the data buffers */
+ 	aup->db[0].vaddr =
+-		(void *)dma_alloc(MAX_BUF_SIZE * 2 * NUM_IR_DESC, &temp);
++		dma_alloc(MAX_BUF_SIZE * 2 * NUM_IR_DESC, &temp);
+ 	if (!aup->db[0].vaddr)
+ 		goto out3;
  
--	vpath = (struct __vxge_hw_virtualpath *)&hldev->virtual_paths[vp_id];
-+	vpath = &hldev->virtual_paths[vp_id];
+diff --git a/drivers/net/slip/slip.c b/drivers/net/slip/slip.c
+index d4c9db3..a34d6bf 100644
+--- a/drivers/net/slip/slip.c
++++ b/drivers/net/slip/slip.c
+@@ -390,10 +390,10 @@ static void sl_encaps(struct slip *sl, unsigned char *icp, int len)
+ #endif
+ #ifdef CONFIG_SLIP_MODE_SLIP6
+ 	if (sl->mode & SL_MODE_SLIP6)
+-		count = slip_esc6(p, (unsigned char *) sl->xbuff, len);
++		count = slip_esc6(p, sl->xbuff, len);
+ 	else
+ #endif
+-		count = slip_esc(p, (unsigned char *) sl->xbuff, len);
++		count = slip_esc(p, sl->xbuff, len);
  
- 	if (vpath->ringh) {
- 		status = __vxge_hw_ring_reset(vpath->ringh);
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-config.h b/drivers/net/ethernet/neterion/vxge/vxge-config.h
-index 5046a64..9e0c1ee 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-config.h
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-config.h
-@@ -1922,7 +1922,7 @@ realloc:
- 		/* misaligned, free current one and try allocating
- 		 * size + VXGE_CACHE_LINE_SIZE memory
- 		 */
--		kfree((void *) vaddr);
-+		kfree(vaddr);
- 		size += VXGE_CACHE_LINE_SIZE;
- 		realloc_flag = 1;
- 		goto realloc;
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-index 51387c3..2578eb1 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-@@ -1134,7 +1134,7 @@ static void vxge_set_multicast(struct net_device *dev)
- 		"%s:%d", __func__, __LINE__);
+ 	/* Order of next two lines is *very* important.
+ 	 * When we are sending a little amount of data,
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 3f04ba0..93e0cfb 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1037,7 +1037,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ #endif
+ 	dev_dbg(&adapter->netdev->dev,
+ 		"txd[%u]: SOP 0x%Lx 0x%x 0x%x\n",
+-		(u32)((union Vmxnet3_GenericDesc *)ctx.sop_txd -
++		(u32)(ctx.sop_txd -
+ 		tq->tx_ring.base), le64_to_cpu(gdesc->txd.addr),
+ 		le32_to_cpu(gdesc->dword[2]), le32_to_cpu(gdesc->dword[3]));
  
- 	vdev = netdev_priv(dev);
--	hldev = (struct __vxge_hw_device  *)vdev->devh;
-+	hldev = vdev->devh;
- 
- 	if (unlikely(!is_vxge_card_up(vdev)))
- 		return;
-@@ -3989,16 +3989,16 @@ static void __devinit vxge_print_parm(struct vxgedev *vdev, u64 vpath_mask)
- 			continue;
- 		vxge_debug_ll_config(VXGE_TRACE,
- 			"%s: MTU size - %d", vdev->ndev->name,
--			((struct __vxge_hw_device  *)(vdev->devh))->
-+			((vdev->devh))->
- 				config.vp_config[i].mtu);
- 		vxge_debug_init(VXGE_TRACE,
- 			"%s: VLAN tag stripping %s", vdev->ndev->name,
--			((struct __vxge_hw_device  *)(vdev->devh))->
-+			((vdev->devh))->
- 				config.vp_config[i].rpa_strip_vlan_tag
- 			? "Enabled" : "Disabled");
- 		vxge_debug_ll_config(VXGE_TRACE,
- 			"%s: Max frags : %d", vdev->ndev->name,
--			((struct __vxge_hw_device  *)(vdev->devh))->
-+			((vdev->devh))->
- 				config.vp_config[i].fifo.max_frags);
- 		break;
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+index d7a65e1..44db8b7 100644
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -231,7 +231,7 @@ static void x25_asy_encaps(struct x25_asy *sl, unsigned char *icp, int len)
  	}
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-index 5954fa2..99749bd 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-@@ -533,8 +533,7 @@ __vxge_hw_device_handle_error(struct __vxge_hw_device *hldev, u32 vp_id,
  
- 	/* notify driver */
- 	if (hldev->uld_callbacks->crit_err)
--		hldev->uld_callbacks->crit_err(
--			(struct __vxge_hw_device *)hldev,
-+		hldev->uld_callbacks->crit_err(hldev,
- 			type, vp_id);
- out:
+ 	p = icp;
+-	count = x25_asy_esc(p, (unsigned char *) sl->xbuff, len);
++	count = x25_asy_esc(p, sl->xbuff, len);
  
-@@ -1322,7 +1321,7 @@ enum vxge_hw_status vxge_hw_ring_rxd_next_completed(
- 	/* check whether it is not the end */
- 	if (!own || *t_code == VXGE_HW_RING_T_CODE_FRM_DROP) {
+ 	/* Order of next two lines is *very* important.
+ 	 * When we are sending a little amount of data,
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index 7cbd7d2..d09e449 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -1268,7 +1268,7 @@ int i2400m_fw_check(struct i2400m *i2400m, const void *bcf, size_t bcf_size)
+ 		size_t leftover, offset, header_len, size;
  
--		vxge_assert(((struct vxge_hw_ring_rxd_1 *)rxdp)->host_control !=
-+		vxge_assert((rxdp)->host_control !=
- 				0);
- 
- 		++ring->cmpl_cnt;
-diff --git a/drivers/net/ethernet/sgi/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
-index ac149d9..b5ba308 100644
---- a/drivers/net/ethernet/sgi/ioc3-eth.c
-+++ b/drivers/net/ethernet/sgi/ioc3-eth.c
-@@ -583,7 +583,7 @@ static inline void ioc3_rx(struct net_device *dev)
- 	unsigned long *rxr;
- 	u32 w0, err;
- 
--	rxr = (unsigned long *) ip->rxr;		/* Ring base */
-+	rxr = ip->rxr;		/* Ring base */
- 	rx_entry = ip->rx_ci;				/* RX consume index */
- 	n_entry = ip->rx_pi;
- 
-@@ -903,7 +903,7 @@ static void ioc3_alloc_rings(struct net_device *dev)
- 	if (ip->rxr == NULL) {
- 		/* Allocate and initialize rx ring.  4kb = 512 entries  */
- 		ip->rxr = (unsigned long *) get_zeroed_page(GFP_ATOMIC);
--		rxr = (unsigned long *) ip->rxr;
-+		rxr = ip->rxr;
- 		if (!rxr)
- 			printk("ioc3_alloc_rings(): get_zeroed_page() failed!\n");
- 
-diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
-index fd33b21..1fcd914e 100644
---- a/drivers/net/ethernet/smsc/smsc9420.c
-+++ b/drivers/net/ethernet/smsc/smsc9420.c
-@@ -1640,8 +1640,7 @@ smsc9420_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 		goto out_free_io_4;
- 
- 	/* descriptors are aligned due to the nature of pci_alloc_consistent */
--	pd->tx_ring = (struct smsc9420_dma_desc *)
--	    (pd->rx_ring + RX_RING_SIZE);
-+	pd->tx_ring = (pd->rx_ring + RX_RING_SIZE);
- 	pd->tx_dma_addr = pd->rx_dma_addr +
- 	    sizeof(struct smsc9420_dma_desc) * RX_RING_SIZE;
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 3dd8f08..df4774d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -190,7 +190,7 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, NULL);
- 
--	iounmap((void *)priv->ioaddr);
-+	iounmap((void __force __iomem *)priv->ioaddr);
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	release_mem_region(res->start, resource_size(res));
- 
-diff --git a/drivers/net/ethernet/sun/sunqe.c b/drivers/net/ethernet/sun/sunqe.c
-index 7d4a040..aeded7f 100644
---- a/drivers/net/ethernet/sun/sunqe.c
-+++ b/drivers/net/ethernet/sun/sunqe.c
-@@ -441,7 +441,7 @@ static void qe_rx(struct sunqe *qep)
- 			} else {
- 				skb_reserve(skb, 2);
- 				skb_put(skb, len);
--				skb_copy_to_linear_data(skb, (unsigned char *) this_qbuf,
-+				skb_copy_to_linear_data(skb, this_qbuf,
- 						 len);
- 				skb->protocol = eth_type_trans(skb, qep->dev);
- 				netif_rx(skb);
-diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
-index ea3e0a2..a46c198 100644
---- a/drivers/net/ethernet/via/via-velocity.c
-+++ b/drivers/net/ethernet/via/via-velocity.c
-@@ -486,7 +486,7 @@ static void __devinit velocity_get_options(struct velocity_opt *opts, int index,
- 	velocity_set_bool_opt(&opts->flags, IP_byte_align[index], IP_ALIG_DEF, VELOCITY_FLAGS_IP_ALIGN, "IP_byte_align", devname);
- 	velocity_set_bool_opt(&opts->flags, ValPktLen[index], VAL_PKT_LEN_DEF, VELOCITY_FLAGS_VAL_PKT_LEN, "ValPktLen", devname);
- 	velocity_set_int_opt((int *) &opts->spd_dpx, speed_duplex[index], MED_LNK_MIN, MED_LNK_MAX, MED_LNK_DEF, "Media link mode", devname);
--	velocity_set_int_opt((int *) &opts->wol_opts, wol_opts[index], WOL_OPT_MIN, WOL_OPT_MAX, WOL_OPT_DEF, "Wake On Lan options", devname);
-+	velocity_set_int_opt(&opts->wol_opts, wol_opts[index], WOL_OPT_MIN, WOL_OPT_MAX, WOL_OPT_DEF, "Wake On Lan options", devname);
- 	opts->numrx = (opts->numrx & ~3);
- }
- 
+ 		leftover = top - itr;
+-		offset = itr - (const void *) bcf;
++		offset = itr - bcf;
+ 		if (leftover <= sizeof(*bcf_hdr)) {
+ 			dev_err(dev, "firmware %s: %zu B left at @%zx, "
+ 				"not enough for BCF header\n",
 -- 
 1.7.8.111.gad25c.dirty
