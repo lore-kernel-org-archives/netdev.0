@@ -1,49 +1,47 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
-Date: Mon, 04 Jun 2012 21:29:45 +0200
-Message-ID: <1338838185.2760.1899.camel@edumazet-glaptop>
-References: <1337272404.3403.18.camel@edumazet-glaptop>
-	 <20120517164016.GL14498@1wt.eu> <1337273387.3403.24.camel@edumazet-glaptop>
-	 <1337276056.3403.37.camel@edumazet-glaptop>
-	 <20120604123738.GA28992@redhat.com>
-	 <1338815213.2760.1806.camel@edumazet-glaptop>
-	 <20120604134138.GA29814@redhat.com>
-	 <1338818501.2760.1821.camel@edumazet-glaptop>
-	 <20120604141731.GA30226@redhat.com>
-	 <1338822064.2760.1834.camel@edumazet-glaptop>
-	 <20120604181623.GF32205@redhat.com>
+Subject: Re: tcp wifi upload performance and lots of ACKs
+Date: Mon, 04 Jun 2012 21:32:32 +0200
+Message-ID: <1338838352.2760.1906.camel@edumazet-glaptop>
+References: <4FCCFE76.3060304@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:51884 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:39068 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750912Ab2FDT3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 15:29:50 -0400
-Received: by bkcji2 with SMTP id ji2so3932619bkc.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 12:29:49 -0700 (PDT)
-In-Reply-To: <20120604181623.GF32205@redhat.com>
+	with ESMTP id S1757257Ab2FDTci (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 15:32:38 -0400
+Received: by bkcji2 with SMTP id ji2so3935018bkc.19
+        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 12:32:36 -0700 (PDT)
+In-Reply-To: <4FCCFE76.3060304@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-04 at 21:16 +0300, Michael S. Tsirkin wrote:
-
-> Yes but if a tcp socket then hangs on, on one of the fragments,
-> while the other has been freed, the whole page is still
-> never reused, right?
+On Mon, 2012-06-04 at 11:29 -0700, Ben Greear wrote:
+> I'm going some TCP performance testing on wifi -> LAN interface connections.  With
+> UDP, we can get around 250Mbps of payload throughput.  With TCP, max is about 80Mbps.
 > 
-> Doesn't this mean truesize should be 4K?
+> I think the problem is that there are way too many ACK packets, and bi-directional
+> traffic on wifi interfaces really slows things down.  (About 7000 pkts per second in
+> upload direction, 2000 pps download.  And the vast majority of the download pkts
+> are 66 byte ACK pkts from what I can tell.)
 > 
+> Kernel is 3.3.7+
+> 
+> Anyone know of any tuning parameters that would let the receiving socket wait a
+> bit longer and send more ACK data in fewer packets?
 
-Yes, or more exactly PAGE_SIZE, but then performance would really go
-down on machines with 64KB pages. Maybe we should make the whole frag
-head idea enabled only for PAGE_SIZE=4096.
+Well, thats half duplex days...
 
-Not sure we want to track precise truesize, as the minimum truesize is
-SKB_DATA_ALIGN(length + NET_SKB_PAD) + SKB_DATA_ALIGN(sizeof(struct
-skb_shared_info)) (64 + 64 + 320) = 448
+There is the ACK every 2 packets rule of thumb, so that tcp sender can
+increase its cwnd.
 
-Its not like buggy drivers that used truesize = length
+Then, some folks tried submitting patches to make '2' more like 10 or
+15, but this went nowhere.
+
+Other idea is to arm a timer and defer ACK sending, in the hope we
+receive another packet very soon.
+
+That could be done with a special qdisc, sort of netem...
