@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/5] gianfar_ethtool: coding style and
- whitespace cleanups
-Date: Mon, 04 Jun 2012 14:08:50 -0400 (EDT)
-Message-ID: <20120604.140850.1847853625568125563.davem@davemloft.net>
-References: <1338827516-18425-1-git-send-email-jan.ceuleers@computer.org>
-	<1338827516-18425-6-git-send-email-jan.ceuleers@computer.org>
+Subject: Re: [PATCH (net.git) 0/3 (v2)] stmmac fixes for net.git
+Date: Mon, 04 Jun 2012 14:11:38 -0400 (EDT)
+Message-ID: <20120604.141138.1776852288038469567.davem@davemloft.net>
+References: <1338827531-10376-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: b06378@freescale.com, joe@perches.com, netdev@vger.kernel.org
-To: jan.ceuleers@computer.org
+Cc: netdev@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43101 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43188 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754786Ab2FDSJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 14:09:11 -0400
-In-Reply-To: <1338827516-18425-6-git-send-email-jan.ceuleers@computer.org>
+	with ESMTP id S1754248Ab2FDSLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 14:11:43 -0400
+In-Reply-To: <1338827531-10376-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Date: Mon,  4 Jun 2012 18:31:56 +0200
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Mon,  4 Jun 2012 18:32:08 +0200
 
-> -					sizeof(struct gfar_mask_entry),
-> -					gfar_comp, &gfar_swap);
-> +			     sizeof(struct gfar_mask_entry),
-> +			     far_comp, &gfar_swap);
+> These patches fix a problem in the driver when built as dynamic
+> module and fix the driver's documentation.
+> 
+> v2: this patchset has the same patches I had sent before but
+>     I removed a patch that did a cleanup (now moved for net-next).
+> 
+> Giuseppe Cavallaro (3):
+>   stmmac: fix driver's doc when run kernel-doc script
+>   stmmac: update driver's doc
+>   stmmac: fix driver Kconfig when built as module
 
-Don't send me crap you haven't even compile tested.
-
-I'm tossing this entire patch series out, don't resubmit until you've
-tested every single patch.
+Still not right, see Ben's feedback.
