@@ -1,71 +1,43 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH] net/hyperv: Use wait_event on outstanding sends during device removal
-Date: Mon,  4 Jun 2012 09:42:38 -0700
-Message-ID: <1338828158-3133-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH (net.git) 1/4] stmmac: remove two useless initialisation
+Date: Mon, 04 Jun 2012 18:31:55 +0200
+Message-ID: <4FCCE2FB.5070801@st.com>
+References: <1338824270-9222-2-git-send-email-peppe.cavallaro@st.com> <20120604.114940.813410325113851773.davem@davemloft.net> <4FCCDB1A.1080307@st.com> <20120604.120121.1628775001889942510.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:44898 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755294Ab2FDQcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 12:32:00 -0400
+In-Reply-To: <20120604.120121.1628775001889942510.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Change the busy-waiting/udelay to wait_event on outstanding sends.
+On 6/4/2012 6:01 PM, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Mon, 04 Jun 2012 17:58:18 +0200
+> 
+>> I've not clear where I have to post this patch.
+> 
+> This is mind boggling that you can't figure this out.
+> 
+> If I tell you it's not appropriate for net, that means
+> it obviously must go to net-next
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |    1 +
- drivers/net/hyperv/netvsc.c     |   12 ++++++------
- 2 files changed, 7 insertions(+), 6 deletions(-)
+I'm sending all the patches: I have verified that there are no issues
+while building net.git and net-next and re-looked at all my comments and
+subjects.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 4ffcd57..2857ab0 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -478,6 +478,7 @@ struct netvsc_device {
- 	u32 nvsp_version;
- 
- 	atomic_t num_outstanding_sends;
-+	wait_queue_head_t wait_drain;
- 	bool start_remove;
- 	bool destroy;
- 	/*
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 8b91947..0c56983 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -42,6 +42,7 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- 	if (!net_device)
- 		return NULL;
- 
-+	init_waitqueue_head(&net_device->wait_drain);
- 	net_device->start_remove = false;
- 	net_device->destroy = false;
- 	net_device->dev = device;
-@@ -387,12 +388,8 @@ int netvsc_device_remove(struct hv_device *device)
- 	spin_unlock_irqrestore(&device->channel->inbound_lock, flags);
- 
- 	/* Wait for all send completions */
--	while (atomic_read(&net_device->num_outstanding_sends)) {
--		dev_info(&device->device,
--			"waiting for %d requests to complete...\n",
--			atomic_read(&net_device->num_outstanding_sends));
--		udelay(100);
--	}
-+	wait_event(net_device->wait_drain,
-+		   atomic_read(&net_device->num_outstanding_sends) == 0);
- 
- 	netvsc_disconnect_vsp(net_device);
- 
-@@ -486,6 +483,9 @@ static void netvsc_send_completion(struct hv_device *device,
- 		num_outstanding_sends =
- 			atomic_dec_return(&net_device->num_outstanding_sends);
- 
-+		if (net_device->destroy && num_outstanding_sends == 0)
-+			wake_up(&net_device->wait_drain);
-+
- 		if (netif_queue_stopped(ndev) && !net_device->start_remove &&
- 			(hv_ringbuf_avail_percent(&device->channel->outbound)
- 			> RING_AVAIL_PERCENT_HIWATER ||
--- 
-1.7.4.1
+peppe
+
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
