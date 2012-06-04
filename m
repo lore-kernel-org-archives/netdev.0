@@ -1,42 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: Remove casts to same type
-Date: Mon, 04 Jun 2012 08:52:08 -0700
-Message-ID: <1338825128.8574.15.camel@joe2Laptop>
-References: <4b3738493b23bc386d3372012faa8cd3672a138d.1338780551.git.joe@perches.com>
-	 <20120604.114533.1720204611284591292.davem@davemloft.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH RFC] c_can_pci: generic module for c_can on PCI
+Date: Mon, 4 Jun 2012 16:56:19 +0100
+Message-ID: <20120604165619.15ba43bf@pyramind.ukuu.org.uk>
+References: <4FC135C6.5030206@grandegger.com>
+	<1338816766-7089-1-git-send-email-federico.vaga@gmail.com>
+	<1338816766-7089-2-git-send-email-federico.vaga@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:55794 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754056Ab2FDPwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2012 11:52:09 -0400
-In-Reply-To: <20120604.114533.1720204611284591292.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Giancarlo Asnaghi <giancarlo.asnaghi@st.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Alessandro Rubini <rubini@gnudd.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Federico Vaga <federico.vaga@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1338816766-7089-2-git-send-email-federico.vaga@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-06-04 at 11:45 -0400, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> > Adding casts of objects to the same type is unnecessary
-> > and confusing for a human reader.
-[]
-> > I used the coccinelle script below to find and remove these
-> > unnecessary casts.  I manually removed the conversions this
-> > script produces of casts with __force and __user.
-> > 
-> > @@
-> > type T;
-> > T *p;
-> > @@
-> > 
-> > -	(T *)p
-> > +	p
-> Applied to net-next, thanks Joe.
+> +enum c_can_pci_reg_align {
+> +	C_CAN_REG_ALIGN_16,
+> +	C_CAN_REG_ALIGN_32,
+> +};
 
-Do you want the same thing for drivers/net?
+Anythign wrong with 
 
-It's pretty big and might be better broken into
-commits by maintainer/directory.
+bool aligned32;
+
+> +
+> +struct c_can_pci_data {
+> +	unsigned int reg_align;	/* Set the register alignment in the memory */
+
+Not the enum .. indeed
+
+> +static u16 c_can_pci_read_reg_aligned_to_16bit(struct c_can_priv *priv,
+> +						void *reg)
+
+I'm a bit worried this function name might be too short ;)
+
+
+> +	dev_info(&pdev->dev, "%s device registered (regs=%p, irq=%d)\n",
+> +		 KBUILD_MODNAME, priv->regs, dev->irq);
+
+dev_dbg
+
+> +	 * do not call pci_disable_device on sta2x11 because it
+> +	 * break all other Bus masters on this EP
+> +	 */
+> +	if(pdev->vendor == PCI_VENDOR_ID_STMICRO &&
+> +	   pdev->device == PCI_DEVICE_ID_STMICRO_CAN)
+> +		goto out;
+
+Is that the disabling or the dropping it into D3. We have a PCI quirk
+flag for the latter. See "quirk_no_ata_d3". That will also avoid any
+accidents elsewhere. Right now the quirk has "ata" in the name but the
+ata is just historically because we had to quirk various disk controllers.
