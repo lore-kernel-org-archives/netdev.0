@@ -1,7 +1,7 @@
 From: Rostislav Lisovy <lisovy@gmail.com>
-Subject: [PATCH iproute2 1/3] Add missing can.h
-Date: Mon,  4 Jun 2012 18:09:07 +0200
-Message-ID: <1338826149-11604-2-git-send-email-lisovy@gmail.com>
+Subject: [PATCH iproute2 3/3] CAN Filter/Classifier -- Documentation
+Date: Mon,  4 Jun 2012 18:09:09 +0200
+Message-ID: <1338826149-11604-4-git-send-email-lisovy@gmail.com>
 References: <1338826149-11604-1-git-send-email-lisovy@gmail.com>
 Cc: linux-can@vger.kernel.org, lartc@vger.kernel.org,
 	pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz,
@@ -12,134 +12,117 @@ In-Reply-To: <1338826149-11604-1-git-send-email-lisovy@gmail.com>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This header file is slightly modified version copied from
-Linux kernel v. 3.3. It contains defines necessary for working
-with AF_CAN packets.
+Manpage describing usage of CAN Filter.
 
 Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
 ---
- include/linux/can.h |  112 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 112 insertions(+)
- create mode 100644 include/linux/can.h
+ man/man8/tc-can.8 |   97 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 97 insertions(+)
+ create mode 100644 man/man8/tc-can.8
 
-diff --git a/include/linux/can.h b/include/linux/can.h
+diff --git a/man/man8/tc-can.8 b/man/man8/tc-can.8
 new file mode 100644
-index 0000000..08d1610
+index 0000000..54ee96a
 --- /dev/null
-+++ b/include/linux/can.h
-@@ -0,0 +1,112 @@
-+/*
-+ * linux/can.h
-+ *
-+ * Definitions for CAN network layer (socket addr / CAN frame / CAN filter)
-+ *
-+ * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-+ *          Urs Thuermann   <urs.thuermann@volkswagen.de>
-+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * All rights reserved.
-+ *
-+ */
++++ b/man/man8/tc-can.8
+@@ -0,0 +1,97 @@
++.TH CAN 8 "8 May 2012" "iproute2" "Linux"
++.SH NAME
++CAN \- Controller Area Network classifier
++.SH SYNOPSIS
++.B tc filter ... dev
++DEV
++.B parent
++CLASSID
++.B [ prio
++PRIORITY
++.B ] [ protocol can ] [ handle 
++HANDLE
++.B ] can [ 
++MATCHSPEC
++.B ] [ flowid 
++FLOWID
++.B ]
 +
-+#ifndef CAN_H
-+#define CAN_H
++.B CLASSID := major:minor
++.br
++.B FLOWID := major:minor
++.br
++.B MATCHSPEC := { sffid 
++FILTERID
++.B | effid 
++FILTERID
++.B | MATCHSPEC ... }
++.br
++.B FILTERID := canid[:mask]
 +
-+#include <linux/types.h>
-+#include <linux/socket.h>
++.BR CLASSID ,
++.BR FLOWID ,
++.BR canid
++and
++.B mask
++are parsed as hexadecimal input.
 +
-+/* controller area network (CAN) kernel definitions */
 +
-+/* special address description flags for the CAN_ID */
-+#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
-+#define CAN_RTR_FLAG 0x40000000U /* remote transmission request */
-+#define CAN_ERR_FLAG 0x20000000U /* error frame */
++.SH DESCRIPTION
++The CAN classifier may be used with any available
++.B qdisc
++on Controller Area Network (CAN) frames passed through AF_CAN
++networking subsystem. The classifier classifies CAN frames according
++to their identifiers. It can be used on CAN frames with both SFF or
++EFF identifiers.
 +
-+/* valid bits in CAN ID for frame formats */
-+#define CAN_SFF_MASK 0x000007FFU /* standard frame format (SFF) */
-+#define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
-+#define CAN_ERR_MASK 0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
++It is possible to add CAN classifier to any qdisc configured on any networking
++device, however it will ignore non-CAN packets.
 +
-+/*
-+ * Controller Area Network Identifier structure
-+ *
-+ * bit 0-28	: CAN identifier (11/29 bit)
-+ * bit 29	: error frame flag (0 = data frame, 1 = error frame)
-+ * bit 30	: remote transmission request flag (1 = rtr frame)
-+ * bit 31	: frame format flag (0 = standard 11 bit, 1 = extended 29 bit)
-+ */
-+typedef __u32 canid_t;
 +
-+#define CAN_SFF_ID_BITS		11
-+#define CAN_EFF_ID_BITS		29
++.SH CLASSIFICATION
++The filtering rules for EFF frames are stored in an array, which is traversed
++during classification. This means that the worst-case time needed for
++classification of EFF frames increases with the number of configured rules.
 +
-+/*
-+ * Controller Area Network Error Frame Mask structure
-+ *
-+ * bit 0-28	: error class mask (see include/linux/can/error.h)
-+ * bit 29-31	: set to zero
-+ */
-+typedef __u32 can_err_mask_t;
++The filter implements an optimization for matching SFF frames using a bitmap
++with one bit for every ID. With this optimization, the classification time
++for SFF frames is nearly constant independently of the number of rules.
 +
-+/**
-+ * struct can_frame - basic CAN frame structure
-+ * @can_id:  the CAN ID of the frame and CAN_*_FLAG flags, see above.
-+ * @can_dlc: the data length field of the CAN frame
-+ * @data:    the CAN frame payload.
-+ */
-+struct can_frame {
-+	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
-+	__u8    can_dlc; /* data length code: 0 .. 8 */
-+	__u8    data[8] __attribute__((aligned(8)));
-+};
++.SH EXAMPLE
++This example shows how to set
++.B prio qdisc
++with
++.B CAN
++classifier.
 +
-+/* particular protocols of the protocol family PF_CAN */
-+#define CAN_RAW		1 /* RAW sockets */
-+#define CAN_BCM		2 /* Broadcast Manager */
-+#define CAN_TP16	3 /* VAG Transport Protocol v1.6 */
-+#define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
-+#define CAN_MCNET	5 /* Bosch MCNet */
-+#define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
-+#define CAN_NPROTO	7
++.nf
++tc qdisc add dev can0 root handle 1: prio
 +
-+#define SOL_CAN_BASE 100
++tc filter add dev can0 parent 1:0 prio 1 handle 0xa \\
++    can sffid 0x7ff:0xf flowid 1:1
++tc filter add dev can0 parent 1:0 prio 2 handle 0xb \\
++    can sffid 0xC0:0x7ff effid 0x80:0x7ff flowid 1:2
++tc filter add dev can0 parent 1:0 prio 3 \\
++    can sffid 0x80:0x7ff flowid 1:2
++tc filter add dev can0 parent 1:0 prio 4 \\
++    can sffid 0x0:0x0 effid 0x0:0x0 flowid 1:3
++.fi
 +
-+/**
-+ * struct sockaddr_can - the sockaddr structure for CAN sockets
-+ * @can_family:  address family number AF_CAN.
-+ * @can_ifindex: CAN network interface index.
-+ * @can_addr:    protocol specific address information
-+ */
-+struct sockaddr_can {
-+	__kernel_sa_family_t can_family;
-+	int         can_ifindex;
-+	union {
-+		/* transport protocol class address information (e.g. ISOTP) */
-+		struct { canid_t rx_id, tx_id; } tp;
 +
-+		/* reserved for future CAN protocols address information */
-+	} can_addr;
-+};
++.SH BUGS
++The maximum number or rules passed from
++.BR tc(8)
++utility to CAN classifier is fixed. The limit is set at compilation time
++(default is 128).
 +
-+/**
-+ * struct can_filter - CAN ID based filter in can_register().
-+ * @can_id:   relevant bits of CAN ID which are not masked out.
-+ * @can_mask: CAN mask (see description)
-+ *
-+ * Description:
-+ * A filter matches, when
-+ *
-+ *          <received_can_id> & mask == can_id & mask
-+ *
-+ * The filter can be inverted (CAN_INV_FILTER bit set in can_id) or it can
-+ * filter for error frames (CAN_ERR_FLAG bit set in mask).
-+ */
-+struct can_filter {
-+	canid_t can_id;
-+	canid_t can_mask;
-+};
 +
-+#define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
++.SH SEE ALSO
++.BR tc(8)
 +
-+#endif /* CAN_H */
++
++.SH AUTHORS
++Michal Sojka <sojkam1@fel.cvut.cz>, Pavel Pisa <pisa@cmp.felk.cvut.cz>,
++Rostislav Lisovy <lisovy@gmail.cz>.
++
++This manpage maintained by Rostislav Lisovy <lisovy@gmail.com>
++
 -- 
 1.7.9.5
 
