@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git) 1/4] stmmac: remove two useless initialisation
-Date: Mon, 04 Jun 2012 11:49:40 -0400 (EDT)
-Message-ID: <20120604.114940.813410325113851773.davem@davemloft.net>
-References: <1338824270-9222-1-git-send-email-peppe.cavallaro@st.com>
-	<1338824270-9222-2-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH 0/1] net/hyperv: Use wait_event on outstanding sends
+ during device removal
+Date: Mon, 04 Jun 2012 11:51:19 -0400 (EDT)
+Message-ID: <20120604.115119.568655178193939719.davem@davemloft.net>
+References: <1338820532-2345-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40484 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752966Ab2FDPtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 11:49:42 -0400
-In-Reply-To: <1338824270-9222-2-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: haiyangz@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1338820532-2345-1-git-send-email-haiyangz@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon,  4 Jun 2012 17:37:47 +0200
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon,  4 Jun 2012 07:35:31 -0700
 
-> This patch removes two useful initialisation in the
-> stmmac_rx and stmmac_tx function.
-> In the former, count var was already reset and in the
-> stmmac_tx we only need to increment the dirty pointer
-> w/o setting the entry var.
+> This patch is targeting net-next tree (when it's available for check in).
 > 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Haiyang Zhang (1):
+>   net/hyperv: Use wait_event on outstanding sends during device removal
 
-There are so many problems with this patch I do not know where
-to start.
+Why in the world are you doing this?
 
-Your subject line says the initializations are "useless" yet
-your commit message says they are "useful".
+This patch you are already asking me to apply to the 'net' tree, and
+changes already will automatically propagate from 'net' to
+'net-next' the next time I merge those trees.
 
-This is a cleanup, and does not fix any bugs, and is therefore
-absolutely not appropriate for the 'net' tree.
-
-I'm tossing this entire series, you need to be more careful
-with your submissions.
+So you never need to submit bug fixes twice, once for 'net' and
+once for 'net-next' so please do not do it.
