@@ -1,61 +1,57 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2 2/2] drop_monitor: Make updating data->skb smp safe
-Date: Mon, 4 Jun 2012 06:39:06 -0400
-Message-ID: <20120604103906.GA20232@hmsreliant.think-freely.org>
-References: <1335466022-32661-1-git-send-email-nhorman@tuxdriver.com>
- <1335557509-32726-1-git-send-email-nhorman@tuxdriver.com>
- <1335557509-32726-3-git-send-email-nhorman@tuxdriver.com>
- <1338795910.2760.1739.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2] drop_monitor: dont sleep in atomic context
+Date: Mon, 4 Jun 2012 06:49:37 -0400
+Message-ID: <20120604104937.GC20232@hmsreliant.think-freely.org>
+References: <1338805099.2760.1798.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42773 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42860 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035Ab2FDKj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 06:39:27 -0400
+	with ESMTP id S1751677Ab2FDKtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 06:49:46 -0400
 Content-Disposition: inline
-In-Reply-To: <1338795910.2760.1739.camel@edumazet-glaptop>
+In-Reply-To: <1338805099.2760.1798.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 04, 2012 at 09:45:10AM +0200, Eric Dumazet wrote:
-> On Fri, 2012-04-27 at 16:11 -0400, Neil Horman wrote:
-> > Eric Dumazet pointed out to me that the drop_monitor protocol has some holes in
-> > its smp protections.  Specifically, its possible to replace data->skb while its
-> > being written.  This patch corrects that by making data->skb and rcu protected
-> > variable.  That will prevent it from being overwritten while a tracepoint is
-> > modifying it.
-> > 
+On Mon, Jun 04, 2012 at 12:18:19PM +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> >  static void send_dm_alert(struct work_struct *unused)
-> >  {
-> >  	struct sk_buff *skb;
-> > -	struct per_cpu_dm_data *data = &__get_cpu_var(dm_cpu_data);
-> > +	struct per_cpu_dm_data *data = &get_cpu_var(dm_cpu_data);
-> >  
-> >  	/*
-> >  	 * Grab the skb we're about to send
-> >  	 */
-> > -	skb = data->skb;
-> > +	skb = rcu_dereference_protected(data->skb, 1);
-> >  
-> >  	/*
-> >  	 * Replace it with a new one
-> > @@ -111,8 +134,10 @@ static void send_dm_alert(struct work_struct *unused)
-> >  	/*
-> >  	 * Ship it!
-> >  	 */
-> > -	genlmsg_multicast(skb, 0, NET_DM_GRP_ALERT, GFP_KERNEL);
-> > +	if (skb)
-> > +		genlmsg_multicast(skb, 0, NET_DM_GRP_ALERT, GFP_KERNEL);
-> >  
-> > +	put_cpu_var(dm_cpu_data);
-> >  }
-> >  
+> drop_monitor calls several sleeping functions while in atomic context.
 > 
-> Oh well, drop_monitor can still trigger alerts :
+>  BUG: sleeping function called from invalid context at mm/slub.c:943
+>  in_atomic(): 1, irqs_disabled(): 0, pid: 2103, name: kworker/0:2
+>  Pid: 2103, comm: kworker/0:2 Not tainted 3.5.0-rc1+ #55
+>  Call Trace:
+>   [<ffffffff810697ca>] __might_sleep+0xca/0xf0
+>   [<ffffffff811345a3>] kmem_cache_alloc_node+0x1b3/0x1c0
+>   [<ffffffff8105578c>] ? queue_delayed_work_on+0x11c/0x130
+>   [<ffffffff815343fb>] __alloc_skb+0x4b/0x230
+>   [<ffffffffa00b0360>] ? reset_per_cpu_data+0x160/0x160 [drop_monitor]
+>   [<ffffffffa00b022f>] reset_per_cpu_data+0x2f/0x160 [drop_monitor]
+>   [<ffffffffa00b03ab>] send_dm_alert+0x4b/0xb0 [drop_monitor]
+>   [<ffffffff810568e0>] process_one_work+0x130/0x4c0
+>   [<ffffffff81058249>] worker_thread+0x159/0x360
+>   [<ffffffff810580f0>] ? manage_workers.isra.27+0x240/0x240
+>   [<ffffffff8105d403>] kthread+0x93/0xa0
+>   [<ffffffff816be6d4>] kernel_thread_helper+0x4/0x10
+>   [<ffffffff8105d370>] ? kthread_freezable_should_stop+0x80/0x80
+>   [<ffffffff816be6d0>] ? gs_change+0xb/0xb
 > 
-Grr, Not sure why I didn't see this before.  I'll take care of it shortly.
+> Rework the logic to call the sleeping functions in right context.
+> 
+> Use standard timer/workqueue api to let system chose any cpu to perform
+> the allocation and netlink send.
+> 
+> Also avoid a loop if reset_per_cpu_data() cannot allocate memory :
+> use mod_timer() to wait 1/10 second before next try.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+Reviewed-by: Neil Horman <nhorman@tuxdriver.com>
+
+Thanks Eric!
 Neil
