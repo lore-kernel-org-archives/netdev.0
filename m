@@ -1,42 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: tcp wifi upload performance and lots of ACKs
-Date: Mon, 04 Jun 2012 11:29:10 -0700
-Message-ID: <4FCCFE76.3060304@candelatech.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] Add reference to tc-codel(8) to the SEE ALSO
+ section
+Date: Mon, 4 Jun 2012 12:03:24 -0700
+Message-ID: <20120604120324.3b34cfa4@nehalam.linuxnetplumber.net>
+References: <1338666310-18744-1-git-send-email-jan.ceuleers@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: andyqos@ukfsn.org, netdev@vger.kernel.org
+To: Jan Ceuleers <jan.ceuleers@computer.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:49871 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753440Ab2FDS3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 14:29:11 -0400
-Received: from [192.168.100.111] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id q54ITAlD016231
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 4 Jun 2012 11:29:10 -0700
+Received: from mail.vyatta.com ([76.74.103.46]:42779 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752391Ab2FDTD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2012 15:03:28 -0400
+In-Reply-To: <1338666310-18744-1-git-send-email-jan.ceuleers@computer.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm going some TCP performance testing on wifi -> LAN interface connections.  With
-UDP, we can get around 250Mbps of payload throughput.  With TCP, max is about 80Mbps.
+On Sat,  2 Jun 2012 21:45:10 +0200
+Jan Ceuleers <jan.ceuleers@computer.org> wrote:
 
-I think the problem is that there are way too many ACK packets, and bi-directional
-traffic on wifi interfaces really slows things down.  (About 7000 pkts per second in
-upload direction, 2000 pps download.  And the vast majority of the download pkts
-are 66 byte ACK pkts from what I can tell.)
+> Reported-by: Andy Furniss <andyqos@ukfsn.org>
+> Signed-off-by: Jan Ceuleers <jan.ceuleers@computer.org>
+> ---
+>  man/man8/tc.8 |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/man/man8/tc.8 b/man/man8/tc.8
+> index 6576377..14a1cd8 100644
+> --- a/man/man8/tc.8
+> +++ b/man/man8/tc.8
+> @@ -368,6 +368,7 @@ was written by Alexey N. Kuznetsov and added in Linux 2.2.
+>  .SH SEE ALSO
+>  .BR tc-cbq (8),
+>  .BR tc-choke (8),
+> +.BR tc-codel (8),
+>  .BR tc-drr (8),
+>  .BR tc-htb (8),
+>  .BR tc-hfsc (8),
 
-Kernel is 3.3.7+
-
-Anyone know of any tuning parameters that would let the receiving socket wait a
-bit longer and send more ACK data in fewer packets?
-
-Packet traces and other info available if anyone wants to take a look.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+applied.
