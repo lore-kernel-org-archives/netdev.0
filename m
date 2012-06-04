@@ -1,7 +1,7 @@
 From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 03/24] TTY: ircomm, use close times from tty_port
-Date: Mon,  4 Jun 2012 13:35:17 +0200
-Message-ID: <1338809738-18967-4-git-send-email-jslaby@suse.cz>
+Subject: [PATCH 02/24] TTY: ircomm, add tty_port
+Date: Mon,  4 Jun 2012 13:35:16 +0200
+Message-ID: <1338809738-18967-3-git-send-email-jslaby@suse.cz>
 References: <1338809738-18967-1-git-send-email-jslaby@suse.cz>
 Cc: alan@linux.intel.com, linux-kernel@vger.kernel.org,
 	jirislaby@gmail.com, Samuel Ortiz <samuel@sortiz.org>,
@@ -12,80 +12,148 @@ In-Reply-To: <1338809738-18967-1-git-send-email-jslaby@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Switch to tty_port->close_delay and closing_wait.
+And use close/open_wait from there.
 
 Signed-off-by: Jiri Slaby <jslaby@suse.cz>
 Cc: Samuel Ortiz <samuel@sortiz.org>
 Cc: netdev@vger.kernel.org
 ---
- include/net/irda/ircomm_tty.h      |    3 ---
- net/irda/ircomm/ircomm_tty.c       |   10 ++++------
- net/irda/ircomm/ircomm_tty_ioctl.c |    4 ++--
- 3 files changed, 6 insertions(+), 11 deletions(-)
+ include/net/irda/ircomm_tty.h       |    3 +--
+ net/irda/ircomm/ircomm_tty.c        |   21 +++++++++++----------
+ net/irda/ircomm/ircomm_tty_attach.c |    2 +-
+ 3 files changed, 13 insertions(+), 13 deletions(-)
 
 diff --git a/include/net/irda/ircomm_tty.h b/include/net/irda/ircomm_tty.h
-index 365fa6e..b4184d0 100644
+index 59ba38bc..365fa6e 100644
 --- a/include/net/irda/ircomm_tty.h
 +++ b/include/net/irda/ircomm_tty.h
-@@ -101,9 +101,6 @@ struct ircomm_tty_cb {
+@@ -62,6 +62,7 @@
+  */
+ struct ircomm_tty_cb {
+ 	irda_queue_t queue;            /* Must be first */
++	struct tty_port port;
+ 	magic_t magic;
+ 
+ 	int state;                /* Connect state */
+@@ -97,8 +98,6 @@ struct ircomm_tty_cb {
+ 	void *skey;
+ 	void *ckey;
+ 
+-	wait_queue_head_t open_wait;
+-	wait_queue_head_t close_wait;
  	struct timer_list watchdog_timer;
  	struct work_struct  tqueue;
  
--        unsigned short    close_delay;
--        unsigned short    closing_wait; /* time to wait before closing */
--
- 	int  open_count;
- 	int  blocked_open;	/* # of blocked opens */
- 
 diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
-index 8eeaa8b..61e0adc 100644
+index 6b9d5a0..8eeaa8b 100644
 --- a/net/irda/ircomm/ircomm_tty.c
 +++ b/net/irda/ircomm/ircomm_tty.c
-@@ -389,8 +389,6 @@ static int ircomm_tty_open(struct tty_struct *tty, struct file *filp)
- 		INIT_WORK(&self->tqueue, ircomm_tty_do_softint);
- 		self->max_header_size = IRCOMM_TTY_HDR_UNINITIALISED;
- 		self->max_data_size = IRCOMM_TTY_DATA_UNINITIALISED;
--		self->close_delay = 5*HZ/10;
--		self->closing_wait = 30*HZ;
+@@ -278,7 +278,7 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
+ 	 */
+ 
+ 	retval = 0;
+-	add_wait_queue(&self->open_wait, &wait);
++	add_wait_queue(&self->port.open_wait, &wait);
+ 
+ 	IRDA_DEBUG(2, "%s(%d):block_til_ready before block on %s open_count=%d\n",
+ 	      __FILE__,__LINE__, tty->driver->name, self->open_count );
+@@ -336,7 +336,7 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
+ 	}
+ 
+ 	__set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&self->open_wait, &wait);
++	remove_wait_queue(&self->port.open_wait, &wait);
+ 
+ 	if (extra_count) {
+ 		/* ++ is not atomic, so this should be protected - Jean II */
+@@ -381,6 +381,7 @@ static int ircomm_tty_open(struct tty_struct *tty, struct file *filp)
+ 			return -ENOMEM;
+ 		}
+ 
++		tty_port_init(&self->port);
+ 		self->magic = IRCOMM_TTY_MAGIC;
+ 		self->flow = FLOW_STOP;
+ 
+@@ -393,8 +394,6 @@ static int ircomm_tty_open(struct tty_struct *tty, struct file *filp)
  
  		/* Init some important stuff */
  		init_timer(&self->watchdog_timer);
-@@ -546,8 +544,8 @@ static void ircomm_tty_close(struct tty_struct *tty, struct file *filp)
- 	 * the line discipline to only process XON/XOFF characters.
- 	 */
- 	tty->closing = 1;
--	if (self->closing_wait != ASYNC_CLOSING_WAIT_NONE)
--		tty_wait_until_sent_from_close(tty, self->closing_wait);
-+	if (self->port.closing_wait != ASYNC_CLOSING_WAIT_NONE)
-+		tty_wait_until_sent_from_close(tty, self->port.closing_wait);
+-		init_waitqueue_head(&self->open_wait);
+-		init_waitqueue_head(&self->close_wait);
+ 		spin_lock_init(&self->spinlock);
  
- 	ircomm_tty_shutdown(self);
+ 		/*
+@@ -408,6 +407,7 @@ static int ircomm_tty_open(struct tty_struct *tty, struct file *filp)
+ 		tty->termios->c_oflag = 0;
  
-@@ -558,8 +556,8 @@ static void ircomm_tty_close(struct tty_struct *tty, struct file *filp)
- 	self->tty = NULL;
+ 		/* Insert into hash */
++		/* FIXME there is a window from find to here */
+ 		hashbin_insert(ircomm_tty, (irda_queue_t *) self, line, NULL);
+ 	}
+ 	/* ++ is not atomic, so this should be protected - Jean II */
+@@ -438,7 +438,8 @@ static int ircomm_tty_open(struct tty_struct *tty, struct file *filp)
+ 		 * probably better sleep uninterruptible?
+ 		 */
  
+-		if (wait_event_interruptible(self->close_wait, !test_bit(ASYNC_B_CLOSING, &self->flags))) {
++		if (wait_event_interruptible(self->port.close_wait,
++				!test_bit(ASYNC_B_CLOSING, &self->flags))) {
+ 			IRDA_WARNING("%s - got signal while blocking on ASYNC_CLOSING!\n",
+ 				     __func__);
+ 			return -ERESTARTSYS;
+@@ -559,11 +560,11 @@ static void ircomm_tty_close(struct tty_struct *tty, struct file *filp)
  	if (self->blocked_open) {
--		if (self->close_delay)
--			schedule_timeout_interruptible(self->close_delay);
-+		if (self->port.close_delay)
-+			schedule_timeout_interruptible(self->port.close_delay);
- 		wake_up_interruptible(&self->port.open_wait);
+ 		if (self->close_delay)
+ 			schedule_timeout_interruptible(self->close_delay);
+-		wake_up_interruptible(&self->open_wait);
++		wake_up_interruptible(&self->port.open_wait);
  	}
  
-diff --git a/net/irda/ircomm/ircomm_tty_ioctl.c b/net/irda/ircomm/ircomm_tty_ioctl.c
-index d0667d6..a6d25e3 100644
---- a/net/irda/ircomm/ircomm_tty_ioctl.c
-+++ b/net/irda/ircomm/ircomm_tty_ioctl.c
-@@ -272,8 +272,8 @@ static int ircomm_tty_get_serial_info(struct ircomm_tty_cb *self,
- 	info.line = self->line;
- 	info.flags = self->flags;
- 	info.baud_base = self->settings.data_rate;
--	info.close_delay = self->close_delay;
--	info.closing_wait = self->closing_wait;
-+	info.close_delay = self->port.close_delay;
-+	info.closing_wait = self->port.closing_wait;
+ 	self->flags &= ~(ASYNC_NORMAL_ACTIVE|ASYNC_CLOSING);
+-	wake_up_interruptible(&self->close_wait);
++	wake_up_interruptible(&self->port.close_wait);
+ }
  
- 	/* For compatibility  */
- 	info.type = PORT_16550A;
+ /*
+@@ -1011,7 +1012,7 @@ static void ircomm_tty_hangup(struct tty_struct *tty)
+ 	self->open_count = 0;
+ 	spin_unlock_irqrestore(&self->spinlock, flags);
+ 
+-	wake_up_interruptible(&self->open_wait);
++	wake_up_interruptible(&self->port.open_wait);
+ }
+ 
+ /*
+@@ -1084,7 +1085,7 @@ void ircomm_tty_check_modem_status(struct ircomm_tty_cb *self)
+ 			   (status & IRCOMM_CD) ? "on" : "off");
+ 
+ 		if (status & IRCOMM_CD) {
+-			wake_up_interruptible(&self->open_wait);
++			wake_up_interruptible(&self->port.open_wait);
+ 		} else {
+ 			IRDA_DEBUG(2,
+ 				   "%s(), Doing serial hangup..\n", __func__ );
+@@ -1103,7 +1104,7 @@ void ircomm_tty_check_modem_status(struct ircomm_tty_cb *self)
+ 				tty->hw_stopped = 0;
+ 
+ 				/* Wake up processes blocked on open */
+-				wake_up_interruptible(&self->open_wait);
++				wake_up_interruptible(&self->port.open_wait);
+ 
+ 				schedule_work(&self->tqueue);
+ 				return;
+diff --git a/net/irda/ircomm/ircomm_tty_attach.c b/net/irda/ircomm/ircomm_tty_attach.c
+index b65d66e..bb1e935 100644
+--- a/net/irda/ircomm/ircomm_tty_attach.c
++++ b/net/irda/ircomm/ircomm_tty_attach.c
+@@ -575,7 +575,7 @@ void ircomm_tty_link_established(struct ircomm_tty_cb *self)
+ 		self->tty->hw_stopped = 0;
+ 
+ 		/* Wake up processes blocked on open */
+-		wake_up_interruptible(&self->open_wait);
++		wake_up_interruptible(&self->port.open_wait);
+ 	}
+ 
+ 	schedule_work(&self->tqueue);
 -- 
 1.7.10.3
