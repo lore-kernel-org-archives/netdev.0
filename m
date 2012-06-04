@@ -1,54 +1,59 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] sock_diag: add SK_MEMINFO_BACKLOG
-Date: Mon, 04 Jun 2012 15:50:35 +0200
-Message-ID: <1338817835.2760.1815.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
+Date: Mon, 04 Jun 2012 16:01:41 +0200
+Message-ID: <1338818501.2760.1821.camel@edumazet-glaptop>
+References: <20120517121800.GA18052@1wt.eu> <20120517150157.GA19274@1wt.eu>
+	 <1337269380.3403.10.camel@edumazet-glaptop> <20120517155621.GK14498@1wt.eu>
+	 <1337272404.3403.18.camel@edumazet-glaptop> <20120517164016.GL14498@1wt.eu>
+	 <1337273387.3403.24.camel@edumazet-glaptop>
+	 <1337276056.3403.37.camel@edumazet-glaptop>
+	 <20120604123738.GA28992@redhat.com>
+	 <1338815213.2760.1806.camel@edumazet-glaptop>
+	 <20120604134138.GA29814@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:58470 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752641Ab2FDNuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 09:50:40 -0400
-Received: by eaak11 with SMTP id k11so1172886eaa.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 06:50:39 -0700 (PDT)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:55183 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752716Ab2FDOBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 10:01:48 -0400
+Received: by eeit10 with SMTP id t10so1542138eei.19
+        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 07:01:46 -0700 (PDT)
+In-Reply-To: <20120604134138.GA29814@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, 2012-06-04 at 16:41 +0300, Michael S. Tsirkin wrote:
 
-Adding socket backlog len in INET_DIAG_SKMEMINFO is really useful to
-diagnose various TCP problems.
+> This is generally what virtio does, take a look:
+> page_to_skb fills the first fragment and receive_mergeable fills the
+> rest (other modes are for legacy hardware).
+> 
+> The way hypervisor now works is this (we call it mergeable buffers):
+> 
+> - pages are passed to hardware
+> - hypervisor puts virtio specific stuff in first 12 bytes
+>   on first page
+> - following this, the rest of the first page and all following
+>   pages have data
+> 
+> The driver gets the 1st page, allocates the skb, copies out the 12 byte
+> header and copies the first 128 bytes of data into skb.
+> The rest if any is populated by the pages.
+> 
+> So I guess I'm asking for advice, would it make sense to switch to build_skb
+> and how best to handle the data copying above? Maybe it would help
+> if we changed the hypervisor to write the 12 bytes separately?
+>   
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/sock_diag.h |    1 +
- net/core/sock_diag.c      |    1 +
- 2 files changed, 2 insertions(+)
+Thanks for these details.
 
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index db4bae7..6793fac 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -18,6 +18,7 @@ enum {
- 	SK_MEMINFO_FWD_ALLOC,
- 	SK_MEMINFO_WMEM_QUEUED,
- 	SK_MEMINFO_OPTMEM,
-+	SK_MEMINFO_BACKLOG,
- 
- 	SK_MEMINFO_VARS,
- };
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index 5fd1467..0d934ce 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -46,6 +46,7 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
- 	mem[SK_MEMINFO_FWD_ALLOC] = sk->sk_forward_alloc;
- 	mem[SK_MEMINFO_WMEM_QUEUED] = sk->sk_wmem_queued;
- 	mem[SK_MEMINFO_OPTMEM] = atomic_read(&sk->sk_omem_alloc);
-+	mem[SK_MEMINFO_BACKLOG] = sk->sk_backlog.len;
- 
- 	return 0;
- 
+Not sure 12 bytes of headroom would be enough (instead of the
+NET_SKB_PAD reserved in netdev_alloc_skb_ip_align(), but what could be
+done indeed is to use the first page as the skb->head, so using
+build_skb() indeed, removing one fragment, one (small) copy and one
+{put|get}_page() pair.
