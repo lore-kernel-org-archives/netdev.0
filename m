@@ -1,39 +1,88 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
-Date: Mon, 4 Jun 2012 14:44:55 +0200
-Message-ID: <20120604124455.GA26420@1wt.eu>
-References: <20120517121800.GA18052@1wt.eu> <20120517150157.GA19274@1wt.eu> <1337269380.3403.10.camel@edumazet-glaptop> <20120517155621.GK14498@1wt.eu> <1337272404.3403.18.camel@edumazet-glaptop> <20120517164016.GL14498@1wt.eu> <1337273387.3403.24.camel@edumazet-glaptop> <1337276056.3403.37.camel@edumazet-glaptop> <20120517174551.GN14498@1wt.eu> <20120604123912.GB28992@redhat.com>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH 3/7] netfilter: nf_ct_helper: implement variable length
+ helper private data
+Date: Mon, 4 Jun 2012 15:06:41 +0200 (CEST)
+Message-ID: <alpine.LNX.2.01.1206041456480.16684@frira.zrqbmnf.qr>
+References: <1338812485-4232-1-git-send-email-pablo@netfilter.org> <1338812485-4232-4-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:3095 "EHLO 1wt.eu"
+Received: from seven.medozas.de ([188.40.89.202]:46166 "EHLO seven.medozas.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753531Ab2FDMpF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2012 08:45:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20120604123912.GB28992@redhat.com>
+	id S1753225Ab2FDNGo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jun 2012 09:06:44 -0400
+In-Reply-To: <1338812485-4232-4-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 04, 2012 at 03:39:12PM +0300, Michael S. Tsirkin wrote:
-> On Thu, May 17, 2012 at 07:45:51PM +0200, Willy Tarreau wrote:
-> > Impressed !
-> > 
-> > For the first time I could proxy HTTP traffic at gigabit speed on this
-> > little box powered by USB ! I've long believed that proper splicing
-> > would make this possible and now I'm seeing it is. Congrats Eric !
+On Monday 2012-06-04 14:21, pablo@netfilter.org wrote:
+
+>+static inline void *nfct_help_data(const struct nf_conn *ct)
+>+{
+>+	struct nf_conn_help *help;
+>+
+>+	help = nf_ct_ext_find(ct, NF_CT_EXT_HELPER);
+>+
+>+	return (void *)&help->data;
+>+}
+
+I think you wanted
+
+	return help->data;
+
+here. Remember that help->data is of type char[0] which is
+convertible to char* - which is what you want,
+while adding an extra & would turn that into the undesired (char[0])*.
+
+
+
+>@@ -89,12 +59,13 @@ struct nf_conn_help {
+> 	/* Helper. if any */
+> 	struct nf_conntrack_helper __rcu *helper;
 > 
-> which userspace do you use?
+>-	union nf_conntrack_help help;
+>-
+> 	struct hlist_head expectations;
+> 
+> 	/* Current number of expected connections */
+> 	u8 expecting[NF_CT_MAX_EXPECT_CLASSES];
+>+
+>+	/* private helper information. */
+>+	char data[0];
 
-It's haproxy-1.5-dev with splicing enabled.
+There is a now-standardized notation:
 
-> anything I can try?
+	char data[];
 
-Yes, feel free to download -dev11, build it for kernels >= 2.6.28 and
-make a small config to relay TCP/HTTP to another host. of course you
-need gigabit-capable client and server.
 
-Willy
+
+>@@ -218,13 +221,13 @@ int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
+> 	}
+> 
+> 	if (help == NULL) {
+>-		help = nf_ct_helper_ext_add(ct, flags);
+>+		help = nf_ct_helper_ext_add(ct, helper, flags);
+> 		if (help == NULL) {
+> 			ret = -ENOMEM;
+> 			goto out;
+> 		}
+> 	} else {
+>-		memset(&help->help, 0, sizeof(help->help));
+>+		memset(&help->data, 0, sizeof(helper->data_len));
+> 	}
+
+memset(help->data, 0, sizeof(helper->data_len));
+
+>index 6f4b00a..30f5e12 100644
+>--- a/net/netfilter/nf_conntrack_netlink.c
+>+++ b/net/netfilter/nf_conntrack_netlink.c
+>@@ -1218,7 +1218,7 @@ ctnetlink_change_helper(struct nf_conn *ct, const struct nlattr * const cda[])
+> 		if (help->helper)
+> 			return -EBUSY;
+> 		/* need to zero data of old helper */
+>-		memset(&help->help, 0, sizeof(help->help));
+>+		memset(&help->data, 0, help->helper->data_len);
+
+Here too.. memset(help->data,...
