@@ -1,81 +1,122 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
-Date: Tue, 5 Jun 2012 00:54:36 +0300
-Message-ID: <20120604215434.GB3193@redhat.com>
-References: <20120604123738.GA28992@redhat.com>
- <1338815213.2760.1806.camel@edumazet-glaptop>
- <20120604134138.GA29814@redhat.com>
- <1338818501.2760.1821.camel@edumazet-glaptop>
- <20120604141731.GA30226@redhat.com>
- <1338822064.2760.1834.camel@edumazet-glaptop>
- <20120604181623.GF32205@redhat.com>
- <1338838185.2760.1899.camel@edumazet-glaptop>
- <20120604194330.GA1648@redhat.com>
- <1338839579.2760.1932.camel@edumazet-glaptop>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: linux-next: Tree for Apr 12
+Date: Mon, 4 Jun 2012 15:04:55 -0700
+Message-ID: <20120604150455.7a80b311.akpm@linux-foundation.org>
+References: <20120412145931.9ec6f2b51655071795d60d1d@canb.auug.org.au>
+	<20120412142415.564710b8.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27553 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756909Ab2FDWCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2012 18:02:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1338839579.2760.1932.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Eric Paris <eparis@redhat.com>,
+	James Morris <jmorris@namei.org>,
+	Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120412142415.564710b8.akpm@linux-foundation.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 04, 2012 at 09:52:59PM +0200, Eric Dumazet wrote:
-> On Mon, 2012-06-04 at 22:43 +0300, Michael S. Tsirkin wrote:
-> > On Mon, Jun 04, 2012 at 09:29:45PM +0200, Eric Dumazet wrote:
-> > > On Mon, 2012-06-04 at 21:16 +0300, Michael S. Tsirkin wrote:
-> > > 
-> > > > Yes but if a tcp socket then hangs on, on one of the fragments,
-> > > > while the other has been freed, the whole page is still
-> > > > never reused, right?
-> > > > 
-> > > > Doesn't this mean truesize should be 4K?
-> > > > 
-> > > 
-> > > Yes, or more exactly PAGE_SIZE, but then performance would really go
-> > > down on machines with 64KB pages.
-> > > Maybe we should make the whole frag
-> > > head idea enabled only for PAGE_SIZE=4096.
-> > > 
-> > > Not sure we want to track precise truesize, as the minimum truesize is
-> > > SKB_DATA_ALIGN(length + NET_SKB_PAD) + SKB_DATA_ALIGN(sizeof(struct
-> > > skb_shared_info)) (64 + 64 + 320) = 448
-> > > 
-> > > Its not like buggy drivers that used truesize = length
-> > > 
-> > > 
-> > 
-> > Interesting. But where's the threshold?
-> > 
-> 
-> It all depends on the global limit you have on your machine.
-> 
-> If you allow tcp memory to use 10% of ram, then a systematic x4 error
-> would allow it to use 40% of ram. Mabe not enough to crash.
-> 
-> Now you have to find a real workload able to hit this limit for real...
-> 
-> But, if you "allow" a driver to claim a truesize of 1 (instead of 4096),
-> you can reach the limit and OOM faster
-> 
-> You know, even the current page stored for each socket (sk_sndmsg_page)
-> can be a problem if you setup 1.000.000 tcp sockets. That can consume
-> 4GB of ram (added to inode/sockets themselves)
-> This is not really taken into account right now...
-> 
-> 
+On Thu, 12 Apr 2012 14:24:15 -0700
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-Yes but what bugs me if the box is not under memory pressure
-this overestimation limits buffers for no real gain.
-How about we teach tcp to use data_len for buffer
-limits normally and switch to truesize when low on memory?
+> On Thu, 12 Apr 2012 14:59:31 +1000
+> Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> 
+> > I have created today's linux-next tree at
+> > git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git
+> 
+> This isn't working for me.  Some time between April 3 and April 12
+> someone merged something into the non-mm part of linux-next which broke
+> ssh.
+> 
+> I boot the box and everything seems to come up OK, but attemtps to ssh
+> into the machine fail with
+> 
+> X11 forwarding request failed on channel 0
+> Last login: Thu Apr 12 13:04:35 2012 from akpm.corp.google.com
+> Connection to akpm2 closed.
+> 
+> I took a peek in the `strace ssh' output.
+> 
+> Good:
+> 
+> 17815 write(5, "Last login: Thu Apr 12 13:27:23 "..., 65) = 65
+> 17815 select(7, [3 4], [], NULL, {120, 0}) = 1 (in [3], left {119, 770798})
+> 17815 read(3, "\21O\200\366Mv\343\222\332\251\2403L\376Y18\2047\336\244\226p-+X\2%\2119\314\255"..., 8192) = 80
+> 17815 select(7, [3 4], [5], NULL, {120, 0}) = 1 (out [5], left {119, 999987})
+> 17815 write(5, "\r\33[m\17\33[27m\33[24m\33[Jakpm2:/home/ak"..., 39) = 39
+> 17815 select(7, [3 4], [], NULL, {120, 0}) = 1 (in [4], left {118, 801111})
+> 17815 read(4, "\4", 16384)              = 1
+> 17815 select(7, [3 4], [3], NULL, {120, 0}) = 1 (out [3], left {119, 999991})
+> 17815 write(3, "\235J\5\340\234\21\266\207\26e\362\327\2\332\1\267\272\200\364\267?/\320L\341\35\350{+M:\222"..., 48) = 48
+> 
+> 
+> Bad:
+> 
+> 9305  write(5, "Last login: Thu Apr 12 13:02:54 "..., 65) = 65
+> 9305  select(7, [3 4], [], NULL, {120, 0}) = 1 (in [3], left {119, 945541})
+> 9305  read(3, "f\357\250~\260i\2259\320\3258\262)O\364;_\251\360-\314\31\374]\326\300\356\364\370S\3105"..., 8192) = 128
+> 9305  close(5)                          = 0
+> 9305  close(4)                          = 0
+> 
+> That read() is returning a lot more data.
+> 
+> It appears that we've done something which breaks X forwarding.  I
+> won't be able to look any further into this until Monday.
 
--- 
-MST
+This regression is now in mainline.  I've bisected it to an SELinux
+patch, below.  I have confirmed that reverting just that patch from
+current mainline fixes the regression.
+
+Using openssh-server-4.3p2-14.fc6 on FC6.
+
+
+commit 95dbf739313f09c8d859bde1373bc264ef979337
+Author:     Eric Paris <eparis@redhat.com>
+AuthorDate: Wed Apr 4 13:45:34 2012 -0400
+Commit:     Eric Paris <eparis@redhat.com>
+CommitDate: Mon Apr 9 12:22:49 2012 -0400
+
+    SELinux: check OPEN on truncate calls
+    
+    In RH BZ 578841 we realized that the SELinux sandbox program was allowed to
+    truncate files outside of the sandbox.  The reason is because sandbox
+    confinement is determined almost entirely by the 'open' permission.  The idea
+    was that if the sandbox was unable to open() files it would be unable to do
+    harm to those files.  This turns out to be false in light of syscalls like
+    truncate() and chmod() which don't require a previous open() call.  I looked
+    at the syscalls that did not have an associated 'open' check and found that
+    truncate(), did not have a seperate permission and even if it did have a
+    separate permission such a permission owuld be inadequate for use by
+    sandbox (since it owuld have to be granted so liberally as to be useless).
+    This patch checks the OPEN permission on truncate.  I think a better solution
+    for sandbox is a whole new permission, but at least this fixes what we have
+    today.
+    
+    Signed-off-by: Eric Paris <eparis@redhat.com>
+
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index d85b793..f7d7e77 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -2708,6 +2708,7 @@ static int selinux_inode_setattr(struct dentry *dentry, struct iattr *iattr)
+ {
+ 	const struct cred *cred = current_cred();
+ 	unsigned int ia_valid = iattr->ia_valid;
++	__u32 av = FILE__WRITE;
+ 
+ 	/* ATTR_FORCE is just used for ATTR_KILL_S[UG]ID. */
+ 	if (ia_valid & ATTR_FORCE) {
+@@ -2721,7 +2722,10 @@ static int selinux_inode_setattr(struct dentry *dentry, struct iattr *iattr)
+ 			ATTR_ATIME_SET | ATTR_MTIME_SET | ATTR_TIMES_SET))
+ 		return dentry_has_perm(cred, dentry, FILE__SETATTR);
+ 
+-	return dentry_has_perm(cred, dentry, FILE__WRITE);
++	if (ia_valid & ATTR_SIZE)
++		av |= FILE__OPEN;
++
++	return dentry_has_perm(cred, dentry, av);
+ }
+ 
+ static int selinux_inode_getattr(struct vfsmount *mnt, struct dentry *dentry)
