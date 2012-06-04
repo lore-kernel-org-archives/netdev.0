@@ -1,57 +1,59 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] drop_monitor: dont sleep in atomic context
-Date: Mon, 4 Jun 2012 06:49:37 -0400
-Message-ID: <20120604104937.GC20232@hmsreliant.think-freely.org>
-References: <1338805099.2760.1798.camel@edumazet-glaptop>
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: Re: [PATCH v5 6/6 resend] net: sh_eth: use NAPI
+Date: Mon, 04 Jun 2012 20:17:22 +0900
+Message-ID: <4FCC9942.5080809@renesas.com>
+References: <4FC48589.6060009@renesas.com> <4FC9E56C.4000707@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42860 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751677Ab2FDKtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 06:49:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1338805099.2760.1798.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	SH-Linux <linux-sh@vger.kernel.org>
+To: Jan Ceuleers <jan.ceuleers@computer.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-reply-to: <4FC9E56C.4000707@computer.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 04, 2012 at 12:18:19PM +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+2012/06/02 19:05, Jan Ceuleers wrote:
+> On 05/29/2012 10:15 AM, Shimoda, Yoshihiro wrote:
+>> @@ -1087,13 +1088,17 @@ static int sh_eth_rx(struct net_device *ndev)
+>>  				skb_reserve(skb, NET_IP_ALIGN);
+>>  			skb_put(skb, pkt_len);
+>>  			skb->protocol = eth_type_trans(skb, ndev);
+>> -			netif_rx(skb);
+>> -			ndev->stats.rx_packets++;
+>> -			ndev->stats.rx_bytes += pkt_len;
+>> +			if (netif_receive_skb(skb) == NET_RX_DROP) {
+>> +				ndev->stats.rx_dropped++;
+>> +			} else {
+>> +				ndev->stats.rx_packets++;
+>> +				ndev->stats.rx_bytes += pkt_len;
+>> +			}
+>>  		}
+>>  		rxdesc->status |= cpu_to_edmac(mdp, RD_RACT);
+>>  		entry = (++mdp->cur_rx) % mdp->num_rx_ring;
+>>  		rxdesc = &mdp->rx_ring[entry];
+>> +		(*work)++;
+>>  	}
+>>
+>>  	/* Refill the Rx ring buffers. */
 > 
-> drop_monitor calls several sleeping functions while in atomic context.
+> Please forgive a newbie's question/comment; feel free to ignore if I'm
+> wasting your time. Particularly because it's about an aspect of the
+> driver that you're not changing in this patch. (And yes, I know that
+> you've been asked to sit on this patch series until net-next opens up
+> again).
 > 
->  BUG: sleeping function called from invalid context at mm/slub.c:943
->  in_atomic(): 1, irqs_disabled(): 0, pid: 2103, name: kworker/0:2
->  Pid: 2103, comm: kworker/0:2 Not tainted 3.5.0-rc1+ #55
->  Call Trace:
->   [<ffffffff810697ca>] __might_sleep+0xca/0xf0
->   [<ffffffff811345a3>] kmem_cache_alloc_node+0x1b3/0x1c0
->   [<ffffffff8105578c>] ? queue_delayed_work_on+0x11c/0x130
->   [<ffffffff815343fb>] __alloc_skb+0x4b/0x230
->   [<ffffffffa00b0360>] ? reset_per_cpu_data+0x160/0x160 [drop_monitor]
->   [<ffffffffa00b022f>] reset_per_cpu_data+0x2f/0x160 [drop_monitor]
->   [<ffffffffa00b03ab>] send_dm_alert+0x4b/0xb0 [drop_monitor]
->   [<ffffffff810568e0>] process_one_work+0x130/0x4c0
->   [<ffffffff81058249>] worker_thread+0x159/0x360
->   [<ffffffff810580f0>] ? manage_workers.isra.27+0x240/0x240
->   [<ffffffff8105d403>] kthread+0x93/0xa0
->   [<ffffffff816be6d4>] kernel_thread_helper+0x4/0x10
->   [<ffffffff8105d370>] ? kthread_freezable_should_stop+0x80/0x80
->   [<ffffffff816be6d0>] ? gs_change+0xb/0xb
+> I see that most users of netif_receive_skb() ignore its return value.
+> Some drivers (including this-one) do check it and use it to determine
+> whether counters should be updated. But looking at netif_receive_skb()
+> itself I see that there's counter infrastructure there already.
 > 
-> Rework the logic to call the sleeping functions in right context.
-> 
-> Use standard timer/workqueue api to let system chose any cpu to perform
-> the allocation and netlink send.
-> 
-> Also avoid a loop if reset_per_cpu_data() cannot allocate memory :
-> use mod_timer() to wait 1/10 second before next try.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-Reviewed-by: Neil Horman <nhorman@tuxdriver.com>
+> So why this in-driver set of counters, I wonder?
 
-Thanks Eric!
-Neil
+Thank you for the comment.
+I also think that the driver should not update the rx_dropped counter
+when netif_receive_skb() returns NET_RX_DROP. I will fix this.
+
+Best regards,
+Yoshihiro Shimoda
