@@ -1,45 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Remove casts to same type
-Date: Mon, 04 Jun 2012 11:45:33 -0400 (EDT)
-Message-ID: <20120604.114533.1720204611284591292.davem@davemloft.net>
-References: <4b3738493b23bc386d3372012faa8cd3672a138d.1338780551.git.joe@perches.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: pull-request: can 2012-06-03
+Date: Mon, 04 Jun 2012 17:46:55 +0200
+Message-ID: <4FCCD86F.40007@pengutronix.de>
+References: <1338762120-12695-1-git-send-email-mkl@pengutronix.de> <20120604.114443.2116610445330624803.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40425 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753946Ab2FDPpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 11:45:34 -0400
-In-Reply-To: <4b3738493b23bc386d3372012faa8cd3672a138d.1338780551.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig9BD96380925779884CF65CF2"
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20120604.114443.2116610445330624803.davem@davemloft.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sun,  3 Jun 2012 20:41:40 -0700
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig9BD96380925779884CF65CF2
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> Adding casts of objects to the same type is unnecessary
-> and confusing for a human reader.
-> 
-> For example, this cast:
-> 
-> 	int y;
-> 	int *p = (int *)&y;
-> 
-> I used the coccinelle script below to find and remove these
-> unnecessary casts.  I manually removed the conversions this
-> script produces of casts with __force and __user.
-> 
-> @@
-> type T;
-> T *p;
-> @@
-> 
-> -	(T *)p
-> +	p
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+On 06/04/2012 05:44 PM, David Miller wrote:
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Mon,  4 Jun 2012 00:21:56 +0200
+>=20
+>> git@gitorious.org:linux-can/linux-can.git master
+>=20
+> I can't pull from that tree.
+>=20
+> [davem@bql net]$ git pull git@gitorious.org:linux-can/linux-can.git mas=
+ter
+> The authenticity of host 'gitorious.org (87.238.52.168)' can't be estab=
+lished.
+> RSA key fingerprint is 7e:af:8d:ec:f0:39:5e:ba:52:16:ce:19:fa:d4:b8:7d.=
 
-Applied to net-next, thanks Joe.
+> Are you sure you want to continue connecting (yes/no)? yes
+> Warning: Permanently added 'gitorious.org,87.238.52.168' (RSA) to the l=
+ist of known hosts.
+> Permission denied (publickey).
+> fatal: The remote end hung up unexpectedly
+
+Doh,
+
+git://gitorious.org/linux-can/linux-can.git master
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig9BD96380925779884CF65CF2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk/M2IEACgkQjTAFq1RaXHPKzgCgk8lLvnMP+OPyJmzVQ2ifM2M7
+O8wAniQGFIQU7s4ji+j3oPVwAfJWmbLz
+=6OBh
+-----END PGP SIGNATURE-----
+
+--------------enig9BD96380925779884CF65CF2--
