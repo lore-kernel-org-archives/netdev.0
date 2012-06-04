@@ -1,79 +1,80 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH 1/1] net/hyperv: Use wait_event on outstanding sends during device removal
-Date: Mon,  4 Jun 2012 07:35:32 -0700
-Message-ID: <1338820532-2345-2-git-send-email-haiyangz@microsoft.com>
-References: <1338820532-2345-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC PATCH v1 2/3] net: add VEPA, VEB bridge mode
+Date: Mon, 4 Jun 2012 20:29:57 +0530
+Message-ID: <OF0D72A103.6F322B98-ON65257A13.00500E50-65257A13.005272D6@in.ibm.com>
+References: <20120530030531.7443.72024.stgit@jf-dev1-dcblab> <20120530030705.7443.22155.stgit@jf-dev1-dcblab>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: bhutchings@solarflare.com, buytenh@wantstofly.org,
+	eilong@broadcom.com, eric.w.multanen@intel.com,
+	gregory.v.rose@intel.com, hadi@cyberus.ca,
+	jeffrey.t.kirsher@intel.com, mst@redhat.com,
+	netdev@vger.kernel.org, shemminger@vyatta.com, sri@us.ibm.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded02.prod.phx3.secureserver.net ([208.109.80.59]:32977
-	"HELO p3plsmtps2ded02-02.prod.phx3.secureserver.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755889Ab2FDO5M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2012 10:57:12 -0400
-In-Reply-To: <1338820532-2345-1-git-send-email-haiyangz@microsoft.com>
+Received: from e28smtp05.in.ibm.com ([122.248.162.5]:44835 "EHLO
+	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755597Ab2FDPAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 11:00:45 -0400
+Received: from /spool/local
+	by e28smtp05.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
+	Mon, 4 Jun 2012 20:30:42 +0530
+Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
+	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q54F0bu361604048
+	for <netdev@vger.kernel.org>; Mon, 4 Jun 2012 20:30:37 +0530
+Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
+	by d28av04.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q54KUM88027054
+	for <netdev@vger.kernel.org>; Tue, 5 Jun 2012 06:30:24 +1000
+In-Reply-To: <20120530030705.7443.22155.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change the busy-waiting/udelay to wait_event on outstanding sends.
+John Fastabend <john.r.fastabend@intel.com> wrote on 05/30/2012 08:37:06
+AM:
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+Some comments below:
 
----
- drivers/net/hyperv/hyperv_net.h |    1 +
- drivers/net/hyperv/netvsc.c     |   12 ++++++------
- 2 files changed, 7 insertions(+), 6 deletions(-)
+> +static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
+> +{
+> ...
+> +		 if (!flags && master && master->netdev_ops->
+ndo_bridge_getlink)
+> +		 		 err = master->netdev_ops->ndo_bridge_getlink(skb,
+0, 0, dev);
+> +		 else if (dev->netdev_ops->ndo_bridge_getlink)
+> +		 		 err = dev->netdev_ops->ndo_bridge_getlink(skb, 0,
+0, dev);
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 4ffcd57..2857ab0 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -478,6 +478,7 @@ struct netvsc_device {
- 	u32 nvsp_version;
- 
- 	atomic_t num_outstanding_sends;
-+	wait_queue_head_t wait_drain;
- 	bool start_remove;
- 	bool destroy;
- 	/*
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 8b91947..dee7b23e 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -42,6 +42,7 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- 	if (!net_device)
- 		return NULL;
- 
-+	init_waitqueue_head(&net_device->wait_drain);
- 	net_device->start_remove = false;
- 	net_device->destroy = false;
- 	net_device->dev = device;
-@@ -387,12 +388,8 @@ int netvsc_device_remove(struct hv_device *device)
- 	spin_unlock_irqrestore(&device->channel->inbound_lock, flags);
- 
- 	/* Wait for all send completions */
--	while (atomic_read(&net_device->num_outstanding_sends)) {
--		dev_info(&device->device,
--			"waiting for %d requests to complete...\n",
--			atomic_read(&net_device->num_outstanding_sends));
--		udelay(100);
--	}
-+	wait_event(net_device->wait_drain,
-+		atomic_read(&net_device->num_outstanding_sends) == 0);
- 
- 	netvsc_disconnect_vsp(net_device);
- 
-@@ -486,6 +483,9 @@ static void netvsc_send_completion(struct hv_device *device,
- 		num_outstanding_sends =
- 			atomic_dec_return(&net_device->num_outstanding_sends);
- 
-+		if (net_device->destroy && num_outstanding_sends == 0)
-+			wake_up(&net_device->wait_drain);
-+
- 		if (netif_queue_stopped(ndev) && !net_device->start_remove &&
- 			(hv_ringbuf_avail_percent(&device->channel->outbound)
- 			> RING_AVAIL_PERCENT_HIWATER ||
--- 
-1.7.4.1
+I think you should do something like:
+
+        if ((flags == BRIDGE_FLAGS_MASTER) && ...)
+                ...
+
+Also you could use BRIDGE_FLAGS_MASTER=1, SELF=2, and use
+"if (flags & BRIDGE_FLAGS_MASTER)" for consistency?
+
+
++		 if (!err)
++		 		 err = rtnl_bridge_notify(dev, flags);
+
+It is possible to return a reporting error even though
+the operation succeeded. Maybe something that could be
+done here to indicate that the operation succeeded, or
+is that a TODO?
+
+>  static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr
+*nlh,
+>                  void *arg)
+>  {
+..
+> +   if (!flags && dev->master &&
+> +       dev->master->netdev_ops->ndo_bridge_setlink)
+> +      err = dev->master->netdev_ops->ndo_bridge_setlink(dev, nlh);
+> +   else if ((flags & BRIDGE_FLAGS_SELF) &&
+> +         dev->netdev_ops->ndo_bridge_setlink)
+
+Same usage of MASTER here.
+
+Thanks,
+- KK
