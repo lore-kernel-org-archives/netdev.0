@@ -1,140 +1,158 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: linux-next: Tree for Apr 12
-Date: Mon, 04 Jun 2012 18:46:17 -0400
-Message-ID: <1338849977.2860.9.camel@localhost>
-References: <20120412145931.9ec6f2b51655071795d60d1d@canb.auug.org.au>
-	 <20120412142415.564710b8.akpm@linux-foundation.org>
-	 <20120604150455.7a80b311.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, James Morris <jmorris@namei.org>,
-	Stephen Smalley <sds@tycho.nsa.gov>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20120604150455.7a80b311.akpm@linux-foundation.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH IPROUTE2] tc-fq_codel: Add manpage
+Date: Mon,  4 Jun 2012 15:55:57 -0700
+Message-ID: <1338850557-5199-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:33676 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761140Ab2FDWwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 18:52:53 -0400
+Received: by dady13 with SMTP id y13so6465240dad.19
+        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 15:52:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-04 at 15:04 -0700, Andrew Morton wrote:
-> On Thu, 12 Apr 2012 14:24:15 -0700
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > On Thu, 12 Apr 2012 14:59:31 +1000
-> > Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> > 
-> > > I have created today's linux-next tree at
-> > > git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git
-> > 
-> > This isn't working for me.  Some time between April 3 and April 12
-> > someone merged something into the non-mm part of linux-next which broke
-> > ssh.
-> > 
-> > I boot the box and everything seems to come up OK, but attemtps to ssh
-> > into the machine fail with
-> > 
-> > X11 forwarding request failed on channel 0
-> > Last login: Thu Apr 12 13:04:35 2012 from akpm.corp.google.com
-> > Connection to akpm2 closed.
-> > 
-> > I took a peek in the `strace ssh' output.
-> > 
-> > Good:
-> > 
-> > 17815 write(5, "Last login: Thu Apr 12 13:27:23 "..., 65) = 65
-> > 17815 select(7, [3 4], [], NULL, {120, 0}) = 1 (in [3], left {119, 770798})
-> > 17815 read(3, "\21O\200\366Mv\343\222\332\251\2403L\376Y18\2047\336\244\226p-+X\2%\2119\314\255"..., 8192) = 80
-> > 17815 select(7, [3 4], [5], NULL, {120, 0}) = 1 (out [5], left {119, 999987})
-> > 17815 write(5, "\r\33[m\17\33[27m\33[24m\33[Jakpm2:/home/ak"..., 39) = 39
-> > 17815 select(7, [3 4], [], NULL, {120, 0}) = 1 (in [4], left {118, 801111})
-> > 17815 read(4, "\4", 16384)              = 1
-> > 17815 select(7, [3 4], [3], NULL, {120, 0}) = 1 (out [3], left {119, 999991})
-> > 17815 write(3, "\235J\5\340\234\21\266\207\26e\362\327\2\332\1\267\272\200\364\267?/\320L\341\35\350{+M:\222"..., 48) = 48
-> > 
-> > 
-> > Bad:
-> > 
-> > 9305  write(5, "Last login: Thu Apr 12 13:02:54 "..., 65) = 65
-> > 9305  select(7, [3 4], [], NULL, {120, 0}) = 1 (in [3], left {119, 945541})
-> > 9305  read(3, "f\357\250~\260i\2259\320\3258\262)O\364;_\251\360-\314\31\374]\326\300\356\364\370S\3105"..., 8192) = 128
-> > 9305  close(5)                          = 0
-> > 9305  close(4)                          = 0
-> > 
-> > That read() is returning a lot more data.
-> > 
-> > It appears that we've done something which breaks X forwarding.  I
-> > won't be able to look any further into this until Monday.
-> 
-> This regression is now in mainline.  I've bisected it to an SELinux
-> patch, below.  I have confirmed that reverting just that patch from
-> current mainline fixes the regression.
-> 
-> Using openssh-server-4.3p2-14.fc6 on FC6.
-> 
-> 
-> commit 95dbf739313f09c8d859bde1373bc264ef979337
-> Author:     Eric Paris <eparis@redhat.com>
-> AuthorDate: Wed Apr 4 13:45:34 2012 -0400
-> Commit:     Eric Paris <eparis@redhat.com>
-> CommitDate: Mon Apr 9 12:22:49 2012 -0400
-> 
->     SELinux: check OPEN on truncate calls
->     
->     In RH BZ 578841 we realized that the SELinux sandbox program was allowed to
->     truncate files outside of the sandbox.  The reason is because sandbox
->     confinement is determined almost entirely by the 'open' permission.  The idea
->     was that if the sandbox was unable to open() files it would be unable to do
->     harm to those files.  This turns out to be false in light of syscalls like
->     truncate() and chmod() which don't require a previous open() call.  I looked
->     at the syscalls that did not have an associated 'open' check and found that
->     truncate(), did not have a seperate permission and even if it did have a
->     separate permission such a permission owuld be inadequate for use by
->     sandbox (since it owuld have to be granted so liberally as to be useless).
->     This patch checks the OPEN permission on truncate.  I think a better solution
->     for sandbox is a whole new permission, but at least this fixes what we have
->     today.
->     
->     Signed-off-by: Eric Paris <eparis@redhat.com>
-> 
-> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-> index d85b793..f7d7e77 100644
-> --- a/security/selinux/hooks.c
-> +++ b/security/selinux/hooks.c
-> @@ -2708,6 +2708,7 @@ static int selinux_inode_setattr(struct dentry *dentry, struct iattr *iattr)
->  {
->  	const struct cred *cred = current_cred();
->  	unsigned int ia_valid = iattr->ia_valid;
-> +	__u32 av = FILE__WRITE;
->  
->  	/* ATTR_FORCE is just used for ATTR_KILL_S[UG]ID. */
->  	if (ia_valid & ATTR_FORCE) {
-> @@ -2721,7 +2722,10 @@ static int selinux_inode_setattr(struct dentry *dentry, struct iattr *iattr)
->  			ATTR_ATIME_SET | ATTR_MTIME_SET | ATTR_TIMES_SET))
->  		return dentry_has_perm(cred, dentry, FILE__SETATTR);
->  
-> -	return dentry_has_perm(cred, dentry, FILE__WRITE);
-> +	if (ia_valid & ATTR_SIZE)
-> +		av |= FILE__OPEN;
-> +
-> +	return dentry_has_perm(cred, dentry, av);
->  }
->  
->  static int selinux_inode_getattr(struct vfsmount *mnt, struct dentry *dentry)
+This patch adds the manpage for the FQ_CoDel (Fair Queuing Controlled-Delay)
+AQM.
 
-Very odd indeed...  I can only assume you are SELinux enforcing and have
-a denial every time this fails.  Can you send me that denial?
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+ man/man8/Makefile      |    2 +-
+ man/man8/tc-fq_codel.8 |  108 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 109 insertions(+), 1 deletions(-)
+ create mode 100644 man/man8/tc-fq_codel.8
 
-I really do not want to revert this and feel that the only right fix is
-going to be to update your selinux policy to allow this new check.  I'd
-rather not allow (whatever program) to truncate() files willy-nilly (in
-violation of the intentions of selinux policy)
-
-I'm sorry I never saw it sooner.  We've had it in RHEL for even longer
-than the 3 months it's been in -next.  I think the 'right' fix is going
-to have to be an update to SELinux policy (for your long dead system, if
-you give me the denial I can build you a new policy) rather than leaving
-the potential security hole in mainline...
-
--Eric
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index 6d6242e..6793873 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -6,7 +6,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
+ 	tc-tbf.8 tc.8 rtstat.8 ctstat.8 nstat.8 routef.8 tc-codel.8 \
+ 	tc-sfb.8 tc-netem.8 tc-choke.8 ip-tunnel.8 ip-rule.8 ip-ntable.8 \
+ 	ip-monitor.8 tc-stab.8 tc-hfsc.8 ip-xfrm.8 ip-netns.8 \
+-	ip-neighbour.8 ip-mroute.8 ip-maddress.8 ip-addrlabel.8
++	ip-neighbour.8 ip-mroute.8 ip-maddress.8 ip-addrlabel.8 tc-fq_codel.8
+ 
+ 
+ all: $(TARGETS)
+diff --git a/man/man8/tc-fq_codel.8 b/man/man8/tc-fq_codel.8
+new file mode 100644
+index 0000000..5c128af
+--- /dev/null
++++ b/man/man8/tc-fq_codel.8
+@@ -0,0 +1,108 @@
++.TH FQ_CoDel 8 "4 June 2012" "iproute2" "Linux"
++.SH NAME
++CoDel \- Fair Queuing (FQ) with Controlled Delay (CoDel)
++.SH SYNOPSIS
++.B tc qdisc ... fq_codel
++[
++.B limit
++PACKETS ] [
++.B flows
++NUMBER ] [
++.B target
++TIME ] [
++.B interval
++TIME ] [
++.B quantum
++BYTES ] [
++.B ecn
++|
++.B noecn
++]
++
++.SH DESCRIPTION
++FQ_Codel (Fair Queuing Controled Delay) is queuing discipline that combines Fair
++Queuing with the CoDel AQM scheme. FQ_Codel uses a stochastic model to classify
++incoming packets into different flows and is used to provide a fair share of the
++bandwidth to all the flows using the queue. Each such flow is managed by the
++CoDel queuing discipline. Reordering within a flow is avoided since Codel
++internally uses a FIFO queue.
++
++.SH PARAMETERS
++.SS limit
++has the same semantics as
++.B codel
++and is the hard limit on the real queue size.
++When this limit is reached, incoming packets are dropped. Default is 10240
++packets.
++
++.SS flows
++is the number of flows into which the incoming packets are classified. Due to
++the stochastic nature of hashing, multiple flows may end up being hashed into
++the same slot. Newer flows have priority over older ones. This parameter can be
++set only at load time since memory has to be allocated for the hash table.
++Default value is 1024.
++
++.SS target
++has the same semantics as
++.B codel
++and is the acceptable minimum
++standing/persistent queue delay. This minimum delay is identified by tracking
++the local minimum queue delay that packets experience.  Default value is 5ms.
++
++.SS interval
++has the same semantics as
++.B codel
++and is used to ensure that the measured minimum delay does not become too stale.
++The minimum delay must be experienced in the last epoch of length .B interval.
++It should be set on the order of the worst-case RTT through the bottleneck to
++give endpoints sufficient time to react.  Default value is 100ms.
++
++.SS quantum
++is the number of bytes used as 'deficit' in the fair queuing algorithm. Default
++is set to 1514 bytes which corresponds to the Ethernet MTU plus the hardware
++header length of 14 bytes.
++
++.SS ecn | noecn
++has the same semantics as
++.B codel
++and can be used to mark packets instead of dropping them.  If
++.B ecn
++has been enabled,
++.B noecn
++can be used to turn it off and vice-a-versa. Unlike
++.B codel, ecn
++is turned on by default.
++
++.SH EXAMPLES
++#tc qdisc add   dev eth0 root fq_codel
++.br
++#tc -s qdisc show
++.br
++qdisc fq_codel 8002: dev eth0 root refcnt 2 limit 10240p flows 1024 quantum 1514
++ target 5.0ms interval 100.0ms ecn
++   Sent 428514 bytes 2269 pkt (dropped 0, overlimits 0 requeues 0)
++   backlog 0b 0p requeues 0
++    maxpacket 256 drop_overlimit 0 new_flow_count 0 ecn_mark 0
++    new_flows_len 0 old_flows_len 0
++
++#tc qdisc add dev eth0 root fq_codel limit 2000 target 3ms interval 40ms noecn
++.br
++#tc -s qdisc show
++.br
++qdisc fq_codel 8003: dev eth0 root refcnt 2 limit 2000p flows 1024 quantum 1514
++target 3.0ms interval 40.0ms
++ Sent 2588985006 bytes 1783629 pkt (dropped 0, overlimits 0 requeues 34869)
++ backlog 0b 0p requeues 34869
++  maxpacket 65226 drop_overlimit 0 new_flow_count 73 ecn_mark 0
++  new_flows_len 1 old_flows_len 3
++
++
++.SH SEE ALSO
++.BR tc (8),
++.BR tc-codel (8),
++.BR tc-red (8)
++
++.SH AUTHORS
++FQ_CoDel was implemented by Eric Dumazet. This manpage was written
++by Vijay Subramanian. Please report corrections to the Linux Networking
++mailing list <netdev@vger.kernel.org>.
+-- 
+1.7.0.4
