@@ -1,52 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
-Date: Mon, 04 Jun 2012 22:05:17 +0200
-Message-ID: <1338840317.2760.1952.camel@edumazet-glaptop>
-References: <1337276056.3403.37.camel@edumazet-glaptop>
-	 <20120604123738.GA28992@redhat.com>
-	 <1338815213.2760.1806.camel@edumazet-glaptop>
-	 <20120604134138.GA29814@redhat.com>
-	 <1338818501.2760.1821.camel@edumazet-glaptop>
-	 <20120604141731.GA30226@redhat.com>
-	 <1338822064.2760.1834.camel@edumazet-glaptop>
-	 <20120604181623.GF32205@redhat.com>
-	 <1338838185.2760.1899.camel@edumazet-glaptop>
-	 <20120604194330.GA1648@redhat.com>  <20120604195642.GA2069@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: tcp wifi upload performance and lots of ACKs
+Date: Mon, 04 Jun 2012 13:09:11 -0700
+Message-ID: <4FCD15E7.4080700@candelatech.com>
+References: <4FCCFE76.3060304@candelatech.com> <CAEnQRZCNUYmP88Ocm_nG7gpA1Qcwy1tOc6kgCgZ7RqXcxQsHhg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Daniel Baluta <dbaluta@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:53118 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752760Ab2FDUFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 16:05:22 -0400
-Received: by bkcji2 with SMTP id ji2so3963520bkc.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 13:05:21 -0700 (PDT)
-In-Reply-To: <20120604195642.GA2069@redhat.com>
+Received: from mail.candelatech.com ([208.74.158.172]:49730 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172Ab2FDUJO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 16:09:14 -0400
+In-Reply-To: <CAEnQRZCNUYmP88Ocm_nG7gpA1Qcwy1tOc6kgCgZ7RqXcxQsHhg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-04 at 22:56 +0300, Michael S. Tsirkin wrote:
+On 06/04/2012 12:22 PM, Daniel Baluta wrote:
+> On Mon, Jun 4, 2012 at 9:29 PM, Ben Greear<greearb@candelatech.com>  wrote:
+>> I'm going some TCP performance testing on wifi ->  LAN interface connections.
+>>   With
+>> UDP, we can get around 250Mbps of payload throughput.  With TCP, max is
+>> about 80Mbps.
+>>
+>> I think the problem is that there are way too many ACK packets, and
+>> bi-directional
+>> traffic on wifi interfaces really slows things down.  (About 7000 pkts per
+>> second in
+>> upload direction, 2000 pps download.  And the vast majority of the download
+>> pkts
+>> are 66 byte ACK pkts from what I can tell.)
+>>
+>> Kernel is 3.3.7+
+>>
+>> Anyone know of any tuning parameters that would let the receiving socket
+>> wait a
+>> bit longer and send more ACK data in fewer packets?
+>
+> An ACK is generated after every second full sized segment or a timeout
+> expires.
+>
+> Currently, there is no way to tune these parameters. Here is an experimental
+> patch [1]. If anyone, thinks that this patch has a chance to get accepted
+> I will be happily try to further improve it.
 
-> And just to explain why I'm asking, if it's OK to
-> declare 2K when you use 4K, we can do (effectively):
-> 
-> +       skb->truesize += PAGE_SIZE * nfrags;
-> -       skb->truesize += min(1500, skb->data_len);
-> 
-> which means with 1500 byte packets we can use
-> as much memory as we did before
-> 4b727361f0bc7ee7378298941066d8aa15023ffb
-> 
+It looks like it could be useful for my case, but I would also want
+per-socket options to set the min/max ack delay so that the settings
+are not just system-wide.
 
-How are you sure data_len is >= 1500 ?
+I can at least test this, and perhaps even hack on the code if
+you are not interested in the per-socket settings...
 
-If you know that you use a full page for a fragment, then PAGE_SIZE is
-better than 1500
+Thanks,
+Ben
 
-
-If you share a page with 2/4 frames (But not one hundred), you can
-assume risk of underestimation is really low.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
