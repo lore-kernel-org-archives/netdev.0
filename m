@@ -1,58 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: netdev_alloc_skb() use build_skb()
-Date: Mon, 04 Jun 2012 21:24:02 +0200
-Message-ID: <1338837842.2760.1883.camel@edumazet-glaptop>
-References: <1337273387.3403.24.camel@edumazet-glaptop>
-	 <1337276056.3403.37.camel@edumazet-glaptop>
-	 <20120604123738.GA28992@redhat.com>
-	 <1338815213.2760.1806.camel@edumazet-glaptop>
-	 <20120604134138.GA29814@redhat.com>
-	 <1338818501.2760.1821.camel@edumazet-glaptop>
-	 <20120604141731.GA30226@redhat.com>
-	 <1338822064.2760.1834.camel@edumazet-glaptop>
-	 <20120604172030.GA32205@redhat.com>
-	 <1338831890.2760.1842.camel@edumazet-glaptop>
-	 <20120604181636.GG32205@redhat.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 3/3] Revert Backoff [v3]: Calculate TCP's connection
+ close threshold as a time value.
+Date: Mon, 4 Jun 2012 22:18:19 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1206042116560.17280@melkinpaasi.cs.helsinki.fi>
+References: <4A950B82.1070807@tvk.rwth-aachen.de> <CAFbMe2Mu46N8kRrYkGzYRLuntEd2J9aO_d0Jw_y0gsQA4q-qHw@mail.gmail.com> <CAPshTCiFDUb3CVm-joJW_DRVS+C+_BjFO-Mt3uAwrCzVw8MsVg@mail.gmail.com> <1338832247.5299.4.camel@nexus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Jerry Chu <hkchu@google.com>, Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Damian Lukowski <damian@tvk.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:40011 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751838Ab2FDTYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 15:24:07 -0400
-Received: by bkcji2 with SMTP id ji2so3928122bkc.19
-        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 12:24:06 -0700 (PDT)
-In-Reply-To: <20120604181636.GG32205@redhat.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41644 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912Ab2FDTYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 15:24:22 -0400
+In-Reply-To: <1338832247.5299.4.camel@nexus>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-04 at 21:16 +0300, Michael S. Tsirkin wrote:
+On Mon, 4 Jun 2012, Damian Lukowski wrote:
 
-> Will take a look, thanks.
-> By the way, this comment at build_skb:
-> * @frag_size: size of fragment, or 0 if head was kmalloced
+> please verify, I understood you correctly.
 > 
-> is not very clear to me. Could you clarify what exactly size
-> of fragment means in this context?
+> You have set TCP_RTO_MIN to a lower value, e.g. 0.002 seconds to improve
+> your internal low-latency traffic. Because of the improvement, R1
+> timeouts are triggered too fast for external high-RTT traffic. Is that
+> correct?
+> If so, may I suggest to set tcp_retries1 to a higher value? For
+> TCP_RTO_MIN == 0.002 and tcp_retries1 ==  10, R1 will be calculated to
+> approximately 4 seconds.
 > 
+> Is that ok?
 
+I suppose what he meant is that you could have e.g., 60sec RTT and with 
+small enough retries the timeout calculation yields to some timeout 
+smaller than 60 secs, and therefore no retransmissions are made which is 
+certainly not a desirable property? ...This is valid issue even if no min 
+rto tweaking was done but can of course get much worse if min rto is 
+shorter.
 
-If your driver did :
+I agree with his proposed solution:
 
-data = kmalloc(100) then you use @frag_size=0, so that build_skb() does
-the ksize(data) to fetch real size (It can depend on slab/slub/sob
-allocator)
+> > I think retransmits_timed_out() should check against both time
+> > duration and retrans count (icsk_retransmits).
 
+...that is, use both pseudo timeout check of the current code and the 
+previously used icsk_retransmits compare at the same time.
 
-If you used netdev_alloc_frag(128), then you use 128 because there is no
-way build_skb() can guess the size of the fragment. Its also how we
-signal to build_skb() that skb->head_frag is set to 1.
-
-__netdev_alloc_skb() for example does :
-
-void *data = netdev_alloc_frag(fragsz);
-skb = build_skb(data, fragsz);
+-- 
+ i.
