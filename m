@@ -1,100 +1,67 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH v1 2/3] net: add VEPA, VEB bridge mode
-Date: Mon, 04 Jun 2012 09:38:04 -0700
-Message-ID: <4FCCE46C.7080809@intel.com>
-References: <20120530030531.7443.72024.stgit@jf-dev1-dcblab> <20120530030705.7443.22155.stgit@jf-dev1-dcblab> <OF0D72A103.6F322B98-ON65257A13.00500E50-65257A13.005272D6@in.ibm.com>
+From: Federico Vaga <federico.vaga@gmail.com>
+Subject: Re: [PATCH RFC] c_can_pci: generic module for c_can on PCI
+Date: Mon, 04 Jun 2012 18:45:44 +0200
+Message-ID: <1677842.Pq7naXsvrI@harkonnen>
+References: <4FC135C6.5030206@grandegger.com> <1338816766-7089-2-git-send-email-federico.vaga@gmail.com> <20120604165619.15ba43bf@pyramind.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, buytenh@wantstofly.org,
-	eilong@broadcom.com, eric.w.multanen@intel.com,
-	gregory.v.rose@intel.com, hadi@cyberus.ca,
-	jeffrey.t.kirsher@intel.com, mst@redhat.com,
-	netdev@vger.kernel.org, shemminger@vyatta.com, sri@us.ibm.com
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:13299 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752297Ab2FDQiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2012 12:38:25 -0400
-In-Reply-To: <OF0D72A103.6F322B98-ON65257A13.00500E50-65257A13.005272D6@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Giancarlo Asnaghi <giancarlo.asnaghi@st.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Alessandro Rubini <rubini@gnudd.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20120604165619.15ba43bf@pyramind.ukuu.org.uk>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6/4/2012 7:59 AM, Krishna Kumar2 wrote:
-> John Fastabend <john.r.fastabend@intel.com> wrote on 05/30/2012 08:37:06
-> AM:
+> > +static u16 c_can_pci_read_reg_aligned_to_16bit(struct c_can_priv
+> > *priv, +						void *reg)
 > 
-> Some comments below:
-> 
->> +static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
->> +{
->> ...
->> +		 if (!flags && master && master->netdev_ops->
-> ndo_bridge_getlink)
->> +		 		 err = master->netdev_ops->ndo_bridge_getlink(skb,
-> 0, 0, dev);
->> +		 else if (dev->netdev_ops->ndo_bridge_getlink)
->> +		 		 err = dev->netdev_ops->ndo_bridge_getlink(skb, 0,
-> 0, dev);
-> 
-> I think you should do something like:
-> 
->         if ((flags == BRIDGE_FLAGS_MASTER) && ...)
->                 ...
-> 
-> Also you could use BRIDGE_FLAGS_MASTER=1, SELF=2, and use
-> "if (flags & BRIDGE_FLAGS_MASTER)" for consistency?
+> I'm a bit worried this function name might be too short ;)
 
-OK this is likely a good thing otherwise user space is a
-bit tedious when managing FDB and bridge modes. We do still
-need the !flags case to support existing applications though,
-(we must maintain existing semantics)
-
-if (!flags || (flags & BRIDGE_FLAGS_MASTER) && ...)
-	...
-else (flags & BRIDGE_FLAGS_SELF)
-	...
-
-> 
-> 
-> +		 if (!err)
-> +		 		 err = rtnl_bridge_notify(dev, flags);
-> 
-> It is possible to return a reporting error even though
-> the operation succeeded. Maybe something that could be
-> done here to indicate that the operation succeeded, or
-> is that a TODO?
-> 
-
-The problem is if rtnl_bridge_notify fails due to memory
-constraints or otherwise. In this case the set has already
-completed successfully as you note so we should not return
-any error. This should fix it if I understand your concern
-correctly.
-
-	if (!err)
-		rtnl_bridge_notify(dev, flags);
-	return err;
+I know :) I was inspired by the same function in c_can_platform.c
 
 
+About these function I suggest to move them into c_can.c because they 
+are the same for c_can_platform.c and c_can_pci.c Then add a new field 
+c_can_priv->offset which can be used to shift the register offset 
+coherently with the memory alignment. Finally, remove c_can_priv-
+>read_reg and c_can_priv->write_reg and use internal c_can.c function to 
+read and write registers.
 
->>  static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr
-> *nlh,
->>                  void *arg)
->>  {
-> ..
->> +   if (!flags && dev->master &&
->> +       dev->master->netdev_ops->ndo_bridge_setlink)
->> +      err = dev->master->netdev_ops->ndo_bridge_setlink(dev, nlh);
->> +   else if ((flags & BRIDGE_FLAGS_SELF) &&
->> +         dev->netdev_ops->ndo_bridge_setlink)
-> 
-> Same usage of MASTER here.
+static u16 c_can_read_reg(struct c_can_priv *priv, enum reg index)
+{
+	return readw(priv->base + (priv->regs[index] << priv->offset));
+}
+static void c_can_write_reg(struct c_can_priv *priv, enum reg index,
+						u16 val)
+{
+	writew(val, priv->base + (priv->regs[index] << priv->offset));
+}
 
-Agreed. Thanks.
 
+If it's ok, I can made a patch for this in the next days.
+
+> > +	 * do not call pci_disable_device on sta2x11 because it
+> > +	 * break all other Bus masters on this EP
+> > +	 */
+> > +	if(pdev->vendor == PCI_VENDOR_ID_STMICRO &&
+> > +	   pdev->device == PCI_DEVICE_ID_STMICRO_CAN)
+> > +		goto out;
 > 
-> Thanks,
-> - KK
-> 
+> Is that the disabling or the dropping it into D3. We have a PCI quirk
+> flag for the latter. See "quirk_no_ata_d3". That will also avoid any
+> accidents elsewhere. Right now the quirk has "ata" in the name but the
+> ata is just historically because we had to quirk various disk
+> controllers.
+
+We are investigating if this is still necessary on the current version 
+of the board.
+
+-- 
+Federico Vaga
