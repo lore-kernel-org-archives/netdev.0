@@ -1,96 +1,190 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Wireless networking without CONFIG_PM..
-Date: Tue, 05 Jun 2012 08:28:18 +0200
-Message-ID: <1338877698.4514.7.camel@jlt3.sipsolutions.net>
-References: <CA+55aFw96wx_Vp_z=H9q=0A-Y8iYD-JJEmYzVPr-BEU6ez5bqA@mail.gmail.com>
-	 (sfid-20120605_051012_943406_4BDCE2C0)
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [net-next PATCH 3/3] bnx2x: Added EEE Ethtool support.
+Date: Tue, 5 Jun 2012 09:39:02 +0300
+Message-ID: <1338878342-24586-4-git-send-email-yuvalmin@broadcom.com>
+References: <1338878342-24586-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Linus Torvalds <linus971@gmail.com>
+Cc: eilong@broadcom.com, peppe.cavallaro@st.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:36425 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753251Ab2FEG2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 02:28:25 -0400
-In-Reply-To: <CA+55aFw96wx_Vp_z=H9q=0A-Y8iYD-JJEmYzVPr-BEU6ez5bqA@mail.gmail.com> (sfid-20120605_051012_943406_4BDCE2C0)
+Received: from mms2.broadcom.com ([216.31.210.18]:3562 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751598Ab2FEGkr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2012 02:40:47 -0400
+In-Reply-To: <1338878342-24586-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch extends the bnx2x's ethtool interface to enable
+control in the eee feature, as well as report statistic information
+about it.
 
-On Mon, 2012-06-04 at 20:09 -0700, Linus Torvalds wrote:
-> I wonder if anybody has really ever tested that? Because I think it's broken..
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |  133 ++++++++++++++++++++
+ 1 files changed, 133 insertions(+), 0 deletions(-)
 
-Yeah, it is indeed.
-
-> In particular, I made the mistake of not enabling CONFIG_PM on a new
-> laptop, and it caused some *seriously* nasty-to-debug problems. The
-> mac80211 code goes crazy, that upsets the wireless driver, and then
-> the wrieless driver in question had a nasty bug where it would
-> double-release its firmware, which then caused vmalloc corruption and
-> all kinds of really odd recursive panics etc.
-
-That's pure suck :( I see you already sent a separate patch.
-
-> And as far as I can tell, the root cause of the problem is a bad
-> choice in net/mac80211/main.c:
-> 
->   int ieee80211_register_hw(struct ieee80211_hw *hw)
->   {
->   ...
->         if ((hw->wiphy->wowlan.flags || hw->wiphy->wowlan.n_patterns)
->   #ifdef CONFIG_PM
->             && (!local->ops->suspend || !local->ops->resume)
->   #endif
->             )
->                 return -EINVAL;
-> 
-> which means that if the wiphy says it supports wake-on-wireless lan,
-> and CONFIG_PM isn't enabled, we'll return -EINVAL and will refuse to
-> do any wireless at all.
-> 
-> It's that a bit extreme? Or outright stupid? What is the advantage of
-> saying that "if you don't have CONFIG_PM enabled, we'll just refuse to
-> register any hardware that talks about it's wake-on-wireless
-> patterns"?
->
-> Maybe there is some reason for that return -EINVAL, but I don't think
-> it makes sense with that particular placement of #ifdef CONFIG_PM.
-> Maybe if the #ifdef was around the whole test? Or maybe it should just
-> be removed.
-
-It should just be around the whole test.
-
-> Or am I missing some big reason for why it makes sense to do that? Hmm?
-
-No, not really. It was a case of not wanting to compile suspend/resume
-methods when they aren't needed, so they aren't even declared in the ops
-struct in that case, and then I forgot about that and when somebody
-found it they added the ifdef that way here and clearly only tested
-non-WoWLAN devices.
-
-> I'll make a separate bug-report email to the intel iwlwifi people
-> about their absolutely horribly broken error handling which then made
-> it such a disaster, but I thought I'd bring the generic mac80211 issue
-> up. I don't think there are a lot of drivers that do the whole wowlan
-> thing, and obviously most people use wireless on laptops where you
-> want CONFIG_PM anyway, so it probably hasn't triggered very much.
-
-For the next release I think I'll just put the ifdef around the entire
-test to avoid this issue. Overall, I'm still debating whether it makes
-sense to leave WoWLAN code and data in when the system will never be
-able to suspend, I have a feeling that maybe it doesn't and we should
-make it a compile error to even try to access wiphy->wowlan when
-CONFIG_PM isn't set ...
-
-Interestingly, none of that would actually matter for iwlwifi in
-particular since that has yet another issue -- it only declares
-suspend/resume ops when CONFIG_PM_SLEEP is set since WoWLAN doesn't work
-in other PM cases, so there the #ifdef CONFIG_PM_SLEEP patch that Sedat
-pointed to is actually needed pretty much regardless.
-
-johannes
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index ddc18ee..3c9e848 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -177,6 +177,8 @@ static const struct {
+ 			4, STATS_FLAGS_FUNC, "recoverable_errors" },
+ 	{ STATS_OFFSET32(unrecoverable_error),
+ 			4, STATS_FLAGS_FUNC, "unrecoverable_errors" },
++	{ STATS_OFFSET32(eee_tx_lpi),
++			4, STATS_FLAGS_PORT, "Tx LPI entry count"}
+ };
+ 
+ #define BNX2X_NUM_STATS		ARRAY_SIZE(bnx2x_stats_arr)
+@@ -1543,6 +1545,135 @@ static const struct {
+ 	{ "idle check (online)" }
+ };
+ 
++static u32 bnx2x_eee_to_adv(u32 eee_adv)
++{
++	u32 modes = 0;
++
++	if (eee_adv & SHMEM_EEE_100M_ADV)
++		modes |= ADVERTISED_100baseT_Full;
++	if (eee_adv & SHMEM_EEE_1G_ADV)
++		modes |= ADVERTISED_1000baseT_Full;
++	if (eee_adv & SHMEM_EEE_10G_ADV)
++		modes |= ADVERTISED_10000baseT_Full;
++
++	return modes;
++}
++
++static u32 bnx2x_adv_to_eee(u32 modes, u32 shift)
++{
++	u32 eee_adv = 0;
++	if (modes & ADVERTISED_100baseT_Full)
++		eee_adv |= SHMEM_EEE_100M_ADV;
++	if (modes & ADVERTISED_1000baseT_Full)
++		eee_adv |= SHMEM_EEE_1G_ADV;
++	if (modes & ADVERTISED_10000baseT_Full)
++		eee_adv |= SHMEM_EEE_10G_ADV;
++
++	return eee_adv << shift;
++}
++
++static int bnx2x_get_eee(struct net_device *dev, struct ethtool_eee *edata)
++{
++	struct bnx2x *bp = netdev_priv(dev);
++	u32 eee_cfg;
++
++	if (!SHMEM2_HAS(bp, eee_status[BP_PORT(bp)])) {
++		DP(BNX2X_MSG_ETHTOOL, "BC Version does not support EEE\n");
++		return -EOPNOTSUPP;
++	}
++
++	eee_cfg = SHMEM2_RD(bp, eee_status[BP_PORT(bp)]);
++
++	edata->supported =
++		bnx2x_eee_to_adv((eee_cfg & SHMEM_EEE_SUPPORTED_MASK) >>
++				 SHMEM_EEE_SUPPORTED_SHIFT);
++
++	edata->advertised =
++		bnx2x_eee_to_adv((eee_cfg & SHMEM_EEE_ADV_STATUS_MASK) >>
++				 SHMEM_EEE_ADV_STATUS_SHIFT);
++	edata->lp_advertised =
++		bnx2x_eee_to_adv((eee_cfg & SHMEM_EEE_LP_ADV_STATUS_MASK) >>
++				 SHMEM_EEE_LP_ADV_STATUS_SHIFT);
++
++	edata->tx_lpi_timer = (eee_cfg & SHMEM_EEE_TIMER_MASK) << 4;
++
++	edata->eee_enabled    = (eee_cfg & SHMEM_EEE_REQUESTED_BIT)	? 1 : 0;
++	edata->eee_active     = (eee_cfg & SHMEM_EEE_ACTIVE_BIT)	? 1 : 0;
++	edata->tx_lpi_enabled = (eee_cfg & SHMEM_EEE_LPI_REQUESTED_BIT) ? 1 : 0;
++
++	return 0;
++}
++
++static int bnx2x_set_eee(struct net_device *dev, struct ethtool_eee *edata)
++{
++	struct bnx2x *bp = netdev_priv(dev);
++	u32 eee_cfg;
++	u32 advertised;
++
++	if (IS_MF(bp))
++		return 0;
++
++	if (!SHMEM2_HAS(bp, eee_status[BP_PORT(bp)])) {
++		DP(BNX2X_MSG_ETHTOOL, "BC Version does not support EEE\n");
++		return -EOPNOTSUPP;
++	}
++
++	eee_cfg = SHMEM2_RD(bp, eee_status[BP_PORT(bp)]);
++
++	if (!(eee_cfg & SHMEM_EEE_SUPPORTED_MASK)) {
++		DP(BNX2X_MSG_ETHTOOL, "Board does not support EEE!\n");
++		return -EOPNOTSUPP;
++	}
++
++	advertised = bnx2x_adv_to_eee(edata->advertised,
++				      SHMEM_EEE_ADV_STATUS_SHIFT);
++	if ((advertised != (eee_cfg & SHMEM_EEE_ADV_STATUS_MASK))) {
++		DP(BNX2X_MSG_ETHTOOL,
++		   "Direct manipulation of EEE advertisment is not supported\n");
++		return -EINVAL;
++	}
++
++	if (edata->tx_lpi_timer > EEE_MODE_TIMER_MASK) {
++		DP(BNX2X_MSG_ETHTOOL,
++		   "Maximal Tx Lpi timer supported is %x(u)\n",
++		   EEE_MODE_TIMER_MASK);
++		return -EINVAL;
++	}
++	if (edata->tx_lpi_enabled &&
++	    (edata->tx_lpi_timer < EEE_MODE_NVRAM_AGGRESSIVE_TIME)) {
++		DP(BNX2X_MSG_ETHTOOL,
++		   "Minimal Tx Lpi timer supported is %d(u)\n",
++		   EEE_MODE_NVRAM_AGGRESSIVE_TIME);
++		return -EINVAL;
++	}
++
++	/* All is well; Apply changes*/
++	if (edata->eee_enabled)
++		bp->link_params.eee_mode |= EEE_MODE_ADV_LPI;
++	else
++		bp->link_params.eee_mode &= ~EEE_MODE_ADV_LPI;
++
++	if (edata->tx_lpi_enabled)
++		bp->link_params.eee_mode |= EEE_MODE_ENABLE_LPI;
++	else
++		bp->link_params.eee_mode &= ~EEE_MODE_ENABLE_LPI;
++
++	bp->link_params.eee_mode &= ~EEE_MODE_TIMER_MASK;
++	bp->link_params.eee_mode |= ((edata->tx_lpi_timer >> 4) &
++				     EEE_MODE_TIMER_MASK) |
++				    EEE_MODE_OVERRIDE_NVRAM |
++				    EEE_MODE_OUTPUT_TIME;
++
++	/* Restart link to propogate changes */
++	if (netif_running(dev)) {
++		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
++		bnx2x_link_set(bp);
++	}
++
++	return 0;
++}
++
++
+ enum {
+ 	BNX2X_CHIP_E1_OFST = 0,
+ 	BNX2X_CHIP_E1H_OFST,
+@@ -2472,6 +2603,8 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
+ 	.get_rxfh_indir_size	= bnx2x_get_rxfh_indir_size,
+ 	.get_rxfh_indir		= bnx2x_get_rxfh_indir,
+ 	.set_rxfh_indir		= bnx2x_set_rxfh_indir,
++	.get_eee		= bnx2x_get_eee,
++	.set_eee		= bnx2x_set_eee,
+ };
+ 
+ void bnx2x_set_ethtool_ops(struct net_device *netdev)
+-- 
+1.7.9.rc2
