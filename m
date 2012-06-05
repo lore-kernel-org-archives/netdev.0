@@ -1,162 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] inetpeer: add namespace support for
- inetpeer
-Date: Tue, 05 Jun 2012 05:40:19 +0200
-Message-ID: <1338867619.2760.1980.camel@edumazet-glaptop>
-References: <1338863012-4902-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Bhupesh SHARMA <bhupesh.sharma@st.com>
+Subject: RE: [PATCH RFC] c_can_pci: generic module for c_can on PCI
+Date: Tue, 5 Jun 2012 11:42:50 +0800
+Message-ID: <D5ECB3C7A6F99444980976A8C6D896384FA5EC4B37@EAPEX1MAIL1.st.com>
+References: <4FC135C6.5030206@grandegger.com>
+ <1338816766-7089-2-git-send-email-federico.vaga@gmail.com>
+ <20120604165619.15ba43bf@pyramind.ukuu.org.uk> <1677842.Pq7naXsvrI@harkonnen>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, steffen.klassert@secunet.com,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:48502 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752849Ab2FEDkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 23:40:23 -0400
-Received: by wibhj8 with SMTP id hj8so3463331wib.1
-        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 20:40:22 -0700 (PDT)
-In-Reply-To: <1338863012-4902-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Giancarlo ASNAGHI <giancarlo.asnaghi@st.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Alessandro Rubini <rubini@gnudd.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Federico Vaga <federico.vaga@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1677842.Pq7naXsvrI@harkonnen>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-06-05 at 10:23 +0800, Gao feng wrote:
-> now inetpeer doesn't support namespace,the information will
-> be leaking across namespace.
+> -----Original Message-----
+> From: linux-can-owner@vger.kernel.org [mailto:linux-can-
+> owner@vger.kernel.org] On Behalf Of Federico Vaga
+> Sent: Monday, June 04, 2012 10:16 PM
+> To: Alan Cox
+> Cc: Wolfgang Grandegger; Marc Kleine-Budde; Giancarlo ASNAGHI; Alan
+> Cox; Alessandro Rubini; linux-can@vger.kernel.org;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH RFC] c_can_pci: generic module for c_can on PCI
 > 
-> this patch move the global vars v4_peers and v6_peers to
-> netns_ipv4 and netns_ipv6 as a field peers.
+> > > +static u16 c_can_pci_read_reg_aligned_to_16bit(struct c_can_priv
+> > > *priv, +						void *reg)
+> >
+> > I'm a bit worried this function name might be too short ;)
 > 
-> add struct pernet_operations inetpeer_ops to initial pernet
-> inetpeer data.
+> I know :) I was inspired by the same function in c_can_platform.c
+
+There was a purpose to keeping these long function names when I wrote
+the c_can_platform driver initially. These were kept to support the 
+SoCs (even the flaky ones) which I could trace at that time and used C_CAN controllers
+(e.g. Hynix, ST's SPEAr eMPUs, etc..) and had different register bank layouts.
+
+In some of these SoC's the C_CAN registers which are essentially 16-bit or 32-bit
+registers are aligned always to a 32-bit boundary (i.e. even a 16-bit register
+is aligned to 32-bit boundary).
+
+So, I had to implement two variants of the read/write reg routines. I am not sure your SoC implementation needs them.
+If it does, I will categorize it as flaky as well :)
+ 
+> About these function I suggest to move them into c_can.c because they
+> are the same for c_can_platform.c and c_can_pci.c Then add a new field
+> c_can_priv->offset which can be used to shift the register offset
+> coherently with the memory alignment. Finally, remove c_can_priv-
+> >read_reg and c_can_priv->write_reg and use internal c_can.c function
+> to
+> read and write registers.
+
+See above. There was a reason for keeping these routines in c_can_platform.c
+Simply put, every platform having a Bosch C_CAN module can have it's own implementation
+of the bus (for example you use PCI) and register bank layout (16-bit or 32-bit aligned).
+
+I would suggest to keep the same arrangement.
+
+> static u16 c_can_read_reg(struct c_can_priv *priv, enum reg index)
+> {
+> 	return readw(priv->base + (priv->regs[index] << priv->offset));
+> }
+> static void c_can_write_reg(struct c_can_priv *priv, enum reg index,
+> 						u16 val)
+> {
+> 	writew(val, priv->base + (priv->regs[index] << priv->offset));
+> }
 > 
-> and change family_to_base and inet_getpeer to support namespace.
 > 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> ---
->  include/net/inetpeer.h   |   10 +++++---
->  include/net/netns/ipv4.h |    1 +
->  include/net/netns/ipv6.h |    1 +
->  net/ipv4/inetpeer.c      |   54 +++++++++++++++++++++++++++++++++++++++------
->  net/ipv4/route.c         |    2 +-
->  5 files changed, 55 insertions(+), 13 deletions(-)
+> If it's ok, I can made a patch for this in the next days.
 > 
-> diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-> index b94765e..4a50449 100644
-> --- a/include/net/inetpeer.h
-> +++ b/include/net/inetpeer.h
-> @@ -72,7 +72,9 @@ static inline bool inet_metrics_new(const struct inet_peer *p)
->  }
->  
->  /* can be called with or without local BH being disabled */
-> -struct inet_peer	*inet_getpeer(const struct inetpeer_addr *daddr, int create);
-> +struct inet_peer *inet_getpeer(struct net *net,
-> +			       const struct inetpeer_addr *daddr,
-> +			       int create);
->  
->  static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
->  {
-> @@ -80,7 +82,7 @@ static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
->  
->  	daddr.addr.a4 = v4daddr;
->  	daddr.family = AF_INET;
-> -	return inet_getpeer(&daddr, create);
-> +	return inet_getpeer(&init_net, &daddr, create);
->  }
->  
->  static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr, int create)
-> @@ -89,14 +91,14 @@ static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr,
->  
->  	*(struct in6_addr *)daddr.addr.a6 = *v6daddr;
->  	daddr.family = AF_INET6;
-> -	return inet_getpeer(&daddr, create);
-> +	return inet_getpeer(&init_net, &daddr, create);
->  }
->  
->  /* can be called from BH context or outside */
->  extern void inet_putpeer(struct inet_peer *p);
->  extern bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout);
->  
-> -extern void inetpeer_invalidate_tree(int family);
-> +extern void inetpeer_invalidate_tree(struct net *net, int family);
->  
->  /*
->   * temporary check to make sure we dont access rid, ip_id_count, tcp_ts,
-> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-> index bbd023a..0855e09 100644
-> --- a/include/net/netns/ipv4.h
-> +++ b/include/net/netns/ipv4.h
-> @@ -31,6 +31,7 @@ struct netns_ipv4 {
->  	struct sock		**icmp_sk;
->  	struct sock		*tcp_sock;
->  
-> +	struct inet_peer_base	*peers;
->  	struct netns_frags	frags;
->  #ifdef CONFIG_NETFILTER
->  	struct xt_table		*iptable_filter;
-> diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-> index b42be53..df0a545 100644
-> --- a/include/net/netns/ipv6.h
-> +++ b/include/net/netns/ipv6.h
-> @@ -33,6 +33,7 @@ struct netns_ipv6 {
->  	struct netns_sysctl_ipv6 sysctl;
->  	struct ipv6_devconf	*devconf_all;
->  	struct ipv6_devconf	*devconf_dflt;
-> +	struct inet_peer_base	*peers;
->  	struct netns_frags	frags;
->  #ifdef CONFIG_NETFILTER
->  	struct xt_table		*ip6table_filter;
-> diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-> index d4d61b6..dafb8b0 100644
-> --- a/net/ipv4/inetpeer.c
-> +++ b/net/ipv4/inetpeer.c
-> @@ -90,13 +90,11 @@ struct inet_peer_base {
->  
->  static struct inet_peer_base v4_peers = {
->  	.root		= peer_avl_empty_rcu,
-> -	.lock		= __SEQLOCK_UNLOCKED(v4_peers.lock),
->  	.total		= 0,
->  };
->  
 
-Please remove v4_peers & v6_peers
+[snip..]
 
->  static struct inet_peer_base v6_peers = {
->  	.root		= peer_avl_empty_rcu,
-> -	.lock		= __SEQLOCK_UNLOCKED(v6_peers.lock),
->  	.total		= 0,
->  };
->  
-> @@ -153,6 +151,41 @@ static void inetpeer_gc_worker(struct work_struct *work)
->  	schedule_delayed_work(&gc_work, gc_delay);
->  }
->  
-> +static int __net_init inetpeer_net_init(struct net *net)
-> +{
-> +
-> +	net->ipv4.peers = kmemdup(&v4_peers,
-> +				  sizeof(v4_peers),
-> +				  GFP_KERNEL);
 
-kzalloc(), and init ->root to peer_avl_empty_rcu
-
-> +	if (net->ipv4.peers == NULL)
-> +		return -1;
-> +	seqlock_init(&net->ipv4.peers->lock);
-> +	net->ipv6.peers = kmemdup(&v6_peers,
-> +				  sizeof(v6_peers),
-> +				  GFP_KERNEL);
-
-kzalloc(), and init ->root to peer_avl_empty_rcu
-
-> +	if (net->ipv6.peers == NULL)
-> +		goto out_ipv6;
-> +	seqlock_init(&net->ipv6.peers->lock);
-> +	return 0;
-> +out_ipv6:
-> +	kfree(net->ipv4.peers);
-> +	return -1;
-> +}
-> +
+Regards,
+Bhupesh
