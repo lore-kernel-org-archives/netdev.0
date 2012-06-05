@@ -1,55 +1,55 @@
-From: Josh Boyer <jwboyer@redhat.com>
-Subject: [PATCH] netdev: mv643xx_eth: Prevent build on PPC32
-Date: Tue, 5 Jun 2012 15:28:21 -0400
-Message-ID: <20120605192820.GC7683@zod.bos.redhat.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: linux-next: Tree for Apr 12
+Date: Tue, 5 Jun 2012 12:50:19 -0700
+Message-ID: <20120605125019.dca1fd02.akpm@linux-foundation.org>
+References: <20120412145931.9ec6f2b51655071795d60d1d@canb.auug.org.au>
+	<20120412142415.564710b8.akpm@linux-foundation.org>
+	<20120604150455.7a80b311.akpm@linux-foundation.org>
+	<1338849977.2860.9.camel@localhost>
+	<1338864128.17933.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>, Olof Johansson <olof@lixom.net>,
-	netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47329 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750887Ab2FET3K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jun 2012 15:29:10 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, James Morris <jmorris@namei.org>,
+	Stephen Smalley <sds@tycho.nsa.gov>
+To: Eric Paris <eparis@redhat.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1338864128.17933.2.camel@localhost>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 452503ebc (ARM: Orion: Eth: Add clk/clkdev support.) added use of
-the clk driver API which results in compile errors on architectures that
-don't implement the clk API.
+On Mon, 04 Jun 2012 22:42:08 -0400
+Eric Paris <eparis@redhat.com> wrote:
 
-ERROR: "clk_enable" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
-ERROR: "clk_disable" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
-ERROR: "clk_put" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
-ERROR: "clk_get_rate" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
-ERROR: "clk_get" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> > I really do not want to revert this and feel that the only right fix is
+> > going to be to update your selinux policy to allow this new check.  I'd
+> > rather not allow (whatever program) to truncate() files willy-nilly (in
+> > violation of the intentions of selinux policy)
+> > 
+> > I'm sorry I never saw it sooner.  We've had it in RHEL for even longer
+> > than the 3 months it's been in -next.  I think the 'right' fix is going
+> > to have to be an update to SELinux policy (for your long dead system, if
+> > you give me the denial I can build you a new policy) rather than leaving
+> > the potential security hole in mainline...
+> 
+> Andrew sent me his audit log and it didn't show anything.  But it got me
+> thinking.  Now I think this actually is a code bug.  Andrew, can you
+> test this?
+> 
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index 2e7bd67..20a4315 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -2758,7 +2758,7 @@ static int selinux_inode_setattr(struct dentry *dentry, struct iattr *iattr)
+>  			ATTR_ATIME_SET | ATTR_MTIME_SET | ATTR_TIMES_SET))
+>  		return dentry_has_perm(cred, dentry, FILE__SETATTR);
+>  
+> -	if (ia_valid & ATTR_SIZE)
+> +	if ((ia_valid & ATTR_SIZE) && selinux_policycap_openperm)
+>  		av |= FILE__OPEN;
+>  
+>  	return dentry_has_perm(cred, dentry, av);
 
-Selecting CLKDEV_LOOKUP doesn't fix this either, as the build then fails with:
-
-In file included from drivers/clk/clkdev.c:21:0:
-include/linux/clkdev.h:15:24: fatal error: asm/clkdev.h: No such file or directory
-
-So we just prevent this from building at all on PPC32.
-
-Signed-off-by: Josh Boyer <jwboyer@redhat.com>
----
- drivers/net/ethernet/marvell/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index 0029934..628f5b1 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -20,7 +20,7 @@ if NET_VENDOR_MARVELL
- 
- config MV643XX_ETH
- 	tristate "Marvell Discovery (643XX) and Orion ethernet support"
--	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
-+	depends on (MV64X60 || PLAT_ORION) && INET
- 	select INET_LRO
- 	select PHYLIB
- 	---help---
--- 
-1.7.10.2
+That fixed it.
