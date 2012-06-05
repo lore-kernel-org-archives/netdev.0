@@ -1,61 +1,47 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH net-next v2 1/2] inetpeer: add namespace support for
-	inetpeer
-Date: Tue, 05 Jun 2012 20:29:35 +0800
-Message-ID: <4FCDFBAF.1090404@cn.fujitsu.com>
-References: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<1338886626.2760.2109.camel@edumazet-glaptop>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] inetpeer: fix a race in inetpeer_gc_worker()
+Date: Tue, 5 Jun 2012 14:42:57 +0200
+Message-ID: <20120605124257.GE27795@secunet.com>
+References: <1338888507.2760.2146.camel@edumazet-glaptop>
+ <20120605115640.GC27795@secunet.com>
+ <1338898752.2760.2482.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1338886626.2760.2109.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:53414 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751371Ab2FEMnD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2012 08:43:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1338898752.2760.2482.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-5LqOIDIwMTLlubQwNuaciDA15pelIDE2OjU3LCBFcmljIER1bWF6ZXQg5YaZ6YGTOgo+IE9uIFR1
-ZSwgMjAxMi0wNi0wNSBhdCAxNTo1MiArMDgwMCwgR2FvIGZlbmcgd3JvdGU6Cj4gCj4+ICtzdGF0
-aWMgdm9pZCBfX25ldF9leGl0IGluZXRwZWVyX25ldF9leGl0KHN0cnVjdCBuZXQgKm5ldCkKPj4g
-K3sKPj4gKwlpbmV0cGVlcl9pbnZhbGlkYXRlX3RyZWUobmV0LCBBRl9JTkVUKTsKPj4gKwlrZnJl
-ZShuZXQtPmlwdjQucGVlcnMpOwo+PiArCj4+ICsJaW5ldHBlZXJfaW52YWxpZGF0ZV90cmVlKG5l
-dCwgQUZfSU5FVDYpOwo+PiArCWtmcmVlKG5ldC0+aXB2Ni5wZWVycyk7Cj4+ICt9Cj4+ICsKPiAK
-PiBBcmUgd2UgMTAwMCUgc3VyZSBubyBjb2RlIGV2ZXIgcnVuIGluIGluZXRwZWVyIGxhbmQgYWZ0
-ZXIgdGhpcyBjYWxsID8KCkkgYW0gbm90IHN1cmUsSSBuZWVkIG1vcmUgdGltZSB0byByZXNlYXJj
-aCBpdC4KSSBqdXN0IGRvIGtmcmVlIHBlZXJzIGhlcmUgd2l0aG91dCBzZXQgTlVMTCBwb2ludGVy
-IGlzCmJlYWN1c2UgdGhlcmUgaXMgdGhlIHNhbWUgY29kZSB3aXRoIGZpYjZfbWFpbl90YmwgaW4g
-ZmliNl9uZXRfZXhpdAphbmQgaXQgc2VlbXMgd29yayB3ZWxsLgoKQW55d2F5LCBJIHdpbGwgcmVz
-ZWFyY2ggaXQuCgo+IAo+IEkgd291bGQgYWRkCj4gCW5ldC0+aXB2NC5wZWVycyA9IE5VTEw7Cj4g
-CW5ldC0+aXB2Ni5wZWVycyA9IE5VTEw7Cj4gCj4gdG8gY2F0Y2ggTlVMTCBkZXJlZiBpbnN0ZWFk
-IG9mIHN0cmFuZ2UgZXJyb3JzLCBqdXN0IGluIGNhc2UuCj4gCj4gQnkgdGhlIHdheSwgSSB0aGlu
-ayB3ZSBoYXZlIGEgYnVnIGluIGluZXRwZWVyX2djX3dvcmtlcigpCj4gCj4gU3RlZmZlbiA/Cj4g
-Cj4gV2UgaGF2ZSBubyByY3UgZ3JhY2UgcGVyaW9kIHRvIG1ha2Ugc3VyZSB0aGUgZm9sbG93aW5n
-IGlzIHNhZmUgOgo+IAo+IGlmICghYXRvbWljX3JlYWQoJnAtPnJlZmNudCkpIHsKPiAJbGlzdF9k
-ZWwoJnAtPmdjX2xpc3QpOwo+IAlrbWVtX2NhY2hlX2ZyZWUocGVlcl9jYWNoZXAsIHApOwo+IH0K
-PiAKPiBJJ2xsIHBvc3QgYSBmaXggbGlrZSA6Cj4gCj4gZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lu
-ZXRwZWVyLmMgYi9uZXQvaXB2NC9pbmV0cGVlci5jCj4gaW5kZXggZDRkNjFiNi4uMDc3MzFiNSAx
-MDA2NDQKPiAtLS0gYS9uZXQvaXB2NC9pbmV0cGVlci5jCj4gKysrIGIvbmV0L2lwdjQvaW5ldHBl
-ZXIuYwo+IEBAIC0xMzcsNyArMTM3LDcgQEAgc3RhdGljIHZvaWQgaW5ldHBlZXJfZ2Nfd29ya2Vy
-KHN0cnVjdCB3b3JrX3N0cnVjdCAqd29yaykKPiAgCj4gIAkJbiA9IGxpc3RfZW50cnkocC0+Z2Nf
-bGlzdC5uZXh0LCBzdHJ1Y3QgaW5ldF9wZWVyLCBnY19saXN0KTsKPiAgCj4gLQkJaWYgKCFhdG9t
-aWNfcmVhZCgmcC0+cmVmY250KSkgewo+ICsJCWlmIChhdG9taWNfY21weGNoZygmcC0+cmVmY250
-LCAwLCAtMSkgPT0gMCkgewo+ICAJCQlsaXN0X2RlbCgmcC0+Z2NfbGlzdCk7Cj4gIAkJCWttZW1f
-Y2FjaGVfZnJlZShwZWVyX2NhY2hlcCwgcCk7Cj4gIAkJfQo+IAo+IAo+IAo+IC0tCj4gVG8gdW5z
-dWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRl
-diIgaW4KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9y
-Zwo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jk
-b21vLWluZm8uaHRtbAo+IAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1m
-b3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9s
-aXN0aW5mby9jb250YWluZXJz
+On Tue, Jun 05, 2012 at 02:19:12PM +0200, Eric Dumazet wrote:
+> On Tue, 2012-06-05 at 13:56 +0200, Steffen Klassert wrote:
+> > On Tue, Jun 05, 2012 at 11:28:27AM +0200, Eric Dumazet wrote:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > > 
+> > > commit 5faa5df1fa2024 (inetpeer: Invalidate the inetpeer tree along with
+> > > the routing cache) added a race :
+> > > 
+> > > Before freeing an inetpeer, we must respect a RCU grace period, and make
+> > > sure no user will attempt to increase refcnt.
+> > > 
+> > 
+> > As already mentioned in the other mail. In this case, I think
+> > we can just delete the inetpeer once the refcount got zero.
+> > 
+> 
+> Nope, a concurrent lookup can find an entry about to be freed.
+
+Hm, I agree that we need rcu protection when we remove single entries
+from an inetpeer tree. But in this case we invalidate the entire tree.
+
+The first lookup after inetpeer_invalidate_tree() was invoked should
+find an empty tree, base->root initialized to peer_avl_empty_rcu.
+
+Maybe I'm wrong, but I don't see how a lookup should find such an
+old invalidated tree.
