@@ -1,79 +1,30 @@
 From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: [PATCH v3 net-next 1/5] gianfar: whitespace cleanup - pointers and multiplications
-Date: Tue,  5 Jun 2012 15:42:11 +0200
-Message-ID: <1338903735-24527-2-git-send-email-jan.ceuleers@computer.org>
-References: <1338903735-24527-1-git-send-email-jan.ceuleers@computer.org>
-Cc: Jiajun Wu <b06378@freescale.com>, Joe Perches <joe@perches.com>,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH net-next 5/5] gianfar_ethtool: coding style and whitespace
+ cleanups
+Date: Tue, 05 Jun 2012 15:42:09 +0200
+Message-ID: <4FCE0CB1.50508@computer.org>
+References: <4FCD084D.6020408@computer.org> <20120605.051437.1378262604943296071.davem@davemloft.net> <4FCDE447.3030103@computer.org> <4550590.BhQA539plh@flexo>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, b06378@freescale.com,
+	joe@perches.com, netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:49456 "EHLO
+Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:49477 "EHLO
 	mailrelay012.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756853Ab2FENpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 09:45:05 -0400
-In-Reply-To: <1338903735-24527-1-git-send-email-jan.ceuleers@computer.org>
+	by vger.kernel.org with ESMTP id S1757752Ab2FENpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 09:45:06 -0400
+In-Reply-To: <4550590.BhQA539plh@flexo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jan Ceuleers <jan.ceuleers@computer.org>
----
- drivers/net/ethernet/freescale/gianfar.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+On 06/05/2012 12:54 PM, Florian Fainelli wrote:
+> What about you setup a cross-compiler and build for one of these architectures 
+> where the driver is enabled?
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 0741ade..5ca7b9e 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -266,8 +266,8 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
- 		tx_queue->tx_bd_dma_base = addr;
- 		tx_queue->dev = ndev;
- 		/* enet DMA only understands physical addresses */
--		addr    += sizeof(struct txbd8) *tx_queue->tx_ring_size;
--		vaddr   += sizeof(struct txbd8) *tx_queue->tx_ring_size;
-+		addr    += sizeof(struct txbd8) * tx_queue->tx_ring_size;
-+		vaddr   += sizeof(struct txbd8) * tx_queue->tx_ring_size;
- 	}
- 
- 	/* Start the rx descriptor ring where the tx ring leaves off */
-@@ -276,8 +276,8 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
- 		rx_queue->rx_bd_base = vaddr;
- 		rx_queue->rx_bd_dma_base = addr;
- 		rx_queue->dev = ndev;
--		addr    += sizeof (struct rxbd8) * rx_queue->rx_ring_size;
--		vaddr   += sizeof (struct rxbd8) * rx_queue->rx_ring_size;
-+		addr    += sizeof(struct rxbd8) * rx_queue->rx_ring_size;
-+		vaddr   += sizeof(struct rxbd8) * rx_queue->rx_ring_size;
- 	}
- 
- 	/* Setup the skbuff rings */
-@@ -2590,7 +2590,7 @@ static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
- 	gfar_init_rxbdp(rx_queue, bdp, buf);
- }
- 
--static struct sk_buff * gfar_alloc_skb(struct net_device *dev)
-+static struct sk_buff *gfar_alloc_skb(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct sk_buff *skb = NULL;
-@@ -2604,7 +2604,7 @@ static struct sk_buff * gfar_alloc_skb(struct net_device *dev)
- 	return skb;
- }
- 
--struct sk_buff * gfar_new_skb(struct net_device *dev)
-+struct sk_buff *gfar_new_skb(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct sk_buff *skb = NULL;
-@@ -2728,8 +2728,8 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- }
- 
- /* gfar_clean_rx_ring() -- Processes each frame in the rx ring
-- *   until the budget/quota has been reached. Returns the number
-- *   of frames handled
-+ * until the budget/quota has been reached. Returns the number
-+ * of frames handled
-  */
- int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- {
--- 
-1.7.9.5
+I have now managed to cross-compile the two files I'm touching; thanks
+very much to Florian for assisting me off-list. Will send v3 (no changes
+relative to RFC v2).
+
+Jan
