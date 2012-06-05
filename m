@@ -1,103 +1,47 @@
-From: Dustin Schumm <shodid@gmail.com>
-Subject: Re: Reoccuring kern.log events after running xl2tp with ethernet
- adapter Realtek 8111E
-Date: Tue, 5 Jun 2012 10:56:53 -0400
-Message-ID: <CANcVnzivnQrhSderZ+b5yoy+F1OiO7Ajv7WeijqzQKyAkYRqug@mail.gmail.com>
-References: <CANcVnzi2mXKXZLcaAt9rJ9OOdK_2=V8JV9uebVeBcsDu6j+DhQ@mail.gmail.com>
+From: "AnilKumar, Chimata" <anilkumar@ti.com>
+Subject: RE: [PATCH RFC] c_can_pci: generic module for c_can on PCI
+Date: Tue, 5 Jun 2012 15:12:36 +0000
+Message-ID: <331ABD5ECB02734CA317220B2BBEABC13E9CB18A@DBDE01.ent.ti.com>
+References: <4FCE07EE.40003@pengutronix.de>
+  <D5ECB3C7A6F99444980976A8C6D896384FA5EC4DFC@EAPEX1MAIL1.st.com>
+  <4FC135C6.5030206@grandegger.com> <1677842.Pq7naXsvrI@harkonnen>
+  <D5ECB3C7A6F99444980976A8C6D896384FA5EC4B37@EAPEX1MAIL1.st.com>
+  <3650428.HarNR9HfNF@harkonnen> <20120605131337.GA15432@mail.gnudd.com>
+ <20120605133013.GA16108@mail.gnudd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:54668 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315Ab2FEO4z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 10:56:55 -0400
-Received: by wgbds11 with SMTP id ds11so3403286wgb.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jun 2012 07:56:53 -0700 (PDT)
-In-Reply-To: <CANcVnzi2mXKXZLcaAt9rJ9OOdK_2=V8JV9uebVeBcsDu6j+DhQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "bhupesh.sharma@st.com" <bhupesh.sharma@st.com>,
+	"federico.vaga@gmail.com" <federico.vaga@gmail.com>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"giancarlo.asnaghi@st.com" <giancarlo.asnaghi@st.com>,
+	"alan@linux.intel.com" <alan@linux.intel.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alessandro Rubini <rubini@gnudd.com>,
+	"mkl@pengutronix.de" <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20120605133013.GA16108@mail.gnudd.com>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Let me start off by thanking you for helping with this.
-I'm not that experienced with Linux so as to provide all surrounding
-information, so let me know if you need more.
-=46orgive me for sending this in plain test as I got a reject from
-netdev for html.
+Hi Alessandro/Federico,
 
-The 816x for Ubuntu on kernel 3.2.0
-r8169 0000:0c:00.0: eth0: RTL8168e/8111e at 0xf845e000,
-bc:5f:f4:10:75:4b, XID 0c200000 IRQ 58
-ethtool info
-driver: r8169
-version: 2.3LK-NAPI
-firmware-version: rtl_nic/rtl8168e-2.fw
-bus-info: 0000:0c:00.0
+On Tue, Jun 05, 2012 at 19:00:13, Alessandro Rubini wrote:
+> > I personally like the "pci device sets up a platform device" idea.
+> 
+> Good. Than me or federico will submit a proposal. 
+>  
 
-I've also tested with Fedora 17 using kernel 3.3.7
-http://codepad.org/lxkcRLqp
-This paste is from Fedora. Like Ubuntu, it starts with "general
-protection fault: 0000 [#1] SMP" but does not give the other looping
-messages after as in Ubuntu.
-The 816x for Fedora is
-r8169 0000:0c:00.0: eth0: RTL8168e/8111e at 0xf7e78000,
-bc:5f:f4:10:75:4b, XID 0c200000 IRQ 60
-ethtool info
-driver: r8169
-version: 2.3LK-NAPI
-firmware-version: rtl_nic/rtl8168e-2.fw
-bus-info: 0000:0c:00.0
+I am late to the discussion, is there any specific reason to maintain a
+separate platform file (c_can_pci.c). I think 90% of the code is copied
+from c_can_paltform.c, code changes will be less if you merge to existing
+c_can platform driver. You can look at D_CAN integration to C_CAN driver.
 
-and tested again with Cent OS 6.2 using kernel 2.6.32
-Everything was functional without error here. I had replaced CentOS by
-the time I got this mail so I hadn't captured the 816x here and forgot
-to obtain the kern.log
-ethtool info
-driver: r8169
-version: 2.3LK-NAPI
-firmware-version:
-bus-info: 0000:0c:00.0
+[1] https://gitorious.org/linux-can/linux-can-next
 
-
->
-> On Mon, Jun 4, 2012 at 7:10 PM, Francois Romieu <romieu@fr.zoreil.com=
-> wrote:
-> Dustin Schumm <shodid@gmail.com> :
-> [...]
-> > I'm more than happy to provide whatever more is needed.
->
-> It does not look like our usual 816x bug reports... Neither does your
-> setup actually.
->
-> Which kind of 816x is it (see 'dmesg | grep XID' output) ?
->
-> --
-> Ueimor
-
-
-> On Mon, Jun 4, 2012 at 1:39 PM, Dustin Schumm wrote:
->
-> I'm using Ubuntu 12.04 kernel 3.2.0 and trying to set up L2TP over IP=
-Sec using openswan and xl2tpd.=A0 I've got no problem with the ipsec an=
-d I get SAs established. When I start the L2TP connection with xl2tpd, =
-the kernel log starts filling with looping messages and PC becomes unus=
-able.
->
-> I have tested the exact same configuration down to every package in v=
-isualization and all is working. I believe it has something to do with =
-my ethernet hardware/driver on this machine or kernel interaction with =
-that device. I'm looking for evidence that points to either the driver =
-or kernel and possible solutions.
->
-> I've tried compiling and installing the drivers from Realtek for the =
-RTL8111E integrated adapter and using that, but it produced the same re=
-sult. I've also tried a backported kernel 3.4.0
->
-> I've posted a portion of my kern.log here from where i think the prob=
-lem starts, http://codepad.org/QFbELkCr
->
-> I'm more than happy to provide whatever more is needed.
->
-> Thank you,
-> Dustin S.
+Regards
+AnilKumar
