@@ -1,98 +1,109 @@
-From: Vincent Bernat <bernat@luffy.cx>
-Subject: [PATCH] snmp: fix OutOctets counter to include forwarded datagrams
-Date: Tue,  5 Jun 2012 15:41:42 +0200
-Message-ID: <1338903702-18975-1-git-send-email-bernat@luffy.cx>
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
-	Vincent Bernat <bernat@luffy.cx>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftmxout01ba.infra.b2.fti.net ([193.252.121.124]:56125 "EHLO
-	ftmxout01ba.infra.b2.fti.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757752Ab2FENrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 09:47:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] usbnet: Activate the halt interrupt endpoint to fix endless
+ "XactErr" error
+Date: Tue, 5 Jun 2012 22:12:17 +0800
+Message-ID: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RFC 4293 defines ipIfStatsOutOctets (similar definition for
-ipSystemStatsOutOctets):
+There prints endless "XactErr" error msg once switch my device to the
+configuration
+ which needs cdc_ether driver, the root cause is the interrupt endpoint halts.
+Maybe this is a common issue, so fix it by activating the endpoint
+once the error occurs.
 
-   The total number of octets in IP datagrams delivered to the lower
-   layers for transmission.  Octets from datagrams counted in
-   ipIfStatsOutTransmits MUST be counted here.
-
-And ipIfStatsOutTransmits:
-
-   The total number of IP datagrams that this entity supplied to the
-   lower layers for transmission.  This includes datagrams generated
-   locally and those forwarded by this entity.
-
-Therefore, IPSTATS_MIB_OUTOCTETS must be incremented when incrementing
-IPSTATS_MIB_OUTFORWDATAGRAMS.
-
-IP_UPD_PO_STATS is not used since ipIfStatsOutRequests must not
-include forwarded datagrams:
-
-   The total number of IP datagrams that local IP user-protocols
-   (including ICMP) supplied to IP in requests for transmission.  Note
-   that this counter does not include any datagrams counted in
-   ipIfStatsOutForwDatagrams.
-
-Signed-off-by: Vincent Bernat <bernat@luffy.cx>
+Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ipv4/ip_forward.c |    1 +
- net/ipv4/ipmr.c       |    1 +
- net/ipv6/ip6_output.c |    1 +
- net/ipv6/ip6mr.c      |    2 ++
- 4 files changed, 5 insertions(+)
+ drivers/net/usb/usbnet.c   |   33 +++++++++++++++++++++++++++++++++
+ include/linux/usb/usbnet.h |   15 ++++++++-------
+ 2 files changed, 41 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index e5c44fc..ab09b12 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -44,6 +44,7 @@ static int ip_forward_finish(struct sk_buff *skb)
- 	struct ip_options *opt	= &(IPCB(skb)->opt);
- 
- 	IP_INC_STATS_BH(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
-+	IP_ADD_STATS_BH(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTOCTETS, skb->len);
- 
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index a9e519a..c94bbc6 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1574,6 +1574,7 @@ static inline int ipmr_forward_finish(struct sk_buff *skb)
- 	struct ip_options *opt = &(IPCB(skb)->opt);
- 
- 	IP_INC_STATS_BH(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTFORWDATAGRAMS);
-+	IP_ADD_STATS_BH(dev_net(skb_dst(skb)->dev), IPSTATS_MIB_OUTOCTETS, skb->len);
- 
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 17b8c67..decc21d1 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -526,6 +526,7 @@ int ip6_forward(struct sk_buff *skb)
- 	hdr->hop_limit--;
- 
- 	IP6_INC_STATS_BH(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTFORWDATAGRAMS);
-+	IP6_ADD_STATS_BH(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTOCTETS, skb->len);
- 	return NF_HOOK(NFPROTO_IPV6, NF_INET_FORWARD, skb, skb->dev, dst->dev,
- 		       ip6_forward_finish);
- 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index b15dc08..461e47c 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1886,6 +1886,8 @@ static inline int ip6mr_forward2_finish(struct sk_buff *skb)
- {
- 	IP6_INC_STATS_BH(dev_net(skb_dst(skb)->dev), ip6_dst_idev(skb_dst(skb)),
- 			 IPSTATS_MIB_OUTFORWDATAGRAMS);
-+	IP6_ADD_STATS_BH(dev_net(skb_dst(skb)->dev), ip6_dst_idev(skb_dst(skb)),
-+			 IPSTATS_MIB_OUTOCTETS, skb->len);
- 	return dst_output(skb);
- }
- 
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 9f58330..f13922b 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -537,6 +537,11 @@ static void intr_complete (struct urb *urb)
+ 			  "intr shutdown, code %d\n", status);
+ 		return;
+
++	case -EPIPE:
++	case -EPROTO:
++		usbnet_defer_kevent(dev, EVENT_STS_HALT);
++		return;
++
+ 	/* NOTE:  not throttling like RX/TX, since this endpoint
+ 	 * already polls infrequently
+ 	 */
+@@ -967,6 +972,34 @@ fail_halt:
+ 		}
+ 	}
+
++	if (test_bit(EVENT_STS_HALT, &dev->flags)) {
++		unsigned pipe;
++		struct usb_endpoint_descriptor *desc;
++
++		desc = &dev->status->desc;
++		pipe = usb_rcvintpipe(dev->udev,
++			desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
++		status = usb_autopm_get_interface(dev->intf);
++		if (status < 0)
++			goto fail_sts;
++		status = usb_clear_halt(dev->udev, pipe);
++		usb_autopm_put_interface(dev->intf);
++
++		if (status < 0 && status != -EPIPE && status != -ESHUTDOWN) {
++fail_sts:
++			netdev_err(dev->net,
++				"can't clear intr halt, status %d\n", status);
++		} else {
++			clear_bit(EVENT_STS_HALT, &dev->flags);
++			memset(dev->interrupt->transfer_buffer, 0,
++				dev->interrupt->transfer_buffer_length);
++			status = usb_submit_urb(dev->interrupt, GFP_KERNEL);
++			if (status != 0)
++				netif_err(dev, timer, dev->net,
++					"intr resubmit --> %d\n", status);
++		}
++	}
++
+ 	/* tasklet could resubmit itself forever if memory is tight */
+ 	if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
+ 		struct urb	*urb = NULL;
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 76f4396..c0bcb61 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -62,13 +62,14 @@ struct usbnet {
+ 	unsigned long		flags;
+ #		define EVENT_TX_HALT	0
+ #		define EVENT_RX_HALT	1
+-#		define EVENT_RX_MEMORY	2
+-#		define EVENT_STS_SPLIT	3
+-#		define EVENT_LINK_RESET	4
+-#		define EVENT_RX_PAUSED	5
+-#		define EVENT_DEV_WAKING 6
+-#		define EVENT_DEV_ASLEEP 7
+-#		define EVENT_DEV_OPEN	8
++#		define EVENT_STS_HALT	2
++#		define EVENT_RX_MEMORY	3
++#		define EVENT_STS_SPLIT	4
++#		define EVENT_LINK_RESET	5
++#		define EVENT_RX_PAUSED	6
++#		define EVENT_DEV_WAKING 7
++#		define EVENT_DEV_ASLEEP 8
++#		define EVENT_DEV_OPEN	9
+ };
+
+ static inline struct usb_driver *driver_of(struct usb_interface *intf)
 -- 
-1.7.10
+1.7.9.5
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
