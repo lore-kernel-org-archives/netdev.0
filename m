@@ -1,23 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: add dev_loopback_xmit() to avoid duplicate
- code
-Date: Tue, 05 Jun 2012 14:41:28 -0700 (PDT)
-Message-ID: <20120605.144128.1246711898220435843.davem@davemloft.net>
-References: <1337782819.2779.20.camel@Thor>
-	<1338902613.2792.16.camel@Thor>
+Subject: Re: [PATCH v3 net-next 0/5] gianfar: coding style cleanups
+Date: Tue, 05 Jun 2012 15:38:57 -0700 (PDT)
+Message-ID: <20120605.153857.377350943833154743.davem@davemloft.net>
+References: <1338903735-24527-1-git-send-email-jan.ceuleers@computer.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: michel@digirati.com.br
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1338902613.2792.16.camel@Thor>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: b06378@freescale.com, joe@perches.com, netdev@vger.kernel.org
+To: jan.ceuleers@computer.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58997 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764Ab2FEWi7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 18:38:59 -0400
+In-Reply-To: <1338903735-24527-1-git-send-email-jan.ceuleers@computer.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michel Machado <michel@digirati.com.br>
-Date: Tue, 05 Jun 2012 09:23:33 -0400
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Date: Tue,  5 Jun 2012 15:42:10 +0200
 
-> Just to avoid bothering you further, should I resend this patch or not?
+> Various coding style cleanups, mostly whitespace and comment reformatting.
+> 
+> I have left a number of lines untouched where I felt that the changes I
+> was considering were not improving readability. But de gustibus etc.
+> 
+> Patch 4/5 also removes some superfluous local variable initialisations.
+> These are obviously correct because the variable is initialised again
+> right after. But you might consider this to be unnecessary code churn
+> because the compiler is unlikely to generate better code due to this patch.
+> 
+> WARNING: Compile-tested only. I do not have the hardware.
 
-Always resend patches.
+All applied, thanks Jan.
