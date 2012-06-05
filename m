@@ -1,96 +1,154 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] netdev: mv643xx_eth: Prevent build on PPC32
-Date: Wed, 06 Jun 2012 00:30:05 +0100
-Message-ID: <1338939005.21665.54.camel@deadeye.wl.decadent.org.uk>
-References: <20120605192820.GC7683@zod.bos.redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [v2 PATCH] netfilter: xt_HMARK: fix endian bugs and warnings
+Date: Wed, 6 Jun 2012 01:41:21 +0200
+Message-ID: <20120605234121.GA27165@1984>
+References: <1337330146-26305-1-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-hfaMZmiKemOhZmcg3Z9Z"
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-	Andrew Lunn <andrew@lunn.ch>, Olof Johansson <olof@lixom.net>,
-	netdev@vger.kernel.org
-To: Josh Boyer <jwboyer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, jengelh@medozas.de,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	dan.carpenter@oracle.com, hans.schillstrom@ericsson.com
+To: Hans Schillstrom <hans@schillstrom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53837 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753514Ab2FEXaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 19:30:19 -0400
-In-Reply-To: <20120605192820.GC7683@zod.bos.redhat.com>
+Received: from mail.us.es ([193.147.175.20]:49500 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753785Ab2FEXlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2012 19:41:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1337330146-26305-1-git-send-email-hans@schillstrom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, May 18, 2012 at 10:35:46AM +0200, Hans Schillstrom wrote:
+> A mix of u32 and __be32 causes endian warning.
+> The hash value produced is now the same for big and little endian machines.
+> i.e. a mix of Big and Little endian in a cluster is now possible.
 
---=-hfaMZmiKemOhZmcg3Z9Z
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Applied with minor glitches, Thanks Hans.
 
-On Tue, 2012-06-05 at 15:28 -0400, Josh Boyer wrote:
-> Commit 452503ebc (ARM: Orion: Eth: Add clk/clkdev support.) added use of
-> the clk driver API which results in compile errors on architectures that
-> don't implement the clk API.
->=20
-> ERROR: "clk_enable" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefin=
-ed!
-> ERROR: "clk_disable" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefi=
-ned!
-> ERROR: "clk_put" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
-> ERROR: "clk_get_rate" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undef=
-ined!
-> ERROR: "clk_get" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
->=20
-> Selecting CLKDEV_LOOKUP doesn't fix this either, as the build then fails =
-with:
->=20
-> In file included from drivers/clk/clkdev.c:21:0:
-> include/linux/clkdev.h:15:24: fatal error: asm/clkdev.h: No such file or =
-directory
->=20
-> So we just prevent this from building at all on PPC32.
+I have rewritten the description.
+
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+> ---
+>  include/linux/netfilter/xt_HMARK.h |    5 +++
+>  net/netfilter/xt_HMARK.c           |   69 ++++++++++++++++++++----------------
+>  2 files changed, 43 insertions(+), 31 deletions(-)
+> 
+> diff --git a/include/linux/netfilter/xt_HMARK.h b/include/linux/netfilter/xt_HMARK.h
+> index abb1650..826fc58 100644
+> --- a/include/linux/netfilter/xt_HMARK.h
+> +++ b/include/linux/netfilter/xt_HMARK.h
+> @@ -27,7 +27,12 @@ union hmark_ports {
+>  		__u16	src;
+>  		__u16	dst;
+>  	} p16;
+> +	struct {
+> +		__be16	src;
+> +		__be16	dst;
+> +	} b16;
+>  	__u32	v32;
+> +	__be32	b32;
+>  };
+>  
+>  struct xt_hmark_info {
+> diff --git a/net/netfilter/xt_HMARK.c b/net/netfilter/xt_HMARK.c
+> index 0a96a43..5119666 100644
+> --- a/net/netfilter/xt_HMARK.c
+> +++ b/net/netfilter/xt_HMARK.c
+> @@ -32,13 +32,13 @@ MODULE_ALIAS("ipt_HMARK");
+>  MODULE_ALIAS("ip6t_HMARK");
+>  
+>  struct hmark_tuple {
+> -	u32			src;
+> -	u32			dst;
+> +	__be32			src;
+> +	__be32			dst;
+>  	union hmark_ports	uports;
+>  	uint8_t			proto;
+
+I have converted this uint8_t to u8. I think I'm responsible for that
+slipped through.
+
+>  };
+>  
+> -static inline u32 hmark_addr6_mask(const __u32 *addr32, const __u32 *mask)
+> +static inline __be32 hmark_addr6_mask(const __be32 *addr32, const __be32 *mask)
+>  {
+>  	return (addr32[0] & mask[0]) ^
+>  	       (addr32[1] & mask[1]) ^
+> @@ -46,8 +46,8 @@ static inline u32 hmark_addr6_mask(const __u32 *addr32, const __u32 *mask)
+>  	       (addr32[3] & mask[3]);
+>  }
+>  
+> -static inline u32
+> -hmark_addr_mask(int l3num, const __u32 *addr32, const __u32 *mask)
+> +static inline __be32
+> +hmark_addr_mask(int l3num, const __be32 *addr32, const __be32 *mask)
+>  {
+>  	switch (l3num) {
+>  	case AF_INET:
+> @@ -58,6 +58,22 @@ hmark_addr_mask(int l3num, const __u32 *addr32, const __u32 *mask)
+>  	return 0;
+>  }
+>  
+> +static inline void hmark_swap_ports(union hmark_ports *uports,
+> +				    const struct xt_hmark_info *info)
+> +{
+> +	union hmark_ports hp;
+> +	u16 src,dst;
+> +
+> +	hp.b32 = (uports->b32 & info->port_mask.b32) | info->port_set.b32;
+> +	src = ntohs(hp.b16.src);
+> +	dst = ntohs(hp.b16.dst);
+> +
+> +	if (dst > src)
+> +		uports->v32 = (dst << 16) | src;
+> +	else
+> +		uports->v32 = (src << 16) | dst;
+> +}
+> +
+>  static int
+>  hmark_ct_set_htuple(const struct sk_buff *skb, struct hmark_tuple *t,
+>  		    const struct xt_hmark_info *info)
+> @@ -74,22 +90,19 @@ hmark_ct_set_htuple(const struct sk_buff *skb, struct hmark_tuple *t,
+>  	otuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+>  	rtuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+>  
+> -	t->src = hmark_addr_mask(otuple->src.l3num, otuple->src.u3.all,
+> -				 info->src_mask.all);
+> -	t->dst = hmark_addr_mask(otuple->src.l3num, rtuple->src.u3.all,
+> -				 info->dst_mask.all);
+> +	t->src = hmark_addr_mask(otuple->src.l3num, otuple->src.u3.ip6,
+> +				 info->src_mask.ip6);
+> +	t->dst = hmark_addr_mask(otuple->src.l3num, rtuple->src.u3.ip6,
+> +				 info->dst_mask.ip6);
+>  
+>  	if (info->flags & XT_HMARK_FLAG(XT_HMARK_METHOD_L3))
+>  		return 0;
+>  
+>  	t->proto = nf_ct_protonum(ct);
+>  	if (t->proto != IPPROTO_ICMP) {
+> -		t->uports.p16.src = otuple->src.u.all;
+> -		t->uports.p16.dst = rtuple->src.u.all;
+> -		t->uports.v32 = (t->uports.v32 & info->port_mask.v32) |
+> -				info->port_set.v32;
+> -		if (t->uports.p16.dst < t->uports.p16.src)
+> -			swap(t->uports.p16.dst, t->uports.p16.src);
+> +		t->uports.b16.src = otuple->src.u.all;
+> +		t->uports.b16.dst = rtuple->src.u.all;
+> +		hmark_swap_ports(&t->uports, info);
+>  	}
+>  
+>  	return 0;
+> @@ -102,11 +115,13 @@ static inline u32
+
+I've added this comment on top of hmark_hash:
+
+/* This hash function is endian independent, to ensure consistent hashing if
+ * the cluster is composed of big and little endian systems. */
+
+In case that someone is curious about all those conversions.
+
+>  hmark_hash(struct hmark_tuple *t, const struct xt_hmark_info *info)
 [...]
-
-This dependency was introduced by:
-
-commit 16b817579fb61050f1abcc0e81089974328a9c27
-Author: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date:   Sat Apr 16 15:24:30 2005 -0700
-
-    [PATCH] ppc32: MV643XX ethernet is an option for Pegasos
-
-commit 06ede91017d015a03cf8c1c87b3ff668f9a846e0
-Author: Dale Farnsworth <dale@farnsworth.org>
-Date:   Wed Sep 20 12:24:34 2006 -0700
-
-    [PATCH] mv643xx_eth: restrict to 32-bit PPC_MULTIPLATFORM
-
-If Pegasos is still supposed to be supported then this needs to be fixed
-properly.
-
-Ben.
-
---=20
-Ben Hutchings
-I haven't lost my mind; it's backed up on tape somewhere.
-
---=-hfaMZmiKemOhZmcg3Z9Z
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAT86Wfee/yOyVhhEJAQoL8RAApPYHn4Pi5fTz7eNETnXYx88OcbOyu7eV
-sqsXHnvRv3D7Q1jzims2X9d+lx1BDlR2MvpP0dnhjEKNTzf3NrY2eAedW/me6hvw
-6krvxy2hyTcz3R0Dnl84vLkC7oYkvkQC04bRXayVWtpII9a9ExzeTBlHCMmDcOp3
-sKRoZMDlnaWc3p57t/TktSfBomFyZtI4wamWzK7XrkqzkE6fj8BldZCqntjHDfVU
-HhHCRg4F9s+F3RGvrCnGV3ROz/6sbW+fMPYLvFB31OnWzdIfi6FqVxMKClYJCGL7
-O4TmABS5Bakn2+6QN27EUYcVoSPWyStiFA9TUb0scs0lgfTtTkSa4DhS1uTQRxRE
-ihpOeXq/JY1EmIhtGyDrNgzgnHPGc34+J1ZApHE/GwvHoqd3IamSYY1OnWV6rvDN
-UFaNXpwpA4JsTQrGZeMxw7b9uehZ24DiOXvA4S16vlVYbmy2Pai+OZ3khuDEzNPu
-7jN6o/FYlIgBtoDyvJ6K3yFAlgKTy1r7bMqrBiKh6TyEiftVr3OFNLVzA3xNuuzg
-GPFLZEQpguSzBWu/YVyFIj9yLSe1Y9DcjsAdMqc3P4trXMAYNibaPn2iVbcikM5C
-r190ffNh2hzfxbInYwfw6194voK71lPW5X/3Gtuj6iCqo5rinoLX/y6xwTXTu5p5
-JMbGc12JTYQ=
-=ULU1
------END PGP SIGNATURE-----
-
---=-hfaMZmiKemOhZmcg3Z9Z--
