@@ -1,240 +1,134 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH net-next v2 2/2] inetpeer: add parameter net for
-	inet_getpeer_v4, v6
-Date: Tue, 5 Jun 2012 15:52:56 +0800
-Message-ID: <1338882776-12042-1-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next PATCH 1/3] Added kernel support in EEE Ethtool commands
+Date: Tue, 05 Jun 2012 10:00:58 +0200
+Message-ID: <4FCDBCBA.8040306@st.com>
+References: <1338878342-24586-1-git-send-email-yuvalmin@broadcom.com> <1338878342-24586-2-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-To: serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1338882737-11914-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
+To: Yuval Mintz <yuvalmin@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:58052 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757595Ab2FEIBU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 04:01:20 -0400
+In-Reply-To: <1338878342-24586-2-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-add struct net as a parameter of inet_getpeer_v[4,6],
-use net to replace &init_net.
+Hello Yuval,
 
-and modify some places to provide net for inet_getpeer_v[4,6]
+On 6/5/2012 8:39 AM, Yuval Mintz wrote:
+> This patch extends the kernel's ethtool interface by adding support
+> for 2 new EEE commands - get_eee and set_eee.
+> 
+> Thanks goes to Giuseppe Cavallaro for his original patch adding this support.
 
-Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
----
- include/net/inetpeer.h   |   12 ++++++++----
- net/ipv4/inet_fragment.c |    2 +-
- net/ipv4/ip_fragment.c   |    6 +++++-
- net/ipv4/route.c         |    8 +++++---
- net/ipv4/tcp_ipv4.c      |    6 ++++--
- net/ipv6/route.c         |    3 ++-
- net/ipv6/tcp_ipv6.c      |    6 ++++--
- 7 files changed, 29 insertions(+), 14 deletions(-)
+Thank to you for having re-worked/re-stored the code I had proposed and
+sorry if I was not able to post my patches in time.
+Indeed, I had already done some progresses on EEE so I could re-base it
+against your work as soon as reviewed.
 
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 4a50449..31101e0 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -76,22 +76,26 @@ struct inet_peer *inet_getpeer(struct net *net,
- 			       const struct inetpeer_addr *daddr,
- 			       int create);
- 
--static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
-+static inline struct inet_peer *inet_getpeer_v4(struct net *net,
-+						__be32 v4daddr,
-+						int create)
- {
- 	struct inetpeer_addr daddr;
- 
- 	daddr.addr.a4 = v4daddr;
- 	daddr.family = AF_INET;
--	return inet_getpeer(&init_net, &daddr, create);
-+	return inet_getpeer(net, &daddr, create);
- }
- 
--static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr, int create)
-+static inline struct inet_peer *inet_getpeer_v6(struct net *net,
-+						const struct in6_addr *v6daddr,
-+						int create)
- {
- 	struct inetpeer_addr daddr;
- 
- 	*(struct in6_addr *)daddr.addr.a6 = *v6daddr;
- 	daddr.family = AF_INET6;
--	return inet_getpeer(&init_net, &daddr, create);
-+	return inet_getpeer(net, &daddr, create);
- }
- 
- /* can be called from BH context or outside */
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 5ff2a51..85190e6 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -243,12 +243,12 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- 	if (q == NULL)
- 		return NULL;
- 
-+	q->net = nf;
- 	f->constructor(q, arg);
- 	atomic_add(f->qsize, &nf->mem);
- 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
- 	spin_lock_init(&q->lock);
- 	atomic_set(&q->refcnt, 1);
--	q->net = nf;
- 
- 	return q;
- }
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 9dbd3dd..22c6bab 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -171,6 +171,10 @@ static void frag_kfree_skb(struct netns_frags *nf, struct sk_buff *skb)
- static void ip4_frag_init(struct inet_frag_queue *q, void *a)
- {
- 	struct ipq *qp = container_of(q, struct ipq, q);
-+	struct netns_ipv4 *ipv4 = container_of(q->net, struct netns_ipv4,
-+					       frags);
-+	struct net *net = container_of(ipv4, struct net, ipv4);
-+
- 	struct ip4_create_arg *arg = a;
- 
- 	qp->protocol = arg->iph->protocol;
-@@ -180,7 +184,7 @@ static void ip4_frag_init(struct inet_frag_queue *q, void *a)
- 	qp->daddr = arg->iph->daddr;
- 	qp->user = arg->user;
- 	qp->peer = sysctl_ipfrag_max_dist ?
--		inet_getpeer_v4(arg->iph->saddr, 1) : NULL;
-+		inet_getpeer_v4(net, arg->iph->saddr, 1) : NULL;
- }
- 
- static __inline__ void ip4_frag_free(struct inet_frag_queue *q)
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e5b18b8..448e56b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1328,9 +1328,10 @@ static u32 rt_peer_genid(void)
- 
- void rt_bind_peer(struct rtable *rt, __be32 daddr, int create)
- {
-+	struct net *net = dev_net(rt->dst.dev);
- 	struct inet_peer *peer;
- 
--	peer = inet_getpeer_v4(daddr, create);
-+	peer = inet_getpeer_v4(net, daddr, create);
- 
- 	if (peer && cmpxchg(&rt->peer, NULL, peer) != NULL)
- 		inet_putpeer(peer);
-@@ -1694,7 +1695,7 @@ unsigned short ip_rt_frag_needed(struct net *net, const struct iphdr *iph,
- 	unsigned short est_mtu = 0;
- 	struct inet_peer *peer;
- 
--	peer = inet_getpeer_v4(iph->daddr, 1);
-+	peer = inet_getpeer_v4(net, iph->daddr, 1);
- 	if (peer) {
- 		unsigned short mtu = new_mtu;
- 
-@@ -1935,6 +1936,7 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
- static void rt_init_metrics(struct rtable *rt, const struct flowi4 *fl4,
- 			    struct fib_info *fi)
- {
-+	struct net *net = dev_net(rt->dst.dev);
- 	struct inet_peer *peer;
- 	int create = 0;
- 
-@@ -1944,7 +1946,7 @@ static void rt_init_metrics(struct rtable *rt, const struct flowi4 *fl4,
- 	if (fl4 && (fl4->flowi4_flags & FLOWI_FLAG_PRECOW_METRICS))
- 		create = 1;
- 
--	rt->peer = peer = inet_getpeer_v4(rt->rt_dst, create);
-+	rt->peer = peer = inet_getpeer_v4(net, rt->rt_dst, create);
- 	if (peer) {
- 		rt->rt_peer_genid = rt_peer_genid();
- 		if (inet_metrics_new(peer))
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a43b87d..50d4bee 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1822,11 +1822,12 @@ struct inet_peer *tcp_v4_get_peer(struct sock *sk, bool *release_it)
- {
- 	struct rtable *rt = (struct rtable *) __sk_dst_get(sk);
- 	struct inet_sock *inet = inet_sk(sk);
-+	struct net *net = sock_net(sk);
- 	struct inet_peer *peer;
- 
- 	if (!rt ||
- 	    inet->cork.fl.u.ip4.daddr != inet->inet_daddr) {
--		peer = inet_getpeer_v4(inet->inet_daddr, 1);
-+		peer = inet_getpeer_v4(net, inet->inet_daddr, 1);
- 		*release_it = true;
- 	} else {
- 		if (!rt->peer)
-@@ -1842,8 +1843,9 @@ EXPORT_SYMBOL(tcp_v4_get_peer);
- void *tcp_v4_tw_get_peer(struct sock *sk)
- {
- 	const struct inet_timewait_sock *tw = inet_twsk(sk);
-+	struct net *net = sock_net(sk);
- 
--	return inet_getpeer_v4(tw->tw_daddr, 1);
-+	return inet_getpeer_v4(net, tw->tw_daddr, 1);
- }
- EXPORT_SYMBOL(tcp_v4_tw_get_peer);
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 999a982..4eca013 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -306,9 +306,10 @@ static u32 rt6_peer_genid(void)
- 
- void rt6_bind_peer(struct rt6_info *rt, int create)
- {
-+	struct net *net = dev_net(rt->dst.dev);
- 	struct inet_peer *peer;
- 
--	peer = inet_getpeer_v6(&rt->rt6i_dst.addr, create);
-+	peer = inet_getpeer_v6(net, &rt->rt6i_dst.addr, create);
- 	if (peer && cmpxchg(&rt->rt6i_peer, NULL, peer) != NULL)
- 		inet_putpeer(peer);
- 	else
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 554d599..56aae14 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1734,11 +1734,12 @@ static struct inet_peer *tcp_v6_get_peer(struct sock *sk, bool *release_it)
- {
- 	struct rt6_info *rt = (struct rt6_info *) __sk_dst_get(sk);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
-+	struct net *net = sock_net(sk);
- 	struct inet_peer *peer;
- 
- 	if (!rt ||
- 	    !ipv6_addr_equal(&np->daddr, &rt->rt6i_dst.addr)) {
--		peer = inet_getpeer_v6(&np->daddr, 1);
-+		peer = inet_getpeer_v6(net, &np->daddr, 1);
- 		*release_it = true;
- 	} else {
- 		if (!rt->rt6i_peer)
-@@ -1754,11 +1755,12 @@ static void *tcp_v6_tw_get_peer(struct sock *sk)
- {
- 	const struct inet6_timewait_sock *tw6 = inet6_twsk(sk);
- 	const struct inet_timewait_sock *tw = inet_twsk(sk);
-+	struct net *net = sock_net(sk);
- 
- 	if (tw->tw_family == AF_INET)
- 		return tcp_v4_tw_get_peer(sk);
- 
--	return inet_getpeer_v6(&tw6->tw_v6_daddr, 1);
-+	return inet_getpeer_v6(net, &tw6->tw_v6_daddr, 1);
- }
- 
- static struct timewait_sock_ops tcp6_timewait_sock_ops = {
--- 
-1.7.7.6
+For example, I could especially contribute on the eee get/set for the
+PHY part. I had already sent the patches for phy_device.c (Ben's already
+helped me on these) and I am happy to rework them.
+
+Then I could test and verify all (ethtool + phy + user-space
+application) with the stmmac d.d. on my platforms.
+
+[snip]
+
+> +	__u32	tx_lpi_enabled;
+> +	__u32	tx_lpi_timer;
+
+Is the tx_lpi_timer field for the MAC driver as we discussed in the
+past? If yes, so I can use it for the stmmac too.
+
+Peppe
+
+> +	__u32	reserved[2];
+> +};
+> +
+>  /**
+>   * struct ethtool_modinfo - plugin module eeprom information
+>   * @cmd: %ETHTOOL_GMODULEINFO
+> @@ -945,6 +958,8 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
+>   * @get_module_info: Get the size and type of the eeprom contained within
+>   *	a plug-in module.
+>   * @get_module_eeprom: Get the eeprom information from the plug-in module
+> + * @get_eee: Get Energy-Efficient (EEE) supported and status.
+> + * @set_eee: Set EEE status (enable/disable) as well as LPI timers.
+>   *
+>   * All operations are optional (i.e. the function pointer may be set
+>   * to %NULL) and callers must take this into account.  Callers must
+> @@ -1011,6 +1026,8 @@ struct ethtool_ops {
+>  				   struct ethtool_modinfo *);
+>  	int     (*get_module_eeprom)(struct net_device *,
+>  				     struct ethtool_eeprom *, u8 *);
+> +	int	(*get_eee)(struct net_device *, struct ethtool_eee *);
+> +	int	(*set_eee)(struct net_device *, struct ethtool_eee *);
+>  
+>  
+>  };
+> @@ -1089,6 +1106,8 @@ struct ethtool_ops {
+>  #define ETHTOOL_GET_TS_INFO	0x00000041 /* Get time stamping and PHC info */
+>  #define ETHTOOL_GMODULEINFO	0x00000042 /* Get plug-in module information */
+>  #define ETHTOOL_GMODULEEEPROM	0x00000043 /* Get plug-in module eeprom */
+> +#define ETHTOOL_GEEE		0x00000044 /* Get EEE settings */
+> +#define ETHTOOL_SEEE		0x00000045 /* Set EEE settings */
+>  
+>  /* compatibility with older code */
+>  #define SPARC_ETH_GSET		ETHTOOL_GSET
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 9c2afb4..7940bd3 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -729,6 +729,34 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
+>  	return dev->ethtool_ops->set_wol(dev, &wol);
+>  }
+>  
+> +static int ethtool_get_eee(struct net_device *dev, char __user *useraddr)
+> +{
+> +	struct ethtool_eee edata;
+> +
+> +	if (!dev->ethtool_ops->get_eee)
+> +		return -EOPNOTSUPP;
+> +
+> +	dev->ethtool_ops->get_eee(dev, &edata);
+> +
+> +	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+> +		return -EFAULT;
+> +
+> +	return 0;
+> +}
+> +
+> +static int ethtool_set_eee(struct net_device *dev, char __user *useraddr)
+> +{
+> +	struct ethtool_eee edata;
+> +
+> +	if (!dev->ethtool_ops->get_eee)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+> +		return -EFAULT;
+> +
+> +	return dev->ethtool_ops->set_eee(dev, &edata);
+> +}
+> +
+>  static int ethtool_nway_reset(struct net_device *dev)
+>  {
+>  	if (!dev->ethtool_ops->nway_reset)
+> @@ -1471,6 +1499,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+>  		rc = ethtool_set_value_void(dev, useraddr,
+>  				       dev->ethtool_ops->set_msglevel);
+>  		break;
+> +	case ETHTOOL_GEEE:
+> +		rc = ethtool_get_eee(dev, useraddr);
+> +		break;
+> +	case ETHTOOL_SEEE:
+> +		rc = ethtool_set_eee(dev, useraddr);
+> +		break;
+>  	case ETHTOOL_NWAY_RST:
+>  		rc = ethtool_nway_reset(dev);
+>  		break;
