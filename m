@@ -1,32 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/5] gianfar_ethtool: coding style and
- whitespace cleanups
-Date: Tue, 05 Jun 2012 05:14:37 -0400 (EDT)
-Message-ID: <20120605.051437.1378262604943296071.davem@davemloft.net>
-References: <4FCD084D.6020408@computer.org>
-	<20120604.155229.822064530175335346.davem@davemloft.net>
-	<4FCD9F15.2050605@computer.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] inetpeer: fix a race in inetpeer_gc_worker()
+Date: Tue, 05 Jun 2012 11:28:27 +0200
+Message-ID: <1338888507.2760.2146.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: b06378@freescale.com, joe@perches.com, netdev@vger.kernel.org
-To: jan.ceuleers@computer.org
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50775 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753612Ab2FEJOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 05:14:41 -0400
-In-Reply-To: <4FCD9F15.2050605@computer.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:57195 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752516Ab2FEJ2c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 05:28:32 -0400
+Received: by bkcji2 with SMTP id ji2so4409159bkc.19
+        for <netdev@vger.kernel.org>; Tue, 05 Jun 2012 02:28:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Date: Tue, 05 Jun 2012 07:54:29 +0200
+From: Eric Dumazet <edumazet@google.com>
 
-> So your build environment happens to be one of powerpc, alpha or mips,
-> does it?
+commit 5faa5df1fa2024 (inetpeer: Invalidate the inetpeer tree along with
+the routing cache) added a race :
 
-No, I get those errors you posted too.
+Before freeing an inetpeer, we must respect a RCU grace period, and make
+sure no user will attempt to increase refcnt.
 
-But like I said, you simply IGNORE THEM, and look for newly introduced
-errors and warnings.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/inetpeer.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index d4d61b6..f936e95 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -108,6 +108,11 @@ int inet_peer_threshold __read_mostly = 65536 + 128;	/* start to throw entries m
+ int inet_peer_minttl __read_mostly = 120 * HZ;	/* TTL under high load: 120 sec */
+ int inet_peer_maxttl __read_mostly = 10 * 60 * HZ;	/* usual time to live: 10 min */
+ 
++static void inetpeer_free_rcu(struct rcu_head *head)
++{
++	kmem_cache_free(peer_cachep, container_of(head, struct inet_peer, rcu));
++}
++
+ static void inetpeer_gc_worker(struct work_struct *work)
+ {
+ 	struct inet_peer *p, *n;
+@@ -137,9 +142,9 @@ static void inetpeer_gc_worker(struct work_struct *work)
+ 
+ 		n = list_entry(p->gc_list.next, struct inet_peer, gc_list);
+ 
+-		if (!atomic_read(&p->refcnt)) {
++		if (atomic_cmpxchg(&p->refcnt, 0, -1) == 0) {
+ 			list_del(&p->gc_list);
+-			kmem_cache_free(peer_cachep, p);
++			call_rcu(&p->rcu, inetpeer_free_rcu);
+ 		}
+ 	}
+ 
+@@ -364,11 +369,6 @@ do {								\
+ 	peer_avl_rebalance(stack, stackptr, base);		\
+ } while (0)
+ 
+-static void inetpeer_free_rcu(struct rcu_head *head)
+-{
+-	kmem_cache_free(peer_cachep, container_of(head, struct inet_peer, rcu));
+-}
+-
+ static void unlink_from_pool(struct inet_peer *p, struct inet_peer_base *base,
+ 			     struct inet_peer __rcu **stack[PEER_MAXDEPTH])
+ {
