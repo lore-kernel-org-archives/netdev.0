@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/5] gianfar: coding style cleanups
-Date: Tue, 05 Jun 2012 15:38:57 -0700 (PDT)
-Message-ID: <20120605.153857.377350943833154743.davem@davemloft.net>
-References: <1338903735-24527-1-git-send-email-jan.ceuleers@computer.org>
+Subject: Re: [Bug 43327] New: IP routing: cached route is applied to wrong
+ network interface
+Date: Tue, 05 Jun 2012 15:40:04 -0700 (PDT)
+Message-ID: <20120605.154004.1635401933600568998.davem@davemloft.net>
+References: <20120531174641.2809b5c4@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: b06378@freescale.com, joe@perches.com, netdev@vger.kernel.org
-To: jan.ceuleers@computer.org
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58997 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59007 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764Ab2FEWi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 18:38:59 -0400
-In-Reply-To: <1338903735-24527-1-git-send-email-jan.ceuleers@computer.org>
+	with ESMTP id S1751117Ab2FEWkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 18:40:04 -0400
+In-Reply-To: <20120531174641.2809b5c4@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Date: Tue,  5 Jun 2012 15:42:10 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 31 May 2012 17:46:41 -0700
 
-> Various coding style cleanups, mostly whitespace and comment reformatting.
-> 
-> I have left a number of lines untouched where I felt that the changes I
-> was considering were not improving readability. But de gustibus etc.
-> 
-> Patch 4/5 also removes some superfluous local variable initialisations.
-> These are obviously correct because the variable is initialised again
-> right after. But you might consider this to be unnecessary code churn
-> because the compiler is unlikely to generate better code due to this patch.
-> 
-> WARNING: Compile-tested only. I do not have the hardware.
+> Subject: [Bug 43327] New: IP routing: cached route is applied to wrong network interface
 
-All applied, thanks Jan.
+I suspect we'll need to root the inetpeer trees in the fib rules
+to fix this.
