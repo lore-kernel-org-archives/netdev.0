@@ -1,165 +1,162 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-dev] [PATCH 01/21] datapath: tunnelling: Replace tun_id with tun_key
-Date: Tue, 5 Jun 2012 12:33:11 +0900
-Message-ID: <CAEP_g=8ahniEzTQQ8a8Kfu2cudxyM_+DA5YLyxM0EdY43NkpBg@mail.gmail.com>
-References: <1337850554-10339-1-git-send-email-horms@verge.net.au>
- <1337850554-10339-2-git-send-email-horms@verge.net.au> <CAEP_g=9hkP-7fuFK3zSJcR=2BTK0feq7qUa8LHs3dbGQBy+suw@mail.gmail.com>
- <20120604223413.GF28747@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] inetpeer: add namespace support for
+ inetpeer
+Date: Tue, 05 Jun 2012 05:40:19 +0200
+Message-ID: <1338867619.2760.1980.camel@edumazet-glaptop>
+References: <1338863012-4902-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dev@openvswitch.org, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, steffen.klassert@secunet.com,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:40327 "HELO
-	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755811Ab2FEDdd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jun 2012 23:33:33 -0400
-Received: by ggnm2 with SMTP id m2so3868458ggn.41
-        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 20:33:31 -0700 (PDT)
-In-Reply-To: <20120604223413.GF28747@verge.net.au>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:48502 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752849Ab2FEDkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jun 2012 23:40:23 -0400
+Received: by wibhj8 with SMTP id hj8so3463331wib.1
+        for <netdev@vger.kernel.org>; Mon, 04 Jun 2012 20:40:22 -0700 (PDT)
+In-Reply-To: <1338863012-4902-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 5, 2012 at 7:34 AM, Simon Horman <horms@verge.net.au> wrote=
-:
-> On Sun, Jun 03, 2012 at 06:15:04PM +0900, Jesse Gross wrote:
->> On Thu, May 24, 2012 at 6:08 PM, Simon Horman <horms@verge.net.au> w=
-rote:
->> > @@ -1204,15 +1210,21 @@ int ovs_flow_metadata_from_nlattrs(u32 *pr=
-iority, u16 *in_port, __be64 *tun_id,
->> > =C2=A0int ovs_flow_to_nlattrs(const struct sw_flow_key *swkey, str=
-uct sk_buff *skb)
->> > =C2=A0{
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0struct ovs_key_ethernet *eth_key;
->> > + =C2=A0 =C2=A0 =C2=A0 struct ovs_key_ipv4_tunnel *tun_key;
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0struct nlattr *nla, *encap;
->> >
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if (swkey->phy.priority &&
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0nla_put_u32(skb, OVS_KEY_=
-ATTR_PRIORITY, swkey->phy.priority))
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto nla_pu=
-t_failure;
->> >
->> > - =C2=A0 =C2=A0 =C2=A0 if (swkey->phy.tun_id !=3D cpu_to_be64(0) &=
-&
->> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 nla_put_be64(skb, OVS_KEY_ATT=
-R_TUN_ID, swkey->phy.tun_id))
->> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto nla_put_fa=
-ilure;
->> > + =C2=A0 =C2=A0 =C2=A0 if (swkey->phy.tun_key.ipv4_dst) {
->>
->> It's probably OK to use DIP equal to zero as a not present marker bu=
-t
->> we need to enforce that it's always true - for example we shouldn't
->> allow somebody to setup a flow that way or receive packets with a ze=
-ro
->> address. =C2=A0Alternately, we may be able to find a spare bit to in=
-dicate
->> this, like is done with vlans.
->
-> When I originally wrote this there didn't seem to be any obvious
-> place in ovs_key_ipv4_tunnel to have an active/inactive bit, which
-> is in part why the code relies on checking DIP.
->
-> However, more recent versions of ovs_key_ipv4_tunnel have a flags fie=
-ld of
-> which only one bit is currently used. We could use one of the unused =
-flag
-> bits.
+On Tue, 2012-06-05 at 10:23 +0800, Gao feng wrote:
+> now inetpeer doesn't support namespace,the information will
+> be leaking across namespace.
+> 
+> this patch move the global vars v4_peers and v6_peers to
+> netns_ipv4 and netns_ipv6 as a field peers.
+> 
+> add struct pernet_operations inetpeer_ops to initial pernet
+> inetpeer data.
+> 
+> and change family_to_base and inet_getpeer to support namespace.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  include/net/inetpeer.h   |   10 +++++---
+>  include/net/netns/ipv4.h |    1 +
+>  include/net/netns/ipv6.h |    1 +
+>  net/ipv4/inetpeer.c      |   54 +++++++++++++++++++++++++++++++++++++++------
+>  net/ipv4/route.c         |    2 +-
+>  5 files changed, 55 insertions(+), 13 deletions(-)
+> 
+> diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
+> index b94765e..4a50449 100644
+> --- a/include/net/inetpeer.h
+> +++ b/include/net/inetpeer.h
+> @@ -72,7 +72,9 @@ static inline bool inet_metrics_new(const struct inet_peer *p)
+>  }
+>  
+>  /* can be called with or without local BH being disabled */
+> -struct inet_peer	*inet_getpeer(const struct inetpeer_addr *daddr, int create);
+> +struct inet_peer *inet_getpeer(struct net *net,
+> +			       const struct inetpeer_addr *daddr,
+> +			       int create);
+>  
+>  static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
+>  {
+> @@ -80,7 +82,7 @@ static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
+>  
+>  	daddr.addr.a4 = v4daddr;
+>  	daddr.family = AF_INET;
+> -	return inet_getpeer(&daddr, create);
+> +	return inet_getpeer(&init_net, &daddr, create);
+>  }
+>  
+>  static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr, int create)
+> @@ -89,14 +91,14 @@ static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr,
+>  
+>  	*(struct in6_addr *)daddr.addr.a6 = *v6daddr;
+>  	daddr.family = AF_INET6;
+> -	return inet_getpeer(&daddr, create);
+> +	return inet_getpeer(&init_net, &daddr, create);
+>  }
+>  
+>  /* can be called from BH context or outside */
+>  extern void inet_putpeer(struct inet_peer *p);
+>  extern bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout);
+>  
+> -extern void inetpeer_invalidate_tree(int family);
+> +extern void inetpeer_invalidate_tree(struct net *net, int family);
+>  
+>  /*
+>   * temporary check to make sure we dont access rid, ip_id_count, tcp_ts,
+> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+> index bbd023a..0855e09 100644
+> --- a/include/net/netns/ipv4.h
+> +++ b/include/net/netns/ipv4.h
+> @@ -31,6 +31,7 @@ struct netns_ipv4 {
+>  	struct sock		**icmp_sk;
+>  	struct sock		*tcp_sock;
+>  
+> +	struct inet_peer_base	*peers;
+>  	struct netns_frags	frags;
+>  #ifdef CONFIG_NETFILTER
+>  	struct xt_table		*iptable_filter;
+> diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+> index b42be53..df0a545 100644
+> --- a/include/net/netns/ipv6.h
+> +++ b/include/net/netns/ipv6.h
+> @@ -33,6 +33,7 @@ struct netns_ipv6 {
+>  	struct netns_sysctl_ipv6 sysctl;
+>  	struct ipv6_devconf	*devconf_all;
+>  	struct ipv6_devconf	*devconf_dflt;
+> +	struct inet_peer_base	*peers;
+>  	struct netns_frags	frags;
+>  #ifdef CONFIG_NETFILTER
+>  	struct xt_table		*ip6table_filter;
+> diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+> index d4d61b6..dafb8b0 100644
+> --- a/net/ipv4/inetpeer.c
+> +++ b/net/ipv4/inetpeer.c
+> @@ -90,13 +90,11 @@ struct inet_peer_base {
+>  
+>  static struct inet_peer_base v4_peers = {
+>  	.root		= peer_avl_empty_rcu,
+> -	.lock		= __SEQLOCK_UNLOCKED(v4_peers.lock),
+>  	.total		= 0,
+>  };
+>  
 
-I guess it depends on what we end up doing with the lookup struct.  If
-it stays as it is today, there's plenty of space if you include those
-padding bytes.  If we shrink it down and there isn't a place then I do
-think it is fine to use DIP (since this is traversing an IP stack and
-DIP =3D 0 is an invalid value it's not like an L2 switch not allowing
-invalid IP packet).  In that case, we just need to do more validation
-in other places to make sure that this is the only situation that the
-condition can arise.
+Please remove v4_peers & v6_peers
 
->> In any case, I think we need to do some additional validation when
->> setting up flows to check reserved space, for example, as otherwise
->> that will never match.
->
-> Sure. My testing seems to indicate that matching does occur,
-> though I am quite happy to tighten things up.
+>  static struct inet_peer_base v6_peers = {
+>  	.root		= peer_avl_empty_rcu,
+> -	.lock		= __SEQLOCK_UNLOCKED(v6_peers.lock),
+>  	.total		= 0,
+>  };
+>  
+> @@ -153,6 +151,41 @@ static void inetpeer_gc_worker(struct work_struct *work)
+>  	schedule_delayed_work(&gc_work, gc_delay);
+>  }
+>  
+> +static int __net_init inetpeer_net_init(struct net *net)
+> +{
+> +
+> +	net->ipv4.peers = kmemdup(&v4_peers,
+> +				  sizeof(v4_peers),
+> +				  GFP_KERNEL);
 
-I don't think it causes a problem as long as userspace is well
-behaved, I was think it's best to detect problems early.
+kzalloc(), and init ->root to peer_avl_empty_rcu
 
->> In a similar vein, struct ovs_key_ipv4_tunnel contains some fields
->> that I think can never apply for lookup such as the flags so it woul=
-d
->> be nice if we could remove that for lookup.
->
-> I think they need to be there to be passed around, so I'm not
-> sure if they can easily be removed from ovs_key_ipv4_tunnel if that
-> is what you are asking.
+> +	if (net->ipv4.peers == NULL)
+> +		return -1;
+> +	seqlock_init(&net->ipv4.peers->lock);
+> +	net->ipv6.peers = kmemdup(&v6_peers,
+> +				  sizeof(v6_peers),
+> +				  GFP_KERNEL);
 
-My guess is that we'll probably want to separate out the struct that
-is used for lookup from the one that is used for communication with
-userspace, which is what we do for most things so that we have more
-freedom to optimize in the kernel.
+kzalloc(), and init ->root to peer_avl_empty_rcu
 
->> > =C2=A0bool ovs_tnl_frag_needed(struct vport *vport,
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 const struct tnl_mutable_config *mutable,
->> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0struct sk_buff *skb, unsigned int mtu, __be64 flow_key=
-)
->> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0struct sk_buff *skb, unsigned int mtu,
->> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0struct ovs_key_ipv4_tunnel *tun_key)
->> > =C2=A0{
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned int eth_hdr_len =3D ETH_HLEN;
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned int total_length =3D 0, header=
-_length =3D 0, payload_length;
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0struct ethhdr *eh, *old_eh =3D eth_hdr(=
-skb);
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sk_buff *nskb;
->> > + =C2=A0 =C2=A0 =C2=A0 struct ovs_key_ipv4_tunnel ntun_key;
->> >
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Sanity check */
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb->protocol =3D=3D htons(ETH_P_IP=
-)) {
->> > @@ -705,8 +707,10 @@ bool ovs_tnl_frag_needed(struct vport *vport,
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 * any way of synthesizing packets.
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((mutable->flags & (TNL_F_IN_KEY_MAT=
-CH | TNL_F_OUT_KEY_ACTION)) =3D=3D
->> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (TNL_F_IN_KEY_MATCH | TNL_F_O=
-UT_KEY_ACTION))
->> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 OVS_CB(nskb)->t=
-un_id =3D flow_key;
->> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (TNL_F_IN_KEY_MATCH | TNL_F_O=
-UT_KEY_ACTION)) {
->> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ntun_key =3D *t=
-un_key;
->> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 OVS_CB(nskb)->t=
-un_key =3D &ntun_key;
->> > + =C2=A0 =C2=A0 =C2=A0 }
->>
->> I guess this is probably where you were going to use the function to
->> reverse IP addresses. =C2=A0The logic doesn't really work but it's m=
-oot
->> since this is going away anyways.
->
-> My latest series includes a clean up to ovs_tnl_frag_needed() to allo=
-w
-> it to work in some circumstances - i.e. those found in my test enviro=
-nment.
-> That series removes knowledge of tun_key from ovs_tnl_frag_needed().
->
-> I am however happy to remove ovs_tnl_frag_needed() completely if you =
-think
-> that is appropriate.
-
-I think, in retrospect, that the path MTU discovery that I implemented
-here was probably not the right choice and MSS clamping is the correct
-way to do things.  It was better when it wasn't possible to do any
-kind of flow-based manipulation of tunnels but the model is breaking
-down more and more over time.  Given that I would be hesitant to
-submit it upstream and since that's the goal of this work, removing it
-completely is probably the right thing to do.
+> +	if (net->ipv6.peers == NULL)
+> +		goto out_ipv6;
+> +	seqlock_init(&net->ipv6.peers->lock);
+> +	return 0;
+> +out_ipv6:
+> +	kfree(net->ipv4.peers);
+> +	return -1;
+> +}
+> +
