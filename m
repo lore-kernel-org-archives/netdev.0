@@ -1,39 +1,46 @@
-From: Alessandro Rubini <rubini@gnudd.com>
-Subject: Re: [PATCH RFC] c_can_pci: generic module for c_can on PCI
-Date: Tue, 5 Jun 2012 15:30:13 +0200
-Message-ID: <20120605133013.GA16108@mail.gnudd.com>
-References: <4FCE07EE.40003@pengutronix.de>
-  <D5ECB3C7A6F99444980976A8C6D896384FA5EC4DFC@EAPEX1MAIL1.st.com>
-  <4FC135C6.5030206@grandegger.com> <1677842.Pq7naXsvrI@harkonnen>
-  <D5ECB3C7A6F99444980976A8C6D896384FA5EC4B37@EAPEX1MAIL1.st.com>
-  <3650428.HarNR9HfNF@harkonnen> <20120605131337.GA15432@mail.gnudd.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhupesh.sharma@st.com, federico.vaga@gmail.com,
-	alan@lxorguk.ukuu.org.uk, wg@grandegger.com,
-	giancarlo.asnaghi@st.com, alan@linux.intel.com,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4FCE07EE.40003@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: [PATCH v3 net-next 0/5] gianfar: coding style cleanups
+Date: Tue,  5 Jun 2012 15:42:10 +0200
+Message-ID: <1338903735-24527-1-git-send-email-jan.ceuleers@computer.org>
+Cc: Jiajun Wu <b06378@freescale.com>, Joe Perches <joe@perches.com>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:49456 "EHLO
+	mailrelay012.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756215Ab2FENpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 09:45:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I personally like the "pci device sets up a platform device" idea.
+Various coding style cleanups, mostly whitespace and comment reformatting.
 
-Good. Than me or federico will submit a proposal. 
- 
-> My question is, is this considered being a good practise?
+I have left a number of lines untouched where I felt that the changes I
+was considering were not improving readability. But de gustibus etc.
 
-I don't think there are many pci bridges around, but platform drivers
-exists just for that reason: to be instantiated when you know how the
-wiring ("platform") details.  I.e., somebody registers the platform
-device associated to the driver.
+Patch 4/5 also removes some superfluous local variable initialisations.
+These are obviously correct because the variable is initialised again
+right after. But you might consider this to be unnecessary code churn
+because the compiler is unlikely to generate better code due to this patch.
 
-Sometimes the platform device is compiled in, sometimes it comes from
-the device tree. I think it can come from PCI as well.
+WARNING: Compile-tested only. I do not have the hardware.
 
-thanks
-/alessandro, apologizing with Bhupesh Sharma for his tone in the previous mail
+This is my first patch _series_ submission; please be kind.
+
+v3: no changes from v2, except now compile-tested using powerpc crosstool
+
+v2: fixed typo in 5/5 (found by David)
+
+Jan Ceuleers (5):
+  gianfar: whitespace cleanup - pointers and multiplications
+  gianfar: comment cleanup
+  gianfar: various coding style and whitespace cleanups
+  gianfar: Remove superfluous initialisations
+  gianfar_ethtool: coding style and whitespace cleanups
+
+ drivers/net/ethernet/freescale/gianfar.c         |  491 +++++++++++-----------
+ drivers/net/ethernet/freescale/gianfar_ethtool.c |  420 +++++++++---------
+ 2 files changed, 479 insertions(+), 432 deletions(-)
+
+-- 
+1.7.9.5
