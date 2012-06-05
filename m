@@ -1,191 +1,143 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 3/3 (v3)] stmmac: fix driver Kconfig when built as module
-Date: Tue,  5 Jun 2012 07:22:57 +0200
-Message-ID: <1338873777-5374-4-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 2/3] stmmac: update driver's doc
+Date: Tue,  5 Jun 2012 07:22:56 +0200
+Message-ID: <1338873777-5374-3-git-send-email-peppe.cavallaro@st.com>
 References: <1338873777-5374-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:46806 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756839Ab2FEFXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 01:23:22 -0400
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:55598 "EHLO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756587Ab2FEFXO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 01:23:14 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 0A5BD73
+	for <netdev@vger.kernel.org>; Tue,  5 Jun 2012 05:23:10 +0000 (GMT)
+Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id BE90E1C08
+	for <netdev@vger.kernel.org>; Tue,  5 Jun 2012 05:23:10 +0000 (GMT)
 In-Reply-To: <1338873777-5374-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patches fixes the driver when built as dynamic module.
-In fact, the platform part cannot be built and the probe fails
-(thanks to Bob Liu that reported this bug).
+Fixed the driver's documentation that was obsolete and didn't
+report new platform fields (recently added).
 
-v2: as D. Miller suggested, it is not necessary to make the
-pci and the platform code mutually exclusive.
-Having both could also help, at built time ,to verify that
-all the code is validated and compiles fine.
-
-v3: removed wrong Reviewed-by from the patch
-
-Reported-by: Bob Liu <lliubbo@gmail.com>
-cc: Rayagond Kokatanur <rayagond@vayavyalabs.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |    5 +--
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    3 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   25 +++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |   29 +-------------------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    4 +--
- 5 files changed, 31 insertions(+), 35 deletions(-)
+ Documentation/networking/stmmac.txt |   44 +++++++++++++++++++---------------
+ 1 files changed, 25 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 0364283..0076f77 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -13,9 +13,8 @@ config STMMAC_ETH
- if STMMAC_ETH
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index ab1e8d7..5cb9a19 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -10,8 +10,8 @@ Currently this network device driver is for all STM embedded MAC/GMAC
+ (i.e. 7xxx/5xxx SoCs), SPEAr (arm), Loongson1B (mips) and XLINX XC2V3000
+ FF1152AMT0221 D1215994A VIRTEX FPGA board.
  
- config STMMAC_PLATFORM
--	tristate "STMMAC platform bus support"
-+	bool "STMMAC Platform bus support"
- 	depends on STMMAC_ETH
--	default y
- 	---help---
- 	  This selects the platform specific bus support for
- 	  the stmmac device driver. This is the driver used
-@@ -26,7 +25,7 @@ config STMMAC_PLATFORM
- 	  If unsure, say N.
+-DWC Ether MAC 10/100/1000 Universal version 3.60a (and older) and DWC Ether MAC 10/100
+-Universal version 4.0 have been used for developing this driver.
++DWC Ether MAC 10/100/1000 Universal version 3.60a (and older) and DWC Ether
++MAC 10/100 Universal version 4.0 have been used for developing this driver.
  
- config STMMAC_PCI
--	tristate "STMMAC support on PCI bus (EXPERIMENTAL)"
-+	bool "STMMAC PCI bus support (EXPERIMENTAL)"
- 	depends on STMMAC_ETH && PCI && EXPERIMENTAL
- 	---help---
- 	  This is to select the Synopsys DWMAC available on PCI devices,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 6b5d060..6d07ba2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -95,7 +95,8 @@ extern int stmmac_mdio_register(struct net_device *ndev);
- extern void stmmac_set_ethtool_ops(struct net_device *netdev);
- extern const struct stmmac_desc_ops enh_desc_ops;
- extern const struct stmmac_desc_ops ndesc_ops;
+ This driver supports both the platform bus and PCI.
+ 
+@@ -54,27 +54,27 @@ net_device structure enabling the scatter/gather feature.
+ When one or more packets are received, an interrupt happens. The interrupts
+ are not queued so the driver has to scan all the descriptors in the ring during
+ the receive process.
+-This is based on NAPI so the interrupt handler signals only if there is work to be
+-done, and it exits.
++This is based on NAPI so the interrupt handler signals only if there is work
++to be done, and it exits.
+ Then the poll method will be scheduled at some future point.
+ The incoming packets are stored, by the DMA, in a list of pre-allocated socket
+ buffers in order to avoid the memcpy (Zero-copy).
+ 
+ 4.3) Timer-Driver Interrupt
+-Instead of having the device that asynchronously notifies the frame receptions, the
+-driver configures a timer to generate an interrupt at regular intervals.
+-Based on the granularity of the timer, the frames that are received by the device
+-will experience different levels of latency. Some NICs have dedicated timer
+-device to perform this task. STMMAC can use either the RTC device or the TMU
+-channel 2  on STLinux platforms.
++Instead of having the device that asynchronously notifies the frame receptions,
++the driver configures a timer to generate an interrupt at regular intervals.
++Based on the granularity of the timer, the frames that are received by the
++device will experience different levels of latency. Some NICs have dedicated
++timer device to perform this task. STMMAC can use either the RTC device or the
++TMU channel 2  on STLinux platforms.
+ The timers frequency can be passed to the driver as parameter; when change it,
+ take care of both hardware capability and network stability/performance impact.
+-Several performance tests on STM platforms showed this optimisation allows to spare
+-the CPU while having the maximum throughput.
++Several performance tests on STM platforms showed this optimisation allows to
++spare the CPU while having the maximum throughput.
+ 
+ 4.4) WOL
+-Wake up on Lan feature through Magic and Unicast frames are supported for the GMAC
+-core.
++Wake up on Lan feature through Magic and Unicast frames are supported for the
++GMAC core.
+ 
+ 4.5) DMA descriptors
+ Driver handles both normal and enhanced descriptors. The latter has been only
+@@ -106,7 +106,8 @@ Several driver's information can be passed through the platform
+ These are included in the include/linux/stmmac.h header file
+ and detailed below as well:
+ 
+- struct plat_stmmacenet_data {
++struct plat_stmmacenet_data {
++	char *phy_bus_name;
+ 	int bus_id;
+ 	int phy_addr;
+ 	int interface;
+@@ -124,19 +125,24 @@ and detailed below as well:
+ 	void (*bus_setup)(void __iomem *ioaddr);
+ 	int (*init)(struct platform_device *pdev);
+ 	void (*exit)(struct platform_device *pdev);
++	void *custom_cfg;
++	void *custom_data;
+ 	void *bsp_priv;
+  };
+ 
+ Where:
++ o phy_bus_name: phy bus name to attach to the stmmac.
+  o bus_id: bus identifier.
+  o phy_addr: the physical address can be passed from the platform.
+ 	    If it is set to -1 the driver will automatically
+ 	    detect it at run-time by probing all the 32 addresses.
+  o interface: PHY device's interface.
+  o mdio_bus_data: specific platform fields for the MDIO bus.
+- o pbl: the Programmable Burst Length is maximum number of beats to
++ o dma_cfg: internal DMA parameters
++   o pbl: the Programmable Burst Length is maximum number of beats to
+        be transferred in one DMA transaction.
+        GMAC also enables the 4xPBL by default.
++   o fixed_burst/mixed_burst/burst_len
+  o clk_csr: fixed CSR Clock range selection.
+  o has_gmac: uses the GMAC core.
+  o enh_desc: if sets the MAC will use the enhanced descriptor structure.
+@@ -160,8 +166,9 @@ Where:
+ 	     this is sometime necessary on some platforms (e.g. ST boxes)
+ 	     where the HW needs to have set some PIO lines or system cfg
+ 	     registers.
+- o custom_cfg: this is a custom configuration that can be passed while
+-	      initialising the resources.
++ o custom_cfg/custom_data: this is a custom configuration that can be passed
++			   while initialising the resources.
++ o bsp_priv: another private poiter.
+ 
+ For MDIO bus The we have:
+ 
+@@ -180,7 +187,6 @@ Where:
+  o irqs: list of IRQs, one per PHY.
+  o probed_phy_irq: if irqs is NULL, use this for probed PHY.
+ 
 -
-+extern struct pci_driver stmmac_pci_driver;
-+extern struct platform_driver stmmac_pltfr_driver;
- int stmmac_freeze(struct net_device *ndev);
- int stmmac_restore(struct net_device *ndev);
- int stmmac_resume(struct net_device *ndev);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index ea33eae..3638569 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -42,6 +42,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/slab.h>
- #include <linux/prefetch.h>
-+#include <linux/pci.h>
- #ifdef CONFIG_STMMAC_DEBUG_FS
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
-@@ -2093,6 +2094,30 @@ int stmmac_restore(struct net_device *ndev)
- }
- #endif /* CONFIG_PM */
+ For DMA engine we have the following internal fields that should be
+ tuned according to the HW capabilities.
  
-+static int __init stmmac_init(void)
-+{
-+	int err = 0;
-+
-+	err = platform_driver_register(&stmmac_pltfr_driver);
-+
-+	if (!err) {
-+		err = pci_register_driver(&stmmac_pci_driver);
-+		if (err)
-+			platform_driver_unregister(&stmmac_pltfr_driver);
-+	}
-+
-+	return err;
-+}
-+
-+static void __exit stmmac_exit(void)
-+{
-+	pci_unregister_driver(&stmmac_pci_driver);
-+	platform_driver_unregister(&stmmac_pltfr_driver);
-+}
-+
-+module_init(stmmac_init);
-+module_exit(stmmac_exit);
-+
- #ifndef MODULE
- static int __init stmmac_cmdline_opt(char *str)
- {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index 58fab53..cf826e6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -179,7 +179,7 @@ static DEFINE_PCI_DEVICE_TABLE(stmmac_id_table) = {
- 
- MODULE_DEVICE_TABLE(pci, stmmac_id_table);
- 
--static struct pci_driver stmmac_driver = {
-+struct pci_driver stmmac_pci_driver = {
- 	.name = STMMAC_RESOURCE_NAME,
- 	.id_table = stmmac_id_table,
- 	.probe = stmmac_pci_probe,
-@@ -190,33 +190,6 @@ static struct pci_driver stmmac_driver = {
- #endif
- };
- 
--/**
-- * stmmac_init_module - Entry point for the driver
-- * Description: This function is the entry point for the driver.
-- */
--static int __init stmmac_init_module(void)
--{
--	int ret;
--
--	ret = pci_register_driver(&stmmac_driver);
--	if (ret < 0)
--		pr_err("%s: ERROR: driver registration failed\n", __func__);
--
--	return ret;
--}
--
--/**
-- * stmmac_cleanup_module - Cleanup routine for the driver
-- * Description: This function is the cleanup routine for the driver.
-- */
--static void __exit stmmac_cleanup_module(void)
--{
--	pci_unregister_driver(&stmmac_driver);
--}
--
--module_init(stmmac_init_module);
--module_exit(stmmac_cleanup_module);
--
- MODULE_DESCRIPTION("STMMAC 10/100/1000 Ethernet PCI driver");
- MODULE_AUTHOR("Rayagond Kokatanur <rayagond.kokatanur@vayavyalabs.com>");
- MODULE_AUTHOR("Giuseppe Cavallaro <peppe.cavallaro@st.com>");
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 3dd8f08..680d2b8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -255,7 +255,7 @@ static const struct of_device_id stmmac_dt_ids[] = {
- };
- MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
- 
--static struct platform_driver stmmac_driver = {
-+struct platform_driver stmmac_pltfr_driver = {
- 	.probe = stmmac_pltfr_probe,
- 	.remove = stmmac_pltfr_remove,
- 	.driver = {
-@@ -266,8 +266,6 @@ static struct platform_driver stmmac_driver = {
- 		   },
- };
- 
--module_platform_driver(stmmac_driver);
--
- MODULE_DESCRIPTION("STMMAC 10/100/1000 Ethernet PLATFORM driver");
- MODULE_AUTHOR("Giuseppe Cavallaro <peppe.cavallaro@st.com>");
- MODULE_LICENSE("GPL");
 -- 
 1.7.4.4
