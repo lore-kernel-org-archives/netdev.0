@@ -1,54 +1,62 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) 1/3] stmmac: fix driver's doc when run kernel-doc script
-Date: Tue,  5 Jun 2012 07:22:55 +0200
-Message-ID: <1338873777-5374-2-git-send-email-peppe.cavallaro@st.com>
-References: <1338873777-5374-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH (net.git) 4/4 (v2)] stmmac: fix driver Kconfig when built
+ as module
+Date: Tue, 05 Jun 2012 07:41:17 +0200
+Message-ID: <4FCD9BFD.7090103@st.com>
+References: <1338824270-9222-1-git-send-email-peppe.cavallaro@st.com> <1338824270-9222-5-git-send-email-peppe.cavallaro@st.com> <CAJ3bTp5ASPyQAqB0CZV1E17uDMpgefQE9pZcPRHbcDMCgeprDg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Rayagond K <rayagond@vayavyalabs.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:38362 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756563Ab2FEFXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 01:23:09 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5D62673
-	for <netdev@vger.kernel.org>; Tue,  5 Jun 2012 05:23:07 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 22AFD1C05
-	for <netdev@vger.kernel.org>; Tue,  5 Jun 2012 05:23:07 +0000 (GMT)
-In-Reply-To: <1338873777-5374-1-git-send-email-peppe.cavallaro@st.com>
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:34107 "EHLO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752649Ab2FEFlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 01:41:24 -0400
+In-Reply-To: <CAJ3bTp5ASPyQAqB0CZV1E17uDMpgefQE9pZcPRHbcDMCgeprDg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+On 6/5/2012 7:26 AM, Rayagond K wrote:
+> Hi Giuseppe,
+> 
+> On Mon, Jun 4, 2012 at 9:07 PM, Giuseppe CAVALLARO
+> <peppe.cavallaro@st.com <mailto:peppe.cavallaro@st.com>> wrote:
+> 
+>     This patches fixes the driver when built as dyn module.
+>     In fact the platform part cannot be built and the probe fails
+>     (thanks to Bob Liu that reported this bug).
+> 
+>     v2: as D. Miller suggested, it is not necessary to make the
+>     pci and the platform code mutually exclusive.
+>     Having both could also help, at built time ,to verify that
+>     all the code is validated and compiles fine.
+> 
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 7096633..ea33eae 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -833,8 +833,9 @@ static u32 stmmac_get_synopsys_id(struct stmmac_priv *priv)
- 
- /**
-  * stmmac_selec_desc_mode
-- * @dev : device pointer
-- * Description: select the Enhanced/Alternate or Normal descriptors */
-+ * @priv : private structure
-+ * Description: select the Enhanced/Alternate or Normal descriptors
-+ */
- static void stmmac_selec_desc_mode(struct stmmac_priv *priv)
- {
- 	if (priv->plat->enh_desc) {
-@@ -1861,6 +1862,8 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
- /**
-  * stmmac_dvr_probe
-  * @device: device pointer
-+ * @plat_dat: platform data pointer
-+ * @addr: iobase memory address
-  * Description: this is the main probe function used to
-  * call the alloc_etherdev, allocate the priv structure.
-  */
--- 
-1.7.4.4
+[snip]
+
+>     +static void __exit stmmac_exit(void)
+>     +{
+>     +       pci_unregister_driver(&stmmac_pci_driver);
+>     +       platform_driver_unregister(&stmmac_pltfr_driver);
+>     +}
+> 
+> 
+> I guess, unregistering both PCI and platform driver should also be
+> conditional else kernel may give warning message *"Unexpected driver
+> unregister!".*
+> 
+> For example PCI driver registration will be successful only if there is
+> PCI card on the system/board else registration will be failed, so if the
+> register would have failed then unregistering the driver again will
+> cause kernel warning message.
+> 
+> Please see *driver_unregister(*) function which is called from
+> *pci_unregister_driver() *for more info.
+
+Hmm, no driver does that because slightly redundant and, IMO, not
+necessary in these cases.
+
+Thanks for your feedback.
+Peppe
