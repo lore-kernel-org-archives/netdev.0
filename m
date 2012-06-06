@@ -1,68 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
-Date: Wed, 6 Jun 2012 23:43:35 +0300
-Message-ID: <20120606204335.GA23552@redhat.com>
-References: <20120606111357.GA15070@redhat.com>
-	<1338988210.2760.4485.camel@edumazet-glaptop>
-	<20120606144941.GA17092@redhat.com>
-	<20120606081432.6b602065@nehalam.linuxnetplumber.net>
-	<20120606185107.GA20503@redhat.com>
-	<1339012441.26966.48.camel@edumazet-glaptop>
-	<20120606195814.GA20677@redhat.com>
-	<1339013289.26966.62.camel@edumazet-glaptop>
-	<20120606201620.GA23358@redhat.com>
-	<1339014904.2836.56.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1339014904.2836.56.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH] NFC: Fix possible NULL ptr deref when getting the name of a socket
+Date: Wed,  6 Jun 2012 23:02:55 +0200
+Message-ID: <1339016575-18268-1-git-send-email-levinsasha928@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <levinsasha928@gmail.com>
+To: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	sameo@linux.intel.com, davem@davemloft.net, linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:57703 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751500Ab2FFVBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 17:01:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 06, 2012 at 09:35:04PM +0100, Ben Hutchings wrote:
-> On Wed, 2012-06-06 at 23:16 +0300, Michael S. Tsirkin wrote:
-> > On Wed, Jun 06, 2012 at 10:08:09PM +0200, Eric Dumazet wrote:
-> > > On Wed, 2012-06-06 at 22:58 +0300, Michael S. Tsirkin wrote:
-> > > 
-> > > > Absolutely, I am talking about virtio here.  I'm not kicking
-> > > > u64_stats_sync idea I am just saying that simple locking
-> > > > would work for virtio and might be better as it
-> > > > gives us a way to get counters atomically.
-> > > 
-> > > Which lock do you own in the RX path ?
-> > 
-> > We can just disable napi, everything is updated from napi callback.
-> 
-> Seriously, though: don't do that; this is going to hurt performance for
-> minimal benefit.
-> 
-> Ben.
+llcp_sock_getname() might get called before the LLCP socket was created.
+This condition isn't checked, and llcp_sock_getname will simply deref a
+NULL ptr in that case.
 
-Yea, it doesn't work anyway. Maybe take a xmit lock for tx and keep
-using the per-cpu counters for rx. Or does this sound too disruptive
-too?
+This exists starting with d646960 ("NFC: Initial LLCP support").
 
-> > > You'll have to add a lock in fast path. This sounds really a bad choice
-> > > to me.
-> > 
-> > .ndo_get_stats64 is not data path though, is it?
-> > 
-> 
-> -- 
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ net/nfc/llcp/sock.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/nfc/llcp/sock.c b/net/nfc/llcp/sock.c
+index 3f339b1..17a707d 100644
+--- a/net/nfc/llcp/sock.c
++++ b/net/nfc/llcp/sock.c
+@@ -292,6 +292,9 @@ static int llcp_sock_getname(struct socket *sock, struct sockaddr *addr,
+ 
+ 	pr_debug("%p\n", sk);
+ 
++	if (llcp_sock == NULL)
++		return -EBADFD;
++
+ 	addr->sa_family = AF_NFC;
+ 	*len = sizeof(struct sockaddr_nfc_llcp);
+ 
+-- 
+1.7.8.6
