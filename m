@@ -1,57 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v9] tilegx network driver: initial support
-Date: Wed, 06 Jun 2012 19:40:59 +0200
-Message-ID: <1339004459.26966.31.camel@edumazet-glaptop>
-References: <201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>
-	 <20120520.165546.1211013675964130504.davem@davemloft.net>
-	 <201205240115.q4O1FwqG006336@lab-41.internal.tilera.com>
-	 <20120524.003148.700603156196416506.davem@davemloft.net>
-	 <201205251853.q4PIrE7T000723@lab-41.internal.tilera.com>
-	 <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [net-next PATCH v2 1/3] Added kernel support in EEE Ethtool
+ commands
+Date: Wed, 6 Jun 2012 18:41:51 +0100
+Message-ID: <1339004511.2836.43.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1338973098-16439-1-git-send-email-yuvalmin@broadcom.com>
+	 <1338973098-16439-2-git-send-email-yuvalmin@broadcom.com>
+	 <1338996011.2836.2.camel@bwh-desktop.uk.solarflarecom.com>
+	 <979A8436335E3744ADCD3A9F2A2B68A50268AA@SJEXCHMB10.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, arnd@arndb.de,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:43096 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755181Ab2FFRly (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:41:54 -0400
+In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A50268AA@SJEXCHMB10.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-04 at 16:12 -0400, Chris Metcalf wrote:
+On Wed, 2012-06-06 at 16:40 +0000, Yuval Mintz wrote:
+> > > + * @supported: Link speeds for which there is eee support.
+> > > + * @advertised: Link speeds the interface advertises (AN) as eee capable.
+> > > + * @lp_advertised: Link speeds the link partner advertised as eee capable.
+> > 
+> > And these are bitmasks of SUPPORTED_* & ADVERTISED_* flags, right?
+> 
+> Right.
+> 
+> > Maybe 'link modes' not 'link speeds'?
+> 
+> Not that it matters greatly, but there are SUPPORTED & ADVERTISED flags for
+> things other than link speeds, such as connection type and flow control,
+> so using exactly the same semantic in description might confuse someone.
 
-> +/* Allocate and push a buffer. */
-> +static bool tile_net_provide_buffer(bool small)
-> +{
-> +	int stack = small ? small_buffer_stack : large_buffer_stack;
-> +	const unsigned long buffer_alignment = 128;
-> +	struct sk_buff *skb;
-> +	int len;
-> +
-> +	len = sizeof(struct sk_buff **) + buffer_alignment;
-> +	len += (small ? 128 : 1664);
+What I'm getting at is that we don't have flags for speeds; we have
+flags for modes (speed/duplex combination).  I think EEE only works with
+full-duplex modes but clients and drivers will still have to specify
+that explicitly in flag names.
 
-1664 is a magic number, it should be a nice define
+I can see that 'link modes' might be slightly ambiguous, so how about:
 
-#define ..... ( ETH_DATA_LEN + .... )
+        @supported: Mask of %SUPPORTED_* flags for the speed/duplex
+        combinations for which there is EEE support.
 
-> +	skb = dev_alloc_skb(len);
-> +	if (skb == NULL)
-> +		return false;
-> +
-> +	/* Make room for a back-pointer to 'skb' and guarantee alignment. */
-> +	skb_reserve(skb, sizeof(struct sk_buff **));
-> +	skb_reserve(skb, -(long)skb->data & (buffer_alignment - 1));
-> +
-> +	/* Save a back-pointer to 'skb'. */
-> +	*(struct sk_buff **)(skb->data - sizeof(struct sk_buff **)) = skb;
-> +
-> +	/* Make sure "skb" and the back-pointer have been flushed. */
-> +	wmb();
+and similarly for the other fields.
 
-Interesting, have you considered using build_skb() instead of this
-convoluted thing ?
+Ben.
 
-This could save some cache misses...
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
