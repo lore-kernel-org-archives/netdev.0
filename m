@@ -1,154 +1,63 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next 1/3] qlcnic: Fix estimation of recv MSS in case of LRO
-Date: Wed,  6 Jun 2012 13:35:06 -0400
-Message-ID: <1339004108-7356-2-git-send-email-anirban.chakraborty@qlogic.com>
-References: <1339004108-7356-1-git-send-email-anirban.chakraborty@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: pull-request: can-next 2012-06-04
+Date: Wed, 06 Jun 2012 20:02:35 +0200
+Message-ID: <4FCF9B3B.1070105@hartkopp.net>
+References: <4FCBEAAB.90708@pengutronix.de> <4FCCD9A8.7030207@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:1947 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757630Ab2FFRux (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 13:50:53 -0400
-In-Reply-To: <1339004108-7356-1-git-send-email-anirban.chakraborty@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4FCCD9A8.7030207@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Hello Dave,
 
-o Linux stack estimates MSS from skb->len or skb_shinfo(skb)->gso_size.
-In case of LRO skb->len is aggregate of len of number of packets hence MSS
-obtained using skb->len would be incorrect. Incorrect estimation of recv MSS
-would lead to delayed acks in some traffic patterns (which sends two or three
-packets and wait for ack and only then send remaining packets). This leads to
-drop in performance. Hence we need to set gso_size to MSS obtained from firmware.
+i think there was a confusion about
 
-o This is fixed recently in firmware hence the MSS is obtained based on
-capability. If fw is capable of sending the MSS then only driver sets the gso_size.
+	linux-can and linux-can-next
 
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    7 +++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c  |    3 +++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h  |    1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c |    3 +++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    9 +++++++++
- 5 files changed, 23 insertions(+), 0 deletions(-)
+pull requests that overlapped in the mail traffic that day.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 8680a5d..520ff03 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -258,6 +258,8 @@ struct rcv_desc {
- 	(((sts_data) >> 52) & 0x1)
- #define qlcnic_get_lro_sts_seq_number(sts_data)		\
- 	((sts_data) & 0x0FFFFFFFF)
-+#define qlcnic_get_lro_sts_mss(sts_data1)		\
-+	((sts_data1 >> 32) & 0x0FFFF)
- 
- 
- struct status_desc {
-@@ -623,6 +625,7 @@ struct qlcnic_recv_context {
- #define QLCNIC_CAP0_JUMBO_CONTIGUOUS	(1 << 7)
- #define QLCNIC_CAP0_LRO_CONTIGUOUS	(1 << 8)
- #define QLCNIC_CAP0_VALIDOFF		(1 << 11)
-+#define QLCNIC_CAP0_LRO_MSS		(1 << 21)
- 
- /*
-  * Context state
-@@ -829,6 +832,9 @@ struct qlcnic_mac_list_s {
- #define QLCNIC_FW_CAPABILITY_FVLANTX		BIT_9
- #define QLCNIC_FW_CAPABILITY_HW_LRO		BIT_10
- #define QLCNIC_FW_CAPABILITY_MULTI_LOOPBACK	BIT_27
-+#define QLCNIC_FW_CAPABILITY_MORE_CAPS		BIT_31
-+
-+#define QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG	BIT_2
- 
- /* module types */
- #define LINKEVENT_MODULE_NOT_PRESENT			1
-@@ -918,6 +924,7 @@ struct qlcnic_ipaddr {
- #define QLCNIC_NEED_FLR			0x1000
- #define QLCNIC_FW_RESET_OWNER		0x2000
- #define QLCNIC_FW_HANG			0x4000
-+#define QLCNIC_FW_LRO_MSS_CAP		0x8000
- #define QLCNIC_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-index 8db8524..cfa174d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-@@ -237,6 +237,9 @@ qlcnic_fw_cmd_create_rx_ctx(struct qlcnic_adapter *adapter)
- 						| QLCNIC_CAP0_VALIDOFF);
- 	cap |= (QLCNIC_CAP0_JUMBO_CONTIGUOUS | QLCNIC_CAP0_LRO_CONTIGUOUS);
- 
-+	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
-+		cap |= QLCNIC_CAP0_LRO_MSS;
-+
- 	prq->valid_field_offset = offsetof(struct qlcnic_hostrq_rx_ctx,
- 							 msix_handler);
- 	prq->txrx_sds_binding = nsds_rings - 1;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-index 6ced319..28a6b28 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
-@@ -588,6 +588,7 @@ enum {
- #define CRB_DRIVER_VERSION		(QLCNIC_REG(0x2a0))
- 
- #define CRB_FW_CAPABILITIES_1		(QLCNIC_CAM_RAM(0x128))
-+#define CRB_FW_CAPABILITIES_2		(QLCNIC_CAM_RAM(0x12c))
- #define CRB_MAC_BLOCK_START		(QLCNIC_CAM_RAM(0x1c0))
- 
- /*
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-index 799fd40..8620b69 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-@@ -1653,6 +1653,9 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
- 
- 	length = skb->len;
- 
-+	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
-+		skb_shinfo(skb)->gso_size = qlcnic_get_lro_sts_mss(sts_data1);
-+
- 	if (vid != 0xffff)
- 		__vlan_hwaccel_put_tag(skb, vid);
- 	netif_receive_skb(skb);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 46e77a2..707b5ca 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1136,6 +1136,8 @@ static int
- __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
- {
- 	int ring;
-+	u32 capab2;
-+
- 	struct qlcnic_host_rds_ring *rds_ring;
- 
- 	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
-@@ -1146,6 +1148,12 @@ __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
- 	if (qlcnic_set_eswitch_port_config(adapter))
- 		return -EIO;
- 
-+	if (adapter->capabilities & QLCNIC_FW_CAPABILITY_MORE_CAPS) {
-+		capab2 = QLCRD32(adapter, CRB_FW_CAPABILITIES_2);
-+		if (capab2 & QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG)
-+			adapter->flags |= QLCNIC_FW_LRO_MSS_CAP;
-+	}
-+
- 	if (qlcnic_fw_create_ctx(adapter))
- 		return -EIO;
- 
-@@ -1215,6 +1223,7 @@ __qlcnic_down(struct qlcnic_adapter *adapter, struct net_device *netdev)
- 	qlcnic_napi_disable(adapter);
- 
- 	qlcnic_fw_destroy_ctx(adapter);
-+	adapter->flags &= ~QLCNIC_FW_LRO_MSS_CAP;
- 
- 	qlcnic_reset_rx_buffers_list(adapter);
- 	qlcnic_release_tx_buffers(adapter);
--- 
-1.7.4.1
+The pull request of linux-can-next is still pending.
+
+git://gitorious.org/linux-can/linux-can-next.git master
+
+Regards,
+Oliver
+
+
+
+On 04.06.2012 17:52, Marc Kleine-Budde wrote:
+
+> On 06/04/2012 12:52 AM, Marc Kleine-Budde wrote:
+>> Hello David,
+>>
+>> here are the first patches for net-next, they add power management
+>> support for the flexcan driver and clarify the documentation with
+>> respect to error messages.
+>>
+>> regards, Marc
+>>
+>> ---
+>>
+>> The following changes since commit 31a67102f4762df5544bc2dfb34a931233d2a5b2:
+>>
+>>   Fix blocking allocations called very early during bootup (2012-05-21 12:52:42 -0700)
+>>
+>> are available in the git repository at:
+>>   git@gitorious.org:linux-can/linux-can-next.git master
+> 
+> That should be:
+> 
+> git://gitorious.org/linux-can/linux-can-next.git master
+> 
+> Sorry for the noise,
+> Marc
+> 
+
+
