@@ -1,24 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2012-06-06
-Date: Wed, 06 Jun 2012 13:29:41 -0700 (PDT)
-Message-ID: <20120606.132941.1294502053699065256.davem@davemloft.net>
-References: <20120606183613.GD2338@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120606183613.GD2338@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Grant Edwards <grant.b.edwards@gmail.com>
+Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
+Date: Wed, 6 Jun 2012 20:26:25 +0000 (UTC)
+Message-ID: <jqoedh$fs3$3@dough.gmane.org>
+References: <jqo7op$t6f$1@dough.gmane.org>
+ <20120606.115130.1091814494251887552.davem@davemloft.net>
+ <1339011742.26966.44.camel@edumazet-glaptop>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:40035 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758320Ab2FFUaQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 16:30:16 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1ScMrl-0002gH-93
+	for netdev@vger.kernel.org; Wed, 06 Jun 2012 22:30:05 +0200
+Received: from dsl.comtrol.com ([64.122.56.22])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 22:30:05 +0200
+Received: from grant.b.edwards by dsl.comtrol.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 22:30:05 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 6 Jun 2012 14:36:13 -0400
+On 2012-06-06, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2012-06-06 at 11:51 -0700, David Miller wrote:
+>> From: Grant Edwards <grant.b.edwards@gmail.com>
+>> Date: Wed, 6 Jun 2012 18:32:57 +0000 (UTC)
+>> 
+>> > The kernel module that's started failing fills the allocated sk_buff
+>> > until tailroom() indicates it is full and then sends it.  The problem
+>> > is that sending a packet with a length of 1850 won't work (it's a
+>> > MAC-layer Ethernet packet).
+>> 
+>> The amount of tailroom an SKB has is implementation dependent.
+>> 
+>> It's incredibly poor form to rely upon it to determine whether a
+>> fully sized frame has been constructed or not.
+>> 
+>> Please fix the code that does this.
+>
+> By the way, we had a similar problem, and the fix was :
+>
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=a21d45726acacc963d8baddf74607d9b74e2b723
+>
+> Grant, depending on the context, you might use skb->avail_size and
+> skb_availroom() as well.
+>
+> Beware skb->avail_size is unioned with skb->{mark|dropcount}
 
-> Here is a batch of wireless/bluetooth fixes intended for 3.5...
- ...
-> Please let me know if there are problems!
+Thanks for the pointer.
 
-Pulled, thanks for the detailed rundown, it helps.
+-- 
+Grant Edwards               grant.b.edwards        Yow! ANN JILLIAN'S HAIR
+                                  at               makes LONI ANDERSON'S
+                              gmail.com            HAIR look like RICARDO
+                                                   MONTALBAN'S HAIR!
