@@ -1,102 +1,70 @@
-From: "kendo" <kendo999@163.com>
-Subject: skb_gso_segment oops
-Date: Wed, 6 Jun 2012 10:36:16 +0800
-Message-ID: <4FCEC21F.257F91.32344@m12-16.163.com>
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: Re: [PATCH] netdev: mv643xx_eth: Prevent build on PPC32
+Date: Tue, 5 Jun 2012 22:38:42 -0400
+Message-ID: <20120606023842.GD7683@zod.bos.redhat.com>
+References: <20120605192820.GC7683@zod.bos.redhat.com>
+ <1338939005.21665.54.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	Andrew Lunn <andrew@lunn.ch>, Olof Johansson <olof@lixom.net>,
+	netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-16.163.com ([220.181.12.16]:54524 "EHLO m12-16.163.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36094 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751312Ab2FFCgS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jun 2012 22:36:18 -0400
+	id S1751312Ab2FFCje (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jun 2012 22:39:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1338939005.21665.54.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8hDQoNCkkgdXNlIEludGVsIDgyNTc0TCBuZXR3b3JrLCBvcGVuIHRoZSBHU08vU0cvUlgg
-Q2hlY2tzdW0vdHhjaGVja3N1bSBzdXBwb3J0LCBidXQgdGhlIHN5c3RlbSBtYXkgb2NjYXNpb25h
-bGx5IG9jY3VyIGNhdXNlZCBieSBza2JfZ3NvX3NlZ21lbnQgT29wcywgdGhpcyB3YXMgd2hlcmUg
-ZG8gSSBjb25maWd1cmUgZXJyb3IsIGtlcm5lbCBCdWcgaXMgdGhpcz8gKEluIGZhY3QsIHVzaW5n
-IHRoZSBpZ2IgYWxzbyBtZXQgb25jZSkNCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLQ0KSnVuICA1IDE0OjAzOjMyIEFuU2hpb24gPDEyPiBrbG9nZDogWzE0NTc5LjU2
-Mjg0M10gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0tLS0tLS0tDQpKdW4gIDUgMTQ6MDM6
-MzIgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYyODU5XSBXQVJOSU5HOiBhdCBuZXQvY29y
-ZS9kZXYuYzoxODYxIHNrYl9nc29fc2VnbWVudCsweDIyNS8weDMwMCgpDQpKdW4gIDUgMTQ6MDM6
-MzIgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYyODY5XSBIYXJkd2FyZSBuYW1lOiBUbyBC
-ZSBGaWxsZWQgQnkgTy5FLk0uDQpKdW4gIDUgMTQ6MDM6MzIgQW5TaGlvbiA8MTI+IGtsb2dkOiBb
-MTQ1NzkuNTYyODc0XSA6IGNhcHM9KDB4MjAwMCwgMHgwKSBsZW49NDAgZGF0YV9sZW49MCBpcF9z
-dW1tZWQ9MQ0KSnVuICA1IDE0OjAzOjMyIEFuU2hpb24gPDEyPiBrbG9nZDogWzE0NTc5LjU2Mjg3
-OF0gTW9kdWxlcyBsaW5rZWQgaW46IGlwbWlfd2F0Y2hkb2cgIGlnYiBlMTAwMGUNCkp1biAgNSAx
-NDowMzozMiBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjI5MTNdIFBpZDogMCwgY29tbTog
-a3dvcmtlci8wOjAgTm90IHRhaW50ZWQgMi42LjM4LjggIzM2MA0KSnVuICA1IDE0OjAzOjMyIEFu
-U2hpb24gPDEyPiBrbG9nZDogWzE0NTc5LjU2MjkxN10gQ2FsbCBUcmFjZToNCkp1biAgNSAxNDow
-MzozMiBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjI5MjVdICBbPGMwNmE3YzI1Pl0gPyBz
-a2JfZ3NvX3NlZ21lbnQrMHgyMjUvMHgzMDANCkp1biAgNSAxNDowMzozMiBBblNoaW9uIDwxMj4g
-a2xvZ2Q6IFsxNDU3OS41NjI5MzRdICBbPGMwMTQ1ZWZjPl0gPyB3YXJuX3Nsb3dwYXRoX2NvbW1v
-bisweDZjLzB4YTANCkp1biAgNSAxNDowMzozMiBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41
-NjI5NDFdICBbPGMwNmE3YzI1Pl0gPyBza2JfZ3NvX3NlZ21lbnQrMHgyMjUvMHgzMDANCkp1biAg
-NSAxNDowMzozMiBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjI5NDhdICBbPGMwMTQ1ZmFl
-Pl0gPyB3YXJuX3Nsb3dwYXRoX2ZtdCsweDJlLzB4MzANCkp1biAgNSAxNDowMzozMiBBblNoaW9u
-IDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjI5NTRdICBbPGMwNmE3YzI1Pl0gPyBza2JfZ3NvX3NlZ21l
-bnQrMHgyMjUvMHgzMDANCkp1biAgNSAxNDowMzozMiBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3
-OS41NjI5NjRdICBbPGMwNmE3ZjFmPl0gPyBkZXZfaGFyZF9zdGFydF94bWl0KzB4MjFmLzB4NWQw
-DQpKdW4gIDUgMTQ6MDM6MzIgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYyOTcyXSAgWzxj
-MDc0MjcyMz5dID8gaXB2NF9jb25maXJtKzB4YjMvMHgxNzANCkp1biAgNSAxNDowMzozMiBBblNo
-aW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjI5NzldICBbPGMwNmJkZDhkPl0gPyBzY2hfZGlyZWN0
-X3htaXQrMHgxM2QvMHgxYTANCkp1biAgNSAxNDowMzozMiBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsx
-NDU3OS41NjI5ODZdICBbPGMwNmFhNmNkPl0gPyBkZXZfcXVldWVfeG1pdCsweDI2ZC8weDQ3MA0K
-SnVuICA1IDE0OjAzOjMyIEFuU2hpb24gPDEyPiBrbG9nZDogWzE0NTc5LjU2Mjk5M10gIFs8YzA2
-ZGI4ODc+XSA/IG5mX2l0ZXJhdGUrMHg2Ny8weDkwDQpKdW4gIDUgMTQ6MDM6MzIgQW5TaGlvbiA8
-MTI+IGtsb2dkOiBbMTQ1NzkuNTYzMDAxXSAgWzxjMDcwNWYwMD5dID8gaXBfZmluaXNoX291dHB1
-dCsweDI0MC8weDJmMA0KSnVuICA1IDE0OjAzOjMyIEFuU2hpb24gPDEyPiBrbG9nZDogWzE0NTc5
-LjU2MzAwN10gIFs8YzA3MDVjYzA+XSA/IGlwX2ZpbmlzaF9vdXRwdXQrMHgwLzB4MmYwDQpKdW4g
-IDUgMTQ6MDM6MzMgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYzMDE0XSAgWzxjMDcwNjA2
-Nz5dID8gaXBfb3V0cHV0KzB4YjcvMHhjMA0KSnVuICA1IDE0OjAzOjMzIEFuU2hpb24gPDEyPiBr
-bG9nZDogWzE0NTc5LjU2MzAyMF0gIFs8YzA3MDVjYzA+XSA/IGlwX2ZpbmlzaF9vdXRwdXQrMHgw
-LzB4MmYwDQpKdW4gIDUgMTQ6MDM6MzMgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYzMDI4
-XSAgWzxjMDcwMWU5Nj5dID8gaXBfZm9yd2FyZF9maW5pc2grMHg0Ni8weDYwDQpKdW4gIDUgMTQ6
-MDM6MzMgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYzMDM1XSAgWzxjMDcwMjA5Zj5dID8g
-aXBfZm9yd2FyZCsweDFlZi8weDQzMA0KSnVuICA1IDE0OjAzOjMzIEFuU2hpb24gPDEyPiBrbG9n
-ZDogWzE0NTc5LjU2MzA0MV0gIFs8YzA3MDFlNTA+XSA/IGlwX2ZvcndhcmRfZmluaXNoKzB4MC8w
-eDYwDQpKdW4gIDUgMTQ6MDM6MzMgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYzMDQ5XSAg
-WzxjMDcwMDc1MT5dID8gaXBfcmN2X2ZpbmlzaCsweDI0MS8weDNjMA0KSnVuICA1IDE0OjAzOjMz
-IEFuU2hpb24gPDEyPiBrbG9nZDogWzE0NTc5LjU2MzA1Nl0gIFs8YzA3MDBiNzY+XSA/IGlwX3Jj
-disweDJhNi8weDMyMA0KSnVuICA1IDE0OjAzOjMzIEFuU2hpb24gPDEyPiBrbG9nZDogWzE0NTc5
-LjU2MzA2M10gIFs8YzA3MDA1MTA+XSA/IGlwX3Jjdl9maW5pc2grMHgwLzB4M2MwDQpKdW4gIDUg
-MTQ6MDM6MzMgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYzMDcwXSAgWzxjMDZhOTRiOD5d
-ID8gX19uZXRpZl9yZWNlaXZlX3NrYisweDI1OC8weDUyMA0KSnVuICA1IDE0OjAzOjMzIEFuU2hp
-b24gPDEyPiBrbG9nZDogWzE0NTc5LjU2MzA3Nl0gIFs8YzA3MDYwNjc+XSA/IGlwX291dHB1dCsw
-eGI3LzB4YzANCkp1biAgNSAxNDowMzozMyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMw
-ODNdICBbPGMwNmE5OGIzPl0gPyBuZXRpZl9yZWNlaXZlX3NrYisweDIzLzB4NTANCkp1biAgNSAx
-NDowMzozMyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMwOTBdICBbPGMwNmE5OWQ3Pl0g
-PyBuYXBpX3NrYl9maW5pc2grMHgzNy8weDUwDQpKdW4gIDUgMTQ6MDM6MzMgQW5TaGlvbiA8MTI+
-IGtsb2dkOiBbMTQ1NzkuNTYzMDk3XSAgWzxjMDZhYTAxYj5dID8gbmFwaV9ncm9fcmVjZWl2ZSsw
-eGRiLzB4ZjANCkp1biAgNSAxNDowMzozMyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMx
-MTNdICBbPGY4MjAyYzE3Pl0gPyBlMTAwMF9yZWNlaXZlX3NrYisweDQ3LzB4NjAgW2UxMDAwZV0N
-Ckp1biAgNSAxNDowMzozMyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMxMjVdICBbPGY4
-MjA0MGE3Pl0gPyBlMTAwMF9jbGVhbl9yeF9pcnErMHgyYTcvMHgzNjAgW2UxMDAwZV0NCkp1biAg
-NSAxNDowMzozMyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMxMzldICBbPGY4MjA4MDUz
-Pl0gPyBlMTAwMGVfcG9sbCsweDczLzB4MzIwIFtlMTAwMGVdDQpKdW4gIDUgMTQ6MDM6MzMgQW5T
-aGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYzMTQ2XSAgWzxjMDZhOWU0YT5dID8gbmV0X3J4X2Fj
-dGlvbisweGFhLzB4MWEwDQpKdW4gIDUgMTQ6MDM6MzMgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1
-NzkuNTYzMTU0XSAgWzxjMDE0YmZmMT5dID8gX19kb19zb2Z0aXJxKzB4YjEvMHgxOTANCkp1biAg
-NSAxNDowMzozMyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMxNjFdICBbPGMwMTRiZjQw
-Pl0gPyBfX2RvX3NvZnRpcnErMHgwLzB4MTkwDQpKdW4gIDUgMTQ6MDM6MzMgQW5TaGlvbiA8MTI+
-IGtsb2dkOiBbMTQ1NzkuNTYzMTY1XSAgPElSUT4gIFs8YzAxNGJlYmQ+XSA/IGlycV9leGl0KzB4
-NWQvMHg4MA0KSnVuICA1IDE0OjAzOjMzIEFuU2hpb24gPDEyPiBrbG9nZDogWzE0NTc5LjU2MzE3
-N10gIFs8YzAxMDRiYzU+XSA/IGRvX0lSUSsweDQ1LzB4YjANCkp1biAgNSAxNDowMzozMyBBblNo
-aW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMxODNdICBbPGMwMTRiZWQ1Pl0gPyBpcnFfZXhpdCsw
-eDc1LzB4ODANCkp1biAgNSAxNDowMzozMyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMx
-OTFdICBbPGMwMTFjOWY2Pl0gPyBzbXBfYXBpY190aW1lcl9pbnRlcnJ1cHQrMHg1Ni8weDkwDQpK
-dW4gIDUgMTQ6MDM6MzMgQW5TaGlvbiA8MTI+IGtsb2dkOiBbMTQ1NzkuNTYzMTk4XSAgWzxjMDEw
-MzZmMD5dID8gY29tbW9uX2ludGVycnVwdCsweDMwLzB4MzgNCkp1biAgNSAxNDowMzozMyBBblNo
-aW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMyMDVdICBbPGMwMTBiMGJlPl0gPyBtd2FpdF9pZGxl
-KzB4ZmUvMHgxOTANCkp1biAgNSAxNDowMzozMyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41
-NjMyMTJdICBbPGMwMTAyMTRhPl0gPyBjcHVfaWRsZSsweDhhLzB4YzANCkp1biAgNSAxNDowMzoz
-MyBBblNoaW9uIDwxMj4ga2xvZ2Q6IFsxNDU3OS41NjMyMTldICBbPGMwODEzNzg5Pl0gPyBzdGFy
-dF9zZWNvbmRhcnkrMHgxYTEvMHgxZTgNCkp1biAgNSAxNDowMzozMyBBblNoaW9uIDwxMj4ga2xv
-Z2Q6IFsxNDU3OS41NjMyMjVdIC0tLVsgZW5kIHRyYWNlIGMwN2Q3MjQ0OGNlOGUzNzYgXS0tLQ0K
-DQoNCqGhoaGhoaGhoaGhoaGhoaFrZW5kbw0KoaGhoaGhoaGhoaGhoaGhoWtlbmRvOTk5QDE2My5j
-b20NCqGhoaGhoaGhoaGhoaGhoaGhoaGhMjAxMi0wNi0wNg0K
+On Wed, Jun 06, 2012 at 12:30:05AM +0100, Ben Hutchings wrote:
+> On Tue, 2012-06-05 at 15:28 -0400, Josh Boyer wrote:
+> > Commit 452503ebc (ARM: Orion: Eth: Add clk/clkdev support.) added use of
+> > the clk driver API which results in compile errors on architectures that
+> > don't implement the clk API.
+> > 
+> > ERROR: "clk_enable" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> > ERROR: "clk_disable" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> > ERROR: "clk_put" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> > ERROR: "clk_get_rate" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> > ERROR: "clk_get" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> > 
+> > Selecting CLKDEV_LOOKUP doesn't fix this either, as the build then fails with:
+> > 
+> > In file included from drivers/clk/clkdev.c:21:0:
+> > include/linux/clkdev.h:15:24: fatal error: asm/clkdev.h: No such file or directory
+> > 
+> > So we just prevent this from building at all on PPC32.
+> [...]
+> 
+> This dependency was introduced by:
+> 
+> commit 16b817579fb61050f1abcc0e81089974328a9c27
+> Author: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Date:   Sat Apr 16 15:24:30 2005 -0700
+> 
+>     [PATCH] ppc32: MV643XX ethernet is an option for Pegasos
+> 
+> commit 06ede91017d015a03cf8c1c87b3ff668f9a846e0
+> Author: Dale Farnsworth <dale@farnsworth.org>
+> Date:   Wed Sep 20 12:24:34 2006 -0700
+> 
+>     [PATCH] mv643xx_eth: restrict to 32-bit PPC_MULTIPLATFORM
+> 
+> If Pegasos is still supposed to be supported then this needs to be fixed
+> properly.
+
+The proper fix, from my minimal looking, was one of:
+
+1) revert the change for ARM that introduced th clk stuff
+2) do a similar change as the original commit but with a bunch of
+#ifdef-ery
+3) implement the clkdev API stuff for 32-bit ppc
+
+Honestly, I'd go for either 1 or 2.  The commit that introduced it was
+broken to begin with, but that isn't my call.
+
+josh
