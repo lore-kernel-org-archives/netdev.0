@@ -1,66 +1,76 @@
-From: Grant Edwards <grant.b.edwards@gmail.com>
-Subject: Change in alloc_skb() behavior in 3.2+ kernels?
-Date: Wed, 6 Jun 2012 18:32:57 +0000 (UTC)
-Message-ID: <jqo7op$t6f$1@dough.gmane.org>
-To: netdev@vger.kernel.org
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: [PATCH net-next 2/3] qlcnic: fix unsupported CDRP command error
+ message.
+Date: Wed, 6 Jun 2012 11:35:07 -0700
+Message-ID: <CBF4EF06.320E8%anirban.chakraborty@qlogic.com>
+References: <1339006447.13710.6.camel@joe2Laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:47850 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751634Ab2FFSdX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 14:33:23 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1ScL2k-0000tb-U6
-	for netdev@vger.kernel.org; Wed, 06 Jun 2012 20:33:18 +0200
-Received: from dsl.comtrol.com ([64.122.56.22])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 20:33:18 +0200
-Received: from grant.b.edwards by dsl.comtrol.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 20:33:18 +0200
+Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:10388
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751634Ab2FFSfe convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 14:35:34 -0400
+In-Reply-To: <1339006447.13710.6.camel@joe2Laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm tracking down a problem that appears to be caused by a change in
-the behavior of alloc_skb() introduced in kernel version 3.2.  In
-kernel versions prior to 3.2, calling alloc_skb(1350), returned an
-sk_buff with a tailroom of around 1400 bytes (safely below the default
-Ethernet frame size limit of 1500).
 
-In 3.2 and later, calling alloc_skb(1350) returns an sk_buff with a
-tailroom of about 1850.
 
-Why has the "extra" space increased from 60 bytes to 500 bytes?
+On 6/6/12 11:14 AM, "Joe Perches" <joe@perches.com> wrote:
 
-[It's always possible that I've unintentionally changed something in
-the kernel configs that causes this, but I've tried to build the
-kernels as identically as possible.]
+>On Wed, 2012-06-06 at 13:35 -0400, Anirban Chakraborty wrote:
+>> From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+>> 
+>> Add debug messages for FW CDRP command failure.
+>
+>trivia:
+>
+>Please be consistent with the use of (preferably _no_) periods
+>at the end of logging messages.
+>
+>$ git grep -E "[^\.]\\\\n\"" drivers/net/ethernet/qlogic/qlcnic/ | wc -l
+>187
+>$ git grep -E "\.\\\\n\"" drivers/net/ethernet/qlogic/qlcnic/ | wc -l
+>22
+>
+>[]
+>> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+>>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+>[]
+>> @@ -53,12 +53,39 @@ qlcnic_issue_cmd(struct qlcnic_adapter *adapter,
+>>struct qlcnic_cmd_args *cmd)
+>>  	rsp = qlcnic_poll_rsp(adapter);
+>>  
+>>  	if (rsp == QLCNIC_CDRP_RSP_TIMEOUT) {
+>> -		dev_err(&pdev->dev, "card response timeout.\n");
+>> +		dev_err(&pdev->dev, "CDRP response timeout.\n");
+>
+>ie: no period necessary.
 
-The kernel module that's started failing fills the allocated sk_buff
-until tailroom() indicates it is full and then sends it.  The problem
-is that sending a packet with a length of 1850 won't work (it's a
-MAC-layer Ethernet packet).
+Thanks for pointing it out. We will not add that period in commit messages
+from next time on.
 
-I've found man pages for alloc_skb() from a few years ago that state
-explicitly that alloc_skb(_size_) will allocate a new sk_buff with no
-headroom and a tail room of _size_ bytes.  This doesn't seem to be the
-case for recent kernels.  Is there any documentation stating what the
-current behavior is supposed to be?
+>
+>CDRP is kind of an odd acronym.
+>Is it for CarD ResPonse?
 
-Are callers to alloc_skb() supposed to check the tailroom and
-reserve() an appropriate number of bytes such that the tailroom is
-correct?
+It stands for FW CommanD ResPonse.
 
-Is the tailroom of the allocated sk_buff guaranteed to be at least as
-large as the requested size, or does application code also have to
-check for tailroom less than the requested size?
+>
+>If it is, then I think a lot of the below messages are
+>not particularly sensible and the CDRP should be dropped.
 
-The ultimate question I'm trying to answer is what is the "right" way
-to allocate an sk_buff that has a size appropriate for an Ethernet
-frame assuming an MTU of 1500?
+Having CDRRP in the message string helps us identify the source of error.
+This works well for us in debugging issues.
 
--- 
-Grant Edwards               grant.b.edwards        Yow! Let's send the
-                                  at               Russians defective
-                              gmail.com            lifestyle accessories!
+-Anirban
