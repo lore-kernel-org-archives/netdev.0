@@ -1,44 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx
- stalls.
-Date: Wed, 06 Jun 2012 10:50:54 +0200
-Message-ID: <1338972654.2760.3955.camel@edumazet-glaptop>
-References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [net-next PATCH v2 0/3] Energy Efficient Ethernet (eee) support
+Date: Wed, 6 Jun 2012 11:58:15 +0300
+Message-ID: <1338973098-16439-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, davem@davemloft.net,
-	denys@visp.net.lb, therbert@google.com, netdev@vger.kernel.org
-To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Cc: eilong@broadcom.com, bhutchings@solarflare.com,
+	peppe.cavallaro@st.com, "Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:64555 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199Ab2FFIu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 04:50:58 -0400
-Received: by eeit10 with SMTP id t10so2213600eei.19
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 01:50:57 -0700 (PDT)
-In-Reply-To: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:1177 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752712Ab2FFJAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 05:00:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-06 at 17:43 +0900, Hiroaki SHIMODA wrote:
-> Denys Fedoryshchenko reported Tx stalls on e1000e with BQL enabled.
-> 
-> e1000e has WTHRESH which determines when Tx descripters are written
-> back and successive Tx interrupts are generated, and setting WTHRESH
-> to 5 gives efficient bus utilization but this cause possible Tx stalls,
-> especially on BQL enabled system.
-> 
-> To avoid possible Tx stalls, change WTHRESH to 1.
-> 
-> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/e1000.h  |    6 +++---
->  drivers/net/ethernet/intel/e1000e/netdev.c |    2 +-
->  2 files changed, 4 insertions(+), 4 deletions(-)
+Hi Dave,
 
-Thanks a lot !
+This patch series adds energy efficient ethernet support for the
+bnx2x driver (for new chips with appropriate phys). 
+It also extends the ethtool API to enable control of the eee feature.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Another patch series has been sent to Ben to allow the ethtool application
+to use this new API.
+
+Changes from Version 1:
+	Patch 1/3:
+		-Added documentation to ethtool_eee struct in header.
+		-Clearing the ethtool_eee struct before passing to driver.
+		-Checking the driver's return value of 'get_eee' call.
+	Patches 2-3/3:
+		-Corrected conversion of tx_lpi_timer speeds in bnx2x.
+
+Please consider applying it to 'net-next'.
+
+Thanks,
+Yuval Mintz
