@@ -1,47 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/2] inetpeer: add namespace support for
- inetpeer
-Date: Wed, 06 Jun 2012 10:43:23 -0700 (PDT)
-Message-ID: <20120606.104323.1698446129331745479.davem@davemloft.net>
-References: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH v2] inetpeer: fix a race in inetpeer_gc_worker()
+Date: Wed, 06 Jun 2012 10:45:07 -0700 (PDT)
+Message-ID: <20120606.104507.159660237145135640.davem@davemloft.net>
+References: <1338901218.2760.2615.camel@edumazet-glaptop>
+	<20120605130953.GG27795@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: serge.hallyn@canonical.com, ebiederm@xmission.com,
-	herbert@gondor.apana.org.au, steffen.klassert@secunet.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: gaofeng@cn.fujitsu.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37755 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37789 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570Ab2FFRnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:43:24 -0400
-In-Reply-To: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
+	with ESMTP id S1755181Ab2FFRpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:45:08 -0400
+In-Reply-To: <20120605130953.GG27795@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Tue, 5 Jun 2012 15:52:17 +0800
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 5 Jun 2012 15:09:54 +0200
 
-> now inetpeer doesn't support namespace,the information will
-> be leaking across namespace.
+> On Tue, Jun 05, 2012 at 03:00:18PM +0200, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>> 
+>> commit 5faa5df1fa2024 (inetpeer: Invalidate the inetpeer tree along with
+>> the routing cache) added a race :
+>> 
+>> Before freeing an inetpeer, we must respect a RCU grace period, and make
+>> sure no user will attempt to increase refcnt.
+>> 
+>> inetpeer_invalidate_tree() waits for a RCU grace period before inserting
+>> inetpeer tree into gc_list and waking the worker. At that time, no
+>> concurrent lookup can find a inetpeer in this tree.
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: Steffen Klassert <steffen.klassert@secunet.com>
 > 
-> this patch move the global vars v4_peers and v6_peers to
-> netns_ipv4 and netns_ipv6 as a field peers.
-> 
-> add struct pernet_operations inetpeer_ops to initial pernet
-> inetpeer data.
-> 
-> and change family_to_base and inet_getpeer to support namespace.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-As stated yesterday we have to move the inetpeer tree roots into
-the FIB rule entries to fix other bugs, and that as a result will
-transparently fix this problem too.
-
-So I'm dropping these two patches and will work on the mentioned
-approach to this fix.
-
-Thanks.
+I'll apply this and queue it up for -stable, thanks.
