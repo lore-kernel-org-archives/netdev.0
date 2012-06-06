@@ -1,99 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] virtio-net: fix a race on 32bit arches
-Date: Wed, 06 Jun 2012 10:35:24 +0200
-Message-ID: <1338971724.2760.3913.camel@edumazet-glaptop>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [RFC] connectat() and bindat() system calls
+Date: Wed, 6 Jun 2012 12:38:51 +0400
+Message-ID: <4FCF171B.8000207@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	James Bottomley <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hello.
+I'd really appreciate for any comments on subj - implementation of new system 
+call: connectat and bindat.
 
-commit 3fa2a1df909 (virtio-net: per cpu 64 bit stats (v2)) added a race
-on 32bit arches.
+Reasons for new system calls:
+1) Path length for UNIX sockets is limited to 108 symbols.
+Syscalls are useful as is since removes limitation.
 
-We must use separate syncp for rx and tx path as they can be run at the
-same time on different cpus. Thus one sequence increment can be lost and
-readers spin forever.
+2) Ability to perform connect/bind calls to UNIX sockets starting from specified 
+path in kernel.
+This is required for proper support of kernel connect operations in SUNRPC 
+layer. Which, in turn, required for proper support of NFS in containers.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c |   19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+These system calls could be used only for non-abstract UNIX sockets, obviously.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 5214b1e..f18149a 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -42,7 +42,8 @@ module_param(gso, bool, 0444);
- #define VIRTNET_DRIVER_VERSION "1.0.0"
- 
- struct virtnet_stats {
--	struct u64_stats_sync syncp;
-+	struct u64_stats_sync tx_syncp;
-+	struct u64_stats_sync rx_syncp;
- 	u64 tx_bytes;
- 	u64 tx_packets;
- 
-@@ -300,10 +301,10 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
- 
- 	hdr = skb_vnet_hdr(skb);
- 
--	u64_stats_update_begin(&stats->syncp);
-+	u64_stats_update_begin(&stats->rx_syncp);
- 	stats->rx_bytes += skb->len;
- 	stats->rx_packets++;
--	u64_stats_update_end(&stats->syncp);
-+	u64_stats_update_end(&stats->rx_syncp);
- 
- 	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
- 		pr_debug("Needs csum!\n");
-@@ -565,10 +566,10 @@ static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
- 	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
- 		pr_debug("Sent skb %p\n", skb);
- 
--		u64_stats_update_begin(&stats->syncp);
-+		u64_stats_update_begin(&stats->tx_syncp);
- 		stats->tx_bytes += skb->len;
- 		stats->tx_packets++;
--		u64_stats_update_end(&stats->syncp);
-+		u64_stats_update_end(&stats->tx_syncp);
- 
- 		tot_sgs += skb_vnet_hdr(skb)->num_sg;
- 		dev_kfree_skb_any(skb);
-@@ -703,12 +704,16 @@ static struct rtnl_link_stats64 *virtnet_stats(struct net_device *dev,
- 		u64 tpackets, tbytes, rpackets, rbytes;
- 
- 		do {
--			start = u64_stats_fetch_begin(&stats->syncp);
-+			start = u64_stats_fetch_begin(&stats->tx_syncp);
- 			tpackets = stats->tx_packets;
- 			tbytes   = stats->tx_bytes;
-+		} while (u64_stats_fetch_retry(&stats->tx_syncp, start));
-+
-+		do {
-+			start = u64_stats_fetch_begin(&stats->rx_syncp);
- 			rpackets = stats->rx_packets;
- 			rbytes   = stats->rx_bytes;
--		} while (u64_stats_fetch_retry(&stats->syncp, start));
-+		} while (u64_stats_fetch_retry(&stats->rx_syncp, start));
- 
- 		tot->rx_packets += rpackets;
- 		tot->tx_packets += tpackets;
+Possible implementation could be adding of struct path pointer to sockaddr_un.
+But this pointer have to valid only for connect and bind calls, and caller have 
+to hold and release path by himself.
+
+-- 
+Best regards,
+Stanislav Kinsbursky
