@@ -1,7 +1,7 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 6/7] be2net: do not use SCRATCHPAD register
-Date: Wed, 6 Jun 2012 11:07:22 +0530
-Message-ID: <56dfeda0-d8d4-48bd-99bd-bdaf09ceb068@exht1.ad.emulex.com>
+Subject: [PATCH net-next 2/7] be2net: cleanup be_vid_config()
+Date: Wed, 6 Jun 2012 11:07:18 +0530
+Message-ID: <a55cbff2-6c19-4823-b287-4ccdc81a99f8@exht1.ad.emulex.com>
 References: <1338961043-26820-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,78 +10,95 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht1.emulex.com ([138.239.113.183]:2015 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753522Ab2FFFwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 01:52:31 -0400
+	with ESMTP id S1753236Ab2FFFwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 01:52:30 -0400
 In-Reply-To: <1338961043-26820-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The CUST_SCRATCHPAD_CSR register is used for marking if FW cleanup is
-needed. This is used in a crash kernel scenario. Do no use this register as
-it is not available for some functions. Instead, always issue an FLR when
-a function is probed *except* when VFs are preset (enabled in the previous
-PF load).
+- get rid of 2 unused arguments to the routine and some unused code
+- don't use the term "vlan_tag" in place of "vid" as they are different
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_hw.h   |    2 --
- drivers/net/ethernet/emulex/benet/be_main.c |   10 +++-------
- 2 files changed, 3 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |   25 +++++++++----------------
+ 1 files changed, 9 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index d9fb0c5..7c8a710 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -58,8 +58,6 @@
- 
- #define SLI_PORT_CONTROL_IP_MASK	0x08000000
- 
--#define PCICFG_CUST_SCRATCHPAD_CSR	0x1EC
--
- /********* Memory BAR register ************/
- #define PCICFG_MEMBAR_CTRL_INT_CTRL_OFFSET 	0xfc
- /* Host Interrupt Enable, if set interrupts are enabled although "PCI Interrupt
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 42ee75b..f29827f 100644
+index f1b0926..cfbec8b 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1049,6 +1049,8 @@ static int be_find_vfs(struct be_adapter *adapter, int vf_state)
- 	u16 offset, stride;
- 
- 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
-+	if (!pos)
-+		return 0;
- 	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_OFFSET, &offset);
- 	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_STRIDE, &stride);
- 
-@@ -2542,7 +2544,6 @@ static int be_clear(struct be_adapter *adapter)
- 	be_cmd_fw_clean(adapter);
- 
- 	be_msix_disable(adapter);
--	pci_write_config_dword(adapter->pdev, PCICFG_CUST_SCRATCHPAD_CSR, 0);
- 	return 0;
- }
- 
-@@ -2785,8 +2786,6 @@ static int be_setup(struct be_adapter *adapter)
- 
- 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
- 	adapter->flags |= BE_FLAGS_WORKER_SCHEDULED;
--
--	pci_write_config_dword(adapter->pdev, PCICFG_CUST_SCRATCHPAD_CSR, 1);
- 	return 0;
- err:
- 	be_clear(adapter);
-@@ -3724,10 +3723,7 @@ reschedule:
- 
- static bool be_reset_required(struct be_adapter *adapter)
+@@ -785,19 +785,12 @@ static int be_change_mtu(struct net_device *netdev, int new_mtu)
+  * A max of 64 (BE_NUM_VLANS_SUPPORTED) vlans can be configured in BE.
+  * If the user configures more, place BE in vlan promiscuous mode.
+  */
+-static int be_vid_config(struct be_adapter *adapter, bool vf, u32 vf_num)
++static int be_vid_config(struct be_adapter *adapter)
  {
--	u32 reg;
--
--	pci_read_config_dword(adapter->pdev, PCICFG_CUST_SCRATCHPAD_CSR, &reg);
--	return reg;
-+	return be_find_vfs(adapter, ENABLED) > 0 ? false : true;
- }
+-	struct be_vf_cfg *vf_cfg = &adapter->vf_cfg[vf_num];
+-	u16 vtag[BE_NUM_VLANS_SUPPORTED];
+-	u16 ntags = 0, i;
++	u16 vids[BE_NUM_VLANS_SUPPORTED];
++	u16 num = 0, i;
+ 	int status = 0;
  
- static int __devinit be_probe(struct pci_dev *pdev,
+-	if (vf) {
+-		vtag[0] = cpu_to_le16(vf_cfg->vlan_tag);
+-		status = be_cmd_vlan_config(adapter, vf_cfg->if_handle, vtag,
+-					    1, 1, 0);
+-	}
+-
+ 	/* No need to further configure vids if in promiscuous mode */
+ 	if (adapter->promiscuous)
+ 		return 0;
+@@ -808,10 +801,10 @@ static int be_vid_config(struct be_adapter *adapter, bool vf, u32 vf_num)
+ 	/* Construct VLAN Table to give to HW */
+ 	for (i = 0; i < VLAN_N_VID; i++)
+ 		if (adapter->vlan_tag[i])
+-			vtag[ntags++] = cpu_to_le16(i);
++			vids[num++] = cpu_to_le16(i);
+ 
+ 	status = be_cmd_vlan_config(adapter, adapter->if_handle,
+-				    vtag, ntags, 1, 0);
++				    vids, num, 1, 0);
+ 
+ 	/* Set to VLAN promisc mode as setting VLAN filter failed */
+ 	if (status) {
+@@ -840,7 +833,7 @@ static int be_vlan_add_vid(struct net_device *netdev, u16 vid)
+ 
+ 	adapter->vlan_tag[vid] = 1;
+ 	if (adapter->vlans_added <= (adapter->max_vlans + 1))
+-		status = be_vid_config(adapter, false, 0);
++		status = be_vid_config(adapter);
+ 
+ 	if (!status)
+ 		adapter->vlans_added++;
+@@ -862,7 +855,7 @@ static int be_vlan_rem_vid(struct net_device *netdev, u16 vid)
+ 
+ 	adapter->vlan_tag[vid] = 0;
+ 	if (adapter->vlans_added <= adapter->max_vlans)
+-		status = be_vid_config(adapter, false, 0);
++		status = be_vid_config(adapter);
+ 
+ 	if (!status)
+ 		adapter->vlans_added--;
+@@ -889,7 +882,7 @@ static void be_set_rx_mode(struct net_device *netdev)
+ 		be_cmd_rx_filter(adapter, IFF_PROMISC, OFF);
+ 
+ 		if (adapter->vlans_added)
+-			be_vid_config(adapter, false, 0);
++			be_vid_config(adapter);
+ 	}
+ 
+ 	/* Enable multicast promisc if num configured exceeds what we support */
+@@ -2763,7 +2756,7 @@ static int be_setup(struct be_adapter *adapter)
+ 	be_cmd_get_fw_ver(adapter, adapter->fw_ver, NULL);
+ 
+ 	if (adapter->vlans_added)
+-		be_vid_config(adapter, false, 0);
++		be_vid_config(adapter);
+ 
+ 	be_set_rx_mode(adapter->netdev);
+ 
 -- 
 1.7.4
