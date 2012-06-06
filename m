@@ -1,66 +1,88 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v9] tilegx network driver: initial support
-Date: Wed, 6 Jun 2012 19:19:49 +0100
-Message-ID: <1339006789.2836.51.camel@bwh-desktop.uk.solarflarecom.com>
-References: <201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>
-	 <20120520.165546.1211013675964130504.davem@davemloft.net>
-	 <201205240115.q4O1FwqG006336@lab-41.internal.tilera.com>
-	 <20120524.003148.700603156196416506.davem@davemloft.net>
-	 <201205251853.q4PIrE7T000723@lab-41.internal.tilera.com>
-	 <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
-	 <1339006223.26966.36.camel@edumazet-glaptop>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Strange latency spikes/TX network stalls on Sun
+ Fire X4150(x86) and e1000e
+Date: Wed, 6 Jun 2012 11:21:40 -0700
+Message-ID: <CA+mtBx-o4WB5gmHRMTQ6+haNrbeJyaaX9zXPhhYZydZbSPO98w@mail.gmail.com>
+References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+	<88c43001441945e1431609db252b69e7@visp.net.lb>
+	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
+	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
+	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
+	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
+	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
+	<20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
+	<1338959413.2760.3686.camel@edumazet-glaptop>
+	<20120606174303.0bfc9868.shimoda.hiroaki@gmail.com>
+	<20120606092635.00003b61@unknown>
+	<20120607021937.a5638bfd.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Chris Metcalf <cmetcalf@tilera.com>, <arnd@arndb.de>,
-	David Miller <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339006223.26966.36.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	davem@davemloft.net
+To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20120607021937.a5638bfd.shimoda.hiroaki@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-06 at 20:10 +0200, Eric Dumazet wrote:
-> On Mon, 2012-06-04 at 16:12 -0400, Chris Metcalf wrote:
-> > This change adds support for the tilegx network driver based on the
-> > GXIO IORPC support in the tilegx software stack, using the on-chip
-> > mPIPE packet processing engine.
-> > 
-> 
-> > +
-> > +/* Do "TSO" handling for egress.
-> > + *
-> > + * Normally drivers set NETIF_F_TSO only to support hardware TSO;
-> > + * otherwise the stack uses scatter-gather to implement GSO in software.
-> > + * On our testing, enabling GSO support (via NETIF_F_SG) drops network
-> > + * performance down to around 7.5 Gbps on the 10G interfaces, although
-> > + * also dropping cpu utilization way down, to under 8%.  But
-> > + * implementing "TSO" in the driver brings performance back up to line
-> > + * rate, while dropping cpu usage even further, to less than 4%.  In
-> > + * practice, profiling of GSO shows that skb_segment() is what causes
-> > + * the performance overheads; we benefit in the driver from using
-> > + * preallocated memory to duplicate the TCP/IP headers.
-> > + */
-> 
-> All this stuff cost about 300 lines of code in this driver, without IPv6
-> support.
-> 
-> I am pretty sure this performance problem should be solved in net/{core|
-> ipv4|ipv6} instead
-> 
-> What TCP performance do you get with TSO/GSO and SG off ?
+I'm not exactly sure what the exact effect of WTHRESH is here.  Does
+the device coalesce 5 completions regardless of size?  Would the
+problem be avoided if bql limit_min were MTU, or could same issue be
+hit with larger that 64 byte packets?
 
-It's a real problem and we have soft-TSO in the sfc driver for the same
-reason.  GSO means more allocation, more DMA mapping, more calls into
-the driver and more register writes.
+Tom
 
-If drivers could use GSO explicitly from their ndo_start_xmit function,
-more like they do with GRO, much of this would presumably be avoidable.
+On Wed, Jun 6, 2012 at 10:19 AM, Hiroaki SHIMODA
+<shimoda.hiroaki@gmail.com> wrote:
+> On Wed, 6 Jun 2012 09:26:35 -0700
+> Jesse Brandeburg <jesse.brandeburg@intel.com> wrote:
+>
+>> On Wed, 6 Jun 2012 Hiroaki SHIMODA <shimoda.hiroaki@gmail.com> wrote:
+>> > Sorry for long delay. I'll post.
+>> > (I have no idea how to fix this problem as keeping TXDCTL.WTHRESH to 5)
+>>
+>> I don't like changing WTHRESH wholesale because making the global change
+>> to WTHRESH on e1000e just to fix this one bug (likely specific to a
+>> particular chip/hardware) will adversely effect performance on many
+>> models supported by e1000e not demonstrating any problem. =A0We could
+>> possibly check something in for just ESB2LAN (S5000 chipset).
+>>
+>> Other people (tom herbert) with this same chipset have been unable to
+>> reproduce this issue right?
+>
+> I understand your performance concern.
+>
+> The affected chip would be e1000_82571, e1000_82572, e1000_82574
+> and e1000_80003es2lan which have FLAG2_DMA_BURST bit in
+> adapter->flags2.
+> Anyway, I have no objection intel guys NACK to my patch and
+> provide right fix. But in that case please consider 82574L chip too
+> which I observed similar behaviour.
+>
+> Thanks.
 
-Ben.
+---------------------------------------------------------------------------=
+---
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and =
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+threat landscape has changed and how IT managers can respond. Discussions =
+
+will include endpoint security, mobile security and the latest in malware =
+
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
+m/community/wired
