@@ -1,84 +1,53 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
-Date: Wed, 6 Jun 2012 19:57:55 +0300
-Message-ID: <20120606165754.GA19357@redhat.com>
-References: <1338971724.2760.3913.camel@edumazet-glaptop>
-	<1338972341.2760.3944.camel@edumazet-glaptop>
-	<20120606111357.GA15070@redhat.com>
-	<1338988210.2760.4485.camel@edumazet-glaptop>
-	<20120606144941.GA17092@redhat.com>
-	<1338995944.26966.6.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1338995944.26966.6.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Grant Edwards <grant.b.edwards@gmail.com>
+Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
+Date: Wed, 6 Jun 2012 19:01:40 +0000 (UTC)
+Message-ID: <jqo9ej$ao4$1@dough.gmane.org>
+References: <jqo7op$t6f$1@dough.gmane.org>
+ <20120606.115130.1091814494251887552.davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:51199 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757960Ab2FFTFH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 15:05:07 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1ScLXT-0007rf-SP
+	for netdev@vger.kernel.org; Wed, 06 Jun 2012 21:05:03 +0200
+Received: from dsl.comtrol.com ([64.122.56.22])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 21:05:03 +0200
+Received: from grant.b.edwards by dsl.comtrol.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 21:05:03 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 06, 2012 at 05:19:04PM +0200, Eric Dumazet wrote:
-> On Wed, 2012-06-06 at 17:49 +0300, Michael S. Tsirkin wrote:
-> > On Wed, Jun 06, 2012 at 03:10:10PM +0200, Eric Dumazet wrote:
-> > > On Wed, 2012-06-06 at 14:13 +0300, Michael S. Tsirkin wrote:
-> > > 
-> > > > We currently do all stats either on napi callback or from
-> > > > start_xmit callback.
-> > > > This makes them safe, yes?
-> > > 
-> > > Hmm, then _bh() variant is needed in virtnet_stats(), as explained in
-> > > include/linux/u64_stats_sync.h section 6)
-> > > 
-> > >  * 6) If counter might be written by an interrupt, readers should block interrupts.
-> > >  *    (On UP, there is no seqcount_t protection, a reader allowing interrupts could
-> > >  *     read partial values)
-> > > 
-> > > Yes, its tricky...
-> > 
-> > Sounds good, but I have a question: this realies on counters
-> > being atomic on 64 bit.
-> > Would not it be better to always use a seqlock even on 64 bit?
-> > This way counters would actually be correct and in sync.
-> > As it is if we want e.g. average packet size,
-> > we can not rely e.g. on it being bytes/packets.
-> 
-> When this stuff was discussed, we chose to have a nop on 64bits.
-> 
-> Your point has little to do with 64bit stats, it was already like that
-> with 'long int' counters.
-> 
-> Consider average driver doing :
-> 
-> dev->stats.rx_bytes += skb->len;
-> dev->stats.rx_packets++;
-> 
-> A concurrent reader can read an updated rx_bytes and a 'previous'
-> rx_packets one.
-> 
-> 'fixing' this requires a lot of work and memory barriers (in all
-> drivers), for a very litle gain (at most one packet error)
-> 
-> u64_stats_sync was really meant to be 0-cost on 64bit arches.
-> 
+On 2012-06-06, David Miller <davem@davemloft.net> wrote:
+> From: Grant Edwards <grant.b.edwards@gmail.com>
+> Date: Wed, 6 Jun 2012 18:32:57 +0000 (UTC)
+>
+>> The kernel module that's started failing fills the allocated sk_buff
+>> until tailroom() indicates it is full and then sends it.  The problem
+>> is that sending a packet with a length of 1850 won't work (it's a
+>> MAC-layer Ethernet packet).
+>
+> The amount of tailroom an SKB has is implementation dependent.
 
+Today, that's apparently the case, but that's not what the man page
+for alloc_skb said when the code was written.
 
+> It's incredibly poor form to rely upon it to determine whether a fully
+> sized frame has been constructed or not.
+>
+> Please fix the code that does this.
 
-So for virtio since all counters get incremented from bh we can
-ensure they are read atomically, simply but reading them
-from the correct CPU with bh disabled.
-And then we don't need u64_stats_sync at all.
+That's what I'll do as soon as I can find a definition of what the API
+for alloc_skb() actually _is_.  It has clearly changed in the past few
+years.
 
 -- 
-MST
+Grant Edwards               grant.b.edwards        Yow! I'm also against
+                                  at               BODY-SURFING!!
+                              gmail.com            
