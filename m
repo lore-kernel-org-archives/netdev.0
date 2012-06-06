@@ -1,61 +1,154 @@
 From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next 3/3] qlcnic: Fix protcol type in case of inband vlan.
-Date: Wed,  6 Jun 2012 13:35:08 -0400
-Message-ID: <1339004108-7356-4-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: [PATCH net-next 1/3] qlcnic: Fix estimation of recv MSS in case of LRO
+Date: Wed,  6 Jun 2012 13:35:06 -0400
+Message-ID: <1339004108-7356-2-git-send-email-anirban.chakraborty@qlogic.com>
 References: <1339004108-7356-1-git-send-email-anirban.chakraborty@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
 	Rajesh Borundia <rajesh.borundia@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:47331 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:1947 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756352Ab2FFRuw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 13:50:52 -0400
+	id S1757630Ab2FFRux (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 13:50:53 -0400
 In-Reply-To: <1339004108-7356-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
-o Use correct l3 (ETH_IP or ETH_IPV6)protcol in case
-of inband vlan. Because of incorrect protcol type driver
-was setting incorrect opcode. This resulted in adapter calculating
-checksum incorrectly.
-o Updated driver version to 5.0.29
+o Linux stack estimates MSS from skb->len or skb_shinfo(skb)->gso_size.
+In case of LRO skb->len is aggregate of len of number of packets hence MSS
+obtained using skb->len would be incorrect. Incorrect estimation of recv MSS
+would lead to delayed acks in some traffic patterns (which sends two or three
+packets and wait for ack and only then send remaining packets). This leads to
+drop in performance. Hence we need to set gso_size to MSS obtained from firmware.
+
+o This is fixed recently in firmware hence the MSS is obtained based on
+capability. If fw is capable of sending the MSS then only driver sets the gso_size.
 
 Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    4 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    1 +
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    7 +++++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c  |    3 +++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h  |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c |    3 +++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    9 +++++++++
+ 5 files changed, 23 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index df4552f..eaa1db9 100644
+index 8680a5d..520ff03 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -36,8 +36,8 @@
+@@ -258,6 +258,8 @@ struct rcv_desc {
+ 	(((sts_data) >> 52) & 0x1)
+ #define qlcnic_get_lro_sts_seq_number(sts_data)		\
+ 	((sts_data) & 0x0FFFFFFFF)
++#define qlcnic_get_lro_sts_mss(sts_data1)		\
++	((sts_data1 >> 32) & 0x0FFFF)
  
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 28
--#define QLCNIC_LINUX_VERSIONID  "5.0.28"
-+#define _QLCNIC_LINUX_SUBVERSION 29
-+#define QLCNIC_LINUX_VERSIONID  "5.0.29"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+ 
+ struct status_desc {
+@@ -623,6 +625,7 @@ struct qlcnic_recv_context {
+ #define QLCNIC_CAP0_JUMBO_CONTIGUOUS	(1 << 7)
+ #define QLCNIC_CAP0_LRO_CONTIGUOUS	(1 << 8)
+ #define QLCNIC_CAP0_VALIDOFF		(1 << 11)
++#define QLCNIC_CAP0_LRO_MSS		(1 << 21)
+ 
+ /*
+  * Context state
+@@ -829,6 +832,9 @@ struct qlcnic_mac_list_s {
+ #define QLCNIC_FW_CAPABILITY_FVLANTX		BIT_9
+ #define QLCNIC_FW_CAPABILITY_HW_LRO		BIT_10
+ #define QLCNIC_FW_CAPABILITY_MULTI_LOOPBACK	BIT_27
++#define QLCNIC_FW_CAPABILITY_MORE_CAPS		BIT_31
++
++#define QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG	BIT_2
+ 
+ /* module types */
+ #define LINKEVENT_MODULE_NOT_PRESENT			1
+@@ -918,6 +924,7 @@ struct qlcnic_ipaddr {
+ #define QLCNIC_NEED_FLR			0x1000
+ #define QLCNIC_FW_RESET_OWNER		0x2000
+ #define QLCNIC_FW_HANG			0x4000
++#define QLCNIC_FW_LRO_MSS_CAP		0x8000
+ #define QLCNIC_IS_MSI_FAMILY(adapter) \
+ 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+index 8db8524..cfa174d 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+@@ -237,6 +237,9 @@ qlcnic_fw_cmd_create_rx_ctx(struct qlcnic_adapter *adapter)
+ 						| QLCNIC_CAP0_VALIDOFF);
+ 	cap |= (QLCNIC_CAP0_JUMBO_CONTIGUOUS | QLCNIC_CAP0_LRO_CONTIGUOUS);
+ 
++	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
++		cap |= QLCNIC_CAP0_LRO_MSS;
++
+ 	prq->valid_field_offset = offsetof(struct qlcnic_hostrq_rx_ctx,
+ 							 msix_handler);
+ 	prq->txrx_sds_binding = nsds_rings - 1;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
+index 6ced319..28a6b28 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
+@@ -588,6 +588,7 @@ enum {
+ #define CRB_DRIVER_VERSION		(QLCNIC_REG(0x2a0))
+ 
+ #define CRB_FW_CAPABILITIES_1		(QLCNIC_CAM_RAM(0x128))
++#define CRB_FW_CAPABILITIES_2		(QLCNIC_CAM_RAM(0x12c))
+ #define CRB_MAC_BLOCK_START		(QLCNIC_CAM_RAM(0x1c0))
+ 
+ /*
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
+index 799fd40..8620b69 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
+@@ -1653,6 +1653,9 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+ 
+ 	length = skb->len;
+ 
++	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
++		skb_shinfo(skb)->gso_size = qlcnic_get_lro_sts_mss(sts_data1);
++
+ 	if (vid != 0xffff)
+ 		__vlan_hwaccel_put_tag(skb, vid);
+ 	netif_receive_skb(skb);
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 707b5ca..33c3e46 100644
+index 46e77a2..707b5ca 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2033,6 +2033,7 @@ qlcnic_tx_pkt(struct qlcnic_adapter *adapter,
- 		vh = (struct vlan_ethhdr *)skb->data;
- 		flags = FLAGS_VLAN_TAGGED;
- 		vlan_tci = vh->h_vlan_TCI;
-+		protocol = ntohs(vh->h_vlan_encapsulated_proto);
- 	} else if (vlan_tx_tag_present(skb)) {
- 		flags = FLAGS_VLAN_OOB;
- 		vlan_tci = vlan_tx_tag_get(skb);
+@@ -1136,6 +1136,8 @@ static int
+ __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
+ {
+ 	int ring;
++	u32 capab2;
++
+ 	struct qlcnic_host_rds_ring *rds_ring;
+ 
+ 	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
+@@ -1146,6 +1148,12 @@ __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
+ 	if (qlcnic_set_eswitch_port_config(adapter))
+ 		return -EIO;
+ 
++	if (adapter->capabilities & QLCNIC_FW_CAPABILITY_MORE_CAPS) {
++		capab2 = QLCRD32(adapter, CRB_FW_CAPABILITIES_2);
++		if (capab2 & QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG)
++			adapter->flags |= QLCNIC_FW_LRO_MSS_CAP;
++	}
++
+ 	if (qlcnic_fw_create_ctx(adapter))
+ 		return -EIO;
+ 
+@@ -1215,6 +1223,7 @@ __qlcnic_down(struct qlcnic_adapter *adapter, struct net_device *netdev)
+ 	qlcnic_napi_disable(adapter);
+ 
+ 	qlcnic_fw_destroy_ctx(adapter);
++	adapter->flags &= ~QLCNIC_FW_LRO_MSS_CAP;
+ 
+ 	qlcnic_reset_rx_buffers_list(adapter);
+ 	qlcnic_release_tx_buffers(adapter);
 -- 
 1.7.4.1
