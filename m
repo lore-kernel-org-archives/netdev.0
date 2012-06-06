@@ -1,47 +1,40 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
-Date: Wed, 06 Jun 2012 21:42:22 +0200
-Message-ID: <1339011742.26966.44.camel@edumazet-glaptop>
-References: <jqo7op$t6f$1@dough.gmane.org>
-	 <20120606.115130.1091814494251887552.davem@davemloft.net>
+Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
+Date: Wed, 06 Jun 2012 21:54:01 +0200
+Message-ID: <1339012441.26966.48.camel@edumazet-glaptop>
+References: <1338971724.2760.3913.camel@edumazet-glaptop>
+	 <1338972341.2760.3944.camel@edumazet-glaptop>
+	 <20120606111357.GA15070@redhat.com>
+	 <1338988210.2760.4485.camel@edumazet-glaptop>
+	 <20120606144941.GA17092@redhat.com>
+	 <20120606081432.6b602065@nehalam.linuxnetplumber.net>
+	 <20120606185107.GA20503@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: grant.b.edwards@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:58987 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757520Ab2FFTmZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 15:42:25 -0400
-Received: by eeit10 with SMTP id t10so2474426eei.19
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 12:42:24 -0700 (PDT)
-In-Reply-To: <20120606.115130.1091814494251887552.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120606185107.GA20503@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-06 at 11:51 -0700, David Miller wrote:
-> From: Grant Edwards <grant.b.edwards@gmail.com>
-> Date: Wed, 6 Jun 2012 18:32:57 +0000 (UTC)
+On Wed, 2012-06-06 at 21:51 +0300, Michael S. Tsirkin wrote:
+
+> BTW for cards that do implement the counters in software,
+> under xmit lock, is anything wrong with simply taking the xmit lock
+> when we get the stats instead of the per-cpu trick + seqlock?
 > 
-> > The kernel module that's started failing fills the allocated sk_buff
-> > until tailroom() indicates it is full and then sends it.  The problem
-> > is that sending a packet with a length of 1850 won't work (it's a
-> > MAC-layer Ethernet packet).
-> 
-> The amount of tailroom an SKB has is implementation dependent.
-> 
-> It's incredibly poor form to rely upon it to determine whether a fully
-> sized frame has been constructed or not.
-> 
-> Please fix the code that does this.
 
+I still dont understand why you would do that.
 
-By the way, we had a similar problem, and the fix was :
+Most modern machines are 64bits, so there is no seqlock overhead,
+nothing at all.
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=a21d45726acacc963d8baddf74607d9b74e2b723
+If you focus on 32bit hardware, just stick on 32bit counters ?
 
-Grant, depending on the context, you might use skb->avail_size and
-skb_availroom() as well.
-
-Beware skb->avail_size is unioned with skb->{mark|dropcount}
+Note that most u64_stats_sync users are virtual drivers, without xmit
+lock (LLTX drivers)
