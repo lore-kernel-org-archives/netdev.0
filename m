@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v9] tilegx network driver: initial support
-Date: Wed, 06 Jun 2012 09:41:35 -0700 (PDT)
-Message-ID: <20120606.094135.768228524411466462.davem@davemloft.net>
-References: <20120524.003148.700603156196416506.davem@davemloft.net>
-	<201205251853.q4PIrE7T000723@lab-41.internal.tilera.com>
-	<201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
+Subject: Re: [PATCH net-next] x86 bpf_jit: support BPF_S_ANC_ALU_XOR_X
+ instruction
+Date: Wed, 06 Jun 2012 09:44:47 -0700 (PDT)
+Message-ID: <20120606.094447.1811177386521216572.davem@davemloft.net>
+References: <1338881190.2760.1992.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, arnd@arndb.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: cmetcalf@tilera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jpirko@redhat.com, mgherzan@gmail.com,
+	matt@ozlabs.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37234 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754318Ab2FFQos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 12:44:48 -0400
+In-Reply-To: <1338881190.2760.1992.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Mon, 4 Jun 2012 16:12:03 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 05 Jun 2012 09:26:30 +0200
 
-> This change adds support for the tilegx network driver based on the
-> GXIO IORPC support in the tilegx software stack, using the on-chip
-> mPIPE packet processing engine.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
-> ---
-> This change fixes some bugs that were discovered during additional
-> testing of the TSO refactoring.  In addition, I added a comment
-> explaining why we provide TSO support as essentially driver-side GSO.
+> commit ffe06c17afbb  (filter: add XOR operation) added generic support
+> for XOR operation.
 > 
-> The previous v8 version of the patch (from 10 days ago) received no
-> feedback; if anyone would care to provide feedback on this version of
-> the driver, it would be much appreciated.  Thanks!
+> This patch implements the XOR instruction in x86 jit.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Jiri Pirko <jpirko@redhat.com>
 
-Someone other than me please review this driver.
+Applied, thanks Eric.  I'll take care of Sparc.
+
+ARM and POWERPC folks, this is just a reminder for you guys
+to do this too.  Adding support for XOR to your JITs ought to
+be quite trivial.
+
+Thanks.
