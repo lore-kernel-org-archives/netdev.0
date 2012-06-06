@@ -1,33 +1,33 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [PATCH net-next] fec: Add support for Coldfire M5441x enet-mac.
-Date: Wed, 06 Jun 2012 19:34:21 +0200
-Message-ID: <4FCF949D.7060402@computer.org>
-References: <201206061006.21288.sfking@fdwdc.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Net: mv643xx_eth: Fix compile error for architectures
+ without clk.
+Date: Wed, 06 Jun 2012 10:38:55 -0700 (PDT)
+Message-ID: <20120606.103855.1760953957346622701.davem@davemloft.net>
+References: <1339000843-26078-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	uClinux development list <uclinux-dev@uclinux.org>,
-	Greg Ungerer <gerg@snapgear.com>
-To: Steven King <sfking@fdwdc.com>
+Cc: jwboyer@redhat.com, buytenh@wantstofly.org, olof@lixom.net,
+	netdev@vger.kernel.org, ben@decadent.org.uk
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:46309 "EHLO
-	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752173Ab2FFRfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:35:07 -0400
-In-Reply-To: <201206061006.21288.sfking@fdwdc.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37684 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756059Ab2FFRiz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:38:55 -0400
+In-Reply-To: <1339000843-26078-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2012 07:06 PM, Steven King wrote:
-> Add support for the Freescale Coldfire M5441x; as these parts have an 
-> enet-mac, add a quirk to distinguish them from the other Coldfire parts so we 
-> can use the existing enet-mac support.
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed,  6 Jun 2012 18:40:43 +0200
 
-Stephen,
+> Commit 452503ebc (ARM: Orion: Eth: Add clk/clkdev support.) broke
+> the building of the driver on architectures which don't have clk
+> support. In particular PPC32 Pegasos which uses this driver.
+> 
+> Add #ifdef around the clk API usage.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-You are activating certain functionality based on whether M5441x is
-defined. But where is this being defined? Should this not be added in a
-Kconfig somewhere as a platform option?
-
-Thanks, Jan
+Applied, thanks.
