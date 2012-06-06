@@ -1,31 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
-Date: Wed, 06 Jun 2012 22:31:25 +0200
-Message-ID: <1339014685.26966.73.camel@edumazet-glaptop>
-References: <jqo7op$t6f$1@dough.gmane.org>
-	 <20120606.115130.1091814494251887552.davem@davemloft.net>
-	 <jqo9ej$ao4$1@dough.gmane.org>
-	 <20120606.131703.870120997635192180.davem@davemloft.net>
-	 <jqoe90$fs3$2@dough.gmane.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
+Date: Wed, 6 Jun 2012 21:35:04 +0100
+Message-ID: <1339014904.2836.56.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1338971724.2760.3913.camel@edumazet-glaptop>
+	<1338972341.2760.3944.camel@edumazet-glaptop>
+	<20120606111357.GA15070@redhat.com>
+	<1338988210.2760.4485.camel@edumazet-glaptop>
+	<20120606144941.GA17092@redhat.com>
+	<20120606081432.6b602065@nehalam.linuxnetplumber.net>
+	<20120606185107.GA20503@redhat.com>
+	<1339012441.26966.48.camel@edumazet-glaptop>
+	<20120606195814.GA20677@redhat.com>
+	<1339013289.26966.62.camel@edumazet-glaptop>
+	<20120606201620.GA23358@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Grant Edwards <grant.b.edwards@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:65034 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757418Ab2FFUb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 16:31:28 -0400
-Received: by eaak11 with SMTP id k11so2110538eaa.19
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 13:31:27 -0700 (PDT)
-In-Reply-To: <jqoe90$fs3$2@dough.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120606201620.GA23358@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-06 at 20:24 +0000, Grant Edwards wrote:
+On Wed, 2012-06-06 at 23:16 +0300, Michael S. Tsirkin wrote:
+> On Wed, Jun 06, 2012 at 10:08:09PM +0200, Eric Dumazet wrote:
+> > On Wed, 2012-06-06 at 22:58 +0300, Michael S. Tsirkin wrote:
+> > 
+> > > Absolutely, I am talking about virtio here.  I'm not kicking
+> > > u64_stats_sync idea I am just saying that simple locking
+> > > would work for virtio and might be better as it
+> > > gives us a way to get counters atomically.
+> > 
+> > Which lock do you own in the RX path ?
+> 
+> We can just disable napi, everything is updated from napi callback.
 
-> Is skb_tailroom() guaranteed to be >= the requested size?
+Seriously, though: don't do that; this is going to hurt performance for
+minimal benefit.
+
+Ben.
+
+> > You'll have to add a lock in fast path. This sounds really a bad choice
+> > to me.
+> 
+> .ndo_get_stats64 is not data path though, is it?
 > 
 
-Of course, but only right after alloc_skb().
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
