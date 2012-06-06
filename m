@@ -1,44 +1,45 @@
-From: Grant Edwards <grant.b.edwards@gmail.com>
-Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
-Date: Wed, 6 Jun 2012 20:35:50 +0000 (UTC)
-Message-ID: <jqoev6$l2b$1@dough.gmane.org>
-References: <jqo7op$t6f$1@dough.gmane.org>
- <20120606.115130.1091814494251887552.davem@davemloft.net>
- <jqo9ej$ao4$1@dough.gmane.org>
- <20120606.131703.870120997635192180.davem@davemloft.net>
- <jqoe90$fs3$2@dough.gmane.org> <1339014685.26966.73.camel@edumazet-glaptop>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:51665 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756772Ab2FFUgP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 16:36:15 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1ScMxf-0007Ac-5S
-	for netdev@vger.kernel.org; Wed, 06 Jun 2012 22:36:11 +0200
-Received: from dsl.comtrol.com ([64.122.56.22])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 22:36:11 +0200
-Received: from grant.b.edwards by dsl.comtrol.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 22:36:11 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
+Date: Wed, 06 Jun 2012 22:38:03 +0200
+Message-ID: <1339015083.26966.74.camel@edumazet-glaptop>
+References: <1338971724.2760.3913.camel@edumazet-glaptop>
+	<1338972341.2760.3944.camel@edumazet-glaptop>
+	<20120606111357.GA15070@redhat.com>
+	<1338988210.2760.4485.camel@edumazet-glaptop>
+	<20120606144941.GA17092@redhat.com>
+	<20120606081432.6b602065@nehalam.linuxnetplumber.net>
+	<20120606185107.GA20503@redhat.com>
+	<1339012441.26966.48.camel@edumazet-glaptop>
+	<20120606195814.GA20677@redhat.com>
+	<1339013289.26966.62.camel@edumazet-glaptop>
+	<20120606201620.GA23358@redhat.com>
+	<1339014259.26966.70.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1339014259.26966.70.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2012-06-06, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2012-06-06 at 20:24 +0000, Grant Edwards wrote:
->
->> Is skb_tailroom() guaranteed to be >= the requested size?
->> 
->
-> Of course, but only right after alloc_skb().
+On Wed, 2012-06-06 at 22:24 +0200, Eric Dumazet wrote:
 
-That's good enough.
-     
--- 
-Grant Edwards               grant.b.edwards        Yow! Okay ... I'm going
-                                  at               home to write the "I HATE
-                              gmail.com            RUBIK's CUBE HANDBOOK FOR
-                                                   DEAD CAT LOVERS" ...
+> (ndo_get_stats64() is not allowed to sleep, and I cant see how you are
+> going to disable napi without sleeping)
+> 
+> 
+
+In case you wonder, take a look at bond_get_stats() in
+drivers/net/bonding/bond_main.c
