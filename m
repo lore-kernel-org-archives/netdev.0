@@ -1,92 +1,45 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
-Date: Wed, 6 Jun 2012 19:17:15 +0300
-Message-ID: <20120606161715.GA17575@redhat.com>
-References: <1338971724.2760.3913.camel@edumazet-glaptop>
-	<1338972341.2760.3944.camel@edumazet-glaptop>
-	<20120606111357.GA15070@redhat.com>
-	<1338988210.2760.4485.camel@edumazet-glaptop>
-	<20120606144941.GA17092@redhat.com>
-	<1338995944.26966.6.camel@edumazet-glaptop>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
+ and e1000e
+Date: Wed, 6 Jun 2012 09:26:35 -0700
+Message-ID: <20120606092635.00003b61@unknown>
+References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
+	<88c43001441945e1431609db252b69e7@visp.net.lb>
+	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
+	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
+	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
+	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
+	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
+	<20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
+	<1338959413.2760.3686.camel@edumazet-glaptop>
+	<20120606174303.0bfc9868.shimoda.hiroaki@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1338995944.26966.6.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Denys Fedoryshchenko <denys@visp.net.lb>,
+	<netdev@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>,
+	<jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>
+To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:14130 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752879Ab2FFQ0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 12:26:36 -0400
+In-Reply-To: <20120606174303.0bfc9868.shimoda.hiroaki@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 06, 2012 at 05:19:04PM +0200, Eric Dumazet wrote:
-> On Wed, 2012-06-06 at 17:49 +0300, Michael S. Tsirkin wrote:
-> > On Wed, Jun 06, 2012 at 03:10:10PM +0200, Eric Dumazet wrote:
-> > > On Wed, 2012-06-06 at 14:13 +0300, Michael S. Tsirkin wrote:
-> > > 
-> > > > We currently do all stats either on napi callback or from
-> > > > start_xmit callback.
-> > > > This makes them safe, yes?
-> > > 
-> > > Hmm, then _bh() variant is needed in virtnet_stats(), as explained in
-> > > include/linux/u64_stats_sync.h section 6)
-> > > 
-> > >  * 6) If counter might be written by an interrupt, readers should block interrupts.
-> > >  *    (On UP, there is no seqcount_t protection, a reader allowing interrupts could
-> > >  *     read partial values)
-> > > 
-> > > Yes, its tricky...
-> > 
-> > Sounds good, but I have a question: this realies on counters
-> > being atomic on 64 bit.
-> > Would not it be better to always use a seqlock even on 64 bit?
-> > This way counters would actually be correct and in sync.
-> > As it is if we want e.g. average packet size,
-> > we can not rely e.g. on it being bytes/packets.
-> 
-> When this stuff was discussed, we chose to have a nop on 64bits.
-> 
-> Your point has little to do with 64bit stats, it was already like that
-> with 'long int' counters.
+On Wed, 6 Jun 2012 Hiroaki SHIMODA <shimoda.hiroaki@gmail.com> wrote:
+> Sorry for long delay. I'll post.
+> (I have no idea how to fix this problem as keeping TXDCTL.WTHRESH to 5)
 
-Yes, of course.
+I don't like changing WTHRESH wholesale because making the global change
+to WTHRESH on e1000e just to fix this one bug (likely specific to a
+particular chip/hardware) will adversely effect performance on many
+models supported by e1000e not demonstrating any problem.  We could
+possibly check something in for just ESB2LAN (S5000 chipset).
 
-> Consider average driver doing :
-> 
-> dev->stats.rx_bytes += skb->len;
-> dev->stats.rx_packets++;
-> 
-> A concurrent reader can read an updated rx_bytes and a 'previous'
-> rx_packets one.
-> 
-> 'fixing' this requires a lot of work and memory barriers (in all
-> drivers), for a very litle gain (at most one packet error)
-> u64_stats_sync was really meant to be 0-cost on 64bit arches.
-> 
-> 
-
-I understand, and not arguing about that.
-
-But why do you say at most 1 packet?
-
-Consider get_stats doing:
-               u64_stats_update_begin(&stats->syncp);
-               stats->tx_bytes += skb->len;
-
-on 64 bit at this point
-tx_packets might get incremented any number of times, no?
-
-                stats->tx_packets++;
-                u64_stats_update_end(&stats->syncp);
-
-now tx_bytes and tx_packets are out of sync by more than 1.
+Other people (tom herbert) with this same chipset have been unable to
+reproduce this issue right?
