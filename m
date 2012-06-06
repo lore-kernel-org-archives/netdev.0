@@ -1,61 +1,58 @@
-From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] ieee802154: verify packet size before
-	trying to allocate it
-Date: Wed,  6 Jun 2012 23:32:02 +0200
-Message-ID: <1339018322-19360-1-git-send-email-levinsasha928@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [v3 net-next PATCH 1/3] Added kernel support in EEE Ethtool
+ commands
+Date: Wed, 6 Jun 2012 22:30:59 +0100
+Message-ID: <1339018259.2836.58.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1339009643-22951-1-git-send-email-yuvalmin@broadcom.com>
+	 <1339009643-22951-2-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<eilong@broadcom.com>, <peppe.cavallaro@st.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:56957 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752170Ab2FFVbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 17:31:04 -0400
+In-Reply-To: <1339009643-22951-2-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently when sending data over datagram, the send function will attempt to
-allocate any size passed on from the userspace.
+On Wed, 2012-06-06 at 22:07 +0300, Yuval Mintz wrote:
+> This patch extends the kernel's ethtool interface by adding support
+> for 2 new EEE commands - get_eee and set_eee.
+> 
+> Thanks goes to Giuseppe Cavallaro for his original patch adding this support.
+> 
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-We should make sure that this size is checked and limited. The maximum size
-of an IP packet seemed like the safest limit here.
+but with one tiny change required:
 
-Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/ieee802154/dgram.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+[...]
+> +static int ethtool_set_eee(struct net_device *dev, char __user *useraddr)
+> +{
+> +	struct ethtool_eee edata;
+> +
+> +	if (!dev->ethtool_ops->get_eee)
 
-diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
-index 6fbb2ad..cf5070b 100644
---- a/net/ieee802154/dgram.c
-+++ b/net/ieee802154/dgram.c
-@@ -232,6 +232,10 @@ static int dgram_sendmsg(struct kiocb *iocb, struct sock *sk,
- 
- 	hlen = LL_RESERVED_SPACE(dev);
- 	tlen = dev->needed_tailroom;
-+	if (hlen + tlen + size > USHRT_MAX) {
-+		err = -EMSGSIZE;
-+		goto out;
-+	}
- 	skb = sock_alloc_send_skb(sk, hlen + tlen + size,
- 			msg->msg_flags & MSG_DONTWAIT,
- 			&err);
+This must check set_eee, not get_eee.
+
+Ben.
+
+> +		return -EOPNOTSUPP;
+> +
+> +	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+> +		return -EFAULT;
+> +
+> +	return dev->ethtool_ops->set_eee(dev, &edata);
+> +}
+[...]
+
 -- 
-1.7.8.6
-
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
