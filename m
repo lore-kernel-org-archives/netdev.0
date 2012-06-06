@@ -1,58 +1,39 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH ethtool] ethtool: fix to display support for KX4 and KX PHY
-Date: Wed, 6 Jun 2012 15:03:36 -0500
-Message-ID: <20120606200336.GA21620@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Steven King <sfking@fdwdc.com>
+Subject: Re: [PATCH net-next] fec: Add support for Coldfire M5441x enet-mac.
+Date: Wed, 6 Jun 2012 13:05:48 -0700
+Message-ID: <201206061305.48893.sfking@fdwdc.com>
+References: <201206061006.21288.sfking@fdwdc.com> <4FCF949D.7060402@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: <bhutchings@solarflare.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	uClinux development list <uclinux-dev@uclinux.org>,
+	Greg Ungerer <gerg@snapgear.com>
+To: Jan Ceuleers <jan.ceuleers@computer.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:15312 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758056Ab2FFUEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 16:04:00 -0400
+Received: from nm27-vm0.access.bullet.mail.mud.yahoo.com ([66.94.236.227]:45039
+	"HELO nm27-vm0.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757653Ab2FFUFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 16:05:50 -0400
+In-Reply-To: <4FCF949D.7060402@computer.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wednesday 06 June 2012 10:34:21 am Jan Ceuleers wrote:
+> On 06/06/2012 07:06 PM, Steven King wrote:
+> > Add support for the Freescale Coldfire M5441x; as these parts have an
+> > enet-mac, add a quirk to distinguish them from the other Coldfire parts
+> > so we can use the existing enet-mac support.
+>
+> Stephen,
+>
+> You are activating certain functionality based on whether M5441x is
+> defined. But where is this being defined? Should this not be added in a
+> Kconfig somewhere as a platform option?
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- ethtool.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
-
-diff --git a/ethtool.c b/ethtool.c
-index f18f611..546a43a 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -424,6 +424,13 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask)
- 	if (mask & ADVERTISED_1000baseT_Full) {
- 		did1++; fprintf(stdout, "1000baseT/Full ");
- 	}
-+	if (did1 && (mask & ADVERTISED_1000baseKX_Full)) {
-+		fprintf(stdout, "\n");
-+		fprintf(stdout, "	%*s", indent, "");
-+	}
-+	if (mask & ADVERTISED_1000baseKX_Full) {
-+		did1++; fprintf(stdout, "1000baseKX/Full ");
-+	}
- 	if (did1 && (mask & ADVERTISED_2500baseX_Full)) {
- 		fprintf(stdout, "\n");
- 		fprintf(stdout, "	%*s", indent, "");
-@@ -438,6 +445,13 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask)
- 	if (mask & ADVERTISED_10000baseT_Full) {
- 		did1++; fprintf(stdout, "10000baseT/Full ");
- 	}
-+	if (did1 && (mask & ADVERTISED_10000baseKX4_Full)) {
-+		fprintf(stdout, "\n");
-+		fprintf(stdout, "	%*s", indent, "");
-+	}
-+	if (mask & ADVERTISED_10000baseKX4_Full) {
-+		did1++; fprintf(stdout, "10000baseKX4/Full ");
-+	}
- 	if (did1 && (mask & ADVERTISED_20000baseMLD2_Full)) {
- 		fprintf(stdout, "\n");
- 		fprintf(stdout, "	%*s", indent, "");
--- 
-1.7.5.4
+Yes.  Hopefully, once I send Greg my updated patches to add support for the 
+m5441x, then it will be a selection in the m68k port.  I just happened to 
+have these ready to go after David chastised me for sending them too late in 
+the last merge cycle...
