@@ -1,8 +1,9 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [V2 RFC net-next PATCH 1/2] virtio_net: convert the statistics into
-	array
-Date: Wed, 06 Jun 2012 15:52:09 +0800
-Message-ID: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
+Subject: [V2 RFC net-next PATCH 2/2] virtio_net: export more statistics
+	through ethtool
+Date: Wed, 06 Jun 2012 15:52:17 +0800
+Message-ID: <20120606075217.29081.30713.stgit@amd-6168-8-1.englab.nay.redhat.com>
+References: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ To: netdev@vger.kernel.org, rusty@rustcorp.com.au,
 	virtualization@lists.linux-foundation.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -21,76 +23,253 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Currently, we store the statistics in the independent fields of virtnet_stats,
-this is not scalable when we want to add more counters. As suggested by Michael,
-this patch convert it to an array and use the enum as the index to access them.
+Satistics counters is useful for debugging and performance optimization, so this
+patch lets virtio_net driver collect following and export them to userspace
+through "ethtool -S":
+
+- number of packets sent/received
+- number of bytes sent/received
+- number of callbacks for tx/rx
+- number of kick for tx/rx
+- number of bytes/packets queued for tx
+
+As virtnet_stats were per-cpu, so both per-cpu and gloabl satistics were
+collected like:
+
+NIC statistics:
+     tx_bytes[0]: 1731209929
+     tx_packets[0]: 60685
+     tx_kicks[0]: 63
+     tx_callbacks[0]: 73
+     tx_queued_bytes[0]: 1935749360
+     tx_queued_packets[0]: 80652
+     rx_bytes[0]: 2695648
+     rx_packets[0]: 40767
+     rx_kicks[0]: 1
+     rx_callbacks[0]: 2077
+     tx_bytes[1]: 9105588697
+     tx_packets[1]: 344150
+     tx_kicks[1]: 162
+     tx_callbacks[1]: 905
+     tx_queued_bytes[1]: 8901049412
+     tx_queued_packets[1]: 324184
+     rx_bytes[1]: 23679828
+     rx_packets[1]: 358770
+     rx_kicks[1]: 6
+     rx_callbacks[1]: 17717
+     tx_bytes: 10836798626
+     tx_packets: 404835
+     tx_kicks: 225
+     tx_callbacks: 978
+     tx_queued_bytes: 10836798772
+     tx_queued_packets: 404836
+     rx_bytes: 26375476
+     rx_packets: 399537
+     rx_kicks: 7
+     rx_callbacks: 19794
+
+TODO:
+
+- more statistics
+- calculate the pending bytes/pkts
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
+
 ---
- drivers/net/virtio_net.c |   30 +++++++++++++++++-------------
- 1 files changed, 17 insertions(+), 13 deletions(-)
+Changes from v1:
+
+- style & typo fixs
+- convert the statistics fields to array
+- use unlikely()
+---
+ drivers/net/virtio_net.c |  115 +++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 113 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 5214b1e..6e4aa6f 100644
+index 6e4aa6f..909a0a7 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -41,13 +41,17 @@ module_param(gso, bool, 0444);
- #define VIRTNET_SEND_COMMAND_SG_MAX    2
- #define VIRTNET_DRIVER_VERSION "1.0.0"
- 
-+enum virtnet_stats_type {
-+	VIRTNET_TX_BYTES,
-+	VIRTNET_TX_PACKETS,
-+	VIRTNET_RX_BYTES,
-+	VIRTNET_RX_PACKETS,
-+	VIRTNET_NUM_STATS,
-+};
-+
- struct virtnet_stats {
- 	struct u64_stats_sync syncp;
--	u64 tx_bytes;
--	u64 tx_packets;
--
--	u64 rx_bytes;
--	u64 rx_packets;
-+	u64 data[VIRTNET_NUM_STATS];
+@@ -44,8 +44,14 @@ module_param(gso, bool, 0444);
+ enum virtnet_stats_type {
+ 	VIRTNET_TX_BYTES,
+ 	VIRTNET_TX_PACKETS,
++	VIRTNET_TX_KICKS,
++	VIRTNET_TX_CBS,
++	VIRTNET_TX_Q_BYTES,
++	VIRTNET_TX_Q_PACKETS,
+ 	VIRTNET_RX_BYTES,
+ 	VIRTNET_RX_PACKETS,
++	VIRTNET_RX_KICKS,
++	VIRTNET_RX_CBS,
+ 	VIRTNET_NUM_STATS,
  };
  
+@@ -54,6 +60,21 @@ struct virtnet_stats {
+ 	u64 data[VIRTNET_NUM_STATS];
+ };
+ 
++static struct {
++	char string[ETH_GSTRING_LEN];
++} virtnet_stats_str_attr[] = {
++	{ "tx_bytes" },
++	{ "tx_packets" },
++	{ "tx_kicks" },
++	{ "tx_callbacks" },
++	{ "tx_queued_bytes" },
++	{ "tx_queued_packets" },
++	{ "rx_bytes" },
++	{ "rx_packets" },
++	{ "rx_kicks" },
++	{ "rx_callbacks" },
++};
++
  struct virtnet_info {
-@@ -301,8 +305,8 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
- 	hdr = skb_vnet_hdr(skb);
+ 	struct virtio_device *vdev;
+ 	struct virtqueue *rvq, *svq, *cvq;
+@@ -146,6 +167,11 @@ static struct page *get_a_page(struct virtnet_info *vi, gfp_t gfp_mask)
+ static void skb_xmit_done(struct virtqueue *svq)
+ {
+ 	struct virtnet_info *vi = svq->vdev->priv;
++	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
++
++	u64_stats_update_begin(&stats->syncp);
++	stats->data[VIRTNET_TX_CBS]++;
++	u64_stats_update_end(&stats->syncp);
  
- 	u64_stats_update_begin(&stats->syncp);
--	stats->rx_bytes += skb->len;
--	stats->rx_packets++;
-+	stats->data[VIRTNET_RX_BYTES] += skb->len;
-+	stats->data[VIRTNET_RX_PACKETS]++;
- 	u64_stats_update_end(&stats->syncp);
+ 	/* Suppress further interrupts. */
+ 	virtqueue_disable_cb(svq);
+@@ -465,6 +491,7 @@ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+ {
+ 	int err;
+ 	bool oom;
++	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
  
- 	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
-@@ -566,8 +570,8 @@ static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
- 		pr_debug("Sent skb %p\n", skb);
+ 	do {
+ 		if (vi->mergeable_rx_bufs)
+@@ -481,13 +508,24 @@ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+ 	} while (err > 0);
+ 	if (unlikely(vi->num > vi->max))
+ 		vi->max = vi->num;
+-	virtqueue_kick(vi->rvq);
++	if (virtqueue_kick_prepare(vi->rvq)) {
++		virtqueue_notify(vi->rvq);
++		u64_stats_update_begin(&stats->syncp);
++		stats->data[VIRTNET_RX_KICKS]++;
++		u64_stats_update_end(&stats->syncp);
++	}
+ 	return !oom;
+ }
  
- 		u64_stats_update_begin(&stats->syncp);
--		stats->tx_bytes += skb->len;
--		stats->tx_packets++;
-+		stats->data[VIRTNET_TX_BYTES] += skb->len;
-+		stats->data[VIRTNET_TX_PACKETS]++;
- 		u64_stats_update_end(&stats->syncp);
+ static void skb_recv_done(struct virtqueue *rvq)
+ {
+ 	struct virtnet_info *vi = rvq->vdev->priv;
++	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
++
++	u64_stats_update_begin(&stats->syncp);
++	stats->data[VIRTNET_RX_CBS]++;
++	u64_stats_update_end(&stats->syncp);
++
+ 	/* Schedule NAPI, Suppress further interrupts if successful. */
+ 	if (napi_schedule_prep(&vi->napi)) {
+ 		virtqueue_disable_cb(rvq);
+@@ -630,7 +668,9 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
++	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+ 	int capacity;
++	bool kick;
  
- 		tot_sgs += skb_vnet_hdr(skb)->num_sg;
-@@ -704,10 +708,10 @@ static struct rtnl_link_stats64 *virtnet_stats(struct net_device *dev,
+ 	/* Free up any pending old buffers before queueing new ones. */
+ 	free_old_xmit_skbs(vi);
+@@ -655,7 +695,17 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+-	virtqueue_kick(vi->svq);
++
++	kick = virtqueue_kick_prepare(vi->svq);
++	if (unlikely(kick))
++		virtqueue_notify(vi->svq);
++
++	u64_stats_update_begin(&stats->syncp);
++	if (unlikely(kick))
++		stats->data[VIRTNET_TX_KICKS]++;
++	stats->data[VIRTNET_TX_Q_BYTES] += skb->len;
++	stats->data[VIRTNET_TX_Q_PACKETS]++;
++	u64_stats_update_end(&stats->syncp);
  
- 		do {
- 			start = u64_stats_fetch_begin(&stats->syncp);
--			tpackets = stats->tx_packets;
--			tbytes   = stats->tx_bytes;
--			rpackets = stats->rx_packets;
--			rbytes   = stats->rx_bytes;
-+			tpackets = stats->data[VIRTNET_TX_PACKETS];
-+			tbytes   = stats->data[VIRTNET_TX_BYTES];
-+			rpackets = stats->data[VIRTNET_RX_PACKETS];
-+			rbytes   = stats->data[VIRTNET_RX_BYTES];
- 		} while (u64_stats_fetch_retry(&stats->syncp, start));
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	skb_orphan(skb);
+@@ -943,10 +993,71 @@ static void virtnet_get_drvinfo(struct net_device *dev,
  
- 		tot->rx_packets += rpackets;
+ }
+ 
++static void virtnet_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
++{
++	int i, cpu;
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for_each_possible_cpu(cpu)
++			for (i = 0; i < VIRTNET_NUM_STATS; i++) {
++				sprintf(buf, "%s[%u]",
++					virtnet_stats_str_attr[i].string, cpu);
++				buf += ETH_GSTRING_LEN;
++			}
++		for (i = 0; i < VIRTNET_NUM_STATS; i++) {
++			memcpy(buf, virtnet_stats_str_attr[i].string,
++				ETH_GSTRING_LEN);
++			buf += ETH_GSTRING_LEN;
++		}
++		break;
++	}
++}
++
++static int virtnet_get_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return VIRTNET_NUM_STATS * (num_possible_cpus() + 1);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void virtnet_get_ethtool_stats(struct net_device *dev,
++				      struct ethtool_stats *stats, u64 *buf)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	int cpu, i;
++	unsigned int start;
++	struct virtnet_stats sample, total;
++
++	memset(&total, 0, sizeof(total));
++
++	for_each_possible_cpu(cpu) {
++		struct virtnet_stats *s = per_cpu_ptr(vi->stats, cpu);
++		do {
++			start = u64_stats_fetch_begin(&s->syncp);
++			memcpy(&sample.data, &s->data,
++			       sizeof(u64) * VIRTNET_NUM_STATS);
++		} while (u64_stats_fetch_retry(&s->syncp, start));
++
++		for (i = 0; i < VIRTNET_NUM_STATS; i++) {
++			*buf = sample.data[i];
++			total.data[i] += sample.data[i];
++			buf++;
++		}
++	}
++
++	memcpy(buf, &total.data, sizeof(u64) * VIRTNET_NUM_STATS);
++}
++
+ static const struct ethtool_ops virtnet_ethtool_ops = {
+ 	.get_drvinfo = virtnet_get_drvinfo,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_ringparam = virtnet_get_ringparam,
++	.get_ethtool_stats = virtnet_get_ethtool_stats,
++	.get_strings = virtnet_get_strings,
++	.get_sset_count = virtnet_get_sset_count,
+ };
+ 
+ #define MIN_MTU 68
