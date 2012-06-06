@@ -1,45 +1,66 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 5/7] drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c: adjust suspicious bit operation
-Date: Wed,  6 Jun 2012 23:41:39 +0200
-Message-ID: <1339018901-28439-6-git-send-email-Julia.Lawall@lip6.fr>
-References: <1339018901-28439-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Roland Vossen <rvossen@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Kan Yan <kanyan@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, joe@perches.com,
-	Julia Lawall <julia@diku.dk>
-To: Brett Rudley <brudley@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339018901-28439-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 7/7] drivers/net/can/cc770/cc770_platform.c: adjust suspicious
+ bit operation
+Date: Wed, 06 Jun 2012 23:52:18 +0200
+Message-ID: <4FCFD112.1070106@pengutronix.de>
+References: <1339018901-28439-1-git-send-email-Julia.Lawall@lip6.fr> <1339018901-28439-8-git-send-email-Julia.Lawall@lip6.fr>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigF0B5B7A6CB9E6AD33DD9FC5D"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	kernel-janitors@vger.kernel.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	joe@perches.com, Julia Lawall <julia@diku.dk>
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1339018901-28439-8-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigF0B5B7A6CB9E6AD33DD9FC5D
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-IRQF_TRIGGER_HIGH is 0x00000004, so it seems that & was intended rather than |.
+On 06/06/2012 11:41 PM, Julia Lawall wrote:
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
+>=20
+> CPUIF_DSC is 0x40, so it would seem that & is wanted rather than |.
+>=20
+> This problem was found using Coccinelle (http://coccinelle.lip6.fr/).
+>=20
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-This problem was found using Coccinelle (http://coccinelle.lip6.fr/).
+Good catch, Joe Perches has already found and fixed that problem. It has
+been fixed in:
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+    dc605db can: cc770: Fix likely misuse of | for &
 
----
- drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The commit is currently in David's net/master, and scheduled for the
+v3.5 release.
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-index e2480d1..bed208f 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-@@ -91,7 +91,7 @@ int brcmf_sdio_intr_register(struct brcmf_sdio_dev *sdiodev)
- 
- 	/* redirect, configure ane enable io for interrupt signal */
- 	data = SDIO_SEPINT_MASK | SDIO_SEPINT_OE;
--	if (sdiodev->irq_flags | IRQF_TRIGGER_HIGH)
-+	if (sdiodev->irq_flags & IRQF_TRIGGER_HIGH)
- 		data |= SDIO_SEPINT_ACT_HI;
- 	brcmf_sdio_regwb(sdiodev, SDIO_CCCR_BRCM_SEPINT, data, &ret);
- 
+Regards, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigF0B5B7A6CB9E6AD33DD9FC5D
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk/P0RUACgkQjTAFq1RaXHMcbQCgi/Wo716GQYPqfXM9K/0YXMeZ
+84gAoIvJmxcoGBuSuklIYpbxP0e2zPyn
+=8dej
+-----END PGP SIGNATURE-----
+
+--------------enigF0B5B7A6CB9E6AD33DD9FC5D--
