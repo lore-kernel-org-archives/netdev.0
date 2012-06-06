@@ -1,39 +1,59 @@
-From: Steven King <sfking@fdwdc.com>
-Subject: Re: [PATCH net-next] fec: Add support for Coldfire M5441x enet-mac.
-Date: Wed, 6 Jun 2012 13:05:48 -0700
-Message-ID: <201206061305.48893.sfking@fdwdc.com>
-References: <201206061006.21288.sfking@fdwdc.com> <4FCF949D.7060402@computer.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
+Date: Wed, 06 Jun 2012 22:06:11 +0200
+Message-ID: <1339013171.26966.60.camel@edumazet-glaptop>
+References: <1338971724.2760.3913.camel@edumazet-glaptop>
+	<1338972341.2760.3944.camel@edumazet-glaptop>
+	<20120606111357.GA15070@redhat.com>
+	<1338988210.2760.4485.camel@edumazet-glaptop>
+	<20120606144941.GA17092@redhat.com>
+	<1338995944.26966.6.camel@edumazet-glaptop>
+	<20120606161715.GA17575@redhat.com>
+	<1339002782.26966.22.camel@edumazet-glaptop>
+	<20120606184351.GA20380@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	uClinux development list <uclinux-dev@uclinux.org>,
-	Greg Ungerer <gerg@snapgear.com>
-To: Jan Ceuleers <jan.ceuleers@computer.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm27-vm0.access.bullet.mail.mud.yahoo.com ([66.94.236.227]:45039
-	"HELO nm27-vm0.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757653Ab2FFUFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 16:05:50 -0400
-In-Reply-To: <4FCF949D.7060402@computer.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120606184351.GA20380@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 06 June 2012 10:34:21 am Jan Ceuleers wrote:
-> On 06/06/2012 07:06 PM, Steven King wrote:
-> > Add support for the Freescale Coldfire M5441x; as these parts have an
-> > enet-mac, add a quirk to distinguish them from the other Coldfire parts
-> > so we can use the existing enet-mac support.
->
-> Stephen,
->
-> You are activating certain functionality based on whether M5441x is
-> defined. But where is this being defined? Should this not be added in a
-> Kconfig somewhere as a platform option?
+On Wed, 2012-06-06 at 21:43 +0300, Michael S. Tsirkin wrote:
 
-Yes.  Hopefully, once I send Greg my updated patches to add support for the 
-m5441x, then it will be a selection in the m68k port.  I just happened to 
-have these ready to go after David chastised me for sending them too late in 
-the last merge cycle...
+> 1. We are trying to look at counters for purposes of tuning the device.
+> E.g. if ethtool reports packets and bytes, we'd like to calculate
+> average packet size by bytes/packets.
+> 
+> If both counters are read atomically the metric becomes more exact.
+> Not a must but nice to have.
+> 
+
+metrics are exact right now.
+
+As soon as you read a value, it might already have changed.
+
+Maybe you want to stop_machine() to make sure all the metrics you want
+are 'exact' ;)
+
+> 2. 32 bit systems have some overhead because of the seqlock.
+> virtio could instead simply keep tx counters in the queue structure, and
+> get the tx lock when they are read.
+> 
+
+But then you need atomic64 stuff, have you an idea of the cost of such
+primitives on 32bit ?
+
+3. use 32bit counters on 32bit arches, as many drivers still do ?
