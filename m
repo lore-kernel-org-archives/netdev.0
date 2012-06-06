@@ -1,70 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
-Date: Wed, 06 Jun 2012 17:19:04 +0200
-Message-ID: <1338995944.26966.6.camel@edumazet-glaptop>
-References: <1338971724.2760.3913.camel@edumazet-glaptop>
-	<1338972341.2760.3944.camel@edumazet-glaptop>
-	<20120606111357.GA15070@redhat.com>
-	<1338988210.2760.4485.camel@edumazet-glaptop>
-	<20120606144941.GA17092@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH v2 1/3] Added kernel support in EEE Ethtool
+ commands
+Date: Wed, 6 Jun 2012 16:20:11 +0100
+Message-ID: <1338996011.2836.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1338973098-16439-1-git-send-email-yuvalmin@broadcom.com>
+	 <1338973098-16439-2-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120606144941.GA17092@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<eilong@broadcom.com>, <peppe.cavallaro@st.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:6933 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756560Ab2FFPUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 11:20:18 -0400
+In-Reply-To: <1338973098-16439-2-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-06 at 17:49 +0300, Michael S. Tsirkin wrote:
-> On Wed, Jun 06, 2012 at 03:10:10PM +0200, Eric Dumazet wrote:
-> > On Wed, 2012-06-06 at 14:13 +0300, Michael S. Tsirkin wrote:
-> > 
-> > > We currently do all stats either on napi callback or from
-> > > start_xmit callback.
-> > > This makes them safe, yes?
-> > 
-> > Hmm, then _bh() variant is needed in virtnet_stats(), as explained in
-> > include/linux/u64_stats_sync.h section 6)
-> > 
-> >  * 6) If counter might be written by an interrupt, readers should block interrupts.
-> >  *    (On UP, there is no seqcount_t protection, a reader allowing interrupts could
-> >  *     read partial values)
-> > 
-> > Yes, its tricky...
+On Wed, 2012-06-06 at 11:58 +0300, Yuval Mintz wrote:
+> This patch extends the kernel's ethtool interface by adding support
+> for 2 new EEE commands - get_eee and set_eee.
 > 
-> Sounds good, but I have a question: this realies on counters
-> being atomic on 64 bit.
-> Would not it be better to always use a seqlock even on 64 bit?
-> This way counters would actually be correct and in sync.
-> As it is if we want e.g. average packet size,
-> we can not rely e.g. on it being bytes/packets.
+> Thanks goes to Giuseppe Cavallaro for his original patch adding this support.
+> 
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> ---
+>  include/linux/ethtool.h |   32 ++++++++++++++++++++++++++++++++
+>  net/core/ethtool.c      |   40 ++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 72 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+> index e17fa71..6250e1f 100644
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -137,6 +137,32 @@ struct ethtool_eeprom {
+>  };
+>  
+>  /**
+> + * struct ethtool_eee - Energy Efficient Ethernet information
+> + * @cmd: ETHTOOL_{G,S}EEE
+> + * @supported: Link speeds for which there is eee support.
+> + * @advertised: Link speeds the interface advertises (AN) as eee capable.
+> + * @lp_advertised: Link speeds the link partner advertised as eee capable.
 
-When this stuff was discussed, we chose to have a nop on 64bits.
+And these are bitmasks of SUPPORTED_* & ADVERTISED_* flags, right?
+Maybe 'link modes' not 'link speeds'?
 
-Your point has little to do with 64bit stats, it was already like that
-with 'long int' counters.
+Otherwise, this all looks good to me (with limited knowledge of EEE).
 
-Consider average driver doing :
+Ben.
 
-dev->stats.rx_bytes += skb->len;
-dev->stats.rx_packets++;
+> + * @eee_active: Result of the eee auto negotiation.
+> + * @eee_enabled: EEE configured mode (enabled/disabled).
+> + * @tx_lpi_enabled: Whether the interface should assert its tx lpi, given
+> + *	that eee was negotiated.
+> + * @tx_lpi_timer: Time in microseconds the interface delays prior to asserting
+> + *	its tx lpi (after reaching 'idle' state). Effective only when eee
+> + *	was negotiated and tx_lpi_enabled was set.
+> + */
+> +struct ethtool_eee {
+[...]
 
-A concurrent reader can read an updated rx_bytes and a 'previous'
-rx_packets one.
-
-'fixing' this requires a lot of work and memory barriers (in all
-drivers), for a very litle gain (at most one packet error)
-
-u64_stats_sync was really meant to be 0-cost on 64bit arches.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
