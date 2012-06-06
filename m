@@ -1,34 +1,50 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 0/7] be2net: patch series
-Date: Wed, 6 Jun 2012 11:09:20 +0530
-Message-ID: <9df87e5c-acca-4dce-82b6-ab42dfe7114d@exht1.ad.emulex.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] net/ethernet: ks8851_mll unregister_netdev() before freeing
+Date: Wed, 6 Jun 2012 09:31:29 +0300
+Message-ID: <20120606063129.GA26829@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sathya Perla <sathya.perla@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Raffaele Recalcati <raffaele.recalcati@bticino.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:2048 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753871Ab2FFFyZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 01:54:25 -0400
+Received: from acsinet15.oracle.com ([141.146.126.227]:41744 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751275Ab2FFGbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 02:31:42 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pls apply.
+We added another error condition here, but if we were to hit it then
+we need to unregister_netdev() before doing the free_netdev().
+Otherwise we would hit the BUG_ON() in free_netdev():
 
-Sathya Perla (7):
-  be2net: do not call be_vid_config() when there's no vlan config
-  be2net: cleanup be_vid_config()
-  be2net: do not modify PCI MaxReadReq size
-  be2net: fix reporting number of actual rx queues
-  be2net: remove unnecessary usage of unlikely()
-  be2net: do not use SCRATCHPAD register
-  be2net: update driver version
+	BUG_ON(dev->reg_state != NETREG_UNREGISTERED);
 
- drivers/net/ethernet/emulex/benet/be.h      |    2 +-
- drivers/net/ethernet/emulex/benet/be_hw.h   |    2 -
- drivers/net/ethernet/emulex/benet/be_main.c |   50 ++++++++++++---------------
- 3 files changed, 23 insertions(+), 31 deletions(-)
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Static checker stuff.  I don't have this hardware.
 
--- 
-1.7.4
+diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+index 70bd329..875dd5e 100644
+--- a/drivers/net/ethernet/micrel/ks8851_mll.c
++++ b/drivers/net/ethernet/micrel/ks8851_mll.c
+@@ -1606,7 +1606,7 @@ static int __devinit ks8851_probe(struct platform_device *pdev)
+ 	if (!pdata) {
+ 		netdev_err(netdev, "No platform data\n");
+ 		err = -ENODEV;
+-		goto err_register;
++		goto err_pdata;
+ 	}
+ 	memcpy(ks->mac_addr, pdata->mac_addr, 6);
+ 	if (!is_valid_ether_addr(ks->mac_addr)) {
+@@ -1626,6 +1626,8 @@ static int __devinit ks8851_probe(struct platform_device *pdev)
+ 		    (id >> 8) & 0xff, (id >> 4) & 0xf, (id >> 1) & 0x7);
+ 	return 0;
+ 
++err_pdata:
++	unregister_netdev(netdev);
+ err_register:
+ err_get_irq:
+ 	iounmap(ks->hw_addr_cmd);
