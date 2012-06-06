@@ -1,71 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/3] ixgbe: IXGBE_RXD_STAT_VP set even with Rx stripping enabled
-Date: Tue,  5 Jun 2012 21:08:55 -0700
-Message-ID: <1338955735-8967-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1338955735-8967-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:49278 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752730Ab2FFEJA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 00:09:00 -0400
-In-Reply-To: <1338955735-8967-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tg3: transmit timed out, resetting
+Date: Wed, 06 Jun 2012 06:12:57 +0200
+Message-ID: <1338955977.2760.3603.camel@edumazet-glaptop>
+References: <alpine.DEB.2.01.1206041546070.5568@trent.utfs.org>
+	 <20120606010255.GA9991@mcarlson.broadcom.com>
+	 <CABawtvPE_xuamH2ysL8x0WsJMXdFV5oXPrWjMT-EC-DF_kCxxw@mail.gmail.com>
+	 <20120606021436.GA10714@mcarlson.broadcom.com>
+	 <CABawtvNVKkxAgrQqJS7FJGoswQ9ZVyJcHcNwbSJQk4yscTn8gw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Christian Kujau <lists@nerdbynature.de>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: ethan zhao <ethan.kernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABawtvNVKkxAgrQqJS7FJGoswQ9ZVyJcHcNwbSJQk4yscTn8gw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.r.fastabend@intel.com>
+On Wed, 2012-06-06 at 10:29 +0800, ethan zhao wrote:
+> So no way to fix it via firmware update or Linux driver ? :<
 
-The hardware bit IXGBE_RXD_STAT_VP appears to be set even when Rx
-stripping is disabled. This results in passing frames up the stack
-which do not have the 802.1Q tag stripped but have the tci bits
-set as if it was.
+Yes, but you need to cooperate, or else it might take more time than
+necessary.
 
-Working around this with a check for the feature flag bit. I
-would welcome any better ideas or a pointer to exactly which
-bits in the hardware register need to be cleared to get the
-IXGBE_RXD_STAT_VP bit to be set per data sheet.
+Asking questions like that on lkml is not going to help very much.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Marcus Dennis <marcusx.e.dennis@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+So, once again, we kindly ask you try a recent kernel and post
+register dump and some additional information when transmit timeouts
+happen.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index b8b2087..17ad6a3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1390,6 +1390,8 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- 				     union ixgbe_adv_rx_desc *rx_desc,
- 				     struct sk_buff *skb)
- {
-+	struct net_device *dev = rx_ring->netdev;
-+
- 	ixgbe_update_rsc_stats(rx_ring, skb);
- 
- 	ixgbe_rx_hash(rx_ring, rx_desc, skb);
-@@ -1401,14 +1403,15 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- 		ixgbe_ptp_rx_hwtstamp(rx_ring->q_vector, skb);
- #endif
- 
--	if (ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_VP)) {
-+	if ((dev->features & NETIF_F_HW_VLAN_RX) &&
-+	    ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_VP)) {
- 		u16 vid = le16_to_cpu(rx_desc->wb.upper.vlan);
- 		__vlan_hwaccel_put_tag(skb, vid);
- 	}
- 
- 	skb_record_rx_queue(skb, rx_ring->queue_index);
- 
--	skb->protocol = eth_type_trans(skb, rx_ring->netdev);
-+	skb->protocol = eth_type_trans(skb, dev);
- }
- 
- static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
--- 
-1.7.10.2
+The 'latest kernel' is either linux-3.5.rc1, or one of David Miller
+tree :
+
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=summary
+
+or
+
+http://git.kernel.org/?p=linux/kernel/git/davem/net.git;a=summary
+
+Thanks
