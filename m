@@ -1,44 +1,43 @@
-From: Dustin Schumm <shodid@gmail.com>
-Subject: Re: Reoccuring kern.log events after running xl2tp with ethernet
- adapter Realtek 8111E
-Date: Wed, 6 Jun 2012 15:04:58 -0400
-Message-ID: <CANcVnzjKCn00kF8NG+ZLLrzGCs_jx7WYPKyM7uwrxJ=kVLiQ4Q@mail.gmail.com>
-References: <CANcVnzi2mXKXZLcaAt9rJ9OOdK_2=V8JV9uebVeBcsDu6j+DhQ@mail.gmail.com>
-	<CANcVnzivnQrhSderZ+b5yoy+F1OiO7Ajv7WeijqzQKyAkYRqug@mail.gmail.com>
-	<20120605153753.GA12514@electric-eye.fr.zoreil.com>
-	<CANcVnzj-DUD8x9jcj3awyWkZjH9x5PMf3fAFtR_osPNAU9adgA@mail.gmail.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [v3 net-next PATCH 0/3] Energy Efficient Ethernet (eee) support
+Date: Wed, 6 Jun 2012 22:07:20 +0300
+Message-ID: <1339009643-22951-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, bhutchings@solarflare.com,
+	peppe.cavallaro@st.com, "Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:48222 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757872Ab2FFTFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 15:05:00 -0400
-Received: by weyu7 with SMTP id u7so4547677wey.19
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 12:04:58 -0700 (PDT)
-In-Reply-To: <CANcVnzj-DUD8x9jcj3awyWkZjH9x5PMf3fAFtR_osPNAU9adgA@mail.gmail.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:2767 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757653Ab2FFTJG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 15:09:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 5, 2012 at 11:59 AM, Dustin Schumm <shodid@gmail.com> wrote:
-> On Tue, Jun 5, 2012 at 11:37 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
->>
->> This is with an usual 1500 bytes MTU and without TSO (see 'ethtool -k ethX'),
->> right ?
->>
->> --
->> Ueimor
->
-> Yes,
->
-> MTU:1500
-> tcp-segmentation-offload: off
+Hi Dave,
 
-Do you see any indication if this is a problem with the mainline
-kernel, distro kernel, driver, or otherwise? It's not definitive, been
-I've been good using kernels 2.6.x and getting errors on everything
-3.x I have tried. I am looking for some direction to pursue. Thanks.
+This patch series adds energy efficient ethernet support for the
+bnx2x driver (for new chips with appropriate phys). 
+It also extends the ethtool API to enable control of the eee feature.
 
--Dustin
+Another patch series has been sent to Ben to allow the ethtool application
+to use this new API.
+
+Changes from Version 2:
+	Patch 1/3:
+		-Corrected ethtool_eee documentation in ethtool.h.
+
+Changes from Version 1:
+	Patch 1/3:
+		-Added documentation to ethtool_eee struct in header.
+		-Clearing the ethtool_eee struct before passing to driver.
+		-Checking the driver's return value of 'get_eee' call.
+	Patches 2-3/3:
+		-Corrected conversion of tx_lpi_timer speeds in bnx2x.
+
+Please consider applying it to 'net-next'.
+
+Thanks,
+Yuval Mintz
