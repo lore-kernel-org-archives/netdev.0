@@ -1,84 +1,74 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH v9] tilegx network driver: initial support
-Date: Wed, 6 Jun 2012 14:36:02 -0400
-Message-ID: <4FCFA312.4020505@tilera.com>
-References: <201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>  <20120520.165546.1211013675964130504.davem@davemloft.net>  <201205240115.q4O1FwqG006336@lab-41.internal.tilera.com>  <20120524.003148.700603156196416506.davem@davemloft.net>  <201205251853.q4PIrE7T000723@lab-41.internal.tilera.com>  <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com> <1339004459.26966.31.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
+Date: Wed, 06 Jun 2012 20:42:22 +0200
+Message-ID: <1339008142.26966.40.camel@edumazet-glaptop>
+References: <jqo7op$t6f$1@dough.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <bhutchings@solarflare.com>, <arnd@arndb.de>,
-	David Miller <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339004459.26966.31.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Grant Edwards <grant.b.edwards@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:44986 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062Ab2FFSm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 14:42:28 -0400
+Received: by eaak11 with SMTP id k11so2078443eaa.19
+        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 11:42:27 -0700 (PDT)
+In-Reply-To: <jqo7op$t6f$1@dough.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/6/2012 1:40 PM, Eric Dumazet wrote:
-> On Mon, 2012-06-04 at 16:12 -0400, Chris Metcalf wrote:
->
->> +/* Allocate and push a buffer. */
->> +static bool tile_net_provide_buffer(bool small)
->> +{
->> +	int stack = small ? small_buffer_stack : large_buffer_stack;
->> +	const unsigned long buffer_alignment = 128;
->> +	struct sk_buff *skb;
->> +	int len;
->> +
->> +	len = sizeof(struct sk_buff **) + buffer_alignment;
->> +	len += (small ? 128 : 1664);
-> 1664 is a magic number, it should be a nice define
->
-> #define ..... ( ETH_DATA_LEN + .... )
+On Wed, 2012-06-06 at 18:32 +0000, Grant Edwards wrote:
+> I'm tracking down a problem that appears to be caused by a change in
+> the behavior of alloc_skb() introduced in kernel version 3.2.  In
+> kernel versions prior to 3.2, calling alloc_skb(1350), returned an
+> sk_buff with a tailroom of around 1400 bytes (safely below the default
+> Ethernet frame size limit of 1500).
+> 
+> In 3.2 and later, calling alloc_skb(1350) returns an sk_buff with a
+> tailroom of about 1850.
+> 
+> Why has the "extra" space increased from 60 bytes to 500 bytes?
+> 
 
-Fair enough.  However, the magic-ness comes from the hardware header code
-in arch/tile/gxio/mpipe.h, which provides a limited set of allowed buffer
-sizes, including 1664.  But I can add these #defines at the top of this driver:
+Because of kmalloc-2048 being used. Previous kernels were losing this
+space. We are now able to expand some packets without extra
+re-allocation/copy.
 
-/* Buffer sizes and mpipe enum codes for buffer stacks.
- * See arch/tile/include/gxio/mpipe.h for the set of possible values.
- */
-#define BUFFER_SIZE_SMALL_ENUM GXIO_MPIPE_BUFFER_SIZE_128
-#define BUFFER_SIZE_SMALL 128
-#define BUFFER_SIZE_LARGE_ENUM GXIO_MPIPE_BUFFER_SIZE_1664
-#define BUFFER_SIZE_LARGE 1664
+> [It's always possible that I've unintentionally changed something in
+> the kernel configs that causes this, but I've tried to build the
+> kernels as identically as possible.]
+> 
+> The kernel module that's started failing fills the allocated sk_buff
+> until tailroom() indicates it is full and then sends it.  The problem
+> is that sending a packet with a length of 1850 won't work (it's a
+> MAC-layer Ethernet packet).
 
+This code seems buggy.
 
->> +	skb = dev_alloc_skb(len);
->> +	if (skb == NULL)
->> +		return false;
->> +
->> +	/* Make room for a back-pointer to 'skb' and guarantee alignment. */
->> +	skb_reserve(skb, sizeof(struct sk_buff **));
->> +	skb_reserve(skb, -(long)skb->data & (buffer_alignment - 1));
->> +
->> +	/* Save a back-pointer to 'skb'. */
->> +	*(struct sk_buff **)(skb->data - sizeof(struct sk_buff **)) = skb;
->> +
->> +	/* Make sure "skb" and the back-pointer have been flushed. */
->> +	wmb();
-> Interesting, have you considered using build_skb() instead of this
-> convoluted thing ?
->
-> This could save some cache misses...
+> 
+> I've found man pages for alloc_skb() from a few years ago that state
+> explicitly that alloc_skb(_size_) will allocate a new sk_buff with no
+> headroom and a tail room of _size_ bytes.  This doesn't seem to be the
+> case for recent kernels.  Is there any documentation stating what the
+> current behavior is supposed to be?
+> 
+> Are callers to alloc_skb() supposed to check the tailroom and
+> reserve() an appropriate number of bytes such that the tailroom is
+> correct?
+> 
 
-I hadn't looked at build_skb() before; we built up this driver mostly on a
-base of 2.6.38, where it doesn't exist.  That said, it doesn't seem like it
-matters; dev_alloc_skb() will just end up calling down to build_skb()
-anyway, as far as I can tell.
+If you allocate skbs with 1500 bytes, you probably should check skb->len
+more than tailroom...
 
-The code where we do the two skb_reserves and then stuff in a backpointer
-and do a barrier are because we track the skbuffs in hardware, and hardware
-ignores the low 7 bits aof the address (thus the "buffer_alignment" part)
-and we need to be able to pull the actual skb address out of the data when
-the hardware returns a pointer to the data to us.
+> Is the tailroom of the allocated sk_buff guaranteed to be at least as
+> large as the requested size, or does application code also have to
+> check for tailroom less than the requested size?
+> 
+> The ultimate question I'm trying to answer is what is the "right" way
+> to allocate an sk_buff that has a size appropriate for an Ethernet
+> frame assuming an MTU of 1500?
+> 
 
-By the way, your question about tx_queue_len is a good one; I'm roping in
-our other network developer folks to figure it out.  Originally it was a
-performance optimization, I believe; I'm not sure it's still required. 
-I'll follow up on that one when we've tracked it down.
-
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+I dont know what to answer. Could you point the code in question ?
