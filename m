@@ -1,57 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire
- X4150(x86) and e1000e
-Date: Wed, 06 Jun 2012 19:05:04 +0200
-Message-ID: <1339002304.26966.16.camel@edumazet-glaptop>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
-	 <88c43001441945e1431609db252b69e7@visp.net.lb>
-	 <df211722d18136698aeeda2f17b876e2@visp.net.lb>
-	 <d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
-	 <CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
-	 <79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
-	 <CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
-	 <20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
-	 <1338959413.2760.3686.camel@edumazet-glaptop>
-	 <20120606174303.0bfc9868.shimoda.hiroaki@gmail.com>
-	 <20120606092635.00003b61@unknown>
+From: Steven King <sfking@fdwdc.com>
+Subject: [PATCH net-next] fec: Add support for Coldfire M5441x enet-mac.
+Date: Wed, 6 Jun 2012 10:06:20 -0700
+Message-ID: <201206061006.21288.sfking@fdwdc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	jeffrey.t.kirsher@intel.com, davem@davemloft.net
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: uClinux development list <uclinux-dev@uclinux.org>,
+	Greg Ungerer <gerg@snapgear.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:39843 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752823Ab2FFRFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:05:12 -0400
-Received: by eaak11 with SMTP id k11so2046250eaa.19
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 10:05:11 -0700 (PDT)
-In-Reply-To: <20120606092635.00003b61@unknown>
+Received: from nm17-vm0.access.bullet.mail.mud.yahoo.com ([66.94.236.21]:24033
+	"HELO nm17-vm0.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757273Ab2FFRGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:06:23 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-06 at 09:26 -0700, Jesse Brandeburg wrote:
-> On Wed, 6 Jun 2012 Hiroaki SHIMODA <shimoda.hiroaki@gmail.com> wrote:
-> > Sorry for long delay. I'll post.
-> > (I have no idea how to fix this problem as keeping TXDCTL.WTHRESH to 5)
-> 
-> I don't like changing WTHRESH wholesale because making the global change
-> to WTHRESH on e1000e just to fix this one bug (likely specific to a
-> particular chip/hardware) will adversely effect performance on many
-> models supported by e1000e not demonstrating any problem.  We could
-> possibly check something in for just ESB2LAN (S5000 chipset).
-> 
-> Other people (tom herbert) with this same chipset have been unable to
-> reproduce this issue right?
+Add support for the Freescale Coldfire M5441x; as these parts have an 
+enet-mac, add a quirk to distinguish them from the other Coldfire parts so we 
+can use the existing enet-mac support.
 
-Thats because Tom Herbert (and me on my T420s laptop)
-dont have FLAG2_DMA_BURST in adapter->flags2
+Signed-off-by: Steven king <sfking@fdwdc.com>
+---
+ drivers/net/ethernet/freescale/Kconfig |    5 ++---
+ drivers/net/ethernet/freescale/fec.c   |    6 +++++-
+ drivers/net/ethernet/freescale/fec.h   |    3 ++-
+ 3 files changed, 9 insertions(+), 5 deletions(-)
 
-So it depends on some e1000e, not all...
-
-You cant hold a TX completion indefinitely, this breaks BQL but also
-other stuff.
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index 3574e14..f9aa244 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -7,7 +7,7 @@ config NET_VENDOR_FREESCALE
+ 	default y
+ 	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
+ 		   M523x || M527x || M5272 || M528x || M520x || M532x || \
+-		   ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM)
++		   M5441x || ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -22,8 +22,7 @@ if NET_VENDOR_FREESCALE
+ 
+ config FEC
+ 	tristate "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
+-	depends on (M523x || M527x || M5272 || M528x || M520x || M532x || \
+-		   ARCH_MXC || SOC_IMX28)
++	depends on (M523x || M527x || M5272 || M528x || M520x || M532x || M5441x || ARCH_MXC || SOC_IMX28)
+ 	default ARCH_MXC || SOC_IMX28 if ARM
+ 	select PHYLIB
+ 	---help---
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index ff7f4c5..9567667 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -94,6 +94,9 @@ static struct platform_device_id fec_devtype[] = {
+ 		.name = "imx6q-fec",
+ 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT,
+ 	}, {
++		.name = "enet-fec",
++		.driver_data = FEC_QUIRK_ENET_MAC,
++	}, {
+ 		/* sentinel */
+ 	}
+ };
+@@ -187,7 +190,8 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+  * account when setting it.
+  */
+ #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
+-    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARM)
++    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARM) || \
++    defined(CONFIG_M5441x)
+ #define	OPT_FRAME_SIZE	(PKT_MAXBUF_SIZE << 16)
+ #else
+ #define	OPT_FRAME_SIZE	0
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 8408c62..298cfb7 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -15,7 +15,8 @@
+ 
+ #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
+     defined(CONFIG_M520x) || defined(CONFIG_M532x) || \
+-    defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
++    defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28) || \
++    defined(CONFIG_M5441x)
+ /*
+  *	Just figures, Motorola would have to change the offsets for
+  *	registers in the same peripheral device on different models
