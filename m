@@ -1,44 +1,33 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tg3: transmit timed out, resetting
-Date: Wed, 06 Jun 2012 06:12:57 +0200
-Message-ID: <1338955977.2760.3603.camel@edumazet-glaptop>
-References: <alpine.DEB.2.01.1206041546070.5568@trent.utfs.org>
-	 <20120606010255.GA9991@mcarlson.broadcom.com>
-	 <CABawtvPE_xuamH2ysL8x0WsJMXdFV5oXPrWjMT-EC-DF_kCxxw@mail.gmail.com>
-	 <20120606021436.GA10714@mcarlson.broadcom.com>
-	 <CABawtvNVKkxAgrQqJS7FJGoswQ9ZVyJcHcNwbSJQk4yscTn8gw@mail.gmail.com>
+Subject: Re: skb_gso_segment oops
+Date: Wed, 06 Jun 2012 06:41:33 +0200
+Message-ID: <1338957693.2760.3657.camel@edumazet-glaptop>
+References: <4FCEC21F.257F91.32344@m12-16.163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Christian Kujau <lists@nerdbynature.de>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: ethan zhao <ethan.kernel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABawtvNVKkxAgrQqJS7FJGoswQ9ZVyJcHcNwbSJQk4yscTn8gw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: kendo <kendo999@163.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:61302 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750827Ab2FFEll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 00:41:41 -0400
+Received: by wgbdr13 with SMTP id dr13so5800635wgb.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jun 2012 21:41:39 -0700 (PDT)
+In-Reply-To: <4FCEC21F.257F91.32344@m12-16.163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-06 at 10:29 +0800, ethan zhao wrote:
-> So no way to fix it via firmware update or Linux driver ? :<
+On Wed, 2012-06-06 at 10:36 +0800, kendo wrote:
+> Hello!
+> 
+> I use Intel 82574L network, open the GSO/SG/RX Checksum/txchecksum
+> support, but the system may occasionally occur caused by
+> skb_gso_segment Oops, this was where do I configure error, kernel Bug
+> is this? (In fact, using the igb also met once)
 
-Yes, but you need to cooperate, or else it might take more time than
-necessary.
+New kernels have debugging facility to better diagnose what its going
+on. (gso_size, gso_type)
 
-Asking questions like that on lkml is not going to help very much.
-
-So, once again, we kindly ask you try a recent kernel and post
-register dump and some additional information when transmit timeouts
-happen.
-
-The 'latest kernel' is either linux-3.5.rc1, or one of David Miller
-tree :
-
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=summary
-
-or
-
-http://git.kernel.org/?p=linux/kernel/git/davem/net.git;a=summary
-
-Thanks
+Please upgrade your kernel.
