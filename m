@@ -1,47 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] sparc bpf_jit: support BPF_S_ANC_ALU_XOR_X instruction
-Date: Wed, 06 Jun 2012 10:31:17 -0700 (PDT)
-Message-ID: <20120606.103117.665253083733637529.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v9] tilegx network driver: initial support
+Date: Wed, 06 Jun 2012 19:31:40 +0200
+Message-ID: <1339003900.26966.24.camel@edumazet-glaptop>
+References: <201205201636.q4KGaoA3003845@farm-0027.internal.tilera.com>
+	 <20120520.165546.1211013675964130504.davem@davemloft.net>
+	 <201205240115.q4O1FwqG006336@lab-41.internal.tilera.com>
+	 <20120524.003148.700603156196416506.davem@davemloft.net>
+	 <201205251853.q4PIrE7T000723@lab-41.internal.tilera.com>
+	 <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <sparclinux-owner@vger.kernel.org>
-Sender: sparclinux-owner@vger.kernel.org
+Cc: bhutchings@solarflare.com, arnd@arndb.de,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2012-06-04 at 16:12 -0400, Chris Metcalf wrote:
+> This change adds support for the tilegx network driver based on the
+> GXIO IORPC support in the tilegx software stack, using the on-chip
+> mPIPE packet processing engine.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
+> +static void tile_net_setup(struct net_device *dev)
+> +{
+> +	ether_setup(dev);
+> +	dev->netdev_ops = &tile_net_ops;
+> +	dev->watchdog_timeo = TILE_NET_TIMEOUT;
+> +	dev->features |= NETIF_F_LLTX;
+> +	dev->features |= NETIF_F_HW_CSUM;
+> +	dev->features |= NETIF_F_SG;
+> +	dev->features |= NETIF_F_TSO;
+> +	dev->tx_queue_len = 0;
+> +	dev->mtu = 1500;
+> +}
 
-Committed to net-next
-
- arch/sparc/net/bpf_jit_comp.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index 1a69244..e9073e9 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -96,6 +96,7 @@ static void bpf_flush_icache(void *start_, void *end_)
- #define AND		F3(2, 0x01)
- #define ANDCC		F3(2, 0x11)
- #define OR		F3(2, 0x02)
-+#define XOR		F3(2, 0x03)
- #define SUB		F3(2, 0x04)
- #define SUBCC		F3(2, 0x14)
- #define MUL		F3(2, 0x0a)	/* umul */
-@@ -462,6 +463,9 @@ void bpf_jit_compile(struct sk_filter *fp)
- 			case BPF_S_ALU_OR_K:	/* A |= K */
- 				emit_alu_K(OR, K);
- 				break;
-+			case BPF_S_ANC_ALU_XOR_X: /* A ^= X; */
-+				emit_alu_X(XOR);
-+				break;
- 			case BPF_S_ALU_LSH_X:	/* A <<= X */
- 				emit_alu_X(SLL);
- 				break;
--- 
-1.7.6.5
-
+Why is tx_queue_len set to 0 ?
