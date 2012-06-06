@@ -1,8 +1,7 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net-next PATCH v2 1/3] Added kernel support in EEE Ethtool
- commands
-Date: Wed, 6 Jun 2012 11:58:16 +0300
-Message-ID: <1338973098-16439-2-git-send-email-yuvalmin@broadcom.com>
+Subject: [net-next PATCH v2 3/3] bnx2x: Added EEE Ethtool support.
+Date: Wed, 6 Jun 2012 11:58:18 +0300
+Message-ID: <1338973098-16439-4-git-send-email-yuvalmin@broadcom.com>
 References: <1338973098-16439-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,147 +10,182 @@ Cc: eilong@broadcom.com, bhutchings@solarflare.com,
 	peppe.cavallaro@st.com, "Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4501 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4653 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752712Ab2FFJAC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 05:00:02 -0400
+	id S1755070Ab2FFJAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 05:00:17 -0400
 In-Reply-To: <1338973098-16439-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch extends the kernel's ethtool interface by adding support
-for 2 new EEE commands - get_eee and set_eee.
-
-Thanks goes to Giuseppe Cavallaro for his original patch adding this support.
+This patch extends the bnx2x's ethtool interface to enable
+control in the eee feature, as well as report statistic information
+about it.
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- include/linux/ethtool.h |   32 ++++++++++++++++++++++++++++++++
- net/core/ethtool.c      |   40 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 72 insertions(+), 0 deletions(-)
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |  134 ++++++++++++++++++++
+ 1 files changed, 134 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index e17fa71..6250e1f 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -137,6 +137,32 @@ struct ethtool_eeprom {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index ddc18ee..bf30e28 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -177,6 +177,8 @@ static const struct {
+ 			4, STATS_FLAGS_FUNC, "recoverable_errors" },
+ 	{ STATS_OFFSET32(unrecoverable_error),
+ 			4, STATS_FLAGS_FUNC, "unrecoverable_errors" },
++	{ STATS_OFFSET32(eee_tx_lpi),
++			4, STATS_FLAGS_PORT, "Tx LPI entry count"}
  };
  
- /**
-+ * struct ethtool_eee - Energy Efficient Ethernet information
-+ * @cmd: ETHTOOL_{G,S}EEE
-+ * @supported: Link speeds for which there is eee support.
-+ * @advertised: Link speeds the interface advertises (AN) as eee capable.
-+ * @lp_advertised: Link speeds the link partner advertised as eee capable.
-+ * @eee_active: Result of the eee auto negotiation.
-+ * @eee_enabled: EEE configured mode (enabled/disabled).
-+ * @tx_lpi_enabled: Whether the interface should assert its tx lpi, given
-+ *	that eee was negotiated.
-+ * @tx_lpi_timer: Time in microseconds the interface delays prior to asserting
-+ *	its tx lpi (after reaching 'idle' state). Effective only when eee
-+ *	was negotiated and tx_lpi_enabled was set.
-+ */
-+struct ethtool_eee {
-+	__u32	cmd;
-+	__u32	supported;
-+	__u32	advertised;
-+	__u32	lp_advertised;
-+	__u32	eee_active;
-+	__u32	eee_enabled;
-+	__u32	tx_lpi_enabled;
-+	__u32	tx_lpi_timer;
-+	__u32	reserved[2];
-+};
-+
-+/**
-  * struct ethtool_modinfo - plugin module eeprom information
-  * @cmd: %ETHTOOL_GMODULEINFO
-  * @type: Standard the module information conforms to %ETH_MODULE_SFF_xxxx
-@@ -945,6 +971,8 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
-  * @get_module_info: Get the size and type of the eeprom contained within
-  *	a plug-in module.
-  * @get_module_eeprom: Get the eeprom information from the plug-in module
-+ * @get_eee: Get Energy-Efficient (EEE) supported and status.
-+ * @set_eee: Set EEE status (enable/disable) as well as LPI timers.
-  *
-  * All operations are optional (i.e. the function pointer may be set
-  * to %NULL) and callers must take this into account.  Callers must
-@@ -1011,6 +1039,8 @@ struct ethtool_ops {
- 				   struct ethtool_modinfo *);
- 	int     (*get_module_eeprom)(struct net_device *,
- 				     struct ethtool_eeprom *, u8 *);
-+	int	(*get_eee)(struct net_device *, struct ethtool_eee *);
-+	int	(*set_eee)(struct net_device *, struct ethtool_eee *);
- 
- 
+ #define BNX2X_NUM_STATS		ARRAY_SIZE(bnx2x_stats_arr)
+@@ -1543,6 +1545,136 @@ static const struct {
+ 	{ "idle check (online)" }
  };
-@@ -1089,6 +1119,8 @@ struct ethtool_ops {
- #define ETHTOOL_GET_TS_INFO	0x00000041 /* Get time stamping and PHC info */
- #define ETHTOOL_GMODULEINFO	0x00000042 /* Get plug-in module information */
- #define ETHTOOL_GMODULEEEPROM	0x00000043 /* Get plug-in module eeprom */
-+#define ETHTOOL_GEEE		0x00000044 /* Get EEE settings */
-+#define ETHTOOL_SEEE		0x00000045 /* Set EEE settings */
  
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 9c2afb4..5a582da 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -729,6 +729,40 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
- 	return dev->ethtool_ops->set_wol(dev, &wol);
- }
- 
-+static int ethtool_get_eee(struct net_device *dev, char __user *useraddr)
++static u32 bnx2x_eee_to_adv(u32 eee_adv)
 +{
-+	struct ethtool_eee edata;
-+	int rc;
++	u32 modes = 0;
 +
-+	if (!dev->ethtool_ops->get_eee)
++	if (eee_adv & SHMEM_EEE_100M_ADV)
++		modes |= ADVERTISED_100baseT_Full;
++	if (eee_adv & SHMEM_EEE_1G_ADV)
++		modes |= ADVERTISED_1000baseT_Full;
++	if (eee_adv & SHMEM_EEE_10G_ADV)
++		modes |= ADVERTISED_10000baseT_Full;
++
++	return modes;
++}
++
++static u32 bnx2x_adv_to_eee(u32 modes, u32 shift)
++{
++	u32 eee_adv = 0;
++	if (modes & ADVERTISED_100baseT_Full)
++		eee_adv |= SHMEM_EEE_100M_ADV;
++	if (modes & ADVERTISED_1000baseT_Full)
++		eee_adv |= SHMEM_EEE_1G_ADV;
++	if (modes & ADVERTISED_10000baseT_Full)
++		eee_adv |= SHMEM_EEE_10G_ADV;
++
++	return eee_adv << shift;
++}
++
++static int bnx2x_get_eee(struct net_device *dev, struct ethtool_eee *edata)
++{
++	struct bnx2x *bp = netdev_priv(dev);
++	u32 eee_cfg;
++
++	if (!SHMEM2_HAS(bp, eee_status[BP_PORT(bp)])) {
++		DP(BNX2X_MSG_ETHTOOL, "BC Version does not support EEE\n");
 +		return -EOPNOTSUPP;
++	}
 +
-+	memset(&edata, 0, sizeof(struct ethtool_eee));
-+	edata.cmd = ETHTOOL_GEEE;
-+	rc = dev->ethtool_ops->get_eee(dev, &edata);
++	eee_cfg = SHMEM2_RD(bp, eee_status[BP_PORT(bp)]);
 +
-+	if (rc)
-+		return rc;
++	edata->supported =
++		bnx2x_eee_to_adv((eee_cfg & SHMEM_EEE_SUPPORTED_MASK) >>
++				 SHMEM_EEE_SUPPORTED_SHIFT);
 +
-+	if (copy_to_user(useraddr, &edata, sizeof(edata)))
-+		return -EFAULT;
++	edata->advertised =
++		bnx2x_eee_to_adv((eee_cfg & SHMEM_EEE_ADV_STATUS_MASK) >>
++				 SHMEM_EEE_ADV_STATUS_SHIFT);
++	edata->lp_advertised =
++		bnx2x_eee_to_adv((eee_cfg & SHMEM_EEE_LP_ADV_STATUS_MASK) >>
++				 SHMEM_EEE_LP_ADV_STATUS_SHIFT);
++
++	/* SHMEM value is in 16u units --> Convert to 1u units. */
++	edata->tx_lpi_timer = (eee_cfg & SHMEM_EEE_TIMER_MASK) << 4;
++
++	edata->eee_enabled    = (eee_cfg & SHMEM_EEE_REQUESTED_BIT)	? 1 : 0;
++	edata->eee_active     = (eee_cfg & SHMEM_EEE_ACTIVE_BIT)	? 1 : 0;
++	edata->tx_lpi_enabled = (eee_cfg & SHMEM_EEE_LPI_REQUESTED_BIT) ? 1 : 0;
 +
 +	return 0;
 +}
 +
-+static int ethtool_set_eee(struct net_device *dev, char __user *useraddr)
++static int bnx2x_set_eee(struct net_device *dev, struct ethtool_eee *edata)
 +{
-+	struct ethtool_eee edata;
++	struct bnx2x *bp = netdev_priv(dev);
++	u32 eee_cfg;
++	u32 advertised;
 +
-+	if (!dev->ethtool_ops->get_eee)
++	if (IS_MF(bp))
++		return 0;
++
++	if (!SHMEM2_HAS(bp, eee_status[BP_PORT(bp)])) {
++		DP(BNX2X_MSG_ETHTOOL, "BC Version does not support EEE\n");
 +		return -EOPNOTSUPP;
++	}
 +
-+	if (copy_from_user(&edata, useraddr, sizeof(edata)))
-+		return -EFAULT;
++	eee_cfg = SHMEM2_RD(bp, eee_status[BP_PORT(bp)]);
 +
-+	return dev->ethtool_ops->set_eee(dev, &edata);
++	if (!(eee_cfg & SHMEM_EEE_SUPPORTED_MASK)) {
++		DP(BNX2X_MSG_ETHTOOL, "Board does not support EEE!\n");
++		return -EOPNOTSUPP;
++	}
++
++	advertised = bnx2x_adv_to_eee(edata->advertised,
++				      SHMEM_EEE_ADV_STATUS_SHIFT);
++	if ((advertised != (eee_cfg & SHMEM_EEE_ADV_STATUS_MASK))) {
++		DP(BNX2X_MSG_ETHTOOL,
++		   "Direct manipulation of EEE advertisment is not supported\n");
++		return -EINVAL;
++	}
++
++	if (edata->tx_lpi_timer > EEE_MODE_TIMER_MASK) {
++		DP(BNX2X_MSG_ETHTOOL,
++		   "Maximal Tx Lpi timer supported is %x(u)\n",
++		   EEE_MODE_TIMER_MASK);
++		return -EINVAL;
++	}
++	if (edata->tx_lpi_enabled &&
++	    (edata->tx_lpi_timer < EEE_MODE_NVRAM_AGGRESSIVE_TIME)) {
++		DP(BNX2X_MSG_ETHTOOL,
++		   "Minimal Tx Lpi timer supported is %d(u)\n",
++		   EEE_MODE_NVRAM_AGGRESSIVE_TIME);
++		return -EINVAL;
++	}
++
++	/* All is well; Apply changes*/
++	if (edata->eee_enabled)
++		bp->link_params.eee_mode |= EEE_MODE_ADV_LPI;
++	else
++		bp->link_params.eee_mode &= ~EEE_MODE_ADV_LPI;
++
++	if (edata->tx_lpi_enabled)
++		bp->link_params.eee_mode |= EEE_MODE_ENABLE_LPI;
++	else
++		bp->link_params.eee_mode &= ~EEE_MODE_ENABLE_LPI;
++
++	bp->link_params.eee_mode &= ~EEE_MODE_TIMER_MASK;
++	bp->link_params.eee_mode |= (edata->tx_lpi_timer &
++				    EEE_MODE_TIMER_MASK) |
++				    EEE_MODE_OVERRIDE_NVRAM |
++				    EEE_MODE_OUTPUT_TIME;
++
++	/* Restart link to propogate changes */
++	if (netif_running(dev)) {
++		bnx2x_stats_handle(bp, STATS_EVENT_STOP);
++		bnx2x_link_set(bp);
++	}
++
++	return 0;
 +}
 +
- static int ethtool_nway_reset(struct net_device *dev)
- {
- 	if (!dev->ethtool_ops->nway_reset)
-@@ -1471,6 +1505,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 		rc = ethtool_set_value_void(dev, useraddr,
- 				       dev->ethtool_ops->set_msglevel);
- 		break;
-+	case ETHTOOL_GEEE:
-+		rc = ethtool_get_eee(dev, useraddr);
-+		break;
-+	case ETHTOOL_SEEE:
-+		rc = ethtool_set_eee(dev, useraddr);
-+		break;
- 	case ETHTOOL_NWAY_RST:
- 		rc = ethtool_nway_reset(dev);
- 		break;
++
+ enum {
+ 	BNX2X_CHIP_E1_OFST = 0,
+ 	BNX2X_CHIP_E1H_OFST,
+@@ -2472,6 +2604,8 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
+ 	.get_rxfh_indir_size	= bnx2x_get_rxfh_indir_size,
+ 	.get_rxfh_indir		= bnx2x_get_rxfh_indir,
+ 	.set_rxfh_indir		= bnx2x_set_rxfh_indir,
++	.get_eee		= bnx2x_get_eee,
++	.set_eee		= bnx2x_set_eee,
+ };
+ 
+ void bnx2x_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.7.9.rc2
