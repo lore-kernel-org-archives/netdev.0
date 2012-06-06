@@ -1,44 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
-Date: Wed, 06 Jun 2012 22:00:00 +0200
-Message-ID: <1339012800.26966.53.camel@edumazet-glaptop>
-References: <1338971724.2760.3913.camel@edumazet-glaptop>
-	<1338972341.2760.3944.camel@edumazet-glaptop>
-	<20120606111357.GA15070@redhat.com>
-	<1338988210.2760.4485.camel@edumazet-glaptop>
-	<20120606144941.GA17092@redhat.com>
-	<1338995944.26966.6.camel@edumazet-glaptop>
-	<20120606165754.GA19357@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] sky2: fix checksum bit management on some chips
+Date: Wed, 6 Jun 2012 13:01:30 -0700
+Message-ID: <20120606130130.5a86f94a@nehalam.linuxnetplumber.net>
+References: <20120606172036.GA11911@tugrik.mns.mnsspb.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120606165754.GA19357@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Mirko Lindner <mlindner@marvell.com>, netdev@vger.kernel.org
+To: Kirill Smelkov <kirr@mns.spb.ru>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:33457 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753228Ab2FFUBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 16:01:38 -0400
+In-Reply-To: <20120606172036.GA11911@tugrik.mns.mnsspb.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-06 at 19:57 +0300, Michael S. Tsirkin wrote:
+The newer flavors of Yukon II use a different method for receive
+checksum offload. This is indicated in the driver by the SKY2_HW_NEW_LE
+flag. On these newer chips, the BMU_ENA_RX_CHKSUM should not be set.
 
-> So for virtio since all counters get incremented from bh we can
-> ensure they are read atomically, simply but reading them
-> from the correct CPU with bh disabled.
-> And then we don't need u64_stats_sync at all.
-> 
+The driver would get incorrectly toggle the bit, enabling the old
+checksum logic on these chips and cause a BUG_ON() assertion. If
+receive checksum was toggled via ethtool.
 
-Really ? How are you going to read 64bit stats from foreign cpus on
-32bit arches, without additional cost in fast path ?
+Reported-by: Kirill Smelkov <kirr@mns.spb.ru>
 
-You should read include/linux/u64_stats_sync.h to fully understand the
-issues.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
+Patch against net-next, please apply to net and stable kernels.
+
+--- a/drivers/net/ethernet/marvell/sky2.c	2012-06-06 11:09:38.288440819 -0700
++++ b/drivers/net/ethernet/marvell/sky2.c	2012-06-06 11:25:01.275782462 -0700
+@@ -4381,10 +4381,12 @@ static int sky2_set_features(struct net_
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+ 	netdev_features_t changed = dev->features ^ features;
+ 
+-	if (changed & NETIF_F_RXCSUM) {
+-		bool on = features & NETIF_F_RXCSUM;
+-		sky2_write32(sky2->hw, Q_ADDR(rxqaddr[sky2->port], Q_CSR),
+-			     on ? BMU_ENA_RX_CHKSUM : BMU_DIS_RX_CHKSUM);
++	if ((changed & NETIF_F_RXCSUM) &&
++	    !(sky2->hw->flags & SKY2_HW_NEW_LE)) {
++		sky2_write32(sky2->hw,
++			     Q_ADDR(rxqaddr[sky2->port], Q_CSR),
++			     (features & NETIF_F_RXCSUM)
++			     ? BMU_ENA_RX_CHKSUM : BMU_DIS_RX_CHKSUM);
+ 	}
+ 
+ 	if (changed & NETIF_F_RXHASH)
