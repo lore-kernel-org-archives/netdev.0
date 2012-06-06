@@ -1,58 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [v3 net-next PATCH 1/3] Added kernel support in EEE Ethtool
- commands
-Date: Wed, 6 Jun 2012 22:30:59 +0100
-Message-ID: <1339018259.2836.58.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1339009643-22951-1-git-send-email-yuvalmin@broadcom.com>
-	 <1339009643-22951-2-git-send-email-yuvalmin@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<eilong@broadcom.com>, <peppe.cavallaro@st.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56957 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752170Ab2FFVbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 17:31:04 -0400
-In-Reply-To: <1339009643-22951-2-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 7/7] drivers/net/can/cc770/cc770_platform.c: adjust suspicious bit operation
+Date: Wed,  6 Jun 2012 23:41:41 +0200
+Message-ID: <1339018901-28439-8-git-send-email-Julia.Lawall@lip6.fr>
+References: <1339018901-28439-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, joe@perches.com,
+	Julia Lawall <julia@diku.dk>
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1339018901-28439-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-06 at 22:07 +0300, Yuval Mintz wrote:
-> This patch extends the kernel's ethtool interface by adding support
-> for 2 new EEE commands - get_eee and set_eee.
-> 
-> Thanks goes to Giuseppe Cavallaro for his original patch adding this support.
-> 
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-but with one tiny change required:
+CPUIF_DSC is 0x40, so it would seem that & is wanted rather than |.
 
-[...]
-> +static int ethtool_set_eee(struct net_device *dev, char __user *useraddr)
-> +{
-> +	struct ethtool_eee edata;
-> +
-> +	if (!dev->ethtool_ops->get_eee)
+This problem was found using Coccinelle (http://coccinelle.lip6.fr/).
 
-This must check set_eee, not get_eee.
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Ben.
+---
+ drivers/net/can/cc770/cc770_platform.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> +		return -EOPNOTSUPP;
-> +
-> +	if (copy_from_user(&edata, useraddr, sizeof(edata)))
-> +		return -EFAULT;
-> +
-> +	return dev->ethtool_ops->set_eee(dev, &edata);
-> +}
-[...]
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/can/cc770/cc770_platform.c b/drivers/net/can/cc770/cc770_platform.c
+index 53115ee..688371c 100644
+--- a/drivers/net/can/cc770/cc770_platform.c
++++ b/drivers/net/can/cc770/cc770_platform.c
+@@ -154,7 +154,7 @@ static int __devinit cc770_get_platform_data(struct platform_device *pdev,
+ 	struct cc770_platform_data *pdata = pdev->dev.platform_data;
+ 
+ 	priv->can.clock.freq = pdata->osc_freq;
+-	if (priv->cpu_interface | CPUIF_DSC)
++	if (priv->cpu_interface & CPUIF_DSC)
+ 		priv->can.clock.freq /= 2;
+ 	priv->clkout = pdata->cor;
+ 	priv->bus_config = pdata->bcr;
