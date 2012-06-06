@@ -1,84 +1,43 @@
-From: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] ip.7: Improve explanation about calling listen or
- connect
-Date: Wed, 6 Jun 2012 11:44:26 -0300
-Message-ID: <20120606114426.0595fbac@asterix.rh>
-References: <1336566636-14713-1-git-send-email-fbl@redhat.com>
-	<4FBF66D8.7060007@redhat.com>
+From: Vladimir Davydov <vdavydov@parallels.com>
+Subject: Possible deadlock in ipv6?
+Date: Wed, 6 Jun 2012 18:49:24 +0400
+Message-ID: <4FCF6DF4.2090304@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Peter Schiffer <pschiffe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4FBF66D8.7060007-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.parallels.com ([195.214.232.42]:42060 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753506Ab2FFOt0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 10:49:26 -0400
+Received: from msk-exch1.sw.swsoft.com ([10.30.1.231] helo=mail.sw.ru)
+	by relay.parallels.com with esmtps (TLSv1:RC4-MD5:128)
+	(Exim 4.77)
+	(envelope-from <VDavydov@parallels.com>)
+	id 1ScHY5-0008Tx-8S
+	for netdev@vger.kernel.org; Wed, 06 Jun 2012 18:49:25 +0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+I'm not familiar with the linux net subsystem, so I would appreciate if 
+someone could clarify if the following call chain is possible:
 
-Hi,
+addrconf_ifdown() calls neigh_ifdown(nd_tbl) which locks nd_tbl.lock for 
+writing and calls
 
-Could someone tell me what's the patch current state?
-It has been a month already with no feedback.
-thanks,
-fbl
+     pneigh_ifdown
+     pndisc_destructor
+     ipv6_dev_mc_dec
+     __ipv6_dev_mc_dec
+     igmp6_group_dropped
+     igmp6_leave_group
+     igmp6_send
+     icmp6_dst_alloc
+     ip6_neigh_lookup
+     neigh_create
 
-On Fri, 25 May 2012 13:02:48 +0200
-Peter Schiffer <pschiffe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+and neigh_create() locks nd_tbl.lock for writing again resulting in a 
+deadlock.
 
-> Hi Michael,
-> 
-> do you have any comments for this update? Or do you need some supporting 
-> info?
-> 
-> peter
-> 
-> On 05/09/2012 02:30 PM, Flavio Leitner wrote:
-> > Signed-off-by: Flavio Leitner<fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > ---
-> >   man7/ip.7 |   15 +++++++++------
-> >   1 files changed, 9 insertions(+), 6 deletions(-)
-> >
-> > diff --git a/man7/ip.7 b/man7/ip.7
-> > index 9f560df..84fe32d 100644
-> > --- a/man7/ip.7
-> > +++ b/man7/ip.7
-> > @@ -69,12 +69,11 @@ For
-> >   you may specify a valid IANA IP protocol defined in
-> >   RFC\ 1700 assigned numbers.
-> >   .PP
-> > -.\" FIXME ip current does an autobind in listen, but I'm not sure
-> > -.\" if that should be documented.
-> >   When a process wants to receive new incoming packets or connections, it
-> >   should bind a socket to a local interface address using
-> >   .BR bind (2).
-> > -Only one IP socket may be bound to any given local (address, port) pair.
-> > +In this case, only one IP socket may be bound to any given local
-> > +(address, port) pair.
-> >   When
-> >   .B INADDR_ANY
-> >   is specified in the bind call, the socket will be bound to
-> > @@ -82,10 +81,14 @@ is specified in the bind call, the socket will be bound to
-> >   local interfaces.
-> >   When
-> >   .BR listen (2)
-> > -or
-> > +is called on an unbound socket, the socket is automatically bound
-> > +to a random free port with the local address set to
-> > +.BR INADDR_ANY .
-> > +When
-> >   .BR connect (2)
-> > -are called on an unbound socket, it is automatically bound to a
-> > -random free port with the local address set to
-> > +is called on an unbound socket, the socket is automatically bound
-> > +to a random free port or an usable shared port with the local address
-> > +set to
-> >   .BR INADDR_ANY .
-> >
-> >   A TCP local socket address that has been bound is unavailable for
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you.
