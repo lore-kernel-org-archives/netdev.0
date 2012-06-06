@@ -1,60 +1,31 @@
-From: Grant Edwards <grant.b.edwards@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
-Date: Wed, 6 Jun 2012 20:26:25 +0000 (UTC)
-Message-ID: <jqoedh$fs3$3@dough.gmane.org>
+Date: Wed, 06 Jun 2012 22:31:25 +0200
+Message-ID: <1339014685.26966.73.camel@edumazet-glaptop>
 References: <jqo7op$t6f$1@dough.gmane.org>
- <20120606.115130.1091814494251887552.davem@davemloft.net>
- <1339011742.26966.44.camel@edumazet-glaptop>
-To: netdev@vger.kernel.org
+	 <20120606.115130.1091814494251887552.davem@davemloft.net>
+	 <jqo9ej$ao4$1@dough.gmane.org>
+	 <20120606.131703.870120997635192180.davem@davemloft.net>
+	 <jqoe90$fs3$2@dough.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Grant Edwards <grant.b.edwards@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:40035 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758320Ab2FFUaQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 16:30:16 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1ScMrl-0002gH-93
-	for netdev@vger.kernel.org; Wed, 06 Jun 2012 22:30:05 +0200
-Received: from dsl.comtrol.com ([64.122.56.22])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 22:30:05 +0200
-Received: from grant.b.edwards by dsl.comtrol.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 22:30:05 +0200
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:65034 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757418Ab2FFUb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 16:31:28 -0400
+Received: by eaak11 with SMTP id k11so2110538eaa.19
+        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 13:31:27 -0700 (PDT)
+In-Reply-To: <jqoe90$fs3$2@dough.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2012-06-06, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2012-06-06 at 11:51 -0700, David Miller wrote:
->> From: Grant Edwards <grant.b.edwards@gmail.com>
->> Date: Wed, 6 Jun 2012 18:32:57 +0000 (UTC)
->> 
->> > The kernel module that's started failing fills the allocated sk_buff
->> > until tailroom() indicates it is full and then sends it.  The problem
->> > is that sending a packet with a length of 1850 won't work (it's a
->> > MAC-layer Ethernet packet).
->> 
->> The amount of tailroom an SKB has is implementation dependent.
->> 
->> It's incredibly poor form to rely upon it to determine whether a
->> fully sized frame has been constructed or not.
->> 
->> Please fix the code that does this.
->
-> By the way, we had a similar problem, and the fix was :
->
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=a21d45726acacc963d8baddf74607d9b74e2b723
->
-> Grant, depending on the context, you might use skb->avail_size and
-> skb_availroom() as well.
->
-> Beware skb->avail_size is unioned with skb->{mark|dropcount}
+On Wed, 2012-06-06 at 20:24 +0000, Grant Edwards wrote:
 
-Thanks for the pointer.
+> Is skb_tailroom() guaranteed to be >= the requested size?
+> 
 
--- 
-Grant Edwards               grant.b.edwards        Yow! ANN JILLIAN'S HAIR
-                                  at               makes LONI ANDERSON'S
-                              gmail.com            HAIR look like RICARDO
-                                                   MONTALBAN'S HAIR!
+Of course, but only right after alloc_skb().
