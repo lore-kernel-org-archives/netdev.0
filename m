@@ -1,42 +1,61 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH] net: sierra_net: device IDs for Aircard 320U++
-Date: Thu, 7 Jun 2012 06:15:47 +0900
-Message-ID: <20120606211547.GB19796@kroah.com>
-References: <20120606081246.GB7306@kroah.com>
- <87wr3kua2k.fsf@nemi.mork.no>
- <20120606121633.GB8535@kroah.com>
- <20120606.104018.1721491470277229085.davem@davemloft.net>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] ieee802154: verify packet size before
+	trying to allocate it
+Date: Wed,  6 Jun 2012 23:32:02 +0200
+Message-ID: <1339018322-19360-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bjorn-yOkvZcmFvRU@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org, autif.mlist-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	tomas.cassidy-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120606.104018.1721491470277229085.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	slapin-9cOl001CZnBAfugRpC6u6w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 06, 2012 at 10:40:18AM -0700, David Miller wrote:
-> From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-> Date: Wed, 6 Jun 2012 21:16:33 +0900
-> 
-> > Ok, thanks for clearing that up, I'll take the serial patch, and I'm
-> > sure that David will take this one.
-> > 
-> > 	Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-> 
-> I'll apply this, thanks.
-> 
-> Greg, could you not put that TAB at the beginning of your
-> signoffs?  It causes patchwork not to pick them up so I have
-> to add it manually.
+Currently when sending data over datagram, the send function will attempt to
+allocate any size passed on from the userspace.
 
-Sorry, I didn't know that, I'll not do that in the future.
+We should make sure that this size is checked and limited. The maximum size
+of an IP packet seemed like the safest limit here.
 
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/ieee802154/dgram.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
+index 6fbb2ad..cf5070b 100644
+--- a/net/ieee802154/dgram.c
++++ b/net/ieee802154/dgram.c
+@@ -232,6 +232,10 @@ static int dgram_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 
+ 	hlen = LL_RESERVED_SPACE(dev);
+ 	tlen = dev->needed_tailroom;
++	if (hlen + tlen + size > USHRT_MAX) {
++		err = -EMSGSIZE;
++		goto out;
++	}
+ 	skb = sock_alloc_send_skb(sk, hlen + tlen + size,
+ 			msg->msg_flags & MSG_DONTWAIT,
+ 			&err);
+-- 
+1.7.8.6
+
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
