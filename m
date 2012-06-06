@@ -1,921 +1,366 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [v3 net-next PATCH 2/3] bnx2x: Added EEE support
-Date: Wed, 6 Jun 2012 22:07:22 +0300
-Message-ID: <1339009643-22951-3-git-send-email-yuvalmin@broadcom.com>
-References: <1339009643-22951-1-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH 1/1 v2] Ethtool: Add EEE support
+Date: Wed, 6 Jun 2012 22:15:24 +0300
+Message-ID: <1339010124-23413-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, bhutchings@solarflare.com,
-	peppe.cavallaro@st.com, "Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: eilong@broadcom.com, peppe.cavallaro@st.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: bhutchings@solarflare.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2412 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2697 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757957Ab2FFTJK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 15:09:10 -0400
-In-Reply-To: <1339009643-22951-1-git-send-email-yuvalmin@broadcom.com>
+	id S1757520Ab2FFTQ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 15:16:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds energy efficient energy support (802.3az) to bnx2x
-boards with 84833 phys (and sufficiently new BC and external FW).
+This patch adds 2 new ethtool commands which can be
+used to manipulate network interfaces' support in
+EEE.
+
+Output of 'get' has the following form:
+
+	EEE Settings for p2p1:
+		EEE status: enabled - active
+		Tx LPI: 1000 (us)
+		Supported EEE link modes:  10000baseT/Full
+		Advertised EEE link modes:  10000baseT/Full
+		Link partner advertised EEE link modes:  10000baseT/Full
+
+Thanks goes to Giuseppe Cavallaro for his original patch.
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h   |   61 ++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c  |  323 ++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h  |   26 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   23 ++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h   |  123 ++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |    4 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h |    2 +
- 7 files changed, 552 insertions(+), 10 deletions(-)
+ ethtool-copy.h |   31 +++++++++++++
+ ethtool.8.in   |   32 +++++++++++++
+ ethtool.c      |  137 +++++++++++++++++++++++++++++++++++++++++++++++--------
+ test-cmdline.c |   11 +++++
+ 4 files changed, 191 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index a440a8b..c61aa37 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -1067,8 +1067,18 @@ struct port_feat_cfg {		    /* port 0: 0x454  port 1: 0x4c8 */
- 	   uses the same defines as link_config */
- 	u32 mfw_wol_link_cfg2;				    /* 0x480 */
- 
--	u32 Reserved2[17];				    /* 0x484 */
- 
-+	/*  EEE power saving mode */
-+	u32 eee_power_mode;                                 /* 0x484 */
-+	#define PORT_FEAT_CFG_EEE_POWER_MODE_MASK                     0x000000FF
-+	#define PORT_FEAT_CFG_EEE_POWER_MODE_SHIFT                    0
-+	#define PORT_FEAT_CFG_EEE_POWER_MODE_DISABLED                 0x00000000
-+	#define PORT_FEAT_CFG_EEE_POWER_MODE_BALANCED                 0x00000001
-+	#define PORT_FEAT_CFG_EEE_POWER_MODE_AGGRESSIVE               0x00000002
-+	#define PORT_FEAT_CFG_EEE_POWER_MODE_LOW_LATENCY              0x00000003
-+
-+
-+	u32 Reserved2[16];                                  /* 0x488 */
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 9e26a76..070f702 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -134,6 +134,35 @@ struct ethtool_eeprom {
  };
  
- 
-@@ -1255,6 +1265,8 @@ struct drv_func_mb {
- 	#define DRV_MSG_CODE_DRV_INFO_ACK               0xd8000000
- 	#define DRV_MSG_CODE_DRV_INFO_NACK              0xd9000000
- 
-+	#define DRV_MSG_CODE_EEE_RESULTS_ACK            0xda000000
-+
- 	#define DRV_MSG_CODE_SET_MF_BW                  0xe0000000
- 	#define REQ_BC_VER_4_SET_MF_BW                  0x00060202
- 	#define DRV_MSG_CODE_SET_MF_BW_ACK              0xe1000000
-@@ -1320,6 +1332,8 @@ struct drv_func_mb {
- 	#define FW_MSG_CODE_DRV_INFO_ACK                0xd8100000
- 	#define FW_MSG_CODE_DRV_INFO_NACK               0xd9100000
- 
-+	#define FW_MSG_CODE_EEE_RESULS_ACK              0xda100000
-+
- 	#define FW_MSG_CODE_SET_MF_BW_SENT              0xe0000000
- 	#define FW_MSG_CODE_SET_MF_BW_DONE              0xe1000000
- 
-@@ -1383,6 +1397,8 @@ struct drv_func_mb {
- 
- 	#define DRV_STATUS_DRV_INFO_REQ                 0x04000000
- 
-+	#define DRV_STATUS_EEE_NEGOTIATION_RESULTS      0x08000000
-+
- 	u32 virt_mac_upper;
- 	#define VIRT_MAC_SIGN_MASK                      0xffff0000
- 	#define VIRT_MAC_SIGNATURE                      0x564d0000
-@@ -1613,6 +1629,11 @@ struct fw_flr_mb {
- 	struct fw_flr_ack ack;
- };
- 
-+struct eee_remote_vals {
-+	u32         tx_tw;
-+	u32         rx_tw;
+ /**
++ * struct ethtool_eee - Energy Efficient Ethernet information
++ * @cmd: ETHTOOL_{G,S}EEE
++ * @supported: Mask of %SUPPORTED_* flags for the speed/duplex combinations
++ *	for which there is EEE support.
++ * @advertised: Mask of %ADVERTISED_* flags for the speed/duplex combinations
++ *	advertised as eee capable.
++ * @lp_advertised: Mask of %ADVERTISED_* flags for the speed/duplex
++ *	combinations advertised by the link partner as eee capable.
++ * @eee_active: Result of the eee auto negotiation.
++ * @eee_enabled: EEE configured mode (enabled/disabled).
++ * @tx_lpi_enabled: Whether the interface should assert its tx lpi, given
++ *	that eee was negotiated.
++ * @tx_lpi_timer: Time in microseconds the interface delays prior to asserting
++ *	its tx lpi (after reaching 'idle' state). Effective only when eee
++ *	was negotiated and tx_lpi_enabled was set.
++ */
++struct ethtool_eee {
++	__u32	cmd;
++	__u32	supported;
++	__u32	advertised;
++	__u32	lp_advertised;
++	__u32	eee_active;
++	__u32	eee_enabled;
++	__u32	tx_lpi_enabled;
++	__u32	tx_lpi_timer;
++	__u32	reserved[2];
 +};
 +
- /**** SUPPORT FOR SHMEM ARRRAYS ***
-  * The SHMEM HSI is aligned on 32 bit boundaries which makes it difficult to
-  * define arrays with storage types smaller then unsigned dwords.
-@@ -2053,6 +2074,41 @@ struct shmem2_region {
- #define DRV_INFO_CONTROL_OP_CODE_MASK      0x0000ff00
- #define DRV_INFO_CONTROL_OP_CODE_SHIFT     8
- 	u32 ibft_host_addr; /* initialized by option ROM */
-+	struct eee_remote_vals eee_remote_vals[PORT_MAX];
-+	u32 reserved[E2_FUNC_MAX];
-+
-+
-+	/* the status of EEE auto-negotiation
-+	 * bits 15:0 the configured tx-lpi entry timer value. Depends on bit 31.
-+	 * bits 19:16 the supported modes for EEE.
-+	 * bits 23:20 the speeds advertised for EEE.
-+	 * bits 27:24 the speeds the Link partner advertised for EEE.
-+	 * The supported/adv. modes in bits 27:19 originate from the
-+	 * SHMEM_EEE_XXX_ADV definitions (where XXX is replaced by speed).
-+	 * bit 28 when 1'b1 EEE was requested.
-+	 * bit 29 when 1'b1 tx lpi was requested.
-+	 * bit 30 when 1'b1 EEE was negotiated. Tx lpi will be asserted iff
-+	 * 30:29 are 2'b11.
-+	 * bit 31 when 1'b0 bits 15:0 contain a PORT_FEAT_CFG_EEE_ define as
-+	 * value. When 1'b1 those bits contains a value times 16 microseconds.
-+	 */
-+	u32 eee_status[PORT_MAX];
-+	#define SHMEM_EEE_TIMER_MASK		   0x0000ffff
-+	#define SHMEM_EEE_SUPPORTED_MASK	   0x000f0000
-+	#define SHMEM_EEE_SUPPORTED_SHIFT	   16
-+	#define SHMEM_EEE_ADV_STATUS_MASK	   0x00f00000
-+		#define SHMEM_EEE_100M_ADV	   (1<<0)
-+		#define SHMEM_EEE_1G_ADV	   (1<<1)
-+		#define SHMEM_EEE_10G_ADV	   (1<<2)
-+	#define SHMEM_EEE_ADV_STATUS_SHIFT	   20
-+	#define	SHMEM_EEE_LP_ADV_STATUS_MASK	   0x0f000000
-+	#define SHMEM_EEE_LP_ADV_STATUS_SHIFT	   24
-+	#define SHMEM_EEE_REQUESTED_BIT		   0x10000000
-+	#define SHMEM_EEE_LPI_REQUESTED_BIT	   0x20000000
-+	#define SHMEM_EEE_ACTIVE_BIT		   0x40000000
-+	#define SHMEM_EEE_TIME_OUTPUT_BIT	   0x80000000
-+
-+	u32 sizeof_port_stats;
- };
++/**
+  * struct ethtool_modinfo - plugin module eeprom information
+  * @cmd: %ETHTOOL_GMODULEINFO
+  * @type: Standard the module information conforms to %ETH_MODULE_SFF_xxxx
+@@ -848,6 +877,8 @@ enum ethtool_sfeatures_retval_bits {
+ #define ETHTOOL_GET_TS_INFO	0x00000041 /* Get time stamping and PHC info */
+ #define ETHTOOL_GMODULEINFO	0x00000042 /* Get plug-in module information */
+ #define ETHTOOL_GMODULEEEPROM	0x00000043 /* Get plug-in module eeprom */
++#define ETHTOOL_GEEE		0x00000044 /* Get EEE settings */
++#define ETHTOOL_SEEE		0x00000045 /* Set EEE settings */
  
- 
-@@ -2599,6 +2655,9 @@ struct host_port_stats {
- 	u32            pfc_frames_tx_lo;
- 	u32            pfc_frames_rx_hi;
- 	u32            pfc_frames_rx_lo;
-+
-+	u32            eee_lpi_count_hi;
-+	u32            eee_lpi_count_lo;
- };
- 
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index a3fb721..c7c814d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -1305,6 +1305,94 @@ int bnx2x_ets_strict(const struct link_params *params, const u8 strict_cos)
- 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/ethtool.8.in b/ethtool.8.in
+index 523b737..b906d8e 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -335,6 +335,16 @@ ethtool \- query or control network driver and hardware settings
+ .I devname flag
+ .A1 on off
+ .RB ...
++.HP
++.B ethtool \-\-get\-eee
++.I devname
++.HP
++.B ethtool \-\-set\-eee
++.I devname
++.B2 eee on off
++.B2 tx-lpi on off
++.BN tx-timer
++.BN advertise
+ .
+ .\" Adjust lines (i.e. full justification) and hyphenate.
+ .ad
+@@ -817,6 +827,28 @@ Sets the device's private flags as specified.
+ .I flag
+ .A1 on off
+ Sets the state of the named private flag.
++.TP
++.B \-\-get\-eee
++Queries the specified network device for its support in Efficient Energy
++Ethernet (according to the IEEE 802.3az specifications)
++.TP
++.B \-\-set\-eee
++Sets the device EEE behaviour.
++.TP
++.A2 eee on off
++Enables/Disables the device support in EEE.
++.TP
++.A2 tx-lpi on off
++Determines whether the device should assert its tx lpi.
++.TP
++.BI advertise \ N
++Sets the speeds for which the device would advertise EEE capabliities.
++Values are as for
++.B \-\-change advertise
++.TP
++.BI tx-timer \ N
++Sets the amount of time the device should stay in idle mode prior to asserting
++its tx lpi (in microseconds). This has meaning only when tx lpi is on.
+ .SH BUGS
+ Not supported (in part or whole) on all network drivers.
+ .SH AUTHOR
+diff --git a/ethtool.c b/ethtool.c
+index f18f611..eacdf8f 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -359,7 +359,8 @@ static int do_version(struct cmd_context *ctx)
  	return 0;
  }
-+
-+/******************************************************************/
-+/*			EEE section				   */
-+/******************************************************************/
-+static u8 bnx2x_eee_has_cap(struct link_params *params)
-+{
-+	struct bnx2x *bp = params->bp;
-+
-+	if (REG_RD(bp, params->shmem2_base) <=
-+		   offsetof(struct shmem2_region, eee_status[params->port]))
-+		return 0;
-+
-+	return 1;
-+}
-+
-+static int bnx2x_eee_nvram_to_time(u32 nvram_mode, u32 *idle_timer)
-+{
-+	switch (nvram_mode) {
-+	case PORT_FEAT_CFG_EEE_POWER_MODE_BALANCED:
-+		*idle_timer = EEE_MODE_NVRAM_BALANCED_TIME;
-+		break;
-+	case PORT_FEAT_CFG_EEE_POWER_MODE_AGGRESSIVE:
-+		*idle_timer = EEE_MODE_NVRAM_AGGRESSIVE_TIME;
-+		break;
-+	case PORT_FEAT_CFG_EEE_POWER_MODE_LOW_LATENCY:
-+		*idle_timer = EEE_MODE_NVRAM_LATENCY_TIME;
-+		break;
-+	default:
-+		*idle_timer = 0;
-+		break;
-+	}
-+
-+	return 0;
-+}
-+
-+static int bnx2x_eee_time_to_nvram(u32 idle_timer, u32 *nvram_mode)
-+{
-+	switch (idle_timer) {
-+	case EEE_MODE_NVRAM_BALANCED_TIME:
-+		*nvram_mode = PORT_FEAT_CFG_EEE_POWER_MODE_BALANCED;
-+		break;
-+	case EEE_MODE_NVRAM_AGGRESSIVE_TIME:
-+		*nvram_mode = PORT_FEAT_CFG_EEE_POWER_MODE_AGGRESSIVE;
-+		break;
-+	case EEE_MODE_NVRAM_LATENCY_TIME:
-+		*nvram_mode = PORT_FEAT_CFG_EEE_POWER_MODE_LOW_LATENCY;
-+		break;
-+	default:
-+		*nvram_mode = PORT_FEAT_CFG_EEE_POWER_MODE_DISABLED;
-+		break;
-+	}
-+
-+	return 0;
-+}
-+
-+static u32 bnx2x_eee_calc_timer(struct link_params *params)
-+{
-+	u32 eee_mode, eee_idle;
-+	struct bnx2x *bp = params->bp;
-+
-+	if (params->eee_mode & EEE_MODE_OVERRIDE_NVRAM) {
-+		if (params->eee_mode & EEE_MODE_OUTPUT_TIME) {
-+			/* time value in eee_mode --> used directly*/
-+			eee_idle = params->eee_mode & EEE_MODE_TIMER_MASK;
+ 
+-static void dump_link_caps(const char *prefix, const char *an_prefix, u32 mask);
++static void dump_link_caps(const char *prefix, const char *an_prefix, u32 mask,
++			   int link_mode_only);
+ 
+ static void dump_supported(struct ethtool_cmd *ep)
+ {
+@@ -378,14 +379,15 @@ static void dump_supported(struct ethtool_cmd *ep)
+ 		fprintf(stdout, "FIBRE ");
+ 	fprintf(stdout, "]\n");
+ 
+-	dump_link_caps("Supported", "Supports", mask);
++	dump_link_caps("Supported", "Supports", mask, 0);
+ }
+ 
+ /* Print link capability flags (supported, advertised or lp_advertised).
+  * Assumes that the corresponding SUPPORTED and ADVERTISED flags are equal.
+  */
+ static void
+-dump_link_caps(const char *prefix, const char *an_prefix, u32 mask)
++dump_link_caps(const char *prefix, const char *an_prefix, u32 mask,
++	       int link_mode_only)
+ {
+ 	int indent;
+ 	int did1;
+@@ -456,24 +458,26 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask)
+ 		 fprintf(stdout, "Not reported");
+ 	fprintf(stdout, "\n");
+ 
+-	fprintf(stdout, "	%s pause frame use: ", prefix);
+-	if (mask & ADVERTISED_Pause) {
+-		fprintf(stdout, "Symmetric");
+-		if (mask & ADVERTISED_Asym_Pause)
+-			fprintf(stdout, " Receive-only");
+-		fprintf(stdout, "\n");
+-	} else {
+-		if (mask & ADVERTISED_Asym_Pause)
+-			fprintf(stdout, "Transmit-only\n");
++	if (!link_mode_only) {
++		fprintf(stdout, "	%s pause frame use: ", prefix);
++		if (mask & ADVERTISED_Pause) {
++			fprintf(stdout, "Symmetric");
++			if (mask & ADVERTISED_Asym_Pause)
++				fprintf(stdout, " Receive-only");
++			fprintf(stdout, "\n");
 +		} else {
-+			/* hsi value in eee_mode --> time */
-+			if (bnx2x_eee_nvram_to_time(params->eee_mode &
-+						    EEE_MODE_NVRAM_MASK,
-+						    &eee_idle))
-+				return 0;
++			if (mask & ADVERTISED_Asym_Pause)
++				fprintf(stdout, "Transmit-only\n");
++			else
++				fprintf(stdout, "No\n");
 +		}
-+	} else {
-+		/* hsi values in nvram --> time*/
-+		eee_mode = ((REG_RD(bp, params->shmem_base +
-+				    offsetof(struct shmem_region, dev_info.
-+				    port_feature_config[params->port].
-+				    eee_power_mode)) &
-+			     PORT_FEAT_CFG_EEE_POWER_MODE_MASK) >>
-+			    PORT_FEAT_CFG_EEE_POWER_MODE_SHIFT);
 +
-+		if (bnx2x_eee_nvram_to_time(eee_mode, &eee_idle))
-+			return 0;
-+	}
-+
-+	return eee_idle;
-+}
-+
-+
- /******************************************************************/
- /*			PFC section				  */
- /******************************************************************/
-@@ -1729,6 +1817,14 @@ static int bnx2x_xmac_enable(struct link_params *params,
- 	/* update PFC */
- 	bnx2x_update_pfc_xmac(params, vars, 0);
- 
-+	if (vars->eee_status & SHMEM_EEE_ADV_STATUS_MASK) {
-+		DP(NETIF_MSG_LINK, "Setting XMAC for EEE\n");
-+		REG_WR(bp, xmac_base + XMAC_REG_EEE_TIMERS_HI, 0x1380008);
-+		REG_WR(bp, xmac_base + XMAC_REG_EEE_CTRL, 0x1);
-+	} else {
-+		REG_WR(bp, xmac_base + XMAC_REG_EEE_CTRL, 0x0);
-+	}
-+
- 	/* Enable TX and RX */
- 	val = XMAC_CTRL_REG_TX_EN | XMAC_CTRL_REG_RX_EN;
- 
-@@ -2439,6 +2535,16 @@ static void bnx2x_update_mng(struct link_params *params, u32 link_status)
- 			port_mb[params->port].link_status), link_status);
- }
- 
-+static void bnx2x_update_mng_eee(struct link_params *params, u32 eee_status)
-+{
-+	struct bnx2x *bp = params->bp;
-+
-+	if (bnx2x_eee_has_cap(params))
-+		REG_WR(bp, params->shmem2_base +
-+		       offsetof(struct shmem2_region,
-+				eee_status[params->port]), eee_status);
-+}
-+
- static void bnx2x_update_pfc_nig(struct link_params *params,
- 		struct link_vars *vars,
- 		struct bnx2x_nig_brb_pfc_port_params *nig_params)
-@@ -3950,6 +4056,20 @@ static void bnx2x_warpcore_set_10G_XFI(struct bnx2x_phy *phy,
- 	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
- 			 MDIO_WC_REG_DIGITAL4_MISC3, val | 0x8080);
- 
-+	/* Enable LPI pass through */
-+	if ((params->eee_mode & EEE_MODE_ADV_LPI) &&
-+	    (phy->flags & FLAGS_EEE_10GBT) &&
-+	    (!(params->eee_mode & EEE_MODE_ENABLE_LPI) ||
-+	      bnx2x_eee_calc_timer(params)) &&
-+	    (params->req_duplex[bnx2x_phy_selection(params)] == DUPLEX_FULL)) {
-+		DP(NETIF_MSG_LINK, "Configure WC for LPI pass through\n");
-+		bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
-+				 MDIO_WC_REG_EEE_COMBO_CONTROL0,
-+				 0x7c);
-+		bnx2x_cl45_read_or_write(bp, phy, MDIO_WC_DEVAD,
-+					 MDIO_WC_REG_DIGITAL4_MISC5, 0xc000);
-+	}
-+
- 	/* 10G XFI Full Duplex */
- 	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
- 			 MDIO_WC_REG_IEEE0BLK_MIICNTL, 0x100);
-@@ -6462,6 +6582,15 @@ static int bnx2x_update_link_down(struct link_params *params,
- 	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
- 	}
- 	if (CHIP_IS_E3(bp)) {
-+		REG_WR(bp, MISC_REG_CPMU_LP_FW_ENABLE_P0 + (params->port << 2),
-+		       0);
-+		REG_WR(bp, MISC_REG_CPMU_LP_DR_ENABLE, 0);
-+		REG_WR(bp, MISC_REG_CPMU_LP_MASK_ENT_P0 + (params->port << 2),
-+		       0);
-+		vars->eee_status &= ~(SHMEM_EEE_LP_ADV_STATUS_MASK |
-+				      SHMEM_EEE_ACTIVE_BIT);
-+
-+		bnx2x_update_mng_eee(params, vars->eee_status);
- 		bnx2x_xmac_disable(params);
- 		bnx2x_umac_disable(params);
- 	}
-@@ -6501,6 +6630,16 @@ static int bnx2x_update_link_up(struct link_params *params,
- 			bnx2x_umac_enable(params, vars, 0);
- 		bnx2x_set_led(params, vars,
- 			      LED_MODE_OPER, vars->line_speed);
-+
-+		if ((vars->eee_status & SHMEM_EEE_ACTIVE_BIT) &&
-+		    (vars->eee_status & SHMEM_EEE_LPI_REQUESTED_BIT)) {
-+			DP(NETIF_MSG_LINK, "Enabling LPI assertion\n");
-+			REG_WR(bp, MISC_REG_CPMU_LP_FW_ENABLE_P0 +
-+			       (params->port << 2), 1);
-+			REG_WR(bp, MISC_REG_CPMU_LP_DR_ENABLE, 1);
-+			REG_WR(bp, MISC_REG_CPMU_LP_MASK_ENT_P0 +
-+			       (params->port << 2), 0xfc20);
-+		}
- 	}
- 	if ((CHIP_IS_E1x(bp) ||
- 	     CHIP_IS_E2(bp))) {
-@@ -6538,7 +6677,7 @@ static int bnx2x_update_link_up(struct link_params *params,
- 
- 	/* update shared memory */
- 	bnx2x_update_mng(params, vars->link_status);
--
-+	bnx2x_update_mng_eee(params, vars->eee_status);
- 	/* Check remote fault */
- 	for (phy_idx = INT_PHY; phy_idx < MAX_PHYS; phy_idx++) {
- 		if (params->phy[phy_idx].flags & FLAGS_TX_ERROR_CHECK) {
-@@ -6582,6 +6721,8 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
- 		phy_vars[phy_index].phy_link_up = 0;
- 		phy_vars[phy_index].link_up = 0;
- 		phy_vars[phy_index].fault_detected = 0;
-+		/* different consideration, since vars holds inner state */
-+		phy_vars[phy_index].eee_status = vars->eee_status;
- 	}
- 
- 	if (USES_WARPCORE(bp))
-@@ -6711,6 +6852,9 @@ int bnx2x_link_update(struct link_params *params, struct link_vars *vars)
- 			vars->link_status |= LINK_STATUS_SERDES_LINK;
++		fprintf(stdout, "	%s auto-negotiation: ", an_prefix);
++		if (mask & ADVERTISED_Autoneg)
++			fprintf(stdout, "Yes\n");
  		else
- 			vars->link_status &= ~LINK_STATUS_SERDES_LINK;
-+
-+		vars->eee_status = phy_vars[active_external_phy].eee_status;
-+
- 		DP(NETIF_MSG_LINK, "Active external phy selected: %x\n",
- 			   active_external_phy);
+ 			fprintf(stdout, "No\n");
  	}
-@@ -9579,9 +9723,9 @@ static int bnx2x_8481_config_init(struct bnx2x_phy *phy,
- static int bnx2x_84833_cmd_hdlr(struct bnx2x_phy *phy,
- 				   struct link_params *params,
- 		   u16 fw_cmd,
--		   u16 cmd_args[])
-+		   u16 cmd_args[], int argc)
- {
--	u32 idx;
-+	int idx;
- 	u16 val;
- 	struct bnx2x *bp = params->bp;
- 	/* Write CMD_OPEN_OVERRIDE to STATUS reg */
-@@ -9601,7 +9745,7 @@ static int bnx2x_84833_cmd_hdlr(struct bnx2x_phy *phy,
- 	}
+-
+-	fprintf(stdout, "	%s auto-negotiation: ", an_prefix);
+-	if (mask & ADVERTISED_Autoneg)
+-		fprintf(stdout, "Yes\n");
+-	else
+-		fprintf(stdout, "No\n");
+ }
  
- 	/* Prepare argument(s) and issue command */
--	for (idx = 0; idx < PHY84833_CMDHDLR_MAX_ARGS; idx++) {
-+	for (idx = 0; idx < argc; idx++) {
- 		bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
- 				MDIO_84833_CMD_HDLR_DATA1 + idx,
- 				cmd_args[idx]);
-@@ -9622,7 +9766,7 @@ static int bnx2x_84833_cmd_hdlr(struct bnx2x_phy *phy,
- 		return -EINVAL;
- 	}
- 	/* Gather returning data */
--	for (idx = 0; idx < PHY84833_CMDHDLR_MAX_ARGS; idx++) {
-+	for (idx = 0; idx < argc; idx++) {
- 		bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
- 				MDIO_84833_CMD_HDLR_DATA1 + idx,
- 				&cmd_args[idx]);
-@@ -9656,7 +9800,7 @@ static int bnx2x_84833_pair_swap_cfg(struct bnx2x_phy *phy,
- 	data[1] = (u16)pair_swap;
+ static int dump_ecmd(struct ethtool_cmd *ep)
+@@ -481,10 +485,11 @@ static int dump_ecmd(struct ethtool_cmd *ep)
+ 	u32 speed;
  
- 	status = bnx2x_84833_cmd_hdlr(phy, params,
--		PHY84833_CMD_SET_PAIR_SWAP, data);
-+		PHY84833_CMD_SET_PAIR_SWAP, data, PHY84833_CMDHDLR_MAX_ARGS);
- 	if (status == 0)
- 		DP(NETIF_MSG_LINK, "Pairswap OK, val=0x%x\n", data[1]);
+ 	dump_supported(ep);
+-	dump_link_caps("Advertised", "Advertised", ep->advertising);
++	dump_link_caps("Advertised", "Advertised", ep->advertising, 0);
+ 	if (ep->lp_advertising)
+ 		dump_link_caps("Link partner advertised",
+-			       "Link partner advertised", ep->lp_advertising);
++			       "Link partner advertised", ep->lp_advertising,
++			       0);
  
-@@ -9734,6 +9878,95 @@ static int bnx2x_84833_hw_reset_phy(struct bnx2x_phy *phy,
+ 	fprintf(stdout, "	Speed: ");
+ 	speed = ethtool_cmd_speed(ep);
+@@ -1116,6 +1121,34 @@ static int dump_rxfhash(int fhash, u64 val)
  	return 0;
  }
  
-+static int bnx2x_8483x_eee_timers(struct link_params *params,
-+				   struct link_vars *vars)
++static void dump_eeecmd(struct ethtool_eee *ep)
 +{
-+	u32 eee_idle = 0, eee_mode;
-+	struct bnx2x *bp = params->bp;
 +
-+	eee_idle = bnx2x_eee_calc_timer(params);
-+
-+	if (eee_idle) {
-+		REG_WR(bp, MISC_REG_CPMU_LP_IDLE_THR_P0 + (params->port << 2),
-+		       eee_idle);
-+	} else if ((params->eee_mode & EEE_MODE_ENABLE_LPI) &&
-+		   (params->eee_mode & EEE_MODE_OVERRIDE_NVRAM) &&
-+		   (params->eee_mode & EEE_MODE_OUTPUT_TIME)) {
-+		DP(NETIF_MSG_LINK, "Error: Tx LPI is enabled with timer 0\n");
-+		return -EINVAL;
-+	}
-+
-+	vars->eee_status &= ~(SHMEM_EEE_TIMER_MASK | SHMEM_EEE_TIME_OUTPUT_BIT);
-+	if (params->eee_mode & EEE_MODE_OUTPUT_TIME) {
-+		/* eee_idle in 1u --> eee_status in 16u */
-+		eee_idle >>= 4;
-+		vars->eee_status |= (eee_idle & SHMEM_EEE_TIMER_MASK) |
-+				    SHMEM_EEE_TIME_OUTPUT_BIT;
++	fprintf(stdout, "	EEE status: ");
++	if (!ep->supported) {
++		fprintf(stdout, "not supported\n");
++		return;
++	} else if (!ep->eee_enabled) {
++		fprintf(stdout, "disabled\n");
 +	} else {
-+		if (bnx2x_eee_time_to_nvram(eee_idle, &eee_mode))
-+			return -EINVAL;
-+		vars->eee_status |= eee_mode;
++		fprintf(stdout, "enabled - ");
++		if (ep->eee_active)
++			fprintf(stdout, "active\n");
++		else
++			fprintf(stdout, "inactive\n");
 +	}
 +
-+	return 0;
++	fprintf(stdout, "	Tx LPI:");
++	if (ep->tx_lpi_enabled)
++		fprintf(stdout, " %d (us)\n", ep->tx_lpi_timer);
++	else
++		fprintf(stdout, " disabled\n");
++
++	dump_link_caps("Supported EEE", "", ep->supported, 1);
++	dump_link_caps("Advertised EEE", "", ep->advertised, 1);
++	dump_link_caps("Link partner advertised EEE", "", ep->lp_advertised, 1);
 +}
 +
-+static int bnx2x_8483x_disable_eee(struct bnx2x_phy *phy,
-+				   struct link_params *params,
-+				   struct link_vars *vars)
-+{
-+	int rc;
-+	struct bnx2x *bp = params->bp;
-+	u16 cmd_args = 0;
-+
-+	DP(NETIF_MSG_LINK, "Don't Advertise 10GBase-T EEE\n");
-+
-+	/* Make Certain LPI is disabled */
-+	REG_WR(bp, MISC_REG_CPMU_LP_FW_ENABLE_P0 + (params->port << 2), 0);
-+	REG_WR(bp, MISC_REG_CPMU_LP_DR_ENABLE, 0);
-+
-+	/* Prevent Phy from working in EEE and advertising it */
-+	rc = bnx2x_84833_cmd_hdlr(phy, params,
-+		PHY84833_CMD_SET_EEE_MODE, &cmd_args, 1);
-+	if (rc != 0) {
-+		DP(NETIF_MSG_LINK, "EEE disable failed.\n");
-+		return rc;
-+	}
-+
-+	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD, MDIO_AN_REG_EEE_ADV, 0);
-+	vars->eee_status &= ~SHMEM_EEE_ADV_STATUS_MASK;
-+
-+	return 0;
-+}
-+
-+static int bnx2x_8483x_enable_eee(struct bnx2x_phy *phy,
-+				   struct link_params *params,
-+				   struct link_vars *vars)
-+{
-+	int rc;
-+	struct bnx2x *bp = params->bp;
-+	u16 cmd_args = 1;
-+
-+	DP(NETIF_MSG_LINK, "Advertise 10GBase-T EEE\n");
-+
-+	rc = bnx2x_84833_cmd_hdlr(phy, params,
-+		PHY84833_CMD_SET_EEE_MODE, &cmd_args, 1);
-+	if (rc != 0) {
-+		DP(NETIF_MSG_LINK, "EEE enable failed.\n");
-+		return rc;
-+	}
-+
-+	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD, MDIO_AN_REG_EEE_ADV, 0x8);
-+
-+	/* Mask events preventing LPI generation */
-+	REG_WR(bp, MISC_REG_CPMU_LP_MASK_EXT_P0 + (params->port << 2), 0xfc20);
-+
-+	vars->eee_status &= ~SHMEM_EEE_ADV_STATUS_MASK;
-+	vars->eee_status |= (SHMEM_EEE_10G_ADV << SHMEM_EEE_ADV_STATUS_SHIFT);
-+
-+	return 0;
-+}
-+
- #define PHY84833_CONSTANT_LATENCY 1193
- static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 				   struct link_params *params,
-@@ -9833,7 +10066,8 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 		cmd_args[2] = PHY84833_CONSTANT_LATENCY + 1;
- 		cmd_args[3] = PHY84833_CONSTANT_LATENCY;
- 		rc = bnx2x_84833_cmd_hdlr(phy, params,
--			PHY84833_CMD_SET_EEE_MODE, cmd_args);
-+			PHY84833_CMD_SET_EEE_MODE, cmd_args,
-+			PHY84833_CMDHDLR_MAX_ARGS);
- 		if (rc != 0)
- 			DP(NETIF_MSG_LINK, "Cfg AutogrEEEn failed.\n");
- 	}
-@@ -9858,6 +10092,48 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 				 MDIO_CTL_REG_84823_USER_CTRL_REG, val);
- 	}
+ #define N_SOTS 7
  
-+	bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
-+			MDIO_84833_TOP_CFG_FW_REV, &val);
-+
-+	/* Configure EEE support */
-+	if ((val >= MDIO_84833_TOP_CFG_FW_EEE) && bnx2x_eee_has_cap(params)) {
-+		phy->flags |= FLAGS_EEE_10GBT;
-+		vars->eee_status |= SHMEM_EEE_10G_ADV <<
-+				    SHMEM_EEE_SUPPORTED_SHIFT;
-+		/* Propogate params' bits --> vars (for migration exposure) */
-+		if (params->eee_mode & EEE_MODE_ENABLE_LPI)
-+			vars->eee_status |= SHMEM_EEE_LPI_REQUESTED_BIT;
-+		else
-+			vars->eee_status &= ~SHMEM_EEE_LPI_REQUESTED_BIT;
-+
-+		if (params->eee_mode & EEE_MODE_ADV_LPI)
-+			vars->eee_status |= SHMEM_EEE_REQUESTED_BIT;
-+		else
-+			vars->eee_status &= ~SHMEM_EEE_REQUESTED_BIT;
-+
-+		rc = bnx2x_8483x_eee_timers(params, vars);
-+		if (rc != 0) {
-+			DP(NETIF_MSG_LINK, "Failed to configure EEE timers\n");
-+			bnx2x_8483x_disable_eee(phy, params, vars);
-+			return rc;
-+		}
-+
-+		if ((params->req_duplex[actual_phy_selection] == DUPLEX_FULL) &&
-+		    (params->eee_mode & EEE_MODE_ADV_LPI) &&
-+		    (bnx2x_eee_calc_timer(params) ||
-+		     !(params->eee_mode & EEE_MODE_ENABLE_LPI)))
-+			rc = bnx2x_8483x_enable_eee(phy, params, vars);
-+		else
-+			rc = bnx2x_8483x_disable_eee(phy, params, vars);
-+		if (rc != 0) {
-+			DP(NETIF_MSG_LINK, "Failed to set EEE advertisment\n");
-+			return rc;
-+		}
-+	} else {
-+		phy->flags &= ~FLAGS_EEE_10GBT;
-+		vars->eee_status &= ~SHMEM_EEE_SUPPORTED_MASK;
-+	}
-+
- 	if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) {
- 		/* Bring PHY out of super isolate mode as the final step. */
- 		bnx2x_cl45_read(bp, phy,
-@@ -9989,6 +10265,31 @@ static u8 bnx2x_848xx_read_status(struct bnx2x_phy *phy,
- 		if (val & (1<<11))
- 			vars->link_status |=
- 				LINK_STATUS_LINK_PARTNER_10GXFD_CAPABLE;
-+
-+		/* Determine if EEE was negotiated */
-+		if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM84833) {
-+			u32 eee_shmem = 0;
-+
-+			bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
-+					MDIO_AN_REG_EEE_ADV, &val1);
-+			bnx2x_cl45_read(bp, phy, MDIO_AN_DEVAD,
-+					MDIO_AN_REG_LP_EEE_ADV, &val2);
-+			if ((val1 & val2) & 0x8) {
-+				DP(NETIF_MSG_LINK, "EEE negotiated\n");
-+				vars->eee_status |= SHMEM_EEE_ACTIVE_BIT;
-+			}
-+
-+			if (val2 & 0x12)
-+				eee_shmem |= SHMEM_EEE_100M_ADV;
-+			if (val2 & 0x4)
-+				eee_shmem |= SHMEM_EEE_1G_ADV;
-+			if (val2 & 0x68)
-+				eee_shmem |= SHMEM_EEE_10G_ADV;
-+
-+			vars->eee_status &= ~SHMEM_EEE_LP_ADV_STATUS_MASK;
-+			vars->eee_status |= (eee_shmem <<
-+					     SHMEM_EEE_LP_ADV_STATUS_SHIFT);
-+		}
- 	}
- 
- 	return link_up;
-@@ -11243,7 +11544,8 @@ static struct bnx2x_phy phy_84833 = {
- 	.def_md_devad	= 0,
- 	.flags		= (FLAGS_FAN_FAILURE_DET_REQ |
- 			   FLAGS_REARM_LATCH_SIGNAL |
--			   FLAGS_TX_ERROR_CHECK),
-+			   FLAGS_TX_ERROR_CHECK |
-+			   FLAGS_EEE_10GBT),
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -12011,6 +12313,8 @@ int bnx2x_phy_init(struct link_params *params, struct link_vars *vars)
- 		break;
- 	}
- 	bnx2x_update_mng(params, vars->link_status);
-+
-+	bnx2x_update_mng_eee(params, vars->eee_status);
+ static char *so_timestamping_labels[N_SOTS] = {
+@@ -3261,6 +3294,64 @@ static int do_getmodule(struct cmd_context *ctx)
  	return 0;
  }
  
-@@ -12023,6 +12327,9 @@ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
- 	/* disable attentions */
- 	vars->link_status = 0;
- 	bnx2x_update_mng(params, vars->link_status);
-+	vars->eee_status &= ~(SHMEM_EEE_LP_ADV_STATUS_MASK |
-+			      SHMEM_EEE_ACTIVE_BIT);
-+	bnx2x_update_mng_eee(params, vars->eee_status);
- 	bnx2x_bits_dis(bp, NIG_REG_MASK_INTERRUPT_PORT0 + port*4,
- 		       (NIG_MASK_XGXS0_LINK_STATUS |
- 			NIG_MASK_XGXS0_LINK10G |
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-index ea4371f..e920800 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-@@ -149,6 +149,7 @@ struct bnx2x_phy {
- #define FLAGS_DUMMY_READ		(1<<9)
- #define FLAGS_MDC_MDIO_WA_B0		(1<<10)
- #define FLAGS_TX_ERROR_CHECK		(1<<12)
-+#define FLAGS_EEE_10GBT			(1<<13)
- 
- 	/* preemphasis values for the rx side */
- 	u16 rx_preemphasis[4];
-@@ -265,6 +266,30 @@ struct link_params {
- 	u8 num_phys;
- 
- 	u8 rsrv;
-+
-+	/* Used to configure the EEE Tx LPI timer, has several modes of
-+	 * operation, according to bits 29:28 -
-+	 * 2'b00: Timer will be configured by nvram, output will be the value
-+	 *        from nvram.
-+	 * 2'b01: Timer will be configured by nvram, output will be in
-+	 *        microseconds.
-+	 * 2'b10: bits 1:0 contain an nvram value which will be used instead
-+	 *        of the one located in the nvram. Output will be that value.
-+	 * 2'b11: bits 19:0 contain the idle timer in microseconds; output
-+	 *        will be in microseconds.
-+	 * Bits 31:30 should be 2'b11 in order for EEE to be enabled.
-+	 */
-+	u32 eee_mode;
-+#define EEE_MODE_NVRAM_BALANCED_TIME		(0xa00)
-+#define EEE_MODE_NVRAM_AGGRESSIVE_TIME		(0x100)
-+#define EEE_MODE_NVRAM_LATENCY_TIME		(0x6000)
-+#define EEE_MODE_NVRAM_MASK		(0x3)
-+#define EEE_MODE_TIMER_MASK		(0xfffff)
-+#define EEE_MODE_OUTPUT_TIME		(1<<28)
-+#define EEE_MODE_OVERRIDE_NVRAM		(1<<29)
-+#define EEE_MODE_ENABLE_LPI		(1<<30)
-+#define EEE_MODE_ADV_LPI			(1<<31)
-+
- 	u16 hw_led_mode; /* part of the hw_config read from the shmem */
- 	u32 multi_phy_config;
- 
-@@ -301,6 +326,7 @@ struct link_vars {
- 
- 	/* The same definitions as the shmem parameter */
- 	u32 link_status;
-+	u32 eee_status;
- 	u8 fault_detected;
- 	u8 rsrv1;
- 	u16 periodic_flags;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index f755a66..a622bb7 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -3176,6 +3176,12 @@ static void bnx2x_set_mf_bw(struct bnx2x *bp)
- 	bnx2x_fw_command(bp, DRV_MSG_CODE_SET_MF_BW_ACK, 0);
- }
- 
-+static void bnx2x_handle_eee_event(struct bnx2x *bp)
++static int do_geee(struct cmd_context *ctx)
 +{
-+	DP(BNX2X_MSG_MCP, "EEE - LLDP event\n");
-+	bnx2x_fw_command(bp, DRV_MSG_CODE_EEE_RESULTS_ACK, 0);
++	struct ethtool_eee eeecmd;
++
++	if (ctx->argc != 0)
++		exit_bad_args();
++
++	fprintf(stdout, "EEE Settings for %s:\n", ctx->devname);
++
++	eeecmd.cmd = ETHTOOL_GEEE;
++	if (send_ioctl(ctx, &eeecmd)) {
++		perror("Cannot get EEE settings");
++		return 1;
++	}
++
++	dump_eeecmd(&eeecmd);
++
++	return 0;
 +}
 +
- static void bnx2x_handle_drv_info_req(struct bnx2x *bp)
- {
- 	enum drv_info_opcode op_code;
-@@ -3742,6 +3748,8 @@ static void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
- 			if (val & DRV_STATUS_AFEX_EVENT_MASK)
- 				bnx2x_handle_afex_cmd(bp,
- 					val & DRV_STATUS_AFEX_EVENT_MASK);
-+			if (val & DRV_STATUS_EEE_NEGOTIATION_RESULTS)
-+				bnx2x_handle_eee_event(bp);
- 			if (bp->link_vars.periodic_flags &
- 			    PERIODIC_FLAGS_LINK_EVENT) {
- 				/*  sync with link */
-@@ -10082,7 +10090,7 @@ static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
- {
- 	int port = BP_PORT(bp);
- 	u32 config;
--	u32 ext_phy_type, ext_phy_config;
-+	u32 ext_phy_type, ext_phy_config, eee_mode;
- 
- 	bp->link_params.bp = bp;
- 	bp->link_params.port = port;
-@@ -10149,6 +10157,19 @@ static void __devinit bnx2x_get_port_hwinfo(struct bnx2x *bp)
- 		bp->port.need_hw_lock = bnx2x_hw_lock_required(bp,
- 							bp->common.shmem_base,
- 							bp->common.shmem2_base);
++static int do_seee(struct cmd_context *ctx)
++{
++	int adv_c = -1, lpi_c = -1, lpi_time_c = -1, eee_c = -1;
++	int change = -1, change2 = -1;
++	struct ethtool_eee eeecmd;
++	struct cmdline_info cmdline_eee[] = {
++		{ "advertise",    CMDL_U32,  &adv_c,       &eeecmd.advertised },
++		{ "tx-lpi",       CMDL_BOOL, &lpi_c,   &eeecmd.tx_lpi_enabled },
++		{ "tx-timer",	  CMDL_U32,  &lpi_time_c, &eeecmd.tx_lpi_timer},
++		{ "eee",	  CMDL_BOOL, &eee_c,	   &eeecmd.eee_enabled},
++	};
 +
-+	/* Configure link feature according to nvram value */
-+	eee_mode = (((SHMEM_RD(bp, dev_info.
-+		      port_feature_config[port].eee_power_mode)) &
-+		     PORT_FEAT_CFG_EEE_POWER_MODE_MASK) >>
-+		    PORT_FEAT_CFG_EEE_POWER_MODE_SHIFT);
-+	if (eee_mode != PORT_FEAT_CFG_EEE_POWER_MODE_DISABLED) {
-+		bp->link_params.eee_mode = EEE_MODE_ADV_LPI |
-+					   EEE_MODE_ENABLE_LPI |
-+					   EEE_MODE_OUTPUT_TIME;
-+	} else {
-+		bp->link_params.eee_mode = 0;
++	if (ctx->argc == 0)
++		exit_bad_args();
++
++	parse_generic_cmdline(ctx, &change, cmdline_eee,
++			      ARRAY_SIZE(cmdline_eee));
++
++	eeecmd.cmd = ETHTOOL_GEEE;
++	if (send_ioctl(ctx, &eeecmd)) {
++		perror("Cannot get EEE settings");
++		return 1;
 +	}
- }
- 
- void bnx2x_get_iscsi_info(struct bnx2x *bp)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index bbd3874..bfef98f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -1488,6 +1488,121 @@
-  * 2:1 - otp_misc_do[51:50]; 0 - otp_misc_do[1]. */
- #define MISC_REG_CHIP_TYPE					 0xac60
- #define MISC_REG_CHIP_TYPE_57811_MASK				 (1<<1)
-+#define MISC_REG_CPMU_LP_DR_ENABLE				 0xa858
-+/* [RW 1] FW EEE LPI Enable. When 1 indicates that EEE LPI mode is enabled
-+ * by FW. When 0 indicates that the EEE LPI mode is disabled by FW. Clk
-+ * 25MHz. Reset on hard reset. */
-+#define MISC_REG_CPMU_LP_FW_ENABLE_P0				 0xa84c
-+/* [RW 32] EEE LPI Idle Threshold. The threshold value for the idle EEE LPI
-+ * counter. Timer tick is 1 us. Clock 25MHz. Reset on hard reset. */
-+#define MISC_REG_CPMU_LP_IDLE_THR_P0				 0xa8a0
-+/* [RW 18] LPI entry events mask. [0] - Vmain SM Mask. When 1 indicates that
-+ * the Vmain SM end state is disabled. When 0 indicates that the Vmain SM
-+ * end state is enabled. [1] - FW Queues Empty Mask. When 1 indicates that
-+ * the FW command that all Queues are empty is disabled. When 0 indicates
-+ * that the FW command that all Queues are empty is enabled. [2] - FW Early
-+ * Exit Mask / Reserved (Entry mask). When 1 indicates that the FW Early
-+ * Exit command is disabled. When 0 indicates that the FW Early Exit command
-+ * is enabled. This bit applicable only in the EXIT Events Mask registers.
-+ * [3] - PBF Request Mask. When 1 indicates that the PBF Request indication
-+ * is disabled. When 0 indicates that the PBF Request indication is enabled.
-+ * [4] - Tx Request Mask. When =1 indicates that the Tx other Than PBF
-+ * Request indication is disabled. When 0 indicates that the Tx Other Than
-+ * PBF Request indication is enabled. [5] - Rx EEE LPI Status Mask. When 1
-+ * indicates that the RX EEE LPI Status indication is disabled. When 0
-+ * indicates that the RX EEE LPI Status indication is enabled. In the EXIT
-+ * Events Masks registers; this bit masks the falling edge detect of the LPI
-+ * Status (Rx LPI is on - off). [6] - Tx Pause Mask. When 1 indicates that
-+ * the Tx Pause indication is disabled. When 0 indicates that the Tx Pause
-+ * indication is enabled. [7] - BRB1 Empty Mask. When 1 indicates that the
-+ * BRB1 EMPTY indication is disabled. When 0 indicates that the BRB1 EMPTY
-+ * indication is enabled. [8] - QM Idle Mask. When 1 indicates that the QM
-+ * IDLE indication is disabled. When 0 indicates that the QM IDLE indication
-+ * is enabled. (One bit for both VOQ0 and VOQ1). [9] - QM LB Idle Mask. When
-+ * 1 indicates that the QM IDLE indication for LOOPBACK is disabled. When 0
-+ * indicates that the QM IDLE indication for LOOPBACK is enabled. [10] - L1
-+ * Status Mask. When 1 indicates that the L1 Status indication from the PCIE
-+ * CORE is disabled. When 0 indicates that the RX EEE LPI Status indication
-+ * from the PCIE CORE is enabled. In the EXIT Events Masks registers; this
-+ * bit masks the falling edge detect of the L1 status (L1 is on - off). [11]
-+ * - P0 E0 EEE EEE LPI REQ Mask. When =1 indicates that the P0 E0 EEE EEE
-+ * LPI REQ indication is disabled. When =0 indicates that the P0 E0 EEE LPI
-+ * REQ indication is enabled. [12] - P1 E0 EEE LPI REQ Mask. When =1
-+ * indicates that the P0 EEE LPI REQ indication is disabled. When =0
-+ * indicates that the P0 EEE LPI REQ indication is enabled. [13] - P0 E1 EEE
-+ * LPI REQ Mask. When =1 indicates that the P0 EEE LPI REQ indication is
-+ * disabled. When =0 indicates that the P0 EEE LPI REQ indication is
-+ * enabled. [14] - P1 E1 EEE LPI REQ Mask. When =1 indicates that the P0 EEE
-+ * LPI REQ indication is disabled. When =0 indicates that the P0 EEE LPI REQ
-+ * indication is enabled. [15] - L1 REQ Mask. When =1 indicates that the L1
-+ * REQ indication is disabled. When =0 indicates that the L1 indication is
-+ * enabled. [16] - Rx EEE LPI Status Edge Detect Mask. When =1 indicates
-+ * that the RX EEE LPI Status Falling Edge Detect indication is disabled (Rx
-+ * EEE LPI is on - off). When =0 indicates that the RX EEE LPI Status
-+ * Falling Edge Detec indication is enabled (Rx EEE LPI is on - off). This
-+ * bit is applicable only in the EXIT Events Masks registers. [17] - L1
-+ * Status Edge Detect Mask. When =1 indicates that the L1 Status Falling
-+ * Edge Detect indication from the PCIE CORE is disabled (L1 is on - off).
-+ * When =0 indicates that the L1 Status Falling Edge Detect indication from
-+ * the PCIE CORE is enabled (L1 is on - off). This bit is applicable only in
-+ * the EXIT Events Masks registers. Clock 25MHz. Reset on hard reset. */
-+#define MISC_REG_CPMU_LP_MASK_ENT_P0				 0xa880
-+/* [RW 18] EEE LPI exit events mask. [0] - Vmain SM Mask. When 1 indicates
-+ * that the Vmain SM end state is disabled. When 0 indicates that the Vmain
-+ * SM end state is enabled. [1] - FW Queues Empty Mask. When 1 indicates
-+ * that the FW command that all Queues are empty is disabled. When 0
-+ * indicates that the FW command that all Queues are empty is enabled. [2] -
-+ * FW Early Exit Mask / Reserved (Entry mask). When 1 indicates that the FW
-+ * Early Exit command is disabled. When 0 indicates that the FW Early Exit
-+ * command is enabled. This bit applicable only in the EXIT Events Mask
-+ * registers. [3] - PBF Request Mask. When 1 indicates that the PBF Request
-+ * indication is disabled. When 0 indicates that the PBF Request indication
-+ * is enabled. [4] - Tx Request Mask. When =1 indicates that the Tx other
-+ * Than PBF Request indication is disabled. When 0 indicates that the Tx
-+ * Other Than PBF Request indication is enabled. [5] - Rx EEE LPI Status
-+ * Mask. When 1 indicates that the RX EEE LPI Status indication is disabled.
-+ * When 0 indicates that the RX LPI Status indication is enabled. In the
-+ * EXIT Events Masks registers; this bit masks the falling edge detect of
-+ * the EEE LPI Status (Rx EEE LPI is on - off). [6] - Tx Pause Mask. When 1
-+ * indicates that the Tx Pause indication is disabled. When 0 indicates that
-+ * the Tx Pause indication is enabled. [7] - BRB1 Empty Mask. When 1
-+ * indicates that the BRB1 EMPTY indication is disabled. When 0 indicates
-+ * that the BRB1 EMPTY indication is enabled. [8] - QM Idle Mask. When 1
-+ * indicates that the QM IDLE indication is disabled. When 0 indicates that
-+ * the QM IDLE indication is enabled. (One bit for both VOQ0 and VOQ1). [9]
-+ * - QM LB Idle Mask. When 1 indicates that the QM IDLE indication for
-+ * LOOPBACK is disabled. When 0 indicates that the QM IDLE indication for
-+ * LOOPBACK is enabled. [10] - L1 Status Mask. When 1 indicates that the L1
-+ * Status indication from the PCIE CORE is disabled. When 0 indicates that
-+ * the RX EEE LPI Status indication from the PCIE CORE is enabled. In the
-+ * EXIT Events Masks registers; this bit masks the falling edge detect of
-+ * the L1 status (L1 is on - off). [11] - P0 E0 EEE EEE LPI REQ Mask. When
-+ * =1 indicates that the P0 E0 EEE EEE LPI REQ indication is disabled. When
-+ * =0 indicates that the P0 E0 EEE LPI REQ indication is enabled. [12] - P1
-+ * E0 EEE LPI REQ Mask. When =1 indicates that the P0 EEE LPI REQ indication
-+ * is disabled. When =0 indicates that the P0 EEE LPI REQ indication is
-+ * enabled. [13] - P0 E1 EEE LPI REQ Mask. When =1 indicates that the P0 EEE
-+ * LPI REQ indication is disabled. When =0 indicates that the P0 EEE LPI REQ
-+ * indication is enabled. [14] - P1 E1 EEE LPI REQ Mask. When =1 indicates
-+ * that the P0 EEE LPI REQ indication is disabled. When =0 indicates that
-+ * the P0 EEE LPI REQ indication is enabled. [15] - L1 REQ Mask. When =1
-+ * indicates that the L1 REQ indication is disabled. When =0 indicates that
-+ * the L1 indication is enabled. [16] - Rx EEE LPI Status Edge Detect Mask.
-+ * When =1 indicates that the RX EEE LPI Status Falling Edge Detect
-+ * indication is disabled (Rx EEE LPI is on - off). When =0 indicates that
-+ * the RX EEE LPI Status Falling Edge Detec indication is enabled (Rx EEE
-+ * LPI is on - off). This bit is applicable only in the EXIT Events Masks
-+ * registers. [17] - L1 Status Edge Detect Mask. When =1 indicates that the
-+ * L1 Status Falling Edge Detect indication from the PCIE CORE is disabled
-+ * (L1 is on - off). When =0 indicates that the L1 Status Falling Edge
-+ * Detect indication from the PCIE CORE is enabled (L1 is on - off). This
-+ * bit is applicable only in the EXIT Events Masks registers.Clock 25MHz.
-+ * Reset on hard reset. */
-+#define MISC_REG_CPMU_LP_MASK_EXT_P0				 0xa888
-+/* [RW 16] EEE LPI Entry Events Counter. A statistic counter with the number
-+ * of counts that the SM entered the EEE LPI state. Clock 25MHz. Read only
-+ * register. Reset on hard reset. */
-+#define MISC_REG_CPMU_LP_SM_ENT_CNT_P0				 0xa8b8
- /* [RW 32] The following driver registers(1...16) represent 16 drivers and
-    32 clients. Each client can be controlled by one driver only. One in each
-    bit represent that this driver control the appropriate client (Ex: bit 5
-@@ -5372,6 +5487,8 @@
- /* [RW 32] Lower 48 bits of ctrl_sa register. Used as the SA in PAUSE/PFC
-  * packets transmitted by the MAC */
- #define XMAC_REG_CTRL_SA_LO					 0x28
-+#define XMAC_REG_EEE_CTRL					 0xd8
-+#define XMAC_REG_EEE_TIMERS_HI					 0xe4
- #define XMAC_REG_PAUSE_CTRL					 0x68
- #define XMAC_REG_PFC_CTRL					 0x70
- #define XMAC_REG_PFC_CTRL_HI					 0x74
-@@ -6813,6 +6930,8 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_AN_REG_LP_AUTO_NEG		0x0013
- #define MDIO_AN_REG_LP_AUTO_NEG2	0x0014
- #define MDIO_AN_REG_MASTER_STATUS	0x0021
-+#define MDIO_AN_REG_EEE_ADV		0x003c
-+#define MDIO_AN_REG_LP_EEE_ADV		0x003d
- /*bcm*/
- #define MDIO_AN_REG_LINK_STATUS 	0x8304
- #define MDIO_AN_REG_CL37_CL73		0x8370
-@@ -6866,6 +6985,8 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_PMA_REG_84823_LED3_STRETCH_EN			0x0080
- 
- /* BCM84833 only */
-+#define MDIO_84833_TOP_CFG_FW_REV			0x400f
-+#define MDIO_84833_TOP_CFG_FW_EEE		0x10b1
- #define MDIO_84833_TOP_CFG_XGPHY_STRAP1			0x401a
- #define MDIO_84833_SUPER_ISOLATE		0x8000
- /* These are mailbox register set used by 84833. */
-@@ -6993,11 +7114,13 @@ Theotherbitsarereservedandshouldbezero*/
- #define MDIO_WC_REG_DIGITAL3_UP1			0x8329
- #define MDIO_WC_REG_DIGITAL3_LP_UP1			 0x832c
- #define MDIO_WC_REG_DIGITAL4_MISC3			0x833c
-+#define MDIO_WC_REG_DIGITAL4_MISC5			0x833e
- #define MDIO_WC_REG_DIGITAL5_MISC6			0x8345
- #define MDIO_WC_REG_DIGITAL5_MISC7			0x8349
- #define MDIO_WC_REG_DIGITAL5_ACTUAL_SPEED		0x834e
- #define MDIO_WC_REG_DIGITAL6_MP5_NEXTPAGECTRL		0x8350
- #define MDIO_WC_REG_CL49_USERB0_CTRL			0x8368
-+#define MDIO_WC_REG_EEE_COMBO_CONTROL0			0x8390
- #define MDIO_WC_REG_TX66_CONTROL			0x83b0
- #define MDIO_WC_REG_RX66_CONTROL			0x83c0
- #define MDIO_WC_REG_RX66_SCW0				0x83c2
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-index 1e2785c..0e8bdcb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-@@ -785,6 +785,10 @@ static int bnx2x_hw_stats_update(struct bnx2x *bp)
- 
- 	pstats->host_port_stats_counter++;
- 
-+	if (CHIP_IS_E3(bp))
-+		estats->eee_tx_lpi += REG_RD(bp,
-+					     MISC_REG_CPMU_LP_SM_ENT_CNT_P0);
 +
- 	if (!BP_NOMCP(bp)) {
- 		u32 nig_timer_max =
- 			SHMEM_RD(bp, port_mb[BP_PORT(bp)].stat_nig_timer);
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-index 93e689fd..24b8e50 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-@@ -203,6 +203,8 @@ struct bnx2x_eth_stats {
- 	/* Recovery */
- 	u32 recoverable_error;
- 	u32 unrecoverable_error;
-+	/* src: Clear-on-Read register; Will not survive PMF Migration */
-+	u32 eee_tx_lpi;
- };
- 
- 
++	do_generic_set(cmdline_eee, ARRAY_SIZE(cmdline_eee), &change2);
++
++	if (change2) {
++
++		eeecmd.cmd = ETHTOOL_SEEE;
++		if (send_ioctl(ctx, &eeecmd)) {
++			perror("Cannot set EEE settings");
++			return 1;
++		}
++	}
++
++	return 0;
++}
++
+ int send_ioctl(struct cmd_context *ctx, void *cmd)
+ {
+ #ifndef TEST_ETHTOOL
+@@ -3423,6 +3514,12 @@ static const struct option {
+ 	  "		[ hex on|off ]\n"
+ 	  "		[ offset N ]\n"
+ 	  "		[ length N ]\n" },
++	{ "--get-eee", 1, do_geee, "Get EEE settings"},
++	{ "--set-eee", 1, do_seee, "Set EEE settings",
++	  "		[ eee on|off ]\n"
++	  "		[ advertise %x ]\n"
++	  "		[ tx-lpi on|off ]\n"
++	  "		[ tx-timer %d ]\n"},
+ 	{ "-h|--help", 0, show_usage, "Show this help" },
+ 	{ "--version", 0, do_version, "Show version number" },
+ 	{}
+diff --git a/test-cmdline.c b/test-cmdline.c
+index c30b0e6..d072886 100644
+--- a/test-cmdline.c
++++ b/test-cmdline.c
+@@ -223,6 +223,17 @@ static struct test_case {
+ 	{ 0, "-m devname hex off" },
+ 	{ 1, "-m devname hex on raw on" },
+ 	{ 0, "-m devname offset 4 length 6" },
++	{ 1, "--get-eee" },
++	{ 0, "--get-eee devname" },
++	{ 0, "--get-eee devname foo" },
++	{ 1, "--set-eee" },
++	{ 1, "--set-eee devname" },
++	{ 0, "--set-eee devname eee on" },
++	{ 0, "--set-eee devname eee off" },
++	{ 0, "--set-eee devname tx-lpi on" },
++	{ 0, "--set-eee devname tx-lpi off" },
++	{ 1, "--set-eee devname tx-timer foo" },
++	{ 1, "--set-eee devname advertise foo" },
+ 	/* can't test --set-priv-flags yet */
+ 	{ 0, "-h" },
+ 	{ 0, "--help" },
 -- 
 1.7.9.rc2
