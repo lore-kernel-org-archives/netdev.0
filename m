@@ -1,49 +1,55 @@
-From: Grant Edwards <grant.b.edwards@gmail.com>
-Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
-Date: Wed, 6 Jun 2012 20:24:00 +0000 (UTC)
-Message-ID: <jqoe90$fs3$2@dough.gmane.org>
-References: <jqo7op$t6f$1@dough.gmane.org>
- <20120606.115130.1091814494251887552.davem@davemloft.net>
- <jqo9ej$ao4$1@dough.gmane.org>
- <20120606.131703.870120997635192180.davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:48650 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752574Ab2FFUZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 16:25:07 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1ScMmu-0000Uh-1T
-	for netdev@vger.kernel.org; Wed, 06 Jun 2012 22:25:04 +0200
-Received: from dsl.comtrol.com ([64.122.56.22])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 22:25:04 +0200
-Received: from grant.b.edwards by dsl.comtrol.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Jun 2012 22:25:04 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
+Date: Wed, 06 Jun 2012 22:25:57 +0200
+Message-ID: <1339014357.26966.72.camel@edumazet-glaptop>
+References: <1338971724.2760.3913.camel@edumazet-glaptop>
+	<1338972341.2760.3944.camel@edumazet-glaptop>
+	<20120606111357.GA15070@redhat.com>
+	<1338988210.2760.4485.camel@edumazet-glaptop>
+	<20120606144941.GA17092@redhat.com>
+	<20120606081432.6b602065@nehalam.linuxnetplumber.net>
+	<20120606185107.GA20503@redhat.com>
+	<1339012441.26966.48.camel@edumazet-glaptop>
+	<20120606195814.GA20677@redhat.com>
+	<1339013289.26966.62.camel@edumazet-glaptop>
+	<1339013979.2836.52.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1339013979.2836.52.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2012-06-06, David Miller <davem@davemloft.net> wrote:
-> From: Grant Edwards <grant.b.edwards@gmail.com>
-> Date: Wed, 6 Jun 2012 19:01:40 +0000 (UTC)
->
->> That's what I'll do as soon as I can find a definition of what the API
->> for alloc_skb() actually _is_.  It has clearly changed in the past few
->> years.
->
-> And it will continue to change.  There are no stable APIs inside of
-> the kernel, none.
+On Wed, 2012-06-06 at 21:19 +0100, Ben Hutchings wrote:
+> On Wed, 2012-06-06 at 22:08 +0200, Eric Dumazet wrote:
+> > On Wed, 2012-06-06 at 22:58 +0300, Michael S. Tsirkin wrote:
+> > 
+> > > Absolutely, I am talking about virtio here.  I'm not kicking
+> > > u64_stats_sync idea I am just saying that simple locking
+> > > would work for virtio and might be better as it
+> > > gives us a way to get counters atomically.
+> > 
+> > Which lock do you own in the RX path ?
+> > 
+> > You'll have to add a lock in fast path. This sounds really a bad choice
+> > to me.
+> 
+> You have the NAPI 'lock', so when gathering stats you can synchronise
+> using napi_disable() ;-)
 
-Oh, I know (as does anybody who has maintained a driver for more than
-a few months).  Right now, I'm just trying to find out what the
-current API for alloc_skb() is.
+Nice, this adds one new bug in network stack.
 
-Is skb_tailroom() guaranteed to be >= the requested size?
-
--- 
-Grant Edwards               grant.b.edwards        Yow! I'm wet!  I'm wild!
-                                  at               
-                              gmail.com            
+Really guys, can we stop this thread, please ?
