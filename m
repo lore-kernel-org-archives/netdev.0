@@ -1,45 +1,42 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire X4150(x86)
- and e1000e
-Date: Wed, 6 Jun 2012 09:26:35 -0700
-Message-ID: <20120606092635.00003b61@unknown>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
-	<88c43001441945e1431609db252b69e7@visp.net.lb>
-	<df211722d18136698aeeda2f17b876e2@visp.net.lb>
-	<d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
-	<CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
-	<79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
-	<CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
-	<20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
-	<1338959413.2760.3686.camel@edumazet-glaptop>
-	<20120606174303.0bfc9868.shimoda.hiroaki@gmail.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: RE: [PATCH 1/2] Ethtool: Add EEE support
+Date: Wed, 6 Jun 2012 16:27:05 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A502687E@SJEXCHMB10.corp.ad.broadcom.com>
+References: <1338878470-24784-1-git-send-email-yuvalmin@broadcom.com>
+ <1338878470-24784-2-git-send-email-yuvalmin@broadcom.com>
+ <1338997734.2836.17.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	<netdev@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>,
-	<jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>
-To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:14130 "EHLO mga02.intel.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2082 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752879Ab2FFQ0g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jun 2012 12:26:36 -0400
-In-Reply-To: <20120606174303.0bfc9868.shimoda.hiroaki@gmail.com>
+	id S1757036Ab2FFQ1e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 12:27:34 -0400
+In-Reply-To: <1338997734.2836.17.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Jun 2012 Hiroaki SHIMODA <shimoda.hiroaki@gmail.com> wrote:
-> Sorry for long delay. I'll post.
-> (I have no idea how to fix this problem as keeping TXDCTL.WTHRESH to 5)
-
-I don't like changing WTHRESH wholesale because making the global change
-to WTHRESH on e1000e just to fix this one bug (likely specific to a
-particular chip/hardware) will adversely effect performance on many
-models supported by e1000e not demonstrating any problem.  We could
-possibly check something in for just ESB2LAN (S5000 chipset).
-
-Other people (tom herbert) with this same chipset have been unable to
-reproduce this issue right?
+SGkgQmVuLA0KDQpJIHN0YW5kIGNvcnJlY3RlZDsgSSdsbCBzdXBwbHkgYSBuZXcgdmVyc2lvbiBz
+aG9ydGx5LiANCg0KSSd2ZSBnb3QgMiBxdWVzdGlvbnMgIHRob3VnaDoNCg0KPiBGb3Igbm93LCB1
+c2UgaW50IGZvciBib29sZWFucy4gIEF0IHNvbWUgcG9pbnQgSSB3b3VsZCBsaWtlIHRvIHNlZSBh
+DQo+IHRob3JvdWdoIGNsZWFudXAgb2YgZXRodG9vbCB0byB1c2UgYm9vbCB3aGVyZSBhcHByb3By
+aWF0ZSAtIGJ1dCB0aGF0J3MNCj4gaW5kZXBlbmRlbnQgb2YgdGhpcw0KDQpJJ3ZlIG5vdGljZWQg
+dGhhdCB0aGUgJ2RvX2dlbmVyaWNfc2V0JyBmdW5jdGlvbiBhc3N1bWVzIGFsbCBmaWVsZHMgYXJl
+IGludHMuDQpJcyB0aGlzIGEgY29udmVudGlvbiB3ZSBzaG91bGQgc3RpY2sgdG8gKHVzaW5nICBf
+X3UzMiBpbiB0aGUgZXRodG9vbCBzdHJ1Y3RzKT8NCg0KSSdtIGFza2luZyBiZWNhdXNlIEknbSAi
+d2FzdGluZyIgZmllbGRzIGluIHRoZSBldGh0b29sX2VlZSBzdHJ1Y3QgYXMgSSB1c2UNCl9fdTMy
+IGZvciBib29sZWFuIGZpZWxkcywgc2ltcGx5IGJlY2F1c2Ugd2hhdCBzZWVtcyB0byBiZSB0aGUg
+Y29udmVudGlvbmFsDQptZXRob2Qgd29uJ3Qgd29yayB3aXRoIHNtYWxsZXIgZmllbGRzIChjb3Jy
+dXB0cyB0aGUgZm9sbG93aW5nIGZpZWxkcykuDQoNClRoZSBzZWNvbmRzIHF1ZXN0aW9uIC0gaXMg
+dGhlcmUgYSBkZXBlbmRlbmN5IGJldHdlZW4geW91ciBhY2NlcHRhbmNlIG9mDQp0aGlzIHBhdGNo
+IHNlcmllcyBhbmQgRGF2ZSdzIGFjY2VwdGFuY2Ugb2YgdGhlIGtlcm5lbCdzIGV0aHRvb2wgbW9k
+aWZpY2F0aW9uPw0KSSdtIGFza2luZyBiZWNhdXNlIGNoYW5nZXMgaW4gdGhlIGV0aHRvb2wgaGVh
+ZGVyIHRoZXJlIHNob3VsZCBiZSBhcHBsaWVkIGluDQp0aGlzIHBhdGNoIHNlcmllcyBhcyB3ZWxs
+IChpbiBldGh0b29sLWNvcHkuaCkuDQoNClRoYW5rcywNCll1dmFsIA0K
