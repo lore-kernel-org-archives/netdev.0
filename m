@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
-Date: Wed, 06 Jun 2012 11:51:30 -0700 (PDT)
-Message-ID: <20120606.115130.1091814494251887552.davem@davemloft.net>
-References: <jqo7op$t6f$1@dough.gmane.org>
+Subject: Re: [PATCH v9] tilegx network driver: initial support
+Date: Wed, 06 Jun 2012 11:54:40 -0700 (PDT)
+Message-ID: <20120606.115440.1245419453265419850.davem@davemloft.net>
+References: <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
+	<1339004459.26966.31.camel@edumazet-glaptop>
+	<4FCFA312.4020505@tilera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: grant.b.edwards@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38290 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757513Ab2FFSvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 14:51:31 -0400
-In-Reply-To: <jqo7op$t6f$1@dough.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com, arnd@arndb.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: cmetcalf@tilera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FCFA312.4020505@tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Grant Edwards <grant.b.edwards@gmail.com>
-Date: Wed, 6 Jun 2012 18:32:57 +0000 (UTC)
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Wed, 6 Jun 2012 14:36:02 -0400
 
-> The kernel module that's started failing fills the allocated sk_buff
-> until tailroom() indicates it is full and then sends it.  The problem
-> is that sending a packet with a length of 1850 won't work (it's a
-> MAC-layer Ethernet packet).
+> By the way, your question about tx_queue_len is a good one; I'm roping in
+> our other network developer folks to figure it out.  Originally it was a
+> performance optimization, I believe; I'm not sure it's still required. 
 
-The amount of tailroom an SKB has is implementation dependent.
+It's illegal, you cannot do this.
 
-It's incredibly poor form to rely upon it to determine whether a fully
-sized frame has been constructed or not.
+If you set the TX queue length to zero, amongst other very serious
+and grave problems, your device cannot be used with the various
+packet scheduler queueing disciplies.
 
-Please fix the code that does this.
+Zero TX queue lengths should only be used for layering drivers which
+are purely software entities rather than for real actual hardware.
+
+As stated before, all of the areas where the tilegx driver tries to be
+different end up being bugs.  It would therefore be nice, if, as I
+suggested before, the driver is audited by you against a known
+gold-standard Linux driver such as tg3 to spot inconsistencies like
+this.
