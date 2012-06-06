@@ -1,57 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Strange latency spikes/TX network stalls on Sun Fire
- X4150(x86) and e1000e
-Date: Wed, 06 Jun 2012 07:10:13 +0200
-Message-ID: <1338959413.2760.3686.camel@edumazet-glaptop>
-References: <668eeb0d42a1678d9083a58deb3ac40d@visp.net.lb>
-	 <88c43001441945e1431609db252b69e7@visp.net.lb>
-	 <df211722d18136698aeeda2f17b876e2@visp.net.lb>
-	 <d3a88d6c741394a48aee6179d58e4edf@visp.net.lb>
-	 <CA+mtBx9axFKCjLwDYMvXXP2nB_og896kAhG0UYWaK6PTAXhPcw@mail.gmail.com>
-	 <79d6b56fdf5f4be4656079568d5a7445@visp.net.lb>
-	 <CA+mtBx_sF5GCMRpLQuTruZ=xpFTFpd5z8SZJaG_dBqf4oCXpwg@mail.gmail.com>
-	 <20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] netdev: mv643xx_eth: Prevent build on PPC32
+Date: Wed, 6 Jun 2012 07:29:10 +0200
+Message-ID: <20120606052910.GA674@lunn.ch>
+References: <20120605192820.GC7683@zod.bos.redhat.com>
+ <1338939005.21665.54.camel@deadeye.wl.decadent.org.uk>
+ <20120606023842.GD7683@zod.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	davem@davemloft.net
-To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Andrew Lunn <andrew@lunn.ch>, Olof Johansson <olof@lixom.net>,
+	netdev@vger.kernel.org
+To: Josh Boyer <jwboyer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:49360 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935Ab2FFFKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 01:10:19 -0400
-Received: by weyu7 with SMTP id u7so4053640wey.19
-        for <netdev@vger.kernel.org>; Tue, 05 Jun 2012 22:10:18 -0700 (PDT)
-In-Reply-To: <20120529232518.e5b41759.shimoda.hiroaki@gmail.com>
+Received: from londo.lunn.ch ([80.238.139.98]:58907 "EHLO londo.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754105Ab2FFF3W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jun 2012 01:29:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20120606023842.GD7683@zod.bos.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-05-29 at 23:25 +0900, Hiroaki SHIMODA wrote:
-
-> If I understand the code and spec correctly, TX interrupts are
-> generated when TXDCTL.WTHRESH descriptors have been accumulated
-> and write backed.
+> The proper fix, from my minimal looking, was one of:
 > 
-> I tentatively changed the TXDCTL.WTHRESH to 1, then it seems
-> that latency spikes are disappear.
+> 1) revert the change for ARM that introduced th clk stuff
+> 2) do a similar change as the original commit but with a bunch of
+> #ifdef-ery
+> 3) implement the clkdev API stuff for 32-bit ppc
 > 
-> drivers/net/ethernet/intel/e1000e/e1000.h
-> @@ -181,7 +181,7 @@ struct e1000_info;
->  #define E1000_TXDCTL_DMA_BURST_ENABLE                          \
->         (E1000_TXDCTL_GRAN | /* set descriptor granularity */  \
->          E1000_TXDCTL_COUNT_DESC |                             \
-> -        (5 << 16) | /* wthresh must be +1 more than desired */\
-> +        (1 << 16) | /* wthresh must be +1 more than desired */\
->          (1 << 8)  | /* hthresh */                             \
->          0x1f)       /* pthresh */
-> 
+> Honestly, I'd go for either 1 or 2.  The commit that introduced it was
+> broken to begin with, but that isn't my call.
 
+I broke it. Sorry.
 
-Was this patch officially submitted ?
+At the time, there was a push to remove all the #ifdefs. The following
+patchset was doing this:
 
-Thanks !
+https://lkml.org/lkml/2012/4/21/94
+
+it would provide dummy implementations for those systems without clk
+support. However, it seems that patch set never made it in, and i did
+not declare my dependency on it.
+
+I'm happy to add #ifdef. However, i would first like to understand
+what was 'broken to begin with'.
+
+     Thanks
+	Andrew
