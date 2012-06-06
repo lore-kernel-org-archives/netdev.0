@@ -1,38 +1,43 @@
-From: Jonathan Nieder <jrnieder@gmail.com>
-Subject: Re: NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
-Date: Tue, 5 Jun 2012 19:38:56 -0500
-Message-ID: <20120606003856.GA7839@burratino>
-References: <1329063403.1449.14.camel@localhost.localdomain>
- <CA+5PVA52+0vOMF6+tvMPkgzhdTKJRQnrjD4FfVmBZs0TMDJ5cg@mail.gmail.com>
- <1329204997.24837.15.camel@edumazet-laptop>
- <1329366846.5646.1.camel@edumazet-laptop>
- <1329847015.5133.4.camel@localhost.localdomain>
- <1329848093.18384.35.camel@edumazet-laptop>
- <1330111229.15610.50.camel@edumazet-laptop>
- <1330163565.1419.5.camel@localhost.localdomain>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] netdev: mv643xx_eth: Prevent build on PPC32
+Date: Wed, 6 Jun 2012 02:49:07 +0200
+Message-ID: <20120606004907.GG725@wantstofly.org>
+References: <20120605192820.GC7683@zod.bos.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	jcliburn@gmail.com, chris.snook@gmail.com,
-	netdev <netdev@vger.kernel.org>, Josh Boyer <jwboyer@gmail.com>
-To: Thomas Meyer <thomas@m3y3r.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Andrew Lunn <andrew@lunn.ch>, Olof Johansson <olof@lixom.net>,
+	netdev@vger.kernel.org
+To: Josh Boyer <jwboyer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fw.wantstofly.org ([80.101.37.227]:61996 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752491Ab2FFAtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jun 2012 20:49:11 -0400
 Content-Disposition: inline
-In-Reply-To: <1330163565.1419.5.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20120605192820.GC7683@zod.bos.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In February, 2012, Thomas Meyer wrote:
-> Am Freitag, den 24.02.2012, 20:20 +0100 schrieb Eric Dumazet:
+On Tue, Jun 05, 2012 at 03:28:21PM -0400, Josh Boyer wrote:
 
->> Here is a cumulative patch to hopefuly remove the races in this driver,
->> could you please test it ?
-[...]
-> just building a 3.2.7 kernel with your patch applied. I will watch out
-> for the warning in the next days.
+> Commit 452503ebc (ARM: Orion: Eth: Add clk/clkdev support.) added use of
+> the clk driver API which results in compile errors on architectures that
+> don't implement the clk API.
+> 
+> ERROR: "clk_enable" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> ERROR: "clk_disable" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> ERROR: "clk_put" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> ERROR: "clk_get_rate" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> ERROR: "clk_get" [drivers/net/ethernet/marvell/mv643xx_eth.ko] undefined!
+> 
+> Selecting CLKDEV_LOOKUP doesn't fix this either, as the build then fails with:
+> 
+> In file included from drivers/clk/clkdev.c:21:0:
+> include/linux/clkdev.h:15:24: fatal error: asm/clkdev.h: No such file or directory
+> 
+> So we just prevent this from building at all on PPC32.
 
-Well, did it work? :)
-
-In suspense,
-Jonathan
+If the PPC32 dependency is no longer relevant (e.g. if Pegasos platform
+support was removed from the kernel), then the commit message should
+mention that -- the above reasoning is a poor sole justification for
+this change.
