@@ -1,59 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [net-next PATCH v2 1/3] Added kernel support in EEE Ethtool
- commands
-Date: Wed, 6 Jun 2012 18:41:51 +0100
-Message-ID: <1339004511.2836.43.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1338973098-16439-1-git-send-email-yuvalmin@broadcom.com>
-	 <1338973098-16439-2-git-send-email-yuvalmin@broadcom.com>
-	 <1338996011.2836.2.camel@bwh-desktop.uk.solarflarecom.com>
-	 <979A8436335E3744ADCD3A9F2A2B68A50268AA@SJEXCHMB10.corp.ad.broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] inetpeer: add namespace support for
+ inetpeer
+Date: Wed, 06 Jun 2012 10:43:23 -0700 (PDT)
+Message-ID: <20120606.104323.1698446129331745479.davem@davemloft.net>
+References: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Cc: serge.hallyn@canonical.com, ebiederm@xmission.com,
+	herbert@gondor.apana.org.au, steffen.klassert@secunet.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: gaofeng@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43096 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755181Ab2FFRly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:41:54 -0400
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A50268AA@SJEXCHMB10.corp.ad.broadcom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37755 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752570Ab2FFRnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 13:43:24 -0400
+In-Reply-To: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-06 at 16:40 +0000, Yuval Mintz wrote:
-> > > + * @supported: Link speeds for which there is eee support.
-> > > + * @advertised: Link speeds the interface advertises (AN) as eee capable.
-> > > + * @lp_advertised: Link speeds the link partner advertised as eee capable.
-> > 
-> > And these are bitmasks of SUPPORTED_* & ADVERTISED_* flags, right?
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Tue, 5 Jun 2012 15:52:17 +0800
+
+> now inetpeer doesn't support namespace,the information will
+> be leaking across namespace.
 > 
-> Right.
+> this patch move the global vars v4_peers and v6_peers to
+> netns_ipv4 and netns_ipv6 as a field peers.
 > 
-> > Maybe 'link modes' not 'link speeds'?
+> add struct pernet_operations inetpeer_ops to initial pernet
+> inetpeer data.
 > 
-> Not that it matters greatly, but there are SUPPORTED & ADVERTISED flags for
-> things other than link speeds, such as connection type and flow control,
-> so using exactly the same semantic in description might confuse someone.
+> and change family_to_base and inet_getpeer to support namespace.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 
-What I'm getting at is that we don't have flags for speeds; we have
-flags for modes (speed/duplex combination).  I think EEE only works with
-full-duplex modes but clients and drivers will still have to specify
-that explicitly in flag names.
+As stated yesterday we have to move the inetpeer tree roots into
+the FIB rule entries to fix other bugs, and that as a result will
+transparently fix this problem too.
 
-I can see that 'link modes' might be slightly ambiguous, so how about:
+So I'm dropping these two patches and will work on the mentioned
+approach to this fix.
 
-        @supported: Mask of %SUPPORTED_* flags for the speed/duplex
-        combinations for which there is EEE support.
-
-and similarly for the other fields.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks.
