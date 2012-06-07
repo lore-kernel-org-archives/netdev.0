@@ -1,56 +1,56 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] macvtap: use prepare_to_wait/finish_wait to ensure mb
-Date: Thu,  7 Jun 2012 16:36:27 +0800
-Message-ID: <1339058187-6619-1-git-send-email-honkiko@gmail.com>
-Cc: Hong Zhiguo <honkiko@gmail.com>, netdev@vger.kernel.org,
-	arnd@arndb.de, zhiguo.hong@nsn.com, vikifang@juniper.net
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG, 3.4.1, l2tp, kernel panic on rmmod l2tp_eth
+Date: Thu, 07 Jun 2012 11:12:26 +0200
+Message-ID: <1339060346.26966.106.camel@edumazet-glaptop>
+References: <61a2ca9cc47a9a9a1c8a36738090dbf9@visp.net.lb>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Denys Fedoryshchenko <denys@visp.net.lb>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:56821 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755979Ab2FGIjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 04:39:20 -0400
-Received: by dady13 with SMTP id y13so556326dad.19
-        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 01:39:20 -0700 (PDT)
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:63691 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751176Ab2FGJMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 05:12:31 -0400
+Received: by eaak11 with SMTP id k11so126076eaa.19
+        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 02:12:30 -0700 (PDT)
+In-Reply-To: <61a2ca9cc47a9a9a1c8a36738090dbf9@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-instead of raw assignment to current->state
+On Thu, 2012-06-07 at 11:31 +0300, Denys Fedoryshchenko wrote:
+> Hi
+> 
+> Sorry for weird looking message, but this is how i got it over 
+> netconsole
+> 
+> If i have any tunnel+session configured and up and will do rmmod 
+> l2tp_eth,
+> i will get panic, after my userspace program will fetch interfaces 
+> information (over netlink).
+> 
+> Probably it should not rmmod if there is tunnels configured?
 
-Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
----
- drivers/net/macvtap.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+Sure, can you try the following patch ?
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 2ee56de..0737bd4 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -847,13 +847,12 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q, struct kiocb *iocb,
- 			       const struct iovec *iv, unsigned long len,
- 			       int noblock)
- {
--	DECLARE_WAITQUEUE(wait, current);
-+	DEFINE_WAIT(wait);
- 	struct sk_buff *skb;
- 	ssize_t ret = 0;
- 
--	add_wait_queue(sk_sleep(&q->sk), &wait);
- 	while (len) {
--		current->state = TASK_INTERRUPTIBLE;
-+		prepare_to_wait(sk_sleep(&q->sk), &wait, TASK_INTERRUPTIBLE);
- 
- 		/* Read frames from the queue */
- 		skb = skb_dequeue(&q->sk.sk_receive_queue);
-@@ -875,8 +874,7 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q, struct kiocb *iocb,
- 		break;
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 443591d..185f12f 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -162,6 +162,7 @@ static void l2tp_eth_delete(struct l2tp_session *session)
+ 		if (dev) {
+ 			unregister_netdev(dev);
+ 			spriv->dev = NULL;
++			module_put(THIS_MODULE);
+ 		}
  	}
- 
--	current->state = TASK_RUNNING;
--	remove_wait_queue(sk_sleep(&q->sk), &wait);
-+	finish_wait(sk_sleep(&q->sk), &wait);
- 	return ret;
  }
+@@ -249,6 +250,7 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
+ 	if (rc < 0)
+ 		goto out_del_dev;
  
--- 
-1.7.4.1
++	__module_get(THIS_MODULE);
+ 	/* Must be done after register_netdev() */
+ 	strlcpy(session->ifname, dev->name, IFNAMSIZ);
+ 
