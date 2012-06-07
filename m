@@ -1,44 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v2 1/2] inetpeer: add namespace support for
-	inetpeer
-Date: Thu, 07 Jun 2012 14:43:01 -0700 (PDT)
-Message-ID: <20120607.144301.1259354794384347085.davem@davemloft.net>
-References: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<20120606.104323.1698446129331745479.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] e1000: save skb counts in TX to avoid cache misses
+Date: Thu, 07 Jun 2012 14:43:58 -0700 (PDT)
+Message-ID: <20120607.144358.1732928576389957779.davem@davemloft.net>
+References: <b838d871c0d507787373061e4edd91a624d62475.1339073391.git.rkagan@parallels.com>
+	<4FD11F49.5060805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
-To: gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20120606.104323.1698446129331745479.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: rkagan@parallels.com, stable@vger.kernel.org,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	alexander.h.duyck@intel.com, john.ronciak@intel.com,
+	dnelson@redhat.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com, tarbal@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FD11F49.5060805@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Date: Wed, 06 Jun 2012 10:43:23 -0700 (PDT)
+From: Jeff Kirsher <tarbal@gmail.com>
+Date: Thu, 07 Jun 2012 14:38:17 -0700
 
-> So I'm dropping these two patches and will work on the mentioned
-> approach to this fix.
+> Thanks! I have applied the patch to my queue
 
-It turns out that even if I move the inetpeer roots into the FIB rules
-layer, we still need your changes Gao.
+Why?
 
-But your patches are corrupted.  For example, in this patch,
-the final hunk for net/ipv4/inetpeer.c has no differences only
-context.  That's an extremely corrupted patch.
-
-Please resolve this, and add the NULL pointer settings during network
-namespace shutdown that Eric Dumazet asked for.
-
-Thanks.
+My impression is that this is a patch already in the tree, and it's
+being submitted for -stable but such minor performance hacks are
+absolutely not appropriate for -stable submission.
