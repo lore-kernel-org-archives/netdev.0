@@ -1,46 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] fec: Add support for Coldfire M5441x enet-mac.
-Date: Thu, 07 Jun 2012 14:47:47 -0700 (PDT)
-Message-ID: <20120607.144747.1809368718789038860.davem@davemloft.net>
-References: <201206061006.21288.sfking@fdwdc.com>
-	<4FCF949D.7060402@computer.org>
-	<201206061305.48893.sfking@fdwdc.com>
+Subject: Re: [PATCH] snmp: fix OutOctets counter to include forwarded
+ datagrams
+Date: Thu, 07 Jun 2012 14:53:26 -0700 (PDT)
+Message-ID: <20120607.145326.1203419171187480651.davem@davemloft.net>
+References: <1338903702-18975-1-git-send-email-bernat@luffy.cx>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jan.ceuleers@computer.org, netdev@vger.kernel.org,
-	uclinux-dev@uclinux.org, gerg@snapgear.com
-To: sfking@fdwdc.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: bernat@luffy.cx
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45933 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45974 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932994Ab2FGVrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 17:47:48 -0400
-In-Reply-To: <201206061305.48893.sfking@fdwdc.com>
+	with ESMTP id S933057Ab2FGVx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 17:53:26 -0400
+In-Reply-To: <1338903702-18975-1-git-send-email-bernat@luffy.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steven King <sfking@fdwdc.com>
-Date: Wed, 6 Jun 2012 13:05:48 -0700
+From: Vincent Bernat <bernat@luffy.cx>
+Date: Tue,  5 Jun 2012 15:41:42 +0200
 
-> On Wednesday 06 June 2012 10:34:21 am Jan Ceuleers wrote:
->> On 06/06/2012 07:06 PM, Steven King wrote:
->> > Add support for the Freescale Coldfire M5441x; as these parts have an
->> > enet-mac, add a quirk to distinguish them from the other Coldfire parts
->> > so we can use the existing enet-mac support.
->>
->> Stephen,
->>
->> You are activating certain functionality based on whether M5441x is
->> defined. But where is this being defined? Should this not be added in a
->> Kconfig somewhere as a platform option?
+> RFC 4293 defines ipIfStatsOutOctets (similar definition for
+> ipSystemStatsOutOctets):
 > 
-> Yes.  Hopefully, once I send Greg my updated patches to add support for the 
-> m5441x, then it will be a selection in the m68k port.  I just happened to 
-> have these ready to go after David chastised me for sending them too late in 
-> the last merge cycle...
+>    The total number of octets in IP datagrams delivered to the lower
+>    layers for transmission.  Octets from datagrams counted in
+>    ipIfStatsOutTransmits MUST be counted here.
+> 
+> And ipIfStatsOutTransmits:
+> 
+>    The total number of IP datagrams that this entity supplied to the
+>    lower layers for transmission.  This includes datagrams generated
+>    locally and those forwarded by this entity.
+> 
+> Therefore, IPSTATS_MIB_OUTOCTETS must be incremented when incrementing
+> IPSTATS_MIB_OUTFORWDATAGRAMS.
+> 
+> IP_UPD_PO_STATS is not used since ipIfStatsOutRequests must not
+> include forwarded datagrams:
+> 
+>    The total number of IP datagrams that local IP user-protocols
+>    (including ICMP) supplied to IP in requests for transmission.  Note
+>    that this counter does not include any datagrams counted in
+>    ipIfStatsOutForwDatagrams.
+> 
+> Signed-off-by: Vincent Bernat <bernat@luffy.cx>
 
-I don't see any point in applying this before the necessary infrastructure
-this depend upon is in the tree.
-
-Therefore I'm not applying this.
+Applied, thanks for the detailed analysis.
