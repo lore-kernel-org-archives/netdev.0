@@ -1,33 +1,272 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Change in alloc_skb() behavior in 3.2+ kernels?
-Date: Thu, 07 Jun 2012 16:25:44 +0200
-Message-ID: <1339079144.5083.15.camel@edumazet-glaptop>
-References: <jqo7op$t6f$1@dough.gmane.org>
-	 <1339008142.26966.40.camel@edumazet-glaptop> <jqo9a6$ah6$1@dough.gmane.org>
-	 <20120606.120247.1618312724057709285.davem@davemloft.net>
-	 <jqqa1b$kug$1@dough.gmane.org> <1339077710.5083.12.camel@edumazet-glaptop>
-	 <jqqd4k$i2c$1@dough.gmane.org>
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Subject: [PATCH net-next] be2net: Fix driver load for VFs for Lancer
+Date: Thu, 7 Jun 2012 20:07:08 +0530
+Message-ID: <e4b55390-7f60-4365-9203-fde4c661e339@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Grant Edwards <grant.b.edwards@gmail.com>
+Content-Type: text/plain
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:42574 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760760Ab2FGOZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 10:25:48 -0400
-Received: by eeit10 with SMTP id t10so257579eei.19
-        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 07:25:47 -0700 (PDT)
-In-Reply-To: <jqqd4k$i2c$1@dough.gmane.org>
+Received: from exht1.emulex.com ([138.239.113.183]:31847 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760769Ab2FGOie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 10:38:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-06-07 at 14:16 +0000, Grant Edwards wrote:
+Permanent MAC is wrongly supplied in create iface command. Call the
+command with no MAC address and then MAC address should be later queried
+and applied.
 
-> I was merely pointing out that the API was indeed documented that way.
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   21 +++---
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    8 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |   98 ++++++++++++++------------
+ 3 files changed, 66 insertions(+), 61 deletions(-)
 
-
-Good, you are right and we were wrong.
-
-Hopefully you can still use linux-2
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 8d06ea3..f899752 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1132,7 +1132,7 @@ err:
+  * Uses MCCQ
+  */
+ int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
+-		u8 *mac, u32 *if_handle, u32 *pmac_id, u32 domain)
++		     u32 *if_handle, u32 domain)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_if_create *req;
+@@ -1152,17 +1152,13 @@ int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
+ 	req->hdr.domain = domain;
+ 	req->capability_flags = cpu_to_le32(cap_flags);
+ 	req->enable_flags = cpu_to_le32(en_flags);
+-	if (mac)
+-		memcpy(req->mac_addr, mac, ETH_ALEN);
+-	else
+-		req->pmac_invalid = true;
++
++	req->pmac_invalid = true;
+ 
+ 	status = be_mcc_notify_wait(adapter);
+ 	if (!status) {
+ 		struct be_cmd_resp_if_create *resp = embedded_payload(wrb);
+ 		*if_handle = le32_to_cpu(resp->interface_id);
+-		if (mac)
+-			*pmac_id = le32_to_cpu(resp->pmac_id);
+ 	}
+ 
+ err:
+@@ -2330,8 +2326,8 @@ err:
+ }
+ 
+ /* Uses synchronous MCCQ */
+-int be_cmd_get_mac_from_list(struct be_adapter *adapter, u32 domain,
+-			bool *pmac_id_active, u32 *pmac_id, u8 *mac)
++int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
++			     bool *pmac_id_active, u32 *pmac_id, u8 domain)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_get_mac_list *req;
+@@ -2376,8 +2372,9 @@ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u32 domain,
+ 						get_mac_list_cmd.va;
+ 		mac_count = resp->true_mac_count + resp->pseudo_mac_count;
+ 		/* Mac list returned could contain one or more active mac_ids
+-		 * or one or more pseudo permanant mac addresses. If an active
+-		 * mac_id is present, return first active mac_id found
++		 * or one or more true or pseudo permanant mac addresses.
++		 * If an active mac_id is present, return first active mac_id
++		 * found.
+ 		 */
+ 		for (i = 0; i < mac_count; i++) {
+ 			struct get_list_macaddr *mac_entry;
+@@ -2396,7 +2393,7 @@ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u32 domain,
+ 				goto out;
+ 			}
+ 		}
+-		/* If no active mac_id found, return first pseudo mac addr */
++		/* If no active mac_id found, return first mac addr */
+ 		*pmac_id_active = false;
+ 		memcpy(mac, resp->macaddr_list[0].mac_addr_id.macaddr,
+ 								ETH_ALEN);
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 9625bf4..2f6bb06 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1664,8 +1664,7 @@ extern int be_cmd_pmac_add(struct be_adapter *adapter, u8 *mac_addr,
+ extern int be_cmd_pmac_del(struct be_adapter *adapter, u32 if_id,
+ 			int pmac_id, u32 domain);
+ extern int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags,
+-			u32 en_flags, u8 *mac, u32 *if_handle, u32 *pmac_id,
+-			u32 domain);
++			    u32 en_flags, u32 *if_handle, u32 domain);
+ extern int be_cmd_if_destroy(struct be_adapter *adapter, int if_handle,
+ 			u32 domain);
+ extern int be_cmd_eq_create(struct be_adapter *adapter,
+@@ -1751,8 +1750,9 @@ extern int be_cmd_get_cntl_attributes(struct be_adapter *adapter);
+ extern int be_cmd_req_native_mode(struct be_adapter *adapter);
+ extern int be_cmd_get_reg_len(struct be_adapter *adapter, u32 *log_size);
+ extern void be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf);
+-extern int be_cmd_get_mac_from_list(struct be_adapter *adapter, u32 domain,
+-				bool *pmac_id_active, u32 *pmac_id, u8 *mac);
++extern int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
++				    bool *pmac_id_active, u32 *pmac_id,
++				    u8 domain);
+ extern int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
+ 						u8 mac_count, u32 domain);
+ extern int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index f29827f..896f283 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2601,8 +2601,8 @@ static int be_vf_setup(struct be_adapter *adapter)
+ 	cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
+ 				BE_IF_FLAGS_MULTICAST;
+ 	for_all_vfs(adapter, vf_cfg, vf) {
+-		status = be_cmd_if_create(adapter, cap_flags, en_flags, NULL,
+-					  &vf_cfg->if_handle, NULL, vf + 1);
++		status = be_cmd_if_create(adapter, cap_flags, en_flags,
++					  &vf_cfg->if_handle, vf + 1);
+ 		if (status)
+ 			goto err;
+ 	}
+@@ -2642,29 +2642,43 @@ static void be_setup_init(struct be_adapter *adapter)
+ 	adapter->phy.forced_port_speed = -1;
+ }
+ 
+-static int be_add_mac_from_list(struct be_adapter *adapter, u8 *mac)
++static int be_get_mac_addr(struct be_adapter *adapter, u8 *mac, u32 if_handle,
++			   bool *active_mac, u32 *pmac_id)
+ {
+-	u32 pmac_id;
+-	int status;
+-	bool pmac_id_active;
++	int status = 0;
+ 
+-	status = be_cmd_get_mac_from_list(adapter, 0, &pmac_id_active,
+-							&pmac_id, mac);
+-	if (status != 0)
+-		goto do_none;
++	if (!is_zero_ether_addr(adapter->netdev->perm_addr)) {
++		memcpy(mac, adapter->netdev->dev_addr, ETH_ALEN);
++		if (!lancer_chip(adapter) && !be_physfn(adapter))
++			*active_mac = true;
++		else
++			*active_mac = false;
+ 
+-	if (pmac_id_active) {
+-		status = be_cmd_mac_addr_query(adapter, mac,
+-				MAC_ADDRESS_TYPE_NETWORK,
+-				false, adapter->if_handle, pmac_id);
++		return status;
++	}
+ 
+-		if (!status)
+-			adapter->pmac_id[0] = pmac_id;
++	if (lancer_chip(adapter)) {
++		status = be_cmd_get_mac_from_list(adapter, mac,
++						  active_mac, pmac_id, 0);
++		if (*active_mac) {
++			status = be_cmd_mac_addr_query(adapter, mac,
++						       MAC_ADDRESS_TYPE_NETWORK,
++						       false, if_handle,
++						       *pmac_id);
++		}
++	} else if (be_physfn(adapter)) {
++		/* For BE3, for PF get permanent MAC */
++		status = be_cmd_mac_addr_query(adapter, mac,
++					       MAC_ADDRESS_TYPE_NETWORK, true,
++					       0, 0);
++		*active_mac = false;
+ 	} else {
+-		status = be_cmd_pmac_add(adapter, mac,
+-				adapter->if_handle, &adapter->pmac_id[0], 0);
++		/* For BE3, for VF get soft MAC assigned by PF*/
++		status = be_cmd_mac_addr_query(adapter, mac,
++					       MAC_ADDRESS_TYPE_NETWORK, false,
++					       if_handle, 0);
++		*active_mac = true;
+ 	}
+-do_none:
+ 	return status;
+ }
+ 
+@@ -2685,12 +2699,12 @@ static int be_get_config(struct be_adapter *adapter)
+ 
+ static int be_setup(struct be_adapter *adapter)
+ {
+-	struct net_device *netdev = adapter->netdev;
+ 	struct device *dev = &adapter->pdev->dev;
+ 	u32 cap_flags, en_flags;
+ 	u32 tx_fc, rx_fc;
+ 	int status;
+ 	u8 mac[ETH_ALEN];
++	bool active_mac;
+ 
+ 	be_setup_init(adapter);
+ 
+@@ -2716,14 +2730,6 @@ static int be_setup(struct be_adapter *adapter)
+ 	if (status)
+ 		goto err;
+ 
+-	memset(mac, 0, ETH_ALEN);
+-	status = be_cmd_mac_addr_query(adapter, mac, MAC_ADDRESS_TYPE_NETWORK,
+-			true /*permanent */, 0, 0);
+-	if (status)
+-		return status;
+-	memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
+-	memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
+-
+ 	en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
+ 			BE_IF_FLAGS_MULTICAST | BE_IF_FLAGS_PASS_L3L4_ERRORS;
+ 	cap_flags = en_flags | BE_IF_FLAGS_MCAST_PROMISCUOUS |
+@@ -2733,27 +2739,29 @@ static int be_setup(struct be_adapter *adapter)
+ 		cap_flags |= BE_IF_FLAGS_RSS;
+ 		en_flags |= BE_IF_FLAGS_RSS;
+ 	}
++
+ 	status = be_cmd_if_create(adapter, cap_flags, en_flags,
+-			netdev->dev_addr, &adapter->if_handle,
+-			&adapter->pmac_id[0], 0);
++				  &adapter->if_handle, 0);
+ 	if (status != 0)
+ 		goto err;
+ 
+-	 /* The VF's permanent mac queried from card is incorrect.
+-	  * For BEx: Query the mac configued by the PF using if_handle
+-	  * For Lancer: Get and use mac_list to obtain mac address.
+-	  */
+-	if (!be_physfn(adapter)) {
+-		if (lancer_chip(adapter))
+-			status = be_add_mac_from_list(adapter, mac);
+-		else
+-			status = be_cmd_mac_addr_query(adapter, mac,
+-					MAC_ADDRESS_TYPE_NETWORK, false,
+-					adapter->if_handle, 0);
+-		if (!status) {
+-			memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
+-			memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
+-		}
++	memset(mac, 0, ETH_ALEN);
++	active_mac = false;
++	status = be_get_mac_addr(adapter, mac, adapter->if_handle,
++				 &active_mac, &adapter->pmac_id[0]);
++	if (status != 0)
++		goto err;
++
++	if (!active_mac) {
++		status = be_cmd_pmac_add(adapter, mac, adapter->if_handle,
++					 &adapter->pmac_id[0], 0);
++		if (status != 0)
++			goto err;
++	}
++
++	if (is_zero_ether_addr(adapter->netdev->dev_addr)) {
++		memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
++		memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
+ 	}
+ 
+ 	status = be_tx_qs_create(adapter);
+-- 
+1.6.0.2
