@@ -1,7 +1,7 @@
 From: Chris Metcalf <cmetcalf@tilera.com>
 Subject: [PATCH v10] tilegx network driver: initial support
-Date: Mon, 17 Sep 2001 00:00:00 -0400
-Message-ID: <201206072044.q57KiJU0009191@farm-0002.internal.tilera.com>
+Date: Thu, 7 Jun 2012 16:45:02 -0400
+Message-ID: <201206072045.q57Kj2r1009249@farm-0002.internal.tilera.com>
 References: <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
 	<1339004459.26966.31.camel@edumazet-glaptop>
 	<4FCFA312.4020505@tilera.com>
