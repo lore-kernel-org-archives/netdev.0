@@ -1,33 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v10] tilegx network driver: initial support
-Date: Thu, 07 Jun 2012 13:39:00 -0700 (PDT)
-Message-ID: <20120607.133900.1764130639940088009.davem@davemloft.net>
-References: <4FCFA312.4020505@tilera.com>
-	<20120606.115440.1245419453265419850.davem@davemloft.net>
-	<201206072031.q57KV0NG029301@farm-0023.internal.tilera.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [V2 RFC net-next PATCH 2/2] virtio_net: export more statistics
+	through ethtool
+Date: Thu, 07 Jun 2012 13:39:48 -0700
+Message-ID: <4FD11194.2040405@hp.com>
+References: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<20120606075217.29081.30713.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<1339089306.2770.10.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120607.130512.219951433412203999.davem@davemloft.net>
+	<1339100649.2770.20.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com, arnd@arndb.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: cmetcalf@tilera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201206072031.q57KV0NG029301@farm-0023.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1339100649.2770.20.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Fri, 6 Apr 2012 16:42:03 -0400
+On 06/07/2012 01:24 PM, Ben Hutchings wrote:
+> On Thu, 2012-06-07 at 13:05 -0700, David Miller wrote:
+>> From: Ben Hutchings<bhutchings@solarflare.com>
+>> Date: Thu, 7 Jun 2012 18:15:06 +0100
+>>
+>>> I would really like to see some sort of convention for presenting
+>>> per-queue statistics through ethtool.  At the moment we have a complete
+>>> mess of different formats:
+>>
+>> Indeed.  Probably ${QUEUE_TYPE}-${INDEX}-${STATISTIC} is best.
+>> With an agreed upon list of queue types such as "rx", "tx", "rxtx"
+>> etc.
+>
+> I think we should leave the type names open-ended, as there are other
+> useful groupings like per-virtual-port.  In that case the separator
+> should be chosen to allow arbitrary type names without ambiguity.
 
-> Date: Fri, 6 Apr 2012 16:42:03 -0400
+So you mean like something along the lines of the presence of say '.' 
+indicating indent a level:
 
-You did not commit this file on April 6th.
+rx_bytes:  1234
+     myqueue1.rx_bytes: 234
+     myqueue2.rx_bytes: 345
+     ...
 
-Please don't use the date emitted by the GIT tools, just
-let the email use the natural correct date which is the
-one at the time you send the email out.
-
-Otherwise your patch gets misordered as automated tools like
-patchwork think this file should go all the way at the back
-of the patch queue because of it's old date relative to
-other pending patches.
+rick jones
