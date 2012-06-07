@@ -1,56 +1,52 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [V2 RFC net-next PATCH 2/2] virtio_net: export more statistics
-	through ethtool
-Date: Thu, 07 Jun 2012 13:39:48 -0700
-Message-ID: <4FD11194.2040405@hp.com>
-References: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<20120606075217.29081.30713.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<1339089306.2770.10.camel@bwh-desktop.uk.solarflarecom.com>
-	<20120607.130512.219951433412203999.davem@davemloft.net>
-	<1339100649.2770.20.camel@bwh-desktop.uk.solarflarecom.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [PATCH v10] tilegx network driver: initial support
+Date: Thu, 7 Jun 2012 16:44:02 -0400
+Message-ID: <4FD11292.10700@tilera.com>
+References: <4FCFA312.4020505@tilera.com> <20120606.115440.1245419453265419850.davem@davemloft.net> <201206072031.q57KV0NG029301@farm-0023.internal.tilera.com> <20120607.133900.1764130639940088009.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1339100649.2770.20.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: <eric.dumazet@gmail.com>, <bhutchings@solarflare.com>,
+	<arnd@arndb.de>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120607.133900.1764130639940088009.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/07/2012 01:24 PM, Ben Hutchings wrote:
-> On Thu, 2012-06-07 at 13:05 -0700, David Miller wrote:
->> From: Ben Hutchings<bhutchings@solarflare.com>
->> Date: Thu, 7 Jun 2012 18:15:06 +0100
->>
->>> I would really like to see some sort of convention for presenting
->>> per-queue statistics through ethtool.  At the moment we have a complete
->>> mess of different formats:
->>
->> Indeed.  Probably ${QUEUE_TYPE}-${INDEX}-${STATISTIC} is best.
->> With an agreed upon list of queue types such as "rx", "tx", "rxtx"
->> etc.
+On 6/7/2012 4:39 PM, David Miller wrote:
+> From: Chris Metcalf <cmetcalf@tilera.com>
+> Date: Fri, 6 Apr 2012 16:42:03 -0400
 >
-> I think we should leave the type names open-ended, as there are other
-> useful groupings like per-virtual-port.  In that case the separator
-> should be chosen to allow arbitrary type names without ambiguity.
+>> Date: Fri, 6 Apr 2012 16:42:03 -0400
+> You did not commit this file on April 6th.
+>
+> Please don't use the date emitted by the GIT tools, just
+> let the email use the natural correct date which is the
+> one at the time you send the email out.
+>
+> Otherwise your patch gets misordered as automated tools like
+> patchwork think this file should go all the way at the back
+> of the patch queue because of it's old date relative to
+> other pending patches.
 
-So you mean like something along the lines of the presence of say '.' 
-indicating indent a level:
+Yes, when I use "git rebase" to merge changes into the earlier patch, this
+is the behavior I see.  I don't know if there's some way to tell git to
+take the date on the later change instead when I "squash" them.  Or if,
+perhaps, there is some other workflow I should be using.  It does seem like
+the git history should reflect the latest time.
 
-rx_bytes:  1234
-     myqueue1.rx_bytes: 234
-     myqueue2.rx_bytes: 345
-     ...
+The issue of the date on the email is separate.  I tend to use "git
+format-patch" to start with, munge up the headers to jam in some
+"In-Reply-To" and "References" lines, manually update the "Date:", then
+feed it to "sendmail -t".  Perhaps there's a different workflow I should be
+using there, too.  (I tried deleting the "Date", but the one time I tried
+that I ended up with some surprisingly bogus date in the email that hit
+LKML, so I've been avoiding that approach.)
 
-rick jones
+I'll resend the patch without a Date: line and see how it ends up this time.
+
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
