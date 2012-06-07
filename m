@@ -1,73 +1,78 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: tcp wifi upload performance and lots of ACKs
-Date: Wed, 06 Jun 2012 21:15:55 -0700
-Message-ID: <4FD02AFB.7040004@candelatech.com>
-References: <4FCCFE76.3060304@candelatech.com> <CAEnQRZCNUYmP88Ocm_nG7gpA1Qcwy1tOc6kgCgZ7RqXcxQsHhg@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net] e1000e: Change wthresh to 1 to avoid possible Tx
+ stalls.
+Date: Wed, 06 Jun 2012 21:52:32 -0700
+Message-ID: <1339044752.2075.14.camel@jtkirshe-mobl>
+References: <20120606174355.823e9aa7.shimoda.hiroaki@gmail.com>
+	 <1339030752.2075.1.camel@jtkirshe-mobl>
+	 <1339043085.26966.77.camel@edumazet-glaptop>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Daniel Baluta <dbaluta@ixiacom.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-31Frtu/xhsE4Cc2dMMtZ"
+Cc: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"denys@visp.net.lb" <denys@visp.net.lb>,
+	"therbert@google.com" <therbert@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54035 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932239Ab2FGEP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 00:15:59 -0400
-In-Reply-To: <CAEnQRZCNUYmP88Ocm_nG7gpA1Qcwy1tOc6kgCgZ7RqXcxQsHhg@mail.gmail.com>
+Received: from mga03.intel.com ([143.182.124.21]:31286 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751728Ab2FGEwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2012 00:52:33 -0400
+In-Reply-To: <1339043085.26966.77.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/04/2012 12:22 PM, Daniel Baluta wrote:
-> On Mon, Jun 4, 2012 at 9:29 PM, Ben Greear<greearb@candelatech.com>  wrote:
->> I'm going some TCP performance testing on wifi ->  LAN interface connections.
->>   With
->> UDP, we can get around 250Mbps of payload throughput.  With TCP, max is
->> about 80Mbps.
->>
->> I think the problem is that there are way too many ACK packets, and
->> bi-directional
->> traffic on wifi interfaces really slows things down.  (About 7000 pkts per
->> second in
->> upload direction, 2000 pps download.  And the vast majority of the download
->> pkts
->> are 66 byte ACK pkts from what I can tell.)
 
-> [1] http://marc.info/?l=linux-netdev&m=131983649130350&w=2
+--=-31Frtu/xhsE4Cc2dMMtZ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-After a bit more playing, I did notice a reliable 5% increase in
-traffic (200Mbps -> 210Mbps) from changing the delack segments
-to 20 from the default of 1.  That is enough to be useful to me,
-and there may be more significant gains to be found...
-I haven't done a full matrix of testing yet.
+On Thu, 2012-06-07 at 06:24 +0200, Eric Dumazet wrote:
+> On Wed, 2012-06-06 at 17:59 -0700, Jeff Kirsher wrote:
+>=20
+> > After further internal review, NACK.
+> >=20
+> > This patch will cause unacceptable performance issues with non-ESB2
+> > parts.
+> >=20
+> > I am dropping this patch from my queue.
+> >=20
+>=20
+> I'd like you share your performance numbers before NACKing this patch.
+>=20
+> What is the alternative patch you guys have ?
+>=20
 
-I read through the original thread, and to summarize:
+Jesse did not share any performance numbers with me, I am sure he can
+give some background tomorrow when he is back online.
 
-* Need to make the values per-socket.
-* No multiplication in hot path.
-* Would be nice to make it automatic.
+I am working on an alternative patch now and should have something to
+share tomorrow.
 
-The first seems fairly trivial..just add a new set of socket-opts (or
-maybe just one that can take all 3 values?) and store the settings in
-the socket structs.
+--=-31Frtu/xhsE4Cc2dMMtZ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-As for getting rid of the multiply..I think you cannot just use shifts.
-That does not give the needed granularity.  An alternative is
-to update a cached computation every time the mss or socket-opt changes.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-As for a magic heuristic to figure this out, I think that would be
-quite tricky to do right.  So, maybe add that in the future, but
-for the present, just allowing applications to set the value seems
-enough.
+iQIcBAABCgAGBQJP0DOQAAoJEOVv75VaS+3OvGEP/0me6gk+AHVCtQtova+xfSPG
++qgoStTQ8q+fDoeXuwaKuhsKU3Ol/kZvt6NxKhyz6rTvboDrRT0DJrtpv5sHqn0M
+OZl1M8XJ1m33L8X/tN6/vBORxnmGTbd7cGhsBMAUhBIbPgX2UACkB65Fm8PhquCv
+xsf/tzTMd6oakSfdd/bWHRa/y0DMul4B3Aywyuue3RdNmD6YqXQQX3FuIdB6KUTz
+VD+RUjWhdSJaWmbJyL5bMdxIw5mA9GGu3Xj6S6vEwivd2ErMzhOBG+28CLAxt1KN
+64eft2G6Ztus5IO4IWBffi9ZFdQ6FXaMzuiOarqqDLak6A2auXNk3mW4t1cebKxA
+3VN0kjqYRITudw4fKkgcgPasgBNcCOmbOH3/IShtCP8qiRWwdG8HMIDJScnLKBzV
+RP/PsyMWwxPOsWCBE33qjrmIeDg4RaNauux/ZM9almSIaA5uix/gkDB61j+bVY3N
+uTdktmIULnrUjGUMfqvbigFoAja4j6CqJwukpIzNlJkmaGGakNeypDYjnQXOUIqu
+KkJ4QAdfcSDg0OUD2qdA20+hMfYOtZWtbnPaaMnxNcqP6VaBTyuL4nMA16BKpsmN
+vvJeGCvFQYQAVV10y1D8MbOCB1PN+grFenQRHaoaBINahJUp1absUzPQiMyUoWul
+VkVdnsuEI0wGOYgcGToe
+=cKYj
+-----END PGP SIGNATURE-----
 
-We could support configurable system-wide defaults so that users of
-programs that do not know this new sockopt can still take advantage
-of the feature.
-
-Does this sound like a reasonable solution?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--=-31Frtu/xhsE4Cc2dMMtZ--
