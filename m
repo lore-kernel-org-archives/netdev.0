@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git) V2] stmmac: fix driver built w/ w/o both pci
- and platf modules
-Date: Thu, 07 Jun 2012 11:01:30 -0700 (PDT)
-Message-ID: <20120607.110130.1448306195184899614.davem@davemloft.net>
-References: <1339062803-24273-1-git-send-email-peppe.cavallaro@st.com>
-	<1339073322-23093-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: tcp wifi upload performance and lots of ACKs
+Date: Thu, 07 Jun 2012 11:10:13 -0700 (PDT)
+Message-ID: <20120607.111013.2155552765767462604.davem@davemloft.net>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F3C@saturn3.aculab.com>
+	<4FD0EA18.3090606@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wfg@linux.intel.com
-To: peppe.cavallaro@st.com
+Cc: David.Laight@ACULAB.COM, greearb@candelatech.com,
+	dbaluta@ixiacom.com, netdev@vger.kernel.org
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44743 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44779 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932605Ab2FGSBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 14:01:31 -0400
-In-Reply-To: <1339073322-23093-1-git-send-email-peppe.cavallaro@st.com>
+	with ESMTP id S1760930Ab2FGSKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 14:10:14 -0400
+In-Reply-To: <4FD0EA18.3090606@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Thu,  7 Jun 2012 14:48:42 +0200
+From: Rick Jones <rick.jones2@hp.com>
+Date: Thu, 07 Jun 2012 10:51:20 -0700
 
-> +	pr_err("stmmac: do not register the PCI driver\n");
+> This may not work well when the sender has a congestion window growth
+> heuristic different from what the ACK avoidance heuristic assumes.  If
+> I recall correctly, the heuristic in HP-UX assumes the sender grows
+> cwnd by the number of bytes/segments ACKnowledged.
 
-This is inappropriate, since this is called unconditionally.
+Linux violates this assumption.
