@@ -1,72 +1,166 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: BUG, 3.4.1, l2tp, kernel panic on rmmod
- =?UTF-8?Q?l=32tp=5Feth?=
-Date: Thu, 07 Jun 2012 12:42:53 +0300
-Message-ID: <66de011eba423f7b5eeb3c57e8430c5a@visp.net.lb>
-References: <61a2ca9cc47a9a9a1c8a36738090dbf9@visp.net.lb>
- <1339060346.26966.106.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git)] stmmac: fix driver built w/ w/o both pci and platf modules
+Date: Thu,  7 Jun 2012 11:53:23 +0200
+Message-ID: <1339062803-24273-1-git-send-email-peppe.cavallaro@st.com>
+Cc: wfg@linux.intel.com, davem@davemloft.net,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:57453 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751557Ab2FGJnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 05:43:06 -0400
-In-Reply-To: <1339060346.26966.106.camel@edumazet-glaptop>
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:44817 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752777Ab2FGJxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 05:53:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is not crashing anymore, after removing tunnel, i can unload module. 
-Thanks.
+The commit ba27ec66ffeb78cbf fixes the Kconfig of the
+driver when built as module allowing to select/unselect
+the PCI and Platform modules that are not anymore mutually
+exclusive. This patch fixes and guarantees that the driver
+builds on all the platforms w/ w/o PCI and when select/unselect
+the two stmmac supports. In case of there are some problems
+on both the configuration and the pci/pltf registration the
+module_init will fail.
 
-On 2012-06-07 12:12, Eric Dumazet wrote:
-> On Thu, 2012-06-07 at 11:31 +0300, Denys Fedoryshchenko wrote:
->> Hi
->>
->> Sorry for weird looking message, but this is how i got it over
->> netconsole
->>
->> If i have any tunnel+session configured and up and will do rmmod
->> l2tp_eth,
->> i will get panic, after my userspace program will fetch interfaces
->> information (over netlink).
->>
->> Probably it should not rmmod if there is tunnels configured?
->
-> Sure, can you try the following patch ?
->
-> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-> index 443591d..185f12f 100644
-> --- a/net/l2tp/l2tp_eth.c
-> +++ b/net/l2tp/l2tp_eth.c
-> @@ -162,6 +162,7 @@ static void l2tp_eth_delete(struct l2tp_session 
-> *session)
->  		if (dev) {
->  			unregister_netdev(dev);
->  			spriv->dev = NULL;
-> +			module_put(THIS_MODULE);
->  		}
->  	}
->  }
-> @@ -249,6 +250,7 @@ static int l2tp_eth_create(struct net *net, u32
-> tunnel_id, u32 session_id, u32 p
->  	if (rc < 0)
->  		goto out_del_dev;
->
-> +	__module_get(THIS_MODULE);
->  	/* Must be done after register_netdev() */
->  	strlcpy(session->ifname, dev->name, IFNAMSIZ);
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+Reported-by: Fengguang Wu <wfg@linux.intel.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   60 ++++++++++++++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   23 +++++----
+ 2 files changed, 71 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 6d07ba2..e8afe7b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -26,6 +26,7 @@
+ #include <linux/clk.h>
+ #include <linux/stmmac.h>
+ #include <linux/phy.h>
++#include <linux/pci.h>
+ #include "common.h"
+ #ifdef CONFIG_STMMAC_TIMER
+ #include "stmmac_timer.h"
+@@ -95,8 +96,6 @@ extern int stmmac_mdio_register(struct net_device *ndev);
+ extern void stmmac_set_ethtool_ops(struct net_device *netdev);
+ extern const struct stmmac_desc_ops enh_desc_ops;
+ extern const struct stmmac_desc_ops ndesc_ops;
+-extern struct pci_driver stmmac_pci_driver;
+-extern struct platform_driver stmmac_pltfr_driver;
+ int stmmac_freeze(struct net_device *ndev);
+ int stmmac_restore(struct net_device *ndev);
+ int stmmac_resume(struct net_device *ndev);
+@@ -144,3 +143,60 @@ static inline int stmmac_clk_get(struct stmmac_priv *priv)
+ 	return 0;
+ }
+ #endif /* CONFIG_HAVE_CLK */
++
++
++#ifdef CONFIG_STMMAC_PLATFORM
++extern struct platform_driver stmmac_pltfr_driver;
++static inline int stmmac_register_platform(void)
++{
++	int err;
++
++	err = platform_driver_register(&stmmac_pltfr_driver);
++	if (err)
++		pr_err("stmmac: failed to register the platform driver\n");
++
++	return err;
++}
++static inline void stmmac_unregister_platform(void)
++{
++	platform_driver_register(&stmmac_pltfr_driver);
++}
++#else
++static inline int stmmac_register_platform(void)
++{
++	pr_err("stmmac: do not register the platf driver\n");
++
++	return -EINVAL;
++}
++static inline void stmmac_unregister_platform(void)
++{
++}
++#endif /* CONFIG_STMMAC_PLATFORM */
++
++#ifdef CONFIG_STMMAC_PCI
++extern struct pci_driver stmmac_pci_driver;
++static inline int stmmac_register_pci(void)
++{
++	int err;
++
++	err = pci_register_driver(&stmmac_pci_driver);
++	if (err)
++		pr_err("stmmac: failed to register the PCI driver\n");
++
++	return err;
++}
++static inline void stmmac_unregister_pci(void)
++{
++	pci_unregister_driver(&stmmac_pci_driver);
++}
++#else
++static inline int stmmac_register_pci(void)
++{
++	pr_err("stmmac: do not register the PCI driver\n");
++
++	return -EINVAL;
++}
++static inline void stmmac_unregister_pci(void)
++{
++}
++#endif /* CONFIG_STMMAC_PCI */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 3638569..51b3b68 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -42,7 +42,6 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/slab.h>
+ #include <linux/prefetch.h>
+-#include <linux/pci.h>
+ #ifdef CONFIG_STMMAC_DEBUG_FS
+ #include <linux/debugfs.h>
+ #include <linux/seq_file.h>
+@@ -2094,25 +2093,29 @@ int stmmac_restore(struct net_device *ndev)
+ }
+ #endif /* CONFIG_PM */
+ 
++/* Driver can be configured w/ and w/ both PCI and Platf drivers
++ * depending on the configuration selected.
++ */
+ static int __init stmmac_init(void)
+ {
+-	int err = 0;
++	int err_plt = 0;
++	int err_pci = 0;
+ 
+-	err = platform_driver_register(&stmmac_pltfr_driver);
++	err_plt = stmmac_register_platform();
++	err_pci = stmmac_register_pci();
+ 
+-	if (!err) {
+-		err = pci_register_driver(&stmmac_pci_driver);
+-		if (err)
+-			platform_driver_unregister(&stmmac_pltfr_driver);
++	if ((err_pci) && (err_plt)) {
++		pr_err("stmmac: driver registration failed\n");
++		return -EINVAL;
+ 	}
+ 
+-	return err;
++	return 0;
+ }
+ 
+ static void __exit stmmac_exit(void)
+ {
+-	pci_unregister_driver(&stmmac_pci_driver);
+-	platform_driver_unregister(&stmmac_pltfr_driver);
++	stmmac_unregister_platform();
++	stmmac_unregister_pci();
+ }
+ 
+ module_init(stmmac_init);
+-- 
+1.7.4.4
