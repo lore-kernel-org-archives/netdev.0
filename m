@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: fix checksum bit management on some chips
-Date: Thu, 07 Jun 2012 13:07:37 -0700 (PDT)
-Message-ID: <20120607.130737.1211760364293640494.davem@davemloft.net>
-References: <20120606172036.GA11911@tugrik.mns.mnsspb.ru>
-	<20120606130130.5a86f94a@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] ieee802154: verify packet size before trying to
+ allocate it
+Date: Thu, 07 Jun 2012 13:10:36 -0700 (PDT)
+Message-ID: <20120607.131036.454649403537424443.davem@davemloft.net>
+References: <1339018322-19360-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kirr@mns.spb.ru, mlindner@marvell.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45357 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751473Ab2FGUHi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 16:07:38 -0400
-In-Reply-To: <20120606130130.5a86f94a@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dbaryshkov@gmail.com, slapin@ossfans.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: levinsasha928@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1339018322-19360-1-git-send-email-levinsasha928@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 6 Jun 2012 13:01:30 -0700
+From: Sasha Levin <levinsasha928@gmail.com>
+Date: Wed,  6 Jun 2012 23:32:02 +0200
 
-> The newer flavors of Yukon II use a different method for receive
-> checksum offload. This is indicated in the driver by the SKY2_HW_NEW_LE
-> flag. On these newer chips, the BMU_ENA_RX_CHKSUM should not be set.
+> Currently when sending data over datagram, the send function will attempt to
+> allocate any size passed on from the userspace.
 > 
-> The driver would get incorrectly toggle the bit, enabling the old
-> checksum logic on these chips and cause a BUG_ON() assertion. If
-> receive checksum was toggled via ethtool.
+> We should make sure that this size is checked and limited. The maximum size
+> of an IP packet seemed like the safest limit here.
 > 
-> Reported-by: Kirill Smelkov <kirr@mns.spb.ru>
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
 
-Applied and queued up for -stable.
+This limit is arbitrary, I'm not applying a patch like this.
 
-> Patch against net-next, please apply to net and stable kernels.
-
-Stephen, please don't do this, generate your patches always
-against the correct tree even if they are likely to still
-apply when generated against the wrong tree.
+Use the actual limit, which is either the protocol limit or something
+like the device mtu.
