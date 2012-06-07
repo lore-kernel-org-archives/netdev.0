@@ -1,82 +1,57 @@
-From: Rostislav Lisovy <lisovy@gmail.com>
-Subject: Re: [PATCH 2/2] net/sched: CAN Filter/Classifier
-Date: Thu, 07 Jun 2012 11:53:26 +0200
-Message-ID: <1339062806.4816.3.camel@lolumad>
-References: <1338826176-11646-1-git-send-email-lisovy@gmail.com>
-	 <1338826176-11646-2-git-send-email-lisovy@gmail.com>
-	 <1338883798.2760.2043.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: l2tp_eth: fix kernel panic on rmmod l2tp_eth
+Date: Thu, 07 Jun 2012 12:07:20 +0200
+Message-ID: <1339063640.26966.113.camel@edumazet-glaptop>
+References: <61a2ca9cc47a9a9a1c8a36738090dbf9@visp.net.lb>
+	 <1339060346.26966.106.camel@edumazet-glaptop>
+	 <66de011eba423f7b5eeb3c57e8430c5a@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>
+To: Denys Fedoryshchenko <denys@visp.net.lb>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:55870 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754807Ab2FGJyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 05:54:14 -0400
-In-Reply-To: <1338883798.2760.2043.camel@edumazet-glaptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:56857 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752849Ab2FGKH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 06:07:29 -0400
+Received: by eaak11 with SMTP id k11so147957eaa.19
+        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 03:07:28 -0700 (PDT)
+In-Reply-To: <66de011eba423f7b5eeb3c57e8430c5a@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-06-05 at 10:09 +0200, Eric Dumazet wrote: 
-> On Mon, 2012-06-04 at 18:09 +0200, Rostislav Lisovy wrote:
-> > This classifier classifies CAN frames (AF_CAN) according to their
-> > identifiers. This functionality can not be easily achieved with
-> > existing classifiers, such as u32. This classifier can be used
-> > with any available qdisc and it is able to classify both SFF
-> > or EFF frames.
-> > 
-> > The filtering rules for EFF frames are stored in an array, which
-> > is traversed during classification. A bitmap is used to store SFF
-> > rules -- one bit for each ID.
-> > 
-> > More info about the project:
-> > http://rtime.felk.cvut.cz/can/socketcan-qdisc-final.pdf
-> > 
-> > Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
-> > ---
-> >  net/sched/Kconfig   |   10 +
-> >  net/sched/Makefile  |    1 +
-> >  net/sched/cls_can.c |  572 +++++++++++++++++++++++++++++++++++++++++++++++++++
-> >  3 files changed, 583 insertions(+)
-> >  create mode 100644 net/sched/cls_can.c
-> 
-> It seems a huge amount of code, and before reviewing it I would like to
-> ask :
-> 
-> 1) Did you try to extend cls_flow somehow ?
-I did not. If I understand it right, cls_flow is intended to be mainly
-used with SFQ qdisc (which tries to ensure fairness among different
-flows).
-My intention was to make a simple and deterministic filter (which may be
-used with any available qdisc).
+From: Eric Dumazet <edumazet@google.com>
 
-However, after thoroughly going through cls_flow I realized that
-implementing an ematch function (to be used with cls_basic or others)
-will preserve the functionality and save some code at the same time.
-Therefore I tend to implement a new ematch function and resubmit the
-patch later if it turns to be a good approach. What do you think?
+We must prevent module unloading if some devices are still attached to
+l2tp_eth driver.
 
-Command syntax proposed in this patch was
-tc filter add ... can sffid 0x123 sffid 0x500:0x700 effid 0x00:0xff ...
-An ematch could look like
-tc filter add ... basic match 'canid(sff 0x123 sff 0x124:0x7f0 \
-  eff 0x1234)' ...
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+Tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
+Cc: James Chapman <jchapman@katalix.com>
+---
+ net/l2tp/l2tp_eth.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-
-> 2) Adding a cls_filter (or extend cls_flow to be able to use a bpf),
-> could be more generic, and thanks to bpf jit could be way faster.
-What do you mean with 'adding a cls_filter'?
-BPF is useful only for filtering incoming data, isn't it?
-
-
-> 
-> 3) sfq/fq_codel could be CAN aware if you adapt skb_flow_dissect() ?
-I will try to implement "deterministic ematch" filter in the first
-place.
-I may extend skb_flow_dissect() later.
-
-Regards;
-Rostislav Lisovy
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 443591d..185f12f 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -162,6 +162,7 @@ static void l2tp_eth_delete(struct l2tp_session *session)
+ 		if (dev) {
+ 			unregister_netdev(dev);
+ 			spriv->dev = NULL;
++			module_put(THIS_MODULE);
+ 		}
+ 	}
+ }
+@@ -249,6 +250,7 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
+ 	if (rc < 0)
+ 		goto out_del_dev;
+ 
++	__module_get(THIS_MODULE);
+ 	/* Must be done after register_netdev() */
+ 	strlcpy(session->ifname, dev->name, IFNAMSIZ);
+ 
