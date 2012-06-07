@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v4 net-next PATCH 0/3] Energy Efficient Ethernet (eee) support
-Date: Thu, 07 Jun 2012 13:19:33 -0700 (PDT)
-Message-ID: <20120607.131933.2241895081676978993.davem@davemloft.net>
-References: <1339038788-3447-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next] macvtap: use prepare_to_wait/finish_wait to
+ ensure mb
+Date: Thu, 07 Jun 2012 13:19:40 -0700 (PDT)
+Message-ID: <20120607.131940.1256581489594017198.davem@davemloft.net>
+References: <1339058187-6619-1-git-send-email-honkiko@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com,
-	peppe.cavallaro@st.com, bhutchings@solarflare.com
-To: yuvalmin@broadcom.com
+Cc: netdev@vger.kernel.org, arnd@arndb.de, zhiguo.hong@nsn.com,
+	vikifang@juniper.net
+To: honkiko@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45465 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45470 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755176Ab2FGUTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 16:19:34 -0400
-In-Reply-To: <1339038788-3447-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1754592Ab2FGUTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 16:19:41 -0400
+In-Reply-To: <1339058187-6619-1-git-send-email-honkiko@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Thu, 7 Jun 2012 06:13:05 +0300
+From: Hong Zhiguo <honkiko@gmail.com>
+Date: Thu,  7 Jun 2012 16:36:27 +0800
 
-> This patch series adds energy efficient ethernet support for the
-> bnx2x driver (for new chips with appropriate phys). 
-> It also extends the ethtool API to enable control of the eee feature.
+> instead of raw assignment to current->state
 > 
-> Another patch series has been sent to Ben to allow the ethtool application
-> to use this new API.
+> Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
 
-All applied to net-next, thanks.
+Applied.
