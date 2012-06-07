@@ -1,40 +1,75 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v10] tilegx network driver: initial support
-Date: Thu, 07 Jun 2012 13:52:53 -0700
-Message-ID: <1339102373.14838.18.camel@joe2Laptop>
-References: <201206042023.q54KNEZp003834@farm-0002.internal.tilera.com>
-	 <1339004459.26966.31.camel@edumazet-glaptop> <4FCFA312.4020505@tilera.com>
-	 <20120606.115440.1245419453265419850.davem@davemloft.net>
-	 <201206072031.q57KV0NG029301@farm-0023.internal.tilera.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [V2 RFC net-next PATCH 2/2] virtio_net: export more statistics
+	through ethtool
+Date: Thu, 7 Jun 2012 21:56:07 +0100
+Message-ID: <1339102567.2770.25.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<20120606075217.29081.30713.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<1339089306.2770.10.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120607.130512.219951433412203999.davem@davemloft.net>
+	<1339100649.2770.20.camel@bwh-desktop.uk.solarflarecom.com>
+	<4FD11194.2040405@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, arnd@arndb.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201206072031.q57KV0NG029301@farm-0023.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4FD11194.2040405@hp.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-04-06 at 16:42 -0400, Chris Metcalf wrote:
-> This change adds support for the tilegx network driver based on the
-> GXIO IORPC support in the tilegx software stack, using the on-chip
-> mPIPE packet processing engine.
+On Thu, 2012-06-07 at 13:39 -0700, Rick Jones wrote:
+> On 06/07/2012 01:24 PM, Ben Hutchings wrote:
+> > On Thu, 2012-06-07 at 13:05 -0700, David Miller wrote:
+> >> From: Ben Hutchings<bhutchings@solarflare.com>
+> >> Date: Thu, 7 Jun 2012 18:15:06 +0100
+> >>
+> >>> I would really like to see some sort of convention for presenting
+> >>> per-queue statistics through ethtool.  At the moment we have a complete
+> >>> mess of different formats:
+> >>
+> >> Indeed.  Probably ${QUEUE_TYPE}-${INDEX}-${STATISTIC} is best.
+> >> With an agreed upon list of queue types such as "rx", "tx", "rxtx"
+> >> etc.
+> >
+> > I think we should leave the type names open-ended, as there are other
+> > useful groupings like per-virtual-port.  In that case the separator
+> > should be chosen to allow arbitrary type names without ambiguity.
 > 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
-> ---
-> This version makes the driver multi-queued and support non-zero
-> tx_queue_len.  I also made a couple of magic numbers into #defines.
-> I skimmed the tg3.c driver, but didn't see any other obvious
-> changes that would be appropriate.
+> So you mean like something along the lines of the presence of say '.' 
+> indicating indent a level:
 > 
+> rx_bytes:  1234
+>      myqueue1.rx_bytes: 234
+>      myqueue2.rx_bytes: 345
+>      ...
 
-Hi Chris.
+Most drivers seem to want this sort of ordering/grouping:
 
-Can you please use git send-email instead of
-generating odd header dates like April 6, 2012
-and Sept 16, 2001?
+group0.foo
+group0.bar
+...
+group1.foo
+group1.bar
+...
 
-git send-email will use your system date.
+but if we have a standard way of indicating groups of statistics then
+the user can choose whether they want to reorder by type name.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
