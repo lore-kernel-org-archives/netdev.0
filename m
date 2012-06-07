@@ -1,36 +1,59 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: iwlwifi: kernel panic during boot due to module load order
-Date: Thu, 07 Jun 2012 14:34:51 +0200
-Message-ID: <1339072491.3279.6.camel@lappy>
+From: Kirill Smelkov <kirr@mns.spb.ru>
+Subject: Re: [PATCH] sky2: fix checksum bit management on some chips
+Date: Thu, 7 Jun 2012 16:40:45 +0400
+Message-ID: <20120607124045.GA4016@tugrik.mns.mnsspb.ru>
+References: <20120606172036.GA11911@tugrik.mns.mnsspb.ru>
+ <20120606130130.5a86f94a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ilw@linux.intel.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: donald.h.fry@intel.com, emmanuel.grumbach@intel.com,
-	johannes.berg@intel.com, linville@tuxdriver.com,
-	wey-yi.w.guy@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Mirko Lindner <mlindner@marvell.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mnsspb.ru ([84.204.75.2]:48746 "EHLO mail.mnsspb.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754769Ab2FGMir (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jun 2012 08:38:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20120606130130.5a86f94a@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Wed, Jun 06, 2012 at 01:01:30PM -0700, Stephen Hemminger wrote:
+> The newer flavors of Yukon II use a different method for receive
+> checksum offload. This is indicated in the driver by the SKY2_HW_NEW_LE
+> flag. On these newer chips, the BMU_ENA_RX_CHKSUM should not be set.
+> 
+> The driver would get incorrectly toggle the bit, enabling the old
+> checksum logic on these chips and cause a BUG_ON() assertion. If
+> receive checksum was toggled via ethtool.
+> 
+> Reported-by: Kirill Smelkov <kirr@mns.spb.ru>
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> ---
+> Patch against net-next, please apply to net and stable kernels.
+> 
+> --- a/drivers/net/ethernet/marvell/sky2.c	2012-06-06 11:09:38.288440819 -0700
+> +++ b/drivers/net/ethernet/marvell/sky2.c	2012-06-06 11:25:01.275782462 -0700
+> @@ -4381,10 +4381,12 @@ static int sky2_set_features(struct net_
+>  	struct sky2_port *sky2 = netdev_priv(dev);
+>  	netdev_features_t changed = dev->features ^ features;
+>  
+> -	if (changed & NETIF_F_RXCSUM) {
+> -		bool on = features & NETIF_F_RXCSUM;
+> -		sky2_write32(sky2->hw, Q_ADDR(rxqaddr[sky2->port], Q_CSR),
+> -			     on ? BMU_ENA_RX_CHKSUM : BMU_DIS_RX_CHKSUM);
+> +	if ((changed & NETIF_F_RXCSUM) &&
+> +	    !(sky2->hw->flags & SKY2_HW_NEW_LE)) {
+> +		sky2_write32(sky2->hw,
+> +			     Q_ADDR(rxqaddr[sky2->port], Q_CSR),
+> +			     (features & NETIF_F_RXCSUM)
+> +			     ? BMU_ENA_RX_CHKSUM : BMU_DIS_RX_CHKSUM);
+>  	}
+>  
+>  	if (changed & NETIF_F_RXHASH)
 
-Commit cc5f7e397 ("iwlwifi: implement dynamic opmode loading") causes a
-kernel panic during boot in the following scenario:
 
-1. All drivers are built-in.
-2. Due to their build order, iwl_init gets called before iwl_drv_init.
-3. iwl_init will call iwl_opmode_register which will iterate the new op
-list, and cause a NULL ptr deref when trying to list_for_each_entry the
-dev list, which won't be empty since it wasn't initialized (iwl_drv_init
-wasn't called yet).
-
-While it's possible to easily fix the actual deref, I suspect that the
-init function call order is wrong. I've looked at getting it right in
-the Makefile, but it seems to have specific ordering behind it, so I'd
-rather not try patching it myself.
-
-Thanks,
-Sasha.
+Thanks Stephen, now that BUG_ON is gone.
