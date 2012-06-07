@@ -1,48 +1,47 @@
-From: "Franky Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 5/7]
- drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c: adjust suspicious bit
- operation
-Date: Wed, 6 Jun 2012 16:43:10 -0700
-Message-ID: <4FCFEB0E.2020206@broadcom.com>
-References: <1339018901-28439-1-git-send-email-Julia.Lawall@lip6.fr>
- <1339018901-28439-6-git-send-email-Julia.Lawall@lip6.fr>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: tcp wifi upload performance and lots of ACKs
+Date: Wed, 06 Jun 2012 17:26:40 -0700
+Message-ID: <4FCFF540.5010608@candelatech.com>
+References: <4FCCFE76.3060304@candelatech.com> <CAEnQRZCNUYmP88Ocm_nG7gpA1Qcwy1tOc6kgCgZ7RqXcxQsHhg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1;
- format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Brett Rudley" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Roland Vossen" <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Kan Yan" <kanyan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
-	"Julia Lawall" <julia-dAYI7NvHqcQ@public.gmane.org>
-To: "Julia Lawall" <Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1339018901-28439-6-git-send-email-Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Daniel Baluta <dbaluta@ixiacom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:51444 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751488Ab2FGA0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jun 2012 20:26:44 -0400
+In-Reply-To: <CAEnQRZCNUYmP88Ocm_nG7gpA1Qcwy1tOc6kgCgZ7RqXcxQsHhg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2012 02:41 PM, Julia Lawall wrote:
-> From: Julia Lawall<Julia.Lawall-L2FTfq7BK8M@public.gmane.org>
+On 06/04/2012 12:22 PM, Daniel Baluta wrote:
+
+> Currently, there is no way to tune these parameters. Here is an experimental
+> patch [1]. If anyone, thinks that this patch has a chance to get accepted
+> I will be happily try to further improve it.
 >
-> IRQF_TRIGGER_HIGH is 0x00000004, so it seems that&  was intended rather than |.
+>>
+>> Packet traces and other info available if anyone wants to take a look.
 >
-> This problem was found using Coccinelle (http://coccinelle.lip6.fr/).
+> thanks,
+> Daniel.
 >
-> Signed-off-by: Julia Lawall<julia-dAYI7NvHqcQ@public.gmane.org>
+> [1] http://marc.info/?l=linux-netdev&m=131983649130350&w=2
 
-Thanks, Julia. But this has already been fixed by Joe Perches [1] and 
-the patch has arrived at Linux wireless tree.
+I tried your patch in 3.5.0-rc1.
 
-Franky
+Doesn't seem to help any...do you have suggested settings for
+the proc values?  (I tried increasing tcp_delack_segs up to 10,
+but no significant increase...)
 
-[1] https://lkml.org/lkml/2012/5/30/482
+I'll keep poking around.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
