@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ieee802154: verify packet size before trying to
- allocate it
-Date: Thu, 07 Jun 2012 13:10:36 -0700 (PDT)
-Message-ID: <20120607.131036.454649403537424443.davem@davemloft.net>
-References: <1339018322-19360-1-git-send-email-levinsasha928@gmail.com>
+Subject: Re: Remove out of date message in appletalk printk
+Date: Thu, 07 Jun 2012 13:12:55 -0700 (PDT)
+Message-ID: <20120607.131255.439288998037331522.davem@davemloft.net>
+References: <20120606184559.GA27763@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dbaryshkov@gmail.com, slapin@ossfans.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: levinsasha928@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339018322-19360-1-git-send-email-levinsasha928@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
+To: davej@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45394 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751517Ab2FGUM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 16:12:56 -0400
+In-Reply-To: <20120606184559.GA27763@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <levinsasha928@gmail.com>
-Date: Wed,  6 Jun 2012 23:32:02 +0200
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 6 Jun 2012 14:45:59 -0400
 
-> Currently when sending data over datagram, the send function will attempt to
-> allocate any size passed on from the userspace.
+> I accidentally triggered this printk, which amused me for a few moments.
+> Given we're post 2.2, we could just -EACCES, but does anyone even care about Appletalk now ?
+> I figure it's better to leave sleeping dogs lie, and just update the message.
 > 
-> We should make sure that this size is checked and limited. The maximum size
-> of an IP packet seemed like the safest limit here.
-> 
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
-This limit is arbitrary, I'm not applying a patch like this.
+Applied, but I made a few refinements.  I made it use pr_warn() and
+also prefixed the message with "atalk_connect: " so if someone sees
+this it's easier to figure out where it's coming from.
 
-Use the actual limit, which is either the protocol limit or something
-like the device mtu.
+Thanks.
