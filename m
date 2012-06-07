@@ -1,77 +1,51 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: tcp wifi upload performance and lots of ACKs
-Date: Thu, 7 Jun 2012 13:20:19 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F3C@saturn3.aculab.com>
-References: <4FD02AFB.7040004@candelatech.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Difficulties to get 1Gbps on be2net ethernet card
+Date: Thu, 07 Jun 2012 14:31:29 +0200
+Message-ID: <1339072289.3494.3.camel@edumazet-glaptop>
+References: <CAL8zT=hHAc5-wGMKgumV=K9jG6tDxzej9Dffe9UYQ24gdWQRtw@mail.gmail.com>
+	 <CAL8zT=jKhRjVCdYRCerMzimxPAhP5Gi+JBBfuKjG-rfg-LMoVw@mail.gmail.com>
+	 <1338360536.2760.85.camel@edumazet-glaptop>
+	 <CAL8zT=h2hoTWDMpTe8P-xfm-USXD6spx8fFVmm1UXyOfuuqhZw@mail.gmail.com>
+	 <1338361587.2760.94.camel@edumazet-glaptop>
+	 <CAL8zT=jHWhDdv-DyXL8XnL8qRc7o-jZfA7ADU-qt54hB5aLyCw@mail.gmail.com>
+	 <CAL8zT=gJT1Frn_44SU0CrpZjPxwC_VuHFE4k9jvOGNmFomzhHA@mail.gmail.com>
+	 <3367B80B08154D42A3B2BC708B5D41F647C678B73F@EXMAIL.ad.emulex.com>
+	 <CAL8zT=iP+5o11am67ZBVOd=QrOfcjFWDydiuM9RrrAKe_k7LZw@mail.gmail.com>
+	 <CAL8zT=ggT7Y2on6qmsp3u9CLOCwd6nOr3VjQfEsGZzA+O6us0A@mail.gmail.com>
+	 <1338980484.2760.4219.camel@edumazet-glaptop>
+	 <CAL8zT=hHDPnvRFcQ0w+D=AP+QK6ic4X=tva6Yw_XGwuTbAYjhQ@mail.gmail.com>
+	 <CAL8zT=jGHo82mo-s8Tfs9LWzfu2GkrS4eZJoeOpHhpXHMr6csg@mail.gmail.com>
+	 <CAL8zT=jY9YfdkBjk5VhwaSbzghCVUMXZZh+QAgc15LBBztczog@mail.gmail.com>
+	 <CAL8zT=g67JLZZjLF81+wxe9pmuPZ4EdpY1fHJMQNgcy9R6oBzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "Ben Greear" <greearb@candelatech.com>,
-	"Daniel Baluta" <dbaluta@ixiacom.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sathya.Perla@emulex.com, netdev@vger.kernel.org
+To: Jean-Michel Hautbois <jhautbois@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:38538 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751652Ab2FGM3g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 08:29:36 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 05278-06 for <netdev@vger.kernel.org>;
- Thu,  7 Jun 2012 13:29:31 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <4FD02AFB.7040004@candelatech.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:40561 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751800Ab2FGMbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 08:31:34 -0400
+Received: by eaak11 with SMTP id k11so204793eaa.19
+        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 05:31:33 -0700 (PDT)
+In-Reply-To: <CAL8zT=g67JLZZjLF81+wxe9pmuPZ4EdpY1fHJMQNgcy9R6oBzg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
+On Thu, 2012-06-07 at 14:27 +0200, Jean-Michel Hautbois wrote:
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org 
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Ben Greear
-> Sent: 07 June 2012 05:16
-> To: Daniel Baluta
-> Cc: netdev
-> Subject: Re: tcp wifi upload performance and lots of ACKs
+> I made some tests, and I didn't mention it : I am using the bonding
+> driver over my ethernet drivers (be2net/mlx4 etc.).
+> When I am using bonding, I need a big txqeuelen in order to send 2.4Gbps.
+> When I disable bonding, and use directly the NIC then I don't see any
+> drops in qdisc and it works well.
+> So, I think there is something between 2.6.26 and 3.0 in the bonding
+> driver which causes this issue.
 > 
-> On 06/04/2012 12:22 PM, Daniel Baluta wrote:
-> > On Mon, Jun 4, 2012 at 9:29 PM, Ben Greear<greearb@candelatech.com>
-wrote:
-> >> I'm going some TCP performance testing on wifi ->  LAN interface
-connections.
-> >>   With
-> >> UDP, we can get around 250Mbps of payload throughput.  With TCP,
-max is
-> >> about 80Mbps.
-> >>
-> >> I think the problem is that there are way too many ACK packets, and
-> >> bi-directional
-> >> traffic on wifi interfaces really slows things down.  (About 7000
-pkts per
-> >> second in
-> >> upload direction, 2000 pps download.  And the vast majority of the
-download
-> >> pkts
-> >> are 66 byte ACK pkts from what I can tell.)
-> 
-> > [1] http://marc.info/?l=linux-netdev&m=131983649130350&w=2
-> 
-> After a bit more playing, I did notice a reliable 5% increase in
-> traffic (200Mbps -> 210Mbps) from changing the delack segments
-> to 20 from the default of 1.  That is enough to be useful to me,
-> and there may be more significant gains to be found...
-> I haven't done a full matrix of testing yet.
 
-Does this delaying of acks have a detrimental effect on the
-sending end?
-I've seen very bad interactions between delayed acks and
-(I believe) the 'slow start' code on connections with
-one-directional data, Nagle disabled and very low RTT.
+What your bond configuration looks like ?
 
-What I saw was the sender sending 4 data packets, then
-sitting waiting for an ack - in spite of accumulating
-several kB of data to send.
-
-Delaying acks further will only make this worse.
-
-	David
+cat /proc/net/bonding/bond0
+ifconfig -a
+tc -s -d qdisc
