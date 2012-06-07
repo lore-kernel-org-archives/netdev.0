@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fib: Restore NTF_ROUTER exception in fib6_age()
-Date: Thu, 07 Jun 2012 13:03:11 -0700 (PDT)
-Message-ID: <20120607.130311.920828145290724774.davem@davemloft.net>
-References: <6e43964ac82665f0257ac4f53c17b3b3403edcc3.1339087863.git.tgraf@suug.ch>
+Subject: Re: [V2 RFC net-next PATCH 2/2] virtio_net: export more statistics
+	through ethtool
+Date: Thu, 07 Jun 2012 13:05:12 -0700 (PDT)
+Message-ID: <20120607.130512.219951433412203999.davem@davemloft.net>
+References: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<20120606075217.29081.30713.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<1339089306.2770.10.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45319 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752501Ab2FGUDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 16:03:12 -0400
-In-Reply-To: <6e43964ac82665f0257ac4f53c17b3b3403edcc3.1339087863.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: bhutchings@solarflare.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1339089306.2770.10.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu,  7 Jun 2012 18:51:04 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 7 Jun 2012 18:15:06 +0100
 
-> Commit 5339ab8b1dd82 (ipv6: fib: Convert fib6_age() to
-> dst_neigh_lookup().) seems to have mistakenly inverted the
-> exception for cached NTF_ROUTER routes.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> I would really like to see some sort of convention for presenting
+> per-queue statistics through ethtool.  At the moment we have a complete
+> mess of different formats:
 
-Thanks for fixing this, applied.
+Indeed.  Probably ${QUEUE_TYPE}-${INDEX}-${STATISTIC} is best.
+With an agreed upon list of queue types such as "rx", "tx", "rxtx"
+etc.
