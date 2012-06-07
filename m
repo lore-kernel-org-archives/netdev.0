@@ -1,166 +1,82 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] stmmac: fix driver built w/ w/o both pci and platf modules
-Date: Thu,  7 Jun 2012 11:53:23 +0200
-Message-ID: <1339062803-24273-1-git-send-email-peppe.cavallaro@st.com>
-Cc: wfg@linux.intel.com, davem@davemloft.net,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Rostislav Lisovy <lisovy@gmail.com>
+Subject: Re: [PATCH 2/2] net/sched: CAN Filter/Classifier
+Date: Thu, 07 Jun 2012 11:53:26 +0200
+Message-ID: <1339062806.4816.3.camel@lolumad>
+References: <1338826176-11646-1-git-send-email-lisovy@gmail.com>
+	 <1338826176-11646-2-git-send-email-lisovy@gmail.com>
+	 <1338883798.2760.2043.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:44817 "EHLO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752777Ab2FGJxz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 05:53:55 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:55870 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754807Ab2FGJyO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 05:54:14 -0400
+In-Reply-To: <1338883798.2760.2043.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit ba27ec66ffeb78cbf fixes the Kconfig of the
-driver when built as module allowing to select/unselect
-the PCI and Platform modules that are not anymore mutually
-exclusive. This patch fixes and guarantees that the driver
-builds on all the platforms w/ w/o PCI and when select/unselect
-the two stmmac supports. In case of there are some problems
-on both the configuration and the pci/pltf registration the
-module_init will fail.
+On Tue, 2012-06-05 at 10:09 +0200, Eric Dumazet wrote: 
+> On Mon, 2012-06-04 at 18:09 +0200, Rostislav Lisovy wrote:
+> > This classifier classifies CAN frames (AF_CAN) according to their
+> > identifiers. This functionality can not be easily achieved with
+> > existing classifiers, such as u32. This classifier can be used
+> > with any available qdisc and it is able to classify both SFF
+> > or EFF frames.
+> > 
+> > The filtering rules for EFF frames are stored in an array, which
+> > is traversed during classification. A bitmap is used to store SFF
+> > rules -- one bit for each ID.
+> > 
+> > More info about the project:
+> > http://rtime.felk.cvut.cz/can/socketcan-qdisc-final.pdf
+> > 
+> > Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
+> > ---
+> >  net/sched/Kconfig   |   10 +
+> >  net/sched/Makefile  |    1 +
+> >  net/sched/cls_can.c |  572 +++++++++++++++++++++++++++++++++++++++++++++++++++
+> >  3 files changed, 583 insertions(+)
+> >  create mode 100644 net/sched/cls_can.c
+> 
+> It seems a huge amount of code, and before reviewing it I would like to
+> ask :
+> 
+> 1) Did you try to extend cls_flow somehow ?
+I did not. If I understand it right, cls_flow is intended to be mainly
+used with SFQ qdisc (which tries to ensure fairness among different
+flows).
+My intention was to make a simple and deterministic filter (which may be
+used with any available qdisc).
 
-Reported-by: Fengguang Wu <wfg@linux.intel.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   60 ++++++++++++++++++++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   23 +++++----
- 2 files changed, 71 insertions(+), 12 deletions(-)
+However, after thoroughly going through cls_flow I realized that
+implementing an ematch function (to be used with cls_basic or others)
+will preserve the functionality and save some code at the same time.
+Therefore I tend to implement a new ematch function and resubmit the
+patch later if it turns to be a good approach. What do you think?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 6d07ba2..e8afe7b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -26,6 +26,7 @@
- #include <linux/clk.h>
- #include <linux/stmmac.h>
- #include <linux/phy.h>
-+#include <linux/pci.h>
- #include "common.h"
- #ifdef CONFIG_STMMAC_TIMER
- #include "stmmac_timer.h"
-@@ -95,8 +96,6 @@ extern int stmmac_mdio_register(struct net_device *ndev);
- extern void stmmac_set_ethtool_ops(struct net_device *netdev);
- extern const struct stmmac_desc_ops enh_desc_ops;
- extern const struct stmmac_desc_ops ndesc_ops;
--extern struct pci_driver stmmac_pci_driver;
--extern struct platform_driver stmmac_pltfr_driver;
- int stmmac_freeze(struct net_device *ndev);
- int stmmac_restore(struct net_device *ndev);
- int stmmac_resume(struct net_device *ndev);
-@@ -144,3 +143,60 @@ static inline int stmmac_clk_get(struct stmmac_priv *priv)
- 	return 0;
- }
- #endif /* CONFIG_HAVE_CLK */
-+
-+
-+#ifdef CONFIG_STMMAC_PLATFORM
-+extern struct platform_driver stmmac_pltfr_driver;
-+static inline int stmmac_register_platform(void)
-+{
-+	int err;
-+
-+	err = platform_driver_register(&stmmac_pltfr_driver);
-+	if (err)
-+		pr_err("stmmac: failed to register the platform driver\n");
-+
-+	return err;
-+}
-+static inline void stmmac_unregister_platform(void)
-+{
-+	platform_driver_register(&stmmac_pltfr_driver);
-+}
-+#else
-+static inline int stmmac_register_platform(void)
-+{
-+	pr_err("stmmac: do not register the platf driver\n");
-+
-+	return -EINVAL;
-+}
-+static inline void stmmac_unregister_platform(void)
-+{
-+}
-+#endif /* CONFIG_STMMAC_PLATFORM */
-+
-+#ifdef CONFIG_STMMAC_PCI
-+extern struct pci_driver stmmac_pci_driver;
-+static inline int stmmac_register_pci(void)
-+{
-+	int err;
-+
-+	err = pci_register_driver(&stmmac_pci_driver);
-+	if (err)
-+		pr_err("stmmac: failed to register the PCI driver\n");
-+
-+	return err;
-+}
-+static inline void stmmac_unregister_pci(void)
-+{
-+	pci_unregister_driver(&stmmac_pci_driver);
-+}
-+#else
-+static inline int stmmac_register_pci(void)
-+{
-+	pr_err("stmmac: do not register the PCI driver\n");
-+
-+	return -EINVAL;
-+}
-+static inline void stmmac_unregister_pci(void)
-+{
-+}
-+#endif /* CONFIG_STMMAC_PCI */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3638569..51b3b68 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -42,7 +42,6 @@
- #include <linux/dma-mapping.h>
- #include <linux/slab.h>
- #include <linux/prefetch.h>
--#include <linux/pci.h>
- #ifdef CONFIG_STMMAC_DEBUG_FS
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
-@@ -2094,25 +2093,29 @@ int stmmac_restore(struct net_device *ndev)
- }
- #endif /* CONFIG_PM */
- 
-+/* Driver can be configured w/ and w/ both PCI and Platf drivers
-+ * depending on the configuration selected.
-+ */
- static int __init stmmac_init(void)
- {
--	int err = 0;
-+	int err_plt = 0;
-+	int err_pci = 0;
- 
--	err = platform_driver_register(&stmmac_pltfr_driver);
-+	err_plt = stmmac_register_platform();
-+	err_pci = stmmac_register_pci();
- 
--	if (!err) {
--		err = pci_register_driver(&stmmac_pci_driver);
--		if (err)
--			platform_driver_unregister(&stmmac_pltfr_driver);
-+	if ((err_pci) && (err_plt)) {
-+		pr_err("stmmac: driver registration failed\n");
-+		return -EINVAL;
- 	}
- 
--	return err;
-+	return 0;
- }
- 
- static void __exit stmmac_exit(void)
- {
--	pci_unregister_driver(&stmmac_pci_driver);
--	platform_driver_unregister(&stmmac_pltfr_driver);
-+	stmmac_unregister_platform();
-+	stmmac_unregister_pci();
- }
- 
- module_init(stmmac_init);
--- 
-1.7.4.4
+Command syntax proposed in this patch was
+tc filter add ... can sffid 0x123 sffid 0x500:0x700 effid 0x00:0xff ...
+An ematch could look like
+tc filter add ... basic match 'canid(sff 0x123 sff 0x124:0x7f0 \
+  eff 0x1234)' ...
+
+
+> 2) Adding a cls_filter (or extend cls_flow to be able to use a bpf),
+> could be more generic, and thanks to bpf jit could be way faster.
+What do you mean with 'adding a cls_filter'?
+BPF is useful only for filtering incoming data, isn't it?
+
+
+> 
+> 3) sfq/fq_codel could be CAN aware if you adapt skb_flow_dissect() ?
+I will try to implement "deterministic ematch" filter in the first
+place.
+I may extend skb_flow_dissect() later.
+
+Regards;
+Rostislav Lisovy
