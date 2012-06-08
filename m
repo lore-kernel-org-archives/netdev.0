@@ -1,188 +1,47 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git) V3] stmmac: fix driver built w/ w/o both pci and platf modules
-Date: Fri,  8 Jun 2012 07:25:07 +0200
-Message-ID: <1339133107-29098-1-git-send-email-peppe.cavallaro@st.com>
-References: <20120607.110130.1448306195184899614.davem@davemloft.net>
-Cc: wfg@linux.intel.com, davem@davemloft.net,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:51639 "EHLO
-	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932729Ab2FHFZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 01:25:30 -0400
-In-Reply-To: <20120607.110130.1448306195184899614.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/2] inetpeer: add namespace support for
+	inetpeer
+Date: Fri, 08 Jun 2012 13:27:18 +0800
+Message-ID: <4FD18D36.3090101@cn.fujitsu.com>
+References: <20120606.104323.1698446129331745479.davem@davemloft.net>
+	<20120607.144301.1259354794384347085.davem@davemloft.net>
+	<4FD158E4.1080701@cn.fujitsu.com>
+	<20120607.205348.913373847915721607.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20120607.205348.913373847915721607.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The commit ba27ec66ffeb78cbf fixes the Kconfig of the
-driver when built as module allowing to select/unselect
-the PCI and Platform modules that are not anymore mutually
-exclusive. This patch fixes and guarantees that the driver
-builds on all the platforms w/ w/o PCI and when select/unselect
-the two stmmac supports. In case of there are some problems
-on both the configuration and the pci/pltf registration the
-module_init will fail.
-
-v2: set the CONFIG_STMMAC_PLATFORM enabled by default.
-I've just noticed that this can actually help on
-some configurations that don't enable any STMMAC
-options by default (e.g. SPEAr).
-
-v3: change printk level when do not register the driver.
-
-Reported-by: Fengguang Wu <wfg@linux.intel.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/Kconfig       |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   60 ++++++++++++++++++++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   23 +++++----
- 3 files changed, 72 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 0076f77..9f44827 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -15,6 +15,7 @@ if STMMAC_ETH
- config STMMAC_PLATFORM
- 	bool "STMMAC Platform bus support"
- 	depends on STMMAC_ETH
-+	default y
- 	---help---
- 	  This selects the platform specific bus support for
- 	  the stmmac device driver. This is the driver used
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 6d07ba2..e8afe7b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -26,6 +26,7 @@
- #include <linux/clk.h>
- #include <linux/stmmac.h>
- #include <linux/phy.h>
-+#include <linux/pci.h>
- #include "common.h"
- #ifdef CONFIG_STMMAC_TIMER
- #include "stmmac_timer.h"
-@@ -95,8 +96,6 @@ extern int stmmac_mdio_register(struct net_device *ndev);
- extern void stmmac_set_ethtool_ops(struct net_device *netdev);
- extern const struct stmmac_desc_ops enh_desc_ops;
- extern const struct stmmac_desc_ops ndesc_ops;
--extern struct pci_driver stmmac_pci_driver;
--extern struct platform_driver stmmac_pltfr_driver;
- int stmmac_freeze(struct net_device *ndev);
- int stmmac_restore(struct net_device *ndev);
- int stmmac_resume(struct net_device *ndev);
-@@ -144,3 +143,60 @@ static inline int stmmac_clk_get(struct stmmac_priv *priv)
- 	return 0;
- }
- #endif /* CONFIG_HAVE_CLK */
-+
-+
-+#ifdef CONFIG_STMMAC_PLATFORM
-+extern struct platform_driver stmmac_pltfr_driver;
-+static inline int stmmac_register_platform(void)
-+{
-+	int err;
-+
-+	err = platform_driver_register(&stmmac_pltfr_driver);
-+	if (err)
-+		pr_err("stmmac: failed to register the platform driver\n");
-+
-+	return err;
-+}
-+static inline void stmmac_unregister_platform(void)
-+{
-+	platform_driver_register(&stmmac_pltfr_driver);
-+}
-+#else
-+static inline int stmmac_register_platform(void)
-+{
-+	pr_debug("stmmac: do not register the platf driver\n");
-+
-+	return -EINVAL;
-+}
-+static inline void stmmac_unregister_platform(void)
-+{
-+}
-+#endif /* CONFIG_STMMAC_PLATFORM */
-+
-+#ifdef CONFIG_STMMAC_PCI
-+extern struct pci_driver stmmac_pci_driver;
-+static inline int stmmac_register_pci(void)
-+{
-+	int err;
-+
-+	err = pci_register_driver(&stmmac_pci_driver);
-+	if (err)
-+		pr_err("stmmac: failed to register the PCI driver\n");
-+
-+	return err;
-+}
-+static inline void stmmac_unregister_pci(void)
-+{
-+	pci_unregister_driver(&stmmac_pci_driver);
-+}
-+#else
-+static inline int stmmac_register_pci(void)
-+{
-+	pr_debug("stmmac: do not register the PCI driver\n");
-+
-+	return -EINVAL;
-+}
-+static inline void stmmac_unregister_pci(void)
-+{
-+}
-+#endif /* CONFIG_STMMAC_PCI */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3638569..51b3b68 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -42,7 +42,6 @@
- #include <linux/dma-mapping.h>
- #include <linux/slab.h>
- #include <linux/prefetch.h>
--#include <linux/pci.h>
- #ifdef CONFIG_STMMAC_DEBUG_FS
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
-@@ -2094,25 +2093,29 @@ int stmmac_restore(struct net_device *ndev)
- }
- #endif /* CONFIG_PM */
- 
-+/* Driver can be configured w/ and w/ both PCI and Platf drivers
-+ * depending on the configuration selected.
-+ */
- static int __init stmmac_init(void)
- {
--	int err = 0;
-+	int err_plt = 0;
-+	int err_pci = 0;
- 
--	err = platform_driver_register(&stmmac_pltfr_driver);
-+	err_plt = stmmac_register_platform();
-+	err_pci = stmmac_register_pci();
- 
--	if (!err) {
--		err = pci_register_driver(&stmmac_pci_driver);
--		if (err)
--			platform_driver_unregister(&stmmac_pltfr_driver);
-+	if ((err_pci) && (err_plt)) {
-+		pr_err("stmmac: driver registration failed\n");
-+		return -EINVAL;
- 	}
- 
--	return err;
-+	return 0;
- }
- 
- static void __exit stmmac_exit(void)
- {
--	pci_unregister_driver(&stmmac_pci_driver);
--	platform_driver_unregister(&stmmac_pltfr_driver);
-+	stmmac_unregister_platform();
-+	stmmac_unregister_pci();
- }
- 
- module_init(stmmac_init);
--- 
-1.7.4.4
+5LqOIDIwMTLlubQwNuaciDA45pelIDExOjUzLCBEYXZpZCBNaWxsZXIg5YaZ6YGTOgo+IEZyb206
+IEdhbyBmZW5nIDxnYW9mZW5nQGNuLmZ1aml0c3UuY29tPgo+IERhdGU6IEZyaSwgMDggSnVuIDIw
+MTIgMDk6NDQ6MDQgKzA4MDAKPiAKPj4gU29ycnkgZm9yIG15IHBvb2wgZW5nbGlzaCwgSSBkb24n
+dCB1bmRlcnN0YW5kIHRoaXMuCj4+IENhbiB5b3UgZXhwbGFpbiBpdCBmb3IgbWU/Cj4gCj4gTG9v
+ayBhdCB0aGUgZW5kIG9mIHRoZSBwYXJ0cyBvZiB0aGUgcGF0Y2ggdGhhdCBjaGFuZ2UKPiBuZXQv
+aXB2NC9pbmV0cGVlci5jOgo+IAo+IEBAIC01ODYsMyArNjE3LDMgQEAgIG91dDoKPiAgCXdyaXRl
+X3NlcXVubG9ja19iaCgmYmFzZS0+bG9jayk7Cj4gIH0KPiAgRVhQT1JUX1NZTUJPTChpbmV0cGVl
+cl9pbnZhbGlkYXRlX3RyZWUpOwo+IAo+IFRoYXQgbWFrZXMgbm8gc2Vuc2UsIGl0J3MgYSBwYXRj
+aCBodW5rIHdpdGggbm8gIisiIG9yICItIgo+IGxpbmVzLgoKClRoYW5rcyBEYXZpZCxnb3QgaXQu
+Cgo+IAo+IFlvdXIgcGF0Y2ggd2FzIGNvcnJ1cHRlZCBieSBzb21ldGhpbmcuCj4gCj4gVGhpcyBp
+cyBleHRyZW1lbHkgaXJyaXRhdGluZy4gIEkgd291bGQgcmVjb21tZW5kIHRoYXQgeW91IGVtYWls
+Cj4gcGF0Y2hlcyB0byB5b3Vyc2VsZiwgYW5kIHRyeSB0byBhcHBseSB0aGUgY29waWVzIHlvdSBy
+ZWNlaXZlCj4gaW4gdGhvc2UgZW1haWxzLiAgQmVjYXVzZSB0aGF0J3Mgd2hhdCB0aGUgcGVvcGxl
+IHRyeWluZyB0byB1c2UKPiB5b3VyIHBhdGNoIGFyZSBnb2luZyB0byBkby4KPiAKClNvcnJ5LCBJ
+IHdpbGwgdHJ5IGl0IG15c2VsZiBuZXh0IHRpbWUuIDspCl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fCkNvbnRhaW5lcnMgbWFpbGluZyBsaXN0CkNvbnRhaW5l
+cnNAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRp
+b24ub3JnL21haWxtYW4vbGlzdGluZm8vY29udGFpbmVycw==
