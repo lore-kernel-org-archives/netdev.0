@@ -1,218 +1,50 @@
-From: Huajun Li <huajun.li.lee@gmail.com>
-Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
- endless "XactErr" error
-Date: Fri, 8 Jun 2012 23:54:57 +0800
-Message-ID: <CA+v9cxZkWSeT_Qs+amOxRoW9Fmpgp6HY3Uj0dBGTOAqrbkQ5Hg@mail.gmail.com>
-References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
-	<CACVXFVMwhoYyJHAsK0xF0poZxoZv8ENHhquPVAiGnsow5-FH8Q@mail.gmail.com>
-	<CA+v9cxYvvRVWAUHX=b-P022pFbG1M7S=SZtOo2zfJnhAx5_+sQ@mail.gmail.com>
-	<CACVXFVPj-4J2_UuOQ9NCW7wV_SLG50a-pEYqhd7K9sXuGmDmoQ@mail.gmail.com>
-	<CA+v9cxbogzS7sVChqkRMgDUcs=aJgNDRH8ydoQ-_htfS2t52gQ@mail.gmail.com>
-	<CACVXFVN0Y0p+WXUhJco6EKCdjx6Wg-guJLe79Bmj2K9KQGKToA@mail.gmail.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Deadlock, L2TP over IP are not working, 3.4.1
+Date: Fri, 08 Jun 2012 18:56:12 +0300
+Message-ID: <67d8beaf421874815145fdefc69b3366@visp.net.lb>
+References: <7ed49f446365ac625437702d92946add@visp.net.lb>
+ <20120607205356.GA2491@electric-eye.fr.zoreil.com>
+ <1339104606.6001.4.camel@edumazet-glaptop>
+ <20120607223752.GA4475@electric-eye.fr.zoreil.com>
+ <1339134438.6001.13.camel@edumazet-glaptop>
+ <20120608154106.GD5024@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:42775 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932605Ab2FHPzC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 11:55:02 -0400
-In-Reply-To: <CACVXFVN0Y0p+WXUhJco6EKCdjx6Wg-guJLe79Bmj2K9KQGKToA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Benjamin LaHaise <bcrl@kvack.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120608154106.GD5024@kvack.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 8, 2012 at 9:56 PM, Ming Lei <tom.leiming@gmail.com> wrote:
-> On Fri, Jun 8, 2012 at 2:24 PM, Huajun Li <huajun.li.lee@gmail.com> w=
-rote:
->> On Fri, Jun 8, 2012 at 1:22 PM, Ming Lei <tom.leiming@gmail.com> wro=
-te:
->>> If so, looks mistaken value is returned from the host controller dr=
-iver,
->>> but not sure if your device is buggy. What is your host controller?
->>>
->> Nothing related to HC.
->> I tried to find out the endpoint state, but found it was halt. I thi=
-nk
->> this is the root cause.
+On 2012-06-08 18:41, Benjamin LaHaise wrote:
+> On Fri, Jun 08, 2012 at 07:47:18AM +0200, Eric Dumazet wrote:
+>> I have no idea how many l2tp_eth devices are setup at once in 
+>> typical
+>> conf.
 >
-> I mean that your HCD should not return -EPROTO if only the interrupt
-> endpoint's HALT feature is set, and it should return -EPIPE.
+> Depends on the usage scenario.  L2TP is commonly used for terminating
+> customer connections by wholesale ISPs.  In that kind of edge routing
+> use-case, tens of thousands of interfaces are easily possible.
 >
->>
->>> Also suppose your device is buggy, and the correct solution should
->>> be addding quirk for the driver to clear halt before the 1st submit=
- status
->>> urb.
->>>
->> I ever worked out a patch just as you said and it could work.
->> However, if this can be fixed by common framework just like usbnet.c=
-,
->> and there is no sideeffect, then why not.
->
-> There is side effect, at least sending out the command of
-> clear feature(HALT) is mistaken in logic if =A0-EPROTO is returned fo=
-r
-> the endpoint.
->
->>>
->>> I just have tried to switch configuration by sysfs interface on the=
- g_multi
->>> and don't trigger the error.
->>>
->> The driver is common one, but not just for a specific device.
->
-> The problem is that your device is a specific buggy device, and the i=
-nterrupt
-> endpoint shouldn't be set HALT after SetConfiguration(), see 9.4.5 of=
- USB 2.0
-> spec.
->
-> So it is reasonable to add a quirk to fix the problem for the device,=
- that has
-> document benefits, also considered that the device is a very specific=
- case.
->
+> 		-ben
+In my case it is few hundreds. I am not sure it is typical case, but i 
+really will like if this setup
+will give me good performance. Since Linux usually used on the PC's, i 
+don't think they will scale more
+than 2-3 Gbps. Also L2TP pseudowire (l2tp_eth) usually done not 
+directly to end-users, but to LAC's, so i think
+it is up to thousand.
 
-If add a quirk to fix this issue, it need copy usbnet_cdc_bind() and
-write a new xxx_cdc_bind() just to let it clear the halt. What's your
-proposal?
+Right now i am routing around 700Mbps over there, and noticed some 
+problem with pskb_expand_head,
+but that's separate question i will ask, if i will not be able to sort 
+it out by myself.
 
-BTW, the device can work well if I modprobe  cdc_ether driver after
-changed the configuration.
 
->>
->>>>
->>>>> Is the "XactErr" msg printed just after switching to cdc_ether in=
-terface
->>>>> by changing configuration?
->>>>>
->>>>
->>>> Yes, just as I mentioned in my original email.
->>>> And it did not work even I removed the driver and re-installed it.
->>>>
->>>>>> Maybe this is a common issue, so fix it by activating the endpoi=
-nt
->>>>>> once the error occurs.
->>>>>>
->>>>>> Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
->>>>>> ---
->>>>>> =A0drivers/net/usb/usbnet.c =A0 | =A0 33 +++++++++++++++++++++++=
-++++++++++
->>>>>> =A0include/linux/usb/usbnet.h | =A0 15 ++++++++-------
->>>>>> =A02 files changed, 41 insertions(+), 7 deletions(-)
->>>>>>
->>>>>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
->>>>>> index 9f58330..f13922b 100644
->>>>>> --- a/drivers/net/usb/usbnet.c
->>>>>> +++ b/drivers/net/usb/usbnet.c
->>>>>> @@ -537,6 +537,11 @@ static void intr_complete (struct urb *urb)
->>>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"intr shutdow=
-n, code %d\n", status);
->>>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
->>>>>>
->>>>>> + =A0 =A0 =A0 case -EPIPE:
->>>>>> + =A0 =A0 =A0 case -EPROTO:
->>>>>
->>>>> It is good to handle EPIPE error here, but looks it is no sense t=
-o
->>>>> clear halt for
->>>>> bus transfer failure. At least, no clear halt is done for returni=
-ng -EPROTO from
->>>>> rx/tx transfer currently.
->>>>
->>>> Just as I said above, there is different issue can cause -EPROTO, =
-at
->>>> least, for my case it is because the interrupt endpoint is not act=
-ive.
->>>> If the error occurs, the driver need try to fix it instead of just
->>>> printing an error msg.
->>>
->>> One problem in your patch is that if the =A0-EPROTO is caused by ba=
-d cable
->>> or interference, clean halt may not be sent to device successfully,=
- and will
->>> cause -EPROTO further.
->>
->> What's your opinion to handle "-EPROTO" error in usbnet.c?
->> Please check usbnet.c again, when "-EPROTO" occurs, it just pints
->> error msg and re-submit the interrupt URB, and then causes endless
->> "EactErr" error msg.
->
-> Yes, it should be bug, but clear feature(HALT) is not correct for the=
- situation.
->
->>
->> At least, this patch lets the driver try to fix the error before
->> resubmit the URB.
->>
->>>
->>>>
->>>>>
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usbnet_defer_kevent(dev, EVENT_STS=
-_HALT);
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
->>>>>> +
->>>>>> =A0 =A0 =A0 =A0/* NOTE: =A0not throttling like RX/TX, since this=
- endpoint
->>>>>> =A0 =A0 =A0 =A0 * already polls infrequently
->>>>>> =A0 =A0 =A0 =A0 */
->>>>>> @@ -967,6 +972,34 @@ fail_halt:
->>>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->>>>>> =A0 =A0 =A0 =A0}
->>>>>>
->>>>>> + =A0 =A0 =A0 if (test_bit(EVENT_STS_HALT, &dev->flags)) {
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 unsigned pipe;
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct usb_endpoint_descriptor *de=
-sc;
->>>>>> +
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc =3D &dev->status->desc;
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pipe =3D usb_rcvintpipe(dev->udev,
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc->bEndpointAdd=
-ress & USB_ENDPOINT_NUMBER_MASK);
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_autopm_get_interfac=
-e(dev->intf);
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0)
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto fail_sts;
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_clear_halt(dev->ude=
-v, pipe);
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_autopm_put_interface(dev->intf=
-);
->>>>>> +
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0 && status !=3D -EPI=
-PE && status !=3D -ESHUTDOWN) {
->>>>>> +fail_sts:
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_err(dev->ne=
-t,
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "c=
-an't clear intr halt, status %d\n", status);
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clear_bit(EVENT_ST=
-S_HALT, &dev->flags);
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memset(dev->interr=
-upt->transfer_buffer, 0,
->>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 de=
-v->interrupt->transfer_buffer_length);
->>>>>
->>>>> The above is not necessary.
->>>>
->>>> Ming, do you mean the above one line, or others ?
->>>
->>> Yes, it is the above line.
->>>
->>
->> Then not sure whether the buffer will be tainted without this line.
->
-> It isn't necessary, =A0the buffer should include valid data if URB->s=
-tatus
-> returns zero.
->
-
-That's great, thanks.
-
->
-> Thanks,
-> --
-> Ming Lei
+---
+Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
