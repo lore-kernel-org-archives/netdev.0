@@ -1,28 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
 Subject: Re: 3.4.1 and 3.5-rc1 Packet lost at 250Mb/s
-Date: Fri, 08 Jun 2012 11:43:36 +0200
-Message-ID: <1339148616.6001.67.camel@edumazet-glaptop>
-References: <ddae4973ddff0015d239dd66551be209@justnet.pl>
-	 <1339148515.6001.65.camel@edumazet-glaptop>
+Date: Fri, 08 Jun 2012 11:31:41 +0200
+Message-ID: <0273df6192e6cfcfb9ac7284c82625ae@justnet.pl>
+Reply-To: <adam.niescierowicz@justnet.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: adam.niescierowicz@justnet.pl
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:56878 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759779Ab2FHJnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 05:43:41 -0400
-Received: by eaak11 with SMTP id k11so949626eaa.19
-        for <netdev@vger.kernel.org>; Fri, 08 Jun 2012 02:43:40 -0700 (PDT)
-In-Reply-To: <1339148515.6001.65.camel@edumazet-glaptop>
+Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:54779 "EHLO
+	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S932252Ab2FHJxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 05:53:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-06-08 at 11:41 +0200, Eric Dumazet wrote:
-> On Fri, 2012-06-08 at 10:58 +0200, Nie=C5=9Bcierowicz Adam wrote:
+W dniu 08.06.2012 11:41, Eric Dumazet napisa=C5=82(a):
 
+> On Fri, 2012-06-08 at 10:58 +0200, Nie=C5=9Bcierowicz Adam wrote:
+>
+>> Hello, recently we changed on the router kernel from 2.6.38.1 to=20
+>> 3.4.1
+>> and noticed 30% packet loss when traffic increases up to 250MB / s.
+>> Similar is for kernel 3.5-rc1 Here a link to ifstat
+>> http://wklej.org/id/767577/ [2]
+>
+> You should give as much as possible delails on your setup (hardware,
+> software)
+>
 > lspci
 > cat /proc/cpuinfo
 > cat /proc/interrupts
@@ -30,7 +37,15 @@ On Fri, 2012-06-08 at 11:41 +0200, Eric Dumazet wrote:
 > tc -s -d qdisc
 > dmesg
 > netstat -s
->=20
 
-cat /proc/net/softnet_stat
-lsmod
+currently running on 2.6.38.1 and traffic is 100Mb / s
+
+lspci: http://wklej.org/id/769102/
+/proc/cpuinfo: http://wklej.org/id/769104/
+/proc/interrupts: http://wklej.org/id/769106/
+ifconfig -a: http://wklej.org/id/769108/
+tc -s -d qdisc: http://wklej.org/id/769109/
+dmesg: here are some logs from iptables
+netstat -s: http://wklej.org/id/769110/
+lsmod: http://wklej.org/id/769117/
+/proc/net/softnet_stat: http://wklej.org/id/769116/
