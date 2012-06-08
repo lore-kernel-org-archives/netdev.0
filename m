@@ -1,58 +1,90 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [V2 RFC net-next PATCH 2/2] virtio_net: export more statistics
-	through ethtool
-Date: Fri, 8 Jun 2012 10:04:32 +0300
-Message-ID: <20120608070430.GB32532@redhat.com>
-References: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<20120606075217.29081.30713.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<20120607221911.GD16235@redhat.com> <4FD172FD.5070200@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bonding: Fix corrupted queue_mapping
+Date: Fri, 08 Jun 2012 09:23:58 +0200
+Message-ID: <1339140238.6001.42.camel@edumazet-glaptop>
+References: <1339135057.6001.20.camel@edumazet-glaptop>
+	 <20120607.230216.2014005732863772019.davem@davemloft.net>
+	 <1339135881.6001.25.camel@edumazet-glaptop>
+	 <20120607.231501.463746858434969001.davem@davemloft.net>
+	 <1339138040.6001.39.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <4FD172FD.5070200@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:50160 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751231Ab2FHHYC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 03:24:02 -0400
+Received: by eeit10 with SMTP id t10so830967eei.19
+        for <netdev@vger.kernel.org>; Fri, 08 Jun 2012 00:24:01 -0700 (PDT)
+In-Reply-To: <1339138040.6001.39.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 08, 2012 at 11:35:25AM +0800, Jason Wang wrote:
-> >>>  @@ -655,7 +695,17 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >>>    		kfree_skb(skb);
-> >>>    		return NETDEV_TX_OK;
-> >>>    	}
-> >>>  -	virtqueue_kick(vi->svq);
-> >>>  +
-> >>>  +	kick = virtqueue_kick_prepare(vi->svq);
-> >>>  +	if (unlikely(kick))
-> >>>  +		virtqueue_notify(vi->svq);
-> >>>  +
-> >>>  +	u64_stats_update_begin(&stats->syncp);
-> >>>  +	if (unlikely(kick))
-> >>>  +		stats->data[VIRTNET_TX_KICKS]++;
-> >>>  +	stats->data[VIRTNET_TX_Q_BYTES] += skb->len;
-> >>>  +	stats->data[VIRTNET_TX_Q_PACKETS]++;
-> >is this statistic interesting?
-> >how about decrementing when we free?
-> >this way we see how many are pending..
-> >
+On Fri, 2012-06-08 at 08:47 +0200, Eric Dumazet wrote:
+> On Thu, 2012-06-07 at 23:15 -0700, David Miller wrote:
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Fri, 08 Jun 2012 08:11:21 +0200
+> > 
+> > > On Thu, 2012-06-07 at 23:02 -0700, David Miller wrote:
+> > >> Hmmm, isn't that what qdisc_skb_cb is for?  And even private data is
+> > >> explicitly allocated:
+> > >> 
+> > >> >  	unsigned char		data[24];
+> > >> 
+> > >> there. :-)
+> > >> 
+> > > 
+> > > Yes, but some other layers can use the same trick so it might collide.
+> > > 
+> > > Inserting the bond field in qdisc_skb_cb (level0) is safer.
+> > 
+> > Do you suggest that Infiniband does the same thing? :-)
 > 
-> Currently we didn't have per-vq statistics but per-cpu, so the skb
-> could be sent by one vcpu and freed by another.
-> Pehaps another reason to use per-queue satistics.
+> I wonder if another way to solve this is not letting ndo_select_queue()
+> method the responsibility to call skb_set_queue_mapping() itself ?
+> 
+> (ie removing skb_set_queue_mapping() done in dev_pick_tx())
+> 
+> bonding would not have to save/restore skb queue mapping ?
+> 
+> Partial patch : (we have to audit all ndo_select_queue()
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index cd09819..c6c92d5 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2368,6 +2368,7 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+>  
+>  	if (dev->real_num_tx_queues == 1)
+>  		queue_index = 0;
+> +		skb_set_queue_mapping(skb, queue_index);
+>  	else if (ops->ndo_select_queue) {
+>  		queue_index = ops->ndo_select_queue(dev, skb);
+>  		queue_index = dev_cap_txqueue(dev, queue_index);
+> @@ -2391,9 +2392,9 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+>  					sk_tx_queue_set(sk, queue_index);
+>  			}
+>  		}
+> +		skb_set_queue_mapping(skb, queue_index);
+>  	}
+>  
+> -	skb_set_queue_mapping(skb, queue_index);
+>  	return netdev_get_tx_queue(dev, queue_index);
+>  }
+>  
+> 
 
-Just to stress these things do not need to contradict:
-you can have per cpu stats for each queue.
 
--- 
-MST
+I must say I dont understand dev_pick_tx() anymore.
+
+It seems to ignore skb->queue_mapping (unless device provides its own
+ndo_select_queue() and this functions is aware of skb->queue_mapping, as
+correctly done in ixgbe)
+
+So commit fff3269907897ee (tcp: reflect SYN queue_mapping into SYNACK
+packets) works on ixgbe, but probably not on other multiqueue devices.
+
+This sounds like a regression to me.
